@@ -10,15 +10,25 @@ import {
   toImageFields,
 } from './brand-images'
 
-const { storageRemoveMock, deleteBrandImagesMock } = vi.hoisted(() => ({
+const { storageRemoveMock } = vi.hoisted(() => ({
   storageRemoveMock: vi.fn(),
-  deleteBrandImagesMock: vi.fn(),
 }))
 
+// Only the storage delete is a spy. The `brands/`-only gate lives in
+// `@/lib/images/storage-keys`, which is not mocked, so the test exercises the
+// real predicate.
 vi.mock('./image-upload', () => ({
   deleteStoredImagePaths: storageRemoveMock,
-  deleteBrandImages: deleteBrandImagesMock,
 }))
+
+/**
+ * DEV-1551: callers hand these functions the RENDERED reference, which is
+ * `/i/<key>`, and the lookups key on `storage_path`.
+ */
+const HERO_KEY = 'brands/brand-1/a.jpg'
+const HERO_REF = `/i/${HERO_KEY}`
+const ORPHAN_KEY = 'brands/brand-1/orphan.jpg'
+const ORPHAN_REF = `/i/${ORPHAN_KEY}`
 
 function createRejectClient(images: unknown[]) {
   const selectIn = vi.fn().mockResolvedValue({ data: images, error: null })
@@ -33,7 +43,7 @@ function createRejectClient(images: unknown[]) {
   return { client: { from }, deleteRow, select, update, updateIn }
 }
 
-type StatusRow = { url: string; storage_path: string | null; status: string }
+type StatusRow = { storage_path: string | null; status: string }
 
 /**
  * Like createRejectClient, but the select chain honours an optional
@@ -80,7 +90,7 @@ function createInsertClient(existing: { status: string } | null) {
 describe('insertBrandImage', () => {
   const data = {
     brand_id: 'brand-1',
-    url: 'https://cdn.supabase.co/a.jpg',
+    storage_path: 'brands/brand-1/a.jpg',
     source: 'scrape' as const,
     source_url: 'https://example.com/a.jpg',
   }
@@ -143,7 +153,7 @@ describe('insertBrandImage', () => {
 
     await insertBrandImage(client, {
       brand_id: 'brand-1',
-      url: 'https://cdn.supabase.co/a.jpg',
+      storage_path: 'brands/brand-1/a.jpg',
       source: 'owner',
     })
 
@@ -194,7 +204,7 @@ describe('getBrandImages', () => {
 
     const columns = call.select.split(',').map((column) => column.trim())
     expect(columns).toEqual([
-      'url',
+      'storage_path',
       'status',
       'tags',
       'score',
@@ -241,9 +251,9 @@ describe('getBrandImages', () => {
 
 describe('toImageFields', () => {
   const rows = [
-    { url: 'https://images.formoria.com/rejected-campaign.webp', status: 'rejected', sort_order: 0 },
+    { storage_path: 'brands/brand-1/rejected-campaign.webp', status: 'rejected', sort_order: 0 },
     {
-      url: 'https://images.formoria.com/藺草編織包.webp',
+      storage_path: 'brands/brand-1/tote.webp',
       status: 'active',
       sort_order: 0,
       alt_zh: '職人手工編織的藺草提包',
@@ -251,19 +261,19 @@ describe('toImageFields', () => {
       width: 1600,
       height: 1200,
     },
-    { url: 'https://images.formoria.com/workshop.webp', status: 'active', sort_order: 1 },
+    { storage_path: 'brands/brand-1/workshop.webp', status: 'active', sort_order: 1 },
   ]
 
   it('keeps stored hero metadata aligned with the selected active image', () => {
     expect(toImageFields(rows as never)).toEqual({
-      heroImageUrl: 'https://images.formoria.com/藺草編織包.webp',
+      heroImageUrl: '/i/brands/brand-1/tote.webp',
       heroImageMetadata: {
         altZh: '職人手工編織的藺草提包',
         altEn: 'Handwoven rush-grass tote bag',
         width: 1600,
         height: 1200,
       },
-      productPhotos: ['https://images.formoria.com/workshop.webp'],
+      productPhotos: ['/i/brands/brand-1/workshop.webp'],
       imageAlts: [
         {
           altZh: '職人手工編織的藺草提包',
@@ -294,12 +304,12 @@ describe('toImageFields', () => {
    */
   it('marks only owner-uploaded images as brand-supplied', () => {
     const sourced = [
-      { url: 'https://images.formoria.com/owner.webp', status: 'active', sort_order: 0, source: 'owner' },
-      { url: 'https://images.formoria.com/scraped.webp', status: 'active', sort_order: 1, source: 'scrape' },
-      { url: 'https://images.formoria.com/found.webp', status: 'active', sort_order: 2, source: 'google_image' },
-      { url: 'https://images.formoria.com/admin.webp', status: 'active', sort_order: 3, source: 'admin' },
-      { url: 'https://images.formoria.com/legacy.webp', status: 'active', sort_order: 4, source: 'legacy' },
-      { url: 'https://images.formoria.com/unknown.webp', status: 'active', sort_order: 5 },
+      { storage_path: 'brands/brand-1/owner.webp', status: 'active', sort_order: 0, source: 'owner' },
+      { storage_path: 'brands/brand-1/scraped.webp', status: 'active', sort_order: 1, source: 'scrape' },
+      { storage_path: 'brands/brand-1/found.webp', status: 'active', sort_order: 2, source: 'google_image' },
+      { storage_path: 'brands/brand-1/admin.webp', status: 'active', sort_order: 3, source: 'admin' },
+      { storage_path: 'brands/brand-1/legacy.webp', status: 'active', sort_order: 4, source: 'legacy' },
+      { storage_path: 'brands/brand-1/unknown.webp', status: 'active', sort_order: 5 },
     ]
 
     expect(
@@ -310,18 +320,18 @@ describe('toImageFields', () => {
   it('flags logo-tagged images so the renderer can contain rather than crop them', () => {
     const tagged = [
       {
-        url: 'https://images.formoria.com/mark.webp',
+        storage_path: 'brands/brand-1/mark.webp',
         status: 'active',
         sort_order: 0,
         tags: ['logo'],
       },
       {
-        url: 'https://images.formoria.com/tote.webp',
+        storage_path: 'brands/brand-1/tote.webp',
         status: 'active',
         sort_order: 1,
         tags: ['product'],
       },
-      { url: 'https://images.formoria.com/untagged.webp', status: 'active', sort_order: 2 },
+      { storage_path: 'brands/brand-1/untagged.webp', status: 'active', sort_order: 2 },
     ]
 
     expect(toImageFields(tagged as never).imageAlts.map((meta) => meta.isLogo)).toEqual([
@@ -433,13 +443,12 @@ describe('rejectBrandImages', () => {
   it('still marks rows rejected when storage deletion fails', async () => {
     const storageError = new Error('storage deletion failed')
     const consoleError = vi.spyOn(console, 'error').mockImplementation(() => undefined)
-    const { client, update } = createRejectClient([
-      { storage_path: 'brands/brand-1/a.jpg' },
-    ])
+    const { client, update } = createRejectClient([{ storage_path: HERO_KEY }])
     storageRemoveMock.mockRejectedValueOnce(storageError)
 
-    await expect(rejectBrandImages(client, 'brand-1', ['https://example.com/a.jpg']))
-      .resolves.toBeUndefined()
+    await expect(
+      rejectBrandImages(client, 'brand-1', [HERO_REF]),
+    ).resolves.toBeUndefined()
 
     expect(consoleError).toHaveBeenCalledWith(
       '[rejectBrandImages] Failed to delete rejected images for brand-1:',
@@ -455,89 +464,61 @@ describe('releaseBrandImageUrls', () => {
   beforeEach(() => {
     storageRemoveMock.mockReset()
     storageRemoveMock.mockResolvedValue(undefined)
-    deleteBrandImagesMock.mockReset()
-    deleteBrandImagesMock.mockResolvedValue(undefined)
   })
 
   it('rejects the row instead of deleting storage behind its back', async () => {
-    const { client, update } = createRejectClient([
-      { url: 'https://example.com/a.jpg', storage_path: 'brands/brand-1/a.jpg' },
-    ])
+    const { client, update } = createRejectClient([{ storage_path: HERO_KEY }])
 
-    await releaseBrandImageUrls(client, 'brand-1', ['https://example.com/a.jpg'])
+    await releaseBrandImageUrls(client, 'brand-1', [HERO_REF])
 
     // Row and storage object are updated as a pair — never a raw storage delete
     // that would leave an active row pointing at a missing object.
     expect(update).toHaveBeenCalledWith({ status: 'rejected', storage_path: null })
-    expect(storageRemoveMock).toHaveBeenCalledWith(['brands/brand-1/a.jpg'])
-    expect(deleteBrandImagesMock).not.toHaveBeenCalled()
+    expect(storageRemoveMock).toHaveBeenCalledWith([HERO_KEY])
   })
 
-  it('leaves storage alone when the referencing row has no storage_path', async () => {
-    const { client, update } = createRejectClient([
-      { url: 'https://example.com/a.jpg', storage_path: null },
-    ])
-
-    await releaseBrandImageUrls(client, 'brand-1', ['https://example.com/a.jpg'])
-
-    expect(update).toHaveBeenCalledWith({ status: 'rejected', storage_path: null })
-    expect(storageRemoveMock).not.toHaveBeenCalled()
-    expect(deleteBrandImagesMock).not.toHaveBeenCalled()
-  })
-
-  it('deletes storage for urls no row references', async () => {
+  it('deletes storage for keys no row references', async () => {
     const { client, update } = createRejectClient([])
 
-    await releaseBrandImageUrls(client, 'brand-1', ['https://example.com/tmp.jpg'])
+    await releaseBrandImageUrls(client, 'brand-1', [ORPHAN_REF])
 
-    expect(deleteBrandImagesMock).toHaveBeenCalledWith([
-      'https://example.com/tmp.jpg',
-    ])
+    expect(storageRemoveMock).toHaveBeenCalledWith([ORPHAN_KEY])
     expect(update).not.toHaveBeenCalled()
-    expect(storageRemoveMock).not.toHaveBeenCalled()
   })
 
-  it('rejects matched urls and raw-deletes unmatched ones in a single batch', async () => {
+  it('rejects matched keys and raw-deletes unmatched ones in a single batch', async () => {
     const { client, update, updateIn } = createRejectClient([
-      { url: 'https://example.com/a.jpg', storage_path: 'brands/brand-1/a.jpg' },
+      { storage_path: HERO_KEY },
     ])
 
-    await releaseBrandImageUrls(client, 'brand-1', [
-      'https://example.com/a.jpg',
-      'https://example.com/orphan.jpg',
-    ])
+    await releaseBrandImageUrls(client, 'brand-1', [HERO_REF, ORPHAN_REF])
 
-    // Matched url: row + storage object go together via rejectBrandImages.
+    // Matched key: row + storage object go together via rejectBrandImages.
     expect(update).toHaveBeenCalledWith({ status: 'rejected', storage_path: null })
-    expect(updateIn).toHaveBeenCalledWith('url', ['https://example.com/a.jpg'])
-    expect(storageRemoveMock).toHaveBeenCalledWith(['brands/brand-1/a.jpg'])
-    // Unmatched url: no row references it, so a raw storage delete is safe.
-    expect(deleteBrandImagesMock).toHaveBeenCalledWith([
-      'https://example.com/orphan.jpg',
-    ])
+    expect(updateIn).toHaveBeenCalledWith('storage_path', [HERO_KEY])
+    // Unmatched key: no row references it, so a raw storage delete is safe.
+    expect(storageRemoveMock).toHaveBeenCalledWith([ORPHAN_KEY])
   })
 
-  it('treats an already-rejected row as referenced and never raw-deletes its url', async () => {
+  it('treats an already-rejected row as referenced and never raw-deletes its key', async () => {
     // Tripwire: the lookup in releaseBrandImageUrls deliberately has NO status
-    // filter. Adding .eq('status', 'active') would hide this row, the url would
-    // look unreferenced, and deleteBrandImages would nuke a storage object that
-    // a live row still points at. This client filters by status when asked, so
-    // that regression turns this test red.
+    // filter. Adding .eq('status', 'active') would hide this row, the key would
+    // look unreferenced, and the raw storage delete would nuke an object a live
+    // row still points at. This client filters by status when asked, so that
+    // regression turns this test red.
     const { client, update } = createStatusFilteringClient([
-      {
-        url: 'https://example.com/a.jpg',
-        storage_path: 'brands/brand-1/a.jpg',
-        status: 'rejected',
-      },
+      { storage_path: HERO_KEY, status: 'rejected' },
     ])
 
-    await releaseBrandImageUrls(client, 'brand-1', ['https://example.com/a.jpg'])
+    await releaseBrandImageUrls(client, 'brand-1', [HERO_REF])
 
-    expect(deleteBrandImagesMock).not.toHaveBeenCalled()
     expect(update).toHaveBeenCalledWith({ status: 'rejected', storage_path: null })
+    // Rejected through rejectBrandImages, which pairs the row update with the
+    // object delete — never a bare delete of an unreferenced key.
+    expect(storageRemoveMock).toHaveBeenCalledWith([HERO_KEY])
   })
 
-  it('does nothing when there are no urls', async () => {
+  it('does nothing when there are no references', async () => {
     const { client, select, update } = createRejectClient([])
 
     await releaseBrandImageUrls(client, 'brand-1', [])
@@ -545,6 +526,50 @@ describe('releaseBrandImageUrls', () => {
     expect(select).not.toHaveBeenCalled()
     expect(update).not.toHaveBeenCalled()
     expect(storageRemoveMock).not.toHaveBeenCalled()
-    expect(deleteBrandImagesMock).not.toHaveBeenCalled()
+  })
+
+  it('never raw-deletes outside `brands/`, even for an unreferenced key', async () => {
+    // `deleteStoredImagePaths` also accepts `submissions/` and
+    // `curated-products/`. Owner cleanup must not reach either: a curated key
+    // that no `brand_images` row references is still live through
+    // `curated_products.image_url`, and deleting it breaks a reference the
+    // storage sweep cannot flag.
+    const CURATED_KEY = 'curated-products/brand-1/p/abc.webp'
+    const SUBMISSION_KEY = 'submissions/sub-1/photo.webp'
+    const { client, update } = createRejectClient([])
+
+    await releaseBrandImageUrls(client, 'brand-1', [
+      `/i/${CURATED_KEY}`,
+      `/i/${SUBMISSION_KEY}`,
+      ORPHAN_REF,
+    ])
+
+    expect(update).not.toHaveBeenCalled()
+    expect(storageRemoveMock).toHaveBeenCalledTimes(1)
+    expect(storageRemoveMock).toHaveBeenCalledWith([ORPHAN_KEY])
+  })
+
+  it('skips the storage call entirely when nothing deletable is left', async () => {
+    const { client } = createRejectClient([])
+
+    await releaseBrandImageUrls(client, 'brand-1', [
+      '/i/curated-products/brand-1/p/abc.webp',
+    ])
+
+    expect(storageRemoveMock).not.toHaveBeenCalled()
+  })
+
+  it('ignores a reference that is not one of our objects', async () => {
+    // An owner-pasted third-party URL resolves to no bucket key. Skipping it is
+    // the safe direction: these functions delete storage objects.
+    const { client, select, update } = createRejectClient([])
+
+    await releaseBrandImageUrls(client, 'brand-1', [
+      'https://cdn.example.com/not-ours.jpg',
+    ])
+
+    expect(select).not.toHaveBeenCalled()
+    expect(update).not.toHaveBeenCalled()
+    expect(storageRemoveMock).not.toHaveBeenCalled()
   })
 })

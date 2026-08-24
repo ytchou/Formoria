@@ -25,11 +25,11 @@
  * Every key is optional — only the params present on the landing URL are attached.
  */
 interface UtmProperties {
-  utm_source?: string
-  utm_medium?: string
-  utm_campaign?: string
-  utm_term?: string
-  utm_content?: string
+  utm_source?: string;
+  utm_medium?: string;
+  utm_campaign?: string;
+  utm_term?: string;
+  utm_content?: string;
 }
 
 export const ANALYTICS_EVENTS = {
@@ -42,10 +42,10 @@ export const ANALYTICS_EVENTS = {
    * @property list_name {string} Which list rendered (e.g. directory grid, homepage section).
    * @property item_count {number} Number of brand cards in the rendered list.
    */
-  BRAND_LIST_VIEWED: 'brand_list_viewed',
+  BRAND_LIST_VIEWED: "brand_list_viewed",
 
   /** A where-to-buy location list was rendered. */
-  STOCKIST_LIST_VIEWED: 'stockist_list_viewed',
+  STOCKIST_LIST_VIEWED: "stockist_list_viewed",
 
   /**
    * A brand card in a list was clicked through to the brand detail page.
@@ -56,16 +56,18 @@ export const ANALYTICS_EVENTS = {
    * @property position_in_grid {number} 0-based position of the card within the rendered grid.
    * @property list_source {string | undefined} Stable list identifier, when the card belongs to a named rail.
    */
-  BRAND_CARD_CLICKED: 'brand_card_clicked',
+  BRAND_CARD_CLICKED: "brand_card_clicked",
 
   /**
    * A booth block was selected in the Creative Expo floor map.
+   * @deprecated Retired 2026-08-24: the interactive floor map was removed. Historical
+   * PostHog rows remain directly queryable (3 events from 1 person; last seen 2026-08-07).
    * @property booth {string} Canonical booth code.
    * @property zone {string} Expo zone containing the booth.
    * @property brand_count {number} Linked brands represented by the booth.
    * @property event_slug {string} Event owning the floor map.
    */
-  BOOTH_SELECTED: 'booth_selected',
+  BOOTH_SELECTED: "booth_selected",
 
   /**
    * An exhibitor's own website was opened from the event exhibitor list.
@@ -76,14 +78,16 @@ export const ANALYTICS_EVENTS = {
    * @property booth {string | null} Booth code, null when the roster has none.
    * @property brand_slug {string | null} Linked Formoria brand, null when unlisted.
    */
-  EXHIBITOR_SITE_CLICKED: 'exhibitor_site_clicked',
+  EXHIBITOR_SITE_CLICKED: "exhibitor_site_clicked",
 
   /**
    * A category tile in the homepage hero was clicked.
+   * @deprecated Retired 2026-08-24: the final production caller was removed. Historical
+   * PostHog rows remain directly queryable (60 events from 21 people; last seen 2026-08-16).
    * @property category {string} Category key.
    * @property destination_url {string} Resolved href the tile navigates to.
    */
-  HERO_CATEGORY_CLICKED: 'hero_category_clicked',
+  HERO_CATEGORY_CLICKED: "hero_category_clicked",
 
   /**
    * A curated product tile was opened.
@@ -92,7 +96,7 @@ export const ANALYTICS_EVENTS = {
    * @property position {number} 0-based position within the rendered selection rail.
    * @property selection_surface {string} Stable surface identifier for the selection rail.
    */
-  CURATED_PRODUCT_CLICKED: 'curated_product_clicked',
+  CURATED_PRODUCT_CLICKED: "curated_product_clicked",
 
   /**
    * An editorial story card was opened.
@@ -100,7 +104,7 @@ export const ANALYTICS_EVENTS = {
    * @property position {number} 0-based position within the rendered story list.
    * @property story_surface {string} Stable surface identifier for the story list.
    */
-  STORY_CARD_CLICKED: 'story_card_clicked',
+  STORY_CARD_CLICKED: "story_card_clicked",
 
   /**
    * A Discovery Trail card or row was opened.
@@ -108,14 +112,14 @@ export const ANALYTICS_EVENTS = {
    * @property position {number} 0-based position within the rendered trail surface.
    * @property trail_surface {string} Stable surface identifier for the trail list.
    */
-  TRAIL_CARD_CLICKED: 'trail_card_clicked',
+  TRAIL_CARD_CLICKED: "trail_card_clicked",
 
   /**
    * The directory sort control changed value.
    * @property sort_value {string} Newly selected sort key.
    * @property previous_sort {string} Sort key in effect before the change.
    */
-  DIRECTORY_SORT_CHANGED: 'directory_sort_changed',
+  DIRECTORY_SORT_CHANGED: "directory_sort_changed",
 
   /**
    * The directory pager moved to another page.
@@ -123,14 +127,14 @@ export const ANALYTICS_EVENTS = {
    * @property direction {string} Navigation direction / control used.
    * @property total_pages {number} Total pages in the current result set.
    */
-  DIRECTORY_PAGE_NAVIGATED: 'directory_page_navigated',
+  DIRECTORY_PAGE_NAVIGATED: "directory_page_navigated",
 
   /**
    * A top-level category filter was applied.
    * No `result_count`: no facet count is available at click time for this control.
    * @property category {string} Category key applied.
    */
-  CATEGORY_FILTER_APPLIED: 'category_filter_applied',
+  CATEGORY_FILTER_APPLIED: "category_filter_applied",
 
   /**
    * A subcategory chip filter was applied. The only filter event carrying `result_count`,
@@ -139,20 +143,22 @@ export const ANALYTICS_EVENTS = {
    * @property parent_category {string} Parent category of the subcategory.
    * @property result_count {number} Post-filter brand count from the chip facet; always an integer.
    */
-  SUBCATEGORY_FILTER_APPLIED: 'subcategory_filter_applied',
+  SUBCATEGORY_FILTER_APPLIED: "subcategory_filter_applied",
 
   /**
    * A price-range filter was applied.
+   * @deprecated Retired 2026-08-24 with the price-range facet. The event name
+   * and payload remain in this permanent analytics ledger for historical rows.
    * @property price_range {string} Price bucket key.
    */
-  PRICE_FILTER_APPLIED: 'price_filter_applied',
+  PRICE_FILTER_APPLIED: "price_filter_applied",
 
   /**
    * A manufacturing-verification tier filter was applied.
    * No `result_count`: no facet count is available at click time for this control.
    * @property status {string} Verification tier key.
    */
-  VERIFICATION_FILTER_APPLIED: 'verification_filter_applied',
+  VERIFICATION_FILTER_APPLIED: "verification_filter_applied",
 
   /**
    * A filter was cleared — either one chip or the whole set.
@@ -160,7 +166,7 @@ export const ANALYTICS_EVENTS = {
    * @property filter_type {string | undefined} Which filter was cleared; absent on clear-all.
    * @property filter_value {string | undefined} Value that was cleared; absent on clear-all.
    */
-  FILTER_CLEARED: 'filter_cleared',
+  FILTER_CLEARED: "filter_cleared",
 
   /**
    * The site locale was switched.
@@ -168,7 +174,7 @@ export const ANALYTICS_EVENTS = {
    * @property to_locale {string} Locale after the switch.
    * @property location {string} UI surface hosting the switcher.
    */
-  LANGUAGE_SWITCHED: 'language_switched',
+  LANGUAGE_SWITCHED: "language_switched",
 
   // ---------------------------------------------------------------------------
   // Brand detail — views, engagement depth, media, sharing, outbound
@@ -180,7 +186,7 @@ export const ANALYTICS_EVENTS = {
    * @property brand_slug {string} Brand slug.
    * @property source {string} How the visitor arrived: search / category / directory / direct / recommendation.
    */
-  BRAND_DETAIL_VIEWED: 'brand_detail_viewed',
+  BRAND_DETAIL_VIEWED: "brand_detail_viewed",
 
   /**
    * First qualifying signal that a visitor genuinely engaged with a brand page,
@@ -190,7 +196,7 @@ export const ANALYTICS_EVENTS = {
    * @property trigger {string} Which signal qualified: dwell (>=15s) / gallery / faq / scroll_50.
    * @property brand_id {string | undefined} Brand UUID; omitted when unavailable at emit time.
    */
-  BRAND_DETAIL_ENGAGED: 'brand_detail_engaged',
+  BRAND_DETAIL_ENGAGED: "brand_detail_engaged",
 
   /**
    * An outbound link to a brand's own site or purchase channel was clicked.
@@ -201,7 +207,7 @@ export const ANALYTICS_EVENTS = {
    * @property link_type {string} Kind of destination (official site, marketplace, social, …).
    * @property surface {string} Where the click happened: detail_page / card / recommendation.
    */
-  EXTERNAL_LINK_CLICKED: 'external_link_clicked',
+  EXTERNAL_LINK_CLICKED: "external_link_clicked",
 
   /**
    * The brand page share dialog completed a share through a channel.
@@ -209,7 +215,7 @@ export const ANALYTICS_EVENTS = {
    * @property brand_slug {string} Brand slug.
    * @property method {string | undefined} Share channel; `'x'` appears in history only (retired DEV-1242).
    */
-  BRAND_PAGE_SHARED: 'brand_page_shared',
+  BRAND_PAGE_SHARED: "brand_page_shared",
 
   /**
    * A photo in the brand gallery was opened or advanced to.
@@ -217,7 +223,7 @@ export const ANALYTICS_EVENTS = {
    * @property brand_slug {string} Brand slug.
    * @property photo_index {number} 0-based index of the photo viewed.
    */
-  GALLERY_PHOTO_VIEWED: 'gallery_photo_viewed',
+  GALLERY_PHOTO_VIEWED: "gallery_photo_viewed",
 
   /**
    * The visitor reached the end of a brand's gallery.
@@ -225,14 +231,14 @@ export const ANALYTICS_EVENTS = {
    * @property brand_slug {string} Brand slug.
    * @property image_count {number} Total images in the gallery.
    */
-  GALLERY_COMPLETED: 'gallery_completed',
+  GALLERY_COMPLETED: "gallery_completed",
 
   /**
    * An FAQ item on a brand page was expanded.
    * @property brand_slug {string} Brand slug.
    * @property preset_id {string} Stable preset id of the expanded item.
    */
-  FAQ_ITEM_EXPANDED: 'faq_item_expanded',
+  FAQ_ITEM_EXPANDED: "faq_item_expanded",
 
   /**
    * A brand in the "you may also like" section was clicked.
@@ -241,14 +247,14 @@ export const ANALYTICS_EVENTS = {
    * @property source_brand_slug {string} Slug of the brand page hosting the recommendation.
    * @property position {number} 0-based position within the recommendation row.
    */
-  RECOMMENDATION_BRAND_CLICKED: 'recommendation_brand_clicked',
+  RECOMMENDATION_BRAND_CLICKED: "recommendation_brand_clicked",
 
   /**
    * The recommendation section scrolled into view on a brand page.
    * @property source_brand_slug {string} Slug of the hosting brand page.
    * @property recommendation_count {number} Number of recommendations rendered.
    */
-  RECOMMENDATION_SECTION_VIEWED: 'recommendation_section_viewed',
+  RECOMMENDATION_SECTION_VIEWED: "recommendation_section_viewed",
 
   // ---------------------------------------------------------------------------
   // Search
@@ -264,7 +270,7 @@ export const ANALYTICS_EVENTS = {
    *   when the query looked like an email address or contained a run of 7+ digits.
    *   Historical rows before that deploy carry no `search_term` at all.
    */
-  BRAND_SEARCH_EXECUTED: 'brand_search_executed',
+  BRAND_SEARCH_EXECUTED: "brand_search_executed",
 
   /**
    * A search returned zero results. Denominator partner of `brand_search_executed`
@@ -274,7 +280,7 @@ export const ANALYTICS_EVENTS = {
    * @property search_term {string | undefined} Same shape and caveats as on
    *   `brand_search_executed`.
    */
-  BRAND_SEARCH_EMPTY: 'brand_search_empty',
+  BRAND_SEARCH_EMPTY: "brand_search_empty",
 
   /**
    * A result on the search results page was clicked.
@@ -283,14 +289,14 @@ export const ANALYTICS_EVENTS = {
    * @property brand_id {string} Brand UUID.
    * @property brand_slug {string} Brand slug.
    */
-  SEARCH_RESULT_CLICKED: 'search_result_clicked',
+  SEARCH_RESULT_CLICKED: "search_result_clicked",
 
   /**
    * A typeahead suggestion in the search box was selected.
    * @property brand_id {string} Brand UUID.
    * @property brand_slug {string} Brand slug.
    */
-  SEARCH_SUGGESTION_SELECTED: 'search_suggestion_selected',
+  SEARCH_SUGGESTION_SELECTED: "search_suggestion_selected",
 
   // ---------------------------------------------------------------------------
   // Saved / liked brands
@@ -304,7 +310,7 @@ export const ANALYTICS_EVENTS = {
    * @property brand_slug {string} Brand slug.
    * @property location {string} UI surface the save was triggered from.
    */
-  BRAND_SAVED: 'brand_saved',
+  BRAND_SAVED: "brand_saved",
 
   /**
    * A previously saved brand was returned to. Strongest return-with-intent signal.
@@ -312,7 +318,7 @@ export const ANALYTICS_EVENTS = {
    * @property surface {string} Where the revisit started: card / detail_page.
    * @property brand_id {string | undefined} Brand UUID; omitted when unavailable at emit time.
    */
-  SAVED_BRAND_REVISITED: 'saved_brand_revisited',
+  SAVED_BRAND_REVISITED: "saved_brand_revisited",
 
   /**
    * A brand was removed from the visitor's saved list.
@@ -320,23 +326,7 @@ export const ANALYTICS_EVENTS = {
    * @property brand_slug {string} Brand slug.
    * @property location {string} UI surface the unsave was triggered from.
    */
-  BRAND_UNSAVED: 'brand_unsaved',
-
-  /**
-   * A brand was liked from the brand detail page.
-   * @property brand_id {string} Brand UUID.
-   * @property brand_slug {string} Brand slug.
-   * @property location {string} Always `'brand_detail'` — the only surface exposing the control.
-   */
-  BRAND_LIKED: 'brand_liked',
-
-  /**
-   * A like was withdrawn from the brand detail page.
-   * @property brand_id {string} Brand UUID.
-   * @property brand_slug {string} Brand slug.
-   * @property location {string} Always `'brand_detail'`.
-   */
-  BRAND_UNLIKED: 'brand_unliked',
+  BRAND_UNSAVED: "brand_unsaved",
 
   // ---------------------------------------------------------------------------
   // Submission funnel
@@ -345,9 +335,9 @@ export const ANALYTICS_EVENTS = {
   /**
    * The submission form was opened.
    * @property source {string} Entry point: header_cta / hero_cta / footer_link / quick.
-   * @property intent {string} Normalized intent: recommend / owner_claim.
+   * @property intent {string} Normalized intent: recommend.
    */
-  SUBMISSION_FORM_OPENED: 'submission_form_opened',
+  SUBMISSION_FORM_OPENED: "submission_form_opened",
 
   /**
    * The submitter chose a submission path on the intent chooser.
@@ -355,13 +345,13 @@ export const ANALYTICS_EVENTS = {
    * @property is_authenticated {boolean} Whether the visitor was signed in.
    * @property utm_* {string | undefined} UTM params present on the current URL.
    */
-  SUBMISSION_PATH_SELECTED: 'submission_path_selected',
+  SUBMISSION_PATH_SELECTED: "submission_path_selected",
 
   /**
    * A step of the multi-step submission form was completed.
    * @property step {string} Step identifier.
    */
-  SUBMISSION_FORM_STEP_COMPLETED: 'submission_form_step_completed',
+  SUBMISSION_FORM_STEP_COMPLETED: "submission_form_step_completed",
 
   /**
    * A brand submission was successfully created. Brand name is deliberately not sent
@@ -369,18 +359,18 @@ export const ANALYTICS_EVENTS = {
    * @property category {string} Selected category.
    * @property has_logo {boolean} Whether a logo was uploaded.
    * @property time_spent_seconds {number} Wall-clock seconds from form open to submit.
-   * @property intent {string} recommend / owner_claim.
+   * @property intent {string} recommend.
    * @property guest_submission {boolean} Whether the submitter was unauthenticated.
    * @property utm_* {string | undefined} UTM params present on the current URL.
    */
-  SUBMISSION_COMPLETED: 'submission_completed',
+  SUBMISSION_COMPLETED: "submission_completed",
 
   /**
    * The submission form was left without completing.
    * @property last_step_completed {string} Last step the submitter finished.
    * @property time_spent_seconds {number} Wall-clock seconds before abandonment.
    */
-  SUBMISSION_FORM_ABANDONED: 'submission_form_abandoned',
+  SUBMISSION_FORM_ABANDONED: "submission_form_abandoned",
 
   /**
    * A validation error was displayed inside the submission form.
@@ -388,7 +378,7 @@ export const ANALYTICS_EVENTS = {
    * @property error_type {string} Validation failure kind.
    * @property step {string} Step the error occurred on.
    */
-  SUBMISSION_FORM_ERROR_SHOWN: 'submission_form_error_shown',
+  SUBMISSION_FORM_ERROR_SHOWN: "submission_form_error_shown",
 
   /**
    * The newsletter opt-in was submitted.
@@ -396,44 +386,11 @@ export const ANALYTICS_EVENTS = {
    * @property has_email {boolean} Whether an email address was supplied.
    * @property utm_* {string | undefined} UTM params present on the current URL.
    */
-  NEWSLETTER_SUBSCRIBED: 'newsletter_subscribed',
+  NEWSLETTER_SUBSCRIBED: "newsletter_subscribed",
 
   // ---------------------------------------------------------------------------
-  // Claim, supply side, and moderation outcomes
+  // Supply side and moderation outcomes
   // ---------------------------------------------------------------------------
-
-  /**
-   * An owner started the claim flow for a brand.
-   * @property brand_id {string} Brand UUID.
-   * @property brand_slug {string} Brand slug.
-   * @property is_authenticated {boolean} Whether the claimant was signed in at start.
-   */
-  BRAND_CLAIM_STARTED: 'brand_claim_started',
-
-  /**
-   * The claim form was submitted with its proof attachments.
-   * @property brand_id {string} Brand UUID.
-   * @property brand_slug {string} Brand slug.
-   * @property proof_types {string[]} Kinds of proof attached.
-   */
-  BRAND_CLAIM_FORM_SUBMITTED: 'brand_claim_form_submitted',
-
-  /**
-   * Server-side: a claim was completed after the magic-link callback verified the
-   * claimant's email. Emitted from `/auth/callback`.
-   * @property brand_id {string} Brand UUID.
-   * @property is_new_user {boolean} Whether the claimant signed up during this flow.
-   */
-  BRAND_CLAIM_COMPLETED: 'brand_claim_completed',
-
-  /**
-   * Server-side: an admin approved a claim request. Attributed to the claiming owner,
-   * not the approving admin.
-   * @property brand_id {string} Brand UUID.
-   * @property brand_slug {string | undefined} Brand slug; omitted when the claim row has none.
-   * @property claim_request_id {string} Claim request UUID.
-   */
-  BRAND_CLAIM_APPROVED: 'brand_claim_approved',
 
   /**
    * Server-side: a submitted brand was approved and published. Machine/inventory
@@ -444,22 +401,17 @@ export const ANALYTICS_EVENTS = {
    * @property is_brand_owner {boolean} Whether the submitter is the brand's owner.
    * @property $process_person_profile {false} Prevents this machine/inventory event from creating a person profile.
    */
-  BRAND_LISTING_PUBLISHED: 'brand_listing_published',
+  BRAND_LISTING_PUBLISHED: "brand_listing_published",
 
   /**
-   * Server-side: a brand owner published an edit from the owner dashboard.
-   * @property brand_id {string} Brand UUID.
-   * @property brand_slug {string} Slug after the publish (may differ from the pre-edit slug).
-   */
-  BRAND_OWNER_EDIT_PUBLISHED: 'brand_owner_edit_published',
-
-  /**
-   * A manufacturing-origin declaration was made during the claim flow.
+   * A manufacturing-origin declaration was made.
+   * @deprecated Retired 2026-08-24 with the declaration surface. No PostHog rows
+   * were ever ingested; the permanent ledger entry preserves the payload contract.
    * @property brand_id {string} Brand UUID.
    * @property brand_slug {string} Brand slug.
    * @property declared_scope {string} Declared MIT scope.
    */
-  MIT_DECLARED: 'mit_declared',
+  MIT_DECLARED: "mit_declared",
 
   /**
    * Origin evidence was submitted for verification.
@@ -467,7 +419,7 @@ export const ANALYTICS_EVENTS = {
    * @property brand_slug {string} Brand slug.
    * @property stance {string} Evidence stance submitted.
    */
-  ORIGIN_EVIDENCE_SUBMITTED: 'origin_evidence_submitted',
+  ORIGIN_EVIDENCE_SUBMITTED: "origin_evidence_submitted",
 
   /**
    * A brand listing was reported by a visitor or owner.
@@ -475,7 +427,7 @@ export const ANALYTICS_EVENTS = {
    * @property reason {string} Report reason key.
    * @property reporter_role {string} Role of the reporter.
    */
-  BRAND_REPORTED: 'brand_reported',
+  BRAND_REPORTED: "brand_reported",
 
   /**
    * A correction to a brand field was suggested.
@@ -483,7 +435,7 @@ export const ANALYTICS_EVENTS = {
    * @property brand_slug {string} Brand slug.
    * @property field {string} Field the correction targets.
    */
-  BRAND_CORRECTION_SUBMITTED: 'brand_correction_submitted',
+  BRAND_CORRECTION_SUBMITTED: "brand_correction_submitted",
 
   // ---------------------------------------------------------------------------
   // Auth
@@ -494,7 +446,7 @@ export const ANALYTICS_EVENTS = {
    * @property method {string} Auth method used.
    * @property utm_* {string | undefined} UTM params present on the current URL.
    */
-  USER_SIGNED_UP: 'user_signed_up',
+  USER_SIGNED_UP: "user_signed_up",
 
   /**
    * An existing user signed in.
@@ -507,13 +459,13 @@ export const ANALYTICS_EVENTS = {
    *
    * @property method {string} Auth method used.
    */
-  USER_LOGGED_IN: 'user_logged_in',
+  USER_LOGGED_IN: "user_logged_in",
 
   /**
    * A user signed out. Emitted through `resetPostHogUser()` as the final buffered
    * capture, so it survives the identity reset.
    */
-  USER_SIGNED_OUT: 'user_signed_out',
+  USER_SIGNED_OUT: "user_signed_out",
 
   /**
    * Server-side: the auth callback resolved a session.
@@ -524,9 +476,8 @@ export const ANALYTICS_EVENTS = {
    * (stop emitting → tag `deprecated` → unverify → keep an action bridge if history matters).
    *
    * @property is_new_user {boolean} Whether this callback created the account.
-   * @property has_claim_intent {boolean} Whether a claim token accompanied the callback.
    */
-  USER_AUTHENTICATED: 'user_authenticated',
+  USER_AUTHENTICATED: "user_authenticated",
 
   // ---------------------------------------------------------------------------
   // System, performance, and product feedback
@@ -539,15 +490,17 @@ export const ANALYTICS_EVENTS = {
    * @property destination_url {string} Href navigated to.
    * @property page_url {string} URL the CTA was clicked from.
    */
-  CTA_CLICKED: 'cta_clicked',
+  CTA_CLICKED: "cta_clicked",
 
   /**
    * An API error surfaced to the user in the UI.
+   * @deprecated Retired 2026-08-24 after the unused emitter was removed. No PostHog rows
+   * were ever ingested; the permanent ledger entry preserves the payload contract.
    * @property endpoint {string} Endpoint that failed.
    * @property status_code {number} HTTP status returned.
    * @property user_action {string} What the user was trying to do.
    */
-  API_ERROR_SHOWN: 'api_error_shown',
+  API_ERROR_SHOWN: "api_error_shown",
 
   /**
    * Server-side: a file finished uploading through `/api/upload`.
@@ -558,13 +511,13 @@ export const ANALYTICS_EVENTS = {
    * @property width {number | undefined} Processed image width; images only.
    * @property height {number | undefined} Processed image height; images only.
    */
-  ASSET_UPLOADED: 'asset_uploaded',
+  ASSET_UPLOADED: "asset_uploaded",
 
   /**
    * Server-side: a Turnstile bot challenge was passed.
    * @property has_custom_return_path {boolean} Whether the challenge carried a non-root return path.
    */
-  CHALLENGE_VERIFIED: 'challenge_verified',
+  CHALLENGE_VERIFIED: "challenge_verified",
 
   /**
    * Server-side: the rate limiter could not reach its backing store and opened
@@ -574,14 +527,127 @@ export const ANALYTICS_EVENTS = {
    * @property error_message {string} Message from the store rejection (e.g. an Upstash quota error).
    * @property cooldown_ms {number} How long the breaker stays open before re-probing.
    */
-  RATE_LIMIT_STORE_UNAVAILABLE: 'rate_limit_store_unavailable',
+  RATE_LIMIT_STORE_UNAVAILABLE: "rate_limit_store_unavailable",
 
   /**
    * Server-side: the rate-limit breaker closed and the store is being dialled again.
    * @property cooldown_ms {number} Breaker cooldown window that elapsed.
    * @property outage_ms {number} Time between the breaker opening and closing.
    */
-  RATE_LIMIT_STORE_RECOVERED: 'rate_limit_store_recovered',
+  RATE_LIMIT_STORE_RECOVERED: "rate_limit_store_recovered",
+
+  /**
+   * Server-side: a request was blocked by the rate limiter (hard 429) or sent
+   * to the Turnstile challenge by the soft limiter.
+   *
+   * Covers ALL blocked traffic, not just registry-matched crawlers -- the
+   * pre-existing signal (`crawler-drift.ts` -> Sentry) only fires when a
+   * User-Agent matches the crawler registry, so unrecognised clients, the
+   * majority of what a limiter blocks, produced nothing at all. Enforcement
+   * thresholds are calibrated against this event.
+   *
+   * Never carries a raw IP: `ip_key` is a non-reversible hash, enough to count
+   * distinct blocked clients and no more.
+   * @property route_family {string} Coarse route bucket the rule matched (e.g. `/brands`).
+   * @property ip_key {string} Non-reversible hash of the client IP.
+   * @property reason {string} Reason code: `hard_limit_exceeded`, `soft_limit_challenge` or `verified_budget_exhausted`.
+   */
+  RATE_LIMIT_BLOCKED: "rate_limit_blocked",
+
+  /**
+   * ENFORCEMENT LADDER (DEV-1551). Eleven events covering every rung and every
+   * state of the anti-enumeration ladder in `security/enforcement.ts`.
+   *
+   * The ladder ships in log-only `observe` mode, so these events are its ONLY
+   * output until thresholds have been calibrated against them. Alert
+   * thresholds, the rollback trigger, and what a false-positive spike looks
+   * like are recorded in `docs/runbooks/anti-enumeration.md`.
+   *
+   * PRIVACY CONTRACT: none of the eleven may ever carry a raw IP or a raw
+   * `fm_visitor` id. `identity_key` is a non-reversible hash
+   * (`pseudonymizeIdentifier`), enough to count distinct clients and no more.
+   * A test in `rate-limit-observability.test.ts` enforces this.
+   *
+   * Every ladder event shares the same property set:
+   * @property identity_key {string} Non-reversible hash of the scored identity.
+   * @property identity_kind {string} Which tier scored: `user`, `visitor` or `ip`.
+   * @property route_family {string} Route family from `security/route-family.ts`.
+   * @property distinct_resources {number} Distinct resources seen in the window.
+   * @property window {string} Traversal window: `burst`, `tenMinutes` or `hour`.
+   * @property threshold {number} The scaled threshold that was compared against.
+   * @property reason {string} Machine-readable reason code from `ENFORCEMENT_REASONS`.
+   * @property action {string} The rung the ladder concluded.
+   * @property effective_action {string} What the request actually experienced.
+   * @property mode {string} `observe` or `enforce`.
+   */
+  /**
+   * Rung 1: above the noise floor, still served. There is deliberately NO
+   * event for rung 0 -- an `allow` fires on every request on the site, and the
+   * denominator is already available from pageview volume.
+   */
+  SCRAPE_LADDER_RECORDED: "scrape_ladder_recorded",
+  /** Rung 2: sent through Turnstile. */
+  SCRAPE_LADDER_CHALLENGED: "scrape_ladder_challenged",
+  /** Rung 3: 429 for the standard block window. */
+  SCRAPE_LADDER_BLOCKED: "scrape_ladder_blocked",
+  /** Rung 4: 429 for the longer window, after the standard one did not help. */
+  SCRAPE_LADDER_EXTENDED_BLOCK: "scrape_ladder_extended_block",
+  /**
+   * The ladder concluded a non-allow rung but `observe` mode suppressed it.
+   * Fires alongside the rung event, so "how much would we block if we flipped
+   * the switch?" is answerable without filtering on `mode`.
+   */
+  SCRAPE_LADDER_SHADOWED: "scrape_ladder_shadowed",
+  /**
+   * A Turnstile-verified visitor exhausted the RAISED budget. Verification is a
+   * multiplier, never an exemption -- this event is the proof it stayed finite.
+   */
+  SCRAPE_VERIFIED_BUDGET_EXHAUSTED: "scrape_verified_budget_exhausted",
+  /**
+   * A pseudonymous IP key is producing repeated fresh `fm_visitor` identities.
+   * Cookie rotation is the cheapest evasion, so this is the signal that
+   * IP-tier accounting is the thing actually holding.
+   * @property identity_key {string} Non-reversible hash of the IP tier.
+   * @property route_family {string} Route family the rotation was seen on.
+   * @property reason {string} Machine-readable reason code.
+   */
+  SCRAPE_IDENTITY_ROTATION_SUSPECTED: "scrape_identity_rotation_suspected",
+  /**
+   * A Cloudflare-verified crawler took the exemption. Paired with
+   * its blocked counterpart: together they say whether the verified-bot
+   * transform rule is live, which gates flipping `VERIFIED_CRAWLER_SHADOW`.
+   * @property crawler_name {string | null} Registry entry name, when matched.
+   * @property route_family {string} Route family the request was on.
+   * @property reason {string} Machine-readable reason code.
+   */
+  VERIFIED_CRAWLER_ALLOWED: "verified_crawler_allowed",
+  /**
+   * THE DEINDEXING ALARM. A registry crawler was blocked or challenged.
+   * Sustained volume here means search engines are being turned away from
+   * `/brands/*`, which is the outcome this whole subsystem exists to avoid.
+   * @property crawler_name {string} Registry entry name.
+   * @property route_family {string} Route family the request was on.
+   * @property reason {string} Machine-readable reason code.
+   */
+  KNOWN_CRAWLER_BLOCKED: "known_crawler_blocked",
+  /**
+   * A fresh `fm_visitor` was minted because none arrived or the signature did
+   * not verify. One per genuine first visit; a stream of them from one IP key
+   * is deliberate rotation.
+   * @property identity_key {string} Non-reversible hash of the client.
+   * @property route_family {string} Route family the mint happened on.
+   * @property reason {string} Machine-readable reason code.
+   */
+  VISITOR_IDENTITY_ROTATED: "visitor_identity_rotated",
+  /**
+   * The ladder ran on the DEGRADED in-memory store, or with counters disabled.
+   * Distinct from `rate_limit_store_unavailable` (the hard limiter's breaker):
+   * this one says the enumeration numbers being alerted on are per-isolate
+   * fractions and must not be trusted.
+   * @property reason {string} Why the ladder is degraded.
+   * @property store_kind {string} `in-memory` or `disabled`.
+   */
+  RATE_LIMITER_DEGRADED: "rate_limiter_degraded",
 
   /**
    * Core Web Vitals field measurement (LCP / CLS / INP / FCP / TTFB).
@@ -604,21 +670,8 @@ export const ANALYTICS_EVENTS = {
    * @property navigation_type {string | null} Navigation type, null when unavailable.
    * @property content_group {string | null} Content group at report time, null on the server.
    */
-  WEB_VITAL_REPORTED: 'web_vital_reported',
-
-  /**
-   * A product feature request was submitted.
-   * @property request_id {string} Feature request id.
-   */
-  FEATURE_REQUEST_SUBMITTED: 'feature_request_submitted',
-
-  /**
-   * A vote on a feature request was cast or withdrawn.
-   * @property request_id {string} Feature request id.
-   * @property voted {boolean} True when voting, false when withdrawing the vote.
-   */
-  FEATURE_REQUEST_VOTED: 'feature_request_voted',
-} as const
+  WEB_VITAL_REPORTED: "web_vital_reported",
+} as const;
 
 /**
  * Property shape for each event, derived from the emitted object literals.
@@ -628,284 +681,337 @@ export const ANALYTICS_EVENTS = {
  * a contract with historical data: widening or changing one silently breaks every
  * aggregate that spans the change.
  */
+/**
+ * Shared by the seven enforcement-ladder events. One shape on purpose: an
+ * operator comparing rungs in PostHog must be able to break every one of them
+ * down by the same properties.
+ */
+interface ScrapeLadderPayload {
+  /** Non-reversible hash. NEVER a raw IP or a raw `fm_visitor` id. */
+  identity_key: string;
+  identity_kind: "user" | "visitor" | "ip";
+  route_family: string;
+  distinct_resources: number;
+  window: string;
+  threshold: number;
+  reason: string;
+  action: string;
+  effective_action: string;
+  mode: "observe" | "enforce";
+  $process_person_profile: false;
+}
+
 export interface AnalyticsEventPayloads {
   // Discovery
-  [ANALYTICS_EVENTS.BRAND_LIST_VIEWED]: { list_name: string; item_count: number }
-  [ANALYTICS_EVENTS.STOCKIST_LIST_VIEWED]: { list_name: string; item_count: number }
+  [ANALYTICS_EVENTS.BRAND_LIST_VIEWED]: {
+    list_name: string;
+    item_count: number;
+  };
+  [ANALYTICS_EVENTS.STOCKIST_LIST_VIEWED]: {
+    list_name: string;
+    item_count: number;
+  };
   [ANALYTICS_EVENTS.BRAND_CARD_CLICKED]: {
-    brand_id: string
-    brand_slug: string
-    category: string | null
-    position_in_grid: number
-    list_source?: string
-  }
+    brand_id: string;
+    brand_slug: string;
+    category: string | null;
+    position_in_grid: number;
+    list_source?: string;
+  };
   [ANALYTICS_EVENTS.BOOTH_SELECTED]: {
-    booth: string
-    zone: string
-    brand_count: number
-    event_slug: string
-  }
+    booth: string;
+    zone: string;
+    brand_count: number;
+    event_slug: string;
+  };
   [ANALYTICS_EVENTS.EXHIBITOR_SITE_CLICKED]: {
-    source_key: string
-    event_slug: string
-    booth: string | null
-    brand_slug: string | null
-  }
-  [ANALYTICS_EVENTS.HERO_CATEGORY_CLICKED]: { category: string; destination_url: string }
+    source_key: string;
+    event_slug: string;
+    booth: string | null;
+    brand_slug: string | null;
+  };
+  [ANALYTICS_EVENTS.HERO_CATEGORY_CLICKED]: {
+    category: string;
+    destination_url: string;
+  };
   [ANALYTICS_EVENTS.CURATED_PRODUCT_CLICKED]: {
-    product_key: string
-    brand_slug: string
-    position: number
-    selection_surface: string
-  }
+    product_key: string;
+    brand_slug: string;
+    position: number;
+    selection_surface: string;
+  };
   [ANALYTICS_EVENTS.STORY_CARD_CLICKED]: {
-    story_slug: string
-    position: number
-    story_surface: string
-  }
+    story_slug: string;
+    position: number;
+    story_surface: string;
+  };
   [ANALYTICS_EVENTS.TRAIL_CARD_CLICKED]: {
-    trail_slug: string
-    position: number
-    trail_surface: string
-  }
-  [ANALYTICS_EVENTS.DIRECTORY_SORT_CHANGED]: { sort_value: string; previous_sort: string }
+    trail_slug: string;
+    position: number;
+    trail_surface: string;
+  };
+  [ANALYTICS_EVENTS.DIRECTORY_SORT_CHANGED]: {
+    sort_value: string;
+    previous_sort: string;
+  };
   [ANALYTICS_EVENTS.DIRECTORY_PAGE_NAVIGATED]: {
-    page_number: number
-    direction: string
-    total_pages: number
-  }
-  [ANALYTICS_EVENTS.CATEGORY_FILTER_APPLIED]: { category: string }
+    page_number: number;
+    direction: string;
+    total_pages: number;
+  };
+  [ANALYTICS_EVENTS.CATEGORY_FILTER_APPLIED]: { category: string };
   [ANALYTICS_EVENTS.SUBCATEGORY_FILTER_APPLIED]: {
-    subcategory: string
-    parent_category: string
-    result_count: number
-  }
-  [ANALYTICS_EVENTS.PRICE_FILTER_APPLIED]: { price_range: string }
-  [ANALYTICS_EVENTS.VERIFICATION_FILTER_APPLIED]: { status: string }
+    subcategory: string;
+    parent_category: string;
+    result_count: number;
+  };
+  [ANALYTICS_EVENTS.PRICE_FILTER_APPLIED]: { price_range: string };
+  [ANALYTICS_EVENTS.VERIFICATION_FILTER_APPLIED]: { status: string };
   [ANALYTICS_EVENTS.FILTER_CLEARED]: {
-    clear_type: string
-    filter_type?: string
-    filter_value?: string
-  }
+    clear_type: string;
+    filter_type?: string;
+    filter_value?: string;
+  };
   [ANALYTICS_EVENTS.LANGUAGE_SWITCHED]: {
-    from_locale: string
-    to_locale: string
-    location: string
-  }
+    from_locale: string;
+    to_locale: string;
+    location: string;
+  };
 
   // Brand detail
   [ANALYTICS_EVENTS.BRAND_DETAIL_VIEWED]: {
-    brand_id: string
-    brand_slug: string
-    source: 'search' | 'category' | 'directory' | 'direct' | 'recommendation'
-  }
+    brand_id: string;
+    brand_slug: string;
+    source: "search" | "category" | "directory" | "direct" | "recommendation";
+  };
   [ANALYTICS_EVENTS.BRAND_DETAIL_ENGAGED]: {
-    brand_slug: string
-    trigger: 'dwell' | 'gallery' | 'faq' | 'scroll_50'
-    brand_id?: string
-  }
+    brand_slug: string;
+    trigger: "dwell" | "gallery" | "faq" | "scroll_50";
+    brand_id?: string;
+  };
   [ANALYTICS_EVENTS.EXTERNAL_LINK_CLICKED]: {
-    brand_id: string
-    brand_slug: string
-    link_type: string
+    brand_id: string;
+    brand_slug: string;
+    link_type: string;
     /** Named `link_surface`, NOT `surface`: the before_send scrubber overwrites a top-level `surface` with 'public' | 'product' on every event. */
-    link_surface: 'detail_page' | 'card' | 'recommendation' | 'selected_product'
-  }
+    link_surface:
+      "detail_page" | "card" | "recommendation" | "selected_product";
+  };
   [ANALYTICS_EVENTS.BRAND_PAGE_SHARED]: {
-    brand_id?: string
-    brand_slug: string
-    method?: string
-  }
+    brand_id?: string;
+    brand_slug: string;
+    method?: string;
+  };
   [ANALYTICS_EVENTS.GALLERY_PHOTO_VIEWED]: {
-    brand_id: string
-    brand_slug: string
-    photo_index: number
-  }
+    brand_id: string;
+    brand_slug: string;
+    photo_index: number;
+  };
   [ANALYTICS_EVENTS.GALLERY_COMPLETED]: {
-    brand_id: string
-    brand_slug: string
-    image_count: number
-  }
-  [ANALYTICS_EVENTS.FAQ_ITEM_EXPANDED]: { brand_slug: string; preset_id: string }
+    brand_id: string;
+    brand_slug: string;
+    image_count: number;
+  };
+  [ANALYTICS_EVENTS.FAQ_ITEM_EXPANDED]: {
+    brand_slug: string;
+    preset_id: string;
+  };
   [ANALYTICS_EVENTS.RECOMMENDATION_BRAND_CLICKED]: {
-    brand_id: string
-    brand_slug: string
-    source_brand_slug: string
-    position: number
-  }
+    brand_id: string;
+    brand_slug: string;
+    source_brand_slug: string;
+    position: number;
+  };
   [ANALYTICS_EVENTS.RECOMMENDATION_SECTION_VIEWED]: {
-    source_brand_slug: string
-    recommendation_count: number
-  }
+    source_brand_slug: string;
+    recommendation_count: number;
+  };
 
   // Search
   [ANALYTICS_EVENTS.BRAND_SEARCH_EXECUTED]: {
-    query_length: number
-    result_count: number
-    has_results: boolean
-  }
-  [ANALYTICS_EVENTS.BRAND_SEARCH_EMPTY]: { query_length: number }
+    query_length: number;
+    result_count: number;
+    has_results: boolean;
+  };
+  [ANALYTICS_EVENTS.BRAND_SEARCH_EMPTY]: { query_length: number };
   [ANALYTICS_EVENTS.SEARCH_RESULT_CLICKED]: {
-    query_length: number
-    position_in_results: number
-    brand_id: string
-    brand_slug: string
-  }
-  [ANALYTICS_EVENTS.SEARCH_SUGGESTION_SELECTED]: { brand_id: string; brand_slug: string }
+    query_length: number;
+    position_in_results: number;
+    brand_id: string;
+    brand_slug: string;
+  };
+  [ANALYTICS_EVENTS.SEARCH_SUGGESTION_SELECTED]: {
+    brand_id: string;
+    brand_slug: string;
+  };
 
   // Saved / liked
   [ANALYTICS_EVENTS.BRAND_SAVED]: {
-    brand_id: string
-    brand_slug: string
-    location: string
-  }
+    brand_id: string;
+    brand_slug: string;
+    location: string;
+  };
   [ANALYTICS_EVENTS.SAVED_BRAND_REVISITED]: {
-    brand_slug: string
+    brand_slug: string;
     /** Named `revisit_surface`, NOT `surface` — see EXTERNAL_LINK_CLICKED.link_surface. */
-    revisit_surface: 'card' | 'detail_page'
-    brand_id?: string
-  }
+    revisit_surface: "card" | "detail_page";
+    brand_id?: string;
+  };
   [ANALYTICS_EVENTS.BRAND_UNSAVED]: {
-    brand_id: string
-    brand_slug: string
-    location: string
-  }
-  [ANALYTICS_EVENTS.BRAND_LIKED]: {
-    brand_id: string
-    brand_slug: string
-    location: string
-  }
-  [ANALYTICS_EVENTS.BRAND_UNLIKED]: {
-    brand_id: string
-    brand_slug: string
-    location: string
-  }
+    brand_id: string;
+    brand_slug: string;
+    location: string;
+  };
 
   // Submission funnel
   [ANALYTICS_EVENTS.SUBMISSION_FORM_OPENED]: {
-    source: 'header_cta' | 'hero_cta' | 'footer_link' | 'quick'
-    intent: 'recommend' | 'owner_claim'
-  }
+    source: "header_cta" | "hero_cta" | "footer_link" | "quick";
+    intent: "recommend";
+  };
   [ANALYTICS_EVENTS.SUBMISSION_PATH_SELECTED]: UtmProperties & {
-    path: string
-    is_authenticated: boolean
-  }
-  [ANALYTICS_EVENTS.SUBMISSION_FORM_STEP_COMPLETED]: { step: string }
+    path: string;
+    is_authenticated: boolean;
+  };
+  [ANALYTICS_EVENTS.SUBMISSION_FORM_STEP_COMPLETED]: { step: string };
   [ANALYTICS_EVENTS.SUBMISSION_COMPLETED]: UtmProperties & {
-    category: string
-    has_logo: boolean
-    time_spent_seconds: number
-    intent: 'recommend' | 'owner_claim'
-    guest_submission: boolean
-  }
+    category: string;
+    has_logo: boolean;
+    time_spent_seconds: number;
+    intent: "recommend";
+    guest_submission: boolean;
+  };
   [ANALYTICS_EVENTS.SUBMISSION_FORM_ABANDONED]: {
-    last_step_completed: string
-    time_spent_seconds: number
-  }
+    last_step_completed: string;
+    time_spent_seconds: number;
+  };
   [ANALYTICS_EVENTS.SUBMISSION_FORM_ERROR_SHOWN]: {
-    field: string
-    error_type: string
-    step: string
-  }
+    field: string;
+    error_type: string;
+    step: string;
+  };
   [ANALYTICS_EVENTS.NEWSLETTER_SUBSCRIBED]: UtmProperties & {
-    interests: string[]
-    has_email: boolean
-  }
+    interests: string[];
+    has_email: boolean;
+  };
 
-  // Claim / supply
-  [ANALYTICS_EVENTS.BRAND_CLAIM_STARTED]: {
-    brand_id: string
-    brand_slug: string
-    is_authenticated: boolean
-  }
-  [ANALYTICS_EVENTS.BRAND_CLAIM_FORM_SUBMITTED]: {
-    brand_id: string
-    brand_slug: string
-    proof_types: string[]
-  }
-  [ANALYTICS_EVENTS.BRAND_CLAIM_COMPLETED]: { brand_id: string; is_new_user: boolean }
-  [ANALYTICS_EVENTS.BRAND_CLAIM_APPROVED]: {
-    brand_id: string
-    brand_slug?: string
-    claim_request_id: string
-  }
+  // Supply
   [ANALYTICS_EVENTS.BRAND_LISTING_PUBLISHED]: {
-    brand_id: string
-    brand_slug: string
-    is_brand_owner: boolean
-    '$process_person_profile': false
-  }
-  [ANALYTICS_EVENTS.BRAND_OWNER_EDIT_PUBLISHED]: { brand_id: string; brand_slug: string }
+    brand_id: string;
+    brand_slug: string;
+    is_brand_owner: boolean;
+    $process_person_profile: false;
+  };
   [ANALYTICS_EVENTS.MIT_DECLARED]: {
-    brand_id: string
-    brand_slug: string
-    declared_scope: string
-  }
+    brand_id: string;
+    brand_slug: string;
+    declared_scope: string;
+  };
   [ANALYTICS_EVENTS.ORIGIN_EVIDENCE_SUBMITTED]: {
-    brand_id: string
-    brand_slug: string
-    stance: string
-  }
+    brand_id: string;
+    brand_slug: string;
+    stance: string;
+  };
   [ANALYTICS_EVENTS.BRAND_REPORTED]: {
-    brand_slug: string
-    reason: string
-    reporter_role: string
-  }
+    brand_slug: string;
+    reason: string;
+    reporter_role: string;
+  };
   [ANALYTICS_EVENTS.BRAND_CORRECTION_SUBMITTED]: {
-    brand_id: string
-    brand_slug: string
-    field: string
-  }
+    brand_id: string;
+    brand_slug: string;
+    field: string;
+  };
 
   // Auth
-  [ANALYTICS_EVENTS.USER_SIGNED_UP]: UtmProperties & { method: string }
-  [ANALYTICS_EVENTS.USER_LOGGED_IN]: { method: string }
-  [ANALYTICS_EVENTS.USER_SIGNED_OUT]: Record<string, never>
+  [ANALYTICS_EVENTS.USER_SIGNED_UP]: UtmProperties & { method: string };
+  [ANALYTICS_EVENTS.USER_LOGGED_IN]: { method: string };
+  [ANALYTICS_EVENTS.USER_SIGNED_OUT]: Record<string, never>;
   [ANALYTICS_EVENTS.USER_AUTHENTICATED]: {
-    is_new_user: boolean
-    has_claim_intent: boolean
-  }
+    is_new_user: boolean;
+  };
 
   // System
   [ANALYTICS_EVENTS.CTA_CLICKED]: {
-    cta_name: string
-    cta_location: string
-    destination_url: string
-    page_url: string
-  }
+    cta_name: string;
+    cta_location: string;
+    destination_url: string;
+    page_url: string;
+  };
   [ANALYTICS_EVENTS.API_ERROR_SHOWN]: {
-    endpoint: string
-    status_code: number
-    user_action: string
-  }
+    endpoint: string;
+    status_code: number;
+    user_action: string;
+  };
   [ANALYTICS_EVENTS.ASSET_UPLOADED]: {
-    bucket: string
-    asset_type: 'image' | 'document'
-    size_bytes: number
-    authenticated: boolean
-    width?: number
-    height?: number
-  }
-  [ANALYTICS_EVENTS.CHALLENGE_VERIFIED]: { has_custom_return_path: boolean }
+    bucket: string;
+    asset_type: "image" | "document";
+    size_bytes: number;
+    authenticated: boolean;
+    width?: number;
+    height?: number;
+  };
+  [ANALYTICS_EVENTS.CHALLENGE_VERIFIED]: { has_custom_return_path: boolean };
   [ANALYTICS_EVENTS.RATE_LIMIT_STORE_UNAVAILABLE]: {
-    error_message: string
-    cooldown_ms: number
-    '$process_person_profile': false
-  }
+    error_message: string;
+    cooldown_ms: number;
+    $process_person_profile: false;
+  };
   [ANALYTICS_EVENTS.RATE_LIMIT_STORE_RECOVERED]: {
-    cooldown_ms: number
-    outage_ms: number
-    '$process_person_profile': false
-  }
+    cooldown_ms: number;
+    outage_ms: number;
+    $process_person_profile: false;
+  };
+  [ANALYTICS_EVENTS.RATE_LIMIT_BLOCKED]: {
+    route_family: string;
+    ip_key: string;
+    reason:
+      | "hard_limit_exceeded"
+      | "soft_limit_challenge"
+      | "verified_budget_exhausted";
+    $process_person_profile: false;
+  };
+  [ANALYTICS_EVENTS.SCRAPE_LADDER_RECORDED]: ScrapeLadderPayload;
+  [ANALYTICS_EVENTS.SCRAPE_LADDER_CHALLENGED]: ScrapeLadderPayload;
+  [ANALYTICS_EVENTS.SCRAPE_LADDER_BLOCKED]: ScrapeLadderPayload;
+  [ANALYTICS_EVENTS.SCRAPE_LADDER_EXTENDED_BLOCK]: ScrapeLadderPayload;
+  [ANALYTICS_EVENTS.SCRAPE_LADDER_SHADOWED]: ScrapeLadderPayload;
+  [ANALYTICS_EVENTS.SCRAPE_VERIFIED_BUDGET_EXHAUSTED]: ScrapeLadderPayload;
+  [ANALYTICS_EVENTS.SCRAPE_IDENTITY_ROTATION_SUSPECTED]: {
+    identity_key: string;
+    route_family: string;
+    reason: string;
+    $process_person_profile: false;
+  };
+  [ANALYTICS_EVENTS.VERIFIED_CRAWLER_ALLOWED]: {
+    crawler_name: string | null;
+    route_family: string;
+    reason: string;
+    $process_person_profile: false;
+  };
+  [ANALYTICS_EVENTS.KNOWN_CRAWLER_BLOCKED]: {
+    crawler_name: string;
+    route_family: string;
+    reason: string;
+    $process_person_profile: false;
+  };
+  [ANALYTICS_EVENTS.VISITOR_IDENTITY_ROTATED]: {
+    identity_key: string;
+    route_family: string;
+    reason: string;
+    $process_person_profile: false;
+  };
+  [ANALYTICS_EVENTS.RATE_LIMITER_DEGRADED]: {
+    reason: string;
+    store_kind: "in-memory" | "disabled";
+    $process_person_profile: false;
+  };
   [ANALYTICS_EVENTS.WEB_VITAL_REPORTED]: {
-    metric_name: string
-    metric_value: number
-    metric_rating: string
-    metric_delta: number
-    metric_id: string
-    navigation_type: string | null
-    content_group: string | null
-  }
-  [ANALYTICS_EVENTS.FEATURE_REQUEST_SUBMITTED]: { request_id: string }
-  [ANALYTICS_EVENTS.FEATURE_REQUEST_VOTED]: { request_id: string; voted: boolean }
+    metric_name: string;
+    metric_value: number;
+    metric_rating: string;
+    metric_delta: number;
+    metric_id: string;
+    navigation_type: string | null;
+    content_group: string | null;
+  };
 }

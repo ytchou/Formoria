@@ -12,11 +12,7 @@ import { resolveOpenAIModel } from "../openai-client";
 import { evalSinkPath, writeEvalSinkRecord } from "../eval/llm-usage-sink";
 import { priceUsage, usageFromRawResponse } from "../llm-pricing";
 import { captureAlert } from "@/lib/adapters/alerting/sentry";
-import {
-  classifyPostgrestError,
-  IN_PROCESS,
-  withRetry,
-} from "@/lib/retry";
+import { classifyPostgrestError, IN_PROCESS, withRetry } from "@/lib/retry";
 
 // The model behind every text phase. Written verbatim into brand_ai_results.model, so it
 // must track the model the audited client actually calls — hence the shared resolver
@@ -109,65 +105,6 @@ function reportInsertError(
     level: "error",
     context: { phase, pgCode: error.code },
   });
-}
-
-// ---------------------------------------------------------------------------
-// Latest-per-target-per-phase scoping
-// ---------------------------------------------------------------------------
-
-/**
- * One `brand_ai_results` row, reduced to what recency scoping needs.
- *
- * A row carries `brandId` OR `submissionId`, never both: rows are written
- * against a submission before approval and `approve_submission` re-points them
- * at the new brand afterwards. The scope key therefore has to fall back rather
- * than assume a brand.
- */
-export type AiResultScopeRow = {
-  id: string;
-  brandId?: string | null;
-  submissionId?: string | null;
-  phase: string;
-  createdAt: string;
-};
-
-/**
- * The grouping key: one enrichment target, one phase. `\u0000` is the separator
- * because it cannot occur in a UUID or a phase name, so no pair of distinct
- * targets can collide into one key by concatenation.
- */
-export function latestAiResultKey(row: AiResultScopeRow): string {
-  return `${row.brandId ?? row.submissionId ?? row.id}\u0000${row.phase}`;
-}
-
-/**
- * The ids of the LATEST row per target per phase — the only rows DEV-1510's
- * backfill rewrites (`supabase/migrations/20260820130000_backfill_subcategory_slugs.sql`
- * site 6/7, ADR decision 6). History keeps the zh-TW labels the model actually
- * returned, because a rewritten audit trail can no longer be replayed against
- * the prompt that produced it.
- *
- * Recency is `(created_at desc, id desc)` — identical to the migration's
- * `distinct on` ordering. The id tiebreak is not decorative: audit rows for one
- * phase are written in a tight loop and share a millisecond routinely, so
- * without it the "latest" row is whichever the planner happened to emit first.
- */
-export function latestAiResultIds(
-  rows: readonly AiResultScopeRow[],
-): Set<string> {
-  const latest = new Map<string, AiResultScopeRow>();
-  for (const row of rows) {
-    const key = latestAiResultKey(row);
-    const held = latest.get(key);
-    if (
-      !held ||
-      row.createdAt > held.createdAt ||
-      (row.createdAt === held.createdAt && row.id > held.id)
-    ) {
-      latest.set(key, row);
-    }
-  }
-  return new Set([...latest.values()].map((row) => row.id));
 }
 
 export type AiCallInput = {
@@ -339,7 +276,7 @@ async function findAuditRow(
 }
 
 /**
- * Copy-call audit. `price_range` and `subcategories` are deliberately absent:
+ * Copy-call audit. `subcategories` is deliberately absent:
  * those fields moved to the facts call when the mega-call was split, and
  * `updateFactsAuditResult` denormalises them onto the `facts` row instead.
  */
@@ -400,7 +337,6 @@ export async function updateFactsAuditResult(input: {
         parsed,
         [],
       ),
-      price_range: parsed.priceRange,
       subcategories: parsed.subcategories,
     } as never)
     .eq("id", data.id);

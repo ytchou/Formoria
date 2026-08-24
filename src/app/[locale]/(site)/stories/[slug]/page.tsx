@@ -326,7 +326,7 @@ export default async function StoryPage({ params }: PageProps) {
                   {/* Metadata navigation follows the breadcrumb treatment, not body-prose link styling. */}
                   <a
                     href="#series"
-                    className="rounded-[2px] hover:text-ink transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+                    className="rounded-control hover:text-ink transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
                   >
                     {seriesTitle}
                   </a>

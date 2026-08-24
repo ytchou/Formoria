@@ -32,7 +32,7 @@ export function ForgotPasswordForm() {
       <AuthFormError message={state.error} />
 
       {state.message ? (
-        <div className="rounded-[3px] bg-verified-green-bg px-4 py-3 type-body-sm text-ink-soft text-verified-green">
+        <div className="rounded-surface bg-verified-green-bg px-4 py-3 type-body-sm text-ink-soft text-verified-green">
           {state.message}
         </div>
       ) : (
@@ -51,7 +51,7 @@ export function ForgotPasswordForm() {
 
           <Button
             type="submit"
-            className="w-full"
+            width="full"
             size="large"
             disabled={pending}
           >

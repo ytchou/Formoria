@@ -31,9 +31,9 @@
  *    already proves that every file under `src/` outside its allowlist
  *    contains no Han character at all, so a banned term cannot hide there.
  *    Scanning `src/` therefore means scanning that allowlist, split between
- *    SCANNED_SOURCE_FILES (copy a reader receives: the taxonomy ontology, the
- *    zh-TW-only microsite, transactional email templates and structured-data
- *    labels) and EXCLUDED_SOURCE_FILES (each with the reason its Han is not
+ *    SCANNED_SOURCE_FILES (copy a reader receives: the taxonomy ontology,
+ *    transactional email templates and structured-data labels) and
+ *    EXCLUDED_SOURCE_FILES (each with the reason its Han is not
  *    reader-visible text). `allowlistSyncProblems` keeps the two lists honest:
  *    an allowlist entry classified in neither fails this check.
  */
@@ -129,21 +129,16 @@ export function scanJsonValue(
  *
  *  - `lib/taxonomy/ontology.ts` — `nameZh` values are the public L1/L2 category
  *    labels on /brands and every category page.
- *  - `components/microsite/`, `app/(microsite)/` — the zh-TW-only microsite is
- *    a published reader surface; its copy lives in-file by design (DEV-767),
- *    so this gate is the only thing standing between it and a zh-CN term.
  *  - `lib/email/templates.ts` — transactional email copy. Once sent it cannot
  *    be corrected, which makes it the worst place to notice a term late.
  *  - `lib/json-ld.ts` — structured-data labels are read by search engines and
  *    answer engines, and are quoted back to readers verbatim.
  *
- * The last three were excluded when DEV-1543 first scoped this gate. They were
+ * The last two were excluded when DEV-1543 first scoped this gate. They were
  * verified clean at the time, so widening while clean cost nothing.
  */
 const SCANNED_SOURCE_FILES = [
   "src/lib/taxonomy/ontology.ts",
-  "src/components/microsite/",
-  "src/app/(microsite)/",
   "src/lib/email/templates.ts",
   "src/lib/json-ld.ts",
 ];
@@ -175,7 +170,6 @@ export const EXCLUDED_SOURCE_FILES = new Map([
     "lib/services/enrich-phases/faq.ts",
     "LLM prompt fragments and repair instructions",
   ],
-  ["lib/brands/faq-presets/", "LLM prompt fragments"],
   // --- Scraper and search keyword lists. Chinese query strings sent to search
   // engines and crawlers, matched against third-party pages, never displayed.
   [
@@ -191,8 +185,6 @@ export const EXCLUDED_SOURCE_FILES = new Map([
   ["lib/services/subcategories.ts", "validator blocklist regexes"],
   ["lib/services/enrich-validators.ts", "AI-slop detector regexes"],
   ["lib/seo/search-console/segmentation.ts", "query-clustering regexes"],
-  ["lib/services/mit-registry.ts", "government CSV column headers"],
-  ["lib/services/mit-verification.ts", "legal-entity suffix normalisation"],
   [
     "lib/brands/stockist-display.ts",
     "retailer noise words stripped before display",
@@ -212,19 +204,13 @@ export const EXCLUDED_SOURCE_FILES = new Map([
     "test-only static fallback map (transitional)",
   ],
   // --- Reader-visible copy that is nonetheless still excluded, each for its
-  // own reason. The microsite, transactional-email and structured-data
-  // surfaces that used to sit here are now in SCANNED_SOURCE_FILES; what
-  // remains is not "not yet done", it is copy this gate cannot usefully read.
+  // own reason. The transactional-email and structured-data surfaces that used
+  // to sit here are now in SCANNED_SOURCE_FILES; what remains is not "not yet
+  // done", it is copy this gate cannot usefully read.
   //
-  // Ceiling: a banned term reaching a satori-rendered PNG, an owner mailto
-  // subject or an embed snippet still passes. Upgrade path is per-entry below
+  // Ceiling: a banned term reaching a satori-rendered PNG or an embed snippet
+  // still passes. Upgrade path is per-entry below
   // — there is no single follow-up that clears the group.
-  [
-    "components/dashboard/inline-verification.tsx",
-    "owner mailto subject — a locale-branched string built inline; scanning it " +
-      "means scanning both branches, so bring it in by moving the zh-TW branch " +
-      "into messages/*.json, which the catalogue scan already covers",
-  ],
   [
     "components/settings/settings-form.tsx",
     "language endonyms only (中文 / English) — no sentence copy exists to " +
@@ -285,7 +271,10 @@ function readCjkAllowlist(): string[] {
  * Split from `allowlistSyncProblems` so the rule can be exercised against a
  * synthetic entry; the real gate reads the real allowlist.
  */
-export function allowlistSyncProblemsFor(entries: readonly string[]): string[] {
+export function allowlistSyncProblemsFor(
+  entries: readonly string[],
+  scannedEntries: readonly string[] = SCANNED_SOURCE_FILES,
+): string[] {
   const problems: string[] = [];
 
   for (const entry of entries) {
@@ -293,9 +282,9 @@ export function allowlistSyncProblemsFor(entries: readonly string[]): string[] {
     // repo-relative (`src/…`), the allowlist and EXCLUDED_SOURCE_FILES are
     // `src/`-relative. Converting UP to the repo-relative form is what lets the
     // scanned side reuse `isScannedSourceFile` — the same rule the scan itself
-    // runs — instead of a second, path-exact reimplementation that a directory
-    // entry such as `src/components/microsite/` silently defeats.
-    if (isScannedSourceFile(`src/${entry}`)) continue;
+    // runs — instead of a second, path-exact reimplementation that any
+    // directory entry (one ending in `/`) silently defeats.
+    if (isScannedSourceFile(`src/${entry}`, scannedEntries)) continue;
     if (EXCLUDED_SOURCE_FILES.has(entry)) continue;
     problems.push(
       `${CJK_ALLOWLIST_SOURCE} allows Han in "src/${entry}", which scripts/check-zh-terms.ts classifies nowhere.\n` +
@@ -320,6 +309,9 @@ const TEST_FILE = /(?:^|\/)__tests__\/|\.test\.tsx?$/;
 
 /**
  * @param file repo-relative path
+ * @param entries scanned entries to test against; the real list by default,
+ *   overridden only by tests that need a directory entry to exercise the
+ *   prefix half of the rule.
  *
  * A `SCANNED_SOURCE_FILES` entry ending in `/` is a directory prefix, read the
  * same way `no-hardcoded-cjk.test.ts` reads its own: it covers everything
@@ -329,10 +321,13 @@ const TEST_FILE = /(?:^|\/)__tests__\/|\.test\.tsx?$/;
  * through it, `scanSourceFile` gates on it, and `allowlistSyncProblemsFor` asks
  * it — so the enumerated set and the predicate cannot disagree about a file.
  */
-export function isScannedSourceFile(file: string): boolean {
+export function isScannedSourceFile(
+  file: string,
+  entries: readonly string[] = SCANNED_SOURCE_FILES,
+): boolean {
   const path = file.split(sep).join("/");
   if (TEST_FILE.test(path)) return false;
-  return SCANNED_SOURCE_FILES.some((entry) =>
+  return entries.some((entry) =>
     entry.endsWith("/") ? path.startsWith(entry) : path === entry,
   );
 }
@@ -366,9 +361,8 @@ function walk(dir: string, pattern: RegExp): string[] {
  * `__tests__` directories drop out there, in one place.
  *
  * A missing entry is a CONFIGURATION problem, reported as one. Left to
- * `readdirSync`, renaming a route group (`src/app/(microsite)/`) kills the whole
- * lint chain with a raw ENOENT stack trace that names neither this file nor the
- * stale entry.
+ * `readdirSync`, renaming a scanned directory kills the whole lint chain with a
+ * raw ENOENT stack trace that names neither this file nor the stale entry.
  */
 export function scannedSourceFiles(
   entries: readonly string[] = SCANNED_SOURCE_FILES,
@@ -382,7 +376,9 @@ export function scannedSourceFiles(
       );
     }
     if (!entry.endsWith("/")) return [entry];
-    return walk(join(ROOT, entry), /\.tsx?$/).filter(isScannedSourceFile);
+    return walk(join(ROOT, entry), /\.tsx?$/).filter((file) =>
+      isScannedSourceFile(file, entries),
+    );
   });
 }
 

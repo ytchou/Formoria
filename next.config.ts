@@ -48,6 +48,16 @@ const RETIRED_CATEGORY_SLUGS: ReadonlyArray<
 const imgSrcHosts = ALLOWED_IMAGE_HOSTS.map(
   (hostname) => `https://${hostname}`,
 ).join(" ");
+/*
+ * SIGNED submission URLs only (DEV-1551). `ALLOWED_IMAGE_HOSTS` is empty since
+ * the `brand-images` bucket went private and every published image is served
+ * from `/i/` on this origin — but admin review still renders pre-moderation
+ * imagery from a short-lived signed Supabase URL in a plain `<img>`, and CSP
+ * would block it without this. It is deliberately NOT in `ALLOWED_IMAGE_HOSTS`:
+ * that list governs `safeImageSrc` and `next/image`, and re-adding it there
+ * would let a public page hotlink the storage host again.
+ */
+const signedStorageImgSrcHosts = "https://*.supabase.co";
 const mapTileImgSrcHosts = "https://*.tile.openstreetmap.org";
 const googleAdsImgSrcHosts = "https://www.google.com https://www.google.com.tw";
 const supabaseOrigin = (() => {
@@ -61,6 +71,19 @@ const supabaseOrigin = (() => {
 })();
 
 const nextConfig: NextConfig = {
+  // Railway injects `RAILWAY_ENVIRONMENT_NAME` into the build, but only a
+  // `NEXT_PUBLIC_` name is inlined into the browser bundle. Without this
+  // mirror, `resolveSentryEnvironment()` finds no deploy marker on the client
+  // and every browser error from production reports as `local` (DEV-1561).
+  // Omitted entirely when absent so a local build keeps resolving to `local`.
+  ...(process.env.RAILWAY_ENVIRONMENT_NAME?.trim()
+    ? {
+        env: {
+          NEXT_PUBLIC_RAILWAY_ENVIRONMENT_NAME:
+            process.env.RAILWAY_ENVIRONMENT_NAME,
+        },
+      }
+    : {}),
   serverExternalPackages: ["adm-zip", "@playwright/test"],
   transpilePackages: ["react-simple-maps"],
   experimental: {
@@ -70,8 +93,15 @@ const nextConfig: NextConfig = {
     },
   },
   images: {
+    /*
+     * EMPTY since DEV-1551 task 11. `ALLOWED_IMAGE_HOSTS` has no entries: the
+     * `brand-images` bucket is private and every image we own is served from
+     * `/i/` on this origin, which `next/image` optimises without a remote
+     * pattern. Kept as a map over the constant rather than a literal `[]` so
+     * the two lists cannot drift apart.
+     */
     remotePatterns: ALLOWED_IMAGE_HOSTS.map((hostname) => ({
-      protocol: "https",
+      protocol: "https" as const,
       hostname,
     })),
     // WebP only, no AVIF: brand images are already stored as WebP (1,647 of
@@ -97,7 +127,7 @@ const nextConfig: NextConfig = {
               "default-src 'self'",
               "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://www.googletagmanager.com https://challenges.cloudflare.com https://*.sentry.io https://static.cloudflareinsights.com https://e.formoria.com",
               "style-src 'self' 'unsafe-inline'",
-              `img-src 'self' data: blob: ${imgSrcHosts} ${mapTileImgSrcHosts} ${googleAdsImgSrcHosts}`,
+              `img-src 'self' data: blob: ${imgSrcHosts} ${signedStorageImgSrcHosts} ${mapTileImgSrcHosts} ${googleAdsImgSrcHosts}`,
               "font-src 'self'",
               `connect-src 'self' ${supabaseOrigin} https://e.formoria.com https://*.supabase.co wss://*.supabase.co https://*.sentry.io https://www.google-analytics.com https://analytics.google.com https://www.google.com https://stats.g.doubleclick.net https://challenges.cloudflare.com https://cloudflareinsights.com`,
               "worker-src 'self' blob:",
@@ -122,7 +152,7 @@ const nextConfig: NextConfig = {
           },
           {
             key: "Strict-Transport-Security",
-            value: "max-age=31536000; includeSubDomains",
+            value: "max-age=31536000; includeSubDomains; preload",
           },
           {
             key: "Permissions-Policy",
@@ -378,35 +408,18 @@ const nextConfig: NextConfig = {
         destination: "/stories",
         permanent: true,
       },
-      // Same trap as /guides above: the feature-request board moved from
-      // /feedback to /feature-requests and `feedback` left RESERVED_ROUTES, so a
-      // bare /feedback would otherwise match SLUG_PATTERN in src/proxy.ts and
-      // 308 to /brands/feedback, which 404s. These keep the old internal links
-      // (footer, FAQ, account menu) landing on the board.
-      {
-        source: "/feedback",
-        destination: "/feature-requests",
-        permanent: true,
-      },
-      {
-        source: "/en/feedback",
-        destination: "/en/feature-requests",
-        permanent: true,
-      },
-      {
-        source: "/zh-TW/feedback",
-        destination: "/feature-requests",
-        permanent: true,
-      },
       {
         source: "/zh-TW/auth/:path*",
         destination: "/auth/:path*",
         permanent: true,
       },
       {
+        // DEV-1570: /admin/claims went with the claim flow. The old 308 to it
+        // is cached in admin browsers forever, so keep a hop that resolves --
+        // temporary (307) so this rule is not itself permanently cached.
         source: "/admin/claim-requests",
-        destination: "/admin/claims",
-        permanent: true,
+        destination: "/admin",
+        permanent: false,
       },
       {
         source: "/admin/taxonomy",
@@ -432,8 +445,10 @@ export default withSentryConfig(withNextIntl(nextConfig), {
   // production the moment a staging `SENTRY_AUTH_TOKEN` is added (DEV-1494).
   project: process.env.SENTRY_PROJECT ?? "formoria",
 
-  // Only print logs for uploading source maps in CI
-  silent: !process.env.CI,
+  // Never silence the source-map upload. `silent: !process.env.CI` hid the real
+  // `sentry-cli` error on Railway, where `CI` is unset, leaving only
+  // "failed with exit code 1" in the build log (DEV-1537).
+  silent: false,
 
   // For all available options, see:
   // https://docs.sentry.io/platforms/javascript/guides/nextjs/manual-setup/

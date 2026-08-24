@@ -62,7 +62,7 @@ export function ImageCarousel({
         // in the grid, so the same photo was cropped two different ways
         // depending on where you looked at it. `aspect-media` is 1:1 — see the
         // token's comment in globals.css for the measurement.
-        className="relative aspect-media overflow-hidden rounded-[3px] bg-surface-deep"
+        className="relative aspect-media overflow-hidden rounded-surface bg-surface-deep"
       >
         <BrandImageFallback name={alt} category={category ?? null} size="detail" />
       </div>
@@ -175,7 +175,7 @@ export function ImageCarousel({
         // in the grid, so the same photo was cropped two different ways
         // depending on where you looked at it. `aspect-media` is 1:1 — see the
         // token's comment in globals.css for the measurement.
-        className="relative aspect-media overflow-hidden rounded-[3px] bg-surface-deep"
+        className="relative aspect-media overflow-hidden rounded-surface bg-surface-deep"
       >
         {previousImage && (
           <SurfaceImage
@@ -257,7 +257,7 @@ export function ImageCarousel({
             {/* Counter badge */}
             <span
               className={cn(
-                'absolute rounded-full bg-accent/80 px-2.5 py-1 type-metadata text-accent-foreground backdrop-blur-sm',
+                'absolute rounded-full bg-accent/80 px-2.5 py-1 type-metadata text-ground backdrop-blur-sm',
                 variant === 'detail' ? 'bottom-4 right-4' : 'bottom-2 right-2',
               )}
             >
@@ -287,7 +287,7 @@ export function ImageCarousel({
               type="button"
               variant="ghost"
               onClick={() => goTo(i)}
-              className={`relative size-16 overflow-hidden rounded-[4px] p-0 hover:bg-transparent ${
+              className={`relative size-16 overflow-hidden rounded-control p-0 hover:bg-transparent ${
                 i === current
                   ? 'ring-2 ring-accent ring-offset-2'
                   : 'opacity-70 hover:opacity-100'

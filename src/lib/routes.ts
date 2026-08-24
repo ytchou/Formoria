@@ -88,33 +88,17 @@ export const routes = {
   contact: () => '/contact',
   privacy: () => '/privacy',
   terms: () => '/terms',
-  gettingStarted: () => '/getting-started',
   challenge: () => '/challenge',
   contributions: () => '/contributions',
-  featureRequests: () => '/feature-requests',
 
   // Signed-in account surfaces
   favorites: () => '/favorites',
   settings: () => '/settings',
-  mySubmissions: () => '/my-submissions',
 
   submit: {
     index: () => '/submit',
     recommend: (query?: RouteQuery) => withQuery('/submit/recommend', query),
     confirmation: (query?: RouteQuery) => withQuery('/submit/confirmation', query),
-    owner: () => '/submit/owner',
-    ownerQuick: () => '/submit/owner/quick',
-    ownerDetails: () => '/submit/owner/details',
-  },
-
-  dashboard: {
-    index: (query?: RouteQuery) => withQuery('/dashboard', query),
-    analytics: () => '/dashboard/analytics',
-    brand: (slug: string) => `/dashboard/brands/${seg(slug)}`,
-    /** `info` · `links` · `media` · `reputation` · `verification` · `analytics`. */
-    brandSection: (slug: string, section: string) =>
-      `/dashboard/brands/${seg(slug)}/${seg(section)}`,
-    brandEdit: (slug: string) => `/dashboard/brands/${seg(slug)}/edit`,
   },
 
   auth: {
@@ -131,11 +115,9 @@ export const routes = {
   admin: {
     index: () => '/admin',
     brands: (query?: RouteQuery) => withQuery('/admin/brands', query),
-    claims: () => '/admin/claims',
     corrections: () => '/admin/corrections',
     curatedProducts: (query?: RouteQuery) => withQuery('/admin/curated-products', query),
     evidence: () => '/admin/evidence',
-    featureRequests: () => '/admin/feature-requests',
     jobs: (query?: RouteQuery) => withQuery('/admin/jobs', query),
     job: (id: string) => `/admin/jobs/${seg(id)}`,
     /** The job's rendered run log, served by a route handler under `/admin`. */
@@ -157,15 +139,8 @@ export const routes = {
     reports: () => '/admin/reports',
     scripts: () => '/admin/scripts',
     bulkCommunitySubmissions: () => '/admin/scripts/bulk-community-submissions',
-    settings: () => '/admin/settings',
     /** Review queue for reader-submitted stockists; nothing else publishes one. */
     stockists: () => '/admin/stockists',
     submissions: (query?: RouteQuery) => withQuery('/admin/submissions', query),
   },
-
-  /**
-   * The owner microsite. It lives outside the `[locale]` tree, so it is
-   * prefix-free for a second reason: there is no localized variant to prefix.
-   */
-  microsite: (slug: string) => `/site/${seg(slug)}`,
 } as const

@@ -8,11 +8,9 @@ import {
 } from '@/lib/analytics'
 
 type SubmissionSource = Parameters<typeof trackSubmissionFormOpened>[0]
-type SubmissionIntent = Parameters<typeof trackSubmissionFormOpened>[1]
 
 export function useSubmissionAnalytics(
   source: SubmissionSource,
-  intent: SubmissionIntent,
   initialStep: string,
 ) {
   const startedAtRef = useRef<number | null>(null)
@@ -39,7 +37,7 @@ export function useSubmissionAnalytics(
       initializedRef.current = true
       startedAtRef.current = Date.now()
       lastCompletedStepRef.current = initialStep
-      trackSubmissionFormOpened(source, intent)
+      trackSubmissionFormOpened(source)
     }
     window.addEventListener('pagehide', abandon)
 
@@ -47,7 +45,7 @@ export function useSubmissionAnalytics(
       window.removeEventListener('pagehide', abandon)
       pendingCleanupRef.current = setTimeout(abandon, 0)
     }
-  }, [abandon, initialStep, intent, source])
+  }, [abandon, initialStep, source])
 
   const stepCompleted = useCallback((step: string) => {
     lastCompletedStepRef.current = step

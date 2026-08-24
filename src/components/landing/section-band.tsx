@@ -8,12 +8,10 @@ import { routes } from '@/lib/routes'
 /**
  * THE CLOSING CTA BAND.
  *
- * One question, two answers, on `surface` — the second material, and the only
- * background on the page besides the trust band. The recommendation ask and the
- * feature request used to be two stacked blocks with a heading each, which read
- * as two competing sections at the foot of the page; they are one block with two
- * buttons now, so `landing.featureRequestBand.headline` and `.body` are gone and
- * only its `cta` survives as the secondary button's label.
+ * The closing ask, on `surface` — the second material, and the only flat-color
+ * background on the page. The recommendation block holds a single CTA; it once
+ * sat beside a feature-request ask as two stacked blocks with a heading each,
+ * which read as two competing sections at the foot of the page.
  *
  * The newsletter stays a real form rather than the mock's monthly-selection
  * subscribe button: `e2e/tests/newsletter-subscribe.spec.ts` subscribes through
@@ -22,7 +20,6 @@ import { routes } from '@/lib/routes'
 export default async function SectionBand() {
   const tRecommend = await getTranslations('landing.submitBand')
   const tNewsletter = await getTranslations('newsletter')
-  const tFeatureRequest = await getTranslations('landing.featureRequestBand')
 
   return (
     <section className="bg-surface py-section">
@@ -50,12 +47,6 @@ export default async function SectionBand() {
                 label={tRecommend('cta')}
                 ctaName="submit_brand"
                 className={buttonVariants({ variant: 'primary' })}
-              />
-              <SectionBandCtaLink
-                href={routes.featureRequests()}
-                label={tFeatureRequest('cta')}
-                ctaName="feature_request"
-                className={buttonVariants({ variant: 'secondary' })}
               />
             </div>
           </div>

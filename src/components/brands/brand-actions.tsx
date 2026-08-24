@@ -12,7 +12,6 @@ import {
 } from '@/lib/brands/online-stores'
 import { ReportDialog } from '@/components/brands/report-dialog'
 import { buttonVariants } from '@/components/ui/button'
-import { LikeBrandButton } from './like-brand-button'
 import { SaveBrandButton } from './save-brand-button'
 import { ShareDialog } from './share-dialog'
 
@@ -80,13 +79,13 @@ export function BrandActions({
   }
 
   return (
-    <div className="space-y-3">
+    <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
       {websiteUrl ? (
         <a
           href={websiteUrl}
           target="_blank"
           rel="noopener noreferrer"
-          className={buttonVariants({ variant: 'primary', className: 'w-full' })}
+          className={buttonVariants({ variant: 'primary', width: 'full', className: 'sm:flex-1' })}
           data-ph-no-autocapture
           onClick={handleWebsiteClick}
         >
@@ -94,21 +93,19 @@ export function BrandActions({
           {visitLabel}
         </a>
       ) : (
-        <span className={buttonVariants({ variant: 'secondary', className: 'w-full cursor-default opacity-50' })} aria-disabled="true">
+        <span className={buttonVariants({ variant: 'secondary', width: 'full', className: 'cursor-default opacity-50 sm:flex-1' })} aria-disabled="true">
           <ExternalLink className="size-[15px]" />
           <span className="line-through">{visitLabel}</span>
         </span>
       )}
       {/*
-        One row at every width. At the default button size these four overflow a
-        390px viewport and wrap to a second line, so below `sm` they take the
-        `compact` size's height and internal gap. The horizontal padding goes
-        one step tighter than compact on purpose: at `px-3` the row still
-        overflowed by 3px on a 390px screen, and the extra 16px reclaimed here
-        is the headroom for a like count that grows past a single digit.
+        The visit CTA and this secondary group share one row from `sm` up (the
+        CTA takes the remaining width); below `sm` they stack, and the secondary
+        buttons take the `compact` size's height and internal gap with padding
+        one step tighter than compact so the group fits a 390px viewport.
         `flex-nowrap` holds the line rather than silently wrapping again.
       */}
-      <div className="flex flex-nowrap gap-2 max-sm:gap-1 max-sm:[&_button]:h-10 max-sm:[&_button]:gap-1 max-sm:[&_button]:px-2.5">
+      <div className="flex flex-nowrap gap-2 sm:shrink-0 max-sm:gap-1 max-sm:[&_button]:h-10 max-sm:[&_button]:gap-1 max-sm:[&_button]:px-2.5">
         <ShareDialog
           brandSlug={brandSlug}
           brandName={brandName}
@@ -116,8 +113,7 @@ export function BrandActions({
           brandImageUrl={brandImageUrl}
           categoryLabel={categoryLabel}
         />
-        {brandId && <LikeBrandButton brandId={brandId} slug={brandSlug} />}
-        {brandId && <SaveBrandButton brandId={brandId} slug={brandSlug} variant="inline" className="rounded-xl" />}
+        {brandId && <SaveBrandButton brandId={brandId} slug={brandSlug} variant="inline" className="rounded-control" />}
         {/* Origin-evidence reporting is unwired for launch, not deleted: its only
             submit path required an account, and opening it to guests needs a
             migration (`origin_evidence.user_id` is NOT NULL) plus an anonymous

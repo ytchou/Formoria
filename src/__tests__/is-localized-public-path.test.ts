@@ -6,12 +6,10 @@ describe('isLocalizedPublicPath', () => {
   it('treats moved app routes as localized (prefix-free + /en)', () => {
     expect(isLocalizedPublicPath('/submit')).toBe(true)
     expect(isLocalizedPublicPath('/en/submit')).toBe(true)
-    expect(isLocalizedPublicPath('/my-submissions')).toBe(true)
-    expect(isLocalizedPublicPath('/en/my-submissions')).toBe(true)
     expect(isLocalizedPublicPath('/contributions')).toBe(true)
     expect(isLocalizedPublicPath('/en/contributions')).toBe(true)
-    expect(isLocalizedPublicPath('/dashboard')).toBe(true)
-    expect(isLocalizedPublicPath('/en/dashboard')).toBe(true)
+    expect(isLocalizedPublicPath('/settings')).toBe(true)
+    expect(isLocalizedPublicPath('/en/settings')).toBe(true)
     expect(isLocalizedPublicPath('/challenge')).toBe(true)
     expect(isLocalizedPublicPath('/en/challenge')).toBe(true)
   })
@@ -47,17 +45,5 @@ describe('isLocalizedPublicPath', () => {
 
   it('still excludes non-localized routes', () => {
     expect(isLocalizedPublicPath('/admin')).toBe(false)
-  })
-
-  it('keeps the feature request board out of the brand-slug redirect', async () => {
-    const request = new NextRequest('https://formoria.com/feature-requests', {
-      headers: { host: 'formoria.com' },
-    })
-
-    const response = await proxy(request)
-
-    expect(response.headers.get('location')).toBeNull()
-    expect(isLocalizedPublicPath('/feature-requests')).toBe(true)
-    expect(isLocalizedPublicPath('/en/feature-requests')).toBe(true)
   })
 })

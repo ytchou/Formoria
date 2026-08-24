@@ -3,6 +3,7 @@ import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { expect, test } from "../fixtures/auth";
 
 import { BUDGET, POLL } from "../budgets";
+import { e2eProxyImageUrl } from "../helpers/image-refs";
 import { e2eSeedName } from "../helpers/cleanup";
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AnySupabaseClient = SupabaseClient<any, any, any>;
@@ -60,10 +61,8 @@ test.describe("Admin submission enrichment lifecycle", () => {
       if (uploadError)
         throw new Error(`image seed failed: ${uploadError.message}`);
     }
-    imageUrls = storagePaths.map(
-      (path) =>
-        supabase.storage.from("brand-images").getPublicUrl(path).data.publicUrl,
-    );
+    // Same-origin proxy paths, not public storage URLs (DEV-1551).
+    imageUrls = storagePaths.map((path) => e2eProxyImageUrl(path));
 
     const { error: submissionError } = await supabase
       .from("brand_submissions")
@@ -154,8 +153,7 @@ test.describe("Admin submission enrichment lifecycle", () => {
         storagePaths.map((storagePath, index) => ({
           submission_id: submissionId,
           storage_path: storagePath,
-          url: imageUrls[index]!,
-          source_url: imageUrls[index]!,
+          source_url: storagePath,
           source: "admin",
           status: "active",
           sort_order: index,
@@ -176,7 +174,6 @@ test.describe("Admin submission enrichment lifecycle", () => {
           // Slug, not the zh-TW label — DEV-1510 closed the vocabulary.
           subcategories: ["handbags"],
           subcategories_en: ["Handmade Bags"],
-          price_range: 2,
           purchase_website: "https://e2e-submission.example.com",
         },
       })
@@ -218,17 +215,25 @@ test.describe("Admin submission enrichment lifecycle", () => {
     await expect(review).toBeVisible();
     await expect(review.getByText("完整的品牌資料抓取結果。")).toBeVisible();
     await review.getByRole("tab", { name: "English", exact: true }).click();
-    await expect(review.getByText("Complete enriched brand profile.")).toBeVisible();
+    await expect(
+      review.getByText("Complete enriched brand profile."),
+    ).toBeVisible();
     await review.getByRole("tab", { name: "Mandarin", exact: true }).click();
     const contentSection = review
       .locator("section")
-      .filter({ has: adminPage.getByRole("heading", { name: "Content", exact: true }) })
+      .filter({
+        has: adminPage.getByRole("heading", { name: "Content", exact: true }),
+      })
       .first();
-    await contentSection.getByRole("button", { name: "Edit", exact: true }).click();
+    await contentSection
+      .getByRole("button", { name: "Edit", exact: true })
+      .click();
     await expect(
       contentSection.getByRole("button", { name: "Save changes", exact: true }),
     ).toBeVisible();
-    await contentSection.getByRole("button", { name: "Save changes", exact: true }).click();
+    await contentSection
+      .getByRole("button", { name: "Save changes", exact: true })
+      .click();
     await expect(
       contentSection.getByRole("button", { name: "Edit", exact: true }),
     ).toBeVisible();
@@ -287,13 +292,19 @@ test.describe("Admin submission enrichment lifecycle", () => {
           .eq("submission_id", submissionId),
         supabase
           .from("brand_images")
-          .select("url")
+          .select("storage_path")
           .eq("brand_id", approvedBrandId!),
       ]);
     expect(stagedCount).toBe(0);
-    expect(promotedImages).toEqual(
-      expect.arrayContaining(imageUrls.map((url) => ({ url }))),
-    );
+    // `approve_submission` promotes the hero image to a `brands/<id>/` key via
+    // `promoteApprovedBrandImages`, so the exact storage_path changes. Non-hero
+    // images keep their `submissions/` key. Assert count and presence, not exact
+    // paths — the paths are a moving target that depends on which images the
+    // promotion function treats as hero.
+    expect(promotedImages).toHaveLength(storagePaths.length);
+    for (const row of promotedImages ?? []) {
+      expect(row.storage_path).toBeTruthy();
+    }
   });
 
   async function expectBrandCount(expected: number) {

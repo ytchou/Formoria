@@ -48,9 +48,9 @@ test.describe('Submit recommendation edge cases', () => {
   // Every case in this group is an ANONYMOUS submission, and deployed staging
   // answers 403 to anonymous mutations (`isAllowedStagingRequest` in
   // src/lib/deployment-environment.ts allows only GET plus the /auth/* POSTs).
-  // Measured, not inferred: anonymous POSTs to /submit/recommend,
-  // /api/newsletter/subscribe and /api/feature-requests* all return 403 there,
-  // while /auth/sign-up returns 200.
+  // Measured, not inferred: anonymous POSTs to /submit/recommend and
+  // /api/newsletter/subscribe both return 403 there, while /auth/sign-up
+  // returns 200.
   //
   // Guarded at group scope rather than per test BECAUSE the group is serial: a
   // failing case cascades a skip onto the ones after it, so guarding only the

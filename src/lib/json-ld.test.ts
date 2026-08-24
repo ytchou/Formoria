@@ -1,4 +1,4 @@
-import { describe, it, expect } from "vitest";
+import { afterEach, describe, it, expect, vi } from "vitest";
 import {
   buildArticleJsonLd,
   buildBrandJsonLd,
@@ -28,7 +28,6 @@ function makeBrand(overrides: Partial<Brand> = {}): Brand {
     description: "Natural body care with camellia seed oil",
     heroImageUrl: "https://example.com/hero.jpg",
     status: "approved",
-    isVerified: false,
     isDemo: false,
     categorySlug: "food-drink",
     categoryLabel: "Food & Beverage",
@@ -44,7 +43,6 @@ function makeBrand(overrides: Partial<Brand> = {}): Brand {
     otherUrls: [],
     productPhotos: [],
     siteContent: null,
-    priceRange: null,
     subcategories: [],
     subcategoriesEn: [],
     descriptionEn: null,
@@ -400,7 +398,6 @@ describe("buildBreadcrumbJsonLd", () => {
 });
 
 describe("buildBrandsItemListJsonLd", () => {
-
   it("returns valid ItemList schema with correct structure", () => {
     const brands = [
       { name: "Brand Alpha", slug: "brand-alpha" },
@@ -487,9 +484,7 @@ describe("buildOrganizationJsonLd", () => {
     expect(zh["@type"]).toBe("Organization");
     expect(zh.name).toBe("Formoria");
     expect(zh.url).toMatch(/^https?:\/\//);
-    expect(zh.description).toContain(
-      "Formoria 把相遇之後的路接起來",
-    );
+    expect(zh.description).toContain("Formoria 把相遇之後的路接起來");
     expect(zh.description).toContain("品牌或零售通路負責價格");
     expect(en.description).toContain(
       "Formoria reconnects the path after that moment",
@@ -506,13 +501,13 @@ describe("buildOrganizationJsonLd", () => {
 describe("buildArticleJsonLd", () => {
   it("emits an Article with headline and publisher Organization", () => {
     const ld = buildArticleJsonLd({
-      title: "About",
+      title: "A Test Story",
       description: "desc",
-      path: "/about",
+      path: "/stories/a-test-story",
       locale: "zh-TW",
     }) as JsonLdObject;
     expect(ld["@type"]).toBe("Article");
-    expect(ld.headline).toBe("About");
+    expect(ld.headline).toBe("A Test Story");
     expect(ld.publisher["@type"]).toBe("Organization");
   });
 
@@ -534,7 +529,7 @@ describe("buildArticleJsonLd", () => {
   });
 
   it("passes an absolute image URL through untouched", () => {
-    const image = "https://project.supabase.co/storage/v1/object/public/t/a.jpg";
+    const image = "https://cdn.example.com/t/a.jpg";
     const ld = buildArticleJsonLd({
       title: "Story",
       description: "desc",
@@ -557,6 +552,83 @@ describe("buildArticleJsonLd", () => {
     }) as JsonLdObject;
 
     expect("image" in ld).toBe(false);
+  });
+});
+
+describe("image IRIs in structured data", () => {
+  // `heroImageUrl` and the event hero are relative `/i/<key>` proxy paths since
+  // DEV-1551, and `metadataBase` only absolutises openGraph/twitter metadata —
+  // never the raw JSON inside the ld+json script tag. A relative IRI makes
+  // Google drop `Organization.logo` and `Event.image`.
+  const SITE = "https://formoria.test";
+
+  afterEach(() => {
+    vi.unstubAllEnvs();
+  });
+
+  function stubSite(): void {
+    vi.stubEnv("NEXT_PUBLIC_SITE_URL", SITE);
+  }
+
+  it("absolutises a brand logo served through the /i/ proxy", () => {
+    stubSite();
+    const ld = buildBrandJsonLd(
+      makeBrand({ heroImageUrl: "/i/brands/brand-1/hero.webp" }),
+    );
+
+    expect(ld.logo).toBe(`${SITE}/i/brands/brand-1/hero.webp`);
+    expect(String(ld.logo).startsWith("https://")).toBe(true);
+  });
+
+  it("absolutises an event image served through the /i/ proxy", () => {
+    stubSite();
+    const ld = buildEventJsonLd({
+      name: "台灣文博會 2026",
+      path: "/events/creative-expo-2026",
+      startDate: "2026-08-06",
+      imageUrl: "/i/event-exhibitors/expo/hero.webp",
+    });
+
+    expect(ld.image).toBe(`${SITE}/i/event-exhibitors/expo/hero.webp`);
+    expect(String(ld.image).startsWith("https://")).toBe(true);
+  });
+
+  it("absolutises a story image served through the /i/ proxy", () => {
+    stubSite();
+    const ld = buildArticleJsonLd({
+      title: "Story",
+      description: "desc",
+      path: "/stories/a-story",
+      image: "/i/brands/brand-1/story.webp",
+    });
+
+    expect(ld.image).toBe(`${SITE}/i/brands/brand-1/story.webp`);
+    expect(String(ld.image).startsWith("https://")).toBe(true);
+  });
+
+  it("leaves a legacy absolute image URL untouched, so the helper is idempotent", () => {
+    stubSite();
+    const legacy = "https://cdn.example.com/legacy/hero.jpg";
+
+    expect(buildBrandJsonLd(makeBrand({ heroImageUrl: legacy })).logo).toBe(
+      legacy,
+    );
+    expect(
+      buildEventJsonLd({
+        name: "Expo",
+        path: "/events/expo",
+        startDate: "2026-08-06",
+        imageUrl: legacy,
+      }).image,
+    ).toBe(legacy);
+    expect(
+      buildArticleJsonLd({
+        title: "Story",
+        description: "desc",
+        path: "/stories/a-story",
+        image: legacy,
+      }).image,
+    ).toBe(legacy);
   });
 });
 
@@ -709,15 +781,22 @@ describe("buildEventJsonLd", () => {
       { isFree: false, ticketUrl: "https://tickets.example.com/expo" },
       { "@type": "Offer", url: "https://tickets.example.com/expo" },
     ],
-    ["the event is ticketed with no ticket URL", { isFree: false, ticketUrl: null }, undefined],
-  ] as const)("emits the right offers when %s", (_label, overrides, expected) => {
-    const ld = buildEventJsonLd(makeEventInput(overrides));
-    if (expected === undefined) {
-      expect("offers" in ld).toBe(false);
-    } else {
-      expect(ld.offers).toEqual(expected);
-    }
-  });
+    [
+      "the event is ticketed with no ticket URL",
+      { isFree: false, ticketUrl: null },
+      undefined,
+    ],
+  ] as const)(
+    "emits the right offers when %s",
+    (_label, overrides, expected) => {
+      const ld = buildEventJsonLd(makeEventInput(overrides));
+      if (expected === undefined) {
+        expect("offers" in ld).toBe(false);
+      } else {
+        expect(ld.offers).toEqual(expected);
+      }
+    },
+  );
 });
 
 describe("buildFaqPageJsonLd", () => {
@@ -877,12 +956,17 @@ describe("buildStockistItemListJsonLd", () => {
 
   it("builds an ItemList of the city's locations in order", () => {
     const result = buildStockistItemListJsonLd({
-      locations: [location("第一個地址"), { ...location("第二個地址"), id: "second" }],
+      locations: [
+        location("第一個地址"),
+        { ...location("第二個地址"), id: "second" },
+      ],
       cityName: "臺北市",
       canonicalUrl: "https://formoria.com/where-to-buy/taipei",
     });
     expect(result.numberOfItems).toBe(2);
-    expect(result.itemListElement.map((item: { position: number }) => item.position)).toEqual([1, 2]);
+    expect(
+      result.itemListElement.map((item: { position: number }) => item.position),
+    ).toEqual([1, 2]);
   });
 
   it("escapes safely", () => {

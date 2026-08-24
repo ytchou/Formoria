@@ -25,9 +25,9 @@ function buildPageUrl(pathname: string, searchParams: URLSearchParams, page: num
 }
 
 const navLinkClass =
-  'relative inline-flex min-h-12 items-center justify-center rounded-[4px] px-3 type-nav text-ink-muted transition-colors hover:bg-surface hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent'
+  'relative inline-flex min-h-12 items-center justify-center rounded-control px-3 type-nav text-ink-muted transition-colors hover:bg-surface hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent'
 const pageLinkClass =
-  'relative inline-flex min-h-12 min-w-12 items-center justify-center rounded-[4px] type-nav text-ink-muted transition-colors hover:bg-surface hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent'
+  'relative inline-flex min-h-12 min-w-12 items-center justify-center rounded-control type-nav text-ink-muted transition-colors hover:bg-surface hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent'
 
 function PaginationLinkStatus() {
   const { pending } = useLinkStatus()
@@ -82,7 +82,7 @@ export function Pagination({
           <PaginationLinkStatus />
         </Link>
       ) : (
-        <span className="inline-flex min-h-12 items-center justify-center rounded-[4px] px-3 type-nav text-ink-muted/50">
+        <span className="inline-flex min-h-12 items-center justify-center rounded-control px-3 type-nav text-ink-muted/50">
           {t('pagination.previous')}
         </span>
       )}
@@ -106,7 +106,7 @@ export function Pagination({
           return (
             <span
               key={page}
-              className="inline-flex min-h-12 min-w-12 items-center justify-center rounded-[4px] bg-accent type-nav text-ground"
+              className="inline-flex min-h-12 min-w-12 items-center justify-center rounded-control bg-accent type-nav text-ground"
               aria-current="page"
             >
               {page}
@@ -153,7 +153,7 @@ export function Pagination({
           <PaginationLinkStatus />
         </Link>
       ) : (
-        <span className="inline-flex min-h-12 items-center justify-center rounded-[4px] px-3 type-nav text-ink-muted/50">
+        <span className="inline-flex min-h-12 items-center justify-center rounded-control px-3 type-nav text-ink-muted/50">
           {t('pagination.next')}
         </span>
       )}

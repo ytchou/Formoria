@@ -50,6 +50,8 @@ Thumbs.db
 *.csv
 !content/stockists/*.csv
 *.png
+# Playwright owns this one durable baseline set; all other generated PNGs stay ignored.
+!e2e/tests/visual-regression.spec.ts-snapshots/*.png
 # Images the app or the public front door needs. `*.png` above is deny-by-default
 # and these were tracked in spite of it, not because of it — see the invariant
 # note in the markdown block below. src/app/{icon,apple-icon}.png are what
@@ -190,3 +192,6 @@ scripts/search-eval/runs/
 scripts/.storage-purge-manifest-*.json
 scripts/.reencode-originals-*.json
 scripts/.remove-backup-*.json
+
+# Production probe state cache (written by scripts/production-probe/probe.ts)
+.probe-state/

@@ -36,15 +36,16 @@ vi.mock("../brand-engagement-tracker", () => ({
  *
  * `safeImageSrc` is the very thing whose drop these assertions are about, so
  * mocking it would leave the spec unable to notice a change in host filtering —
- * it would only ever test the stub. `ALLOWED_IMAGE_HOSTS` is `*.supabase.co`,
- * so a supabase URL survives and any other host is rejected for real.
+ * it would only ever test the stub. Since DEV-1551 `ALLOWED_IMAGE_HOSTS` is
+ * EMPTY: a same-origin `/i/` path survives and every remote host is rejected
+ * for real.
  *
  * The middle URL is the one that gets dropped, so the rendered list is one
  * shorter than `imageAlts`. Every entry below therefore has a DIFFERENT value
  * at its filtered position than at its original position — which is what makes
  * the assertions able to fail if the component ever indexes the filtered list.
  */
-const ALLOWED_HOST = "https://xkcayngbttpxyibgzern.supabase.co";
+const ALLOWED_HOST = "/i/brands/2f1c9a4e";
 const IMAGES = [
   `${ALLOWED_HOST}/first.jpg`,
   "https://evil.example.com/dropped.jpg",

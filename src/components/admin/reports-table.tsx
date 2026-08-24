@@ -1,15 +1,10 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
 
-import { ConfirmDialog } from "@/components/admin/confirm-dialog";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { Label } from "@/components/ui/label";
-import { Separator } from "@/components/ui/separator";
-import { Textarea } from "@/components/ui/textarea";
 import type { BrandReport } from "@/lib/services/reports";
 import {
   formatReviewDate,
@@ -32,25 +27,16 @@ type ReviewAction = (
   notes?: string,
 ) => Promise<{ error?: string } | undefined>;
 
-type RevokeAction = (
-  brandId: string,
-  reason: string,
-) => Promise<{ error?: string } | undefined>;
-
 export function ReportsTable({
   reports,
   reviewAction,
-  revokeAction,
 }: {
   reports: BrandReport[];
   reviewAction?: ReviewAction;
-  revokeAction?: RevokeAction;
 }) {
   const t = useTranslations("admin.reports");
   const queueT = useTranslations("admin.queue");
   const queueAction = useQueueAction();
-  const [revokeReason, setRevokeReason] = useState("");
-  const [isRevokeDialogOpen, setIsRevokeDialogOpen] = useState(false);
 
   const filters = useMemo<ReviewFilter<BrandReport>[]>(
     () => [
@@ -106,35 +92,8 @@ export function ReportsTable({
     );
   }
 
-  function runRevoke(item: BrandReport) {
-    const reason = revokeReason.trim();
-    if (!reason) return;
-
-    void queueAction.run(
-      [item.id],
-      async () => {
-        try {
-          const result = await revokeAction?.(item.brandId, reason);
-          return result?.error ? { error: t("errors.generic") } : undefined;
-        } catch {
-          return { error: t("errors.generic") };
-        }
-      },
-      {
-        onResult: (result) => {
-          if (result.ok) {
-            setIsRevokeDialogOpen(false);
-            setRevokeReason("");
-          }
-        },
-      },
-    );
-  }
-
   function openItem(item: BrandReport) {
     queueAction.clearError();
-    setRevokeReason("");
-    setIsRevokeDialogOpen(false);
     queue.toggleOpen(item.id);
   }
 
@@ -212,8 +171,6 @@ export function ReportsTable({
         open={openItemValue !== null}
         onClose={() => {
           queue.setOpenId(null);
-          setRevokeReason("");
-          setIsRevokeDialogOpen(false);
         }}
         title={(item) => getRowName(item)}
         metadata={(item) => (
@@ -240,46 +197,6 @@ export function ReportsTable({
               isPending={queueAction.isRowPending(item.id)}
               error={queueAction.error}
             />
-
-            {item.reason === "ownership_dispute" && item.brandHasOwner ? (
-              <>
-                <Separator />
-                <div className="space-y-3">
-                  <div className="space-y-2">
-                    <Label htmlFor={`revoke-reason-${item.id}`}>
-                      {t("revoke.reasonLabel")}
-                    </Label>
-                    <Textarea
-                      id={`revoke-reason-${item.id}`}
-                      value={revokeReason}
-                      onChange={(event) => setRevokeReason(event.target.value)}
-                    />
-                  </div>
-                  <Button
-                    type="button"
-                    variant="destructive"
-                    disabled={
-                      !revokeReason.trim() || queueAction.isRowPending(item.id)
-                    }
-                    onClick={() => setIsRevokeDialogOpen(true)}
-                  >
-                    {t("revoke.trigger")}
-                  </Button>
-                </div>
-                <ConfirmDialog
-                  open={isRevokeDialogOpen}
-                  onOpenChange={setIsRevokeDialogOpen}
-                  title={t("revoke.confirmTitle")}
-                  description={t("revoke.confirmDescription", {
-                    brand: item.brandName ?? t("unknownBrand"),
-                  })}
-                  confirmLabel={t("revoke.confirmLabel")}
-                  variant="destructive"
-                  isPending={queueAction.isRowPending(item.id)}
-                  onConfirm={() => runRevoke(item)}
-                />
-              </>
-            ) : null}
           </div>
         )}
       >

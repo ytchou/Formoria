@@ -500,7 +500,7 @@ export function SubmissionsReviewList({
         {queue.activeTab !== "needs_data" &&
         bulkRejecting &&
         queue.selectedVisible.length > 0 ? (
-          <div className="max-w-sm space-y-2 rounded-[4px] border bg-ground p-3">
+          <div className="max-w-sm space-y-2 rounded-surface border bg-ground p-3">
             <Label>{t("bulkRejectReason")}</Label>
             <NativeSelect
               aria-label={t("bulkRejectAriaLabel")}

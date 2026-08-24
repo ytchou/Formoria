@@ -114,8 +114,20 @@ function isAlertMeter(value: unknown): boolean {
     (value.limit === null || isFiniteNumber(value.limit)) &&
     (value.percentage === null || isFiniteNumber(value.percentage)) &&
     (value.projection === null || isFiniteNumber(value.projection)) &&
-    (value.message === null || typeof value.message === "string")
+    (value.message === null || typeof value.message === "string") &&
+    // Optional during a deploy skew: the report endpoint may still be the
+    // build that predates these fields.
+    (value.window === undefined ||
+      value.window === null ||
+      isUsageWindow(value.window)) &&
+    (value.subject === undefined ||
+      value.subject === null ||
+      typeof value.subject === "string")
   );
+}
+
+function isUsageWindow(value: unknown): boolean {
+  return isRecord(value) && isTimestamp(value.start) && isTimestamp(value.end);
 }
 
 function isOperationalAlertSummary(value: unknown): boolean {
@@ -265,26 +277,17 @@ function dateLabel(report: SpendWatchReport): string {
 function operationalMeterLine(
   label: string,
   meter: NonNullable<SpendWatchReport["operations"]>["openai"],
+  unit: "usd" | "units",
 ): string {
   if (!meter) return `• ${label}: unavailable`;
-  const currency = label === "OpenAI budget";
-  const value =
-    meter.value === null
-      ? "unknown"
-      : currency
-        ? usd(meter.value)
-        : units(meter.value);
+  const format = (amount: number): string =>
+    unit === "usd" ? usd(amount) : units(amount);
+  const value = meter.value === null ? "unknown" : format(meter.value);
   const limit =
-    meter.limit === null
-      ? "no authoritative limit"
-      : currency
-        ? usd(meter.limit)
-        : units(meter.limit);
+    meter.limit === null ? "no authoritative limit" : format(meter.limit);
   const headroom =
     meter.value !== null && meter.limit !== null
-      ? currency
-        ? usd(Math.max(0, meter.limit - meter.value))
-        : units(Math.max(0, meter.limit - meter.value))
+      ? format(Math.max(0, meter.limit - meter.value))
       : "unknown";
   const percentage =
     meter.percentage === null
@@ -294,7 +297,8 @@ function operationalMeterLine(
     meter.projection === null
       ? "unknown"
       : `${Math.round(meter.projection * 100)}%`;
-  return `• ${label}: ${value}/${limit} (${percentage}) · headroom ${headroom} · projection ${projection} · ${meter.risk}`;
+  const subject = meter.subject ? ` · ${meter.subject}` : "";
+  return `• ${label}: ${value}/${limit} (${percentage}) · headroom ${headroom} · projection ${projection} · ${meter.risk}${subject}`;
 }
 
 function successNotification(report: SpendWatchReport): AgentNotification {
@@ -303,9 +307,9 @@ function successNotification(report: SpendWatchReport): AgentNotification {
   const operations = report.operations;
   const operationDetails = operations
     ? [
-        operationalMeterLine("OpenAI budget", operations.openai),
-        operationalMeterLine("Upstash commands", operations.upstash),
-        operationalMeterLine("PostHog events", operations.posthog),
+        operationalMeterLine("OpenAI budget", operations.openai, "usd"),
+        operationalMeterLine("Upstash commands", operations.upstash, "units"),
+        operationalMeterLine("PostHog events", operations.posthog, "units"),
         ...operations.lowerBoundCaveats.map((caveat) => `• Caveat: ${caveat}`),
       ]
     : [];

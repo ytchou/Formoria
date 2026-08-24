@@ -23,7 +23,6 @@
     "languageTraditionalChinese": "Traditional Chinese",
     "languageEnglish": "English",
     "about": "About Formoria",
-    "myBrands": "My Brand",
     "stories": "Stories",
     "events": "Events",
     "whereToBuy": "Where to buy",
@@ -40,17 +39,14 @@
     "tagline": "Life can look a little more like you",
     "discoverHeading": "Discover",
     "directory": "Brand Directory",
-    "gettingStarted": "Getting Started",
     "stories": "Stories",
     "events": "Events",
     "submit": "Recommend a Brand",
     "companyHeading": "Company",
     "faq": "FAQ",
     "connectHeading": "Connect",
-    "feedback": "Feature requests",
     "whereToBuy": "Where to buy",
-    "discover": "Styles",
-    "disclosure": "Formoria does not sell products. Every purchase happens on the brand's own website or at a stockist."
+    "discover": "Styles"
   },
   "discover": {
     "metaTitle": "Styles",
@@ -101,9 +97,7 @@
       "heading": "Formoria Selection",
       "note": "Moving in, styling a shop, changing a lamp — these products were chosen on purpose for moments like these; open one to meet the brand behind it.",
       "showMore": "See more selections",
-      "showLess": "Show fewer selections",
-      "trailEyebrow": "Style",
-      "trailCta": "Explore this style →"
+      "showLess": "Show fewer selections"
     },
     "trustSeam": {
       "line": "Listings and selections stay distinct"
@@ -124,9 +118,6 @@
       "body": "Tell us. Approved brands join the directory, and you need no connection to the brand.",
       "cta": "Recommend a brand"
     },
-    "featureRequestBand": {
-      "cta": "Request a Feature"
-    },
     "events": {
       "heading": "Events",
       "linkText": "View All Events →"
@@ -139,16 +130,9 @@
     "trails": {
       "heading": "Styles",
       "note": "One situation, one set of things. Start from the days you are living, not from a brand name.",
-      "linkText": "See every style →"
-    },
-    "trust": {
-      "note": "Two different things. We never blur them.",
-      "listedTitle": "Listed brands",
-      "listedBody": "Meets the directory's listing rules and can be found in search. A listing is not a Formoria endorsement, selection, certification, or ranking.",
-      "selectedTitle": "Formoria Selection",
-      "selectedBody": "Products chosen on purpose for one situation. The reason is written on the style page that holds them.",
-      "suppliedTitle": "Brand-supplied",
-      "suppliedBody": "Facts, images, or corrections supplied by the brand. Taking part guarantees no coverage, and controls neither the selection nor the wording."
+      "linkText": "See every style →",
+      "eyebrow": "Style",
+      "cta": "Explore this style →"
     }
   },
   "newsletter": {
@@ -168,9 +152,7 @@
   },
   "marketingEmailConsent": {
     "newsletterOnlyLabel": "I agree to receive the Formoria newsletter",
-    "newsletterOnlyDescription": "The newsletter requires email confirmation. You can unsubscribe at any time, free of charge. See our <privacyPolicy>Privacy Policy</privacyPolicy> for details.",
-    "combinedLabel": "I agree to receive Formoria newsletters and, when relevant, brand-management tips and product guidance (optional)",
-    "combinedDescription": "Newsletter delivery starts after email confirmation. Either category can be turned off later in Settings, or all of them, free of charge. See our <privacyPolicy>Privacy Policy</privacyPolicy>."
+    "newsletterOnlyDescription": "The newsletter requires email confirmation. You can unsubscribe at any time, free of charge. See our <privacyPolicy>Privacy Policy</privacyPolicy> for details."
   },
   "brands": {
     "breadcrumbAria": "Brand directory breadcrumb",
@@ -189,7 +171,6 @@
       "trigger": "Filters ({count})",
       "all": "All",
       "category": "Category",
-      "priceRange": "Price range",
       "material": "Material",
       "brandStatus": "Brand status",
       "appliedHint": "Select × on a tag to remove that filter.",
@@ -201,7 +182,6 @@
       "activeCategory": "Category",
       "activeSubcategory": "Subcategory",
       "activeMaterial": "Material",
-      "activePrice": "Price range",
       "activeStatus": "Brand status",
       "removeFilter": "Remove {label}: {value}",
       "clearAll": "Clear all",
@@ -229,72 +209,12 @@
     "card": {
       "foundingYear": "Est. {year}",
       "viewBrand": "View brand",
-      "verifiedLabel": "Managed by the brand owner",
-      "verifiedBadge": "Claimed",
       "mitVerifiedBadge": "MIT",
       "mitDeclaredBadge": "MIT Declared"
     },
     "verificationFilter": {
       "all": "All",
-      "mit-verified": "MIT Verified",
-      "mit-declared": "MIT Declared",
-      "owned": "Owner-managed"
-    },
-    "claimCta": {
-      "submitError": "Something went wrong. Please try again.",
-      "communityTitle": "Is this your brand?",
-      "communityListing": "Claim it to manage your brand and build trust.",
-      "claimButton": "Claim this brand",
-      "proofHeading": "Submit claim proof",
-      "pickOneInstruction": "Provide any one of the following proofs of ownership",
-      "stillNeed": "Select one proof to continue",
-      "readyToSubmit": "Ready to submit",
-      "noteLabel": "Note (optional)",
-      "uploadingLabel": "Uploading…",
-      "invalidUploadType": "Choose a supported file type.",
-      "fileTooLarge": "File size must be under 5MB.",
-      "uploadFailed": "Upload failed. Please try again.",
-      "pendingTitle": "Claim request received",
-      "pendingBody": "We'll review the ownership proof and email the result.",
-      "pendingDomainEmailBody": "A verification email has been sent to {email}. Open the link in that email to complete verification.",
-      "mitCertLabel": "MIT Smile Mark number (optional)",
-      "mitCertHint": "Add it to earn an additional \"MIT verified\" badge.",
-      "proofTypes": {
-        "domainEmail": {
-          "label": "Brand domain email",
-          "description": "Enter an email address using the brand's domain (for example, you@yourbrand.com)",
-          "emailLabel": "Domain email",
-          "placeholder": "you@yourbrand.com",
-          "helperText": "We'll email a verification link to this address — click it to confirm."
-        },
-        "backendScreenshot": {
-          "label": "Admin/backend screenshot",
-          "description": "Upload a screenshot showing you manage this brand's official account or store",
-          "loginNote": "Must show a logged-in state — not a public page.",
-          "examples": [
-            "Instagram / social: your logged-in profile page (showing the Edit profile button) or the professional dashboard",
-            "Online store: your store admin dashboard (Shopify, your site admin, marketplace seller center, etc.)"
-          ],
-          "uploadLabel": "Upload backend screenshot",
-          "uploadHint": "JPG / PNG, max 5MB"
-        },
-        "businessDoc": {
-          "label": "Business registration document",
-          "description": "A registration document showing the responsible person's name",
-          "privacyNote": "Uploads are private and visible only to reviewers. After approval or rejection, deletion starts immediately and retries automatically if needed. Unsubmitted uploads are removed after 24 hours. You may black out everything except your business number, business name, and responsible person's name.",
-          "uploadLabel": "Upload business registration document",
-          "uploadHint": "PDF / JPG / PNG, max 5MB"
-        }
-      },
-      "notesLabel": "Notes (optional)",
-      "notesPlaceholder": "Add any helpful context.",
-      "city": "Brand City/County",
-      "cityPlaceholder": "Select city (optional)",
-      "signIn": "Sign in",
-      "submitting": "Submitting claim...",
-      "submit": "Submit claim request",
-      "cancel": "Cancel",
-      "whyClaim": "Why claim?"
+      "mit-declared": "MIT Declared"
     },
     "loadingAria": "Loading brands...",
     "noResultsInSuggestions": "No results found"
@@ -359,7 +279,6 @@
       "brandSiteCta": "Go to the brand's website"
     },
     "verified": "Brand-managed",
-    "verifiedTitle": "Managed by the brand owner",
     "mitVerified": "MIT Verified",
     "mitVerifiedTitle": "Verified against the MIT Smile registry",
     "mitDeclared": "MIT Declared",
@@ -372,7 +291,6 @@
       "location": "Location",
       "foundingYear": "Founded",
       "category": "Brand category",
-      "priceRange": "Price",
       "subcategories": "Product subcategory",
       "certification": "Verification"
     },
@@ -398,8 +316,7 @@
       "threads": "Threads",
       "facebook": "Facebook",
       "instagram": "Instagram",
-      "instagramCopied": "Link copied — paste it into your story or bio",
-      "close": "Close"
+      "instagramCopied": "Link copied — paste it into your story or bio"
     },
     "links": {
       "socialPlatforms": "Social Platforms",
@@ -452,14 +369,15 @@
       "reportFieldOther": "Other",
       "notesLabel": "Additional notes (optional)",
       "notesPlaceholder": "Provide any details that will help us review this report",
-      "submitting": "Submitting...",
+      "submitting": "Submitting…",
       "submit": "Submit Report",
       "errors": {
         "missingBrandId": "Missing brand ID",
         "invalidReason": "Please select a valid report reason",
         "notesTooLong": "Additional notes must be 1000 characters or fewer",
         "rateLimited": "Too many reports. Please try again later.",
-        "unknown": "An unknown error occurred"
+        "unknown": "An unknown error occurred",
+        "notLoggedIn": "Please sign in to submit a report"
       }
     },
     "evidence": {
@@ -513,20 +431,19 @@
       }
     },
     "correction": {
-      "trigger": "Something wrong?",
+      "trigger": "Report incorrect information",
       "title": "Correct brand information",
       "purchaseTrigger": "Provide a purchase link",
       "purchaseTitle": "Provide a purchase link",
-      "purchaseFieldPickerLabel": "Which online store are you adding?",
+      "purchaseFieldPickerLabel": "Online store link",
       "purchaseFieldPickerPlaceholder": "Choose an online store…",
       "purchaseUrlLabel": "Link URL",
       "purchaseUrlPlaceholder": "https://example.com/shop",
       "socialTrigger": "Provide a social link",
       "socialTitle": "Provide a social link",
-      "socialFieldPickerLabel": "Which social profile are you adding?",
+      "socialFieldPickerLabel": "Social channel",
       "socialFieldPickerPlaceholder": "Choose a social profile…",
-      "close": "Close",
-      "fieldPickerLabel": "Which field is wrong?",
+      "fieldPickerLabel": "Field to correct",
       "fieldPickerPlaceholder": "Choose a field…",
       "description": "Thanks for the suggestion! Formoria reviews every submission and decides whether to update the listing.",
       "submitting": "Submitting…",
@@ -556,7 +473,6 @@
     },
     "adminMenu": {
       "label": "Admin menu",
-      "viewAsOwner": "Brand view",
       "editFields": "Edit Fields",
       "hideBrand": "Hide Brand"
     },
@@ -590,10 +506,6 @@
         "formoria": "Confirmed by Formoria",
         "evidence": "From the official website",
         "evidenceOther": "Source verified"
-      },
-      "ownerBanner": {
-        "confirm": "Confirm sold here",
-        "reject": "Not sold here"
       },
       "dialog": {
         "title": "Provide a stockist",
@@ -639,20 +551,6 @@
       "subtext": "{count} other brands in this category",
       "viewAll": "View all"
     },
-    "claim": {
-      "errors": {
-        "notLoggedIn": "Please sign in to submit a claim",
-        "missingBrandId": "Missing brand ID",
-        "invalidProofType": "Please choose a valid proof type",
-        "invalidProofUrl": "Please enter a valid proof URL",
-        "invalidProofEmail": "Please enter a valid brand domain email",
-        "proofEvidenceRequired": "Each proof needs the required evidence",
-        "proofsMin": "Please provide at least 1 proof",
-        "invalidImageKey": "Uploaded proof image is not valid for this user",
-        "duplicate": "A claim for this brand has already been submitted",
-        "unknown": "Something went wrong. Please try again."
-      }
-    },
     "brandFaq": {
       "listSeparator": ", ",
       "channels": {
@@ -660,11 +558,6 @@
         "pinkoi": "Pinkoi",
         "shopee": "Shopee",
         "myship": "7-ELEVEN MyShip"
-      },
-      "priceRanges": {
-        "budget": "budget-friendly",
-        "midRange": "mid-range",
-        "premium": "premium"
       },
       "context": {
         "city": "based in {city}",
@@ -680,10 +573,6 @@
         "question": "What are {brandName}'s main products?",
         "answerWithCategoryAndSubcategories": "{brandName} focuses on {category}, with signature products including {subcategories}.{context}",
         "answerWithSubcategories": "{brandName} makes {subcategories} as signature products.{context}"
-      },
-      "priceRange": {
-        "question": "Which price tier does {brandName} fall into?",
-        "answer": "{brandName} products are positioned in the {range} price range."
       },
       "reputation": {
         "question": "What is {brandName}'s reputation?",
@@ -1061,7 +950,7 @@
       },
       "dataUse": {
         "heading": "Data Usage",
-        "body": "Brand data collected by Formoria is used to build and maintain the directory, provide discovery and curation features, improve data quality, support brand owners in maintaining their pages, and showcase Taiwanese brands. We do not sell your personal information or brand data to third parties. Data use is governed by these terms and our privacy policy."
+        "body": "Brand data collected by Formoria is used to build and maintain the directory, provide discovery and curation features, improve data quality, and showcase Taiwanese brands. We do not sell your personal information or brand data to third parties. Data use is governed by these terms and our privacy policy."
       },
       "automatedAccess": {
         "heading": "Automated Access and Data Extraction",
@@ -1070,7 +959,7 @@
       },
       "reviewProcess": {
         "heading": "Brand Review Process",
-        "body": "New brand recommendations and owner-provided details are subject to manual review before they are published. Edits to an existing brand are scanned automatically: clean changes are published immediately, while blocked changes are not published until corrected. Formoria reserves the right to reject or remove any brand information that does not meet our platform standards, without liability to the person who provided it. Approval does not constitute endorsement or certification of the brand by Formoria."
+        "body": "New brand recommendations are subject to manual review before they are published. Edits to an existing brand are scanned automatically: clean changes are published immediately, while blocked changes are not published until corrected. Formoria reserves the right to reject or remove any brand information that does not meet our platform standards, without liability to the person who provided it. Approval does not constitute endorsement or certification of the brand by Formoria."
       },
       "disclaimer": {
         "heading": "Disclaimer",
@@ -1095,7 +984,7 @@
       },
       "purpose": {
         "heading": "Purpose of Use",
-        "body": "We collect personal data to build and maintain the Taiwan brand directory, provide discovery and search, improve brand information, prevent spam and abuse, improve the service, and send recommendation, claim, verification, security, and account-related notices. We send newsletters or owner lifecycle content such as operating reminders and feature guidance only after separate consent; you can turn off either marketing category independently. Declining marketing email does not affect brand recommendations, account creation, or core service access."
+        "body": "We collect personal data to build and maintain the Taiwan brand directory, provide discovery and search, improve brand information, prevent spam and abuse, improve the service, and send recommendation, claim, verification, security, and account-related notices. We send the newsletter only after separate consent, and you can turn it off at any time. Declining marketing email does not affect brand recommendations, account creation, or core service access."
       },
       "thirdParty": {
         "heading": "Third-Party Services",
@@ -1132,8 +1021,7 @@
     "intro": "Inclusion rules, curation labels, where to buy — the questions we are asked most, gathered here. If the answer is not here, please <contact>contact us</contact>.",
     "sections": {
       "navigation": "FAQ sections",
-      "general": "General",
-      "forOwners": "For Brand Owners"
+      "general": "General"
     },
     "items": {
       "whatIsFormoria": {
@@ -1150,7 +1038,7 @@
       },
       "whoCanSubmit": {
         "question": "Who can recommend a brand?",
-        "answer": "Anyone can recommend a brand — you do not need to be the owner. Brand owners can also use the owner flow to provide complete details and claim the listing after approval."
+        "answer": "Anyone can recommend a brand — you do not need to be the owner."
       },
       "taiwaneseBrandCriteria": {
         "question": "What counts as a Taiwanese brand?",
@@ -1180,10 +1068,6 @@
         "question": "Is it free to list a brand on Formoria?",
         "answer": "Yes. Recommending a brand to Formoria is free, and brand owners, fans, and community members are all welcome to help build the Taiwanese brand directory."
       },
-      "ownerInterest": {
-        "question": "I own a brand — can I manage my own brand page?",
-        "answer": "Yes. On the brand page, select “Claim this brand” and submit one piece of ownership proof for our review; once it is approved you can edit brand details, product highlights, and online store and stockist information, and submit an MIT brand declaration. If the brand page is already claimed, the claim button will not appear — tell us on the contact page. While a claim is under review the page stays with our team, and corrections can be reported directly on the brand page. For any other owner tools, tell us on the <link>feature request board</link>."
-      },
       "whatCategories": {
         "question": "What product categories does Formoria cover?",
         "answer": "Formoria covers twelve categories: Fashion & Apparel, Bags & Accessories, Jewelry, Beauty & Personal Care, Home & Living, Food & Beverage, Stationery & Design, Tech & Electronics, Outdoor & Camping, Sports & Fitness, Kids & Baby, and Pets."
@@ -1194,7 +1078,7 @@
       },
       "howVerified": {
         "question": "How does brand verification work?",
-        "answer": "Listing review checks that a brand exists and meets our inclusion criteria. Owner verification confirms who may manage the page. Manufacturing signals are separate: MIT Verified is matched to the official MIT Smile registry, while MIT Declared records the scope stated by the brand owner."
+        "answer": "Listing review checks that a brand exists and meets our inclusion criteria. Manufacturing signals are separate: MIT Verified is matched to the official MIT Smile registry, while MIT Declared records the scope stated by the brand owner."
       },
       "contact": {
         "question": "How do I contact the Formoria team?",
@@ -1218,11 +1102,6 @@
         "body": "Something broken, a page that won't load, or an error message while using the site? Email us — a page URL and a screenshot help us fix it faster.",
         "cta": "Email us"
       },
-      "feature": {
-        "title": "Request a feature",
-        "body": "Want Formoria to do more? Post your idea on the feature request board, and upvote the ideas other people have already asked for.",
-        "cta": "Open the request board"
-      },
       "brand": {
         "title": "Something wrong with a brand",
         "body": "Every brand page has its own report and correction dialogs. Submitting there goes straight into our review queue, which is faster than email.",
@@ -1238,10 +1117,10 @@
   "about": {
     "metadata": {
       "title": "About Formoria",
-      "description": "How Formoria works: the inclusion rules, editorial choices, and labels behind a Taiwanese brand discovery and curation platform."
+      "description": "Why Formoria exists: four broken paths, and how we connect them. From one thing you love, to its brand, its story, and the place you can buy it."
     },
     "hero": {
-      "title": "Moving into a new home, setting up a shop, stopping at a market stall",
+      "title": "Moving into a new home, setting up a shop,\nstopping at a market stall",
       "subtitle": "Something you love shouldn't stay a chance encounter. Formoria reconnects the path after that moment: from one thing you love, to its brand, its story, and the place you can buy it.",
       "statsBrands": "brands",
       "statsCategories": "categories",
@@ -1249,105 +1128,79 @@
       "recentMonth": "new brands",
       "cta": "Explore brands"
     },
-    "audiences": {
-      "heading": "Two ways to look, one connected path",
-      "intro": "Some visitors do not know a name yet and want to start with a way of living, a use, or a preference. Others already know a brand or category and want to research it clearly. Formoria serves both kinds of discovery.",
-      "wander": {
-        "heading": "When you do not know the name",
-        "body": "Moving into a new home, changing a lamp, wanting one corner to feel different — start from a situation or plain curiosity and meet products and brands across categories."
-      },
-      "research": {
-        "heading": "When you know the direction",
-        "body": "Search for a brand or category, then review brand information, product highlights, online stores, and stockists."
+    "scenes": {
+      "heading": "Four paths that break",
+      "items": {
+        "intention": {
+          "scene": "Moving into a new home, wanting one corner of the living room to feel different — and ending up in IKEA again.",
+          "detail": "There is no place to browse Taiwanese things by taste, occasion, or budget, so the convenient default wins."
+        },
+        "encounter": {
+          "scene": "Meeting a brand you love at a design fair, then losing the thread on the way home.",
+          "detail": "The moment leaves nothing behind. Later, all that is left is a vague impression."
+        },
+        "alternatives": {
+          "scene": "Finding a cup you like, without knowing what else is out there.",
+          "detail": "Similar Taiwanese products live on scattered sites, with no way to see them side by side."
+        },
+        "adjacent": {
+          "scene": "Liking how one brand works, and wanting to know others that work the same way.",
+          "detail": "Loving one brand leads nowhere; brands with the same spirit are invisible to each other."
+        }
       }
     },
-    "mission": {
-      "heading": "Formoria's three roles",
-      "statement": "Formoria is a Taiwanese brand discovery and curation platform. It currently starts with a searchable directory of listed brands, bringing together brand information, product highlights, and each brand's own online stores and stockists; content selected by Formoria is labelled separately.",
-      "context": "Directory listing, editorial selection, and the route to purchase each have a clear boundary, so visitors know what they are seeing and who owns the next step.",
-      "directory": {
-        "heading": "An inclusive brand directory",
-        "body": "Organize Taiwanese brands under public listing rules, making known names searchable and giving different parts of life a place to begin exploring."
-      },
-      "editorial": {
-        "heading": "Selective editorial",
-        "body": "Formoria uses “Formoria Selection” only for products or content deliberately chosen for a situation, use, preference, or editorial argument, described for what it is and where to order it from the brand."
-      },
-      "connection": {
-        "heading": "A connection to real online stores and stockists",
-        "body": "Provide the next step to a brand's official website or a stockist. Formoria does not accept orders or guarantee price, inventory, or transaction outcomes."
-      }
-    },
-    "trust": {
-      "heading": "Understand every label",
-      "intro": "These four labels explain why something appears on Formoria and who is responsible for it.",
-      "listed": {
-        "heading": "收錄品牌 (Listed brand)",
-        "body": "A brand that meets Formoria's directory rules and can be found in the searchable record. Inclusion is not Formoria endorsement, selection, certification, ranking, or a promise about current products."
-      },
-      "selected": {
-        "heading": "Formoria 選物 (Formoria Selection)",
-        "body": "A product or content item deliberately chosen for a stated situation, use, preference, or editorial argument. The rationale belongs to Formoria; it is not a claim that the item is universally best or the complete brand catalogue."
-      },
-      "brandProvided": {
-        "heading": "品牌提供 (Brand-provided)",
-        "body": "Facts, images, sources, or corrections supplied by a brand. Participation does not guarantee coverage or give the brand control over selection, ordering, rationale, or interpretation."
-      },
-      "sponsored": {
-        "heading": "贊助內容 (Sponsored content)",
-        "body": "Paid or commercial content is clearly labelled and kept distinct. It cannot enter organic selection or ranking logic, and relevant relationships are disclosed at the point of action."
-      },
-      "commerceHeading": "Who owns the purchase",
-      "formoriaOwns": "Formoria owns inspiration, selection, context, and the outbound route.",
-      "merchantOwns": "Brands or retailers remain responsible for price, variants, inventory, checkout, fulfilment, and after-sales service."
-    },
-    "vision": {
-      "sectionHeading": "Our Vision",
-      "heading": "Build an online select space for Taiwanese brands where people can browse at their own pace, discover new preferences, get to know the brands behind the products, then continue to the brands' own online stores and stockists.",
-      "body": "This is a long-term direction, not a claim that Formoria currently accepts orders, holds inventory, processes payments, or provides after-sales service.",
-      "principleHeading": "Transactions stay with brands and retailers",
-      "principleBody": "Formoria owns inspiration, selection, context, and the outbound route; brands or retailers remain responsible for price, variants, inventory, checkout, fulfilment, and after-sales service."
+    "loop": {
+      "heading": "Connecting the path",
+      "body1": "Formoria is a directory of Taiwanese brands — not a shop, not a platform, not a magazine. We gather what is known about each brand, sort it, and put it in one place, so you can look by what you actually need.",
+      "body2": "From one thing you love, you can reach the brand that makes it, read how it came to be, and go to the place that sells it. That path used to break. We connect it.",
+      "pullQuote": "Formoria never owns the transaction. We connect liking something to the place that sells it, and hand you over to the brand.",
+      "brandHeading": "For brands",
+      "brandBody": "Taiwan makes a great deal of good work, scattered across separate worlds and hard to find. Formoria gathers these brands so the right people can find them, get to know them, and go to the brand's own website or a stockist. We take no commission and sell nothing ourselves — we get good things seen, and sold."
     },
     "taiwanStats": {
-      "heading": "Why supporting Taiwan's small businesses matters",
-      "intro": "Small and medium enterprises employ nearly 80% of Taiwan's workforce; supporting a local brand means supporting everyday life across the island.",
+      "heading": "The scale of Taiwan's small businesses",
+      "intro": "The people we work for are the largest and quietest part of Taiwan's economy.",
       "items": {
         "count": {
-          "value": "1.67M+ SMEs",
-          "label": "Taiwan is home to"
+          "value": "1.674M+",
+          "label": "Taiwanese SMEs"
         },
         "share": {
-          "value": "98% of all businesses",
-          "label": "SMEs account for"
+          "value": "98%",
+          "label": "of all businesses"
         },
         "employment": {
-          "value": "nearly 80% of the workforce",
-          "label": "SMEs employ"
+          "value": "Nearly 80%",
+          "label": "of national employment, at SMEs"
         }
       },
-      "note": "Together they generate over NT$28 trillion in annual sales — more than half of all enterprise revenue. Backing one Taiwan brand backs the everyday life of the island.",
       "sourceLabel": "Source",
       "sourceName": "SME White Paper 2024, SME & Startup Administration, MOEA (2023 data)"
     },
+    "stance": {
+      "heading": "How we work",
+      "items": {
+        "boundary": {
+          "lead": "We hand you to the brand.",
+          "body": "Price, options, stock, checkout, shipping, and after-sales all belong to the brand. Formoria takes no orders and holds no inventory."
+        },
+        "noPayToWin": {
+          "lead": "Paying changes no order.",
+          "body": "Payment does not affect whether a brand is listed, what gets selected, or the order things appear in. Paid or commercial content is always labelled and kept separate."
+        },
+        "incomplete": {
+          "lead": "What is here is selected, not everything.",
+          "body": "The directory lists every brand that meets the published rules. A selection is a separate thing — the few we deliberately chose and gave a reason for. Not finding something here does not mean it does not exist."
+        },
+        "judgment": {
+          "lead": "The judgement is ours, and we show it.",
+          "body": "Formoria has a point of view and writes down the reasoning behind a choice, rather than posing as a neutral database."
+        }
+      }
+    },
     "guide": {
-      "heading": "Ready to use Formoria?",
-      "cta": "Get started →"
-    }
-  },
-  "mySubmissions": {
-    "metadata": {
-      "title": "My Recommendations"
-    },
-    "heading": "My Recommendations",
-    "subheading": "View all recommended brands",
-    "empty": {
-      "message": "No brands recommended yet.",
-      "cta": "Recommend a Brand"
-    },
-    "status": {
-      "pending": "Under Review",
-      "approved": "Approved",
-      "rejected": "Rejected"
+      "heading": "Ready to explore Taiwanese brands?",
+      "cta": "Browse brands →"
     }
   },
   "auth": {
@@ -1362,7 +1215,6 @@
       "heading": "Sign In",
       "metaTitle": "Sign In",
       "subheading": "Enter your email and password to continue",
-      "claimMessage": "Sign in to claim <strong>{brandName}</strong> on Formoria.",
       "emailLabel": "Email",
       "passwordLabel": "Password",
       "forgotPassword": "Forgot password?",
@@ -1403,7 +1255,6 @@
     "signUp": {
       "heading": "Create Account",
       "subheading": "Fill in the basics to get started",
-      "claimMessage": "This is an invitation to claim <strong>{brandName}</strong> on Formoria. Create an account to manage this brand page.",
       "emailLabel": "Email",
       "passwordLabel": "Password",
       "passwordPlaceholder": "At least 8 characters",
@@ -1421,10 +1272,8 @@
     "menuLabel": "Account",
     "favorites": "Saved Brands",
     "contributions": "My Contributions",
-    "mySubmissions": "My Recommendations",
     "signOut": "Sign out",
-    "settings": "Settings",
-    "feedback": "Feature requests"
+    "settings": "Settings"
   },
   "favorites": {
     "metadata": {
@@ -1467,12 +1316,10 @@
     "emailLabel": "Email",
     "localePreferenceLabel": "Language Preference",
     "marketingHeading": "Marketing email",
-    "marketingDescription": "Manage newsletters and optional owner guidance separately. Account verification, password resets, and review results are unaffected.",
+    "marketingDescription": "The newsletter is optional, off until you turn it on, and can be turned off again at any time. Account verification, password resets, and review results are unaffected.",
     "newsletterMarketingLabel": "Formoria newsletter",
     "newsletterMarketingDescription": "Brand stories, new brands, and curated trends. Email confirmation is required when enabling this category.",
     "newsletterPending": "Confirmation sent; newsletter delivery starts only after you confirm your email.",
-    "lifecycleMarketingLabel": "Brand-management tips and product guidance",
-    "lifecycleMarketingDescription": "Optional operating reminders, usage tips, and feature guidance for brand owners.",
     "unsubscribeAllMarketing": "Unsubscribe from all marketing email",
     "marketingUnsubscribedAll": "You have been unsubscribed from all marketing email",
     "marketingUpdateError": "Some email preferences could not be updated. Please try again.",
@@ -1499,369 +1346,71 @@
       "uploadFailed": "The following files could not be uploaded: {files}"
     }
   },
-  "dashboard": {
-    "sidebar": {
-      "navLabel": "Dashboard navigation",
-      "overview": "Overview",
-      "info": "Brand Info",
-      "media": "Media & Photos",
-      "links": "Links & Online Stores",
-      "verification": "MIT Verification",
-      "reputation": "Reputation",
-      "analytics": "Analytics",
-      "viewBrandPage": "View Brand Page",
-      "editBrand": "Edit Brand",
-      "openMenu": "Open menu",
-      "completenessTitle": "Profile Completeness",
-      "viewMissing": "View missing items"
-    },
-    "overview": {
-      "statusPublished": "Published",
-      "statusHidden": "Not published",
-      "completionTitle": "Profile completeness",
-      "completedCount": "{completed} of {total} components complete",
-      "warningIncomplete": "{count} profile items still need attention.",
-      "viewAllTodos": "View all to-do items",
-      "analyticsUnavailable": "Analytics data is temporarily unavailable.",
-      "quickActionsTitle": "Quick Actions",
-      "quickActions": {
-        "editProfile": {
-          "description": "Update basic brand info and description"
-        },
-        "checkHealth": {
-          "description": "Review profile completeness and status"
-        },
-        "viewAnalytics": {
-          "description": "Track brand performance and trends"
-        },
-        "readFaq": {
-          "description": "Find guides and answers"
-        }
-      },
-      "todoTitle": "To-do",
-      "todoGoComplete": "Complete",
-      "todoRemaining": "{count} remaining",
-      "todoDescription": {
-        "description": "Write your brand story to attract more customers",
-        "subcategories": "Add product subcategories to improve search visibility",
-        "priceRange": "Set a price range so customers can filter",
-        "heroImage": "Upload a hero image for brand recognition",
-        "productPhotos": "Add brand and product photos",
-        "officialWebsite": "Add your official website link",
-        "city": "Add your brand's founding city",
-        "foundingYear": "Add your brand's founding year",
-        "socialPresence": "Connect social accounts for more exposure",
-        "additionalSalesChannel": "Add another online store or social link",
-        "reputation": "Add reputation sources to build credibility"
-      },
-      "todoEmpty": "All items complete!",
-      "todoVerification": "Complete MIT verification"
-    },
-    "period": {
-      "periodLabel": "Time period",
-      "7d": "Last 7 days",
-      "30d": "Last 30 days",
-      "90d": "Last 90 days"
-    },
-    "sources": {
-      "title": "Traffic Sources",
-      "labels": {
-        "direct": "Direct",
-        "search": "Internal search",
-        "category": "Category",
-        "directory": "Directory",
-        "recommendation": "Recommendation",
-        "external_search": "External search",
-        "social": "Social",
-        "external": "External",
-        "unknown": "Other"
-      }
-    },
-    "metadata": {
-      "title": "Owner Dashboard"
-    },
-    "heading": "Owner Dashboard",
-    "welcome": {
-      "title": "Brand dashboard",
-      "subtitle": "Here's how to get started with your brand page.",
-      "dismiss": "Dismiss",
-      "tips": {
-        "editProfile": "Edit your brand profile",
-        "checkHealth": "Check your brand health",
-        "viewAnalytics": "View analytics",
-        "readFaq": "Read the owner FAQ"
-      }
-    },
-    "empty": "You haven't claimed any brands yet. Once you claim a brand, it will appear here.",
-    "tabs": {
-      "profile": "Overview",
-      "analytics": "Analytics",
-      "submissions": "Updates",
-      "dashboardNav": "Dashboard navigation"
-    },
-    "emptyState": {
-      "title": "This page is for brand owners only",
-      "description": "Only logged-in brand accounts can view this page. If you own a Taiwanese brand, start by building its Formoria page.",
-      "submitCta": "Build your brand page",
-      "browseCta": "Browse brands"
-    },
-    "analytics": {
-      "pageTitle": "Analytics",
-      "profileVisits": "Profile visits",
-      "outboundClicks": "Outbound clicks",
-      "outboundClickRate": "Outbound click rate",
-      "topTrafficSource": "Top traffic source",
-      "shareOfVisits": "{share}% of visits",
-      "tooltipProfileVisits": "Unique browsing sessions that opened your brand page in the last 30 days.",
-      "tooltipOutboundClicks": "Sessions where a visitor clicked an external link from your brand page.",
-      "privacyBoundary": "An outbound click records only the moment a visitor leaves Formoria. Formoria does not track what visitors do on your own site — what happens next is visible to you alone.",
-      "tooltipOutboundClickRate": "Outbound clicks ÷ profile visits. Measures how often visitors engage with your links.",
-      "tooltipTopTrafficSource": "The most common way visitors find this brand page.",
-      "definitionAria": "Definition",
-      "sessions": "Sessions",
-      "collectingBaseline": "Collecting comparison baseline",
-      "currentRateUnavailable": "Current rate unavailable",
-      "trendTitle": "30-day traffic trend",
-      "trendAria": "30-day traffic trend chart",
-      "trendUnavailable": "Daily trend is temporarily unavailable.",
-      "trendEmpty": "No profile sessions in this window.",
-      "trafficSources": "Traffic sources",
-      "trafficSourceSearch": "Search",
-      "trafficSourceCategory": "Category pages",
-      "trafficSourceHomepage": "Homepage",
-      "trafficSourceDirect": "Direct",
-      "trafficSourceOther": "Other",
-      "trafficSourcesEmpty": "No traffic source data in this window.",
-      "outboundDestinations": "Outbound destinations",
-      "outboundDestinationWebsite": "Official Website",
-      "outboundDestinationInstagram": "Instagram",
-      "outboundDestinationThreads": "Threads",
-      "outboundDestinationFacebook": "Facebook",
-      "outboundDestinationPinkoi": "Pinkoi",
-      "outboundDestinationShopee": "Shopee",
-      "outboundDestinationMyship": "7-ELEVEN MyShip",
-      "outboundDestinationOther": "Other",
-      "destinationsEmpty": "No outbound sessions in this window.",
-      "sectionUnavailable": "This section is temporarily unavailable.",
-      "generated": "Generated",
-      "unavailableTitle": "Analytics temporarily unavailable",
-      "unavailableBody": "Analytics could not load this brand's session metrics. Try again later."
-    },
-    "profileCompleteness": {
-      "title": "Profile Completeness",
-      "completedCount": "{completed} of {total} components complete",
-      "recommendations": "Recommended Next Steps",
-      "complete": "This brand profile is complete.",
-      "priority": {
-        "required": "Required"
-      },
-      "component": {
-        "description": "Add your brand story",
-        "subcategories": "Add product subcategories",
-        "priceRange": "Choose a price range",
-        "heroImage": "Upload a hero image",
-        "productPhotos": "Upload product photos",
-        "officialWebsite": "Add your official website",
-        "city": "Add your founding city",
-        "foundingYear": "Add your founding year",
-        "socialPresence": "Connect a social account",
-        "additionalSalesChannel": "Add another online store",
-        "reputation": "Add reputation evidence"
-      }
-    },
-    "mit": {
-      "title": "MIT Verification",
-      "status": {
-        "unverified": "Not verified",
-        "declared": "MIT Declared",
-        "verified": "MIT Verified"
-      },
-      "description": {
-        "unverified": "Request MIT Smile mark verification by email to help shoppers find this brand.",
-        "verified": "This brand has been confirmed against the MIT Smile mark registry."
-      },
-      "certLabel": "MIT Certificate Number",
-      "certPlaceholder": "e.g. 01900539-00001",
-      "verifyButton": "Verify",
-      "verifySuccess": "MIT certification verified!",
-      "certNotFound": "Certificate number not found in the MIT registry",
-      "certExpired": "This MIT certificate has expired",
-      "certMismatch": "This certificate is registered to a different brand",
-      "certAlreadyClaimed": "This certificate is already attached to another brand",
-      "dismiss": "Dismiss",
-      "tier": {
-        "certTitle": "MIT Smile Mark certification",
-        "certDescription": "Enter an MIT Smile Mark number to verify the official registry entry.",
-        "declareTitle": "Brand declaration",
-        "declareDescription": "If you do not have official certification yet, declare the scope of products made in Taiwan."
-      },
-      "or": "or",
-      "declare": {
-        "scopeLabel": "Declaration scope",
-        "scope": {
-          "all": "All products",
-          "most": "Most products",
-          "some": "Some products"
-        },
-        "attestation": "I confirm that the products above are made in Taiwan and that this information is accurate.",
-        "storyLabel": "Made-in-Taiwan story (optional)",
-        "storyPlaceholder": "Share how and why your brand manufactures in Taiwan",
-        "submit": "Submit declaration",
-        "success": "Your brand declaration has been submitted."
-      },
-      "declared": {
-        "scopeLabel": "Declaration scope",
-        "dateLabel": "Declaration date",
-        "withdraw": "Withdraw declaration",
-        "withdrawSuccess": "Your brand declaration has been withdrawn."
-      },
-      "errors": {
-        "notLoggedIn": "Please sign in first.",
-        "forbidden": "You do not have permission to edit this brand.",
-        "brandNotFound": "Brand not found.",
-        "invalidScope": "Choose a valid declaration scope.",
-        "database_error": "Could not save the declaration. Please try again.",
-        "not_declared": "This brand has no declaration to withdraw.",
-        "not_found": "Brand not found.",
-        "already_verified": "This brand is already MIT verified and cannot be self-declared.",
-        "invalid_state": "This action is not available for the brand's current MIT status.",
-        "unknown": "Something went wrong. Please try again."
-      }
-    },
-    "errors": {
-      "invalidClaim": "The claim link is invalid or has expired. Please contact support.",
-      "emailMismatch": "The email you signed in with does not match the claim invitation. Please sign in with the invited email address.",
-      "claimFailed": "This brand has already been claimed. If you believe this is an error, please contact support."
-    },
-    "manage": {
-      "metaTitle": "Brand Management",
-      "subtitle": "Manage the brand page",
-      "descriptionLabel": "Description",
-      "websiteLabel": "Website",
-      "socialLinksLabel": "Social Links"
-    },
-    "edit": {
-      "metaTitle": "Edit brand",
-      "pageHeading": "Edit {name}",
-      "pageSubheading": "Update the brand listing details",
-      "sectionMedia": "Product images",
-      "sectionLinks": "Social & purchase links",
-      "fieldBrandName": "Brand name",
-      "fieldCategory": "Brand category",
-      "fieldCategoryHint": "Used for navigation, search, and filtering",
-      "fieldDescription": "Description",
-      "fieldSubcategories": "Product subcategories",
-      "subcategoriesMax": "Up to 5 subcategories. Describe products, not promotional claims.",
-      "fieldFoundingYear": "Founding Year",
-      "fieldPriceRange": "Price Range",
-      "fieldPriceRangeUnset": "Unset",
-      "fieldPriceRangeBudget": "Budget-friendly (under NT$1,000)",
-      "fieldPriceRangeMidRange": "Mid-range (NT$1,000–5,000)",
-      "fieldPriceRangePremium": "Premium (over NT$5,000)",
-      "fieldHeroImage": "Hero Image",
-      "heroImageOverviewHint": "This is the first image on your brand page and the cover shown in search results.",
-      "productPhotosOverviewHint": "These images appear after the hero image on your brand detail page.",
-      "heroImageEditHint": "One image only. This is the first image on your brand page and the cover used on masonry brand cards. Use a clear 16:9 landscape image.",
-      "fieldProductPhotos": "Product photos",
-      "productPhotosEditHint": "Add up to 9 photos showing individual products, details, or products in use. These appear in the product gallery on your brand page.",
-      "city": "Brand founding city",
-      "cityPlaceholder": "Select the brand founding city",
-      "fieldOfficialWebsite": "Official Website",
-      "fieldInstagram": "Instagram",
-      "fieldThreads": "Threads",
-      "fieldFacebook": "Facebook",
-      "fieldPinkoi": "Pinkoi",
-      "fieldShopee": "Shopee",
-      "fieldMyship": "7-ELEVEN MyShip",
-      "fieldPurchaseLinks": "Purchase Links",
-      "fieldUrlPlaceholder": "URL",
-      "fieldLabelPlaceholder": "Label",
-      "socialLinksLabel": "Social links",
-      "fieldOtherLinks": "Other links",
-      "addLink": "Add link",
-      "removeItem": "Remove",
-      "saving": "Saving...",
-      "saveDraft": "Save as draft",
-      "save": "Save changes",
-      "cancel": "Cancel",
-      "errors": {
-        "notLoggedIn": "Please sign in to edit this brand",
-        "forbidden": "You do not have permission to edit this brand",
-        "noDraft": "No draft to publish.",
-        "requiredFieldsIncomplete": "Complete all required fields before publishing.",
-        "draftConflict": "This draft is out of date because the brand changed after it was saved. Reload the draft, review the newer values, and publish again.",
-        "unknown": "An unexpected error occurred. Please try again."
-      },
-      "mitStoryLabel": "Manufacturing Story",
-      "mitStoryPlaceholder": "Share manufacturing craftsmanship, materials sourcing, and factory partnerships…",
-      "wizardProgress": "Step {current} of {total}",
-      "wizardCompletedProgress": "{completed} of {total} completed",
-      "wizardSidebarTitle": "Edit brand details",
-      "wizardSaveAndContinue": "Save & Continue",
-      "wizardBack": "Back",
-      "wizardBackToDashboard": "Back to dashboard",
-      "wizardPublish": "Publish",
-      "curationNotice": "Formoria 選物 is decided by the editorial team and is not edited here. It is an editorial judgement, not a field a brand sets.",
-      "reviewNotice": "Publishing sends your changes for review. The public brand page keeps its current content until the review finishes, then switches to this version.",
-      "wizardStepBasicInfo": "Basic Info",
-      "wizardStepBasicInfoSub": "Brand identity & details",
-      "wizardStepMedia": "Brand images",
-      "wizardStepMediaSub": "Photos & hero image",
-      "wizardStepLinks": "Social & purchase links",
-      "wizardStepLinksSub": "Social & purchase links",
-      "wizardStepReputation": "Reputation",
-      "wizardStepReputationSub": "Press & recognition",
-      "sectionReputation": "Brand Reputation",
-      "fieldReputationSummary": "Reputation summary",
-      "fieldProvenanceSources": "Provenance sources",
-      "fieldSourceUrlPlaceholder": "Source URL",
-      "addSource": "Add source",
-      "requiredHint": "indicates a required field",
-      "requiredFieldError": "Complete this required field before publishing.",
-      "fieldDescriptionHint": "Public description shown on the brand page",
-      "fieldFoundingYearHint": "Shown on the brand page",
-      "mitStoryHint": "Shown on the brand page if provided",
-      "cityHint": "Your brand will be shown on the map if provided",
-      "fieldPriceRangeHint": "Used for filtering",
-      "unsavedChanges": "Unsaved changes",
-      "violationSummary": "Some fields need attention before publishing.",
-      "slugChangeBlocked": "Your brand URL is based on this name. To change it, contact us.",
-      "moderation": {
-        "suspiciousTld": "This link uses a high-risk domain ending. Replace it with your official website on a standard domain such as .com or .tw.",
-        "excessiveUrls": "This field contains too many links. Keep it to three links or fewer.",
-        "englishSpam": "This field contains promotional spam language. Remove phrases such as “click here” or “buy now”.",
-        "contactInjectionPhone": "Phone numbers are not allowed in this field. Remove the number and use an approved link for contact details instead.",
-        "contactInjectionEmail": "Email addresses are not allowed in this field. Remove the address and use an approved link for contact details instead.",
-        "excessiveEmoji": "This field contains too many emoji. Keep it to ten emoji or fewer.",
-        "shortDescription": "This description is too short. Add a fuller description with at least ten Chinese characters.",
-        "identicalDescription": "This description repeats the brand name. Explain what the brand makes instead."
-      },
-      "subcategoriesSearchHint": "Type to filter, then pick a subcategory below.",
-      "subcategoriesSelectedHeading": "Selected (tap to remove)",
-      "subcategoriesOptionsHeading": "Subcategories you can add",
-      "subcategoriesRejected": "That term is not in the subcategory list. Pick the closest one from the list below.",
-      "subcategoriesEmpty": "No subcategory matches that search. Try another word."
-    },
-    "brandProfile": {
-      "productPhotos": "Product Photos",
-      "priceRange": "Price Range",
-      "purchaseLinks": "Purchase Links",
-      "socialLinks": "Social Links",
-      "verified": "Verified",
-      "founded": "Founded",
-      "notSet": "Not set",
-      "sectionBasicInfoHint": "The core information shown on the public page, to help visitors quickly understand this brand.",
-      "sectionBrandImagesHint": "Manage the brand images shown in search results and on your public brand page.",
-      "sectionLinksHint": "Keep official social profiles, websites, and online stores together so visitors can find this brand more easily.",
-      "sectionVerification": "Manufacturing verification",
-      "sectionVerificationHint": "Match an MIT Smile registry entry to show verification for the products covered by that entry.",
-      "sectionReputationHint": "Add press coverage, awards, and external references that strengthen brand credibility.",
-      "website": "Website",
-      "pinkoi": "Pinkoi",
-      "shopee": "Shopee",
-      "link": "Link",
-      "edit": "Edit"
-    }
+  "brandFields": {
+    "metaTitle": "Edit brand",
+    "pageHeading": "Edit {name}",
+    "sectionMedia": "Product images",
+    "sectionLinks": "Social & purchase links",
+    "fieldBrandName": "Brand name",
+    "fieldCategory": "Brand category",
+    "fieldCategoryHint": "Used for navigation, search, and filtering",
+    "fieldDescription": "Description",
+    "fieldSubcategories": "Product subcategories",
+    "subcategoriesMax": "Up to 5 subcategories. Describe products, not promotional claims.",
+    "fieldFoundingYear": "Founding Year",
+    "fieldHeroImage": "Hero Image",
+    "heroImageEditHint": "One image only. This is the first image on your brand page and the cover used on masonry brand cards. Use a clear 16:9 landscape image.",
+    "fieldProductPhotos": "Product photos",
+    "productPhotosEditHint": "Add up to 9 photos showing individual products, details, or products in use. These appear in the product gallery on your brand page.",
+    "city": "Brand founding city",
+    "cityPlaceholder": "Select the brand founding city",
+    "fieldOfficialWebsite": "Official Website",
+    "fieldInstagram": "Instagram",
+    "fieldThreads": "Threads",
+    "fieldFacebook": "Facebook",
+    "fieldPinkoi": "Pinkoi",
+    "fieldShopee": "Shopee",
+    "fieldMyship": "7-ELEVEN MyShip",
+    "fieldPurchaseLinks": "Purchase Links",
+    "fieldUrlPlaceholder": "URL",
+    "fieldLabelPlaceholder": "Label",
+    "socialLinksLabel": "Social links",
+    "fieldOtherLinks": "Other links",
+    "addLink": "Add link",
+    "removeItem": "Remove",
+    "saving": "Saving...",
+    "saveDraft": "Save as draft",
+    "save": "Save changes",
+    "cancel": "Cancel",
+    "mitStoryLabel": "Manufacturing Story",
+    "mitStoryPlaceholder": "Share manufacturing craftsmanship, materials sourcing, and factory partnerships…",
+    "wizardProgress": "Step {current} of {total}",
+    "wizardCompletedProgress": "{completed} of {total} completed",
+    "wizardSidebarTitle": "Edit brand details",
+    "wizardSaveAndContinue": "Save & Continue",
+    "wizardBack": "Back",
+    "wizardPublish": "Publish",
+    "wizardStepBasicInfo": "Basic Info",
+    "wizardStepBasicInfoSub": "Brand identity & details",
+    "wizardStepMedia": "Brand images",
+    "wizardStepMediaSub": "Photos & hero image",
+    "wizardStepLinks": "Social & purchase links",
+    "wizardStepLinksSub": "Social & purchase links",
+    "wizardStepReputation": "Reputation",
+    "wizardStepReputationSub": "Press & recognition",
+    "requiredHint": "indicates a required field",
+    "requiredFieldError": "Complete this required field before publishing.",
+    "fieldDescriptionHint": "Public description shown on the brand page",
+    "fieldFoundingYearHint": "Shown on the brand page",
+    "mitStoryHint": "Shown on the brand page if provided",
+    "cityHint": "Your brand will be shown on the map if provided",
+    "unsavedChanges": "Unsaved changes",
+    "slugChangeBlocked": "Your brand URL is based on this name. To change it, contact us.",
+    "subcategoriesSearchHint": "Type to filter, then pick a subcategory below.",
+    "subcategoriesSelectedHeading": "Selected (tap to remove)",
+    "subcategoriesOptionsHeading": "Subcategories you can add",
+    "subcategoriesRejected": "That term is not in the subcategory list. Pick the closest one from the list below.",
+    "subcategoriesEmpty": "No subcategory matches that search. Try another word."
   },
   "errors": {
     "notFound": {
@@ -1899,18 +1448,11 @@
       "ownerEyebrow": "Brand owner",
       "ownerComingSoon": "Coming soon",
       "ownerTitle": "Start your brand management flow",
-      "ownerDescription": "Best for founders, operators, and brand teams. After approval, we’ll send the invitation to claim and manage the listing.",
+      "ownerDescription": "Best for founders, operators, and brand teams. After approval, we’ll be in touch about managing the listing.",
       "ownerPoint1": "Provide core brand details and representative links",
-      "ownerPoint2": "Complete the owner claim flow, and we’ll send an invitation after approval",
-      "ownerPoint3": "Then manage the brand page from the dashboard",
-      "ownerCta": "Sign in to start",
-      "ownerCtaLoggedIn": "Build my brand page",
-      "ownerLimitTitle": "This account already manages a brand",
-      "ownerLimitDescription": "Each account can manage only one brand, so another page can’t be built through the brand owner flow. To share a different brand, use the community recommendation flow.",
-      "ownerLimitRecommendCta": "Recommend a brand",
-      "ownerLimitCancelCta": "Cancel",
-      "ownerLimitCloseCta": "Close",
-      "ownerLimitNavigationError": "We couldn’t open the recommendation flow. Please try again."
+      "ownerPoint2": "Submit your brand for review, and we’ll be in touch once it’s approved",
+      "ownerPoint3": "Once the page is listed on Formoria, you keep the brand’s details up to date",
+      "ownerCtaLoggedIn": "Build my brand page"
     },
     "wizard": {
       "heading": "Recommend a Brand",
@@ -2042,23 +1584,14 @@
       },
       "heading": "Thanks for the recommendation!",
       "subheading": "We’ve received your brand recommendation",
-      "ownerSubheading": "We’ve received your brand details",
-      "communityOwnershipNotice": "Because this account already manages a brand, the recommendation was accepted as a community listing and cannot be claimed by this account.",
       "timeline": {
         "review": {
           "label": "Under Review",
           "description": "Our team typically completes the review within 2 business days"
         },
-        "ownerReview": {
-          "description": "Our team typically completes the review within 2 business days"
-        },
         "result": {
           "label": "Brand Listing",
           "description": "Once reviewed, approved brands appear in the Formoria directory. If an email address was provided, we’ll send the review result."
-        },
-        "ownerResult": {
-          "label": "Claim Invitation",
-          "description": "If approved, we’ll send a claim invitation next, followed by the ownership-proof flow."
         }
       },
       "cta": {
@@ -2081,7 +1614,7 @@
         },
         "learnMore": {
           "question": "Want to learn more?",
-          "answer": "Want to learn more about Formoria? Check out our <link>Getting Started guide</link>."
+          "answer": "For details about reviews, brand claims, and updating information, read our <link>FAQ</link>."
         }
       }
     },
@@ -2127,53 +1660,6 @@
       "suggestedUrl": "Suggested URL:",
       "applySuggestion": "Apply"
     },
-    "ownerForm": {
-      "heading": "Build Your Brand Page",
-      "subheading": "Provide your brand details first. After approval, we’ll send the claim invitation.",
-      "websiteLabel": "Official Brand Website",
-      "websiteHint": "Use your main website. We’ll use it as the anchor for review and later claim steps.",
-      "websitePlaceholder": "https://yourbrand.com",
-      "brandNameLabel": "Brand Name",
-      "brandNamePlaceholder": "e.g. Warmwood Living",
-      "brandNameHint": "Use the official public brand name. It will shape both the listing and the later claim flow.",
-      "romanizedNameLabel": "Brand English Name",
-      "romanizedNameHint": "If not provided, Wade-Giles romanization will be used for the brand URL",
-      "romanizedNamePlaceholder": "e.g. Din Tai Fung",
-      "urlPreviewLabel": "Public brand URL",
-      "urlPreviewHint": "URL changes from dashboard edits are applied after review. Clearing the romanized name keeps the current URL.",
-      "descriptionLabel": "Brand Description",
-      "descriptionHint": "A short brand description helps us review and structure the listing faster.",
-      "descriptionPlaceholder": "Tell us what you make, how the brand is connected to Taiwan, and what defines it.",
-      "cityHint": "Add the brand’s city so customers can discover local brands.",
-      "requiredHint": "indicates a required field",
-      "submitButton": "Send Brand Details",
-      "submittingButton": "Sending…",
-      "suggestedName": "Suggested name:",
-      "suggestedUrl": "Suggested URL:",
-      "applySuggestion": "Apply"
-    },
-    "ownerFork": {
-      "heading": "Choose How to Build Your Brand Page",
-      "description": "Pick the option that best fits your time and needs.",
-      "quickTitle": "Add Basic Brand Info",
-      "quickDescription": "Our system fills in as much brand information as it can from the web, based on the basics entered, but accuracy is not guaranteed. Suited to owners short on time — plan to check it over afterwards.",
-      "quickPoint1": "Just provide brand name, official website, and description",
-      "quickPoint2": "System fills in brand information from what you enter",
-      "quickPoint3": "Data enrichment completed within 3 business days",
-      "quickCta": "Start Quick Setup",
-      "detailsTitle": "Provide Full Brand Details",
-      "detailsDescription": "Fill in the complete brand information yourself, so every detail is presented the way the brand decides.",
-      "detailsPoint1": "Write your brand story and product descriptions",
-      "detailsPoint2": "Upload brand logo, cover photo, and product images",
-      "detailsPoint3": "Add social accounts, website, and online stores",
-      "detailsCta": "Fill in Details"
-    },
-    "quickForm": {
-      "heading": "Quick Brand Page Setup",
-      "subheading": "Provide basic info — we'll auto-enrich the rest from your website.",
-      "submitButton": "Build Brand Page",
-      "submittingButton": "Building…"
-    },
     "submissionWizard": {
       "heading": "Fill in Brand Details",
       "subheading": "Complete each step so the brand is accurately represented.",
@@ -2199,71 +1685,6 @@
       "applySuggestion": "Apply"
     }
   },
-  "gettingStarted": {
-    "metadata": {
-      "title": "Explore Formoria",
-      "description": "Stopped at a market stall? How to find that brand on Formoria: browse listed brands, read the details, then head to the brand's own online store or a stockist."
-    },
-    "hero": {
-      "eyebrow": "Explore Formoria",
-      "title": "From one thing you love to its brand and the place you can buy it",
-      "intro": "Browse or search listed brands, then review brand information, product highlights, and each brand's own online stores and stockists. Content selected by Formoria is labelled separately.",
-      "primaryCta": "Browse brands",
-      "secondaryCta": "Read the FAQ"
-    },
-    "steps": {
-      "heading": "How to explore Formoria",
-      "discover": {
-        "title": "Start with what interests you",
-        "body": "Browse by category, values, location, or online store to find brands that match your interests.",
-        "cta": "Browse brands"
-      },
-      "submit": {
-        "title": "Open a brand listing",
-        "body": "Read the brand story, products, photos, locations, and official links in one place.",
-        "cta": "Explore brands"
-      },
-      "review": {
-        "title": "Compare the details",
-        "body": "Use descriptions, photos, and links to understand what makes each brand different."
-      },
-      "manage": {
-        "title": "Save brands for later",
-        "body": "Keep brands you want to revisit in your saved list, then return when you are ready to continue exploring."
-      }
-    },
-    "tips": {
-      "heading": "While you browse",
-      "accurate": "Read the description and product details to understand what each brand offers.",
-      "photos": "Use product photos to get a feel for the brand's materials, style, and range.",
-      "links": "Continue to the brand's own online store or a stockist for price, variants, inventory, and purchase details."
-    },
-    "forOwners": {
-      "heading": "If you own a brand",
-      "comingSoon": "Brand owners can claim their own brand page: once the ownership proof is approved, the details become editable. The features below are still being built — tell us what else is needed.",
-      "claim": {
-        "title": "Claim Your Brand",
-        "description": "On the brand page, select “Claim this brand”, submit ownership proof, and once it is approved you take over the listing the community started."
-      },
-      "manage": {
-        "title": "Manage Your Listing",
-        "description": "After claiming, update products, links, and descriptions whenever details change."
-      },
-      "track": {
-        "title": "Track Performance",
-        "description": "The dashboard shows how visitors find this brand and which content interests them."
-      }
-    },
-    "cta": {
-      "heading": "Ready to explore Taiwanese brands?",
-      "body": "Start with the directory: from one thing you love, to its brand, its story, and the place you can buy it. Or read what Formoria does.",
-      "browse": "Browse brands",
-      "about": "About Formoria"
-    },
-    "ctaFooter": {
-      "cta": "Post a request on the feature request board"
-    }
-  },
   "admin": {
     "layout": {
       "title": "Admin",
@@ -2273,13 +1694,11 @@
         "jobs": "Data Jobs",
         "moderation": "Content Moderation",
         "evidence": "Evidence",
-        "claims": "Claim Requests",
         "reports": "Reports",
         "brands": "Brand Catalog",
         "quality": "Quality Dashboard",
         "newsletter": "Newsletter",
         "scripts": "Scripts",
-        "settings": "Settings",
         "corrections": "Corrections",
         "curatedProducts": "Curated Products",
         "stockists": "Stockists"
@@ -2296,7 +1715,8 @@
       "showDetails": "Show details for {name}",
       "hideDetails": "Hide details for {name}",
       "actionsHeader": "Actions",
-      "detailsHeader": "Details"
+      "detailsHeader": "Details",
+      "selectRow": "Select {name}"
     },
     "dashboard": {
       "description": "Review queues, brand data, and categorization status requiring action.",
@@ -2308,17 +1728,7 @@
         "label": "Evidence",
         "description": "Origin evidence awaiting review"
       },
-      "ownerFeatures": {
-        "label": "Owner features",
-        "enabled": "Enabled",
-        "disabled": "Disabled",
-        "manage": "Manage feature flags"
-      },
       "queues": {
-        "claims": {
-          "title": "Brand Claims",
-          "empty": "No pending brand claims."
-        },
         "reports": {
           "title": "Brand Reports",
           "empty": "No pending brand reports."
@@ -2326,6 +1736,7 @@
       },
       "operationsOverview": "Operations overview",
       "operationsOverviewDescription": "Triage the queues that need a decision, then open the workspace that owns the work.",
+      "unavailable": "Unavailable",
       "quickOperations": "Quick operations",
       "recentJobs": {
         "title": "Recent data jobs",
@@ -2450,13 +1861,6 @@
       "unavailable": "Unavailable",
       "reviewerNotes": "Reviewer notes",
       "reviewerNotesPlaceholder": "Add notes about this decision",
-      "revoke": {
-        "reasonLabel": "Revocation reason",
-        "trigger": "Revoke ownership",
-        "confirmTitle": "Revoke ownership?",
-        "confirmDescription": "This removes the current owner from {brand}. The owner will be notified by email.",
-        "confirmLabel": "Confirm revoke"
-      },
       "unknownBrand": "Unknown brand",
       "empty": "No pending reports.",
       "errors": {
@@ -2474,7 +1878,6 @@
         "date": "Submitted"
       },
       "fields": {
-        "price_range": "Price range",
         "category": "Brand category",
         "subcategories": "Product subcategories",
         "purchase_website": "Official website",
@@ -2507,80 +1910,6 @@
       "errors": {
         "generic": "Unable to review this brand correction. Please try again."
       }
-    },
-    "claimRequests": {
-      "tabs": {
-        "all": "All",
-        "pending": "Pending",
-        "approved": "Approved",
-        "rejected": "Rejected"
-      },
-      "table": {
-        "brand": "Brand",
-        "requester": "Requester",
-        "proof": "Proof",
-        "date": "Date",
-        "status": "Status"
-      },
-      "actions": {
-        "approve": "Approve",
-        "reject": "Reject",
-        "confirmReject": "Confirm reject"
-      },
-      "reviewerNotes": "Reviewer notes",
-      "proofEvidence": "Proof evidence",
-      "noProofEvidence": "No proof evidence provided.",
-      "unknownBrand": "Unknown brand",
-      "unknownRequester": "Unknown",
-      "empty": "No claim requests found.",
-      "mitCertApprovalLabel": "MIT cert — approval also attempts MIT verification",
-      "mitRegistryCompanyLabel": "Registry company",
-      "domainEmailVerified": "✓ Verified",
-      "domainEmailPending": "⏳ Pending verification",
-      "ownerAlreadyManagesShort": "Already owns a brand",
-      "ownerAlreadyManagesTitle": "Approval blocked: owner limit reached",
-      "ownerAlreadyManagesBody": "This requester already manages {brandName}. Reject this claim using the existing-owner reason.",
-      "cleanupWarning": "Decision saved. Proof deletion remains queued for automatic retry.",
-      "cleanupStatus": {
-        "label": "Proof file cleanup",
-        "pending": {
-          "label": "Queued / retrying",
-          "description": "Deletion is queued and will retry automatically."
-        },
-        "failed": {
-          "label": "Retry failed",
-          "description": "Automatic retries are exhausted. Admin intervention is required."
-        },
-        "completed": {
-          "label": "Deleted",
-          "description": "Private proof files were deleted."
-        }
-      },
-      "proofTypes": {
-        "domainEmail": "Brand domain email",
-        "backendScreenshot": "Admin/backend screenshot",
-        "businessDoc": "Business registration document"
-      },
-      "rejectReasons": {
-        "label": "Common rejection reason",
-        "placeholder": "Pick a common reason…",
-        "insufficientProof": "The proof provided is insufficient to confirm you operate this brand.",
-        "proofMismatch": "The proof provided does not match this brand.",
-        "emailUnverified": "The email verification was not completed.",
-        "alreadyClaimed": "This brand has already been claimed by someone else.",
-        "screenshotInsufficient": "The backend screenshot does not demonstrate that you manage this brand.",
-        "docMismatch": "The business registration document does not match the brand or is illegible.",
-        "proofInauthentic": "The proof provided appears to have been edited or is not authentic.",
-        "needMoreEvidence": "The current proof is insufficient; please resubmit with additional supporting evidence."
-      },
-      "rejectNotesLabel": "Rejection notes",
-      "rejectNotesPlaceholder": "Why are you rejecting this claim?",
-      "errors": {
-        "rejectNotesRequired": "Rejection notes are required.",
-        "generic": "Something went wrong. Please try again."
-      },
-      "title": "Claim Requests",
-      "description": "Review and manage brand ownership claims."
     },
     "stockists": {
       "title": "Community Stockists",
@@ -2709,7 +2038,6 @@
         "description": "Description",
         "categorySlug": "Valid brand category",
         "subcategories": "1–5 product subcategories",
-        "priceRange": "Price range",
         "website": "Valid official website",
         "heroImage": "Hero image",
         "successfulEnrichment": "Successful latest enrichment"
@@ -2757,7 +2085,6 @@
           "locked": "Already in this brand's catalog. Approval creates products only from new proposals, so a tick or an edit here has no effect.",
           "save": "Save product selection and edits"
         },
-        "priceRange": "Price range",
         "subcategories": "Product subcategories",
         "city": "City",
         "foundingYear": "Founding year",
@@ -2825,37 +2152,6 @@
       },
       "suggestedTags": "Suggested Tags",
       "notSet": "Not set"
-    },
-    "featureRequests": {
-      "title": "Feature requests",
-      "description": "Move requests through the board and fold duplicates into the request they belong to.",
-      "empty": "No feature requests yet.",
-      "table": {
-        "request": "Request",
-        "votes": "Votes",
-        "status": "Status",
-        "merge": "Merge into"
-      },
-      "status": {
-        "open": "Open",
-        "planned": "Planned",
-        "in_progress": "In development",
-        "shipped": "Shipped",
-        "declined": "Declined",
-        "duplicate": "Duplicate"
-      },
-      "statusLabel": "Status for {title}",
-      "noteLabel": "Admin note for {title}",
-      "saveStatus": "Save status",
-      "mergeLabel": "Merge {title} into",
-      "mergeTargetNone": "Pick a target",
-      "mergeAction": "Merge",
-      "mergedInto": "Merged",
-      "toast": {
-        "statusSaved": "Status updated.",
-        "merged": "Requests merged.",
-        "error": "That didn't work. Please try again."
-      }
     },
     "curatedProducts": {
       "title": "Curated Products",
@@ -2988,7 +2284,11 @@
         "verified": "MIT Smile Certified"
       },
       "bulk": {
-        "clearSelection": "Clear selection"
+        "clearSelection": "Clear selection",
+        "generateProductsAria": "Generate products for {count, plural, one {# selected brand} other {# selected brands}}, of {limit} per run — opens a refresh per brand and queues one enrichment job that calls the model",
+        "selectPage": "Select every eligible brand on this page for product generation, up to {limit} brands per run",
+        "selectionLimit": "Cannot select {name}: product generation runs at most {limit} brands per run",
+        "selectBrand": "Select {name} for product generation"
       },
       "table": {
         "brand": "Brand",
@@ -3004,13 +2304,14 @@
         "empty": "No brands found."
       },
       "actions": {
-        "viewInDashboard": "View in Dashboard",
-        "resendClaimInvite": "Resend claim invite",
         "hide": "Hide",
         "unhide": "Unhide",
         "requestReenrichment": "Request re-enrichment",
         "curatedProducts": "Curated products",
-        "delete": "Delete"
+        "delete": "Delete",
+        "openMenu": "Open brand actions for {name}",
+        "ingestCuratedProducts": "Ingest curated products for {name}",
+        "openDetails": "Open details for {name}"
       },
       "pagination": {
         "summary": "Showing {from}–{to} of {total} brands",
@@ -3023,10 +2324,12 @@
         "created": "Created {date}"
       },
       "refreshDialog": {
-        "title": "Request re-enrichment"
+        "title": "Request re-enrichment",
+        "description": "A refresh will run on the next six-hour schedule and return to the submissions queue for review. The live brand will not change until the refresh is applied."
       },
       "deleteDialog": {
-        "title": "Delete brand"
+        "title": "Delete brand",
+        "description": "This action cannot be undone. The brand and all associated data will be permanently deleted."
       }
     },
     "scripts": {
@@ -3051,6 +2354,13 @@
           "statusFilterLabel": "Status",
           "allStatuses": "All statuses",
           "selectAll": "Select all filtered rows",
+          "retrySelected": "Retry {count} selected",
+          "importSelected": "Import {count} selected",
+          "selectRow": "Select {name}",
+          "unnamedRow": "row {number}",
+          "brandNameForRow": "Brand name for row {number}",
+          "websiteForRow": "Official website for row {number}",
+          "removeRow": "Remove row {number}",
           "remove": "Remove",
           "empty": "No rows match this status."
         },
@@ -3080,6 +2390,7 @@
         "railwayLogs": "Railway Logs",
         "cancelJob": "Cancel job",
         "cancelConfirmTitle": "Cancel this job?",
+        "cancelConfirmDescription": "The worker will stop before the next canonical write. A provider request already in progress may still finish, but its result will not be applied.",
         "dispatching": "Dispatching…",
         "queuing": "Queuing…",
         "resumeFailedTargets": "Resume failed targets",
@@ -3119,6 +2430,7 @@
         "empty": "No brands match this filter.",
         "phaseLog": "Phase log",
         "noPhaseRecords": "No phase records yet.",
+        "changedFields": "Changed: {fields}",
         "table": {
           "brand": "Brand",
           "type": "Type",
@@ -3163,7 +2475,15 @@
       "empty": "No subscribers match these filters.",
       "resendConfirmation": "Resend confirmation",
       "unsubscribe": "Unsubscribe",
-      "confirmUnsubscribeTitle": "Unsubscribe this address?"
+      "confirmUnsubscribeTitle": "Unsubscribe this address?",
+      "confirmUnsubscribeDescription": "This immediately opts the subscriber out and rotates their email tokens. Reactivation is not available from admin.",
+      "stats": {
+        "totalDescription": "All consent records",
+        "activeDescription": "Confirmed and subscribed",
+        "pendingDescription": "Awaiting confirmation",
+        "unsubscribedDescription": "Opted-out records",
+        "confirmationRateDescription": "Active ÷ active plus pending"
+      }
     },
     "quality": {
       "title": "Quality Dashboard",
@@ -3173,6 +2493,8 @@
       "enrichmentQuality": "Enrichment Quality",
       "promoHeroImages": "Promo hero images",
       "validationFailures": "Validation failures",
+      "heroImageCoverageDescription": "{count} brands with hero / {total} total",
+      "descriptionCompletenessDescription": "avg length: {length} chars",
       "vocabularyTitle": "Stored zh-TW vocabulary",
       "vocabularyDescription": "Mainland-Chinese terms the write-path guard found in text it stored over the last {days} days. Detection never rewrites anything, so each row below is still in the database and, if the column is published, on the site.",
       "vocabularyUnavailable": "The audit trail could not be read, so this window is unmeasured.",
@@ -3180,15 +2502,12 @@
       "vocabularyFound": "{hits} occurrences across {spans} audited writes.",
       "vocabularyNoSubject": "no subject"
     },
-    "settings": {
-      "title": "Settings",
-      "description": "Control operator-managed product settings.",
-      "featureToggles": "Feature Toggles"
-    },
     "common": {
       "navLabel": "Admin main navigation",
       "cancel": "Cancel",
       "processing": "Processing…",
+      "pendingCount": "{count} pending",
+      "confirmPlaceholder": "Type \"{value}\" to confirm",
       "error": {
         "title": "Something went wrong",
         "description": "An unexpected error occurred while loading this admin page. Please try again.",
@@ -3206,21 +2525,8 @@
     "exploreBrands": "Browse Brands",
     "loginToSave": "Log in to save brands"
   },
-  "likeBrand": {
-    "like": "Support",
-    "likeAriaLabel": "Support this brand, {count, plural, one {# supporter} other {# supporters}}",
-    "unlikeAriaLabel": "Remove your support from this brand, {count, plural, one {# supporter} other {# supporters}}",
-    "loading": "Loading support count",
-    "rateLimited": "Too many reactions. Please try again later.",
-    "error": "We couldn't update your support. Please try again."
-  },
   "search": {
     "emptyState": {
-      "noticeSearchCategory": "No brands match “{query}” in “{category}”.",
-      "noticeSearchFilters": "No brands match “{query}” with the current filters.",
-      "noticeSearch": "No brands match “{query}”.",
-      "noticeFilters": "No brands match the current filters.",
-      "noticeAll": "There are no brands to show right now.",
       "currentConditions": "Current conditions",
       "title": "No matching brands found",
       "description": "Adjust a condition or explore more brands for inspiration.",
@@ -3236,21 +2542,12 @@
         "browseAll": {
           "title": "Browse all brands",
           "description": "Explore every brand on Formoria"
-        },
-        "recommendBrand": {
-          "title": "Recommend this brand",
-          "description": "Can't find it? Recommend it to Formoria and we'll review it shortly."
         }
       },
       "recommendations": "Similar options",
       "viewAll": "View all",
       "clearAll": "Clear all"
     }
-  },
-  "impersonation": {
-    "banner": "Viewing as {brandName}",
-    "exit": "Exit",
-    "timeRemaining": "{minutes}m remaining"
   },
   "stories": {
     "metaTitle": "Stories",
@@ -3376,7 +2673,6 @@
     "floorMapOpenViewer": "Full-screen map",
     "floorMapViewerTitle": "Full-screen floor map",
     "floorMapViewerDescription": "Scroll in either direction to pan. Choose a zoom level or fit the complete map in the viewer.",
-    "floorMapCloseViewer": "Close floor-map viewer",
     "floorMapZoom": "Zoom",
     "floorMapFit": "Fit",
     "floorMapZoomTimes": "{value}×",
@@ -3388,101 +2684,6 @@
       "title": "Event not found",
       "description": "This event doesn't exist or has been removed.",
       "browseAll": "Browse all events"
-    }
-  },
-  "feedback": {
-    "metadata": {
-      "title": "Feature requests",
-      "description": "Tell us what you'd like Formoria to build, and upvote the ideas you want most."
-    },
-    "title": "Feature requests",
-    "description": "Tell us what would make Formoria more useful for you, and upvote the ideas you want to see next.",
-    "disclaimer": "Order and priority change as we go — we don't commit to dates.",
-    "status": {
-      "open": "Open",
-      "planned": "Planned",
-      "in_progress": "In development",
-      "shipped": "Shipped",
-      "declined": "Declined"
-    },
-    "sections": {
-      "inProgress": {
-        "title": "In development",
-        "description": "These are being built right now — stay tuned!",
-        "empty": "Nothing is being built right now."
-      },
-      "planned": {
-        "title": "Planned",
-        "description": "Committed and queued up — not started yet.",
-        "empty": "Nothing is queued up yet."
-      },
-      "open": {
-        "title": "Open",
-        "description": "Upvote to decide what we build next.",
-        "empty": "No open requests right now — yours could be the first."
-      }
-    },
-    "requests": {
-      "brand_reviews": {
-        "title": "Add reviews and ratings to brand pages",
-        "body": "Let signed-in visitors share their experience with a brand so shoppers can judge customer experience separately from Made-in-Taiwan verification."
-      },
-      "occasion_discovery": {
-        "title": "Browse Taiwanese brands by occasion",
-        "body": "Let visitors discover brands by shopping intent, such as gifts, small-apartment decor, or sustainable essentials, without needing to understand the category structure first."
-      },
-      "nearby_brand_map": {
-        "title": "Show nearby Taiwanese brands on a map",
-        "body": "Let visitors browse brands with physical locations on one map and filter by city, district, and category to find places they can visit nearby."
-      },
-      "owner_claim_flow": {
-        "title": "Let brand owners claim and manage their brand page",
-        "body": "Let a brand's owner verify they represent the brand, then keep its description, official links, and stockists up to date themselves."
-      },
-      "brand_retail_locations": {
-        "title": "Show a brand's retail locations on its page",
-        "body": "List the physical stores, counters, and stockists that carry a brand directly on its brand page, so visitors can see where to buy it in person."
-      },
-      "origin_evidence_reports": {
-        "title": "Let anyone report origin evidence on a brand page",
-        "body": "Let visitors share proof of where a brand's products are actually made — a product label, packaging, or an in-store photo — without needing an account, so Made-in-Taiwan claims are checked by the people who bought the product."
-      },
-      "brand_events": {
-        "title": "Link in-person events to the brands taking part",
-        "body": "Show upcoming markets, fairs, and pop-ups such as Creative Expo Taiwan on the brands appearing at them, so visitors can plan to meet a brand in person."
-      }
-    },
-    "upvote": {
-      "action": "Upvote {title}",
-      "remove": "Remove your upvote from {title}",
-      "error": "We couldn't record that vote. Please try again.",
-      "rateLimited": "That's a lot of voting. Please wait a moment and try again."
-    },
-    "submit": {
-      "trigger": "Request a feature",
-      "title": "Request a feature",
-      "description": "Thanks for taking the time to tell us. We read every request — the more specific it is, the further it gets.",
-      "titleLabel": "What should we build?",
-      "detailsLabel": "Details",
-      "detailsHint": "What are you trying to do, and where does Formoria get in the way? A real example helps.",
-      "contactEmailLabel": "Email",
-      "contactEmailHint": "Leave your email if you'd like a reply about this request.",
-      "anonymityDisclosure": "Requests are shown publicly without your name or email.",
-      "idle": "Send request",
-      "submitting": "Sending",
-      "success": "Thanks — we've got your request.",
-      "errors": {
-        "title": "Give your request a title between 4 and 80 characters so others can find it.",
-        "details": "Add at least 10 characters describing the problem to solve.",
-        "contactEmail": "Enter a valid email address, or leave the field empty.",
-        "unauthenticated": "Please sign in again, then resend your request.",
-        "invalid_input": "Check that the title is 80 characters or fewer and the details are at least 10 characters, then try again.",
-        "rate_limited": "A few requests have already been sent. Please try again in an hour.",
-        "not_found": "That request no longer exists. Reload the page and try again.",
-        "merged": "That request was merged into another one. Reload the page to find it.",
-        "already_submitted": "That request is already on the board. Upvote the existing one instead.",
-        "unavailable": "We couldn't send your request. Please try again in a moment."
-      }
     }
   },
   "districts": {

@@ -121,13 +121,13 @@ export function EvidenceQueue({
                 href={photo.signedUrl}
                 target="_blank"
                 rel="noreferrer noopener"
-                className="rounded-[4px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+                className="rounded-control focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
               >
                 {/* eslint-disable-next-line @next/next/no-img-element -- Private signed evidence URLs are short-lived review thumbnails. */}
                 <img
                   src={photo.signedUrl}
                   alt={t("photoAlt", { index: index + 1 })}
-                  className="h-20 w-20 rounded-[4px] border border-rule object-cover"
+                  className="h-20 w-20 rounded-surface border border-rule object-cover"
                 />
               </a>
             ) : null,

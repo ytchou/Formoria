@@ -19,7 +19,6 @@ type Props = {
   email: string;
   currentLocale: string;
   newsletterStatus: "off" | "pending" | "on";
-  lifecycleOptedIn: boolean;
 };
 
 export function SettingsForm({
@@ -27,7 +26,6 @@ export function SettingsForm({
   email,
   currentLocale,
   newsletterStatus,
-  lifecycleOptedIn,
 }: Props) {
   const t = useTranslations("settings");
   const [state, action, pending] = useActionState<SettingsState, FormData>(
@@ -37,22 +35,31 @@ export function SettingsForm({
   const [newsletterMarketing, setNewsletterMarketing] = useState(
     newsletterStatus !== "off"
   );
-  const [lifecycleMarketing, setLifecycleMarketing] = useState(
-    lifecycleOptedIn
-  );
+  // `newsletterStatus` is a server prop; `useState` only reads it on mount, so
+  // after `unsubscribeAll` revalidates the route the checkbox would stay ticked
+  // and the next Save would silently re-subscribe. Re-sync on prop change.
+  const [lastNewsletterStatus, setLastNewsletterStatus] =
+    useState(newsletterStatus);
+  if (lastNewsletterStatus !== newsletterStatus) {
+    setLastNewsletterStatus(newsletterStatus);
+    setNewsletterMarketing(newsletterStatus !== "off");
+  }
 
   return (
     <form action={action} className="space-y-6">
       <input type="hidden" name="_currentLocale" value={currentLocale} />
 
       {state.error && (
-        <div className="rounded-[3px] bg-danger/10 px-4 py-3 type-metadata text-danger">
+        <div
+          role="alert"
+          className="rounded-surface bg-danger/10 px-4 py-3 type-metadata text-danger"
+        >
           {state.error}
         </div>
       )}
 
       {state.message && (
-        <div className="panel-success">
+        <div role="status" className="panel-success">
           {state.message}
         </div>
       )}
@@ -110,9 +117,17 @@ export function SettingsForm({
         </NativeSelect>
       </FormField>
 
-      <section className="space-y-4 rounded-[3px] border border-rule p-4">
+      <section
+        aria-labelledby="marketing-heading"
+        className="space-y-4 rounded-surface border border-rule p-4"
+      >
         <div>
-          <h2 className="type-body-sm font-semibold text-ink">{t("marketingHeading")}</h2>
+          <h2
+            id="marketing-heading"
+            className="type-body-sm font-semibold text-ink"
+          >
+            {t("marketingHeading")}
+          </h2>
           <p className="mt-1 type-metadata">{t("marketingDescription")}</p>
         </div>
 
@@ -122,7 +137,13 @@ export function SettingsForm({
             htmlFor="newsletterMarketing"
             className="flex min-h-12 cursor-pointer items-start gap-3"
           >
+            {/*
+              Wired by hand for the same reason as `localePreference` above:
+              the paragraph below is the only place that says whether delivery
+              is pending, so it has to be announced with the control.
+            */}
             <Checkbox
+              aria-describedby="newsletterMarketing-description"
               id="newsletterMarketing"
               name="newsletterMarketing"
               value="true"
@@ -134,33 +155,13 @@ export function SettingsForm({
               {t("newsletterMarketingLabel")}
             </span>
           </Label>
-          <p className="pl-[30px] type-metadata">
+          <p
+            id="newsletterMarketing-description"
+            className="pl-[30px] type-metadata"
+          >
             {newsletterStatus === "pending"
               ? t("newsletterPending")
               : t("newsletterMarketingDescription")}
-          </p>
-        </div>
-
-        <div className="space-y-1">
-          <input type="hidden" name="lifecycleMarketing" value="false" />
-          <Label
-            htmlFor="lifecycleMarketing"
-            className="flex min-h-12 cursor-pointer items-start gap-3"
-          >
-            <Checkbox
-              id="lifecycleMarketing"
-              name="lifecycleMarketing"
-              value="true"
-              checked={lifecycleMarketing}
-              onCheckedChange={setLifecycleMarketing}
-              className="mt-0.5 size-[18px] shrink-0"
-            />
-            <span className="type-body-sm text-ink-soft font-normal">
-              {t("lifecycleMarketingLabel")}
-            </span>
-          </Label>
-          <p className="pl-[30px] type-metadata">
-            {t("lifecycleMarketingDescription")}
           </p>
         </div>
 

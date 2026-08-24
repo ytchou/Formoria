@@ -10,7 +10,12 @@ function request(path: string, method = "GET") {
 }
 
 describe("staging request boundary", () => {
-  beforeEach(() => vi.stubEnv("PLAYWRIGHT_TEST", "true"));
+  // DEV-1551 task 17: the rate-limit gate is its own switch now. PLAYWRIGHT_TEST
+  // is kept alongside it for the non-security reads that still consult it.
+  beforeEach(() => {
+    vi.stubEnv("PLAYWRIGHT_TEST", "true");
+    vi.stubEnv("SECURITY_DISABLE_RATE_LIMIT", "true");
+  });
   afterEach(() => vi.unstubAllEnvs());
 
   it("marks readable pages private and non-indexable", async () => {

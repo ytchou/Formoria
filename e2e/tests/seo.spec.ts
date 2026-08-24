@@ -66,14 +66,14 @@ test.describe("SEO deep", () => {
         path: "/about",
         title: "關於 Formoria | Formoria",
         description:
-          "Formoria 把相遇之後的路接起來：從一件喜歡的東西，走到它的品牌、它的故事，和買得到它的地方。認識這個台灣品牌探索與選物平台的收錄規則、編輯選擇與標示方式。",
-        heading: "搬新家、佈置店面、在市集停下來的那一刻",
+          "為什麼會有 Formoria：四條斷掉的路，和我們把它們接起來的方式。從一件喜歡的東西，走到它的品牌、它的故事，和買得到它的地方。",
+        heading: "搬新家、佈置店面、\n在市集停下來的那一刻",
       },
       {
         path: "/en/about",
         title: "About Formoria | Formoria",
         description:
-          "How Formoria works: the inclusion rules, editorial choices, and labels behind a Taiwanese brand discovery and curation platform.",
+          "Why Formoria exists: four broken paths, and how we connect them. From one thing you love, to its brand, its story, and the place you can buy it.",
         heading:
           "Moving into a new home, setting up a shop, stopping at a market stall",
       },
@@ -96,9 +96,9 @@ test.describe("SEO deep", () => {
         page.getByText(locale.positioning, { exact: true }),
       ).toBeVisible();
       // The trust line "收錄與選物，清楚分開" left the homepage on 2026-08-17
-      // when the manifesto band replaced the trust seam. It still ships on
-      // /about (asserted below), /faq and the /og/trust card. What the homepage
-      // states here now is the positioning line.
+      // when the manifesto band replaced the trust seam. It ships on /faq and
+      // the /og/trust card. What the homepage states here now is the positioning
+      // line.
       await expect(
         page.getByRole("heading", { name: locale.manifestoHeading, level: 2 }),
       ).toBeVisible();
@@ -224,6 +224,57 @@ test.describe("SEO deep", () => {
     expect(xDefault).toBeTruthy();
   });
 
+  test("/about emits hreflang alternate links for zh-TW, en, and x-default", async ({
+    page,
+  }) => {
+    await page.goto("/about");
+    const canonical = await page
+      .locator('link[rel="canonical"]')
+      .getAttribute("href");
+    const zhAlternate = await page
+      .locator('link[rel="alternate"][hreflang="zh-TW"]')
+      .getAttribute("href");
+    const enAlternate = await page
+      .locator('link[rel="alternate"][hreflang="en"]')
+      .getAttribute("href");
+    const xDefault = await page
+      .locator('link[rel="alternate"][hreflang="x-default"]')
+      .getAttribute("href");
+
+    expect(canonical).toBeTruthy();
+    expect(zhAlternate).toBeTruthy();
+    expect(enAlternate).toBeTruthy();
+    expect(xDefault).toBeTruthy();
+
+    expect(canonical).not.toContain("/en/");
+    expect(zhAlternate).not.toContain("/en/");
+    expect(enAlternate).toContain("/en/");
+    expect(xDefault).not.toContain("/en/");
+  });
+
+  test("/en/about emits hreflang alternate links", async ({ page }) => {
+    await page.goto("/en/about");
+    const canonical = await page
+      .locator('link[rel="canonical"]')
+      .getAttribute("href");
+    const zhAlternate = await page
+      .locator('link[rel="alternate"][hreflang="zh-TW"]')
+      .getAttribute("href");
+    const enAlternate = await page
+      .locator('link[rel="alternate"][hreflang="en"]')
+      .getAttribute("href");
+    const xDefault = await page
+      .locator('link[rel="alternate"][hreflang="x-default"]')
+      .getAttribute("href");
+
+    expect(canonical).toBeTruthy();
+    expect(zhAlternate).toBeTruthy();
+    expect(enAlternate).toBeTruthy();
+    expect(xDefault).toBeTruthy();
+
+    expect(canonical).toContain("/en/");
+  });
+
   test("/brands has a canonical link pointing to the zh-TW (prefix-free) URL", async ({
     page,
   }) => {
@@ -291,7 +342,6 @@ test.describe("SEO deep", () => {
       "/contact",
       "/terms",
       "/privacy",
-      "/getting-started",
       "/submit",
     ]);
     const staticLocations = locations.filter((url) => {

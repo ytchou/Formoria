@@ -38,8 +38,6 @@ const EVENT_NAME_SNAPSHOT = [
   'brand_saved',
   'saved_brand_revisited',
   'brand_unsaved',
-  'brand_liked',
-  'brand_unliked',
   'submission_form_opened',
   'submission_path_selected',
   'submission_form_step_completed',
@@ -47,12 +45,7 @@ const EVENT_NAME_SNAPSHOT = [
   'submission_form_abandoned',
   'submission_form_error_shown',
   'newsletter_subscribed',
-  'brand_claim_started',
-  'brand_claim_form_submitted',
-  'brand_claim_completed',
-  'brand_claim_approved',
   'brand_listing_published',
-  'brand_owner_edit_published',
   'mit_declared',
   'origin_evidence_submitted',
   'brand_reported',
@@ -67,9 +60,23 @@ const EVENT_NAME_SNAPSHOT = [
   'challenge_verified',
   'rate_limit_store_unavailable',
   'rate_limit_store_recovered',
+  'rate_limit_blocked',
+  // Enforcement ladder (DEV-1551). Eleven names, and the ladder ships in
+  // log-only observe mode, so these are its entire output until thresholds are
+  // calibrated. `docs/runbooks/anti-enumeration.md` names the alerts built on
+  // them.
+  'scrape_ladder_recorded',
+  'scrape_ladder_challenged',
+  'scrape_ladder_blocked',
+  'scrape_ladder_extended_block',
+  'scrape_ladder_shadowed',
+  'scrape_verified_budget_exhausted',
+  'scrape_identity_rotation_suspected',
+  'verified_crawler_allowed',
+  'known_crawler_blocked',
+  'visitor_identity_rotated',
+  'rate_limiter_degraded',
   'web_vital_reported',
-  'feature_request_submitted',
-  'feature_request_voted',
 ]
 
 describe('analytics event registry', () => {

@@ -1,5 +1,10 @@
 import { createServiceClient } from "@/lib/supabase/service";
 import {
+  IMAGE_PROXY_PATH_PREFIX,
+  absoluteImageUrl,
+  imagePathToUrl,
+} from "@/lib/images/image-url";
+import {
   ONLINE_STORE_COLUMNS,
   type OnlineStoreColumn,
 } from "@/lib/brands/online-stores";
@@ -40,10 +45,15 @@ export interface LinkHealthSummary {
   severity: "ok" | "warning" | "critical";
 }
 
-// `hero_image_url` is not an online store — it is checked alongside them.
+// `hero_image_url` is not an online store — it is checked alongside them. The
+// FIELD NAME is unchanged (it is the `link_check_results.field` value already
+// on every stored row, and renaming it would orphan the whole history), but
+// since DEV-1551 its VALUE is derived from `hero_image_storage_path`.
 type CheckedField = OnlineStoreColumn | "hero_image_url";
 
-type BrandRow = { id: string } & Record<CheckedField, string | null>;
+type BrandRow = { id: string } & Record<OnlineStoreColumn, string | null> & {
+  hero_image_storage_path?: string | null;
+};
 
 type ExistingRow = {
   id: string;
@@ -95,9 +105,11 @@ export interface LinkHealthDatabaseClient {
 
 const CHECKED_FIELDS: CheckedField[] = [...ONLINE_STORE_COLUMNS, "hero_image_url"];
 
-const BRAND_SELECT_COLUMNS = ["id", ...ONLINE_STORE_COLUMNS, "hero_image_url"].join(
-  ", ",
-);
+const BRAND_SELECT_COLUMNS = [
+  "id",
+  ...ONLINE_STORE_COLUMNS,
+  "hero_image_storage_path",
+].join(", ");
 
 const BROWSER_UA =
   "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36";
@@ -203,6 +215,21 @@ const RUN_LEDGER_RPC_NAMES = {
   complete: "complete_health_agent_run",
   fail: "fail_health_agent_run",
 } as const;
+
+/**
+ * An image URL this project serves itself, either through the same-origin `/i/`
+ * proxy (DEV-1551) or from a legacy public Supabase Storage URL.
+ *
+ * The distinction drives two decisions: a broken one of ours goes to
+ * `heroBroken` (we can repair it) rather than `heroExternal`, and a 404/410 on
+ * one of ours is deterministic enough to queue cleanup without waiting three
+ * days.
+ */
+function isOwnImageUrl(url: string): boolean {
+  const siteUrl = absoluteImageUrl(IMAGE_PROXY_PATH_PREFIX);
+  if (siteUrl && url.startsWith(siteUrl)) return true;
+  return isSupabaseStorageUrl(url);
+}
 
 function isSupabaseStorageUrl(url: string): boolean {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL?.trim();
@@ -415,7 +442,15 @@ export async function runLinkHealthCheck(
       [];
     for (const brand of brandList) {
       for (const field of CHECKED_FIELDS) {
-        const url = brand[field];
+        /*
+         * ABSOLUTE, not relative (DEV-1551 task 9). `checkUrl` runs `fetch`
+         * from a background job with no page to resolve a relative path
+         * against, so `/i/<key>` has to be absolutised before it is checked.
+         */
+        const url =
+          field === "hero_image_url"
+            ? absoluteImageUrl(imagePathToUrl(brand.hero_image_storage_path))
+            : brand[field];
         if (url) urlTasks.push({ brandId: brand.id, field, url });
       }
     }
@@ -512,7 +547,7 @@ export async function runLinkHealthCheck(
             ? 1
             : existing.consecutive_failures + 1;
         const deterministicStorageFailure =
-          isSupabaseStorageUrl(result.url) &&
+          isOwnImageUrl(result.url) &&
           (result.statusCode === 404 || result.statusCode === 410);
         if (
           !cleanupRequiredAt &&
@@ -534,7 +569,7 @@ export async function runLinkHealthCheck(
         });
 
         if (result.field === "hero_image_url") {
-          if (isSupabaseStorageUrl(result.url)) {
+          if (isOwnImageUrl(result.url)) {
             heroBroken.push({ brandId: result.brandId, url: result.url });
           } else {
             heroExternal.push({ brandId: result.brandId, url: result.url });

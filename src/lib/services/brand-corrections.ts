@@ -34,10 +34,9 @@ import {
 } from "./subcategories";
 import { brandPatchRpc, updateBrand, type BrandWriteInput } from "./brands";
 
-const CORRECTION_SELECT =
-  `*, brands(name, slug, price_range, category, subcategories, material, ${ONLINE_STORE_COLUMNS.join(
-    ", ",
-  )}, social_instagram, social_threads, social_facebook)`;
+const CORRECTION_SELECT = `*, brands(name, slug, category, subcategories, material, ${ONLINE_STORE_COLUMNS.join(
+  ", ",
+)}, social_instagram, social_threads, social_facebook)`;
 
 /**
  * The material axis, closed to the twelve agreed SLUGS.
@@ -92,7 +91,6 @@ type BrandCorrectionBrandRow = Pick<
   | "id"
   | "name"
   | "slug"
-  | "price_range"
   | "category"
   | "subcategories"
   | "material"
@@ -115,8 +113,7 @@ type BrandCorrectionRowWithBrand = BrandCorrectionRow & {
 type PurchaseLinkCorrectionField = OnlineStoreColumn;
 type SocialLinkCorrectionField = (typeof SOCIAL_LINK_FIELDS)[number];
 type LinkCorrectionField =
-  | PurchaseLinkCorrectionField
-  | SocialLinkCorrectionField;
+  PurchaseLinkCorrectionField | SocialLinkCorrectionField;
 /**
  * The correctable vocabulary as RUNTIME values, with `CorrectionField` derived
  * from it rather than declared beside it.
@@ -128,7 +125,6 @@ type LinkCorrectionField =
  * caller. Adding a field here now adds it everywhere, once.
  */
 export const CORRECTION_FIELDS = [
-  "price_range",
   "category",
   "subcategories",
   "material",
@@ -154,10 +150,7 @@ type CorrectionStatus = "pending" | "approved" | "rejected";
 export type CorrectionDecision = Exclude<CorrectionStatus, "pending">;
 
 type CorrectionProposedValue =
-  | number
-  | string
-  | SubcategoriesDelta
-  | MaterialDelta;
+  number | string | SubcategoriesDelta | MaterialDelta;
 
 export type BrandCorrection = {
   id: string;
@@ -219,12 +212,10 @@ export type ReviewCorrectionResult =
 export type CorrectionBatchFailure = { id: string; code: string };
 
 export type ReviewCorrectionsResult =
-  | { failures: CorrectionBatchFailure[] }
-  | { error: string };
+  { failures: CorrectionBatchFailure[] } | { error: string };
 
 export type ValidateCorrectionBatchResult =
-  | { ok: true; ids: string[] }
-  | { ok: false; error: string };
+  { ok: true; ids: string[] } | { ok: false; error: string };
 
 /**
  * Injection seam for `reviewCorrections`. Both members have real defaults, so
@@ -280,7 +271,9 @@ function isLinkField(field: CorrectionField): field is LinkCorrectionField {
 }
 
 function isStringArray(value: unknown): value is string[] {
-  return Array.isArray(value) && value.every((item) => typeof item === "string");
+  return (
+    Array.isArray(value) && value.every((item) => typeof item === "string")
+  );
 }
 
 /**
@@ -515,15 +508,6 @@ export function normalizeProposedValue(
   field: CorrectionField,
   value: unknown,
 ): NormalizeProposedValueResult {
-  if (field === "price_range") {
-    return typeof value === "number" &&
-      Number.isInteger(value) &&
-      value >= 1 &&
-      value <= 3
-      ? { ok: true, value }
-      : { ok: false, error: "invalid_value" };
-  }
-
   if (field === "category") {
     return typeof value === "string" && CATEGORY_SLUGS.has(value)
       ? { ok: true, value }
@@ -565,7 +549,8 @@ export function normalizeProposedValue(
     return { ok: true, value: { add, remove } };
   }
 
-  if (!isSubcategoriesDelta(value)) return { ok: false, error: "invalid_value" };
+  if (!isSubcategoriesDelta(value))
+    return { ok: false, error: "invalid_value" };
 
   // Asymmetric on purpose. Every `add` is resolved through the CLOSED
   // vocabulary and stored as its SLUG: `brands.subcategories` is a slug column
@@ -609,16 +594,13 @@ export function buildScalarCorrectionPatch(
   proposedValue: number | string,
 ): BrandWriteInput {
   if (isPurchaseLinkField(field)) {
-    const camelField: OnlineStoreCamelField =
-      onlineStoreByColumn[field].camel;
+    const camelField: OnlineStoreCamelField = onlineStoreByColumn[field].camel;
     const patch: BrandWriteInput = {};
     patch[camelField] = proposedValue as string;
     return patch;
   }
 
   switch (field) {
-    case "price_range":
-      return { priceRange: proposedValue as number };
     case "category":
       return { categorySlug: proposedValue as string };
     case "social_instagram":
@@ -688,8 +670,6 @@ function currentValueForField(
   // `CorrectionField` without a case here cannot silently read another
   // column's value.
   switch (field) {
-    case "price_range":
-      return brand.price_range;
     case "category":
       return brand.category;
     case "subcategories":
@@ -752,7 +732,7 @@ async function readBrand(
   const { data, error } = await supabase
     .from("brands")
     .select(
-      `id, name, slug, price_range, category, subcategories, material, ${ONLINE_STORE_COLUMNS.join(
+      `id, name, slug, category, subcategories, material, ${ONLINE_STORE_COLUMNS.join(
         ", ",
       )}, social_instagram, social_threads, social_facebook`,
     )
@@ -865,77 +845,82 @@ export async function submitCorrection(
   return auditedCall(
     { provider: "brands", operation: "submitCorrection", kind: "service" },
     async () => {
-  if (!isCorrectionField(input.field))
-    return { ok: false, code: "invalid_field" };
+      if (!isCorrectionField(input.field))
+        return { ok: false, code: "invalid_field" };
 
-  const normalized = normalizeProposedValue(input.field, input.proposedValue);
-  if (!normalized.ok) return { ok: false, code: normalized.error };
-  // Everything downstream — the delta application, the cap check and the row we
-  // persist — reads the normalized value, never `input.proposedValue`.
-  const proposedValue = normalized.value;
+      const normalized = normalizeProposedValue(
+        input.field,
+        input.proposedValue,
+      );
+      if (!normalized.ok) return { ok: false, code: normalized.error };
+      // Everything downstream — the delta application, the cap check and the row we
+      // persist — reads the normalized value, never `input.proposedValue`.
+      const proposedValue = normalized.value;
 
-  try {
-    const supabase = createServiceClient();
-    const { data: brand, error: brandError } = await readBrand(
-      supabase,
-      input.brandId,
-    );
-    if (brandError) return { ok: false, code: "database_error" };
-    if (!brand) return { ok: false, code: "not_found" };
+      try {
+        const supabase = createServiceClient();
+        const { data: brand, error: brandError } = await readBrand(
+          supabase,
+          input.brandId,
+        );
+        if (brandError) return { ok: false, code: "database_error" };
+        if (!brand) return { ok: false, code: "not_found" };
 
-    const currentValue = currentValueForField(input.field, brand);
-    let previousValue: Json | null = currentValue;
+        const currentValue = currentValueForField(input.field, brand);
+        let previousValue: Json | null = currentValue;
 
-    if (input.field === "subcategories") {
-      const delta = proposedValue as SubcategoriesDelta;
-      const currentSubcategories = Array.isArray(currentValue)
-        ? currentValue
-        : [];
-      const next = applySubcategoryDelta(currentSubcategories, delta);
-      if (sameSubcategorySet(currentSubcategories, next))
-        return { ok: false, code: "unchanged" };
-      if (next.length > MAX_SUBCATEGORIES) {
-        return { ok: false, code: "too_many_subcategories" };
+        if (input.field === "subcategories") {
+          const delta = proposedValue as SubcategoriesDelta;
+          const currentSubcategories = Array.isArray(currentValue)
+            ? currentValue
+            : [];
+          const next = applySubcategoryDelta(currentSubcategories, delta);
+          if (sameSubcategorySet(currentSubcategories, next))
+            return { ok: false, code: "unchanged" };
+          if (next.length > MAX_SUBCATEGORIES) {
+            return { ok: false, code: "too_many_subcategories" };
+          }
+          previousValue = currentSubcategories;
+        } else if (input.field === "material") {
+          // The second array branch. No cap check: the vocabulary is closed at
+          // twelve terms, so the set is its own ceiling and a `MAX_MATERIALS`
+          // constant would be a second number to keep in step with the first.
+          const delta = proposedValue as MaterialDelta;
+          const currentMaterial = Array.isArray(currentValue)
+            ? currentValue
+            : [];
+          const next = applyMaterialDelta(currentMaterial, delta);
+          if (sameMaterialSet(currentMaterial, next))
+            return { ok: false, code: "unchanged" };
+          previousValue = currentMaterial;
+        } else if (
+          correctionValuesEqual(input.field, currentValue, proposedValue)
+        ) {
+          return { ok: false, code: "unchanged" };
+        }
+
+        const row: BrandCorrectionInsert = {
+          brand_id: input.brandId,
+          field: input.field,
+          proposed_value: proposedValue as Json,
+          previous_value: previousValue,
+          visitor_hash: input.visitorHash ?? null,
+          status: "pending",
+        };
+        const { data, error } = await supabase
+          .from("brand_field_corrections")
+          .insert(row)
+          .select("id")
+          .single();
+
+        if (error) return { ok: false, code: dbErrorCode(error) };
+        if (!data || typeof data.id !== "string") {
+          return { ok: false, code: "database_error" };
+        }
+        return { ok: true, id: data.id };
+      } catch {
+        return { ok: false, code: "database_error" };
       }
-      previousValue = currentSubcategories;
-    } else if (input.field === "material") {
-      // The second array branch. No cap check: the vocabulary is closed at
-      // twelve terms, so the set is its own ceiling and a `MAX_MATERIALS`
-      // constant would be a second number to keep in step with the first.
-      const delta = proposedValue as MaterialDelta;
-      const currentMaterial = Array.isArray(currentValue) ? currentValue : [];
-      const next = applyMaterialDelta(currentMaterial, delta);
-      if (sameMaterialSet(currentMaterial, next))
-        return { ok: false, code: "unchanged" };
-      previousValue = currentMaterial;
-    } else if (
-      correctionValuesEqual(input.field, currentValue, proposedValue)
-    ) {
-      return { ok: false, code: "unchanged" };
-    }
-
-    const row: BrandCorrectionInsert = {
-      brand_id: input.brandId,
-      field: input.field,
-      proposed_value: proposedValue as Json,
-      previous_value: previousValue,
-      visitor_hash: input.visitorHash ?? null,
-      status: "pending",
-    };
-    const { data, error } = await supabase
-      .from("brand_field_corrections")
-      .insert(row)
-      .select("id")
-      .single();
-
-    if (error) return { ok: false, code: dbErrorCode(error) };
-    if (!data || typeof data.id !== "string") {
-      return { ok: false, code: "database_error" };
-    }
-    return { ok: true, id: data.id };
-  } catch {
-    return { ok: false, code: "database_error" };
-  }
     },
   );
 }
@@ -974,173 +959,178 @@ export async function reviewCorrection(
   return auditedCall<ReviewCorrectionResult>(
     { provider: "brands", operation: "reviewCorrection", kind: "service" },
     async (ctx) => {
-  if (decision !== "approved" && decision !== "rejected") {
-    return { ok: false, code: "database_error" };
-  }
-
-  try {
-    const supabase = client ?? createServiceClient();
-    const { data, error } = await supabase
-      .from("brand_field_corrections")
-      .select(CORRECTION_SELECT)
-      .eq("id", id)
-      .eq("status", "pending")
-      .maybeSingle();
-
-    if (error) {
-      console.error("[brand-corrections] reviewCorrection read failed:", error);
-      ctx.summary.readError = describeError(error);
-      return { ok: false, code: "database_error" };
-    }
-    if (!data) return { ok: false, code: "not_found" };
-
-    const row = data as unknown as BrandCorrectionRowWithBrand;
-    if (!isCorrectionField(row.field) || !row.brands) {
-      return { ok: false, code: "invalid_value" };
-    }
-    const applicationField = row.field;
-    const reviewedAt = new Date().toISOString();
-
-    // Rejection is decided BEFORE the stored value is re-validated, and the
-    // order is the point: a reject is a decision about the ROW, not about the
-    // value it proposes, so it has to stay available when a vocabulary
-    // migration invalidates stored history. DEV-1525 respelled `material` from
-    // zh-TW labels to slugs; with the normalize gate above this branch, a row
-    // proposing a pre-migration label failed `invalid_value` on BOTH decisions
-    // and no admin action could clear it out of the queue.
-    if (decision === "rejected") {
-      return markReviewed(
-        supabase,
-        id,
-        decision,
-        notes,
-        reviewerId,
-        reviewedAt,
-        ctx,
-      );
-    }
-
-    // Approval re-normalizes an already-normalized stored value; idempotency is
-    // what keeps a row that passed at submit from failing here. When it does
-    // fail, refusing is correct — the value is one `apply_brand_patch` would
-    // bounce on the column CHECK — and rejection above is the reviewer's exit.
-    const normalized = normalizeProposedValue(
-      applicationField,
-      row.proposed_value,
-    );
-    if (!normalized.ok) return { ok: false, code: normalized.error };
-    const proposedValue = normalized.value;
-
-    const currentValue = currentValueForField(applicationField, row.brands);
-    // `null` means the brand already holds the proposed value. The dedup index
-    // is per visitor_hash, so N visitors reporting the same wrong value each
-    // create a row; approving the first applies it and every later row is a
-    // no-op. Those are still correct suggestions — approve them and let them
-    // leave the queue instead of stranding them as un-approvable pending rows.
-    let patch: BrandWriteInput | null;
-    // `material` does not go through `updateBrand` — see `applyMaterialPatch`.
-    // Held separately rather than folded into `patch` so the two array fields
-    // cannot be confused for one another at the write site either.
-    let materialPatch: string[] | null = null;
-
-    if (applicationField === "material") {
-      const delta = proposedValue as MaterialDelta;
-      const currentMaterial = Array.isArray(currentValue) ? currentValue : [];
-      const next = applyMaterialDelta(currentMaterial, delta);
-      patch = null;
-      materialPatch = sameMaterialSet(currentMaterial, next) ? null : next;
-    } else if (applicationField === "subcategories") {
-      const delta = proposedValue as SubcategoriesDelta;
-      const currentSubcategories = Array.isArray(currentValue)
-        ? currentValue
-        : [];
-      const next = applySubcategoryDelta(currentSubcategories, delta);
-      if (sameSubcategorySet(currentSubcategories, next)) {
-        patch = null;
-      } else if (next.length > MAX_SUBCATEGORIES) {
-        return { ok: false, code: "too_many_subcategories" };
-      } else {
-        patch = {
-          subcategories: next,
-          subcategoriesEn: deriveSubcategoriesEn(next),
-        };
+      if (decision !== "approved" && decision !== "rejected") {
+        return { ok: false, code: "database_error" };
       }
-    } else if (
-      correctionValuesEqual(applicationField, currentValue, proposedValue)
-    ) {
-      patch = null;
-    } else {
-      patch = buildScalarCorrectionPatch(
-        applicationField as ScalarCorrectionField,
-        proposedValue as number | string,
-      );
-    }
 
-    // Claim before writing the brand: losing the race here means another
-    // reviewer already applied this decision, and re-running updateBrand would
-    // append a second brand_field_events row for one human decision.
-    const claimed = await markReviewed(
-      supabase,
-      id,
-      decision,
-      notes,
-      reviewerId,
-      reviewedAt,
-      ctx,
-    );
-    if (!claimed.ok) return claimed;
-
-    if (patch) {
       try {
-        await updateBrand(row.brand_id, patch, {
-          source: "admin",
-          userId: reviewerId,
-        });
-      } catch (writeError) {
-        await releaseClaim(supabase, id);
-        throw writeError;
-      }
-    }
+        const supabase = client ?? createServiceClient();
+        const { data, error } = await supabase
+          .from("brand_field_corrections")
+          .select(CORRECTION_SELECT)
+          .eq("id", id)
+          .eq("status", "pending")
+          .maybeSingle();
 
-    if (materialPatch) {
-      try {
-        await applyMaterialPatch(
-          supabase,
-          row.brand_id,
-          materialPatch,
-          reviewerId,
-        );
-      } catch (writeError) {
-        await releaseClaim(supabase, id);
-        throw writeError;
-      }
-    }
+        if (error) {
+          console.error(
+            "[brand-corrections] reviewCorrection read failed:",
+            error,
+          );
+          ctx.summary.readError = describeError(error);
+          return { ok: false, code: "database_error" };
+        }
+        if (!data) return { ok: false, code: "not_found" };
 
-    const superseded =
-      applicationField === "category"
-        ? await supersedePendingSubcategories(
+        const row = data as unknown as BrandCorrectionRowWithBrand;
+        if (!isCorrectionField(row.field) || !row.brands) {
+          return { ok: false, code: "invalid_value" };
+        }
+        const applicationField = row.field;
+        const reviewedAt = new Date().toISOString();
+
+        // Rejection is decided BEFORE the stored value is re-validated, and the
+        // order is the point: a reject is a decision about the ROW, not about the
+        // value it proposes, so it has to stay available when a vocabulary
+        // migration invalidates stored history. DEV-1525 respelled `material` from
+        // zh-TW labels to slugs; with the normalize gate above this branch, a row
+        // proposing a pre-migration label failed `invalid_value` on BOTH decisions
+        // and no admin action could clear it out of the queue.
+        if (decision === "rejected") {
+          return markReviewed(
             supabase,
-            row.brand_id,
+            id,
+            decision,
+            notes,
             reviewerId,
             reviewedAt,
             ctx,
-          )
-        : { ok: true as const };
+          );
+        }
 
-    // Cache invalidation follows the data write, never the happy path: a failed
-    // supersede must not leave the public ISR pages serving the old value for
-    // up to an hour with no way to trigger revalidation.
-    revalidatePublicBrands([row.brands.slug]);
-    if (!superseded.ok) return superseded;
-    return { ok: true };
-  } catch (error) {
-    // Includes the rethrown `updateBrand` failure above, whose claim has
-    // already been released — without this the brand write that actually
-    // failed left no trace at all.
-    console.error("[brand-corrections] reviewCorrection threw:", error);
-    ctx.summary.reviewError = describeError(error);
-    return { ok: false, code: "database_error" };
-  }
+        // Approval re-normalizes an already-normalized stored value; idempotency is
+        // what keeps a row that passed at submit from failing here. When it does
+        // fail, refusing is correct — the value is one `apply_brand_patch` would
+        // bounce on the column CHECK — and rejection above is the reviewer's exit.
+        const normalized = normalizeProposedValue(
+          applicationField,
+          row.proposed_value,
+        );
+        if (!normalized.ok) return { ok: false, code: normalized.error };
+        const proposedValue = normalized.value;
+
+        const currentValue = currentValueForField(applicationField, row.brands);
+        // `null` means the brand already holds the proposed value. The dedup index
+        // is per visitor_hash, so N visitors reporting the same wrong value each
+        // create a row; approving the first applies it and every later row is a
+        // no-op. Those are still correct suggestions — approve them and let them
+        // leave the queue instead of stranding them as un-approvable pending rows.
+        let patch: BrandWriteInput | null;
+        // `material` does not go through `updateBrand` — see `applyMaterialPatch`.
+        // Held separately rather than folded into `patch` so the two array fields
+        // cannot be confused for one another at the write site either.
+        let materialPatch: string[] | null = null;
+
+        if (applicationField === "material") {
+          const delta = proposedValue as MaterialDelta;
+          const currentMaterial = Array.isArray(currentValue)
+            ? currentValue
+            : [];
+          const next = applyMaterialDelta(currentMaterial, delta);
+          patch = null;
+          materialPatch = sameMaterialSet(currentMaterial, next) ? null : next;
+        } else if (applicationField === "subcategories") {
+          const delta = proposedValue as SubcategoriesDelta;
+          const currentSubcategories = Array.isArray(currentValue)
+            ? currentValue
+            : [];
+          const next = applySubcategoryDelta(currentSubcategories, delta);
+          if (sameSubcategorySet(currentSubcategories, next)) {
+            patch = null;
+          } else if (next.length > MAX_SUBCATEGORIES) {
+            return { ok: false, code: "too_many_subcategories" };
+          } else {
+            patch = {
+              subcategories: next,
+              subcategoriesEn: deriveSubcategoriesEn(next),
+            };
+          }
+        } else if (
+          correctionValuesEqual(applicationField, currentValue, proposedValue)
+        ) {
+          patch = null;
+        } else {
+          patch = buildScalarCorrectionPatch(
+            applicationField as ScalarCorrectionField,
+            proposedValue as number | string,
+          );
+        }
+
+        // Claim before writing the brand: losing the race here means another
+        // reviewer already applied this decision, and re-running updateBrand would
+        // append a second brand_field_events row for one human decision.
+        const claimed = await markReviewed(
+          supabase,
+          id,
+          decision,
+          notes,
+          reviewerId,
+          reviewedAt,
+          ctx,
+        );
+        if (!claimed.ok) return claimed;
+
+        if (patch) {
+          try {
+            await updateBrand(row.brand_id, patch, {
+              source: "admin",
+              userId: reviewerId,
+            });
+          } catch (writeError) {
+            await releaseClaim(supabase, id);
+            throw writeError;
+          }
+        }
+
+        if (materialPatch) {
+          try {
+            await applyMaterialPatch(
+              supabase,
+              row.brand_id,
+              materialPatch,
+              reviewerId,
+            );
+          } catch (writeError) {
+            await releaseClaim(supabase, id);
+            throw writeError;
+          }
+        }
+
+        const superseded =
+          applicationField === "category"
+            ? await supersedePendingSubcategories(
+                supabase,
+                row.brand_id,
+                reviewerId,
+                reviewedAt,
+                ctx,
+              )
+            : { ok: true as const };
+
+        // Cache invalidation follows the data write, never the happy path: a failed
+        // supersede must not leave the public ISR pages serving the old value for
+        // up to an hour with no way to trigger revalidation.
+        revalidatePublicBrands([row.brands.slug]);
+        if (!superseded.ok) return superseded;
+        return { ok: true };
+      } catch (error) {
+        // Includes the rethrown `updateBrand` failure above, whose claim has
+        // already been released — without this the brand write that actually
+        // failed left no trace at all.
+        console.error("[brand-corrections] reviewCorrection threw:", error);
+        ctx.summary.reviewError = describeError(error);
+        return { ok: false, code: "database_error" };
+      }
     },
     {
       // Without this every branch above is audited as `succeeded` with normal
@@ -1235,7 +1225,8 @@ export async function reviewCorrections(
 
   let rows: Array<{ id: string; brand_id: string }>;
   try {
-    rows = lookupIds.length > 0 ? await deps.fetchPendingBrandIds(lookupIds) : [];
+    rows =
+      lookupIds.length > 0 ? await deps.fetchPendingBrandIds(lookupIds) : [];
   } catch {
     // Every selected id is owed an individual outcome, so a failed lookup is
     // reported per item rather than collapsed into one batch-level error —

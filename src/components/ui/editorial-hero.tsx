@@ -26,7 +26,7 @@ import { cn } from "@/lib/utils";
  * it and the raw `<img>` buys nothing.
  *
  * So the split is now "can this be displayed at all", and an image that cannot
- * takes the IMAGELESS path — the same degradation `wall-trail-tile.tsx` uses
+ * takes the IMAGELESS path — the same degradation `trail-tile.tsx` uses
  * for a 404 or a disallowed host. Rendering nothing is the honest outcome; a
  * blank bordered box is not.
  */
@@ -36,13 +36,12 @@ export function editorialHeroSrc(
   if (!heroImage) return null;
 
   /*
-   * A repo path is taken as-is; only a remote URL goes through the host gate.
-   * `safeImageSrc` builds `new URL(url)` with NO base, so every relative path
-   * throws and comes back null — a hero committed at `/images/stories/x.webp`
-   * would otherwise be dropped as if its host were disallowed. Same branch as
-   * `wall-trail-tile.tsx`.
+   * `safeImageSrc` owns the same-origin case itself (DEV-1551): a hero
+   * committed at `/images/stories/x.webp` comes back unchanged, a
+   * protocol-relative `//host/x.png` comes back null. The caller-side
+   * leading-slash branch that used to live here got the second case wrong.
    */
-  return heroImage.startsWith("/") ? heroImage : safeImageSrc(heroImage);
+  return safeImageSrc(heroImage);
 }
 
 export type EditorialHeroProps = {
@@ -72,7 +71,7 @@ export function EditorialHero({ src, alt, className }: EditorialHeroProps) {
   return (
     <div
       className={cn(
-        "relative aspect-[16/9] w-full overflow-hidden rounded-xl border border-rule bg-surface-deep",
+        "relative aspect-[16/9] w-full overflow-hidden rounded-surface border border-rule bg-surface-deep",
         className,
       )}
     >

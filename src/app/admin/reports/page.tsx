@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { getTranslations } from "next-intl/server";
 
-import { reviewReportAction, revokeOwnershipAction } from "@/app/admin/actions";
+import { reviewReportAction } from "@/app/admin/actions";
 import { ReportsTable } from "@/components/admin/reports-table";
 import { getPendingReports } from "@/lib/services/reports";
 
@@ -23,13 +23,12 @@ export default async function AdminReportsPage() {
   return (
     <div>
       <div className="mb-6">
-        <h1 className="type-label">{t("title")}</h1>
+        <h1 className="type-tool-heading">{t("title")}</h1>
         <p className="mt-1 type-body-sm">{t("description")}</p>
       </div>
       <ReportsTable
         reports={reports}
         reviewAction={reviewReportAction}
-        revokeAction={revokeOwnershipAction}
       />
     </div>
   );

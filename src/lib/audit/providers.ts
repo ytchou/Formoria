@@ -9,11 +9,6 @@ const PROVIDERS = {
   turnstile: ["siteverify"],
   slack: ["post_slack_alert"],
   posthog: ["run_query"],
-  "mit-registry": [
-    "lookup_cert_number",
-    "lookup_cert_numbers",
-    "sync_registry",
-  ],
   playwright: ["fetch_rendered"],
   scraper: ["scrape_url"],
   http: [
@@ -33,28 +28,19 @@ const PROVIDERS = {
   brands: [
     "cleanupAdminBrandReviewImages",
     "cleanupDeadLinks",
-    "completeBrandClaim",
     "createEvidence",
     "createReport",
     "declareMit",
     "deleteBrand",
-    "mergeFeatureRequests",
-    "publishDraft",
     "reviewCommunityStockist",
     "reviewCorrection",
     "reviewEvidence",
     "saveAdminBrandReview",
     "saveBrand",
-    "saveDraft",
-    "setBrandLike",
-    "setFeatureRequestStatus",
-    "setFeatureRequestVote",
-    "setOwnerStockistStatus",
     "stageAdminBrandReviewImage",
     "stripDeclaration",
     "submitStockist",
     "submitCorrection",
-    "submitFeatureRequest",
     "syncBrandImages",
     "unsaveBrand",
     "updateBrand",
@@ -63,7 +49,6 @@ const PROVIDERS = {
     "updateReportStatus",
     "upsertBrandFaqEntries",
     "upsertEnrichedStockists",
-    "verifyMitByCert",
     "withdrawDeclaration",
   ],
   cache: [
@@ -72,14 +57,6 @@ const PROVIDERS = {
     "getCachedRecentBrandCount",
     "getCachedSubcategoryRows",
     "getCachedZhVocabularyReport",
-  ],
-  claims: [
-    "approveClaimRequest",
-    "createClaimRequest",
-    "processClaimProofCleanup",
-    "rejectClaimRequest",
-    "revokeOwnership",
-    "verifyClaimEmailProof",
   ],
   // Editorial write path for /brands/[slug] curated products (DEV-1465). Every
   // writer is audited: a published product is a factual claim the site makes on
@@ -121,10 +98,8 @@ const PROVIDERS = {
   email: [
     "adminUnsubscribeNewsletterSubscriber",
     "confirmSubscriber",
-    "createEmailPreferences",
     "createSubscriber",
     "enrollInMarketingEmails",
-    "evaluateDrips",
     "requestNewsletterSubscription",
     "resendNewsletterConfirmation",
     "setLifecycleEmailPreference",
@@ -157,6 +132,13 @@ const PROVIDERS = {
     "runStandaloneClassification",
   ],
   images: [
+    // DEV-1551: an approved brand's images keep their `submissions/` key, which
+    // the image proxy refuses to serve, so promotion server-side copies the
+    // object under `brands/` and rewrites the row. Both calls are audited
+    // because a copy that silently half-succeeds leaves a brand with images
+    // nothing can render.
+    "copyBrandImageObject",
+    "statBrandImageObject",
     "deleteBrandImages",
     "deleteStoredImagePaths",
     "downloadAndStoreImages",

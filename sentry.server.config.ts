@@ -3,6 +3,10 @@
 // https://docs.sentry.io/platforms/javascript/guides/nextjs/
 
 import * as Sentry from '@sentry/nextjs'
+import {
+  isLocalRequestUrl,
+  resolveSentryEnvironment,
+} from '@/lib/observability/sentry-environment'
 
 type PostgrestContext = {
   code: string
@@ -79,6 +83,10 @@ Sentry.init({
   dsn: process.env.NEXT_PUBLIC_SENTRY_DSN,
   enabled: process.env.NODE_ENV === 'production',
 
+  // Never let `NODE_ENV` name the environment: a local `next build` +
+  // `next start` sets it to 'production' (DEV-1561).
+  environment: resolveSentryEnvironment(),
+
   // Define how likely traces are sampled. Adjust this value in production, or use tracesSampler for greater control.
   tracesSampleRate: 0.1,
 
@@ -90,6 +98,13 @@ Sentry.init({
   sendDefaultPii: false,
 
   beforeSend(event, hint) {
+    // Second net. A correctly tagged local event is still noise in a
+    // production project, and the request URL survives the prod-parity
+    // harness even when every other value looks deployed.
+    if (isLocalRequestUrl(event.request?.url)) {
+      return null
+    }
+
     const postgrestContext = extractPostgrestContext(hint.originalException);
     if (postgrestContext) {
       event.contexts = {

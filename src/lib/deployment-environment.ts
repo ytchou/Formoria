@@ -19,7 +19,6 @@ export function isStagingRequest(host: string | null): boolean {
 }
 
 const STAGING_GET_MUTATION_PATHS = new Set([
-  "/api/claim/verify-email",
   "/api/email/unsubscribe",
   "/api/newsletter/confirm",
   "/api/newsletter/unsubscribe",

@@ -131,7 +131,7 @@ export default async function HeroSection() {
                 looks live. */}
             <Link
               href={routes.discover()}
-              className="inline-flex min-h-11 items-center gap-1 rounded-[4px] type-nav text-accent focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-ground"
+              className="inline-flex min-h-11 items-center gap-1 rounded-control type-nav text-accent focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-ground"
             >
               {t("browseCta")}
               <span aria-hidden="true">→</span>

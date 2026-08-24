@@ -1,5 +1,4 @@
 import type { Metadata } from 'next'
-import { ImpersonationBanner } from '@/components/dashboard/impersonation-banner'
 import { Footer } from '@/components/navigation/footer'
 import { MainNav } from '@/components/navigation/main-nav'
 import { buildAlternates } from '@/lib/seo/alternates'
@@ -22,7 +21,6 @@ export async function generateMetadata({ params }: { params: Promise<{ locale: s
 export default async function SiteLayout({ children }: { children: React.ReactNode }) {
   return (
     <>
-      <ImpersonationBanner />
       <MainNav categories={[...L1_CATEGORIES]} />
       <div id="main-content" className="flex-1">{children}</div>
       <Footer />

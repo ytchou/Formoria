@@ -152,10 +152,10 @@ function ToggleChip({
       className={cn(
         isReference
           ? cn(
-              "border-border bg-secondary text-foreground",
-              "hover:border-border hover:bg-secondary hover:text-foreground",
+              "border-rule bg-surface text-ink",
+              "hover:border-rule hover:bg-surface hover:text-ink",
               !pressed &&
-                "text-muted-foreground line-through hover:text-muted-foreground",
+                "text-ink-muted line-through hover:text-ink-muted",
             )
           : cn(toggleChipDefaultClasses, pressed && toggleChipSelectedClasses),
         className,

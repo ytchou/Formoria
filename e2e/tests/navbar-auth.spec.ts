@@ -61,10 +61,8 @@ test.describe("Navbar auth journey", () => {
       userPage.getByRole("link", { name: /sign in|登入/i }),
     ).toHaveCount(0);
 
-    // "我的品牌" link is conditional on hasOwnedBrand AND ownerFeaturesEnabled — shown
-    // only when the user owns a brand and owner features are turned on (DEV-1261).
-    // That nav link is NOT in the account dropdown (verified below); testing its presence
-    // requires a seeded brand_owners row which belongs in dashboard-specific tests.
+    // The header's primary CTA is now unconditionally the submit link: the
+    // owner-only "我的品牌" branch was removed with the owner dashboard (DEV-1570).
 
     await accountTrigger.click();
 
@@ -81,13 +79,10 @@ test.describe("Navbar auth journey", () => {
     await expect(
       accountMenu.getByRole("menuitem", { name: "我的貢獻" }),
     ).toBeVisible({ timeout: BUDGET.RENDERED });
-    // "我的推薦" is deliberately not asserted here: it is gated on
-    // ownerFeaturesEnabled (DEV-1261), so its presence is flag state, not navbar
-    // behaviour. Its absence is owned by owner-features-flag-off.spec.ts.
+    // "我的推薦" is deliberately not asserted here: DEV-1570 removed the owner
+    // surfaces it linked to, so it is no longer navbar behaviour to pin.
     const signOutItem = accountMenu.getByText(/sign out|登出/i);
     await expect(signOutItem).toBeVisible({ timeout: BUDGET.INTERACTIVE });
-    // Dashboard link is NOT in the dropdown (moved to main nav)
-    await expect(accountMenu.locator('a[href="/dashboard"]')).toHaveCount(0);
   });
 
   test("sign out from authenticated session returns to logged-out home state", async ({
@@ -121,7 +116,7 @@ test.describe("Navbar auth journey", () => {
       await page.getByLabel("電子郵件", { exact: true }).fill(disposableEmail);
       await page.getByLabel("密碼", { exact: true }).fill(disposablePassword);
       await page.getByRole("button", { name: "登入", exact: true }).click();
-      // Wait for any redirect away from the sign-in page (to /dashboard or similar)
+      // Wait for any redirect away from the sign-in page (to `/`, or `next`)
       await page.waitForURL((url) => !url.pathname.includes("/auth/sign-in"));
 
       // Navigate home — verify the account menu is present (user is authenticated)

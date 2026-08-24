@@ -5,14 +5,11 @@ import { createClient } from "@/lib/supabase/server";
 import { createServiceClient } from "@/lib/supabase/service";
 import { isRelativeUrl } from "@/lib/auth/validations";
 import { resolvePostAuthPath } from "@/lib/auth/owner-landing";
-import { verifyClaimToken } from "@/lib/auth/claim-token";
 import { getRequestOrigin } from "@/lib/auth/site-url";
-import { completeBrandClaim, getBrandById } from "@/lib/services/brands";
 import { getProfileAdmin, updateProfileAdmin } from "@/lib/services/profiles";
 import { enrollInMarketingEmails } from "@/lib/services/marketing-email-consent";
 import { getPostHogClient } from "@/lib/posthog-server";
 import { ANALYTICS_EVENTS } from "@/lib/analytics/events";
-import { isOwnerFeaturesEnabled } from "@/lib/services/app-settings";
 import { routing } from "@/i18n/routing";
 import {
   isAppLocale,
@@ -44,12 +41,9 @@ export const GET = withAuditScope(async (request: NextRequest) => {
 
   // Post-auth intent is carried via short-lived cookies for the OAuth flow
   // (see signInWithGoogle), with query params as the fallback for the
-  // email-link flows (sign-up confirmation / email+password claim).
+  // email-link flows (sign-up confirmation).
   const cookieStore = await cookies();
   const next = cookieStore.get("post_auth_next")?.value ?? searchParams.get("next");
-  const claimToken = staging
-    ? null
-    : cookieStore.get("post_auth_claim")?.value ?? searchParams.get("claim");
   const marketingEmailOptIn =
     !staging && cookieStore.get("post_auth_marketing_opt_in")?.value === "1";
   const rawIntendedLocale = cookieStore.get("post_auth_locale")?.value;
@@ -65,12 +59,11 @@ export const GET = withAuditScope(async (request: NextRequest) => {
   const errorLocale: AppLocale =
     intendedLocale ?? (isAppLocale(rawCookieLocale) ? rawCookieLocale : routing.defaultLocale);
   cookieStore.delete("post_auth_next");
-  cookieStore.delete("post_auth_claim");
   cookieStore.delete("post_auth_marketing_opt_in");
   cookieStore.delete("post_auth_marketing_locale");
   cookieStore.delete("post_auth_locale");
 
-  if (!code && !testTokenHash && !claimToken) {
+  if (!code && !testTokenHash) {
     return NextResponse.redirect(
       new URL(localizePath(routes.auth.signIn({ error: "missing-code" }), errorLocale), origin)
     );
@@ -140,68 +133,7 @@ export const GET = withAuditScope(async (request: NextRequest) => {
       locale: intendedLocale ?? locale,
       source: "google_signup",
       newsletter: true,
-      lifecycle: true,
     });
-  }
-
-  const ownerFeaturesEnabled = await isOwnerFeaturesEnabled();
-
-  // Process claim token if present. With owner features off a stale claim token
-  // is ignored entirely — no claim is completed and no error state is shown;
-  // the request degrades to a plain sign-in landing below.
-  if (claimToken && userId && userEmail && ownerFeaturesEnabled) {
-    const claim = await verifyClaimToken(claimToken);
-
-    if (!claim) {
-      return NextResponse.redirect(
-        new URL(localizePath(routes.dashboard.index({ error: "invalid-claim" }), locale), origin)
-      );
-    }
-
-    if (claim.email !== userEmail) {
-      return NextResponse.redirect(
-        new URL(localizePath(routes.dashboard.index({ error: "email-mismatch" }), locale), origin)
-      );
-    }
-
-    try {
-      await completeBrandClaim({
-        userId,
-        brandId: claim.brandId,
-        email: userEmail,
-      });
-
-      const brand = await getBrandById(claim.brandId);
-      if (!staging) {
-        const posthog = getPostHogClient();
-        posthog.capture({
-          distinctId: userId,
-          event: ANALYTICS_EVENTS.BRAND_CLAIM_COMPLETED,
-          properties: {
-            brand_id: claim.brandId,
-            is_new_user: isNewUser,
-          },
-        });
-        await posthog.flush();
-      }
-      const url = new URL(
-        localizePath(routes.dashboard.brand(brand.slug), locale),
-        origin,
-      );
-      if (isNewUser) {
-        url.searchParams.set("is_new_user", "1");
-      } else {
-        url.searchParams.set("auth_event", "login");
-      }
-      return NextResponse.redirect(url);
-    } catch (error) {
-      const reason = error instanceof Error && error.message.includes('already manages a brand')
-        ? 'owner-limit'
-        : 'claim-failed'
-      return NextResponse.redirect(
-        new URL(localizePath(routes.dashboard.index({ error: reason }), locale), origin)
-      );
-    }
   }
 
   if (userId && !staging) {
@@ -215,18 +147,15 @@ export const GET = withAuditScope(async (request: NextRequest) => {
       event: ANALYTICS_EVENTS.USER_AUTHENTICATED,
       properties: {
         is_new_user: isNewUser,
-        has_claim_intent: Boolean(claimToken),
       },
     });
     await posthog.flush();
   }
 
-  // A claim token that survived the flag flip ignores `next` entirely and lands
-  // home rather than on a stale post-claim target. Everything else defers to the
-  // shared post-auth rule (gated owner routes fall back to the landing path).
+  // Defers to the shared post-auth rule: a `next` aimed at a route DEV-1570
+  // retired falls back to the landing path.
   const requestedNext = next && isRelativeUrl(next) ? next : null;
-  const suppressNext = Boolean(claimToken) && !ownerFeaturesEnabled;
-  const redirectTo = await resolvePostAuthPath(suppressNext ? null : requestedNext);
+  const redirectTo = await resolvePostAuthPath(requestedNext);
   const url = new URL(localizePath(redirectTo, locale), origin);
   if (isNewUser) {
     url.searchParams.set("is_new_user", "1");

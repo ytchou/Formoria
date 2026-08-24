@@ -189,8 +189,8 @@ test.describe('Auth — reset password page guard', () => {
     userPage,
   }) => {
     test.setTimeout(BUDGET.TEST.ADMIN);
-    // Regression: the auth layout used to redirect any authenticated user to
-    // /dashboard, breaking the recovery flow (callback authenticates, then
+    // Regression: the auth layout used to redirect any authenticated user away
+    // from this page, breaking the recovery flow (callback authenticates, then
     // sends the user here). The guard now lives on sign-in/sign-up/forgot-password
     // pages only — the reset form must render for a signed-in user.
     await userPage.goto('/auth/reset-password');
@@ -208,9 +208,8 @@ test.describe('Auth — reset password page guard', () => {
   }) => {
     test.setTimeout(BUDGET.TEST.ADMIN);
     // Inverse sanity: moving the guard out of the layout must not drop it
-    // from the sign-in page. The destination depends on the owner-features flag
-    // (DEV-1261) — `/` while owner features are off — so assert only that the
-    // guard fired and the user did not stay on the sign-in page.
+    // from the sign-in page. An authenticated visitor lands on `/`, so assert
+    // only that the guard fired and the user did not stay on the sign-in page.
     await userPage.goto('/auth/sign-in');
     await userPage.waitForURL((url) => !url.pathname.includes('/auth/sign-in'));
     await expect(userPage.getByRole('button', { name: /account|帳號/i })).toBeVisible({

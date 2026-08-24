@@ -2,15 +2,9 @@
 
 import Link from 'next/link'
 import { usePathname, useSearchParams } from 'next/navigation'
-import {
-  ArrowRight,
-  Search,
-  SlidersHorizontal,
-  Sparkles,
-} from 'lucide-react'
+import { ArrowRight, Search, SlidersHorizontal } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 import type { PublicBrandCard } from '@/lib/brands/contracts'
-import { SurfaceCard } from '@/components/ui/card'
 import { Grid } from '@/components/ui/grid'
 import { trackCtaClicked } from '@/lib/analytics'
 import { clearDirectoryFilters } from '@/lib/directory-filter-url'
@@ -26,16 +20,12 @@ export type ActiveDirectoryFilter = {
 }
 
 type SearchEmptyStateProps = {
-  query: string
-  categoryLabel?: string
   activeFilters: ActiveDirectoryFilter[]
   recommendedBrands: PublicBrandCard[]
   recommendationsHref: string
 }
 
 export function SearchEmptyState({
-  query,
-  categoryLabel,
   activeFilters,
   recommendedBrands,
   recommendationsHref,
@@ -58,53 +48,15 @@ export function SearchEmptyState({
    * link would send an `/en` reader to the zh-TW path.
    */
   const clearFiltersHref = clearDirectoryFilters(pathname, searchParams)
-  const notice = query && categoryLabel
-    ? t('noticeSearchCategory', { query, category: categoryLabel })
-    : query && hasNonSearchFilters
-      ? t('noticeSearchFilters', { query })
-      : query
-        ? t('noticeSearch', { query })
-        : hasNonSearchFilters
-          ? t('noticeFilters')
-          : t('noticeAll')
 
   return (
     <div data-empty className="space-y-8">
-      <SurfaceCard
-        tone="info"
-        padding="sm"
-        className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between"
-      >
-        <div role="status" className="flex min-w-0 items-start gap-3">
-          <Sparkles className="mt-0.5 size-5 shrink-0" aria-hidden="true" />
-          <p className="type-body-sm text-current">{notice}</p>
-        </div>
-        {query ? (
-          <Link
-            href={routes.submit.recommend({ name: query })}
-            data-ph-no-autocapture
-            onClick={() =>
-              trackCtaClicked(
-                'recommend_brand',
-                'empty_state',
-                routes.submit.recommend(),
-                routes.brands(),
-              )
-            }
-            className="inline-flex min-h-12 shrink-0 items-center gap-1 self-start type-nav font-semibold text-accent underline-offset-4 hover:underline sm:self-auto"
-          >
-            {t('actions.recommendBrand.title')}
-            <ArrowRight className="size-4" aria-hidden="true" />
-          </Link>
-        ) : null}
-      </SurfaceCard>
-
       <section className="flex flex-col items-center py-2 text-center">
         <div className="relative flex size-28 items-center justify-center" aria-hidden="true">
           {/* Elevation is the border. The stacked plates read as depth because
               they are offset and ruled, not because anything casts a shadow. */}
-          <div className="absolute inset-3 rotate-6 rounded-[3px] border border-rule bg-card" />
-          <div className="absolute inset-5 -rotate-3 rounded-[3px] border border-rule bg-ground" />
+          <div className="absolute inset-3 rotate-6 rounded-surface border border-rule bg-surface" />
+          <div className="absolute inset-5 -rotate-3 rounded-surface border border-rule bg-ground" />
           <Search className="relative size-12 text-ink" strokeWidth={1.75} />
           <SlidersHorizontal className="absolute bottom-1 right-0 size-6 text-filter-active" />
         </div>

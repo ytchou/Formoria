@@ -3,41 +3,13 @@
 @import "shadcn/tailwind.css";
 
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --color-sidebar-ring: var(--sidebar-ring);
-  --color-sidebar-border: var(--sidebar-border);
-  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
-  --color-sidebar-accent: var(--sidebar-accent);
-  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
-  --color-sidebar-primary: var(--sidebar-primary);
-  --color-sidebar-foreground: var(--sidebar-foreground);
-  --color-sidebar: var(--sidebar);
-  --color-chart-5: var(--chart-5);
-  --color-chart-4: var(--chart-4);
-  --color-chart-3: var(--chart-3);
-  --color-chart-2: var(--chart-2);
-  --color-chart-1: var(--chart-1);
-  --color-ring: var(--ring);
-  --color-input: var(--input);
-  --color-border: var(--border);
-  --color-destructive: var(--destructive);
-  --color-accent-foreground: var(--accent-foreground);
   --color-accent: var(--accent);
-  --color-muted-foreground: var(--muted-foreground);
-  --color-muted: var(--muted);
-  --color-secondary-foreground: var(--secondary-foreground);
-  --color-secondary: var(--secondary);
-  --color-popover-foreground: var(--popover-foreground);
-  --color-popover: var(--popover);
-  --color-card-foreground: var(--card-foreground);
-  --color-card: var(--card);
-  --radius-sm: calc(var(--radius) * 0.6);
-  --radius-md: calc(var(--radius) * 0.8);
-  --radius-lg: var(--radius);
-  --radius-xl: calc(var(--radius) * 1.4);
-  --radius-2xl: calc(var(--radius) * 1.8);
-  --radius-4xl: calc(var(--radius) * 2.6);
+  /* Radius has TWO values, defined below as --radius-control / --radius-surface.
+     `--radius-*: initial` clears Tailwind's built-in scale as well as this
+     file's: without it, `rounded-lg` keeps resolving from the framework
+     defaults and a deleted radius is a silent no-op rather than a build-time
+     absence. */
+  --radius-*: initial;
 
   /* Design system v2 — the utilities Tailwind generates from these are the
      whole point: `bg-ground`, `bg-surface`, `text-ink-muted`, `border-rule`,
@@ -69,8 +41,12 @@
   --color-filter-active-bg: var(--filter-active-bg);
   --color-info: var(--info);
   --color-info-bg: var(--info-bg);
-  --shadow-card: 0 2px 8px oklch(0 0 0 / 0.04);
-  --shadow-card-hover: 0 4px 12px oklch(0 0 0 / 0.08);
+  /* Radius has exactly two values. Controls are softer than surfaces on
+     purpose: 4px on a 44px button reads as a discrete, pressable object, while
+     3px on a 480px dialog is visually a sharp corner. Paper has sharp edges;
+     keys do not. DESIGN.md section 7. */
+  --radius-control: 4px;
+  --radius-surface: 3px;
 
   /* 明體 (content) and 黑體 (interface). One rule, no route exceptions.
      Declared here rather than in `:root` so a single declaration both registers
@@ -92,25 +68,8 @@
   --font-hei: var(--font-noto-sans-tc), "PingFang TC", sans-serif;
 }
 
+/* prettier-ignore */
 :root {
-  /* Backgrounds */
-  --background: oklch(0.991 0.0029 84.6); /* Paper #FDFCFA */
-  --card: oklch(1 0.0001 263.3); /* Pure White #FFFFFF — unchanged */
-  --popover: oklch(1 0.0001 263.3);
-  --secondary: oklch(0.963 0.004 80); /* Warm Surface — unchanged */
-  --muted: oklch(0.95 0.004 80); /* Warm Subtle — unchanged */
-
-  /* Text */
-  --foreground: oklch(0.21 0.0059 285.9); /* Ink #18181B */
-  --card-foreground: oklch(0.21 0.0059 285.9);
-  --popover-foreground: oklch(0.21 0.0059 285.9);
-  --secondary-foreground: oklch(
-    0.528 0 0
-  ); /* Neutral gray — merged with warm-caption */
-  --muted-foreground: oklch(
-    0.528 0 0
-  ); /* Neutral gray #6B6B6B — WCAG 5.2:1 on Paper */
-
   /* Interactive — ONE token, not three.
      `--primary`, `--primary-dark`, `--primary-light`, `--cta` and
      `--cta-foreground` all lived here and all meant the same thing:
@@ -131,12 +90,8 @@
   ); /* Paper — text on dark surfaces */
 
   /* Borders */
-  --border: oklch(0.923 0.0075 80.7); /* Rule #E8E5E0 */
-  --input: oklch(0.923 0.0075 80.7); /* Same as border */
-  --ring: var(--accent); /* Focus ring follows the single accent */
 
   /* Semantic — unchanged */
-  --destructive: oklch(0.58 0.18 30);
   --warning: oklch(0.666 0.179 58.3);
   --filter-active: oklch(0.4 0.1 140);
   --filter-active-bg: oklch(0.95 0.02 140);
@@ -171,26 +126,6 @@
   --duration-enter: 200ms;
   --duration-morph: 300ms;
   --duration-stagger: 60ms;
-
-  /* Radius — 6px softened editorial */
-  --radius: 0.375rem;
-
-  /* Sidebar */
-  --sidebar: oklch(0.975 0.003 85);
-  --sidebar-foreground: oklch(0.21 0.0059 285.9);
-  --sidebar-primary: var(--accent);
-  --sidebar-primary-foreground: oklch(1 0.0001 263.3);
-  --sidebar-accent: oklch(0.963 0.004 80);
-  --sidebar-accent-foreground: oklch(0.21 0.0059 285.9);
-  --sidebar-border: oklch(0.923 0.0075 80.7);
-  --sidebar-ring: var(--accent);
-
-  /* Chart colors (warm palette) */
-  --chart-1: oklch(0.63 0.17 45);
-  --chart-2: oklch(0.5 0.08 60);
-  --chart-3: oklch(0.74 0.08 65);
-  --chart-4: oklch(0.3 0.02 50);
-  --chart-5: oklch(0.4 0.1 140);
 }
 
 /*
@@ -212,6 +147,7 @@
  *
  * The v1 palette above is still live and still wrong; waves 2-5 retire it.
  */
+/* prettier-ignore */
 :root {
   /* Colour */
   --ground: #FAF7F2; /* page background */
@@ -221,7 +157,7 @@
      4.17:1 on it, under the 4.5:1 AA floor. Body or metadata belongs on
      `--surface` (4.6:1) or `--ground` (5.1:1). Nothing checks this pair, so it
      is written here rather than discovered later. */
-  --surface-deep: #E8DFD2;
+  --surface-deep: #e8dfd2;
   --ink: #1A1815; /* primary text — 18.9:1 on ground */
   --ink-soft: #4A443C; /* body prose — 10.2:1 on ground */
   --ink-muted: #6F685F; /* metadata — 5.1:1 ground / 4.6:1 surface */
@@ -239,7 +175,7 @@
 
   /* Form errors. Separate from `--destructive`, which v1 uses for destructive
      ACTIONS; this one carries validation messages. */
-  --danger: #B3261E; /* 6.1:1 on ground, 5.5:1 on surface */
+  --danger: #b3261e; /* 6.1:1 on ground, 5.5:1 on surface */
 
   /* Spacing — three names carry meaning and nothing else does. Local,
      meaningless spacing (`gap-2`, `p-4`) needs no name and gets none. Do not
@@ -350,9 +286,9 @@
 }
 
 /*
- * FOUR COMPONENT SIZES — A DIFFERENT AXIS FROM THE THREE MEASURES ABOVE.
+ * FIVE COMPONENT SIZES — A DIFFERENT AXIS FROM THE THREE MEASURES ABOVE.
  *
- * A measure answers "how wide is this PAGE". These four answer "how wide is
+ * A measure answers "how wide is this PAGE". These five answer "how wide is
  * this COMPONENT", which is a different question with different inputs: a
  * confirm dialog is sized by the decision it carries and by what a floating
  * panel is expected to look like, so it is the same width above a 100rem
@@ -369,6 +305,13 @@
  *   `overlay-panel`    24rem — the default floating panel above the phone
  *                      breakpoint: a dialog, a sheet docked to the left or
  *                      right edge, a full-size alert dialog.
+ *   `overlay-form`     32rem — a dialog the reader FILLS IN rather than reads:
+ *                      labelled fields, a textarea, a two-button footer. It is
+ *                      a fifth name because six call sites had already reached
+ *                      this width by hand at the `sm` step, each spelling its
+ *                      own built-in cap; a form needs the room a message does
+ *                      not, and the width they agreed on without coordinating
+ *                      is the one worth naming.
  *   `overlay-wide`     72rem — a sheet that is a WORKSPACE rather than a
  *                      message: the admin brand detail sheet, which holds a
  *                      record's whole field set beside the table it opened
@@ -394,9 +337,10 @@
  *
  * `cn()` CANNOT SEE THESE ON ITS OWN. tailwind-merge only knows the class
  * groups it ships with, so a call site overriding `sm:overlay-panel` with
- * `sm:max-w-lg` would keep BOTH unless it is told they collide — which is why
- * all four names are registered into the `max-w` group in `src/lib/utils`. A
- * name added here without an entry there silently stops being overridable.
+ * Tailwind's own step would keep BOTH unless it is told they collide — which
+ * is why all five names are registered into the `max-w` group in
+ * `src/lib/utils`. A name added here without an entry there silently stops
+ * being overridable, which is what `overlay-tokens.test.ts` fails on.
  *
  * LITERALS, NOT `var()`, for the same reason as the measures: a custom
  * property is an override seam any ancestor can redeclare from a part of the
@@ -408,6 +352,10 @@
 
 @utility overlay-panel {
   max-width: 24rem;
+}
+
+@utility overlay-form {
+  max-width: 32rem;
 }
 
 @utility overlay-wide {
@@ -432,12 +380,12 @@
 }
 
 /*
- * THE TYPE LAYER — 12 ROLES, TWO FACES.
+ * THE TYPE LAYER — 13 ROLES, TWO FACES.
  *
  * v1 had 37 `type-*` utilities across 838 call sites. Thirty-seven names cannot
  * be held in a head, so authors picked by guess: three separate v1 names for a
  * heading all resolved to the same declaration, and `type-button` was used on a
- * live CTA that no block ever defined. Twelve roles are the fewest that still
+ * live CTA that no block ever defined. Thirteen roles are the fewest that still
  * say something.
  *
  * 明體 (`font-ming`) carries CONTENT: prose, titles, story and brand copy.
@@ -481,6 +429,10 @@
 
 /* ── 黑體 (font-hei) — interface ────────────────────────────────────────── */
 
+@utility type-tool-heading {
+  @apply font-hei text-[1.3125rem] font-semibold leading-[1.35] text-ink;
+}
+
 /* Used on a live CTA (`discover/[slug]/not-found.tsx`) since before v2 with no
    `@utility` block behind it, so that button rendered at the browser default.
    Declaring it is a bug fix, not a new role. */
@@ -510,12 +462,12 @@
 
 /*
  * NOT a type role. Its v1 name began `type-` while its declaration was
- * `rounded-lg bg-… px-4 py-3` — a surface wearing a type name, which is how it
+ * `rounded-surface bg-… px-4 py-3` — a surface wearing a type name, which is how it
  * survived the type layer's own review three times. Renamed so the type layer
  * means one thing, and so a reader searching the type scale cannot find it.
  */
 @utility panel-success {
-  @apply rounded-lg bg-verified-green-bg px-4 py-3 type-body-sm font-medium text-verified-green;
+  @apply rounded-surface bg-verified-green-bg px-4 py-3 type-body-sm font-medium text-verified-green;
 }
 
 @keyframes spring-pop {

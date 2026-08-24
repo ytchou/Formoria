@@ -88,12 +88,20 @@ export async function visionDataUri(buffer: Buffer): Promise<string> {
  * recovered from the public URL through the READ-path helper, which accepts
  * both `brands/` and `submissions/` (see `storageKeyFromPublicUrlForRead` for
  * why the delete path deliberately does not).
+ *
+ * Since DEV-1551 task 12 nothing WRITES `url`, so the fallback only ever fires
+ * for rows written before the flip. It stays because those rows are still in
+ * the table: 23 of them once failed their classify phase permanently when an
+ * earlier version of this lookup could not resolve them (DEV-1374).
  */
 export function visionStorageKey(image: {
   storage_path?: string | null
-  url: string
+  url?: string | null
 }): string | null {
-  return image.storage_path?.trim() || storageKeyFromPublicUrlForRead(image.url)
+  return (
+    image.storage_path?.trim() ||
+    (image.url ? storageKeyFromPublicUrlForRead(image.url) : null)
+  )
 }
 
 /**
@@ -158,7 +166,7 @@ export async function encodeVisionDownload(
  */
 export async function loadVisionDataUri(image: {
   storage_path?: string | null
-  url: string
+  url?: string | null
 }): Promise<string | null> {
   const key = visionStorageKey(image)
   // An external/legacy hotlink has no object to download. Treat it as a load

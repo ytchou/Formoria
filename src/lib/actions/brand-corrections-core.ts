@@ -5,9 +5,9 @@ import { CORRECTION_FIELDS } from "@/lib/services/brand-corrections";
 /**
  * Validation half of the brand-correction server action. It lives outside the
  * `"use server"` module because such a module may only export async functions,
- * and the field gate is the part worth asserting on directly — the same split
- * `feature-requests-core.ts` uses, so the tests exercise real code instead of
- * mocking `@/lib/services/*`, which `scripts/check-test-boundaries.mjs` forbids.
+ * and the field gate is the part worth asserting on directly — the split keeps
+ * the tests exercising real code instead of mocking `@/lib/services/*`, which
+ * `scripts/check-test-boundaries.mjs` forbids.
  *
  * `z.enum` is fed the service's own vocabulary rather than a second hand-kept
  * tuple. The tuple it replaces was built with an `as unknown as` assertion, so

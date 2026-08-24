@@ -38,12 +38,7 @@ export async function StockistsSection({
         <ProvideStockistInfoDialog brandId={brandId} brandSlug={brandSlug} />
       </div>
 
-      <StockistList
-        confirmed={confirmed}
-        possible={possible}
-        brandId={brandId}
-        brandSlug={brandSlug}
-      />
+      <StockistList confirmed={confirmed} possible={possible} />
     </section>
   );
 }

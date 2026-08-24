@@ -66,10 +66,8 @@ export const fieldTextStyles = {
 export const statusStyles = {
   successBadge:
     'bg-verified-green-bg text-verified-green border-transparent',
-  neutralBadge: 'bg-secondary text-muted-foreground border-transparent',
-  warningBadge:
-    'bg-mit-verified-bg text-mit-verified border-transparent',
+  neutralBadge: 'bg-surface text-ink-muted border-transparent',
   dangerBadge:
-    'bg-destructive/10 text-destructive border-transparent',
-  demoBadge: 'bg-secondary text-foreground border-transparent',
+    'bg-danger/10 text-danger border-transparent',
+  demoBadge: 'bg-surface text-ink border-transparent',
 } as const

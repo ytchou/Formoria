@@ -10,6 +10,7 @@ import {
 import { getBrandCategoryLabel } from "@/lib/brands/category-label";
 import { isoDateInTimeZone } from "@/lib/date-range";
 import { createServiceClient } from "@/lib/supabase/service";
+import { imagePathToUrl } from "@/lib/images/image-url";
 import { brandsBySlugsCacheKey, getPublicBrandsBySlugs } from "./brands";
 
 // ---------------------------------------------------------------------------
@@ -192,7 +193,7 @@ export type EventsByPhase = {
 // Kept as one string literal (not a concatenation) so supabase-js can infer the
 // row shape from the generated types instead of falling back to `any`.
 const EVENT_SELECT =
-  "id, slug, name, name_en, summary, summary_en, description, description_en, starts_on, ends_on, venue_name, venue_name_en, venue_address, city, organizer_name, schedule_note, schedule_note_en, admission_note, admission_note_en, travel_note, travel_note_en, lineup_note, lineup_note_en, official_url, ticket_url, is_free, hero_image_url, status, created_at, updated_at";
+  "id, slug, name, name_en, summary, summary_en, description, description_en, starts_on, ends_on, venue_name, venue_name_en, venue_address, city, organizer_name, schedule_note, schedule_note_en, admission_note, admission_note_en, travel_note, travel_note_en, lineup_note, lineup_note_en, official_url, ticket_url, is_free, hero_image_storage_path, status, created_at, updated_at";
 
 /**
  * Resolves the event by slug inside the same round trip via an inner embed, so
@@ -226,12 +227,16 @@ const EVENT_BRAND_COUNT_SELECT = "event_id, brands!inner(status)";
  * back `undefined` at runtime. `fetchEventExhibitors` is covered by a read-path
  * test that projects its fixture through this exact string for that reason.
  *
- * `image_storage_path` and `content_submission_id` are deliberately absent:
- * they are write-side provenance for the offline enrichment vehicle, and the
- * render path must not be able to reach a submission through the roster.
+ * `image_storage_path` REPLACED `image_url` in DEV-1551: the `brand-images`
+ * bucket is private, so the roster image is addressed by its bucket key and
+ * rendered through `/i/event-exhibitors/…`.
+ *
+ * `content_submission_id` is still deliberately absent: it is write-side
+ * provenance for the offline enrichment vehicle, and the render path must not
+ * be able to reach a submission through the roster.
  */
 const EVENT_EXHIBITOR_SELECT =
-  "id, event_id, source_key, name, name_en, booth, area, area_en, zone, event_category, source_url, website_url, verified_at, sort_order, image_url, image_alt_zh, image_alt_en, summary_zh, summary_en, content_source, content_verified_at, events!inner(slug, status)";
+  "id, event_id, source_key, name, name_en, booth, area, area_en, zone, event_category, source_url, website_url, verified_at, sort_order, image_storage_path, image_alt_zh, image_alt_en, summary_zh, summary_en, content_source, content_verified_at, events!inner(slug, status)";
 
 const EVENT_EXHIBITOR_BRAND_SELECT = "event_exhibitor_id, brands!inner(slug)";
 
@@ -350,7 +355,7 @@ export function eventRowToDomain(row: EventRow): Event {
     officialUrl: row.official_url,
     ticketUrl: row.ticket_url,
     isFree: row.is_free,
-    heroImageUrl: row.hero_image_url,
+    heroImageUrl: imagePathToUrl(row.hero_image_storage_path),
     status: toEventStatus(row.status),
     createdAt: row.created_at,
     updatedAt: row.updated_at,
@@ -394,7 +399,7 @@ export type EventExhibitorJoinRow = {
   website_url: string | null;
   verified_at: string;
   sort_order: number;
-  image_url: string | null;
+  image_storage_path: string | null;
   image_alt_zh: string | null;
   image_alt_en: string | null;
   summary_zh: string | null;
@@ -428,7 +433,7 @@ export function eventExhibitorRowToDomain(
     websiteUrl: row.website_url,
     verifiedAt: row.verified_at,
     sortOrder: row.sort_order,
-    imageUrl: row.image_url,
+    imageUrl: imagePathToUrl(row.image_storage_path),
     imageAltZh: row.image_alt_zh,
     imageAltEn: row.image_alt_en,
     summaryZh: row.summary_zh,
@@ -708,7 +713,16 @@ type ServiceClient = ReturnType<typeof createServiceClient>;
  */
 const PAGE_SIZE = 1000;
 
-type PageResult = { data: unknown; error: { message: string } | null };
+/**
+ * `code` and `hint` are carried because `message` alone is not actionable:
+ * Postgres puts the fix in `hint` (a 42703 names the column it thought was
+ * meant), and `code` is the stable identifier to branch on. Both are optional
+ * so every existing caller's query builder still satisfies this shape.
+ */
+type PageResult = {
+  data: unknown;
+  error: { message: string; code?: string; hint?: string } | null;
+};
 
 /**
  * Runs `page(from, to)` until a short page comes back, concatenating the rows.
@@ -727,7 +741,9 @@ async function fetchAllPages<Row>(
 
     if (error) {
       console.error(`${queryName} query error:`, error);
-      throw new Error(`${failure}: ${error.message}`);
+      throw new Error(
+        `${failure}: ${error.message}${error.code ? ` [code ${error.code}]` : ""}${error.hint ? ` [hint: ${error.hint}]` : ""}`,
+      );
     }
 
     const rows = (data ?? []) as unknown as Row[];
@@ -750,7 +766,9 @@ export async function fetchPublishedEvents(
 
   if (error) {
     console.error("fetchPublishedEvents query error:", error);
-    throw new Error(`Failed to fetch published events: ${error.message}`);
+    throw new Error(
+      `Failed to fetch published events: ${error.message}${error.code ? ` [code ${error.code}]` : ""}${error.hint ? ` [hint: ${error.hint}]` : ""}`,
+    );
   }
 
   return ((data ?? []) as unknown as EventRow[]).map(eventRowToDomain);
@@ -769,7 +787,9 @@ export async function fetchPublishedEventBySlug(
 
   if (error) {
     console.error("fetchPublishedEventBySlug query error:", error);
-    throw new Error(`Failed to fetch event ${slug}: ${error.message}`);
+    throw new Error(
+      `Failed to fetch event ${slug}: ${error.message}${error.code ? ` [code ${error.code}]` : ""}${error.hint ? ` [hint: ${error.hint}]` : ""}`,
+    );
   }
 
   return data ? eventRowToDomain(data as unknown as EventRow) : null;
@@ -892,7 +912,7 @@ export async function fetchEventExhibitors(
  * batched query. `event_exhibitor_id` is nullable on legacy rows, and the
  * inner brand embed intentionally omits links whose brand has no slug.
  */
-export async function fetchEventExhibitorBrandSlugs(
+async function fetchEventExhibitorBrandSlugs(
   supabase: ServiceClient,
   exhibitorIds: string[],
 ): Promise<Map<string, string>> {

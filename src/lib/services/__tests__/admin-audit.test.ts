@@ -9,8 +9,6 @@ import {
 import { runWithAuditContext } from '@/lib/audit'
 
 const ALL_ACTIONS = [
-  'impersonate_start',
-  'impersonate_end',
   'brand_edit',
   'draft_save',
   'draft_publish',
@@ -32,11 +30,6 @@ const ALL_ACTIONS = [
 type MissingAdminAction = Exclude<AdminAction, (typeof ALL_ACTIONS)[number]>
 const allAdminActionsAreListed: MissingAdminAction extends never ? true : never = true
 void allAdminActionsAreListed
-
-const dashboardPagePath = resolve(
-  process.cwd(),
-  'src/app/[locale]/(site)/(protected)/dashboard/brands/[slug]/(dashboard)/page.tsx',
-)
 
 /**
  * The union is a TypeScript claim; the CHECK constraint is the database's. A
@@ -79,20 +72,15 @@ describe('admin_audit_log action CHECK constraint', () => {
     expect(acceptedActions.has(action)).toBe(true)
   })
 
-  // Its writer (`adminRemoveChannel`) was deleted by DEV-1513, but historical
-  // rows carry the value: dropping it would make the table fail its own check.
-  it('keeps a retired action whose rows still exist', () => {
-    expect(acceptedActions.has('channel_removed')).toBe(true)
-  })
-})
-
-describe('dashboard brand overview', () => {
-  it('owner analytics failure is reported, not silently swallowed', () => {
-    const pageSource = readFileSync(dashboardPagePath, 'utf8')
-
-    expect(pageSource).toContain("captureReadFailure('dashboard-brand-overview-analytics')")
-    expect(pageSource).not.toContain('catch(() => null)')
-  })
+  // Writers deleted, values retained: `adminRemoveChannel` went with DEV-1513
+  // and the impersonation actions with DEV-1570, but historical rows carry
+  // every value — dropping one would make the table fail its own check.
+  it.each(['channel_removed', 'impersonate_start', 'impersonate_end'])(
+    'keeps retired action %s whose rows still exist',
+    (action) => {
+      expect(acceptedActions.has(action)).toBe(true)
+    },
+  )
 })
 
 describe('admin audit correlation', () => {

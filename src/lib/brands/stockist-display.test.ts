@@ -41,11 +41,14 @@ function stockistDisplayRow(overrides: Partial<StockistDisplayRow> = {}): Stocki
 }
 
 describe("groupStockistsForDisplay", () => {
-  it("promotes an owner-confirmed row to confirmed", () => {
-    const result = groupStockistsForDisplay(
-      [stockistDisplayRow({ ownerStatus: "confirmed", ownerStatusBy: "owner-user" })],
-      ["owner-user"],
-    );
+  // `owner_status_by` is null on every row the 2026-07 backfill promoted out of
+  // `brands.retail_locations`. Those WERE owner confirmations, so an unrecorded
+  // approver keeps the 品牌確認 claim. This is the only surviving path to
+  // `confirmedBy: "owner"`, so it also owns the promotion assertions.
+  it("promotes an owner-confirmed row with no recorded approver to 品牌確認", () => {
+    const result = groupStockistsForDisplay([
+      stockistDisplayRow({ ownerStatus: "confirmed", ownerStatusBy: null }),
+    ]);
 
     expect(result.confirmed).toEqual([
       expect.objectContaining({
@@ -57,50 +60,20 @@ describe("groupStockistsForDisplay", () => {
     expect(result.possible).toEqual([]);
   });
 
-  // `owner_status_by` is null on every row the 2026-07 backfill promoted out of
-  // `brands.retail_locations`. Those WERE owner confirmations, so an unknown
-  // approver keeps the owner claim; only a positively identified non-owner
-  // downgrades it (see `stockist-queue.test.ts`).
-  it("keeps owner provenance when no approver was recorded", () => {
+  // 站方確認 and 品牌確認 are different public trust claims, and an admin
+  // approving a submission sets exactly the `owner_status` the brand's own
+  // owner used to set — a recorded `owner_status_by` is now the only thing
+  // telling them apart. This is the only test that reaches the 'formoria'
+  // branch, so it owns the 站方確認 claim outright.
+  it("attributes a recorded approval to Formoria, not to the brand", () => {
     const result = groupStockistsForDisplay([
-      stockistDisplayRow({ ownerStatus: "confirmed", ownerStatusBy: null }),
+      stockistDisplayRow({
+        ownerStatus: "confirmed",
+        ownerStatusBy: "reviewing-admin",
+      }),
     ]);
 
-    expect(result.confirmed.at(0)).toMatchObject({ confirmedBy: "owner" });
-  });
-
-  // 站方確認 and 品牌確認 are different public trust claims, and an admin
-  // approving a stranger's submission sets exactly the `owner_status` the
-  // brand's own owner sets — `owner_status_by` against the owner set is the
-  // only thing telling them apart. Asserted here on the pure function, where
-  // the branch is reachable with no fixture; `services/__tests__/stockists.test.ts`
-  // also reaches the 'formoria' branch through the service layer.
-  it("attributes an approval by a non-owner to Formoria, not to the brand", () => {
-    const result = groupStockistsForDisplay(
-      [
-        stockistDisplayRow({
-          ownerStatus: "confirmed",
-          ownerStatusBy: "reviewing-admin",
-        }),
-      ],
-      ["brand-owner"],
-    );
-
     expect(result.confirmed.at(0)).toMatchObject({ confirmedBy: "formoria" });
-  });
-
-  it("attributes an approval by any of the brand's owners to the brand", () => {
-    const result = groupStockistsForDisplay(
-      [
-        stockistDisplayRow({
-          ownerStatus: "confirmed",
-          ownerStatusBy: "second-owner",
-        }),
-      ],
-      ["first-owner", "second-owner"],
-    );
-
-    expect(result.confirmed.at(0)).toMatchObject({ confirmedBy: "owner" });
   });
 
   it("promotes an evidence-backed row to confirmed", () => {

@@ -3,6 +3,7 @@ import type { Page } from "@playwright/test";
 import { createClient } from "@supabase/supabase-js";
 import { load } from "cheerio";
 import { seedBrand, SeededBrand } from "../helpers/seed";
+import { isLocalTarget } from "../helpers/target";
 
 import { BUDGET, POLL } from "../budgets";
 
@@ -25,9 +26,8 @@ test.describe("Brand detail deep", () => {
       status: "approved",
       workerIndex: workerInfo.workerIndex,
       withLinks: true,
-      withOwner: true,
       // The FAQ cases below need brand *evidence*, not links: the presets that
-      // survive gate on mit_status / subcategories / price_range.
+      // survive gate on mit_status / subcategories.
       withFaqEvidence: true,
     });
     brandHref = `/brands/${seeded.slug}`;
@@ -85,7 +85,6 @@ test.describe("Brand detail deep", () => {
     ).toBeVisible({
       timeout: BUDGET.INTERACTIVE,
     });
-
   });
 
   // Ordering is a separate failure from presence, so it is a separate test: a
@@ -216,10 +215,10 @@ test.describe("Brand detail deep", () => {
 
   test("FAQ renders on a data-rich brand", async ({ page }) => {
     test.setTimeout(BUDGET.TEST.MUTATION);
-    // Seeded via `withFaqEvidence`: mit_status, subcategories and price_range.
+    // Seeded via `withFaqEvidence`: mit_status and subcategories.
     // Those — not links — are what the FAQ floors gate on. This fixture is
     // declared rather than MIT-verified, so taiwan-origin is intentionally
-    // absent while the product and price floors still render.
+    // absent while the product floor still renders.
     await expect(async () => {
       await page.goto(`/brands/${seeded.slug}`, {
         waitUntil: "domcontentloaded",
@@ -239,14 +238,8 @@ test.describe("Brand detail deep", () => {
 
     // Each seeded evidence field must pull its own preset onto the page, while
     // an unverified/declared brand must not receive a taiwan-origin floor.
-    for (const id of ["main-products", "price-positioning"]) {
-      await expect(page.locator(`details#faq-${id}`)).toHaveCount(1);
-    }
+    await expect(page.locator("details#faq-main-products")).toHaveCount(1);
     await expect(page.locator("details#faq-taiwan-origin")).toHaveCount(0);
-
-    const priceAnswer = page.locator("#faq-price-positioning p");
-    await expect(priceAnswer).toContainText("產品定位在中價位。");
-    await expect(priceAnswer).not.toContainText("中價位價位");
 
     const jsonLdNodes = await page
       .locator('script[type="application/ld+json"]')
@@ -265,7 +258,7 @@ test.describe("Brand detail deep", () => {
     );
 
     expect(faqJsonLd).toBeDefined();
-    expect(faqQuestions).toContain(`${seeded.brand.name} 的價位屬於哪個區間？`);
+    expect(faqQuestions).toContain(`${seeded.brand.name} 的主要產品有哪些？`);
     expect(
       faqQuestions?.some((question) => question.includes("是台灣品牌嗎？")),
     ).toBe(false);
@@ -274,7 +267,12 @@ test.describe("Brand detail deep", () => {
   test("FAQ answer text is in the DOM while collapsed", async ({
     page,
     request,
+    baseURL,
   }) => {
+    test.skip(
+      !isLocalTarget(baseURL),
+      "Cloudflare WAF challenges raw-HTTP Googlebot requests on a remote target",
+    );
     test.setTimeout(BUDGET.TEST.MUTATION);
     // The whole point of DEV-1317: answers must be readable without opening
     // anything. Nothing here clicks — a test that expands first would pass
@@ -507,7 +505,12 @@ test.describe("Brand detail — historical slugs", () => {
 
   test("approved historical slugs redirect once to localized self-canonical pages", async ({
     request,
+    baseURL,
   }) => {
+    test.skip(
+      !isLocalTarget(baseURL),
+      "Cloudflare WAF challenges raw-HTTP Googlebot requests on a remote target",
+    );
     const cases = [
       {
         source: `/brands/${approvedOldSlug}`,
@@ -542,7 +545,12 @@ test.describe("Brand detail — historical slugs", () => {
 
   test("historical slugs targeting hidden brands return direct 404 responses", async ({
     request,
+    baseURL,
   }) => {
+    test.skip(
+      !isLocalTarget(baseURL),
+      "Cloudflare WAF challenges raw-HTTP Googlebot requests on a remote target",
+    );
     for (const source of [
       `/brands/${hiddenOldSlug}`,
       `/en/brands/${hiddenOldSlug}`,
@@ -651,7 +659,9 @@ test.describe("Brand detail — public locations and retail stockists", () => {
       .from("brand_channels")
       .insert(stockistRows);
     if (stockistsError) {
-      throw new Error(`Failed to seed brand stockists: ${stockistsError.message}`);
+      throw new Error(
+        `Failed to seed brand stockists: ${stockistsError.message}`,
+      );
     }
   });
 
@@ -739,7 +749,10 @@ test.describe("Brand detail — public locations and retail stockists", () => {
       .locator("[data-stockist-row]")
       .filter({ hasText: confirmedStoreName });
     await expect(
-      stockistRow.getByRole("link", { name: confirmedStoreAddress, exact: true }),
+      stockistRow.getByRole("link", {
+        name: confirmedStoreAddress,
+        exact: true,
+      }),
     ).toHaveAttribute("href", /google\.com\/maps/);
     await expect(
       stockistRow.locator(`a[href="${confirmedStoreUrl}"]`),

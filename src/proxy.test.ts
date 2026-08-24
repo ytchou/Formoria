@@ -2,6 +2,8 @@ import { createServer } from "node:http";
 import { NextRequest } from "next/server";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+import { routes } from "@/lib/routes";
+
 /**
  * Boundary mocks only: the origin guard runs near the top of `proxy()`, but a
  * request that PASSES the guard keeps falling through to the rate limiter
@@ -21,8 +23,18 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
  * `console.error` per process by design (in production the same condition is a
  * silent site-wide logout). The single line in this suite's output is expected.
  */
+const sentry = vi.hoisted(() => ({ captureException: vi.fn() }));
+vi.mock("@sentry/nextjs", () => sentry);
+
 vi.mock("@/lib/security/crawler-telemetry", () => ({
   recordCrawlerHit: vi.fn(),
+}));
+
+const limiter = vi.hoisted(() => ({
+  checkRateLimit: vi.fn(async (_request: unknown): Promise<null> => null),
+  checkSoftRateLimit: vi.fn(
+    async (_request: unknown, _options?: unknown): Promise<boolean> => false,
+  ),
 }));
 
 vi.mock("@/lib/security/rate-limiter", async (importOriginal) => {
@@ -30,12 +42,16 @@ vi.mock("@/lib/security/rate-limiter", async (importOriginal) => {
     await importOriginal<typeof import("@/lib/security/rate-limiter")>();
   return {
     ...actual,
-    checkRateLimit: async () => null,
-    checkSoftRateLimit: async () => false,
+    checkRateLimit: limiter.checkRateLimit,
+    checkSoftRateLimit: limiter.checkSoftRateLimit,
   };
 });
 
-const { proxy, isOriginGuardExempt } = await import("@/proxy");
+const { proxy, isOriginGuardExempt, resetProxyTelemetryForTests, config } =
+  await import("@/proxy");
+const { VISITOR_COOKIE_NAME } = await import(
+  "@/lib/security/visitor-identity"
+);
 
 const EDGE_SECRET = "cf-edge-9f3b7c21ae4d48e0b6a15c73d2f0e884";
 const BROWSER_UA =
@@ -79,6 +95,14 @@ async function withRedirectLookupServer<T>(callback: () => Promise<T>) {
 beforeEach(() => {
   vi.stubEnv("NEXT_PUBLIC_SUPABASE_URL", "");
   vi.stubEnv("NEXT_PUBLIC_SUPABASE_ANON_KEY", "");
+  // `mockReset`, not `mockImplementation` alone. Vitest is not configured with
+  // `clearMocks`, so call history survives across cases in this file: any test
+  // asserting a CALL COUNT would otherwise read the sum of every earlier case
+  // that reached the same call site.
+  limiter.checkRateLimit.mockReset();
+  limiter.checkSoftRateLimit.mockReset();
+  limiter.checkRateLimit.mockImplementation(async () => null);
+  limiter.checkSoftRateLimit.mockImplementation(async () => false);
 });
 
 afterEach(() => {
@@ -129,22 +153,11 @@ describe("a request arriving at the origin in production", () => {
     expect(response.status).not.toBe(403);
   });
 
-  it("is still served when it carries the edge credential in the legacy x-origin-verify header — the fallback that keeps production alive until the Cloudflare rule ships", async () => {
+  it("is rejected when only the legacy x-origin-verify header is present — the fallback was removed after the x-formoria-edge transform rule soaked", async () => {
     const response = await proxy(
       requestFor("/api/admin/brands", { "x-origin-verify": EDGE_SECRET }),
     );
-    expect(response.status).not.toBe(403);
-  });
-
-  it("is rejected when the new header is present but wrong, even if the legacy header is correct — the new header must win outright, or the zone-wide transform rule would override the migration", async () => {
-    const response = await proxy(
-      requestFor("/api/admin/brands", {
-        "x-formoria-edge": "cf-edge-stale-rotated-value",
-        "x-origin-verify": EDGE_SECRET,
-      }),
-    );
     expect(response.status).toBe(403);
-    await expect(response.text()).resolves.toBe("Forbidden");
   });
 
   it("is rejected on a non-exempt path when it carries no credential at all", async () => {
@@ -170,6 +183,34 @@ describe("a request arriving at the origin in production", () => {
   it("is rejected on the rest of /api/internal/, which is deliberately not exempt", async () => {
     const response = await proxy(requestFor("/api/internal/purge-cache"));
     expect(response.status).toBe(403);
+  });
+
+  // ORDER IS LOAD-BEARING. Both branches below return `next()` outright, so a
+  // guard placed under them would hand those surfaces to any caller that
+  // reached the origin without an edge credential. These two cases are the
+  // only thing pinning the guard above them.
+  it("is rejected on the auth callback, a terminal `next()` branch below the guard", async () => {
+    const response = await proxy(requestFor(routes.auth.callback()));
+    expect(response.status).toBe(403);
+  });
+
+  it("is rejected on /admin/content, the other terminal `next()` branch below the guard", async () => {
+    const response = await proxy(requestFor(routes.admin.content()));
+    expect(response.status).toBe(403);
+  });
+
+  it("still reaches the auth callback when it carries the edge credential", async () => {
+    const response = await proxy(
+      requestFor(routes.auth.callback(), { "x-formoria-edge": EDGE_SECRET }),
+    );
+    expect(response.status).not.toBe(403);
+  });
+
+  it("still reaches /admin/content when it carries the edge credential", async () => {
+    const response = await proxy(
+      requestFor(routes.admin.content(), { "x-formoria-edge": EDGE_SECRET }),
+    );
+    expect(response.status).not.toBe(403);
   });
 });
 
@@ -229,6 +270,501 @@ describe("default-locale URL canonicalization", () => {
       expect(forgedResponse.headers.get("location")).toMatch(
         /\/brands\/hero-herb$/,
       );
+    });
+  });
+});
+
+/**
+ * Turbopack skips the Sentry SDK's webpack middleware auto-wrap, so `proxy()`
+ * reports its own failures by hand. Each case drives a capture site through a
+ * REAL failure — no Supabase or service-layer mock — and asserts the
+ * observability is additive: same status, same branch, same fallbacks.
+ *
+ * `vi.resetModules()` is deliberately NOT used here. Only the first dynamic
+ * `import('@sentry/nextjs')` after a module reset resolves to the mock; later
+ * ones reach the real SDK, which silently drops every assertion.
+ * `resetProxyTelemetryForTests()` clears the module-scoped throttle map and the
+ * missing-credentials latch instead, so every case starts from a clean slate
+ * with no clock arithmetic.
+ */
+describe("proxy failure reporting", () => {
+  const CRAWLER_UA =
+    "Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)";
+  const SUPABASE_URL = "https://example.supabase.co";
+  const SESSION_COOKIE = "sb-example-auth-token";
+
+  beforeEach(() => {
+    resetProxyTelemetryForTests();
+    vi.useFakeTimers({ toFake: ["Date"] });
+    sentry.captureException.mockReset();
+    sentry.captureException.mockImplementation(() => "event-id");
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+    vi.unstubAllGlobals();
+  });
+
+  /** The capture rides a `.then()` on a dynamic import, so it needs a macrotask
+   *  turn before it is observable. */
+  async function flushCaptures() {
+    for (let turn = 0; turn < 3; turn += 1) {
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    }
+  }
+
+  function capturesFor(area: string) {
+    return sentry.captureException.mock.calls.filter(
+      (call) => (call[1] as { tags?: { area?: string } })?.tags?.area === area,
+    );
+  }
+
+  function optionsOf(call: unknown[]) {
+    return call[1] as { level: string; fingerprint: string[] };
+  }
+
+  /**
+   * Makes `supabase.auth.getUser()` reject rather than resolve, without mocking
+   * Supabase: a signed-in cookie forces the client to call the Auth server, and
+   * a `fetch` that resolves to a non-Response makes auth-js throw a TypeError
+   * it does not recognise as an AuthError. Throwing from the cookie adapter
+   * instead would also reject auth-js's own un-awaited INITIAL_SESSION emit.
+   */
+  function stubUnreachableAuthServer() {
+    vi.stubEnv("NEXT_PUBLIC_SUPABASE_URL", SUPABASE_URL);
+    vi.stubEnv("NEXT_PUBLIC_SUPABASE_ANON_KEY", "anon-key");
+    vi.stubGlobal("fetch", async () => undefined);
+  }
+
+  function signedInCookie() {
+    const encode = (value: unknown) =>
+      Buffer.from(JSON.stringify(value)).toString("base64url");
+    const nowSeconds = Math.floor(Date.now() / 1000);
+    const accessToken = [
+      encode({ alg: "HS256", typ: "JWT" }),
+      encode({
+        sub: "11111111-1111-1111-1111-111111111111",
+        aud: "authenticated",
+        role: "authenticated",
+        exp: nowSeconds + 3600,
+      }),
+      "signature",
+    ].join(".");
+    const session = {
+      access_token: accessToken,
+      refresh_token: "refresh-token",
+      token_type: "bearer",
+      expires_in: 3600,
+      expires_at: nowSeconds + 3600,
+      user: {
+        id: "11111111-1111-1111-1111-111111111111",
+        aud: "authenticated",
+        role: "authenticated",
+        email: "member@formoria.com",
+        app_metadata: {},
+        user_metadata: {},
+        created_at: new Date().toISOString(),
+      },
+    };
+    return `${SESSION_COOKIE}=base64-${encode(session)}`;
+  }
+
+  it("reports an unhandled proxy exception and rethrows it", async () => {
+    const { recordCrawlerHit } = await import(
+      "@/lib/security/crawler-telemetry"
+    );
+    const failure = new Error("crawler telemetry exploded");
+    vi.mocked(recordCrawlerHit).mockImplementationOnce(() => {
+      throw failure;
+    });
+
+    await expect(
+      proxy(requestFor("/", { "user-agent": CRAWLER_UA })),
+    ).rejects.toBe(failure);
+
+    await flushCaptures();
+
+    const captures = capturesFor("unhandled");
+    expect(captures).toHaveLength(1);
+    expect(captures[0][0]).toBe(failure);
+    expect(
+      (captures[0][1] as { tags: { scope: string } }).tags.scope,
+    ).toBe("proxy");
+    expect(optionsOf(captures[0]).level).toBe("error");
+  });
+
+  it("lets Sentry group unhandled proxy crashes by their own stack, so a second root cause is a second issue rather than a count on the first", async () => {
+    const { recordCrawlerHit } = await import(
+      "@/lib/security/crawler-telemetry"
+    );
+    const first = new Error("crawler telemetry exploded");
+    const second = new TypeError("locale rewrite exploded");
+
+    vi.mocked(recordCrawlerHit).mockImplementationOnce(() => {
+      throw first;
+    });
+    await expect(
+      proxy(requestFor("/", { "user-agent": CRAWLER_UA })),
+    ).rejects.toBe(first);
+    await flushCaptures();
+
+    // Past the throttle window, so the second root cause is not suppressed.
+    vi.setSystemTime(Date.now() + 6 * 60 * 1000);
+    vi.mocked(recordCrawlerHit).mockImplementationOnce(() => {
+      throw second;
+    });
+    await expect(
+      proxy(requestFor("/", { "user-agent": CRAWLER_UA })),
+    ).rejects.toBe(second);
+    await flushCaptures();
+
+    const captures = capturesFor("unhandled");
+    expect(captures).toHaveLength(2);
+    expect(captures.map((call) => call[0])).toEqual([first, second]);
+    // No explicit fingerprint at this site: a fixed one would fold both errors
+    // into a single already-triaged issue and raise no new-issue alert.
+    expect(optionsOf(captures[0]).fingerprint).toBeUndefined();
+    expect(optionsOf(captures[1]).fingerprint).toBeUndefined();
+  });
+
+  it("reports a Supabase failure during the brand-approval check without changing the response", async () => {
+    // The blanked credentials make the edge service client throw on
+    // construction — from the proxy's side, the same shape as an outage.
+    const response = await proxy(requestFor("/hero-herb"));
+
+    // Fail-open preserved: the slug is still served as an approved brand.
+    expect(response.status).toBe(301);
+    expect(response.headers.get("location")).toMatch(/\/brands\/hero-herb$/);
+
+    await flushCaptures();
+
+    const captures = capturesFor("brand-approval");
+    expect(captures).toHaveLength(1);
+    expect(optionsOf(captures[0]).level).toBe("error");
+  });
+
+  it("reports missing Supabase credentials", async () => {
+    const consoleError = vi
+      .spyOn(console, "error")
+      .mockImplementation(() => {});
+    try {
+      const response = await proxy(requestFor("/settings"));
+      expect(response.status).toBeLessThan(400);
+      await flushCaptures();
+      expect(consoleError).toHaveBeenCalledTimes(1);
+      expect(capturesFor("supabase-credentials")).toHaveLength(1);
+
+      // Missing credentials is an every-request condition, so both channels sit
+      // behind the same one-shot latch: a second request announces nothing.
+      const repeat = await proxy(requestFor("/settings"));
+      expect(repeat.status).toBeLessThan(400);
+      await flushCaptures();
+      expect(consoleError).toHaveBeenCalledTimes(1);
+      expect(capturesFor("supabase-credentials")).toHaveLength(1);
+    } finally {
+      consoleError.mockRestore();
+    }
+
+    const captures = capturesFor("supabase-credentials");
+    expect(optionsOf(captures[0]).level).toBe("error");
+  });
+
+  it("reports the fail-closed auth-check at error level and the gracefully degrading session-refresh at warning level", async () => {
+    stubUnreachableAuthServer();
+
+    // Auth check: the staging mutation lockdown asks whether the caller is
+    // signed in. A failed answer must still settle closed.
+    const stagingPost = new NextRequest(
+      new URL("https://staging.formoria.com/submit"),
+      {
+        method: "POST",
+        headers: {
+          host: "staging.formoria.com",
+          "user-agent": BROWSER_UA,
+          cookie: signedInCookie(),
+        },
+      },
+    );
+    const lockedDown = await proxy(stagingPost);
+    expect(lockedDown.status).toBe(403);
+
+    // Session refresh: the request continues, unauthenticated.
+    const refreshed = await proxy(
+      requestFor("/settings", { cookie: signedInCookie() }),
+    );
+    expect(refreshed.status).toBeLessThan(400);
+
+    await flushCaptures();
+
+    const authCheck = capturesFor("auth-check");
+    const sessionRefresh = capturesFor("session-refresh");
+    expect(authCheck).toHaveLength(1);
+    expect(sessionRefresh).toHaveLength(1);
+    // The auth check settles CLOSED — the signed-in caller just got a 403 — so
+    // it must clear an alert threshold set at error. The session refresh only
+    // degrades to anonymous, which is the correct outcome, so it stays warning.
+    expect(optionsOf(authCheck[0]).level).toBe("error");
+    expect(optionsOf(sessionRefresh[0]).level).toBe("warning");
+  });
+
+  it("throttles repeated captures from the same site", async () => {
+    const start = Date.now();
+
+    await proxy(requestFor("/hero-herb"));
+    await flushCaptures();
+    expect(capturesFor("brand-approval")).toHaveLength(1);
+
+    // Inside the 5-minute window: silent.
+    vi.setSystemTime(start + 4 * 60 * 1000);
+    await proxy(requestFor("/hero-herb"));
+    await flushCaptures();
+    expect(capturesFor("brand-approval")).toHaveLength(1);
+
+    // Past the window: reported again.
+    vi.setSystemTime(start + 6 * 60 * 1000);
+    await proxy(requestFor("/hero-herb"));
+    await flushCaptures();
+    expect(capturesFor("brand-approval")).toHaveLength(2);
+  });
+
+  it("each capture site carries a distinct fingerprint", async () => {
+    const consoleError = vi
+      .spyOn(console, "error")
+      .mockImplementation(() => {});
+    try {
+      // Flushed between the two requests: two `import('@sentry/nextjs')` calls
+      // issued before the first settles race in Vitest's mock registry, and the
+      // second resolves to the real SDK.
+      await proxy(requestFor("/hero-herb"));
+      await flushCaptures();
+      await proxy(requestFor("/settings"));
+      await flushCaptures();
+    } finally {
+      consoleError.mockRestore();
+    }
+
+    const brandApproval = capturesFor("brand-approval");
+    const credentials = capturesFor("supabase-credentials");
+    expect(brandApproval).toHaveLength(1);
+    expect(credentials).toHaveLength(1);
+
+    expect(optionsOf(brandApproval[0]).fingerprint).toEqual([
+      "proxy",
+      "brand-approval",
+    ]);
+    expect(optionsOf(credentials[0]).fingerprint).toEqual([
+      "proxy",
+      "supabase-credentials",
+    ]);
+    expect(optionsOf(brandApproval[0]).fingerprint).not.toEqual(
+      optionsOf(credentials[0]).fingerprint,
+    );
+  });
+
+  it("a capture failure never breaks the request", async () => {
+    sentry.captureException.mockImplementation(() => {
+      throw new Error("Sentry transport is down");
+    });
+
+    const response = await proxy(requestFor("/hero-herb"));
+    await flushCaptures();
+
+    expect(response.status).toBe(301);
+    expect(response.headers.get("location")).toMatch(/\/brands\/hero-herb$/);
+    expect(sentry.captureException).toHaveBeenCalled();
+  });
+});
+
+describe("proxy matcher", () => {
+  it("includes /i/ so the image proxy is processed, not skipped", () => {
+    const [defaultPattern, imageProxyPattern, ...rest] = config.matcher;
+
+    /*
+     * `/i/brands/<id>/hero.webp` ends in an image extension, which the default
+     * pattern excludes. Without the second entry the image proxy would bypass
+     * the shared rate limiter and the Cloudflare origin guard entirely.
+     */
+    expect(new RegExp(`^${defaultPattern}$`).test("/i/brands/x.webp")).toBe(
+      false,
+    );
+    expect(imageProxyPattern).toBe("/i/:path*");
+    expect(rest).toEqual([]);
+    /*
+     * The matcher entry exists for the RATE LIMITER, not the origin guard. The
+     * guard must skip `/i/`: Next's image optimizer re-enters middleware with a
+     * mocked, header-less request, which the guard would 403 in production.
+     */
+    expect(isOriginGuardExempt("/i/brands/x.webp")).toBe(true);
+  });
+});
+
+/**
+ * Regression, production-only: adding `/i/:path*` to the matcher put the image
+ * proxy behind the Cloudflare origin guard, and Next's own image optimizer
+ * re-invokes middleware for `/i/...` through `fetchInternalImage` with a mocked
+ * request whose header bag is empty. The guard 403d it, the optimizer read an
+ * empty body and threw ImageError(400), so every `next/image`-rendered proxied
+ * image on the site failed. Invisible under `pnpm dev` -- the guard requires
+ * NODE_ENV=production.
+ */
+describe("the origin guard and the image proxy", () => {
+  beforeEach(() => {
+    vi.stubEnv("NODE_ENV", "production");
+    vi.stubEnv("CF_ORIGIN_SECRET", EDGE_SECRET);
+  });
+
+  afterEach(() => {
+    vi.unstubAllEnvs();
+  });
+
+  it("serves an uncredentialed /i/ request, because the image optimizer cannot carry the edge credential", async () => {
+    const response = await proxy(
+      requestFor(
+        "/i/brands/8f14e45f-ceea-467a-9d0f-2b9c0f8c3a11/hero.webp",
+      ),
+    );
+    expect(response.status).not.toBe(403);
+  });
+
+  it("exempts /i/ by prefix, and nothing that merely starts with the same letter", () => {
+    expect(isOriginGuardExempt("/i/brands/abc/hero.webp")).toBe(true);
+    expect(isOriginGuardExempt("/i/")).toBe(true);
+    expect(isOriginGuardExempt("/images/logo.webp")).toBe(false);
+    expect(isOriginGuardExempt("/internal/thing")).toBe(false);
+  });
+
+  it("still 403s a non-exempt path carrying exactly the same (absent) headers", async () => {
+    const response = await proxy(requestFor("/api/admin/brands"));
+    expect(response.status).toBe(403);
+  });
+});
+
+/**
+ * Regression: the mint skip tested the RESPONSE's `cache-control` for
+ * `public` / `s-maxage`, but middleware runs before the route handler sets it,
+ * so the skip never fired. On `/i/` that meant N parallel uncookied image
+ * requests each minted a different identity, each emitted a rotation event, and
+ * each returned a `Set-Cookie` -- which makes a CDN bypass its cache for a
+ * response marked immutable for a year.
+ */
+describe("visitor identity minting", () => {
+  beforeEach(() => {
+    vi.stubEnv("CHALLENGE_SECRET", "proxy-test-visitor-secret");
+    vi.stubEnv("TRAVERSAL_COUNTERS", "on");
+  });
+
+  afterEach(() => {
+    vi.unstubAllEnvs();
+  });
+
+  it("sets no cookie on an image request", async () => {
+    const response = await proxy(
+      requestFor("/i/brands/8f14e45f-ceea-467a-9d0f-2b9c0f8c3a11/hero.webp"),
+    );
+
+    expect(response.headers.getSetCookie()).toEqual([]);
+    expect(response.cookies.get(VISITOR_COOKIE_NAME)).toBeUndefined();
+  });
+
+  it("sets no cookie on an admin request", async () => {
+    const response = await proxy(requestFor("/admin/brands"));
+    expect(response.cookies.get(VISITOR_COOKIE_NAME)).toBeUndefined();
+  });
+
+  it("mints on an ordinary page request while the counters are on", async () => {
+    const response = await proxy(requestFor("/about"));
+    expect(response.cookies.get(VISITOR_COOKIE_NAME)?.value).toBeTruthy();
+  });
+
+  // C1 regression: `attachVisitorIdentity` runs AFTER `runProxy` has stamped
+  // the directory edge cache header, and `shouldMintVisitorIdentity` returns
+  // true for `directory:list`. A `Set-Cookie` on a `public, s-maxage` response
+  // either drops it from the CDN or leaks one visitor's identity to everyone.
+  it("sets no cookie on a cookie-less filtered directory view, and keeps it edge-cacheable", async () => {
+    const response = await proxy(requestFor("/brands?page=2&sort=newest"));
+
+    expect(response.headers.get("cache-control")).toBe(
+      "public, s-maxage=3600, stale-while-revalidate=86400",
+    );
+    expect(response.headers.get("set-cookie")).toBeNull();
+    expect(response.cookies.get(VISITOR_COOKIE_NAME)).toBeUndefined();
+  });
+
+  it("still mints on a directory SEARCH view, which is never edge-cached", async () => {
+    const response = await proxy(requestFor("/brands?search=ceramic"));
+
+    expect(response.headers.get("cache-control")).not.toBe(
+      "public, s-maxage=3600, stale-while-revalidate=86400",
+    );
+    expect(response.cookies.get(VISITOR_COOKIE_NAME)?.value).toBeTruthy();
+  });
+
+  it("mints nothing at all while TRAVERSAL_COUNTERS is off, because nothing reads the identity", async () => {
+    vi.stubEnv("TRAVERSAL_COUNTERS", "");
+    const response = await proxy(requestFor("/about"));
+    expect(response.cookies.get(VISITOR_COOKIE_NAME)).toBeUndefined();
+  });
+});
+
+/**
+ * DEV-1551 task 15. `src/proxy.ts` used to treat a valid `fm_verified` cookie as
+ * an unconditional seven-day pass: the whole soft-limit block was skipped, so
+ * solving Turnstile once bought a week of unmetered `/brands/*` traversal.
+ * Verification now buys a RAISED budget, evaluated on the same counter.
+ */
+describe("the soft-limit budget a verified visitor gets", () => {
+  const SOFT_LIMIT_PATH = "/brands/kinship-goods";
+
+  beforeEach(() => {
+    vi.stubEnv("SECURITY_DISABLE_RATE_LIMIT", "false");
+    vi.stubEnv("PLAYWRIGHT_TEST", "false");
+    vi.stubEnv("CHALLENGE_SECRET", "proxy-test-challenge-secret");
+  });
+
+  async function verifiedCookieHeader(): Promise<string> {
+    const { signChallengeToken, CHALLENGE_COOKIE_NAME } = await import(
+      "@/lib/security/challenge"
+    );
+    return `${CHALLENGE_COOKIE_NAME}=${await signChallengeToken("203.0.113.5")}`;
+  }
+
+  it("still evaluates the soft limit for a verified visitor", async () => {
+    // Passing the soft limit lets the request fall through to the brand
+    // redirect lookup, which needs a reachable Supabase endpoint. The two
+    // tests below return before reaching it.
+    const cookie = await verifiedCookieHeader();
+    await withRedirectLookupServer(() =>
+      proxy(requestFor(SOFT_LIMIT_PATH, { cookie })),
+    );
+
+    // The call itself is the assertion: before this change the cookie skipped it.
+    expect(limiter.checkSoftRateLimit).toHaveBeenCalledTimes(1);
+    expect(limiter.checkSoftRateLimit.mock.calls[0]?.[1]).toEqual({
+      verified: true,
+    });
+  });
+
+  it("escalates a verified visitor to 429 rather than re-challenging them", async () => {
+    limiter.checkSoftRateLimit.mockImplementation(async () => true);
+
+    const response = await proxy(
+      requestFor(SOFT_LIMIT_PATH, { cookie: await verifiedCookieHeader() }),
+    );
+
+    // A redirect back to /challenge would bounce a visitor who already holds a
+    // valid token between two pages until the window rolled.
+    expect(response.status).toBe(429);
+  });
+
+  it("still sends an unverified visitor to the challenge first", async () => {
+    limiter.checkSoftRateLimit.mockImplementation(async () => true);
+
+    const response = await proxy(requestFor(SOFT_LIMIT_PATH));
+
+    expect(response.status).toBe(307);
+    expect(response.headers.get("location")).toContain("/challenge");
+    expect(limiter.checkSoftRateLimit.mock.calls[0]?.[1]).toEqual({
+      verified: false,
     });
   });
 });

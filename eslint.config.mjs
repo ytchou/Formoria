@@ -107,7 +107,7 @@ const eslintConfig = defineConfig([
   // UI sourcing rules: raw styled HTML elements must use ui/ primitives.
   {
     files: ["src/**/*.tsx"],
-    ignores: ["src/components/ui/**", "src/components/microsite/**"],
+    ignores: ["src/components/ui/**"],
     rules: {
       "no-restricted-syntax": [
         "error",
@@ -142,26 +142,6 @@ const eslintConfig = defineConfig([
             "Raw styled <input> — use <Input> from '@/components/ui/input'. Exception: // eslint-disable-next-line no-restricted-syntax -- ui-exception: <reason>",
         },
       ],
-    },
-  },
-  // Grandfather block: existing violations suppressed pending migration to ui/ primitives.
-  // Remove a file from this list once its violations have been converted.
-  // Note: Next.js dynamic route brackets are escaped (\\[ \\]) so micromatch
-  // treats them as literals rather than character-class syntax.
-  {
-    files: [
-      "src/components/brands/brand-filter-sidebar.tsx",
-      "src/components/brands/claim-brand-cta.tsx",
-      "src/components/brands/image-carousel.tsx",
-      "src/components/brands/report-dialog.tsx",
-      "src/components/brands/save-brand-button.tsx",
-      "src/components/dashboard/onboarding-step-list.tsx",
-      "src/components/navigation/nav-category-tabs.tsx",
-      "src/components/newsletter/email-capture-form.tsx",
-      "src/components/upload/ImageUploader.tsx",
-    ],
-    rules: {
-      "no-restricted-syntax": "off",
     },
   },
 ]);

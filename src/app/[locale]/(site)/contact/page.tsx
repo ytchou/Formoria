@@ -1,6 +1,6 @@
 import type { Metadata } from 'next'
 import { getTranslations, setRequestLocale } from 'next-intl/server'
-import { Building2, HelpCircle, Lightbulb, Mail } from 'lucide-react'
+import { Building2, HelpCircle, Mail } from 'lucide-react'
 import { Link } from '@/i18n/navigation'
 import { buttonVariants } from '@/components/ui/button'
 import { surfaceCardStyles } from '@/components/ui/card'
@@ -56,12 +56,6 @@ export default async function ContactPage({ params }: PageProps) {
       href: `mailto:${CONTACT_EMAILS.contact}`,
       external: true,
     },
-    {
-      key: 'feature',
-      icon: Lightbulb,
-      href: routes.featureRequests(),
-      external: false,
-    },
     { key: 'brand', icon: Building2, href: routes.brands(), external: false },
     { key: 'question', icon: HelpCircle, href: routes.faq(), external: false },
   ] as const
@@ -74,7 +68,7 @@ export default async function ContactPage({ params }: PageProps) {
 
   return (
     <PageShell as="main" measure="page" className="py-10">
-      <section className="border-b border-border pb-10">
+      <section className="border-b border-rule pb-10">
         <div className="prose-measure">
           <p className="type-eyebrow">{t('hero.eyebrow')}</p>
           <h1 className="mt-3 type-display">{t('hero.title')}</h1>
@@ -83,7 +77,7 @@ export default async function ContactPage({ params }: PageProps) {
       </section>
 
       <section className="py-10">
-        <div className="grid gap-4 md:grid-cols-2">
+        <div className="grid gap-4 md:grid-cols-3">
           {channels.map(({ key, icon: Icon, href, external }) => (
             <article key={key} className={surfaceCardStyles()}>
               <div className="flex size-8 items-center justify-center rounded-full bg-accent text-ground">

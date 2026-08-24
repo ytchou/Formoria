@@ -9,7 +9,6 @@ describe('Supabase business projection', () => {
           { id: 'current', approved_at: '2026-07-12T16:30:00.000Z' },
           { id: 'after-window', approved_at: '2026-07-19T16:30:00.000Z' },
         ],
-        owners: [{ brand_id: 'current' }],
         subscribers: [
           { confirmed_at: '2026-07-12T16:30:00.000Z', unsubscribed_at: null },
           { confirmed_at: '2026-07-19T16:30:00.000Z', unsubscribed_at: null },
@@ -23,6 +22,5 @@ describe('Supabase business projection', () => {
 
     expect(result.supply.newApproved).toEqual({ current: 1, prior: 0 })
     expect(result.audience.netConfirmations).toEqual({ current: 1, prior: 0 })
-    expect(result.supply.claimedShare).toBe(0.5)
   })
 })

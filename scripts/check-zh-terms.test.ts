@@ -1,5 +1,7 @@
 import { describe, it, expect } from "vitest";
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
+import { dirname, join, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 
 import { BANNED_TERMS } from "../src/lib/i18n/banned-terms";
 import {
@@ -31,6 +33,14 @@ const shield = BANNED_TERMS.map((entry) => entry.replacement).find(
       (other) => other.term !== replacement && replacement.includes(other.term),
     ),
 )!;
+
+const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
+
+// A real directory, used only as a fixture for the directory half of the
+// membership rule. No entry in the real SCANNED_SOURCE_FILES is a directory
+// today, so passing one in is the only way to exercise prefix matching, the
+// walk that expands it, and the test-file filter that trims it.
+const SCANNED_DIRECTORY_FIXTURE = "src/lib/taxonomy/";
 
 describe("check-zh-terms — message catalogues", () => {
   it("flags a banned term in a message catalogue", () => {
@@ -109,25 +119,16 @@ describe("check-zh-terms — source scope", () => {
     expect(isScannedSourceFile("src/lib/taxonomy/ontology.ts")).toBe(true);
   });
 
-  // These four are published zh-TW copy — the microsite, transactional email
-  // and structured-data labels. They were excluded while the gate was first
+  // These two are published zh-TW copy — transactional email and
+  // structured-data labels. They were excluded while the gate was first
   // scoped and moved in once verified clean. This test is what stops a later
   // edit from quietly putting them back: dropping one out of
   // SCANNED_SOURCE_FILES, or re-adding it to EXCLUDED_SOURCE_FILES, fails
   // here rather than going unnoticed until a banned term ships.
-  const widened = [
-    "src/components/microsite/",
-    "src/app/(microsite)/",
-    "src/lib/email/templates.ts",
-    "src/lib/json-ld.ts",
-  ];
+  const widened = ["src/lib/email/templates.ts", "src/lib/json-ld.ts"];
 
   it.each(widened)("scans reader-facing %s", (entry) => {
-    // For a directory entry, a concrete file beneath it must match too —
-    // path-exact matching would pass the entry itself and still scan nothing.
-    const probe = entry.endsWith("/") ? `${entry}some-file.tsx` : entry;
-
-    expect(isScannedSourceFile(probe)).toBe(true);
+    expect(isScannedSourceFile(entry)).toBe(true);
   });
 
   it.each(widened)("does not also classify %s as excluded", (entry) => {
@@ -135,11 +136,16 @@ describe("check-zh-terms — source scope", () => {
     expect(EXCLUDED_SOURCE_FILES.has(entry.replace(/^src\//, ""))).toBe(false);
   });
 
-  it("expands directory entries into the real files beneath them", () => {
+  it("resolves every scanned entry to files that exist", () => {
+    // Directory entries expand, file entries pass through, and either way an
+    // entry naming something that is no longer there stops scanning copy it
+    // used to cover. The allowlist has no existence check of its own.
     const files = scannedSourceFiles();
 
-    expect(files).toContain("src/components/microsite/hero.tsx");
-    expect(files).toContain("src/app/(microsite)/site/[slug]/page.tsx");
+    expect(files).toContain("src/lib/taxonomy/ontology.ts");
+    expect(files).toContain("src/lib/email/templates.ts");
+    expect(files).toContain("src/lib/json-ld.ts");
+    expect(files.filter((file) => !existsSync(join(ROOT, file)))).toEqual([]);
     // Tests are not copy, and one of them would name a banned term as a fixture.
     expect(
       files.filter((file) => /(__tests__|\.test\.tsx?$)/.test(file)),
@@ -147,14 +153,46 @@ describe("check-zh-terms — source scope", () => {
   });
 
   // One membership rule, or the enumerated set and the predicate disagree and
-  // the exported `scanSourceFile` gets the looser one.
+  // the exported `scanSourceFile` gets the looser one. The test siblings of a
+  // scanned copy file are the case that must not slip through.
   it.each([
-    "src/components/microsite/__tests__/hero.test.tsx",
-    "src/components/microsite/hero.test.tsx",
-    "src/components/microsite/hero.test.ts",
+    "src/lib/taxonomy/__tests__/ontology.test.ts",
+    "src/lib/taxonomy/ontology.test.tsx",
+    "src/lib/email/templates.test.ts",
   ])("agrees with the file list that %s is not scanned", (file) => {
     expect(isScannedSourceFile(file)).toBe(false);
     expect(scannedSourceFiles()).not.toContain(file);
+  });
+
+  it("expands a directory entry to every non-test file beneath it", () => {
+    // No real entry is a directory yet, so without a fixture the whole
+    // expansion path — `walk`, the prefix match, the test-file filter — ships
+    // untested and the first directory entry added is the one that discovers
+    // it is broken.
+    const files = scannedSourceFiles([SCANNED_DIRECTORY_FIXTURE]);
+
+    expect(files).toContain("src/lib/taxonomy/ontology.ts");
+    expect(files.length).toBeGreaterThan(1);
+    expect(
+      files.filter((file) => /(__tests__|\.test\.tsx?$)/.test(file)),
+    ).toEqual([]);
+  });
+
+  it("drops a file beneath a scanned directory only because it is a test", () => {
+    // The pair is the point: both paths sit under the same scanned directory,
+    // so the ONLY thing separating them is the test-file rule. Delete that
+    // rule and this goes red instead of quietly scanning fixtures that name
+    // banned terms on purpose.
+    expect(
+      isScannedSourceFile("src/lib/taxonomy/story-tags.ts", [
+        SCANNED_DIRECTORY_FIXTURE,
+      ]),
+    ).toBe(true);
+    expect(
+      isScannedSourceFile("src/lib/taxonomy/__tests__/ontology.test.ts", [
+        SCANNED_DIRECTORY_FIXTURE,
+      ]),
+    ).toBe(false);
   });
 
   it("reports a renamed scan directory as a configuration problem", () => {
@@ -170,15 +208,24 @@ describe("check-zh-terms — source scope", () => {
 });
 
 describe("check-zh-terms — allowlist sync", () => {
-  it("accepts a per-file allowlist entry nested under a scanned directory", () => {
-    // The bug this pins: an exact-string comparison against
+  it("accepts a per-file allowlist entry that a scanned DIRECTORY covers", () => {
+    // The DEV-1543 bug this pins: an exact-string comparison against
     // SCANNED_SOURCE_FILES failed a normal per-file allowlist entry whose
     // directory prefix is already scanned, and told the developer to add it to
     // SCANNED_SOURCE_FILES (redundant) or EXCLUDED_SOURCE_FILES (which would
-    // un-scan a file the gate had just been widened to cover).
+    // un-scan a file the gate had just been widened to cover). The entry must
+    // be nested under a DIRECTORY entry, or a path-exact comparison passes
+    // this case and the bug walks back in unnoticed.
     expect(
-      allowlistSyncProblemsFor(["components/microsite/hero-copy.tsx"]),
+      allowlistSyncProblemsFor(
+        ["lib/taxonomy/ontology.ts"],
+        [SCANNED_DIRECTORY_FIXTURE],
+      ),
     ).toEqual([]);
+  });
+
+  it("accepts a per-file allowlist entry that is itself a scanned file", () => {
+    expect(allowlistSyncProblemsFor(["lib/json-ld.ts"])).toEqual([]);
   });
 
   it("still flags an entry that is classified nowhere", () => {

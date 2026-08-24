@@ -17,7 +17,6 @@ vi.mock("@/app/admin/actions", () => ({
   deleteBrandAction: vi.fn(),
   requestBrandRefreshAction: vi.fn(),
   requestCuratedProductBackfillAction: vi.fn(),
-  resendClaimInviteAction: vi.fn(),
 }));
 vi.mock("@/app/admin/brands/actions", () => ({
   saveAdminBrandReviewAction: vi.fn(),
@@ -194,7 +193,6 @@ function makeBrand(overrides: Partial<Brand> = {}): Brand {
     categorySlug: "home",
     categoryLabel: "Home & Living",
     city: "台北",
-    isVerified: false,
     mitStatus: "unverified",
     isDemo: false,
     foundingYear: 2018,
@@ -209,7 +207,6 @@ function makeBrand(overrides: Partial<Brand> = {}): Brand {
     productPhotos: [],
     imageAlts: [],
     contactEmail: null,
-    priceRange: 2,
     subcategories: [],
     subcategoriesEn: [],
     siteContent: null,

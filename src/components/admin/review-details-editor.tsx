@@ -342,8 +342,10 @@ export function ReviewDetailsEditor({
       className="space-y-6"
     >
       {missingLabels.length > 0 && (
-        <div className="rounded-[4px] border border-danger/30 bg-danger/5 p-4">
-          <p className="type-body-sm font-medium text-ink">{t("missingRequired")}</p>
+        <div className="rounded-surface border border-danger/30 bg-danger/5 p-4">
+          <p className="type-body-sm font-medium text-ink">
+            {t("missingRequired")}
+          </p>
           <ul className="mt-2 list-disc space-y-1 pl-5 type-body-sm">
             {missingLabels.map((label) => (
               <li key={label}>{label}</li>
@@ -437,10 +439,6 @@ export function ReviewDetailsEditor({
                           data.categorySlug)
                         : null
                     }
-                  />
-                  <Definition
-                    label={t("details.priceRange")}
-                    value={data.priceRange ? "$".repeat(data.priceRange) : null}
                   />
                   <Definition label={t("details.city")} value={data.city} />
                   <Definition
@@ -591,7 +589,7 @@ export function ReviewDetailsEditor({
                   return (
                     <div
                       key={image.id}
-                      className="overflow-hidden rounded-[4px] border bg-surface"
+                      className="overflow-hidden rounded-surface border bg-surface"
                     >
                       <div className="relative">
                         {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -603,7 +601,8 @@ export function ReviewDetailsEditor({
                         <Button
                           shape="pill"
                           variant={index === 0 ? "primary" : "secondary"}
-                          className="absolute left-2 top-2 h-12 w-12 border border-rule p-0"
+                          size="icon"
+                          className="absolute left-2 top-2 border border-rule"
                           onClick={() => setHero(image.id)}
                           aria-label={t("setHero", { n: index + 1 })}
                         >
@@ -615,7 +614,7 @@ export function ReviewDetailsEditor({
                           shape="square"
                           size="icon"
                           variant="ghost"
-                          className="h-12 w-full"
+                          width="full"
                           onClick={() => moveImage(image.id, -1)}
                           disabled={index === 0}
                           aria-label={t("moveLeft", { n: index + 1 })}
@@ -626,7 +625,7 @@ export function ReviewDetailsEditor({
                           shape="square"
                           size="icon"
                           variant="ghost"
-                          className="h-12 w-full"
+                          width="full"
                           onClick={() => moveImage(image.id, 1)}
                           disabled={index === draftImages.length - 1}
                           aria-label={t("moveRight", { n: index + 1 })}
@@ -636,13 +635,14 @@ export function ReviewDetailsEditor({
                         <Button
                           shape="square"
                           size="icon"
-                          className="h-12 w-full"
+                          width="full"
                           variant="ghost"
                           onClick={() => removeImage(image.id)}
                           disabled={
                             !canRemovePersistedImages &&
                             image.originBrandImageId !== null &&
-                            (image.source === "owner" || image.source === "admin")
+                            (image.source === "owner" ||
+                              image.source === "admin")
                           }
                           aria-label={t("removeImage", { n: index + 1 })}
                         >
@@ -685,7 +685,7 @@ export function ReviewDetailsEditor({
                           src={image.url}
                           alt={image.altZh ?? t("imageAlt", { n: index + 1 })}
                           className={cn(
-                            "aspect-media w-full rounded-[4px] border",
+                            "aspect-media w-full rounded-surface border",
                             fill,
                           )}
                         />
@@ -851,30 +851,6 @@ function CatalogEditor({
             </SelectContent>
           </Select>
         </Field>
-        <Field label={t("details.priceRange")}>
-          <Select
-            value={draft.priceRange?.toString() ?? EMPTY_SELECT_VALUE}
-            onValueChange={(value) =>
-              onUpdate(
-                "priceRange",
-                value === EMPTY_SELECT_VALUE ? null : Number(value),
-              )
-            }
-          >
-            <SelectTrigger className="w-full">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value={EMPTY_SELECT_VALUE}>{t("notSet")}</SelectItem>
-              {[1, 2, 3].map((value) => (
-                <SelectItem key={value} value={value.toString()}>
-                  {" "}
-                  {"$".repeat(value)}{" "}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </Field>
         <Field label={t("details.city")}>
           <Input
             value={draft.city ?? ""}
@@ -960,10 +936,12 @@ function ProductProposalsReadOnly({
         return (
           <li
             key={proposal.key}
-            className="space-y-3 rounded-[4px] border border-rule p-4"
+            className="space-y-3 rounded-surface border border-rule p-4"
           >
             <div className="flex flex-wrap items-center gap-2">
-              <p className="type-body-sm font-medium text-ink">{proposalTitle(proposal)}</p>
+              <p className="type-body-sm font-medium text-ink">
+                {proposalTitle(proposal)}
+              </p>
               <ProposalStateBadges
                 state={states.get(proposal.key) ?? "new"}
                 kept={keptKeys.includes(proposal.key)}
@@ -1073,7 +1051,7 @@ function ProductProposalsEditor({
         return (
           <fieldset
             key={proposal.key}
-            className="space-y-3 rounded-[4px] border border-rule p-4"
+            className="space-y-3 rounded-surface border border-rule p-4"
           >
             <legend className="type-metadata">
               {t("details.productEditor.item", { number: index + 1 })}
@@ -1335,7 +1313,9 @@ function LinksEditor({
                 : PURCHASE_DISPLAY_LABELS[channel.key]
             }
             value={
-              channel.key === "website" ? draft.websiteUrl : draft[channel.camel]
+              channel.key === "website"
+                ? draft.websiteUrl
+                : draft[channel.camel]
             }
             onChange={(value) => {
               if (channel.key === "website") onUpdate("websiteUrl", value);
@@ -1380,7 +1360,11 @@ function ReputationReadOnly({
 
   return (
     <>
-      {summary && <p className="whitespace-pre-wrap type-body-sm text-ink-soft">{summary}</p>}
+      {summary && (
+        <p className="whitespace-pre-wrap type-body-sm text-ink-soft">
+          {summary}
+        </p>
+      )}
       {sources.length > 0 && (
         <div className="space-y-1">
           <p className="type-metadata">{t("details.reputationSources")}</p>
@@ -1474,7 +1458,9 @@ function ValueBlock({ label, value }: { label: string; value: string | null }) {
   return (
     <div>
       <p className="type-metadata">{label}</p>
-      <p className="mt-1 whitespace-pre-wrap type-body-sm text-ink-soft">{value}</p>
+      <p className="mt-1 whitespace-pre-wrap type-body-sm text-ink-soft">
+        {value}
+      </p>
     </div>
   );
 }
@@ -1631,7 +1617,7 @@ function OtherUrlEditor({
             }
           />
           <Button
-            className="min-h-12"
+            size="large"
             variant="secondary"
             onClick={() =>
               onChange(links.filter((_, itemIndex) => itemIndex !== index))
@@ -1642,7 +1628,7 @@ function OtherUrlEditor({
         </div>
       ))}
       <Button
-        className="min-h-12"
+        size="large"
         variant="secondary"
         onClick={() => onChange([...links, { label: "", url: "" }])}
       >

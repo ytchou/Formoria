@@ -2,7 +2,6 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 import { auditedCall } from '@/lib/audit'
 import { buildNewsletterConfirmEmail } from '@emails/templates/newsletter-confirm'
 import { sendEmail } from '@/lib/email/send'
-import { setLifecycleEmailPreference } from '@/lib/services/email-lifecycle'
 import { createSubscriber } from '@/lib/services/newsletter'
 
 export const MARKETING_CONSENT_VERSION = '2026-07-16'
@@ -12,9 +11,6 @@ type MarketingConsentSource =
   | 'guest_recommendation'
   | 'account_signup'
   | 'google_signup'
-  | 'owner_quick_submission'
-  | 'owner_detailed_submission'
-  | 'brand_claim'
   | 'settings'
 
 export type MarketingEnrollmentInput = {
@@ -23,13 +19,11 @@ export type MarketingEnrollmentInput = {
   locale: string
   source: MarketingConsentSource
   newsletter: boolean
-  lifecycle: boolean
   interests?: string[]
 }
 
 export type MarketingEnrollmentResult = {
   newsletter: 'not_requested' | 'pending' | 'active' | 'failed'
-  lifecycle: 'not_requested' | 'on' | 'failed'
 }
 
 export async function requestNewsletterSubscription(
@@ -80,33 +74,24 @@ export async function enrollInMarketingEmails(
   return auditedCall(
     { provider: 'email', operation: 'enrollInMarketingEmails', kind: 'service' },
     async () => {
-  const newsletterPromise = input.newsletter
-    ? requestNewsletterSubscription(supabase, input)
-    : Promise.resolve<'not_requested'>('not_requested')
-  const lifecyclePromise = input.lifecycle && input.userId
-    ? setLifecycleEmailPreference(supabase, {
-        userId: input.userId,
-        enabled: true,
-        consentSource: input.source,
-        consentVersion: MARKETING_CONSENT_VERSION,
-      }).then(() => 'on' as const)
-    : Promise.resolve<'not_requested'>('not_requested')
+  if (!input.newsletter) {
+    return { newsletter: 'not_requested' }
+  }
 
-  const [newsletterResult, lifecycleResult] = await Promise.allSettled([
-    newsletterPromise,
-    lifecyclePromise,
-  ])
-
-  if (newsletterResult.status === 'rejected') {
+  let newsletter: MarketingEnrollmentResult['newsletter']
+  try {
+    newsletter = await requestNewsletterSubscription(supabase, input)
+  } catch (error) {
     console.error('[marketing-consent]', {
       category: 'newsletter',
       source: input.source,
       userId: input.userId ?? null,
-      error: newsletterResult.reason instanceof Error
-        ? newsletterResult.reason.message
-        : String(newsletterResult.reason),
+      error: error instanceof Error ? error.message : String(error),
     })
-  } else if (newsletterResult.value === 'failed') {
+    return { newsletter: 'failed' }
+  }
+
+  if (newsletter === 'failed') {
     console.error('[marketing-consent]', {
       category: 'newsletter',
       source: input.source,
@@ -115,25 +100,7 @@ export async function enrollInMarketingEmails(
     })
   }
 
-  if (lifecycleResult.status === 'rejected') {
-    console.error('[marketing-consent]', {
-      category: 'lifecycle',
-      source: input.source,
-      userId: input.userId ?? null,
-      error: lifecycleResult.reason instanceof Error
-        ? lifecycleResult.reason.message
-        : String(lifecycleResult.reason),
-    })
-  }
-
-  return {
-    newsletter: newsletterResult.status === 'fulfilled'
-      ? newsletterResult.value
-      : 'failed',
-    lifecycle: lifecycleResult.status === 'fulfilled'
-      ? lifecycleResult.value
-      : 'failed',
-  }
+  return { newsletter }
     },
   )
 }

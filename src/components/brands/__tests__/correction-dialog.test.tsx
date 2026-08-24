@@ -45,14 +45,12 @@ const BRAND_ID = "d9428888-122b-4e1f-b85c-61c0a8904d6a";
 // The real locale file is the fixture: a dropped or renamed key then fails the
 // suite instead of surfacing as a raw key path at runtime.
 const COPY = messages.brandDetail.correction;
-const EDIT_COPY = messages.dashboard.edit;
 
 // The trigger has no aria-label — its visible text is its accessible name.
 const TRIGGER_NAME = COPY.trigger;
 const SUBMIT_NAME = COPY.submit;
 const FIELD_PICKER_LABEL = COPY.fieldPickerLabel;
 const CATEGORY_LABEL = messages.brandDetail.label.category;
-const PRICE_RANGE_LABEL = messages.brandDetail.label.priceRange;
 const CURRENT_HEADING = COPY.currentHeading;
 const CHANGE_TO_HEADING = COPY.changeToHeading;
 const CURRENT_SUBCATEGORIES_HEADING = COPY.currentSubcategoriesHeading;
@@ -61,11 +59,7 @@ const PLACEHOLDER_COPY = COPY.selectPlaceholder;
 const SUBCATEGORY_SEARCH_LABEL = COPY.subcategorySearchLabel;
 const SUBCATEGORY_REJECTED = COPY.subcategoryRejected;
 
-const PRICE_CHIP = {
-  1: `$ · ${EDIT_COPY.fieldPriceRangeBudget}`,
-  2: `$$ · ${EDIT_COPY.fieldPriceRangeMidRange}`,
-  3: `$$$ · ${EDIT_COPY.fieldPriceRangePremium}`,
-} as const;
+const FASHION_LABEL = "服飾鞋履";
 
 function selectedCount(count: number) {
   return COPY.subcategoriesSelected.replace("{count}", String(count));
@@ -80,7 +74,6 @@ function renderDialog(
         brandId={BRAND_ID}
         brandSlug="warmwood"
         categorySlug="home"
-        priceRange={2}
         subcategories={[]}
         {...props}
       />
@@ -88,8 +81,31 @@ function renderDialog(
   );
 }
 
-function openDialog() {
+// The body is a `next/dynamic` chunk behind a `loading:` skeleton that already
+// renders a real `role="dialog"` (that is the point — the overlay and focus
+// trap mount immediately). So waiting on the role alone resolves against the
+// skeleton and every synchronous query that follows races the real body. Wait
+// for the loaded surface instead: only the skeleton carries `aria-busy`.
+// The generous timeout is the same one the sibling dialogs use — resolving the
+// chunk is a module import competing with every other vitest worker for CPU.
+const CHUNK_LOAD_TIMEOUT_MS = 10_000;
+
+async function findLoadedDialog() {
+  return waitFor(
+    () => {
+      const loaded = screen
+        .getAllByRole("dialog")
+        .find((node) => node.getAttribute("aria-busy") !== "true");
+      if (!loaded) throw new Error("dialog body has not mounted yet");
+      return loaded;
+    },
+    { timeout: CHUNK_LOAD_TIMEOUT_MS },
+  );
+}
+
+async function openDialog() {
   fireEvent.click(screen.getByRole("button", { name: TRIGGER_NAME }));
+  await findLoadedDialog();
 }
 
 function fieldPicker() {
@@ -124,14 +140,14 @@ function renderSubcategories(currentValue: string[] = []) {
   renderDialog({ categorySlug: "home", subcategories: currentValue });
 }
 
-function openSubcategoriesDialog() {
-  openDialog();
+async function openSubcategoriesDialog() {
+  await openDialog();
   selectField("subcategories");
 }
 
-function openCategoryDialog(categorySlug: string | null = "home") {
+async function openCategoryDialog(categorySlug: string | null = "home") {
   renderDialog({ categorySlug });
-  openDialog();
+  await openDialog();
   selectField("category");
 }
 
@@ -165,9 +181,25 @@ describe("CorrectionDialog", () => {
     mocks.submitCorrection.mockResolvedValue({ ok: true, id: "correction-1" });
   });
 
+  // The body is a `next/dynamic` chunk. Nothing of it — not the field picker,
+  // not the L2 vocabulary — may reach the browser before the contributor asks
+  // for it, which is exactly what the trigger click is.
+  it("loads the body behind a click gate", async () => {
+    renderDialog();
+
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("combobox", { name: FIELD_PICKER_LABEL }),
+    ).not.toBeInTheDocument();
+
+    await openDialog();
+
+    expect(fieldPicker()).toBeInTheDocument();
+  });
+
   describe("structure", () => {
-    it("renders the current category as a non-interactive reference, not a button", () => {
-      openCategoryDialog();
+    it("renders the current category as a non-interactive reference, not a button", async () => {
+      await openCategoryDialog();
 
       const current = group(CURRENT_HEADING);
       expect(within(current).getByText("居家生活")).toBeInTheDocument();
@@ -175,9 +207,9 @@ describe("CorrectionDialog", () => {
     });
 
     // The dialog reads as a diff: 目前 / 改成. The field label stays the group's
-    // accessible name so the row is still addressable as 類別 / 價格區間.
-    it("heads the options row with the change-to heading while keeping the field label as its name", () => {
-      openCategoryDialog();
+    // accessible name so the row is still addressable as 類別.
+    it("heads the options row with the change-to heading while keeping the field label as its name", async () => {
+      await openCategoryDialog();
 
       const options = group(CATEGORY_LABEL);
       expect(within(options).getByText(CHANGE_TO_HEADING)).toBeInTheDocument();
@@ -186,8 +218,8 @@ describe("CorrectionDialog", () => {
       ).not.toBeInTheDocument();
     });
 
-    it("excludes the current value from the options row", () => {
-      openCategoryDialog();
+    it("excludes the current value from the options row", async () => {
+      await openCategoryDialog();
 
       expect(screen.getAllByText("居家生活")).toHaveLength(1);
       expect(
@@ -204,8 +236,8 @@ describe("CorrectionDialog", () => {
       ["a brand with none", null, L1_CATEGORIES.length],
     ] as const)(
       "renders one option chip per selectable category for %s",
-      (_label, categorySlug, expected) => {
-        openCategoryDialog(categorySlug);
+      async (_label, categorySlug, expected) => {
+        await openCategoryDialog(categorySlug);
 
         expect(
           within(group(CATEGORY_LABEL)).getAllByRole("button"),
@@ -213,8 +245,8 @@ describe("CorrectionDialog", () => {
       },
     );
 
-    it("renders a placeholder in row 1 when the field is unset", () => {
-      openCategoryDialog(null);
+    it("renders a placeholder in row 1 when the field is unset", async () => {
+      await openCategoryDialog(null);
 
       expect(
         within(group(CURRENT_HEADING)).getByText(PLACEHOLDER_COPY),
@@ -222,77 +254,77 @@ describe("CorrectionDialog", () => {
       expect(submitButton()).toBeDisabled();
     });
 
-    it("opens with no value control until a field is picked", () => {
+    it("opens with no value control until a field is picked", async () => {
       renderDialog();
-      openDialog();
+      await openDialog();
 
       expect(fieldPicker()).toHaveValue("");
       expect(screen.queryAllByRole("group")).toHaveLength(0);
       expect(submitButton()).toBeDisabled();
     });
 
-    it("swaps the value control when the field changes", () => {
+    it("swaps the value control when the field changes", async () => {
       renderDialog();
-      openDialog();
+      await openDialog();
 
       selectField("category");
       expect(group(CATEGORY_LABEL)).toBeInTheDocument();
 
-      selectField("price_range");
+      selectField("subcategories");
       expect(
         screen.queryByRole("group", { name: CATEGORY_LABEL }),
       ).not.toBeInTheDocument();
-      expect(group(PRICE_RANGE_LABEL)).toBeInTheDocument();
+      expect(group(ADD_SUBCATEGORIES_HEADING)).toBeInTheDocument();
     });
 
-    it("omits subcategories from the field picker when the brand has no category", () => {
+    it("omits subcategories from the field picker when the brand has no category", async () => {
       renderDialog({ categorySlug: null });
-      openDialog();
+      await openDialog();
 
       const options = within(fieldPicker()).getAllByRole("option");
       expect(
         options.map((option) => (option as HTMLOptionElement).value),
-      ).toEqual(["", "category", "price_range"]);
+      ).toEqual(["", "category"]);
     });
   });
 
   describe("submit gating", () => {
-    it("submit is disabled until a different value is chosen", () => {
+    it("submit is disabled until a different value is chosen", async () => {
       renderDialog();
-      openDialog();
-      selectField("price_range");
+      await openDialog();
+      selectField("category");
 
       expect(submitButton()).toBeDisabled();
       expect(submitButton()).toHaveAttribute("data-ph-no-autocapture");
 
-      clickChip(PRICE_RANGE_LABEL, PRICE_CHIP[3]);
+      clickChip(CATEGORY_LABEL, FASHION_LABEL);
 
       expect(submitButton()).toBeEnabled();
     });
 
-    it("re-clicking the selected chip returns to the baseline and re-disables submit", () => {
+    it("re-clicking the selected chip returns to the baseline and re-disables submit", async () => {
       renderDialog();
-      openDialog();
-      selectField("price_range");
+      await openDialog();
+      selectField("category");
 
-      clickChip(PRICE_RANGE_LABEL, PRICE_CHIP[3]);
-      expect(chip(PRICE_RANGE_LABEL, PRICE_CHIP[3])).toHaveAttribute(
+      clickChip(CATEGORY_LABEL, FASHION_LABEL);
+      expect(chip(CATEGORY_LABEL, FASHION_LABEL)).toHaveAttribute(
         "aria-pressed",
         "true",
       );
       expect(submitButton()).toBeEnabled();
 
-      clickChip(PRICE_RANGE_LABEL, PRICE_CHIP[3]);
-      expect(chip(PRICE_RANGE_LABEL, PRICE_CHIP[3])).toHaveAttribute(
+      clickChip(CATEGORY_LABEL, FASHION_LABEL);
+      expect(chip(CATEGORY_LABEL, FASHION_LABEL)).toHaveAttribute(
         "aria-pressed",
         "false",
       );
       expect(submitButton()).toBeDisabled();
     });
 
-    it("submit stays disabled while the subcategory set is unchanged", () => {
+    it("submit stays disabled while the subcategory set is unchanged", async () => {
       renderSubcategories(["bedding", "furniture"]);
-      openSubcategoriesDialog();
+      await openSubcategoriesDialog();
 
       expect(submitButton()).toBeDisabled();
 
@@ -310,23 +342,23 @@ describe("CorrectionDialog", () => {
   describe("delta payload", () => {
     it("submits a scalar proposedValue", async () => {
       renderDialog();
-      openDialog();
-      selectField("price_range");
+      await openDialog();
+      selectField("category");
 
-      clickChip(PRICE_RANGE_LABEL, PRICE_CHIP[3]);
+      clickChip(CATEGORY_LABEL, FASHION_LABEL);
       submit();
 
       await waitFor(() => {
         expect(mocks.submitCorrection).toHaveBeenCalledWith({
           brandId: BRAND_ID,
-          field: "price_range",
-          proposedValue: 3,
+          field: "category",
+          proposedValue: "fashion",
         });
       });
       expect(mocks.trackCorrectionSubmitted).toHaveBeenCalledWith(
         BRAND_ID,
         "warmwood",
-        "price_range",
+        "category",
       );
       expect(mocks.toastSuccess).toHaveBeenCalledWith(COPY.success);
       await waitFor(() => {
@@ -336,7 +368,7 @@ describe("CorrectionDialog", () => {
 
     it("submits an add/remove delta, not a full set", async () => {
       renderSubcategories(["bedding", "furniture"]);
-      openSubcategoriesDialog();
+      await openSubcategoriesDialog();
 
       clickChip(ADD_SUBCATEGORIES_HEADING, label("mattresses"));
       clickChip(CURRENT_SUBCATEGORIES_HEADING, label("furniture"));
@@ -353,7 +385,7 @@ describe("CorrectionDialog", () => {
 
     it("uses stored slugs in both delta arrays, never the rendered label", async () => {
       renderSubcategories(["bedding"]);
-      openSubcategoriesDialog();
+      await openSubcategoriesDialog();
 
       clickChip(CURRENT_SUBCATEGORIES_HEADING, label("bedding"));
       clickChip(ADD_SUBCATEGORIES_HEADING, label("mattresses"));
@@ -375,7 +407,7 @@ describe("CorrectionDialog", () => {
 
     it("omits untouched subcategories from the delta", async () => {
       renderSubcategories(["bedding", "furniture"]);
-      openSubcategoriesDialog();
+      await openSubcategoriesDialog();
 
       clickChip(ADD_SUBCATEGORIES_HEADING, label("mattresses"));
       submit();
@@ -391,7 +423,7 @@ describe("CorrectionDialog", () => {
 
     it("emits a remove-only delta", async () => {
       renderSubcategories(["bedding", "tops-and-tshirts"]);
-      openSubcategoriesDialog();
+      await openSubcategoriesDialog();
 
       clickChip(CURRENT_SUBCATEGORIES_HEADING, label("tops-and-tshirts"));
       expect(screen.getByText(selectedCount(1))).toBeInTheDocument();
@@ -413,10 +445,10 @@ describe("CorrectionDialog", () => {
         error: "rate_limited",
       });
       renderDialog();
-      openDialog();
-      selectField("price_range");
+      await openDialog();
+      selectField("category");
 
-      clickChip(PRICE_RANGE_LABEL, PRICE_CHIP[3]);
+      clickChip(CATEGORY_LABEL, FASHION_LABEL);
       submit();
 
       await waitFor(() => {
@@ -430,9 +462,9 @@ describe("CorrectionDialog", () => {
     // while its products span several, and DEV-1510 stopped discarding those
     // tags on the read side. They consume the 5-subcategory cap, so they have
     // to stay visible and removable.
-    it("renders every current subcategory in row 1, including out-of-category ones", () => {
+    it("renders every current subcategory in row 1, including out-of-category ones", async () => {
       renderSubcategories(["bedding", "tops-and-tshirts"]);
-      openSubcategoriesDialog();
+      await openSubcategoriesDialog();
 
       const current = group(CURRENT_SUBCATEGORIES_HEADING);
       expect(
@@ -446,9 +478,9 @@ describe("CorrectionDialog", () => {
       expect(screen.getByText(selectedCount(2))).toBeInTheDocument();
     });
 
-    it("renders stored slugs as zh labels, never as raw slugs", () => {
+    it("renders stored slugs as zh labels, never as raw slugs", async () => {
       renderSubcategories(["bedding"]);
-      openSubcategoriesDialog();
+      await openSubcategoriesDialog();
 
       expect(screen.queryByText("bedding")).not.toBeInTheDocument();
       expect(
@@ -458,9 +490,9 @@ describe("CorrectionDialog", () => {
       ).toBeInTheDocument();
     });
 
-    it("row 1 subcategories start pressed and flip to unpressed when marked for removal", () => {
+    it("row 1 subcategories start pressed and flip to unpressed when marked for removal", async () => {
       renderSubcategories(["bedding"]);
-      openSubcategoriesDialog();
+      await openSubcategoriesDialog();
 
       expect(
         chip(CURRENT_SUBCATEGORIES_HEADING, label("bedding")),
@@ -476,9 +508,9 @@ describe("CorrectionDialog", () => {
 
     // The write-side counterpart of the cross-L1 read fix: a `home` brand can
     // be given `backpacks`, which the brand's own L1 would never have offered.
-    it("offers every L2 node, not just the brand's own L1", () => {
+    it("offers every L2 node, not just the brand's own L1", async () => {
       renderSubcategories(["bedding"]);
-      openSubcategoriesDialog();
+      await openSubcategoriesDialog();
 
       const options = group(ADD_SUBCATEGORIES_HEADING);
       expect(within(options).getAllByRole("button")).toHaveLength(
@@ -492,14 +524,9 @@ describe("CorrectionDialog", () => {
       ).toBeInTheDocument();
     });
 
-    it("counts out-of-category subcategories against the 5 cap", () => {
-      renderSubcategories([
-        "tops-and-tshirts",
-        "pants",
-        "skirts",
-        "dresses",
-      ]);
-      openSubcategoriesDialog();
+    it("counts out-of-category subcategories against the 5 cap", async () => {
+      renderSubcategories(["tops-and-tshirts", "pants", "skirts", "dresses"]);
+      await openSubcategoriesDialog();
 
       expect(screen.getByText(selectedCount(4))).toBeInTheDocument();
 
@@ -507,13 +534,15 @@ describe("CorrectionDialog", () => {
 
       expect(screen.getByText(selectedCount(5))).toBeInTheDocument();
       expect(screen.getByText(COPY.subcategoriesLimit)).toBeInTheDocument();
-      expect(chip(ADD_SUBCATEGORIES_HEADING, label("mattresses"))).toBeDisabled();
+      expect(
+        chip(ADD_SUBCATEGORIES_HEADING, label("mattresses")),
+      ).toBeDisabled();
     });
 
-    it("disables the whole offer set at the cap while selected chips stay enabled", () => {
+    it("disables the whole offer set at the cap while selected chips stay enabled", async () => {
       const currentSubcategories = homeSubcategoriesAt(5);
       renderSubcategories(currentSubcategories);
-      openSubcategoriesDialog();
+      await openSubcategoriesDialog();
 
       expect(screen.getByText(selectedCount(5))).toBeInTheDocument();
 
@@ -532,7 +561,7 @@ describe("CorrectionDialog", () => {
 
     // Restoring a subcategory marked for removal is an add, and adds no-op at
     // the cap. Without the guard the chip would look live and do nothing.
-    it("disables a removed row-1 subcategory once the cap is refilled elsewhere", () => {
+    it("disables a removed row-1 subcategory once the cap is refilled elsewhere", async () => {
       const currentSubcategories = homeSubcategoriesAt(5);
       const [removed] = currentSubcategories;
       const replacement = HOME_SUBCATEGORIES[5]?.slug;
@@ -541,7 +570,7 @@ describe("CorrectionDialog", () => {
       if (!removed || !replacement) return;
 
       renderSubcategories(currentSubcategories);
-      openSubcategoriesDialog();
+      await openSubcategoriesDialog();
 
       clickChip(CURRENT_SUBCATEGORIES_HEADING, label(removed));
       expect(screen.getByText(selectedCount(4))).toBeInTheDocument();
@@ -549,15 +578,17 @@ describe("CorrectionDialog", () => {
 
       clickChip(ADD_SUBCATEGORIES_HEADING, label(replacement));
       expect(screen.getByText(selectedCount(5))).toBeInTheDocument();
-      expect(chip(CURRENT_SUBCATEGORIES_HEADING, label(removed))).toBeDisabled();
+      expect(
+        chip(CURRENT_SUBCATEGORIES_HEADING, label(removed)),
+      ).toBeDisabled();
       expect(
         chip(CURRENT_SUBCATEGORIES_HEADING, label(removed)),
       ).toHaveAttribute("aria-pressed", "false");
     });
 
-    it("counts a duplicated legacy subcategory once", () => {
+    it("counts a duplicated legacy subcategory once", async () => {
       renderSubcategories(["bedding", "bedding"]);
-      openSubcategoriesDialog();
+      await openSubcategoriesDialog();
 
       expect(
         within(group(CURRENT_SUBCATEGORIES_HEADING)).getAllByRole("button", {
@@ -569,7 +600,7 @@ describe("CorrectionDialog", () => {
 
     it("resets the selection after a successful submit", async () => {
       renderSubcategories(["bedding"]);
-      openSubcategoriesDialog();
+      await openSubcategoriesDialog();
 
       clickChip(ADD_SUBCATEGORIES_HEADING, label("mattresses"));
       submit();
@@ -578,7 +609,7 @@ describe("CorrectionDialog", () => {
         expect(screen.queryAllByRole("group")).toHaveLength(0);
       });
 
-      openSubcategoriesDialog();
+      await openSubcategoriesDialog();
 
       expect(
         chip(CURRENT_SUBCATEGORIES_HEADING, label("bedding")),
@@ -597,7 +628,7 @@ describe("CorrectionDialog", () => {
   describe("the closed vocabulary", () => {
     it("commits an alias to its stored slug", async () => {
       renderSubcategories([]);
-      openSubcategoriesDialog();
+      await openSubcategoriesDialog();
 
       typeAndCommit("T恤");
 
@@ -615,9 +646,9 @@ describe("CorrectionDialog", () => {
       });
     });
 
-    it("refuses a term the vocabulary does not know and says how to fix it", () => {
+    it("refuses a term the vocabulary does not know and says how to fix it", async () => {
       renderSubcategories([]);
-      openSubcategoriesDialog();
+      await openSubcategoriesDialog();
 
       typeAndCommit("手工燈籠");
 
@@ -627,9 +658,9 @@ describe("CorrectionDialog", () => {
       expect(submitButton()).toBeDisabled();
     });
 
-    it("offers no free-text entry at all", () => {
+    it("offers no free-text entry at all", async () => {
       renderSubcategories([]);
-      openSubcategoriesDialog();
+      await openSubcategoriesDialog();
 
       // One text field only — the filter — and it cannot commit free text.
       expect(screen.getAllByRole("textbox")).toHaveLength(1);
@@ -640,10 +671,11 @@ describe("CorrectionDialog", () => {
   // The submission flow strips the query string off a pasted link; the queue
   // only ever sees the cleaned form from either entry point.
   describe("link cleaning", () => {
-    function openLinkField() {
+    async function openLinkField() {
       fireEvent.click(
         screen.getByRole("button", { name: COPY.purchaseTrigger }),
       );
+      await findLoadedDialog();
       fireEvent.change(
         screen.getByRole("combobox", { name: COPY.purchaseFieldPickerLabel }),
         { target: { value: "purchase_shopee" } },
@@ -651,9 +683,9 @@ describe("CorrectionDialog", () => {
       return screen.getByLabelText(COPY.purchaseUrlLabel);
     }
 
-    it("strips the query string from a pasted link on blur", () => {
+    it("strips the query string from a pasted link on blur", async () => {
       renderDialog({ mode: "purchaseLinks" });
-      const input = openLinkField();
+      const input = await openLinkField();
 
       fireEvent.change(input, {
         target: { value: "https://shopee.tw/warmwood?utm_source=ig" },
@@ -665,7 +697,7 @@ describe("CorrectionDialog", () => {
 
     it("submits the cleaned URL", async () => {
       renderDialog({ mode: "purchaseLinks" });
-      const input = openLinkField();
+      const input = await openLinkField();
 
       fireEvent.change(input, {
         target: { value: "https://shopee.tw/warmwood?utm_source=ig" },
@@ -682,9 +714,9 @@ describe("CorrectionDialog", () => {
       });
     });
 
-    it("leaves a query-only value alone so validation can reject it", () => {
+    it("leaves a query-only value alone so validation can reject it", async () => {
       renderDialog({ mode: "purchaseLinks" });
-      const input = openLinkField();
+      const input = await openLinkField();
 
       fireEvent.change(input, { target: { value: "?utm_source=ig" } });
       fireEvent.blur(input);

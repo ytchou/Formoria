@@ -60,7 +60,6 @@ export type BrandReport = {
   reviewedAt: string | null
   createdAt: string
   reporterEmail?: string
-  brandHasOwner?: boolean
 }
 
 const defaultUpdateReportStatusDeps: UpdateReportStatusDeps = {
@@ -90,14 +89,12 @@ type ReportRowWithReporter = {
 
 type ReporterRowEnrichment = {
   reporterEmail?: string
-  brandHasOwner?: boolean
 }
 
 export async function enrichReporterRows<T extends ReportRowWithReporter>(
   rows: T[],
   deps: {
     getEmail: (userId: string) => Promise<string | null>
-    getOwnedBrandIds: () => Promise<Set<string>>
   }
 ): Promise<Array<T & ReporterRowEnrichment>> {
   const reporterRows = rows.filter((row) =>
@@ -108,10 +105,9 @@ export async function enrichReporterRows<T extends ReportRowWithReporter>(
   const userIds = [
     ...new Set(reporterRows.flatMap((row) => row.user_id ? [row.user_id] : [])),
   ]
-  const [ownedBrandIds, emailEntries] = await Promise.all([
-    deps.getOwnedBrandIds(),
-    Promise.all(userIds.map(async (userId) => [userId, await deps.getEmail(userId)] as const)),
-  ])
+  const emailEntries = await Promise.all(
+    userIds.map(async (userId) => [userId, await deps.getEmail(userId)] as const)
+  )
   const emailByUserId = new Map(emailEntries)
 
   return rows.map((row) => {
@@ -121,9 +117,6 @@ export async function enrichReporterRows<T extends ReportRowWithReporter>(
     return {
       ...row,
       ...(reporterEmail ? { reporterEmail } : {}),
-      ...(row.reason === 'ownership_dispute'
-        ? { brandHasOwner: ownedBrandIds.has(row.brand_id) }
-        : {}),
     }
   })
 }
@@ -192,29 +185,11 @@ export async function getPendingReports(options?: { limit?: number }): Promise<B
 
   // Cast to typed join shape — Supabase's select return type doesn't track the brands join
   const rows = (data ?? []) as unknown as ReportRowWithBrand[]
-  const disputeBrandIds = [
-    ...new Set(
-      rows
-        .filter((row) => row.reason === 'ownership_dispute')
-        .map((row) => row.brand_id)
-    ),
-  ]
   const enrichedRows = await enrichReporterRows(rows, {
     getEmail: async (userId) => {
       const { data: userData, error: userError } = await supabase.auth.admin.getUserById(userId)
       if (userError) throw userError
       return userData.user.email ?? null
-    },
-    getOwnedBrandIds: async () => {
-      if (disputeBrandIds.length === 0) return new Set()
-
-      const { data: ownershipRows, error: ownershipError } = await supabase
-        .from('brand_owners')
-        .select('brand_id')
-        .in('brand_id', disputeBrandIds)
-
-      if (ownershipError) throw ownershipError
-      return new Set((ownershipRows ?? []).map((row) => row.brand_id))
     },
   })
 
@@ -229,7 +204,6 @@ export async function getPendingReports(options?: { limit?: number }): Promise<B
     reviewedAt: row.reviewed_at ?? null,
     createdAt: row.created_at,
     ...(row.reporterEmail ? { reporterEmail: row.reporterEmail } : {}),
-    ...(row.brandHasOwner !== undefined ? { brandHasOwner: row.brandHasOwner } : {}),
   }))
 }
 

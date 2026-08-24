@@ -6,7 +6,6 @@ import {
   ChevronDown,
   ChevronLeft,
   ChevronRight,
-  MailCheck,
   MoreHorizontal,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -29,7 +28,6 @@ import {
   deleteBrandAction,
   requestBrandRefreshAction,
   requestCuratedProductBackfillAction,
-  resendClaimInviteAction,
 } from "@/app/admin/actions";
 import {
   DropdownMenu,
@@ -52,7 +50,6 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { statusStyles, textStyles } from "@/components/ui/text-styles";
 import { MAX_BULK_PRODUCT_BACKFILL } from "@/lib/constants/curated-products";
-import { routing } from "@/i18n/routing";
 import { cn } from "@/lib/utils";
 import { inkActionClassName } from "@/components/admin/ink-action";
 import { routes } from "@/lib/routes";
@@ -76,8 +73,7 @@ const MIT_STATUS_CONFIG: Record<MitStatus, { className: string }> = {
 };
 
 function getMitStatus(brand: AdminBrandListItem): MitStatus {
-  if (brand.mitStatus) return brand.mitStatus;
-  return brand.mitVerified ? "verified" : "unverified";
+  return brand.mitStatus ?? "unverified";
 }
 
 /**
@@ -108,14 +104,12 @@ function MitStatusBadge({ status }: { status: MitStatus }) {
 export function BrandList({
   brands,
   reviewImagesByBrandId = {},
-  claimInviteBrandIds = [],
   initialEditingBrandId,
   initialSearchQuery = "",
   initialTab = "all",
 }: {
   brands: AdminBrandListItem[];
   reviewImagesByBrandId?: Record<string, SubmissionReviewImage[]>;
-  claimInviteBrandIds?: string[];
   initialEditingBrandId?: string;
   initialSearchQuery?: string;
   initialTab?: TabValue;
@@ -148,7 +142,6 @@ export function BrandList({
   >(null);
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
-  const claimInviteBrandIdSet = new Set(claimInviteBrandIds);
 
   const brandsById = new Map(brands.map((brand) => [brand.id, brand]));
 
@@ -201,7 +194,9 @@ export function BrandList({
         b.name.toLowerCase().includes(searchQuery.toLowerCase()),
     )
     .filter((b) => mitFilter === "all" || getMitStatus(b) === mitFilter)
-    .filter((b) => categoryFilter === "all" || b.categoryLabel === categoryFilter);
+    .filter(
+      (b) => categoryFilter === "all" || b.categoryLabel === categoryFilter,
+    );
   const pageCount = Math.max(1, Math.ceil(filtered.length / pageSize));
   const currentPage = Math.min(page, pageCount);
   const visible = filtered.slice(
@@ -253,17 +248,6 @@ export function BrandList({
     });
   }
 
-  function handleResendClaimInvite(brand: AdminBrandListItem) {
-    startTransition(async () => {
-      const result = await resendClaimInviteAction(brand.id);
-      if ("error" in result) {
-        toast.error(result.error);
-        return;
-      }
-      toast.success("Claim invitation sent");
-    });
-  }
-
   function toggleProductBackfill(brandId: string) {
     setProductBackfillIds((current) => {
       const next = new Set(current);
@@ -307,7 +291,9 @@ export function BrandList({
       ).length;
       // "A refresh is already pending" is an ordinary answer, not a failure, so
       // it is reported in the same status line as the successes.
-      const skipped = result.outcomes.filter((outcome) => outcome.error !== null);
+      const skipped = result.outcomes.filter(
+        (outcome) => outcome.error !== null,
+      );
       setProductBackfillStatus(
         [
           queued > 0
@@ -446,9 +432,10 @@ export function BrandList({
             variant="secondary"
             className={inkActionClassName}
             disabled={isPending}
-            aria-label={`Generate products for ${productBackfillIds.size} selected ${
-              productBackfillIds.size === 1 ? "brand" : "brands"
-            }, of ${MAX_BULK_PRODUCT_BACKFILL} per run — opens a refresh per brand and queues one enrichment job that calls the model`}
+            aria-label={t("bulk.generateProductsAria", {
+              count: productBackfillIds.size,
+              limit: MAX_BULK_PRODUCT_BACKFILL,
+            })}
             onClick={handleGenerateProducts}
           >
             {`Generate products for ${productBackfillIds.size} selected ${
@@ -488,7 +475,9 @@ export function BrandList({
               <TableHead className="w-14">
                 <Label className="flex min-h-12 min-w-12 cursor-pointer items-center">
                   <Checkbox
-                    aria-label={`Select every eligible brand on this page for product generation, up to ${MAX_BULK_PRODUCT_BACKFILL} brands per run`}
+                    aria-label={t("bulk.selectPage", {
+                      limit: MAX_BULK_PRODUCT_BACKFILL,
+                    })}
                     checked={allVisibleSelected}
                     indeterminate={someVisibleSelected}
                     disabled={
@@ -539,8 +528,11 @@ export function BrandList({
                       <Checkbox
                         aria-label={
                           selectionAtCap && !productBackfillIds.has(brand.id)
-                            ? `Cannot select ${brand.name}: product generation runs at most ${MAX_BULK_PRODUCT_BACKFILL} brands per run`
-                            : `Select ${brand.name} for product generation`
+                            ? t("bulk.selectionLimit", {
+                                name: brand.name,
+                                limit: MAX_BULK_PRODUCT_BACKFILL,
+                              })
+                            : t("bulk.selectBrand", { name: brand.name })
                         }
                         checked={productBackfillIds.has(brand.id)}
                         disabled={
@@ -585,26 +577,6 @@ export function BrandList({
                   <TableCell>{formatDate(brand.updatedAt)}</TableCell>
                   <TableCell className="text-right">
                     <div className="flex items-center justify-end gap-1.5">
-                      <Link
-                        href={`/${routing.defaultLocale}/dashboard/brands/${brand.slug}`}
-                        className={buttonVariants({
-                          variant: "secondary",
-                          size: "compact",
-                        })}
-                      >
-                        {t("actions.viewInDashboard")}
-                      </Link>
-                      {claimInviteBrandIdSet.has(brand.id) && (
-                        <Button
-                          variant="secondary"
-                          size="compact"
-                          onClick={() => handleResendClaimInvite(brand)}
-                          disabled={isPending}
-                        >
-                          <MailCheck className="size-4" aria-hidden />
-                          {t("actions.resendClaimInvite")}
-                        </Button>
-                      )}
                       {brand.status === "approved" && (
                         <Button
                           variant="secondary"
@@ -629,7 +601,9 @@ export function BrandList({
                         brand.status === "hidden") && (
                         <DropdownMenu>
                           <DropdownMenuTrigger
-                            aria-label={`Open brand actions for ${brand.name}`}
+                            aria-label={t("actions.openMenu", {
+                              name: brand.name,
+                            })}
                             className={buttonVariants({
                               variant: "ghost",
                               size: "icon",
@@ -640,7 +614,7 @@ export function BrandList({
                           </DropdownMenuTrigger>
                           <DropdownMenuContent
                             align="end"
-                            className="w-40 min-w-40 rounded-[3px] border border-rule bg-surface"
+                            className="w-40 min-w-40 rounded-surface border border-rule bg-surface"
                           >
                             <DropdownMenuItem
                               disabled={isPending}
@@ -655,8 +629,12 @@ export function BrandList({
                       {(brand.status === "approved" ||
                         brand.status === "hidden") && (
                         <Link
-                          href={routes.admin.curatedProducts({ brand: brand.slug })}
-                          aria-label={`Ingest curated products for ${brand.name}`}
+                          href={routes.admin.curatedProducts({
+                            brand: brand.slug,
+                          })}
+                          aria-label={t("actions.ingestCuratedProducts", {
+                            name: brand.name,
+                          })}
                           className={buttonVariants({
                             variant: "secondary",
                             size: "compact",
@@ -679,11 +657,13 @@ export function BrandList({
                     <Button
                       shape="pill"
                       variant="ghost"
-                      className="h-12 w-12 p-0"
+                      size="icon"
                       onClick={() => setSelectedBrandId(brand.id)}
                       aria-expanded={selectedBrand?.id === brand.id}
                       aria-controls={`brand-detail-${brand.id}`}
-                      aria-label={`Open details for ${brand.name}`}
+                      aria-label={t("actions.openDetails", {
+                        name: brand.name,
+                      })}
                     >
                       <ChevronDown
                         className={`size-4 transition-transform ${
@@ -739,7 +719,7 @@ export function BrandList({
           <Button
             shape="pill"
             variant="secondary"
-            className="h-12 w-12 p-0"
+            size="icon"
             onClick={() => setPage((value) => Math.max(1, value - 1))}
             disabled={currentPage === 1}
             aria-label={t("pagination.previousPage")}
@@ -752,7 +732,7 @@ export function BrandList({
           <Button
             shape="pill"
             variant="secondary"
-            className="h-12 w-12 p-0"
+            size="icon"
             onClick={() => setPage((value) => Math.min(pageCount, value + 1))}
             disabled={currentPage === pageCount}
             aria-label={t("pagination.nextPage")}
@@ -793,7 +773,7 @@ export function BrandList({
           if (!open) setRefreshingBrandId(null);
         }}
         title={t("refreshDialog.title")}
-        description="A refresh will run on the next six-hour schedule and return to the submissions queue for review. The live brand will not change until the refresh is applied."
+        description={t("refreshDialog.description")}
         onConfirm={handleRequestRefresh}
         confirmLabel="Request re-enrichment"
         isPending={isPending}
@@ -805,7 +785,7 @@ export function BrandList({
           if (!open) setDeletingBrandId(null);
         }}
         title={t("deleteDialog.title")}
-        description="This action cannot be undone. The brand and all associated data will be permanently deleted."
+        description={t("deleteDialog.description")}
         onConfirm={handleDelete}
         confirmLabel="Delete this brand permanently"
         variant="destructive"

@@ -12,14 +12,14 @@ import { DialogLoadingContent } from '@/components/brands/dialog-loading-content
 // Click-gated: the preview card, channel discs and copy affordances only reach
 // the browser once the trigger is primed. `ssr: false` because the body only
 // ever renders inside an open dialog portal. `loading` keeps the overlay and
-// focus trap mounted while the chunk is in flight, matching the body's width.
+// focus trap mounted while the chunk is in flight, at the SAME `size` the body
+// names — the width literal that used to sit here lost outright to the
+// skeleton's own `data-[size=…]` branch on specificity, so the two disagreed.
 const ShareDialogContent = dynamic(
   () => import('@/components/brands/share-dialog-content').then((m) => m.ShareDialogContent),
   {
     ssr: false,
-    loading: () => (
-      <DialogLoadingContent className="w-[21rem] max-w-[calc(100%-2rem)] rounded-2xl sm:max-w-[21rem]" />
-    ),
+    loading: () => <DialogLoadingContent size="compact" />,
   },
 )
 

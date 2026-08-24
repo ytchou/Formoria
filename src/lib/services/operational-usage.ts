@@ -16,8 +16,7 @@ type UsageState =
   "ready" | "unsupported" | "unconfigured" | "error" | "not_applicable";
 export type UsageRisk = "normal" | "warning" | "critical" | "unknown";
 type UsageCompleteness = "exact" | "lower_bound";
-type OperationalHealthStatus =
-  "healthy" | "warning" | "critical" | "unknown";
+type OperationalHealthStatus = "healthy" | "warning" | "critical" | "unknown";
 
 type UsageWindow = { start: string; end: string };
 
@@ -27,6 +26,9 @@ type UsageMetric = {
   limit: number | null;
   percentage: number | null;
   window: UsageWindow;
+  // What this reading is *about* when the service row's name is not precise
+  // enough. `null` on every metric whose service row already identifies it.
+  subject: string | null;
   source: string;
   completeness: UsageCompleteness;
   freshness: string | null;
@@ -88,6 +90,8 @@ type OperationalAlertMeter = {
   percentage: number | null;
   projection: number | null;
   message: string | null;
+  window: UsageWindow | null;
+  subject: string | null;
 };
 
 export type OperationalAlertSummary = {
@@ -130,11 +134,13 @@ function utcMonthWindow(at: Date): UsageWindow {
   return { start: start.toISOString(), end: end.toISOString() };
 }
 
+const DAY_MS = 24 * 60 * 60 * 1000;
+
 function utcDayWindow(at: Date): UsageWindow {
   const start = new Date(
     Date.UTC(at.getUTCFullYear(), at.getUTCMonth(), at.getUTCDate()),
   );
-  const end = new Date(start.getTime() + 24 * 60 * 60 * 1000);
+  const end = new Date(start.getTime() + DAY_MS);
   return { start: start.toISOString(), end: end.toISOString() };
 }
 
@@ -164,6 +170,7 @@ function createMetric({
   unit,
   limit,
   window,
+  subject = null,
   source,
   completeness = "exact",
   freshness,
@@ -174,6 +181,7 @@ function createMetric({
   unit: string;
   limit: number | null;
   window: UsageWindow;
+  subject?: string | null;
   source: string;
   completeness?: UsageCompleteness;
   freshness?: string | null;
@@ -191,6 +199,7 @@ function createMetric({
     limit,
     percentage,
     window,
+    subject,
     source,
     completeness,
     freshness: freshness ?? at.toISOString(),
@@ -312,7 +321,7 @@ function overallHealth(rows: OperationalServiceRow[]): OperationalHealthStatus {
   return "healthy";
 }
 
-type MeteredUsage = {
+export type MeteredUsage = {
   state: UsageState;
   message?: string | null;
   primary?: UsageMetric | null;
@@ -364,19 +373,6 @@ async function loadAuditUsage(
       .eq("terminal_status", "succeeded")
       .gte("started_at", window.start)
       .lt("started_at", window.end),
-  );
-}
-
-async function loadResendLocalUsage(
-  window: UsageWindow,
-  supabase: UsageClient,
-): Promise<number> {
-  return countRows(
-    supabase
-      .from("email_sends")
-      .select("id", { count: "exact", head: true })
-      .gte("sent_at", window.start)
-      .lt("sent_at", window.end),
   );
 }
 
@@ -514,7 +510,10 @@ async function auditedJson(
         signal: init.signal ?? AbortSignal.timeout(8_000),
       });
       context.summary.httpStatus = response.status;
-      const providerName = provider === "upstash" ? "Upstash" : "Sentry";
+      const providerName = {
+        upstash: "Upstash",
+        sentry: "Sentry",
+      }[provider];
       if (!response.ok)
         throw new Error(`${providerName} returned HTTP ${response.status}.`);
       let body: unknown;
@@ -774,9 +773,14 @@ async function collectMeteredUsage(
           }),
     },
     {
+      // Known ceiling: Serper and Resend both meter off `external_call_audit_spans`.
+      // A per-provider query failure stays isolated to its own row, but a
+      // table-level outage degrades both rows at once. Acceptable while the audit
+      // spans are the only send meter; split the source if the rows must fail
+      // independently.
       id: "resend",
       promise: supabase
-        ? loadResendLocalUsage(month, supabase).then((value) => ({
+        ? loadAuditUsage("resend", month, supabase).then((value) => ({
             id: "resend",
             state: "ready" as const,
             primary: createMetric({
@@ -784,15 +788,14 @@ async function collectMeteredUsage(
               unit: "sends",
               limit: 3_000,
               window: month,
-              source: "Formoria email_sends",
-              completeness: "lower_bound",
+              source: "Formoria audit spans",
               at: now,
             }),
           }))
         : Promise.resolve({
             id: "resend",
             state: "unconfigured" as const,
-            message: "Local email usage monitoring is not configured.",
+            message: "Resend usage requires the Supabase audit-span meter.",
           }),
     },
     {
@@ -891,8 +894,8 @@ function usageForEntry(
 ): OperationalServiceRow["usage"] {
   if (
     entry.id === "supabase" ||
-    entry.id === "railway-formoria" ||
     entry.id === "public-site" ||
+    entry.id === "railway-formoria" ||
     entry.id === "railway-curation-worker"
   ) {
     return emptyUsage("unsupported", "Dashboard only");
@@ -983,9 +986,10 @@ export function buildOperationalSnapshot({
 
 function alertMeter(
   service: OperationalServiceRow | undefined,
+  which: "primary" | "secondary" = "primary",
 ): OperationalAlertMeter | null {
   if (!service) return null;
-  const metric = service.usage.primary;
+  const metric = service.usage[which];
   return {
     state: service.usage.state,
     risk: metric?.risk ?? "unknown",
@@ -994,12 +998,12 @@ function alertMeter(
     percentage: metric?.percentage ?? null,
     projection: metric?.projection ?? null,
     message: service.usage.message,
+    window: metric?.window ?? null,
+    subject: metric?.subject ?? null,
   };
 }
 
-function labelledMetrics(
-  service: OperationalServiceRow,
-): Array<{
+function labelledMetrics(service: OperationalServiceRow): Array<{
   label: "primary" | "secondary" | "additional";
   metric: UsageMetric;
 }> {
@@ -1024,6 +1028,13 @@ function labelledMetrics(
   );
 }
 
+function meterReading(metric: UsageMetric): string {
+  const value = metric.value === null ? "unknown" : String(metric.value);
+  const limit = metric.limit === null ? "no limit" : String(metric.limit);
+  const subject = metric.subject === null ? "" : `${metric.subject}: `;
+  return `${subject}${value} of ${limit} ${metric.unit}.`;
+}
+
 export function buildOperationalAlertSummary(
   snapshot: OperationalSnapshotV1,
 ): OperationalAlertSummary {
@@ -1035,7 +1046,11 @@ export function buildOperationalAlertSummary(
       .filter(({ metric }) => ["warning", "critical"].includes(metric.risk))
       .map(
         ({ label, metric }) =>
-          `${service.name} ${label === "primary" ? "" : `${label} `}usage is ${metric.risk}.`,
+          `${service.name} ${label === "primary" ? "" : `${label} `}usage is ${metric.risk}.` +
+          // "secondary usage is warning." names neither the quantity nor the
+          // amount, and a reader assumes it means the primary metric. Non-
+          // primary warnings carry their reading so they are diagnosable.
+          (label === "primary" ? "" : ` ${meterReading(metric)}`),
       );
   });
   const lowerBoundCaveats = snapshot.services.flatMap((service) =>
@@ -1047,8 +1062,9 @@ export function buildOperationalAlertSummary(
       ),
   );
   const upstash = alertMeter(byId.get("upstash-redis"));
-  const unavailableUpstash =
-    upstash === null || ["error", "unconfigured"].includes(upstash.state);
+  const unavailableUpstash = meterUnavailable(upstash, {
+    escalateUnconfigured: true,
+  });
   return {
     needsAttention: warnings.length > 0 || unavailableUpstash,
     unavailableUpstash,
@@ -1058,6 +1074,16 @@ export function buildOperationalAlertSummary(
     upstash,
     posthog: alertMeter(byId.get("posthog")),
   };
+}
+
+function meterUnavailable(
+  meter: OperationalAlertMeter | null,
+  { escalateUnconfigured }: { escalateUnconfigured: boolean },
+): boolean {
+  if (meter === null) return true;
+  return escalateUnconfigured
+    ? ["error", "unconfigured"].includes(meter.state)
+    : meter.state === "error";
 }
 
 const OPERATIONAL_CACHE_TTL_MS = 5 * 60_000;

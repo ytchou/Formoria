@@ -59,7 +59,6 @@ export function revalidatePublicBrands(slugs: readonly string[]): void {
   for (const slug of unique) {
     revalidatePath(routes.brand(slug))
     revalidatePath(`/en${routes.brand(slug)}`)
-    revalidatePath(routes.microsite(slug))
   }
 
   // These shared pages read brand data and must be invalidated once per batch.

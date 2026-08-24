@@ -8,7 +8,6 @@ import {
   getAdminOperationsSnapshot,
   type AdminOperationsMetrics,
 } from "@/lib/services/admin-operations";
-import { isOwnerFeaturesEnabled } from "@/lib/services/app-settings";
 import { cn } from "@/lib/utils";
 import { routes } from "@/lib/routes";
 
@@ -87,13 +86,6 @@ const metrics: Metric[] = [
     requiresAction: true,
   },
   {
-    key: "claims",
-    label: "Claims",
-    description: "Ownership requests awaiting review",
-    href: routes.admin.claims(),
-    requiresAction: true,
-  },
-  {
     key: "reports",
     label: "Reports",
     description: "Open brand reports",
@@ -124,10 +116,9 @@ const metrics: Metric[] = [
 ];
 
 export default async function AdminPage() {
-  const [snapshot, t, ownerFeaturesEnabled] = await Promise.all([
+  const [snapshot, t] = await Promise.all([
     getAdminOperationsSnapshot(),
     getTranslations("admin.dashboard"),
-    isOwnerFeaturesEnabled(),
   ]);
   const dashboardMetrics: Metric[] = [
     ...metrics.slice(0, 3),
@@ -145,15 +136,14 @@ export default async function AdminPage() {
     <div className="space-y-stack">
       <section aria-labelledby="operations-overview-heading">
         <div className="mb-5 prose-measure">
-          <h2
-            id="operations-overview-heading"
-            className="type-label"
-          >
+          <h2 id="operations-overview-heading" className="type-tool-heading">
             {t("operationsOverview")}
           </h2>
-          <p className="mt-1 type-body-sm">{t("operationsOverviewDescription")}</p>
+          <p className="mt-1 type-body-sm">
+            {t("operationsOverviewDescription")}
+          </p>
         </div>
-        <div className="grid overflow-hidden rounded-[3px] border-l border-t border-rule sm:grid-cols-2 xl:grid-cols-5">
+        <div className="grid overflow-hidden rounded-surface border-l border-t border-rule sm:grid-cols-2 xl:grid-cols-5">
           {dashboardMetrics.map((metric) => {
             const value = snapshot.metrics[metric.key];
             return (
@@ -163,7 +153,7 @@ export default async function AdminPage() {
                 label={metric.label}
                 value={value ?? "—"}
                 description={
-                  value === null ? "Unavailable" : metric.description
+                  value === null ? t("unavailable") : metric.description
                 }
                 needsAttention={
                   metric.requiresAction && value !== null && value > 0
@@ -171,18 +161,6 @@ export default async function AdminPage() {
               />
             );
           })}
-          {/* State is conveyed as text, never colour alone, so the accessible
-              name reads "Owner features / Disabled / Manage feature flags". */}
-          <OperationsCard
-            href={routes.admin.settings()}
-            label={t("ownerFeatures.label")}
-            value={
-              ownerFeaturesEnabled
-                ? t("ownerFeatures.enabled")
-                : t("ownerFeatures.disabled")
-            }
-            description={t("ownerFeatures.manage")}
-          />
         </div>
       </section>
 
@@ -191,7 +169,7 @@ export default async function AdminPage() {
         className="border-t border-rule pt-8"
       >
         <div className="mb-4">
-          <h2 id="quick-operations-heading" className="type-label">
+          <h2 id="quick-operations-heading" className="type-tool-heading">
             {t("quickOperations")}
           </h2>
         </div>
@@ -204,7 +182,7 @@ export default async function AdminPage() {
       >
         <div className="mb-4 flex items-end justify-between gap-4">
           <div>
-            <h2 id="recent-jobs-heading" className="type-label">
+            <h2 id="recent-jobs-heading" className="type-tool-heading">
               {t("recentJobs.title")}
             </h2>
             <p className="mt-1 type-body-sm">{t("recentJobs.description")}</p>

@@ -13,7 +13,6 @@ import {
 } from "../brand-facts";
 import { normalizeSubcategories } from "@/lib/services/subcategories";
 import { CLEARED_FIELDS_KEY } from "@/lib/services/brand-write-policy";
-import { resolveEnrichedPriceRange } from "@/lib/brands/price-range";
 import { createServiceClient } from "@/lib/supabase/service";
 import { categoryLabelZh } from "@/lib/taxonomy/ontology";
 import {
@@ -91,7 +90,7 @@ type DescriptionsPhaseOutput = {
  * `subcategories_en` inside the database too, and one resolver is the only way
  * those three agree.
  */
-export async function canonicalizeSubcategorySlugs(
+async function canonicalizeSubcategorySlugs(
   client: ReturnType<typeof createServiceClient>,
   subcategories: string[],
   subcategoriesEn: string[],
@@ -103,7 +102,9 @@ export async function canonicalizeSubcategorySlugs(
   if (error) throw error;
   return (
     data ??
-    subcategories.map((subcategory, index) => subcategoriesEn[index] ?? subcategory)
+    subcategories.map(
+      (subcategory, index) => subcategoriesEn[index] ?? subcategory,
+    )
   );
 }
 
@@ -124,10 +125,6 @@ function changedFieldsForPatch(patch: Record<string, unknown>): string[] {
 
   if (patch.description_en !== undefined) {
     changedFields.push("description_en");
-  }
-
-  if (patch.price_range != null) {
-    changedFields.push("price_range");
   }
 
   if (Array.isArray(patch.subcategories) && patch.subcategories.length > 0) {
@@ -431,258 +428,260 @@ export async function runDescriptionsPhase({
   return auditedCall(
     { provider: "enrich", operation: "runDescriptionsPhase", kind: "service" },
     async (ctx) => {
-  const effectiveTarget = target ?? brandTarget(brand.id);
-  const persistedScrape = await loadPersistedScrapeText(effectiveTarget);
-  const effectiveSnippets = [...serpSnippets, ...persistedScrape.snippets];
+      const effectiveTarget = target ?? brandTarget(brand.id);
+      const persistedScrape = await loadPersistedScrapeText(effectiveTarget);
+      const effectiveSnippets = [...serpSnippets, ...persistedScrape.snippets];
 
-  if (effectiveSnippets.length === 0 && !brand.description) {
-    return {
-      phaseResult: buildPhaseResult(
-        "descriptions",
-        "skipped",
-        [],
-        0,
-        undefined,
-        "no description data available",
-      ),
-      patch: {},
-      descriptionRewrite: null,
-      brandFacts: null,
-      attempts: [],
-      factsAttempts: [],
-      listingVerdict: null,
-    };
-  }
-
-  const { result, durationMs } = await timePhase(async () => {
-    const rewriteSnippets =
-      effectiveSnippets.length > 0
-        ? effectiveSnippets
-        : brand.description
-          ? [brand.description]
-          : [];
-    const truncatedSiteContent =
-      persistedScrape.siteContent?.slice(0, 4000) ?? null;
-    const imageAlts =
-      rewriteSnippets.length > 0
-        ? await loadClassifiedImageAlts(effectiveTarget)
-        : [];
-    const displayBrandName = getDisplayBrandName(brand);
-    const evidence = buildDescriptionEvidence(brand, pendingPatch, imageAlts);
-    const auditContext = {
-      target: effectiveTarget,
-      ...(jobId ? { jobId } : {}),
-    };
-
-    // Built once and handed to both calls: the facts call and the copy call must
-    // reason over byte-identical evidence, or a listing verdict and a
-    // description can disagree about the same brand.
-    const sharedUserContent =
-      rewriteSnippets.length > 0
-        ? buildEnrichmentUserContent(
-            displayBrandName,
-            brand.description ?? null,
-            rewriteSnippets,
-            truncatedSiteContent,
-            evidence,
-          ).userContent
-        : null;
-
-    // Facts first, and only then copy: a `reject` verdict aborts the target, so
-    // paying for the (much larger) copy call before knowing it would be spending
-    // on a submission that is about to be skipped.
-    const factsOutput = sharedUserContent
-      ? await extractBrandFacts(
-          displayBrandName,
-          sharedUserContent,
-          auditContext,
-          // The facts call has no span of its own; banned zh vocabulary found in
-          // its output is reported on this phase span (DEV-1546, report-only).
-          ctx,
-        )
-      : null;
-    const brandFacts = factsOutput?.result ?? null;
-    const factsAttempts = factsOutput?.attempts ?? [];
-    const listingVerdict = brandFacts?.listing ?? null;
-
-    const shouldWrite = (existing: unknown) =>
-      overwrite ||
-      existing == null ||
-      (typeof existing === "string" && existing.trim() === "") ||
-      (Array.isArray(existing) && existing.length === 0);
-
-    let descriptionPatch: Record<string, unknown> = {};
-
-    if (brandFacts) {
-      // No brand-L1 conjunct: a brand carries one L1 while its products span
-      // several, and DEV-1510 stopped discarding those tags on the read side.
-      const {
-        subcategories: mergedSubcategories,
-        subcategoriesEn: mergedSubcategoriesEn,
-      } = normalizeSubcategories(brandFacts.subcategories);
-
-      descriptionPatch = {
-        // Unlike every other field here, an absent price range is filled rather
-        // than skipped: `null` fails the review completeness gate, so a brand the
-        // model found no price signal for could never be published. See
-        // `resolveEnrichedPriceRange` for why mid-range and how a defaulted tier
-        // stays traceable.
-        ...(shouldWrite(brand.price_range)
-          ? { price_range: resolveEnrichedPriceRange(brandFacts.priceRange) }
-          : {}),
-        // `subcategories` and `subcategories_en` are index-aligned by contract, so
-        // they have to be written as one unit. Gating them on two independent
-        // `shouldWrite` checks let one land without the other, which is how the
-        // rows with more EN entries than zh entries in DEV-1266 were produced.
-        // The zh array is the source of truth, so it owns the gate; a brand that
-        // already has zh tags but an empty EN array is repaired by
-        // `deriveSubcategoriesEn` at the write boundary, not by a half-write here.
-        ...(mergedSubcategories.length > 0 && shouldWrite(brand.subcategories)
-          ? {
-              subcategories: mergedSubcategories,
-              subcategories_en: mergedSubcategoriesEn,
-            }
-          : {}),
-        // The category is written whenever the model chose one that differs from
-        // the brand's current value — unlike the text fields it is not gated on
-        // `shouldWrite`, because this phase is now the authority on it (detect no
-        // longer assigns it) and a stale category silently mis-files the brand.
-        ...(brandFacts.categorySlug &&
-        brandFacts.categorySlug !== brand.category
-          ? { category: brandFacts.categorySlug }
-          : {}),
-        ...(brandFacts.city && shouldWrite(brand.city)
-          ? { city: brandFacts.city }
-          : {}),
-        ...(brandFacts.foundingYear != null && shouldWrite(brand.founding_year)
-          ? { founding_year: brandFacts.foundingYear }
-          : {}),
-        ...(brandFacts.mitIndicators && shouldWrite(brand.mit_evidence)
-          ? {
-              mit_evidence: {
-                enrichment_signals: brandFacts.mitIndicators.evidence,
-                verified_source: "enrichment_signal",
-              },
-            }
-          : {}),
-      };
-
-      if (
-        !dryRun &&
-        Array.isArray(descriptionPatch.subcategories) &&
-        Array.isArray(descriptionPatch.subcategories_en)
-      ) {
-        const supabase = createServiceClient();
-        descriptionPatch.subcategories_en = await canonicalizeSubcategorySlugs(
-          supabase,
-          mergedSubcategories,
-          mergedSubcategoriesEn,
-        );
+      if (effectiveSnippets.length === 0 && !brand.description) {
+        return {
+          phaseResult: buildPhaseResult(
+            "descriptions",
+            "skipped",
+            [],
+            0,
+            undefined,
+            "no description data available",
+          ),
+          patch: {},
+          descriptionRewrite: null,
+          brandFacts: null,
+          attempts: [],
+          factsAttempts: [],
+          listingVerdict: null,
+        };
       }
-    }
 
-    // A rejected submission never reaches publication, so the copy call is pure
-    // waste. Returning here is the whole reason facts runs first.
-    if (listingVerdict?.verdict === "reject") {
+      const { result, durationMs } = await timePhase(async () => {
+        const rewriteSnippets =
+          effectiveSnippets.length > 0
+            ? effectiveSnippets
+            : brand.description
+              ? [brand.description]
+              : [];
+        const truncatedSiteContent =
+          persistedScrape.siteContent?.slice(0, 4000) ?? null;
+        const imageAlts =
+          rewriteSnippets.length > 0
+            ? await loadClassifiedImageAlts(effectiveTarget)
+            : [];
+        const displayBrandName = getDisplayBrandName(brand);
+        const evidence = buildDescriptionEvidence(
+          brand,
+          pendingPatch,
+          imageAlts,
+        );
+        const auditContext = {
+          target: effectiveTarget,
+          ...(jobId ? { jobId } : {}),
+        };
+
+        // Built once and handed to both calls: the facts call and the copy call must
+        // reason over byte-identical evidence, or a listing verdict and a
+        // description can disagree about the same brand.
+        const sharedUserContent =
+          rewriteSnippets.length > 0
+            ? buildEnrichmentUserContent(
+                displayBrandName,
+                brand.description ?? null,
+                rewriteSnippets,
+                truncatedSiteContent,
+                evidence,
+              ).userContent
+            : null;
+
+        // Facts first, and only then copy: a `reject` verdict aborts the target, so
+        // paying for the (much larger) copy call before knowing it would be spending
+        // on a submission that is about to be skipped.
+        const factsOutput = sharedUserContent
+          ? await extractBrandFacts(
+              displayBrandName,
+              sharedUserContent,
+              auditContext,
+              // The facts call has no span of its own; banned zh vocabulary found in
+              // its output is reported on this phase span (DEV-1546, report-only).
+              ctx,
+            )
+          : null;
+        const brandFacts = factsOutput?.result ?? null;
+        const factsAttempts = factsOutput?.attempts ?? [];
+        const listingVerdict = brandFacts?.listing ?? null;
+
+        const shouldWrite = (existing: unknown) =>
+          overwrite ||
+          existing == null ||
+          (typeof existing === "string" && existing.trim() === "") ||
+          (Array.isArray(existing) && existing.length === 0);
+
+        let descriptionPatch: Record<string, unknown> = {};
+
+        if (brandFacts) {
+          // No brand-L1 conjunct: a brand carries one L1 while its products span
+          // several, and DEV-1510 stopped discarding those tags on the read side.
+          const {
+            subcategories: mergedSubcategories,
+            subcategoriesEn: mergedSubcategoriesEn,
+          } = normalizeSubcategories(brandFacts.subcategories);
+
+          descriptionPatch = {
+            // `subcategories` and `subcategories_en` are index-aligned by contract, so
+            // they have to be written as one unit. Gating them on two independent
+            // `shouldWrite` checks let one land without the other, which is how the
+            // rows with more EN entries than zh entries in DEV-1266 were produced.
+            // The zh array is the source of truth, so it owns the gate; a brand that
+            // already has zh tags but an empty EN array is repaired by
+            // `deriveSubcategoriesEn` at the write boundary, not by a half-write here.
+            ...(mergedSubcategories.length > 0 &&
+            shouldWrite(brand.subcategories)
+              ? {
+                  subcategories: mergedSubcategories,
+                  subcategories_en: mergedSubcategoriesEn,
+                }
+              : {}),
+            // The category is written whenever the model chose one that differs from
+            // the brand's current value — unlike the text fields it is not gated on
+            // `shouldWrite`, because this phase is now the authority on it (detect no
+            // longer assigns it) and a stale category silently mis-files the brand.
+            ...(brandFacts.categorySlug &&
+            brandFacts.categorySlug !== brand.category
+              ? { category: brandFacts.categorySlug }
+              : {}),
+            ...(brandFacts.city && shouldWrite(brand.city)
+              ? { city: brandFacts.city }
+              : {}),
+            ...(brandFacts.foundingYear != null &&
+            shouldWrite(brand.founding_year)
+              ? { founding_year: brandFacts.foundingYear }
+              : {}),
+            ...(brandFacts.mitIndicators && shouldWrite(brand.mit_evidence)
+              ? {
+                  mit_evidence: {
+                    enrichment_signals: brandFacts.mitIndicators.evidence,
+                    verified_source: "enrichment_signal",
+                  },
+                }
+              : {}),
+          };
+
+          if (
+            !dryRun &&
+            Array.isArray(descriptionPatch.subcategories) &&
+            Array.isArray(descriptionPatch.subcategories_en)
+          ) {
+            const supabase = createServiceClient();
+            descriptionPatch.subcategories_en =
+              await canonicalizeSubcategorySlugs(
+                supabase,
+                mergedSubcategories,
+                mergedSubcategoriesEn,
+              );
+          }
+        }
+
+        // A rejected submission never reaches publication, so the copy call is pure
+        // waste. Returning here is the whole reason facts runs first.
+        if (listingVerdict?.verdict === "reject") {
+          return {
+            patch: descriptionPatch,
+            descriptionRewrite: null as DescriptionRewriteResult | null,
+            brandFacts,
+            attempts: [] as DescriptionAttempt[],
+            factsAttempts,
+            calls: factsOutput?.calls ?? noLlmCalls(),
+            listingVerdict,
+          };
+        }
+
+        const descriptionRewriteOutput = sharedUserContent
+          ? await rewriteBrandDescription(
+              displayBrandName,
+              brand.description ?? null,
+              rewriteSnippets,
+              truncatedSiteContent,
+              auditContext,
+              evidence,
+            )
+          : null;
+
+        const descriptionRewrite = descriptionRewriteOutput?.result ?? null;
+        const attempts = descriptionRewriteOutput?.attempts ?? [];
+        const calls = addLlmCalls(
+          factsOutput?.calls ?? noLlmCalls(),
+          descriptionRewriteOutput?.calls ?? noLlmCalls(),
+        );
+
+        if (descriptionRewrite) {
+          descriptionPatch = {
+            ...descriptionPatch,
+            ...(descriptionRewrite.description_zh &&
+            shouldWrite(brand.description)
+              ? { description: descriptionRewrite.description_zh }
+              : {}),
+            ...(descriptionRewrite.description_en &&
+            shouldWrite(brand.description_en)
+              ? { description_en: descriptionRewrite.description_en }
+              : {}),
+            ...(descriptionRewrite.blurb_zh && shouldWrite(brand.blurb)
+              ? { blurb: descriptionRewrite.blurb_zh }
+              : {}),
+            ...(descriptionRewrite.blurb_en && shouldWrite(brand.blurb_en)
+              ? { blurb_en: descriptionRewrite.blurb_en }
+              : {}),
+          };
+        }
+
+        return {
+          patch: descriptionPatch,
+          descriptionRewrite,
+          brandFacts,
+          attempts,
+          factsAttempts,
+          calls,
+          listingVerdict,
+        };
+      });
+
+      // Every call this phase made (facts and copy) died at the provider. An empty
+      // patch here means nothing was learned about the brand, which is not the same
+      // as "the model looked and found nothing to change" — and only the former may
+      // fail the target. A model that answered with an empty body still lands on the
+      // `succeeded` path below, unchanged.
+      if (isLlmProviderFailure(result.calls)) {
+        return {
+          phaseResult: {
+            ...buildPhaseResult(
+              "descriptions",
+              "failed",
+              [],
+              durationMs,
+              `LLM provider failed all ${result.calls.attempted} description call(s)`,
+            ),
+            providerFailure: true,
+          },
+          patch: {},
+          descriptionRewrite: result.descriptionRewrite,
+          brandFacts: result.brandFacts,
+          attempts: result.attempts,
+          factsAttempts: result.factsAttempts,
+          listingVerdict: result.listingVerdict,
+        };
+      }
+
       return {
-        patch: descriptionPatch,
-        descriptionRewrite: null as DescriptionRewriteResult | null,
-        brandFacts,
-        attempts: [] as DescriptionAttempt[],
-        factsAttempts,
-        calls: factsOutput?.calls ?? noLlmCalls(),
-        listingVerdict,
-      };
-    }
-
-    const descriptionRewriteOutput = sharedUserContent
-      ? await rewriteBrandDescription(
-          displayBrandName,
-          brand.description ?? null,
-          rewriteSnippets,
-          truncatedSiteContent,
-          auditContext,
-          evidence,
-        )
-      : null;
-
-    const descriptionRewrite = descriptionRewriteOutput?.result ?? null;
-    const attempts = descriptionRewriteOutput?.attempts ?? [];
-    const calls = addLlmCalls(
-      factsOutput?.calls ?? noLlmCalls(),
-      descriptionRewriteOutput?.calls ?? noLlmCalls(),
-    );
-
-    if (descriptionRewrite) {
-      descriptionPatch = {
-        ...descriptionPatch,
-        ...(descriptionRewrite.description_zh && shouldWrite(brand.description)
-          ? { description: descriptionRewrite.description_zh }
-          : {}),
-        ...(descriptionRewrite.description_en &&
-        shouldWrite(brand.description_en)
-          ? { description_en: descriptionRewrite.description_en }
-          : {}),
-        ...(descriptionRewrite.blurb_zh && shouldWrite(brand.blurb)
-          ? { blurb: descriptionRewrite.blurb_zh }
-          : {}),
-        ...(descriptionRewrite.blurb_en && shouldWrite(brand.blurb_en)
-          ? { blurb_en: descriptionRewrite.blurb_en }
-          : {}),
-      };
-    }
-
-    return {
-      patch: descriptionPatch,
-      descriptionRewrite,
-      brandFacts,
-      attempts,
-      factsAttempts,
-      calls,
-      listingVerdict,
-    };
-  });
-
-  // Every call this phase made (facts and copy) died at the provider. An empty
-  // patch here means nothing was learned about the brand, which is not the same
-  // as "the model looked and found nothing to change" — and only the former may
-  // fail the target. A model that answered with an empty body still lands on the
-  // `succeeded` path below, unchanged.
-  if (isLlmProviderFailure(result.calls)) {
-    return {
-      phaseResult: {
-        ...buildPhaseResult(
+        phaseResult: buildPhaseResult(
           "descriptions",
-          "failed",
-          [],
+          "succeeded",
+          hasPatchValues(result.patch)
+            ? changedFieldsForPatch(result.patch)
+            : [],
           durationMs,
-          `LLM provider failed all ${result.calls.attempted} description call(s)`,
         ),
-        providerFailure: true,
-      },
-      patch: {},
-      descriptionRewrite: result.descriptionRewrite,
-      brandFacts: result.brandFacts,
-      attempts: result.attempts,
-      factsAttempts: result.factsAttempts,
-      listingVerdict: result.listingVerdict,
-    };
-  }
-
-  return {
-    phaseResult: buildPhaseResult(
-      "descriptions",
-      "succeeded",
-      hasPatchValues(result.patch) ? changedFieldsForPatch(result.patch) : [],
-      durationMs,
-    ),
-    patch: result.patch,
-    descriptionRewrite: result.descriptionRewrite,
-    brandFacts: result.brandFacts,
-    attempts: result.attempts,
-    factsAttempts: result.factsAttempts,
-    listingVerdict: result.listingVerdict,
-  };
+        patch: result.patch,
+        descriptionRewrite: result.descriptionRewrite,
+        brandFacts: result.brandFacts,
+        attempts: result.attempts,
+        factsAttempts: result.factsAttempts,
+        listingVerdict: result.listingVerdict,
+      };
     },
     {
       classify: (result) =>

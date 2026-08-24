@@ -14,8 +14,6 @@ import { Label } from "@/components/ui/label";
 import { routes } from "@/lib/routes";
 
 type SignInFormProps = {
-  claimToken?: string;
-  claimBrandName?: string;
   /** `?error=` code written by /auth/callback and the OAuth action. */
   errorCode?: string;
 };
@@ -27,11 +25,7 @@ const ERROR_MESSAGE_KEYS = {
   "invalid-credentials": "signIn.errors.default",
 } as const;
 
-export function SignInForm({
-  claimToken,
-  claimBrandName,
-  errorCode,
-}: SignInFormProps) {
+export function SignInForm({ errorCode }: SignInFormProps) {
   const [state, action, pending] = useActionState<AuthState, FormData>(
     signIn,
     {},
@@ -42,7 +36,6 @@ export function SignInForm({
   const locale = useLocale();
   const googleAction = signInWithGoogle.bind(
     null,
-    claimToken,
     next ?? undefined,
     false,
     locale,
@@ -59,7 +52,7 @@ export function SignInForm({
         )
       : undefined);
 
-  const signUpHref = routes.auth.signUp({ claim: claimToken });
+  const signUpHref = routes.auth.signUp();
 
   return (
     <div className="space-y-6">
@@ -68,17 +61,8 @@ export function SignInForm({
         <p className="type-body-sm">{t("signIn.subheading")}</p>
       </div>
 
-      {claimToken && claimBrandName && (
-        <div className="rounded-[3px] border border-rule bg-surface px-4 py-3 type-body-sm text-ink-soft">
-          {t.rich("signIn.claimMessage", {
-            brandName: claimBrandName,
-            strong: (chunks) => <strong>{chunks}</strong>,
-          })}
-        </div>
-      )}
-
       {message && (
-        <div className="rounded-[3px] bg-surface px-4 py-3 type-body-sm text-ink-soft">
+        <div className="rounded-surface bg-surface px-4 py-3 type-body-sm text-ink-soft">
           {message}
         </div>
       )}
@@ -87,9 +71,6 @@ export function SignInForm({
 
       <form action={action} className="space-y-4">
         <input type="hidden" name="locale" value={locale} />
-        {claimToken && (
-          <input type="hidden" name="claimToken" value={claimToken} />
-        )}
         {next && <input type="hidden" name="next" value={next} />}
 
         <div className="space-y-2">
@@ -128,7 +109,7 @@ export function SignInForm({
 
         <Button
           type="submit"
-          className="w-full"
+          width="full"
           size="large"
           disabled={pending}
         >

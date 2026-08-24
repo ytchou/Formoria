@@ -16,7 +16,7 @@ import { PageShell } from "@/components/ui/page-shell";
  * and must never carry type.
  */
 const linkClasses =
-  "inline-flex min-h-11 items-center type-nav text-on-ink hover:underline underline-offset-4 rounded-[2px] focus-visible:ring-2 focus-visible:ring-on-ink focus-visible:ring-offset-2 focus-visible:ring-offset-ink";
+  "inline-flex min-h-11 items-center type-nav text-on-ink hover:underline underline-offset-4 rounded-control focus-visible:ring-2 focus-visible:ring-on-ink focus-visible:ring-offset-2 focus-visible:ring-offset-ink";
 
 const columnHeadingClasses = "type-eyebrow text-on-ink-muted";
 
@@ -97,11 +97,6 @@ export function Footer() {
                   </Link>
                 </li>
                 <li>
-                  <Link href={routes.gettingStarted()} prefetch={false} className={linkClasses}>
-                    {t("gettingStarted")}
-                  </Link>
-                </li>
-                <li>
                   <Link href={routes.faq()} prefetch={false} className={linkClasses}>
                     {t("faq")}
                   </Link>
@@ -124,11 +119,6 @@ export function Footer() {
                   </Link>
                 </li>
                 <li>
-                  <Link href={routes.featureRequests()} prefetch={false} className={linkClasses}>
-                    {t("feedback")}
-                  </Link>
-                </li>
-                <li>
                   <Link href={routes.terms()} prefetch={false} className={linkClasses}>
                     {t("terms")}
                   </Link>
@@ -143,14 +133,10 @@ export function Footer() {
           </div>
         </div>
 
-        {/* Copyright and the non-seller disclosure. The disclosure is not fine
-            print by accident: Formoria never owns the transaction, and this is
-            the one line that says so on every route. */}
-        <div className="mt-stack flex flex-col items-start gap-3 border-t border-rule-on-ink pt-6 sm:flex-row sm:items-center sm:justify-between">
+        <div className="mt-stack border-t border-rule-on-ink pt-6">
           <p className="type-metadata text-on-ink-muted">
             {t("copyright", { year: new Date().getFullYear() })}
           </p>
-          <p className="type-metadata text-on-ink-muted">{t("disclosure")}</p>
         </div>
       </PageShell>
     </footer>

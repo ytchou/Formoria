@@ -17,11 +17,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { cn } from "@/lib/utils";
-import type {
-  ReviewBulkAction,
-  ReviewColumn,
-  ReviewQueueState,
-} from "./types";
+import type { ReviewBulkAction, ReviewColumn, ReviewQueueState } from "./types";
 
 export function ReviewQueueTable<T>(props: {
   queue: ReviewQueueState<T>;
@@ -103,7 +99,7 @@ export function ReviewQueueTable<T>(props: {
         </div>
       ) : null}
 
-      <div className="rounded-[3px] border border-rule bg-surface overflow-hidden">
+      <div className="rounded-surface border border-rule bg-surface overflow-hidden">
         <Table>
           <TableHeader className="bg-surface">
             <TableRow className="h-12">
@@ -157,10 +153,7 @@ export function ReviewQueueTable<T>(props: {
               return (
                 <TableRow
                   key={id}
-                  className={cn(
-                    "cursor-pointer",
-                    rowClassName?.(item),
-                  )}
+                  className={cn("cursor-pointer", rowClassName?.(item))}
                   data-state={selected ? "selected" : undefined}
                   aria-busy={pending || undefined}
                   onClick={(event) => {
@@ -177,7 +170,9 @@ export function ReviewQueueTable<T>(props: {
                     <TableCell>
                       <Label className="flex min-h-12 min-w-12 cursor-pointer items-center">
                         <Checkbox
-                          aria-label={`Select ${getRowName(item)}`}
+                          aria-label={t("selectRow", {
+                            name: getRowName(item),
+                          })}
                           checked={selected}
                           disabled={!queue.isSelectable(item)}
                           onCheckedChange={() => queue.toggleSelection(id)}
@@ -206,7 +201,7 @@ export function ReviewQueueTable<T>(props: {
                       type="button"
                       shape="pill"
                       variant="ghost"
-                      className="h-12 w-12 p-0"
+                      size="icon"
                       onClick={() => activateRow(item)}
                       aria-expanded={expanded}
                       aria-controls={disclosureId}

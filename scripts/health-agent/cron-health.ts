@@ -3,8 +3,6 @@ import {
   type HealthFinding,
   type JsonValue,
 } from "./contracts";
-import { MIT_REGISTRY_SYNC_MAX_AGE_HOURS } from "@/lib/services/mit-registry";
-
 export interface ExpectedCronJob {
   /** `cron.job.jobname` of a scheduled pg_cron HTTP dispatch. */
   jobName: string;
@@ -20,19 +18,34 @@ export interface ExpectedCronJob {
  * The pg_cron HTTP jobs that are expected to exist and keep succeeding.
  * A job missing from the log entirely is a stale finding — that is what makes
  * "silently unscheduled" detectable. Keep this in sync with the cron migration.
+ *
+ * KNOWN BLIND SPOT (DEV-1558, audited 2026-08-22): production runs six
+ * pg_cron jobs and this detector can see only these two. The other four —
+ * `purge-external-call-audit`, `purge-admin-audit-log`, `cron-http-retention`,
+ * `cron-http-snapshot` — are pure SQL. They never call `net.http_post`, so they
+ * write no `cron_http_dispatch` row and produce no `cron_http_log` row, and a
+ * log-based detector is structurally unable to observe them. Adding their names
+ * here would make them permanently stale, not monitored.
+ *
+ * Closing the gap needs a different source — `cron.job_run_details` — which
+ * reports the scheduler's own outcome and is the right signal for a job whose
+ * work is a single SQL statement. Deliberately not done here: this detector
+ * reads through the health agent's existing log query and has no database
+ * client of its own.
  */
 export const EXPECTED_CRON_JOBS: readonly ExpectedCronJob[] = [
-  // Both daily jobs run 03:05–03:15 Taipei and are read by the 04:50 health
-  // agent, so a punctual dispatch is ~2h old at check time. 25h is sized to
-  // fire on the FIRST missed day (age ~26h at the next check) rather than
-  // tolerating one — the names still say "hourly"/"6h" because renaming a
-  // pg_cron job means recreating it. See
+  // The daily job runs 03:15 Taipei and is read by the 04:50 health agent, so a
+  // punctual dispatch is ~2h old at check time. 25h is sized to fire on the
+  // FIRST missed day (age ~26h at the next check) rather than tolerating one —
+  // the name still says "6h" because renaming a pg_cron job means recreating
+  // it. See
   // supabase/migrations/20260811120000_standardize_cron_maintenance_window.sql.
-  { jobName: "claim-proof-cleanup-hourly", maxAgeHours: 25 }, // daily 03:05 Taipei
-  {
-    jobName: "sync-mit-registry-weekly",
-    maxAgeHours: MIT_REGISTRY_SYNC_MAX_AGE_HOURS,
-  }, // weekly + 24h grace
+  //
+  // `claim-proof-cleanup-hourly` was unscheduled with the claim flow (DEV-1570);
+  // its HTTP endpoint is gone, so the job would have 404'd on every run.
+  //
+  // `sync-mit-registry-weekly` was unscheduled with the MIT registry parking
+  // (DEV-1586); its HTTP endpoint is gone.
   { jobName: "classifier-image-retention-6h", maxAgeHours: 25 }, // daily 03:15 Taipei
 ] as const;
 

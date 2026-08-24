@@ -44,7 +44,7 @@ async function unsubscribe(request: NextRequest) {
   }
 
   return htmlResponse(
-    'You have been unsubscribed from Formoria lifecycle emails. Claim and verification emails will continue.',
+    'You have been unsubscribed from Formoria brand-owner emails. The Formoria newsletter is managed separately — turn it off in your account settings or through the unsubscribe link in the newsletter itself.',
     200
   )
 }

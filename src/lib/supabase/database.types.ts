@@ -137,7 +137,6 @@ export type Database = {
           model: string
           non_brand_reason: string | null
           phase: string
-          price_range: number | null
           prompt_tokens: number | null
           raw_response: Json | null
           retry_attempt: number
@@ -165,7 +164,6 @@ export type Database = {
           model: string
           non_brand_reason?: string | null
           phase: string
-          price_range?: number | null
           prompt_tokens?: number | null
           raw_response?: Json | null
           retry_attempt?: number
@@ -193,7 +191,6 @@ export type Database = {
           model?: string
           non_brand_reason?: string | null
           phase?: string
-          price_range?: number | null
           prompt_tokens?: number | null
           raw_response?: Json | null
           retry_attempt?: number
@@ -221,35 +218,6 @@ export type Database = {
             columns: ["submission_id"]
             isOneToOne: false
             referencedRelation: "brand_submissions"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      brand_channel_confirmations: {
-        Row: {
-          channel_id: string
-          created_at: string
-          id: string
-          user_id: string
-        }
-        Insert: {
-          channel_id: string
-          created_at?: string
-          id?: string
-          user_id: string
-        }
-        Update: {
-          channel_id?: string
-          created_at?: string
-          id?: string
-          user_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "brand_channel_confirmations_channel_id_fkey"
-            columns: ["channel_id"]
-            isOneToOne: false
-            referencedRelation: "brand_channels"
             referencedColumns: ["id"]
           },
         ]
@@ -592,7 +560,7 @@ export type Database = {
           status?: string
           storage_path?: string | null
           tags?: string[] | null
-          url: string
+          url?: string
           width?: number | null
         }
         Update: {
@@ -906,6 +874,7 @@ export type Database = {
           denial_reason: string | null
           description: string | null
           enriched_data: Json | null
+          hero_image_storage_path: string | null
           hero_image_url: string | null
           id: string
           idempotency_key: string | null
@@ -947,6 +916,7 @@ export type Database = {
           denial_reason?: string | null
           description?: string | null
           enriched_data?: Json | null
+          hero_image_storage_path?: string | null
           hero_image_url?: string | null
           id?: string
           idempotency_key?: string | null
@@ -988,6 +958,7 @@ export type Database = {
           denial_reason?: string | null
           description?: string | null
           enriched_data?: Json | null
+          hero_image_storage_path?: string | null
           hero_image_url?: string | null
           id?: string
           idempotency_key?: string | null
@@ -1045,6 +1016,7 @@ export type Database = {
           draft_data: Json | null
           draft_updated_at: string | null
           founding_year: number | null
+          hero_image_storage_path: string | null
           hero_image_url: string | null
           id: string
           is_demo: boolean
@@ -1060,7 +1032,6 @@ export type Database = {
           name: string
           onboarding_dismissed_at: string | null
           other_urls: Json
-          price_range: number | null
           purchase_myship: string | null
           purchase_pinkoi: string | null
           purchase_shopee: string | null
@@ -1095,6 +1066,7 @@ export type Database = {
           draft_data?: Json | null
           draft_updated_at?: string | null
           founding_year?: number | null
+          hero_image_storage_path?: string | null
           hero_image_url?: string | null
           id?: string
           is_demo?: boolean
@@ -1110,7 +1082,6 @@ export type Database = {
           name: string
           onboarding_dismissed_at?: string | null
           other_urls?: Json
-          price_range?: number | null
           purchase_myship?: string | null
           purchase_pinkoi?: string | null
           purchase_shopee?: string | null
@@ -1145,6 +1116,7 @@ export type Database = {
           draft_data?: Json | null
           draft_updated_at?: string | null
           founding_year?: number | null
+          hero_image_storage_path?: string | null
           hero_image_url?: string | null
           id?: string
           is_demo?: boolean
@@ -1160,7 +1132,6 @@ export type Database = {
           name?: string
           onboarding_dismissed_at?: string | null
           other_urls?: Json
-          price_range?: number | null
           purchase_myship?: string | null
           purchase_pinkoi?: string | null
           purchase_shopee?: string | null
@@ -1910,6 +1881,7 @@ export type Database = {
           description: string | null
           description_en: string | null
           ends_on: string
+          hero_image_storage_path: string | null
           hero_image_url: string | null
           id: string
           is_free: boolean | null
@@ -1942,6 +1914,7 @@ export type Database = {
           description?: string | null
           description_en?: string | null
           ends_on: string
+          hero_image_storage_path?: string | null
           hero_image_url?: string | null
           id?: string
           is_free?: boolean | null
@@ -1974,6 +1947,7 @@ export type Database = {
           description?: string | null
           description_en?: string | null
           ends_on?: string
+          hero_image_storage_path?: string | null
           hero_image_url?: string | null
           id?: string
           is_free?: boolean | null
@@ -2058,88 +2032,6 @@ export type Database = {
             columns: ["job_id"]
             isOneToOne: false
             referencedRelation: "curation_jobs"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      feature_request_votes: {
-        Row: {
-          created_at: string
-          id: string
-          request_id: string
-          user_id: string | null
-          visitor_hash: string | null
-        }
-        Insert: {
-          created_at?: string
-          id?: string
-          request_id: string
-          user_id?: string | null
-          visitor_hash?: string | null
-        }
-        Update: {
-          created_at?: string
-          id?: string
-          request_id?: string
-          user_id?: string | null
-          visitor_hash?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "feature_request_votes_request_id_fkey"
-            columns: ["request_id"]
-            isOneToOne: false
-            referencedRelation: "feature_requests"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      feature_requests: {
-        Row: {
-          admin_note: string | null
-          body: string | null
-          created_at: string
-          guest_email: string | null
-          id: string
-          is_seed: boolean
-          merged_into_id: string | null
-          status: string
-          submitted_by: string | null
-          title: string
-          updated_at: string
-        }
-        Insert: {
-          admin_note?: string | null
-          body?: string | null
-          created_at?: string
-          guest_email?: string | null
-          id?: string
-          is_seed?: boolean
-          merged_into_id?: string | null
-          status?: string
-          submitted_by?: string | null
-          title: string
-          updated_at?: string
-        }
-        Update: {
-          admin_note?: string | null
-          body?: string | null
-          created_at?: string
-          guest_email?: string | null
-          id?: string
-          is_seed?: boolean
-          merged_into_id?: string | null
-          status?: string
-          submitted_by?: string | null
-          title?: string
-          updated_at?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "feature_requests_merged_into_id_fkey"
-            columns: ["merged_into_id"]
-            isOneToOne: false
-            referencedRelation: "feature_requests"
             referencedColumns: ["id"]
           },
         ]
@@ -2835,7 +2727,7 @@ export type Database = {
           storage_path?: string | null
           submission_id: string
           tags?: string[] | null
-          url: string
+          url?: string
           width?: number | null
         }
         Update: {
@@ -3605,7 +3497,6 @@ export type Database = {
         Args: {
           filter_categories?: string[]
           filter_materials?: string[]
-          filter_price_ranges?: number[]
           filter_subcategories?: string[]
           filter_verification?: string
           page_offset?: number

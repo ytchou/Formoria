@@ -3,6 +3,7 @@ import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { expect, test } from "../fixtures/auth";
 
 import { BUDGET, POLL } from "../budgets";
+import { e2eProxyImageUrl } from "../helpers/image-refs";
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AnySupabaseClient = SupabaseClient<any, any, any>;
 
@@ -50,8 +51,9 @@ async function seedReadySubmission(
     .from("brand-images")
     .upload(storagePath, PNG_1X1, { contentType: "image/png" });
   if (uploadError) throw new Error(`image seed failed: ${uploadError.message}`);
-  const imageUrl = supabase.storage.from("brand-images").getPublicUrl(storagePath)
-    .data.publicUrl;
+  // The same-origin proxy path, not a public storage URL (DEV-1551): the bucket
+  // is private, so `getPublicUrl` would seed a dead link.
+  const imageUrl = e2eProxyImageUrl(storagePath);
 
   const { error: submissionError } = await supabase
     .from("brand_submissions")
@@ -99,15 +101,16 @@ async function seedReadySubmission(
     );
   }
 
-  const { error: imageError } = await supabase.from("submission_images").insert({
-    submission_id: id,
-    storage_path: storagePath,
-    url: imageUrl,
-    source_url: imageUrl,
-    source: "admin",
-    status: "active",
-    sort_order: 0,
-  });
+  const { error: imageError } = await supabase
+    .from("submission_images")
+    .insert({
+      submission_id: id,
+      storage_path: storagePath,
+      source_url: storagePath,
+      source: "admin",
+      status: "active",
+      sort_order: 0,
+    });
   if (imageError) {
     throw new Error(`submission image seed failed: ${imageError.message}`);
   }
@@ -128,7 +131,6 @@ async function seedReadySubmission(
         // crafts L1.
         subcategories: ["tableware"],
         subcategories_en: ["Tableware"],
-        price_range: 2,
         ...enrichedLinks,
       },
     })
@@ -149,7 +151,11 @@ async function seedReadySubmission(
 
   const { error: jobError } = await supabase
     .from("curation_jobs")
-    .update({ status: "completed", completed_at: completedAt, succeeded_count: 1 })
+    .update({
+      status: "completed",
+      completed_at: completedAt,
+      succeeded_count: 1,
+    })
     .eq("id", jobId);
   if (jobError) throw new Error(`job completion failed: ${jobError.message}`);
 
@@ -163,7 +169,10 @@ async function cleanupSubmission(
 ): Promise<void> {
   if (!supabase || !seeded) return;
   if (brandId) await supabase.from("brands").delete().eq("id", brandId);
-  await supabase.from("submission_images").delete().eq("submission_id", seeded.id);
+  await supabase
+    .from("submission_images")
+    .delete()
+    .eq("submission_id", seeded.id);
   await supabase.from("brand_submissions").delete().eq("id", seeded.id);
   await supabase.from("curation_jobs").delete().eq("id", seeded.jobId);
   await supabase.storage.from("brand-images").remove([seeded.storagePath]);
@@ -224,7 +233,10 @@ test.describe("Submission publishable-core link guard", () => {
       const reviewDrawer = adminPage.getByRole("dialog");
       // Enabled only when the client completeness mirror also counts myship as a
       // link; a regression there disables the button before the SQL guard runs.
-      const approve = reviewDrawer.getByRole("button", { name: "Approve", exact: true });
+      const approve = reviewDrawer.getByRole("button", {
+        name: "Approve",
+        exact: true,
+      });
       await expect(approve).toBeEnabled();
       await approve.click();
       // The row leaves the `ready` filter only after the server action has
@@ -283,7 +295,6 @@ test.describe("Submission publishable-core link guard", () => {
             description: "台灣本地手工木器，以榫接工法製作日常餐廚用品。",
             category: "home",
             subcategories: ["tableware"],
-            price_range: 2,
           },
         },
       );

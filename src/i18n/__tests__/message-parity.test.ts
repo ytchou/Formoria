@@ -98,6 +98,18 @@ const SEARCH_INTENT_KEYS = [
 ]
 
 describe('message catalogue parity', () => {
+  it('owns trail card labels in the trails namespace', () => {
+    const oldEyebrowKey = ['trail', 'Eyebrow'].join('')
+    const oldCtaKey = ['trail', 'Cta'].join('')
+
+    for (const catalogue of [zhTW, en]) {
+      expect(catalogue.landing.trails).toHaveProperty('eyebrow')
+      expect(catalogue.landing.trails).toHaveProperty('cta')
+      expect(catalogue.landing.selectedProducts).not.toHaveProperty(oldEyebrowKey)
+      expect(catalogue.landing.selectedProducts).not.toHaveProperty(oldCtaKey)
+    }
+  })
+
   it('en and zh-TW have identical key sets outside the admin namespace', () => {
     const enKeys = new Set(flatten(en).filter((key) => !isEnOnly(key)))
     const zhKeys = new Set(flatten(zhTW).filter((key) => !isEnOnly(key)))

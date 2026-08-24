@@ -52,6 +52,8 @@ const ROLES = {
   "on-ink-muted": "secondary text on ink grounds",
   "rule-on-ink": "hairline on ink grounds; non-text only",
   danger: "form errors",
+  "radius-control": "buttons, inputs, chips",
+  "radius-surface": "cards, dialogs, panels, badges",
   "font-ming": "content face",
   "font-hei": "interface face",
   "space-section": "between page sections",
@@ -60,9 +62,16 @@ const ROLES = {
 };
 
 const GROUPS = [
-  ["Colour", (n) => !n.startsWith("font-") && !n.startsWith("space-")],
+  [
+    "Colour",
+    (n) =>
+      !n.startsWith("font-") &&
+      !n.startsWith("space-") &&
+      !n.startsWith("radius-"),
+  ],
   ["Typography", (n) => n.startsWith("font-")],
   ["Spacing", (n) => n.startsWith("space-")],
+  ["Radius", (n) => n.startsWith("radius-")],
 ];
 
 function parseTokens(css) {

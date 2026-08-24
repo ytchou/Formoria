@@ -50,7 +50,7 @@ export default async function AdminEvidencePage() {
 
   return (
     <div>
-      <h1 className="type-label">{t("title")}</h1>
+      <h1 className="type-tool-heading">{t("title")}</h1>
       <p className="mt-2 type-body-sm">{t("description")}</p>
 
       <div className="mt-8">

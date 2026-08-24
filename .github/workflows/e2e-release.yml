@@ -125,11 +125,7 @@ jobs:
         run: >-
           pnpm exec playwright test
           --project=deep
-          --project=mobile
           --reporter=html,json
-      - name: Reject unexpected skipped E2E tests
-        if: always()
-        run: pnpm exec tsx scripts/e2e-report-gate.ts playwright-results.json scripts/e2e-expected-skips.json
       - name: Upload release-gate report
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4

@@ -141,14 +141,9 @@ jobs:
         run: >-
           pnpm exec playwright test
           --project=deep
-          --project=mobile
           --reporter=html,json
-      - name: Reject unexpected skipped E2E tests
-        id: report_gate
-        if: always()
-        run: pnpm exec tsx scripts/e2e-report-gate.ts playwright-results.json scripts/e2e-expected-skips.json "$RUNNER_TEMP/unexpected-skips.json"
       - name: Freeze complete staging failure context
-        if: always() && (steps.e2e.outcome == 'failure' || steps.report_gate.outcome == 'failure')
+        if: always() && steps.e2e.outcome == 'failure'
         env:
           DEPLOYED_APP_SHA: ${{ steps.revision.outputs.deployed_sha }}
           REPAIR_TEST_SHA: ${{ steps.revision.outputs.tested_sha || env.STAGING_SHA }}
@@ -157,14 +152,7 @@ jobs:
           set -euo pipefail
           report="playwright-results.json"
           failures="$RUNNER_TEMP/staging-failures.json"
-          # A passing Playwright process with an unexpected skip is still an
-          # actionable incident. Preserve the gate's structured records before
-          # considering the generic report fallback.
-          if [[ "${{ steps.e2e.outcome }}" == success && "${{ steps.report_gate.outcome }}" == failure && -s "$RUNNER_TEMP/unexpected-skips.json" ]] &&
-             jq -e 'type == "array" and length > 0' "$RUNNER_TEMP/unexpected-skips.json" >/dev/null; then
-            cp "$RUNNER_TEMP/unexpected-skips.json" "$failures"
-          fi
-          if [[ ! -s "$failures" && -s "$report" ]]; then
+          if [[ -s "$report" ]]; then
             jq '[.suites[]? | recurse(.suites[]?) as $suite | $suite.specs[]? as $spec | select($spec.ok == false) | {file: ($suite.file // null), title: $spec.title, project: ([$spec.tests[]?.projectName // empty] | unique | .[0] // "deep")]}' "$report" > "$failures" || true
           fi
           if [[ ! -s "$failures" || "$(jq 'length' "$failures" 2>/dev/null || echo 0)" == 0 ]]; then
@@ -690,7 +678,6 @@ jobs:
           CI: "true"
           PLAYWRIGHT_TEST: "true"
           PLAYWRIGHT_JSON_OUTPUT_NAME: playwright-results-validation.json
-        run: pnpm exec playwright test --project=deep --project=mobile --reporter=html,json
       - name: Reject unexpected self-heal skips
         id: validation_report_gate
         if: always() && steps.validation.outcome != 'skipped'

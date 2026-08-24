@@ -45,12 +45,12 @@ vi.mock("next/navigation", () => ({
 vi.mock("@/lib/analytics", () => ({
   trackCategoryFilterApplied: vi.fn(),
   trackFilterCleared: vi.fn(),
-  trackPriceFilterApplied: vi.fn(),
   trackSubcategoryFilterApplied: vi.fn(),
   trackVerificationFilterApplied: vi.fn(),
 }));
 
-const { BrandFilterSidebar } = await import("../brand-filter-sidebar");
+const { BrandFilterDrawer, BrandFilterSidebar } =
+  await import("../brand-filter-sidebar");
 
 const CATEGORIES = [
   { slug: "home", name: "Home & Living", nameZh: "居家生活" },
@@ -234,6 +234,49 @@ describe("BrandFilterSidebar", () => {
     fireEvent.click(materialSection());
     expect(materialSection()).toHaveAttribute("aria-expanded", "true");
     expect(materialPanel()).not.toHaveAttribute("inert");
+  });
+
+  it("filter drawer body is the scroll container", () => {
+    // The drawer used to pin its footer with `sticky bottom-0`, which only
+    // works while the element it sticks inside is the scrollport. It was not:
+    // the scroll lived on the body div above it, so the footer scrolled with
+    // the content on short viewports and covered the last filter row on tall
+    // ones. `SheetBody` owns the scroll and the footer is pinned by the popup's
+    // flex column instead — so `sticky` must be gone, not merely redundant.
+    searchParams.current = new URLSearchParams();
+    render(
+      <NextIntlClientProvider locale="en" messages={enMessages}>
+        <BrandFilterDrawer
+          categories={CATEGORIES}
+          materials={materialOptions("en")}
+          totalCount={24}
+        />
+      </NextIntlClientProvider>,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: /^Filters/ }));
+
+    const body = document.querySelector('[data-slot="sheet-body"]');
+    expect(body).not.toBeNull();
+    const bodyClasses = (body as HTMLElement).className.split(/\s+/);
+    expect(bodyClasses).toContain("overflow-y-auto");
+    expect(bodyClasses).toContain("min-h-0");
+    expect(bodyClasses).toContain("flex-1");
+
+    // The sidebar is INSIDE that scroll container, not beside it.
+    expect(
+      body!.querySelector(
+        '[data-slot="surface-card"], [class*="overflow-hidden"]',
+      ),
+    ).not.toBeNull();
+
+    const footer = document.querySelector('[data-slot="sheet-footer"]');
+    expect(footer).not.toBeNull();
+    const footerClasses = (footer as HTMLElement).className.split(/\s+/);
+    expect(footerClasses).not.toContain("sticky");
+    expect(footerClasses).not.toContain("bottom-0");
+    expect(footerClasses).toContain("bg-surface");
+    expect(footerClasses).toContain("mt-auto");
   });
 
   it("names each category checkbox from its visible label alone", () => {

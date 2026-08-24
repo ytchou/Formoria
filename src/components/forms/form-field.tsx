@@ -38,7 +38,7 @@ export function FormField({
     <>
       {label}
       {required ? (
-        <span aria-hidden="true" className="text-destructive">
+        <span aria-hidden="true" className="text-danger">
           {' '}
           *
         </span>

@@ -88,11 +88,6 @@ export async function signIn(
     });
     await setLocaleCookie(locale);
 
-    const claimToken = formData.get("claimToken") as string | null;
-    if (claimToken) {
-      redirect(routes.auth.callback({ claim: claimToken }));
-    }
-
     const cookieStore = await cookies();
     const next = formData.get("next");
     let requestedNext = typeof next === "string" && isRelativeUrl(next) ? next : null;
@@ -137,14 +132,11 @@ export async function signUp(
       return { error: parsed.error.issues[0].message };
     }
 
-    const claimToken = formData.get("claimToken") as string | null;
     const marketingEmailOptIn = formData.get("marketingEmailOptIn") === "true";
     const locale = localeFromForm(formData, await getLocale());
     const siteUrl = await getRequestOrigin();
 
-    const emailRedirectTo = claimToken
-      ? `${siteUrl}/auth/callback?claim=${claimToken}`
-      : `${siteUrl}/auth/callback`;
+    const emailRedirectTo = `${siteUrl}/auth/callback`;
 
     const supabase = await createClient();
     const { data: signUpData, error } = await supabase.auth.signUp({
@@ -167,7 +159,6 @@ export async function signUp(
         locale,
         source: "account_signup",
         newsletter: true,
-        lifecycle: true,
       });
     }
 
@@ -180,7 +171,6 @@ export async function signUp(
 }
 
 export async function signInWithGoogle(
-  claimToken?: string,
   next?: string,
   marketingEmailOptIn = false,
   authLocale = "zh-TW",
@@ -204,9 +194,6 @@ export async function signInWithGoogle(
     };
     const locale = isAppLocale(authLocale) ? authLocale : "zh-TW";
     cookieStore.set("post_auth_locale", locale, intentCookie);
-    if (claimToken) {
-      cookieStore.set("post_auth_claim", claimToken, intentCookie);
-    }
     if (next && isRelativeUrl(next)) {
       cookieStore.set("post_auth_next", next, intentCookie);
     }

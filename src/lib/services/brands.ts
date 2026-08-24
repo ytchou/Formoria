@@ -4,15 +4,10 @@ import { auditedCall } from "@/lib/audit";
 import { pinyin } from "pinyin-pro";
 import { convertPinyinToWadeGiles } from "@/lib/utils/pinyin-to-wade-giles";
 import type { Brand, BrandFilters, OtherUrl } from "@/lib/types";
-import type {
-  ReputationSummary,
-  SiteContent,
-  SiteProduct,
-  SiteTokens,
-} from "@/lib/types/brand";
+import type { ReputationSummary } from "@/lib/types/brand";
 import type { Database } from "@/lib/supabase/database.types";
 import { toBrandRow as baseToBrandRow } from "./_shared/field-map";
-import { ConflictError, NotFoundError, ValidationError } from "@/lib/errors";
+import { ConflictError, NotFoundError } from "@/lib/errors";
 import { createServiceClient } from "@/lib/supabase/service";
 import {
   canDegradeDuringPrerender,
@@ -27,6 +22,7 @@ import {
   type BrandImageQueryClient,
 } from "./_shared/brand-image-batch";
 import { isNonImageHost } from "@/lib/images/allowed-image-hosts";
+import { storageKeyFromPublicUrlForRead } from "./image-upload";
 import { RESERVED_ROUTES } from "@/proxy";
 import {
   deriveCategoryLabel,
@@ -56,6 +52,11 @@ import {
   type SkippedBrandField,
 } from "./brand-write-policy";
 import {
+  IMAGE_PROXY_PATH_PREFIX,
+  imagePathToUrl,
+  storagePathFromImageUrl,
+} from "@/lib/images/image-url";
+import {
   getBrandImages,
   insertBrandImage,
   syncHeroDenormalized,
@@ -63,20 +64,32 @@ import {
 } from "./brand-images";
 import {
   toAdminBrandListItem,
-  toOwnerBrandEditor,
   toPublicBrandCard,
   toPublicBrandDetail,
   toPublicBrandFaqContext,
-  toPublicMicrositeBrand,
   type AdminBrandListItem,
-  type OwnerBrandEditor,
   type PublicBrandCard,
   type PublicBrandDetail,
   type PublicBrandFaqContext,
-  type PublicMicrositeBrand,
   type SearchSuggestion,
 } from "@/lib/brands/contracts";
 
+/**
+ * Recover a readable hero reference from the legacy `hero_image_url` column.
+ *
+ * Returns null unless the stored value is one of our own bucket objects, so a
+ * dead public-storage link never reaches a card. An empty string is absent,
+ * not a URL: DEV-1551 gave the column a `''` default, which makes `''` the
+ * common case for rows written by the two hand-patched SQL functions.
+ */
+function storageBackedHeroFallback(
+  legacyUrl: string | null | undefined,
+): string | null {
+  const trimmed = legacyUrl?.trim();
+  if (!trimmed) return null;
+  const key = storageKeyFromPublicUrlForRead(trimmed);
+  return key ? imagePathToUrl(key) : null;
+}
 function mulberry32(seed: number): () => number {
   return () => {
     seed |= 0;
@@ -105,7 +118,6 @@ function shuffleArray<T>(arr: T[], seed?: number): void {
 // ---------------------------------------------------------------------------
 
 type BrandRow = Database["public"]["Tables"]["brands"]["Row"];
-type BrandDraftData = BrandRow["draft_data"];
 type BrandFlatLinkColumns = {
   social_instagram?: string | null;
   social_threads?: string | null;
@@ -188,18 +200,14 @@ type BrandPatchRpcClient = {
   }>;
 };
 
-/** Shape returned by: brand_owners(user_id) */
-type BrandOwnerRef = { user_id: string };
-
 /**
  * Full joined row from BRAND_SELECT. Extends Partial<BrandRow> so that
  * unit test fixtures can omit columns added in later migrations (is_demo,
- * price_range, subcategories) without a cast — the mapper uses
+ * subcategories) without a cast — the mapper uses
  * ?? defaults for all optional fields.
  */
 export type BrandRowWithJoins = Partial<BrandRow> &
   BrandFlatLinkColumns & {
-    price_range?: number | null;
     subcategories?: string[] | null;
     description_en?: string | null;
     blurb?: string | null;
@@ -214,9 +222,7 @@ export type BrandRowWithJoins = Partial<BrandRow> &
     | "submitted_at"
     | "created_at"
     | "updated_at"
-  > & {
-    brand_owners?: BrandOwnerRef | BrandOwnerRef[] | null;
-  };
+  >;
 
 type SearchBrandsRow = {
   id: string;
@@ -433,9 +439,7 @@ export function parseBrandCSV(
 export function curatedSubmissionToBrand(
   input: CuratedSubmissionInput,
 ): CuratedBrand {
-  const purchaseValues: Partial<
-    Record<OnlineStoreCamelField, string>
-  > = {};
+  const purchaseValues: Partial<Record<OnlineStoreCamelField, string>> = {};
   const otherUrls: OtherUrl[] = [];
   for (const link of input.purchaseLinks) {
     const platform = link.platform.toLowerCase();
@@ -444,9 +448,7 @@ export function curatedSubmissionToBrand(
         ? onlineStoreByKey.website.platformSlug
         : platform;
     const channel = Object.hasOwn(onlineStoreByPlatformSlug, platformSlug)
-      ? onlineStoreByPlatformSlug[
-          platformSlug as OnlineStorePlatformSlug
-        ]
+      ? onlineStoreByPlatformSlug[platformSlug as OnlineStorePlatformSlug]
       : undefined;
 
     if (!channel) {
@@ -464,7 +466,7 @@ export function curatedSubmissionToBrand(
       channel.camel,
       channel === onlineStoreByKey.website
         ? input.socialLinks.website || purchaseValues[channel.camel] || null
-        : purchaseValues[channel.camel] ?? null,
+        : (purchaseValues[channel.camel] ?? null),
     ]),
   ) as Pick<Brand, OnlineStoreCamelField>;
 
@@ -503,7 +505,6 @@ const BRAND_DRAFT_EDITABLE_KEYS = [
   "socialFacebook",
   "heroImageUrl",
   "productPhotos",
-  "priceRange",
   "subcategories",
   ...ONLINE_STORE_CAMEL_FIELDS,
   "mitStory",
@@ -513,10 +514,6 @@ const BRAND_DRAFT_EDITABLE_KEYS = [
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
-}
-
-function optionalString(value: unknown): string | undefined {
-  return typeof value === "string" ? value : undefined;
 }
 
 function normalizeReputationSummary(value: unknown): ReputationSummary | null {
@@ -535,64 +532,7 @@ function normalizeReputationSummary(value: unknown): ReputationSummary | null {
   return { text: value.text, textEn, sources };
 }
 
-function normalizeSiteTokens(value: unknown): SiteTokens {
-  const tokens = isRecord(value) ? value : {};
-  const result: SiteTokens = {
-    accent: typeof tokens.accent === "string" ? tokens.accent : "",
-  };
-  const accentForeground = optionalString(tokens.accentForeground);
-  if (accentForeground !== undefined)
-    result.accentForeground = accentForeground;
-  return result;
-}
-
-function normalizeSiteProduct(value: unknown): SiteProduct | null {
-  if (!isRecord(value)) return null;
-
-  const result: SiteProduct = {
-    name: typeof value.name === "string" ? value.name : "",
-  };
-  const imageUrl = optionalString(value.imageUrl);
-  if (imageUrl !== undefined) result.imageUrl = imageUrl;
-  const url = optionalString(value.url);
-  if (url !== undefined) result.url = url;
-  const caption = optionalString(value.caption);
-  if (caption !== undefined) result.caption = caption;
-  return result;
-}
-
-export function normalizeSiteContent(raw: unknown): SiteContent | null {
-  if (!raw || !isRecord(raw) || Object.keys(raw).length === 0) return null;
-
-  const result: SiteContent = {
-    template: typeof raw.template === "string" ? raw.template : "default",
-    tokens: normalizeSiteTokens(raw.tokens),
-    products: Array.isArray(raw.products)
-      ? raw.products.flatMap((product) => {
-          const normalized = normalizeSiteProduct(product);
-          return normalized ? [normalized] : [];
-        })
-      : [],
-    ctaType: raw.ctaType === "mailto" ? raw.ctaType : "mailto",
-  };
-
-  const tagline = optionalString(raw.tagline);
-  if (tagline !== undefined) result.tagline = tagline;
-  const story = optionalString(raw.story);
-  if (story !== undefined) result.story = story;
-  const ctaValue = optionalString(raw.ctaValue);
-  if (ctaValue !== undefined) result.ctaValue = ctaValue;
-
-  return result;
-}
-
-function draftDataToSnapshot(
-  value: BrandDraftData,
-): Record<string, unknown> | null {
-  return isRecord(value) ? value : null;
-}
-
-export const BRAND_DRAFT_PROGRESS_KEY = "__wizardCompletedSteps";
+const BRAND_DRAFT_PROGRESS_KEY = "__wizardCompletedSteps";
 
 export function brandToDraftSnapshot(
   data: Partial<Brand>,
@@ -629,12 +569,11 @@ export function draftSnapshotToDomain(
 
     if (ONLINE_STORE_CAMEL_FIELDS.includes(key as OnlineStoreCamelField)) {
       const purchaseField = key as OnlineStoreCamelField;
-      (
-        partial as Partial<Pick<Brand, OnlineStoreCamelField>>
-      )[purchaseField] = snapshot[purchaseField] as Pick<
-        Brand,
-        OnlineStoreCamelField
-      >[typeof purchaseField];
+      (partial as Partial<Pick<Brand, OnlineStoreCamelField>>)[purchaseField] =
+        snapshot[purchaseField] as Pick<
+          Brand,
+          OnlineStoreCamelField
+        >[typeof purchaseField];
       continue;
     }
 
@@ -679,9 +618,6 @@ export function draftSnapshotToDomain(
         partial.productPhotos =
           (snapshot.productPhotos as Brand["productPhotos"]) ?? [];
         break;
-      case "priceRange":
-        partial.priceRange = snapshot.priceRange as Brand["priceRange"];
-        break;
       case "subcategories":
         partial.subcategories =
           (snapshot.subcategories as Brand["subcategories"]) ?? [];
@@ -718,12 +654,6 @@ export function diffRemovedImageUrls(
 }
 
 export function brandToDomain(row: BrandRowWithJoins): Brand {
-  const owners = Array.isArray(row.brand_owners)
-    ? row.brand_owners
-    : row.brand_owners
-      ? [row.brand_owners]
-      : [];
-
   const purchaseFields = Object.fromEntries(
     ONLINE_STORES.map((channel) => [
       channel.camel,
@@ -740,23 +670,33 @@ export function brandToDomain(row: BrandRowWithJoins): Brand {
     descriptionEn: row.description_en ?? null,
     blurb: row.blurb ?? null,
     blurbEn: row.blurb_en ?? null,
-    heroImageUrl: row.hero_image_url ?? null,
+    // DEV-1551 task 9: derived from the bucket key. The bucket is private, so
+    // a public storage URL is a dead link and `/i/<key>` is the only readable
+    // form.
+    //
+    // The legacy `hero_image_url` is a fallback, not a preference. Two SQL
+    // functions still own the approval path -- `approve_submission` and
+    // `apply_brand_refresh_with_protected_location_gate` -- and both were
+    // hand-patched in production with no source file here, so neither writes
+    // `hero_image_storage_path`. Without this fallback a brand approved after
+    // this ships renders with no hero anywhere. Note the column default is now
+    // '' rather than NULL, so an empty string must read as absent.
+    // Ceiling: remove the fallback once those two functions have real source
+    // and write the bucket key.
+    heroImageUrl:
+      imagePathToUrl(row.hero_image_storage_path) ??
+      storageBackedHeroFallback(row.hero_image_url),
     heroImageMetadata: null,
     // status is text in the DB — cast to BrandStatus at the boundary
     status: row.status as Brand["status"],
     categorySlug: row.category ?? null,
     categoryLabel:
-      deriveCategoryLabel(row.category ?? "") ??
-      row.category ??
-      null,
-    isVerified: owners.length > 0,
+      deriveCategoryLabel(row.category ?? "") ?? row.category ?? null,
     mitStatus: (row.mit_status as Brand["mitStatus"]) ?? "unverified",
     mitDeclaredScope:
       (row.mit_declared_scope as Brand["mitDeclaredScope"]) ?? null,
     mitDeclaredAt: row.mit_declared_at ?? null,
-    mitVerifiedAt: row.mit_verified_at ?? null,
     mitEvidence: (row.mit_evidence as Brand["mitEvidence"]) ?? null,
-    mitVerified: row.mit_status === "verified",
     mitStory: row.mit_story ?? null,
     isDemo: row.is_demo ?? false,
     foundingYear: row.founding_year ?? null,
@@ -769,13 +709,12 @@ export function brandToDomain(row: BrandRowWithJoins): Brand {
     productPhotos: [],
     imageAlts: [],
     contactEmail: row.contact_email ?? null,
-    priceRange: row.price_range ?? null,
     subcategories: Array.isArray(row.subcategories) ? row.subcategories : [],
     subcategoriesEn: Array.isArray(row.subcategories_en)
       ? row.subcategories_en
       : [],
     reputationSummary: normalizeReputationSummary(row.reputation_summary),
-    siteContent: normalizeSiteContent(row.site_content as Brand["siteContent"]),
+    siteContent: row.site_content ?? null,
     submittedAt: row.submitted_at ?? "",
     approvedAt: row.approved_at ?? null,
     createdAt: row.created_at ?? "",
@@ -796,12 +735,12 @@ async function brandToDomainWithImages(
 }
 
 const CARD_IMAGE_SELECT =
-  "brand_id, url, tags, alt_zh, alt_en, sort_order, width, height";
+  "brand_id, storage_path, tags, alt_zh, alt_en, sort_order, width, height";
 
 type CardImageRow = Pick<
   Database["public"]["Tables"]["brand_images"]["Row"],
   | "brand_id"
-  | "url"
+  | "storage_path"
   | "tags"
   | "alt_zh"
   | "alt_en"
@@ -860,22 +799,19 @@ export async function hydrateCardImageMeta<
 
   if (brands.length === 0) return [];
 
-  // Narrowed to the hero URLs, not every active row: a brand carries 10-14
-  // active images and exactly one of them is ever kept below, so an unnarrowed
-  // read discards ~90% of what it transfers. Brands with no hero URL are left
-  // out of the query entirely — nothing could match them.
+  // Narrowed to the hero BUCKET KEYS, not every active row: a brand carries
+  // 10-14 active images and exactly one of them is ever kept below, so an
+  // unnarrowed read discards ~90% of what it transfers. Brands whose hero is
+  // not one of our objects are left out of the query entirely — nothing could
+  // match them.
   const pairs = [
     ...new Map(
       brands
-        .filter(
-          (brand): brand is T & { heroImageUrl: string } =>
-            typeof brand.heroImageUrl === "string" &&
-            brand.heroImageUrl.length > 0,
-        )
-        .map((brand) => [
-          `${brand.id}\n${brand.heroImageUrl}`,
-          { brandId: brand.id, url: brand.heroImageUrl },
-        ]),
+        .flatMap((brand) => {
+          const storagePath = storagePathFromImageUrl(brand.heroImageUrl);
+          return storagePath ? [{ brandId: brand.id, storagePath }] : [];
+        })
+        .map((pair) => [`${pair.brandId}\n${pair.storagePath}`, pair]),
     ).values(),
   ];
 
@@ -907,8 +843,8 @@ export async function hydrateCardImageMeta<
      *    Falling back to unhydrated brands reproduces exactly the behaviour
      *    these surfaces had before this function existed (`imageAlts: []`,
      *    centred `object-cover`). Taking down /brands, the homepage,
-     *    /favorites, story galleries and every microsite because a decoration
-     *    could not be loaded is never the right trade.
+     *    /favorites and story galleries because a decoration could not be
+     *    loaded is never the right trade.
      * 2. It closes the deploy-order window. Railway deploys on a push to main
      *    but Supabase migrations are applied by hand, so between the two a
      *    column this projection reads can be absent, PostgREST answers 42703,
@@ -940,19 +876,26 @@ export async function hydrateCardImageMeta<
   }
 
   return brands.map((brand) => {
-    // Match on `url`, not `sort_order`. `hero_image_url` is the denormalized
-    // copy of whichever row the brand currently leads with, and a row can be
-    // rejected or re-ordered without that copy moving — so position is not a
-    // reliable key, while the url is. Rows arrive ordered by `sort_order`, so
-    // the first match is also the lowest-`sort_order` one; that makes the
-    // behavior defined if two active rows ever share a url.
+    // Match on the derived `/i/` path, not `sort_order`. `hero_image_url` (and
+    // now `hero_image_storage_path`) is the denormalized copy of whichever row
+    // the brand currently leads with, and a row can be rejected or re-ordered
+    // without that copy moving — so position is not a reliable key, while the
+    // storage key is. Rows arrive ordered by `sort_order`, so the first match is
+    // also the lowest-`sort_order` one; that makes the behavior defined if two
+    // active rows ever share a key.
     const heroRow = rowsByBrand
       .get(brand.id)
-      ?.find((row) => row.url === brand.heroImageUrl);
+      ?.find((row) => imagePathToUrl(row.storage_path) === brand.heroImageUrl);
 
-    const productRow = productRowsByBrand
-      .get(brand.id)
-      ?.find((row) => row.url !== brand.heroImageUrl);
+    // A row with no `storage_path` cannot be rendered at all now that the
+    // bucket is private, so it is not a usable product photo.
+    const productRow = productRowsByBrand.get(brand.id)?.find((row) => {
+      const src = imagePathToUrl(row.storage_path);
+      return src !== null && src !== brand.heroImageUrl;
+    });
+    const productPhoto = productRow
+      ? imagePathToUrl(productRow.storage_path)
+      : null;
 
     // No matching row is not an error: brands whose hero predates
     // `brand_images` (or whose row was rejected) keep the old hero behavior,
@@ -978,10 +921,10 @@ export async function hydrateCardImageMeta<
     // their complete per-image projection through `brandToDomainWithImages`.
     return {
       ...brand,
-      productPhotos: productRow ? [productRow.url] : [],
+      productPhotos: productPhoto ? [productPhoto] : [],
       imageAlts: [
         heroMeta,
-        ...(productRow
+        ...(productRow && productPhoto
           ? [
               {
                 altZh: productRow.alt_zh ?? null,
@@ -996,7 +939,8 @@ export async function hydrateCardImageMeta<
             altZh: heroRow.alt_zh ?? null,
             altEn: heroRow.alt_en ?? null,
             width: heroRow.width && heroRow.width > 0 ? heroRow.width : null,
-            height: heroRow.height && heroRow.height > 0 ? heroRow.height : null,
+            height:
+              heroRow.height && heroRow.height > 0 ? heroRow.height : null,
           }
         : null,
     };
@@ -1013,7 +957,8 @@ export function brandToInsert(data: BrandWriteInput): Record<string, unknown> {
     row.mit_evidence = data.mitEvidence;
   }
   if (data.siteContent !== undefined) {
-    row.site_content = data.siteContent;
+    // Opaque jsonb pass-through; the microsite shape-enforcer was parked in DEV-1570.
+    row.site_content = data.siteContent as typeof row.site_content;
   }
   return row;
 }
@@ -1026,8 +971,6 @@ function brandToUpdate(data: BrandWriteInput): Record<string, unknown> {
     }
   }
   const raw = data as Record<string, unknown>;
-  if (data.priceRange === undefined && raw.price_range === undefined)
-    delete row.price_range;
   if (data.subcategories === undefined && raw.subcategories === undefined)
     delete row.subcategories;
   return row;
@@ -1075,6 +1018,7 @@ export const BRAND_COLUMN_LIST = [
   "blurb",
   "blurb_en",
   "hero_image_url",
+  "hero_image_storage_path",
   "category",
   "contact_email",
   "city",
@@ -1093,7 +1037,6 @@ export const BRAND_COLUMN_LIST = [
   "draft_data",
   "draft_updated_at",
   "founding_year",
-  "price_range",
   "subcategories",
   "subcategories_en",
   "reputation_summary",
@@ -1128,7 +1071,7 @@ export const DIRECTORY_BRAND_COLUMN_LIST = BRAND_COLUMN_LIST.filter(
 );
 
 /** Columns allowed to cross the public card boundary. */
-export const PUBLIC_BRAND_CARD_COLUMN_LIST = [
+const PUBLIC_BRAND_CARD_COLUMN_LIST = [
   "id",
   "name",
   "slug",
@@ -1138,17 +1081,17 @@ export const PUBLIC_BRAND_CARD_COLUMN_LIST = [
   "blurb",
   "blurb_en",
   "hero_image_url",
+  "hero_image_storage_path",
   "category",
   "status",
   "founding_year",
-  "price_range",
   "subcategories",
   "subcategories_en",
   "mit_status",
 ] as const;
 
 /** Columns allowed to cross the public detail boundary. */
-export const PUBLIC_BRAND_DETAIL_COLUMN_LIST = [
+const PUBLIC_BRAND_DETAIL_COLUMN_LIST = [
   ...PUBLIC_BRAND_CARD_COLUMN_LIST,
   "city",
   ...ONLINE_STORE_COLUMNS,
@@ -1161,7 +1104,7 @@ export const PUBLIC_BRAND_DETAIL_COLUMN_LIST = [
 ] as const;
 
 /** Evidence fields used only to render the public FAQ template floors. */
-export const PUBLIC_BRAND_FAQ_CONTEXT_COLUMN_LIST = [
+const PUBLIC_BRAND_FAQ_CONTEXT_COLUMN_LIST = [
   "id",
   "name",
   "slug",
@@ -1169,7 +1112,6 @@ export const PUBLIC_BRAND_FAQ_CONTEXT_COLUMN_LIST = [
   "city",
   "category",
   "founding_year",
-  "price_range",
   "subcategories",
   "subcategories_en",
   "reputation_summary",
@@ -1178,45 +1120,23 @@ export const PUBLIC_BRAND_FAQ_CONTEXT_COLUMN_LIST = [
   "mit_story",
 ] as const;
 
-/** Microsites only need the configured content and a few display fields. */
-export const PUBLIC_MICROSITE_BRAND_COLUMN_LIST = [
-  "id",
-  "name",
-  "slug",
-  "status",
-  "description",
-  "hero_image_url",
-  "founding_year",
-  "mit_status",
-  "site_content",
-] as const;
-
 const BRAND_COLUMNS = BRAND_COLUMN_LIST.join(", ");
 const DIRECTORY_BRAND_COLUMNS = DIRECTORY_BRAND_COLUMN_LIST.join(", ");
 const PUBLIC_BRAND_CARD_COLUMNS = PUBLIC_BRAND_CARD_COLUMN_LIST.join(", ");
 const PUBLIC_BRAND_DETAIL_COLUMNS = PUBLIC_BRAND_DETAIL_COLUMN_LIST.join(", ");
-const PUBLIC_BRAND_FAQ_CONTEXT_COLUMNS = PUBLIC_BRAND_FAQ_CONTEXT_COLUMN_LIST.join(", ");
-const PUBLIC_MICROSITE_BRAND_COLUMNS = PUBLIC_MICROSITE_BRAND_COLUMN_LIST.join(", ");
+const PUBLIC_BRAND_FAQ_CONTEXT_COLUMNS =
+  PUBLIC_BRAND_FAQ_CONTEXT_COLUMN_LIST.join(", ");
 
-export const BRAND_SELECT =
-  `${BRAND_COLUMNS}, brand_owners(user_id)` as unknown as "*";
+export const BRAND_SELECT = BRAND_COLUMNS as unknown as "*";
 const BRAND_SELECT_WITH_ROMANIZED_NAME =
-  `${BRAND_COLUMNS}, romanized_name, brand_owners(user_id)` as unknown as "*";
-const VERIFIED_BRAND_SELECT =
-  `${BRAND_COLUMNS}, brand_owners!inner(user_id)` as unknown as "*";
+  `${BRAND_COLUMNS}, romanized_name` as unknown as "*";
 /** Narrow projection for directory/card queries. */
-const BRAND_LIST_SELECT =
-  `${DIRECTORY_BRAND_COLUMNS}, brand_owners(user_id)` as unknown as "*";
-const PUBLIC_BRAND_CARD_SELECT =
-  `${PUBLIC_BRAND_CARD_COLUMNS}, brand_owners(user_id)` as unknown as "*";
-const PUBLIC_VERIFIED_BRAND_CARD_SELECT =
-  `${PUBLIC_BRAND_CARD_COLUMNS}, brand_owners!inner(user_id)` as unknown as "*";
+const BRAND_LIST_SELECT = DIRECTORY_BRAND_COLUMNS as unknown as "*";
+const PUBLIC_BRAND_CARD_SELECT = PUBLIC_BRAND_CARD_COLUMNS as unknown as "*";
 const PUBLIC_BRAND_DETAIL_SELECT =
-  `${PUBLIC_BRAND_DETAIL_COLUMNS}, brand_owners(user_id)` as unknown as "*";
+  PUBLIC_BRAND_DETAIL_COLUMNS as unknown as "*";
 const PUBLIC_BRAND_FAQ_CONTEXT_SELECT =
   PUBLIC_BRAND_FAQ_CONTEXT_COLUMNS as unknown as "*";
-const PUBLIC_MICROSITE_BRAND_SELECT =
-  `${PUBLIC_MICROSITE_BRAND_COLUMNS}, brand_owners(user_id)` as unknown as "*";
 
 /**
  * PostgREST sends `.in()` filters in the GET query string, so a single call with
@@ -1350,7 +1270,9 @@ async function queryApprovedBrandsBySlugs(
     // the last good page served), but without a log line the failed
     // regeneration leaves no trace anywhere.
     console.error("getBrandsBySlugKey query error:", error);
-    throw new Error(`Failed to fetch brands by slug: ${error.message}`);
+    throw new Error(
+      `Failed to fetch brands by slug: ${error.message}${error.code ? ` [code ${error.code}]` : ""}${error.hint ? ` [hint: ${error.hint}]` : ""}`,
+    );
   }
 
   return new Map(
@@ -1474,9 +1396,9 @@ const getBrandsBySlugKey = cache(
     // `hydrateCardImageMeta` degrades internally — a `brand_images` failure
     // here must not abort a story-page export. Do not add a throw to it.
     const hydratedById = new Map(
-      (
-        await hydrateCardImageMeta(supabase, [...new Set(bySlug.values())])
-      ).map((brand) => [brand.id, brand]),
+      (await hydrateCardImageMeta(supabase, [...new Set(bySlug.values())])).map(
+        (brand) => [brand.id, brand],
+      ),
     );
     return new Map(
       [...bySlug].map(([slug, brand]): [string, Brand] => [
@@ -1508,7 +1430,10 @@ export async function getPublicBrandsBySlugs(
 ): Promise<Map<string, PublicBrandCard>> {
   const brands = await getBrandsBySlugs(slugs);
   return new Map(
-    [...brands.entries()].map(([slug, brand]) => [slug, toPublicBrandCard(brand)]),
+    [...brands.entries()].map(([slug, brand]) => [
+      slug,
+      toPublicBrandCard(brand),
+    ]),
   );
 }
 
@@ -1562,11 +1487,10 @@ export function directoryBrandCategoryFilter(
 }
 
 function getBrandsSelect(filters: GetBrandsFilters | undefined): "*" {
-  const owned = filters?.verificationFilter === "owned";
   if (filters?.includeDetailColumns) {
-    return owned ? VERIFIED_BRAND_SELECT : BRAND_SELECT;
+    return BRAND_SELECT;
   }
-  return owned ? PUBLIC_VERIFIED_BRAND_CARD_SELECT : PUBLIC_BRAND_CARD_SELECT;
+  return PUBLIC_BRAND_CARD_SELECT;
 }
 
 function getSearchPagination(filters: GetBrandsFilters): {
@@ -1653,13 +1577,14 @@ export async function getBrands(
         // types — the same defect class as the `?sub=` no-op (DEV-1510).
         filter_materials: materials,
         filter_verification: verificationFilter,
-        filter_price_ranges: filters.priceRanges?.length
-          ? filters.priceRanges
-          : null,
         page_offset: offset,
-        sort_mode: filters.sort && filters.sort !== "random" ? filters.sort : "rank",
+        sort_mode:
+          filters.sort && filters.sort !== "random" ? filters.sort : "rank",
       },
-    )) as { data: SearchBrandPageRow[] | null; error: { code?: string; message?: string } | null };
+    )) as {
+      data: SearchBrandPageRow[] | null;
+      error: { code?: string; message?: string } | null;
+    };
 
     if (rpcError) {
       console.error("getBrands search_brand_page RPC error:", rpcError);
@@ -1680,13 +1605,14 @@ export async function getBrands(
           filter_subcategories: subcategoryTags,
           filter_materials: materials,
           filter_verification: verificationFilter,
-          filter_price_ranges: filters.priceRanges?.length
-            ? filters.priceRanges
-            : null,
           page_offset: 0,
-          sort_mode: filters.sort && filters.sort !== "random" ? filters.sort : "rank",
+          sort_mode:
+            filters.sort && filters.sort !== "random" ? filters.sort : "rank",
         },
-      )) as { data: SearchBrandPageRow[] | null; error: { code?: string; message?: string } | null };
+      )) as {
+        data: SearchBrandPageRow[] | null;
+        error: { code?: string; message?: string } | null;
+      };
       if (firstPageError) throw firstPageError;
       totalCount = firstPage?.[0]?.total_count ?? 0;
     }
@@ -1710,7 +1636,10 @@ export async function getBrands(
       return (data ?? []).map(brandToDomain);
     }
 
-    const pageIds = allIds.slice(0, pageLimit === undefined ? undefined : pageLimit);
+    const pageIds = allIds.slice(
+      0,
+      pageLimit === undefined ? undefined : pageLimit,
+    );
     const rankById = new Map(matchedRows.map((row, index) => [row.id, index]));
     const brands = (await hydrateByIds(pageIds)).sort(
       (left, right) =>
@@ -1724,9 +1653,7 @@ export async function getBrands(
 
   let query = supabase.from("brands").select(selectClause, { count: "exact" });
 
-  if (verificationFilter === "mit-verified") {
-    query = query.eq("mit_status", "verified");
-  } else if (verificationFilter === "mit-declared") {
+  if (verificationFilter === "mit-declared") {
     query = query.eq("mit_status", "declared");
   }
 
@@ -1741,9 +1668,6 @@ export async function getBrands(
   }
   if (filters?.category && filters.category.length > 0) {
     query = query.in("category", filters.category);
-  }
-  if (filters?.priceRanges && filters.priceRanges.length > 0) {
-    query = query.in("price_range", filters.priceRanges);
   }
   if (subcategoryTags) {
     query = query.overlaps("subcategories", subcategoryTags);
@@ -1800,12 +1724,7 @@ export async function getBrands(
 export async function getPublicBrandCards(
   filters?: Pick<
     BrandFilters,
-    | "category"
-    | "materials"
-    | "priceRanges"
-    | "verificationFilter"
-    | "search"
-    | "sort"
+    "category" | "materials" | "verificationFilter" | "search" | "sort"
   > & {
     page?: number;
     subcategoryTags?: string[];
@@ -1825,16 +1744,16 @@ export async function getPublicBrandCards(
 }
 
 export type SubcategorySummary = {
-  counts: Map<string, number>
-  latestUpdatedAt: string | null
-}
+  counts: Map<string, number>;
+  latestUpdatedAt: string | null;
+};
 
 export type SubcategorySummaryRow = {
-  category: string | null
-  subcategories: string[]
-  material: string[]
-  updatedAt: string
-}
+  category: string | null;
+  subcategories: string[];
+  material: string[];
+  updatedAt: string;
+};
 
 /**
  * Every approved brand, as the taxonomy and material rails need them.
@@ -1889,7 +1808,9 @@ const getCachedSubcategoryRows = unstable_cache(
 
         return (data ?? []).map((row) => ({
           category: typeof row.category === "string" ? row.category : null,
-          subcategories: Array.isArray(row.subcategories) ? row.subcategories : [],
+          subcategories: Array.isArray(row.subcategories)
+            ? row.subcategories
+            : [],
           material: Array.isArray(row.material) ? row.material : [],
           updatedAt: row.updated_at,
         }));
@@ -1951,14 +1872,17 @@ export function summarizeSubcategoryRows(
       const subcategory = subcategoryBySlug(tag);
       if (!subcategory) continue;
       if (subcategory.slug === subcategorySlug) matchesScope = true;
-      if (subcategory.category === categorySlug) tagsInCategory.add(subcategory.slug);
+      if (subcategory.category === categorySlug)
+        tagsInCategory.add(subcategory.slug);
     }
     for (const slug of tagsInCategory) {
       counts.set(slug, (counts.get(slug) ?? 0) + 1);
     }
 
     const updatedAtTimestamp = Date.parse(brand.updatedAt);
-    const latestTimestamp = latestUpdatedAt ? Date.parse(latestUpdatedAt) : Number.NaN;
+    const latestTimestamp = latestUpdatedAt
+      ? Date.parse(latestUpdatedAt)
+      : Number.NaN;
     if (
       matchesScope &&
       !Number.isNaN(updatedAtTimestamp) &&
@@ -2009,13 +1933,7 @@ export async function getMaterialCounts(): Promise<Map<string, number>> {
   return summarizeMaterialCounts(await getCachedSubcategoryRows());
 }
 
-export async function getSubcategoryCounts(
-  categorySlug: string,
-): Promise<Map<string, number>> {
-  return (await getSubcategorySummary(categorySlug)).counts;
-}
-
-export const EXPLORE_BRAND_LIMIT = 8;
+export const EXPLORE_BRAND_LIMIT = 10;
 
 const getCachedExploreBrandPool = unstable_cache(
   () =>
@@ -2173,31 +2091,9 @@ export async function getPublicBrandFaqContextById(
     .eq("status", "approved")
     .maybeSingle();
 
-  if (error || !data) throw new NotFoundError("Brand", brandId, { cause: error });
+  if (error || !data)
+    throw new NotFoundError("Brand", brandId, { cause: error });
   return toPublicBrandFaqContext(brandToDomain(data));
-}
-
-/** Public microsite boundary. A missing/empty site_content is not public. */
-export async function getPublicMicrositeBrandBySlug(
-  slug: string,
-): Promise<PublicMicrositeBrand | null> {
-  const supabase = createServiceClient();
-  const { data, error } = await supabase
-    .from("brands")
-    .select(PUBLIC_MICROSITE_BRAND_SELECT)
-    .eq("slug", slug)
-    .eq("status", "approved")
-    .maybeSingle();
-
-  if (error) throw error;
-  if (!data) return null;
-  const [brand] = await hydrateCardImageMeta(supabase, [brandToDomain(data)]);
-  return toPublicMicrositeBrand(brand);
-}
-
-/** Owner/admin callers receive a contract rather than a raw database row. */
-export function toOwnerEditorContract(brand: Brand): OwnerBrandEditor {
-  return toOwnerBrandEditor(brand);
 }
 
 export function toAdminListContract(brand: Brand): AdminBrandListItem {
@@ -2248,184 +2144,84 @@ export async function updateBrand(
   return auditedCall(
     { provider: "brands", operation: "updateBrand", kind: "service" },
     async () => {
-  const supabase = createServiceClient();
-  const normalizedData =
-    data.romanizedName === undefined
-      ? data
-      : { ...data, romanizedName: data.romanizedName?.trim() || null };
-  const row = brandToUpdate(normalizedData);
-  let romanizedSlugBase: string | null = null;
+      const supabase = createServiceClient();
+      const normalizedData =
+        data.romanizedName === undefined
+          ? data
+          : { ...data, romanizedName: data.romanizedName?.trim() || null };
+      const row = brandToUpdate(normalizedData);
+      let romanizedSlugBase: string | null = null;
 
-  if (normalizedData.romanizedName !== undefined) {
-    const { data: current, error: currentError } = await supabase
-      .from("brands")
-      .select("slug")
-      .eq("id", id)
-      .single();
+      if (normalizedData.romanizedName !== undefined) {
+        const { data: current, error: currentError } = await supabase
+          .from("brands")
+          .select("slug")
+          .eq("id", id)
+          .single();
 
-    if (currentError || !current) {
-      throw new NotFoundError("Brand", id, { cause: currentError });
-    }
+        if (currentError || !current) {
+          throw new NotFoundError("Brand", id, { cause: currentError });
+        }
 
-    romanizedSlugBase = slugifyRomanizedName(normalizedData.romanizedName);
-    if (romanizedSlugBase && romanizedSlugBase !== current.slug) {
-      row.slug = await resolveUniqueRomanizedSlug(
-        supabase,
-        romanizedSlugBase,
-        id,
-      );
-    }
-  }
+        romanizedSlugBase = slugifyRomanizedName(normalizedData.romanizedName);
+        if (romanizedSlugBase && romanizedSlugBase !== current.slug) {
+          row.slug = await resolveUniqueRomanizedSlug(
+            supabase,
+            romanizedSlugBase,
+            id,
+          );
+        }
+      }
 
-  const fieldState =
-    actor.source === "admin" ? {} : await loadBrandFieldState(supabase, id);
-  const { allowed, skipped } = resolveWritablePatch(row, fieldState, actor);
+      const fieldState =
+        actor.source === "admin" ? {} : await loadBrandFieldState(supabase, id);
+      const { allowed, skipped } = resolveWritablePatch(row, fieldState, actor);
 
-  if (Object.keys(allowed).length > 0) {
-    let { error: patchError } = await brandPatchRpc(supabase).rpc(
-      "apply_brand_patch",
-      {
-        p_brand_id: id,
-        p_patch: allowed,
-        p_source: actor.source,
-        p_actor: actor.userId ?? null,
-        p_job_id: actor.jobId ?? null,
-      },
-    );
+      if (Object.keys(allowed).length > 0) {
+        let { error: patchError } = await brandPatchRpc(supabase).rpc(
+          "apply_brand_patch",
+          {
+            p_brand_id: id,
+            p_patch: allowed,
+            p_source: actor.source,
+            p_actor: actor.userId ?? null,
+            p_job_id: actor.jobId ?? null,
+          },
+        );
 
-    if (patchError?.code === "23505" && romanizedSlugBase && allowed.slug) {
-      allowed.slug = await resolveUniqueRomanizedSlug(
-        supabase,
-        romanizedSlugBase,
-        id,
-      );
-      ({ error: patchError } = await brandPatchRpc(supabase).rpc(
-        "apply_brand_patch",
-        {
-          p_brand_id: id,
-          p_patch: allowed,
-          p_source: actor.source,
-          p_actor: actor.userId ?? null,
-          p_job_id: actor.jobId ?? null,
-        },
-      ));
-    }
+        if (patchError?.code === "23505" && romanizedSlugBase && allowed.slug) {
+          allowed.slug = await resolveUniqueRomanizedSlug(
+            supabase,
+            romanizedSlugBase,
+            id,
+          );
+          ({ error: patchError } = await brandPatchRpc(supabase).rpc(
+            "apply_brand_patch",
+            {
+              p_brand_id: id,
+              p_patch: allowed,
+              p_source: actor.source,
+              p_actor: actor.userId ?? null,
+              p_job_id: actor.jobId ?? null,
+            },
+          ));
+        }
 
-    if (patchError) throw patchError;
-  }
+        if (patchError) throw patchError;
+      }
 
-  const { data: updated, error } = await supabase
-    .from("brands")
-    .select(BRAND_SELECT)
-    .eq("id", id)
-    .single();
+      const { data: updated, error } = await supabase
+        .from("brands")
+        .select(BRAND_SELECT)
+        .eq("id", id)
+        .single();
 
-  if (error || !updated) throw new NotFoundError("Brand", id, { cause: error });
-  return {
-    ...brandToDomain(updated),
-    skipped,
-  };
-    },
-  );
-}
-
-export async function saveDraft(
-  brandId: string,
-  data: Partial<Brand>,
-): Promise<void> {
-  return auditedCall(
-    { provider: "brands", operation: "saveDraft", kind: "service" },
-    async () => {
-  const supabase = createServiceClient();
-  const { error, count } = await supabase
-    .from("brands")
-    .update(
-      {
-        draft_data: brandToDraftSnapshot(data) as BrandDraftData,
-        draft_updated_at: new Date().toISOString(),
-      },
-      { count: "exact" },
-    )
-    .eq("id", brandId);
-
-  if (error) throw error;
-  if (count === 0) throw new NotFoundError("Brand", brandId);
-    },
-  );
-}
-
-export async function getBrandDraft(
-  brandId: string,
-): Promise<Record<string, unknown> | null> {
-  const supabase = createServiceClient();
-  const { data, error } = await supabase
-    .from("brands")
-    .select("draft_data")
-    .eq("id", brandId)
-    .maybeSingle();
-
-  if (error) throw error;
-  return draftDataToSnapshot(data?.draft_data ?? null);
-}
-
-/**
- * `actor` decides the provenance stamped on every published field. It must be
- * passed: the default is `admin`, and an owner edit recorded as `admin` is not
- * protected from an enrichment refresh, because only `owner` blocks one.
- */
-export async function publishDraft(
-  brandId: string,
-  actor: BrandWriteActor,
-): Promise<Brand> {
-  return auditedCall(
-    { provider: "brands", operation: "publishDraft", kind: "service" },
-    async () => {
-  const supabase = createServiceClient();
-  const { data, error } = await supabase
-    .from("brands")
-    .select("draft_data, draft_updated_at")
-    .eq("id", brandId)
-    .single();
-
-  if (error || !data)
-    throw new NotFoundError("Brand", brandId, { cause: error });
-
-  const snapshot = draftDataToSnapshot(data.draft_data);
-  if (!snapshot) throw new ValidationError("No draft to publish");
-
-  const partial = draftSnapshotToDomain(snapshot);
-  if (Object.keys(partial).length > 0) {
-    const draftUpdatedAt = data.draft_updated_at;
-    const draftTimestamp = draftUpdatedAt
-      ? Date.parse(draftUpdatedAt)
-      : Number.NaN;
-    if (!Number.isFinite(draftTimestamp)) {
-      throw new ConflictError("Draft timestamp is missing or invalid");
-    }
-
-    const fieldState = await loadBrandFieldState(supabase, brandId);
-    const patch = brandToUpdate(partial);
-    const hasStaleField = Object.keys(patch).some((field) => {
-      const fieldTimestamp = Date.parse(fieldState[field]?.updatedAt ?? "");
-      return Number.isFinite(fieldTimestamp) && fieldTimestamp > draftTimestamp;
-    });
-
-    if (hasStaleField) {
-      throw new ConflictError("Draft conflicts with newer brand edits");
-    }
-  }
-
-  const published = await updateBrand(brandId, partial, actor);
-
-  const { error: clearError, count } = await supabase
-    .from("brands")
-    .update({ draft_data: null, draft_updated_at: null }, { count: "exact" })
-    .eq("id", brandId);
-
-  if (clearError) throw clearError;
-  if (count === 0) throw new NotFoundError("Brand", brandId);
-
-  return published;
+      if (error || !updated)
+        throw new NotFoundError("Brand", id, { cause: error });
+      return {
+        ...brandToDomain(updated),
+        skipped,
+      };
     },
   );
 }
@@ -2458,23 +2254,23 @@ export async function deleteBrand(id: string): Promise<void> {
   return auditedCall(
     { provider: "brands", operation: "deleteBrand", kind: "service" },
     async () => {
-  const supabase = createServiceClient();
-  const { error, count } = await supabase
-    .from("brands")
-    .delete({ count: "exact" })
-    .eq("id", id);
+      const supabase = createServiceClient();
+      const { error, count } = await supabase
+        .from("brands")
+        .delete({ count: "exact" })
+        .eq("id", id);
 
-  if (error) {
-    // P0001 is a `raise exception` from one of the brand_submissions guards.
-    if (error.code === "P0001") {
-      throw new ConflictError(
-        await describeBlockedBrandDelete(supabase, id, error.message),
-        { cause: error },
-      );
-    }
-    throw error;
-  }
-  if (count === 0) throw new NotFoundError("Brand", id);
+      if (error) {
+        // P0001 is a `raise exception` from one of the brand_submissions guards.
+        if (error.code === "P0001") {
+          throw new ConflictError(
+            await describeBlockedBrandDelete(supabase, id, error.message),
+            { cause: error },
+          );
+        }
+        throw error;
+      }
+      if (count === 0) throw new NotFoundError("Brand", id);
     },
   );
 }
@@ -2515,8 +2311,7 @@ export async function getBrandSeoEntries(): Promise<BrandSeoEntry[]> {
       .select(
         "slug, updated_at, category, subcategories, description, description_en, blurb_en, seo_promoted",
       ),
-  )
-    .eq("status", "approved");
+  ).eq("status", "approved");
 
   if (error) throw error;
   return (data ?? []).map((row) => ({
@@ -2529,18 +2324,6 @@ export async function getBrandSeoEntries(): Promise<BrandSeoEntry[]> {
     blurbEn: row.blurb_en,
     seoPromoted: row.seo_promoted === true,
   }));
-}
-
-export async function getMicrositeSlugs(): Promise<string[]> {
-  const supabase = createServiceClient();
-  const { data, error } = await excludeTestBrands(
-    supabase.from("brands").select("slug"),
-  )
-    .eq("status", "approved")
-    .not("site_content", "is", null);
-
-  if (error) throw error;
-  return (data ?? []).map((row) => row.slug);
 }
 
 export async function getBrandById(id: string): Promise<Brand> {
@@ -2592,7 +2375,14 @@ export function collectSyncableImageUrls(input: {
       return false;
     }
 
-    return !isSupabaseStorageUrl(url) && !isNonImageHost(url);
+    // An image we already own is not syncable. `/i/…` (DEV-1551) is the
+    // same-origin form of exactly that, so it is excluded alongside the legacy
+    // public storage URL — re-downloading our own object would duplicate it.
+    return (
+      !url.startsWith(IMAGE_PROXY_PATH_PREFIX) &&
+      !isSupabaseStorageUrl(url) &&
+      !isNonImageHost(url)
+    );
   });
 }
 
@@ -2632,105 +2422,56 @@ export async function syncBrandImages(
   return auditedCall(
     { provider: "brands", operation: "syncBrandImages", kind: "service" },
     async () => {
-  const supabase = createServiceClient();
-  const brand = await getBrandById(brandId);
+      const supabase = createServiceClient();
+      const brand = await getBrandById(brandId);
 
-  const syncableUrls = collectSyncableImageUrls({
-    heroImageUrl: brand.heroImageUrl,
-    productPhotos: brand.productPhotos,
-  });
-
-  if (syncableUrls.length === 0) return { synced: 0, failed: 0 };
-
-  const refs: ImageRef[] = [];
-
-  if (brand.heroImageUrl && syncableUrls.includes(brand.heroImageUrl)) {
-    refs.push({ url: brand.heroImageUrl, field: "hero" });
-  }
-  for (let i = 0; i < brand.productPhotos.length; i++) {
-    const url = brand.productPhotos[i];
-    if (url && syncableUrls.includes(url)) {
-      refs.push({ url, field: "photo", index: i });
-    }
-  }
-
-  if (refs.length === 0) return { synced: 0, failed: 0 };
-
-  const externalUrls = refs.map((r) => r.url);
-  const storedUrls = await downloadAndStoreImages(externalUrls, brandId);
-  for (let i = 0; i < refs.length; i++) {
-    const storedUrl = storedUrls.at(i);
-    if (storedUrl == null) continue;
-
-    const ref = refs.at(i);
-    if (!ref) continue;
-
-    await insertBrandImage(supabase, {
-      brand_id: brandId,
-      url: storedUrl,
-      source_url: ref.url,
-      source: "admin",
-      sort_order: i,
-      // Both are product imagery under the two-tag vocabulary; only the
-      // sort_order above distinguishes the hero from the rest.
-      tags: ["product"],
-    });
-  }
-
-  await syncHeroDenormalized(supabase, brandId);
-
-  const failed = storedUrls.filter((u) => u == null).length;
-  return { synced: storedUrls.length - failed, failed };
-    },
-  );
-}
-
-export async function completeBrandClaim({
-  userId,
-  brandId,
-  email,
-}: {
-  userId: string;
-  brandId: string;
-  email: string;
-}): Promise<void> {
-  return auditedCall(
-    { provider: "brands", operation: "completeBrandClaim", kind: "service" },
-    async () => {
-  const supabase = createServiceClient();
-
-  const { data: existingOwnership, error: ownershipError } = await supabase
-    .from("brand_owners")
-    .select("brand_id")
-    .eq("user_id", userId)
-    .maybeSingle();
-
-  if (ownershipError) throw ownershipError;
-  if (existingOwnership) {
-    throw new ValidationError("This account already manages a brand");
-  }
-
-  const { error: insertError } = await supabase
-    .from("brand_owners")
-    .insert({ user_id: userId, brand_id: brandId })
-    .select()
-    .single();
-
-  if (insertError) {
-    if (insertError.code === "23505") {
-      throw new ValidationError("This account already manages a brand", {
-        cause: insertError,
+      const syncableUrls = collectSyncableImageUrls({
+        heroImageUrl: brand.heroImageUrl,
+        productPhotos: brand.productPhotos,
       });
-    }
-    throw insertError;
-  }
 
-  const { error: updateError } = await supabase
-    .from("brands")
-    .update({ contact_email: email })
-    .eq("id", brandId);
+      if (syncableUrls.length === 0) return { synced: 0, failed: 0 };
 
-  if (updateError) throw updateError;
+      const refs: ImageRef[] = [];
+
+      if (brand.heroImageUrl && syncableUrls.includes(brand.heroImageUrl)) {
+        refs.push({ url: brand.heroImageUrl, field: "hero" });
+      }
+      for (let i = 0; i < brand.productPhotos.length; i++) {
+        const url = brand.productPhotos[i];
+        if (url && syncableUrls.includes(url)) {
+          refs.push({ url, field: "photo", index: i });
+        }
+      }
+
+      if (refs.length === 0) return { synced: 0, failed: 0 };
+
+      const externalUrls = refs.map((r) => r.url);
+      // Bucket keys, not URLs (DEV-1551 task 12).
+      const storedPaths = await downloadAndStoreImages(externalUrls, brandId);
+      for (let i = 0; i < refs.length; i++) {
+        const storedPath = storedPaths.at(i);
+        if (storedPath == null) continue;
+
+        const ref = refs.at(i);
+        if (!ref) continue;
+
+        await insertBrandImage(supabase, {
+          brand_id: brandId,
+          storage_path: storedPath,
+          source_url: ref.url,
+          source: "admin",
+          sort_order: i,
+          // Both are product imagery under the two-tag vocabulary; only the
+          // sort_order above distinguishes the hero from the rest.
+          tags: ["product"],
+        });
+      }
+
+      await syncHeroDenormalized(supabase, brandId);
+
+      const failed = storedPaths.filter((path) => path == null).length;
+      return { synced: storedPaths.length - failed, failed };
     },
   );
 }
@@ -2761,68 +2502,53 @@ export async function getRandomBrands(limit = 4): Promise<PublicBrandCard[]> {
   return brands.map(toPublicBrandCard);
 }
 
-export async function getNewBrands(limit = 4): Promise<Brand[]> {
-  const newBrandPoolSize = 20;
-  const supabase = createServiceClient();
-  const { data, error } = await excludeTestBrands(
-    supabase.from("brands").select(BRAND_LIST_SELECT),
-  )
-    .eq("status", "approved")
-    .not("approved_at", "is", null)
-    .order("approved_at", { ascending: false })
-    .limit(newBrandPoolSize);
-
-  if (error) throw error;
-  const rows = data ?? [];
-  shuffleArray(rows);
-  return hydrateCardImageMeta(supabase, rows.slice(0, limit).map(brandToDomain));
-}
-
 const getCachedRecentBrandCount = unstable_cache(
-  () => auditedCall(
-    {
-      provider: "cache",
-      operation: "getCachedRecentBrandCount",
-      kind: "service",
-    },
-    async (): Promise<{ count: number; period: "7d" | "30d" }> => {
-    const supabase = createServiceClient();
-    const now = new Date();
-    const sevenDaysAgo = new Date(
-      now.getTime() - 7 * 24 * 60 * 60 * 1000,
-    ).toISOString();
-    const thirtyDaysAgo = new Date(
-      now.getTime() - 30 * 24 * 60 * 60 * 1000,
-    ).toISOString();
+  () =>
+    auditedCall(
+      {
+        provider: "cache",
+        operation: "getCachedRecentBrandCount",
+        kind: "service",
+      },
+      async (): Promise<{ count: number; period: "7d" | "30d" }> => {
+        const supabase = createServiceClient();
+        const now = new Date();
+        const sevenDaysAgo = new Date(
+          now.getTime() - 7 * 24 * 60 * 60 * 1000,
+        ).toISOString();
+        const thirtyDaysAgo = new Date(
+          now.getTime() - 30 * 24 * 60 * 60 * 1000,
+        ).toISOString();
 
-    const { count: weekCount, error: weekError } = await excludeTestBrands(
-      supabase
-        .from("brands")
-        .select("*", { count: "exact", head: true })
-        .eq("status", "approved")
-        .gte("approved_at", sevenDaysAgo),
-    );
+        const { count: weekCount, error: weekError } = await excludeTestBrands(
+          supabase
+            .from("brands")
+            .select("*", { count: "exact", head: true })
+            .eq("status", "approved")
+            .gte("approved_at", sevenDaysAgo),
+        );
 
-    if (weekError) throw weekError;
+        if (weekError) throw weekError;
 
-    if ((weekCount ?? 0) > 0) {
-      return { count: weekCount ?? 0, period: "7d" };
-    }
+        if ((weekCount ?? 0) > 0) {
+          return { count: weekCount ?? 0, period: "7d" };
+        }
 
-    const { count: monthCount, error: monthError } = await excludeTestBrands(
-      supabase
-        .from("brands")
-        .select("*", { count: "exact", head: true })
-        .eq("status", "approved")
-        .gte("approved_at", thirtyDaysAgo),
-    );
+        const { count: monthCount, error: monthError } =
+          await excludeTestBrands(
+            supabase
+              .from("brands")
+              .select("*", { count: "exact", head: true })
+              .eq("status", "approved")
+              .gte("approved_at", thirtyDaysAgo),
+          );
 
-    if (monthError) throw monthError;
+        if (monthError) throw monthError;
 
-    return { count: monthCount ?? 0, period: "30d" };
-    },
-    { summary: { cached: true } },
-  ),
+        return { count: monthCount ?? 0, period: "30d" };
+      },
+      { summary: { cached: true } },
+    ),
   ["recent-brand-count"],
   { revalidate: 3600, tags: [PUBLIC_BRAND_DATA_TAG] },
 );

@@ -2,13 +2,9 @@ import { test } from "@playwright/test";
 import type { createClient } from "@supabase/supabase-js";
 
 import { getServiceClient } from "../helpers/seed";
-import { publishedTrails } from "./published-trails";
 // A LEAF module: it declares two string constants and imports nothing, so this
 // does not drag the service layer into the Playwright module graph.
 import { TEST_BRAND_NAME_PATTERN } from "../../src/lib/services/public-brand-filter";
-// Same leaf rule, same reason: `wall-ratio` declares numbers and imports
-// nothing at all.
-import { MAX_HOME_CURATED_PRODUCTS_PER_BRAND } from "../../src/lib/curated-products/wall-ratio";
 
 /**
  * Mirrors MIN_HOME_CURATED_PRODUCTS in src/lib/services/curated-products.ts
@@ -24,8 +20,7 @@ import { MAX_HOME_CURATED_PRODUCTS_PER_BRAND } from "../../src/lib/curated-produ
 export const MIN_HOME_CURATED_PRODUCTS = 6;
 
 /**
- * Mirrors `TRAIL_SLOT_CADENCE` and `MAX_HOME_WALL_PRODUCTS` in
- * src/lib/curated-products/home-wall.ts (:35 and :34).
+ * Mirrors `MAX_HOME_WALL_PRODUCTS` in src/lib/curated-products/home-wall.ts.
  *
  * Duplicated for a NARROWER reason than the floor above. `home-wall.ts`
  * value-imports `@/lib/date-range`, and nothing under `e2e/` has ever resolved
@@ -34,11 +29,9 @@ export const MIN_HOME_CURATED_PRODUCTS = 6;
  * is a far worse failure than a duplicated integer.
  *
  * The drift this normally costs is pinned rather than accepted: the unit test
- * beside this file imports the real constants (vitest DOES resolve `@/`) and
- * asserts these equal them, so changing either source reds a test in the same
- * commit.
+ * beside this file imports the real constant (vitest DOES resolve `@/`) and
+ * asserts it is equal, so changing the source reds a test in the same commit.
  */
-export const TRAIL_SLOT_CADENCE = 8;
 export const MAX_HOME_WALL_PRODUCTS = 16;
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -60,18 +53,9 @@ export type WallSupplySupabase = ReturnType<typeof createClient<any, any, any>>;
  */
 let supplyProbes = new WeakMap<object, Promise<number>>();
 
-/**
- * The same discipline for the COMPOSED wall count, kept in its own map so the
- * two questions cache independently: "is there supply at all" and "is there
- * enough supply to reserve a trail slot" have different answers and different
- * queries.
- */
-let wallProductProbes = new WeakMap<object, Promise<number>>();
-
 /** Test seam: drop the cached per-worker counts. */
 export function resetWallSupplyProbe(): void {
   supplyProbes = new WeakMap();
-  wallProductProbes = new WeakMap();
 }
 
 /**
@@ -125,50 +109,6 @@ async function countEligibleProducts(
 }
 
 /**
- * A bounded read, and deliberately not a paginated one.
- *
- * A truncated page can only UNDER-count: the capped total is monotonic in the
- * row set, so a row that was never fetched can only ever have ADDED a product.
- * Under-counting produces a skip; it can never invent a red. That is the safe
- * direction of failure, and it is the whole reason this does not paginate.
- */
-const WALL_SUPPLY_ROW_LIMIT = 1000;
-
-/**
- * How many products the wall would actually COMPOSE — which is not the number
- * `countEligibleProducts` returns.
- *
- * `buildWallSlots` caps each brand at MAX_HOME_CURATED_PRODUCTS_PER_BRAND and
- * only then slices to MAX_HOME_WALL_PRODUCTS (home-wall.ts:198-200). Twenty
- * eligible products spread across three brands compose a wall of six, not
- * twenty, and reserve no trail slot at all. Gating the trail tile on the raw
- * count would therefore red a wall that is behaving exactly as designed.
- */
-async function countWallProducts(client: WallSupplySupabase): Promise<number> {
-  const { data, error } = await eligibleProductsQuery(
-    client,
-    "brand_id, curated_product_sources!inner(id), brands!inner(name, status)",
-  ).limit(WALL_SUPPLY_ROW_LIMIT);
-
-  if (error) throw error;
-
-  const perBrand = new Map<string, number>();
-  let composed = 0;
-  for (const row of (data ?? []) as { brand_id?: string | null }[]) {
-    const brandId = row.brand_id;
-    // A row with no brand cannot be capped per brand, and the homepage would
-    // not render it either — the service's row loop drops it.
-    if (!brandId) continue;
-    const kept = perBrand.get(brandId) ?? 0;
-    if (kept >= MAX_HOME_CURATED_PRODUCTS_PER_BRAND) continue;
-    perBrand.set(brandId, kept + 1);
-    composed += 1;
-    if (composed >= MAX_HOME_WALL_PRODUCTS) break;
-  }
-  return composed;
-}
-
-/**
  * One count per client per worker, with a FAILED count never cached.
  *
  * `curated_products` has RLS enabled with no policies and is revoked from
@@ -215,32 +155,6 @@ function homepageSupplyCount(
   return memoizedCount(supplyProbes, client, countEligibleProducts);
 }
 
-function wallProductCount(
-  client?: WallSupplySupabase,
-): Promise<number | null> {
-  return memoizedCount(wallProductProbes, client, countWallProducts);
-}
-
-/**
- * Published trails the wall would ACCEPT, mirroring `buildWallSlots`
- * (src/lib/curated-products/home-wall.ts): every published trail earns a slot.
- *
- * The `heroImage` filter this used to apply is GONE with `eligibleTrail`
- * (DEV-1514 Task 15). The hero is a publication precondition enforced at
- * authoring time — see
- * docs/decisions/2026-08-19-trail-hero-image-is-a-publish-precondition.md — so
- * a hero-less trail now renders a visibly imageless tile instead of silently
- * vanishing from the composition.
- *
- * Read from `content/trails` rather than the database because that is where
- * the homepage reads them from too — `/` composes the wall out of the MDX read
- * already in flight (app/[locale]/(site)/page.tsx:189). `publishedTrails`
- * applies the same draft and locale gate as `readPublishedEntries`.
- */
-function publishedTrailCount(locale = "zh-TW"): number {
-  return publishedTrails(locale).length;
-}
-
 /**
  * Gate a wall spec on SUPPLY, never on the rendered DOM alone.
  *
@@ -276,72 +190,5 @@ export async function requireWallOrSkip(
   test.skip(
     true,
     "The homepage product wall is hidden below its public supply gate.",
-  );
-}
-
-/**
- * Gate the wall's TRAIL TILE on supply, never on the rendered DOM.
- *
- * The same defect `requireWallOrSkip` exists to prevent, one layer further in.
- * Reading `trailLinkIndex === -1` cannot tell "the wall reserved no trail slot"
- * from "the trail tile regressed out of the composition" — both are an empty
- * selector, and both report green. Here it was not a latent risk but a live
- * one: gate 1 used to require a `heroImage` that no published trail carried, so
- * the skip fired on EVERY run. Trail tiles could have been deleted from the
- * composition outright and the suite would still have passed (DEV-1522).
- *
- * `buildWallSlots` reserves the first trail slot only when both of its gates
- * open, so this measures both:
- *
- *   1. at least one trail is published in `content/trails`
- *   2. the wall composes at least `TRAIL_SLOT_CADENCE` products, counted AFTER
- *      the per-brand cap
- *
- * With both open and no tile in the wall, that is a red. A count that cannot be
- * taken skips rather than inventing one.
- */
-export async function requireWallTrailTileOrSkip(
-  trailTileIsAbsent: boolean,
-  client?: WallSupplySupabase,
-): Promise<void> {
-  if (!trailTileIsAbsent) return;
-
-  // Checked first because it needs no database at all.
-  const trails = publishedTrailCount();
-  if (trails === 0) {
-    test.skip(
-      true,
-      "No trail is published in content/trails, so the wall reserves no trail "
-        + "slot. See `buildWallSlots` in home-wall.ts.",
-    );
-    return;
-  }
-
-  const composed = await wallProductCount(client);
-  if (composed === null) {
-    test.skip(
-      true,
-      "Curated-product supply could not be counted, so an absent trail tile "
-        + "cannot be told from a wall below its trail cadence.",
-    );
-    return;
-  }
-
-  if (composed < TRAIL_SLOT_CADENCE) {
-    test.skip(
-      true,
-      `The wall composes ${composed} products, below the TRAIL_SLOT_CADENCE `
-        + `(${TRAIL_SLOT_CADENCE}) at which it reserves its first trail slot.`,
-    );
-    return;
-  }
-
-  throw new Error(
-    `The homepage wall has no discovery trail tile while ${trails} trail(s) are `
-      + `published and the wall composes ${composed} products — at or above `
-      + `TRAIL_SLOT_CADENCE (${TRAIL_SLOT_CADENCE}). `
-      + "`buildWallSlots` reserves a trail slot under exactly these two "
-      + "conditions, so the tile regressed out of the composition; it did not "
-      + "fall below a gate.",
   );
 }

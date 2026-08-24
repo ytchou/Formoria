@@ -6,7 +6,6 @@ export type FormoriaBusinessData = {
   supply: {
     approvedBrands: number
     newApproved: Comparison
-    claimedShare: number
   }
   audience: {
     confirmedSubscribers: number

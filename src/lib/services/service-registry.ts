@@ -85,13 +85,13 @@ export interface InventoryEntry {
 export const NON_SERVICE_ENV: Readonly<Record<string, string>> = {
   CHALLENGE_SECRET:
     "Internal challenge-cookie signing secret, not a provider service.",
-  CLAIM_TOKEN_SECRET:
-    "Internal claim-token signing secret, not a provider service.",
   FORMORIA_LINK_HEALTH_URL: "Optional internal health-agent link target.",
   FORMORIA_RUNTIME_URL:
     "Deployment-specific auth and redirect origin, not a provider service.",
   STAGING_BASE_URL:
     "Canonical staging E2E target origin, not a provider service.",
+  PRODUCTION_BASE_URL:
+    "Canonical production probe target origin, not a provider service.",
   E2E_ORIGIN_SECRET:
     "Staging E2E origin authentication secret, not a provider service.",
   CURATION_WORKER_URL: "Internal worker routing target, not a credential.",
@@ -286,7 +286,11 @@ export const SERVICE_REGISTRY: readonly ServiceEntry[] = [
     criticality: "customer-critical",
     operationalSection: "production",
     operationalKind: "dependency",
-    envVars: ["CF_ORIGIN_SECRET", "CF_ACCESS_CLIENT_ID", "CF_ACCESS_CLIENT_SECRET"],
+    envVars: [
+      "CF_ORIGIN_SECRET",
+      "CF_ACCESS_CLIENT_ID",
+      "CF_ACCESS_CLIENT_SECRET",
+    ],
     status: "active",
     plan: {
       kind: "free",
@@ -458,7 +462,7 @@ export const SERVICE_REGISTRY: readonly ServiceEntry[] = [
   },
   {
     id: "railway-formoria",
-    name: "Railway Formoria app",
+    name: "Railway project (app + curation worker)",
     vendor: "Railway",
     category: "hosting",
     criticality: "customer-critical",
@@ -473,7 +477,7 @@ export const SERVICE_REGISTRY: readonly ServiceEntry[] = [
       sourceUrl: "https://railway.com/pricing",
     },
     dashboardUrl: "https://railway.app/dashboard",
-    notes: "Railway minimum monthly spend; variable usage is dashboard-only.",
+    notes: "Railway minimum monthly spend.",
   },
   {
     id: "railway-curation-worker",
@@ -499,17 +503,16 @@ export const SERVICE_REGISTRY: readonly ServiceEntry[] = [
     vendor: "Taiwan Ministry of Economic Affairs",
     category: "registry",
     criticality: "customer-flow",
-    operationalSection: "production",
+    operationalSection: "deprecated",
     operationalKind: "dependency",
     envVars: [],
-    status: "active",
+    status: "dormant",
     plan: {
       kind: "free",
       monthlyUsd: 0,
       asOf: TODAY,
       sourceUrl: "https://keid.nat.gov.tw/mittw/",
     },
-    probe: "executive-health",
     dashboardUrl: "https://keid.nat.gov.tw/mittw/",
     notes:
       "Health is read from the local mirror and its weekly sync timestamp.",

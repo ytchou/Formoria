@@ -11,6 +11,8 @@ import {
 } from '@/i18n/locale-preference'
 
 import { setLocalePreference } from '@/app/actions/locale-preference'
+import { Button } from '@/components/ui/button'
+import { UnstyledButton } from '@/components/ui/unstyled-button'
 import { useUser } from '@/lib/auth/use-user'
 import { trackSignOut } from '@/lib/analytics'
 import {
@@ -53,7 +55,7 @@ function getUserInitial(email?: string | null): string {
 }
 
 export function AccountMenu() {
-  const { user, loading, viewer } = useUser()
+  const { user, loading } = useUser()
   const t = useTranslations()
   const locale = useLocale()
   const pathname = usePathname()
@@ -66,7 +68,7 @@ export function AccountMenu() {
     return (
       <NextLink
         href={signInHref(pathname, locale)}
-        className="inline-flex h-9 items-center justify-center rounded-[4px] px-2.5 type-metadata transition-colors hover:text-ink focus-visible:ring-3 focus-visible:ring-accent/50 focus-visible:outline-none"
+        className="inline-flex h-9 items-center justify-center rounded-control px-2.5 type-metadata transition-colors hover:text-ink focus-visible:ring-3 focus-visible:ring-accent/50 focus-visible:outline-none"
       >
         {t('nav.signIn')}
       </NextLink>
@@ -79,9 +81,17 @@ export function AccountMenu() {
     <DropdownMenu>
       <DropdownMenuTrigger
         aria-label={t('account.menuLabel')}
-        className="inline-flex size-9 items-center justify-center rounded-full bg-surface type-body-sm font-semibold text-ink-soft transition-colors outline-none hover:bg-surface-deep focus-visible:ring-3 focus-visible:ring-accent/50"
+        render={<Button variant="ghost" size="icon" shape="pill" />}
       >
-        {initial}
+        {/*
+          The TAP TARGET is the 44x44 Button; the painted disc stays 36px so the
+          header is visually unchanged. Same split as `save-brand-button.tsx` —
+          sizing the disc itself to 44px would enlarge the chrome, and shrinking
+          the target to 36px would break the touch floor (DESIGN.md:293).
+        */}
+        <span className="flex size-9 items-center justify-center rounded-full bg-surface type-body-sm font-semibold text-ink-soft transition-colors group-hover/button:bg-surface-deep">
+          {initial}
+        </span>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-40 min-w-40">
         <DropdownMenuItem
@@ -99,18 +109,6 @@ export function AccountMenu() {
         >
           {t('account.contributions')}
         </DropdownMenuItem>
-        {viewer.ownerFeaturesEnabled ? (
-          <DropdownMenuItem
-            render={<Link href={routes.mySubmissions()} />}
-          >
-            {t('account.mySubmissions')}
-          </DropdownMenuItem>
-        ) : null}
-        <DropdownMenuItem
-          render={<Link href={routes.featureRequests()} />}
-        >
-          {t('account.feedback')}
-        </DropdownMenuItem>
         <DropdownMenuSeparator />
         {(['zh-TW', 'en'] as const).map((targetLocale) => (
           <form
@@ -122,9 +120,7 @@ export function AccountMenu() {
             <DropdownMenuItem
               className={locale === targetLocale ? 'font-medium' : undefined}
               render={
-                /* eslint-disable no-restricted-syntax -- ui-exception: render-prop injection for DropdownMenuItem, raw button is required by Base UI render prop API */
-                <button type="submit" className="w-full text-left" aria-current={locale === targetLocale ? 'true' : undefined} />
-                /* eslint-enable no-restricted-syntax */
+                <UnstyledButton type="submit" className="w-full text-left" aria-current={locale === targetLocale ? 'true' : undefined} />
               }
             >
               {t(targetLocale === 'zh-TW'
@@ -139,9 +135,7 @@ export function AccountMenu() {
           <DropdownMenuItem
             variant="destructive"
             render={
-              /* eslint-disable no-restricted-syntax -- ui-exception: render-prop injection for DropdownMenuItem, raw button is required by Base UI render prop API */
-              <button type="submit" className="w-full text-left" onClick={handleSignOut} />
-              /* eslint-enable no-restricted-syntax */
+              <UnstyledButton type="submit" className="w-full text-left" onClick={handleSignOut} />
             }
           >
             {t('account.signOut')}

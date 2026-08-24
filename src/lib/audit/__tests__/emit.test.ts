@@ -47,6 +47,72 @@ describe("emitAuditRecord", () => {
     expect(captureAlert).toHaveBeenCalledTimes(1);
   });
 
+  /*
+   * FORMORIA-61: the alert existed but could not be read. It passed the plain
+   * `{code, message}` write error as `options.error`, and `captureAlert` routes
+   * anything defined there to `Sentry.captureException` -- which groups a
+   * non-`Error` under a stackless `<anonymous>` issue. And because the alert is
+   * one shot per process, its context had to say how many records that one
+   * event stands for.
+   */
+  describe("the write-loss alert", () => {
+    const alertOptions = async (): Promise<{
+      level?: string;
+      context?: Record<string, unknown>;
+      error?: unknown;
+    }> => {
+      setAuditWriteSeam(vi.fn(async () => ({ code: "08006", message: "database unavailable" })));
+      await emitAuditRecord(record(), async () => {});
+
+      // Without this the helper returns `{}` when the alert never fired, and
+      // every assertion below reads an absent field -- the exception-routing
+      // one is guarded by `!== undefined` and would pass vacuously.
+      expect(captureAlert).toHaveBeenCalledTimes(1);
+
+      const call = vi.mocked(captureAlert).mock.calls[0];
+      return (call?.[1] ?? {}) as {
+        level?: string;
+        context?: Record<string, unknown>;
+        error?: unknown;
+      };
+    };
+
+    it("the loss alert carries the running loss count", async () => {
+      const options = await alertOptions();
+
+      expect(options.context).toMatchObject({
+        code: "08006",
+        message: "database unavailable",
+        lossCount: auditWriteLossCount(),
+      });
+    });
+
+    it("the loss alert is not captured as an exception from a plain object", async () => {
+      const options = await alertOptions();
+
+      // Either routing is acceptable; capturing a plain object is not.
+      if (options.error !== undefined) {
+        expect(options.error).toBeInstanceOf(Error);
+      }
+    });
+
+    it("still fires exactly once per process", async () => {
+      setAuditWriteSeam(vi.fn(async () => ({ message: "database unavailable" })));
+
+      await emitAuditRecord(record(), async () => {});
+      await emitAuditRecord(record(), async () => {});
+
+      expect(auditWriteLossCount()).toBe(2);
+      expect(captureAlert).toHaveBeenCalledTimes(1);
+    });
+
+    it("still reports level error", async () => {
+      const options = await alertOptions();
+
+      expect(options.level).toBe("error");
+    });
+  });
+
   it("the inline path spends one retry, not the full IN_PROCESS budget", async () => {
     const seam = vi.fn(async () => ({ message: "database unavailable" }));
     setAuditWriteSeam(seam);

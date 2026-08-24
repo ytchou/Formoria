@@ -10,7 +10,6 @@ import { PageShell } from '@/components/ui/page-shell'
 import type { WallSlot } from '@/lib/curated-products/home-wall'
 import { cn } from '@/lib/utils'
 import { WallList } from './wall-list'
-import { WallTrailTile, type WallTrailTileLabels } from './wall-trail-tile'
 
 /**
  * JUSTIFIED ROWS, not a masonry.
@@ -102,36 +101,15 @@ function WallLineBreak({ className }: { className: string }) {
 }
 
 /**
- * Trims the wall to a whole number of lines WITHOUT dropping a trail tile.
- *
- * The last line has to be full: flex stretches a lone trailing tile across the
- * entire measure, which is the one pathology justified rows have. But a plain
- * tail slice took whatever was there — and with a 16-product cap and a trail
- * every 8 slots the composition ends ON a trail (slot 17 of 18), so the slice
- * deleted it.
- *
- * The rule still stands, for a weaker reason than the one it was written for.
- * A trimmed trail is no longer lost content: the homepage trails zone lists
- * EVERY indexable trail, placed or not, so the reader still gets it as a
- * titled, dated row. What a trim would cost is the composition — the wall's
- * only editorial break in a sheet of photographs, at the cadence that was
- * chosen for it. Products are interchangeable here and the wall is capped well
- * below supply, so the overflow comes from the tail's PRODUCTS instead,
- * scanning backwards. If the tail somehow holds too few products to reach a
- * whole line (no real cadence produces this), nothing is dropped at all.
+ * Trims the wall to whole lines. A lone trailing tile would otherwise stretch
+ * across the entire measure under the justified-row flex rules.
  */
 function trimToWholeLines(slots: WallSlot[], lineSize: number): WallSlot[] {
   if (slots.length < lineSize) return slots
   const overflow = slots.length % lineSize
   if (overflow === 0) return slots
 
-  const dropped = new Set<number>()
-  for (let index = slots.length - 1; index >= 0 && dropped.size < overflow; index -= 1) {
-    if (slots[index]?.kind === 'product') dropped.add(index)
-  }
-  if (dropped.size < overflow) return slots
-
-  return slots.filter((_, index) => !dropped.has(index))
+  return slots.slice(0, slots.length - overflow)
 }
 
 export type ProductWallLabels = {
@@ -143,13 +121,9 @@ export type ProductWallLabels = {
       one-way reveal, so it stays mounted and keeps focus after activation. */
   showLess: string
   product: SelectedProductTileLabels
-  trail: WallTrailTileLabels
 }
 
-/**
- * The homepage wall is deliberately finite. Trails that did not earn a tile
- * inside it are rendered by the trails zone below, not by this component.
- */
+/** The homepage product wall is deliberately finite. */
 export function ProductWall({
   slots,
   locale,
@@ -161,11 +135,9 @@ export function ProductWall({
 }) {
   // Trimmed to a whole number of desktop lines, so the LAST line is full too.
   // A multiple of four is also a multiple of the tablet line size, so one trim
-  // serves both breakpoints. Trail tiles survive the trim — see
-  // `trimToWholeLines`.
+  // serves both breakpoints.
   const lineSize = WALL_LINE_SIZE_DESKTOP
   const visibleSlots = trimToWholeLines(slots, lineSize)
-  const productCount = visibleSlots.filter((slot) => slot.kind === 'product').length
 
   return (
     <section aria-labelledby="landing-selected-products" className="py-section">
@@ -232,16 +204,7 @@ export function ProductWall({
                 <WallLineBreak key={`break-${index}`} className={lineBreakClass} />
               ) : null
 
-            const tile = slot.kind === 'trail' ? (
-              <WallTrailTile
-                key={`trail-${slot.trail.slug}`}
-                trail={slot.trail}
-                labels={labels.trail}
-                format={slot.format}
-                position={index}
-                className={cappedClass}
-              />
-            ) : (
+            const tile = (
               <SelectedProductTile
                 key={`${slot.product.brandSlug}-${slot.product.key}`}
                 locale={locale}
@@ -274,18 +237,14 @@ export function ProductWall({
           })}
         </WallList>
 
-        {/* Products only: a trail tile is not an item of this list, and counting
-            it inflated every `view_item_list` for `home_wall`. The list name is
-            byte-identical on purpose — it keys the existing series. */}
-        <ViewItemListTracker listName="home_wall" itemCount={productCount} />
+        <ViewItemListTracker listName="home_wall" itemCount={visibleSlots.length} />
 
         {/* The continuation strip is GONE (2026-08-17). Its trail links now
-            render as their own zone below, with the same StoryRow design the
-            topics zone uses — a bare list of underlined links at the foot of a
-            photographic wall was the weakest possible presentation for the
-            editorial content it pointed at. The category nav and the brands
-            button that also lived here were removed earlier; both destinations
-            are still linked from the hero. */}
+            render as image-led cards in their own zone below — a bare list of
+            underlined links at the foot of a photographic wall was the weakest
+            possible presentation for the editorial content it pointed at. The
+            category nav and the brands button that also lived here were removed
+            earlier; both destinations are still linked from the hero. */}
       </PageShell>
     </section>
   )

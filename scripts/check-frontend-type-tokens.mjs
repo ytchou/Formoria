@@ -14,9 +14,9 @@ export const frontendTokenRoots = ["src/app", "src/components", "src/lib"];
 
 /**
  * Exported so a test can assert every entry still points at a file that exists.
- * An allowlist has no existence check of its own, which is why the entry for a
- * deleted microsite test sat here silently permitting two hexes in a file that
- * had not existed for months.
+ * An allowlist has no existence check of its own, which is why the entry for
+ * the microsite registry test (parked in DEV-1570) sat here silently
+ * permitting two hexes in a file that had not existed for months.
  */
 export const allowedMatches = [
   {
@@ -32,7 +32,10 @@ export const allowedMatches = [
     // density of the read-only URL field, paired with a `text-base` mobile floor
     // so iOS Safari does not auto-zoom on focus.
     // The values moved out of `share-dialog.tsx` into the click-gated
-    // `share-dialog-content.tsx` chunk; the shell now holds no literals.
+    // `share-dialog-content.tsx` chunk; the shell now holds no literals. Its
+    // WIDTH rows are gone: both halves name `size="compact"`, so neither file
+    // spells a width at all and the only surviving width rows are `ui/dialog`'s
+    // edge gutter and the floor map's viewport-relative cap.
     file: "src/components/brands/share-dialog-content.tsx",
     names: [
       "raw hex color class",
@@ -68,29 +71,6 @@ export const allowedMatches = [
       "text-[#FF6600]",
       "#FF6600",
     ],
-  },
-  {
-    // Per-brand accents are brand property, deliberately outside the palette
-    // (DESIGN.md §2's one documented exception). These are arbitrary fixture
-    // values standing in for whatever a brand actually picks — plus the system
-    // accent, which appears here only in the assertion that it must NOT leak
-    // into microsite output.
-    file: "src/components/microsite/__tests__/registry.test.ts",
-    names: ["raw hex color literal"],
-    values: [
-      "#123456",
-      "#FFFFFF",
-      "#000000",
-      "#2F5D50",
-      "#C4693B",
-      "#FF00FF",
-      "#2F4F63",
-    ],
-  },
-  {
-    file: "src/components/microsite/tokens.ts",
-    names: ["raw hex color literal"],
-    values: ["#FFFFFF"],
   },
   {
     file: "src/components/ui/button.tsx",
@@ -134,50 +114,12 @@ export const allowedMatches = [
     values: ["max-w-[calc(100%-2rem)]"],
   },
   {
-    // The share panel's own width. `21rem` pairs with the `w-[21rem]` beside it
-    // and falls between `overlay-compact` (20rem) and `overlay-panel` (24rem),
-    // so no overlay name states it; the `calc` is the same viewport clamp as
-    // `dialog.tsx`.
-    file: "src/components/brands/share-dialog.tsx",
-    names: ["unnamed page width"],
-    values: ["max-w-[calc(100%-2rem)]", "max-w-[21rem]"],
-  },
-  {
-    // The loaded half of the same share panel — same clamp, same reason.
-    file: "src/components/brands/share-dialog-content.tsx",
-    names: ["unnamed page width"],
-    values: ["max-w-[calc(100%-2rem)]"],
-  },
-  {
-    // The `!` prefix overrides `AlertDialogContent`'s built-in clamp with the
-    // identical value so the `sm:!max-w-lg` step below it wins in order; it is
-    // the same edge-gutter clamp, not a width.
-    file: "src/components/submit/SubmitOverview.tsx",
-    names: ["unnamed page width"],
-    values: ["max-w-[calc(100%-2rem)]"],
-  },
-  {
     // The floor-map dialog is sized by the MAP's legibility, and needs a
     // viewport-relative cap that no fixed overlay name can express:
     // `overlay-wide` is a flat 72rem and would overflow a 1024px laptop.
     file: "src/components/events/taiwan-creative-expo-official-map.tsx",
     names: ["unnamed page width"],
     values: ["max-w-[min(96vw,1100px)]"],
-  },
-  {
-    // Caps the donut GRAPHIC so it stays circular and legible inside a card of
-    // any width. A drawing's size, not a text column's.
-    file: "src/components/dashboard/analytics-donut-card.tsx",
-    names: ["unnamed page width"],
-    values: ["max-w-[280px]"],
-  },
-  {
-    // An empty state's centred body column. Its near neighbour `content-column`
-    // is 28rem/448px, so converting it is plausible but would move the rendered
-    // width by 32px — a visual change, which is out of scope for a lint gate.
-    file: "src/components/dashboard/dashboard-empty-state.tsx",
-    names: ["unnamed page width"],
-    values: ["max-w-[480px]"],
   },
   {
     // Table-cell truncation caps. They bound a `<td>` so a long brand name

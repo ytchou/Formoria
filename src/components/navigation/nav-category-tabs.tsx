@@ -31,7 +31,7 @@ import { PageShell } from '@/components/ui/page-shell'
  */
 function tabClasses(active: boolean): string {
   return cn(
-    'type-nav flex min-h-(--nav-row-categories) items-center whitespace-nowrap rounded-[4px] px-3 py-2 transition-colors',
+    'type-nav flex min-h-(--nav-row-categories) items-center whitespace-nowrap rounded-control px-3 py-2 transition-colors',
     'focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-ground',
     active ? 'text-ink' : 'text-ink-muted hover:text-ink',
   )

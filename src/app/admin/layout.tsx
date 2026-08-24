@@ -9,7 +9,6 @@ import { AdminNav } from "@/components/admin/admin-nav";
 import { PageShell } from "@/components/ui/page-shell";
 import type { NavItem } from "@/components/admin/admin-nav";
 import { getAdminNavCounts } from "@/lib/services/admin-operations";
-import { isOwnerFeaturesEnabled } from "@/lib/services/app-settings";
 import { getSiteUrl } from "@/lib/seo/site-url";
 import "../globals.css";
 import { routes } from "@/lib/routes";
@@ -43,14 +42,12 @@ export default async function AdminLayout({
     redirect("/");
   }
 
-  const [messages, counts, t, tCommon, ownerFeaturesEnabled] =
-    await Promise.all([
-      getMessages({ locale: "en" }),
-      getAdminNavCounts(),
-      getTranslations({ locale: "en", namespace: "admin.layout" }),
-      getTranslations({ locale: "en", namespace: "common" }),
-      isOwnerFeaturesEnabled(),
-    ]);
+  const [messages, counts, t, tCommon] = await Promise.all([
+    getMessages({ locale: "en" }),
+    getAdminNavCounts(),
+    getTranslations({ locale: "en", namespace: "admin.layout" }),
+    getTranslations({ locale: "en", namespace: "common" }),
+  ]);
 
   const navItems: NavItem[] = [
     { label: t("nav.overview"), href: routes.admin.index() },
@@ -70,25 +67,30 @@ export default async function AdminLayout({
       href: routes.admin.evidence(),
       count: counts.evidence ?? undefined,
     },
-    ...(ownerFeaturesEnabled
-      ? [{ label: t("nav.claims"), href: routes.admin.claims() }]
-      : []),
-    { label: t("nav.reports"), href: routes.admin.reports(), count: counts.reports ?? undefined },
+    {
+      label: t("nav.reports"),
+      href: routes.admin.reports(),
+      count: counts.reports ?? undefined,
+    },
     { label: t("nav.brands"), href: routes.admin.brands() },
     { label: t("nav.curatedProducts"), href: routes.admin.curatedProducts() },
-    { label: t("nav.corrections"), href: routes.admin.corrections(), count: counts.corrections ?? undefined },
-    { label: t("nav.stockists"), href: routes.admin.stockists(), count: counts.stockists ?? undefined },
+    {
+      label: t("nav.corrections"),
+      href: routes.admin.corrections(),
+      count: counts.corrections ?? undefined,
+    },
+    {
+      label: t("nav.stockists"),
+      href: routes.admin.stockists(),
+      count: counts.stockists ?? undefined,
+    },
     { label: t("nav.quality"), href: routes.admin.quality() },
     { label: t("nav.newsletter"), href: routes.admin.newsletter() },
     { label: t("nav.scripts"), href: routes.admin.scripts() },
-    { label: t("nav.settings"), href: routes.admin.settings() },
   ];
 
   return (
-    <RootDocument
-      locale="en"
-      skipToContentLabel={tCommon("skipToContent")}
-    >
+    <RootDocument locale="en" skipToContentLabel={tCommon("skipToContent")}>
       <NextIntlClientProvider locale="en" messages={messages}>
         <div className="min-h-screen bg-ground">
           {/* Admin is on the same three measures as the public site. The
@@ -100,7 +102,7 @@ export default async function AdminLayout({
             measure="page"
             className="py-stack"
           >
-            <h1 className="type-label">{t("title")}</h1>
+            <h1 className="type-tool-heading">{t("title")}</h1>
             <AdminNav items={navItems} />
             <div className="mt-8">{children}</div>
           </PageShell>

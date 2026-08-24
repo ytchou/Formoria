@@ -13,16 +13,12 @@ const IS_CANONICAL_STAGING_TARGET =
   ).origin === 'https://staging.formoria.com';
 const STAGING_MUTATION_SKIP_REASON =
   'Anonymous correction mutations are intentionally disabled on canonical staging';
-// DEV-1261 note: deliberately NOT gated on `owner_features_enabled`. This is an
-// anonymous crowd-QA journey that touches no owner surface, and it is live at
-// launch — pausing it would take consumer coverage dark for no reason. Verified
-// green with the flag off.
 
 /**
  * Crowd-QA corrections (DEV-1170).
  *
  * Journey: an anonymous visitor spots a wrong value in the brand header, taps
- * the single quiet "資料有誤?" trigger next to the 品牌資訊 heading, picks which
+ * the single quiet "回報資料有誤" trigger next to the 品牌資訊 heading, picks which
  * field is wrong, proposes a different value, and submits. No account required.
  * The proposal lands in a pending queue and the public page keeps showing the
  * original value until an admin approves it.
@@ -44,16 +40,16 @@ const STAGING_MUTATION_SKIP_REASON =
 // Strings below are the literal values in messages/zh-TW.json.
 // The trigger has no aria-label: its visible text IS its accessible name
 // (WCAG 2.5.3), so one constant covers both the role query and the text check.
-const CORRECTION_TRIGGER_TEXT = '資料有誤?'; // brandDetail.correction.trigger
+const CORRECTION_TRIGGER_TEXT = '回報資料有誤'; // brandDetail.correction.trigger
 const CORRECTION_DIALOG_TITLE = '修正品牌資訊'; // brandDetail.correction.title
-const FIELD_PICKER_LABEL = '要修正哪一項?'; // brandDetail.correction.fieldPickerLabel
+const FIELD_PICKER_LABEL = '修正項目'; // brandDetail.correction.fieldPickerLabel
 // The value control is two role="group" rows. Row 1 (the brand's current value)
 // is named by the 目前 heading; row 2 (the options a visitor may pick) is named
 // by the field label itself, so 品牌類別 addresses the options row, not the current one.
 const CURRENT_VALUE_LABEL = '目前'; // brandDetail.correction.currentHeading
 const CATEGORY_VALUE_LABEL = '品牌類別'; // brandDetail.label.category
 const SUBMIT_LABEL = '送出修正'; // brandDetail.correction.submit
-const CANCEL_LABEL = '取消'; // dashboard.edit.cancel
+const CANCEL_LABEL = '取消'; // brandFields.cancel
 const REVIEW_PROMISE = '感謝提供建議！送出後由 Formoria 審核決定是否更新。'; // brandDetail.correction.description
 const SUCCESS_TOAST = '修正已送出，感謝你的協助。'; // brandDetail.correction.success
 const ALREADY_SUBMITTED_TOAST = '這項修正已經送出，請等待審核。'; // ...correction.errors.already_submitted

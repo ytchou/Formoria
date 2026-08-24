@@ -4,10 +4,17 @@
 // https://docs.sentry.io/platforms/javascript/guides/nextjs/
 
 import * as Sentry from "@sentry/nextjs";
+import {
+  isLocalRequestUrl,
+  resolveSentryEnvironment,
+} from "@/lib/observability/sentry-environment";
 
 Sentry.init({
   dsn: process.env.NEXT_PUBLIC_SENTRY_DSN,
   enabled: process.env.NODE_ENV === 'production',
+
+  // See `sentry.server.config.ts` — `NODE_ENV` names the wrong thing locally.
+  environment: resolveSentryEnvironment(),
 
   // Define how likely traces are sampled. Adjust this value in production, or use tracesSampler for greater control.
   tracesSampleRate: 0.1,
@@ -20,6 +27,10 @@ Sentry.init({
   sendDefaultPii: false,
 
   beforeSend(event) {
+    if (isLocalRequestUrl(event.request?.url)) {
+      return null;
+    }
+
     if (event.user) {
       delete event.user.email;
       delete event.user.ip_address;

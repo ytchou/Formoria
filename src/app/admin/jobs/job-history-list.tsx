@@ -63,7 +63,6 @@ export function JobHistoryList({
             className={buttonVariants({
               variant: "secondary",
               size: "large",
-              className: "min-h-12",
             })}
           >
             <ExternalLink aria-hidden="true" />
@@ -72,7 +71,7 @@ export function JobHistoryList({
         </div>
       ) : null}
 
-      <div className="overflow-x-auto rounded-[3px] border border-rule bg-surface">
+      <div className="overflow-x-auto rounded-surface border border-rule bg-surface">
         <Table>
           <TableHeader>
             <TableRow>
@@ -165,7 +164,6 @@ function CursorLink({
       className={buttonVariants({
         variant: "secondary",
         size: "default",
-        className: "min-h-12",
       })}
     >
       {label}

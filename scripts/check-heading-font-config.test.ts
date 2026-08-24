@@ -10,7 +10,7 @@ function readProjectFile(path: string) {
 }
 
 // The font declarations live in the shared RootDocument, which wraps every
-// layout (locale, microsite, admin, auth) rather than only the root.
+// layout (locale, admin, auth) rather than only the root.
 const rootDocument = readProjectFile('src/components/shared/root-document.tsx')
 const globals = readProjectFile('src/app/globals.css')
 

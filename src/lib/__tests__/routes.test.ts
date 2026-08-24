@@ -51,10 +51,8 @@ describe('routes', () => {
       routes.about(),
       routes.faq(),
       routes.submit.index(),
-      routes.dashboard.index(),
       routes.auth.signIn(),
       routes.admin.index(),
-      routes.microsite('niizo'),
     ]
 
     for (const path of every) {
@@ -75,25 +73,12 @@ describe('routes', () => {
     )
   })
 
-  it('builds the account, submit, dashboard, auth and admin families', () => {
+  it('builds the account, submit, auth and admin families', () => {
     expect(routes.favorites()).toBe('/favorites')
     expect(routes.settings()).toBe('/settings')
-    expect(routes.mySubmissions()).toBe('/my-submissions')
-
     expect(routes.submit.index()).toBe('/submit')
     expect(routes.submit.recommend()).toBe('/submit/recommend')
     expect(routes.submit.confirmation()).toBe('/submit/confirmation')
-    expect(routes.submit.owner()).toBe('/submit/owner')
-    expect(routes.submit.ownerQuick()).toBe('/submit/owner/quick')
-    expect(routes.submit.ownerDetails()).toBe('/submit/owner/details')
-
-    expect(routes.dashboard.index()).toBe('/dashboard')
-    expect(routes.dashboard.analytics()).toBe('/dashboard/analytics')
-    expect(routes.dashboard.brand('acme')).toBe('/dashboard/brands/acme')
-    expect(routes.dashboard.brandSection('acme', 'media')).toBe(
-      '/dashboard/brands/acme/media',
-    )
-    expect(routes.dashboard.brandEdit('acme')).toBe('/dashboard/brands/acme/edit')
 
     expect(routes.auth.signIn()).toBe('/auth/sign-in')
     expect(routes.auth.signIn({ next: '/favorites' })).toBe(
@@ -114,11 +99,6 @@ describe('routes', () => {
     expect(routes.admin.moderation()).toBe('/admin/moderation')
     // The bucket key in `RATE_LIMIT_RULES`, not a documentation claim about one.
     expect(routes.admin.operations()).toBe('/admin/operations')
-  })
-
-  it('exposes the microsite route, which is not locale-prefixed by the router either', () => {
-    expect(routes.microsite('niizo')).toBe('/site/niizo')
-    expect(routes.microsite('a/b')).toBe('/site/a%2Fb')
   })
 
   it('names the category path once whether or not a subcategory is present', () => {

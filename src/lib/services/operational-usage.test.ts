@@ -291,6 +291,7 @@ describe("operational usage risk", () => {
                 start: "2026-08-01T00:00:00.000Z",
                 end: "2026-09-01T00:00:00.000Z",
               },
+              subject: null,
               source: "test",
               completeness: "exact",
               freshness: NOW.toISOString(),
@@ -306,6 +307,7 @@ describe("operational usage risk", () => {
                 start: "2026-08-10T00:00:00.000Z",
                 end: "2026-08-11T00:00:00.000Z",
               },
+              subject: null,
               source: "test",
               completeness: "exact",
               freshness: NOW.toISOString(),
@@ -322,6 +324,7 @@ describe("operational usage risk", () => {
                   start: "2026-08-01T00:00:00.000Z",
                   end: "2026-09-01T00:00:00.000Z",
                 },
+                subject: null,
                 source: "test",
                 completeness: "exact",
                 freshness: NOW.toISOString(),
@@ -338,8 +341,10 @@ describe("operational usage risk", () => {
     expect(alerts.needsAttention).toBe(true);
     expect(alerts.warnings).toEqual(
       expect.arrayContaining([
-        "Upstash Redis secondary usage is critical.",
-        "Upstash Redis additional usage is warning.",
+        // Non-primary warnings carry their reading; "secondary usage is
+        // critical." alone names neither the quantity nor the amount.
+        "Upstash Redis secondary usage is critical. 95 of 100 commands today.",
+        "Upstash Redis additional usage is warning. 8 of 10 bytes.",
       ]),
     );
   });
@@ -554,13 +559,35 @@ describe("operational usage risk", () => {
       };
       return chain;
     };
+    // Serper and Resend both read `external_call_audit_spans`, so the failure
+    // has to be scoped to the provider the query filters on -- otherwise the
+    // Resend row fails for a reason this test is not about. `loadAuditUsage`
+    // calls `.eq("provider", provider)`, so capture that argument.
+    const auditQuery = () => {
+      let provider: string | null = null;
+      const chain = {
+        select: () => chain,
+        eq: (column: string, value: string) => {
+          if (column === "provider") provider = value;
+          return chain;
+        },
+        gte: () => chain,
+        lt: () =>
+          Promise.resolve(
+            provider === "serper"
+              ? {
+                  count: null,
+                  error: { message: "Serper audit query failed" },
+                }
+              : { count: 4, error: null },
+          ),
+      };
+      return chain;
+    };
     const supabase = {
       from: (table: string) =>
         table === "external_call_audit_spans"
-          ? query({
-              count: null,
-              error: { message: "Serper audit query failed" },
-            })
+          ? auditQuery()
           : query({ count: 4, error: null }),
     } as never;
     const posthog = {
@@ -585,8 +612,8 @@ describe("operational usage risk", () => {
     expect(row(snapshot, "resend").usage).toMatchObject({
       state: "ready",
       primary: expect.objectContaining({
-        completeness: "lower_bound",
-        risk: "unknown",
+        completeness: "exact",
+        limit: 3_000,
       }),
     });
     expect(row(snapshot, "posthog").usage).toMatchObject({
@@ -602,7 +629,7 @@ describe("operational usage risk", () => {
     });
   });
 
-  it("marks measured OpenAI and Serper usage exact while keeping Resend lower-bound", async () => {
+  it("marks measured OpenAI, Serper, and Resend usage exact", async () => {
     clearProviderEnvironment();
     vi.stubEnv("OPENAI_API_KEY", "openai-key");
     vi.stubEnv("SERPER_API_KEY", "serper-key");
@@ -663,8 +690,8 @@ describe("operational usage risk", () => {
     expect(row(snapshot, "resend").usage).toMatchObject({
       state: "ready",
       primary: expect.objectContaining({
-        completeness: "lower_bound",
-        risk: "unknown",
+        completeness: "exact",
+        limit: 3_000,
       }),
     });
   });

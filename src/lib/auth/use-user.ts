@@ -40,11 +40,8 @@ type UseUserState = {
 }
 
 const EMPTY_VIEWER_CONTEXT: ViewerContext = {
-  hasOwnedBrand: false,
+  // Fail closed: privileged surfaces stay hidden until the server says otherwise.
   isAdmin: false,
-  // Fail closed: owner surfaces stay hidden until the server says otherwise.
-  ownerFeaturesEnabled: false,
-  impersonation: null,
 }
 
 /**
@@ -201,11 +198,10 @@ export function ViewerProvider({ children }: { children: ReactNode }) {
       initialResolutionPending = false
       if (!active) return
 
-      // Signed-out visitors are the claim funnel's entry point, so they need the
-      // owner-features flag too — the anonymous branch fetches viewer context
-      // instead of settling on the closed default. Privileged fields are reset
-      // to the closed default up front so a sign-out cannot leave admin or owner
-      // UI on screen while the anonymous fetch is in flight.
+      // The anonymous branch fetches viewer context rather than settling on the
+      // closed default. Privileged fields are reset to the closed default up
+      // front so a sign-out cannot leave admin UI on screen while the anonymous
+      // fetch is in flight.
       setState((current) =>
         user
           ? { ...current, user, loading: false, viewerLoading: true }

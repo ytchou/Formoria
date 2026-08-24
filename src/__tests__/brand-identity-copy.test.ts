@@ -56,22 +56,20 @@ const RETIRED_IDENTITY_PATTERNS = [
  * Matched by fragment, not by full sentence, because inflection is exactly what
  * hid two of those six copies: `README.md` said "Formoria **reconnects** the
  * broken path" and `configs/discovery-trail.md` said "**repairs** the broken
- * path". Banning the noun phrase "broken path" catches every verb.
+ * path". The broad fragments /斷掉的路/ and /broken path/ were removed in
+ * DEV-1591: /about now deliberately uses "四條斷掉的路" / "four broken paths"
+ * as scene headings. The full retired tagline is still banned.
  *
  * The sanctioned replacement is 「把相遇之後的路接起來」 / "reconnects the path after
  * that moment" — so the bare word "reconnects" is deliberately NOT banned here.
  *
  * The retired tagline 「從自己想要的生活出發」 / "the life you want" is banned for the
- * same reason and was added later: DEV-1486 retired it everywhere except the
- * `gettingStarted` namespace, where three keys per locale shipped it verbatim
- * while this guard stayed green because it banned only the mission sentence.
- * It too is matched by fragment, so 「從自己想要的生活出發，找到適合的台灣產品」 and
+ * same reason and was added later. It too is matched by fragment, so
+ * 「從自己想要的生活出發，找到適合的台灣產品」 and
  * "Start with the life you want…" / "start with the life you want…" all fail.
  */
 const RETIRED_MISSION_PATTERNS = [
   /把從靈感走到購買中間斷掉的路/u,
-  /斷掉的路/u,
-  /broken path/iu,
   /從自己想要的生活出發/u,
   /the life you want/iu,
 ];

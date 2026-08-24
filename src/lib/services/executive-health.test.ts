@@ -7,11 +7,6 @@ import {
   runExecutiveHealthCheck,
   type ExecutiveServiceHealth,
 } from "./executive-health";
-import {
-  checkMitRegistryHealth,
-  classifyMitRegistryHealth,
-  MIT_REGISTRY_SYNC_MAX_AGE_HOURS,
-} from "./mit-registry";
 import { SERVICE_REGISTRY } from "./service-registry";
 
 function service(
@@ -118,7 +113,7 @@ describe("executive health", () => {
       (entry) => entry.probe === "executive-health",
     );
 
-    expect(checks).toHaveLength(12);
+    expect(checks).toHaveLength(11);
     expect(new Set(checks.map((check) => check.id))).toEqual(
       new Set(probedEntries.map((entry) => entry.id)),
     );
@@ -132,49 +127,6 @@ describe("executive health", () => {
     expect(
       SERVICE_REGISTRY.find((entry) => entry.id === "sentry")?.criticality,
     ).toBe("back-office");
-  });
-
-  it("classifies MIT mirror freshness from the local sync timestamp", () => {
-    const now = new Date("2026-08-11T00:00:00.000Z");
-    const fresh = new Date(
-      now.getTime() - (MIT_REGISTRY_SYNC_MAX_AGE_HOURS - 1) * 60 * 60 * 1000,
-    ).toISOString();
-    const stale = new Date(
-      now.getTime() - (MIT_REGISTRY_SYNC_MAX_AGE_HOURS + 1) * 60 * 60 * 1000,
-    ).toISOString();
-
-    expect(
-      classifyMitRegistryHealth(
-        [{ cert_number: "MIT-001", synced_at: fresh }],
-        now,
-      ),
-    ).toMatchObject({ status: "healthy" });
-    expect(
-      classifyMitRegistryHealth(
-        [{ cert_number: "MIT-001", synced_at: stale }],
-        now,
-      ),
-    ).toMatchObject({ status: "degraded" });
-    expect(
-      classifyMitRegistryHealth(
-        [{ cert_number: "MIT-001", synced_at: "not-a-timestamp" }],
-        now,
-      ),
-    ).toMatchObject({ status: "degraded" });
-    expect(classifyMitRegistryHealth([], now)).toMatchObject({
-      status: "down",
-    });
-  });
-
-  it("marks a failed MIT mirror query down", async () => {
-    vi.stubEnv("NEXT_PUBLIC_SUPABASE_URL", "not-a-url");
-    vi.stubEnv("SUPABASE_SERVICE_ROLE_KEY", "service-role-test-key");
-
-    await expect(checkMitRegistryHealth()).resolves.toEqual({
-      status: "down",
-      message: "MIT registry query failed",
-    });
-    vi.unstubAllEnvs();
   });
 
   it("uses the authenticated organization probe for Sentry, not its DSN", async () => {
@@ -330,7 +282,7 @@ describe("executive health", () => {
     const snapshot = await loadExecutiveHealth();
     const probedIds = new Set(defaultChecks().map((check) => check.id));
 
-    expect(snapshot.services).toHaveLength(12);
+    expect(snapshot.services).toHaveLength(11);
     expect(snapshot.inventory.length).toBeGreaterThan(snapshot.services.length);
     expect(
       snapshot.inventory.some((entry) =>

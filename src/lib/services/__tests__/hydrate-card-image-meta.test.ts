@@ -1,10 +1,10 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 /**
- * `hydrateCardImageMeta` is what puts per-image metadata on every card surface —
- * /brands, the homepage, /favorites, story galleries and microsites all route
- * through it. It decides fill mode (`isLogo`) and carries the alt text, so a
- * wrong row here is a visibly wrong render rather than a missing string.
+ * `hydrateCardImageMeta` is what puts per-image metadata on every card surface
+ * — /brands, the homepage, /favorites and story galleries all route through it.
+ * It decides fill mode (`isLogo`) and carries the alt text, so a wrong row here
+ * is a visibly wrong render rather than a missing string.
  *
  * The load-bearing parts are the batching and the failure mode, and both are
  * invisible on a five-brand happy path:
@@ -21,7 +21,7 @@ import { hydrateCardImageMeta } from '../brands'
 
 type ImageRowFixture = {
   brand_id: string
-  url: string
+  storage_path: string
   tags: string[] | null
   alt_zh: string | null
   alt_en: string | null
@@ -33,7 +33,7 @@ type ImageRowFixture = {
 type QueryCall = {
   table: string
   select: string
-  /** Each `.in()` applied, in order — brand_id first, then url when narrowed. */
+  /** Each `.in()` applied, in order — brand_id first, then storage_path when narrowed. */
   inFilters: Array<[string, string[]]>
   eqFilters: Array<[string, string]>
   orders: string[]
@@ -88,14 +88,16 @@ function createClientDouble() {
           const matched = table
             .filter((row) =>
               call.inFilters.every(([column, values]) =>
-                values.includes(String(row[column as 'brand_id' | 'url'])),
+                values.includes(
+                  String(row[column as 'brand_id' | 'storage_path']),
+                ),
               ),
             )
             // Every fixture row stands for an active one, so `.eq('status', …)`
             // is recorded for assertion rather than applied.
             // The real query orders by (brand_id, sort_order, id); replicate the
             // first two, which is what makes paging stable and lets the caller
-            // treat the first URL match as the lowest-sort_order one.
+            // treat the first key match as the lowest-sort_order one.
             .sort(
               (a, b) =>
                 a.brand_id.localeCompare(b.brand_id) || a.sort_order - b.sort_order,
@@ -116,7 +118,9 @@ function client() {
   return createClientDouble() as unknown as ReturnType<typeof createServiceClient>
 }
 
-function imageRow(overrides: Partial<ImageRowFixture> & { brand_id: string; url: string }): ImageRowFixture {
+function imageRow(
+  overrides: Partial<ImageRowFixture> & { brand_id: string; storage_path: string },
+): ImageRowFixture {
   return {
     tags: ['product'],
     alt_zh: null,
@@ -139,17 +143,17 @@ describe('hydrateCardImageMeta', () => {
     table = []
   })
 
-  it('matches the hero row on url, not on sort_order', async () => {
-    // `hero_image_url` is a denormalized copy of whichever row the brand leads
-    // with, and a row can be rejected or reordered without that copy moving —
-    // so position is not a reliable key while the url is. Here the hero sits at
-    // sort_order 2, behind two other active rows.
+  it('matches the hero row on its bucket key, not on sort_order', async () => {
+    // `hero_image_storage_path` is a denormalized copy of whichever row the
+    // brand leads with, and a row can be rejected or reordered without that
+    // copy moving — so position is not a reliable key while the bucket key is.
+    // Here the hero sits at sort_order 2, behind two other active rows.
     table = [
-      imageRow({ brand_id: 'b1', url: 'https://x.supabase.co/other-a.webp', sort_order: 0, tags: [] }),
-      imageRow({ brand_id: 'b1', url: 'https://x.supabase.co/other-b.webp', sort_order: 1, tags: [] }),
+      imageRow({ brand_id: 'b1', storage_path: 'brands/b1/other-a.webp', sort_order: 0, tags: [] }),
+      imageRow({ brand_id: 'b1', storage_path: 'brands/b1/other-b.webp', sort_order: 1, tags: [] }),
       imageRow({
         brand_id: 'b1',
-        url: 'https://x.supabase.co/hero.webp',
+        storage_path: 'brands/b1/hero.webp',
         sort_order: 2,
         tags: ['logo'],
         alt_zh: '標誌',
@@ -160,7 +164,7 @@ describe('hydrateCardImageMeta', () => {
     ]
 
     const [hydrated] = await hydrateCardImageMeta(client(), [
-      brand('b1', 'https://x.supabase.co/hero.webp'),
+      brand('b1', '/i/brands/b1/hero.webp'),
     ])
 
     expect(hydrated?.imageAlts).toEqual([
@@ -178,13 +182,13 @@ describe('hydrateCardImageMeta', () => {
     table = [
       imageRow({
         brand_id: 'b1',
-        url: 'https://x.supabase.co/hero.webp',
+        storage_path: 'brands/b1/hero.webp',
         tags: ['logo'],
         sort_order: 0,
       }),
       imageRow({
         brand_id: 'b1',
-        url: 'https://x.supabase.co/product.webp',
+        storage_path: 'brands/b1/product.webp',
         tags: ['product'],
         sort_order: 1,
         alt_zh: '商品照片',
@@ -193,10 +197,10 @@ describe('hydrateCardImageMeta', () => {
     ]
 
     const [hydrated] = await hydrateCardImageMeta(client(), [
-      brand('b1', 'https://x.supabase.co/hero.webp'),
+      brand('b1', '/i/brands/b1/hero.webp'),
     ])
 
-    expect(hydrated?.productPhotos).toEqual(['https://x.supabase.co/product.webp'])
+    expect(hydrated?.productPhotos).toEqual(['/i/brands/b1/product.webp'])
     expect(hydrated?.imageAlts).toEqual([
       expect.objectContaining({ isLogo: true }),
       expect.objectContaining({
@@ -211,20 +215,20 @@ describe('hydrateCardImageMeta', () => {
     table = [
       imageRow({
         brand_id: 'b1',
-        url: 'https://x.supabase.co/hero.webp',
+        storage_path: 'brands/b1/hero.webp',
         tags: ['logo'],
         sort_order: 0,
       }),
       imageRow({
         brand_id: 'b1',
-        url: 'https://x.supabase.co/product.webp',
+        storage_path: 'brands/b1/product.webp',
         tags: ['product'],
         sort_order: 1,
       }),
     ]
 
     const [hydrated] = await hydrateCardImageMeta(client(), [
-      brand('b1', 'https://x.supabase.co/hero.webp'),
+      brand('b1', '/i/brands/b1/hero.webp'),
     ])
 
     expect(hydrated?.imageAlts).toHaveLength(
@@ -237,30 +241,30 @@ describe('hydrateCardImageMeta', () => {
     // Not an error: a hero that predates `brand_images`, or whose row was
     // rejected, degrades to the uncarved centred `object-cover` render.
     const [hydrated] = await hydrateCardImageMeta(client(), [
-      brand('missing', 'https://x.supabase.co/gone.webp'),
+      brand('missing', '/i/brands/missing/gone.webp'),
     ])
 
     expect(hydrated?.imageAlts).toEqual([])
     expect(hydrated?.heroImageMetadata).toBeNull()
   })
 
-  it('leaves a brand whose hero url matches no row on the defaults', async () => {
+  it('leaves a brand whose hero key matches no row on the defaults', async () => {
     // The brand HAS active images; none of them is the denormalized hero. The
     // distinction matters: silently taking `sort_order` 0 instead would frame
     // the card from a different image's metadata.
     table = [
-      imageRow({ brand_id: 'b1', url: 'https://x.supabase.co/gallery.webp', tags: ['logo'] }),
+      imageRow({ brand_id: 'b1', storage_path: 'brands/b1/gallery.webp', tags: ['logo'] }),
     ]
 
     const [hydrated] = await hydrateCardImageMeta(client(), [
-      brand('b1', 'https://x.supabase.co/hero-that-moved.webp'),
+      brand('b1', '/i/brands/b1/hero-that-moved.webp'),
     ])
 
     expect(hydrated?.imageAlts).toEqual([])
     expect(hydrated?.heroImageMetadata).toBeNull()
   })
 
-  it('brands_without_hero_url_still_not_queried', async () => {
+  it('brands_without_hero_key_still_not_queried', async () => {
     const hydrated = await hydrateCardImageMeta(client(), [brand('b1', null)])
 
     expect(hydrated[0]?.imageAlts).toEqual([])
@@ -274,29 +278,34 @@ describe('hydrateCardImageMeta', () => {
 
   describe('chunking', () => {
     it('batches_across_chunk_boundary', async () => {
-      // 400 brands with realistic-length storage URLs. The url `.in()` filter
-      // travels in the query string, so this must NOT arrive as one request —
-      // the whole reason the chunker exists.
+      // 400 brands with realistic-length bucket keys. The storage_path `.in()`
+      // filter travels in the query string, so this must NOT arrive as one
+      // request — the whole reason the chunker exists.
       const brands = Array.from({ length: 400 }, (_, i) => {
         const id = `brand-${String(i).padStart(4, '0')}`
-        const url = `https://xkcayngbttpxyibgzern.supabase.co/storage/v1/object/public/brand-images/brands/${id}/00000000-0000-0000-0000-0000000000${String(i).padStart(2, '0')}.webp`
-        return brand(id, url)
+        const key = `brands/${id}/00000000-0000-0000-0000-0000000000${String(i).padStart(2, '0')}.webp`
+        return brand(id, `/i/${key}`)
       })
-      table = brands.map((b) =>
-        imageRow({ brand_id: b.id, url: b.heroImageUrl!, tags: ['logo'] }),
+      table = brands.map((b, i) =>
+        imageRow({
+          brand_id: b.id,
+          storage_path: `brands/${b.id}/00000000-0000-0000-0000-0000000000${String(i).padStart(2, '0')}.webp`,
+          tags: ['logo'],
+        }),
       )
 
       const hydrated = await hydrateCardImageMeta(client(), brands)
 
       expect(queries.length).toBeGreaterThan(1)
       for (const call of queries) {
-        const urls = call.inFilters.find(([column]) => column === 'url')?.[1] ?? []
+        const keys =
+          call.inFilters.find(([column]) => column === 'storage_path')?.[1] ?? []
         const ids = call.inFilters.find(([column]) => column === 'brand_id')?.[1] ?? []
-        // Both limits respected: the character budget on urls, the count cap on ids.
-        // The budget is 2,000 characters of URL, and a chunk is closed only
-        // once the NEXT url would overflow it — so one long url of headroom,
-        // plus separators, is expected.
-        expect(urls.join(',').length).toBeLessThanOrEqual(2_500)
+        // Both limits respected: the character budget on keys, the count cap on
+        // ids. The budget is 2,000 characters, and a chunk is closed only once
+        // the NEXT key would overflow it — so one long key of headroom, plus
+        // separators, is expected.
+        expect(keys.join(',').length).toBeLessThanOrEqual(2_500)
         expect(ids.length).toBeLessThanOrEqual(200)
       }
       // And nothing is lost at a chunk boundary.
@@ -305,11 +314,11 @@ describe('hydrateCardImageMeta', () => {
     })
 
     it('deduplicates repeated brands rather than filtering them twice', async () => {
-      table = [imageRow({ brand_id: 'b1', url: 'https://x.supabase.co/hero.webp' })]
+      table = [imageRow({ brand_id: 'b1', storage_path: 'brands/b1/hero.webp' })]
 
       const hydrated = await hydrateCardImageMeta(client(), [
-        brand('b1', 'https://x.supabase.co/hero.webp'),
-        brand('b1', 'https://x.supabase.co/hero.webp'),
+        brand('b1', '/i/brands/b1/hero.webp'),
+        brand('b1', '/i/brands/b1/hero.webp'),
       ])
 
       expect(queries).toHaveLength(2)
@@ -329,9 +338,15 @@ describe('hydrateCardImageMeta', () => {
       // metadata, which renders as a wrongly-framed card rather than an error.
       const count = BRAND_IMAGE_PAGE_SIZE + 25
       const brands = Array.from({ length: count }, (_, i) =>
-        brand(`b-${String(i).padStart(5, '0')}`, `https://x.supabase.co/h${i}.webp`),
+        brand(`b-${String(i).padStart(5, '0')}`, `/i/brands/h${i}.webp`),
       )
-      table = brands.map((b) => imageRow({ brand_id: b.id, url: b.heroImageUrl!, tags: ['logo'] }))
+      table = brands.map((b, i) =>
+        imageRow({
+          brand_id: b.id,
+          storage_path: `brands/h${i}.webp`,
+          tags: ['logo'],
+        }),
+      )
 
       const hydrated = await hydrateCardImageMeta(client(), brands)
 
@@ -340,15 +355,20 @@ describe('hydrateCardImageMeta', () => {
     })
 
     it('keeps paging a single batch until a short page arrives', async () => {
-      // Forced onto one request by using short urls and few brands, then given
+      // Forced onto one request by using short keys and few brands, then given
       // more rows than one page holds — so the `.range()` loop, not the
       // chunker, is what has to fetch the rest.
-      const brands = [brand('b1', 'u1'), brand('b2', 'u2')]
+      const brands = [brand('b1', '/i/u1'), brand('b2', '/i/u2')]
       table = [
         ...Array.from({ length: BRAND_IMAGE_PAGE_SIZE }, (_, i) =>
-          imageRow({ brand_id: 'b1', url: 'u1', sort_order: i }),
+          imageRow({ brand_id: 'b1', storage_path: 'u1', sort_order: i }),
         ),
-        imageRow({ brand_id: 'b2', url: 'u2', sort_order: 0, tags: ['logo'] }),
+        imageRow({
+          brand_id: 'b2',
+          storage_path: 'u2',
+          sort_order: 0,
+          tags: ['logo'],
+        }),
       ]
 
       const hydrated = await hydrateCardImageMeta(client(), brands)
@@ -358,10 +378,10 @@ describe('hydrateCardImageMeta', () => {
       // one across `.range()` calls is a real bug. So one batch paging twice is
       // two entries carrying one range each, not one entry with two ranges.
       const heroQueries = queries.filter((call) =>
-        call.inFilters.some(([column]) => column === 'url'),
+        call.inFilters.some(([column]) => column === 'storage_path'),
       )
       const productQueries = queries.filter(
-        (call) => !call.inFilters.some(([column]) => column === 'url'),
+        (call) => !call.inFilters.some(([column]) => column === 'storage_path'),
       )
       expect(heroQueries).toHaveLength(2)
       expect(productQueries).toHaveLength(2)
@@ -379,9 +399,9 @@ describe('hydrateCardImageMeta', () => {
     })
 
     it('orders before ranging, so pages cannot repeat or skip rows', async () => {
-      table = [imageRow({ brand_id: 'b1', url: 'u1' })]
+      table = [imageRow({ brand_id: 'b1', storage_path: 'u1' })]
 
-      await hydrateCardImageMeta(client(), [brand('b1', 'u1')])
+      await hydrateCardImageMeta(client(), [brand('b1', '/i/u1')])
 
       expect(queries[0]?.orders).toEqual(['brand_id', 'sort_order', 'id'])
     })
@@ -394,14 +414,14 @@ describe('hydrateCardImageMeta', () => {
       // lint and only surfaces as a 42703 at runtime, on every card surface at
       // once. Pinning the projection is the only compile-time-shaped guard
       // this query has.
-      table = [imageRow({ brand_id: 'b1', url: 'u1' })]
+      table = [imageRow({ brand_id: 'b1', storage_path: 'u1' })]
 
-      await hydrateCardImageMeta(client(), [brand('b1', 'u1')])
+      await hydrateCardImageMeta(client(), [brand('b1', '/i/u1')])
 
       const columns = (queries[0]?.select ?? '').split(',').map((c) => c.trim())
       expect(columns).toEqual([
         'brand_id',
-        'url',
+        'storage_path',
         'tags',
         'alt_zh',
         'alt_en',
@@ -409,7 +429,7 @@ describe('hydrateCardImageMeta', () => {
         'width',
         'height',
       ])
-      // Both reads (hero-by-url and products-by-brand) share one projection.
+      // Both reads (hero-by-key and products-by-brand) share one projection.
       expect(queries[1]?.select).toBe(queries[0]?.select)
     })
   })
@@ -427,7 +447,7 @@ describe('hydrateCardImageMeta', () => {
       const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {})
 
       const hydrated = await hydrateCardImageMeta(client(), [
-        brand('b1', 'https://x.supabase.co/hero.webp'),
+        brand('b1', '/i/brands/b1/hero.webp'),
       ])
 
       expect(hydrated).toHaveLength(1)
@@ -443,7 +463,7 @@ describe('hydrateCardImageMeta', () => {
       const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {})
 
       const [hydrated] = await hydrateCardImageMeta(client(), [
-        { ...brand('b1', 'https://x.supabase.co/hero.webp'), name: 'Molasses' },
+        { ...brand('b1', '/i/brands/b1/hero.webp'), name: 'Molasses' },
       ])
 
       expect(hydrated?.name).toBe('Molasses')

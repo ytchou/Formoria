@@ -6,16 +6,12 @@ export type EvidenceKey =
   | "mitStory"
   | "categorySlug"
   | "subcategories"
-  | "priceRange"
   | "reputationSummary"
   | "foundingYear"
   | "city"
   | "peerStats";
 
-export type FaqTFn = (
-  key: string,
-  params?: Record<string, unknown>,
-) => string;
+export type FaqTFn = (key: string, params?: Record<string, unknown>) => string;
 
 export type FaqBrandContext = {
   brand: PublicBrandFaqContext;

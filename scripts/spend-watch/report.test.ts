@@ -222,6 +222,9 @@ describe("spend-watch report", () => {
     );
   });
 
+  // Deploy skew: a report from the build that predates the window field must
+  // still render, just without the window label.
+  // Deploy skew: the report endpoint may still be the build that predates the
   it("surfaces unavailable Upstash monitoring as needs_attention, not failed", async () => {
     const unavailableReport = {
       ...report,

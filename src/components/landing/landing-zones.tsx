@@ -3,6 +3,7 @@ import { getTranslations } from "next-intl/server";
 
 import { EventCard } from "@/components/events/event-card";
 import { ProductWall } from "@/components/landing/product-wall";
+import { TrailTile } from "@/components/landing/trail-tile";
 import { SectionHeader } from "@/components/shared/section-header";
 import BrandShowcase from "@/components/shared/brand-showcase";
 import { StoryRow } from "@/components/stories/story-row";
@@ -39,13 +40,7 @@ export type LandingZonesProps = {
   close: ReactNode;
   /** `null` when the wall is below its publication floor and must not render. */
   wall: { slots: WallSlot[] } | null;
-  /**
-   * EVERY indexable trail, not the ones the wall declined to place. A trail
-   * that earns a wall tile still belongs in this zone: the tile is a picture in
-   * a masonry grid, the row is the titled, dated route into `/discover`. The
-   * zone used to read the wall's leftover trails, which meant the single-trail
-   * case — the trail is always placed — erased the zone from the page.
-   */
+  /** Every indexable trail rendered in the dedicated editorial zone. */
   trails: TrailEntry[];
   stories: StoryEntry[];
   events: PromotedEvent[];
@@ -56,14 +51,12 @@ export type LandingZonesProps = {
  * The homepage's zones, in order:
  *
  *     hero      the editorial opener — eyebrow, promise, lede, search
- *     selection the justified wall with trails woven in
- *     trust     the trust-seam line — membership and selection, kept clearly
- *               apart — explained as prose in three columns
- *     trails    the style zone — every indexable trail as a titled row
+ *     selection the justified product wall
+ *     trails    the style zone — every indexable trail as an editorial card
  *     manifesto the photo band
  *     topics    stories, with a live event lifted above them
  *     directory one explore-style brand rail
- *     close     the CTA band — recommend · feature request · newsletter
+ *     close     the CTA band — recommend · newsletter
  *
  * Every zone carries `data-landing-zone`, which is the structure's contract: a
  * marker survives copy edits that a heading-text assertion would not.
@@ -74,8 +67,9 @@ export type LandingZonesProps = {
  * dated event, and dropping it would also strip the stories and events reads
  * out of `page.tsx` and out of `isLandingRenderDegraded`.
  *
- * Only ONE zone carries a background — the trust band, on `surface`. Every
- * other seam is whitespace, per DESIGN.md.
+ * Only ONE flat-color zone carries a background — the closing band, on
+ * `surface`. The manifesto owns its photograph; every other seam is
+ * whitespace, per DESIGN.md.
  */
 export async function LandingZones({
   locale,
@@ -121,99 +115,13 @@ export async function LandingZones({
                   brandSiteCta: tSelected("brandSiteCta"),
                   unavailable: tSelected("unavailable"),
                 },
-                trail: {
-                  eyebrow: t("selectedProducts.trailEyebrow"),
-                  cta: t("selectedProducts.trailCta"),
-                },
               }}
             />
           </div>
         ) : null}
 
-        {/*
-          THE TRUST IA AS PROSE, NEVER AS BADGES (D11).
-
-          The homepage states what directory membership, the selection label
-          and the brand-supplied credit each mean, in running text, once. It
-          renders no trust BADGE at all — the single rendered selection badge
-          lives on brand detail, and a badge here would read as the homepage
-          certifying something.
-
-          The heading is `landing.trustSeam.line`, the commitment in
-          docs/strategy/brand-voice.md. It left the homepage on 2026-08-17 when
-          the manifesto band replaced the thin seam; this band brings it back
-          with the explanation the thin seam never had.
-
-          Column titles are h3, not h2: `homepage-curated-product.spec.ts` finds
-          the wall by the section whose h2 reads exactly the selection label
-          (`landing.selectedProducts.heading`), and the trust column's title is
-          that same string — a second h2 with it would give the selector two
-          matches.
-        */}
-        <section
-          data-landing-zone="trust"
-          aria-labelledby="landing-trust"
-          className="bg-surface py-section"
-        >
-          <PageShell
-            measure="page"
-            className="flex flex-col gap-stack lg:flex-row lg:gap-gutter"
-          >
-            <div className="lg:w-1/4">
-              <h2 id="landing-trust" className="type-section">
-                {t("trustSeam.line")}
-              </h2>
-              <p className="mt-3 type-body-sm">{t("trust.note")}</p>
-            </div>
-            {/* The shared grid primitive, not a local `md:grid-cols-3`. */}
-            <Grid cols="triptych" gap="gutter" className="lg:flex-1">
-              {(
-                [
-                  ["listed", t("trust.listedTitle"), t("trust.listedBody")],
-                  [
-                    "selected",
-                    t("trust.selectedTitle"),
-                    t("trust.selectedBody"),
-                  ],
-                  [
-                    "supplied",
-                    t("trust.suppliedTitle"),
-                    t("trust.suppliedBody"),
-                  ],
-                ] as const
-              ).map(([key, title, body]) => (
-                // Elevation is a border, never a shadow: the rule over each
-                // column is the whole separation between them.
-                <div key={key} className="border-t-2 border-ink pt-4">
-                  <h3 className="type-label">{title}</h3>
-                  <p className="mt-3 type-body-sm">{body}</p>
-                </div>
-              ))}
-            </Grid>
-          </PageShell>
-        </section>
-
-        {/*
-          Every indexable trail — including the ones the wall placed as tiles.
-          Duplication with the wall is deliberate and cheap: a wall tile is a
-          photograph a reader may scroll past, and this row is the only titled,
-          dated, keyboard-obvious path to `/discover`. Gating on the trails the
-          wall left over instead cost the zone its whole existence the moment
-          the site had one indexable trail, since that trail is always placed.
-          The zone is withheld only when nothing is indexable — never
-          because the wall is missing.
-
-          This zone replaces the continuation strip that used to sit at the foot
-          of the wall, where the same trails were a row of underlined links —
-          the weakest presentation available for the editorial content they
-          point at.
-
-          It deliberately reuses the topics zone's construction: `SectionHeader`
-          over a `StoryRow` list on the same divided rule. `StoryRow` already
-          takes a `TrailEntry` (the /discover hub renders trails through it), so
-          this is the existing component with `hrefBase` and `namespace`
-          repointed, not a second row design to keep in sync.
-        */}
+        {/* The zone is withheld only when nothing is indexable. Its image-led
+            cards are the homepage's single owner for discovery trails. */}
         {trails.length > 0 ? (
           <section
             data-landing-zone="trails"
@@ -228,21 +136,24 @@ export async function LandingZones({
                 linkHref={routes.discover()}
                 linkLabel={t("trails.linkText")}
               />
-              <div className="mt-8 divide-y divide-rule border-y border-rule">
+              <Grid
+                as="ul"
+                cols={trails.length >= 3 ? "bands" : "single"}
+                className="mt-8"
+              >
                 {trails.map((trail, index) => (
-                  <StoryRow
+                  <TrailTile
                     key={trail.slug}
-                    story={trail}
-                    locale={locale}
-                    headingLevel={3}
+                    trail={trail}
+                    labels={{
+                      eyebrow: t("trails.eyebrow"),
+                      cta: t("trails.cta"),
+                    }}
                     position={index}
-                    trackingSurface="homepage_trails"
-                    trackingKind="trail"
-                    hrefBase={routes.discover()}
-                    namespace="discover"
+                    singleColumn={trails.length < 3}
                   />
                 ))}
-              </div>
+              </Grid>
             </PageShell>
           </section>
         ) : null}

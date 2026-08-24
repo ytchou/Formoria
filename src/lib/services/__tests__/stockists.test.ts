@@ -1,15 +1,13 @@
 import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, it } from 'vitest'
 
-import { groupStockistsForDisplay } from '@/lib/brands/stockist-display'
 import {
   buildEnrichedStockistRows,
   buildStockistPageRanges,
   STOCKIST_DETAIL_READ_SELECT,
   groupStockistsForCity,
   matchesCategory,
-  resolveBrandOwnerUserIds,
   stockistDistrictSlugs,
   summarizeStockistCities,
   type StockistLocation,
@@ -292,95 +290,6 @@ describe('community stockist reviews are audited', () => {
 })
 
 /**
- * The badge on a confirmed stockist says either 品牌確認 or 站方確認, and
- * `brandOwnerUserIds` is the only input that separates them.
- */
-describe('resolveBrandOwnerUserIds', () => {
-  const approverId = '11111111-1111-4111-8111-111111111111'
-
-  function displayRow(
-    overrides: Partial<{ ownerStatus: string; ownerStatusBy: string | null }> = {},
-  ) {
-    return { ownerStatus: 'none', ownerStatusBy: null, ...overrides }
-  }
-
-  it('reads the owners when a row was confirmed by a recorded approver', async () => {
-    const brandOwnerUserIds = await resolveBrandOwnerUserIds(
-      'brand-id',
-      [displayRow({ ownerStatus: 'confirmed', ownerStatusBy: approverId })],
-      async (brandId) => (brandId === 'brand-id' ? [approverId] : []),
-    )
-
-    expect(brandOwnerUserIds).toEqual([approverId])
-  })
-
-  // Production holds 0 owner-confirmed rows of 1,354 and staging 0 of 568, so
-  // this is currently every brand page. The predicate is TOTAL over the rows
-  // the badge is computed from: `brandOwnerUserIds` reaches exactly one
-  // expression, guarded by `ownerConfirmed && ownerStatusBy != null`. A row
-  // confirmed by an unrecorded approver is the 2026-07 backfill, which keeps
-  // its owner claim without consulting the set at all.
-  it('skips the read when no row can use the result', async () => {
-    let reads = 0
-
-    const brandOwnerUserIds = await resolveBrandOwnerUserIds(
-      'brand-id',
-      [
-        displayRow(),
-        displayRow({ ownerStatus: 'confirmed', ownerStatusBy: null }),
-        displayRow({ ownerStatus: 'rejected', ownerStatusBy: approverId }),
-      ],
-      async () => {
-        reads += 1
-        return [approverId]
-      },
-    )
-
-    expect(brandOwnerUserIds).toEqual([])
-    expect(reads).toBe(0)
-  })
-
-  it('degrades to the humbler badge when the owners read fails', async () => {
-    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {})
-
-    try {
-      const rows = [
-        {
-          id: 'stockist-1',
-          name: '登山友',
-          regionLabel: '臺北市',
-          address: null,
-          url: null,
-          ownerStatus: 'confirmed',
-          ownerStatusBy: approverId,
-          source: 'community',
-          removedAt: null,
-        },
-      ]
-      // A brand page must not 500 over a badge label, and `[]` is safe in the
-      // right DIRECTION: an empty set makes every owner-confirmed row read as
-      // 站方確認. Understating who confirmed a shop is recoverable; printing a
-      // 品牌確認 the brand never made is not.
-      const brandOwnerUserIds = await resolveBrandOwnerUserIds(
-        'brand-id',
-        rows,
-        async () => {
-          throw new Error('brand_owners is unavailable')
-        },
-      )
-
-      expect(brandOwnerUserIds).toEqual([])
-      expect(consoleError).toHaveBeenCalled()
-      expect(
-        groupStockistsForDisplay(rows, brandOwnerUserIds).confirmed.at(0),
-      ).toMatchObject({ status: 'confirmed', confirmedBy: 'formoria' })
-    } finally {
-      consoleError.mockRestore()
-    }
-  })
-})
-
-/**
  * `src/lib/audit/providers.ts` holds audited operation names as BARE STRING
  * LITERALS. No compiler relates them to the functions they name, so a rename
  * that misses one does not fail to build, fail to lint, or throw at runtime —
@@ -418,7 +327,6 @@ describe('audit registry names every audited stockist operation', () => {
   )
 
   const auditedStockistOperations = [
-    'setOwnerStockistStatus',
     'submitStockist',
     'upsertEnrichedStockists',
   ]

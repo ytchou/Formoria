@@ -2,10 +2,6 @@ import { test, expect } from '../fixtures/auth';
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 
 import { BUDGET, POLL } from '../budgets';
-// DEV-1261 note: deliberately NOT gated on `owner_features_enabled`. Save/unsave
-// and favorites are consumer journeys that touch no owner surface, and they are
-// live at launch — pausing them would take consumer coverage dark for no reason.
-// Verified green with the flag off.
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AnySupabaseClient = SupabaseClient<any, any, any>;
@@ -117,7 +113,7 @@ test.describe.serial('Brand save/unsave — card overlay', () => {
     ).toBeVisible({ timeout: BUDGET.GATED_UI });
   });
 
-  test('Journey 2: saved brand appears in dashboard "收藏品牌" tab', async ({ userPage }) => {
+  test('Journey 2: saved brand appears on /favorites', async ({ userPage }) => {
     test.setTimeout(BUDGET.TEST.ADMIN);
     const { error: brandStatusError } = await supabase
       .from('brands')
@@ -127,7 +123,7 @@ test.describe.serial('Brand save/unsave — card overlay', () => {
       throw new Error(`Failed to mark brand approved: ${brandStatusError.message}`);
     }
 
-    // Ensure the brand is saved in DB before navigating to dashboard
+    // Ensure the brand is saved in DB before navigating to /favorites
     const ensureSaved = async () => {
       const { error: saveError } = await supabase.from('brand_saves').upsert(
         { user_id: testUserId, brand_id: brandId },
@@ -169,7 +165,7 @@ test.describe.serial('Brand save/unsave — card overlay', () => {
       )
       .toBe(true);
 
-    // Saved brands now live at /favorites (not the dashboard saved tab)
+    // Saved brands live at /favorites
     const resp = await userPage.goto('/favorites');
     if (resp?.status() === 503) {
       test.skip(true, 'PREVIEW_MODE active — skipping.');
@@ -211,7 +207,7 @@ test.describe.serial('Brand save/unsave — card overlay', () => {
     ).toBeVisible({ timeout: BUDGET.RENDERED });
   });
 
-  test('Journey 4: dashboard "收藏品牌" tab shows empty state when no saves', async ({ userPage }) => {
+  test('Journey 4: /favorites shows empty state when no saves', async ({ userPage }) => {
     test.setTimeout(BUDGET.TEST.ADMIN);
     // Delete saves and immediately navigate — retry the cycle because a parallel
     // worker (second describe block) may race-insert a brand_save for the same

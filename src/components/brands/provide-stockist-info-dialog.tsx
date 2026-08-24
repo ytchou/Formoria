@@ -2,7 +2,7 @@
 
 import NextLink from "next/link";
 import { useLocale, useTranslations } from "next-intl";
-import { Check, Pencil, TriangleAlert } from "lucide-react";
+import { Check, Pencil } from "lucide-react";
 import { useActionState, useId, useState } from "react";
 import {
   submitStockistInfoAction,
@@ -10,11 +10,14 @@ import {
 } from "@/app/[locale]/(site)/brands/[slug]/actions";
 import {
   Dialog,
+  DialogBody,
   DialogClose,
   DialogContent,
   DialogDescription,
   DialogFooter,
+  DialogForm,
   DialogHeader,
+  DialogStatus,
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
@@ -90,48 +93,52 @@ export function ProvideStockistInfoDialog({
             type="button"
             variant="ghost"
             size="compact"
-            className="relative min-h-10 gap-1.5 px-1 type-metadata text-accent underline-offset-4 after:absolute after:-inset-y-1 after:inset-x-0 after:content-[''] hover:bg-transparent hover:text-accent/80 hover:underline focus-visible:border-accent focus-visible:ring-2 focus-visible:ring-accent"
+            className="relative gap-1.5 px-1 type-metadata text-accent underline-offset-4 after:absolute after:-inset-y-1 after:inset-x-0 after:content-[''] hover:bg-transparent hover:text-accent/80 hover:underline focus-visible:border-accent focus-visible:ring-2 focus-visible:ring-accent"
           />
         }
       >
         <Pencil aria-hidden="true" />
         {t("channels.provideInfo")}
       </DialogTrigger>
-      <DialogContent className="max-h-[calc(100dvh-2rem)] overflow-y-auto p-0 sm:max-w-lg">
-        <DialogHeader className="flex-row gap-3 p-4 sm:p-6">
-          <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-accent/10 text-accent">
-            <TriangleAlert aria-hidden="true" className="size-5" />
-          </span>
-          <div className="min-w-0 space-y-1">
-            <DialogTitle>{t("channels.dialog.title")}</DialogTitle>
-            <DialogDescription>{t("channels.subtitle")}</DialogDescription>
-          </div>
+      {/* The header used to scroll away with the rest of the popup: this was the
+          one dialog whose Content was itself the scroll container. The size axis
+          is a prop now, and the scrolling belongs to `DialogBody`. */}
+      <DialogContent size="form">
+        <DialogHeader>
+          <DialogTitle>{t("channels.dialog.title")}</DialogTitle>
+          <DialogDescription>{t("channels.subtitle")}</DialogDescription>
         </DialogHeader>
 
         {state.success ? (
-          <div className="space-y-5 p-4 sm:p-6">
-            <div className="flex items-center gap-3 rounded-lg border border-verified-green/30 bg-verified-green-bg p-4 text-verified-green">
-              <Check aria-hidden="true" className="size-5 shrink-0" />
-              <Typography variant="cardDescription">
-                {t("channels.dialog.success")}
-              </Typography>
-            </div>
-            <DialogFooter className="mx-0 mb-0 rounded-b-xl bg-background p-0">
+          // `children`, not `message`: the success branch is real markup, and
+          // the close action belongs to the status' own footer rather than to a
+          // `DialogFooter` nested inside a padded body.
+          <DialogStatus
+            actions={
               <DialogClose render={<Button variant="secondary" />}>
                 {t("report.close")}
               </DialogClose>
-            </DialogFooter>
-          </div>
+            }
+          >
+            <DialogBody>
+              <div className="flex items-center gap-3 rounded-surface border border-verified-green/30 bg-verified-green-bg p-4 text-verified-green">
+                <Check aria-hidden="true" className="size-5 shrink-0" />
+                <Typography variant="cardDescription">
+                  {t("channels.dialog.success")}
+                </Typography>
+              </div>
+            </DialogBody>
+          </DialogStatus>
         ) : (
-          <form action={action} className="flex flex-col">
+          <DialogForm action={action}>
             <input type="hidden" name="brandId" value={brandId} />
             <input type="hidden" name="brandSlug" value={brandSlug} />
 
-            <div className="space-y-5 px-4 py-5 sm:px-6 sm:py-6">
+            <DialogBody className="space-y-5">
               <div className="space-y-2">
                 <Label htmlFor={`${fieldId}-name`}>
                   {t("channels.dialog.nameLabel")}
-                  <span aria-hidden="true" className="text-destructive">
+                  <span aria-hidden="true" className="text-danger">
                     {" "}
                     *
                   </span>
@@ -147,7 +154,7 @@ export function ProvideStockistInfoDialog({
               <div className="space-y-2">
                 <Label htmlFor={`${fieldId}-region`}>
                   {t("channels.dialog.regionLabel")}
-                  <span aria-hidden="true" className="text-destructive">
+                  <span aria-hidden="true" className="text-danger">
                     {" "}
                     *
                   </span>
@@ -217,9 +224,9 @@ export function ProvideStockistInfoDialog({
                   {state.error}
                 </Typography>
               ) : null}
-            </div>
+            </DialogBody>
 
-            <DialogFooter className="mx-0 mb-0 rounded-b-xl px-4 py-4 sm:px-6">
+            <DialogFooter>
               <DialogClose
                 render={<Button variant="secondary" type="button" />}
               >
@@ -246,7 +253,7 @@ export function ProvideStockistInfoDialog({
                 </Button>
               )}
             </DialogFooter>
-          </form>
+          </DialogForm>
         )}
       </DialogContent>
     </Dialog>

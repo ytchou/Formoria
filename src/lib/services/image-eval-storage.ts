@@ -1,5 +1,9 @@
 import { createServiceClient } from "@/lib/supabase/service";
 import { auditedCall } from "@/lib/audit";
+import {
+  bucketSigner,
+  createSignedUrlsInBatches,
+} from "./_shared/signed-urls";
 
 const IMAGE_EVAL_BUCKET = "image-eval" as const;
 const IMAGE_EVAL_SIGNED_URL_SECONDS = 60 * 60;
@@ -26,22 +30,10 @@ export async function uploadImageEvalAsset(
 export async function createImageEvalSignedUrls(
   paths: string[],
 ): Promise<Map<string, string>> {
-  const result = new Map<string, string>();
-  const uniquePaths = [...new Set(paths.filter(Boolean))];
-  const supabase = createServiceClient();
+  const { byPath } = await createSignedUrlsInBatches(
+    paths,
+    bucketSigner(IMAGE_EVAL_BUCKET, IMAGE_EVAL_SIGNED_URL_SECONDS),
+  );
 
-  for (let index = 0; index < uniquePaths.length; index += 100) {
-    const batch = uniquePaths.slice(index, index + 100);
-    const { data, error } = await supabase.storage
-      .from(IMAGE_EVAL_BUCKET)
-      .createSignedUrls(batch, IMAGE_EVAL_SIGNED_URL_SECONDS);
-    if (error) throw error;
-    data?.forEach((item, itemIndex) => {
-      const signedUrl = item.signedUrl;
-      if (signedUrl && batch[itemIndex])
-        result.set(batch[itemIndex], signedUrl);
-    });
-  }
-
-  return result;
+  return byPath;
 }

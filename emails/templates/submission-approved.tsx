@@ -52,18 +52,18 @@ export default function SubmissionApprovedEmail({
   }
 
   return (
-    <Layout previewText="您的品牌已通過審核！">
-      <EmailHeading>您的品牌已通過審核！</EmailHeading>
+    <Layout previewText="品牌已通過審核！">
+      <EmailHeading>品牌已通過審核！</EmailHeading>
       <EmailText>
         好消息 - <strong dangerouslySetInnerHTML={{ __html: brandNameHtml }} />{" "}
         現已刊登於 Formoria。
       </EmailText>
-      <EmailText>您可以在此查看您的品牌頁面：</EmailText>
+      <EmailText>品牌頁面已上線：</EmailText>
       <EmailText>
         <EmailLink href={brandUrl}>{brandUrl}</EmailLink>
       </EmailText>
       <Button href={brandUrl}>查看品牌頁面</Button>
-      <EmailText>感謝您協助更多人發現台灣品牌。</EmailText>
+      <EmailText>感謝協助更多人發現台灣品牌。</EmailText>
     </Layout>
   );
 }
@@ -77,7 +77,7 @@ export async function buildApprovalEmail(
   const subject =
     locale === "en"
       ? `Your brand "${brandName}" has been approved — Formoria`
-      : `您的品牌「${brandName}」已通過審核 — Formoria`;
+      : `品牌「${brandName}」已通過審核 — Formoria`;
 
   return {
     to: params.submitterEmail,

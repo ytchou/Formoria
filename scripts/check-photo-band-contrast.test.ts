@@ -7,17 +7,22 @@ import sharp from "sharp";
 import { afterAll, describe, expect, it } from "vitest";
 
 import {
-  HAND_ROLLED_SCRIM_EXEMPTIONS,
   REPO_ROOT,
   analyzeFiles,
+  analyzePublishedTrailSource,
   analyzeSource,
   assertRgbPixels,
   breakpointLabel,
+  brightestCompositedLuminance,
   darkestCompositedLuminance,
   isHandRolledScrim,
   loadBandPixels,
+  opaqueScrimContrastRatio,
+  readTypeRoleForeground,
   readTypeRoleInk,
   resolveBandInk,
+  resolveResponsiveForeground,
+  verticalScrimAlphaAt,
   visibleSourceRect,
 } from "./check-photo-band-contrast";
 import {
@@ -28,6 +33,8 @@ import {
 
 const VARIANTS = Object.keys(PHOTO_BAND_SCRIMS) as ScrimVariant[];
 const GROUND: [number, number, number] = [0xfa, 0xf7, 0xf2];
+const INK: [number, number, number] = [0x1a, 0x18, 0x15];
+const INK_MUTED: [number, number, number] = [0x6f, 0x68, 0x5f];
 
 const scratch = mkdtempSync(path.join(tmpdir(), "photo-band-gate-"));
 afterAll(() => rmSync(scratch, { recursive: true, force: true }));
@@ -145,19 +152,47 @@ describe("findHandRolledScrims — the ban", () => {
     );
   });
 
-  it("keeps both exemptions load-bearing", () => {
-    // If an exempted file stops tripping the predicate, the exemption is dead
-    // and should be deleted rather than left as a standing permission.
-    for (const exemption of HAND_ROLLED_SCRIM_EXEMPTIONS) {
-      const source = readFileSync(path.join(REPO_ROOT, exemption.file), "utf8");
-      const { handRolled } = analyzeSource(exemption.file, source);
-      expect(handRolled, exemption.file).not.toHaveLength(0);
+  it("accepts only the two measured source contracts", () => {
+    const files = [
+      "src/components/landing/trail-tile.tsx",
+      "src/components/brands/selected-product-tile.tsx",
+    ].map((file) => ({
+      file,
+      source: readFileSync(path.join(REPO_ROOT, file), "utf8"),
+    }));
 
-      expect(
-        analyzeFiles([{ file: exemption.file, source }]).handRolled,
-        `${exemption.file} is exempt`,
-      ).toEqual([]);
-    }
+    expect(analyzeFiles(files)).toMatchObject({ errors: [], handRolled: [] });
+  });
+
+  it("rejects source-contract drift and an unregistered third scrim", () => {
+    const trailFile = "src/components/landing/trail-tile.tsx";
+    const productFile = "src/components/brands/selected-product-tile.tsx";
+    const trailSource = readFileSync(path.join(REPO_ROOT, trailFile), "utf8");
+    const productSource = readFileSync(
+      path.join(REPO_ROOT, productFile),
+      "utf8",
+    );
+    const drifted = analyzeFiles([
+      {
+        file: trailFile,
+        // Mutate the scrim to trigger the trail-tile contract
+        source: trailSource.replace("from-ink/95", "from-ink/90"),
+      },
+      {
+        file: productFile,
+        source: productSource.replaceAll("ground/95", "ground/94"),
+      },
+      {
+        file: "src/components/landing/unregistered-tile.tsx",
+        source: `export const Tile = () => <span className="absolute inset-0 bg-ink/80" />;`,
+      },
+    ]);
+
+    expect(drifted.errors.join("\n")).toMatch(/scrim contract drifted/);
+    expect(drifted.errors.join("\n")).toMatch(
+      /plate must use sm:bg-ground\/95/,
+    );
+    expect(drifted.handRolled.join("\n")).toContain("unregistered-tile.tsx");
   });
 });
 
@@ -200,6 +235,29 @@ describe("ink roles", () => {
   });
 });
 
+describe("responsive foreground roles", () => {
+  const css = readFileSync(path.join(REPO_ROOT, "src/app/globals.css"), "utf8");
+  const roleForeground = readTypeRoleForeground(css);
+
+  it("lets an active responsive role replace base text, then a responsive token replace it", () => {
+    const base = ["type-card-title", "text-ground", "md:type-section"];
+
+    expect(resolveResponsiveForeground(base, roleForeground, 767)).toBe(
+      "--ground",
+    );
+    expect(resolveResponsiveForeground(base, roleForeground, 768)).toBe(
+      "--ink",
+    );
+    expect(
+      resolveResponsiveForeground(
+        [...base, "md:text-ground"],
+        roleForeground,
+        768,
+      ),
+    ).toBe("--ground");
+  });
+});
+
 describe("object-cover crop model", () => {
   it("keeps full width and crops rows when the band is wider than the frame", () => {
     const rect = visibleSourceRect(1.776, 2.4);
@@ -219,6 +277,87 @@ describe("object-cover crop model", () => {
     expect(rect.y1).toBe(1);
     expect(rect.x1 - rect.x0).toBeCloseTo(0.75 / 1.776, 5);
     expect(rect.x0 + rect.x1).toBeCloseTo(1, 5);
+  });
+});
+
+describe("trail-tile dark scrim model", () => {
+  it("interpolates the declared vertical stops in rendered screen coordinates", () => {
+    expect(verticalScrimAlphaAt(0)).toBeCloseTo(0.1, 6);
+    expect(verticalScrimAlphaAt(0.25)).toBeCloseTo(0.75, 6);
+    expect(verticalScrimAlphaAt(0.625)).toBeCloseTo(0.85, 6);
+    expect(verticalScrimAlphaAt(1)).toBeCloseTo(0.95, 6);
+  });
+
+  it("samples the brightest one percent after object-cover and compositing", () => {
+    const width = 10;
+    const height = 10;
+    const data = Buffer.alloc(width * height * 3);
+    data[0] = 255;
+    data[1] = 255;
+    data[2] = 255;
+
+    const measured = brightestCompositedLuminance(
+      { data, width, height },
+      { label: "fixture", minWidth: 0, bandAspect: 1, textZone: [0, 1] },
+      INK,
+    );
+    const allBlack = brightestCompositedLuminance(
+      { data: Buffer.alloc(width * height * 3), width, height },
+      { label: "fixture", minWidth: 0, bandAspect: 1, textZone: [0, 1] },
+      INK,
+    );
+
+    expect(measured).toBeDefined();
+    expect(measured!).toBeGreaterThan(allBlack!);
+  });
+});
+
+describe("published trail image contract", () => {
+  it("rejects a missing or remote hero on a published trail", () => {
+    const missing = analyzePublishedTrailSource(
+      "content/trails/missing.mdx",
+      "---\ndraft: false\n---\n",
+    );
+    const remote = analyzePublishedTrailSource(
+      "content/trails/remote.mdx",
+      "---\ndraft: false\nheroImage: https://cdn.example.com/trail.webp\n---\n",
+    );
+
+    expect(missing.errors.join("\n")).toContain("needs a local heroImage");
+    expect(remote.errors.join("\n")).toContain(
+      "must be a repo path under /public",
+    );
+  });
+
+  it("registers a local published hero and ignores drafts", () => {
+    const published = analyzePublishedTrailSource(
+      "content/trails/reading.mdx",
+      "---\ndraft: false\nheroImage: /images/trails/reading.webp\n---\n",
+    );
+    const draft = analyzePublishedTrailSource(
+      "content/trails/draft.mdx",
+      "---\ndraft: true\nheroImage: https://cdn.example.com/draft.webp\n---\n",
+    );
+
+    expect(published).toEqual({
+      trail: {
+        file: "content/trails/reading.mdx",
+        image: "/images/trails/reading.webp",
+      },
+      errors: [],
+    });
+    expect(draft).toEqual({ errors: [] });
+  });
+});
+
+describe("product caption plate", () => {
+  it("keeps ink-muted above AA through 95% ground over pure black", () => {
+    expect(
+      opaqueScrimContrastRatio(INK, GROUND, [0, 0, 0], 0.95),
+    ).toBeGreaterThan(4.5);
+    expect(
+      opaqueScrimContrastRatio(INK_MUTED, GROUND, [0, 0, 0], 0.95),
+    ).toBeCloseTo(4.607, 3);
   });
 });
 
@@ -319,6 +458,16 @@ describe("the gate as it runs", () => {
     }
 
     expect(output).toContain("at every declared breakpoint");
+    expect(output).toContain("trail-tile · /images/trails/");
+    expect(output).toContain(
+      "trail-tile · /images/trails/small-space-reading-corner.webp · base (narrow)",
+    );
+    expect(output).toContain(
+      "trail-tile · /images/trails/small-space-reading-corner.webp · min-width:768px",
+    );
+    expect(output).toContain(
+      "product-caption · pure-black pixel · --ink-muted",
+    );
   }, 120_000);
 
   it("reads a different set of pixels at each breakpoint", async () => {

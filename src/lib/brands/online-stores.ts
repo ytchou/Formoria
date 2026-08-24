@@ -40,10 +40,8 @@ interface OnlineStoreMessageKeys {
   readonly brandDetailAction: string
   /** Store phrase used inside the generated brand FAQ answers. */
   readonly brandFaqChannel: string
-  /** Outbound-destination row label in the owner dashboard analytics. */
-  readonly analyticsOutboundDestination: string
-  /** Field label in the owner brand-edit wizard. */
-  readonly dashboardEditField: string
+  /** Field label key in the `brandFields` i18n namespace. */
+  readonly brandFieldKey: string
   /** Field label in the admin corrections queue (keyed by DB column). */
   readonly adminCorrectionField: string
 }
@@ -114,8 +112,7 @@ export const ONLINE_STORES = [
       brandDetailLink: 'brandDetail.links.website',
       brandDetailAction: 'brandDetail.actions.visitWebsite',
       brandFaqChannel: 'brandDetail.brandFaq.channels.website',
-      analyticsOutboundDestination: 'dashboard.analytics.outboundDestinationWebsite',
-      dashboardEditField: 'dashboard.edit.fieldOfficialWebsite',
+      brandFieldKey: 'brandFields.fieldOfficialWebsite',
       adminCorrectionField: 'admin.corrections.fields.purchase_website',
     },
   },
@@ -131,8 +128,7 @@ export const ONLINE_STORES = [
       brandDetailLink: 'brandDetail.links.pinkoi',
       brandDetailAction: 'brandDetail.actions.visitPinkoi',
       brandFaqChannel: 'brandDetail.brandFaq.channels.pinkoi',
-      analyticsOutboundDestination: 'dashboard.analytics.outboundDestinationPinkoi',
-      dashboardEditField: 'dashboard.edit.fieldPinkoi',
+      brandFieldKey: 'brandFields.fieldPinkoi',
       adminCorrectionField: 'admin.corrections.fields.purchase_pinkoi',
     },
   },
@@ -148,8 +144,7 @@ export const ONLINE_STORES = [
       brandDetailLink: 'brandDetail.links.shopee',
       brandDetailAction: 'brandDetail.actions.visitShopee',
       brandFaqChannel: 'brandDetail.brandFaq.channels.shopee',
-      analyticsOutboundDestination: 'dashboard.analytics.outboundDestinationShopee',
-      dashboardEditField: 'dashboard.edit.fieldShopee',
+      brandFieldKey: 'brandFields.fieldShopee',
       adminCorrectionField: 'admin.corrections.fields.purchase_shopee',
     },
   },
@@ -168,8 +163,7 @@ export const ONLINE_STORES = [
       brandDetailLink: 'brandDetail.links.myship',
       brandDetailAction: 'brandDetail.actions.visitMyship',
       brandFaqChannel: 'brandDetail.brandFaq.channels.myship',
-      analyticsOutboundDestination: 'dashboard.analytics.outboundDestinationMyship',
-      dashboardEditField: 'dashboard.edit.fieldMyship',
+      brandFieldKey: 'brandFields.fieldMyship',
       adminCorrectionField: 'admin.corrections.fields.purchase_myship',
     },
   },

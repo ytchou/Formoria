@@ -188,7 +188,7 @@ export default async function WhereToBuyCityPage({
             />
           ))
         ) : (
-          <p className="rounded-[3px] border border-rule bg-surface p-6 type-body-sm">
+          <p className="rounded-surface border border-rule bg-surface p-6 type-body-sm">
             {t('empty')}
           </p>
         )}

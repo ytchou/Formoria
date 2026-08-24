@@ -92,13 +92,29 @@ export const DIRECTORY_QUERY_SPECS = {
       ORDER BY pid
     `.trim(),
   },
+  /**
+   * Autovacuum's eligibility test is
+   * `autovacuum_vacuum_threshold + autovacuum_vacuum_scale_factor * pg_class.reltuples`
+   * — the planner's row estimate, refreshed only by a VACUUM or ANALYZE. It is
+   * NOT `pg_stat_user_tables.n_live_tup`, which is a running delta of
+   * inserts minus deletes since the last vacuum and collapses toward zero on a
+   * delete-heavy table.
+   *
+   * Reading the threshold off `n_live_tup` reported `brand_search_results` as
+   * 91.6% dead and past its threshold (50 + 0.2 * 106 = 71) when the table held
+   * ~20,469 rows, making the real threshold 4,144 and the real bloat 5.3%.
+   * Autovacuum was correct to skip it; the detector filed DEV-1560 against a
+   * healthy daemon. Both the threshold and the percentage therefore read
+   * `reltuples`, falling back to `n_live_tup` only when `reltuples` is -1
+   * (never analyzed, so no better estimate exists).
+   */
   deadTuples: {
     id: "dead_tuples",
     scope: "database_statistics",
     readOnly: true,
     sql: `
       SELECT stats.relname AS table_name,
-        stats.n_live_tup AS live_tuples,
+        live.estimate AS live_tuples,
         stats.n_dead_tup AS dead_tuples,
         COALESCE(
           (
@@ -114,13 +130,17 @@ export const DIRECTORY_QUERY_SPECS = {
             WHERE option LIKE 'autovacuum_vacuum_scale_factor=%'
           ),
           current_setting('autovacuum_vacuum_scale_factor')::numeric
-        ) * stats.n_live_tup AS autovacuum_threshold,
-        CASE WHEN n_live_tup + n_dead_tup > 0
-          THEN 100.0 * n_dead_tup / (n_live_tup + n_dead_tup)
+        ) * live.estimate AS autovacuum_threshold,
+        CASE WHEN live.estimate + stats.n_dead_tup > 0
+          THEN 100.0 * stats.n_dead_tup / (live.estimate + stats.n_dead_tup)
           ELSE 0
         END AS dead_tuple_percent
       FROM pg_stat_user_tables AS stats
       JOIN pg_class AS classes ON classes.oid = stats.relid
+      CROSS JOIN LATERAL (
+        SELECT COALESCE(NULLIF(classes.reltuples, -1), stats.n_live_tup)::numeric
+          AS estimate
+      ) AS live
       WHERE stats.schemaname = 'public'
       ORDER BY stats.relname
     `.trim(),

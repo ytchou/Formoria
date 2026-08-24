@@ -59,7 +59,7 @@
       "count": 2
     },
     "playwright/no-conditional-in-test": {
-      "count": 4
+      "count": 2
     }
   },
   "e2e/tests/auth-signup.spec.ts": {
@@ -72,7 +72,7 @@
   },
   "e2e/tests/brand-actions.spec.ts": {
     "playwright/no-conditional-in-test": {
-      "count": 2
+      "count": 1
     }
   },
   "e2e/tests/brand-save.spec.ts": {
@@ -83,39 +83,6 @@
   "e2e/tests/brand-share.spec.ts": {
     "playwright/no-conditional-in-test": {
       "count": 4
-    }
-  },
-  "e2e/tests/claim-lifecycle.spec.ts": {
-    "playwright/no-conditional-in-test": {
-      "count": 9
-    }
-  },
-  "e2e/tests/claim-smoke.spec.ts": {
-    "playwright/no-conditional-in-test": {
-      "count": 3
-    }
-  },
-  "e2e/tests/community-submit.spec.ts": {
-    "playwright/no-conditional-in-test": {
-      "count": 1
-    }
-  },
-  "e2e/tests/dashboard-analytics.spec.ts": {
-    "playwright/no-conditional-expect": {
-      "count": 7
-    },
-    "playwright/no-conditional-in-test": {
-      "count": 2
-    }
-  },
-  "e2e/tests/dashboard-brand-owned-edit.spec.ts": {
-    "playwright/no-conditional-in-test": {
-      "count": 9
-    }
-  },
-  "e2e/tests/dashboard-tabs.spec.ts": {
-    "playwright/no-conditional-in-test": {
-      "count": 3
     }
   },
   "e2e/tests/directory.spec.ts": {
@@ -154,17 +121,12 @@
   },
   "e2e/tests/mit-verification.spec.ts": {
     "playwright/no-conditional-in-test": {
-      "count": 2
+      "count": 1
     }
   },
   "e2e/tests/og-images.spec.ts": {
     "playwright/expect-expect": {
       "count": 4
-    }
-  },
-  "e2e/tests/owner-features-flag-off.spec.ts": {
-    "playwright/no-conditional-in-test": {
-      "count": 3
     }
   },
   "e2e/tests/public-data-boundary.spec.ts": {
@@ -191,11 +153,8 @@
     }
   },
   "e2e/tests/static-pages.spec.ts": {
-    "playwright/no-conditional-expect": {
-      "count": 2
-    },
     "playwright/no-conditional-in-test": {
-      "count": 8
+      "count": 5
     }
   },
   "e2e/tests/stories.spec.ts": {
@@ -213,7 +172,7 @@
   },
   "e2e/tests/submit-funnel.spec.ts": {
     "playwright/no-conditional-in-test": {
-      "count": 4
+      "count": 2
     }
   }
 }

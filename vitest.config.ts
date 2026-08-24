@@ -9,6 +9,10 @@ const include = [
   // e2e/ is excluded from tsconfig and from Playwright's own run, but the
   // wall-supply guard is pure logic and needs a live unit test (DEV-1485).
   "e2e/utils/**/*.test.ts",
+  // `workers/` is excluded from tsconfig (it targets the Workers runtime, not
+  // Next), but the maintenance gate is pure request logic and its bypass
+  // comparison needs a live test (DEV-1551).
+  "workers/**/*.test.ts",
 ];
 
 // Inline projects do not inherit the root Vite config, so resolve aliases and

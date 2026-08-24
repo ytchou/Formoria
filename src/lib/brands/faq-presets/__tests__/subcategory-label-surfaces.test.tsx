@@ -29,7 +29,11 @@ const NOVEL_TAG = "手工皂磨具";
 const NOVEL_MARKER = enMessages.admin.corrections.novelSubcategory;
 
 vi.mock("next/image", () => ({
-  default: ({ fill: _fill, priority: _priority, ...props }: Record<string, unknown>) => (
+  default: ({
+    fill: _fill,
+    priority: _priority,
+    ...props
+  }: Record<string, unknown>) => (
     // eslint-disable-next-line @next/next/no-img-element -- this IS the mock of next/image
     <img alt="" {...props} />
   ),
@@ -63,7 +67,9 @@ vi.mock("@/lib/analytics", () => ({
 }));
 
 vi.mock("@/hooks/use-saved-brands", () => ({
-  SavedBrandsProvider: ({ children }: { children: ReactNode }) => <>{children}</>,
+  SavedBrandsProvider: ({ children }: { children: ReactNode }) => (
+    <>{children}</>
+  ),
   useSavedBrands: () => ({
     savedIds: new Set<string>(),
     toggle: vi.fn(),
@@ -75,7 +81,7 @@ vi.mock("@/lib/auth/use-user", () => ({
   useUser: () => ({
     user: null,
     loading: false,
-    viewer: { hasOwnedBrand: false, isAdmin: false },
+    viewer: { isAdmin: false },
     viewerLoading: false,
     viewerError: false,
     refreshViewer: vi.fn(),
@@ -90,9 +96,8 @@ vi.mock("@/components/brands/correction-dialog", () => ({
 
 const { BrandCard } = await import("@/components/brands/brand-card");
 const { BrandHeader } = await import("@/components/brands/brand-header");
-const { CorrectionsQueue } = await import(
-  "@/components/admin/corrections-queue"
-);
+const { CorrectionsQueue } =
+  await import("@/components/admin/corrections-queue");
 
 function buildBrand(
   overrides: Partial<PublicBrandDetail> = {},
@@ -110,11 +115,9 @@ function buildBrand(
     categorySlug: "bags-accessories",
     categoryLabel: "包袋配件",
     city: null,
-    isVerified: false,
     mitStatus: "unverified",
     mitStory: null,
     mitCertificateNumber: null,
-    priceRange: null,
     subcategories: [MIGRATED_SLUG],
     subcategoriesEn: [MIGRATED_LABEL_EN],
     foundingYear: null,
@@ -155,18 +158,12 @@ describe("subcategory label surfaces", () => {
   it("brand_chips_render_localised_labels", () => {
     const brand = buildBrand();
 
-    const zhCard = renderInLocale(
-      <BrandCard brand={brand} />,
-      "zh-TW",
-    );
+    const zhCard = renderInLocale(<BrandCard brand={brand} />, "zh-TW");
     expect(screen.getByText(MIGRATED_LABEL_ZH)).toBeInTheDocument();
     expect(screen.queryByText(MIGRATED_SLUG)).toBeNull();
     zhCard.unmount();
 
-    const enCard = renderInLocale(
-      <BrandCard brand={brand} />,
-      "en",
-    );
+    const enCard = renderInLocale(<BrandCard brand={brand} />, "en");
     expect(screen.getByText(MIGRATED_LABEL_EN)).toBeInTheDocument();
     expect(screen.queryByText(MIGRATED_SLUG)).toBeNull();
     enCard.unmount();

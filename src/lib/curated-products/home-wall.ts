@@ -6,7 +6,6 @@ import {
   WALL_RATIOS,
   type WallRatio,
 } from "@/lib/curated-products/wall-ratio";
-import type { TrailEntry } from "@/lib/services/trails";
 
 /**
  * Re-exported so existing importers of this module keep working. The values
@@ -21,18 +20,11 @@ export { DEFAULT_WALL_RATIO, WALL_RATIOS, type WallRatio };
  * Sized in LINES, because that is what a reader perceives: 32 products ran the
  * wall to eight lines and ~3000px, which buried every section under it.
  *
- * The figure is the PRODUCT cap, not the slot count. At a cadence of 8 a full
- * wall earns TWO trail slots, so it composes to 18 slots — not the 17 this
- * comment claimed while the cap was smaller — and `ProductWall` trims back to a
- * whole 16. That trim takes its overflow from the tail's products so neither
- * reserved trail is discarded. That is now a COMPOSITION rule, not a
- * content-loss rule: the homepage trails zone renders every indexable trail
- * whether or not the wall placed it, so a trimmed trail would still reach the
- * reader. Products are the interchangeable part of the wall, which is the
- * reason the trim keeps taking its overflow from them.
+ * The figure is both the product cap and the maximum slot count. `ProductWall`
+ * trims partial supply back to a whole desktop line so an orphan does not
+ * stretch across the full measure.
  */
 export const MAX_HOME_WALL_PRODUCTS = 16;
-export const TRAIL_SLOT_CADENCE = 8;
 
 /**
  * The wall rotates on the Taipei calendar day, because that is the day its
@@ -43,29 +35,15 @@ export const TRAIL_SLOT_CADENCE = 8;
  */
 const WALL_TIME_ZONE = "Asia/Taipei";
 
-/**
- * Trail tiles are sized editorially, never measured: the tile carries a title
- * and a line of copy over a hero image, so its shape is a layout decision.
- */
-export type WallTrailFormat = "tall" | "wide";
-
 export type WallProductSlot = {
-  kind: "product";
   product: HomepageCuratedProduct;
   ratio: WallRatio;
 };
 
-export type WallTrailSlot = {
-  kind: "trail";
-  trail: TrailEntry;
-  format: WallTrailFormat;
-};
-
-export type WallSlot = WallProductSlot | WallTrailSlot;
+export type WallSlot = WallProductSlot;
 
 export type BuildWallSlotsInput = {
   products: HomepageCuratedProduct[];
-  trails: TrailEntry[];
   /**
    * The day the wall is being composed for, as `YYYY-MM-DD`. Passed in so the
    * composition is a pure function of its arguments; defaulted so callers that
@@ -176,9 +154,9 @@ function capProductsPerBrand(
 
 /**
  * Composes the finite wall: the day's shuffle, then the per-brand cap, then the
- * slice to `MAX_HOME_WALL_PRODUCTS`, then the trail interleave. That is the
- * whole ordering — the seed decides everything about which products lead the
- * wall, and no editorial override sits above it.
+ * slice to `MAX_HOME_WALL_PRODUCTS`. That is the whole ordering — the seed
+ * decides everything about which products lead the wall, and no editorial
+ * override sits above it.
  *
  * NO CATEGORY-SPREAD PASS (removed DEV-1496). A per-L1 window over the first
  * twelve tiles reordered the wall to satisfy a budget no reader was counting,
@@ -186,58 +164,14 @@ function capProductsPerBrand(
  * wall of sixteen `home` products is simply what a day of `home` supply looks
  * like.
  *
- * NO `eligibleTrail` FILTER, AND DO NOT ADD ONE BACK. It read
- * `frontmatter.heroImage` and silently dropped every trail without one — which
- * was every published trail, so the wall reserved a slot for none of them and
- * the e2e guard skipped on every run for months (DEV-1522). The hero image is
- * now a PUBLICATION PRECONDITION checked at authoring time, not a runtime
- * filter:
- * docs/decisions/2026-08-19-trail-hero-image-is-a-publish-precondition.md.
- *
- * PRECONDITION: every published trail carries a renderable `heroImage`. A trail
- * that does not still reserves its slot and renders an imageless tile — visibly
- * wrong on the homepage, which is the point. A silent drop is not.
  */
 export function buildWallSlots({
   products,
-  trails,
   seed = wallSeedForDate(),
 }: BuildWallSlotsInput): WallSlot[] {
-  const editorialProducts = capProductsPerBrand(
+  return capProductsPerBrand(
     shuffleWithSeed(products, seed),
-  ).slice(0, MAX_HOME_WALL_PRODUCTS);
-  const trailSlotCount = Math.min(
-    Math.floor(editorialProducts.length / TRAIL_SLOT_CADENCE),
-    trails.length,
-  );
-  const reservedTrails = trails.slice(0, trailSlotCount);
-  const reservedSlots = new Map<number, TrailEntry>();
-  const trailFormats = new Map<string, WallTrailFormat>();
-  reservedTrails.forEach((trail, index) => {
-    reservedSlots.set((index + 1) * TRAIL_SLOT_CADENCE + index, trail);
-    // Alternating so two trail tiles never read as a repeated module.
-    trailFormats.set(trail.slug, index % 2 === 0 ? "tall" : "wide");
-  });
-
-  const slots: WallSlot[] = [];
-  let productIndex = 0;
-  let slotIndex = 0;
-  while (productIndex < editorialProducts.length || reservedSlots.has(slotIndex)) {
-    const reservedTrail = reservedSlots.get(slotIndex);
-    if (reservedTrail) {
-      slots.push({
-        kind: "trail",
-        trail: reservedTrail,
-        format: trailFormats.get(reservedTrail.slug) ?? "tall",
-      });
-    } else {
-      const product = editorialProducts[productIndex];
-      if (!product) break;
-      slots.push({ kind: "product", product, ratio: wallRatioFor(product) });
-      productIndex += 1;
-    }
-    slotIndex += 1;
-  }
-
-  return slots;
+  )
+    .slice(0, MAX_HOME_WALL_PRODUCTS)
+    .map((product) => ({ product, ratio: wallRatioFor(product) }));
 }

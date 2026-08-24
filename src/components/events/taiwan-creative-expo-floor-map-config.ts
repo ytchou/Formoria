@@ -17,7 +17,6 @@ export type ExpoZoneDefinition = Readonly<{
     zhTW: string;
     en: string;
   }>;
-  color: string;
   polygon: ExpoPolygon;
   focus: ExpoFocusBounds;
 }>;
@@ -83,7 +82,6 @@ export const EXPO_ZONE_DEFINITIONS = [
   {
     code: "K1",
     names: EXPO_ZONE_NAMES.K1,
-    color: "var(--color-chart-4)",
     polygon: [
       [1560, 1575],
       [2450, 1575],
@@ -95,7 +93,6 @@ export const EXPO_ZONE_DEFINITIONS = [
   {
     code: "K2",
     names: EXPO_ZONE_NAMES.K2,
-    color: "var(--color-info)",
     polygon: [
       [1560, 1080],
       [2450, 1080],
@@ -107,7 +104,6 @@ export const EXPO_ZONE_DEFINITIONS = [
   {
     code: "K3",
     names: EXPO_ZONE_NAMES.K3,
-    color: "var(--color-muted-foreground)",
     polygon: [
       [2470, 1000],
       [3190, 1000],
@@ -119,7 +115,6 @@ export const EXPO_ZONE_DEFINITIONS = [
   {
     code: "S",
     names: EXPO_ZONE_NAMES.S,
-    color: "var(--color-border)",
     polygon: [
       [2470, 105],
       [3190, 105],

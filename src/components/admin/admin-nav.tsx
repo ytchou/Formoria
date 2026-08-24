@@ -47,7 +47,7 @@ export function AdminNav({ items }: AdminNavProps) {
             {item.count && item.count > 0 ? (
               <span
                 className="rounded-full bg-surface px-2 py-0.5 type-metadata"
-                aria-label={`${item.count} pending`}
+                aria-label={t("pendingCount", { count: item.count })}
               >
                 {item.count}
               </span>

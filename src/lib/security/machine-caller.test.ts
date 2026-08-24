@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { isAuthorizedMachineCaller } from "./machine-caller";
 
 describe("isAuthorizedMachineCaller", () => {
-  const url = "https://formoria.com/api/cron/claim-proof-cleanup";
+  const url = "https://formoria.com/api/cron/purge-classifier-images";
   const secret = "s3cr3t-cron-token";
   const originalOriginSecret = process.env.ORIGIN_SECRET;
 

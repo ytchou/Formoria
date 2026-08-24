@@ -3,7 +3,7 @@ export type IsoDateRange = {
   end: string;
 };
 
-/** Analytics windows are Taipei-based (see posthog-owner-analytics). */
+/** Analytics windows are Taipei-based. */
 const ANALYTICS_TIME_ZONE = "Asia/Taipei";
 
 export function dateRangeForPastDays(
@@ -43,15 +43,6 @@ export function isoDateInTimeZone(value: string, timeZone: string) {
   }
 
   return `${year}-${month}-${day}`;
-}
-
-export function formatIsoDate(date: string, locale: string, showYear: boolean) {
-  return new Intl.DateTimeFormat(locale, {
-    year: showYear ? "numeric" : undefined,
-    month: "short",
-    day: "numeric",
-    timeZone: "UTC",
-  }).format(new Date(`${date}T00:00:00Z`));
 }
 
 function shiftIsoDate(isoDate: string, days: number) {

@@ -119,7 +119,7 @@ export function NewsletterSubscribersList({
                       {subscriber.status === "pending" ? (
                         <Button
                           variant="secondary"
-                          className="min-h-12"
+                          size="large"
                           disabled={isPending}
                           onClick={() => resend(subscriber.id)}
                         >
@@ -130,7 +130,7 @@ export function NewsletterSubscribersList({
                       {subscriber.status !== "unsubscribed" ? (
                         <Button
                           variant="secondary"
-                          className="min-h-12"
+                          size="large"
                           disabled={isPending}
                           onClick={() => setUnsubscribeId(subscriber.id)}
                         >
@@ -152,7 +152,7 @@ export function NewsletterSubscribersList({
           if (!open) setUnsubscribeId(null);
         }}
         title={t("confirmUnsubscribeTitle")}
-        description="This immediately opts the subscriber out and rotates their email tokens. Reactivation is not available from admin."
+        description={t("confirmUnsubscribeDescription")}
         onConfirm={unsubscribe}
         confirmLabel="Confirm unsubscribe"
         variant="destructive"

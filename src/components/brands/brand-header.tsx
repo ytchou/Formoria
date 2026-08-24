@@ -10,7 +10,6 @@ import { cn } from "@/lib/utils";
 import {
   MitDeclaredBadge,
   MitVerifiedBadge,
-  OwnerVerifiedBadge,
 } from "./brand-verification-badges";
 import { CorrectionDialog } from "./correction-dialog";
 
@@ -36,24 +35,16 @@ export function BrandHeader({
   const t = useTranslations("brandDetail");
   const hasMitDeclaredBadge = brand.mitStatus === "declared";
   const hasMitVerifiedBadge = brand.mitStatus === "verified";
-  const hasOwnerVerifiedBadge = brand.isVerified;
-  const hasVerification =
-    hasMitDeclaredBadge || hasMitVerifiedBadge || hasOwnerVerifiedBadge;
+  const hasVerification = hasMitDeclaredBadge || hasMitVerifiedBadge;
   const mitSmileCert = hasMitVerifiedBadge
     ? brand.mitCertificateNumber
     : undefined;
-  const priceRangeLabel =
-    brand.priceRange != null ? "$".repeat(brand.priceRange) : null;
   const resolvedCategory = categoryLabel ?? brand.categoryLabel;
   // `subcategories` stores slugs since DEV-1510, so the chips resolve through
   // the ontology rather than rendering the stored value.
   const resolvedTags = getBrandSubcategoryLabels(brand, locale ?? "zh-TW");
   const unknownValue = (
-    <Typography
-      as="span"
-      className="text-ink-muted"
-      variant="fieldValue"
-    >
+    <Typography as="span" className="text-ink-muted" variant="fieldValue">
       {t("unknown")}
     </Typography>
   );
@@ -81,22 +72,25 @@ export function BrandHeader({
         className="mt-7"
       >
         <div className="flex items-center justify-between gap-4">
-          <Typography as="h2" id="brand-info-heading" variant="sectionTitleLarge">
+          <Typography
+            as="h2"
+            id="brand-info-heading"
+            variant="sectionTitleLarge"
+          >
             {t("sectionTitle")}
           </Typography>
           <CorrectionDialog
             brandId={brand.id}
             brandSlug={brand.slug}
             categorySlug={brand.categorySlug ?? null}
-            priceRange={brand.priceRange}
             subcategories={brand.subcategories}
           />
         </div>
         {hasVerification && (
           <div
             className={cn(
-              "mt-5 flex flex-wrap items-center gap-x-3 gap-y-2 rounded-[3px] px-3 py-2.5",
-              hasMitVerifiedBadge ? "bg-mit-verified-bg" : "bg-secondary",
+              "mt-5 flex flex-wrap items-center gap-x-3 gap-y-2 rounded-surface px-3 py-2.5",
+              hasMitVerifiedBadge ? "bg-mit-verified-bg" : "bg-surface",
             )}
           >
             {hasMitDeclaredBadge && (
@@ -109,12 +103,6 @@ export function BrandHeader({
               <MitVerifiedBadge
                 label={t("mitVerified")}
                 title={t("mitVerifiedTitle")}
-              />
-            )}
-            {hasOwnerVerifiedBadge && (
-              <OwnerVerifiedBadge
-                label={t("verified")}
-                title={t("verifiedTitle")}
               />
             )}
             {mitSmileCert && (
@@ -161,20 +149,6 @@ export function BrandHeader({
               resolvedCategory ? (
                 <Badge className="text-ink" variant="secondary">
                   {resolvedCategory}
-                </Badge>
-              ) : (
-                unknownValue
-              )
-            }
-          />
-          <InfoField
-            label={t("label.priceRange")}
-            labelClassName={infoLabelClassName}
-            layout="stacked"
-            value={
-              priceRangeLabel ? (
-                <Badge className="text-ink" variant="secondary">
-                  {priceRangeLabel}
                 </Badge>
               ) : (
                 unknownValue

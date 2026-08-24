@@ -5,7 +5,7 @@ import { useLocale, useTranslations } from 'next-intl'
 import { type MouseEvent, useRef } from 'react'
 
 import { useSavedBrands } from '@/hooks/use-saved-brands'
-import { buttonVariants } from '@/components/ui/button'
+import { Button } from '@/components/ui/button'
 import { usePathname, useRouter } from '@/i18n/navigation'
 import { localizePath } from '@/i18n/locale-preference'
 import { useUser } from '@/lib/auth/use-user'
@@ -70,47 +70,59 @@ export function SaveBrandButton({
   }
 
   return (
-    <button
+    <Button
       type="button"
+      variant="secondary"
+      size={variant === 'overlay' ? 'icon' : undefined}
+      shape={variant === 'overlay' ? 'pill' : undefined}
       aria-label={isSaved ? t('unsaveAriaLabel') : t('saveAriaLabel')}
       title={!user ? t('loginToSave') : label}
       disabled={isLoading}
       className={cn(
         variant === 'overlay'
-          ? buttonVariants({
-              variant: 'secondary',
-              size: 'icon',
-              shape: 'pill',
-              // The pill stays 32px so the card art is unchanged; the
-              // transparent ::before expands the tap area to 44x44.
-              className:
-                "absolute right-2 top-2 size-8 bg-card shadow-card before:absolute before:-inset-1.5 before:content-[''] [&_svg:not([class*=size-])]:size-4",
-            })
-          : buttonVariants({ variant: 'secondary', className: 'shrink-0' }),
+          ? // The TARGET is the 44x44 `size="icon"` box; the painted disc is
+            // the 32px span inside it, so the card art is unchanged. Same
+            // split as `account-menu.tsx`. It replaces a `size-8` override
+            // plus a transparent ::before that faked the tap area back to
+            // 44px — the box is simply the right size now.
+            'absolute right-1 top-1 border-transparent bg-transparent hover:bg-transparent'
+          : 'shrink-0',
         className
       )}
       onClick={handleClick}
       data-ph-no-autocapture
     >
-      <Bookmark
-        ref={iconRef}
-        className="h-4 w-4 transition-[fill] duration-200"
-        fill={isSaved ? 'currentColor' : 'none'}
-        strokeWidth={2}
-        aria-hidden
-      />
+      {variant === 'overlay' ? (
+        <span className="flex size-8 items-center justify-center rounded-full border border-rule bg-surface">
+          <Bookmark
+            ref={iconRef}
+            className="size-4 transition-[fill] duration-200"
+            fill={isSaved ? 'currentColor' : 'none'}
+            strokeWidth={2}
+            aria-hidden
+          />
+        </span>
+      ) : (
+        <Bookmark
+          ref={iconRef}
+          className="h-4 w-4 transition-[fill] duration-200"
+          fill={isSaved ? 'currentColor' : 'none'}
+          strokeWidth={2}
+          aria-hidden
+        />
+      )}
       {variant === 'inline' && (
         <>
           <span>{label}</span>
           {!userLoading && !user && (
             <LockKeyhole
               data-auth-required-indicator
-              className="size-3.5 text-muted-foreground"
+              className="size-3.5 text-ink-muted"
               aria-hidden="true"
             />
           )}
         </>
       )}
-    </button>
+    </Button>
   )
 }

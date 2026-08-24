@@ -1,12 +1,15 @@
 import { routing } from '@/i18n/routing'
-import { isOwnerFeaturesEnabled } from '@/lib/services/app-settings'
-import { routes } from '@/lib/routes'
 
 /**
- * Routes that 404 while the owner-features kill switch is off. Matched as path
- * prefixes, so `/dashboard/brands/foo` and `/submit/owner/quick` are covered.
+ * Surfaces DEV-1570 removed outright. Matched as path prefixes, so
+ * `/submit/owner/quick` is covered by `/submit/owner`.
+ *
+ * `/dashboard` was the owner dashboard; `/submit/owner` was the owner
+ * submission fork, which stale claim-invite emails still link at. Both are gone
+ * from the router, so honoring a `next` that points at either completes sign-in
+ * on a hard 404.
  */
-const GATED_OWNER_PREFIXES = [routes.dashboard.index(), routes.submit.owner()]
+const RETIRED_PREFIXES = ['/dashboard', '/submit/owner', '/my-submissions']
 
 function stripLocalePrefix(pathname: string): string {
   for (const locale of routing.locales) {
@@ -17,33 +20,37 @@ function stripLocalePrefix(pathname: string): string {
 }
 
 /**
- * True when an unlocalized-or-localized relative target points at a surface the
- * owner-features flag hides. Query string and hash are ignored.
+ * True when an unlocalized-or-localized relative target points at a surface
+ * DEV-1570 deleted outright. Query string and hash are ignored.
  */
-function isGatedOwnerPath(target: string): boolean {
+function isRetiredPath(target: string): boolean {
+  return matchesPrefix(target, RETIRED_PREFIXES)
+}
+
+function matchesPrefix(target: string, prefixes: readonly string[]): boolean {
   const suffixIndex = target.search(/[?#]/)
   const pathOnly = suffixIndex === -1 ? target : target.slice(0, suffixIndex)
   const path = stripLocalePrefix(pathOnly).replace(/\/+$/, '') || '/'
-  return GATED_OWNER_PREFIXES.some(
-    (prefix) => path === prefix || path.startsWith(`${prefix}/`)
-  )
+  return prefixes.some((prefix) => path === prefix || path.startsWith(`${prefix}/`))
 }
 
 /**
  * Where a signed-in user belongs when no explicit destination applies. Returns
  * an unlocalized path — call sites must still run it through `localizePath`.
  *
- * With owner features off the dashboard 404s, so land signed-in users home.
+ * Always home: the owner dashboard it used to point at was removed (DEV-1570),
+ * and no other surface is a general-purpose signed-in landing.
  */
 export async function ownerLandingPath(): Promise<string> {
-  return (await isOwnerFeaturesEnabled()) ? routes.dashboard.index() : '/'
+  return '/'
 }
 
 /**
- * Resolves the post-auth destination for a caller-supplied `next`. A `next`
- * aimed at a gated owner route while the flag is off (stale bookmark, old email
- * link, or a `post_auth_next` cookie written before the flip) would otherwise
- * complete sign-in on a hard 404, so it falls back to the landing path.
+ * Resolves the post-auth destination for a caller-supplied `next`: the request
+ * wins, otherwise the landing path. A `next` aimed at a route DEV-1570 retired
+ * (stale bookmark, old claim-invite email link, or a `post_auth_next` cookie
+ * written before the deploy) would otherwise complete sign-in on a hard 404, so
+ * it falls back to the landing path.
  *
  * Callers must have already run `next` through `isRelativeUrl` — this check is
  * additive to the open-redirect guard, not a replacement for it. Returns an
@@ -52,9 +59,8 @@ export async function ownerLandingPath(): Promise<string> {
 export async function resolvePostAuthPath(
   requestedNext: string | null | undefined
 ): Promise<string> {
-  const ownerFeaturesEnabled = await isOwnerFeaturesEnabled()
-  const landingPath = ownerFeaturesEnabled ? routes.dashboard.index() : '/'
+  const landingPath = await ownerLandingPath()
   if (!requestedNext) return landingPath
-  if (!ownerFeaturesEnabled && isGatedOwnerPath(requestedNext)) return landingPath
+  if (isRetiredPath(requestedNext)) return landingPath
   return requestedNext
 }

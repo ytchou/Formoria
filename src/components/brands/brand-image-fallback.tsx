@@ -18,7 +18,7 @@ export function BrandImageFallback({ name, category, size }: BrandImageFallbackP
     >
       <span
         className={cn(
-          'font-bold text-foreground',
+          'font-bold text-ink',
           size === 'detail' ? 'text-5xl' : 'text-3xl'
         )}
       >

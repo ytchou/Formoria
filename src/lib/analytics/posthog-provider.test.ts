@@ -87,12 +87,12 @@ describe('PostHog provider registry', () => {
     }
 
     registerPostHogSuperProperties({ locale: 'en' })
-    registerPostHogSuperProperties({ surface_variant: 'microsite' })
+    registerPostHogSuperProperties({ fixture_key: 'fixture-value' })
     registerPostHogProvider(provider)
 
     expect(provider.register).toHaveBeenCalledWith({
       locale: 'en',
-      surface_variant: 'microsite',
+      fixture_key: 'fixture-value',
     })
   })
 

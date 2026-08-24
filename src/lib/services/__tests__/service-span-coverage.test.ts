@@ -19,7 +19,6 @@ function brandRow() {
     name: "María García Studio",
     slug: "maria-garcia-studio",
     status: "approved",
-    brand_owners: [],
   };
 }
 
@@ -38,7 +37,7 @@ async function runMutations(): Promise<void> {
   await saveBrand(USER_ID, BRAND_ID);
   await insertBrandImage(imageInsertClient(), {
     brand_id: BRAND_ID,
-    url: "https://cdn.example.test/maria-garcia-studio.jpg",
+    storage_path: "brands/maria-garcia-studio/hero.webp",
     source: "owner",
   });
 }

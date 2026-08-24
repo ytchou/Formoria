@@ -322,7 +322,7 @@ export function SubcategoryPicker({
           id={messageId}
           role="status"
           className={cn(
-            "type-metadata text-destructive",
+            "type-metadata text-danger",
             !rejectedTerm && "sr-only",
           )}
         >
@@ -394,7 +394,7 @@ export function SubcategoryPicker({
         ) : (
           offerGroups.map(({ category, nodes }) => (
             <div key={category.slug} className="space-y-1.5">
-              <p className="type-metadata text-muted-foreground">
+              <p className="type-metadata text-ink-muted">
                 {categoryLabel(category, l1Locale)}
               </p>
               <ChipRow>

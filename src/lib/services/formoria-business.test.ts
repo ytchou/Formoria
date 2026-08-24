@@ -8,7 +8,6 @@ describe('Formoria business snapshot', () => {
         supply: {
           approvedBrands: 120,
           newApproved: { current: 8, prior: 5 },
-          claimedShare: 0.25,
         },
         audience: {
           confirmedSubscribers: 42,

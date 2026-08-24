@@ -377,18 +377,9 @@ export async function cleanupTestData({ createdSince }: CleanupOptions = {}) {
     isSweepCandidate(row, createdSince, orphanedBefore),
   );
   const eventIds = events.map((row) => String(row.id)).filter(Boolean);
-  const claims = brandIds.length
-    ? await queryRows(supabase, 'claim_requests', 'id, brand_id, user_id, created_at, proof_url, proof_evidence', failures)
-    : [];
-  const claimRows = claims.filter((row) => brandIds.includes(String(row.brand_id)) && isSweepCandidate(row, createdSince, orphanedBefore));
-  const claimIds = claimRows.map((row) => String(row.id)).filter(Boolean);
-  const claimPrefixes = claimRows
-    .filter((row) => row.user_id && row.brand_id)
-    .map((row) => `${String(row.user_id)}/${String(row.brand_id)}`);
-
   // Capture storage paths before deleting rows. E2E uploads are always below
-  // a submission, claim, or brand namespace; the known-prefix audit below
-  // fails closed if an object remains after its row is gone.
+  // a submission or brand namespace; the known-prefix audit below fails closed
+  // if an object remains after its row is gone.
   const brandImages = brandIds.length
     ? await queryRows(supabase, 'brand_images', 'storage_path, brand_id', failures)
     : [];
@@ -422,12 +413,10 @@ export async function cleanupTestData({ createdSince }: CleanupOptions = {}) {
       ...submissionIds.map((id) => `submissions/${id}`),
       ...brandIds.map((id) => `brands/${id}`),
     ],
-    claimProofs: claimPrefixes,
     originEvidence: brandIds,
   };
   const storageObjects = {
     brandImages: (await Promise.all(storagePrefixes.brandImages.map((prefix) => listStorageObjects(supabase, 'brand-images', prefix, failures)))).flat(),
-    claimProofs: (await Promise.all(storagePrefixes.claimProofs.map((prefix) => listStorageObjects(supabase, 'claim-proofs', prefix, failures)))).flat(),
     originEvidence: (await Promise.all(storagePrefixes.originEvidence.map((prefix) => listStorageObjects(supabase, 'origin-evidence', prefix, failures)))).flat(),
   };
 
@@ -443,11 +432,6 @@ export async function cleanupTestData({ createdSince }: CleanupOptions = {}) {
       isSweepCandidate(row, createdSince, orphanedBefore);
   });
   const jobIds = jobs.map((row) => String(row.id)).filter(Boolean);
-  const featureRequests = (await queryRows(supabase, 'feature_requests', 'id, title, created_at', failures)).filter((row) =>
-    isE2EName(row.title) &&
-    isSweepCandidate(row, createdSince, orphanedBefore),
-  );
-  const featureRequestIds = featureRequests.map((row) => String(row.id)).filter(Boolean);
   const newsletterRows = (await queryRows(supabase, 'newsletter_subscribers', 'id, email, created_at', failures)).filter((row) =>
     typeof row.email === 'string' &&
     row.email.startsWith('e2e-') &&
@@ -475,24 +459,35 @@ export async function cleanupTestData({ createdSince }: CleanupOptions = {}) {
     ...durableUsers.map((user) => user.id),
   ];
 
+  // DEV-1570: the claim flow is gone but the `claim-proofs` bucket is
+  // deliberately kept, and `claim_requests.brand_id` is ON DELETE CASCADE — the
+  // rows vanish with the test brand, so there is no row left to derive a
+  // per-claim prefix from. List the bucket root instead and keep the objects
+  // whose path names a swept brand or a disposable test user, which is the
+  // `<user_id>/<brand_id>/…` shape the upload path used.
+  const claimProofScope = new Set<string>([
+    ...brandIds,
+    ...disposableUsers.map((user) => String(user.id)).filter(Boolean),
+  ]);
+  const inClaimProofScope = (path: string) =>
+    path.split('/').some((segment) => claimProofScope.has(segment));
+  const claimProofObjects = claimProofScope.size
+    ? (await listStorageObjects(supabase, 'claim-proofs', '', failures)).filter(inClaimProofScope)
+    : [];
+
   // Delete children first. This includes the tables that were previously
-  // omitted from the sweep (owner preferences, jobs, feature requests,
-  // reports, images, and claim storage), then the namespaced roots.
-  await deleteWhereIn(supabase, 'feature_request_votes', 'request_id', featureRequestIds, failures);
+  // omitted from the sweep (owner preferences, jobs, reports, and images),
+  // then the namespaced roots.
   await deleteWhereIn(supabase, 'curation_job_targets', 'job_id', jobIds, failures);
   await deleteWhereIn(supabase, 'curation_jobs', 'id', jobIds, failures);
   await deleteWhereIn(supabase, 'event_brands', 'event_id', eventIds, failures);
   await deleteWhereIn(supabase, 'events', 'id', eventIds, failures);
-  await deleteWhereIn(supabase, 'feature_requests', 'id', featureRequestIds, failures);
   await deleteWhereIn(supabase, 'brand_reports', 'id', reportIds, failures);
   await deleteWhereIn(supabase, 'brand_field_corrections', 'brand_id', brandIds, failures);
   await deleteWhereIn(supabase, 'moderation_flags', 'brand_id', brandIds, failures);
   await deleteWhereIn(supabase, 'pending_brand_edits', 'brand_id', brandIds, failures);
   await deleteWhereIn(supabase, 'brand_saves', 'brand_id', brandIds, failures);
   await deleteWhereIn(supabase, 'brand_channels', 'brand_id', brandIds, failures);
-  await deleteWhereIn(supabase, 'claim_proof_cleanup_jobs', 'claim_request_id', claimIds, failures);
-  await deleteWhereIn(supabase, 'claim_requests', 'id', claimIds, failures);
-  await deleteWhereIn(supabase, 'brand_owners', 'brand_id', brandIds, failures);
   await deleteWhereIn(supabase, 'origin_evidence', 'brand_id', brandIds, failures);
   await deleteWhereIn(supabase, 'brand_field_events', 'brand_id', brandIds, failures);
   await deleteWhereIn(supabase, 'brand_field_state', 'brand_id', brandIds, failures);
@@ -509,7 +504,7 @@ export async function cleanupTestData({ createdSince }: CleanupOptions = {}) {
   await deleteWhereIn(supabase, 'staging_auth_email_captures', 'id', captureIds, failures);
 
   await removeStorageObjects(supabase, 'brand-images', [...brandImagePaths, ...submissionImagePaths, ...storageObjects.brandImages], failures);
-  await removeStorageObjects(supabase, 'claim-proofs', storageObjects.claimProofs, failures);
+  await removeStorageObjects(supabase, 'claim-proofs', claimProofObjects, failures);
   await removeStorageObjects(supabase, 'origin-evidence', [...originEvidencePaths, ...storageObjects.originEvidence], failures);
 
   if (!createdSince) {
@@ -546,10 +541,7 @@ export async function cleanupTestData({ createdSince }: CleanupOptions = {}) {
     ['curation_jobs', 'id', jobIds],
     ['curation_job_targets', 'job_id', jobIds],
     ['event_brands', 'event_id', eventIds],
-    ['feature_requests', 'id', featureRequestIds],
-    ['feature_request_votes', 'request_id', featureRequestIds],
     ['brand_reports', 'id', reportIds],
-    ['brand_owners', 'brand_id', brandIds],
     ['brand_images', 'brand_id', brandIds],
     ['submission_images', 'submission_id', submissionIds],
     ['brand_ai_results', 'submission_id', submissionIds],
@@ -561,8 +553,6 @@ export async function cleanupTestData({ createdSince }: CleanupOptions = {}) {
     ['pending_brand_edits', 'brand_id', brandIds],
     ['brand_saves', 'brand_id', brandIds],
     ['brand_channels', 'brand_id', brandIds],
-    ['claim_requests', 'id', claimIds],
-    ['claim_proof_cleanup_jobs', 'claim_request_id', claimIds],
     ['origin_evidence', 'brand_id', brandIds],
   ] as const) {
     await countBy(`${table}`, ids.length
@@ -571,12 +561,21 @@ export async function cleanupTestData({ createdSince }: CleanupOptions = {}) {
   }
   for (const [bucket, prefixes] of [
     ['brand-images', storagePrefixes.brandImages],
-    ['claim-proofs', storagePrefixes.claimProofs],
     ['origin-evidence', storagePrefixes.originEvidence],
   ] as const) {
     for (const prefix of prefixes) {
       const objects = await listStorageObjects(supabase, bucket, prefix, residue);
       if (objects.length > 0) residue.push(`${bucket}/${prefix}: ${objects.length} object(s)`);
+    }
+  }
+  // Fail closed on claim-proof objects that outlived their cascaded row, using
+  // the same id scope as the delete pass above.
+  if (claimProofScope.size) {
+    const claimProofResidue = (
+      await listStorageObjects(supabase, 'claim-proofs', '', residue)
+    ).filter(inClaimProofScope);
+    if (claimProofResidue.length > 0) {
+      residue.push(`claim-proofs: ${claimProofResidue.length} object(s)`);
     }
   }
   const remainingUsers = await listAllAuthUsers(supabase, residue);

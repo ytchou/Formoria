@@ -33,7 +33,8 @@ export default async function AboutHero({ brandCount, categoryCount, recentBrand
     <section className="py-section">
       <PageShell measure="page">
         <div className="prose-measure">
-          <h1 className="type-display text-balance">{t('title')}</h1>
+          {/* Explicit \n in the i18n key controls the CJK line break */}
+          <h1 className="type-display whitespace-pre-line text-balance">{t('title')}</h1>
           <p className="mt-4 type-body text-ink-soft text-pretty">{t('subtitle')}</p>
 
           <div className="mt-6">
@@ -42,7 +43,6 @@ export default async function AboutHero({ brandCount, categoryCount, recentBrand
               className={buttonVariants({
                 variant: 'primary',
                 size: 'large',
-                className: 'min-h-12',
               })}
             >
               {t('cta')}

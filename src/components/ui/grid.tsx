@@ -28,8 +28,10 @@ export const gridStyles = cva("grid", {
       pair: "grid-cols-1 md:grid-cols-2",
       /** Three-up from `md`. Feature triplets, about cards. */
       triptych: "grid-cols-1 md:grid-cols-3",
-      /** Three-up with a tablet stop. Microsite products, story galleries. */
+      /** Three-up with a tablet stop. Story galleries, product grids. */
       thirds: "grid-cols-1 sm:grid-cols-2 lg:grid-cols-3",
+      single: "grid-cols-1",
+      bands: "grid-cols-1 lg:grid-cols-2 xl:grid-cols-3",
       /**
        * A filter rail beside its results, stacked below `lg`. Not a card grid:
        * this is the page shell the directory and its category routes are built

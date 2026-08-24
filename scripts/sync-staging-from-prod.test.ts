@@ -12,6 +12,8 @@ import {
   planBrandRows,
   planBrandSelection,
   planChildRows,
+  planStorageKeys,
+  SYNCED_STORAGE_PREFIXES,
   planColumnDrift,
   planCopyOrder,
   planImageUpserts,
@@ -74,7 +76,6 @@ function prodBrandRow(overrides: Row = {}): Row {
     blurb_en: "Handmade ceramics",
     city: "新北市",
     founding_year: 1998,
-    price_range: 2,
     category: "home",
     subcategories: ["陶器"],
     subcategories_en: ["ceramics"],
@@ -259,7 +260,11 @@ describe("planBrandSelection", () => {
     expect(plan.slugs).toEqual(
       expect.arrayContaining(["home-1", "beauty-2", "stationery-3"]),
     );
-    expect(plan.rationale.pinned).toEqual(["beauty-2", "home-1", "stationery-3"]);
+    expect(plan.rationale.pinned).toEqual([
+      "beauty-2",
+      "home-1",
+      "stationery-3",
+    ]);
     // A staging brand with no production row cannot be copied onto, and is
     // reported rather than silently dropped.
     expect(plan.rationale.pinnedMissingFromProduction).toEqual([
@@ -1007,5 +1012,59 @@ describe("script source", () => {
 
   it("wraps the production client in the write blocker", () => {
     expect(source).toMatch(/createWriteBlockingClient\(url, key\)/);
+  });
+});
+
+describe("planStorageKeys", () => {
+  it("collects keys under every synced prefix", () => {
+    const plan = planStorageKeys({
+      brand_images: [
+        { storage_path: "brands/b1/a.webp", status: "active" },
+        { storage_path: "submissions/s1/b.webp", status: "active" },
+      ],
+    });
+
+    expect(plan.keys).toEqual(["brands/b1/a.webp", "submissions/s1/b.webp"]);
+    expect(plan.skippedByPrefix).toEqual([]);
+  });
+
+  it("copies submissions/ because promotion reads it as a source", () => {
+    // Promotion is a server-side copy inside ONE bucket, so the source bytes
+    // must already be in the project being promoted. Dropping this prefix
+    // makes `promote-submission-images.ts` report Object not found for every
+    // row — measured 2026-08-23, 781/781.
+    expect(SYNCED_STORAGE_PREFIXES).toContain("submissions/");
+    expect(SYNCED_STORAGE_PREFIXES).toContain("brands/");
+  });
+
+  it("skips rejected brand_images, whose objects are already purged", () => {
+    // brand-storage-maintenance.ts deletes the objects under rejected rows but
+    // leaves storage_path set, so asking for them can only ever fail. A sync
+    // that did not filter reported 524 Object not found.
+    const plan = planStorageKeys({
+      brand_images: [
+        { storage_path: "brands/b1/keep.webp", status: "active" },
+        { storage_path: "brands/b1/gone.jpg", status: "rejected" },
+      ],
+    });
+
+    expect(plan.keys).toEqual(["brands/b1/keep.webp"]);
+  });
+
+  it("keeps keys from tables that have no status column", () => {
+    const plan = planStorageKeys({
+      brands: [{ hero_image_storage_path: "brands/b1/hero.webp" }],
+    });
+
+    expect(plan.keys).toEqual(["brands/b1/hero.webp"]);
+  });
+
+  it("reports keys outside the synced prefixes instead of copying them", () => {
+    const plan = planStorageKeys({
+      event_exhibitors: [{ image_storage_path: "event-exhibitors/e1/x.webp" }],
+    });
+
+    expect(plan.keys).toEqual([]);
+    expect(plan.skippedByPrefix).toEqual(["event-exhibitors/e1/x.webp"]);
   });
 });

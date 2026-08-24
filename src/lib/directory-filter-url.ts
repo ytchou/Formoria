@@ -10,39 +10,40 @@
  * material filter. Adding a facet now means adding it here, once.
  */
 export const DIRECTORY_REFINEMENT_KEYS = [
-  'search',
-  'price',
-  'verification',
-  'material',
-] as const
+  "search",
+  "verification",
+  "material",
+] as const;
 
 /**
  * Sort is presentation: it reorders the same rows rather than narrowing them,
  * so indexation keeps it apart from the refinements above (a sorted page stays
  * indexable). Route shape counts it, because a taxonomy path cannot carry it.
  */
-export const DIRECTORY_SORT_KEY = 'sort'
+export const DIRECTORY_SORT_KEY = "sort";
 
 type DirectoryFilterKey =
-  | (typeof DIRECTORY_REFINEMENT_KEYS)[number]
-  | 'category'
-  | 'sub'
+  (typeof DIRECTORY_REFINEMENT_KEYS)[number] | "category" | "sub";
 
-type SearchParamsLike = { toString(): string }
+type SearchParamsLike = { toString(): string };
 type DirectoryFilterUpdates = Partial<
   Record<DirectoryFilterKey, string | null>
->
+>;
 
 export function updateDirectoryUrl(
   pathname: string,
   searchParams: SearchParamsLike,
   updates: DirectoryFilterUpdates,
 ): string {
-  const params = new URLSearchParams(searchParams.toString())
+  const params = new URLSearchParams(searchParams.toString());
+
+  // DEV-1540 retired the price facet. Strip it from any legacy URL as soon as
+  // the user changes another directory control.
+  params.delete("price");
 
   for (const [key, value] of Object.entries(updates)) {
-    if (value) params.set(key, value)
-    else params.delete(key)
+    if (value) params.set(key, value);
+    else params.delete(key);
   }
 
   // `sub` is scoped to a single L1, so any change to `category` invalidates it.
@@ -53,15 +54,15 @@ export function updateDirectoryUrl(
   // The exception is a patch that sets `sub` itself: the subcategory chips move
   // category and sub together through `buildCategoryTabTarget`, and deleting
   // the value the same call just set would make them dead links.
-  const changesCategory = 'category' in updates
-  const setsSubExplicitly = 'sub' in updates && Boolean(updates.sub)
+  const changesCategory = "category" in updates;
+  const setsSubExplicitly = "sub" in updates && Boolean(updates.sub);
   if (changesCategory && !setsSubExplicitly) {
-    params.delete('sub')
+    params.delete("sub");
   }
 
-  params.delete('page')
-  const query = params.toString()
-  return query ? `${pathname}?${query}` : pathname
+  params.delete("page");
+  const query = params.toString();
+  return query ? `${pathname}?${query}` : pathname;
 }
 
 export function clearDirectoryFilters(
@@ -74,7 +75,6 @@ export function clearDirectoryFilters(
     category: null,
     sub: null,
     material: null,
-    price: null,
     verification: null,
-  })
+  });
 }

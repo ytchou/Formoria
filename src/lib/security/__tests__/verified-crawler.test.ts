@@ -1,6 +1,11 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { NextRequest } from 'next/server'
-import { checkRateLimit, createInMemoryRateLimiter, setRateLimitStoreForTests } from '../rate-limiter'
+import {
+  checkRateLimit,
+  checkSoftRateLimit,
+  createInMemoryRateLimiter,
+  setRateLimitStoreForTests,
+} from '../rate-limiter'
 import { resetCrawlerDriftForTests } from '../crawler-drift'
 import {
   isCrawlerVerificationEnforced,
@@ -190,5 +195,96 @@ describe('shadow-flip safety interlock', () => {
     // carve-out, so a premature flip drops it into the public bucket.
     process.env.VERIFIED_CRAWLER_SHADOW = 'off'
     expect(await hardLimit(request('Googlebot/2.1'))).toBeNull()
+  })
+})
+
+/**
+ * DEV-1551 task 15. The soft limit's crawler bypass was a bare
+ * `isLikelyCrawler()` call: a `Googlebot` User-Agent alone skipped the
+ * `/brands/*` soft limit, with no dependence on the Cloudflare verified-bot
+ * header and no path by which flipping `VERIFIED_CRAWLER_SHADOW` could tighten
+ * it. It now runs through the same interlock the hard limiter uses.
+ */
+describe('soft-limit crawler bypass', () => {
+  const configuredSoftLimit = Number(process.env.SOFT_LIMIT_BRANDS_PER_MIN)
+  const SOFT_LIMIT =
+    Number.isFinite(configuredSoftLimit) && configuredSoftLimit > 0 ? configuredSoftLimit : 150
+
+  async function exhaustSoftLimit(requestToCheck: NextRequest): Promise<boolean> {
+    let challenged = false
+    for (let attempt = 0; attempt <= SOFT_LIMIT; attempt += 1) {
+      challenged = await checkSoftRateLimit(requestToCheck)
+    }
+    return challenged
+  }
+
+  beforeEach(() => {
+    ip = 0
+    delete process.env.VERIFIED_CRAWLER_SHADOW
+    setRateLimitStoreForTests(createInMemoryRateLimiter())
+    resetVerifiedCrawlerStateForTests()
+    resetCrawlerDriftForTests()
+    vi.spyOn(console, 'warn').mockImplementation(() => {})
+  })
+
+  afterEach(() => {
+    setRateLimitStoreForTests(null)
+    resetVerifiedCrawlerStateForTests()
+    resetCrawlerDriftForTests()
+    vi.restoreAllMocks()
+    if (originalShadow === undefined) delete process.env.VERIFIED_CRAWLER_SHADOW
+    else process.env.VERIFIED_CRAWLER_SHADOW = originalShadow
+  })
+
+  it('keeps bypassing a UA-claimed crawler while the interlock holds', async () => {
+    // Unchanged behaviour today, and deliberately so: the transform rule that
+    // stamps the verified-bot header is not deployed, so tightening now would
+    // 302 Googlebot to the noindex /challenge page and deindex /brands/*.
+    process.env.VERIFIED_CRAWLER_SHADOW = 'off'
+    expect(await exhaustSoftLimit(request('Googlebot/2.1'))).toBe(false)
+  })
+
+  it('a spoofed crawler UA no longer bypasses once the header has been observed', async () => {
+    armVerifiedHeader()
+    process.env.VERIFIED_CRAWLER_SHADOW = 'off'
+    expect(await exhaustSoftLimit(request('Googlebot/2.1'))).toBe(true)
+  })
+
+  it('a Cloudflare-verified crawler keeps the bypass', async () => {
+    armVerifiedHeader()
+    process.env.VERIFIED_CRAWLER_SHADOW = 'off'
+    expect(await exhaustSoftLimit(request('Googlebot/2.1', '1'))).toBe(false)
+  })
+
+  it('trustedUnverified crawlers keep the bypass', async () => {
+    armVerifiedHeader()
+    process.env.VERIFIED_CRAWLER_SHADOW = 'off'
+    expect(await exhaustSoftLimit(request('ChatGPT-User/1.0'))).toBe(false)
+  })
+
+  it('an ordinary browser is challenged', async () => {
+    process.env.VERIFIED_CRAWLER_SHADOW = 'on'
+    expect(
+      await exhaustSoftLimit(request('Mozilla/5.0 (Macintosh) Chrome/131.0.0.0 Safari/537.36')),
+    ).toBe(true)
+  })
+
+  it('a verified visitor gets a raised budget, not an exemption', async () => {
+    process.env.VERIFIED_CRAWLER_SHADOW = 'on'
+    const browser = request('Mozilla/5.0 (Macintosh) Chrome/131.0.0.0 Safari/537.36')
+
+    // The same traffic that challenges an unverified visitor passes here...
+    let challenged = false
+    for (let attempt = 0; attempt <= SOFT_LIMIT; attempt += 1) {
+      challenged = await checkSoftRateLimit(browser, { verified: true })
+    }
+    expect(challenged).toBe(false)
+
+    // ...and the budget is still finite. ENFORCEMENT_VERIFIED_MULTIPLIER
+    // defaults to 4, so keep going past four times the base budget.
+    for (let attempt = 0; attempt <= SOFT_LIMIT * 4; attempt += 1) {
+      challenged = await checkSoftRateLimit(browser, { verified: true })
+    }
+    expect(challenged).toBe(true)
   })
 })

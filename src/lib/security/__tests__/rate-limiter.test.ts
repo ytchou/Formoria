@@ -1,6 +1,11 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { NextRequest } from 'next/server'
 import { CRAWLER_REGISTRY } from '../crawler-registry'
+import { routeFamily } from '../route-family'
+import {
+  createInMemoryTraversalStore,
+  setTraversalStoreForTests,
+} from '../traversal-counters'
 import {
   checkRateLimit,
   checkSoftRateLimit,
@@ -9,6 +14,10 @@ import {
   evaluateCrawlerRateLimitAlarm,
   isLikelyCrawler,
   isRateLimitStoreDegraded,
+  isRouterRequest,
+  observeTraversal,
+  rateLimit,
+  resetTraversalTelemetryLatchForTests,
   setRateLimitStoreForTests,
   type RateLimitStore,
 } from '../rate-limiter'
@@ -493,7 +502,9 @@ describe('exact brand directory rate limit', () => {
   })
 
   it('does not consume the directory budget for Next router requests', async () => {
-    const routerHeaders = { accept: '*/*' }
+    // A surviving router signal. `accept` was deleted as a signal in DEV-1551
+    // (see the isRouterRequest block below), so it no longer exempts anything.
+    const routerHeaders = { RSC: '1' }
 
     for (let requestNumber = 1; requestNumber <= directoryLimit; requestNumber += 1) {
       expect(await checkRateLimit(request('/en/brands'))).toBeNull()
@@ -501,6 +512,38 @@ describe('exact brand directory rate limit', () => {
 
     expect(await checkRateLimit(request('/en/brands', routerHeaders))).toBeNull()
     expect((await checkRateLimit(request('/en/brands')))?.status).toBe(429)
+  })
+
+  it('meters router requests against their own budget instead of exempting them', async () => {
+    // The bypass DEV-1551 set out to close. Deleting `accept` from the signal
+    // list moved it one header over: `RSC: 1` still bought unlimited access to
+    // every public route, because a router request skipped the limiter outright.
+    // It now has a finite budget of its own -- generous, because one navigation
+    // legitimately fans out to several prefetches, but no longer unbounded.
+    const routerHeaders = { RSC: '1' }
+    const routerBudget = directoryLimit * 4
+
+    for (let requestNumber = 1; requestNumber <= routerBudget; requestNumber += 1) {
+      expect(await checkRateLimit(request('/en/brands', routerHeaders))).toBeNull()
+    }
+
+    const blocked = await checkRateLimit(request('/en/brands', routerHeaders))
+    expect(blocked?.status).toBe(429)
+    expect(blocked?.headers.get('X-RateLimit-Limit')).toBe(String(routerBudget))
+  })
+
+  it('keeps the router budget separate from the document budget', async () => {
+    // The property DEV-1269 was protecting: a reader's RSC companion request
+    // must not spend the budget their document request needs. Exhausting one
+    // bucket must leave the other intact.
+    const routerHeaders = { RSC: '1' }
+
+    for (let requestNumber = 1; requestNumber <= directoryLimit; requestNumber += 1) {
+      expect(await checkRateLimit(request('/en/brands', routerHeaders))).toBeNull()
+    }
+
+    // Document budget untouched by the router traffic above.
+    expect(await checkRateLimit(request('/en/brands'))).toBeNull()
   })
 
   // Superseded the 2026-08-12 assertion that Googlebot consumed the index
@@ -518,6 +561,123 @@ describe('exact brand directory rate limit', () => {
     for (let requestNumber = 1; requestNumber <= directoryLimit + 1; requestNumber += 1) {
       expect(await checkRateLimit(request('/brands-extra'))).toBeNull()
     }
+  })
+})
+
+/**
+ * Regression: `/admin` and `/dashboard` had no branch in `classifyRoute`, so
+ * they were scored as `public:global-content` against the directory
+ * thresholds. The edge cannot see the user id, so staff traffic landed on the
+ * visitor tier at multiplier 1 and polluted the calibration set.
+ */
+describe('traversal accounting skips non-public surfaces', () => {
+  beforeEach(() => {
+    vi.stubEnv('TRAVERSAL_COUNTERS', 'on')
+    setTraversalStoreForTests(createInMemoryTraversalStore())
+    resetTraversalTelemetryLatchForTests()
+  })
+
+  afterEach(() => {
+    vi.unstubAllEnvs()
+    setTraversalStoreForTests(null)
+  })
+
+  function request(path: string): NextRequest {
+    return new NextRequest(`https://formoria.com${path}`, {
+      headers: {
+        'user-agent':
+          'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 Chrome/131.0.0.0 Safari/537.36',
+        'cf-connecting-ip': '198.51.100.242',
+      },
+    })
+  }
+
+  it('records nothing for admin and dashboard traffic', async () => {
+    for (const path of ['/admin/brands', '/api/admin/brands', '/dashboard']) {
+      expect(await observeTraversal(request(path), path)).toBeNull()
+    }
+  })
+
+  it('still records public directory traffic, so the skip is not global', async () => {
+    const evaluation = await observeTraversal(request('/brands/talkoo'), '/brands/talkoo')
+    expect(evaluation).not.toBeNull()
+    expect(evaluation?.decision.family).toBe('directory:detail')
+  })
+})
+
+/**
+ * Regression: `/i/:path*` was added to the proxy matcher so image traffic would
+ * share the limiter, but no `/i/` rule existed, so `checkRateLimit` fell out at
+ * `if (!ruleKey) return null` and the endpoint was metered by nothing. It is
+ * unauthenticated and streams bytes out of Supabase Storage on every hit.
+ */
+describe('image proxy budget', () => {
+  const configured = Number(process.env.RATE_LIMIT_IMAGES_PER_MIN)
+  const imageLimit =
+    Number.isFinite(configured) && configured > 0 ? configured : 400
+
+  beforeEach(() => {
+    setRateLimitStoreForTests(createInMemoryRateLimiter())
+  })
+
+  afterEach(() => {
+    setRateLimitStoreForTests(null)
+  })
+
+  function imageRequest(path: string, headers: Record<string, string> = {}): NextRequest {
+    return new NextRequest(`https://formoria.com${path}`, {
+      headers: {
+        'user-agent':
+          'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 Chrome/131.0.0.0 Safari/537.36',
+        'x-forwarded-for': '198.51.100.241',
+        ...headers,
+      },
+    })
+  }
+
+  // The burst key is `pathname:ip` and the query string is not part of it, so
+  // this is exactly the looping `curl .../hero.webp?cachebust=N` case: the same
+  // asset, hammered.
+  it('meters /i/ instead of letting it through unmatched', async () => {
+    for (let requestNumber = 1; requestNumber <= imageLimit; requestNumber += 1) {
+      expect(
+        await checkRateLimit(imageRequest(`/i/brands/abc/hero.webp?v=${requestNumber}`)),
+      ).toBeNull()
+    }
+
+    const response = await checkRateLimit(imageRequest('/i/brands/abc/hero.webp?v=over'))
+
+    expect(response?.status).toBe(429)
+    expect(response?.headers.get('X-RateLimit-Limit')).toBe(String(imageLimit))
+  })
+
+  it('is generous enough that several brand pages of images do not trip it', async () => {
+    // A brand page pulls 10+ images; a reader moving through the directory
+    // pulls several pages of them inside one window.
+    for (let requestNumber = 1; requestNumber <= 120; requestNumber += 1) {
+      expect(
+        await checkRateLimit(imageRequest(`/i/brands/abc/hero.webp?v=${requestNumber}`)),
+      ).toBeNull()
+    }
+    expect(imageLimit).toBeGreaterThanOrEqual(200)
+  })
+
+  it('exempts crawlers, matching the other public-content rules', async () => {
+    for (let requestNumber = 1; requestNumber <= imageLimit + 1; requestNumber += 1) {
+      expect(
+        await checkRateLimit(
+          imageRequest('/i/brands/abc/hero.webp', { 'user-agent': 'Googlebot/2.1' }),
+        ),
+      ).toBeNull()
+    }
+  })
+
+  it('does not match a near-prefix path', async () => {
+    for (let requestNumber = 1; requestNumber <= imageLimit + 1; requestNumber += 1) {
+      expect(await checkRateLimit(imageRequest('/images/logo.webp'))).toBeNull()
+    }
+    // `/i/` must not swallow a sibling top-level segment.
+    expect(routeFamily('/images/logo.webp')).not.toBe('directory:image')
   })
 })
 
@@ -690,5 +850,80 @@ describe('crawler alarm reachability', () => {
     await checkRateLimit(request('/brands/example', 'Mozilla/5.0 (Macintosh) Chrome/131.0.0.0'))
 
     expect(getCrawlerDisagreementCount('Googlebot')).toBe(0)
+  })
+})
+
+ // DEV-1551. `isRouterRequest` exempts a request from BOTH the hard limiter and
+ // the Turnstile soft limiter, so anything it returns true for is unlimited and
+ // unchallengeable. `accept: */*` used to be a fifth signal, which handed that
+ // exemption to a bare `curl -H 'Accept: */*'`. The capture in
+ // docs/evidence/2026-08-22-router-headers.md shows every real router request
+ // that sent `accept: */*` also sent `RSC` and `next-url`, so deleting it costs
+ // genuine router traffic nothing.
+describe('isRouterRequest', () => {
+  function headed(headers: Record<string, string>): Request {
+    return new Request('https://formoria.com/brands/talkoo', { headers })
+  }
+
+  it('returns false for accept: */* alone', () => {
+    expect(isRouterRequest(headed({ accept: '*/*' }))).toBe(false)
+  })
+
+  it.each([
+    ['RSC', { RSC: '1' }],
+    ['next-url', { 'next-url': '/brands' }],
+    ['next-router-prefetch', { 'next-router-prefetch': '1' }],
+    ['next-action', { 'next-action': 'abc123' }],
+  ])('still returns true for %s', (_label, headers) => {
+    expect(isRouterRequest(headed(headers))).toBe(true)
+  })
+
+  it('returns true for the real router shape captured on 2026-08-22', () => {
+    expect(
+      isRouterRequest(
+        headed({ accept: '*/*', RSC: '1', 'next-url': '/zh-TW', 'next-router-prefetch': '1' }),
+      ),
+    ).toBe(true)
+  })
+})
+
+describe('rateLimit fail-open', () => {
+  beforeEach(() => {
+    setRateLimitTelemetryTransportForTests(async () => {})
+    vi.spyOn(console, 'error').mockImplementation(() => {})
+  })
+
+  afterEach(() => {
+    setRateLimitStoreForTests(null)
+    setRateLimitTelemetryTransportForTests(null)
+    vi.restoreAllMocks()
+  })
+
+  it('rateLimit fails open when the store throws', async () => {
+    setRateLimitStoreForTests({
+      check: () => {
+        throw new Error('ERR max requests limit exceeded')
+      },
+    } as unknown as RateLimitStore)
+
+    const result = await rateLimit('203.0.113.9', {
+      windowMs: 60_000,
+      maxRequests: 10,
+      prefix: 'challenge',
+    })
+
+    expect(result.allowed).toBe(true)
+    expect(result.remaining).toBe(10)
+  })
+
+  it('still denies past the budget when the store answers', async () => {
+    setRateLimitStoreForTests(createInMemoryRateLimiter())
+
+    let last = await rateLimit('203.0.113.10', { windowMs: 60_000, maxRequests: 2 })
+    expect(last.allowed).toBe(true)
+    last = await rateLimit('203.0.113.10', { windowMs: 60_000, maxRequests: 2 })
+    expect(last.allowed).toBe(true)
+    last = await rateLimit('203.0.113.10', { windowMs: 60_000, maxRequests: 2 })
+    expect(last.allowed).toBe(false)
   })
 })

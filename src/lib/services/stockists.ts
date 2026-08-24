@@ -29,7 +29,6 @@ import {
 } from '@/lib/taxonomy/ontology'
 import { districtSlugFromName } from '@/lib/constants/taiwan-districts'
 import { matchDistrict } from '@/lib/brands/district'
-import { isOwnerOf, listBrandOwnerUserIds } from './brand-owners'
 
 const MAX_ACTIVE_STOCKISTS_PER_BRAND = 5
 const MAX_SUBMISSIONS_PER_DAY = 20
@@ -47,13 +46,6 @@ type SubmitStockistErrorCode =
 
 type SubmitStockistResult =
   { ok: true; id: string } | { ok: false; code: SubmitStockistErrorCode }
-
-type StockistActionResult =
-  | { ok: true; city?: CitySlug | null }
-  | {
-      ok: false
-      code: 'not_found' | 'not_owner' | 'invalid_status' | 'database_error'
-    }
 
 type EnrichedStockistsResult =
   | { ok: true; count: number }
@@ -522,45 +514,6 @@ async function countRecentSubmissions(userId: string): Promise<number> {
   return count ?? 0
 }
 
-/**
- * The owner ids `groupStockistsForDisplay` needs to label THESE rows, or `[]`.
- *
- * `brandOwnerUserIds` reaches exactly one expression in that function —
- * `brandOwnerUserIdSet.has(row.ownerStatusBy)`, short-circuited behind
- * `ownerConfirmed && row.ownerStatusBy != null`. The predicate below is total
- * over the same rows the badge is computed from, so the skip path cannot miss a
- * case: when no row satisfies both conditions, the set was going to be built
- * and never read. Production holds 0 owner-confirmed rows of 1,354 and staging
- * 0 of 568, which is currently every brand page.
- *
- * A failed read degrades to `[]` rather than rejecting. Both directions are
- * deliberate. The brand page 500s if this throws — all to choose between two
- * badge labels — and `[]` makes `approvedByNonOwner` TRUE, so an owner-confirmed
- * row renders 站方確認 (`confirmedBy: 'formoria'`) instead of 品牌確認. That is
- * the humbler claim: understating who confirmed a shop is recoverable, printing
- * a confirmation the brand never made is not.
- *
- * Exported with an injectable loader so the degrade path is testable:
- * `check-test-boundaries.mjs` forbids mocking `@/lib/services/*`.
- */
-export async function resolveBrandOwnerUserIds(
-  brandId: string,
-  rows: ReadonlyArray<{ ownerStatus: string; ownerStatusBy?: string | null }>,
-  loadOwners: (brandId: string) => Promise<string[]> = listBrandOwnerUserIds,
-): Promise<string[]> {
-  const needsOwners = rows.some(
-    (row) => row.ownerStatus === 'confirmed' && row.ownerStatusBy != null,
-  )
-  if (!needsOwners) return []
-
-  try {
-    return await loadOwners(brandId)
-  } catch (error) {
-    console.error('[stockists:owners]', error)
-    return []
-  }
-}
-
 export async function getStockistsForBrand(
   brandId: string,
 ): Promise<ReturnType<typeof groupStockistsForDisplay>> {
@@ -577,9 +530,7 @@ export async function getStockistsForBrand(
   const displayRows = ((data ?? []) as unknown as StockistTableRow[]).map(
     rowToDisplayRow,
   )
-  const brandOwnerUserIds = await resolveBrandOwnerUserIds(brandId, displayRows)
-
-  return groupStockistsForDisplay(displayRows, brandOwnerUserIds)
+  return groupStockistsForDisplay(displayRows)
 }
 
 export async function submitStockist(
@@ -681,50 +632,6 @@ export async function submitStockist(
       // The row is invisible to the public until an admin approves it in
       // `/admin/stockists`; nothing else happens at submit time.
       return { ok: true, id: stockistId }
-    },
-  )
-}
-
-export async function setOwnerStockistStatus(
-  userId: string,
-  stockistId: string,
-  status: 'confirmed' | 'rejected',
-): Promise<StockistActionResult> {
-  return auditedCall(
-    { provider: 'brands', operation: 'setOwnerStockistStatus', kind: 'service' },
-    async () => {
-      if (status !== 'confirmed' && status !== 'rejected') {
-        return { ok: false, code: 'invalid_status' }
-      }
-
-      const supabase = createServiceClient()
-      const { data: stockist, error: lookupError } = await supabase
-        .from('brand_channels')
-        .select('brand_id, region_label')
-        .eq('id', stockistId)
-        .maybeSingle()
-
-      if (lookupError) return { ok: false, code: 'database_error' }
-      if (!stockist) return { ok: false, code: 'not_found' }
-
-      const { brand_id: brandId } = stockist as unknown as StockistLookupRow
-      if (!(await isOwnerOf(userId, brandId))) {
-        return { ok: false, code: 'not_owner' }
-      }
-
-      const { error: updateError } = await supabase
-        .from('brand_channels')
-        .update({
-          owner_status: status,
-          owner_status_by: userId,
-        })
-        .eq('id', stockistId)
-
-      if (updateError) return { ok: false, code: 'database_error' }
-      return {
-        ok: true,
-        city: citySlugFromName((stockist as StockistLookupRow).region_label),
-      }
     },
   )
 }
