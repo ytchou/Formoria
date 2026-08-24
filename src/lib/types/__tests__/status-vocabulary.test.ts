@@ -5,7 +5,6 @@ import type {
   PhaseStatus as RunLogPhaseStatus,
   StepEventStatus,
 } from '@/lib/runlog/schema'
-import type { EventStatus } from '@/lib/services/events'
 
 /**
  * Vocabulary lock for the status unions that used to be declared more than
@@ -99,12 +98,4 @@ describe('status vocabulary', () => {
     expect(members).toEqual(['ok', 'error', 'warning', 'unknown'])
   })
 
-  it('pins EventStatus to the events.status publication ladder', () => {
-    // Mirrors the `status` CHECK on `public.events` (20260731090000_events.sql).
-    const exact: Equals<EventStatus, 'draft' | 'published' | 'hidden'> = true
-    const members: readonly EventStatus[] = ['draft', 'published', 'hidden']
-
-    expect(exact).toBe(true)
-    expect(members).toEqual(['draft', 'published', 'hidden'])
-  })
 })

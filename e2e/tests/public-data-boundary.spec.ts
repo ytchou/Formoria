@@ -19,9 +19,6 @@ test.describe.serial("Public brand data boundary", () => {
   let brandId: string;
   let brandName: string;
   let brandSlug: string;
-  let eventId: string;
-  let eventName: string;
-  let eventSlug: string;
   let searchToken: string;
   let actorUserId: string;
   let canaries: string[] = [];
@@ -40,9 +37,6 @@ test.describe.serial("Public brand data boundary", () => {
     searchToken = `boundary${suffix}`;
     brandName = `[E2E-TEST] Public Boundary ${searchToken}`;
     brandSlug = `e2e-public-boundary-${suffix}`;
-    eventName = `[E2E-TEST] Public Boundary Event ${suffix}`;
-    eventSlug = `e2e-public-boundary-event-${suffix}`;
-
     const privateContact = `private-contact-${suffix}@example.invalid`;
     const privateDraft = `private-draft-${suffix}`;
     const privateEvidence = `private-evidence-${suffix}`;
@@ -103,48 +97,11 @@ test.describe.serial("Public brand data boundary", () => {
     }
     brandId = brand.id;
 
-    const { data: event, error: eventError } = await supabase
-      .from("events")
-      .insert({
-        slug: eventSlug,
-        name: eventName,
-        summary: "A public event containing the boundary-test brand.",
-        starts_on: "2099-08-06",
-        ends_on: "2099-08-07",
-        status: "published",
-      })
-      .select("id")
-      .single();
-
-    if (eventError || !event) {
-      throw new Error(
-        `Public data boundary event seed failed: ${eventError?.message ?? "missing row"}`,
-      );
-    }
-    eventId = event.id;
-
-    const { error: lineupError } = await supabase.from("event_brands").insert({
-      event_id: eventId,
-      brand_id: brandId,
-      area: "Boundary Hall",
-      booth: "P1-001",
-    });
-    if (lineupError) {
-      throw new Error(
-        `Public data boundary lineup seed failed: ${lineupError.message}`,
-      );
-    }
   });
 
   test.afterAll(async () => {
     if (!supabase) return;
     const cleanupErrors: string[] = [];
-    if (eventId) {
-      const { error } = await supabase.from("event_brands").delete().eq("event_id", eventId);
-      if (error) cleanupErrors.push(`event lineup deletion failed: ${error.message}`);
-      const { error: eventError } = await supabase.from("events").delete().eq("id", eventId);
-      if (eventError) cleanupErrors.push(`event deletion failed: ${eventError.message}`);
-    }
     if (brandId) {
       const { error } = await supabase.from("brands").delete().eq("id", brandId);
       if (error) cleanupErrors.push(`brand deletion failed: ${error.message}`);
@@ -198,10 +155,6 @@ test.describe.serial("Public brand data boundary", () => {
     });
     await auditCurrentDocument(page, canaries, "brand detail");
 
-    await openSeededRoute(page, `/events/${eventSlug}`, eventName);
-    await expect(page.getByRole("link", { name: brandName })).toBeVisible();
-    await auditCurrentDocument(page, canaries, "event detail");
-
     const story = publishedStories("zh-TW").at(0);
     if (story) {
       const response = await page.goto(`/stories/${story.slug}`);
@@ -231,21 +184,6 @@ test.describe.serial("Public brand data boundary", () => {
   });
 });
 
-async function openSeededRoute(
-  page: Page,
-  path: string,
-  heading: string,
-): Promise<void> {
-  await expect(async () => {
-    const response = await page.goto(path);
-    expect(response?.status()).toBe(200);
-    await expect(
-      page.getByRole("heading", { level: 1, name: heading }),
-    ).toBeVisible({
-      timeout: BUDGET.INTERACTIVE,
-    });
-  }).toPass(POLL.DB);
-}
 async function auditCurrentDocument(
   page: Page,
   canaries: string[],

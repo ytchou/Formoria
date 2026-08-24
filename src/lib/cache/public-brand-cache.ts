@@ -64,24 +64,8 @@ export function revalidatePublicBrands(slugs: readonly string[]): void {
   // These shared pages read brand data and must be invalidated once per batch.
   revalidateLocalizedPath('/')
   revalidateLocalizedPath(routes.about())
-  revalidateLocalizedPath(routes.events())
   revalidatePath('/sitemap.xml')
-  revalidatePath('/[locale]/events/[slug]', 'page')
   revalidatePath('/[locale]/stories/[slug]', 'page')
-}
-
-/**
- * Revalidates event detail pages and the shared event surfaces. An empty list
- * still means the event collection changed, so the hub and sitemap are kept
- * fresh even when no detail slug is known.
- */
-export function revalidatePublicEvents(slugs: readonly string[]): void {
-  for (const slug of uniqueSlugs(slugs)) {
-    revalidateLocalizedPath(routes.event(slug))
-  }
-
-  revalidateLocalizedPath(routes.events())
-  revalidatePath('/sitemap.xml')
 }
 
 export function revalidatePublicStockists(city?: CitySlug | null): void {

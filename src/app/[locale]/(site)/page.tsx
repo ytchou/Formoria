@@ -6,10 +6,7 @@ import {
   safeJsonLdStringify,
 } from "@/lib/json-ld";
 import HeroSection from "@/components/landing/hero-section";
-import {
-  LandingZones,
-  type PromotedEvent,
-} from "@/components/landing/landing-zones";
+import { LandingZones } from "@/components/landing/landing-zones";
 import SectionBand from "@/components/landing/section-band";
 import { EXPLORE_BRAND_LIMIT, getExploreBrands } from "@/lib/services/brands";
 import {
@@ -23,21 +20,7 @@ import type { Locale } from "@/lib/seo/alternates";
 import { buildOpenGraph } from "@/lib/seo/open-graph";
 import { getAllStories } from "@/lib/services/stories";
 import { getAllTrails } from "@/lib/services/trails";
-import {
-  getEventBrandCounts,
-  getPublishedEvents,
-  partitionEventsByPhase,
-  resolveEventPhase,
-  taipeiToday,
-} from "@/lib/services/events";
 import { toPublicBrandCard } from "@/lib/brands/contracts";
-
-/**
- * Ongoing and upcoming events promoted on the landing page. Two, not the whole
- * hub: this is a pointer to `/events`, and a third card starts competing with
- * the brand showcase directly under it.
- */
-const LANDING_EVENT_LIMIT = 2;
 
 /** Stories shown in the topics zone before the reader is sent to `/stories`. */
 const LANDING_STORY_LIMIT = 3;
@@ -59,26 +42,18 @@ export function isLandingRenderDegraded({
   curatedProducts,
   stories,
   trails,
-  events,
-  eventBrandCounts,
-  promotedEventCount,
 }: {
   exploreResult: unknown;
   curatedProducts: unknown;
   stories: { ok: boolean };
   trails: { ok: boolean } | null;
-  events: unknown;
-  eventBrandCounts: unknown;
-  promotedEventCount: number;
 }): boolean {
   return (
     exploreResult === null ||
     curatedProducts === null ||
     !stories.ok ||
     trails === null ||
-    !trails.ok ||
-    events === null ||
-    (promotedEventCount > 0 && eventBrandCounts === null)
+    !trails.ok
   );
 }
 
@@ -124,7 +99,6 @@ export default async function LandingPage({ params }: PageProps) {
     curatedProductsResult,
     storyResult,
     trailResult,
-    eventResult,
   ] = await Promise.all([
       getExploreBrands(EXPLORE_BRAND_LIMIT).catch(
         captureReadFailure("landing.exploreBrands"),
@@ -141,38 +115,13 @@ export default async function LandingPage({ params }: PageProps) {
           return result;
         })
         .catch(captureReadFailure("landing.trails")),
-      getPublishedEvents().catch(captureReadFailure("landing.events")),
     ]);
-
-  // One Taipei "today" for the whole render: partitioning on one value and
-  // badging on another could put an event in the promoted row wearing a phase
-  // pill from the other side of midnight. Same rule as the events hub.
-  const today = taipeiToday();
-  // Ongoing before upcoming, each already ascending by `startsOn` out of the
-  // service — the concatenation is what the hub renders too, so the row and the
-  // page it links to can never disagree about what comes first.
-  const eventsByPhase = partitionEventsByPhase(eventResult ?? [], today);
-  const liveEvents = [
-    ...eventsByPhase.ongoing,
-    ...eventsByPhase.upcoming,
-  ].slice(0, LANDING_EVENT_LIMIT);
-  // Counted only for what is actually rendered, so a hub-sized query never runs
-  // for a row that shows at most two cards — and not at all when there are none.
-  const eventBrandCounts =
-    liveEvents.length > 0
-      ? await getEventBrandCounts(liveEvents.map((event) => event.id)).catch(
-          captureReadFailure("landing.events.brandCounts"),
-        )
-      : null;
 
   const degraded = isLandingRenderDegraded({
     exploreResult,
     curatedProducts: curatedProductsResult,
     stories: storyResult,
     trails: trailResult,
-    events: eventResult,
-    eventBrandCounts,
-    promotedEventCount: liveEvents.length,
   });
   if (degraded) {
     await markRenderDegraded("landing");
@@ -189,11 +138,6 @@ export default async function LandingPage({ params }: PageProps) {
   const wallSlots = buildWallSlots({
     products: curatedProducts,
   });
-  const promotedEvents: PromotedEvent[] = liveEvents.map((event) => ({
-    event,
-    phase: resolveEventPhase(event, today),
-    brandCount: eventBrandCounts?.get(event.id) ?? 0,
-  }));
 
   return (
     <>
@@ -219,7 +163,6 @@ export default async function LandingPage({ params }: PageProps) {
           }
           trails={publishedTrails}
           stories={latestStories}
-          events={promotedEvents}
           brands={exploreBrands}
         />
       </main>

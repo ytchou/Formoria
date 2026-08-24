@@ -32,12 +32,7 @@ const CHIP_ROOTS = ["src/components", "src/app"];
  * rather than assumed, and the count has to be exact so a second chip added
  * beside it trips this test.
  */
-const LONE_CHIPS: Record<string, { allowed: number; why: string }> = {
-  "src/components/events/taiwan-creative-expo-explorer.tsx": {
-    allowed: 1,
-    why: "The listed-only chip sits beside the search field rather than in the zone row: it cuts across every zone, so it belongs with the controls that do the same. Nothing renders next to it.",
-  },
-};
+const LONE_CHIPS: Record<string, { allowed: number; why: string }> = {};
 
 /** Ancestors that are structure, not layout — they never own a gap. */
 const TRANSPARENT_ANCESTORS = new Set(["li", "", "Fragment", "React.Fragment"]);

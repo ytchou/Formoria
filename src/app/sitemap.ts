@@ -1,6 +1,5 @@
 import type { MetadataRoute } from "next";
 import { getBrandSeoEntries } from "@/lib/services/brands";
-import { getPublishedEvents } from "@/lib/services/events";
 import { getAllStories } from "@/lib/services/stories";
 import { buildAlternates, type Locale } from "@/lib/seo/alternates";
 import { buildBrandSitemapEntries } from "@/lib/seo/brand-sitemap";
@@ -99,9 +98,6 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const staticPages = [
     "/",
     routes.brands(),
-    // Deliberately in staticPages, not the try block: the hub is a real page with
-    // zero events, and it must stay listed even when the dynamic block throws.
-    routes.events(),
     routes.about(),
     routes.faq(),
     routes.contact(),
@@ -123,16 +119,9 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     const directoryPagesPromise = buildDirectorySitemapSection(rawBrandsPromise);
     const stockistPagesPromise = buildWhereToBuySitemapSection(getStockistDirectory());
     const trailPagesPromise = buildTrailSitemapSection().catch(() => []);
-    const [brands, storyResult, events, categoryPages, stockistPages, trailPages] = await Promise.all([
+    const [brands, storyResult, categoryPages, stockistPages, trailPages] = await Promise.all([
       brandsPromise,
       getAllStories(),
-      // Degrade to zero event entries instead of taking the sitemap down with
-      // them: the events service throws on any query error, and an unguarded
-      // rejection rejects the whole Promise.all even when brands and stories
-      // already resolved — the catch below would then drop every /brands/<slug>,
-      // every ?category= and every /stories/<slug> URL for the full revalidate
-      // window. Same resilience as `storyResult.ok` on the next line.
-      getPublishedEvents().catch(() => []),
       directoryPagesPromise,
       stockistPagesPromise,
       trailPagesPromise,
@@ -153,18 +142,6 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       );
     });
 
-    // Unlike stories — whose /en twin serves byte-identical MDX and is therefore
-    // kept out — an event with English copy is genuinely different content per
-    // locale, so it is listed in both. Same per-locale gating as brands above:
-    // an event without English copy lists zh-TW only.
-    const eventPages = events.flatMap((event) =>
-      localizedEntries(
-        routes.event(event.slug),
-        event.nameEn ? ALL_LOCALES : (["zh-TW"] as const),
-        validDate(event.updatedAt),
-      ),
-    );
-
     return [
       ...staticPages,
       ...storyIndexPages,
@@ -172,7 +149,6 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       ...stockistPages,
       ...brandPages,
       ...storyPages,
-      ...eventPages,
       ...trailPages,
     ];
   } catch {

@@ -114,14 +114,6 @@ export const allowedMatches = [
     values: ["max-w-[calc(100%-2rem)]"],
   },
   {
-    // The floor-map dialog is sized by the MAP's legibility, and needs a
-    // viewport-relative cap that no fixed overlay name can express:
-    // `overlay-wide` is a flat 72rem and would overflow a 1024px laptop.
-    file: "src/components/events/taiwan-creative-expo-official-map.tsx",
-    names: ["unnamed page width"],
-    values: ["max-w-[min(96vw,1100px)]"],
-  },
-  {
     // Table-cell truncation caps. They bound a `<td>` so a long brand name
     // ellipses instead of stretching its column — a cell width, which no page
     // measure and no overlay name describes.

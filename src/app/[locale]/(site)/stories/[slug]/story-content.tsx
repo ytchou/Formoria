@@ -4,15 +4,14 @@ import { createStoryComponentMap } from '@/lib/mdx/components'
 
 type StoryContentProps = {
   source: string
-  currentStorySlug?: string
 }
 
-export function StoryContent({ source, currentStorySlug }: StoryContentProps) {
+export function StoryContent({ source }: StoryContentProps) {
   return (
     <MDXRemote
       source={source}
       options={{ blockJS: false, blockDangerousJS: true }}
-      components={createStoryComponentMap({ currentStorySlug })}
+      components={createStoryComponentMap()}
     />
   )
 }

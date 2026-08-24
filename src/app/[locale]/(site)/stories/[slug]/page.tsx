@@ -22,10 +22,7 @@ import {
 } from "@/components/stories/story-date";
 import { ViewItemListTracker } from "@/components/analytics/view-item-list-tracker";
 import { SavedBrandsProvider } from "@/hooks/use-saved-brands";
-import {
-  extractLinkedBrandSlugs,
-  hasEventInfoShortcode,
-} from "@/lib/mdx/extract-brand-slugs";
+import { extractLinkedBrandSlugs } from "@/lib/mdx/extract-brand-slugs";
 import { buildAlternates } from "@/lib/seo/alternates";
 import type { Locale } from "@/lib/seo/alternates";
 import {
@@ -208,7 +205,7 @@ export default async function StoryPage({ params }: PageProps) {
       .seriesTitle ??
     t("seriesHeading");
   // Mirrors the visible breadcrumb below, so the two never disagree. Same
-  // builder every other content route uses (`/brands/[slug]`, `/events`).
+  // builder every other content route uses (`/brands/[slug]`).
   const breadcrumbJsonLd = buildBreadcrumbJsonLd(
     [
       { label: t("breadcrumb"), href: routes.stories() },
@@ -223,8 +220,6 @@ export default async function StoryPage({ params }: PageProps) {
   // convert. Zero brands means no list at all — an empty `view_item_list` is
   // noise in GA4, not a datapoint.
   const brandCount = extractLinkedBrandSlugs(story.content).length;
-  const hasEventInfo = hasEventInfoShortcode(story.content);
-
   return (
     // One container owns every story detail surface: breadcrumb, hero,
     // metadata, body, figures, cards, FAQ, and series nav. It runs on
@@ -384,7 +379,6 @@ export default async function StoryPage({ params }: PageProps) {
           <div>
             <StoryContent
               source={story.content}
-              currentStorySlug={story.entry.slug}
             />
           </div>
         </SavedBrandsProvider>
@@ -392,7 +386,7 @@ export default async function StoryPage({ params }: PageProps) {
           story.entry.frontmatter.faq.length > 0 && (
             <FaqBlock questions={story.entry.frontmatter.faq} />
           )}
-        {seriesId && !hasEventInfo ? (
+        {seriesId ? (
           <SeriesNav
             series={series}
             currentSlug={story.entry.slug}

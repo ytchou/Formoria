@@ -102,22 +102,6 @@ function stripFencedCodeBlocks(source: string): string {
 }
 
 /**
- * Whether the body already renders `<EventInfo>`, which carries its own series
- * list. The story page reads this to suppress the bottom `<SeriesNav>` — the
- * shortcode only resolves inside `MDXRemote`, long after the page component has
- * decided what to render, so the raw source is the only thing available.
- *
- * It lives here, beside the brand extractor, for the fenced-code guard: this is
- * the one module that knows how to ignore a story *documenting* the syntax, and
- * a second copy of that scanner is exactly the drift this file was created to
- * end. The prop prefix is `[\s\S]*?` for the same reason the brand patterns use
- * it — a `>` inside an earlier prop value must not end the match early.
- */
-export function hasEventInfoShortcode(source: string): boolean {
-  return /<EventInfo\b[\s\S]*?\bslug=["'][^"']+["']/.test(stripFencedCodeBlocks(source))
-}
-
-/**
  * Every brand slug the source references, in document order, duplicates
  * included — callers that want a unique set build one.
  *

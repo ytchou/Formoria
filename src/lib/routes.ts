@@ -75,8 +75,6 @@ export const routes = {
   trail: (slug: string) => `/discover/${seg(slug)}`,
   stories: () => '/stories',
   story: (slug: string) => `/stories/${seg(slug)}`,
-  events: () => '/events',
-  event: (slug: string) => `/events/${seg(slug)}`,
 
   // Retail
   whereToBuy: () => '/where-to-buy',
