@@ -767,20 +767,6 @@ async function main(): Promise<void> {
     );
     return;
   }
-  if (command === "checksums:verify") {
-    const violations = verifyChecksumManifest(
-      loadChecksumManifest(),
-      localMigrationFileHashes(),
-    );
-    if (violations.length > 0) {
-      throw new Error(
-        `Migration content integrity check failed:\n  ${violations.join("\n  ")}`,
-      );
-    }
-    console.log("Migration content integrity: all checksums match");
-    return;
-  }
-
   const target = validateDeploymentTarget();
 
   switch (command) {
