@@ -60,7 +60,7 @@ test.describe("Static & compliance pages", () => {
         return;
       }
       await expect(
-        anonPage.getByRole("heading", { level: 1 }),
+        anonPage.getByRole("heading", { level: 1, name: locale.heading }),
       ).toBeVisible({ timeout: BUDGET.SERVER_RENDER });
       await expect(
         anonPage.getByText(locale.mission, { exact: true }),

@@ -67,7 +67,7 @@ test.describe("SEO deep", () => {
         title: "關於 Formoria | Formoria",
         description:
           "為什麼會有 Formoria：四條斷掉的路，和我們把它們接起來的方式。從一件喜歡的東西，走到它的品牌、它的故事，和買得到它的地方。",
-        heading: "搬新家、佈置店面、在市集停下來的那一刻",
+        heading: "搬新家、佈置店面、\n在市集停下來的那一刻",
       },
       {
         path: "/en/about",

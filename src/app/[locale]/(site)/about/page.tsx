@@ -159,7 +159,14 @@ export default async function AboutPage({ params }: PageProps) {
                 <p className="mt-4 type-metadata">
                   {t("taiwanStats.sourceLabel")}
                   {": "}
-                  {t("taiwanStats.sourceName")}
+                  <a
+                    href="https://www.sme.gov.tw/article-tw-2853-13097"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="underline"
+                  >
+                    {t("taiwanStats.sourceName")}
+                  </a>
                 </p>
               </div>
             </div>

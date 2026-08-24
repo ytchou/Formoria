@@ -30,10 +30,11 @@ describe("/about page", () => {
 
     // The scene text is rendered inside a <p>, not an <h> tag.
     // Source pattern: <p className="type-section">\n{t(`scenes.items.${key}.scene`)}
-    const sceneBlock = source.slice(
-      source.indexOf("{/* Scenes */}"),
-      source.indexOf("{/* Loop */}"),
-    );
+    const scenesStart = source.indexOf("{/* Scenes */}");
+    const loopStart = source.indexOf("{/* Loop */}");
+    expect(scenesStart).toBeGreaterThan(-1);
+    expect(loopStart).toBeGreaterThan(scenesStart);
+    const sceneBlock = source.slice(scenesStart, loopStart);
     expect(sceneBlock).toContain("scenes.items.");
     // The individual scene items use <p>, never <h2>/<h3>. The section heading
     // is allowed to be an h2, so we check specifically for `.items.` expressions.
@@ -48,10 +49,11 @@ describe("/about page", () => {
     expect(source).toContain('"incomplete"');
     expect(source).toContain('"judgment"');
 
-    const stanceBlock = source.slice(
-      source.indexOf("{/* Stance */}"),
-      source.indexOf("{/* Closing CTA */}"),
-    );
+    const stanceStart = source.indexOf("{/* Stance */}");
+    const ctaStart = source.indexOf("{/* Closing CTA */}");
+    expect(stanceStart).toBeGreaterThan(-1);
+    expect(ctaStart).toBeGreaterThan(stanceStart);
+    const stanceBlock = source.slice(stanceStart, ctaStart);
     expect(stanceBlock).toContain("stance.items.");
     expect(stanceBlock).not.toMatch(/<h[23][^>]*>[^<]*stance\.items/);
     expect(stanceBlock).toMatch(/<p className="type-section">\s*\{t\(`stance\.items\.\$\{key\}\.lead`\)\}/);
