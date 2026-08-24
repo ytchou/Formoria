@@ -1,8 +1,8 @@
 import type { Metadata } from "next";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { getTranslations, setRequestLocale } from "next-intl/server";
 import { DirectoryView } from "@/components/brands/directory-view";
-import { L1_CATEGORIES, categoryLabel } from "@/lib/taxonomy/ontology";
+import { L1_CATEGORIES, categoryLabel, isVisibleCategory } from "@/lib/taxonomy/ontology";
 import {
   parseDirectoryViewFilters,
   type DirectorySearchParams,
@@ -28,6 +28,7 @@ export async function generateMetadata({
   const { locale, category: categorySlug } = await params;
   const resolved = resolveCategoryRouteParams({ categorySlug });
   if (!resolved) return {};
+  if (!isVisibleCategory(resolved.category.slug)) return {};
   setRequestLocale(locale);
   const safeLocale = (locale === "en" ? "en" : "zh-TW") as Locale;
   const sp = await searchParams;
@@ -103,6 +104,7 @@ export default async function CategoryPage({
   const { locale, category: categorySlug } = await params;
   const resolved = resolveCategoryRouteParams({ categorySlug });
   if (!resolved) notFound();
+  if (!isVisibleCategory(resolved.category.slug)) redirect('/brands');
   setRequestLocale(locale);
   const safeLocale = (locale === "en" ? "en" : "zh-TW") as Locale;
   const sp = await searchParams;

@@ -45,7 +45,7 @@ import { faqItemsToQuestions, getBrandFaq } from "@/lib/services/brand-faq";
 import { getStockistsForBrand } from "@/lib/services/stockists";
 import { getPublishedCuratedProductsForBrand } from "@/lib/services/curated-products";
 import { getBrandEventParticipations } from "@/lib/services/events";
-import { L1_CATEGORIES } from "@/lib/taxonomy/ontology";
+import { L1_CATEGORIES, isVisibleCategory } from "@/lib/taxonomy/ontology";
 import { cn } from "@/lib/utils";
 import { shouldShowBrandSectionNav } from "@/lib/brands/section-nav";
 import { NotFoundError } from "@/lib/errors";
@@ -219,7 +219,7 @@ export default async function BrandDetailPage({ params }: PageProps) {
   const categorySlugCategory = L1_CATEGORIES.find(
     (category) => category.slug === categorySlugSlug,
   );
-  const categoryTag = categorySlugCategory
+  const categoryTag = categorySlugCategory && isVisibleCategory(categorySlugCategory.slug)
     ? {
         slug: categorySlugCategory.slug,
         name: categorySlugCategory.name,
