@@ -81,7 +81,7 @@ test.describe("image proxy /i/", () => {
     // in src/app/i/[...path]/route.test.ts.
     test.skip(
       !cacheControl.includes("immutable"),
-      "Cloudflare rewrote cache-control; origin header not observable (skip Cloudflare Access rewrote cache-control; origin header not observable)",
+      "Cloudflare rewrites cache-control on remote targets",
     );
 
     // Objects are UUID-addressed and content-immutable, so the CDN absorbs
