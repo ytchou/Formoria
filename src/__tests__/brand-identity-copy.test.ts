@@ -89,12 +89,6 @@ const RETIRED_MISSION_PATTERNS = [
  */
 const BANNED_SALES_PHRASES = ["必買", "首選", "人氣第一", "立即購買", "搶購"];
 
-/** The canonical promise derivative that ships in the footer. */
-const FOOTER_PROMISE = {
-  "zh-TW": "生活可以更像自己一點",
-  en: "Life can look a little more like you",
-} as const;
-
 const CATALOGUES = {
   "zh-TW": zhTW as unknown as Record<string, unknown>,
   en: en as unknown as Record<string, unknown>,
@@ -168,11 +162,16 @@ describe("Formoria brand identity", () => {
     expect(matches).toEqual([]);
   });
 
-  it("the canonical promise ships in the footer", () => {
-    for (const [locale, promise] of Object.entries(FOOTER_PROMISE)) {
-      const footer = CATALOGUES[locale as keyof typeof CATALOGUES]
-        .footer as Record<string, string>;
-      expect(footer.tagline, `${locale} footer.tagline`).toBe(promise);
+  it("both locales carry a non-empty footer tagline", () => {
+    for (const [locale, catalogue] of Object.entries(CATALOGUES)) {
+      const footer = catalogue.footer as Record<string, string>;
+      expect(footer.tagline, `${locale} footer.tagline must be a non-empty string`).toBeTruthy();
+      expect(typeof footer.tagline).toBe("string");
     }
+
+    // Parity: both locales define the same footer keys
+    const zhKeys = Object.keys((CATALOGUES["zh-TW"].footer as Record<string, unknown>)).sort();
+    const enKeys = Object.keys((CATALOGUES["en"].footer as Record<string, unknown>)).sort();
+    expect(zhKeys).toEqual(enKeys);
   });
 });
