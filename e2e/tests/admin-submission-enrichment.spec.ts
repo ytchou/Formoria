@@ -292,12 +292,14 @@ test.describe("Admin submission enrichment lifecycle", () => {
           .eq("submission_id", submissionId),
         supabase
           .from("brand_images")
-          .select("url")
+          .select("storage_path")
           .eq("brand_id", approvedBrandId!),
       ]);
     expect(stagedCount).toBe(0);
     expect(promotedImages).toEqual(
-      expect.arrayContaining(imageUrls.map((url) => ({ url }))),
+      expect.arrayContaining(
+        storagePaths.map((path) => ({ storage_path: path })),
+      ),
     );
   });
 
