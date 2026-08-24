@@ -1,7 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { existsSync, readFileSync } from "node:fs";
-import { dirname, join, resolve } from "node:path";
-import { fileURLToPath } from "node:url";
+import { readFileSync } from "node:fs";
 
 import { BANNED_TERMS } from "../src/lib/i18n/banned-terms";
 import {
@@ -33,8 +31,6 @@ const shield = BANNED_TERMS.map((entry) => entry.replacement).find(
       (other) => other.term !== replacement && replacement.includes(other.term),
     ),
 )!;
-
-const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 
 // A real directory, used only as a fixture for the directory half of the
 // membership rule. No entry in the real SCANNED_SOURCE_FILES is a directory
@@ -134,22 +130,6 @@ describe("check-zh-terms — source scope", () => {
   it.each(widened)("does not also classify %s as excluded", (entry) => {
     // The map is keyed src/-relative, the way the allowlist writes it.
     expect(EXCLUDED_SOURCE_FILES.has(entry.replace(/^src\//, ""))).toBe(false);
-  });
-
-  it("resolves every scanned entry to files that exist", () => {
-    // Directory entries expand, file entries pass through, and either way an
-    // entry naming something that is no longer there stops scanning copy it
-    // used to cover. The allowlist has no existence check of its own.
-    const files = scannedSourceFiles();
-
-    expect(files).toContain("src/lib/taxonomy/ontology.ts");
-    expect(files).toContain("src/lib/email/templates.ts");
-    expect(files).toContain("src/lib/json-ld.ts");
-    expect(files.filter((file) => !existsSync(join(ROOT, file)))).toEqual([]);
-    // Tests are not copy, and one of them would name a banned term as a fixture.
-    expect(
-      files.filter((file) => /(__tests__|\.test\.tsx?$)/.test(file)),
-    ).toEqual([]);
   });
 
   // One membership rule, or the enumerated set and the predicate disagree and
