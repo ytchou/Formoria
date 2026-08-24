@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import { notFound, redirect } from "next/navigation";
 import { getTranslations, setRequestLocale } from "next-intl/server";
+import { localizePath } from "@/i18n/locale-preference";
+import { routes } from "@/lib/routes";
 import { DirectoryView } from "@/components/brands/directory-view";
 import { L1_CATEGORIES, categoryLabel, isVisibleCategory } from "@/lib/taxonomy/ontology";
 import {
@@ -104,7 +106,7 @@ export default async function CategoryPage({
   const { locale, category: categorySlug } = await params;
   const resolved = resolveCategoryRouteParams({ categorySlug });
   if (!resolved) notFound();
-  if (!isVisibleCategory(resolved.category.slug)) redirect('/brands');
+  if (!isVisibleCategory(resolved.category.slug)) redirect(localizePath(routes.brands(), locale));
   setRequestLocale(locale);
   const safeLocale = (locale === "en" ? "en" : "zh-TW") as Locale;
   const sp = await searchParams;

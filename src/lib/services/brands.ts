@@ -25,6 +25,7 @@ import { isNonImageHost } from "@/lib/images/allowed-image-hosts";
 import { storageKeyFromPublicUrlForRead } from "./image-upload";
 import { RESERVED_ROUTES } from "@/proxy";
 import {
+  DEFERRED_CATEGORY_SLUGS,
   deriveCategoryLabel,
   L1_CATEGORIES,
   VISIBLE_L1_CATEGORIES,
@@ -1489,8 +1490,10 @@ export function directoryBrandCategoryFilter(
     : VISIBLE_L1_CATEGORIES.map(c => c.slug);
 }
 
+/** Derived from `DEFERRED_CATEGORY_SLUGS` — display-name filter because
+ *  `search_brands` RPC only returns `primary_category_name`, not the slug. */
 const DEFERRED_CATEGORY_NAMES: ReadonlySet<string> = new Set(
-  L1_CATEGORIES.filter(c => 'deferred' in c).flatMap(c => [c.name, c.nameZh])
+  L1_CATEGORIES.filter(c => DEFERRED_CATEGORY_SLUGS.has(c.slug)).flatMap(c => [c.name, c.nameZh])
 );
 
 function getBrandsSelect(filters: GetBrandsFilters | undefined): "*" {
@@ -2581,7 +2584,7 @@ export async function getBrandStats(): Promise<{
           .from("brands")
           .select(BRAND_COLUMNS as "*", { count: "exact", head: true })
           .eq("status", "approved")
-          .in("category", VISIBLE_L1_CATEGORIES.map(c => c.slug)),
+          .or(`category.is.null,category.in.(${VISIBLE_L1_CATEGORIES.map(c => c.slug).join(",")})`),
       ),
       excludeTestBrands(
         supabase.from("brands").select("category").eq("status", "approved")
