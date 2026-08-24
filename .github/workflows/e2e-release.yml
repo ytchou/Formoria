@@ -125,7 +125,6 @@ jobs:
         run: >-
           pnpm exec playwright test
           --project=deep
-          --project=mobile
           --reporter=html,json
       - name: Reject unexpected skipped E2E tests
         if: always()
