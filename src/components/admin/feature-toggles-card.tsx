@@ -1,44 +1,44 @@
-'use client'
+"use client";
 
-import { useState } from 'react'
-import { useTranslations } from 'next-intl'
-import { setFeatureFlagAction } from '@/app/admin/actions'
-import { SurfaceCard } from '@/components/ui/card'
-import { Label } from '@/components/ui/label'
-import { Switch } from '@/components/ui/switch'
-import { FEATURE_FLAGS } from '@/lib/services/app-settings-config'
+import { useState } from "react";
+import { useTranslations } from "next-intl";
+import { setFeatureFlagAction } from "@/app/admin/actions";
+import { SurfaceCard } from "@/components/ui/card";
+import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
+import { FEATURE_FLAGS } from "@/lib/services/app-settings-config";
 
 export function FeatureTogglesCard({
   initialValues,
 }: {
-  initialValues: Record<string, boolean>
+  initialValues: Record<string, boolean>;
 }) {
-  const t = useTranslations('admin.settings')
-  const [values, setValues] = useState(initialValues)
-  const [savingKeys, setSavingKeys] = useState<Set<string>>(() => new Set())
+  const t = useTranslations("admin.settings");
+  const [values, setValues] = useState(initialValues);
+  const [savingKeys, setSavingKeys] = useState<Set<string>>(() => new Set());
 
   async function handleCheckedChange(key: string, nextEnabled: boolean) {
-    setValues((current) => ({ ...current, [key]: nextEnabled }))
-    setSavingKeys((current) => new Set(current).add(key))
+    setValues((current) => ({ ...current, [key]: nextEnabled }));
+    setSavingKeys((current) => new Set(current).add(key));
 
     try {
-      const result = await setFeatureFlagAction(key, nextEnabled)
+      const result = await setFeatureFlagAction(key, nextEnabled);
       if (result?.error) {
-        setValues((current) => ({ ...current, [key]: !nextEnabled }))
+        setValues((current) => ({ ...current, [key]: !nextEnabled }));
       }
     } finally {
       setSavingKeys((current) => {
-        const next = new Set(current)
-        next.delete(key)
-        return next
-      })
+        const next = new Set(current);
+        next.delete(key);
+        return next;
+      });
     }
   }
 
   return (
     <section>
       <div className="mb-4">
-        <h2 className="type-tool-heading">{t('featureToggles')}</h2>
+        <h2 className="type-tool-heading">{t("featureToggles")}</h2>
       </div>
       <SurfaceCard padding="lg">
         {FEATURE_FLAGS.map((flag) => (
@@ -62,5 +62,5 @@ export function FeatureTogglesCard({
         ))}
       </SurfaceCard>
     </section>
-  )
+  );
 }

@@ -200,7 +200,9 @@ export function BrandList({
         b.name.toLowerCase().includes(searchQuery.toLowerCase()),
     )
     .filter((b) => mitFilter === "all" || getMitStatus(b) === mitFilter)
-    .filter((b) => categoryFilter === "all" || b.categoryLabel === categoryFilter);
+    .filter(
+      (b) => categoryFilter === "all" || b.categoryLabel === categoryFilter,
+    );
   const pageCount = Math.max(1, Math.ceil(filtered.length / pageSize));
   const currentPage = Math.min(page, pageCount);
   const visible = filtered.slice(
@@ -306,7 +308,9 @@ export function BrandList({
       ).length;
       // "A refresh is already pending" is an ordinary answer, not a failure, so
       // it is reported in the same status line as the successes.
-      const skipped = result.outcomes.filter((outcome) => outcome.error !== null);
+      const skipped = result.outcomes.filter(
+        (outcome) => outcome.error !== null,
+      );
       setProductBackfillStatus(
         [
           queued > 0
@@ -653,7 +657,9 @@ export function BrandList({
                       {(brand.status === "approved" ||
                         brand.status === "hidden") && (
                         <Link
-                          href={routes.admin.curatedProducts({ brand: brand.slug })}
+                          href={routes.admin.curatedProducts({
+                            brand: brand.slug,
+                          })}
                           aria-label={t("actions.ingestCuratedProducts", {
                             name: brand.name,
                           })}

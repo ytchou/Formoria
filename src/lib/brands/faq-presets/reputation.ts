@@ -1,7 +1,4 @@
-import {
-  buildBrandContextSuffix,
-  type FaqPreset,
-} from "./types";
+import { buildBrandContextSuffix, type FaqPreset } from "./types";
 import {
   noKeywordStuffing,
   noCommerceClaims,
@@ -21,12 +18,12 @@ const reputation: FaqPreset = {
     questionKey: "brandFaq.reputation.question",
     templateFloor: (ctx, t, locale) => {
       const summary = locale.startsWith("en")
-        ? ctx.brand.reputationSummary?.textEn ??
+        ? (ctx.brand.reputationSummary?.textEn ??
           ctx.brand.reputationSummary?.text ??
-          ""
-        : ctx.brand.reputationSummary?.text ??
+          "")
+        : (ctx.brand.reputationSummary?.text ??
           ctx.brand.reputationSummary?.textEn ??
-          "";
+          "");
       return t("brandFaq.reputation.answer", {
         brandName: ctx.brand.name,
         summary,
@@ -35,7 +32,10 @@ const reputation: FaqPreset = {
     },
   },
   promptFragment: (ctx) => {
-    const summary = ctx.brand.reputationSummary?.textEn ?? ctx.brand.reputationSummary?.text ?? "";
+    const summary =
+      ctx.brand.reputationSummary?.textEn ??
+      ctx.brand.reputationSummary?.text ??
+      "";
     return faqReputationPrompt(summary);
   },
   // `groundedIn(requiredEvidence)` is derived in the registry (index.ts).

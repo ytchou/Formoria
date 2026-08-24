@@ -39,7 +39,11 @@ function localeTags(ctx: FaqBrandContext, locale: string): string[] {
     .slice(0, 3);
 }
 
-function subcategories(ctx: FaqBrandContext, t: FaqTFn, locale: string): string {
+function subcategories(
+  ctx: FaqBrandContext,
+  t: FaqTFn,
+  locale: string,
+): string {
   return localeTags(ctx, locale).join(t("brandFaq.listSeparator"));
 }
 
@@ -58,9 +62,8 @@ const mainProducts: FaqPreset = {
     templateFloor: (ctx, t, locale) => {
       const isEnglish = locale.startsWith("en");
       const category = isEnglish
-        ? L1_CATEGORIES.find(
-            (item) => item.slug === ctx.brand.categorySlug,
-          )?.name
+        ? L1_CATEGORIES.find((item) => item.slug === ctx.brand.categorySlug)
+            ?.name
         : ctx.brand.categoryLabel;
       const tags = subcategories(ctx, t, locale);
       const context = buildBrandContextSuffix(ctx, t);

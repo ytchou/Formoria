@@ -137,9 +137,7 @@ export function SelectedProductTile({
     variant: "secondary",
     shape: "pill",
     size: "compact",
-    className: cn(
-      "mt-auto max-w-full justify-center",
-    ),
+    className: cn("mt-auto max-w-full justify-center"),
   });
   const destinationSlug = brandSlug ?? brand?.slug ?? "";
   /*

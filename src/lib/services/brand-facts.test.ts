@@ -54,7 +54,10 @@ describe("parseBrandFactsResult", () => {
     const result = parseBrandFactsResult(json);
     // '側背包' is an alias for crossbody-bags; '口金夾' dedupes to the same slug
     // as '口金零錢包'. Storage is slugs since DEV-1510.
-    expect(result.subcategories).toEqual(["crossbody-bags", "clasp-frame-bags"]);
+    expect(result.subcategories).toEqual([
+      "crossbody-bags",
+      "clasp-frame-bags",
+    ]);
     expect(result.subcategoriesEn).toEqual([
       "Crossbody Bags",
       "Clasp-Frame Bags",

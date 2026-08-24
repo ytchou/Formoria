@@ -46,7 +46,6 @@ type Snapshot = {
   children: Record<string, Img[]>;
 };
 
-
 const hostOf = (u: string | null | undefined): string => {
   if (!u) return "—";
   try {

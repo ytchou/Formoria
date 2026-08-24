@@ -1711,7 +1711,7 @@ export async function listStorageKeys(
   const found = new Set<string>();
 
   const listFolder = async (folder: string): Promise<void> => {
-    for (let offset = 0; ; ) {
+    for (let offset = 0; ;) {
       const { data, error } = await client.storage
         .from(STORAGE_BUCKET)
         .list(folder, {

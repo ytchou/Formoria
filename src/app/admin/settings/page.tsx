@@ -8,10 +8,10 @@ export const metadata: Metadata = { title: "Settings | Admin" };
 export default async function AdminSettingsPage() {
   const t = await getTranslations("admin.settings");
   const entries = await Promise.all(
-    FEATURE_FLAGS.map(async (flag) => [
-      flag.key,
-      await getAppSetting(flag.key, flag.defaultValue),
-    ] as const),
+    FEATURE_FLAGS.map(
+      async (flag) =>
+        [flag.key, await getAppSetting(flag.key, flag.defaultValue)] as const,
+    ),
   );
   const initialValues = Object.fromEntries(entries) as Record<string, boolean>;
 

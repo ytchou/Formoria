@@ -85,7 +85,6 @@ test.describe("Brand detail deep", () => {
     ).toBeVisible({
       timeout: BUDGET.INTERACTIVE,
     });
-
   });
 
   // Ordering is a separate failure from presence, so it is a separate test: a
@@ -645,7 +644,9 @@ test.describe("Brand detail — public locations and retail stockists", () => {
       .from("brand_channels")
       .insert(stockistRows);
     if (stockistsError) {
-      throw new Error(`Failed to seed brand stockists: ${stockistsError.message}`);
+      throw new Error(
+        `Failed to seed brand stockists: ${stockistsError.message}`,
+      );
     }
   });
 
@@ -733,7 +734,10 @@ test.describe("Brand detail — public locations and retail stockists", () => {
       .locator("[data-stockist-row]")
       .filter({ hasText: confirmedStoreName });
     await expect(
-      stockistRow.getByRole("link", { name: confirmedStoreAddress, exact: true }),
+      stockistRow.getByRole("link", {
+        name: confirmedStoreAddress,
+        exact: true,
+      }),
     ).toHaveAttribute("href", /google\.com\/maps/);
     await expect(
       stockistRow.locator(`a[href="${confirmedStoreUrl}"]`),

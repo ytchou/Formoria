@@ -308,7 +308,9 @@ export function CommunitySubmissionsTable() {
                         aria-label={t("preview.selectAll")}
                         checked={allFilteredSelected}
                         indeterminate={someFilteredSelected}
-                        disabled={isPending || selectableFilteredRows.length === 0}
+                        disabled={
+                          isPending || selectableFilteredRows.length === 0
+                        }
                         onCheckedChange={toggleSelectAllFiltered}
                       />
                     </Label>

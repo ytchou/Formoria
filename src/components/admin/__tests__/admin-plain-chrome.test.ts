@@ -105,7 +105,8 @@ describe("admin chrome", () => {
 
     for (const file of adminSources) {
       const source = readFileSync(file, "utf8");
-      const lineAt = (index: number) => source.slice(0, index).split("\n").length;
+      const lineAt = (index: number) =>
+        source.slice(0, index).split("\n").length;
 
       for (const match of source.matchAll(/<Button\b/g)) {
         const tag = openingTag(source, match.index + match[0].length);
@@ -141,7 +142,8 @@ describe("admin chrome", () => {
 
     for (const file of adminSources) {
       const source = readFileSync(file, "utf8");
-      const lineAt = (index: number) => source.slice(0, index).split("\n").length;
+      const lineAt = (index: number) =>
+        source.slice(0, index).split("\n").length;
 
       for (const match of source.matchAll(/\bcn\(/g)) {
         const args = callArguments(source, match.index + match[0].length);
@@ -168,8 +170,7 @@ describe("admin chrome", () => {
     const offenders = collectHeadings(adminSources)
       .filter((heading) => !allowlist.includes(heading.file))
       .filter(
-        (heading) =>
-          !/\btype-tool-heading(?![\w-])/.test(heading.attributes),
+        (heading) => !/\btype-tool-heading(?![\w-])/.test(heading.attributes),
       )
       .map((heading) => `${heading.file}:${heading.line}`);
 

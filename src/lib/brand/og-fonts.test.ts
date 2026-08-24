@@ -59,7 +59,6 @@ describe("OG asset reads are cached per process", () => {
     expect(second[0].data).toBe(first[0].data);
     expect(second[1].data).toBe(first[1].data);
     expect(third[0][0].data).toBe(first[0].data);
-
   });
 
   it("reads and base64-encodes the mark PNG once", async () => {
@@ -79,7 +78,6 @@ describe("OG asset reads are cached per process", () => {
     expect(spy.mock.calls.length).toBe(readsAfterFirstCall);
     expect(first.startsWith("data:image/png;base64,")).toBe(true);
     expect(second).toBe(first);
-
   });
 
   it("does not cache a failure — a transient read error stays recoverable", async () => {
@@ -95,7 +93,6 @@ describe("OG asset reads are cached per process", () => {
     const { getOgFonts } = await import("./og-fonts");
     expect(await getOgFonts()).toEqual([]);
     expect(await getOgFonts()).toHaveLength(2);
-
   });
 });
 
@@ -120,7 +117,9 @@ describe("OG fonts are sans-only (D17)", () => {
     const fonts = await getOgFonts();
 
     for (const font of fonts) {
-      expect(font.name.replace("sans-serif", "")).not.toMatch(/serif|ming|明體/i);
+      expect(font.name.replace("sans-serif", "")).not.toMatch(
+        /serif|ming|明體/i,
+      );
     }
   });
 });

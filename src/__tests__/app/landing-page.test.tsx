@@ -40,11 +40,7 @@ vi.mock("next-intl/server", async () => {
 // the single above-the-fold preload. React would drop the unknown boolean prop
 // from a plain `<img>`.
 vi.mock("next/image", () => ({
-  default: ({
-    fill: _fill,
-    priority,
-    ...props
-  }: Record<string, unknown>) => (
+  default: ({ fill: _fill, priority, ...props }: Record<string, unknown>) => (
     // eslint-disable-next-line @next/next/no-img-element -- this IS the mock of next/image
     <img alt="" data-priority={priority ? "true" : "false"} {...props} />
   ),
@@ -89,8 +85,14 @@ vi.mock("@/lib/analytics", () => ({
 // is about — page.tsx still wraps the rail in the real `SavedBrandsProvider`,
 // which the verification rubric checks by reading the source.
 vi.mock("@/hooks/use-saved-brands", () => ({
-  SavedBrandsProvider: ({ children }: { children: ReactNode }) => <>{children}</>,
-  useSavedBrands: () => ({ savedIds: new Set<string>(), toggle: vi.fn(), loading: false }),
+  SavedBrandsProvider: ({ children }: { children: ReactNode }) => (
+    <>{children}</>
+  ),
+  useSavedBrands: () => ({
+    savedIds: new Set<string>(),
+    toggle: vi.fn(),
+    loading: false,
+  }),
 }));
 
 vi.mock("@/lib/auth/use-user", () => ({
@@ -286,9 +288,9 @@ async function renderZones(overrides: ZoneOverrides = {}) {
 }
 
 function zoneOrder(container: HTMLElement): string[] {
-  return [...container.querySelectorAll<HTMLElement>("[data-landing-zone]")].map(
-    (zone) => zone.dataset.landingZone ?? "",
-  );
+  return [
+    ...container.querySelectorAll<HTMLElement>("[data-landing-zone]"),
+  ].map((zone) => zone.dataset.landingZone ?? "");
 }
 
 describe("landing page zones", () => {
@@ -356,7 +358,9 @@ describe("landing page zones", () => {
     expect(cards).toHaveLength(2);
     for (const card of cards) {
       expect(within(card).getByRole("img")).toBeInTheDocument();
-      expect(within(card).getByRole("heading", { level: 3 })).toBeInTheDocument();
+      expect(
+        within(card).getByRole("heading", { level: 3 }),
+      ).toBeInTheDocument();
     }
   });
 
@@ -368,15 +372,15 @@ describe("landing page zones", () => {
     const trails = container.querySelector<HTMLElement>(
       '[data-landing-zone="trails"]',
     )!;
-    expect(within(trails).getAllByRole("heading", { level: 3 })).toHaveLength(2);
+    expect(within(trails).getAllByRole("heading", { level: 3 })).toHaveLength(
+      2,
+    );
   });
 
   it("omits the trails zone when no trail is published", async () => {
     const { container } = await renderZones({ trails: [] });
 
-    expect(
-      container.querySelector('[data-landing-zone="trails"]'),
-    ).toBeNull();
+    expect(container.querySelector('[data-landing-zone="trails"]')).toBeNull();
     // Not an empty zone wearing the heading either.
     expect(
       screen.queryByRole("heading", { name: en.landing.trails.heading }),
@@ -403,7 +407,9 @@ describe("landing page zones", () => {
   it("renders one brand rail, not two", async () => {
     const { container } = await renderZones();
 
-    expect(container.querySelectorAll('[data-landing-zone="directory"]')).toHaveLength(1);
+    expect(
+      container.querySelectorAll('[data-landing-zone="directory"]'),
+    ).toHaveLength(1);
     // `level: 2`, and the query stays page-wide so a second rail smuggled into
     // any zone is still caught.
     expect(
@@ -424,7 +430,9 @@ describe("landing page zones", () => {
       stories: [buildStory("a-story")],
     });
 
-    const topics = container.querySelector<HTMLElement>('[data-landing-zone="topics"]')!;
+    const topics = container.querySelector<HTMLElement>(
+      '[data-landing-zone="topics"]',
+    )!;
     const eventHeading = within(topics).getByRole("heading", {
       name: "Taipei Design Week",
     });
@@ -433,16 +441,16 @@ describe("landing page zones", () => {
     });
 
     // Node.DOCUMENT_POSITION_FOLLOWING — the event precedes the story.
-    expect(
-      eventHeading.compareDocumentPosition(storyHeading) & 4,
-    ).toBeTruthy();
+    expect(eventHeading.compareDocumentPosition(storyHeading) & 4).toBeTruthy();
 
     const withoutEvent = await renderZones({ events: [] });
     const storiesOnly = withoutEvent.container.querySelector<HTMLElement>(
       '[data-landing-zone="topics"]',
     )!;
     expect(
-      within(storiesOnly).queryByRole("heading", { name: "Taipei Design Week" }),
+      within(storiesOnly).queryByRole("heading", {
+        name: "Taipei Design Week",
+      }),
     ).toBeNull();
     expect(
       within(storiesOnly).getByRole("heading", { name: "Story a-story" }),
@@ -495,10 +503,16 @@ describe("landing page zones", () => {
       '[data-landing-zone="manifesto"]',
     )!;
     expect(
-      within(seam).getByRole("heading", { name: en.landing.manifesto.headline }),
+      within(seam).getByRole("heading", {
+        name: en.landing.manifesto.headline,
+      }),
     ).toBeInTheDocument();
-    expect(within(seam).getByText(en.landing.manifesto.body1)).toBeInTheDocument();
-    expect(within(seam).getByText(en.landing.manifesto.body2)).toBeInTheDocument();
+    expect(
+      within(seam).getByText(en.landing.manifesto.body1),
+    ).toBeInTheDocument();
+    expect(
+      within(seam).getByText(en.landing.manifesto.body2),
+    ).toBeInTheDocument();
     expect(
       within(seam).getByRole("link", { name: en.landing.manifesto.cta }),
     ).toHaveAttribute("href", "/about");
@@ -535,11 +549,19 @@ describe("landing page zones", () => {
     // trail tile and must never demote `/` to dynamic for the whole deployment.
     expect(isLandingRenderDegraded(healthy)).toBe(false);
 
-    expect(isLandingRenderDegraded({ ...healthy, exploreResult: null })).toBe(true);
-    expect(isLandingRenderDegraded({ ...healthy, curatedProducts: null })).toBe(true);
-    expect(isLandingRenderDegraded({ ...healthy, stories: { ok: false } })).toBe(true);
+    expect(isLandingRenderDegraded({ ...healthy, exploreResult: null })).toBe(
+      true,
+    );
+    expect(isLandingRenderDegraded({ ...healthy, curatedProducts: null })).toBe(
+      true,
+    );
+    expect(
+      isLandingRenderDegraded({ ...healthy, stories: { ok: false } }),
+    ).toBe(true);
     expect(isLandingRenderDegraded({ ...healthy, trails: null })).toBe(true);
-    expect(isLandingRenderDegraded({ ...healthy, trails: { ok: false } })).toBe(true);
+    expect(isLandingRenderDegraded({ ...healthy, trails: { ok: false } })).toBe(
+      true,
+    );
     expect(isLandingRenderDegraded({ ...healthy, events: null })).toBe(true);
     expect(
       isLandingRenderDegraded({

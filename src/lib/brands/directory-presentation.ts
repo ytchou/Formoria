@@ -1,9 +1,9 @@
-import { buildCategoryTabTarget } from '@/components/navigation/category-tab-target'
-import { localizePath } from '@/i18n/locale-preference'
-import type { BrandSortOption } from '@/lib/pagination'
-import type { DirectoryViewFilters } from '@/lib/seo/directory-filters'
-import { directoryBrandCategoryFilter } from '@/lib/services/brands'
-import { routes } from '@/lib/routes'
+import { buildCategoryTabTarget } from "@/components/navigation/category-tab-target";
+import { localizePath } from "@/i18n/locale-preference";
+import type { BrandSortOption } from "@/lib/pagination";
+import type { DirectoryViewFilters } from "@/lib/seo/directory-filters";
+import { directoryBrandCategoryFilter } from "@/lib/services/brands";
+import { routes } from "@/lib/routes";
 
 /**
  * The directory's presentation decisions, as pure functions over the parsed
@@ -12,8 +12,8 @@ import { routes } from '@/lib/routes'
  */
 
 type DirectoryVerificationFilter = NonNullable<
-  DirectoryViewFilters['verificationFilter']
->
+  DirectoryViewFilters["verificationFilter"]
+>;
 
 /**
  * The L1 slugs a chip may claim.
@@ -29,7 +29,9 @@ export function directoryCategoryChipSlugs(
   categorySlugs: readonly string[],
   subcategorySlugs: readonly string[],
 ): string[] {
-  return [...(directoryBrandCategoryFilter(categorySlugs, subcategorySlugs) ?? [])]
+  return [
+    ...(directoryBrandCategoryFilter(categorySlugs, subcategorySlugs) ?? []),
+  ];
 }
 
 /**
@@ -55,50 +57,50 @@ export function directoryCategoryChipSlugs(
  */
 export function shouldEmitDirectoryItemList(input: {
   /** The robots decision `resolveDirectorySeo` returned for this request. */
-  indexable: boolean
-  categorySlugs: readonly string[]
-  search: string
-  materials: readonly string[]
-  verificationFilter: DirectoryVerificationFilter
-  page: number
+  indexable: boolean;
+  categorySlugs: readonly string[];
+  search: string;
+  materials: readonly string[];
+  verificationFilter: DirectoryVerificationFilter;
+  page: number;
 }): boolean {
   return (
     input.indexable &&
     input.categorySlugs.length === 0 &&
     !input.search &&
     input.materials.length === 0 &&
-    input.verificationFilter === 'all' &&
+    input.verificationFilter === "all" &&
     input.page === 1
-  )
+  );
 }
 
 export type DirectoryUrlStateInput = {
-  locale: string
+  locale: string;
   /** The single valid L1 the page is titled by, when there is one. */
-  category?: { slug: string } | undefined
+  category?: { slug: string } | undefined;
   /** The single resolved L2, when exactly one is active. */
-  subcategory?: { slug: string; category: string } | undefined
+  subcategory?: { slug: string; category: string } | undefined;
   /** Valid L1 slugs: selection state, not necessarily what the query conjoins. */
-  categorySlugs: readonly string[]
+  categorySlugs: readonly string[];
   /** Resolved L2 slugs. */
-  subcategorySlugs: readonly string[]
-  search: string
-  materials: readonly string[]
-  verificationFilter: DirectoryVerificationFilter
-  sort: BrandSortOption
-}
+  subcategorySlugs: readonly string[];
+  search: string;
+  materials: readonly string[];
+  verificationFilter: DirectoryVerificationFilter;
+  sort: BrandSortOption;
+};
 
 export type DirectoryUrlState = {
-  locale: string
+  locale: string;
   /** The unlocalized surface this state lives on. */
-  routePath: string
+  routePath: string;
   /** `routePath` for the active locale. */
-  directoryPath: string
+  directoryPath: string;
   /** Every axis the URL carries, taxonomy included where the surface allows. */
-  normalizedParams: URLSearchParams
+  normalizedParams: URLSearchParams;
   /** `normalizedParams` minus the taxonomy keys. */
-  facetParams: URLSearchParams
-}
+  facetParams: URLSearchParams;
+};
 
 /** Resolve the surface and query string this set of filters is addressed by. */
 export function buildDirectoryUrlState(
@@ -109,27 +111,29 @@ export function buildDirectoryUrlState(
   // and must keep doing so — so the whole view stays on `/brands` and both
   // facets stay in the query string.
   const subcategoryPairIsAddressable =
-    !input.subcategory || input.subcategory.category === input.category?.slug
-  const routePath = input.category && subcategoryPairIsAddressable
-    ? routes.categoryPath(input.category.slug, input.subcategory?.slug)
-    : routes.brands()
-  const normalizedParams = new URLSearchParams()
-  if (input.search) normalizedParams.set('search', input.search)
+    !input.subcategory || input.subcategory.category === input.category?.slug;
+  const routePath =
+    input.category && subcategoryPairIsAddressable
+      ? routes.categoryPath(input.category.slug, input.subcategory?.slug)
+      : routes.brands();
+  const normalizedParams = new URLSearchParams();
+  if (input.search) normalizedParams.set("search", input.search);
   if (input.categorySlugs.length > 0 && routePath === routes.brands()) {
-    normalizedParams.set('category', input.categorySlugs.join(','))
+    normalizedParams.set("category", input.categorySlugs.join(","));
   }
   if (input.subcategorySlugs.length > 0 && routePath === routes.brands()) {
-    normalizedParams.set('sub', input.subcategorySlugs.join(','))
+    normalizedParams.set("sub", input.subcategorySlugs.join(","));
   }
-  if (input.materials.length > 0) normalizedParams.set('material', input.materials.join(','))
-  if (input.verificationFilter !== 'all') {
-    normalizedParams.set('verification', input.verificationFilter)
+  if (input.materials.length > 0)
+    normalizedParams.set("material", input.materials.join(","));
+  if (input.verificationFilter !== "all") {
+    normalizedParams.set("verification", input.verificationFilter);
   }
-  if (input.sort !== 'random') normalizedParams.set('sort', input.sort)
+  if (input.sort !== "random") normalizedParams.set("sort", input.sort);
 
-  const facetParams = new URLSearchParams(normalizedParams)
-  facetParams.delete('category')
-  facetParams.delete('sub')
+  const facetParams = new URLSearchParams(normalizedParams);
+  facetParams.delete("category");
+  facetParams.delete("sub");
 
   return {
     locale: input.locale,
@@ -137,7 +141,7 @@ export function buildDirectoryUrlState(
     directoryPath: localizePath(routePath, input.locale),
     normalizedParams,
     facetParams,
-  }
+  };
 }
 
 /**
@@ -158,9 +162,9 @@ export function directoryTaxonomyHref(
   return buildCategoryTabTarget({
     pathname: state.routePath,
     searchParams: state.facetParams.toString(),
-    slug: categorySlugs[0] ?? '',
+    slug: categorySlugs[0] ?? "",
     categorySlugs: [...categorySlugs],
-    subSlug: subSlugs.length > 0 ? subSlugs.join(',') : null,
+    subSlug: subSlugs.length > 0 ? subSlugs.join(",") : null,
     locale: state.locale,
-  }).href
+  }).href;
 }

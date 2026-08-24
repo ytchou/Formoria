@@ -28,7 +28,10 @@ import {
 } from "../llm-audit";
 import { parseJson } from "../openai-client";
 import { isLlmProviderFailure, noLlmCalls } from "../_shared/llm-call-outcome";
-import { brandTarget, type EnrichmentTarget } from "../_shared/enrichment-target";
+import {
+  brandTarget,
+  type EnrichmentTarget,
+} from "../_shared/enrichment-target";
 import type { PhaseResult } from "@/lib/types/curation";
 import {
   buildPhaseResult,
@@ -544,7 +547,11 @@ export async function runFaqPhase({
       ...FAQ_PROMPT_PARAMS,
       promptHash,
     });
-    const { entries: accepted, dropped, calls } = await resolveFaqAttempts(
+    const {
+      entries: accepted,
+      dropped,
+      calls,
+    } = await resolveFaqAttempts(
       authorable,
       ctx,
       async (retryInstruction, attempt) => {

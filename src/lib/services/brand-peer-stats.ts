@@ -55,8 +55,9 @@ export async function getCategoryPeerStats(
     peerCount: rows.length,
     cityClusters: [...cityCounts.entries()]
       .map(([city, count]) => ({ city, count }))
-      .sort((left, right) =>
-        right.count - left.count || left.city.localeCompare(right.city),
+      .sort(
+        (left, right) =>
+          right.count - left.count || left.city.localeCompare(right.city),
       ),
   };
 }

@@ -29,9 +29,7 @@ export default async function JobsPage({
     return (
       <div className="space-y-4">
         <h1 className="type-tool-heading">{t("title")}</h1>
-        <p className="type-metadata text-danger">
-          {result.error}
-        </p>
+        <p className="type-metadata text-danger">{result.error}</p>
       </div>
     );
   }

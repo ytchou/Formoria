@@ -315,8 +315,7 @@ function parseTriageEntry(
   // result — the non-brand gate and the name/slug are what this call is for.
   const rawCategory = entry.category;
   const categorySlug =
-    typeof rawCategory === "string" &&
-    VALID_CATEGORY_SLUGS.has(rawCategory)
+    typeof rawCategory === "string" && VALID_CATEGORY_SLUGS.has(rawCategory)
       ? rawCategory
       : null;
 
@@ -510,40 +509,40 @@ export async function classifyCategoryBatch(
   return auditedCall(
     { provider: "enrich", operation: "classifyCategoryBatch", kind: "service" },
     async () => {
-  const results = new Map<string, ClassificationResult>();
-  let calls = noLlmCalls();
+      const results = new Map<string, ClassificationResult>();
+      let calls = noLlmCalls();
 
-  for (let i = 0; i < brands.length; i += LLM_BATCH_CHUNK_SIZE) {
-    const batch = brands.slice(i, i + LLM_BATCH_CHUNK_SIZE);
-    const chunk = await classifyCategoryBatchChunk(batch, jobId);
-    calls = addLlmCalls(calls, chunk.calls);
+      for (let i = 0; i < brands.length; i += LLM_BATCH_CHUNK_SIZE) {
+        const batch = brands.slice(i, i + LLM_BATCH_CHUNK_SIZE);
+        const chunk = await classifyCategoryBatchChunk(batch, jobId);
+        calls = addLlmCalls(calls, chunk.calls);
 
-    if (chunk.value) {
-      for (const [slug, result] of chunk.value) {
-        results.set(slug, result);
+        if (chunk.value) {
+          for (const [slug, result] of chunk.value) {
+            results.set(slug, result);
+          }
+          continue;
+        }
+
+        // The per-brand fallback only makes sense when the model answered and we
+        // could not use the answer. If the chunk call itself never reached the
+        // provider, every single-brand retry will die the same way — on 2026-08-02
+        // that turned one dead batch call into 20 more doomed calls per chunk, each
+        // paying its own retry backoff.
+        if (isLlmProviderFailure(chunk.calls)) {
+          continue;
+        }
+
+        for (const brand of batch) {
+          const single = await classifyCategory(brand, jobId);
+          calls = addLlmCalls(calls, single.calls);
+          if (single.value) {
+            results.set(brand.slug, single.value);
+          }
+        }
       }
-      continue;
-    }
 
-    // The per-brand fallback only makes sense when the model answered and we
-    // could not use the answer. If the chunk call itself never reached the
-    // provider, every single-brand retry will die the same way — on 2026-08-02
-    // that turned one dead batch call into 20 more doomed calls per chunk, each
-    // paying its own retry backoff.
-    if (isLlmProviderFailure(chunk.calls)) {
-      continue;
-    }
-
-    for (const brand of batch) {
-      const single = await classifyCategory(brand, jobId);
-      calls = addLlmCalls(calls, single.calls);
-      if (single.value) {
-        results.set(brand.slug, single.value);
-      }
-    }
-  }
-
-  return { results, calls };
+      return { results, calls };
     },
   );
 }
@@ -675,38 +674,38 @@ export async function detectBrandsBatch(
   return auditedCall(
     { provider: "enrich", operation: "detectBrandsBatch", kind: "service" },
     async () => {
-  const results = new Map<string, DetectResult>();
-  let calls = noLlmCalls();
+      const results = new Map<string, DetectResult>();
+      let calls = noLlmCalls();
 
-  for (let i = 0; i < brands.length; i += LLM_BATCH_CHUNK_SIZE) {
-    const batch = brands.slice(i, i + LLM_BATCH_CHUNK_SIZE);
-    const chunk = await detectBrandsBatchChunk(batch, jobId);
-    calls = addLlmCalls(calls, chunk.calls);
+      for (let i = 0; i < brands.length; i += LLM_BATCH_CHUNK_SIZE) {
+        const batch = brands.slice(i, i + LLM_BATCH_CHUNK_SIZE);
+        const chunk = await detectBrandsBatchChunk(batch, jobId);
+        calls = addLlmCalls(calls, chunk.calls);
 
-    if (chunk.value) {
-      for (const [slug, result] of chunk.value) {
-        results.set(slug, result);
+        if (chunk.value) {
+          for (const [slug, result] of chunk.value) {
+            results.set(slug, result);
+          }
+          continue;
+        }
+
+        // Same rule as the classifier above: a provider-level chunk failure means
+        // the account, not the payload, is the problem — 20 single-brand retries
+        // would only multiply the outage.
+        if (isLlmProviderFailure(chunk.calls)) {
+          continue;
+        }
+
+        for (const brand of batch) {
+          const single = await detectBrand(brand, jobId);
+          calls = addLlmCalls(calls, single.calls);
+          if (single.value) {
+            results.set(brand.slug, single.value);
+          }
+        }
       }
-      continue;
-    }
 
-    // Same rule as the classifier above: a provider-level chunk failure means
-    // the account, not the payload, is the problem — 20 single-brand retries
-    // would only multiply the outage.
-    if (isLlmProviderFailure(chunk.calls)) {
-      continue;
-    }
-
-    for (const brand of batch) {
-      const single = await detectBrand(brand, jobId);
-      calls = addLlmCalls(calls, single.calls);
-      if (single.value) {
-        results.set(brand.slug, single.value);
-      }
-    }
-  }
-
-  return { results, calls };
+      return { results, calls };
     },
   );
 }

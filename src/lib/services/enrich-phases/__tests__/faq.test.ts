@@ -143,7 +143,9 @@ function modelEntry(
     question_zh: "這個品牌的特色是什麼？",
     answer_zh:
       overrides.answerZh ??
-      zhAnswer("這個品牌以天然材料製作日用品，選料、裁切與手工縫製都在自有工坊完成。"),
+      zhAnswer(
+        "這個品牌以天然材料製作日用品，選料、裁切與手工縫製都在自有工坊完成。",
+      ),
     question_en: "What makes this brand distinctive?",
     answer_en:
       overrides.answerEn ??
@@ -215,7 +217,9 @@ describe("validateFaqEntries", () => {
       {
         entries: [
           modelEntry("category-position", {
-            answerZh: zhAnswer("這個品牌的入門品項售價為 NT$ 800，屬於同類品牌的中段位置。"),
+            answerZh: zhAnswer(
+              "這個品牌的入門品項售價為 NT$ 800，屬於同類品牌的中段位置。",
+            ),
           }),
         ],
       },
@@ -245,7 +249,10 @@ describe("validateFaqEntries", () => {
       {
         entries: [
           modelEntry("custom", { answerZh: "資料不足。", answerEn: "Thin." }),
-          modelEntry("custom", { answerZh: "沒有更多資訊。", answerEn: "None." }),
+          modelEntry("custom", {
+            answerZh: "沒有更多資訊。",
+            answerEn: "None.",
+          }),
         ],
       },
       presets,
@@ -271,7 +278,9 @@ describe("validateFaqEntries", () => {
           modelEntry("category-position"),
           modelEntry("category-position", {
             answerZh: zhAnswer(CUSTOM_SEEDS[1]),
-            answerEn: enAnswer("A second take on the same comparative question."),
+            answerEn: enAnswer(
+              "A second take on the same comparative question.",
+            ),
           }),
         ],
       },
@@ -300,14 +309,13 @@ describe("validateFaqEntries", () => {
     const outcome = validateFaqEntries(
       {
         entries: [
-          ...CUSTOM_SEEDS.slice(0, CUSTOM_QUESTION_CEILING).map(
-            (seed, index) =>
-              modelEntry("custom", {
-                answerZh: zhAnswer(seed),
-                answerEn: enAnswer(
-                  `Custom answer number ${index} covering a separate topic.`,
-                ),
-              }),
+          ...CUSTOM_SEEDS.slice(0, CUSTOM_QUESTION_CEILING).map((seed, index) =>
+            modelEntry("custom", {
+              answerZh: zhAnswer(seed),
+              answerEn: enAnswer(
+                `Custom answer number ${index} covering a separate topic.`,
+              ),
+            }),
           ),
           modelEntry("custom", {
             answerZh: zhAnswer("這個品項的售價為 NT$ 900，屬於中段。"),
@@ -418,7 +426,9 @@ describe("resolveFaqAttempts", () => {
         content: JSON.stringify({
           entries: [
             modelEntry("category-position", {
-              answerZh: zhAnswer("這個品牌的入門品項售價為 NT$ 800，屬於同類品牌的中段位置。"),
+              answerZh: zhAnswer(
+                "這個品牌的入門品項售價為 NT$ 800，屬於同類品牌的中段位置。",
+              ),
             }),
           ],
         }),
@@ -471,7 +481,9 @@ describe("resolveFaqAttempts", () => {
           entries: [
             modelEntry("custom"),
             modelEntry("category-position", {
-              answerZh: zhAnswer("這個品牌的入門品項售價為 NT$ 800，屬於同類品牌的中段位置。"),
+              answerZh: zhAnswer(
+                "這個品牌的入門品項售價為 NT$ 800，屬於同類品牌的中段位置。",
+              ),
             }),
           ],
         }),
@@ -482,8 +494,12 @@ describe("resolveFaqAttempts", () => {
         content: JSON.stringify({
           entries: [
             modelEntry("category-position", {
-              answerZh: zhAnswer("這個類別共有兩個品牌，兩者都位於臺南，資料僅描述類別規模與地理分布。"),
-              answerEn: enAnswer("This category contains two brands, both located in Tainan."),
+              answerZh: zhAnswer(
+                "這個類別共有兩個品牌，兩者都位於臺南，資料僅描述類別規模與地理分布。",
+              ),
+              answerEn: enAnswer(
+                "This category contains two brands, both located in Tainan.",
+              ),
             }),
           ],
         }),

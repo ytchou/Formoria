@@ -74,7 +74,9 @@ export function buildFaqSystemPrompt(
     .map((preset) => preset.promptFragment?.(ctx) ?? "")
     .filter(Boolean);
 
-  return [FAQ_PROMPT_PREAMBLE, FAQ_CUSTOM_LIMIT_PROMPT, ...fragments].join("\n\n");
+  return [FAQ_PROMPT_PREAMBLE, FAQ_CUSTOM_LIMIT_PROMPT, ...fragments].join(
+    "\n\n",
+  );
 }
 
 export function buildFaqPromptHash(presets: readonly FaqPreset[]): string {
@@ -86,7 +88,9 @@ export function buildFaqPromptHash(presets: readonly FaqPreset[]): string {
   // Hash the stable preamble and contributing preset IDs, never the rendered
   // brand-specific prompt, so equivalent eligible sets share one prompt version.
   return createHash("sha256")
-    .update([FAQ_PROMPT_PREAMBLE, FAQ_CUSTOM_LIMIT_PROMPT, ...fragmentIds].join("\n"))
+    .update(
+      [FAQ_PROMPT_PREAMBLE, FAQ_CUSTOM_LIMIT_PROMPT, ...fragmentIds].join("\n"),
+    )
     .digest("hex")
     .slice(0, 12);
 }

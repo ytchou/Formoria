@@ -48,8 +48,7 @@ const phaseDescriptions = {
   links: "Extracts and verifies official website and social links.",
   images: "Finds and selects usable brand and product images.",
   classify_images: "Classifies candidate images by their role and quality.",
-  facts:
-    "Extracts the brand's category, tags, city and founding year.",
+  facts: "Extracts the brand's category, tags, city and founding year.",
   descriptions: "Writes the bilingual description and blurb.",
   locations: "Finds physical shops and retail channels.",
   reputation:
@@ -324,7 +323,9 @@ export function JobDetailView({
             <dl className="grid gap-x-6 gap-y-3 rounded-surface bg-surface/40 p-4 sm:grid-cols-2 lg:grid-cols-3">
               {phaseDefinitions.map(([phase, description]) => (
                 <div key={phase}>
-                  <dt className="type-body-sm font-medium text-ink capitalize">{phase}</dt>
+                  <dt className="type-body-sm font-medium text-ink capitalize">
+                    {phase}
+                  </dt>
                   <dd className="mt-1 type-body-sm">{description}</dd>
                 </div>
               ))}
@@ -476,9 +477,7 @@ function TargetDetail({ target }: { target: CurationJobTarget }) {
           ) : null}
         </dl>
         <div className="mt-4 space-y-2">
-          <h3 className="type-tool-heading">
-            {t("detail.phaseLog")}
-          </h3>
+          <h3 className="type-tool-heading">{t("detail.phaseLog")}</h3>
           {phases.length === 0 ? (
             <p className="type-body-sm">{t("detail.noPhaseRecords")}</p>
           ) : (
@@ -520,7 +519,9 @@ function TargetDetail({ target }: { target: CurationJobTarget }) {
                     </p>
                   ) : null}
                   {phase.detail ? (
-                    <p className="mt-2 type-body-sm text-ink-soft">{formatPhaseDetail(phase)}</p>
+                    <p className="mt-2 type-body-sm text-ink-soft">
+                      {formatPhaseDetail(phase)}
+                    </p>
                   ) : null}
                   {phase.error ? (
                     <p className="mt-2 type-body-sm text-danger">

@@ -328,10 +328,7 @@ export function BrandBasicInfoSection({
                       "subcategoriesOptionsHeading",
                       "Subcategories you can add",
                     ),
-                    limit: tx(
-                      "subcategoriesMax",
-                      "Up to 5 subcategories.",
-                    ),
+                    limit: tx("subcategoriesMax", "Up to 5 subcategories."),
                     rejected: tx(
                       "subcategoriesRejected",
                       "That term is not in the subcategory list. Pick the closest one below.",
@@ -371,7 +368,6 @@ export function BrandBasicInfoSection({
             ))}
           </NativeSelect>
         </DashboardFormField>
-
       </StandardFormStack>
     </StandardFormSection>
   );

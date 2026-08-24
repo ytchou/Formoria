@@ -264,14 +264,9 @@ describe("i18n guard — allowlist hygiene", () => {
 
 describe("i18n guard — no hardcoded Chinese in source", () => {
   it("ignores Han characters in comments while keeping executable Han visible", () => {
-    const source = [
-      "// 中文說明",
-      "const label = '中文標籤';",
-    ].join("\n");
+    const source = ["// 中文說明", "const label = '中文標籤';"].join("\n");
 
-    expect(hanOffenders(source)).toEqual([
-      { line: 2, value: "'中文標籤'" },
-    ]);
+    expect(hanOffenders(source)).toEqual([{ line: 2, value: "'中文標籤'" }]);
   });
 
   it("source outside the allowlist contains no Han characters", () => {

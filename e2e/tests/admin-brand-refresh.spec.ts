@@ -368,10 +368,7 @@ test.describe("Bulk refresh approval", () => {
           brandIds.push(submission.brand_id);
         }
       }
-      await supabase
-        .from("brand_submissions")
-        .delete()
-        .in("id", submissionIds);
+      await supabase.from("brand_submissions").delete().in("id", submissionIds);
     }
     if (brandIds.length > 0) {
       await supabase.from("brands").delete().in("id", brandIds);
@@ -541,8 +538,12 @@ test.describe("Bulk refresh approval", () => {
     await adminPage
       .getByRole("textbox", { name: "Search submissions" })
       .fill(suffix);
-    const validRow = adminPage.locator("tbody tr").filter({ hasText: validName });
-    const staleRow = adminPage.locator("tbody tr").filter({ hasText: staleName });
+    const validRow = adminPage
+      .locator("tbody tr")
+      .filter({ hasText: validName });
+    const staleRow = adminPage
+      .locator("tbody tr")
+      .filter({ hasText: staleName });
     await expect(validRow).toBeVisible();
     await expect(staleRow).toBeVisible();
     await validRow.getByRole("checkbox").click();
@@ -557,9 +558,7 @@ test.describe("Bulk refresh approval", () => {
 
     await Promise.all([
       adminPage.waitForEvent("dialog").then((dialog) => dialog.accept()),
-      adminPage
-        .getByRole("button", { name: "Approve 2 selected" })
-        .click(),
+      adminPage.getByRole("button", { name: "Approve 2 selected" }).click(),
     ]);
 
     await expect(async () => {
@@ -579,6 +578,8 @@ test.describe("Bulk refresh approval", () => {
     await expect(validRow).toBeHidden({ timeout: BUDGET.GATED_UI });
     await expect(staleRow).toBeVisible();
     await expect(staleRow.getByRole("checkbox")).toBeChecked();
-    await expect(adminPage.locator("p.type-metadata.text-danger")).toContainText(staleName);
+    await expect(
+      adminPage.locator("p.type-metadata.text-danger"),
+    ).toContainText(staleName);
   });
 });

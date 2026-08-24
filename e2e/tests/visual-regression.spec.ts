@@ -54,9 +54,9 @@ test.describe("durable visual surfaces", () => {
       `<style>html,body{margin:0}img{display:block}</style><img alt="" src="data:image/png;base64,${image.toString("base64")}">`,
       { waitUntil: "load" },
     );
-    await page.locator("img").evaluate((element: HTMLImageElement) =>
-      element.decode(),
-    );
+    await page
+      .locator("img")
+      .evaluate((element: HTMLImageElement) => element.decode());
 
     await expect(page.locator("img")).toHaveScreenshot("root-og.png", {
       animations: "disabled",
@@ -66,14 +66,12 @@ test.describe("durable visual surfaces", () => {
   test("about audiences section", async ({ page }) => {
     await page.setViewportSize({ width: 1_440, height: 1_000 });
     await page.goto("/zh-TW/about");
-    const section = page
-      .locator("main > section")
-      .filter({
-        has: page.getByRole("heading", {
-          level: 2,
-          name: "兩種找法，同一條接得起來的路",
-        }),
-      });
+    const section = page.locator("main > section").filter({
+      has: page.getByRole("heading", {
+        level: 2,
+        name: "兩種找法，同一條接得起來的路",
+      }),
+    });
     await expect(section).toBeVisible();
     await page.evaluate(() => document.fonts.ready);
 

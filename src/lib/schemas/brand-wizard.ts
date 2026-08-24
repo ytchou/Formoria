@@ -1,11 +1,11 @@
-import { z } from 'zod'
-import { MAX_BRAND_GALLERY_PHOTOS } from '@/lib/constants/brand-images'
-import { isKnownSubcategoryTerm } from '@/lib/taxonomy/ontology'
+import { z } from "zod";
+import { MAX_BRAND_GALLERY_PHOTOS } from "@/lib/constants/brand-images";
+import { isKnownSubcategoryTerm } from "@/lib/taxonomy/ontology";
 import {
   ONLINE_STORE_CAMEL_FIELDS,
   ONLINE_STORES,
   type OnlineStoreCamelField,
-} from '@/lib/brands/online-stores'
+} from "@/lib/brands/online-stores";
 
 const romanizedNameSchema = z
   .string()
@@ -14,24 +14,24 @@ const romanizedNameSchema = z
   .max(100)
   .regex(/^[a-zA-Z0-9\s\-'.]+$/)
   .optional()
-  .or(z.literal(''))
+  .or(z.literal(""));
 
-const optionalUrlSchema = z.string().url().optional().or(z.literal(''))
-const socialHandlePattern = /^@?[a-zA-Z0-9][a-zA-Z0-9._-]*$/
+const optionalUrlSchema = z.string().url().optional().or(z.literal(""));
+const socialHandlePattern = /^@?[a-zA-Z0-9][a-zA-Z0-9._-]*$/;
 
 const socialHandleOrUrlSchema = z
   .string()
   .trim()
   .refine((value) => {
-    if (!value || socialHandlePattern.test(value)) return true
+    if (!value || socialHandlePattern.test(value)) return true;
     try {
-      const url = new URL(value)
-      return url.protocol === 'http:' || url.protocol === 'https:'
+      const url = new URL(value);
+      return url.protocol === "http:" || url.protocol === "https:";
     } catch {
-      return false
+      return false;
     }
-  }, 'Enter a profile handle or URL')
-  .optional()
+  }, "Enter a profile handle or URL")
+  .optional();
 
 export const brandWizardBasicInfoSchema = z.object({
   name: z.string().optional(),
@@ -47,11 +47,11 @@ export const brandWizardBasicInfoSchema = z.object({
     .array(z.string().max(100))
     .max(5)
     .refine((values) => values.every(isKnownSubcategoryTerm), {
-      message: 'Choose subcategories from the list',
+      message: "Choose subcategories from the list",
     })
     .optional(),
   city: z.string().optional(),
-})
+});
 
 const brandWizardMediaSchema = z.object({
   heroImageUrl: optionalUrlSchema,
@@ -59,7 +59,7 @@ const brandWizardMediaSchema = z.object({
     .array(z.string().url())
     .max(MAX_BRAND_GALLERY_PHOTOS)
     .optional(),
-})
+});
 
 const otherUrlSchema = z
   .object({
@@ -67,19 +67,19 @@ const otherUrlSchema = z
     url: optionalUrlSchema,
   })
   .superRefine((value, context) => {
-    const hasLabel = Boolean(value.label?.trim())
-    const hasUrl = Boolean(value.url?.trim())
-    if (hasLabel === hasUrl) return
+    const hasLabel = Boolean(value.label?.trim());
+    const hasUrl = Boolean(value.url?.trim());
+    if (hasLabel === hasUrl) return;
     context.addIssue({
-      code: 'custom',
-      path: hasLabel ? ['url'] : ['label'],
-      message: 'Complete both the label and URL',
-    })
-  })
+      code: "custom",
+      path: hasLabel ? ["url"] : ["label"],
+      message: "Complete both the label and URL",
+    });
+  });
 
 const purchaseUrlSchemas = Object.fromEntries(
   ONLINE_STORES.map((channel) => [channel.camel, optionalUrlSchema]),
-) as { [Field in OnlineStoreCamelField]: typeof optionalUrlSchema }
+) as { [Field in OnlineStoreCamelField]: typeof optionalUrlSchema };
 
 const brandWizardLinksSchema = z.object({
   socialInstagram: socialHandleOrUrlSchema,
@@ -87,35 +87,35 @@ const brandWizardLinksSchema = z.object({
   socialFacebook: optionalUrlSchema,
   ...purchaseUrlSchemas,
   otherUrls: z.array(otherUrlSchema).optional(),
-})
+});
 
 export const brandWizardCommonSchema = brandWizardBasicInfoSchema
   .merge(brandWizardMediaSchema)
-  .merge(brandWizardLinksSchema)
+  .merge(brandWizardLinksSchema);
 
-export type BrandWizardCommonValues = z.infer<typeof brandWizardCommonSchema>
-export type BrandWizardSharedStepKey = 'basicInfo' | 'media' | 'links'
+export type BrandWizardCommonValues = z.infer<typeof brandWizardCommonSchema>;
+export type BrandWizardSharedStepKey = "basicInfo" | "media" | "links";
 
 export const BRAND_WIZARD_SHARED_SECTION_FIELDS: Record<
   BrandWizardSharedStepKey,
   (keyof BrandWizardCommonValues)[]
 > = {
   basicInfo: [
-    'name',
-    'romanizedName',
-    'categorySlug',
-    'description',
-    'foundingYear',
-    'mitStory',
-    'subcategories',
-    'city',
+    "name",
+    "romanizedName",
+    "categorySlug",
+    "description",
+    "foundingYear",
+    "mitStory",
+    "subcategories",
+    "city",
   ],
-  media: ['heroImageUrl', 'productPhotos'],
+  media: ["heroImageUrl", "productPhotos"],
   links: [
-    'socialInstagram',
-    'socialThreads',
-    'socialFacebook',
+    "socialInstagram",
+    "socialThreads",
+    "socialFacebook",
     ...ONLINE_STORE_CAMEL_FIELDS,
-    'otherUrls',
+    "otherUrls",
   ],
-}
+};

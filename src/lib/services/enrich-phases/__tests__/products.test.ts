@@ -203,8 +203,7 @@ describe("runProductsPhase", () => {
       subcategories: ["tableware"],
       material: ["ceramic"],
       officialUrl: `${SITE}/products/clay-plate`,
-      productDescriptionZh:
-        "南投陶土手拉坏，直徑 21 公分，適合日常盛裝主餐。",
+      productDescriptionZh: "南投陶土手拉坏，直徑 21 公分，適合日常盛裝主餐。",
     });
     expect(result.proposals[0]!.key).toBeTruthy();
     expect(result.proposals[0]!.sources[0]).toMatchObject({
@@ -303,14 +302,18 @@ describe("runProductsPhase", () => {
 
     expect(result.proposals).toHaveLength(5);
     expect(result.patch.products).toHaveLength(5);
-    expect(new Set(result.proposals.map((proposal) => proposal.key)).size).toBe(5);
+    expect(new Set(result.proposals.map((proposal) => proposal.key)).size).toBe(
+      5,
+    );
   });
 
   it("reports a provider failure instead of an empty success", async () => {
     // The 2026-08-02 shape: every call 429s, the phase reports `succeeded`, and a
     // brand with no proposals is indistinguishable from a brand with none found.
     createClient.mockReturnValue({
-      chat: vi.fn().mockResolvedValue({ response: { ok: false }, content: null }),
+      chat: vi
+        .fn()
+        .mockResolvedValue({ response: { ok: false }, content: null }),
     });
 
     const result = await runProductsPhase({
@@ -424,7 +427,11 @@ describe("validateProductProposals", () => {
 
   it("drops a subcategory the ontology cannot resolve", () => {
     const { proposals } = validateProductProposals(
-      { products: [rawProposal({ subcategories: ["馬克杯", "餐具", "bedding"] })] },
+      {
+        products: [
+          rawProposal({ subcategories: ["馬克杯", "餐具", "bedding"] }),
+        ],
+      },
       { siteUrl: SITE },
     );
 

@@ -28,9 +28,7 @@ function createClientDouble(rows: BrandRow[], queryError: Error | null = null) {
           eq(column: string, value: unknown) {
             eqCalls.push([column, value]);
             if (column === "status" || column === "category") {
-              filters.push(
-                (row) => row[column as keyof BrandRow] === value,
-              );
+              filters.push((row) => row[column as keyof BrandRow] === value);
             }
             return builder;
           },
@@ -48,7 +46,9 @@ function createClientDouble(rows: BrandRow[], queryError: Error | null = null) {
               error: Error | null;
             }) => unknown,
           ) {
-            const data = rows.filter((row) => filters.every((filter) => filter(row)));
+            const data = rows.filter((row) =>
+              filters.every((filter) => filter(row)),
+            );
             return Promise.resolve(resolve({ data, error: queryError }));
           },
         };

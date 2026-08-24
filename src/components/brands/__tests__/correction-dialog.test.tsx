@@ -525,12 +525,7 @@ describe("CorrectionDialog", () => {
     });
 
     it("counts out-of-category subcategories against the 5 cap", async () => {
-      renderSubcategories([
-        "tops-and-tshirts",
-        "pants",
-        "skirts",
-        "dresses",
-      ]);
+      renderSubcategories(["tops-and-tshirts", "pants", "skirts", "dresses"]);
       await openSubcategoriesDialog();
 
       expect(screen.getByText(selectedCount(4))).toBeInTheDocument();
@@ -539,7 +534,9 @@ describe("CorrectionDialog", () => {
 
       expect(screen.getByText(selectedCount(5))).toBeInTheDocument();
       expect(screen.getByText(COPY.subcategoriesLimit)).toBeInTheDocument();
-      expect(chip(ADD_SUBCATEGORIES_HEADING, label("mattresses"))).toBeDisabled();
+      expect(
+        chip(ADD_SUBCATEGORIES_HEADING, label("mattresses")),
+      ).toBeDisabled();
     });
 
     it("disables the whole offer set at the cap while selected chips stay enabled", async () => {
@@ -581,7 +578,9 @@ describe("CorrectionDialog", () => {
 
       clickChip(ADD_SUBCATEGORIES_HEADING, label(replacement));
       expect(screen.getByText(selectedCount(5))).toBeInTheDocument();
-      expect(chip(CURRENT_SUBCATEGORIES_HEADING, label(removed))).toBeDisabled();
+      expect(
+        chip(CURRENT_SUBCATEGORIES_HEADING, label(removed)),
+      ).toBeDisabled();
       expect(
         chip(CURRENT_SUBCATEGORIES_HEADING, label(removed)),
       ).toHaveAttribute("aria-pressed", "false");

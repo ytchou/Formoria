@@ -108,9 +108,7 @@ async function report(candidates: Candidate[]): Promise<void> {
     );
   });
 
-  console.log(
-    `\n[backfill-faq] ${empty} brand(s) have no FAQ entries at all.`,
-  );
+  console.log(`\n[backfill-faq] ${empty} brand(s) have no FAQ entries at all.`);
   console.log(
     "[backfill-faq] Re-run with --apply to author them. Without --overwrite, brands whose eligible presets are already complete are skipped with no LLM call.",
   );

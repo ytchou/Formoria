@@ -47,11 +47,7 @@ export function BrandHeader({
   // the ontology rather than rendering the stored value.
   const resolvedTags = getBrandSubcategoryLabels(brand, locale ?? "zh-TW");
   const unknownValue = (
-    <Typography
-      as="span"
-      className="text-ink-muted"
-      variant="fieldValue"
-    >
+    <Typography as="span" className="text-ink-muted" variant="fieldValue">
       {t("unknown")}
     </Typography>
   );
@@ -79,7 +75,11 @@ export function BrandHeader({
         className="mt-7"
       >
         <div className="flex items-center justify-between gap-4">
-          <Typography as="h2" id="brand-info-heading" variant="sectionTitleLarge">
+          <Typography
+            as="h2"
+            id="brand-info-heading"
+            variant="sectionTitleLarge"
+          >
             {t("sectionTitle")}
           </Typography>
           <CorrectionDialog

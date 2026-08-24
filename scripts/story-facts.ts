@@ -279,7 +279,8 @@ async function fetchFaqRows(
       .from("brand_faq_entries")
       .select(FAQ_ENTRY_COLUMNS)
       .in("brand_id", ids);
-    if (error) throw new Error(`brand_faq_entries read failed: ${error.message}`);
+    if (error)
+      throw new Error(`brand_faq_entries read failed: ${error.message}`);
     for (const row of (data ?? []) as unknown as FaqEntryRow[]) {
       const existing = byBrandId.get(row.brand_id);
       if (existing) existing.push(row);

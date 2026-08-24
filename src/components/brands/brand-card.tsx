@@ -1,91 +1,105 @@
-'use client'
+"use client";
 
-import { useState } from 'react'
-import { Link } from '@/i18n/navigation'
-import { SurfaceImage } from '@/components/ui/image'
-import { useTranslations, useLocale } from 'next-intl'
-import type { PublicBrandCard } from '@/lib/brands/contracts'
+import { useState } from "react";
+import { Link } from "@/i18n/navigation";
+import { SurfaceImage } from "@/components/ui/image";
+import { useTranslations, useLocale } from "next-intl";
+import type { PublicBrandCard } from "@/lib/brands/contracts";
 import {
   trackBrandCardClicked,
   trackRecommendationBrandClicked,
   trackSavedBrandRevisited,
-} from '@/lib/analytics'
-import { useSavedBrands } from '@/hooks/use-saved-brands'
-import { surfaceCardStyles } from '@/components/ui/card'
-import { buttonVariants } from '@/components/ui/button'
-import { Badge } from '@/components/ui/badge'
-import { brandImageFill } from '@/lib/images/fill'
-import { getBrandCategoryLabel, getBrandSubcategoryLabels } from '@/lib/brands/category-label'
-import { selectBrandCardImage } from '@/lib/brands/image-selection'
-import { NO_SNIPPET } from '@/lib/seo/snippet'
-import { SaveBrandButton } from './save-brand-button'
-import { BrandImageFallback } from './brand-image-fallback'
-import { MitDeclaredBadge, MitVerifiedBadge, OwnerVerifiedBadge } from './brand-verification-badges'
-import { cn } from '@/lib/utils'
-import { routes } from '@/lib/routes'
+} from "@/lib/analytics";
+import { useSavedBrands } from "@/hooks/use-saved-brands";
+import { surfaceCardStyles } from "@/components/ui/card";
+import { buttonVariants } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { brandImageFill } from "@/lib/images/fill";
+import {
+  getBrandCategoryLabel,
+  getBrandSubcategoryLabels,
+} from "@/lib/brands/category-label";
+import { selectBrandCardImage } from "@/lib/brands/image-selection";
+import { NO_SNIPPET } from "@/lib/seo/snippet";
+import { SaveBrandButton } from "./save-brand-button";
+import { BrandImageFallback } from "./brand-image-fallback";
+import {
+  MitDeclaredBadge,
+  MitVerifiedBadge,
+  OwnerVerifiedBadge,
+} from "./brand-verification-badges";
+import { cn } from "@/lib/utils";
+import { routes } from "@/lib/routes";
 
 interface BrandCardProps {
-  brand: PublicBrandCard
-  position?: number
-  preload?: boolean
-  variant?: 'directory' | 'recommendation' | 'editorial'
-  sourceBrandSlug?: string
+  brand: PublicBrandCard;
+  position?: number;
+  preload?: boolean;
+  variant?: "directory" | "recommendation" | "editorial";
+  sourceBrandSlug?: string;
   /** Stable analytics identifier for the list or rail containing this card. */
-  listSource?: string
+  listSource?: string;
   /** Internal image candidate hint for a surface with a custom card width. */
-  imageSizes?: string
+  imageSizes?: string;
   /**
    * Editorial variant only: the author's line about this brand, shown in place
    * of the generated blurb so a story's own voice wins over directory copy.
    */
-  note?: string
+  note?: string;
   /** Editorial variant only: short kicker above the brand name. */
-  eyebrow?: string
+  eyebrow?: string;
 }
 
 export function BrandCard({
   brand,
   position = 0,
   preload = false,
-  variant = 'directory',
+  variant = "directory",
   sourceBrandSlug,
   listSource,
   imageSizes,
   note,
   eyebrow,
 }: BrandCardProps) {
-  const t = useTranslations('brands')
-  const tDetail = useTranslations('brandDetail')
-  const locale = useLocale()
+  const t = useTranslations("brands");
+  const tDetail = useTranslations("brandDetail");
+  const locale = useLocale();
   // Safe on surfaces with no SavedBrandsProvider — the hook falls back to an empty set.
-  const { savedIds } = useSavedBrands()
-  const [imgError, setImgError] = useState(false)
-  const selectedImage = selectBrandCardImage(brand)
-  const imageSrc = selectedImage?.src ?? null
-  const showImage = imageSrc != null && !imgError
-  const imageFill = brandImageFill(selectedImage?.meta, { inset: 'p-6' })
+  const { savedIds } = useSavedBrands();
+  const [imgError, setImgError] = useState(false);
+  const selectedImage = selectBrandCardImage(brand);
+  const imageSrc = selectedImage?.src ?? null;
+  const showImage = imageSrc != null && !imgError;
+  const imageFill = brandImageFill(selectedImage?.meta, { inset: "p-6" });
 
-  const categoryLabel = getBrandCategoryLabel(brand, locale === 'en' ? 'en' : 'zh-TW')
+  const categoryLabel = getBrandCategoryLabel(
+    brand,
+    locale === "en" ? "en" : "zh-TW",
+  );
   // The card shows one L2 chip. `subcategories` stores slugs since DEV-1510, so
   // the stored value is resolved to its label before it reaches the badge.
-  const primarySubcategory = getBrandSubcategoryLabels(brand, locale).at(0)
+  const primarySubcategory = getBrandSubcategoryLabels(brand, locale).at(0);
   // The directory blurb, resolved once: both the directory variant and the
   // editorial variant (as its fallback when there is no curator note) render it,
   // and two copies of this chain drift apart the next time it changes.
   const blurb =
-    locale === 'en'
-      ? (brand.blurbEn ?? brand.descriptionEn ?? brand.blurb ?? brand.description)
-      : (brand.blurb ?? brand.description)
+    locale === "en"
+      ? (brand.blurbEn ??
+        brand.descriptionEn ??
+        brand.blurb ??
+        brand.description)
+      : (brand.blurb ?? brand.description);
   // Directory and editorial cards are whole-card click targets with a save
   // affordance; recommendation cards use an explicit button instead.
-  const isWholeCardLink = variant === 'directory' || variant === 'editorial'
+  const isWholeCardLink = variant === "directory" || variant === "editorial";
 
   return (
     <article
       className={surfaceCardStyles({
-        className: 'group relative block has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-accent',
+        className:
+          "group relative block has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-accent",
         interactive: true,
-        padding: 'none',
+        padding: "none",
       })}
     >
       {/* Image */}
@@ -100,21 +114,32 @@ export function BrandCard({
             fill
             preload={preload}
             sizes={imageSizes}
-            className={cn('transition-transform group-hover:scale-[1.02]', imageFill)}
+            className={cn(
+              "transition-transform group-hover:scale-[1.02]",
+              imageFill,
+            )}
             surface="card"
             onError={() => setImgError(true)}
           />
         ) : (
-          <BrandImageFallback name={brand.name} category={brand.categoryLabel} size="card" />
+          <BrandImageFallback
+            name={brand.name}
+            category={brand.categoryLabel}
+            size="card"
+          />
         )}
         {isWholeCardLink ? (
-          <SaveBrandButton brandId={brand.id} slug={brand.slug} variant="overlay" />
+          <SaveBrandButton
+            brandId={brand.id}
+            slug={brand.slug}
+            variant="overlay"
+          />
         ) : null}
       </div>
 
       {/* Content */}
       <div className="p-4">
-        {variant === 'editorial' && eyebrow ? (
+        {variant === "editorial" && eyebrow ? (
           /*
            * Micro-text, not a `Badge`: three grey pills across a `<BrandRow>`
            * read as chrome inside prose. `type-eyebrow` is the declared
@@ -132,29 +157,45 @@ export function BrandCard({
            */}
           <h3
             className={cn(
-              'min-w-0 type-body-sm font-semibold text-ink',
-              variant === 'editorial' ? 'line-clamp-2 min-h-10' : 'truncate',
+              "min-w-0 type-body-sm font-semibold text-ink",
+              variant === "editorial" ? "line-clamp-2 min-h-10" : "truncate",
             )}
           >
             <Link
               href={routes.brand(brand.slug)}
-              prefetch={variant === 'directory' ? false : undefined}
+              prefetch={variant === "directory" ? false : undefined}
               className={cn(
-                'focus-visible:outline-none',
-                isWholeCardLink && 'after:absolute after:inset-0',
+                "focus-visible:outline-none",
+                isWholeCardLink && "after:absolute after:inset-0",
               )}
               onClick={() => {
-                if (variant === 'recommendation') {
-                  trackRecommendationBrandClicked(brand.id, brand.slug, sourceBrandSlug ?? '', position)
+                if (variant === "recommendation") {
+                  trackRecommendationBrandClicked(
+                    brand.id,
+                    brand.slug,
+                    sourceBrandSlug ?? "",
+                    position,
+                  );
                 } else {
                   if (listSource) {
-                    trackBrandCardClicked(brand.slug, brand.categoryLabel, position, brand.id, listSource)
+                    trackBrandCardClicked(
+                      brand.slug,
+                      brand.categoryLabel,
+                      position,
+                      brand.id,
+                      listSource,
+                    );
                   } else {
-                    trackBrandCardClicked(brand.slug, brand.categoryLabel, position, brand.id)
+                    trackBrandCardClicked(
+                      brand.slug,
+                      brand.categoryLabel,
+                      position,
+                      brand.id,
+                    );
                   }
                 }
                 if (savedIds.has(brand.id)) {
-                  trackSavedBrandRevisited(brand.slug, 'card', brand.id)
+                  trackSavedBrandRevisited(brand.slug, "card", brand.id);
                 }
               }}
               data-ph-no-autocapture
@@ -162,30 +203,32 @@ export function BrandCard({
               {brand.name}
             </Link>
           </h3>
-          {(brand.mitStatus === 'declared' || brand.mitStatus === 'verified' || brand.isVerified) && (
+          {(brand.mitStatus === "declared" ||
+            brand.mitStatus === "verified" ||
+            brand.isVerified) && (
             <div className="flex shrink-0 items-center gap-1.5">
-              {brand.mitStatus === 'declared' && (
+              {brand.mitStatus === "declared" && (
                 <MitDeclaredBadge
-                  label={t('card.mitDeclaredBadge')}
-                  title={tDetail('mitDeclaredTitle')}
+                  label={t("card.mitDeclaredBadge")}
+                  title={tDetail("mitDeclaredTitle")}
                 />
               )}
-              {brand.mitStatus === 'verified' && (
+              {brand.mitStatus === "verified" && (
                 <MitVerifiedBadge
-                  label={t('card.mitVerifiedBadge')}
-                  title={tDetail('mitVerified')}
+                  label={t("card.mitVerifiedBadge")}
+                  title={tDetail("mitVerified")}
                 />
               )}
               {brand.isVerified && (
                 <OwnerVerifiedBadge
-                  label={t('card.verifiedBadge')}
-                  title={t('card.verifiedLabel')}
+                  label={t("card.verifiedBadge")}
+                  title={t("card.verifiedLabel")}
                 />
               )}
             </div>
           )}
         </div>
-        {variant === 'recommendation' ? (
+        {variant === "recommendation" ? (
           <>
             {categoryLabel ? (
               <p className="mt-1 truncate type-body-sm">{categoryLabel}</p>
@@ -193,18 +236,25 @@ export function BrandCard({
             <Link
               href={routes.brand(brand.slug)}
               className={buttonVariants({
-                variant: 'secondary',
-                size: 'large',
-                width: 'full',
-                className: 'relative z-20 mt-4',
+                variant: "secondary",
+                size: "large",
+                width: "full",
+                className: "relative z-20 mt-4",
               })}
-              onClick={() => trackRecommendationBrandClicked(brand.id, brand.slug, sourceBrandSlug ?? '', position)}
+              onClick={() =>
+                trackRecommendationBrandClicked(
+                  brand.id,
+                  brand.slug,
+                  sourceBrandSlug ?? "",
+                  position,
+                )
+              }
               data-ph-no-autocapture
             >
-              {t('card.viewBrand')}
+              {t("card.viewBrand")}
             </Link>
           </>
-        ) : variant === 'editorial' ? (
+        ) : variant === "editorial" ? (
           <>
             {/*
               Same reserved block as the directory variant below: a fixed
@@ -224,8 +274,11 @@ export function BrandCard({
               selection — see NO_SNIPPET. The brand's own description still
               serves snippets from its detail page.
             */}
-            <p {...NO_SNIPPET} className="mt-1.5 min-h-[2.625rem] type-body-sm text-ink-soft line-clamp-2">
-              {note ?? blurb ?? ' '}
+            <p
+              {...NO_SNIPPET}
+              className="mt-1.5 min-h-[2.625rem] type-body-sm text-ink-soft line-clamp-2"
+            >
+              {note ?? blurb ?? " "}
             </p>
             {categoryLabel ? (
               <div className="mt-3 flex items-center gap-1.5 overflow-hidden">
@@ -240,10 +293,12 @@ export function BrandCard({
               {...NO_SNIPPET}
               className="mt-1.5 min-h-[2.625rem] type-body-sm line-clamp-2"
             >
-              {blurb ?? ' '}
+              {blurb ?? " "}
             </p>
             <div className="mt-3 flex items-center gap-1.5 overflow-hidden">
-              {categoryLabel && <Badge variant="secondary">{categoryLabel}</Badge>}
+              {categoryLabel && (
+                <Badge variant="secondary">{categoryLabel}</Badge>
+              )}
               {primarySubcategory && (
                 <Badge variant="secondary" className="max-w-full truncate">
                   {primarySubcategory}
@@ -254,5 +309,5 @@ export function BrandCard({
         )}
       </div>
     </article>
-  )
+  );
 }

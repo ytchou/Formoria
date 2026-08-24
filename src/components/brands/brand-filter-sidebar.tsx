@@ -152,9 +152,7 @@ function FilterSection({
         )}
         style={{ transitionTimingFunction: "var(--ease-settle)" }}
       >
-        <div className="overflow-hidden">
-          {children}
-        </div>
+        <div className="overflow-hidden">{children}</div>
       </div>
     </section>
   );
@@ -179,7 +177,12 @@ export function BrandFilterSidebar({
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const activeCategories = useMemo(
-    () => new Set(activeCategorySlugs.length > 0 ? activeCategorySlugs : parseCommaParam(searchParams.get("category"))),
+    () =>
+      new Set(
+        activeCategorySlugs.length > 0
+          ? activeCategorySlugs
+          : parseCommaParam(searchParams.get("category")),
+      ),
     [activeCategorySlugs, searchParams],
   );
   const activeVerification = (
@@ -224,7 +227,10 @@ export function BrandFilterSidebar({
       locale,
     });
     startTransition(() => {
-      const navigate = target.routerPath.split('?')[0] === pathname ? router.replace : router.push;
+      const navigate =
+        target.routerPath.split("?")[0] === pathname
+          ? router.replace
+          : router.push;
       navigate(target.routerPath, { scroll: false });
     });
   }
@@ -303,7 +309,9 @@ export function BrandFilterSidebar({
       <div className="space-y-6 p-4">
         <section className="space-y-3">
           <div className="flex items-center gap-1.5">
-            <h2 className="type-body-sm font-medium text-ink">{t("brandSearch")}</h2>
+            <h2 className="type-body-sm font-medium text-ink">
+              {t("brandSearch")}
+            </h2>
             <Info className="size-4 text-ink-muted" aria-hidden="true" />
           </div>
           <SearchInput
@@ -317,7 +325,10 @@ export function BrandFilterSidebar({
 
         <Separator />
 
-        <FilterSection title={t("category")} defaultOpen={activeCategories.size > 0}>
+        <FilterSection
+          title={t("category")}
+          defaultOpen={activeCategories.size > 0}
+        >
           <div className="space-y-1">
             {categories.map((category) => {
               const checked = activeCategories.has(category.slug);
@@ -373,8 +384,12 @@ export function BrandFilterSidebar({
                           slug: category.slug,
                           categorySlugs: [category.slug],
                           subSlug: subcategoryChecked
-                            ? activeSubSlugs.filter((slug) => slug !== subcategory.slug).join(',') || null
-                            : Array.from(new Set([...activeSubSlugs, subcategory.slug])).join(','),
+                            ? activeSubSlugs
+                                .filter((slug) => slug !== subcategory.slug)
+                                .join(",") || null
+                            : Array.from(
+                                new Set([...activeSubSlugs, subcategory.slug]),
+                              ).join(","),
                           locale,
                         });
                         return (
@@ -382,22 +397,32 @@ export function BrandFilterSidebar({
                             key={subcategory.slug}
                             href={subcategoryTarget.routerPath}
                             prefetch={false}
-                            aria-current={subcategoryChecked ? 'page' : undefined}
+                            aria-current={
+                              subcategoryChecked ? "page" : undefined
+                            }
                             className={cn(
-                              buttonVariants({ variant: 'secondary', shape: 'pill' }),
-                              'min-h-12',
-                              subcategoryChecked && 'border-accent bg-accent text-ground hover:border-accent hover:bg-accent hover:text-ground',
+                              buttonVariants({
+                                variant: "secondary",
+                                shape: "pill",
+                              }),
+                              "min-h-12",
+                              subcategoryChecked &&
+                                "border-accent bg-accent text-ground hover:border-accent hover:bg-accent hover:text-ground",
                             )}
                             data-ph-no-autocapture
                             onClick={() => {
                               if (subcategoryChecked) {
-                                trackFilterCleared("single", "subcategory", subcategory.slug)
+                                trackFilterCleared(
+                                  "single",
+                                  "subcategory",
+                                  subcategory.slug,
+                                );
                               } else {
                                 trackSubcategoryFilterApplied(
                                   subcategory.slug,
                                   category.slug,
                                   subcategory.count,
-                                )
+                                );
                               }
                             }}
                           >
@@ -535,7 +560,11 @@ export function BrandFilterDrawer({
     <Sheet open={open} onOpenChange={setOpen}>
       <SheetTrigger
         render={
-          <Button variant="secondary" size="large" className="gap-2 lg:hidden" />
+          <Button
+            variant="secondary"
+            size="large"
+            className="gap-2 lg:hidden"
+          />
         }
       >
         <SlidersHorizontal className="h-4 w-4" aria-hidden="true" />
@@ -571,11 +600,7 @@ export function BrandFilterDrawer({
           />
         </SheetBody>
         <SheetFooter>
-          <Button
-            type="button"
-            width="full"
-            onClick={() => setOpen(false)}
-          >
+          <Button type="button" width="full" onClick={() => setOpen(false)}>
             {t("showResults", { count: totalCount })}
           </Button>
           <MobileClearAll onClear={() => setOpen(false)} />

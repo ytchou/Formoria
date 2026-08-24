@@ -27,13 +27,17 @@ function expectOkDelta(result: ReturnType<typeof normalizeSubcategoryDelta>) {
 
 describe("normalizeProposedValue — subcategories", () => {
   it("accepts a canonical nameZh add and stores its slug", () => {
-    const value = expectOkDelta(normalizeSubcategoryDelta({ add: ["洋裝"], remove: [] }));
+    const value = expectOkDelta(
+      normalizeSubcategoryDelta({ add: ["洋裝"], remove: [] }),
+    );
     expect(value.add).toEqual(["dresses"]);
     expect(value.remove).toEqual([]);
   });
 
   it("resolves an alias add to its slug", () => {
-    const value = expectOkDelta(normalizeSubcategoryDelta({ add: ["T恤"], remove: [] }));
+    const value = expectOkDelta(
+      normalizeSubcategoryDelta({ add: ["T恤"], remove: [] }),
+    );
     expect(value.add).toEqual(["tops-and-tshirts"]);
   });
 
@@ -54,7 +58,9 @@ describe("normalizeProposedValue — subcategories", () => {
   it("accepts a cross-category add", () => {
     // `手工皂` is a beauty subcategory; the closed set is global, not scoped to
     // the brand's own category, so it must pass here.
-    const value = expectOkDelta(normalizeSubcategoryDelta({ add: ["手工皂"], remove: [] }));
+    const value = expectOkDelta(
+      normalizeSubcategoryDelta({ add: ["手工皂"], remove: [] }),
+    );
     expect(value.add).toEqual(["handmade-soap"]);
   });
 
@@ -62,11 +68,15 @@ describe("normalizeProposedValue — subcategories", () => {
   // does not know is refused here as well as in the picker, because the client
   // is not the gate.
   it("rejects a term the vocabulary does not know", () => {
-    expect(normalizeSubcategoryDelta({ add: ["手工燈籠"], remove: [] })).toEqual({
+    expect(
+      normalizeSubcategoryDelta({ add: ["手工燈籠"], remove: [] }),
+    ).toEqual({
       ok: false,
       error: "invalid_value",
     });
-    expect(normalizeSubcategoryDelta({ add: ["手工玻璃吹製花瓶器"], remove: [] })).toEqual({
+    expect(
+      normalizeSubcategoryDelta({ add: ["手工玻璃吹製花瓶器"], remove: [] }),
+    ).toEqual({
       ok: false,
       error: "invalid_value",
     });
@@ -86,7 +96,10 @@ describe("normalizeProposedValue — subcategories", () => {
 
   it("dedupes adds that resolve to the same node", () => {
     const value = expectOkDelta(
-      normalizeSubcategoryDelta({ add: ["T恤", "上衣・T恤", "tops-and-tshirts"], remove: [] }),
+      normalizeSubcategoryDelta({
+        add: ["T恤", "上衣・T恤", "tops-and-tshirts"],
+        remove: [],
+      }),
     );
     expect(value.add).toEqual(["tops-and-tshirts"]);
   });
@@ -95,7 +108,10 @@ describe("normalizeProposedValue — subcategories", () => {
     // Removal is how a pre-migration or evicted value gets repaired, so it can
     // never be gated on the vocabulary knowing the value.
     const value = expectOkDelta(
-      normalizeSubcategoryDelta({ add: [], remove: ["超值限定組合系列", "  襪  "] }),
+      normalizeSubcategoryDelta({
+        add: [],
+        remove: ["超值限定組合系列", "  襪  "],
+      }),
     );
     expect(value.remove).toEqual(["超值限定組合系列", "襪"]);
   });
@@ -121,7 +137,10 @@ describe("normalizeProposedValue — subcategories", () => {
       ok: false,
       error: "invalid_value",
     });
-    expect(normalizeSubcategoryDelta(null)).toEqual({ ok: false, error: "invalid_value" });
+    expect(normalizeSubcategoryDelta(null)).toEqual({
+      ok: false,
+      error: "invalid_value",
+    });
     expect(normalizeSubcategoryDelta({ add: [1], remove: [] })).toEqual({
       ok: false,
       error: "invalid_value",
@@ -261,7 +280,10 @@ describe("normalizeProposedValue — social links", () => {
 
   it("rejects a URL on an unrelated host", () => {
     expect(
-      normalizeProposedValue("social_instagram", "https://formoria.example/foo"),
+      normalizeProposedValue(
+        "social_instagram",
+        "https://formoria.example/foo",
+      ),
     ).toEqual({ ok: false, error: "invalid_value" });
     expect(
       normalizeProposedValue("social_threads", "https://formoria.example/foo"),

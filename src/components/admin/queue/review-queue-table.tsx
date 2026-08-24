@@ -17,11 +17,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { cn } from "@/lib/utils";
-import type {
-  ReviewBulkAction,
-  ReviewColumn,
-  ReviewQueueState,
-} from "./types";
+import type { ReviewBulkAction, ReviewColumn, ReviewQueueState } from "./types";
 
 export function ReviewQueueTable<T>(props: {
   queue: ReviewQueueState<T>;
@@ -157,10 +153,7 @@ export function ReviewQueueTable<T>(props: {
               return (
                 <TableRow
                   key={id}
-                  className={cn(
-                    "cursor-pointer",
-                    rowClassName?.(item),
-                  )}
+                  className={cn("cursor-pointer", rowClassName?.(item))}
                   data-state={selected ? "selected" : undefined}
                   aria-busy={pending || undefined}
                   onClick={(event) => {

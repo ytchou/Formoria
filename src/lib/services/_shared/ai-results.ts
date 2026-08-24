@@ -12,11 +12,7 @@ import { resolveOpenAIModel } from "../openai-client";
 import { evalSinkPath, writeEvalSinkRecord } from "../eval/llm-usage-sink";
 import { priceUsage, usageFromRawResponse } from "../llm-pricing";
 import { captureAlert } from "@/lib/adapters/alerting/sentry";
-import {
-  classifyPostgrestError,
-  IN_PROCESS,
-  withRetry,
-} from "@/lib/retry";
+import { classifyPostgrestError, IN_PROCESS, withRetry } from "@/lib/retry";
 
 // The model behind every text phase. Written verbatim into brand_ai_results.model, so it
 // must track the model the audited client actually calls — hence the shared resolver

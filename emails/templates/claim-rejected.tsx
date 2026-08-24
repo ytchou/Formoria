@@ -38,7 +38,8 @@ export default function ClaimRejectedEmail({
 
   if (locale === "en") {
     return (
-      <Layout lang="en"
+      <Layout
+        lang="en"
         previewText={`Your brand claim for ${escapedBrandName} was not approved`}
       >
         <EmailHeading as="h2">Your brand claim was not approved</EmailHeading>

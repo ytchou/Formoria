@@ -44,7 +44,8 @@ export default function ClaimApprovedEmail({
 
   if (locale === "en") {
     return (
-      <Layout lang="en"
+      <Layout
+        lang="en"
         previewText={`Your brand claim for ${escapedBrandName} has been approved`}
       >
         <EmailHeading as="h2">Your brand claim has been approved!</EmailHeading>

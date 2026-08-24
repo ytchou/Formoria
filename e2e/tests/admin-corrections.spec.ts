@@ -37,7 +37,9 @@ test.describe("Admin brand corrections", () => {
   }) => {
     test.setTimeout(BUDGET.TEST.ADMIN);
     await adminPage.goto("/admin/corrections");
-    await expect(adminPage.getByRole("heading", { name: "Brand Corrections" })).toBeVisible({
+    await expect(
+      adminPage.getByRole("heading", { name: "Brand Corrections" }),
+    ).toBeVisible({
       timeout: BUDGET.NAVIGATION,
     });
 
@@ -45,7 +47,9 @@ test.describe("Admin brand corrections", () => {
     // is asserted as table-or-empty rather than pinned to one of the two.
     const table = adminPage.locator("table").first();
     const emptyState = adminPage.getByText("No pending brand corrections.");
-    await expect(table.or(emptyState).first()).toBeVisible({ timeout: BUDGET.SERVER_RENDER });
+    await expect(table.or(emptyState).first()).toBeVisible({
+      timeout: BUDGET.SERVER_RENDER,
+    });
 
     if (await table.isVisible()) {
       await expect(
@@ -63,11 +67,16 @@ test.describe("Admin brand corrections", () => {
     }
   });
 
-  test("opens correction details and approves only the selected rows", async ({ adminPage }) => {
+  test("opens correction details and approves only the selected rows", async ({
+    adminPage,
+  }) => {
     test.setTimeout(BUDGET.TEST.ADMIN);
     const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
     const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
-    test.skip(!url || !key, "Supabase service-role credentials are required for correction seeding.");
+    test.skip(
+      !url || !key,
+      "Supabase service-role credentials are required for correction seeding.",
+    );
     supabase = createClient(url!, key!);
 
     try {
@@ -80,7 +89,10 @@ test.describe("Admin brand corrections", () => {
         );
       }
     } catch (error) {
-      test.skip(true, `Skipped because correction seed could not be established: ${String(error)}`);
+      test.skip(
+        true,
+        `Skipped because correction seed could not be established: ${String(error)}`,
+      );
       return;
     }
 
@@ -99,14 +111,19 @@ test.describe("Admin brand corrections", () => {
         .select("id")
         .single();
       if (error || !correction?.id) {
-        test.skip(true, `Skipped because correction insert failed: ${error?.message ?? "missing id"}`);
+        test.skip(
+          true,
+          `Skipped because correction insert failed: ${error?.message ?? "missing id"}`,
+        );
         return;
       }
       correctionIds.push(correction.id);
     }
 
     await adminPage.goto("/admin/corrections");
-    await expect(adminPage.getByRole("heading", { name: "Brand Corrections" })).toBeVisible({
+    await expect(
+      adminPage.getByRole("heading", { name: "Brand Corrections" }),
+    ).toBeVisible({
       timeout: BUDGET.NAVIGATION,
     });
 
@@ -116,13 +133,19 @@ test.describe("Admin brand corrections", () => {
       .first();
     await expect(selectedRow).toBeVisible({ timeout: BUDGET.GATED_UI });
     await selectedRow
-      .getByRole("button", { name: `Show details for ${seededBrands[0].brand.name}` })
+      .getByRole("button", {
+        name: `Show details for ${seededBrands[0].brand.name}`,
+      })
       .click();
 
     const drawer = adminPage.getByRole("dialog");
     await expect(drawer).toBeVisible();
-    await expect(drawer.getByText("Current value", { exact: true })).toBeVisible();
-    await expect(drawer.getByText("Proposed value", { exact: true })).toBeVisible();
+    await expect(
+      drawer.getByText("Current value", { exact: true }),
+    ).toBeVisible();
+    await expect(
+      drawer.getByText("Proposed value", { exact: true }),
+    ).toBeVisible();
     await adminPage.keyboard.press("Escape");
     await expect(drawer).toBeHidden();
 
@@ -156,7 +179,10 @@ test.describe("Admin brand corrections", () => {
     const { data: brands, error: brandsError } = await supabase
       .from("brands")
       .select("id, category")
-      .in("id", seededBrands.map((seeded) => seeded.brand.id));
+      .in(
+        "id",
+        seededBrands.map((seeded) => seeded.brand.id),
+      );
     expect(brandsError).toBeNull();
     expect(new Map(brands?.map((brand) => [brand.id, brand.category]))).toEqual(
       new Map([
@@ -167,7 +193,9 @@ test.describe("Admin brand corrections", () => {
     );
 
     await expect(
-      adminPage.getByRole("row").filter({ hasText: seededBrands[2].brand.name }),
+      adminPage
+        .getByRole("row")
+        .filter({ hasText: seededBrands[2].brand.name }),
     ).toBeVisible();
   });
 });

@@ -1,50 +1,67 @@
-import type { BrandFilters } from '@/lib/types'
-import { parsePageParam, parseSortParam, type BrandSortOption } from '@/lib/pagination'
-import { MATERIALS } from '@/lib/taxonomy/ontology'
+import type { BrandFilters } from "@/lib/types";
+import {
+  parsePageParam,
+  parseSortParam,
+  type BrandSortOption,
+} from "@/lib/pagination";
+import { MATERIALS } from "@/lib/taxonomy/ontology";
 
-export type DirectorySearchParams = Record<string, string | string[] | undefined>
+export type DirectorySearchParams = Record<
+  string,
+  string | string[] | undefined
+>;
 
 export type DirectoryViewFilters = Pick<
   BrandFilters,
-  'search' | 'materials' | 'verificationFilter'
+  "search" | "materials" | "verificationFilter"
 > & {
-  categorySlugs: string[]
-  subcategorySlugs: string[]
-}
+  categorySlugs: string[];
+  subcategorySlugs: string[];
+};
 
-const VALID_MATERIALS: ReadonlySet<string> = new Set(MATERIALS.map((m) => m.slug))
+const VALID_MATERIALS: ReadonlySet<string> = new Set(
+  MATERIALS.map((m) => m.slug),
+);
 
 function parseCommaParam(value: string | string[] | undefined): string[] {
-  const values = Array.isArray(value) ? value : value ? [value] : []
+  const values = Array.isArray(value) ? value : value ? [value] : [];
   return values.flatMap((item) =>
     item
-      .split(',')
+      .split(",")
       .map((entry) => entry.trim())
       .filter(Boolean),
-  )
+  );
 }
 
 function parseVerificationParam(
   value: string | string[] | undefined,
-): NonNullable<BrandFilters['verificationFilter']> {
-  return value === 'mit-verified' || value === 'mit-declared' || value === 'owned' || value === 'all'
+): NonNullable<BrandFilters["verificationFilter"]> {
+  return value === "mit-verified" ||
+    value === "mit-declared" ||
+    value === "owned" ||
+    value === "all"
     ? value
-    : 'all'
+    : "all";
 }
 
 export function parseDirectoryViewFilters(
   searchParams: DirectorySearchParams,
   validCategorySlugs: ReadonlySet<string>,
 ): { filters: DirectoryViewFilters; page: number; sort: BrandSortOption } {
-  const categorySlugs = parseCommaParam(searchParams.category)
-    .filter((slug) => validCategorySlugs.has(slug))
-  const singleCategory = categorySlugs.length === 1 ? categorySlugs[0] ?? null : null
+  const categorySlugs = parseCommaParam(searchParams.category).filter((slug) =>
+    validCategorySlugs.has(slug),
+  );
+  const singleCategory =
+    categorySlugs.length === 1 ? (categorySlugs[0] ?? null) : null;
 
   return {
     page: parsePageParam(searchParams.page),
     sort: parseSortParam(searchParams.sort),
     filters: {
-      search: typeof searchParams.search === 'string' ? searchParams.search.trim() : '',
+      search:
+        typeof searchParams.search === "string"
+          ? searchParams.search.trim()
+          : "",
       categorySlugs,
       subcategorySlugs: singleCategory ? parseCommaParam(searchParams.sub) : [],
       // Closed vocabulary: an unknown term is dropped rather than passed to the
@@ -67,5 +84,5 @@ export function parseDirectoryViewFilters(
       ],
       verificationFilter: parseVerificationParam(searchParams.verification),
     },
-  }
+  };
 }

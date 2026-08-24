@@ -145,13 +145,12 @@ export default async function AdminPage() {
     <div className="space-y-stack">
       <section aria-labelledby="operations-overview-heading">
         <div className="mb-5 prose-measure">
-          <h2
-            id="operations-overview-heading"
-            className="type-tool-heading"
-          >
+          <h2 id="operations-overview-heading" className="type-tool-heading">
             {t("operationsOverview")}
           </h2>
-          <p className="mt-1 type-body-sm">{t("operationsOverviewDescription")}</p>
+          <p className="mt-1 type-body-sm">
+            {t("operationsOverviewDescription")}
+          </p>
         </div>
         <div className="grid overflow-hidden rounded-surface border-l border-t border-rule sm:grid-cols-2 xl:grid-cols-5">
           {dashboardMetrics.map((metric) => {

@@ -77,7 +77,8 @@ function clientDouble(rows: StoredRow[]) {
   let selectCalls = 0;
   const client = {
     from(table: string) {
-      if (table !== "brand_faq_entries") throw new Error(`unexpected table: ${table}`);
+      if (table !== "brand_faq_entries")
+        throw new Error(`unexpected table: ${table}`);
       const filters: Array<[string, unknown]> = [];
       const builder = {
         select() {
@@ -126,7 +127,9 @@ async function getFaq(
 
 describe("getBrandFaq", () => {
   it("renders template floor when no stored answer exists", async () => {
-    const { items, selectCalls } = await getFaq(makeBrand({ subcategories: ["陶瓷"] }));
+    const { items, selectCalls } = await getFaq(
+      makeBrand({ subcategories: ["陶瓷"] }),
+    );
 
     expect(items.find((item) => item.id === "main-products")?.answer).toContain(
       "brandFaq.mainProducts.",
@@ -135,16 +138,13 @@ describe("getBrandFaq", () => {
   });
 
   it("prefers a stored model answer over the template floor", async () => {
-    const { items } = await getFaq(
-      makeBrand({ subcategories: ["陶瓷"] }),
-      [
-        row({
-          preset_id: "main-products",
-          question_zh: "品牌主要賣什麼？",
-          answer_zh: "模型回答",
-        }),
-      ],
-    );
+    const { items } = await getFaq(makeBrand({ subcategories: ["陶瓷"] }), [
+      row({
+        preset_id: "main-products",
+        question_zh: "品牌主要賣什麼？",
+        answer_zh: "模型回答",
+      }),
+    ]);
 
     expect(items.find((item) => item.id === "main-products")).toEqual({
       id: "main-products",
@@ -249,15 +249,25 @@ describe("getBrandFaq", () => {
     );
 
     expect(items.map((item) => item.id)).toContain("main-products");
-    expect(
-      items.find((item) => item.id === "main-products")?.answer,
-    ).toContain("tableware");
+    expect(items.find((item) => item.id === "main-products")?.answer).toContain(
+      "tableware",
+    );
   });
 
   it("renders every stored custom row in position order", async () => {
     const { items } = await getFaq(makeBrand(), [
-      row({ preset_id: "custom", position: 1, question_zh: "問二", answer_zh: "答二" }),
-      row({ preset_id: "custom", position: 0, question_zh: "問一", answer_zh: "答一" }),
+      row({
+        preset_id: "custom",
+        position: 1,
+        question_zh: "問二",
+        answer_zh: "答二",
+      }),
+      row({
+        preset_id: "custom",
+        position: 0,
+        question_zh: "問一",
+        answer_zh: "答一",
+      }),
     ]);
 
     expect(items.filter((item) => item.id.startsWith("custom-"))).toEqual([

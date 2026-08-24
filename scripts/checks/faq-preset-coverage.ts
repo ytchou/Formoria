@@ -104,7 +104,9 @@ async function main(): Promise<void> {
   console.log(line("category", typePopulated, total));
   console.log(line("reputation_summary", reputationPopulated, total));
 
-  console.log("\n  mit_status detail (null is coerced to 'unverified' by the app)");
+  console.log(
+    "\n  mit_status detail (null is coerced to 'unverified' by the app)",
+  );
   console.log(line("verified+declared", mitAnswerable, total));
 
   const byMitStatus = new Map<string, number>();

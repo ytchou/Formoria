@@ -343,7 +343,9 @@ export function ReviewDetailsEditor({
     >
       {missingLabels.length > 0 && (
         <div className="rounded-surface border border-danger/30 bg-danger/5 p-4">
-          <p className="type-body-sm font-medium text-ink">{t("missingRequired")}</p>
+          <p className="type-body-sm font-medium text-ink">
+            {t("missingRequired")}
+          </p>
           <ul className="mt-2 list-disc space-y-1 pl-5 type-body-sm">
             {missingLabels.map((label) => (
               <li key={label}>{label}</li>
@@ -639,7 +641,8 @@ export function ReviewDetailsEditor({
                           disabled={
                             !canRemovePersistedImages &&
                             image.originBrandImageId !== null &&
-                            (image.source === "owner" || image.source === "admin")
+                            (image.source === "owner" ||
+                              image.source === "admin")
                           }
                           aria-label={t("removeImage", { n: index + 1 })}
                         >
@@ -936,7 +939,9 @@ function ProductProposalsReadOnly({
             className="space-y-3 rounded-surface border border-rule p-4"
           >
             <div className="flex flex-wrap items-center gap-2">
-              <p className="type-body-sm font-medium text-ink">{proposalTitle(proposal)}</p>
+              <p className="type-body-sm font-medium text-ink">
+                {proposalTitle(proposal)}
+              </p>
               <ProposalStateBadges
                 state={states.get(proposal.key) ?? "new"}
                 kept={keptKeys.includes(proposal.key)}
@@ -1308,7 +1313,9 @@ function LinksEditor({
                 : PURCHASE_DISPLAY_LABELS[channel.key]
             }
             value={
-              channel.key === "website" ? draft.websiteUrl : draft[channel.camel]
+              channel.key === "website"
+                ? draft.websiteUrl
+                : draft[channel.camel]
             }
             onChange={(value) => {
               if (channel.key === "website") onUpdate("websiteUrl", value);
@@ -1353,7 +1360,11 @@ function ReputationReadOnly({
 
   return (
     <>
-      {summary && <p className="whitespace-pre-wrap type-body-sm text-ink-soft">{summary}</p>}
+      {summary && (
+        <p className="whitespace-pre-wrap type-body-sm text-ink-soft">
+          {summary}
+        </p>
+      )}
       {sources.length > 0 && (
         <div className="space-y-1">
           <p className="type-metadata">{t("details.reputationSources")}</p>
@@ -1447,7 +1458,9 @@ function ValueBlock({ label, value }: { label: string; value: string | null }) {
   return (
     <div>
       <p className="type-metadata">{label}</p>
-      <p className="mt-1 whitespace-pre-wrap type-body-sm text-ink-soft">{value}</p>
+      <p className="mt-1 whitespace-pre-wrap type-body-sm text-ink-soft">
+        {value}
+      </p>
     </div>
   );
 }

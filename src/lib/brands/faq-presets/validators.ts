@@ -29,15 +29,14 @@ function fail(reason: string): FaqValidationResult {
 }
 
 function tokens(value: string): string[] {
-  return (value.normalize("NFKC").toLocaleLowerCase().match(TOKEN_PATTERN) ?? [])
+  return (
+    value.normalize("NFKC").toLocaleLowerCase().match(TOKEN_PATTERN) ?? []
+  )
     .map((token) => token.trim())
     .filter(Boolean);
 }
 
-function evidencePresent(
-  key: EvidenceKey,
-  ctx: FaqValidatorContext,
-): boolean {
+function evidencePresent(key: EvidenceKey, ctx: FaqValidatorContext): boolean {
   const { brand } = ctx.brand;
   switch (key) {
     case "mitStatus":
@@ -49,7 +48,10 @@ function evidencePresent(
     case "mitStory":
       return typeof brand.mitStory === "string" && brand.mitStory.trim() !== "";
     case "categorySlug":
-      return typeof brand.categorySlug === "string" && brand.categorySlug.trim() !== "";
+      return (
+        typeof brand.categorySlug === "string" &&
+        brand.categorySlug.trim() !== ""
+      );
     case "subcategories":
       return brand.subcategories.some((tag) => tag.trim() !== "");
     case "reputationSummary":
@@ -80,7 +82,9 @@ function jaccard(left: readonly string[], right: readonly string[]): number {
   if (leftSet.size === 0 && rightSet.size === 0) return 1;
   if (leftSet.size === 0 || rightSet.size === 0) return 0;
 
-  const intersection = [...leftSet].filter((token) => rightSet.has(token)).length;
+  const intersection = [...leftSet].filter((token) =>
+    rightSet.has(token),
+  ).length;
   return intersection / new Set([...leftSet, ...rightSet]).size;
 }
 
@@ -96,7 +100,8 @@ export function withinLengthBand(bands: LengthBands = {}): FaqValidator {
     const band = bands[ctx.locale] ?? DEFAULT_LENGTH_BANDS[ctx.locale];
     // lengthBand measures string length; use one surrogate character per word
     // for English so its word-count band is enforced without changing scorers.
-    const measured = ctx.locale === "en" ? "x".repeat(wordCount(answer)) : answer;
+    const measured =
+      ctx.locale === "en" ? "x".repeat(wordCount(answer)) : answer;
     return lengthBand(measured, band)
       ? pass()
       : fail("The answer is outside its permitted length band.");
@@ -133,7 +138,8 @@ export function noKeywordStuffing(maxRepeatRatio = 0.08): FaqValidator {
     // unenforceable.
     const brandTokens = tokens(ctx.brand.brand.name);
     const repeatedBrandName = brandTokens.some(
-      (token) => (counts.get(token) ?? 0) / answerTokens.length > maxRepeatRatio,
+      (token) =>
+        (counts.get(token) ?? 0) / answerTokens.length > maxRepeatRatio,
     );
 
     return repeatedBrandName
@@ -145,15 +151,11 @@ export function noKeywordStuffing(maxRepeatRatio = 0.08): FaqValidator {
 export function groundedIn(evidence: readonly EvidenceKey[]): FaqValidator {
   return (_answer, ctx) => {
     const missing = evidence.find((key) => !evidencePresent(key, ctx));
-    return missing
-      ? fail(`Required evidence is missing: ${missing}.`)
-      : pass();
+    return missing ? fail(`Required evidence is missing: ${missing}.`) : pass();
   };
 }
 
-export function notDuplicateOf(
-  siblings?: readonly string[],
-): FaqValidator {
+export function notDuplicateOf(siblings?: readonly string[]): FaqValidator {
   return (answer, ctx) => {
     const candidate = tokens(answer);
     const comparison = siblings ?? ctx.siblings;
@@ -166,9 +168,7 @@ export function notDuplicateOf(
   };
 }
 
-export function composeValidators(
-  ...validators: FaqValidator[]
-): FaqValidator {
+export function composeValidators(...validators: FaqValidator[]): FaqValidator {
   return (answer, ctx) => {
     for (const validator of validators) {
       const result = validator(answer, ctx);

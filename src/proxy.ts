@@ -281,8 +281,7 @@ function isCacheableQueryValue(key: string, raw: string): boolean {
   switch (key) {
     case "page":
       return (
-        /^[1-9][0-9]*$/.test(raw) &&
-        Number(raw) <= MAX_CACHEABLE_DIRECTORY_PAGE
+        /^[1-9][0-9]*$/.test(raw) && Number(raw) <= MAX_CACHEABLE_DIRECTORY_PAGE
       );
     case "sort":
       return CACHEABLE_SORT_VALUES.has(raw);
@@ -297,9 +296,15 @@ function isCacheableQueryValue(key: string, raw: string): boolean {
         L1_CATEGORIES.some((item) => item.slug === value),
       );
     case "sub":
-      return isCacheableFacetList(raw, (value) => subcategoryBySlug(value) !== null);
+      return isCacheableFacetList(
+        raw,
+        (value) => subcategoryBySlug(value) !== null,
+      );
     case "material":
-      return isCacheableFacetList(raw, (value) => materialBySlug(value) !== null);
+      return isCacheableFacetList(
+        raw,
+        (value) => materialBySlug(value) !== null,
+      );
     default:
       return false;
   }

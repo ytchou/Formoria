@@ -10,11 +10,7 @@ import {
   buildFaqSystemPrompt,
   eligibleFaqPresets,
 } from "../index";
-import type {
-  FaqBrandContext,
-  FaqPreset,
-  FaqValidatorContext,
-} from "../types";
+import type { FaqBrandContext, FaqPreset, FaqValidatorContext } from "../types";
 import { CUSTOM_QUESTION_CEILING } from "../types";
 import {
   noCommerceClaims,
@@ -30,10 +26,12 @@ function resolveBrandDetail(
   key: string,
   values: Record<string, unknown> = {},
 ): string {
-  const node = key.split(".").reduce<MessageNode | undefined>((current, part) => {
-    if (!current || typeof current === "string") return undefined;
-    return current[part];
-  }, brandDetail);
+  const node = key
+    .split(".")
+    .reduce<MessageNode | undefined>((current, part) => {
+      if (!current || typeof current === "string") return undefined;
+      return current[part];
+    }, brandDetail);
 
   if (typeof node !== "string") {
     throw new Error(`Missing brandDetail message: ${key}`);
@@ -96,7 +94,9 @@ function makeBrand(overrides: Partial<Brand> = {}): Brand {
   };
 }
 
-function makeContext(overrides: Partial<FaqBrandContext> = {}): FaqBrandContext {
+function makeContext(
+  overrides: Partial<FaqBrandContext> = {},
+): FaqBrandContext {
   return {
     brand: makeBrand(),
     cityLabel: "taipei",
@@ -126,7 +126,10 @@ function assertPresetShape(preset: FaqPreset): void {
     expect(typeof preset.render.questionKey).toBe("string");
     expect(typeof preset.render.templateFloor).toBe("function");
   }
-  expect(preset.promptFragment === null || typeof preset.promptFragment === "function").toBe(true);
+  expect(
+    preset.promptFragment === null ||
+      typeof preset.promptFragment === "function",
+  ).toBe(true);
   expect(Array.isArray(preset.validators)).toBe(true);
 }
 
@@ -161,9 +164,7 @@ describe("FAQ preset catalog", () => {
         reputationSummary: null,
       }),
     });
-    const eligible = eligibleFaqPresets(withoutEvidence).map(
-      (item) => item.id,
-    );
+    const eligible = eligibleFaqPresets(withoutEvidence).map((item) => item.id);
 
     // Every evidence-gated preset drops out. `custom` carries no
     // `requiredEvidence` and is the only survivor; taiwan-origin still needs
@@ -251,14 +252,19 @@ describe("FAQ preset catalog", () => {
     for (const item of FAQ_PRESETS) {
       if (item.requiredEvidence.length === 0) continue;
       const results = item.validators.map((validate) =>
-        validate("任意內容", { locale: "zh", brand: withoutPeers, siblings: [] }),
+        validate("任意內容", {
+          locale: "zh",
+          brand: withoutPeers,
+          siblings: [],
+        }),
       );
       if (!item.requiredEvidence.includes("peerStats")) continue;
       // No hand-written groundedIn call remains in the preset files, so this
       // failing proves the registry derived one from the declaration.
       expect(
         results.some(
-          (result) => !result.ok && /Required evidence/.test(result.reason ?? ""),
+          (result) =>
+            !result.ok && /Required evidence/.test(result.reason ?? ""),
         ),
       ).toBe(true);
     }
@@ -328,8 +334,12 @@ describe("FAQ preset catalog", () => {
   });
 
   it("promptHash is stable across brands with the same eligible set", () => {
-    const first = makeContext({ brand: makeBrand({ id: "first", name: "First Harbor" }) });
-    const second = makeContext({ brand: makeBrand({ id: "second", name: "Second Harbor" }) });
+    const first = makeContext({
+      brand: makeBrand({ id: "first", name: "First Harbor" }),
+    });
+    const second = makeContext({
+      brand: makeBrand({ id: "second", name: "Second Harbor" }),
+    });
     const firstEligible = eligibleFaqPresets(first);
     const secondEligible = eligibleFaqPresets(second);
 
@@ -378,11 +388,14 @@ describe("FAQ preset catalog", () => {
     "Products are currently in stock.",
     "A seasonal discount is available.",
     "Orders include free delivery.",
-  ])("rejects relative commerce claims without currency figures: %s", (answer) => {
-    expect(noCommerceClaims()(answer, makeValidatorContext("zh")).ok).toBe(
-      false,
-    );
-  });
+  ])(
+    "rejects relative commerce claims without currency figures: %s",
+    (answer) => {
+      expect(noCommerceClaims()(answer, makeValidatorContext("zh")).ok).toBe(
+        false,
+      );
+    },
+  );
 
   it("lengthBand rejects an out-of-band zh answer", () => {
     // 40 字 — well short of the zh 200–320 band.
