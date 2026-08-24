@@ -73,11 +73,23 @@ export default async function AdminLayout({
     ...(ownerFeaturesEnabled
       ? [{ label: t("nav.claims"), href: routes.admin.claims() }]
       : []),
-    { label: t("nav.reports"), href: routes.admin.reports(), count: counts.reports ?? undefined },
+    {
+      label: t("nav.reports"),
+      href: routes.admin.reports(),
+      count: counts.reports ?? undefined,
+    },
     { label: t("nav.brands"), href: routes.admin.brands() },
     { label: t("nav.curatedProducts"), href: routes.admin.curatedProducts() },
-    { label: t("nav.corrections"), href: routes.admin.corrections(), count: counts.corrections ?? undefined },
-    { label: t("nav.stockists"), href: routes.admin.stockists(), count: counts.stockists ?? undefined },
+    {
+      label: t("nav.corrections"),
+      href: routes.admin.corrections(),
+      count: counts.corrections ?? undefined,
+    },
+    {
+      label: t("nav.stockists"),
+      href: routes.admin.stockists(),
+      count: counts.stockists ?? undefined,
+    },
     { label: t("nav.quality"), href: routes.admin.quality() },
     { label: t("nav.newsletter"), href: routes.admin.newsletter() },
     { label: t("nav.scripts"), href: routes.admin.scripts() },
@@ -85,10 +97,7 @@ export default async function AdminLayout({
   ];
 
   return (
-    <RootDocument
-      locale="en"
-      skipToContentLabel={tCommon("skipToContent")}
-    >
+    <RootDocument locale="en" skipToContentLabel={tCommon("skipToContent")}>
       <NextIntlClientProvider locale="en" messages={messages}>
         <div className="min-h-screen bg-ground">
           {/* Admin is on the same three measures as the public site. The
@@ -100,7 +109,7 @@ export default async function AdminLayout({
             measure="page"
             className="py-stack"
           >
-            <h1 className="type-label">{t("title")}</h1>
+            <h1 className="type-tool-heading">{t("title")}</h1>
             <AdminNav items={navItems} />
             <div className="mt-8">{children}</div>
           </PageShell>

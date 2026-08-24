@@ -200,7 +200,9 @@ export function BrandList({
         b.name.toLowerCase().includes(searchQuery.toLowerCase()),
     )
     .filter((b) => mitFilter === "all" || getMitStatus(b) === mitFilter)
-    .filter((b) => categoryFilter === "all" || b.categoryLabel === categoryFilter);
+    .filter(
+      (b) => categoryFilter === "all" || b.categoryLabel === categoryFilter,
+    );
   const pageCount = Math.max(1, Math.ceil(filtered.length / pageSize));
   const currentPage = Math.min(page, pageCount);
   const visible = filtered.slice(
@@ -306,7 +308,9 @@ export function BrandList({
       ).length;
       // "A refresh is already pending" is an ordinary answer, not a failure, so
       // it is reported in the same status line as the successes.
-      const skipped = result.outcomes.filter((outcome) => outcome.error !== null);
+      const skipped = result.outcomes.filter(
+        (outcome) => outcome.error !== null,
+      );
       setProductBackfillStatus(
         [
           queued > 0
@@ -445,9 +449,10 @@ export function BrandList({
             variant="secondary"
             className={inkActionClassName}
             disabled={isPending}
-            aria-label={`Generate products for ${productBackfillIds.size} selected ${
-              productBackfillIds.size === 1 ? "brand" : "brands"
-            }, of ${MAX_BULK_PRODUCT_BACKFILL} per run — opens a refresh per brand and queues one enrichment job that calls the model`}
+            aria-label={t("bulk.generateProductsAria", {
+              count: productBackfillIds.size,
+              limit: MAX_BULK_PRODUCT_BACKFILL,
+            })}
             onClick={handleGenerateProducts}
           >
             {`Generate products for ${productBackfillIds.size} selected ${
@@ -487,7 +492,9 @@ export function BrandList({
               <TableHead className="w-14">
                 <Label className="flex min-h-12 min-w-12 cursor-pointer items-center">
                   <Checkbox
-                    aria-label={`Select every eligible brand on this page for product generation, up to ${MAX_BULK_PRODUCT_BACKFILL} brands per run`}
+                    aria-label={t("bulk.selectPage", {
+                      limit: MAX_BULK_PRODUCT_BACKFILL,
+                    })}
                     checked={allVisibleSelected}
                     indeterminate={someVisibleSelected}
                     disabled={
@@ -538,8 +545,11 @@ export function BrandList({
                       <Checkbox
                         aria-label={
                           selectionAtCap && !productBackfillIds.has(brand.id)
-                            ? `Cannot select ${brand.name}: product generation runs at most ${MAX_BULK_PRODUCT_BACKFILL} brands per run`
-                            : `Select ${brand.name} for product generation`
+                            ? t("bulk.selectionLimit", {
+                                name: brand.name,
+                                limit: MAX_BULK_PRODUCT_BACKFILL,
+                              })
+                            : t("bulk.selectBrand", { name: brand.name })
                         }
                         checked={productBackfillIds.has(brand.id)}
                         disabled={
@@ -619,7 +629,9 @@ export function BrandList({
                         brand.status === "hidden") && (
                         <DropdownMenu>
                           <DropdownMenuTrigger
-                            aria-label={`Open brand actions for ${brand.name}`}
+                            aria-label={t("actions.openMenu", {
+                              name: brand.name,
+                            })}
                             className={buttonVariants({
                               variant: "ghost",
                               size: "icon",
@@ -645,8 +657,12 @@ export function BrandList({
                       {(brand.status === "approved" ||
                         brand.status === "hidden") && (
                         <Link
-                          href={routes.admin.curatedProducts({ brand: brand.slug })}
-                          aria-label={`Ingest curated products for ${brand.name}`}
+                          href={routes.admin.curatedProducts({
+                            brand: brand.slug,
+                          })}
+                          aria-label={t("actions.ingestCuratedProducts", {
+                            name: brand.name,
+                          })}
                           className={buttonVariants({
                             variant: "secondary",
                             size: "compact",
@@ -673,7 +689,9 @@ export function BrandList({
                       onClick={() => setSelectedBrandId(brand.id)}
                       aria-expanded={selectedBrand?.id === brand.id}
                       aria-controls={`brand-detail-${brand.id}`}
-                      aria-label={`Open details for ${brand.name}`}
+                      aria-label={t("actions.openDetails", {
+                        name: brand.name,
+                      })}
                     >
                       <ChevronDown
                         className={`size-4 transition-transform ${
@@ -783,7 +801,7 @@ export function BrandList({
           if (!open) setRefreshingBrandId(null);
         }}
         title={t("refreshDialog.title")}
-        description="A refresh will run on the next six-hour schedule and return to the submissions queue for review. The live brand will not change until the refresh is applied."
+        description={t("refreshDialog.description")}
         onConfirm={handleRequestRefresh}
         confirmLabel="Request re-enrichment"
         isPending={isPending}
@@ -795,7 +813,7 @@ export function BrandList({
           if (!open) setDeletingBrandId(null);
         }}
         title={t("deleteDialog.title")}
-        description="This action cannot be undone. The brand and all associated data will be permanently deleted."
+        description={t("deleteDialog.description")}
         onConfirm={handleDelete}
         confirmLabel="Delete this brand permanently"
         variant="destructive"

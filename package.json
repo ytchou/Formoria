@@ -54,7 +54,6 @@
     "rerun-curation": "tsx --env-file=.env.local scripts/rerun-submission-curation.ts",
     "seed-expo-content": "tsx --env-file=.env.local scripts/seed-expo-exhibitor-content.ts",
     "reject-skipped": "tsx --env-file=.env.local scripts/reject-skipped-submissions.ts",
-    "default-price-range": "tsx --env-file=.env.local scripts/default-missing-price-range.ts",
     "derive-category": "tsx --env-file=.env.local scripts/derive-missing-category.ts",
     "clear-contaminated-links": "tsx --env-file=.env.local scripts/clear-contaminated-links.ts",
     "remove-brand": "tsx --env-file=.env.local scripts/remove-brand.ts",

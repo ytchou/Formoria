@@ -29,7 +29,7 @@ export function BrandDetailSheet({
       <SheetContent
         side="right"
         size="wide"
-        className="gap-0 p-0 data-[side=right]:w-[calc(100vw-1rem)] data-[side=right]:max-w-none data-[side=right]:sm:w-3/4"
+        className="gap-0 p-0 data-[side=right]:w-[calc(100vw-1rem)] data-[side=right]:sm:w-3/4"
       >
         {/* `border-rule`, never a bare `border-b`: Tailwind v4's preflight sets
             `border-color: currentColor` and this project declares no

@@ -76,7 +76,6 @@ function prodBrandRow(overrides: Row = {}): Row {
     blurb_en: "Handmade ceramics",
     city: "新北市",
     founding_year: 1998,
-    price_range: 2,
     category: "home",
     subcategories: ["陶器"],
     subcategories_en: ["ceramics"],
@@ -261,7 +260,11 @@ describe("planBrandSelection", () => {
     expect(plan.slugs).toEqual(
       expect.arrayContaining(["home-1", "beauty-2", "stationery-3"]),
     );
-    expect(plan.rationale.pinned).toEqual(["beauty-2", "home-1", "stationery-3"]);
+    expect(plan.rationale.pinned).toEqual([
+      "beauty-2",
+      "home-1",
+      "stationery-3",
+    ]);
     // A staging brand with no production row cannot be copied onto, and is
     // reported rather than silently dropped.
     expect(plan.rationale.pinnedMissingFromProduction).toEqual([
@@ -1021,10 +1024,7 @@ describe("planStorageKeys", () => {
       ],
     });
 
-    expect(plan.keys).toEqual([
-      "brands/b1/a.webp",
-      "submissions/s1/b.webp",
-    ]);
+    expect(plan.keys).toEqual(["brands/b1/a.webp", "submissions/s1/b.webp"]);
     expect(plan.skippedByPrefix).toEqual([]);
   });
 

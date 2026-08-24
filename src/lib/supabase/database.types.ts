@@ -137,7 +137,6 @@ export type Database = {
           model: string
           non_brand_reason: string | null
           phase: string
-          price_range: number | null
           prompt_tokens: number | null
           raw_response: Json | null
           retry_attempt: number
@@ -165,7 +164,6 @@ export type Database = {
           model: string
           non_brand_reason?: string | null
           phase: string
-          price_range?: number | null
           prompt_tokens?: number | null
           raw_response?: Json | null
           retry_attempt?: number
@@ -193,7 +191,6 @@ export type Database = {
           model?: string
           non_brand_reason?: string | null
           phase?: string
-          price_range?: number | null
           prompt_tokens?: number | null
           raw_response?: Json | null
           retry_attempt?: number
@@ -1035,7 +1032,6 @@ export type Database = {
           name: string
           onboarding_dismissed_at: string | null
           other_urls: Json
-          price_range: number | null
           purchase_myship: string | null
           purchase_pinkoi: string | null
           purchase_shopee: string | null
@@ -1086,7 +1082,6 @@ export type Database = {
           name: string
           onboarding_dismissed_at?: string | null
           other_urls?: Json
-          price_range?: number | null
           purchase_myship?: string | null
           purchase_pinkoi?: string | null
           purchase_shopee?: string | null
@@ -1137,7 +1132,6 @@ export type Database = {
           name?: string
           onboarding_dismissed_at?: string | null
           other_urls?: Json
-          price_range?: number | null
           purchase_myship?: string | null
           purchase_pinkoi?: string | null
           purchase_shopee?: string | null
@@ -3503,7 +3497,6 @@ export type Database = {
         Args: {
           filter_categories?: string[]
           filter_materials?: string[]
-          filter_price_ranges?: number[]
           filter_subcategories?: string[]
           filter_verification?: string
           page_offset?: number

@@ -1,27 +1,27 @@
-"use client"
+"use client";
 
-import * as React from "react"
-import { AlertDialog as AlertDialogPrimitive } from "@base-ui/react/alert-dialog"
+import * as React from "react";
+import { AlertDialog as AlertDialogPrimitive } from "@base-ui/react/alert-dialog";
 
-import { cn } from "@/lib/utils"
-import { Button } from "@/components/ui/button"
-import { textStyles } from "./text-styles"
+import { cn } from "@/lib/utils";
+import { Button } from "@/components/ui/button";
+import { textStyles } from "./text-styles";
 
 /**
  * The shared overlay width axis. `compact` is one sentence and two buttons;
  * `panel` is the default confirmation; `form` is a dialog the reader fills in;
  * `wide` is a workspace. The utilities themselves live in `globals.css`.
  */
-type AlertDialogSize = "compact" | "panel" | "form" | "wide"
+type AlertDialogSize = "compact" | "panel" | "form" | "wide";
 
 type AlertDialogContextValue = {
-  destructive: boolean
-  cancelRef: React.RefObject<HTMLButtonElement | null>
-}
+  destructive: boolean;
+  cancelRef: React.RefObject<HTMLButtonElement | null>;
+};
 
 const AlertDialogContext = React.createContext<AlertDialogContextValue | null>(
-  null
-)
+  null,
+);
 
 /**
  * `destructive` is the one-way-door switch. It moves initial focus onto Cancel
@@ -34,7 +34,7 @@ function AlertDialog({
   onOpenChange,
   ...props
 }: AlertDialogPrimitive.Root.Props & { destructive?: boolean }) {
-  const cancelRef = React.useRef<HTMLButtonElement | null>(null)
+  const cancelRef = React.useRef<HTMLButtonElement | null>(null);
 
   const handleOpenChange = React.useCallback(
     (open: boolean, details: AlertDialogPrimitive.Root.ChangeEventDetails) => {
@@ -47,19 +47,19 @@ function AlertDialog({
         !open &&
         (details.reason === "escape-key" || details.reason === "outside-press")
       ) {
-        details.cancel()
-        return
+        details.cancel();
+        return;
       }
 
-      onOpenChange?.(open, details)
+      onOpenChange?.(open, details);
     },
-    [destructive, onOpenChange]
-  )
+    [destructive, onOpenChange],
+  );
 
   const value = React.useMemo<AlertDialogContextValue>(
     () => ({ destructive, cancelRef }),
-    [destructive]
-  )
+    [destructive],
+  );
 
   return (
     <AlertDialogContext.Provider value={value}>
@@ -69,13 +69,13 @@ function AlertDialog({
         {...props}
       />
     </AlertDialogContext.Provider>
-  )
+  );
 }
 
 function AlertDialogPortal({ ...props }: AlertDialogPrimitive.Portal.Props) {
   return (
     <AlertDialogPrimitive.Portal data-slot="alert-dialog-portal" {...props} />
-  )
+  );
 }
 
 function AlertDialogOverlay({
@@ -87,11 +87,11 @@ function AlertDialogOverlay({
       data-slot="alert-dialog-overlay"
       className={cn(
         "fixed inset-0 isolate z-50 bg-black/10 transition-opacity duration-150 ease-out supports-backdrop-filter:backdrop-blur-xs data-starting-style:opacity-0 data-ending-style:opacity-0",
-        className
+        className,
       )}
       {...props}
     />
-  )
+  );
 }
 
 function AlertDialogContent({
@@ -99,9 +99,9 @@ function AlertDialogContent({
   size = "panel",
   ...props
 }: AlertDialogPrimitive.Popup.Props & {
-  size?: AlertDialogSize
+  size?: AlertDialogSize;
 }) {
-  const context = React.useContext(AlertDialogContext)
+  const context = React.useContext(AlertDialogContext);
 
   return (
     <AlertDialogPortal>
@@ -123,7 +123,7 @@ function AlertDialogContent({
           // which leaves a strip of backdrop tappable above it. From `sm` up it
           // is a centred card — centred with `inset-0 m-auto` rather than a
           // translate, so the transform axis stays free for the motion below.
-          "group/alert-dialog-content fixed inset-x-0 bottom-0 z-50 grid max-h-[85dvh] w-full gap-4 overflow-y-auto rounded-t-surface border border-rule bg-ground p-4 text-ink outline-none",
+          "group/alert-dialog-content fixed inset-x-0 bottom-0 z-50 grid max-h-[85dvh] w-full grid-rows-[auto_minmax(0,1fr)_auto] rounded-t-surface border border-rule bg-ground text-ink outline-none",
           "sm:inset-0 sm:m-auto sm:h-fit sm:w-[calc(100%-2rem)] sm:max-h-[calc(100dvh-4rem)] sm:rounded-surface",
           "data-[size=compact]:sm:overlay-compact data-[size=panel]:sm:overlay-panel data-[size=form]:sm:overlay-form data-[size=wide]:sm:overlay-wide",
           // Base UI transition states, not `animate-in`/`animate-out`: the
@@ -133,12 +133,12 @@ function AlertDialogContent({
           "transition-[opacity,transform,translate] duration-150 ease-out",
           "data-starting-style:translate-y-8 data-starting-style:opacity-0 data-ending-style:translate-y-8 data-ending-style:opacity-0",
           "sm:data-starting-style:translate-y-0 sm:data-starting-style:scale-95 sm:data-ending-style:translate-y-0 sm:data-ending-style:scale-95",
-          className
+          className,
         )}
         {...props}
       />
     </AlertDialogPortal>
-  )
+  );
 }
 
 function AlertDialogHeader({
@@ -149,12 +149,22 @@ function AlertDialogHeader({
     <div
       data-slot="alert-dialog-header"
       className={cn(
-        "-mx-4 -mt-4 grid grid-rows-[auto_1fr] place-items-center gap-1.5 border-b border-rule p-4 text-center has-data-[slot=alert-dialog-media]:grid-rows-[auto_auto_1fr] has-data-[slot=alert-dialog-media]:gap-x-4 sm:place-items-start sm:text-left sm:has-data-[slot=alert-dialog-media]:grid-rows-[auto_1fr]",
-        className
+        "grid place-items-center gap-1.5 border-b border-rule p-4 text-center sm:place-items-start sm:text-left",
+        className,
       )}
       {...props}
     />
-  )
+  );
+}
+
+function AlertDialogBody({ className, ...props }: React.ComponentProps<"div">) {
+  return (
+    <div
+      data-slot="alert-dialog-body"
+      className={cn("min-h-0 overflow-y-auto p-4", className)}
+      {...props}
+    />
+  );
 }
 
 function AlertDialogFooter({
@@ -165,16 +175,16 @@ function AlertDialogFooter({
     <div
       data-slot="alert-dialog-footer"
       className={cn(
-        "-mx-4 -mb-4 flex flex-col-reverse gap-2 rounded-b-surface border-t border-rule bg-surface p-4 sm:flex-row sm:justify-end",
+        "flex flex-col-reverse gap-2 rounded-b-surface border-t border-rule bg-surface p-4 sm:flex-row sm:justify-end",
         // Same slot-scoped destructive outline as `DialogFooter`, and the same
         // reason: `Button` exposes no variant attribute, and `*:` plus an
         // explicit slot keeps the outline off the Cancel button beside it.
         "*:data-[slot=dialog-destructive]:border-danger *:data-[slot=dialog-destructive]:text-danger",
-        className
+        className,
       )}
       {...props}
     />
-  )
+  );
 }
 
 function AlertDialogTitle({
@@ -184,14 +194,10 @@ function AlertDialogTitle({
   return (
     <AlertDialogPrimitive.Title
       data-slot="alert-dialog-title"
-      className={cn(
-        textStyles({ variant: "cardTitle" }),
-        "sm:group-has-data-[slot=alert-dialog-media]/alert-dialog-content:col-start-2",
-        className
-      )}
+      className={cn(textStyles({ variant: "cardTitle" }), className)}
       {...props}
     />
-  )
+  );
 }
 
 function AlertDialogDescription({
@@ -204,11 +210,11 @@ function AlertDialogDescription({
       className={cn(
         textStyles({ variant: "cardDescription" }),
         "text-balance md:text-pretty *:[a]:underline *:[a]:underline-offset-3 *:[a]:hover:text-ink",
-        className
+        className,
       )}
       {...props}
     />
-  )
+  );
 }
 
 function AlertDialogCancel({
@@ -218,7 +224,7 @@ function AlertDialogCancel({
   ...props
 }: AlertDialogPrimitive.Close.Props &
   Pick<React.ComponentProps<typeof Button>, "variant" | "size">) {
-  const context = React.useContext(AlertDialogContext)
+  const context = React.useContext(AlertDialogContext);
 
   return (
     <AlertDialogPrimitive.Close
@@ -228,15 +234,16 @@ function AlertDialogCancel({
       render={<Button variant={variant} size={size} />}
       {...props}
     />
-  )
+  );
 }
 
 export {
   AlertDialog,
+  AlertDialogBody,
   AlertDialogCancel,
   AlertDialogContent,
   AlertDialogDescription,
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-}
+};

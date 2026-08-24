@@ -641,7 +641,6 @@ const reviewData = {
   foundingYear: 2018,
   heroImageUrl: "https://cdn.example.com/hero.webp",
   categorySlug: "home",
-  priceRange: 2,
   subcategories: ["家具"],
   subcategoriesEn: ["Furniture"],
   websiteUrl: "https://brand.example.com",

@@ -10,13 +10,10 @@ import {
   buildFaqSystemPrompt,
   eligibleFaqPresets,
 } from "../index";
-import type {
-  FaqBrandContext,
-  FaqPreset,
-  FaqValidatorContext,
-} from "../types";
+import type { FaqBrandContext, FaqPreset, FaqValidatorContext } from "../types";
+import { CUSTOM_QUESTION_CEILING } from "../types";
 import {
-  noPricingFigures,
+  noCommerceClaims,
   notDuplicateOf,
   withinLengthBand,
 } from "../validators";
@@ -29,10 +26,12 @@ function resolveBrandDetail(
   key: string,
   values: Record<string, unknown> = {},
 ): string {
-  const node = key.split(".").reduce<MessageNode | undefined>((current, part) => {
-    if (!current || typeof current === "string") return undefined;
-    return current[part];
-  }, brandDetail);
+  const node = key
+    .split(".")
+    .reduce<MessageNode | undefined>((current, part) => {
+      if (!current || typeof current === "string") return undefined;
+      return current[part];
+    }, brandDetail);
 
   if (typeof node !== "string") {
     throw new Error(`Missing brandDetail message: ${key}`);
@@ -83,7 +82,6 @@ function makeBrand(overrides: Partial<Brand> = {}): Brand {
     productPhotos: [],
     imageAlts: [],
     contactEmail: null,
-    priceRange: 2,
     subcategories: ["餐具", "茶具"],
     subcategoriesEn: ["tableware", "tea ware"],
     siteContent: null,
@@ -96,13 +94,14 @@ function makeBrand(overrides: Partial<Brand> = {}): Brand {
   };
 }
 
-function makeContext(overrides: Partial<FaqBrandContext> = {}): FaqBrandContext {
+function makeContext(
+  overrides: Partial<FaqBrandContext> = {},
+): FaqBrandContext {
   return {
     brand: makeBrand(),
     cityLabel: "taipei",
     peerStats: {
       peerCount: 4,
-      priceDistribution: { 1: 1, 2: 2, 3: 1 },
       cityClusters: [{ city: "Taipei", count: 2 }],
     },
     ...overrides,
@@ -127,7 +126,10 @@ function assertPresetShape(preset: FaqPreset): void {
     expect(typeof preset.render.questionKey).toBe("string");
     expect(typeof preset.render.templateFloor).toBe("function");
   }
-  expect(preset.promptFragment === null || typeof preset.promptFragment === "function").toBe(true);
+  expect(
+    preset.promptFragment === null ||
+      typeof preset.promptFragment === "function",
+  ).toBe(true);
   expect(Array.isArray(preset.validators)).toBe(true);
 }
 
@@ -143,7 +145,6 @@ describe("FAQ preset catalog", () => {
       "taiwan-origin",
       "category-position",
       "main-products",
-      "price-positioning",
       "reputation",
       "custom",
     ]);
@@ -160,13 +161,10 @@ describe("FAQ preset catalog", () => {
         categorySlug: null,
         subcategories: [],
         subcategoriesEn: [],
-        priceRange: null,
         reputationSummary: null,
       }),
     });
-    const eligible = eligibleFaqPresets(withoutEvidence).map(
-      (item) => item.id,
-    );
+    const eligible = eligibleFaqPresets(withoutEvidence).map((item) => item.id);
 
     // Every evidence-gated preset drops out. `custom` carries no
     // `requiredEvidence` and is the only survivor; taiwan-origin still needs
@@ -180,25 +178,6 @@ describe("FAQ preset catalog", () => {
       "categorySlug",
       "peerStats",
     ]);
-  });
-
-  // The two predicates answer different questions. Render eligibility asks
-  // whether the floor can be computed from evidence the *page request* has;
-  // authoring eligibility asks whether the model has enough to write from.
-  // Conflating them made the price floor unreachable at render time.
-  it("price-positioning renders on price_range alone but authors only with peer stats", () => {
-    const withoutPeers = makeContext({ peerStats: null });
-    const pricePositioning = presetById("price-positioning");
-
-    expect(pricePositioning.eligible(withoutPeers)).toBe(true);
-    expect(pricePositioning.authorable?.(withoutPeers)).toBe(false);
-    expect(pricePositioning.authorable?.(makeContext())).toBe(true);
-    expect(
-      eligibleFaqPresets(withoutPeers).map((item) => item.id),
-    ).not.toContain("price-positioning");
-
-    const noPrice = makeContext({ brand: makeBrand({ priceRange: null }) });
-    expect(pricePositioning.eligible(noPrice)).toBe(false);
   });
 
   it("main-products render eligibility is per locale", () => {
@@ -273,20 +252,25 @@ describe("FAQ preset catalog", () => {
     for (const item of FAQ_PRESETS) {
       if (item.requiredEvidence.length === 0) continue;
       const results = item.validators.map((validate) =>
-        validate("任意內容", { locale: "zh", brand: withoutPeers, siblings: [] }),
+        validate("任意內容", {
+          locale: "zh",
+          brand: withoutPeers,
+          siblings: [],
+        }),
       );
       if (!item.requiredEvidence.includes("peerStats")) continue;
       // No hand-written groundedIn call remains in the preset files, so this
       // failing proves the registry derived one from the declaration.
       expect(
         results.some(
-          (result) => !result.ok && /Required evidence/.test(result.reason ?? ""),
+          (result) =>
+            !result.ok && /Required evidence/.test(result.reason ?? ""),
         ),
       ).toBe(true);
     }
   });
 
-  it("every model-authored preset rejects an NT$ figure on pricing grounds", () => {
+  it("every model-authored preset rejects an NT$ figure as commerce", () => {
     const answer = "入門款約 NT$1,280 起，屬於中價位。";
 
     for (const item of FAQ_PRESETS) {
@@ -298,26 +282,17 @@ describe("FAQ preset catalog", () => {
         .map((result) => result.reason ?? "");
 
       expect(
-        reasons.some((reason) => /pricing/i.test(reason)),
-        `${item.id} has no pricing validator`,
+        reasons.some((reason) => /commerce/i.test(reason)),
+        `${item.id} has no commerce validator`,
       ).toBe(true);
     }
   });
 
-  it("the shared preamble states the currency prohibition once for all presets", () => {
+  it("the shared preamble states the commerce prohibition once for all presets", () => {
     expect(FAQ_PROMPT_PREAMBLE).toContain("NT$");
-    expect(FAQ_PROMPT_PREAMBLE).toContain("禁止價格數字");
-  });
-
-  it("renders the zh-TW price floor without duplicating the range label", () => {
-    const preset = presetById("price-positioning");
-    const answer = preset.render?.templateFloor(
-      makeContext({ brand: makeBrand({ priceRange: 2 }) }),
-      resolveBrandDetail,
-      "zh-TW",
-    );
-
-    expect(answer).toBe("Harbor Form 的產品定位在中價位。");
+    expect(FAQ_PROMPT_PREAMBLE).toContain("禁止商業交易資訊");
+    expect(FAQ_PROMPT_PREAMBLE).toContain("庫存");
+    expect(FAQ_PROMPT_PREAMBLE).toContain("配送");
   });
 
   it("taiwan-origin template floor requires verified MIT status", () => {
@@ -359,8 +334,12 @@ describe("FAQ preset catalog", () => {
   });
 
   it("promptHash is stable across brands with the same eligible set", () => {
-    const first = makeContext({ brand: makeBrand({ id: "first", name: "First Harbor" }) });
-    const second = makeContext({ brand: makeBrand({ id: "second", name: "Second Harbor" }) });
+    const first = makeContext({
+      brand: makeBrand({ id: "first", name: "First Harbor" }),
+    });
+    const second = makeContext({
+      brand: makeBrand({ id: "second", name: "Second Harbor" }),
+    });
     const firstEligible = eligibleFaqPresets(first);
     const secondEligible = eligibleFaqPresets(second);
 
@@ -381,6 +360,7 @@ describe("FAQ preset catalog", () => {
         .update(
           [
             FAQ_PROMPT_PREAMBLE,
+            `Custom questions: at most ${CUSTOM_QUESTION_CEILING}; zero is valid.`,
             ...firstEligible
               .filter((preset) => preset.promptFragment !== null)
               .map((preset) => preset.id)
@@ -392,14 +372,30 @@ describe("FAQ preset catalog", () => {
     );
   });
 
-  it("noPricingFigures rejects an NT$ answer", () => {
-    const result = noPricingFigures()(
+  it("noCommerceClaims rejects an NT$ answer", () => {
+    const result = noCommerceClaims()(
       "這項產品售價為 NT$1,200，屬於中價位。",
       makeValidatorContext("zh"),
     );
 
     expect(result.ok).toBe(false);
   });
+
+  it.each([
+    "This brand is affordable.",
+    "This brand sits in the mid-range tier.",
+    "這個品牌的價格親民。",
+    "Products are currently in stock.",
+    "A seasonal discount is available.",
+    "Orders include free delivery.",
+  ])(
+    "rejects relative commerce claims without currency figures: %s",
+    (answer) => {
+      expect(noCommerceClaims()(answer, makeValidatorContext("zh")).ok).toBe(
+        false,
+      );
+    },
+  );
 
   it("lengthBand rejects an out-of-band zh answer", () => {
     // 40 字 — well short of the zh 200–320 band.

@@ -45,14 +45,12 @@ vi.mock("next/navigation", () => ({
 vi.mock("@/lib/analytics", () => ({
   trackCategoryFilterApplied: vi.fn(),
   trackFilterCleared: vi.fn(),
-  trackPriceFilterApplied: vi.fn(),
   trackSubcategoryFilterApplied: vi.fn(),
   trackVerificationFilterApplied: vi.fn(),
 }));
 
-const { BrandFilterDrawer, BrandFilterSidebar } = await import(
-  "../brand-filter-sidebar",
-);
+const { BrandFilterDrawer, BrandFilterSidebar } =
+  await import("../brand-filter-sidebar");
 
 const CATEGORIES = [
   { slug: "home", name: "Home & Living", nameZh: "居家生活" },
@@ -256,9 +254,7 @@ describe("BrandFilterSidebar", () => {
       </NextIntlClientProvider>,
     );
 
-    fireEvent.click(
-      screen.getByRole("button", { name: /^Filters/ }),
-    );
+    fireEvent.click(screen.getByRole("button", { name: /^Filters/ }));
 
     const body = document.querySelector('[data-slot="sheet-body"]');
     expect(body).not.toBeNull();
@@ -269,7 +265,9 @@ describe("BrandFilterSidebar", () => {
 
     // The sidebar is INSIDE that scroll container, not beside it.
     expect(
-      body!.querySelector('[data-slot="surface-card"], [class*="overflow-hidden"]'),
+      body!.querySelector(
+        '[data-slot="surface-card"], [class*="overflow-hidden"]',
+      ),
     ).not.toBeNull();
 
     const footer = document.querySelector('[data-slot="sheet-footer"]');

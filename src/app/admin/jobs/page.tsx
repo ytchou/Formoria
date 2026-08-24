@@ -28,10 +28,8 @@ export default async function JobsPage({
   if ("error" in result) {
     return (
       <div className="space-y-4">
-        <h1 className="type-label">{t("title")}</h1>
-        <p className="type-metadata text-danger">
-          {result.error}
-        </p>
+        <h1 className="type-tool-heading">{t("title")}</h1>
+        <p className="type-metadata text-danger">{result.error}</p>
       </div>
     );
   }
@@ -39,7 +37,7 @@ export default async function JobsPage({
   return (
     <div className="space-y-4">
       <div>
-        <h1 className="type-label">{t("title")}</h1>
+        <h1 className="type-tool-heading">{t("title")}</h1>
         <p className="mt-1 type-body-sm">{t("description")}</p>
       </div>
       <JobHistoryList

@@ -3,11 +3,6 @@
 @import "shadcn/tailwind.css";
 
 @theme inline {
-  --color-chart-5: var(--chart-5);
-  --color-chart-4: var(--chart-4);
-  --color-chart-3: var(--chart-3);
-  --color-chart-2: var(--chart-2);
-  --color-chart-1: var(--chart-1);
   --color-accent: var(--accent);
   /* Radius has TWO values, defined below as --radius-control / --radius-surface.
      `--radius-*: initial` clears Tailwind's built-in scale as well as this
@@ -73,6 +68,7 @@
   --font-hei: var(--font-noto-sans-tc), "PingFang TC", sans-serif;
 }
 
+/* prettier-ignore */
 :root {
   /* Interactive — ONE token, not three.
      `--primary`, `--primary-dark`, `--primary-light`, `--cta` and
@@ -130,15 +126,6 @@
   --duration-enter: 200ms;
   --duration-morph: 300ms;
   --duration-stagger: 60ms;
-
-  /* Sidebar */
-
-  /* Chart colors (warm palette) */
-  --chart-1: oklch(0.63 0.17 45);
-  --chart-2: oklch(0.5 0.08 60);
-  --chart-3: oklch(0.74 0.08 65);
-  --chart-4: oklch(0.3 0.02 50);
-  --chart-5: oklch(0.4 0.1 140);
 }
 
 /*
@@ -160,6 +147,7 @@
  *
  * The v1 palette above is still live and still wrong; waves 2-5 retire it.
  */
+/* prettier-ignore */
 :root {
   /* Colour */
   --ground: #FAF7F2; /* page background */
@@ -169,7 +157,7 @@
      4.17:1 on it, under the 4.5:1 AA floor. Body or metadata belongs on
      `--surface` (4.6:1) or `--ground` (5.1:1). Nothing checks this pair, so it
      is written here rather than discovered later. */
-  --surface-deep: #E8DFD2;
+  --surface-deep: #e8dfd2;
   --ink: #1A1815; /* primary text — 18.9:1 on ground */
   --ink-soft: #4A443C; /* body prose — 10.2:1 on ground */
   --ink-muted: #6F685F; /* metadata — 5.1:1 ground / 4.6:1 surface */
@@ -187,7 +175,7 @@
 
   /* Form errors. Separate from `--destructive`, which v1 uses for destructive
      ACTIONS; this one carries validation messages. */
-  --danger: #B3261E; /* 6.1:1 on ground, 5.5:1 on surface */
+  --danger: #b3261e; /* 6.1:1 on ground, 5.5:1 on surface */
 
   /* Spacing — three names carry meaning and nothing else does. Local,
      meaningless spacing (`gap-2`, `p-4`) needs no name and gets none. Do not
@@ -392,12 +380,12 @@
 }
 
 /*
- * THE TYPE LAYER — 12 ROLES, TWO FACES.
+ * THE TYPE LAYER — 13 ROLES, TWO FACES.
  *
  * v1 had 37 `type-*` utilities across 838 call sites. Thirty-seven names cannot
  * be held in a head, so authors picked by guess: three separate v1 names for a
  * heading all resolved to the same declaration, and `type-button` was used on a
- * live CTA that no block ever defined. Twelve roles are the fewest that still
+ * live CTA that no block ever defined. Thirteen roles are the fewest that still
  * say something.
  *
  * 明體 (`font-ming`) carries CONTENT: prose, titles, story and brand copy.
@@ -440,6 +428,10 @@
 }
 
 /* ── 黑體 (font-hei) — interface ────────────────────────────────────────── */
+
+@utility type-tool-heading {
+  @apply font-hei text-[1.3125rem] font-semibold leading-[1.35] text-ink;
+}
 
 /* Used on a live CTA (`discover/[slug]/not-found.tsx`) since before v2 with no
    `@utility` block behind it, so that button rendered at the browser default.

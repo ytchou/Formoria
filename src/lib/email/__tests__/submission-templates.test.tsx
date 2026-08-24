@@ -72,7 +72,7 @@ describe("buildRejectionEmail", () => {
       locale: "zh-TW",
     });
 
-    expect(email.subject).toBe("Formoria：您提交的「測試品牌」需要修改");
+    expect(email.subject).toBe("Formoria：「測試品牌」的提交內容需要修改");
   });
 
   it("includes the denial reason label and appeal contact", async () => {

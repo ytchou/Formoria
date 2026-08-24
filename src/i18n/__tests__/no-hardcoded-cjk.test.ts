@@ -11,6 +11,9 @@ import ts from "typescript";
  * `src/` outside the allowlist below. New leaks therefore fail CI.
  *
  * The allowlist holds intentional single-locale or copy-in-source surfaces.
+ * It is shared by both assertions below, so an allowlisted file suppresses
+ * EVERY hardcoded-copy check in this guard, not only the Han scan that usually
+ * motivates the entry. Treat each row as a file-wide exemption.
  * When something here is genuinely intentional (e.g. an admin-only screen),
  * add its path. Otherwise, move the string into `messages/*.json`.
  */
@@ -23,6 +26,7 @@ const LATIN = /[A-Za-z]/;
 const USER_FACING_ATTRIBUTES = new Set([
   "alt",
   "aria-label",
+  "description",
   "placeholder",
   "title",
 ]);
@@ -94,8 +98,6 @@ const ALLOWLIST = [
   "lib/growth/share-assets.ts",
   // Stockist name normalization uses Chinese retailer noise words for stripping (data constants, not UI copy).
   "lib/brands/stockist-display.ts",
-  // FAQ preset LLM prompt fragments are Chinese model instructions, not UI copy.
-  "lib/brands/faq-presets/",
   // FAQ phase prompt fragments and repair instructions are Chinese model
   // instructions, not UI copy.
   "lib/services/enrich-phases/faq.ts",
@@ -129,6 +131,123 @@ function walk(dir: string): string[] {
   return out;
 }
 
+function hanOffenders(source: string): Array<{ line: number; value: string }> {
+  const offenders: Array<{ line: number; value: string }> = [];
+  const sourceFile = ts.createSourceFile(
+    "source.tsx",
+    source,
+    ts.ScriptTarget.Latest,
+    true,
+    ts.ScriptKind.TSX,
+  );
+  const scanner = ts.createScanner(
+    ts.ScriptTarget.Latest,
+    false,
+    ts.LanguageVariant.JSX,
+    source,
+  );
+
+  for (
+    let token = scanner.scan();
+    token !== ts.SyntaxKind.EndOfFileToken;
+    token = scanner.scan()
+  ) {
+    if (
+      token === ts.SyntaxKind.SingleLineCommentTrivia ||
+      token === ts.SyntaxKind.MultiLineCommentTrivia
+    ) {
+      continue;
+    }
+
+    const value = scanner.getTokenText();
+    if (!HAN.test(value)) continue;
+    const { line } = sourceFile.getLineAndCharacterOfPosition(
+      scanner.getTokenPos(),
+    );
+    offenders.push({ line: line + 1, value: value.trim() });
+  }
+  return offenders;
+}
+
+function renderedCopyOffenders(
+  fileName: string,
+  source: string,
+): Array<{ line: number; value: string }> {
+  const sourceFile = ts.createSourceFile(
+    fileName,
+    source,
+    ts.ScriptTarget.Latest,
+    true,
+    ts.ScriptKind.TSX,
+  );
+  const offenders: Array<{ line: number; value: string }> = [];
+
+  function report(node: ts.Node, value: string) {
+    const normalized = value.replace(/\s+/g, " ").trim();
+    if (!LATIN.test(normalized) || normalized === "Formoria") return;
+    const { line } = sourceFile.getLineAndCharacterOfPosition(
+      node.getStart(sourceFile),
+    );
+    offenders.push({ line: line + 1, value: normalized });
+  }
+
+  function reportExpression(expression: ts.Expression) {
+    if (
+      ts.isStringLiteral(expression) ||
+      ts.isNoSubstitutionTemplateLiteral(expression)
+    ) {
+      report(expression, expression.text);
+      return;
+    }
+    if (ts.isTemplateExpression(expression)) {
+      report(expression.head, expression.head.text);
+      for (const span of expression.templateSpans) {
+        reportExpression(span.expression);
+        report(span.literal, span.literal.text);
+      }
+      return;
+    }
+    if (ts.isConditionalExpression(expression)) {
+      reportExpression(expression.whenTrue);
+      reportExpression(expression.whenFalse);
+      return;
+    }
+    if (ts.isParenthesizedExpression(expression)) {
+      reportExpression(expression.expression);
+    }
+  }
+
+  function visit(node: ts.Node) {
+    if (ts.isJsxText(node)) {
+      report(node, node.getText(sourceFile));
+    } else if (
+      ts.isJsxAttribute(node) &&
+      USER_FACING_ATTRIBUTES.has(node.name.getText(sourceFile)) &&
+      node.initializer
+    ) {
+      if (ts.isStringLiteral(node.initializer)) {
+        report(node.initializer, node.initializer.text);
+      } else if (
+        ts.isJsxExpression(node.initializer) &&
+        node.initializer.expression
+      ) {
+        reportExpression(node.initializer.expression);
+      }
+    } else if (
+      ts.isJsxExpression(node) &&
+      (ts.isJsxElement(node.parent) || ts.isJsxFragment(node.parent)) &&
+      node.expression &&
+      ts.isConditionalExpression(node.expression)
+    ) {
+      reportExpression(node.expression);
+    }
+    ts.forEachChild(node, visit);
+  }
+
+  visit(sourceFile);
+  return offenders;
+}
+
 describe("i18n guard — allowlist hygiene", () => {
   it("every allowlist entry points at a path that exists", () => {
     // A dead entry fails nothing and looks like documentation of a decision
@@ -144,24 +263,50 @@ describe("i18n guard — allowlist hygiene", () => {
 });
 
 describe("i18n guard — no hardcoded Chinese in source", () => {
+  it("ignores Han characters in comments while keeping executable Han visible", () => {
+    const source = ["// 中文說明", "const label = '中文標籤';"].join("\n");
+
+    expect(hanOffenders(source)).toEqual([{ line: 2, value: "'中文標籤'" }]);
+  });
+
   it("source outside the allowlist contains no Han characters", () => {
     const offenders: string[] = [];
     for (const file of walk(SRC)) {
       const rel = relative(SRC, file);
       if (isAllowlisted(rel)) continue;
-      const lines = readFileSync(file, "utf8").split("\n");
-      lines.forEach((line, i) => {
-        if (HAN.test(line)) {
-          offenders.push(
-            `${rel.split(sep).join("/")}:${i + 1}  ${line.trim().slice(0, 90)}`,
-          );
-        }
-      });
+      for (const offender of hanOffenders(readFileSync(file, "utf8"))) {
+        offenders.push(
+          `${rel.split(sep).join("/")}:${offender.line}  ${offender.value.slice(0, 90)}`,
+        );
+      }
     }
     expect(
       offenders,
       `Hardcoded Chinese found in source. Move it into messages/*.json (or allowlist if intentional single-locale):\n${offenders.join("\n")}`,
     ).toEqual([]);
+  });
+
+  it("flags template, literal, and conditional user-facing attributes", () => {
+    const offenders = renderedCopyOffenders(
+      "fixture.tsx",
+      [
+        "const name = 'catalogue';",
+        "const node = (",
+        "  <ConfirmDialog",
+        "    aria-label={`Archive ${name}`}",
+        '    description="This action cannot be undone"',
+        '    title={name ? "Named record" : "Unnamed record"}',
+        "  />",
+        ");",
+      ].join("\n"),
+    );
+
+    expect(offenders.map(({ value }) => value)).toEqual([
+      "Archive",
+      "This action cannot be undone",
+      "Named record",
+      "Unnamed record",
+    ]);
   });
 
   it("rendered JSX copy outside the allowlist comes from a message catalogue", () => {
@@ -171,49 +316,14 @@ describe("i18n guard — no hardcoded Chinese in source", () => {
       const rel = relative(SRC, file);
       if (isAllowlisted(rel) || !file.endsWith(".tsx")) continue;
 
-      const sourceFile = ts.createSourceFile(
+      for (const offender of renderedCopyOffenders(
         file,
         readFileSync(file, "utf8"),
-        ts.ScriptTarget.Latest,
-        true,
-        ts.ScriptKind.TSX,
-      );
-
-      function report(node: ts.Node, value: string) {
-        const normalized = value.replace(/\s+/g, " ").trim();
-        if (!LATIN.test(normalized) || normalized === "Formoria") return;
-        const { line } = sourceFile.getLineAndCharacterOfPosition(
-          node.getStart(sourceFile),
-        );
+      )) {
         offenders.push(
-          `${rel.split(sep).join("/")}:${line + 1}  ${normalized.slice(0, 90)}`,
+          `${rel.split(sep).join("/")}:${offender.line}  ${offender.value.slice(0, 90)}`,
         );
       }
-
-      function visit(node: ts.Node) {
-        if (ts.isJsxText(node)) {
-          report(node, node.getText(sourceFile));
-        } else if (
-          ts.isJsxAttribute(node) &&
-          USER_FACING_ATTRIBUTES.has(node.name.getText(sourceFile)) &&
-          node.initializer &&
-          ts.isStringLiteral(node.initializer)
-        ) {
-          report(node, node.initializer.text);
-        } else if (
-          ts.isJsxExpression(node) &&
-          (ts.isJsxElement(node.parent) || ts.isJsxFragment(node.parent)) &&
-          node.expression &&
-          ts.isConditionalExpression(node.expression)
-        ) {
-          const { whenTrue, whenFalse } = node.expression;
-          if (ts.isStringLiteral(whenTrue)) report(whenTrue, whenTrue.text);
-          if (ts.isStringLiteral(whenFalse)) report(whenFalse, whenFalse.text);
-        }
-        ts.forEachChild(node, visit);
-      }
-
-      visit(sourceFile);
     }
 
     expect(

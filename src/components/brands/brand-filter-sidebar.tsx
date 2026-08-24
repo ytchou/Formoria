@@ -8,7 +8,6 @@ import { Link, usePathname, useRouter } from "@/i18n/navigation";
 import {
   trackCategoryFilterApplied,
   trackFilterCleared,
-  trackPriceFilterApplied,
   trackSubcategoryFilterApplied,
   trackVerificationFilterApplied,
 } from "@/lib/analytics";
@@ -29,7 +28,6 @@ import {
   SheetTitle,
   SheetTrigger,
 } from "@/components/ui/sheet";
-import { ChipRow, ToggleChip } from "@/components/ui/toggle-chip";
 import type { BrandFilters } from "@/lib/types";
 import {
   clearDirectoryFilters,
@@ -92,7 +90,6 @@ const verificationOptions: VerificationFilterValue[] = [
   "mit-declared",
   "owned",
 ];
-const priceRangeOptions = [1, 2, 3] as const;
 const filterOptionClassName =
   "flex min-h-12 cursor-pointer items-center gap-2 rounded-control px-2 type-body-sm transition-colors hover:bg-surface hover:text-ink";
 
@@ -155,9 +152,7 @@ function FilterSection({
         )}
         style={{ transitionTimingFunction: "var(--ease-settle)" }}
       >
-        <div className="overflow-hidden">
-          {children}
-        </div>
+        <div className="overflow-hidden">{children}</div>
       </div>
     </section>
   );
@@ -182,7 +177,12 @@ export function BrandFilterSidebar({
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const activeCategories = useMemo(
-    () => new Set(activeCategorySlugs.length > 0 ? activeCategorySlugs : parseCommaParam(searchParams.get("category"))),
+    () =>
+      new Set(
+        activeCategorySlugs.length > 0
+          ? activeCategorySlugs
+          : parseCommaParam(searchParams.get("category")),
+      ),
     [activeCategorySlugs, searchParams],
   );
   const activeVerification = (
@@ -192,10 +192,6 @@ export function BrandFilterSidebar({
       ? searchParams.get("verification")
       : "all"
   ) as VerificationFilterValue;
-  const activePriceRanges = useMemo(
-    () => new Set(parseCommaParam(searchParams.get("price")).map(Number)),
-    [searchParams],
-  );
   const activeSubcategories = new Set(activeSubSlugs);
   // The server-validated list, and only that: `parseDirectoryViewFilters`
   // drops any value outside the closed 12-slug vocabulary, so reading
@@ -231,7 +227,10 @@ export function BrandFilterSidebar({
       locale,
     });
     startTransition(() => {
-      const navigate = target.routerPath.split('?')[0] === pathname ? router.replace : router.push;
+      const navigate =
+        target.routerPath.split("?")[0] === pathname
+          ? router.replace
+          : router.push;
       navigate(target.routerPath, { scroll: false });
     });
   }
@@ -257,26 +256,6 @@ export function BrandFilterSidebar({
       router.replace(
         updateDirectoryUrl(pathname, searchParams, {
           material: next.size > 0 ? Array.from(next).join(",") : null,
-        }),
-        { scroll: false },
-      );
-    });
-  }
-
-  function togglePriceRange(value: number, checked: boolean) {
-    const next = new Set(activePriceRanges);
-    if (checked) {
-      next.add(value);
-      trackPriceFilterApplied(String(value));
-    } else {
-      next.delete(value);
-      trackFilterCleared("single", "price", String(value));
-    }
-
-    startTransition(() => {
-      router.replace(
-        updateDirectoryUrl(pathname, searchParams, {
-          price: next.size > 0 ? Array.from(next).sort().join(",") : null,
         }),
         { scroll: false },
       );
@@ -330,7 +309,9 @@ export function BrandFilterSidebar({
       <div className="space-y-6 p-4">
         <section className="space-y-3">
           <div className="flex items-center gap-1.5">
-            <h2 className="type-body-sm font-medium text-ink">{t("brandSearch")}</h2>
+            <h2 className="type-body-sm font-medium text-ink">
+              {t("brandSearch")}
+            </h2>
             <Info className="size-4 text-ink-muted" aria-hidden="true" />
           </div>
           <SearchInput
@@ -344,7 +325,10 @@ export function BrandFilterSidebar({
 
         <Separator />
 
-        <FilterSection title={t("category")} defaultOpen={activeCategories.size > 0}>
+        <FilterSection
+          title={t("category")}
+          defaultOpen={activeCategories.size > 0}
+        >
           <div className="space-y-1">
             {categories.map((category) => {
               const checked = activeCategories.has(category.slug);
@@ -400,8 +384,12 @@ export function BrandFilterSidebar({
                           slug: category.slug,
                           categorySlugs: [category.slug],
                           subSlug: subcategoryChecked
-                            ? activeSubSlugs.filter((slug) => slug !== subcategory.slug).join(',') || null
-                            : Array.from(new Set([...activeSubSlugs, subcategory.slug])).join(','),
+                            ? activeSubSlugs
+                                .filter((slug) => slug !== subcategory.slug)
+                                .join(",") || null
+                            : Array.from(
+                                new Set([...activeSubSlugs, subcategory.slug]),
+                              ).join(","),
                           locale,
                         });
                         return (
@@ -409,22 +397,32 @@ export function BrandFilterSidebar({
                             key={subcategory.slug}
                             href={subcategoryTarget.routerPath}
                             prefetch={false}
-                            aria-current={subcategoryChecked ? 'page' : undefined}
+                            aria-current={
+                              subcategoryChecked ? "page" : undefined
+                            }
                             className={cn(
-                              buttonVariants({ variant: 'secondary', shape: 'pill' }),
-                              'min-h-12',
-                              subcategoryChecked && 'border-accent bg-accent text-ground hover:border-accent hover:bg-accent hover:text-ground',
+                              buttonVariants({
+                                variant: "secondary",
+                                shape: "pill",
+                              }),
+                              "min-h-12",
+                              subcategoryChecked &&
+                                "border-accent bg-accent text-ground hover:border-accent hover:bg-accent hover:text-ground",
                             )}
                             data-ph-no-autocapture
                             onClick={() => {
                               if (subcategoryChecked) {
-                                trackFilterCleared("single", "subcategory", subcategory.slug)
+                                trackFilterCleared(
+                                  "single",
+                                  "subcategory",
+                                  subcategory.slug,
+                                );
                               } else {
                                 trackSubcategoryFilterApplied(
                                   subcategory.slug,
                                   category.slug,
                                   subcategory.count,
-                                )
+                                );
                               }
                             }}
                           >
@@ -490,32 +488,6 @@ export function BrandFilterSidebar({
             </FilterSection>
           </>
         ) : null}
-
-        <Separator />
-
-        <FilterSection title={t("priceRange")}>
-          <ChipRow>
-            {priceRangeOptions.map((value) => {
-              const checked = activePriceRanges.has(value);
-              const label = "$".repeat(value);
-              return (
-                <ToggleChip
-                  key={value}
-                  pressed={checked}
-                  onPressedChange={(next) => togglePriceRange(value, next)}
-                  // No height override. A chip is 36px; `min-h-12` rendered
-                  // this one row at 48px while every other chip row in the app
-                  // sat at 36px. The 14px `ChipRow` gap is what keeps the 36px
-                  // exception honest, not a taller box on one screen.
-                  className="active:animate-spring-pop"
-                  data-ph-no-autocapture
-                >
-                  {label}
-                </ToggleChip>
-              );
-            })}
-          </ChipRow>
-        </FilterSection>
 
         <Separator />
 
@@ -588,7 +560,11 @@ export function BrandFilterDrawer({
     <Sheet open={open} onOpenChange={setOpen}>
       <SheetTrigger
         render={
-          <Button variant="secondary" size="large" className="gap-2 lg:hidden" />
+          <Button
+            variant="secondary"
+            size="large"
+            className="gap-2 lg:hidden"
+          />
         }
       >
         <SlidersHorizontal className="h-4 w-4" aria-hidden="true" />
@@ -596,7 +572,8 @@ export function BrandFilterDrawer({
       </SheetTrigger>
       <SheetContent
         side="left"
-        className="w-[86vw] max-w-sm gap-0 p-0"
+        size="panel"
+        className="gap-0 p-0"
         showCloseButton
       >
         <SheetHeader className="border-b border-rule">
@@ -623,11 +600,7 @@ export function BrandFilterDrawer({
           />
         </SheetBody>
         <SheetFooter>
-          <Button
-            type="button"
-            width="full"
-            onClick={() => setOpen(false)}
-          >
+          <Button type="button" width="full" onClick={() => setOpen(false)}>
             {t("showResults", { count: totalCount })}
           </Button>
           <MobileClearAll onClear={() => setOpen(false)} />

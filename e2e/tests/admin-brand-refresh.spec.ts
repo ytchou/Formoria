@@ -76,7 +76,6 @@ test.describe("Scheduled brand refresh review", () => {
       // constraint, so a label would insert cleanly and then match no facet,
       // no L2 page and no `?sub=`. `餐具` is a `tableware` alias.
       subcategories: ["tableware"],
-      price_range: 2,
       purchase_website: "https://refresh-e2e.example.com",
       updated_at: new Date().toISOString(),
     });
@@ -257,7 +256,6 @@ test.describe("Scheduled brand refresh review", () => {
           description: "排程更新後的品牌介紹",
           category: "home",
           subcategories: ["tableware"],
-          price_range: 2,
           purchase_website: "https://refresh-e2e.example.com",
           hero_image_url: e2eProxyImageUrl(heroCandidateKey),
         },
@@ -370,10 +368,7 @@ test.describe("Bulk refresh approval", () => {
           brandIds.push(submission.brand_id);
         }
       }
-      await supabase
-        .from("brand_submissions")
-        .delete()
-        .in("id", submissionIds);
+      await supabase.from("brand_submissions").delete().in("id", submissionIds);
     }
     if (brandIds.length > 0) {
       await supabase.from("brands").delete().in("id", brandIds);
@@ -418,7 +413,6 @@ test.describe("Bulk refresh approval", () => {
           description: "完整的品牌介紹",
           category: "home",
           subcategories: ["tableware"],
-          price_range: 2,
           purchase_website: "https://bulk-approval.example.com",
           hero_image_url: e2eProxyImageUrl(validHeroKey),
         },
@@ -462,7 +456,6 @@ test.describe("Bulk refresh approval", () => {
       // Slug, not the zh-TW label — direct `brands` insert, same reason as the
       // seed above.
       subcategories: ["tableware"],
-      price_range: 2,
       purchase_website: "https://bulk-refresh.example.com",
     });
     if (staleBrandError) throw staleBrandError;
@@ -545,8 +538,12 @@ test.describe("Bulk refresh approval", () => {
     await adminPage
       .getByRole("textbox", { name: "Search submissions" })
       .fill(suffix);
-    const validRow = adminPage.locator("tbody tr").filter({ hasText: validName });
-    const staleRow = adminPage.locator("tbody tr").filter({ hasText: staleName });
+    const validRow = adminPage
+      .locator("tbody tr")
+      .filter({ hasText: validName });
+    const staleRow = adminPage
+      .locator("tbody tr")
+      .filter({ hasText: staleName });
     await expect(validRow).toBeVisible();
     await expect(staleRow).toBeVisible();
     await validRow.getByRole("checkbox").click();
@@ -561,9 +558,7 @@ test.describe("Bulk refresh approval", () => {
 
     await Promise.all([
       adminPage.waitForEvent("dialog").then((dialog) => dialog.accept()),
-      adminPage
-        .getByRole("button", { name: "Approve 2 selected" })
-        .click(),
+      adminPage.getByRole("button", { name: "Approve 2 selected" }).click(),
     ]);
 
     await expect(async () => {
@@ -583,6 +578,8 @@ test.describe("Bulk refresh approval", () => {
     await expect(validRow).toBeHidden({ timeout: BUDGET.GATED_UI });
     await expect(staleRow).toBeVisible();
     await expect(staleRow.getByRole("checkbox")).toBeChecked();
-    await expect(adminPage.locator("p.type-metadata.text-danger")).toContainText(staleName);
+    await expect(
+      adminPage.locator("p.type-metadata.text-danger"),
+    ).toContainText(staleName);
   });
 });

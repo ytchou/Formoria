@@ -41,6 +41,7 @@ import { readdir } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
+import matter from "gray-matter";
 import sharp from "sharp";
 import ts from "typescript";
 
@@ -65,6 +66,7 @@ const REPO_ROOT = path.resolve(
 const SRC_DIR = path.join(REPO_ROOT, "src");
 const PUBLIC_DIR = path.join(REPO_ROOT, "public");
 const GLOBALS_CSS = path.join(REPO_ROOT, "src/app/globals.css");
+const TRAILS_DIR = path.join(REPO_ROOT, "content/trails");
 
 /** The component's own file, where the construction is allowed to exist. */
 const PHOTO_BAND_SOURCE = path.join(
@@ -72,38 +74,44 @@ const PHOTO_BAND_SOURCE = path.join(
   "src/components/ui/photo-band.tsx",
 );
 
-/**
- * SCRIMS THAT PREDATE THE BAN, NAMED ONE BY ONE.
- *
- * Both are real instances of the construction and both are debt, not
- * exceptions — they are listed rather than converted because converting a
- * surface is a design change and this gate is not the place to make one. A
- * blanket "skip anything older than the gate" would have hidden them instead;
- * a named list keeps the debt in the source where the next person editing that
- * file reads it.
- *
- * NO TICKET IS FILED FOR EITHER YET. File one before adding a third entry: two
- * exemptions is a backlog, and three is a second convention.
- */
-const HAND_ROLLED_SCRIM_EXEMPTIONS: { file: string; why: string }[] = [
+const MEASURED_SCRIM_SOURCES = {
+  "src/components/landing/trail-tile.tsx": "trail-tile",
+  "src/components/brands/selected-product-tile.tsx": "product-caption",
+} as const;
+
+type MeasuredScrimSurface =
+  (typeof MEASURED_SCRIM_SOURCES)[keyof typeof MEASURED_SCRIM_SOURCES];
+
+type VerticalBreakpoint = {
+  label: string;
+  minWidth: number;
+  bandAspect: number;
+  textZone: readonly [number, number];
+};
+
+const TRAIL_TILE_BREAKPOINTS: readonly VerticalBreakpoint[] = [
   {
-    // A card-scale scrim, not a band: a full-bleed gradient over the trail
-    // tile's photograph with light copy on it. `PhotoBand` has no variant for
-    // a tile, and giving it one means deciding whether a tile scrim is the
-    // same contract as a band scrim — which it probably is not, since the copy
-    // here paints `--ground` on a DARK scrim rather than ink on a light one.
-    file: "src/components/landing/trail-tile.tsx",
-    why: "tile-scale gradient scrim over a photograph; needs a tile variant before it can move",
+    label: "base (narrow)",
+    minWidth: 0,
+    bandAspect: 3 / 2,
+    textZone: [0.26, 0.94],
   },
   {
-    // The wall caption's hover panel: solid canvas at 94% over the lower edge
-    // of the product photograph, from `sm` up, revealed on hover. It is a
-    // caption plate rather than a band scrim, and it is already argued for
-    // with measured numbers in its own comment.
-    file: "src/components/brands/selected-product-tile.tsx",
-    why: "hover caption plate on the product wall; a partial-height panel, not a band",
+    label: "min-width:768px",
+    minWidth: 768,
+    bandAspect: 3 / 2,
+    textZone: [0.48, 0.94],
   },
 ];
+
+/** Screen-y stops for `to top`: the 75% gradient stop is 25% from the top. */
+const TRAIL_TILE_SCRIM_STOPS = [
+  { offset: 0, alpha: 0.1 },
+  { offset: 0.25, alpha: 0.75 },
+  { offset: 1, alpha: 0.95 },
+] as const;
+
+const PRODUCT_CAPTION_ALPHA = 0.95;
 
 /**
  * WCAG AA for body text. Applied to the headline roles too: the display sizes
@@ -120,6 +128,7 @@ const AA_FLOOR = 4.5;
  * shadow in it.
  */
 const DARK_PERCENTILE = 0.01;
+const BRIGHT_PERCENTILE = 0.01;
 
 /**
  * Ink roles checked against every band whatever it paints.
@@ -144,6 +153,21 @@ const INK_UTILITY_TO_TOKEN: Record<string, string> = {
   "text-ink": "--ink",
   "text-ink-soft": "--ink-soft",
   "text-ink-muted": "--ink-muted",
+};
+
+const FOREGROUND_UTILITY_TO_TOKEN: Record<string, string> = {
+  ...INK_UTILITY_TO_TOKEN,
+  "text-ground": "--ground",
+  "text-on-ink": "--on-ink",
+  "text-on-ink-muted": "--on-ink-muted",
+};
+
+const RESPONSIVE_MIN_WIDTH: Record<string, number> = {
+  sm: 640,
+  md: 768,
+  lg: 1024,
+  xl: 1280,
+  "2xl": 1536,
 };
 
 type Band = {
@@ -408,6 +432,132 @@ export function analyzeSource(
   return { bands, errors, handRolled };
 }
 
+type ElementClasses = { tag: string; classes: string[] };
+
+function elementClassLists(
+  relativeFile: string,
+  source: string,
+): ElementClasses[] {
+  const parsed = ts.createSourceFile(
+    relativeFile,
+    source,
+    ts.ScriptTarget.Latest,
+    true,
+    relativeFile.endsWith(".tsx") ? ts.ScriptKind.TSX : ts.ScriptKind.TS,
+  );
+  const elements: ElementClasses[] = [];
+  const visit = (node: ts.Node) => {
+    if (ts.isJsxOpeningElement(node) || ts.isJsxSelfClosingElement(node)) {
+      for (const attribute of node.attributes.properties) {
+        if (!ts.isJsxAttribute(attribute)) continue;
+        if (attribute.name.getText(parsed) !== "className") continue;
+        if (!attribute.initializer) continue;
+        elements.push({
+          tag: node.tagName.getText(parsed),
+          classes: classListOf(attribute.initializer),
+        });
+      }
+    }
+    ts.forEachChild(node, visit);
+  };
+  visit(parsed);
+  return elements;
+}
+
+function hasEveryClass(
+  classes: string[],
+  required: readonly string[],
+): boolean {
+  const present = new Set(classes);
+  return required.every((className) => present.has(className));
+}
+
+function validateTrailTileSource(file: string, source: string): string[] {
+  const elements = elementClassLists(file, source);
+  const errors: string[] = [];
+  const requireElement = (
+    label: string,
+    tag: string,
+    marker: string,
+    required: readonly string[],
+  ) => {
+    const element = elements.find(
+      (candidate) =>
+        candidate.tag === tag && candidate.classes.includes(marker),
+    );
+    if (!element || !hasEveryClass(element.classes, required)) {
+      errors.push(
+        `${file}: measured trail-tile ${label} contract drifted; expected ${required.join(" ")}`,
+      );
+    }
+  };
+
+  requireElement("frame", "li", "aspect-[3/2]", ["aspect-[3/2]", "min-h-80"]);
+  requireElement("link", "Link", "justify-end", [
+    "h-full",
+    "min-h-80",
+    "p-5",
+    "md:p-8",
+  ]);
+  requireElement("image", "SurfaceImage", "object-cover", ["object-cover"]);
+  requireElement("scrim", "span", "bg-gradient-to-t", [
+    "absolute",
+    "inset-0",
+    "bg-gradient-to-t",
+    "from-ink/95",
+    "via-ink/75",
+    "via-[75%]",
+    "to-ink/10",
+  ]);
+  requireElement("stack", "span", "max-w-xl", ["gap-3"]);
+  requireElement("eyebrow", "span", "type-eyebrow", ["bg-ink", "text-ground"]);
+  requireElement("title", "h3", "type-card-title", [
+    "text-ground",
+    "md:type-section",
+    "md:text-ground",
+    "line-clamp-2",
+  ]);
+  requireElement("promise", "span", "type-body", [
+    "text-on-ink",
+    "line-clamp-3",
+  ]);
+
+  return errors;
+}
+
+function validateProductCaptionSource(file: string, source: string): string[] {
+  const errors: string[] = [];
+  if (!source.includes("sm:bg-ground/95")) {
+    errors.push(
+      `${file}: measured product-caption plate must use sm:bg-ground/95`,
+    );
+  }
+  if (!source.includes("from-ground/95")) {
+    errors.push(
+      `${file}: measured product-caption lead-in must use from-ground/95`,
+    );
+  }
+  if (
+    !source.includes('variant="cardTitle"') ||
+    !source.includes('variant="metadata"')
+  ) {
+    errors.push(
+      `${file}: measured product-caption must keep the --ink card title and --ink-muted metadata roles`,
+    );
+  }
+  return errors;
+}
+
+function validateMeasuredScrimSource(
+  surface: MeasuredScrimSurface,
+  file: string,
+  source: string,
+): string[] {
+  return surface === "trail-tile"
+    ? validateTrailTileSource(file, source)
+    : validateProductCaptionSource(file, source);
+}
+
 export function analyzeFiles(files: SourceFile[]): {
   bands: Band[];
   errors: string[];
@@ -416,16 +566,32 @@ export function analyzeFiles(files: SourceFile[]): {
   const bands: Band[] = [];
   const errors: string[] = [];
   const handRolled: string[] = [];
-  const exempt = new Set(
-    HAND_ROLLED_SCRIM_EXEMPTIONS.map((entry) => entry.file),
-  );
+  const measuredSourcesSeen = new Set<string>();
 
   for (const { file, source } of files) {
     if (file === path.relative(REPO_ROOT, PHOTO_BAND_SOURCE)) continue;
     const result = analyzeSource(file, source);
     bands.push(...result.bands);
     errors.push(...result.errors);
-    if (!exempt.has(file)) handRolled.push(...result.handRolled);
+    const surface =
+      MEASURED_SCRIM_SOURCES[file as keyof typeof MEASURED_SCRIM_SOURCES];
+    if (!surface) {
+      handRolled.push(...result.handRolled);
+      continue;
+    }
+    measuredSourcesSeen.add(file);
+    if (result.handRolled.length !== 1) {
+      errors.push(
+        `${file}: measured ${surface} must contain exactly one registered hand-rolled scrim; found ${result.handRolled.length}`,
+      );
+    }
+    errors.push(...validateMeasuredScrimSource(surface, file, source));
+  }
+
+  for (const file of Object.keys(MEASURED_SCRIM_SOURCES)) {
+    if (!measuredSourcesSeen.has(file)) {
+      errors.push(`${file}: registered measured scrim source is missing`);
+    }
   }
 
   return { bands, errors, handRolled };
@@ -451,6 +617,61 @@ export function readTypeRoleInk(css: string): Map<string, string> {
     }
   }
   return roles;
+}
+
+export function readTypeRoleForeground(css: string): Map<string, string> {
+  const roles = new Map<string, string>();
+  for (const match of css.matchAll(
+    /@utility\s+(type-[a-z0-9-]+)\s*\{([^}]*)\}/g,
+  )) {
+    const [, role, body] = match;
+    if (!role || !body) continue;
+    for (const utility of body.split(/\s+/)) {
+      const token =
+        FOREGROUND_UTILITY_TO_TOKEN[baseUtility(utility.replace(/[;,]+$/, ""))];
+      if (token) roles.set(role, token);
+    }
+  }
+  return roles;
+}
+
+function utilityMinWidth(className: string): number {
+  const variants = className.split(":").slice(0, -1);
+  return variants.reduce(
+    (minimum, variant) => Math.max(minimum, RESPONSIVE_MIN_WIDTH[variant] ?? 0),
+    0,
+  );
+}
+
+/** Resolves the text token after active responsive type roles and overrides. */
+export function resolveResponsiveForeground(
+  classes: string[],
+  roleForeground: Map<string, string>,
+  viewportWidth: number,
+): string | undefined {
+  const activeWidths = [
+    ...new Set(
+      classes
+        .map(utilityMinWidth)
+        .filter((minimum) => minimum <= viewportWidth),
+    ),
+  ].sort((a, b) => a - b);
+
+  let resolved: string | undefined;
+  for (const minimum of activeWidths) {
+    const utilities = classes
+      .filter((className) => utilityMinWidth(className) === minimum)
+      .map(baseUtility);
+    const explicit = utilities
+      .map((utility) => FOREGROUND_UTILITY_TO_TOKEN[utility])
+      .find((token): token is string => Boolean(token));
+    const role = utilities
+      .map((utility) => roleForeground.get(utility))
+      .find((token): token is string => Boolean(token));
+    resolved = explicit ?? role ?? resolved;
+  }
+
+  return resolved;
 }
 
 /**
@@ -601,6 +822,82 @@ export function darkestCompositedLuminance(
   return luminances[Math.floor(luminances.length * DARK_PERCENTILE)];
 }
 
+export function verticalScrimAlphaAt(y: number): number {
+  const clamped = Math.max(0, Math.min(1, y));
+  for (let index = 1; index < TRAIL_TILE_SCRIM_STOPS.length; index += 1) {
+    const left = TRAIL_TILE_SCRIM_STOPS[index - 1];
+    const right = TRAIL_TILE_SCRIM_STOPS[index];
+    if (!left || !right || clamped > right.offset) continue;
+    const progress = (clamped - left.offset) / (right.offset - left.offset);
+    return left.alpha + progress * (right.alpha - left.alpha);
+  }
+  return TRAIL_TILE_SCRIM_STOPS.at(-1)?.alpha ?? 0;
+}
+
+export function brightestCompositedLuminance(
+  pixels: { data: Buffer; width: number; height: number },
+  breakpoint: VerticalBreakpoint,
+  scrim: [number, number, number],
+): number | undefined {
+  const { data, width, height } = pixels;
+  const rect = visibleSourceRect(width / height, breakpoint.bandAspect);
+  const visibleHeight = rect.y1 - rect.y0;
+  const [zoneStart, zoneEnd] = breakpoint.textZone;
+  const firstRow = Math.floor((rect.y0 + zoneStart * visibleHeight) * height);
+  const lastRow = Math.min(
+    height,
+    Math.max(
+      firstRow + 1,
+      Math.ceil((rect.y0 + zoneEnd * visibleHeight) * height),
+    ),
+  );
+  const firstColumn = Math.floor(rect.x0 * width);
+  const lastColumn = Math.min(
+    width,
+    Math.max(firstColumn + 1, Math.ceil(rect.x1 * width)),
+  );
+
+  const luminances: number[] = [];
+  for (let y = firstRow; y < lastRow; y += 1) {
+    const bandY = ((y + 0.5) / height - rect.y0) / visibleHeight;
+    const alpha = verticalScrimAlphaAt(bandY);
+    for (let x = firstColumn; x < lastColumn; x += 1) {
+      const offset = (y * width + x) * 3;
+      const composited: [number, number, number] = [
+        alpha * scrim[0] + (1 - alpha) * (data[offset] ?? 0),
+        alpha * scrim[1] + (1 - alpha) * (data[offset + 1] ?? 0),
+        alpha * scrim[2] + (1 - alpha) * (data[offset + 2] ?? 0),
+      ];
+      luminances.push(relativeLuminance(composited));
+    }
+  }
+
+  luminances.sort((a, b) => a - b);
+  if (luminances.length === 0) return undefined;
+  const percentileIndex = Math.min(
+    luminances.length - 1,
+    Math.floor(luminances.length * (1 - BRIGHT_PERCENTILE)),
+  );
+  return luminances[percentileIndex];
+}
+
+export function opaqueScrimContrastRatio(
+  foreground: [number, number, number],
+  scrim: [number, number, number],
+  underlying: [number, number, number],
+  alpha: number,
+): number {
+  const background: [number, number, number] = [
+    alpha * scrim[0] + (1 - alpha) * underlying[0],
+    alpha * scrim[1] + (1 - alpha) * underlying[1],
+    alpha * scrim[2] + (1 - alpha) * underlying[2],
+  ];
+  return contrastFromLuminance(
+    relativeLuminance(foreground),
+    relativeLuminance(background),
+  );
+}
+
 /** How a breakpoint is named in the gate's output. */
 export function breakpointLabel(breakpoint: ScrimBreakpoint): string {
   return breakpoint.minWidth <= 0
@@ -642,6 +939,150 @@ async function checkBand(
   return failures;
 }
 
+type PublishedTrailImage = { file: string; image: string };
+
+export function analyzePublishedTrailSource(
+  file: string,
+  source: string,
+): { trail?: PublishedTrailImage; errors: string[] } {
+  let data: Record<string, unknown>;
+  try {
+    data = matter(source).data as Record<string, unknown>;
+  } catch (error) {
+    return {
+      errors: [
+        `${file}: published trail frontmatter is unreadable: ${error instanceof Error ? error.message : String(error)}`,
+      ],
+    };
+  }
+  if (data.draft === true) return { errors: [] };
+
+  const image = data.heroImage;
+  if (typeof image !== "string" || image.length === 0) {
+    return {
+      errors: [
+        `${file}: published trail needs a local heroImage for the contrast gate`,
+      ],
+    };
+  }
+  if (
+    !image.startsWith("/") ||
+    image.startsWith("//") ||
+    image.includes("://")
+  ) {
+    return {
+      errors: [
+        `${file}: published trail heroImage="${image}" must be a repo path under /public`,
+      ],
+    };
+  }
+  const resolved = path.resolve(PUBLIC_DIR, `.${image}`);
+  if (!resolved.startsWith(`${PUBLIC_DIR}${path.sep}`)) {
+    return {
+      errors: [
+        `${file}: published trail heroImage="${image}" escapes /public and cannot be measured`,
+      ],
+    };
+  }
+
+  return { trail: { file, image }, errors: [] };
+}
+
+async function collectPublishedTrailImages(): Promise<{
+  trails: PublishedTrailImage[];
+  errors: string[];
+}> {
+  const trails: PublishedTrailImage[] = [];
+  const errors: string[] = [];
+  const entries = await readdir(TRAILS_DIR, { withFileTypes: true });
+  for (const entry of entries) {
+    if (!entry.isFile() || !entry.name.endsWith(".mdx")) continue;
+    const file = path.join("content/trails", entry.name);
+    const result = analyzePublishedTrailSource(
+      file,
+      readFileSync(path.join(TRAILS_DIR, entry.name), "utf8"),
+    );
+    errors.push(...result.errors);
+    if (result.trail) trails.push(result.trail);
+  }
+  return { trails, errors };
+}
+
+async function checkTrailTiles(
+  trails: PublishedTrailImage[],
+  foregrounds: { token: string; rgb: [number, number, number] }[],
+  ground: [number, number, number],
+  ink: [number, number, number],
+): Promise<string[]> {
+  const failures: string[] = [];
+  for (const trail of trails) {
+    let pixels: Awaited<ReturnType<typeof loadBandPixels>>;
+    try {
+      pixels = await loadBandPixels(
+        path.resolve(PUBLIC_DIR, `.${trail.image}`),
+        ground,
+      );
+    } catch (error) {
+      failures.push(
+        `${trail.file}: published trail heroImage="${trail.image}" is not a readable local image: ${error instanceof Error ? error.message : String(error)}`,
+      );
+      continue;
+    }
+
+    for (const breakpoint of TRAIL_TILE_BREAKPOINTS) {
+      const brightest = brightestCompositedLuminance(pixels, breakpoint, ink);
+      if (brightest === undefined) {
+        failures.push(
+          `${trail.file}: ${trail.image} produced no trail-tile pixels at ${breakpoint.label}`,
+        );
+        continue;
+      }
+      for (const foreground of foregrounds) {
+        const ratio = contrastFromLuminance(
+          relativeLuminance(foreground.rgb),
+          brightest,
+        );
+        const label = `trail-tile · ${trail.image} · ${breakpoint.label} · ${foreground.token}`;
+        console.log(
+          `  ${ratio >= AA_FLOOR ? "ok  " : "FAIL"} ${label}: ${ratio.toFixed(2)}:1`,
+        );
+        if (ratio < AA_FLOOR) {
+          failures.push(
+            `${label}: ${ratio.toFixed(2)}:1 in the brightest ${BRIGHT_PERCENTILE * 100}% of the text zone (floor ${AA_FLOOR}:1)`,
+          );
+        }
+      }
+    }
+  }
+  return failures;
+}
+
+function checkProductCaption(
+  foregrounds: { token: string; rgb: [number, number, number] }[],
+  ground: [number, number, number],
+): string[] {
+  const failures: string[] = [];
+  const black: [number, number, number] = [0, 0, 0];
+  for (const foreground of foregrounds) {
+    const ratio = opaqueScrimContrastRatio(
+      foreground.rgb,
+      ground,
+      black,
+      PRODUCT_CAPTION_ALPHA,
+    );
+    const label = `product-caption · pure-black pixel · ${foreground.token}`;
+    console.log(
+      `  ${ratio >= AA_FLOOR ? "ok  " : "FAIL"} ${label}: ${ratio.toFixed(3)}:1`,
+    );
+    if (ratio < AA_FLOOR) {
+      failures.push(
+        `${label}: ${ratio.toFixed(3)}:1 through ground/${PRODUCT_CAPTION_ALPHA * 100} (floor ${AA_FLOOR}:1)`,
+      );
+    }
+  }
+  return failures;
+}
+
 function rgbToken(css: string, token: string): [number, number, number] {
   const rgb = hexToRgb(readHexToken(css, token));
   if (!rgb) throw new Error(`token ${token} is not a 6-digit hex colour`);
@@ -651,6 +1092,7 @@ function rgbToken(css: string, token: string): [number, number, number] {
 async function main(): Promise<void> {
   const css = readFileSync(GLOBALS_CSS, "utf8");
   const ground = rgbToken(css, "--ground");
+  const ink = rgbToken(css, "--ink");
   const roleInk = readTypeRoleInk(css);
 
   const files = (await collectSourceFiles(SRC_DIR)).map((file) => ({
@@ -659,6 +1101,8 @@ async function main(): Promise<void> {
   }));
   const { bands, errors, handRolled } = analyzeFiles(files);
   const problems = [...errors, ...handRolled];
+  const publishedTrails = await collectPublishedTrailImages();
+  problems.push(...publishedTrails.errors);
 
   if (bands.length === 0 && problems.length === 0) {
     console.error(
@@ -677,6 +1121,32 @@ async function main(): Promise<void> {
     problems.push(...(await checkBand(band, inkTokens, ground)));
   }
 
+  console.log(
+    `check:photo-bands — ${publishedTrails.trails.length} published trail tile(s)`,
+  );
+  problems.push(
+    ...(await checkTrailTiles(
+      publishedTrails.trails,
+      ["--ground", "--on-ink"].map((token) => ({
+        token,
+        rgb: rgbToken(css, token),
+      })),
+      ground,
+      ink,
+    )),
+  );
+
+  console.log("check:photo-bands — product caption plate over pure black");
+  problems.push(
+    ...checkProductCaption(
+      ["--ink", "--ink-muted"].map((token) => ({
+        token,
+        rgb: rgbToken(css, token),
+      })),
+      ground,
+    ),
+  );
+
   if (problems.length > 0) {
     console.error("\ncheck:photo-bands FAILED");
     for (const problem of problems) console.error(`  - ${problem}`);
@@ -687,7 +1157,7 @@ async function main(): Promise<void> {
   }
 
   console.log(
-    "check:photo-bands — every band clears AA in its text zone, at every declared breakpoint.",
+    "check:photo-bands — every measured photographic surface clears AA at every declared breakpoint.",
   );
 }
 
@@ -705,4 +1175,4 @@ if (
   });
 }
 
-export { HAND_ROLLED_SCRIM_EXEMPTIONS, PHOTO_BAND_SOURCE, REPO_ROOT, SRC_DIR };
+export { PHOTO_BAND_SOURCE, REPO_ROOT, SRC_DIR };

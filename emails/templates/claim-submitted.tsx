@@ -27,7 +27,8 @@ export default function ClaimSubmittedEmail({
 
   if (locale === "en") {
     return (
-      <Layout lang="en"
+      <Layout
+        lang="en"
         previewText={`Claim your brand page on Formoria - ${escapedBrandName}`}
       >
         <EmailHeading as="h2">
@@ -54,18 +55,18 @@ export default function ClaimSubmittedEmail({
   }
 
   return (
-    <Layout previewText={`認領您在 Formoria 的品牌頁面 - ${escapedBrandName}`}>
-      <EmailHeading as="h2">恭喜！您的品牌已通過審核。</EmailHeading>
+    <Layout previewText={`認領 Formoria 上的品牌頁面 - ${escapedBrandName}`}>
+      <EmailHeading as="h2">恭喜！品牌已通過審核。</EmailHeading>
       <EmailText>
         <strong dangerouslySetInnerHTML={{ __html: escapedBrandName }} />{" "}
         現已刊登於 Formoria。
       </EmailText>
       <EmailText>
-        身為品牌擁有者，您可以認領您的品牌頁面，直接管理和編輯您的品牌資訊。
+        品牌擁有者可以認領品牌頁面，直接管理和編輯品牌資訊。
       </EmailText>
-      <Button href={escapedClaimUrl}>認領您的品牌</Button>
+      <Button href={escapedClaimUrl}>認領品牌</Button>
       <EmailText>
-        此連結將在 7 天後失效。如果您並未提交此品牌，可安全忽略此郵件。
+        此連結將在 7 天後失效。如果不是你提交的品牌，可安全忽略此郵件。
       </EmailText>
       <EmailText>Formoria — 台灣品牌探索與選物平台</EmailText>
     </Layout>

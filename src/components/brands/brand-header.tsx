@@ -42,18 +42,12 @@ export function BrandHeader({
   const mitSmileCert = hasMitVerifiedBadge
     ? brand.mitCertificateNumber
     : undefined;
-  const priceRangeLabel =
-    brand.priceRange != null ? "$".repeat(brand.priceRange) : null;
   const resolvedCategory = categoryLabel ?? brand.categoryLabel;
   // `subcategories` stores slugs since DEV-1510, so the chips resolve through
   // the ontology rather than rendering the stored value.
   const resolvedTags = getBrandSubcategoryLabels(brand, locale ?? "zh-TW");
   const unknownValue = (
-    <Typography
-      as="span"
-      className="text-ink-muted"
-      variant="fieldValue"
-    >
+    <Typography as="span" className="text-ink-muted" variant="fieldValue">
       {t("unknown")}
     </Typography>
   );
@@ -81,14 +75,17 @@ export function BrandHeader({
         className="mt-7"
       >
         <div className="flex items-center justify-between gap-4">
-          <Typography as="h2" id="brand-info-heading" variant="sectionTitleLarge">
+          <Typography
+            as="h2"
+            id="brand-info-heading"
+            variant="sectionTitleLarge"
+          >
             {t("sectionTitle")}
           </Typography>
           <CorrectionDialog
             brandId={brand.id}
             brandSlug={brand.slug}
             categorySlug={brand.categorySlug ?? null}
-            priceRange={brand.priceRange}
             subcategories={brand.subcategories}
           />
         </div>
@@ -161,20 +158,6 @@ export function BrandHeader({
               resolvedCategory ? (
                 <Badge className="text-ink" variant="secondary">
                   {resolvedCategory}
-                </Badge>
-              ) : (
-                unknownValue
-              )
-            }
-          />
-          <InfoField
-            label={t("label.priceRange")}
-            labelClassName={infoLabelClassName}
-            layout="stacked"
-            value={
-              priceRangeLabel ? (
-                <Badge className="text-ink" variant="secondary">
-                  {priceRangeLabel}
                 </Badge>
               ) : (
                 unknownValue

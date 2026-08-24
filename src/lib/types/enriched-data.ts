@@ -71,7 +71,6 @@ export type EnrichedData = {
   foundingYear?: number;
   heroImageUrl?: string;
   categorySlug?: string;
-  priceRange?: number;
   subcategories?: string[];
   subcategoriesEn?: string[];
   socialInstagram?: string;
@@ -158,9 +157,6 @@ export function enrichedDataFromDb(
     ...(typeof json.category === "string"
       ? { categorySlug: json.category }
       : {}),
-    ...(typeof json.price_range === "number"
-      ? { priceRange: json.price_range }
-      : {}),
     ...(Array.isArray(json.subcategories)
       ? { subcategories: json.subcategories as string[] }
       : {}),
@@ -222,7 +218,6 @@ export function enrichedDataToDb(data: EnrichedData): Record<string, unknown> {
   if (data.heroImageUrl !== undefined)
     result.hero_image_url = data.heroImageUrl;
   if (data.categorySlug !== undefined) result.category = data.categorySlug;
-  if (data.priceRange !== undefined) result.price_range = data.priceRange;
   if (data.subcategories !== undefined)
     result.subcategories = data.subcategories;
   if (data.subcategoriesEn !== undefined)

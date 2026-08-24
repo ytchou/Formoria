@@ -9,6 +9,7 @@ import { signInHref } from "@/i18n/locale-preference";
 import { trackSubmissionPathSelected } from "@/lib/analytics";
 import {
   AlertDialog,
+  AlertDialogBody,
   AlertDialogCancel,
   AlertDialogContent,
   AlertDialogDescription,
@@ -20,7 +21,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { surfaceCardStyles } from "@/components/ui/card";
 import { PageShell } from "@/components/ui/page-shell";
-import { Check, Info } from "lucide-react";
+import { Check } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { routes } from "@/lib/routes";
 
@@ -159,30 +160,16 @@ export default function SubmitOverview({
                       — Escape, the backdrop and the footer Cancel are the
                       exits, and an icon button beside them would be a fourth. */}
                   <AlertDialogContent size="form">
-                    {/* NO `alert-dialog-media` SLOT, AND THE CENTRING IS
-                        RESTORED. `AlertDialogHeader`'s media layout puts the
-                        title in column 2 from `sm` up but declares no
-                        `grid-cols`, so the description auto-places back into
-                        column 1 under the icon. This header is a centred
-                        icon/title/description stack at every width, which the
-                        default (non-media) layout already renders — the two
-                        `sm:` classes below only hold the centring the shell
-                        drops at `sm`, and tailwind-merge replaces the shell's
-                        own pair because the modifiers match. */}
                     <AlertDialogHeader className="sm:place-items-center sm:text-center">
-                      <span
-                        aria-hidden="true"
-                        className="flex size-12 items-center justify-center rounded-full bg-accent/10 text-accent"
-                      >
-                        <Info className="size-5" />
-                      </span>
                       <AlertDialogTitle className="type-section">
                         {t("ownerLimitTitle")}
                       </AlertDialogTitle>
+                    </AlertDialogHeader>
+                    <AlertDialogBody className="text-center">
                       <AlertDialogDescription>
                         {t("ownerLimitDescription")}
                       </AlertDialogDescription>
-                    </AlertDialogHeader>
+                    </AlertDialogBody>
                     <AlertDialogFooter className="sm:[&>*]:flex-1">
                       <AlertDialogCancel size="large">
                         {t("ownerLimitCancelCta")}

@@ -48,8 +48,7 @@ const phaseDescriptions = {
   links: "Extracts and verifies official website and social links.",
   images: "Finds and selects usable brand and product images.",
   classify_images: "Classifies candidate images by their role and quality.",
-  facts:
-    "Extracts the brand's category, tags, price band, city and founding year.",
+  facts: "Extracts the brand's category, tags, city and founding year.",
   descriptions: "Writes the bilingual description and blurb.",
   locations: "Finds physical shops and retail channels.",
   reputation:
@@ -164,7 +163,7 @@ export function JobDetailView({
             {t("actions.backToList")}
           </Link>
           <div className="flex flex-wrap items-center gap-3">
-            <h1 className="type-label">{t("detail.title")}</h1>
+            <h1 className="type-tool-heading">{t("detail.title")}</h1>
             <JobStatusBadge job={job} />
           </div>
           <p className="break-all type-metadata tabular-nums">{job.id}</p>
@@ -242,7 +241,7 @@ export function JobDetailView({
       </div>
 
       <SurfaceCard padding="lg">
-        <h2 className="type-label">{t("detail.executionInfo")}</h2>
+        <h2 className="type-tool-heading">{t("detail.executionInfo")}</h2>
         <dl className="mt-5 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
           <InfoField label="Trigger" value={jobTriggerLabel(job.trigger)} />
           <InfoField label="Attempt" value={job.attempt} />
@@ -290,7 +289,7 @@ export function JobDetailView({
 
       {parent || children.length > 0 ? (
         <SurfaceCard padding="lg">
-          <h2 className="type-label">{t("detail.retryLineage")}</h2>
+          <h2 className="type-tool-heading">{t("detail.retryLineage")}</h2>
           <div className="mt-4 flex flex-wrap gap-3">
             {parent ? (
               <LineageLink
@@ -311,7 +310,7 @@ export function JobDetailView({
 
       <section className="space-y-4" aria-labelledby="job-targets-heading">
         <div>
-          <h2 id="job-targets-heading" className="type-label">
+          <h2 id="job-targets-heading" className="type-tool-heading">
             {t("detail.brandDetails")}
           </h2>
           <p className="mt-1 type-body-sm">
@@ -324,7 +323,9 @@ export function JobDetailView({
             <dl className="grid gap-x-6 gap-y-3 rounded-surface bg-surface/40 p-4 sm:grid-cols-2 lg:grid-cols-3">
               {phaseDefinitions.map(([phase, description]) => (
                 <div key={phase}>
-                  <dt className="type-body-sm font-medium text-ink capitalize">{phase}</dt>
+                  <dt className="type-body-sm font-medium text-ink capitalize">
+                    {phase}
+                  </dt>
                   <dd className="mt-1 type-body-sm">{description}</dd>
                 </div>
               ))}
@@ -476,9 +477,7 @@ function TargetDetail({ target }: { target: CurationJobTarget }) {
           ) : null}
         </dl>
         <div className="mt-4 space-y-2">
-          <h3 className="type-body-sm font-medium text-ink">
-            {t("detail.phaseLog")}
-          </h3>
+          <h3 className="type-tool-heading">{t("detail.phaseLog")}</h3>
           {phases.length === 0 ? (
             <p className="type-body-sm">{t("detail.noPhaseRecords")}</p>
           ) : (
@@ -509,7 +508,9 @@ function TargetDetail({ target }: { target: CurationJobTarget }) {
                   <p className="mt-1 type-body-sm">
                     {formatMilliseconds(phase.durationMs)}
                     {phase.changedFields.length
-                      ? ` · Changed: ${phase.changedFields.join(", ")}`
+                      ? ` · ${t("detail.changedFields", {
+                          fields: phase.changedFields.join(", "),
+                        })}`
                       : ""}
                   </p>
                   {phaseDescription(phase.phase) ? (
@@ -518,7 +519,9 @@ function TargetDetail({ target }: { target: CurationJobTarget }) {
                     </p>
                   ) : null}
                   {phase.detail ? (
-                    <p className="mt-2 type-body-sm text-ink-soft">{formatPhaseDetail(phase)}</p>
+                    <p className="mt-2 type-body-sm text-ink-soft">
+                      {formatPhaseDetail(phase)}
+                    </p>
                   ) : null}
                   {phase.error ? (
                     <p className="mt-2 type-body-sm text-danger">

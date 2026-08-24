@@ -39,15 +39,16 @@ function SheetOverlay({ className, ...props }: SheetPrimitive.Backdrop.Props) {
  * THE WIDTH VOCABULARY IS ONE LIST, DECLARED IN `dialog.tsx`. It used to be
  * re-spelled here by hand, which meant a fifth name was two edits and stayed
  * correct only until someone made one of them. A sheet takes a width only on
- * the left and right sides, where it is a vertical panel; `Record<DialogSize,
- * …>` is what makes a new name a type error here until it is answered.
+ * the left and right sides, where it is a vertical panel. Compact, panel and
+ * form cap every viewport; wide stays uncapped below `sm` and gains its 72rem
+ * cap above it. `Record<DialogSize, …>` makes a new name a type error here
+ * until both viewport branches are answered.
  */
 const sheetSizeClasses: Record<DialogSize, string> = {
-  compact:
-    "data-[side=left]:sm:overlay-compact data-[side=right]:sm:overlay-compact",
-  panel: "data-[side=left]:sm:overlay-panel data-[side=right]:sm:overlay-panel",
-  form: "data-[side=left]:sm:overlay-form data-[side=right]:sm:overlay-form",
-  wide: "data-[side=left]:sm:overlay-wide data-[side=right]:sm:overlay-wide",
+  compact: "data-[side=left]:overlay-compact data-[side=right]:overlay-compact",
+  panel: "data-[side=left]:overlay-panel data-[side=right]:overlay-panel",
+  form: "data-[side=left]:overlay-form data-[side=right]:overlay-form",
+  wide: "data-[side=left]:max-w-none data-[side=right]:max-w-none data-[side=left]:sm:overlay-wide data-[side=right]:sm:overlay-wide",
 };
 
 function SheetContent({
@@ -72,7 +73,7 @@ function SheetContent({
         data-side={side}
         data-size={size}
         className={cn(
-          "fixed z-50 flex flex-col gap-4 border-rule bg-ground bg-clip-padding text-sm text-ink transition duration-200 ease-in-out data-ending-style:opacity-0 data-starting-style:opacity-0 data-[side=bottom]:inset-x-0 data-[side=bottom]:bottom-0 data-[side=bottom]:h-auto data-[side=bottom]:border-t data-[side=bottom]:data-ending-style:translate-y-[2.5rem] data-[side=bottom]:data-starting-style:translate-y-[2.5rem] data-[side=left]:inset-y-0 data-[side=left]:left-0 data-[side=left]:h-full data-[side=left]:w-3/4 data-[side=left]:border-r data-[side=left]:data-ending-style:translate-x-[-2.5rem] data-[side=left]:data-starting-style:translate-x-[-2.5rem] data-[side=right]:inset-y-0 data-[side=right]:right-0 data-[side=right]:h-full data-[side=right]:w-3/4 data-[side=right]:border-l data-[side=right]:data-ending-style:translate-x-[2.5rem] data-[side=right]:data-starting-style:translate-x-[2.5rem] data-[side=top]:inset-x-0 data-[side=top]:top-0 data-[side=top]:h-auto data-[side=top]:border-b data-[side=top]:data-ending-style:translate-y-[-2.5rem] data-[side=top]:data-starting-style:translate-y-[-2.5rem]",
+          "fixed z-50 flex flex-col gap-4 border-rule bg-ground bg-clip-padding text-sm text-ink transition duration-200 ease-in-out data-ending-style:opacity-0 data-starting-style:opacity-0 data-[side=bottom]:inset-x-0 data-[side=bottom]:bottom-0 data-[side=bottom]:h-auto data-[side=bottom]:border-t data-[side=bottom]:data-ending-style:translate-y-[2.5rem] data-[side=bottom]:data-starting-style:translate-y-[2.5rem] data-[side=left]:inset-y-0 data-[side=left]:left-0 data-[side=left]:h-full data-[side=left]:w-[86vw] data-[side=left]:border-r data-[side=left]:data-ending-style:translate-x-[-2.5rem] data-[side=left]:data-starting-style:translate-x-[-2.5rem] data-[side=right]:inset-y-0 data-[side=right]:right-0 data-[side=right]:h-full data-[side=right]:w-[86vw] data-[side=right]:border-l data-[side=right]:data-ending-style:translate-x-[2.5rem] data-[side=right]:data-starting-style:translate-x-[2.5rem] data-[side=top]:inset-x-0 data-[side=top]:top-0 data-[side=top]:h-auto data-[side=top]:border-b data-[side=top]:data-ending-style:translate-y-[-2.5rem] data-[side=top]:data-starting-style:translate-y-[-2.5rem]",
           sheetSizeClasses[size],
           className,
         )}

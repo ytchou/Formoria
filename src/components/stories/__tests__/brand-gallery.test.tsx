@@ -33,8 +33,7 @@ vi.mock("next-intl/server", async () => {
 
 import { BrandGallery } from "../brand-gallery";
 
-const imageUrl = (name: string) =>
-  `/i/brands/${name}.jpg`;
+const imageUrl = (name: string) => `/i/brands/${name}.jpg`;
 
 function makeBrand(
   slug: string,
@@ -60,7 +59,6 @@ function makeBrand(
     descriptionEn: null,
     isVerified: false,
     mitStatus: "unverified",
-    priceRange: null,
     subcategories: [],
     subcategoriesEn: [],
   } as unknown as Brand;

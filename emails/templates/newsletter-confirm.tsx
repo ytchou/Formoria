@@ -50,14 +50,14 @@ const INTEREST_LABELS: Record<string, Record<string, string>> = {
 
 const COPY = {
   "zh-TW": {
-    preview: "確認您的 Formoria 訂閱",
+    preview: "確認 Formoria 訂閱",
     heading: "確認訂閱",
-    body: "感謝您訂閱 Formoria 電子報。請確認訂閱，以接收台灣品牌故事、新品牌與精選趨勢。",
-    interestsLabel: "您選擇的主題",
+    body: "感謝訂閱 Formoria 電子報。完成確認後，就會收到台灣品牌故事、新品牌與精選趨勢。",
+    interestsLabel: "已選擇的主題",
     button: "確認訂閱",
     fallbackLink: "若按鈕無法使用，請開啟此連結：",
-    disclaimer: "若您沒有訂閱 Formoria 電子報，可使用頁尾連結取消訂閱。",
-    subject: "確認您的 Formoria 訂閱 — Formoria",
+    disclaimer: "若未訂閱 Formoria 電子報，可使用頁尾連結取消訂閱。",
+    subject: "確認 Formoria 訂閱 — Formoria",
   },
   en: {
     preview: "Confirm your Formoria subscription",

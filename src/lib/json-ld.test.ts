@@ -44,7 +44,6 @@ function makeBrand(overrides: Partial<Brand> = {}): Brand {
     otherUrls: [],
     productPhotos: [],
     siteContent: null,
-    priceRange: null,
     subcategories: [],
     subcategoriesEn: [],
     descriptionEn: null,
@@ -400,7 +399,6 @@ describe("buildBreadcrumbJsonLd", () => {
 });
 
 describe("buildBrandsItemListJsonLd", () => {
-
   it("returns valid ItemList schema with correct structure", () => {
     const brands = [
       { name: "Brand Alpha", slug: "brand-alpha" },
@@ -487,9 +485,7 @@ describe("buildOrganizationJsonLd", () => {
     expect(zh["@type"]).toBe("Organization");
     expect(zh.name).toBe("Formoria");
     expect(zh.url).toMatch(/^https?:\/\//);
-    expect(zh.description).toContain(
-      "Formoria 把相遇之後的路接起來",
-    );
+    expect(zh.description).toContain("Formoria 把相遇之後的路接起來");
     expect(zh.description).toContain("品牌或零售通路負責價格");
     expect(en.description).toContain(
       "Formoria reconnects the path after that moment",
@@ -786,15 +782,22 @@ describe("buildEventJsonLd", () => {
       { isFree: false, ticketUrl: "https://tickets.example.com/expo" },
       { "@type": "Offer", url: "https://tickets.example.com/expo" },
     ],
-    ["the event is ticketed with no ticket URL", { isFree: false, ticketUrl: null }, undefined],
-  ] as const)("emits the right offers when %s", (_label, overrides, expected) => {
-    const ld = buildEventJsonLd(makeEventInput(overrides));
-    if (expected === undefined) {
-      expect("offers" in ld).toBe(false);
-    } else {
-      expect(ld.offers).toEqual(expected);
-    }
-  });
+    [
+      "the event is ticketed with no ticket URL",
+      { isFree: false, ticketUrl: null },
+      undefined,
+    ],
+  ] as const)(
+    "emits the right offers when %s",
+    (_label, overrides, expected) => {
+      const ld = buildEventJsonLd(makeEventInput(overrides));
+      if (expected === undefined) {
+        expect("offers" in ld).toBe(false);
+      } else {
+        expect(ld.offers).toEqual(expected);
+      }
+    },
+  );
 });
 
 describe("buildFaqPageJsonLd", () => {
@@ -954,12 +957,17 @@ describe("buildStockistItemListJsonLd", () => {
 
   it("builds an ItemList of the city's locations in order", () => {
     const result = buildStockistItemListJsonLd({
-      locations: [location("第一個地址"), { ...location("第二個地址"), id: "second" }],
+      locations: [
+        location("第一個地址"),
+        { ...location("第二個地址"), id: "second" },
+      ],
       cityName: "臺北市",
       canonicalUrl: "https://formoria.com/where-to-buy/taipei",
     });
     expect(result.numberOfItems).toBe(2);
-    expect(result.itemListElement.map((item: { position: number }) => item.position)).toEqual([1, 2]);
+    expect(
+      result.itemListElement.map((item: { position: number }) => item.position),
+    ).toEqual([1, 2]);
   });
 
   it("escapes safely", () => {

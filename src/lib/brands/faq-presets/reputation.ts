@@ -1,14 +1,12 @@
-import {
-  buildBrandContextSuffix,
-  type FaqPreset,
-} from "./types";
+import { buildBrandContextSuffix, type FaqPreset } from "./types";
 import {
   noKeywordStuffing,
-  noPricingFigures,
+  noCommerceClaims,
   notDuplicateOf,
   pureLanguage,
   withinLengthBand,
 } from "./validators";
+import { faqReputationPrompt } from "@/lib/prompts";
 
 const reputation: FaqPreset = {
   id: "reputation",
@@ -20,12 +18,12 @@ const reputation: FaqPreset = {
     questionKey: "brandFaq.reputation.question",
     templateFloor: (ctx, t, locale) => {
       const summary = locale.startsWith("en")
-        ? ctx.brand.reputationSummary?.textEn ??
+        ? (ctx.brand.reputationSummary?.textEn ??
           ctx.brand.reputationSummary?.text ??
-          ""
-        : ctx.brand.reputationSummary?.text ??
+          "")
+        : (ctx.brand.reputationSummary?.text ??
           ctx.brand.reputationSummary?.textEn ??
-          "";
+          "");
       return t("brandFaq.reputation.answer", {
         brandName: ctx.brand.name,
         summary,
@@ -34,14 +32,17 @@ const reputation: FaqPreset = {
     },
   },
   promptFragment: (ctx) => {
-    const summary = ctx.brand.reputationSummary?.textEn ?? ctx.brand.reputationSummary?.text ?? "";
-    return `只能根據以下已提供的聲譽摘要回答，不得加入摘要以外的評價、評分或媒體資訊：${summary}`;
+    const summary =
+      ctx.brand.reputationSummary?.textEn ??
+      ctx.brand.reputationSummary?.text ??
+      "";
+    return faqReputationPrompt(summary);
   },
   // `groundedIn(requiredEvidence)` is derived in the registry (index.ts).
   validators: [
     pureLanguage(),
     withinLengthBand(),
-    noPricingFigures(),
+    noCommerceClaims(),
     noKeywordStuffing(),
     notDuplicateOf(),
   ],

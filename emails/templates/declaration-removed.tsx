@@ -35,7 +35,10 @@ export default function DeclarationRemovedEmail({
 
   if (locale === "en") {
     return (
-      <Layout lang="en" previewText={`MIT declaration removed for ${escapedBrandName}`}>
+      <Layout
+        lang="en"
+        previewText={`MIT declaration removed for ${escapedBrandName}`}
+      >
         <EmailHeading as="h2">MIT declaration removed</EmailHeading>
         <EmailText>
           After reviewing community-submitted origin evidence, we removed the
@@ -69,10 +72,9 @@ export default function DeclarationRemovedEmail({
         的台灣製造聲明。
       </EmailText>
       <ReviewerNotes label="審核意見：" notes={escapedReviewerNotes} />
-      <EmailText>您的品牌頁面已顯示更新後的台灣製造狀態。</EmailText>
+      <EmailText>品牌頁面已顯示更新後的台灣製造狀態。</EmailText>
       <EmailText>
-        您可以在處理相關證據後重新聲明，或提供有效的 MIT 認證，申請第 1
-        級登錄驗證。
+        處理相關證據後可重新聲明，或提供有效的 MIT 認證，申請第 1 級登錄驗證。
       </EmailText>
       <EmailText>
         <EmailLink href={brandUrl}>查看品牌頁面</EmailLink>

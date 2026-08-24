@@ -141,30 +141,31 @@ export async function stageAdminBrandReviewImage(input: {
       kind: "service",
     },
     async () => {
-  await getBrandById(input.brandId);
-  const supabase = createServiceClient();
-  const id = crypto.randomUUID();
-  const { data, error } = await supabase
-    .from("brand_images")
-    .insert({
-      id,
-      brand_id: input.brandId,
-      // DEV-1551 task 12: the bucket key is the only reference written.
-      storage_path: input.storagePath,
-      source: "admin",
-      source_url: input.storagePath,
-      status: "draft",
-      // Parked above every active row until the reviewer places the image, so
-      // it can never collide with a real gallery position. See
-      // DRAFT_PARK_SORT_ORDER for the invariant.
-      sort_order: DRAFT_PARK_SORT_ORDER,
-      width: input.width,
-      height: input.height,
-    })
-    .select(ADMIN_BRAND_IMAGE_SELECT)
-    .single();
-  if (error || !data) throw error ?? new Error("Unable to stage brand image");
-  return toReviewImage(data as BrandImageRow);
+      await getBrandById(input.brandId);
+      const supabase = createServiceClient();
+      const id = crypto.randomUUID();
+      const { data, error } = await supabase
+        .from("brand_images")
+        .insert({
+          id,
+          brand_id: input.brandId,
+          // DEV-1551 task 12: the bucket key is the only reference written.
+          storage_path: input.storagePath,
+          source: "admin",
+          source_url: input.storagePath,
+          status: "draft",
+          // Parked above every active row until the reviewer places the image, so
+          // it can never collide with a real gallery position. See
+          // DRAFT_PARK_SORT_ORDER for the invariant.
+          sort_order: DRAFT_PARK_SORT_ORDER,
+          width: input.width,
+          height: input.height,
+        })
+        .select(ADMIN_BRAND_IMAGE_SELECT)
+        .single();
+      if (error || !data)
+        throw error ?? new Error("Unable to stage brand image");
+      return toReviewImage(data as BrandImageRow);
     },
     { subjectId: input.brandId },
   );
@@ -183,30 +184,30 @@ export async function cleanupAdminBrandReviewImages(
       kind: "service",
     },
     async () => {
-  const supabase = createServiceClient();
-  const { data, error } = await supabase
-    .from("brand_images")
-    .select(ADMIN_BRAND_IMAGE_SELECT)
-    .eq("brand_id", brandId)
-    .eq("status", "draft")
-    .in("id", imageIds);
-  if (error) throw error;
+      const supabase = createServiceClient();
+      const { data, error } = await supabase
+        .from("brand_images")
+        .select(ADMIN_BRAND_IMAGE_SELECT)
+        .eq("brand_id", brandId)
+        .eq("status", "draft")
+        .in("id", imageIds);
+      if (error) throw error;
 
-  const rows = (data ?? []) as BrandImageRow[];
-  await deleteStoredImagePaths(
-    rows.flatMap((row) => (row.storage_path ? [row.storage_path] : [])),
-  );
-  if (rows.length > 0) {
-    const { error: deleteError } = await supabase
-      .from("brand_images")
-      .delete()
-      .eq("brand_id", brandId)
-      .in(
-        "id",
-        rows.map((row) => row.id),
+      const rows = (data ?? []) as BrandImageRow[];
+      await deleteStoredImagePaths(
+        rows.flatMap((row) => (row.storage_path ? [row.storage_path] : [])),
       );
-    if (deleteError) throw deleteError;
-  }
+      if (rows.length > 0) {
+        const { error: deleteError } = await supabase
+          .from("brand_images")
+          .delete()
+          .eq("brand_id", brandId)
+          .in(
+            "id",
+            rows.map((row) => row.id),
+          );
+        if (deleteError) throw deleteError;
+      }
     },
     { subjectId: brandId, summary: { imageCount: imageIds.length } },
   );
@@ -223,91 +224,94 @@ export async function saveAdminBrandReview(
       kind: "service",
     },
     async () => {
-  const selectedIds = input.images.map((image) => image.id);
-  if (
-    // Bounded by the submission cap, matching `adminReviewSchema`: if this
-    // guard and the schema disagree, one rejects a save the other accepted.
-    selectedIds.length > MAX_BRAND_IMAGE_SELECTION ||
-    new Set(selectedIds).size !== selectedIds.length
-  ) {
-    throw new ValidationError("Invalid brand image selection");
-  }
+      const selectedIds = input.images.map((image) => image.id);
+      if (
+        // Bounded by the submission cap, matching `adminReviewSchema`: if this
+        // guard and the schema disagree, one rejects a save the other accepted.
+        selectedIds.length > MAX_BRAND_IMAGE_SELECTION ||
+        new Set(selectedIds).size !== selectedIds.length
+      ) {
+        throw new ValidationError("Invalid brand image selection");
+      }
 
-  const supabase = createServiceClient();
-  const { data, error } = await supabase
-    .from("brand_images")
-    .select(ADMIN_BRAND_IMAGE_SELECT)
-    .eq("brand_id", brandId)
-    .in("status", ["active", "draft"]);
-  if (error) throw error;
-  const rows = (data ?? []) as BrandImageRow[];
-  const rowsById = new Map(rows.map((row) => [row.id, row]));
-  const selectedRows = input.images.map((image) => {
-    const row = rowsById.get(image.id);
-    if (!row) throw new ValidationError("Brand image does not belong to brand");
-    return {
-      ...toPersistableRow(row),
-      status: "active",
-      sort_order: image.sortOrder,
-    };
-  });
+      const supabase = createServiceClient();
+      const { data, error } = await supabase
+        .from("brand_images")
+        .select(ADMIN_BRAND_IMAGE_SELECT)
+        .eq("brand_id", brandId)
+        .in("status", ["active", "draft"]);
+      if (error) throw error;
+      const rows = (data ?? []) as BrandImageRow[];
+      const rowsById = new Map(rows.map((row) => [row.id, row]));
+      const selectedRows = input.images.map((image) => {
+        const row = rowsById.get(image.id);
+        if (!row)
+          throw new ValidationError("Brand image does not belong to brand");
+        return {
+          ...toPersistableRow(row),
+          status: "active",
+          sort_order: image.sortOrder,
+        };
+      });
 
-  // Derived BEFORE `updateBrand`, so an unaddressable row aborts the save
-  // instead of leaving the brand fields written and its image rejection
-  // silently skipped.
-  const selectedIdSet = new Set(selectedIds);
-  const removedActiveRefs = brandImageRejectRefs(
-    rows.filter((row) => row.status === "active" && !selectedIdSet.has(row.id)),
-  );
+      // Derived BEFORE `updateBrand`, so an unaddressable row aborts the save
+      // instead of leaving the brand fields written and its image rejection
+      // silently skipped.
+      const selectedIdSet = new Set(selectedIds);
+      const removedActiveRefs = brandImageRejectRefs(
+        rows.filter(
+          (row) => row.status === "active" && !selectedIdSet.has(row.id),
+        ),
+      );
 
-  const purchaseFields = Object.fromEntries(
-    ONLINE_STORES.map((channel) => [
-      channel.camel,
-      channel === onlineStoreByKey.website
-        ? input.websiteUrl
-        : input[channel.camel],
-    ]),
-  ) as Pick<SaveSubmissionReviewInput, OnlineStoreCamelField>;
+      const purchaseFields = Object.fromEntries(
+        ONLINE_STORES.map((channel) => [
+          channel.camel,
+          channel === onlineStoreByKey.website
+            ? input.websiteUrl
+            : input[channel.camel],
+        ]),
+      ) as Pick<SaveSubmissionReviewInput, OnlineStoreCamelField>;
 
-  await updateBrand(brandId, {
-    name: input.name,
-    description: input.description,
-    descriptionEn: input.descriptionEn,
-    blurb: input.blurb,
-    blurbEn: input.blurbEn,
-    city: input.city,
-    reputationSummary: input.reputationSummary as Brand["reputationSummary"],
-    mitEvidence: input.mitEvidence as Brand["mitEvidence"],
-    siteContent: input.siteContent,
-    foundingYear: input.foundingYear,
-    categorySlug: input.categorySlug,
-    priceRange: input.priceRange,
-    subcategories: input.subcategories,
-    subcategoriesEn: input.subcategoriesEn,
-    socialInstagram: input.socialInstagram,
-    socialThreads: input.socialThreads,
-    socialFacebook: input.socialFacebook,
-    ...purchaseFields,
-    otherUrls: input.otherUrls,
-  });
+      await updateBrand(brandId, {
+        name: input.name,
+        description: input.description,
+        descriptionEn: input.descriptionEn,
+        blurb: input.blurb,
+        blurbEn: input.blurbEn,
+        city: input.city,
+        reputationSummary:
+          input.reputationSummary as Brand["reputationSummary"],
+        mitEvidence: input.mitEvidence as Brand["mitEvidence"],
+        siteContent: input.siteContent,
+        foundingYear: input.foundingYear,
+        categorySlug: input.categorySlug,
+        subcategories: input.subcategories,
+        subcategoriesEn: input.subcategoriesEn,
+        socialInstagram: input.socialInstagram,
+        socialThreads: input.socialThreads,
+        socialFacebook: input.socialFacebook,
+        ...purchaseFields,
+        otherUrls: input.otherUrls,
+      });
 
-  await rejectBrandImages(supabase, brandId, removedActiveRefs);
+      await rejectBrandImages(supabase, brandId, removedActiveRefs);
 
-  if (selectedRows.length > 0) {
-    const { error: upsertError } = await supabase
-      .from("brand_images")
-      .upsert(selectedRows, { onConflict: "id" });
-    if (upsertError) throw upsertError;
-  }
+      if (selectedRows.length > 0) {
+        const { error: upsertError } = await supabase
+          .from("brand_images")
+          .upsert(selectedRows, { onConflict: "id" });
+        if (upsertError) throw upsertError;
+      }
 
-  const unusedDrafts = rows.filter(
-    (row) => row.status === "draft" && !selectedIdSet.has(row.id),
-  );
-  await cleanupAdminBrandReviewImages(
-    brandId,
-    unusedDrafts.map((row) => row.id),
-  );
-  await syncHeroDenormalized(supabase, brandId);
+      const unusedDrafts = rows.filter(
+        (row) => row.status === "draft" && !selectedIdSet.has(row.id),
+      );
+      await cleanupAdminBrandReviewImages(
+        brandId,
+        unusedDrafts.map((row) => row.id),
+      );
+      await syncHeroDenormalized(supabase, brandId);
     },
     { subjectId: brandId, summary: { imageCount: input.images.length } },
   );
@@ -322,7 +326,9 @@ function toReviewImage(row: BrandImageRow): SubmissionReviewImage {
     url: imagePathToUrl(row.storage_path) ?? "",
     source: row.source,
     status:
-      row.status === "candidate" || row.status === "draft" || row.status === "rejected"
+      row.status === "candidate" ||
+      row.status === "draft" ||
+      row.status === "rejected"
         ? row.status
         : "active",
     sortOrder: row.sort_order,

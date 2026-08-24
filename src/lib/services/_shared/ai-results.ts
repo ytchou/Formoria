@@ -12,11 +12,7 @@ import { resolveOpenAIModel } from "../openai-client";
 import { evalSinkPath, writeEvalSinkRecord } from "../eval/llm-usage-sink";
 import { priceUsage, usageFromRawResponse } from "../llm-pricing";
 import { captureAlert } from "@/lib/adapters/alerting/sentry";
-import {
-  classifyPostgrestError,
-  IN_PROCESS,
-  withRetry,
-} from "@/lib/retry";
+import { classifyPostgrestError, IN_PROCESS, withRetry } from "@/lib/retry";
 
 // The model behind every text phase. Written verbatim into brand_ai_results.model, so it
 // must track the model the audited client actually calls — hence the shared resolver
@@ -280,7 +276,7 @@ async function findAuditRow(
 }
 
 /**
- * Copy-call audit. `price_range` and `subcategories` are deliberately absent:
+ * Copy-call audit. `subcategories` is deliberately absent:
  * those fields moved to the facts call when the mega-call was split, and
  * `updateFactsAuditResult` denormalises them onto the `facts` row instead.
  */
@@ -341,7 +337,6 @@ export async function updateFactsAuditResult(input: {
         parsed,
         [],
       ),
-      price_range: parsed.priceRange,
       subcategories: parsed.subcategories,
     } as never)
     .eq("id", data.id);

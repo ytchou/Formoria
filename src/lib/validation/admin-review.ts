@@ -55,7 +55,6 @@ export const adminReviewSchema = z.object({
   foundingYear: z.number().int().min(1800).max(2200).nullable(),
   heroImageUrl: nullableText,
   categorySlug: z.string().max(100).nullable(),
-  priceRange: z.number().int().nullable(),
   // Closed vocabulary since DEV-1510. The review editor picks from the 175
   // nodes, so a value the vocabulary does not know reached this payload past
   // the picker — and `brands.subcategories` is a slug column, where it would

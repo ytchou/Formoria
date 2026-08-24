@@ -4,60 +4,59 @@ import type {
   MitStatus,
   OtherUrl,
   ReputationSummary,
-} from '@/lib/types/brand'
+} from "@/lib/types/brand";
 
 /** Purchase links are intentionally spelled out at every public boundary. */
 type PublicPurchaseLinks = {
-  purchaseWebsite: string | null
-  purchasePinkoi: string | null
-  purchaseShopee: string | null
-  purchaseMyship: string | null
-}
+  purchaseWebsite: string | null;
+  purchasePinkoi: string | null;
+  purchaseShopee: string | null;
+  purchaseMyship: string | null;
+};
 
 export type PublicBrandCard = {
-  id: string
-  name: string
-  slug: string
-  romanizedName?: string | null
-  description: string | null
-  descriptionEn: string | null
-  blurb: string | null
-  blurbEn: string | null
-  heroImageUrl: string | null
-  status: 'approved' | 'hidden'
-  categorySlug?: string | null
-  categoryLabel: string | null
-  isVerified: boolean
-  mitStatus?: MitStatus
-  priceRange: number | null
-  subcategories: string[]
-  subcategoriesEn: string[]
-  foundingYear: number | null
-  productPhotos: string[]
-  imageAlts: BrandImageMeta[]
-  heroImageMetadata: Brand['heroImageMetadata']
-}
+  id: string;
+  name: string;
+  slug: string;
+  romanizedName?: string | null;
+  description: string | null;
+  descriptionEn: string | null;
+  blurb: string | null;
+  blurbEn: string | null;
+  heroImageUrl: string | null;
+  status: "approved" | "hidden";
+  categorySlug?: string | null;
+  categoryLabel: string | null;
+  isVerified: boolean;
+  mitStatus?: MitStatus;
+  subcategories: string[];
+  subcategoriesEn: string[];
+  foundingYear: number | null;
+  productPhotos: string[];
+  imageAlts: BrandImageMeta[];
+  heroImageMetadata: Brand["heroImageMetadata"];
+};
 
 export type PublicBrandDetail = PublicBrandCard &
   PublicPurchaseLinks & {
-    city: string | null
-    socialInstagram: string | null
-    socialThreads: string | null
-    socialFacebook: string | null
-    otherUrls: OtherUrl[]
-    mitStory: string | null
+    city: string | null;
+    socialInstagram: string | null;
+    socialThreads: string | null;
+    socialFacebook: string | null;
+    otherUrls: OtherUrl[];
+    mitStory: string | null;
     /** The certificate number is public; the evidence object is not. */
-    mitCertificateNumber: string | null
-    imageAlts: BrandImageMeta[]
-    heroImageMetadata: Brand['heroImageMetadata']
-  }
+    mitCertificateNumber: string | null;
+    imageAlts: BrandImageMeta[];
+    heroImageMetadata: Brand["heroImageMetadata"];
+  };
 
 export type SearchSuggestion = {
-  id: string
-  slug: string
-  name: string
-  categoryLabel: string
-}
+  id: string;
+  slug: string;
+  name: string;
+  categoryLabel: string;
+};
 
 /**
  * Evidence available to render the public FAQ floors. This is intentionally
@@ -65,56 +64,54 @@ export type SearchSuggestion = {
  * the detail route fetches it with its own projection and never serializes it.
  */
 export type PublicBrandFaqContext = {
-  name: string
-  categoryLabel: string | null
-  city: string | null
-  categorySlug?: string | null
-  subcategories: string[]
-  subcategoriesEn: string[]
-  priceRange: number | null
-  foundingYear: number | null
-  reputationSummary?: ReputationSummary | null
-  mitStatus?: MitStatus
-  mitDeclaredScope?: 'all' | 'most' | 'some' | null
-  mitStory?: string | null
-}
+  name: string;
+  categoryLabel: string | null;
+  city: string | null;
+  categorySlug?: string | null;
+  subcategories: string[];
+  subcategoriesEn: string[];
+  foundingYear: number | null;
+  reputationSummary?: ReputationSummary | null;
+  mitStatus?: MitStatus;
+  mitDeclaredScope?: "all" | "most" | "some" | null;
+  mitStory?: string | null;
+};
 
 export type AdminBrandListItem = {
-  id: string
-  name: string
-  slug: string
-  status: 'approved' | 'hidden'
-  isDemo: boolean
-  categoryLabel: string | null
-  createdAt: string
-  updatedAt: string
-  mitStatus?: MitStatus
-  mitCertificateNumber?: string | null
-  mitVerified?: boolean
-  isVerified?: boolean
-  description?: string | null
-  descriptionEn?: string | null
-  blurb?: string | null
-  blurbEn?: string | null
-  city?: string | null
-  categorySlug?: string | null
-  heroImageUrl?: string | null
-  foundingYear?: number | null
-  reputationSummary?: ReputationSummary | null
-  mitEvidence?: Brand['mitEvidence']
-  siteContent?: unknown | null
-  priceRange?: number | null
-  subcategories?: string[]
-  subcategoriesEn?: string[]
-  purchaseWebsite?: string | null
-  purchasePinkoi?: string | null
-  purchaseShopee?: string | null
-  purchaseMyship?: string | null
-  socialInstagram?: string | null
-  socialThreads?: string | null
-  socialFacebook?: string | null
-  otherUrls?: OtherUrl[]
-}
+  id: string;
+  name: string;
+  slug: string;
+  status: "approved" | "hidden";
+  isDemo: boolean;
+  categoryLabel: string | null;
+  createdAt: string;
+  updatedAt: string;
+  mitStatus?: MitStatus;
+  mitCertificateNumber?: string | null;
+  mitVerified?: boolean;
+  isVerified?: boolean;
+  description?: string | null;
+  descriptionEn?: string | null;
+  blurb?: string | null;
+  blurbEn?: string | null;
+  city?: string | null;
+  categorySlug?: string | null;
+  heroImageUrl?: string | null;
+  foundingYear?: number | null;
+  reputationSummary?: ReputationSummary | null;
+  mitEvidence?: Brand["mitEvidence"];
+  siteContent?: unknown | null;
+  subcategories?: string[];
+  subcategoriesEn?: string[];
+  purchaseWebsite?: string | null;
+  purchasePinkoi?: string | null;
+  purchaseShopee?: string | null;
+  purchaseMyship?: string | null;
+  socialInstagram?: string | null;
+  socialThreads?: string | null;
+  socialFacebook?: string | null;
+  otherUrls?: OtherUrl[];
+};
 
 export function toPublicBrandCard(brand: Brand): PublicBrandCard {
   return {
@@ -131,8 +128,7 @@ export function toPublicBrandCard(brand: Brand): PublicBrandCard {
     categorySlug: brand.categorySlug ?? null,
     categoryLabel: brand.categoryLabel,
     isVerified: brand.isVerified,
-    mitStatus: brand.mitStatus ?? 'unverified',
-    priceRange: brand.priceRange,
+    mitStatus: brand.mitStatus ?? "unverified",
     subcategories: [...brand.subcategories],
     subcategoriesEn: [...brand.subcategoriesEn],
     foundingYear: brand.foundingYear,
@@ -143,7 +139,7 @@ export function toPublicBrandCard(brand: Brand): PublicBrandCard {
       isLogo: alt.isLogo,
     })),
     heroImageMetadata: brand.heroImageMetadata ?? null,
-  }
+  };
 }
 
 export function toPublicBrandFaqContext(brand: Brand): PublicBrandFaqContext {
@@ -152,15 +148,18 @@ export function toPublicBrandFaqContext(brand: Brand): PublicBrandFaqContext {
     categoryLabel: brand.categoryLabel,
     city: brand.city,
     categorySlug: brand.categorySlug ?? null,
-    subcategories: Array.isArray(brand.subcategories) ? [...brand.subcategories] : [],
-    subcategoriesEn: Array.isArray(brand.subcategoriesEn) ? [...brand.subcategoriesEn] : [],
-    priceRange: brand.priceRange,
+    subcategories: Array.isArray(brand.subcategories)
+      ? [...brand.subcategories]
+      : [],
+    subcategoriesEn: Array.isArray(brand.subcategoriesEn)
+      ? [...brand.subcategoriesEn]
+      : [],
     foundingYear: brand.foundingYear,
     reputationSummary: brand.reputationSummary ?? null,
-    mitStatus: brand.mitStatus ?? 'unverified',
+    mitStatus: brand.mitStatus ?? "unverified",
     mitDeclaredScope: brand.mitDeclaredScope ?? null,
     mitStory: brand.mitStory ?? null,
-  }
+  };
 }
 
 /**
@@ -171,16 +170,22 @@ export function toPublicBrandFaqContext(brand: Brand): PublicBrandFaqContext {
 export function normalizePublicBrandCard(
   brand: Brand | PublicBrandCard,
 ): PublicBrandCard {
-  if ('contactEmail' in brand || 'isDemo' in brand || 'createdAt' in brand) {
-    return toPublicBrandCard(brand as Brand)
+  if ("contactEmail" in brand || "isDemo" in brand || "createdAt" in brand) {
+    return toPublicBrandCard(brand as Brand);
   }
   return {
     ...brand,
     categorySlug: brand.categorySlug ?? null,
-    mitStatus: brand.mitStatus ?? 'unverified',
-    subcategories: Array.isArray(brand.subcategories) ? [...brand.subcategories] : [],
-    subcategoriesEn: Array.isArray(brand.subcategoriesEn) ? [...brand.subcategoriesEn] : [],
-    productPhotos: Array.isArray(brand.productPhotos) ? [...brand.productPhotos] : [],
+    mitStatus: brand.mitStatus ?? "unverified",
+    subcategories: Array.isArray(brand.subcategories)
+      ? [...brand.subcategories]
+      : [],
+    subcategoriesEn: Array.isArray(brand.subcategoriesEn)
+      ? [...brand.subcategoriesEn]
+      : [],
+    productPhotos: Array.isArray(brand.productPhotos)
+      ? [...brand.productPhotos]
+      : [],
     imageAlts: Array.isArray(brand.imageAlts)
       ? brand.imageAlts.map((alt) => ({
           altZh: alt.altZh,
@@ -189,7 +194,7 @@ export function normalizePublicBrandCard(
         }))
       : [],
     heroImageMetadata: brand.heroImageMetadata ?? null,
-  }
+  };
 }
 
 export function toPublicBrandDetail(brand: Brand): PublicBrandDetail {
@@ -203,7 +208,10 @@ export function toPublicBrandDetail(brand: Brand): PublicBrandDetail {
     purchasePinkoi: brand.purchasePinkoi,
     purchaseShopee: brand.purchaseShopee,
     purchaseMyship: brand.purchaseMyship,
-    otherUrls: brand.otherUrls.map((link) => ({ label: link.label, url: link.url })),
+    otherUrls: brand.otherUrls.map((link) => ({
+      label: link.label,
+      url: link.url,
+    })),
     mitStory: brand.mitStory ?? null,
     mitCertificateNumber: brand.mitEvidence?.mit_smile_cert ?? null,
     /*
@@ -224,7 +232,7 @@ export function toPublicBrandDetail(brand: Brand): PublicBrandDetail {
       isOwnerSupplied: alt.isOwnerSupplied ?? false,
     })),
     heroImageMetadata: brand.heroImageMetadata ?? null,
-  }
+  };
 }
 
 export function toAdminBrandListItem(brand: Brand): AdminBrandListItem {
@@ -237,7 +245,8 @@ export function toAdminBrandListItem(brand: Brand): AdminBrandListItem {
     categoryLabel: brand.categoryLabel,
     createdAt: brand.createdAt,
     updatedAt: brand.updatedAt,
-    mitStatus: brand.mitStatus ?? (brand.mitVerified ? 'verified' : 'unverified'),
+    mitStatus:
+      brand.mitStatus ?? (brand.mitVerified ? "verified" : "unverified"),
     mitCertificateNumber: brand.mitEvidence?.mit_smile_cert ?? null,
     mitVerified: brand.mitVerified ?? false,
     isVerified: brand.isVerified,
@@ -252,7 +261,6 @@ export function toAdminBrandListItem(brand: Brand): AdminBrandListItem {
     reputationSummary: brand.reputationSummary ?? null,
     mitEvidence: brand.mitEvidence ?? null,
     siteContent: brand.siteContent ?? null,
-    priceRange: brand.priceRange,
     subcategories: [...brand.subcategories],
     subcategoriesEn: [...brand.subcategoriesEn],
     purchaseWebsite: brand.purchaseWebsite,
@@ -262,6 +270,9 @@ export function toAdminBrandListItem(brand: Brand): AdminBrandListItem {
     socialInstagram: brand.socialInstagram,
     socialThreads: brand.socialThreads,
     socialFacebook: brand.socialFacebook,
-    otherUrls: brand.otherUrls.map((link) => ({ label: link.label, url: link.url })),
-  }
+    otherUrls: brand.otherUrls.map((link) => ({
+      label: link.label,
+      url: link.url,
+    })),
+  };
 }

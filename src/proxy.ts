@@ -239,9 +239,6 @@ const CACHEABLE_VERIFICATION_VALUES: ReadonlySet<string> = new Set([
   "owned",
 ]);
 
-/** Restated from `parsePriceRanges`; see `isCacheableQueryValue`. */
-const CACHEABLE_PRICE_VALUES: ReadonlySet<string> = new Set(["1", "2", "3"]);
-
 const CACHEABLE_SORT_VALUES: ReadonlySet<string> = new Set(
   Object.keys(BRAND_SORT_CONFIG),
 );
@@ -281,25 +278,26 @@ function isCacheableQueryValue(key: string, raw: string): boolean {
   switch (key) {
     case "page":
       return (
-        /^[1-9][0-9]*$/.test(raw) &&
-        Number(raw) <= MAX_CACHEABLE_DIRECTORY_PAGE
+        /^[1-9][0-9]*$/.test(raw) && Number(raw) <= MAX_CACHEABLE_DIRECTORY_PAGE
       );
     case "sort":
       return CACHEABLE_SORT_VALUES.has(raw);
     case "verification":
       return CACHEABLE_VERIFICATION_VALUES.has(raw);
-    case "price":
-      return isCacheableFacetList(raw, (value) =>
-        CACHEABLE_PRICE_VALUES.has(value),
-      );
     case "category":
       return isCacheableFacetList(raw, (value) =>
         L1_CATEGORIES.some((item) => item.slug === value),
       );
     case "sub":
-      return isCacheableFacetList(raw, (value) => subcategoryBySlug(value) !== null);
+      return isCacheableFacetList(
+        raw,
+        (value) => subcategoryBySlug(value) !== null,
+      );
     case "material":
-      return isCacheableFacetList(raw, (value) => materialBySlug(value) !== null);
+      return isCacheableFacetList(
+        raw,
+        (value) => materialBySlug(value) !== null,
+      );
     default:
       return false;
   }
@@ -388,7 +386,7 @@ export function decideDirectoryTaxonomyRedirect(
   const { locale, path } = parseDirectoryPath(pathname);
   if (path !== routes.brands()) return { action: "none" };
 
-  for (const facet of ["search", "price", "verification", "sort"]) {
+  for (const facet of ["search", "verification", "sort"]) {
     if (params.get(facet)?.trim()) return { action: "none" };
   }
 
@@ -420,6 +418,7 @@ export function decideDirectoryTaxonomyRedirect(
   const destination = new URLSearchParams(params.toString());
   destination.delete("category");
   destination.delete("sub");
+  destination.delete("price");
   const query = destination.toString();
   const localizedPath = localizePath(destinationPath, locale);
   return {

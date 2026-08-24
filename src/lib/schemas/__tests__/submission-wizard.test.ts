@@ -1,117 +1,116 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from "vitest";
 import {
   SUBMISSION_SECTION_FIELDS,
   SUBMISSION_WIZARD_STEPS,
   submissionWizardRequiredSchema,
   submissionWizardSchema,
-} from '@/lib/schemas/submission-wizard'
+} from "@/lib/schemas/submission-wizard";
 
 const completeWizardData = {
-  name: 'Greenroom Leather',
-  website: 'https://greenroom.tw',
-  description: 'Handcrafted leather goods from Tainan',
-  categorySlug: 'bags-accessories',
+  name: "Greenroom Leather",
+  website: "https://greenroom.tw",
+  description: "Handcrafted leather goods from Tainan",
+  categorySlug: "bags-accessories",
   foundingYear: 2018,
   // Stored slugs from the closed picker — free text stopped being valid in
   // DEV-1510, on the schema as well as in the UI.
-  subcategories: ['wallets', 'card-holders'],
-  city: 'tainan',
-  priceRange: 2,
-  mitStory: 'Made by local craftspeople.',
-  heroImageUrl: 'https://storage.example.com/hero.webp',
-  productPhotos: ['https://storage.example.com/p1.webp'],
-  socialInstagram: 'https://instagram.com/greenroom',
-  socialThreads: '',
-  socialFacebook: '',
-  purchaseWebsite: 'https://greenroom.tw/shop',
-  purchasePinkoi: '',
-  purchaseShopee: '',
+  subcategories: ["wallets", "card-holders"],
+  city: "tainan",
+  mitStory: "Made by local craftspeople.",
+  heroImageUrl: "https://storage.example.com/hero.webp",
+  productPhotos: ["https://storage.example.com/p1.webp"],
+  socialInstagram: "https://instagram.com/greenroom",
+  socialThreads: "",
+  socialFacebook: "",
+  purchaseWebsite: "https://greenroom.tw/shop",
+  purchasePinkoi: "",
+  purchaseShopee: "",
   otherUrls: [],
-}
+};
 
-describe('submissionWizardSchema', () => {
-  it('accepts valid complete wizard data', () => {
+describe("submissionWizardSchema", () => {
+  it("accepts valid complete wizard data", () => {
     expect(submissionWizardSchema.safeParse(completeWizardData).success).toBe(
       true,
-    )
-  })
+    );
+  });
 
-  it('rejects a subcategory outside the closed vocabulary', () => {
+  it("rejects a subcategory outside the closed vocabulary", () => {
     const result = submissionWizardSchema.safeParse({
       ...completeWizardData,
-      subcategories: ['handmade'],
-    })
-    expect(result.success).toBe(false)
-  })
+      subcategories: ["handmade"],
+    });
+    expect(result.success).toBe(false);
+  });
 
-  it('accepts minimal wizard data', () => {
+  it("accepts minimal wizard data", () => {
     expect(
       submissionWizardSchema.safeParse({
-        name: 'Greenroom Leather',
-        website: 'https://greenroom.tw',
-        description: 'Handcrafted leather goods from Tainan',
+        name: "Greenroom Leather",
+        website: "https://greenroom.tw",
+        description: "Handcrafted leather goods from Tainan",
       }).success,
-    ).toBe(true)
-  })
+    ).toBe(true);
+  });
 
-  it('rejects missing name', () => {
+  it("rejects missing name", () => {
     expect(
       submissionWizardSchema.safeParse({
-        website: 'https://greenroom.tw',
-        description: 'Handcrafted leather goods from Tainan',
+        website: "https://greenroom.tw",
+        description: "Handcrafted leather goods from Tainan",
       }).success,
-    ).toBe(false)
-  })
+    ).toBe(false);
+  });
 
-  it('rejects an invalid website URL', () => {
-    expect(
-      submissionWizardSchema.safeParse({
-        ...completeWizardData,
-        website: 'greenroom.tw',
-      }).success,
-    ).toBe(false)
-  })
-
-  it('shares handle-or-URL social validation with dashboard editing', () => {
+  it("rejects an invalid website URL", () => {
     expect(
       submissionWizardSchema.safeParse({
         ...completeWizardData,
-        socialInstagram: '@greenroom.tw',
-        socialThreads: 'greenroom.tw',
+        website: "greenroom.tw",
       }).success,
-    ).toBe(true)
-  })
+    ).toBe(false);
+  });
 
-  it('rejects partial other links', () => {
+  it("shares handle-or-URL social validation with dashboard editing", () => {
     expect(
       submissionWizardSchema.safeParse({
         ...completeWizardData,
-        otherUrls: [{ label: 'Stockist', url: '' }],
+        socialInstagram: "@greenroom.tw",
+        socialThreads: "greenroom.tw",
       }).success,
-    ).toBe(false)
-  })
-})
+    ).toBe(true);
+  });
 
-describe('submissionWizardRequiredSchema', () => {
-  it('rejects missing heroImageUrl', () => {
+  it("rejects partial other links", () => {
+    expect(
+      submissionWizardSchema.safeParse({
+        ...completeWizardData,
+        otherUrls: [{ label: "Stockist", url: "" }],
+      }).success,
+    ).toBe(false);
+  });
+});
+
+describe("submissionWizardRequiredSchema", () => {
+  it("rejects missing heroImageUrl", () => {
     expect(
       submissionWizardRequiredSchema.safeParse({
-        name: 'Greenroom Leather',
-        website: 'https://greenroom.tw',
-        description: 'Handcrafted leather goods from Tainan',
+        name: "Greenroom Leather",
+        website: "https://greenroom.tw",
+        description: "Handcrafted leather goods from Tainan",
       }).success,
-    ).toBe(false)
-  })
-})
+    ).toBe(false);
+  });
+});
 
-describe('submission wizard steps', () => {
-  it('defines three steps', () => {
-    expect(SUBMISSION_WIZARD_STEPS).toHaveLength(3)
-  })
+describe("submission wizard steps", () => {
+  it("defines three steps", () => {
+    expect(SUBMISSION_WIZARD_STEPS).toHaveLength(3);
+  });
 
-  it('maps every step key to a non-empty field list', () => {
+  it("maps every step key to a non-empty field list", () => {
     for (const { key } of SUBMISSION_WIZARD_STEPS) {
-      expect(SUBMISSION_SECTION_FIELDS[key].length).toBeGreaterThan(0)
+      expect(SUBMISSION_SECTION_FIELDS[key].length).toBeGreaterThan(0);
     }
-  })
-})
+  });
+});

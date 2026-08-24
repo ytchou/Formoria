@@ -34,8 +34,7 @@ import { PRE_MIGRATION_CORPUS } from "../../../../scripts/rehearse-slug-reverse"
  * neither figure stands in for the other.
  */
 
-const MIGRATION_PATH =
-  "supabase/migrations/20260820170000_material_slugs.sql";
+const MIGRATION_PATH = "supabase/migrations/20260820170000_material_slugs.sql";
 
 /** The stored vocabulary. `nameZh` / `nameEn` are display-only. */
 const MATERIAL_SLUGS = MATERIALS.map((material) => material.slug);
@@ -134,7 +133,6 @@ function createReviewClientDouble() {
       id: STALE_BRAND_ID,
       name: "窯物所",
       slug: "yao-wu-suo",
-      price_range: 2,
       category: "home-living",
       subcategories: ["tableware"],
       material: ["ceramic"],
@@ -158,7 +156,8 @@ function createReviewClientDouble() {
           // to `{ error, count }` on await.
           const write: ReviewWriteBuilder = {
             eq: () => write,
-            then: (resolve) => Promise.resolve(resolve({ error: null, count: 1 })),
+            then: (resolve) =>
+              Promise.resolve(resolve({ error: null, count: 1 })),
           };
           return write;
         },
@@ -218,19 +217,22 @@ describe("DEV-1525 material axis", () => {
     // Canonical `MATERIALS` order, not first-seen. The migration writes that
     // order (rank 1..12), so a corrected row and a converted row holding the
     // same set have to compare equal by array equality.
-    expect(applyMaterialDelta([], { add: ["wood", "ceramic"], remove: [] })).toEqual(
-      ["ceramic", "wood"],
-    );
     expect(
-      applyMaterialDelta([], { add: ["leather", "ceramic", "wood"], remove: [] }),
+      applyMaterialDelta([], { add: ["wood", "ceramic"], remove: [] }),
+    ).toEqual(["ceramic", "wood"]);
+    expect(
+      applyMaterialDelta([], {
+        add: ["leather", "ceramic", "wood"],
+        remove: [],
+      }),
     ).toEqual(["ceramic", "wood", "leather"]);
 
     // Applies as a DELTA over the stored array, not as a scalar replacement:
     // two visitors correcting different terms must compose, and a scalar branch
     // would make the second overwrite the first.
-    expect(applyMaterialDelta(["ceramic"], { add: ["wood"], remove: [] })).toEqual(
-      ["ceramic", "wood"],
-    );
+    expect(
+      applyMaterialDelta(["ceramic"], { add: ["wood"], remove: [] }),
+    ).toEqual(["ceramic", "wood"]);
     expect(
       applyMaterialDelta(["ceramic", "wood"], { add: [], remove: ["ceramic"] }),
     ).toEqual(["wood"]);
@@ -248,7 +250,9 @@ describe("DEV-1525 material axis", () => {
   it("same_material_set_ignores_input_order", () => {
     // Set equality, so a proposal that merely re-orders the stored array is not
     // a change and never reaches `apply_brand_patch`.
-    expect(sameMaterialSet(["ceramic", "wood"], ["wood", "ceramic"])).toBe(true);
+    expect(sameMaterialSet(["ceramic", "wood"], ["wood", "ceramic"])).toBe(
+      true,
+    );
     expect(sameMaterialSet([], [])).toBe(true);
     expect(sameMaterialSet(["wood"], ["ceramic", "wood"])).toBe(false);
     expect(sameMaterialSet(["ceramic", "wood"], ["ceramic", "glass"])).toBe(
@@ -351,7 +355,9 @@ describe("DEV-1525 material axis", () => {
     const evicted = new Set<string>(EVICTED_LABELS);
     for (const label of Object.keys(MATERIAL_BY_RETIRED_LABEL)) {
       expect(matchSubcategory(label), `${label} must not resolve`).toBeNull();
-      expect(evicted.has(label), `${label} must be an evicted label`).toBe(true);
+      expect(evicted.has(label), `${label} must be an evicted label`).toBe(
+        true,
+      );
     }
   });
 

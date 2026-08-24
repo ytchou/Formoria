@@ -183,7 +183,7 @@ test.describe("Category landing pages deep", () => {
       0,
     );
 
-    await page.goto("/categories/home?price=2");
+    await page.goto("/categories/home?material=ceramic");
     await expect(page.locator('meta[name="robots"]')).toHaveAttribute(
       "content",
       "noindex, follow",

@@ -28,7 +28,7 @@ export default function OwnershipRevokedEmail({
     <Layout previewText={`「${escapedBrandName}」品牌管理權限已移除`}>
       <EmailHeading as="h2">品牌管理權限已移除</EmailHeading>
       <EmailText>
-        我們通知您，您對{" "}
+        通知：你對{" "}
         <strong dangerouslySetInnerHTML={{ __html: escapedBrandName }} />{" "}
         的品牌管理權限已被移除。
       </EmailText>

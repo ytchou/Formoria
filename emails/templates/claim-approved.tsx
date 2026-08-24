@@ -44,7 +44,8 @@ export default function ClaimApprovedEmail({
 
   if (locale === "en") {
     return (
-      <Layout lang="en"
+      <Layout
+        lang="en"
         previewText={`Your brand claim for ${escapedBrandName} has been approved`}
       >
         <EmailHeading as="h2">Your brand claim has been approved!</EmailHeading>
@@ -74,14 +75,14 @@ export default function ClaimApprovedEmail({
   }
 
   return (
-    <Layout previewText={`您的品牌認領申請「${escapedBrandName}」已通過審核`}>
-      <EmailHeading as="h2">您的品牌認領申請已通過審核！</EmailHeading>
+    <Layout previewText={`品牌認領申請「${escapedBrandName}」已通過審核`}>
+      <EmailHeading as="h2">品牌認領申請已通過審核！</EmailHeading>
       <EmailText>
-        恭喜您，
+        恭喜，
         <strong dangerouslySetInnerHTML={{ __html: escapedBrandName }} />{" "}
         的品牌認領申請已獲批准。
       </EmailText>
-      <EmailText>您的品牌頁面已與您的帳號連結。</EmailText>
+      <EmailText>品牌頁面已與你的帳號連結。</EmailText>
       <Button href={brandUrl}>查看品牌頁面</Button>
       <EmailText>分享這個好消息 — 下載品牌分享卡。</EmailText>
       <Img
@@ -109,7 +110,7 @@ export async function buildClaimApprovedEmail(
     subject:
       locale === "en"
         ? `Your brand claim for "${brandName}" has been approved — Formoria`
-        : `您的品牌認領申請「${brandName}」已通過審核 — Formoria`,
+        : `品牌認領申請「${brandName}」已通過審核 — Formoria`,
     html: await render(
       <ClaimApprovedEmail {...props} siteUrl={props.siteUrl ?? SITE_URL} />,
     ),
