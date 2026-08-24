@@ -589,8 +589,8 @@ describe("events service", () => {
       sourceKey: "creative-expo:417",
       imageUrl:
         "/i/event-exhibitors/2026-taiwan-creative-expo/herbalight.jpg",
-      imageAltZh: "禾亮家的青草茶包裝罐",
-      imageAltEn: "Herbalight herbal tea canisters",
+      imageAltZh: null,
+      imageAltEn: null,
       summaryZh: "以台灣在地青草入茶的漢方飲品品牌。",
       summaryEn: "Herbal drinks brewed from Taiwan-grown medicinal plants.",
       contentSource: "enriched",

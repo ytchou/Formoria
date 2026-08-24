@@ -97,7 +97,7 @@ describe("ImageCarousel", () => {
     renderCarousel();
     const [hero, firstThumb, secondThumb] = images();
 
-    // With altZh/altEn removed, every image falls back to the brand-name template.
+    // Every image falls back to the brand-name template.
     expect(hero).toHaveAttribute("alt", "gallery.photoAltWithBrand");
     expect(firstThumb).toHaveAttribute("alt", "gallery.photoAltWithBrand");
     expect(secondThumb).toHaveAttribute("alt", "gallery.photoAltWithBrand");
