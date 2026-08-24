@@ -41,16 +41,6 @@ function emailLifecycleTable(client: unknown, table: string): EmailLifecycleTabl
   return (client as { from: (table: string) => EmailLifecycleTable }).from(table)
 }
 
-export async function createEmailPreferences(supabase: unknown, userId: string) {
-  return auditedCall(
-    { provider: 'email', operation: 'createEmailPreferences', kind: 'service' },
-    () => emailLifecycleTable(supabase, 'owner_email_preferences')
-      .upsert({ user_id: userId }, { onConflict: 'user_id' })
-      .select()
-      .single(),
-  )
-}
-
 export type SetLifecycleEmailPreferenceInput = {
   userId: string
   enabled: boolean

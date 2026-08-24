@@ -63,7 +63,10 @@ export async function generateMetadata({
     page,
     facets: {
       search: sp.search,
-      verification: sp.verification,
+      // The PARSED value, not `sp.verification`: an unrecognised term is
+      // coerced to 'all' by the query, so the SEO layer must read the same
+      // vocabulary or a facet that filters nothing gets its own canonical.
+      verification: filters.verificationFilter,
       sort: typeof sp.sort === "string" ? sp.sort : undefined,
       category: sp.category,
       sub: sp.sub,
@@ -181,7 +184,10 @@ export default async function BrandsPage({
     page,
     facets: {
       search: sp.search,
-      verification: sp.verification,
+      // The PARSED value, not `sp.verification`: an unrecognised term is
+      // coerced to 'all' by the query, so the SEO layer must read the same
+      // vocabulary or a facet that filters nothing gets its own canonical.
+      verification: filters.verificationFilter,
       sort:
         typeof sp.sort === "string"
           ? sp.sort

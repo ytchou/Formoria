@@ -80,12 +80,6 @@ export default async function FaqPage({ params }: PageProps) {
             >
               {t('sections.general')}
             </a>
-            <a
-              href="#for-owners"
-              className="flex min-h-12 items-center px-3 type-nav hover:text-ink transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
-            >
-              {t('sections.forOwners')}
-            </a>
           </nav>
           <p className="type-body-sm">
             {t.rich('intro', {
@@ -126,26 +120,6 @@ export default async function FaqPage({ params }: PageProps) {
                     ),
                   })}
                 </p>
-              </AccordionItem>
-            </Accordion>
-          </section>
-          <section id="for-owners" className="scroll-mt-24">
-            <div className="mb-4 border-b border-rule pb-3">
-              <h2 className="type-card-title">{t('sections.forOwners')}</h2>
-            </div>
-            <Accordion>
-              {/* Brand claiming is live (`ClaimBrandCta` on the brand page), so
-                  this answer describes the claim flow; the remaining owner
-                  features have no public destination yet.
-                  `id="claim"` is kept so legacy /faq#claim deep links still
-                  land on an answer — and it must stay on the <details> itself,
-                  which is what OpenTargetDetails looks for. */}
-              <AccordionItem
-                id="claim"
-                className="scroll-mt-24"
-                title={t('items.ownerInterest.question')}
-              >
-                <p>{t('items.ownerInterest.answer')}</p>
               </AccordionItem>
             </Accordion>
           </section>

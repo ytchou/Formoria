@@ -111,7 +111,6 @@ function makeBrand(slug: string, name: string): Brand {
     blurbEn: "Directory blurb",
     description: null,
     descriptionEn: null,
-    isVerified: false,
     mitStatus: "unverified",
     subcategories: [],
     subcategoriesEn: [],

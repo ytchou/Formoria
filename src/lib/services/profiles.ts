@@ -1,7 +1,6 @@
 import { auditedCall } from '@/lib/audit'
 import type { Database } from '@/lib/supabase/database.types'
 import { createServiceClient } from '@/lib/supabase/service'
-import { normalizeOwnerLocale, type OwnerLocale } from '@/lib/types'
 
 type ProfileRow = Database['public']['Tables']['profiles']['Row']
 
@@ -42,32 +41,6 @@ export async function getProfileAdmin(userId: string): Promise<Profile | null> {
     .single()
 
   return data ? toProfile(data as ProfileRow) : null
-}
-
-export async function getOwnerLocale(brandId: string): Promise<OwnerLocale> {
-  const supabase = createServiceClient()
-  const { data: owner, error: ownerError } = await supabase
-    .from('brand_owners')
-    .select('user_id')
-    .eq('brand_id', brandId)
-    .limit(1)
-    .maybeSingle()
-
-  if (ownerError || !owner?.user_id) {
-    return 'zh-TW'
-  }
-
-  const { data: profile, error: profileError } = await supabase
-    .from('profiles')
-    .select('locale_preference')
-    .eq('id', owner.user_id)
-    .maybeSingle()
-
-  if (profileError) {
-    return 'zh-TW'
-  }
-
-  return normalizeOwnerLocale(profile?.locale_preference)
 }
 
 export async function updateProfile(userId: string, update: ProfileUpdate): Promise<void> {

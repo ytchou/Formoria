@@ -1,20 +1,22 @@
 /**
- * The SECOND class of intentional skip in `e2e-expected-skips.json`.
+ * The one class of intentional skip in `e2e-expected-skips.json`.
  *
- * `e2e-owner-skip-registry.ts` next door pins the skips caused by a feature
- * flag (`app_settings.owner_features_enabled`). These are caused by the
- * deployed staging ENVIRONMENT instead: the proxy refuses anonymous mutations
- * there, and the sign-in page hides its Google button and forgot-password link.
- * Both classes land in the same manifest, so both need a registry — a manifest
- * entry no registry claims is an unreviewed skip, which is the one thing this
- * gate exists to prevent.
+ * Every skip here is caused by the deployed staging ENVIRONMENT: the proxy
+ * refuses anonymous mutations there, and the sign-in page hides its Google
+ * button and forgot-password link. A manifest entry this registry does not
+ * claim is an unreviewed skip, which is the one thing the gate exists to
+ * prevent.
  *
- * Unlike the owner reasons, these strings are written literally at each call
- * site rather than imported from here, because a spec that skips on an
- * environment fact reads better stating the fact than dereferencing a
- * constant. The cost is that a reworded reason would silently un-allowlist its
- * own skip, so `e2e-report-gate.test.ts` greps each named spec for the exact
- * text below rather than trusting the pairing.
+ * A second registry, `e2e-owner-skip-registry.ts`, pinned the skips caused by
+ * the `app_settings.owner_features_enabled` flag. DEV-1570 removed the claim
+ * and owner flows, so that class no longer exists and the file is gone.
+ *
+ * These reason strings are written literally at each call site rather than
+ * imported from here, because a spec that skips on an environment fact reads
+ * better stating the fact than dereferencing a constant. The cost is that a
+ * reworded reason would silently un-allowlist its own skip, so
+ * `e2e-report-gate.test.ts` greps each named spec for the exact text below
+ * rather than trusting the pairing.
  */
 export const ANONYMOUS_MUTATION_REASON = 'staging blocks anonymous mutations';
 

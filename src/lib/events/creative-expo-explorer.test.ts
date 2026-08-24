@@ -30,7 +30,6 @@ function brand(name: string, category = "home"): PublicBrandCard {
     status: "approved",
     categorySlug: category,
     categoryLabel: category,
-    isVerified: false,
     mitStatus: "unverified",
     subcategories: [],
     subcategoriesEn: [],

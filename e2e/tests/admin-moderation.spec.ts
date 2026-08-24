@@ -1,9 +1,5 @@
 import { test, expect } from "../fixtures/auth";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
-import {
-  ownerFeaturesDisabled,
-  OWNER_FEATURES_OFF_REASON,
-} from "../helpers/owner-features";
 
 import { BUDGET } from "../budgets";
 import { e2eBrandImageKey } from "../helpers/image-refs";
@@ -11,23 +7,6 @@ import { e2eBrandImageKey } from "../helpers/image-refs";
 type AnySupabaseClient = SupabaseClient<any, any, any>;
 
 test.describe.configure({ mode: "serial" });
-
-// Suite-level gate (DEV-1261). It used to guard the OWNER edit wizard at
-// /dashboard/brands/<slug>/edit, which 404s while the flag is off. Declared at
-// file scope so it runs before the seeding beforeAll below. Probes the running
-// app, never app_settings.
-//
-// DEV-1570 (PR 3) deleted that wizard, so the two owner-wizard journeys were
-// removed from this file rather than left to 404 mid-`serial` and abort the
-// admin coverage below. The gate stays because this suite's owner seeding and
-// the claim flow around it go with PR 4, and because the three-way skip ledger
-// (this callsite, scripts/e2e-owner-skip-registry.ts,
-// scripts/e2e-expected-skips.json) is pinned as one unit.
-test.beforeAll(async ({ browser }) => {
-  if (await ownerFeaturesDisabled(browser)) {
-    test.skip(true, OWNER_FEATURES_OFF_REASON);
-  }
-});
 
 test.describe("Content moderation flow", () => {
   test.beforeEach(() => {
@@ -45,17 +24,14 @@ test.describe("Content moderation flow", () => {
   let brandId: string;
   let brandSlug: string;
   let brandName: string;
-  let ownerId: string;
   let cleanDescription: string;
   let adminBlockedFlagId: string;
 
-  test.beforeAll(async ({ isolatedUser }) => {
+  test.beforeAll(async () => {
     supabase = createClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
       process.env.SUPABASE_SERVICE_ROLE_KEY!,
     );
-    ownerId = isolatedUser.id;
-
     const timestamp = Date.now();
     brandSlug = `e2e-moderation-flow-${timestamp}`;
     brandName = `[E2E-TEST] Moderation flow ${timestamp}`;
@@ -92,13 +68,6 @@ test.describe("Content moderation flow", () => {
     }
     brandId = brand.id;
 
-    const { error: ownerError } = await supabase
-      .from("brand_owners")
-      .insert({ brand_id: brandId, user_id: ownerId });
-    if (ownerError) {
-      throw new Error(`Failed to seed moderation owner: ${ownerError.message}`);
-    }
-
     const { error: imageError } = await supabase.from("brand_images").insert([
       {
         brand_id: brandId,
@@ -127,7 +96,6 @@ test.describe("Content moderation flow", () => {
   test.afterAll(async () => {
     if (!supabase || !brandId) return;
     await supabase.from("moderation_flags").delete().eq("brand_id", brandId);
-    await supabase.from("brand_owners").delete().eq("brand_id", brandId);
     await supabase.from("brands").delete().eq("id", brandId);
   });
 
@@ -205,8 +173,8 @@ test.describe("Content moderation flow", () => {
     // construction rather than by luck (DEV-1414).
     //
     // One row, not two: the second flag came from the owner edit wizard, which
-    // DEV-1570 deleted. `Dismiss` is asserted as rendered; its click path goes
-    // with the claim flow in PR 4.
+    // DEV-1570 deleted. `Dismiss` is asserted as rendered but never clicked —
+    // the only journey that produced a second dismissible flag is gone.
     const pendingRows = queueTable
       .locator("tbody tr")
       .filter({ hasText: brandName });

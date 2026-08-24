@@ -7,7 +7,7 @@ import type { Brand, BrandFilters, OtherUrl } from "@/lib/types";
 import type { ReputationSummary } from "@/lib/types/brand";
 import type { Database } from "@/lib/supabase/database.types";
 import { toBrandRow as baseToBrandRow } from "./_shared/field-map";
-import { ConflictError, NotFoundError, ValidationError } from "@/lib/errors";
+import { ConflictError, NotFoundError } from "@/lib/errors";
 import { createServiceClient } from "@/lib/supabase/service";
 import {
   canDegradeDuringPrerender,
@@ -200,9 +200,6 @@ type BrandPatchRpcClient = {
   }>;
 };
 
-/** Shape returned by: brand_owners(user_id) */
-type BrandOwnerRef = { user_id: string };
-
 /**
  * Full joined row from BRAND_SELECT. Extends Partial<BrandRow> so that
  * unit test fixtures can omit columns added in later migrations (is_demo,
@@ -225,9 +222,7 @@ export type BrandRowWithJoins = Partial<BrandRow> &
     | "submitted_at"
     | "created_at"
     | "updated_at"
-  > & {
-    brand_owners?: BrandOwnerRef | BrandOwnerRef[] | null;
-  };
+  >;
 
 type SearchBrandsRow = {
   id: string;
@@ -659,12 +654,6 @@ export function diffRemovedImageUrls(
 }
 
 export function brandToDomain(row: BrandRowWithJoins): Brand {
-  const owners = Array.isArray(row.brand_owners)
-    ? row.brand_owners
-    : row.brand_owners
-      ? [row.brand_owners]
-      : [];
-
   const purchaseFields = Object.fromEntries(
     ONLINE_STORES.map((channel) => [
       channel.camel,
@@ -703,7 +692,6 @@ export function brandToDomain(row: BrandRowWithJoins): Brand {
     categorySlug: row.category ?? null,
     categoryLabel:
       deriveCategoryLabel(row.category ?? "") ?? row.category ?? null,
-    isVerified: owners.length > 0,
     mitStatus: (row.mit_status as Brand["mitStatus"]) ?? "unverified",
     mitDeclaredScope:
       (row.mit_declared_scope as Brand["mitDeclaredScope"]) ?? null,
@@ -1141,21 +1129,14 @@ const PUBLIC_BRAND_DETAIL_COLUMNS = PUBLIC_BRAND_DETAIL_COLUMN_LIST.join(", ");
 const PUBLIC_BRAND_FAQ_CONTEXT_COLUMNS =
   PUBLIC_BRAND_FAQ_CONTEXT_COLUMN_LIST.join(", ");
 
-export const BRAND_SELECT =
-  `${BRAND_COLUMNS}, brand_owners(user_id)` as unknown as "*";
+export const BRAND_SELECT = BRAND_COLUMNS as unknown as "*";
 const BRAND_SELECT_WITH_ROMANIZED_NAME =
-  `${BRAND_COLUMNS}, romanized_name, brand_owners(user_id)` as unknown as "*";
-const VERIFIED_BRAND_SELECT =
-  `${BRAND_COLUMNS}, brand_owners!inner(user_id)` as unknown as "*";
+  `${BRAND_COLUMNS}, romanized_name` as unknown as "*";
 /** Narrow projection for directory/card queries. */
-const BRAND_LIST_SELECT =
-  `${DIRECTORY_BRAND_COLUMNS}, brand_owners(user_id)` as unknown as "*";
-const PUBLIC_BRAND_CARD_SELECT =
-  `${PUBLIC_BRAND_CARD_COLUMNS}, brand_owners(user_id)` as unknown as "*";
-const PUBLIC_VERIFIED_BRAND_CARD_SELECT =
-  `${PUBLIC_BRAND_CARD_COLUMNS}, brand_owners!inner(user_id)` as unknown as "*";
+const BRAND_LIST_SELECT = DIRECTORY_BRAND_COLUMNS as unknown as "*";
+const PUBLIC_BRAND_CARD_SELECT = PUBLIC_BRAND_CARD_COLUMNS as unknown as "*";
 const PUBLIC_BRAND_DETAIL_SELECT =
-  `${PUBLIC_BRAND_DETAIL_COLUMNS}, brand_owners(user_id)` as unknown as "*";
+  PUBLIC_BRAND_DETAIL_COLUMNS as unknown as "*";
 const PUBLIC_BRAND_FAQ_CONTEXT_SELECT =
   PUBLIC_BRAND_FAQ_CONTEXT_COLUMNS as unknown as "*";
 
@@ -1508,11 +1489,10 @@ export function directoryBrandCategoryFilter(
 }
 
 function getBrandsSelect(filters: GetBrandsFilters | undefined): "*" {
-  const owned = filters?.verificationFilter === "owned";
   if (filters?.includeDetailColumns) {
-    return owned ? VERIFIED_BRAND_SELECT : BRAND_SELECT;
+    return BRAND_SELECT;
   }
-  return owned ? PUBLIC_VERIFIED_BRAND_CARD_SELECT : PUBLIC_BRAND_CARD_SELECT;
+  return PUBLIC_BRAND_CARD_SELECT;
 }
 
 function getSearchPagination(filters: GetBrandsFilters): {
@@ -2496,56 +2476,6 @@ export async function syncBrandImages(
 
       const failed = storedPaths.filter((path) => path == null).length;
       return { synced: storedPaths.length - failed, failed };
-    },
-  );
-}
-
-export async function completeBrandClaim({
-  userId,
-  brandId,
-  email,
-}: {
-  userId: string;
-  brandId: string;
-  email: string;
-}): Promise<void> {
-  return auditedCall(
-    { provider: "brands", operation: "completeBrandClaim", kind: "service" },
-    async () => {
-      const supabase = createServiceClient();
-
-      const { data: existingOwnership, error: ownershipError } = await supabase
-        .from("brand_owners")
-        .select("brand_id")
-        .eq("user_id", userId)
-        .maybeSingle();
-
-      if (ownershipError) throw ownershipError;
-      if (existingOwnership) {
-        throw new ValidationError("This account already manages a brand");
-      }
-
-      const { error: insertError } = await supabase
-        .from("brand_owners")
-        .insert({ user_id: userId, brand_id: brandId })
-        .select()
-        .single();
-
-      if (insertError) {
-        if (insertError.code === "23505") {
-          throw new ValidationError("This account already manages a brand", {
-            cause: insertError,
-          });
-        }
-        throw insertError;
-      }
-
-      const { error: updateError } = await supabase
-        .from("brands")
-        .update({ contact_email: email })
-        .eq("id", brandId);
-
-      if (updateError) throw updateError;
     },
   );
 }

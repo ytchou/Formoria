@@ -33,7 +33,6 @@ const PROVIDERS = {
   brands: [
     "cleanupAdminBrandReviewImages",
     "cleanupDeadLinks",
-    "completeBrandClaim",
     "createEvidence",
     "createReport",
     "declareMit",
@@ -43,7 +42,6 @@ const PROVIDERS = {
     "reviewEvidence",
     "saveAdminBrandReview",
     "saveBrand",
-    "setOwnerStockistStatus",
     "stageAdminBrandReviewImage",
     "stripDeclaration",
     "submitStockist",
@@ -56,7 +54,6 @@ const PROVIDERS = {
     "updateReportStatus",
     "upsertBrandFaqEntries",
     "upsertEnrichedStockists",
-    "verifyMitByCert",
     "withdrawDeclaration",
   ],
   cache: [
@@ -65,14 +62,6 @@ const PROVIDERS = {
     "getCachedRecentBrandCount",
     "getCachedSubcategoryRows",
     "getCachedZhVocabularyReport",
-  ],
-  claims: [
-    "approveClaimRequest",
-    "createClaimRequest",
-    "processClaimProofCleanup",
-    "rejectClaimRequest",
-    "revokeOwnership",
-    "verifyClaimEmailProof",
   ],
   // Editorial write path for /brands/[slug] curated products (DEV-1465). Every
   // writer is audited: a published product is a factual claim the site makes on
@@ -114,7 +103,6 @@ const PROVIDERS = {
   email: [
     "adminUnsubscribeNewsletterSubscriber",
     "confirmSubscriber",
-    "createEmailPreferences",
     "createSubscriber",
     "enrollInMarketingEmails",
     "requestNewsletterSubscription",

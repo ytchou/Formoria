@@ -108,7 +108,7 @@ export default function SubmitForm({
   const tForm = useTranslations("submit.recommendForm");
   const tReview = useTranslations("submit.review");
   const router = useRouter();
-  const { complete } = useSubmissionAnalytics(source, "recommend", "opened");
+  const { complete } = useSubmissionAnalytics(source, "opened");
   const nameBlurRequestRef = useRef(0);
   const submitLockRef = useRef(false);
   const idempotencyKeyRef = useRef(crypto.randomUUID());
@@ -321,8 +321,7 @@ export default function SubmitForm({
       };
 
       try {
-        const result:
-          { error?: string; ownershipAdjusted?: boolean } | undefined =
+        const result: { error?: string } | undefined =
           await submitRecommendation(data, idempotencyKeyRef.current);
 
         if (result?.error) {
@@ -331,20 +330,13 @@ export default function SubmitForm({
           return;
         }
 
-        const query = new URLSearchParams({
-          intent: "recommend",
-        });
-        if (result?.ownershipAdjusted) {
-          query.set("ownership", "community");
-        }
-        setPendingRedirect(`${routes.submit.confirmation()}?${query.toString()}`);
+        setPendingRedirect(routes.submit.confirmation());
 
         trackSubmissionCompleted(
           data.name,
           "",
           Boolean(data.heroImageUrl),
           complete(),
-          "recommend",
           !data.guestEmail,
         );
       } catch (error) {

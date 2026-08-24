@@ -34,9 +34,6 @@ describe("staging deployment safety policy", () => {
   });
 
   it("denies callbacks that mutate through GET", () => {
-    expect(isAllowedStagingRequest("GET", "/api/claim/verify-email")).toBe(
-      false,
-    );
     expect(isAllowedStagingRequest("GET", "/api/newsletter/confirm")).toBe(
       false,
     );

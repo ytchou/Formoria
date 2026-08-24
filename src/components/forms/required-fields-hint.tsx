@@ -4,7 +4,7 @@ import { useTranslations } from 'next-intl'
 import { cn } from '@/lib/utils'
 
 export function RequiredFieldsHint({ className }: { className?: string }) {
-  const t = useTranslations('dashboard.edit')
+  const t = useTranslations('brandFields')
 
   return (
     <p className={cn('type-metadata', className)}>

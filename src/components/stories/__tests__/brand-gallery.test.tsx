@@ -57,7 +57,6 @@ function makeBrand(
     blurbEn: "Directory blurb",
     description: null,
     descriptionEn: null,
-    isVerified: false,
     mitStatus: "unverified",
     subcategories: [],
     subcategoriesEn: [],

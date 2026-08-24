@@ -236,7 +236,6 @@ const CACHEABLE_VERIFICATION_VALUES: ReadonlySet<string> = new Set([
   "all",
   "mit-verified",
   "mit-declared",
-  "owned",
 ]);
 
 const CACHEABLE_SORT_VALUES: ReadonlySet<string> = new Set(

@@ -19,7 +19,6 @@ function brandRow() {
     name: "María García Studio",
     slug: "maria-garcia-studio",
     status: "approved",
-    brand_owners: [],
   };
 }
 

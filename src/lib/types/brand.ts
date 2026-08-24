@@ -88,7 +88,6 @@ export type Brand = {
   categorySlug?: string | null;
   city: string | null;
   categoryLabel: string | null;
-  isVerified: boolean;
   mitStatus?: MitStatus;
   mitDeclaredScope?: "all" | "most" | "some" | null;
   mitDeclaredAt?: string | null;
@@ -126,7 +125,7 @@ export type BrandFilters = {
    * apply it, or `?material=` breaks the moment a user types (DEV-1510).
    */
   materials?: string[];
-  verificationFilter?: "all" | "mit-verified" | "mit-declared" | "owned";
+  verificationFilter?: "all" | "mit-verified" | "mit-declared";
   search?: string;
   sort?: BrandSortOption;
   limit?: number;

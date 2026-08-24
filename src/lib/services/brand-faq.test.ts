@@ -17,7 +17,6 @@ function makeBrand(overrides: Partial<Brand> = {}): Brand {
     categorySlug: null,
     categoryLabel: null,
     city: null,
-    isVerified: false,
     mitStatus: "unverified",
     isDemo: false,
     foundingYear: null,

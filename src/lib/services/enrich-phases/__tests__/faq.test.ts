@@ -42,7 +42,6 @@ const BRAND: Brand = {
   categorySlug: "home",
   city: "臺南",
   categoryLabel: "居家生活",
-  isVerified: false,
   mitStatus: "unverified",
   mitStory: null,
   isDemo: false,

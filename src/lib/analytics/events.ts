@@ -335,7 +335,7 @@ export const ANALYTICS_EVENTS = {
   /**
    * The submission form was opened.
    * @property source {string} Entry point: header_cta / hero_cta / footer_link / quick.
-   * @property intent {string} Normalized intent: recommend / owner_claim.
+   * @property intent {string} Normalized intent: recommend.
    */
   SUBMISSION_FORM_OPENED: "submission_form_opened",
 
@@ -359,7 +359,7 @@ export const ANALYTICS_EVENTS = {
    * @property category {string} Selected category.
    * @property has_logo {boolean} Whether a logo was uploaded.
    * @property time_spent_seconds {number} Wall-clock seconds from form open to submit.
-   * @property intent {string} recommend / owner_claim.
+   * @property intent {string} recommend.
    * @property guest_submission {boolean} Whether the submitter was unauthenticated.
    * @property utm_* {string | undefined} UTM params present on the current URL.
    */
@@ -389,41 +389,8 @@ export const ANALYTICS_EVENTS = {
   NEWSLETTER_SUBSCRIBED: "newsletter_subscribed",
 
   // ---------------------------------------------------------------------------
-  // Claim, supply side, and moderation outcomes
+  // Supply side and moderation outcomes
   // ---------------------------------------------------------------------------
-
-  /**
-   * An owner started the claim flow for a brand.
-   * @property brand_id {string} Brand UUID.
-   * @property brand_slug {string} Brand slug.
-   * @property is_authenticated {boolean} Whether the claimant was signed in at start.
-   */
-  BRAND_CLAIM_STARTED: "brand_claim_started",
-
-  /**
-   * The claim form was submitted with its proof attachments.
-   * @property brand_id {string} Brand UUID.
-   * @property brand_slug {string} Brand slug.
-   * @property proof_types {string[]} Kinds of proof attached.
-   */
-  BRAND_CLAIM_FORM_SUBMITTED: "brand_claim_form_submitted",
-
-  /**
-   * Server-side: a claim was completed after the magic-link callback verified the
-   * claimant's email. Emitted from `/auth/callback`.
-   * @property brand_id {string} Brand UUID.
-   * @property is_new_user {boolean} Whether the claimant signed up during this flow.
-   */
-  BRAND_CLAIM_COMPLETED: "brand_claim_completed",
-
-  /**
-   * Server-side: an admin approved a claim request. Attributed to the claiming owner,
-   * not the approving admin.
-   * @property brand_id {string} Brand UUID.
-   * @property brand_slug {string | undefined} Brand slug; omitted when the claim row has none.
-   * @property claim_request_id {string} Claim request UUID.
-   */
-  BRAND_CLAIM_APPROVED: "brand_claim_approved",
 
   /**
    * Server-side: a submitted brand was approved and published. Machine/inventory
@@ -437,8 +404,8 @@ export const ANALYTICS_EVENTS = {
   BRAND_LISTING_PUBLISHED: "brand_listing_published",
 
   /**
-   * A manufacturing-origin declaration was made during the claim flow.
-   * @deprecated Retired 2026-08-24 with the owner declaration surface. No PostHog rows
+   * A manufacturing-origin declaration was made.
+   * @deprecated Retired 2026-08-24 with the declaration surface. No PostHog rows
    * were ever ingested; the permanent ledger entry preserves the payload contract.
    * @property brand_id {string} Brand UUID.
    * @property brand_slug {string} Brand slug.
@@ -509,7 +476,6 @@ export const ANALYTICS_EVENTS = {
    * (stop emitting → tag `deprecated` → unverify → keep an action bridge if history matters).
    *
    * @property is_new_user {boolean} Whether this callback created the account.
-   * @property has_claim_intent {boolean} Whether a claim token accompanied the callback.
    */
   USER_AUTHENTICATED: "user_authenticated",
 
@@ -900,7 +866,7 @@ export interface AnalyticsEventPayloads {
   // Submission funnel
   [ANALYTICS_EVENTS.SUBMISSION_FORM_OPENED]: {
     source: "header_cta" | "hero_cta" | "footer_link" | "quick";
-    intent: "recommend" | "owner_claim";
+    intent: "recommend";
   };
   [ANALYTICS_EVENTS.SUBMISSION_PATH_SELECTED]: UtmProperties & {
     path: string;
@@ -911,7 +877,7 @@ export interface AnalyticsEventPayloads {
     category: string;
     has_logo: boolean;
     time_spent_seconds: number;
-    intent: "recommend" | "owner_claim";
+    intent: "recommend";
     guest_submission: boolean;
   };
   [ANALYTICS_EVENTS.SUBMISSION_FORM_ABANDONED]: {
@@ -928,26 +894,7 @@ export interface AnalyticsEventPayloads {
     has_email: boolean;
   };
 
-  // Claim / supply
-  [ANALYTICS_EVENTS.BRAND_CLAIM_STARTED]: {
-    brand_id: string;
-    brand_slug: string;
-    is_authenticated: boolean;
-  };
-  [ANALYTICS_EVENTS.BRAND_CLAIM_FORM_SUBMITTED]: {
-    brand_id: string;
-    brand_slug: string;
-    proof_types: string[];
-  };
-  [ANALYTICS_EVENTS.BRAND_CLAIM_COMPLETED]: {
-    brand_id: string;
-    is_new_user: boolean;
-  };
-  [ANALYTICS_EVENTS.BRAND_CLAIM_APPROVED]: {
-    brand_id: string;
-    brand_slug?: string;
-    claim_request_id: string;
-  };
+  // Supply
   [ANALYTICS_EVENTS.BRAND_LISTING_PUBLISHED]: {
     brand_id: string;
     brand_slug: string;
@@ -981,7 +928,6 @@ export interface AnalyticsEventPayloads {
   [ANALYTICS_EVENTS.USER_SIGNED_OUT]: Record<string, never>;
   [ANALYTICS_EVENTS.USER_AUTHENTICATED]: {
     is_new_user: boolean;
-    has_claim_intent: boolean;
   };
 
   // System

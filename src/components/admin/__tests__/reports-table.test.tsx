@@ -14,11 +14,6 @@ type ReviewAction = (
   notes?: string,
 ) => Promise<{ error?: string } | undefined>;
 
-type RevokeAction = (
-  brandId: string,
-  reason: string,
-) => Promise<{ error?: string } | undefined>;
-
 function report(
   overrides: Partial<BrandReport> & { id: string; brandName: string },
 ): BrandReport & { brandName: string } {
@@ -34,7 +29,6 @@ function report(
     reviewedAt: null,
     createdAt: "2026-07-27T00:00:00.000Z",
     reporterEmail: "mei.lin@example.com",
-    brandHasOwner: false,
     ...rest,
   };
 }
@@ -43,7 +37,6 @@ function renderTable(
   reports: BrandReport[],
   actions: {
     reviewAction?: ReviewAction;
-    revokeAction?: RevokeAction;
   } = {},
 ) {
   return render(
@@ -51,7 +44,6 @@ function renderTable(
       <ReportsTable
         reports={reports}
         reviewAction={actions.reviewAction}
-        revokeAction={actions.revokeAction}
       />
     </NextIntlClientProvider>,
   );
@@ -141,49 +133,6 @@ describe("ReportsTable", () => {
 
     await waitFor(() => {
       expect(reviewAction).toHaveBeenCalledWith(item.id, "reviewed", notes);
-    });
-  });
-
-  it("revoke ownership routes through the shared ConfirmDialog", async () => {
-    const user = userEvent.setup();
-    const item = report({
-      id: "33b8e5c2-1f60-4a93-b48d-9c02f6e71da5",
-      brandName: "Formoria Ownership Review",
-      reason: "ownership_dispute",
-      brandHasOwner: true,
-    });
-    const revokeAction = vi.fn<RevokeAction>().mockResolvedValue(undefined);
-    renderTable([item], { revokeAction });
-
-    await user.click(
-      screen.getByRole("button", { name: disclosureName(item.brandName) }),
-    );
-    const reason = "The submitted ownership record is no longer valid.";
-    await user.type(
-      screen.getByRole("textbox", {
-        name: messages.admin.reports.revoke.reasonLabel,
-      }),
-      reason,
-    );
-    await user.click(
-      screen.getByRole("button", {
-        name: messages.admin.reports.revoke.trigger,
-      }),
-    );
-
-    expect(
-      screen.getByRole("heading", {
-        name: messages.admin.reports.revoke.confirmTitle,
-      }),
-    ).toBeInTheDocument();
-    await user.click(
-      screen.getByRole("button", {
-        name: messages.admin.reports.revoke.confirmLabel,
-      }),
-    );
-
-    await waitFor(() => {
-      expect(revokeAction).toHaveBeenCalledWith(item.brandId, reason);
     });
   });
 });

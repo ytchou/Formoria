@@ -1,20 +1,15 @@
 import { routing } from '@/i18n/routing'
-import { isOwnerFeaturesEnabled } from '@/lib/services/app-settings'
-import { routes } from '@/lib/routes'
 
 /**
- * Routes that 404 while the owner-features kill switch is off. Matched as path
- * prefixes, so `/submit/owner/quick` is covered.
+ * Surfaces DEV-1570 removed outright. Matched as path prefixes, so
+ * `/submit/owner/quick` is covered by `/submit/owner`.
+ *
+ * `/dashboard` was the owner dashboard; `/submit/owner` was the owner
+ * submission fork, which stale claim-invite emails still link at. Both are gone
+ * from the router, so honoring a `next` that points at either completes sign-in
+ * on a hard 404.
  */
-const GATED_OWNER_PREFIXES = [routes.submit.owner()]
-
-/**
- * The owner dashboard, parked by DEV-1570. Its `routes.dashboard.*` builders
- * were deleted with it, so the prefix is a literal here. Separate from
- * `GATED_OWNER_PREFIXES` because that set is only consulted while the
- * owner-features flag is off, and this route 404s either way.
- */
-const RETIRED_PREFIXES = ['/dashboard']
+const RETIRED_PREFIXES = ['/dashboard', '/submit/owner']
 
 function stripLocalePrefix(pathname: string): string {
   for (const locale of routing.locales) {
@@ -25,17 +20,8 @@ function stripLocalePrefix(pathname: string): string {
 }
 
 /**
- * True when an unlocalized-or-localized relative target points at a surface the
- * owner-features flag hides. Query string and hash are ignored.
- */
-function isGatedOwnerPath(target: string): boolean {
-  return matchesPrefix(target, GATED_OWNER_PREFIXES)
-}
-
-/**
- * True when the target points at a surface DEV-1570 deleted outright. Unlike
- * `isGatedOwnerPath` this does not depend on the owner-features flag: the route
- * is gone from the router, so honoring such a `next` is always a 404.
+ * True when an unlocalized-or-localized relative target points at a surface
+ * DEV-1570 deleted outright. Query string and hash are ignored.
  */
 function isRetiredPath(target: string): boolean {
   return matchesPrefix(target, RETIRED_PREFIXES)
@@ -61,11 +47,10 @@ export async function ownerLandingPath(): Promise<string> {
 
 /**
  * Resolves the post-auth destination for a caller-supplied `next`: the request
- * wins, otherwise the landing path. A `next` aimed at a gated owner route while
- * the flag is off, or at a route DEV-1570 retired (stale bookmark, old
- * claim-invite email link, or a `post_auth_next` cookie written before the
- * deploy), would otherwise complete sign-in on a hard 404, so it falls back to
- * the landing path too.
+ * wins, otherwise the landing path. A `next` aimed at a route DEV-1570 retired
+ * (stale bookmark, old claim-invite email link, or a `post_auth_next` cookie
+ * written before the deploy) would otherwise complete sign-in on a hard 404, so
+ * it falls back to the landing path.
  *
  * Callers must have already run `next` through `isRelativeUrl` — this check is
  * additive to the open-redirect guard, not a replacement for it. Returns an
@@ -77,8 +62,5 @@ export async function resolvePostAuthPath(
   const landingPath = await ownerLandingPath()
   if (!requestedNext) return landingPath
   if (isRetiredPath(requestedNext)) return landingPath
-  if (!(await isOwnerFeaturesEnabled()) && isGatedOwnerPath(requestedNext)) {
-    return landingPath
-  }
   return requestedNext
 }

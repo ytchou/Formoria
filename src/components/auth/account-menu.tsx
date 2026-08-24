@@ -55,7 +55,7 @@ function getUserInitial(email?: string | null): string {
 }
 
 export function AccountMenu() {
-  const { user, loading, viewer } = useUser()
+  const { user, loading } = useUser()
   const t = useTranslations()
   const locale = useLocale()
   const pathname = usePathname()
@@ -109,13 +109,6 @@ export function AccountMenu() {
         >
           {t('account.contributions')}
         </DropdownMenuItem>
-        {viewer.ownerFeaturesEnabled ? (
-          <DropdownMenuItem
-            render={<Link href={routes.mySubmissions()} />}
-          >
-            {t('account.mySubmissions')}
-          </DropdownMenuItem>
-        ) : null}
         <DropdownMenuSeparator />
         {(['zh-TW', 'en'] as const).map((targetLocale) => (
           <form

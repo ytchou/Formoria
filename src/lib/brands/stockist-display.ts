@@ -212,16 +212,16 @@ export function groupStockistsByRegion(
     );
 }
 
+/**
+ * What separates 品牌確認 from 站方確認 is now `owner_status_by` alone: every
+ * write path since 2026-07 records the approver, and brand ownership was parked
+ * with the claim flow (DEV-1570), so a recorded approver is by definition
+ * Formoria rather than the brand. Only the approver-less rows of the 2026-07
+ * backfill still carry the 品牌確認 claim.
+ */
 export function groupStockistsForDisplay(
   rows: Array<StockistDisplayRow>,
-  /**
-   * `auth.users.id` of every owner of the brand these rows belong to. It is what
-   * separates 品牌確認 from 站方確認: an admin approving a community submission
-   * sets the same `owner_status = 'confirmed'` the brand's own owner does.
-   */
-  brandOwnerUserIds: readonly string[] = [],
 ): { confirmed: Stockist[]; possible: Stockist[] } {
-  const brandOwnerUserIdSet = new Set(brandOwnerUserIds);
   const confirmed: Stockist[] = [];
   const possible: Stockist[] = [];
 
@@ -229,15 +229,11 @@ export function groupStockistsForDisplay(
     if (row.removedAt !== null || row.ownerStatus === "rejected") continue;
 
     const ownerConfirmed = row.ownerStatus === "confirmed";
-    // Only a POSITIVELY identified non-owner downgrades the claim. A null
-    // `ownerStatusBy` is the 2026-07 backfill, which copied genuine owner
+    // A null `ownerStatusBy` is the 2026-07 backfill, which copied genuine owner
     // confirmations out of `brands.retail_locations` without recording who made
-    // them; reading that silence as "Formoria said so" would invent a different
-    // false claim. Every write path since records the approver.
-    const approvedByNonOwner =
-      ownerConfirmed &&
-      row.ownerStatusBy != null &&
-      !brandOwnerUserIdSet.has(row.ownerStatusBy);
+    // them; reading that silence as "Formoria said so" would invent a false
+    // claim, so it keeps the owner attribution. A recorded approver is an admin.
+    const approvedByNonOwner = ownerConfirmed && row.ownerStatusBy != null;
     const evidenceBacked = row.sourceUrl != null && row.source !== "community";
     // The public label for evidence-backed rows is a trust claim, so it may only
     // say "from the official website" when the evidence really is the brand's

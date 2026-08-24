@@ -1,8 +1,3 @@
 export { buildApprovalEmail } from '@emails/templates/submission-approved'
 export { buildRejectionEmail } from '@emails/templates/submission-rejected'
-export { buildClaimEmail } from '@emails/templates/claim-submitted'
-export { buildClaimEmailVerificationEmail } from '@emails/templates/claim-verified'
-export { buildClaimApprovedEmail } from '@emails/templates/claim-approved'
-export { buildClaimRejectedEmail } from '@emails/templates/claim-rejected'
-export { buildOwnershipRevokedEmail } from '@emails/templates/ownership-revoked'
 export { buildDeclarationRemovedEmail } from '@emails/templates/declaration-removed'

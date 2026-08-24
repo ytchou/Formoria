@@ -220,10 +220,8 @@ async function globalSetup() {
         .locator('input[type="url"]')
         .first()
         .waitFor({ state: "visible", timeout: BUDGET.WARMUP });
-      // The submit overview, NOT /submit/owner/quick: the owner routes 404 while
-      // the owner-features flag is off, so warming them stalled for the full
-      // waitFor timeout and — being the one un-wrapped step here — threw past
-      // every warm-up below it. Like its siblings, this now fails on its own.
+      // The submit overview. Wrapped like its siblings so a warm-up failure
+      // here fails on its own rather than throwing past every warm-up below it.
       try {
         await page.goto(`${baseURL}/submit`, {
           waitUntil: "domcontentloaded",

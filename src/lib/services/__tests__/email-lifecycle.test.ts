@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { createEmailPreferences, unsubscribeByToken } from '../email-lifecycle'
+import { unsubscribeByToken } from '../email-lifecycle'
 
 const mockSupabase = {
   from: vi.fn(),
@@ -8,28 +8,6 @@ const mockSupabase = {
 describe('email-lifecycle service', () => {
   beforeEach(() => {
     vi.clearAllMocks()
-  })
-
-  describe('createEmailPreferences', () => {
-    it('upserts a preferences row without resetting existing consent', async () => {
-      const single = vi.fn().mockResolvedValue({
-        data: { user_id: 'user-1', unsubscribe_token: 'token-abc' },
-        error: null,
-      })
-      const upsert = vi.fn().mockReturnValue({
-        select: vi.fn().mockReturnValue({ single }),
-      })
-      mockSupabase.from.mockReturnValue({ upsert })
-
-      const result = await createEmailPreferences(mockSupabase as unknown, 'user-1')
-
-      expect(mockSupabase.from).toHaveBeenCalledWith('owner_email_preferences')
-      expect(upsert).toHaveBeenCalledWith(
-        { user_id: 'user-1' },
-        { onConflict: 'user_id' },
-      )
-      expect(result.data).toEqual({ user_id: 'user-1', unsubscribe_token: 'token-abc' })
-    })
   })
 
   describe('unsubscribeByToken', () => {

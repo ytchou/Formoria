@@ -79,9 +79,8 @@ test.describe("Navbar auth journey", () => {
     await expect(
       accountMenu.getByRole("menuitem", { name: "我的貢獻" }),
     ).toBeVisible({ timeout: BUDGET.RENDERED });
-    // "我的推薦" is deliberately not asserted here: it is gated on
-    // ownerFeaturesEnabled (DEV-1261), so its presence is flag state, not navbar
-    // behaviour. Its absence is owned by owner-features-flag-off.spec.ts.
+    // "我的推薦" is deliberately not asserted here: DEV-1570 removed the owner
+    // surfaces it linked to, so it is no longer navbar behaviour to pin.
     const signOutItem = accountMenu.getByText(/sign out|登出/i);
     await expect(signOutItem).toBeVisible({ timeout: BUDGET.INTERACTIVE });
   });

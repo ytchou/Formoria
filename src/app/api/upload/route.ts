@@ -8,11 +8,9 @@ import { sanitizeErrorResponse } from '@/lib/errors'
 import { processImage } from '@/lib/security/image-processor'
 import { createInMemoryRateLimiter } from '@/lib/security/rate-limiter'
 import {
-  uploadPrivateFile,
   uploadPrivateImage,
   uploadPublicImage,
   ALLOWED_UPLOAD_BUCKETS,
-  getUploadImageProcessingConfig,
   type AllowedUploadBucket,
 } from '@/lib/services/image-upload'
 import { imagePathToUrl } from '@/lib/images/image-url'
@@ -35,16 +33,11 @@ const uploadRateLimiter = createInMemoryRateLimiter()
 const UPLOAD_RATE_LIMIT_WINDOW_MS = 60_000
 const UPLOAD_RATE_LIMIT_MAX_REQUESTS = 10
 const MAX_FILE_SIZE = 5 * 1024 * 1024
-const PDF_MAGIC_BYTES = '%PDF'
 
 function isPrivateUploadBucket(
   bucket: AllowedUploadBucket
-): bucket is 'claim-proofs' | 'origin-evidence' {
-  return bucket === 'claim-proofs' || bucket === 'origin-evidence'
-}
-
-function isPdf(buffer: Buffer): boolean {
-  return buffer.subarray(0, PDF_MAGIC_BYTES.length).toString('utf8') === PDF_MAGIC_BYTES
+): bucket is 'origin-evidence' {
+  return bucket === 'origin-evidence'
 }
 
 export const POST = withAuditScope(async (request: Request) => {
@@ -59,7 +52,6 @@ export const POST = withAuditScope(async (request: Request) => {
     const file = formData.get('file')
     const path = formData.get('path')
     const rawBucket = (formData.get('bucket') as string | null) ?? 'brand-images'
-    const proofType = formData.get('proofType')
 
     if (!file || !(file instanceof File)) {
       return NextResponse.json({ error: 'No file provided' }, { status: 400 })
@@ -114,46 +106,13 @@ export const POST = withAuditScope(async (request: Request) => {
       return NextResponse.json({ error: 'File size must be under 5MB' }, { status: 400 })
     }
 
-    if (file.type === 'application/pdf') {
-      if (bucket !== 'claim-proofs' || proofType !== 'business_doc') {
-        return NextResponse.json({ error: 'PDF uploads are only allowed for business documents' }, { status: 400 })
-      }
-
-      if (!isPdf(buffer)) {
-        return NextResponse.json({ error: 'Invalid PDF file' }, { status: 400 })
-      }
-
-      const objectPath = `${path}/${Date.now()}-${crypto.randomUUID()}.pdf`
-      try {
-        const result = await uploadPrivateFile({
-          bucket,
-          path: objectPath,
-          data: buffer,
-          contentType: 'application/pdf',
-        })
-
-        await captureAssetUploaded(request, userId, {
-          bucket,
-          asset_type: 'document',
-          size_bytes: buffer.length,
-          authenticated: true,
-        })
-        return NextResponse.json({
-          key: result.key,
-        })
-      } catch (err) {
-        Sentry.captureException(err)
-        return NextResponse.json(sanitizeErrorResponse(err), { status: 500 })
-      }
-    }
-
     if (!file.type.startsWith('image/')) {
       return NextResponse.json({ error: 'Please upload an image file' }, { status: 400 })
     }
 
     let processed
     try {
-      processed = await processImage(buffer, getUploadImageProcessingConfig(bucket))
+      processed = await processImage(buffer)
     } catch (err) {
       Sentry.captureException(err)
       return NextResponse.json(sanitizeErrorResponse(err), { status: 400 })

@@ -13,10 +13,6 @@ const IS_CANONICAL_STAGING_TARGET =
   ).origin === 'https://staging.formoria.com';
 const STAGING_MUTATION_SKIP_REASON =
   'Anonymous correction mutations are intentionally disabled on canonical staging';
-// DEV-1261 note: deliberately NOT gated on `owner_features_enabled`. This is an
-// anonymous crowd-QA journey that touches no owner surface, and it is live at
-// launch — pausing it would take consumer coverage dark for no reason. Verified
-// green with the flag off.
 
 /**
  * Crowd-QA corrections (DEV-1170).
@@ -53,7 +49,7 @@ const FIELD_PICKER_LABEL = '修正項目'; // brandDetail.correction.fieldPicker
 const CURRENT_VALUE_LABEL = '目前'; // brandDetail.correction.currentHeading
 const CATEGORY_VALUE_LABEL = '品牌類別'; // brandDetail.label.category
 const SUBMIT_LABEL = '送出修正'; // brandDetail.correction.submit
-const CANCEL_LABEL = '取消'; // dashboard.edit.cancel
+const CANCEL_LABEL = '取消'; // brandFields.cancel
 const REVIEW_PROMISE = '感謝提供建議！送出後由 Formoria 審核決定是否更新。'; // brandDetail.correction.description
 const SUCCESS_TOAST = '修正已送出，感謝你的協助。'; // brandDetail.correction.success
 const ALREADY_SUBMITTED_TOAST = '這項修正已經送出，請等待審核。'; // ...correction.errors.already_submitted

@@ -9,7 +9,6 @@ import { AdminNav } from "@/components/admin/admin-nav";
 import { PageShell } from "@/components/ui/page-shell";
 import type { NavItem } from "@/components/admin/admin-nav";
 import { getAdminNavCounts } from "@/lib/services/admin-operations";
-import { isOwnerFeaturesEnabled } from "@/lib/services/app-settings";
 import { getSiteUrl } from "@/lib/seo/site-url";
 import "../globals.css";
 import { routes } from "@/lib/routes";
@@ -43,14 +42,12 @@ export default async function AdminLayout({
     redirect("/");
   }
 
-  const [messages, counts, t, tCommon, ownerFeaturesEnabled] =
-    await Promise.all([
-      getMessages({ locale: "en" }),
-      getAdminNavCounts(),
-      getTranslations({ locale: "en", namespace: "admin.layout" }),
-      getTranslations({ locale: "en", namespace: "common" }),
-      isOwnerFeaturesEnabled(),
-    ]);
+  const [messages, counts, t, tCommon] = await Promise.all([
+    getMessages({ locale: "en" }),
+    getAdminNavCounts(),
+    getTranslations({ locale: "en", namespace: "admin.layout" }),
+    getTranslations({ locale: "en", namespace: "common" }),
+  ]);
 
   const navItems: NavItem[] = [
     { label: t("nav.overview"), href: routes.admin.index() },
@@ -70,9 +67,6 @@ export default async function AdminLayout({
       href: routes.admin.evidence(),
       count: counts.evidence ?? undefined,
     },
-    ...(ownerFeaturesEnabled
-      ? [{ label: t("nav.claims"), href: routes.admin.claims() }]
-      : []),
     {
       label: t("nav.reports"),
       href: routes.admin.reports(),
@@ -93,7 +87,6 @@ export default async function AdminLayout({
     { label: t("nav.quality"), href: routes.admin.quality() },
     { label: t("nav.newsletter"), href: routes.admin.newsletter() },
     { label: t("nav.scripts"), href: routes.admin.scripts() },
-    { label: t("nav.settings"), href: routes.admin.settings() },
   ];
 
   return (

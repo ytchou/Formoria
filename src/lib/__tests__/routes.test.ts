@@ -81,9 +81,6 @@ describe('routes', () => {
     expect(routes.submit.index()).toBe('/submit')
     expect(routes.submit.recommend()).toBe('/submit/recommend')
     expect(routes.submit.confirmation()).toBe('/submit/confirmation')
-    expect(routes.submit.owner()).toBe('/submit/owner')
-    expect(routes.submit.ownerQuick()).toBe('/submit/owner/quick')
-    expect(routes.submit.ownerDetails()).toBe('/submit/owner/details')
 
     expect(routes.auth.signIn()).toBe('/auth/sign-in')
     expect(routes.auth.signIn({ next: '/favorites' })).toBe(

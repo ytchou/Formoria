@@ -45,18 +45,10 @@ function netConfirmations(rows: SubscriberRow[], window: DateWindow): number {
 export function summarizeBusinessGrowth(
   input: {
     brands: ApprovedBrandRow[]
-    owners: Array<{ brand_id: string }>
     subscribers: SubscriberRow[]
   },
   windows: { current: DateWindow; prior: DateWindow },
 ): FormoriaBusinessData {
-  const approvedBrandIds = new Set(input.brands.map((brand) => brand.id))
-  const claimedBrandIds = new Set(
-    input.owners
-      .filter((owner) => approvedBrandIds.has(owner.brand_id))
-      .map((owner) => owner.brand_id),
-  )
-
   return {
     supply: {
       approvedBrands: input.brands.length,
@@ -64,7 +56,6 @@ export function summarizeBusinessGrowth(
         current: input.brands.filter((brand) => inWindow(brand.approved_at, windows.current)).length,
         prior: input.brands.filter((brand) => inWindow(brand.approved_at, windows.prior)).length,
       },
-      claimedShare: input.brands.length > 0 ? claimedBrandIds.size / input.brands.length : 0,
     },
     audience: {
       confirmedSubscribers: input.subscribers.filter(
@@ -82,16 +73,14 @@ async function loadBusinessGrowth(
   windows: { current: DateWindow; prior: DateWindow },
 ): Promise<FormoriaBusinessData> {
   const client = createServiceClient()
-  const [brandsResult, ownersResult, subscribersResult] = await Promise.all([
+  const [brandsResult, subscribersResult] = await Promise.all([
     client.from('brands').select('id, approved_at').eq('status', 'approved'),
-    client.from('brand_owners').select('brand_id'),
     client.from('newsletter_subscribers').select('confirmed_at, unsubscribed_at'),
   ])
 
   return summarizeBusinessGrowth(
     {
       brands: assertResult(brandsResult) as ApprovedBrandRow[],
-      owners: assertResult(ownersResult) as Array<{ brand_id: string }>,
       subscribers: assertResult(subscribersResult) as SubscriberRow[],
     },
     windows,

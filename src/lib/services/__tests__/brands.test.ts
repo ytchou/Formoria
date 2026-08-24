@@ -31,36 +31,9 @@ function makeBrandRow(overrides: Record<string, unknown> = {}) {
     approved_at: "2026-01-02T00:00:00Z",
     created_at: "2026-01-01T00:00:00Z",
     updated_at: "2026-01-01T00:00:00Z",
-    brand_owners: null,
     ...overrides,
   };
 }
-
-describe("brandToDomain — isVerified", () => {
-  it("sets isVerified=true when brand_owners is a single object", () => {
-    const row = makeBrandRow({ brand_owners: { user_id: "user-abc" } });
-    const brand = brandToDomain(row);
-    expect(brand.isVerified).toBe(true);
-  });
-
-  it("sets isVerified=true when brand_owners has at least one entry", () => {
-    const row = makeBrandRow({ brand_owners: [{ user_id: "user-abc" }] });
-    const brand = brandToDomain(row);
-    expect(brand.isVerified).toBe(true);
-  });
-
-  it("sets isVerified=false when brand_owners is an empty array", () => {
-    const row = makeBrandRow({ brand_owners: [] });
-    const brand = brandToDomain(row);
-    expect(brand.isVerified).toBe(false);
-  });
-
-  it("sets isVerified=false when brand_owners is null", () => {
-    const row = makeBrandRow({ brand_owners: null });
-    const brand = brandToDomain(row);
-    expect(brand.isVerified).toBe(false);
-  });
-});
 
 describe("mixed-script brand slugs", () => {
   it.each([
@@ -113,7 +86,6 @@ describe("brandToDomain — MIT verification fields", () => {
         mit_smile_listed: true,
         mit_smile_cert: "01200024-02134",
       },
-      brand_owners: null,
     });
 
     const brand = brandToDomain(row);
@@ -127,7 +99,6 @@ describe("brandToDomain — MIT verification fields", () => {
   it("maps unverified MIT status to mitVerified=false", () => {
     const row = makeBrandRow({
       mit_status: "unverified",
-      brand_owners: null,
     });
 
     const brand = brandToDomain(row);

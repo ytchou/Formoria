@@ -1,11 +1,6 @@
 import { readdir, readFile } from 'node:fs/promises';
 import { join, relative } from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { OWNER_FEATURES_OFF_REASON, OWNER_FEATURES_ON_REASON } from '../e2e/helpers/owner-features';
-import {
-  EXPECTED_OWNER_FEATURE_SKIP_REGISTRY,
-  OWNER_FEATURE_CALLSITES,
-} from './e2e-owner-skip-registry';
 import {
   ANONYMOUS_MUTATION_REASON,
   ANONYMOUS_CORRECTION_REASON,
@@ -70,33 +65,25 @@ describe('deployed Playwright report gate', () => {
     ]);
   });
 
-  // Two registries, one manifest. The owner class is gated by a feature flag and
-  // the staging class by the deployed environment; an entry belonging to
-  // neither is an unreviewed skip, which is the failure this gate exists to
-  // catch. Pinning the LENGTH as well as the membership is what makes that
-  // true — `arrayContaining` alone would wave through an extra row.
-  it('keeps the checked manifest limited to the two registered skip classes', async () => {
+  // One registry, one manifest. The owner-feature class went with the claim
+  // flow (DEV-1570), so every remaining entry is a staging-environment fact; an
+  // entry the registry does not claim is an unreviewed skip, which is the
+  // failure this gate exists to catch. Pinning the LENGTH as well as the
+  // membership is what makes that true — `arrayContaining` alone would wave
+  // through an extra row.
+  it('keeps the checked manifest limited to the registered skip class', async () => {
     const value = JSON.parse(await readFile('scripts/e2e-expected-skips.json', 'utf8')) as ExpectedSkipManifest;
     const registeredReasons = new Set<string>([
-      OWNER_FEATURES_OFF_REASON,
-      OWNER_FEATURES_ON_REASON,
       ANONYMOUS_MUTATION_REASON,
       HIDDEN_AUTH_AFFORDANCE_REASON,
       ANONYMOUS_CORRECTION_REASON,
-          STAGING_NO_SITEMAP_REASON,
+      STAGING_NO_SITEMAP_REASON,
       EVENT_AREA_FILTER_REASON,
     ]);
     expect(value.version).toBe(1);
-    expect(value.allowed).toHaveLength(
-      EXPECTED_OWNER_FEATURE_SKIP_REGISTRY.length + EXPECTED_STAGING_CONSTRAINT_SKIP_REGISTRY.length,
-    );
+    expect(value.allowed).toHaveLength(EXPECTED_STAGING_CONSTRAINT_SKIP_REGISTRY.length);
     expect(value.allowed.every(({ reason }) => reason !== undefined && registeredReasons.has(reason))).toBe(true);
     const manifestEntries = value.allowed.map(({ file, title, reason }) => ({ file, title, reason }));
-    expect(manifestEntries).toEqual(expect.arrayContaining(EXPECTED_OWNER_FEATURE_SKIP_REGISTRY.map((entry) => ({
-      file: entry.file,
-      title: entry.title,
-      reason: entry.reason === 'off' ? OWNER_FEATURES_OFF_REASON : OWNER_FEATURES_ON_REASON,
-    }))));
     expect(manifestEntries).toEqual(expect.arrayContaining(
       EXPECTED_STAGING_CONSTRAINT_SKIP_REGISTRY.map(({ file, title, reason }) => ({ file, title, reason })),
     ));
@@ -106,7 +93,7 @@ describe('deployed Playwright report gate', () => {
         suites: [{
           file: `e2e/tests/${allowed.file}`,
           specs: [{
-            title: `${allowed.title ?? 'owner journey'} › representative case`,
+            title: `${allowed.title ?? 'registered journey'} › representative case`,
             tests: [{
               projectName: 'deep',
               status: 'skipped',
@@ -119,42 +106,29 @@ describe('deployed Playwright report gate', () => {
     }
   });
 
-  it('fails when owner-feature skip registry or callsites drift', async () => {
+  // The owner-feature registry is gone (DEV-1570), so nothing pins its skips
+  // any more. This is the replacement: a reintroduced owner-feature gate would
+  // otherwise reappear in the specs with no registry, no manifest row, and no
+  // failure. Written as regex literals on purpose — a find-and-replace over a
+  // string array is how a forbidden list gets silently inverted.
+  it('fails when an owner-feature gate reappears in the e2e specs', async () => {
     const specRoot = 'e2e/tests';
     const specPaths = await listSpecFiles(specRoot);
-    const specSource = await Promise.all(specPaths.map(async (path) => [
-      relative(specRoot, path),
-      await readFile(path, 'utf8'),
-    ] as const));
-    const registryFiles = [...new Set(OWNER_FEATURE_CALLSITES.map((entry) => entry.file))].sort();
-    const callsiteFiles = specSource
-      .filter(([, source]) => /ownerFeaturesDisabled|OWNER_FEATURES_OFF_REASON|OWNER_FEATURES_ON_REASON/.test(source))
-      .map(([file]) => file)
-      .sort();
-    expect(callsiteFiles).toEqual(registryFiles);
-
-    for (const entry of OWNER_FEATURE_CALLSITES) {
-      const source = Object.fromEntries(specSource)[entry.file];
-      expect(source).toBeDefined();
-      if (entry.kind === 'skip') {
-        expect(source).toMatch(/test\.skip\(true/);
-        expect(source).toMatch(entry.reason === 'off' ? /OWNER_FEATURES_OFF_REASON/ : /OWNER_FEATURES_ON_REASON/);
-      } else {
-        expect(source).toMatch(/ownerFeaturesDisabled/);
-        expect(source).not.toMatch(/test\.skip\(true, OWNER_FEATURES_OFF_REASON/);
+    const forbidden = [
+      /ownerFeaturesDisabled/,
+      /OWNER_FEATURES_OFF_REASON/,
+      /OWNER_FEATURES_ON_REASON/,
+      /owner_features_enabled/,
+    ];
+    for (const path of specPaths) {
+      const source = await readFile(path, 'utf8');
+      for (const pattern of forbidden) {
+        expect(source, `${relative(specRoot, path)} reintroduces an owner-feature gate`).not.toMatch(pattern);
       }
     }
-    const ownerSkipCallsites = specSource.flatMap(([file, source]) => {
-      const matches = source.match(/test\.skip\(true,\s*OWNER_FEATURES_(?:OFF|ON)_REASON\)/g) ?? [];
-      return matches.map(() => file);
-    }).sort();
-    const expectedSkipFiles = [...new Set(EXPECTED_OWNER_FEATURE_SKIP_REGISTRY.map((entry) => entry.file))].sort();
-    expect(ownerSkipCallsites).toEqual(expectedSkipFiles);
-    expect(ownerSkipCallsites.every((file) => ownerSkipCallsites.filter((candidate) => candidate === file).length === 1)).toBe(true);
   });
 
-  // The owner reasons are imported constants, so a rename breaks the build. The
-  // staging reasons are literals at the call site, so nothing but this grep
+  // The staging reasons are literals at the call site, so nothing but this grep
   // stops a spec from rewording its reason and silently un-allowlisting its own
   // skip — the manifest would still name the file and title, and the runtime
   // gate compares on the reason text.

@@ -1,7 +1,6 @@
 import { test, expect } from "../fixtures/auth";
 import { createClient } from "@supabase/supabase-js";
-import { gotoSubmitOwner, gotoSubmitRecommend } from "../utils/submit-form";
-import { OWNER_FEATURES_OFF_REASON } from "../helpers/owner-features";
+import { gotoSubmitRecommend } from "../utils/submit-form";
 
 import { BUDGET } from "../budgets";
 test.describe("Community submit flow", () => {
@@ -25,10 +24,9 @@ test.describe("Community submit flow", () => {
     await expect(userPage.locator("#submit-guest-email")).toBeVisible({
       timeout: BUDGET.RENDERED,
     });
-    // The owner/recommendation split, asserted against a control the owner
-    // form really renders: #submit-romanized-name exists only in
-    // SubmitQuickForm. (#submit-instagram, the previous subject, exists in no
-    // form at all, so its absence was guaranteed.)
+    // The recommendation form carries no owner-only control. DEV-1570 removed
+    // the owner fork entirely, so #submit-romanized-name — which only ever
+    // rendered in the owner quick form — must now be absent everywhere.
     await expect(userPage.locator("#submit-romanized-name")).toHaveCount(0);
   });
 
@@ -56,24 +54,6 @@ test.describe("Community submit flow", () => {
     await expect(userPage.locator("#submit-pdpa")).toBeVisible({
       timeout: BUDGET.INTERACTIVE,
     });
-  });
-
-  test("@smoke owner quick form shows its core fields when owner features are enabled", async ({
-    userPage,
-  }) => {
-    test.setTimeout(BUDGET.TEST.JOURNEY);
-    const probe = await userPage.goto("/submit/owner/quick");
-    if (probe?.status() === 404) {
-      test.skip(true, OWNER_FEATURES_OFF_REASON);
-      return;
-    }
-
-    await gotoSubmitOwner(userPage);
-    await expect(userPage.locator("#submit-name")).toBeVisible({
-      timeout: BUDGET.RENDERED,
-    });
-    await expect(userPage.locator("#submit-website")).toBeVisible();
-    await expect(userPage.locator("#submit-description")).toBeVisible();
   });
 
   // There is no submissions list page and no owner surface to fall back to, so

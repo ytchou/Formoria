@@ -1,4 +1,4 @@
-import { BUDGET, POLL } from "../budgets";
+import { BUDGET } from "../budgets";
 import { test, expect } from "../fixtures/auth";
 import zhTW from "../../messages/zh-TW.json";
 
@@ -9,19 +9,18 @@ const EXPECTED_FAQ_ITEMS = Object.keys(zhTW.faq.items).length;
  * FAQ page
  *
  * Journey: Anonymous visitor lands on /faq (zh-TW, the default locale path),
- * sees both section headings and every translated expandable item; hash links scroll
- * the correct section into view; the #claim item auto-opens via the
- * OpenTargetDetails client component.
+ * sees the section heading and every translated expandable item; the #general
+ * hash link scrolls its section into view.
  *
- * The 品牌主專區 section collapsed to a single interest-collection item while
- * owner self-serve is gated off (DEV-1261). It keeps id="claim", so the
- * legacy /faq#claim deep link still lands on an answer — see the last test.
+ * DEV-1570 removed the 品牌主專區 section and the id="claim" answer with the
+ * claim flow. The legacy /faq#claim deep link is still asserted to land on the
+ * page rather than error — see the last test.
  *
  * Actor: anonPage (no authentication, no DB state)
  * Seed: none
  */
 test.describe("FAQ page", () => {
-  test("@smoke renders two section headings and every translated details element", async ({
+  test("@smoke renders the section heading and every translated details element", async ({
     anonPage,
   }) => {
     // /faq is the zh-TW canonical URL (localePrefix: 'as-needed', defaultLocale: 'zh-TW')
@@ -31,7 +30,9 @@ test.describe("FAQ page", () => {
       return;
     }
 
-    // Both section-level h2 headings must be present
+    // The one surviving section-level h2 heading must be present. 品牌主專區
+    // went with the claim flow (DEV-1570), so its absence is asserted too —
+    // an orphaned heading would mean the section came back without its answers.
     await expect(
       anonPage.getByRole("heading", { name: "一般問題", level: 2 }),
     ).toBeVisible({
@@ -39,9 +40,7 @@ test.describe("FAQ page", () => {
     });
     await expect(
       anonPage.getByRole("heading", { name: "品牌主專區", level: 2 }),
-    ).toBeVisible({
-      timeout: BUDGET.RENDERED,
-    });
+    ).toHaveCount(0);
 
     // Derived from the message catalogue rather than hardcoded. This was a bare
     // `toHaveCount(14)` whose own comment admitted that adding a FAQ entry turns
@@ -110,10 +109,10 @@ test.describe("FAQ page", () => {
     ).toBeVisible();
   });
 
-  test("#for-owners anchor scrolls the section into viewport", async ({
+  test("#general anchor scrolls the section into viewport", async ({
     anonPage,
   }) => {
-    const resp = await anonPage.goto("/faq#for-owners", {
+    const resp = await anonPage.goto("/faq#general", {
       timeout: BUDGET.GATED_UI,
     });
     if (resp?.status() === 503) {
@@ -121,13 +120,17 @@ test.describe("FAQ page", () => {
       return;
     }
 
-    // The <section id="for-owners"> must be within the viewport after hash navigation
-    await expect(anonPage.locator("#for-owners")).toBeInViewport({
+    // The <section id="general"> must be within the viewport after hash navigation
+    await expect(anonPage.locator("#general")).toBeInViewport({
       timeout: BUDGET.INTERACTIVE,
     });
   });
 
-  test("#claim details auto-opens via OpenTargetDetails on hash navigation", async ({
+  // The legacy deep link, kept as a regression case rather than deleted:
+  // /faq#claim was published while the claim flow existed, so it is still in
+  // the wild. DEV-1570 removed the answer it pointed at, and an unknown hash
+  // must degrade to the plain FAQ page — not a 404 and not an empty render.
+  test("legacy /faq#claim deep link still lands on the FAQ page", async ({
     anonPage,
   }) => {
     const resp = await anonPage.goto("/faq#claim", {
@@ -137,15 +140,14 @@ test.describe("FAQ page", () => {
       test.skip(true, "PREVIEW_MODE active — skipping");
       return;
     }
+    expect(resp?.status()).toBeLessThan(400);
 
-    // OpenTargetDetails runs a useEffect that sets <details id="claim">.open = true.
-    // Poll until hydration completes and the attribute is set.
-    await expect(async () => {
-      const isOpen = await anonPage.evaluate(() => {
-        const el = document.getElementById("claim");
-        return el ? el.open : false;
-      });
-      expect(isOpen).toBe(true);
-    }).toPass(POLL.UI);
+    await expect(
+      anonPage.getByRole("heading", { name: "一般問題", level: 2 }),
+    ).toBeVisible({ timeout: BUDGET.SERVER_RENDER });
+    await expect(anonPage.locator("#claim")).toHaveCount(0);
+    await expect(anonPage.locator("details")).toHaveCount(EXPECTED_FAQ_ITEMS, {
+      timeout: BUDGET.RENDERED,
+    });
   });
 });

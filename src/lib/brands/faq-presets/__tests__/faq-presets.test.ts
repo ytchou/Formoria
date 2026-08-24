@@ -56,7 +56,6 @@ function makeBrand(overrides: Partial<Brand> = {}): Brand {
     categorySlug: "home",
     categoryLabel: "居家生活",
     city: "taipei",
-    isVerified: false,
     mitStatus: undefined,
     mitDeclaredScope: null,
     mitDeclaredAt: null,

@@ -25,7 +25,6 @@ test.describe("Brand detail deep", () => {
       status: "approved",
       workerIndex: workerInfo.workerIndex,
       withLinks: true,
-      withOwner: true,
       // The FAQ cases below need brand *evidence*, not links: the presets that
       // survive gate on mit_status / subcategories.
       withFaqEvidence: true,

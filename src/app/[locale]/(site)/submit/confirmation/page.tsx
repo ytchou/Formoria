@@ -11,7 +11,6 @@ import { routes } from '@/lib/routes'
 
 type ConfirmationPageProps = {
   params: Promise<{ locale: string }>
-  searchParams?: Promise<{ ownership?: string; intent?: string }>
 }
 
 export async function generateMetadata({ params }: ConfirmationPageProps): Promise<Metadata> {
@@ -42,14 +41,10 @@ export async function generateMetadata({ params }: ConfirmationPageProps): Promi
   }
 }
 
-export default async function ConfirmationPage({ params, searchParams }: ConfirmationPageProps) {
+export default async function ConfirmationPage({ params }: ConfirmationPageProps) {
   const { locale } = await params
   setRequestLocale(locale)
   const t = await getTranslations('submit.confirmation')
-  const resolvedSearchParams = await searchParams
-  const ownershipAdjusted = resolvedSearchParams?.ownership === 'community'
-  const intent = resolvedSearchParams?.intent === 'owner_claim' ? 'owner_claim' : 'recommend'
-  const isOwnerIntent = intent === 'owner_claim'
 
   return (
     <PageShell
@@ -70,15 +65,7 @@ export default async function ConfirmationPage({ params, searchParams }: Confirm
           </div>
         </div>
 
-        <h1 className="mt-6 text-center type-section">
-          {isOwnerIntent ? t('ownerSubheading') : t('subheading')}
-        </h1>
-
-        {ownershipAdjusted ? (
-          <p className="mt-4 rounded-surface border border-rule bg-surface p-4 type-body-sm">
-            {t('communityOwnershipNotice')}
-          </p>
-        ) : null}
+        <h1 className="mt-6 text-center type-section">{t('subheading')}</h1>
 
         {/* Timeline */}
         <div className="mt-8 rounded-surface bg-ground p-6">
@@ -86,14 +73,12 @@ export default async function ConfirmationPage({ params, searchParams }: Confirm
               {([
               {
                 label: t('timeline.review.label'),
-                description: isOwnerIntent
-                  ? t('timeline.ownerReview.description')
-                  : t('timeline.review.description'),
+                description: t('timeline.review.description'),
                 active: true,
               },
               {
-                label: isOwnerIntent ? t('timeline.ownerResult.label') : t('timeline.result.label'),
-                description: isOwnerIntent ? t('timeline.ownerResult.description') : t('timeline.result.description'),
+                label: t('timeline.result.label'),
+                description: t('timeline.result.description'),
                 active: false,
               },
             ] as const).map((step, i) => (

@@ -88,7 +88,6 @@ const verificationOptions: VerificationFilterValue[] = [
   "all",
   "mit-verified",
   "mit-declared",
-  "owned",
 ];
 const filterOptionClassName =
   "flex min-h-12 cursor-pointer items-center gap-2 rounded-control px-2 type-body-sm transition-colors hover:bg-surface hover:text-ink";
@@ -187,8 +186,7 @@ export function BrandFilterSidebar({
   );
   const activeVerification = (
     searchParams.get("verification") === "mit-verified" ||
-    searchParams.get("verification") === "mit-declared" ||
-    searchParams.get("verification") === "owned"
+    searchParams.get("verification") === "mit-declared"
       ? searchParams.get("verification")
       : "all"
   ) as VerificationFilterValue;

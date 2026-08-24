@@ -89,7 +89,7 @@ describe('useImageUpload', () => {
     const fetchMock = vi.spyOn(global, 'fetch').mockResolvedValueOnce(
       new Response(
         JSON.stringify({
-          key: 'claim-proofs/2fd12f4c-51a6-4af4-9dac-7dd12a5ec914/taiwan-tea-company/business-registration.pdf',
+          key: 'origin-evidence/2fd12f4c-51a6-4af4-9dac-7dd12a5ec914/taiwan-tea-company/label.webp',
         }),
         { status: 200 }
       )
@@ -98,13 +98,13 @@ describe('useImageUpload', () => {
     const { result } = renderHook(() =>
       useImageUpload({
         ...uploadConfig,
-        bucket: 'claim-proofs',
+        bucket: 'origin-evidence',
         path: 'maría-garcía/taiwan-tea-company',
-        acceptedTypes: ['application/pdf'],
-        uploadFields: { proofType: 'business_doc' },
+        acceptedTypes: ['image/png'],
+        uploadFields: { stance: 'supports' },
       })
     )
-    const file = createMockFile('business-registration.pdf', 1024, 'application/pdf')
+    const file = createMockFile('label.png', 1024, 'image/png')
 
     await act(async () => {
       await result.current.upload(file)
@@ -112,11 +112,11 @@ describe('useImageUpload', () => {
 
     expect(result.current.status).toBe('success')
     expect(result.current.key).toBe(
-      'claim-proofs/2fd12f4c-51a6-4af4-9dac-7dd12a5ec914/taiwan-tea-company/business-registration.pdf',
+      'origin-evidence/2fd12f4c-51a6-4af4-9dac-7dd12a5ec914/taiwan-tea-company/label.webp',
     )
     const body = fetchMock.mock.calls[0]?.[1]?.body
     expect(body).toBeInstanceOf(FormData)
-    expect((body as FormData).get('proofType')).toBe('business_doc')
+    expect((body as FormData).get('stance')).toBe('supports')
   })
 
   it('returns staged metadata from a custom upload endpoint', async () => {
