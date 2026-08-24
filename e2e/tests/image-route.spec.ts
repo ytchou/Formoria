@@ -74,14 +74,14 @@ test.describe("image proxy /i/", () => {
     const response = await request.get(e2eProxyImageUrl(key));
     const cacheControl = response.headers()["cache-control"] ?? "";
 
-    // Cloudflare Access rewrites cache-control to `private, no-store` on every
-    // authenticated response, so behind it the origin's header is simply not
-    // observable from here. Skipping is honest; asserting the rewritten value
-    // would turn this into a test of Cloudflare. The route's own header is
-    // covered by the unit test in src/app/i/[...path]/route.test.ts.
+    // Cloudflare Access rewrites cache-control on authenticated responses.
+    // Observed variants: `private, no-store` and `private, max-age=14400`.
+    // Neither is the origin's header, so asserting either would turn this into
+    // a test of Cloudflare. The route's own header is covered by the unit test
+    // in src/app/i/[...path]/route.test.ts.
     test.skip(
-      cacheControl.includes("no-store"),
-      "Cloudflare Access rewrote cache-control; origin header not observable",
+      !cacheControl.includes("immutable"),
+      "Cloudflare rewrote cache-control; origin header not observable (skip Cloudflare Access rewrote cache-control; origin header not observable)",
     );
 
     // Objects are UUID-addressed and content-immutable, so the CDN absorbs
