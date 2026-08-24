@@ -182,28 +182,6 @@ export function curatedProductStorageKeyFromPublicUrl(url: string): string | nul
   return key.startsWith(CURATED_PRODUCT_IMAGES_KEY_PREFIX) ? key : null
 }
 
-export async function deleteBrandImages(urls: string[]): Promise<void> {
-  return auditedCall(
-    { provider: 'images', operation: 'deleteBrandImages', kind: 'service' },
-    async () => {
-  const keys = (urls ?? []).map(storageKeyFromPublicUrl).filter((key): key is string => Boolean(key))
-
-  if (keys.length === 0) {
-    return
-  }
-
-  const supabase = createServiceClient()
-  const { error } = await uploadWithRetry(() =>
-    supabase.storage.from(BRAND_IMAGES_BUCKET).remove(keys),
-  )
-
-  if (error) {
-    throw error
-  }
-    },
-  )
-}
-
 export async function deleteStoredImagePaths(paths: string[]): Promise<void> {
   return auditedCall(
     { provider: 'images', operation: 'deleteStoredImagePaths', kind: 'service' },

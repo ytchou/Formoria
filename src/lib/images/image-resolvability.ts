@@ -33,13 +33,13 @@ export type ResolvabilityRow = {
   storagePath: string | null | undefined
 }
 
-export type UnresolvableReason =
+type UnresolvableReason =
   /** The key names no object in this project's bucket. The bytes are missing. */
   | 'missing-object'
   /** The key is deny-listed by the read proxy. The bytes are irrelevant. */
   | 'private-prefix'
 
-export type UnresolvableImage = {
+type UnresolvableImage = {
   id: string
   storagePath: string
   reason: UnresolvableReason

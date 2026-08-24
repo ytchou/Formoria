@@ -28,7 +28,7 @@ export type OwnedBrand = {
   claimedAt: string
 }
 
-export const getUserBrands = cache(async (userId: string): Promise<OwnedBrand[]> => {
+const getUserBrands = cache(async (userId: string): Promise<OwnedBrand[]> => {
   const supabase = createServiceClient()
   const { data, error } = await supabase
     .from('brand_owners')
@@ -112,28 +112,6 @@ export async function listBrandOwnerUserIds(brandId: string): Promise<string[]> 
   return ((data ?? []) as Array<{ user_id: string }>).map((row) => row.user_id)
 }
 
-
-export async function getBrandBySlugForAdmin(slug: string): Promise<OwnedBrand | null> {
-  const supabase = createServiceClient()
-  const { data, error } = await supabase
-    .from('brands')
-    .select('id, name, slug, hero_image_storage_path, brand_owners(claimed_at)')
-    .eq('slug', slug)
-    .maybeSingle()
-
-  if (error) throw error
-  if (!data) return null
-
-  const owners = (data.brand_owners as unknown as { claimed_at: string }[] | undefined) ?? []
-
-  return {
-    brandId: data.id,
-    brandName: data.name,
-    brandSlug: data.slug,
-    heroImageUrl: imagePathToUrl(data.hero_image_storage_path),
-    claimedAt: owners[0]?.claimed_at ?? new Date().toISOString(),
-  }
-}
 
 export async function revokeOwnership(
   brandId: string,

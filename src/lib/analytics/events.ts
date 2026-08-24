@@ -712,7 +712,7 @@ export const ANALYTICS_EVENTS = {
  * operator comparing rungs in PostHog must be able to break every one of them
  * down by the same properties.
  */
-export interface ScrapeLadderPayload {
+interface ScrapeLadderPayload {
   /** Non-reversible hash. NEVER a raw IP or a raw `fm_visitor` id. */
   identity_key: string
   identity_kind: 'user' | 'visitor' | 'ip'

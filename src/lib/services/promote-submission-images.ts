@@ -61,7 +61,7 @@ export function createPromotionStorage(
 }
 
 /** Every `brand_images` row for one brand that still carries a submissions key. */
-export async function fetchSubmissionKeyedBrandImages(
+async function fetchSubmissionKeyedBrandImages(
   brandId: string,
   supabase: ServiceClient = createServiceClient()
 ): Promise<PromotionRow[]> {
