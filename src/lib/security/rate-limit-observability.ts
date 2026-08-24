@@ -1,3 +1,4 @@
+import * as Sentry from '@sentry/nextjs'
 import { after } from 'next/server'
 import { ANALYTICS_EVENTS } from '@/lib/analytics/events'
 // Type-only: erased at build time, so the "keep imports light" rule below still
@@ -8,10 +9,12 @@ import type { EnforcementAction, EnforcementDecision } from './enforcement'
  * Rate-limit store telemetry, kept in its own module for two reasons.
  *
  * 1. It runs in the edge runtime. On 2026-08-13 the Upstash quota was exhausted,
- *    the limiter 500ed every rule-matched route, and nothing alerted: Sentry's
- *    Node SDK is not loaded in the edge runtime, and Railway's log pipeline had
- *    already dropped hundreds of messages by the time anyone looked. PostHog
- *    ingest is a plain `fetch`, so it is the one sink that works from here.
+ *    the limiter 500ed every rule-matched route, and nothing alerted: Railway's
+ *    log pipeline had already dropped hundreds of messages by the time anyone
+ *    looked. PostHog ingest is a plain `fetch`, so it works from here. Sentry
+ *    is now initialized for edge via `sentry.edge.config.ts`, so degradation
+ *    events fan out to both PostHog and Sentry -- neither is downstream of the
+ *    other's failure mode.
  * 2. Imports are deliberately light. This module is pulled in by both the edge
  *    middleware and `/api/health`, and the header constant below lives here --
  *    not in `rate-limiter.ts` -- so the health route does not drag the Upstash
@@ -68,6 +71,30 @@ export function setRateLimitTelemetryTransportForTests(fn: TelemetryTransport | 
   transport = fn ?? postToPostHog
 }
 
+type DegradationAlarm = (event: string, properties: Record<string, unknown>) => void
+
+function sentryDegradationAlarm(event: string, properties: Record<string, unknown>): void {
+  try {
+    if (!Sentry.getClient()) return
+    Sentry.captureMessage(`[rate-limiter] ${event}`, {
+      level: 'warning',
+      contexts: { 'rate-limiter': properties },
+    })
+  } catch {
+    // Sentry is the second-chance alarm; a failure here is not worth surfacing.
+  }
+}
+
+let degradationAlarm: DegradationAlarm = sentryDegradationAlarm
+
+/**
+ * Test seam: swap the Sentry degradation alarm so suites never issue a real
+ * Sentry call. Passing null restores the default Sentry transport.
+ */
+export function setDegradationAlarmForTests(fn: DegradationAlarm | null): void {
+  degradationAlarm = fn ?? sentryDegradationAlarm
+}
+
 /**
  * Fire and forget. Mirrors `scheduleFlush()` in `crawler-telemetry.ts`: `after()`
  * runs the send once the response is on the wire, and outside a request scope
@@ -96,22 +123,26 @@ export function reportRateLimitStoreUnavailable(input: {
   errorMessage: string
   cooldownMs: number
 }): void {
-  emit(ANALYTICS_EVENTS.RATE_LIMIT_STORE_UNAVAILABLE, {
+  const properties = {
     error_message: input.errorMessage,
     cooldown_ms: input.cooldownMs,
     $process_person_profile: false,
-  })
+  }
+  emit(ANALYTICS_EVENTS.RATE_LIMIT_STORE_UNAVAILABLE, properties)
+  degradationAlarm(ANALYTICS_EVENTS.RATE_LIMIT_STORE_UNAVAILABLE, properties)
 }
 
 export function reportRateLimitStoreRecovered(input: {
   cooldownMs: number
   outageMs: number
 }): void {
-  emit(ANALYTICS_EVENTS.RATE_LIMIT_STORE_RECOVERED, {
+  const properties = {
     cooldown_ms: input.cooldownMs,
     outage_ms: input.outageMs,
     $process_person_profile: false,
-  })
+  }
+  emit(ANALYTICS_EVENTS.RATE_LIMIT_STORE_RECOVERED, properties)
+  degradationAlarm(ANALYTICS_EVENTS.RATE_LIMIT_STORE_RECOVERED, properties)
 }
 
 /**
@@ -316,9 +347,11 @@ export function reportRateLimiterDegraded(input: {
   reason: string
   storeKind: 'in-memory' | 'disabled'
 }): void {
-  emit(ANALYTICS_EVENTS.RATE_LIMITER_DEGRADED, {
+  const properties = {
     reason: input.reason,
     store_kind: input.storeKind,
     $process_person_profile: false,
-  })
+  }
+  emit(ANALYTICS_EVENTS.RATE_LIMITER_DEGRADED, properties)
+  degradationAlarm(ANALYTICS_EVENTS.RATE_LIMITER_DEGRADED, properties)
 }

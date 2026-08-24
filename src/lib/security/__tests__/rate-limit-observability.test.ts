@@ -18,6 +18,7 @@ import {
   reportRateLimiterDegraded,
   reportVerifiedCrawlerAllowed,
   reportVisitorIdentityRotated,
+  setDegradationAlarmForTests,
   setRateLimitTelemetryTransportForTests,
 } from '../rate-limit-observability'
 import type { EnforcementDecision } from '../enforcement'
@@ -153,6 +154,76 @@ describe('rate-limit store telemetry', () => {
     expect(() =>
       reportRateLimitStoreUnavailable({ errorMessage: 'quota exceeded', cooldownMs: 60_000 }),
     ).not.toThrow()
+  })
+})
+
+describe('degradation alarm (Sentry second sink)', () => {
+  let alarmCalls: Array<{ event: string; properties: Record<string, unknown> }>
+
+  beforeEach(() => {
+    alarmCalls = []
+    setDegradationAlarmForTests((event, properties) => {
+      alarmCalls.push({ event, properties })
+    })
+    setRateLimitTelemetryTransportForTests(async () => {})
+  })
+
+  afterEach(() => {
+    setDegradationAlarmForTests(null)
+    setRateLimitTelemetryTransportForTests(null)
+  })
+
+  it('fires on store-unavailable', () => {
+    reportRateLimitStoreUnavailable({ errorMessage: 'quota exceeded', cooldownMs: 60_000 })
+
+    expect(alarmCalls).toHaveLength(1)
+    expect(alarmCalls[0].event).toBe(ANALYTICS_EVENTS.RATE_LIMIT_STORE_UNAVAILABLE)
+    expect(alarmCalls[0].properties).toMatchObject({
+      error_message: 'quota exceeded',
+      cooldown_ms: 60_000,
+    })
+  })
+
+  it('fires on store-recovered', () => {
+    reportRateLimitStoreRecovered({ cooldownMs: 60_000, outageMs: 61_000 })
+
+    expect(alarmCalls).toHaveLength(1)
+    expect(alarmCalls[0].event).toBe(ANALYTICS_EVENTS.RATE_LIMIT_STORE_RECOVERED)
+    expect(alarmCalls[0].properties).toMatchObject({
+      cooldown_ms: 60_000,
+      outage_ms: 61_000,
+    })
+  })
+
+  it('fires on limiter-degraded', () => {
+    reportRateLimiterDegraded({ reason: 'upstash_env_missing', storeKind: 'in-memory' })
+
+    expect(alarmCalls).toHaveLength(1)
+    expect(alarmCalls[0].event).toBe(ANALYTICS_EVENTS.RATE_LIMITER_DEGRADED)
+    expect(alarmCalls[0].properties).toMatchObject({
+      reason: 'upstash_env_missing',
+      store_kind: 'in-memory',
+    })
+  })
+
+  it('does not fire on non-degradation events', () => {
+    reportEnforcementDecision({
+      identityKey: 'abcd1234',
+      decision: {
+        action: 'block',
+        effectiveAction: 'block',
+        reason: 'block_threshold_exceeded',
+        mode: 'enforce',
+        shadowed: false,
+        family: 'directory:detail',
+        window: 'tenMinutes',
+        identityKind: 'visitor',
+        threshold: 160,
+        observed: 412,
+      },
+    })
+
+    expect(alarmCalls).toHaveLength(0)
   })
 })
 
