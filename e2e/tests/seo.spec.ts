@@ -336,7 +336,6 @@ test.describe("SEO deep", () => {
       // resolvable OG image on the runs where the sitemap does emit it; on a
       // run with no published trail the filter below simply finds no match.
       "/discover",
-      "/events",
       "/about",
       "/faq",
       "/contact",

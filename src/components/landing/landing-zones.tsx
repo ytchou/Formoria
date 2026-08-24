@@ -1,7 +1,6 @@
 import type { ReactNode } from "react";
 import { getTranslations } from "next-intl/server";
 
-import { EventCard } from "@/components/events/event-card";
 import { ProductWall } from "@/components/landing/product-wall";
 import { TrailTile } from "@/components/landing/trail-tile";
 import { SectionHeader } from "@/components/shared/section-header";
@@ -16,17 +15,9 @@ import { PhotoBand } from "@/components/ui/photo-band";
 import type { PublicBrandCard } from "@/lib/brands/contracts";
 import type { WallSlot } from "@/lib/curated-products/home-wall";
 import type { Locale } from "@/lib/seo/alternates";
-import type { Event, EventPhase } from "@/lib/services/events";
 import type { StoryEntry } from "@/lib/services/stories";
 import type { TrailEntry } from "@/lib/services/trails";
 import { routes } from "@/lib/routes";
-
-/** An event already resolved against the render's single Taipei "today". */
-export type PromotedEvent = {
-  event: Event;
-  phase: EventPhase;
-  brandCount: number;
-};
 
 export type LandingZonesProps = {
   locale: Locale;
@@ -43,7 +34,6 @@ export type LandingZonesProps = {
   /** Every indexable trail rendered in the dedicated editorial zone. */
   trails: TrailEntry[];
   stories: StoryEntry[];
-  events: PromotedEvent[];
   brands: PublicBrandCard[];
 };
 
@@ -54,7 +44,7 @@ export type LandingZonesProps = {
  *     selection the justified product wall
  *     trails    the style zone — every indexable trail as an editorial card
  *     manifesto the photo band
- *     topics    stories, with a live event lifted above them
+ *     topics    stories
  *     directory one explore-style brand rail
  *     close     the CTA band — recommend · newsletter
  *
@@ -63,9 +53,9 @@ export type LandingZonesProps = {
  *
  * TWO ZONES THE APPROVED MOCK DOES NOT DRAW are kept, in the slot they already
  * held. `manifesto` is pinned on `/` by `e2e/tests/seo.spec.ts`, which asserts
- * its h2 is visible in both locales. `topics` is the homepage's only path to a
- * dated event, and dropping it would also strip the stories and events reads
- * out of `page.tsx` and out of `isLandingRenderDegraded`.
+ * its h2 is visible in both locales. `topics` renders stories and dropping it
+ * would strip the stories read out of `page.tsx` and out of
+ * `isLandingRenderDegraded`.
  *
  * Only ONE flat-color zone carries a background — the closing band, on
  * `surface`. The manifesto owns its photograph; every other seam is
@@ -78,16 +68,12 @@ export async function LandingZones({
   wall,
   trails,
   stories,
-  events,
   brands,
 }: LandingZonesProps) {
-  const [t, tEvents, tSelected] = await Promise.all([
+  const [t, tSelected] = await Promise.all([
     getTranslations({ locale, namespace: "landing" }),
-    getTranslations({ locale, namespace: "events" }),
     getTranslations({ locale, namespace: "brandDetail.selectedProducts" }),
   ]);
-
-  const hasStories = stories.length > 0;
 
   return (
     <>
@@ -221,88 +207,33 @@ export async function LandingZones({
           </Link>
         </PhotoBand>
 
-        {(events.length > 0 || stories.length > 0) && (
+        {stories.length > 0 && (
           <section
             data-landing-zone="topics"
             aria-labelledby="landing-topics"
             className="py-section"
           >
             <PageShell measure="page">
-              {/* The zone renders whenever it has events OR stories, so its
-                  heading, note and link follow what it actually contains — an
-                  events-only zone headed "Stories", linking to /stories, would
-                  also name the landmark "Stories" for a list of events. */}
               <SectionHeader
                 id="landing-topics"
-                heading={
-                  hasStories ? t("latestStories.heading") : t("events.heading")
-                }
-                note={hasStories ? t("latestStories.note") : undefined}
-                linkHref={hasStories ? routes.stories() : routes.events()}
-                linkLabel={
-                  hasStories
-                    ? t("latestStories.linkText")
-                    : t("events.linkText")
-                }
+                heading={t("latestStories.heading")}
+                note={t("latestStories.note")}
+                linkHref={routes.stories()}
+                linkLabel={t("latestStories.linkText")}
               />
 
-              {/*
-                A live event lifts above the stories: it is the only item on
-                this page a reader can act on with a date attached, and it
-                stops being true on a known day. The list keeps the events
-                heading as its accessible name rather than a visible `h3`, so
-                the cards stay one level under the zone's `h2`.
-              */}
-              {events.length > 0 && (
-                <div className="mt-6 space-y-4">
-                  <ul
-                    aria-label={t("events.heading")}
-                    className="flex list-none flex-col gap-4 p-0"
-                  >
-                    {events.map(({ event, phase, brandCount }) => (
-                      <li key={event.id}>
-                        <EventCard
-                          event={event}
-                          phase={phase}
-                          phaseLabel={tEvents(`phase.${phase}`)}
-                          brandCountLabel={
-                            brandCount > 0
-                              ? tEvents("brandCount", { count: brandCount })
-                              : null
-                          }
-                          locale={locale}
-                          headingLevel={3}
-                        />
-                      </li>
-                    ))}
-                  </ul>
-                  {/* Only when the zone header points at /stories — otherwise
-                      the header already carries this exact link. */}
-                  {hasStories && (
-                    <Link
-                      href={routes.events()}
-                      className="inline-flex min-h-12 items-center font-medium text-accent"
-                    >
-                      {t("events.linkText")}
-                    </Link>
-                  )}
-                </div>
-              )}
-
-              {stories.length > 0 && (
-                <div className="mt-8 divide-y divide-rule border-y border-rule">
-                  {stories.map((story, index) => (
-                    <StoryRow
-                      key={story.slug}
-                      story={story}
-                      locale={locale}
-                      headingLevel={3}
-                      position={index}
-                      trackingSurface="homepage_latest_stories"
-                    />
-                  ))}
-                </div>
-              )}
+              <div className="mt-8 divide-y divide-rule border-y border-rule">
+                {stories.map((story, index) => (
+                  <StoryRow
+                    key={story.slug}
+                    story={story}
+                    locale={locale}
+                    headingLevel={3}
+                    position={index}
+                    trackingSurface="homepage_latest_stories"
+                  />
+                ))}
+              </div>
             </PageShell>
           </section>
         )}

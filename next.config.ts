@@ -356,6 +356,38 @@ const nextConfig: NextConfig = {
         },
       ]),
       // <<< end generated block
+      // DEV-1605: event surface parked. Pattern-based so /events/any-slug
+      // resolves without listing each past event individually.
+      {
+        source: "/events/:path*",
+        destination: "/",
+        permanent: true,
+      },
+      {
+        source: "/events",
+        destination: "/",
+        permanent: true,
+      },
+      {
+        source: "/en/events/:path*",
+        destination: "/en",
+        permanent: true,
+      },
+      {
+        source: "/en/events",
+        destination: "/en",
+        permanent: true,
+      },
+      {
+        source: "/zh-TW/events/:path*",
+        destination: "/",
+        permanent: true,
+      },
+      {
+        source: "/zh-TW/events",
+        destination: "/",
+        permanent: true,
+      },
       {
         source: "/about-us",
         destination: "/about",

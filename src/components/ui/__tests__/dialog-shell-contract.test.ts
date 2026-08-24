@@ -67,18 +67,7 @@ const SHELL_OWNED_BOX =
  * all still present. Adding a row here is a design decision, not a way to get
  * a red test green.
  */
-const SHELL_BOX_EXCLUSIONS: { path: string; reason: string }[] = [
-  {
-    // The one deliberate exemption from the mobile bottom-sheet rule. The expo
-    // floor map is a fullscreen image viewer: on mobile it presents
-    // `w-screen h-[100dvh]` edge to edge, because a map read at bottom-sheet
-    // height is not readable at all. It therefore sets its own height and width
-    // caps, and no `size` value should be invented to describe a one-off
-    // fullscreen viewer.
-    path: "src/components/events/taiwan-creative-expo-official-map.tsx",
-    reason: "fullscreen map viewer — the deliberate bottom-sheet exemption",
-  },
-];
+const SHELL_BOX_EXCLUSIONS: { path: string; reason: string }[] = [];
 
 type Violation = { file: string; line: number; classes: string[] };
 

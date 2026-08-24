@@ -34,7 +34,6 @@ import { BrandLinks } from "@/components/brands/brand-links";
 import { BrandSectionNav } from "@/components/brands/brand-section-nav";
 import { StockistsSection } from "@/components/brands/stockists-section";
 import { BrandSelectedProducts } from "@/components/brands/brand-selected-products";
-import { BrandEventsSection } from "@/components/brands/brand-events-section";
 import { RelatedBrands } from "@/components/brands/related-brands";
 import { PageShell } from "@/components/ui/page-shell";
 import { SavedBrandsProvider } from "@/hooks/use-saved-brands";
@@ -44,7 +43,6 @@ import { getBrandVisitLink } from "@/lib/brands/link-fallback";
 import { faqItemsToQuestions, getBrandFaq } from "@/lib/services/brand-faq";
 import { getStockistsForBrand } from "@/lib/services/stockists";
 import { getPublishedCuratedProductsForBrand } from "@/lib/services/curated-products";
-import { getBrandEventParticipations } from "@/lib/services/events";
 import { L1_CATEGORIES, isVisibleCategory } from "@/lib/taxonomy/ontology";
 import { cn } from "@/lib/utils";
 import { shouldShowBrandSectionNav } from "@/lib/brands/section-nav";
@@ -190,15 +188,11 @@ export default async function BrandDetailPage({ params }: PageProps) {
     tBrandDetail(key, params as never)) as BrandFaqTranslateFn;
   const cityLabel = displayBrand.city ? tCities(displayBrand.city) : null;
   const faqContext = await getPublicBrandFaqContextById(displayBrand.id);
-  const [faqItems, stockists, curatedProducts, eventParticipations] =
+  const [faqItems, stockists, curatedProducts] =
     await Promise.all([
       getBrandFaq(displayBrand.id, faqContext, tBrandFaq, safeLocale, cityLabel),
       getStockistsForBrand(displayBrand.id),
       getPublishedCuratedProductsForBrand(displayBrand.id),
-      // Composed here rather than folded into `PublicBrandDetail`: the page
-      // already assembles independent services around one brand, and widening
-      // the brand projection would put an event join on every brand card query.
-      getBrandEventParticipations(displayBrand.id),
     ]);
   const stockistCount = stockists.confirmed.length + stockists.possible.length;
   // Same builder generateMetadata uses for <link rel="canonical">, so the
@@ -256,9 +250,6 @@ export default async function BrandDetailPage({ params }: PageProps) {
             label: tBrandDetail("tabNav.selectedProducts"),
           },
         ]
-      : []),
-    ...(eventParticipations.length > 0
-      ? [{ id: "events", label: tBrandDetail("tabNav.events") }]
       : []),
     ...(faqItems.length > 0
       ? [{ id: "faq", label: tBrandDetail("tabNav.faq") }]
@@ -426,15 +417,6 @@ export default async function BrandDetailPage({ params }: PageProps) {
                     locale={safeLocale}
                     brand={displayBrand}
                     products={curatedProducts}
-                  />
-                </section>
-              )}
-
-              {eventParticipations.length > 0 && (
-                <section id="events" className={brandSectionClassName}>
-                  <BrandEventsSection
-                    locale={safeLocale}
-                    participations={eventParticipations}
                   />
                 </section>
               )}
