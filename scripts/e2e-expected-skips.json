@@ -40,6 +40,41 @@
       "file": "event-detail.spec.ts",
       "title": "area chips filter the brand grid in place",
       "reason": "event lineup has fewer than two areas to filter by"
+    },
+    {
+      "file": "admin-brand-refresh.spec.ts",
+      "title": "keeps a failed refresh selected while removing successful approvals",
+      "reason": "DEV-1592: admin panel crashes on the Approve dialog"
+    },
+    {
+      "file": "admin-moderation.spec.ts",
+      "title": "admin cannot bypass the block and can review the resulting queue rows",
+      "reason": "DEV-1590: Content section Edit button crashes after PR #889 namespace rename"
+    },
+    {
+      "file": "auth-signup-journey.spec.ts",
+      "title": "confirms a new account and lands on the home page signed in",
+      "reason": "DEV-1592: signUp/OTP verification fails intermittently on staging"
+    },
+    {
+      "file": "brand-detail.spec.ts",
+      "title": "FAQ answer text is in the DOM while collapsed",
+      "reason": "Cloudflare WAF challenges raw-HTTP Googlebot requests on a remote target"
+    },
+    {
+      "file": "brand-detail.spec.ts",
+      "title": "approved historical slugs redirect once to localized self-canonical pages",
+      "reason": "Cloudflare WAF challenges raw-HTTP Googlebot requests on a remote target"
+    },
+    {
+      "file": "brand-detail.spec.ts",
+      "title": "historical slugs targeting hidden brands return direct 404 responses",
+      "reason": "Cloudflare WAF challenges raw-HTTP Googlebot requests on a remote target"
+    },
+    {
+      "file": "image-route.spec.ts",
+      "title": "sets an immutable one-year cache header",
+      "reason": "Cloudflare rewrites cache-control on remote targets"
     }
   ]
 }
