@@ -49,7 +49,7 @@
     {
       "file": "admin-moderation.spec.ts",
       "title": "admin cannot bypass the block and can review the resulting queue rows",
-      "reason": "DEV-1590: Content section Edit button crashes after PR #889 namespace rename"
+      "reason": "DEV-1590: Content section Edit button crashes the admin panel after PR #889 namespace rename"
     },
     {
       "file": "auth-signup-journey.spec.ts",
