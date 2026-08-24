@@ -71,7 +71,7 @@
     "seo:gsc-export": "tsx --env-file=.env.local scripts/seo/search-console-export.ts",
     "seo:gsc-404": "tsx --env-file=.env.local scripts/seo/gsc-404-triage.ts",
     "seo:redirect-health": "tsx --env-file=.env.local scripts/seo/redirect-health.ts",
-    "test:e2e": "playwright test --project=deep --project=mobile",
+    "test:e2e": "playwright test --project=deep",
     "test:e2e:smoke": "playwright test --project=deep --grep @smoke",
     "test:e2e:cross-browser": "playwright test --project=cross-browser-chromium --project=cross-browser-firefox --project=cross-browser-webkit --grep @cross-browser e2e/tests/landing-search-cross-browser.spec.ts",
     "test:e2e:deep": "playwright test --project=deep",

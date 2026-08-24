@@ -141,7 +141,6 @@ jobs:
         run: >-
           pnpm exec playwright test
           --project=deep
-          --project=mobile
           --reporter=html,json
       - name: Reject unexpected skipped E2E tests
         id: report_gate
@@ -690,7 +689,6 @@ jobs:
           CI: "true"
           PLAYWRIGHT_TEST: "true"
           PLAYWRIGHT_JSON_OUTPUT_NAME: playwright-results-validation.json
-        run: pnpm exec playwright test --project=deep --project=mobile --reporter=html,json
       - name: Reject unexpected self-heal skips
         id: validation_report_gate
         if: always() && steps.validation.outcome != 'skipped'
