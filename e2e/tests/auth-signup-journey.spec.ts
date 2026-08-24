@@ -22,6 +22,29 @@ import { BUDGET } from '../budgets';
 // delivery. This journey follows that link, so it exercises deployed Auth and
 // the app callback rather than an admin-generated token shortcut.
 
+type AdminClient = ReturnType<typeof createClient>;
+
+/**
+ * Deletes the journey account, tolerating one already gone.
+ *
+ * An absent user IS the state this cleanup wants, so it is not a failure. This
+ * matters more than it looks: the caller runs in `finally`, and a throw there
+ * REPLACES whatever the test body threw. Failing on "User not found" is how the
+ * real signup failure stayed invisible across a dozen red runs — the log only
+ * ever carried the cleanup error.
+ *
+ * It lives outside the test body because `playwright/no-conditional-in-test`
+ * forbids the branching inline.
+ */
+async function deleteJourneyUser(admin: AdminClient, userId: string | null) {
+  if (!userId) return;
+  const { error } = await admin.auth.admin.deleteUser(userId);
+  const message = error?.message ?? '';
+  if (error && !/user not found/i.test(message)) {
+    throw new Error(`[e2e-cleanup] journey user deletion failed: ${message}`);
+  }
+}
+
 test.describe.serial('Auth — signup to first value', () => {
   test.skip(!process.env.SUPABASE_SERVICE_ROLE_KEY, 'requires service role key');
 
@@ -121,12 +144,7 @@ test.describe.serial('Auth — signup to first value', () => {
         'the account must be confirmed after following the link',
       ).not.toBeNull();
     } finally {
-      if (userId) {
-        const { error: deleteError } = await admin.auth.admin.deleteUser(userId);
-        if (deleteError) {
-          throw new Error(`[e2e-cleanup] journey user deletion failed: ${deleteError.message}`);
-        }
-      }
+      await deleteJourneyUser(admin, userId);
       await deleteCapturedAuthEmail(captureId);
       await deleteSignupTestUsers(undefined, { throwOnError: true });
     }

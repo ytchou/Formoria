@@ -14,7 +14,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { usePathname } from '@/i18n/navigation'
-import { readOnlyStagingLocaleHref, type AppLocale } from '@/i18n/locale-preference'
+import { LOCALE_COOKIE, readOnlyStagingLocaleHref, type AppLocale } from '@/i18n/locale-preference'
 import { trackLanguageSwitched } from '@/lib/analytics'
 
 function preserveCurrentUrl(event: FormEvent<HTMLFormElement>, locale: AppLocale) {
@@ -30,6 +30,20 @@ function preserveCurrentUrl(event: FormEvent<HTMLFormElement>, locale: AppLocale
     )
     if (stagingHref) {
       event.preventDefault()
+      /*
+       * The staging bypass never reaches `setLocalePreference`, which is the
+       * only writer of the locale cookie. Without this the choice is lost on
+       * the next request and next-intl falls back to the default locale.
+       * Attributes mirror the server action, which sets httpOnly: false --
+       * so the client can write the same cookie the server would have.
+       */
+      document.cookie = [
+        `${LOCALE_COOKIE}=${locale}`,
+        'path=/',
+        'samesite=lax',
+        `max-age=${365 * 24 * 60 * 60}`,
+        ...(window.location.protocol === 'https:' ? ['secure'] : []),
+      ].join(';')
       window.location.assign(stagingHref)
     }
   }

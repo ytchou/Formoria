@@ -136,6 +136,15 @@ export default defineConfig({
         // project. Left in `deep` they would run with the gates off and pass
         // without proving anything.
         "e2e/tests/anti-enumeration-*.spec.ts",
+        /*
+         * Owned by `playwright.visual.config.ts`, which pins its own local dev
+         * server and a `snapshotPathTemplate` with no project/platform segment.
+         * Run from `deep` it gets Playwright's default `-{projectName}-{platform}`
+         * naming and looks for baselines that were never committed under that
+         * name -- and pixel baselines rendered locally mean nothing compared
+         * against deployed staging anyway. Use `pnpm test:visual`.
+         */
+        "e2e/tests/visual-regression.spec.ts",
       ],
       use: { ...devices["Desktop Chrome"] },
     },
