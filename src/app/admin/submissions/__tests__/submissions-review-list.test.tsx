@@ -668,8 +668,6 @@ function image(id: string, url: string, sortOrder: number) {
     source: "admin",
     status: "active" as const,
     sortOrder,
-    altZh: null,
-    altEn: null,
     width: 1200,
     height: 900,
     isLogo: false,

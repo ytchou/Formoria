@@ -1,4 +1,4 @@
-import { getLocale, getTranslations } from 'next-intl/server'
+import { getTranslations } from 'next-intl/server'
 
 import { MissingBrandNotice, type BrandLoaderSeam } from './brand-card-mdx'
 import {
@@ -56,8 +56,6 @@ export async function BrandGallery({
   // shift this list — the null hero here and the unsafe-host filter below — and
   // `sourceIndex` survives both.
   const entries = getBrandGalleryImageEntries(source)
-  const locale = await getLocale()
-  const isEnglish = locale === 'en'
 
   // `toImageFields` builds `active` as active rows sorted by `sort_order`, then
   // sets `heroImageUrl = active[0].url`, `productPhotos = active.slice(1).map`
@@ -65,17 +63,7 @@ export async function BrandGallery({
   const images = entries
     .map(({ url, sourceIndex: index }) => {
       const imageAlt = source.imageAlts[index]
-      const heroMetadata = index === 0 ? source.heroImageMetadata : null
-      const preferredAlt = isEnglish ? imageAlt?.altEn : imageAlt?.altZh
-      const otherAlt = isEnglish ? imageAlt?.altZh : imageAlt?.altEn
-      const metadataPreferredAlt = isEnglish ? heroMetadata?.altEn : heroMetadata?.altZh
-      const metadataOtherAlt = isEnglish ? heroMetadata?.altZh : heroMetadata?.altEn
-      const alt =
-        preferredAlt ||
-        metadataPreferredAlt ||
-        otherAlt ||
-        metadataOtherAlt ||
-        t('galleryImageAlt', { brand: brand.name })
+      const alt = t('galleryImageAlt', { brand: brand.name })
 
       // The whole meta rides along rather than three unpacked fields: this is
       // the same `BrandImageMeta` the shared fill helper takes, so nothing has

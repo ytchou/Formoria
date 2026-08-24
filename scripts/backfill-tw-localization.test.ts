@@ -101,7 +101,6 @@ describe("buildExhibitorPatches", () => {
       {
         id: EXHIBITOR_ID,
         summary_zh: `以${BANNED}見長的工作室。`,
-        image_alt_zh: `攤位${BANNED_LINK}照片`,
       },
     ]);
 
@@ -110,13 +109,9 @@ describe("buildExhibitorPatches", () => {
         id: EXHIBITOR_ID,
         patch: {
           summary_zh: `以${CORRECTED}見長的工作室。`,
-          image_alt_zh: `攤位${CORRECTED_LINK}照片`,
         },
         terms: {
           summary_zh: [{ term: BANNED, replacement: CORRECTED, count: 1 }],
-          image_alt_zh: [
-            { term: BANNED_LINK, replacement: CORRECTED_LINK, count: 1 },
-          ],
         },
       },
     ]);

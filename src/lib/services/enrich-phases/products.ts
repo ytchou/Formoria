@@ -1,4 +1,3 @@
-import type { SupabaseClient } from "@supabase/supabase-js";
 import { auditedCall } from "@/lib/audit";
 import { PRODUCTS_LABELS, PRODUCTS_SYSTEM_PROMPT } from "@/lib/prompts";
 import {
@@ -33,7 +32,6 @@ import {
 } from "../_shared/llm-call-outcome";
 import {
   brandTarget,
-  targetImageStorage,
   type EnrichmentTarget,
 } from "../_shared/enrichment-target";
 import { preferPatched } from "./descriptions";
@@ -159,20 +157,12 @@ export type ProductProposalValidation = {
   dropReasons: Record<string, number>;
 };
 
-type ProductImageRow = {
-  alt_zh: string | null;
-  alt_en: string | null;
-  source_url: string | null;
-};
-
 /**
  * The image tables are reached through the untyped `from` surface, with the row
  * shape asserted at the boundary — the table name is only known at runtime
  * (`brand_images` vs `submission_images`), which the generated union types cannot
  * narrow. Same shape as `FaqSupabase`, for the same reason.
  */
-export type ProductsSupabase = Pick<SupabaseClient, "from">;
-
 export type ProductsPhaseOptions = {
   brand: EnrichBrand;
   phases: EnrichPhase[];
@@ -182,7 +172,6 @@ export type ProductsPhaseOptions = {
   dryRun?: boolean;
   target?: EnrichmentTarget;
   jobId?: string;
-  supabase?: ProductsSupabase;
 };
 
 /**
@@ -550,48 +539,6 @@ function candidatePages(
   return lines;
 }
 
-/**
- * Reuses the `classify_images` output: the alt text it wrote and the page each
- * image came from, which is what an `imageSourceUrl` has to be re-checkable
- * against. Soft by construction — an image read that fails costs the model some
- * evidence, never the phase.
- *
- * There is deliberately NO `createServiceClient` fallback: the caller owns the
- * client (`curation-operations` hands over the batch's), and a phase that
- * silently opens its own connection cannot be unit-tested and cannot be pointed
- * at a test project.
- */
-async function loadImageCandidates(
-  target: EnrichmentTarget,
-  supabase: ProductsSupabase | undefined,
-): Promise<string[]> {
-  if (!supabase) return [];
-  const storage = targetImageStorage(target);
-  try {
-    const { data } = (await supabase
-      .from(storage.table)
-      .select("alt_zh, alt_en, source_url")
-      .eq(storage.foreignKey, target.id)
-      .eq("status", "active")
-      .order("sort_order", { ascending: true })
-      .limit(MAX_IMAGE_CANDIDATES)) as {
-      data: ProductImageRow[] | null;
-    };
-    return (data ?? []).flatMap((row) => {
-      const alt = trimmedString(row.alt_zh) ?? trimmedString(row.alt_en);
-      const page = trimmedString(row.source_url);
-      if (!alt && !page) return [];
-      return [`- ${alt ?? ""}${page ? ` | ${page}` : ""}`];
-    });
-  } catch (error) {
-    console.error(
-      `  [PRODUCTS] image candidate lookup failed:`,
-      error instanceof Error ? error.message : String(error),
-    );
-    return [];
-  }
-}
-
 function scrapedImagePages(
   site: URL,
   scrapedData: EnrichScrapedData | null,
@@ -658,7 +605,6 @@ export async function runProductsPhase({
   dryRun,
   target,
   jobId,
-  supabase,
 }: ProductsPhaseOptions): Promise<ProductsPhaseOutput> {
   if (!phases.includes("products")) return skipped("products phase not requested");
 
@@ -710,10 +656,8 @@ export async function runProductsPhase({
     async (ctx) => {
       const { result, durationMs } = await timePhase<ProductsRunOutcome>(
         async () => {
-          const imageLines = [
-            ...(await loadImageCandidates(effectiveTarget, supabase)),
-            ...scrapedImagePages(site, scrapedData),
-          ].slice(0, MAX_IMAGE_CANDIDATES);
+          const imageLines = scrapedImagePages(site, scrapedData)
+            .slice(0, MAX_IMAGE_CANDIDATES);
           const userContent = buildProductsUserContent(
             brand,
             site,

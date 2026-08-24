@@ -516,8 +516,6 @@ export type Database = {
       }
       brand_images: {
         Row: {
-          alt_en: string | null
-          alt_zh: string | null
           brand_id: string
           created_at: string
           dominant_color: string | null
@@ -540,8 +538,6 @@ export type Database = {
           width: number | null
         }
         Insert: {
-          alt_en?: string | null
-          alt_zh?: string | null
           brand_id: string
           created_at?: string
           dominant_color?: string | null
@@ -564,8 +560,6 @@ export type Database = {
           width?: number | null
         }
         Update: {
-          alt_en?: string | null
-          alt_zh?: string | null
           brand_id?: string
           created_at?: string
           dominant_color?: string | null
@@ -1785,8 +1779,6 @@ export type Database = {
           event_category: string
           event_id: string
           id: string
-          image_alt_en: string | null
-          image_alt_zh: string | null
           image_storage_path: string | null
           image_url: string | null
           name: string
@@ -1812,8 +1804,6 @@ export type Database = {
           event_category: string
           event_id: string
           id?: string
-          image_alt_en?: string | null
-          image_alt_zh?: string | null
           image_storage_path?: string | null
           image_url?: string | null
           name: string
@@ -1839,8 +1829,6 @@ export type Database = {
           event_category?: string
           event_id?: string
           id?: string
-          image_alt_en?: string | null
-          image_alt_zh?: string | null
           image_storage_path?: string | null
           image_url?: string | null
           name?: string
@@ -2681,8 +2669,6 @@ export type Database = {
       }
       submission_images: {
         Row: {
-          alt_en: string | null
-          alt_zh: string | null
           created_at: string
           dominant_color: string | null
           entropy: number | null
@@ -2706,8 +2692,6 @@ export type Database = {
           width: number | null
         }
         Insert: {
-          alt_en?: string | null
-          alt_zh?: string | null
           created_at?: string
           dominant_color?: string | null
           entropy?: number | null
@@ -2731,8 +2715,6 @@ export type Database = {
           width?: number | null
         }
         Update: {
-          alt_en?: string | null
-          alt_zh?: string | null
           created_at?: string
           dominant_color?: string | null
           entropy?: number | null

@@ -50,8 +50,6 @@ type MitEvidence = {
  * this from the URL, so the classifier's tag has to travel with the image.
  */
 export type BrandImageMeta = {
-  altZh: string | null;
-  altEn: string | null;
   isLogo: boolean;
   /**
    * `brand_images.source === 'owner'` — the brand handed us this file through
@@ -79,8 +77,6 @@ export type Brand = {
   blurbEn: string | null;
   heroImageUrl: string | null;
   heroImageMetadata?: {
-    altZh: string | null;
-    altEn: string | null;
     width: number | null;
     height: number | null;
   } | null;

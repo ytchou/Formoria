@@ -236,7 +236,7 @@ const EVENT_BRAND_COUNT_SELECT = "event_id, brands!inner(status)";
  * be able to reach a submission through the roster.
  */
 const EVENT_EXHIBITOR_SELECT =
-  "id, event_id, source_key, name, name_en, booth, area, area_en, zone, event_category, source_url, website_url, verified_at, sort_order, image_storage_path, image_alt_zh, image_alt_en, summary_zh, summary_en, content_source, content_verified_at, events!inner(slug, status)";
+  "id, event_id, source_key, name, name_en, booth, area, area_en, zone, event_category, source_url, website_url, verified_at, sort_order, image_storage_path, summary_zh, summary_en, content_source, content_verified_at, events!inner(slug, status)";
 
 const EVENT_EXHIBITOR_BRAND_SELECT = "event_exhibitor_id, brands!inner(slug)";
 
@@ -400,8 +400,6 @@ export type EventExhibitorJoinRow = {
   verified_at: string;
   sort_order: number;
   image_storage_path: string | null;
-  image_alt_zh: string | null;
-  image_alt_en: string | null;
   summary_zh: string | null;
   summary_en: string | null;
   content_source: string | null;
@@ -434,8 +432,8 @@ export function eventExhibitorRowToDomain(
     verifiedAt: row.verified_at,
     sortOrder: row.sort_order,
     imageUrl: imagePathToUrl(row.image_storage_path),
-    imageAltZh: row.image_alt_zh,
-    imageAltEn: row.image_alt_en,
+    imageAltZh: null,
+    imageAltEn: null,
     summaryZh: row.summary_zh,
     summaryEn: row.summary_en,
     contentSource: row.content_source,

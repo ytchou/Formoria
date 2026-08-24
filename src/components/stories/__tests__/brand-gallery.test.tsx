@@ -228,7 +228,7 @@ describe("BrandGallery", () => {
             "Molasses",
             imageUrl("hero"),
             [imageUrl("one")],
-            [{ altZh: null, altEn: "A product hero", isLogo: false }],
+            [{ isLogo: false }],
           ),
         ],
       ]),

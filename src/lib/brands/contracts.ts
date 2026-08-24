@@ -130,8 +130,6 @@ export function toPublicBrandCard(brand: Brand): PublicBrandCard {
     foundingYear: brand.foundingYear,
     productPhotos: [...brand.productPhotos],
     imageAlts: brand.imageAlts.map((alt) => ({
-      altZh: alt.altZh,
-      altEn: alt.altEn,
       isLogo: alt.isLogo,
     })),
     heroImageMetadata: brand.heroImageMetadata ?? null,
@@ -184,8 +182,6 @@ export function normalizePublicBrandCard(
       : [],
     imageAlts: Array.isArray(brand.imageAlts)
       ? brand.imageAlts.map((alt) => ({
-          altZh: alt.altZh,
-          altEn: alt.altEn,
           isLogo: alt.isLogo,
         }))
       : [],
@@ -222,8 +218,6 @@ export function toPublicBrandDetail(brand: Brand): PublicBrandDetail {
      * has it.
      */
     imageAlts: brand.imageAlts.map((alt) => ({
-      altZh: alt.altZh,
-      altEn: alt.altEn,
       isLogo: alt.isLogo,
       isOwnerSupplied: alt.isOwnerSupplied ?? false,
     })),

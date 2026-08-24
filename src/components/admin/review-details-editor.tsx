@@ -595,7 +595,7 @@ export function ReviewDetailsEditor({
                         {/* eslint-disable-next-line @next/next/no-img-element */}
                         <img
                           src={image.url}
-                          alt={image.altZh ?? t("imageAlt", { n: index + 1 })}
+                          alt={t("imageAlt", { n: index + 1 })}
                           className={cn("aspect-media w-full", fill)}
                         />
                         <Button
@@ -683,7 +683,7 @@ export function ReviewDetailsEditor({
                         {/* eslint-disable-next-line @next/next/no-img-element */}
                         <img
                           src={image.url}
-                          alt={image.altZh ?? t("imageAlt", { n: index + 1 })}
+                          alt={t("imageAlt", { n: index + 1 })}
                           className={cn(
                             "aspect-media w-full rounded-surface border",
                             fill,

@@ -112,8 +112,6 @@ type BrandImageReviewRow = Pick<
   | "source"
   | "status"
   | "sort_order"
-  | "alt_zh"
-  | "alt_en"
   | "tags"
   | "width"
   | "height"
@@ -130,8 +128,6 @@ export type SubmissionReviewImage = {
   source: string;
   status: "active" | "candidate" | "draft" | "rejected";
   sortOrder: number;
-  altZh: string | null;
-  altEn: string | null;
   isLogo: boolean;
   width: number | null;
   height: number | null;
@@ -697,8 +693,6 @@ function submissionImageToReviewImage(
     source: row.source,
     status: imageStatus(row.status),
     sortOrder: row.sort_order,
-    altZh: row.alt_zh,
-    altEn: row.alt_en,
     isLogo: isLogoImageTags(row.tags),
     width: row.width,
     height: row.height,
@@ -721,8 +715,6 @@ function brandImageToReviewImage(
     source: row.source,
     status: imageStatus(row.status),
     sortOrder: row.sort_order,
-    altZh: row.alt_zh,
-    altEn: row.alt_en,
     isLogo: isLogoImageTags(row.tags),
     width: row.width,
     height: row.height,
@@ -1618,7 +1610,7 @@ export async function getSubmissionsForReview(options?: {
             const { data: imageData, error: imagesError } = await supabase
               .from("submission_images")
               .select(
-                "id, submission_id, storage_path, source, status, sort_order, alt_zh, alt_en, tags, width, height, origin_brand_image_id",
+                "id, submission_id, storage_path, source, status, sort_order, tags, width, height, origin_brand_image_id",
               )
               .in("submission_id", targetIds)
               .order("submission_id", { ascending: true })
@@ -1675,7 +1667,7 @@ export async function getSubmissionsForReview(options?: {
             const { data: imageData, error: imagesError } = await supabase
               .from("brand_images")
               .select(
-                "id, brand_id, storage_path, source, status, sort_order, alt_zh, alt_en, tags, width, height",
+                "id, brand_id, storage_path, source, status, sort_order, tags, width, height",
               )
               .in("brand_id", brandIds)
               .eq("status", "active")
@@ -2387,7 +2379,7 @@ export async function approveSubmission(
       const { data: imageRows, error: imageError } = await supabase
         .from("submission_images")
         .select(
-          "id, submission_id, storage_path, source, status, sort_order, alt_zh, alt_en, tags, width, height, origin_brand_image_id",
+          "id, submission_id, storage_path, source, status, sort_order, tags, width, height, origin_brand_image_id",
         )
         .eq("submission_id", id)
         .order("sort_order", { ascending: true });

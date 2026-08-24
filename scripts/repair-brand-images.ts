@@ -353,10 +353,10 @@ async function loadBrandImages(
   supabase: ServiceClient,
 ): Promise<BrandImageRow[]> {
   // select('*') is deliberate: pass (b) DELETEs whole rows, so the restore
-  // manifest must carry every column (alt_en/alt_zh, tags, score, source_url,
+  // manifest must carry every column (tags, score, source_url,
   // width/height, dominant_color, phash, created_at, ...). A narrow projection
-  // would make the manifest un-restorable — it would silently drop curated alt
-  // text, classification tags and dedup phashes.
+  // would make the manifest un-restorable — it would silently drop
+  // classification tags and dedup phashes.
   return fetchAllRows<BrandImageRow>(BUCKET_TABLE, (from, to) =>
     supabase
       .from(BUCKET_TABLE)

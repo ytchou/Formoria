@@ -43,7 +43,6 @@ type ImageRow = {
   w: number | null
   h: number | null
   sort_order: number | null
-  alt_zh: string | null
   created_at: string
 }
 
@@ -166,13 +165,12 @@ function imageTile(i: ImageRow, index: number): string {
 
   return `<figure class="tile${bad.length ? ' flagged' : ''}">
     <span class="rank">${index === 0 ? 'hero' : index}</span>
-    <img src="${esc(i.url)}" alt="${esc(i.alt_zh ?? '')}" loading="lazy" referrerpolicy="no-referrer">
+    <img src="${esc(i.url)}" alt="" loading="lazy" referrerpolicy="no-referrer">
     <figcaption>
       <div class="line"><span>${esc(hostOf(i.source_url))}</span><span class="dim">${i.w ?? '?'}×${i.h ?? '?'}</span></div>
       <div class="line"><span class="method">${esc(i.method ?? i.source)}</span><span class="score">${i.score ?? '—'}</span></div>
       ${(i.tags ?? []).length ? `<div class="tags">${(i.tags ?? []).map((t) => `<b class="${legacyTags.includes(t) ? 'legacy' : ''}">${esc(t)}</b>`).join('')}</div>` : ''}
       ${bad.length ? `<div class="bad">${bad.join(' · ')}</div>` : ''}
-      ${i.alt_zh ? `<div class="alt">${esc(i.alt_zh)}</div>` : '<div class="alt muted">no alt text</div>'}
     </figcaption>
   </figure>`
 }
@@ -193,7 +191,7 @@ async function main(): Promise<void> {
   for (const b of (brands ?? []) as Array<BrandRow & { id: string }>) {
     const { data: imgs } = await supabase
       .from('brand_images')
-      .select('url, source, provider_metadata, source_url, status, score, tags, width, height, sort_order, alt_zh, created_at')
+      .select('url, source, provider_metadata, source_url, status, score, tags, width, height, sort_order, created_at')
       .eq('brand_id', b.id)
     const all = (imgs ?? []) as Array<Record<string, unknown>>
     const active = all
@@ -212,7 +210,6 @@ async function main(): Promise<void> {
           w: (i.width as number) ?? null,
           h: (i.height as number) ?? null,
           sort_order: (i.sort_order as number) ?? null,
-          alt_zh: (i.alt_zh as string) ?? null,
           created_at: String(i.created_at),
         }
       })

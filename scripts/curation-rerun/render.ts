@@ -32,7 +32,6 @@ type Img = Record<string, unknown> & {
   width: number | null;
   height: number | null;
   sort_order: number | null;
-  alt_zh: string | null;
   rejection_reasons: string[] | null;
 };
 type Brand = Record<string, unknown> & {
@@ -131,7 +130,6 @@ function tile(i: Img, published: boolean): string {
       <div class="l"><span class="m">${esc(String(method))}</span><span class="s">${i.score ?? "—"}</span></div>
       ${(i.tags ?? []).map((t) => `<b>${esc(t)}</b>`).join("")}
       ${label ? `<div class="bad">${esc(label)}</div>` : ""}
-      ${i.alt_zh ? `<div class="alt">${esc(i.alt_zh)}</div>` : ""}
     </figcaption>
   </figure>`;
 }

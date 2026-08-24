@@ -3,7 +3,7 @@
 import { useState, useRef } from 'react'
 import { SurfaceImage } from '@/components/ui/image'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
-import { useTranslations, useLocale } from 'next-intl'
+import { useTranslations } from 'next-intl'
 import { safeImageSrc } from '@/lib/images/allowed-image-hosts'
 import { brandImageFill } from '@/lib/images/fill'
 import type { BrandImageMeta } from '@/lib/types/brand'
@@ -35,7 +35,6 @@ export function ImageCarousel({
   trackingEnabled = true,
 }: ImageCarouselProps) {
   const t = useTranslations('brandDetail')
-  const locale = useLocale()
   const { reportEngagement } = useBrandEngagement()
   // The source index rides along because `imageAlts` is index-aligned with the
   // unfiltered `images` prop: dropping an unsafe URL shifts every later
@@ -81,11 +80,6 @@ export function ImageCarousel({
   }
 
   function getAlt(index: number): string {
-    const a = metaFor(index)
-    if (a) {
-      const localeAlt = locale === 'en' ? (a.altEn ?? a.altZh) : (a.altZh ?? a.altEn)
-      if (localeAlt) return localeAlt
-    }
     return t('gallery.photoAltWithBrand', { brand: alt, n: index + 1 })
   }
 

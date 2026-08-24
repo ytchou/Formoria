@@ -10,13 +10,9 @@ const productUrl = "/i/brands/atelier/ceramic-cup.jpg";
 describe("selectBrandCardImage", () => {
   it("chooses the first non-logo product photo with its aligned metadata", () => {
     const logoMeta = {
-      altZh: "品牌標誌",
-      altEn: "Brand logo",
       isLogo: true,
     };
     const productMeta = {
-      altZh: "陶瓷杯",
-      altEn: "Ceramic cup",
       isLogo: false,
     };
 
