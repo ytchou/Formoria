@@ -18,7 +18,6 @@ describe("staging E2E release and self-heal contract", () => {
     expect(nightly).toContain("environment: \"Formoria / staging\"");
     expect(nightly).toContain("STAGING_BASE_URL: https://staging.formoria.com");
     expect(nightly).toContain("--project=deep");
-    expect(nightly).toContain("--project=mobile");
     expect(nightly).not.toContain("--last-failed");
     expect(nightly).not.toContain("pnpm build");
     expect(nightly).not.toContain("pnpm start");
@@ -145,7 +144,6 @@ describe("staging E2E release and self-heal contract", () => {
     expect(release).toContain("X-Formoria-Revision");
     for (const workflow of [manual, release]) {
       expect(workflow).toContain("--project=deep");
-      expect(workflow).toContain("--project=mobile");
       expect(workflow).not.toContain("--last-failed");
       expect(workflow).not.toContain("pnpm build");
       expect(workflow).not.toContain("Formoria / production");

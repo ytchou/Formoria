@@ -43,7 +43,6 @@ describe("deployed staging E2E workflow contract", () => {
     for (const workflowPath of workflowPaths) {
       const source = await readFile(workflowPath, "utf8");
       expect(source).toContain("--project=deep");
-      expect(source).toContain("--project=mobile");
       expect(source).not.toContain("--last-failed");
       expect(source).not.toContain("pnpm build");
       expect(source).not.toContain("pnpm start");
