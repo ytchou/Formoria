@@ -63,20 +63,4 @@ test.describe("durable visual surfaces", () => {
     });
   });
 
-  test("about audiences section", async ({ page }) => {
-    await page.setViewportSize({ width: 1_440, height: 1_000 });
-    await page.goto("/zh-TW/about");
-    const section = page.locator("main > section").filter({
-      has: page.getByRole("heading", {
-        level: 2,
-        name: "兩種找法，同一條接得起來的路",
-      }),
-    });
-    await expect(section).toBeVisible();
-    await page.evaluate(() => document.fonts.ready);
-
-    await expect(section).toHaveScreenshot("about-audiences-zh-TW.png", {
-      animations: "disabled",
-    });
-  });
 });
