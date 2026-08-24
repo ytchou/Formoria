@@ -1,109 +1,106 @@
-import { cache } from 'react'
-import { DIRECTORY_REFINEMENT_KEYS } from '@/lib/directory-filter-url'
-import {
-  L1_CATEGORIES,
-  subcategoryBySlug,
-} from '@/lib/taxonomy/ontology'
-import type { Locale } from './alternates'
+import { cache } from "react";
+import { DIRECTORY_REFINEMENT_KEYS } from "@/lib/directory-filter-url";
+import { L1_CATEGORIES, subcategoryBySlug } from "@/lib/taxonomy/ontology";
+import type { Locale } from "./alternates";
 import {
   buildDirectoryCanonicals,
   type DirectoryCanonicalFacets,
-} from './directory-canonical'
+} from "./directory-canonical";
 import {
   DEFAULT_KEYWORD_MAP_PATH,
   loadKeywordMap,
   type Eligibility,
   type KeywordCluster,
   type KeywordMap,
-} from './keyword-map'
+} from "./keyword-map";
 
 /** Values from the parsed directory query string that determine indexation. */
 type DirectoryFacets = {
-  [key: string]: unknown
-  search?: unknown
-  price?: unknown
-  verification?: unknown
-  sort?: unknown
+  [key: string]: unknown;
+  search?: unknown;
+  verification?: unknown;
+  sort?: unknown;
   /** Raw values are accepted for callers that parse multi-select query params. */
-  category?: unknown
-  sub?: unknown
+  category?: unknown;
+  sub?: unknown;
   /**
    * The material axis. Declared here AND named in `DIRECTORY_REFINEMENT_KEYS`,
    * which is what `hasFacet` reads — the index signature above accepts any
    * key, so a facet that is declared but not counted type-checks perfectly and
    * leaves the filtered page indexable.
    */
-  material?: unknown
-  multiCategory?: unknown
-  multiSub?: unknown
-}
+  material?: unknown;
+  multiCategory?: unknown;
+  multiSub?: unknown;
+};
 
 export type DirectoryState = {
-  locale: Locale
+  locale: Locale;
   /** The URL surface owns the taxonomy path when preserving facet queries. */
-  surface?: 'brands' | 'category'
-  categorySlug?: string | null
-  subcategorySlug?: string | null
-  page: number
-  facets: DirectoryFacets
-}
+  surface?: "brands" | "category";
+  categorySlug?: string | null;
+  subcategorySlug?: string | null;
+  page: number;
+  facets: DirectoryFacets;
+};
 
 type DirectoryRobots = {
-  index: boolean
-  follow: boolean
-}
+  index: boolean;
+  follow: boolean;
+};
 
 export type DirectorySeo = {
-  canonical: string
-  languages?: Record<string, string>
-  robots?: DirectoryRobots
-}
+  canonical: string;
+  languages?: Record<string, string>;
+  robots?: DirectoryRobots;
+};
 
 export type DirectoryTarget = {
-  categorySlug: string
-  subcategorySlug?: string
-  pageType: 'l1-category' | 'l2-category'
-  eligibility: Eligibility
-}
+  categorySlug: string;
+  subcategorySlug?: string;
+  pageType: "l1-category" | "l2-category";
+  eligibility: Eligibility;
+};
 
 // `loadKeywordMap` parses the complete YAML document and validates every row.
 // Keep one module-level value in addition to React.cache: metadata and the
 // page body call this resolver independently during one request, while a
 // revalidation process should not parse the same registry over and over.
-let keywordMapMemo: KeywordMap | undefined
+let keywordMapMemo: KeywordMap | undefined;
 const getKeywordMap = cache(() => {
-  keywordMapMemo ??= loadKeywordMap(DEFAULT_KEYWORD_MAP_PATH)
-  return keywordMapMemo
-})
+  keywordMapMemo ??= loadKeywordMap(DEFAULT_KEYWORD_MAP_PATH);
+  return keywordMapMemo;
+});
 
 const CATEGORY_SLUGS = new Set<string>(
   L1_CATEGORIES.map((category) => category.slug),
-)
+);
 
 function taxonomyTarget(
   categorySlug: string | null | undefined,
   subcategorySlug: string | null | undefined,
 ): { categorySlug: string; subcategorySlug?: string } | null {
-  if (!categorySlug || !CATEGORY_SLUGS.has(categorySlug)) return null
-  if (!subcategorySlug) return { categorySlug }
+  if (!categorySlug || !CATEGORY_SLUGS.has(categorySlug)) return null;
+  if (!subcategorySlug) return { categorySlug };
 
-  const subcategory = subcategoryBySlug(subcategorySlug)
-  if (!subcategory || subcategory.category !== categorySlug) return { categorySlug }
-  return { categorySlug, subcategorySlug }
+  const subcategory = subcategoryBySlug(subcategorySlug);
+  if (!subcategory || subcategory.category !== categorySlug)
+    return { categorySlug };
+  return { categorySlug, subcategorySlug };
 }
 
 function clusterForTarget(
   categorySlug: string,
   subcategorySlug?: string,
 ): KeywordCluster | undefined {
-  const map = getKeywordMap()
-  const pageType = subcategorySlug ? 'l2-category' : 'l1-category'
+  const map = getKeywordMap();
+  const pageType = subcategorySlug ? "l2-category" : "l1-category";
   return map.clusters.find(
     (cluster) =>
-      cluster.locale === 'zh-TW' &&
+      cluster.locale === "zh-TW" &&
       cluster.page_type === pageType &&
       cluster.ontology_slug === (subcategorySlug ?? categorySlug),
-  )
+  );
 }
 
 /** Return whether a valid ontology target is marked `eligibility: launch`. */
@@ -112,56 +109,60 @@ export function isIndexableTarget(
   subcategorySlug?: string | null,
 ): boolean {
   if (subcategorySlug) {
-    const subcategory = subcategoryBySlug(subcategorySlug)
-    if (!subcategory || subcategory.category !== categorySlug) return false
+    const subcategory = subcategoryBySlug(subcategorySlug);
+    if (!subcategory || subcategory.category !== categorySlug) return false;
   }
-  const target = taxonomyTarget(categorySlug, subcategorySlug)
-  if (!target) return false
-  return clusterForTarget(target.categorySlug, target.subcategorySlug)?.eligibility === 'launch'
+  const target = taxonomyTarget(categorySlug, subcategorySlug);
+  if (!target) return false;
+  return (
+    clusterForTarget(target.categorySlug, target.subcategorySlug)
+      ?.eligibility === "launch"
+  );
 }
 
 /** List the launch-eligible ontology targets advertised by the keyword map. */
 export function listIndexableTargets(): DirectoryTarget[] {
-  const map = getKeywordMap()
-  const targets: DirectoryTarget[] = []
+  const map = getKeywordMap();
+  const targets: DirectoryTarget[] = [];
 
   for (const cluster of map.clusters) {
     if (
-      cluster.locale !== 'zh-TW' ||
-      cluster.eligibility !== 'launch' ||
-      (cluster.page_type !== 'l1-category' && cluster.page_type !== 'l2-category') ||
+      cluster.locale !== "zh-TW" ||
+      cluster.eligibility !== "launch" ||
+      (cluster.page_type !== "l1-category" &&
+        cluster.page_type !== "l2-category") ||
       !cluster.ontology_slug
     ) {
-      continue
+      continue;
     }
 
-    if (cluster.page_type === 'l1-category') {
-      if (!CATEGORY_SLUGS.has(cluster.ontology_slug)) continue
+    if (cluster.page_type === "l1-category") {
+      if (!CATEGORY_SLUGS.has(cluster.ontology_slug)) continue;
       targets.push({
         categorySlug: cluster.ontology_slug,
         pageType: cluster.page_type,
         eligibility: cluster.eligibility,
-      })
-      continue
+      });
+      continue;
     }
 
-    const subcategory = subcategoryBySlug(cluster.ontology_slug)
-    if (!subcategory || !CATEGORY_SLUGS.has(subcategory.category)) continue
+    const subcategory = subcategoryBySlug(cluster.ontology_slug);
+    if (!subcategory || !CATEGORY_SLUGS.has(subcategory.category)) continue;
     targets.push({
       categorySlug: subcategory.category,
       subcategorySlug: subcategory.slug,
       pageType: cluster.page_type,
       eligibility: cluster.eligibility,
-    })
+    });
   }
 
-  return targets
+  return targets;
 }
 
 function hasValue(value: unknown): boolean {
-  if (Array.isArray(value)) return value.length > 0
-  if (typeof value === 'string') return value.trim().length > 0
-  return Boolean(value)
+  if (Array.isArray(value)) return value.length > 0;
+  if (typeof value === "string") return value.trim().length > 0;
+  return Boolean(value);
 }
 
 function hasFacet(facets: DirectoryFacets): boolean {
@@ -169,59 +170,64 @@ function hasFacet(facets: DirectoryFacets): boolean {
   // the route-shape one in `components/navigation/category-tab-target.ts`
   // cannot disagree about what counts as a facet again.
   const refined = DIRECTORY_REFINEMENT_KEYS.some((key) => {
-    if (key === 'verification') {
+    if (key === "verification") {
       const verification =
-        typeof facets.verification === 'string' ? facets.verification : undefined
-      return hasValue(verification) && verification !== 'all'
+        typeof facets.verification === "string"
+          ? facets.verification
+          : undefined;
+      return hasValue(verification) && verification !== "all";
     }
-    return hasValue(facets[key])
-  })
+    return hasValue(facets[key]);
+  });
   return (
     refined ||
     hasValue(facets.category) ||
     hasValue(facets.sub) ||
     hasValue(facets.multiCategory) ||
     hasValue(facets.multiSub)
-  )
+  );
 }
 
 function hasSort(facets: DirectoryFacets): boolean {
-  return hasValue(facets.sort)
+  return hasValue(facets.sort);
 }
 
 function serializableFacetValue(value: unknown): unknown {
-  return typeof value === 'string' ||
-    typeof value === 'number' ||
-    (Array.isArray(value) && value.every((item) => typeof item === 'string' || typeof item === 'number'))
+  return typeof value === "string" ||
+    typeof value === "number" ||
+    (Array.isArray(value) &&
+      value.every(
+        (item) => typeof item === "string" || typeof item === "number",
+      ))
     ? value
-    : undefined
+    : undefined;
 }
 
 function selfCanonicalFacets(state: DirectoryState): DirectoryCanonicalFacets {
-  const facets = state.facets ?? {}
+  const facets = state.facets ?? {};
   const category =
     serializableFacetValue(facets.category) ??
     serializableFacetValue(facets.multiCategory) ??
     (state.categorySlug && !CATEGORY_SLUGS.has(state.categorySlug)
       ? state.categorySlug
-      : undefined)
+      : undefined);
   const sub =
     serializableFacetValue(facets.sub) ??
     serializableFacetValue(facets.multiSub) ??
     ((!state.categorySlug ||
-      !subcategoryBySlug(state.subcategorySlug ?? '') ||
-      subcategoryBySlug(state.subcategorySlug ?? '')?.category !== state.categorySlug) &&
+      !subcategoryBySlug(state.subcategorySlug ?? "") ||
+      subcategoryBySlug(state.subcategorySlug ?? "")?.category !==
+        state.categorySlug) &&
     state.subcategorySlug
       ? state.subcategorySlug
-      : undefined)
+      : undefined);
   const verification =
-    typeof facets.verification === 'string' && facets.verification !== 'all'
+    typeof facets.verification === "string" && facets.verification !== "all"
       ? facets.verification
-      : undefined
+      : undefined;
 
   return {
     search: serializableFacetValue(facets.search),
-    price: serializableFacetValue(facets.price),
     verification,
     category,
     sub,
@@ -229,30 +235,34 @@ function selfCanonicalFacets(state: DirectoryState): DirectoryCanonicalFacets {
     // pointing at the unfiltered directory it is not a duplicate of.
     material: serializableFacetValue(facets.material),
     sort: serializableFacetValue(facets.sort),
-  }
+  };
 }
 
-function buildSelfCanonical(state: DirectoryState, preserveFacets = false): DirectorySeo {
-  const facets = state.facets ?? {}
+function buildSelfCanonical(
+  state: DirectoryState,
+  preserveFacets = false,
+): DirectorySeo {
+  const facets = state.facets ?? {};
   const hasCategoryFacet =
-    hasValue(facets.category) || hasValue(facets.multiCategory)
-  const hasSubFacet = hasValue(facets.sub) || hasValue(facets.multiSub)
-  const target = state.surface === 'category'
-    ? taxonomyTarget(state.categorySlug, state.subcategorySlug)
-    : preserveFacets && hasCategoryFacet
-      ? null
-      : taxonomyTarget(
-          state.categorySlug,
-          preserveFacets && hasSubFacet ? undefined : state.subcategorySlug,
-        )
+    hasValue(facets.category) || hasValue(facets.multiCategory);
+  const hasSubFacet = hasValue(facets.sub) || hasValue(facets.multiSub);
+  const target =
+    state.surface === "category"
+      ? taxonomyTarget(state.categorySlug, state.subcategorySlug)
+      : preserveFacets && hasCategoryFacet
+        ? null
+        : taxonomyTarget(
+            state.categorySlug,
+            preserveFacets && hasSubFacet ? undefined : state.subcategorySlug,
+          );
   const canonicals = buildDirectoryCanonicals({
     locale: state.locale,
     categorySlug: target?.categorySlug,
     subcategorySlug: target?.subcategorySlug,
     page: state.page,
     preserveFacets: preserveFacets ? selfCanonicalFacets(state) : undefined,
-  })
-  return canonicals
+  });
+  return canonicals;
 }
 
 /**
@@ -261,47 +271,48 @@ function buildSelfCanonical(state: DirectoryState, preserveFacets = false): Dire
  * taxonomy URL; only a non-launch target gets a cross-canonical.
  */
 export function resolveDirectorySeo(state: DirectoryState): DirectorySeo {
-  const taxonomy = taxonomyTarget(state.categorySlug, state.subcategorySlug)
-  const categoryWasSupplied = Boolean(state.categorySlug)
-  const subWasSupplied = Boolean(state.subcategorySlug)
-  const invalidCategory = categoryWasSupplied && !taxonomy
+  const taxonomy = taxonomyTarget(state.categorySlug, state.subcategorySlug);
+  const categoryWasSupplied = Boolean(state.categorySlug);
+  const subWasSupplied = Boolean(state.subcategorySlug);
+  const invalidCategory = categoryWasSupplied && !taxonomy;
   const invalidSub =
     subWasSupplied &&
     (!state.categorySlug ||
-      !subcategoryBySlug(state.subcategorySlug ?? '') ||
-      subcategoryBySlug(state.subcategorySlug ?? '')?.category !== state.categorySlug)
-  const facets = state.facets ?? {}
-  const facetState = hasFacet(facets) || invalidCategory || invalidSub
+      !subcategoryBySlug(state.subcategorySlug ?? "") ||
+      subcategoryBySlug(state.subcategorySlug ?? "")?.category !==
+        state.categorySlug);
+  const facets = state.facets ?? {};
+  const facetState = hasFacet(facets) || invalidCategory || invalidSub;
 
   if (facetState) {
     return {
       ...buildSelfCanonical(state, true),
       robots: { index: false, follow: true },
-    }
+    };
   }
 
   // Explicit sort is a presentation variant of the same indexable page. The
   // canonical builder intentionally has no sort parameter, so this branch can
   // return the same self-canonical while retaining normal indexability.
-  if (hasSort(facets)) return buildSelfCanonical(state)
+  if (hasSort(facets)) return buildSelfCanonical(state);
 
   // Pagination is self-canonical and keeps `page` (DEV-1329). It precedes the
   // eligibility downgrade by design, matching the matrix in the design doc.
-  if (state.page > 1) return buildSelfCanonical(state)
+  if (state.page > 1) return buildSelfCanonical(state);
 
   if (!taxonomy && !categoryWasSupplied && !subWasSupplied) {
-    return buildSelfCanonical(state)
+    return buildSelfCanonical(state);
   }
 
   if (!taxonomy) {
     return {
       ...buildSelfCanonical(state),
       robots: { index: false, follow: true },
-    }
+    };
   }
 
   if (isIndexableTarget(taxonomy.categorySlug, taxonomy.subcategorySlug)) {
-    return buildSelfCanonical(state)
+    return buildSelfCanonical(state);
   }
 
   // A non-launch target is the only cross-canonical case. Omitting languages
@@ -309,9 +320,9 @@ export function resolveDirectorySeo(state: DirectoryState): DirectorySeo {
   const parentCanonical = buildDirectoryCanonicals({
     locale: state.locale,
     categorySlug: taxonomy.subcategorySlug ? taxonomy.categorySlug : undefined,
-  })
+  });
   return {
     canonical: parentCanonical.canonical,
     robots: { index: false, follow: true },
-  }
+  };
 }

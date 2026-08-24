@@ -72,7 +72,7 @@ export const LLM_BATCH_CHUNK_SIZE = 20;
  * so `none` is the intended production reasoning budget throughout.
  */
 export const LLM_PROFILES = {
-  /** Facts extraction — taxonomy, price, city, year, MIT signals, listing verdict. */
+  /** Facts extraction — taxonomy, city, year, MIT signals, listing verdict. */
   facts: {
     model: "text",
     maxTokens: 1500,

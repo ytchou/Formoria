@@ -137,9 +137,7 @@ export function SelectedProductTile({
     variant: "secondary",
     shape: "pill",
     size: "compact",
-    className: cn(
-      "mt-auto max-w-full justify-center",
-    ),
+    className: cn("mt-auto max-w-full justify-center"),
   });
   const destinationSlug = brandSlug ?? brand?.slug ?? "";
   /*
@@ -190,13 +188,13 @@ export function SelectedProductTile({
    * beneath the photograph, and from `sm` it is an absolutely positioned scrim
    * over the lower edge of the image, revealed on hover and focus.
    *
-   * The scrim is SOLID canvas at 94% alpha, not a gradient: composited over a
-   * dark photograph, paper falls below 4.5:1 wherever alpha drops under ~51%.
-   * The 16px lead-in above it fades, and deliberately carries no text.
+   * The scrim is SOLID canvas at 95% alpha, not a gradient: against a pure
+   * black underlying pixel, `--ink-muted` measures 4.607:1. The 16px lead-in
+   * above it fades, and deliberately carries no text.
    */
   const wallCaptionClass = cn(
     "flex flex-col gap-1 pt-3",
-    "sm:absolute sm:inset-x-0 sm:bottom-0 sm:z-10 sm:rounded-b-surface sm:bg-ground/94 sm:p-4",
+    "sm:absolute sm:inset-x-0 sm:bottom-0 sm:z-10 sm:rounded-b-surface sm:bg-ground/95 sm:p-4",
     "sm:transition-opacity sm:duration-300 motion-reduce:sm:duration-[0.01ms]",
     "[@media(hover:hover)]:sm:opacity-0",
     "[@media(hover:hover)]:sm:group-hover:opacity-100",
@@ -246,7 +244,7 @@ export function SelectedProductTile({
       <div className={wallCaptionClass}>
         <span
           aria-hidden="true"
-          className="pointer-events-none absolute inset-x-0 -top-4 hidden h-4 bg-gradient-to-t from-ground/94 to-transparent sm:block"
+          className="pointer-events-none absolute inset-x-0 -top-4 hidden h-4 bg-gradient-to-t from-ground/95 to-transparent sm:block"
         />
         <Typography
           as="h3"

@@ -39,7 +39,7 @@ export const PROXIED_IMAGE_BUCKET = "brand-images" as const;
  */
 export const PRIVATE_IMAGE_PREFIXES = ["submissions/"] as const;
 
-export const PROXIED_IMAGE_CACHE_CONTROL =
+const PROXIED_IMAGE_CACHE_CONTROL =
   "public, max-age=31536000, immutable";
 
 const FALLBACK_CONTENT_TYPE = "application/octet-stream";
@@ -112,7 +112,7 @@ export function resolveProxiedImageKey(
   return key;
 }
 
-export function proxiedImageHeaders(contentType: string | null): Headers {
+function proxiedImageHeaders(contentType: string | null): Headers {
   return new Headers({
     "content-type": contentType?.trim() || FALLBACK_CONTENT_TYPE,
     "cache-control": PROXIED_IMAGE_CACHE_CONTROL,

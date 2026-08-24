@@ -54,6 +54,36 @@ test.describe("Brand detail actions", () => {
     ).toBeVisible({ timeout: BUDGET.RENDERED });
   });
 
+  // Regression: a destructive dialog that requires typed confirmation must
+  // focus its input without allowing Escape to dismiss the one-way-door flow.
+  test("admin can type immediately in the delete-brand confirmation", async ({
+    adminPage,
+  }) => {
+    test.setTimeout(BUDGET.TEST.ADMIN);
+
+    await adminPage.goto(
+      `/admin/brands?search=${encodeURIComponent(seeded.brand.name)}`,
+    );
+    const brandRow = adminPage.getByRole("row", {
+      name: new RegExp(
+        seeded.brand.name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"),
+      ),
+    });
+    await brandRow.getByRole("button", { name: "Delete" }).click();
+
+    const confirmDialog = adminPage.getByRole("alertdialog", {
+      name: "Delete brand",
+    });
+    const confirmationInput = confirmDialog.getByRole("textbox");
+    await expect(confirmationInput).toBeFocused();
+
+    await adminPage.keyboard.type(seeded.brand.name);
+    await expect(confirmationInput).toHaveValue(seeded.brand.name);
+
+    await adminPage.keyboard.press("Escape");
+    await expect(confirmDialog).toBeVisible();
+  });
+
   test("admin can edit and hide the selected brand from its detail menu", async ({
     adminPage,
   }, workerInfo) => {

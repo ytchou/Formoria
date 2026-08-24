@@ -62,4 +62,3 @@ function UploadDropzone({
 }
 
 export { UploadDropzone }
-export type { UploadDropzoneProps }

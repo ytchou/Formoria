@@ -171,7 +171,6 @@
       "trigger": "Filters ({count})",
       "all": "All",
       "category": "Category",
-      "priceRange": "Price range",
       "material": "Material",
       "brandStatus": "Brand status",
       "appliedHint": "Select × on a tag to remove that filter.",
@@ -183,7 +182,6 @@
       "activeCategory": "Category",
       "activeSubcategory": "Subcategory",
       "activeMaterial": "Material",
-      "activePrice": "Price range",
       "activeStatus": "Brand status",
       "removeFilter": "Remove {label}: {value}",
       "clearAll": "Clear all",
@@ -294,7 +292,6 @@
       "location": "Location",
       "foundingYear": "Founded",
       "category": "Brand category",
-      "priceRange": "Price",
       "subcategories": "Product subcategory",
       "certification": "Verification"
     },
@@ -563,11 +560,6 @@
         "shopee": "Shopee",
         "myship": "7-ELEVEN MyShip"
       },
-      "priceRanges": {
-        "budget": "budget-friendly",
-        "midRange": "mid-range",
-        "premium": "premium"
-      },
       "context": {
         "city": "based in {city}",
         "founded": "founded in {year}",
@@ -582,10 +574,6 @@
         "question": "What are {brandName}'s main products?",
         "answerWithCategoryAndSubcategories": "{brandName} focuses on {category}, with signature products including {subcategories}.{context}",
         "answerWithSubcategories": "{brandName} makes {subcategories} as signature products.{context}"
-      },
-      "priceRange": {
-        "question": "Which price tier does {brandName} fall into?",
-        "answer": "{brandName} products are positioned in the {range} price range."
       },
       "reputation": {
         "question": "What is {brandName}'s reputation?",
@@ -1398,11 +1386,6 @@
     "fieldSubcategories": "Product subcategories",
     "subcategoriesMax": "Up to 5 subcategories. Describe products, not promotional claims.",
     "fieldFoundingYear": "Founding Year",
-    "fieldPriceRange": "Price Range",
-    "fieldPriceRangeUnset": "Unset",
-    "fieldPriceRangeBudget": "Budget-friendly (under NT$1,000)",
-    "fieldPriceRangeMidRange": "Mid-range (NT$1,000–5,000)",
-    "fieldPriceRangePremium": "Premium (over NT$5,000)",
     "fieldHeroImage": "Hero Image",
     "heroImageEditHint": "One image only. This is the first image on your brand page and the cover used on masonry brand cards. Use a clear 16:9 landscape image.",
     "fieldProductPhotos": "Product photos",
@@ -1449,7 +1432,6 @@
     "fieldFoundingYearHint": "Shown on the brand page",
     "mitStoryHint": "Shown on the brand page if provided",
     "cityHint": "Your brand will be shown on the map if provided",
-    "fieldPriceRangeHint": "Used for filtering",
     "unsavedChanges": "Unsaved changes",
     "slugChangeBlocked": "Your brand URL is based on this name. To change it, contact us.",
     "subcategoriesSearchHint": "Type to filter, then pick a subcategory below.",
@@ -1761,7 +1743,8 @@
       "showDetails": "Show details for {name}",
       "hideDetails": "Hide details for {name}",
       "actionsHeader": "Actions",
-      "detailsHeader": "Details"
+      "detailsHeader": "Details",
+      "selectRow": "Select {name}"
     },
     "dashboard": {
       "description": "Review queues, brand data, and categorization status requiring action.",
@@ -1781,6 +1764,7 @@
       },
       "operationsOverview": "Operations overview",
       "operationsOverviewDescription": "Triage the queues that need a decision, then open the workspace that owns the work.",
+      "unavailable": "Unavailable",
       "quickOperations": "Quick operations",
       "recentJobs": {
         "title": "Recent data jobs",
@@ -1922,7 +1906,6 @@
         "date": "Submitted"
       },
       "fields": {
-        "price_range": "Price range",
         "category": "Brand category",
         "subcategories": "Product subcategories",
         "purchase_website": "Official website",
@@ -2083,7 +2066,6 @@
         "description": "Description",
         "categorySlug": "Valid brand category",
         "subcategories": "1–5 product subcategories",
-        "priceRange": "Price range",
         "website": "Valid official website",
         "heroImage": "Hero image",
         "successfulEnrichment": "Successful latest enrichment"
@@ -2131,7 +2113,6 @@
           "locked": "Already in this brand's catalog. Approval creates products only from new proposals, so a tick or an edit here has no effect.",
           "save": "Save product selection and edits"
         },
-        "priceRange": "Price range",
         "subcategories": "Product subcategories",
         "city": "City",
         "foundingYear": "Founding year",
@@ -2331,7 +2312,11 @@
         "verified": "MIT Smile Certified"
       },
       "bulk": {
-        "clearSelection": "Clear selection"
+        "clearSelection": "Clear selection",
+        "generateProductsAria": "Generate products for {count, plural, one {# selected brand} other {# selected brands}}, of {limit} per run — opens a refresh per brand and queues one enrichment job that calls the model",
+        "selectPage": "Select every eligible brand on this page for product generation, up to {limit} brands per run",
+        "selectionLimit": "Cannot select {name}: product generation runs at most {limit} brands per run",
+        "selectBrand": "Select {name} for product generation"
       },
       "table": {
         "brand": "Brand",
@@ -2351,7 +2336,10 @@
         "unhide": "Unhide",
         "requestReenrichment": "Request re-enrichment",
         "curatedProducts": "Curated products",
-        "delete": "Delete"
+        "delete": "Delete",
+        "openMenu": "Open brand actions for {name}",
+        "ingestCuratedProducts": "Ingest curated products for {name}",
+        "openDetails": "Open details for {name}"
       },
       "pagination": {
         "summary": "Showing {from}–{to} of {total} brands",
@@ -2364,10 +2352,12 @@
         "created": "Created {date}"
       },
       "refreshDialog": {
-        "title": "Request re-enrichment"
+        "title": "Request re-enrichment",
+        "description": "A refresh will run on the next six-hour schedule and return to the submissions queue for review. The live brand will not change until the refresh is applied."
       },
       "deleteDialog": {
-        "title": "Delete brand"
+        "title": "Delete brand",
+        "description": "This action cannot be undone. The brand and all associated data will be permanently deleted."
       }
     },
     "scripts": {
@@ -2392,6 +2382,13 @@
           "statusFilterLabel": "Status",
           "allStatuses": "All statuses",
           "selectAll": "Select all filtered rows",
+          "retrySelected": "Retry {count} selected",
+          "importSelected": "Import {count} selected",
+          "selectRow": "Select {name}",
+          "unnamedRow": "row {number}",
+          "brandNameForRow": "Brand name for row {number}",
+          "websiteForRow": "Official website for row {number}",
+          "removeRow": "Remove row {number}",
           "remove": "Remove",
           "empty": "No rows match this status."
         },
@@ -2421,6 +2418,7 @@
         "railwayLogs": "Railway Logs",
         "cancelJob": "Cancel job",
         "cancelConfirmTitle": "Cancel this job?",
+        "cancelConfirmDescription": "The worker will stop before the next canonical write. A provider request already in progress may still finish, but its result will not be applied.",
         "dispatching": "Dispatching…",
         "queuing": "Queuing…",
         "resumeFailedTargets": "Resume failed targets",
@@ -2460,6 +2458,7 @@
         "empty": "No brands match this filter.",
         "phaseLog": "Phase log",
         "noPhaseRecords": "No phase records yet.",
+        "changedFields": "Changed: {fields}",
         "table": {
           "brand": "Brand",
           "type": "Type",
@@ -2504,7 +2503,15 @@
       "empty": "No subscribers match these filters.",
       "resendConfirmation": "Resend confirmation",
       "unsubscribe": "Unsubscribe",
-      "confirmUnsubscribeTitle": "Unsubscribe this address?"
+      "confirmUnsubscribeTitle": "Unsubscribe this address?",
+      "confirmUnsubscribeDescription": "This immediately opts the subscriber out and rotates their email tokens. Reactivation is not available from admin.",
+      "stats": {
+        "totalDescription": "All consent records",
+        "activeDescription": "Confirmed and subscribed",
+        "pendingDescription": "Awaiting confirmation",
+        "unsubscribedDescription": "Opted-out records",
+        "confirmationRateDescription": "Active ÷ active plus pending"
+      }
     },
     "quality": {
       "title": "Quality Dashboard",
@@ -2514,6 +2521,8 @@
       "enrichmentQuality": "Enrichment Quality",
       "promoHeroImages": "Promo hero images",
       "validationFailures": "Validation failures",
+      "heroImageCoverageDescription": "{count} brands with hero / {total} total",
+      "descriptionCompletenessDescription": "avg length: {length} chars",
       "vocabularyTitle": "Stored zh-TW vocabulary",
       "vocabularyDescription": "Mainland-Chinese terms the write-path guard found in text it stored over the last {days} days. Detection never rewrites anything, so each row below is still in the database and, if the column is published, on the site.",
       "vocabularyUnavailable": "The audit trail could not be read, so this window is unmeasured.",
@@ -2525,6 +2534,8 @@
       "navLabel": "Admin main navigation",
       "cancel": "Cancel",
       "processing": "Processing…",
+      "pendingCount": "{count} pending",
+      "confirmPlaceholder": "Type \"{value}\" to confirm",
       "error": {
         "title": "Something went wrong",
         "description": "An unexpected error occurred while loading this admin page. Please try again.",

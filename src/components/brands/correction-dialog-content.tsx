@@ -13,7 +13,6 @@ import { submitCorrectionAction } from "@/lib/actions/brand-corrections";
 import { toast } from "sonner";
 
 import { trackCorrectionSubmitted } from "@/lib/analytics";
-import { PRICE_RANGE_TIERS } from "@/lib/brands/price-range";
 import {
   onlineStoreMessageKey,
   ONLINE_STORE_COLUMNS,
@@ -62,7 +61,8 @@ const CORRECTION_ERROR_KEYS = {
  * needs the name to key its trigger copy, and a type-only import is erased
  * before the bundler sees it, so it never pulls this chunk back in.
  */
-export type CorrectionDialogMode = "brandInfo" | "purchaseLinks" | "socialLinks";
+export type CorrectionDialogMode =
+  "brandInfo" | "purchaseLinks" | "socialLinks";
 
 /** The message keys the shell picked for this mode, already narrowed. */
 export type CorrectionDialogCopy = {
@@ -85,7 +85,6 @@ export type CorrectionDialogContentProps = {
   setField: (field: CorrectionField | "") => void;
   onOpenChange: (open: boolean) => void;
   categorySlug?: string | null;
-  priceRange?: number | null;
   subcategories?: string[];
   purchaseLinks?: Record<OnlineStoreColumn, string | null>;
   socialInstagram?: string | null;
@@ -100,13 +99,20 @@ type SelectionState = {
   subcategories: string[];
 };
 
-function buildSubcategoryDelta(initialSubcategories: string[], selectedSubcategories: string[]) {
+function buildSubcategoryDelta(
+  initialSubcategories: string[],
+  selectedSubcategories: string[],
+) {
   const initialSet = new Set(initialSubcategories);
   const selectedSet = new Set(selectedSubcategories);
 
   return {
-    add: selectedSubcategories.filter((subcategory) => !initialSet.has(subcategory)),
-    remove: initialSubcategories.filter((subcategory) => !selectedSet.has(subcategory)),
+    add: selectedSubcategories.filter(
+      (subcategory) => !initialSet.has(subcategory),
+    ),
+    remove: initialSubcategories.filter(
+      (subcategory) => !selectedSet.has(subcategory),
+    ),
   };
 }
 
@@ -121,7 +127,6 @@ export function CorrectionDialogContent({
   setField,
   onOpenChange,
   categorySlug = null,
-  priceRange = null,
   subcategories = [],
   purchaseLinks = {} as Record<OnlineStoreColumn, string | null>,
   socialInstagram = null,
@@ -145,8 +150,8 @@ export function CorrectionDialogContent({
       : mode === "socialLinks"
         ? ["social_instagram", "social_threads", "social_facebook"]
         : categorySlug != null
-          ? ["category", "price_range", "subcategories"]
-          : ["category", "price_range"];
+          ? ["category", "subcategories"]
+          : ["category"];
   // Every link field — purchase and social alike — is edited as a free-text URL
   // rather than a chip, so they share the baseline, diff and body branches.
   const isLinkField =
@@ -157,17 +162,15 @@ export function CorrectionDialogContent({
   const originalSelection =
     field === "category"
       ? (categorySlug ?? "")
-      : field === "price_range" && priceRange != null
-        ? String(priceRange)
-        : onlineStore
-          ? (purchaseLinks[onlineStore.column] ?? "")
-          : field === "social_instagram"
-            ? (socialInstagram ?? "")
-            : field === "social_threads"
-              ? (socialThreads ?? "")
-              : field === "social_facebook"
-                ? (socialFacebook ?? "")
-                : "";
+      : onlineStore
+        ? (purchaseLinks[onlineStore.column] ?? "")
+        : field === "social_instagram"
+          ? (socialInstagram ?? "")
+          : field === "social_threads"
+            ? (socialThreads ?? "")
+            : field === "social_facebook"
+              ? (socialFacebook ?? "")
+              : "";
   // `brands.subcategories` is a bare text[] with no unique constraint, so a
   // legacy row can carry the same subcategory twice. De-duplicating once here keeps the
   // counter, the 5-subcategory cap and the row-1 chips reading the same list.
@@ -203,20 +206,21 @@ export function CorrectionDialogContent({
       : undefined;
     if (channel) {
       return tBrandDetail(
-        onlineStoreMessageKey(channel.messageKeys.brandDetailLink, "brandDetail"),
+        onlineStoreMessageKey(
+          channel.messageKeys.brandDetailLink,
+          "brandDetail",
+        ),
       );
     }
     return item === "category"
       ? tBrandDetail("label.category")
-      : item === "price_range"
-        ? tBrandDetail("label.priceRange")
-        : item === "subcategories"
-          ? tBrandDetail("label.subcategories")
-          : item === "social_instagram"
-            ? tBrandDetail("links.instagram")
-            : item === "social_threads"
-              ? tBrandDetail("links.threads")
-              : tBrandDetail("links.facebook");
+      : item === "subcategories"
+        ? tBrandDetail("label.subcategories")
+        : item === "social_instagram"
+          ? tBrandDetail("links.instagram")
+          : item === "social_threads"
+            ? tBrandDetail("links.threads")
+            : tBrandDetail("links.facebook");
   };
   // Only read inside the value branches, which never render while field is "".
   const fieldLabel = field === "" ? "" : labelForField(field);
@@ -250,11 +254,9 @@ export function CorrectionDialogContent({
     if (field === "" || !hasChanged || isPending) return;
 
     const proposedValue =
-      field === "price_range"
-        ? Number(selection)
-        : field !== "subcategories"
-          ? selection
-          : buildSubcategoryDelta(originalSubcategories, selectedSubcategories);
+      field !== "subcategories"
+        ? selection
+        : buildSubcategoryDelta(originalSubcategories, selectedSubcategories);
     startTransition(async () => {
       try {
         const result = await submitCorrectionAction({
@@ -334,9 +336,6 @@ export function CorrectionDialogContent({
     );
   }
 
-  const currentPriceTier = PRICE_RANGE_TIERS.find(
-    (tier) => String(tier.value) === originalSelection,
-  );
   const currentCategory = L1_CATEGORIES.find(
     (item) => item.slug === originalSelection,
   );
@@ -349,7 +348,9 @@ export function CorrectionDialogContent({
       <DialogHeader>
         <DialogTitle>{tCorrection(copy.title)}</DialogTitle>
         {field === "subcategories" && (
-          <p className="type-metadata">{tCorrection("subcategoriesSubtitle")}</p>
+          <p className="type-metadata">
+            {tCorrection("subcategoriesSubtitle")}
+          </p>
         )}
       </DialogHeader>
 
@@ -387,20 +388,6 @@ export function CorrectionDialogContent({
               ))}
             </NativeSelect>
           </div>
-
-          {field === "price_range" &&
-            scalarRows(
-              currentPriceTier
-                ? `${currentPriceTier.prefix} · ${tEdit(currentPriceTier.labelKey)}`
-                : null,
-              PRICE_RANGE_TIERS.filter(
-                (tier) => String(tier.value) !== originalSelection,
-              ).map((tier) => ({
-                key: String(tier.value),
-                value: String(tier.value),
-                label: `${tier.prefix} · ${tEdit(tier.labelKey)}`,
-              })),
-            )}
 
           {field === "category" &&
             scalarRows(

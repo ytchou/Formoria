@@ -20,7 +20,6 @@ function localizeZhText(text: string): string {
 }
 
 export type BrandFactsResult = {
-  priceRange: 1 | 2 | 3 | null;
   /**
    * The brand's L1 category, decided here rather than at triage because this is
    * the first call that sees the brand's own site text and its product images'
@@ -111,7 +110,6 @@ function parseListingVerdict(raw: unknown): ListingVerdict | undefined {
 }
 
 const EMPTY_FACTS: BrandFactsResult = {
-  priceRange: null,
   subcategories: [],
   subcategoriesEn: [],
   city: null,
@@ -123,9 +121,9 @@ export function parseBrandFactsResult(content: string): BrandFactsResult {
   const parsed = parseJson<Record<string, unknown>>(content);
   if (!parsed) return { ...EMPTY_FACTS };
 
-  // `parseExtractionResult` owns price/city/year/tags for every extraction call
+  // `parseExtractionResult` owns city/year/tags for every extraction call
   // in the pipeline, so the facts call reuses it rather than re-deriving the
-  // city slug map and the price tier check a second time.
+  // city slug map a second time.
   const extraction = parseExtractionResult(content);
 
   // No `subcategories_en` parse. The prompt stopped asking for that key, and
@@ -165,7 +163,6 @@ export function parseBrandFactsResult(content: string): BrandFactsResult {
       : [];
 
   return {
-    priceRange: extraction.priceRange,
     ...(categorySlug ? { categorySlug } : {}),
     subcategories: acceptedSubcategories,
     subcategoriesEn: acceptedSubcategoriesEn,

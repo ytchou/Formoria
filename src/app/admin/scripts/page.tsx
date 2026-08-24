@@ -15,12 +15,12 @@ export default async function AdminScriptsPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="type-label">{t("title")}</h1>
+        <h1 className="type-tool-heading">{t("title")}</h1>
         <p className="mt-1 type-body-sm">{t("description")}</p>
       </div>
       <div className="grid gap-4 md:grid-cols-2">
         <SurfaceCard padding="lg">
-          <h2 className="type-label">{t("bulkSubmissions.title")}</h2>
+          <h2 className="type-tool-heading">{t("bulkSubmissions.title")}</h2>
           <p className="mt-2 type-body-sm">
             {t("bulkSubmissions.cardDescription")}
           </p>

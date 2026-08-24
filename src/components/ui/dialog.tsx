@@ -158,14 +158,7 @@ function DialogContent({
   );
 }
 
-function DialogHeader({
-  className,
-  children,
-  icon,
-  ...props
-}: React.ComponentProps<"div"> & {
-  icon?: React.ReactNode;
-}) {
+function DialogHeader({ className, ...props }: React.ComponentProps<"div">) {
   return (
     <div
       data-slot="dialog-header"
@@ -173,22 +166,11 @@ function DialogHeader({
       // as `pr-14 sm:pr-16` beside their own copy of the border, each of them
       // a number that had to be re-derived from the button's size by hand.
       className={cn(
-        "flex items-start gap-3 border-b border-rule p-4 pr-14 sm:pr-16",
+        "flex flex-col gap-2 border-b border-rule p-4 pr-14 sm:pr-16",
         className,
       )}
       {...props}
-    >
-      {icon ? (
-        <span
-          data-slot="dialog-header-icon"
-          aria-hidden="true"
-          className="flex size-10 shrink-0 items-center justify-center rounded-full bg-accent/10 text-accent"
-        >
-          {icon}
-        </span>
-      ) : null}
-      <div className="flex min-w-0 flex-1 flex-col gap-2">{children}</div>
-    </div>
+    />
   );
 }
 

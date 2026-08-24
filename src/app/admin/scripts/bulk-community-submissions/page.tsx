@@ -13,7 +13,7 @@ export default async function CommunitySubmissionsPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="type-label">{t("title")}</h1>
+        <h1 className="type-tool-heading">{t("title")}</h1>
         {/*
           Reads the same constant the upload badge does. The copy used to say a
           hardcoded "100" while the badge two elements away rendered "Up to 500

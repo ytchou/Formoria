@@ -142,14 +142,17 @@ export default async function AdminQualityPage() {
 
   return (
     <div>
-      <h1 className="type-label">{t("title")}</h1>
+      <h1 className="type-tool-heading">{t("title")}</h1>
       <p className="mt-2 text-ink-muted">{t("description")}</p>
 
       <div className="mt-8 grid gap-4 md:grid-cols-2">
         <DataCard
           label="Hero Image Coverage"
           value={formatPercentage(metrics.heroImage.percentage)}
-          description={`${metrics.heroImage.withCount} brands with hero / ${metrics.totalBrands} total`}
+          description={t("heroImageCoverageDescription", {
+            count: metrics.heroImage.withCount,
+            total: metrics.totalBrands,
+          })}
           padding="sm"
         >
           <ProgressBar
@@ -159,7 +162,7 @@ export default async function AdminQualityPage() {
         </DataCard>
 
         <SurfaceCard padding="sm">
-          <h2 className="type-metadata">{t("linkCoverage")}</h2>
+          <h2 className="type-tool-heading">{t("linkCoverage")}</h2>
           <div className="mt-4 space-y-4">
             {linkRows.map((row) => {
               const metric = metrics.links[row.key];
@@ -185,7 +188,9 @@ export default async function AdminQualityPage() {
         <DataCard
           label="Description Completeness"
           value={formatPercentage(metrics.description.percentage)}
-          description={`avg length: ${metrics.description.avgLength} chars`}
+          description={t("descriptionCompletenessDescription", {
+            length: metrics.description.avgLength,
+          })}
           padding="sm"
         >
           <ProgressBar
@@ -195,7 +200,7 @@ export default async function AdminQualityPage() {
         </DataCard>
 
         <SurfaceCard padding="sm">
-          <h2 className="type-metadata">{t("completenessDistribution")}</h2>
+          <h2 className="type-tool-heading">{t("completenessDistribution")}</h2>
           <div className="mt-4 space-y-4">
             {distributionRows.map((row) => {
               const count = metrics.completeness[row.key];
@@ -223,7 +228,7 @@ export default async function AdminQualityPage() {
         </SurfaceCard>
 
         <SurfaceCard padding="sm" className="md:col-span-2">
-          <h2 className="type-metadata">{t("enrichmentQuality")}</h2>
+          <h2 className="type-tool-heading">{t("enrichmentQuality")}</h2>
           <div className="mt-4 space-y-4">
             {enrichmentRows.map((row) => {
               const value = metrics.enrichment[row.key];
@@ -266,7 +271,7 @@ export default async function AdminQualityPage() {
         </SurfaceCard>
 
         <SurfaceCard padding="sm" className="md:col-span-2">
-          <h2 className="type-metadata">{t("vocabularyTitle")}</h2>
+          <h2 className="type-tool-heading">{t("vocabularyTitle")}</h2>
           <p className="mt-2 type-body-sm text-ink-muted">
             {t("vocabularyDescription", { days: vocabulary.windowDays })}
           </p>

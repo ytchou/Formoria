@@ -69,55 +69,57 @@ export default async function CuratedProductsPage({
   const liveSectionKeys = new Map<string, Set<string>>();
   for (const product of products) {
     for (const selection of product.selections) {
-      const keys = liveSectionKeys.get(selection.trailSlug) ?? new Set<string>();
+      const keys =
+        liveSectionKeys.get(selection.trailSlug) ?? new Set<string>();
       keys.add(selection.sectionKey);
       liveSectionKeys.set(selection.trailSlug, keys);
     }
   }
 
-  const trailOptions =
-    trails.ok
-      ? await Promise.all(
-          trails.trails.map(async (trail) => {
-            let productsForTrail: TrailCuratedProduct[] = [];
-            let placementReadError = false;
-            try {
-              productsForTrail = await getPublishedCuratedProductsForTrail(trail.slug);
-            } catch {
-              // Keep a failed read distinct from an empty result, for the
-              // PRODUCT-DERIVED warning only: zero rows read as an unfilled
-              // section, so a failed read would invent one. Passing `null`
-              // below skips that check while leaving the frontmatter-derived
-              // `draft` flag intact — it is the signal that stops an editor
-              // treating an unpublished trail as publishable, and a broken
-              // product query is no reason to withhold it.
-              placementReadError = true;
-            }
-            const declared = trail.frontmatter.sections;
-            const orphaned = [
-              ...(liveSectionKeys.get(trail.slug) ?? new Set<string>()),
-            ]
-              .filter((key) => !declared.some((section) => section.key === key))
-              .sort()
-              .map((key) => ({ key, title: key, orphaned: true }));
+  const trailOptions = trails.ok
+    ? await Promise.all(
+        trails.trails.map(async (trail) => {
+          let productsForTrail: TrailCuratedProduct[] = [];
+          let placementReadError = false;
+          try {
+            productsForTrail = await getPublishedCuratedProductsForTrail(
+              trail.slug,
+            );
+          } catch {
+            // Keep a failed read distinct from an empty result, for the
+            // PRODUCT-DERIVED warning only: zero rows read as an unfilled
+            // section, so a failed read would invent one. Passing `null`
+            // below skips that check while leaving the frontmatter-derived
+            // `draft` flag intact — it is the signal that stops an editor
+            // treating an unpublished trail as publishable, and a broken
+            // product query is no reason to withhold it.
+            placementReadError = true;
+          }
+          const declared = trail.frontmatter.sections;
+          const orphaned = [
+            ...(liveSectionKeys.get(trail.slug) ?? new Set<string>()),
+          ]
+            .filter((key) => !declared.some((section) => section.key === key))
+            .sort()
+            .map((key) => ({ key, title: key, orphaned: true }));
 
-            return {
-              slug: trail.slug,
-              title: trail.frontmatter.title,
-              sections: [...declared, ...orphaned],
-              warnings: trailAuthoringWarnings({
-                frontmatter: trail.frontmatter,
-                products: placementReadError ? null : productsForTrail,
-              }),
-              placementReadError,
-            };
-          }),
-        )
-      : [];
+          return {
+            slug: trail.slug,
+            title: trail.frontmatter.title,
+            sections: [...declared, ...orphaned],
+            warnings: trailAuthoringWarnings({
+              frontmatter: trail.frontmatter,
+              products: placementReadError ? null : productsForTrail,
+            }),
+            placementReadError,
+          };
+        }),
+      )
+    : [];
 
   return (
     <div>
-      <h1 className="type-label">{t("title")}</h1>
+      <h1 className="type-tool-heading">{t("title")}</h1>
       <p className="mt-2 type-body-sm">{t("description")}</p>
 
       <div className="mt-8">

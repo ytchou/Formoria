@@ -28,7 +28,7 @@ const ENVIRONMENT_MARKERS = [
 ] as const;
 
 /** What an event reports when no deploy marker is present. */
-export const LOCAL_ENVIRONMENT = "local";
+const LOCAL_ENVIRONMENT = "local";
 
 export function resolveSentryEnvironment(
   env: Record<string, string | undefined> = process.env,

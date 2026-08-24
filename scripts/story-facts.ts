@@ -279,7 +279,8 @@ async function fetchFaqRows(
       .from("brand_faq_entries")
       .select(FAQ_ENTRY_COLUMNS)
       .in("brand_id", ids);
-    if (error) throw new Error(`brand_faq_entries read failed: ${error.message}`);
+    if (error)
+      throw new Error(`brand_faq_entries read failed: ${error.message}`);
     for (const row of (data ?? []) as unknown as FaqEntryRow[]) {
       const existing = byBrandId.get(row.brand_id);
       if (existing) existing.push(row);
@@ -371,7 +372,6 @@ const BRAND_FACT_FIELDS = [
   ["subcategoriesEn", "subcategories_en"],
   ["city", "city"],
   ["foundingYear", "founding_year"],
-  ["priceRange", "price_range"],
   ["purchaseWebsite", "purchase_website"],
   ["purchasePinkoi", "purchase_pinkoi"],
   ["purchaseShopee", "purchase_shopee"],

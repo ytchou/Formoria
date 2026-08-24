@@ -18,7 +18,6 @@ export function brandToReviewData(
     foundingYear: brand.foundingYear ?? null,
     heroImageUrl: brand.heroImageUrl ?? null,
     categorySlug: brand.categorySlug ?? null,
-    priceRange: brand.priceRange ?? null,
     subcategories: brand.subcategories ?? [],
     subcategoriesEn: brand.subcategoriesEn ?? [],
     websiteUrl: brand.purchaseWebsite ?? null,

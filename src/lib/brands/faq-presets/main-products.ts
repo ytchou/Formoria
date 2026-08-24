@@ -9,11 +9,12 @@ import {
 } from "./types";
 import {
   noKeywordStuffing,
-  noPricingFigures,
+  noCommerceClaims,
   notDuplicateOf,
   pureLanguage,
   withinLengthBand,
 } from "./validators";
+import { faqMainProductsPrompt } from "@/lib/prompts";
 
 /**
  * The tags for one locale. The floor interpolates these directly, so an empty
@@ -38,7 +39,11 @@ function localeTags(ctx: FaqBrandContext, locale: string): string[] {
     .slice(0, 3);
 }
 
-function subcategories(ctx: FaqBrandContext, t: FaqTFn, locale: string): string {
+function subcategories(
+  ctx: FaqBrandContext,
+  t: FaqTFn,
+  locale: string,
+): string {
   return localeTags(ctx, locale).join(t("brandFaq.listSeparator"));
 }
 
@@ -57,9 +62,8 @@ const mainProducts: FaqPreset = {
     templateFloor: (ctx, t, locale) => {
       const isEnglish = locale.startsWith("en");
       const category = isEnglish
-        ? L1_CATEGORIES.find(
-            (item) => item.slug === ctx.brand.categorySlug,
-          )?.name
+        ? L1_CATEGORIES.find((item) => item.slug === ctx.brand.categorySlug)
+            ?.name
         : ctx.brand.categoryLabel;
       const tags = subcategories(ctx, t, locale);
       const context = buildBrandContextSuffix(ctx, t);
@@ -80,13 +84,12 @@ const mainProducts: FaqPreset = {
       });
     },
   },
-  promptFragment: (ctx) =>
-    `請以品牌「${ctx.brand.name}」提供的產品標籤為基礎，補充可驗證的材料、製程或工藝細節；不可捏造來源沒有提供的資訊。`,
+  promptFragment: (ctx) => faqMainProductsPrompt(ctx.brand.name),
   // `groundedIn(requiredEvidence)` is derived in the registry (index.ts).
   validators: [
     pureLanguage(),
     withinLengthBand(),
-    noPricingFigures(),
+    noCommerceClaims(),
     noKeywordStuffing(),
     notDuplicateOf(),
   ],

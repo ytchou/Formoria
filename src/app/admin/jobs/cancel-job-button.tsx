@@ -46,7 +46,7 @@ export function CancelJobButton({ jobId }: { jobId: string }) {
         open={isOpen}
         onOpenChange={setIsOpen}
         title={t("actions.cancelConfirmTitle")}
-        description="The worker will stop before the next canonical write. A provider request already in progress may still finish, but its result will not be applied."
+        description={t("actions.cancelConfirmDescription")}
         onConfirm={handleCancel}
         confirmLabel="Cancel job"
         variant="destructive"

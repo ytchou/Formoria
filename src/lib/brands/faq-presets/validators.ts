@@ -29,15 +29,14 @@ function fail(reason: string): FaqValidationResult {
 }
 
 function tokens(value: string): string[] {
-  return (value.normalize("NFKC").toLocaleLowerCase().match(TOKEN_PATTERN) ?? [])
+  return (
+    value.normalize("NFKC").toLocaleLowerCase().match(TOKEN_PATTERN) ?? []
+  )
     .map((token) => token.trim())
     .filter(Boolean);
 }
 
-function evidencePresent(
-  key: EvidenceKey,
-  ctx: FaqValidatorContext,
-): boolean {
+function evidencePresent(key: EvidenceKey, ctx: FaqValidatorContext): boolean {
   const { brand } = ctx.brand;
   switch (key) {
     case "mitStatus":
@@ -49,11 +48,12 @@ function evidencePresent(
     case "mitStory":
       return typeof brand.mitStory === "string" && brand.mitStory.trim() !== "";
     case "categorySlug":
-      return typeof brand.categorySlug === "string" && brand.categorySlug.trim() !== "";
+      return (
+        typeof brand.categorySlug === "string" &&
+        brand.categorySlug.trim() !== ""
+      );
     case "subcategories":
       return brand.subcategories.some((tag) => tag.trim() !== "");
-    case "priceRange":
-      return brand.priceRange === 1 || brand.priceRange === 2 || brand.priceRange === 3;
     case "reputationSummary":
       return (
         (brand.reputationSummary?.text?.trim().length ?? 0) >= 10 ||
@@ -82,7 +82,9 @@ function jaccard(left: readonly string[], right: readonly string[]): number {
   if (leftSet.size === 0 && rightSet.size === 0) return 1;
   if (leftSet.size === 0 || rightSet.size === 0) return 0;
 
-  const intersection = [...leftSet].filter((token) => rightSet.has(token)).length;
+  const intersection = [...leftSet].filter((token) =>
+    rightSet.has(token),
+  ).length;
   return intersection / new Set([...leftSet, ...rightSet]).size;
 }
 
@@ -98,19 +100,20 @@ export function withinLengthBand(bands: LengthBands = {}): FaqValidator {
     const band = bands[ctx.locale] ?? DEFAULT_LENGTH_BANDS[ctx.locale];
     // lengthBand measures string length; use one surrogate character per word
     // for English so its word-count band is enforced without changing scorers.
-    const measured = ctx.locale === "en" ? "x".repeat(wordCount(answer)) : answer;
+    const measured =
+      ctx.locale === "en" ? "x".repeat(wordCount(answer)) : answer;
     return lengthBand(measured, band)
       ? pass()
       : fail("The answer is outside its permitted length band.");
   };
 }
 
-export function noPricingFigures(): FaqValidator {
+export function noCommerceClaims(): FaqValidator {
   return (answer) => {
-    const pricingPattern =
-      /(?:NT\s*[$＄]|TWD|新台幣|\d[\d,]*(?:\.\d+)?\s*(?:元|塊|NT\s*[$＄]|TWD)|[$＄]\s*\d[\d,]*)/iu;
-    return pricingPattern.test(answer)
-      ? fail("Pricing figures and currency tokens are not allowed.")
+    const commercePattern =
+      /(?:NT\s*[$\uFF04]|TWD|\u65B0\u53F0\u5E63|\d[\d,]*(?:\.\d+)?\s*(?:\u5143|\u584A|NT\s*[$\uFF04]|TWD)|[$\uFF04]\s*\d[\d,]*|\b(?:affordable|budget(?:-friendly)?|mid[- ]?range|premium|luxury|price(?:d|s|point|tier)?|pricing|costs?|stock|inventory|discount|sale|promotion|shipping|delivery|pre-?order|sold out|availability|checkout|cart|offer)\b|\u50F9\u683C|\u552E\u50F9|\u50F9\u4F4D|\u50F9\u9322|\u5E73\u50F9|\u89AA\u6C11|\u5165\u9580\u50F9|\u4E2D\u50F9|\u9AD8\u50F9|\u7CBE\u54C1|\u4FBF\u5B9C|\u6602\u8CB4|\u6298\u6263|\u512A\u60E0|\u4FC3\u92B7|\u7279\u50F9|\u514D\u904B|\u904B\u8CBB|\u5EAB\u5B58|\u73FE\u8CA8|\u7F3A\u8CA8|\u9810\u8CFC|\u552E\u5B8C|\u88DC\u8CA8|\u5230\u8CA8|\u914D\u9001|\u4EA4\u8CA8|\u4F9B\u61C9|\u4E0B\u55AE|\u7D50\u5E33|\u8CFC\u7269\u8ECA)/iu;
+    return commercePattern.test(answer)
+      ? fail("Commerce claims are not allowed.")
       : pass();
   };
 }
@@ -135,7 +138,8 @@ export function noKeywordStuffing(maxRepeatRatio = 0.08): FaqValidator {
     // unenforceable.
     const brandTokens = tokens(ctx.brand.brand.name);
     const repeatedBrandName = brandTokens.some(
-      (token) => (counts.get(token) ?? 0) / answerTokens.length > maxRepeatRatio,
+      (token) =>
+        (counts.get(token) ?? 0) / answerTokens.length > maxRepeatRatio,
     );
 
     return repeatedBrandName
@@ -147,15 +151,11 @@ export function noKeywordStuffing(maxRepeatRatio = 0.08): FaqValidator {
 export function groundedIn(evidence: readonly EvidenceKey[]): FaqValidator {
   return (_answer, ctx) => {
     const missing = evidence.find((key) => !evidencePresent(key, ctx));
-    return missing
-      ? fail(`Required evidence is missing: ${missing}.`)
-      : pass();
+    return missing ? fail(`Required evidence is missing: ${missing}.`) : pass();
   };
 }
 
-export function notDuplicateOf(
-  siblings?: readonly string[],
-): FaqValidator {
+export function notDuplicateOf(siblings?: readonly string[]): FaqValidator {
   return (answer, ctx) => {
     const candidate = tokens(answer);
     const comparison = siblings ?? ctx.siblings;
@@ -168,9 +168,7 @@ export function notDuplicateOf(
   };
 }
 
-export function composeValidators(
-  ...validators: FaqValidator[]
-): FaqValidator {
+export function composeValidators(...validators: FaqValidator[]): FaqValidator {
   return (answer, ctx) => {
     for (const validator of validators) {
       const result = validator(answer, ctx);

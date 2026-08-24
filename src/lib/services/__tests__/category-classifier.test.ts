@@ -264,7 +264,6 @@ describe("parseExtractionResult", () => {
   it("extraction parses new fact fields and never returns a category write", () => {
     const parsed = parseExtractionResult(
       JSON.stringify({
-        price_range: 2,
         subcategories: ["餐具"],
         city: "台中",
         founding_year: 2015,

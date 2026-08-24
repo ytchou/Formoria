@@ -31,7 +31,6 @@ function brand(name: string, category = "home"): PublicBrandCard {
     categorySlug: category,
     categoryLabel: category,
     mitStatus: "unverified",
-    priceRange: null,
     subcategories: [],
     subcategoriesEn: [],
     foundingYear: null,

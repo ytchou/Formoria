@@ -66,9 +66,10 @@ import {
 // Row types
 // ---------------------------------------------------------------------------
 
-type SubmissionRow = Database["public"]["Tables"]["brand_submissions"]["Row"] & {
-  [Column in OnlineStoreColumn]?: string | null;
-};
+type SubmissionRow =
+  Database["public"]["Tables"]["brand_submissions"]["Row"] & {
+    [Column in OnlineStoreColumn]?: string | null;
+  };
 type CurationTargetHistoryRow = Pick<
   Database["public"]["Tables"]["curation_job_targets"]["Row"],
   | "id"
@@ -166,7 +167,6 @@ export type SubmissionReviewData = {
   foundingYear: number | null;
   heroImageUrl: string | null;
   categorySlug: string | null;
-  priceRange: number | null;
   subcategories: string[];
   subcategoriesEn: string[];
   websiteUrl: string | null;
@@ -189,7 +189,6 @@ type SubmissionReviewMissingField =
   | "description"
   | "categorySlug"
   | "subcategories"
-  | "priceRange"
   | "website"
   | "heroImage"
   | "successfulEnrichment";
@@ -626,10 +625,7 @@ export type SignSubmissionImagePaths = (
 const defaultSubmissionImageSigner: SignSubmissionImagePaths = (paths) =>
   createSignedUrlsInBatches(
     paths,
-    bucketSigner(
-      SUBMISSION_IMAGE_BUCKET,
-      SUBMISSION_IMAGE_SIGNED_URL_SECONDS,
-    ),
+    bucketSigner(SUBMISSION_IMAGE_BUCKET, SUBMISSION_IMAGE_SIGNED_URL_SECONDS),
   );
 
 /**
@@ -662,7 +658,9 @@ export async function attachSignedSubmissionImageUrls(
   signPaths: SignSubmissionImagePaths = defaultSubmissionImageSigner,
 ): Promise<SubmissionReviewImage[]> {
   const keys = images.map(submissionImageStorageKey);
-  const signable = [...new Set(keys.filter((key): key is string => Boolean(key)))];
+  const signable = [
+    ...new Set(keys.filter((key): key is string => Boolean(key))),
+  ];
   if (signable.length === 0) return images;
 
   const { byPath, failures } = await signPaths(signable);
@@ -784,7 +782,8 @@ type SubmissionReviewSource = Pick<
   | "socialFacebook"
   | "otherUrls"
   | "suggestedSubcategories"
-> & Pick<BrandSubmissionWithCategoryNote, OnlineStoreCamelField>;
+> &
+  Pick<BrandSubmissionWithCategoryNote, OnlineStoreCamelField>;
 
 export function buildSubmissionReviewData(
   submission: SubmissionReviewSource,
@@ -841,7 +840,6 @@ export function buildSubmissionReviewData(
       enrichedData?.categorySlug,
       originalTags.categorySlug,
     ),
-    priceRange: enrichedData?.priceRange ?? null,
     subcategories:
       enrichedTags.length > 0 ? enrichedTags : originalTags.subcategories,
     subcategoriesEn: normalizeStringArray(enrichedData?.subcategoriesEn),
@@ -871,9 +869,7 @@ function refreshReviewSource(
   fallback: BrandSubmissionWithCategoryNote,
 ): SubmissionReviewSource {
   const categorySlug = normalizeString(
-    typeof baseBrandData.category === "string"
-      ? baseBrandData.category
-      : null,
+    typeof baseBrandData.category === "string" ? baseBrandData.category : null,
   );
   const websiteColumn = onlineStoreByKey.website.column;
   const websiteUrl =
@@ -1021,9 +1017,6 @@ export function getSubmissionReviewCompleteness(
   if (data.subcategories.length < 1 || data.subcategories.length > 5) {
     missingFields.push("subcategories");
   }
-  if (![1, 2, 3].includes(data.priceRange ?? 0)) {
-    missingFields.push("priceRange");
-  }
   const purchaseLinkFields = ONLINE_STORE_CAMEL_FIELDS.filter(
     (field) => field !== onlineStoreByKey.website.camel,
   );
@@ -1101,7 +1094,6 @@ function submissionReviewDataPrefix(data: SubmissionReviewData) {
       ]),
     ),
     otherUrls: data.otherUrls,
-    priceRange: data.priceRange,
     subcategories: data.subcategories,
     subcategoriesEn: data.subcategoriesEn,
   });
@@ -1133,7 +1125,6 @@ function submissionReviewDataToBrandInsert(
     // the image proxy refuses to serve, so `approve_submission` is the only
     // correct owner of the brand hero.
     category: mapped.category,
-    price_range: mapped.price_range,
     subcategories: mapped.subcategories,
     subcategories_en: mapped.subcategories_en,
     social_instagram: mapped.social_instagram,
@@ -1172,7 +1163,6 @@ function submissionReviewDataToDb(
     // the image proxy refuses to serve, so `approve_submission` is the only
     // correct owner of the brand hero.
     category: mapped.category,
-    price_range: mapped.price_range,
     subcategories: mapped.subcategories,
     subcategories_en: mapped.subcategories_en,
     social_instagram: mapped.social_instagram,
@@ -1195,8 +1185,7 @@ function reviewDataFromDb(
   const purchaseFields = Object.fromEntries(
     ONLINE_STORES.map((channel) => [
       channel.camel,
-      data[channel.column] === null ||
-      typeof data[channel.column] === "string"
+      data[channel.column] === null || typeof data[channel.column] === "string"
         ? data[channel.column]
         : fallback[channel.camel],
     ]),
@@ -1266,10 +1255,6 @@ function reviewDataFromDb(
       data.category === null || typeof data.category === "string"
         ? data.category
         : fallback.categorySlug,
-    priceRange:
-      data.price_range === null || typeof data.price_range === "number"
-        ? data.price_range
-        : fallback.priceRange,
     subcategories: Array.isArray(data.subcategories)
       ? normalizeStringArray(data.subcategories)
       : fallback.subcategories,
@@ -1372,7 +1357,8 @@ export async function createSubmission(
         | "isBrandOwner"
         | "sourceAttribution"
       >
-    > & Partial<Pick<BrandSubmission, OnlineStoreCamelField>> & {
+    > &
+    Partial<Pick<BrandSubmission, OnlineStoreCamelField>> & {
       websiteUrl?: string | null;
       romanizedName?: string | null;
       suggestedSubcategories?: SuggestedSubcategoriesInput;
@@ -1386,31 +1372,31 @@ export async function createSubmission(
   return auditedCall(
     { provider: "submissions", operation: "createSubmission", kind: "service" },
     async () => {
-  // Authorization and abuse checks happen at the action boundary. The data
-  // write itself always uses the service role so the public submission journey
-  // remains available after application-role table grants are revoked.
-  const supabase = createServiceClient();
-  const row = submissionToInsert(data);
-  const { data: inserted, error } = await supabase
-    .from("brand_submissions")
-    .insert(row)
-    .select("*")
-    .single();
+      // Authorization and abuse checks happen at the action boundary. The data
+      // write itself always uses the service role so the public submission journey
+      // remains available after application-role table grants are revoked.
+      const supabase = createServiceClient();
+      const row = submissionToInsert(data);
+      const { data: inserted, error } = await supabase
+        .from("brand_submissions")
+        .insert(row)
+        .select("*")
+        .single();
 
-  if (error) {
-    if (error.code !== "23505" || !data.idempotencyKey) throw error;
+      if (error) {
+        if (error.code !== "23505" || !data.idempotencyKey) throw error;
 
-    const { data: existing, error: lookupError } = await supabase
-      .from("brand_submissions")
-      .select("*")
-      .eq("idempotency_key", data.idempotencyKey)
-      .maybeSingle();
+        const { data: existing, error: lookupError } = await supabase
+          .from("brand_submissions")
+          .select("*")
+          .eq("idempotency_key", data.idempotencyKey)
+          .maybeSingle();
 
-    if (lookupError) throw lookupError;
-    if (!existing) throw error;
-    return submissionToDomain(existing);
-  }
-  return submissionToDomain(inserted);
+        if (lookupError) throw lookupError;
+        if (!existing) throw error;
+        return submissionToDomain(existing);
+      }
+      return submissionToDomain(inserted);
     },
   );
 }
@@ -1543,8 +1529,7 @@ export async function getSubmissionsForReview(options?: {
   if (failedPage?.error) throw failedPage.error;
 
   const rows = [firstPage, ...remainingPages].flatMap(
-    (page) =>
-      (page.data ?? []) as unknown as SubmissionRowWithCategoryNote[],
+    (page) => (page.data ?? []) as unknown as SubmissionRowWithCategoryNote[],
   );
   const submissionIds = rows.map((row) => row.id);
   const targetHistory = (
@@ -1871,29 +1856,36 @@ export async function dropNeedsDataSubmissions(
   submissionIds: string[],
 ): Promise<DropNeedsDataSubmissionsResult> {
   return auditedCall(
-    { provider: "submissions", operation: "dropNeedsDataSubmissions", kind: "service" },
+    {
+      provider: "submissions",
+      operation: "dropNeedsDataSubmissions",
+      kind: "service",
+    },
     async () => {
-  const supabase = createServiceClient();
-  const { data, error } = await supabase.rpc("drop_needs_data_submissions", {
-    p_submission_ids: submissionIds,
-  });
-  if (error) throw error;
+      const supabase = createServiceClient();
+      const { data, error } = await supabase.rpc(
+        "drop_needs_data_submissions",
+        {
+          p_submission_ids: submissionIds,
+        },
+      );
+      if (error) throw error;
 
-  const storagePaths = (Array.isArray(data) ? data : []).filter(
-    (path): path is string => typeof path === "string",
-  );
-  let cleanupFailed = false;
-  try {
-    await deleteStoredImagePaths(storagePaths);
-  } catch (storageError) {
-    cleanupFailed = true;
-    console.error(
-      `[dropNeedsDataSubmissions] Failed to delete submission images for ${submissionIds.join(",")}:`,
-      storageError,
-    );
-  }
+      const storagePaths = (Array.isArray(data) ? data : []).filter(
+        (path): path is string => typeof path === "string",
+      );
+      let cleanupFailed = false;
+      try {
+        await deleteStoredImagePaths(storagePaths);
+      } catch (storageError) {
+        cleanupFailed = true;
+        console.error(
+          `[dropNeedsDataSubmissions] Failed to delete submission images for ${submissionIds.join(",")}:`,
+          storageError,
+        );
+      }
 
-  return { deletedCount: submissionIds.length, cleanupFailed };
+      return { deletedCount: submissionIds.length, cleanupFailed };
     },
   );
 }
@@ -1908,27 +1900,27 @@ export async function reopenSubmission(id: string): Promise<BrandSubmission> {
   return auditedCall(
     { provider: "submissions", operation: "reopenSubmission", kind: "service" },
     async () => {
-  const supabase = createServiceClient();
-  const { data, error } = await supabase
-    .from("brand_submissions")
-    .update({
-      status: "pending",
-      reviewed_at: null,
-      reviewed_by: null,
-      denial_reason: null,
-      reviewer_notes: null,
-    })
-    .eq("id", id)
-    .eq("status", "rejected")
-    .select("*")
-    .maybeSingle();
+      const supabase = createServiceClient();
+      const { data, error } = await supabase
+        .from("brand_submissions")
+        .update({
+          status: "pending",
+          reviewed_at: null,
+          reviewed_by: null,
+          denial_reason: null,
+          reviewer_notes: null,
+        })
+        .eq("id", id)
+        .eq("status", "rejected")
+        .select("*")
+        .maybeSingle();
 
-  if (error) throw error;
-  if (!data) {
-    throw new Error("Only rejected submissions can be reopened");
-  }
+      if (error) throw error;
+      if (!data) {
+        throw new Error("Only rejected submissions can be reopened");
+      }
 
-  return submissionToDomain(data);
+      return submissionToDomain(data);
     },
   );
 }
@@ -1938,17 +1930,21 @@ export async function requestBrandRefresh(
   requester: { id: string; email: string },
 ): Promise<{ submissionId: string }> {
   return auditedCall(
-    { provider: "submissions", operation: "requestBrandRefresh", kind: "service" },
+    {
+      provider: "submissions",
+      operation: "requestBrandRefresh",
+      kind: "service",
+    },
     async () => {
-  const supabase = createServiceClient();
-  const { data, error } = await supabase.rpc("request_brand_refresh", {
-    p_brand_id: brandId,
-    p_requested_by: requester.id,
-    p_requester_email: requester.email,
-  });
-  if (error) throw error;
-  if (!data) throw new Error("Refresh request returned no submission ID");
-  return { submissionId: data };
+      const supabase = createServiceClient();
+      const { data, error } = await supabase.rpc("request_brand_refresh", {
+        p_brand_id: brandId,
+        p_requested_by: requester.id,
+        p_requester_email: requester.email,
+      });
+      if (error) throw error;
+      if (!data) throw new Error("Refresh request returned no submission ID");
+      return { submissionId: data };
     },
   );
 }
@@ -1966,82 +1962,87 @@ export async function requestBrandRefreshesBySlugs(
   options?: { dryRun?: boolean },
 ): Promise<BrandRefreshRequestOutcome[]> {
   return auditedCall(
-    { provider: "submissions", operation: "requestBrandRefreshesBySlugs", kind: "service" },
+    {
+      provider: "submissions",
+      operation: "requestBrandRefreshesBySlugs",
+      kind: "service",
+    },
     async () => {
-  const normalizedSlugs = [
-    ...new Set(slugs.map((slug) => slug.trim()).filter(Boolean)),
-  ];
-  if (normalizedSlugs.length === 0) return [];
+      const normalizedSlugs = [
+        ...new Set(slugs.map((slug) => slug.trim()).filter(Boolean)),
+      ];
+      if (normalizedSlugs.length === 0) return [];
 
-  const supabase = createServiceClient();
-  const { data: brands, error: brandsError } = await supabase
-    .from("brands")
-    .select("id, name, slug, status")
-    .in("slug", normalizedSlugs);
-  if (brandsError) throw brandsError;
+      const supabase = createServiceClient();
+      const { data: brands, error: brandsError } = await supabase
+        .from("brands")
+        .select("id, name, slug, status")
+        .in("slug", normalizedSlugs);
+      if (brandsError) throw brandsError;
 
-  const brandBySlug = new Map(
-    (brands ?? []).map((brand) => [brand.slug, brand]),
-  );
-  const missing = normalizedSlugs.filter((slug) => !brandBySlug.has(slug));
-  if (missing.length > 0) {
-    throw new Error(`Brands not found: ${missing.join(", ")}`);
-  }
-
-  let requesterId: string | null = null;
-  for (let page = 1; requesterId === null; page += 1) {
-    const { data, error } = await supabase.auth.admin.listUsers({
-      page,
-      perPage: 1_000,
-    });
-    if (error) throw error;
-    requesterId =
-      data.users.find(
-        (user) => user.email?.toLowerCase() === requesterEmail.toLowerCase(),
-      )?.id ?? null;
-    if (data.users.length < 1_000) break;
-  }
-  if (!requesterId) {
-    throw new Error(`Configured admin user not found: ${requesterEmail}`);
-  }
-  const resolvedRequesterId = requesterId;
-
-  return Promise.all(
-    normalizedSlugs.map(async (slug) => {
-      const brand = brandBySlug.get(slug);
-      if (!brand) {
-        return {
-          slug,
-          name: slug,
-          submissionId: null,
-          error: "Brand not found",
-        };
-      }
-      if (brand.status !== "approved" && brand.status !== "hidden") {
-        return {
-          slug,
-          name: brand.name,
-          submissionId: null,
-          error: "Only approved or hidden brands can be refreshed",
-        };
-      }
-      if (options?.dryRun) {
-        return { slug, name: brand.name, submissionId: null, error: null };
+      const brandBySlug = new Map(
+        (brands ?? []).map((brand) => [brand.slug, brand]),
+      );
+      const missing = normalizedSlugs.filter((slug) => !brandBySlug.has(slug));
+      if (missing.length > 0) {
+        throw new Error(`Brands not found: ${missing.join(", ")}`);
       }
 
-      const { data, error } = await supabase.rpc("request_brand_refresh", {
-        p_brand_id: brand.id,
-        p_requested_by: resolvedRequesterId,
-        p_requester_email: requesterEmail,
-      });
-      return {
-        slug,
-        name: brand.name,
-        submissionId: error ? null : data,
-        error: error?.message ?? null,
-      };
-    }),
-  );
+      let requesterId: string | null = null;
+      for (let page = 1; requesterId === null; page += 1) {
+        const { data, error } = await supabase.auth.admin.listUsers({
+          page,
+          perPage: 1_000,
+        });
+        if (error) throw error;
+        requesterId =
+          data.users.find(
+            (user) =>
+              user.email?.toLowerCase() === requesterEmail.toLowerCase(),
+          )?.id ?? null;
+        if (data.users.length < 1_000) break;
+      }
+      if (!requesterId) {
+        throw new Error(`Configured admin user not found: ${requesterEmail}`);
+      }
+      const resolvedRequesterId = requesterId;
+
+      return Promise.all(
+        normalizedSlugs.map(async (slug) => {
+          const brand = brandBySlug.get(slug);
+          if (!brand) {
+            return {
+              slug,
+              name: slug,
+              submissionId: null,
+              error: "Brand not found",
+            };
+          }
+          if (brand.status !== "approved" && brand.status !== "hidden") {
+            return {
+              slug,
+              name: brand.name,
+              submissionId: null,
+              error: "Only approved or hidden brands can be refreshed",
+            };
+          }
+          if (options?.dryRun) {
+            return { slug, name: brand.name, submissionId: null, error: null };
+          }
+
+          const { data, error } = await supabase.rpc("request_brand_refresh", {
+            p_brand_id: brand.id,
+            p_requested_by: resolvedRequesterId,
+            p_requester_email: requesterEmail,
+          });
+          return {
+            slug,
+            name: brand.name,
+            submissionId: error ? null : data,
+            error: error?.message ?? null,
+          };
+        }),
+      );
     },
   );
 }
@@ -2051,50 +2052,54 @@ export async function applyBrandRefresh(
   reviewerId: string,
 ): Promise<{ brandId: string; cleanupFailed: boolean }> {
   return auditedCall(
-    { provider: "submissions", operation: "applyBrandRefresh", kind: "service" },
+    {
+      provider: "submissions",
+      operation: "applyBrandRefresh",
+      kind: "service",
+    },
     async () => {
-  const supabase = createServiceClient();
-  const { data: submission, error: submissionError } = await supabase
-    .from("brand_submissions")
-    .select("brand_id, intent, status")
-    .eq("id", submissionId)
-    .single();
-  if (submissionError || !submission?.brand_id) {
-    throw new NotFoundError("BrandSubmission", submissionId, {
-      cause: submissionError,
-    });
-  }
-  if (submission.intent !== "refresh" || submission.status !== "pending") {
-    throw new Error("Refresh submission already processed");
-  }
+      const supabase = createServiceClient();
+      const { data: submission, error: submissionError } = await supabase
+        .from("brand_submissions")
+        .select("brand_id, intent, status")
+        .eq("id", submissionId)
+        .single();
+      if (submissionError || !submission?.brand_id) {
+        throw new NotFoundError("BrandSubmission", submissionId, {
+          cause: submissionError,
+        });
+      }
+      if (submission.intent !== "refresh" || submission.status !== "pending") {
+        throw new Error("Refresh submission already processed");
+      }
 
-  const { data: storagePaths, error } = await supabase.rpc(
-    "apply_brand_refresh",
-    { p_reviewer_id: reviewerId, p_submission_id: submissionId },
-  );
-  // 55P03 = lock_not_available: the brand or submission row is locked by another
-  // in-flight apply. The function sets a 2s lock_timeout so this surfaces as a
-  // retryable message instead of blocking the whole bulk approval.
-  if (error?.code === "55P03") {
-    throw new ConflictError(
-      "Another update is being applied to this brand. Try again in a moment.",
-      { cause: error },
-    );
-  }
-  if (error) throw error;
+      const { data: storagePaths, error } = await supabase.rpc(
+        "apply_brand_refresh",
+        { p_reviewer_id: reviewerId, p_submission_id: submissionId },
+      );
+      // 55P03 = lock_not_available: the brand or submission row is locked by another
+      // in-flight apply. The function sets a 2s lock_timeout so this surfaces as a
+      // retryable message instead of blocking the whole bulk approval.
+      if (error?.code === "55P03") {
+        throw new ConflictError(
+          "Another update is being applied to this brand. Try again in a moment.",
+          { cause: error },
+        );
+      }
+      if (error) throw error;
 
-  let cleanupFailed = false;
-  try {
-    await deleteStoredImagePaths(storagePaths ?? []);
-  } catch (storageError) {
-    cleanupFailed = true;
-    console.error(
-      `[applyBrandRefresh] Failed to delete retired images for ${submissionId}:`,
-      storageError,
-    );
-  }
+      let cleanupFailed = false;
+      try {
+        await deleteStoredImagePaths(storagePaths ?? []);
+      } catch (storageError) {
+        cleanupFailed = true;
+        console.error(
+          `[applyBrandRefresh] Failed to delete retired images for ${submissionId}:`,
+          storageError,
+        );
+      }
 
-  return { brandId: submission.brand_id, cleanupFailed };
+      return { brandId: submission.brand_id, cleanupFailed };
     },
   );
 }
@@ -2177,44 +2182,50 @@ export async function saveSubmissionReview(
   input: SaveSubmissionReviewInput,
 ): Promise<void> {
   return auditedCall(
-    { provider: "submissions", operation: "saveSubmissionReview", kind: "service" },
+    {
+      provider: "submissions",
+      operation: "saveSubmissionReview",
+      kind: "service",
+    },
     async () => {
-  const supabase = createServiceClient();
-  const { data: row, error: submissionError } = await supabase
-    .from("brand_submissions")
-    .select(ADMIN_REVIEW_SUBMISSIONS_SELECT)
-    .eq("id", id)
-    .eq("status", "pending")
-    .single();
-  if (submissionError || !row) {
-    throw new NotFoundError("BrandSubmission", id, { cause: submissionError });
-  }
+      const supabase = createServiceClient();
+      const { data: row, error: submissionError } = await supabase
+        .from("brand_submissions")
+        .select(ADMIN_REVIEW_SUBMISSIONS_SELECT)
+        .eq("id", id)
+        .eq("status", "pending")
+        .single();
+      if (submissionError || !row) {
+        throw new NotFoundError("BrandSubmission", id, {
+          cause: submissionError,
+        });
+      }
 
-  const submissionRow = row as unknown as SubmissionRowWithCategoryNote;
-  const submission = submissionToDomain(submissionRow);
-  const enrichedData = isEnrichedData(submissionRow.enriched_data)
-    ? enrichedDataFromSubmissionDb(
-        submissionRow.enriched_data as Record<string, unknown>,
-      )
-    : null;
-  const { baseline } = buildReviewLayers(
-    submissionRow,
-    submission,
-    enrichedData,
-  );
-  const overrides = buildSubmissionReviewOverrides(baseline, input);
-  const { error } = await supabase.rpc("save_submission_review", {
-    p_submission_id: id,
-    p_review_data: overrides as Json,
-    p_images: input.images.map((image) => ({
-      id: image.id,
-      // Keep the payload compatible with linked databases before the hero-order migration.
-      is_hero: image.sortOrder === 0,
-      sort_order: image.sortOrder,
-    })) as unknown as Json,
-  });
+      const submissionRow = row as unknown as SubmissionRowWithCategoryNote;
+      const submission = submissionToDomain(submissionRow);
+      const enrichedData = isEnrichedData(submissionRow.enriched_data)
+        ? enrichedDataFromSubmissionDb(
+            submissionRow.enriched_data as Record<string, unknown>,
+          )
+        : null;
+      const { baseline } = buildReviewLayers(
+        submissionRow,
+        submission,
+        enrichedData,
+      );
+      const overrides = buildSubmissionReviewOverrides(baseline, input);
+      const { error } = await supabase.rpc("save_submission_review", {
+        p_submission_id: id,
+        p_review_data: overrides as Json,
+        p_images: input.images.map((image) => ({
+          id: image.id,
+          // Keep the payload compatible with linked databases before the hero-order migration.
+          is_hero: image.sortOrder === 0,
+          sort_order: image.sortOrder,
+        })) as unknown as Json,
+      });
 
-  if (error) throw error;
+      if (error) throw error;
     },
   );
 }
@@ -2230,46 +2241,50 @@ export async function stageSubmissionReviewImage(
   input: StageSubmissionReviewImageInput,
 ): Promise<SubmissionReviewImage> {
   return auditedCall(
-    { provider: "submissions", operation: "stageSubmissionReviewImage", kind: "service" },
+    {
+      provider: "submissions",
+      operation: "stageSubmissionReviewImage",
+      kind: "service",
+    },
     async () => {
-  const supabase = createServiceClient();
-  const { data: submission, error: submissionError } = await supabase
-    .from("brand_submissions")
-    .select("id, intent, brand_id")
-    .eq("id", input.submissionId)
-    .eq("status", "pending")
-    .maybeSingle();
-  if (submissionError) throw submissionError;
-  if (!submission)
-    throw new NotFoundError("BrandSubmission", input.submissionId);
-  if (submission.brand_id && submission.intent !== "refresh") {
-    throw new NotFoundError("BrandSubmission", input.submissionId);
-  }
+      const supabase = createServiceClient();
+      const { data: submission, error: submissionError } = await supabase
+        .from("brand_submissions")
+        .select("id, intent, brand_id")
+        .eq("id", input.submissionId)
+        .eq("status", "pending")
+        .maybeSingle();
+      if (submissionError) throw submissionError;
+      if (!submission)
+        throw new NotFoundError("BrandSubmission", input.submissionId);
+      if (submission.brand_id && submission.intent !== "refresh") {
+        throw new NotFoundError("BrandSubmission", input.submissionId);
+      }
 
-  const { data, error } = await supabase
-    .from("submission_images")
-    .insert({
-      submission_id: input.submissionId,
-      // DEV-1551 task 12: the bucket key is the only reference written. The
-      // `url` column keeps its schema default; nothing here fills it.
-      storage_path: input.storagePath,
-      source_url: input.storagePath,
-      source: "admin",
-      status: "draft",
-      sort_order: 0,
-      width: input.width,
-      height: input.height,
-    })
-    .select("*")
-    .single();
-  if (error) throw error;
-  // A no-op unless the object landed under `submissions/` — see
-  // `attachSignedSubmissionImageUrls`. Applied here so a freshly staged image
-  // is displayable by the same rule as the rest of the queue.
-  const [staged] = await attachSignedSubmissionImageUrls([
-    submissionImageToReviewImage(data),
-  ]);
-  return staged;
+      const { data, error } = await supabase
+        .from("submission_images")
+        .insert({
+          submission_id: input.submissionId,
+          // DEV-1551 task 12: the bucket key is the only reference written. The
+          // `url` column keeps its schema default; nothing here fills it.
+          storage_path: input.storagePath,
+          source_url: input.storagePath,
+          source: "admin",
+          status: "draft",
+          sort_order: 0,
+          width: input.width,
+          height: input.height,
+        })
+        .select("*")
+        .single();
+      if (error) throw error;
+      // A no-op unless the object landed under `submissions/` — see
+      // `attachSignedSubmissionImageUrls`. Applied here so a freshly staged image
+      // is displayable by the same rule as the rest of the queue.
+      const [staged] = await attachSignedSubmissionImageUrls([
+        submissionImageToReviewImage(data),
+      ]);
+      return staged;
     },
   );
 }
@@ -2281,36 +2296,40 @@ export async function cleanupSubmissionDraftImages(
   if (imageIds.length === 0) return;
 
   return auditedCall(
-    { provider: "submissions", operation: "cleanupSubmissionDraftImages", kind: "service" },
+    {
+      provider: "submissions",
+      operation: "cleanupSubmissionDraftImages",
+      kind: "service",
+    },
     async () => {
-  const supabase = createServiceClient();
-  const { data, error } = await supabase
-    .from("submission_images")
-    .select("id, storage_path")
-    .eq("submission_id", submissionId)
-    .eq("status", "draft")
-    .in("id", imageIds);
-  if (error) throw error;
+      const supabase = createServiceClient();
+      const { data, error } = await supabase
+        .from("submission_images")
+        .select("id, storage_path")
+        .eq("submission_id", submissionId)
+        .eq("status", "draft")
+        .in("id", imageIds);
+      if (error) throw error;
 
-  const draftRows = data ?? [];
-  await deleteStoredImagePaths(
-    draftRows.flatMap((image) =>
-      image.storage_path ? [image.storage_path] : [],
-    ),
-  );
-
-  if (draftRows.length > 0) {
-    const { error: deleteError } = await supabase
-      .from("submission_images")
-      .delete()
-      .eq("submission_id", submissionId)
-      .eq("status", "draft")
-      .in(
-        "id",
-        draftRows.map((image) => image.id),
+      const draftRows = data ?? [];
+      await deleteStoredImagePaths(
+        draftRows.flatMap((image) =>
+          image.storage_path ? [image.storage_path] : [],
+        ),
       );
-    if (deleteError) throw deleteError;
-  }
+
+      if (draftRows.length > 0) {
+        const { error: deleteError } = await supabase
+          .from("submission_images")
+          .delete()
+          .eq("submission_id", submissionId)
+          .eq("status", "draft")
+          .in(
+            "id",
+            draftRows.map((image) => image.id),
+          );
+        if (deleteError) throw deleteError;
+      }
     },
   );
 }
@@ -2330,160 +2349,169 @@ export async function approveSubmission(
   third?: string,
 ): Promise<ApproveSubmissionResult> {
   return auditedCall(
-    { provider: "submissions", operation: "approveSubmission", kind: "service" },
-    async () => {
-  const supabase = typeof first === "string" ? createServiceClient() : first;
-  const id = typeof first === "string" ? first : second;
-  const reviewerId = typeof first === "string" ? second : (third as string);
-
-  const { data: submission, error: fetchError } = await supabase
-    .from("brand_submissions")
-    .select("*")
-    .eq("id", id)
-    .single();
-
-  if (fetchError || !submission) {
-    throw new NotFoundError("BrandSubmission", id, { cause: fetchError });
-  }
-  if (submission.intent === "refresh") {
-    throw new Error(
-      "Refresh submissions must be applied to the existing brand",
-    );
-  }
-
-  const enrichedDataRaw = submission.enriched_data;
-  const enrichedData: EnrichedSubmissionData | null = isEnrichedData(
-    enrichedDataRaw,
-  )
-    ? enrichedDataFromSubmissionDb(enrichedDataRaw as Record<string, unknown>)
-    : null;
-
-  const { data: imageRows, error: imageError } = await supabase
-    .from("submission_images")
-    .select(
-      "id, submission_id, storage_path, source, status, sort_order, alt_zh, alt_en, tags, width, height, origin_brand_image_id",
-    )
-    .eq("submission_id", id)
-    .order("sort_order", { ascending: true });
-  if (imageError) throw imageError;
-  const reviewImages = normalizeSubmissionReviewImages(
-    ((imageRows ?? []) as unknown as SubmissionImageRow[]).map(
-      submissionImageToReviewImage,
-    ),
-  );
-
-  const typedSubmission = {
-    ...submission,
-    other_urls: normalizeOtherUrls(submission.other_urls),
-  } as unknown as SubmissionRowWithCategoryNote;
-  const submissionDomain = submissionToDomain(typedSubmission);
-  const reviewData = buildReviewLayers(
-    typedSubmission,
-    submissionDomain,
-    enrichedData,
-    reviewImages,
-  ).effective;
-
-  const baseSlug = generateSubmissionSlug(submission);
-  if (!isValidSlug(baseSlug)) {
-    throw new Error(`Generated slug "${baseSlug}" is not valid kebab-case`);
-  }
-  const slug = await resolveUniqueSlug(supabase, baseSlug);
-
-  // Last gate before a name reaches the public directory. The enrich-side name
-  // arbiter (DEV-1321) is the intended writer, but it only governs rows enriched
-  // after it shipped: `噗尼 Mobell` was enriched earlier, carried the scraped page
-  // title `噗尼 Mobell - 網頁不存在` in enriched_data.name, and published under it
-  // because approval copied that field verbatim. Any submission enriched before
-  // the arbiter — or by a future path that bypasses it — still lands here, so the
-  // clean runs at the boundary rather than trusting upstream.
-  //
-  // `cleanBrandName` returns the original when cleaning would empty the string,
-  // so this can never publish a blank name. The slug is untouched: it derives
-  // from the submission row, not from this field, and was already correct on the
-  // polluted row.
-  const brandInsert: BrandInsert = {
-    ...submissionToBrandBase(submission),
-    ...submissionReviewDataToBrandInsert(reviewData),
-    name: cleanBrandName(reviewData.name).cleanedName,
-    slug,
-    status: "approved",
-  };
-  const { data: approvalRows, error: approvalError } = await supabase.rpc(
-    "approve_submission_with_romanized_name",
     {
-      p_brand_data: brandInsert as unknown as Json,
-      p_reviewer_id: reviewerId,
-      p_submission_id: id,
+      provider: "submissions",
+      operation: "approveSubmission",
+      kind: "service",
     },
-  );
+    async () => {
+      const supabase =
+        typeof first === "string" ? createServiceClient() : first;
+      const id = typeof first === "string" ? first : second;
+      const reviewerId = typeof first === "string" ? second : (third as string);
 
-  if (approvalError) {
-    if (approvalError.code === "P0002") {
-      throw new NotFoundError("BrandSubmission", id, {
-        cause: approvalError,
-      });
-    }
+      const { data: submission, error: fetchError } = await supabase
+        .from("brand_submissions")
+        .select("*")
+        .eq("id", id)
+        .single();
 
-    if (APPROVAL_RPC_ERROR_MESSAGES.has(approvalError.message)) {
-      throw new Error(approvalError.message);
-    }
-
-    throw approvalError;
-  }
-
-  const approval = approvalRows?.at(0);
-  if (!approval)
-    throw new NotFoundError("BrandSubmission", id, { cause: approvalError });
-
-  // DEV-1551: the approval RPC copies `submission_images` into `brand_images`
-  // and carries `storage_path` across verbatim, so the brand's imagery would
-  // stay under `submissions/` -- a prefix the same-origin read proxy refuses,
-  // because pre-moderation imagery is private and the proxy cannot read row
-  // status without a per-request database round trip. The object has to move
-  // the moment it becomes public. `promoteApprovedBrandImages` never throws and
-  // never deletes: approval must not fail because a copy failed, since a brand
-  // with unservable images is recoverable (re-run
-  // `scripts/promote-submission-images.ts`) and a failed approval is not.
-  await promoteApprovedBrandImages(approval.brand_id);
-
-  // The maps producer is gone, but pending submissions can still carry legacy
-  // channels. Keep draining those rows until the Phase 2 importer takes over.
-  if (reviewData.channels) {
-    try {
-      const stockistsResult = await upsertEnrichedStockists(
-        approval.brand_id,
-        reviewData.channels,
-      );
-      if (!stockistsResult.ok) {
-        console.error(
-          "[approveSubmission] Failed to upsert enriched channels:",
-          stockistsResult.code,
+      if (fetchError || !submission) {
+        throw new NotFoundError("BrandSubmission", id, { cause: fetchError });
+      }
+      if (submission.intent === "refresh") {
+        throw new Error(
+          "Refresh submissions must be applied to the existing brand",
         );
       }
-    } catch (stockistError) {
-      console.error(
-        "[approveSubmission] Failed to upsert enriched channels:",
-        stockistError,
+
+      const enrichedDataRaw = submission.enriched_data;
+      const enrichedData: EnrichedSubmissionData | null = isEnrichedData(
+        enrichedDataRaw,
+      )
+        ? enrichedDataFromSubmissionDb(
+            enrichedDataRaw as Record<string, unknown>,
+          )
+        : null;
+
+      const { data: imageRows, error: imageError } = await supabase
+        .from("submission_images")
+        .select(
+          "id, submission_id, storage_path, source, status, sort_order, alt_zh, alt_en, tags, width, height, origin_brand_image_id",
+        )
+        .eq("submission_id", id)
+        .order("sort_order", { ascending: true });
+      if (imageError) throw imageError;
+      const reviewImages = normalizeSubmissionReviewImages(
+        ((imageRows ?? []) as unknown as SubmissionImageRow[]).map(
+          submissionImageToReviewImage,
+        ),
       );
-    }
-  }
 
-  // No FAQ write here on purpose: `brand_faq_entries` is written only by the
-  // `faq` enrichment phase, behind the preset validators. An approved brand
-  // renders the template floors until that phase runs against it.
+      const typedSubmission = {
+        ...submission,
+        other_urls: normalizeOtherUrls(submission.other_urls),
+      } as unknown as SubmissionRowWithCategoryNote;
+      const submissionDomain = submissionToDomain(typedSubmission);
+      const reviewData = buildReviewLayers(
+        typedSubmission,
+        submissionDomain,
+        enrichedData,
+        reviewImages,
+      ).effective;
 
-  return {
-    brandId: approval.brand_id,
-    submitterEmail: approval.submitter_email,
-    brandName: approval.brand_name,
-    submitterName: approval.submitter_name ?? null,
-    isBrandOwner: approval.is_brand_owner ?? false,
-    // `reviewData` is the effective layer built at the top of this function,
-    // from the row as it stood when the approval ran. Materialization is the
-    // caller's next step and consumes exactly this.
-    productReview: submissionProductReview(reviewData),
-  };
+      const baseSlug = generateSubmissionSlug(submission);
+      if (!isValidSlug(baseSlug)) {
+        throw new Error(`Generated slug "${baseSlug}" is not valid kebab-case`);
+      }
+      const slug = await resolveUniqueSlug(supabase, baseSlug);
+
+      // Last gate before a name reaches the public directory. The enrich-side name
+      // arbiter (DEV-1321) is the intended writer, but it only governs rows enriched
+      // after it shipped: `噗尼 Mobell` was enriched earlier, carried the scraped page
+      // title `噗尼 Mobell - 網頁不存在` in enriched_data.name, and published under it
+      // because approval copied that field verbatim. Any submission enriched before
+      // the arbiter — or by a future path that bypasses it — still lands here, so the
+      // clean runs at the boundary rather than trusting upstream.
+      //
+      // `cleanBrandName` returns the original when cleaning would empty the string,
+      // so this can never publish a blank name. The slug is untouched: it derives
+      // from the submission row, not from this field, and was already correct on the
+      // polluted row.
+      const brandInsert: BrandInsert = {
+        ...submissionToBrandBase(submission),
+        ...submissionReviewDataToBrandInsert(reviewData),
+        name: cleanBrandName(reviewData.name).cleanedName,
+        slug,
+        status: "approved",
+      };
+      const { data: approvalRows, error: approvalError } = await supabase.rpc(
+        "approve_submission_with_romanized_name",
+        {
+          p_brand_data: brandInsert as unknown as Json,
+          p_reviewer_id: reviewerId,
+          p_submission_id: id,
+        },
+      );
+
+      if (approvalError) {
+        if (approvalError.code === "P0002") {
+          throw new NotFoundError("BrandSubmission", id, {
+            cause: approvalError,
+          });
+        }
+
+        if (APPROVAL_RPC_ERROR_MESSAGES.has(approvalError.message)) {
+          throw new Error(approvalError.message);
+        }
+
+        throw approvalError;
+      }
+
+      const approval = approvalRows?.at(0);
+      if (!approval)
+        throw new NotFoundError("BrandSubmission", id, {
+          cause: approvalError,
+        });
+
+      // DEV-1551: the approval RPC copies `submission_images` into `brand_images`
+      // and carries `storage_path` across verbatim, so the brand's imagery would
+      // stay under `submissions/` -- a prefix the same-origin read proxy refuses,
+      // because pre-moderation imagery is private and the proxy cannot read row
+      // status without a per-request database round trip. The object has to move
+      // the moment it becomes public. `promoteApprovedBrandImages` never throws and
+      // never deletes: approval must not fail because a copy failed, since a brand
+      // with unservable images is recoverable (re-run
+      // `scripts/promote-submission-images.ts`) and a failed approval is not.
+      await promoteApprovedBrandImages(approval.brand_id);
+
+      // The maps producer is gone, but pending submissions can still carry legacy
+      // channels. Keep draining those rows until the Phase 2 importer takes over.
+      if (reviewData.channels) {
+        try {
+          const stockistsResult = await upsertEnrichedStockists(
+            approval.brand_id,
+            reviewData.channels,
+          );
+          if (!stockistsResult.ok) {
+            console.error(
+              "[approveSubmission] Failed to upsert enriched channels:",
+              stockistsResult.code,
+            );
+          }
+        } catch (stockistError) {
+          console.error(
+            "[approveSubmission] Failed to upsert enriched channels:",
+            stockistError,
+          );
+        }
+      }
+
+      // No FAQ write here on purpose: `brand_faq_entries` is written only by the
+      // `faq` enrichment phase, behind the preset validators. An approved brand
+      // renders the template floors until that phase runs against it.
+
+      return {
+        brandId: approval.brand_id,
+        submitterEmail: approval.submitter_email,
+        brandName: approval.brand_name,
+        submitterName: approval.submitter_name ?? null,
+        isBrandOwner: approval.is_brand_owner ?? false,
+        // `reviewData` is the effective layer built at the top of this function,
+        // from the row as it stood when the approval ran. Materialization is the
+        // caller's next step and consumes exactly this.
+        productReview: submissionProductReview(reviewData),
+      };
     },
   );
 }
@@ -2516,38 +2544,38 @@ export async function rejectSubmission(
   return auditedCall(
     { provider: "submissions", operation: "rejectSubmission", kind: "service" },
     async () => {
-  const supabase = createServiceClient();
+      const supabase = createServiceClient();
 
-  const { data: storagePaths, error: rejectionError } = await supabase.rpc(
-    "reject_submission",
-    {
-      p_denial_reason: denialReason,
-      p_reviewer_notes: notes ?? null,
-      p_reviewer_id: reviewerId,
-      p_submission_id: id,
-    },
-  );
-  if (rejectionError) throw rejectionError;
+      const { data: storagePaths, error: rejectionError } = await supabase.rpc(
+        "reject_submission",
+        {
+          p_denial_reason: denialReason,
+          p_reviewer_notes: notes ?? null,
+          p_reviewer_id: reviewerId,
+          p_submission_id: id,
+        },
+      );
+      if (rejectionError) throw rejectionError;
 
-  const { data, error } = await supabase
-    .from("brand_submissions")
-    .select("*")
-    .eq("id", id)
-    .single();
-  if (error || !data) {
-    throw new NotFoundError("BrandSubmission", id, { cause: error });
-  }
+      const { data, error } = await supabase
+        .from("brand_submissions")
+        .select("*")
+        .eq("id", id)
+        .single();
+      if (error || !data) {
+        throw new NotFoundError("BrandSubmission", id, { cause: error });
+      }
 
-  try {
-    await deleteStoredImagePaths(storagePaths ?? []);
-  } catch (storageError) {
-    console.error(
-      `[rejectSubmission] Failed to delete staged images for ${id}:`,
-      storageError,
-    );
-  }
+      try {
+        await deleteStoredImagePaths(storagePaths ?? []);
+      } catch (storageError) {
+        console.error(
+          `[rejectSubmission] Failed to delete staged images for ${id}:`,
+          storageError,
+        );
+      }
 
-  return submissionToDomain(data);
+      return submissionToDomain(data);
     },
   );
 }

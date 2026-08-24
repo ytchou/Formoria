@@ -69,7 +69,7 @@ const SLUG_PATTERN = /^[a-z0-9][a-z0-9-]{2,79}$/
  * `public:global-content` catch-all and hands out a fresh, uncounted budget
  * covering the whole directory -- the exact hole this module exists to close.
  */
-export const KNOWN_LOCALES: readonly string[] = routing.locales
+const KNOWN_LOCALES: readonly string[] = routing.locales
 
 export function stripLocalePrefix(pathname: string): string {
   for (const locale of KNOWN_LOCALES) {

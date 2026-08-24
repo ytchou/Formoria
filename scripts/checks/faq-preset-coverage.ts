@@ -30,8 +30,6 @@ import { excludeTestBrands } from "@/lib/services/public-brand-filter";
 
 type CoverageRow = {
   mit_status: string | null;
-  /** smallint in Postgres — an ordinal bucket (1/2/3), never a string. */
-  price_range: number | null;
   category: string | null;
   reputation_summary: unknown;
 };
@@ -42,14 +40,6 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 
 function hasText(value: unknown): boolean {
   return typeof value === "string" && value.trim().length > 0;
-}
-
-/**
- * price_range is a smallint ordinal bucket, so the text test above reports 0%
- * on a fully populated column — which reads as a failed coverage gate.
- */
-function hasOrdinal(value: unknown): boolean {
-  return typeof value === "number" && Number.isFinite(value);
 }
 
 /** Mirrors normalizeReputationSummary: no `text` string means nothing renders. */
@@ -72,7 +62,7 @@ async function main(): Promise<void> {
   const { data, error, count } = await excludeTestBrands(
     supabase
       .from("brands")
-      .select("mit_status, price_range, category, reputation_summary", {
+      .select("mit_status, category, reputation_summary", {
         count: "exact",
       })
       .eq("status", "approved"),
@@ -103,9 +93,6 @@ async function main(): Promise<void> {
   const mitAnswerable = rows.filter(
     (row) => row.mit_status === "verified" || row.mit_status === "declared",
   ).length;
-  const pricePopulated = rows.filter((row) =>
-    hasOrdinal(row.price_range),
-  ).length;
   const typePopulated = rows.filter((row) => hasText(row.category)).length;
   const reputationPopulated = rows.filter((row) =>
     hasReputationSummary(row.reputation_summary),
@@ -114,11 +101,12 @@ async function main(): Promise<void> {
   console.log("\n  column                 populated / total   coverage");
   console.log("  " + "-".repeat(48));
   console.log(line("mit_status", mitPopulated, total));
-  console.log(line("price_range", pricePopulated, total));
   console.log(line("category", typePopulated, total));
   console.log(line("reputation_summary", reputationPopulated, total));
 
-  console.log("\n  mit_status detail (null is coerced to 'unverified' by the app)");
+  console.log(
+    "\n  mit_status detail (null is coerced to 'unverified' by the app)",
+  );
   console.log(line("verified+declared", mitAnswerable, total));
 
   const byMitStatus = new Map<string, number>();

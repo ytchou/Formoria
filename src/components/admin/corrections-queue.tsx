@@ -15,7 +15,6 @@ import {
   MAX_SUBCATEGORIES,
   type SubcategoriesDelta,
 } from "@/lib/services/subcategories";
-import { formatPriceRange } from "@/lib/brands/price-range";
 import { ONLINE_STORE_COLUMNS } from "@/lib/brands/online-stores";
 import {
   categoryLabel,
@@ -122,11 +121,7 @@ function subcategoryBadges(
   locale: string,
 ): ReactNode {
   if (subcategories.length === 0) {
-    return (
-      <span className="type-body-sm text-ink-muted">
-        {emptyLabel}
-      </span>
-    );
+    return <span className="type-body-sm text-ink-muted">{emptyLabel}</span>;
   }
 
   return (
@@ -146,14 +141,8 @@ function scalarValue(
   locale: string,
   unavailableLabel: string,
 ): string {
-  if (field === "price_range") {
-    return formatPriceRange(value) ?? unavailableLabel;
-  }
-
   if (field === "category" && typeof value === "string") {
-    const category = L1_CATEGORIES.find(
-      (item) => item.slug === value,
-    );
+    const category = L1_CATEGORIES.find((item) => item.slug === value);
     return category ? categoryLabel(category, locale) : unavailableLabel;
   }
 
@@ -190,11 +179,8 @@ export function CorrectionsQueue({
             typeof value === "string" ? value.trim().toLocaleLowerCase() : "";
           if (!query) return true;
 
-          return [
-            item.brandName ?? "",
-            t(`fields.${item.field}`),
-          ].some((candidate) =>
-            candidate.toLocaleLowerCase().includes(query),
+          return [item.brandName ?? "", t(`fields.${item.field}`)].some(
+            (candidate) => candidate.toLocaleLowerCase().includes(query),
           );
         },
       },

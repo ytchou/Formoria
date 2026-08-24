@@ -71,7 +71,6 @@ test.describe("i18n English browse", () => {
       "Brand information",
       "Founded",
       "Brand category",
-      "Price",
       "Product subcategory",
       "Home & Living",
     ]) {
@@ -83,7 +82,6 @@ test.describe("i18n English browse", () => {
       "品牌資訊",
       "創立年份",
       "品牌類別",
-      "價格區間",
       "商品子類別",
       "居家生活",
     ]) {
@@ -110,7 +108,6 @@ test.describe("i18n English browse", () => {
       "品牌資訊",
       "創立年份",
       "品牌類別",
-      "價格區間",
       "商品子類別",
       "居家生活",
     ]) {

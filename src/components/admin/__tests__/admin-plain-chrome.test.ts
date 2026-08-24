@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
-import { readFileSync } from "node:fs";
-import { relative } from "node:path";
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join, relative } from "node:path";
 
 import {
   collectHeadings,
@@ -104,7 +105,8 @@ describe("admin chrome", () => {
 
     for (const file of adminSources) {
       const source = readFileSync(file, "utf8");
-      const lineAt = (index: number) => source.slice(0, index).split("\n").length;
+      const lineAt = (index: number) =>
+        source.slice(0, index).split("\n").length;
 
       for (const match of source.matchAll(/<Button\b/g)) {
         const tag = openingTag(source, match.index + match[0].length);
@@ -140,7 +142,8 @@ describe("admin chrome", () => {
 
     for (const file of adminSources) {
       const source = readFileSync(file, "utf8");
-      const lineAt = (index: number) => source.slice(0, index).split("\n").length;
+      const lineAt = (index: number) =>
+        source.slice(0, index).split("\n").length;
 
       for (const match of source.matchAll(/\bcn\(/g)) {
         const args = callArguments(source, match.index + match[0].length);
@@ -158,7 +161,7 @@ describe("admin chrome", () => {
     expect(offenders).toEqual([]);
   });
 
-  it("sets every admin heading in 黑體, not 明體", () => {
+  it("sets every admin heading on the tool-heading role", () => {
     // The error boundary is exempt for the same reason the dashboard's
     // zero-state is: it is a page a person lands on with no shell above it,
     // not a panel inside the tool.
@@ -166,11 +169,33 @@ describe("admin chrome", () => {
 
     const offenders = collectHeadings(adminSources)
       .filter((heading) => !allowlist.includes(heading.file))
-      .map((heading) => ({ heading, role: mingTitleRoleIn(heading.attributes) }))
-      .filter(({ role }) => role !== undefined)
-      .map(({ heading, role }) => `${heading.file}:${heading.line} — ${role}`);
+      .filter(
+        (heading) => !/\btype-tool-heading(?![\w-])/.test(heading.attributes),
+      )
+      .map((heading) => `${heading.file}:${heading.line}`);
 
     expect(offenders).toEqual([]);
+  });
+
+  it("parses a complete heading tag when a quoted attribute contains >", () => {
+    const dir = mkdtempSync(join(tmpdir(), "source-scan-"));
+    const file = join(dir, "heading.tsx");
+    writeFileSync(
+      file,
+      '<h2 aria-label="Current > previous" className="type-tool-heading">Title</h2>',
+    );
+
+    try {
+      expect(collectHeadings([file])[0]?.attributes).toContain(
+        "type-tool-heading",
+      );
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("does not treat a longer type-role suffix as the protected role", () => {
+    expect(mingTitleRoleIn('className="type-section-lead"')).toBeUndefined();
   });
 
   it("still scans the whole admin surface", () => {

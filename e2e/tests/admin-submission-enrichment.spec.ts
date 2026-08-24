@@ -174,7 +174,6 @@ test.describe("Admin submission enrichment lifecycle", () => {
           // Slug, not the zh-TW label — DEV-1510 closed the vocabulary.
           subcategories: ["handbags"],
           subcategories_en: ["Handmade Bags"],
-          price_range: 2,
           purchase_website: "https://e2e-submission.example.com",
         },
       })
@@ -216,17 +215,25 @@ test.describe("Admin submission enrichment lifecycle", () => {
     await expect(review).toBeVisible();
     await expect(review.getByText("完整的品牌資料抓取結果。")).toBeVisible();
     await review.getByRole("tab", { name: "English", exact: true }).click();
-    await expect(review.getByText("Complete enriched brand profile.")).toBeVisible();
+    await expect(
+      review.getByText("Complete enriched brand profile."),
+    ).toBeVisible();
     await review.getByRole("tab", { name: "Mandarin", exact: true }).click();
     const contentSection = review
       .locator("section")
-      .filter({ has: adminPage.getByRole("heading", { name: "Content", exact: true }) })
+      .filter({
+        has: adminPage.getByRole("heading", { name: "Content", exact: true }),
+      })
       .first();
-    await contentSection.getByRole("button", { name: "Edit", exact: true }).click();
+    await contentSection
+      .getByRole("button", { name: "Edit", exact: true })
+      .click();
     await expect(
       contentSection.getByRole("button", { name: "Save changes", exact: true }),
     ).toBeVisible();
-    await contentSection.getByRole("button", { name: "Save changes", exact: true }).click();
+    await contentSection
+      .getByRole("button", { name: "Save changes", exact: true })
+      .click();
     await expect(
       contentSection.getByRole("button", { name: "Edit", exact: true }),
     ).toBeVisible();

@@ -9,7 +9,6 @@ import {
   Dialog,
   DialogBody,
   DialogContent,
-  DialogDescription,
   DialogFooter,
   DialogHeader,
   DialogStatus,
@@ -148,24 +147,6 @@ describe("Dialog", () => {
     expect(screen.getByTestId("custom-status")).toBeTruthy();
     const done = screen.getByRole("button", { name: "Done" });
     expect(slot("dialog-footer").contains(done)).toBe(true);
-  });
-
-  it("DialogHeader renders an icon when given one", () => {
-    renderDialog(
-      <DialogContent>
-        <DialogHeader icon={<span data-testid="header-icon">!</span>}>
-          <DialogTitle>Delete this brand</DialogTitle>
-          <DialogDescription>This cannot be undone.</DialogDescription>
-        </DialogHeader>
-      </DialogContent>,
-    );
-
-    expect(screen.getByTestId("header-icon")).toBeTruthy();
-
-    // The icon is decoration beside the title, never the name of the dialog.
-    expect(screen.getByRole("dialog")).toHaveAccessibleName(
-      "Delete this brand",
-    );
   });
 
   it("spells the viewport gutter on an axis the size branch cannot outrank", () => {

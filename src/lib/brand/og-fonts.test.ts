@@ -1,10 +1,11 @@
 // @vitest-environment node
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { readFile } from "node:fs/promises";
 import path from "node:path";
 
 describe("getOgFonts", () => {
   beforeEach(() => vi.resetModules());
+  afterEach(() => vi.doUnmock("node:fs/promises"));
 
   it("returns both font faces with names and data", async () => {
     const { getOgFonts } = await import("./og-fonts");
@@ -22,7 +23,6 @@ describe("getOgFonts", () => {
     const { getOgFonts } = await import("./og-fonts");
     const fonts = await getOgFonts();
     expect(fonts).toEqual([]);
-    vi.doUnmock("node:fs/promises");
   });
 });
 
@@ -35,6 +35,7 @@ describe("getOgFonts", () => {
  */
 describe("OG asset reads are cached per process", () => {
   beforeEach(() => vi.resetModules());
+  afterEach(() => vi.doUnmock("node:fs/promises"));
 
   it("reads each font file once no matter how many renders ask", async () => {
     const actual =
@@ -58,8 +59,6 @@ describe("OG asset reads are cached per process", () => {
     expect(second[0].data).toBe(first[0].data);
     expect(second[1].data).toBe(first[1].data);
     expect(third[0][0].data).toBe(first[0].data);
-
-    vi.doUnmock("node:fs/promises");
   });
 
   it("reads and base64-encodes the mark PNG once", async () => {
@@ -79,8 +78,6 @@ describe("OG asset reads are cached per process", () => {
     expect(spy.mock.calls.length).toBe(readsAfterFirstCall);
     expect(first.startsWith("data:image/png;base64,")).toBe(true);
     expect(second).toBe(first);
-
-    vi.doUnmock("node:fs/promises");
   });
 
   it("does not cache a failure — a transient read error stays recoverable", async () => {
@@ -96,8 +93,6 @@ describe("OG asset reads are cached per process", () => {
     const { getOgFonts } = await import("./og-fonts");
     expect(await getOgFonts()).toEqual([]);
     expect(await getOgFonts()).toHaveLength(2);
-
-    vi.doUnmock("node:fs/promises");
   });
 });
 
@@ -122,7 +117,9 @@ describe("OG fonts are sans-only (D17)", () => {
     const fonts = await getOgFonts();
 
     for (const font of fonts) {
-      expect(font.name.replace("sans-serif", "")).not.toMatch(/serif|ming|明體/i);
+      expect(font.name.replace("sans-serif", "")).not.toMatch(
+        /serif|ming|明體/i,
+      );
     }
   });
 });

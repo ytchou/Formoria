@@ -18,10 +18,10 @@ import { describe, expect, it } from "vitest";
  * list into an allowed one.
  *
  * Deliberately NOT forbidden: `--accent` / `--accent-foreground` (Ink & Paper
- * reuses the name) and `--chart-*` (kept for the admin dashboards).
+ * reuses the name).
  */
 const STOCK_TOKEN_DECLARATION =
-  /^\s*--(?:color-)?(?:background|foreground|card|card-foreground|popover|popover-foreground|primary|primary-foreground|secondary|secondary-foreground|muted|muted-foreground|destructive|destructive-foreground|border|input|ring|sidebar(?:-[a-z-]+)?|radius(?:-(?:sm|md|lg|xl|2xl|3xl|4xl))?)\s*:/gm;
+  /^\s*--(?:color-)?(?:background|foreground|card|card-foreground|popover|popover-foreground|primary|primary-foreground|secondary|secondary-foreground|muted|muted-foreground|destructive|destructive-foreground|border|input|ring|sidebar(?:-[a-z-]+)?|chart-[1-5]|radius(?:-(?:sm|md|lg|xl|2xl|3xl|4xl))?)\s*:/gm;
 
 describe("globals.css carries no stock shadcn tokens", () => {
   it("declares none of the palette deleted in PR #869", () => {

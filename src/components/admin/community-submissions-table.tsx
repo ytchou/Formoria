@@ -246,7 +246,7 @@ export function CommunitySubmissionsTable() {
         <div className="space-y-3">
           <div className="flex flex-wrap items-end justify-between gap-4">
             <div>
-              <h2 className="type-label">{t("preview.title")}</h2>
+              <h2 className="type-tool-heading">{t("preview.title")}</h2>
               <p className="mt-1 type-body-sm">
                 {t("preview.summary", {
                   shown: filteredRows.length,
@@ -289,8 +289,8 @@ export function CommunitySubmissionsTable() {
                 onClick={executeRows}
               >
                 {hasRetry
-                  ? `Retry ${selectedCount} selected`
-                  : `Import ${selectedCount} selected`}
+                  ? t("preview.retrySelected", { count: selectedCount })
+                  : t("preview.importSelected", { count: selectedCount })}
               </Button>
             </div>
           </div>
@@ -308,7 +308,9 @@ export function CommunitySubmissionsTable() {
                         aria-label={t("preview.selectAll")}
                         checked={allFilteredSelected}
                         indeterminate={someFilteredSelected}
-                        disabled={isPending || selectableFilteredRows.length === 0}
+                        disabled={
+                          isPending || selectableFilteredRows.length === 0
+                        }
                         onCheckedChange={toggleSelectAllFiltered}
                       />
                     </Label>
@@ -335,7 +337,11 @@ export function CommunitySubmissionsTable() {
                         >
                           <Checkbox
                             id={checkboxId}
-                            aria-label={`Select ${row.name || `row ${index + 1}`}`}
+                            aria-label={t("preview.selectRow", {
+                              name:
+                                row.name ||
+                                t("preview.unnamedRow", { number: index + 1 }),
+                            })}
                             checked={row.selected}
                             disabled={isPending || !selectable}
                             onCheckedChange={(checked) =>
@@ -352,7 +358,9 @@ export function CommunitySubmissionsTable() {
                       </TableCell>
                       <TableCell className="min-w-56">
                         <Input
-                          aria-label={`Brand name for row ${index + 1}`}
+                          aria-label={t("preview.brandNameForRow", {
+                            number: index + 1,
+                          })}
                           value={row.name}
                           maxLength={200}
                           disabled={isPending || isTerminal(row.result)}
@@ -364,7 +372,9 @@ export function CommunitySubmissionsTable() {
                       </TableCell>
                       <TableCell className="min-w-72">
                         <Input
-                          aria-label={`Official website for row ${index + 1}`}
+                          aria-label={t("preview.websiteForRow", {
+                            number: index + 1,
+                          })}
                           value={row.website}
                           maxLength={2_000}
                           disabled={isPending || isTerminal(row.result)}
@@ -383,7 +393,9 @@ export function CommunitySubmissionsTable() {
                           variant="ghost"
                           size="large"
                           disabled={isPending}
-                          aria-label={`Remove row ${index + 1}`}
+                          aria-label={t("preview.removeRow", {
+                            number: index + 1,
+                          })}
                           onClick={() => removeRow(row.id)}
                         >
                           {t("preview.remove")}

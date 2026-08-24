@@ -103,7 +103,7 @@ SLUGS = [b["slug"] for b in A["brands"]]
 # Fields worth showing, in reading order. Anything else present is appended.
 FIELD_ORDER = [
     "name", "slug", "category", "subcategories", "subcategories_en",
-    "price_range", "city", "founding_year",
+    "city", "founding_year",
     "blurb", "blurb_en", "description", "description_en",
     "mit_evidence", "reputation_summary", "channels",
     "purchase_website", "purchase_pinkoi", "purchase_shopee",

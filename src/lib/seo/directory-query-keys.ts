@@ -17,21 +17,20 @@
  */
 
 /** The `search` key, split out because it is the one unbounded facet. */
-export const DIRECTORY_SEARCH_QUERY_KEY = 'search'
+export const DIRECTORY_SEARCH_QUERY_KEY = "search";
 
 /** Every query key the directory parser reads, `search` included. */
 export const DIRECTORY_QUERY_KEYS = [
-  'category',
-  'sub',
-  'material',
-  'price',
-  'verification',
-  'sort',
-  'page',
+  "category",
+  "sub",
+  "material",
+  "verification",
+  "sort",
+  "page",
   DIRECTORY_SEARCH_QUERY_KEY,
-] as const
+] as const;
 
-export type DirectoryQueryKey = (typeof DIRECTORY_QUERY_KEYS)[number]
+export type DirectoryQueryKey = (typeof DIRECTORY_QUERY_KEYS)[number];
 
 /**
  * The bounded facets: the canonical list minus free-text search. A filter view
@@ -40,4 +39,4 @@ export type DirectoryQueryKey = (typeof DIRECTORY_QUERY_KEYS)[number]
  * list rather than the full one.
  */
 export const DIRECTORY_FILTER_QUERY_KEYS: readonly DirectoryQueryKey[] =
-  DIRECTORY_QUERY_KEYS.filter((key) => key !== DIRECTORY_SEARCH_QUERY_KEY)
+  DIRECTORY_QUERY_KEYS.filter((key) => key !== DIRECTORY_SEARCH_QUERY_KEY);

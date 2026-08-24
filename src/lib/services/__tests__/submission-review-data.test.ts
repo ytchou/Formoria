@@ -72,7 +72,6 @@ describe("buildSubmissionReviewData", () => {
         categorySlug: "home",
         subcategories: ["家具", "家飾"],
         subcategoriesEn: ["Furniture", "Home decor"],
-        priceRange: 2,
         city: "台中",
         foundingYear: 2018,
         purchaseWebsite: "https://enriched.example.com",
@@ -89,7 +88,6 @@ describe("buildSubmissionReviewData", () => {
       categorySlug: "home",
       subcategories: ["家具", "家飾"],
       subcategoriesEn: ["Furniture", "Home decor"],
-      priceRange: 2,
       city: "台中",
       foundingYear: 2018,
       websiteUrl: "https://enriched.example.com",
@@ -135,7 +133,6 @@ describe("getSubmissionReviewCompleteness", () => {
       {
         categorySlug: "beauty",
         subcategories: ["手工皂"],
-        priceRange: 2,
       },
       activeImages,
     );
@@ -156,7 +153,6 @@ describe("getSubmissionReviewCompleteness", () => {
     ["categorySlug", { categorySlug: "unknown-category" }],
     ["subcategories", { subcategories: [] }],
     ["subcategories", { subcategories: ["一", "二", "三", "四", "五", "六"] }],
-    ["priceRange", { priceRange: 4 }],
     [
       "website",
       {
@@ -249,7 +245,6 @@ describe("buildSubmissionReviewOverrides", () => {
       {
         categorySlug: "beauty",
         subcategories: ["手工皂"],
-        priceRange: 2,
       },
       activeImages,
     );

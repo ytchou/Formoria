@@ -10,7 +10,6 @@ function makeTagFixture(
   subcategories_en: string[],
 ): string {
   return JSON.stringify({
-    price_range: 1,
     subcategories,
     subcategories_en,
     city: null,
@@ -24,13 +23,11 @@ describe("parseBrandFactsResult", () => {
       "抱歉，我無法解析，但這裡有超過二十個字元的原始輸出內容",
     );
     expect(result.city).toBeNull();
-    expect(result.priceRange).toBeNull();
     expect(result.subcategories).toEqual([]);
   });
 
   it("maps free-text city names to DB slugs", () => {
     const json = JSON.stringify({
-      price_range: 1,
       subcategories: [],
       subcategories_en: [],
       city: "台北",
@@ -41,7 +38,6 @@ describe("parseBrandFactsResult", () => {
 
   it("returns null city when the value cannot be mapped to a valid slug", () => {
     const json = JSON.stringify({
-      price_range: 1,
       subcategories: [],
       subcategories_en: [],
       city: "somewhere unknown",
@@ -58,7 +54,10 @@ describe("parseBrandFactsResult", () => {
     const result = parseBrandFactsResult(json);
     // '側背包' is an alias for crossbody-bags; '口金夾' dedupes to the same slug
     // as '口金零錢包'. Storage is slugs since DEV-1510.
-    expect(result.subcategories).toEqual(["crossbody-bags", "clasp-frame-bags"]);
+    expect(result.subcategories).toEqual([
+      "crossbody-bags",
+      "clasp-frame-bags",
+    ]);
     expect(result.subcategoriesEn).toEqual([
       "Crossbody Bags",
       "Clasp-Frame Bags",

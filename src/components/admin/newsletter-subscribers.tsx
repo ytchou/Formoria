@@ -152,7 +152,7 @@ export function NewsletterSubscribersList({
           if (!open) setUnsubscribeId(null);
         }}
         title={t("confirmUnsubscribeTitle")}
-        description="This immediately opts the subscriber out and rotates their email tokens. Reactivation is not available from admin."
+        description={t("confirmUnsubscribeDescription")}
         onConfirm={unsubscribe}
         confirmLabel="Confirm unsubscribe"
         variant="destructive"

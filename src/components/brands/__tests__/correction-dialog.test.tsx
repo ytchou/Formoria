@@ -45,14 +45,12 @@ const BRAND_ID = "d9428888-122b-4e1f-b85c-61c0a8904d6a";
 // The real locale file is the fixture: a dropped or renamed key then fails the
 // suite instead of surfacing as a raw key path at runtime.
 const COPY = messages.brandDetail.correction;
-const EDIT_COPY = messages.brandFields;
 
 // The trigger has no aria-label — its visible text is its accessible name.
 const TRIGGER_NAME = COPY.trigger;
 const SUBMIT_NAME = COPY.submit;
 const FIELD_PICKER_LABEL = COPY.fieldPickerLabel;
 const CATEGORY_LABEL = messages.brandDetail.label.category;
-const PRICE_RANGE_LABEL = messages.brandDetail.label.priceRange;
 const CURRENT_HEADING = COPY.currentHeading;
 const CHANGE_TO_HEADING = COPY.changeToHeading;
 const CURRENT_SUBCATEGORIES_HEADING = COPY.currentSubcategoriesHeading;
@@ -61,11 +59,7 @@ const PLACEHOLDER_COPY = COPY.selectPlaceholder;
 const SUBCATEGORY_SEARCH_LABEL = COPY.subcategorySearchLabel;
 const SUBCATEGORY_REJECTED = COPY.subcategoryRejected;
 
-const PRICE_CHIP = {
-  1: `$ · ${EDIT_COPY.fieldPriceRangeBudget}`,
-  2: `$$ · ${EDIT_COPY.fieldPriceRangeMidRange}`,
-  3: `$$$ · ${EDIT_COPY.fieldPriceRangePremium}`,
-} as const;
+const FASHION_LABEL = "服飾鞋履";
 
 function selectedCount(count: number) {
   return COPY.subcategoriesSelected.replace("{count}", String(count));
@@ -80,7 +74,6 @@ function renderDialog(
         brandId={BRAND_ID}
         brandSlug="warmwood"
         categorySlug="home"
-        priceRange={2}
         subcategories={[]}
         {...props}
       />
@@ -214,7 +207,7 @@ describe("CorrectionDialog", () => {
     });
 
     // The dialog reads as a diff: 目前 / 改成. The field label stays the group's
-    // accessible name so the row is still addressable as 類別 / 價格區間.
+    // accessible name so the row is still addressable as 類別.
     it("heads the options row with the change-to heading while keeping the field label as its name", async () => {
       await openCategoryDialog();
 
@@ -277,11 +270,11 @@ describe("CorrectionDialog", () => {
       selectField("category");
       expect(group(CATEGORY_LABEL)).toBeInTheDocument();
 
-      selectField("price_range");
+      selectField("subcategories");
       expect(
         screen.queryByRole("group", { name: CATEGORY_LABEL }),
       ).not.toBeInTheDocument();
-      expect(group(PRICE_RANGE_LABEL)).toBeInTheDocument();
+      expect(group(ADD_SUBCATEGORIES_HEADING)).toBeInTheDocument();
     });
 
     it("omits subcategories from the field picker when the brand has no category", async () => {
@@ -291,7 +284,7 @@ describe("CorrectionDialog", () => {
       const options = within(fieldPicker()).getAllByRole("option");
       expect(
         options.map((option) => (option as HTMLOptionElement).value),
-      ).toEqual(["", "category", "price_range"]);
+      ).toEqual(["", "category"]);
     });
   });
 
@@ -299,12 +292,12 @@ describe("CorrectionDialog", () => {
     it("submit is disabled until a different value is chosen", async () => {
       renderDialog();
       await openDialog();
-      selectField("price_range");
+      selectField("category");
 
       expect(submitButton()).toBeDisabled();
       expect(submitButton()).toHaveAttribute("data-ph-no-autocapture");
 
-      clickChip(PRICE_RANGE_LABEL, PRICE_CHIP[3]);
+      clickChip(CATEGORY_LABEL, FASHION_LABEL);
 
       expect(submitButton()).toBeEnabled();
     });
@@ -312,17 +305,17 @@ describe("CorrectionDialog", () => {
     it("re-clicking the selected chip returns to the baseline and re-disables submit", async () => {
       renderDialog();
       await openDialog();
-      selectField("price_range");
+      selectField("category");
 
-      clickChip(PRICE_RANGE_LABEL, PRICE_CHIP[3]);
-      expect(chip(PRICE_RANGE_LABEL, PRICE_CHIP[3])).toHaveAttribute(
+      clickChip(CATEGORY_LABEL, FASHION_LABEL);
+      expect(chip(CATEGORY_LABEL, FASHION_LABEL)).toHaveAttribute(
         "aria-pressed",
         "true",
       );
       expect(submitButton()).toBeEnabled();
 
-      clickChip(PRICE_RANGE_LABEL, PRICE_CHIP[3]);
-      expect(chip(PRICE_RANGE_LABEL, PRICE_CHIP[3])).toHaveAttribute(
+      clickChip(CATEGORY_LABEL, FASHION_LABEL);
+      expect(chip(CATEGORY_LABEL, FASHION_LABEL)).toHaveAttribute(
         "aria-pressed",
         "false",
       );
@@ -350,22 +343,22 @@ describe("CorrectionDialog", () => {
     it("submits a scalar proposedValue", async () => {
       renderDialog();
       await openDialog();
-      selectField("price_range");
+      selectField("category");
 
-      clickChip(PRICE_RANGE_LABEL, PRICE_CHIP[3]);
+      clickChip(CATEGORY_LABEL, FASHION_LABEL);
       submit();
 
       await waitFor(() => {
         expect(mocks.submitCorrection).toHaveBeenCalledWith({
           brandId: BRAND_ID,
-          field: "price_range",
-          proposedValue: 3,
+          field: "category",
+          proposedValue: "fashion",
         });
       });
       expect(mocks.trackCorrectionSubmitted).toHaveBeenCalledWith(
         BRAND_ID,
         "warmwood",
-        "price_range",
+        "category",
       );
       expect(mocks.toastSuccess).toHaveBeenCalledWith(COPY.success);
       await waitFor(() => {
@@ -453,9 +446,9 @@ describe("CorrectionDialog", () => {
       });
       renderDialog();
       await openDialog();
-      selectField("price_range");
+      selectField("category");
 
-      clickChip(PRICE_RANGE_LABEL, PRICE_CHIP[3]);
+      clickChip(CATEGORY_LABEL, FASHION_LABEL);
       submit();
 
       await waitFor(() => {
@@ -532,12 +525,7 @@ describe("CorrectionDialog", () => {
     });
 
     it("counts out-of-category subcategories against the 5 cap", async () => {
-      renderSubcategories([
-        "tops-and-tshirts",
-        "pants",
-        "skirts",
-        "dresses",
-      ]);
+      renderSubcategories(["tops-and-tshirts", "pants", "skirts", "dresses"]);
       await openSubcategoriesDialog();
 
       expect(screen.getByText(selectedCount(4))).toBeInTheDocument();
@@ -546,7 +534,9 @@ describe("CorrectionDialog", () => {
 
       expect(screen.getByText(selectedCount(5))).toBeInTheDocument();
       expect(screen.getByText(COPY.subcategoriesLimit)).toBeInTheDocument();
-      expect(chip(ADD_SUBCATEGORIES_HEADING, label("mattresses"))).toBeDisabled();
+      expect(
+        chip(ADD_SUBCATEGORIES_HEADING, label("mattresses")),
+      ).toBeDisabled();
     });
 
     it("disables the whole offer set at the cap while selected chips stay enabled", async () => {
@@ -588,7 +578,9 @@ describe("CorrectionDialog", () => {
 
       clickChip(ADD_SUBCATEGORIES_HEADING, label(replacement));
       expect(screen.getByText(selectedCount(5))).toBeInTheDocument();
-      expect(chip(CURRENT_SUBCATEGORIES_HEADING, label(removed))).toBeDisabled();
+      expect(
+        chip(CURRENT_SUBCATEGORIES_HEADING, label(removed)),
+      ).toBeDisabled();
       expect(
         chip(CURRENT_SUBCATEGORIES_HEADING, label(removed)),
       ).toHaveAttribute("aria-pressed", "false");

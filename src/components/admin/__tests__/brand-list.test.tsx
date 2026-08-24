@@ -207,7 +207,6 @@ function makeBrand(overrides: Partial<Brand> = {}): Brand {
     productPhotos: [],
     imageAlts: [],
     contactEmail: null,
-    priceRange: 2,
     subcategories: [],
     subcategoriesEn: [],
     siteContent: null,

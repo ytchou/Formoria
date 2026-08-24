@@ -31,7 +31,7 @@ export type PromotionRow = {
   storagePath: string | null | undefined
 }
 
-export type PromotionEntry = {
+type PromotionEntry = {
   id: string
   brandId: string
   sourceKey: string
@@ -46,15 +46,15 @@ export type PromotionSkipReason =
   /** Some other prefix (`curated-products/`, `event-exhibitors/`) — not ours. */
   | 'other-prefix'
 
-export type PromotionProblemReason = 'missing-brand-id' | 'malformed-key'
+type PromotionProblemReason = 'missing-brand-id' | 'malformed-key'
 
-export type PromotionSkip = {
+type PromotionSkip = {
   id: string
   storagePath: string | null
   reason: PromotionSkipReason
 }
 
-export type PromotionProblem = {
+type PromotionProblem = {
   id: string
   storagePath: string | null
   reason: PromotionProblemReason
@@ -179,7 +179,7 @@ export type PromotionStorage = {
   setStoragePath(rowId: string, targetKey: string): Promise<void>
 }
 
-export type PromotionOutcomeKind =
+type PromotionOutcomeKind =
   /** Object copied and the row rewritten. */
   | 'copied'
   /** An identical object was already at the target; only the row was rewritten. */
@@ -189,7 +189,7 @@ export type PromotionOutcomeKind =
   /** Storage or the row update errored. Row still points at the old key. */
   | 'failed'
 
-export type PromotionOutcome = {
+type PromotionOutcome = {
   id: string
   sourceKey: string
   targetKey: string
