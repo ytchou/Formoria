@@ -699,16 +699,6 @@ function verify(target: DeploymentTarget, includeSchemaDiff: boolean): void {
     }
     reportRemoteAhead(target, ledger.remoteAhead);
   }
-  const checksumViolations = verifyChecksumManifest(
-    loadChecksumManifest(),
-    localMigrationFileHashes(),
-  );
-  if (checksumViolations.length > 0) {
-    throw new Error(
-      `Migration content integrity check failed:\n  ${checksumViolations.join("\n  ")}`,
-    );
-  }
-
   if (publicTablesWithoutRls !== 0) {
     throw new Error(
       "Database verification failed: a public table is missing RLS",
@@ -765,6 +755,19 @@ async function main(): Promise<void> {
     console.log(
       `Recorded ${Object.keys(manifest).length} migration checksums to ${CHECKSUM_MANIFEST}`,
     );
+    return;
+  }
+  if (command === "checksums:verify") {
+    const violations = verifyChecksumManifest(
+      loadChecksumManifest(),
+      localMigrationFileHashes(),
+    );
+    if (violations.length > 0) {
+      throw new Error(
+        `Migration content integrity check failed:\n  ${violations.join("\n  ")}`,
+      );
+    }
+    console.log("Migration content integrity: all checksums match");
     return;
   }
   const target = validateDeploymentTarget();
