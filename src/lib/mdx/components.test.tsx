@@ -32,7 +32,8 @@ describe("story component map — v2 type roles", () => {
     const paragraph = markup(map.p({ children: "Body copy." }));
     expect(paragraph).toContain("type-body");
     expect(paragraph).not.toContain("type-body-sm");
-    expect(paragraph).toContain("text-ink-soft");
+    // text-ink-soft is baked into the type-body CSS utility — no explicit class needed
+    expect(paragraph).not.toContain("text-ink-soft");
   });
 
   it("keeps author classes rather than overwriting them", () => {

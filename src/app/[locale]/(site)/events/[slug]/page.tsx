@@ -374,7 +374,7 @@ export default async function EventDetailPage({ params }: PageProps) {
               the block it replaced — a half-width column under a full-width
               `h1` read as unfinished — the hand-picked 46rem just said that
               with a number nothing else on the site shared. */}
-          <p className="prose-measure type-body text-ink-soft">{summary}</p>
+          <p className="prose-measure type-body">{summary}</p>
         </header>
 
         {heroSrc ? (

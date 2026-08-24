@@ -169,7 +169,7 @@ export default async function AdminQualityPage() {
 
               return (
                 <div key={row.key} className="space-y-2">
-                  <div className="flex min-h-6 items-center justify-between gap-4 type-body-sm text-ink-soft">
+                  <div className="flex min-h-6 items-center justify-between gap-4 type-body-sm">
                     <span className="font-medium text-ink">{row.label}</span>
                     <span className="shrink-0 tabular-nums text-ink-muted">
                       {metric.count} / {metrics.totalBrands}
@@ -211,7 +211,7 @@ export default async function AdminQualityPage() {
 
               return (
                 <div key={row.key} className="space-y-2">
-                  <div className="flex min-h-6 items-center justify-between gap-4 type-body-sm text-ink-soft">
+                  <div className="flex min-h-6 items-center justify-between gap-4 type-body-sm">
                     <span className="font-medium text-ink">{row.label}</span>
                     <span className="shrink-0 tabular-nums text-ink-muted">
                       {count} ({formatPercentage(percentage)})
@@ -235,7 +235,7 @@ export default async function AdminQualityPage() {
 
               return (
                 <div key={row.key} className="space-y-2">
-                  <div className="flex min-h-6 items-center justify-between gap-4 type-body-sm text-ink-soft">
+                  <div className="flex min-h-6 items-center justify-between gap-4 type-body-sm">
                     <span className="font-medium text-ink">{row.label}</span>
                     <span className="shrink-0 tabular-nums text-ink-muted">
                       {formatPercentage(value)}
@@ -278,16 +278,16 @@ export default async function AdminQualityPage() {
 
           {vocabulary.readUnavailable ? (
             // Never presented as clean: this says the query did not run.
-            <p className="mt-4 type-body-sm text-ink-soft">
+            <p className="mt-4 type-body-sm">
               {t("vocabularyUnavailable")}
             </p>
           ) : vocabulary.byField.length === 0 ? (
-            <p className="mt-4 type-body-sm text-ink-soft">
+            <p className="mt-4 type-body-sm">
               {t("vocabularyClean", { spans: vocabulary.spansObserved })}
             </p>
           ) : (
             <div className="mt-4 space-y-4">
-              <p className="type-body-sm text-ink-soft">
+              <p className="type-body-sm">
                 {t("vocabularyFound", {
                   hits: vocabulary.totalHits,
                   spans: vocabulary.spansObserved,
@@ -297,7 +297,7 @@ export default async function AdminQualityPage() {
                 {vocabulary.byField.map((hit) => (
                   <li
                     key={`${hit.field} ${hit.term}`}
-                    className="flex min-h-6 items-center justify-between gap-4 type-body-sm text-ink-soft"
+                    className="flex min-h-6 items-center justify-between gap-4 type-body-sm"
                   >
                     <span className="font-medium text-ink">
                       {hit.field} — {hit.term}

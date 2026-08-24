@@ -97,7 +97,7 @@ export default async function AboutPage({ params }: PageProps) {
                     <p className="type-section">
                       {t(`scenes.items.${key}.scene`)}
                     </p>
-                    <p className="mt-2 type-body-sm text-ink-soft">
+                    <p className="mt-2 type-body-sm">
                       {t(`scenes.items.${key}.detail`)}
                     </p>
                     {i < SCENE_KEYS.length - 1 && (
@@ -118,13 +118,13 @@ export default async function AboutPage({ params }: PageProps) {
                 {t("loop.heading")}
               </h2>
               <div>
-                <p className="type-body text-ink-soft">{t("loop.body1")}</p>
-                <p className="mt-6 type-body text-ink-soft">
+                <p className="type-body">{t("loop.body1")}</p>
+                <p className="mt-6 type-body">
                   {t("loop.body2")}
                 </p>
                 <PullQuote>{t("loop.pullQuote")}</PullQuote>
                 <h3 className="type-section">{t("loop.brandHeading")}</h3>
-                <p className="mt-4 type-body text-ink-soft">
+                <p className="mt-4 type-body">
                   {t("loop.brandBody")}
                 </p>
               </div>
@@ -140,7 +140,7 @@ export default async function AboutPage({ params }: PageProps) {
                 {t("taiwanStats.heading")}
               </h2>
               <div>
-                <p className="type-body text-ink-soft">
+                <p className="type-body">
                   {t("taiwanStats.intro")}
                 </p>
                 <div className="mt-8 flex flex-wrap gap-14">
@@ -186,7 +186,7 @@ export default async function AboutPage({ params }: PageProps) {
                     <p className="type-section">
                       {t(`stance.items.${key}.lead`)}
                     </p>
-                    <p className="mt-2 type-body text-ink-soft">
+                    <p className="mt-2 type-body">
                       {t(`stance.items.${key}.body`)}
                     </p>
                   </div>

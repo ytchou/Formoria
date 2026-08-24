@@ -70,6 +70,7 @@ jobs:
                 src/components/ui/__tests__/chip-row-contract.test.ts \
                 src/components/admin/__tests__/admin-plain-chrome.test.ts \
                 scripts/check-frontend-type-tokens.test.ts
+              pnpm exec tsx scripts/db-deploy.ts checksums:verify
               pnpm lint
               ;;
             type-check)
