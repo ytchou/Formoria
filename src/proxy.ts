@@ -187,7 +187,6 @@ export const PUBLIC_INTL_SEGMENTS = new Set([
   "events",
   "where-to-buy",
   "about",
-  "vision",
   "contact",
   "faq",
   "terms",

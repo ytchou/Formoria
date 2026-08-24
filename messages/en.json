@@ -1118,10 +1118,10 @@
   "about": {
     "metadata": {
       "title": "About Formoria",
-      "description": "How Formoria works: the inclusion rules, editorial choices, and labels behind a Taiwanese brand discovery and curation platform."
+      "description": "Why Formoria exists: four broken paths, and how we connect them. From one thing you love, to its brand, its story, and the place you can buy it."
     },
     "hero": {
-      "title": "Moving into a new home, setting up a shop, stopping at a market stall",
+      "title": "Moving into a new home, setting up a shop,\nstopping at a market stall",
       "subtitle": "Something you love shouldn't stay a chance encounter. Formoria reconnects the path after that moment: from one thing you love, to its brand, its story, and the place you can buy it.",
       "statsBrands": "brands",
       "statsCategories": "categories",
@@ -1129,85 +1129,75 @@
       "recentMonth": "new brands",
       "cta": "Explore brands"
     },
-    "audiences": {
-      "heading": "Two ways to look, one connected path",
-      "intro": "Some visitors do not know a name yet and want to start with a way of living, a use, or a preference. Others already know a brand or category and want to research it clearly. Formoria serves both kinds of discovery.",
-      "wander": {
-        "heading": "When you do not know the name",
-        "body": "Moving into a new home, changing a lamp, wanting one corner to feel different — start from a situation or plain curiosity and meet products and brands across categories."
-      },
-      "research": {
-        "heading": "When you know the direction",
-        "body": "Search for a brand or category, then review brand information, product highlights, online stores, and stockists."
+    "scenes": {
+      "heading": "Four paths that break",
+      "items": {
+        "intention": {
+          "scene": "Moving into a new home, wanting one corner of the living room to feel different — and ending up in IKEA again.",
+          "detail": "There is no place to browse Taiwanese things by taste, occasion, or budget, so the convenient default wins."
+        },
+        "encounter": {
+          "scene": "Meeting a brand you love at a design fair, then losing the thread on the way home.",
+          "detail": "The moment leaves nothing behind. Later, all that is left is a vague impression."
+        },
+        "alternatives": {
+          "scene": "Finding a cup you like, without knowing what else is out there.",
+          "detail": "Similar Taiwanese products live on scattered sites, with no way to see them side by side."
+        },
+        "adjacent": {
+          "scene": "Liking how one brand works, and wanting to know others that work the same way.",
+          "detail": "Loving one brand leads nowhere; brands with the same spirit are invisible to each other."
+        }
       }
     },
-    "mission": {
-      "heading": "Formoria's three roles",
-      "statement": "Formoria is a Taiwanese brand discovery and curation platform. It currently starts with a searchable directory of listed brands, bringing together brand information, product highlights, and each brand's own online stores and stockists; content selected by Formoria is labelled separately.",
-      "context": "Directory listing, editorial selection, and the route to purchase each have a clear boundary, so visitors know what they are seeing and who owns the next step.",
-      "directory": {
-        "heading": "An inclusive brand directory",
-        "body": "Organize Taiwanese brands under public listing rules, making known names searchable and giving different parts of life a place to begin exploring."
-      },
-      "editorial": {
-        "heading": "Selective editorial",
-        "body": "Formoria uses “Formoria Selection” only for products or content deliberately chosen for a situation, use, preference, or editorial argument, described for what it is and where to order it from the brand."
-      },
-      "connection": {
-        "heading": "A connection to real online stores and stockists",
-        "body": "Provide the next step to a brand's official website or a stockist. Formoria does not accept orders or guarantee price, inventory, or transaction outcomes."
-      }
-    },
-    "trust": {
-      "heading": "Understand every label",
-      "intro": "These four labels explain why something appears on Formoria and who is responsible for it.",
-      "listed": {
-        "heading": "收錄品牌 (Listed brand)",
-        "body": "A brand that meets Formoria's directory rules and can be found in the searchable record. Inclusion is not Formoria endorsement, selection, certification, ranking, or a promise about current products."
-      },
-      "selected": {
-        "heading": "Formoria 選物 (Formoria Selection)",
-        "body": "A product or content item deliberately chosen for a stated situation, use, preference, or editorial argument. The rationale belongs to Formoria; it is not a claim that the item is universally best or the complete brand catalogue."
-      },
-      "brandProvided": {
-        "heading": "品牌提供 (Brand-provided)",
-        "body": "Facts, images, sources, or corrections supplied by a brand. Participation does not guarantee coverage or give the brand control over selection, ordering, rationale, or interpretation."
-      },
-      "sponsored": {
-        "heading": "贊助內容 (Sponsored content)",
-        "body": "Paid or commercial content is clearly labelled and kept distinct. It cannot enter organic selection or ranking logic, and relevant relationships are disclosed at the point of action."
-      },
-      "commerceHeading": "Who owns the purchase",
-      "formoriaOwns": "Formoria owns inspiration, selection, context, and the outbound route.",
-      "merchantOwns": "Brands or retailers remain responsible for price, variants, inventory, checkout, fulfilment, and after-sales service."
-    },
-    "vision": {
-      "sectionHeading": "Our Vision",
-      "heading": "Build an online select space for Taiwanese brands where people can browse at their own pace, discover new preferences, get to know the brands behind the products, then continue to the brands' own online stores and stockists.",
-      "body": "This is a long-term direction, not a claim that Formoria currently accepts orders, holds inventory, processes payments, or provides after-sales service.",
-      "principleHeading": "Transactions stay with brands and retailers",
-      "principleBody": "Formoria owns inspiration, selection, context, and the outbound route; brands or retailers remain responsible for price, variants, inventory, checkout, fulfilment, and after-sales service."
+    "loop": {
+      "heading": "Connecting the path",
+      "body1": "Formoria is a directory of Taiwanese brands — not a shop, not a platform, not a magazine. We gather what is known about each brand, sort it, and put it in one place, so you can look by what you actually need.",
+      "body2": "From one thing you love, you can reach the brand that makes it, read how it came to be, and go to the place that sells it. That path used to break. We connect it.",
+      "pullQuote": "Formoria never owns the transaction. We connect liking something to the place that sells it, and hand you over to the brand.",
+      "brandHeading": "For brands",
+      "brandBody": "Taiwan makes a great deal of good work, scattered across separate worlds and hard to find. Formoria gathers these brands so the right people can find them, get to know them, and go to the brand's own website or a stockist. We take no commission and sell nothing ourselves — we get good things seen, and sold."
     },
     "taiwanStats": {
-      "heading": "Why supporting Taiwan's small businesses matters",
-      "intro": "Small and medium enterprises employ nearly 80% of Taiwan's workforce; supporting a local brand means supporting everyday life across the island.",
+      "heading": "The scale of Taiwan's small businesses",
+      "intro": "The people we work for are the largest and quietest part of Taiwan's economy.",
       "items": {
         "count": {
-          "value": "1.67M+ SMEs",
-          "label": "Taiwan is home to"
+          "value": "1.674M+",
+          "label": "Taiwanese SMEs"
         },
         "share": {
-          "value": "98% of all businesses",
-          "label": "SMEs account for"
+          "value": "98%",
+          "label": "of all businesses"
         },
         "employment": {
-          "value": "nearly 80% of the workforce",
-          "label": "SMEs employ"
+          "value": "Nearly 80%",
+          "label": "of national employment, at SMEs"
         }
       },
-      "note": "Together they generate over NT$28 trillion in annual sales — more than half of all enterprise revenue. Backing one Taiwan brand backs the everyday life of the island.",
       "sourceLabel": "Source",
       "sourceName": "SME White Paper 2024, SME & Startup Administration, MOEA (2023 data)"
+    },
+    "stance": {
+      "heading": "How we work",
+      "items": {
+        "boundary": {
+          "lead": "We hand you to the brand.",
+          "body": "Price, options, stock, checkout, shipping, and after-sales all belong to the brand. Formoria takes no orders and holds no inventory."
+        },
+        "noPayToWin": {
+          "lead": "Paying changes no order.",
+          "body": "Payment does not affect whether a brand is listed, what gets selected, or the order things appear in. Paid or commercial content is always labelled and kept separate."
+        },
+        "incomplete": {
+          "lead": "What is here is selected, not everything.",
+          "body": "The directory lists every brand that meets the published rules. A selection is a separate thing — the few we deliberately chose and gave a reason for. Not finding something here does not mean it does not exist."
+        },
+        "judgment": {
+          "lead": "The judgement is ours, and we show it.",
+          "body": "Formoria has a point of view and writes down the reasoning behind a choice, rather than posing as a neutral database."
+        }
+      }
     },
     "guide": {
       "heading": "Ready to explore Taiwanese brands?",

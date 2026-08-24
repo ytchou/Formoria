@@ -109,6 +109,13 @@ describe('route registration', () => {
     expect(RESERVED_ROUTES.has('getting-started')).toBe(true)
   })
 
+  it('keeps vision retired without releasing its brand slug', () => {
+    const segment = appSegments.find(({ name }) => name === 'vision')
+    expect(segment ? isRoutable(segment.path) : false).toBe(false)
+    expect(PUBLIC_INTL_SEGMENTS.has('vision')).toBe(false)
+    expect(RESERVED_ROUTES.has('vision')).toBe(true)
+  })
+
   it.each(appSegments.filter((s) => SLUG_PATTERN.test(s.name) && isRoutable(s.path)))(
     '/$name is reserved against the brand-slug redirect',
     ({ name }) => {
