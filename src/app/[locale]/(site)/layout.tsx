@@ -3,7 +3,7 @@ import { Footer } from '@/components/navigation/footer'
 import { MainNav } from '@/components/navigation/main-nav'
 import { buildAlternates } from '@/lib/seo/alternates'
 import type { Locale } from '@/lib/seo/alternates'
-import { L1_CATEGORIES } from '@/lib/taxonomy/ontology'
+import { VISIBLE_L1_CATEGORIES } from '@/lib/taxonomy/ontology'
 
 export async function generateMetadata({ params }: { params: Promise<{ locale: string }> }): Promise<Metadata> {
   const { locale } = await params
@@ -21,7 +21,7 @@ export async function generateMetadata({ params }: { params: Promise<{ locale: s
 export default async function SiteLayout({ children }: { children: React.ReactNode }) {
   return (
     <>
-      <MainNav categories={[...L1_CATEGORIES]} />
+      <MainNav categories={[...VISIBLE_L1_CATEGORIES]} />
       <div id="main-content" className="flex-1">{children}</div>
       <Footer />
     </>

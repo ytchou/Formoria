@@ -33,10 +33,7 @@ import {
   buildBreadcrumbJsonLd,
   safeJsonLdStringify,
 } from "@/lib/json-ld";
-import {
-  categoryLabel,
-  L1_CATEGORIES,
-} from "@/lib/taxonomy/ontology";
+import { categoryLabel, L1_CATEGORIES } from "@/lib/taxonomy/ontology";
 import { StoryContent } from "./story-content";
 import { routes } from "@/lib/routes";
 

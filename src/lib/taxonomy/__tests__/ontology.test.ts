@@ -1,12 +1,15 @@
 import { describe, expect, it } from 'vitest'
 import {
+  DEFERRED_CATEGORY_SLUGS,
   EVICTED_LABELS,
   L1_CATEGORIES,
   L2_SUBCATEGORIES,
   MATERIALS,
   OUT_OF_FRAME_LABELS,
+  VISIBLE_L1_CATEGORIES,
   isCompositeSubcategory,
   isKnownSubcategoryTerm,
+  isVisibleCategory,
   matchSubcategory,
   materialBySlug,
   normalizeSubcategoryKey,
@@ -56,6 +59,38 @@ describe('L1_CATEGORIES', () => {
     expect(slugs).not.toContain('others')
     expect(slugs).not.toContain('baby-kids')
     expect(slugs).not.toContain('kids-pets')
+  })
+})
+
+describe('category visibility', () => {
+  it('VISIBLE_L1_CATEGORIES contains exactly the 6 launch categories', () => {
+    expect(VISIBLE_L1_CATEGORIES).toHaveLength(6)
+    const slugs = VISIBLE_L1_CATEGORIES.map(c => c.slug)
+    expect(slugs).toContain('home')
+    expect(slugs).toContain('food-drink')
+    expect(slugs).toContain('beauty')
+    expect(slugs).toContain('fashion')
+    expect(slugs).toContain('bags-accessories')
+    expect(slugs).toContain('jewelry')
+  })
+
+  it('DEFERRED_CATEGORY_SLUGS contains exactly the 6 deferred categories', () => {
+    expect(DEFERRED_CATEGORY_SLUGS.size).toBe(6)
+    expect(DEFERRED_CATEGORY_SLUGS.has('stationery')).toBe(true)
+    expect(DEFERRED_CATEGORY_SLUGS.has('tech')).toBe(true)
+    expect(DEFERRED_CATEGORY_SLUGS.has('outdoor')).toBe(true)
+    expect(DEFERRED_CATEGORY_SLUGS.has('fitness')).toBe(true)
+    expect(DEFERRED_CATEGORY_SLUGS.has('kids')).toBe(true)
+    expect(DEFERRED_CATEGORY_SLUGS.has('pets')).toBe(true)
+  })
+
+  it('isVisibleCategory returns true for visible and false for deferred', () => {
+    expect(isVisibleCategory('home')).toBe(true)
+    expect(isVisibleCategory('pets')).toBe(false)
+  })
+
+  it('L1_CATEGORIES still contains all 12', () => {
+    expect(L1_CATEGORIES).toHaveLength(12)
   })
 })
 

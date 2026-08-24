@@ -21,17 +21,27 @@ export const L1_CATEGORIES = [
   { slug: 'beauty', name: 'Beauty & Personal Care', nameZh: '美妝保養', tint: 'oklch(0.935 0.022 330)' },
   { slug: 'home', name: 'Home & Living', nameZh: '居家生活', tint: 'oklch(0.935 0.022 80)' },
   { slug: 'food-drink', name: 'Food & Beverage', nameZh: '食品飲料', tint: 'oklch(0.935 0.022 100)' },
-  { slug: 'stationery', name: 'Stationery & Design', nameZh: '文具設計', tint: 'oklch(0.935 0.022 200)' },
-  { slug: 'tech', name: 'Tech & Electronics', nameZh: '3C科技', tint: 'oklch(0.935 0.022 240)' },
-  { slug: 'outdoor', name: 'Outdoor & Camping', nameZh: '戶外露營', tint: 'oklch(0.935 0.022 160)' },
-  { slug: 'fitness', name: 'Sports & Fitness', nameZh: '運動健身', tint: 'oklch(0.935 0.022 280)' },
+  { slug: 'stationery', name: 'Stationery & Design', nameZh: '文具設計', tint: 'oklch(0.935 0.022 200)', deferred: true },
+  { slug: 'tech', name: 'Tech & Electronics', nameZh: '3C科技', tint: 'oklch(0.935 0.022 240)', deferred: true },
+  { slug: 'outdoor', name: 'Outdoor & Camping', nameZh: '戶外露營', tint: 'oklch(0.935 0.022 160)', deferred: true },
+  { slug: 'fitness', name: 'Sports & Fitness', nameZh: '運動健身', tint: 'oklch(0.935 0.022 280)', deferred: true },
   // Split from `kids-pets` by DEV-1510. All three reference trees keep pets out
   // of kids, and `keyword-map.yaml:414` recorded the sibling-dimension defect a
   // fortnight before this. `pets` ships `eligibility: defer-brands` — a correct
   // node held below the supply bar, not a node waiting on supply to be correct.
-  { slug: 'kids', name: 'Kids & Baby', nameZh: '母嬰童', tint: 'oklch(0.935 0.022 60)' },
-  { slug: 'pets', name: 'Pets', nameZh: '寵物', tint: 'oklch(0.935 0.022 300)' },
+  { slug: 'kids', name: 'Kids & Baby', nameZh: '母嬰童', tint: 'oklch(0.935 0.022 60)', deferred: true },
+  { slug: 'pets', name: 'Pets', nameZh: '寵物', tint: 'oklch(0.935 0.022 300)', deferred: true },
 ] as const
+
+export const VISIBLE_L1_CATEGORIES = L1_CATEGORIES.filter(c => !('deferred' in c))
+
+export const DEFERRED_CATEGORY_SLUGS: ReadonlySet<string> = new Set(
+  L1_CATEGORIES.filter(c => 'deferred' in c).map(c => c.slug),
+)
+
+export function isVisibleCategory(slug: string): boolean {
+  return !DEFERRED_CATEGORY_SLUGS.has(slug)
+}
 
 export function categoryLabel(
   item: { name: string; nameZh: string | null },
