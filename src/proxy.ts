@@ -94,7 +94,6 @@ export const RESERVED_ROUTES = new Set([
   "about",
   "vision",
   "terms",
-  "my-submissions",
   "contributions",
   "settings",
   "global-error",
@@ -193,7 +192,6 @@ export const PUBLIC_INTL_SEGMENTS = new Set([
   "terms",
   "submit",
   "challenge",
-  "my-submissions",
   "contributions",
   "settings",
   "favorites",
@@ -234,7 +232,6 @@ const MAX_CACHEABLE_DIRECTORY_PAGE = 100;
 /** Restated from `parseVerificationParam`; see `isCacheableQueryValue`. */
 const CACHEABLE_VERIFICATION_VALUES: ReadonlySet<string> = new Set([
   "all",
-  "mit-verified",
   "mit-declared",
 ]);
 
@@ -1114,8 +1111,8 @@ async function runProxy(request: NextRequest) {
   }
 
   // Skip Supabase auth refresh for truly public content paths to reduce egress.
-  // settings and my-submissions still need auth even though
-  // isLocalizedPublicPath returns true for them (they're in PUBLIC_INTL_SEGMENTS).
+  // settings still needs auth even though
+  // isLocalizedPublicPath returns true for it (it's in PUBLIC_INTL_SEGMENTS).
   if (isPublicPath) {
     const segments = pathname.split("/").filter(Boolean);
     const segment =
@@ -1128,7 +1125,6 @@ async function runProxy(request: NextRequest) {
     const AUTH_REQUIRED_SEGMENTS = new Set([
       "auth",
       "settings",
-      "my-submissions",
       "submit",
       "admin",
       "favorites",

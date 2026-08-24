@@ -1,5 +1,4 @@
 import { describe, expect, it } from "vitest";
-import { buildDeclarationRemovedEmail } from "@emails/templates/declaration-removed";
 import { buildNewsletterConfirmEmail } from "@emails/templates/newsletter-confirm";
 import { buildApprovalEmail } from "@emails/templates/submission-approved";
 import { buildRejectionEmail } from "@emails/templates/submission-rejected";
@@ -36,15 +35,6 @@ const rejection = (locale: Locale, brandName: string) =>
     brandName,
     denialReason: "not_mit",
     reviewerNotes: null,
-    locale,
-  });
-
-const declarationRemoved = (locale: Locale, brandName: string) =>
-  buildDeclarationRemovedEmail({
-    ownerEmail: EMAIL,
-    brandName,
-    brandSlug: "test-brand",
-    reviewerNotes: "Community evidence contradicted the declaration",
     locale,
   });
 
@@ -86,20 +76,6 @@ const SUBJECT_CASES: SubjectCase[] = [
     build: () => rejection("en", EN_BRAND),
     expected: "[Action Needed] Your Formoria submission needs attention",
     allowsPrefixException: true,
-  },
-  {
-    name: "declaration-removed",
-    locale: "zh-TW",
-    build: () => declarationRemoved("zh-TW", ZH_BRAND),
-    expected: "「測試品牌」的台灣製造聲明已移除 — Formoria",
-    includesBrandName: true,
-  },
-  {
-    name: "declaration-removed",
-    locale: "en",
-    build: () => declarationRemoved("en", EN_BRAND),
-    expected: 'MIT declaration removed for "Test Brand" — Formoria',
-    includesBrandName: true,
   },
   {
     name: "newsletter-confirm",

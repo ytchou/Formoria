@@ -1,6 +1,4 @@
-import { buildDeclarationRemovedEmail } from '@/lib/email/templates'
 import { auditedCall } from '@/lib/audit'
-import { sendEmail } from '@/lib/email/send'
 import { describeError } from '@/lib/errors'
 import type { Database } from '@/lib/supabase/database.types'
 import { createServiceClient } from '@/lib/supabase/service'
@@ -309,48 +307,6 @@ export async function reviewEvidence(
 
   const stripResult = await stripDeclaration(data.brand_id)
   if (!stripResult.ok) return stripResult
-
-  const brand = data.brands as unknown as Pick<
-    OriginEvidenceBrand,
-    'name' | 'slug'
-  > | null
-  try {
-    const { data: owner, error: ownerError } = await supabase
-      .from('brand_owners')
-      .select('user_id')
-      .eq('brand_id', data.brand_id)
-      .maybeSingle()
-
-    if (ownerError) throw ownerError
-    if (!owner || !brand) return { ok: true }
-
-    const { data: ownerUser, error: ownerUserError } =
-      await supabase.auth.admin.getUserById(owner.user_id)
-    if (ownerUserError) throw ownerUserError
-    if (!ownerUser.user.email) return { ok: true }
-
-    const message = await buildDeclarationRemovedEmail({
-      ownerEmail: ownerUser.user.email,
-      brandName: brand.name,
-      brandSlug: brand.slug,
-      reviewerNotes: notes,
-    })
-    const sendResult = await sendEmail(message)
-    if (!sendResult.success) {
-      console.error('[origin-evidence:declaration-removed-email] send failed', {
-        evidenceId: id,
-        brandId: data.brand_id,
-        ownerId: owner.user_id,
-        error: sendResult.error,
-      })
-    }
-  } catch (emailError) {
-    console.error('[origin-evidence:declaration-removed-email] send failed', {
-      evidenceId: id,
-      brandId: data.brand_id,
-      error: emailError instanceof Error ? emailError.message : String(emailError),
-    })
-  }
 
   return { ok: true }
     },

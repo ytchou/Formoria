@@ -91,9 +91,7 @@ export type Brand = {
   mitStatus?: MitStatus;
   mitDeclaredScope?: "all" | "most" | "some" | null;
   mitDeclaredAt?: string | null;
-  mitVerifiedAt?: string | null;
   mitEvidence?: MitEvidence | null;
-  mitVerified?: boolean;
   mitStory?: string | null;
   isDemo: boolean;
   foundingYear: number | null;
@@ -125,7 +123,7 @@ export type BrandFilters = {
    * apply it, or `?material=` breaks the moment a user types (DEV-1510).
    */
   materials?: string[];
-  verificationFilter?: "all" | "mit-verified" | "mit-declared";
+  verificationFilter?: "all" | "mit-declared";
   search?: string;
   sort?: BrandSortOption;
   limit?: number;

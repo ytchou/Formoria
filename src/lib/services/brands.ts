@@ -696,9 +696,7 @@ export function brandToDomain(row: BrandRowWithJoins): Brand {
     mitDeclaredScope:
       (row.mit_declared_scope as Brand["mitDeclaredScope"]) ?? null,
     mitDeclaredAt: row.mit_declared_at ?? null,
-    mitVerifiedAt: row.mit_verified_at ?? null,
     mitEvidence: (row.mit_evidence as Brand["mitEvidence"]) ?? null,
-    mitVerified: row.mit_status === "verified",
     mitStory: row.mit_story ?? null,
     isDemo: row.is_demo ?? false,
     foundingYear: row.founding_year ?? null,
@@ -1655,9 +1653,7 @@ export async function getBrands(
 
   let query = supabase.from("brands").select(selectClause, { count: "exact" });
 
-  if (verificationFilter === "mit-verified") {
-    query = query.eq("mit_status", "verified");
-  } else if (verificationFilter === "mit-declared") {
+  if (verificationFilter === "mit-declared") {
     query = query.eq("mit_status", "declared");
   }
 

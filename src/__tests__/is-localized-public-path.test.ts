@@ -6,8 +6,6 @@ describe('isLocalizedPublicPath', () => {
   it('treats moved app routes as localized (prefix-free + /en)', () => {
     expect(isLocalizedPublicPath('/submit')).toBe(true)
     expect(isLocalizedPublicPath('/en/submit')).toBe(true)
-    expect(isLocalizedPublicPath('/my-submissions')).toBe(true)
-    expect(isLocalizedPublicPath('/en/my-submissions')).toBe(true)
     expect(isLocalizedPublicPath('/contributions')).toBe(true)
     expect(isLocalizedPublicPath('/en/contributions')).toBe(true)
     expect(isLocalizedPublicPath('/settings')).toBe(true)

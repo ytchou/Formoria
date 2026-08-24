@@ -181,7 +181,7 @@ describe("directory taxonomy redirects", () => {
     expect(isDirectoryIndexPath("/brands", "?page=1")).toBe(true);
     expect(isDirectoryIndexPath("/brands", "?page=60")).toBe(true);
     expect(isDirectoryIndexPath("/brands", "?sort=name")).toBe(true);
-    expect(isDirectoryIndexPath("/brands", "?verification=mit-verified")).toBe(
+    expect(isDirectoryIndexPath("/brands", "?verification=mit-declared")).toBe(
       true,
     );
     expect(isDirectoryIndexPath("/brands", "?material=leather")).toBe(true);

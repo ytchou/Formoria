@@ -1,6 +1,6 @@
 import { createClient } from '@/lib/supabase/server'
 
-export async function requireClaimUser(): Promise<{
+export async function requireCurrentUser(): Promise<{
   id: string
   email: string | null
 } | null> {

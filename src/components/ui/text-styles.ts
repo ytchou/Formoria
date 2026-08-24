@@ -67,8 +67,6 @@ export const statusStyles = {
   successBadge:
     'bg-verified-green-bg text-verified-green border-transparent',
   neutralBadge: 'bg-surface text-ink-muted border-transparent',
-  warningBadge:
-    'bg-mit-verified-bg text-mit-verified border-transparent',
   dangerBadge:
     'bg-danger/10 text-danger border-transparent',
   demoBadge: 'bg-surface text-ink border-transparent',

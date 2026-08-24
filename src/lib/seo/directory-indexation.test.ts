@@ -42,11 +42,6 @@ describe("resolveDirectorySeo", () => {
   it.each([
     ["search", { search: "椅子" }, "?search=%E6%A4%85%E5%AD%90"],
     [
-      "verification",
-      { verification: "mit-verified" },
-      "?verification=mit-verified",
-    ],
-    [
       "multi-category",
       { multiCategory: "home,fashion" },
       "?category=home%2Cfashion",

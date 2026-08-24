@@ -36,7 +36,7 @@ function parseCommaParam(value: string | string[] | undefined): string[] {
 function parseVerificationParam(
   value: string | string[] | undefined,
 ): NonNullable<BrandFilters["verificationFilter"]> {
-  return value === "mit-verified" || value === "mit-declared" || value === "all"
+  return value === "mit-declared" || value === "all"
     ? value
     : "all";
 }

@@ -114,14 +114,14 @@ test.describe("Content moderation flow", () => {
 
     const brandPanel = adminPage.getByRole("dialog", { name: brandName });
     await expect(brandPanel).toBeVisible({ timeout: BUDGET.INTERACTIVE });
-    const contentSection = brandPanel.locator("section").filter({
+    const contentSection = brandPanel.locator("section:not([aria-label])").filter({
       has: brandPanel.getByRole("heading", { name: "Content", exact: true }),
     });
     await contentSection.getByRole("button", { name: "Edit" }).click();
     await contentSection
-      .getByLabel("Description")
+      .getByLabel("Chinese description")
       .fill(`${cleanDescription}，管理員電話 0912345678`);
-    await contentSection.getByRole("button", { name: "Save" }).click();
+    await contentSection.getByRole("button", { name: "Save changes" }).click();
     await expect(brandPanel).toContainText(
       "Phone numbers are not allowed in this field",
       { timeout: BUDGET.GATED_UI },
