@@ -50,7 +50,11 @@ import { spawnSync } from "node:child_process";
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { format, resolveConfig } from "prettier";
-import { L1_CATEGORIES, L2_SUBCATEGORIES } from "@/lib/taxonomy/ontology";
+import {
+  L1_CATEGORIES,
+  L2_SUBCATEGORIES,
+  isVisibleCategory,
+} from "@/lib/taxonomy/ontology";
 
 const ROOT = resolve(import.meta.dirname, "..");
 
@@ -308,7 +312,11 @@ export function buildL2RedirectRows(
     if (currentParent !== category) {
       rows.push({
         from: key,
-        to: `/categories/${currentParent}/${slug}`,
+        // Deferred parents redirect their category pages to the public
+        // directory, so legacy URLs must land there in one hop too.
+        to: isVisibleCategory(currentParent)
+          ? `/categories/${currentParent}/${slug}`
+          : NO_SUCCESSOR_DESTINATION,
         kind: "reparented",
       });
     }
