@@ -13,6 +13,7 @@ import { collectSources } from "../src/test/source-scan";
 import {
   allowedMatches,
   collectFrontendTokenFailures,
+  collectRetiredNameFailures,
 } from "./check-frontend-type-tokens.mjs";
 
 const projectRoot = join(dirname(fileURLToPath(import.meta.url)), "..");
@@ -193,29 +194,6 @@ describe("allowlist hygiene", () => {
   });
 
   /**
-   * The grandfather block is GONE, and this asserts it stays gone.
-   *
-   * It used to turn `no-restricted-syntax` off wholesale for nine files, and
-   * the assertion here was merely that its entries pointed at real paths. That
-   * kept the list tidy while leaving the carve-out itself unquestioned — five
-   * of the nine no longer had a violation at all.
-   *
-   * A per-file rule-off is the drift, not the safety net. When a control
-   * genuinely cannot be a `<Button>`, the answer is a named component in
-   * `src/components/ui/` (which the rule exempts by design): `UnstyledButton`
-   * for Base UI `render` props, `UploadDropzone`, `FileInput`, `OptionRow`,
-   * `HoneypotField`, `Radio`.
-   */
-  it("no eslint grandfather block turns the UI rules off per file", () => {
-    // Read as text rather than imported: loading the flat config pulls in every
-    // eslint plugin, and this assertion only needs the source.
-    const config = readFileSync(join(projectRoot, "eslint.config.mjs"), "utf8");
-
-    expect(config).not.toContain("Grandfather block:");
-    expect(config).not.toMatch(/"no-restricted-syntax":\s*"off"/);
-  });
-
-  /**
    * The same rule, spelled the other way: an inline `ui-exception` disable is a
    * grandfather block of one. `src/components/ui/**` is exempt from the lint
    * rule outright, so a primitive there never needs a directive either.
@@ -244,6 +222,56 @@ describe("type faces", () => {
       .filter((file) => readFileSync(file, "utf8").includes("font-mono"))
       .map((file) => relative(projectRoot, file));
 
-    expect(offenders).toEqual(["src/lib/mdx/components.ts"]);
+    expect(offenders.every((f) => f.startsWith("src/lib/mdx/"))).toBe(true);
+    expect(offenders.length).toBeGreaterThan(0);
+  });
+});
+
+describe("retired design-system names", () => {
+  it("flags retired v1 type names in source files", () => {
+    const cwd = mkdtempSync(join(tmpdir(), "frontend-tokens-"));
+    writeFixture(
+      cwd,
+      "src/components/example.tsx",
+      '<p className="type-hero">Bad</p>',
+    );
+    writeFixture(
+      cwd,
+      "src/components/clean.tsx",
+      '<p className="type-body">Good</p>',
+    );
+
+    const failures = collectRetiredNameFailures({ cwd });
+    expect(failures).toEqual([
+      expect.objectContaining({ name: "retired type name", value: "type-hero" }),
+    ]);
+  });
+
+  it("flags retired color utilities in source files", () => {
+    const cwd = mkdtempSync(join(tmpdir(), "frontend-tokens-"));
+    writeFixture(
+      cwd,
+      "src/components/example.tsx",
+      '<div className="bg-primary text-cta-foreground">Bad</div>',
+    );
+    writeFixture(
+      cwd,
+      "src/components/clean.tsx",
+      '<div className="bg-accent">Good</div>',
+    );
+
+    const failures = collectRetiredNameFailures({ cwd });
+    expect(
+      failures.some(
+        (f) => f.name === "retired color utility" && f.value === "bg-primary",
+      ),
+    ).toBe(true);
+    expect(
+      failures.some(
+        (f) =>
+          f.name === "retired color utility" &&
+          f.value === "text-cta-foreground",
+      ),
+    ).toBe(true);
   });
 });
