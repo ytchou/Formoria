@@ -1,3 +1,4 @@
+/* eslint-disable @next/next/no-html-link-for-pages -- test mocks use raw <a> tags */
 /**
  * @vitest-environment jsdom
  */
@@ -125,11 +126,11 @@ vi.mock("@/components/landing/trail-carousel", () => ({
     <ul data-testid="trail-carousel">
       {trails.map((trail) => (
         <li key={trail.slug} role="listitem">
-          <span data-href={`/discover/${trail.slug}`}>
+          <a href={`/discover/${trail.slug}`}>
             {/* eslint-disable-next-line @next/next/no-img-element -- test mock */}
             <img src="/stub.webp" alt={trail.frontmatter.title} />
             <h3>{trail.frontmatter.title}</h3>
-          </span>
+          </a>
           <span>{labels.eyebrow}</span>
         </li>
       ))}
@@ -148,7 +149,7 @@ vi.mock("@/components/landing/brand-strip", () => ({
     <div data-testid="brand-strip">
       <h2>{en.landing.brands.count.replace("{count}", String(totalCount))}</h2>
       <span>{brands.length} brands</span>
-      <span data-href="/brands">{en.landing.brands.browseAll}</span>
+      <a href="/brands">{en.landing.brands.browseAll}</a>
     </div>
   ),
 }));
@@ -163,7 +164,7 @@ vi.mock("@/components/landing/mission-closer", () => ({
           String(brandCount),
         )}
       </p>
-      <span data-href="/brands">{en.landing.missionCloser.cta}</span>
+      <a href="/brands">{en.landing.missionCloser.cta}</a>
     </div>
   ),
 }));
