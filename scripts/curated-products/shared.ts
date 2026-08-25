@@ -19,6 +19,48 @@ const SUPABASE_PAGE_SIZE = 1000
  * and throws when it is present but empty — a silent null there would process
  * EVERY brand from a command the operator wrote to scope one.
  */
+/** Dry run is the default: `--apply` is the only thing that writes. */
+export function parseApplyOption(argv: readonly string[]): boolean {
+  return argv.includes('--apply')
+}
+
+/**
+ * `--csv=<path>` or `--csv <path>`. Returns null when absent, throws on empty.
+ */
+export function parseCsvPath(argv: readonly string[]): string | null {
+  const csvArg = argv.find((arg) => arg.startsWith('--csv='))
+  const csvIndex = argv.indexOf('--csv')
+  const csv = csvArg
+    ? csvArg.slice('--csv='.length)
+    : csvIndex === -1
+      ? null
+      : (argv.at(csvIndex + 1) ?? null)
+  if (csv !== null && (!csv || csv.startsWith('--'))) {
+    throw new Error('--csv requires a file path')
+  }
+  return csv
+}
+
+/**
+ * `--slugs=a,b,c` or `--slugs a,b,c`. Returns null when absent, throws on empty.
+ */
+export function parseSlugsOption(argv: readonly string[]): string[] | null {
+  const slugsArg = argv.find((arg) => arg.startsWith('--slugs='))
+  const slugsIndex = argv.indexOf('--slugs')
+  const raw = slugsArg
+    ? slugsArg.slice('--slugs='.length)
+    : slugsIndex === -1
+      ? null
+      : (argv.at(slugsIndex + 1) ?? null)
+  if (raw !== null && (!raw || raw.startsWith('--'))) {
+    throw new Error('--slugs requires a comma-separated list')
+  }
+  if (raw === null) return null
+  const slugs = raw.split(',').map((s) => s.trim()).filter(Boolean)
+  if (slugs.length === 0) throw new Error('--slugs requires at least one slug')
+  return slugs
+}
+
 export function parseBrandOption(argv: string[]): string | null {
   const brandArg = argv.find((arg) => arg.startsWith('--brand='))
   const brandIndex = argv.indexOf('--brand')

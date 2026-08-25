@@ -6,7 +6,7 @@ import { readImageBodyCapped } from "@/lib/services/curated-product-image";
 import { mapWithConcurrency } from "@/lib/services/_shared/concurrency";
 import { createServiceClient } from "@/lib/supabase/service";
 
-import { assertRevalidationConfigured, fetchAllRows } from "./shared";
+import { assertRevalidationConfigured, fetchAllRows, parseApplyOption } from "./shared";
 
 /**
  * Backfills `curated_products.image_width` / `image_height` (DEV-1479).
@@ -105,10 +105,6 @@ export type MeasureImage = (
   rowId: string,
 ) => Promise<Measurement>;
 
-/** Dry run is the default: `--apply` is the only thing that writes. */
-export function parseApplyOption(argv: readonly string[]): boolean {
-  return argv.includes("--apply");
-}
 
 /**
  * PAGED and resumable. `image_width is null` is the cursor, so a re-run picks
