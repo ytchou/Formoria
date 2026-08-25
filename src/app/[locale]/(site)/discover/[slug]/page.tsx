@@ -35,7 +35,9 @@ import {
 import { getPublishedCuratedProductsForTrail, type TrailCuratedProduct } from "@/lib/services/curated-products";
 import { cn } from "@/lib/utils";
 import { TrailContent } from "./trail-content";
+import { Link } from "@/i18n/navigation";
 import { routes } from "@/lib/routes";
+import { getTrailRelatedContent } from "@/lib/services/editorial-links";
 
 type PageProps = {
   params: Promise<{ locale: string; slug: string }>;
@@ -244,7 +246,10 @@ export default async function DiscoverTrailPage({ params }: PageProps) {
   setRequestLocale(locale);
   const safeLocale = (locale === "en" ? "en" : "zh-TW") as Locale;
   const t = await getTranslations({ locale, namespace: "discover" });
-  const { trail, products } = await getTrailPageData(slug);
+  const [{ trail, products }, derivedContent] = await Promise.all([
+    getTrailPageData(slug),
+    getTrailRelatedContent(slug),
+  ]);
 
   if (!trail) notFound();
   if (products === null) await markRenderDegraded("discover.trail.products");
@@ -418,6 +423,52 @@ export default async function DiscoverTrailPage({ params }: PageProps) {
               {relatedTrailLinks(t("relatedTrails"), frontmatter.relatedTrails)}
             </div>
           </div>
+          {(derivedContent.categories.length > 0 ||
+            derivedContent.stories.length > 0) && (
+            <div className="mt-section space-y-8">
+              {derivedContent.categories.length > 0 && (
+                <nav aria-label={t("derivedCategoriesAriaLabel")}>
+                  <h2 className="type-card-title">
+                    {t("derivedCategories")}
+                  </h2>
+                  <ul className="mt-3 flex flex-wrap gap-x-4 gap-y-2 type-body-sm">
+                    {derivedContent.categories.map((cat) => (
+                      <li key={cat.slug}>
+                        <Link
+                          href={routes.category(cat.slug)}
+                          className="text-accent underline underline-offset-4 hover:text-ink"
+                        >
+                          {safeLocale === "en" ? cat.name : cat.nameZh}
+                        </Link>
+                      </li>
+                    ))}
+                  </ul>
+                </nav>
+              )}
+              {derivedContent.stories.length > 0 && (
+                <nav aria-label={t("derivedStoriesAriaLabel")}>
+                  <h2 className="type-card-title">
+                    {t("derivedStories")}
+                  </h2>
+                  <ul className="mt-3 flex flex-wrap gap-x-4 gap-y-2 type-body-sm">
+                    {derivedContent.stories.map((story, idx) => (
+                      <li key={story.slug}>
+                        <RelatedStoryLink
+                          href={routes.story(story.slug)}
+                          storySlug={story.slug}
+                          position={idx}
+                          storySurface="trail_derived_stories"
+                          className="text-accent underline underline-offset-4 hover:text-ink"
+                        >
+                          {story.title}
+                        </RelatedStoryLink>
+                      </li>
+                    ))}
+                  </ul>
+                </nav>
+              )}
+            </div>
+          )}
         </PageShell>
       </article>
     </main>

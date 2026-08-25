@@ -35,6 +35,8 @@ import { BrandSectionNav } from "@/components/brands/brand-section-nav";
 import { StockistsSection } from "@/components/brands/stockists-section";
 import { BrandSelectedProducts } from "@/components/brands/brand-selected-products";
 import { RelatedBrands } from "@/components/brands/related-brands";
+import { EditorialAppearances } from "@/components/brands/editorial-appearances";
+import { getBrandEditorialAppearances } from "@/lib/services/editorial-links";
 import { PageShell } from "@/components/ui/page-shell";
 import { SavedBrandsProvider } from "@/hooks/use-saved-brands";
 import { safeImageSrc } from "@/lib/images/allowed-image-hosts";
@@ -184,11 +186,14 @@ export default async function BrandDetailPage({ params }: PageProps) {
     tBrandDetail(key, params as never)) as BrandFaqTranslateFn;
   const cityLabel = displayBrand.city ? tCities(displayBrand.city) : null;
   const faqContext = await getPublicBrandFaqContextById(displayBrand.id);
-  const [faqItems, stockists, curatedProducts] =
+  const [faqItems, stockists, curatedProducts, editorialAppearances] =
     await Promise.all([
       getBrandFaq(displayBrand.id, faqContext, tBrandFaq, safeLocale, cityLabel),
       getStockistsForBrand(displayBrand.id),
       getPublishedCuratedProductsForBrand(displayBrand.id),
+      getBrandEditorialAppearances(displayBrand.slug).catch(
+        () => ({ trails: [], stories: [] }),
+      ),
     ]);
   const stockistCount = stockists.confirmed.length + stockists.possible.length;
   // Same builder generateMetadata uses for <link rel="canonical">, so the
@@ -425,6 +430,13 @@ export default async function BrandDetailPage({ params }: PageProps) {
                   />
                 </section>
               )}
+
+              <EditorialAppearances
+                locale={safeLocale}
+                trails={editorialAppearances.trails}
+                stories={editorialAppearances.stories}
+                sectionClassName={brandSectionClassName}
+              />
             </div>
           </div>
 
