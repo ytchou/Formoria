@@ -42,7 +42,7 @@ export type StoryEntry = {
     sources: string[];
     faq: Array<{ q: string; a: string }>;
     /** Brand slugs referenced by this story (via BrandLineLink / BrandRow). */
-    brands: string[];
+    brands?: string[];
     /**
      * Whether this story may be quoted as a voice exemplar by the drafting
      * skill (`.claude/skills/write-stories`). Editorial metadata only — nothing

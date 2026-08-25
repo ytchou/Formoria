@@ -234,7 +234,7 @@ const collectStoryBrands = cache(
     return result.stories.map((story) => ({
       slug: story.slug,
       title: story.frontmatter.title,
-      brands: story.frontmatter.brands,
+      brands: story.frontmatter.brands ?? [],
     }));
   },
 );
@@ -316,7 +316,7 @@ export async function getStoryRelatedTrails(
   const story = result.stories.find((s) => s.slug === storySlug);
   if (!story) return [];
 
-  const brands = story.frontmatter.brands;
+  const brands = story.frontmatter.brands ?? [];
   if (brands.length === 0) return [];
 
   const placements = await collectAllPlacements();
