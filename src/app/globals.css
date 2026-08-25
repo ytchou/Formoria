@@ -118,7 +118,19 @@
   --nav-height: calc(
     var(--nav-row-primary) + var(--nav-row-categories) + var(--nav-rule)
   );
+}
 
+/* On the landing page the category row is not rendered (the hero carries its
+   own category chips), so `--nav-height` must shrink to match. Six sticky
+   elements use `top-(--nav-height)` — without this override they would sit
+   3rem too low on `/`. The class is applied by `MainNav` when
+   `pathname === "/"`. */
+.nav-landing {
+  --nav-height: calc(var(--nav-row-primary) + var(--nav-rule));
+}
+
+/* prettier-ignore */
+:root {
   /* Motion tokens */
   --ease-standard: cubic-bezier(0.2, 0, 0, 1);
   --ease-settle: cubic-bezier(0.33, 1, 0.68, 1);

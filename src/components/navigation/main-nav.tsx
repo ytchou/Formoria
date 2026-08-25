@@ -47,8 +47,12 @@ export function MainNav({ categories }: MainNavProps) {
     { href: routes.about(), label: t("about") },
   ];
 
+  const isLanding = pathname === "/";
+
   return (
-    <header className="sticky top-0 z-50 border-b border-rule bg-ground">
+    <header
+      className={`sticky top-0 z-50 border-b border-rule bg-ground${isLanding ? " nav-landing" : ""}`}
+    >
       {/* Row 1: wordmark | search | links.
           THE HEIGHT IS `--nav-row-primary`, NOT A LITERAL. Six sticky elements
           park below the header with `top-(--nav-height)`, and that token is a
@@ -205,10 +209,11 @@ export function MainNav({ categories }: MainNavProps) {
         </nav>
       </PageShell>
 
-      {/* Row 2: the L1 category row, on EVERY route including `/` (D18). It was
-          suppressed on the homepage while the hero rendered its own chip block;
-          that block is deleted, so the categories live in exactly one place. */}
-      <NavCategoryTabs categories={categories} />
+      {/* Row 2: the L1 category row. Suppressed on the landing page (`/`)
+          where the hero renders category chips instead; shown on every other
+          route. When hidden, `.nav-landing` on the header overrides
+          `--nav-height` so the six sticky elements below still park correctly. */}
+      {!isLanding && <NavCategoryTabs categories={categories} />}
     </header>
   );
 }
