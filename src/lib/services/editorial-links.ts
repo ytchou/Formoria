@@ -6,13 +6,16 @@
  * call Supabase + filesystem readers, while the pure derivation helpers are
  * exported for unit testing without mocking.
  */
+import { cache } from "react";
+
 import { L1_CATEGORIES } from "@/lib/taxonomy/ontology";
 import {
   getPublishedCuratedProductsForTrail,
   type TrailCuratedProduct,
 } from "@/lib/services/curated-products";
-import { getAllStories, type StoryEntry } from "@/lib/services/stories";
+import { getAllStories } from "@/lib/services/stories";
 import { getAllTrails } from "@/lib/services/trails";
+import { createServiceClient } from "@/lib/supabase/service";
 
 // ---------------------------------------------------------------------------
 // Link types
@@ -91,13 +94,29 @@ export function deriveBrandStoryLinks(
  */
 export function deriveCategoryEditorialLinks(
   categorySlug: string,
-  _subcategorySlug: string | undefined,
+  subcategorySlug: string | undefined,
   placements: ProductPlacement[],
   stories: StoryBrandsRecord[],
   brandsByCategory: Map<string, string[]>,
 ): { trails: TrailLink[]; stories: StoryLink[] } {
-  const brandsInCategory = new Set(brandsByCategory.get(categorySlug) ?? []);
+  let brandsInCategory = new Set(brandsByCategory.get(categorySlug) ?? []);
   if (brandsInCategory.size === 0) return { trails: [], stories: [] };
+
+  // When a subcategory is specified, narrow to brands whose placements carry
+  // that subcategory tag.
+  if (subcategorySlug) {
+    const subcategoryBrands = new Set<string>();
+    for (const p of placements) {
+      if (
+        brandsInCategory.has(p.brandSlug) &&
+        p.subcategories.includes(subcategorySlug)
+      ) {
+        subcategoryBrands.add(p.brandSlug);
+      }
+    }
+    brandsInCategory = subcategoryBrands;
+    if (brandsInCategory.size === 0) return { trails: [], stories: [] };
+  }
 
   const trailSeen = new Set<string>();
   const trails: TrailLink[] = [];
@@ -168,52 +187,57 @@ export function deriveTrailRelatedContent(
 /**
  * Collects all published curated product placements across all published trails.
  * Each product is mapped to its brand slug, trail slug/title, and category.
+ * Wrapped in React `cache()` so multiple callers in the same request share results.
  */
-async function collectAllPlacements(): Promise<ProductPlacement[]> {
-  const trailsResult = await getAllTrails("zh-TW");
-  if (!trailsResult.ok) return [];
+const collectAllPlacements = cache(
+  async (): Promise<ProductPlacement[]> => {
+    const trailsResult = await getAllTrails("zh-TW");
+    if (!trailsResult.ok) {
+      console.error(
+        "[editorial-links] getAllTrails returned error — returning empty placements",
+      );
+      return [];
+    }
 
-  const placements: ProductPlacement[] = [];
-  for (const trail of trailsResult.trails) {
-    let products: TrailCuratedProduct[];
-    try {
-      products = await getPublishedCuratedProductsForTrail(trail.slug);
-    } catch {
-      continue;
-    }
-    for (const product of products) {
-      placements.push({
-        brandSlug: product.brandSlug,
-        trailSlug: trail.slug,
-        trailTitle: trail.frontmatter.title,
-        category: product.category,
-        subcategories: product.subcategories,
-      });
-    }
-  }
-  return placements;
-}
+    const trailProducts = await Promise.all(
+      trailsResult.trails.map(async (trail) => {
+        try {
+          const products = await getPublishedCuratedProductsForTrail(
+            trail.slug,
+          );
+          return products.map(
+            (product): ProductPlacement => ({
+              brandSlug: product.brandSlug,
+              trailSlug: trail.slug,
+              trailTitle: trail.frontmatter.title,
+              category: product.category,
+              subcategories: product.subcategories,
+            }),
+          );
+        } catch {
+          return [];
+        }
+      }),
+    );
+    return trailProducts.flat();
+  },
+);
 
 /**
  * Reads all published stories and extracts the `brands` frontmatter field.
+ * Wrapped in React `cache()` so multiple callers in the same request share results.
  */
-async function collectStoryBrands(): Promise<StoryBrandsRecord[]> {
-  const result = await getAllStories("zh-TW");
-  if (!result.ok) return [];
-  return result.stories.map((story) => ({
-    slug: story.slug,
-    title: story.frontmatter.title,
-    brands: (story.frontmatter as StoryFrontmatterWithBrands).brands ?? [],
-  }));
-}
-
-/**
- * Extended frontmatter type that includes the `brands` field added by this task.
- * Cast to this from the base StoryEntry frontmatter since the field is new.
- */
-type StoryFrontmatterWithBrands = StoryEntry["frontmatter"] & {
-  brands?: string[];
-};
+const collectStoryBrands = cache(
+  async (): Promise<StoryBrandsRecord[]> => {
+    const result = await getAllStories("zh-TW");
+    if (!result.ok) return [];
+    return result.stories.map((story) => ({
+      slug: story.slug,
+      title: story.frontmatter.title,
+      brands: story.frontmatter.brands,
+    }));
+  },
+);
 
 // ---------------------------------------------------------------------------
 // Public async API
@@ -249,6 +273,31 @@ export async function getCategoryEditorialLinks(
     brandsByCategory.set(p.category, list);
   }
 
+  // Include brands referenced in stories that have no curated product
+  // placements — look up their category from the database.
+  const placedBrands = new Set(placements.map((p) => p.brandSlug));
+  const unplacedStorySlugs = [
+    ...new Set(
+      storyBrands.flatMap((s) =>
+        s.brands.filter((b) => !placedBrands.has(b)),
+      ),
+    ),
+  ];
+  if (unplacedStorySlugs.length > 0) {
+    const supabase = createServiceClient();
+    const { data } = await supabase
+      .from("brands")
+      .select("slug, category")
+      .in("slug", unplacedStorySlugs);
+    for (const row of data ?? []) {
+      if (row.category) {
+        const list = brandsByCategory.get(row.category) ?? [];
+        if (!list.includes(row.slug)) list.push(row.slug);
+        brandsByCategory.set(row.category, list);
+      }
+    }
+  }
+
   return deriveCategoryEditorialLinks(
     categorySlug,
     subcategorySlug,
@@ -267,8 +316,7 @@ export async function getStoryRelatedTrails(
   const story = result.stories.find((s) => s.slug === storySlug);
   if (!story) return [];
 
-  const brands =
-    (story.frontmatter as StoryFrontmatterWithBrands).brands ?? [];
+  const brands = story.frontmatter.brands;
   if (brands.length === 0) return [];
 
   const placements = await collectAllPlacements();

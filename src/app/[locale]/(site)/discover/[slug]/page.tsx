@@ -246,13 +246,14 @@ export default async function DiscoverTrailPage({ params }: PageProps) {
   setRequestLocale(locale);
   const safeLocale = (locale === "en" ? "en" : "zh-TW") as Locale;
   const t = await getTranslations({ locale, namespace: "discover" });
-  const { trail, products } = await getTrailPageData(slug);
+  const [{ trail, products }, derivedContent] = await Promise.all([
+    getTrailPageData(slug),
+    getTrailRelatedContent(slug),
+  ]);
 
   if (!trail) notFound();
   if (products === null) await markRenderDegraded("discover.trail.products");
   const safeProducts = products ?? [];
-
-  const derivedContent = await getTrailRelatedContent(slug);
 
   const entry = trail.entry;
   const frontmatter = entry.frontmatter;
@@ -437,7 +438,7 @@ export default async function DiscoverTrailPage({ params }: PageProps) {
                           href={routes.category(cat.slug)}
                           className="text-accent underline underline-offset-4 hover:text-ink"
                         >
-                          {locale === "en" ? cat.name : cat.nameZh}
+                          {safeLocale === "en" ? cat.name : cat.nameZh}
                         </Link>
                       </li>
                     ))}

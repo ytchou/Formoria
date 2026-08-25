@@ -145,7 +145,7 @@ export async function DirectoryLandingHead({
       {intro ? (
         <p className="mt-3 type-body-sm">{intro}</p>
       ) : null}
-      {copy?.guidance ? <p className="mt-3 type-body-sm">{copy.guidance}</p> : null}
+      {copy?.guidance ? <p className="mt-6 type-body-sm">{copy.guidance}</p> : null}
       <CategoryLinkList
         locale={locale}
         category={category}

@@ -221,10 +221,8 @@ export default async function StoryPage({ params }: PageProps) {
   // photos with no click path, so its slugs would be impressions that can never
   // convert. Zero brands means no list at all — an empty `view_item_list` is
   // noise in GA4, not a datapoint.
-  const [brandCount, relatedTrails] = await Promise.all([
-    Promise.resolve(extractLinkedBrandSlugs(story.content).length),
-    getStoryRelatedTrails(slug),
-  ]);
+  const brandCount = extractLinkedBrandSlugs(story.content).length;
+  const relatedTrails = await getStoryRelatedTrails(slug);
   return (
     // One container owns every story detail surface: breadcrumb, hero,
     // metadata, body, figures, cards, FAQ, and series nav. It runs on

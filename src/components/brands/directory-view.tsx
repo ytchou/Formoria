@@ -137,7 +137,7 @@ export async function DirectoryView({
   const shouldLoadTaxonomySummary = Boolean(singleValidCategory) && !search;
   const materials = filters.materials ?? [];
 
-  const [{ brands, totalCount }, taxonomySummary, materialCounts] =
+  const [{ brands, totalCount }, taxonomySummary, materialCounts, editorialLinks] =
     await Promise.all([
       getPublicBrandCards({
         search: search || undefined,
@@ -156,6 +156,12 @@ export async function DirectoryView({
           }),
       // Same single cache entry as the L2 counts, so this costs no extra query.
       getMaterialCounts(),
+      isCategoryRoute && singleValidCategory
+        ? getCategoryEditorialLinks(
+            singleValidCategory,
+            activeSubcategory?.slug,
+          )
+        : Promise.resolve({ trails: [], stories: [] }),
     ]);
   const subcategoriesWithCounts = singleValidCategory
     ? L2_SUBCATEGORIES.filter(
@@ -182,14 +188,6 @@ export async function DirectoryView({
     label: safeLocale === "zh-TW" ? material.nameZh : material.nameEn,
     count: materialCounts.get(material.slug) ?? 0,
   })).filter((option) => option.count > 0);
-
-  const editorialLinks =
-    isCategoryRoute && singleValidCategory
-      ? await getCategoryEditorialLinks(
-          singleValidCategory,
-          activeSubcategory?.slug,
-        )
-      : { trails: [], stories: [] };
 
   const totalPages = Math.ceil(totalCount / DEFAULT_PAGE_SIZE);
   const clampedPage = totalCount > 0 && page > totalPages ? totalPages : page;

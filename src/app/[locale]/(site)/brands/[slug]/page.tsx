@@ -191,7 +191,9 @@ export default async function BrandDetailPage({ params }: PageProps) {
       getBrandFaq(displayBrand.id, faqContext, tBrandFaq, safeLocale, cityLabel),
       getStockistsForBrand(displayBrand.id),
       getPublishedCuratedProductsForBrand(displayBrand.id),
-      getBrandEditorialAppearances(displayBrand.slug),
+      getBrandEditorialAppearances(displayBrand.slug).catch(
+        () => ({ trails: [], stories: [] }),
+      ),
     ]);
   const stockistCount = stockists.confirmed.length + stockists.possible.length;
   // Same builder generateMetadata uses for <link rel="canonical">, so the
