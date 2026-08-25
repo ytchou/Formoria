@@ -129,6 +129,7 @@ export default async function LandingPage({ params }: PageProps) {
   }
 
   const exploreBrands = (exploreResult?.brands ?? []).map(toPublicBrandCard);
+  const totalBrandCount = exploreResult?.totalCount ?? 0;
   const latestStories = storyResult.ok
     ? storyResult.stories.slice(0, LANDING_STORY_LIMIT)
     : [];
@@ -165,6 +166,7 @@ export default async function LandingPage({ params }: PageProps) {
           trails={publishedTrails}
           stories={latestStories}
           brands={exploreBrands}
+          totalBrandCount={totalBrandCount}
         />
       </main>
     </>

@@ -96,24 +96,12 @@
       "browsePrefix": "or"
     },
     "selectedProducts": {
-      "heading": "Formoria Selection",
-      "note": "Moving in, styling a shop, changing a lamp — these products were chosen on purpose for moments like these; open one to meet the brand behind it.",
-      "showMore": "See more selections",
-      "showLess": "Show fewer selections"
+      "productCta": "Go to the brand's official website",
+      "brandSiteCta": "Go to the brand's website",
+      "unavailable": "This product page is temporarily unreachable."
     },
     "trustSeam": {
       "line": "Listings and selections stay distinct"
-    },
-    "showcase": {
-      "heading": "Listed brands",
-      "subheading": "These brands meet the directory's listing rules. A listing is not a Formoria selection, recommendation, certification, or ranking.",
-      "browseAll": "See every listed brand →"
-    },
-    "manifesto": {
-      "headline": "Make Taiwanese brands easier to discover, choose, and grow",
-      "body1": "We first organize fragmented brand, product, and where-to-buy information so worthwhile Taiwanese brands are easier to find.",
-      "body2": "Curation can then help people choose, while owner tools support brands as they grow.",
-      "cta": "Read Our Vision"
     },
     "submitBand": {
       "headline": "Found a brand that should not be missed?",

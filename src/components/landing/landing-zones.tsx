@@ -1,17 +1,15 @@
 import type { ReactNode } from "react";
 import { getTranslations } from "next-intl/server";
 
-import { ProductWall } from "@/components/landing/product-wall";
-import { TrailTile } from "@/components/landing/trail-tile";
+import { CuratedProductGrid } from "@/components/landing/curated-product-grid";
+import TrailCarousel from "@/components/landing/trail-carousel";
+import { StoryCard } from "@/components/landing/story-card";
+import BrandStrip from "@/components/landing/brand-strip";
+import MissionCloser from "@/components/landing/mission-closer";
 import { SectionHeader } from "@/components/shared/section-header";
-import BrandShowcase from "@/components/shared/brand-showcase";
-import { StoryRow } from "@/components/stories/story-row";
 import { SavedBrandsProvider } from "@/hooks/use-saved-brands";
-import { Link } from "@/i18n/navigation";
-import { buttonVariants } from "@/components/ui/button";
 import { Grid } from "@/components/ui/grid";
 import { PageShell } from "@/components/ui/page-shell";
-import { PhotoBand } from "@/components/ui/photo-band";
 import type { PublicBrandCard } from "@/lib/brands/contracts";
 import type { WallSlot } from "@/lib/curated-products/home-wall";
 import type { Locale } from "@/lib/seo/alternates";
@@ -35,6 +33,8 @@ export type LandingZonesProps = {
   trails: TrailEntry[];
   stories: StoryEntry[];
   brands: PublicBrandCard[];
+  /** Directory-wide brand count, surfaced in BrandStrip and MissionCloser. */
+  totalBrandCount: number;
 };
 
 /**
@@ -69,11 +69,9 @@ export async function LandingZones({
   trails,
   stories,
   brands,
+  totalBrandCount,
 }: LandingZonesProps) {
-  const [t, tSelected] = await Promise.all([
-    getTranslations({ locale, namespace: "landing" }),
-    getTranslations({ locale, namespace: "brandDetail.selectedProducts" }),
-  ]);
+  const t = await getTranslations({ locale, namespace: "landing" });
 
   return (
     <>
@@ -84,25 +82,7 @@ export async function LandingZones({
       <SavedBrandsProvider>
         {wall ? (
           <div data-landing-zone="selection">
-            <ProductWall
-              slots={wall.slots}
-              locale={locale}
-              labels={{
-                heading: t("selectedProducts.heading"),
-                note: t("selectedProducts.note"),
-                showMore: t("selectedProducts.showMore"),
-                showLess: t("selectedProducts.showLess"),
-                // No trust-label opt-in. The wall renders `mode="wall"`, and
-                // the tile gates the label on `mode === "outbound"` — so it
-                // could never render from here. Opting in anyway made the
-                // homepage look like it had asked for it.
-                product: {
-                  cta: tSelected("cta"),
-                  brandSiteCta: tSelected("brandSiteCta"),
-                  unavailable: tSelected("unavailable"),
-                },
-              }}
-            />
+            <CuratedProductGrid slots={wall.slots} locale={locale} />
           </div>
         ) : null}
 
@@ -122,90 +102,25 @@ export async function LandingZones({
                 linkHref={routes.discover()}
                 linkLabel={t("trails.linkText")}
               />
-              <Grid
-                as="ul"
-                cols={trails.length >= 3 ? "bands" : "single"}
-                className="mt-8"
-              >
-                {trails.map((trail, index) => (
-                  <TrailTile
-                    key={trail.slug}
-                    trail={trail}
-                    labels={{
-                      eyebrow: t("trails.eyebrow"),
-                      cta: t("trails.cta"),
-                    }}
-                    position={index}
-                    singleColumn={trails.length < 3}
-                  />
-                ))}
-              </Grid>
+              <div className="mt-8">
+                <TrailCarousel
+                  trails={trails}
+                  labels={{
+                    eyebrow: t("trails.eyebrow"),
+                    cta: t("trails.cta"),
+                  }}
+                />
+              </div>
             </PageShell>
           </section>
         ) : null}
 
-        {/*
-          The manifesto band, restored 2026-08-17 from what production serves.
-          It replaces the trust seam that the DEV-1479 recut put here.
-
-          THE TRUST STATEMENT LEAVES THE HOMEPAGE WITH IT. The listings-vs-
-          selections line is a public commitment in docs/strategy/brand-voice.md
-          (`landing.trustSeam.line`), and it now
-          ships only on /about and /faq — plus the `/og/trust` card, which was
-          repointed at `landing.trustSeam.line` in the same change so it keeps
-          stating the commitment even though no homepage section does. The
-          `about` CTA below is the homepage's only remaining path to it.
-
-          No `priority`: this band is well below the fold, and the photograph
-          in the homepage opener owns the page's single preload. That claim was
-          FALSE for the stretches when no such photograph existed at all, so if
-          it is deleted again this comment and `selected-product-tile.tsx`'s
-          copy of it both have to move with it, or one of the wall surfaces
-          must take `priority` instead.
-
-          The construction — image, scrim, copy on top — belongs to
-          `PhotoBand`, which also owns the contrast floor this band used to
-          argue for in twelve lines of its own. `manifesto-bg.webp` measured
-          3.04:1 for body copy in its dark regions under the original `/70`
-          scrim; that is now a `pnpm lint` failure rather than a comment.
-        */}
-        <PhotoBand
-          data-landing-zone="manifesto"
-          aria-labelledby="landing-manifesto"
-          image="/images/manifesto-bg.webp"
-          alt=""
-          // FLAT, not `center`, and that is a deliberate hold rather than the
-          // right answer. Centred copy wants a symmetric scrim — heavy through
-          // the middle, thinner at both edges, so the shop's shelves come back
-          // at the margins. This band was not the one anybody complained
-          // about, so it keeps the uniform coverage it has shipped with while
-          // the homepage opener moves first. Switching it to `center` is a
-          // one-word change the contrast gate already checks.
-          scrim="flat"
-          contentClassName="text-center"
-        >
-          <h2
-            id="landing-manifesto"
-            className="mx-auto prose-measure type-page-title"
-          >
-            {t("manifesto.headline")}
-          </h2>
-          <p className="mx-auto mt-3 prose-measure type-body-sm text-ink-soft">
-            {t("manifesto.body1")}
-          </p>
-          <p className="mx-auto mt-3 prose-measure type-body-sm text-ink-soft">
-            {t("manifesto.body2")}
-          </p>
-          <Link
-            href={routes.about()}
-            className={buttonVariants({
-              variant: "primary",
-              className: "mt-4",
-            })}
-          >
-            {t("manifesto.cta")}
-          </Link>
-        </PhotoBand>
+        {/* MissionCloser wraps its own PhotoBand and reads missionCloser.*
+            keys internally. The trust statement (`trustSeam.line`) now ships
+            only on /about, /faq, and the /og/trust card. */}
+        <div data-landing-zone="manifesto">
+          <MissionCloser brandCount={totalBrandCount} locale={locale} />
+        </div>
 
         {stories.length > 0 && (
           <section
@@ -221,19 +136,18 @@ export async function LandingZones({
                 linkHref={routes.stories()}
                 linkLabel={t("latestStories.linkText")}
               />
-
-              <div className="mt-8 divide-y divide-rule border-y border-rule">
+              <Grid as="ul" cols="triptych" className="mt-8">
                 {stories.map((story, index) => (
-                  <StoryRow
-                    key={story.slug}
-                    story={story}
-                    locale={locale}
-                    headingLevel={3}
-                    position={index}
-                    trackingSurface="homepage_latest_stories"
-                  />
+                  <li key={story.slug}>
+                    <StoryCard
+                      story={story}
+                      locale={locale}
+                      position={index}
+                      trackingSurface="homepage_latest_stories"
+                    />
+                  </li>
                 ))}
-              </div>
+              </Grid>
             </PageShell>
           </section>
         )}
@@ -241,13 +155,10 @@ export async function LandingZones({
         {brands.length > 0 && (
           <div data-landing-zone="directory" className="py-section">
             <PageShell measure="page">
-              <BrandShowcase
+              <BrandStrip
                 brands={brands}
-                heading={t("showcase.heading")}
-                subheading={t("showcase.subheading")}
-                linkText={t("showcase.browseAll")}
-                linkHref={routes.brands()}
-                ctaLocation="homepage_explore"
+                totalCount={totalBrandCount}
+                locale={locale}
               />
             </PageShell>
           </div>

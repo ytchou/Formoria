@@ -96,24 +96,12 @@
       "browsePrefix": "或"
     },
     "selectedProducts": {
-      "heading": "Formoria 選物",
-      "note": "搬新家、佈置店面、想換一盞燈 — 這裡是為了這些時刻刻意挑出的產品，點進去認識做它的品牌。",
-      "showMore": "看更多選物",
-      "showLess": "收合選物"
+      "productCta": "前往品牌官方網站",
+      "brandSiteCta": "前往品牌官網",
+      "unavailable": "這個產品頁面暫時無法連線。"
     },
     "trustSeam": {
       "line": "收錄與選物，清楚分開"
-    },
-    "showcase": {
-      "heading": "收錄品牌",
-      "subheading": "這些品牌符合目錄收錄規則。收錄不代表 Formoria 選物、推薦、認證或排名。",
-      "browseAll": "看看所有收錄品牌 →"
-    },
-    "manifesto": {
-      "headline": "讓台灣品牌重新回到大眾目光",
-      "body1": "許多台灣品牌有出色的產品、鮮明的想法與認真的製作方式，卻散落在不同網站、社群與販售通路。",
-      "body2": "Formoria 將品牌故事、產品特色與官方連結整理在一起，讓每一次尋找台灣品牌，都可以更簡單、更有方向。",
-      "cta": "認識 Formoria"
     },
     "submitBand": {
       "headline": "發現了不該被錯過的品牌嗎？",
