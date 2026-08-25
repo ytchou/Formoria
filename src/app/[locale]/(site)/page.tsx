@@ -21,6 +21,7 @@ import { buildOpenGraph } from "@/lib/seo/open-graph";
 import { getAllStories } from "@/lib/services/stories";
 import { getAllTrails } from "@/lib/services/trails";
 import { toPublicBrandCard } from "@/lib/brands/contracts";
+import { VISIBLE_L1_CATEGORIES } from "@/lib/taxonomy/ontology";
 
 /** Stories shown in the topics zone before the reader is sent to `/stories`. */
 const LANDING_STORY_LIMIT = 3;
@@ -154,7 +155,7 @@ export default async function LandingPage({ params }: PageProps) {
       <main>
         <LandingZones
           locale={safeLocale}
-          hero={<HeroSection />}
+          hero={<HeroSection categories={[...VISIBLE_L1_CATEGORIES]} locale={safeLocale} />}
           close={<SectionBand />}
           wall={
             curatedProducts.length >= MIN_HOME_CURATED_PRODUCTS
