@@ -93,27 +93,16 @@
       "browseCta": "Start from a style",
       "eyebrow": "Taiwanese brand discovery and curation",
       "lede": "Moving into a new home, setting up a shop, stopping at a market stall — what you like should not stay a chance encounter. Formoria reconnects the path after that moment: from one thing you love, to its brand, its story, and the place you can buy it.",
-      "browsePrefix": "or"
+      "browsePrefix": "or",
+      "allBrands": "All Brands"
     },
     "selectedProducts": {
-      "heading": "Formoria Selection",
-      "note": "Moving in, styling a shop, changing a lamp — these products were chosen on purpose for moments like these; open one to meet the brand behind it.",
-      "showMore": "See more selections",
-      "showLess": "Show fewer selections"
+      "productCta": "Go to the brand's official website",
+      "brandSiteCta": "Go to the brand's website",
+      "unavailable": "This product page is temporarily unreachable."
     },
     "trustSeam": {
       "line": "Listings and selections stay distinct"
-    },
-    "showcase": {
-      "heading": "Listed brands",
-      "subheading": "These brands meet the directory's listing rules. A listing is not a Formoria selection, recommendation, certification, or ranking.",
-      "browseAll": "See every listed brand →"
-    },
-    "manifesto": {
-      "headline": "Make Taiwanese brands easier to discover, choose, and grow",
-      "body1": "We first organize fragmented brand, product, and where-to-buy information so worthwhile Taiwanese brands are easier to find.",
-      "body2": "Curation can then help people choose, while owner tools support brands as they grow.",
-      "cta": "Read Our Vision"
     },
     "submitBand": {
       "headline": "Found a brand that should not be missed?",
@@ -130,7 +119,23 @@
       "note": "One situation, one set of things. Start from the days you are living, not from a brand name.",
       "linkText": "See every style →",
       "eyebrow": "Style",
-      "cta": "Explore this style →"
+      "cta": "Explore this style →",
+      "prev": "Previous",
+      "next": "Next"
+    },
+    "selection": {
+      "headline": "Every pick has a reason.",
+      "subtitle": "Moving in, setting up a shop, switching a lamp — these are the products we chose for those moments.",
+      "cta": "Explore all selections →"
+    },
+    "missionCloser": {
+      "headline": "Helping good things find more people.",
+      "subtitle": "Over {count} Taiwanese brands in the directory — discover brands through their products.",
+      "cta": "Discover more Taiwanese brands →"
+    },
+    "brands": {
+      "count": "Over {count} Taiwanese brands in the directory",
+      "browseAll": "Browse all brands →"
     }
   },
   "newsletter": {

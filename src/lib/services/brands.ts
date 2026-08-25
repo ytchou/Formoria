@@ -1933,7 +1933,7 @@ export async function getMaterialCounts(): Promise<Map<string, number>> {
   return summarizeMaterialCounts(await getCachedSubcategoryRows());
 }
 
-export const EXPLORE_BRAND_LIMIT = 10;
+export const EXPLORE_BRAND_LIMIT = 8;
 
 const getCachedExploreBrandPool = unstable_cache(
   () =>

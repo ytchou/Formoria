@@ -93,26 +93,19 @@ describe("MainNav", () => {
     ) as unknown as typeof fetch;
   });
 
-  it("renders all 12 categories on the homepage", () => {
-    // Read from the ontology, not from the mock: the mock merged `kids` and
-    // `pets` into one chip, and DEV-1510 split them for a reason the nav does
-    // not get to overrule. DEV-1507 then retired `crafts`, taking 13 to 12 —
-    // the count moves with the vocabulary rather than being restated here.
+  it("hides category tabs on the landing page", () => {
+    // The landing page redesign moves category discovery into the hero as
+    // chips. The persistent nav row is suppressed on `/` so the two don't
+    // compete, and `--nav-height` is overridden via `.nav-landing` so sticky
+    // elements below the header still park correctly.
+    pathname = "/";
     const { container } = renderNav();
 
-    expect(L1_CATEGORIES).toHaveLength(12);
     for (const category of L1_CATEGORIES) {
-      // `/en/…`, with the prefix written out. The tabs are raw anchors, not
-      // `@/i18n/navigation`'s `Link`, because they must resolve with JS off, so
-      // they carry the locale themselves via `localizePath` — the router path
-      // handed to `router.push` stays prefix-free. ONE `/en`, never two: a
-      // second prefix here would be the double-prefix bug `@/lib/routes`
-      // exists to prevent, so the literal is spelled out rather than derived.
       const links = container.querySelectorAll(
         `a[href="/en/categories/${category.slug}"]`,
       );
-      expect(links, `nav link for ${category.slug}`).toHaveLength(1);
-      expect(links[0]).toHaveTextContent(category.name);
+      expect(links, `nav link for ${category.slug} should be absent`).toHaveLength(0);
     }
   });
 

@@ -93,27 +93,16 @@
       "browseCta": "從風格開始",
       "eyebrow": "台灣品牌探索與選物",
       "lede": "搬新家、佈置店面、在市集停下來的那一刻 — 喜歡的東西，不該只是偶然遇見。Formoria 把相遇之後的路接起來：從一件喜歡的東西，走到它的品牌、它的故事，和買得到它的地方。",
-      "browsePrefix": "或"
+      "browsePrefix": "或",
+      "allBrands": "全部品牌"
     },
     "selectedProducts": {
-      "heading": "Formoria 選物",
-      "note": "搬新家、佈置店面、想換一盞燈 — 這裡是為了這些時刻刻意挑出的產品，點進去認識做它的品牌。",
-      "showMore": "看更多選物",
-      "showLess": "收合選物"
+      "productCta": "前往品牌官方網站",
+      "brandSiteCta": "前往品牌官網",
+      "unavailable": "這個產品頁面暫時無法連線。"
     },
     "trustSeam": {
       "line": "收錄與選物，清楚分開"
-    },
-    "showcase": {
-      "heading": "收錄品牌",
-      "subheading": "這些品牌符合目錄收錄規則。收錄不代表 Formoria 選物、推薦、認證或排名。",
-      "browseAll": "看看所有收錄品牌 →"
-    },
-    "manifesto": {
-      "headline": "讓台灣品牌重新回到大眾目光",
-      "body1": "許多台灣品牌有出色的產品、鮮明的想法與認真的製作方式，卻散落在不同網站、社群與販售通路。",
-      "body2": "Formoria 將品牌故事、產品特色與官方連結整理在一起，讓每一次尋找台灣品牌，都可以更簡單、更有方向。",
-      "cta": "認識 Formoria"
     },
     "submitBand": {
       "headline": "發現了不該被錯過的品牌嗎？",
@@ -130,7 +119,23 @@
       "note": "一個情境、一組選物。從你正在過的日子開始，而不是從品牌名開始。",
       "linkText": "看全部風格 →",
       "eyebrow": "風格",
-      "cta": "探索這個風格 →"
+      "cta": "探索這個風格 →",
+      "prev": "上一個",
+      "next": "下一個"
+    },
+    "selection": {
+      "headline": "每一件，都說得出選它的理由。",
+      "subtitle": "搬新家、佈置店面、想換一盞燈 — 這裡是為了這些時刻刻意挑出的產品。",
+      "cta": "探索所有選物 →"
+    },
+    "missionCloser": {
+      "headline": "讓好東西，被更多人遇見。",
+      "subtitle": "超過 {count} 個台灣品牌加入收錄，從產品出發認識品牌。",
+      "cta": "認識更多台灣品牌 →"
+    },
+    "brands": {
+      "count": "超過 {count} 個台灣品牌加入收錄",
+      "browseAll": "瀏覽所有品牌 →"
     }
   },
   "newsletter": {

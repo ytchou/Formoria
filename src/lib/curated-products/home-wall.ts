@@ -26,6 +26,9 @@ export { DEFAULT_WALL_RATIO, WALL_RATIOS, type WallRatio };
  */
 export const MAX_HOME_WALL_PRODUCTS = 16;
 
+/** The dark-overlay grid shows fewer products than the full wall. */
+export const MAX_HOME_GRID_PRODUCTS = 8;
+
 /**
  * The wall rotates on the Taipei calendar day, because that is the day its
  * readers are having. A UTC seed would turn the wall over at 08:00 local.
