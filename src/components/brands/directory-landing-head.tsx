@@ -9,6 +9,7 @@ export type DirectoryLandingCopy = {
   h1?: string
   intro?: string
   definition?: string
+  guidance?: string
 }
 
 type TranslationShape = {
@@ -45,6 +46,7 @@ function readDirectoryLandingCopy(
     h1: nonEmptyString(value.h1),
     intro: nonEmptyString(value.intro),
     definition: nonEmptyString(value.definition),
+    guidance: nonEmptyString(value.guidance),
   }
 }
 
@@ -143,6 +145,7 @@ export async function DirectoryLandingHead({
       {intro ? (
         <p className="mt-3 type-body-sm">{intro}</p>
       ) : null}
+      {copy?.guidance ? <p className="mt-3 type-body-sm">{copy.guidance}</p> : null}
       <CategoryLinkList
         locale={locale}
         category={category}

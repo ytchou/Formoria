@@ -60,6 +60,11 @@ import { routes } from "@/lib/routes";
 import { Grid } from "@/components/ui/grid";
 import { shellStyles } from "@/components/ui/page-shell";
 import { cn } from "@/lib/utils";
+import { getCategoryEditorialLinks } from "@/lib/services/editorial-links";
+import {
+  RelatedStoryLink,
+  RelatedTrailLink,
+} from "@/components/stories/related-story-link";
 
 const EMPTY_STATE_RECOMMENDATION_LIMIT = 4;
 const VALID_CATEGORY_SLUGS: ReadonlySet<string> = new Set(
@@ -177,6 +182,14 @@ export async function DirectoryView({
     label: safeLocale === "zh-TW" ? material.nameZh : material.nameEn,
     count: materialCounts.get(material.slug) ?? 0,
   })).filter((option) => option.count > 0);
+
+  const editorialLinks =
+    isCategoryRoute && singleValidCategory
+      ? await getCategoryEditorialLinks(
+          singleValidCategory,
+          activeSubcategory?.slug,
+        )
+      : { trails: [], stories: [] };
 
   const totalPages = Math.ceil(totalCount / DEFAULT_PAGE_SIZE);
   const clampedPage = totalCount > 0 && page > totalPages ? totalPages : page;
@@ -574,6 +587,64 @@ export async function DirectoryView({
             currentPage={clampedPage}
             pageSize={DEFAULT_PAGE_SIZE}
           />
+          {editorialLinks.stories.length > 0 ||
+          editorialLinks.trails.length > 0 ? (
+            <nav
+              aria-label={t("editorialLinksAria")}
+              className="mt-section space-y-6"
+            >
+              {editorialLinks.stories.length > 0 ? (
+                <section aria-labelledby="category-stories" className="space-y-3">
+                  <h2
+                    id="category-stories"
+                    className="type-card-title"
+                  >
+                    {t("editorialStories")}
+                  </h2>
+                  <ul className="flex flex-wrap gap-x-4 gap-y-2 type-body-sm">
+                    {editorialLinks.stories.map((story, position) => (
+                      <li key={story.slug}>
+                        <RelatedStoryLink
+                          href={routes.story(story.slug)}
+                          storySlug={story.slug}
+                          position={position}
+                          storySurface="category_editorial_stories"
+                          className="text-accent underline underline-offset-4 hover:text-ink"
+                        >
+                          {story.title}
+                        </RelatedStoryLink>
+                      </li>
+                    ))}
+                  </ul>
+                </section>
+              ) : null}
+              {editorialLinks.trails.length > 0 ? (
+                <section aria-labelledby="category-trails" className="space-y-3">
+                  <h2
+                    id="category-trails"
+                    className="type-card-title"
+                  >
+                    {t("editorialTrails")}
+                  </h2>
+                  <ul className="flex flex-wrap gap-x-4 gap-y-2 type-body-sm">
+                    {editorialLinks.trails.map((trail, position) => (
+                      <li key={trail.slug}>
+                        <RelatedTrailLink
+                          href={routes.trail(trail.slug)}
+                          trailSlug={trail.slug}
+                          position={position}
+                          trailSurface="category_editorial_trails"
+                          className="text-accent underline underline-offset-4 hover:text-ink"
+                        >
+                          {trail.title}
+                        </RelatedTrailLink>
+                      </li>
+                    ))}
+                  </ul>
+                </section>
+              ) : null}
+            </nav>
+          ) : null}
         </div>
       </Grid>
     </NextIntlClientProvider>

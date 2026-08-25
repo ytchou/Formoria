@@ -70,6 +70,10 @@
     "relatedCategories": "Explore related categories",
     "relatedStories": "Continue reading",
     "relatedTrails": "More styles",
+    "derivedCategories": "Related categories",
+    "derivedCategoriesAriaLabel": "Related product categories",
+    "derivedStories": "Related stories",
+    "derivedStoriesAriaLabel": "Related stories",
     "notFound": {
       "title": "Style not found",
       "description": "This style does not exist or has been removed.",
@@ -211,7 +215,10 @@
       "mit-declared": "MIT Declared"
     },
     "loadingAria": "Loading brands...",
-    "noResultsInSuggestions": "No results found"
+    "noResultsInSuggestions": "No results found",
+    "editorialLinksAria": "Related stories and styles",
+    "editorialStories": "Related stories",
+    "editorialTrails": "Related styles"
   },
   "challenge": {
     "title": "Quick verification",
@@ -534,6 +541,12 @@
       "brandSupplied": "Image supplied by the brand"
     },
     "locations": {},
+    "editorialAppearances": {
+      "heading": "Formoria Features & Selections",
+      "ariaLabel": "Formoria features and selections",
+      "trailPrefix": "Style",
+      "storyPrefix": "Story"
+    },
     "relatedBrands": {
       "heading": "More in {category}",
       "subtext": "{count} other brands in this category",
@@ -766,7 +779,8 @@
             "question": "Can sensitive skin use every product here?",
             "answer": "No. Read the ingredients and cautions for each product and seek professional advice when needed."
           }
-        ]
+        ],
+        "guidance": "Check whether the formula is soap-based or amino-acid-based, and compare bottle sizes against refill options."
       },
       "necklaces": {
         "title": "Taiwan Necklace Brands | Pendants, Chainwork & Wearable Design | Formoria",
@@ -783,7 +797,8 @@
             "question": "How do I confirm a necklace's material?",
             "answer": "Read the brand's material, care, and origin information; the subcategory name does not imply a particular metal or stone."
           }
-        ]
+        ],
+        "guidance": "Chain length (choker, princess, opera) and clasp type affect everyday wearability."
       },
       "earrings": {
         "title": "Taiwan Earring Brands | Studs, Clips & Everyday Jewelry | Formoria",
@@ -800,7 +815,8 @@
             "question": "Are these earrings suitable for everyone?",
             "answer": "Not necessarily. Check the material, dimensions, and care information, especially if you have a metal sensitivity."
           }
-        ]
+        ],
+        "guidance": "Distinguish studs from clip-ons, check whether the metal contains nickel, and consider single-earring weight for extended wear."
       },
       "storage": {
         "title": "Taiwan Storage Brands | Organisers, Shelving & Small-Space Tools | Formoria",
@@ -817,7 +833,8 @@
             "question": "How should I choose storage for a small room?",
             "answer": "Measure the available space, then compare capacity, load, opening method, and installation conditions. The category page is only a discovery starting point."
           }
-        ]
+        ],
+        "guidance": "Measure available depth and height first, then compare load capacity, opening mechanism, and stackability."
       },
       "furniture": {
         "title": "Taiwan Furniture Brands | Tables, Chairs, Cabinets & Living Spaces | Formoria",
@@ -834,7 +851,8 @@
             "question": "Can I buy furniture directly from Formoria?",
             "answer": "Formoria is a brand discovery directory. Visit each brand's own website or a stockist for pricing, dimensions, delivery, and purchase details."
           }
-        ]
+        ],
+        "guidance": "Confirm the assembled dimensions (including packaging) clear your doorframe and lift, and note assembly method and material care needs."
       },
       "skincare": {
         "title": "Taiwan Skincare Brands | Cleansing, Hydration & Daily Care | Formoria",
@@ -851,7 +869,8 @@
             "question": "Are product claims verified by Formoria?",
             "answer": "No. Formoria organises brand information rather than endorsing product claims. Follow the label and professional guidance."
           }
-        ]
+        ],
+        "guidance": "Compare active-ingredient concentrations, texture (watery, lotion, cream), and the brand's recommended application order."
       },
       "tops-and-tshirts": {
         "title": "Taiwan Tops & T-shirt Brands | Everyday Cuts & Technical Layers | Formoria",
@@ -868,7 +887,8 @@
             "question": "How can I confirm a top's fabric and origin?",
             "answer": "Read the product page's material, care, size, and origin fields. The subcategory does not imply that every piece is made in Taiwan."
           }
-        ]
+        ],
+        "guidance": "Shoulder width, chest, and body length vary across brands at the same size label; fabric weight affects drape and opacity."
       },
       "tableware": {
         "title": "Taiwan Tableware Brands | Ceramics, Glassware & Everyday Dining | Formoria",
@@ -885,7 +905,8 @@
             "question": "How do I know if a piece is microwave or dishwasher safe?",
             "answer": "Use the brand's product page and packaging guidance rather than inferring use from the material name alone."
           }
-        ]
+        ],
+        "guidance": "Check whether the material is microwave-safe, dishwasher-safe, and resistant to acidic foods, and note the glaze finish."
       },
       "casual-shoes": {
         "title": "Taiwan Casual Shoe Brands | Everyday Footwear, Canvas & Easygoing Styles | Formoria",
@@ -902,7 +923,8 @@
             "question": "Are casual shoe brands all made in Taiwan?",
             "answer": "No. Formoria separates a brand's founding, design, and manufacturing information. Check the individual listing for origin details."
           }
-        ]
+        ],
+        "guidance": "Toe-box width, removable insoles, and sole material affect grip on different surfaces."
       },
       "desserts-and-pastries": {
         "title": "Taiwan Dessert & Pastry Brands | Baked Goods, Treats & Local Flavours | Formoria",
@@ -919,7 +941,8 @@
             "question": "Is this a food-safety recommendation?",
             "answer": "No. The directory is a discovery entry point. Use packaging, storage, allergen, and official-website information when deciding what to buy."
           }
-        ]
+        ],
+        "guidance": "Note storage requirements (ambient or refrigerated), shelf life, and whether allergen labelling is complete."
       },
       "home-decor": {
         "title": "Taiwan Home Decor Brands | Space Styling, Ornaments & Display | Formoria",
@@ -936,7 +959,8 @@
             "question": "Are these items suitable for outdoor use?",
             "answer": "Check the brand's material and environment guidance; the subcategory does not assume an intended setting."
           }
-        ]
+        ],
+        "guidance": "Check actual dimensions and weight, and confirm the wall load capacity required for any hanging piece."
       },
       "rings": {
         "title": "Taiwan Ring Brands | Everyday Bands, Metalwork & Custom Designs | Formoria",
@@ -953,7 +977,8 @@
             "question": "How do I find my ring size?",
             "answer": "Brands measure differently; use the sizing chart on the brand's own product page."
           }
-        ]
+        ],
+        "guidance": "Sizing methods differ between brands; compare inner diameter against your knuckle width before ordering."
       },
       "tote-bags": {
         "title": "Taiwan Tote Bag Brands | Canvas, Leather & Everyday Carry | Formoria",
@@ -970,7 +995,8 @@
             "question": "Can a tote bag hold a laptop?",
             "answer": "It depends on the dimensions and inner pocket design; check the product specifications on the brand page."
           }
-        ]
+        ],
+        "guidance": "Compare opening width, whether there are internal dividers, and whether the handle length allows shoulder carry."
       },
       "body-care": {
         "title": "Taiwan Body Care Brands | Moisturisers, Oils & Daily Skin Routines | Formoria",
@@ -987,7 +1013,8 @@
             "question": "Are all body care products suitable for sensitive skin?",
             "answer": "Not necessarily. Read the ingredients and cautions, and consult a professional when needed."
           }
-        ]
+        ],
+        "guidance": "Note the absorption-speed difference between lotions and oils, and check ingredient suitability for your skin type."
       },
       "pants": {
         "title": "Taiwan Pants Brands | Denim, Casual & Technical Trousers | Formoria",
@@ -1004,7 +1031,8 @@
             "question": "How do I confirm a pair's fit and size?",
             "answer": "Use the brand's size chart and fit notes; the same size label can mean different measurements at different brands."
           }
-        ]
+        ],
+        "guidance": "Waist labelling conventions (centimetres or inches) vary; rise length has a large effect on fit."
       },
       "backpacks": {
         "title": "Taiwan Backpack Brands | Commuter, Hiking & Technical Packs | Formoria",
@@ -1021,7 +1049,8 @@
             "question": "How do I choose the right capacity?",
             "answer": "Consider what you carry daily and the intended use; brand product pages usually list volume in litres and internal compartment layout."
           }
-        ]
+        ],
+        "guidance": "Compare capacity in litres, strap width, back-panel ventilation, and whether there is a dedicated laptop compartment."
       },
       "crossbody-bags": {
         "title": "Taiwan Crossbody Bag Brands | Sling Bags, Light Travel & Daily Wear | Formoria",
@@ -1038,7 +1067,8 @@
             "question": "Can a crossbody bag fit a tablet?",
             "answer": "It depends on the bag's dimensions and internal layout; check the product specifications on the brand page."
           }
-        ]
+        ],
+        "guidance": "Adjustable strap range determines where the bag sits on your body; internal divider count affects retrieval convenience."
       },
       "activewear": {
         "title": "Taiwan Activewear Brands | Yoga, Gym & Performance Clothing | Formoria",
@@ -1055,7 +1085,8 @@
             "question": "Are activewear brands all made in Taiwan?",
             "answer": "Not necessarily. Formoria separates founding, design, and manufacturing information; check each brand page for origin details."
           }
-        ]
+        ],
+        "guidance": "Look at fabric stretch recovery, moisture-wicking treatment, and whether seams use flatlock construction."
       },
       "socks": {
         "title": "Taiwan Sock Brands | Technical Socks, Odour Control & Everyday Wear | Formoria",
@@ -1072,7 +1103,8 @@
             "question": "Are Taiwanese sock brands all manufactured in Taiwan?",
             "answer": "Most have manufacturing ties to Taiwan, but not all. Brand pages separate founding, design, and manufacturing information."
           }
-        ]
+        ],
+        "guidance": "Compare cuff tightness, arch-support design, and any wash-cycle limits on odour-control treatments."
       },
       "beverages": {
         "title": "Taiwan Beverage Brands | Juices, Kombucha & Everyday Drinks | Formoria",
@@ -1089,7 +1121,8 @@
             "question": "Can I buy beverages from Formoria?",
             "answer": "No. Formoria is a brand discovery directory; visit the brand's own website or stockists to purchase."
           }
-        ]
+        ],
+        "guidance": "Confirm storage method (refrigerated or ambient) and volume format; some products are seasonal limited batches."
       },
       "handbags": {
         "title": "Taiwan Handbag Brands | Everyday Carry, Leather Goods & Design Bags | Formoria",
@@ -1106,7 +1139,8 @@
             "question": "Where can I find care instructions for a handbag?",
             "answer": "Check the brand's product page for material and care guidance; maintenance methods vary widely between leather types and fabrics."
           }
-        ]
+        ],
+        "guidance": "Compare handle height, closure type (zip or magnetic snap), and internal compartment layout."
       },
       "outerwear": {
         "title": "Taiwan Outerwear Brands | Jackets, Windbreakers & Technical Layers | Formoria",
@@ -1123,7 +1157,8 @@
             "question": "Can I check UPF ratings on this page?",
             "answer": "UPF values are not shown on the subcategory page; refer to the brand's own product testing data."
           }
-        ]
+        ],
+        "guidance": "Note wind and water resistance ratings, packed volume, and zipper or fastener durability."
       },
       "handmade-soap": {
         "title": "Taiwan Handmade Soap Brands | Cold-Process, Hot-Process & Natural Bars | Formoria",
@@ -1140,7 +1175,8 @@
             "question": "Can handmade soap be used on the face?",
             "answer": "It depends on the formula's pH and ingredients; follow the brand's guidance on intended use areas."
           }
-        ]
+        ],
+        "guidance": "Cold-process and hot-process soaps differ in curing time; the oil formula affects lather and moisture retention."
       },
       "bedding": {
         "title": "Taiwan Bedding Brands | Sheets, Duvet Covers & Sleep Essentials | Formoria",
@@ -1157,7 +1193,8 @@
             "question": "How do I check if bedding fits my mattress?",
             "answer": "Compare the brand's size chart with your mattress dimensions; common Taiwan sizes differ slightly from Japan and European standards."
           }
-        ]
+        ],
+        "guidance": "Confirm sheet sizing standards (Taiwan and Japan sizes differ by three to five centimetres) and how the weave affects feel."
       },
       "leather-shoes": {
         "title": "Taiwan Leather Shoe Brands | Handmade, Loafers & Dress Footwear | Formoria",
@@ -1174,7 +1211,8 @@
             "question": "Do leather shoes need special care?",
             "answer": "Usually yes, but care varies by leather type; follow the brand's maintenance guidance on its product page."
           }
-        ]
+        ],
+        "guidance": "Compare leather softness, last width, and construction method (cemented, Goodyear welt, hand-sewn)."
       },
       "fragrance": {
         "title": "Taiwan Fragrance Brands | Eau de Toilette, Parfum & Personal Scent | Formoria",
@@ -1191,7 +1229,8 @@
             "question": "Can I sample these fragrances?",
             "answer": "Formoria does not offer sampling; visit the brand's official website or stockists for trial options."
           }
-        ]
+        ],
+        "guidance": "Eau de toilette and eau de parfum differ in concentration and longevity; actual performance varies with body temperature and environment."
       },
       "dresses": {
         "title": "Taiwan Dress Brands | Everyday Dresses, Occasion Wear & Design Cuts | Formoria",
@@ -1208,7 +1247,8 @@
             "question": "How do I check a dress's size?",
             "answer": "Use the brand's own size chart; bust, waist, and length measurement methods may differ between brands."
           }
-        ]
+        ],
+        "guidance": "Note bust, waistline placement, and hem length; fit at the same nominal size varies widely between brands."
       },
       "face-masks": {
         "title": "Taiwan Face Mask Brands | Sheet Masks, Clay & Overnight Treatments | Formoria",
@@ -1225,7 +1265,8 @@
             "question": "How often should I use a face mask?",
             "answer": "Formoria does not offer skincare advice; follow the brand's recommended frequency and your own skin condition."
           }
-        ]
+        ],
+        "guidance": "Compare format (sheet, gel, clay), recommended application time, and how irritating the active ingredients may be."
       },
       "wall-art": {
         "title": "Taiwan Illustration & Wall Art Brands | Prints, Canvases & Original Work | Formoria",
@@ -1242,7 +1283,8 @@
             "question": "Can wall art be custom-sized?",
             "answer": "It depends on the brand's services; visit the brand's official website for custom options."
           }
-        ]
+        ],
+        "guidance": "Confirm dimensions, framing style (framed or unframed), and whether the piece is a limited edition."
       },
       "cookies-and-rice-crackers": {
         "title": "Taiwan Cookie & Rice Cracker Brands | Egg Rolls, Puffed Rice & Baked Snacks | Formoria",
@@ -1259,7 +1301,8 @@
             "question": "Are these brands suitable as gifts?",
             "answer": "Some brands offer gift packaging, but suitability depends on storage requirements and the recipient's dietary needs; check the brand product page."
           }
-        ]
+        ],
+        "guidance": "Note the wide range in shelf life, and check for allergen and manufacturing-origin labelling."
       },
       "sandals-and-slippers": {
         "title": "Taiwan Sandal & Slipper Brands | Summer Footwear, Mules & Indoor Slides | Formoria",
@@ -1276,7 +1319,8 @@
             "question": "Are sandals suitable for long walks?",
             "answer": "It depends on sole support and arch design; choose a style that matches your needs using the brand's product specifications."
           }
-        ]
+        ],
+        "guidance": "Compare sole firmness (indoor and outdoor differ greatly), strap fastening method, and slip resistance."
       },
       "bracelets-and-bangles": {
         "title": "Taiwan Bracelet & Bangle Brands | Woven, Metalwork & Daily Wristwear | Formoria",
@@ -1293,7 +1337,8 @@
             "question": "How do I measure my wrist?",
             "answer": "Methods differ between brands; use the wrist-measuring guide on the brand's own product page."
           }
-        ]
+        ],
+        "guidance": "Confirm inner diameter and clasp type, and check whether the material tolerates daily water contact."
       },
       "essential-oils-and-hydrosols": {
         "title": "Taiwan Essential Oil & Hydrosol Brands | Plant Extracts, Aromatherapy & Natural Care | Formoria",
@@ -1310,7 +1355,8 @@
             "question": "What is the difference between essential oils and fragrance?",
             "answer": "Essential oils are plant extracts; fragrances are formulated scent products. Their ingredients and uses differ; check the brand's description."
           }
-        ]
+        ],
+        "guidance": "Distinguish single-origin from blended oils by intended use, and check that extraction method and origin labelling are complete."
       }
     }
   },
@@ -2964,6 +3010,8 @@
     "eventPage": "Event page",
     "eventFinePrint": "Check the official site for the latest details",
     "boothLabel": "Booth",
+    "relatedTrails": "Related styles",
+    "relatedTrailsAria": "Styles related to this story",
     "notFound": {
       "title": "Story not found",
       "description": "This story doesn't exist or has been removed.",
