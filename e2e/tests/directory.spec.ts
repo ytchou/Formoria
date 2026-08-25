@@ -1,4 +1,4 @@
-import { L1_CATEGORIES } from "../../src/lib/taxonomy/ontology";
+import { VISIBLE_L1_CATEGORIES } from "../../src/lib/taxonomy/ontology";
 import zhTW from "../../messages/zh-TW.json";
 import { BUDGET } from "../budgets";
 import { test, expect, type Page } from "@playwright/test";
@@ -12,13 +12,13 @@ import { test, expect, type Page } from "@playwright/test";
  * silently changed what was covered, and an L2 chip appearing among the checkboxes
  * changed it again (DEV-1414).
  *
- * The third subject was `crafts` until DEV-1507 retired that L1; `stationery` takes
- * its place rather than a second reference to `home`, because a repeated subject
- * would test the same filter twice. Counts stay read from the page, so the supply
- * DEV-1507 moved into `home` needs no expectation update here.
+ * The third subject was `crafts` until DEV-1507 retired that L1; `food-drink`
+ * takes its place rather than a deferred category or a second reference to
+ * `home`. Counts stay read from the page, so supply changes need no expectation
+ * update here.
  */
-const FILTER_SUBJECTS = ["fashion", "home", "stationery"].map((slug) => {
-  const category = L1_CATEGORIES.find((item) => item.slug === slug);
+const FILTER_SUBJECTS = ["fashion", "home", "food-drink"].map((slug) => {
+  const category = VISIBLE_L1_CATEGORIES.find((item) => item.slug === slug);
   if (!category) {
     // A renamed or removed L1 slug must break this loudly. Falling back to a
     // positional pick is how the drift went unnoticed in the first place.
@@ -37,7 +37,10 @@ const FILTER_SUBJECTS = ["fashion", "home", "stationery"].map((slug) => {
  * on category routes (`announceLiveRegion={isCategoryRoute}`).
  */
 async function readAnnouncedCount(page: Page): Promise<number> {
-  const status = page.locator("main").getByText(/共 \d+ 個品牌/).first();
+  const status = page
+    .locator("main")
+    .getByText(/共 \d+ 個品牌/)
+    .first();
   await expect(status).toBeVisible({ timeout: BUDGET.RENDERED });
   const matched = (await status.innerText()).match(/共 (\d+) 個品牌/);
   expect(matched).not.toBeNull();

@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
 import nextConfig from "../../next.config";
-import { L1_CATEGORIES, L2_SUBCATEGORIES, isVisibleCategory } from "@/lib/taxonomy/ontology";
+import {
+  L1_CATEGORIES,
+  L2_SUBCATEGORIES,
+  isVisibleCategory,
+} from "@/lib/taxonomy/ontology";
 import {
   CACHEABLE_DIRECTORY_QUERY_KEYS,
   decideDirectoryTaxonomyRedirect,
@@ -294,9 +298,8 @@ describe("retired L1 taxonomy redirects", () => {
 
     // The other half of the same invariant, and the half a split actually
     // breaks: every category destination has to be a category that still
-    // renders. `baby-kids -> /categories/kids` is only a repair while `kids`
-    // is live; the day an L1 is merged away it becomes a 301 into a 404, which
-    // no status check and no `pnpm build` reports.
+    // renders. `baby-kids` goes directly to `/brands` because `kids` is
+    // deferred and its category route itself redirects to the directory.
     //
     // Both depths, deliberately. The one-segment-only filter this replaces
     // could not see a `/categories/<l1>/<l2>` destination at all, so every L2
@@ -325,19 +328,19 @@ describe("retired L1 taxonomy redirects", () => {
     expect(deadDestinations).toEqual([]);
   });
 
-  it("baby_kids_redirects_to_kids", async () => {
+  it("baby_kids_redirects_to_public_directory", async () => {
     const rules = await configuredRedirects();
 
     expect(ruleFor(rules, "/categories/baby-kids")).toMatchObject({
-      destination: "/categories/kids",
+      destination: "/brands",
       permanent: true,
     });
     expect(ruleFor(rules, "/en/categories/baby-kids")).toMatchObject({
-      destination: "/en/categories/kids",
+      destination: "/en/brands",
       permanent: true,
     });
     expect(ruleFor(rules, "/zh-TW/categories/baby-kids")).toMatchObject({
-      destination: "/categories/kids",
+      destination: "/brands",
       permanent: true,
     });
   });
@@ -480,12 +483,12 @@ describe("retired L1 taxonomy redirects", () => {
     }
   });
 
-  it("reparented_l2_keeps_its_slug_under_the_new_parent", async () => {
+  it("reparented_l2_redirects_deferred_parents_to_public_directory", async () => {
     const rules = await configuredRedirects();
 
-    // The `kids-pets` split moved seventeen nodes without renaming any of them:
-    // ten to `kids`, seven to `pets`. Only the parent segment changes, so a
-    // destination that reuses the old parent is the failure to catch.
+    // The `kids-pets` split moved seventeen nodes without renaming any of them,
+    // but both new parents are deferred and therefore have no public category
+    // route. Every legacy URL lands on the directory in one hop.
     expect(
       REPARENTED_L2.filter(([, parent]) => parent === "kids"),
     ).toHaveLength(10);
@@ -493,14 +496,14 @@ describe("retired L1 taxonomy redirects", () => {
       REPARENTED_L2.filter(([, parent]) => parent === "pets"),
     ).toHaveLength(7);
 
-    for (const [slug, parent] of REPARENTED_L2) {
-      const destination = `/categories/${parent}/${slug}`;
+    for (const [slug] of REPARENTED_L2) {
+      const destination = "/brands";
       expect(ruleFor(rules, `/categories/kids-pets/${slug}`)).toMatchObject({
         destination,
         permanent: true,
       });
       expect(ruleFor(rules, `/en/categories/kids-pets/${slug}`)).toMatchObject({
-        destination: `/en${destination}`,
+        destination: "/en/brands",
         permanent: true,
       });
       expect(
