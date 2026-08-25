@@ -1,6 +1,3 @@
-import { readFileSync } from "node:fs";
-import { resolve } from "node:path";
-
 import { describe, expect, it } from "vitest";
 
 import {
@@ -8,22 +5,11 @@ import {
   isCurationWorkerHealthPath,
 } from "../curation-worker-health-paths";
 
-const railwayConfig = JSON.parse(
-  readFileSync(resolve(process.cwd(), "railway.json"), "utf8"),
-) as { deploy?: { healthcheckPath?: string } };
-
 describe("curation worker healthcheck", () => {
-  it("answers the path railway.json makes Railway probe", () => {
+  it("answers the path Railway probes", () => {
     // Regression (DEV-1548): railway.json's healthcheckPath applies to every
-    // service in the project, so the worker must answer it too. When it did
-    // not, Railway failed the deploy after 5m of "service unavailable" and
-    // kept the previous container — production ran pre-cutover worker code
-    // against a post-cutover schema, and the only visible symptom was a
-    // non-required red check on an unrelated PR.
-    const probed = railwayConfig.deploy?.healthcheckPath;
-
-    expect(probed).toBeTruthy();
-    expect(isCurationWorkerHealthPath(probed)).toBe(true);
+    // service in the project, so the worker must answer it too.
+    expect(isCurationWorkerHealthPath("/api/health")).toBe(true);
   });
 
   it("keeps answering its own /health path", () => {

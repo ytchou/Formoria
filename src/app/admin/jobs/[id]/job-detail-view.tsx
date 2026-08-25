@@ -514,12 +514,12 @@ function TargetDetail({ target }: { target: CurationJobTarget }) {
                       : ""}
                   </p>
                   {phaseDescription(phase.phase) ? (
-                    <p className="mt-2 type-body-sm text-ink-soft">
+                    <p className="mt-2 type-body-sm">
                       {phaseDescription(phase.phase)}
                     </p>
                   ) : null}
                   {phase.detail ? (
-                    <p className="mt-2 type-body-sm text-ink-soft">
+                    <p className="mt-2 type-body-sm">
                       {formatPhaseDetail(phase)}
                     </p>
                   ) : null}

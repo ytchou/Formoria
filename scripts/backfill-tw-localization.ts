@@ -125,7 +125,6 @@ export type FaqRow = {
 
 export type ImageRow = {
   id: string;
-  alt_zh: string | null;
 };
 
 export type CuratedProductRow = {
@@ -137,7 +136,6 @@ export type CuratedProductRow = {
 export type ExhibitorRow = {
   id: string;
   summary_zh: string | null;
-  image_alt_zh: string | null;
 };
 
 /** One banned term, and how many times a patch corrected it. */
@@ -500,11 +498,9 @@ export function buildFaqPatches(rows: readonly FaqRow[]): FaqPatch[] {
 }
 
 export function buildImagePatches(rows: readonly ImageRow[]): IdPatch[] {
-  return rows.flatMap((image) => {
-    const { patch, terms } = patchColumns(image, ["alt_zh"]);
-    return Object.keys(patch).length > 0
-      ? [{ id: image.id, patch, terms }]
-      : [];
+  return rows.flatMap((_image) => {
+    // No localizable text columns remain on brand_images.
+    return [];
   });
 }
 
@@ -528,7 +524,6 @@ export function buildExhibitorPatches(
   return rows.flatMap((exhibitor) => {
     const { patch, terms } = patchColumns(exhibitor, [
       "summary_zh",
-      "image_alt_zh",
     ]);
     return Object.keys(patch).length > 0
       ? [{ id: exhibitor.id, patch, terms }]
@@ -687,8 +682,8 @@ export const BRANDS_TABLE: IdTableConfig = {
 
 export const IMAGES_TABLE: IdTableConfig = {
   table: "brand_images",
-  select: "id, alt_zh",
-  textColumns: ["alt_zh"],
+  select: "id",
+  textColumns: [],
   buildPatches: (rows) => buildImagePatches(rows as unknown as ImageRow[]),
 };
 
@@ -702,8 +697,8 @@ export const CURATED_PRODUCTS_TABLE: IdTableConfig = {
 
 export const EXHIBITORS_TABLE: IdTableConfig = {
   table: "event_exhibitors",
-  select: "id, summary_zh, image_alt_zh",
-  textColumns: ["summary_zh", "image_alt_zh"],
+  select: "id, summary_zh",
+  textColumns: ["summary_zh"],
   buildPatches: (rows) =>
     buildExhibitorPatches(rows as unknown as ExhibitorRow[]),
 };

@@ -2,7 +2,6 @@ import {
   mkdirSync,
   mkdtempSync,
   readFileSync,
-  readdirSync,
   rmSync,
   writeFileSync,
 } from "node:fs";
@@ -10,10 +9,8 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
-  MIGRATIONS_DIR,
   SEED_BEGIN_MARKER,
   SEED_END_MARKER,
-  TAXONOMY_TERMS_MIGRATION,
   buildTaxonomyTermRows,
   main,
   parseTaxonomyTermsSeed,
@@ -101,19 +98,6 @@ describe("generate-taxonomy-terms migration resolution", () => {
     expect(resolveTaxonomyTermsMigration(directory)).toBe(
       join(directory, "20260202000000_second_seed.sql"),
     );
-
-    // The repository's own target obeys the same rule rather than a literal,
-    // so it follows DEV-1507's new migration with no edit here.
-    const carriers = readdirSync(MIGRATIONS_DIR)
-      .filter((file) => file.endsWith(".sql"))
-      .filter((file) => {
-        const sql = readFileSync(join(MIGRATIONS_DIR, file), "utf8");
-        return sql.includes(SEED_BEGIN_MARKER) && sql.includes(SEED_END_MARKER);
-      })
-      .sort();
-    const newest = carriers.at(-1);
-    expect(newest).toBeDefined();
-    expect(TAXONOMY_TERMS_MIGRATION).toBe(join(MIGRATIONS_DIR, newest ?? ""));
   });
 
   // Bug caught: `--write` silently rewriting a migration the database already

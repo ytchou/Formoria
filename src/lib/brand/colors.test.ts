@@ -10,15 +10,6 @@ import { brand } from "./colors";
  * the only thing that keeps this one honest is that it is small, named for the
  * v2 roles, and asserted here against the values in `src/app/globals.css`.
  */
-const V2 = {
-  ground: "#FAF7F2",
-  surface: "#F1EAE0",
-  ink: "#1A1815",
-  inkSoft: "#4A443C",
-  inkMuted: "#6F685F",
-  rule: "#DED5C8",
-  accent: "#2F4F63",
-} as const;
 
 /** The five files that build a satori tree, plus the layout they share. */
 const SATORI_FILES = [
@@ -31,10 +22,6 @@ const SATORI_FILES = [
 ];
 
 describe("OG routes render on the v2 palette", () => {
-  it("mirrors globals.css exactly", () => {
-    expect(brand).toEqual(V2);
-  });
-
   it("reads the same values globals.css declares", () => {
     const css = readFileSync(
       join(process.cwd(), "src/app/globals.css"),

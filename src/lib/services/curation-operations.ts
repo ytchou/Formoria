@@ -2120,7 +2120,6 @@ export async function runEnrich(
                 dryRun: config.dryRun,
                 target: { type: targetType, id: brand.id },
                 jobId: config.jobId,
-                supabase: batchContext.supabase,
               });
               ctx.linksResult = linksResult;
               state.phaseResults.push(linksResult.phaseResult);
@@ -2656,7 +2655,6 @@ export async function runEnrich(
                 dryRun: config.dryRun,
                 target: { type: targetType, id: brand.id },
                 jobId: config.jobId,
-                supabase: batchContext.supabase,
                 explicitPhases: config.steps?.length ? [] : config.phases,
               });
               state.phaseResults.push(faqResult.phaseResult);
@@ -2674,7 +2672,6 @@ export async function runEnrich(
                 dryRun: config.dryRun,
                 target: { type: targetType, id: brand.id },
                 jobId: config.jobId,
-                supabase: batchContext.supabase,
               });
               state.phaseResults.push(productsResult.phaseResult);
               await logCurrentPhase(ctx, productsResult.phaseResult);

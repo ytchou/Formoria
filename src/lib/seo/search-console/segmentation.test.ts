@@ -122,7 +122,6 @@ describe('Search Console segmentation', () => {
       ['/stories/x', 'story'],
       ['/glossary', 'glossary'],
       ['/stats', 'stats'],
-      ['/events/x', 'event'],
     ] as const
 
     for (const [url, pageType] of pages) {

@@ -228,7 +228,7 @@ describe("BrandGallery", () => {
             "Molasses",
             imageUrl("hero"),
             [imageUrl("one")],
-            [{ altZh: null, altEn: "A product hero", isLogo: false }],
+            [{ isLogo: false }],
           ),
         ],
       ]),
@@ -242,10 +242,11 @@ describe("BrandGallery", () => {
       }),
     );
 
-    const uncoveredImage = screen.getByRole("img", {
+    const uncoveredImages = screen.getAllByRole("img", {
       name: "Molasses product photo",
     });
-    expect(uncoveredImage).not.toHaveAttribute("alt", "");
+    expect(uncoveredImages.length).toBeGreaterThanOrEqual(1);
+    expect(uncoveredImages[0]).not.toHaveAttribute("alt", "");
   });
 
   it("renders an optional caption", async () => {

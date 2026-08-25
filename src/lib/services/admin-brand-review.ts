@@ -46,8 +46,6 @@ type BrandImageRow = {
   source: string;
   status: string;
   sort_order: number;
-  alt_zh: string | null;
-  alt_en: string | null;
   tags: string[] | null;
   width: number | null;
   height: number | null;
@@ -55,7 +53,7 @@ type BrandImageRow = {
 };
 
 const ADMIN_BRAND_IMAGE_SELECT =
-  "id, brand_id, storage_path, url, source, status, sort_order, alt_zh, alt_en, tags, width, height, source_url";
+  "id, brand_id, storage_path, url, source, status, sort_order, tags, width, height, source_url";
 
 /**
  * Drops the legacy `url` column from a row before it goes back into an upsert.
@@ -332,8 +330,6 @@ function toReviewImage(row: BrandImageRow): SubmissionReviewImage {
         ? row.status
         : "active",
     sortOrder: row.sort_order,
-    altZh: row.alt_zh,
-    altEn: row.alt_en,
     isLogo: isLogoImageTags(row.tags),
     width: row.width,
     height: row.height,

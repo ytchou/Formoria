@@ -114,14 +114,6 @@ export const allowedMatches = [
     values: ["max-w-[calc(100%-2rem)]"],
   },
   {
-    // The floor-map dialog is sized by the MAP's legibility, and needs a
-    // viewport-relative cap that no fixed overlay name can express:
-    // `overlay-wide` is a flat 72rem and would overflow a 1024px laptop.
-    file: "src/components/events/taiwan-creative-expo-official-map.tsx",
-    names: ["unnamed page width"],
-    values: ["max-w-[min(96vw,1100px)]"],
-  },
-  {
     // Table-cell truncation caps. They bound a `<td>` so a long brand name
     // ellipses instead of stretching its column — a cell width, which no page
     // measure and no overlay name describes.
@@ -237,10 +229,56 @@ function isAllowedMatch(file, name, value) {
   );
 }
 
-function collectSourceFiles(cwd, root) {
+/**
+ * Every v1 name the codemod retires. `type-metadata`, `type-micro`,
+ * `type-label` and `type-eyebrow` are absent because they survive under the
+ * same name with a v2 declaration.
+ */
+export const RETIRED_TYPE_NAMES = [
+  "type-hero",
+  "type-page-title-large",
+  "type-page-subtitle",
+  "type-section-title",
+  "type-section-title-large",
+  "type-section-description",
+  "type-card-title-small",
+  "type-card-description",
+  "type-faq-question",
+  "type-subsection-title",
+  "type-field-label",
+  "type-field-value",
+  "type-form-label",
+  "type-form-hint",
+  "type-body-muted",
+  "type-body-inverse",
+  "type-body-emphasis",
+  "type-caption",
+  "type-eyebrow-muted",
+  "type-eyebrow-foreground",
+  "type-stat",
+  "type-nav-item",
+  "type-nav-item-active",
+  "type-link",
+  "type-error",
+  "type-success",
+  "type-success-panel",
+  "type-empty-title",
+  "type-empty-body",
+];
+
+/**
+ * Colour utilities referencing the retired `--primary` and `--cta` tokens.
+ * Design system v2 collapsed both into a single `--accent`.
+ */
+export const RETIRED_COLOR_UTILITIES =
+  /\b(bg|text|border|ring|outline|from|to|via|fill|stroke|decoration|shadow|accent|caret|divide|placeholder)-(primary|cta)(-[a-z]+)*(?![\w-])/g;
+
+/** @param {string} extensionPattern - regex source for file extensions */
+function collectSourceFiles(cwd, root, extensionPattern = "\\.(ts|tsx)$") {
   const absoluteRoot = join(cwd, root);
   if (!existsSync(absoluteRoot)) return [];
 
+  const extRe = new RegExp(extensionPattern);
   const files = [];
   const stack = [root];
 
@@ -259,7 +297,7 @@ function collectSourceFiles(cwd, root) {
         continue;
       }
 
-      if (entry.isFile() && /\.(ts|tsx)$/.test(entry.name)) {
+      if (entry.isFile() && extRe.test(entry.name)) {
         files.push(child);
       }
     }
@@ -330,6 +368,55 @@ export function collectFrontendTokenFailures({
   return failures;
 }
 
+/**
+ * Scans source files for retired v1 type names and retired primary/cta colour
+ * utilities. These are classes Tailwind v2 no longer generates, so they compile
+ * and lint cleanly but render as unstyled text or invisible colour.
+ */
+export function collectRetiredNameFailures({
+  cwd = process.cwd(),
+  roots = [...frontendTokenRoots, "e2e"],
+} = {}) {
+  const wideExtensions = "\\.(ts|tsx|mjs|css)$";
+  const files = roots.flatMap((root) =>
+    collectSourceFiles(cwd, root, wideExtensions),
+  );
+
+  const retiredPattern = new RegExp(
+    `\\b(${RETIRED_TYPE_NAMES.join("|")})(?![\\w-])`,
+    "g",
+  );
+
+  const failures = [];
+
+  for (const file of files) {
+    const source = readFileSync(join(cwd, file), "utf8");
+    const lines = source.split("\n");
+
+    for (const [index, line] of lines.entries()) {
+      for (const match of line.matchAll(retiredPattern)) {
+        failures.push({
+          file: relative(cwd, join(cwd, file)),
+          line: index + 1,
+          name: "retired type name",
+          value: match[0],
+        });
+      }
+
+      for (const match of line.matchAll(RETIRED_COLOR_UTILITIES)) {
+        failures.push({
+          file: relative(cwd, join(cwd, file)),
+          line: index + 1,
+          name: "retired color utility",
+          value: match[0],
+        });
+      }
+    }
+  }
+
+  return failures;
+}
+
 export function reportFrontendTokenFailures(failures) {
   if (failures.length > 0) {
     console.error("Frontend typography/token guard failed:");
@@ -357,7 +444,23 @@ if (
   process.argv[1] &&
   import.meta.url === pathToFileURL(process.argv[1]).href
 ) {
-  process.exitCode = reportFrontendTokenFailures(
-    collectFrontendTokenFailures(),
-  );
+  const tokenFailures = collectFrontendTokenFailures();
+  const retiredFailures = collectRetiredNameFailures();
+
+  let exitCode = reportFrontendTokenFailures(tokenFailures);
+
+  if (retiredFailures.length > 0) {
+    console.error("Retired design-system name guard failed:");
+    for (const failure of retiredFailures) {
+      console.error(
+        `${failure.file}:${failure.line} - ${failure.name}: ${failure.value}`,
+      );
+    }
+    console.error(
+      "Replace retired v1 type-* names with v2 roles and primary/cta utilities with accent.",
+    );
+    exitCode = 1;
+  }
+
+  process.exitCode = exitCode;
 }

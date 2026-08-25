@@ -208,12 +208,12 @@ describe("reportBannedTerms", () => {
   it("accumulates across calls into one entry per (field, term)", () => {
     const ctx = span();
 
-    reportBannedTerms(ctx, [["alt_zh", "視頻截圖"]]);
-    reportBannedTerms(ctx, [["alt_zh", "視頻與視頻"]]);
+    reportBannedTerms(ctx, [["description", "視頻截圖"]]);
+    reportBannedTerms(ctx, [["description", "視頻與視頻"]]);
     reportBannedTerms(ctx, [["reputation_summary", "視頻報導"]]);
 
     expect(ctx.summary.bannedTerms).toEqual([
-      { field: "alt_zh", term: "視頻", replacement: "影片", count: 3 },
+      { field: "description", term: "視頻", replacement: "影片", count: 3 },
       {
         field: "reputation_summary",
         term: "視頻",
@@ -230,16 +230,16 @@ describe("reportBannedTerms", () => {
     const ctx: AuditCallContext = {
       summary: {
         bannedTerms: [
-          { field: "alt_zh", term: "視頻", replacement: "影片", count: 2 },
+          { field: "description", term: "視頻", replacement: "影片", count: 2 },
         ],
         bannedTermCount: 2,
       },
     };
 
-    reportBannedTerms(ctx, [["alt_zh", "視頻"]]);
+    reportBannedTerms(ctx, [["description", "視頻"]]);
 
     expect(ctx.summary.bannedTerms).toEqual([
-      { field: "alt_zh", term: "視頻", replacement: "影片", count: 3 },
+      { field: "description", term: "視頻", replacement: "影片", count: 3 },
     ]);
     expect(ctx.summary.bannedTermCount).toBe(3);
   });

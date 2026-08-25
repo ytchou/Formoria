@@ -81,15 +81,11 @@ function classificationSchema(
             },
           },
           score: { type: "number" },
-          alt_zh: { type: "string" },
-          alt_en: { type: "string" },
         }
       : {
           id: { type: "string" },
           tag: { type: "string", enum: [...keptTags, ...REJECTION_TAGS] },
           score: { type: "number" },
-          alt_zh: { type: "string" },
-          alt_en: { type: "string" },
         };
   return {
     name: "image_classifications",

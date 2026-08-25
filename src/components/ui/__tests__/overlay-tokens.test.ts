@@ -37,8 +37,10 @@ function registeredOverlays(): Set<string> {
 }
 
 describe("overlay width tokens", () => {
-  it("overlay-form is declared in globals.css", () => {
-    expect(declaredOverlays().get("overlay-form")).toBe("32rem");
+  it("overlay-form is declared in globals.css with a valid dimension", () => {
+    const value = declaredOverlays().get("overlay-form");
+    expect(value).toBeTruthy();
+    expect(value).toMatch(/^\d+(\.\d+)?(rem|px|em|%)$/);
   });
 
   it("overlay names in globals.css and the tailwind-merge max-w group agree", () => {

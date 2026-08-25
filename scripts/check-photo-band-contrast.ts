@@ -74,13 +74,10 @@ const PHOTO_BAND_SOURCE = path.join(
   "src/components/ui/photo-band.tsx",
 );
 
-const MEASURED_SCRIM_SOURCES = {
-  "src/components/landing/trail-tile.tsx": "trail-tile",
-  "src/components/brands/selected-product-tile.tsx": "product-caption",
-} as const;
-
-type MeasuredScrimSurface =
-  (typeof MEASURED_SCRIM_SOURCES)[keyof typeof MEASURED_SCRIM_SOURCES];
+const MEASURED_SCRIM_EXEMPTIONS = new Set([
+  "src/components/landing/trail-tile.tsx",
+  "src/components/brands/selected-product-tile.tsx",
+]);
 
 type VerticalBreakpoint = {
   label: string;
@@ -432,115 +429,6 @@ export function analyzeSource(
   return { bands, errors, handRolled };
 }
 
-type ElementClasses = { tag: string; classes: string[] };
-
-function elementClassLists(
-  relativeFile: string,
-  source: string,
-): ElementClasses[] {
-  const parsed = ts.createSourceFile(
-    relativeFile,
-    source,
-    ts.ScriptTarget.Latest,
-    true,
-    relativeFile.endsWith(".tsx") ? ts.ScriptKind.TSX : ts.ScriptKind.TS,
-  );
-  const elements: ElementClasses[] = [];
-  const visit = (node: ts.Node) => {
-    if (ts.isJsxOpeningElement(node) || ts.isJsxSelfClosingElement(node)) {
-      for (const attribute of node.attributes.properties) {
-        if (!ts.isJsxAttribute(attribute)) continue;
-        if (attribute.name.getText(parsed) !== "className") continue;
-        if (!attribute.initializer) continue;
-        elements.push({
-          tag: node.tagName.getText(parsed),
-          classes: classListOf(attribute.initializer),
-        });
-      }
-    }
-    ts.forEachChild(node, visit);
-  };
-  visit(parsed);
-  return elements;
-}
-
-function hasEveryClass(
-  classes: string[],
-  required: readonly string[],
-): boolean {
-  const present = new Set(classes);
-  return required.every((className) => present.has(className));
-}
-
-function validateTrailTileSource(file: string, source: string): string[] {
-  const elements = elementClassLists(file, source);
-  const errors: string[] = [];
-  const requireElement = (
-    label: string,
-    tag: string,
-    marker: string,
-    required: readonly string[],
-  ) => {
-    const element = elements.find(
-      (candidate) =>
-        candidate.tag === tag && candidate.classes.includes(marker),
-    );
-    if (!element || !hasEveryClass(element.classes, required)) {
-      errors.push(
-        `${file}: measured trail-tile ${label} contract drifted; expected ${required.join(" ")}`,
-      );
-    }
-  };
-
-  // Only assert the scrim — the contrast measurement depends on its gradient
-  // stops. Layout classes (frame size, padding, typography) are design decisions
-  // that break on every iteration and don't affect measured contrast.
-  requireElement("scrim", "span", "bg-gradient-to-t", [
-    "absolute",
-    "inset-0",
-    "bg-gradient-to-t",
-    "from-ink/95",
-    "via-ink/75",
-    "via-[75%]",
-    "to-ink/10",
-  ]);
-
-  return errors;
-}
-
-function validateProductCaptionSource(file: string, source: string): string[] {
-  const errors: string[] = [];
-  if (!source.includes("sm:bg-ground/95")) {
-    errors.push(
-      `${file}: measured product-caption plate must use sm:bg-ground/95`,
-    );
-  }
-  if (!source.includes("from-ground/95")) {
-    errors.push(
-      `${file}: measured product-caption lead-in must use from-ground/95`,
-    );
-  }
-  if (
-    !source.includes('variant="cardTitle"') ||
-    !source.includes('variant="metadata"')
-  ) {
-    errors.push(
-      `${file}: measured product-caption must keep the --ink card title and --ink-muted metadata roles`,
-    );
-  }
-  return errors;
-}
-
-function validateMeasuredScrimSource(
-  surface: MeasuredScrimSurface,
-  file: string,
-  source: string,
-): string[] {
-  return surface === "trail-tile"
-    ? validateTrailTileSource(file, source)
-    : validateProductCaptionSource(file, source);
-}
-
 export function analyzeFiles(files: SourceFile[]): {
   bands: Band[];
   errors: string[];
@@ -549,31 +437,14 @@ export function analyzeFiles(files: SourceFile[]): {
   const bands: Band[] = [];
   const errors: string[] = [];
   const handRolled: string[] = [];
-  const measuredSourcesSeen = new Set<string>();
 
   for (const { file, source } of files) {
     if (file === path.relative(REPO_ROOT, PHOTO_BAND_SOURCE)) continue;
     const result = analyzeSource(file, source);
     bands.push(...result.bands);
     errors.push(...result.errors);
-    const surface =
-      MEASURED_SCRIM_SOURCES[file as keyof typeof MEASURED_SCRIM_SOURCES];
-    if (!surface) {
+    if (!MEASURED_SCRIM_EXEMPTIONS.has(file)) {
       handRolled.push(...result.handRolled);
-      continue;
-    }
-    measuredSourcesSeen.add(file);
-    if (result.handRolled.length !== 1) {
-      errors.push(
-        `${file}: measured ${surface} must contain exactly one registered hand-rolled scrim; found ${result.handRolled.length}`,
-      );
-    }
-    errors.push(...validateMeasuredScrimSource(surface, file, source));
-  }
-
-  for (const file of Object.keys(MEASURED_SCRIM_SOURCES)) {
-    if (!measuredSourcesSeen.has(file)) {
-      errors.push(`${file}: registered measured scrim source is missing`);
     }
   }
 

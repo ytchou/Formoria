@@ -311,8 +311,6 @@ describe("parseClassificationBatch", () => {
             tag: "logo",
             reasons: [],
             score: 91,
-            alt_zh: "品牌標誌",
-            alt_en: "Brand logo",
           },
           {
             id: "2",
@@ -320,8 +318,6 @@ describe("parseClassificationBatch", () => {
             tag: null,
             reasons: [],
             score: 80,
-            alt_zh: "",
-            alt_en: "",
           },
           {
             id: "3",
@@ -329,8 +325,6 @@ describe("parseClassificationBatch", () => {
             tag: null,
             reasons: ["wrong_brand"],
             score: 10,
-            alt_zh: "",
-            alt_en: "",
           },
         ],
       }),
@@ -358,8 +352,6 @@ describe("parseClassificationBatch", () => {
             tag: "product",
             reasons: [],
             score: MIN_KEEP_SCORE - 1,
-            alt_zh: "模糊的產品照",
-            alt_en: "Blurry product photo",
           },
           {
             id: "2",
@@ -367,8 +359,6 @@ describe("parseClassificationBatch", () => {
             tag: "product",
             reasons: [],
             score: MIN_KEEP_SCORE,
-            alt_zh: "產品照",
-            alt_en: "Product photo",
           },
         ],
       }),
@@ -400,8 +390,6 @@ describe("parseClassificationBatch", () => {
               tag: legacyTag,
               reasons: [],
               score: 84,
-              alt_zh: "產品照",
-              alt_en: "Product photo",
             },
           ],
         }),
@@ -424,8 +412,6 @@ describe("parseClassificationBatch", () => {
             id: "1",
             tag: "packaging",
             score: 77,
-            alt_zh: "包裝",
-            alt_en: "Packaging",
           },
         ],
       }),
@@ -442,7 +428,7 @@ describe("parseClassificationBatch", () => {
     const verdicts = parseClassificationBatch(
       JSON.stringify({
         classifications: [
-          { id: "1", tag: "promo", score: 40, alt_zh: "", alt_en: "" },
+          { id: "1", tag: "promo", score: 40 },
         ],
       }),
     );
@@ -609,8 +595,6 @@ describe("planChunkImageWrites", () => {
                 tag: "product",
                 reasons: [],
                 score: 88,
-                alt_zh: "產品照",
-                alt_en: "Product photo",
               }
             : {
                 id: "1",
@@ -618,8 +602,6 @@ describe("planChunkImageWrites", () => {
                 tag: null,
                 reasons: ["wrong_brand"],
                 score: 12,
-                alt_zh: "",
-                alt_en: "",
               },
         ],
       }),
@@ -687,8 +669,6 @@ describe("planChunkImageWrites", () => {
         row: {
           tags: ["product"],
           score: 88,
-          alt_zh: "產品照",
-          alt_en: "Product photo",
           status: "active",
           rejection_reasons: null,
           rejected_at: null,
@@ -699,8 +679,6 @@ describe("planChunkImageWrites", () => {
         row: {
           tags: null,
           score: 12,
-          alt_zh: "",
-          alt_en: "",
           status: "rejected",
           rejection_reasons: ["wrong_brand"],
           rejected_at: now,

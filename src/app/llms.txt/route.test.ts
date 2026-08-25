@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import { GET } from "./route";
 import { formatLlmsTxt } from "./llms-content";
 import { buildAlternates } from "@/lib/seo/alternates";
-import { L1_CATEGORIES } from "@/lib/taxonomy/ontology";
+import { VISIBLE_L1_CATEGORIES } from "@/lib/taxonomy/ontology";
 import en from "../../../messages/en.json";
 import zhTW from "../../../messages/zh-TW.json";
 
@@ -16,7 +16,7 @@ describe("GET /llms.txt", () => {
       "text/plain; charset=utf-8",
     );
 
-    for (const category of L1_CATEGORIES) {
+    for (const category of VISIBLE_L1_CATEGORIES) {
       expect(body).toContain(
         buildAlternates(
           `/categories/${category.slug}`,
@@ -26,24 +26,20 @@ describe("GET /llms.txt", () => {
       expect(body).toContain(category.nameZh);
     }
 
-    for (const path of ["/events", "/faq"]) {
-      expect(body).toContain(buildAlternates(path, "zh-TW").canonical);
-    }
-
-    for (const path of ["/brands", "/stories", "/about"]) {
+    for (const path of ["/faq", "/brands", "/stories", "/about"]) {
       expect(body).toContain(buildAlternates(path, "zh-TW").canonical);
     }
   });
 
-  it("publishes a non-empty description for every one of the 12 categories", async () => {
+  it("publishes a non-empty description for every visible category", async () => {
     const body = await (await GET()).text();
 
     // `formatLlmsTxt` *omits* a missing description rather than printing
     // "undefined", so a scan for a sentinel would pass while silently dropping
     // copy. Assert the description text is present instead.
-    expect(L1_CATEGORIES).toHaveLength(12);
+    expect(VISIBLE_L1_CATEGORIES.length).toBeGreaterThan(0);
 
-    for (const category of L1_CATEGORIES) {
+    for (const category of VISIBLE_L1_CATEGORIES) {
       const description =
         en.categories.descriptions[
           category.slug as keyof typeof en.categories.descriptions

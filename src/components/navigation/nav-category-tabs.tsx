@@ -27,7 +27,7 @@ import { PageShell } from '@/components/ui/page-shell'
  * The tap target reads `--nav-row-categories`, the same token as the row that
  * holds it. A literal here would win over a smaller row token and grow the
  * header without growing `--nav-height`, which is the drift this row already
- * caused once. See `nav-height.test.ts`.
+ * caused once.
  */
 function tabClasses(active: boolean): string {
   return cn(

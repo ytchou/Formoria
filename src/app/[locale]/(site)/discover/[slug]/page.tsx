@@ -167,7 +167,7 @@ function relatedLinks(
       <h2 id={`${hrefBase.slice(1)}-related`} className="type-card-title">
         {title}
       </h2>
-      <ul className="flex flex-wrap gap-x-4 gap-y-2 type-body-sm text-ink-soft">
+      <ul className="flex flex-wrap gap-x-4 gap-y-2 type-body-sm">
         {values.map((value) => (
           <li key={value}>
             <a
@@ -193,7 +193,7 @@ function relatedStoryLinks(
       <h2 id="stories-related" className="type-card-title">
         {title}
       </h2>
-      <ul className="flex flex-wrap gap-x-4 gap-y-2 type-body-sm text-ink-soft">
+      <ul className="flex flex-wrap gap-x-4 gap-y-2 type-body-sm">
         {values.map((value, position) => (
           <li key={value}>
             <RelatedStoryLink
@@ -219,7 +219,7 @@ function relatedTrailLinks(title: string, values: string[]): React.ReactNode {
       <h2 id="trails-related" className="type-card-title">
         {title}
       </h2>
-      <ul className="flex flex-wrap gap-x-4 gap-y-2 type-body-sm text-ink-soft">
+      <ul className="flex flex-wrap gap-x-4 gap-y-2 type-body-sm">
         {values.map((value, position) => (
           <li key={value}>
             <RelatedTrailLink
@@ -333,7 +333,7 @@ export default async function DiscoverTrailPage({ params }: PageProps) {
               <div className="prose-measure space-y-4">
                 <h1 className="type-page-title">{frontmatter.title}</h1>
                 {frontmatter.description ? (
-                  <p className="type-body text-ink-soft">{frontmatter.description}</p>
+                  <p className="type-body">{frontmatter.description}</p>
                 ) : null}
                 {frontmatter.promise ? (
                   <p className="type-body-sm">{frontmatter.promise}</p>
@@ -403,7 +403,7 @@ export default async function DiscoverTrailPage({ params }: PageProps) {
                 <h2 id="trail-exclusions" className="type-card-title">
                   {t("exclusionsHeading")}
                 </h2>
-                <p className="mt-3 type-body-sm text-ink-soft">
+                <p className="mt-3 type-body-sm">
                   {frontmatter.exclusions}
                 </p>
               </section>

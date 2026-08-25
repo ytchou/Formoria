@@ -29,8 +29,7 @@ export const MAX_HOME_WALL_PRODUCTS = 16;
 /**
  * The wall rotates on the Taipei calendar day, because that is the day its
  * readers are having. A UTC seed would turn the wall over at 08:00 local.
- * Declared here rather than imported from `@/lib/services/events` on purpose:
- * that module opens a Supabase service client at import time, and this one is
+ * Declared here rather than derived from a shared constant: this module is
  * pure by design so the composition can be tested with no I/O at all.
  */
 const WALL_TIME_ZONE = "Asia/Taipei";

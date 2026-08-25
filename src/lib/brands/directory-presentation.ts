@@ -2,7 +2,6 @@ import { buildCategoryTabTarget } from "@/components/navigation/category-tab-tar
 import { localizePath } from "@/i18n/locale-preference";
 import type { BrandSortOption } from "@/lib/pagination";
 import type { DirectoryViewFilters } from "@/lib/seo/directory-filters";
-import { directoryBrandCategoryFilter } from "@/lib/services/brands";
 import { routes } from "@/lib/routes";
 
 /**
@@ -29,9 +28,8 @@ export function directoryCategoryChipSlugs(
   categorySlugs: readonly string[],
   subcategorySlugs: readonly string[],
 ): string[] {
-  return [
-    ...(directoryBrandCategoryFilter(categorySlugs, subcategorySlugs) ?? []),
-  ];
+  if (subcategorySlugs.length > 0) return [];
+  return categorySlugs.length > 0 ? [...categorySlugs] : [];
 }
 
 /**

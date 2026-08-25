@@ -322,8 +322,8 @@ export function buildArticleJsonLd({
     isPartOf: buildWebSiteJsonLd(locale === "zh-TW" ? "zh-TW" : "en"),
   };
 
-  // Conditional, exactly like `buildEventJsonLd`'s `imageUrl`: an empty string
-  // is reported by Google as an invalid value, which is worse than no key.
+  // Conditional: an empty string is reported by Google as an invalid value,
+  // which is worse than no key.
   if (imageUrl) jsonLd.image = imageUrl;
 
   return jsonLd;

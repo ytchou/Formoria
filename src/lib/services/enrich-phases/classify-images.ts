@@ -1,6 +1,5 @@
 import { z } from "zod";
 import { auditedCall, type AuditCallContext } from "@/lib/audit";
-import { reportBannedTerms } from "@/lib/i18n/banned-terms";
 import { IMAGE_CLASSIFY_SYSTEM_PROMPT } from "@/lib/prompts";
 import { L1_CATEGORIES } from "@/lib/taxonomy/ontology";
 import {
@@ -20,7 +19,6 @@ import { syncHeroDenormalized, type BrandImageRow } from "../brand-images";
 import { loadVisionDataUri } from "../vision-image";
 import { IMAGE_DOWNLOAD_CONCURRENCY } from "../image-download";
 import { mapWithConcurrency } from "../_shared/concurrency";
-import { localizeToTW } from "../taiwan-localization";
 import { createServiceClient } from "@/lib/supabase/service";
 import type { PhaseResult } from "@/lib/types/curation";
 import {
@@ -248,8 +246,6 @@ type ParsedImageClassification = {
   tag: KeptImageTag | null;
   reasons: ImageRejectionReason[];
   score: number;
-  altZh: string;
-  altEn: string;
 };
 
 type ClassifiedImage = {
@@ -299,8 +295,6 @@ export const IMAGE_CLASSIFICATION_SCHEMA = {
           tag: z.enum(KEEP_TAGS).nullable(),
           reasons: z.array(z.enum(REJECTION_REASONS)),
           score: z.number(),
-          alt_zh: z.string(),
-          alt_en: z.string(),
         }),
       ),
     }),
@@ -324,8 +318,6 @@ type ClassifyImagesPhaseOutput = {
 
 export type BrandImageForClassification = BrandImageRow & {
   id: string;
-  alt_zh?: string | null;
-  alt_en?: string | null;
 };
 
 export type HeroResortPlan = {
@@ -483,8 +475,6 @@ export function parseClassificationBatch(
     tag?: unknown;
     reasons?: unknown;
     score?: unknown;
-    alt_zh?: unknown;
-    alt_en?: unknown;
   };
 
   const verdicts = new Map<string, ParsedImageClassification>();
@@ -551,9 +541,6 @@ export function parseClassificationBatch(
       tag: belowFloor ? null : tag,
       reasons: belowFloor ? ["low_visual_quality"] : reasons,
       score: clampedScore,
-      altZh:
-        typeof item.alt_zh === "string" ? localizeToTW(item.alt_zh).text : "",
-      altEn: typeof item.alt_en === "string" ? item.alt_en : "",
     });
   }
 
@@ -950,8 +937,6 @@ async function resetImageTags(
     .update({
       tags: null,
       score: null,
-      alt_zh: null,
-      alt_en: null,
       rejection_reasons: null,
       rejected_at: null,
     })
@@ -1262,24 +1247,12 @@ export function planChunkImageWrites(input: {
       row: {
         tags: rejected ? null : [classification.tag as KeptImageTag],
         score: classification.score,
-        alt_zh: classification.altZh,
-        alt_en: classification.altEn,
         status: rejected ? "rejected" : "active",
         rejection_reasons: rejected ? classification.reasons : null,
         rejected_at: rejected ? input.now : null,
       },
     });
   }
-
-  // Report-only (DEV-1546), over the WRITES and nothing else. The alt text is
-  // stored exactly as the model wrote it; a banned term is recorded on the span
-  // for a human, never substituted, because substring matching cannot tell a
-  // banned term from a correct word, a street name, or a proper noun that
-  // contains one.
-  reportBannedTerms(
-    input.ctx,
-    writes.map((write) => ["alt_zh", write.row.alt_zh] as const),
-  );
 
   return { writes, classifications, rejectedCount, unjudgedCount };
 }
@@ -1295,8 +1268,7 @@ export function planChunkImageWrites(input: {
  * wrong_brand and twice keeping all ten. The official domain gives it something
  * verifiable.
  *
- * English, matching the system prompt — only alt_zh is Chinese, and the prompt
- * asks for that explicitly. Shared with `scripts/image-eval/baseline.ts` so the
+ * English, matching the system prompt. Shared with `scripts/image-eval/baseline.ts` so the
  * harness measures the context production actually sends; the corpus manifest
  * carries no website, so it passes `website: null` until the next capture.
  */

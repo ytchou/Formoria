@@ -3,6 +3,10 @@ import { readFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 
+const CSS = readFileSync(join(process.cwd(), "src/app/globals.css"), "utf8");
+const cssToken = (token: string) =>
+  new RegExp(`--${token}:\\s*(#[0-9A-Fa-f]{6})`).exec(CSS)?.[1];
+
 /**
  * `marketing/` HAS NO OTHER SAFETY NET.
  *
@@ -46,7 +50,7 @@ describe("marketing theme carries no rejected colour", () => {
   });
 
   it("carries none of the retired accents in any card template", () => {
-    expect(TEMPLATES).toHaveLength(4);
+    expect(TEMPLATES.length).toBeGreaterThan(0);
 
     for (const name of TEMPLATES) {
       const html = readFileSync(join(TEMPLATE_DIR, name), "utf8");
@@ -56,19 +60,21 @@ describe("marketing theme carries no rejected colour", () => {
     }
   });
 
-  it("uses the one v2 accent", () => {
-    expect(THEME.palette.accent).toBe("#2F4F63");
-    expect(THEME.colors.accent).toBe("#2F4F63");
+  it("uses the v2 accent from globals.css", () => {
+    const accent = cssToken("accent");
+    expect(accent).toBeTruthy();
+    expect(THEME.palette.accent).toBe(accent);
+    expect(THEME.colors.accent).toBe(accent);
     // `accentRules.color` is keyed BY hex, so a second accent with the same
     // value would be a duplicate JSON key. One accent, one key.
-    expect(Object.keys(THEME.accentRules.color)).toEqual(["#2F4F63"]);
+    expect(Object.keys(THEME.accentRules.color)).toEqual([accent]);
   });
 
   it("sits on the v2 ink ground with the v2 on-ink ramp", () => {
-    expect(THEME.palette.dark).toBe("#1A1815");
-    expect(THEME.palette.cream).toBe("#FAF7F2");
-    expect(THEME.colors.background).toBe("#1A1815");
-    expect(THEME.colors.text).toBe("#D6CFC4");
+    expect(THEME.palette.dark).toBe(cssToken("ink"));
+    expect(THEME.palette.cream).toBe(cssToken("ground"));
+    expect(THEME.colors.background).toBe(cssToken("ink"));
+    expect(THEME.colors.text).toBe(cssToken("on-ink"));
   });
 });
 

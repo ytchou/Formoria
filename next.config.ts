@@ -29,17 +29,14 @@ if (process.env.E2E_ADMIN_EMAIL) {
  * Every `to` must be a LIVE L1 in `src/lib/taxonomy/ontology.ts`, and no live
  * L1 may appear as a `from`. DEV-1510 split `kids-pets` into `kids` and `pets`,
  * which broke both halves of that rule at once: `pets` became a live L1 while a
- * `["pets", "kids-pets"]` row still shadowed it, and `baby-kids` still pointed
- * at a slug that no longer renders. Both rows are gone — `pets` resolves in
- * place, `baby-kids` lands on `kids`, and the merged parent leaves the
- * `/categories` space entirely (below, with `others`).
+ * `["pets", "kids-pets"]` row still shadowed it. Both rows are gone; deferred
+ * legacy kids traffic goes directly to the public directory below.
  */
 const RETIRED_CATEGORY_SLUGS: ReadonlyArray<
   readonly [from: string, to: string]
 > = [
   ["accessories", "bags-accessories"],
   ["bags", "bags-accessories"],
-  ["baby-kids", "kids"],
   ["food", "food-drink"],
   ["beverages", "food-drink"],
   ["clothing", "fashion"],
@@ -251,6 +248,23 @@ const nextConfig: NextConfig = {
       // `-> kids-pets` rows above are gone: with either still standing this
       // would be the second hop of a redirect chain.
       {
+        // `kids` is a deferred L1, so the old baby-kids page must not take a
+        // second hop through a category route that immediately redirects.
+        source: "/categories/baby-kids",
+        destination: "/brands",
+        permanent: true,
+      },
+      {
+        source: "/en/categories/baby-kids",
+        destination: "/en/brands",
+        permanent: true,
+      },
+      {
+        source: "/zh-TW/categories/baby-kids",
+        destination: "/brands",
+        permanent: true,
+      },
+      {
         source: "/categories/kids-pets",
         destination: "/brands",
         permanent: true,
@@ -311,32 +325,23 @@ const nextConfig: NextConfig = {
             "crafts/dried-flowers-and-floral-design",
             "/categories/home/floral-arrangements",
           ],
-          ["kids-pets/kids-clothing", "/categories/kids/kids-clothing"],
-          ["kids-pets/family-matching", "/categories/kids/family-matching"],
-          ["kids-pets/baby-clothing", "/categories/kids/baby-clothing"],
-          ["kids-pets/baby-bedding", "/categories/kids/baby-bedding"],
-          ["kids-pets/bibs-and-muslin", "/categories/kids/bibs-and-muslin"],
-          ["kids-pets/kids-tableware", "/categories/kids/kids-tableware"],
-          ["kids-pets/toys", "/categories/kids/toys"],
-          ["kids-pets/learning-aids", "/categories/kids/learning-aids"],
-          [
-            "kids-pets/play-mats-and-fences",
-            "/categories/kids/play-mats-and-fences",
-          ],
-          [
-            "kids-pets/parenting-essentials",
-            "/categories/kids/parenting-essentials",
-          ],
-          ["kids-pets/pet-food", "/categories/pets/pet-food"],
-          ["kids-pets/pet-treats", "/categories/pets/pet-treats"],
-          ["kids-pets/pet-supplements", "/categories/pets/pet-supplements"],
-          ["kids-pets/pet-apparel", "/categories/pets/pet-apparel"],
-          [
-            "kids-pets/pet-beds-and-scratchers",
-            "/categories/pets/pet-beds-and-scratchers",
-          ],
-          ["kids-pets/pet-grooming", "/categories/pets/pet-grooming"],
-          ["kids-pets/pet-supplies", "/categories/pets/pet-supplies"],
+          ["kids-pets/kids-clothing", "/brands"],
+          ["kids-pets/family-matching", "/brands"],
+          ["kids-pets/baby-clothing", "/brands"],
+          ["kids-pets/baby-bedding", "/brands"],
+          ["kids-pets/bibs-and-muslin", "/brands"],
+          ["kids-pets/kids-tableware", "/brands"],
+          ["kids-pets/toys", "/brands"],
+          ["kids-pets/learning-aids", "/brands"],
+          ["kids-pets/play-mats-and-fences", "/brands"],
+          ["kids-pets/parenting-essentials", "/brands"],
+          ["kids-pets/pet-food", "/brands"],
+          ["kids-pets/pet-treats", "/brands"],
+          ["kids-pets/pet-supplements", "/brands"],
+          ["kids-pets/pet-apparel", "/brands"],
+          ["kids-pets/pet-beds-and-scratchers", "/brands"],
+          ["kids-pets/pet-grooming", "/brands"],
+          ["kids-pets/pet-supplies", "/brands"],
         ] as ReadonlyArray<readonly [from: string, to: string]>
       ).flatMap(([from, to]) => [
         {
@@ -356,6 +361,38 @@ const nextConfig: NextConfig = {
         },
       ]),
       // <<< end generated block
+      // DEV-1605: event surface parked. Pattern-based so /events/any-slug
+      // resolves without listing each past event individually.
+      {
+        source: "/events/:path*",
+        destination: "/",
+        permanent: true,
+      },
+      {
+        source: "/events",
+        destination: "/",
+        permanent: true,
+      },
+      {
+        source: "/en/events/:path*",
+        destination: "/en",
+        permanent: true,
+      },
+      {
+        source: "/en/events",
+        destination: "/en",
+        permanent: true,
+      },
+      {
+        source: "/zh-TW/events/:path*",
+        destination: "/",
+        permanent: true,
+      },
+      {
+        source: "/zh-TW/events",
+        destination: "/",
+        permanent: true,
+      },
       {
         source: "/about-us",
         destination: "/about",

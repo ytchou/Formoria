@@ -13,9 +13,8 @@ const REVALIDATE_TIMEOUT_MS = 10_000
 const REVALIDATE_PATH = '/api/internal/revalidate-brands'
 
 /**
- * Mirrors MAX_SLUGS in app/api/internal/revalidate-brands/route.ts, which caps
- * `slugs` and `events` COMBINED. Callers batch their whole run into one call, so
- * anything over the cap came back as http-400 "Too many slugs" and the write
+ * Mirrors MAX_SLUGS in app/api/internal/revalidate-brands/route.ts.
+ * Anything over the cap came back as http-400 "Too many slugs" and the write
  * landed with the public pages left stale — the failure only appears on the
  * large runs where revalidation matters most. Chunk here rather than in each
  * caller so no future caller has to remember.
@@ -149,19 +148,3 @@ async function postChunked(
   return firstFailure ?? { ok: true }
 }
 
-/**
- * Same contract for event writes: the receiving route revalidates the `/events`
- * hub plus one `/events/<slug>` path per slug. Never throws — see
- * postRevalidation.
- */
-export async function requestEventRevalidation(
-  slugs: string[],
-): Promise<RevalidationResult> {
-  const uniqueSlugs = normalizeSlugs(slugs)
-
-  if (uniqueSlugs.length === 0) {
-    return { ok: true, reason: 'no-slugs' }
-  }
-
-  return postChunked(uniqueSlugs, (chunk) => ({ events: chunk }))
-}

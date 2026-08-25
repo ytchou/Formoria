@@ -185,7 +185,7 @@ async function main(): Promise<void> {
       const { data: imgs } = await supabase
         .from('submission_images')
         .select(
-          'url, source, provider_metadata, source_url, status, score, tags, width, height, sort_order, alt_zh, rejection_reasons'
+          'url, source, provider_metadata, source_url, status, score, tags, width, height, sort_order, rejection_reasons'
         )
         .eq('submission_id', submissionId)
       captured.push({ slug: brand.slug, liveName: brand.name, submission: sub, images: imgs ?? [] })

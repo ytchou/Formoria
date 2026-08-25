@@ -25,8 +25,10 @@ import { isNonImageHost } from "@/lib/images/allowed-image-hosts";
 import { storageKeyFromPublicUrlForRead } from "./image-upload";
 import { RESERVED_ROUTES } from "@/proxy";
 import {
+  DEFERRED_CATEGORY_SLUGS,
   deriveCategoryLabel,
   L1_CATEGORIES,
+  VISIBLE_L1_CATEGORIES,
   subcategoryBySlug,
 } from "@/lib/taxonomy/ontology";
 import { slugifyRomanizedName, withSlugSuffix } from "@/lib/brands/slug";
@@ -735,15 +737,13 @@ async function brandToDomainWithImages(
 }
 
 const CARD_IMAGE_SELECT =
-  "brand_id, storage_path, tags, alt_zh, alt_en, sort_order, width, height";
+  "brand_id, storage_path, tags, sort_order, width, height";
 
 type CardImageRow = Pick<
   Database["public"]["Tables"]["brand_images"]["Row"],
   | "brand_id"
   | "storage_path"
   | "tags"
-  | "alt_zh"
-  | "alt_en"
   | "sort_order"
   | "width"
   | "height"
@@ -904,13 +904,9 @@ export async function hydrateCardImageMeta<
 
     const heroMeta = heroRow
       ? {
-          altZh: heroRow.alt_zh ?? null,
-          altEn: heroRow.alt_en ?? null,
           isLogo: isLogoImageTags(heroRow.tags),
         }
       : {
-          altZh: null,
-          altEn: null,
           // Unknown hero metadata must not win over a known product photo.
           isLogo: true,
         };
@@ -927,8 +923,6 @@ export async function hydrateCardImageMeta<
         ...(productRow && productPhoto
           ? [
               {
-                altZh: productRow.alt_zh ?? null,
-                altEn: productRow.alt_en ?? null,
                 isLogo: false,
               },
             ]
@@ -936,8 +930,6 @@ export async function hydrateCardImageMeta<
       ],
       heroImageMetadata: heroRow
         ? {
-            altZh: heroRow.alt_zh ?? null,
-            altEn: heroRow.alt_en ?? null,
             width: heroRow.width && heroRow.width > 0 ? heroRow.width : null,
             height:
               heroRow.height && heroRow.height > 0 ? heroRow.height : null,
@@ -1483,8 +1475,16 @@ export function directoryBrandCategoryFilter(
   subcategorySlugs: readonly string[],
 ): string[] | undefined {
   if (subcategorySlugs.length > 0) return undefined;
-  return categorySlugs.length > 0 ? [...categorySlugs] : undefined;
+  return categorySlugs.length > 0
+    ? [...categorySlugs]
+    : VISIBLE_L1_CATEGORIES.map(c => c.slug);
 }
+
+/** Derived from `DEFERRED_CATEGORY_SLUGS` — display-name filter because
+ *  `search_brands` RPC only returns `primary_category_name`, not the slug. */
+const DEFERRED_CATEGORY_NAMES: ReadonlySet<string> = new Set(
+  L1_CATEGORIES.filter(c => DEFERRED_CATEGORY_SLUGS.has(c.slug)).flatMap(c => [c.name, c.nameZh])
+);
 
 function getBrandsSelect(filters: GetBrandsFilters | undefined): "*" {
   if (filters?.includeDetailColumns) {
@@ -2027,12 +2027,14 @@ export async function searchBrandsAutocomplete(
     throw error;
   }
 
-  return (data ?? []).map((row) => ({
-    id: row.id,
-    slug: row.slug,
-    name: row.name,
-    categoryLabel: row.primary_category_name ?? "",
-  }));
+  return (data ?? [])
+    .filter((row) => !DEFERRED_CATEGORY_NAMES.has(row.primary_category_name ?? ""))
+    .map((row) => ({
+      id: row.id,
+      slug: row.slug,
+      name: row.name,
+      categoryLabel: row.primary_category_name ?? "",
+    }));
 }
 
 export async function getBrandBySlug(
@@ -2571,10 +2573,12 @@ export async function getBrandStats(): Promise<{
         supabase
           .from("brands")
           .select(BRAND_COLUMNS as "*", { count: "exact", head: true })
-          .eq("status", "approved"),
+          .eq("status", "approved")
+          .or(`category.is.null,category.in.(${VISIBLE_L1_CATEGORIES.map(c => c.slug).join(",")})`),
       ),
       excludeTestBrands(
-        supabase.from("brands").select("category").eq("status", "approved"),
+        supabase.from("brands").select("category").eq("status", "approved")
+          .in("category", VISIBLE_L1_CATEGORIES.map(c => c.slug)),
       ).not("category", "is", null),
     ]);
 

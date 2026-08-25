@@ -25,7 +25,6 @@ import { auditedCall } from "@/lib/audit";
 import type { EnrichScrapedData } from "./types";
 import {
   brandTarget,
-  targetImageStorage,
   type EnrichmentTarget,
 } from "../_shared/enrichment-target";
 import {
@@ -253,61 +252,6 @@ export async function loadPersistedScrapeText(
   };
 }
 
-/** Max alt lines fed to the listing verdict — enough to establish "physical products exist". */
-const MAX_IMAGE_ALTS = 8;
-
-type ImageAltRow = { alt_zh: string | null; alt_en: string | null };
-
-/**
- * Structural view of the image tables. The table name is only known at runtime
- * (brand_images vs submission_images), which the generated union types cannot
- * narrow — same reason `classify-images.ts` casts its client.
- */
-type ImageAltQuery = {
-  eq: (column: string, value: string) => ImageAltQuery;
-  order: (column: string, options: { ascending: boolean }) => ImageAltQuery;
-  limit: (
-    count: number,
-  ) => Promise<{ data: ImageAltRow[] | null; error: unknown }>;
-};
-type ImageAltClient = {
-  from: (table: string) => { select: (columns: string) => ImageAltQuery };
-};
-
-/**
- * Reads the alt text the classify-images phase wrote for this target.
- *
- * This is a new query rather than data passed down: `runClassifyImagesPhase`
- * returns only a phase result and a patch, it does not surface the per-image alt
- * text it wrote, and `curation-operations` never holds it either. Touching
- * classify-images to return it is out of scope, so the descriptions phase reads
- * the rows back. Failure is non-fatal — no alts just means weaker listing evidence.
- */
-async function loadClassifiedImageAlts(
-  target: EnrichmentTarget,
-): Promise<string[]> {
-  try {
-    const supabase = createServiceClient() as unknown as ImageAltClient;
-    const storage = targetImageStorage(target);
-    const { data } = await supabase
-      .from(storage.table)
-      .select("alt_zh, alt_en")
-      .eq(storage.foreignKey, target.id)
-      .eq("status", "active")
-      .order("sort_order", { ascending: true })
-      .limit(MAX_IMAGE_ALTS);
-
-    return (data ?? [])
-      .map((row) => stringValue(row.alt_zh) ?? stringValue(row.alt_en))
-      .filter((alt): alt is string => alt !== null);
-  } catch (error) {
-    console.error(
-      `  [DESCRIPTIONS] image alt lookup failed:`,
-      error instanceof Error ? error.message : String(error),
-    );
-    return [];
-  }
-}
 
 /**
  * True when this run affirmatively revoked the column: the site-identity phase
@@ -460,10 +404,7 @@ export async function runDescriptionsPhase({
               : [];
         const truncatedSiteContent =
           persistedScrape.siteContent?.slice(0, 4000) ?? null;
-        const imageAlts =
-          rewriteSnippets.length > 0
-            ? await loadClassifiedImageAlts(effectiveTarget)
-            : [];
+        const imageAlts: string[] = [];
         const displayBrandName = getDisplayBrandName(brand);
         const evidence = buildDescriptionEvidence(
           brand,

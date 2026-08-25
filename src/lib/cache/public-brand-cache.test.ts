@@ -11,7 +11,6 @@ import { routing } from '@/i18n/routing'
 import {
   PUBLIC_BRAND_DATA_TAG,
   revalidatePublicBrands,
-  revalidatePublicEvents,
   revalidatePublicStockists,
 } from './public-brand-cache'
 
@@ -37,10 +36,7 @@ describe('revalidatePublicBrands', () => {
         ['/en'],
         ['/zh-TW/about'],
         ['/en/about'],
-        ['/zh-TW/events'],
-        ['/en/events'],
         ['/sitemap.xml'],
-        ['/[locale]/events/[slug]', 'page'],
         ['/[locale]/stories/[slug]', 'page'],
       ]),
     )
@@ -77,44 +73,6 @@ describe('revalidatePublicBrands', () => {
 
     expect(revalidateTag).not.toHaveBeenCalled()
     expect(revalidatePath).not.toHaveBeenCalled()
-  })
-})
-
-describe('revalidatePublicEvents', () => {
-  beforeEach(() => vi.clearAllMocks())
-
-  it('invalidates the event hub, sitemap, and each unique localized detail page', () => {
-    revalidatePublicEvents([
-      'taipei-design-market-2026',
-      ' taipei-design-market-2026 ',
-      'spring-craft-fair',
-    ])
-
-    expect(revalidatedPaths()).toEqual(
-      expect.arrayContaining([
-        ['/zh-TW/events'],
-        ['/en/events'],
-        ['/zh-TW/events/taipei-design-market-2026'],
-        ['/en/events/taipei-design-market-2026'],
-        ['/zh-TW/events/spring-craft-fair'],
-        ['/en/events/spring-craft-fair'],
-        ['/sitemap.xml'],
-      ]),
-    )
-    expect(
-      revalidatedPaths().filter(
-        ([path]) => path === '/zh-TW/events/taipei-design-market-2026',
-      ),
-    ).toHaveLength(1)
-  })
-
-  it('keeps the hub and sitemap fresh when no event slug is known', () => {
-    revalidatePublicEvents([])
-
-    expect(revalidatedPaths()).toEqual([
-      ...routing.locales.map((locale) => [`/${locale}/events`]),
-      ['/sitemap.xml'],
-    ])
   })
 })
 

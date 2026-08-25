@@ -91,7 +91,7 @@ export function classifyQuery(raw: string): QueryClassification {
   }
 }
 
-export type LandingPageType = PageType | 'event' | 'other/static'
+export type LandingPageType = PageType | 'other/static'
 
 export type LandingPageClassification = {
   raw: string
@@ -225,8 +225,6 @@ export function classifyLandingPage(raw: string): LandingPageClassification {
     pageType = 'stats'
   } else if (isSectionOrDescendant(path, '/topics')) {
     pageType = 'topic-hub'
-  } else if (isSectionOrDescendant(path, routes.events())) {
-    pageType = 'event'
   } else {
     pageType = 'other/static'
   }

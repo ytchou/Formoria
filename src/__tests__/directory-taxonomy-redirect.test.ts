@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
 import nextConfig from "../../next.config";
-import { L1_CATEGORIES, L2_SUBCATEGORIES } from "@/lib/taxonomy/ontology";
+import {
+  L1_CATEGORIES,
+  L2_SUBCATEGORIES,
+  isVisibleCategory,
+} from "@/lib/taxonomy/ontology";
 import {
   CACHEABLE_DIRECTORY_QUERY_KEYS,
   decideDirectoryTaxonomyRedirect,
@@ -294,9 +298,8 @@ describe("retired L1 taxonomy redirects", () => {
 
     // The other half of the same invariant, and the half a split actually
     // breaks: every category destination has to be a category that still
-    // renders. `baby-kids -> /categories/kids` is only a repair while `kids`
-    // is live; the day an L1 is merged away it becomes a 301 into a 404, which
-    // no status check and no `pnpm build` reports.
+    // renders. `baby-kids` goes directly to `/brands` because `kids` is
+    // deferred and its category route itself redirects to the directory.
     //
     // Both depths, deliberately. The one-segment-only filter this replaces
     // could not see a `/categories/<l1>/<l2>` destination at all, so every L2
@@ -325,19 +328,19 @@ describe("retired L1 taxonomy redirects", () => {
     expect(deadDestinations).toEqual([]);
   });
 
-  it("baby_kids_redirects_to_kids", async () => {
+  it("baby_kids_redirects_to_public_directory", async () => {
     const rules = await configuredRedirects();
 
     expect(ruleFor(rules, "/categories/baby-kids")).toMatchObject({
-      destination: "/categories/kids",
+      destination: "/brands",
       permanent: true,
     });
     expect(ruleFor(rules, "/en/categories/baby-kids")).toMatchObject({
-      destination: "/en/categories/kids",
+      destination: "/en/brands",
       permanent: true,
     });
     expect(ruleFor(rules, "/zh-TW/categories/baby-kids")).toMatchObject({
-      destination: "/categories/kids",
+      destination: "/brands",
       permanent: true,
     });
   });
@@ -480,12 +483,12 @@ describe("retired L1 taxonomy redirects", () => {
     }
   });
 
-  it("reparented_l2_keeps_its_slug_under_the_new_parent", async () => {
+  it("reparented_l2_redirects_deferred_parents_to_public_directory", async () => {
     const rules = await configuredRedirects();
 
-    // The `kids-pets` split moved seventeen nodes without renaming any of them:
-    // ten to `kids`, seven to `pets`. Only the parent segment changes, so a
-    // destination that reuses the old parent is the failure to catch.
+    // The `kids-pets` split moved seventeen nodes without renaming any of them,
+    // but both new parents are deferred and therefore have no public category
+    // route. Every legacy URL lands on the directory in one hop.
     expect(
       REPARENTED_L2.filter(([, parent]) => parent === "kids"),
     ).toHaveLength(10);
@@ -493,14 +496,14 @@ describe("retired L1 taxonomy redirects", () => {
       REPARENTED_L2.filter(([, parent]) => parent === "pets"),
     ).toHaveLength(7);
 
-    for (const [slug, parent] of REPARENTED_L2) {
-      const destination = `/categories/${parent}/${slug}`;
+    for (const [slug] of REPARENTED_L2) {
+      const destination = "/brands";
       expect(ruleFor(rules, `/categories/kids-pets/${slug}`)).toMatchObject({
         destination,
         permanent: true,
       });
       expect(ruleFor(rules, `/en/categories/kids-pets/${slug}`)).toMatchObject({
-        destination: `/en${destination}`,
+        destination: "/en/brands",
         permanent: true,
       });
       expect(
@@ -543,6 +546,43 @@ describe("retired L1 taxonomy redirects", () => {
     }
   });
 
+  it("every_l2_redirect_destination_under_a_deferred_l1_is_still_in_the_ontology", async () => {
+    // A deferred L1 still exists in the ontology — its category page redirects
+    // to /brands at the page component level (Task 5A), but any redirect
+    // destination pointing at it is valid from an ontology standpoint. This test
+    // confirms the reparented L2 destinations under deferred parents resolve.
+    const rules = await configuredRedirects();
+    const deferredDestinations = rules
+      .map((rule) => ({ rule, target: withoutLocale(rule.destination) }))
+      .filter(({ target }) =>
+        /^\/categories\/[^/:]+(?:\/[^/:]+)?$/.test(target),
+      )
+      .filter(({ target }) => {
+        const segments = target.slice("/categories/".length).split("/");
+        return segments.length >= 1 && !isVisibleCategory(segments[0]!);
+      });
+
+    // Deferred L1s are still valid redirect destinations (they exist in the
+    // ontology), so this just confirms they resolve and none point at a truly
+    // retired parent.
+    for (const { target } of deferredDestinations) {
+      const tail = target.slice("/categories/".length);
+      if (tail.includes("/")) {
+        expect(
+          L2_SUBCATEGORIES.some(
+            (sub) => tail === `${sub.category}/${sub.slug}`,
+          ),
+          `${target} is a valid L2`,
+        ).toBe(true);
+      } else {
+        expect(
+          L1_CATEGORIES.some((category) => tail === category.slug),
+          `${target} is a valid L1`,
+        ).toBe(true);
+      }
+    }
+  });
+
   it("beverages_l2_is_not_shadowed_by_the_retired_l1", async () => {
     const rules = await configuredRedirects();
 
@@ -564,5 +604,33 @@ describe("retired L1 taxonomy redirects", () => {
         rules.filter((rule) => sourceMatcher(rule.source).test(path)),
       ).toEqual([]);
     }
+  });
+});
+
+describe("deferred category page redirects", () => {
+  it("deferred L1 category page redirects to /brands", () => {
+    // The redirect is in the page component, not in next.config.ts.
+    // This test validates the isVisibleCategory predicate matches the deferred set.
+    expect(isVisibleCategory("pets")).toBe(false);
+    expect(isVisibleCategory("kids")).toBe(false);
+    expect(isVisibleCategory("stationery")).toBe(false);
+    expect(isVisibleCategory("tech")).toBe(false);
+    expect(isVisibleCategory("outdoor")).toBe(false);
+    expect(isVisibleCategory("fitness")).toBe(false);
+  });
+
+  it("visible L1 category page renders normally", () => {
+    expect(isVisibleCategory("home")).toBe(true);
+    expect(isVisibleCategory("fashion")).toBe(true);
+    expect(isVisibleCategory("beauty")).toBe(true);
+    expect(isVisibleCategory("food-drink")).toBe(true);
+    expect(isVisibleCategory("bags-accessories")).toBe(true);
+    expect(isVisibleCategory("jewelry")).toBe(true);
+  });
+
+  it("deferred L1 subcategory page redirects to /brands", () => {
+    // Subcategory pages under deferred L1s also redirect
+    expect(isVisibleCategory("pets")).toBe(false);
+    expect(isVisibleCategory("kids")).toBe(false);
   });
 });

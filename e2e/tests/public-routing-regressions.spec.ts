@@ -48,10 +48,9 @@ test.describe("Public routing regressions deep", () => {
     const redirects = [
       ["/categories/accessories", "/categories/bags-accessories"],
       ["/categories/bags", "/categories/bags-accessories"],
-      // DEV-1510 split kids-pets into the live L1s kids and pets: baby-kids
-      // now lands on kids, `pets` is a page rather than a redirect source, and
-      // the merged parent has no successor category, so it exits to /brands.
-      ["/categories/baby-kids", "/categories/kids"],
+      // DEV-1599 deferred both split parents from public surfaces, so legacy
+      // kids traffic lands on the directory without a second redirect hop.
+      ["/categories/baby-kids", "/brands"],
       ["/categories/kids-pets", "/brands"],
       // DEV-1507 dissolved crafts across four live L1s, so like kids-pets it
       // has no successor category and exits to the directory root.
@@ -84,45 +83,25 @@ test.describe("Public routing regressions deep", () => {
         "/categories/crafts/dried-flowers-and-floral-design",
         "/categories/home/floral-arrangements",
       ],
-      // The kids-pets split kept every slug; only the parent changed.
-      ["/categories/kids-pets/kids-clothing", "/categories/kids/kids-clothing"],
-      [
-        "/categories/kids-pets/family-matching",
-        "/categories/kids/family-matching",
-      ],
-      ["/categories/kids-pets/baby-clothing", "/categories/kids/baby-clothing"],
-      ["/categories/kids-pets/baby-bedding", "/categories/kids/baby-bedding"],
-      [
-        "/categories/kids-pets/bibs-and-muslin",
-        "/categories/kids/bibs-and-muslin",
-      ],
-      [
-        "/categories/kids-pets/kids-tableware",
-        "/categories/kids/kids-tableware",
-      ],
-      ["/categories/kids-pets/toys", "/categories/kids/toys"],
-      ["/categories/kids-pets/learning-aids", "/categories/kids/learning-aids"],
-      [
-        "/categories/kids-pets/play-mats-and-fences",
-        "/categories/kids/play-mats-and-fences",
-      ],
-      [
-        "/categories/kids-pets/parenting-essentials",
-        "/categories/kids/parenting-essentials",
-      ],
-      ["/categories/kids-pets/pet-food", "/categories/pets/pet-food"],
-      ["/categories/kids-pets/pet-treats", "/categories/pets/pet-treats"],
-      [
-        "/categories/kids-pets/pet-supplements",
-        "/categories/pets/pet-supplements",
-      ],
-      ["/categories/kids-pets/pet-apparel", "/categories/pets/pet-apparel"],
-      [
-        "/categories/kids-pets/pet-beds-and-scratchers",
-        "/categories/pets/pet-beds-and-scratchers",
-      ],
-      ["/categories/kids-pets/pet-grooming", "/categories/pets/pet-grooming"],
-      ["/categories/kids-pets/pet-supplies", "/categories/pets/pet-supplies"],
+      // The kids-pets split kept every slug, but both new parents are deferred;
+      // each legacy URL therefore lands directly on the public directory.
+      ["/categories/kids-pets/kids-clothing", "/brands"],
+      ["/categories/kids-pets/family-matching", "/brands"],
+      ["/categories/kids-pets/baby-clothing", "/brands"],
+      ["/categories/kids-pets/baby-bedding", "/brands"],
+      ["/categories/kids-pets/bibs-and-muslin", "/brands"],
+      ["/categories/kids-pets/kids-tableware", "/brands"],
+      ["/categories/kids-pets/toys", "/brands"],
+      ["/categories/kids-pets/learning-aids", "/brands"],
+      ["/categories/kids-pets/play-mats-and-fences", "/brands"],
+      ["/categories/kids-pets/parenting-essentials", "/brands"],
+      ["/categories/kids-pets/pet-food", "/brands"],
+      ["/categories/kids-pets/pet-treats", "/brands"],
+      ["/categories/kids-pets/pet-supplements", "/brands"],
+      ["/categories/kids-pets/pet-apparel", "/brands"],
+      ["/categories/kids-pets/pet-beds-and-scratchers", "/brands"],
+      ["/categories/kids-pets/pet-grooming", "/brands"],
+      ["/categories/kids-pets/pet-supplies", "/brands"],
     ] as const;
 
     // Issued concurrently, and destinations deduped. The table grew to 39 rows

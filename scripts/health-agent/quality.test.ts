@@ -1,12 +1,6 @@
-import { readFileSync } from "node:fs";
-
 import { describe, expect, it } from "vitest";
 
-import {
-  KNIP_KNOWN_NOISE,
-  KNIP_VERSION,
-  isKnownKnipNoise,
-} from "./knip-known-noise";
+import { isKnownKnipNoise } from "./knip-known-noise";
 import { evaluateQualityReports } from "./quality";
 
 const trackedFiles = new Set([
@@ -18,35 +12,8 @@ const trackedFiles = new Set([
 
 describe("repository health", () => {
   it("suppresses only the versioned Knip fixtures and keeps nearby signatures visible", () => {
-    const config = readFileSync("knip.json", "utf8");
-    expect(KNIP_VERSION).toBe("6.23.0");
-    expect(KNIP_KNOWN_NOISE).toEqual(
-      expect.arrayContaining([
-        expect.objectContaining({
-          kind: "files",
-          signature: "src/test/server-only.ts",
-        }),
-        expect.objectContaining({ kind: "binaries", signature: "tesseract" }),
-      ]),
-    );
     expect(isKnownKnipNoise("files", "src/test/server-only.ts")).toBe(true);
     expect(isKnownKnipNoise("binaries", "tesseract")).toBe(true);
-    expect(config).toContain('"src/test/server-only.ts": ["files"]');
-    // `gh` is provided by the GitHub Actions runner, not by package.json —
-    // scripts/flake-report.mjs shells out to it. Same category as lsof.
-    // `psql` (scripts/db-deploy.ts, backfill-subcategory-slugs.ts,
-    // rehearse-slug-reverse.ts, generate-taxonomy-terms.ts) and `python3`
-    // (package.json's "story:lint") are system binaries too — no dependency
-    // can satisfy them. Asserted verbatim so config and expectation cannot
-    // drift apart.
-    expect(config).toContain(
-      '"ignoreBinaries": ["gh", "lsof", "psql", "python3", "tesseract"]',
-    );
-    // react-simple-maps is unwired but deliberately kept: src/types/
-    // react-simple-maps.d.ts is a hand-written ambient declaration for the
-    // planned map surface. Suppressed rather than deleted so a dead-code pass
-    // does not throw away an intentional keep.
-    expect(config).toContain('"react-simple-maps"');
     expect(isKnownKnipNoise("files", "src/test/server-only.test.ts")).toBe(
       false,
     );

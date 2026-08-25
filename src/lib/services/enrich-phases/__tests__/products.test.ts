@@ -1,7 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { MATERIALS, subcategoryBySlug } from "@/lib/taxonomy/ontology";
 import type { EnrichBrand, EnrichPhase } from "../types";
-import type { ProductsSupabase } from "../products";
 import { runProductsPhase, validateProductProposals } from "../products";
 
 /**
@@ -93,43 +92,10 @@ function modelReturns(products: RawProposal[]) {
   return chat;
 }
 
-type FakeQuery = {
-  select: () => FakeQuery;
-  eq: () => FakeQuery;
-  order: () => FakeQuery;
-  limit: () => Promise<{ data: unknown[]; error: null }>;
-  insert: () => FakeQuery;
-  upsert: () => FakeQuery;
-};
-
-/**
- * Records every table the phase reaches for, so "wrote no rows" is asserted
- * against observed behaviour rather than against the absence of an import.
- */
-function injectedSupabase(rows: unknown[] = []) {
+function injectedSupabase() {
   const tables: string[] = [];
   const writes: string[] = [];
-  const chain: FakeQuery = {
-    select: () => chain,
-    eq: () => chain,
-    order: () => chain,
-    limit: async () => ({ data: rows, error: null }),
-    insert: () => {
-      writes.push("insert");
-      return chain;
-    },
-    upsert: () => {
-      writes.push("upsert");
-      return chain;
-    },
-  };
-  const client = {
-    from: (table: string) => {
-      tables.push(table);
-      return chain;
-    },
-  } as unknown as ProductsSupabase;
-  return { client, tables, writes };
+  return { tables, writes };
 }
 
 beforeEach(() => {
@@ -176,14 +142,13 @@ describe("runProductsPhase", () => {
         ],
       }),
     ]);
-    const { client, tables, writes } = injectedSupabase();
+    const { tables, writes } = injectedSupabase();
 
     const result = await runProductsPhase({
       brand: BRAND,
       phases: PHASES,
       scrapedData: SCRAPED,
       target: { type: "submission", id: SUBMISSION_ID },
-      supabase: client,
     });
 
     expect(result.phaseResult.status).toBe("succeeded");
@@ -223,7 +188,6 @@ describe("runProductsPhase", () => {
       scrapedData: SCRAPED,
       pendingPatch: { purchase_website: SITE },
       target: { type: "submission", id: SUBMISSION_ID },
-      supabase: injectedSupabase().client,
     });
 
     const user = chat.mock.calls[0]![0].user as string;

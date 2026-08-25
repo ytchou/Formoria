@@ -12,6 +12,7 @@ import {
   categoryLabel,
   L2_SUBCATEGORIES,
   L1_CATEGORIES,
+  VISIBLE_L1_CATEGORIES,
   MATERIALS,
   materialBySlug,
   resolveDirectorySubcategorySlugs,
@@ -62,7 +63,7 @@ import { cn } from "@/lib/utils";
 
 const EMPTY_STATE_RECOMMENDATION_LIMIT = 4;
 const VALID_CATEGORY_SLUGS: ReadonlySet<string> = new Set(
-  L1_CATEGORIES.map((category) => category.slug),
+  VISIBLE_L1_CATEGORIES.map((category) => category.slug),
 );
 
 export type DirectoryViewProps = {
@@ -483,7 +484,7 @@ export async function DirectoryView({
             */}
             <BrandFilterSidebar
               activeFilters={activeFilters}
-              categories={[...L1_CATEGORIES]}
+              categories={[...VISIBLE_L1_CATEGORIES]}
               activeCategorySlugs={validCategoryFilter}
               subcategories={subcategoryOptions}
               activeSubSlugs={activeSubSlugs}
@@ -508,7 +509,7 @@ export async function DirectoryView({
             <div className="flex items-center gap-3">
               <BrandFilterDrawer
                 activeFilters={activeFilters}
-                categories={[...L1_CATEGORIES]}
+                categories={[...VISIBLE_L1_CATEGORIES]}
                 activeCategorySlugs={validCategoryFilter}
                 subcategories={subcategoryOptions}
                 activeSubSlugs={activeSubSlugs}

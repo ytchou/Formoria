@@ -139,8 +139,8 @@ export const ENRICH_STAGE_GROUPS = {
  * Grouped by data dependency, which is why the order is fixed:
  * - `context` gathers the brand's identity and its links.
  * - `image` needs context's brand name and resolved links to search and classify.
- * - `detail` needs context's site text AND image's classified alt text (see
- *   `descriptions.ts` -> `loadClassifiedImageAlts`), so it runs last.
+ * - `detail` needs context's site text and image classification results, so it
+ *   runs last.
  *
  * `tags` is deliberately in `detail`, not `context`: the product category is a
  * reasoning task decided by the descriptions phase from site content and image

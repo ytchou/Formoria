@@ -7,7 +7,6 @@ import {
 
 import { BrandCardMdx } from "@/components/stories/brand-card-mdx";
 import { BrandGallery } from "@/components/stories/brand-gallery";
-import { EventInfo } from "@/components/stories/event-info";
 import { BrandGrid } from "@/components/stories/brand-grid";
 import { BrandLine, BrandList } from "@/components/stories/brand-list";
 import { BrandRow } from "@/components/stories/brand-row";
@@ -54,10 +53,8 @@ function visibleText(node: ReactNode): string {
  * `scroll-mt-24` on headings keeps anchor targets clear of the sticky header.
  */
 export function createStoryComponentMap({
-  currentStorySlug,
   trailSections,
 }: {
-  currentStorySlug?: string;
   /**
    * A trail's declared sections, in order. Passing them turns the `h2` rule
    * into the trail archetype's numbered section header.
@@ -95,9 +92,6 @@ export function createStoryComponentMap({
     // so the story stays in sync with the directory.
     BrandGallery: (props: { slug: string; caption?: string }) =>
       createElement(BrandGallery, props),
-    // Event details are DB-sourced so the story's event info and the event page cannot drift.
-    EventInfo: (props: { slug: string }) =>
-      createElement(EventInfo, { ...props, currentStorySlug }),
     TrailProducts: (props: { section: string }) =>
       createElement(TrailProducts, props),
     // Children, not a `slugs` array — MDX expression attributes are dropped
@@ -221,7 +215,7 @@ export function createStoryComponentMap({
       createElement("p", {
         ...props,
         className: cn(
-          "prose-measure my-4 type-body text-ink-soft",
+          "prose-measure my-4 type-body",
           props.className,
         ),
       }),
@@ -229,7 +223,7 @@ export function createStoryComponentMap({
       createElement("ul", {
         ...props,
         className: cn(
-          "prose-measure my-4 list-disc space-y-2 pl-5 type-body text-ink-soft",
+          "prose-measure my-4 list-disc space-y-2 pl-5 type-body",
           props.className,
         ),
       }),
@@ -237,14 +231,14 @@ export function createStoryComponentMap({
       createElement("ol", {
         ...props,
         className: cn(
-          "prose-measure my-4 list-decimal space-y-2 pl-5 type-body text-ink-soft",
+          "prose-measure my-4 list-decimal space-y-2 pl-5 type-body",
           props.className,
         ),
       }),
     li: (props: ComponentPropsWithoutRef<"li">) =>
       createElement("li", {
         ...props,
-        className: cn("type-body text-ink-soft", props.className),
+        className: cn("type-body", props.className),
       }),
     a: (props: ComponentPropsWithoutRef<"a">) =>
       createElement("a", {

@@ -12,7 +12,6 @@ import en from "../../../messages/en.json";
 import type { PublicBrandCard } from "@/lib/brands/contracts";
 import type { WallSlot } from "@/lib/curated-products/home-wall";
 import type { HomepageCuratedProduct } from "@/lib/services/curated-products";
-import type { Event } from "@/lib/services/events";
 import type { StoryEntry } from "@/lib/services/stories";
 import type { TrailEntry } from "@/lib/services/trails";
 
@@ -228,21 +227,6 @@ function buildTrail(slug: string): TrailEntry {
   } as unknown as TrailEntry;
 }
 
-function buildEvent(): Event {
-  return {
-    id: "event-one",
-    slug: "taipei-design-week",
-    name: "台北設計週",
-    nameEn: "Taipei Design Week",
-    summary: "一場設計展",
-    summaryEn: "A design fair",
-    description: null,
-    descriptionEn: null,
-    startsOn: "2026-08-10",
-    endsOn: "2026-08-20",
-  } as unknown as Event;
-}
-
 function buildBrand(index: number): PublicBrandCard {
   return {
     id: `brand-${index}`,
@@ -274,7 +258,6 @@ async function renderZones(overrides: ZoneOverrides = {}) {
     wall: buildWall(),
     trails: [],
     stories: [buildStory("a-story")],
-    events: [],
     brands: [buildBrand(0), buildBrand(1)],
     ...overrides,
   });
@@ -296,14 +279,8 @@ describe("landing page zones", () => {
   // Bug caught: the homepage can silently regrow the trust glossary or move
   // the remaining landmarks while still rendering plausible copy.
   it("omits the trust glossary and keeps the remaining zones ordered", async () => {
-    const { container } = await renderZones({
-      events: [{ event: buildEvent(), phase: "ongoing", brandCount: 3 }],
-    });
+    const { container } = await renderZones();
 
-    // The approved mock's order, with two zones it does not draw kept in the
-    // slot they already occupied: `manifesto` is pinned on `/` by seo.spec.ts,
-    // and `topics` is the homepage's only path to a dated event. The trust
-    // glossary is intentionally owned by About and FAQ, not this rail.
     expect(zoneOrder(container)).toEqual([
       "hero",
       "selection",
@@ -389,7 +366,6 @@ describe("landing page zones", () => {
   it("keeps the zone order", async () => {
     const { container } = await renderZones({
       trails: [buildTrail("small-kitchen")],
-      events: [{ event: buildEvent(), phase: "ongoing", brandCount: 3 }],
     });
 
     expect(zoneOrder(container)).toEqual([
@@ -421,72 +397,6 @@ describe("landing page zones", () => {
     // The new-brands rail is gone with its copy: its two keys were deleted in
     // Wave 1, so a surviving second rail would render a missing-message error.
     expect(container.innerHTML).not.toContain("newBrands");
-  });
-
-  it("lifts a promoted event above stories when one is live", async () => {
-    const { container } = await renderZones({
-      events: [{ event: buildEvent(), phase: "ongoing", brandCount: 3 }],
-      stories: [buildStory("a-story")],
-    });
-
-    const topics = container.querySelector<HTMLElement>(
-      '[data-landing-zone="topics"]',
-    )!;
-    const eventHeading = within(topics).getByRole("heading", {
-      name: "Taipei Design Week",
-    });
-    const storyHeading = within(topics).getByRole("heading", {
-      name: "Story a-story",
-    });
-
-    // Node.DOCUMENT_POSITION_FOLLOWING — the event precedes the story.
-    expect(eventHeading.compareDocumentPosition(storyHeading) & 4).toBeTruthy();
-
-    const withoutEvent = await renderZones({ events: [] });
-    const storiesOnly = withoutEvent.container.querySelector<HTMLElement>(
-      '[data-landing-zone="topics"]',
-    )!;
-    expect(
-      within(storiesOnly).queryByRole("heading", {
-        name: "Taipei Design Week",
-      }),
-    ).toBeNull();
-    expect(
-      within(storiesOnly).getByRole("heading", { name: "Story a-story" }),
-    ).toBeInTheDocument();
-  });
-
-  it("names the topics zone after what it actually contains", async () => {
-    const { container } = await renderZones({
-      events: [{ event: buildEvent(), phase: "ongoing", brandCount: 3 }],
-      stories: [],
-    });
-
-    const topics = container.querySelector<HTMLElement>(
-      '[data-landing-zone="topics"]',
-    )!;
-    // With no published story the zone holds only events, so heading, link and
-    // landmark name must say so — not "Stories" over a list of events.
-    expect(
-      within(topics).getByRole("heading", {
-        level: 2,
-        name: en.landing.events.heading,
-      }),
-    ).toBeInTheDocument();
-    expect(
-      within(topics).queryByRole("heading", {
-        level: 2,
-        name: en.landing.latestStories.heading,
-      }),
-    ).toBeNull();
-    expect(
-      within(topics).getByRole("link", { name: en.landing.events.linkText }),
-    ).toHaveAttribute("href", "/events");
-    expect(
-      within(topics).queryByRole("link", {
-        name: en.landing.latestStories.linkText,
-      }),
-    ).toBeNull();
   });
 
   it("renders the manifesto photo band in the seam slot", async () => {
@@ -539,9 +449,6 @@ describe("landing page zones", () => {
       curatedProducts: [],
       stories: { ok: true as const },
       trails: { ok: true as const },
-      events: [],
-      eventBrandCounts: null,
-      promotedEventCount: 0,
     };
 
     // `trailSupply` is not an input at all: a failed supply read hides the
@@ -561,14 +468,6 @@ describe("landing page zones", () => {
     expect(isLandingRenderDegraded({ ...healthy, trails: { ok: false } })).toBe(
       true,
     );
-    expect(isLandingRenderDegraded({ ...healthy, events: null })).toBe(true);
-    expect(
-      isLandingRenderDegraded({
-        ...healthy,
-        promotedEventCount: 2,
-        eventBrandCounts: null,
-      }),
-    ).toBe(true);
 
     const source = readFileSync(
       resolve(import.meta.dirname, "../../app/[locale]/(site)/page.tsx"),

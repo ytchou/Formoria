@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
+  buildChecksumManifest,
+  computeFileHash,
   findStagingAccount,
   planStagingAccountActions,
   paginateAuthUsers,
@@ -14,6 +16,7 @@ import {
   validateDeploymentTarget,
   stagingSeedFiles,
   validateStagingSeedEnvironment,
+  verifyChecksumManifest,
 } from "./db-deploy";
 
 const STAGING_REF = "xwkigpvnheecihpxyvsl";
@@ -334,5 +337,67 @@ describe("migration ledger drift", () => {
     expect(() => parseVersionRows("version\n--------\n20260821120000")).toThrow(
       "Could not read the migration ledger as JSON",
     );
+  });
+});
+
+describe("migration content integrity", () => {
+  it("computes a stable SHA-256 for the same content", () => {
+    const content = Buffer.from("CREATE TABLE foo (id int);\n");
+    const hash1 = computeFileHash(content);
+    const hash2 = computeFileHash(content);
+    expect(hash1).toBe(hash2);
+    expect(hash1).toHaveLength(64);
+  });
+
+  it("returns different hashes for different content", () => {
+    const a = computeFileHash(Buffer.from("CREATE TABLE foo (id int);\n"));
+    const b = computeFileHash(Buffer.from("CREATE TABLE bar (id int);\n"));
+    expect(a).not.toBe(b);
+  });
+
+  it("passes when all local files match the manifest", () => {
+    const hash = computeFileHash(Buffer.from("CREATE TABLE foo;\n"));
+    expect(
+      verifyChecksumManifest({ "20260819090000": hash }, [
+        { version: "20260819090000", hash },
+      ]),
+    ).toEqual([]);
+  });
+
+  it("detects a modified migration file", () => {
+    const original = computeFileHash(Buffer.from("CREATE TABLE foo;\n"));
+    const modified = computeFileHash(Buffer.from("CREATE TABLE bar;\n"));
+    const violations = verifyChecksumManifest(
+      { "20260819090000": original },
+      [{ version: "20260819090000", hash: modified }],
+    );
+    expect(violations).toHaveLength(1);
+    expect(violations[0]).toMatch(/20260819090000.*content modified/);
+  });
+
+  it("detects a migration file missing from the manifest", () => {
+    const hash = computeFileHash(Buffer.from("CREATE TABLE new;\n"));
+    const violations = verifyChecksumManifest({}, [
+      { version: "20260822090000", hash },
+    ]);
+    expect(violations).toHaveLength(1);
+    expect(violations[0]).toMatch(/20260822090000.*missing from checksum/);
+  });
+
+  it("ignores manifest entries with no local file", () => {
+    const hash = computeFileHash(Buffer.from("old content;\n"));
+    expect(
+      verifyChecksumManifest({ "20260819090000": hash }, []),
+    ).toEqual([]);
+  });
+
+  it("builds a manifest from the real migrations directory", () => {
+    const manifest = buildChecksumManifest();
+    const versions = Object.keys(manifest);
+    expect(versions.length).toBeGreaterThan(0);
+    for (const version of versions) {
+      expect(version).toMatch(/^\d+$/);
+      expect(manifest[version]).toHaveLength(64);
+    }
   });
 });
