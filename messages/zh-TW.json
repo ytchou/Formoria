@@ -131,6 +131,20 @@
       "linkText": "看全部風格 →",
       "eyebrow": "風格",
       "cta": "探索這個風格 →"
+    },
+    "selection": {
+      "headline": "每一件，都說得出選它的理由。",
+      "subtitle": "搬新家、佈置店面、想換一盞燈 — 這裡是為了這些時刻刻意挑出的產品。",
+      "cta": "探索所有選物 →"
+    },
+    "missionCloser": {
+      "headline": "讓好東西，被更多人遇見。",
+      "subtitle": "超過 {count} 個台灣品牌加入收錄，從產品出發認識品牌。",
+      "cta": "認識更多台灣品牌 →"
+    },
+    "brands": {
+      "count": "超過 {count} 個台灣品牌加入收錄",
+      "browseAll": "瀏覽所有品牌 →"
     }
   },
   "newsletter": {
