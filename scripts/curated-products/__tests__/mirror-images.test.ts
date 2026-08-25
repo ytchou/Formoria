@@ -105,8 +105,10 @@ describe("mirrorImages", () => {
     const report = await mirrorImages({ apply: false, deps });
 
     expect(report.selected).toBe(2);
-    expect(report.stored).toBe(2);
+    expect(report.skipped).toBe(2);
+    expect(report.stored).toBe(0);
     expect(report.written).toBe(0);
+    expect(deps.storeCalls).toEqual([]);
     expect(deps.updateCalls).toEqual([]);
     expect(deps.revalidateCalls).toEqual([]);
   });

@@ -275,6 +275,6 @@ describe("normalizeUrl", () => {
 
   it("handles invalid URLs gracefully", () => {
     expect(normalizeUrl("not-a-url/")).toBe("not-a-url");
-    expect(normalizeUrl("  HELLO  ")).toBe("hello");
+    expect(normalizeUrl("  HELLO  ")).toBe("HELLO");
   });
 });

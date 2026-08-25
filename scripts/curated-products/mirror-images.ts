@@ -60,6 +60,7 @@ export type MirrorImagesDeps = {
 
 export type MirrorReport = {
   selected: number;
+  skipped: number;
   stored: number;
   written: number;
   writtenBrandSlugs: string[];
@@ -75,6 +76,7 @@ export async function mirrorImages({
 }): Promise<MirrorReport> {
   const report: MirrorReport = {
     selected: 0,
+    skipped: 0,
     stored: 0,
     written: 0,
     writtenBrandSlugs: [],
@@ -88,14 +90,17 @@ export async function mirrorImages({
 
   await mapWithConcurrency(rows, CONCURRENCY, async (row) => {
     try {
+      if (!apply) {
+        report.skipped += 1;
+        return;
+      }
+
       const result = await deps.storeImage({
         brandId: row.brand_id,
         productId: row.id,
         imageSourceUrl: row.image_source_url,
       });
       report.stored += 1;
-
-      if (!apply) return;
 
       const { error } = await deps.updateRow(row.id, {
         image_url: result.url,

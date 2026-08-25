@@ -14,11 +14,6 @@
 /** Supabase's default `db-max-rows`. A read that does not page stops here. */
 const SUPABASE_PAGE_SIZE = 1000
 
-/**
- * `--brand=<slug>` or `--brand <slug>`. Returns null when the flag is absent
- * and throws when it is present but empty — a silent null there would process
- * EVERY brand from a command the operator wrote to scope one.
- */
 /** Dry run is the default: `--apply` is the only thing that writes. */
 export function parseApplyOption(argv: readonly string[]): boolean {
   return argv.includes('--apply')
@@ -61,6 +56,11 @@ export function parseSlugsOption(argv: readonly string[]): string[] | null {
   return slugs
 }
 
+/**
+ * `--brand=<slug>` or `--brand <slug>`. Returns null when the flag is absent
+ * and throws when it is present but empty — a silent null there would process
+ * EVERY brand from a command the operator wrote to scope one.
+ */
 export function parseBrandOption(argv: string[]): string | null {
   const brandArg = argv.find((arg) => arg.startsWith('--brand='))
   const brandIndex = argv.indexOf('--brand')

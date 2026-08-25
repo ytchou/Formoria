@@ -122,7 +122,7 @@ export function normalizeUrl(raw: string): string {
     const url = new URL(raw);
     return `${url.protocol}//${url.hostname.toLowerCase()}${url.pathname.replace(/\/$/, "")}`;
   } catch {
-    return raw.trim().toLowerCase().replace(/\/$/, "");
+    return raw.trim().replace(/\/$/, "");
   }
 }
 
@@ -291,6 +291,7 @@ export async function validateProducts(
 
   // 5. Report
   const hasIssues = gateFailures.length > 0 || forbiddenTerms.length > 0;
+  const hasCsvIssues = csvComparison !== null && csvComparison.overall.matchRate < 0.5;
 
   return {
     productCount: products.length,
@@ -298,7 +299,7 @@ export async function validateProducts(
     gateFailures,
     forbiddenTerms,
     csvComparison,
-    exitCode: hasIssues ? 1 : 0,
+    exitCode: hasIssues || hasCsvIssues ? 1 : 0,
   };
 }
 
@@ -382,7 +383,7 @@ async function main() {
     console.log(`\nAll checks passed.`);
   }
 
-  process.exit(result.exitCode);
+  process.exitCode = result.exitCode;
 }
 
 // The test imports the pure functions from this module, so importing it must

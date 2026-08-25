@@ -15,7 +15,10 @@
 import { readFileSync } from "node:fs";
 
 import { createServiceClient } from "@/lib/supabase/service";
-import { requestCuratedProductBackfill } from "@/lib/services/curated-products/backfill";
+import {
+  requestCuratedProductBackfill,
+  type CuratedProductBackfillResult,
+} from "@/lib/services/curated-products/backfill";
 
 import { parseApplyOption, parseCsvPath, parseSlugsOption } from "./shared";
 
@@ -35,7 +38,7 @@ export type BatchPopulateDeps = {
   runBackfill: (
     brandIds: string[],
     requester: { id: string; email: string },
-  ) => Promise<unknown>;
+  ) => Promise<CuratedProductBackfillResult>;
 };
 
 // ---------------------------------------------------------------------------
@@ -108,10 +111,7 @@ export async function batchPopulate(
 
   // 4. Run the backfill
   const brandIds = brands.map((b) => b.id);
-  const result = (await deps.runBackfill(brandIds, requester)) as {
-    jobId: string | null;
-    outcomes: BackfillOutcome[];
-  };
+  const result = await deps.runBackfill(brandIds, requester);
 
   return {
     mode: "apply",
