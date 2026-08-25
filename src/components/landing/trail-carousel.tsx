@@ -150,18 +150,20 @@ export default function TrailCarousel({ trails, labels }: TrailCarouselProps) {
       <Button
         variant="ghost"
         size="icon"
+        shape="pill"
         aria-label={labels.prev}
         onClick={scrollPrev}
-        className="absolute left-2 top-1/2 z-10 -translate-y-1/2 rounded-full bg-ground/80 backdrop-blur-sm"
+        className="absolute left-2 top-1/2 z-10 -translate-y-1/2 bg-ground/80 backdrop-blur-sm"
       >
         <span aria-hidden="true">&#8249;</span>
       </Button>
       <Button
         variant="ghost"
         size="icon"
+        shape="pill"
         aria-label={labels.next}
         onClick={scrollNext}
-        className="absolute right-2 top-1/2 z-10 -translate-y-1/2 rounded-full bg-ground/80 backdrop-blur-sm"
+        className="absolute right-2 top-1/2 z-10 -translate-y-1/2 bg-ground/80 backdrop-blur-sm"
       >
         <span aria-hidden="true">&#8250;</span>
       </Button>
