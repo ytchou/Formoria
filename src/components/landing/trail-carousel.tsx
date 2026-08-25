@@ -13,7 +13,7 @@ import { cn } from "@/lib/utils";
 
 type TrailCarouselProps = {
   trails: TrailEntry[];
-  labels: { eyebrow: string; cta: string };
+  labels: { eyebrow: string; cta: string; prev: string; next: string };
 };
 
 /**
@@ -92,7 +92,7 @@ export default function TrailCarousel({ trails, labels }: TrailCarouselProps) {
                     never on the Embla slide div itself. */}
                 <div
                   className={cn(
-                    "transition-transform transition-opacity duration-300",
+                    "transition-[transform,opacity] duration-300",
                     "motion-reduce:transition-none motion-reduce:scale-100 motion-reduce:opacity-100",
                     distanceClasses(distance),
                   )}
@@ -150,7 +150,7 @@ export default function TrailCarousel({ trails, labels }: TrailCarouselProps) {
       <Button
         variant="ghost"
         size="icon"
-        aria-label="上一個"
+        aria-label={labels.prev}
         onClick={scrollPrev}
         className="absolute left-2 top-1/2 z-10 -translate-y-1/2 rounded-full bg-ground/80 backdrop-blur-sm"
       >
@@ -159,7 +159,7 @@ export default function TrailCarousel({ trails, labels }: TrailCarouselProps) {
       <Button
         variant="ghost"
         size="icon"
-        aria-label="下一個"
+        aria-label={labels.next}
         onClick={scrollNext}
         className="absolute right-2 top-1/2 z-10 -translate-y-1/2 rounded-full bg-ground/80 backdrop-blur-sm"
       >

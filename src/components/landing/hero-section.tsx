@@ -17,7 +17,7 @@ import { routes } from "@/lib/routes";
  * photographic band is.
  *
  * The chip row reinstates category navigation inside the hero. The first chip
- * is "全部品牌" (all brands) and is the only one that ships active — the rest
+ * is the "all brands" chip and is the only one that ships active — the rest
  * navigate to filtered views.
  *
  * `preload` and the literal image path are both load-bearing:
@@ -85,7 +85,7 @@ export default async function HeroSection({
             href={routes.brands()}
             className={taxonomyLinkClasses({ active: true })}
           >
-            全部品牌
+            {t("allBrands")}
           </Link>
           {categories.map((cat) => (
             <Link

@@ -93,7 +93,8 @@
       "browseCta": "從風格開始",
       "eyebrow": "台灣品牌探索與選物",
       "lede": "搬新家、佈置店面、在市集停下來的那一刻 — 喜歡的東西，不該只是偶然遇見。Formoria 把相遇之後的路接起來：從一件喜歡的東西，走到它的品牌、它的故事，和買得到它的地方。",
-      "browsePrefix": "或"
+      "browsePrefix": "或",
+      "allBrands": "全部品牌"
     },
     "selectedProducts": {
       "productCta": "前往品牌官方網站",
@@ -118,7 +119,9 @@
       "note": "一個情境、一組選物。從你正在過的日子開始，而不是從品牌名開始。",
       "linkText": "看全部風格 →",
       "eyebrow": "風格",
-      "cta": "探索這個風格 →"
+      "cta": "探索這個風格 →",
+      "prev": "上一個",
+      "next": "下一個"
     },
     "selection": {
       "headline": "每一件，都說得出選它的理由。",

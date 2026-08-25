@@ -121,7 +121,7 @@ vi.mock("@/components/landing/trail-carousel", () => ({
     labels,
   }: {
     trails: { slug: string; frontmatter: { title: string } }[];
-    labels: { eyebrow: string; cta: string };
+    labels: { eyebrow: string; cta: string; prev: string; next: string };
   }) => (
     <ul data-testid="trail-carousel">
       {trails.map((trail) => (

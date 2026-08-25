@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useTranslations } from "next-intl";
 import { Link, usePathname } from "@/i18n/navigation";
+import { cn } from "@/lib/utils";
 import { Menu } from "lucide-react";
 import {
   Sheet,
@@ -51,7 +52,7 @@ export function MainNav({ categories }: MainNavProps) {
 
   return (
     <header
-      className={`sticky top-0 z-50 border-b border-rule bg-ground${isLanding ? " nav-landing" : ""}`}
+      className={cn("sticky top-0 z-50 border-b border-rule bg-ground", isLanding && "nav-landing")}
     >
       {/* Row 1: wordmark | search | links.
           THE HEIGHT IS `--nav-row-primary`, NOT A LITERAL. Six sticky elements

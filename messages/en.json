@@ -93,7 +93,8 @@
       "browseCta": "Start from a style",
       "eyebrow": "Taiwanese brand discovery and curation",
       "lede": "Moving into a new home, setting up a shop, stopping at a market stall — what you like should not stay a chance encounter. Formoria reconnects the path after that moment: from one thing you love, to its brand, its story, and the place you can buy it.",
-      "browsePrefix": "or"
+      "browsePrefix": "or",
+      "allBrands": "All Brands"
     },
     "selectedProducts": {
       "productCta": "Go to the brand's official website",
@@ -118,7 +119,9 @@
       "note": "One situation, one set of things. Start from the days you are living, not from a brand name.",
       "linkText": "See every style →",
       "eyebrow": "Style",
-      "cta": "Explore this style →"
+      "cta": "Explore this style →",
+      "prev": "Previous",
+      "next": "Next"
     },
     "selection": {
       "headline": "Every pick has a reason.",

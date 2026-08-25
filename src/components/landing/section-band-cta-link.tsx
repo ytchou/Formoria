@@ -1,6 +1,6 @@
 'use client'
 
-import { Link } from '@/i18n/navigation'
+import { Link, usePathname } from '@/i18n/navigation'
 import { trackCtaClicked } from '@/lib/analytics'
 
 interface SectionBandCtaLinkProps {
@@ -12,11 +12,12 @@ interface SectionBandCtaLinkProps {
 }
 
 export function SectionBandCtaLink({ href, label, ctaName, ctaLocation = 'section_band', className }: SectionBandCtaLinkProps) {
+  const pathname = usePathname();
   return (
     <Link
       href={href}
       data-ph-no-autocapture
-      onClick={() => trackCtaClicked(ctaName, ctaLocation, href, '/')}
+      onClick={() => trackCtaClicked(ctaName, ctaLocation, href, pathname)}
       className={className}
     >
       {label}

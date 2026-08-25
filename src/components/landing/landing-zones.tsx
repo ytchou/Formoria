@@ -108,6 +108,8 @@ export async function LandingZones({
                   labels={{
                     eyebrow: t("trails.eyebrow"),
                     cta: t("trails.cta"),
+                    prev: t("trails.prev"),
+                    next: t("trails.next"),
                   }}
                 />
               </div>
@@ -119,7 +121,7 @@ export async function LandingZones({
             keys internally. The trust statement (`trustSeam.line`) now ships
             only on /about, /faq, and the /og/trust card. */}
         <div data-landing-zone="manifesto">
-          <MissionCloser brandCount={totalBrandCount} locale={locale} />
+          <MissionCloser brandCount={totalBrandCount} />
         </div>
 
         {stories.length > 0 && (
@@ -158,7 +160,6 @@ export async function LandingZones({
               <BrandStrip
                 brands={brands}
                 totalCount={totalBrandCount}
-                locale={locale}
               />
             </PageShell>
           </div>

@@ -101,7 +101,7 @@ const mockTrails = [
   },
 ] satisfies TrailEntry[];
 
-const defaultLabels = { eyebrow: "探索路線", cta: "查看全部" };
+const defaultLabels = { eyebrow: "探索路線", cta: "查看全部", prev: "上一個", next: "下一個" };
 
 describe("TrailCarousel", () => {
   it("renders a carousel region with the correct aria attributes", () => {
@@ -116,10 +116,10 @@ describe("TrailCarousel", () => {
 
     const buttons = screen.getAllByRole("button");
     const prevButton = buttons.find(
-      (b) => b.getAttribute("aria-label")?.includes("上一") ?? false,
+      (b) => b.getAttribute("aria-label") === defaultLabels.prev,
     );
     const nextButton = buttons.find(
-      (b) => b.getAttribute("aria-label")?.includes("下一") ?? false,
+      (b) => b.getAttribute("aria-label") === defaultLabels.next,
     );
 
     expect(prevButton).toBeDefined();

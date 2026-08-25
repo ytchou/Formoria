@@ -47,7 +47,7 @@ describe("MissionCloser", () => {
 
   it("renders headline and cta", async () => {
     render(
-      await MissionCloser({ brandCount: 700, locale: "zh-TW" }),
+      await MissionCloser({ brandCount: 700 }),
     );
 
     const heading = screen.getByRole("heading", { level: 2 });
@@ -59,7 +59,7 @@ describe("MissionCloser", () => {
 
   it("cta links to brands", async () => {
     render(
-      await MissionCloser({ brandCount: 700, locale: "zh-TW" }),
+      await MissionCloser({ brandCount: 700 }),
     );
 
     const cta = screen.getByText("missionCloser.cta");

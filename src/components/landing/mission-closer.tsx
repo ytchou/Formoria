@@ -3,11 +3,8 @@ import { getTranslations } from "next-intl/server";
 import { PhotoBand } from "@/components/ui/photo-band";
 import { buttonVariants } from "@/components/ui/button";
 import { routes } from "@/lib/routes";
-import type { Locale } from "@/lib/seo/alternates";
-
 type MissionCloserProps = {
   brandCount: number;
-  locale: Locale;
 };
 
 export default async function MissionCloser({
@@ -30,7 +27,7 @@ export default async function MissionCloser({
       </p>
       <Link
         href={routes.brands()}
-        className={`${buttonVariants({ variant: "primary", shape: "pill" })} mt-6`}
+        className={buttonVariants({ variant: "primary", shape: "pill", className: "mt-6" })}
       >
         {t("missionCloser.cta")}
       </Link>

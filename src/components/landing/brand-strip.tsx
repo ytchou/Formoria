@@ -5,12 +5,9 @@ import { SectionBandCtaLink } from "@/components/landing/section-band-cta-link";
 import { safeImageSrc } from "@/lib/images/allowed-image-hosts";
 import { routes } from "@/lib/routes";
 import type { PublicBrandCard } from "@/lib/brands/contracts";
-import type { Locale } from "@/lib/seo/alternates";
-
 type BrandStripProps = {
   brands: PublicBrandCard[];
   totalCount: number;
-  locale: Locale;
 };
 
 export default async function BrandStrip({

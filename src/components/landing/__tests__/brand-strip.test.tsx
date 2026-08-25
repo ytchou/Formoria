@@ -67,7 +67,7 @@ describe("BrandStrip", () => {
 
   it("renders count headline", async () => {
     render(
-      await BrandStrip({ brands: mockBrands, totalCount: 700, locale: "zh-TW" }),
+      await BrandStrip({ brands: mockBrands, totalCount: 700 }),
     );
 
     expect(screen.getByText("count")).toBeInTheDocument();
@@ -75,7 +75,7 @@ describe("BrandStrip", () => {
 
   it("renders brand cards with images", async () => {
     render(
-      await BrandStrip({ brands: mockBrands, totalCount: 700, locale: "zh-TW" }),
+      await BrandStrip({ brands: mockBrands, totalCount: 700 }),
     );
 
     const images = screen.getAllByTestId("brand-image");
@@ -85,7 +85,7 @@ describe("BrandStrip", () => {
 
   it("renders browse-all link", async () => {
     render(
-      await BrandStrip({ brands: mockBrands, totalCount: 700, locale: "zh-TW" }),
+      await BrandStrip({ brands: mockBrands, totalCount: 700 }),
     );
 
     const link = screen.getByText("browseAll");
