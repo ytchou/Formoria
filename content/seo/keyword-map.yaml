@@ -563,14 +563,14 @@ clusters:
   search_intent: commercial
   page_type: l2-category
   target_url: /categories/home/home-decor
-  target_status: proposed
+  target_status: live
   ontology_slug: home-decor
   brand_count: 30
   data_quality: pass
   intent_fit: 3
   differentiation: 3
   priority: P0
-  eligibility: defer-no-demand
+  eligibility: launch
   composite: none
   content_requirement: Subcategory intro naming what distinguishes Taiwanese brands here, filtered brand
     grid, and CollectionPage + ItemList JSON-LD.
@@ -717,14 +717,14 @@ clusters:
   search_intent: commercial
   page_type: l2-category
   target_url: /categories/jewelry/rings
-  target_status: proposed
+  target_status: live
   ontology_slug: rings
   brand_count: 29
   data_quality: pass
   intent_fit: 3
   differentiation: 3
   priority: P0
-  eligibility: defer-no-demand
+  eligibility: launch
   composite: none
   content_requirement: Subcategory intro naming what distinguishes Taiwanese brands here, filtered brand
     grid, and CollectionPage + ItemList JSON-LD.
@@ -794,14 +794,14 @@ clusters:
   search_intent: commercial
   page_type: l2-category
   target_url: /categories/bags-accessories/tote-bags
-  target_status: proposed
+  target_status: live
   ontology_slug: tote-bags
   brand_count: 25
   data_quality: pass
   intent_fit: 3
   differentiation: 3
   priority: P0
-  eligibility: defer-no-demand
+  eligibility: launch
   composite: none
   content_requirement: Subcategory intro naming what distinguishes Taiwanese brands here, filtered brand
     grid, and CollectionPage + ItemList JSON-LD.
@@ -819,14 +819,14 @@ clusters:
   search_intent: commercial
   page_type: l2-category
   target_url: /categories/beauty/body-care
-  target_status: proposed
+  target_status: live
   ontology_slug: body-care
   brand_count: 25
   data_quality: pass
   intent_fit: 2
   differentiation: 2
   priority: P1
-  eligibility: defer-no-demand
+  eligibility: launch
   composite: none
   content_requirement: Subcategory intro naming what distinguishes Taiwanese brands here, filtered brand
     grid, and CollectionPage + ItemList JSON-LD.
@@ -870,14 +870,14 @@ clusters:
   search_intent: commercial
   page_type: l2-category
   target_url: /categories/fashion/pants
-  target_status: proposed
+  target_status: live
   ontology_slug: pants
   brand_count: 25
   data_quality: pass
   intent_fit: 3
   differentiation: 2
   priority: P1
-  eligibility: defer-no-demand
+  eligibility: launch
   composite: none
   content_requirement: Subcategory intro naming what distinguishes Taiwanese brands here, filtered brand
     grid, and CollectionPage + ItemList JSON-LD.
@@ -896,14 +896,14 @@ clusters:
   search_intent: commercial
   page_type: l2-category
   target_url: /categories/bags-accessories/backpacks
-  target_status: proposed
+  target_status: live
   ontology_slug: backpacks
   brand_count: 25
   data_quality: pass
   intent_fit: 3
   differentiation: 3
   priority: P0
-  eligibility: defer-no-demand
+  eligibility: launch
   composite: none
   content_requirement: Subcategory intro naming what distinguishes Taiwanese brands here, filtered brand
     grid, and CollectionPage + ItemList JSON-LD.
@@ -921,14 +921,14 @@ clusters:
   search_intent: commercial
   page_type: l2-category
   target_url: /categories/bags-accessories/crossbody-bags
-  target_status: proposed
+  target_status: live
   ontology_slug: crossbody-bags
   brand_count: 25
   data_quality: pass
   intent_fit: 3
   differentiation: 3
   priority: P0
-  eligibility: defer-no-demand
+  eligibility: launch
   composite: none
   content_requirement: Subcategory intro naming what distinguishes Taiwanese brands here, filtered brand
     grid, and CollectionPage + ItemList JSON-LD.
@@ -946,14 +946,14 @@ clusters:
   search_intent: commercial
   page_type: l2-category
   target_url: /categories/fashion/activewear
-  target_status: proposed
+  target_status: live
   ontology_slug: activewear
   brand_count: 18
   data_quality: pass
   intent_fit: 3
   differentiation: 2
   priority: P1
-  eligibility: defer-no-demand
+  eligibility: launch
   composite: none
   content_requirement: Subcategory intro naming what distinguishes Taiwanese brands here, filtered brand
     grid, and CollectionPage + ItemList JSON-LD.
@@ -973,14 +973,14 @@ clusters:
   search_intent: commercial
   page_type: l2-category
   target_url: /categories/fashion/socks
-  target_status: proposed
+  target_status: live
   ontology_slug: socks
   brand_count: 23
   data_quality: pass
   intent_fit: 3
   differentiation: 3
   priority: P0
-  eligibility: defer-no-demand
+  eligibility: launch
   composite: none
   content_requirement: Subcategory intro naming what distinguishes Taiwanese brands here, filtered brand
     grid, and CollectionPage + ItemList JSON-LD.
@@ -998,14 +998,14 @@ clusters:
   search_intent: commercial
   page_type: l2-category
   target_url: /categories/food-drink/beverages
-  target_status: proposed
+  target_status: live
   ontology_slug: beverages
   brand_count: 23
   data_quality: pass
   intent_fit: 2
   differentiation: 1
   priority: P2
-  eligibility: defer-no-demand
+  eligibility: launch
   composite: none
   content_requirement: Subcategory intro naming what distinguishes Taiwanese brands here, filtered brand
     grid, and CollectionPage + ItemList JSON-LD.
@@ -1023,14 +1023,14 @@ clusters:
   search_intent: commercial
   page_type: l2-category
   target_url: /categories/bags-accessories/handbags
-  target_status: proposed
+  target_status: live
   ontology_slug: handbags
   brand_count: 22
   data_quality: pass
   intent_fit: 3
   differentiation: 2
   priority: P1
-  eligibility: defer-no-demand
+  eligibility: launch
   composite: none
   content_requirement: Subcategory intro naming what distinguishes Taiwanese brands here, filtered brand
     grid, and CollectionPage + ItemList JSON-LD.
@@ -1049,14 +1049,14 @@ clusters:
   search_intent: commercial
   page_type: l2-category
   target_url: /categories/fashion/outerwear
-  target_status: proposed
+  target_status: live
   ontology_slug: outerwear
   brand_count: 21
   data_quality: pass
   intent_fit: 3
   differentiation: 2
   priority: P1
-  eligibility: defer-no-demand
+  eligibility: launch
   composite: none
   content_requirement: Subcategory intro naming what distinguishes Taiwanese brands here, filtered brand
     grid, and CollectionPage + ItemList JSON-LD.
@@ -1074,14 +1074,14 @@ clusters:
   search_intent: commercial
   page_type: l2-category
   target_url: /categories/beauty/handmade-soap
-  target_status: proposed
+  target_status: live
   ontology_slug: handmade-soap
   brand_count: 17
   data_quality: pass
   intent_fit: 3
   differentiation: 3
   priority: P1
-  eligibility: defer-no-demand
+  eligibility: launch
   composite: none
   content_requirement: Subcategory intro naming what distinguishes Taiwanese brands here, filtered brand
     grid, and CollectionPage + ItemList JSON-LD.
@@ -1123,14 +1123,14 @@ clusters:
   search_intent: commercial
   page_type: l2-category
   target_url: /categories/home/bedding
-  target_status: proposed
+  target_status: live
   ontology_slug: bedding
   brand_count: 18
   data_quality: pass
   intent_fit: 2
   differentiation: 2
   priority: P2
-  eligibility: defer-no-demand
+  eligibility: launch
   composite: none
   content_requirement: Subcategory intro naming what distinguishes Taiwanese brands here, filtered brand
     grid, and CollectionPage + ItemList JSON-LD.
@@ -1148,14 +1148,14 @@ clusters:
   search_intent: commercial
   page_type: l2-category
   target_url: /categories/fashion/leather-shoes
-  target_status: proposed
+  target_status: live
   ontology_slug: leather-shoes
   brand_count: 17
   data_quality: pass
   intent_fit: 3
   differentiation: 2
   priority: P1
-  eligibility: defer-no-demand
+  eligibility: launch
   composite: none
   content_requirement: Subcategory intro naming what distinguishes Taiwanese brands here, filtered brand
     grid, and CollectionPage + ItemList JSON-LD.
@@ -1198,14 +1198,14 @@ clusters:
   search_intent: commercial
   page_type: l2-category
   target_url: /categories/beauty/fragrance
-  target_status: proposed
+  target_status: live
   ontology_slug: fragrance
   brand_count: 15
   data_quality: pass
   intent_fit: 2
   differentiation: 2
   priority: P2
-  eligibility: defer-no-demand
+  eligibility: launch
   composite: none
   content_requirement: Subcategory intro naming what distinguishes Taiwanese brands here, filtered brand
     grid, and CollectionPage + ItemList JSON-LD.
@@ -1223,14 +1223,14 @@ clusters:
   search_intent: commercial
   page_type: l2-category
   target_url: /categories/fashion/dresses
-  target_status: proposed
+  target_status: live
   ontology_slug: dresses
   brand_count: 15
   data_quality: pass
   intent_fit: 3
   differentiation: 2
   priority: P1
-  eligibility: defer-no-demand
+  eligibility: launch
   composite: none
   content_requirement: Subcategory intro naming what distinguishes Taiwanese brands here, filtered brand
     grid, and CollectionPage + ItemList JSON-LD.
@@ -1248,14 +1248,14 @@ clusters:
   search_intent: commercial
   page_type: l2-category
   target_url: /categories/beauty/face-masks
-  target_status: proposed
+  target_status: live
   ontology_slug: face-masks
   brand_count: 15
   data_quality: pass
   intent_fit: 2
   differentiation: 1
   priority: P2
-  eligibility: defer-no-demand
+  eligibility: launch
   composite: none
   content_requirement: Subcategory intro naming what distinguishes Taiwanese brands here, filtered brand
     grid, and CollectionPage + ItemList JSON-LD.
@@ -1378,14 +1378,14 @@ clusters:
   search_intent: commercial
   page_type: l2-category
   target_url: /categories/home/wall-art
-  target_status: proposed
+  target_status: live
   ontology_slug: wall-art
   brand_count: 22
   data_quality: pass
   intent_fit: 3
   differentiation: 3
   priority: P0
-  eligibility: defer-no-demand
+  eligibility: launch
   composite: synonym
   content_requirement: Subcategory intro naming what distinguishes Taiwanese brands here, filtered brand
     grid, and CollectionPage + ItemList JSON-LD.
@@ -1404,14 +1404,14 @@ clusters:
   search_intent: commercial
   page_type: l2-category
   target_url: /categories/food-drink/cookies-and-rice-crackers
-  target_status: proposed
+  target_status: live
   ontology_slug: cookies-and-rice-crackers
   brand_count: 24
   data_quality: pass
   intent_fit: 3
   differentiation: 2
   priority: P1
-  eligibility: defer-no-demand
+  eligibility: launch
   composite: synonym
   content_requirement: Subcategory intro naming what distinguishes Taiwanese brands here, filtered brand
     grid, and CollectionPage + ItemList JSON-LD.
@@ -1455,14 +1455,14 @@ clusters:
   search_intent: commercial
   page_type: l2-category
   target_url: /categories/fashion/sandals-and-slippers
-  target_status: proposed
+  target_status: live
   ontology_slug: sandals-and-slippers
   brand_count: 18
   data_quality: pass
   intent_fit: 3
   differentiation: 2
   priority: P1
-  eligibility: defer-no-demand
+  eligibility: launch
   composite: synonym
   content_requirement: Subcategory intro naming what distinguishes Taiwanese brands here, filtered brand
     grid, and CollectionPage + ItemList JSON-LD.
@@ -1701,14 +1701,14 @@ clusters:
   search_intent: commercial
   page_type: l2-category
   target_url: /categories/jewelry/bracelets-and-bangles
-  target_status: proposed
+  target_status: live
   ontology_slug: bracelets-and-bangles
   brand_count: 21
   data_quality: pass
   intent_fit: 3
   differentiation: 3
   priority: P0
-  eligibility: defer-no-demand
+  eligibility: launch
   composite: synonym
   content_requirement: Subcategory intro naming what distinguishes Taiwanese brands here, filtered brand
     grid, and CollectionPage + ItemList JSON-LD.
@@ -1727,14 +1727,14 @@ clusters:
   search_intent: commercial
   page_type: l2-category
   target_url: /categories/beauty/essential-oils-and-hydrosols
-  target_status: proposed
+  target_status: live
   ontology_slug: essential-oils-and-hydrosols
   brand_count: 22
   data_quality: pass
   intent_fit: 3
   differentiation: 2
   priority: P1
-  eligibility: defer-no-demand
+  eligibility: launch
   composite: synonym
   content_requirement: Subcategory intro naming what distinguishes Taiwanese brands here, filtered brand
     grid, and CollectionPage + ItemList JSON-LD.

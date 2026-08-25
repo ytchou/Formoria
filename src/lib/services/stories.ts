@@ -41,6 +41,8 @@ export type StoryEntry = {
     heroImageAlt?: string;
     sources: string[];
     faq: Array<{ q: string; a: string }>;
+    /** Brand slugs referenced by this story (via BrandLineLink / BrandRow). */
+    brands: string[];
     /**
      * Whether this story may be quoted as a voice exemplar by the drafting
      * skill (`.claude/skills/write-stories`). Editorial metadata only — nothing
@@ -134,6 +136,7 @@ const parseStoryFile = cache((slug: string): StoryDetailResult | null => {
       heroImageAlt: data.heroImageAlt != null ? String(data.heroImageAlt) : undefined,
       sources: Array.isArray(data.sources) ? data.sources : [],
       faq: Array.isArray(data.faq) ? data.faq : [],
+      brands: Array.isArray(data.brands) ? data.brands : [],
       // Strict `=== true`, not `?? false`: a story that writes
       // `voiceCanonical: "true"` as a quoted string has a mistake worth leaving
       // visible as `false`, since coercing it would silently promote an
