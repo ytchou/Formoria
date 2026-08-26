@@ -13,6 +13,7 @@
  * A write failure is reported but never fails the phase.
  */
 
+import { createServiceClient } from "@/lib/supabase/service";
 import type { ProductCandidate } from "../enrich-phases/product-candidates";
 
 // ---------------------------------------------------------------------------
@@ -64,6 +65,30 @@ export type CandidateWriter = {
     error: { message: string } | null;
   }>;
 };
+
+/**
+ * Default writer that appends to `curated_product_candidates` via the
+ * service client. The table may not exist yet (migration not applied),
+ * in which case the insert reports an error and the phase continues —
+ * that is designed degradation, not a bug.
+ */
+export function createDefaultCandidateWriter(): CandidateWriter {
+  // `curated_product_candidates` is absent from the generated database types
+  // until the migration is applied, so the client is narrowed structurally to
+  // the one call this writer makes rather than widened to `any`.
+  const supabase = createServiceClient() as unknown as {
+    from(table: string): {
+      insert(rows: CandidateRow[]): Promise<{
+        data: unknown;
+        error: { message: string } | null;
+      }>;
+    };
+  };
+  return {
+    insert: async (rows) =>
+      supabase.from("curated_product_candidates").insert(rows),
+  };
+}
 
 /** LLM ranking function — injected so the phase's audited call wraps it. */
 export type LlmRanker = (

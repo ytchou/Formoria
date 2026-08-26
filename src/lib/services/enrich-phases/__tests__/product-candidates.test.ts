@@ -101,7 +101,8 @@ describe('classifyProductUrl', () => {
 
 describe('dedupeNearDuplicates', () => {
   it('dedupe_collapses_colourways', () => {
-    const candidates: ProductCandidate[] = [
+    // Case 1: two URLs differing only by variant (same normalizedUrl)
+    const byUrl: ProductCandidate[] = [
       {
         url: 'https://a.com/products/chair?variant=blue',
         normalizedUrl: 'https://a.com/products/chair',
@@ -117,12 +118,10 @@ describe('dedupeNearDuplicates', () => {
         urlClass: 'product-detail',
       },
     ]
-    const result = dedupeNearDuplicates(candidates)
-    expect(result).toHaveLength(1)
-  })
+    expect(dedupeNearDuplicates(byUrl)).toHaveLength(1)
 
-  it('dedupe_collapses_by_title_similarity', () => {
-    const candidates: ProductCandidate[] = [
+    // Case 2: two titles differing only by a colour suffix (different URLs)
+    const byTitle: ProductCandidate[] = [
       {
         url: 'https://a.com/products/chair-blue',
         normalizedUrl: 'https://a.com/products/chair-blue',
@@ -138,8 +137,7 @@ describe('dedupeNearDuplicates', () => {
         urlClass: 'product-detail',
       },
     ]
-    const result = dedupeNearDuplicates(candidates)
-    expect(result).toHaveLength(1)
+    expect(dedupeNearDuplicates(byTitle)).toHaveLength(1)
   })
 
   it('dedupe_keeps_distinct_products', () => {

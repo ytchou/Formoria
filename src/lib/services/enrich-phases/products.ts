@@ -43,6 +43,7 @@ import {
 } from "./product-candidates";
 import { loadStoredCandidates as defaultLoadStoredCandidates } from "./stored-product-candidates";
 import {
+  createDefaultCandidateWriter,
   persistCandidatePool,
   type CandidateWriter,
   type LlmRanker,
@@ -589,7 +590,7 @@ function buildProductsUserContent(
   if (listingLines && listingLines.length > 0) {
     blocks.push(
       "",
-      "品牌商品入口頁（僅供參考，不可作為 official_url）：",
+      PRODUCTS_LABELS.listingEntryPoints,
       ...listingLines,
     );
   }
@@ -771,7 +772,10 @@ export async function runProductsPhase({
       // Runs inside the existing audited call; no new audit operation.
       // Persists EVERY candidate (gated-out + ranked) for run-over-run
       // visibility. A write failure is reported but never fails the phase.
-      if (candidateWriter) {
+      // The default writer appends to `curated_product_candidates`; if the
+      // migration is not yet applied, the insert reports an error and the
+      // phase continues — designed degradation, not a bug.
+      try {
         // Default ranker: search_position as baseline score. The LLM ranking
         // quality is a tracked follow-up (DEV-1612); this baseline uses
         // position as the sole signal so the persistence schema is exercised.
@@ -783,15 +787,14 @@ export async function runProductsPhase({
           }))
         );
 
-        // Resolve brandId for the persistence row.
-        const brandId = brand.id;
+        const writer = candidateWriter ?? createDefaultCandidateWriter();
 
         const selectionResult = await persistCandidatePool({
           pool: [...storedCandidates, ...scrapedCandidates],
           acceptedCandidates: [],
           ranker,
-          writer: candidateWriter,
-          brandId,
+          writer,
+          brandId: brand.id,
           submissionId: effectiveTarget.type === "submission" ? effectiveTarget.id : null,
           jobId: jobId ?? null,
           maxProducts: MAX_PROPOSALS,
@@ -805,6 +808,14 @@ export async function runProductsPhase({
         Object.assign(ctx.summary, {
           candidatesGated: selectionResult.gated.length,
           candidatesRanked: selectionResult.ranked.length,
+        });
+      } catch (err) {
+        // The writer or ranker threw (e.g. service client missing in tests,
+        // or the table does not exist yet). Report and continue — persistence
+        // must never fail the phase.
+        Object.assign(ctx.summary, {
+          candidatePersistError:
+            err instanceof Error ? err.message : String(err),
         });
       }
 

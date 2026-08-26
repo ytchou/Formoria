@@ -431,14 +431,14 @@ describe("SubmissionsReviewList", () => {
       screen.queryByRole("button", { name: /Reject \d+ selected/ }),
     ).not.toBeInTheDocument();
     expect(
-      screen.queryByRole("button", { name: /Run Image step again/ }),
+      screen.queryByRole("button", { name: /Run Image task again/ }),
     ).not.toBeInTheDocument();
     expect(
-      screen.queryByRole("button", { name: /Run Detail step again/ }),
+      screen.queryByRole("button", { name: /Run Editorial task again/ }),
     ).not.toBeInTheDocument();
   });
 
-  it("re-runs only the image step for the selected ready submissions", async () => {
+  it("re-runs only the image task for the selected ready submissions", async () => {
     const user = userEvent.setup();
     renderList(readySubmissions(2), "ready");
 
@@ -446,18 +446,18 @@ describe("SubmissionsReviewList", () => {
       screen.getByRole("checkbox", { name: "Select Ready Brand 2" }),
     );
     await user.click(
-      screen.getByRole("button", { name: "Run Image step again (1)" }),
+      screen.getByRole("button", { name: "Run Image task again (1)" }),
     );
 
     expect(actions.enrich).toHaveBeenCalledTimes(1);
     expect(actions.enrich).toHaveBeenCalledWith(
       "enrich",
-      { submissionIds: ["ready-2"], steps: ["image"] },
+      { submissionIds: ["ready-2"], task: "image" },
       false,
     );
   });
 
-  it("re-runs the detail step for the selected ready submissions", async () => {
+  it("re-runs the editorial task for the selected ready submissions", async () => {
     const user = userEvent.setup();
     renderList(readySubmissions(1), "ready");
 
@@ -465,13 +465,13 @@ describe("SubmissionsReviewList", () => {
       screen.getByRole("checkbox", { name: "Select Ready Brand 1" }),
     );
     await user.click(
-      screen.getByRole("button", { name: "Run Detail step again (1)" }),
+      screen.getByRole("button", { name: "Run Editorial task again (1)" }),
     );
 
     expect(actions.enrich).toHaveBeenCalledTimes(1);
     expect(actions.enrich).toHaveBeenCalledWith(
       "enrich",
-      { submissionIds: ["ready-1"], steps: ["detail"] },
+      { submissionIds: ["ready-1"], task: "editorial" },
       false,
     );
   });

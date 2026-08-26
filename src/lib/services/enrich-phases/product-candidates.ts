@@ -169,8 +169,28 @@ export function classifyProductUrl(raw: string): UrlClass {
 // ---------------------------------------------------------------------------
 
 /**
+ * Strips a trailing variant/colour suffix so two colourways of one product
+ * compare as equal. Recognised separators: ` - `, ` | `, trailing `(...)`.
+ *
+ * "Ergonomic Office Chair - Midnight Blue" → "Ergonomic Office Chair"
+ * "Ceramic Bowl (Large)"                  → "Ceramic Bowl"
+ * "Standing Desk"                         → "Standing Desk" (unchanged)
+ */
+function stripVariantSuffix(title: string): string {
+  const dashIdx = title.lastIndexOf(' - ')
+  if (dashIdx > 0) return title.slice(0, dashIdx)
+
+  const pipeIdx = title.lastIndexOf(' | ')
+  if (pipeIdx > 0) return title.slice(0, pipeIdx)
+
+  const parenMatch = title.match(/^(.+)\s+\([^)]+\)\s*$/)
+  if (parenMatch) return parenMatch[1]
+
+  return title
+}
+
+/**
  * Simple bigram-based similarity for short titles. Returns a value in [0, 1].
- * Used to detect colourway variants of the same product.
  */
 function bigramSimilarity(a: string, b: string): number {
   if (a === b) return 1
@@ -200,7 +220,23 @@ function bigramSimilarity(a: string, b: string): number {
 const TITLE_SIMILARITY_THRESHOLD = 0.85
 
 /**
- * Collapses near-duplicates: normalized-URL equality OR title similarity >= 0.85.
+ * Two titles are near-duplicates when either:
+ * 1. Their core (after stripping a trailing variant/colour suffix) is
+ *    case-insensitively identical — catches "Product - Blue" vs "Product - Red".
+ * 2. Their full-string bigram similarity >= 0.85.
+ */
+function titlesAreNearDuplicate(a: string, b: string): boolean {
+  // Path 1: variant-suffix stripping — the core product name matches
+  const coreA = stripVariantSuffix(a).toLowerCase()
+  const coreB = stripVariantSuffix(b).toLowerCase()
+  if (coreA === coreB && coreA.length > 0) return true
+
+  // Path 2: raw bigram similarity for cases without a clear separator
+  return bigramSimilarity(a, b) >= TITLE_SIMILARITY_THRESHOLD
+}
+
+/**
+ * Collapses near-duplicates: normalized-URL equality OR title near-duplicate.
  * Keeps the first occurrence (lowest index, which is typically lowest search position).
  */
 export function dedupeNearDuplicates(
@@ -213,9 +249,9 @@ export function dedupeNearDuplicates(
       // Normalized URL equality
       if (existing.normalizedUrl === candidate.normalizedUrl) return true
 
-      // Title similarity (only when both have titles)
+      // Title near-duplicate (only when both have titles)
       if (existing.title && candidate.title) {
-        if (bigramSimilarity(existing.title, candidate.title) >= TITLE_SIMILARITY_THRESHOLD) {
+        if (titlesAreNearDuplicate(existing.title, candidate.title)) {
           return true
         }
       }

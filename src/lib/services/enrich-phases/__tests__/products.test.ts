@@ -428,7 +428,7 @@ describe("runProductsPhase", () => {
     });
 
     expect(result.phaseResult.status).toBe("skipped");
-    expect(result.phaseResult.detail).toContain("empty");
+    expect(result.phaseResult.detail).toContain("no product candidates");
     expect(result.phaseResult.detail).not.toContain("no scraped pages");
     expect(chat).not.toHaveBeenCalled();
     expect(result.patch).toEqual({});

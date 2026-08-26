@@ -651,6 +651,7 @@ export const PRODUCTS_LABELS = {
   siteUrl: "品牌官方網站：",
   candidatePages: "候選頁面（網址 | 頁面標題與描述）：",
   imageCandidates: "已分類的商品圖片（替代文字 | 圖片所在頁面）：",
+  listingEntryPoints: "品牌商品入口頁（僅供參考，不可作為 official_url）：",
 } as const;
 
 /**
