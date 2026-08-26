@@ -731,6 +731,7 @@ export type ActiveImageForOrdering = {
   id: string;
   source?: string | null;
   sort_order?: number | null;
+  tags?: readonly string[] | null;
 };
 
 /**
@@ -775,6 +776,18 @@ export function planActiveImageOrder(input: {
   const keep = ranked.slice(0, capacity);
   const demotedIds = ranked.slice(capacity).map((row) => row.id);
 
+  // Product-first ordering: within the kept set, products lead, then at most
+  // one logo. A logo-only brand keeps all its logos — the single-logo cap
+  // applies only when product images exist, so a brand whose images are all
+  // logos is not stripped down to one.
+  const products = keep.filter((row) => !isLogoImageTags(row.tags));
+  const logos = keep.filter((row) => isLogoImageTags(row.tags));
+  const hasProducts = products.length > 0;
+  const activeOrder = hasProducts
+    ? [...products, ...logos.slice(0, 1)]
+    : logos;
+  const logoOverflow = hasProducts ? logos.slice(1) : [];
+
   const reserved = new Set(
     exempt.flatMap((row) =>
       typeof row.sort_order === "number" ? [row.sort_order] : [],
@@ -783,10 +796,19 @@ export function planActiveImageOrder(input: {
 
   const assignments: Array<{ id: string; sortOrder: number }> = [];
   let sortOrder = 0;
-  for (const row of keep) {
+  for (const row of activeOrder) {
     while (reserved.has(sortOrder)) sortOrder += 1;
     assignments.push({ id: row.id, sortOrder });
     sortOrder += 1;
+  }
+
+  // Excess logos past the single-logo allowance: assigned sort_order values
+  // above the active cap so they stay out of the visible gallery, but NOT in
+  // demotedIds — this rule must never change an image's status.
+  let overflowOrder = MAX_ACTIVE_IMAGES;
+  for (const row of logoOverflow) {
+    assignments.push({ id: row.id, sortOrder: overflowOrder });
+    overflowOrder += 1;
   }
 
   return { assignments, demotedIds };

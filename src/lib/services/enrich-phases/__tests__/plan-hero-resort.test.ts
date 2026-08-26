@@ -87,6 +87,24 @@ describe("planHeroResort", () => {
     ).toBe(true);
   });
 
+  it("keeps a logo-only brand's images with a logo hero (logo_only_brand_keeps_its_images)", () => {
+    const plan = planHeroResort({
+      activeImages: [
+        row("logo-1", 0, { tags: ["logo"], score: 90 }),
+        row("logo-2", 1, { tags: ["logo"], score: 80 }),
+      ],
+      mode: "resort",
+    });
+
+    expect(plan.skipReason).toBeNull();
+    expect(plan.assignments.length).toBeGreaterThan(0);
+    // Neither logo is demoted or rejected.
+    expect(plan.demotedIds).toEqual([]);
+    expect(plan.rejectedUpdates).toEqual([]);
+    // The hero (sort_order 0) exists.
+    expect(plan.assignments.some((a) => a.sortOrder === 0)).toBe(true);
+  });
+
   it("is idempotent after applying its planned ordering", () => {
     const original = [
       row("low", 0, { score: 70 }),

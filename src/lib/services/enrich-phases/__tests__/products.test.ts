@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { MATERIALS, subcategoryBySlug } from "@/lib/taxonomy/ontology";
 import type { EnrichBrand, EnrichPhase } from "../types";
 import { runProductsPhase, validateProductProposals } from "../products";
+import type { ProductCandidate } from "../product-candidates";
 
 /**
  * The LLM call is the only thing stubbed. `createProfiledOpenAIClient` is a
@@ -149,6 +150,7 @@ describe("runProductsPhase", () => {
       phases: PHASES,
       scrapedData: SCRAPED,
       target: { type: "submission", id: SUBMISSION_ID },
+      loadStoredCandidates: async () => [],
     });
 
     expect(result.phaseResult.status).toBe("succeeded");
@@ -188,6 +190,7 @@ describe("runProductsPhase", () => {
       scrapedData: SCRAPED,
       pendingPatch: { purchase_website: SITE },
       target: { type: "submission", id: SUBMISSION_ID },
+      loadStoredCandidates: async () => [],
     });
 
     const user = chat.mock.calls[0]![0].user as string;
@@ -229,6 +232,7 @@ describe("runProductsPhase", () => {
       phases: PHASES,
       scrapedData: SCRAPED,
       target: { type: "submission", id: SUBMISSION_ID },
+      loadStoredCandidates: async () => [],
     });
 
     expect(result.proposals).toHaveLength(1);
@@ -262,6 +266,7 @@ describe("runProductsPhase", () => {
       phases: PHASES,
       scrapedData: SCRAPED,
       target: { type: "submission", id: SUBMISSION_ID },
+      loadStoredCandidates: async () => [],
     });
 
     expect(result.proposals).toHaveLength(5);
@@ -285,6 +290,7 @@ describe("runProductsPhase", () => {
       phases: PHASES,
       scrapedData: SCRAPED,
       target: { type: "submission", id: SUBMISSION_ID },
+      loadStoredCandidates: async () => [],
     });
 
     expect(result.phaseResult.status).toBe("failed");
@@ -306,10 +312,11 @@ describe("runProductsPhase", () => {
       phases: PHASES,
       scrapedData: null,
       target: { type: "submission", id: SUBMISSION_ID },
+      loadStoredCandidates: async () => [],
     });
 
     expect(result.phaseResult.status).toBe("skipped");
-    expect(result.phaseResult.detail).toContain("no scraped pages");
+    expect(result.phaseResult.detail).toContain("no product candidates");
     expect(chat).not.toHaveBeenCalled();
     // No answer, no opinion: an empty patch leaves the stored list alone.
     expect(result.patch).toEqual({});
@@ -332,6 +339,7 @@ describe("runProductsPhase", () => {
         imageSources: [],
       },
       target: { type: "submission", id: SUBMISSION_ID },
+      loadStoredCandidates: async () => [],
     });
 
     expect(result.phaseResult.status).toBe("skipped");
@@ -346,6 +354,7 @@ describe("runProductsPhase", () => {
       phases: PHASES,
       scrapedData: SCRAPED,
       target: { type: "submission", id: SUBMISSION_ID },
+      loadStoredCandidates: async () => [],
     });
 
     expect(result.phaseResult.status).toBe("succeeded");
@@ -371,6 +380,120 @@ describe("runProductsPhase", () => {
     expect(result.phaseResult.status).toBe("skipped");
     expect(createClient).not.toHaveBeenCalled();
     expect(result.patch).toEqual({});
+  });
+
+  it("uses_stored_candidates_when_scrape_is_empty", async () => {
+    // With no scraped pages but a non-empty stored pool, the phase must NOT
+    // skip — the stored candidates supply the user content.
+    modelReturns([rawProposal()]);
+
+    const storedCandidates: ProductCandidate[] = [
+      {
+        url: `${SITE}/products/clay-plate`,
+        normalizedUrl: `${SITE}/products/clay-plate`,
+        title: "陶土餐盤",
+        imageUrl: `${SITE}/img/plate.jpg`,
+        supplier: "stored",
+        urlClass: "product-detail",
+        searchPosition: 1,
+      },
+    ];
+
+    const result = await runProductsPhase({
+      brand: BRAND,
+      phases: PHASES,
+      scrapedData: { ...SCRAPED, perSourceText: {} },
+      target: { type: "submission", id: SUBMISSION_ID },
+      loadStoredCandidates: async () => storedCandidates,
+    });
+
+    expect(result.phaseResult.status).toBe("succeeded");
+    expect(result.proposals).toHaveLength(1);
+    // The user content must carry the stored product URL.
+    const chat = createClient.mock.results[0]!.value.chat;
+    const user = chat.mock.calls[0]![0].user as string;
+    expect(user).toContain(`${SITE}/products/clay-plate`);
+  });
+
+  it("still_skips_when_merged_pool_is_empty", async () => {
+    // Empty scrape + empty stored pool => skipped with no LLM call.
+    const chat = modelReturns([]);
+
+    const result = await runProductsPhase({
+      brand: BRAND,
+      phases: PHASES,
+      scrapedData: { ...SCRAPED, perSourceText: {} },
+      target: { type: "submission", id: SUBMISSION_ID },
+      loadStoredCandidates: async () => [],
+    });
+
+    expect(result.phaseResult.status).toBe("skipped");
+    expect(result.phaseResult.detail).toContain("empty");
+    expect(result.phaseResult.detail).not.toContain("no scraped pages");
+    expect(chat).not.toHaveBeenCalled();
+    expect(result.patch).toEqual({});
+  });
+
+  it("listing_pages_are_not_proposable", async () => {
+    // A stored `/collections/chairs` candidate should appear in the
+    // entry-points block only, never as a product candidate.
+    modelReturns([rawProposal()]);
+
+    const storedCandidates: ProductCandidate[] = [
+      {
+        url: `${SITE}/collections/chairs`,
+        normalizedUrl: `${SITE}/collections/chairs`,
+        title: "椅子系列",
+        supplier: "stored",
+        urlClass: "listing",
+      },
+      {
+        url: `${SITE}/products/clay-plate`,
+        normalizedUrl: `${SITE}/products/clay-plate`,
+        title: "陶土餐盤",
+        imageUrl: `${SITE}/img/plate.jpg`,
+        supplier: "stored",
+        urlClass: "product-detail",
+        searchPosition: 1,
+      },
+    ];
+
+    const result = await runProductsPhase({
+      brand: BRAND,
+      phases: PHASES,
+      scrapedData: { ...SCRAPED, perSourceText: {} },
+      target: { type: "submission", id: SUBMISSION_ID },
+      loadStoredCandidates: async () => storedCandidates,
+    });
+
+    expect(result.phaseResult.status).toBe("succeeded");
+    // The listing URL appears in the entry-points block of user content,
+    // not in the candidate pages block.
+    const chat = createClient.mock.results[0]!.value.chat;
+    const user = chat.mock.calls[0]![0].user as string;
+    expect(user).toContain(`${SITE}/collections/chairs`);
+    // The product candidate is in the candidate pages section.
+    expect(user).toContain(`${SITE}/products/clay-plate`);
+  });
+
+  it("existing_scraped_path_still_works", async () => {
+    // When only perSourceText is populated (stored pool is empty),
+    // the phase works exactly as before — no regression.
+    modelReturns([rawProposal()]);
+
+    const result = await runProductsPhase({
+      brand: BRAND,
+      phases: PHASES,
+      scrapedData: SCRAPED,
+      target: { type: "submission", id: SUBMISSION_ID },
+      loadStoredCandidates: async () => [],
+    });
+
+    expect(result.phaseResult.status).toBe("succeeded");
+    expect(result.proposals).toHaveLength(1);
+    const chat = createClient.mock.results[0]!.value.chat;
+    const user = chat.mock.calls[0]![0].user as string;
+    expect(user).toContain(`${SITE}/products/clay-plate`);
   });
 });
 

@@ -109,6 +109,52 @@ describe("planActiveImageOrder", () => {
     expect(demotedIds).toHaveLength(classifierImages - expected);
   });
 
+  it("sorts product images ahead of a higher-scoring logo (product_images_sort_ahead_of_logo)", () => {
+    const { assignments } = planActiveImageOrder({
+      activeImages: [
+        row("logo-1", { tags: ["logo"] }),
+        row("product-1", { tags: ["product"] }),
+        row("product-2", { tags: ["product"] }),
+      ],
+      // The logo ranks first by quality, but products must still lead.
+      rankedJudgedIds: ["logo-1", "product-1", "product-2"],
+    });
+
+    const productOrders = assignments
+      .filter((a) => a.id.startsWith("product"))
+      .map((a) => a.sortOrder);
+    const logoAssignment = assignments.find((a) => a.id === "logo-1")!;
+    expect(productOrders.every((o) => o < logoAssignment.sortOrder)).toBe(true);
+    // Products keep their quality ranking among themselves.
+    expect(
+      assignments.filter((a) => a.id.startsWith("product")).map((a) => a.id),
+    ).toEqual(["product-1", "product-2"]);
+  });
+
+  it("allows at most one logo within the active cap (at_most_one_logo_within_the_active_cap)", () => {
+    const { assignments, demotedIds } = planActiveImageOrder({
+      activeImages: [
+        row("product-1", { tags: ["product"] }),
+        row("logo-1", { tags: ["logo"] }),
+        row("logo-2", { tags: ["logo"] }),
+      ],
+      rankedJudgedIds: ["product-1", "logo-1", "logo-2"],
+    });
+
+    // Only one logo within the active cap range.
+    const withinCap = assignments.filter(
+      (a) => a.sortOrder < MAX_BRAND_ACTIVE_IMAGES,
+    );
+    const logosWithinCap = withinCap.filter((a) => a.id.startsWith("logo"));
+    expect(logosWithinCap).toHaveLength(1);
+
+    // The second logo is assigned past the cap, NOT rejected (not in demotedIds).
+    expect(demotedIds).not.toContain("logo-2");
+    const secondLogo = assignments.find((a) => a.id === "logo-2");
+    expect(secondLogo).toBeDefined();
+    expect(secondLogo!.sortOrder).toBeGreaterThanOrEqual(MAX_BRAND_ACTIVE_IMAGES);
+  });
+
   it("handles the all-unjudged case that produced the ten-rows-at-zero bug", () => {
     const { assignments } = planActiveImageOrder({
       activeImages: Array.from({ length: 4 }, (_, i) => row(`scraped-${i}`)),

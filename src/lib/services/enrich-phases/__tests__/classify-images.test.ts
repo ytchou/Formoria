@@ -9,6 +9,7 @@ import {
   failureReason,
   parseClassificationBatch,
   partitionLoadedImages,
+  planActiveImageOrder,
   planChunkImageWrites,
 } from "../classify-images";
 import { preferPatched } from "../descriptions";
@@ -224,6 +225,36 @@ describe("applyClassifications ordering", () => {
       "second",
       "third",
     ]);
+  });
+
+  it("does not change any image status from quality scoring alone (no_image_status_changes_from_this_rule)", () => {
+    // A mix of products and logos, all kept by quality scoring.
+    const images = [
+      classified("product-1", "product", 90),
+      classified("logo-1", "logo", 85),
+      classified("logo-2", "logo", 80),
+      classified("product-2", "product", 75),
+    ];
+
+    const { ordered, rejectedIds } = applyClassifications(images);
+    // Quality scoring keeps all four.
+    expect(rejectedIds).toEqual([]);
+
+    const activeImages = images.map((img, i) => ({
+      id: img.id,
+      source: "google_image" as const,
+      sort_order: i,
+      tags: [img.tag],
+    }));
+
+    const { demotedIds } = planActiveImageOrder({
+      activeImages,
+      rankedJudgedIds: ordered.map((img) => img.id),
+    });
+
+    // The ordering rule must not cause any image to be demoted that quality
+    // scoring alone would have kept active.
+    expect(demotedIds).toEqual([]);
   });
 
   it("does not penalise an image with unknown dimensions", () => {

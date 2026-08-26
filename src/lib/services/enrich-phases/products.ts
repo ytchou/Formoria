@@ -36,6 +36,18 @@ import {
 } from "../_shared/enrichment-target";
 import { preferPatched } from "./descriptions";
 import {
+  classifyProductUrl,
+  mergeCandidatePool,
+  normalizeProductUrl,
+  type ProductCandidate,
+} from "./product-candidates";
+import { loadStoredCandidates as defaultLoadStoredCandidates } from "./stored-product-candidates";
+import {
+  persistCandidatePool,
+  type CandidateWriter,
+  type LlmRanker,
+} from "../curated-products/candidate-selection";
+import {
   buildPhaseResult,
   timePhase,
   type EnrichBrand,
@@ -172,6 +184,12 @@ export type ProductsPhaseOptions = {
   dryRun?: boolean;
   target?: EnrichmentTarget;
   jobId?: string;
+  /** Supplier for stored product candidates (brand_images provenance). Injected for testing. */
+  loadStoredCandidates?: (submissionId: string) => Promise<ProductCandidate[]>;
+  /** Writer for persisting the candidate pool. Injected for testing. */
+  candidateWriter?: CandidateWriter;
+  /** LLM ranker for scoring gate-passing candidates. Injected for testing. */
+  candidateRanker?: LlmRanker;
 };
 
 /**
@@ -514,31 +532,6 @@ export function validateProductProposals(
   return { proposals, dropped, dropReasons };
 }
 
-/**
- * Candidate pages, from the text the links phase already scraped. Same-host
- * only: the scrape set includes third-party pages that mention the brand, and a
- * product page is by definition on the brand's own site.
- */
-function candidatePages(
-  site: URL,
-  scrapedData: EnrichScrapedData | null,
-): string[] {
-  const perSourceText = scrapedData?.perSourceText ?? {};
-  const lines: string[] = [];
-  for (const [url, text] of Object.entries(perSourceText)) {
-    const parsed = httpUrl(url);
-    if (!parsed || bareHost(parsed) !== bareHost(site)) continue;
-    const evidence = [text?.title, text?.description, text?.story]
-      .map((value) => trimmedString(value))
-      .filter((value): value is string => value !== null)
-      .join(" / ")
-      .slice(0, PAGE_TEXT_LIMIT);
-    lines.push(evidence ? `- ${url} | ${evidence}` : `- ${url}`);
-    if (lines.length === MAX_CANDIDATE_PAGES) break;
-  }
-  return lines;
-}
-
 function scrapedImagePages(
   site: URL,
   scrapedData: EnrichScrapedData | null,
@@ -562,6 +555,7 @@ function buildProductsUserContent(
   scrapedData: EnrichScrapedData | null,
   pages: string[],
   imageLines: string[],
+  listingLines?: string[],
 ): string {
   const siteUrl = site.toString();
   const content = buildEnrichmentUserContent(
@@ -587,6 +581,18 @@ function buildProductsUserContent(
   if (imageLines.length > 0) {
     blocks.push("", PRODUCTS_LABELS.imageCandidates, ...imageLines);
   }
+  // Listing entry points: context only — these are catalog/collection pages
+  // the brand uses to organize products. They must NEVER be returned as
+  // `official_url` on a proposal; `isProductPageUrl` enforces a non-root
+  // path on the brand's own host, but a listing page passes that gate, so
+  // the model needs to know their role is navigation context, not evidence.
+  if (listingLines && listingLines.length > 0) {
+    blocks.push(
+      "",
+      "品牌商品入口頁（僅供參考，不可作為 official_url）：",
+      ...listingLines,
+    );
+  }
   return blocks.join("\n");
 }
 
@@ -605,6 +611,9 @@ export async function runProductsPhase({
   dryRun,
   target,
   jobId,
+  loadStoredCandidates: loadStored,
+  candidateWriter,
+  candidateRanker,
 }: ProductsPhaseOptions): Promise<ProductsPhaseOutput> {
   if (!phases.includes("products")) return skipped("products phase not requested");
 
@@ -635,20 +644,64 @@ export async function runProductsPhase({
   const site = httpUrl(siteUrl);
   if (!site) return skipped("no official site to propose products from");
 
-  // FAILS CLOSED ON A MISSING DEPENDENCY. `products` runs after `links` and
-  // `site_identity` by hard dependency (`enrich-phases.ts`), but the only thing
-  // enforcing that was the job's phase list: a run of `phases: ['products']`
-  // alone gets `scrapedData: null`, so the user message carries no candidate
-  // pages and the model is asked to pick product pages while being shown none.
-  // Nothing downstream can catch what comes back — `isProductPageUrl` checks the
-  // host and a non-root path and never fetches the URL, so an invented
-  // `https://brand.tw/products/made-up` passes, and `validateSource` accepts the
-  // same invented URL as its own citation. Zero proposals beats five fabricated
-  // ones, and this holds whether or not the caller's phase list is correct.
-  const pages = candidatePages(site, scrapedData);
+  // --- Build the merged candidate pool ---
+  // Stored candidates from brand_images provenance (injected supplier).
+  const loader = loadStored ?? defaultLoadStoredCandidates;
+  const storedCandidates = await loader(effectiveTarget.id);
+
+  // Build a unified pool of ProductCandidate entries from the scraped pages.
+  // The scraped half is converted to ProductCandidate shape for mergeCandidatePool.
+  const scrapedCandidates: ProductCandidate[] = [];
+  const perSourceText = scrapedData?.perSourceText ?? {};
+  for (const [url, text] of Object.entries(perSourceText)) {
+    const parsed = httpUrl(url);
+    if (!parsed || bareHost(parsed) !== bareHost(site)) continue;
+    const normalizedUrl = normalizeProductUrl(url);
+    if (!normalizedUrl) continue;
+    scrapedCandidates.push({
+      url,
+      normalizedUrl,
+      title: text?.title ?? undefined,
+      supplier: "scraped",
+      urlClass: classifyProductUrl(url),
+    });
+  }
+
+  const pool = mergeCandidatePool([...storedCandidates, ...scrapedCandidates]);
+
+  // Format the product bucket as user-content lines, keeping the same-host
+  // filter and PAGE_TEXT_LIMIT truncation the scraped path always had.
+  const pages: string[] = [];
+  for (const candidate of pool.products.slice(0, MAX_CANDIDATE_PAGES)) {
+    const text = perSourceText[candidate.url];
+    const evidence = [text?.title ?? candidate.title, text?.description, text?.story]
+      .map((v) => trimmedString(v))
+      .filter((v): v is string => v !== null)
+      .join(" / ")
+      .slice(0, PAGE_TEXT_LIMIT);
+    pages.push(evidence ? `- ${candidate.url} | ${evidence}` : `- ${candidate.url}`);
+  }
+
+  // Listing entry points — context only, must NEVER be returned as `official_url`.
+  const listingLines: string[] = [];
+  for (const candidate of pool.listings) {
+    const text = perSourceText[candidate.url];
+    const evidence = [text?.title ?? candidate.title, text?.description]
+      .map((v) => trimmedString(v))
+      .filter((v): v is string => v !== null)
+      .join(" / ")
+      .slice(0, PAGE_TEXT_LIMIT);
+    listingLines.push(evidence ? `- ${candidate.url} | ${evidence}` : `- ${candidate.url}`);
+  }
+
+  // FAILS CLOSED ON AN EMPTY POOL. The products phase requires at least one
+  // product-detail candidate — from scraped pages, stored provenance, or both.
+  // Without candidates the model is asked to pick product pages while being
+  // shown none, and nothing downstream can catch fabricated URLs. Zero
+  // proposals beats five fabricated ones.
   if (pages.length === 0)
     return skipped(
-      "no scraped pages on the brand's own site to mine for products",
+      "no product candidates in the merged pool (scraped + stored)",
     );
 
   return auditedCall(
@@ -664,6 +717,7 @@ export async function runProductsPhase({
             scrapedData,
             pages,
             imageLines,
+            listingLines,
           );
           const config = buildProfiledEnrichmentConfig(
             "products",
@@ -712,6 +766,47 @@ export async function runProductsPhase({
         productsDropped: result.dropped,
         productsDropReasons: result.dropReasons,
       });
+
+      // --- Candidate pool persistence (DEV-1610) ---
+      // Runs inside the existing audited call; no new audit operation.
+      // Persists EVERY candidate (gated-out + ranked) for run-over-run
+      // visibility. A write failure is reported but never fails the phase.
+      if (candidateWriter) {
+        // Default ranker: search_position as baseline score. The LLM ranking
+        // quality is a tracked follow-up (DEV-1612); this baseline uses
+        // position as the sole signal so the persistence schema is exercised.
+        const ranker: LlmRanker = candidateRanker ?? (async (candidates) =>
+          candidates.map((c) => ({
+            url: c.url,
+            score: c.searchPosition != null ? (100 - c.searchPosition) : 50,
+            rationale: "baseline: position-derived score",
+          }))
+        );
+
+        // Resolve brandId for the persistence row.
+        const brandId = brand.id;
+
+        const selectionResult = await persistCandidatePool({
+          pool: [...storedCandidates, ...scrapedCandidates],
+          acceptedCandidates: [],
+          ranker,
+          writer: candidateWriter,
+          brandId,
+          submissionId: effectiveTarget.type === "submission" ? effectiveTarget.id : null,
+          jobId: jobId ?? null,
+          maxProducts: MAX_PROPOSALS,
+        });
+
+        if (selectionResult.persistError) {
+          Object.assign(ctx.summary, {
+            candidatePersistError: selectionResult.persistError,
+          });
+        }
+        Object.assign(ctx.summary, {
+          candidatesGated: selectionResult.gated.length,
+          candidatesRanked: selectionResult.ranked.length,
+        });
+      }
 
       if (isLlmProviderFailure(result.calls)) {
         return {
