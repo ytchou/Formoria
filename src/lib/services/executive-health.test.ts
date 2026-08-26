@@ -113,7 +113,7 @@ describe("executive health", () => {
       (entry) => entry.probe === "executive-health",
     );
 
-    expect(checks).toHaveLength(11);
+    expect(checks).toHaveLength(probedEntries.length);
     expect(new Set(checks.map((check) => check.id))).toEqual(
       new Set(probedEntries.map((entry) => entry.id)),
     );
@@ -273,7 +273,6 @@ describe("executive health", () => {
         "production",
         "back-office",
         "agents",
-        "deprecated",
       ]),
     );
   });
@@ -282,7 +281,7 @@ describe("executive health", () => {
     const snapshot = await loadExecutiveHealth();
     const probedIds = new Set(defaultChecks().map((check) => check.id));
 
-    expect(snapshot.services).toHaveLength(11);
+    expect(snapshot.services).toHaveLength(defaultChecks().length);
     expect(snapshot.inventory.length).toBeGreaterThan(snapshot.services.length);
     expect(
       snapshot.inventory.some((entry) =>

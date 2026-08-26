@@ -3,7 +3,6 @@ export type {
   BrandFilters,
   BrandFlatLinkColumns,
   BrandStatus,
-  MitStatus,
   OtherUrl,
   SubmissionStatus,
 } from './brand'

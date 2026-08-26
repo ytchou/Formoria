@@ -39,7 +39,6 @@ test.describe.serial("Public brand data boundary", () => {
     brandSlug = `e2e-public-boundary-${suffix}`;
     const privateContact = `private-contact-${suffix}@example.invalid`;
     const privateDraft = `private-draft-${suffix}`;
-    const privateEvidence = `private-evidence-${suffix}`;
     const privateSource = `private-source-${suffix}`;
     const { data: actor, error: actorError } = await supabase.auth.admin.createUser({
       email: `public-boundary-${suffix}@example.com`,
@@ -58,7 +57,6 @@ test.describe.serial("Public brand data boundary", () => {
     canaries = [
       privateContact,
       privateDraft,
-      privateEvidence,
       privateSource,
       privateActor,
       privateTimestamp,
@@ -76,8 +74,6 @@ test.describe.serial("Public brand data boundary", () => {
         contact_email: privateContact,
         draft_data: { canary: privateDraft },
         draft_updated_at: privateTimestamp,
-        mit_evidence: { private_note: privateEvidence },
-        mit_declared_by: privateActor,
         source: privateSource,
         reputation_summary: {
           text: "Public reputation summary.",

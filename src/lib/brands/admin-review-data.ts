@@ -13,7 +13,6 @@ export function brandToReviewData(
     blurbEn: brand.blurbEn ?? null,
     city: brand.city ?? null,
     reputationSummary: (brand.reputationSummary ?? null) as unknown as Json,
-    mitEvidence: (brand.mitEvidence ?? null) as unknown as Json,
     siteContent: (brand.siteContent ?? null) as unknown as Json,
     foundingYear: brand.foundingYear ?? null,
     heroImageUrl: brand.heroImageUrl ?? null,

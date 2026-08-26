@@ -81,7 +81,6 @@ type EditableSection =
   | "catalog"
   | "products"
   | "links"
-  | "evidence"
   | "images";
 
 /**
@@ -168,7 +167,6 @@ export function ReviewDetailsEditor({
     ["Threads", data.socialThreads],
     ["Facebook", data.socialFacebook],
   ]);
-  const evidence = displayStrings(data.mitEvidence);
   // Classified on load, from the SERVER copy of the proposals: a state is what
   // the brand's catalog already knows, so it must not shift while the reviewer
   // retypes a name. The diff is pure and runs over at most a handful of rows.
@@ -542,25 +540,6 @@ export function ReviewDetailsEditor({
             )}
           </InlineEditSection>
 
-          <InlineEditSection
-            title={t("details.mitEvidence")}
-            canEdit={canEdit}
-            editing={editingSection === "evidence"}
-            onEdit={() => startEditing("evidence")}
-            onSave={handleSave}
-            onCancel={handleCancel}
-            isPending={isPending}
-            error={error}
-          >
-            {editingSection === "evidence" ? (
-              <StringListEditor
-                value={data.mitEvidence}
-                onChange={(lines) => update("mitEvidence", lines)}
-              />
-            ) : (
-              <StringListReadOnly values={evidence} />
-            )}
-          </InlineEditSection>
         </div>
 
         <InlineEditSection
@@ -1502,43 +1481,6 @@ function LinkList({
   );
 }
 
-function StringListReadOnly({ values }: { values: string[] }) {
-  if (values.length === 0) return <p className="type-body-sm">—</p>;
-  return (
-    <ul className="list-disc space-y-1 pl-5 type-body-sm text-ink-soft">
-      {values.map((value) => (
-        <li key={value}>{value}</li>
-      ))}
-    </ul>
-  );
-}
-
-function StringListEditor({
-  value,
-  onChange,
-}: {
-  value: unknown;
-  onChange: (value: string[]) => void;
-}) {
-  const strings = displayStrings(value);
-  const [text, setText] = useState(strings.join("\n"));
-
-  return (
-    <Textarea
-      value={text}
-      rows={Math.max(3, strings.length + 1)}
-      onChange={(event) => {
-        setText(event.target.value);
-        const lines = event.target.value
-          .split("\n")
-          .map((line) => line.trim())
-          .filter(Boolean);
-        onChange(lines);
-      }}
-    />
-  );
-}
-
 function Field({
   label,
   children,
@@ -1657,16 +1599,6 @@ function compactLinks(
   links: Array<[string, string | null]>,
 ): Array<[string, string]> {
   return links.filter((link): link is [string, string] => Boolean(link[1]));
-}
-
-function displayStrings(value: unknown): string[] {
-  if (typeof value === "string") return value.trim() ? [value.trim()] : [];
-  if (typeof value === "number" || typeof value === "boolean")
-    return [String(value)];
-  if (Array.isArray(value)) return [...new Set(value.flatMap(displayStrings))];
-  if (value && typeof value === "object")
-    return [...new Set(Object.values(value).flatMap(displayStrings))];
-  return [];
 }
 
 type ReputationSource = {

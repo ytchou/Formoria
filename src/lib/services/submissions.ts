@@ -158,7 +158,6 @@ export type SubmissionReviewData = {
    * unticked ones as hidden rows rather than dropping them.
    */
   keptProductKeys?: string[];
-  mitEvidence: Json | null;
   siteContent: Json | null;
   foundingYear: number | null;
   heroImageUrl: string | null;
@@ -815,7 +814,6 @@ export function buildSubmissionReviewData(
     reputationSummary: enrichedData?.reputationSummary ?? null,
     channels: enrichedData?.channels,
     products: enrichedData?.products,
-    mitEvidence: enrichedData?.mitEvidence ?? null,
     siteContent: enrichedData?.siteContent ?? null,
     foundingYear: enrichedData?.foundingYear ?? null,
     /*
@@ -1109,7 +1107,6 @@ function submissionReviewDataToBrandInsert(
     blurb_en: mapped.blurb_en,
     city: mapped.city,
     reputation_summary: data.reputationSummary,
-    mit_evidence: data.mitEvidence,
     site_content: data.siteContent,
     founding_year: mapped.founding_year,
     // No hero key is written from review data. `toBrandRow` stopped emitting
@@ -1147,7 +1144,6 @@ function submissionReviewDataToDb(
     // ever comes from a review — enrichment has no opinion on what to keep.
     products: data.products as unknown as Json,
     kept_product_keys: data.keptProductKeys as unknown as Json,
-    mit_evidence: data.mitEvidence,
     site_content: data.siteContent,
     founding_year: mapped.founding_year,
     // No hero key is written from review data. `toBrandRow` stopped emitting
@@ -1227,10 +1223,6 @@ function reviewDataFromDb(
         : Array.isArray(data.kept_product_keys)
           ? normalizeStringArray(data.kept_product_keys)
           : fallback.keptProductKeys,
-    mitEvidence:
-      data.mit_evidence === undefined
-        ? fallback.mitEvidence
-        : (data.mit_evidence as Json | null),
     siteContent:
       data.site_content === undefined
         ? fallback.siteContent

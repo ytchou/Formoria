@@ -15,10 +15,7 @@
  * A column counts as populated using the same semantics the render path
  * applies: strings must be non-blank, and `reputation_summary` must carry a
  * `text` string (see `normalizeReputationSummary` in lib/services/brands.ts) —
- * a bare `{}` renders nothing and is not coverage. `mit_status` gets an extra
- * line because the column is effectively never null: the app coerces null to
- * "unverified", which is a status but not an answer, so the verified/declared
- * share is the number that predicts whether the preset renders.
+ * a bare `{}` renders nothing and is not coverage.
  *
  * This script performs NO writes of any kind.
  *
@@ -29,7 +26,6 @@ import { createServiceClient } from "@/lib/supabase/service";
 import { excludeTestBrands } from "@/lib/services/public-brand-filter";
 
 type CoverageRow = {
-  mit_status: string | null;
   category: string | null;
   reputation_summary: unknown;
 };
@@ -62,7 +58,7 @@ async function main(): Promise<void> {
   const { data, error, count } = await excludeTestBrands(
     supabase
       .from("brands")
-      .select("mit_status, category, reputation_summary", {
+      .select("category, reputation_summary", {
         count: "exact",
       })
       .eq("status", "approved"),
@@ -89,10 +85,6 @@ async function main(): Promise<void> {
     return;
   }
 
-  const mitPopulated = rows.filter((row) => hasText(row.mit_status)).length;
-  const mitAnswerable = rows.filter(
-    (row) => row.mit_status === "verified" || row.mit_status === "declared",
-  ).length;
   const typePopulated = rows.filter((row) => hasText(row.category)).length;
   const reputationPopulated = rows.filter((row) =>
     hasReputationSummary(row.reputation_summary),
@@ -100,25 +92,9 @@ async function main(): Promise<void> {
 
   console.log("\n  column                 populated / total   coverage");
   console.log("  " + "-".repeat(48));
-  console.log(line("mit_status", mitPopulated, total));
   console.log(line("category", typePopulated, total));
   console.log(line("reputation_summary", reputationPopulated, total));
 
-  console.log(
-    "\n  mit_status detail (null is coerced to 'unverified' by the app)",
-  );
-  console.log(line("verified+declared", mitAnswerable, total));
-
-  const byMitStatus = new Map<string, number>();
-  for (const row of rows) {
-    const key = hasText(row.mit_status) ? (row.mit_status as string) : "(null)";
-    byMitStatus.set(key, (byMitStatus.get(key) ?? 0) + 1);
-  }
-  for (const [status, n] of [...byMitStatus.entries()].sort(
-    (a, b) => b[1] - a[1],
-  )) {
-    console.log(line(`  ${status}`, n, total));
-  }
 }
 
 main().catch((error) => {

@@ -46,7 +46,7 @@ describe('category tab targets', () => {
       buildCategoryTabTarget({
         pathname: '/brands',
         searchParams:
-          'category=fashion&price=1&verification=mit-declared&sub=bags',
+          'category=fashion&price=1&sub=bags',
         slug: '',
         locale: 'zh-TW',
       }),

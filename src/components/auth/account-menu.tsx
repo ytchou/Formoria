@@ -104,11 +104,6 @@ export function AccountMenu() {
         >
           {t('account.favorites')}
         </DropdownMenuItem>
-        <DropdownMenuItem
-          render={<Link href={routes.contributions()} />}
-        >
-          {t('account.contributions')}
-        </DropdownMenuItem>
         <DropdownMenuSeparator />
         {(['zh-TW', 'en'] as const).map((targetLocale) => (
           <form

@@ -284,6 +284,10 @@ describe("enriched_data.products[] payload contract", () => {
       imageSourceUrl: true,
       productDescriptionZh: true,
       sources: true,
+      madeInTaiwanConfirmed: true,
+      materialsFromTaiwanConfirmed: true,
+      mitRegistryId: true,
+      originCandidateId: true,
     };
 
     const forbidden =

@@ -52,7 +52,6 @@ type BrandRow = {
   category: string | null
   subcategories: string[] | null
   city: string | null
-  mit_status: string | null
   purchase_website: string | null
   social_instagram: string | null
   social_threads: string | null
@@ -256,7 +255,6 @@ async function main(): Promise<void> {
           <tr><th>Category</th><td><code>${esc(b.category ?? '—')}</code></td></tr>
           <tr><th>Product subcategories</th><td>${(b.subcategories ?? []).length ? (b.subcategories ?? []).map((t) => `<span class="chip">${esc(t)}</span>`).join('') : '<span class="muted">—</span>'}</td></tr>
           <tr><th>City</th><td>${esc(b.city ?? '—')}</td></tr>
-          <tr><th>MIT status</th><td>${esc(b.mit_status ?? '—')}</td></tr>
         </table>
       </div>
       <div class="col">

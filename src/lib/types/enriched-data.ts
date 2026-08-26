@@ -52,6 +52,10 @@ export type CuratedProductProposal = {
   /** The one editorial text field a curated product carries (DEV-1496). */
   productDescriptionZh: string;
   sources: CuratedProductProposalSource[];
+  madeInTaiwanConfirmed?: boolean;
+  materialsFromTaiwanConfirmed?: boolean;
+  mitRegistryId?: number | null;
+  originCandidateId?: string | null;
 };
 
 /**
@@ -66,7 +70,6 @@ export type EnrichedData = {
   blurbEn?: string;
   city?: string;
   reputationSummary?: Json;
-  mitEvidence?: Json;
   siteContent?: Json;
   foundingYear?: number;
   heroImageUrl?: string;
@@ -141,9 +144,6 @@ export function enrichedDataFromDb(
     ...(json.reputation_summary !== undefined
       ? { reputationSummary: json.reputation_summary as Json }
       : {}),
-    ...(json.mit_evidence !== undefined
-      ? { mitEvidence: json.mit_evidence as Json }
-      : {}),
     ...(json.site_content !== undefined
       ? { siteContent: json.site_content as Json }
       : {}),
@@ -211,7 +211,6 @@ export function enrichedDataToDb(data: EnrichedData): Record<string, unknown> {
   if (data.city !== undefined) result.city = data.city;
   if (data.reputationSummary !== undefined)
     result.reputation_summary = data.reputationSummary;
-  if (data.mitEvidence !== undefined) result.mit_evidence = data.mitEvidence;
   if (data.siteContent !== undefined) result.site_content = data.siteContent;
   if (data.foundingYear !== undefined) result.founding_year = data.foundingYear;
   if (data.name !== undefined) result.name = data.name;

@@ -106,7 +106,9 @@ describe("PRODUCTS_SYSTEM_PROMPT", () => {
     // `response_format: {type: "json_object"}` makes a top-level array an illegal
     // reply — asking for one returned an empty object on every call of the
     // DEV-1321 eval. See NAME_ARBITRATION_SCHEMA in name-arbiter.ts.
-    expect(PRODUCTS_SYSTEM_PROMPT).toContain('{"products":[]}');
+    expect(PRODUCTS_SYSTEM_PROMPT).toContain(
+      "沒有任何商品符合條件時仍回傳兩個空陣列",
+    );
     expect(PRODUCTS_SYSTEM_PROMPT).toContain("絕對不可把最外層寫成陣列");
     expect(PRODUCTS_SYSTEM_PROMPT).not.toMatch(/^\[\{/m);
   });

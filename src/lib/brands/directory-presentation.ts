@@ -1,7 +1,6 @@
 import { buildCategoryTabTarget } from "@/components/navigation/category-tab-target";
 import { localizePath } from "@/i18n/locale-preference";
 import type { BrandSortOption } from "@/lib/pagination";
-import type { DirectoryViewFilters } from "@/lib/seo/directory-filters";
 import { routes } from "@/lib/routes";
 
 /**
@@ -9,10 +8,6 @@ import { routes } from "@/lib/routes";
  * filters. `DirectoryView` renders them; nothing here reaches for I/O, so each
  * rule is asserted directly instead of through the component.
  */
-
-type DirectoryVerificationFilter = NonNullable<
-  DirectoryViewFilters["verificationFilter"]
->;
 
 /**
  * The L1 slugs a chip may claim.
@@ -59,7 +54,6 @@ export function shouldEmitDirectoryItemList(input: {
   categorySlugs: readonly string[];
   search: string;
   materials: readonly string[];
-  verificationFilter: DirectoryVerificationFilter;
   page: number;
 }): boolean {
   return (
@@ -67,7 +61,6 @@ export function shouldEmitDirectoryItemList(input: {
     input.categorySlugs.length === 0 &&
     !input.search &&
     input.materials.length === 0 &&
-    input.verificationFilter === "all" &&
     input.page === 1
   );
 }
@@ -84,7 +77,6 @@ export type DirectoryUrlStateInput = {
   subcategorySlugs: readonly string[];
   search: string;
   materials: readonly string[];
-  verificationFilter: DirectoryVerificationFilter;
   sort: BrandSortOption;
 };
 
@@ -124,9 +116,6 @@ export function buildDirectoryUrlState(
   }
   if (input.materials.length > 0)
     normalizedParams.set("material", input.materials.join(","));
-  if (input.verificationFilter !== "all") {
-    normalizedParams.set("verification", input.verificationFilter);
-  }
   if (input.sort !== "random") normalizedParams.set("sort", input.sort);
 
   const facetParams = new URLSearchParams(normalizedParams);

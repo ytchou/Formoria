@@ -583,7 +583,6 @@ const baseReviewData = {
   blurbEn: "Brand summary",
   city: "台中",
   reputationSummary: null,
-  mitEvidence: null,
   siteContent: null,
   foundingYear: 2018,
   heroImageUrl: "https://cdn.example.com/hero.webp",

@@ -56,11 +56,6 @@ function makeBrand(overrides: Partial<Brand> = {}): Brand {
     categorySlug: "home",
     categoryLabel: "居家生活",
     city: "taipei",
-    mitStatus: undefined,
-    mitDeclaredScope: null,
-    mitDeclaredAt: null,
-    mitEvidence: null,
-    mitStory: null,
     isDemo: false,
     foundingYear: 2021,
     reputationSummary: {
@@ -139,7 +134,6 @@ function presetById(id: string): FaqPreset {
 describe("FAQ preset catalog", () => {
   it("every preset id is unique and stable", () => {
     expect(FAQ_PRESETS.map((preset) => preset.id)).toEqual([
-      "taiwan-origin",
       "category-position",
       "main-products",
       "reputation",
@@ -164,8 +158,7 @@ describe("FAQ preset catalog", () => {
     const eligible = eligibleFaqPresets(withoutEvidence).map((item) => item.id);
 
     // Every evidence-gated preset drops out. `custom` carries no
-    // `requiredEvidence` and is the only survivor; taiwan-origin still needs
-    // an actual MIT verification before its template floor can render.
+    // `requiredEvidence` and is the only survivor.
     expect(eligible).toEqual(["custom"]);
     for (const item of FAQ_PRESETS) {
       if (item.requiredEvidence.length === 0) continue;
@@ -290,23 +283,6 @@ describe("FAQ preset catalog", () => {
     expect(FAQ_PROMPT_PREAMBLE).toContain("禁止商業交易資訊");
     expect(FAQ_PROMPT_PREAMBLE).toContain("庫存");
     expect(FAQ_PROMPT_PREAMBLE).toContain("配送");
-  });
-
-  it("taiwan-origin template floor requires verified MIT status", () => {
-    const preset = presetById("taiwan-origin");
-
-    expect(preset.id).toBe("taiwan-origin");
-    expect(
-      preset.eligible(
-        makeContext({ brand: makeBrand({ mitStatus: "verified" }) }),
-      ),
-    ).toBe(true);
-
-    for (const mitStatus of [undefined, "unverified", "declared"] as const) {
-      expect(
-        preset.eligible(makeContext({ brand: makeBrand({ mitStatus }) })),
-      ).toBe(false);
-    }
   });
 
   it("assembled prompt contains only eligible fragments", () => {

@@ -1016,13 +1016,6 @@ export type Database = {
           id: string
           is_demo: boolean
           material: string[]
-          mit_declared_at: string | null
-          mit_declared_by: string | null
-          mit_declared_scope: string | null
-          mit_evidence: Json | null
-          mit_status: string
-          mit_story: string | null
-          mit_verified_at: string | null
           model_faq_count: number
           name: string
           onboarding_dismissed_at: string | null
@@ -1067,13 +1060,6 @@ export type Database = {
           id?: string
           is_demo?: boolean
           material?: string[]
-          mit_declared_at?: string | null
-          mit_declared_by?: string | null
-          mit_declared_scope?: string | null
-          mit_evidence?: Json | null
-          mit_status?: string
-          mit_story?: string | null
-          mit_verified_at?: string | null
           model_faq_count?: number
           name: string
           onboarding_dismissed_at?: string | null
@@ -1118,13 +1104,6 @@ export type Database = {
           id?: string
           is_demo?: boolean
           material?: string[]
-          mit_declared_at?: string | null
-          mit_declared_by?: string | null
-          mit_declared_scope?: string | null
-          mit_evidence?: Json | null
-          mit_status?: string
-          mit_story?: string | null
-          mit_verified_at?: string | null
           model_faq_count?: number
           name?: string
           onboarding_dismissed_at?: string | null
@@ -1343,6 +1322,11 @@ export type Database = {
           gate_result: string
           id: string
           image_url: string | null
+          deterministic_origin_assessment: Json | null
+          llm_origin_assessment: Json | null
+          registry_origin_assessment: Json | null
+          mit_qualified: boolean | null
+          qualification_method: string | null
           job_id: string | null
           llm_rationale: string | null
           llm_score: number | null
@@ -1361,6 +1345,11 @@ export type Database = {
           gate_result: string
           id?: string
           image_url?: string | null
+          deterministic_origin_assessment?: Json | null
+          llm_origin_assessment?: Json | null
+          registry_origin_assessment?: Json | null
+          mit_qualified?: boolean | null
+          qualification_method?: string | null
           job_id?: string | null
           llm_rationale?: string | null
           llm_score?: number | null
@@ -1379,6 +1368,11 @@ export type Database = {
           gate_result?: string
           id?: string
           image_url?: string | null
+          deterministic_origin_assessment?: Json | null
+          llm_origin_assessment?: Json | null
+          registry_origin_assessment?: Json | null
+          mit_qualified?: boolean | null
+          qualification_method?: string | null
           job_id?: string | null
           llm_rationale?: string | null
           llm_score?: number | null
@@ -1506,6 +1500,10 @@ export type Database = {
           link_checked_at: string | null
           link_state: string
           material: string[]
+          made_in_taiwan_confirmed: boolean
+          materials_from_taiwan_confirmed: boolean
+          mit_registry_id: number | null
+          origin_candidate_id: string | null
           name_en: string | null
           name_zh: string
           official_url: string | null
@@ -1532,6 +1530,10 @@ export type Database = {
           link_checked_at?: string | null
           link_state?: string
           material?: string[]
+          made_in_taiwan_confirmed?: boolean
+          materials_from_taiwan_confirmed?: boolean
+          mit_registry_id?: number | null
+          origin_candidate_id?: string | null
           name_en?: string | null
           name_zh: string
           official_url?: string | null
@@ -1558,6 +1560,10 @@ export type Database = {
           link_checked_at?: string | null
           link_state?: string
           material?: string[]
+          made_in_taiwan_confirmed?: boolean
+          materials_from_taiwan_confirmed?: boolean
+          mit_registry_id?: number | null
+          origin_candidate_id?: string | null
           name_en?: string | null
           name_zh?: string
           official_url?: string | null
@@ -1577,6 +1583,20 @@ export type Database = {
             columns: ["brand_id"]
             isOneToOne: false
             referencedRelation: "brands"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "curated_products_mit_registry_id_fkey"
+            columns: ["mit_registry_id"]
+            isOneToOne: false
+            referencedRelation: "mit_registry"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "curated_products_origin_candidate_id_fkey"
+            columns: ["origin_candidate_id"]
+            isOneToOne: false
+            referencedRelation: "curated_product_candidates"
             referencedColumns: ["id"]
           },
         ]
@@ -2369,8 +2389,12 @@ export type Database = {
           company_name: string | null
           id: number
           industry_type: string | null
+          normalized_brand: string
+          normalized_model: string
+          normalized_product: string
           product_model: string | null
           product_name: string | null
+          record_key: string
           synced_at: string
           valid_until: string | null
         }
@@ -2380,8 +2404,12 @@ export type Database = {
           company_name?: string | null
           id?: number
           industry_type?: string | null
+          normalized_brand: string
+          normalized_model: string
+          normalized_product: string
           product_model?: string | null
           product_name?: string | null
+          record_key: string
           synced_at?: string
           valid_until?: string | null
         }
@@ -2391,8 +2419,12 @@ export type Database = {
           company_name?: string | null
           id?: number
           industry_type?: string | null
+          normalized_brand?: string
+          normalized_model?: string
+          normalized_product?: string
           product_model?: string | null
           product_name?: string | null
+          record_key?: string
           synced_at?: string
           valid_until?: string | null
         }
@@ -2501,62 +2533,6 @@ export type Database = {
           unsubscribed_at?: string | null
         }
         Relationships: []
-      }
-      origin_evidence: {
-        Row: {
-          brand_id: string
-          created_at: string
-          id: string
-          notes: string
-          photo_paths: string[]
-          product_name: string | null
-          reviewed_at: string | null
-          reviewed_by: string | null
-          reviewer_notes: string | null
-          source_type: string
-          stance: string
-          status: string
-          user_id: string
-        }
-        Insert: {
-          brand_id: string
-          created_at?: string
-          id?: string
-          notes: string
-          photo_paths?: string[]
-          product_name?: string | null
-          reviewed_at?: string | null
-          reviewed_by?: string | null
-          reviewer_notes?: string | null
-          source_type: string
-          stance: string
-          status?: string
-          user_id: string
-        }
-        Update: {
-          brand_id?: string
-          created_at?: string
-          id?: string
-          notes?: string
-          photo_paths?: string[]
-          product_name?: string | null
-          reviewed_at?: string | null
-          reviewed_by?: string | null
-          reviewer_notes?: string | null
-          source_type?: string
-          stance?: string
-          status?: string
-          user_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "origin_evidence_brand_id_fkey"
-            columns: ["brand_id"]
-            isOneToOne: false
-            referencedRelation: "brands"
-            referencedColumns: ["id"]
-          },
-        ]
       }
       owner_email_preferences: {
         Row: {

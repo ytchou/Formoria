@@ -52,7 +52,7 @@ export default async function FaqPage({ params }: PageProps) {
     'taiwaneseBrandCriteria',
     'notListedBrands',
     'whoCanSubmit',
-    'whatDoesMitMean',
+    'madeInTaiwanBadge',
     'howToSubmit',
     'reviewTime',
     'dataAccuracy',

@@ -1,0 +1,80 @@
+{
+  "findings": [
+    {
+      "severity": "Important",
+      "file": "src/lib/services/curated-products/candidate-selection.ts",
+      "line": "331",
+      "description": "Duplicate supplier URLs reused one candidate primary key.",
+      "failure_scenario": "The stored-image and scraper suppliers return the same product URL -> both audit rows receive one UUID -> the batch insert fails and every finalist loses origin qualification.",
+      "flagged_by": "Angle C",
+      "status": "valid"
+    },
+    {
+      "severity": "Important",
+      "file": "supabase/migrations/20260826170000_remove_brand_origin.sql",
+      "line": "108",
+      "description": "The removal migration deleted evidence objects instead of enforcing the empty-bucket precondition.",
+      "failure_scenario": "The production bucket unexpectedly contains an object -> deployment silently destroys evidence even though the accepted plan authorizes dropping only an empty bucket.",
+      "flagged_by": "Angle B",
+      "status": "valid"
+    },
+    {
+      "severity": "Important",
+      "file": "e2e/tests/mit-verification.spec.ts",
+      "line": "120",
+      "description": "The trail fixture selected the first returned sibling instead of the qualified target.",
+      "failure_scenario": "PostgREST returns the two inserted sibling products in a different order -> the unqualified sibling is placed on the trail -> the qualified-product journey fails nondeterministically.",
+      "flagged_by": "Test Quality",
+      "status": "valid"
+    },
+    {
+      "severity": "Important",
+      "file": "src/lib/services/enrich-phases/products.ts",
+      "line": "808",
+      "description": "Off-host audit candidates could consume the 25-candidate ceiling before official pages.",
+      "failure_scenario": "Google image provenance supplies 25 marketplace URLs with better positions and the scraper supplies official product pages -> slicing before host priority removes every official page and the products phase publishes nothing.",
+      "flagged_by": "Angle A",
+      "status": "valid"
+    },
+    {
+      "severity": "Important",
+      "file": "src/lib/directory-filter-url.ts",
+      "line": "41",
+      "description": "Retired verification query state survived ordinary filter updates and stale SEO/cache contracts.",
+      "failure_scenario": "A visitor opens a legacy verification-filter URL and changes another facet -> the retired parameter remains in the URL and disagrees with the parser, canonical, and cache vocabulary.",
+      "flagged_by": "Removed Behavior Auditor",
+      "status": "valid"
+    },
+    {
+      "severity": "Minor",
+      "file": "src/lib/services/service-registry.ts",
+      "line": "194",
+      "description": "An unrelated DeepSeek service was accidentally activated while restoring the MIT registry entry.",
+      "failure_scenario": "Operational inventory consumers read the branch -> a dormant provider appears as an active production dependency, creating a false health and ownership signal.",
+      "flagged_by": "Plan Alignment",
+      "status": "valid"
+    },
+    {
+      "severity": "Minor",
+      "file": "src/app/api/cron/sync-mit-registry/route.ts",
+      "line": "16",
+      "description": "The new cron route returned a 500 without reporting the exception to error tracking.",
+      "failure_scenario": "A registry download or database write fails in production -> the cron caller sees 500 but Sentry receives no exception, delaying detection beyond the weekly freshness budget.",
+      "flagged_by": "Conventions",
+      "status": "valid"
+    }
+  ],
+  "active_lenses": [
+    "Angle A",
+    "Angle B",
+    "Angle C",
+    "Angle D",
+    "Angle E",
+    "Plan Alignment",
+    "Test Quality",
+    "Design Quality",
+    "Dead Code",
+    "Altitude",
+    "Conventions"
+  ]
+}

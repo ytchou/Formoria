@@ -160,7 +160,7 @@ function checkContactInjection(
 ): ContentViolation[] {
   const violations: ContentViolation[] = [];
 
-  for (const fieldName of ["description", "mitStory"]) {
+  for (const fieldName of ["description"]) {
     const value = fields[fieldName];
 
     if (!value) {

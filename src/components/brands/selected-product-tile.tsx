@@ -24,11 +24,14 @@ import { BrandImageFallback } from "./brand-image-fallback";
 import { SelectedProductTileLink } from "./selected-product-tile-link";
 import { SelectedProductExternalLink } from "./selected-product-external-link";
 import { routes } from "@/lib/routes";
+import { Badge } from "@/components/ui/badge";
+import { ShieldCheck } from "lucide-react";
 
 export type SelectedProductTileLabels = {
   cta: string;
   brandSiteCta: string;
   unavailable: string;
+  madeInTaiwan?: string;
 };
 
 export type SelectedProductTileProps = {
@@ -200,6 +203,16 @@ export function SelectedProductTile({
     "[@media(hover:hover)]:sm:group-hover:opacity-100",
     "[@media(hover:hover)]:sm:group-focus-within:opacity-100",
   );
+  const originBadge = product.mitQualified && labels.madeInTaiwan ? (
+    <Badge
+      variant="verified"
+      className="absolute top-3 left-3 z-20"
+      aria-label={labels.madeInTaiwan}
+    >
+      <ShieldCheck aria-hidden />
+      {labels.madeInTaiwan}
+    </Badge>
+  ) : null;
 
   const wallContent = (
     <div className="relative flex h-full flex-col">
@@ -234,6 +247,7 @@ export function SelectedProductTile({
             size="card"
           />
         )}
+        {originBadge}
         {/* No selection badge here. The whole wall IS the selection — the section
             heading says so once — so a per-tile label repeated 32 times adds
             no information and breaks the sheet of photographs. The trust
@@ -319,6 +333,7 @@ export function SelectedProductTile({
             size="card"
           />
         )}
+        {originBadge}
       </div>
 
       <div className="flex flex-1 flex-col gap-2 p-4">

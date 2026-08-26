@@ -9,7 +9,6 @@ import {
   trackCategoryFilterApplied,
   trackFilterCleared,
   trackSubcategoryFilterApplied,
-  trackVerificationFilterApplied,
 } from "@/lib/analytics";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -17,7 +16,6 @@ import { buttonVariants } from "@/components/ui/button";
 import { SurfaceCard } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
-import { Radio } from "@/components/ui/radio";
 import { Separator } from "@/components/ui/separator";
 import {
   Sheet,
@@ -28,7 +26,6 @@ import {
   SheetTitle,
   SheetTrigger,
 } from "@/components/ui/sheet";
-import type { BrandFilters } from "@/lib/types";
 import {
   clearDirectoryFilters,
   updateDirectoryUrl,
@@ -37,8 +34,6 @@ import { DirectoryFilterToken } from "./directory-filter-token";
 import { SearchInput } from "./search-input";
 import type { ActiveDirectoryFilter } from "./search-empty-state";
 import { buildCategoryTabTarget } from "@/components/navigation/category-tab-target";
-
-type VerificationFilterValue = NonNullable<BrandFilters["verificationFilter"]>;
 
 type CategoryOption = {
   slug: string;
@@ -84,10 +79,6 @@ type BrandFilterDrawerProps = BrandFilterSidebarProps & {
   totalCount: number;
 };
 
-const verificationOptions: VerificationFilterValue[] = [
-  "all",
-  "mit-declared",
-];
 const filterOptionClassName =
   "flex min-h-12 cursor-pointer items-center gap-2 rounded-control px-2 type-body-sm transition-colors hover:bg-surface hover:text-ink";
 
@@ -170,7 +161,6 @@ export function BrandFilterSidebar({
 }: BrandFilterSidebarProps) {
   const locale = useLocale();
   const t = useTranslations("brands.filters");
-  const verificationT = useTranslations("brands.verificationFilter");
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -183,11 +173,6 @@ export function BrandFilterSidebar({
       ),
     [activeCategorySlugs, searchParams],
   );
-  const activeVerification = (
-    searchParams.get("verification") === "mit-declared"
-      ? searchParams.get("verification")
-      : "all"
-  ) as VerificationFilterValue;
   const activeSubcategories = new Set(activeSubSlugs);
   // The server-validated list, and only that: `parseDirectoryViewFilters`
   // drops any value outside the closed 12-slug vocabulary, so reading
@@ -228,18 +213,6 @@ export function BrandFilterSidebar({
           ? router.replace
           : router.push;
       navigate(target.routerPath, { scroll: false });
-    });
-  }
-
-  function setVerification(value: VerificationFilterValue) {
-    trackVerificationFilterApplied(value);
-    startTransition(() => {
-      router.replace(
-        updateDirectoryUrl(pathname, searchParams, {
-          verification: value === "all" ? null : value,
-        }),
-        { scroll: false },
-      );
     });
   }
 
@@ -485,56 +458,8 @@ export function BrandFilterSidebar({
           </>
         ) : null}
 
-        <Separator />
-
-        <FilterSection title={t("brandStatus")}>
-          <div
-            role="radiogroup"
-            aria-label={t("brandStatus")}
-            className="space-y-1"
-          >
-            {verificationOptions.map((value) => (
-              <FilterRadio
-                key={value}
-                name="brand-verification"
-                checked={activeVerification === value}
-                label={verificationT(value)}
-                onChange={() => setVerification(value)}
-              />
-            ))}
-          </div>
-        </FilterSection>
       </div>
     </SurfaceCard>
-  );
-}
-
-function FilterRadio({
-  name,
-  checked,
-  label,
-  onChange,
-}: {
-  name: string;
-  checked: boolean;
-  label: string;
-  onChange: () => void;
-}) {
-  return (
-    <Label
-      className={cn(
-        filterOptionClassName,
-        checked && "bg-accent/10 font-medium text-accent",
-      )}
-    >
-      <Radio
-        name={name}
-        checked={checked}
-        onChange={onChange}
-        data-ph-no-autocapture
-      />
-      <span>{label}</span>
-    </Label>
   );
 }
 

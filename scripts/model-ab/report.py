@@ -105,7 +105,7 @@ FIELD_ORDER = [
     "name", "slug", "category", "subcategories", "subcategories_en",
     "city", "founding_year",
     "blurb", "blurb_en", "description", "description_en",
-    "mit_evidence", "reputation_summary", "channels",
+    "reputation_summary", "channels",
     "purchase_website", "purchase_pinkoi", "purchase_shopee",
     "social_instagram", "social_threads", "social_facebook",
 ]

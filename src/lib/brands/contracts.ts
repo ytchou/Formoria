@@ -1,7 +1,6 @@
 import type {
   Brand,
   BrandImageMeta,
-  MitStatus,
   OtherUrl,
   ReputationSummary,
 } from "@/lib/types/brand";
@@ -27,7 +26,6 @@ export type PublicBrandCard = {
   status: "approved" | "hidden";
   categorySlug?: string | null;
   categoryLabel: string | null;
-  mitStatus?: MitStatus;
   subcategories: string[];
   subcategoriesEn: string[];
   foundingYear: number | null;
@@ -43,9 +41,6 @@ export type PublicBrandDetail = PublicBrandCard &
     socialThreads: string | null;
     socialFacebook: string | null;
     otherUrls: OtherUrl[];
-    mitStory: string | null;
-    /** The certificate number is public; the evidence object is not. */
-    mitCertificateNumber: string | null;
     imageAlts: BrandImageMeta[];
     heroImageMetadata: Brand["heroImageMetadata"];
   };
@@ -71,9 +66,6 @@ export type PublicBrandFaqContext = {
   subcategoriesEn: string[];
   foundingYear: number | null;
   reputationSummary?: ReputationSummary | null;
-  mitStatus?: MitStatus;
-  mitDeclaredScope?: "all" | "most" | "some" | null;
-  mitStory?: string | null;
 };
 
 export type AdminBrandListItem = {
@@ -85,8 +77,6 @@ export type AdminBrandListItem = {
   categoryLabel: string | null;
   createdAt: string;
   updatedAt: string;
-  mitStatus?: MitStatus;
-  mitCertificateNumber?: string | null;
   description?: string | null;
   descriptionEn?: string | null;
   blurb?: string | null;
@@ -96,7 +86,6 @@ export type AdminBrandListItem = {
   heroImageUrl?: string | null;
   foundingYear?: number | null;
   reputationSummary?: ReputationSummary | null;
-  mitEvidence?: Brand["mitEvidence"];
   siteContent?: unknown | null;
   subcategories?: string[];
   subcategoriesEn?: string[];
@@ -124,7 +113,6 @@ export function toPublicBrandCard(brand: Brand): PublicBrandCard {
     status: brand.status,
     categorySlug: brand.categorySlug ?? null,
     categoryLabel: brand.categoryLabel,
-    mitStatus: brand.mitStatus ?? "unverified",
     subcategories: [...brand.subcategories],
     subcategoriesEn: [...brand.subcategoriesEn],
     foundingYear: brand.foundingYear,
@@ -150,9 +138,6 @@ export function toPublicBrandFaqContext(brand: Brand): PublicBrandFaqContext {
       : [],
     foundingYear: brand.foundingYear,
     reputationSummary: brand.reputationSummary ?? null,
-    mitStatus: brand.mitStatus ?? "unverified",
-    mitDeclaredScope: brand.mitDeclaredScope ?? null,
-    mitStory: brand.mitStory ?? null,
   };
 }
 
@@ -170,7 +155,6 @@ export function normalizePublicBrandCard(
   return {
     ...brand,
     categorySlug: brand.categorySlug ?? null,
-    mitStatus: brand.mitStatus ?? "unverified",
     subcategories: Array.isArray(brand.subcategories)
       ? [...brand.subcategories]
       : [],
@@ -204,8 +188,6 @@ export function toPublicBrandDetail(brand: Brand): PublicBrandDetail {
       label: link.label,
       url: link.url,
     })),
-    mitStory: brand.mitStory ?? null,
-    mitCertificateNumber: brand.mitEvidence?.mit_smile_cert ?? null,
     /*
      * The detail projection carries image provenance; the card projection above
      * deliberately does not.
@@ -235,8 +217,6 @@ export function toAdminBrandListItem(brand: Brand): AdminBrandListItem {
     categoryLabel: brand.categoryLabel,
     createdAt: brand.createdAt,
     updatedAt: brand.updatedAt,
-    mitStatus: brand.mitStatus ?? "unverified",
-    mitCertificateNumber: brand.mitEvidence?.mit_smile_cert ?? null,
     description: brand.description,
     descriptionEn: brand.descriptionEn,
     blurb: brand.blurb,
@@ -246,7 +226,6 @@ export function toAdminBrandListItem(brand: Brand): AdminBrandListItem {
     heroImageUrl: brand.heroImageUrl,
     foundingYear: brand.foundingYear,
     reputationSummary: brand.reputationSummary ?? null,
-    mitEvidence: brand.mitEvidence ?? null,
     siteContent: brand.siteContent ?? null,
     subcategories: [...brand.subcategories],
     subcategoriesEn: [...brand.subcategoriesEn],

@@ -37,8 +37,7 @@ export async function seedBrand(opts: {
   onlineStore?: "website" | "myship";
   /**
    * Seed the brand evidence the FAQ presets gate their template floors on, so
-   * a fixture renders several FAQ items. `taiwan-origin` requires a verified
-   * `mit_status` and is intentionally absent from this declared fixture:
+   * a fixture renders several FAQ items:
    *   - `main-products`  — needs `subcategories` (and `subcategories_en` for /en).
    *   - `reputation`     — needs `reputation_summary.text`; deliberately left
    *     unseeded, since no e2e journey asserts on it and it is the one field
@@ -46,7 +45,7 @@ export async function seedBrand(opts: {
    *   - `custom`         — model-authored only, no template floor to seed for.
    *
    * Opt-in and default-off on purpose: many specs share `seedBrand`, and these
-   * columns change the rendered header badge and subcategories.
+   * columns change the rendered subcategories.
    */
   withFaqEvidence?: boolean;
 }): Promise<SeededBrand> {
@@ -66,11 +65,6 @@ export async function seedBrand(opts: {
   };
 
   if (opts.withFaqEvidence) {
-    // 'declared' (not 'verified') intentionally suppresses the taiwan-origin
-    // template floor; a self-declaration needs no registry match, so the
-    // fixture stays valid without seeding MIT registry rows.
-    brandData.mit_status = "declared";
-    brandData.mit_declared_scope = "all";
     // Slugs, not zh-TW labels: DEV-1510 made `subcategories` slug-native and
     // closed the vocabulary, so `approve_submission` now raises on any string
     // that resolves to no slug, alias or recorded removal. Both are home-native

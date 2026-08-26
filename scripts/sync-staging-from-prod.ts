@@ -236,6 +236,7 @@ export const KNOWN_COLUMNS: Record<CopyTable, readonly string[]> = {
     "name",
     "romanized_name",
     "status",
+    "hidden_reason",
     "source",
     "is_demo",
     "description",
@@ -260,13 +261,6 @@ export const KNOWN_COLUMNS: Record<CopyTable, readonly string[]> = {
     "social_threads",
     "reputation_summary",
     "site_content",
-    "mit_status",
-    "mit_story",
-    "mit_evidence",
-    "mit_declared_at",
-    "mit_declared_by",
-    "mit_declared_scope",
-    "mit_verified_at",
     "model_faq_count",
     "seo_promoted",
     "search_vector",
@@ -353,6 +347,7 @@ export const KNOWN_COLUMNS: Record<CopyTable, readonly string[]> = {
   brand_slug_redirects: ["old_slug", "new_slug", "created_at"],
   mit_registry: [
     "id",
+    "record_key",
     "cert_number",
     "brand_name",
     "company_name",
@@ -361,6 +356,9 @@ export const KNOWN_COLUMNS: Record<CopyTable, readonly string[]> = {
     "industry_type",
     "valid_until",
     "synced_at",
+    "normalized_brand",
+    "normalized_product",
+    "normalized_model",
   ],
 };
 
@@ -410,7 +408,6 @@ export const TABLE_POLICIES: Record<CopyTable, TablePolicy> = {
   // without the FAQ rows feeds a lie straight into `seo_promoted` and into
   // sitemap membership.
   //
-  // `mit_declared_by` is a uuid FK to `auth.users` and hard-fails the insert.
   // `contact_email` is owner PII. `draft_*` and `onboarding_dismissed_at`
   // belong to a claimed owner's session, and copied brands stay unclaimed.
   brands: {
@@ -418,7 +415,6 @@ export const TABLE_POLICIES: Record<CopyTable, TablePolicy> = {
     omit: ["id", "seo_promoted", "search_vector", "model_faq_count"],
     nullify: [
       "contact_email",
-      "mit_declared_by",
       "draft_data",
       "draft_updated_at",
       "onboarding_dismissed_at",
@@ -472,7 +468,7 @@ export const TABLE_POLICIES: Record<CopyTable, TablePolicy> = {
     batchSize: 500,
   },
   mit_registry: {
-    onConflict: "cert_number",
+    onConflict: "record_key",
     omit: ["id"],
     nullify: [],
     brandIdColumn: null,
@@ -680,8 +676,6 @@ export type SelectionCandidate = {
   category: string | null;
   city: string | null;
   model_faq_count: number;
-  mit_status: string;
-  mit_evidence: unknown;
   description: string | null;
   purchase_website: string | null;
   purchase_pinkoi: string | null;
@@ -695,7 +689,6 @@ export type SelectionCandidate = {
 
 export type SelectionCoverage = {
   faqZero: number;
-  mitVerified: number;
   eventBrands: number;
   redirectTargets: number;
   seoPromotedFalse: number;
@@ -777,7 +770,7 @@ export const COVERAGE_FLOORS = {
  * already holds them and leaving one behind would leave a fixture stub sitting
  * next to fully populated neighbours. Coverage forcing comes second, before
  * any proportional filling, because the shapes it protects — a brand with zero
- * FAQ entries, a verified MIT brand, a redirect target — are rare enough that
+ * FAQ entries and redirect targets — are rare enough that
  * a proportional draw reliably misses them. The quota fill gets whatever
  * budget is left, which is what keeps staging's category mix recognisably
  * production's.
@@ -815,10 +808,6 @@ export function planBrandSelection(input: {
   }
 
   // 2. Coverage floors, in descending order of scarcity.
-  for (const brand of ordered) {
-    if (brand.mit_status === "verified") take(brand);
-  }
-
   const faqZeroTypes = new Set(
     [...selected.values()]
       .filter((brand) => brand.model_faq_count === 0)
@@ -913,8 +902,6 @@ export function planBrandSelection(input: {
       pinnedMissingFromProduction,
       coverage: {
         faqZero: chosen.filter((brand) => brand.model_faq_count === 0).length,
-        mitVerified: chosen.filter((brand) => brand.mit_status === "verified")
-          .length,
         eventBrands: chosen.filter((brand) => brand.isEventBrand).length,
         redirectTargets: chosen.filter((brand) => brand.isRedirectTarget)
           .length,
@@ -1271,26 +1258,6 @@ export function planSlugRedirects(
   }
 
   return { rows, skippedOldSlugs };
-}
-
-/**
- * `mit_registry` has no brand key at all. The only sound link is the cert
- * number a verified brand already stores in `mit_evidence.mit_smile_cert`,
- * which is what `verifyMitByCert` matches on. Fuzzy name matching would be the
- * obvious alternative and is deliberately not built: the table has no public
- * read path, so a wrong match buys nothing and a missing row costs nothing.
- */
-export function planMitRegistryCerts(prodBrands: Row[]): string[] {
-  const certs = new Set<string>();
-  for (const brand of prodBrands) {
-    const evidence = brand.mit_evidence;
-    if (!isRecord(evidence)) continue;
-    const cert = evidence.mit_smile_cert;
-    if (typeof cert !== "string") continue;
-    const trimmed = cert.trim();
-    if (trimmed) certs.add(trimmed);
-  }
-  return [...certs].sort();
 }
 
 // ---------------------------------------------------------------------------
@@ -1843,8 +1810,6 @@ const SELECTION_BRAND_COLUMNS = [
   "category",
   "city",
   "model_faq_count",
-  "mit_status",
-  "mit_evidence",
   "description",
   "purchase_website",
   "purchase_pinkoi",
@@ -1922,8 +1887,6 @@ async function runSelect(argv: string[]): Promise<void> {
     category: (row.category as string | null) ?? null,
     city: (row.city as string | null) ?? null,
     model_faq_count: Number(row.model_faq_count ?? 0),
-    mit_status: String(row.mit_status ?? ""),
-    mit_evidence: row.mit_evidence,
     description: (row.description as string | null) ?? null,
     purchase_website: (row.purchase_website as string | null) ?? null,
     purchase_pinkoi: (row.purchase_pinkoi as string | null) ?? null,
@@ -2016,7 +1979,7 @@ const DIFF_LOOKUP_COLUMN: Record<CopyTable, string> = {
   brand_channels: "brand_id",
   event_brands: "brand_id",
   brand_slug_redirects: "old_slug",
-  mit_registry: "cert_number",
+  mit_registry: "record_key",
 };
 
 /** Staging rows in scope for a planned batch, for the dry-run diff. */
@@ -2258,18 +2221,12 @@ async function runSync(argv: string[]): Promise<void> {
     slugs,
     ["old_slug"],
   );
-  const certs = planMitRegistryCerts(prodBrands);
-  const prodRegistry =
-    certs.length > 0
-      ? await readByValues<Row>(
-          production.client,
-          "mit_registry",
-          "*",
-          "cert_number",
-          certs,
-          ["cert_number"],
-        )
-      : [];
+  const prodRegistry = await readTable<Row>(
+    production.client,
+    "mit_registry",
+    "*",
+    ["record_key"],
+  );
 
   const copied = new Map<string, number>();
   const planned = new Map<string, number>();

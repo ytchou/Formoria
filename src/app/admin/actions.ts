@@ -48,12 +48,6 @@ import {
   type CorrectionBatchFailure,
   type CorrectionDecision,
 } from '@/lib/services/brand-corrections'
-import {
-  reviewEvidenceBatch,
-  validateEvidenceBatch,
-  type EvidenceBatchFailure,
-  type OriginEvidenceDecision,
-} from '@/lib/services/origin-evidence'
 import { reviewCommunityStockist } from '@/lib/services/stockists'
 import { logAdminAction } from '@/lib/services/admin-audit'
 import {
@@ -478,42 +472,6 @@ export async function reviewCorrectionsAction(
   })
 }
 
-export async function reviewEvidenceBatchAction(
-  evidenceIds: string[],
-  decision: OriginEvidenceDecision,
-  notes: string,
-): Promise<{ failures: EvidenceBatchFailure[] } | { error: string }> {
-  return runWithAuditContext({}, async () => {
-    try {
-      const auth = await requireAdminAction()
-      if ('error' in auth) return auth
-
-      const validated = validateEvidenceBatch(evidenceIds)
-      if (!validated.ok) return { error: validated.error }
-
-      if (decision !== 'approved' && decision !== 'rejected') {
-        return { error: 'Invalid evidence decision' }
-      }
-
-      const result = await reviewEvidenceBatch(
-        validated.ids,
-        decision,
-        notes,
-        { reviewerId: auth.user.id }
-      )
-      if ('error' in result) return result
-
-      revalidatePath(routes.admin.evidence())
-      revalidatePath(routes.admin.index())
-      return result
-    } catch (err) {
-      console.error('[admin:reviewEvidenceBatch]', err)
-      return {
-        error: err instanceof Error ? err.message : 'An unexpected error occurred',
-      }
-    }
-  })
-}
 
 export async function requestBrandRefreshAction(
   brandId: string
@@ -624,7 +582,7 @@ async function commitSubmissionRejection(
  * The notification half. `sendEmail` NEVER throws — it catches internally and
  * returns `{ success: false, error }` — so a discarded return value silently
  * drops the submitter's notification while the caller reports success. Mirrors
- * the explicit result check in `@/lib/services/origin-evidence`.
+ * the explicit result check used by other notification flows.
  *
  * Never throws and never reports a failure upward: the row is already
  * committed, and turning an undelivered email into a "rejection failed" row
@@ -751,8 +709,8 @@ export async function rejectSubmissionAction(
  * `submission_images`, and never touches `brands`. Two rejections of two
  * submissions for the same brand therefore cannot contend — unlike
  * `reviewCorrections`, which has to group per `brand_id` because it writes
- * through to `brands`. Flat concurrency is safe here for the same reason it is
- * in `reviewEvidenceBatch`.
+ * through to `brands`. Flat concurrency is safe because these rows do not
+ * share a write set.
  */
 export async function rejectSubmissionsAction(
   submissionIds: string[],
@@ -1159,4 +1117,3 @@ export async function reviewModerationFlagAction(
     }
   });
 }
-

@@ -178,6 +178,14 @@ export const EXCLUDED_SOURCE_FILES = new Map([
   ],
   ["lib/services/enrich-phases/scraper/search.ts", "search-query keywords"],
   ["lib/services/enrich-phases/discover.ts", "search-query keywords"],
+  [
+    "lib/services/mit-registry.ts",
+    "government registry CSV field names, never rendered",
+  ],
+  [
+    "lib/services/curated-products/origin-qualification.ts",
+    "machine-readable origin evidence regexes, never rendered",
+  ],
   ["lib/services/enrich-phases/image-search.ts", "search-query keywords"],
   ["lib/services/enrich-phases/detect.ts", "SEO keyword constants"],
   ["lib/services/curation-operations.ts", "SERP query string"],

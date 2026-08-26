@@ -30,6 +30,7 @@ export async function CuratedProductGrid({
     cta: t("selectedProducts.productCta"),
     brandSiteCta: t("selectedProducts.brandSiteCta"),
     unavailable: t("selectedProducts.unavailable"),
+    madeInTaiwan: t("selectedProducts.madeInTaiwan"),
   };
 
   return (

@@ -83,6 +83,9 @@ const ALLOWLIST = [
   "lib/services/enrich-phases/detect.ts",
   // SERP query string uses Chinese keyword '台灣' (not UI copy).
   "lib/services/curation-operations.ts",
+  // Registry field names and origin regexes are machine-readable evidence, not UI copy.
+  "lib/services/mit-registry.ts",
+  "lib/services/curated-products/origin-qualification.ts",
   // Submission deduplication comments document production names, not rendered copy.
   "lib/services/submissions.ts",
   // Transitional: real messages come from the i18n factory; static fallback map

@@ -55,6 +55,7 @@ const labels = {
   cta: "Visit product",
   brandSiteCta: "Visit brand site",
   unavailable: "Link unavailable",
+  madeInTaiwan: "Made in Taiwan",
 };
 
 function buildProduct(overrides: Partial<CuratedProduct> = {}): CuratedProduct {
@@ -82,6 +83,7 @@ function buildProduct(overrides: Partial<CuratedProduct> = {}): CuratedProduct {
     trailSlug: null,
     sectionKey: null,
     position: 0,
+    mitQualified: false,
     ...overrides,
   };
 }

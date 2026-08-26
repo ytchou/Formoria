@@ -11,7 +11,6 @@ import { BRAND_IMAGES_KEY_PREFIX } from '@/lib/images/storage-keys'
  */
 export const ALLOWED_UPLOAD_BUCKETS = [
   'brand-images',
-  'origin-evidence',
 ] as const
 export type AllowedUploadBucket = (typeof ALLOWED_UPLOAD_BUCKETS)[number]
 const BRAND_IMAGES_BUCKET = ALLOWED_UPLOAD_BUCKETS[0]
@@ -43,9 +42,6 @@ interface UploadImageInput {
 type PublicUploadImageInput = UploadImageInput & {
   bucket: 'brand-images'
   upsert?: boolean
-}
-type PrivateUploadImageInput = UploadImageInput & {
-  bucket: 'origin-evidence'
 }
 export type PrivateUploadFileInput = Omit<UploadImageInput, 'bucket'> & {
   bucket: 'run-logs'
@@ -295,17 +291,6 @@ async function uploadStorageObject(input: UploadImageInput | PrivateUploadFileIn
   return data.path
 }
 
-export async function uploadPrivateImage(input: PrivateUploadImageInput): Promise<{ key: string }> {
-  return auditedCall(
-    { provider: 'images', operation: 'uploadPrivateImage', kind: 'service' },
-    async () => {
-  const path = await uploadStorageObject(input)
-
-  return { key: `${input.bucket}/${path}` }
-    },
-  )
-}
-
 export async function uploadPrivateFile(input: PrivateUploadFileInput): Promise<{ key: string }> {
   return auditedCall(
     { provider: 'images', operation: 'uploadPrivateFile', kind: 'service' },
@@ -324,7 +309,7 @@ export async function uploadPrivateFile(input: PrivateUploadFileInput): Promise<
  * URL is a dead link — every caller either stores the key (`storage_path`) or
  * renders it through `imagePathToUrl`. The name is kept because the bucket is
  * still the "public imagery" bucket in the sense that matters here: its objects
- * are published content, as opposed to `claim-proofs` / `origin-evidence`.
+ * are published content, as opposed to private `claim-proofs`.
  */
 export async function uploadPublicImage(
   input: PublicUploadImageInput,

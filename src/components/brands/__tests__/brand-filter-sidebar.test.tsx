@@ -46,7 +46,6 @@ vi.mock("@/lib/analytics", () => ({
   trackCategoryFilterApplied: vi.fn(),
   trackFilterCleared: vi.fn(),
   trackSubcategoryFilterApplied: vi.fn(),
-  trackVerificationFilterApplied: vi.fn(),
 }));
 
 const { BrandFilterDrawer, BrandFilterSidebar } =

@@ -8,7 +8,6 @@ export type AdminOperationsMetrics = {
   needsData: number | null;
   ready: number | null;
   moderation: number | null;
-  evidence: number | null;
   reports: number | null;
   activeJobs: number | null;
   brands: number | null;
@@ -23,11 +22,10 @@ export type AdminOperationsSnapshot = {
 export const getAdminOperationsSnapshot = cache(
   async (): Promise<AdminOperationsSnapshot> => {
     const supabase = createServiceClient();
-    const [submissions, moderation, evidence, reports, activeJobs, brands, subscribers, jobs] =
+    const [submissions, moderation, reports, activeJobs, brands, subscribers, jobs] =
       await Promise.allSettled([
         getSubmissionsForReview({ status: "pending" }),
         exactCount(supabase.from("moderation_flags").select("id", { count: "exact", head: true }).eq("status", "pending")),
-        exactCount(supabase.from("origin_evidence").select("id", { count: "exact", head: true }).eq("status", "pending")),
         exactCount(supabase.from("brand_reports").select("id", { count: "exact", head: true }).eq("status", "pending")),
         exactCount(supabase.from("curation_jobs").select("id", { count: "exact", head: true }).in("status", ["pending", "running"])),
         exactCount(supabase.from("brands").select("id", { count: "exact", head: true })),
@@ -43,7 +41,6 @@ export const getAdminOperationsSnapshot = cache(
 
     logRejected("submissions", submissions);
     logRejected("moderation", moderation);
-    logRejected("evidence", evidence);
     logRejected("reports", reports);
     logRejected("activeJobs", activeJobs);
     logRejected("brands", brands);
@@ -60,7 +57,6 @@ export const getAdminOperationsSnapshot = cache(
           ? pendingSubmissions.filter((submission) => submission.reviewStage === "ready").length
           : null,
         moderation: settledValue(moderation),
-        evidence: settledValue(evidence),
         reports: settledValue(reports),
         activeJobs: settledValue(activeJobs),
         brands: settledValue(brands),
@@ -73,10 +69,9 @@ export const getAdminOperationsSnapshot = cache(
 
 export const getAdminNavCounts = cache(async () => {
   const supabase = createServiceClient();
-  const [submissions, moderation, evidence, reports, corrections, stockists] = await Promise.allSettled([
+  const [submissions, moderation, reports, corrections, stockists] = await Promise.allSettled([
     exactCount(supabase.from("brand_submissions").select("id", { count: "exact", head: true }).eq("status", "pending")),
     exactCount(supabase.from("moderation_flags").select("id", { count: "exact", head: true }).eq("status", "pending")),
-    exactCount(supabase.from("origin_evidence").select("id", { count: "exact", head: true }).eq("status", "pending")),
     exactCount(supabase.from("brand_reports").select("id", { count: "exact", head: true }).eq("status", "pending")),
     exactCount(supabase.from("brand_field_corrections").select("id", { count: "exact", head: true }).eq("status", "pending")),
     // A pending community stockist is invisible to the public until an admin
@@ -91,14 +86,12 @@ export const getAdminNavCounts = cache(async () => {
   ]);
   logRejected("nav:submissions", submissions);
   logRejected("nav:moderation", moderation);
-  logRejected("nav:evidence", evidence);
   logRejected("nav:reports", reports);
   logRejected("nav:corrections", corrections);
   logRejected("nav:stockists", stockists);
   return {
     submissions: settledValue(submissions),
     moderation: settledValue(moderation),
-    evidence: settledValue(evidence),
     reports: settledValue(reports),
     corrections: settledValue(corrections),
     stockists: settledValue(stockists),

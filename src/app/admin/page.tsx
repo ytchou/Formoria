@@ -120,17 +120,7 @@ export default async function AdminPage() {
     getAdminOperationsSnapshot(),
     getTranslations("admin.dashboard"),
   ]);
-  const dashboardMetrics: Metric[] = [
-    ...metrics.slice(0, 3),
-    {
-      key: "evidence",
-      label: t("evidence.label"),
-      description: t("evidence.description"),
-      href: routes.admin.evidence(),
-      requiresAction: true,
-    },
-    ...metrics.slice(3),
-  ];
+  const dashboardMetrics: Metric[] = metrics;
 
   return (
     <div className="space-y-stack">

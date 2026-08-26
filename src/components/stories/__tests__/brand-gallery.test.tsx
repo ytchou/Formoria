@@ -57,7 +57,6 @@ function makeBrand(
     blurbEn: "Directory blurb",
     description: null,
     descriptionEn: null,
-    mitStatus: "unverified",
     subcategories: [],
     subcategoriesEn: [],
   } as unknown as Brand;

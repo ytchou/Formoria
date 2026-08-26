@@ -65,6 +65,7 @@
     "languageBadge": "中文",
     "productCta": "前往產品官方網站",
     "brandSiteCta": "前往品牌官方網站",
+    "madeInTaiwan": "台灣製造",
     "brandProvidedBadge": "品牌提供資訊",
     "unavailable": "官方連結目前無法使用",
     "relatedCategories": "探索相關分類",
@@ -99,7 +100,8 @@
     "selectedProducts": {
       "productCta": "前往品牌官方網站",
       "brandSiteCta": "前往品牌官網",
-      "unavailable": "這個產品頁面暫時無法連線。"
+      "unavailable": "這個產品頁面暫時無法連線。",
+      "madeInTaiwan": "台灣製造"
     },
     "trustSeam": {
       "line": "收錄與選物，清楚分開"
@@ -211,13 +213,7 @@
     },
     "card": {
       "foundingYear": "創立於 {year}",
-      "viewBrand": "查看品牌",
-      "mitVerifiedBadge": "MIT",
-      "mitDeclaredBadge": "品牌聲明"
-    },
-    "verificationFilter": {
-      "all": "全部",
-      "mit-declared": "品牌聲明"
+      "viewBrand": "查看品牌"
     },
     "loadingAria": "載入品牌中...",
     "noResultsInSuggestions": "找不到結果",
@@ -276,14 +272,10 @@
       "note": "這裡是 Formoria 從這個品牌挑出的產品，並說明每一件是什麼；產品資料由品牌提供，實際內容請以品牌官方頁面為準。",
       "cta": "前往品牌官方網站",
       "unavailable": "這個產品頁面暫時無法連線。",
-      "brandSiteCta": "前往品牌官網"
+      "brandSiteCta": "前往品牌官網",
+      "madeInTaiwan": "台灣製造"
     },
     "verified": "品牌經營",
-    "mitVerified": "MIT 微笑認證",
-    "mitVerifiedTitle": "已通過 MIT 微笑標章登錄驗證",
-    "mitDeclared": "品牌聲明",
-    "mitDeclaredTitle": "由品牌方自行聲明台灣製造；聲明範圍可能涵蓋部分、多數或全部商品",
-    "mitProofLink": "MIT 微笑標章證號 {cert}",
     "foundingYear": "創立於 {year}",
     "sectionTitle": "品牌資訊",
     "unknown": "尚無資料",
@@ -378,56 +370,6 @@
         "rateLimited": "檢舉次數過多，請稍後再試。",
         "unknown": "發生未知錯誤",
         "notLoggedIn": "請先登入後再提交檢舉"
-      }
-    },
-    "evidence": {
-      "trigger": "回報產地資訊",
-      "title": "提供產地證據",
-      "description": "分享你看到的產品產地資訊，協助我們核實品牌資料。",
-      "success": "感謝你提供產地證據，我們會盡快審核。",
-      "close": "關閉",
-      "cancel": "取消",
-      "loading": "正在確認登入狀態…",
-      "signInPrompt": "請先登入，再提供產地證據。",
-      "signIn": "登入",
-      "stanceLabel": "這項證據顯示",
-      "stances": {
-        "supports": "支持台灣製造",
-        "contradicts": "不支持台灣製造"
-      },
-      "productNameLabel": "產品名稱",
-      "productNamePlaceholder": "例如：產品或系列名稱",
-      "sourceTypeLabel": "證據來源",
-      "sourceTypes": {
-        "product_label": "產品標籤",
-        "packaging": "產品包裝",
-        "official_site": "官方網站",
-        "in_store": "實體通路",
-        "other": "其他"
-      },
-      "notesLabel": "補充說明",
-      "notesPlaceholder": "請描述你看到的產地資訊",
-      "photoLabel": "照片",
-      "photoHint": "上傳產品標籤、包裝或其他產地照片",
-      "uploading": "上傳中…",
-      "photoUploaded": "照片已上傳",
-      "retryUpload": "重試",
-      "submitting": "送出中…",
-      "submit": "送出",
-      "errors": {
-        "not_logged_in": "請先登入後再提供產地證據",
-        "missing_brand_id": "缺少品牌 ID",
-        "missing_brand_slug": "缺少品牌網址名稱",
-        "invalid_stance": "請選擇這項證據支持或不支持台灣製造",
-        "missing_product_name": "請填寫產品名稱",
-        "invalid_source_type": "請選擇有效的證據來源",
-        "notes_too_long": "補充說明不得超過 1000 字",
-        "invalid_photo_path": "上傳的照片不屬於目前使用者或品牌",
-        "pending_cap_reached": "這個品牌已有 3 筆證據等待審核，請等候審核結果後再提交。",
-        "database_error": "無法儲存證據，請稍後再試。",
-        "unknown": "提交失敗，請稍後再試。",
-        "invalidPhotoType": "請上傳圖片檔案",
-        "uploadFailed": "照片上傳失敗，請重試。"
       }
     },
     "correction": {
@@ -1478,9 +1420,9 @@
         "question": "哪些類型的品牌不會被收錄？",
         "answer": "Formoria 收錄擁有自主商品的品牌，因此代購、沒有自有商品線的選物店、平台與零售商、媒體與評測網站、進口國外品牌的代理商，以及只提供服務或數位商品的個人帳號，都不在收錄範圍內。若選物店有自己的商品線，或創作者有自己的實體商品，則符合收錄資格。"
       },
-      "whatDoesMitMean": {
-        "question": "MIT 層級代表什麼？",
-        "answer": "「MIT 認證」代表 Formoria 已比對產品與官方 MIT 微笑標章登錄資料；「品牌聲明」則記錄品牌主聲明的製造範圍，可能是部分、多數或全部產品。兩者都不代表該品牌每項產品皆在台灣製造，請查看頁面標示的範圍與佐證。"
+      "madeInTaiwanBadge": {
+        "question": "「台灣製造」標章代表什麼？",
+        "answer": "這項標章只適用於標示的產品。Formoria 會在產品與最新官方登錄資料完全相符，或兩項自動檢查都確認產品在台灣製造且所有主要材料來自台灣時加上標章。"
       },
       "howToSubmit": {
         "question": "如何推薦品牌到 Formoria？",
@@ -1701,7 +1643,6 @@
   "account": {
     "menuLabel": "帳號",
     "favorites": "收藏品牌",
-    "contributions": "我的貢獻",
     "signOut": "登出",
     "settings": "帳號設定"
   },
@@ -1714,26 +1655,6 @@
     "emptyTitle": "尚無收藏品牌",
     "emptyDescription": "探索台灣品牌目錄，點擊愛心即可加入收藏。",
     "exploreBrands": "探索品牌"
-  },
-  "contributions": {
-    "metadata": {
-      "title": "我的貢獻"
-    },
-    "heading": "我的貢獻",
-    "subheading": "查看向 Formoria 社群提供的產地佐證與審核狀態。",
-    "status": {
-      "pending": "待審核",
-      "approved": "已通過",
-      "rejected": "未通過"
-    },
-    "stance": {
-      "supports": "支持台灣製造聲明",
-      "contradicts": "不支持台灣製造聲明"
-    },
-    "emptyTitle": "尚無貢獻",
-    "emptyDescription": "提供產地佐證，幫助社群了解更多台灣品牌。",
-    "exploreBrands": "探索品牌",
-    "unknownBrand": "未知品牌"
   },
   "settings": {
     "metadata": {
@@ -1812,8 +1733,6 @@
     "saveDraft": "儲存草稿",
     "save": "儲存變更",
     "cancel": "取消",
-    "mitStoryLabel": "製造故事",
-    "mitStoryPlaceholder": "分享製造工藝、材料來源與工廠合作關係…",
     "wizardProgress": "第 {current} 步，共 {total} 步",
     "wizardCompletedProgress": "已完成 {completed}／{total} 步",
     "wizardSidebarTitle": "編輯品牌資料",
@@ -1832,7 +1751,6 @@
     "requiredFieldError": "發布前請完成此必填欄位。",
     "fieldDescriptionHint": "顯示在品牌頁面上的公開介紹",
     "fieldFoundingYearHint": "顯示在品牌頁面上",
-    "mitStoryHint": "若有填寫會顯示在品牌頁面上",
     "cityHint": "填寫後品牌會顯示在地圖上",
     "unsavedChanges": "有未儲存的變更",
     "slugChangeBlocked": "品牌網址基於此名稱。如需更改，請聯繫我們。",

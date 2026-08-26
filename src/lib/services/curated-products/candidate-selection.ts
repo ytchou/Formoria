@@ -13,8 +13,15 @@
  * A write failure is reported but never fails the phase.
  */
 
+import { randomUUID } from "node:crypto";
 import { createServiceClient } from "@/lib/supabase/service";
 import type { ProductCandidate } from "../enrich-phases/product-candidates";
+import type {
+  DeterministicOriginAssessment,
+  LlmOriginAssessment,
+  OriginQualificationMethod,
+  RegistryOriginAssessment,
+} from "./origin-qualification";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -23,7 +30,8 @@ import type { ProductCandidate } from "../enrich-phases/product-candidates";
 /** A candidate that was excluded by a boolean gate. */
 export type GatedCandidate = {
   candidate: ProductCandidate;
-  gateResult: "no_image" | "not_product_detail" | "near_duplicate";
+  gateResult:
+    "not_official_host" | "no_image" | "not_product_detail" | "near_duplicate";
 };
 
 /** A ranked candidate with LLM score and final rank. */
@@ -42,6 +50,7 @@ export type RankedCandidate = {
 
 /** One row in `curated_product_candidates`. */
 export type CandidateRow = {
+  id: string;
   brand_id: string;
   submission_id: string | null;
   job_id: string | null;
@@ -56,6 +65,19 @@ export type CandidateRow = {
   llm_score: number | null;
   llm_rationale: string | null;
   final_rank: number | null;
+  deterministic_origin_assessment: DeterministicOriginAssessment | null;
+  llm_origin_assessment: LlmOriginAssessment | null;
+  registry_origin_assessment: RegistryOriginAssessment | null;
+  mit_qualified: boolean | null;
+  qualification_method: OriginQualificationMethod | null;
+};
+
+export type CandidateOriginDecision = {
+  deterministic: DeterministicOriginAssessment;
+  llm: LlmOriginAssessment;
+  registry: RegistryOriginAssessment;
+  mitQualified: boolean;
+  qualificationMethod: OriginQualificationMethod | null;
 };
 
 /** Narrowest writer type — injectable for testing and production. */
@@ -99,6 +121,8 @@ export type CandidateSelectionResult = {
   ranked: RankedCandidate[];
   gated: GatedCandidate[];
   persistError: string | null;
+  /** Present only after the append succeeds; failed logging cannot qualify a proposal. */
+  auditIdsByUrl: Map<string, string>;
 };
 
 // ---------------------------------------------------------------------------
@@ -117,6 +141,7 @@ export type CandidateSelectionResult = {
 export function applyGates(
   pool: ProductCandidate[],
   acceptedCandidates: ProductCandidate[],
+  officialHost?: string,
 ): { gated: GatedCandidate[]; passed: ProductCandidate[] } {
   const gated: GatedCandidate[] = [];
   const passed: ProductCandidate[] = [];
@@ -125,6 +150,21 @@ export function applyGates(
   const acceptedUrls = new Set(acceptedCandidates.map((c) => c.normalizedUrl));
 
   for (const candidate of pool) {
+    if (officialHost) {
+      try {
+        const host = new URL(candidate.url).hostname
+          .replace(/^www\./u, "")
+          .toLowerCase();
+        if (host !== officialHost.replace(/^www\./u, "").toLowerCase()) {
+          gated.push({ candidate, gateResult: "not_official_host" });
+          continue;
+        }
+      } catch {
+        gated.push({ candidate, gateResult: "not_official_host" });
+        continue;
+      }
+    }
+
     // Gate 1: no usable image.
     if (!candidate.imageUrl) {
       gated.push({ candidate, gateResult: "no_image" });
@@ -218,8 +258,11 @@ function candidateToRow(
   llmScore: number | null,
   llmRationale: string | null,
   finalRank: number | null,
+  originDecision: CandidateOriginDecision | null,
+  id: string,
 ): CandidateRow {
   return {
+    id,
     brand_id: brandId,
     submission_id: submissionId ?? null,
     job_id: jobId ?? null,
@@ -234,6 +277,11 @@ function candidateToRow(
     llm_score: llmScore,
     llm_rationale: llmRationale,
     final_rank: finalRank,
+    deterministic_origin_assessment: originDecision?.deterministic ?? null,
+    llm_origin_assessment: originDecision?.llm ?? null,
+    registry_origin_assessment: originDecision?.registry ?? null,
+    mit_qualified: originDecision?.mitQualified ?? null,
+    qualification_method: originDecision?.qualificationMethod ?? null,
   };
 }
 
@@ -255,6 +303,9 @@ export async function persistCandidatePool(options: {
   submissionId: string | null;
   jobId?: string | null;
   maxProducts: number;
+  originDecisions?: ReadonlyMap<string, CandidateOriginDecision>;
+  candidateIdsByUrl?: ReadonlyMap<string, string>;
+  officialHost?: string;
 }): Promise<CandidateSelectionResult> {
   const {
     pool,
@@ -265,13 +316,54 @@ export async function persistCandidatePool(options: {
     submissionId,
     jobId,
     maxProducts,
+    originDecisions = new Map(),
+    candidateIdsByUrl = new Map(),
+    officialHost,
   } = options;
 
   // Step 1: Gate
-  const { gated, passed } = applyGates(pool, acceptedCandidates);
+  const { gated, passed } = applyGates(pool, acceptedCandidates, officialHost);
+
+  // One URL can arrive from both stored image provenance and the scraper. The
+  // one gate-passing row owns the pre-generated ID used by its excerpts; every
+  // duplicate still needs its own primary key for audit persistence.
+  const candidateIds = new Map<ProductCandidate, string>();
+  const passedSet = new Set(passed);
+  const assignedPlannedUrls = new Set<string>();
+  for (const candidate of pool) {
+    const planned = candidateIdsByUrl.get(candidate.url);
+    if (
+      planned &&
+      passedSet.has(candidate) &&
+      !assignedPlannedUrls.has(candidate.url)
+    ) {
+      candidateIds.set(candidate, planned);
+      assignedPlannedUrls.add(candidate.url);
+    } else {
+      candidateIds.set(candidate, randomUUID());
+    }
+  }
+  const candidateId = (candidate: ProductCandidate): string =>
+    candidateIds.get(candidate) ?? randomUUID();
 
   // Step 2: Rank
-  const ranked = await rankAndSelect(passed, ranker, maxProducts);
+  const allRanked = await rankAndSelect(passed, ranker, passed.length);
+  // First choose the five on editorial score + search order alone. MIT may
+  // reorder equal-scored finalists, but can never pull candidate six inside.
+  const ranked = allRanked
+    .slice(0, maxProducts)
+    .sort((left, right) => {
+      const score = right.llmScore - left.llmScore;
+      if (score !== 0) return score;
+      const leftMit = originDecisions.get(left.url)?.mitQualified ?? false;
+      const rightMit = originDecisions.get(right.url)?.mitQualified ?? false;
+      if (leftMit !== rightMit) return leftMit ? -1 : 1;
+      return (
+        (left.searchPosition ?? Number.MAX_SAFE_INTEGER) -
+        (right.searchPosition ?? Number.MAX_SAFE_INTEGER)
+      );
+    })
+    .map((candidate, index) => ({ ...candidate, finalRank: index + 1 }));
 
   // Step 3: Build rows for persistence — every candidate, including gated ones.
   const rows: CandidateRow[] = [];
@@ -288,14 +380,17 @@ export async function persistCandidatePool(options: {
         null,
         null,
         null,
+        null,
+        candidateId(g.candidate),
       ),
     );
   }
 
   // Ranked candidates: carry LLM score, rationale, and rank.
-  const rankedMap = new Map(ranked.map((r) => [r.url, r]));
+  const evaluatedMap = new Map(allRanked.map((r) => [r.url, r]));
+  const finalistRankMap = new Map(ranked.map((r) => [r.url, r.finalRank]));
   for (const c of passed) {
-    const r = rankedMap.get(c.url);
+    const r = evaluatedMap.get(c.url);
     rows.push(
       candidateToRow(
         c,
@@ -305,7 +400,9 @@ export async function persistCandidatePool(options: {
         jobId ?? null,
         r?.llmScore ?? null,
         r?.llmRationale ?? null,
-        r?.finalRank ?? null,
+        finalistRankMap.get(c.url) ?? null,
+        originDecisions.get(c.url) ?? null,
+        candidateId(c),
       ),
     );
   }
@@ -319,5 +416,14 @@ export async function persistCandidatePool(options: {
     }
   }
 
-  return { ranked, gated, persistError };
+  const auditIdsByUrl =
+    persistError === null
+      ? new Map(
+          rows
+            .filter((row) => row.gate_result === "passed")
+            .map((row) => [row.url, row.id]),
+        )
+      : new Map<string, string>();
+
+  return { ranked, gated, persistError, auditIdsByUrl };
 }

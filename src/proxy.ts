@@ -228,12 +228,6 @@ export const CACHEABLE_DIRECTORY_QUERY_KEYS: ReadonlySet<string> = new Set(
  */
 const MAX_CACHEABLE_DIRECTORY_PAGE = 100;
 
-/** Restated from `parseVerificationParam`; see `isCacheableQueryValue`. */
-const CACHEABLE_VERIFICATION_VALUES: ReadonlySet<string> = new Set([
-  "all",
-  "mit-declared",
-]);
-
 const CACHEABLE_SORT_VALUES: ReadonlySet<string> = new Set(
   Object.keys(BRAND_SORT_CONFIG),
 );
@@ -277,8 +271,6 @@ function isCacheableQueryValue(key: string, raw: string): boolean {
       );
     case "sort":
       return CACHEABLE_SORT_VALUES.has(raw);
-    case "verification":
-      return CACHEABLE_VERIFICATION_VALUES.has(raw);
     case "category":
       return isCacheableFacetList(raw, (value) =>
         L1_CATEGORIES.some((item) => item.slug === value),
@@ -381,7 +373,7 @@ export function decideDirectoryTaxonomyRedirect(
   const { locale, path } = parseDirectoryPath(pathname);
   if (path !== routes.brands()) return { action: "none" };
 
-  for (const facet of ["search", "verification", "sort"]) {
+  for (const facet of ["search", "sort"]) {
     if (params.get(facet)?.trim()) return { action: "none" };
   }
 

@@ -1755,10 +1755,6 @@ describe("collect-brand-review", () => {
               description: "English description",
               description_en: null,
               id: "brand-1",
-              mit_declared_at: null,
-              mit_declared_scope: "all",
-              mit_status: "declared",
-              mit_verified_at: null,
               name: "Brand One",
               other_urls: JSON.stringify([
                 { label: "Profile", url: "https://formoria.com/brand-one" },
@@ -1782,7 +1778,6 @@ describe("collect-brand-review", () => {
 
     expect(JSON.parse(contents.get(input.outputPath) ?? "{}")).toMatchObject({
       findings: [
-        expect.objectContaining({ title: "MIT declared without date" }),
         expect.objectContaining({
           title: "Self-referential formoria.com URL",
         }),
@@ -1831,10 +1826,6 @@ describe("collect-brand-review", () => {
         description: null,
         description_en: null,
         id: `brand-${offset + index}`,
-        mit_declared_at: null,
-        mit_declared_scope: null,
-        mit_status: null,
-        mit_verified_at: null,
         name: `Brand ${offset + index}`,
         other_urls: null,
         purchase_website: null,

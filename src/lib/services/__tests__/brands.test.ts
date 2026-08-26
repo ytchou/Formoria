@@ -77,35 +77,6 @@ describe("brandToDomain — isDemo", () => {
   });
 });
 
-describe("brandToDomain — MIT verification fields", () => {
-  it("maps verified MIT status and evidence", () => {
-    const row = makeBrandRow({
-      mit_status: "verified",
-      mit_evidence: {
-        mit_smile_listed: true,
-        mit_smile_cert: "01200024-02134",
-      },
-    });
-
-    const brand = brandToDomain(row);
-
-    expect(brand.mitStatus).toBe("verified");
-    expect(brand.mitEvidence?.mit_smile_cert).toBe("01200024-02134");
-  });
-
-  it("maps mit_story row column to mitStory domain field", () => {
-    const row = makeBrandRow({ mit_story: "Founded in Taipei." });
-    const brand = brandToDomain(row);
-    expect(brand.mitStory).toBe("Founded in Taipei.");
-  });
-
-  it("defaults mitStory to null when mit_story is absent", () => {
-    const row = makeBrandRow({ mit_story: null });
-    const brand = brandToDomain(row);
-    expect(brand.mitStory).toBeNull();
-  });
-});
-
 describe("brandToDomain (flat link columns)", () => {
   it("maps social flat columns to domain fields", () => {
     const row = makeBrandRow({

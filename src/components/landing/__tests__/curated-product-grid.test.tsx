@@ -98,6 +98,7 @@ function buildProduct(index: number): HomepageCuratedProduct {
     nameEn: null,
     category: "home",
     subcategories: [],
+    mitQualified: false,
     officialUrl: "https://example.com/product",
     imageUrl: `/i/curated-products/p/${index}.jpg`,
     imageSourceUrl: null,

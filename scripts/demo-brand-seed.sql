@@ -27,7 +27,7 @@ insert into brands (
   id, name, slug, description, status, category, founding_year,
   hero_image_url, product_photos, social_links, purchase_links,
   contact_email, tag_slugs, source, is_demo,
-  mit_status, submitted_at, approved_at
+  submitted_at, approved_at
 ) values (
   'dddddddd-dddd-dddd-dddd-dddddddddddd',
   '暖木家居 Warmwood Living',
@@ -48,7 +48,6 @@ insert into brands (
   ARRAY['home','handmade','local-culture'],
   'demo_seed',
   true,
-  'unverified',
   now(),
   now()
 )
@@ -67,7 +66,6 @@ on conflict (id) do update set
   tag_slugs      = excluded.tag_slugs,
   source         = excluded.source,
   is_demo        = excluded.is_demo,
-  mit_status     = excluded.mit_status,
   updated_at     = now();
 
 -- Taxonomy join rows (category chip + filter sidebar). Delete-then-insert
@@ -81,6 +79,6 @@ insert into brand_taxonomy (brand_id, tag_id, source) values
 commit;
 
 -- Confirmation
-select id, name, slug, status, is_demo, mit_status
+select id, name, slug, status, is_demo
 from brands
 where id = 'dddddddd-dddd-dddd-dddd-dddddddddddd';

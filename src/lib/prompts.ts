@@ -331,11 +331,6 @@ listing.taiwan_connection 只能依據來源明確提到的事實填寫，不可
   "material": ["材質 slug（只能用下方「材質詞彙表」中的英文 slug，一字不差）"],
   "city": "城市 slug 或 null（只能用以下值：taipei, new_taipei, taoyuan, taichung, tainan, kaohsiung, keelung, hsinchu_city, chiayi_city, hsinchu_county, miaoli, changhua, nantou, yunlin, chiayi_county, pingtung, yilan, hualien, taitung, penghu, kinmen, lienchiang）",
   "founding_year": 2015 | null,
-  "mit_indicators": {
-    "mentioned": true | false,
-    "evidence": ["來源中提及台灣製造的原文"],
-    "confidence": "high | medium | low"
-  } | null,
   "listing": {
     "verdict": "list" | "reject",
     "reason": "繁體中文，一句話說明判定依據",
@@ -376,8 +371,6 @@ ${MATERIAL_VOCAB_BLOCK}
 city：只能填上方清單中的城市 slug。若來源未明確指出品牌所在地，回傳 null。
 
 founding_year：只能填寫來源中明確提到的年份；若來源中未提及，必須回傳 null（絕對不可推測或編造）。
-
-mit_indicators：是否在來源中提及台灣製造（MIT、台灣製造、100% Made in Taiwan 等）。evidence 引用原文。若無相關資訊回傳 null。
 
 ## 驗證檢查（輸出前自行確認）
 - [ ] subcategories 是否每一項都逐字出現在商品子類別詞彙表中，沒有自創標籤或中文標籤？
@@ -652,6 +645,7 @@ export const PRODUCTS_LABELS = {
   candidatePages: "候選頁面（網址 | 頁面標題與描述）：",
   imageCandidates: "已分類的商品圖片（替代文字 | 圖片所在頁面）：",
   listingEntryPoints: "品牌商品入口頁（僅供參考，不可作為 official_url）：",
+  originExcerpts: "商品產地摘錄（候選網址 | excerpt_id | 原文）：",
 } as const;
 
 /**
@@ -676,9 +670,18 @@ export const PRODUCTS_LABELS = {
  */
 export const PRODUCTS_SYSTEM_PROMPT = `你是 Formoria 的選物編輯助理。請根據品牌自有網站的內容、候選頁面清單與商品圖片描述，挑出這個品牌最值得收錄的商品，並為每一件商品填寫分類欄位與一段中文事實描述。
 
-你要同時完成兩件事：
+你要同時完成三件事：
 1. 判斷哪些候選頁面是「單一商品頁」。首頁、全部商品列表、分類頁、關於品牌、部落格文章、最新消息、活動公告、社群帳號、購物說明與退換貨頁面都不是商品頁。
-2. 為挑出的商品填寫 category、subcategories、material 與 product_description_zh。
+2. 為每一個候選商品輸出 0–100 的編輯分數與簡短理由。分數只看收錄價值，不可因產地加減分。
+3. 為挑出的商品填寫 category、subcategories、material 與 product_description_zh。
+
+## 台灣製造與原料產地判斷
+- 每一個通過商品頁條件的候選都要有 evaluations；products 最多仍為 5 件。
+- products 必須是 editorial_score 最高的前 5 件（或全部，若不足 5 件）；同分候選才可優先選擇符合台灣製造條件者。
+- made_in_taiwan 只有在摘錄明確表示「這一件商品在台灣製造」時才可為 true。台灣設計、品牌位於台灣、台灣監製、從台灣出貨都不算。
+- materials_from_taiwan 只有在摘錄明確涵蓋全部主要原料或材料，且全部來自台灣時才可為 true。只提到一部分材料不算。
+- 產地結論只能引用同一候選網址下提供的 origin_excerpt_ids；沒有摘錄或證據不足一律 false。
+- 台灣製造判斷不可影響 editorial_score，也不可為了產地把第 6 名以後的商品放進 products。
 
 ## 絕對不可出現的商業交易資訊
 以下事實一律不可寫進任何欄位，即使來源頁面清楚寫著：
@@ -734,12 +737,15 @@ ${MATERIAL_VOCAB_BLOCK}
 ${TAIWAN_USAGE_RULES}
 
 ## 輸出格式（嚴格 JSON 物件，不加 Markdown、說明文字或其他欄位）
-一律回傳一個最外層是物件的 JSON，物件只有一個欄位 products，其值是陣列。沒有任何商品符合條件時回傳 {"products":[]}，絕對不可把最外層寫成陣列。
+一律回傳一個最外層是物件的 JSON，物件只有 evaluations 與 products 兩個欄位。沒有任何商品符合條件時仍回傳兩個空陣列，絕對不可把最外層寫成陣列。
 
-{"products":[{"name_zh":"商品的中文名稱","name_en":"English product name 或 null","category":"類別 slug 或 null","subcategories":["詞彙表中的 slug"],"material":["材質 slug"],"official_url":"這件商品的商品頁網址","image_source_url":"圖片所在頁面的網址或 null","product_description_zh":"60-160 字耐久事實描述","sources":[{"url":"你讀到事實的頁面網址","source_type":"official|press|retailer|other","claim_zh":"這個來源支持的事實，一句話或 null"}]}]}
+{"evaluations":[{"candidate_url":"候選商品網址","editorial_score":85,"editorial_rationale":"一句簡短理由","made_in_taiwan":false,"materials_from_taiwan":false,"origin_excerpt_ids":[],"product_model":null}],"products":[{"name_zh":"商品的中文名稱","name_en":"English product name 或 null","category":"類別 slug 或 null","subcategories":["詞彙表中的 slug"],"material":["材質 slug"],"official_url":"這件商品的商品頁網址","image_source_url":"圖片所在頁面的網址或 null","product_description_zh":"60-160 字耐久事實描述","sources":[{"url":"你讀到事實的頁面網址","source_type":"official|press|retailer|other","claim_zh":"這個來源支持的事實，一句話或 null"}]}]}
 
 ## 驗證檢查（輸出前自行確認）
 - [ ] products 是否最多 5 筆，且每一筆都是單一商品，而不是分類頁或商品列表頁？
+- [ ] 每個候選商品是否都有一筆 evaluations，且編輯分數未受產地影響？
+- [ ] products 是否只包含 editorial_score 最高的前 5 件，產地僅用於同分排序？
+- [ ] 產地 true 是否只引用同一候選的摘錄，且完整排除設計、監製、出貨與部分原料？
 - [ ] category、material 與 subcategories 是否只填上列 slug，沒有中文標籤或括號內的中文？
 - [ ] material 是否全部是英文 slug，沒有中文標籤？
 - [ ] 找不到對應值的欄位是否已回傳 null 或 []，而不是自創 slug 或猜測值？

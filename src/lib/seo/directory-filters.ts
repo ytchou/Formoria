@@ -13,7 +13,7 @@ export type DirectorySearchParams = Record<
 
 export type DirectoryViewFilters = Pick<
   BrandFilters,
-  "search" | "materials" | "verificationFilter"
+  "search" | "materials"
 > & {
   categorySlugs: string[];
   subcategorySlugs: string[];
@@ -31,14 +31,6 @@ function parseCommaParam(value: string | string[] | undefined): string[] {
       .map((entry) => entry.trim())
       .filter(Boolean),
   );
-}
-
-function parseVerificationParam(
-  value: string | string[] | undefined,
-): NonNullable<BrandFilters["verificationFilter"]> {
-  return value === "mit-declared" || value === "all"
-    ? value
-    : "all";
 }
 
 export function parseDirectoryViewFilters(
@@ -79,7 +71,6 @@ export function parseDirectoryViewFilters(
           ),
         ),
       ],
-      verificationFilter: parseVerificationParam(searchParams.verification),
     },
   };
 }

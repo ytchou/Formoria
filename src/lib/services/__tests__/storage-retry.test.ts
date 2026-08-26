@@ -66,7 +66,7 @@ describe("uploadWithRetry", () => {
 
   it("returns the Storage result shape unchanged", async () => {
     const resultShape = {
-      data: { path: "origin-evidence/maria-garcia/evidence.jpg" },
+      data: { path: "brand-images/maria-garcia/product.jpg" },
       error: null,
     } satisfies StorageResult;
     const upload = vi.fn<() => Promise<StorageResult>>().mockResolvedValue(resultShape);

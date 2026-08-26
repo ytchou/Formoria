@@ -4,7 +4,6 @@ import categoryPosition from "./category-position";
 import custom from "./custom";
 import mainProducts from "./main-products";
 import reputation from "./reputation";
-import taiwanOrigin from "./taiwan-origin";
 import {
   CUSTOM_QUESTION_CEILING,
   type FaqBrandContext,
@@ -27,7 +26,6 @@ function withDerivedValidators(preset: FaqPreset): FaqPreset {
 }
 
 export const FAQ_PRESETS: readonly FaqPreset[] = [
-  taiwanOrigin,
   categoryPosition,
   mainProducts,
   reputation,

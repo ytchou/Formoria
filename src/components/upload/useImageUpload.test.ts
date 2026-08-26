@@ -89,7 +89,7 @@ describe('useImageUpload', () => {
     const fetchMock = vi.spyOn(global, 'fetch').mockResolvedValueOnce(
       new Response(
         JSON.stringify({
-          key: 'origin-evidence/2fd12f4c-51a6-4af4-9dac-7dd12a5ec914/taiwan-tea-company/label.webp',
+          key: 'claim-proofs/2fd12f4c-51a6-4af4-9dac-7dd12a5ec914/taiwan-tea-company/label.webp',
         }),
         { status: 200 }
       )
@@ -98,7 +98,7 @@ describe('useImageUpload', () => {
     const { result } = renderHook(() =>
       useImageUpload({
         ...uploadConfig,
-        bucket: 'origin-evidence',
+        bucket: 'claim-proofs',
         path: 'maría-garcía/taiwan-tea-company',
         acceptedTypes: ['image/png'],
         uploadFields: { stance: 'supports' },
@@ -112,7 +112,7 @@ describe('useImageUpload', () => {
 
     expect(result.current.status).toBe('success')
     expect(result.current.key).toBe(
-      'origin-evidence/2fd12f4c-51a6-4af4-9dac-7dd12a5ec914/taiwan-tea-company/label.webp',
+      'claim-proofs/2fd12f4c-51a6-4af4-9dac-7dd12a5ec914/taiwan-tea-company/label.webp',
     )
     const body = fetchMock.mock.calls[0]?.[1]?.body
     expect(body).toBeInstanceOf(FormData)

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import type { BrandStatus, MitStatus } from '../brand'
+import type { BrandStatus } from '../brand'
 import type { PhaseResultStatus } from '../curation'
 import type {
   PhaseStatus as RunLogPhaseStatus,
@@ -28,15 +28,6 @@ describe('status vocabulary', () => {
 
     expect(exact).toBe(true)
     expect(members).toEqual(['approved', 'hidden'])
-  })
-
-  it('pins MitStatus to the brands.mit_status ladder', () => {
-    // Mirrors `brands_mit_status_check` (20260722100000_mit_status_ladder.sql).
-    const exact: Equals<MitStatus, 'unverified' | 'declared' | 'verified'> = true
-    const members: readonly MitStatus[] = ['unverified', 'declared', 'verified']
-
-    expect(exact).toBe(true)
-    expect(members).toEqual(['unverified', 'declared', 'verified'])
   })
 
   it('pins PhaseResultStatus to the persisted terminal outcomes', () => {
