@@ -73,9 +73,9 @@ export type CandidateWriter = {
  * that is designed degradation, not a bug.
  */
 export function createDefaultCandidateWriter(): CandidateWriter {
-  // `curated_product_candidates` is absent from the generated database types
-  // until the migration is applied, so the client is narrowed structurally to
-  // the one call this writer makes rather than widened to `any`.
+  // `createServiceClient()` is not parameterised with `Database`, so it cannot
+  // type this insert on its own. The client is narrowed structurally to the one
+  // call this writer makes rather than widened to `any`.
   const supabase = createServiceClient() as unknown as {
     from(table: string): {
       insert(rows: CandidateRow[]): Promise<{
