@@ -37,6 +37,8 @@
  *   pnpm exec tsx --env-file=.env.local scripts/curation-rerun/refresh.ts --dry-run
  *   pnpm exec tsx --env-file=.env.local scripts/curation-rerun/refresh.ts --confirm
  *   pnpm exec tsx --env-file=.env.local scripts/curation-rerun/refresh.ts --cohort batch1-never-curated --confirm --via-worker
+ *   pnpm exec tsx --env-file=.env.local scripts/curation-rerun/refresh.ts --task product --confirm
+ *   pnpm exec tsx --env-file=.env.local scripts/curation-rerun/refresh.ts --task product --no-apply --confirm
  */
 import { randomUUID } from "node:crypto";
 import { writeFile, mkdir } from "node:fs/promises";
@@ -53,9 +55,19 @@ import {
   requestBrandRefreshesBySlugs,
   applyBrandRefresh,
 } from "@/lib/services/submissions";
+import {
+  CURATION_TASK_ORDER,
+  phasesForTask,
+  type CurationTask,
+} from "@/lib/constants/enrich-phases";
 import { loadCohort, snapshotDir, type Cohort } from "./cohort";
 
-const STEPS = ["context", "image", "detail"] as const;
+/**
+ * Default task. `full` expands to exactly the phase set the retired
+ * `steps: ["context", "image", "detail"]` produced, so an invocation without
+ * `--task` runs what it always ran.
+ */
+const DEFAULT_TASK: CurationTask = "full";
 
 /** Terminal job states: anything else means the worker is still working. */
 const TERMINAL_JOB_STATUSES = ["completed", "failed", "cancelled"] as const;
@@ -157,6 +169,26 @@ function argValue(flag: string): string | undefined {
   return index === -1 ? undefined : process.argv.at(index + 1);
 }
 
+/**
+ * `--task <name>` scopes the run to one slice of the pipeline; absent means
+ * `full`. Scoping matters because every phase costs money: `--task product`
+ * runs 3 phases where `full` runs 14, so a products-only smoke test does not
+ * pay to re-derive names, images and descriptions it is not looking at.
+ */
+function targetTask(): CurationTask {
+  if (!hasFlag("--task")) return DEFAULT_TASK;
+  // Present but valueless (`--task` as the final argument) must not fall back
+  // to the default: that silently widens a 3-phase run to all 14, against
+  // production, having been asked for the opposite.
+  const raw = argValue("--task");
+  const task = CURATION_TASK_ORDER.find((name) => name === raw);
+  if (!task)
+    throw new Error(
+      `unknown --task ${raw} — expected one of: ${CURATION_TASK_ORDER.join(", ")}`,
+    );
+  return task;
+}
+
 /** `--slugs a,b` re-runs a subset of the cohort; absent means the whole cohort. */
 function targetSlugs(cohort: Cohort): string[] {
   const raw = argValue("--slugs");
@@ -181,6 +213,10 @@ async function main(): Promise<void> {
   );
   const dryRun = hasFlag("--dry-run");
   const viaWorker = hasFlag("--via-worker");
+  const task = targetTask();
+  // Recorded alongside the task so a log stays readable after CURATION_TASKS
+  // changes shape — the task name alone would not say what actually ran.
+  const phases = phasesForTask(task);
   // Enqueue and stop. The deployed worker's drain loop claims the next pending
   // job as soon as it finishes its current one (runQueuedJobs -> claimNextCurationJob),
   // so leaving a job pending IS the queue — no dispatch, no poller, nothing on
@@ -188,6 +224,21 @@ async function main(): Promise<void> {
   // jobs: apply is a separate pass (scripts/apply-refresh-submissions.ts) once
   // the job reaches `completed`.
   const enqueueOnly = hasFlag("--enqueue-only");
+  // Run the job here, in this checkout, but stop before step 4.
+  //
+  // A check-only run needs exactly this and nothing else offered it:
+  // `--enqueue-only` also skips step 3, handing the work to whatever SHA the
+  // Railway worker happens to be on, and a plain `--confirm` applies. Applying
+  // is not a formality — `apply_brand_refresh` materializes the curated-product
+  // proposals, and an absent `keptProductKeys` means "the reviewer never opened
+  // the section", whose default is to keep EVERY proposal. So the unflagged
+  // path publishes the machine's first draft to live brands.
+  const noApply = hasFlag("--no-apply");
+  if (noApply && enqueueOnly) {
+    throw new Error(
+      "--no-apply and --enqueue-only are mutually exclusive: --enqueue-only already skips step 4.",
+    );
+  }
   if (!dryRun && !hasFlag("--confirm")) {
     throw new Error(
       `This rewrites ${cohort.slugs.length} production brands (cohort ${cohort.name}). Re-run with --confirm (or --dry-run to preview).`,
@@ -335,7 +386,7 @@ async function main(): Promise<void> {
   }
 
   console.log(
-    `\n[2/4] enqueueing ${batches.length} curation job(s) — steps: ${STEPS.join(", ")}` +
+    `\n[2/4] enqueueing ${batches.length} curation job(s) — task: ${task} (${phases.join(", ")})` +
       (batches.length > 1 ? ` (chunk size ${perJob})` : ""),
   );
   const jobIds: string[] = [];
@@ -344,7 +395,7 @@ async function main(): Promise<void> {
       params: {
         target: "submissions",
         submissionIds: ids,
-        steps: [...STEPS],
+        task,
         overwrite: true,
       },
       dryRun: false,
@@ -372,7 +423,8 @@ async function main(): Promise<void> {
           mode: "enqueue-only",
           jobIds,
           chunkSize: perJob,
-          steps: [...STEPS],
+          task,
+          phases,
           requested,
         },
         null,
@@ -407,6 +459,34 @@ async function main(): Promise<void> {
     skipped: summary.skipped,
     errors: [] as unknown[],
   };
+
+  if (noApply) {
+    console.log(
+      `\n[4/4] SKIPPED — --no-apply. ${submissionIds.length} refresh submission(s) stay` +
+        `\n      pending for human review; no live brand was modified. Review them in` +
+        `\n      the admin queue, or apply later with:` +
+        `\n      pnpm exec tsx --env-file=<env> scripts/apply-refresh-submissions.ts --dry-run\n`,
+    );
+    await mkdir(dirname(logPath), { recursive: true });
+    await writeFile(
+      logPath,
+      JSON.stringify(
+        {
+          ranAt: new Date().toISOString(),
+          mode: "no-apply",
+          jobIds,
+          task,
+          phases,
+          requested,
+          enrich,
+        },
+        null,
+        2,
+      ),
+    );
+    console.log(`wrote ${logPath}`);
+    return;
+  }
 
   console.log(
     `\n[4/4] applying ${submissionIds.length} refreshes to live brands\n`,
@@ -455,7 +535,8 @@ async function main(): Promise<void> {
       {
         ranAt: new Date().toISOString(),
         jobIds,
-        steps: [...STEPS],
+        task,
+        phases,
         requested,
         enrich: {
           processed: enrich.processed,
