@@ -5,6 +5,8 @@ import {
   buildReferenceSet,
   categorizeObjects,
   isMissingTableError,
+  parseTargetedPurgeKeys,
+  planTargetedPurge,
   planPurge,
   selectPurgeableManifests,
   shouldReencode,
@@ -414,5 +416,60 @@ describe('planPurge', () => {
       { path: protectedPath, size: 100 },
     ])
     expect(plan.toDelete).not.toContain(protectedPath)
+  })
+})
+
+describe('planTargetedPurge', () => {
+  it('deletes only requested objects that still exist and remain unreferenced', () => {
+    const orphan = 'brands/deleted-brand/orphan.webp'
+    const nowReferenced = 'brands/deleted-brand/restored.webp'
+
+    expect(
+      planTargetedPurge(
+        [
+          orphan,
+          nowReferenced,
+          'brands/deleted-brand/missing.webp',
+          '/invalid',
+        ],
+        [
+          { path: orphan, size: 100 },
+          { path: nowReferenced, size: 200 },
+        ],
+        {
+          activePaths: new Set([nowReferenced]),
+          rejectedPaths: new Set(),
+          otherReferencedPaths: new Set(),
+          soakProtectedPaths: new Set(),
+        },
+      ),
+    ).toEqual({
+      toDelete: [orphan],
+      missing: ['brands/deleted-brand/missing.webp'],
+      referenced: [nowReferenced],
+      invalid: ['/invalid'],
+    })
+  })
+})
+
+describe('parseTargetedPurgeKeys', () => {
+  it('reads exact storage keys from a deleted brand-images backup', () => {
+    expect(
+      parseTargetedPurgeKeys(
+        JSON.stringify([
+          {
+            storage_path: 'brands/brand-id/from-path.webp',
+            url: 'https://project.supabase.co/storage/v1/object/public/brand-images/brands/brand-id/ignored.webp',
+          },
+          {
+            storage_path: null,
+            url: 'https://project.supabase.co/storage/v1/object/public/brand-images/brands/brand-id/from-url.webp',
+          },
+        ]),
+      ),
+    ).toEqual([
+      'brands/brand-id/from-path.webp',
+      'brands/brand-id/from-url.webp',
+    ])
   })
 })

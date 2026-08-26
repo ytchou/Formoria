@@ -1012,6 +1012,7 @@ export type Database = {
           founding_year: number | null
           hero_image_storage_path: string | null
           hero_image_url: string | null
+          hidden_reason: string | null
           id: string
           is_demo: boolean
           material: string[]
@@ -1062,6 +1063,7 @@ export type Database = {
           founding_year?: number | null
           hero_image_storage_path?: string | null
           hero_image_url?: string | null
+          hidden_reason?: string | null
           id?: string
           is_demo?: boolean
           material?: string[]
@@ -1112,6 +1114,7 @@ export type Database = {
           founding_year?: number | null
           hero_image_storage_path?: string | null
           hero_image_url?: string | null
+          hidden_reason?: string | null
           id?: string
           is_demo?: boolean
           material?: string[]

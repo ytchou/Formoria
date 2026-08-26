@@ -109,6 +109,13 @@ type PurgePlan = {
   withinSanityGate: boolean
 }
 
+type TargetedPurgePlan = {
+  toDelete: string[]
+  missing: string[]
+  referenced: string[]
+  invalid: string[]
+}
+
 type ImageReferenceRow = {
   storage_path: string | null
   url: string | null
@@ -226,6 +233,20 @@ function storageKeyFromPublicUrl(url: string): string | null {
 
   const key = url.slice(publicPrefix.length)
   return key && isStorageKey(key) ? key : null
+}
+
+function storageKeyFromBackupUrl(url: string): string | null {
+  try {
+    const marker = `/storage/v1/object/public/${BUCKET}/`
+    const pathname = new URL(url).pathname
+    const markerIndex = pathname.indexOf(marker)
+    if (markerIndex < 0) return null
+
+    const key = pathname.slice(markerIndex + marker.length)
+    return key && isStorageKey(key) ? key : null
+  } catch {
+    return null
+  }
 }
 
 function storageKeyFromReference(
@@ -535,6 +556,75 @@ export function planPurge(
     withinSanityGate:
       rejectedWithinTolerance && untrackedWithinTolerance,
   }
+}
+
+export function planTargetedPurge(
+  requestedKeys: string[],
+  objects: BucketObject[],
+  refs: StorageReferences,
+): TargetedPurgePlan {
+  const objectPaths = new Set(objects.map((object) => object.path))
+  const plan: TargetedPurgePlan = {
+    toDelete: [],
+    missing: [],
+    referenced: [],
+    invalid: [],
+  }
+
+  for (const key of new Set(requestedKeys)) {
+    if (
+      !isStorageKey(key) ||
+      key.includes('\\') ||
+      key.split('/').includes('..')
+    ) {
+      plan.invalid.push(key)
+    } else if (
+      refs.activePaths.has(key) ||
+      refs.rejectedPaths.has(key) ||
+      refs.otherReferencedPaths.has(key) ||
+      refs.soakProtectedPaths.has(key)
+    ) {
+      plan.referenced.push(key)
+    } else if (!objectPaths.has(key)) {
+      plan.missing.push(key)
+    } else {
+      plan.toDelete.push(key)
+    }
+  }
+
+  return plan
+}
+
+export function parseTargetedPurgeKeys(raw: string): string[] {
+  const trimmed = raw.trim()
+  if (!trimmed.startsWith('[')) {
+    return raw
+      .split(/\r?\n/)
+      .map((line) => line.trim())
+      .filter((line) => line.length > 0 && !line.startsWith('#'))
+  }
+
+  const rows = JSON.parse(trimmed) as unknown
+  if (!Array.isArray(rows)) {
+    throw new Error('Targeted purge JSON must be an array')
+  }
+
+  return rows.map((row, index) => {
+    if (typeof row === 'string' && row.trim()) return row.trim()
+    if (typeof row !== 'object' || row === null) {
+      throw new Error(`Targeted purge JSON row ${index + 1} has no storage key`)
+    }
+
+    const image = row as { storage_path?: unknown; url?: unknown }
+    if (typeof image.storage_path === 'string' && image.storage_path.trim()) {
+      return image.storage_path.trim()
+    }
+    if (typeof image.url === 'string') {
+      const key = storageKeyFromBackupUrl(image.url)
+      if (key) return key
+    }
+    throw new Error(`Targeted purge JSON row ${index + 1} has no storage key`)
+  })
 }
 
 function collectStorageKeys(value: unknown, keys: Set<string>): void {
@@ -870,6 +960,44 @@ async function purge(live: boolean): Promise<void> {
 
   console.log(`Deleted ${deletedPaths.length} of ${plan.toDelete.length} objects.`)
   console.log(`Fixed ${danglingRowsFixed} dangling image row(s).`)
+}
+
+async function purgeKeys(file: string, live: boolean): Promise<void> {
+  const raw = await readFile(path.resolve(file), 'utf8')
+  const requestedKeys = parseTargetedPurgeKeys(raw)
+  const supabase = createServiceClient()
+  const [objects, refs] = await Promise.all([
+    listAllObjects(supabase),
+    buildReferenceSet(supabase),
+  ])
+  const plan = planTargetedPurge(requestedKeys, objects, refs)
+
+  console.log(
+    `Targeted purge plan: ${plan.toDelete.length} deletable, ${plan.missing.length} already absent, ${plan.referenced.length} referenced, ${plan.invalid.length} invalid.`,
+  )
+  if (plan.missing.length > 0) console.table(plan.missing)
+  if (plan.referenced.length > 0) console.table(plan.referenced)
+  if (plan.invalid.length > 0) console.table(plan.invalid)
+
+  if (plan.referenced.length > 0 || plan.invalid.length > 0) {
+    throw new Error(
+      'Targeted purge aborted: every key must be valid and unreferenced',
+    )
+  }
+  if (!live) {
+    console.log(
+      'Dry run complete. Re-run with --live to delete these exact objects.',
+    )
+    return
+  }
+
+  const deleted = await removeObjects(supabase, plan.toDelete)
+  if (deleted.length !== plan.toDelete.length) {
+    throw new Error(
+      `Targeted purge incomplete: deleted ${deleted.length}/${plan.toDelete.length} objects`,
+    )
+  }
+  console.log(`Deleted ${deleted.length} exact-key object(s).`)
 }
 
 function contentTypeFromPath(storagePath: string): string | null {
@@ -1208,14 +1336,26 @@ async function main(): Promise<void> {
     }
     return
   }
+  if (subcommand === 'purge-keys') {
+    const fileIndex = args.indexOf('--file')
+    const file = fileIndex >= 0 ? args.at(fileIndex + 1) : undefined
+    const live = args.includes('--live')
+    const expectedArgs = live ? 3 : 2
+    if (!file || fileIndex !== 0 || args.length !== expectedArgs) {
+      throw new Error('Usage: purge-keys --file <path> [--live]')
+    }
+    await purgeKeys(file, live)
+    return
+  }
   if (
     subcommand !== 'audit' &&
     subcommand !== 'purge' &&
+    subcommand !== 'purge-keys' &&
     subcommand !== 'purge-originals' &&
     subcommand !== 'reencode'
   ) {
     throw new Error(
-      `Unknown subcommand "${subcommand}". Available subcommands: audit, purge [--live], purge-originals [--live], reencode [--live]`,
+      `Unknown subcommand "${subcommand}". Available subcommands: audit, purge [--live], purge-keys --file <path> [--live], purge-originals [--live], reencode [--live]`,
     )
   }
 
