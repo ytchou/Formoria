@@ -50,6 +50,20 @@ describe('normalizeProductUrl', () => {
       'https://example.com'
     )
   })
+
+  it('strips leading www. so www and bare host normalize to the same string', () => {
+    expect(normalizeProductUrl('https://www.brand.tw/products/x')).toBe(
+      normalizeProductUrl('https://brand.tw/products/x')
+    )
+    // The www. is actually removed, not just lowered
+    expect(normalizeProductUrl('https://www.brand.tw/products/x')).toBe(
+      'https://brand.tw/products/x'
+    )
+    // Uppercase WWW is also stripped
+    expect(normalizeProductUrl('https://WWW.Brand.TW/products/x')).toBe(
+      'https://brand.tw/products/x'
+    )
+  })
 })
 
 // ---------------------------------------------------------------------------

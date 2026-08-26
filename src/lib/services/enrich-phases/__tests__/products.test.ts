@@ -476,6 +476,105 @@ describe("runProductsPhase", () => {
     expect(user).toContain(`${SITE}/products/clay-plate`);
   });
 
+  it("dedupes_near_duplicate_candidates_before_prompting", async () => {
+    // Two colourway URLs of one product (same normalizedUrl after variant
+    // stripping) must collapse to one candidate slot in the merged pool.
+    // Without dedupe, both occupy slots and both persist as separate rows.
+    const chat = modelReturns([rawProposal()]);
+
+    const storedCandidates: ProductCandidate[] = [
+      {
+        url: `${SITE}/products/clay-plate?variant=blue`,
+        normalizedUrl: `${SITE}/products/clay-plate`,
+        title: "陶土餐盤 - 藍色",
+        imageUrl: `${SITE}/img/plate-blue.jpg`,
+        supplier: "stored",
+        urlClass: "product-detail",
+        searchPosition: 1,
+      },
+      {
+        url: `${SITE}/products/clay-plate?variant=red`,
+        normalizedUrl: `${SITE}/products/clay-plate`,
+        title: "陶土餐盤 - 紅色",
+        imageUrl: `${SITE}/img/plate-red.jpg`,
+        supplier: "stored",
+        urlClass: "product-detail",
+        searchPosition: 2,
+      },
+    ];
+
+    const result = await runProductsPhase({
+      brand: BRAND,
+      phases: PHASES,
+      // Empty perSourceText AND imageSources: only stored candidates contribute
+      // to the prompt, so the count is not inflated by a stray image-candidates
+      // line sharing the same URL prefix.
+      scrapedData: { ...SCRAPED, perSourceText: {}, imageSources: [] },
+      target: { type: "submission", id: SUBMISSION_ID },
+      loadStoredCandidates: async () => storedCandidates,
+    });
+
+    expect(result.phaseResult.status).toBe("succeeded");
+    // The user content must carry the URL only once — deduped.
+    // Without dedupeNearDuplicates in the pipeline, both colourway URLs would
+    // survive (different raw URLs, same normalizedUrl) and produce two lines.
+    const user = chat.mock.calls[0]![0].user as string;
+    const occurrences = user.split(`${SITE}/products/clay-plate`).length - 1;
+    expect(occurrences).toBe(1);
+  });
+
+  it("filters_off_host_stored_candidates", async () => {
+    // Stored candidates from Google Images routinely include marketplace,
+    // blog, and Pinterest URLs. These must never reach the prompt — they
+    // consume MAX_CANDIDATE_PAGES slots and crowd out valid candidates.
+    const chat = modelReturns([rawProposal()]);
+
+    const storedCandidates: ProductCandidate[] = [
+      {
+        url: "https://shopee.tw/product/12345",
+        normalizedUrl: "https://shopee.tw/product/12345",
+        title: "陶土餐盤 (蝦皮)",
+        imageUrl: "https://shopee.tw/img/plate.jpg",
+        supplier: "stored",
+        urlClass: "product-detail",
+        searchPosition: 1,
+      },
+      {
+        url: "https://www.pinterest.com/pin/67890",
+        normalizedUrl: "https://www.pinterest.com/pin/67890",
+        title: "陶土餐盤 Pinterest",
+        supplier: "stored",
+        urlClass: "other",
+        searchPosition: 3,
+      },
+      {
+        url: `${SITE}/products/clay-plate`,
+        normalizedUrl: `${SITE}/products/clay-plate`,
+        title: "陶土餐盤",
+        imageUrl: `${SITE}/img/plate.jpg`,
+        supplier: "stored",
+        urlClass: "product-detail",
+        searchPosition: 2,
+      },
+    ];
+
+    const result = await runProductsPhase({
+      brand: BRAND,
+      phases: PHASES,
+      scrapedData: { ...SCRAPED, perSourceText: {} },
+      target: { type: "submission", id: SUBMISSION_ID },
+      loadStoredCandidates: async () => storedCandidates,
+    });
+
+    expect(result.phaseResult.status).toBe("succeeded");
+    const user = chat.mock.calls[0]![0].user as string;
+    // Off-host URLs must not appear in the user content.
+    expect(user).not.toContain("shopee.tw");
+    expect(user).not.toContain("pinterest.com");
+    // The on-host candidate must appear.
+    expect(user).toContain(`${SITE}/products/clay-plate`);
+  });
+
   it("existing_scraped_path_still_works", async () => {
     // When only perSourceText is populated (stored pool is empty),
     // the phase works exactly as before — no regression.

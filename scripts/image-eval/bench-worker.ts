@@ -28,6 +28,7 @@ import { writeFile, mkdir, access } from 'node:fs/promises'
 import { dirname, resolve } from 'node:path'
 import { createClient } from '@supabase/supabase-js'
 import { runEnrich } from '@/lib/services/curation-operations'
+import { parseLegacyStepsToPhases } from '@/lib/constants/enrich-phases'
 
 const ALL_TRACKED_SLUGS = [
   'jiayun-store',
@@ -160,7 +161,9 @@ async function main(): Promise<void> {
       {
         target: 'submissions',
         submissionIds: createdIds,
-        steps: [...STEPS],
+        // DEV-1610 moved phase resolution out of runEnrich, which now reads
+        // `phases` directly. Resolve the same scope STEPS always meant.
+        phases: parseLegacyStepsToPhases([...STEPS]) ?? [],
         overwrite: true,
         onProgress: (line: string) => console.log(line),
       } as never,

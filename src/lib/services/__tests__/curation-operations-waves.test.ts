@@ -542,3 +542,95 @@ describe("Gate C and the LLM circuit breaker", () => {
     ).toBe(false);
   });
 });
+
+describe("satisfaction skipping", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mocks.getLatestSearchResults.mockResolvedValue(new Map());
+    mocks.batchSearchBrandImages.mockResolvedValue(new Map());
+    mocks.scrapeBrandUrls.mockResolvedValue(scrapeResult());
+  });
+
+  /**
+   * A submission whose `enriched_data.products` already has entries should skip
+   * the products phase with the satisfaction detail, not re-run it.
+   */
+  it("satisfied_prerequisites_are_skipped", async () => {
+    const target = submission({
+      id: "sub-satisfied",
+      brand_name: "Satisfied Brand",
+      // A known URL so Gate B ("no enrichment inputs") does not fire before
+      // the per-phase loop where satisfaction skipping is visible.
+      social_instagram: "https://www.instagram.com/satisfied",
+      enriched_data: {
+        products: [{ name: "Existing Product", official_url: "https://example.com/p1" }],
+      },
+    });
+    mocks.detectBrandsBatch.mockResolvedValue(detectBatch(new Map()));
+
+    // Phases include products — it should be skipped via satisfaction, not run.
+    const result = await runEnrich(
+      {
+        target: "submissions",
+        submissionIds: [target.id],
+        dryRun: true,
+        phases: ["detect", "links", "images", "products"],
+        onProgress: () => {},
+      },
+      fakeSupabase([target]),
+    );
+
+    const outcome = result.brandOutcomes.find(
+      (entry) => entry?.submissionId === target.id,
+    );
+    // The products phase should appear as skipped with satisfaction detail.
+    const productsPhase = outcome?.phaseResults?.find(
+      (pr) => pr.phase === "products",
+    );
+    expect(productsPhase).toBeDefined();
+    expect(productsPhase?.status).toBe("skipped");
+    expect(productsPhase?.detail).toBe("phase output already satisfied");
+  });
+
+  /**
+   * When force (overwrite) is set, satisfaction predicates are bypassed and
+   * every phase runs regardless of existing data.
+   */
+  it("force_overrides_satisfaction", async () => {
+    const target = submission({
+      id: "sub-force",
+      brand_name: "Force Brand",
+      // A known URL so Gate B ("no enrichment inputs") does not fire before
+      // the per-phase loop where the forced products phase runs.
+      social_instagram: "https://www.instagram.com/forced",
+      enriched_data: {
+        products: [{ name: "Existing Product", official_url: "https://example.com/p1" }],
+      },
+    });
+    mocks.detectBrandsBatch.mockResolvedValue(detectBatch(new Map()));
+
+    const result = await runEnrich(
+      {
+        target: "submissions",
+        submissionIds: [target.id],
+        dryRun: true,
+        overwrite: true,
+        phases: ["detect", "links", "images", "products"],
+        onProgress: () => {},
+      },
+      fakeSupabase([target]),
+    );
+
+    const outcome = result.brandOutcomes.find(
+      (entry) => entry?.submissionId === target.id,
+    );
+    // With force, products should NOT be satisfaction-skipped.
+    const productsPhase = outcome?.phaseResults?.find(
+      (pr) => pr.phase === "products",
+    );
+    expect(productsPhase).toBeDefined();
+    // It might be skipped for other reasons (e.g. "not in scope" inside the
+    // phase runner), but NOT with the satisfaction detail.
+    expect(productsPhase?.detail).not.toBe("phase output already satisfied");
+  });
+});

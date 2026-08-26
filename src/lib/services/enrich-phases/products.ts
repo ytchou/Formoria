@@ -37,6 +37,7 @@ import {
 import { preferPatched } from "./descriptions";
 import {
   classifyProductUrl,
+  dedupeNearDuplicates,
   mergeCandidatePool,
   normalizeProductUrl,
   type ProductCandidate,
@@ -647,8 +648,16 @@ export async function runProductsPhase({
 
   // --- Build the merged candidate pool ---
   // Stored candidates from brand_images provenance (injected supplier).
+  // Host-filtered the same way scraped candidates are: provider_metadata.pageUrl
+  // comes from Google Images, which routinely returns marketplace, blog and
+  // Pinterest URLs that consume MAX_CANDIDATE_PAGES slots and crowd out valid
+  // candidates.
   const loader = loadStored ?? defaultLoadStoredCandidates;
-  const storedCandidates = await loader(effectiveTarget.id);
+  const rawStoredCandidates = await loader(effectiveTarget.id);
+  const storedCandidates = rawStoredCandidates.filter((c) => {
+    const parsed = httpUrl(c.url);
+    return parsed !== null && bareHost(parsed) === bareHost(site);
+  });
 
   // Build a unified pool of ProductCandidate entries from the scraped pages.
   // The scraped half is converted to ProductCandidate shape for mergeCandidatePool.
@@ -668,7 +677,13 @@ export async function runProductsPhase({
     });
   }
 
-  const pool = mergeCandidatePool([...storedCandidates, ...scrapedCandidates]);
+  // Dedupe near-duplicates AFTER merging both suppliers. Stored candidates are
+  // placed first so they win ties: a stored candidate carries imageUrl and
+  // searchPosition that the scraped duplicate lacks, while the scraped text is
+  // still available via perSourceText[candidate.url] for user-content assembly.
+  const pool = mergeCandidatePool(
+    dedupeNearDuplicates([...storedCandidates, ...scrapedCandidates]),
+  );
 
   // Format the product bucket as user-content lines, keeping the same-host
   // filter and PAGE_TEXT_LIMIT truncation the scraped path always had.
@@ -697,9 +712,10 @@ export async function runProductsPhase({
 
   // FAILS CLOSED ON AN EMPTY POOL. The products phase requires at least one
   // product-detail candidate — from scraped pages, stored provenance, or both.
-  // Without candidates the model is asked to pick product pages while being
-  // shown none, and nothing downstream can catch fabricated URLs. Zero
-  // proposals beats five fabricated ones.
+  // Both suppliers are host-filtered (same-host as the brand site) and deduped
+  // before reaching this point. Without candidates the model is asked to pick
+  // product pages while being shown none, and nothing downstream can catch
+  // fabricated URLs. Zero proposals beats five fabricated ones.
   if (pages.length === 0)
     return skipped(
       "no product candidates in the merged pool (scraped + stored)",
@@ -789,8 +805,11 @@ export async function runProductsPhase({
 
         const writer = candidateWriter ?? createDefaultCandidateWriter();
 
+        // Persists EVERY candidate — including off-host and duplicates — so
+        // the full provenance trail is recorded for run-over-run visibility.
+        // The deduped, host-filtered pool is only for the LLM prompt.
         const selectionResult = await persistCandidatePool({
-          pool: [...storedCandidates, ...scrapedCandidates],
+          pool: [...rawStoredCandidates, ...scrapedCandidates],
           acceptedCandidates: [],
           ranker,
           writer,

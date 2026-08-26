@@ -86,6 +86,10 @@ import {
   MAX_SUBCATEGORIES,
 } from "./subcategories";
 import {
+  filterSatisfiedPhases,
+  type PhaseSatisfactionData,
+} from "./enrich-phases/phase-satisfaction";
+import {
   formatBrandComplete,
   formatEnrichError,
   formatEnrichPatchField,
@@ -1495,12 +1499,28 @@ export async function runEnrich(
         throw error;
       }
 
-      allBrands = ((submissions ?? []) as SubmissionEnrichmentRow[]).map(
-        (submission) =>
-          submissionToEnrichBrand(submission, {
-            overwrite: config.overwrite === true,
-          }),
+      const typedSubmissions = (submissions ?? []) as SubmissionEnrichmentRow[];
+      allBrands = typedSubmissions.map((submission) =>
+        submissionToEnrichBrand(submission, {
+          overwrite: config.overwrite === true,
+        }),
       );
+
+      // Satisfaction-check snapshots: the submission's enriched_data and
+      // brand_id are needed per brand to decide which phases can be skipped.
+      // Built once here rather than re-queried per target.
+      const submissionEnrichedDataMap = new Map<
+        string,
+        Record<string, unknown> | null
+      >();
+      const submissionBrandIdMap = new Map<string, string | null>();
+      for (const sub of typedSubmissions) {
+        submissionEnrichedDataMap.set(
+          sub.id,
+          isPlainObject(sub.enriched_data) ? sub.enriched_data : null,
+        );
+        submissionBrandIdMap.set(sub.id, sub.brand_id);
+      }
 
       const totalBrands = allBrands.length;
       for (const line of formatJobStart(totalBrands)) {
@@ -2363,8 +2383,77 @@ export async function runEnrich(
             const overwrite = ctx.overwrite;
 
             try {
+              // ---- Satisfaction skipping ----------------------------------------
+              // A phase whose output is already present is skipped unless the run
+              // is forced (overwrite). The snapshot is built once per brand — the
+              // predicates are pure and never touch Supabase.
+              let brandImagesCount = 0;
+              const brandId = submissionBrandIdMap.get(brand.id);
+              if (brandId) {
+                const { count, error: countError } = await (
+                  supabase as unknown as SupabaseClient
+                )
+                  .from("brand_images")
+                  .select("id", { count: "exact", head: true })
+                  .eq("brand_id", brandId);
+                if (!countError && typeof count === "number") {
+                  brandImagesCount = count;
+                }
+              }
+              const satisfactionData: PhaseSatisfactionData = {
+                brand: {
+                  purchase_website: brand.purchase_website ?? null,
+                  website:
+                    ((brand as Record<string, unknown>).website_url as
+                      | string
+                      | null) ?? null,
+                  description: brand.description ?? null,
+                  founding_year:
+                    ((brand as Record<string, unknown>).founding_year as
+                      | number
+                      | null) ?? null,
+                },
+                submission: {
+                  enriched_data:
+                    submissionEnrichedDataMap.get(brand.id) ?? null,
+                },
+                brandImagesCount,
+              };
+              const { skipped: satisfiedSkips } = filterSatisfiedPhases(
+                phases as EnrichPhaseName[],
+                satisfactionData,
+                overwrite,
+              );
+              const satisfiedPhaseSet = new Set(
+                satisfiedSkips.map((skip) => skip.phase),
+              );
+              // Record satisfied skips as phase results so the admin timeline shows
+              // "links: skipped — phase output already satisfied" rather than a
+              // silent gap. The detail string is distinct from "not requested" and
+              // "deferred" used elsewhere.
+              for (const skip of satisfiedSkips) {
+                const phaseResult = buildPhaseResult(
+                  skip.phase,
+                  "skipped",
+                  [],
+                  0,
+                  undefined,
+                  "phase output already satisfied",
+                );
+                state.phaseResults.push(phaseResult);
+                await logCurrentPhase(ctx, phaseResult);
+              }
+              if (satisfiedSkips.length > 0) {
+                onProgress(
+                  `  [SATISFACTION] ${brand.slug}: skipped ${satisfiedSkips.map((s) => s.phase).join(", ")} (already satisfied)`,
+                );
+              }
+
               let imageSearchUrls: string[] = [];
-              if (phases.includes("images")) {
+              if (
+                phases.includes("images") &&
+                !satisfiedPhaseSet.has("images")
+              ) {
                 imageSearchUrls = imageSearchResults.get(brand.id) ?? [];
                 onProgress(
                   `  [IMAGE-SEARCH] ${imageSearchUrls.length} images found`,
@@ -2440,179 +2529,190 @@ export async function runEnrich(
               }
 
               const linksResult = ctx.linksResult;
-              const candidateImages = buildCandidatePool({
-                // Prefer the provenance-carrying list; fall back to bare URLs so a
-                // scraper result predating `imageSources` still contributes.
-                scraped:
-                  linksResult && linksResult.scrapedImageSources.length > 0
-                    ? linksResult.scrapedImageSources.map((image) => ({
-                        url: image.url,
-                        method: image.method,
-                        pageUrl: image.pageUrl,
-                        position: image.position,
-                      }))
-                    : (linksResult?.scrapedImageUrls ?? []),
-                jsonLdImages: linksResult?.jsonLdImageUrls ?? [],
-                googleImages: (
-                  imageSearchOutcomes.get(brand.id)?.rows ?? imageSearchUrls
-                ).map((row) =>
-                  typeof row === "string"
-                    ? row
-                    : {
-                        url: row.url,
-                        sourceUrl: row.sourceUrl ?? row.url,
-                        pageUrl: row.pageUrl,
-                        previewUrl: row.previewUrl,
-                        title: row.title,
-                        providerSource: row.source,
-                        domain: row.domain,
-                        position: row.position,
-                        query: row.query,
-                        auditResultId: row.auditResultId,
-                        imageWidth: row.imageWidth,
-                        imageHeight: row.imageHeight,
-                        thumbnailWidth: row.thumbnailWidth,
-                        thumbnailHeight: row.thumbnailHeight,
-                      },
-                ),
-              });
-              await markCurrentPhase(ctx, "images");
-              const brandImageResult = await runBrandImagePhase({
-                brand,
-                phases,
-                imageSearchUrls,
-                candidateImages,
-                dryRun: config.dryRun,
-                target: { type: targetType, id: brand.id },
-              });
-              state.phaseResults.push(brandImageResult.phaseResult);
-              await logCurrentPhase(ctx, brandImageResult.phaseResult);
-              appendPatch(state, brandImageResult.patch);
+              if (!satisfiedPhaseSet.has("images")) {
+                const candidateImages = buildCandidatePool({
+                  // Prefer the provenance-carrying list; fall back to bare URLs so a
+                  // scraper result predating `imageSources` still contributes.
+                  scraped:
+                    linksResult && linksResult.scrapedImageSources.length > 0
+                      ? linksResult.scrapedImageSources.map((image) => ({
+                          url: image.url,
+                          method: image.method,
+                          pageUrl: image.pageUrl,
+                          position: image.position,
+                        }))
+                      : (linksResult?.scrapedImageUrls ?? []),
+                  jsonLdImages: linksResult?.jsonLdImageUrls ?? [],
+                  googleImages: (
+                    imageSearchOutcomes.get(brand.id)?.rows ?? imageSearchUrls
+                  ).map((row) =>
+                    typeof row === "string"
+                      ? row
+                      : {
+                          url: row.url,
+                          sourceUrl: row.sourceUrl ?? row.url,
+                          pageUrl: row.pageUrl,
+                          previewUrl: row.previewUrl,
+                          title: row.title,
+                          providerSource: row.source,
+                          domain: row.domain,
+                          position: row.position,
+                          query: row.query,
+                          auditResultId: row.auditResultId,
+                          imageWidth: row.imageWidth,
+                          imageHeight: row.imageHeight,
+                          thumbnailWidth: row.thumbnailWidth,
+                          thumbnailHeight: row.thumbnailHeight,
+                        },
+                  ),
+                });
+                await markCurrentPhase(ctx, "images");
+                const brandImageResult = await runBrandImagePhase({
+                  brand,
+                  phases,
+                  imageSearchUrls,
+                  candidateImages,
+                  dryRun: config.dryRun,
+                  target: { type: targetType, id: brand.id },
+                });
+                state.phaseResults.push(brandImageResult.phaseResult);
+                await logCurrentPhase(ctx, brandImageResult.phaseResult);
+                appendPatch(state, brandImageResult.patch);
+              }
 
-              await markCurrentPhase(ctx, "classify-images");
-              const classifyImagesResult = await runClassifyImagesPhase({
-                brand,
-                phases,
-                dryRun: config.dryRun,
-                overwrite,
-                target: { type: targetType, id: brand.id },
-                jobId: config.jobId,
-                pendingPatch: state.patches,
-              });
-              state.phaseResults.push(classifyImagesResult.phaseResult);
-              await logCurrentPhase(ctx, classifyImagesResult.phaseResult);
-              appendPatch(state, classifyImagesResult.patch);
+              if (!satisfiedPhaseSet.has("classify_images")) {
+                await markCurrentPhase(ctx, "classify-images");
+                const classifyImagesResult = await runClassifyImagesPhase({
+                  brand,
+                  phases,
+                  dryRun: config.dryRun,
+                  overwrite,
+                  target: { type: targetType, id: brand.id },
+                  jobId: config.jobId,
+                  pendingPatch: state.patches,
+                });
+                state.phaseResults.push(classifyImagesResult.phaseResult);
+                await logCurrentPhase(ctx, classifyImagesResult.phaseResult);
+                appendPatch(state, classifyImagesResult.patch);
+              }
 
-              await markCurrentPhase(ctx, "descriptions");
-              const descriptionsResult = await runDescriptionsPhase({
-                brand,
-                phases,
-                serpSnippets: state.serpSnippets,
-                overwrite,
-                dryRun: config.dryRun,
-                target: { type: targetType, id: brand.id },
-                jobId: config.jobId,
-                pendingPatch: state.patches,
-              });
-              // The descriptions phase now assigns the category explicitly, from
-              // site content and image alt text. That value wins: the tag-vote
-              // derivation below is a fallback for when the model returned null.
-              const effectiveCategory =
-                typeof descriptionsResult.patch.category === "string"
-                  ? descriptionsResult.patch.category
-                  : typeof state.patches.category === "string"
-                    ? state.patches.category
-                    : brand.category;
-              const effectiveSubcategories = Array.isArray(
-                descriptionsResult.patch.subcategories,
-              )
-                ? descriptionsResult.patch.subcategories.filter(
-                    (tag): tag is string => typeof tag === "string",
-                  )
-                : (brand.subcategories ?? []);
-              if (
-                descriptionsResult.phaseResult.status === "succeeded" &&
-                !effectiveCategory
-              ) {
-                const derivedCategory = deriveCategoryFromSubcategories(
-                  effectiveSubcategories,
-                );
-                if (derivedCategory) {
-                  descriptionsResult.patch.category = derivedCategory;
-                  descriptionsResult.phaseResult.changedFields = [
-                    ...new Set([
-                      ...descriptionsResult.phaseResult.changedFields,
-                      "category",
-                    ]),
-                  ];
-                  onProgress(
-                    `  [CATEGORY] ${brand.slug}: derived ${derivedCategory} from subcategories`,
+              // Track whether descriptions ran so downstream listing-verdict and
+              // ai-result attachment logic can reference its output safely.
+              let descriptionsResult:
+                | Awaited<ReturnType<typeof runDescriptionsPhase>>
+                | undefined;
+              if (!satisfiedPhaseSet.has("descriptions")) {
+                await markCurrentPhase(ctx, "descriptions");
+                descriptionsResult = await runDescriptionsPhase({
+                  brand,
+                  phases,
+                  serpSnippets: state.serpSnippets,
+                  overwrite,
+                  dryRun: config.dryRun,
+                  target: { type: targetType, id: brand.id },
+                  jobId: config.jobId,
+                  pendingPatch: state.patches,
+                });
+                // The descriptions phase now assigns the category explicitly, from
+                // site content and image alt text. That value wins: the tag-vote
+                // derivation below is a fallback for when the model returned null.
+                const effectiveCategory =
+                  typeof descriptionsResult.patch.category === "string"
+                    ? descriptionsResult.patch.category
+                    : typeof state.patches.category === "string"
+                      ? state.patches.category
+                      : brand.category;
+                const effectiveSubcategories = Array.isArray(
+                  descriptionsResult.patch.subcategories,
+                )
+                  ? descriptionsResult.patch.subcategories.filter(
+                      (tag): tag is string => typeof tag === "string",
+                    )
+                  : (brand.subcategories ?? []);
+                if (
+                  descriptionsResult.phaseResult.status === "succeeded" &&
+                  !effectiveCategory
+                ) {
+                  const derivedCategory = deriveCategoryFromSubcategories(
+                    effectiveSubcategories,
                   );
-                }
-              }
-              // Stage-2 listing gate. Absent or `list` verdicts are a no-op, so a model
-              // that never emitted the field behaves exactly as before. Read from the
-              // typed handoff, never from the patch: the verdict is a control value
-              // and would otherwise be persisted into `enriched_data`.
-              const listingVerdict = descriptionsResult.listingVerdict;
-              const listingReason =
-                listingVerdict?.reason ??
-                "Listing check rejected this brand (no reason given)";
-              if (listingVerdict?.verdict === "reject") {
-                onProgress(
-                  `  [NOT-LISTABLE] ${brand.slug}: ${listingReason} (taiwan_connection=${listingVerdict.taiwanConnection ?? "unknown"}, own_products=${listingVerdict.hasOwnProducts ?? "unknown"}, purchase_channel=${listingVerdict.hasPurchaseChannel ?? "unknown"})`,
-                );
-                // Annotated before the phase is logged so the emitted progress event and
-                // the recorded outcome carry the same detail string.
-                descriptionsResult.phaseResult.detail = [
-                  descriptionsResult.phaseResult.detail,
-                  `listing verdict: reject — ${listingReason}`,
-                ]
-                  .filter(Boolean)
-                  .join("; ");
-              }
-
-              state.phaseResults.push(descriptionsResult.phaseResult);
-              await logCurrentPhase(ctx, descriptionsResult.phaseResult);
-              appendPatch(state, descriptionsResult.patch);
-
-              if (listingVerdict?.verdict === "reject") {
-                if (target === "submissions") {
-                  // A submission is not yet published, so this is a real gate: mirror the
-                  // detect non-brand path exactly — triage row, then a skipped outcome.
-                  if (!config.dryRun) {
-                    await insertTriageResult({
-                      brandId: brand.id,
-                      target: { type: targetType, id: brand.id },
-                      isNonBrand: true,
-                      nonBrandReason: `listing_reject: ${listingReason}`,
-                      slugGenerated: null,
-                      categorySlug: effectiveCategory ?? null,
-                      confidence: "medium",
-                    });
+                  if (derivedCategory) {
+                    descriptionsResult.patch.category = derivedCategory;
+                    descriptionsResult.phaseResult.changedFields = [
+                      ...new Set([
+                        ...descriptionsResult.phaseResult.changedFields,
+                        "category",
+                      ]),
+                    ];
+                    onProgress(
+                      `  [CATEGORY] ${brand.slug}: derived ${derivedCategory} from subcategories`,
+                    );
                   }
-
-                  await recordOutcome(ctx, {
-                    slug: brand.slug,
-                    name: getDisplayBrandName(brand),
-                    submissionId: brand.id,
-                    status: "skipped",
-                    changedFields: changedFieldsFromPhaseResults(
-                      state.phaseResults,
-                    ),
-                    phaseResults: state.phaseResults,
-                    error: `Listing check rejected this submission: ${listingReason}`,
-                  });
-                  result.skipped += 1;
-                  finishBrand(ctx);
-                  return;
                 }
-                // An approved brand is already public: record only — the onProgress log
-                // and the phase detail above are the whole action. Nothing is
-                // unpublished or hidden, brands.status is untouched, and the run
-                // continues to the remaining phases. insertTriageResult is deliberately
-                // NOT called here: its row shape is the detect-phase triage schema, and
-                // widening it would be a schema change.
+                // Stage-2 listing gate. Absent or `list` verdicts are a no-op, so a model
+                // that never emitted the field behaves exactly as before. Read from the
+                // typed handoff, never from the patch: the verdict is a control value
+                // and would otherwise be persisted into `enriched_data`.
+                const listingVerdict = descriptionsResult.listingVerdict;
+                const listingReason =
+                  listingVerdict?.reason ??
+                  "Listing check rejected this brand (no reason given)";
+                if (listingVerdict?.verdict === "reject") {
+                  onProgress(
+                    `  [NOT-LISTABLE] ${brand.slug}: ${listingReason} (taiwan_connection=${listingVerdict.taiwanConnection ?? "unknown"}, own_products=${listingVerdict.hasOwnProducts ?? "unknown"}, purchase_channel=${listingVerdict.hasPurchaseChannel ?? "unknown"})`,
+                  );
+                  // Annotated before the phase is logged so the emitted progress event and
+                  // the recorded outcome carry the same detail string.
+                  descriptionsResult.phaseResult.detail = [
+                    descriptionsResult.phaseResult.detail,
+                    `listing verdict: reject — ${listingReason}`,
+                  ]
+                    .filter(Boolean)
+                    .join("; ");
+                }
+
+                state.phaseResults.push(descriptionsResult.phaseResult);
+                await logCurrentPhase(ctx, descriptionsResult.phaseResult);
+                appendPatch(state, descriptionsResult.patch);
+
+                if (listingVerdict?.verdict === "reject") {
+                  if (target === "submissions") {
+                    // A submission is not yet published, so this is a real gate: mirror the
+                    // detect non-brand path exactly — triage row, then a skipped outcome.
+                    if (!config.dryRun) {
+                      await insertTriageResult({
+                        brandId: brand.id,
+                        target: { type: targetType, id: brand.id },
+                        isNonBrand: true,
+                        nonBrandReason: `listing_reject: ${listingReason}`,
+                        slugGenerated: null,
+                        categorySlug: effectiveCategory ?? null,
+                        confidence: "medium",
+                      });
+                    }
+
+                    await recordOutcome(ctx, {
+                      slug: brand.slug,
+                      name: getDisplayBrandName(brand),
+                      submissionId: brand.id,
+                      status: "skipped",
+                      changedFields: changedFieldsFromPhaseResults(
+                        state.phaseResults,
+                      ),
+                      phaseResults: state.phaseResults,
+                      error: `Listing check rejected this submission: ${listingReason}`,
+                    });
+                    result.skipped += 1;
+                    finishBrand(ctx);
+                    return;
+                  }
+                  // An approved brand is already public: record only — the onProgress log
+                  // and the phase detail above are the whole action. Nothing is
+                  // unpublished or hidden, brands.status is untouched, and the run
+                  // continues to the remaining phases. insertTriageResult is deliberately
+                  // NOT called here: its row shape is the detect-phase triage schema, and
+                  // widening it would be a schema change.
+                }
               }
 
               // A deferred phase is not called at all: no `current_phase` write, no
@@ -2637,59 +2737,66 @@ export async function runEnrich(
                 ),
               );
 
-              await markCurrentPhase(ctx, "reputation");
-              const reputationResult = await runReputationPhase({
-                brand,
-                phases,
-                serpSnippets: state.serpSnippets,
-                scrapedData: state.scrapedData,
-                overwrite,
-                target: { type: targetType, id: brand.id },
-                jobId: config.jobId,
-              });
-              state.phaseResults.push(reputationResult.phaseResult);
-              await logCurrentPhase(ctx, reputationResult.phaseResult);
-              appendPatch(state, reputationResult.patch);
+              if (!satisfiedPhaseSet.has("reputation")) {
+                await markCurrentPhase(ctx, "reputation");
+                const reputationResult = await runReputationPhase({
+                  brand,
+                  phases,
+                  serpSnippets: state.serpSnippets,
+                  scrapedData: state.scrapedData,
+                  overwrite,
+                  target: { type: targetType, id: brand.id },
+                  jobId: config.jobId,
+                });
+                state.phaseResults.push(reputationResult.phaseResult);
+                await logCurrentPhase(ctx, reputationResult.phaseResult);
+                appendPatch(state, reputationResult.patch);
+              }
 
-              await markCurrentPhase(ctx, "faq");
-              const faqResult = await runFaqPhase({
-                brand,
-                phases,
-                serpSnippets: state.serpSnippets,
-                scrapedData: state.scrapedData,
-                overwrite,
-                dryRun: config.dryRun,
-                target: { type: targetType, id: brand.id },
-                jobId: config.jobId,
-                explicitPhases: config.explicitPhases ?? [],
-              });
-              state.phaseResults.push(faqResult.phaseResult);
-              await logCurrentPhase(ctx, faqResult.phaseResult);
-              appendPatch(state, faqResult.patch);
+              if (!satisfiedPhaseSet.has("faq")) {
+                await markCurrentPhase(ctx, "faq");
+                const faqResult = await runFaqPhase({
+                  brand,
+                  phases,
+                  serpSnippets: state.serpSnippets,
+                  scrapedData: state.scrapedData,
+                  overwrite,
+                  dryRun: config.dryRun,
+                  target: { type: targetType, id: brand.id },
+                  jobId: config.jobId,
+                  explicitPhases: config.explicitPhases ?? [],
+                });
+                state.phaseResults.push(faqResult.phaseResult);
+                await logCurrentPhase(ctx, faqResult.phaseResult);
+                appendPatch(state, faqResult.patch);
+              }
 
-              await markCurrentPhase(ctx, "products");
-              const productsResult = await runProductsPhase({
-                brand,
-                phases,
-                scrapedData: state.scrapedData,
-                // The site the earlier phases resolved — or REVOKED. Reading the
-                // pre-run snapshot instead would mine a contaminated website.
-                pendingPatch: state.patches,
-                dryRun: config.dryRun,
-                target: { type: targetType, id: brand.id },
-                jobId: config.jobId,
-              });
-              state.phaseResults.push(productsResult.phaseResult);
-              await logCurrentPhase(ctx, productsResult.phaseResult);
-              // The proposals ride the patch as `products`, which
-              // `mergeSubmissionEnrichedData` replaces rather than unions. No target
-              // type is added and no row is written here: materialization is the
-              // moderator's approval.
-              appendPatch(state, productsResult.patch);
+              if (!satisfiedPhaseSet.has("products")) {
+                await markCurrentPhase(ctx, "products");
+                const productsResult = await runProductsPhase({
+                  brand,
+                  phases,
+                  scrapedData: state.scrapedData,
+                  // The site the earlier phases resolved — or REVOKED. Reading the
+                  // pre-run snapshot instead would mine a contaminated website.
+                  pendingPatch: state.patches,
+                  dryRun: config.dryRun,
+                  target: { type: targetType, id: brand.id },
+                  jobId: config.jobId,
+                });
+                state.phaseResults.push(productsResult.phaseResult);
+                await logCurrentPhase(ctx, productsResult.phaseResult);
+                // The proposals ride the patch as `products`, which
+                // `mergeSubmissionEnrichedData` replaces rather than unions. No target
+                // type is added and no row is written here: materialization is the
+                // moderator's approval.
+                appendPatch(state, productsResult.patch);
+              }
 
               let classification: ClassificationResult | null = null;
               let hasCompletedTagClassification = false;
               if (
+                !satisfiedPhaseSet.has("tags") &&
                 !(
                   phases.includes("descriptions") &&
                   state.serpSnippets.length > 0
@@ -2778,7 +2885,7 @@ export async function runEnrich(
                     `  [WEAK-BRAND] ${brand.slug}: no useful data found (${state.discoveredUrls.length} search results, no enrichment changes)`,
                   );
                 }
-                if (!config.dryRun) {
+                if (!config.dryRun && descriptionsResult) {
                   if (descriptionsResult.attempts.length > 0) {
                     await attachDescriptionAiResults(
                       descriptionsResult.attempts,
@@ -2840,19 +2947,21 @@ export async function runEnrich(
                     confidence: detectResult.confidence,
                   });
                 }
-                if (descriptionsResult.attempts.length > 0) {
-                  await attachDescriptionAiResults(
-                    descriptionsResult.attempts,
-                    { type: targetType, id: brand.id },
-                    config.jobId,
-                  );
-                }
-                if (descriptionsResult.factsAttempts.length > 0) {
-                  await attachFactsAiResults(
-                    descriptionsResult.factsAttempts,
-                    { type: targetType, id: brand.id },
-                    config.jobId,
-                  );
+                if (descriptionsResult) {
+                  if (descriptionsResult.attempts.length > 0) {
+                    await attachDescriptionAiResults(
+                      descriptionsResult.attempts,
+                      { type: targetType, id: brand.id },
+                      config.jobId,
+                    );
+                  }
+                  if (descriptionsResult.factsAttempts.length > 0) {
+                    await attachFactsAiResults(
+                      descriptionsResult.factsAttempts,
+                      { type: targetType, id: brand.id },
+                      config.jobId,
+                    );
+                  }
                 }
                 if (classification) {
                   await insertClassificationResult({

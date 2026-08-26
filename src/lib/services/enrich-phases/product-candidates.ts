@@ -57,8 +57,10 @@ export function normalizeProductUrl(raw: string): string | null {
     return null
   }
 
-  // Lowercase the host only
-  url.hostname = url.hostname.toLowerCase()
+  // Lowercase the host and strip leading www. so normalization agrees with
+  // bareHost — without this, www.brand.tw/x and brand.tw/x normalize to
+  // different strings and both survive URL-equality dedupe.
+  url.hostname = url.hostname.toLowerCase().replace(/^www\./u, '')
 
   // Strip tracking params
   const keysToDelete: string[] = []
