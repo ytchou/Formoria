@@ -386,13 +386,19 @@ describe("SubmissionsReviewList", () => {
       screen.getByRole("button", { name: "Reject 0 selected" }),
     ).toBeDisabled();
     expect(
-      screen.getByRole("button", { name: "Run Context step again (0)" }),
+      screen.getByRole("button", { name: "Run Identity task again (0)" }),
     ).toBeDisabled();
     expect(
-      screen.getByRole("button", { name: "Run Image step again (0)" }),
+      screen.getByRole("button", { name: "Run Image task again (0)" }),
     ).toBeDisabled();
     expect(
-      screen.getByRole("button", { name: "Run Detail step again (0)" }),
+      screen.getByRole("button", { name: "Run Editorial task again (0)" }),
+    ).toBeDisabled();
+    expect(
+      screen.getByRole("button", { name: "Run Product task again (0)" }),
+    ).toBeDisabled();
+    expect(
+      screen.getByRole("button", { name: "Run Full curation again (0)" }),
     ).toBeDisabled();
     expect(screen.getAllByRole("checkbox")).toHaveLength(2);
     // Row-level decisions moved into the drawer, so the closed table has none.
