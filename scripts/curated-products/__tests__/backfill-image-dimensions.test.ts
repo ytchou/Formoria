@@ -3,12 +3,12 @@ import { describe, expect, it } from "vitest";
 import {
   backfillImageDimensions,
   loadRowsNeedingDimensions,
-  parseApplyOption,
   type DimensionQuery,
   type DimensionRow,
   type DimensionUpdateFilter,
   type DimensionWriter,
 } from "../backfill-image-dimensions";
+import { parseApplyOption } from "../shared";
 
 /**
  * The dimension backfill (DEV-1479).
