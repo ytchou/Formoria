@@ -130,9 +130,9 @@ describe("planCurationResume", () => {
     expect(plans.at(1)?.params.submissionIds).toEqual(["sub-cancelled"]);
   });
 
-  it("drops `steps` from every enqueued job because steps beat phases at run time", () => {
+  it("drops `steps` and `task` from every enqueued job because they beat phases at run time", () => {
     const plans = planCurationResume(
-      { steps: ["context", "detail"], stopAfter: 5 } as Json,
+      { steps: ["context", "detail"], task: "full", stopAfter: 5 } as Json,
       [
         target({ targetId: "sub-failed", status: "failed" }),
         target({ targetId: "sub-cancelled", status: "cancelled" }),
@@ -142,6 +142,7 @@ describe("planCurationResume", () => {
     expect(plans).toHaveLength(2);
     for (const plan of plans) {
       expect(plan.params.steps).toBeUndefined();
+      expect(plan.params.task).toBeUndefined();
       expect(plan.params.stopAfter).toBeUndefined();
       expect(plan.params.target).toBe("submissions");
     }

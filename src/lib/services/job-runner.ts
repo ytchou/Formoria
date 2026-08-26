@@ -7,8 +7,10 @@ import {
   type OperationResult as CurationOperationResult,
 } from "@/lib/services/curation-operations";
 import {
-  CURATION_STEPS,
-  type CurationStep,
+  CURATION_TASKS,
+  type CurationTask,
+  phasesForTask,
+  parseLegacyStepsToPhases,
 } from "@/lib/constants/enrich-phases";
 import {
   reportCircuitBreakerTrip,
@@ -58,7 +60,8 @@ type JobParams = {
   target?: EnrichTarget;
   stopAfter?: number;
   phases?: EnrichPhase[];
-  steps?: CurationStep[];
+  task?: CurationTask;
+  steps?: string[];
   overwrite?: boolean;
   status?: BrandStatus;
 };
@@ -248,8 +251,8 @@ async function runOperation(
           target:
             params.target ?? (params.slugs?.length ? "brands" : "submissions"),
           status,
-          phases: params.phases ?? [...ENRICH_PHASES],
-          ...(params.steps ? { steps: params.steps } : {}),
+          phases: resolvePhases(params),
+          explicitPhases: params.phases ?? [],
           jobId: job.id,
         },
         operationSupabase(supabase),
@@ -319,7 +322,8 @@ function parseParams(params: Json | null): JobParams {
     target,
     stopAfter,
     phases: parseEnrichPhases(raw.phases),
-    steps: parseCurationSteps(raw.steps),
+    task: parseCurationTask(raw.task),
+    steps: parseLegacyStepNames(raw.steps),
     overwrite: parseOverwriteParam(raw.overwrite),
     status: parseStatus(raw.status),
   };
@@ -337,8 +341,8 @@ async function runSubmissionEnrichment(
       target: "submissions",
       submissionIds,
       status: params.status,
-      phases: params.phases ?? config.phases ?? [...ENRICH_PHASES],
-      ...(params.steps ? { steps: params.steps } : {}),
+      phases: resolvePhases(params) ?? config.phases ?? [...ENRICH_PHASES],
+      explicitPhases: params.phases ?? [],
     },
     operationSupabase(supabase),
   );
@@ -393,22 +397,40 @@ function parseEnrichPhases(value: unknown): EnrichPhase[] | undefined {
 }
 
 /**
- * Steps are what the admin UI now sends. Unknown names are dropped rather than
- * failing the job, mirroring `parseEnrichPhases`; an all-unknown list yields
- * undefined so the stored `phases` (or the full pipeline) still applies.
+ * Parse a task name from stored job params.
  */
-function parseCurationSteps(value: unknown): CurationStep[] | undefined {
-  if (!Array.isArray(value)) {
-    return undefined;
-  }
+function parseCurationTask(value: unknown): CurationTask | undefined {
+  if (typeof value !== "string") return undefined;
+  const known = Object.keys(CURATION_TASKS) as CurationTask[];
+  return (known as readonly string[]).includes(value)
+    ? (value as CurationTask)
+    : undefined;
+}
 
-  const known = Object.keys(CURATION_STEPS) as CurationStep[];
-  const steps = value.filter(
-    (step): step is CurationStep =>
-      typeof step === "string" && (known as readonly string[]).includes(step),
+/**
+ * Parse legacy step names from stored job rows. Unknown names are silently
+ * dropped. Returns undefined when no valid names remain.
+ */
+function parseLegacyStepNames(value: unknown): string[] | undefined {
+  if (!Array.isArray(value)) return undefined;
+  const names = value.filter(
+    (step): step is string => typeof step === "string" && step.trim() !== "",
   );
+  return names.length > 0 ? names : undefined;
+}
 
-  return steps.length > 0 ? [...new Set(steps)] : undefined;
+/**
+ * Resolve the effective phase list from job params.
+ * Precedence: explicit phases > task > legacy steps > all phases.
+ */
+function resolvePhases(params: JobParams): EnrichPhase[] {
+  if (params.phases) return params.phases;
+  if (params.task) return phasesForTask(params.task) as EnrichPhase[];
+  if (params.steps) {
+    const fromSteps = parseLegacyStepsToPhases(params.steps);
+    return (fromSteps as EnrichPhase[] | undefined) ?? [...ENRICH_PHASES];
+  }
+  return [...ENRICH_PHASES];
 }
 
 function progressJson(targets: CurationJobTarget[]): Json {

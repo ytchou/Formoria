@@ -1332,6 +1332,78 @@ export type Database = {
         }
         Relationships: []
       }
+      curated_product_candidates: {
+        Row: {
+          brand_id: string
+          created_at: string
+          final_rank: number | null
+          gate_result: string
+          id: string
+          image_url: string | null
+          job_id: string | null
+          llm_rationale: string | null
+          llm_score: number | null
+          normalized_url: string
+          search_position: number | null
+          submission_id: string | null
+          supplier: string
+          title: string | null
+          url: string
+          url_class: string
+        }
+        Insert: {
+          brand_id: string
+          created_at?: string
+          final_rank?: number | null
+          gate_result: string
+          id?: string
+          image_url?: string | null
+          job_id?: string | null
+          llm_rationale?: string | null
+          llm_score?: number | null
+          normalized_url: string
+          search_position?: number | null
+          submission_id?: string | null
+          supplier: string
+          title?: string | null
+          url: string
+          url_class: string
+        }
+        Update: {
+          brand_id?: string
+          created_at?: string
+          final_rank?: number | null
+          gate_result?: string
+          id?: string
+          image_url?: string | null
+          job_id?: string | null
+          llm_rationale?: string | null
+          llm_score?: number | null
+          normalized_url?: string
+          search_position?: number | null
+          submission_id?: string | null
+          supplier?: string
+          title?: string | null
+          url?: string
+          url_class?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "curated_product_candidates_brand_id_fkey"
+            columns: ["brand_id"]
+            isOneToOne: false
+            referencedRelation: "brands"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "curated_product_candidates_submission_id_fkey"
+            columns: ["submission_id"]
+            isOneToOne: false
+            referencedRelation: "brand_submissions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       curated_product_selections: {
         Row: {
           created_at: string

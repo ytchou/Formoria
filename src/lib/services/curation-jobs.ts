@@ -2,11 +2,12 @@ import { createServiceClient } from "@/lib/supabase/service";
 import { auditedCall } from "@/lib/audit";
 import type { Database, Json } from "@/lib/supabase/database.types";
 import {
-  CURATION_STEPS,
+  CURATION_TASKS,
   ENRICH_LLM_PHASES,
   ENRICH_PHASES,
-  phasesForSteps,
-  type CurationStep,
+  parseLegacyStepsToPhases,
+  phasesForTask,
+  type CurationTask,
   type EnrichPhaseName,
 } from "@/lib/constants/enrich-phases";
 import {
@@ -40,10 +41,12 @@ export type CurationJobParams = Record<string, Json | undefined> & {
   stopAfter?: number;
   /**
    * Execution vocabulary, still accepted and still what historical rows carry.
-   * New jobs from the admin UI send `steps` instead; the runner expands those
-   * into phases so persisted phase-level reporting is unchanged.
+   * Explicit phases take highest precedence when present.
    */
   phases?: string[];
+  /** Task-based selection. Resolves to a phase closure via the dependency map. */
+  task?: string;
+  /** Legacy step names from stored rows. Parsed into phases as a fallback. */
   steps?: string[];
   overwrite?: boolean;
   status?: string;
@@ -996,31 +999,38 @@ function normalizeLegacyPhaseName(phase: string): string {
 /**
  * The phase scope a stored job actually ran.
  *
- * WHY this is not just `params.phases`: `runEnrich` resolves its scope as
- * `config.steps?.length ? phasesForSteps(config.steps) : config.phases`
- * (curation-operations.ts) — `steps` *beats* `phases`. A job enqueued from the
- * admin UI carries `steps` only, so reading `phases` alone would report an
- * empty scope for every modern job and the resume would fall back to the full
- * pipeline. Absent both, the runner defaults to all of `ENRICH_PHASES`.
+ * Resolution precedence mirrors the runner: explicit phases > task > legacy
+ * steps > all phases. A job enqueued from the admin UI carries `task`; legacy
+ * jobs may carry `steps` or `phases`. Absent all three, the runner defaults to
+ * all of `ENRICH_PHASES`.
  */
-function effectiveRequestedPhases(
+export function effectiveRequestedPhases(
   params: CurationJobParams,
 ): EnrichPhaseName[] {
-  const knownSteps = Object.keys(CURATION_STEPS) as CurationStep[];
-  const steps = Array.isArray(params.steps)
-    ? params.steps.filter((step): step is CurationStep =>
-        (knownSteps as readonly string[]).includes(step),
-      )
-    : [];
-  if (steps.length > 0) return phasesForSteps(steps);
-
+  // Explicit phases take precedence
   const phases = Array.isArray(params.phases)
     ? new Set(params.phases.map(normalizeLegacyPhaseName))
     : null;
-  if (!phases || phases.size === 0) return [...ENRICH_PHASES];
+  if (phases && phases.size > 0) {
+    const known = ENRICH_PHASES.filter((phase) => phases.has(phase));
+    if (known.length > 0) return known;
+  }
 
-  const known = ENRICH_PHASES.filter((phase) => phases.has(phase));
-  return known.length > 0 ? known : [...ENRICH_PHASES];
+  // Task-based resolution
+  if (
+    typeof params.task === "string" &&
+    params.task in CURATION_TASKS
+  ) {
+    return phasesForTask(params.task as CurationTask);
+  }
+
+  // Legacy step parsing
+  if (Array.isArray(params.steps) && params.steps.length > 0) {
+    const fromSteps = parseLegacyStepsToPhases(params.steps);
+    if (fromSteps) return fromSteps;
+  }
+
+  return [...ENRICH_PHASES];
 }
 
 /**
@@ -1078,10 +1088,10 @@ function unfinishedPhasesForTargets(
 /**
  * Builds one job's params from the source job's.
  *
- * `steps` MUST be deleted: it wins over `phases` in `runEnrich`, so carrying it
- * through would make the narrowed phase list computed above completely inert
- * and resume would re-run the full step group — including `discover`, which
- * re-pays serper.dev per brand.
+ * `steps` and `task` MUST be deleted: they win over `phases` in the resolution
+ * chain, so carrying them through would make the narrowed phase list computed
+ * above completely inert and resume would re-run the full scope — including
+ * `discover`, which re-pays serper.dev per brand.
  *
  * `stopAfter` is dropped for the same reason `rerunJobParams` drops it: the
  * runner turns it into a SQL LIMIT, and a resume already carries an explicit,
@@ -1094,6 +1104,7 @@ function resumeJobParams(
 ): CurationJobParams {
   const params: CurationJobParams = { ...sourceParams };
   delete params.steps;
+  delete params.task;
   delete params.stopAfter;
   delete params.slugs;
 

@@ -32,9 +32,9 @@ import { SubmissionStatusBadge } from "@/components/admin/status-badge";
 import { Label } from "@/components/ui/label";
 import { NativeSelect } from "@/components/ui/native-select";
 import {
-  CURATION_STEPS,
-  CURATION_STEP_ORDER,
-  type CurationStep,
+  CURATION_TASK_ORDER,
+  phasesForTask,
+  type CurationTask,
 } from "@/lib/constants/enrich-phases";
 import {
   isoDateInTimeZone,
@@ -383,14 +383,14 @@ export function SubmissionsReviewList({
     );
   }
 
-  function startCuration(items: ReviewSubmission[], steps?: [CurationStep]) {
+  function startCuration(items: ReviewSubmission[], task?: CurationTask) {
     const ids = items.map(getSubmissionId);
     if (ids.length === 0) return;
 
     startEnrichTransition(async () => {
       const result = await startCurationJobAction(
         "enrich",
-        steps ? { submissionIds: ids, steps } : { submissionIds: ids },
+        task ? { submissionIds: ids, task } : { submissionIds: ids },
         false,
       );
       if ("error" in result) {
@@ -456,16 +456,16 @@ export function SubmissionsReviewList({
       disabled: isEnriching || isDropping,
       onRun: () => setDropDialogOpen(true),
     },
-    ...CURATION_STEP_ORDER.map<ReviewBulkAction<ReviewSubmission>>((step) => ({
-      id: `curation-${step}`,
-      label: (count) => t(`runStepCuration.${step}`, { count }),
+    ...CURATION_TASK_ORDER.map<ReviewBulkAction<ReviewSubmission>>((task) => ({
+      id: `curation-${task}`,
+      label: (count) => t(`runTaskCuration.${task}`, { count }),
       variant: "secondary",
       visibleOn: (activeTab) => activeTab === "ready",
-      // The phases a step covers stay visible to the operator: failures and job
+      // The phases a task covers stay visible to the operator: failures and job
       // history are still reported per phase.
-      title: CURATION_STEPS[step].join(", "),
+      title: phasesForTask(task).join(", "),
       disabled: isEnriching,
-      onRun: (items) => startCuration(items, [step]),
+      onRun: (items) => startCuration(items, task),
     })),
     {
       id: "approve",

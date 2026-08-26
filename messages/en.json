@@ -2397,10 +2397,12 @@
       "fetchData": "Fetch Data",
       "approve": "Approve",
       "approveRefresh": "Approve — updates the live brand",
-      "runStepCuration": {
-        "context": "Run Context step again ({count})",
-        "image": "Run Image step again ({count})",
-        "detail": "Run Detail step again ({count})"
+      "runTaskCuration": {
+        "identity": "Run Identity task again ({count})",
+        "image": "Run Image task again ({count})",
+        "editorial": "Run Editorial task again ({count})",
+        "product": "Run Product task again ({count})",
+        "full": "Run Full curation again ({count})"
       },
       "storageCleanupWarning": "The refresh was applied, but some retired image files still need cleanup.",
       "reject": "Reject",

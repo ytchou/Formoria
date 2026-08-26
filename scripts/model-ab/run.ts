@@ -59,6 +59,7 @@ import {
   resolveOpenAIModel,
 } from "@/lib/services/openai-client";
 import { runEnrich } from "@/lib/services/curation-operations";
+import { parseLegacyStepsToPhases } from "@/lib/constants/enrich-phases";
 import type { CurationPatchEvent, PhaseResult } from "@/lib/types/curation";
 import { setAuditWriteSeam, type AuditRecord } from "@/lib/audit";
 import { createWriteBlockingClient } from "./readonly-client";
@@ -469,8 +470,9 @@ async function main(): Promise<void> {
       target: "submissions",
       submissionIds: syntheticSubmissions.map((s) => s.id),
       overwrite: true,
-      phases: [],
-      steps: ["context", "detail"],
+      // DEV-1610 moved phase resolution out of runEnrich, which now reads
+      // `phases` directly; an empty array here would run nothing at all.
+      phases: parseLegacyStepsToPhases(["context", "detail"]) ?? [],
       onProgress: (line: string) => console.log(`   ${line}`),
       onPatch: (event: CurationPatchEvent) => {
         // Keyed by the id we minted, not by the slug the pipeline derived —
