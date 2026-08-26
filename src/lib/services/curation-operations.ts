@@ -13,8 +13,7 @@ import {
   ENRICH_LLM_PHASES,
   ENRICH_PHASES,
   isDeferredPhase,
-  phasesForSteps,
-  type CurationStep,
+  type CurationTask,
   type EnrichPhaseName,
 } from "@/lib/constants/enrich-phases";
 import { normalizeToRootUrl } from "@/lib/url";
@@ -1417,12 +1416,19 @@ export async function runEnrich(
   config: CurationConfig & {
     phases: string[];
     /**
-     * Operator-facing selection. When present it wins over `phases`: the three
-     * steps expand into the full phase list, so everything downstream keeps
-     * working on phase names. Absent means the caller passed phases directly
-     * and nothing about its behaviour changes.
+     * Task-based selection, threaded from job params for logging. Phase
+     * resolution happens at the caller (job-runner / CLI); `phases` already
+     * carries the resolved closure.
      */
-    steps?: readonly CurationStep[];
+    task?: CurationTask;
+    /**
+     * Phases the operator named literally (via `params.phases` or the CLI
+     * `--phases` flag). Phases derived from a task closure or legacy steps
+     * are NOT explicit: they should not trigger force-regeneration guards
+     * like the FAQ re-author switch. Defaults to `[]` when absent, so the
+     * non-forcing path is the default.
+     */
+    explicitPhases?: readonly string[];
   },
   supabase: SupabaseLike,
 ): Promise<EnrichOperationResult> {
@@ -1442,9 +1448,9 @@ export async function runEnrich(
         brandOutcomes: [],
       };
 
-      const phases = (
-        config.steps?.length ? phasesForSteps(config.steps) : config.phases
-      ) as RunEnrichPhase[];
+      // Phase resolution happens at the caller (job-runner / CLI); the
+      // resolved list arrives here in config.phases.
+      const phases = config.phases as RunEnrichPhase[];
       const target =
         config.target ?? (config.slugs?.length ? "brands" : "submissions");
       if (target === "brands") {
@@ -2655,7 +2661,7 @@ export async function runEnrich(
                 dryRun: config.dryRun,
                 target: { type: targetType, id: brand.id },
                 jobId: config.jobId,
-                explicitPhases: config.steps?.length ? [] : config.phases,
+                explicitPhases: config.explicitPhases ?? [],
               });
               state.phaseResults.push(faqResult.phaseResult);
               await logCurrentPhase(ctx, faqResult.phaseResult);

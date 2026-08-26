@@ -31,8 +31,9 @@ export const ENRICH_PHASES = [
   // Curated-product proposals (DEV-1469). Last, and after `links` /
   // `site_identity` by hard dependency: it proposes products from the brand's
   // own site, so it needs the resolved `purchase_website` AND site-identity's
-  // verdict on it — a revoked site must never be mined for products. It also
-  // reuses `classify_images`' alt text as image evidence.
+  // verdict on it — a revoked site must never be mined for products.
+  // Note: the `products ← classify_images` edge is comment-only — the code
+  // reads `scrapedData.imageSources` from `links`, not from classify_images.
   "products",
 ] as const;
 
@@ -40,7 +41,7 @@ export type EnrichPhaseName = (typeof ENRICH_PHASES)[number];
 
 /**
  * Phase strings that are audited and reported but are NOT independently
- * selectable: they have no entry in `CURATION_STEPS`, an operator can never ask
+ * selectable: they have no entry in `CURATION_TASKS`, an operator can never ask
  * for one, and they cannot be skipped without skipping the phase that owns
  * them. They still reach the database — `brand_ai_results.phase` and
  * `curation_job_targets.phase_results` both store them — so they are modelled
@@ -133,32 +134,43 @@ export const ENRICH_STAGE_GROUPS = {
 } as const satisfies Record<string, readonly EnrichPhaseName[]>;
 
 /**
- * The three steps an operator selects. Everything below this line is the
- * *execution* vocabulary; this is the *selection* vocabulary.
+ * Data-flow dependencies between phases. Each phase lists the phases whose
+ * persisted output it reads. These are *verified* edges — the code actually
+ * queries or reads the dependency's output.
  *
- * Grouped by data dependency, which is why the order is fixed:
- * - `context` gathers the brand's identity and its links.
- * - `image` needs context's brand name and resolved links to search and classify.
- * - `detail` needs context's site text and image classification results, so it
- *   runs last.
- *
- * `tags` is deliberately in `detail`, not `context`: the product category is a
- * reasoning task decided by the descriptions phase from site content and image
- * alt text, not by detect from SERP snippets alone.
- *
- * `names` is in `context` for the mirror-image reason: it arbitrates the brand's
- * identity from what the other context phases proposed, so it cannot run before
- * them — and the `image` step's query is built from the name it decides, so it
- * cannot run after them either.
+ * Ordering-only edges are NOT listed here and do not enter the closure:
+ *   - `faq ← descriptions` (reads `facts`)
+ *   - `faq ← reputation` (reads `reputationSummary`)
+ *   - `products ← classify_images` (comment-only; code reads from `links`)
+ *   - `descriptions ← classify_images` (comment-only; `imageAlts` hardcoded [])
+ * Those are enforced by ENRICH_PHASES ordering, not by the dependency map.
  *
  * WHY the phase names survive: they are persisted in production —
  * `curation_jobs.params`, `curation_jobs.current_phase`,
  * `curation_job_targets.current_phase`, `curation_job_targets.phase_results`
  * and `brand_ai_results.phase` all store phase strings. Historical rows must
  * keep rendering, and `phase_results` must keep per-phase granularity so a
- * failure reads "links failed", not "context failed". Steps are therefore a
+ * failure reads "links failed", not "identity failed". Tasks are therefore a
  * selection API that expands into phases, never a replacement for them.
  */
+export const PHASE_DEPENDENCIES: Record<EnrichPhaseName, readonly EnrichPhaseName[]> = {
+  clean: [],
+  detect: ["discover"],
+  slugs: ["detect"],
+  tags: ["descriptions"],
+  discover: [],
+  links: [],
+  names: ["discover", "detect", "links"],
+  site_identity: ["links"],
+  images: ["names"],
+  classify_images: ["images"],
+  descriptions: ["links"],
+  locations: [],
+  reputation: ["links"],
+  faq: [],
+  products: ["links", "site_identity"],
+};
+
 /**
  * Phases that still exist but are deliberately not run.
  *
@@ -168,7 +180,7 @@ export const ENRICH_STAGE_GROUPS = {
  * is persisted in `curation_jobs.params`, `curation_job_targets.phase_results`
  * and `brand_ai_results.phase`, and historical rows must keep rendering.
  *
- * Removing a phase from every step is what actually disables it — this list
+ * Removing a phase from every task is what actually disables it — this list
  * exists so that absence reads as a decision rather than an oversight, and so
  * the coverage test can tell the two apart.
  *
@@ -185,28 +197,89 @@ export function isDeferredPhase(phase: string): boolean {
   return (DEFERRED_PHASES as readonly string[]).includes(phase);
 }
 
-export const CURATION_STEPS = {
+/**
+ * Operator-facing task vocabulary. Each task maps to its **terminal** phases;
+ * prerequisites come from PHASE_DEPENDENCIES via `phasesForTask`.
+ *
+ * `full` covers every non-deferred phase and is the default when no task, steps
+ * or phases are supplied.
+ */
+export const CURATION_TASKS = {
+  identity: ["clean", "detect", "slugs", "discover", "links", "names", "site_identity"],
+  image: ["images", "classify_images"],
+  editorial: ["descriptions", "reputation", "faq", "tags"],
+  product: ["products"],
+  full: ENRICH_PHASES.filter(
+    (phase) => !(DEFERRED_PHASES as readonly string[]).includes(phase),
+  ),
+} as const satisfies Record<string, readonly EnrichPhaseName[]>;
+
+export type CurationTask = keyof typeof CURATION_TASKS;
+
+/** All task names, in a fixed order for UI iteration. */
+export const CURATION_TASK_ORDER = [
+  "identity",
+  "image",
+  "editorial",
+  "product",
+  "full",
+] as const satisfies readonly CurationTask[];
+
+/**
+ * Computes the transitive closure of the given task's terminal phases over
+ * PHASE_DEPENDENCIES, then returns the result sorted into ENRICH_PHASES order
+ * so every downstream `phases.includes(...)` check behaves unchanged.
+ */
+export function phasesForTask(
+  task: CurationTask,
+): EnrichPhaseName[] {
+  const terminals = CURATION_TASKS[task];
+  const closure = new Set<string>();
+
+  function walk(phase: EnrichPhaseName): void {
+    if (closure.has(phase)) return;
+    closure.add(phase);
+    for (const dep of PHASE_DEPENDENCIES[phase]) {
+      walk(dep);
+    }
+  }
+
+  for (const phase of terminals) {
+    walk(phase);
+  }
+
+  return ENRICH_PHASES.filter((phase) => closure.has(phase));
+}
+
+// ---------------------------------------------------------------------------
+// Legacy step vocabulary — inlined into callers that parse stored job rows.
+// These are NOT exported; callers that need to parse legacy `params.steps`
+// should use `parseLegacyStepsToPhases` below.
+// ---------------------------------------------------------------------------
+
+const LEGACY_STEP_PHASES: Record<string, readonly EnrichPhaseName[]> = {
   context: ["discover", "detect", "slugs", "clean", "links", "names", "site_identity"],
   image: ["images", "classify_images"],
   detail: ["descriptions", "reputation", "faq", "products", "tags"],
-} as const satisfies Record<string, readonly EnrichPhaseName[]>;
-
-export type CurationStep = keyof typeof CURATION_STEPS;
-
-/** Execution order of the steps. `image` depends on `context`, `detail` on both. */
-export const CURATION_STEP_ORDER = ["context", "image", "detail"] as const;
+};
 
 /**
- * Expands steps into phases, deduped and re-sorted into ENRICH_PHASES order so
- * every downstream `phases.includes(...)` check behaves exactly as it does for
- * a hand-written phase array.
+ * Expands legacy step names (from stored `params.steps`) into phases sorted in
+ * ENRICH_PHASES order. Unknown step names are silently dropped. Returns
+ * undefined when no valid steps are found, so the caller can fall through to
+ * the next precedence level.
  */
-export function phasesForSteps(
-  steps: readonly CurationStep[],
-): EnrichPhaseName[] {
-  const requested = new Set<string>(
-    steps.flatMap((step) => CURATION_STEPS[step]),
-  );
+export function parseLegacyStepsToPhases(
+  steps: readonly string[],
+): EnrichPhaseName[] | undefined {
+  const requested = new Set<string>();
+  for (const step of steps) {
+    const phases = LEGACY_STEP_PHASES[step];
+    if (phases) {
+      for (const phase of phases) requested.add(phase);
+    }
+  }
+  if (requested.size === 0) return undefined;
   return ENRICH_PHASES.filter((phase) => requested.has(phase));
 }
 
