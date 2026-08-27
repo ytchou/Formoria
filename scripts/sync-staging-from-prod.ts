@@ -285,7 +285,6 @@ export const KNOWN_COLUMNS: Record<CopyTable, readonly string[]> = {
     "status",
     "sort_order",
     "tags",
-    "alt_zh",
     "width",
     "height",
     "score",
