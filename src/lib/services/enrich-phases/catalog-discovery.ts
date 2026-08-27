@@ -1,6 +1,7 @@
 import * as cheerio from 'cheerio'
 import { auditedCall } from '@/lib/audit'
 import { normalizeProductUrl } from './product-candidates'
+import { shuffle } from '@/lib/utils'
 import {
   fetchHtmlWithMetadata,
   fetchTextDocument,
@@ -99,6 +100,7 @@ const MAX_SITEMAP_DOCUMENTS = 20
 const MAX_SITEMAP_LOCATIONS = 2_000
 const MAX_SITEMAP_DEPTH = 2
 const HYDRATION_CONCURRENCY = 5
+const SKIP_PATTERN = /\/(about|contact|privacy|terms|faq|blog|news|pages|category|tag|author|cart|checkout)(\/|$)/i
 
 const SPECIALIZED_ROUTE_SELECTORS: Partial<Record<PlatformId, string>> = {
   shopline:
@@ -346,7 +348,7 @@ export function hasProductSignals(html: string): boolean {
   const jsonLdScripts = $('script[type="application/ld+json"]')
   for (const el of jsonLdScripts.toArray()) {
     const text = $(el).text()
-    if (/"@type"\s*:\s*"Product"/u.test(text)) return true
+    if (/"@type"\s*:\s*"Product"/u.test(text) || /"@type"\s*:\s*\[[^\]]*"Product"/u.test(text)) return true
   }
 
   // OpenGraph og:type with value "product"
@@ -357,7 +359,7 @@ export function hasProductSignals(html: string): boolean {
   if ($('meta[property="product:price:amount"]').length > 0) return true
 
   // Microdata schema.org/Product
-  if ($('[itemtype*="schema.org/Product"]').length > 0) return true
+  if ($('[itemtype="https://schema.org/Product"], [itemtype="http://schema.org/Product"]').length > 0) return true
 
   return false
 }
@@ -463,15 +465,10 @@ export async function discoverCatalog(
           if (needsRendering(listingHtml)) potentiallyUsefulUnrendered = true
         }
         if (platform === 'generic' && routes.length === 0 && sitemap.urls.length > 0) {
-          const SKIP_PATTERN = /\/(about|contact|privacy|terms|faq|blog|news|pages|category|tag|author|cart|checkout)(\/|$)/i
           const candidates = sitemap.urls.filter(u => {
             try { return !SKIP_PATTERN.test(new URL(u).pathname) } catch { return false }
           })
-          for (let i = candidates.length - 1; i > 0; i--) {
-            const j = Math.floor(Math.random() * (i + 1));
-            [candidates[i], candidates[j]] = [candidates[j], candidates[i]]
-          }
-          const sample = candidates.slice(0, 10)
+          const sample = shuffle(candidates).slice(0, 10)
           let foundProduct = false
           for (const sampleUrl of sample) {
             const page = await fetcher(sampleUrl, 'html')
@@ -481,7 +478,7 @@ export async function discoverCatalog(
             }
           }
           if (foundProduct) {
-            routes = sitemap.urls.map((url, i) => ({ url, sourcePosition: i }))
+            routes = candidates.map((url, i) => ({ url, sourcePosition: i }))
             summary.contentSamplingOutcome = 'usable'
           } else {
             summary.contentSamplingOutcome = 'empty'

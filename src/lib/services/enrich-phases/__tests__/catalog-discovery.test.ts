@@ -243,6 +243,18 @@ describe('hasProductSignals', () => {
       '<html><head><meta property="og:type" content="website"></head><body><p>About us</p></body></html>'
     expect(hasProductSignals(html)).toBe(false)
   })
+
+  it('detects JSON-LD Product in array @type form', () => {
+    const html =
+      '<html><head><script type="application/ld+json">{"@type":["Product","ItemPage"],"name":"Cup"}</script></head><body></body></html>'
+    expect(hasProductSignals(html)).toBe(true)
+  })
+
+  it('rejects ProductGroup microdata', () => {
+    const html =
+      '<html><body><div itemtype="https://schema.org/ProductGroup"><span>Group</span></div></body></html>'
+    expect(hasProductSignals(html)).toBe(false)
+  })
 })
 
 describe('content sampling fallback', () => {
@@ -323,6 +335,31 @@ describe('content sampling fallback', () => {
     })
     expect(result.attempts[0]?.contentSamplingOutcome).toBe('empty')
     expect(result.triples).toHaveLength(0)
+  })
+
+  it('promoted routes exclude utility URLs when content sampling succeeds', async () => {
+    const sitemapUrls = [
+      'https://custom-brand.com/items-123',
+      'https://custom-brand.com/about',
+      'https://custom-brand.com/contact',
+      'https://custom-brand.com/items-456',
+    ]
+    const fetcher = fetcherFor({
+      'https://custom-brand.com': '<main><h1>Welcome</h1></main>',
+      'https://custom-brand.com/sitemap.xml': sitemapXml(sitemapUrls),
+      'https://custom-brand.com/items-123': productPageHtml,
+      'https://custom-brand.com/items-456': productPageHtml,
+      'https://custom-brand.com/about': productPageHtml,
+      'https://custom-brand.com/contact': productPageHtml,
+    })
+    const result = await discoverCatalog({
+      sources: [{ url: 'https://custom-brand.com', channel: 'official' }],
+      fetcher,
+    })
+    expect(result.attempts[0]?.contentSamplingOutcome).toBe('usable')
+    const urls = result.triples.map((t) => t.url)
+    expect(urls).not.toContain('https://custom-brand.com/about')
+    expect(urls).not.toContain('https://custom-brand.com/contact')
   })
 
   it('content sampling skip filter excludes utility paths', async () => {
