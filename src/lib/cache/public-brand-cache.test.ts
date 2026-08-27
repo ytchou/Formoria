@@ -32,9 +32,9 @@ describe('revalidatePublicBrands', () => {
         ['/en/brands/niizo'],
         ['/brands/kiln'],
         ['/en/brands/kiln'],
-        ['/zh-TW'],
+        ['/'],
         ['/en'],
-        ['/zh-TW/about'],
+        ['/about'],
         ['/en/about'],
         ['/sitemap.xml'],
         ['/[locale]/stories/[slug]', 'page'],
@@ -82,9 +82,9 @@ describe('revalidatePublicStockists', () => {
   it('revalidates the index and the affected city', () => {
     revalidatePublicStockists('new_taipei')
     expect(revalidatedPaths()).toEqual([
-      ['/zh-TW/where-to-buy'],
+      ['/where-to-buy'],
       ['/en/where-to-buy'],
-      ['/zh-TW/where-to-buy/new-taipei'],
+      ['/where-to-buy/new-taipei'],
       ['/en/where-to-buy/new-taipei'],
     ])
   })
@@ -98,16 +98,16 @@ describe('revalidatePublicStockists', () => {
     ).toHaveLength(routing.locales.length)
   })
 
-  it('never emits unprefixed paths', () => {
+  it('emits canonical default-locale paths', () => {
     revalidatePublicStockists('taipei')
-    expect(revalidatedPaths()).not.toContainEqual(['/where-to-buy'])
-    expect(revalidatedPaths()).not.toContainEqual(['/where-to-buy/taipei'])
+    expect(revalidatedPaths()).toContainEqual(['/where-to-buy'])
+    expect(revalidatedPaths()).toContainEqual(['/where-to-buy/taipei'])
   })
 
   it('revalidates only the index when the channel has no city', () => {
     revalidatePublicStockists(null)
     expect(revalidatedPaths()).toEqual([
-      ['/zh-TW/where-to-buy'],
+      ['/where-to-buy'],
       ['/en/where-to-buy'],
     ])
   })

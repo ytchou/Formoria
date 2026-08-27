@@ -1,4 +1,5 @@
 import { revalidatePath, revalidateTag } from 'next/cache'
+import { localizePath } from '@/i18n/locale-preference'
 import { routing } from '@/i18n/routing'
 import { citySlugToPath, type CitySlug } from '@/lib/constants/taiwan-cities'
 import { routes } from '@/lib/routes'
@@ -7,13 +8,13 @@ export const PUBLIC_BRAND_DATA_TAG = 'public-brand-data'
 
 /**
  * `localePrefix: 'as-needed'` serves the default locale through the exact
- * prefixless route, while English uses its visible `/en` route. Keep this
- * separate from localized shared pages because brand detail has two concrete
- * route files after the default-locale route split.
+ * prefixless route, while English uses its visible `/en` route. Revalidate the
+ * canonical URL that readers actually request; purging `/zh-TW/...` does not
+ * invalidate the prefixless cache entry.
  */
 export function revalidateLocalizedPath(path: string): void {
   for (const locale of routing.locales) {
-    revalidatePath(path === '/' ? `/${locale}` : `/${locale}${path}`)
+    revalidatePath(localizePath(path, locale))
   }
 }
 
