@@ -179,7 +179,7 @@ export function ImageCarousel({
       className={cn(
         variant === "detail" && "space-y-3",
         hasDetailGallery &&
-          "xl:grid xl:grid-cols-[minmax(0,1fr)_4.5rem] xl:items-start xl:gap-3 xl:space-y-0",
+          "xl:grid xl:grid-cols-[4.5rem_minmax(0,1fr)] xl:items-start xl:gap-3 xl:space-y-0",
       )}
     >
       {/* Hero image */}
@@ -190,7 +190,7 @@ export function ImageCarousel({
         // token's comment in globals.css for the measurement.
         className={cn(
           "relative aspect-media overflow-hidden rounded-surface bg-surface-deep",
-          hasDetailGallery && "xl:col-start-1 xl:row-start-1",
+          hasDetailGallery && "xl:col-start-2 xl:row-start-1",
         )}
       >
         {previousImage && (
@@ -306,7 +306,7 @@ export function ImageCarousel({
           data-brand-supplied
           className={cn(
             "type-metadata",
-            hasDetailGallery && "xl:col-start-1 xl:row-start-2",
+            hasDetailGallery && "xl:col-start-2 xl:row-start-2",
           )}
         >
           {t("gallery.brandSupplied")}
@@ -315,7 +315,7 @@ export function ImageCarousel({
 
       {/* Thumbnail grid */}
       {total > 1 && variant === "detail" && (
-        <div className="xl:relative xl:col-start-2 xl:row-start-1 xl:min-h-0 xl:self-stretch">
+        <div className="xl:relative xl:col-start-1 xl:row-start-1 xl:min-h-0 xl:self-stretch">
           <div className="scrollbar-none flex gap-2 overflow-x-auto xl:absolute xl:inset-0 xl:grid xl:grid-cols-1 xl:content-start xl:overflow-y-auto xl:p-1">
             {validImages.map(({ src }, i) => {
               const thumbFill = fill(i, "p-1.5");

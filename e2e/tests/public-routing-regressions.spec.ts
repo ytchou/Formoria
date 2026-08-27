@@ -28,8 +28,6 @@ test.describe("Public routing regressions deep", () => {
     const redirects = [
       ["/en/category/food-drink", 301, "/en/categories/food-drink"],
       ["/zh-TW/category/home", 301, "/categories/home"],
-      ["/en/categories", 308, "/en/brands"],
-      ["/zh-TW/categories", 308, "/brands"],
     ] as const;
 
     for (const [source, status, destination] of redirects) {
@@ -37,6 +35,20 @@ test.describe("Public routing regressions deep", () => {
       expect(response.status()).toBe(status);
       expect(response.headers().location).toBe(destination);
     }
+  });
+
+  test("the explicit default-locale category index normalizes in one hop", async ({
+    request,
+  }) => {
+    const response = await request.get("/zh-TW/categories", {
+      maxRedirects: 0,
+    });
+    expect([307, 308]).toContain(response.status());
+    expect(response.headers().location).toBe("/categories");
+
+    const destination = await request.get("/categories", { maxRedirects: 0 });
+    expect(destination.status()).toBe(200);
+    expect(destination.headers().location).toBeUndefined();
   });
 
   test("retired L1 taxonomy slugs redirect to the category that absorbed them", async ({

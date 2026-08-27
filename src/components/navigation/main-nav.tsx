@@ -3,7 +3,6 @@
 import { useState } from "react";
 import { useTranslations } from "next-intl";
 import { Link, usePathname } from "@/i18n/navigation";
-import { cn } from "@/lib/utils";
 import { Menu } from "lucide-react";
 import {
   Sheet,
@@ -14,7 +13,6 @@ import {
 } from "@/components/ui/sheet";
 import { AccountMenu } from "@/components/auth/account-menu";
 import { NavSearchInput } from "./nav-search-input";
-import { NavCategoryTabs } from "./nav-category-tabs";
 import { LocaleSwitcher } from "@/components/i18n/locale-switcher";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { PageShell } from "@/components/ui/page-shell";
@@ -22,11 +20,7 @@ import { useUser } from "@/lib/auth/use-user";
 import { trackCtaClicked } from "@/lib/analytics";
 import { routes } from "@/lib/routes";
 
-interface MainNavProps {
-  categories: Array<{ slug: string; name: string; nameZh: string | null }>;
-}
-
-export function MainNav({ categories }: MainNavProps) {
+export function MainNav() {
   const [open, setOpen] = useState(false);
   const t = useTranslations("nav");
   // Reads `user` with no loading gate: the only thing it drives is whether the
@@ -37,27 +31,24 @@ export function MainNav({ categories }: MainNavProps) {
   const pathname = usePathname();
 
   /**
-   * The mock's four destinations, in its order. Declared once and rendered
+   * The mock's five destinations, in its order. Declared once and rendered
    * twice — the desktop row and the mobile sheet used to be two hand-kept lists
    * that had already drifted apart by one link.
    */
   const primaryLinks = [
     { href: routes.discover(), label: t("discover") },
+    { href: routes.categories(), label: t("categories") },
     { href: routes.brands(), label: t("brands") },
     { href: routes.stories(), label: t("stories") },
     { href: routes.about(), label: t("about") },
   ];
 
-  const isLanding = pathname === "/";
-
   return (
-    <header
-      className={cn("sticky top-0 z-50 border-b border-rule bg-ground", isLanding && "nav-landing")}
-    >
+    <header className="sticky top-0 z-50 border-b border-rule bg-ground">
       {/* Row 1: wordmark | search | links.
           THE HEIGHT IS `--nav-row-primary`, NOT A LITERAL. Six sticky elements
           park below the header with `top-(--nav-height)`, and that token is a
-          `calc()` of this row, the category row and the bottom hairline. A
+          `calc()` of this row and the bottom hairline. A
           literal here desyncs the six the moment it changes — which is exactly
           how they came to sit 13px under a z-50 bar. Keep the height token IN
           the class string rather than moving it onto a wrapper.
@@ -93,11 +84,11 @@ export function MainNav({ categories }: MainNavProps) {
           <NavSearchInput />
         </div>
 
-        {/* Right actions (desktop). A `nav` rather than a `div`: this and the
-            category row below are the header's navigation landmarks. */}
+        {/* Right actions (desktop). A `nav` rather than a `div` so the links
+            form the header's desktop navigation landmark. */}
         <nav
           aria-label={t("navigation")}
-          className="hidden items-center gap-5 md:flex"
+          className="hidden items-center gap-5 lg:flex"
         >
           {primaryLinks.map((link) => (
             <Link
@@ -128,11 +119,11 @@ export function MainNav({ categories }: MainNavProps) {
         </nav>
 
         {/* Mobile hamburger. A `nav` rather than a `div`, for the same reason
-            the desktop actions are one: the actions element is `md:flex`, so it
-            is `display: none` below 768px and exposes no landmark there. This
+            the desktop actions are one: the actions element is `lg:flex`, so it
+            is `display: none` below 1024px and exposes no landmark there. This
             is the first navigation landmark in the banner at 375px, which
             mobile.spec.ts asserts by role. */}
-        <nav aria-label={t("navigation")} className="ml-auto md:hidden">
+        <nav aria-label={t("navigation")} className="ml-auto lg:hidden">
           <Sheet open={open} onOpenChange={setOpen}>
             <SheetTrigger
               render={
@@ -209,12 +200,6 @@ export function MainNav({ categories }: MainNavProps) {
           </Sheet>
         </nav>
       </PageShell>
-
-      {/* Row 2: the L1 category row. Suppressed on the landing page (`/`)
-          where the hero renders category chips instead; shown on every other
-          route. When hidden, `.nav-landing` on the header overrides
-          `--nav-height` so the six sticky elements below still park correctly. */}
-      {!isLanding && <NavCategoryTabs categories={categories} />}
     </header>
   );
 }

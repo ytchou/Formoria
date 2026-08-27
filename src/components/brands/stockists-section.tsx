@@ -29,12 +29,9 @@ export async function StockistsSection({
       data-stockists-section
     >
       <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-        <div className="space-y-2">
-          <Typography as="h2" variant="sectionTitleLarge">
-            {t("sections.retailLocations")}
-          </Typography>
-          <p className="prose-measure type-body-sm">{t("channels.subtitle")}</p>
-        </div>
+        <Typography as="h2" variant="sectionTitleLarge">
+          {t("sections.retailLocations")}
+        </Typography>
         <ProvideStockistInfoDialog brandId={brandId} brandSlug={brandSlug} />
       </div>
 

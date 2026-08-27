@@ -14,7 +14,6 @@
   "nav": {
     "faq": "FAQ",
     "submitBrand": "Recommend a Brand",
-    "allBrands": "All Brands",
     "searchPlaceholder": "Search brands...",
     "openMenu": "Open menu",
     "navigation": "Navigation",
@@ -26,8 +25,8 @@
     "stories": "Stories",
     "whereToBuy": "Where to buy",
     "discover": "Styles",
-    "brands": "Listed brands",
-    "categories": "Categories"
+    "categories": "Categories",
+    "brands": "Listed brands"
   },
   "footer": {
     "about": "About",
@@ -132,9 +131,7 @@
     },
     "brands": {
       "count": "Over {count} Taiwanese brands in the directory",
-      "browseAll": "Browse all brands",
-      "pause": "Pause brand logos",
-      "resume": "Resume brand logos"
+      "browseAll": "Browse all brands"
     }
   },
   "newsletter": {
@@ -257,7 +254,6 @@
     },
     "tabNav": {
       "overview": "On this page",
-      "about": "About",
       "social": "Social",
       "purchase": "Purchase",
       "locations": "Stockists",
@@ -526,6 +522,15 @@
     }
   },
   "categories": {
+    "index": {
+      "heading": "Product categories",
+      "intro": "Browse Taiwanese brands by product type, from clothing and accessories to home goods, beauty, and food.",
+      "childNavigation": "Explore {category} subcategories",
+      "metadata": {
+        "title": "Product categories | Formoria",
+        "description": "Browse Taiwanese brands by product type across Formoria's launch categories and subcategories."
+      }
+    },
     "landing": {
       "updated": "Updated {date}",
       "categoryLinksAria": "Explore subcategories in this category"

@@ -173,11 +173,6 @@ const nextConfig: NextConfig = {
         statusCode: 301,
       },
       {
-        source: "/categories",
-        destination: "/brands",
-        permanent: true,
-      },
-      {
         source: "/en/category/:category",
         destination: "/en/categories/:category",
         statusCode: 301,
@@ -186,16 +181,6 @@ const nextConfig: NextConfig = {
         source: "/zh-TW/category/:category",
         destination: "/categories/:category",
         statusCode: 301,
-      },
-      {
-        source: "/en/categories",
-        destination: "/en/brands",
-        permanent: true,
-      },
-      {
-        source: "/zh-TW/categories",
-        destination: "/brands",
-        permanent: true,
       },
       // L1 taxonomy slugs that were merged or renamed. Search Console reports
       // every one of these still being crawled and 404ing, so the equity they

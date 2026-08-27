@@ -239,6 +239,30 @@ describe('message catalogue parity', () => {
     expect(Object.keys(zhTW.categories.l1).length).toBeGreaterThan(0)
   })
 
+  it('categories.index has matching localized page and navigation copy', () => {
+    expect(Object.keys(zhTW.categories.index).sort()).toEqual(
+      Object.keys(en.categories.index).sort(),
+    )
+    expect(zhTW.categories.index).toMatchObject({
+      heading: expect.any(String),
+      intro: expect.any(String),
+      childNavigation: expect.any(String),
+      metadata: {
+        title: expect.any(String),
+        description: expect.any(String),
+      },
+    })
+    expect(en.categories.index).toMatchObject({
+      heading: expect.any(String),
+      intro: expect.any(String),
+      childNavigation: expect.any(String),
+      metadata: {
+        title: expect.any(String),
+        description: expect.any(String),
+      },
+    })
+  })
+
   it('message_parity_holds_for_new_taxonomy_keys', () => {
     // Both locales or neither. A key added on one side renders the raw key path
     // to the other locale's readers, and next-intl does not fail the build.

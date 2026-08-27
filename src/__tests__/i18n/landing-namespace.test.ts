@@ -212,8 +212,6 @@ describe("landing namespace", () => {
       // BrandStrip's copy — the count line and browse-all link.
       "brands.count",
       "brands.browseAll",
-      "brands.pause",
-      "brands.resume",
     ];
 
     for (const key of required) {

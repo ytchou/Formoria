@@ -330,6 +330,7 @@ test.describe("SEO deep", () => {
     const staticPaths = new Set([
       "/",
       "/brands",
+      "/categories",
       // Not a member of sitemap.ts's `staticPages`: the trail hub is listed
       // zh-TW only and only while at least one trail is published, matching its
       // own `noindex` gate. Named here so the entry is still swept for a
@@ -349,6 +350,10 @@ test.describe("SEO deep", () => {
       return staticPaths.has(path) || path.startsWith("/categories/");
     });
     expect(staticLocations.length).toBeGreaterThan(0);
+    expect(locations.some((url) => url.pathname === "/categories")).toBe(true);
+    expect(locations.some((url) => url.pathname === "/en/categories")).toBe(
+      true,
+    );
     // A browser render per URL exceeds the CI timeout, while compiling every
     // route concurrently can overload a cold dev server and corrupt its route
     // manifests. Plain HTTP requests in small batches keep all URL assertions

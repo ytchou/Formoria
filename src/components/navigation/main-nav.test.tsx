@@ -9,11 +9,6 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import en from "../../../messages/en.json";
 import { L1_CATEGORIES } from "@/lib/taxonomy/ontology";
 
-/**
- * D18 moves the whole L1 row into the persistent nav, so the homepage is the
- * case this file exists to pin: the row used to be suppressed on `/` because the
- * hero rendered its own chip block, and the chip block is gone.
- */
 let pathname = "/";
 
 vi.mock("@/i18n/navigation", () => ({
@@ -80,7 +75,7 @@ const { MainNav } = await import("./main-nav");
 function renderNav() {
   return render(
     <NextIntlClientProvider locale="en" messages={en}>
-      <MainNav categories={[...L1_CATEGORIES]} />
+      <MainNav />
     </NextIntlClientProvider>,
   );
 }
@@ -93,39 +88,15 @@ describe("MainNav", () => {
     ) as unknown as typeof fetch;
   });
 
-  it("hides category tabs on the landing page", () => {
-    // The landing page redesign moves category discovery into the hero as
-    // chips. The persistent nav row is suppressed on `/` so the two don't
-    // compete, and `--nav-height` is overridden via `.nav-landing` so sticky
-    // elements below the header still park correctly.
-    pathname = "/";
-    const { container } = renderNav();
-
-    for (const category of L1_CATEGORIES) {
-      const links = container.querySelectorAll(
-        `a[href="/en/categories/${category.slug}"]`,
-      );
-      expect(links, `nav link for ${category.slug} should be absent`).toHaveLength(0);
-    }
-  });
-
-  it("keeps the category row on every other route", () => {
+  it("keeps category tabs out of the global header", () => {
     pathname = "/brands";
     const { container } = renderNav();
 
-    // Both shapes count. A clean category tab resolves to its taxonomy page,
-    // but `buildCategoryTabTarget` keeps the state on the filtered directory
-    // whenever a facet, a multi-select or a cross-L1 subcategory is live —
-    // this spec is about the row surviving the route, not about which of the
-    // two destinations a given tab picks.
-    expect(
-      container.querySelectorAll(
-        'a[href^="/en/categories/"], a[href^="/en/brands"]',
-      ),
-    ).not.toHaveLength(0);
-    expect(
-      screen.getByRole("link", { name: en.nav.allBrands }),
-    ).toBeInTheDocument();
+    for (const category of L1_CATEGORIES) {
+      expect(
+        container.querySelectorAll(`a[href="/en/categories/${category.slug}"]`),
+      ).toHaveLength(0);
+    }
   });
 
   it("keeps a search field in the header on the homepage", () => {
@@ -172,6 +143,7 @@ describe("MainNav", () => {
     const banner = screen.getByRole("banner");
     for (const [label, href] of [
       [en.nav.discover, "/discover"],
+      [en.nav.categories, "/categories"],
       [en.nav.brands, "/brands"],
       [en.nav.stories, "/stories"],
       [en.nav.about, "/about"],
@@ -184,5 +156,20 @@ describe("MainNav", () => {
     expect(
       within(banner).queryByRole("link", { name: en.nav.whereToBuy }),
     ).not.toBeInTheDocument();
+
+    const primaryDestinations = [
+      "/discover",
+      "/categories",
+      "/brands",
+      "/stories",
+      "/about",
+    ];
+    const renderedDestinations = Array.from(
+      banner.querySelectorAll("a"),
+      (link) => link.getAttribute("href"),
+    );
+    expect(
+      primaryDestinations.map((href) => renderedDestinations.indexOf(href)),
+    ).toEqual([1, 2, 3, 4, 5]);
   });
 });

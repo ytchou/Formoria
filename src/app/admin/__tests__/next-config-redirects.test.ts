@@ -46,6 +46,19 @@ describe("legacy category redirects", () => {
     expect(legacyRedirects?.every((redirect) => redirect.statusCode === 301)).toBe(true);
     expect(legacyRedirects?.every((redirect) => !('permanent' in redirect))).toBe(true);
   });
+
+  it("does not redirect localized category indexes to the brand directory", async () => {
+    const redirects = await nextConfig.redirects?.();
+    const categoryIndexes = new Set([
+      "/categories",
+      "/en/categories",
+      "/zh-TW/categories",
+    ]);
+
+    expect(
+      redirects?.filter(({ source }) => categoryIndexes.has(source)),
+    ).toEqual([]);
+  });
 });
 
 describe("browser permissions", () => {
