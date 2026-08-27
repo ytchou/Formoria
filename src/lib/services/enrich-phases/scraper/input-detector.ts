@@ -1,6 +1,7 @@
 import * as cheerio from 'cheerio'
 import { fetchHtml, fetchXml } from './fetch-guards'
 import type { InputType } from './strategies/types'
+import { identifyPlatform } from './platforms'
 
 const SOCIAL_HOSTS = [
   'instagram.com',
@@ -140,9 +141,7 @@ export function isNonBrandSiteHost(url: string): boolean {
       ...ECOMMERCE_HOSTS,
       ...LINK_AGGREGATOR_HOSTS,
       ...NON_BRAND_PLATFORM_HOSTS,
-    ].some((domain) =>
-      hostnameMatches(hostname, domain)
-    )
+    ].some((domain) => hostnameMatches(hostname, domain))
   } catch {
     return false
   }
@@ -164,7 +163,9 @@ export function isNonBrandSiteHost(url: string): boolean {
 export function isThirdPartyDirectoryHost(url: string): boolean {
   try {
     const hostname = new URL(url).hostname.toLowerCase()
-    return NON_BRAND_PLATFORM_HOSTS.some((domain) => hostnameMatches(hostname, domain))
+    return NON_BRAND_PLATFORM_HOSTS.some((domain) =>
+      hostnameMatches(hostname, domain),
+    )
   } catch {
     return false
   }
@@ -191,7 +192,7 @@ export function classifyByDomain(url: string): InputType | null {
 function getDistinctInternalNavLinks(
   html: string,
   pageUrl: string,
-  pageHostname: string
+  pageHostname: string,
 ): string[] {
   const $ = cheerio.load(html)
   const links = new Set<string>()
@@ -201,7 +202,8 @@ function getDistinctInternalNavLinks(
 
     try {
       const resolved = new URL(href, pageUrl)
-      if (resolved.protocol !== 'http:' && resolved.protocol !== 'https:') return
+      if (resolved.protocol !== 'http:' && resolved.protocol !== 'https:')
+        return
       if (resolved.hostname.toLowerCase() !== pageHostname) return
 
       resolved.hash = ''
@@ -235,15 +237,32 @@ async function hasLargeSitemap(pageUrl: URL): Promise<boolean> {
 
 export async function detectInputType(
   url: string,
-  prefetchedHtml?: string | null
+  prefetchedHtml?: string | null,
 ): Promise<InputType> {
   const domainType = classifyByDomain(url)
   if (domainType) return domainType
 
+  const urlPlatform = identifyPlatform(url)
+  if (
+    urlPlatform === 'shopline' ||
+    urlPlatform === '91app' ||
+    urlPlatform === 'cyberbiz'
+  ) {
+    return 'e-commerce'
+  }
+
   try {
     const pageUrl = new URL(url)
-    const html = prefetchedHtml ?? await fetchHtml(url)
+    const html = prefetchedHtml ?? (await fetchHtml(url))
     if (!html) return 'official-site'
+    const htmlPlatform = identifyPlatform(url, html)
+    if (
+      htmlPlatform === 'shopline' ||
+      htmlPlatform === '91app' ||
+      htmlPlatform === 'cyberbiz'
+    ) {
+      return 'e-commerce'
+    }
 
     let score = 0
 
@@ -254,7 +273,7 @@ export async function detectInputType(
     const internalNavLinks = getDistinctInternalNavLinks(
       html,
       pageUrl.href,
-      pageUrl.hostname.toLowerCase()
+      pageUrl.hostname.toLowerCase(),
     )
 
     if (internalNavLinks.length >= 4) {

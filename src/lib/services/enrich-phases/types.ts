@@ -16,6 +16,7 @@ export type EnrichPhase = (typeof ENRICH_PHASES)[number];
 
 export type EnrichBrand = {
   id: string;
+  source_brand_id?: string | null;
   slug: string;
   name?: string;
   status?: string | null;

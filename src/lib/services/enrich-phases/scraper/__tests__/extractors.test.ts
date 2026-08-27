@@ -185,6 +185,15 @@ describe('extractPinkoiProductImages', () => {
     expect(images[0]).toContain('/product/')
   })
 
+  it('requests gate-sized Pinkoi images instead of storefront thumbnails', () => {
+    const $ = cheerio.load(`
+      <img src="https://cdn01.pinkoi.com/product/jf8Gw87P/0/1/220x220.jpg" />
+    `)
+    expect(extractPinkoiProductImages($)).toEqual([
+      'https://cdn01.pinkoi.com/product/jf8Gw87P/0/1/800x0.jpg',
+    ])
+  })
+
   it('returns empty array when no Pinkoi CDN product images found', () => {
     const html = `<html><body><img src="https://example.com/photo.jpg" /></body></html>`
     const $ = cheerio.load(html)

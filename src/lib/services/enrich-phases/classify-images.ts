@@ -54,7 +54,7 @@ import { preferPatched } from "./descriptions";
  * overhead; going higher trades into the contamination the twenty-image batch
  * demonstrated, so this stops at ten.
  */
-const BATCH_SIZE = 10;
+export const IMAGE_CLASSIFY_BATCH_SIZE = 10;
 
 /**
  * LEGACY. The seven-value vocabulary rows were written with before the
@@ -1464,7 +1464,7 @@ export async function runClassifyImagesPhase({
         IMAGE_CLASSIFY_SYSTEM_PROMPT,
         "classifyImages",
         {
-          batchSize: BATCH_SIZE,
+          batchSize: IMAGE_CLASSIFY_BATCH_SIZE,
           detail: CLASSIFY_IMAGE_DETAIL,
         },
       );
@@ -1504,8 +1504,8 @@ export async function runClassifyImagesPhase({
           ),
         });
 
-        for (let i = 0; i < images.length; i += BATCH_SIZE) {
-          const chunk = images.slice(i, i + BATCH_SIZE);
+        for (let i = 0; i < images.length; i += IMAGE_CLASSIFY_BATCH_SIZE) {
+          const chunk = images.slice(i, i + IMAGE_CLASSIFY_BATCH_SIZE);
           attemptedBatches += 1;
           const outcome = await classifyChunk(client, brandContext, chunk);
           unavailableCount += new Set(outcome.unavailableIds).size;
@@ -1579,6 +1579,9 @@ export async function runClassifyImagesPhase({
 
         return {
           classifiedCount: classifications.length,
+          classifierKept: classifications.filter(
+            (classification) => classification.disposition === "keep",
+          ).length,
           rejectedCount,
           unjudgedCount,
           unavailableCount,
@@ -1592,6 +1595,12 @@ export async function runClassifyImagesPhase({
         result.classifiedCount > 0
           ? [target.type === "brand" ? "brand_images" : "submission_images"]
           : [];
+      Object.assign(ctx.summary, {
+        gatePassingImages: images.length,
+        classifierKept: result.classifierKept,
+        classifierKeep:
+          images.length > 0 ? result.classifierKept / images.length : 0,
+      });
       const patch =
         target.type === "submission" && result.classifiedCount > 0
           ? // DEV-1551: the bucket key, not a URL. `submissionToDomain` derives

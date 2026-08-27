@@ -1,0 +1,50 @@
+{
+  "branch": "feat/dev-1618-1622-1304",
+  "reviewed_at": "2026-08-27T07:38:35Z",
+  "base": "origin/staging",
+  "active_lenses": [
+    "correctness", "security", "performance", "reliability", "cleanup",
+    "architecture", "conventions", "plan_alignment", "test_quality", "dead_code"
+  ],
+  "skipped_lenses": [{"lens": "design_quality", "reason": "No UI files changed."}],
+  "findings": [
+    {"id":"F01","severity":"critical","status":"confirmed","area":"catalog ownership","summary":"Marketplace discovery reads platform-wide sitemaps, so Pinkoi, Shopee, and MyShip sources can admit another seller's products.","fix":"Restrict sitemap discovery to official sources and keep marketplace discovery provenance-bound to its supplied listing."},
+    {"id":"F02","severity":"important","status":"confirmed","area":"catalog extraction","summary":"All platforms use the generic all-anchor parser; the required seven specialized catalog parsers and scoped fixture coverage are absent.","fix":"Add platform-specific selectors/extractor IDs with generic fallback only for the remaining platforms."},
+    {"id":"F03","severity":"critical","status":"confirmed","area":"candidate ownership","summary":"Stored and scraped candidates are admitted by hostname, which is insufficient for shared marketplace hosts.","fix":"Require exact catalog-owned URL membership for shared marketplace channels."},
+    {"id":"F04","severity":"important","status":"confirmed","area":"zero classification","summary":"Rendered recoveries remain counted dead and inspectable static no-catalog pages can be mislabeled render_blocked.","fix":"Track final route reachability and only classify an empty/app-shell surface as render blocked."},
+    {"id":"F05","severity":"important","status":"confirmed","area":"performance","summary":"Catalog detail pages are hydrated sequentially in a loop, violating the project's batch-over-N+1 rule.","fix":"Hydrate a bounded selected batch concurrently while preserving the global 25-page cap and source order."},
+    {"id":"F06","severity":"minor","status":"confirmed","area":"scraping telemetry","summary":"renderMode reports renderer availability rather than whether rendering was actually used.","fix":"Instrument render-provider invocation and report the observed mode."},
+    {"id":"F07","severity":"important","status":"confirmed","area":"classifier telemetry","summary":"Classifier keep subtracts rejections from a later hero-image pass and can undercount kept classifier results.","fix":"Count classifier keep dispositions directly from classifier output."},
+    {"id":"F08","severity":"important","status":"confirmed","area":"proposal telemetry","summary":"Proposal yield divides by the truncated ranked list instead of all candidates that survived the product gate.","fix":"Use the full gate-survivor count as denominator."},
+    {"id":"F09","severity":"important","status":"confirmed","area":"evaluation parity","summary":"The evaluator duplicates production batch/model/pHash behavior and bypasses audited OpenAI and search adapters.","fix":"Reuse production classifier profile, duplicate predicate, and audited search/LLM boundaries."},
+    {"id":"F10","severity":"important","status":"confirmed","area":"evaluation completeness","summary":"Missing cohort brands are silently omitted, allowing incomplete five-brand reports.","fix":"Fail evaluation with the missing requested slugs."},
+    {"id":"F11","severity":"important","status":"confirmed","area":"adapter selection","summary":"Fingerprint fallback bypasses MyShip's path guard on native MyShip non-product pages.","fix":"Allow fingerprint fallback only for custom domains not identified from the URL."},
+    {"id":"F12","severity":"important","status":"confirmed","area":"image extraction","summary":"Scoped adapters drop relative image URLs and generic gallery fallback can reintroduce excluded chrome.","fix":"Resolve against the page URL and allow specialized adapters to disable generic fallback."},
+    {"id":"F13","severity":"important","status":"confirmed","area":"test coverage","summary":"Required regressions for evidence reuse, partial failures, breadth order, zero reasons, fingerprints, and same-marketplace cross-store rejection are missing.","fix":"Add observable pure/service tests at HTTP/render/LLM boundaries."},
+    {"id":"F14","severity":"minor","status":"confirmed","area":"test quality","summary":"A new image test only asserts that a rejection-code constant remains unchanged, which project test rules explicitly forbid.","fix":"Replace it with observable gate-output assertions."},
+    {"id":"F15","severity":"minor","status":"confirmed","area":"dead code","summary":"New unused exports, labels, and a test-only implicit render factory add unsupported extension points.","fix":"Remove unused additions and vacuous tests."},
+    {"id":"F16","severity":"minor","status":"confirmed","area":"scope discipline","summary":"Unrelated union formatting in curation-operations increases conflict risk with staging.","fix":"Restore unrelated formatting."},
+    {"id":"F17","severity":"important","status":"confirmed","area":"download contract","summary":"Deduplication shortens the image-download result array although callers require one positional result per input.","fix":"Expand unique results back to input positions and return null for duplicate positions."},
+    {"id":"F18","severity":"minor","status":"confirmed","area":"rejection telemetry","summary":"dHash processing failures escape the gate and are mislabeled fetch_failed.","fix":"Map local image-processing failures to process_failed."},
+    {"id":"F19","severity":"minor","status":"confirmed","area":"sitemap parsing","summary":"Relative sitemap URLs are not resolved and a depth-limited sitemap index can be mistaken for product URLs.","fix":"Resolve locations and never emit sitemap-index locations as products."},
+    {"id":"F20","severity":"important","status":"confirmed","area":"candidate ordering","summary":"Per-source positions are reused globally, so later marketplace candidates can interleave ahead of official results.","fix":"Assign catalog candidate order from adaptive discovery output order."},
+    {"id":"F21","severity":"minor","status":"confirmed","area":"scraping telemetry","summary":"Per-method counts include repeated URLs instead of unique adapter images.","fix":"Count unique URL-method pairs."},
+    {"id":"F22","severity":"important","status":"escalated","area":"live verification","summary":"Baseline/post-change cohorts, staging Clany, production migration/pilot, approval, and public checks require external environments and explicit rollout authority.","fix":"Run the documented staged verification after local review; do not publish if thresholds fail."},
+    {"id":"F23","severity":"important","status":"escalated","area":"concurrency","summary":"A failed first upload can leave a concurrently claimed perceptual hash rejecting another viable duplicate candidate.","fix":"Future work: introduce a two-stage or waitable reservation pipeline; this is broader than the current scoped implementation."},
+    {"id":"F24","severity":"minor","status":"refuted","area":"rendering","summary":"Production implicitly creates Playwright through getRenderProvider.","evidence":"No production caller imports the helper; only tests do."},
+    {"id":"F25","severity":"minor","status":"refuted","area":"image ownership","summary":"Any CDN image is accepted for an owned URL.","evidence":"The products phase checks exact normalized candidate membership and exact candidate-bound image evidence."}
+  ],
+  "resolution": {
+    "fixed": ["F01","F02","F03","F04","F05","F06","F07","F08","F09","F10","F11","F12","F13","F14","F15","F16","F17","F18","F19","F20","F21"],
+    "escalated": ["F22","F23"],
+    "refuted": ["F24","F25"],
+    "local_verifier": "CONFIRMED",
+    "evidence": {
+      "affected_tests": "24 files, 425 tests passed after rebase",
+      "typecheck": "passed",
+      "lint": "passed",
+      "build": "passed with known linked-worktree/Sentry/metadata/libvips warnings",
+      "e2e_gate": "skipped: no UI surfaces changed"
+    }
+  }
+}

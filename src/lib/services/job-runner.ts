@@ -45,6 +45,7 @@ import { exportJobRunLog } from "@/lib/services/runlog-export";
 import { renderRunLogHtml } from "@/lib/runlog";
 import { uploadRunLogSnapshot } from "@/lib/services/runlog-storage";
 import { auditedCall } from "@/lib/audit";
+import type { RenderProvider } from "@/lib/services/enrich-phases/scraper/render/types";
 
 export { sanitizeJobError } from "@/lib/services/job-errors";
 
@@ -82,6 +83,7 @@ type JobTargetProgressConfig = {
     events: CurationTargetProgressEvent[],
   ) => void | Promise<void>;
   jobId?: string;
+  renderProvider?: RenderProvider;
 };
 type TargetProgressPatch = {
   target_id: string;
@@ -97,6 +99,7 @@ type TargetProgressPatch = {
 export async function runJob(
   job: CurationJob,
   workerToken: string,
+  options: { renderProvider?: RenderProvider } = {},
 ): Promise<EnrichmentSummary> {
   return auditedCall(
     { provider: "curation", operation: "runJob", kind: "service" },
@@ -118,7 +121,7 @@ export async function runJob(
   heartbeat.unref();
 
   try {
-    await runOperation(createServiceClient(), job, workerToken);
+    await runOperation(createServiceClient(), job, workerToken, options);
     await markUnreportedTargetsSkipped(job.id, workerToken);
     const targets = await listCurationJobTargets(job.id);
     const summary = summaryFromTargets(targets, Date.now() - startedAt);
@@ -205,6 +208,7 @@ async function runOperation(
   supabase: Supabase,
   job: CurationJob,
   workerToken: string,
+  options: { renderProvider?: RenderProvider },
 ): Promise<OperationWithSummary> {
   const operation = parseOperation(job.operation);
   const storedTargets = await listCurationJobTargets(job.id);
@@ -234,6 +238,7 @@ async function runOperation(
     onTargetProgressBatch: (events: CurationTargetProgressEvent[]) =>
       persistTargetProgressBatch(supabase, job, workerToken, events),
     jobId: job.id,
+    renderProvider: options.renderProvider,
   };
   let result: OperationWithSummary;
   const status = params.status;
@@ -254,6 +259,7 @@ async function runOperation(
           phases: resolvePhases(params),
           explicitPhases: params.phases ?? [],
           jobId: job.id,
+          renderProvider: options.renderProvider,
         },
         operationSupabase(supabase),
       );

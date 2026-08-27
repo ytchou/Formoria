@@ -6,10 +6,10 @@ import { classifyByDomain, detectInputType, isThirdPartyDirectoryHost } from './
 import { ONLINE_STORES } from '@/lib/brands/online-stores'
 import { mergeScrapedData } from './merge'
 import { emptyResult } from './parse/extractors'
-import { getRenderProvider } from './render/index'
 import type { RenderProvider } from './render/types'
 import { selectStrategy } from './router'
 import type { InputType } from './strategies/types'
+import { identifyPlatform } from './platforms'
 
 export type ScrapeAttemptFinish = {
   callStatus: 'succeeded' | 'empty' | 'failed' | 'malformed' | 'timeout' | 'network_error'
@@ -26,6 +26,7 @@ export type ScrapeAttemptHandle = {
 export type ScrapeBrandUrlsOptions = {
   brandName?: string | null
   confirmedSourceUrls?: ReadonlySet<string>
+  renderProvider?: RenderProvider
   onAttempt?: (input: { url: string; classification: InputType; spanId: string }) => Promise<ScrapeAttemptHandle | undefined>
 }
 
@@ -113,7 +114,7 @@ export async function scrapeBrandUrls(
   urls: string[],
   options: ScrapeBrandUrlsOptions = {},
 ): Promise<MultiScrapeResult> {
-  const render = getRenderProvider()
+  const render = options.renderProvider
   const results = await Promise.all(
     urls.slice(0, MAX_SCRAPE_URLS_PER_BRAND).map(async (url) => {
       const initialType = classifyByDomain(url) ?? 'official-site'
@@ -136,7 +137,7 @@ export async function scrapeBrandUrls(
           kind: 'external',
           spanId,
         },
-        async () => {
+        async (ctx) => {
           let httpStatus: number | null = null
           let error: string | null = null
           const startedAt = Date.now()
@@ -152,13 +153,18 @@ export async function scrapeBrandUrls(
 
             const type = await detectInputType(url, prefetchedHtml)
             const strategy = selectStrategy(type, url)
-            const trackedRender: RenderProvider = {
+            let rendered = false
+            const trackedRender: RenderProvider | undefined = render ? {
               fetchRendered: async (renderUrl) => {
+                rendered = true
                 const result = await render.fetchRendered(renderUrl)
                 httpStatus = result.status
                 return result
               },
-            }
+              ...(render.fetchRenderedBatch
+                ? { fetchRenderedBatch: render.fetchRenderedBatch.bind(render) }
+                : {}),
+            } : undefined
             const data = withoutThirdPartyLinks(
               url,
               await strategy.scrape(url, {
@@ -167,7 +173,31 @@ export async function scrapeBrandUrls(
               }),
             )
             const ok = hasContent(data)
+            const uniqueSources = [
+              ...new Map(
+                (data.imageSources ?? []).map((source) => [
+                  `${source.method}\u0000${source.url}`,
+                  source,
+                ]),
+              ).values(),
+            ]
+            const methodCounts = Object.fromEntries(
+              [...new Set(uniqueSources.map((source) => source.method))].map(
+                (method) => [
+                  method,
+                  uniqueSources.filter((source) => source.method === method)
+                    .length,
+                ],
+              ),
+            )
             const callStatus: AuditStatus = ok ? 'succeeded' : error ? 'failed' : 'empty'
+            Object.assign(ctx.summary, {
+              detectedPlatform: identifyPlatform(url, prefetchedHtml ?? ''),
+              extractor: (data.imageSources ?? []).at(0)?.method ?? strategy.type,
+              renderMode: rendered ? 'static_then_rendered' : 'static_only',
+              uniqueImages: new Set(data.galleryImageUrls).size,
+              methodCounts,
+            })
             await finishAudit({
               callStatus,
               httpStatus,
