@@ -1,4 +1,5 @@
 import sharp from 'sharp'
+import type { SupabaseClient } from '@supabase/supabase-js'
 import { auditedCall } from '@/lib/audit'
 import { uploadWithRetry } from '../storage-retry'
 
@@ -80,23 +81,7 @@ export function pickLogoImage(
 export async function downloadAndStoreFavicon(
   url: string,
   brandId: string,
-  supabase: {
-    storage: {
-      from: (bucket: string) => {
-        upload: (
-          path: string,
-          body: Buffer,
-          options: { contentType: string; cacheControl: string },
-        ) => Promise<{ error: { message: string } | null }>
-      }
-    }
-    from: (table: string) => {
-      upsert: (
-        row: Record<string, unknown>,
-        options: { onConflict: string },
-      ) => Promise<{ error: { message: string } | null }>
-    }
-  },
+  supabase: SupabaseClient,
 ): Promise<string | null> {
   return auditedCall(
     { provider: 'http', operation: 'fetch_favicon', kind: 'service' },

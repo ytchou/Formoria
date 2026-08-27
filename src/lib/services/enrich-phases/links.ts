@@ -31,6 +31,8 @@ import type { EnrichScrapedData } from './types'
 import { brandTarget, type EnrichmentTarget } from '../_shared/enrichment-target'
 import { buildPhaseResult, hasPatchValues, timePhase, type EnrichBrand, type EnrichPhase } from './types'
 import { ONLINE_STORES } from '@/lib/brands/online-stores'
+import { downloadAndStoreFavicon } from './favicon-download'
+import { syncLogoDenormalized } from '../brand-images'
 
 type LinksPhaseOptions = {
   brand: EnrichBrand
@@ -639,6 +641,21 @@ export async function runLinksPhase({
       confirmedIdentityFields(fieldSources),
     )
     const scrapedBrandName = deriveScrapedBrandName(brand, scrapedData)
+
+    // Best-effort favicon harvesting: download the first favicon candidate
+    // from the official site scrape and sync the logo denormalized column.
+    const faviconUrls = scrapedFromPages.faviconUrls ?? []
+    if (faviconUrls.length > 0 && supabase) {
+      try {
+        const storagePath = await downloadAndStoreFavicon(faviconUrls[0], brand.id, supabase)
+        if (storagePath) {
+          await syncLogoDenormalized(supabase, brand.id)
+        }
+      } catch {
+        // Favicon is supplementary — never fail the enrichment phase for it.
+      }
+    }
+
     return {
       patch,
       scrapedBrandName,
