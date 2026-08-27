@@ -53,6 +53,7 @@ export type BrandImageMeta = {
    * fails closed: no credit.
    */
   isOwnerSupplied?: boolean;
+  altZh?: string | null;
 };
 
 export type Brand = {

@@ -29,6 +29,7 @@ export type BrandImageRow = {
   rejected_at?: string | null
   width?: number | null
   height?: number | null
+  alt_zh?: string | null
 }
 
 export type BrandImageInsert = {
@@ -198,6 +199,7 @@ export function toImageFields(rows: BrandImageRow[]): {
        * closed rather than silently inherit it.
        */
       isOwnerSupplied: row.source === 'owner',
+      altZh: row.alt_zh ?? undefined,
     })),
   }
 }
@@ -212,7 +214,7 @@ export async function getBrandImages(
     // every row would just come back unattributed and the credit would silently
     // never render. `brand-images.test.ts` asserts this string for that reason.
     .select(
-      'storage_path, status, tags, score, sort_order, source, source_url, width, height',
+      'storage_path, status, tags, score, sort_order, source, source_url, width, height, alt_zh',
     )
     .eq('brand_id', brandId)
     .eq('status', 'active')
