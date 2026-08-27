@@ -738,7 +738,19 @@ function verify(target: DeploymentTarget, includeSchemaDiff: boolean): void {
       ["gen", "types", "typescript", "--db-url", target.databaseUrl],
       true,
     );
-    if (generatedTypes.trim() !== readFileSync(DATABASE_TYPES, "utf8").trim()) {
+    const expectedTypes = readFileSync(DATABASE_TYPES, "utf8").trim();
+    if (generatedTypes.trim() !== expectedTypes) {
+      const generatedLines = generatedTypes.trim().split("\n");
+      const expectedLines = expectedTypes.split("\n");
+      const firstDiff = expectedLines.findIndex(
+        (line, index) => line !== generatedLines[index],
+      );
+      const diffIndex = firstDiff === -1 ? expectedLines.length : firstDiff;
+      console.error(
+        `Generated types differ at line ${diffIndex + 1} (expected ${expectedLines.length} lines, generated ${generatedLines.length})`,
+      );
+      console.error(`expected: ${expectedLines[diffIndex] ?? "<EOF>"}`);
+      console.error(`generated: ${generatedLines[diffIndex] ?? "<EOF>"}`);
       throw new Error(
         "Generated database types are stale; run pnpm db:types and commit them",
       );
