@@ -80,6 +80,7 @@ import {
 } from "./enrich-phases";
 import type { NameCandidate } from "./name-arbiter";
 import type { BrandImageSearchOutcome } from "./enrich-phases/scraper/types";
+import type { CatalogDiscoveryResult } from "./enrich-phases/catalog-discovery";
 import { buildCandidatePool } from "./enrich-phases/candidate-pool";
 import type { EnrichmentTarget } from "./_shared/enrichment-target";
 import type { RenderProvider } from "./enrich-phases/scraper/render/types";
@@ -2496,6 +2497,15 @@ export async function runEnrich(
               }
 
               const linksResult = ctx.linksResult;
+              // Catalog and acquisition outputs from the images phase, passed
+              // downstream to the products phase (DEV-1633).
+              let imageCatalogResult: CatalogDiscoveryResult = {
+                triples: [],
+                attempts: [],
+                evidence: new Map(),
+              };
+              let imageAcquisitionPageUrls: string[] = [];
+
               if (!satisfiedPhaseSet.has("images")) {
                 const candidateImages = buildCandidatePool({
                   // Prefer the provenance-carrying list; fall back to bare URLs so a
@@ -2541,10 +2551,13 @@ export async function runEnrich(
                   candidateImages,
                   dryRun: config.dryRun,
                   target: { type: targetType, id: brand.id },
+                  renderProvider: config.renderProvider,
                 });
                 state.phaseResults.push(brandImageResult.phaseResult);
                 await logCurrentPhase(ctx, brandImageResult.phaseResult);
                 appendPatch(state, brandImageResult.patch);
+                imageCatalogResult = brandImageResult.catalogResult;
+                imageAcquisitionPageUrls = brandImageResult.acquisitionPageUrls;
               }
 
               if (!satisfiedPhaseSet.has("classify_images")) {
@@ -2750,6 +2763,8 @@ export async function runEnrich(
                   dryRun: config.dryRun,
                   target: { type: targetType, id: brand.id },
                   jobId: config.jobId,
+                  catalogResult: imageCatalogResult,
+                  acquisitionPageUrls: imageAcquisitionPageUrls,
                   renderProvider: config.renderProvider,
                 });
                 state.phaseResults.push(productsResult.phaseResult);

@@ -7,10 +7,8 @@ import {
   dedupeNearDuplicates,
   type ProductCandidate,
 } from "@/lib/services/enrich-phases/product-candidates";
-// The probe reads brand_images with the same provenance shape that
-// stored-product-candidates uses, but needs order/range for paged reads.
-// A local ProbeClient type states the exact chains instead of borrowing
-// StoredCandidateReader (which is deliberately narrow).
+// The probe reads brand_images provenance (provider_metadata.pageUrl) directly.
+// A local ProbeClient type states the exact query chains.
 
 import { fetchAllRows, parseSlugsOption, parseCsvPath } from "./shared";
 
@@ -91,7 +89,7 @@ const TARGET_PRODUCT_DETAIL = 3;
 
 /**
  * Reads `provider_metadata` defensively — it is untyped JSON in the DB.
- * Mirrors the extraction in stored-product-candidates (not exported there).
+ * Reads `provider_metadata` provenance from brand_images rows.
  */
 function extractPageUrl(
   metadata: unknown,

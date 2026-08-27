@@ -1,4 +1,6 @@
 import type { Brand } from "@/lib/types";
+import { FAQ_PROMPT_PREAMBLE } from "@/lib/prompts";
+import { fetchLangfusePrompt } from "@/lib/langfuse/prompt";
 import {
   CUSTOM_QUESTION_CEILING,
   buildFaqPromptHash,
@@ -521,7 +523,9 @@ export async function runFaqPhase({
         };
     }
 
-    const systemPrompt = buildFaqSystemPrompt(authorable, ctx);
+    const localSystemPrompt = buildFaqSystemPrompt(authorable, ctx);
+    const langfusePreamble = await fetchLangfusePrompt("faq-preamble", FAQ_PROMPT_PREAMBLE);
+    const systemPrompt = localSystemPrompt.replace(FAQ_PROMPT_PREAMBLE, langfusePreamble);
     const promptHash = buildFaqPromptHash(authorable);
     const snippets = [
       ...serpSnippets,

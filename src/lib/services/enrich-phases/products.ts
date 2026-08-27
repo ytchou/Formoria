@@ -26,6 +26,7 @@ import {
   createProfiledOpenAIClient,
   profileChatParams,
 } from "../llm-audit";
+import { fetchLangfusePrompt } from "@/lib/langfuse/prompt";
 import { parseJson } from "../openai-client";
 import {
   isLlmProviderFailure,
@@ -43,7 +44,6 @@ import {
   normalizeProductUrl,
   type ProductCandidate,
 } from "./product-candidates";
-import { loadStoredCandidates as defaultLoadStoredCandidates } from "./stored-product-candidates";
 import {
   applyGates,
   createDefaultCandidateWriter,
@@ -66,8 +66,8 @@ import {
   type ExactRegistryLookupResult,
 } from "../mit-registry";
 import { loadRenderedProductTexts } from "./scraper/product-origin-text";
-import { discoverCatalog } from "./catalog-discovery";
 import type { RenderProvider } from "./scraper/render/types";
+import type { CatalogDiscoveryResult } from "./catalog-discovery";
 import {
   buildPhaseResult,
   timePhase,
@@ -243,8 +243,6 @@ export type ProductsPhaseOptions = {
   dryRun?: boolean;
   target?: EnrichmentTarget;
   jobId?: string;
-  /** Supplier for stored product candidates (brand_images provenance). Injected for testing. */
-  loadStoredCandidates?: (submissionId: string) => Promise<ProductCandidate[]>;
   /** Writer for persisting the candidate pool. Injected for testing. */
   candidateWriter?: CandidateWriter;
   /** LLM ranker for scoring gate-passing candidates. Injected for testing. */
@@ -253,8 +251,11 @@ export type ProductsPhaseOptions = {
   lookupRegistryProducts?: (
     inputs: readonly ExactRegistryLookupInput[],
   ) => Promise<Map<string, ExactRegistryLookupResult>>;
+  /** Catalog result from the images phase. Optional until the orchestrator is updated (Task 5). */
+  catalogResult?: CatalogDiscoveryResult;
+  /** Page URLs from image acquisition candidates. Optional until the orchestrator is updated (Task 5). */
+  acquisitionPageUrls?: string[];
   renderProvider?: RenderProvider;
-  discoverCatalog?: typeof discoverCatalog;
 };
 
 /**
@@ -751,13 +752,13 @@ export async function runProductsPhase({
   dryRun,
   target,
   jobId,
-  loadStoredCandidates: loadStored,
   candidateWriter,
   candidateRanker,
   loadOriginTexts,
   lookupRegistryProducts,
+  catalogResult,
+  acquisitionPageUrls,
   renderProvider,
-  discoverCatalog: discoverCatalogOverride,
 }: ProductsPhaseOptions): Promise<ProductsPhaseOutput> {
   if (!phases.includes("products"))
     return skipped("products phase not requested");
@@ -803,31 +804,16 @@ export async function runProductsPhase({
   if (!site)
     return skipped("no verified purchase channel to propose products from");
 
-  const catalog = await (discoverCatalogOverride ?? discoverCatalog)({
-    sources: channelUrls.map((url, index) => ({
-      url,
-      channel:
-        index === 0 && url === siteUrl
-          ? "official"
-          : url === brand.purchase_pinkoi
-            ? "pinkoi"
-            : url === brand.purchase_shopee
-              ? "shopee"
-              : "myship",
-    })),
-    renderProvider,
-    target: 20,
-    hydrationLimit: MAX_CANDIDATE_PAGES,
-  });
+  // Catalog discovery now runs in the images phase (DEV-1633). The products
+  // phase receives the result as an input. Fall back to empty when the
+  // orchestrator hasn't been updated yet (Task 5).
+  const catalog: CatalogDiscoveryResult = catalogResult ?? {
+    triples: [],
+    attempts: [],
+    evidence: new Map(),
+  };
 
   // --- Build the merged candidate pool ---
-  // Stored candidates from brand_images provenance (injected supplier).
-  // Host-filtered the same way scraped candidates are: provider_metadata.pageUrl
-  // comes from Google Images, which routinely returns marketplace, blog and
-  // Pinterest URLs that consume MAX_CANDIDATE_PAGES slots and crowd out valid
-  // candidates.
-  const loader = loadStored ?? defaultLoadStoredCandidates;
-  const rawStoredCandidates = await loader(effectiveTarget.id);
   const ownedHosts = new Set(
     channelUrls
       .map((url) => httpUrl(url))
@@ -851,10 +837,6 @@ export async function runProductsPhase({
       !marketplaceHosts.has(bareHost(parsed)) || catalogOwnedUrls.has(normalized)
     );
   };
-  const storedCandidates = rawStoredCandidates.filter((c) => {
-    return isOwnedCandidate(c.url);
-  });
-
   // Build a unified pool of ProductCandidate entries from the scraped pages.
   // The scraped half is converted to ProductCandidate shape for mergeCandidatePool.
   const imageByPage = new Map<string, string>();
@@ -882,8 +864,25 @@ export async function runProductsPhase({
     });
   }
 
-  // Dedupe near-duplicates AFTER merging both suppliers. Stored candidates are
-  // placed first so they win ties: a stored candidate carries imageUrl and
+  // Acquisition candidates from the images phase (DEV-1633): page URLs
+  // discovered during image acquisition that may contain product pages.
+  const acquisitionCandidates: ProductCandidate[] = [];
+  for (const [index, url] of (acquisitionPageUrls ?? []).filter(isOwnedCandidate).entries()) {
+    const normalizedUrl = normalizeProductUrl(url);
+    if (!normalizedUrl) continue;
+    acquisitionCandidates.push({
+      url,
+      normalizedUrl,
+      title: undefined,
+      supplier: "acquisition",
+      urlClass: classifyProductUrl(url),
+      imageUrl: undefined,
+      searchPosition: index,
+    });
+  }
+
+  // Dedupe near-duplicates AFTER merging all suppliers. Enumerated candidates are
+  // placed first so they win ties: a catalog candidate carries imageUrl and
   // searchPosition that the scraped duplicate lacks, while the scraped text is
   // still available via perSourceText[candidate.url] for user-content assembly.
   const enumeratedCandidates: ProductCandidate[] = catalog.triples.map(
@@ -899,7 +898,7 @@ export async function runProductsPhase({
   );
   const catalogCandidates = [
     ...enumeratedCandidates,
-    ...storedCandidates,
+    ...acquisitionCandidates,
     ...scrapedCandidates,
   ]
     .sort((left, right) => {
@@ -920,7 +919,7 @@ export async function runProductsPhase({
     catalogCandidates.map((candidate) => candidate.url),
   );
   const { kept: dedupedCandidates, collapsedCount } = dedupeNearDuplicates(
-    [...enumeratedCandidates, ...storedCandidates, ...scrapedCandidates].filter(
+    [...enumeratedCandidates, ...acquisitionCandidates, ...scrapedCandidates].filter(
       (candidate) => catalogUrls.has(candidate.url),
     ),
   );
@@ -1056,8 +1055,9 @@ export async function runProductsPhase({
             },
             { apiKey: token },
           );
+          const productsSystemPrompt = await fetchLangfusePrompt("products", PRODUCTS_SYSTEM_PROMPT);
           const response = await client.chat({
-            system: PRODUCTS_SYSTEM_PROMPT,
+            system: productsSystemPrompt,
             user: userContent,
             schema: PRODUCTS_SCHEMA,
             ...profileChatParams("products"),

@@ -1,4 +1,5 @@
 import { REPUTATION_SYSTEM_PROMPT } from "@/lib/prompts";
+import { fetchLangfusePrompt } from "@/lib/langfuse/prompt";
 import { auditedCall } from "@/lib/audit";
 import {
   createProfiledOpenAIClient,
@@ -106,8 +107,9 @@ export async function runReputationResearch(
   });
 
   try {
+    const reputationPrompt = await fetchLangfusePrompt("reputation", REPUTATION_SYSTEM_PROMPT);
     const { response, content } = await client.chat({
-      system: REPUTATION_SYSTEM_PROMPT,
+      system: reputationPrompt,
       user: userContent,
       json: true,
       ...profileChatParams("reputation"),

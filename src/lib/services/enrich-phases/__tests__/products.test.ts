@@ -145,7 +145,6 @@ describe("runProductsPhase", () => {
       phases: PHASES,
       scrapedData: SCRAPED,
       target: { type: "submission", id: SUBMISSION_ID },
-      loadStoredCandidates: async () => [],
       candidateWriter: { insert },
     });
 
@@ -197,7 +196,6 @@ describe("runProductsPhase", () => {
       phases: PHASES,
       scrapedData: SCRAPED,
       target: { type: "submission", id: SUBMISSION_ID },
-      loadStoredCandidates: async () => [],
     });
 
     expect(result.phaseResult.status).toBe("succeeded");
@@ -239,7 +237,6 @@ describe("runProductsPhase", () => {
       scrapedData: SCRAPED,
       pendingPatch: { purchase_website: SITE },
       target: { type: "submission", id: SUBMISSION_ID },
-      loadStoredCandidates: async () => [],
     });
 
     const user = chat.mock.calls[0]![0].user as string;
@@ -281,7 +278,6 @@ describe("runProductsPhase", () => {
       phases: PHASES,
       scrapedData: SCRAPED,
       target: { type: "submission", id: SUBMISSION_ID },
-      loadStoredCandidates: async () => [],
     });
 
     expect(result.proposals).toHaveLength(1);
@@ -295,14 +291,14 @@ describe("runProductsPhase", () => {
   });
 
   it("caps_proposals_per_brand", async () => {
-    const storedCandidates = Array.from({ length: 8 }, (_, index) => ({
+    const catalogTriples = Array.from({ length: 8 }, (_, index) => ({
       url: `${SITE}/products/clay-plate-${index + 1}`,
-      normalizedUrl: `${SITE}/products/clay-plate-${index + 1}`,
       title: `陶土餐盤 ${index + 1}`,
       imageUrl: `${SITE}/img/clay-plate-${index + 1}.jpg`,
-      supplier: "stored",
-      urlClass: "product-detail" as const,
-      searchPosition: index,
+      platform: "generic" as const,
+      supplier: "catalog:official",
+      sourceUrl: SITE,
+      sourcePosition: index,
     }));
     modelReturns(
       Array.from({ length: 8 }, (_, index) =>
@@ -324,7 +320,11 @@ describe("runProductsPhase", () => {
       phases: PHASES,
       scrapedData: SCRAPED,
       target: { type: "submission", id: SUBMISSION_ID },
-      loadStoredCandidates: async () => storedCandidates,
+      catalogResult: {
+        triples: catalogTriples,
+        attempts: [],
+        evidence: new Map(),
+      },
     });
 
     expect(result.proposals).toHaveLength(5);
@@ -348,7 +348,6 @@ describe("runProductsPhase", () => {
       phases: PHASES,
       scrapedData: SCRAPED,
       target: { type: "submission", id: SUBMISSION_ID },
-      loadStoredCandidates: async () => [],
     });
 
     expect(result.phaseResult.status).toBe("failed");
@@ -370,7 +369,6 @@ describe("runProductsPhase", () => {
       phases: PHASES,
       scrapedData: null,
       target: { type: "submission", id: SUBMISSION_ID },
-      loadStoredCandidates: async () => [],
     });
 
     expect(result.phaseResult.status).toBe("skipped");
@@ -397,7 +395,6 @@ describe("runProductsPhase", () => {
         imageSources: [],
       },
       target: { type: "submission", id: SUBMISSION_ID },
-      loadStoredCandidates: async () => [],
     });
 
     expect(result.phaseResult.status).toBe("skipped");
@@ -412,7 +409,6 @@ describe("runProductsPhase", () => {
       phases: PHASES,
       scrapedData: SCRAPED,
       target: { type: "submission", id: SUBMISSION_ID },
-      loadStoredCandidates: async () => [],
     });
 
     expect(result.phaseResult.status).toBe("succeeded");
@@ -440,41 +436,43 @@ describe("runProductsPhase", () => {
     expect(result.patch).toEqual({});
   });
 
-  it("uses_stored_candidates_when_scrape_is_empty", async () => {
-    // With no scraped pages but a non-empty stored pool, the phase must NOT
-    // skip — the stored candidates supply the user content.
+  it("uses_catalog_candidates_when_scrape_is_empty", async () => {
+    // With no scraped pages but a non-empty catalog pool, the phase must NOT
+    // skip — the catalog candidates supply the user content.
     modelReturns([rawProposal()]);
-
-    const storedCandidates: ProductCandidate[] = [
-      {
-        url: `${SITE}/products/clay-plate`,
-        normalizedUrl: `${SITE}/products/clay-plate`,
-        title: "陶土餐盤",
-        imageUrl: `${SITE}/img/plate.jpg`,
-        supplier: "stored",
-        urlClass: "product-detail",
-        searchPosition: 1,
-      },
-    ];
 
     const result = await runProductsPhase({
       brand: BRAND,
       phases: PHASES,
       scrapedData: { ...SCRAPED, perSourceText: {} },
       target: { type: "submission", id: SUBMISSION_ID },
-      loadStoredCandidates: async () => storedCandidates,
+      catalogResult: {
+        triples: [
+          {
+            url: `${SITE}/products/clay-plate`,
+            title: "陶土餐盤",
+            imageUrl: `${SITE}/img/plate.jpg`,
+            platform: "generic" as const,
+            supplier: "catalog:official",
+            sourceUrl: SITE,
+            sourcePosition: 0,
+          },
+        ],
+        attempts: [],
+        evidence: new Map(),
+      },
     });
 
     expect(result.phaseResult.status).toBe("succeeded");
     expect(result.proposals).toHaveLength(1);
-    // The user content must carry the stored product URL.
+    // The user content must carry the catalog product URL.
     const chat = createClient.mock.results[0]!.value.chat;
     const user = chat.mock.calls[0]![0].user as string;
     expect(user).toContain(`${SITE}/products/clay-plate`);
   });
 
   it("still_skips_when_merged_pool_is_empty", async () => {
-    // Empty scrape + empty stored pool => skipped with no LLM call.
+    // Empty scrape + no catalog candidates => skipped with no LLM call.
     const chat = modelReturns([]);
 
     const result = await runProductsPhase({
@@ -482,7 +480,6 @@ describe("runProductsPhase", () => {
       phases: PHASES,
       scrapedData: { ...SCRAPED, perSourceText: {} },
       target: { type: "submission", id: SUBMISSION_ID },
-      loadStoredCandidates: async () => [],
     });
 
     expect(result.phaseResult.status).toBe("skipped");
@@ -493,35 +490,31 @@ describe("runProductsPhase", () => {
   });
 
   it("listing_pages_are_not_proposable", async () => {
-    // A stored `/collections/chairs` candidate should appear in the
+    // An acquisition `/collections/chairs` candidate should appear in the
     // entry-points block only, never as a product candidate.
     modelReturns([rawProposal()]);
-
-    const storedCandidates: ProductCandidate[] = [
-      {
-        url: `${SITE}/collections/chairs`,
-        normalizedUrl: `${SITE}/collections/chairs`,
-        title: "椅子系列",
-        supplier: "stored",
-        urlClass: "listing",
-      },
-      {
-        url: `${SITE}/products/clay-plate`,
-        normalizedUrl: `${SITE}/products/clay-plate`,
-        title: "陶土餐盤",
-        imageUrl: `${SITE}/img/plate.jpg`,
-        supplier: "stored",
-        urlClass: "product-detail",
-        searchPosition: 1,
-      },
-    ];
 
     const result = await runProductsPhase({
       brand: BRAND,
       phases: PHASES,
       scrapedData: { ...SCRAPED, perSourceText: {} },
       target: { type: "submission", id: SUBMISSION_ID },
-      loadStoredCandidates: async () => storedCandidates,
+      acquisitionPageUrls: [`${SITE}/collections/chairs`],
+      catalogResult: {
+        triples: [
+          {
+            url: `${SITE}/products/clay-plate`,
+            title: "陶土餐盤",
+            imageUrl: `${SITE}/img/plate.jpg`,
+            platform: "generic" as const,
+            supplier: "catalog:official",
+            sourceUrl: SITE,
+            sourcePosition: 0,
+          },
+        ],
+        attempts: [],
+        evidence: new Map(),
+      },
     });
 
     expect(result.phaseResult.status).toBe("succeeded");
@@ -540,36 +533,38 @@ describe("runProductsPhase", () => {
     // Without dedupe, both occupy slots and both persist as separate rows.
     const chat = modelReturns([rawProposal()]);
 
-    const storedCandidates: ProductCandidate[] = [
-      {
-        url: `${SITE}/products/clay-plate?variant=blue`,
-        normalizedUrl: `${SITE}/products/clay-plate`,
-        title: "陶土餐盤 - 藍色",
-        imageUrl: `${SITE}/img/plate-blue.jpg`,
-        supplier: "stored",
-        urlClass: "product-detail",
-        searchPosition: 1,
-      },
-      {
-        url: `${SITE}/products/clay-plate?variant=red`,
-        normalizedUrl: `${SITE}/products/clay-plate`,
-        title: "陶土餐盤 - 紅色",
-        imageUrl: `${SITE}/img/plate-red.jpg`,
-        supplier: "stored",
-        urlClass: "product-detail",
-        searchPosition: 2,
-      },
-    ];
-
     const result = await runProductsPhase({
       brand: BRAND,
       phases: PHASES,
-      // Empty perSourceText AND imageSources: only stored candidates contribute
+      // Empty perSourceText AND imageSources: only catalog candidates contribute
       // to the prompt, so the count is not inflated by a stray image-candidates
       // line sharing the same URL prefix.
       scrapedData: { ...SCRAPED, perSourceText: {}, imageSources: [] },
       target: { type: "submission", id: SUBMISSION_ID },
-      loadStoredCandidates: async () => storedCandidates,
+      catalogResult: {
+        triples: [
+          {
+            url: `${SITE}/products/clay-plate?variant=blue`,
+            title: "陶土餐盤 - 藍色",
+            imageUrl: `${SITE}/img/plate-blue.jpg`,
+            platform: "generic" as const,
+            supplier: "catalog:official",
+            sourceUrl: SITE,
+            sourcePosition: 0,
+          },
+          {
+            url: `${SITE}/products/clay-plate?variant=red`,
+            title: "陶土餐盤 - 紅色",
+            imageUrl: `${SITE}/img/plate-red.jpg`,
+            platform: "generic" as const,
+            supplier: "catalog:official",
+            sourceUrl: SITE,
+            sourcePosition: 1,
+          },
+        ],
+        attempts: [],
+        evidence: new Map(),
+      },
     });
 
     expect(result.phaseResult.status).toBe("succeeded");
@@ -581,47 +576,37 @@ describe("runProductsPhase", () => {
     expect(occurrences).toBe(1);
   });
 
-  it("filters_off_host_stored_candidates", async () => {
-    // Stored candidates from Google Images routinely include marketplace,
-    // blog, and Pinterest URLs. These must never reach the prompt — they
-    // consume MAX_CANDIDATE_PAGES slots and crowd out valid candidates.
+  it("filters_off_host_acquisition_candidates", async () => {
+    // Acquisition candidates may include off-host URLs. These must never
+    // reach the prompt — they consume MAX_CANDIDATE_PAGES slots and crowd
+    // out valid candidates.
     const chat = modelReturns([rawProposal()]);
-
-    const storedCandidates: ProductCandidate[] = [
-      {
-        url: "https://shopee.tw/product/12345",
-        normalizedUrl: "https://shopee.tw/product/12345",
-        title: "陶土餐盤 (蝦皮)",
-        imageUrl: "https://shopee.tw/img/plate.jpg",
-        supplier: "stored",
-        urlClass: "product-detail",
-        searchPosition: 1,
-      },
-      {
-        url: "https://www.pinterest.com/pin/67890",
-        normalizedUrl: "https://www.pinterest.com/pin/67890",
-        title: "陶土餐盤 Pinterest",
-        supplier: "stored",
-        urlClass: "other",
-        searchPosition: 3,
-      },
-      {
-        url: `${SITE}/products/clay-plate`,
-        normalizedUrl: `${SITE}/products/clay-plate`,
-        title: "陶土餐盤",
-        imageUrl: `${SITE}/img/plate.jpg`,
-        supplier: "stored",
-        urlClass: "product-detail",
-        searchPosition: 2,
-      },
-    ];
 
     const result = await runProductsPhase({
       brand: BRAND,
       phases: PHASES,
       scrapedData: { ...SCRAPED, perSourceText: {} },
       target: { type: "submission", id: SUBMISSION_ID },
-      loadStoredCandidates: async () => storedCandidates,
+      acquisitionPageUrls: [
+        "https://shopee.tw/product/12345",
+        "https://www.pinterest.com/pin/67890",
+        `${SITE}/products/clay-plate`,
+      ],
+      catalogResult: {
+        triples: [
+          {
+            url: `${SITE}/products/clay-plate`,
+            title: "陶土餐盤",
+            imageUrl: `${SITE}/img/plate.jpg`,
+            platform: "generic" as const,
+            supplier: "catalog:official",
+            sourceUrl: SITE,
+            sourcePosition: 0,
+          },
+        ],
+        attempts: [],
+        evidence: new Map(),
+      },
     });
 
     expect(result.phaseResult.status).toBe("succeeded");
@@ -645,7 +630,6 @@ describe("runProductsPhase", () => {
       phases: PHASES,
       scrapedData: SCRAPED,
       target: { type: "submission", id: SUBMISSION_ID },
-      loadStoredCandidates: async () => [],
     });
 
     expect(result.phaseResult.status).toBe("succeeded");
@@ -676,7 +660,6 @@ describe("runProductsPhase", () => {
       phases: PHASES,
       scrapedData: threeProducts,
       target: { type: "submission", id: SUBMISSION_ID },
-      loadStoredCandidates: async () => [],
     });
 
     // All three product URLs should appear in user content in some order —
@@ -714,17 +697,9 @@ describe("runProductsPhase", () => {
         },
       },
       target: { type: "submission", id: SUBMISSION_ID },
-      loadStoredCandidates: async () => [
-        {
-          url: otherSellerUrl,
-          normalizedUrl: otherSellerUrl,
-          title: "Other seller item",
-          supplier: "google",
-          urlClass: "product-detail",
-        },
-      ],
+      acquisitionPageUrls: [otherSellerUrl],
       loadOriginTexts,
-      discoverCatalog: async () => ({
+      catalogResult: {
         triples: [
           {
             url: ownedUrl,
@@ -747,7 +722,7 @@ describe("runProductsPhase", () => {
             },
           ],
         ]),
-      }),
+      },
     });
 
     expect(result.phaseResult.status).toBe("succeeded");
@@ -759,8 +734,8 @@ describe("runProductsPhase", () => {
   });
 
   it("existing_scraped_path_still_works", async () => {
-    // When only perSourceText is populated (stored pool is empty),
-    // the phase works exactly as before — no regression.
+    // When only perSourceText is populated (no catalog or acquisition
+    // candidates), the phase works exactly as before — no regression.
     modelReturns([rawProposal()]);
 
     const result = await runProductsPhase({
@@ -768,12 +743,76 @@ describe("runProductsPhase", () => {
       phases: PHASES,
       scrapedData: SCRAPED,
       target: { type: "submission", id: SUBMISSION_ID },
-      loadStoredCandidates: async () => [],
     });
 
     expect(result.phaseResult.status).toBe("succeeded");
     expect(result.proposals).toHaveLength(1);
     const chat = createClient.mock.results[0]!.value.chat;
+    const user = chat.mock.calls[0]![0].user as string;
+    expect(user).toContain(`${SITE}/products/clay-plate`);
+  });
+
+  it("products_phase_accepts_catalog_result_input", async () => {
+    // When catalogResult is passed in, its triples become enumerated candidates
+    // in the merged pool — the products phase no longer runs discovery itself.
+    const chat = modelReturns([
+      rawProposal({
+        official_url: `${SITE}/products/clay-plate`,
+        image_source_url: `${SITE}/products/clay-plate`,
+      }),
+    ]);
+
+    const result = await runProductsPhase({
+      brand: BRAND,
+      phases: PHASES,
+      scrapedData: SCRAPED,
+      target: { type: "submission", id: SUBMISSION_ID },
+      catalogResult: {
+        triples: [
+          {
+            url: `${SITE}/products/clay-plate`,
+            title: "catalog plate",
+            imageUrl: `${SITE}/img/plate.jpg`,
+            platform: "generic",
+            supplier: "catalog:generic",
+            sourceUrl: SITE,
+            sourcePosition: 0,
+          },
+        ],
+        attempts: [],
+        evidence: new Map([
+          [
+            `${SITE}/products/clay-plate`,
+            {
+              title: "catalog plate",
+              text: "A ceramic plate from catalog.",
+              imageUrls: [`${SITE}/img/plate.jpg`],
+            },
+          ],
+        ]),
+      },
+    });
+
+    expect(result.phaseResult.status).toBe("succeeded");
+    const user = chat.mock.calls[0]![0].user as string;
+    // The catalog evidence text should appear in the user content
+    expect(user).toContain("A ceramic plate from catalog.");
+  });
+
+  it("products_phase_accepts_acquisition_page_urls", async () => {
+    // Acquisition page URLs from the images phase are built into candidates
+    // and included in the merged pool.
+    const chat = modelReturns([rawProposal()]);
+
+    const result = await runProductsPhase({
+      brand: BRAND,
+      phases: PHASES,
+      scrapedData: { ...SCRAPED, perSourceText: {} },
+      target: { type: "submission", id: SUBMISSION_ID },
+      acquisitionPageUrls: [`${SITE}/products/clay-plate`],
+    });
+
+    expect(result.phaseResult.status).toBe("succeeded");
     const user = chat.mock.calls[0]![0].user as string;
     expect(user).toContain(`${SITE}/products/clay-plate`);
   });
@@ -1090,7 +1129,6 @@ describe("rawCount and productsParseError in runProductsPhase", () => {
       phases: PHASES,
       scrapedData: SCRAPED,
       target: { type: "submission", id: SUBMISSION_ID },
-      loadStoredCandidates: async () => [],
     });
 
     expect(result.phaseResult.status).toBe("succeeded");
@@ -1113,7 +1151,6 @@ describe("rawCount and productsParseError in runProductsPhase", () => {
       phases: PHASES,
       scrapedData: SCRAPED,
       target: { type: "submission", id: SUBMISSION_ID },
-      loadStoredCandidates: async () => [],
     });
 
     expect(result.phaseResult.status).toBe("succeeded");

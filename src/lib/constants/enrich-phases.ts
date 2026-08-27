@@ -32,8 +32,8 @@ export const ENRICH_PHASES = [
   // `site_identity` by hard dependency: it proposes products from the brand's
   // own site, so it needs the resolved `purchase_website` AND site-identity's
   // verdict on it — a revoked site must never be mined for products.
-  // Note: the `products ← classify_images` edge is comment-only — the code
-  // reads `scrapedData.imageSources` from `links`, not from classify_images.
+  // The `products ← classify_images` edge was promoted to a real dependency
+  // in DEV-1633 (visual acquisition task merge).
   "products",
 ] as const;
 
@@ -141,7 +141,6 @@ export const ENRICH_STAGE_GROUPS = {
  * Ordering-only edges are NOT listed here and do not enter the closure:
  *   - `faq ← descriptions` (reads `facts`)
  *   - `faq ← reputation` (reads `reputationSummary`)
- *   - `products ← classify_images` (comment-only; code reads from `links`)
  *   - `descriptions ← classify_images` (comment-only; `imageAlts` hardcoded [])
  * Those are enforced by ENRICH_PHASES ordering, not by the dependency map.
  *
@@ -168,7 +167,7 @@ export const PHASE_DEPENDENCIES: Record<EnrichPhaseName, readonly EnrichPhaseNam
   locations: [],
   reputation: ["links"],
   faq: [],
-  products: ["links", "site_identity"],
+  products: ["links", "site_identity", "classify_images"],
 };
 
 /**
@@ -204,11 +203,21 @@ export function isDeferredPhase(phase: string): boolean {
  * `full` covers every non-deferred phase and is the default when no task, steps
  * or phases are supplied.
  */
+/**
+ * The `visual` task merges the former `image` and `product` tasks (DEV-1633).
+ * `image` and `product` are kept as hidden aliases so stored job rows with
+ * `params.task = "image"` or `"product"` still resolve correctly. They map to
+ * the same phases as `visual` and are excluded from `CURATION_TASK_ORDER`.
+ */
+const VISUAL_PHASES = ["images", "classify_images", "products"] as const satisfies readonly EnrichPhaseName[];
+
 export const CURATION_TASKS = {
   identity: ["clean", "detect", "slugs", "discover", "links", "names", "site_identity"],
-  image: ["images", "classify_images"],
+  visual: VISUAL_PHASES,
+  // Hidden aliases — DB compat for stored params.task values
+  image: VISUAL_PHASES,
+  product: VISUAL_PHASES,
   editorial: ["descriptions", "reputation", "faq", "tags"],
-  product: ["products"],
   full: ENRICH_PHASES.filter(
     (phase) => !(DEFERRED_PHASES as readonly string[]).includes(phase),
   ),
@@ -216,12 +225,11 @@ export const CURATION_TASKS = {
 
 export type CurationTask = keyof typeof CURATION_TASKS;
 
-/** All task names, in a fixed order for UI iteration. */
+/** All task names, in a fixed order for UI iteration. Hidden aliases excluded. */
 export const CURATION_TASK_ORDER = [
   "identity",
-  "image",
+  "visual",
   "editorial",
-  "product",
   "full",
 ] as const satisfies readonly CurationTask[];
 

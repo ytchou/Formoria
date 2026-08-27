@@ -2263,6 +2263,7 @@
       "approveRefresh": "Approve — updates the live brand",
       "runTaskCuration": {
         "identity": "Run Identity task again ({count})",
+        "visual": "Run Visual task again ({count})",
         "image": "Run Image task again ({count})",
         "editorial": "Run Editorial task again ({count})",
         "product": "Run Product task again ({count})",

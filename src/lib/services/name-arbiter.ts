@@ -1,4 +1,5 @@
 import { NAME_ARBITER_SYSTEM_PROMPT } from "@/lib/prompts";
+import { fetchLangfusePrompt } from "@/lib/langfuse/prompt";
 import { auditedCall } from "@/lib/audit";
 import {
   LLM_BATCH_CHUNK_SIZE,
@@ -211,8 +212,9 @@ async function arbitrateBrandName(
   const client = createNameArbiterClient(token, "names", item.target, jobId);
 
   try {
+    const nameArbiterPrompt = await fetchLangfusePrompt("name-arbiter", NAME_ARBITER_SYSTEM_PROMPT);
     const { response, data, content } = await client.chat({
-      system: NAME_ARBITER_SYSTEM_PROMPT,
+      system: nameArbiterPrompt,
       user: buildNameArbiterUserContent([item]),
       json: true,
       schema: NAME_ARBITRATION_SCHEMA,
@@ -263,8 +265,9 @@ async function arbitrateBrandNamesChunk(
   );
 
   try {
+    const nameArbiterBatchPrompt = await fetchLangfusePrompt("name-arbiter", NAME_ARBITER_SYSTEM_PROMPT);
     const { response, data, content } = await client.chat({
-      system: NAME_ARBITER_SYSTEM_PROMPT,
+      system: nameArbiterBatchPrompt,
       user: buildNameArbiterUserContent(items),
       json: true,
       schema: NAME_ARBITRATION_SCHEMA,

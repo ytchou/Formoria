@@ -5,6 +5,12 @@ import type { PhaseResult } from '@/lib/types/curation'
 import type { CandidateImage } from './candidate-pool'
 import { brandTarget, type EnrichmentTarget } from '../_shared/enrichment-target'
 import { buildPhaseResult, timePhase, type EnrichBrand, type EnrichPhase } from './types'
+import {
+  discoverCatalog as defaultDiscoverCatalog,
+  type CatalogDiscoveryResult,
+  type CatalogSource,
+} from './catalog-discovery'
+import type { RenderProvider } from './scraper/render/types'
 
 type BrandImagePhaseOptions = {
   brand: EnrichBrand
@@ -13,16 +19,54 @@ type BrandImagePhaseOptions = {
   candidateImages?: CandidateImage[]
   dryRun?: boolean
   target?: EnrichmentTarget
+  renderProvider?: RenderProvider
+  discoverCatalog?: typeof defaultDiscoverCatalog
 }
 
 type BrandImagePhaseOutput = {
   phaseResult: PhaseResult
   patch: Record<string, unknown>
+  catalogResult: CatalogDiscoveryResult
+  acquisitionPageUrls: string[]
 }
 
 type ImagePatch = Partial<{
   hero_image_url: string | null
 }>
+
+const EMPTY_CATALOG_RESULT: CatalogDiscoveryResult = {
+  triples: [],
+  attempts: [],
+  evidence: new Map(),
+}
+
+function buildChannelSources(brand: EnrichBrand): CatalogSource[] {
+  const urls = [
+    ...new Set(
+      [
+        brand.purchase_website ?? brand.purchaseWebsite,
+        brand.purchase_pinkoi,
+        brand.purchase_shopee,
+        brand.purchase_myship,
+      ].filter(
+        (value): value is string =>
+          typeof value === 'string' && value.length > 0,
+      ),
+    ),
+  ]
+  const siteUrl = brand.purchase_website ?? brand.purchaseWebsite
+  return urls.map((url, index) => ({
+    url,
+    channel:
+      index === 0 && url === siteUrl
+        ? ('official' as const)
+        : url === brand.purchase_pinkoi
+          ? ('pinkoi' as const)
+          : url === brand.purchase_shopee
+            ? ('shopee' as const)
+            : ('myship' as const),
+  }))
+}
 
 function normalizeImageBrand(brand: EnrichBrand): {
   heroImageUrl: string | null
@@ -53,19 +97,43 @@ export async function runBrandImagePhase({
   candidateImages,
   dryRun = false,
   target,
+  renderProvider,
+  discoverCatalog: discoverCatalogOverride,
 }: BrandImagePhaseOptions): Promise<BrandImagePhaseOutput> {
   if (!phases.includes('images')) {
     return {
       phaseResult: buildPhaseResult('images', 'skipped', [], 0, undefined, 'images phase not requested'),
       patch: {},
+      catalogResult: EMPTY_CATALOG_RESULT,
+      acquisitionPageUrls: [],
     }
   }
+
+  // Catalog discovery runs regardless of image candidates — it is about
+  // product pages, not images. Channel URLs come from the brand directly
+  // (the images phase has no pendingPatch).
+  const channelSources = buildChannelSources(brand)
+  let catalogResult: CatalogDiscoveryResult = EMPTY_CATALOG_RESULT
+  if (channelSources.length > 0) {
+    catalogResult = await (discoverCatalogOverride ?? defaultDiscoverCatalog)({
+      sources: channelSources,
+      renderProvider,
+      target: 20,
+      hydrationLimit: 25,
+    })
+  }
+
+  const acquisitionPageUrls = (candidateImages ?? [])
+    .map((c) => c.pageUrl)
+    .filter((url): url is string => typeof url === 'string' && url.length > 0)
 
   const imageCandidates = candidateImages ?? imageSearchUrls
   if (imageCandidates.length === 0) {
     return {
       phaseResult: buildPhaseResult('images', 'skipped', [], 0, undefined, 'no image URLs available'),
       patch: {},
+      catalogResult,
+      acquisitionPageUrls,
     }
   }
 
@@ -122,12 +190,16 @@ export async function runBrandImagePhase({
         `image download batch failed: ${downloadFailure}`
       ),
       patch: result,
+      catalogResult,
+      acquisitionPageUrls,
     }
   }
 
   return {
     phaseResult: buildPhaseResult('images', 'succeeded', changedFields, durationMs),
     patch: result,
+    catalogResult,
+    acquisitionPageUrls,
   }
     },
     {
