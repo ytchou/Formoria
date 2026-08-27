@@ -187,7 +187,7 @@ describe("parseDescriptionRewriteResult", () => {
     );
 
     expect(chat).toHaveBeenCalledTimes(2);
-    expect(chat.mock.calls[0]?.[0].system).toContain("不得包含價格資訊");
+    expect(chat.mock.calls[0]?.[0].system).toContain("pricing information");
     expect(output?.attempts[0]?.validationRejections).toEqual(
       expect.arrayContaining([
         expect.objectContaining({

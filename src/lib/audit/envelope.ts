@@ -52,6 +52,36 @@ type AuditCommon = {
   logTag: string | null;
 };
 
+/** Providers whose LLM calls are recorded as Langfuse generations in llm-audit.ts. */
+const LLM_PROVIDERS = ["openai", "deepseek"];
+
+/**
+ * Fire-and-forget Langfuse span for external non-LLM calls.
+ * Must never throw -- all errors are swallowed.
+ */
+function emitLangfuseSpan(
+  common: AuditCommon,
+  startedAt: number,
+  latencyMs: number,
+  statusMessage: string,
+): void {
+  try {
+    const trace = getAuditContext().langfuseTrace;
+    if (trace && common.kind === "external" && !LLM_PROVIDERS.includes(common.provider)) {
+      const langfuseTrace = trace as { span: (input: Record<string, unknown>) => void };
+      langfuseTrace.span({
+        name: `${common.provider}/${common.operation}`,
+        startTime: new Date(startedAt),
+        endTime: new Date(startedAt + latencyMs),
+        statusMessage,
+        metadata: { provider: common.provider },
+      });
+    }
+  } catch {
+    // Langfuse errors must never block production
+  }
+}
+
 function errorMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
 }
@@ -130,11 +160,18 @@ async function runAfterStart<T>(
 
   try {
     const result = await fn(callContext);
+    const latencyMs = Math.max(0, Date.now() - startedAt);
+    const status = options.classify?.(result) ?? "succeeded";
+
+    // Langfuse span first -- fire-and-forget observability must survive an
+    // audit-write failure (Finding 5).
+    emitLangfuseSpan(common, startedAt, latencyMs, status);
+
     try {
       await emitAuditRecord({
         ...common,
-        status: options.classify?.(result) ?? "succeeded",
-        latencyMs: Math.max(0, Date.now() - startedAt),
+        status,
+        latencyMs,
         summary: finishSummary(),
         promptTokens: callContext.promptTokens,
         completionTokens: callContext.completionTokens,
@@ -143,13 +180,20 @@ async function runAfterStart<T>(
     } catch {
       return result;
     }
+
     return result;
   } catch (error) {
+    const latencyMs = Math.max(0, Date.now() - startedAt);
+
+    // Langfuse span first -- fire-and-forget observability must survive an
+    // audit-write failure (Finding 5).
+    emitLangfuseSpan(common, startedAt, latencyMs, "failed");
+
     try {
       await emitAuditRecord({
         ...common,
         status: thrownStatus(error),
-        latencyMs: Math.max(0, Date.now() - startedAt),
+        latencyMs,
         summary: finishSummary(),
         errorMessage: errorMessage(error),
         promptTokens: callContext.promptTokens,
@@ -159,6 +203,7 @@ async function runAfterStart<T>(
     } catch {
       return Promise.reject(error);
     }
+
     throw error;
   }
 }

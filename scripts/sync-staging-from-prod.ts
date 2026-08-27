@@ -63,7 +63,7 @@ import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import {
   createWriteBlockingClient,
   type BlockedWrite,
-} from "./model-ab/readonly-client";
+} from "./lib/readonly-client";
 import {
   STAGING_PROJECT_REF,
   projectRefFromSupabaseUrl,
@@ -276,8 +276,8 @@ export const KNOWN_COLUMNS: Record<CopyTable, readonly string[]> = {
     "updated_at",
   ],
   brand_images: [
-    "alt_zh",
     "id",
+    "alt_zh",
     "brand_id",
     "url",
     "source",

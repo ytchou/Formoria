@@ -38,7 +38,7 @@ describe("PRODUCTS_SYSTEM_PROMPT", () => {
     expect(listed.filter((slug) => CATEGORY_SLUGS.includes(slug))).toHaveLength(
       CATEGORY_SLUGS.length,
     );
-    expect(PRODUCTS_SYSTEM_PROMPT).toContain("category（單選，只能填下列 slug）");
+    expect(PRODUCTS_SYSTEM_PROMPT).toContain("category (single select, use only the following slugs)");
   });
 
   it("products_prompt_lists_the_twelve_materials", () => {
@@ -61,7 +61,7 @@ describe("PRODUCTS_SYSTEM_PROMPT", () => {
     }
     // Slug-only, because `createCuratedProduct`'s material normalisation is
     // slug-only and silently DROPS a Chinese label.
-    expect(PRODUCTS_SYSTEM_PROMPT).toContain("不可填中文，不可自創");
+    expect(PRODUCTS_SYSTEM_PROMPT).toContain("no Chinese, no invented values");
   });
 
   it("products_prompt_forbids_commerce_facts", () => {
@@ -69,36 +69,36 @@ describe("PRODUCTS_SYSTEM_PROMPT", () => {
     // change. The prohibition is named field by field so the model cannot read
     // an omission as permission.
     for (const forbidden of [
-      "售價",
-      "折扣",
-      "庫存",
-      "供應狀況（availability）",
-      "規格變體（variant）",
+      "Prices",
+      "Discounts",
+      "Inventory",
+      "availability",
+      "variant",
       "offer",
-      "運費",
-      "預購",
+      "shipping",
+      "pre-order",
     ]) {
-      expect(PRODUCTS_SYSTEM_PROMPT).toContain(forbidden);
+      expect(PRODUCTS_SYSTEM_PROMPT.toLowerCase()).toContain(forbidden.toLowerCase());
     }
     expect(PRODUCTS_SYSTEM_PROMPT).toContain(
-      "以下事實一律不可寫進任何欄位，即使來源頁面清楚寫著",
+      "The following facts must never be written in any field, even if the source page clearly states them",
     );
     // The self-check list repeats it, because the prohibition that is only stated
     // once is the one a long prompt loses.
     expect(PRODUCTS_SYSTEM_PROMPT).toMatch(
-      /- \[ \] 全部欄位是否完全沒有售價、折扣、庫存、供應狀況、運費、變體或 offer？/,
+      /- \[ \] Are all fields completely free of prices, discounts, inventory, supply status, shipping costs, variants, or offers\?/,
     );
   });
 
   it("products_prompt_forbids_novel_values", () => {
-    expect(PRODUCTS_SYSTEM_PROMPT).toMatch(/回傳 null/);
-    expect(PRODUCTS_SYSTEM_PROMPT).toContain("不可猜測");
-    expect(PRODUCTS_SYSTEM_PROMPT).toContain("不可自創 slug");
+    expect(PRODUCTS_SYSTEM_PROMPT).toMatch(/return null/);
+    expect(PRODUCTS_SYSTEM_PROMPT).toContain("do not guess");
+    expect(PRODUCTS_SYSTEM_PROMPT).toContain("do not invent slugs");
     expect(PRODUCTS_SYSTEM_PROMPT).toContain(
-      "三份清單都是封閉的：清單以外的值一律不可輸出",
+      "All three lists are closed: values outside these lists must never be output",
     );
     expect(PRODUCTS_SYSTEM_PROMPT).toMatch(
-      /- \[ \] 找不到對應值的欄位是否已回傳 null 或 \[\]，而不是自創 slug 或猜測值？/,
+      /- \[ \] Have fields with no matching value been returned as null or \[\] rather than invented slugs or guessed values\?/,
     );
   });
 
@@ -107,21 +107,21 @@ describe("PRODUCTS_SYSTEM_PROMPT", () => {
     // reply — asking for one returned an empty object on every call of the
     // DEV-1321 eval. See NAME_ARBITRATION_SCHEMA in name-arbiter.ts.
     expect(PRODUCTS_SYSTEM_PROMPT).toContain(
-      "沒有任何商品符合條件時仍回傳兩個空陣列",
+      "When no products qualify, still return two empty arrays",
     );
-    expect(PRODUCTS_SYSTEM_PROMPT).toContain("絕對不可把最外層寫成陣列");
+    expect(PRODUCTS_SYSTEM_PROMPT).toContain("never make the top level an array");
     expect(PRODUCTS_SYSTEM_PROMPT).not.toMatch(/^\[\{/m);
   });
 
   it("products_prompt_caps_five_proposals_and_demands_a_source", () => {
-    expect(PRODUCTS_SYSTEM_PROMPT).toContain("3–5 件");
-    expect(PRODUCTS_SYSTEM_PROMPT).toContain("不要湊數");
-    expect(PRODUCTS_SYSTEM_PROMPT).toContain("沒有來源的商品不要輸出");
+    expect(PRODUCTS_SYSTEM_PROMPT).toContain("3-5");
+    expect(PRODUCTS_SYSTEM_PROMPT).toContain("do not pad");
+    expect(PRODUCTS_SYSTEM_PROMPT).toContain("do not output products without sources");
     // The one editorial text field carries durable facts only: DEV-1496 abolished
     // the per-product selection reason, so the prompt must not ask for one back.
-    expect(PRODUCTS_SYSTEM_PROMPT).toContain("不寫選物理由");
+    expect(PRODUCTS_SYSTEM_PROMPT).toContain("Do not write editorial selection reasons");
     expect(PRODUCTS_SYSTEM_PROMPT).toContain(
-      "official_url 必須是這一件商品自己的商品頁",
+      "official_url must be this specific product's own product page",
     );
   });
 });

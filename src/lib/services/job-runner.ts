@@ -32,6 +32,7 @@ import {
   type CurationJob,
   type CurationJobTarget,
 } from "@/lib/services/curation-jobs";
+import { flushLangfuse } from "@/lib/langfuse/client";
 import { createServiceClient } from "@/lib/supabase/service";
 import type { Json } from "@/lib/supabase/database.types";
 import type { BrandStatus } from "@/lib/types";
@@ -187,6 +188,7 @@ export async function runJob(
     return failedJobSummary(job, message, Date.now() - startedAt, breakerTripped);
   } finally {
     clearInterval(heartbeat);
+    await flushLangfuse();
   }
     },
   );

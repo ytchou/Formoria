@@ -2,10 +2,8 @@ import { NAME_ARBITER_SYSTEM_PROMPT } from "@/lib/prompts";
 import { auditedCall } from "@/lib/audit";
 import {
   LLM_BATCH_CHUNK_SIZE,
-  resolveProfileModel,
   type LlmProfileKey,
 } from "@/lib/constants/llm-models";
-import { createOpenAIClient } from "./openai-client";
 import {
   buildProfiledEnrichmentConfig,
   createProfiledOpenAIClient,
@@ -103,15 +101,6 @@ function createNameArbiterClient(
   target: EnrichmentTarget | undefined,
   jobId?: string,
 ) {
-  if (!target) {
-    return createOpenAIClient({
-      apiKey,
-      model: resolveProfileModel(profileKey),
-    });
-  }
-
-  // Detect/classify skip the persisted prompt config. Names deliberately joins
-  // the descriptions/facts side that stores the prompt contract in its audit row.
   const config = buildProfiledEnrichmentConfig(
     "names",
     NAME_ARBITER_SYSTEM_PROMPT,

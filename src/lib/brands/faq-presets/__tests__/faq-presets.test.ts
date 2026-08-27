@@ -281,9 +281,9 @@ describe("FAQ preset catalog", () => {
 
   it("the shared preamble states the commerce prohibition once for all presets", () => {
     expect(FAQ_PROMPT_PREAMBLE).toContain("NT$");
-    expect(FAQ_PROMPT_PREAMBLE).toContain("禁止商業交易資訊");
-    expect(FAQ_PROMPT_PREAMBLE).toContain("庫存");
-    expect(FAQ_PROMPT_PREAMBLE).toContain("配送");
+    expect(FAQ_PROMPT_PREAMBLE).toContain("Forbidden commerce information");
+    expect(FAQ_PROMPT_PREAMBLE).toContain("inventory");
+    expect(FAQ_PROMPT_PREAMBLE).toContain("delivery");
   });
 
   it("assembled prompt contains only eligible fragments", () => {

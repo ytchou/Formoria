@@ -24,6 +24,12 @@ const mocks = vi.hoisted(() => ({
   batchSearchBrandImages: vi.fn(),
   scrapeBrandUrls: vi.fn(),
   getLatestSearchResults: vi.fn(),
+  getLangfuse: vi.fn(),
+}));
+
+vi.mock("@/lib/langfuse/client", () => ({
+  getLangfuse: mocks.getLangfuse,
+  flushLangfuse: vi.fn(async () => {}),
 }));
 
 vi.mock("../category-classifier", async (importOriginal) => ({
@@ -681,5 +687,60 @@ describe("satisfaction skipping", () => {
 
     // links is satisfied, so scrapeBrandUrls should NOT be called for this brand
     expect(mocks.scrapeBrandUrls).not.toHaveBeenCalled();
+  });
+});
+
+describe("Langfuse trace lifecycle", () => {
+  it("creates a Langfuse trace when client is available", async () => {
+    const mockUpdate = vi.fn();
+    const mockTrace = vi.fn().mockReturnValue({ update: mockUpdate });
+    mocks.getLangfuse.mockReturnValue({ trace: mockTrace });
+
+    const target = submission({ id: "s-lf-1" });
+
+    await runEnrich(
+      {
+        target: "submissions",
+        submissionIds: [target.id],
+        slugs: ["test-brand"],
+        dryRun: true,
+        phases: ["detect"],
+        jobId: "job-lf-1",
+        onProgress: () => {},
+      },
+      fakeSupabase([target]),
+    );
+
+    expect(mockTrace).toHaveBeenCalledOnce();
+    expect(mockTrace).toHaveBeenCalledWith(
+      expect.objectContaining({
+        name: "enrich",
+        metadata: expect.objectContaining({
+          brandSlug: "test-brand",
+          jobId: "job-lf-1",
+        }),
+      }),
+    );
+  });
+
+  it("works without Langfuse", async () => {
+    mocks.getLangfuse.mockReturnValue(null);
+
+    const target = submission({ id: "s-lf-2" });
+
+    const result = await runEnrich(
+      {
+        target: "submissions",
+        submissionIds: [target.id],
+        dryRun: true,
+        phases: ["detect"],
+        onProgress: () => {},
+      },
+      fakeSupabase([target]),
+    );
+
+    // runEnrich completes normally
+    expect(result).toBeDefined();
+    expect(result.errors).toBeDefined();
   });
 });

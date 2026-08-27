@@ -39,7 +39,7 @@ import {
   resolveServiceRoleKey,
   storageFoldersOf,
 } from "./sync-staging-from-prod";
-import { createWriteBlockingClient } from "./model-ab/readonly-client";
+import { createWriteBlockingClient } from "./lib/readonly-client";
 import {
   isFullyResolvable,
   planImageResolvability,
