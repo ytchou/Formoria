@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { runEnrich } from "../curation-operations";
 import type { DetectResult } from "../category-classifier";
@@ -558,11 +558,19 @@ describe("Gate C and the LLM circuit breaker", () => {
 });
 
 describe("satisfaction skipping", () => {
+  // Stub OPENAI_API_KEY so the env guard inside runProductsPhase never
+  // masks the satisfaction skip — CI runners have no .env.local.
+  const ORIGINAL_KEY = process.env.OPENAI_API_KEY;
   beforeEach(() => {
     vi.clearAllMocks();
+    process.env.OPENAI_API_KEY = "test-stub";
     mocks.getLatestSearchResults.mockResolvedValue(new Map());
     mocks.batchSearchBrandImages.mockResolvedValue(new Map());
     mocks.scrapeBrandUrls.mockResolvedValue(scrapeResult());
+  });
+  afterEach(() => {
+    if (ORIGINAL_KEY === undefined) delete process.env.OPENAI_API_KEY;
+    else process.env.OPENAI_API_KEY = ORIGINAL_KEY;
   });
 
   /**
