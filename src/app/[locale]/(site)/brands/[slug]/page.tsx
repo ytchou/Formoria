@@ -335,7 +335,7 @@ export default async function BrandDetailPage({ params }: PageProps) {
           />
 
           {/* Hero */}
-          <div className="flex flex-col gap-10 lg:flex-row lg:gap-12">
+          <div className="flex flex-col gap-10 lg:flex-row lg:items-start lg:gap-12">
             <div className="w-full lg:w-1/2">
               <ImageCarousel
                 images={galleryImages}
@@ -430,6 +430,13 @@ export default async function BrandDetailPage({ params }: PageProps) {
                 </section>
               )}
 
+              <EditorialAppearances
+                locale={safeLocale}
+                trails={editorialAppearances.trails}
+                stories={editorialAppearances.stories}
+                sectionClassName={brandSectionClassName}
+              />
+
               {faqItems.length > 0 && (
                 <section id="faq" className={brandSectionClassName}>
                   <BrandFaqAccordion
@@ -438,13 +445,6 @@ export default async function BrandDetailPage({ params }: PageProps) {
                   />
                 </section>
               )}
-
-              <EditorialAppearances
-                locale={safeLocale}
-                trails={editorialAppearances.trails}
-                stories={editorialAppearances.stories}
-                sectionClassName={brandSectionClassName}
-              />
             </div>
           </div>
 

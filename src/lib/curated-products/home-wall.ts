@@ -26,8 +26,8 @@ export { DEFAULT_WALL_RATIO, WALL_RATIOS, type WallRatio };
  */
 export const MAX_HOME_WALL_PRODUCTS = 16;
 
-/** The dark-overlay grid shows fewer products than the full wall. */
-export const MAX_HOME_GRID_PRODUCTS = 8;
+/** Two complete rows in the dark-overlay grid's five-column desktop layout. */
+export const MAX_HOME_GRID_PRODUCTS = 10;
 
 /**
  * The wall rotates on the Taipei calendar day, because that is the day its

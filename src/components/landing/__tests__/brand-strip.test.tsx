@@ -6,6 +6,14 @@ import { render, screen } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { PublicBrandCard } from "@/lib/brands/contracts";
 
+vi.mock("embla-carousel-react", () => ({
+  default: () => [vi.fn(), null],
+}));
+
+vi.mock("embla-carousel-auto-scroll", () => ({
+  default: () => ({}),
+}));
+
 vi.mock("@/components/ui/image", () => ({
   SurfaceImage: (props: Record<string, unknown>) => (
     // eslint-disable-next-line @next/next/no-img-element -- mock
@@ -81,6 +89,8 @@ describe("BrandStrip", () => {
     const images = screen.getAllByTestId("brand-image");
     // Brand A and Brand B have images; Brand C has none
     expect(images).toHaveLength(2);
+    expect(screen.getAllByRole("listitem")).toHaveLength(mockBrands.length);
+    expect(screen.getAllByRole("link")).toHaveLength(mockBrands.length + 1);
   });
 
   it("renders browse-all link", async () => {

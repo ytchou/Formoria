@@ -5,16 +5,13 @@ import { cache } from "react";
 import { getTranslations, setRequestLocale } from "next-intl/server";
 
 import { Breadcrumb } from "@/components/brands/brand-breadcrumb";
-import { BrandSectionNav } from "@/components/brands/brand-section-nav";
 import { ViewItemListTracker } from "@/components/analytics/view-item-list-tracker";
 import type { SelectedProductTileLabels } from "@/components/brands/selected-product-tile";
-import { FaqBlock } from "@/components/stories/faq-block";
 import {
   RelatedStoryLink,
   RelatedTrailLink,
 } from "@/components/stories/related-story-link";
 import { formatStoryDate } from "@/components/stories/story-date";
-import { surfaceCardStyles } from "@/components/ui/card";
 import {
   EditorialHero,
   editorialHeroSrc,
@@ -33,9 +30,7 @@ import {
   type TrailDetailResult,
 } from "@/lib/services/trails";
 import { getPublishedCuratedProductsForTrail, type TrailCuratedProduct } from "@/lib/services/curated-products";
-import { cn } from "@/lib/utils";
 import { TrailContent } from "./trail-content";
-import { Link } from "@/i18n/navigation";
 import { routes } from "@/lib/routes";
 import { getTrailRelatedContent } from "@/lib/services/editorial-links";
 
@@ -159,33 +154,6 @@ function MetaRow({ label, value }: { label: string; value: ReactNode }) {
   );
 }
 
-function relatedLinks(
-  title: string,
-  values: string[],
-  hrefBase: string,
-): React.ReactNode {
-  if (values.length === 0) return null;
-  return (
-    <section aria-labelledby={`${hrefBase.slice(1)}-related`} className="space-y-3">
-      <h2 id={`${hrefBase.slice(1)}-related`} className="type-card-title">
-        {title}
-      </h2>
-      <ul className="flex flex-wrap gap-x-4 gap-y-2 type-body-sm">
-        {values.map((value) => (
-          <li key={value}>
-            <a
-              href={`${hrefBase}/${encodeURIComponent(value)}`}
-              className="text-accent underline underline-offset-4 hover:text-ink"
-            >
-              {value}
-            </a>
-          </li>
-        ))}
-      </ul>
-    </section>
-  );
-}
-
 function relatedStoryLinks(
   title: string,
   values: string[],
@@ -258,10 +226,6 @@ export default async function DiscoverTrailPage({ params }: PageProps) {
 
   const entry = trail.entry;
   const frontmatter = entry.frontmatter;
-  const sections = frontmatter.sections.map((section) => ({
-    id: section.key,
-    label: section.title,
-  }));
   const heroImage = frontmatter.heroImage;
   // Falls back to the publication date: a trail that has never been revised is
   // current as of the day it shipped, and an empty updated row reads as an omission.
@@ -323,59 +287,46 @@ export default async function DiscoverTrailPage({ params }: PageProps) {
                 { label: frontmatter.title },
               ]}
             />
-            {/*
-              The page hero, above the `<h1>`, exactly as a feature opens in
-              print — literally the same component story detail opens with, so
-              the two cannot drift again. The trail's copy had already drifted:
-              its placeholder was `bg-surface`, the colour of THIS band, so the
-              empty state was invisible against its own parent.
-            */}
-            <EditorialHero
-              src={heroImage}
-              alt={frontmatter.heroImageAlt ?? ""}
-              className="mb-10"
-            />
-            <div className="grid gap-10 md:grid-cols-[minmax(0,1fr)_minmax(15rem,20rem)] md:gap-16">
-              <div className="prose-measure space-y-4">
-                <h1 className="type-page-title">{frontmatter.title}</h1>
-                {frontmatter.description ? (
-                  <p className="type-body">{frontmatter.description}</p>
-                ) : null}
-                {frontmatter.promise ? (
-                  <p className="type-body-sm">{frontmatter.promise}</p>
-                ) : null}
+            <div className="grid gap-10 md:grid-cols-[minmax(0,3fr)_minmax(20rem,2fr)] md:items-start md:gap-16">
+              <div className="space-y-8">
+                <div className="space-y-4">
+                  <h1 className="type-page-title">{frontmatter.title}</h1>
+                  {frontmatter.description ? (
+                    <p className="type-body">{frontmatter.description}</p>
+                  ) : null}
+                  {frontmatter.promise ? (
+                    <p className="type-body-sm">{frontmatter.promise}</p>
+                  ) : null}
+                </div>
+                <dl className="divide-y divide-rule border-y border-rule">
+                  {frontmatter.editorialOwner ? (
+                    <MetaRow
+                      label={t("editorLabel")}
+                      value={frontmatter.editorialOwner}
+                    />
+                  ) : null}
+                  {updatedLabel ? (
+                    <MetaRow label={t("updatedLabel")} value={updatedLabel} />
+                  ) : null}
+                  {safeProducts.length > 0 ? (
+                    <MetaRow
+                      label={t("selectionLabel")}
+                      value={t("selectionSummary", {
+                        count: safeProducts.length,
+                        categories: categoryCount,
+                      })}
+                    />
+                  ) : null}
+                </dl>
               </div>
-              <dl className="divide-y divide-rule border-y border-rule md:self-start">
-                {frontmatter.editorialOwner ? (
-                  <MetaRow
-                    label={t("editorLabel")}
-                    value={frontmatter.editorialOwner}
-                  />
-                ) : null}
-                {updatedLabel ? (
-                  <MetaRow label={t("updatedLabel")} value={updatedLabel} />
-                ) : null}
-                {safeProducts.length > 0 ? (
-                  <MetaRow
-                    label={t("selectionLabel")}
-                    value={t("selectionSummary", {
-                      count: safeProducts.length,
-                      categories: categoryCount,
-                    })}
-                  />
-                ) : null}
-              </dl>
+              <EditorialHero
+                src={heroImage}
+                alt={frontmatter.heroImageAlt ?? ""}
+              />
             </div>
           </PageShell>
         </header>
         <PageShell measure="page">
-          {sections.length >= 2 ? (
-            <BrandSectionNav
-              sections={sections}
-              ariaLabel={t("sectionNavAria")}
-              orientation="horizontal"
-            />
-          ) : null}
           <div className="pt-10">
             <TrailContent
               source={trail.content}
@@ -386,89 +337,35 @@ export default async function DiscoverTrailPage({ params }: PageProps) {
               sections={frontmatter.sections}
             />
           </div>
-          {frontmatter.faq.length > 0 ? (
-            <div className="mt-section prose-measure">
-              <FaqBlock questions={frontmatter.faq} />
-            </div>
-          ) : null}
-          {/*
-            THE CLOSING ZONE. What was deliberately left out sits beside where to
-            go next, because both answer the same reader question — "is this all
-            of it?" — and neither is a footnote. `exclusions` is authored
-            frontmatter that had no surface at all before this.
-          */}
-          <div className="mt-section grid gap-10 md:grid-cols-2 md:gap-16">
-            {frontmatter.exclusions ? (
-              <section
-                aria-labelledby="trail-exclusions"
-                className={cn(
-                  surfaceCardStyles({ padding: "lg" }),
-                  "h-full bg-surface",
-                )}
-              >
-                <h2 id="trail-exclusions" className="type-card-title">
-                  {t("exclusionsHeading")}
-                </h2>
-                <p className="mt-3 type-body-sm">
-                  {frontmatter.exclusions}
-                </p>
-              </section>
-            ) : null}
-            <div className="space-y-8">
-              {relatedLinks(
-                t("relatedCategories"),
-                frontmatter.relatedCategories,
-                routes.categories(),
-              )}
+          {(frontmatter.relatedStories.length > 0 ||
+            frontmatter.relatedTrails.length > 0) && (
+            <div className="mt-section space-y-8">
               {relatedStoryLinks(t("relatedStories"), frontmatter.relatedStories)}
               {relatedTrailLinks(t("relatedTrails"), frontmatter.relatedTrails)}
             </div>
-          </div>
-          {(derivedContent.categories.length > 0 ||
-            derivedContent.stories.length > 0) && (
-            <div className="mt-section space-y-8">
-              {derivedContent.categories.length > 0 && (
-                <nav aria-label={t("derivedCategoriesAriaLabel")}>
-                  <h2 className="type-card-title">
-                    {t("derivedCategories")}
-                  </h2>
-                  <ul className="mt-3 flex flex-wrap gap-x-4 gap-y-2 type-body-sm">
-                    {derivedContent.categories.map((cat) => (
-                      <li key={cat.slug}>
-                        <Link
-                          href={routes.category(cat.slug)}
-                          className="text-accent underline underline-offset-4 hover:text-ink"
-                        >
-                          {safeLocale === "en" ? cat.name : cat.nameZh}
-                        </Link>
-                      </li>
-                    ))}
-                  </ul>
-                </nav>
-              )}
-              {derivedContent.stories.length > 0 && (
-                <nav aria-label={t("derivedStoriesAriaLabel")}>
-                  <h2 className="type-card-title">
-                    {t("derivedStories")}
-                  </h2>
-                  <ul className="mt-3 flex flex-wrap gap-x-4 gap-y-2 type-body-sm">
-                    {derivedContent.stories.map((story, idx) => (
-                      <li key={story.slug}>
-                        <RelatedStoryLink
-                          href={routes.story(story.slug)}
-                          storySlug={story.slug}
-                          position={idx}
-                          storySurface="trail_derived_stories"
-                          className="text-accent underline underline-offset-4 hover:text-ink"
-                        >
-                          {story.title}
-                        </RelatedStoryLink>
-                      </li>
-                    ))}
-                  </ul>
-                </nav>
-              )}
-            </div>
+          )}
+          {derivedContent.stories.length > 0 && (
+            <nav
+              aria-label={t("derivedStoriesAriaLabel")}
+              className="mt-section"
+            >
+              <h2 className="type-card-title">{t("derivedStories")}</h2>
+              <ul className="mt-3 flex flex-wrap gap-x-4 gap-y-2 type-body-sm">
+                {derivedContent.stories.map((story, idx) => (
+                  <li key={story.slug}>
+                    <RelatedStoryLink
+                      href={routes.story(story.slug)}
+                      storySlug={story.slug}
+                      position={idx}
+                      storySurface="trail_derived_stories"
+                      className="text-accent underline underline-offset-4 hover:text-ink"
+                    >
+                      {story.title}
+                    </RelatedStoryLink>
+                  </li>
+                ))}
+              </ul>
+            </nav>
           )}
         </PageShell>
       </article>

@@ -6,7 +6,6 @@ import { Button } from '@/components/ui/button';
 import { PageShell } from '@/components/ui/page-shell';
 import en from '../../messages/en.json';
 import zhTW from '../../messages/zh-TW.json';
-import './globals.css';
 
 function getBrowserLocale() {
   if (document.documentElement.lang === 'en' || window.location.pathname.startsWith('/en')) {

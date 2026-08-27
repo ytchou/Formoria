@@ -56,6 +56,8 @@ export type SelectedProductTileProps = {
    * the row carries no measurement yet, which renders the legacy 4:3.
    */
   ratio?: WallRatio;
+  /** Explicit image measurement when a wall uses a non-default column count. */
+  imageSizes?: string;
   /**
    * Extra classes on the tile's `<li>`. The wall supplies its flex sizing and
    * the mobile cap through it; every other mode merges it too.
@@ -91,6 +93,7 @@ export function SelectedProductTile({
   mode,
   showsTrustLabel = false,
   ratio,
+  imageSizes,
   className,
   brand,
   brandSlug,
@@ -238,7 +241,7 @@ export function SelectedProductTile({
             // the flow, but it still claims the preload.
             className="object-cover transition-transform duration-300 group-hover:scale-[1.03] motion-reduce:duration-[0.01ms]"
             surface="card"
-            sizes={wallImageSizes}
+            sizes={imageSizes ?? wallImageSizes}
           />
         ) : (
           <BrandImageFallback

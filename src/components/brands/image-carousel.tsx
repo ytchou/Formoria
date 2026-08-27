@@ -160,16 +160,26 @@ export function ImageCarousel({
    * nothing to credit. There is no fallback.
    */
   const isCurrentBrandSupplied = metaFor(current)?.isOwnerSupplied === true
+  const hasDetailGallery = total > 1 && variant === 'detail'
 
   return (
-    <div className={cn(variant === 'detail' && 'space-y-3')}>
+    <div
+      className={cn(
+        variant === 'detail' && 'space-y-3',
+        hasDetailGallery &&
+          'xl:grid xl:grid-cols-[minmax(0,1fr)_4.5rem] xl:items-start xl:gap-3 xl:space-y-0',
+      )}
+    >
       {/* Hero image */}
       <div
         // ONE ratio for both variants. It used to be 4:3 on detail and square
         // in the grid, so the same photo was cropped two different ways
         // depending on where you looked at it. `aspect-media` is 1:1 — see the
         // token's comment in globals.css for the measurement.
-        className="relative aspect-media overflow-hidden rounded-surface bg-surface-deep"
+        className={cn(
+          'relative aspect-media overflow-hidden rounded-surface bg-surface-deep',
+          hasDetailGallery && 'xl:col-start-1 xl:row-start-1',
+        )}
       >
         {previousImage && (
           <SurfaceImage
@@ -203,7 +213,7 @@ export function ImageCarousel({
             // variant it is a fixed 192px cell. Neither is the four-up card
             // measure the `card` surface describes, so both are stated.
             sizes={variant === 'detail' ? '(max-width: 1024px) 100vw, 580px' : '192px'}
-            preload={variant === 'detail' && current === 0}
+            loading={variant === 'detail' && current === 0 ? 'eager' : 'lazy'}
             onError={() => handleImageError(current)}
           />
         )}
@@ -265,57 +275,66 @@ export function ImageCarousel({
           type (the metadata step of the interface face), because it is a note
           about the asset rather than part of the brand's own content. */}
       {isCurrentBrandSupplied && variant === 'detail' ? (
-        <p data-brand-supplied className="type-metadata">
+        <p
+          data-brand-supplied
+          className={cn(
+            'type-metadata',
+            hasDetailGallery && 'xl:col-start-1 xl:row-start-2',
+          )}
+        >
           {t('gallery.brandSupplied')}
         </p>
       ) : null}
 
       {/* Thumbnail grid */}
       {total > 1 && variant === 'detail' && (
-        <div className="scrollbar-none flex gap-2 overflow-x-auto">
-          {validImages.map(({ src }, i) => {
-            const thumbFill = fill(i, 'p-1.5')
-            return (
-            <Button
-              key={i}
-              type="button"
-              variant="ghost"
-              onClick={() => goTo(i)}
-              className={`relative size-16 overflow-hidden rounded-control p-0 hover:bg-transparent ${
-                i === current
-                  ? 'ring-2 ring-accent ring-offset-2'
-                  : 'opacity-70 hover:opacity-100'
-              }`}
-              aria-label={t('gallery.viewPhoto', { n: i + 1 })}
-              data-ph-no-autocapture
-            >
-              {brokenImages.has(i) ? (
-                // `surface`, not `surface-deep`: this fallback carries TEXT,
-                // and `--ink-muted` measures 4.17:1 on `surface-deep` — under
-                // the 4.5:1 floor. The token is the image slot ("no text sits
-                // on this", globals.css); the moment a slot renders a letter
-                // instead of a photograph it is a card, and cards are
-                // `surface` (4.6:1).
-                <div className="flex h-full items-center justify-center bg-surface">
-                  <span className="type-label text-ink-muted">
-                    {initial}
-                  </span>
-                </div>
-              ) : (
-                <SurfaceImage
-                  src={src}
-                  alt={getAlt(i)}
-                  fill
-                  className={thumbFill}
-                  surface="thumb"
-                  // The thumbnail strip is a fixed 64px square.
-                  sizes="64px"
-                  onError={() => handleImageError(i)}
-                />
-              )}
-            </Button>
-            )
-          })}
+        <div className="xl:relative xl:col-start-2 xl:row-start-1 xl:min-h-0 xl:self-stretch">
+          <div className="scrollbar-none flex gap-2 overflow-x-auto xl:absolute xl:inset-0 xl:grid xl:grid-cols-1 xl:content-start xl:overflow-y-auto xl:p-1">
+            {validImages.map(({ src }, i) => {
+              const thumbFill = fill(i, 'p-1.5')
+              return (
+                <Button
+                  key={i}
+                  type="button"
+                  variant="ghost"
+                  onClick={() => goTo(i)}
+                  className={`relative size-16 overflow-hidden rounded-control p-0 hover:bg-transparent ${
+                    i === current
+                      ? 'ring-2 ring-accent ring-offset-2'
+                      : 'opacity-70 hover:opacity-100'
+                  }`}
+                  aria-label={t('gallery.viewPhoto', { n: i + 1 })}
+                  data-ph-no-autocapture
+                >
+                  {brokenImages.has(i) ? (
+                    // `surface`, not `surface-deep`: this fallback carries TEXT,
+                    // and `--ink-muted` measures 4.17:1 on `surface-deep` — under
+                    // the 4.5:1 floor. The token is the image slot ("no text sits
+                    // on this", globals.css); the moment a slot renders a letter
+                    // instead of a photograph it is a card, and cards are
+                    // `surface` (4.6:1).
+                    <div className="flex h-full items-center justify-center bg-surface">
+                      <span className="type-label text-ink-muted">
+                        {initial}
+                      </span>
+                    </div>
+                  ) : (
+                    <SurfaceImage
+                      src={src}
+                      alt={getAlt(i)}
+                      fill
+                      className={thumbFill}
+                      surface="thumb"
+                      // The thumbnail strip is a fixed 64px square.
+                      sizes="64px"
+                      loading={variant === 'detail' && i === 0 ? 'eager' : 'lazy'}
+                      onError={() => handleImageError(i)}
+                    />
+                  )}
+                </Button>
+              )
+            })}
+          </div>
         </div>
       )}
     </div>
