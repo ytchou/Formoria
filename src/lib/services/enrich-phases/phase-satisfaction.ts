@@ -1,106 +1,99 @@
-import type { EnrichPhaseName } from "@/lib/constants/enrich-phases";
+import type { SupabaseClient } from "@supabase/supabase-js";
+import { parsePhaseResults } from "@/lib/services/phase-results";
+import {
+  ENRICH_PHASES,
+  PHASE_DEPENDENCIES,
+  type EnrichPhaseName,
+} from "@/lib/constants/enrich-phases";
 
 /**
- * Three-state satisfaction result. `unknown` is distinct from both `satisfied`
- * and `unsatisfied`: it means the phase has no durable, distinguishable output
- * that we can check (e.g. `clean` mutates the brand name in place, and
- * `site_identity` signals by the *absence* of a value). Callers must treat
- * `unknown` as unsatisfied — the phase must run — but the distinction lets
- * logging report *why* it ran.
+ * Map from phase name to the most recent time it succeeded, derived from
+ * `curation_job_targets.phase_results` history rows.
  */
-export type SatisfactionResult = "satisfied" | "unsatisfied" | "unknown";
+export type PhaseHistory = Map<EnrichPhaseName, Date>;
 
 /**
- * The injected data a predicate inspects. No Supabase client: the caller
- * fetches once and passes the snapshot. All fields are nullable because a cold
- * brand may have none of them.
+ * Fetches the phase-success history for a single target from
+ * `curation_job_targets`. For each phase that ever succeeded, the map holds
+ * the most recent success timestamp.
  */
-export type PhaseSatisfactionData = {
-  brand: {
-    purchase_website: string | null;
-    website: string | null;
-    description: string | null;
-    founding_year: number | null;
-  };
-  submission: {
-    enriched_data: Record<string, unknown> | null;
-  };
-  /** Count of `brand_images` rows for this brand. */
-  brandImagesCount: number;
-};
+export async function fetchPhaseHistory(
+  supabase: SupabaseClient,
+  targetType: string,
+  targetId: string,
+): Promise<PhaseHistory> {
+  const { data, error } = await supabase
+    .from("curation_job_targets")
+    .select("phase_results, created_at")
+    .eq("target_type", targetType)
+    .eq("target_id", targetId)
+    .order("created_at", { ascending: false })
+    .limit(100);
 
-type Predicate = (data: PhaseSatisfactionData) => SatisfactionResult;
+  if (error) throw error;
 
-function hasEnrichedField(
-  data: PhaseSatisfactionData,
-  field: string,
-): boolean {
-  const ed = data.submission.enriched_data;
-  if (!ed) return false;
-  const value = ed[field];
-  if (value === null || value === undefined) return false;
-  if (Array.isArray(value)) return value.length > 0;
-  if (typeof value === "string") return value.trim().length > 0;
-  return true;
+  const history: PhaseHistory = new Map();
+
+  for (const row of data ?? []) {
+    if (!row.phase_results) continue;
+    const results = parsePhaseResults(row.phase_results);
+
+    for (const result of results) {
+      if (result.status !== "succeeded") continue;
+
+      // Normalise the legacy `expansion` name to `reputation`.
+      const rawPhase =
+        result.phase === "expansion" ? "reputation" : result.phase;
+
+      if (!(ENRICH_PHASES as readonly string[]).includes(rawPhase)) continue;
+      const phase = rawPhase as EnrichPhaseName;
+
+      // First wins = most recent, because rows are ordered DESC.
+      if (!history.has(phase)) {
+        history.set(phase, new Date(row.created_at));
+      }
+    }
+  }
+
+  return history;
 }
 
-const PREDICATES: Partial<Record<EnrichPhaseName, Predicate>> = {
-  links: (data) => {
-    const hasLink = Boolean(
-      data.brand.purchase_website || data.brand.website,
-    );
-    return hasLink ? "satisfied" : "unsatisfied";
-  },
-
-  images: (data) => {
-    return data.brandImagesCount > 0 ? "satisfied" : "unsatisfied";
-  },
-
-  products: (data) => {
-    return hasEnrichedField(data, "products") ? "satisfied" : "unsatisfied";
-  },
-
-  descriptions: (data) => {
-    return data.brand.description ? "satisfied" : "unsatisfied";
-  },
-
-  reputation: (data) => {
-    return hasEnrichedField(data, "reputationSummary")
-      ? "satisfied"
-      : "unsatisfied";
-  },
-
-  tags: (data) => {
-    return hasEnrichedField(data, "primaryCategorySlug")
-      ? "satisfied"
-      : "unsatisfied";
-  },
-
-  faq: (data) => {
-    return hasEnrichedField(data, "faq") ? "satisfied" : "unsatisfied";
-  },
-
-  locations: () => "unsatisfied",
-};
-
 /**
- * Check whether a phase's output is already present (satisfied), definitely
- * missing (unsatisfied), or unknowable from persisted data (unknown).
+ * Determines whether a phase needs to run based on execution history.
  *
- * When `force` is true every predicate returns `unsatisfied`, so all phases
- * will re-run regardless of existing data.
+ * A phase is `satisfied` when it has succeeded at least once AND none of its
+ * dependencies have succeeded more recently (which would make this phase's
+ * output stale). `force` unconditionally returns `unsatisfied`.
  */
 export function checkPhaseSatisfaction(
   phase: EnrichPhaseName,
-  data: PhaseSatisfactionData,
+  history: PhaseHistory,
   force?: boolean,
-): SatisfactionResult {
+  _visited?: Set<EnrichPhaseName>,
+): "satisfied" | "unsatisfied" {
   if (force) return "unsatisfied";
 
-  const predicate = PREDICATES[phase];
-  if (!predicate) return "unknown";
+  const phaseTime = history.get(phase);
+  if (!phaseTime) return "unsatisfied";
 
-  return predicate(data);
+  // Cycle guard (the DAG is acyclic, but defensive).
+  const visited = _visited ?? new Set<EnrichPhaseName>();
+  if (visited.has(phase)) return "satisfied";
+  visited.add(phase);
+
+  const deps = PHASE_DEPENDENCIES[phase];
+  for (const dep of deps) {
+    const depTime = history.get(dep);
+    if (depTime && depTime.getTime() > phaseTime.getTime()) {
+      return "unsatisfied";
+    }
+    // Transitive: if the dep itself is unsatisfied, this phase is stale.
+    if (checkPhaseSatisfaction(dep, history, false, visited) === "unsatisfied") {
+      return "unsatisfied";
+    }
+  }
+
+  return "satisfied";
 }
 
 export type PhaseSkipEntry = {
@@ -110,19 +103,19 @@ export type PhaseSkipEntry = {
 
 /**
  * Filters a list of resolved phases, removing those whose satisfaction
- * predicate holds. Returns the phases to execute and a list of skipped
+ * check holds. Returns the phases to execute and a list of skipped
  * phases with their skip reason (distinguishable from "not requested").
  */
 export function filterSatisfiedPhases(
   phases: readonly EnrichPhaseName[],
-  data: PhaseSatisfactionData,
+  history: PhaseHistory,
   force?: boolean,
 ): { execute: EnrichPhaseName[]; skipped: PhaseSkipEntry[] } {
   const execute: EnrichPhaseName[] = [];
   const skipped: PhaseSkipEntry[] = [];
 
   for (const phase of phases) {
-    const result = checkPhaseSatisfaction(phase, data, force);
+    const result = checkPhaseSatisfaction(phase, history, force);
     if (result === "satisfied") {
       skipped.push({ phase, reason: "satisfied" });
     } else {

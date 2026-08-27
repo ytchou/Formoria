@@ -1,189 +1,107 @@
 import { describe, it, expect } from "vitest";
 import {
   checkPhaseSatisfaction,
-  type PhaseSatisfactionData,
+  filterSatisfiedPhases,
+  type PhaseHistory,
 } from "../phase-satisfaction";
+import { ENRICH_PHASES, PHASE_DEPENDENCIES, type EnrichPhaseName } from "@/lib/constants/enrich-phases";
 
-function makeData(
-  overrides: Partial<PhaseSatisfactionData> = {},
-): PhaseSatisfactionData {
-  return {
-    brand: {
-      purchase_website: null,
-      website: null,
-      description: null,
-      founding_year: null,
-    },
-    submission: {
-      enriched_data: null,
-    },
-    brandImagesCount: 0,
-    ...overrides,
-  };
-}
-
-describe("phase satisfaction predicates", () => {
-  it("links_satisfied_when_link_columns_resolved", () => {
-    const data = makeData({
-      brand: {
-        purchase_website: "https://shop.example.com",
-        website: null,
-        description: null,
-        founding_year: null,
-      },
-    });
-    const result = checkPhaseSatisfaction("links", data);
-    expect(result).toBe("satisfied");
+describe("history-based phase satisfaction", () => {
+  it("phase_with_no_history_is_unsatisfied", () => {
+    expect(checkPhaseSatisfaction("links", new Map())).toBe("unsatisfied");
   });
 
-  it("links unsatisfied when no link columns populated", () => {
-    const data = makeData();
-    const result = checkPhaseSatisfaction("links", data);
-    expect(result).toBe("unsatisfied");
+  it("phase_succeeded_no_deps_is_satisfied", () => {
+    // `clean` has no dependencies
+    const history: PhaseHistory = new Map([
+      ["clean", new Date("2026-08-01T00:00:00Z")],
+    ]);
+    expect(checkPhaseSatisfaction("clean", history)).toBe("satisfied");
   });
 
-  it("products_satisfied_when_proposals_exist", () => {
-    const data = makeData({
-      submission: {
-        enriched_data: {
-          products: [
-            {
-              product_name: "Chair",
-              official_url: "https://example.com/chair",
-            },
-          ],
-        },
-      },
-    });
-    const result = checkPhaseSatisfaction("products", data);
-    expect(result).toBe("satisfied");
+  it("phase_succeeded_deps_older_is_satisfied", () => {
+    // `descriptions` depends on `links`; links older → satisfied
+    const history: PhaseHistory = new Map([
+      ["links", new Date("2026-08-01T00:00:00Z")],       // T=50
+      ["descriptions", new Date("2026-08-02T00:00:00Z")], // T=100
+    ]);
+    expect(checkPhaseSatisfaction("descriptions", history)).toBe("satisfied");
   });
 
-  it("products unsatisfied when no proposals", () => {
-    const data = makeData({
-      submission: {
-        enriched_data: { products: [] },
-      },
-    });
-    const result = checkPhaseSatisfaction("products", data);
-    expect(result).toBe("unsatisfied");
+  it("phase_succeeded_dep_newer_is_unsatisfied", () => {
+    // `descriptions` depends on `links`; links newer → stale
+    const history: PhaseHistory = new Map([
+      ["links", new Date("2026-08-02T00:00:00Z")],       // T=100
+      ["descriptions", new Date("2026-08-01T00:00:00Z")], // T=50
+    ]);
+    expect(checkPhaseSatisfaction("descriptions", history)).toBe("unsatisfied");
   });
 
-  it("images_satisfied_when_brand_images_exist", () => {
-    const data = makeData({ brandImagesCount: 5 });
-    const result = checkPhaseSatisfaction("images", data);
-    expect(result).toBe("satisfied");
+  it("force_overrides_to_unsatisfied", () => {
+    const history: PhaseHistory = new Map([
+      ["clean", new Date("2026-08-01T00:00:00Z")],
+    ]);
+    // Without force: satisfied (no deps, has history)
+    expect(checkPhaseSatisfaction("clean", history)).toBe("satisfied");
+    // With force: always unsatisfied
+    expect(checkPhaseSatisfaction("clean", history, true)).toBe("unsatisfied");
   });
 
-  it("images unsatisfied when no brand images", () => {
-    const data = makeData({ brandImagesCount: 0 });
-    const result = checkPhaseSatisfaction("images", data);
-    expect(result).toBe("unsatisfied");
-  });
+  it("all_phases_with_full_history_are_satisfied", () => {
+    // Build a history where each phase is newer than all its deps.
+    // Topological walk: a phase's timestamp = max(dep timestamps) + 1 day.
+    const history: PhaseHistory = new Map<EnrichPhaseName, Date>();
+    const BASE = Date.UTC(2026, 7, 1);
+    function resolveTime(phase: EnrichPhaseName): number {
+      const existing = history.get(phase);
+      if (existing) return existing.getTime();
+      const deps = PHASE_DEPENDENCIES[phase];
+      const depMax = deps.length > 0
+        ? Math.max(...deps.map((d) => resolveTime(d)))
+        : BASE - 86_400_000;
+      const ts = depMax + 86_400_000;
+      history.set(phase, new Date(ts));
+      return ts;
+    }
+    for (const phase of ENRICH_PHASES) resolveTime(phase);
 
-  it("unsatisfiable_phases_report_unknown", () => {
-    // Phases with no durable output (clean, site_identity, detect, etc.)
-    // return 'unknown' — they cannot be skipped because there is no way to
-    // know whether their work has been done.
-    const data = makeData();
-    const unknownPhases = [
-      "clean",
-      "site_identity",
-      "detect",
-      "slugs",
-      "discover",
-      "names",
-    ] as const;
-    for (const phase of unknownPhases) {
-      const result = checkPhaseSatisfaction(phase, data);
+    for (const phase of ENRICH_PHASES) {
       expect(
-        result,
-        `${phase} should return 'unknown', not '${result}'`,
-      ).toBe("unknown");
+        checkPhaseSatisfaction(phase, history),
+        `${phase} should be satisfied`,
+      ).toBe("satisfied");
     }
   });
 
-  it("force_overrides_satisfaction", () => {
-    // A phase that would be satisfied is reported as unsatisfied when force
-    // is set, so the caller will re-run it.
-    const data = makeData({
-      brand: {
-        purchase_website: "https://shop.example.com",
-        website: null,
-        description: null,
-        founding_year: null,
-      },
-      brandImagesCount: 5,
-      submission: {
-        enriched_data: {
-          products: [
-            {
-              product_name: "Chair",
-              official_url: "https://example.com/chair",
-            },
-          ],
-        },
-      },
-    });
+  it("filter_returns_correct_execute_and_skipped", () => {
+    // links satisfied, descriptions stale (dep links is newer)
+    const history: PhaseHistory = new Map([
+      ["links", new Date("2026-08-02T00:00:00Z")],
+      ["descriptions", new Date("2026-08-01T00:00:00Z")],
+    ]);
 
-    // Without force, these are satisfied
-    expect(checkPhaseSatisfaction("links", data)).toBe("satisfied");
-    expect(checkPhaseSatisfaction("images", data)).toBe("satisfied");
-    expect(checkPhaseSatisfaction("products", data)).toBe("satisfied");
+    const result = filterSatisfiedPhases(
+      ["links", "descriptions", "clean"],
+      history,
+    );
 
-    // With force, they all become unsatisfied
-    expect(checkPhaseSatisfaction("links", data, true)).toBe("unsatisfied");
-    expect(checkPhaseSatisfaction("images", data, true)).toBe("unsatisfied");
-    expect(checkPhaseSatisfaction("products", data, true)).toBe("unsatisfied");
+    expect(result.execute).toEqual(["descriptions", "clean"]);
+    expect(result.skipped).toEqual([
+      { phase: "links", reason: "satisfied" },
+    ]);
   });
 
-  it("descriptions satisfied when brand has description", () => {
-    const data = makeData({
-      brand: {
-        purchase_website: null,
-        website: null,
-        description: "A Taiwanese furniture brand.",
-        founding_year: null,
-      },
-    });
-    expect(checkPhaseSatisfaction("descriptions", data)).toBe("satisfied");
-  });
+  it("transitive_staleness_propagates", () => {
+    // discover (dep of detect) ran most recently at T=100
+    // detect (dep of slugs) ran at T=50 — stale because discover is newer
+    // slugs ran at T=25 — stale because detect is newer
+    const history: PhaseHistory = new Map([
+      ["discover", new Date("2026-08-03T00:00:00Z")], // T=100
+      ["detect", new Date("2026-08-02T00:00:00Z")],   // T=50
+      ["slugs", new Date("2026-08-01T00:00:00Z")],    // T=25
+    ]);
 
-  it("reputation satisfied when enriched_data has reputationSummary", () => {
-    const data = makeData({
-      submission: {
-        enriched_data: {
-          reputationSummary: "Known for quality craftsmanship.",
-        },
-      },
-    });
-    expect(checkPhaseSatisfaction("reputation", data)).toBe("satisfied");
-  });
-
-  it("tags satisfied when enriched_data has category", () => {
-    const data = makeData({
-      submission: {
-        enriched_data: {
-          primaryCategorySlug: "furniture",
-        },
-      },
-    });
-    expect(checkPhaseSatisfaction("tags", data)).toBe("satisfied");
-  });
-
-  it("faq satisfied when enriched_data has faq", () => {
-    const data = makeData({
-      submission: {
-        enriched_data: {
-          faq: [{ question: "Q?", answer: "A." }],
-        },
-      },
-    });
-    expect(checkPhaseSatisfaction("faq", data)).toBe("satisfied");
-  });
-
-  it("classify_images returns unknown (no durable distinguishable output)", () => {
-    const data = makeData({ brandImagesCount: 5 });
-    expect(checkPhaseSatisfaction("classify_images", data)).toBe("unknown");
+    expect(checkPhaseSatisfaction("detect", history)).toBe("unsatisfied");
+    expect(checkPhaseSatisfaction("slugs", history)).toBe("unsatisfied");
   });
 });

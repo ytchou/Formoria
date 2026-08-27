@@ -13,8 +13,9 @@ import {
 } from "@/lib/constants/enrich-phases";
 import {
   filterSatisfiedPhases,
-  type PhaseSatisfactionData,
+  type PhaseHistory,
 } from "./enrich-phases/phase-satisfaction";
+import type { EnrichPhaseName } from "@/lib/constants/enrich-phases";
 
 describe("explicit submission enrichment eligibility", () => {
   it("allows an admin to queue a selected pending refresh submission", () => {
@@ -109,48 +110,28 @@ describe("admin bulk actions", () => {
 });
 
 describe("satisfaction-based phase skipping", () => {
-  function makeData(
-    overrides: Partial<PhaseSatisfactionData> = {},
-  ): PhaseSatisfactionData {
-    return {
-      brand: {
-        purchase_website: null,
-        website: null,
-        description: null,
-        founding_year: null,
-      },
-      submission: { enriched_data: null },
-      brandImagesCount: 0,
-      ...overrides,
-    };
+  function makeHistory(
+    entries: Array<[EnrichPhaseName, Date]> = [],
+  ): PhaseHistory {
+    return new Map(entries);
   }
 
   it("satisfied_prerequisites_are_skipped", () => {
-    // A brand where `links` is already satisfied (has purchase_website)
-    // but `products` is not — the links phase should be skipped.
     const resolved = phasesForTask("product");
-    const data = makeData({
-      brand: {
-        purchase_website: "https://shop.example.com",
-        website: null,
-        description: null,
-        founding_year: null,
-      },
-    });
+    // links has a history entry (satisfied), site_identity does not, products does not
+    const history = makeHistory([
+      ["links", new Date("2026-08-01T00:00:00Z")],
+    ]);
 
-    const { execute, skipped } = filterSatisfiedPhases(resolved, data);
+    const { execute, skipped } = filterSatisfiedPhases(resolved, history);
 
-    // links is satisfied and skipped
     expect(skipped).toEqual(
       expect.arrayContaining([
         expect.objectContaining({ phase: "links", reason: "satisfied" }),
       ]),
     );
     expect(execute).not.toContain("links");
-
-    // products is not satisfied, so it must execute
     expect(execute).toContain("products");
-    // site_identity has no predicate (unknown), so it must execute
     expect(execute).toContain("site_identity");
   });
 });
