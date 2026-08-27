@@ -233,6 +233,10 @@ export function mergeScrapedData(results: ScrapeResult[]): ScrapedBrandData {
         }
       }
     }
+    // Favicon URLs: first non-empty wins (same as scalar fields).
+    if (!hasValue(merged.faviconUrls) && hasValue(data.faviconUrls)) {
+      merged.faviconUrls = data.faviconUrls
+    }
 
     // Link provenance records the result page that first supplied each value;
     // it is bookkeeping only and deliberately makes no identity judgment.

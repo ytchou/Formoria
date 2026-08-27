@@ -133,13 +133,16 @@ export async function downloadAndStoreFavicon(
         const storagePath = `brands/${brandId}/favicon.${ext}`
 
         // Favicon path is deterministic, so the upload is idempotent by key.
-        const { error: uploadError } = await uploadWithRetry(() =>
-          supabase.storage
-            .from('brand-images')
-            .upload(storagePath, buffer, {
-              contentType,
-              cacheControl: '31536000',
-            }),
+        const { error: uploadError } = await uploadWithRetry(
+          () =>
+            supabase.storage
+              .from('brand-images')
+              .upload(storagePath, buffer, {
+                contentType,
+                cacheControl: '31536000',
+                upsert: true,
+              }),
+          { idempotent: false },
         )
 
         if (uploadError) {
@@ -154,6 +157,7 @@ export async function downloadAndStoreFavicon(
               brand_id: brandId,
               storage_path: storagePath,
               source: 'favicon',
+              source_url: url,
               tags: ['favicon'],
               status: 'active',
               sort_order: 0,

@@ -518,6 +518,10 @@ export async function syncLogoDenormalized(
 
       const winnerPath = pickLogoImage(rows)
 
+      // logo_storage_path is a derived column: it always reflects the current
+      // set of qualifying images.  Writing null when no images remain is
+      // intentional — it keeps the column in sync rather than preserving a
+      // stale reference to a deleted or re-tagged image.
       const { error: updateError } = await brandLogoTable(supabase)
         .update({ logo_storage_path: winnerPath })
         .eq('id', brandId)

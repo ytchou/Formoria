@@ -642,14 +642,17 @@ export async function runLinksPhase({
     )
     const scrapedBrandName = deriveScrapedBrandName(brand, scrapedData)
 
-    // Best-effort favicon harvesting: download the first favicon candidate
-    // from the official site scrape and sync the logo denormalized column.
+    // Best-effort favicon harvesting: try each favicon candidate in priority
+    // order until one downloads successfully, then sync the logo column.
     const faviconUrls = scrapedFromPages.faviconUrls ?? []
     if (faviconUrls.length > 0 && supabase) {
       try {
-        const storagePath = await downloadAndStoreFavicon(faviconUrls[0], brand.id, supabase)
-        if (storagePath) {
-          await syncLogoDenormalized(supabase, brand.id)
+        for (const faviconUrl of faviconUrls) {
+          const storagePath = await downloadAndStoreFavicon(faviconUrl, brand.id, supabase)
+          if (storagePath) {
+            await syncLogoDenormalized(supabase, brand.id)
+            break
+          }
         }
       } catch {
         // Favicon is supplementary — never fail the enrichment phase for it.

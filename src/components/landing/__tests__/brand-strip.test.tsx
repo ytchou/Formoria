@@ -9,7 +9,7 @@ import type { PublicBrandCard } from "@/lib/brands/contracts";
 vi.mock("@/components/ui/image", () => ({
   SurfaceImage: (props: Record<string, unknown>) => (
     // eslint-disable-next-line @next/next/no-img-element -- mock
-    <img src={props.src as string} alt={(props.alt as string) || ""} data-testid="brand-image" />
+    <img src={props.src as string} alt={(props.alt as string) || ""} className={props.className as string} data-testid="brand-image" />
   ),
 }));
 
@@ -74,46 +74,46 @@ describe("BrandStrip", () => {
     expect(screen.getByText("count")).toBeInTheDocument();
   });
 
-  it("renders logo image when brand has logoUrl", async () => {
+  it("renders logo image with object-contain when brand has logoUrl", async () => {
     render(
       await BrandStrip({ brands: mockBrands, totalCount: 700 }),
     );
 
     const images = screen.getAllByTestId("brand-image");
-    // Brand A and Brand B have logoUrl
-    expect(images).toHaveLength(2);
+    // Brand A, Brand B (logoUrl), and Brand D (heroImageUrl fallback)
+    expect(images).toHaveLength(3);
     expect(images[0]).toHaveAttribute("src", "/i/logos/a.webp");
+    expect(images[0]).toHaveAttribute("class", expect.stringContaining("object-contain"));
     expect(images[1]).toHaveAttribute("src", "/i/logos/b.webp");
+    expect(images[1]).toHaveAttribute("class", expect.stringContaining("object-contain"));
   });
 
-  it("renders initial-letter fallback when brand has no logoUrl", async () => {
-    render(
-      await BrandStrip({ brands: mockBrands, totalCount: 700 }),
-    );
-
-    // Brand C (no logoUrl, no heroImageUrl) and Brand D (heroImageUrl but no logoUrl)
-    // both show the letter fallback
-    const fallbacks = screen.getAllByText(/^[A-Z]$/);
-    // Filter to the ones that are inside the fallback div (aria-hidden parent)
-    const letterFallbacks = fallbacks.filter(
-      (el) => el.closest("[aria-hidden]") !== null,
-    );
-    expect(letterFallbacks).toHaveLength(2);
-    expect(letterFallbacks[0]).toHaveTextContent("B"); // Brand C
-    expect(letterFallbacks[1]).toHaveTextContent("B"); // Brand D
-  });
-
-  it("does not fall back to heroImageUrl", async () => {
-    // Brand D has heroImageUrl but no logoUrl — should NOT render an image
+  it("falls back to heroImageUrl with object-cover when no logoUrl", async () => {
+    // Brand D has heroImageUrl but no logoUrl — should render hero with object-cover
     const brandsWithHeroOnly = [mockBrands[3]]; // Brand D
     render(
       await BrandStrip({ brands: brandsWithHeroOnly, totalCount: 1 }),
     );
 
-    expect(screen.queryAllByTestId("brand-image")).toHaveLength(0);
-    // Should show letter fallback instead
-    const fallback = screen.getByText("B");
-    expect(fallback.closest("[aria-hidden]")).not.toBeNull();
+    const images = screen.getAllByTestId("brand-image");
+    expect(images).toHaveLength(1);
+    expect(images[0]).toHaveAttribute("src", "/img/d.webp");
+    expect(images[0]).toHaveAttribute("class", expect.stringContaining("object-cover"));
+    expect(images[0].getAttribute("class")).not.toContain("object-contain");
+  });
+
+  it("renders initial-letter fallback when brand has neither logoUrl nor heroImageUrl", async () => {
+    render(
+      await BrandStrip({ brands: mockBrands, totalCount: 700 }),
+    );
+
+    // Only Brand C (no logoUrl, no heroImageUrl) shows the letter fallback
+    const fallbacks = screen.getAllByText(/^[A-Z]$/);
+    const letterFallbacks = fallbacks.filter(
+      (el) => el.closest("[aria-hidden]") !== null,
+    );
+    expect(letterFallbacks).toHaveLength(1);
+    expect(letterFallbacks[0]).toHaveTextContent("B"); // Brand C → "B"
   });
 
   it("renders browse-all link", async () => {

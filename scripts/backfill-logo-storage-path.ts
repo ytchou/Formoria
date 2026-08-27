@@ -120,7 +120,7 @@ async function applyUpdates(
   for (const update of updates) {
     const { error, count } = await supabase
       .from('brands')
-      .update({ logo_storage_path: update.logoStoragePath } as never)
+      .update({ logo_storage_path: update.logoStoragePath } as never, { count: 'exact' })
       .eq('id', update.brandId)
       .is('logo_storage_path', null)
 
@@ -129,13 +129,7 @@ async function applyUpdates(
         `Failed to update brands:${update.brandId}: ${error.message}`
       )
     }
-    // count is available when head:true or count:'exact' is set, but we don't
-    // need it for correctness — the is-null guard makes this idempotent.
-    if (count !== null && count !== undefined) {
-      written += count
-    } else {
-      written += 1
-    }
+    written += count ?? 0
   }
 
   return written
