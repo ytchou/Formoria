@@ -222,6 +222,8 @@ export type ProductProposalValidation = {
   dropped: number;
   /** Per-reason tallies, published on the audit span. */
   dropReasons: Record<string, number>;
+  /** Total items the model returned, before validation. `rawCount === proposals.length + dropped`. */
+  rawCount: number;
 };
 
 /**
@@ -541,12 +543,15 @@ export function validateProductProposals(
   const takenKeys = new Set<string>();
   let dropped = 0;
 
+  const items = Array.isArray(result.products) ? result.products : [];
+  const rawCount = items.length;
+
   const drop = (reason: string): void => {
     dropped += 1;
     dropReasons[reason] = (dropReasons[reason] ?? 0) + 1;
   };
 
-  for (const raw of Array.isArray(result.products) ? result.products : []) {
+  for (const raw of items) {
     if (proposals.length >= max) {
       drop("over_cap");
       continue;
@@ -656,7 +661,7 @@ export function validateProductProposals(
     proposals.push(proposal);
   }
 
-  return { proposals, dropped, dropReasons };
+  return { proposals, dropped, dropReasons, rawCount };
 }
 
 function scrapedImagePages(
@@ -727,6 +732,7 @@ type ProductsRunOutcome = {
   proposals: CuratedProductProposal[];
   dropped: number;
   dropReasons: Record<string, number>;
+  rawCount: number;
   calls: LlmCallCounts;
   evaluations: Map<string, ProductCandidateEvaluation>;
   originDecisions: Map<string, CandidateOriginDecision>;
@@ -885,6 +891,7 @@ export async function runProductsPhase({
   return auditedCall(
     { provider: "enrich", operation: "runProductsPhase", kind: "service" },
     async (ctx) => {
+      let parseError = false;
       const { result, durationMs } = await timePhase<ProductsRunOutcome>(
         async () => {
           const evaluationPool = catalogCandidates;
@@ -963,6 +970,7 @@ export async function runProductsPhase({
               proposals: [],
               dropped: 0,
               dropReasons: {},
+              rawCount: 0,
               calls: { attempted: 1, providerFailed: 1 },
               evaluations: new Map(),
               originDecisions: new Map(),
@@ -970,6 +978,7 @@ export async function runProductsPhase({
             };
           }
           const parsed = parseJson<ProductsModelResult>(response.content ?? "");
+          parseError = parsed === null;
           const evaluations = validateCandidateEvaluations(
             parsed ?? {},
             evaluationCandidates,
@@ -1130,6 +1139,8 @@ export async function runProductsPhase({
       }
 
       Object.assign(ctx.summary, {
+        productsFromModel: result.rawCount,
+        ...(parseError ? { productsParseError: true } : {}),
         productsProposed: publishedProposals.length,
         productsDropped: result.dropped,
         productsDropReasons: result.dropReasons,

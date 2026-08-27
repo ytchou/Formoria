@@ -6,6 +6,7 @@ import { insertAiCallResult } from "./_shared/ai-results";
 import { createDeepSeekClient } from "./deepseek-client";
 import type { EnrichmentTarget } from "./_shared/enrichment-target";
 import { createOpenAIClient } from "./openai-client";
+import { priceUsage } from "./llm-pricing";
 import { buildEnrichmentConfig } from "@/lib/constants/enrichment-config";
 import {
   LLM_PROFILES,
@@ -96,10 +97,6 @@ export function createAuditedDeepSeekClient(
   return {
     async chat(input: DeepSeekChatInput) {
       const spanId = randomUUID();
-      const client = createDeepSeekClient({
-        ...options,
-        onChatComplete: (event) => persistAuditEvent(context, event, spanId),
-      });
 
       // The envelope wraps the whole chat call because the client retries
       // internally, so several brand_ai_results rows can share one span_id.
@@ -113,7 +110,25 @@ export function createAuditedDeepSeekClient(
           spanId,
           ...(context.attempt === undefined ? {} : { attempt: context.attempt }),
         },
-        () => client.chat(input),
+        async (ctx) => {
+          const client = createDeepSeekClient({
+            ...options,
+            onChatComplete: async (event) => {
+              if (event.usage) {
+                try {
+                  const cost = await priceUsage(event.model ?? "", event.usage);
+                  ctx.promptTokens = cost.promptTokens;
+                  ctx.completionTokens = cost.completionTokens;
+                  ctx.costUsd = cost.costUsd;
+                } catch {
+                  // Price lookup must never prevent the audit row from being written.
+                }
+              }
+              return persistAuditEvent(context, event, spanId);
+            },
+          });
+          return client.chat(input);
+        },
         {
           classify: classifyChatResult,
           summary: { phase: context.phase, targetType: context.target.type },
@@ -152,10 +167,6 @@ export function createAuditedOpenAIClient(
       input: Parameters<ReturnType<typeof createOpenAIClient>["chat"]>[0],
     ) {
       const spanId = randomUUID();
-      const client = createOpenAIClient({
-        ...options,
-        onChatComplete: (event) => persistAuditEvent(context, event, spanId),
-      });
 
       // The envelope wraps the whole chat call because the client retries
       // internally, so several brand_ai_results rows can share one span_id.
@@ -169,7 +180,25 @@ export function createAuditedOpenAIClient(
           spanId,
           ...(context.attempt === undefined ? {} : { attempt: context.attempt }),
         },
-        () => client.chat(input),
+        async (ctx) => {
+          const client = createOpenAIClient({
+            ...options,
+            onChatComplete: async (event) => {
+              if (event.usage) {
+                try {
+                  const cost = await priceUsage(event.model ?? "", event.usage);
+                  ctx.promptTokens = cost.promptTokens;
+                  ctx.completionTokens = cost.completionTokens;
+                  ctx.costUsd = cost.costUsd;
+                } catch {
+                  // Price lookup must never prevent the audit row from being written.
+                }
+              }
+              return persistAuditEvent(context, event, spanId);
+            },
+          });
+          return client.chat(input);
+        },
         {
           classify: (result) => (result.ok ? "succeeded" : "failed"),
           summary: { phase: context.phase, targetType: context.target.type },

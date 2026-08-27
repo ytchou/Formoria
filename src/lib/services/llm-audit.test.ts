@@ -7,6 +7,16 @@ import {
 import { createAuditedDeepSeekClient, createAuditedOpenAIClient } from "./llm-audit";
 import { brandTarget } from "./_shared/enrichment-target";
 
+vi.mock("./llm-pricing", () => ({
+  priceUsage: vi.fn().mockResolvedValue({
+    promptTokens: 100,
+    cachedPromptTokens: 0,
+    completionTokens: 25,
+    costUsd: 0.005,
+  }),
+  usageFromRawResponse: vi.fn().mockReturnValue(null),
+}));
+
 type InsertedRow = Record<string, unknown>;
 
 function fakeSupabase(inserts: InsertedRow[]) {
@@ -81,6 +91,76 @@ describe("audited LLM clients", () => {
       },
     });
     expect(inserts[0]?.prompt_tokens).toBeNull();
+  });
+
+  it("onChatComplete bridges usage to audit context for OpenAI", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(
+        new Response(
+          JSON.stringify({
+            choices: [{ message: { content: "answer" } }],
+            usage: { prompt_tokens: 100, completion_tokens: 25 },
+          }),
+          { status: 200 },
+        ),
+      ),
+    );
+
+    const inserts: InsertedRow[] = [];
+    const client = createAuditedOpenAIClient(
+      {
+        target,
+        phase: "descriptions",
+        supabase: fakeSupabase(inserts),
+      },
+      { apiKey: "k" },
+    );
+
+    await client.chat({ system: "s", user: "u" });
+
+    expect(writes).toHaveLength(2);
+    expect(writes[1]).toMatchObject({
+      status: "succeeded",
+      promptTokens: 100,
+      completionTokens: 25,
+      costUsd: 0.005,
+    });
+  });
+
+  it("onChatComplete bridges usage to audit context for DeepSeek", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(
+        new Response(
+          JSON.stringify({
+            choices: [{ message: { content: "answer" } }],
+            usage: { prompt_tokens: 100, completion_tokens: 25 },
+          }),
+          { status: 200 },
+        ),
+      ),
+    );
+
+    const inserts: InsertedRow[] = [];
+    const client = createAuditedDeepSeekClient(
+      {
+        target,
+        phase: "reputation",
+        supabase: fakeSupabase(inserts),
+      },
+      { apiKey: "k" },
+    );
+
+    await client.chat({ system: "s", user: "u" });
+
+    expect(writes).toHaveLength(2);
+    expect(writes[1]).toMatchObject({
+      status: "succeeded",
+      promptTokens: 100,
+      completionTokens: 25,
+      costUsd: 0.005,
+    });
   });
 
   it("audits a DeepSeek balance call", async () => {

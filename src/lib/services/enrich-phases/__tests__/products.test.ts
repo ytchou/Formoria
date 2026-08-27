@@ -1,4 +1,9 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import {
+  resetAuditEmitterForTests,
+  setAuditWriteSeam,
+  type AuditRecord,
+} from "@/lib/audit";
 import { MATERIALS, subcategoryBySlug } from "@/lib/taxonomy/ontology";
 import type { EnrichBrand, EnrichPhase } from "../types";
 import { runProductsPhase, validateProductProposals } from "../products";
@@ -93,19 +98,36 @@ function modelReturns(products: RawProposal[]) {
   return chat;
 }
 
+function modelReturnsRawContent(content: string) {
+  const chat = vi.fn().mockResolvedValue({
+    response: { ok: true },
+    content,
+  });
+  createClient.mockReturnValue({ chat });
+  return chat;
+}
+
 function injectedSupabase() {
   const tables: string[] = [];
   const writes: string[] = [];
   return { tables, writes };
 }
 
+let auditWrites: AuditRecord[] = [];
+
 beforeEach(() => {
   vi.stubEnv("OPENAI_API_KEY", "test-openai-key");
   createClient.mockReset();
+  auditWrites = [];
+  setAuditWriteSeam(async (record) => {
+    auditWrites.push(record);
+    return null;
+  });
 });
 
 afterEach(() => {
   vi.unstubAllEnvs();
+  resetAuditEmitterForTests();
 });
 
 describe("runProductsPhase", () => {
@@ -816,5 +838,90 @@ describe("validateProductProposals", () => {
     // something the model can be trusted to spell, and `other` is a truthful
     // fallback that keeps the evidence.
     expect(proposals[0]!.sources[0]!.sourceType).toBe("other");
+  });
+
+  it("rawCount equals the number of items in the model response", () => {
+    const items = [rawProposal(), rawProposal({ name_zh: "柴燒品茗杯" })];
+    const { rawCount } = validateProductProposals(
+      { products: items },
+      { siteUrl: SITE },
+    );
+
+    expect(rawCount).toBe(2);
+  });
+
+  it("rawCount === proposals.length + dropped for every fixture", () => {
+    const fixtures = [
+      // All valid
+      { products: [rawProposal(), rawProposal({ name_zh: "柴燒品茗杯", official_url: `${SITE}/products/tea-cup`, sources: [{ url: `${SITE}/products/tea-cup`, source_type: "official" }] })] },
+      // Some invalid (no name, off-site URL)
+      {
+        products: [
+          rawProposal({ name_zh: "" }),
+          rawProposal({ official_url: "https://other.example/x" }),
+          rawProposal(),
+        ],
+      },
+      // Empty array
+      { products: [] },
+      // Not an array
+      { products: undefined },
+    ];
+
+    for (const fixture of fixtures) {
+      const { rawCount, proposals, dropped } = validateProductProposals(
+        fixture,
+        { siteUrl: SITE },
+      );
+      expect(rawCount).toBe(proposals.length + dropped);
+    }
+  });
+});
+
+describe("rawCount and productsParseError in runProductsPhase", () => {
+  it("parseJson returning null sets productsParseError true and productsFromModel 0", async () => {
+    modelReturnsRawContent("this is not valid JSON {{{{");
+
+    const result = await runProductsPhase({
+      brand: BRAND,
+      phases: PHASES,
+      scrapedData: SCRAPED,
+      target: { type: "submission", id: SUBMISSION_ID },
+      loadStoredCandidates: async () => [],
+    });
+
+    expect(result.phaseResult.status).toBe("succeeded");
+    expect(result.proposals).toHaveLength(0);
+
+    const terminal = auditWrites.findLast(
+      (r) => r.operation === "runProductsPhase",
+    );
+    expect(terminal).toBeDefined();
+    const summary = terminal!.summary as Record<string, unknown>;
+    expect(summary.productsFromModel).toBe(0);
+    expect(summary.productsParseError).toBe(true);
+  });
+
+  it("empty products array sets productsFromModel 0 with no parse error", async () => {
+    modelReturns([]);
+
+    const result = await runProductsPhase({
+      brand: BRAND,
+      phases: PHASES,
+      scrapedData: SCRAPED,
+      target: { type: "submission", id: SUBMISSION_ID },
+      loadStoredCandidates: async () => [],
+    });
+
+    expect(result.phaseResult.status).toBe("succeeded");
+    expect(result.proposals).toHaveLength(0);
+
+    const terminal = auditWrites.findLast(
+      (r) => r.operation === "runProductsPhase",
+    );
+    expect(terminal).toBeDefined();
+    const summary = terminal!.summary as Record<string, unknown>;
+    expect(summary.productsFromModel).toBe(0);
+    expect(summary.productsParseError).toBeUndefined();
   });
 });
