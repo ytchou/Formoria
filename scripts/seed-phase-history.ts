@@ -128,39 +128,54 @@ async function main(): Promise<void> {
   console.log(`seed-phase-history: ${dryRun ? 'DRY RUN' : 'APPLY'} mode`)
 
   // Step 1: Find submission IDs that already have curation_job_targets rows
-  const { data: existingTargets, error: existingError } = await supabase
-    .from('curation_job_targets')
-    .select('target_id')
-
-  if (existingError) {
-    throw new Error(`Failed to query existing targets: ${existingError.message}`)
+  const PAGE_SIZE = 500
+  let allExistingTargets: { target_id: string }[] = []
+  let offset = 0
+  while (true) {
+    const { data, error } = await supabase
+      .from('curation_job_targets')
+      .select('target_id')
+      .range(offset, offset + PAGE_SIZE - 1)
+    if (error) {
+      throw new Error(`Failed to query existing targets: ${error.message}`)
+    }
+    allExistingTargets = allExistingTargets.concat(data ?? [])
+    if (!data || data.length < PAGE_SIZE) break
+    offset += PAGE_SIZE
   }
 
-  const coveredIds = new Set((existingTargets ?? []).map((row: { target_id: string }) => row.target_id))
+  const coveredIds = new Set(allExistingTargets.map((row) => row.target_id))
 
   // Step 2: Get all brand_submissions with joined brand data
-  const { data: submissions, error: submissionsError } = await supabase
-    .from('brand_submissions')
-    .select(`
-      id,
-      brand_id,
-      brand_name,
-      purchase_website,
-      website_url,
-      enriched_data,
-      brands!brand_submissions_brand_id_fkey (
+  let allSubmissions: SubmissionRow[] = []
+  offset = 0
+  while (true) {
+    const { data, error } = await supabase
+      .from('brand_submissions')
+      .select(`
         id,
-        description,
-        purchase_website
-      )
-    `)
-
-  if (submissionsError) {
-    throw new Error(`Failed to query submissions: ${submissionsError.message}`)
+        brand_id,
+        brand_name,
+        purchase_website,
+        website_url,
+        enriched_data,
+        brands!brand_submissions_brand_id_fkey (
+          id,
+          description,
+          purchase_website
+        )
+      `)
+      .range(offset, offset + PAGE_SIZE - 1)
+    if (error) {
+      throw new Error(`Failed to query submissions: ${error.message}`)
+    }
+    allSubmissions = allSubmissions.concat((data as unknown as SubmissionRow[]) ?? [])
+    if (!data || data.length < PAGE_SIZE) break
+    offset += PAGE_SIZE
   }
 
   // Filter to only submissions WITHOUT existing target rows (idempotency)
-  const uncovered = (submissions as unknown as SubmissionRow[]).filter(
+  const uncovered = allSubmissions.filter(
     (row) => !coveredIds.has(row.id),
   )
 
@@ -179,17 +194,24 @@ async function main(): Promise<void> {
   const CHUNK_SIZE = 200
   for (let i = 0; i < brandIds.length; i += CHUNK_SIZE) {
     const chunk = brandIds.slice(i, i + CHUNK_SIZE)
-    const { data: imageCounts, error: imageError } = await supabase
-      .from('brand_images')
-      .select('brand_id')
-      .in('brand_id', chunk)
+    let imgOffset = 0
+    while (true) {
+      const { data, error: imageError } = await supabase
+        .from('brand_images')
+        .select('brand_id')
+        .in('brand_id', chunk)
+        .range(imgOffset, imgOffset + PAGE_SIZE - 1)
 
-    if (imageError) {
-      throw new Error(`Failed to query brand_images: ${imageError.message}`)
-    }
+      if (imageError) {
+        throw new Error(`Failed to query brand_images: ${imageError.message}`)
+      }
 
-    for (const row of imageCounts ?? []) {
-      imageCountMap.set(row.brand_id, (imageCountMap.get(row.brand_id) ?? 0) + 1)
+      for (const row of data ?? []) {
+        imageCountMap.set(row.brand_id, (imageCountMap.get(row.brand_id) ?? 0) + 1)
+      }
+
+      if (!data || data.length < PAGE_SIZE) break
+      imgOffset += PAGE_SIZE
     }
   }
 
@@ -197,17 +219,24 @@ async function main(): Promise<void> {
   const faqCountMap = new Map<string, number>()
   for (let i = 0; i < brandIds.length; i += CHUNK_SIZE) {
     const chunk = brandIds.slice(i, i + CHUNK_SIZE)
-    const { data: faqRows, error: faqError } = await supabase
-      .from('brand_faq_entries')
-      .select('brand_id')
-      .in('brand_id', chunk)
+    let faqOffset = 0
+    while (true) {
+      const { data, error: faqError } = await supabase
+        .from('brand_faq_entries')
+        .select('brand_id')
+        .in('brand_id', chunk)
+        .range(faqOffset, faqOffset + PAGE_SIZE - 1)
 
-    if (faqError) {
-      throw new Error(`Failed to query brand_faq_entries: ${faqError.message}`)
-    }
+      if (faqError) {
+        throw new Error(`Failed to query brand_faq_entries: ${faqError.message}`)
+      }
 
-    for (const row of faqRows ?? []) {
-      faqCountMap.set(row.brand_id, (faqCountMap.get(row.brand_id) ?? 0) + 1)
+      for (const row of data ?? []) {
+        faqCountMap.set(row.brand_id, (faqCountMap.get(row.brand_id) ?? 0) + 1)
+      }
+
+      if (!data || data.length < PAGE_SIZE) break
+      faqOffset += PAGE_SIZE
     }
   }
 

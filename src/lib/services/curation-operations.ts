@@ -2111,21 +2111,17 @@ export async function runEnrich(
                 throw new Error(searchError);
               }
 
-              if (phases.includes("discover") && !ctx.satisfiedPhaseSet.has("discover")) {
+              if (phases.includes("discover") || searchResults.size > 0) {
                 const searchResult = searchResults.get(
                   getDisplayBrandName(brand),
                 ) ?? { urls: [], snippets: [] };
+                // Always populate discoveredUrls from (cached) search results
+                // so downstream phases see them even when discover is satisfied.
                 state.discoveredUrls = uniqueUrls(
                   searchResult.urls.filter(
                     (url) => !state.knownUrls.includes(url),
                   ),
                 );
-                state.serpSnippets = searchResult.snippets;
-                state.serpEntries = searchResult.entries ?? [];
-              } else if (searchResults.size > 0) {
-                const searchResult = searchResults.get(
-                  getDisplayBrandName(brand),
-                ) ?? { urls: [], snippets: [] };
                 state.serpSnippets = searchResult.snippets;
                 state.serpEntries = searchResult.entries ?? [];
               }
@@ -2248,7 +2244,7 @@ export async function runEnrich(
         );
         for (const brand of pendingBrands) {
           const ctx = brandContexts.get(brand.id);
-          if (!ctx || ctx.completed) continue;
+          if (!ctx || ctx.completed || ctx.satisfiedPhaseSet.has("names")) continue;
           await markCurrentPhase(ctx, "names");
           // Runs even on a provider failure: with no verdict the application falls
           // back to the `cleaned` candidate, so a dead provider still persists the
@@ -2319,7 +2315,7 @@ export async function runEnrich(
         );
         for (const brand of pendingBrands) {
           const ctx = brandContexts.get(brand.id);
-          if (!ctx || ctx.completed) continue;
+          if (!ctx || ctx.completed || ctx.satisfiedPhaseSet.has("site_identity")) continue;
           await markCurrentPhase(ctx, "site_identity");
           const application = siteIdentityPhaseResult.applications.get(
             brand.id,

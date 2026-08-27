@@ -27,7 +27,8 @@ export async function fetchPhaseHistory(
     .select("phase_results, created_at")
     .eq("target_type", targetType)
     .eq("target_id", targetId)
-    .order("created_at", { ascending: false });
+    .order("created_at", { ascending: false })
+    .limit(100);
 
   if (error) throw error;
 
@@ -68,16 +69,26 @@ export function checkPhaseSatisfaction(
   phase: EnrichPhaseName,
   history: PhaseHistory,
   force?: boolean,
+  _visited?: Set<EnrichPhaseName>,
 ): "satisfied" | "unsatisfied" {
   if (force) return "unsatisfied";
 
   const phaseTime = history.get(phase);
   if (!phaseTime) return "unsatisfied";
 
+  // Cycle guard (the DAG is acyclic, but defensive).
+  const visited = _visited ?? new Set<EnrichPhaseName>();
+  if (visited.has(phase)) return "satisfied";
+  visited.add(phase);
+
   const deps = PHASE_DEPENDENCIES[phase];
   for (const dep of deps) {
     const depTime = history.get(dep);
     if (depTime && depTime.getTime() > phaseTime.getTime()) {
+      return "unsatisfied";
+    }
+    // Transitive: if the dep itself is unsatisfied, this phase is stale.
+    if (checkPhaseSatisfaction(dep, history, false, visited) === "unsatisfied") {
       return "unsatisfied";
     }
   }

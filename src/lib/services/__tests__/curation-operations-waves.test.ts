@@ -574,7 +574,11 @@ describe("satisfaction skipping", () => {
     const jobTargets = [{
       target_type: "submission",
       target_id: target.id,
-      phase_results: [{ phase: "products", status: "succeeded", changedFields: [], durationMs: 100 }],
+      phase_results: [
+        { phase: "links", status: "succeeded", changedFields: [], durationMs: 50 },
+        { phase: "site_identity", status: "succeeded", changedFields: [], durationMs: 50 },
+        { phase: "products", status: "succeeded", changedFields: [], durationMs: 100 },
+      ],
       created_at: "2026-08-01T00:00:00Z",
     }];
 
@@ -615,7 +619,11 @@ describe("satisfaction skipping", () => {
     const jobTargets = [{
       target_type: "submission",
       target_id: target.id,
-      phase_results: [{ phase: "products", status: "succeeded", changedFields: [], durationMs: 100 }],
+      phase_results: [
+        { phase: "links", status: "succeeded", changedFields: [], durationMs: 50 },
+        { phase: "site_identity", status: "succeeded", changedFields: [], durationMs: 50 },
+        { phase: "products", status: "succeeded", changedFields: [], durationMs: 100 },
+      ],
       created_at: "2026-08-01T00:00:00Z",
     }];
 
