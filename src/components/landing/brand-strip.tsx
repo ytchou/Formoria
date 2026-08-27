@@ -1,7 +1,9 @@
 import { Link } from "@/i18n/navigation";
+import { ArrowRight } from "lucide-react";
 import { getTranslations } from "next-intl/server";
 import { SurfaceImage } from "@/components/ui/image";
 import { SectionBandCtaLink } from "@/components/landing/section-band-cta-link";
+import { actionLinkStyles } from "@/components/ui/action-link";
 import { safeImageSrc } from "@/lib/images/allowed-image-hosts";
 import { routes } from "@/lib/routes";
 import type { PublicBrandCard } from "@/lib/brands/contracts";
@@ -22,7 +24,7 @@ export default async function BrandStrip({
         {t("count", { count: totalCount })}
       </p>
 
-      <div className="mt-8 flex gap-6 overflow-x-auto scrollbar-none">
+      <div className="mt-8 flex justify-between gap-6 overflow-x-auto scrollbar-none">
         {brands.map((brand) => {
           const src = safeImageSrc(brand.heroImageUrl);
 
@@ -61,10 +63,15 @@ export default async function BrandStrip({
 
       <SectionBandCtaLink
         href={routes.brands()}
-        label={t("browseAll")}
+        label={
+          <>
+            {t("browseAll")}
+            <ArrowRight aria-hidden="true" />
+          </>
+        }
         ctaName="browse_all"
         ctaLocation="homepage_brands"
-        className="mt-6 inline-block type-nav text-accent"
+        className={actionLinkStyles({ className: "mt-6" })}
       />
     </div>
   );

@@ -22,8 +22,8 @@
  *      aspect ratio, so only the visible rectangle is sampled, and band-x is
  *      mapped through it before the scrim alpha is read.
  *   4. Composite those pixels under that breakpoint's real stops, across that
- *      breakpoint's `textZone` only, and fail when the darkest sampled region
- *      drops the ink roles the band actually paints under the AA floor.
+ *      breakpoint's `textZone` only, and fail when the darkest region for dark
+ *      text or brightest region for inverse text drops below the AA floor.
  *
  * THE REMEDY IS ALWAYS THE PHOTOGRAPH, NEVER THE OPACITY. The stops in
  * `photo-band-scrims.ts` are a contract; a band that fails wants a lighter
@@ -119,10 +119,10 @@ const PRODUCT_CAPTION_ALPHA = 0.95;
 const AA_FLOOR = 4.5;
 
 /**
- * The percentile of the text zone treated as "the darkest region the copy sits
- * on". Not the true minimum: one stray dark pixel in ten thousand is not what
- * a reader experiences, and gating on it would reject every photograph with a
- * shadow in it.
+ * The percentile of the text zone treated as the luminance extreme the copy
+ * sits on. Not the true minimum or maximum: one stray pixel in ten thousand is
+ * not what a reader experiences, and gating on it would reject otherwise
+ * suitable photographs.
  */
 const DARK_PERCENTILE = 0.01;
 const BRIGHT_PERCENTILE = 0.01;
@@ -560,6 +560,23 @@ export function resolveBandInk(
   return [...tokens];
 }
 
+export function resolveBandForeground(
+  classLists: string[][],
+  roleForeground: Map<string, string>,
+  viewportWidth: number,
+): string[] {
+  const tokens = new Set<string>();
+  for (const classes of classLists) {
+    const token = resolveResponsiveForeground(
+      classes,
+      roleForeground,
+      viewportWidth,
+    );
+    if (token) tokens.add(token);
+  }
+  return [...tokens];
+}
+
 /**
  * WHAT `object-cover` ACTUALLY SHOWS, as fractions of the source image.
  *
@@ -628,11 +645,11 @@ export async function loadBandPixels(
   return { data, width: info.width, height: info.height };
 }
 
-export function darkestCompositedLuminance(
+function compositedLuminances(
   pixels: { data: Buffer; width: number; height: number },
   breakpoint: ScrimBreakpoint,
-  ground: [number, number, number],
-): number | undefined {
+  scrim: [number, number, number],
+): number[] {
   const { data, width, height } = pixels;
   const rect = visibleSourceRect(width / height, breakpoint.bandAspect);
   const [zoneStart, zoneEnd] = breakpoint.textZone;
@@ -664,16 +681,44 @@ export function darkestCompositedLuminance(
       const alpha = scrimAlphaAt(breakpoint, bandX);
       const offset = (y * width + x) * 3;
       const composited: [number, number, number] = [
-        alpha * ground[0] + (1 - alpha) * (data[offset] ?? 0),
-        alpha * ground[1] + (1 - alpha) * (data[offset + 1] ?? 0),
-        alpha * ground[2] + (1 - alpha) * (data[offset + 2] ?? 0),
+        alpha * scrim[0] + (1 - alpha) * (data[offset] ?? 0),
+        alpha * scrim[1] + (1 - alpha) * (data[offset + 1] ?? 0),
+        alpha * scrim[2] + (1 - alpha) * (data[offset + 2] ?? 0),
       ];
       luminances.push(relativeLuminance(composited));
     }
   }
 
   luminances.sort((a, b) => a - b);
+  return luminances;
+}
+
+export function darkestCompositedLuminance(
+  pixels: { data: Buffer; width: number; height: number },
+  breakpoint: ScrimBreakpoint,
+  scrim: [number, number, number],
+): number | undefined {
+  const luminances = compositedLuminances(pixels, breakpoint, scrim);
   return luminances[Math.floor(luminances.length * DARK_PERCENTILE)];
+}
+
+export function worstCompositedLuminance(
+  pixels: { data: Buffer; width: number; height: number },
+  breakpoint: ScrimBreakpoint,
+  scrim: [number, number, number],
+  foreground: [number, number, number],
+): number | undefined {
+  const luminances = compositedLuminances(pixels, breakpoint, scrim);
+  if (luminances.length === 0) return undefined;
+
+  const foregroundIsLight =
+    relativeLuminance(foreground) > relativeLuminance(scrim);
+  const percentile = foregroundIsLight ? 1 - DARK_PERCENTILE : DARK_PERCENTILE;
+  const index = Math.min(
+    luminances.length - 1,
+    Math.floor(luminances.length * percentile),
+  );
+  return luminances[index];
 }
 
 export function verticalScrimAlphaAt(y: number): number {
@@ -761,28 +806,56 @@ export function breakpointLabel(breakpoint: ScrimBreakpoint): string {
 
 async function checkBand(
   band: Band,
-  inkTokens: { token: string; rgb: [number, number, number] }[],
+  defaultForegrounds: { token: string; rgb: [number, number, number] }[],
   ground: [number, number, number],
+  css: string,
+  roleForeground: Map<string, string>,
 ): Promise<string[]> {
   const imagePath = path.join(PUBLIC_DIR, band.image);
   const pixels = await loadBandPixels(imagePath, ground);
   const failures: string[] = [];
 
   for (const breakpoint of scrimBreakpoints(band.scrim)) {
-    const darkest = darkestCompositedLuminance(pixels, breakpoint, ground);
-    if (darkest === undefined) {
+    const scrim = rgbToken(css, breakpoint.colorToken);
+    const foregrounds =
+      breakpoint.colorToken === "--ground"
+        ? defaultForegrounds
+        : resolveBandForeground(
+            band.classLists,
+            roleForeground,
+            breakpoint.minWidth,
+          ).map((token) => ({ token, rgb: rgbToken(css, token) }));
+
+    if (foregrounds.length === 0) {
       failures.push(
-        `${band.file}: ${band.image} produced no pixels to sample at ${breakpointLabel(breakpoint)}`,
+        `${band.file}: dark <PhotoBand> has no explicit inverse foreground token at ${breakpointLabel(breakpoint)}`,
       );
-      continue;
     }
 
-    for (const ink of inkTokens) {
-      const ratio = contrastFromLuminance(relativeLuminance(ink.rgb), darkest);
-      const label = `${band.file} · ${band.image} · scrim="${band.scrim}" · ${breakpointLabel(breakpoint)} · ${ink.token}`;
+    for (const foreground of foregrounds) {
+      const worst = worstCompositedLuminance(
+        pixels,
+        breakpoint,
+        scrim,
+        foreground.rgb,
+      );
+      if (worst === undefined) {
+        failures.push(
+          `${band.file}: ${band.image} produced no pixels to sample at ${breakpointLabel(breakpoint)}`,
+        );
+        continue;
+      }
+      const ratio = contrastFromLuminance(
+        relativeLuminance(foreground.rgb),
+        worst,
+      );
+      const foregroundIsLight =
+        relativeLuminance(foreground.rgb) > relativeLuminance(scrim);
+      const extreme = foregroundIsLight ? "brightest" : "darkest";
+      const label = `${band.file} · ${band.image} · scrim="${band.scrim}" · ${breakpointLabel(breakpoint)} · ${foreground.token}`;
       if (ratio < AA_FLOOR) {
         failures.push(
-          `${label}: ${ratio.toFixed(2)}:1 in the darkest ${DARK_PERCENTILE * 100}% of the text zone (floor ${AA_FLOOR}:1) — use a lighter crop or a different photograph, do NOT weaken the scrim`,
+          `${label}: ${ratio.toFixed(2)}:1 in the ${extreme} ${DARK_PERCENTILE * 100}% of the text zone (floor ${AA_FLOOR}:1) — use a more suitable crop or a different photograph, do NOT weaken the scrim`,
         );
       } else {
         console.log(`  ok  ${label}: ${ratio.toFixed(2)}:1`);
@@ -948,6 +1021,7 @@ async function main(): Promise<void> {
   const ground = rgbToken(css, "--ground");
   const ink = rgbToken(css, "--ink");
   const roleInk = readTypeRoleInk(css);
+  const roleForeground = readTypeRoleForeground(css);
 
   const files = (await collectSourceFiles(SRC_DIR)).map((file) => ({
     file: path.relative(REPO_ROOT, file),
@@ -972,7 +1046,9 @@ async function main(): Promise<void> {
       token,
       rgb: rgbToken(css, token),
     }));
-    problems.push(...(await checkBand(band, inkTokens, ground)));
+    problems.push(
+      ...(await checkBand(band, inkTokens, ground, css, roleForeground)),
+    );
   }
 
   console.log(

@@ -1,6 +1,7 @@
 import { getTranslations } from "next-intl/server";
-import { ChevronRight } from "lucide-react";
+import { ArrowRight } from "lucide-react";
 import { Typography } from "@/components/ui/typography";
+import { actionLinkStyles } from "@/components/ui/action-link";
 import { Link } from "@/i18n/navigation";
 import type { AppLocale } from "@/i18n/locale-preference";
 import type { PublicBrandCard } from "@/lib/brands/contracts";
@@ -50,13 +51,12 @@ export async function RelatedBrands({
           </div>
           <Link
             href={routes.category(category)}
-            className="group inline-flex min-h-12 items-center gap-1.5 self-start type-body-sm font-medium text-accent transition-colors hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent sm:self-auto"
+            className={actionLinkStyles({
+              className: "self-start sm:self-auto",
+            })}
           >
             {displayLabel}
-            <ChevronRight
-              className="size-4 transition-transform group-hover:translate-x-0.5"
-              aria-hidden="true"
-            />
+            <ArrowRight aria-hidden="true" />
           </Link>
         </div>
         <Grid>

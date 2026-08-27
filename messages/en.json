@@ -114,12 +114,12 @@
     "latestStories": {
       "heading": "Stories",
       "note": "Start from one scene in daily life, then get to know the products, the brands, and the people who make them.",
-      "linkText": "View All Stories →"
+      "linkText": "View All Stories"
     },
     "trails": {
       "heading": "Styles",
       "note": "One situation, one set of things. Start from the days you are living, not from a brand name.",
-      "linkText": "See every style →",
+      "linkText": "See every style",
       "eyebrow": "Style",
       "cta": "Explore this style →",
       "prev": "Previous",
@@ -128,16 +128,16 @@
     "selection": {
       "headline": "Every pick has a reason.",
       "subtitle": "Moving in, setting up a shop, switching a lamp — these are the products we chose for those moments.",
-      "cta": "Explore all selections →"
+      "cta": "Explore all selections"
     },
     "missionCloser": {
       "headline": "Helping good things find more people.",
       "subtitle": "Over {count} Taiwanese brands in the directory — discover brands through their products.",
-      "cta": "Discover more Taiwanese brands →"
+      "cta": "Discover more Taiwanese brands"
     },
     "brands": {
       "count": "Over {count} Taiwanese brands in the directory",
-      "browseAll": "Browse all brands →"
+      "browseAll": "Browse all brands"
     }
   },
   "newsletter": {
@@ -1572,7 +1572,7 @@
     },
     "guide": {
       "heading": "Ready to explore Taiwanese brands?",
-      "cta": "Browse brands →"
+      "cta": "Browse brands"
     }
   },
   "auth": {

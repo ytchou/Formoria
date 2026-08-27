@@ -37,12 +37,13 @@ const END = "<!-- END GENERATED TOKENS -->";
  * declared there or the script refuses to write anything (see REQUIRED below).
  * It was unsatisfiable when first committed — it demanded `paper-white`, which
  * v2 never adopted, and omitted the four tokens the ink-ground and form-error
- * ramps need. Reconciled to the exact 17-token v2 set on 2026-08-20 (DEV-1514).
+ * ramps need. Reconciled to the complete v2 token set on 2026-08-20 (DEV-1514).
  */
 const ROLES = {
   ground: "page background",
   surface: "bands, cards, inset blocks",
   "surface-deep": "third step; image placeholder",
+  "surface-dark": "warm-charcoal photographic bands",
   ink: "primary text",
   "ink-soft": "body prose",
   "ink-muted": "metadata, secondary",

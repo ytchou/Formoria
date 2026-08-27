@@ -1,17 +1,24 @@
-'use client'
+"use client";
 
-import { Link, usePathname } from '@/i18n/navigation'
-import { trackCtaClicked } from '@/lib/analytics'
+import type { ReactNode } from "react";
+import { Link, usePathname } from "@/i18n/navigation";
+import { trackCtaClicked } from "@/lib/analytics";
 
 interface SectionBandCtaLinkProps {
-  href: string
-  label: string
-  ctaName: string
-  ctaLocation?: string
-  className?: string
+  href: string;
+  label: ReactNode;
+  ctaName: string;
+  ctaLocation?: string;
+  className?: string;
 }
 
-export function SectionBandCtaLink({ href, label, ctaName, ctaLocation = 'section_band', className }: SectionBandCtaLinkProps) {
+export function SectionBandCtaLink({
+  href,
+  label,
+  ctaName,
+  ctaLocation = "section_band",
+  className,
+}: SectionBandCtaLinkProps) {
   const pathname = usePathname();
   return (
     <Link
@@ -22,5 +29,5 @@ export function SectionBandCtaLink({ href, label, ctaName, ctaLocation = 'sectio
     >
       {label}
     </Link>
-  )
+  );
 }

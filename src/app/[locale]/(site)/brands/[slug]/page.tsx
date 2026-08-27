@@ -188,12 +188,19 @@ export default async function BrandDetailPage({ params }: PageProps) {
   const faqContext = await getPublicBrandFaqContextById(displayBrand.id);
   const [faqItems, stockists, curatedProducts, editorialAppearances] =
     await Promise.all([
-      getBrandFaq(displayBrand.id, faqContext, tBrandFaq, safeLocale, cityLabel),
+      getBrandFaq(
+        displayBrand.id,
+        faqContext,
+        tBrandFaq,
+        safeLocale,
+        cityLabel,
+      ),
       getStockistsForBrand(displayBrand.id),
       getPublishedCuratedProductsForBrand(displayBrand.id),
-      getBrandEditorialAppearances(displayBrand.slug).catch(
-        () => ({ trails: [], stories: [] }),
-      ),
+      getBrandEditorialAppearances(displayBrand.slug).catch(() => ({
+        trails: [],
+        stories: [],
+      })),
     ]);
   const stockistCount = stockists.confirmed.length + stockists.possible.length;
   // Same builder generateMetadata uses for <link rel="canonical">, so the
@@ -214,13 +221,14 @@ export default async function BrandDetailPage({ params }: PageProps) {
   const categorySlugCategory = L1_CATEGORIES.find(
     (category) => category.slug === categorySlugSlug,
   );
-  const categoryTag = categorySlugCategory && isVisibleCategory(categorySlugCategory.slug)
-    ? {
-        slug: categorySlugCategory.slug,
-        name: categorySlugCategory.name,
-        nameZh: categorySlugCategory.nameZh,
-      }
-    : null;
+  const categoryTag =
+    categorySlugCategory && isVisibleCategory(categorySlugCategory.slug)
+      ? {
+          slug: categorySlugCategory.slug,
+          name: categorySlugCategory.name,
+          nameZh: categorySlugCategory.nameZh,
+        }
+      : null;
 
   const relatedResult = categoryTag
     ? await getRelatedBrands(categoryTag.slug, displayBrand.slug, 4)
@@ -234,6 +242,14 @@ export default async function BrandDetailPage({ params }: PageProps) {
       ? (displayBrand.descriptionEn ?? displayBrand.description)
       : displayBrand.description;
   const sections = [
+    ...(curatedProducts.length > 0
+      ? [
+          {
+            id: "selected-products",
+            label: tBrandDetail("tabNav.selectedProducts"),
+          },
+        ]
+      : []),
     ...(description
       ? [{ id: "about", label: tBrandDetail("tabNav.about") }]
       : []),
@@ -243,14 +259,6 @@ export default async function BrandDetailPage({ params }: PageProps) {
     { id: "purchase", label: tBrandDetail("tabNav.purchase") },
     ...(stockistCount > 0
       ? [{ id: "locations", label: tBrandDetail("tabNav.locations") }]
-      : []),
-    ...(curatedProducts.length > 0
-      ? [
-          {
-            id: "selected-products",
-            label: tBrandDetail("tabNav.selectedProducts"),
-          },
-        ]
       : []),
     ...(faqItems.length > 0
       ? [{ id: "faq", label: tBrandDetail("tabNav.faq") }]
@@ -385,6 +393,19 @@ export default async function BrandDetailPage({ params }: PageProps) {
                 hasSectionNav && "pt-6 md:col-span-4 md:pt-0",
               )}
             >
+              {curatedProducts.length > 0 && (
+                <section
+                  id="selected-products"
+                  className={brandSectionClassName}
+                >
+                  <BrandSelectedProducts
+                    locale={safeLocale}
+                    brand={displayBrand}
+                    products={curatedProducts}
+                  />
+                </section>
+              )}
+
               {description && (
                 <section id="about" className={brandSectionClassName}>
                   <BrandAbout brand={displayBrand} locale={safeLocale} />
@@ -405,19 +426,6 @@ export default async function BrandDetailPage({ params }: PageProps) {
                     possible={stockists.possible}
                     brandId={displayBrand.id}
                     brandSlug={displayBrand.slug}
-                  />
-                </section>
-              )}
-
-              {curatedProducts.length > 0 && (
-                <section
-                  id="selected-products"
-                  className={brandSectionClassName}
-                >
-                  <BrandSelectedProducts
-                    locale={safeLocale}
-                    brand={displayBrand}
-                    products={curatedProducts}
                   />
                 </section>
               )}

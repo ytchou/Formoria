@@ -1,39 +1,42 @@
-'use client'
+"use client";
 
-import Link from 'next/link'
-import { usePathname, useSearchParams } from 'next/navigation'
-import { ArrowRight, Search, SlidersHorizontal } from 'lucide-react'
-import { useTranslations } from 'next-intl'
-import type { PublicBrandCard } from '@/lib/brands/contracts'
-import { Grid } from '@/components/ui/grid'
-import { trackCtaClicked } from '@/lib/analytics'
-import { clearDirectoryFilters } from '@/lib/directory-filter-url'
-import { BrandCard } from './brand-card'
-import { routes } from '@/lib/routes'
+import Link from "next/link";
+import { usePathname, useSearchParams } from "next/navigation";
+import { ArrowRight, Search, SlidersHorizontal } from "lucide-react";
+import { useTranslations } from "next-intl";
+import type { PublicBrandCard } from "@/lib/brands/contracts";
+import { Grid } from "@/components/ui/grid";
+import { actionLinkStyles } from "@/components/ui/action-link";
+import { trackCtaClicked } from "@/lib/analytics";
+import { clearDirectoryFilters } from "@/lib/directory-filter-url";
+import { BrandCard } from "./brand-card";
+import { routes } from "@/lib/routes";
 
 export type ActiveDirectoryFilter = {
-  id: string
-  label: string
-  value: string
-  removeHref: string
-  removeLabel: string
-}
+  id: string;
+  label: string;
+  value: string;
+  removeHref: string;
+  removeLabel: string;
+};
 
 type SearchEmptyStateProps = {
-  activeFilters: ActiveDirectoryFilter[]
-  recommendedBrands: PublicBrandCard[]
-  recommendationsHref: string
-}
+  activeFilters: ActiveDirectoryFilter[];
+  recommendedBrands: PublicBrandCard[];
+  recommendationsHref: string;
+};
 
 export function SearchEmptyState({
   activeFilters,
   recommendedBrands,
   recommendationsHref,
 }: SearchEmptyStateProps) {
-  const t = useTranslations('search.emptyState')
-  const pathname = usePathname()
-  const searchParams = useSearchParams()
-  const hasNonSearchFilters = activeFilters.some((filter) => filter.id !== 'search')
+  const t = useTranslations("search.emptyState");
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const hasNonSearchFilters = activeFilters.some(
+    (filter) => filter.id !== "search",
+  );
   /*
    * The way out, built the same way the sidebar's own clear-all builds it
    * (`MobileClearAll`): drop every facet, KEEP the search. Two different exits
@@ -47,12 +50,15 @@ export function SearchEmptyState({
    * locale segment for the i18n `Link` to add back; pairing it with a plain
    * link would send an `/en` reader to the zh-TW path.
    */
-  const clearFiltersHref = clearDirectoryFilters(pathname, searchParams)
+  const clearFiltersHref = clearDirectoryFilters(pathname, searchParams);
 
   return (
     <div data-empty className="space-y-8">
       <section className="flex flex-col items-center py-2 text-center">
-        <div className="relative flex size-28 items-center justify-center" aria-hidden="true">
+        <div
+          className="relative flex size-28 items-center justify-center"
+          aria-hidden="true"
+        >
           {/* Elevation is the border. The stacked plates read as depth because
               they are offset and ruled, not because anything casts a shadow. */}
           <div className="absolute inset-3 rotate-6 rounded-surface border border-rule bg-surface" />
@@ -60,8 +66,8 @@ export function SearchEmptyState({
           <Search className="relative size-12 text-ink" strokeWidth={1.75} />
           <SlidersHorizontal className="absolute bottom-1 right-0 size-6 text-filter-active" />
         </div>
-        <h2 className="mt-3 type-section text-ink-muted">{t('title')}</h2>
-        <p className="mt-2 max-w-xl type-body-sm">{t('description')}</p>
+        <h2 className="mt-3 type-section text-ink-muted">{t("title")}</h2>
+        <p className="mt-2 max-w-xl type-body-sm">{t("description")}</p>
 
         {/*
           A zero-result page is the one page that cannot end. Both exits are
@@ -75,16 +81,16 @@ export function SearchEmptyState({
               data-ph-no-autocapture
               onClick={() =>
                 trackCtaClicked(
-                  'clear_filters',
-                  'empty_state',
+                  "clear_filters",
+                  "empty_state",
                   clearFiltersHref,
                   routes.brands(),
                 )
               }
-              className="inline-flex min-h-12 items-center gap-1 type-nav font-semibold text-accent underline-offset-4 hover:underline"
+              className={actionLinkStyles()}
             >
-              {t('actions.clearFilters.title')}
-              <ArrowRight className="size-4" aria-hidden="true" />
+              {t("actions.clearFilters.title")}
+              <ArrowRight aria-hidden="true" />
             </Link>
           ) : null}
           <Link
@@ -92,16 +98,16 @@ export function SearchEmptyState({
             data-ph-no-autocapture
             onClick={() =>
               trackCtaClicked(
-                'browse_all',
-                'empty_state',
+                "browse_all",
+                "empty_state",
                 routes.brands(),
                 routes.brands(),
               )
             }
-            className="inline-flex min-h-12 items-center gap-1 type-nav font-semibold text-accent underline-offset-4 hover:underline"
+            className={actionLinkStyles()}
           >
-            {t('actions.browseAll.title')}
-            <ArrowRight className="size-4" aria-hidden="true" />
+            {t("actions.browseAll.title")}
+            <ArrowRight aria-hidden="true" />
           </Link>
         </div>
       </section>
@@ -109,15 +115,22 @@ export function SearchEmptyState({
       {recommendedBrands.length > 0 ? (
         <section className="border-t border-rule pt-6">
           <div className="mb-4 flex items-center justify-between gap-4">
-            <h2 className="type-card-title">{t('recommendations')}</h2>
+            <h2 className="type-card-title">{t("recommendations")}</h2>
             <Link
               href={recommendationsHref}
               data-ph-no-autocapture
-              onClick={() => trackCtaClicked('view_all', 'empty_state', recommendationsHref, routes.brands())}
-              className="inline-flex min-h-12 items-center gap-1 font-medium hover:text-accent"
+              onClick={() =>
+                trackCtaClicked(
+                  "view_all",
+                  "empty_state",
+                  recommendationsHref,
+                  routes.brands(),
+                )
+              }
+              className={actionLinkStyles()}
             >
-              {t('viewAll')}
-              <ArrowRight className="size-4" aria-hidden="true" />
+              {t("viewAll")}
+              <ArrowRight aria-hidden="true" />
             </Link>
           </div>
           <Grid>
@@ -133,5 +146,5 @@ export function SearchEmptyState({
         </section>
       ) : null}
     </div>
-  )
+  );
 }

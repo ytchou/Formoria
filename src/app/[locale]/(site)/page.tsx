@@ -21,7 +21,6 @@ import { buildOpenGraph } from "@/lib/seo/open-graph";
 import { getAllStories } from "@/lib/services/stories";
 import { getAllTrails } from "@/lib/services/trails";
 import { toPublicBrandCard } from "@/lib/brands/contracts";
-import { VISIBLE_L1_CATEGORIES } from "@/lib/taxonomy/ontology";
 
 /** Stories shown in the topics zone before the reader is sent to `/stories`. */
 const LANDING_STORY_LIMIT = 3;
@@ -95,12 +94,8 @@ export default async function LandingPage({ params }: PageProps) {
   const jsonLd = buildWebSiteJsonLd(safeLocale);
   const organizationJsonLd = buildOrganizationJsonLd(safeLocale);
 
-  const [
-    exploreResult,
-    curatedProductsResult,
-    storyResult,
-    trailResult,
-  ] = await Promise.all([
+  const [exploreResult, curatedProductsResult, storyResult, trailResult] =
+    await Promise.all([
       getExploreBrands(EXPLORE_BRAND_LIMIT).catch(
         captureReadFailure("landing.exploreBrands"),
       ),
@@ -156,7 +151,7 @@ export default async function LandingPage({ params }: PageProps) {
       <main>
         <LandingZones
           locale={safeLocale}
-          hero={<HeroSection categories={[...VISIBLE_L1_CATEGORIES]} locale={safeLocale} />}
+          hero={<HeroSection />}
           close={<SectionBand />}
           wall={
             curatedProducts.length >= MIN_HOME_CURATED_PRODUCTS

@@ -13,7 +13,11 @@ import zhTW from "../../../messages/zh-TW.json";
  */
 type MessageNode = { [key: string]: string | MessageNode };
 
-function flatten(node: MessageNode, prefix = "", keys: string[] = []): string[] {
+function flatten(
+  node: MessageNode,
+  prefix = "",
+  keys: string[] = [],
+): string[] {
   for (const [key, value] of Object.entries(node)) {
     const path = prefix ? `${prefix}.${key}` : key;
     if (typeof value === "string") {
@@ -219,5 +223,27 @@ describe("landing namespace", () => {
   it("the browse CTA is an invitation, never a brand count", () => {
     expect(resolve(zhLanding, "hero.browseCta")).not.toMatch(/\d/);
     expect(resolve(enLanding, "hero.browseCta")).not.toMatch(/\d/);
+  });
+
+  // Bug caught: presentational arrows in translated labels become part of the
+  // accessible name and can be duplicated when renderers add the shared icon.
+  it("keeps editorial action arrows out of bilingual labels", () => {
+    const paths = [
+      "landing.latestStories.linkText",
+      "landing.trails.linkText",
+      "landing.selection.cta",
+      "landing.missionCloser.cta",
+      "landing.brands.browseAll",
+      "about.guide.cta",
+    ];
+
+    for (const catalogue of [zhTW, en]) {
+      for (const path of paths) {
+        expect(
+          resolve(catalogue as unknown as MessageNode, path),
+          path,
+        ).not.toMatch(/→|->/);
+      }
+    }
   });
 });
