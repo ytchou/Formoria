@@ -151,7 +151,7 @@ const SCANNED_SOURCE_FILES = [
 export const EXCLUDED_SOURCE_FILES = new Map([
   // --- LLM prompts and model instructions. The banned terms appear here on
   // purpose: several prompts name the words the model must not produce.
-  ["lib/prompts.ts", "LLM system prompts — model instructions, never rendered"],
+  ["lib/prompts/", "LLM system prompts — model instructions, never rendered"],
   ["lib/services/description-rewrite.ts", "LLM user-message template"],
   ["lib/services/brand-facts.ts", "LLM user-message template"],
   ["lib/services/category-classifier.ts", "LLM user-message template"],

@@ -644,6 +644,26 @@ export const SERVICE_REGISTRY: readonly ServiceEntry[] = [
     notes:
       "Provisioned for the retail location widget; no production caller is wired.",
   },
+  {
+    id: "langfuse",
+    name: "Langfuse",
+    vendor: "Langfuse",
+    category: "observability",
+    criticality: "dev-tooling",
+    operationalSection: "back-office",
+    operationalKind: "dependency",
+    envVars: ["LANGFUSE_PUBLIC_KEY", "LANGFUSE_SECRET_KEY", "LANGFUSE_HOST"],
+    status: "active",
+    plan: {
+      kind: "free",
+      monthlyUsd: 0,
+      asOf: TODAY,
+      sourceUrl: "https://langfuse.com/pricing",
+    },
+    dashboardUrl: "https://cloud.langfuse.com",
+    notes:
+      "LLM tracing and eval. Free cloud hobby tier (50k observations/month). No-ops when env vars are unset.",
+  },
 ];
 
 export function toInventoryProjection(

@@ -1,13 +1,11 @@
 import { CLASSIFY_SYSTEM_PROMPT, DETECT_SYSTEM_PROMPT } from "@/lib/prompts";
 import { auditedCall } from "@/lib/audit";
-import { createOpenAIClient } from "@/lib/services/openai-client";
 import {
   createProfiledOpenAIClient,
   profileChatParams,
 } from "@/lib/services/llm-audit";
 import {
   LLM_BATCH_CHUNK_SIZE,
-  resolveProfileModel,
   type LlmProfileKey,
 } from "@/lib/constants/llm-models";
 import { L1_CATEGORIES } from "@/lib/taxonomy/ontology";
@@ -88,16 +86,10 @@ function createClassifierClient(
   target: EnrichmentTarget | undefined,
   jobId?: string,
 ) {
-  if (!target)
-    return createOpenAIClient({
-      apiKey,
-      model: resolveProfileModel(profileKey),
-    });
-
   return createProfiledOpenAIClient(
     profileKey,
     {
-      target,
+      target: target!,
       phase,
       ...(jobId ? { jobId } : {}),
     },

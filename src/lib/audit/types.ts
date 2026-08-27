@@ -14,6 +14,7 @@ export type AuditContext = {
   correlationId: string | null;
   actor?: string;
   requestId?: string;
+  langfuseTrace?: unknown;
 };
 
 export type AuditSpec = {

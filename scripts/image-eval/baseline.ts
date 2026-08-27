@@ -7,7 +7,6 @@ import {
 } from "@/lib/services/openai-client";
 import {
   IMAGE_CLASSIFY_SYSTEM_PROMPT,
-  LEGACY_IMAGE_CLASSIFY_SYSTEM_PROMPT,
 } from "@/lib/prompts";
 import { L1_CATEGORIES } from "@/lib/taxonomy/ontology";
 import { buildBrandContext } from "@/lib/services/enrich-phases/classify-images";
@@ -193,10 +192,7 @@ function buildSystemPrompt(
   prompt: "legacy" | "current",
   tagDefinitions: NonNullable<GoldenLabelsFile["tagDefinitions"]>,
 ): string {
-  const base =
-    prompt === "current"
-      ? IMAGE_CLASSIFY_SYSTEM_PROMPT
-      : LEGACY_IMAGE_CLASSIFY_SYSTEM_PROMPT;
+  const base = IMAGE_CLASSIFY_SYSTEM_PROMPT;
   if (prompt === "legacy") return base;
   const tags = Object.keys(tagDefinitions).join(", ");
   // The dynamic tag registry is injected by rewriting this exact line of the

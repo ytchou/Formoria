@@ -72,7 +72,7 @@ const ALLOWLIST = [
   // Brand cleanup uses Chinese keyword arrays and regex patterns (not UI copy).
   "lib/services/brand-cleanup.ts",
   // LLM system prompts centralised module (Chinese prompt text).
-  "lib/prompts.ts",
+  "lib/prompts/",
   // LLM user message templates still contain Chinese field labels (not UI copy).
   "lib/services/description-rewrite.ts",
   "lib/services/brand-facts.ts",

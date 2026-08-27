@@ -2,10 +2,8 @@ import { SITE_IDENTITY_LABELS, SITE_IDENTITY_SYSTEM_PROMPT } from "@/lib/prompts
 import { auditedCall } from "@/lib/audit";
 import {
   LLM_BATCH_CHUNK_SIZE,
-  resolveProfileModel,
   type LlmProfileKey,
 } from "@/lib/constants/llm-models";
-import { createOpenAIClient } from "./openai-client";
 import {
   buildProfiledEnrichmentConfig,
   createProfiledOpenAIClient,
@@ -104,9 +102,6 @@ function createSiteIdentityClient(
   target: EnrichmentTarget | undefined,
   jobId?: string,
 ) {
-  if (!target) {
-    return createOpenAIClient({ apiKey, model: resolveProfileModel(profileKey) });
-  }
   const config = buildProfiledEnrichmentConfig(
     "site_identity",
     SITE_IDENTITY_SYSTEM_PROMPT,
@@ -114,7 +109,7 @@ function createSiteIdentityClient(
   );
   return createProfiledOpenAIClient(
     profileKey,
-    { target, phase: "site_identity", ...(jobId ? { jobId } : {}), config },
+    { target: target!, phase: "site_identity", ...(jobId ? { jobId } : {}), config },
     { apiKey },
   );
 }
