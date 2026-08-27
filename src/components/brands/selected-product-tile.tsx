@@ -206,16 +206,17 @@ export function SelectedProductTile({
     "[@media(hover:hover)]:sm:group-hover:opacity-100",
     "[@media(hover:hover)]:sm:group-focus-within:opacity-100",
   );
-  const originBadge = product.mitQualified && labels.madeInTaiwan ? (
-    <Badge
-      variant="verified"
-      className="absolute top-3 left-3 z-20"
-      aria-label={labels.madeInTaiwan}
-    >
-      <ShieldCheck aria-hidden />
-      {labels.madeInTaiwan}
-    </Badge>
-  ) : null;
+  const originBadge =
+    product.mitQualified && labels.madeInTaiwan ? (
+      <Badge
+        variant="verified"
+        className="absolute top-3 left-3 z-20"
+        aria-label={labels.madeInTaiwan}
+      >
+        <ShieldCheck aria-hidden />
+        {labels.madeInTaiwan}
+      </Badge>
+    ) : null;
 
   const wallContent = (
     <div className="relative flex h-full flex-col">

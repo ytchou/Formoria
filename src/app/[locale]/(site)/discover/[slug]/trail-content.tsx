@@ -3,7 +3,10 @@ import { MDXRemote } from "next-mdx-remote/rsc";
 import type { AppLocale } from "@/i18n/locale-preference";
 import type { SelectedProductTileLabels } from "@/components/brands/selected-product-tile";
 import type { TrailCuratedProduct } from "@/lib/services/curated-products";
-import { createStoryComponentMap, type TrailSectionRef } from "@/lib/mdx/components";
+import {
+  createStoryComponentMap,
+  type TrailSectionRef,
+} from "@/lib/mdx/components";
 import { TrailProductsProvider } from "@/components/trails/trail-products";
 
 export function TrailContent({

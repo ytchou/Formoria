@@ -31,11 +31,9 @@ vi.mock("@/components/ui/grid", () => ({
 }));
 
 vi.mock("@/components/brands/selected-product-tile", () => ({
-  SelectedProductTile: ({
-    product,
-  }: {
-    product: HomepageCuratedProduct;
-  }) => <div data-testid={`product-${product.id}`}>{product.nameZh}</div>,
+  SelectedProductTile: ({ product }: { product: HomepageCuratedProduct }) => (
+    <div data-testid={`product-${product.id}`}>{product.nameZh}</div>
+  ),
 }));
 
 vi.mock("@/components/analytics/view-item-list-tracker", () => ({
@@ -151,7 +149,9 @@ describe("CuratedProductGrid", () => {
     await renderGrid(slots);
 
     for (let i = 0; i < 8; i++) {
-      expect(screen.getByTestId(`product-${slots[i]!.product.id}`)).toBeInTheDocument();
+      expect(
+        screen.getByTestId(`product-${slots[i]!.product.id}`),
+      ).toBeInTheDocument();
     }
   });
 
@@ -174,7 +174,9 @@ describe("CuratedProductGrid", () => {
     await renderGrid(slots);
 
     for (let i = 0; i < 10; i++) {
-      expect(screen.getByTestId(`product-${slots[i]!.product.id}`)).toBeInTheDocument();
+      expect(
+        screen.getByTestId(`product-${slots[i]!.product.id}`),
+      ).toBeInTheDocument();
     }
     expect(screen.queryByTestId(`product-${slots[10]!.product.id}`)).toBeNull();
   });

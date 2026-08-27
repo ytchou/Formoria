@@ -2,16 +2,19 @@
 
 import * as Sentry from "@sentry/nextjs";
 import { useEffect, useSyncExternalStore } from "react";
-import { Button } from '@/components/ui/button';
-import { PageShell } from '@/components/ui/page-shell';
-import en from '../../messages/en.json';
-import zhTW from '../../messages/zh-TW.json';
+import { Button } from "@/components/ui/button";
+import { PageShell } from "@/components/ui/page-shell";
+import en from "../../messages/en.json";
+import zhTW from "../../messages/zh-TW.json";
 
 function getBrowserLocale() {
-  if (document.documentElement.lang === 'en' || window.location.pathname.startsWith('/en')) {
-    return 'en' as const;
+  if (
+    document.documentElement.lang === "en" ||
+    window.location.pathname.startsWith("/en")
+  ) {
+    return "en" as const;
   }
-  return 'zh-TW' as const;
+  return "zh-TW" as const;
 }
 
 function subscribeToLocale() {
@@ -23,8 +26,12 @@ export default function GlobalError({
 }: {
   error: Error & { digest?: string };
 }) {
-  const locale = useSyncExternalStore(subscribeToLocale, getBrowserLocale, () => 'zh-TW');
-  const copy = locale === 'en' ? en.errors.boundary : zhTW.errors.boundary;
+  const locale = useSyncExternalStore(
+    subscribeToLocale,
+    getBrowserLocale,
+    () => "zh-TW",
+  );
+  const copy = locale === "en" ? en.errors.boundary : zhTW.errors.boundary;
 
   useEffect(() => {
     Sentry.captureException(error);

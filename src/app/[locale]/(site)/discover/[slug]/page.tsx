@@ -29,7 +29,10 @@ import {
   type TrailEntry,
   type TrailDetailResult,
 } from "@/lib/services/trails";
-import { getPublishedCuratedProductsForTrail, type TrailCuratedProduct } from "@/lib/services/curated-products";
+import {
+  getPublishedCuratedProductsForTrail,
+  type TrailCuratedProduct,
+} from "@/lib/services/curated-products";
 import { TrailContent } from "./trail-content";
 import { routes } from "@/lib/routes";
 import { getTrailRelatedContent } from "@/lib/services/editorial-links";
@@ -41,7 +44,9 @@ type PageProps = {
 export const revalidate = 3600;
 
 const getTrailPageData = cache(
-  async (slug: string): Promise<{
+  async (
+    slug: string,
+  ): Promise<{
     trail: TrailDetailResult | null;
     products: TrailCuratedProduct[] | null;
   }> => {
@@ -106,7 +111,9 @@ export async function generateStaticParams() {
   return [];
 }
 
-export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
+export async function generateMetadata({
+  params,
+}: PageProps): Promise<Metadata> {
   const { locale, slug: rawSlug } = await params;
   const slug = decodeURIComponent(rawSlug);
   setRequestLocale(locale);
@@ -154,10 +161,7 @@ function MetaRow({ label, value }: { label: string; value: ReactNode }) {
   );
 }
 
-function relatedStoryLinks(
-  title: string,
-  values: string[],
-): React.ReactNode {
+function relatedStoryLinks(title: string, values: string[]): React.ReactNode {
   if (values.length === 0) return null;
   return (
     <section aria-labelledby="stories-related" className="space-y-3">
@@ -235,9 +239,8 @@ export default async function DiscoverTrailPage({ params }: PageProps) {
   );
   // What the selection actually IS, counted rather than claimed. `category` is
   // the product's L1, so this is "how many kinds of thing", not how many tags.
-  const categoryCount = new Set(
-    safeProducts.map((product) => product.category),
-  ).size;
+  const categoryCount = new Set(safeProducts.map((product) => product.category))
+    .size;
   const articleJsonLd = buildArticleJsonLd({
     title: frontmatter.title,
     description: frontmatter.description ?? "",
@@ -250,7 +253,10 @@ export default async function DiscoverTrailPage({ params }: PageProps) {
     image: editorialHeroSrc(heroImage),
   });
   const breadcrumbJsonLd = buildBreadcrumbJsonLd(
-    [{ label: t("breadcrumb"), href: routes.discover() }, { label: frontmatter.title }],
+    [
+      { label: t("breadcrumb"), href: routes.discover() },
+      { label: frontmatter.title },
+    ],
     safeLocale,
   );
 
@@ -270,7 +276,10 @@ export default async function DiscoverTrailPage({ params }: PageProps) {
           }}
         />
         {safeProducts.length > 0 ? (
-          <ViewItemListTracker listName={`trail:${slug}`} itemCount={safeProducts.length} />
+          <ViewItemListTracker
+            listName={`trail:${slug}`}
+            itemCount={safeProducts.length}
+          />
         ) : null}
         {/*
           THE HEADER BAND. `surface` is the second material, not a tint: the band
@@ -340,7 +349,10 @@ export default async function DiscoverTrailPage({ params }: PageProps) {
           {(frontmatter.relatedStories.length > 0 ||
             frontmatter.relatedTrails.length > 0) && (
             <div className="mt-section space-y-8">
-              {relatedStoryLinks(t("relatedStories"), frontmatter.relatedStories)}
+              {relatedStoryLinks(
+                t("relatedStories"),
+                frontmatter.relatedStories,
+              )}
               {relatedTrailLinks(t("relatedTrails"), frontmatter.relatedTrails)}
             </div>
           )}

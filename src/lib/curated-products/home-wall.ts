@@ -171,9 +171,7 @@ export function buildWallSlots({
   products,
   seed = wallSeedForDate(),
 }: BuildWallSlotsInput): WallSlot[] {
-  return capProductsPerBrand(
-    shuffleWithSeed(products, seed),
-  )
+  return capProductsPerBrand(shuffleWithSeed(products, seed))
     .slice(0, MAX_HOME_WALL_PRODUCTS)
     .map((product) => ({ product, ratio: wallRatioFor(product) }));
 }
