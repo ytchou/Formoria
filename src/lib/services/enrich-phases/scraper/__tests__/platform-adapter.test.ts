@@ -77,8 +77,9 @@ describe('PlatformAdapterStrategy', () => {
     const { fetchHtml } = await import('../fetch-guards')
     const mockedFetchHtml = vi.mocked(fetchHtml)
 
+    // og:image uses a shoplineapp.com host with ?w=300 to verify upgradeEcommerceImageUrl strips it
     const detailHtml = `<html><head>
-      <meta property="og:image" content="https://cms-static.cdn.91app.com/images/original/large.jpg" />
+      <meta property="og:image" content="https://img.shoplineapp.com/large.jpg?w=300" />
       <script type="application/ld+json">{"@type":"Product","image":"https://cms-static.cdn.91app.com/images/original/large-ld.jpg"}</script>
     </head><body></body></html>`
 
@@ -108,10 +109,15 @@ describe('PlatformAdapterStrategy', () => {
     expect(r.galleryImageUrls).toContain(
       'https://static.91app.com/images/small2.jpg',
     )
-    // Detail-page og:image and JSON-LD images are added
+    // Detail-page og:image is upgraded (query-string stripped by upgradeEcommerceImageUrl)
     expect(r.galleryImageUrls).toContain(
-      'https://cms-static.cdn.91app.com/images/original/large.jpg',
+      'https://img.shoplineapp.com/large.jpg',
     )
+    // The raw ?w=300 version should NOT be present
+    expect(r.galleryImageUrls).not.toContain(
+      'https://img.shoplineapp.com/large.jpg?w=300',
+    )
+    // JSON-LD images are added
     expect(r.galleryImageUrls).toContain(
       'https://cms-static.cdn.91app.com/images/original/large-ld.jpg',
     )
@@ -121,6 +127,17 @@ describe('PlatformAdapterStrategy', () => {
     )
     // fetchHtml was called for detail pages
     expect(mockedFetchHtml).toHaveBeenCalled()
+
+    // imageSources for detail-page images have the detail page URL, not the listing URL
+    const detailSources = (r.imageSources ?? []).filter(
+      (s) => s.pageUrl !== 'https://www.example.91app.com/v2/official',
+    )
+    expect(detailSources.length).toBeGreaterThan(0)
+    for (const s of detailSources) {
+      expect(s.pageUrl).toMatch(
+        /example\.91app\.com\/v2\/official\/SalePage\/Index\//,
+      )
+    }
 
     mockedFetchHtml.mockReset()
   })

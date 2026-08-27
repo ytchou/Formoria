@@ -25,7 +25,7 @@ import type { PlatformId } from '../../platforms'
 // higher quality than search results, so a wider pool just gives the ranker
 // more to choose from. MAX_BRAND_ACTIVE_IMAGES downstream is the cap that
 // actually binds; MAX_GALLERY_IMAGES stays the default for the generic path.
-const MARKETPLACE_GALLERY_LIMIT = 20
+export const MARKETPLACE_GALLERY_LIMIT = 20
 
 export interface MarketplaceAdapterConfig {
   host: string
