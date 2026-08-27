@@ -89,7 +89,7 @@ function createClassifierClient(
   return createProfiledOpenAIClient(
     profileKey,
     {
-      target: target!,
+      target,
       phase,
       ...(jobId ? { jobId } : {}),
     },

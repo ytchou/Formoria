@@ -109,7 +109,7 @@ function createSiteIdentityClient(
   );
   return createProfiledOpenAIClient(
     profileKey,
-    { target: target!, phase: "site_identity", ...(jobId ? { jobId } : {}), config },
+    { target, phase: "site_identity", ...(jobId ? { jobId } : {}), config },
     { apiKey },
   );
 }

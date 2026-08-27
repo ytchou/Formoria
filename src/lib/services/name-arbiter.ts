@@ -110,7 +110,7 @@ function createNameArbiterClient(
   return createProfiledOpenAIClient(
     profileKey,
     {
-      target: target!,
+      target,
       phase: "names",
       ...(jobId ? { jobId } : {}),
       config,

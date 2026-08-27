@@ -19,7 +19,7 @@ const MAX_PROMPT_LENGTH = 2_000;
 
 export type LlmAuditContext = {
   jobId?: string;
-  target: EnrichmentTarget;
+  target?: EnrichmentTarget;
   phase: string;
   attempt?: number;
   config?: unknown;
@@ -87,6 +87,7 @@ async function persistAuditEvent(
   spanId: string,
 ): Promise<void> {
   try {
+    if (!context.target) return;
     await insertAiCallResult({
       target: context.target,
       phase: context.phase,
@@ -166,8 +167,8 @@ export function createAuditedDeepSeekClient(
         },
         {
           classify: classifyChatResult,
-          summary: { phase: context.phase, targetType: context.target.type },
-          subjectId: context.target.id,
+          summary: { phase: context.phase, targetType: context.target?.type },
+          subjectId: context.target?.id ?? null,
           jobId: context.jobId ?? null,
         },
       );
@@ -184,8 +185,8 @@ export function createAuditedDeepSeekClient(
         () => balanceClient.balance(timeoutMs),
         {
           classify: (result) => (result.ok ? "succeeded" : "failed"),
-          summary: { phase: context.phase, targetType: context.target.type },
-          subjectId: context.target.id,
+          summary: { phase: context.phase, targetType: context.target?.type },
+          subjectId: context.target?.id ?? null,
           jobId: context.jobId ?? null,
         },
       );
@@ -237,8 +238,8 @@ export function createAuditedOpenAIClient(
         },
         {
           classify: (result) => (result.ok ? "succeeded" : "failed"),
-          summary: { phase: context.phase, targetType: context.target.type },
-          subjectId: context.target.id,
+          summary: { phase: context.phase, targetType: context.target?.type },
+          subjectId: context.target?.id ?? null,
           jobId: context.jobId ?? null,
         },
       );
