@@ -165,15 +165,15 @@ export function applyGates(
       }
     }
 
-    // Gate 1: no usable image.
-    if (!candidate.imageUrl) {
-      gated.push({ candidate, gateResult: "no_image" });
+    // Gate 1: not a product-detail page.
+    if (candidate.urlClass !== "product-detail") {
+      gated.push({ candidate, gateResult: "not_product_detail" });
       continue;
     }
 
-    // Gate 2: not a product-detail page.
-    if (candidate.urlClass !== "product-detail") {
-      gated.push({ candidate, gateResult: "not_product_detail" });
+    // Gate 2: no usable image.
+    if (!candidate.imageUrl) {
+      gated.push({ candidate, gateResult: "no_image" });
       continue;
     }
 

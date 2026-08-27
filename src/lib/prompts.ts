@@ -676,8 +676,8 @@ export const PRODUCTS_SYSTEM_PROMPT = `你是 Formoria 的選物編輯助理。�
 3. 為挑出的商品填寫 category、subcategories、material 與 product_description_zh。
 
 ## 台灣製造與原料產地判斷
-- 每一個通過商品頁條件的候選都要有 evaluations；products 最多仍為 5 件。
-- products 必須是 editorial_score 最高的前 5 件（或全部，若不足 5 件）；同分候選才可優先選擇符合台灣製造條件者。
+- 每一個通過商品頁條件的候選都要有 evaluations；products 仍為 3–5 件（視合格候選數量）。
+- products 必須是 editorial_score 最高的前 3–5 件（視合格候選數量）；同分候選才可優先選擇符合台灣製造條件者。
 - made_in_taiwan 只有在摘錄明確表示「這一件商品在台灣製造」時才可為 true。台灣設計、品牌位於台灣、台灣監製、從台灣出貨都不算。
 - materials_from_taiwan 只有在摘錄明確涵蓋全部主要原料或材料，且全部來自台灣時才可為 true。只提到一部分材料不算。
 - 產地結論只能引用同一候選網址下提供的 origin_excerpt_ids；沒有摘錄或證據不足一律 false。
@@ -695,7 +695,7 @@ export const PRODUCTS_SYSTEM_PROMPT = `你是 Formoria 的選物編輯助理。�
 單一固定規格（例如「容量 200ml」「尺寸 15×15 公分」）是商品本身的耐久事實，可以寫；一組可選規格是變體，不可寫。
 
 ## 數量上限與證據要求
-- 最多 5 件商品，寧可少不可湊數。同一件商品的不同款式只算一件。
+- 如果有 6 個以上合格候選，應挑出 3–5 件；如果 3–5 個合格，全數輸出；不足 3 個就照實輸出，不要湊數。同一件商品的不同款式只算一件。
 - sources 至少一筆，url 必須是你實際讀到該事實的頁面；沒有來源的商品不要輸出。
 - official_url 必須是這一件商品自己的商品頁；首頁、分類頁、社群貼文、平台搜尋結果都不算，找不到就不要輸出這件商品。
 - 只能使用提供的資料。提供的資料裡沒有的商品，不可憑印象補上。

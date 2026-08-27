@@ -205,8 +205,8 @@ export async function probeCandidates(
     ).length;
 
     // Dedupe using Task 6 near-duplicate collapse
-    const deduped = dedupeNearDuplicates(candidates);
-    const dedupeReduction = candidates.length - deduped.length;
+    const { kept: deduped, collapsedCount } = dedupeNearDuplicates(candidates);
+    const dedupeReduction = collapsedCount;
     const afterDedupeProductDetailCount = deduped.filter(
       (c) => c.urlClass === "product-detail",
     ).length;

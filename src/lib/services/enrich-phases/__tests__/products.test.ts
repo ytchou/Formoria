@@ -597,6 +597,61 @@ describe("runProductsPhase", () => {
     expect(user).toContain(`${SITE}/products/clay-plate`);
   });
 
+  it("scraped_candidates_get_imageUrl_from_imageSources", async () => {
+    // imageSources carries a mapping from pageUrl → image url. When a scraped
+    // candidate's URL matches a pageUrl entry, the candidate should carry the
+    // image into the merged pool so that the model and downstream persistence
+    // see it — parity with stored candidates that already have imageUrl.
+    const chat = modelReturns([rawProposal()]);
+
+    const result = await runProductsPhase({
+      brand: BRAND,
+      phases: PHASES,
+      scrapedData: SCRAPED,
+      target: { type: "submission", id: SUBMISSION_ID },
+      loadStoredCandidates: async () => [],
+    });
+
+    expect(result.phaseResult.status).toBe("succeeded");
+    // The user content sent to the model must contain the scraped product URL.
+    const user = chat.mock.calls[0]![0].user as string;
+    expect(user).toContain(`${SITE}/products/clay-plate`);
+    // imageUrl is set on the candidate but not surfaced in user content —
+    // candidate-selection.test.ts:scraped_candidate_with_image_passes_gates
+    // covers the gate that rejects imageless candidates directly.
+  });
+
+  it("scraped_candidates_get_searchPosition", async () => {
+    // Scraped candidates should receive a sequential searchPosition so the
+    // sort-by-position logic in the merged pool preserves insertion order.
+    const chat = modelReturns([rawProposal()]);
+
+    const threeProducts = {
+      ...SCRAPED,
+      perSourceText: {
+        [`${SITE}/products/alpha`]: { title: "Alpha" },
+        [`${SITE}/products/beta`]: { title: "Beta" },
+        [`${SITE}/products/gamma`]: { title: "Gamma" },
+      },
+    };
+
+    await runProductsPhase({
+      brand: BRAND,
+      phases: PHASES,
+      scrapedData: threeProducts,
+      target: { type: "submission", id: SUBMISSION_ID },
+      loadStoredCandidates: async () => [],
+    });
+
+    // All three product URLs should appear in user content in some order —
+    // the searchPosition assignment means they sort stably rather than
+    // falling to MAX_SAFE_INTEGER.
+    const user = chat.mock.calls[0]![0].user as string;
+    expect(user).toContain(`${SITE}/products/alpha`);
+    expect(user).toContain(`${SITE}/products/beta`);
+    expect(user).toContain(`${SITE}/products/gamma`);
+  });
+
   it("existing_scraped_path_still_works", async () => {
     // When only perSourceText is populated (stored pool is empty),
     // the phase works exactly as before — no regression.

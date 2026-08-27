@@ -132,9 +132,11 @@ describe('dedupeNearDuplicates', () => {
         urlClass: 'product-detail',
       },
     ]
-    expect(dedupeNearDuplicates(byUrl)).toHaveLength(1)
+    const { kept } = dedupeNearDuplicates(byUrl)
+    expect(kept).toHaveLength(1)
 
-    // Case 2: two titles differing only by a colour suffix (different URLs)
+    // Case 2: two titles differing only by a colour suffix but distinct URLs.
+    // URL-distinctness override keeps both — distinct URLs = distinct products.
     const byTitle: ProductCandidate[] = [
       {
         url: 'https://a.com/products/chair-blue',
@@ -151,7 +153,8 @@ describe('dedupeNearDuplicates', () => {
         urlClass: 'product-detail',
       },
     ]
-    expect(dedupeNearDuplicates(byTitle)).toHaveLength(1)
+    const { kept: kept2 } = dedupeNearDuplicates(byTitle)
+    expect(kept2).toHaveLength(2)
   })
 
   it('dedupe_keeps_distinct_products', () => {
@@ -178,8 +181,159 @@ describe('dedupeNearDuplicates', () => {
         urlClass: 'product-detail',
       },
     ]
-    const result = dedupeNearDuplicates(candidates)
-    expect(result).toHaveLength(3)
+    const { kept } = dedupeNearDuplicates(candidates)
+    expect(kept).toHaveLength(3)
+  })
+
+  it('strips_cjk_fullwidth_dash_suffix', () => {
+    const candidates: ProductCandidate[] = [
+      {
+        url: 'https://a.com/spray-classic',
+        normalizedUrl: 'https://a.com/spray-classic',
+        title: '薰香噴霧－經典花香',
+        supplier: 'scrape',
+        urlClass: 'product-detail',
+      },
+      {
+        url: 'https://a.com/spray-green',
+        normalizedUrl: 'https://a.com/spray-green',
+        title: '薰香噴霧－清新綠茶',
+        supplier: 'scrape',
+        urlClass: 'product-detail',
+      },
+    ]
+    // Distinct URLs but CJK fullwidth dash separates variant → still distinct
+    // because URL-distinctness override fires first. To test the strip logic,
+    // we need same normalizedUrl OR empty normalizedUrl. Use empty to bypass
+    // URL-distinctness and exercise the title path.
+    const withoutUrls: ProductCandidate[] = candidates.map((c) => ({
+      ...c,
+      normalizedUrl: '',
+    }))
+    const { kept } = dedupeNearDuplicates(withoutUrls)
+    expect(kept).toHaveLength(1)
+  })
+
+  it('strips_cjk_fullwidth_pipe_suffix', () => {
+    const candidates: ProductCandidate[] = [
+      {
+        url: 'https://a.com/stone-forest',
+        normalizedUrl: '',
+        title: '擴香石｜森林系列',
+        supplier: 'scrape',
+        urlClass: 'product-detail',
+      },
+      {
+        url: 'https://a.com/stone-ocean',
+        normalizedUrl: '',
+        title: '擴香石｜海洋系列',
+        supplier: 'scrape',
+        urlClass: 'product-detail',
+      },
+    ]
+    const { kept } = dedupeNearDuplicates(candidates)
+    expect(kept).toHaveLength(1)
+  })
+
+  it('strips_cjk_bracket_suffix', () => {
+    const candidates: ProductCandidate[] = [
+      {
+        url: 'https://a.com/spray-lavender',
+        normalizedUrl: '',
+        title: '室內噴霧【薰衣草】',
+        supplier: 'scrape',
+        urlClass: 'product-detail',
+      },
+      {
+        url: 'https://a.com/spray-rose',
+        normalizedUrl: '',
+        title: '室內噴霧【玫瑰】',
+        supplier: 'scrape',
+        urlClass: 'product-detail',
+      },
+    ]
+    const { kept } = dedupeNearDuplicates(candidates)
+    expect(kept).toHaveLength(1)
+  })
+
+  it('preserves_title_without_separator', () => {
+    const candidates: ProductCandidate[] = [
+      {
+        url: 'https://a.com/cup',
+        normalizedUrl: 'https://a.com/cup',
+        title: '純手工陶杯',
+        supplier: 'scrape',
+        urlClass: 'product-detail',
+      },
+    ]
+    const { kept } = dedupeNearDuplicates(candidates)
+    expect(kept).toHaveLength(1)
+  })
+
+  it('url_distinctness_keeps_similar_titles_room_spray', () => {
+    const candidates: ProductCandidate[] = [
+      {
+        url: 'https://a.com/room-spray-35ml-essential-oil-ali-height',
+        normalizedUrl:
+          'https://a.com/room-spray-35ml-essential-oil-ali-height',
+        title: '室內噴霧 35ml 精油 Ali Height',
+        supplier: 'scrape',
+        urlClass: 'product-detail',
+      },
+      {
+        url: 'https://a.com/room-spray-35ml-essential-oil-ali-timeline',
+        normalizedUrl:
+          'https://a.com/room-spray-35ml-essential-oil-ali-timeline',
+        title: '室內噴霧 35ml 精油 Ali Timeline',
+        supplier: 'scrape',
+        urlClass: 'product-detail',
+      },
+    ]
+    const { kept } = dedupeNearDuplicates(candidates)
+    expect(kept).toHaveLength(2)
+  })
+
+  it('collapse_count_reported', () => {
+    const candidates: ProductCandidate[] = [
+      {
+        url: 'https://a.com/products/chair',
+        normalizedUrl: 'https://a.com/products/chair',
+        title: 'Chair',
+        supplier: 'scrape',
+        urlClass: 'product-detail',
+      },
+      {
+        url: 'https://a.com/products/chair?variant=blue',
+        normalizedUrl: 'https://a.com/products/chair',
+        title: 'Chair Blue',
+        supplier: 'scrape',
+        urlClass: 'product-detail',
+      },
+      {
+        url: 'https://a.com/products/desk',
+        normalizedUrl: 'https://a.com/products/desk',
+        title: 'Desk',
+        supplier: 'scrape',
+        urlClass: 'product-detail',
+      },
+      {
+        url: 'https://a.com/products/desk?variant=oak',
+        normalizedUrl: 'https://a.com/products/desk',
+        title: 'Desk Oak',
+        supplier: 'scrape',
+        urlClass: 'product-detail',
+      },
+      {
+        url: 'https://a.com/products/lamp',
+        normalizedUrl: 'https://a.com/products/lamp',
+        title: 'Lamp',
+        supplier: 'scrape',
+        urlClass: 'product-detail',
+      },
+    ]
+    const { kept, collapsedCount } = dedupeNearDuplicates(candidates)
+    expect(kept).toHaveLength(3)
+    expect(collapsedCount).toBe(2)
   })
 })
 

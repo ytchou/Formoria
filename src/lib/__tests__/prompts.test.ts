@@ -114,7 +114,8 @@ describe("PRODUCTS_SYSTEM_PROMPT", () => {
   });
 
   it("products_prompt_caps_five_proposals_and_demands_a_source", () => {
-    expect(PRODUCTS_SYSTEM_PROMPT).toContain("最多 5 件商品");
+    expect(PRODUCTS_SYSTEM_PROMPT).toContain("3–5 件");
+    expect(PRODUCTS_SYSTEM_PROMPT).toContain("不要湊數");
     expect(PRODUCTS_SYSTEM_PROMPT).toContain("沒有來源的商品不要輸出");
     // The one editorial text field carries durable facts only: DEV-1496 abolished
     // the per-product selection reason, so the prompt must not ask for one back.

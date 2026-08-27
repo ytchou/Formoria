@@ -798,8 +798,16 @@ export async function runProductsPhase({
 
   // Build a unified pool of ProductCandidate entries from the scraped pages.
   // The scraped half is converted to ProductCandidate shape for mergeCandidatePool.
+  const imageByPage = new Map<string, string>();
+  for (const source of scrapedData?.imageSources ?? []) {
+    if (source.pageUrl && source.url && !imageByPage.has(source.pageUrl)) {
+      imageByPage.set(source.pageUrl, source.url);
+    }
+  }
+
   const scrapedCandidates: ProductCandidate[] = [];
   const perSourceText = scrapedData?.perSourceText ?? {};
+  let scrapedIndex = 0;
   for (const [url, text] of Object.entries(perSourceText)) {
     const parsed = httpUrl(url);
     if (!parsed || bareHost(parsed) !== bareHost(site)) continue;
@@ -811,6 +819,8 @@ export async function runProductsPhase({
       title: text?.title ?? undefined,
       supplier: "scraped",
       urlClass: classifyProductUrl(url),
+      imageUrl: imageByPage.get(url),
+      searchPosition: scrapedIndex++,
     });
   }
 
@@ -836,13 +846,12 @@ export async function runProductsPhase({
   const catalogUrls = new Set(
     catalogCandidates.map((candidate) => candidate.url),
   );
-  const pool = mergeCandidatePool(
-    dedupeNearDuplicates(
-      [...storedCandidates, ...scrapedCandidates].filter((candidate) =>
-        catalogUrls.has(candidate.url),
-      ),
+  const { kept: dedupedCandidates, collapsedCount } = dedupeNearDuplicates(
+    [...storedCandidates, ...scrapedCandidates].filter((candidate) =>
+      catalogUrls.has(candidate.url),
     ),
   );
+  const pool = mergeCandidatePool(dedupedCandidates);
 
   // Format the product bucket as user-content lines, keeping the same-host
   // filter and PAGE_TEXT_LIMIT truncation the scraped path always had.
@@ -1125,6 +1134,7 @@ export async function runProductsPhase({
           });
         }
         Object.assign(ctx.summary, {
+          candidatesCollapsed: collapsedCount,
           candidatesGated: selectionResult.gated.length,
           candidatesRanked: selectionResult.ranked.length,
         });
