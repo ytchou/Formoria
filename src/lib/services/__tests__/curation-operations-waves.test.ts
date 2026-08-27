@@ -581,8 +581,13 @@ describe("satisfaction skipping", () => {
       target_type: "submission",
       target_id: target.id,
       phase_results: [
+        { phase: "discover", status: "succeeded", changedFields: [], durationMs: 50 },
+        { phase: "detect", status: "succeeded", changedFields: [], durationMs: 50 },
         { phase: "links", status: "succeeded", changedFields: [], durationMs: 50 },
+        { phase: "names", status: "succeeded", changedFields: [], durationMs: 50 },
         { phase: "site_identity", status: "succeeded", changedFields: [], durationMs: 50 },
+        { phase: "images", status: "succeeded", changedFields: [], durationMs: 50 },
+        { phase: "classify_images", status: "succeeded", changedFields: [], durationMs: 50 },
         { phase: "products", status: "succeeded", changedFields: [], durationMs: 100 },
       ],
       created_at: "2026-08-01T00:00:00Z",
