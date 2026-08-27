@@ -55,6 +55,7 @@ function emptyMergedResult(): ScrapedBrandData {
     rawJsonLd: null,
     stockistPageText: null,
     jsonLdImageUrls: [],
+    faviconUrls: [],
   }
 }
 

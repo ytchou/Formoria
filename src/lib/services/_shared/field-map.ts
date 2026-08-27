@@ -147,6 +147,7 @@ export function toBrandRow(
     description?: string | null;
     descriptionEn?: string | null;
     heroImageUrl?: string | null;
+    logoUrl?: string | null;
     status?: string;
     categorySlug?: string | null;
     foundingYear?: number | null;
@@ -182,6 +183,9 @@ export function toBrandRow(
    */
   if (input.heroImageUrl !== undefined)
     row.hero_image_storage_path = storagePathFromImageUrl(input.heroImageUrl);
+  if (input.logoUrl !== undefined)
+    (row as Record<string, unknown>).logo_storage_path =
+      storagePathFromImageUrl(input.logoUrl);
   if (input.status !== undefined) row.status = input.status;
   if (input.categorySlug !== undefined) row.category = input.categorySlug;
   if (input.foundingYear !== undefined) row.founding_year = input.foundingYear;

@@ -9,7 +9,7 @@ import { deleteStoredImagePaths } from './image-upload'
 import { isBrandOwnedStoragePath } from '@/lib/images/storage-keys'
 
 type BrandImageStatus = 'active' | 'candidate' | 'rejected'
-type BrandImageSource = 'scrape' | 'google_image' | 'owner' | 'admin' | 'legacy' | 'json_ld'
+type BrandImageSource = 'scrape' | 'google_image' | 'owner' | 'admin' | 'legacy' | 'json_ld' | 'favicon'
 type BrandImageProviderMetadata = Record<string, string | number | null | undefined>
 
 export type BrandImageRow = {

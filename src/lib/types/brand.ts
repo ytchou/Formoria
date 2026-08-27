@@ -66,6 +66,7 @@ export type Brand = {
   blurb: string | null;
   blurbEn: string | null;
   heroImageUrl: string | null;
+  logoUrl: string | null;
   heroImageMetadata?: {
     width: number | null;
     height: number | null;
