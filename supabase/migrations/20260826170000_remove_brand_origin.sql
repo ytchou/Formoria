@@ -7,8 +7,8 @@ declare
   v_definition text;
 begin
   foreach v_definition in array array[
-    pg_get_functiondef('public.search_brand_page(text,text[],text[],text,integer[],integer,text)'::regprocedure),
-    pg_get_functiondef('public.search_brands(text,integer,boolean,text[],text[],text,text,boolean)'::regprocedure)
+    pg_get_functiondef('public.search_brand_page(text,text[],text[],text,integer,text,text[])'::regprocedure),
+    pg_get_functiondef('public.search_brands(text,integer,boolean,text[],text[],text,text,boolean,text[])'::regprocedure)
   ] loop
     v_definition := regexp_replace(
       v_definition,
@@ -26,31 +26,38 @@ begin
     'public.apply_brand_refresh_with_protected_location_gate(uuid,uuid)'::regprocedure
   ) into v_definition;
   if (
-    length(v_definition) - length(replace(v_definition, ', ''mit_evidence''', ''))
-  ) / length(', ''mit_evidence''') <> 5 then
+    length(v_definition) - length(replace(v_definition, $$'mit_evidence'$$, ''))
+  ) / length($$'mit_evidence'$$) <> 5 then
     raise exception 'apply_brand_refresh: expected five MIT evidence allow-list entries';
   end if;
-  execute replace(v_definition, ', ''mit_evidence''', '');
+  v_definition := regexp_replace(
+    v_definition,
+    E'\\s*''mit_evidence'',',
+    '',
+    'g'
+  );
+  execute v_definition;
 
   select pg_get_functiondef(
     'public.approve_submission(uuid,uuid,jsonb)'::regprocedure
   ) into v_definition;
   v_definition := regexp_replace(
     v_definition,
-    E'category_attributes, reputation_summary, mit_evidence, mit_story, hero_image_url',
-    'category_attributes, reputation_summary, hero_image_url',
+    E'reputation_summary,\\s*mit_evidence,\\s*mit_story,\\s*hero_image_url',
+    'reputation_summary, hero_image_url',
     'g'
   );
   v_definition := regexp_replace(
     v_definition,
-    E'brand\\.reputation_summary, brand\\.mit_evidence,\\s+nullif\\(btrim\\(v_submission\\.owner_data ->> ''mitStory''\\), ''''\\),\\s+brand\\.hero_image_url',
+    E'brand\\.reputation_summary,\\s*brand\\.mit_evidence,\\s*nullif\\(btrim\\(v_submission\\.owner_data ->> ''mitStory''\\), ''''\\),\\s*brand\\.hero_image_url',
     'brand.reputation_summary, brand.hero_image_url',
     'g'
   );
-  v_definition := replace(
+  v_definition := regexp_replace(
     v_definition,
-    'reputation_summary jsonb, mit_evidence jsonb, hero_image_url text',
-    'reputation_summary jsonb, hero_image_url text'
+    E'reputation_summary jsonb,\\s*mit_evidence jsonb,\\s*hero_image_url text',
+    'reputation_summary jsonb, hero_image_url text',
+    'g'
   );
   if v_definition ~ 'mit_evidence|mit_story|mitStory' then
     raise exception 'approve_submission still references brand MIT';
@@ -109,6 +116,7 @@ begin
   end if;
 end
 $$;
+select set_config('storage.allow_delete_query', 'true', true);
 delete from storage.buckets where id = 'origin-evidence';
 drop table if exists public.origin_evidence;
 
