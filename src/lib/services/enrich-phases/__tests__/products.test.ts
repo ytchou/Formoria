@@ -882,13 +882,16 @@ describe("rawCount and productsParseError in runProductsPhase", () => {
   it("parseJson returning null sets productsParseError true and productsFromModel 0", async () => {
     modelReturnsRawContent("this is not valid JSON {{{{");
 
-    await runProductsPhase({
+    const result = await runProductsPhase({
       brand: BRAND,
       phases: PHASES,
       scrapedData: SCRAPED,
       target: { type: "submission", id: SUBMISSION_ID },
       loadStoredCandidates: async () => [],
     });
+
+    expect(result.phaseResult.status).toBe("succeeded");
+    expect(result.proposals).toHaveLength(0);
 
     const terminal = auditWrites.findLast(
       (r) => r.operation === "runProductsPhase",
@@ -902,13 +905,16 @@ describe("rawCount and productsParseError in runProductsPhase", () => {
   it("empty products array sets productsFromModel 0 with no parse error", async () => {
     modelReturns([]);
 
-    await runProductsPhase({
+    const result = await runProductsPhase({
       brand: BRAND,
       phases: PHASES,
       scrapedData: SCRAPED,
       target: { type: "submission", id: SUBMISSION_ID },
       loadStoredCandidates: async () => [],
     });
+
+    expect(result.phaseResult.status).toBe("succeeded");
+    expect(result.proposals).toHaveLength(0);
 
     const terminal = auditWrites.findLast(
       (r) => r.operation === "runProductsPhase",

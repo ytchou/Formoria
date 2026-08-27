@@ -115,10 +115,14 @@ export function createAuditedDeepSeekClient(
             ...options,
             onChatComplete: async (event) => {
               if (event.usage) {
-                const cost = await priceUsage(event.model ?? "", event.usage);
-                ctx.promptTokens = cost.promptTokens;
-                ctx.completionTokens = cost.completionTokens;
-                ctx.costUsd = cost.costUsd;
+                try {
+                  const cost = await priceUsage(event.model ?? "", event.usage);
+                  ctx.promptTokens = cost.promptTokens;
+                  ctx.completionTokens = cost.completionTokens;
+                  ctx.costUsd = cost.costUsd;
+                } catch {
+                  // Price lookup must never prevent the audit row from being written.
+                }
               }
               return persistAuditEvent(context, event, spanId);
             },
@@ -181,10 +185,14 @@ export function createAuditedOpenAIClient(
             ...options,
             onChatComplete: async (event) => {
               if (event.usage) {
-                const cost = await priceUsage(event.model ?? "", event.usage);
-                ctx.promptTokens = cost.promptTokens;
-                ctx.completionTokens = cost.completionTokens;
-                ctx.costUsd = cost.costUsd;
+                try {
+                  const cost = await priceUsage(event.model ?? "", event.usage);
+                  ctx.promptTokens = cost.promptTokens;
+                  ctx.completionTokens = cost.completionTokens;
+                  ctx.costUsd = cost.costUsd;
+                } catch {
+                  // Price lookup must never prevent the audit row from being written.
+                }
               }
               return persistAuditEvent(context, event, spanId);
             },
