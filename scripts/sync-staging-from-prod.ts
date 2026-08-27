@@ -251,6 +251,7 @@ export const KNOWN_COLUMNS: Record<CopyTable, readonly string[]> = {
     "material",
     "hero_image_url",
     "hero_image_storage_path",
+    "logo_storage_path",
     "other_urls",
     "purchase_website",
     "purchase_pinkoi",
@@ -275,7 +276,6 @@ export const KNOWN_COLUMNS: Record<CopyTable, readonly string[]> = {
     "updated_at",
   ],
   brand_images: [
-    "alt_zh",
     "id",
     "alt_zh",
     "brand_id",
