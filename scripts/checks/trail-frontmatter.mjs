@@ -11,8 +11,6 @@ import matter from "gray-matter";
 
 const TRAILS_DIR = "content/trails";
 const PUBLIC_DIR = "public";
-const FAQ_MIN = 4;
-const FAQ_MAX = 6;
 const LOCALES = new Set(["zh-TW", "en"]);
 
 /**
@@ -149,24 +147,6 @@ function checkTrail(file, raw) {
         );
       }
     }
-  }
-
-  if (
-    !Array.isArray(data.faq) ||
-    data.faq.length < FAQ_MIN ||
-    data.faq.length > FAQ_MAX
-  ) {
-    fileFailures.push(
-      `${file}: \`faq\` must contain ${FAQ_MIN}-${FAQ_MAX} entries`,
-    );
-  } else {
-    data.faq.forEach((entry, index) => {
-      if (!entry || !isNonEmptyString(entry.q) || !isNonEmptyString(entry.a)) {
-        fileFailures.push(
-          `${file}: \`faq[${index}]\` needs both \`q\` and \`a\``,
-        );
-      }
-    });
   }
 
   if (isNonEmptyString(data.heroImage) && data.heroImage.startsWith("/")) {

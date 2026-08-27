@@ -734,7 +734,13 @@ const CARD_IMAGE_SELECT =
 
 type CardImageRow = Pick<
   Database["public"]["Tables"]["brand_images"]["Row"],
-  "brand_id" | "storage_path" | "tags" | "sort_order" | "width" | "height" | "alt_zh"
+  | "brand_id"
+  | "storage_path"
+  | "tags"
+  | "sort_order"
+  | "width"
+  | "height"
+  | "alt_zh"
 >;
 
 /**
@@ -1453,13 +1459,15 @@ export function directoryBrandCategoryFilter(
   if (subcategorySlugs.length > 0) return undefined;
   return categorySlugs.length > 0
     ? [...categorySlugs]
-    : VISIBLE_L1_CATEGORIES.map(c => c.slug);
+    : VISIBLE_L1_CATEGORIES.map((c) => c.slug);
 }
 
 /** Derived from `DEFERRED_CATEGORY_SLUGS` — display-name filter because
  *  `search_brands` RPC only returns `primary_category_name`, not the slug. */
 const DEFERRED_CATEGORY_NAMES: ReadonlySet<string> = new Set(
-  L1_CATEGORIES.filter(c => DEFERRED_CATEGORY_SLUGS.has(c.slug)).flatMap(c => [c.name, c.nameZh])
+  L1_CATEGORIES.filter((c) => DEFERRED_CATEGORY_SLUGS.has(c.slug)).flatMap(
+    (c) => [c.name, c.nameZh],
+  ),
 );
 
 function getBrandsSelect(filters: GetBrandsFilters | undefined): "*" {
@@ -1623,7 +1631,6 @@ export async function getBrands(
 
   let query = supabase.from("brands").select(selectClause, { count: "exact" });
 
-
   if (!filters?.includeTestBrands) {
     query = excludeTestBrands(query);
   }
@@ -1689,10 +1696,7 @@ export async function getBrands(
 
 /** Public directory boundary: only card fields are returned to the caller. */
 export async function getPublicBrandCards(
-  filters?: Pick<
-    BrandFilters,
-    "category" | "materials" | "search" | "sort"
-  > & {
+  filters?: Pick<BrandFilters, "category" | "materials" | "search" | "sort"> & {
     page?: number;
     subcategoryTags?: string[];
   },
@@ -1900,7 +1904,7 @@ export async function getMaterialCounts(): Promise<Map<string, number>> {
   return summarizeMaterialCounts(await getCachedSubcategoryRows());
 }
 
-export const EXPLORE_BRAND_LIMIT = 8;
+export const EXPLORE_BRAND_LIMIT = 12;
 
 const getCachedExploreBrandPool = unstable_cache(
   () =>
@@ -1995,7 +1999,9 @@ export async function searchBrandsAutocomplete(
   }
 
   return (data ?? [])
-    .filter((row) => !DEFERRED_CATEGORY_NAMES.has(row.primary_category_name ?? ""))
+    .filter(
+      (row) => !DEFERRED_CATEGORY_NAMES.has(row.primary_category_name ?? ""),
+    )
     .map((row) => ({
       id: row.id,
       slug: row.slug,
@@ -2541,11 +2547,19 @@ export async function getBrandStats(): Promise<{
           .from("brands")
           .select(BRAND_COLUMNS as "*", { count: "exact", head: true })
           .eq("status", "approved")
-          .or(`category.is.null,category.in.(${VISIBLE_L1_CATEGORIES.map(c => c.slug).join(",")})`),
+          .or(
+            `category.is.null,category.in.(${VISIBLE_L1_CATEGORIES.map((c) => c.slug).join(",")})`,
+          ),
       ),
       excludeTestBrands(
-        supabase.from("brands").select("category").eq("status", "approved")
-          .in("category", VISIBLE_L1_CATEGORIES.map(c => c.slug)),
+        supabase
+          .from("brands")
+          .select("category")
+          .eq("status", "approved")
+          .in(
+            "category",
+            VISIBLE_L1_CATEGORIES.map((c) => c.slug),
+          ),
       ).not("category", "is", null),
     ]);
 

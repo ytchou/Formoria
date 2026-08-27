@@ -25,11 +25,12 @@ const TRAIL_URL = trail ? `/discover/${trail.slug}` : "/discover";
 // anchor into the brand page at this product.
 const PRODUCT_ANCHOR = 'a[href*="#product-"]';
 const OFFICIAL_DESTINATION = /前往(?:產品|品牌)官方網站/;
-// `discover.sectionNavAria`. 風格 is the ONE name this surface has (DESIGN.md,
-// D5/D10): the nav link, the footer link, the `<h1>` and this landmark all say
-// it. The old 主題選物段落 was the second name the same surface used to carry,
-// and the two disagreeing is the seam DEV-1514 closes.
 const SECTION_NAV = "風格段落";
+const REMOVED_CLOSING_HEADINGS = [
+  "常見問題",
+  "這一頁沒有放什麼",
+  "探索相關分類",
+];
 
 test.describe("Discovery trail deep", () => {
   // DEV-1518 deleted the supply gate, so `/discover/<slug>` no longer 404s for
@@ -88,10 +89,6 @@ test.describe("Discovery trail deep", () => {
 
     const section = trail?.sections.at(0);
     test.skip(!section, "published trail has no sections");
-    await anonPage
-      .getByRole("navigation", { name: SECTION_NAV })
-      .getByRole("link", { name: section?.title ?? "", exact: true })
-      .click();
 
     const sectionHeading = anonPage.getByRole("heading", {
       name: section.title,
@@ -153,23 +150,29 @@ test.describe("Discovery trail deep", () => {
     expect(new URL(href!).origin).not.toBe(new URL(anonPage.url()).origin);
   });
 
-  test("anchor nav moves focus to the target section", async ({ anonPage }) => {
+  test("trail renders sections without redundant section navigation", async ({
+    anonPage,
+  }) => {
     const response = await anonPage.goto(TRAIL_URL);
     test.skip(response?.status() === 503, "PREVIEW_MODE active");
 
     const section = trail?.sections.at(1);
     test.skip(!section, "published trail has fewer than two sections");
-    const targetHeading = anonPage.getByRole("heading", {
-      name: section?.title ?? "",
-      level: 2,
-      exact: true,
-    });
-    await anonPage
-      .getByRole("navigation", { name: SECTION_NAV })
-      .getByRole("link", { name: section?.title ?? "", exact: true })
-      .click();
-
-    await expect(targetHeading).toBeFocused({ timeout: BUDGET.INTERACTIVE });
+    await expect(
+      anonPage.getByRole("navigation", { name: SECTION_NAV }),
+    ).toHaveCount(0);
+    for (const heading of REMOVED_CLOSING_HEADINGS) {
+      await expect(
+        anonPage.getByRole("heading", { name: heading, exact: true }),
+      ).toHaveCount(0);
+    }
+    await expect(
+      anonPage.getByRole("heading", {
+        name: section?.title ?? "",
+        level: 2,
+        exact: true,
+      }),
+    ).toBeVisible({ timeout: BUDGET.SERVER_RENDER });
   });
 
   test("hub lists the published trail", async ({ anonPage }) => {
