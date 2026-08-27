@@ -57,8 +57,7 @@ test.describe("SEO deep", () => {
         heading: "Life can look a little more like you.",
         positioning:
           "Formoria is a Taiwanese brand discovery and curation platform — start from life, meet the products and the brands.",
-        manifestoHeading:
-          "Helping good things find more people.",
+        manifestoHeading: "Helping good things find more people.",
       },
     ] as const;
     const aboutLocales = [

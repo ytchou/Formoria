@@ -40,11 +40,17 @@ describe("legacy category redirects", () => {
       "/en/category/:category",
       "/zh-TW/category/:category",
     ]);
-    const legacyRedirects = redirects?.filter(({ source }) => legacySources.has(source));
+    const legacyRedirects = redirects?.filter(({ source }) =>
+      legacySources.has(source),
+    );
 
     expect(legacyRedirects).toHaveLength(3);
-    expect(legacyRedirects?.every((redirect) => redirect.statusCode === 301)).toBe(true);
-    expect(legacyRedirects?.every((redirect) => !('permanent' in redirect))).toBe(true);
+    expect(
+      legacyRedirects?.every((redirect) => redirect.statusCode === 301),
+    ).toBe(true);
+    expect(
+      legacyRedirects?.every((redirect) => !("permanent" in redirect)),
+    ).toBe(true);
   });
 
   it("does not redirect localized category indexes to the brand directory", async () => {
