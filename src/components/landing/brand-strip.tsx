@@ -26,7 +26,7 @@ export default async function BrandStrip({
 
       <div className="mt-8 flex justify-between gap-6 overflow-x-auto scrollbar-none">
         {brands.map((brand) => {
-          const src = safeImageSrc(brand.heroImageUrl);
+          const src = safeImageSrc(brand.logoUrl);
 
           return (
             <Link
@@ -41,7 +41,7 @@ export default async function BrandStrip({
                   width={44}
                   height={44}
                   surface="thumb"
-                  className="rounded-full"
+                  className="rounded-full bg-surface-deep object-contain"
                 />
               ) : (
                 <div
