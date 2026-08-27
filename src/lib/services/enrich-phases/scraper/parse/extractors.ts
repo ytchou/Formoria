@@ -352,7 +352,7 @@ export function extractPinkoiProductImages(
 
       parsed.pathname = parsed.pathname.replace(
         /\/\d+x\d+\.(jpe?g|png|webp)$/i,
-        '/800x0.$1',
+        '/1080x0.$1',
       )
       urls.push(parsed.href)
       break

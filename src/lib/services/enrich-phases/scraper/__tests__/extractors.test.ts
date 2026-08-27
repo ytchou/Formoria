@@ -157,9 +157,9 @@ describe('extractPinkoiProductImages', () => {
     const $ = cheerio.load(html)
     const images = extractPinkoiProductImages($)
     expect(images).toHaveLength(3)
-    expect(images[0]).toBe('https://cdn01.pinkoi.com/product/abc1/1/800x0.jpg')
-    expect(images[1]).toBe('https://cdn01.pinkoi.com/product/abc2/1/800x0.jpg')
-    expect(images[2]).toBe('https://cdn01.pinkoi.com/product/abc3/1/800x0.jpg')
+    expect(images[0]).toBe('https://cdn01.pinkoi.com/product/abc1/1/1080x0.jpg')
+    expect(images[1]).toBe('https://cdn01.pinkoi.com/product/abc2/1/1080x0.jpg')
+    expect(images[2]).toBe('https://cdn01.pinkoi.com/product/abc3/1/1080x0.jpg')
   })
 
   it('caps at MAX_GALLERY_IMAGES', () => {
@@ -191,7 +191,7 @@ describe('extractPinkoiProductImages', () => {
       <img src="https://cdn01.pinkoi.com/product/jf8Gw87P/0/1/220x220.jpg" />
     `)
     expect(extractPinkoiProductImages($)).toEqual([
-      'https://cdn01.pinkoi.com/product/jf8Gw87P/0/1/800x0.jpg',
+      'https://cdn01.pinkoi.com/product/jf8Gw87P/0/1/1080x0.jpg',
     ])
   })
 
@@ -200,7 +200,7 @@ describe('extractPinkoiProductImages', () => {
       <img src="https://cdn02.pinkoi.com/product/abc/0/1/220x220.jpg" />
     `)
     expect(extractPinkoiProductImages($)).toEqual([
-      'https://cdn02.pinkoi.com/product/abc/0/1/800x0.jpg',
+      'https://cdn02.pinkoi.com/product/abc/0/1/1080x0.jpg',
     ])
   })
 
