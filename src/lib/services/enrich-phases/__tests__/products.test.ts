@@ -616,8 +616,9 @@ describe("runProductsPhase", () => {
     // The user content sent to the model must contain the scraped product URL.
     const user = chat.mock.calls[0]![0].user as string;
     expect(user).toContain(`${SITE}/products/clay-plate`);
-    // The imageUrl lookup should have populated the candidate (verified
-    // indirectly: the phase ran without error with the image-bearing fixture).
+    // imageUrl is set on the candidate but not surfaced in user content —
+    // candidate-selection.test.ts:scraped_candidate_with_image_passes_gates
+    // covers the gate that rejects imageless candidates directly.
   });
 
   it("scraped_candidates_get_searchPosition", async () => {
