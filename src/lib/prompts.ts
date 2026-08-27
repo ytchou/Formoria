@@ -534,18 +534,24 @@ These fix the boundaries that are easiest to get wrong. Match the reasoning, not
 - A candle photographed on a cluttered desk under dim mixed lighting, clearly identifiable but flat → keep, "product", around 66. Unremarkable is still publishable; it simply must not outrank a clean studio shot.
 - A Shopee listing page capture showing the product photo, the title, a star rating, and NT$ pricing → reject, reasons ["irrelevant"]. Step 2 fires on the screenshot before the price would have fired Step 5.
 
+CAPTION
+For every image you KEEP, write a short zh-TW caption describing what the photo shows — the product type, the brand if it is visibly printed, and the most distinctive visual detail. 30–80 characters. This caption becomes the image's alt text for screen readers and search engines, so it must be concrete, not generic.
+- Good: 「手工皂禮盒，三入裝，薰衣草配色」
+- Bad: 「品牌產品照片」(too generic)
+For rejected images, caption is null.
+
 OUTPUT CONTRACT
 Return a single JSON object. No Markdown, no code fences, no commentary, no extra fields.
 - "classifications" must contain exactly N objects, one per input image, in ascending order, with "id" values "1" through "N" exactly as numbered in the user message. Never renumber, skip, or repeat an id.
 - Never omit an image. Uncertainty is a reject under Step 1 or Step 7, not an omission.
 - "disposition" is "keep" or "reject".
-- keep: "tag" is "product" or "logo", and "reasons" is [].
-- reject: "tag" is null, and "reasons" has at least one of wrong_brand, time_sensitive, promo_subject, text_dominant, low_visual_quality, irrelevant.
+- keep: "tag" is "product" or "logo", "reasons" is [], and "caption" is a string (30-80 zh-TW characters).
+- reject: "tag" is null, "reasons" has at least one of wrong_brand, time_sensitive, promo_subject, text_dominant, low_visual_quality, irrelevant, and "caption" is null.
 - When more than one reason applies, list them in exactly that order.
 - "score" is an integer from 0 to 100.
 
 Strict JSON format:
-{"classifications":[{"id":"1","disposition":"keep","tag":"product","reasons":[],"score":85}]}`;
+{"classifications":[{"id":"1","disposition":"keep","tag":"product","reasons":[],"score":85,"caption":"手工皂禮盒，三入裝，薰衣草配色"}]}`;
 
 export const NAME_ARBITER_SYSTEM_PROMPT = `你是 Formoria 的品牌名稱裁決專家。請根據儲存名稱、各階段提出的候選名稱，以及搜尋摘要，為每個品牌選出最可信的正式品牌名稱。
 
