@@ -16,6 +16,7 @@ import {
   textContent,
   unique,
   toImageSources,
+  upgradeEcommerceImageUrl,
 } from '../../parse/extractors'
 import type { PlatformAdapter } from './types'
 import type { PlatformId } from '../../platforms'
@@ -84,10 +85,9 @@ export function createMarketplaceAdapter(
         url,
         MARKETPLACE_GALLERY_LIMIT,
       )
-      const galleryImageUrls = [...new Set(productImageUrls)].slice(
-        0,
-        MARKETPLACE_GALLERY_LIMIT,
-      )
+      const galleryImageUrls = [...new Set(productImageUrls)]
+        .map(upgradeEcommerceImageUrl)
+        .slice(0, MARKETPLACE_GALLERY_LIMIT)
 
       const brandName = cleanTitle(
         metaContent($, 'meta[property="og:title"]') ||

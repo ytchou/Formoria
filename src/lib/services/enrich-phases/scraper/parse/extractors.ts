@@ -312,10 +312,12 @@ export function extractScopedProductImages(
   const urls: string[] = []
   $(selectors.join(', ')).each((_, element) => {
     if (urls.length >= limit) return
-    const raw = $(element).attr('data-src') ?? $(element).attr('data-original') ?? $(element).attr('src')
-    if (!raw || raw.startsWith('data:')) return
+    const raw = $(element).attr('data-src') ?? $(element).attr('data-original') ?? $(element).attr('src') ?? ''
+    const srcsetFallback = raw ? '' : largestSrcsetUrl($(element).attr('srcset') ?? '')
+    const candidate = raw || srcsetFallback
+    if (!candidate || candidate.startsWith('data:')) return
     try {
-      const parsed = new URL(raw, pageUrl)
+      const parsed = new URL(candidate, pageUrl)
       if (NON_PRODUCT_IMAGE_PATH_RE.test(parsed.pathname)) return
       if (!urls.includes(parsed.href)) urls.push(parsed.href)
     } catch {}
