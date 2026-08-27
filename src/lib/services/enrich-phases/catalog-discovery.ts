@@ -462,6 +462,31 @@ export async function discoverCatalog(
           summary.renderOutcome = 'unavailable'
           if (needsRendering(listingHtml)) potentiallyUsefulUnrendered = true
         }
+        if (platform === 'generic' && routes.length === 0 && sitemap.urls.length > 0) {
+          const SKIP_PATTERN = /\/(about|contact|privacy|terms|faq|blog|news|pages|category|tag|author|cart|checkout)(\/|$)/i
+          const candidates = sitemap.urls.filter(u => {
+            try { return !SKIP_PATTERN.test(new URL(u).pathname) } catch { return false }
+          })
+          for (let i = candidates.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [candidates[i], candidates[j]] = [candidates[j], candidates[i]]
+          }
+          const sample = candidates.slice(0, 10)
+          let foundProduct = false
+          for (const sampleUrl of sample) {
+            const page = await fetcher(sampleUrl, 'html')
+            if (page.text && hasProductSignals(page.text)) {
+              foundProduct = true
+              break
+            }
+          }
+          if (foundProduct) {
+            routes = sitemap.urls.map((url, i) => ({ url, sourcePosition: i }))
+            summary.contentSamplingOutcome = 'usable'
+          } else {
+            summary.contentSamplingOutcome = 'empty'
+          }
+        }
         summary.rawUrls = routes.length
         const uniqueRoutes = selectBreadthFirst(routes).filter((route) => {
           const normalized = normalizeProductUrl(route.url)
