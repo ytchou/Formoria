@@ -84,11 +84,15 @@ function submission(
 }
 
 /**
- * Only two chains are exercised: the submission fetch in `runEnrich` and the
- * active-image count in the image-search phase. Both terminate in an awaited
- * thenable, so the builder is a self-returning proxy with a fixed payload.
+ * Only two chains are exercised: the submission fetch in `runEnrich`, the
+ * phase-history fetch from `curation_job_targets`, and the active-image count
+ * in the image-search phase. Both terminate in an awaited thenable, so the
+ * builder is a self-returning proxy with a fixed payload.
  */
-function fakeSupabase(submissions: SubmissionRow[]): SupabaseClient {
+function fakeSupabase(
+  submissions: SubmissionRow[],
+  jobTargets: Array<{ target_type: string; target_id: string; phase_results: unknown[]; created_at: string }> = [],
+): SupabaseClient {
   const builder = (rows: unknown[]): Record<string, unknown> => {
     const chain: Record<string, unknown> = {
       then: (resolve: (value: { data: unknown[]; error: null }) => unknown) =>
@@ -102,6 +106,7 @@ function fakeSupabase(submissions: SubmissionRow[]): SupabaseClient {
       "limit",
       "update",
       "single",
+      "order",
     ]) {
       chain[method] = () => chain;
     }
@@ -109,8 +114,11 @@ function fakeSupabase(submissions: SubmissionRow[]): SupabaseClient {
   };
 
   return {
-    from: (table: string) =>
-      builder(table === "brand_submissions" ? submissions : []),
+    from: (table: string) => {
+      if (table === "brand_submissions") return builder(submissions);
+      if (table === "curation_job_targets") return builder(jobTargets);
+      return builder([]);
+    },
   } as unknown as SupabaseClient;
 }
 
@@ -552,23 +560,24 @@ describe("satisfaction skipping", () => {
   });
 
   /**
-   * A submission whose `enriched_data.products` already has entries should skip
-   * the products phase with the satisfaction detail, not re-run it.
+   * A submission with a prior successful `products` run in
+   * `curation_job_targets` history should skip the products phase.
    */
-  it("satisfied_prerequisites_are_skipped", async () => {
+  it("products_satisfied_via_history_skips", async () => {
     const target = submission({
       id: "sub-satisfied",
       brand_name: "Satisfied Brand",
-      // A known URL so Gate B ("no enrichment inputs") does not fire before
-      // the per-phase loop where satisfaction skipping is visible.
       social_instagram: "https://www.instagram.com/satisfied",
-      enriched_data: {
-        products: [{ name: "Existing Product", official_url: "https://example.com/p1" }],
-      },
     });
     mocks.detectBrandsBatch.mockResolvedValue(detectBatch(new Map()));
 
-    // Phases include products — it should be skipped via satisfaction, not run.
+    const jobTargets = [{
+      target_type: "submission",
+      target_id: target.id,
+      phase_results: [{ phase: "products", status: "succeeded", changedFields: [], durationMs: 100 }],
+      created_at: "2026-08-01T00:00:00Z",
+    }];
+
     const result = await runEnrich(
       {
         target: "submissions",
@@ -577,13 +586,12 @@ describe("satisfaction skipping", () => {
         phases: ["detect", "links", "images", "products"],
         onProgress: () => {},
       },
-      fakeSupabase([target]),
+      fakeSupabase([target], jobTargets),
     );
 
     const outcome = result.brandOutcomes.find(
       (entry) => entry?.submissionId === target.id,
     );
-    // The products phase should appear as skipped with satisfaction detail.
     const productsPhase = outcome?.phaseResults?.find(
       (pr) => pr.phase === "products",
     );
@@ -593,21 +601,23 @@ describe("satisfaction skipping", () => {
   });
 
   /**
-   * When force (overwrite) is set, satisfaction predicates are bypassed and
-   * every phase runs regardless of existing data.
+   * When force (overwrite) is set, history-based satisfaction is bypassed and
+   * every phase runs regardless of prior success.
    */
-  it("force_overrides_satisfaction", async () => {
+  it("force_overrides_history_satisfaction", async () => {
     const target = submission({
       id: "sub-force",
       brand_name: "Force Brand",
-      // A known URL so Gate B ("no enrichment inputs") does not fire before
-      // the per-phase loop where the forced products phase runs.
       social_instagram: "https://www.instagram.com/forced",
-      enriched_data: {
-        products: [{ name: "Existing Product", official_url: "https://example.com/p1" }],
-      },
     });
     mocks.detectBrandsBatch.mockResolvedValue(detectBatch(new Map()));
+
+    const jobTargets = [{
+      target_type: "submission",
+      target_id: target.id,
+      phase_results: [{ phase: "products", status: "succeeded", changedFields: [], durationMs: 100 }],
+      created_at: "2026-08-01T00:00:00Z",
+    }];
 
     const result = await runEnrich(
       {
@@ -618,19 +628,50 @@ describe("satisfaction skipping", () => {
         phases: ["detect", "links", "images", "products"],
         onProgress: () => {},
       },
-      fakeSupabase([target]),
+      fakeSupabase([target], jobTargets),
     );
 
     const outcome = result.brandOutcomes.find(
       (entry) => entry?.submissionId === target.id,
     );
-    // With force, products should NOT be satisfaction-skipped.
     const productsPhase = outcome?.phaseResults?.find(
       (pr) => pr.phase === "products",
     );
     expect(productsPhase).toBeDefined();
-    // It might be skipped for other reasons (e.g. "not in scope" inside the
-    // phase runner), but NOT with the satisfaction detail.
     expect(productsPhase?.detail).not.toBe("phase output already satisfied");
+  });
+
+  /**
+   * A prior successful `links` run skips the links phase in wave A, so the
+   * scraper is never called.
+   */
+  it("links_satisfied_via_history_skips_in_wave_a", async () => {
+    const target = submission({
+      id: "sub-links-satisfied",
+      brand_name: "Links Satisfied Brand",
+      social_instagram: "https://www.instagram.com/linkssatisfied",
+    });
+    mocks.detectBrandsBatch.mockResolvedValue(detectBatch(new Map()));
+
+    const jobTargets = [{
+      target_type: "submission",
+      target_id: target.id,
+      phase_results: [{ phase: "links", status: "succeeded", changedFields: ["purchase_website"], durationMs: 200 }],
+      created_at: "2026-08-01T00:00:00Z",
+    }];
+
+    await runEnrich(
+      {
+        target: "submissions",
+        submissionIds: [target.id],
+        dryRun: true,
+        phases: ["detect", "links", "images"],
+        onProgress: () => {},
+      },
+      fakeSupabase([target], jobTargets),
+    );
+
+    // links is satisfied, so scrapeBrandUrls should NOT be called for this brand
+    expect(mocks.scrapeBrandUrls).not.toHaveBeenCalled();
   });
 });

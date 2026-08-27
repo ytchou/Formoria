@@ -86,8 +86,8 @@ import {
   MAX_SUBCATEGORIES,
 } from "./subcategories";
 import {
+  fetchPhaseHistory,
   filterSatisfiedPhases,
-  type PhaseSatisfactionData,
 } from "./enrich-phases/phase-satisfaction";
 import {
   formatBrandComplete,
@@ -1120,6 +1120,7 @@ type BrandWaveContext = {
   urlExtracted: Partial<BrandFlatLinkColumns>;
   currentPhase: string | undefined;
   completed: boolean;
+  satisfiedPhaseSet: Set<EnrichPhaseName>;
 };
 
 export function createEnrichmentSummary(
@@ -1502,22 +1503,6 @@ export async function runEnrich(
           overwrite: config.overwrite === true,
         }),
       );
-
-      // Satisfaction-check snapshots: the submission's enriched_data and
-      // brand_id are needed per brand to decide which phases can be skipped.
-      // Built once here rather than re-queried per target.
-      const submissionEnrichedDataMap = new Map<
-        string,
-        Record<string, unknown> | null
-      >();
-      const submissionBrandIdMap = new Map<string, string | null>();
-      for (const sub of typedSubmissions) {
-        submissionEnrichedDataMap.set(
-          sub.id,
-          isPlainObject(sub.enriched_data) ? sub.enriched_data : null,
-        );
-        submissionBrandIdMap.set(sub.id, sub.brand_id);
-      }
 
       const totalBrands = allBrands.length;
       for (const line of formatJobStart(totalBrands)) {
@@ -2031,75 +2016,102 @@ export async function runEnrich(
               urlExtracted: {},
               currentPhase: undefined,
               completed: false,
+              satisfiedPhaseSet: new Set(),
             };
             brandContexts.set(brand.id, ctx);
             const state = ctx.state;
 
+            // ---- Satisfaction check (history-based) --------------------------
+            // Fetch phase-success history and pre-compute which phases can be
+            // skipped. This runs once per target in wave A so the guards below
+            // and in wave B can read `ctx.satisfiedPhaseSet` synchronously.
+            const history = await fetchPhaseHistory(
+              supabase as unknown as SupabaseClient,
+              'submission',
+              brand.id,
+            );
+            const { skipped: satisfiedSkips } = filterSatisfiedPhases(
+              phases as EnrichPhaseName[],
+              history,
+              ctx.overwrite,
+            );
+            ctx.satisfiedPhaseSet = new Set(satisfiedSkips.map((s) => s.phase));
+            for (const skip of satisfiedSkips) {
+              state.phaseResults.push(buildPhaseResult(skip.phase, "skipped", [], 0, undefined, "phase output already satisfied"));
+              await logCurrentPhase(ctx, state.phaseResults[state.phaseResults.length - 1]);
+            }
+            if (satisfiedSkips.length > 0) {
+              onProgress(`  [SATISFACTION] ${brand.slug}: skipped ${satisfiedSkips.map((s) => s.phase).join(", ")} (already satisfied)`);
+            }
+
             await emitTargetProgress(ctx, "running");
 
             try {
-              const detectApplication = applyDetectResult(
-                ctx.detectResult,
-                brand,
-                phases,
-              );
-              if (hasDetectPhases) {
-                await markCurrentPhase(ctx, "detect");
-                const detectEntry = detectProviderFailure
-                  ? {
-                      ...detectPhaseResult.phaseResult,
-                      changedFields: [],
-                    }
-                  : detectApplication.phaseResult;
-                state.phaseResults.push(detectEntry);
-                await logCurrentPhase(ctx, detectEntry);
-              }
-              appendPatch(state, detectApplication.patch);
-
-              if (detectApplication.isNonBrand) {
-                const detectResult = ctx.detectResult;
-                const skipReason = detectResult?.nonBrandReason
-                  ? `Detection classified this entry as not a brand: ${detectResult.nonBrandReason}`
-                  : "Detection classified this entry as not a brand";
-                onProgress(
-                  `  [NON-BRAND] ${brand.slug}: ${detectResult?.nonBrandReason ?? "non-brand"} (${detectResult?.confidence})`,
+              let detectApplication: ReturnType<typeof applyDetectResult> | undefined;
+              if (!ctx.satisfiedPhaseSet.has("detect")) {
+                detectApplication = applyDetectResult(
+                  ctx.detectResult,
+                  brand,
+                  phases,
                 );
-
-                if (!config.dryRun) {
-                  await insertTriageResult({
-                    brandId: brand.id,
-                    target: { type: targetType, id: brand.id },
-                    isNonBrand: true,
-                    nonBrandReason: detectResult?.nonBrandReason ?? null,
-                    slugGenerated: detectResult?.slugGenerated ?? null,
-                    categorySlug: detectResult?.categorySlug ?? null,
-                    confidence: detectResult?.confidence ?? "high",
-                  });
+                if (hasDetectPhases) {
+                  await markCurrentPhase(ctx, "detect");
+                  const detectEntry = detectProviderFailure
+                    ? {
+                        ...detectPhaseResult.phaseResult,
+                        changedFields: [],
+                      }
+                    : detectApplication.phaseResult;
+                  state.phaseResults.push(detectEntry);
+                  await logCurrentPhase(ctx, detectEntry);
                 }
+                appendPatch(state, detectApplication.patch);
 
-                await recordOutcome(ctx, {
-                  slug: brand.slug,
-                  name: getDisplayBrandName(brand),
-                  ...(target === "submissions"
-                    ? { submissionId: brand.id }
-                    : {}),
-                  status: "skipped",
-                  changedFields: changedFieldsFromPhaseResults(
-                    state.phaseResults,
-                  ),
-                  phaseResults: state.phaseResults,
-                  error: skipReason,
-                });
-                result.skipped += 1;
-                finishBrand(ctx);
-                return;
+                if (detectApplication.isNonBrand) {
+                  const detectResult = ctx.detectResult;
+                  const skipReason = detectResult?.nonBrandReason
+                    ? `Detection classified this entry as not a brand: ${detectResult.nonBrandReason}`
+                    : "Detection classified this entry as not a brand";
+                  onProgress(
+                    `  [NON-BRAND] ${brand.slug}: ${detectResult?.nonBrandReason ?? "non-brand"} (${detectResult?.confidence})`,
+                  );
+
+                  if (!config.dryRun) {
+                    await insertTriageResult({
+                      brandId: brand.id,
+                      target: { type: targetType, id: brand.id },
+                      isNonBrand: true,
+                      nonBrandReason: detectResult?.nonBrandReason ?? null,
+                      slugGenerated: detectResult?.slugGenerated ?? null,
+                      categorySlug: detectResult?.categorySlug ?? null,
+                      confidence: detectResult?.confidence ?? "high",
+                    });
+                  }
+
+                  await recordOutcome(ctx, {
+                    slug: brand.slug,
+                    name: getDisplayBrandName(brand),
+                    ...(target === "submissions"
+                      ? { submissionId: brand.id }
+                      : {}),
+                    status: "skipped",
+                    changedFields: changedFieldsFromPhaseResults(
+                      state.phaseResults,
+                    ),
+                    phaseResults: state.phaseResults,
+                    error: skipReason,
+                  });
+                  result.skipped += 1;
+                  finishBrand(ctx);
+                  return;
+                }
               }
 
               if (searchError) {
                 throw new Error(searchError);
               }
 
-              if (phases.includes("discover")) {
+              if (phases.includes("discover") && !ctx.satisfiedPhaseSet.has("discover")) {
                 const searchResult = searchResults.get(
                   getDisplayBrandName(brand),
                 ) ?? { urls: [], snippets: [] };
@@ -2126,29 +2138,36 @@ export async function runEnrich(
                 getDisplayBrandName(brand),
               );
 
-              await markCurrentPhase(ctx, "clean");
-              const cleanResult = await runCleanPhase(
-                brand,
-                phases,
-                nameCleanups.get(brand.id),
-              );
-              state.phaseResults.push(cleanResult.phaseResult);
-              await logCurrentPhase(ctx, cleanResult.phaseResult);
-              await markCurrentPhase(ctx, "links");
-              const linksResult = await runLinksPhase({
-                brand,
-                phases,
-                discoveredUrls: state.discoveredUrls,
-                knownUrls: state.knownUrls,
-                dryRun: config.dryRun,
-                target: { type: targetType, id: brand.id },
-                jobId: config.jobId,
-              });
-              ctx.linksResult = linksResult;
-              state.phaseResults.push(linksResult.phaseResult);
-              await logCurrentPhase(ctx, linksResult.phaseResult);
-              state.scrapedData = linksResult.scrapedData ?? {};
-              appendPatch(state, linksResult.patch);
+              let cleanResult: Awaited<ReturnType<typeof runCleanPhase>> | undefined;
+              if (!ctx.satisfiedPhaseSet.has("clean")) {
+                await markCurrentPhase(ctx, "clean");
+                cleanResult = await runCleanPhase(
+                  brand,
+                  phases,
+                  nameCleanups.get(brand.id),
+                );
+                state.phaseResults.push(cleanResult.phaseResult);
+                await logCurrentPhase(ctx, cleanResult.phaseResult);
+              }
+
+              let linksResult: Awaited<ReturnType<typeof runLinksPhase>> | undefined;
+              if (!ctx.satisfiedPhaseSet.has("links")) {
+                await markCurrentPhase(ctx, "links");
+                linksResult = await runLinksPhase({
+                  brand,
+                  phases,
+                  discoveredUrls: state.discoveredUrls,
+                  knownUrls: state.knownUrls,
+                  dryRun: config.dryRun,
+                  target: { type: targetType, id: brand.id },
+                  jobId: config.jobId,
+                });
+                ctx.linksResult = linksResult;
+                state.phaseResults.push(linksResult.phaseResult);
+                await logCurrentPhase(ctx, linksResult.phaseResult);
+                state.scrapedData = linksResult.scrapedData ?? {};
+                appendPatch(state, linksResult.patch);
+              }
 
               // DEV-1321: every proposer that used to write `name` contributes a
               // CANDIDATE here instead. `stored` is the value the DATABASE holds —
@@ -2164,7 +2183,7 @@ export async function runEnrich(
                 },
               ];
               const cleanedName =
-                cleanResult.cleanedName ??
+                cleanResult?.cleanedName ??
                 nameCleanups.get(brand.id)?.cleanedName;
               if (cleanedName) {
                 candidates.push({
@@ -2172,13 +2191,13 @@ export async function runEnrich(
                   value: cleanedName,
                 });
               }
-              if (detectApplication.brandName) {
+              if (detectApplication?.brandName) {
                 candidates.push({
                   source: "detected",
                   value: detectApplication.brandName,
                 });
               }
-              if (linksResult.scrapedBrandName) {
+              if (linksResult?.scrapedBrandName) {
                 candidates.push({
                   source: "scraped",
                   value: linksResult.scrapedBrandName,
@@ -2380,71 +2399,9 @@ export async function runEnrich(
             const overwrite = ctx.overwrite;
 
             try {
-              // ---- Satisfaction skipping ----------------------------------------
-              // A phase whose output is already present is skipped unless the run
-              // is forced (overwrite). The snapshot is built once per brand — the
-              // predicates are pure and never touch Supabase.
-              let brandImagesCount = 0;
-              const brandId = submissionBrandIdMap.get(brand.id);
-              if (brandId) {
-                const { count, error: countError } = await (
-                  supabase as unknown as SupabaseClient
-                )
-                  .from("brand_images")
-                  .select("id", { count: "exact", head: true })
-                  .eq("brand_id", brandId);
-                if (!countError && typeof count === "number") {
-                  brandImagesCount = count;
-                }
-              }
-              const satisfactionData: PhaseSatisfactionData = {
-                brand: {
-                  purchase_website: brand.purchase_website ?? null,
-                  website:
-                    ((brand as Record<string, unknown>).website_url as
-                      | string
-                      | null) ?? null,
-                  description: brand.description ?? null,
-                  founding_year:
-                    ((brand as Record<string, unknown>).founding_year as
-                      | number
-                      | null) ?? null,
-                },
-                submission: {
-                  enriched_data:
-                    submissionEnrichedDataMap.get(brand.id) ?? null,
-                },
-                brandImagesCount,
-              };
-              const { skipped: satisfiedSkips } = filterSatisfiedPhases(
-                phases as EnrichPhaseName[],
-                satisfactionData,
-                overwrite,
-              );
-              const satisfiedPhaseSet = new Set(
-                satisfiedSkips.map((skip) => skip.phase),
-              );
-              // Record satisfied skips as phase results so the admin timeline shows
-              // "links: skipped — phase output already satisfied" rather than a
-              // silent gap. The detail string is distinct from "not requested" and
-              // "deferred" used elsewhere.
-              for (const skip of satisfiedSkips) {
-                const phaseResult = buildPhaseResult(
-                  skip.phase,
-                  "skipped",
-                  [],
-                  0,
-                  undefined,
-                  "phase output already satisfied",
-                );
-                state.phaseResults.push(phaseResult);
-                await logCurrentPhase(ctx, phaseResult);
-              }
-              if (satisfiedSkips.length > 0) {
-                onProgress(
-                  `  [SATISFACTION] ${brand.slug}: skipped ${satisfiedSkips.map((s) => s.phase).join(", ")} (already satisfied)`,
-                );
-              }
+              // Satisfaction was already computed in wave A and stored on the
+              // context — wave B reads it synchronously.
+              const satisfiedPhaseSet = ctx.satisfiedPhaseSet;
 
               let imageSearchUrls: string[] = [];
               if (
