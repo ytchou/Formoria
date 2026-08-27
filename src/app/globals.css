@@ -104,29 +104,10 @@
   --verified-green-bg: oklch(0.95 0.02 140); /* Unchanged */
   --mit-verified: oklch(0.4 0.08 65); /* Unchanged */
   --mit-verified-bg: oklch(0.96 0.03 65); /* Unchanged */
-  /* THE HEADER'S HEIGHT IS DERIVED, NOT TYPED TWICE.
-     Six sticky elements park below the header with `top-(--nav-height)`, so a
-     header row that grows without this number growing hides their first pixels
-     under the z-50 bar. It already happened once: row 1 went `h-14` -> `h-16`
-     and a `min-h-12` category row was added while this token still read 100px,
-     leaving the brand section nav 13px short. So the two rows now READ their
-     height from these tokens (`main-nav.tsx`, `nav-category-tabs.tsx`) and the
-     sum below is the only place the total exists. Change a row here, not
-     there. */
+  /* Six sticky elements park below the header with `top-(--nav-height)`, so
+     the header and its offset both read the same primary-row token. */
   --nav-row-primary: 4rem; /* row 1: wordmark | search | links */
-  --nav-row-categories: 3rem; /* row 2: the L1 category tabs (minimum) */
   --nav-rule: 1px; /* the header's bottom hairline */
-  --nav-height: calc(
-    var(--nav-row-primary) + var(--nav-row-categories) + var(--nav-rule)
-  );
-}
-
-/* On the landing page the category row is not rendered (the hero carries its
-   own category chips), so `--nav-height` must shrink to match. Six sticky
-   elements use `top-(--nav-height)` — without this override they would sit
-   3rem too low on `/`. The class is applied by `MainNav` when
-   `pathname === "/"`. */
-.nav-landing {
   --nav-height: calc(var(--nav-row-primary) + var(--nav-rule));
 }
 

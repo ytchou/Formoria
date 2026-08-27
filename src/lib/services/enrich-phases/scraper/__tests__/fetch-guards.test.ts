@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
+import { gzipSync } from 'node:zlib'
 import { resetAuditEmitterForTests, setAuditWriteSeam, type AuditRecord } from '@/lib/audit'
-import { isPrivateUrl, fetchHtml, fetchHtmlWithMetadata, resolveUrl } from '../fetch-guards'
+import { isPrivateUrl, fetchHtml, fetchHtmlWithMetadata, fetchXml, resolveUrl } from '../fetch-guards'
 
 let writes: AuditRecord[]
 
@@ -155,5 +156,33 @@ describe('fetchHtml', () => {
     expect(finish?.status).not.toBe('network_error')
     expect(finish?.status).not.toBe('timeout')
     expect(fetchSpy).not.toHaveBeenCalled()
+  })
+})
+
+describe('fetchXml', () => {
+  it('rejects an invalid URL without throwing or fetching', async () => {
+    const fetchSpy = vi.fn()
+    vi.stubGlobal('fetch', fetchSpy)
+
+    await expect(fetchXml('not a URL')).resolves.toBeNull()
+    expect(fetchSpy).not.toHaveBeenCalled()
+  })
+
+  it('decodes an application/octet-stream sitemap ending in .xml.gz', async () => {
+    const xml =
+      '<?xml version="1.0"?><urlset><url><loc>https://www.clany.com.tw/SalePage/Index/12084942</loc></url></urlset>'
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue(
+        new Response(gzipSync(xml), {
+          status: 200,
+          headers: { 'content-type': 'application/octet-stream' },
+        }),
+      ),
+    )
+
+    await expect(
+      fetchXml('https://www.clany.com.tw/Sitemap/sitemap_ShopSalePage.xml.gz'),
+    ).resolves.toBe(xml)
   })
 })

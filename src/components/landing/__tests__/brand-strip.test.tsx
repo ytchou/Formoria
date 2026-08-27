@@ -117,36 +117,25 @@ describe("BrandStrip", () => {
     expect(screen.getByText("count")).toBeInTheDocument();
   });
 
-  it("renders logo image with object-contain when brand has logoUrl", async () => {
+  it("renders hero image for brands with heroImageUrl", async () => {
     render(await BrandStrip({ brands: mockBrands, totalCount: 700 }));
 
     const images = screen.getAllByTestId("brand-image");
-    // Brand A, Brand B (logoUrl), and Brand D (heroImageUrl fallback)
     expect(images).toHaveLength(3);
-    expect(images[0]).toHaveAttribute("src", "/i/logos/a.webp");
+    expect(images[0]).toHaveAttribute("src", "/img/a.webp");
     expect(images[0]).toHaveAttribute(
       "class",
-      expect.stringContaining("object-contain"),
+      expect.stringContaining("rounded-full"),
     );
-    expect(images[1]).toHaveAttribute("src", "/i/logos/b.webp");
-    expect(images[1]).toHaveAttribute(
-      "class",
-      expect.stringContaining("object-contain"),
-    );
+    expect(images[1]).toHaveAttribute("src", "/img/b.webp");
+    expect(images[2]).toHaveAttribute("src", "/img/d.webp");
   });
 
-  it("falls back to heroImageUrl with object-cover when no logoUrl", async () => {
-    const brandsWithHeroOnly = [mockBrands[3]];
-    render(await BrandStrip({ brands: brandsWithHeroOnly, totalCount: 1 }));
+  it("does not render image when brand has no heroImageUrl", async () => {
+    const brandsWithoutHero = [mockBrands[2]];
+    render(await BrandStrip({ brands: brandsWithoutHero, totalCount: 1 }));
 
-    const images = screen.getAllByTestId("brand-image");
-    expect(images).toHaveLength(1);
-    expect(images[0]).toHaveAttribute("src", "/img/d.webp");
-    expect(images[0]).toHaveAttribute(
-      "class",
-      expect.stringContaining("object-cover"),
-    );
-    expect(images[0].getAttribute("class")).not.toContain("object-contain");
+    expect(screen.queryByTestId("brand-image")).not.toBeInTheDocument();
   });
 
   it("renders initial-letter fallback when brand has neither logoUrl nor heroImageUrl", async () => {

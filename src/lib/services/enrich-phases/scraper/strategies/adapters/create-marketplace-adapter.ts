@@ -4,7 +4,6 @@ import {
   domBreadcrumbs,
   emptyResult,
   extractCategoryHints,
-  extractGalleryImages,
   extractJsonLd,
   extractPurchaseLinks,
   extractSocialLinks,
@@ -19,6 +18,7 @@ import {
   toImageSources,
 } from '../../parse/extractors'
 import type { PlatformAdapter } from './types'
+import type { PlatformId } from '../../platforms'
 
 // Marketplace adapter images are free — no API credit is spent — and measure
 // higher quality than search results, so a wider pool just gives the ranker
@@ -29,10 +29,15 @@ const MARKETPLACE_GALLERY_LIMIT = 20
 export interface MarketplaceAdapterConfig {
   host: string
   titleSuffixPatterns: RegExp[]
-  productImageExtractor: ($: cheerio.CheerioAPI, limit?: number) => string[]
+  productImageExtractor: (
+    $: cheerio.CheerioAPI,
+    pageUrl: string,
+    limit?: number,
+  ) => string[]
   purchaseKey: OnlineStoreCamelField
   /** Stable provenance slug recorded on every image this adapter yields. */
   imageMethod: string
+  platform?: PlatformId
   /**
    * First name fallback, tried after og:title / JSON-LD name / `<h1>`.
    * Historically the class-based storefront heading selector.
@@ -48,17 +53,25 @@ export interface MarketplaceAdapterConfig {
   matchesPath?: (url: string) => boolean
 }
 
-function cleanTitle(title: string | null, titleSuffixPatterns: RegExp[]): string | null {
+function cleanTitle(
+  title: string | null,
+  titleSuffixPatterns: RegExp[],
+): string | null {
   if (!title) return null
 
-  const cleaned = titleSuffixPatterns.reduce((value, pattern) => value.replace(pattern, ''), title).trim()
+  const cleaned = titleSuffixPatterns
+    .reduce((value, pattern) => value.replace(pattern, ''), title)
+    .trim()
 
   return cleaned || title
 }
 
-export function createMarketplaceAdapter(config: MarketplaceAdapterConfig): PlatformAdapter {
+export function createMarketplaceAdapter(
+  config: MarketplaceAdapterConfig,
+): PlatformAdapter {
   return {
     host: config.host,
+    platform: config.platform,
     matches: (url) =>
       hostMatches(url, config.host) && (config.matchesPath?.(url) ?? true),
     parse(html, url) {
@@ -66,31 +79,37 @@ export function createMarketplaceAdapter(config: MarketplaceAdapterConfig): Plat
       const result = emptyResult(url)
       const rawJsonLd = extractJsonLd($)
       const structuredStore = findStructuredStore(rawJsonLd)
-      const productImageUrls = config.productImageExtractor($, MARKETPLACE_GALLERY_LIMIT)
-      const galleryImageUrls = [
-        ...new Set([
-          ...productImageUrls,
-          ...extractGalleryImages($, url, { limit: MARKETPLACE_GALLERY_LIMIT }),
-        ]),
-      ].slice(0, MARKETPLACE_GALLERY_LIMIT)
+      const productImageUrls = config.productImageExtractor(
+        $,
+        url,
+        MARKETPLACE_GALLERY_LIMIT,
+      )
+      const galleryImageUrls = [...new Set(productImageUrls)].slice(
+        0,
+        MARKETPLACE_GALLERY_LIMIT,
+      )
 
       const brandName = cleanTitle(
         metaContent($, 'meta[property="og:title"]') ||
           firstString(structuredStore?.name) ||
           textContent($, 'h1') ||
           textContent($, config.shopNameSelector ?? '[class*="shop-name"]') ||
-          textContent($, config.fallbackNameSelector ?? '[data-testid*="shop"] h1'),
-        config.titleSuffixPatterns
+          textContent(
+            $,
+            config.fallbackNameSelector ?? '[data-testid*="shop"] h1',
+          ),
+        config.titleSuffixPatterns,
       )
 
-      const fallbackDescription = (
-        config.fallbackDescriptionSelectors ?? [
-          '[class*="shop-description"]',
-          '[class*="description"]',
-        ]
-      )
-        .map((selector) => textContent($, selector))
-        .find((value): value is string => Boolean(value)) ?? null
+      const fallbackDescription =
+        (
+          config.fallbackDescriptionSelectors ?? [
+            '[class*="shop-description"]',
+            '[class*="description"]',
+          ]
+        )
+          .map((selector) => textContent($, selector))
+          .find((value): value is string => Boolean(value)) ?? null
       const description =
         metaContent($, 'meta[property="og:description"]') ||
         metaContent($, 'meta[name="description"]') ||
@@ -108,8 +127,10 @@ export function createMarketplaceAdapter(config: MarketplaceAdapterConfig): Plat
         description,
         story: description,
         heroImageUrl: heroCandidate
-          ? filterHeroImage(heroCandidate, url) ?? galleryImageUrls.at(0) ?? null
-          : galleryImageUrls.at(0) ?? null,
+          ? (filterHeroImage(heroCandidate, url) ??
+            galleryImageUrls.at(0) ??
+            null)
+          : (galleryImageUrls.at(0) ?? null),
         galleryImageUrls,
         imageSources: toImageSources(galleryImageUrls, config.imageMethod, url),
         ...extractSocialLinks($),

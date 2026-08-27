@@ -250,9 +250,6 @@ export default async function BrandDetailPage({ params }: PageProps) {
           },
         ]
       : []),
-    ...(description
-      ? [{ id: "about", label: tBrandDetail("tabNav.about") }]
-      : []),
     // Both link sections render unconditionally now — a stockist with no known
     // URL shows as a dimmed chip rather than disappearing.
     { id: "social", label: tBrandDetail("tabNav.social") },
@@ -376,6 +373,11 @@ export default async function BrandDetailPage({ params }: PageProps) {
                   />
                 }
               />
+              {description ? (
+                <div className="mt-8 pt-8">
+                  <BrandAbout brand={displayBrand} locale={safeLocale} />
+                </div>
+              ) : null}
             </div>
           </div>
 
@@ -408,12 +410,6 @@ export default async function BrandDetailPage({ params }: PageProps) {
                     brand={displayBrand}
                     products={curatedProducts}
                   />
-                </section>
-              )}
-
-              {description && (
-                <section id="about" className={brandSectionClassName}>
-                  <BrandAbout brand={displayBrand} locale={safeLocale} />
                 </section>
               )}
 

@@ -14,7 +14,6 @@
   "nav": {
     "faq": "常見問題",
     "submitBrand": "推薦品牌",
-    "allBrands": "全部品牌",
     "searchPlaceholder": "搜尋品牌…",
     "openMenu": "開啟選單",
     "navigation": "導覽選單",
@@ -26,8 +25,8 @@
     "stories": "專題",
     "whereToBuy": "哪裡買",
     "discover": "風格",
-    "brands": "收錄品牌",
-    "categories": "商品分類"
+    "categories": "商品分類",
+    "brands": "收錄品牌"
   },
   "footer": {
     "about": "關於我們",
@@ -132,9 +131,7 @@
     },
     "brands": {
       "count": "超過 {count} 個台灣品牌加入收錄",
-      "browseAll": "瀏覽所有品牌",
-      "pause": "暫停品牌標誌",
-      "resume": "繼續播放品牌標誌"
+      "browseAll": "瀏覽所有品牌"
     }
   },
   "newsletter": {
@@ -257,7 +254,6 @@
     },
     "tabNav": {
       "overview": "本頁導覽",
-      "about": "品牌介紹",
       "social": "社群平台",
       "purchase": "購買資訊",
       "locations": "實體通路",
@@ -526,6 +522,15 @@
     }
   },
   "categories": {
+    "index": {
+      "heading": "商品分類",
+      "intro": "依商品類型瀏覽台灣品牌，從服飾配件、居家用品到美妝與食品，找到符合需求的選擇。",
+      "childNavigation": "探索{category}的子分類",
+      "metadata": {
+        "title": "商品分類｜Formoria",
+        "description": "依商品類型瀏覽 Formoria 收錄的台灣品牌，探索目前開放的分類與子分類。"
+      }
+    },
     "landing": {
       "updated": "更新於 {date}",
       "categoryLinksAria": "探索此分類的子分類"

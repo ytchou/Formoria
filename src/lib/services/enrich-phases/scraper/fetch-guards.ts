@@ -1,5 +1,6 @@
 import { auditedCall, type AuditStatus } from '@/lib/audit'
 import { isPrivateUrl } from '@/lib/url'
+import { gunzipSync } from 'node:zlib'
 
 export { isPrivateUrl } from '@/lib/url'
 
@@ -7,12 +8,13 @@ const FETCH_TIMEOUT_MS = 10_000
 const MAX_RESPONSE_BYTES = 5 * 1024 * 1024
 const SCRAPER_USER_AGENT = 'Formoria-Bot/1.0'
 
-type FetchOperation = 'fetch_html' | 'fetch_html_with_metadata' | 'fetch_xml'
+type FetchOperation = 'fetch_html' | 'fetch_html_with_metadata' | 'fetch_xml' | 'fetch_text'
 type FetchReason =
   | 'none'
   | 'private_url'
   | 'response_too_large'
   | 'unexpected_content_type'
+  | 'malformed_body'
   | 'http_error'
   | 'timeout'
   | 'network_error'
@@ -33,6 +35,7 @@ function classifyFetchReason(reason: FetchReason): AuditStatus {
     case 'response_too_large':
       return 'empty'
     case 'unexpected_content_type':
+    case 'malformed_body':
       return 'malformed'
     case 'timeout':
       return 'timeout'
@@ -50,6 +53,14 @@ function withoutFetchReason(outcome: FetchOutcome): FetchMetadata {
     status: outcome.status,
     latencyMs: outcome.latencyMs,
     error: outcome.error,
+  }
+}
+
+function hasGzipPath(url: string): boolean {
+  try {
+    return new URL(url).pathname.toLowerCase().endsWith('.gz')
+  } catch {
+    return false
   }
 }
 
@@ -169,7 +180,48 @@ async function fetchTextWithMetadata(
             }
           }
 
-          const text = await response.text()
+          const isGzipXml =
+            operation === 'fetch_xml' && hasGzipPath(url)
+          let text: string
+          if (isGzipXml) {
+            const compressed = new Uint8Array(await response.arrayBuffer())
+            if (compressed.byteLength > MAX_RESPONSE_BYTES) {
+              ctx.summary.byteLength = compressed.byteLength
+              ctx.summary.truncated = true
+              return {
+                text: null,
+                status: response.status,
+                latencyMs: Date.now() - startedAt,
+                error: 'response too large',
+                reason: 'response_too_large',
+              }
+            }
+            try {
+              text = gunzipSync(compressed, {
+                maxOutputLength: MAX_RESPONSE_BYTES,
+              }).toString('utf8')
+            } catch (error) {
+              const outputTooLarge =
+                error !== null &&
+                typeof error === 'object' &&
+                'code' in error &&
+                error.code === 'ERR_BUFFER_TOO_LARGE'
+              if (outputTooLarge) ctx.summary.truncated = true
+              return {
+                text: null,
+                status: response.status,
+                latencyMs: Date.now() - startedAt,
+                error: outputTooLarge
+                  ? 'response too large'
+                  : 'invalid gzip body',
+                reason: outputTooLarge
+                  ? 'response_too_large'
+                  : 'malformed_body',
+              }
+            }
+          } else {
+            text = await response.text()
+          }
           const byteLength = new TextEncoder().encode(text).byteLength
           ctx.summary.byteLength = byteLength
           if (byteLength > MAX_RESPONSE_BYTES) {
@@ -231,8 +283,18 @@ export async function fetchHtmlWithMetadata(url: string): Promise<FetchMetadata>
 }
 
 export async function fetchXml(url: string): Promise<string | null> {
+  const isGzip = hasGzipPath(url)
   return fetchText(url, 'application/xml, text/xml', (contentType) =>
-    contentType.includes('application/xml') || contentType.includes('text/xml'),
+    contentType.includes('application/xml') ||
+    contentType.includes('text/xml') ||
+    (isGzip && contentType.includes('application/octet-stream')),
     'fetch_xml',
+  )
+}
+
+export async function fetchTextDocument(url: string): Promise<string | null> {
+  return fetchText(url, 'text/plain, text/*', (contentType) =>
+    contentType.includes('text/plain') || contentType.includes('text/'),
+    'fetch_text',
   )
 }

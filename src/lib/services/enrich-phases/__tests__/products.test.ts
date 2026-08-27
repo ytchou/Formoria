@@ -36,6 +36,7 @@ const PHASES = ["descriptions", "faq", "products"] as EnrichPhase[];
 
 const BRAND: EnrichBrand = {
   id: SUBMISSION_ID,
+  source_brand_id: "48ec6617-f050-4cc8-9da6-16cdd9d434cb",
   slug: "island-studio",
   name: "小島工坊",
   category: "home",
@@ -117,6 +118,10 @@ let auditWrites: AuditRecord[] = [];
 
 beforeEach(() => {
   vi.stubEnv("OPENAI_API_KEY", "test-openai-key");
+  vi.stubGlobal(
+    "fetch",
+    vi.fn().mockResolvedValue(new Response("", { status: 404 })),
+  );
   createClient.mockReset();
   auditWrites = [];
   setAuditWriteSeam(async (record) => {
@@ -131,6 +136,26 @@ afterEach(() => {
 });
 
 describe("runProductsPhase", () => {
+  it("persists refresh candidates against the live brand", async () => {
+    modelReturns([rawProposal()]);
+    const insert = vi.fn().mockResolvedValue({ data: null, error: null });
+
+    await runProductsPhase({
+      brand: BRAND,
+      phases: PHASES,
+      scrapedData: SCRAPED,
+      target: { type: "submission", id: SUBMISSION_ID },
+      loadStoredCandidates: async () => [],
+      candidateWriter: { insert },
+    });
+
+    expect(insert.mock.calls[0]?.[0]).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ brand_id: BRAND.source_brand_id }),
+      ]),
+    );
+  });
+
   it("skips_when_phase_not_requested", async () => {
     const result = await runProductsPhase({
       brand: BRAND,
@@ -176,9 +201,11 @@ describe("runProductsPhase", () => {
     });
 
     expect(result.phaseResult.status).toBe("succeeded");
-    expect(result.proposals).toHaveLength(2);
+    // The second model row names a candidate with no image, so it does not
+    // survive the production candidate gates and cannot become a proposal.
+    expect(result.proposals).toHaveLength(1);
     // The proposals ride the patch, which becomes `enriched_data.products[]`.
-    expect(result.patch.products).toHaveLength(2);
+    expect(result.patch.products).toHaveLength(1);
     expect(result.phaseResult.changedFields).toEqual(["products"]);
     // Materialization is the moderator's approval, not the enrichment run's.
     expect(tables).not.toContain("curated_products");
@@ -268,6 +295,15 @@ describe("runProductsPhase", () => {
   });
 
   it("caps_proposals_per_brand", async () => {
+    const storedCandidates = Array.from({ length: 8 }, (_, index) => ({
+      url: `${SITE}/products/clay-plate-${index + 1}`,
+      normalizedUrl: `${SITE}/products/clay-plate-${index + 1}`,
+      title: `陶土餐盤 ${index + 1}`,
+      imageUrl: `${SITE}/img/clay-plate-${index + 1}.jpg`,
+      supplier: "stored",
+      urlClass: "product-detail" as const,
+      searchPosition: index,
+    }));
     modelReturns(
       Array.from({ length: 8 }, (_, index) =>
         rawProposal({
@@ -288,7 +324,7 @@ describe("runProductsPhase", () => {
       phases: PHASES,
       scrapedData: SCRAPED,
       target: { type: "submission", id: SUBMISSION_ID },
-      loadStoredCandidates: async () => [],
+      loadStoredCandidates: async () => storedCandidates,
     });
 
     expect(result.proposals).toHaveLength(5);
@@ -616,9 +652,9 @@ describe("runProductsPhase", () => {
     // The user content sent to the model must contain the scraped product URL.
     const user = chat.mock.calls[0]![0].user as string;
     expect(user).toContain(`${SITE}/products/clay-plate`);
-    // imageUrl is set on the candidate but not surfaced in user content —
-    // candidate-selection.test.ts:scraped_candidate_with_image_passes_gates
-    // covers the gate that rejects imageless candidates directly.
+    // Exact candidate-bound image validation can only succeed when the model
+    // sees the same image evidence that survived the candidate gates.
+    expect(user).toContain(`${SITE}/img/plate.jpg`);
   });
 
   it("scraped_candidates_get_searchPosition", async () => {
@@ -652,6 +688,76 @@ describe("runProductsPhase", () => {
     expect(user).toContain(`${SITE}/products/gamma`);
   });
 
+  it("rejects another seller's candidate on a shared marketplace host", async () => {
+    const ownedUrl = "https://pinkoi.com/product/owned-item";
+    const otherSellerUrl = "https://pinkoi.com/product/other-seller-item";
+    const chat = modelReturns([
+      rawProposal({
+        official_url: ownedUrl,
+        image_source_url: "https://cdn01.pinkoi.com/product/owned.jpg",
+      }),
+    ]);
+
+    const loadOriginTexts = vi.fn(async () => new Map<string, string>());
+    const result = await runProductsPhase({
+      brand: {
+        ...BRAND,
+        purchase_website: null,
+        purchase_pinkoi: "https://pinkoi.com/store/island-studio",
+      },
+      phases: PHASES,
+      scrapedData: {
+        ...SCRAPED,
+        perSourceText: {
+          [ownedUrl]: { title: "Owned item" },
+          [otherSellerUrl]: { title: "Other seller item" },
+        },
+      },
+      target: { type: "submission", id: SUBMISSION_ID },
+      loadStoredCandidates: async () => [
+        {
+          url: otherSellerUrl,
+          normalizedUrl: otherSellerUrl,
+          title: "Other seller item",
+          supplier: "google",
+          urlClass: "product-detail",
+        },
+      ],
+      loadOriginTexts,
+      discoverCatalog: async () => ({
+        triples: [
+          {
+            url: ownedUrl,
+            title: "Owned item",
+            imageUrl: "https://cdn01.pinkoi.com/product/owned.jpg",
+            platform: "pinkoi",
+            supplier: "catalog:pinkoi",
+            sourceUrl: "https://pinkoi.com/store/island-studio",
+            sourcePosition: 0,
+          },
+        ],
+        attempts: [],
+        evidence: new Map([
+          [
+            ownedUrl,
+            {
+              title: "Owned item",
+              text: "Made by Island Studio in Taiwan.",
+              imageUrls: ["https://cdn01.pinkoi.com/product/owned.jpg"],
+            },
+          ],
+        ]),
+      }),
+    });
+
+    expect(result.phaseResult.status).toBe("succeeded");
+    const user = chat.mock.calls[0]![0].user as string;
+    expect(user).toContain(ownedUrl);
+    expect(user).toContain("Made by Island Studio in Taiwan.");
+    expect(user).not.toContain(otherSellerUrl);
+    expect(loadOriginTexts).toHaveBeenCalledWith([]);
+  });
+
   it("existing_scraped_path_still_works", async () => {
     // When only perSourceText is populated (stored pool is empty),
     // the phase works exactly as before — no regression.
@@ -674,6 +780,37 @@ describe("runProductsPhase", () => {
 });
 
 describe("validateProductProposals", () => {
+  it("accepts only exact candidate URLs and candidate-bound CDN images", () => {
+    const candidate: ProductCandidate = {
+      url: `${SITE}/products/clay-plate`,
+      normalizedUrl: `${SITE}/products/clay-plate`,
+      title: "陶土餐盤",
+      imageUrl: "https://cdn.example/clay-plate.jpg",
+      supplier: "catalog:generic",
+      urlClass: "product-detail",
+    };
+    const { proposals, dropped } = validateProductProposals(
+      {
+        products: [
+          rawProposal({ image_source_url: candidate.imageUrl }),
+          rawProposal({
+            name_zh: "猜測商品",
+            official_url: `${SITE}/products/guessed`,
+          }),
+          rawProposal({
+            name_zh: "錯圖",
+            image_source_url: "https://cdn.example/other.jpg",
+          }),
+        ],
+      },
+      { siteUrl: SITE, candidates: [candidate] },
+    );
+
+    expect(dropped).toBe(1);
+    expect(proposals[0]?.imageSourceUrl).toBe(candidate.imageUrl);
+    expect(proposals[1]?.imageSourceUrl).toBeUndefined();
+  });
+
   it("drops a material outside the closed vocabulary", () => {
     const { proposals, dropped } = validateProductProposals(
       { products: [rawProposal({ material: ["ceramic", "plastic", "陶瓷"] })] },
@@ -908,7 +1045,18 @@ describe("validateProductProposals", () => {
   it("rawCount === proposals.length + dropped for every fixture", () => {
     const fixtures = [
       // All valid
-      { products: [rawProposal(), rawProposal({ name_zh: "柴燒品茗杯", official_url: `${SITE}/products/tea-cup`, sources: [{ url: `${SITE}/products/tea-cup`, source_type: "official" }] })] },
+      {
+        products: [
+          rawProposal(),
+          rawProposal({
+            name_zh: "柴燒品茗杯",
+            official_url: `${SITE}/products/tea-cup`,
+            sources: [
+              { url: `${SITE}/products/tea-cup`, source_type: "official" },
+            ],
+          }),
+        ],
+      },
       // Some invalid (no name, off-site URL)
       {
         products: [

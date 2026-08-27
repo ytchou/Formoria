@@ -1,5 +1,42 @@
 import { describe, expect, it } from 'vitest'
-import { buildImageProviderMetadata, isNonImageContentType } from './image-download'
+import sharp from 'sharp'
+import {
+  applyProductionImageGates,
+  buildImageProviderMetadata,
+  imageRejectionCode,
+  isNonImageContentType,
+} from './image-download'
+
+describe('production image gate telemetry', () => {
+  it.each([
+    ['text/html', Buffer.alloc(6_000), 'non_image'],
+    ['image/png', Buffer.alloc(100), 'byte_size'],
+    ['image/png', Buffer.alloc(6_000), 'decode_failed'],
+  ] as const)(
+    'reports %s input through observable gate output',
+    async (contentType, buffer, expected) => {
+      const error = await applyProductionImageGates(buffer, contentType).catch(
+        (caught) => caught,
+      )
+      expect(imageRejectionCode(error)).toBe(expected)
+    },
+  )
+
+  it('reports the production short-edge rejection through observable output', async () => {
+    const pixels = Buffer.alloc(400 * 600 * 3)
+    for (let index = 0; index < pixels.length; index += 1)
+      pixels[index] = index % 251
+    const buffer = await sharp(pixels, {
+      raw: { width: 400, height: 600, channels: 3 },
+    })
+      .png()
+      .toBuffer()
+    const error = await applyProductionImageGates(buffer, 'image/png').catch(
+      (caught) => caught,
+    )
+    expect(imageRejectionCode(error)).toBe('short_edge')
+  })
+})
 
 describe('isNonImageContentType', () => {
   it.each(['image/webp', 'image/jpeg', 'image/png', 'image/gif'])(

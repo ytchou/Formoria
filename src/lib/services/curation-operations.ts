@@ -82,6 +82,7 @@ import type { NameCandidate } from "./name-arbiter";
 import type { BrandImageSearchOutcome } from "./enrich-phases/scraper/types";
 import { buildCandidatePool } from "./enrich-phases/candidate-pool";
 import type { EnrichmentTarget } from "./_shared/enrichment-target";
+import type { RenderProvider } from "./enrich-phases/scraper/render/types";
 import {
   deriveCategoryFromSubcategories,
   MAX_SUBCATEGORIES,
@@ -111,6 +112,7 @@ type EnrichOperationResult = OperationResult & {
 
 type CurationBrand = {
   id: string;
+  source_brand_id?: string | null;
   slug: string;
   name?: string;
   status?: string | null;
@@ -1341,6 +1343,7 @@ export function submissionToEnrichBrand(
   return {
     ...existing,
     id: submission.id,
+    source_brand_id: submission.brand_id,
     // A refresh always overwrites; an explicit job-level `overwrite` lets an
     // admin force a re-run to re-touch already-populated rows (e.g. re-running
     // image classification on submissions whose tags are already set).
@@ -1432,6 +1435,7 @@ export async function runEnrich(
      * non-forcing path is the default.
      */
     explicitPhases?: readonly string[];
+    renderProvider?: RenderProvider;
   },
   supabase: SupabaseLike,
 ): Promise<EnrichOperationResult> {
@@ -2169,6 +2173,7 @@ export async function runEnrich(
                   dryRun: config.dryRun,
                   target: { type: targetType, id: brand.id },
                   jobId: config.jobId,
+                  renderProvider: config.renderProvider,
                 });
                 ctx.linksResult = linksResult;
                 state.phaseResults.push(linksResult.phaseResult);
@@ -2745,6 +2750,7 @@ export async function runEnrich(
                   dryRun: config.dryRun,
                   target: { type: targetType, id: brand.id },
                   jobId: config.jobId,
+                  renderProvider: config.renderProvider,
                 });
                 state.phaseResults.push(productsResult.phaseResult);
                 await logCurrentPhase(ctx, productsResult.phaseResult);

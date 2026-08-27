@@ -141,7 +141,7 @@ export type CandidateSelectionResult = {
 export function applyGates(
   pool: ProductCandidate[],
   acceptedCandidates: ProductCandidate[],
-  officialHost?: string,
+  officialHost?: string | readonly string[],
 ): { gated: GatedCandidate[]; passed: ProductCandidate[] } {
   const gated: GatedCandidate[] = [];
   const passed: ProductCandidate[] = [];
@@ -151,11 +151,14 @@ export function applyGates(
 
   for (const candidate of pool) {
     if (officialHost) {
+      const allowedHosts = (
+        Array.isArray(officialHost) ? officialHost : [officialHost]
+      ).map((host) => host.replace(/^www\./u, "").toLowerCase());
       try {
         const host = new URL(candidate.url).hostname
           .replace(/^www\./u, "")
           .toLowerCase();
-        if (host !== officialHost.replace(/^www\./u, "").toLowerCase()) {
+        if (!allowedHosts.includes(host)) {
           gated.push({ candidate, gateResult: "not_official_host" });
           continue;
         }
@@ -305,7 +308,7 @@ export async function persistCandidatePool(options: {
   maxProducts: number;
   originDecisions?: ReadonlyMap<string, CandidateOriginDecision>;
   candidateIdsByUrl?: ReadonlyMap<string, string>;
-  officialHost?: string;
+  officialHost?: string | readonly string[];
 }): Promise<CandidateSelectionResult> {
   const {
     pool,

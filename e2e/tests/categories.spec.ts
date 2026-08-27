@@ -2,6 +2,8 @@ import { expect, test } from "@playwright/test";
 import { load } from "cheerio";
 
 import { DEFAULT_PAGE_SIZE } from "../../src/lib/pagination";
+import { listIndexableTargets } from "../../src/lib/seo/directory-indexation";
+import { L1_CATEGORIES } from "../../src/lib/taxonomy/ontology";
 
 const CANONICAL_ORIGIN = new URL(
   process.env.STAGING_BASE_URL ?? "https://staging.formoria.com",
@@ -17,6 +19,70 @@ function metadataFrom(html: string) {
 }
 
 test.describe("Category landing pages deep", () => {
+  test("@smoke localized category indexes expose the complete launch atlas", async ({
+    request,
+  }) => {
+    const targets = listIndexableTargets();
+    const expectedParents = L1_CATEGORIES.filter((category) =>
+      targets.some(
+        (target) =>
+          target.pageType === "l1-category" &&
+          target.categorySlug === category.slug,
+      ),
+    ).map((category) => `/categories/${category.slug}`);
+    const expectedChildren = targets
+      .filter((target) => target.subcategorySlug)
+      .map(
+        (target) =>
+          `/categories/${target.categorySlug}/${target.subcategorySlug}`,
+      );
+
+    expect(expectedParents).toHaveLength(6);
+    expect(expectedChildren).toHaveLength(33);
+
+    const localizedMetadata = [];
+    for (const prefix of ["", "/en"] as const) {
+      const path = `${prefix}/categories`;
+      const response = await request.get(path);
+      expect(response.status(), path).toBe(200);
+      const html = await response.text();
+      const $ = load(html);
+      localizedMetadata.push(metadataFrom(html));
+
+      const hrefs = $("main a")
+        .map((_, link) => $(link).attr("href"))
+        .get()
+        .map((href) => href.replace(/^\/en(?=\/)/, ""));
+      const parentLinks = hrefs.filter((href) =>
+        /^\/categories\/[^/]+$/.test(href),
+      );
+      const childLinks = hrefs.filter((href) =>
+        /^\/categories\/[^/]+\/[^/]+$/.test(href),
+      );
+
+      expect(parentLinks).toEqual(expectedParents);
+      expect(new Set(parentLinks).size).toBe(6);
+      expect(childLinks).toEqual(expectedChildren);
+      expect(new Set(childLinks).size).toBe(33);
+      expect(
+        hrefs.some((href) => href.startsWith("/categories/stationery")),
+      ).toBe(false);
+    }
+
+    expect(localizedMetadata[0]?.title).not.toBe(localizedMetadata[1]?.title);
+    expect(localizedMetadata[0]?.description).not.toBe(
+      localizedMetadata[1]?.description,
+    );
+    expect(localizedMetadata[0]?.h1).toBe("商品分類");
+    expect(localizedMetadata[1]?.h1).toBe("Product categories");
+
+    for (const path of [expectedParents[0]!, expectedChildren[0]!]) {
+      const response = await request.get(path, { maxRedirects: 0 });
+      expect(response.status(), path).toBe(200);
+      expect(response.headers().location, path).toBeUndefined();
+    }
+  });
+
   test("@smoke L1 and L2 landings return distinct metadata and headings", async ({
     request,
   }) => {
@@ -49,7 +115,11 @@ test.describe("Category landing pages deep", () => {
   test("@smoke L1 and L2 advertise reciprocal localized canonicals", async ({
     page,
   }) => {
-    for (const route of ["/categories/home", "/categories/home/furniture"]) {
+    for (const route of [
+      "/categories",
+      "/categories/home",
+      "/categories/home/furniture",
+    ]) {
       for (const localePrefix of ["", "/en"]) {
         await page.goto(`${localePrefix}${route}`);
         const localizedRoute = `${localePrefix}${route}`;
@@ -98,16 +168,22 @@ test.describe("Category landing pages deep", () => {
     const $ = load(await response.text());
     const links = $('nav[aria-label="探索此分類的子分類"] a');
 
-    expect(links).toHaveLength(3);
+    expect(links).toHaveLength(6);
     expect(links.map((_, link) => $(link).attr("href")).get()).toEqual([
+      "/categories/home/home-decor",
       "/categories/home/storage",
       "/categories/home/tableware",
       "/categories/home/furniture",
+      "/categories/home/bedding",
+      "/categories/home/wall-art",
     ]);
     expect(links.map((_, link) => $(link).text().trim()).get()).toEqual([
+      "居家裝飾",
       "收納用品",
       "餐具",
       "家具",
+      "寢具",
+      "掛畫與藝術",
     ]);
   });
 
@@ -174,7 +250,7 @@ test.describe("Category landing pages deep", () => {
   test("non-launch and faceted category pages expose their noindex state", async ({
     page,
   }) => {
-    await page.goto("/categories/home/bedding");
+    await page.goto("/categories/home/lighting");
     await expect(page.locator('meta[name="robots"]')).toHaveAttribute(
       "content",
       "noindex, follow",

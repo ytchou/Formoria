@@ -66,6 +66,8 @@ import {
   type ExactRegistryLookupResult,
 } from "../mit-registry";
 import { loadRenderedProductTexts } from "./scraper/product-origin-text";
+import { discoverCatalog } from "./catalog-discovery";
+import type { RenderProvider } from "./scraper/render/types";
 import {
   buildPhaseResult,
   timePhase,
@@ -100,7 +102,6 @@ const MAX_MATERIALS_PER_PRODUCT = 3;
 const MAX_SOURCES_PER_PRODUCT = 5;
 /** Candidate pages and images the user message carries, oldest-first by scrape order. */
 const MAX_CANDIDATE_PAGES = 25;
-const MAX_IMAGE_CANDIDATES = 12;
 /** Per-page evidence is a title plus a lead, not the whole page. */
 const PAGE_TEXT_LIMIT = 240;
 const MAX_SNIPPETS = 10;
@@ -212,9 +213,10 @@ export type ProductCandidateEvaluation = {
 };
 
 export type ProductProposalValidationOptions = {
-  /** The brand's own site. A product page has to live on it — see `isProductPageUrl`. */
+  /** Kept for prompt/backward compatibility; exact candidates own acceptance. */
   siteUrl: string;
   max?: number;
+  candidates?: readonly ProductCandidate[];
 };
 
 export type ProductProposalValidation = {
@@ -251,6 +253,8 @@ export type ProductsPhaseOptions = {
   lookupRegistryProducts?: (
     inputs: readonly ExactRegistryLookupInput[],
   ) => Promise<Map<string, ExactRegistryLookupResult>>;
+  renderProvider?: RenderProvider;
+  discoverCatalog?: typeof discoverCatalog;
 };
 
 /**
@@ -538,6 +542,12 @@ export function validateProductProposals(
 ): ProductProposalValidation {
   const max = options.max ?? MAX_PROPOSALS;
   const site = httpUrl(options.siteUrl);
+  const candidateByUrl = new Map(
+    (options.candidates ?? []).map((candidate) => [
+      candidate.normalizedUrl,
+      candidate,
+    ]),
+  );
   const proposals: CuratedProductProposal[] = [];
   const dropReasons: Record<string, number> = {};
   const takenKeys = new Set<string>();
@@ -575,7 +585,19 @@ export function validateProductProposals(
       continue;
     }
     const officialUrl = httpUrl(raw.official_url);
-    if (!officialUrl || !site || !isProductPageUrl(officialUrl, site)) {
+    const normalizedOfficialUrl = officialUrl
+      ? normalizeProductUrl(officialUrl.toString())
+      : null;
+    const ownedCandidate = normalizedOfficialUrl
+      ? candidateByUrl.get(normalizedOfficialUrl)
+      : undefined;
+    if (
+      !officialUrl ||
+      !site ||
+      (candidateByUrl.size > 0
+        ? !ownedCandidate
+        : !isProductPageUrl(officialUrl, site))
+    ) {
       drop("official_url_is_not_a_product_page");
       continue;
     }
@@ -622,7 +644,10 @@ export function validateProductProposals(
     // optional citation costs more than it saves.
     const imageSource = httpUrl(raw.image_source_url);
     const imageSourceUrl =
-      imageSource && site && bareHost(imageSource) === bareHost(site)
+      imageSource &&
+      (candidateByUrl.size > 0
+        ? ownedCandidate?.imageUrl === imageSource.toString()
+        : site && bareHost(imageSource) === bareHost(site))
         ? imageSource.toString()
         : null;
 
@@ -664,29 +689,11 @@ export function validateProductProposals(
   return { proposals, dropped, dropReasons, rawCount };
 }
 
-function scrapedImagePages(
-  site: URL,
-  scrapedData: EnrichScrapedData | null,
-): string[] {
-  const sources = scrapedData?.imageSources ?? [];
-  const pages: string[] = [];
-  for (const source of sources) {
-    const parsed = httpUrl(source?.pageUrl);
-    if (!parsed || bareHost(parsed) !== bareHost(site)) continue;
-    const line = `- ${source.url} | ${source.pageUrl}`;
-    if (pages.includes(line)) continue;
-    pages.push(line);
-    if (pages.length === MAX_IMAGE_CANDIDATES) break;
-  }
-  return pages;
-}
-
 function buildProductsUserContent(
   brand: EnrichBrand,
   site: URL,
   scrapedData: EnrichScrapedData | null,
   pages: string[],
-  imageLines: string[],
   listingLines?: string[],
   originLines?: string[],
 ): string {
@@ -710,9 +717,6 @@ function buildProductsUserContent(
   ];
   if (pages.length > 0) {
     blocks.push("", PRODUCTS_LABELS.candidatePages, ...pages);
-  }
-  if (imageLines.length > 0) {
-    blocks.push("", PRODUCTS_LABELS.imageCandidates, ...imageLines);
   }
   // Listing entry points: context only — these are catalog/collection pages
   // the brand uses to organize products. They must NEVER be returned as
@@ -752,6 +756,8 @@ export async function runProductsPhase({
   candidateRanker,
   loadOriginTexts,
   lookupRegistryProducts,
+  renderProvider,
+  discoverCatalog: discoverCatalogOverride,
 }: ProductsPhaseOptions): Promise<ProductsPhaseOutput> {
   if (!phases.includes("products"))
     return skipped("products phase not requested");
@@ -780,8 +786,39 @@ export async function runProductsPhase({
     brand.purchase_website ?? brand.purchaseWebsite,
     "purchase_website",
   );
-  const site = httpUrl(siteUrl);
-  if (!site) return skipped("no official site to propose products from");
+  const channelUrls = [
+    ...new Set(
+      [
+        siteUrl,
+        brand.purchase_pinkoi,
+        brand.purchase_shopee,
+        brand.purchase_myship,
+      ].filter(
+        (value): value is string =>
+          typeof value === "string" && value.length > 0,
+      ),
+    ),
+  ];
+  const site = httpUrl(channelUrls[0]);
+  if (!site)
+    return skipped("no verified purchase channel to propose products from");
+
+  const catalog = await (discoverCatalogOverride ?? discoverCatalog)({
+    sources: channelUrls.map((url, index) => ({
+      url,
+      channel:
+        index === 0 && url === siteUrl
+          ? "official"
+          : url === brand.purchase_pinkoi
+            ? "pinkoi"
+            : url === brand.purchase_shopee
+              ? "shopee"
+              : "myship",
+    })),
+    renderProvider,
+    target: 20,
+    hydrationLimit: MAX_CANDIDATE_PAGES,
+  });
 
   // --- Build the merged candidate pool ---
   // Stored candidates from brand_images provenance (injected supplier).
@@ -791,9 +828,31 @@ export async function runProductsPhase({
   // candidates.
   const loader = loadStored ?? defaultLoadStoredCandidates;
   const rawStoredCandidates = await loader(effectiveTarget.id);
+  const ownedHosts = new Set(
+    channelUrls
+      .map((url) => httpUrl(url))
+      .filter((url): url is URL => url !== null)
+      .map(bareHost),
+  );
+  const marketplaceHosts = new Set(
+    [brand.purchase_pinkoi, brand.purchase_shopee, brand.purchase_myship]
+      .map((url) => httpUrl(url))
+      .filter((url): url is URL => url !== null)
+      .map(bareHost),
+  );
+  const catalogOwnedUrls = new Set(
+    catalog.triples.map((triple) => normalizeProductUrl(triple.url)),
+  );
+  const isOwnedCandidate = (url: string): boolean => {
+    const parsed = httpUrl(url);
+    const normalized = normalizeProductUrl(url);
+    if (!parsed || !normalized || !ownedHosts.has(bareHost(parsed))) return false;
+    return (
+      !marketplaceHosts.has(bareHost(parsed)) || catalogOwnedUrls.has(normalized)
+    );
+  };
   const storedCandidates = rawStoredCandidates.filter((c) => {
-    const parsed = httpUrl(c.url);
-    return parsed !== null && bareHost(parsed) === bareHost(site);
+    return isOwnedCandidate(c.url);
   });
 
   // Build a unified pool of ProductCandidate entries from the scraped pages.
@@ -809,8 +868,7 @@ export async function runProductsPhase({
   const perSourceText = scrapedData?.perSourceText ?? {};
   let scrapedIndex = 0;
   for (const [url, text] of Object.entries(perSourceText)) {
-    const parsed = httpUrl(url);
-    if (!parsed || bareHost(parsed) !== bareHost(site)) continue;
+    if (!isOwnedCandidate(url)) continue;
     const normalizedUrl = normalizeProductUrl(url);
     if (!normalizedUrl) continue;
     scrapedCandidates.push({
@@ -828,14 +886,29 @@ export async function runProductsPhase({
   // placed first so they win ties: a stored candidate carries imageUrl and
   // searchPosition that the scraped duplicate lacks, while the scraped text is
   // still available via perSourceText[candidate.url] for user-content assembly.
-  const catalogCandidates = [...rawStoredCandidates, ...scrapedCandidates]
+  const enumeratedCandidates: ProductCandidate[] = catalog.triples.map(
+    (triple, index) => ({
+      url: triple.url,
+      normalizedUrl: normalizeProductUrl(triple.url)!,
+      title: triple.title,
+      imageUrl: triple.imageUrl,
+      supplier: triple.supplier,
+      urlClass: "product-detail",
+      searchPosition: index,
+    }),
+  );
+  const catalogCandidates = [
+    ...enumeratedCandidates,
+    ...storedCandidates,
+    ...scrapedCandidates,
+  ]
     .sort((left, right) => {
       const leftHost = httpUrl(left.url);
       const rightHost = httpUrl(right.url);
       const leftOfficial =
-        leftHost !== null && bareHost(leftHost) === bareHost(site);
+        leftHost !== null && ownedHosts.has(bareHost(leftHost));
       const rightOfficial =
-        rightHost !== null && bareHost(rightHost) === bareHost(site);
+        rightHost !== null && ownedHosts.has(bareHost(rightHost));
       if (leftOfficial !== rightOfficial) return leftOfficial ? -1 : 1;
       return (
         (left.searchPosition ?? Number.MAX_SAFE_INTEGER) -
@@ -847,8 +920,8 @@ export async function runProductsPhase({
     catalogCandidates.map((candidate) => candidate.url),
   );
   const { kept: dedupedCandidates, collapsedCount } = dedupeNearDuplicates(
-    [...storedCandidates, ...scrapedCandidates].filter((candidate) =>
-      catalogUrls.has(candidate.url),
+    [...enumeratedCandidates, ...storedCandidates, ...scrapedCandidates].filter(
+      (candidate) => catalogUrls.has(candidate.url),
     ),
   );
   const pool = mergeCandidatePool(dedupedCandidates);
@@ -857,18 +930,23 @@ export async function runProductsPhase({
   // filter and PAGE_TEXT_LIMIT truncation the scraped path always had.
   const pages: string[] = [];
   for (const candidate of pool.products.slice(0, MAX_CANDIDATE_PAGES)) {
+    const catalogEvidence = catalog.evidence.get(candidate.normalizedUrl);
     const text = perSourceText[candidate.url];
     const evidence = [
-      text?.title ?? candidate.title,
+      catalogEvidence?.title ?? text?.title ?? candidate.title,
       text?.description,
       text?.story,
+      catalogEvidence?.text,
     ]
       .map((v) => trimmedString(v))
       .filter((v): v is string => v !== null)
       .join(" / ")
       .slice(0, PAGE_TEXT_LIMIT);
+    const imageEvidence = candidate.imageUrl
+      ? ` | image: ${candidate.imageUrl}`
+      : "";
     pages.push(
-      evidence ? `- ${candidate.url} | ${evidence}` : `- ${candidate.url}`,
+      `${evidence ? `- ${candidate.url} | ${evidence}` : `- ${candidate.url}`}${imageEvidence}`,
     );
   }
 
@@ -907,16 +985,31 @@ export async function runProductsPhase({
           const { passed: evaluationCandidates } = applyGates(
             evaluationPool,
             [],
-            bareHost(site),
+            [...ownedHosts],
           );
           const candidateIdsByUrl = new Map(
             evaluationPool.map((candidate) => [candidate.url, randomUUID()]),
           );
           let renderedTexts = new Map<string, string>();
           try {
-            renderedTexts = await (loadOriginTexts ?? loadRenderedProductTexts)(
-              evaluationCandidates.map((candidate) => candidate.url),
+            const missingEvidenceUrls = evaluationCandidates
+              .filter(
+                (candidate) => !catalog.evidence.has(candidate.normalizedUrl),
+              )
+              .map((candidate) => candidate.url);
+            renderedTexts = new Map(
+              evaluationCandidates.flatMap((candidate) => {
+                const cached = catalog.evidence.get(
+                  candidate.normalizedUrl,
+                )?.text;
+                return cached ? [[candidate.url, cached] as const] : [];
+              }),
             );
+            const loaded = await (
+              loadOriginTexts ??
+              ((urls) => loadRenderedProductTexts(urls, renderProvider))
+            )(missingEvidenceUrls);
+            for (const [url, text] of loaded) renderedTexts.set(url, text);
           } catch {
             // Rendering is evidence collection, not publication. A renderer
             // failure removes origin qualification but keeps editorial output.
@@ -938,16 +1031,11 @@ export async function runProductsPhase({
                 `- ${candidate.url} | ${excerpt.id} | ${excerpt.text}`,
             );
           });
-          const imageLines = scrapedImagePages(site, scrapedData).slice(
-            0,
-            MAX_IMAGE_CANDIDATES,
-          );
           const userContent = buildProductsUserContent(
             brand,
             site,
             scrapedData,
             pages,
-            imageLines,
             listingLines,
             originLines,
           );
@@ -1045,6 +1133,7 @@ export async function runProductsPhase({
           }
           const validation = validateProductProposals(parsed ?? {}, {
             siteUrl: site.toString(),
+            candidates: evaluationCandidates,
           });
           return {
             ...validation,
@@ -1087,14 +1176,14 @@ export async function runProductsPhase({
           acceptedCandidates: [],
           ranker,
           writer,
-          brandId: brand.id,
+          brandId: brand.source_brand_id ?? brand.id,
           submissionId:
             effectiveTarget.type === "submission" ? effectiveTarget.id : null,
           jobId: jobId ?? null,
           maxProducts: MAX_PROPOSALS,
           originDecisions: result.originDecisions,
           candidateIdsByUrl: result.candidateIdsByUrl,
-          officialHost: bareHost(site),
+          officialHost: [...ownedHosts],
         });
 
         const selectedUrls = new Set(
@@ -1137,6 +1226,11 @@ export async function runProductsPhase({
           candidatesCollapsed: collapsedCount,
           candidatesGated: selectionResult.gated.length,
           candidatesRanked: selectionResult.ranked.length,
+          proposalYield:
+            catalogCandidates.length - selectionResult.gated.length > 0
+              ? publishedProposals.length /
+                (catalogCandidates.length - selectionResult.gated.length)
+              : 0,
         });
       } catch (err) {
         // The writer or ranker threw (e.g. service client missing in tests,
@@ -1154,6 +1248,8 @@ export async function runProductsPhase({
         productsProposed: publishedProposals.length,
         productsDropped: result.dropped,
         productsDropReasons: result.dropReasons,
+        catalogZeroReason: catalog.zeroReason ?? null,
+        catalogAttempts: catalog.attempts,
       });
 
       if (isLlmProviderFailure(result.calls)) {
