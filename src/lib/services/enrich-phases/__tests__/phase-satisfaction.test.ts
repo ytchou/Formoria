@@ -4,7 +4,7 @@ import {
   filterSatisfiedPhases,
   type PhaseHistory,
 } from "../phase-satisfaction";
-import { ENRICH_PHASES, type EnrichPhaseName } from "@/lib/constants/enrich-phases";
+import { ENRICH_PHASES, PHASE_DEPENDENCIES, type EnrichPhaseName } from "@/lib/constants/enrich-phases";
 
 describe("history-based phase satisfaction", () => {
   it("phase_with_no_history_is_unsatisfied", () => {
@@ -49,11 +49,21 @@ describe("history-based phase satisfaction", () => {
 
   it("all_phases_with_full_history_are_satisfied", () => {
     // Build a history where each phase is newer than all its deps.
-    // Use ENRICH_PHASES order — each subsequent phase gets a later timestamp.
+    // Topological walk: a phase's timestamp = max(dep timestamps) + 1 day.
     const history: PhaseHistory = new Map<EnrichPhaseName, Date>();
-    for (let i = 0; i < ENRICH_PHASES.length; i++) {
-      history.set(ENRICH_PHASES[i], new Date(Date.UTC(2026, 7, 1 + i)));
+    const BASE = Date.UTC(2026, 7, 1);
+    function resolveTime(phase: EnrichPhaseName): number {
+      const existing = history.get(phase);
+      if (existing) return existing.getTime();
+      const deps = PHASE_DEPENDENCIES[phase];
+      const depMax = deps.length > 0
+        ? Math.max(...deps.map((d) => resolveTime(d)))
+        : BASE - 86_400_000;
+      const ts = depMax + 86_400_000;
+      history.set(phase, new Date(ts));
+      return ts;
     }
+    for (const phase of ENRICH_PHASES) resolveTime(phase);
 
     for (const phase of ENRICH_PHASES) {
       expect(
