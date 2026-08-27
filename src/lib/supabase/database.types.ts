@@ -7,6 +7,11 @@ export type Json =
   | Json[]
 
 export type Database = {
+  // Allows to automatically instantiate createClient with right options
+  // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
+  __InternalSupabase: {
+    PostgrestVersion: "14.17"
+  }
   public: {
     Tables: {
       admin_audit_log: {
@@ -2060,7 +2065,9 @@ export type Database = {
       external_call_audit: {
         Row: {
           causation_id: string | null
+          completion_tokens: number | null
           correlation_id: string
+          cost_usd: number | null
           created_at: string
           error_message: string | null
           id: string
@@ -2068,6 +2075,7 @@ export type Database = {
           kind: string
           latency_ms: number | null
           operation: string
+          prompt_tokens: number | null
           provider: string
           retry_attempt: number | null
           span_id: string
@@ -2077,7 +2085,9 @@ export type Database = {
         }
         Insert: {
           causation_id?: string | null
+          completion_tokens?: number | null
           correlation_id: string
+          cost_usd?: number | null
           created_at?: string
           error_message?: string | null
           id?: string
@@ -2085,6 +2095,7 @@ export type Database = {
           kind: string
           latency_ms?: number | null
           operation: string
+          prompt_tokens?: number | null
           provider: string
           retry_attempt?: number | null
           span_id: string
@@ -2094,7 +2105,9 @@ export type Database = {
         }
         Update: {
           causation_id?: string | null
+          completion_tokens?: number | null
           correlation_id?: string
+          cost_usd?: number | null
           created_at?: string
           error_message?: string | null
           id?: string
@@ -2102,6 +2115,7 @@ export type Database = {
           kind?: string
           latency_ms?: number | null
           operation?: string
+          prompt_tokens?: number | null
           provider?: string
           retry_attempt?: number | null
           span_id?: string
