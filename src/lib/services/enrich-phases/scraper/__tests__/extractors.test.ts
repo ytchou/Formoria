@@ -195,6 +195,15 @@ describe('extractPinkoiProductImages', () => {
     ])
   })
 
+  it('extracts product images from cdn02.pinkoi.com', () => {
+    const $ = cheerio.load(`
+      <img src="https://cdn02.pinkoi.com/product/abc/0/1/220x220.jpg" />
+    `)
+    expect(extractPinkoiProductImages($)).toEqual([
+      'https://cdn02.pinkoi.com/product/abc/0/1/800x0.jpg',
+    ])
+  })
+
   it('returns empty array when no Pinkoi CDN product images found', () => {
     const html = `<html><body><img src="https://example.com/photo.jpg" /></body></html>`
     const $ = cheerio.load(html)
@@ -353,6 +362,8 @@ describe('upgradeEcommerceImageUrl', () => {
     ['Shopline ?w=', 'https://img.shoplineapp.com/media/image/original.png?w=300', 'https://img.shoplineapp.com/media/image/original.png'],
     // The sibling query params survive — only the width is dropped.
     ['Shopline ?width= among other params', 'https://shoplineimg.com/media/file.jpg?width=400&quality=80', 'https://shoplineimg.com/media/file.jpg?quality=80'],
+    ['Pinkoi cdn01 thumbnail', 'https://cdn01.pinkoi.com/product/abc/0/1/220x220.jpg', 'https://cdn01.pinkoi.com/product/abc/0/1/1080x0.jpg'],
+    ['Pinkoi cdn02 thumbnail', 'https://cdn02.pinkoi.com/product/xyz/0/2/320x320.png', 'https://cdn02.pinkoi.com/product/xyz/0/2/1080x0.png'],
   ])('upgrades %s', (_label, input, expected) => {
     expect(upgradeEcommerceImageUrl(input)).toBe(expected)
   })
@@ -362,6 +373,7 @@ describe('upgradeEcommerceImageUrl', () => {
   it.each([
     ['an unrecognised host', 'https://cdn.example.com/photo.jpg'],
     ['a known host with no dimension token', 'https://cdn.shopify.com/s/files/1/products/photo.jpg'],
+    ['an already-upgraded Pinkoi URL', 'https://cdn01.pinkoi.com/product/abc/0/1/1080x0.jpg'],
   ])('leaves %s untouched', (_label, input) => {
     expect(upgradeEcommerceImageUrl(input)).toBe(input)
   })

@@ -234,4 +234,20 @@ describe('specialized catalog parsers', () => {
       new URL(path, source).href,
     )
   })
+
+  it('upgrades listing-page thumbnail URLs in extracted catalog routes', () => {
+    const html = `<html><body>
+      <a href="/product/abc"><img src="https://cdn01.pinkoi.com/product/abc/0/1/220x220.jpg"></a>
+    </body></html>`
+    const routes = extractCatalogRoutes(html, 'https://pinkoi.com/store/maria', 'pinkoi')
+    expect(routes[0]?.imageUrl).toBe('https://cdn01.pinkoi.com/product/abc/0/1/1080x0.jpg')
+  })
+
+  it('passes through non-e-commerce image URLs unchanged', () => {
+    const html = `<html><body>
+      <a href="/product/abc"><img src="https://example.com/photo.jpg"></a>
+    </body></html>`
+    const routes = extractCatalogRoutes(html, 'https://shop.example', null)
+    expect(routes[0]?.imageUrl).toBe('https://example.com/photo.jpg')
+  })
 })

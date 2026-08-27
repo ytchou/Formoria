@@ -346,7 +346,7 @@ export function extractPinkoiProductImages(
         continue
       }
 
-      if (parsed.hostname.toLowerCase() !== 'cdn01.pinkoi.com') continue
+      if (!/^cdn\d+\.pinkoi\.com$/i.test(parsed.hostname)) continue
       if (!parsed.pathname.toLowerCase().startsWith('/product/')) continue
       if (/(\/store\/|\/avatar\/|\/banner\/)/i.test(parsed.pathname)) continue
 
@@ -701,6 +701,15 @@ export function upgradeEcommerceImageUrl(url: string): string {
     if (host.includes('shoplineapp.com') || host.includes('shoplineimg.com')) {
       u.searchParams.delete('w')
       u.searchParams.delete('width')
+      return u.href
+    }
+
+    // Pinkoi: rewrite NxN dimension segment to 1080x0
+    if (/^cdn\d+\.pinkoi\.com$/i.test(host)) {
+      u.pathname = u.pathname.replace(
+        /\/\d+x\d+\.(jpe?g|png|webp)$/i,
+        '/1080x0.$1',
+      )
       return u.href
     }
 
