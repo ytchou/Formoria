@@ -56,23 +56,18 @@
     "retry": "Try again",
     "breadcrumb": "Styles",
     "breadcrumbAria": "Styles breadcrumb",
-    "sectionNavAria": "Style sections",
     "editorLabel": "Editor",
     "updatedLabel": "Updated",
     "selectionLabel": "Selection",
     "selectionSummary": "{count} items · {categories} categories",
-    "exclusionsHeading": "What this page leaves out",
     "languageBadge": "In Chinese",
     "productCta": "Visit product official site",
     "brandSiteCta": "Visit brand official site",
     "madeInTaiwan": "Made in Taiwan",
     "brandProvidedBadge": "Brand-provided information",
     "unavailable": "The official link is currently unavailable",
-    "relatedCategories": "Explore related categories",
     "relatedStories": "Continue reading",
     "relatedTrails": "More styles",
-    "derivedCategories": "Related categories",
-    "derivedCategoriesAriaLabel": "Related product categories",
     "derivedStories": "Related stories",
     "derivedStoriesAriaLabel": "Related stories",
     "notFound": {
@@ -137,7 +132,9 @@
     },
     "brands": {
       "count": "Over {count} Taiwanese brands in the directory",
-      "browseAll": "Browse all brands"
+      "browseAll": "Browse all brands",
+      "pause": "Pause brand logos",
+      "resume": "Resume brand logos"
     }
   },
   "newsletter": {

@@ -56,23 +56,18 @@
     "retry": "再試一次",
     "breadcrumb": "風格",
     "breadcrumbAria": "風格麵包屑導覽",
-    "sectionNavAria": "風格段落",
     "editorLabel": "編輯",
     "updatedLabel": "更新",
     "selectionLabel": "選物",
     "selectionSummary": "{count} 件・{categories} 個分類",
-    "exclusionsHeading": "這一頁沒有放什麼",
     "languageBadge": "中文",
     "productCta": "前往產品官方網站",
     "brandSiteCta": "前往品牌官方網站",
     "madeInTaiwan": "台灣製造",
     "brandProvidedBadge": "品牌提供資訊",
     "unavailable": "官方連結目前無法使用",
-    "relatedCategories": "探索相關分類",
     "relatedStories": "繼續閱讀",
     "relatedTrails": "其他風格",
-    "derivedCategories": "相關分類",
-    "derivedCategoriesAriaLabel": "相關產品分類",
     "derivedStories": "相關專題",
     "derivedStoriesAriaLabel": "相關專題文章",
     "notFound": {
@@ -137,7 +132,9 @@
     },
     "brands": {
       "count": "超過 {count} 個台灣品牌加入收錄",
-      "browseAll": "瀏覽所有品牌"
+      "browseAll": "瀏覽所有品牌",
+      "pause": "暫停品牌標誌",
+      "resume": "繼續播放品牌標誌"
     }
   },
   "newsletter": {
