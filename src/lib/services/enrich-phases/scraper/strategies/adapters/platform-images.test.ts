@@ -48,6 +48,28 @@ describe('platform image adapters', () => {
     },
   )
 
+  it('Shopline adapter upgrades thumbnail query params', () => {
+    const result = shoplineAdapter.parse(
+      fixture('shopline-products.html'),
+      'https://shoplineapp.com',
+    )
+    expect(result.galleryImageUrls[0]).not.toContain('?w=')
+    expect(result.galleryImageUrls[0]).toBe(
+      'https://img.shoplineapp.com/media/image_clips/one.jpg',
+    )
+  })
+
+  it('91App adapter extracts product-card images from fixture', () => {
+    const result = ninetyOneAppAdapter.parse(
+      fixture('91app-products.html'),
+      'https://91app.com',
+    )
+    expect(result.galleryImageUrls).toHaveLength(1)
+    expect(result.galleryImageUrls[0]).toBe(
+      'https://static.91app.com/images/one.jpg',
+    )
+  })
+
   it('resolves scoped relative product images without admitting page chrome', () => {
     const result = shoplineAdapter.parse(
       '<div data-product-id="one"><img src="/media/one.jpg"></div><header><img src="/logo.jpg"></header>',
