@@ -25,6 +25,8 @@ const PROVIDERS = {
     // page it was cited from, so the bytes stored against a product can be
     // traced back to the request that produced them.
     "fetch_curated_image",
+    "fetch_manifest",
+    "fetch_favicon",
   ],
   brands: [
     "cleanupAdminBrandReviewImages",
@@ -145,6 +147,7 @@ const PROVIDERS = {
     "releaseBrandImageUrls",
     "storeCuratedProductImage",
     "syncHeroDenormalized",
+    "syncLogoDenormalized",
     "uploadImageEvalAsset",
     "uploadPrivateFile",
     "uploadPublicImage",

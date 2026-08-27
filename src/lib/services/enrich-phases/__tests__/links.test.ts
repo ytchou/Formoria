@@ -10,10 +10,21 @@ import { emptyResult } from '../scraper/parse/extractors'
 import { mergeScrapedData } from '../scraper/merge'
 
 const scraperMocks = vi.hoisted(() => ({ scrapeBrandUrls: vi.fn() }))
+const faviconMocks = vi.hoisted(() => ({ downloadAndStoreFavicon: vi.fn() }))
+const brandImagesMocks = vi.hoisted(() => ({ syncLogoDenormalized: vi.fn() }))
 
 vi.mock('../scraper', async (importOriginal) => ({
   ...(await importOriginal<typeof import('../scraper')>()),
   scrapeBrandUrls: scraperMocks.scrapeBrandUrls,
+}))
+
+vi.mock('../favicon-download', () => ({
+  downloadAndStoreFavicon: faviconMocks.downloadAndStoreFavicon,
+}))
+
+vi.mock('../../brand-images', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../../brand-images')>()),
+  syncLogoDenormalized: brandImagesMocks.syncLogoDenormalized,
 }))
 
 // This is what decides a brand's `purchase_website`, which the image-search
@@ -680,5 +691,181 @@ describe('links quarantine identity rules', () => {
       [extractedSocials[0], 'https://www.pinkoi.com/store/from-page', 'https://shopee.tw/from-page'],
       expect.anything(),
     )
+  })
+})
+
+describe('links phase favicon harvesting', () => {
+  const fakeSupabase = {} as Parameters<typeof runLinksPhase>[0]['supabase']
+
+  beforeEach(() => {
+    scraperMocks.scrapeBrandUrls.mockReset()
+    faviconMocks.downloadAndStoreFavicon.mockReset()
+    brandImagesMocks.syncLogoDenormalized.mockReset()
+  })
+
+  const scrape = (
+    sourceUrl: string,
+    data: Partial<ReturnType<typeof emptyResult>>,
+  ) => {
+    const merged = mergeScrapedData([{ type: 'official-site', sourceUrl, data: { ...emptyResult(sourceUrl), ...data } }])
+    return {
+      data: {
+        ...emptyResult(sourceUrl),
+        ...data,
+        linkProvenance: Object.fromEntries(
+          Object.entries(data)
+            .filter(([field, value]) => field !== 'brandName' && typeof value === 'string')
+            .map(([field]) => [field, { sourceUrl }]),
+        ),
+        textProvenance: {},
+        ...(merged.perSourceText ? { perSourceText: merged.perSourceText } : {}),
+      },
+      statuses: [],
+    }
+  }
+
+  it('calls downloadAndStoreFavicon for official site favicon URLs', async () => {
+    scraperMocks.scrapeBrandUrls.mockResolvedValue(
+      scrape('https://testbrand.com/about', {
+        faviconUrls: ['https://testbrand.com/favicon.png', 'https://testbrand.com/icon-192.png'],
+      }),
+    )
+    faviconMocks.downloadAndStoreFavicon.mockResolvedValue('brands/brand-1/favicon.png')
+    brandImagesMocks.syncLogoDenormalized.mockResolvedValue(null)
+
+    await runLinksPhase({
+      brand,
+      phases: ['links'] as EnrichPhase[],
+      discoveredUrls: ['https://testbrand.com/about'],
+      knownUrls: [],
+      supabase: fakeSupabase,
+    })
+
+    // First candidate succeeds — second is never tried
+    expect(faviconMocks.downloadAndStoreFavicon).toHaveBeenCalledOnce()
+    expect(faviconMocks.downloadAndStoreFavicon).toHaveBeenCalledWith(
+      'https://testbrand.com/favicon.png',
+      'brand-1',
+      fakeSupabase,
+    )
+    expect(brandImagesMocks.syncLogoDenormalized).toHaveBeenCalledOnce()
+    expect(brandImagesMocks.syncLogoDenormalized).toHaveBeenCalledWith(
+      fakeSupabase,
+      'brand-1',
+    )
+  })
+
+  it('tries the next favicon URL when the first candidate fails', async () => {
+    scraperMocks.scrapeBrandUrls.mockResolvedValue(
+      scrape('https://testbrand.com/about', {
+        faviconUrls: ['https://testbrand.com/favicon.ico', 'https://testbrand.com/icon-192.png'],
+      }),
+    )
+    // First candidate returns null (rejected), second succeeds
+    faviconMocks.downloadAndStoreFavicon
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce('brands/brand-1/icon-192.png')
+    brandImagesMocks.syncLogoDenormalized.mockResolvedValue(null)
+
+    await runLinksPhase({
+      brand,
+      phases: ['links'] as EnrichPhase[],
+      discoveredUrls: ['https://testbrand.com/about'],
+      knownUrls: [],
+      supabase: fakeSupabase,
+    })
+
+    expect(faviconMocks.downloadAndStoreFavicon).toHaveBeenCalledTimes(2)
+    expect(faviconMocks.downloadAndStoreFavicon).toHaveBeenNthCalledWith(
+      1,
+      'https://testbrand.com/favicon.ico',
+      'brand-1',
+      fakeSupabase,
+    )
+    expect(faviconMocks.downloadAndStoreFavicon).toHaveBeenNthCalledWith(
+      2,
+      'https://testbrand.com/icon-192.png',
+      'brand-1',
+      fakeSupabase,
+    )
+    expect(brandImagesMocks.syncLogoDenormalized).toHaveBeenCalledOnce()
+  })
+
+  it('skips favicon download when faviconUrls is empty', async () => {
+    scraperMocks.scrapeBrandUrls.mockResolvedValue(
+      scrape('https://testbrand.com/about', {
+        faviconUrls: [],
+      }),
+    )
+
+    await runLinksPhase({
+      brand,
+      phases: ['links'] as EnrichPhase[],
+      discoveredUrls: ['https://testbrand.com/about'],
+      knownUrls: [],
+      supabase: fakeSupabase,
+    })
+
+    expect(faviconMocks.downloadAndStoreFavicon).not.toHaveBeenCalled()
+    expect(brandImagesMocks.syncLogoDenormalized).not.toHaveBeenCalled()
+  })
+
+  it('skips syncLogoDenormalized when favicon download returns null', async () => {
+    scraperMocks.scrapeBrandUrls.mockResolvedValue(
+      scrape('https://testbrand.com/about', {
+        faviconUrls: ['https://testbrand.com/favicon.png'],
+      }),
+    )
+    faviconMocks.downloadAndStoreFavicon.mockResolvedValue(null)
+
+    await runLinksPhase({
+      brand,
+      phases: ['links'] as EnrichPhase[],
+      discoveredUrls: ['https://testbrand.com/about'],
+      knownUrls: [],
+      supabase: fakeSupabase,
+    })
+
+    expect(faviconMocks.downloadAndStoreFavicon).toHaveBeenCalledOnce()
+    expect(brandImagesMocks.syncLogoDenormalized).not.toHaveBeenCalled()
+  })
+
+  it('continues without failure when favicon download throws', async () => {
+    scraperMocks.scrapeBrandUrls.mockResolvedValue(
+      scrape('https://testbrand.com/about', {
+        faviconUrls: ['https://testbrand.com/favicon.png'],
+      }),
+    )
+    faviconMocks.downloadAndStoreFavicon.mockRejectedValue(new Error('network error'))
+
+    const result = await runLinksPhase({
+      brand,
+      phases: ['links'] as EnrichPhase[],
+      discoveredUrls: ['https://testbrand.com/about'],
+      knownUrls: [],
+      supabase: fakeSupabase,
+    })
+
+    // Phase should still succeed — favicon is best-effort
+    expect(result.phaseResult.status).not.toBe('failed')
+    expect(brandImagesMocks.syncLogoDenormalized).not.toHaveBeenCalled()
+  })
+
+  it('skips favicon download when supabase is not provided', async () => {
+    scraperMocks.scrapeBrandUrls.mockResolvedValue(
+      scrape('https://testbrand.com/about', {
+        faviconUrls: ['https://testbrand.com/favicon.png'],
+      }),
+    )
+
+    await runLinksPhase({
+      brand,
+      phases: ['links'] as EnrichPhase[],
+      discoveredUrls: ['https://testbrand.com/about'],
+      knownUrls: [],
+      // no supabase
+    })
+
+    expect(faviconMocks.downloadAndStoreFavicon).not.toHaveBeenCalled()
   })
 })
