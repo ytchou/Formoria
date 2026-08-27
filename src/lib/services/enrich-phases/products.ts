@@ -836,13 +836,12 @@ export async function runProductsPhase({
   const catalogUrls = new Set(
     catalogCandidates.map((candidate) => candidate.url),
   );
-  const pool = mergeCandidatePool(
-    dedupeNearDuplicates(
-      [...storedCandidates, ...scrapedCandidates].filter((candidate) =>
-        catalogUrls.has(candidate.url),
-      ),
+  const { kept: dedupedCandidates } = dedupeNearDuplicates(
+    [...storedCandidates, ...scrapedCandidates].filter((candidate) =>
+      catalogUrls.has(candidate.url),
     ),
   );
+  const pool = mergeCandidatePool(dedupedCandidates);
 
   // Format the product bucket as user-content lines, keeping the same-host
   // filter and PAGE_TEXT_LIMIT truncation the scraped path always had.

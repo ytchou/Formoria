@@ -188,6 +188,18 @@ function stripVariantSuffix(title: string): string {
   const parenMatch = title.match(/^(.+)\s+\([^)]+\)\s*$/)
   if (parenMatch) return parenMatch[1]
 
+  // CJK fullwidth dash (U+FF0D)
+  const fwDashIdx = title.lastIndexOf('－')
+  if (fwDashIdx > 0) return title.slice(0, fwDashIdx).trimEnd()
+
+  // CJK fullwidth pipe (U+FF5C)
+  const fwPipeIdx = title.lastIndexOf('｜')
+  if (fwPipeIdx > 0) return title.slice(0, fwPipeIdx).trimEnd()
+
+  // CJK lenticular brackets 【...】
+  const bracketMatch = title.match(/^(.+)【[^】]+】\s*$/)
+  if (bracketMatch) return bracketMatch[1].trimEnd()
+
   return title
 }
 
@@ -243,13 +255,17 @@ function titlesAreNearDuplicate(a: string, b: string): boolean {
  */
 export function dedupeNearDuplicates(
   candidates: ProductCandidate[]
-): ProductCandidate[] {
+): { kept: ProductCandidate[]; collapsedCount: number } {
   const kept: ProductCandidate[] = []
+  let collapsedCount = 0
 
   for (const candidate of candidates) {
     const isDuplicate = kept.some((existing) => {
       // Normalized URL equality
       if (existing.normalizedUrl === candidate.normalizedUrl) return true
+
+      // URL-distinctness override: distinct URLs = distinct products
+      if (existing.normalizedUrl && candidate.normalizedUrl) return false
 
       // Title near-duplicate (only when both have titles)
       if (existing.title && candidate.title) {
@@ -261,12 +277,14 @@ export function dedupeNearDuplicates(
       return false
     })
 
-    if (!isDuplicate) {
+    if (isDuplicate) {
+      collapsedCount++
+    } else {
       kept.push(candidate)
     }
   }
 
-  return kept
+  return { kept, collapsedCount }
 }
 
 // ---------------------------------------------------------------------------

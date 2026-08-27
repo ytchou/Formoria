@@ -315,6 +315,24 @@ describe("candidate-selection", () => {
     expect(result.auditIdsByUrl.get(product.url)).toBe(writer.written[0]!.id);
   });
 
+  it("gate_diagnoses_listing_without_image_as_not_product_detail", () => {
+    const pool = [candidate({ urlClass: "listing", imageUrl: undefined })];
+    const { gated } = applyGates(pool, []);
+    expect(gated).toHaveLength(1);
+    expect(gated[0]!.gateResult).toBe("not_product_detail");
+  });
+
+  it("scraped_candidate_with_image_passes_gates", () => {
+    const pool = [
+      candidate({
+        supplier: "scraped",
+        imageUrl: "https://brand.example/img/spray.jpg",
+      }),
+    ];
+    const { passed } = applyGates(pool, []);
+    expect(passed).toHaveLength(1);
+  });
+
   it("persists duplicate supplier URLs under distinct audit IDs", async () => {
     const url = "https://brand.example/products/ceramic-cup";
     const stored = candidate({
