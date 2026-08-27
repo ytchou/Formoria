@@ -138,7 +138,7 @@ export function isOwnedProductRoute(
     source.hostname.replace(/^www\./i, '').toLowerCase()
   if (!sameHost) return false
   if (!platform)
-    return /^\/(?:products?|items?|goods)\/[^/]+/i.test(candidate.pathname)
+    return /^\/(?:products?|items?|goods|shop|store|catalog|detail|product-page)\/[^/]+/i.test(candidate.pathname)
 
   const rule = RULES.find((entry) => entry.id === platform)
   return (

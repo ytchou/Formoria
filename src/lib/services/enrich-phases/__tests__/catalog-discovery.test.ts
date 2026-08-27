@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from 'vitest'
 import {
   discoverCatalog,
   extractCatalogRoutes,
+  hasProductSignals,
   type CatalogFetch,
 } from '../catalog-discovery'
 import type { RenderProvider } from '../scraper/render/types'
@@ -209,6 +210,38 @@ describe('catalog discovery', () => {
     })
     expect(result.triples).toHaveLength(1)
     expect(result.zeroReason).toBeUndefined()
+  })
+})
+
+describe('hasProductSignals', () => {
+  it('detects JSON-LD Product', () => {
+    const html =
+      '<html><head><script type="application/ld+json">{"@type":"Product","name":"Cup"}</script></head><body></body></html>'
+    expect(hasProductSignals(html)).toBe(true)
+  })
+
+  it('detects og:type product', () => {
+    const html =
+      '<html><head><meta property="og:type" content="product"></head><body></body></html>'
+    expect(hasProductSignals(html)).toBe(true)
+  })
+
+  it('detects product:price:amount', () => {
+    const html =
+      '<html><head><meta property="product:price:amount" content="299"></head><body></body></html>'
+    expect(hasProductSignals(html)).toBe(true)
+  })
+
+  it('detects microdata Product', () => {
+    const html =
+      '<html><body><div itemtype="https://schema.org/Product"><span>Cup</span></div></body></html>'
+    expect(hasProductSignals(html)).toBe(true)
+  })
+
+  it('returns false for non-product page', () => {
+    const html =
+      '<html><head><meta property="og:type" content="website"></head><body><p>About us</p></body></html>'
+    expect(hasProductSignals(html)).toBe(false)
   })
 })
 

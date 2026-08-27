@@ -49,6 +49,7 @@ export type CatalogAttemptSummary = {
   hydrated: number
   usable: number
   drops: Record<string, number>
+  contentSamplingOutcome?: 'not_triggered' | 'usable' | 'empty'
 }
 
 export type CatalogDiscoveryResult = {
@@ -110,6 +111,8 @@ const SPECIALIZED_ROUTE_SELECTORS: Partial<Record<PlatformId, string>> = {
     '[data-product-id] a[href], .product-card a[href], .product-item a[href], a[href*="/products/"]',
   pinkoi:
     '[data-product-id] a[href], .product-item a[href], .product-card a[href], a[href*="/product/"]',
+  // Shopee: permanently blocked (render_blocked, pure SPA with zero static text).
+  // Classification confirmed correct — see DEV-1631. No static extraction possible.
   shopee:
     '[data-sqe="item"] a[href], .shopee-search-item-result__item a[href], a[data-sqe="link"]',
   myship:
@@ -335,6 +338,30 @@ function needsRendering(html: string): boolean {
     (visibleText.length < 20 && $('script').length > 0)
 }
 
+// @visibleForTesting
+export function hasProductSignals(html: string): boolean {
+  const $ = cheerio.load(html)
+
+  // JSON-LD @type: "Product"
+  const jsonLdScripts = $('script[type="application/ld+json"]')
+  for (const el of jsonLdScripts.toArray()) {
+    const text = $(el).text()
+    if (/"@type"\s*:\s*"Product"/u.test(text)) return true
+  }
+
+  // OpenGraph og:type with value "product"
+  const ogType = $('meta[property="og:type"]').attr('content')
+  if (ogType?.toLowerCase() === 'product') return true
+
+  // OpenGraph product:price:amount
+  if ($('meta[property="product:price:amount"]').length > 0) return true
+
+  // Microdata schema.org/Product
+  if ($('[itemtype*="schema.org/Product"]').length > 0) return true
+
+  return false
+}
+
 type HydratedRoute = {
   route: RouteCandidate
   evidence: CatalogEvidence
@@ -381,6 +408,7 @@ export async function discoverCatalog(
           hydrated: 0,
           usable: 0,
           drops: {},
+          contentSamplingOutcome: 'not_triggered',
         }
         attempts.push(summary)
         if (landing.text) reachableSurfaces += 1
