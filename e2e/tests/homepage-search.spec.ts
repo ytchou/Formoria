@@ -13,11 +13,9 @@ import { seedBrand, type SeededBrand } from "../helpers/seed";
  * navigation here because `router.push` intermittently drops the transition in
  * WebKit).
  *
- * The keyboard case is not a duplicate of the first. DEV-1514 moved the category
- * nav out of the hero and into the persistent header, so those links now sit
- * BEFORE this field in the tab order rather than after it — the number of stops
- * in front of it moves with both the header and the taxonomy, and a control that
- * only a mouse can reach would still pass every assertion in the mouse case.
+ * The keyboard case is not a duplicate of the first. The persistent header's
+ * controls sit before this field in the tab order, so a control that only a
+ * mouse can reach would still pass every assertion in the mouse case.
  */
 
 /**
@@ -34,16 +32,11 @@ const HERO_SEARCH_LABEL = "搜尋台灣品牌與產品";
  * the hero's own field all sit inside it. Exceeding it means the field moved
  * behind something new — a focus trap, or a widget that swallows Tab.
  *
- * Raised 25 → 40 on 2026-08-20. DEV-1514 stopped suppressing the category nav
- * on `/` (D1/D18 moved the categories out of the hero and into the persistent
- * header), which put its links ahead of this field. Measured against deployed
- * staging at revision 68bd90e0: **26**. The headroom is deliberate — the nav
- * renders one row per L1 category, so the true count moves with the taxonomy
- * and a bound sitting one stop above the measurement would fail on the next
- * category rather than on a real regression. A focus trap still fails here,
- * because a trap never reaches the field at any bound.
+ * Restored to 25 when the per-category header row was replaced by one Categories
+ * index link. The bound still leaves room for the stable primary actions while
+ * ensuring a focus trap cannot consume the whole test budget.
  */
-const MAX_TAB_STOPS = 40;
+const MAX_TAB_STOPS = 25;
 
 /**
  * The searchbox is client-only: `SearchInput` reads `useSearchParams`, so under
