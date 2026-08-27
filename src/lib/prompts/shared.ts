@@ -63,13 +63,13 @@ export const MATERIAL_VOCAB_BLOCK = MATERIALS.map(
   (material) => `- ${material.slug}: ${material.nameZh}`,
 ).join("\n");
 
-export const TAIWAN_USAGE_RULES = `- 使用台灣繁體中文用語：影片（非視頻）、品質（非質量）、資訊（非信息）、網路（非網絡）、軟體（非軟件）、螢幕（非屏幕）、連結（非鏈接）、使用者（非用戶）、預設（非默認）
-- 標點符號使用全形：，。：；！？「」；省略號用⋯⋯；並列項目用頓號「、」
-- 禁止使用：「賦能」「閉環」「抓手」等抽象用語——改為具體描述（誰能做到什麼、從哪裡到哪裡）
-- 避免空洞用語：「標誌著」「見證了」「體現了」「彰顯了」「在當今」「隨著⋯⋯發展」「未來充滿可能」「不只是A更是B」
-- 避免無來源的正面評價：「廣受好評」「獲得多家媒體報導」需附具體來源，否則刪除
-- 每句話應包含只有該品牌才有的具體事實——任何拔掉品牌名稱後仍然成立的句子請刪掉重寫
-- 描述不需要有收尾金句或對未來的展望——結尾可以停在最後一個具體的事實上
-- 避免用「從X到Y」語式宣稱品牌涵蓋所有面向，除非來源資料明確說明
-- 句式多變，不可連續三句以上相同結構；不可每段以總結句收尾
-- 輸出純文字，不可包含 Markdown 語法（禁止 **粗體**、# 標題、- 列表）`;
+export const TAIWAN_USAGE_RULES = `- Use Taiwanese Traditional Chinese terms: 影片 (not 視頻), 品質 (not 質量), 資訊 (not 信息), 網路 (not 網絡), 軟體 (not 軟件), 螢幕 (not 屏幕), 連結 (not 鏈接), 使用者 (not 用戶), 預設 (not 默認)
+- Use full-width punctuation: ，。：；！？「」; use ⋯⋯ for ellipsis; use 、 for parallel items
+- Forbidden terms: 「賦能」「閉環」「抓手」and other abstract jargon — replace with concrete descriptions (who can do what, from where to where)
+- Avoid empty phrases: 「標誌著」「見證了」「體現了」「彰顯了」「在當今」「隨著⋯⋯發展」「未來充滿可能」「不只是A更是B」
+- Avoid unsourced positive claims: 「廣受好評」「獲得多家媒體報導」require a specific source, otherwise delete
+- Every sentence must contain a concrete fact unique to this brand — delete and rewrite any sentence that still holds true after removing the brand name
+- Descriptions need no closing flourish or future outlook — end on the last concrete fact
+- Avoid the "from X to Y" pattern claiming the brand covers all aspects, unless the source explicitly states this
+- Vary sentence structure: no more than 3 consecutive sentences with the same pattern; no summary sentence at the end of every paragraph
+- Output plain text only, no Markdown syntax (no **bold**, # headings, - lists)`;

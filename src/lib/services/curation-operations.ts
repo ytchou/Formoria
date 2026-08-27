@@ -1,5 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { auditedCall } from "@/lib/audit";
+import { auditedCall, getAuditContext, runWithAuditContext } from "@/lib/audit";
+import { getLangfuse } from "@/lib/langfuse/client";
 import { cleanBrandName, type NameCleanupResult } from "./brand-cleanup";
 import { ENRICH_CHUNK_SIZE, mapWithConcurrency } from "./_shared/concurrency";
 import {
@@ -1437,6 +1438,17 @@ export async function runEnrich(
   return auditedCall(
     { provider: "enrich", operation: "runEnrich", kind: "service" },
     async () => {
+      const langfuse = getLangfuse();
+      const langfuseTrace = langfuse?.trace({
+        name: "enrich",
+        metadata: {
+          brandSlug: config.slugs?.[0] ?? "batch",
+          jobId: config.jobId,
+          correlationId: getAuditContext().correlationId,
+        },
+      }) ?? undefined;
+
+      return runWithAuditContext({ langfuseTrace }, async () => {
       const startedAt = Date.now();
       const onProgress = config.onProgress ?? logEnrichmentProgress;
       const onTargetProgress = config.onTargetProgress;
@@ -2992,7 +3004,21 @@ export async function runEnrich(
         );
       }
 
-      return finishEnrichResult(result, startedAt, onProgress);
+      const enrichResult = finishEnrichResult(result, startedAt, onProgress);
+
+      // Update Langfuse trace status before returning
+      try {
+        if (langfuseTrace) {
+          (langfuseTrace as { update: (input: Record<string, unknown>) => void }).update({
+            metadata: { status: enrichResult.errors.length ? "failed" : "succeeded" },
+          });
+        }
+      } catch {
+        // Langfuse errors must never block production
+      }
+
+      return enrichResult;
+      }); // runWithAuditContext
     },
   );
 }

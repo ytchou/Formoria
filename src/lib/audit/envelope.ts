@@ -130,11 +130,12 @@ async function runAfterStart<T>(
 
   try {
     const result = await fn(callContext);
+    const latencyMs = Math.max(0, Date.now() - startedAt);
     try {
       await emitAuditRecord({
         ...common,
         status: options.classify?.(result) ?? "succeeded",
-        latencyMs: Math.max(0, Date.now() - startedAt),
+        latencyMs,
         summary: finishSummary(),
         promptTokens: callContext.promptTokens,
         completionTokens: callContext.completionTokens,
@@ -143,13 +144,32 @@ async function runAfterStart<T>(
     } catch {
       return result;
     }
+
+    // Langfuse span for external non-LLM calls
+    try {
+      const trace = getAuditContext().langfuseTrace;
+      if (trace && common.kind === "external" && !["openai", "deepseek"].includes(common.provider)) {
+        const langfuseTrace = trace as { span: (input: Record<string, unknown>) => void };
+        langfuseTrace.span({
+          name: `${common.provider}/${common.operation}`,
+          startTime: new Date(startedAt),
+          endTime: new Date(startedAt + latencyMs),
+          statusMessage: "succeeded",
+          metadata: { provider: common.provider },
+        });
+      }
+    } catch {
+      // Langfuse errors must never block production
+    }
+
     return result;
   } catch (error) {
+    const latencyMs = Math.max(0, Date.now() - startedAt);
     try {
       await emitAuditRecord({
         ...common,
         status: thrownStatus(error),
-        latencyMs: Math.max(0, Date.now() - startedAt),
+        latencyMs,
         summary: finishSummary(),
         errorMessage: errorMessage(error),
         promptTokens: callContext.promptTokens,
@@ -159,6 +179,24 @@ async function runAfterStart<T>(
     } catch {
       return Promise.reject(error);
     }
+
+    // Langfuse span for external non-LLM calls (error path)
+    try {
+      const trace = getAuditContext().langfuseTrace;
+      if (trace && common.kind === "external" && !["openai", "deepseek"].includes(common.provider)) {
+        const langfuseTrace = trace as { span: (input: Record<string, unknown>) => void };
+        langfuseTrace.span({
+          name: `${common.provider}/${common.operation}`,
+          startTime: new Date(startedAt),
+          endTime: new Date(startedAt + latencyMs),
+          statusMessage: "failed",
+          metadata: { provider: common.provider },
+        });
+      }
+    } catch {
+      // Langfuse errors must never block production
+    }
+
     throw error;
   }
 }

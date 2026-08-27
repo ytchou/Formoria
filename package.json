@@ -63,10 +63,6 @@
     "resort-heroes:render": "tsx --env-file=.env.local scripts/resort-heroes/render.ts",
     "resort-heroes:apply": "tsx --env-file=.env.local scripts/resort-heroes/apply.ts",
     "resort-heroes:rollback": "tsx --env-file=.env.local scripts/resort-heroes/rollback.ts",
-    "image-eval:capture": "tsx --env-file=.env.local scripts/image-eval/capture.ts",
-    "image-eval:review": "tsx --env-file=.env.local scripts/image-eval/review.ts",
-    "image-eval:baseline": "tsx --env-file=.env.local scripts/image-eval/baseline.ts",
-    "image-eval:score": "tsx --env-file=.env.local scripts/image-eval/score.ts",
     "image-recovery:audit": "tsx --env-file=.env.local scripts/image-recovery-audit.ts",
     "seo:counts": "tsx --env-file=.env.local scripts/seo/brand-counts.ts",
     "seo:gsc-export": "tsx --env-file=.env.local scripts/seo/search-console-export.ts",
@@ -78,7 +74,6 @@
     "test:e2e:deep": "playwright test --project=deep",
     "test:visual": "playwright test --config playwright.visual.config.ts",
     "test:search:load": "node --env-file=.env.local scripts/search-load.mjs",
-    "search:eval": "tsx --env-file=.env.local scripts/search-eval/run.ts",
     "design:tokens": "node scripts/generate-design-tokens.mjs",
     "check:design-tokens": "node scripts/generate-design-tokens.mjs --check",
     "check:category-redirects": "tsx scripts/generate-category-redirects.ts --check"

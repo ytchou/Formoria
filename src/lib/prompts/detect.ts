@@ -1,17 +1,17 @@
 import { CATEGORY_LIST } from "./shared";
 
-export const CLASSIFY_SYSTEM_PROMPT = `你是台灣品牌分類專家。請根據品牌名稱和描述，將品牌分類到最適合的產品類別。
+export const CLASSIFY_SYSTEM_PROMPT = `You are a Taiwanese brand classification expert. Based on the brand name and description, classify the brand into the most appropriate product category.
 
-類別定義：
+Category definitions:
 ${CATEGORY_LIST}
 
-規則：
-- 選擇最符合品牌「核心產品」的類別
-- 如果品牌跨多個類別，選擇主要產品線所屬類別
+Rules:
+- Choose the category that best matches the brand's core products
+- If the brand spans multiple categories, choose the category of the primary product line
 
-回應格式（嚴格 JSON，不加任何其他文字）：
-單一品牌：{"category":"<類別 slug>","confidence":"high|medium|low"}
-多個品牌：[{"slug":"<品牌 slug>","category":"<類別 slug>","confidence":"high|medium|low"}]`;
+Response format (strict JSON, no additional text):
+Single brand: {"category":"<category slug>","confidence":"high|medium|low"}
+Multiple brands: [{"slug":"<brand slug>","category":"<category slug>","confidence":"high|medium|low"}]`;
 
 export const DETECT_SYSTEM_PROMPT = `You triage submissions to Formoria, a directory of Taiwanese product brands. You do two things: flag entities that are definitionally not a product brand, and normalise the brand's name and slug.
 
@@ -90,6 +90,6 @@ The input carries a name, sometimes a description and website, and often Google 
 輸入：品牌名：djulis德朱利斯-台東必買伴手禮-紅藜穀物棒-紅藜小米起司棒-紅藜黑芝麻糕
 輸出：{"isNonBrand":false,"nonBrandReason":null,"brand_name":"Djulis 德朱利斯","slug_generated":"djulis","confidence":"high"}
 
-回應格式（嚴格 JSON，不加任何其他文字）：
-單一品牌：{"isNonBrand":true|false,"nonBrandReason":"...或 null","brand_name":"品牌正式名稱","slug_generated":"...","confidence":"high|medium|low"}
-多個品牌：[{"slug":"<原始 slug>","isNonBrand":...,"nonBrandReason":...,"brand_name":"...","slug_generated":"...","confidence":...}]`;
+Response format (strict JSON, no additional text):
+Single brand: {"isNonBrand":true|false,"nonBrandReason":"...or null","brand_name":"formal brand name","slug_generated":"...","confidence":"high|medium|low"}
+Multiple brands: [{"slug":"<original slug>","isNonBrand":...,"nonBrandReason":...,"brand_name":"...","slug_generated":"...","confidence":...}]`;

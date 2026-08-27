@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { auditedCall, type ChatAuditEvent } from "@/lib/audit";
+import { auditedCall, getAuditContext, type ChatAuditEvent } from "@/lib/audit";
 import type { Database } from "@/lib/supabase/database.types";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { insertAiCallResult } from "./_shared/ai-results";
@@ -124,7 +124,33 @@ export function createAuditedDeepSeekClient(
                   // Price lookup must never prevent the audit row from being written.
                 }
               }
-              return persistAuditEvent(context, event, spanId);
+              await persistAuditEvent(context, event, spanId);
+
+              // Langfuse generation for LLM calls
+              try {
+                const trace = getAuditContext().langfuseTrace;
+                if (trace) {
+                  const langfuseTrace = trace as { generation: (input: Record<string, unknown>) => void };
+                  langfuseTrace.generation({
+                    name: `${event.provider}/chat_completions`,
+                    model: event.model,
+                    input: { system: truncate(event.request.system), user: truncate(event.request.user) },
+                    output: event.data,
+                    usage: {
+                      promptTokens: event.usage?.prompt_tokens,
+                      completionTokens: event.usage?.completion_tokens,
+                    },
+                    metadata: {
+                      phase: context.phase,
+                      ok: event.ok,
+                      status: event.status,
+                      latencyMs: event.latencyMs,
+                    },
+                  });
+                }
+              } catch {
+                // Langfuse errors must never block production
+              }
             },
           });
           return client.chat(input);
@@ -194,7 +220,33 @@ export function createAuditedOpenAIClient(
                   // Price lookup must never prevent the audit row from being written.
                 }
               }
-              return persistAuditEvent(context, event, spanId);
+              await persistAuditEvent(context, event, spanId);
+
+              // Langfuse generation for LLM calls
+              try {
+                const trace = getAuditContext().langfuseTrace;
+                if (trace) {
+                  const langfuseTrace = trace as { generation: (input: Record<string, unknown>) => void };
+                  langfuseTrace.generation({
+                    name: `${event.provider}/chat_completions`,
+                    model: event.model,
+                    input: { system: truncate(event.request.system), user: truncate(event.request.user) },
+                    output: event.data,
+                    usage: {
+                      promptTokens: event.usage?.prompt_tokens,
+                      completionTokens: event.usage?.completion_tokens,
+                    },
+                    metadata: {
+                      phase: context.phase,
+                      ok: event.ok,
+                      status: event.status,
+                      latencyMs: event.latencyMs,
+                    },
+                  });
+                }
+              } catch {
+                // Langfuse errors must never block production
+              }
             },
           });
           return client.chat(input);

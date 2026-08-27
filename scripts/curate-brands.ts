@@ -1,6 +1,7 @@
 import { readFile } from 'node:fs/promises'
 import path from 'node:path'
 
+import { flushLangfuse } from '@/lib/langfuse/client'
 import { createServiceClient } from '@/lib/supabase/service'
 import {
   CURATION_TASK_ORDER,
@@ -500,6 +501,8 @@ async function main(): Promise<void> {
     console.error(err instanceof Error ? err.message : err)
     printUsage()
     process.exitCode = 1
+  } finally {
+    await flushLangfuse()
   }
 }
 

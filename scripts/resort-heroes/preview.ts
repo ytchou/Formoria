@@ -1,7 +1,7 @@
 import { writeFile, mkdir } from 'node:fs/promises'
 import { dirname } from 'node:path'
 import { planHeroResort } from '@/lib/services/enrich-phases/classify-images'
-import { createWriteBlockingClient } from '../model-ab/readonly-client'
+import { createWriteBlockingClient } from '../lib/readonly-client'
 import {
   PREVIEW_PATH,
   fingerprint,

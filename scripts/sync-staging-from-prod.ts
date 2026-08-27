@@ -63,7 +63,7 @@ import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import {
   createWriteBlockingClient,
   type BlockedWrite,
-} from "./model-ab/readonly-client";
+} from "./lib/readonly-client";
 import {
   STAGING_PROJECT_REF,
   projectRefFromSupabaseUrl,
