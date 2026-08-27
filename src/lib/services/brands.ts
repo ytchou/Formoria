@@ -731,8 +731,8 @@ const CARD_IMAGE_SELECT =
 
 type CardImageRow = Pick<
   Database["public"]["Tables"]["brand_images"]["Row"],
-  "brand_id" | "storage_path" | "tags" | "sort_order" | "width" | "height"
-> & { alt_zh?: string | null };
+  "brand_id" | "storage_path" | "tags" | "sort_order" | "width" | "height" | "alt_zh"
+>;
 
 /**
  * Fills in card image metadata and the best product photo for a list of cards.
