@@ -31,6 +31,7 @@ import type { EnrichScrapedData } from './types'
 import { brandTarget, type EnrichmentTarget } from '../_shared/enrichment-target'
 import { buildPhaseResult, hasPatchValues, timePhase, type EnrichBrand, type EnrichPhase } from './types'
 import { ONLINE_STORES } from '@/lib/brands/online-stores'
+import type { RenderProvider } from './scraper/render/types'
 
 type LinksPhaseOptions = {
   brand: EnrichBrand
@@ -41,6 +42,7 @@ type LinksPhaseOptions = {
   target?: EnrichmentTarget
   jobId?: string
   supabase?: SupabaseClient<Database>
+  renderProvider?: RenderProvider
 }
 
 export type LinksPhaseOutput = {
@@ -543,6 +545,7 @@ export async function runLinksPhase({
   target,
   jobId,
   supabase,
+  renderProvider,
 }: LinksPhaseOptions): Promise<LinksPhaseOutput> {
   if (!phases.includes('links')) {
     return {
@@ -569,6 +572,7 @@ export async function runLinksPhase({
     const scrapeOptions: ScrapeBrandUrlsOptions = {
       brandName: brand.name,
       confirmedSourceUrls,
+      renderProvider,
       onAttempt: async ({ url, classification, spanId }) => {
         const auditId = await startSearchAudit({
           target: target ?? brandTarget(brand.id),

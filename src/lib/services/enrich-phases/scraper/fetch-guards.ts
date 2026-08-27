@@ -7,7 +7,7 @@ const FETCH_TIMEOUT_MS = 10_000
 const MAX_RESPONSE_BYTES = 5 * 1024 * 1024
 const SCRAPER_USER_AGENT = 'Formoria-Bot/1.0'
 
-type FetchOperation = 'fetch_html' | 'fetch_html_with_metadata' | 'fetch_xml'
+type FetchOperation = 'fetch_html' | 'fetch_html_with_metadata' | 'fetch_xml' | 'fetch_text'
 type FetchReason =
   | 'none'
   | 'private_url'
@@ -234,5 +234,12 @@ export async function fetchXml(url: string): Promise<string | null> {
   return fetchText(url, 'application/xml, text/xml', (contentType) =>
     contentType.includes('application/xml') || contentType.includes('text/xml'),
     'fetch_xml',
+  )
+}
+
+export async function fetchTextDocument(url: string): Promise<string | null> {
+  return fetchText(url, 'text/plain, text/*', (contentType) =>
+    contentType.includes('text/plain') || contentType.includes('text/'),
+    'fetch_text',
   )
 }

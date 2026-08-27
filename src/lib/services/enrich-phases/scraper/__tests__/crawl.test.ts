@@ -1,6 +1,5 @@
 import { describe, it, expect, vi, afterEach } from 'vitest'
 import { CrawlStrategy } from '../strategies/crawl'
-import { getRenderProvider } from '../render/index'
 
 afterEach(() => vi.unstubAllGlobals())
 
@@ -41,14 +40,14 @@ function stockistRouter(url: string) {
 describe('CrawlStrategy', () => {
   it('discovers about/products sub-pages and merges their text', async () => {
     vi.stubGlobal('fetch', vi.fn().mockImplementation((u: string) => Promise.resolve(router(String(u)))))
-    const r = await new CrawlStrategy().scrape('https://brand.com', { render: getRenderProvider() })
+    const r = await new CrawlStrategy().scrape('https://brand.com', {})
     expect(r.brandName).toBe('Brand')
     expect(r.description ?? r.story).toContain('Taiwan studio')
   })
 
   it('discovers stockist pages and extracts text + JSON-LD images', async () => {
     vi.stubGlobal('fetch', vi.fn().mockImplementation((u: string) => Promise.resolve(stockistRouter(String(u)))))
-    const r = await new CrawlStrategy().scrape('https://brand.com', { render: getRenderProvider() })
+    const r = await new CrawlStrategy().scrape('https://brand.com', {})
     expect(r.stockistPageText).toContain('寶雅')
     expect(r.stockistPageText).toContain('Costco')
     expect(r.jsonLdImageUrls).toContain('https://cdn.brand.com/widget.jpg')

@@ -25,12 +25,18 @@ const VIDEO_OVERLAY_LABEL_RE = /reel|clip|video/i
  * this into a "keep only what matches" test, which would silently drop the
  * whole gallery on the next markup change.
  */
-const skipVideoPosterFrames: NonNullable<GalleryImageOptions['skip']> = (el, $) => {
+const skipVideoPosterFrames: NonNullable<GalleryImageOptions['skip']> = (
+  el,
+  $,
+) => {
   const inAnchor = $(el).closest('a').find('[aria-label]').toArray()
-  const labelled = inAnchor.length > 0 ? inAnchor : $(el).parent().find('[aria-label]').toArray()
+  const labelled =
+    inAnchor.length > 0
+      ? inAnchor
+      : $(el).parent().find('[aria-label]').toArray()
 
   return labelled.some((node) =>
-    VIDEO_OVERLAY_LABEL_RE.test($(node).attr('aria-label') ?? '')
+    VIDEO_OVERLAY_LABEL_RE.test($(node).attr('aria-label') ?? ''),
   )
 }
 
@@ -58,6 +64,7 @@ export const instagramAdapter: PlatformAdapter = {
     const galleryImageUrls = extractGalleryImages($, url, {
       limit: INSTAGRAM_GALLERY_LIMIT,
       skip: skipVideoPosterFrames,
+      rootSelector: 'main a[href*="/p/"] img, main a[href*="/reel/"] img',
     })
     const { socialThreads, socialFacebook } = extractSocialLinks($)
     const purchaseLinks = extractPurchaseLinks($)
@@ -67,13 +74,15 @@ export const instagramAdapter: PlatformAdapter = {
 
     return {
       ...result,
-      brandName: cleanInstagramTitle(metaContent($, 'meta[property="og:title"]')),
+      brandName: cleanInstagramTitle(
+        metaContent($, 'meta[property="og:title"]'),
+      ),
       description:
         metaContent($, 'meta[property="og:description"]') ||
         metaContent($, 'meta[name="description"]'),
       heroImageUrl: heroCandidate
-        ? filterHeroImage(heroCandidate, url) ?? galleryImageUrls[0] ?? null
-        : galleryImageUrls[0] ?? null,
+        ? (filterHeroImage(heroCandidate, url) ?? galleryImageUrls[0] ?? null)
+        : (galleryImageUrls[0] ?? null),
       galleryImageUrls,
       imageSources: toImageSources(galleryImageUrls, 'instagram_adapter', url),
       socialInstagram: url,

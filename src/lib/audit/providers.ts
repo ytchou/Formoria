@@ -12,10 +12,12 @@ const PROVIDERS = {
   playwright: ["fetch_rendered"],
   "mit-registry": ["lookup_exact_products", "sync_registry"],
   scraper: ["scrape_url"],
+  catalog: ["discover_catalog"],
   http: [
     "fetch_html",
     "fetch_html_with_metadata",
     "fetch_xml",
+    "fetch_text",
     "download_and_store_images",
     // Curated-product link health probe (scripts/curated-products/check-links.ts):
     // a HEAD/GET reachability check whose verdict can flip a published product's

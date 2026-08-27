@@ -5,27 +5,48 @@
  * Every decision below comes from the production modules — query construction,
  * scraping and adapters, the candidate pool, the classifier prompt and parser,
  * the ranker. Only the two steps that persist are replaced: images are gated in
- * memory rather than uploaded, and OpenAI/serper are called directly rather
- * than through the audited clients, so no audit rows land either.
+ * memory rather than uploaded, and OpenAI/serper are called directly. Scraper
+ * audit spans are expected; no submissions, images, or brands are written.
  *
  *   pnpm exec tsx --env-file=.env.local scripts/image-eval/pipeline-ab.ts
  */
-import { writeFile, readFile } from 'node:fs/promises'
+import { writeFile, readFile, mkdir } from 'node:fs/promises'
 import sharp from 'sharp'
 import { createClient } from '@supabase/supabase-js'
 import { buildImageQueryVariants } from '@/lib/services/enrich-phases/scraper/search'
-import { scrapeBrandUrls, MAX_SCRAPE_URLS_PER_BRAND } from '@/lib/services/enrich-phases/scraper'
-import { classifyByDomain, isNonBrandSiteHost } from '@/lib/services/enrich-phases/scraper/input-detector'
-import { buildCandidatePool, type CandidateImage } from '@/lib/services/enrich-phases/candidate-pool'
+import {
+  scrapeBrandUrls,
+  MAX_SCRAPE_URLS_PER_BRAND,
+} from '@/lib/services/enrich-phases/scraper'
+import {
+  classifyByDomain,
+  isNonBrandSiteHost,
+} from '@/lib/services/enrich-phases/scraper/input-detector'
+import {
+  buildCandidatePool,
+  type CandidateImage,
+} from '@/lib/services/enrich-phases/candidate-pool'
 import {
   buildBrandContext,
   parseClassificationBatch,
   applyClassifications,
+  IMAGE_CLASSIFY_BATCH_SIZE,
 } from '@/lib/services/enrich-phases/classify-images'
 import { IMAGE_CLASSIFY_SYSTEM_PROMPT } from '@/lib/prompts'
-import { computeDHash, isNonImageContentType } from '@/lib/services/image-download'
+import {
+  applyProductionImageGates,
+  imageRejectionCode,
+  isPerceptualDuplicate,
+  type ImageRejectionCode,
+} from '@/lib/services/image-download'
 import { categoryLabelZh } from '@/lib/taxonomy/ontology'
 import { cleanBrandName } from '@/lib/services/brand-cleanup'
+import { createLocalPlaywrightProvider } from '@/lib/services/enrich-phases/scraper/render/local-playwright-provider'
+import { createOpenAIClient } from '@/lib/services/openai-client'
+import { profileChatParams } from '@/lib/services/llm-audit'
+import { auditedCall } from '@/lib/audit'
+import { batchSearchBrandImages } from '@/lib/services/enrich-phases/scraper/serper'
+import { resolveProfileModel } from '@/lib/constants/llm-models'
 
 const TRACKED_SLUGS = [
   'jiayun-store',
@@ -36,16 +57,48 @@ const TRACKED_SLUGS = [
   'nu-dream-jewelry',
 ]
 
-/** Mirrors the production gates in image-download.ts. */
-const MIN_SHORT_EDGE = 480
-const MAX_ASPECT = 3.0
-const MIN_ENTROPY = 0.5
-const ALLOWED_FORMATS = new Set(['jpeg', 'png', 'webp'])
-const PHASH_HAMMING_THRESHOLD = 5
-/** Mirrors BATCH_SIZE in classify-images.ts. */
-const BATCH_SIZE = 5
+const ADAPTER_COHORTS = {
+  instagram: ['seeseamylove', 'yarn-ball', 'memedo', 'quoin', 'tings-aroma'],
+  pinkoi: ['seeseamylove', 'memedo', 'guaguaforest', 'tings-aroma', 'zenu'],
+  shopee: [
+    'yun-clean',
+    'man-man-soap',
+    'nsou',
+    'yi-fan-canvas-bags',
+    'my-beast',
+  ],
+  myship: ['an-ma', 'billnogates', 'lumirona', 'honestea', 'scent-forest'],
+  shopline: ['zenu', 'satana', 'addable', 'inblooom', 'goodglas'],
+  '91app': ['clany', '74ounce', 'a-mour', 'solis', 'erss'],
+  cyberbiz: [
+    'chih-tsui-fang',
+    'fluffystar',
+    '糖果屋幼教用品社',
+    'anta-pottery',
+    'buwu',
+  ],
+} as const
 
-type GateResult = 'kept' | 'fetch failed' | 'content-type' | 'too small' | 'aspect' | 'entropy' | 'format' | 'duplicate'
+function argValue(flag: string): string | undefined {
+  const index = process.argv.indexOf(flag)
+  return index >= 0 ? process.argv.at(index + 1) : undefined
+}
+
+function targetSlugs(): { label: string; slugs: readonly string[] } {
+  const adapter = argValue('--adapter')
+  if (!adapter) return { label: 'track', slugs: TRACKED_SLUGS }
+  if (!(adapter in ADAPTER_COHORTS)) {
+    throw new Error(
+      `unknown --adapter ${adapter}; expected ${Object.keys(ADAPTER_COHORTS).join(', ')}`,
+    )
+  }
+  return {
+    label: adapter,
+    slugs: ADAPTER_COHORTS[adapter as keyof typeof ADAPTER_COHORTS],
+  }
+}
+
+type GateResult = 'kept' | ImageRejectionCode
 
 type AfterImage = {
   url: string
@@ -89,16 +142,10 @@ const hostOf = (u: string): string => {
   }
 }
 
-function hamming(a: string, b: string): number {
-  let d = 0
-  for (let i = 0; i < a.length; i++) if (a[i] !== b[i]) d++
-  return d
-}
-
 /** The download gates, applied to bytes held in memory. Nothing is uploaded. */
 async function gateCandidate(
   candidate: CandidateImage,
-  claimed: string[]
+  claimed: string[],
 ): Promise<AfterImage> {
   const base = {
     url: candidate.url,
@@ -113,111 +160,118 @@ async function gateCandidate(
       headers: { 'User-Agent': 'Mozilla/5.0' },
       signal: AbortSignal.timeout(15_000),
     })
-    if (!res.ok) return { ...base, gate: 'fetch failed' }
+    if (!res.ok) return { ...base, gate: 'fetch_failed' }
     const contentType = res.headers.get('content-type') ?? ''
-    if (isNonImageContentType(contentType)) return { ...base, gate: 'content-type' }
-
     const buffer = Buffer.from(await res.arrayBuffer())
-    const meta = await sharp(buffer).metadata()
-    const w = meta.width ?? 0
-    const h = meta.height ?? 0
+    const result = await applyProductionImageGates(buffer, contentType)
+    const w = result.width
+    const h = result.height
     const sized = { ...base, w, h }
-
-    if (!meta.format || !ALLOWED_FORMATS.has(meta.format)) return { ...sized, gate: 'format' }
-    if (Math.min(w, h) < MIN_SHORT_EDGE) return { ...sized, gate: 'too small' }
-    if (Math.max(w, h) / Math.max(1, Math.min(w, h)) > MAX_ASPECT) return { ...sized, gate: 'aspect' }
-
-    const stats = await sharp(buffer).stats()
-    if (typeof stats.entropy === 'number' && stats.entropy < MIN_ENTROPY) {
-      return { ...sized, gate: 'entropy' }
-    }
-
-    const phash = await computeDHash(buffer)
-    if (claimed.some((known) => hamming(known, phash) < PHASH_HAMMING_THRESHOLD)) {
+    const phash = result.phash
+    if (isPerceptualDuplicate(phash, claimed)) {
       return { ...sized, gate: 'duplicate' }
     }
     claimed.push(phash)
 
     // What production sends the classifier: a 512px render. Here it becomes a
     // data URI instead of a signed storage URL, because nothing is uploaded.
-    const webp = await sharp(buffer).resize({ width: 512, withoutEnlargement: true }).webp({ quality: 80 }).toBuffer()
-    return { ...sized, gate: 'kept', dataUri: `data:image/webp;base64,${webp.toString('base64')}` }
-  } catch {
-    return { ...base, gate: 'fetch failed' }
+    const webp = await sharp(buffer)
+      .resize({ width: 512, withoutEnlargement: true })
+      .webp({ quality: 80 })
+      .toBuffer()
+    return {
+      ...sized,
+      gate: 'kept',
+      dataUri: `data:image/webp;base64,${webp.toString('base64')}`,
+    }
+  } catch (error) {
+    return { ...base, gate: imageRejectionCode(error) ?? 'fetch_failed' }
   }
 }
 
 async function classifyBatch(
   brandContext: string,
-  images: AfterImage[]
-): Promise<Map<string, { disposition: string; tag: string | null; score: number; reasons: string[] }>> {
+  images: AfterImage[],
+): Promise<
+  Map<
+    string,
+    {
+      disposition: string
+      tag: string | null
+      score: number
+      reasons: string[]
+    }
+  >
+> {
   const ordinals = images.map((_, i) => String(i + 1))
-  const res = await fetch('https://api.openai.com/v1/chat/completions', {
-    method: 'POST',
-    headers: { Authorization: `Bearer ${process.env.OPENAI_API_KEY}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      model: 'gpt-4o-mini',
-      temperature: 0,
-      max_tokens: 250 * images.length,
-      response_format: { type: 'json_object' },
-      messages: [
-        { role: 'system', content: IMAGE_CLASSIFY_SYSTEM_PROMPT },
-        {
-          role: 'user',
-          content: [
-            {
-              type: 'text',
-              text: `${brandContext}Classify the ${images.length} brand images that follow, numbered ${ordinals.join(', ')} in order. Return a JSON object with a "classifications" array holding exactly ${images.length} objects, whose "id" values are the image numbers as strings. Do not omit any image.`,
+  const response = await auditedCall(
+    { provider: 'openai', operation: 'image_eval_classify', kind: 'external' },
+    async (ctx) => {
+      const client = createOpenAIClient({
+        model: resolveProfileModel('classifyImages'),
+        onChatComplete: (event) => {
+          Object.assign(ctx.summary, {
+            request: {
+              system: event.request.system.slice(0, 2_000),
+              user: event.request.user.slice(0, 2_000),
+              imageCount: event.request.imageCount,
             },
-            ...images.map((i) => ({ type: 'image_url', image_url: { url: i.dataUri, detail: 'low' } })),
-          ],
+            response: JSON.stringify(event.data).slice(0, 2_000),
+            model: event.model,
+            latencyMs: event.latencyMs,
+          })
         },
-      ],
-    }),
-  })
-  const json = (await res.json()) as { choices?: Array<{ message?: { content?: string } }>; error?: { message?: string } }
-  if (!res.ok) {
-    console.log(`      classify failed: ${String(json.error?.message).slice(0, 120)}`)
-    return new Map()
-  }
-  const out = new Map<string, { disposition: string; tag: string | null; score: number; reasons: string[] }>()
-  for (const [ord, v] of parseClassificationBatch(json.choices?.[0]?.message?.content ?? '')) {
-    out.set(ord, { disposition: v.disposition, tag: v.tag, score: v.score, reasons: v.reasons })
+      })
+      const result = await client.chat({
+        system: IMAGE_CLASSIFY_SYSTEM_PROMPT,
+        user: `${brandContext}Classify the ${images.length} brand images that follow, numbered ${ordinals.join(', ')} in order. Return a JSON object with a "classifications" array holding exactly ${images.length} objects, whose "id" values are the image numbers as strings. Do not omit any image.`,
+        images: images.map((image) => image.dataUri ?? ''),
+        imageDetail: 'low',
+        json: true,
+        ...profileChatParams('classifyImages', {
+          maxTokens: 250 * images.length,
+        }),
+      })
+      Object.assign(ctx.summary, {
+        imageCount: images.length,
+        httpStatus: result.status,
+        ok: result.ok,
+      })
+      return result
+    },
+  )
+  if (!response.ok) return new Map()
+  const out = new Map<
+    string,
+    {
+      disposition: string
+      tag: string | null
+      score: number
+      reasons: string[]
+    }
+  >()
+  for (const [ord, v] of parseClassificationBatch(
+    response.content ?? '',
+  )) {
+    out.set(ord, {
+      disposition: v.disposition,
+      tag: v.tag,
+      score: v.score,
+      reasons: v.reasons,
+    })
   }
   return out
 }
 
 async function serperImages(query: string): Promise<CandidateImage[]> {
-  const res = await fetch('https://google.serper.dev/images', {
-    method: 'POST',
-    headers: { 'X-API-KEY': process.env.SERPER_API_KEY!, 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      q: query,
-      num: 10,
-      gl: 'tw',
-      hl: 'zh-TW',
-      // Mirrors buildImageSearchBody: one floor, matched to our own 480px gate.
-      tbs: 'isz:lt,islt:vga',
-      autocorrect: false,
-    }),
-  })
-  if (!res.ok) return []
-  const imgs = (((await res.json()) as { images?: unknown[] }).images ?? []) as Array<{
-    imageUrl: string
-    imageWidth?: number
-    imageHeight?: number
-    title?: string
-    link?: string
-  }>
-  return imgs.map((i) => ({
-    url: i.imageUrl,
+  const outcome = (
+    await batchSearchBrandImages([query], 1, () => query)
+  ).get(query)
+  return (outcome?.rows ?? []).map((image) => ({
+    ...image,
+    url: image.url,
     source: 'google_image' as const,
-    sourceUrl: i.imageUrl,
-    ...(i.link ? { pageUrl: i.link } : {}),
-    ...(i.title ? { title: i.title } : {}),
-    query,
-    ...(i.imageWidth ? { imageWidth: i.imageWidth } : {}),
-    ...(i.imageHeight ? { imageHeight: i.imageHeight } : {}),
+    sourceUrl: image.sourceUrl ?? image.url,
   }))
 }
 
@@ -235,20 +289,35 @@ function prioritize(urls: string[]): string[] {
   const buckets = [official, social, marketplace]
   const deepest = Math.max(...buckets.map((b) => b.length), 0)
   const ordered: string[] = []
-  for (let i = 0; i < deepest; i++) for (const b of buckets) {
-    const u = b.at(i)
-    if (u) ordered.push(u)
-  }
+  for (let i = 0; i < deepest; i++)
+    for (const b of buckets) {
+      const u = b.at(i)
+      if (u) ordered.push(u)
+    }
   return ordered
 }
 
 async function main(): Promise<void> {
-  const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!)
+  const target = targetSlugs()
+  const renderProvider = process.argv.includes('--local-render')
+    ? createLocalPlaywrightProvider()
+    : undefined
+  const supabase = createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!,
+  )
   const { data: brands, error } = await supabase
     .from('brands')
-    .select('id, slug, name, category, purchase_website, social_instagram, social_threads, social_facebook, purchase_pinkoi, purchase_shopee')
-    .in('slug', TRACKED_SLUGS)
+    .select(
+      'id, slug, name, category, purchase_website, social_instagram, social_threads, social_facebook, purchase_pinkoi, purchase_shopee, purchase_myship',
+    )
+    .in('slug', [...target.slugs])
   if (error) throw error
+  const returnedSlugs = new Set((brands ?? []).map((brand) => brand.slug))
+  const missingSlugs = target.slugs.filter((slug) => !returnedSlugs.has(slug))
+  if (missingSlugs.length > 0) {
+    throw new Error(`missing cohort brands: ${missingSlugs.join(', ')}`)
+  }
 
   const results: AfterBrand[] = []
 
@@ -263,18 +332,23 @@ async function main(): Promise<void> {
       social_facebook: b.social_facebook,
       purchase_pinkoi: b.purchase_pinkoi,
       purchase_shopee: b.purchase_shopee,
+      purchase_myship: b.purchase_myship,
     }
 
     // --- clean: name normalisation (production helper) ---
-    const nameAfter = cleanBrandName(String(b.name ?? slug)).cleanedName.trim() || String(b.name ?? slug)
+    const nameAfter =
+      cleanBrandName(String(b.name ?? slug)).cleanedName.trim() ||
+      String(b.name ?? slug)
 
     // --- links: scrape known URLs, then one bounded second pass ---
-    const knownUrls = Object.values(linksBefore).filter((u): u is string => typeof u === 'string' && u.trim().length > 0)
+    const knownUrls = Object.values(linksBefore).filter(
+      (u): u is string => typeof u === 'string' && u.trim().length > 0,
+    )
     const scrapeSet = prioritize(knownUrls).slice(0, MAX_SCRAPE_URLS_PER_BRAND)
     let scraped: Record<string, unknown> = {}
     try {
       if (scrapeSet.length > 0) {
-        const first = await scrapeBrandUrls(scrapeSet)
+        const first = await scrapeBrandUrls(scrapeSet, { renderProvider })
         scraped = first.data as unknown as Record<string, unknown>
       }
     } catch (e) {
@@ -283,16 +357,25 @@ async function main(): Promise<void> {
     console.log(`   scraped ${scrapeSet.length} url(s)`)
 
     // Production refuses a platform host for the website column.
-    const rawWebsite = (scraped.purchaseWebsite as string) ?? b.purchase_website ?? null
-    const websiteAfter = rawWebsite && !isNonBrandSiteHost(rawWebsite) ? rawWebsite : null
+    const rawWebsite =
+      (scraped.purchaseWebsite as string) ?? b.purchase_website ?? null
+    const websiteAfter =
+      rawWebsite && !isNonBrandSiteHost(rawWebsite) ? rawWebsite : null
 
     const linksAfter = {
       purchase_website: websiteAfter,
-      social_instagram: (scraped.socialInstagram as string) ?? b.social_instagram ?? null,
-      social_threads: (scraped.socialThreads as string) ?? b.social_threads ?? null,
-      social_facebook: (scraped.socialFacebook as string) ?? b.social_facebook ?? null,
-      purchase_pinkoi: (scraped.purchasePinkoi as string) ?? b.purchase_pinkoi ?? null,
-      purchase_shopee: (scraped.purchaseShopee as string) ?? b.purchase_shopee ?? null,
+      social_instagram:
+        (scraped.socialInstagram as string) ?? b.social_instagram ?? null,
+      social_threads:
+        (scraped.socialThreads as string) ?? b.social_threads ?? null,
+      social_facebook:
+        (scraped.socialFacebook as string) ?? b.social_facebook ?? null,
+      purchase_pinkoi:
+        (scraped.purchasePinkoi as string) ?? b.purchase_pinkoi ?? null,
+      purchase_shopee:
+        (scraped.purchaseShopee as string) ?? b.purchase_shopee ?? null,
+      purchase_myship:
+        (scraped.purchaseMyship as string) ?? b.purchase_myship ?? null,
     }
 
     // --- image query: the real branch logic ---
@@ -303,14 +386,25 @@ async function main(): Promise<void> {
     })
     const imageQuery = queries.at(0) ?? ''
     const routingBranch = websiteAfter
-      ? linksAfter.social_instagram ? 'Website + Instagram' : 'Website only'
-      : linksAfter.social_instagram ? 'Instagram only' : 'Neither'
+      ? linksAfter.social_instagram
+        ? 'Website + Instagram'
+        : 'Website only'
+      : linksAfter.social_instagram
+        ? 'Instagram only'
+        : 'Neither'
     console.log(`   branch: ${routingBranch}\n   query:  ${imageQuery}`)
 
     // --- image search + candidate pool (production helper) ---
     const googleImages = imageQuery ? await serperImages(imageQuery) : []
     const pool = buildCandidatePool({
-      scraped: ((scraped.imageSources as Array<{ url: string; method: string; pageUrl: string; position: number }>) ?? []).map((s) => ({
+      scraped: (
+        (scraped.imageSources as Array<{
+          url: string
+          method: string
+          pageUrl: string
+          position: number
+        }>) ?? []
+      ).map((s) => ({
         url: s.url,
         method: s.method,
         pageUrl: s.pageUrl,
@@ -321,7 +415,13 @@ async function main(): Promise<void> {
     })
     const bySource: Record<string, number> = {}
     for (const c of pool) bySource[c.source] = (bySource[c.source] ?? 0) + 1
-    console.log(`   candidates: ${pool.length} (${Object.entries(bySource).map(([k, v]) => `${k} ${v}`).join(', ') || 'none'})`)
+    console.log(
+      `   candidates: ${pool.length} (${
+        Object.entries(bySource)
+          .map(([k, v]) => `${k} ${v}`)
+          .join(', ') || 'none'
+      })`,
+    )
 
     // --- download gates, in memory ---
     const claimed: string[] = []
@@ -331,8 +431,8 @@ async function main(): Promise<void> {
     console.log(`   passed gates: ${kept.length}/${gated.length}`)
 
     // --- classification, batched exactly as production batches ---
-    for (let i = 0; i < kept.length; i += BATCH_SIZE) {
-      const chunk = kept.slice(i, i + BATCH_SIZE)
+    for (let i = 0; i < kept.length; i += IMAGE_CLASSIFY_BATCH_SIZE) {
+      const chunk = kept.slice(i, i + IMAGE_CLASSIFY_BATCH_SIZE)
       const verdicts = await classifyBatch(
         // pinkoi/instagram must mirror runClassifyImagesPhase: the prompt
         // withholds wrong_brand when no identifier is present, so omitting them
@@ -344,7 +444,7 @@ async function main(): Promise<void> {
           pinkoi: b.purchase_pinkoi ?? null,
           instagram: b.social_instagram ?? null,
         }),
-        chunk
+        chunk,
       )
       for (const [ord, v] of verdicts) {
         const image = chunk.at(Number(ord) - 1)
@@ -376,7 +476,9 @@ async function main(): Promise<void> {
       image.rank = rank
       image.published = rank < 10
     })
-    console.log(`   classified keep: ${ordered.length}, published: ${Math.min(ordered.length, 10)}`)
+    console.log(
+      `   classified keep: ${ordered.length}, published: ${Math.min(ordered.length, 10)}`,
+    )
 
     results.push({
       slug,
@@ -395,14 +497,57 @@ async function main(): Promise<void> {
     })
   }
 
-  await writeFile('scripts/image-eval/runs/_track/after.json', JSON.stringify(results, null, 2))
-  console.log('\nwrote scripts/image-eval/runs/_track/after.json')
-
-  const before = JSON.parse(await readFile('scripts/image-eval/runs/_track/tracker.json', 'utf8')) as {
-    capturedAt: string
-    rows: Array<Record<string, unknown>>
+  const adapterImages = results.flatMap((brand) =>
+    brand.images.filter((item) => item.method.endsWith('_adapter')),
+  )
+  const gatePassing = adapterImages.filter((item) => item.gate === 'kept')
+  const classifierKept = gatePassing.filter(
+    (item) => item.disposition === 'keep',
+  )
+  const rejectionCounts = Object.fromEntries(
+    [
+      ...new Set(
+        adapterImages
+          .filter((item) => item.gate !== 'kept')
+          .map((item) => item.gate),
+      ),
+    ].map((code) => [
+      code,
+      adapterImages.filter((item) => item.gate === code).length,
+    ]),
+  )
+  const metrics = {
+    cohort: target.label,
+    returned: adapterImages.length,
+    gatePassing: gatePassing.length,
+    classifierKept: classifierKept.length,
+    imageGatePass:
+      adapterImages.length > 0 ? gatePassing.length / adapterImages.length : 0,
+    classifierKeep:
+      gatePassing.length > 0 ? classifierKept.length / gatePassing.length : 0,
+    endToEndImageYield:
+      adapterImages.length > 0
+        ? classifierKept.length / adapterImages.length
+        : 0,
+    rejectionCounts,
   }
-  console.log(`baseline captured ${before.capturedAt} — ${before.rows.length} brands`)
+  const outputDir = `scripts/image-eval/runs/_${target.label}`
+  await mkdir(outputDir, { recursive: true })
+  await writeFile(`${outputDir}/after.json`, JSON.stringify(results, null, 2))
+  await writeFile(`${outputDir}/metrics.json`, JSON.stringify(metrics, null, 2))
+  console.log(`\nwrote ${outputDir}/after.json and metrics.json`)
+
+  if (target.label === 'track') {
+    const before = JSON.parse(
+      await readFile('scripts/image-eval/runs/_track/tracker.json', 'utf8'),
+    ) as {
+      capturedAt: string
+      rows: Array<Record<string, unknown>>
+    }
+    console.log(
+      `baseline captured ${before.capturedAt} — ${before.rows.length} brands`,
+    )
+  }
 }
 
 void main()

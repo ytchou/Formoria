@@ -649,7 +649,6 @@ export const PRODUCTS_LABELS = {
   userPreamble: "請從以下品牌自有網站資料中挑出最值得收錄的商品：",
   siteUrl: "品牌官方網站：",
   candidatePages: "候選頁面（網址 | 頁面標題與描述）：",
-  imageCandidates: "已分類的商品圖片（替代文字 | 圖片所在頁面）：",
   listingEntryPoints: "品牌商品入口頁（僅供參考，不可作為 official_url）：",
   originExcerpts: "商品產地摘錄（候選網址 | excerpt_id | 原文）：",
 } as const;

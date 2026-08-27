@@ -20,6 +20,7 @@ type CheerioNode =
 
 export type GalleryImageOptions = {
   limit?: number
+  rootSelector?: string
   /**
    * Optional per-element veto, used by the Instagram adapter to drop video
    * poster frames. Returning `false` (or omitting the predicate entirely) keeps
@@ -255,11 +256,11 @@ export function largestSrcsetUrl(srcset: string): string {
 export function extractGalleryImages(
   $: cheerio.CheerioAPI,
   pageUrl: string,
-  { limit = MAX_GALLERY_IMAGES, skip }: GalleryImageOptions = {}
+  { limit = MAX_GALLERY_IMAGES, skip, rootSelector = 'img' }: GalleryImageOptions = {}
 ): string[] {
   const urls: string[] = []
 
-  $('img').each((_, el) => {
+  $(rootSelector).each((_, el) => {
     if (urls.length >= limit) return
 
     if (skip?.(el, $)) return
@@ -298,6 +299,26 @@ export function extractGalleryImages(
     urls.push(resolved)
   })
 
+  return urls
+}
+
+export function extractScopedProductImages(
+  $: cheerio.CheerioAPI,
+  selectors: readonly string[],
+  pageUrl: string,
+  limit: number = MAX_GALLERY_IMAGES,
+): string[] {
+  const urls: string[] = []
+  $(selectors.join(', ')).each((_, element) => {
+    if (urls.length >= limit) return
+    const raw = $(element).attr('data-src') ?? $(element).attr('data-original') ?? $(element).attr('src')
+    if (!raw || raw.startsWith('data:')) return
+    try {
+      const parsed = new URL(raw, pageUrl)
+      if (NON_PRODUCT_IMAGE_PATH_RE.test(parsed.pathname)) return
+      if (!urls.includes(parsed.href)) urls.push(parsed.href)
+    } catch {}
+  })
   return urls
 }
 

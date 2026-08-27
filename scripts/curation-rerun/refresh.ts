@@ -39,6 +39,7 @@
  *   pnpm exec tsx --env-file=.env.local scripts/curation-rerun/refresh.ts --cohort batch1-never-curated --confirm --via-worker
  *   pnpm exec tsx --env-file=.env.local scripts/curation-rerun/refresh.ts --task product --confirm
  *   pnpm exec tsx --env-file=.env.local scripts/curation-rerun/refresh.ts --task product --no-apply --confirm
+ *   pnpm exec tsx --env-file=.env.local scripts/curation-rerun/refresh.ts --task product --local-render --no-apply --confirm
  */
 import { randomUUID } from "node:crypto";
 import { writeFile, mkdir } from "node:fs/promises";
@@ -51,6 +52,7 @@ import {
 } from "@/lib/services/curation-jobs";
 import { dispatchCurationJob } from "@/lib/services/curation-dispatch";
 import { runJob } from "@/lib/services/job-runner";
+import { createLocalPlaywrightProvider } from "@/lib/services/enrich-phases/scraper/render/local-playwright-provider";
 import {
   requestBrandRefreshesBySlugs,
   applyBrandRefresh,
@@ -61,6 +63,7 @@ import {
   type CurationTask,
 } from "@/lib/constants/enrich-phases";
 import { loadCohort, snapshotDir, type Cohort } from "./cohort";
+import { validateLocalRenderFlags } from "./refresh-options";
 
 /**
  * Default task. `full` expands to exactly the phase set the retired
@@ -213,6 +216,7 @@ async function main(): Promise<void> {
   );
   const dryRun = hasFlag("--dry-run");
   const viaWorker = hasFlag("--via-worker");
+  const localRender = validateLocalRenderFlags(process.argv);
   const task = targetTask();
   // Recorded alongside the task so a log stays readable after CURATION_TASKS
   // changes shape — the task name alone would not say what actually ran.
@@ -448,7 +452,11 @@ async function main(): Promise<void> {
       throw new Error(
         `could not claim job ${job.id} — another worker may hold it`,
       );
-    summary = await runJob(claimed, workerToken);
+    summary = await runJob(claimed, workerToken, {
+      ...(localRender
+        ? { renderProvider: createLocalPlaywrightProvider() }
+        : {}),
+    });
   }
   console.log(
     `\njob done — success ${summary.success}, failed ${summary.failed}, skipped ${summary.skipped}`,
