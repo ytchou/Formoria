@@ -798,8 +798,16 @@ export async function runProductsPhase({
 
   // Build a unified pool of ProductCandidate entries from the scraped pages.
   // The scraped half is converted to ProductCandidate shape for mergeCandidatePool.
+  const imageByPage = new Map<string, string>();
+  for (const source of scrapedData?.imageSources ?? []) {
+    if (source.pageUrl && source.url && !imageByPage.has(source.pageUrl)) {
+      imageByPage.set(source.pageUrl, source.url);
+    }
+  }
+
   const scrapedCandidates: ProductCandidate[] = [];
   const perSourceText = scrapedData?.perSourceText ?? {};
+  let scrapedIndex = 0;
   for (const [url, text] of Object.entries(perSourceText)) {
     const parsed = httpUrl(url);
     if (!parsed || bareHost(parsed) !== bareHost(site)) continue;
@@ -811,6 +819,8 @@ export async function runProductsPhase({
       title: text?.title ?? undefined,
       supplier: "scraped",
       urlClass: classifyProductUrl(url),
+      imageUrl: imageByPage.get(url),
+      searchPosition: scrapedIndex++,
     });
   }
 
@@ -836,7 +846,7 @@ export async function runProductsPhase({
   const catalogUrls = new Set(
     catalogCandidates.map((candidate) => candidate.url),
   );
-  const { kept: dedupedCandidates } = dedupeNearDuplicates(
+  const { kept: dedupedCandidates, collapsedCount } = dedupeNearDuplicates(
     [...storedCandidates, ...scrapedCandidates].filter((candidate) =>
       catalogUrls.has(candidate.url),
     ),
@@ -1124,6 +1134,7 @@ export async function runProductsPhase({
           });
         }
         Object.assign(ctx.summary, {
+          candidatesCollapsed: collapsedCount,
           candidatesGated: selectionResult.gated.length,
           candidatesRanked: selectionResult.ranked.length,
         });
