@@ -12,6 +12,7 @@ import {
   upgradeEcommerceImageUrl,
   largestSrcsetUrl,
   extractFavicons,
+  extractScopedProductImages,
 } from '../parse/extractors'
 
 describe('filterHeroImage', () => {
@@ -407,6 +408,22 @@ describe('largestSrcsetUrl', () => {
     expect(largestSrcsetUrl('https://cdn.site.com/x.jpg not-a-descriptor')).toBe(
       'https://cdn.site.com/x.jpg'
     )
+  })
+})
+
+describe('extractScopedProductImages', () => {
+  it('falls back to srcset when src is absent', () => {
+    const html = '<div data-product-id="x"><img srcset="https://cdn.site.com/s.jpg 320w, https://cdn.site.com/l.jpg 1280w" /></div>'
+    const $ = cheerio.load(html)
+    const result = extractScopedProductImages($, ['[data-product-id] img'], 'https://cdn.site.com')
+    expect(result).toEqual(['https://cdn.site.com/l.jpg'])
+  })
+
+  it('prefers src over srcset', () => {
+    const html = '<div data-product-id="x"><img src="https://cdn.site.com/main.jpg" srcset="https://cdn.site.com/l.jpg 1280w" /></div>'
+    const $ = cheerio.load(html)
+    const result = extractScopedProductImages($, ['[data-product-id] img'], 'https://cdn.site.com')
+    expect(result).toEqual(['https://cdn.site.com/main.jpg'])
   })
 })
 

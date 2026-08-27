@@ -4,6 +4,7 @@ import { extractMyshipProductImages } from '../../parse/extractors'
 import { myshipAdapter } from './myship'
 import { pinkoiAdapter } from './pinkoi'
 import { shopeeAdapter } from './shopee'
+import { shoplineAdapter } from './shopline'
 
 const pinkoiHtml = `
 <html>
@@ -256,5 +257,52 @@ describe('createMarketplaceAdapter', () => {
     expect(
       shopeeAdapter.parse(shopeeClassNameFallbackHtml, 'https://shopee.tw/shop/123').brandName,
     ).toBe('品牌名')
+  })
+
+  it('applies upgradeEcommerceImageUrl to gallery image URLs', () => {
+    const html = `
+      <html>
+        <head>
+          <meta property="og:title" content="Test Brand" />
+        </head>
+        <body>
+          <div data-product-id="1">
+            <img src="https://img.shoplineapp.com/media/image/product1.png?w=200" />
+          </div>
+          <div data-product-id="2">
+            <img src="https://img.shoplineapp.com/media/image/product2.png?w=300&quality=80" />
+          </div>
+        </body>
+      </html>
+    `
+    const result = shoplineAdapter.parse(html, 'https://store.shoplineapp.com/shop')
+    // ?w= param should be stripped by upgradeEcommerceImageUrl
+    expect(result.galleryImageUrls).not.toContainEqual(
+      expect.stringContaining('?w=200'),
+    )
+    expect(result.galleryImageUrls).toContainEqual(
+      'https://img.shoplineapp.com/media/image/product1.png',
+    )
+    // ?w=300 stripped but ?quality=80 kept
+    expect(result.galleryImageUrls).toContainEqual(
+      'https://img.shoplineapp.com/media/image/product2.png?quality=80',
+    )
+  })
+
+  it('leaves non-matching CDN URLs unchanged in gallery', () => {
+    const html = `
+      <html>
+        <head>
+          <meta property="og:title" content="Test Brand" />
+        </head>
+        <body>
+          <div data-product-id="1">
+            <img src="https://example.com/image.jpg" />
+          </div>
+        </body>
+      </html>
+    `
+    const result = shoplineAdapter.parse(html, 'https://store.shoplineapp.com/shop')
+    expect(result.galleryImageUrls).toContainEqual('https://example.com/image.jpg')
   })
 })
