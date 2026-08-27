@@ -1,14 +1,21 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import type { AuditContext } from "@/lib/audit/types";
 
-// Mock the langfuse module before any imports
-const mockShutdownAsync = vi.fn().mockResolvedValue(undefined);
-const mockFlushAsync = vi.fn().mockResolvedValue(undefined);
-const mockLangfuseInstance = {
-  shutdownAsync: mockShutdownAsync,
-  flushAsync: mockFlushAsync,
-};
-const MockLangfuse = vi.fn().mockReturnValue(mockLangfuseInstance);
+// vi.mock is hoisted above const declarations; vi.hoisted ensures the mock
+// variables exist when the factory runs.
+const { MockLangfuse, mockShutdownAsync, mockFlushAsync, mockLangfuseInstance } =
+  vi.hoisted(() => {
+    const shutdownAsync = vi.fn().mockResolvedValue(undefined);
+    const flushAsync = vi.fn().mockResolvedValue(undefined);
+    const instance = { shutdownAsync, flushAsync };
+    const Ctor = vi.fn().mockReturnValue(instance);
+    return {
+      MockLangfuse: Ctor,
+      mockShutdownAsync: shutdownAsync,
+      mockFlushAsync: flushAsync,
+      mockLangfuseInstance: instance,
+    };
+  });
 
 vi.mock("langfuse", () => ({
   Langfuse: MockLangfuse,

@@ -565,8 +565,8 @@ describe("contextFacts", () => {
 
 describe("DESCRIPTION_SYSTEM_PROMPT", () => {
   it("description prompt retains its channel and pricing prohibitions", () => {
-    expect(DESCRIPTION_SYSTEM_PROMPT).toContain("購買管道與通路");
-    expect(DESCRIPTION_SYSTEM_PROMPT).toContain("價格資訊一律不寫進這四個欄位");
+    expect(DESCRIPTION_SYSTEM_PROMPT).toContain("Purchase channels and distribution");
+    expect(DESCRIPTION_SYSTEM_PROMPT).toContain("pricing information is never written in these four fields");
     expect(DESCRIPTION_SYSTEM_PROMPT.toLowerCase()).not.toContain("faq");
   });
 });

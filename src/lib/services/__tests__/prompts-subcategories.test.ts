@@ -27,7 +27,7 @@ describe("FACTS_SYSTEM_PROMPT subcategories vocabulary", () => {
 
     // The output contract asks for the slug, not the zh-TW label it replaced.
     expect(FACTS_SYSTEM_PROMPT).toContain(
-      '"subcategories": ["子類別 slug（只能用下方「商品子類別詞彙表」中的 slug，一字不差）"]',
+      '"subcategories": ["subcategory slug (use only slugs from the \'Product subcategory vocabulary\' below, verbatim)"]',
     );
   });
 
@@ -51,16 +51,16 @@ describe("FACTS_SYSTEM_PROMPT subcategories vocabulary", () => {
     // closed list is offered as slugs and only slugs come back. A zh label is
     // not repaired downstream, it is dropped — so the prompt has to say so.
     expect(FACTS_SYSTEM_PROMPT).toContain(
-      "材質詞彙表（封閉清單，只能使用下列 slug）：",
+      "Material vocabulary (closed list — use only the following slugs):",
     );
-    expect(FACTS_SYSTEM_PROMPT).toContain("material 只接受英文 slug");
+    expect(FACTS_SYSTEM_PROMPT).toContain("material accepts only English slugs");
     expect(FACTS_SYSTEM_PROMPT).toContain(
-      "填中文標籤（例如「陶瓷」）會被丟棄",
+      "Chinese labels (e.g. 「陶瓷」) will be discarded",
     );
-    expect(FACTS_SYSTEM_PROMPT).toContain("slug 一律是小寫英文與連字號");
+    expect(FACTS_SYSTEM_PROMPT).toContain("slugs are always lowercase English with hyphens");
     // The output schema asks for the slug too, not the zh-TW term it replaced.
     expect(FACTS_SYSTEM_PROMPT).toContain(
-      '"material": ["材質 slug（只能用下方「材質詞彙表」中的英文 slug，一字不差）"]',
+      '"material": ["material slug (use only English slugs from the \'Material vocabulary\' below, verbatim)"]',
     );
     expect(FACTS_SYSTEM_PROMPT).not.toContain(
       '"material": ["材質（只能用下方「材質詞彙表」中的詞）"]',
@@ -72,9 +72,9 @@ describe("FACTS_SYSTEM_PROMPT subcategories vocabulary", () => {
     // with no way to be reported at all. The ban is now scoped to the USE axis
     // and material is asked for on its own axis, against a closed 12-slug list.
     expect(FACTS_SYSTEM_PROMPT).toContain(
-      "6. 材質屬於另一個軸線：不要用材質詞當子類別，材質請改填 material 欄位。",
+      "6. Material belongs to a separate axis: do not use material terms as subcategories — put materials in the material field instead.",
     );
-    expect(FACTS_SYSTEM_PROMPT).toContain("material（材質）：");
+    expect(FACTS_SYSTEM_PROMPT).toContain("material:");
     // Rule 4 no longer lists 材質 or 原料 among the disqualifying kinds.
     expect(FACTS_SYSTEM_PROMPT).not.toContain(
       "不得是場合、收件對象、包裝形式、履約方式、服務或材質",
@@ -84,10 +84,10 @@ describe("FACTS_SYSTEM_PROMPT subcategories vocabulary", () => {
       "而不是 L1、場合、包裝、服務、材質或 SKU 層級詞",
     );
     expect(FACTS_SYSTEM_PROMPT).toContain(
-      "material 是否全部是材質詞彙表中的英文 slug（沒有中文標籤），且每一項都有來源依據？",
+      "Are all material values English slugs from the material vocabulary (no Chinese labels), each with source evidence?",
     );
     // Material is evidence-bound; it is never inferred from a photo.
-    expect(FACTS_SYSTEM_PROMPT).toContain("不可從照片外觀推測");
+    expect(FACTS_SYSTEM_PROMPT).toContain("do not infer from photo appearance");
   });
 
   it("occasion_and_service_remain_banned", () => {
@@ -95,27 +95,27 @@ describe("FACTS_SYSTEM_PROMPT subcategories vocabulary", () => {
     // recipient, packaging and service are not product kinds and have no node
     // at any level (`EVICTED_LABELS`).
     expect(FACTS_SYSTEM_PROMPT).toContain(
-      "4. 場合、收件對象、包裝形式、履約方式與服務都不是商品種類（例如送禮、彌月、禮盒、伴手禮、體驗課程、服務），不得為了收錄它們而勉強對應到任何 slug。",
+      "4. Occasions, recipients, packaging formats, fulfilment methods, and services are not product types (e.g. gifting, baby-month-gifts, gift-boxes, souvenirs, workshops, services) — do not force-map them to any slug.",
     );
-    for (const banned of ["送禮", "彌月", "禮盒", "伴手禮", "體驗課程", "服務"]) {
+    for (const banned of ["gifting", "baby-month-gifts", "gift-boxes", "souvenirs", "workshops", "services"]) {
       expect(FACTS_SYSTEM_PROMPT).toContain(banned);
     }
     expect(FACTS_SYSTEM_PROMPT).toContain(
-      "是否沒有把 L1、場合、包裝、服務或 SKU 層級詞當成子類別？",
+      "Are there no L1 categories, occasions, packaging, services, or SKU-level terms used as subcategories?",
     );
   });
 
   it("closes the vocabulary — no novel-subcategory escape hatch remains", () => {
     expect(FACTS_SYSTEM_PROMPT).toContain(
-      "1. 只能輸出上表出現過的 slug，一字不差；找不到合適的 slug 時寧可少填，不可自創標籤。",
+      "1. Only output slugs that appear in the table above, verbatim; when no suitable slug exists, leave it out rather than inventing a label.",
     );
     expect(FACTS_SYSTEM_PROMPT).not.toContain("僅當找不到合適詞彙時");
     expect(FACTS_SYSTEM_PROMPT).not.toContain("novel subcategory");
   });
 
   it("instructs two-step extraction and vocabulary preference", () => {
-    expect(FACTS_SYSTEM_PROMPT).toMatch(/先.*產品線|先列出/);
-    expect(FACTS_SYSTEM_PROMPT).toMatch(/優先.*詞彙表|從.*詞彙表.*選/);
+    expect(FACTS_SYSTEM_PROMPT).toMatch(/First identify.*product lines/);
+    expect(FACTS_SYSTEM_PROMPT).toMatch(/prefer slugs|from the vocabulary/);
   });
 
   it("no longer forbids broad categories (old instruction removed)", () => {
@@ -147,8 +147,8 @@ describe("listing criteria are split across the two stages", () => {
     // Detect must NOT gate on a channel it cannot observe.
     expect(DETECT_SYSTEM_PROMPT).not.toContain("可驗證的購買管道");
     expect(DETECT_SYSTEM_PROMPT).toContain("a later stage sees all of those");
-    expect(FACTS_SYSTEM_PROMPT).toContain("可驗證的購買管道");
-    expect(FACTS_SYSTEM_PROMPT).toContain("自主設計或生產的實體商品");
+    expect(FACTS_SYSTEM_PROMPT).toContain("verifiable purchase channel");
+    expect(FACTS_SYSTEM_PROMPT).toContain("self-designed or self-produced physical products");
   });
 
   it("never lets the early stage reject on uncertainty", () => {
@@ -168,6 +168,6 @@ describe("the product category is decided in the facts stage", () => {
   it("asks the facts stage for a single L1 category slug", () => {
     expect(FACTS_SYSTEM_PROMPT).toContain("category");
     expect(FACTS_SYSTEM_PROMPT).toContain("bags-accessories");
-    expect(FACTS_SYSTEM_PROMPT).toContain("核心產品線");
+    expect(FACTS_SYSTEM_PROMPT).toContain("core product line");
   });
 });
