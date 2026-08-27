@@ -150,23 +150,26 @@ export async function downloadAndStoreFavicon(
           return null
         }
 
-        const { error: upsertError } = await supabase
+        await supabase
           .from('brand_images')
-          .upsert(
-            {
-              brand_id: brandId,
-              storage_path: storagePath,
-              source: 'favicon',
-              source_url: url,
-              tags: ['favicon'],
-              status: 'active',
-              sort_order: 0,
-            },
-            { onConflict: 'brand_id,source' },
-          )
+          .delete()
+          .eq('brand_id', brandId)
+          .eq('source', 'favicon')
 
-        if (upsertError) {
-          console.warn(`[favicon] ${brandId}: upsert failed — ${upsertError.message}`)
+        const { error: insertError } = await supabase
+          .from('brand_images')
+          .insert({
+            brand_id: brandId,
+            storage_path: storagePath,
+            source: 'favicon',
+            source_url: url,
+            tags: ['favicon'],
+            status: 'active',
+            sort_order: 0,
+          })
+
+        if (insertError) {
+          console.warn(`[favicon] ${brandId}: insert failed — ${insertError.message}`)
           return null
         }
 
