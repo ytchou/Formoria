@@ -303,7 +303,7 @@ export default async function BrandDetailPage({ params }: PageProps) {
             type="application/ld+json"
             dangerouslySetInnerHTML={{
               __html: safeJsonLdStringify(
-                buildBrandJsonLd(displayBrand, safeLocale, canonicalUrl, [
+                buildBrandJsonLd({ ...displayBrand, heroImageAlt: displayBrand.imageAlts[0]?.altZh ?? null }, safeLocale, canonicalUrl, [
                   ...stockists.confirmed,
                   ...stockists.possible,
                 ]),

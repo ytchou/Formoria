@@ -47,7 +47,7 @@ function BrandImage({ brand }: { brand: SavedBrand }) {
 
   return (
     <SurfaceImage
-      alt={brand.brandName}
+      alt={selectedImage.meta?.altZh ?? brand.brandName}
       className={imageFill}
       fill
       surface="card"

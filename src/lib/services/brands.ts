@@ -727,16 +727,11 @@ async function brandToDomainWithImages(
 }
 
 const CARD_IMAGE_SELECT =
-  "brand_id, storage_path, tags, sort_order, width, height";
+  "brand_id, storage_path, tags, sort_order, width, height, alt_zh";
 
 type CardImageRow = Pick<
   Database["public"]["Tables"]["brand_images"]["Row"],
-  | "brand_id"
-  | "storage_path"
-  | "tags"
-  | "sort_order"
-  | "width"
-  | "height"
+  "brand_id" | "storage_path" | "tags" | "sort_order" | "width" | "height" | "alt_zh"
 >;
 
 /**
@@ -895,6 +890,7 @@ export async function hydrateCardImageMeta<
     const heroMeta = heroRow
       ? {
           isLogo: isLogoImageTags(heroRow.tags),
+          altZh: heroRow.alt_zh ?? undefined,
         }
       : {
           // Unknown hero metadata must not win over a known product photo.
@@ -914,6 +910,7 @@ export async function hydrateCardImageMeta<
           ? [
               {
                 isLogo: false,
+                altZh: productRow.alt_zh ?? undefined,
               },
             ]
           : []),

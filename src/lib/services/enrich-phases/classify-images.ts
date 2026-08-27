@@ -246,6 +246,7 @@ type ParsedImageClassification = {
   tag: KeptImageTag | null;
   reasons: ImageRejectionReason[];
   score: number;
+  caption: string | null;
 };
 
 type ClassifiedImage = {
@@ -270,6 +271,7 @@ type ClassifiedImage = {
    * unit tests can keep building bare literals.
    */
   isLogo?: boolean;
+  caption?: string | null;
 };
 
 function toStrictJsonSchema(shape: z.ZodType): Record<string, unknown> {
@@ -295,6 +297,7 @@ export const IMAGE_CLASSIFICATION_SCHEMA = {
           tag: z.enum(KEEP_TAGS).nullable(),
           reasons: z.array(z.enum(REJECTION_REASONS)),
           score: z.number(),
+          caption: z.string().nullable(),
         }),
       ),
     }),
@@ -475,6 +478,7 @@ export function parseClassificationBatch(
     tag?: unknown;
     reasons?: unknown;
     score?: unknown;
+    caption?: unknown;
   };
 
   const verdicts = new Map<string, ParsedImageClassification>();
@@ -541,6 +545,9 @@ export function parseClassificationBatch(
       tag: belowFloor ? null : tag,
       reasons: belowFloor ? ["low_visual_quality"] : reasons,
       score: clampedScore,
+      caption: disposition === "keep" && !belowFloor
+        ? (typeof item.caption === "string" && item.caption.trim().length > 0 ? item.caption.trim() : null)
+        : null,
     });
   }
 
@@ -1149,10 +1156,11 @@ async function classifyChunk(
     imageDetail: CLASSIFY_IMAGE_DETAIL,
     json: true,
     schema: IMAGE_CLASSIFICATION_SCHEMA,
-    // The only per-call token budget in the pipeline: 250 per image in the
-    // batch, so the profile cannot know it statically.
+    // The only per-call token budget in the pipeline: 350 per image in the
+    // batch (raised from 250 for the caption field), so the profile cannot
+    // know it statically.
     ...profileChatParams("classifyImages", {
-      maxTokens: 250 * sendable.length,
+      maxTokens: 350 * sendable.length,
       // Call-site, deliberately NOT in the llm-models profile: the profile is
       // also read by `buildProfiledEnrichmentConfig`, which persists it as the
       // audit contract in brand_ai_results.config, and a transport timeout is
@@ -1272,6 +1280,7 @@ export function planChunkImageWrites(input: {
         status: rejected ? "rejected" : "active",
         rejection_reasons: rejected ? classification.reasons : null,
         rejected_at: rejected ? input.now : null,
+        alt_zh: classification.caption ?? null,
       },
     });
   }

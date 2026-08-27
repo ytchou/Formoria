@@ -516,6 +516,7 @@ export type Database = {
       }
       brand_images: {
         Row: {
+          alt_zh: string | null
           brand_id: string
           created_at: string
           dominant_color: string | null
@@ -538,6 +539,7 @@ export type Database = {
           width: number | null
         }
         Insert: {
+          alt_zh?: string | null
           brand_id: string
           created_at?: string
           dominant_color?: string | null
@@ -560,6 +562,7 @@ export type Database = {
           width?: number | null
         }
         Update: {
+          alt_zh?: string | null
           brand_id?: string
           created_at?: string
           dominant_color?: string | null
@@ -2729,6 +2732,7 @@ export type Database = {
       }
       submission_images: {
         Row: {
+          alt_zh: string | null
           created_at: string
           dominant_color: string | null
           entropy: number | null
@@ -2752,6 +2756,7 @@ export type Database = {
           width: number | null
         }
         Insert: {
+          alt_zh?: string | null
           created_at?: string
           dominant_color?: string | null
           entropy?: number | null
@@ -2775,6 +2780,7 @@ export type Database = {
           width?: number | null
         }
         Update: {
+          alt_zh?: string | null
           created_at?: string
           dominant_color?: string | null
           entropy?: number | null
@@ -3821,3 +3827,4 @@ export const Constants = {
     Enums: {},
   },
 } as const
+

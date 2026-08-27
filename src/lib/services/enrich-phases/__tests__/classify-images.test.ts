@@ -470,6 +470,44 @@ describe("parseClassificationBatch", () => {
       reasons: ["promo_subject"],
     });
   });
+
+  it("extracts caption from kept images", () => {
+    const verdicts = parseClassificationBatch(
+      JSON.stringify({
+        classifications: [
+          {
+            id: "1",
+            disposition: "keep",
+            tag: "product",
+            reasons: [],
+            score: 85,
+            caption: "手工皂禮盒，三入裝，薰衣草配色",
+          },
+        ],
+      }),
+    );
+
+    expect(verdicts.get("1")?.caption).toBe("手工皂禮盒，三入裝，薰衣草配色");
+  });
+
+  it("sets caption null for rejected images", () => {
+    const verdicts = parseClassificationBatch(
+      JSON.stringify({
+        classifications: [
+          {
+            id: "1",
+            disposition: "reject",
+            tag: null,
+            reasons: ["wrong_brand"],
+            score: 10,
+            caption: "some text",
+          },
+        ],
+      }),
+    );
+
+    expect(verdicts.get("1")?.caption).toBeNull();
+  });
 });
 
 /**
@@ -703,6 +741,7 @@ describe("planChunkImageWrites", () => {
           status: "active",
           rejection_reasons: null,
           rejected_at: null,
+          alt_zh: null,
         },
       },
       {
@@ -713,9 +752,24 @@ describe("planChunkImageWrites", () => {
           status: "rejected",
           rejection_reasons: ["wrong_brand"],
           rejected_at: now,
+          alt_zh: null,
         },
       },
     ]);
+  });
+
+  it("writes alt_zh from caption", () => {
+    const plan = planChunkImageWrites({
+      chunk: [image("a")],
+      verdictsByImageId: new Map([
+        ["a", { ...verdict("keep"), caption: "陶瓷馬克杯，霧面灰釉" }],
+      ]),
+      unavailableIds: [],
+      now,
+      ctx: { summary: {} },
+    });
+
+    expect(plan.writes[0]?.row).toHaveProperty("alt_zh", "陶瓷馬克杯，霧面灰釉");
   });
 });
 

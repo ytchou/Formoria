@@ -80,7 +80,7 @@ export function ImageCarousel({
   }
 
   function getAlt(index: number): string {
-    return t('gallery.photoAltWithBrand', { brand: alt, n: index + 1 })
+    return metaFor(index)?.altZh ?? t('gallery.photoAltWithBrand', { brand: alt, n: index + 1 })
   }
 
   // Shared with every other brand image surface. The container already paints

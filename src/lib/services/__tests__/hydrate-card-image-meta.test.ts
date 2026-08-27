@@ -395,6 +395,44 @@ describe('hydrateCardImageMeta', () => {
     })
   })
 
+  it('passes altZh from hero row', async () => {
+    table = [
+      imageRow({
+        brand_id: 'b1',
+        storage_path: 'brands/b1/hero.webp',
+        tags: ['logo'],
+        sort_order: 0,
+      }),
+    ]
+    // Inject alt_zh onto the fixture row — the double returns whatever is in
+    // the table, and the mapper reads `alt_zh` from the raw row.
+    Object.assign(table[0]!, { alt_zh: '品牌主圖' })
+
+    const [hydrated] = await hydrateCardImageMeta(client(), [
+      brand('b1', '/i/brands/b1/hero.webp'),
+    ])
+
+    expect(hydrated?.imageAlts[0]?.altZh).toBe('品牌主圖')
+  })
+
+  it('maps null alt_zh to undefined altZh in card meta', async () => {
+    table = [
+      imageRow({
+        brand_id: 'b1',
+        storage_path: 'brands/b1/hero.webp',
+        tags: ['logo'],
+        sort_order: 0,
+      }),
+    ]
+    Object.assign(table[0]!, { alt_zh: null })
+
+    const [hydrated] = await hydrateCardImageMeta(client(), [
+      brand('b1', '/i/brands/b1/hero.webp'),
+    ])
+
+    expect(hydrated?.imageAlts[0]?.altZh).toBeUndefined()
+  })
+
   describe('projection', () => {
     it('requests exactly the columns the mapper reads, and no more', async () => {
       // The service client carries no `<Database>` generic, so a column named
@@ -414,6 +452,7 @@ describe('hydrateCardImageMeta', () => {
         'sort_order',
         'width',
         'height',
+        'alt_zh',
       ])
       // Both reads (hero-by-key and products-by-brand) share one projection.
       expect(queries[1]?.select).toBe(queries[0]?.select)
