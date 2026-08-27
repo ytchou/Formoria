@@ -462,7 +462,18 @@ export async function runDescriptionsPhase({
               : [];
         const truncatedSiteContent =
           persistedScrape.siteContent?.slice(0, 4000) ?? null;
-        const imageAlts: string[] = [];
+        const { data: altRows } = await createServiceClient()
+          .from("brand_images")
+          .select("alt_zh")
+          .eq("brand_id", brand.id)
+          .eq("status", "active")
+          .not("alt_zh", "is", null)
+          .order("sort_order");
+        const imageAlts = (altRows ?? [])
+          .map((r) => r.alt_zh)
+          .filter(
+            (v): v is string => typeof v === "string" && v.trim().length > 0,
+          );
         const displayBrandName = getDisplayBrandName(brand);
         const evidence = buildDescriptionEvidence(
           brand,

@@ -104,7 +104,7 @@ export function BrandCard({
         {showImage ? (
           <SurfaceImage
             src={imageSrc}
-            alt=""
+            alt={selectedImage?.meta?.altZh ?? ""}
             fill
             preload={preload}
             sizes={imageSizes}

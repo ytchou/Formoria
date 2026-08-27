@@ -248,6 +248,27 @@ describe("BrandGallery", () => {
     expect(uncoveredImages[0]).not.toHaveAttribute("alt", "");
   });
 
+  it("renders altZh when available", async () => {
+    loadBrands.mockResolvedValue(
+      new Map([["molasses", makeBrand("molasses", "Molasses")]]),
+    );
+
+    renderWithIntl(
+      await BrandGallery({
+        slug: "molasses",
+        loadBrands,
+        loadImages: makeImageFields(imageUrl("hero"), [imageUrl("one")], [
+          { isLogo: false, altZh: "品牌主圖" },
+          { isLogo: false, altZh: "產品照片" },
+        ]),
+      }),
+    );
+
+    const imgs = screen.getAllByRole("img");
+    expect(imgs[0]).toHaveAttribute("alt", "品牌主圖");
+    expect(imgs[1]).toHaveAttribute("alt", "產品照片");
+  });
+
   it("renders an optional caption", async () => {
     loadBrands.mockResolvedValue(
       new Map([["molasses", makeBrand("molasses", "Molasses")]]),

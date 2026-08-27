@@ -25,6 +25,7 @@ export type BrandJsonLdInput = {
   description: string | null;
   descriptionEn: string | null;
   heroImageUrl: string | null;
+  heroImageAlt?: string | null;
   foundingYear: number | null;
   socialInstagram: string | null;
   socialThreads: string | null;
@@ -95,7 +96,11 @@ export function buildBrandJsonLd(
   // it: `heroImageUrl` is the relative `/i/<key>` proxy path since DEV-1551,
   // and Google drops `Organization.logo` when the IRI is not absolute.
   const logo = absoluteImageUrl(brand.heroImageUrl);
-  if (logo) jsonLd.logo = logo;
+  if (logo) {
+    jsonLd.logo = brand.heroImageAlt
+      ? { "@type": "ImageObject", url: logo, description: brand.heroImageAlt }
+      : logo;
+  }
   if (brand.foundingYear) jsonLd.foundingDate = String(brand.foundingYear);
   if (allSameAs.length > 0) jsonLd.sameAs = allSameAs;
 

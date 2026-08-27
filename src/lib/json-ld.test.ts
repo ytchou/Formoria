@@ -238,6 +238,29 @@ describe("buildBrandJsonLd", () => {
     ]);
   });
 
+  it("emits ImageObject with description when heroImageAlt provided", () => {
+    const jsonLd = buildBrandJsonLd(
+      makeBrand({ heroImageAlt: "手工皂禮盒" } as Partial<Brand>),
+    );
+    expect(jsonLd.logo).toEqual({
+      "@type": "ImageObject",
+      url: "https://example.com/hero.jpg",
+      description: "手工皂禮盒",
+    });
+  });
+
+  it("emits bare URL when heroImageAlt is null", () => {
+    const jsonLd = buildBrandJsonLd(
+      makeBrand({ heroImageAlt: null } as Partial<Brand>),
+    );
+    expect(jsonLd.logo).toBe("https://example.com/hero.jpg");
+  });
+
+  it("emits bare URL when heroImageAlt is omitted", () => {
+    const jsonLd = buildBrandJsonLd(makeBrand());
+    expect(jsonLd.logo).toBe("https://example.com/hero.jpg");
+  });
+
   describe("page-scoped identity", () => {
     const canonicalZh = `${getSiteUrl()}/brands/chatzutang`;
     const canonicalEn = `${getSiteUrl()}/en/brands/chatzutang`;
