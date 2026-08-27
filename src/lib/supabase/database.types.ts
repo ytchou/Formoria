@@ -7,11 +7,6 @@ export type Json =
   | Json[]
 
 export type Database = {
-  // Allows to automatically instantiate createClient with right options
-  // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
-  __InternalSupabase: {
-    PostgrestVersion: "14.17"
-  }
   public: {
     Tables: {
       admin_audit_log: {
@@ -1323,19 +1318,19 @@ export type Database = {
         Row: {
           brand_id: string
           created_at: string
-          deterministic_origin_assessment: Json | null
           final_rank: number | null
           gate_result: string
           id: string
           image_url: string | null
-          job_id: string | null
+          deterministic_origin_assessment: Json | null
           llm_origin_assessment: Json | null
+          registry_origin_assessment: Json | null
+          mit_qualified: boolean | null
+          qualification_method: string | null
+          job_id: string | null
           llm_rationale: string | null
           llm_score: number | null
-          mit_qualified: boolean | null
           normalized_url: string
-          qualification_method: string | null
-          registry_origin_assessment: Json | null
           search_position: number | null
           submission_id: string | null
           supplier: string
@@ -1346,19 +1341,19 @@ export type Database = {
         Insert: {
           brand_id: string
           created_at?: string
-          deterministic_origin_assessment?: Json | null
           final_rank?: number | null
           gate_result: string
           id?: string
           image_url?: string | null
-          job_id?: string | null
+          deterministic_origin_assessment?: Json | null
           llm_origin_assessment?: Json | null
+          registry_origin_assessment?: Json | null
+          mit_qualified?: boolean | null
+          qualification_method?: string | null
+          job_id?: string | null
           llm_rationale?: string | null
           llm_score?: number | null
-          mit_qualified?: boolean | null
           normalized_url: string
-          qualification_method?: string | null
-          registry_origin_assessment?: Json | null
           search_position?: number | null
           submission_id?: string | null
           supplier: string
@@ -1369,19 +1364,19 @@ export type Database = {
         Update: {
           brand_id?: string
           created_at?: string
-          deterministic_origin_assessment?: Json | null
           final_rank?: number | null
           gate_result?: string
           id?: string
           image_url?: string | null
-          job_id?: string | null
+          deterministic_origin_assessment?: Json | null
           llm_origin_assessment?: Json | null
+          registry_origin_assessment?: Json | null
+          mit_qualified?: boolean | null
+          qualification_method?: string | null
+          job_id?: string | null
           llm_rationale?: string | null
           llm_score?: number | null
-          mit_qualified?: boolean | null
           normalized_url?: string
-          qualification_method?: string | null
-          registry_origin_assessment?: Json | null
           search_position?: number | null
           submission_id?: string | null
           supplier?: string
@@ -1504,14 +1499,14 @@ export type Database = {
           key: string
           link_checked_at: string | null
           link_state: string
-          made_in_taiwan_confirmed: boolean
           material: string[]
+          made_in_taiwan_confirmed: boolean
           materials_from_taiwan_confirmed: boolean
           mit_registry_id: number | null
+          origin_candidate_id: string | null
           name_en: string | null
           name_zh: string
           official_url: string | null
-          origin_candidate_id: string | null
           product_description_en: string | null
           product_description_zh: string
           product_position: number | null
@@ -1534,14 +1529,14 @@ export type Database = {
           key: string
           link_checked_at?: string | null
           link_state?: string
-          made_in_taiwan_confirmed?: boolean
           material?: string[]
+          made_in_taiwan_confirmed?: boolean
           materials_from_taiwan_confirmed?: boolean
           mit_registry_id?: number | null
+          origin_candidate_id?: string | null
           name_en?: string | null
           name_zh: string
           official_url?: string | null
-          origin_candidate_id?: string | null
           product_description_en?: string | null
           product_description_zh: string
           product_position?: number | null
@@ -1564,14 +1559,14 @@ export type Database = {
           key?: string
           link_checked_at?: string | null
           link_state?: string
-          made_in_taiwan_confirmed?: boolean
           material?: string[]
+          made_in_taiwan_confirmed?: boolean
           materials_from_taiwan_confirmed?: boolean
           mit_registry_id?: number | null
+          origin_candidate_id?: string | null
           name_en?: string | null
           name_zh?: string
           official_url?: string | null
-          origin_candidate_id?: string | null
           product_description_en?: string | null
           product_description_zh?: string
           product_position?: number | null
