@@ -684,6 +684,7 @@ export function brandToDomain(row: BrandRowWithJoins): Brand {
     heroImageUrl:
       imagePathToUrl(row.hero_image_storage_path) ??
       storageBackedHeroFallback(row.hero_image_url),
+    logoUrl: imagePathToUrl(row.logo_storage_path) ?? null,
     heroImageMetadata: null,
     // status is text in the DB — cast to BrandStatus at the boundary
     status: row.status as Brand["status"],
@@ -1001,6 +1002,7 @@ export const BRAND_COLUMN_LIST = [
   "blurb_en",
   "hero_image_url",
   "hero_image_storage_path",
+  "logo_storage_path",
   "category",
   "contact_email",
   "city",
@@ -1057,6 +1059,7 @@ const PUBLIC_BRAND_CARD_COLUMN_LIST = [
   "blurb_en",
   "hero_image_url",
   "hero_image_storage_path",
+  "logo_storage_path",
   "category",
   "status",
   "founding_year",

@@ -1018,6 +1018,7 @@ export type Database = {
           hidden_reason: string | null
           id: string
           is_demo: boolean
+          logo_storage_path: string | null
           material: string[]
           model_faq_count: number
           name: string
@@ -1062,6 +1063,7 @@ export type Database = {
           hidden_reason?: string | null
           id?: string
           is_demo?: boolean
+          logo_storage_path?: string | null
           material?: string[]
           model_faq_count?: number
           name: string
@@ -1106,6 +1108,7 @@ export type Database = {
           hidden_reason?: string | null
           id?: string
           is_demo?: boolean
+          logo_storage_path?: string | null
           material?: string[]
           model_faq_count?: number
           name?: string

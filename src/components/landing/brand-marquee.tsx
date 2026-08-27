@@ -13,6 +13,7 @@ type MarqueeBrand = {
   name: string;
   href: string;
   imageSrc: string | null;
+  isLogo?: boolean;
 };
 
 type BrandMarqueeProps = {
@@ -154,7 +155,7 @@ export default function BrandMarquee({ brands, labels }: BrandMarqueeProps) {
                     width={44}
                     height={44}
                     surface="thumb"
-                    className="rounded-full"
+                    className={`rounded-full ${brand.isLogo ? "bg-surface-deep object-contain" : "object-cover"}`}
                   />
                 ) : (
                   <div

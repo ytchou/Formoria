@@ -24,12 +24,17 @@ export default async function BrandStrip({
       </p>
 
       <BrandMarquee
-        brands={brands.map((brand) => ({
-          id: brand.id,
-          name: brand.name,
-          href: routes.brand(brand.slug),
-          imageSrc: safeImageSrc(brand.heroImageUrl),
-        }))}
+        brands={brands.map((brand) => {
+          const logoSrc = safeImageSrc(brand.logoUrl);
+          const heroSrc = safeImageSrc(brand.heroImageUrl);
+          return {
+            id: brand.id,
+            name: brand.name,
+            href: routes.brand(brand.slug),
+            imageSrc: logoSrc || heroSrc,
+            isLogo: !!logoSrc,
+          };
+        })}
         labels={{ pause: t("pause"), resume: t("resume") }}
       />
 

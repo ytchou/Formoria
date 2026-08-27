@@ -64,6 +64,7 @@ const BRAND: Brand = {
   purchasePinkoi: null,
   purchaseShopee: null,
   purchaseMyship: null,
+  logoUrl: null,
 } as Brand;
 
 const PEER_STATS: NonNullable<FaqBrandContext["peerStats"]> = {

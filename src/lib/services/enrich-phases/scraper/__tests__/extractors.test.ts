@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, vi } from 'vitest'
 import * as cheerio from 'cheerio'
 import {
   filterHeroImage,
@@ -11,6 +11,7 @@ import {
   extractJsonLdImages,
   upgradeEcommerceImageUrl,
   largestSrcsetUrl,
+  extractFavicons,
 } from '../parse/extractors'
 
 describe('filterHeroImage', () => {
@@ -406,5 +407,77 @@ describe('largestSrcsetUrl', () => {
     expect(largestSrcsetUrl('https://cdn.site.com/x.jpg not-a-descriptor')).toBe(
       'https://cdn.site.com/x.jpg'
     )
+  })
+})
+
+describe('extractFavicons', () => {
+  it('returns apple-touch-icon URL', async () => {
+    const $ = cheerio.load('<link rel="apple-touch-icon" href="/icon-180.png">')
+    const result = await extractFavicons($, 'https://site.com')
+    expect(result).toContain('https://site.com/icon-180.png')
+  })
+
+  it('prefers apple-touch-icon over generic icon', async () => {
+    const $ = cheerio.load(
+      '<link rel="icon" sizes="32x32" href="/icon-32.png">' +
+      '<link rel="apple-touch-icon" href="/apple-180.png">'
+    )
+    const result = await extractFavicons($, 'https://site.com')
+    expect(result[0]).toBe('https://site.com/apple-180.png')
+  })
+
+  it('skips .ico files', async () => {
+    const $ = cheerio.load(
+      '<link rel="icon" href="/favicon.ico">' +
+      '<link rel="icon" href="/icon-32.png">'
+    )
+    const result = await extractFavicons($, 'https://site.com')
+    expect(result).not.toContain('https://site.com/favicon.ico')
+    expect(result).toContain('https://site.com/icon-32.png')
+  })
+
+  it('resolves relative URLs against baseUrl', async () => {
+    const $ = cheerio.load('<link rel="apple-touch-icon" href="/assets/apple-icon.png">')
+    const result = await extractFavicons($, 'https://example.com')
+    expect(result).toContain('https://example.com/assets/apple-icon.png')
+  })
+
+  it('returns empty for pages with no icon links', async () => {
+    const $ = cheerio.load('<html><head><title>No icons</title></head></html>')
+    const result = await extractFavicons($, 'https://site.com')
+    expect(result).toEqual([])
+  })
+
+  it('includes manifest icon URL when no link icons found', async () => {
+    const manifestJson = JSON.stringify({
+      icons: [{ src: '/icon-512.png', sizes: '512x512', type: 'image/png' }],
+    })
+    vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce(
+      new Response(manifestJson, { status: 200 })
+    )
+
+    const $ = cheerio.load('<link rel="manifest" href="/manifest.json">')
+    const result = await extractFavicons($, 'https://site.com')
+    expect(result).toContain('https://site.com/icon-512.png')
+
+    vi.restoreAllMocks()
+  })
+
+  it('picks largest manifest icon', async () => {
+    const manifestJson = JSON.stringify({
+      icons: [
+        { src: '/icon-192.png', sizes: '192x192', type: 'image/png' },
+        { src: '/icon-512.png', sizes: '512x512', type: 'image/png' },
+      ],
+    })
+    vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce(
+      new Response(manifestJson, { status: 200 })
+    )
+
+    const $ = cheerio.load('<link rel="manifest" href="/manifest.json">')
+    const result = await extractFavicons($, 'https://site.com')
+    expect(result[0]).toBe('https://site.com/icon-512.png')
+
+    vi.restoreAllMocks()
   })
 })
