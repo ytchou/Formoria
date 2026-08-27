@@ -65,15 +65,6 @@ const COLUMN_FIXTURE: Record<string, unknown> = {
     text: "Well reviewed",
     sources: [{ url: "https://example.com/review" }],
   },
-  mit_status: "verified",
-  mit_declared_scope: "all",
-  mit_declared_at: "2026-01-06T00:00:00Z",
-  mit_verified_at: "2026-01-07T00:00:00Z",
-  mit_story: "Made in Taiwan since 1998",
-  mit_evidence: {
-    mit_smile_cert: "CERT-123",
-    source: "PRIVATE_EVIDENCE_CANARY",
-  },
   source: "PRIVATE_PROVENANCE_CANARY",
   // `true` on purpose: brandToDomain falls back to `false`, so a `false`
   // fixture could not distinguish "column present" from "column dropped".
@@ -96,7 +87,6 @@ function buildRow(columns: readonly string[]): BrandRowWithJoins {
 const FIELDS_OMITTED_ON_DIRECTORY_PATHS = [
   "siteContent",
   "reputationSummary",
-  "mitEvidence",
 ];
 
 /**
@@ -118,7 +108,6 @@ const DIRECTORY_CONSUMED_FIELDS = [
   "blurbEn",
   "subcategories",
   "subcategoriesEn",
-  "mitStatus",
 ];
 
 describe("brand column projections", () => {
@@ -129,11 +118,10 @@ describe("brand column projections", () => {
     expect(missing).toEqual([]);
   });
 
-  it("omits exactly the four heavy/unpublished columns on directory paths", () => {
+  it("omits exactly the heavy/unpublished columns on directory paths", () => {
     expect([...DIRECTORY_OMITTED_COLUMNS]).toEqual([
       "site_content",
       "draft_data",
-      "mit_evidence",
       "reputation_summary",
     ]);
   });
@@ -203,13 +191,11 @@ describe("public brand response contracts", () => {
 
     expect(payload).not.toContain("private-contact-canary@example.com");
     expect(payload).not.toContain("PRIVATE_DRAFT_CANARY");
-    expect(payload).not.toContain("PRIVATE_EVIDENCE_CANARY");
     expect(payload).not.toContain("PRIVATE_PROVENANCE_CANARY");
     expect(payload).not.toContain("submittedAt");
     expect(payload).not.toContain("approvedAt");
     expect(payload).not.toContain("createdAt");
     expect(payload).not.toContain("updatedAt");
-    expect(toPublicBrandDetail(brand).mitCertificateNumber).toBe("CERT-123");
   });
 });
 

@@ -2,8 +2,6 @@ import type { CategoryPeerStats } from "@/lib/services/brand-peer-stats";
 import type { PublicBrandFaqContext } from "@/lib/brands/contracts";
 
 export type EvidenceKey =
-  | "mitStatus"
-  | "mitStory"
   | "categorySlug"
   | "subcategories"
   | "reputationSummary"

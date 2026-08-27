@@ -120,7 +120,6 @@ type CurationBrand = {
   subcategories?: string[] | null;
   site_content?: unknown | null;
   reputation_summary?: unknown | null;
-  mit_evidence?: unknown | null;
   purchase_website?: string | null;
   purchaseWebsite?: string | null;
 };
@@ -433,7 +432,6 @@ export function seedEnrichedDataFromOwnerData(
     ["subcategories", "subcategories"],
     ["subcategories_en", "subcategories_en"],
     ["productPhotos", "product_photos"],
-    ["mitStory", "mit_story"],
     ["heroImageUrl", "hero_image_url"],
     ["description", "description"],
     ["socialInstagram", "social_instagram"],
@@ -1362,7 +1360,6 @@ export function submissionToEnrichBrand(
       ? existing.site_content
       : null,
     reputation_summary: existing.reputation_summary ?? null,
-    mit_evidence: existing.mit_evidence ?? null,
     category: typeof existing.category === "string" ? existing.category : null,
     social_instagram:
       typeof existing.social_instagram === "string"

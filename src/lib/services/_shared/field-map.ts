@@ -80,14 +80,12 @@ const SOCIAL_PURCHASE_FIELD_MAP = [
 const BRAND_FIELD_MAP = [
   ["romanizedName", "romanized_name"],
   ["contactEmail", "contact_email"],
-  ["mitStory", "mit_story"],
   ["city", "city"],
   ["otherUrls", "other_urls"],
 ] as const satisfies FieldMap<
   {
     romanizedName?: string | null;
     contactEmail?: string | null;
-    mitStory?: string | null;
     city?: string | null;
     otherUrls?: unknown;
     subcategories?: string[] | null;
@@ -152,7 +150,6 @@ export function toBrandRow(
     status?: string;
     categorySlug?: string | null;
     foundingYear?: number | null;
-    mitStory?: string | null;
     city?: string | null;
     otherUrls?: unknown;
     contactEmail?: string | null;

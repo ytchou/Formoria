@@ -583,10 +583,6 @@ export function trackSubcategoryFilterApplied(
   });
 }
 
-export function trackVerificationFilterApplied(status: string) {
-  capturePostHogEvent(ANALYTICS_EVENTS.VERIFICATION_FILTER_APPLIED, { status });
-}
-
 export function trackFilterCleared(
   clearType: string,
   filterType?: string,
@@ -736,18 +732,6 @@ export function trackNewsletterSubscribed(
     interests,
     has_email: hasEmail,
     ...utmParams,
-  });
-}
-
-export function trackOriginEvidenceSubmitted(
-  brandId: string,
-  brandSlug: string,
-  stance: string,
-) {
-  capturePostHogEvent(ANALYTICS_EVENTS.ORIGIN_EVIDENCE_SUBMITTED, {
-    brand_id: brandId,
-    brand_slug: brandSlug,
-    stance,
   });
 }
 

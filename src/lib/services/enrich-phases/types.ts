@@ -39,7 +39,6 @@ export type EnrichBrand = {
   // regenerate rather than gap-fill.
   overwrite_enrichment?: boolean;
   reputation_summary?: unknown | null;
-  mit_evidence?: unknown | null;
 } & Partial<BrandFlatLinkColumns>;
 
 export type SearchPhaseResult = {

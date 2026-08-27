@@ -63,11 +63,6 @@ export default async function AdminLayout({
       count: counts.moderation ?? undefined,
     },
     {
-      label: t("nav.evidence"),
-      href: routes.admin.evidence(),
-      count: counts.evidence ?? undefined,
-    },
-    {
       label: t("nav.reports"),
       href: routes.admin.reports(),
       count: counts.reports ?? undefined,

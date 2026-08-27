@@ -22,8 +22,6 @@ function first(value: string | string[] | undefined): string | undefined {
 
 export default async function BrandsPage({ searchParams }: BrandsPageProps) {
   const t = await getTranslations("admin.brands");
-  // Admin table renders brand.mitEvidence, which the narrow directory
-  // projection omits — opt back into the full column list here.
   const { brands: internalBrands } = await getBrands({
     includeTestBrands: true,
     sort: "newest",

@@ -1,5 +1,3 @@
-import type { MitStatus } from "@/lib/types";
-
 import {
   stableFingerprint,
   type HealthFinding,
@@ -19,10 +17,6 @@ export interface RecentBrandEdit {
   readonly name: string;
   readonly description: string | null;
   readonly descriptionEn: string | null;
-  readonly mitStatus: MitStatus | null;
-  readonly mitDeclaredScope: "all" | "most" | "some" | null;
-  readonly mitDeclaredAt: string | null;
-  readonly mitVerifiedAt: string | null;
   readonly purchaseWebsite: string | null;
   readonly purchasePinkoi: string | null;
   readonly purchaseShopee: string | null;
@@ -66,59 +60,6 @@ function finding(
     evidence,
     mergePolicy: "human",
   };
-}
-
-function checkMitConsistency(brand: RecentBrandEdit): HealthFinding[] {
-  if (brand.mitStatus === null || brand.mitStatus === "unverified") {
-    return [];
-  }
-
-  const findings: HealthFinding[] = [];
-  const evidence = {
-    brandId: brand.id,
-    brandName: brand.name,
-    mitStatus: brand.mitStatus,
-  };
-
-  if (brand.mitStatus === "declared") {
-    if (brand.mitDeclaredScope === null) {
-      findings.push(
-        finding(
-          "brand-review-mit-consistency",
-          brand,
-          "MIT declared without scope",
-          "medium",
-          evidence,
-        ),
-      );
-    }
-
-    if (brand.mitDeclaredAt === null) {
-      findings.push(
-        finding(
-          "brand-review-mit-consistency",
-          brand,
-          "MIT declared without date",
-          "medium",
-          evidence,
-        ),
-      );
-    }
-  }
-
-  if (brand.mitStatus === "verified" && brand.mitVerifiedAt === null) {
-    findings.push(
-      finding(
-        "brand-review-mit-consistency",
-        brand,
-        "MIT verified without evidence",
-        "medium",
-        evidence,
-      ),
-    );
-  }
-
-  return findings;
 }
 
 function countCjkCharacters(value: string | null): number {
@@ -384,7 +325,6 @@ export function evaluateBrandReview(
 ): { findings: HealthFinding[]; snapshot: BrandReviewSnapshot } {
   const findings = brands
     .flatMap((brand) => [
-      ...checkMitConsistency(brand),
       ...checkDescriptionLanguageSwap(brand),
       ...checkExcessiveDomainDiversity(brand),
       ...checkSelfReferentialUrls(brand),

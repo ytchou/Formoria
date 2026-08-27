@@ -9,11 +9,7 @@
  * chip then routed to a bare `/categories/<l1>/<l2>` that silently dropped the
  * material filter. Adding a facet now means adding it here, once.
  */
-export const DIRECTORY_REFINEMENT_KEYS = [
-  "search",
-  "verification",
-  "material",
-] as const;
+export const DIRECTORY_REFINEMENT_KEYS = ["search", "material"] as const;
 
 /**
  * Sort is presentation: it reorders the same rows rather than narrowing them,
@@ -37,9 +33,9 @@ export function updateDirectoryUrl(
 ): string {
   const params = new URLSearchParams(searchParams.toString());
 
-  // DEV-1540 retired the price facet. Strip it from any legacy URL as soon as
-  // the user changes another directory control.
+  // Retired facets leave the URL as soon as the user changes another control.
   params.delete("price");
+  params.delete("verification");
 
   for (const [key, value] of Object.entries(updates)) {
     if (value) params.set(key, value);
@@ -75,6 +71,5 @@ export function clearDirectoryFilters(
     category: null,
     sub: null,
     material: null,
-    verification: null,
   });
 }

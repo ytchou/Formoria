@@ -18,7 +18,6 @@ import {
 type DirectoryFacets = {
   [key: string]: unknown;
   search?: unknown;
-  verification?: unknown;
   sort?: unknown;
   /** Raw values are accepted for callers that parse multi-select query params. */
   category?: unknown;
@@ -169,16 +168,9 @@ function hasFacet(facets: DirectoryFacets): boolean {
   // The refinement keys come from the ONE shared list so this predicate and
   // the route-shape one in `components/navigation/category-tab-target.ts`
   // cannot disagree about what counts as a facet again.
-  const refined = DIRECTORY_REFINEMENT_KEYS.some((key) => {
-    if (key === "verification") {
-      const verification =
-        typeof facets.verification === "string"
-          ? facets.verification
-          : undefined;
-      return hasValue(verification) && verification !== "all";
-    }
-    return hasValue(facets[key]);
-  });
+  const refined = DIRECTORY_REFINEMENT_KEYS.some((key) =>
+    hasValue(facets[key]),
+  );
   return (
     refined ||
     hasValue(facets.category) ||
@@ -221,14 +213,8 @@ function selfCanonicalFacets(state: DirectoryState): DirectoryCanonicalFacets {
     state.subcategorySlug
       ? state.subcategorySlug
       : undefined);
-  const verification =
-    typeof facets.verification === "string" && facets.verification !== "all"
-      ? facets.verification
-      : undefined;
-
   return {
     search: serializableFacetValue(facets.search),
-    verification,
     category,
     sub,
     // Retained so a noindex `?material=` page self-canonicals instead of

@@ -4,7 +4,7 @@ import { useEffect } from 'react'
 
 /**
  * Opens the <details> element whose id matches the current URL hash (e.g.
- * /faq#claim or /brands/<slug>#faq-taiwan-origin), since native <details>
+ * /faq#claim), since native <details>
  * stays collapsed on hash navigation. Runs on mount and on subsequent hash
  * changes.
  *

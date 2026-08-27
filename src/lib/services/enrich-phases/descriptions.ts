@@ -551,14 +551,6 @@ export async function runDescriptionsPhase({
             shouldWrite(brand.founding_year)
               ? { founding_year: brandFacts.foundingYear }
               : {}),
-            ...(brandFacts.mitIndicators && shouldWrite(brand.mit_evidence)
-              ? {
-                  mit_evidence: {
-                    enrichment_signals: brandFacts.mitIndicators.evidence,
-                    verified_source: "enrichment_signal",
-                  },
-                }
-              : {}),
           };
 
           if (

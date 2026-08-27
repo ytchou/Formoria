@@ -97,12 +97,8 @@ export async function DirectoryView({
   isCategoryRoute = false,
 }: DirectoryViewProps) {
   const safeLocale = locale;
-  const [t, verificationT, messages] = await Promise.all([
+  const [t, messages] = await Promise.all([
     getTranslations({ locale: safeLocale, namespace: "brands" }),
-    getTranslations({
-      locale: safeLocale,
-      namespace: "brands.verificationFilter",
-    }),
     getMessages({ locale: safeLocale }),
   ]);
 
@@ -133,7 +129,6 @@ export async function DirectoryView({
     ? categoryLabel(categoryTag, safeLocale)
     : t("heading");
   const search = filters.search ?? "";
-  const verificationFilter = filters.verificationFilter ?? "all";
   const shouldLoadTaxonomySummary = Boolean(singleValidCategory) && !search;
   const materials = filters.materials ?? [];
 
@@ -144,7 +139,6 @@ export async function DirectoryView({
         category: brandCategoryFilter,
         subcategoryTags: activeSubSlugs,
         materials: materials.length > 0 ? materials : undefined,
-        verificationFilter,
         sort,
         page,
       }),
@@ -198,7 +192,6 @@ export async function DirectoryView({
       category: brandCategoryFilter,
       subcategoryTags: activeSubSlugs,
       materials: materials.length > 0 ? materials : undefined,
-      verificationFilter,
       sort,
       page: clampedPage,
     });
@@ -218,7 +211,6 @@ export async function DirectoryView({
     subcategorySlugs: activeSubSlugs,
     search,
     materials,
-    verificationFilter,
     sort,
   });
   const { directoryPath, normalizedParams } = urlState;
@@ -307,21 +299,6 @@ export async function DirectoryView({
       }),
     });
   }
-  if (verificationFilter !== "all") {
-    const value = verificationT(verificationFilter);
-    activeFilters.push({
-      id: "verification",
-      label: t("filters.activeStatus"),
-      value,
-      removeHref: updateDirectoryUrl(directoryPath, normalizedParams, {
-        verification: null,
-      }),
-      removeLabel: t("filters.removeFilter", {
-        label: t("filters.activeStatus"),
-        value,
-      }),
-    });
-  }
 
   let recommendedBrands: PublicBrandCard[] = [];
   let recommendationsHref = directoryPath;
@@ -362,7 +339,6 @@ export async function DirectoryView({
       categorySlugs: validCategoryFilter,
       search,
       materials,
-      verificationFilter,
       page,
     })
   ) {

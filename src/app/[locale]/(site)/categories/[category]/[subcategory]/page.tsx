@@ -53,7 +53,6 @@ export async function generateMetadata({
     page,
     facets: {
       search: sp.search,
-      verification: sp.verification,
       sort:
         typeof sp.sort === "string"
           ? sp.sort
@@ -142,7 +141,6 @@ export default async function SubcategoryPage({
     page: parsed.page,
     facets: {
       search: sp.search,
-      verification: sp.verification,
       sort:
         typeof sp.sort === "string"
           ? sp.sort

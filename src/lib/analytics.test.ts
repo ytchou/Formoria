@@ -483,11 +483,11 @@ describe('filter result counts', () => {
 
 describe('brand faq tracking', () => {
   it('tracks faq item expanded with preset id', () => {
-    trackFaqItemExpanded('my-brand', 'taiwan-origin')
+    trackFaqItemExpanded('my-brand', 'main-products')
 
     expect(mockPostHogCapture).toHaveBeenCalledWith('faq_item_expanded', {
       brand_slug: 'my-brand',
-      preset_id: 'taiwan-origin',
+      preset_id: 'main-products',
     })
   })
 
@@ -501,19 +501,19 @@ describe('brand faq tracking', () => {
       createElement(BrandFaqAccordion, {
         brandSlug: 'my-brand',
         items: [
-          { id: 'taiwan-origin', question: 'Where is it made?', answer: 'Taiwan.' },
+          { id: 'main-products', question: 'What does it make?', answer: 'Bags.' },
         ],
       })
     )
 
     const details = document.getElementById(
-      'faq-taiwan-origin'
+      'faq-main-products'
     ) as HTMLDetailsElement
 
     // The answer is in the DOM even while collapsed — the whole point of
     // rendering native <details> instead of a JS accordion.
     expect(details.open).toBe(false)
-    expect(details.textContent).toContain('Taiwan.')
+    expect(details.textContent).toContain('Bags.')
 
     act(() => {
       details.open = true

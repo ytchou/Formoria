@@ -206,9 +206,7 @@ describe("candidate-selection", () => {
     expect(writer.written).toHaveLength(3);
 
     // Gated candidates carry their gate_result.
-    const gatedRows = writer.written.filter(
-      (r) => r.gate_result !== "passed",
-    );
+    const gatedRows = writer.written.filter((r) => r.gate_result !== "passed");
     expect(gatedRows).toHaveLength(2);
     expect(gatedRows.map((r) => r.gate_result).sort()).toEqual([
       "no_image",
@@ -221,9 +219,7 @@ describe("candidate-selection", () => {
     }
 
     // The passing candidate has LLM score, rationale and rank.
-    const passedRow = writer.written.find(
-      (r) => r.gate_result === "passed",
-    )!;
+    const passedRow = writer.written.find((r) => r.gate_result === "passed")!;
     expect(passedRow.llm_score).toBe(8);
     expect(passedRow.llm_rationale).toBe(
       "Ranked https://brand.example/products/tea-cup",
@@ -262,5 +258,96 @@ describe("candidate-selection", () => {
     );
     // The error is reported but not thrown.
     expect(result.persistError).toBe("DB write failed");
+    expect(result.auditIdsByUrl.size).toBe(0);
+  });
+
+  it("persists every passing origin decision under a generated audit id", async () => {
+    const product = candidate();
+    const writer = noopWriter();
+    const result = await persistCandidatePool({
+      pool: [product],
+      acceptedCandidates: [],
+      ranker: fixedRanker({ [product.url]: 88 }),
+      writer,
+      brandId: "brand-uuid",
+      submissionId: "sub-uuid",
+      maxProducts: 5,
+      originDecisions: new Map([
+        [
+          product.url,
+          {
+            deterministic: {
+              madeInTaiwan: true,
+              materialsFromTaiwan: true,
+              excerptIds: ["origin-1"],
+            },
+            llm: {
+              madeInTaiwan: true,
+              materialsFromTaiwan: true,
+              excerptIds: ["origin-1"],
+            },
+            registry: {
+              matched: false,
+              recordId: null,
+              reason: "no_exact_match" as const,
+            },
+            mitQualified: true,
+            qualificationMethod: "consensus" as const,
+          },
+        ],
+      ]),
+    });
+
+    expect(writer.written[0]).toMatchObject({
+      id: expect.any(String),
+      deterministic_origin_assessment: {
+        madeInTaiwan: true,
+        materialsFromTaiwan: true,
+      },
+      llm_origin_assessment: {
+        madeInTaiwan: true,
+        materialsFromTaiwan: true,
+      },
+      registry_origin_assessment: { matched: false },
+      mit_qualified: true,
+      qualification_method: "consensus",
+    });
+    expect(result.auditIdsByUrl.get(product.url)).toBe(writer.written[0]!.id);
+  });
+
+  it("persists duplicate supplier URLs under distinct audit IDs", async () => {
+    const url = "https://brand.example/products/ceramic-cup";
+    const stored = candidate({
+      url,
+      normalizedUrl: url,
+      title: "Ceramic Cup",
+    });
+    const scraped = candidate({
+      url,
+      normalizedUrl: url,
+      title: "Ceramic Cup",
+      supplier: "scraped",
+      imageUrl: undefined,
+    });
+    const plannedId = "9d2381ce-1d4d-4cb1-a730-dce3e7de3785";
+    const writer = noopWriter();
+
+    const result = await persistCandidatePool({
+      pool: [stored, scraped],
+      acceptedCandidates: [],
+      ranker: fixedRanker({ [url]: 92 }),
+      writer,
+      brandId: "7ff9e00e-8765-43f0-9aac-278c791fcf5b",
+      submissionId: "5f050b7d-6b42-4246-b24f-96ffb9544eb6",
+      maxProducts: 5,
+      candidateIdsByUrl: new Map([[url, plannedId]]),
+    });
+
+    expect(writer.written).toHaveLength(2);
+    expect(new Set(writer.written.map((row) => row.id)).size).toBe(2);
+    expect(writer.written.find((row) => row.gate_result === "passed")?.id).toBe(
+      plannedId,
+    );
+    expect(result.auditIdsByUrl.get(url)).toBe(plannedId);
   });
 });

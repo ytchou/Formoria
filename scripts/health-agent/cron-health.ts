@@ -44,9 +44,8 @@ export const EXPECTED_CRON_JOBS: readonly ExpectedCronJob[] = [
   // `claim-proof-cleanup-hourly` was unscheduled with the claim flow (DEV-1570);
   // its HTTP endpoint is gone, so the job would have 404'd on every run.
   //
-  // `sync-mit-registry-weekly` was unscheduled with the MIT registry parking
-  // (DEV-1586); its HTTP endpoint is gone.
   { jobName: "classifier-image-retention-6h", maxAgeHours: 25 }, // daily 03:15 Taipei
+  { jobName: "sync-mit-registry-weekly", maxAgeHours: 192 },
 ] as const;
 
 /**

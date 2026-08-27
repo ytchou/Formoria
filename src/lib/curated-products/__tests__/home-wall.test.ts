@@ -21,6 +21,7 @@ function product(
     nameEn: key,
     category: "home",
     subcategories: [],
+    mitQualified: false,
     officialUrl: `https://example.com/${key}`,
     imageUrl: `https://images.example.com/${key}.webp`,
     imageSourceUrl: null,

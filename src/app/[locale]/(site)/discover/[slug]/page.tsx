@@ -140,6 +140,7 @@ function trailLabels(t: (key: string) => string): SelectedProductTileLabels {
     cta: t("productCta"),
     brandSiteCta: t("brandSiteCta"),
     unavailable: t("unavailable"),
+    madeInTaiwan: t("madeInTaiwan"),
   };
 }
 

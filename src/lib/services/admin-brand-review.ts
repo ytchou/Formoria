@@ -280,7 +280,6 @@ export async function saveAdminBrandReview(
         city: input.city,
         reputationSummary:
           input.reputationSummary as Brand["reputationSummary"],
-        mitEvidence: input.mitEvidence as Brand["mitEvidence"],
         siteContent: input.siteContent,
         foundingYear: input.foundingYear,
         categorySlug: input.categorySlug,

@@ -98,7 +98,7 @@ describe("directory taxonomy redirects", () => {
     });
   });
 
-  it.each(["search=chairs", "verification=owned", "sort=name"])(
+  it.each(["search=chairs", "sort=name"])(
     "does not redirect when %s is present",
     (query) => {
       expect(
@@ -158,7 +158,7 @@ describe("directory taxonomy redirects", () => {
     expect(
       isDirectoryIndexPath(
         "/brands",
-        "?category=fashion&sub=backpacks&material=leather&verification=all",
+        "?category=fashion&sub=backpacks&material=leather",
       ),
     ).toBe(true);
   });
@@ -170,6 +170,7 @@ describe("directory taxonomy redirects", () => {
 
   it("isDirectoryIndexPath rejects retired and unknown keys", () => {
     expect(isDirectoryIndexPath("/brands", "?price=1,3")).toBe(false);
+    expect(isDirectoryIndexPath("/brands", "?verification=owned")).toBe(false);
     expect(isDirectoryIndexPath("/brands", "?foo=bar")).toBe(false);
     expect(
       isDirectoryIndexPath("/brands", "?category=food-drink&utm_source=x"),
@@ -185,9 +186,6 @@ describe("directory taxonomy redirects", () => {
     expect(isDirectoryIndexPath("/brands", "?page=1")).toBe(true);
     expect(isDirectoryIndexPath("/brands", "?page=60")).toBe(true);
     expect(isDirectoryIndexPath("/brands", "?sort=name")).toBe(true);
-    expect(isDirectoryIndexPath("/brands", "?verification=mit-declared")).toBe(
-      true,
-    );
     expect(isDirectoryIndexPath("/brands", "?material=leather")).toBe(true);
     expect(isDirectoryIndexPath("/brands", "?sub=backpacks")).toBe(true);
   });
@@ -248,7 +246,6 @@ describe("directory taxonomy redirects", () => {
       "page",
       "sort",
       "sub",
-      "verification",
     ]);
     expect(CACHEABLE_DIRECTORY_QUERY_KEYS.has("search")).toBe(false);
   });

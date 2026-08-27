@@ -18,8 +18,6 @@ const liveBrand: Brand = {
   categorySlug: "apparel",
   categoryLabel: "Apparel",
   city: null,
-  mitStatus: "verified",
-  mitEvidence: null,
   isDemo: false,
   foundingYear: 2019,
   socialInstagram: "live_ig",
@@ -32,7 +30,6 @@ const liveBrand: Brand = {
   otherUrls: [],
   productPhotos: ["https://x.supabase.co/p-live-1.png"],
   contactEmail: "live@brand.tw",
-  mitStory: "Our fabrics come from Changhua.",
   siteContent: null,
   subcategories: [],
   subcategoriesEn: [],
@@ -71,14 +68,13 @@ describe("brandToDraftSnapshot", () => {
 });
 
 describe("mergeDraftOverBrand", () => {
-  it("overlays editable fields, preserves identity/status/mit", () => {
+  it("overlays editable fields and preserves identity/status", () => {
     const snap = brandToDraftSnapshot({ name: "Draft Name" } as Partial<Brand>);
     const merged = mergeDraftOverBrand(liveBrand, snap);
     expect(merged.name).toBe("Draft Name");
     expect(merged.id).toBe("b1");
     expect(merged.slug).toBe("live-name");
     expect(merged.status).toBe("approved");
-    expect(merged.mitStatus).toBe("verified");
   });
 
   it("returns the live brand unchanged when snapshot is null", () => {
@@ -126,23 +122,11 @@ describe("draftSnapshotToDomain", () => {
     expect(result.subcategories).toEqual([]);
   });
 
-  it("round-trips mitStory through draft snapshot", () => {
-    const snapshot = brandToDraftSnapshot(liveBrand);
-    const restored = draftSnapshotToDomain(snapshot, liveBrand);
-    expect(restored.mitStory).toBe("Our fabrics come from Changhua.");
-  });
-
   it("round-trips romanizedName through draft snapshot", () => {
     const snapshot = brandToDraftSnapshot(liveBrand);
     expect(draftSnapshotToDomain(snapshot).romanizedName).toBe("Live Name");
   });
 
-  it("handles null mitStory in draft snapshot", () => {
-    const brand = { ...liveBrand, mitStory: null };
-    const snapshot = brandToDraftSnapshot(brand);
-    const restored = draftSnapshotToDomain(snapshot, brand);
-    expect(restored.mitStory).toBeNull();
-  });
 });
 
 describe("diffRemovedImageUrls", () => {

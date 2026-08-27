@@ -10,6 +10,7 @@ const PROVIDERS = {
   slack: ["post_slack_alert"],
   posthog: ["run_query"],
   playwright: ["fetch_rendered"],
+  "mit-registry": ["lookup_exact_products", "sync_registry"],
   scraper: ["scrape_url"],
   http: [
     "fetch_html",
@@ -28,17 +29,13 @@ const PROVIDERS = {
   brands: [
     "cleanupAdminBrandReviewImages",
     "cleanupDeadLinks",
-    "createEvidence",
     "createReport",
-    "declareMit",
     "deleteBrand",
     "reviewCommunityStockist",
     "reviewCorrection",
-    "reviewEvidence",
     "saveAdminBrandReview",
     "saveBrand",
     "stageAdminBrandReviewImage",
-    "stripDeclaration",
     "submitStockist",
     "submitCorrection",
     "syncBrandImages",
@@ -49,7 +46,6 @@ const PROVIDERS = {
     "updateReportStatus",
     "upsertBrandFaqEntries",
     "upsertEnrichedStockists",
-    "withdrawDeclaration",
   ],
   cache: [
     "getCachedExploreBrandPool",
@@ -151,7 +147,6 @@ const PROVIDERS = {
     "syncHeroDenormalized",
     "uploadImageEvalAsset",
     "uploadPrivateFile",
-    "uploadPrivateImage",
     "uploadPublicImage",
   ],
   submissions: [

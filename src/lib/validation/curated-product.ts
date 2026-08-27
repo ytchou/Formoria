@@ -191,4 +191,8 @@ export const curatedProductProposalSchema = z.object({
   imageSourceUrl: httpUrlSchema.optional(),
   productDescriptionZh: z.string().trim().min(1).max(MAX_NOTE),
   sources: z.array(curatedProductSourceSchema).max(MAX_SOURCES),
+  madeInTaiwanConfirmed: z.boolean().default(false),
+  materialsFromTaiwanConfirmed: z.boolean().default(false),
+  mitRegistryId: z.number().int().positive().nullable().default(null),
+  originCandidateId: z.string().uuid().nullable().default(null),
 });

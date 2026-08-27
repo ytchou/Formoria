@@ -27,7 +27,7 @@ test.describe("Brand detail deep", () => {
       workerIndex: workerInfo.workerIndex,
       withLinks: true,
       // The FAQ cases below need brand *evidence*, not links: the presets that
-      // survive gate on mit_status / subcategories.
+      // survive the subcategory evidence gate.
       withFaqEvidence: true,
     });
     brandHref = `/brands/${seeded.slug}`;
@@ -215,10 +215,8 @@ test.describe("Brand detail deep", () => {
 
   test("FAQ renders on a data-rich brand", async ({ page }) => {
     test.setTimeout(BUDGET.TEST.MUTATION);
-    // Seeded via `withFaqEvidence`: mit_status and subcategories.
-    // Those — not links — are what the FAQ floors gate on. This fixture is
-    // declared rather than MIT-verified, so taiwan-origin is intentionally
-    // absent while the product floor still renders.
+    // Seeded via `withFaqEvidence`: subcategories, not links, are what the FAQ
+    // floor gates on.
     await expect(async () => {
       await page.goto(`/brands/${seeded.slug}`, {
         waitUntil: "domcontentloaded",
@@ -236,10 +234,8 @@ test.describe("Brand detail deep", () => {
     const questions = page.locator('details[id^="faq-"] > summary');
     await expect(questions.first()).toBeVisible();
 
-    // Each seeded evidence field must pull its own preset onto the page, while
-    // an unverified/declared brand must not receive a taiwan-origin floor.
+    // The seeded evidence field must pull its preset onto the page.
     await expect(page.locator("details#faq-main-products")).toHaveCount(1);
-    await expect(page.locator("details#faq-taiwan-origin")).toHaveCount(0);
 
     const jsonLdNodes = await page
       .locator('script[type="application/ld+json"]')
@@ -289,8 +285,7 @@ test.describe("Brand detail deep", () => {
     }).toPass(POLL.DB);
 
     const firstItem = page.locator('details[id^="faq-"]').first();
-    // The declared fixture has no taiwan-origin floor, so the first rendered
-    // item is the main-products floor.
+    // The first rendered item is the main-products floor.
     await expect(firstItem).toHaveAttribute("id", "faq-main-products");
     await expect(firstItem.locator("p")).toContainText("代表產品包含");
     expect(

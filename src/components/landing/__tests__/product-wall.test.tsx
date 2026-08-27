@@ -59,6 +59,7 @@ const labels = {
     cta: "Visit product",
     brandSiteCta: "Visit brand site",
     unavailable: "Link unavailable",
+    madeInTaiwan: "Made in Taiwan",
   },
 };
 
@@ -128,6 +129,7 @@ function buildProduct(index: number): HomepageCuratedProduct {
     nameEn: fixture.nameEn ? `${fixture.nameEn}／${index}` : null,
     category: "home",
     subcategories: [],
+    mitQualified: false,
     officialUrl: "https://example.com/product",
     imageUrl: `/i/curated-products/p/${index}.jpg`,
     imageSourceUrl: null,

@@ -503,10 +503,10 @@ export const SERVICE_REGISTRY: readonly ServiceEntry[] = [
     vendor: "Taiwan Ministry of Economic Affairs",
     category: "registry",
     criticality: "customer-flow",
-    operationalSection: "deprecated",
+    operationalSection: "production",
     operationalKind: "dependency",
-    envVars: [],
-    status: "dormant",
+    envVars: ["NEXT_PUBLIC_SUPABASE_URL", "SUPABASE_SERVICE_ROLE_KEY"],
+    status: "active",
     plan: {
       kind: "free",
       monthlyUsd: 0,
@@ -514,6 +514,7 @@ export const SERVICE_REGISTRY: readonly ServiceEntry[] = [
       sourceUrl: "https://keid.nat.gov.tw/mittw/",
     },
     dashboardUrl: "https://keid.nat.gov.tw/mittw/",
+    probe: "executive-health",
     notes:
       "Health is read from the local mirror and its weekly sync timestamp.",
   },

@@ -193,7 +193,6 @@ function makeBrand(overrides: Partial<Brand> = {}): Brand {
     categorySlug: "home",
     categoryLabel: "Home & Living",
     city: "台北",
-    mitStatus: "unverified",
     isDemo: false,
     foundingYear: 2018,
     socialInstagram: null,

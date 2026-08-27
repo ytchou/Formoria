@@ -388,7 +388,7 @@ describe("cleanupDeadLinks", () => {
   it("applies a field the writer skipped for a different column", async () => {
     const db = createDb([row({ id: "r-other-skip" })]);
     const noisyWriter: BrandWriter = vi.fn(async () => ({
-      skipped: [{ field: "mit_story", reason: "excluded:mit_story" }],
+      skipped: [{ field: "description", reason: "protected:admin" }],
     }));
 
     const result = await cleanupDeadLinks({

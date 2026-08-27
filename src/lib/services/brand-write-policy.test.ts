@@ -32,16 +32,6 @@ describe("resolveWritablePatch", () => {
     expect(skipped).toEqual([]);
   });
 
-  it("enrichment can never write mit_story even when empty", () => {
-    const { allowed, skipped } = resolveWritablePatch(
-      { mitStory: "x" },
-      {},
-      { source: "enriched" },
-    );
-    expect(allowed).toEqual({});
-    expect(skipped[0]!.reason).toBe("excluded:mit_story");
-  });
-
   it("owner and admin both write a previously admin-stamped field", () => {
     const s = state({ description: { source: "admin" } });
     expect(
@@ -58,19 +48,6 @@ describe("resolveWritablePatch", () => {
     });
   });
 
-  it.each(["mit_declared_scope", "mit_declared_at", "mit_declared_by"])(
-    "strips %s from owner writes",
-    (field) => {
-      const { allowed } = resolveWritablePatch(
-        { name: "ok", [field]: "x" },
-        {},
-        { source: "owner" },
-      );
-
-      expect(allowed).toEqual({ name: "ok" });
-      expect(allowed).not.toHaveProperty(field);
-    },
-  );
 });
 
 describe("resolveRefreshEnrichmentPatch", () => {

@@ -15,7 +15,6 @@ const baseline: SubmissionReviewData = {
   city: "Taipei",
   reputationSummary: null,
   channels: [],
-  mitEvidence: null,
   siteContent: null,
   foundingYear: 2020,
   heroImageUrl: "https://example.com/hero.webp",

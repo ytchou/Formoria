@@ -509,7 +509,6 @@ const BRAND_DRAFT_EDITABLE_KEYS = [
   "productPhotos",
   "subcategories",
   ...ONLINE_STORE_CAMEL_FIELDS,
-  "mitStory",
   "otherUrls",
   "reputationSummary",
 ] as const satisfies readonly (keyof Brand)[];
@@ -624,9 +623,6 @@ export function draftSnapshotToDomain(
         partial.subcategories =
           (snapshot.subcategories as Brand["subcategories"]) ?? [];
         break;
-      case "mitStory":
-        partial.mitStory = snapshot.mitStory as string | null;
-        break;
       case "otherUrls":
         partial.otherUrls = (snapshot.otherUrls as Brand["otherUrls"]) ?? [];
         break;
@@ -694,12 +690,6 @@ export function brandToDomain(row: BrandRowWithJoins): Brand {
     categorySlug: row.category ?? null,
     categoryLabel:
       deriveCategoryLabel(row.category ?? "") ?? row.category ?? null,
-    mitStatus: (row.mit_status as Brand["mitStatus"]) ?? "unverified",
-    mitDeclaredScope:
-      (row.mit_declared_scope as Brand["mitDeclaredScope"]) ?? null,
-    mitDeclaredAt: row.mit_declared_at ?? null,
-    mitEvidence: (row.mit_evidence as Brand["mitEvidence"]) ?? null,
-    mitStory: row.mit_story ?? null,
     isDemo: row.is_demo ?? false,
     foundingYear: row.founding_year ?? null,
     city: row.city ?? null,
@@ -945,9 +935,6 @@ export function brandToInsert(data: BrandWriteInput): Record<string, unknown> {
     row.reputation_summary =
       data.reputationSummary as typeof row.reputation_summary;
   }
-  if (data.mitEvidence !== undefined) {
-    row.mit_evidence = data.mitEvidence;
-  }
   if (data.siteContent !== undefined) {
     // Opaque jsonb pass-through; the microsite shape-enforcer was parked in DEV-1570.
     row.site_content = data.siteContent as typeof row.site_content;
@@ -1032,12 +1019,6 @@ export const BRAND_COLUMN_LIST = [
   "subcategories",
   "subcategories_en",
   "reputation_summary",
-  "mit_status",
-  "mit_declared_scope",
-  "mit_declared_at",
-  "mit_verified_at",
-  "mit_story",
-  "mit_evidence",
   "source",
   "is_demo",
 ] as const;
@@ -1052,7 +1033,6 @@ export const BRAND_COLUMN_LIST = [
 export const DIRECTORY_OMITTED_COLUMNS = [
   "site_content",
   "draft_data",
-  "mit_evidence",
   "reputation_summary",
 ] as const;
 
@@ -1079,7 +1059,6 @@ const PUBLIC_BRAND_CARD_COLUMN_LIST = [
   "founding_year",
   "subcategories",
   "subcategories_en",
-  "mit_status",
 ] as const;
 
 /** Columns allowed to cross the public detail boundary. */
@@ -1091,8 +1070,6 @@ const PUBLIC_BRAND_DETAIL_COLUMN_LIST = [
   "social_threads",
   "social_facebook",
   "other_urls",
-  "mit_story",
-  "mit_evidence",
 ] as const;
 
 /** Evidence fields used only to render the public FAQ template floors. */
@@ -1107,9 +1084,6 @@ const PUBLIC_BRAND_FAQ_CONTEXT_COLUMN_LIST = [
   "subcategories",
   "subcategories_en",
   "reputation_summary",
-  "mit_status",
-  "mit_declared_scope",
-  "mit_story",
 ] as const;
 
 const BRAND_COLUMNS = BRAND_COLUMN_LIST.join(", ");
@@ -1451,7 +1425,7 @@ type GetBrandsFilters = BrandFilters & {
   /**
    * Opt in to the full column projection (jsonb blobs + draft data). Public
    * directory callers must leave this off — those columns are dead weight in
-   * the RSC payload. Only the admin table, which renders `mitEvidence`, needs it.
+   * the RSC payload. Only consumers that render full review data need it.
    */
   includeDetailColumns?: boolean;
 };
@@ -1556,11 +1530,6 @@ export async function getBrands(
       return { brands: [], totalCount: 0 };
     }
 
-    const verificationFilter =
-      filters.verificationFilter && filters.verificationFilter !== "all"
-        ? filters.verificationFilter
-        : null;
-
     const { offset, limit: pageLimit } = getSearchPagination({
       ...filters,
       limit: DEFAULT_PAGE_SIZE,
@@ -1576,7 +1545,7 @@ export async function getBrands(
         // filter added only there would be silently dropped the moment a user
         // types — the same defect class as the `?sub=` no-op (DEV-1510).
         filter_materials: materials,
-        filter_verification: verificationFilter,
+        filter_verification: null,
         page_offset: offset,
         sort_mode:
           filters.sort && filters.sort !== "random" ? filters.sort : "rank",
@@ -1604,7 +1573,7 @@ export async function getBrands(
           filter_categories: filters.category?.length ? filters.category : null,
           filter_subcategories: subcategoryTags,
           filter_materials: materials,
-          filter_verification: verificationFilter,
+          filter_verification: null,
           page_offset: 0,
           sort_mode:
             filters.sort && filters.sort !== "random" ? filters.sort : "rank",
@@ -1648,14 +1617,10 @@ export async function getBrands(
     return { brands: await withCardImageMeta(brands), totalCount };
   }
 
-  const verificationFilter = filters?.verificationFilter;
   const selectClause = getBrandsSelect(filters);
 
   let query = supabase.from("brands").select(selectClause, { count: "exact" });
 
-  if (verificationFilter === "mit-declared") {
-    query = query.eq("mit_status", "declared");
-  }
 
   if (!filters?.includeTestBrands) {
     query = excludeTestBrands(query);
@@ -1724,7 +1689,7 @@ export async function getBrands(
 export async function getPublicBrandCards(
   filters?: Pick<
     BrandFilters,
-    "category" | "materials" | "verificationFilter" | "search" | "sort"
+    "category" | "materials" | "search" | "sort"
   > & {
     page?: number;
     subcategoryTags?: string[];
