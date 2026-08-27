@@ -1,0 +1,11 @@
+{
+  "name": "dev-1613-home-smoke",
+  "title": "DEV-1613 — products-phase smoke test, 3 live Home brands",
+  "subtitle": "Check-only. Run with --task product --no-apply; nothing is applied to live brands.",
+  "warning": "This cohort is a CHECK-ONLY sample. Proposals stay pending for human review — do not apply it without reading every proposal first.",
+  "labels": {
+    "aisaniea": "艾莎妮亞名床 Aisaniea",
+    "yun-clean": "雲御織 YUNCLEAN",
+    "zenu": "山霧 ZenU"
+  }
+}

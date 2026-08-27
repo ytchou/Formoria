@@ -163,8 +163,26 @@ type BrandCost = {
 
 type RefreshLog = {
   jobIds?: string[];
+  /** Recorded since `--task` landed; absent on logs written before it. */
+  phases?: string[];
   requested?: Array<{ slug: string; submissionId: string | null }>;
 };
+
+/**
+ * The phases the run actually executed, for the report's provenance callout.
+ *
+ * Reading them from the logs rather than naming a fixed list is the point: a
+ * `--task product` run touches 3 phases, and a callout asserting all 14 would
+ * describe a run that never happened. Logs predating `--task` carry no phases
+ * and fall back to the legacy set, which is what those runs did execute.
+ */
+const LEGACY_PHASE_PROSE =
+  "discover, detect, slugs, clean, links, names, site_identity, images, classify_images, descriptions, reputation, faq, products, tags";
+
+function phaseProse(logs: RefreshLog[]): string {
+  const phases = [...new Set(logs.flatMap((l) => l.phases ?? []))];
+  return phases.length > 0 ? phases.join(", ") : LEGACY_PHASE_PROSE;
+}
 
 /**
  * Every `refresh-log-*.json` in the cohort's snapshot dir.
@@ -548,7 +566,7 @@ details{margin-top:8px}summary{cursor:pointer;font-size:13px;color:var(--muted)}
 </div>
 
 <div class="callout">
-<b>This ran the real pipeline against production.</b> Each brand was snapshotted into a refresh submission via <code>request_brand_refresh</code>, enriched by a genuine curation job (<code>enqueueAdminCurationJob</code> → <code>runJob</code> → <code>runEnrich</code>, steps <b>context, image, detail</b>), then written back with <code>apply_brand_refresh</code> — the same three RPCs the admin UI uses. Nothing here was hand-written into the database.
+<b>This ran the real pipeline against production.</b> Each brand was snapshotted into a refresh submission via <code>request_brand_refresh</code>, enriched by a genuine curation job (<code>enqueueAdminCurationJob</code> → <code>runJob</code> → <code>runEnrich</code>, phases <b>${esc(phaseProse(logs))}</b>), then written back with <code>apply_brand_refresh</code> — the same three RPCs the admin UI uses. Nothing here was hand-written into the database.
 </div>
 
 ${cohort.warning ? `<div class="callout warn">${esc(cohort.warning)}</div>` : ""}
