@@ -276,6 +276,7 @@ export const KNOWN_COLUMNS: Record<CopyTable, readonly string[]> = {
   ],
   brand_images: [
     "id",
+    "alt_zh",
     "brand_id",
     "url",
     "source",
