@@ -22,7 +22,7 @@ export function getLangfuse(): Langfuse | null {
   try {
     instance = new Langfuse({ publicKey, secretKey, baseUrl });
 
-    process.on("beforeExit", async () => {
+    process.once("beforeExit", async () => {
       try {
         await instance?.shutdownAsync();
       } catch {
@@ -30,7 +30,7 @@ export function getLangfuse(): Langfuse | null {
       }
     });
 
-    process.on("SIGTERM", async () => {
+    process.once("SIGTERM", async () => {
       try {
         await instance?.shutdownAsync();
       } catch {

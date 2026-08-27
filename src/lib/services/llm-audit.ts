@@ -47,6 +47,40 @@ function truncate(value: string): string {
     : `${value.slice(0, MAX_PROMPT_LENGTH)}…`;
 }
 
+/**
+ * Fire-and-forget Langfuse generation for LLM calls.
+ * Must never throw -- all errors are swallowed.
+ */
+function emitLangfuseGeneration(
+  context: LlmAuditContext,
+  event: ChatAuditEvent,
+): void {
+  try {
+    const trace = getAuditContext().langfuseTrace;
+    if (trace) {
+      const langfuseTrace = trace as { generation: (input: Record<string, unknown>) => void };
+      langfuseTrace.generation({
+        name: `${event.provider}/chat_completions`,
+        model: event.model,
+        input: { system: truncate(event.request.system), user: truncate(event.request.user) },
+        output: event.data,
+        usage: {
+          promptTokens: event.usage?.prompt_tokens,
+          completionTokens: event.usage?.completion_tokens,
+        },
+        metadata: {
+          phase: context.phase,
+          ok: event.ok,
+          status: event.status,
+          latencyMs: event.latencyMs,
+        },
+      });
+    }
+  } catch {
+    // Langfuse errors must never block production
+  }
+}
+
 async function persistAuditEvent(
   context: LlmAuditContext,
   event: ChatAuditEvent,
@@ -125,32 +159,7 @@ export function createAuditedDeepSeekClient(
                 }
               }
               await persistAuditEvent(context, event, spanId);
-
-              // Langfuse generation for LLM calls
-              try {
-                const trace = getAuditContext().langfuseTrace;
-                if (trace) {
-                  const langfuseTrace = trace as { generation: (input: Record<string, unknown>) => void };
-                  langfuseTrace.generation({
-                    name: `${event.provider}/chat_completions`,
-                    model: event.model,
-                    input: { system: truncate(event.request.system), user: truncate(event.request.user) },
-                    output: event.data,
-                    usage: {
-                      promptTokens: event.usage?.prompt_tokens,
-                      completionTokens: event.usage?.completion_tokens,
-                    },
-                    metadata: {
-                      phase: context.phase,
-                      ok: event.ok,
-                      status: event.status,
-                      latencyMs: event.latencyMs,
-                    },
-                  });
-                }
-              } catch {
-                // Langfuse errors must never block production
-              }
+              emitLangfuseGeneration(context, event);
             },
           });
           return client.chat(input);
@@ -221,32 +230,7 @@ export function createAuditedOpenAIClient(
                 }
               }
               await persistAuditEvent(context, event, spanId);
-
-              // Langfuse generation for LLM calls
-              try {
-                const trace = getAuditContext().langfuseTrace;
-                if (trace) {
-                  const langfuseTrace = trace as { generation: (input: Record<string, unknown>) => void };
-                  langfuseTrace.generation({
-                    name: `${event.provider}/chat_completions`,
-                    model: event.model,
-                    input: { system: truncate(event.request.system), user: truncate(event.request.user) },
-                    output: event.data,
-                    usage: {
-                      promptTokens: event.usage?.prompt_tokens,
-                      completionTokens: event.usage?.completion_tokens,
-                    },
-                    metadata: {
-                      phase: context.phase,
-                      ok: event.ok,
-                      status: event.status,
-                      latencyMs: event.latencyMs,
-                    },
-                  });
-                }
-              } catch {
-                // Langfuse errors must never block production
-              }
+              emitLangfuseGeneration(context, event);
             },
           });
           return client.chat(input);
