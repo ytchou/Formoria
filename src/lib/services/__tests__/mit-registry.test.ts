@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   classifyMitRegistryHealth,
+  dedupeRegistryRecords,
   parseManifestFilenames,
   parseMitCsv,
   shouldSweepStaleRecords,
@@ -40,6 +41,28 @@ describe("MIT registry archive", () => {
       "011.csv",
       "017.csv",
       "301.csv",
+    ]);
+  });
+
+  it("deduplicates repeated rows without collapsing model variants", () => {
+    const record = {
+      record_key: "same-row",
+      cert_number: "01700577-00001",
+      company_name: "珀興企業有限公司",
+      brand_name: "RAFAC",
+      product_name: "戶外機能動動襪",
+      product_model: "S01A(迷彩)",
+      industry_type: "織襪",
+      valid_until: "20270515",
+      normalized_brand: "rafac",
+      normalized_product: "戶外機能動動襪",
+      normalized_model: "s01a迷彩",
+    };
+    const variant = { ...record, record_key: "distinct-model", product_model: "S01A(水藍)" };
+
+    expect(dedupeRegistryRecords([record, record, variant])).toEqual([
+      record,
+      variant,
     ]);
   });
 
