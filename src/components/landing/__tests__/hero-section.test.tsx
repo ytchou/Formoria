@@ -47,75 +47,31 @@ vi.mock("@/components/ui/photo-band", () => ({
   }) => <section {...rest}>{children}</section>,
 }));
 
-vi.mock("@/components/ui/toggle-chip", () => ({
-  ChipRow: ({
-    children,
-    className,
-    ...rest
-  }: {
-    children: ReactNode;
-    className?: string;
-    [key: string]: unknown;
-  }) => (
-    <div data-testid="chip-row" className={className} {...rest}>
-      {children}
-    </div>
-  ),
-  taxonomyLinkClasses: ({ active, className }: { active?: boolean; className?: string } = {}) =>
-    active ? `chip-active${className ? ` ${className}` : ""}` : `chip${className ? ` ${className}` : ""}`,
-}));
-
 const HeroSection = (await import("../hero-section")).default;
 
-const mockCategories = [
-  { slug: "fashion", name: "Fashion & Apparel", nameZh: "服飾鞋履" },
-  { slug: "beauty", name: "Beauty & Personal Care", nameZh: "美妝保養" },
-];
-
-describe("HeroSection — centered layout with category chips", () => {
+describe("HeroSection — the editorial opener", () => {
   beforeEach(() => {
     vi.clearAllMocks();
   });
 
-  it("renders a centered h1 with the headline translation key", async () => {
-    render(
-      await HeroSection({ categories: mockCategories, locale: "zh-TW" }),
-    );
+  it("renders the original positioning copy with search retained", async () => {
+    render(await HeroSection());
 
     const heading = screen.getByRole("heading", { level: 1 });
     expect(heading).toBeInTheDocument();
     expect(heading).toHaveTextContent("headline");
-  });
-
-  it("renders the search input", async () => {
-    render(
-      await HeroSection({ categories: mockCategories, locale: "zh-TW" }),
-    );
-
+    expect(screen.getByText("subheadline")).toBeInTheDocument();
+    expect(screen.getByText("lede")).toBeInTheDocument();
     expect(screen.getByTestId("search-input")).toBeInTheDocument();
   });
 
-  it("renders category chips inside ChipRow", async () => {
-    render(
-      await HeroSection({ categories: mockCategories, locale: "zh-TW" }),
+  it("offers style discovery beside the search field", async () => {
+    render(await HeroSection());
+
+    expect(screen.getByText("browsePrefix")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: /browseCta/ })).toHaveAttribute(
+      "href",
+      "/discover",
     );
-
-    const chipRow = screen.getByTestId("chip-row");
-    expect(chipRow).toBeInTheDocument();
-
-    // "全部品牌" chip + 2 category chips = 3 links inside chip-row
-    const links = chipRow.querySelectorAll("a");
-    expect(links).toHaveLength(3);
-  });
-
-  it("first chip '全部品牌' has active styling", async () => {
-    render(
-      await HeroSection({ categories: mockCategories, locale: "zh-TW" }),
-    );
-
-    const chipRow = screen.getByTestId("chip-row");
-    const firstLink = chipRow.querySelector("a");
-    expect(firstLink).not.toBeNull();
-    expect(firstLink!.className).toContain("chip-active");
   });
 });

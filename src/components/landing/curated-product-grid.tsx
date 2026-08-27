@@ -1,4 +1,5 @@
 import { getTranslations } from "next-intl/server";
+import { ArrowRight } from "lucide-react";
 
 import { ViewItemListTracker } from "@/components/analytics/view-item-list-tracker";
 import {
@@ -34,12 +35,17 @@ export async function CuratedProductGrid({
   };
 
   return (
-    <PhotoBand image="/images/selection-bg.webp" alt="" scrim="flat">
+    <PhotoBand
+      image="/images/selection-bg.webp"
+      alt=""
+      scrim="dark"
+      contentClassName="text-on-ink"
+    >
       <div className="text-center">
-        <h2 className="type-page-title font-ming">{t("selection.headline")}</h2>
-        <p className="type-body text-ink-soft mt-3">
-          {t("selection.subtitle")}
-        </p>
+        <h2 className="type-page-title font-ming text-on-ink">
+          {t("selection.headline")}
+        </h2>
+        <p className="mt-3 type-body text-on-ink">{t("selection.subtitle")}</p>
       </div>
 
       <Grid cols="cards" className="mt-8">
@@ -50,7 +56,8 @@ export async function CuratedProductGrid({
             product={slot.product}
             labels={productLabels}
             mode="wall"
-            ratio={slot.ratio}
+            ratio="1:1"
+            className="bg-ground"
             brand={slot.product.brand}
             brandSlug={slot.product.brandSlug}
             brandName={slot.product.brandName}
@@ -66,9 +73,15 @@ export async function CuratedProductGrid({
       <div className="mt-8 text-center">
         <Link
           href={routes.discover()}
-          className={buttonVariants({ variant: "primary", shape: "pill" })}
+          className={buttonVariants({
+            variant: "primary",
+            shape: "pill",
+            className:
+              "focus-visible:ring-on-ink focus-visible:ring-offset-surface-dark",
+          })}
         >
           {t("selection.cta")}
+          <ArrowRight aria-hidden="true" />
         </Link>
       </div>
 

@@ -69,6 +69,15 @@ describe("scrimAlphaAt", () => {
       }
     }
   });
+
+  it("paints the dark variant uniformly from surface-dark", () => {
+    for (const breakpoint of scrimBreakpoints("dark")) {
+      for (const x of [0, 0.3, 0.7, 1]) {
+        expect(scrimAlphaAt(breakpoint, x)).toBeCloseTo(0.8, 5);
+      }
+      expect(scrimBackgroundImage(breakpoint)).toContain("var(--surface-dark)");
+    }
+  });
 });
 
 describe("scrim contracts", () => {
@@ -157,10 +166,12 @@ describe("scrim contracts", () => {
     }
   });
 
-  it("paints from the ground token rather than a literal colour", () => {
-    for (const { breakpoint } of ALL_BREAKPOINTS) {
+  it("paints from each variant's declared semantic token", () => {
+    for (const { variant, breakpoint } of ALL_BREAKPOINTS) {
       const css = scrimBackgroundImage(breakpoint);
-      expect(css).toContain("var(--ground)");
+      expect(css).toContain(
+        variant === "dark" ? "var(--surface-dark)" : "var(--ground)",
+      );
       expect(css).not.toMatch(/#[0-9a-f]{3,8}/i);
       expect(css).not.toContain("rgba(");
     }
@@ -171,6 +182,7 @@ describe("scrim contracts", () => {
     // while the gate measured 0.6249 — silent drift in the one direction this
     // module promises is impossible.
     const css = scrimBackgroundImage({
+      colorToken: "--ground",
       minWidth: 0,
       textZone: [0, 1],
       bandAspect: 1,

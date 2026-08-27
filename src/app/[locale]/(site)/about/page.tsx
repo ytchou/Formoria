@@ -1,9 +1,7 @@
 import type { Metadata } from "next";
+import { ArrowRight } from "lucide-react";
 import { getTranslations, setRequestLocale } from "next-intl/server";
-import {
-  buildOrganizationJsonLd,
-  safeJsonLdStringify,
-} from "@/lib/json-ld";
+import { buildOrganizationJsonLd, safeJsonLdStringify } from "@/lib/json-ld";
 import { buildAlternates } from "@/lib/seo/alternates";
 import type { Locale } from "@/lib/seo/alternates";
 import { buildOpenGraph } from "@/lib/seo/open-graph";
@@ -49,8 +47,18 @@ export async function generateMetadata({
   };
 }
 
-const SCENE_KEYS = ["intention", "encounter", "alternatives", "adjacent"] as const;
-const STANCE_KEYS = ["boundary", "noPayToWin", "incomplete", "judgment"] as const;
+const SCENE_KEYS = [
+  "intention",
+  "encounter",
+  "alternatives",
+  "adjacent",
+] as const;
+const STANCE_KEYS = [
+  "boundary",
+  "noPayToWin",
+  "incomplete",
+  "judgment",
+] as const;
 
 export default async function AboutPage({ params }: PageProps) {
   const { locale } = await params;
@@ -119,14 +127,10 @@ export default async function AboutPage({ params }: PageProps) {
               </h2>
               <div>
                 <p className="type-body">{t("loop.body1")}</p>
-                <p className="mt-6 type-body">
-                  {t("loop.body2")}
-                </p>
+                <p className="mt-6 type-body">{t("loop.body2")}</p>
                 <PullQuote>{t("loop.pullQuote")}</PullQuote>
                 <h3 className="type-section">{t("loop.brandHeading")}</h3>
-                <p className="mt-4 type-body">
-                  {t("loop.brandBody")}
-                </p>
+                <p className="mt-4 type-body">{t("loop.brandBody")}</p>
               </div>
             </div>
           </PageShell>
@@ -140,9 +144,7 @@ export default async function AboutPage({ params }: PageProps) {
                 {t("taiwanStats.heading")}
               </h2>
               <div>
-                <p className="type-body">
-                  {t("taiwanStats.intro")}
-                </p>
+                <p className="type-body">{t("taiwanStats.intro")}</p>
                 <div className="mt-8 flex flex-wrap gap-14">
                   {(["count", "share", "employment"] as const).map((key) => (
                     <div key={key}>
@@ -210,10 +212,11 @@ export default async function AboutPage({ params }: PageProps) {
                   href={routes.brands()}
                   className={buttonVariants({
                     variant: "primary",
-                    size: "large",
+                    shape: "pill",
                   })}
                 >
                   {t("guide.cta")}
+                  <ArrowRight aria-hidden="true" />
                 </Link>
               </div>
             </div>

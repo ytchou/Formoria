@@ -6,6 +6,8 @@ import path from "node:path";
 import sharp from "sharp";
 import { afterAll, describe, expect, it } from "vitest";
 
+import { contrastFromLuminance, relativeLuminance } from "./lib/color.mjs";
+
 import {
   REPO_ROOT,
   analyzeFiles,
@@ -24,6 +26,7 @@ import {
   resolveResponsiveForeground,
   verticalScrimAlphaAt,
   visibleSourceRect,
+  worstCompositedLuminance,
 } from "./check-photo-band-contrast";
 import {
   PHOTO_BAND_SCRIMS,
@@ -35,6 +38,8 @@ const VARIANTS = Object.keys(PHOTO_BAND_SCRIMS) as ScrimVariant[];
 const GROUND: [number, number, number] = [0xfa, 0xf7, 0xf2];
 const INK: [number, number, number] = [0x1a, 0x18, 0x15];
 const INK_MUTED: [number, number, number] = [0x6f, 0x68, 0x5f];
+const ON_INK: [number, number, number] = [0xd6, 0xcf, 0xc4];
+const SURFACE_DARK: [number, number, number] = [0x2a, 0x28, 0x24];
 
 const scratch = mkdtempSync(path.join(tmpdir(), "photo-band-gate-"));
 afterAll(() => rmSync(scratch, { recursive: true, force: true }));
@@ -169,7 +174,9 @@ describe("findHandRolledScrims — the ban", () => {
     ]);
 
     expect(result.handRolled.join("\n")).not.toContain("trail-tile.tsx");
-    expect(result.handRolled.join("\n")).not.toContain("selected-product-tile.tsx");
+    expect(result.handRolled.join("\n")).not.toContain(
+      "selected-product-tile.tsx",
+    );
     expect(result.handRolled.join("\n")).toContain("unregistered-tile.tsx");
   });
 });
@@ -251,6 +258,31 @@ describe("object-cover crop model", () => {
     expect(rect.y1).toBe(1);
     expect(rect.x1 - rect.x0).toBeCloseTo(0.75 / 1.776, 5);
     expect(rect.x0 + rect.x1).toBeCloseTo(1, 5);
+  });
+});
+
+describe("dark PhotoBand contrast", () => {
+  it("keeps inverse text above AA over both luminance extremes at every breakpoint", () => {
+    for (const breakpoint of scrimBreakpoints("dark")) {
+      for (const underlying of [0, 255]) {
+        const pixels = {
+          data: Buffer.from([underlying, underlying, underlying]),
+          width: 1,
+          height: 1,
+        };
+        const background = worstCompositedLuminance(
+          pixels,
+          breakpoint,
+          SURFACE_DARK,
+          ON_INK,
+        );
+
+        expect(background).toBeDefined();
+        expect(
+          contrastFromLuminance(relativeLuminance(ON_INK), background!),
+        ).toBeGreaterThanOrEqual(4.5);
+      }
+    }
   });
 });
 

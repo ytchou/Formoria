@@ -1,6 +1,8 @@
 import type { ReactNode } from "react";
+import { ArrowRight } from "lucide-react";
 
 import { Link } from "@/i18n/navigation";
+import { actionLinkStyles } from "@/components/ui/action-link";
 import { cn } from "@/lib/utils";
 
 interface SectionHeaderProps {
@@ -65,9 +67,10 @@ export function SectionHeader({
       {linkHref && linkLabel ? (
         <Link
           href={linkHref}
-          className="ml-auto inline-flex min-h-12 shrink-0 items-center font-medium text-accent"
+          className={actionLinkStyles({ className: "ml-auto shrink-0" })}
         >
           {linkLabel}
+          <ArrowRight aria-hidden="true" />
         </Link>
       ) : null}
     </div>

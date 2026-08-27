@@ -1,4 +1,5 @@
 import { Link } from "@/i18n/navigation";
+import { ArrowRight } from "lucide-react";
 import { getTranslations } from "next-intl/server";
 import { PhotoBand } from "@/components/ui/photo-band";
 import { buttonVariants } from "@/components/ui/button";
@@ -27,9 +28,14 @@ export default async function MissionCloser({
       </p>
       <Link
         href={routes.brands()}
-        className={buttonVariants({ variant: "primary", shape: "pill", className: "mt-6" })}
+        className={buttonVariants({
+          variant: "primary",
+          shape: "pill",
+          className: "mt-6",
+        })}
       >
         {t("missionCloser.cta")}
+        <ArrowRight aria-hidden="true" />
       </Link>
     </PhotoBand>
   );

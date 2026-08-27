@@ -18,6 +18,7 @@
   --color-ground: var(--ground);
   --color-surface: var(--surface);
   --color-surface-deep: var(--surface-deep);
+  --color-surface-dark: var(--surface-dark);
   --color-ink: var(--ink);
   --color-ink-soft: var(--ink-soft);
   --color-ink-muted: var(--ink-muted);
@@ -170,6 +171,7 @@
      `--surface` (4.6:1) or `--ground` (5.1:1). Nothing checks this pair, so it
      is written here rather than discovered later. */
   --surface-deep: #e8dfd2;
+  --surface-dark: #2A2824; /* warm-charcoal photographic bands */
   --ink: #1A1815; /* primary text — 18.9:1 on ground */
   --ink-soft: #4A443C; /* body prose — 10.2:1 on ground */
   --ink-muted: #6F685F; /* metadata — 5.1:1 ground / 4.6:1 surface */
