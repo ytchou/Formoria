@@ -724,7 +724,7 @@ describe("runProductsPhase", () => {
         },
       ],
       loadOriginTexts,
-      discoverCatalog: async () => ({
+      catalogResult: {
         triples: [
           {
             url: ownedUrl,
@@ -747,7 +747,7 @@ describe("runProductsPhase", () => {
             },
           ],
         ]),
-      }),
+      },
     });
 
     expect(result.phaseResult.status).toBe("succeeded");
@@ -774,6 +774,73 @@ describe("runProductsPhase", () => {
     expect(result.phaseResult.status).toBe("succeeded");
     expect(result.proposals).toHaveLength(1);
     const chat = createClient.mock.results[0]!.value.chat;
+    const user = chat.mock.calls[0]![0].user as string;
+    expect(user).toContain(`${SITE}/products/clay-plate`);
+  });
+
+  it("products_phase_accepts_catalog_result_input", async () => {
+    // When catalogResult is passed in, its triples become enumerated candidates
+    // in the merged pool — the products phase no longer runs discovery itself.
+    const chat = modelReturns([
+      rawProposal({
+        official_url: `${SITE}/products/clay-plate`,
+        image_source_url: `${SITE}/products/clay-plate`,
+      }),
+    ]);
+
+    const result = await runProductsPhase({
+      brand: BRAND,
+      phases: PHASES,
+      scrapedData: SCRAPED,
+      target: { type: "submission", id: SUBMISSION_ID },
+      loadStoredCandidates: async () => [],
+      catalogResult: {
+        triples: [
+          {
+            url: `${SITE}/products/clay-plate`,
+            title: "catalog plate",
+            imageUrl: `${SITE}/img/plate.jpg`,
+            platform: "generic",
+            supplier: "catalog:generic",
+            sourceUrl: SITE,
+            sourcePosition: 0,
+          },
+        ],
+        attempts: [],
+        evidence: new Map([
+          [
+            `${SITE}/products/clay-plate`,
+            {
+              title: "catalog plate",
+              text: "A ceramic plate from catalog.",
+              imageUrls: [`${SITE}/img/plate.jpg`],
+            },
+          ],
+        ]),
+      },
+    });
+
+    expect(result.phaseResult.status).toBe("succeeded");
+    const user = chat.mock.calls[0]![0].user as string;
+    // The catalog evidence text should appear in the user content
+    expect(user).toContain("A ceramic plate from catalog.");
+  });
+
+  it("products_phase_accepts_acquisition_page_urls", async () => {
+    // Acquisition page URLs from the images phase are built into candidates
+    // and included in the merged pool.
+    const chat = modelReturns([rawProposal()]);
+
+    const result = await runProductsPhase({
+      brand: BRAND,
+      phases: PHASES,
+      scrapedData: { ...SCRAPED, perSourceText: {} },
+      target: { type: "submission", id: SUBMISSION_ID },
+      loadStoredCandidates: async () => [],
+      acquisitionPageUrls: [`${SITE}/products/clay-plate`],
+    });
+
+    expect(result.phaseResult.status).toBe("succeeded");
     const user = chat.mock.calls[0]![0].user as string;
     expect(user).toContain(`${SITE}/products/clay-plate`);
   });

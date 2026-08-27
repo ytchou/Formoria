@@ -1,4 +1,5 @@
 import { CLASSIFY_SYSTEM_PROMPT, DETECT_SYSTEM_PROMPT } from "@/lib/prompts";
+import { fetchLangfusePrompt } from "@/lib/langfuse/prompt";
 import { auditedCall } from "@/lib/audit";
 import {
   createProfiledOpenAIClient,
@@ -394,8 +395,9 @@ async function classifyCategory(
   try {
     // The 300-token budget and why it is not 100 live with the profile in
     // `@/lib/constants/llm-models`.
+    const classifyPrompt = await fetchLangfusePrompt("category-classify", CLASSIFY_SYSTEM_PROMPT);
     const { response, data, content } = await client.chat({
-      system: CLASSIFY_SYSTEM_PROMPT,
+      system: classifyPrompt,
       user: userContent,
       json: true,
       ...profileChatParams("classification"),
@@ -456,8 +458,9 @@ async function classifyCategoryBatchChunk(
   );
 
   try {
+    const classifyBatchPrompt = await fetchLangfusePrompt("category-classify", CLASSIFY_SYSTEM_PROMPT);
     const { response, data, content } = await client.chat({
-      system: CLASSIFY_SYSTEM_PROMPT,
+      system: classifyBatchPrompt,
       user: userContent,
       json: true,
       ...profileChatParams("classificationBatch"),
@@ -560,8 +563,9 @@ async function detectBrand(
   );
 
   try {
+    const detectPrompt = await fetchLangfusePrompt("detect", DETECT_SYSTEM_PROMPT);
     const { response, data, content } = await client.chat({
-      system: DETECT_SYSTEM_PROMPT,
+      system: detectPrompt,
       user: userContent,
       json: true,
       ...profileChatParams("detect"),
@@ -623,8 +627,9 @@ async function detectBrandsBatchChunk(
   );
 
   try {
+    const detectBatchPrompt = await fetchLangfusePrompt("detect", DETECT_SYSTEM_PROMPT);
     const { response, data, content } = await client.chat({
-      system: DETECT_SYSTEM_PROMPT,
+      system: detectBatchPrompt,
       user: userContent,
       json: true,
       ...profileChatParams("detectBatch"),

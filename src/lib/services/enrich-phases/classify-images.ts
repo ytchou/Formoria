@@ -9,6 +9,7 @@ import {
   MAX_BRAND_ACTIVE_IMAGES,
 } from "@/lib/constants/brand-images";
 import { cropDamage } from "@/lib/images/crop-damage";
+import { fetchLangfusePrompt } from "@/lib/langfuse/prompt";
 import { parseJson, type OpenAIChatResult } from "../openai-client";
 import {
   buildProfiledEnrichmentConfig,
@@ -1149,8 +1150,9 @@ async function classifyChunk(
   );
   const ordinals = [...imageByOrdinal.keys()];
 
+  const classifySystemPrompt = await fetchLangfusePrompt("classify-images", IMAGE_CLASSIFY_SYSTEM_PROMPT);
   const response = await client.chat({
-    system: IMAGE_CLASSIFY_SYSTEM_PROMPT,
+    system: classifySystemPrompt,
     user: `${brandContext}Classify the ${sendable.length} brand images that follow, numbered ${ordinals.join(", ")} in order. Return a JSON object with a "classifications" array holding exactly ${sendable.length} objects, whose "id" values are the image numbers as strings. Do not omit any image.`,
     images: sendable.map(({ dataUri }) => dataUri),
     imageDetail: CLASSIFY_IMAGE_DETAIL,

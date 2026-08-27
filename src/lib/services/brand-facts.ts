@@ -1,4 +1,5 @@
 import { FACTS_SYSTEM_PROMPT } from "@/lib/prompts";
+import { fetchLangfusePrompt } from "@/lib/langfuse/prompt";
 import { parseJson } from "./openai-client";
 import {
   buildProfiledEnrichmentConfig,
@@ -215,6 +216,7 @@ export async function extractBrandFacts(
   // Counted across both attempts: a first call the model answered and a second
   // that hit a spent account is not an outage.
   const calls = noLlmCalls();
+  const factsSystemPrompt = await fetchLangfusePrompt("brand-facts", FACTS_SYSTEM_PROMPT);
 
   try {
     for (let attemptIndex = 0; attemptIndex < 2; attemptIndex += 1) {
@@ -235,7 +237,7 @@ export async function extractBrandFacts(
         { apiKey: token },
       );
       const { response, data, content } = await client.chat({
-        system: FACTS_SYSTEM_PROMPT,
+        system: factsSystemPrompt,
         user: `${userContent}${retryInstruction}`,
         json: true,
         ...profileChatParams("facts"),

@@ -2750,7 +2750,6 @@ export async function runEnrich(
                   dryRun: config.dryRun,
                   target: { type: targetType, id: brand.id },
                   jobId: config.jobId,
-                  renderProvider: config.renderProvider,
                 });
                 state.phaseResults.push(productsResult.phaseResult);
                 await logCurrentPhase(ctx, productsResult.phaseResult);
