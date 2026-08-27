@@ -222,6 +222,20 @@ export async function getBrandImages(
 
   if (error) {
     if (error.code === 'PGRST205') return []
+    // Deploy-order window: alt_zh may not exist yet (42703). Retry without
+    // the new column so brand images still render — they just lack alt text.
+    // Matches the hydrateCardImageMeta try/catch pattern (brands.ts:827).
+    if (error.code === '42703') {
+      const { data: fallback, error: fallbackError } = await brandImagesTable(supabase)
+        .select(
+          'storage_path, status, tags, score, sort_order, source, source_url, width, height',
+        )
+        .eq('brand_id', brandId)
+        .eq('status', 'active')
+        .order('sort_order', { ascending: true })
+      if (fallbackError) throw fallbackError
+      return fallback ?? []
+    }
     throw error
   }
   return data ?? []

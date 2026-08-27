@@ -462,18 +462,23 @@ export async function runDescriptionsPhase({
               : [];
         const truncatedSiteContent =
           persistedScrape.siteContent?.slice(0, 4000) ?? null;
-        const { data: altRows } = await createServiceClient()
-          .from("brand_images")
-          .select("alt_zh")
-          .eq("brand_id", brand.id)
-          .eq("status", "active")
-          .not("alt_zh", "is", null)
-          .order("sort_order");
-        const imageAlts = (altRows ?? [])
-          .map((r) => r.alt_zh)
-          .filter(
-            (v): v is string => typeof v === "string" && v.trim().length > 0,
-          );
+        let imageAlts: string[] = [];
+        try {
+          const { data: altRows } = await createServiceClient()
+            .from("brand_images")
+            .select("alt_zh")
+            .eq("brand_id", brand.id)
+            .eq("status", "active")
+            .not("alt_zh", "is", null)
+            .order("sort_order");
+          imageAlts = (altRows ?? [])
+            .map((r) => r.alt_zh)
+            .filter(
+              (v): v is string => typeof v === "string" && v.trim().length > 0,
+            );
+        } catch {
+          // Deploy-order window: alt_zh column may not exist yet (42703).
+        }
         const displayBrandName = getDisplayBrandName(brand);
         const evidence = buildDescriptionEvidence(
           brand,
