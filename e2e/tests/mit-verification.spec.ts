@@ -6,7 +6,9 @@ import { expect, test } from "../fixtures/auth";
 const TRAIL_SLUG = "small-space-reading-corner";
 const TRAIL_SECTION = "light-first";
 const BADGE_LABEL = "台灣製造";
-const BRAND_COUNT = 16;
+// Keep the fixture within the homepage wall's 16-product cap so the qualified
+// product is always present regardless of the day's deterministic shuffle.
+const BRAND_COUNT = 8;
 const PRODUCTS_PER_BRAND = 2;
 
 type SeededBrand = { id: string; slug: string; name: string };
