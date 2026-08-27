@@ -66,6 +66,7 @@ import {
   type ExactRegistryLookupResult,
 } from "../mit-registry";
 import { loadRenderedProductTexts } from "./scraper/product-origin-text";
+import type { RenderProvider } from "./scraper/render/types";
 import type { CatalogDiscoveryResult } from "./catalog-discovery";
 import {
   buildPhaseResult,
@@ -254,6 +255,7 @@ export type ProductsPhaseOptions = {
   catalogResult?: CatalogDiscoveryResult;
   /** Page URLs from image acquisition candidates. Optional until the orchestrator is updated (Task 5). */
   acquisitionPageUrls?: string[];
+  renderProvider?: RenderProvider;
 };
 
 /**
@@ -756,6 +758,7 @@ export async function runProductsPhase({
   lookupRegistryProducts,
   catalogResult,
   acquisitionPageUrls,
+  renderProvider,
 }: ProductsPhaseOptions): Promise<ProductsPhaseOutput> {
   if (!phases.includes("products"))
     return skipped("products phase not requested");
@@ -1003,7 +1006,7 @@ export async function runProductsPhase({
             );
             const loaded = await (
               loadOriginTexts ??
-              ((urls) => loadRenderedProductTexts(urls, undefined))
+              ((urls) => loadRenderedProductTexts(urls, renderProvider))
             )(missingEvidenceUrls);
             for (const [url, text] of loaded) renderedTexts.set(url, text);
           } catch {

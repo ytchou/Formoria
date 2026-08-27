@@ -56,6 +56,16 @@ describe("langfuse/prompt", () => {
     warnSpy.mockRestore();
   });
 
+  it("caches_fallback_when_client_is_null", async () => {
+    mockGetLangfuse.mockReturnValue(null);
+
+    const fetchLangfusePrompt = await loadModule();
+    await fetchLangfusePrompt("no-client", "fallback-a");
+    await fetchLangfusePrompt("no-client", "fallback-b");
+
+    expect(mockGetLangfuse).toHaveBeenCalledTimes(1);
+  });
+
   it("caches_prompt_within_same_name", async () => {
     const mockClient = {
       getPrompt: vi.fn().mockResolvedValue({ prompt: "cached-text" }),

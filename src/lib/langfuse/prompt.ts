@@ -15,7 +15,10 @@ export async function fetchLangfusePrompt(
 
   try {
     const client = getLangfuse();
-    if (!client) return fallback;
+    if (!client) {
+      cache.set(name, fallback);
+      return fallback;
+    }
 
     const response = await client.getPrompt(name);
     const text = response.prompt;
@@ -23,6 +26,7 @@ export async function fetchLangfusePrompt(
     return text;
   } catch (err) {
     console.warn(`[langfuse] Failed to fetch prompt "${name}", using fallback`, err);
+    cache.set(name, fallback);
     return fallback;
   }
 }

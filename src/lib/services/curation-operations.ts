@@ -2765,6 +2765,7 @@ export async function runEnrich(
                   jobId: config.jobId,
                   catalogResult: imageCatalogResult,
                   acquisitionPageUrls: imageAcquisitionPageUrls,
+                  renderProvider: config.renderProvider,
                 });
                 state.phaseResults.push(productsResult.phaseResult);
                 await logCurrentPhase(ctx, productsResult.phaseResult);
