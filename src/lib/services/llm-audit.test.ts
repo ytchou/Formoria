@@ -14,6 +14,7 @@ vi.mock("./llm-pricing", () => ({
     completionTokens: 25,
     costUsd: 0.005,
   }),
+  usageFromRawResponse: vi.fn().mockReturnValue(null),
 }));
 
 type InsertedRow = Record<string, unknown>;

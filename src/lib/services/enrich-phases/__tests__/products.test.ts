@@ -890,7 +890,7 @@ describe("rawCount and productsParseError in runProductsPhase", () => {
       loadStoredCandidates: async () => [],
     });
 
-    const terminal = auditWrites.find(
+    const terminal = auditWrites.findLast(
       (r) => r.operation === "runProductsPhase",
     );
     expect(terminal).toBeDefined();
@@ -910,7 +910,7 @@ describe("rawCount and productsParseError in runProductsPhase", () => {
       loadStoredCandidates: async () => [],
     });
 
-    const terminal = auditWrites.find(
+    const terminal = auditWrites.findLast(
       (r) => r.operation === "runProductsPhase",
     );
     expect(terminal).toBeDefined();
