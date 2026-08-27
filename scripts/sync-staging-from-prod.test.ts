@@ -1037,10 +1037,18 @@ describe("planStorageKeys", () => {
 
   it("keeps keys from tables that have no status column", () => {
     const plan = planStorageKeys({
-      brands: [{ hero_image_storage_path: "brands/b1/hero.webp" }],
+      brands: [
+        {
+          hero_image_storage_path: "brands/b1/hero.webp",
+          logo_storage_path: "brands/b1/favicon.png",
+        },
+      ],
     });
 
-    expect(plan.keys).toEqual(["brands/b1/hero.webp"]);
+    expect(plan.keys).toEqual([
+      "brands/b1/favicon.png",
+      "brands/b1/hero.webp",
+    ]);
   });
 
   it("reports keys outside the synced prefixes instead of copying them", () => {
