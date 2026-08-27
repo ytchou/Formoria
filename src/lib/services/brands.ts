@@ -215,8 +215,6 @@ export type BrandRowWithJoins = Partial<BrandRow> &
     blurb?: string | null;
     blurb_en?: string | null;
     subcategories_en?: string[] | null;
-    /** Pre-types-regen: logo_storage_path column added by DEV-1628 migration. */
-    logo_storage_path?: string | null;
   } & Pick<
     BrandRow,
     | "id"
