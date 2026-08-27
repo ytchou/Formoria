@@ -219,6 +219,22 @@ describe('createMarketplaceAdapter', () => {
     ])
   })
 
+  it('resolves relative MyShip product images from rendered storefront HTML', () => {
+    const $ = cheerio.load(`
+      <img src="/i/cgdm/GM2503154430218/2503150509956296.jpg" />
+      <img src="/Images/shop/bx-facebook.png" />
+    `)
+    expect(
+      extractMyshipProductImages(
+        $,
+        20,
+        'https://myship.7-11.com.tw/general/detail/GM2503154430218',
+      ),
+    ).toEqual([
+      'https://myship.7-11.com.tw/i/cgdm/GM2503154430218/2503150509956296.jpg',
+    ])
+  })
+
   it('extractMyshipProductImages rejects a foreign host with a product-shaped path', () => {
     const $ = cheerio.load(
       '<img src="https://ads.thirdparty.net/i/cgdm/GM99/banner.jpg" />',

@@ -13,8 +13,8 @@ export const myshipAdapter = createMarketplaceAdapter({
   // their host-only match deliberately — narrowing those is a separate call.
   matchesPath: (url) => MYSHIP_STOREFRONT_PATTERN?.test(url) ?? true,
   titleSuffixPatterns: [/\s*[|-]\s*7-ELEVEN.*$/i],
-  productImageExtractor: ($, _pageUrl, limit) =>
-    extractMyshipProductImages($, limit),
+  productImageExtractor: ($, pageUrl, limit) =>
+    extractMyshipProductImages($, limit, pageUrl),
   purchaseKey: 'purchaseMyship',
   imageMethod: 'myship_adapter',
   fallbackNameSelector: '[data-testid*="shop"] h1',

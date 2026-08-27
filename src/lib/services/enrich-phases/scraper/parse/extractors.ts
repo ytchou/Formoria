@@ -347,7 +347,11 @@ export function extractPinkoiProductImages(
       if (!parsed.pathname.toLowerCase().startsWith('/product/')) continue
       if (/(\/store\/|\/avatar\/|\/banner\/)/i.test(parsed.pathname)) continue
 
-      urls.push(raw)
+      parsed.pathname = parsed.pathname.replace(
+        /\/\d+x\d+\.(jpe?g|png|webp)$/i,
+        '/800x0.$1',
+      )
+      urls.push(parsed.href)
       break
     }
   })
@@ -392,6 +396,7 @@ export function extractShopeeProductImages(
 export function extractMyshipProductImages(
   $: cheerio.CheerioAPI,
   limit: number = MAX_GALLERY_IMAGES,
+  pageUrl?: string,
 ): string[] {
   const urls: string[] = []
 
@@ -405,7 +410,7 @@ export function extractMyshipProductImages(
 
       let parsed: URL
       try {
-        parsed = new URL(raw)
+        parsed = pageUrl ? new URL(raw, pageUrl) : new URL(raw)
       } catch {
         continue
       }
@@ -421,7 +426,7 @@ export function extractMyshipProductImages(
       if (hostname !== '7-11.com.tw' && !hostname.endsWith('.7-11.com.tw')) continue
       if (!/\/i\/cgdm\/GM\d+/i.test(parsed.pathname)) continue
 
-      urls.push(raw)
+      urls.push(parsed.toString())
       break
     }
   })

@@ -498,7 +498,11 @@ async function main(): Promise<void> {
   }
 
   const adapterImages = results.flatMap((brand) =>
-    brand.images.filter((item) => item.method.endsWith('_adapter')),
+    brand.images.filter((item) =>
+      target.label === 'track'
+        ? item.method.endsWith('_adapter')
+        : item.method === `${target.label}_adapter`,
+    ),
   )
   const gatePassing = adapterImages.filter((item) => item.gate === 'kept')
   const classifierKept = gatePassing.filter(
