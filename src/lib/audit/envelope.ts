@@ -25,6 +25,9 @@ import type { AuditSpec, AuditStatus } from "./types";
  */
 export type AuditCallContext = {
   summary: Record<string, unknown>;
+  promptTokens?: number | null;
+  completionTokens?: number | null;
+  costUsd?: number | null;
 };
 
 export type AuditedCallOptions<T> = {
@@ -133,6 +136,9 @@ async function runAfterStart<T>(
         status: options.classify?.(result) ?? "succeeded",
         latencyMs: Math.max(0, Date.now() - startedAt),
         summary: finishSummary(),
+        promptTokens: callContext.promptTokens,
+        completionTokens: callContext.completionTokens,
+        costUsd: callContext.costUsd,
       }, options.wait);
     } catch {
       return result;
@@ -146,6 +152,9 @@ async function runAfterStart<T>(
         latencyMs: Math.max(0, Date.now() - startedAt),
         summary: finishSummary(),
         errorMessage: errorMessage(error),
+        promptTokens: callContext.promptTokens,
+        completionTokens: callContext.completionTokens,
+        costUsd: callContext.costUsd,
       }, options.wait);
     } catch {
       return Promise.reject(error);

@@ -132,6 +132,29 @@ describe("auditedCall", () => {
     expect(writes[0]?.summary).toEqual({ result: { recordCount: 0 } });
   });
 
+  it("fields set on ctx reach the terminal audit record", async () => {
+    await auditedCall(
+      spec(),
+      async (ctx) => {
+        ctx.promptTokens = 100;
+        ctx.completionTokens = 25;
+        ctx.costUsd = 0.0042;
+        return "done";
+      },
+      { wait: async () => {} },
+    );
+
+    expect(writes).toHaveLength(2);
+    // Started row must NOT carry the token/cost fields
+    expect(writes[0]?.promptTokens).toBeUndefined();
+    expect(writes[0]?.completionTokens).toBeUndefined();
+    expect(writes[0]?.costUsd).toBeUndefined();
+    // Terminal row carries them
+    expect(writes[1]?.promptTokens).toBe(100);
+    expect(writes[1]?.completionTokens).toBe(25);
+    expect(writes[1]?.costUsd).toBe(0.0042);
+  });
+
   it("span_id is generated before the first write", async () => {
     let firstSpanId: string | undefined;
     seam.mockImplementation(async (record: AuditRecord) => {

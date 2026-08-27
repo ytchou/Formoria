@@ -155,6 +155,28 @@ describe("emitAuditRecord", () => {
     expect(captureAlert).not.toHaveBeenCalled();
   });
 
+  it("audit record with token fields reaches the write path", async () => {
+    const captured: AuditRecord[] = [];
+    setAuditWriteSeam(vi.fn(async (written: AuditRecord) => {
+      captured.push(written);
+      return null;
+    }));
+
+    await emitAuditRecord(
+      record({
+        promptTokens: 200,
+        completionTokens: 50,
+        costUsd: 0.008,
+      }),
+      async () => {},
+    );
+
+    expect(captured).toHaveLength(1);
+    expect(captured[0]?.promptTokens).toBe(200);
+    expect(captured[0]?.completionTokens).toBe(50);
+    expect(captured[0]?.costUsd).toBe(0.008);
+  });
+
   it("the emitted summary is detached from the caller's object", async () => {
     const captured: AuditRecord[] = [];
     setAuditWriteSeam(vi.fn(async (written: AuditRecord) => {

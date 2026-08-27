@@ -24,6 +24,9 @@ export type AuditRecord = {
   summary?: Record<string, unknown> | null;
   errorMessage?: string | null;
   logTag?: string | null;
+  promptTokens?: number | null;
+  completionTokens?: number | null;
+  costUsd?: number | null;
 };
 
 export type AuditWriteError = { code?: string; message: string };
@@ -71,6 +74,9 @@ async function defaultAuditWrite(record: AuditRecord): Promise<AuditWriteError |
       // a deferred write, would re-read a summary the caller has since mutated.
       summary: (record.summary ?? null) as unknown as Json,
       error_message: record.errorMessage ?? null,
+      prompt_tokens: record.promptTokens ?? null,
+      completion_tokens: record.completionTokens ?? null,
+      cost_usd: record.costUsd ?? null,
     });
 
   return error ? { code: error.code, message: error.message } : null;
