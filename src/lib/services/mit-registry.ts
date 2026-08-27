@@ -141,6 +141,13 @@ export function parseManifestFilenames(manifestCsv: string): string[] {
     );
 }
 
+/** Duplicate rows can appear in more than one manifest data file. */
+export function dedupeRegistryRecords(
+  records: readonly MitRegistryRecord[],
+): MitRegistryRecord[] {
+  return [...new Map(records.map((record) => [record.record_key, record])).values()];
+}
+
 export function shouldSweepStaleRecords(input: {
   parsedCount: number;
   existingCount: number;
@@ -325,8 +332,10 @@ export async function syncMitRegistry(): Promise<{
         records.push(...parsed);
       }
 
+      const uniqueRecords = dedupeRegistryRecords(records);
       Object.assign(syncSummary, {
-        recordCount: records.length,
+        recordCount: uniqueRecords.length,
+        duplicateRecordCount: records.length - uniqueRecords.length,
         expectedFileCount: filenames.length,
         parsedFileCount,
         skippedFiles,
@@ -337,7 +346,7 @@ export async function syncMitRegistry(): Promise<{
         );
       }
       return {
-        records,
+        records: uniqueRecords,
         expectedFileCount: filenames.length,
         parsedFileCount,
       };
