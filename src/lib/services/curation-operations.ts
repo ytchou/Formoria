@@ -111,6 +111,7 @@ type EnrichOperationResult = OperationResult & {
 
 type CurationBrand = {
   id: string;
+  source_brand_id?: string | null;
   slug: string;
   name?: string;
   status?: string | null;
@@ -1341,6 +1342,7 @@ export function submissionToEnrichBrand(
   return {
     ...existing,
     id: submission.id,
+    source_brand_id: submission.brand_id,
     // A refresh always overwrites; an explicit job-level `overwrite` lets an
     // admin force a re-run to re-touch already-populated rows (e.g. re-running
     // image classification on submissions whose tags are already set).

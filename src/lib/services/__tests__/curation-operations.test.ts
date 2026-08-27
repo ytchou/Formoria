@@ -421,6 +421,7 @@ describe("enrichment write guards", () => {
     expect(refresh).toMatchObject({
       name: "Live name",
       city: "台北",
+      source_brand_id: "brand-1",
       overwrite_enrichment: true,
     });
     expect(linkedNonRefresh.overwrite_enrichment).toBe(false);

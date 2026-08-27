@@ -1176,7 +1176,7 @@ export async function runProductsPhase({
           acceptedCandidates: [],
           ranker,
           writer,
-          brandId: brand.id,
+          brandId: brand.source_brand_id ?? brand.id,
           submissionId:
             effectiveTarget.type === "submission" ? effectiveTarget.id : null,
           jobId: jobId ?? null,

@@ -87,6 +87,13 @@ function prodBrandRow(overrides: Row = {}): Row {
     social_threads: null,
     reputation_summary: { text: "口碑良好", sources: [] },
     site_content: { about: "…" },
+    mit_status: "verified",
+    mit_story: "Legacy brand-level origin story",
+    mit_evidence: { sources: [] },
+    mit_declared_at: "2026-01-01T00:00:00Z",
+    mit_declared_by: OWNER_USER_ID,
+    mit_declared_scope: "all",
+    mit_verified_at: "2026-01-02T00:00:00Z",
     model_faq_count: 7,
     seo_promoted: true,
     search_vector: "'陶':1",
@@ -467,6 +474,13 @@ describe("planBrandRows", () => {
       "seo_promoted",
       "search_vector",
       "model_faq_count",
+      "mit_status",
+      "mit_story",
+      "mit_evidence",
+      "mit_declared_at",
+      "mit_declared_by",
+      "mit_declared_scope",
+      "mit_verified_at",
     ]) {
       expect(payload).not.toHaveProperty(column);
     }
@@ -486,6 +500,13 @@ describe("planBrandRows", () => {
       "seo_promoted",
       "search_vector",
       "model_faq_count",
+      "mit_status",
+      "mit_story",
+      "mit_evidence",
+      "mit_declared_at",
+      "mit_declared_by",
+      "mit_declared_scope",
+      "mit_verified_at",
       "contact_email",
       "draft_data",
       "draft_updated_at",
@@ -850,6 +871,22 @@ describe("planColumnDrift", () => {
     expect(planColumnDrift(prod, staging, ["brands"])).toEqual([
       { table: "brands", columns: ["blurb", "slug"] },
     ]);
+  });
+
+  it("ignores retired source columns while production is one release behind", () => {
+    const staging = new Map([
+      ["brands", new Set(["id", "slug", "blurb"])],
+    ]);
+    expect(
+      planColumnDrift(
+        new Map([
+          ["brands", new Set(["id", "slug", "blurb", "mit_status"])],
+        ]),
+        staging,
+        ["brands"],
+        { brands: ["mit_status"] },
+      ),
+    ).toEqual([]);
   });
 
   it("reports a table absent on either side", () => {

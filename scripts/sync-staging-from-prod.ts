@@ -363,6 +363,21 @@ export const KNOWN_COLUMNS: Record<CopyTable, readonly string[]> = {
   ],
 };
 
+/** Retired columns accepted only while production is one release behind. */
+export const SOURCE_ONLY_COLUMNS: Partial<
+  Record<CopyTable, readonly string[]>
+> = {
+  brands: [
+    "mit_status",
+    "mit_story",
+    "mit_evidence",
+    "mit_declared_at",
+    "mit_declared_by",
+    "mit_declared_scope",
+    "mit_verified_at",
+  ],
+};
+
 export type TablePolicy = {
   /** PostgREST `onConflict` target. */
   onConflict: string;
@@ -411,9 +426,17 @@ export const TABLE_POLICIES: Record<CopyTable, TablePolicy> = {
   //
   // `contact_email` is owner PII. `draft_*` and `onboarding_dismissed_at`
   // belong to a claimed owner's session, and copied brands stay unclaimed.
+  // The MIT columns were retired by 20260826170000. Production can retain
+  // them until its next release, but staging must not recreate or receive them.
   brands: {
     onConflict: "slug",
-    omit: ["id", "seo_promoted", "search_vector", "model_faq_count"],
+    omit: [
+      "id",
+      "seo_promoted",
+      "search_vector",
+      "model_faq_count",
+      ...(SOURCE_ONLY_COLUMNS.brands ?? []),
+    ],
     nullify: [
       "contact_email",
       "draft_data",
@@ -1050,7 +1073,10 @@ export function parseSelectionFile(raw: unknown): string[] {
 // ---------------------------------------------------------------------------
 
 function assertKnownColumns(table: CopyTable, row: Row): void {
-  const known = new Set(KNOWN_COLUMNS[table]);
+  const known = new Set([
+    ...KNOWN_COLUMNS[table],
+    ...(SOURCE_ONLY_COLUMNS[table] ?? []),
+  ]);
   for (const column of Object.keys(row)) {
     if (known.has(column)) continue;
     throw new Error(
@@ -1302,6 +1328,7 @@ export function planColumnDrift(
   prodColumns: Map<string, Set<string>>,
   stagingColumns: Map<string, Set<string>>,
   tables: readonly string[],
+  ignoredColumns: Partial<Record<string, readonly string[]>> = {},
 ): ColumnDrift[] {
   const drift: ColumnDrift[] = [];
   for (const table of tables) {
@@ -1315,7 +1342,10 @@ export function planColumnDrift(
       drift.push({ table, columns: ["<table missing from staging>"] });
       continue;
     }
-    const missing = [...production].filter((column) => !staging.has(column));
+    const ignored = new Set(ignoredColumns[table] ?? []);
+    const missing = [...production].filter(
+      (column) => !ignored.has(column) && !staging.has(column),
+    );
     if (missing.length > 0) drift.push({ table, columns: missing.sort() });
   }
   return drift;
@@ -2047,7 +2077,14 @@ async function runSync(argv: string[]): Promise<void> {
     staging.key,
     "staging",
   );
-  const drift = planColumnDrift(prodColumns, stagingColumns, COPY_ORDER);
+  const drift = planColumnDrift(
+    prodColumns,
+    stagingColumns,
+    COPY_ORDER,
+    Object.fromEntries(
+      COPY_ORDER.map((table) => [table, TABLE_POLICIES[table].omit]),
+    ),
+  );
   if (drift.length > 0) {
     for (const entry of drift) {
       console.error(
@@ -2068,7 +2105,10 @@ async function runSync(argv: string[]): Promise<void> {
     new Map<string, Set<string>>(
       COPY_ORDER.map((table): [string, Set<string>] => [
         table,
-        new Set(KNOWN_COLUMNS[table]),
+        new Set([
+          ...KNOWN_COLUMNS[table],
+          ...(SOURCE_ONLY_COLUMNS[table] ?? []),
+        ]),
       ]),
     ),
     COPY_ORDER,

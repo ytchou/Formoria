@@ -112,7 +112,7 @@ export const LLM_PROFILES = {
    */
   products: {
     model: "text",
-    maxTokens: 3000,
+    maxTokens: 5000,
     temperature: 0.1,
     reasoningEffort: "none",
     timeoutMs: 60_000,

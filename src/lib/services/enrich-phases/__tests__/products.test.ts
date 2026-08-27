@@ -36,6 +36,7 @@ const PHASES = ["descriptions", "faq", "products"] as EnrichPhase[];
 
 const BRAND: EnrichBrand = {
   id: SUBMISSION_ID,
+  source_brand_id: "48ec6617-f050-4cc8-9da6-16cdd9d434cb",
   slug: "island-studio",
   name: "小島工坊",
   category: "home",
@@ -135,6 +136,26 @@ afterEach(() => {
 });
 
 describe("runProductsPhase", () => {
+  it("persists refresh candidates against the live brand", async () => {
+    modelReturns([rawProposal()]);
+    const insert = vi.fn().mockResolvedValue({ data: null, error: null });
+
+    await runProductsPhase({
+      brand: BRAND,
+      phases: PHASES,
+      scrapedData: SCRAPED,
+      target: { type: "submission", id: SUBMISSION_ID },
+      loadStoredCandidates: async () => [],
+      candidateWriter: { insert },
+    });
+
+    expect(insert.mock.calls[0]?.[0]).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ brand_id: BRAND.source_brand_id }),
+      ]),
+    );
+  });
+
   it("skips_when_phase_not_requested", async () => {
     const result = await runProductsPhase({
       brand: BRAND,

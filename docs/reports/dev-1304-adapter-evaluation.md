@@ -81,21 +81,44 @@ strict specialized-adapter output.
 
 ## Rollout gates
 
-The Clany staging run did not start. The approved additive sync dry run stopped
-before writing because staging is missing these production `brands` columns:
-`mit_declared_at`, `mit_declared_by`, `mit_declared_scope`, `mit_evidence`,
-`mit_status`, `mit_story`, and `mit_verified_at`.
+The staging sync initially reported the retired production-only `brands.mit_*`
+columns as target drift. The sync now recognizes and omits those source-only
+columns, allowing a scoped Clany sync without reintroducing removed staging
+schema. Production migration history was repaired for the already-present
+candidate table, and `20260826150000_product_origin_qualification.sql` was then
+applied and verified, including its columns, trigger, indexes, and weekly cron.
 
-The ten-brand production pilot also did not start. Production migration history
-does not contain required migration
-`20260826150000_product_origin_qualification.sql`; its latest 2026-08-26
-migration is `20260826133042_add_brands_hidden_reason`. Per the PR gate, no
-production refresh submissions were created, nothing was approved or rejected,
-and nothing was published.
+Clany passed the staging end-to-end run with local rendering and no apply: 820
+sitemap locations, 487 owned product routes, 20 complete triples, 20 usable
+hydrations, five gate-ranked candidates, and five proposals. This run exposed
+and repaired three additional defects before the production pilot: compressed
+`.xml.gz` sitemap children were rejected, refresh candidate rows used the
+submission ID instead of the live brand ID, and the 3,000-token response budget
+truncated a 20-candidate structured response.
 
-Catalog completeness, proposal yield, Zenu/Yun/Boing Boing/Clany thresholds,
-and public Zenu verification remain unmeasured until the staging schema drift
-and production migration prerequisite are resolved.
+The production pilot ran against the documented ten-brand cohort after a full
+rollback snapshot. No live brand was modified. Results were:
+
+| Brand | Candidate rows | Gate survivors | Proposals |
+|---|---:|---:|---:|
+| `aisaniea` | 20 | 13 | 2 |
+| `zenu` | 25 | 21 | 3 |
+| `yun-clean` | 24 | 22 | 1 |
+| `clany` | 25 | 20 | 4 |
+| `boingboing` | 21 | 19 | 4 |
+| `chih-tsui-fang` | 17 | 8 | 4 |
+| `an-ma` | 3 | 1 | 0 |
+| `memedo` | 6 | 6 | 0 |
+| `man-man-soap` | 0 | 0 | 0 |
+| `nsou` | 0 | 0 | 0 |
+
+The discovery thresholds passed: Zenu produced 20 complete triples and 21 gate
+survivors, Yun Clean produced more than two candidates, Boing Boing found 958
+sitemap locations (near the known 956), and Clany found 487 owned routes. The
+proposal counts sorted to `0, 0, 0, 0, 1, 2, 3, 4, 4, 4`, so the median was 1.5
+against the required minimum of 3. The rollout therefore failed. All ten pilot
+refreshes were rejected, the staging verification refresh was cleaned up,
+nothing was published, and public Zenu verification was intentionally skipped.
 
 ## Repeatability
 
