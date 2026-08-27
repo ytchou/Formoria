@@ -39,17 +39,19 @@ describe("manual rerun target eligibility", () => {
 
 describe("task-based phase resolution", () => {
   it("task_param_resolves_to_phase_closure", () => {
-    const params: CurationJobParams = { task: "product" };
+    const params: CurationJobParams = { task: "visual" };
     const phases = effectiveRequestedPhases(params);
-    // product's closure: links, site_identity, products
+    // visual's closure: images, classify_images, products and their transitive deps
     expect(phases).toContain("links");
     expect(phases).toContain("site_identity");
     expect(phases).toContain("products");
+    expect(phases).toContain("images");
+    expect(phases).toContain("classify_images");
+    expect(phases).toContain("names");
     // Must exclude unrelated phases
     expect(phases).not.toContain("descriptions");
     expect(phases).not.toContain("reputation");
     expect(phases).not.toContain("faq");
-    expect(phases).not.toContain("images");
   });
 
   it("legacy_steps_param_still_parses", () => {
@@ -93,10 +95,12 @@ describe("admin bulk actions", () => {
     // The admin UI iterates CURATION_TASK_ORDER to build its bulk action
     // entries. This test asserts the vocabulary is task-based, not step-based.
     expect(CURATION_TASK_ORDER).toContain("identity");
-    expect(CURATION_TASK_ORDER).toContain("image");
+    expect(CURATION_TASK_ORDER).toContain("visual");
     expect(CURATION_TASK_ORDER).toContain("editorial");
-    expect(CURATION_TASK_ORDER).toContain("product");
     expect(CURATION_TASK_ORDER).toContain("full");
+    // Hidden aliases are valid task keys but excluded from the order
+    expect(CURATION_TASK_ORDER).not.toContain("image");
+    expect(CURATION_TASK_ORDER).not.toContain("product");
     // Old step names must not appear
     for (const task of CURATION_TASK_ORDER) {
       expect(task).not.toBe("context");
@@ -117,8 +121,8 @@ describe("satisfaction-based phase skipping", () => {
   }
 
   it("satisfied_prerequisites_are_skipped", () => {
-    const resolved = phasesForTask("product");
-    // links has a history entry (satisfied), site_identity does not, products does not
+    const resolved = phasesForTask("visual");
+    // links has a history entry (satisfied), other deps do not
     const history = makeHistory([
       ["links", new Date("2026-08-01T00:00:00Z")],
     ]);
@@ -133,6 +137,7 @@ describe("satisfaction-based phase skipping", () => {
     expect(execute).not.toContain("links");
     expect(execute).toContain("products");
     expect(execute).toContain("site_identity");
+    expect(execute).toContain("images");
   });
 });
 

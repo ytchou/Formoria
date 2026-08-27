@@ -209,16 +209,39 @@ describe("phase dependencies and task vocabulary", () => {
     ).toEqual([...DEFERRED_PHASES]);
   });
 
-  it("task_product_closure_includes_prerequisites", () => {
-    const closure = phasesForTask("product");
-    // Must include products and its transitive prerequisites
+  it("visual_task_resolves_all_three_phases", () => {
+    const closure = phasesForTask("visual");
+    // Must include images, classify_images, products and their transitive deps
+    expect(closure).toContain("images");
+    expect(closure).toContain("classify_images");
     expect(closure).toContain("products");
     expect(closure).toContain("links");
     expect(closure).toContain("site_identity");
+    expect(closure).toContain("names");
     // Must exclude unrelated phases
     expect(closure).not.toContain("descriptions");
     expect(closure).not.toContain("reputation");
     expect(closure).not.toContain("faq");
+  });
+
+  it("hidden_alias_image_resolves_full_visual_phases", () => {
+    const visual = phasesForTask("visual");
+    const image = phasesForTask("image");
+    expect(image).toEqual(visual);
+  });
+
+  it("hidden_alias_product_resolves_full_visual_phases", () => {
+    const visual = phasesForTask("visual");
+    const product = phasesForTask("product");
+    expect(product).toEqual(visual);
+  });
+
+  it("products_closure_includes_classify_images", () => {
+    // products depends on classify_images via PHASE_DEPENDENCIES
+    const closure = phasesForTask("visual");
+    expect(closure).toContain("classify_images");
+    // Verify the dependency chain: products <- classify_images <- images <- names <- ...
+    expect(PHASE_DEPENDENCIES.products).toContain("classify_images");
   });
 
   it("task_full_covers_every_non_deferred_phase", () => {
@@ -243,12 +266,10 @@ describe("phase dependencies and task vocabulary", () => {
     }
   });
 
-  it("comment_only_edges_are_not_closure_edges", () => {
-    // products' closure must NOT pull in classify_images — that edge is
-    // comment-only (the code reads imageSources from links, not classify_images)
-    const closure = phasesForTask("product");
-    expect(closure).not.toContain("classify_images");
-    expect(closure).not.toContain("images");
+  it("products_dependency_on_classify_images_is_a_real_edge", () => {
+    // products now depends on classify_images (promoted from comment-only edge
+    // as part of the visual acquisition task merge, DEV-1633)
+    expect(PHASE_DEPENDENCIES.products).toContain("classify_images");
   });
 
   it("locations appears in no task", () => {
@@ -260,10 +281,24 @@ describe("phase dependencies and task vocabulary", () => {
     }
   });
 
-  it("CURATION_TASK_ORDER covers every task key", () => {
-    expect([...CURATION_TASK_ORDER].sort()).toEqual(
-      Object.keys(CURATION_TASKS).sort(),
-    );
+  it("task_order_contains_visual_not_image_or_product", () => {
+    expect([...CURATION_TASK_ORDER]).toEqual([
+      "identity",
+      "visual",
+      "editorial",
+      "full",
+    ]);
+    // Hidden aliases exist as task keys but are excluded from the order
+    expect(CURATION_TASKS).toHaveProperty("image");
+    expect(CURATION_TASKS).toHaveProperty("product");
+    expect(CURATION_TASK_ORDER).not.toContain("image");
+    expect(CURATION_TASK_ORDER).not.toContain("product");
+  });
+
+  it("CURATION_TASK_ORDER entries are all valid task keys", () => {
+    for (const task of CURATION_TASK_ORDER) {
+      expect(CURATION_TASKS).toHaveProperty(task);
+    }
   });
 });
 
