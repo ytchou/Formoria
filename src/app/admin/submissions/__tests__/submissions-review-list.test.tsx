@@ -389,13 +389,10 @@ describe("SubmissionsReviewList", () => {
       screen.getByRole("button", { name: "Run Identity task again (0)" }),
     ).toBeDisabled();
     expect(
-      screen.getByRole("button", { name: "Run Image task again (0)" }),
+      screen.getByRole("button", { name: "Run Visual task again (0)" }),
     ).toBeDisabled();
     expect(
       screen.getByRole("button", { name: "Run Editorial task again (0)" }),
-    ).toBeDisabled();
-    expect(
-      screen.getByRole("button", { name: "Run Product task again (0)" }),
     ).toBeDisabled();
     expect(
       screen.getByRole("button", { name: "Run Full curation again (0)" }),
@@ -437,14 +434,14 @@ describe("SubmissionsReviewList", () => {
       screen.queryByRole("button", { name: /Reject \d+ selected/ }),
     ).not.toBeInTheDocument();
     expect(
-      screen.queryByRole("button", { name: /Run Image task again/ }),
+      screen.queryByRole("button", { name: /Run Visual task again/ }),
     ).not.toBeInTheDocument();
     expect(
       screen.queryByRole("button", { name: /Run Editorial task again/ }),
     ).not.toBeInTheDocument();
   });
 
-  it("re-runs only the image task for the selected ready submissions", async () => {
+  it("re-runs only the visual task for the selected ready submissions", async () => {
     const user = userEvent.setup();
     renderList(readySubmissions(2), "ready");
 
@@ -452,13 +449,13 @@ describe("SubmissionsReviewList", () => {
       screen.getByRole("checkbox", { name: "Select Ready Brand 2" }),
     );
     await user.click(
-      screen.getByRole("button", { name: "Run Image task again (1)" }),
+      screen.getByRole("button", { name: "Run Visual task again (1)" }),
     );
 
     expect(actions.enrich).toHaveBeenCalledTimes(1);
     expect(actions.enrich).toHaveBeenCalledWith(
       "enrich",
-      { submissionIds: ["ready-2"], task: "image" },
+      { submissionIds: ["ready-2"], task: "visual" },
       false,
     );
   });

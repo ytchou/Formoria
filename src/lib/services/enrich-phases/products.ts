@@ -44,7 +44,6 @@ import {
   normalizeProductUrl,
   type ProductCandidate,
 } from "./product-candidates";
-import { loadStoredCandidates as defaultLoadStoredCandidates } from "./stored-product-candidates";
 import {
   applyGates,
   createDefaultCandidateWriter,
@@ -243,8 +242,6 @@ export type ProductsPhaseOptions = {
   dryRun?: boolean;
   target?: EnrichmentTarget;
   jobId?: string;
-  /** Supplier for stored product candidates (brand_images provenance). Injected for testing. */
-  loadStoredCandidates?: (submissionId: string) => Promise<ProductCandidate[]>;
   /** Writer for persisting the candidate pool. Injected for testing. */
   candidateWriter?: CandidateWriter;
   /** LLM ranker for scoring gate-passing candidates. Injected for testing. */
@@ -753,7 +750,6 @@ export async function runProductsPhase({
   dryRun,
   target,
   jobId,
-  loadStoredCandidates: loadStored,
   candidateWriter,
   candidateRanker,
   loadOriginTexts,
@@ -815,13 +811,6 @@ export async function runProductsPhase({
   };
 
   // --- Build the merged candidate pool ---
-  // Stored candidates from brand_images provenance (injected supplier).
-  // Host-filtered the same way scraped candidates are: provider_metadata.pageUrl
-  // comes from Google Images, which routinely returns marketplace, blog and
-  // Pinterest URLs that consume MAX_CANDIDATE_PAGES slots and crowd out valid
-  // candidates.
-  const loader = loadStored ?? defaultLoadStoredCandidates;
-  const rawStoredCandidates = await loader(effectiveTarget.id);
   const ownedHosts = new Set(
     channelUrls
       .map((url) => httpUrl(url))
@@ -845,10 +834,6 @@ export async function runProductsPhase({
       !marketplaceHosts.has(bareHost(parsed)) || catalogOwnedUrls.has(normalized)
     );
   };
-  const storedCandidates = rawStoredCandidates.filter((c) => {
-    return isOwnedCandidate(c.url);
-  });
-
   // Build a unified pool of ProductCandidate entries from the scraped pages.
   // The scraped half is converted to ProductCandidate shape for mergeCandidatePool.
   const imageByPage = new Map<string, string>();
@@ -893,8 +878,8 @@ export async function runProductsPhase({
     });
   }
 
-  // Dedupe near-duplicates AFTER merging both suppliers. Stored candidates are
-  // placed first so they win ties: a stored candidate carries imageUrl and
+  // Dedupe near-duplicates AFTER merging all suppliers. Enumerated candidates are
+  // placed first so they win ties: a catalog candidate carries imageUrl and
   // searchPosition that the scraped duplicate lacks, while the scraped text is
   // still available via perSourceText[candidate.url] for user-content assembly.
   const enumeratedCandidates: ProductCandidate[] = catalog.triples.map(
@@ -911,7 +896,6 @@ export async function runProductsPhase({
   const catalogCandidates = [
     ...enumeratedCandidates,
     ...acquisitionCandidates,
-    ...storedCandidates,
     ...scrapedCandidates,
   ]
     .sort((left, right) => {
@@ -932,7 +916,7 @@ export async function runProductsPhase({
     catalogCandidates.map((candidate) => candidate.url),
   );
   const { kept: dedupedCandidates, collapsedCount } = dedupeNearDuplicates(
-    [...enumeratedCandidates, ...acquisitionCandidates, ...storedCandidates, ...scrapedCandidates].filter(
+    [...enumeratedCandidates, ...acquisitionCandidates, ...scrapedCandidates].filter(
       (candidate) => catalogUrls.has(candidate.url),
     ),
   );
