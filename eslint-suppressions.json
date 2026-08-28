@@ -75,11 +75,6 @@
       "count": 1
     }
   },
-  "e2e/tests/brand-save.spec.ts": {
-    "playwright/no-conditional-in-test": {
-      "count": 6
-    }
-  },
   "e2e/tests/brand-share.spec.ts": {
     "playwright/no-conditional-in-test": {
       "count": 4
