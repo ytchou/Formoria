@@ -34,34 +34,36 @@ describe("resolveDirectorySeo", () => {
     );
 
     expect(l1.robots).toBeUndefined();
-    expect(l1.canonical).toBe(`${base}/categories/home`);
+    expect(l1.canonical).toBe(`${base}/brands?category=home`);
     expect(l2.robots).toBeUndefined();
-    expect(l2.canonical).toBe(`${base}/categories/home/furniture`);
+    expect(l2.canonical).toBe(`${base}/brands?category=home&sub=furniture`);
   });
 
   it.each([
-    ["search", { search: "椅子" }, "?search=%E6%A4%85%E5%AD%90"],
+    [
+      "search",
+      { search: "椅子" },
+      "/brands?search=%E6%A4%85%E5%AD%90&category=home",
+    ],
     [
       "multi-category",
       { multiCategory: "home,fashion" },
-      "?category=home%2Cfashion",
+      "/brands?category=home%2Cfashion",
     ],
     [
       "multi-sub",
       { multiSub: "furniture,storage" },
-      "?sub=furniture%2Cstorage",
+      "/brands?category=home&sub=furniture%2Cstorage",
     ],
   ] as const)(
     "each %s facet flips noindex-follow with a self-canonical",
-    (_name, facet, query) => {
+    (_name, facet, expectedPath) => {
       const result = resolveDirectorySeo(
         state({ categorySlug: "home", facets: facet }),
       );
 
       expect(result.robots).toEqual({ index: false, follow: true });
-      const expectedPath =
-        _name === "multi-category" ? "/brands" : "/categories/home";
-      expect(result.canonical).toBe(`${base}${expectedPath}${query}`);
+      expect(result.canonical).toBe(`${base}${expectedPath}`);
     },
   );
 
@@ -79,9 +81,9 @@ describe("resolveDirectorySeo", () => {
     expect(result.robots).toEqual({ index: false, follow: true });
     // Self-canonical, with the facet retained: a noindex page must not point at
     // a different URL.
-    expect(result.canonical).toBe(`${base}/categories/home?material=ceramic`);
+    expect(result.canonical).toBe(`${base}/brands?category=home&material=ceramic`);
     expect(result.languages?.en).toBe(
-      `${base}/en/categories/home?material=ceramic`,
+      `${base}/en/brands?category=home&material=ceramic`,
     );
 
     // And on the bare directory, where there is no taxonomy to fall back to.
@@ -126,9 +128,9 @@ describe("resolveDirectorySeo", () => {
     );
 
     expect(l1.robots).toEqual({ index: false, follow: true });
-    expect(l1.canonical).toBe(`${base}/categories/home?category=fashion`);
+    expect(l1.canonical).toBe(`${base}/brands?category=home`);
     expect(l2.robots).toEqual({ index: false, follow: true });
-    expect(l2.canonical).toBe(`${base}/categories/home/furniture?sub=storage`);
+    expect(l2.canonical).toBe(`${base}/brands?category=home&sub=furniture`);
   });
 
   it("facet precedence retains explicit sort and page in every self-canonical", () => {
@@ -142,10 +144,10 @@ describe("resolveDirectorySeo", () => {
 
     expect(result.robots).toEqual({ index: false, follow: true });
     expect(result.canonical).toBe(
-      `${base}/categories/home?material=ceramic&sort=name&page=2`,
+      `${base}/brands?category=home&material=ceramic&sort=name&page=2`,
     );
     expect(result.languages?.en).toBe(
-      `${base}/en/categories/home?material=ceramic&sort=name&page=2`,
+      `${base}/en/brands?category=home&material=ceramic&sort=name&page=2`,
     );
   });
 
@@ -155,7 +157,7 @@ describe("resolveDirectorySeo", () => {
     );
 
     expect(result.robots).toBeUndefined();
-    expect(result.canonical).toBe(`${base}/categories/home`);
+    expect(result.canonical).toBe(`${base}/brands?category=home`);
   });
 
   it("page 2 self-canonicalizes retaining page", () => {
@@ -164,7 +166,7 @@ describe("resolveDirectorySeo", () => {
     );
 
     expect(result.robots).toBeUndefined();
-    expect(result.canonical).toBe(`${base}/categories/home?page=2`);
+    expect(result.canonical).toBe(`${base}/brands?category=home&page=2`);
   });
 
   it("non-launch target is noindex-follow, canonicals to parent, and omits languages", () => {
@@ -180,7 +182,7 @@ describe("resolveDirectorySeo", () => {
     expect(l1.canonical).toBe(`${base}/brands`);
     expect(l1.languages).toBeUndefined();
     expect(l2.robots).toEqual({ index: false, follow: true });
-    expect(l2.canonical).toBe(`${base}/categories/outdoor`);
+    expect(l2.canonical).toBe(`${base}/brands?category=outdoor`);
     expect(l2.languages).toBeUndefined();
   });
 

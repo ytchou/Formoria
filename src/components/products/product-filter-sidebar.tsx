@@ -1,6 +1,7 @@
 import { Link } from "@/i18n/navigation";
 import { VISIBLE_L1_CATEGORIES, categoryLabel } from "@/lib/taxonomy/ontology";
 import { routes } from "@/lib/routes";
+import { buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
 type ProductFilterSidebarProps = {
@@ -8,6 +9,17 @@ type ProductFilterSidebarProps = {
   activeCategory: string | null;
   allLabel: string;
 };
+
+function filterLinkClasses(isActive: boolean) {
+  return cn(
+    buttonVariants({
+      variant: isActive ? "primary" : "ghost",
+      size: "compact",
+    }),
+    "type-nav justify-start",
+    !isActive && "text-ink-muted",
+  );
+}
 
 export function ProductFilterSidebar({
   locale,
@@ -21,13 +33,7 @@ export function ProductFilterSidebar({
           <Link
             href={routes.discover()}
             aria-current={activeCategory === null ? "page" : undefined}
-            className={cn(
-              "inline-flex min-h-11 items-center rounded-control px-3 py-1.5 type-nav transition-colors",
-              "hover:bg-surface hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent",
-              activeCategory === null
-                ? "bg-accent text-ground"
-                : "text-ink-muted",
-            )}
+            className={filterLinkClasses(activeCategory === null)}
           >
             {allLabel}
           </Link>
@@ -40,11 +46,7 @@ export function ProductFilterSidebar({
               <Link
                 href={routes.discover({ category: category.slug })}
                 aria-current={isActive ? "page" : undefined}
-                className={cn(
-                  "inline-flex min-h-11 items-center rounded-control px-3 py-1.5 type-nav transition-colors",
-                  "hover:bg-surface hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent",
-                  isActive ? "bg-accent text-ground" : "text-ink-muted",
-                )}
+                className={filterLinkClasses(isActive)}
               >
                 {label}
               </Link>
