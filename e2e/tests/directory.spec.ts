@@ -12,12 +12,11 @@ import { test, expect, type Page } from "@playwright/test";
  * silently changed what was covered, and an L2 chip appearing among the checkboxes
  * changed it again (DEV-1414).
  *
- * The third subject was `crafts` until DEV-1507 retired that L1; `food-drink`
- * takes its place rather than a deferred category or a second reference to
- * `home`. Counts stay read from the page, so supply changes need no expectation
- * update here.
+ * The third subject was `crafts` until DEV-1507 retired that L1; `stationery`
+ * takes its place after food-drink was deferred. Counts stay read from the
+ * page, so supply changes need no expectation update here.
  */
-const FILTER_SUBJECTS = ["fashion", "home", "food-drink"].map((slug) => {
+const FILTER_SUBJECTS = ["fashion", "home", "stationery"].map((slug) => {
   const category = VISIBLE_L1_CATEGORIES.find((item) => item.slug === slug);
   if (!category) {
     // A renamed or removed L1 slug must break this loudly. Falling back to a
@@ -120,7 +119,7 @@ test.describe("Directory deep", () => {
               id: "directory-search-result",
               name: "Directory Search Result",
               slug: "directory-search-result",
-              category: "stationery",
+              category: "food-drink",
             },
           ],
         }),

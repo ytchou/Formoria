@@ -7,7 +7,7 @@ describe('directoryBrandCategoryFilter', () => {
     const result = directoryBrandCategoryFilter([], [])
     expect(result).toBeDefined()
     expect(result!.sort()).toEqual(
-      ['bags-accessories', 'beauty', 'fashion', 'food-drink', 'home', 'jewelry']
+      ['bags-accessories', 'beauty', 'fashion', 'home', 'jewelry', 'stationery']
     )
   })
 
