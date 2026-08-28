@@ -63,12 +63,12 @@ export function buildTrailSitemapEntries(
   );
 }
 
-// zh-TW only, exactly like `/stories` above and like every trail below: /en/discover
+// zh-TW only, exactly like `/stories` above and like every trail below: /en/style
 // serves the same content and canonicals to the prefix-free twin, so submitting
 // it would be a self-inflicted duplicate-content signal with non-reciprocal
 // hreflang.
 export function buildTrailHubSitemapEntries(): MetadataRoute.Sitemap {
-  return localizedEntries(routes.discover(), ["zh-TW"]);
+  return localizedEntries(routes.style(), ["zh-TW"]);
 }
 
 async function buildTrailSitemapSection(): Promise<MetadataRoute.Sitemap> {

@@ -31,14 +31,14 @@ export function MainNav() {
   const pathname = usePathname();
 
   /**
-   * The mock's five destinations, in its order. Declared once and rendered
-   * twice — the desktop row and the mobile sheet used to be two hand-kept lists
-   * that had already drifted apart by one link.
+   * The five primary destinations: products, brands, style, stories, about.
+   * Declared once and rendered twice — the desktop row and the mobile sheet
+   * used to be two hand-kept lists that had already drifted apart by one link.
    */
   const primaryLinks = [
-    { href: routes.discover(), label: t("discover") },
-    { href: routes.categories(), label: t("categories") },
+    { href: routes.discover(), label: t("products") },
     { href: routes.brands(), label: t("brands") },
+    { href: routes.style(), label: t("style") },
     { href: routes.stories(), label: t("stories") },
     { href: routes.about(), label: t("about") },
   ];

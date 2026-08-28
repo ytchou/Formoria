@@ -44,7 +44,7 @@ const sparseFrontmatter: TrailEntry = {
   frontmatter: { ...trail.frontmatter, promise: undefined },
 };
 
-describe("discovery trail metadata", () => {
+describe("style trail metadata", () => {
   it("emits no robots directive for a published trail, however sparse its frontmatter", () => {
     for (const entry of [trail, sparseFrontmatter]) {
       for (const locale of ["en", "zh-TW"]) {
@@ -86,7 +86,7 @@ describe("discovery trail metadata", () => {
     );
 
     expect(en.alternates?.canonical).toMatch(
-      /^https?:\/\/[^/]+\/discover\/small-space-reading-corner$/,
+      /^https?:\/\/[^/]+\/style\/small-space-reading-corner$/,
     );
     expect(zh.alternates?.canonical).toBe(en.alternates?.canonical);
   });
@@ -100,18 +100,18 @@ describe("discovery trail metadata", () => {
 
       expect(entries).toHaveLength(1);
       expect(entries[0]?.url).toMatch(
-        /^https?:\/\/[^/]+\/discover\/small-space-reading-corner$/,
+        /^https?:\/\/[^/]+\/style\/small-space-reading-corner$/,
       );
     }
   });
 
   it("lists the hub once, on the prefix-free zh-TW URL", () => {
-    // /en/discover serves the same content and canonicals to this URL, so
+    // /en/style serves the same content and canonicals to this URL, so
     // submitting it too would be a self-inflicted duplicate-content signal.
     const entries = buildTrailHubSitemapEntries();
 
     expect(entries).toHaveLength(1);
-    expect(entries[0]?.url).toMatch(/^https?:\/\/[^/]+\/discover$/);
+    expect(entries[0]?.url).toMatch(/^https?:\/\/[^/]+\/style$/);
   });
 
   it("keeps the in-body FAQ block visual-only so the page emits one FAQPage", () => {

@@ -4,13 +4,13 @@ import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
 import { PageShell } from "@/components/ui/page-shell";
 
-export default function DiscoverTrailError({
+export default function StyleTrailError({
   reset,
 }: {
   error: Error & { digest?: string };
   reset: () => void;
 }) {
-  const t = useTranslations("discover");
+  const t = useTranslations("style");
   return (
     // `prose`, as at every error boundary: one centred line and a retry.
     <PageShell

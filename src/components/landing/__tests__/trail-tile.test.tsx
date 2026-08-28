@@ -135,6 +135,6 @@ describe("TrailTile", () => {
 
     expect(
       screen.getByRole("link", { name: "A reading corner for a small flat" }),
-    ).toHaveAttribute("href", "/discover/small-space-reading-corner");
+    ).toHaveAttribute("href", "/style/small-space-reading-corner");
   });
 });

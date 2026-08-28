@@ -142,9 +142,9 @@ describe("MainNav", () => {
 
     const banner = screen.getByRole("banner");
     for (const [label, href] of [
-      [en.nav.discover, "/discover"],
-      [en.nav.categories, "/categories"],
+      [en.nav.products, "/discover"],
       [en.nav.brands, "/brands"],
+      [en.nav.style, "/style"],
       [en.nav.stories, "/stories"],
       [en.nav.about, "/about"],
       [en.nav.submitBrand, "/submit"],
@@ -159,8 +159,8 @@ describe("MainNav", () => {
 
     const primaryDestinations = [
       "/discover",
-      "/categories",
       "/brands",
+      "/style",
       "/stories",
       "/about",
     ];
