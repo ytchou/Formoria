@@ -1164,4 +1164,76 @@ describe("rawCount and productsParseError in runProductsPhase", () => {
     expect(summary.productsFromModel).toBe(0);
     expect(summary.productsParseError).toBeUndefined();
   });
+
+  it("empty-pool exit carries catalogZeroReason", async () => {
+    const chat = modelReturns([]);
+
+    const result = await runProductsPhase({
+      brand: BRAND,
+      phases: PHASES,
+      scrapedData: { ...SCRAPED, perSourceText: {} },
+      target: { type: "submission", id: SUBMISSION_ID },
+      catalogResult: {
+        triples: [],
+        attempts: [],
+        evidence: new Map(),
+        zeroReason: "no_catalog" as const,
+      },
+    });
+
+    expect(result.phaseResult.status).toBe("skipped");
+    expect(result.phaseResult.catalogZeroReason).toBe("no_catalog");
+    expect(result.phaseResult.productsProposed).toBe(0);
+    expect(chat).not.toHaveBeenCalled();
+  });
+
+  it("succeeded exit carries productsProposed count", async () => {
+    modelReturns([rawProposal()]);
+
+    const result = await runProductsPhase({
+      brand: BRAND,
+      phases: PHASES,
+      scrapedData: SCRAPED,
+      target: { type: "submission", id: SUBMISSION_ID },
+    });
+
+    expect(result.phaseResult.status).toBe("succeeded");
+    expect(result.phaseResult.productsProposed).toBe(1);
+  });
+
+  it("LLM failure exit carries catalogZeroReason with productsProposed 0", async () => {
+    createClient.mockReturnValue({
+      chat: vi
+        .fn()
+        .mockResolvedValue({ response: { ok: false }, content: null }),
+    });
+
+    const result = await runProductsPhase({
+      brand: BRAND,
+      phases: PHASES,
+      scrapedData: SCRAPED,
+      target: { type: "submission", id: SUBMISSION_ID },
+      catalogResult: {
+        triples: [
+          {
+            url: `${SITE}/products/clay-plate`,
+            title: "陶土餐盤",
+            imageUrl: `${SITE}/img/plate.jpg`,
+            platform: "generic" as const,
+            supplier: "catalog:official",
+            sourceUrl: SITE,
+            sourcePosition: 0,
+          },
+        ],
+        attempts: [],
+        evidence: new Map(),
+        zeroReason: "no_catalog" as const,
+      },
+    });
+
+    expect(result.phaseResult.status).toBe("failed");
+    expect(result.phaseResult.providerFailure).toBe(true);
+    expect(result.phaseResult.catalogZeroReason).toBe("no_catalog");
+    expect(result.phaseResult.productsProposed).toBe(0);
+  });
 });

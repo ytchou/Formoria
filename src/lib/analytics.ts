@@ -534,6 +534,16 @@ export function trackStoryCardClicked(
   });
 }
 
+export function trackNotFoundCategoryClicked(
+  categorySlug: string,
+  position: number,
+) {
+  capturePostHogEvent(ANALYTICS_EVENTS.NOT_FOUND_CATEGORY_CLICKED, {
+    category_slug: categorySlug,
+    position,
+  });
+}
+
 export function trackTrailCardClicked(
   trailSlug: string,
   position: number,

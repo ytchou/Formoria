@@ -68,12 +68,7 @@
     "relatedStories": "繼續閱讀",
     "relatedTrails": "其他風格",
     "derivedStories": "相關專題",
-    "derivedStoriesAriaLabel": "相關專題文章",
-    "notFound": {
-      "title": "找不到這個風格",
-      "description": "這個風格不存在或已被移除。",
-      "browseAll": "瀏覽所有風格"
-    }
+    "derivedStoriesAriaLabel": "相關專題文章"
   },
   "products": {
     "metaTitle": "商品目錄 — Formoria",
@@ -347,11 +342,6 @@
       "shopee": "蝦皮購物",
       "myship": "7-ELEVEN 賣貨便",
       "unknown": "尚無已知連結"
-    },
-    "notFound": {
-      "title": "找不到品牌",
-      "description": "這個品牌不存在或尚未通過審核。",
-      "browseAll": "瀏覽所有品牌"
     },
     "report": {
       "trigger": "檢舉",
@@ -1799,7 +1789,8 @@
       "title": "找不到此頁面",
       "description": "這個頁面不存在或已移至其他位置。",
       "cta": "返回首頁",
-      "browseDirectory": "瀏覽品牌目錄"
+      "browseDirectory": "瀏覽品牌目錄",
+      "categoriesHeading": "或者，探索這些類別："
     },
     "boundary": {
       "title": "發生錯誤",
@@ -2138,12 +2129,7 @@
     "eventFinePrint": "詳細安排請以官方網站公告為準",
     "boothLabel": "攤位",
     "relatedTrails": "相關風格",
-    "relatedTrailsAria": "與這篇專題相關的風格",
-    "notFound": {
-      "title": "找不到專題",
-      "description": "這篇專題不存在或已被移除。",
-      "browseAll": "瀏覽所有專題"
-    }
+    "relatedTrailsAria": "與這篇專題相關的風格"
   },
   "districts": {
     "alian": "阿蓮區",

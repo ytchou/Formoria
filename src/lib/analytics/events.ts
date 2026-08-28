@@ -115,6 +115,13 @@ export const ANALYTICS_EVENTS = {
   TRAIL_CARD_CLICKED: "trail_card_clicked",
 
   /**
+   * A category card on a 404 page was clicked.
+   * @property category_slug {string} Slug of the clicked category.
+   * @property position {number} 0-based position within the grid.
+   */
+  NOT_FOUND_CATEGORY_CLICKED: "not_found_category_clicked",
+
+  /**
    * The directory sort control changed value.
    * @property sort_value {string} Newly selected sort key.
    * @property previous_sort {string} Sort key in effect before the change.
@@ -730,6 +737,10 @@ export interface AnalyticsEventPayloads {
     trail_slug: string;
     position: number;
     trail_surface: string;
+  };
+  [ANALYTICS_EVENTS.NOT_FOUND_CATEGORY_CLICKED]: {
+    category_slug: string;
+    position: number;
   };
   [ANALYTICS_EVENTS.DIRECTORY_SORT_CHANGED]: {
     sort_value: string;

@@ -970,9 +970,22 @@ export async function runProductsPhase({
   // product pages while being shown none, and nothing downstream can catch
   // fabricated URLs. Zero proposals beats five fabricated ones.
   if (pages.length === 0)
-    return skipped(
-      "no product candidates in the merged pool (scraped + stored)",
-    );
+    return {
+      phaseResult: {
+        ...buildPhaseResult(
+          "products",
+          "skipped",
+          [],
+          0,
+          undefined,
+          "no product candidates in the merged pool (scraped + stored)",
+        ),
+        ...(catalog.zeroReason ? { catalogZeroReason: catalog.zeroReason } : {}),
+        productsProposed: 0,
+      },
+      patch: {},
+      proposals: [],
+    };
 
   return auditedCall(
     { provider: "enrich", operation: "runProductsPhase", kind: "service" },
@@ -1263,6 +1276,8 @@ export async function runProductsPhase({
               "LLM provider failed the products call",
             ),
             providerFailure: true,
+            ...(catalog.zeroReason ? { catalogZeroReason: catalog.zeroReason } : {}),
+            productsProposed: 0,
           },
           // NO ANSWER, NO OPINION: an empty patch leaves the previous run's
           // proposals alone. Clearing them on a transient provider error would
@@ -1273,16 +1288,20 @@ export async function runProductsPhase({
       }
 
       return {
-        phaseResult: buildPhaseResult(
-          "products",
-          "succeeded",
-          publishedProposals.length > 0 ? ["products"] : [],
-          durationMs,
-          undefined,
-          `proposed ${publishedProposals.length}, dropped ${result.dropped}${
-            dryRun === true ? " (dry run — nothing written)" : ""
-          }`,
-        ),
+        phaseResult: {
+          ...buildPhaseResult(
+            "products",
+            "succeeded",
+            publishedProposals.length > 0 ? ["products"] : [],
+            durationMs,
+            undefined,
+            `proposed ${publishedProposals.length}, dropped ${result.dropped}${
+              dryRun === true ? " (dry run — nothing written)" : ""
+            }`,
+          ),
+          ...(catalog.zeroReason ? { catalogZeroReason: catalog.zeroReason } : {}),
+          productsProposed: publishedProposals.length,
+        },
         // ALWAYS CARRIES THE KEY, empty list included. The phase ran and the
         // model answered, so "nothing qualified" is a verdict about this brand's
         // site — and `mergeSubmissionEnrichedData` only replaces
