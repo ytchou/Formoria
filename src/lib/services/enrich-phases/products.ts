@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import { auditedCall } from "@/lib/audit";
 import { PRODUCTS_LABELS, PRODUCTS_SYSTEM_PROMPT } from "@/lib/prompts";
 import {
@@ -25,6 +26,7 @@ import {
   createProfiledOpenAIClient,
   profileChatParams,
 } from "../llm-audit";
+import { fetchLangfusePrompt } from "@/lib/langfuse/prompt";
 import { parseJson } from "../openai-client";
 import {
   isLlmProviderFailure,
@@ -35,6 +37,37 @@ import {
   type EnrichmentTarget,
 } from "../_shared/enrichment-target";
 import { preferPatched } from "./descriptions";
+import {
+  classifyProductUrl,
+  dedupeNearDuplicates,
+  mergeCandidatePool,
+  normalizeProductUrl,
+  type ProductCandidate,
+} from "./product-candidates";
+import {
+  applyGates,
+  createDefaultCandidateWriter,
+  persistCandidatePool,
+  type CandidateOriginDecision,
+  type CandidateWriter,
+  type LlmRanker,
+} from "../curated-products/candidate-selection";
+import {
+  assessDeterministicOrigin,
+  buildOriginExcerpts,
+  decideOriginQualification,
+  type LlmOriginAssessment,
+  type OriginExcerpt,
+  type RegistryOriginAssessment,
+} from "../curated-products/origin-qualification";
+import {
+  lookupExactRegistryProducts,
+  type ExactRegistryLookupInput,
+  type ExactRegistryLookupResult,
+} from "../mit-registry";
+import { loadRenderedProductTexts } from "./scraper/product-origin-text";
+import type { RenderProvider } from "./scraper/render/types";
+import type { CatalogDiscoveryResult } from "./catalog-discovery";
 import {
   buildPhaseResult,
   timePhase,
@@ -69,14 +102,15 @@ const MAX_MATERIALS_PER_PRODUCT = 3;
 const MAX_SOURCES_PER_PRODUCT = 5;
 /** Candidate pages and images the user message carries, oldest-first by scrape order. */
 const MAX_CANDIDATE_PAGES = 25;
-const MAX_IMAGE_CANDIDATES = 12;
 /** Per-page evidence is a title plus a lead, not the whole page. */
 const PAGE_TEXT_LIMIT = 240;
 const MAX_SNIPPETS = 10;
 /** Matches `curatedProductKey`'s fallback: a key is never empty. */
 const FALLBACK_KEY = "product";
 
-const L1_SLUGS = new Set<string>(L1_CATEGORIES.map((category) => category.slug));
+const L1_SLUGS = new Set<string>(
+  L1_CATEGORIES.map((category) => category.slug),
+);
 
 /**
  * `strict: true` requires every property in `required`, so the nullable fields
@@ -94,6 +128,31 @@ const PRODUCTS_SCHEMA = {
     type: "object",
     additionalProperties: false,
     properties: {
+      evaluations: {
+        type: "array",
+        items: {
+          type: "object",
+          additionalProperties: false,
+          properties: {
+            candidate_url: { type: "string" },
+            editorial_score: { type: "integer", minimum: 0, maximum: 100 },
+            editorial_rationale: { type: "string" },
+            made_in_taiwan: { type: "boolean" },
+            materials_from_taiwan: { type: "boolean" },
+            origin_excerpt_ids: { type: "array", items: { type: "string" } },
+            product_model: { type: ["string", "null"] },
+          },
+          required: [
+            "candidate_url",
+            "editorial_score",
+            "editorial_rationale",
+            "made_in_taiwan",
+            "materials_from_taiwan",
+            "origin_excerpt_ids",
+            "product_model",
+          ],
+        },
+      },
       products: {
         type: "array",
         items: {
@@ -136,18 +195,28 @@ const PRODUCTS_SCHEMA = {
         },
       },
     },
-    required: ["products"],
+    required: ["evaluations", "products"],
   },
 } as const;
 
 export type ProductsModelResult = {
+  evaluations?: unknown;
   products?: unknown;
 };
 
+export type ProductCandidateEvaluation = {
+  url: string;
+  score: number;
+  rationale: string;
+  productModel: string | null;
+  llmOrigin: LlmOriginAssessment;
+};
+
 export type ProductProposalValidationOptions = {
-  /** The brand's own site. A product page has to live on it — see `isProductPageUrl`. */
+  /** Kept for prompt/backward compatibility; exact candidates own acceptance. */
   siteUrl: string;
   max?: number;
+  candidates?: readonly ProductCandidate[];
 };
 
 export type ProductProposalValidation = {
@@ -155,6 +224,8 @@ export type ProductProposalValidation = {
   dropped: number;
   /** Per-reason tallies, published on the audit span. */
   dropReasons: Record<string, number>;
+  /** Total items the model returned, before validation. `rawCount === proposals.length + dropped`. */
+  rawCount: number;
 };
 
 /**
@@ -172,6 +243,19 @@ export type ProductsPhaseOptions = {
   dryRun?: boolean;
   target?: EnrichmentTarget;
   jobId?: string;
+  /** Writer for persisting the candidate pool. Injected for testing. */
+  candidateWriter?: CandidateWriter;
+  /** LLM ranker for scoring gate-passing candidates. Injected for testing. */
+  candidateRanker?: LlmRanker;
+  loadOriginTexts?: (urls: readonly string[]) => Promise<Map<string, string>>;
+  lookupRegistryProducts?: (
+    inputs: readonly ExactRegistryLookupInput[],
+  ) => Promise<Map<string, ExactRegistryLookupResult>>;
+  /** Catalog result from the images phase. Optional until the orchestrator is updated (Task 5). */
+  catalogResult?: CatalogDiscoveryResult;
+  /** Page URLs from image acquisition candidates. Optional until the orchestrator is updated (Task 5). */
+  acquisitionPageUrls?: string[];
+  renderProvider?: RenderProvider;
 };
 
 /**
@@ -249,6 +333,66 @@ function bareHost(url: URL): string {
   return url.hostname.replace(/^www\./u, "").toLowerCase();
 }
 
+export function validateCandidateEvaluations(
+  result: ProductsModelResult,
+  candidates: readonly ProductCandidate[],
+  excerptsByUrl: ReadonlyMap<string, readonly OriginExcerpt[]>,
+): Map<string, ProductCandidateEvaluation> {
+  const rawByUrl = new Map<string, Record<string, unknown>>();
+  for (const raw of Array.isArray(result.evaluations)
+    ? result.evaluations
+    : []) {
+    if (!isRecord(raw)) continue;
+    const normalized = normalizeProductUrl(
+      trimmedString(raw.candidate_url) ?? "",
+    );
+    if (normalized && !rawByUrl.has(normalized)) rawByUrl.set(normalized, raw);
+  }
+
+  const evaluations = new Map<string, ProductCandidateEvaluation>();
+  for (const candidate of candidates) {
+    const raw = rawByUrl.get(candidate.normalizedUrl);
+    const excerpts = excerptsByUrl.get(candidate.url) ?? [];
+    const allowedIds = new Set(excerpts.map((excerpt) => excerpt.id));
+    const citedIds = Array.isArray(raw?.origin_excerpt_ids)
+      ? raw.origin_excerpt_ids.filter(
+          (value): value is string =>
+            typeof value === "string" && allowedIds.has(value),
+        )
+      : [];
+    const allCitationsValid =
+      citedIds.length > 0 &&
+      Array.isArray(raw?.origin_excerpt_ids) &&
+      citedIds.length === raw.origin_excerpt_ids.length;
+    const score = raw?.editorial_score;
+    const validScore =
+      typeof score === "number" &&
+      Number.isInteger(score) &&
+      score >= 0 &&
+      score <= 100
+        ? score
+        : 0;
+    const madeInTaiwan = allCitationsValid && raw?.made_in_taiwan === true;
+    const materialsFromTaiwan =
+      allCitationsValid && raw?.materials_from_taiwan === true;
+
+    evaluations.set(candidate.url, {
+      url: candidate.url,
+      score: validScore,
+      rationale:
+        trimmedString(raw?.editorial_rationale) ??
+        "evaluation missing or invalid",
+      productModel: trimmedString(raw?.product_model),
+      llmOrigin: {
+        madeInTaiwan,
+        materialsFromTaiwan,
+        excerptIds: citedIds,
+      },
+    });
+  }
+  return evaluations;
+}
+
 /**
  * A product page is a non-root path on the brand's own host.
  *
@@ -273,7 +417,8 @@ function validateSource(raw: unknown): CuratedProductProposalSource | null {
   // list is not something a model can be trusted to spell, so an unknown type is
   // filed as `other` rather than costing the evidence.
   const sourceType =
-    rawType && (CURATED_PRODUCT_SOURCE_TYPES as readonly string[]).includes(rawType)
+    rawType &&
+    (CURATED_PRODUCT_SOURCE_TYPES as readonly string[]).includes(rawType)
       ? rawType
       : "other";
   const claimZh = trimmedString(raw.claim_zh);
@@ -363,7 +508,8 @@ function proposalKey(
   taken: Set<string>,
   max: number,
 ): string {
-  const base = generateSlug(nameZh) || generateSlug(nameEn ?? "") || FALLBACK_KEY;
+  const base =
+    generateSlug(nameZh) || generateSlug(nameEn ?? "") || FALLBACK_KEY;
   if (!taken.has(base)) {
     taken.add(base);
     return base;
@@ -397,17 +543,26 @@ export function validateProductProposals(
 ): ProductProposalValidation {
   const max = options.max ?? MAX_PROPOSALS;
   const site = httpUrl(options.siteUrl);
+  const candidateByUrl = new Map(
+    (options.candidates ?? []).map((candidate) => [
+      candidate.normalizedUrl,
+      candidate,
+    ]),
+  );
   const proposals: CuratedProductProposal[] = [];
   const dropReasons: Record<string, number> = {};
   const takenKeys = new Set<string>();
   let dropped = 0;
+
+  const items = Array.isArray(result.products) ? result.products : [];
+  const rawCount = items.length;
 
   const drop = (reason: string): void => {
     dropped += 1;
     dropReasons[reason] = (dropReasons[reason] ?? 0) + 1;
   };
 
-  for (const raw of Array.isArray(result.products) ? result.products : []) {
+  for (const raw of items) {
     if (proposals.length >= max) {
       drop("over_cap");
       continue;
@@ -431,7 +586,19 @@ export function validateProductProposals(
       continue;
     }
     const officialUrl = httpUrl(raw.official_url);
-    if (!officialUrl || !site || !isProductPageUrl(officialUrl, site)) {
+    const normalizedOfficialUrl = officialUrl
+      ? normalizeProductUrl(officialUrl.toString())
+      : null;
+    const ownedCandidate = normalizedOfficialUrl
+      ? candidateByUrl.get(normalizedOfficialUrl)
+      : undefined;
+    if (
+      !officialUrl ||
+      !site ||
+      (candidateByUrl.size > 0
+        ? !ownedCandidate
+        : !isProductPageUrl(officialUrl, site))
+    ) {
       drop("official_url_is_not_a_product_page");
       continue;
     }
@@ -445,7 +612,9 @@ export function validateProductProposals(
     }
     const sources = (Array.isArray(raw.sources) ? raw.sources : [])
       .map(validateSource)
-      .filter((source): source is CuratedProductProposalSource => source !== null)
+      .filter(
+        (source): source is CuratedProductProposalSource => source !== null,
+      )
       .slice(0, MAX_SOURCES_PER_PRODUCT);
     // Never back-filled from `official_url`. A source is the page the fact was
     // read on, and manufacturing that citation is precisely what this drop
@@ -476,7 +645,10 @@ export function validateProductProposals(
     // optional citation costs more than it saves.
     const imageSource = httpUrl(raw.image_source_url);
     const imageSourceUrl =
-      imageSource && site && bareHost(imageSource) === bareHost(site)
+      imageSource &&
+      (candidateByUrl.size > 0
+        ? ownedCandidate?.imageUrl === imageSource.toString()
+        : site && bareHost(imageSource) === bareHost(site))
         ? imageSource.toString()
         : null;
 
@@ -492,6 +664,10 @@ export function validateProductProposals(
       ...(imageSourceUrl ? { imageSourceUrl } : {}),
       productDescriptionZh,
       sources,
+      madeInTaiwanConfirmed: false,
+      materialsFromTaiwanConfirmed: false,
+      mitRegistryId: null,
+      originCandidateId: null,
     };
     // THE BOUNDARY SCHEMA IS THE BOUND, re-checked here rather than re-typed:
     // `adminReviewSchema` parses the whole stored list on every save from EVERY
@@ -511,49 +687,7 @@ export function validateProductProposals(
     proposals.push(proposal);
   }
 
-  return { proposals, dropped, dropReasons };
-}
-
-/**
- * Candidate pages, from the text the links phase already scraped. Same-host
- * only: the scrape set includes third-party pages that mention the brand, and a
- * product page is by definition on the brand's own site.
- */
-function candidatePages(
-  site: URL,
-  scrapedData: EnrichScrapedData | null,
-): string[] {
-  const perSourceText = scrapedData?.perSourceText ?? {};
-  const lines: string[] = [];
-  for (const [url, text] of Object.entries(perSourceText)) {
-    const parsed = httpUrl(url);
-    if (!parsed || bareHost(parsed) !== bareHost(site)) continue;
-    const evidence = [text?.title, text?.description, text?.story]
-      .map((value) => trimmedString(value))
-      .filter((value): value is string => value !== null)
-      .join(" / ")
-      .slice(0, PAGE_TEXT_LIMIT);
-    lines.push(evidence ? `- ${url} | ${evidence}` : `- ${url}`);
-    if (lines.length === MAX_CANDIDATE_PAGES) break;
-  }
-  return lines;
-}
-
-function scrapedImagePages(
-  site: URL,
-  scrapedData: EnrichScrapedData | null,
-): string[] {
-  const sources = scrapedData?.imageSources ?? [];
-  const pages: string[] = [];
-  for (const source of sources) {
-    const parsed = httpUrl(source?.pageUrl);
-    if (!parsed || bareHost(parsed) !== bareHost(site)) continue;
-    const line = `- ${source.url} | ${source.pageUrl}`;
-    if (pages.includes(line)) continue;
-    pages.push(line);
-    if (pages.length === MAX_IMAGE_CANDIDATES) break;
-  }
-  return pages;
+  return { proposals, dropped, dropReasons, rawCount };
 }
 
 function buildProductsUserContent(
@@ -561,7 +695,8 @@ function buildProductsUserContent(
   site: URL,
   scrapedData: EnrichScrapedData | null,
   pages: string[],
-  imageLines: string[],
+  listingLines?: string[],
+  originLines?: string[],
 ): string {
   const siteUrl = site.toString();
   const content = buildEnrichmentUserContent(
@@ -584,8 +719,16 @@ function buildProductsUserContent(
   if (pages.length > 0) {
     blocks.push("", PRODUCTS_LABELS.candidatePages, ...pages);
   }
-  if (imageLines.length > 0) {
-    blocks.push("", PRODUCTS_LABELS.imageCandidates, ...imageLines);
+  // Listing entry points: context only — these are catalog/collection pages
+  // the brand uses to organize products. They must NEVER be returned as
+  // `official_url` on a proposal; `isProductPageUrl` enforces a non-root
+  // path on the brand's own host, but a listing page passes that gate, so
+  // the model needs to know their role is navigation context, not evidence.
+  if (listingLines && listingLines.length > 0) {
+    blocks.push("", PRODUCTS_LABELS.listingEntryPoints, ...listingLines);
+  }
+  if (originLines && originLines.length > 0) {
+    blocks.push("", PRODUCTS_LABELS.originExcerpts, ...originLines);
   }
   return blocks.join("\n");
 }
@@ -594,7 +737,11 @@ type ProductsRunOutcome = {
   proposals: CuratedProductProposal[];
   dropped: number;
   dropReasons: Record<string, number>;
+  rawCount: number;
   calls: LlmCallCounts;
+  evaluations: Map<string, ProductCandidateEvaluation>;
+  originDecisions: Map<string, CandidateOriginDecision>;
+  candidateIdsByUrl: Map<string, string>;
 };
 
 export async function runProductsPhase({
@@ -605,8 +752,16 @@ export async function runProductsPhase({
   dryRun,
   target,
   jobId,
+  candidateWriter,
+  candidateRanker,
+  loadOriginTexts,
+  lookupRegistryProducts,
+  catalogResult,
+  acquisitionPageUrls,
+  renderProvider,
 }: ProductsPhaseOptions): Promise<ProductsPhaseOutput> {
-  if (!phases.includes("products")) return skipped("products phase not requested");
+  if (!phases.includes("products"))
+    return skipped("products phase not requested");
 
   const effectiveTarget = target ?? brandTarget(brand.id);
   // Submission targets only, the same shape as `runFaqPhase`'s refusal to touch
@@ -632,38 +787,269 @@ export async function runProductsPhase({
     brand.purchase_website ?? brand.purchaseWebsite,
     "purchase_website",
   );
-  const site = httpUrl(siteUrl);
-  if (!site) return skipped("no official site to propose products from");
+  const channelUrls = [
+    ...new Set(
+      [
+        siteUrl,
+        brand.purchase_pinkoi,
+        brand.purchase_shopee,
+        brand.purchase_myship,
+      ].filter(
+        (value): value is string =>
+          typeof value === "string" && value.length > 0,
+      ),
+    ),
+  ];
+  const site = httpUrl(channelUrls[0]);
+  if (!site)
+    return skipped("no verified purchase channel to propose products from");
 
-  // FAILS CLOSED ON A MISSING DEPENDENCY. `products` runs after `links` and
-  // `site_identity` by hard dependency (`enrich-phases.ts`), but the only thing
-  // enforcing that was the job's phase list: a run of `phases: ['products']`
-  // alone gets `scrapedData: null`, so the user message carries no candidate
-  // pages and the model is asked to pick product pages while being shown none.
-  // Nothing downstream can catch what comes back — `isProductPageUrl` checks the
-  // host and a non-root path and never fetches the URL, so an invented
-  // `https://brand.tw/products/made-up` passes, and `validateSource` accepts the
-  // same invented URL as its own citation. Zero proposals beats five fabricated
-  // ones, and this holds whether or not the caller's phase list is correct.
-  const pages = candidatePages(site, scrapedData);
-  if (pages.length === 0)
-    return skipped(
-      "no scraped pages on the brand's own site to mine for products",
+  // Catalog discovery now runs in the images phase (DEV-1633). The products
+  // phase receives the result as an input. Fall back to empty when the
+  // orchestrator hasn't been updated yet (Task 5).
+  const catalog: CatalogDiscoveryResult = catalogResult ?? {
+    triples: [],
+    attempts: [],
+    evidence: new Map(),
+  };
+
+  // --- Build the merged candidate pool ---
+  const ownedHosts = new Set(
+    channelUrls
+      .map((url) => httpUrl(url))
+      .filter((url): url is URL => url !== null)
+      .map(bareHost),
+  );
+  const marketplaceHosts = new Set(
+    [brand.purchase_pinkoi, brand.purchase_shopee, brand.purchase_myship]
+      .map((url) => httpUrl(url))
+      .filter((url): url is URL => url !== null)
+      .map(bareHost),
+  );
+  const catalogOwnedUrls = new Set(
+    catalog.triples.map((triple) => normalizeProductUrl(triple.url)),
+  );
+  const isOwnedCandidate = (url: string): boolean => {
+    const parsed = httpUrl(url);
+    const normalized = normalizeProductUrl(url);
+    if (!parsed || !normalized || !ownedHosts.has(bareHost(parsed))) return false;
+    return (
+      !marketplaceHosts.has(bareHost(parsed)) || catalogOwnedUrls.has(normalized)
     );
+  };
+  // Build a unified pool of ProductCandidate entries from the scraped pages.
+  // The scraped half is converted to ProductCandidate shape for mergeCandidatePool.
+  const imageByPage = new Map<string, string>();
+  for (const source of scrapedData?.imageSources ?? []) {
+    if (source.pageUrl && source.url && !imageByPage.has(source.pageUrl)) {
+      imageByPage.set(source.pageUrl, source.url);
+    }
+  }
+
+  const scrapedCandidates: ProductCandidate[] = [];
+  const perSourceText = scrapedData?.perSourceText ?? {};
+  let scrapedIndex = 0;
+  for (const [url, text] of Object.entries(perSourceText)) {
+    if (!isOwnedCandidate(url)) continue;
+    const normalizedUrl = normalizeProductUrl(url);
+    if (!normalizedUrl) continue;
+    scrapedCandidates.push({
+      url,
+      normalizedUrl,
+      title: text?.title ?? undefined,
+      supplier: "scraped",
+      urlClass: classifyProductUrl(url),
+      imageUrl: imageByPage.get(url),
+      searchPosition: scrapedIndex++,
+    });
+  }
+
+  // Acquisition candidates from the images phase (DEV-1633): page URLs
+  // discovered during image acquisition that may contain product pages.
+  const acquisitionCandidates: ProductCandidate[] = [];
+  for (const [index, url] of (acquisitionPageUrls ?? []).filter(isOwnedCandidate).entries()) {
+    const normalizedUrl = normalizeProductUrl(url);
+    if (!normalizedUrl) continue;
+    acquisitionCandidates.push({
+      url,
+      normalizedUrl,
+      title: undefined,
+      supplier: "acquisition",
+      urlClass: classifyProductUrl(url),
+      imageUrl: undefined,
+      searchPosition: index,
+    });
+  }
+
+  // Dedupe near-duplicates AFTER merging all suppliers. Enumerated candidates are
+  // placed first so they win ties: a catalog candidate carries imageUrl and
+  // searchPosition that the scraped duplicate lacks, while the scraped text is
+  // still available via perSourceText[candidate.url] for user-content assembly.
+  const enumeratedCandidates: ProductCandidate[] = catalog.triples.map(
+    (triple, index) => ({
+      url: triple.url,
+      normalizedUrl: normalizeProductUrl(triple.url)!,
+      title: triple.title,
+      imageUrl: triple.imageUrl,
+      supplier: triple.supplier,
+      urlClass: "product-detail",
+      searchPosition: index,
+    }),
+  );
+  const catalogCandidates = [
+    ...enumeratedCandidates,
+    ...acquisitionCandidates,
+    ...scrapedCandidates,
+  ]
+    .sort((left, right) => {
+      const leftHost = httpUrl(left.url);
+      const rightHost = httpUrl(right.url);
+      const leftOfficial =
+        leftHost !== null && ownedHosts.has(bareHost(leftHost));
+      const rightOfficial =
+        rightHost !== null && ownedHosts.has(bareHost(rightHost));
+      if (leftOfficial !== rightOfficial) return leftOfficial ? -1 : 1;
+      return (
+        (left.searchPosition ?? Number.MAX_SAFE_INTEGER) -
+        (right.searchPosition ?? Number.MAX_SAFE_INTEGER)
+      );
+    })
+    .slice(0, MAX_CANDIDATE_PAGES);
+  const catalogUrls = new Set(
+    catalogCandidates.map((candidate) => candidate.url),
+  );
+  const { kept: dedupedCandidates, collapsedCount } = dedupeNearDuplicates(
+    [...enumeratedCandidates, ...acquisitionCandidates, ...scrapedCandidates].filter(
+      (candidate) => catalogUrls.has(candidate.url),
+    ),
+  );
+  const pool = mergeCandidatePool(dedupedCandidates);
+
+  // Format the product bucket as user-content lines, keeping the same-host
+  // filter and PAGE_TEXT_LIMIT truncation the scraped path always had.
+  const pages: string[] = [];
+  for (const candidate of pool.products.slice(0, MAX_CANDIDATE_PAGES)) {
+    const catalogEvidence = catalog.evidence.get(candidate.normalizedUrl);
+    const text = perSourceText[candidate.url];
+    const evidence = [
+      catalogEvidence?.title ?? text?.title ?? candidate.title,
+      text?.description,
+      text?.story,
+      catalogEvidence?.text,
+    ]
+      .map((v) => trimmedString(v))
+      .filter((v): v is string => v !== null)
+      .join(" / ")
+      .slice(0, PAGE_TEXT_LIMIT);
+    const imageEvidence = candidate.imageUrl
+      ? ` | image: ${candidate.imageUrl}`
+      : "";
+    pages.push(
+      `${evidence ? `- ${candidate.url} | ${evidence}` : `- ${candidate.url}`}${imageEvidence}`,
+    );
+  }
+
+  // Listing entry points — context only, must NEVER be returned as `official_url`.
+  const listingLines: string[] = [];
+  for (const candidate of pool.listings) {
+    const text = perSourceText[candidate.url];
+    const evidence = [text?.title ?? candidate.title, text?.description]
+      .map((v) => trimmedString(v))
+      .filter((v): v is string => v !== null)
+      .join(" / ")
+      .slice(0, PAGE_TEXT_LIMIT);
+    listingLines.push(
+      evidence ? `- ${candidate.url} | ${evidence}` : `- ${candidate.url}`,
+    );
+  }
+
+  // FAILS CLOSED ON AN EMPTY POOL. The products phase requires at least one
+  // product-detail candidate — from scraped pages, stored provenance, or both.
+  // Both suppliers are host-filtered (same-host as the brand site) and deduped
+  // before reaching this point. Without candidates the model is asked to pick
+  // product pages while being shown none, and nothing downstream can catch
+  // fabricated URLs. Zero proposals beats five fabricated ones.
+  if (pages.length === 0)
+    return {
+      phaseResult: {
+        ...buildPhaseResult(
+          "products",
+          "skipped",
+          [],
+          0,
+          undefined,
+          "no product candidates in the merged pool (scraped + stored)",
+        ),
+        ...(catalog.zeroReason ? { catalogZeroReason: catalog.zeroReason } : {}),
+        productsProposed: 0,
+      },
+      patch: {},
+      proposals: [],
+    };
 
   return auditedCall(
     { provider: "enrich", operation: "runProductsPhase", kind: "service" },
     async (ctx) => {
+      let parseError = false;
       const { result, durationMs } = await timePhase<ProductsRunOutcome>(
         async () => {
-          const imageLines = scrapedImagePages(site, scrapedData)
-            .slice(0, MAX_IMAGE_CANDIDATES);
+          const evaluationPool = catalogCandidates;
+          const { passed: evaluationCandidates } = applyGates(
+            evaluationPool,
+            [],
+            [...ownedHosts],
+          );
+          const candidateIdsByUrl = new Map(
+            evaluationPool.map((candidate) => [candidate.url, randomUUID()]),
+          );
+          let renderedTexts = new Map<string, string>();
+          try {
+            const missingEvidenceUrls = evaluationCandidates
+              .filter(
+                (candidate) => !catalog.evidence.has(candidate.normalizedUrl),
+              )
+              .map((candidate) => candidate.url);
+            renderedTexts = new Map(
+              evaluationCandidates.flatMap((candidate) => {
+                const cached = catalog.evidence.get(
+                  candidate.normalizedUrl,
+                )?.text;
+                return cached ? [[candidate.url, cached] as const] : [];
+              }),
+            );
+            const loaded = await (
+              loadOriginTexts ??
+              ((urls) => loadRenderedProductTexts(urls, renderProvider))
+            )(missingEvidenceUrls);
+            for (const [url, text] of loaded) renderedTexts.set(url, text);
+          } catch {
+            // Rendering is evidence collection, not publication. A renderer
+            // failure removes origin qualification but keeps editorial output.
+          }
+          const excerptsByUrl = new Map<string, OriginExcerpt[]>();
+          for (const candidate of evaluationCandidates) {
+            excerptsByUrl.set(
+              candidate.url,
+              buildOriginExcerpts(
+                candidateIdsByUrl.get(candidate.url)!,
+                renderedTexts.get(candidate.url) ?? "",
+              ),
+            );
+          }
+          const originLines = evaluationCandidates.flatMap((candidate) => {
+            const excerpts = excerptsByUrl.get(candidate.url) ?? [];
+            return excerpts.map(
+              (excerpt) =>
+                `- ${candidate.url} | ${excerpt.id} | ${excerpt.text}`,
+            );
+          });
           const userContent = buildProductsUserContent(
             brand,
             site,
             scrapedData,
             pages,
-            imageLines,
+            listingLines,
+            originLines,
           );
           const config = buildProfiledEnrichmentConfig(
             "products",
@@ -682,8 +1068,9 @@ export async function runProductsPhase({
             },
             { apiKey: token },
           );
+          const productsSystemPrompt = await fetchLangfusePrompt("products", PRODUCTS_SYSTEM_PROMPT);
           const response = await client.chat({
-            system: PRODUCTS_SYSTEM_PROMPT,
+            system: productsSystemPrompt,
             user: userContent,
             schema: PRODUCTS_SCHEMA,
             ...profileChatParams("products"),
@@ -693,24 +1080,189 @@ export async function runProductsPhase({
               proposals: [],
               dropped: 0,
               dropReasons: {},
+              rawCount: 0,
               calls: { attempted: 1, providerFailed: 1 },
+              evaluations: new Map(),
+              originDecisions: new Map(),
+              candidateIdsByUrl,
             };
           }
           const parsed = parseJson<ProductsModelResult>(response.content ?? "");
+          parseError = parsed === null;
+          const evaluations = validateCandidateEvaluations(
+            parsed ?? {},
+            evaluationCandidates,
+            excerptsByUrl,
+          );
+          let registryMatches = new Map<string, ExactRegistryLookupResult>();
+          try {
+            registryMatches = await (
+              lookupRegistryProducts ?? lookupExactRegistryProducts
+            )(
+              evaluationCandidates.map((candidate) => {
+                const evaluation = evaluations.get(candidate.url);
+                return {
+                  candidateId: candidateIdsByUrl.get(candidate.url)!,
+                  brand: brand.name ?? brand.slug,
+                  product: candidate.title ?? "",
+                  model: evaluation?.productModel ?? null,
+                };
+              }),
+            );
+          } catch {
+            // Registry lookup fails closed; consensus may still qualify.
+          }
+          const originDecisions = new Map<string, CandidateOriginDecision>();
+          for (const candidate of evaluationCandidates) {
+            const deterministic = assessDeterministicOrigin(
+              excerptsByUrl.get(candidate.url) ?? [],
+            );
+            const llm = evaluations.get(candidate.url)?.llmOrigin ?? {
+              madeInTaiwan: false,
+              materialsFromTaiwan: false,
+              excerptIds: [],
+            };
+            const registryMatch = registryMatches.get(
+              candidateIdsByUrl.get(candidate.url)!,
+            );
+            const registry: RegistryOriginAssessment =
+              registryMatch?.assessment ?? {
+                matched: false,
+                recordId: null,
+                reason: "no_exact_match",
+              };
+            const qualification = decideOriginQualification({
+              deterministic,
+              llm,
+              registry,
+            });
+            originDecisions.set(candidate.url, {
+              deterministic,
+              llm,
+              registry,
+              mitQualified: qualification.qualified,
+              qualificationMethod: qualification.method,
+            });
+          }
           const validation = validateProductProposals(parsed ?? {}, {
             siteUrl: site.toString(),
+            candidates: evaluationCandidates,
           });
           return {
             ...validation,
             calls: { attempted: 1, providerFailed: 0 },
+            evaluations,
+            originDecisions,
+            candidateIdsByUrl,
           };
         },
       );
 
+      let publishedProposals = result.proposals;
+
+      // --- Candidate pool persistence (DEV-1610) ---
+      // Runs inside the existing audited call; no new audit operation.
+      // Persists EVERY candidate (gated-out + ranked) for run-over-run
+      // visibility. A write failure is reported but never fails the phase.
+      // The default writer appends to `curated_product_candidates`; if the
+      // migration is not yet applied, the insert reports an error and the
+      // phase continues — designed degradation, not a bug.
+      try {
+        const ranker: LlmRanker =
+          candidateRanker ??
+          (async (candidates) =>
+            candidates.map((c) => ({
+              url: c.url,
+              score: result.evaluations.get(c.url)?.score ?? 0,
+              rationale:
+                result.evaluations.get(c.url)?.rationale ??
+                "evaluation missing or invalid",
+            })));
+
+        const writer = candidateWriter ?? createDefaultCandidateWriter();
+
+        // Persists EVERY candidate — including off-host and duplicates — so
+        // the full provenance trail is recorded for run-over-run visibility.
+        // The deduped, host-filtered pool is only for the LLM prompt.
+        const selectionResult = await persistCandidatePool({
+          pool: catalogCandidates,
+          acceptedCandidates: [],
+          ranker,
+          writer,
+          brandId: brand.source_brand_id ?? brand.id,
+          submissionId:
+            effectiveTarget.type === "submission" ? effectiveTarget.id : null,
+          jobId: jobId ?? null,
+          maxProducts: MAX_PROPOSALS,
+          originDecisions: result.originDecisions,
+          candidateIdsByUrl: result.candidateIdsByUrl,
+          officialHost: [...ownedHosts],
+        });
+
+        const selectedUrls = new Set(
+          selectionResult.ranked.map((candidate) => candidate.normalizedUrl),
+        );
+        publishedProposals = result.proposals
+          .filter((proposal) => {
+            const normalized = normalizeProductUrl(proposal.officialUrl);
+            return normalized !== null && selectedUrls.has(normalized);
+          })
+          .map((proposal) => {
+            const normalized = normalizeProductUrl(proposal.officialUrl);
+            const candidate = [...result.originDecisions.keys()].find(
+              (url) => normalizeProductUrl(url) === normalized,
+            );
+            if (!candidate) return proposal;
+            const auditId = selectionResult.auditIdsByUrl.get(candidate);
+            const decision = result.originDecisions.get(candidate);
+            if (!auditId || !decision?.mitQualified) return proposal;
+            return {
+              ...proposal,
+              madeInTaiwanConfirmed: true,
+              materialsFromTaiwanConfirmed:
+                decision.qualificationMethod === "consensus",
+              mitRegistryId:
+                decision.qualificationMethod === "registry" &&
+                typeof decision.registry.recordId === "number"
+                  ? decision.registry.recordId
+                  : null,
+              originCandidateId: auditId,
+            };
+          });
+
+        if (selectionResult.persistError) {
+          Object.assign(ctx.summary, {
+            candidatePersistError: selectionResult.persistError,
+          });
+        }
+        Object.assign(ctx.summary, {
+          candidatesCollapsed: collapsedCount,
+          candidatesGated: selectionResult.gated.length,
+          candidatesRanked: selectionResult.ranked.length,
+          proposalYield:
+            catalogCandidates.length - selectionResult.gated.length > 0
+              ? publishedProposals.length /
+                (catalogCandidates.length - selectionResult.gated.length)
+              : 0,
+        });
+      } catch (err) {
+        // The writer or ranker threw (e.g. service client missing in tests,
+        // or the table does not exist yet). Report and continue — persistence
+        // must never fail the phase.
+        Object.assign(ctx.summary, {
+          candidatePersistError:
+            err instanceof Error ? err.message : String(err),
+        });
+      }
+
       Object.assign(ctx.summary, {
-        productsProposed: result.proposals.length,
+        productsFromModel: result.rawCount,
+        ...(parseError ? { productsParseError: true } : {}),
+        productsProposed: publishedProposals.length,
         productsDropped: result.dropped,
         productsDropReasons: result.dropReasons,
+        catalogZeroReason: catalog.zeroReason ?? null,
+        catalogAttempts: catalog.attempts,
       });
 
       if (isLlmProviderFailure(result.calls)) {
@@ -724,6 +1276,8 @@ export async function runProductsPhase({
               "LLM provider failed the products call",
             ),
             providerFailure: true,
+            ...(catalog.zeroReason ? { catalogZeroReason: catalog.zeroReason } : {}),
+            productsProposed: 0,
           },
           // NO ANSWER, NO OPINION: an empty patch leaves the previous run's
           // proposals alone. Clearing them on a transient provider error would
@@ -734,16 +1288,20 @@ export async function runProductsPhase({
       }
 
       return {
-        phaseResult: buildPhaseResult(
-          "products",
-          "succeeded",
-          result.proposals.length > 0 ? ["products"] : [],
-          durationMs,
-          undefined,
-          `proposed ${result.proposals.length}, dropped ${result.dropped}${
-            dryRun === true ? " (dry run — nothing written)" : ""
-          }`,
-        ),
+        phaseResult: {
+          ...buildPhaseResult(
+            "products",
+            "succeeded",
+            publishedProposals.length > 0 ? ["products"] : [],
+            durationMs,
+            undefined,
+            `proposed ${publishedProposals.length}, dropped ${result.dropped}${
+              dryRun === true ? " (dry run — nothing written)" : ""
+            }`,
+          ),
+          ...(catalog.zeroReason ? { catalogZeroReason: catalog.zeroReason } : {}),
+          productsProposed: publishedProposals.length,
+        },
         // ALWAYS CARRIES THE KEY, empty list included. The phase ran and the
         // model answered, so "nothing qualified" is a verdict about this brand's
         // site — and `mergeSubmissionEnrichedData` only replaces
@@ -757,8 +1315,8 @@ export async function runProductsPhase({
         // on that path (`runEnrich` skips the persist call), so there is nothing
         // to suppress here and suppressing it would hide the phase's output from
         // the operator the dry run exists for.
-        patch: { products: result.proposals },
-        proposals: result.proposals,
+        patch: { products: publishedProposals },
+        proposals: publishedProposals,
       };
     },
     { subjectId: brand.id },

@@ -90,27 +90,6 @@ describe("parseBrandFactsResult", () => {
     );
   });
 
-  it("parses mit_indicators only when evidence backs the claim", () => {
-    const withMit = (mit: unknown) =>
-      parseBrandFactsResult(
-        JSON.stringify({
-          subcategories: [],
-          subcategories_en: [],
-          mit_indicators: mit,
-        }),
-      ).mitIndicators;
-
-    expect(
-      withMit({ mentioned: true, evidence: ["台灣製造"], confidence: "high" }),
-    ).toEqual({
-      mentioned: true,
-      evidence: ["台灣製造"],
-      confidence: "high",
-    });
-    expect(withMit({ mentioned: true, evidence: [] })).toBeNull();
-    expect(withMit({ mentioned: false, evidence: ["台灣製造"] })).toBeNull();
-    expect(withMit(null)).toBeNull();
-  });
 });
 
 describe("parseBrandFactsResult — listing verdict", () => {

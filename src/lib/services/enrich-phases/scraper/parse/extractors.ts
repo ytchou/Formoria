@@ -1,4 +1,5 @@
 import * as cheerio from 'cheerio'
+import { auditedCall } from '@/lib/audit'
 import {
   ONLINE_STORES,
   type OnlineStoreCamelField,
@@ -20,6 +21,7 @@ type CheerioNode =
 
 export type GalleryImageOptions = {
   limit?: number
+  rootSelector?: string
   /**
    * Optional per-element veto, used by the Instagram adapter to drop video
    * poster frames. Returning `false` (or omitting the predicate entirely) keeps
@@ -255,11 +257,11 @@ export function largestSrcsetUrl(srcset: string): string {
 export function extractGalleryImages(
   $: cheerio.CheerioAPI,
   pageUrl: string,
-  { limit = MAX_GALLERY_IMAGES, skip }: GalleryImageOptions = {}
+  { limit = MAX_GALLERY_IMAGES, skip, rootSelector = 'img' }: GalleryImageOptions = {}
 ): string[] {
   const urls: string[] = []
 
-  $('img').each((_, el) => {
+  $(rootSelector).each((_, el) => {
     if (urls.length >= limit) return
 
     if (skip?.(el, $)) return
@@ -301,6 +303,28 @@ export function extractGalleryImages(
   return urls
 }
 
+export function extractScopedProductImages(
+  $: cheerio.CheerioAPI,
+  selectors: readonly string[],
+  pageUrl: string,
+  limit: number = MAX_GALLERY_IMAGES,
+): string[] {
+  const urls: string[] = []
+  $(selectors.join(', ')).each((_, element) => {
+    if (urls.length >= limit) return
+    const raw = $(element).attr('data-src') ?? $(element).attr('data-original') ?? $(element).attr('src') ?? ''
+    const srcsetFallback = raw ? '' : largestSrcsetUrl($(element).attr('srcset') ?? '')
+    const candidate = raw || srcsetFallback
+    if (!candidate || candidate.startsWith('data:')) return
+    try {
+      const parsed = new URL(candidate, pageUrl)
+      if (NON_PRODUCT_IMAGE_PATH_RE.test(parsed.pathname)) return
+      if (!urls.includes(parsed.href)) urls.push(parsed.href)
+    } catch {}
+  })
+  return urls
+}
+
 export function extractPinkoiProductImages(
   $: cheerio.CheerioAPI,
   limit: number = MAX_GALLERY_IMAGES
@@ -322,11 +346,15 @@ export function extractPinkoiProductImages(
         continue
       }
 
-      if (parsed.hostname.toLowerCase() !== 'cdn01.pinkoi.com') continue
+      if (!/^cdn\d+\.pinkoi\.com$/i.test(parsed.hostname)) continue
       if (!parsed.pathname.toLowerCase().startsWith('/product/')) continue
       if (/(\/store\/|\/avatar\/|\/banner\/)/i.test(parsed.pathname)) continue
 
-      urls.push(raw)
+      parsed.pathname = parsed.pathname.replace(
+        /\/\d+x\d+\.(jpe?g|png|webp)$/i,
+        '/1080x0.$1',
+      )
+      urls.push(parsed.href)
       break
     }
   })
@@ -371,6 +399,7 @@ export function extractShopeeProductImages(
 export function extractMyshipProductImages(
   $: cheerio.CheerioAPI,
   limit: number = MAX_GALLERY_IMAGES,
+  pageUrl?: string,
 ): string[] {
   const urls: string[] = []
 
@@ -384,7 +413,7 @@ export function extractMyshipProductImages(
 
       let parsed: URL
       try {
-        parsed = new URL(raw)
+        parsed = pageUrl ? new URL(raw, pageUrl) : new URL(raw)
       } catch {
         continue
       }
@@ -400,7 +429,7 @@ export function extractMyshipProductImages(
       if (hostname !== '7-11.com.tw' && !hostname.endsWith('.7-11.com.tw')) continue
       if (!/\/i\/cgdm\/GM\d+/i.test(parsed.pathname)) continue
 
-      urls.push(raw)
+      urls.push(parsed.toString())
       break
     }
   })
@@ -418,6 +447,105 @@ export function toImageSources(
   pageUrl: string
 ): ScrapedImageSource[] {
   return urls.map((url, position) => ({ url, method, pageUrl, position }))
+}
+
+/**
+ * Parse an icon `sizes` attribute (e.g. "192x192") into a comparable number.
+ * Returns 0 when the format is unrecognised.
+ */
+function parseIconSize(sizes: string | undefined): number {
+  if (!sizes) return 0
+  const match = sizes.match(/^(\d+)x(\d+)$/i)
+  if (!match) return 0
+  return Math.max(Number(match[1]), Number(match[2]))
+}
+
+const MANIFEST_FETCH_TIMEOUT_MS = 5_000
+
+/**
+ * Extract favicon / app-icon URLs from a page, ordered by quality:
+ * 1. apple-touch-icon (usually 180x180 PNG)
+ * 2. generic <link rel="icon"> (excluding .ico), sorted by `sizes` descending
+ * 3. Web manifest fallback — fetch manifest.json, pick the largest icon
+ */
+export async function extractFavicons(
+  $: cheerio.CheerioAPI,
+  baseUrl: string
+): Promise<string[]> {
+  const urls: string[] = []
+
+  // 1. apple-touch-icon
+  $('link[rel="apple-touch-icon"]').each((_, el) => {
+    const href = $(el).attr('href')
+    if (!href) return
+    const resolved = resolveUrl(href, baseUrl)
+    if (resolved) urls.push(resolved)
+  })
+
+  // 2. generic <link rel="icon">, filter .ico, sort by sizes descending
+  const iconEntries: Array<{ url: string; size: number }> = []
+  $('link[rel="icon"]').each((_, el) => {
+    const href = $(el).attr('href')
+    if (!href) return
+    const resolved = resolveUrl(href, baseUrl)
+    if (!resolved) return
+    try {
+      const pathname = new URL(resolved).pathname
+      if (pathname.toLowerCase().endsWith('.ico')) return
+    } catch {
+      return
+    }
+    iconEntries.push({
+      url: resolved,
+      size: parseIconSize($(el).attr('sizes') ?? undefined),
+    })
+  })
+  iconEntries.sort((a, b) => b.size - a.size)
+  for (const entry of iconEntries) {
+    urls.push(entry.url)
+  }
+
+  if (urls.length > 0) return urls
+
+  // 3. Web manifest fallback — only when no link icons were found
+  const manifestHref = $('link[rel="manifest"]').attr('href')
+  if (!manifestHref) return []
+
+  const manifestUrl = resolveUrl(manifestHref, baseUrl)
+  if (!manifestUrl) return []
+
+  try {
+    const manifestIcons = await auditedCall(
+      { provider: 'http', operation: 'fetch_manifest', kind: 'external' },
+      async (): Promise<string[]> => {
+        const response = await fetch(manifestUrl, {
+          signal: AbortSignal.timeout(MANIFEST_FETCH_TIMEOUT_MS),
+        })
+        if (!response.ok) return []
+
+        const manifest = (await response.json()) as {
+          icons?: Array<{ src?: string; sizes?: string }>
+        }
+        if (!Array.isArray(manifest.icons) || manifest.icons.length === 0)
+          return []
+
+        // Pick the largest icon
+        const sorted = [...manifest.icons]
+          .filter((icon) => icon.src)
+          .sort((a, b) => parseIconSize(b.sizes) - parseIconSize(a.sizes))
+
+        const best = sorted[0]
+        if (!best?.src) return []
+
+        const resolved = resolveUrl(best.src, baseUrl)
+        return resolved ? [resolved] : []
+      },
+    )
+    return manifestIcons
+  } catch {
+    // Manifest fetch failed — skip silently
+    return []
+  }
 }
 
 export function extractJsonLd($: cheerio.CheerioAPI): Record<string, unknown> | null {
@@ -576,6 +704,15 @@ export function upgradeEcommerceImageUrl(url: string): string {
       return u.href
     }
 
+    // Pinkoi: rewrite NxN dimension segment to 1080x0
+    if (/^cdn\d+\.pinkoi\.com$/i.test(host)) {
+      u.pathname = u.pathname.replace(
+        /\/\d+x\d+\.(jpe?g|png|webp)$/i,
+        '/1080x0.$1',
+      )
+      return u.href
+    }
+
     return url
   } catch {
     return url
@@ -601,5 +738,6 @@ export function emptyResult(websiteUrl: string): ScrapedBrandData {
     rawJsonLd: null,
     stockistPageText: null,
     jsonLdImageUrls: [],
+    faviconUrls: [],
   }
 }

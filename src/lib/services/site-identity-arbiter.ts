@@ -1,11 +1,10 @@
 import { SITE_IDENTITY_LABELS, SITE_IDENTITY_SYSTEM_PROMPT } from "@/lib/prompts";
+import { fetchLangfusePrompt } from "@/lib/langfuse/prompt";
 import { auditedCall } from "@/lib/audit";
 import {
   LLM_BATCH_CHUNK_SIZE,
-  resolveProfileModel,
   type LlmProfileKey,
 } from "@/lib/constants/llm-models";
-import { createOpenAIClient } from "./openai-client";
 import {
   buildProfiledEnrichmentConfig,
   createProfiledOpenAIClient,
@@ -104,9 +103,6 @@ function createSiteIdentityClient(
   target: EnrichmentTarget | undefined,
   jobId?: string,
 ) {
-  if (!target) {
-    return createOpenAIClient({ apiKey, model: resolveProfileModel(profileKey) });
-  }
   const config = buildProfiledEnrichmentConfig(
     "site_identity",
     SITE_IDENTITY_SYSTEM_PROMPT,
@@ -288,8 +284,9 @@ async function arbitrateSiteIdentityItem(
   const client = createSiteIdentityClient(token, "siteIdentity", item.target, jobId);
 
   try {
+    const siteIdentityPrompt = await fetchLangfusePrompt("site-identity", SITE_IDENTITY_SYSTEM_PROMPT);
     const { response, data, content } = await client.chat({
-      system: SITE_IDENTITY_SYSTEM_PROMPT,
+      system: siteIdentityPrompt,
       user: buildSiteIdentityUserContent([item]),
       json: true,
       schema: SITE_IDENTITY_SCHEMA,
@@ -343,8 +340,9 @@ async function arbitrateSiteIdentityChunk(
   );
 
   try {
+    const siteIdentityBatchPrompt = await fetchLangfusePrompt("site-identity", SITE_IDENTITY_SYSTEM_PROMPT);
     const { response, data, content } = await client.chat({
-      system: SITE_IDENTITY_SYSTEM_PROMPT,
+      system: siteIdentityBatchPrompt,
       user: buildSiteIdentityUserContent(items),
       json: true,
       schema: SITE_IDENTITY_SCHEMA,

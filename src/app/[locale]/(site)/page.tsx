@@ -94,12 +94,8 @@ export default async function LandingPage({ params }: PageProps) {
   const jsonLd = buildWebSiteJsonLd(safeLocale);
   const organizationJsonLd = buildOrganizationJsonLd(safeLocale);
 
-  const [
-    exploreResult,
-    curatedProductsResult,
-    storyResult,
-    trailResult,
-  ] = await Promise.all([
+  const [exploreResult, curatedProductsResult, storyResult, trailResult] =
+    await Promise.all([
       getExploreBrands(EXPLORE_BRAND_LIMIT).catch(
         captureReadFailure("landing.exploreBrands"),
       ),
@@ -128,6 +124,7 @@ export default async function LandingPage({ params }: PageProps) {
   }
 
   const exploreBrands = (exploreResult?.brands ?? []).map(toPublicBrandCard);
+  const totalBrandCount = exploreResult?.totalCount ?? 0;
   const latestStories = storyResult.ok
     ? storyResult.stories.slice(0, LANDING_STORY_LIMIT)
     : [];
@@ -164,6 +161,7 @@ export default async function LandingPage({ params }: PageProps) {
           trails={publishedTrails}
           stories={latestStories}
           brands={exploreBrands}
+          totalBrandCount={totalBrandCount}
         />
       </main>
     </>

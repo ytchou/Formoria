@@ -1,0 +1,18 @@
+{
+  "name": "dev-1618-1622-1304-pilot",
+  "title": "DEV-1618, DEV-1622, DEV-1304 — production product pilot",
+  "subtitle": "Ten-brand, five-category product-catalog verification with local rendering and no automatic apply.",
+  "warning": "Keep and approve only the reviewed ZenU refresh if every rollout threshold passes; reject the other nine refreshes.",
+  "labels": {
+    "aisaniea": "艾莎妮亞名床 Aisaniea",
+    "zenu": "山霧 ZenU",
+    "yun-clean": "雲御織 YUNCLEAN",
+    "clany": "可蘭霓 Clany",
+    "boingboing": "BoingBoing 故事鞋與童畫包",
+    "chih-tsui-fang": "植萃坊",
+    "an-ma": "安小姐手作 An&Ma",
+    "memedo": "密密制作 Memedo",
+    "man-man-soap": "慢蔓皂屋",
+    "nsou": "nsòu 純淨美妝"
+  }
+}

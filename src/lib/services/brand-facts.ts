@@ -1,4 +1,5 @@
 import { FACTS_SYSTEM_PROMPT } from "@/lib/prompts";
+import { fetchLangfusePrompt } from "@/lib/langfuse/prompt";
 import { parseJson } from "./openai-client";
 import {
   buildProfiledEnrichmentConfig,
@@ -31,11 +32,6 @@ export type BrandFactsResult = {
   subcategoriesEn: string[];
   city: string | null;
   foundingYear: number | null;
-  mitIndicators: {
-    mentioned: boolean;
-    evidence: string[];
-    confidence: string;
-  } | null;
   /**
    * Stage-2 listing verdict. Optional and always tolerated as absent: a missing
    * or malformed `listing` means "no opinion", which the consumer treats as
@@ -114,7 +110,6 @@ const EMPTY_FACTS: BrandFactsResult = {
   subcategoriesEn: [],
   city: null,
   foundingYear: null,
-  mitIndicators: null,
 };
 
 export function parseBrandFactsResult(content: string): BrandFactsResult {
@@ -132,23 +127,6 @@ export function parseBrandFactsResult(content: string): BrandFactsResult {
   const normalizedSubcategories = normalizeSubcategories(
     extraction.subcategories,
   );
-
-  const rawMit = parsed.mit_indicators;
-  const mitIndicators =
-    rawMit && typeof rawMit === "object" && !Array.isArray(rawMit)
-      ? (() => {
-          const mit = rawMit as Record<string, unknown>;
-          const mentioned = mit.mentioned === true;
-          const evidence = Array.isArray(mit.evidence)
-            ? mit.evidence.filter((e): e is string => typeof e === "string")
-            : [];
-          const confidence =
-            typeof mit.confidence === "string" ? mit.confidence : "low";
-          return mentioned && evidence.length > 0
-            ? { mentioned, evidence, confidence }
-            : null;
-        })()
-      : null;
 
   const listing = parseListingVerdict(parsed.listing);
   const categorySlug = parseDescriptionCategory(parsed.category);
@@ -168,7 +146,6 @@ export function parseBrandFactsResult(content: string): BrandFactsResult {
     subcategoriesEn: acceptedSubcategoriesEn,
     city: extraction.city,
     foundingYear: extraction.foundingYear,
-    mitIndicators,
     rejected: normalizedSubcategories.rejected,
     ...(listing ? { listing } : {}),
   };
@@ -239,6 +216,7 @@ export async function extractBrandFacts(
   // Counted across both attempts: a first call the model answered and a second
   // that hit a spent account is not an outage.
   const calls = noLlmCalls();
+  const factsSystemPrompt = await fetchLangfusePrompt("brand-facts", FACTS_SYSTEM_PROMPT);
 
   try {
     for (let attemptIndex = 0; attemptIndex < 2; attemptIndex += 1) {
@@ -259,7 +237,7 @@ export async function extractBrandFacts(
         { apiKey: token },
       );
       const { response, data, content } = await client.chat({
-        system: FACTS_SYSTEM_PROMPT,
+        system: factsSystemPrompt,
         user: `${userContent}${retryInstruction}`,
         json: true,
         ...profileChatParams("facts"),

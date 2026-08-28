@@ -1,24 +1,30 @@
-import { getTranslations } from 'next-intl/server'
-import { Link } from '@/i18n/navigation'
-import { buttonVariants } from '@/components/ui/button'
-import { PageShell } from '@/components/ui/page-shell'
-import { routes } from '@/lib/routes'
+import { getTranslations } from "next-intl/server";
+import { ArrowRight } from "lucide-react";
+import { Link } from "@/i18n/navigation";
+import { buttonVariants } from "@/components/ui/button";
+import { PageShell } from "@/components/ui/page-shell";
+import { routes } from "@/lib/routes";
 
 interface AboutHeroProps {
   /** Omitted when the count could not be read — renders no figure rather than a false zero. */
-  brandCount?: number
+  brandCount?: number;
   /** Omitted when the count could not be read — renders no figure rather than a false zero. */
-  categoryCount?: number
-  recentBrands?: { count: number; period: '7d' | '30d' }
+  categoryCount?: number;
+  recentBrands?: { count: number; period: "7d" | "30d" };
 }
 
-export default async function AboutHero({ brandCount, categoryCount, recentBrands }: AboutHeroProps) {
-  const t = await getTranslations('about.hero')
+export default async function AboutHero({
+  brandCount,
+  categoryCount,
+  recentBrands,
+}: AboutHeroProps) {
+  const t = await getTranslations("about.hero");
 
   // Only the figures that are actually known are rendered, so no separator dangles.
-  const facts: string[] = []
-  if (brandCount != null) facts.push(`${brandCount} ${t('statsBrands')}`)
-  if (categoryCount != null) facts.push(`${categoryCount} ${t('statsCategories')}`)
+  const facts: string[] = [];
+  if (brandCount != null) facts.push(`${brandCount} ${t("statsBrands")}`);
+  if (categoryCount != null)
+    facts.push(`${categoryCount} ${t("statsCategories")}`);
 
   return (
     /*
@@ -34,28 +40,36 @@ export default async function AboutHero({ brandCount, categoryCount, recentBrand
       <PageShell measure="page">
         <div className="prose-measure">
           {/* Explicit \n in the i18n key controls the CJK line break */}
-          <h1 className="type-display whitespace-pre-line text-balance">{t('title')}</h1>
-          <p className="mt-4 type-body text-ink-soft text-pretty">{t('subtitle')}</p>
+          <h1 className="type-display whitespace-pre-line text-balance">
+            {t("title")}
+          </h1>
+          <p className="mt-4 type-body text-ink-soft text-pretty">
+            {t("subtitle")}
+          </p>
 
           <div className="mt-6">
             <Link
               href={routes.brands()}
               className={buttonVariants({
-                variant: 'primary',
-                size: 'large',
+                variant: "primary",
+                shape: "pill",
               })}
             >
-              {t('cta')}
+              {t("cta")}
+              <ArrowRight aria-hidden="true" />
             </Link>
           </div>
 
-          {(facts.length > 0 || (recentBrands != null && recentBrands.count > 0)) && (
+          {(facts.length > 0 ||
+            (recentBrands != null && recentBrands.count > 0)) && (
             <p className="mt-6 type-metadata">
-              {facts.join(' · ')}
+              {facts.join(" · ")}
               {recentBrands != null && recentBrands.count > 0 && (
                 <span className="text-accent">
-                  {facts.length > 0 ? ' · ' : ''}+{recentBrands.count}{' '}
-                  {t(recentBrands.period === '7d' ? 'recentWeek' : 'recentMonth')}
+                  {facts.length > 0 ? " · " : ""}+{recentBrands.count}{" "}
+                  {t(
+                    recentBrands.period === "7d" ? "recentWeek" : "recentMonth",
+                  )}
                 </span>
               )}
             </p>
@@ -63,5 +77,5 @@ export default async function AboutHero({ brandCount, categoryCount, recentBrand
         </div>
       </PageShell>
     </section>
-  )
+  );
 }

@@ -1,7 +1,6 @@
 import { buildCategoryTabTarget } from "@/components/navigation/category-tab-target";
 import { localizePath } from "@/i18n/locale-preference";
 import type { BrandSortOption } from "@/lib/pagination";
-import type { DirectoryViewFilters } from "@/lib/seo/directory-filters";
 import { routes } from "@/lib/routes";
 
 /**
@@ -10,17 +9,13 @@ import { routes } from "@/lib/routes";
  * rule is asserted directly instead of through the component.
  */
 
-type DirectoryVerificationFilter = NonNullable<
-  DirectoryViewFilters["verificationFilter"]
->;
-
 /**
  * The L1 slugs a chip may claim.
  *
  * `directoryBrandCategoryFilter` is what the brand query conjoins, and it drops
  * the L1 entirely while an L2 is active — the L1 then only titles the page. A
  * chip derived from the raw selection instead would advertise a filter the
- * results do not obey: `/categories/bags-accessories/backpacks` legitimately
+ * results do not obey: `/brands?category=bags-accessories&sub=backpacks` legitimately
  * lists a `fashion` brand tagged `backpacks`. The count beside the filter box
  * obeys the same rule for free, because it counts the rows that query returned.
  */
@@ -59,7 +54,6 @@ export function shouldEmitDirectoryItemList(input: {
   categorySlugs: readonly string[];
   search: string;
   materials: readonly string[];
-  verificationFilter: DirectoryVerificationFilter;
   page: number;
 }): boolean {
   return (
@@ -67,7 +61,6 @@ export function shouldEmitDirectoryItemList(input: {
     input.categorySlugs.length === 0 &&
     !input.search &&
     input.materials.length === 0 &&
-    input.verificationFilter === "all" &&
     input.page === 1
   );
 }
@@ -84,7 +77,6 @@ export type DirectoryUrlStateInput = {
   subcategorySlugs: readonly string[];
   search: string;
   materials: readonly string[];
-  verificationFilter: DirectoryVerificationFilter;
   sort: BrandSortOption;
 };
 
@@ -104,29 +96,18 @@ export type DirectoryUrlState = {
 export function buildDirectoryUrlState(
   input: DirectoryUrlStateInput,
 ): DirectoryUrlState {
-  // A sub whose parent L1 differs from the selected category has no
-  // `/categories/<l1>/<l2>` address — `category-params.ts` still 404s that pair
-  // and must keep doing so — so the whole view stays on `/brands` and both
-  // facets stay in the query string.
-  const subcategoryPairIsAddressable =
-    !input.subcategory || input.subcategory.category === input.category?.slug;
-  const routePath =
-    input.category && subcategoryPairIsAddressable
-      ? routes.categoryPath(input.category.slug, input.subcategory?.slug)
-      : routes.brands();
+  // All directory views live on `/brands` with query-string facets.
+  const routePath = routes.brands();
   const normalizedParams = new URLSearchParams();
   if (input.search) normalizedParams.set("search", input.search);
-  if (input.categorySlugs.length > 0 && routePath === routes.brands()) {
+  if (input.categorySlugs.length > 0) {
     normalizedParams.set("category", input.categorySlugs.join(","));
   }
-  if (input.subcategorySlugs.length > 0 && routePath === routes.brands()) {
+  if (input.subcategorySlugs.length > 0) {
     normalizedParams.set("sub", input.subcategorySlugs.join(","));
   }
   if (input.materials.length > 0)
     normalizedParams.set("material", input.materials.join(","));
-  if (input.verificationFilter !== "all") {
-    normalizedParams.set("verification", input.verificationFilter);
-  }
   if (input.sort !== "random") normalizedParams.set("sort", input.sort);
 
   const facetParams = new URLSearchParams(normalizedParams);
@@ -145,12 +126,9 @@ export function buildDirectoryUrlState(
 /**
  * The URL for a taxonomy state, on whichever surface owns it.
  *
- * Taxonomy lives in the PATH on a category route and in the QUERY on `/brands`,
- * so a taxonomy chip cannot be removed by deleting a query key: on
- * `/categories/bags-accessories/backpacks` that patch resolves to the current
- * URL and the chip is a dead control. `buildCategoryTabTarget` is the one
- * resolver that renders a taxonomy state as a URL on either surface, and it is
- * given the facet-only query so an orthogonal facet survives the move.
+ * All taxonomy now lives in the query string on `/brands`. `buildCategoryTabTarget`
+ * is the one resolver that renders a taxonomy state as a URL, and it is given
+ * the facet-only query so an orthogonal facet survives the move.
  */
 export function directoryTaxonomyHref(
   state: DirectoryUrlState,

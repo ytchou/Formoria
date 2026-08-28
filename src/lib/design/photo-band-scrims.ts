@@ -40,12 +40,14 @@
  */
 
 /** Named after the alignment of the copy the scrim is protecting. */
-export type ScrimVariant = "left" | "center" | "flat";
+export type ScrimVariant = "left" | "center" | "flat" | "dark";
+
+export type ScrimColorToken = "--ground" | "--surface-dark";
 
 type ScrimStop = {
   /** Horizontal position across the band, 0 = left edge, 1 = right edge. */
   offset: number;
-  /** Opacity of `--ground` at that position. */
+  /** Opacity of the variant's semantic colour at that position. */
   alpha: number;
 };
 
@@ -75,6 +77,8 @@ type ScrimStop = {
 export const BREAKPOINT_PX = 1123;
 
 export type ScrimBreakpoint = {
+  /** Semantic colour composited over the photograph. */
+  colorToken: ScrimColorToken;
   /**
    * The viewport width from which these stops paint, in px. `0` is the base
    * rule; anything higher is emitted as a `min-width` media query.
@@ -146,6 +150,7 @@ export const PHOTO_BAND_SCRIMS: Record<ScrimVariant, ScrimSpec> = {
   left: {
     breakpoints: [
       {
+        colorToken: "--ground",
         minWidth: 0,
         textZone: [0, 0.95],
         bandAspect: 0.75,
@@ -157,6 +162,7 @@ export const PHOTO_BAND_SCRIMS: Record<ScrimVariant, ScrimSpec> = {
         ],
       },
       {
+        colorToken: "--ground",
         minWidth: BREAKPOINT_PX,
         textZone: [0, 0.72],
         bandAspect: 2.4,
@@ -182,6 +188,7 @@ export const PHOTO_BAND_SCRIMS: Record<ScrimVariant, ScrimSpec> = {
   center: {
     breakpoints: [
       {
+        colorToken: "--ground",
         minWidth: 0,
         textZone: [0.05, 0.95],
         bandAspect: 0.75,
@@ -193,6 +200,7 @@ export const PHOTO_BAND_SCRIMS: Record<ScrimVariant, ScrimSpec> = {
         ],
       },
       {
+        colorToken: "--ground",
         minWidth: BREAKPOINT_PX,
         textZone: [0.25, 0.75],
         bandAspect: 2.4,
@@ -219,6 +227,7 @@ export const PHOTO_BAND_SCRIMS: Record<ScrimVariant, ScrimSpec> = {
   flat: {
     breakpoints: [
       {
+        colorToken: "--ground",
         minWidth: 0,
         textZone: [0, 1],
         bandAspect: 0.75,
@@ -228,12 +237,39 @@ export const PHOTO_BAND_SCRIMS: Record<ScrimVariant, ScrimSpec> = {
         ],
       },
       {
+        colorToken: "--ground",
         minWidth: BREAKPOINT_PX,
         textZone: [0, 1],
         bandAspect: 2.4,
         stops: [
           { offset: 0, alpha: 0.85 },
           { offset: 1, alpha: 0.85 },
+        ],
+      },
+    ],
+  },
+
+  /** Uniform warm-charcoal coverage for inverse copy over photography. */
+  dark: {
+    breakpoints: [
+      {
+        colorToken: "--surface-dark",
+        minWidth: 0,
+        textZone: [0, 1],
+        bandAspect: 0.75,
+        stops: [
+          { offset: 0, alpha: 0.8 },
+          { offset: 1, alpha: 0.8 },
+        ],
+      },
+      {
+        colorToken: "--surface-dark",
+        minWidth: BREAKPOINT_PX,
+        textZone: [0, 1],
+        bandAspect: 2.4,
+        stops: [
+          { offset: 0, alpha: 0.8 },
+          { offset: 1, alpha: 0.8 },
         ],
       },
     ],
@@ -280,8 +316,8 @@ export function scrimBreakpoints(variant: ScrimVariant): ScrimBreakpoint[] {
 /**
  * The scrim as a CSS `background-image`, for ONE breakpoint.
  *
- * `color-mix` against `var(--ground)` rather than a hard-coded rgba: the band
- * has to follow the page's own background token, and a literal would drift the
+ * `color-mix` against the breakpoint's semantic token rather than a hard-coded
+ * rgba: the band follows the design system, and a literal would drift the
  * moment that token moves. A flat scrim is a two-stop gradient of one colour
  * rather than a special case — one code path paints every variant.
  *
@@ -294,7 +330,7 @@ export function scrimBackgroundImage(breakpoint: ScrimBreakpoint): string {
   const stops = breakpoint.stops
     .map(
       ({ offset, alpha }) =>
-        `color-mix(in srgb, var(--ground) ${(alpha * 100).toFixed(4)}%, transparent) ${(offset * 100).toFixed(4)}%`,
+        `color-mix(in srgb, var(${breakpoint.colorToken}) ${(alpha * 100).toFixed(4)}%, transparent) ${(offset * 100).toFixed(4)}%`,
     )
     .join(", ");
 

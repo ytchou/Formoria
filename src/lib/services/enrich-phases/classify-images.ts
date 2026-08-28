@@ -9,6 +9,7 @@ import {
   MAX_BRAND_ACTIVE_IMAGES,
 } from "@/lib/constants/brand-images";
 import { cropDamage } from "@/lib/images/crop-damage";
+import { fetchLangfusePrompt } from "@/lib/langfuse/prompt";
 import { parseJson, type OpenAIChatResult } from "../openai-client";
 import {
   buildProfiledEnrichmentConfig,
@@ -54,7 +55,7 @@ import { preferPatched } from "./descriptions";
  * overhead; going higher trades into the contamination the twenty-image batch
  * demonstrated, so this stops at ten.
  */
-const BATCH_SIZE = 10;
+export const IMAGE_CLASSIFY_BATCH_SIZE = 10;
 
 /**
  * LEGACY. The seven-value vocabulary rows were written with before the
@@ -246,6 +247,7 @@ type ParsedImageClassification = {
   tag: KeptImageTag | null;
   reasons: ImageRejectionReason[];
   score: number;
+  caption: string | null;
 };
 
 type ClassifiedImage = {
@@ -270,6 +272,7 @@ type ClassifiedImage = {
    * unit tests can keep building bare literals.
    */
   isLogo?: boolean;
+  caption?: string | null;
 };
 
 function toStrictJsonSchema(shape: z.ZodType): Record<string, unknown> {
@@ -295,6 +298,7 @@ export const IMAGE_CLASSIFICATION_SCHEMA = {
           tag: z.enum(KEEP_TAGS).nullable(),
           reasons: z.array(z.enum(REJECTION_REASONS)),
           score: z.number(),
+          caption: z.string().nullable(),
         }),
       ),
     }),
@@ -475,6 +479,7 @@ export function parseClassificationBatch(
     tag?: unknown;
     reasons?: unknown;
     score?: unknown;
+    caption?: unknown;
   };
 
   const verdicts = new Map<string, ParsedImageClassification>();
@@ -541,6 +546,9 @@ export function parseClassificationBatch(
       tag: belowFloor ? null : tag,
       reasons: belowFloor ? ["low_visual_quality"] : reasons,
       score: clampedScore,
+      caption: disposition === "keep" && !belowFloor
+        ? (typeof item.caption === "string" && item.caption.trim().length > 0 ? item.caption.trim() : null)
+        : null,
     });
   }
 
@@ -731,6 +739,7 @@ export type ActiveImageForOrdering = {
   id: string;
   source?: string | null;
   sort_order?: number | null;
+  tags?: readonly string[] | null;
 };
 
 /**
@@ -775,6 +784,18 @@ export function planActiveImageOrder(input: {
   const keep = ranked.slice(0, capacity);
   const demotedIds = ranked.slice(capacity).map((row) => row.id);
 
+  // Product-first ordering: within the kept set, products lead, then at most
+  // one logo. A logo-only brand keeps all its logos — the single-logo cap
+  // applies only when product images exist, so a brand whose images are all
+  // logos is not stripped down to one.
+  const products = keep.filter((row) => !isLogoImageTags(row.tags));
+  const logos = keep.filter((row) => isLogoImageTags(row.tags));
+  const hasProducts = products.length > 0;
+  const activeOrder = hasProducts
+    ? [...products, ...logos.slice(0, 1)]
+    : logos;
+  const logoOverflow = hasProducts ? logos.slice(1) : [];
+
   const reserved = new Set(
     exempt.flatMap((row) =>
       typeof row.sort_order === "number" ? [row.sort_order] : [],
@@ -783,10 +804,19 @@ export function planActiveImageOrder(input: {
 
   const assignments: Array<{ id: string; sortOrder: number }> = [];
   let sortOrder = 0;
-  for (const row of keep) {
+  for (const row of activeOrder) {
     while (reserved.has(sortOrder)) sortOrder += 1;
     assignments.push({ id: row.id, sortOrder });
     sortOrder += 1;
+  }
+
+  // Excess logos past the single-logo allowance: assigned sort_order values
+  // above the active cap so they stay out of the visible gallery, but NOT in
+  // demotedIds — this rule must never change an image's status.
+  let overflowOrder = MAX_ACTIVE_IMAGES;
+  for (const row of logoOverflow) {
+    assignments.push({ id: row.id, sortOrder: overflowOrder });
+    overflowOrder += 1;
   }
 
   return { assignments, demotedIds };
@@ -1120,17 +1150,19 @@ async function classifyChunk(
   );
   const ordinals = [...imageByOrdinal.keys()];
 
+  const classifySystemPrompt = await fetchLangfusePrompt("classify-images", IMAGE_CLASSIFY_SYSTEM_PROMPT);
   const response = await client.chat({
-    system: IMAGE_CLASSIFY_SYSTEM_PROMPT,
+    system: classifySystemPrompt,
     user: `${brandContext}Classify the ${sendable.length} brand images that follow, numbered ${ordinals.join(", ")} in order. Return a JSON object with a "classifications" array holding exactly ${sendable.length} objects, whose "id" values are the image numbers as strings. Do not omit any image.`,
     images: sendable.map(({ dataUri }) => dataUri),
     imageDetail: CLASSIFY_IMAGE_DETAIL,
     json: true,
     schema: IMAGE_CLASSIFICATION_SCHEMA,
-    // The only per-call token budget in the pipeline: 250 per image in the
-    // batch, so the profile cannot know it statically.
+    // The only per-call token budget in the pipeline: 350 per image in the
+    // batch (raised from 250 for the caption field), so the profile cannot
+    // know it statically.
     ...profileChatParams("classifyImages", {
-      maxTokens: 250 * sendable.length,
+      maxTokens: 350 * sendable.length,
       // Call-site, deliberately NOT in the llm-models profile: the profile is
       // also read by `buildProfiledEnrichmentConfig`, which persists it as the
       // audit contract in brand_ai_results.config, and a transport timeout is
@@ -1250,6 +1282,7 @@ export function planChunkImageWrites(input: {
         status: rejected ? "rejected" : "active",
         rejection_reasons: rejected ? classification.reasons : null,
         rejected_at: rejected ? input.now : null,
+        alt_zh: classification.caption ?? null,
       },
     });
   }
@@ -1433,7 +1466,7 @@ export async function runClassifyImagesPhase({
         IMAGE_CLASSIFY_SYSTEM_PROMPT,
         "classifyImages",
         {
-          batchSize: BATCH_SIZE,
+          batchSize: IMAGE_CLASSIFY_BATCH_SIZE,
           detail: CLASSIFY_IMAGE_DETAIL,
         },
       );
@@ -1473,8 +1506,8 @@ export async function runClassifyImagesPhase({
           ),
         });
 
-        for (let i = 0; i < images.length; i += BATCH_SIZE) {
-          const chunk = images.slice(i, i + BATCH_SIZE);
+        for (let i = 0; i < images.length; i += IMAGE_CLASSIFY_BATCH_SIZE) {
+          const chunk = images.slice(i, i + IMAGE_CLASSIFY_BATCH_SIZE);
           attemptedBatches += 1;
           const outcome = await classifyChunk(client, brandContext, chunk);
           unavailableCount += new Set(outcome.unavailableIds).size;
@@ -1548,6 +1581,9 @@ export async function runClassifyImagesPhase({
 
         return {
           classifiedCount: classifications.length,
+          classifierKept: classifications.filter(
+            (classification) => classification.disposition === "keep",
+          ).length,
           rejectedCount,
           unjudgedCount,
           unavailableCount,
@@ -1561,6 +1597,12 @@ export async function runClassifyImagesPhase({
         result.classifiedCount > 0
           ? [target.type === "brand" ? "brand_images" : "submission_images"]
           : [];
+      Object.assign(ctx.summary, {
+        gatePassingImages: images.length,
+        classifierKept: result.classifierKept,
+        classifierKeep:
+          images.length > 0 ? result.classifierKept / images.length : 0,
+      });
       const patch =
         target.type === "submission" && result.classifiedCount > 0
           ? // DEV-1551: the bucket key, not a URL. `submissionToDomain` derives

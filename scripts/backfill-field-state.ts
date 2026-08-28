@@ -49,10 +49,6 @@ const BRAND_FIELDS: readonly string[] = [
   "founding_year",
   "subcategories",
   "reputation_summary",
-  "mit_status",
-  "mit_verified_at",
-  "mit_story",
-  "mit_evidence",
   "source",
   "is_demo",
 ];

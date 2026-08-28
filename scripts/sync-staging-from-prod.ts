@@ -63,7 +63,7 @@ import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import {
   createWriteBlockingClient,
   type BlockedWrite,
-} from "./model-ab/readonly-client";
+} from "./lib/readonly-client";
 import {
   STAGING_PROJECT_REF,
   projectRefFromSupabaseUrl,
@@ -236,6 +236,7 @@ export const KNOWN_COLUMNS: Record<CopyTable, readonly string[]> = {
     "name",
     "romanized_name",
     "status",
+    "hidden_reason",
     "source",
     "is_demo",
     "description",
@@ -250,6 +251,7 @@ export const KNOWN_COLUMNS: Record<CopyTable, readonly string[]> = {
     "material",
     "hero_image_url",
     "hero_image_storage_path",
+    "logo_storage_path",
     "other_urls",
     "purchase_website",
     "purchase_pinkoi",
@@ -260,13 +262,6 @@ export const KNOWN_COLUMNS: Record<CopyTable, readonly string[]> = {
     "social_threads",
     "reputation_summary",
     "site_content",
-    "mit_status",
-    "mit_story",
-    "mit_evidence",
-    "mit_declared_at",
-    "mit_declared_by",
-    "mit_declared_scope",
-    "mit_verified_at",
     "model_faq_count",
     "seo_promoted",
     "search_vector",
@@ -282,6 +277,7 @@ export const KNOWN_COLUMNS: Record<CopyTable, readonly string[]> = {
   ],
   brand_images: [
     "id",
+    "alt_zh",
     "brand_id",
     "url",
     "source",
@@ -353,6 +349,7 @@ export const KNOWN_COLUMNS: Record<CopyTable, readonly string[]> = {
   brand_slug_redirects: ["old_slug", "new_slug", "created_at"],
   mit_registry: [
     "id",
+    "record_key",
     "cert_number",
     "brand_name",
     "company_name",
@@ -361,6 +358,24 @@ export const KNOWN_COLUMNS: Record<CopyTable, readonly string[]> = {
     "industry_type",
     "valid_until",
     "synced_at",
+    "normalized_brand",
+    "normalized_product",
+    "normalized_model",
+  ],
+};
+
+/** Retired columns accepted only while production is one release behind. */
+export const SOURCE_ONLY_COLUMNS: Partial<
+  Record<CopyTable, readonly string[]>
+> = {
+  brands: [
+    "mit_status",
+    "mit_story",
+    "mit_evidence",
+    "mit_declared_at",
+    "mit_declared_by",
+    "mit_declared_scope",
+    "mit_verified_at",
   ],
 };
 
@@ -410,15 +425,21 @@ export const TABLE_POLICIES: Record<CopyTable, TablePolicy> = {
   // without the FAQ rows feeds a lie straight into `seo_promoted` and into
   // sitemap membership.
   //
-  // `mit_declared_by` is a uuid FK to `auth.users` and hard-fails the insert.
   // `contact_email` is owner PII. `draft_*` and `onboarding_dismissed_at`
   // belong to a claimed owner's session, and copied brands stay unclaimed.
+  // The MIT columns were retired by 20260826170000. Production can retain
+  // them until its next release, but staging must not recreate or receive them.
   brands: {
     onConflict: "slug",
-    omit: ["id", "seo_promoted", "search_vector", "model_faq_count"],
+    omit: [
+      "id",
+      "seo_promoted",
+      "search_vector",
+      "model_faq_count",
+      ...(SOURCE_ONLY_COLUMNS.brands ?? []),
+    ],
     nullify: [
       "contact_email",
-      "mit_declared_by",
       "draft_data",
       "draft_updated_at",
       "onboarding_dismissed_at",
@@ -472,7 +493,7 @@ export const TABLE_POLICIES: Record<CopyTable, TablePolicy> = {
     batchSize: 500,
   },
   mit_registry: {
-    onConflict: "cert_number",
+    onConflict: "record_key",
     omit: ["id"],
     nullify: [],
     brandIdColumn: null,
@@ -522,7 +543,7 @@ export const SYNCED_STORAGE_PREFIXES = ["brands/", "submissions/"] as const;
 
 /** Columns that hold a bucket-relative key, per copied table. */
 const STORAGE_KEY_COLUMNS: Partial<Record<CopyTable, readonly string[]>> = {
-  brands: ["hero_image_storage_path"],
+  brands: ["hero_image_storage_path", "logo_storage_path"],
   brand_images: ["storage_path"],
   events: ["hero_image_storage_path"],
   event_exhibitors: ["image_storage_path"],
@@ -680,8 +701,6 @@ export type SelectionCandidate = {
   category: string | null;
   city: string | null;
   model_faq_count: number;
-  mit_status: string;
-  mit_evidence: unknown;
   description: string | null;
   purchase_website: string | null;
   purchase_pinkoi: string | null;
@@ -695,7 +714,6 @@ export type SelectionCandidate = {
 
 export type SelectionCoverage = {
   faqZero: number;
-  mitVerified: number;
   eventBrands: number;
   redirectTargets: number;
   seoPromotedFalse: number;
@@ -777,7 +795,7 @@ export const COVERAGE_FLOORS = {
  * already holds them and leaving one behind would leave a fixture stub sitting
  * next to fully populated neighbours. Coverage forcing comes second, before
  * any proportional filling, because the shapes it protects — a brand with zero
- * FAQ entries, a verified MIT brand, a redirect target — are rare enough that
+ * FAQ entries and redirect targets — are rare enough that
  * a proportional draw reliably misses them. The quota fill gets whatever
  * budget is left, which is what keeps staging's category mix recognisably
  * production's.
@@ -815,10 +833,6 @@ export function planBrandSelection(input: {
   }
 
   // 2. Coverage floors, in descending order of scarcity.
-  for (const brand of ordered) {
-    if (brand.mit_status === "verified") take(brand);
-  }
-
   const faqZeroTypes = new Set(
     [...selected.values()]
       .filter((brand) => brand.model_faq_count === 0)
@@ -913,8 +927,6 @@ export function planBrandSelection(input: {
       pinnedMissingFromProduction,
       coverage: {
         faqZero: chosen.filter((brand) => brand.model_faq_count === 0).length,
-        mitVerified: chosen.filter((brand) => brand.mit_status === "verified")
-          .length,
         eventBrands: chosen.filter((brand) => brand.isEventBrand).length,
         redirectTargets: chosen.filter((brand) => brand.isRedirectTarget)
           .length,
@@ -1062,7 +1074,10 @@ export function parseSelectionFile(raw: unknown): string[] {
 // ---------------------------------------------------------------------------
 
 function assertKnownColumns(table: CopyTable, row: Row): void {
-  const known = new Set(KNOWN_COLUMNS[table]);
+  const known = new Set([
+    ...KNOWN_COLUMNS[table],
+    ...(SOURCE_ONLY_COLUMNS[table] ?? []),
+  ]);
   for (const column of Object.keys(row)) {
     if (known.has(column)) continue;
     throw new Error(
@@ -1273,26 +1288,6 @@ export function planSlugRedirects(
   return { rows, skippedOldSlugs };
 }
 
-/**
- * `mit_registry` has no brand key at all. The only sound link is the cert
- * number a verified brand already stores in `mit_evidence.mit_smile_cert`,
- * which is what `verifyMitByCert` matches on. Fuzzy name matching would be the
- * obvious alternative and is deliberately not built: the table has no public
- * read path, so a wrong match buys nothing and a missing row costs nothing.
- */
-export function planMitRegistryCerts(prodBrands: Row[]): string[] {
-  const certs = new Set<string>();
-  for (const brand of prodBrands) {
-    const evidence = brand.mit_evidence;
-    if (!isRecord(evidence)) continue;
-    const cert = evidence.mit_smile_cert;
-    if (typeof cert !== "string") continue;
-    const trimmed = cert.trim();
-    if (trimmed) certs.add(trimmed);
-  }
-  return [...certs].sort();
-}
-
 // ---------------------------------------------------------------------------
 // Preflight planners
 // ---------------------------------------------------------------------------
@@ -1334,6 +1329,7 @@ export function planColumnDrift(
   prodColumns: Map<string, Set<string>>,
   stagingColumns: Map<string, Set<string>>,
   tables: readonly string[],
+  ignoredColumns: Partial<Record<string, readonly string[]>> = {},
 ): ColumnDrift[] {
   const drift: ColumnDrift[] = [];
   for (const table of tables) {
@@ -1347,7 +1343,10 @@ export function planColumnDrift(
       drift.push({ table, columns: ["<table missing from staging>"] });
       continue;
     }
-    const missing = [...production].filter((column) => !staging.has(column));
+    const ignored = new Set(ignoredColumns[table] ?? []);
+    const missing = [...production].filter(
+      (column) => !ignored.has(column) && !staging.has(column),
+    );
     if (missing.length > 0) drift.push({ table, columns: missing.sort() });
   }
   return drift;
@@ -1843,8 +1842,6 @@ const SELECTION_BRAND_COLUMNS = [
   "category",
   "city",
   "model_faq_count",
-  "mit_status",
-  "mit_evidence",
   "description",
   "purchase_website",
   "purchase_pinkoi",
@@ -1922,8 +1919,6 @@ async function runSelect(argv: string[]): Promise<void> {
     category: (row.category as string | null) ?? null,
     city: (row.city as string | null) ?? null,
     model_faq_count: Number(row.model_faq_count ?? 0),
-    mit_status: String(row.mit_status ?? ""),
-    mit_evidence: row.mit_evidence,
     description: (row.description as string | null) ?? null,
     purchase_website: (row.purchase_website as string | null) ?? null,
     purchase_pinkoi: (row.purchase_pinkoi as string | null) ?? null,
@@ -2016,7 +2011,7 @@ const DIFF_LOOKUP_COLUMN: Record<CopyTable, string> = {
   brand_channels: "brand_id",
   event_brands: "brand_id",
   brand_slug_redirects: "old_slug",
-  mit_registry: "cert_number",
+  mit_registry: "record_key",
 };
 
 /** Staging rows in scope for a planned batch, for the dry-run diff. */
@@ -2083,7 +2078,14 @@ async function runSync(argv: string[]): Promise<void> {
     staging.key,
     "staging",
   );
-  const drift = planColumnDrift(prodColumns, stagingColumns, COPY_ORDER);
+  const drift = planColumnDrift(
+    prodColumns,
+    stagingColumns,
+    COPY_ORDER,
+    Object.fromEntries(
+      COPY_ORDER.map((table) => [table, TABLE_POLICIES[table].omit]),
+    ),
+  );
   if (drift.length > 0) {
     for (const entry of drift) {
       console.error(
@@ -2104,7 +2106,10 @@ async function runSync(argv: string[]): Promise<void> {
     new Map<string, Set<string>>(
       COPY_ORDER.map((table): [string, Set<string>] => [
         table,
-        new Set(KNOWN_COLUMNS[table]),
+        new Set([
+          ...KNOWN_COLUMNS[table],
+          ...(SOURCE_ONLY_COLUMNS[table] ?? []),
+        ]),
       ]),
     ),
     COPY_ORDER,
@@ -2258,18 +2263,12 @@ async function runSync(argv: string[]): Promise<void> {
     slugs,
     ["old_slug"],
   );
-  const certs = planMitRegistryCerts(prodBrands);
-  const prodRegistry =
-    certs.length > 0
-      ? await readByValues<Row>(
-          production.client,
-          "mit_registry",
-          "*",
-          "cert_number",
-          certs,
-          ["cert_number"],
-        )
-      : [];
+  const prodRegistry = await readTable<Row>(
+    production.client,
+    "mit_registry",
+    "*",
+    ["record_key"],
+  );
 
   const copied = new Map<string, number>();
   const planned = new Map<string, number>();
@@ -2407,9 +2406,9 @@ async function runSync(argv: string[]): Promise<void> {
   }
 
   // --- 11. Storage objects -------------------------------------------------
-  // Gated on brand_images: it holds all but a handful of the referenced keys,
-  // and `brands.hero_image_storage_path` is a denormalized copy of one of its
-  // rows rather than an independent object.
+  // Gated on brand_images: it holds all but a handful of the referenced keys.
+  // `brands.hero_image_storage_path` is denormalized from one of its rows;
+  // `brands.logo_storage_path` can point at an independent favicon object.
   let storage: StorageCopyReport | null = null;
   if (wants("brand_images")) {
     const keyPlan = planStorageKeys({

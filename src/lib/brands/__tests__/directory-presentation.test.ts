@@ -40,7 +40,6 @@ function urlState(overrides: Partial<DirectoryUrlStateInput> = {}) {
     subcategorySlugs: [],
     search: "",
     materials: [],
-    verificationFilter: "all",
     sort: "random",
     ...overrides,
   });
@@ -79,11 +78,10 @@ describe("directoryTaxonomyHref", () => {
       subcategorySlugs: [BACKPACKS.slug],
     });
 
-    // The taxonomy lives in the PATH here, so deleting a query key resolved to
-    // `/categories/bags-accessories/backpacks` itself — a dead control.
-    expect(state.routePath).toBe("/categories/bags-accessories/backpacks");
+    // All taxonomy now lives in the query string on `/brands`.
+    expect(state.routePath).toBe("/brands");
     expect(directoryTaxonomyHref(state, [BAGS.slug], [])).toBe(
-      "/categories/bags-accessories",
+      "/brands?category=bags-accessories",
     );
   });
 
@@ -131,13 +129,11 @@ describe("buildDirectoryUrlState", () => {
     const state = urlState({
       search: "tote",
       materials: ["ceramic"],
-      verificationFilter: "mit-declared",
       sort: "newest",
     });
 
     expect(state.normalizedParams.get("search")).toBe("tote");
     expect(state.normalizedParams.get("material")).toBe("ceramic");
-    expect(state.normalizedParams.get("verification")).toBe("mit-declared");
     expect(state.normalizedParams.get("sort")).toBe("newest");
     expect(urlState().normalizedParams.toString()).toBe("");
   });
@@ -149,7 +145,6 @@ describe("shouldEmitDirectoryItemList", () => {
     categorySlugs: [] as string[],
     search: "",
     materials: [] as string[],
-    verificationFilter: "all" as const,
     page: 1,
   };
 
@@ -182,7 +177,6 @@ describe("shouldEmitDirectoryItemList", () => {
     const narrowed = [
       { ...unfiltered, categorySlugs: ["home"] },
       { ...unfiltered, search: "tote" },
-      { ...unfiltered, verificationFilter: "mit-declared" as const },
       { ...unfiltered, page: 2 },
     ];
 

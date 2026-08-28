@@ -9,6 +9,7 @@ import {
   failureReason,
   parseClassificationBatch,
   partitionLoadedImages,
+  planActiveImageOrder,
   planChunkImageWrites,
 } from "../classify-images";
 import { preferPatched } from "../descriptions";
@@ -226,6 +227,36 @@ describe("applyClassifications ordering", () => {
     ]);
   });
 
+  it("does not change any image status from quality scoring alone (no_image_status_changes_from_this_rule)", () => {
+    // A mix of products and logos, all kept by quality scoring.
+    const images = [
+      classified("product-1", "product", 90),
+      classified("logo-1", "logo", 85),
+      classified("logo-2", "logo", 80),
+      classified("product-2", "product", 75),
+    ];
+
+    const { ordered, rejectedIds } = applyClassifications(images);
+    // Quality scoring keeps all four.
+    expect(rejectedIds).toEqual([]);
+
+    const activeImages = images.map((img, i) => ({
+      id: img.id,
+      source: "google_image" as const,
+      sort_order: i,
+      tags: [img.tag],
+    }));
+
+    const { demotedIds } = planActiveImageOrder({
+      activeImages,
+      rankedJudgedIds: ordered.map((img) => img.id),
+    });
+
+    // The ordering rule must not cause any image to be demoted that quality
+    // scoring alone would have kept active.
+    expect(demotedIds).toEqual([]);
+  });
+
   it("does not penalise an image with unknown dimensions", () => {
     const { ordered } = applyClassifications([
       { id: "unsized", tag: "product", score: 82, storage_path: null },
@@ -438,6 +469,44 @@ describe("parseClassificationBatch", () => {
       tag: null,
       reasons: ["promo_subject"],
     });
+  });
+
+  it("extracts caption from kept images", () => {
+    const verdicts = parseClassificationBatch(
+      JSON.stringify({
+        classifications: [
+          {
+            id: "1",
+            disposition: "keep",
+            tag: "product",
+            reasons: [],
+            score: 85,
+            caption: "手工皂禮盒，三入裝，薰衣草配色",
+          },
+        ],
+      }),
+    );
+
+    expect(verdicts.get("1")?.caption).toBe("手工皂禮盒，三入裝，薰衣草配色");
+  });
+
+  it("sets caption null for rejected images", () => {
+    const verdicts = parseClassificationBatch(
+      JSON.stringify({
+        classifications: [
+          {
+            id: "1",
+            disposition: "reject",
+            tag: null,
+            reasons: ["wrong_brand"],
+            score: 10,
+            caption: "some text",
+          },
+        ],
+      }),
+    );
+
+    expect(verdicts.get("1")?.caption).toBeNull();
   });
 });
 
@@ -672,6 +741,7 @@ describe("planChunkImageWrites", () => {
           status: "active",
           rejection_reasons: null,
           rejected_at: null,
+          alt_zh: null,
         },
       },
       {
@@ -682,9 +752,24 @@ describe("planChunkImageWrites", () => {
           status: "rejected",
           rejection_reasons: ["wrong_brand"],
           rejected_at: now,
+          alt_zh: null,
         },
       },
     ]);
+  });
+
+  it("writes alt_zh from caption", () => {
+    const plan = planChunkImageWrites({
+      chunk: [image("a")],
+      verdictsByImageId: new Map([
+        ["a", { ...verdict("keep"), caption: "陶瓷馬克杯，霧面灰釉" }],
+      ]),
+      unavailableIds: [],
+      now,
+      ctx: { summary: {} },
+    });
+
+    expect(plan.writes[0]?.row).toHaveProperty("alt_zh", "陶瓷馬克杯，霧面灰釉");
   });
 });
 

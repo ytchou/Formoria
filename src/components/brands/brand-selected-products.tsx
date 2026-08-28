@@ -35,6 +35,7 @@ export async function BrandSelectedProducts({
     cta: t("cta"),
     brandSiteCta: t("brandSiteCta"),
     unavailable: t("unavailable"),
+    madeInTaiwan: t("madeInTaiwan"),
   };
 
   return (

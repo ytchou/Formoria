@@ -115,6 +115,13 @@ export const ANALYTICS_EVENTS = {
   TRAIL_CARD_CLICKED: "trail_card_clicked",
 
   /**
+   * A category card on a 404 page was clicked.
+   * @property category_slug {string} Slug of the clicked category.
+   * @property position {number} 0-based position within the grid.
+   */
+  NOT_FOUND_CATEGORY_CLICKED: "not_found_category_clicked",
+
+  /**
    * The directory sort control changed value.
    * @property sort_value {string} Newly selected sort key.
    * @property previous_sort {string} Sort key in effect before the change.
@@ -158,7 +165,6 @@ export const ANALYTICS_EVENTS = {
    * No `result_count`: no facet count is available at click time for this control.
    * @property status {string} Verification tier key.
    */
-  VERIFICATION_FILTER_APPLIED: "verification_filter_applied",
 
   /**
    * A filter was cleared — either one chip or the whole set.
@@ -402,24 +408,6 @@ export const ANALYTICS_EVENTS = {
    * @property $process_person_profile {false} Prevents this machine/inventory event from creating a person profile.
    */
   BRAND_LISTING_PUBLISHED: "brand_listing_published",
-
-  /**
-   * A manufacturing-origin declaration was made.
-   * @deprecated Retired 2026-08-24 with the declaration surface. No PostHog rows
-   * were ever ingested; the permanent ledger entry preserves the payload contract.
-   * @property brand_id {string} Brand UUID.
-   * @property brand_slug {string} Brand slug.
-   * @property declared_scope {string} Declared MIT scope.
-   */
-  MIT_DECLARED: "mit_declared",
-
-  /**
-   * Origin evidence was submitted for verification.
-   * @property brand_id {string} Brand UUID.
-   * @property brand_slug {string} Brand slug.
-   * @property stance {string} Evidence stance submitted.
-   */
-  ORIGIN_EVIDENCE_SUBMITTED: "origin_evidence_submitted",
 
   /**
    * A brand listing was reported by a visitor or owner.
@@ -750,6 +738,10 @@ export interface AnalyticsEventPayloads {
     position: number;
     trail_surface: string;
   };
+  [ANALYTICS_EVENTS.NOT_FOUND_CATEGORY_CLICKED]: {
+    category_slug: string;
+    position: number;
+  };
   [ANALYTICS_EVENTS.DIRECTORY_SORT_CHANGED]: {
     sort_value: string;
     previous_sort: string;
@@ -766,7 +758,6 @@ export interface AnalyticsEventPayloads {
     result_count: number;
   };
   [ANALYTICS_EVENTS.PRICE_FILTER_APPLIED]: { price_range: string };
-  [ANALYTICS_EVENTS.VERIFICATION_FILTER_APPLIED]: { status: string };
   [ANALYTICS_EVENTS.FILTER_CLEARED]: {
     clear_type: string;
     filter_type?: string;
@@ -900,16 +891,6 @@ export interface AnalyticsEventPayloads {
     brand_slug: string;
     is_brand_owner: boolean;
     $process_person_profile: false;
-  };
-  [ANALYTICS_EVENTS.MIT_DECLARED]: {
-    brand_id: string;
-    brand_slug: string;
-    declared_scope: string;
-  };
-  [ANALYTICS_EVENTS.ORIGIN_EVIDENCE_SUBMITTED]: {
-    brand_id: string;
-    brand_slug: string;
-    stance: string;
   };
   [ANALYTICS_EVENTS.BRAND_REPORTED]: {
     brand_slug: string;

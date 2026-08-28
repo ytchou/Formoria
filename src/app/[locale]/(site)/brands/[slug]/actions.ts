@@ -7,14 +7,7 @@ import { getTranslations } from 'next-intl/server'
 import { requireCurrentUser } from '@/lib/auth/current-user'
 import { createInMemoryRateLimiter } from '@/lib/security/rate-limiter'
 import { createReport } from '@/lib/services/reports'
-import {
-  createEvidence,
-  type OriginEvidenceSourceType,
-  type OriginEvidenceStance,
-} from '@/lib/services/origin-evidence'
 import { submitStockist } from '@/lib/services/stockists'
-import { revalidateLocalizedPath } from '@/lib/cache/public-brand-cache'
-import { trackOriginEvidenceSubmitted } from '@/lib/analytics'
 import { routes } from '@/lib/routes'
 
 const REPORT_REASONS = [
@@ -31,29 +24,6 @@ const AUTHENTICATED_REPORT_REASONS: readonly SubmitReportReason[] = [
 ]
 export type ReportState = { error?: string; success?: boolean }
 
-const EVIDENCE_STANCES = ['supports', 'contradicts'] as const
-const EVIDENCE_SOURCE_TYPES = [
-  'product_label',
-  'packaging',
-  'official_site',
-  'in_store',
-  'other',
-] as const
-
-type EvidenceErrorCode =
-  | 'not_logged_in'
-  | 'missing_brand_id'
-  | 'missing_brand_slug'
-  | 'invalid_stance'
-  | 'missing_product_name'
-  | 'invalid_source_type'
-  | 'notes_too_long'
-  | 'invalid_photo_path'
-  | 'pending_cap_reached'
-  | 'database_error'
-  | 'unknown'
-
-export type EvidenceState = { error?: EvidenceErrorCode; success?: boolean }
 
 export type StockistFormState = { error?: string; success?: true }
 
@@ -168,84 +138,6 @@ export async function submitReportAction(
       const message = err instanceof Error ? err.message : t('unknown')
       console.error('[brands:submitReport]', err)
       return { error: message }
-    }
-  })
-}
-
-export async function submitEvidenceAction(
-  _prevState: EvidenceState,
-  formData: FormData,
-): Promise<EvidenceState> {
-  return runWithAuditContext({}, async () => {
-    try {
-      const user = await requireCurrentUser()
-      if (!user) return { error: 'not_logged_in' }
-
-      const brandId = formData.get('brandId')
-      if (typeof brandId !== 'string' || !brandId.trim()) {
-        return { error: 'missing_brand_id' }
-      }
-
-      const brandSlug = formData.get('brandSlug')
-      if (typeof brandSlug !== 'string' || !brandSlug.trim()) {
-        return { error: 'missing_brand_slug' }
-      }
-
-      const stance = formData.get('stance')
-      if (
-        typeof stance !== 'string' ||
-        !EVIDENCE_STANCES.includes(stance as OriginEvidenceStance)
-      ) {
-        return { error: 'invalid_stance' }
-      }
-
-      const sourceType = formData.get('sourceType')
-      if (
-        typeof sourceType !== 'string' ||
-        !EVIDENCE_SOURCE_TYPES.includes(sourceType as OriginEvidenceSourceType)
-      ) {
-        return { error: 'invalid_source_type' }
-      }
-
-      const notesRaw = formData.get('notes')
-      const notes = typeof notesRaw === 'string' ? notesRaw.trim() : ''
-      if (notes.length > 1000) return { error: 'notes_too_long' }
-
-      const productNameRaw = formData.get('productName')
-      const productName =
-        typeof productNameRaw === 'string' ? productNameRaw.trim() : ''
-      if (!productName) return { error: 'missing_product_name' }
-
-      const photoPaths = formData
-        .getAll('photoPaths')
-        .filter(
-          (path): path is string => typeof path === 'string' && path.length > 0,
-        )
-      const photoNamespace = `origin-evidence/${user.id}/${brandId.trim()}/`
-      if (photoPaths.some((path) => !path.startsWith(photoNamespace))) {
-        return { error: 'invalid_photo_path' }
-      }
-
-      const result = await createEvidence({
-        userId: user.id,
-        brandId: brandId.trim(),
-        stance: stance as OriginEvidenceStance,
-        productName,
-        sourceType: sourceType as OriginEvidenceSourceType,
-        notes,
-        photoPaths,
-      })
-      if (!result.ok) return { error: result.code }
-
-      trackOriginEvidenceSubmitted(brandId.trim(), brandSlug.trim(), stance)
-      revalidateLocalizedPath(routes.brand(brandSlug.trim()))
-      revalidateLocalizedPath(routes.contributions())
-      // `/admin` lives outside `[locale]`, so its cache key is already literal.
-      revalidatePath(routes.admin.evidence())
-      return { success: true }
-    } catch (err: unknown) {
-      console.error('[brands:submitEvidence]', err)
-      return { error: 'unknown' }
     }
   })
 }

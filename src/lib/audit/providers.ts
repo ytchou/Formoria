@@ -10,11 +10,14 @@ const PROVIDERS = {
   slack: ["post_slack_alert"],
   posthog: ["run_query"],
   playwright: ["fetch_rendered"],
+  "mit-registry": ["lookup_exact_products", "sync_registry"],
   scraper: ["scrape_url"],
+  catalog: ["discover_catalog"],
   http: [
     "fetch_html",
     "fetch_html_with_metadata",
     "fetch_xml",
+    "fetch_text",
     "download_and_store_images",
     // Curated-product link health probe (scripts/curated-products/check-links.ts):
     // a HEAD/GET reachability check whose verdict can flip a published product's
@@ -24,21 +27,19 @@ const PROVIDERS = {
     // page it was cited from, so the bytes stored against a product can be
     // traced back to the request that produced them.
     "fetch_curated_image",
+    "fetch_manifest",
+    "fetch_favicon",
   ],
   brands: [
     "cleanupAdminBrandReviewImages",
     "cleanupDeadLinks",
-    "createEvidence",
     "createReport",
-    "declareMit",
     "deleteBrand",
     "reviewCommunityStockist",
     "reviewCorrection",
-    "reviewEvidence",
     "saveAdminBrandReview",
     "saveBrand",
     "stageAdminBrandReviewImage",
-    "stripDeclaration",
     "submitStockist",
     "submitCorrection",
     "syncBrandImages",
@@ -49,7 +50,6 @@ const PROVIDERS = {
     "updateReportStatus",
     "upsertBrandFaqEntries",
     "upsertEnrichedStockists",
-    "withdrawDeclaration",
   ],
   cache: [
     "getCachedExploreBrandPool",
@@ -149,9 +149,9 @@ const PROVIDERS = {
     "releaseBrandImageUrls",
     "storeCuratedProductImage",
     "syncHeroDenormalized",
+    "syncLogoDenormalized",
     "uploadImageEvalAsset",
     "uploadPrivateFile",
-    "uploadPrivateImage",
     "uploadPublicImage",
   ],
   submissions: [

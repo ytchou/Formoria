@@ -55,6 +55,7 @@ function makeBrand(overrides: Partial<Brand> = {}): Brand {
     createdAt: "2026-01-01T00:00:00Z",
     updatedAt: "2026-01-02T00:00:00Z",
     onboardingDismissedAt: null,
+    logoUrl: null,
     ...overrides,
   };
 }
@@ -236,6 +237,29 @@ describe("buildBrandJsonLd", () => {
     expect(jsonLd.location).toEqual([
       { "@type": "Place", name: "茶籽堂預約展示間" },
     ]);
+  });
+
+  it("emits ImageObject with description when heroImageAlt provided", () => {
+    const jsonLd = buildBrandJsonLd(
+      makeBrand({ heroImageAlt: "手工皂禮盒" } as Partial<Brand>),
+    );
+    expect(jsonLd.logo).toEqual({
+      "@type": "ImageObject",
+      url: "https://example.com/hero.jpg",
+      description: "手工皂禮盒",
+    });
+  });
+
+  it("emits bare URL when heroImageAlt is null", () => {
+    const jsonLd = buildBrandJsonLd(
+      makeBrand({ heroImageAlt: null } as Partial<Brand>),
+    );
+    expect(jsonLd.logo).toBe("https://example.com/hero.jpg");
+  });
+
+  it("emits bare URL when heroImageAlt is omitted", () => {
+    const jsonLd = buildBrandJsonLd(makeBrand());
+    expect(jsonLd.logo).toBe("https://example.com/hero.jpg");
   });
 
   describe("page-scoped identity", () => {

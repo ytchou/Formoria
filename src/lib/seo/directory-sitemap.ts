@@ -41,8 +41,8 @@ export function buildDirectorySitemapEntries(
   return listIndexableTargets().flatMap((target) => {
     const members = brands.filter((brand) => isDirectoryTargetMember(brand, target))
     const path = target.subcategorySlug
-      ? routes.subcategory(target.categorySlug, target.subcategorySlug)
-      : routes.category(target.categorySlug)
+      ? routes.brands({ category: target.categorySlug, sub: target.subcategorySlug })
+      : routes.brands({ category: target.categorySlug })
 
     return localizedEntries(
       path,

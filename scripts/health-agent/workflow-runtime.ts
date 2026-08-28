@@ -1520,18 +1520,6 @@ function nullableBrandString(value: unknown): string | null {
   return typeof value === "string" ? value : null;
 }
 
-function brandMitStatus(value: unknown): RecentBrandEdit["mitStatus"] {
-  return value === "unverified" || value === "declared" || value === "verified"
-    ? value
-    : null;
-}
-
-function brandMitDeclaredScope(
-  value: unknown,
-): RecentBrandEdit["mitDeclaredScope"] {
-  return value === "all" || value === "most" || value === "some" ? value : null;
-}
-
 function brandOtherUrls(value: unknown): RecentBrandEdit["otherUrls"] {
   let candidate: unknown = value;
   if (typeof value === "string") {
@@ -1571,10 +1559,6 @@ function recentBrandEdit(row: Record<string, unknown>): RecentBrandEdit {
     description: nullableBrandString(row.description),
     descriptionEn: nullableBrandString(row.description_en),
     id: safeString(row.id, "brand.id"),
-    mitDeclaredAt: nullableBrandString(row.mit_declared_at),
-    mitDeclaredScope: brandMitDeclaredScope(row.mit_declared_scope),
-    mitStatus: brandMitStatus(row.mit_status),
-    mitVerifiedAt: nullableBrandString(row.mit_verified_at),
     name: safeString(row.name, "brand.name"),
     otherUrls: brandOtherUrls(row.other_urls),
     ...onlineStoreFields(row),
@@ -1621,7 +1605,7 @@ async function collectBrandReview(
     const rows = await supabaseRows(
       dependencies,
       "brands",
-      `id,name,description,description_en,mit_status,mit_declared_scope,mit_declared_at,mit_verified_at,${ONLINE_STORE_COLUMNS.join(",")},social_instagram,social_threads,social_facebook,other_urls`,
+      `id,name,description,description_en,${ONLINE_STORE_COLUMNS.join(",")},social_instagram,social_threads,social_facebook,other_urls`,
       "brand_review_query",
       // NO `updated_at` filter. `reconcile_health_fix_lifecycle` closes a
       // finding whose fingerprint is absent from the next run, so a windowed

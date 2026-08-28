@@ -46,7 +46,7 @@ describe('category tab targets', () => {
       buildCategoryTabTarget({
         pathname: '/brands',
         searchParams:
-          'category=fashion&price=1&verification=mit-declared&sub=bags',
+          'category=fashion&price=1&sub=bags',
         slug: '',
         locale: 'zh-TW',
       }),
@@ -62,8 +62,8 @@ describe('category tab targets', () => {
         locale: 'en',
       }),
     ).toEqual({
-      routerPath: '/categories/food-drink',
-      href: '/en/categories/food-drink',
+      routerPath: '/brands?category=food-drink',
+      href: '/en/brands?category=food-drink',
     })
   })
 
@@ -76,8 +76,8 @@ describe('category tab targets', () => {
         locale: 'en',
       }),
     ).toEqual({
-      routerPath: '/categories/jewelry',
-      href: '/en/categories/jewelry',
+      routerPath: '/brands?category=jewelry',
+      href: '/en/brands?category=jewelry',
     })
   })
 
@@ -89,15 +89,15 @@ describe('category tab targets', () => {
       subSlug: 'furniture',
       locale: 'zh-TW',
     })).toEqual({
-      routerPath: '/categories/home/furniture',
-      href: '/categories/home/furniture',
+      routerPath: '/brands?category=home&sub=furniture',
+      href: '/brands?category=home&sub=furniture',
     })
   })
 
   it('category_tab_navigation_preserves_material', () => {
     // The material axis is orthogonal to the taxonomy, so a category or
-    // subcategory click may not resolve to `/categories/...`: that path cannot
-    // carry `?material=` and the filter would vanish with no trace.
+    // The material axis is orthogonal to the taxonomy, so all axes share
+    // the same `/brands?...` query surface now.
     expect(
       buildCategoryTabTarget({
         pathname: '/brands',
@@ -119,9 +119,8 @@ describe('category tab targets', () => {
   })
 
   it('keeps a cross-L1 subcategory in the query rather than dropping it', () => {
-    // `backpacks` belongs to `bags-accessories`, so `/categories/fashion/backpacks`
-    // 404s — but the pair is a live filter since the brand query stopped
-    // conjoining the L1, so it has to stay on `/brands`.
+    // `backpacks` belongs to `bags-accessories`, not `fashion`, but the pair is
+    // a live filter since the brand query stopped conjoining the L1.
     expect(
       buildCategoryTabTarget({
         pathname: '/brands',

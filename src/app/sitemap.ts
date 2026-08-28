@@ -63,12 +63,12 @@ export function buildTrailSitemapEntries(
   );
 }
 
-// zh-TW only, exactly like `/stories` above and like every trail below: /en/discover
+// zh-TW only, exactly like `/stories` above and like every trail below: /en/style
 // serves the same content and canonicals to the prefix-free twin, so submitting
 // it would be a self-inflicted duplicate-content signal with non-reciprocal
 // hreflang.
 export function buildTrailHubSitemapEntries(): MetadataRoute.Sitemap {
-  return localizedEntries(routes.discover(), ["zh-TW"]);
+  return localizedEntries(routes.style(), ["zh-TW"]);
 }
 
 async function buildTrailSitemapSection(): Promise<MetadataRoute.Sitemap> {
@@ -80,7 +80,9 @@ async function buildTrailSitemapSection(): Promise<MetadataRoute.Sitemap> {
   // gate, reused rather than restated, so the sitemap can never submit a URL
   // that the page itself marks `noindex` — the two surfaces cannot drift.
   return [
-    ...(shouldIndexTrailHub(result.trails) ? buildTrailHubSitemapEntries() : []),
+    ...(shouldIndexTrailHub(result.trails)
+      ? buildTrailHubSitemapEntries()
+      : []),
     ...result.trails.flatMap((trail) => buildTrailSitemapEntries(trail)),
   ];
 }
@@ -98,6 +100,8 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const staticPages = [
     "/",
     routes.brands(),
+    routes.discover(),
+    routes.style(),
     routes.about(),
     routes.faq(),
     routes.contact(),
@@ -116,16 +120,20 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   try {
     const rawBrandsPromise = getBrandSeoEntries();
     const brandsPromise = rawBrandsPromise.catch(() => []);
-    const directoryPagesPromise = buildDirectorySitemapSection(rawBrandsPromise);
-    const stockistPagesPromise = buildWhereToBuySitemapSection(getStockistDirectory());
+    const directoryPagesPromise =
+      buildDirectorySitemapSection(rawBrandsPromise);
+    const stockistPagesPromise = buildWhereToBuySitemapSection(
+      getStockistDirectory(),
+    );
     const trailPagesPromise = buildTrailSitemapSection().catch(() => []);
-    const [brands, storyResult, categoryPages, stockistPages, trailPages] = await Promise.all([
-      brandsPromise,
-      getAllStories(),
-      directoryPagesPromise,
-      stockistPagesPromise,
-      trailPagesPromise,
-    ]);
+    const [brands, storyResult, categoryPages, stockistPages, trailPages] =
+      await Promise.all([
+        brandsPromise,
+        getAllStories(),
+        directoryPagesPromise,
+        stockistPagesPromise,
+        trailPagesPromise,
+      ]);
     const stories = storyResult.ok ? storyResult.stories : [];
 
     const brandPages = buildBrandSitemapEntries(brands);

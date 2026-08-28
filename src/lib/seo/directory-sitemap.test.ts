@@ -28,9 +28,9 @@ describe('buildDirectorySitemapEntries', () => {
     const urls = entries.map((entry) => entry.url)
     const base = getSiteUrl()
 
-    expect(urls).toContain(`${base}/categories/home`)
-    expect(urls).toContain(`${base}/categories/home/furniture`)
-    expect(urls.some((url) => url.endsWith('/categories/tech'))).toBe(false)
+    expect(urls).toContain(`${base}/brands?category=home`)
+    expect(urls).toContain(`${base}/brands?category=home&sub=furniture`)
+    expect(urls.some((url) => url.includes('category=tech'))).toBe(false)
     expect(urls.some((url) => url.endsWith('/outdoor-accessories'))).toBe(false)
   })
 
@@ -38,7 +38,7 @@ describe('buildDirectorySitemapEntries', () => {
     const entries = buildDirectorySitemapEntries([brand()])
 
     expect(entries.every((entry) => !/[?&](search|price|verification|sort|page)=/.test(entry.url))).toBe(true)
-    expect(entries.every((entry) => entry.url.includes('/categories/'))).toBe(true)
+    expect(entries.every((entry) => entry.url.includes('/brands?category='))).toBe(true)
   })
 
   it('attaches reciprocal locale alternates to every taxonomy entry', () => {
@@ -57,15 +57,15 @@ describe('buildDirectorySitemapEntries', () => {
       brand({ slug: 'older', updatedAt: '2026-01-01T00:00:00.000Z' }),
       brand({ slug: 'newer', updatedAt: '2026-04-12T00:00:00.000Z' }),
     ])
-    const furniture = entries.find((entry) => entry.url.endsWith('/categories/home/furniture'))
+    const furniture = entries.find((entry) => entry.url.endsWith('/brands?category=home&sub=furniture'))
 
     expect(furniture?.lastModified).toEqual(new Date('2026-04-12T00:00:00.000Z'))
   })
 
   it('dates an L2 entry from a cross-L1 brand while leaving the L1 entry alone', () => {
     // The L2 target lists by tag alone, so a brand whose own L1 differs counts
-    // toward `/categories/home/furniture` — and must not leak into
-    // `/categories/home`, which lists by category (DEV-1510).
+    // toward `/brands?category=home&sub=furniture` — and must not leak into
+    // `/brands?category=home`, which lists by category (DEV-1510).
     const entries = buildDirectorySitemapEntries([
       brand({ slug: 'native', updatedAt: '2026-01-01T00:00:00.000Z' }),
       brand({
@@ -77,10 +77,10 @@ describe('buildDirectorySitemapEntries', () => {
     ])
 
     expect(
-      entries.find((entry) => entry.url.endsWith('/categories/home/furniture'))?.lastModified,
+      entries.find((entry) => entry.url.endsWith('/brands?category=home&sub=furniture'))?.lastModified,
     ).toEqual(new Date('2026-05-20T00:00:00.000Z'))
     expect(
-      entries.find((entry) => entry.url.endsWith('/categories/home'))?.lastModified,
+      entries.find((entry) => entry.url.endsWith('/brands?category=home'))?.lastModified,
     ).toEqual(new Date('2026-01-01T00:00:00.000Z'))
   })
 

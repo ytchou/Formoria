@@ -33,6 +33,8 @@ import {
 import { categoryLabel, L1_CATEGORIES } from "@/lib/taxonomy/ontology";
 import { StoryContent } from "./story-content";
 import { routes } from "@/lib/routes";
+import { getStoryRelatedTrails } from "@/lib/services/editorial-links";
+import { RelatedTrailLink } from "@/components/stories/related-story-link";
 
 type PageProps = {
   params: Promise<{ locale: string; slug: string }>;
@@ -220,6 +222,7 @@ export default async function StoryPage({ params }: PageProps) {
   // convert. Zero brands means no list at all — an empty `view_item_list` is
   // noise in GA4, not a datapoint.
   const brandCount = extractLinkedBrandSlugs(story.content).length;
+  const relatedTrails = await getStoryRelatedTrails(slug);
   return (
     // One container owns every story detail surface: breadcrumb, hero,
     // metadata, body, figures, cards, FAQ, and series nav. It runs on
@@ -382,6 +385,26 @@ export default async function StoryPage({ params }: PageProps) {
             />
           </div>
         </SavedBrandsProvider>
+        {relatedTrails.length > 0 ? (
+          <nav aria-label={t("relatedTrailsAria")} className="space-y-3">
+            <h2 className="type-card-title">{t("relatedTrails")}</h2>
+            <ul className="flex flex-wrap gap-x-4 gap-y-2 type-body-sm">
+              {relatedTrails.map((trail, position) => (
+                <li key={trail.slug}>
+                  <RelatedTrailLink
+                    href={routes.trail(trail.slug)}
+                    trailSlug={trail.slug}
+                    position={position}
+                    trailSurface="story_related_trails"
+                    className="text-accent underline underline-offset-4 hover:text-ink"
+                  >
+                    {trail.title}
+                  </RelatedTrailLink>
+                </li>
+              ))}
+            </ul>
+          </nav>
+        ) : null}
         {story.entry.frontmatter.faq &&
           story.entry.frontmatter.faq.length > 0 && (
             <FaqBlock questions={story.entry.frontmatter.faq} />

@@ -41,7 +41,7 @@ test.describe("SEO deep", () => {
         heading: "生活可以更像自己一點。",
         positioning:
           "Formoria 是台灣品牌探索與選物平台，從生活出發認識產品與品牌。",
-        manifestoHeading: "讓台灣品牌重新回到大眾目光",
+        manifestoHeading: "讓好東西，被更多人遇見。",
       },
       {
         path: "/en",
@@ -57,8 +57,7 @@ test.describe("SEO deep", () => {
         heading: "Life can look a little more like you.",
         positioning:
           "Formoria is a Taiwanese brand discovery and curation platform — start from life, meet the products and the brands.",
-        manifestoHeading:
-          "Make Taiwanese brands easier to discover, choose, and grow",
+        manifestoHeading: "Helping good things find more people.",
       },
     ] as const;
     const aboutLocales = [
@@ -330,6 +329,7 @@ test.describe("SEO deep", () => {
     const staticPaths = new Set([
       "/",
       "/brands",
+      "/categories",
       // Not a member of sitemap.ts's `staticPages`: the trail hub is listed
       // zh-TW only and only while at least one trail is published, matching its
       // own `noindex` gate. Named here so the entry is still swept for a
@@ -349,6 +349,10 @@ test.describe("SEO deep", () => {
       return staticPaths.has(path) || path.startsWith("/categories/");
     });
     expect(staticLocations.length).toBeGreaterThan(0);
+    expect(locations.some((url) => url.pathname === "/categories")).toBe(true);
+    expect(locations.some((url) => url.pathname === "/en/categories")).toBe(
+      true,
+    );
     // A browser render per URL exceeds the CI timeout, while compiling every
     // route concurrently can overload a cold dev server and corrupt its route
     // manifests. Plain HTTP requests in small batches keep all URL assertions

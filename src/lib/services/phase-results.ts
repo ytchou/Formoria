@@ -47,6 +47,8 @@ export function parsePhaseResults(value: Json): PhaseResult[] {
         ...(typeof item.error === "string" ? { error: item.error } : {}),
         ...(typeof item.detail === "string" ? { detail: item.detail } : {}),
         ...(item.providerFailure === true ? { providerFailure: true } : {}),
+        ...(typeof item.catalogZeroReason === "string" ? { catalogZeroReason: item.catalogZeroReason } : {}),
+        ...(typeof item.productsProposed === "number" ? { productsProposed: item.productsProposed } : {}),
       },
     ];
   });

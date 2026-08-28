@@ -284,6 +284,10 @@ describe("enriched_data.products[] payload contract", () => {
       imageSourceUrl: true,
       productDescriptionZh: true,
       sources: true,
+      madeInTaiwanConfirmed: true,
+      materialsFromTaiwanConfirmed: true,
+      mitRegistryId: true,
+      originCandidateId: true,
     };
 
     const forbidden =
@@ -417,6 +421,7 @@ describe("enrichment write guards", () => {
     expect(refresh).toMatchObject({
       name: "Live name",
       city: "台北",
+      source_brand_id: "brand-1",
       overwrite_enrichment: true,
     });
     expect(linkedNonRefresh.overwrite_enrichment).toBe(false);

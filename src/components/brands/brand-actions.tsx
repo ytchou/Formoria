@@ -114,14 +114,6 @@ export function BrandActions({
           categoryLabel={categoryLabel}
         />
         {brandId && <SaveBrandButton brandId={brandId} slug={brandSlug} variant="inline" className="rounded-control" />}
-        {/* Origin-evidence reporting is unwired for launch, not deleted: its only
-            submit path required an account, and opening it to guests needs a
-            migration (`origin_evidence.user_id` is NOT NULL) plus an anonymous
-            upload path that `/api/upload` deliberately refuses today. Tracked on
-            the public board as `origin_evidence_reports` (in_progress). Re-render
-            `<EvidenceDialog brandId brandSlug />` here to restore it — the
-            component, server action, service, and admin review queue all still
-            work, so a dead-code pass must not remove them. */}
         {brandId && <ReportDialog brandId={brandId} brandSlug={brandSlug} />}
         {adminSlot}
       </div>

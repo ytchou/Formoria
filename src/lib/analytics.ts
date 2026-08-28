@@ -534,6 +534,16 @@ export function trackStoryCardClicked(
   });
 }
 
+export function trackNotFoundCategoryClicked(
+  categorySlug: string,
+  position: number,
+) {
+  capturePostHogEvent(ANALYTICS_EVENTS.NOT_FOUND_CATEGORY_CLICKED, {
+    category_slug: categorySlug,
+    position,
+  });
+}
+
 export function trackTrailCardClicked(
   trailSlug: string,
   position: number,
@@ -581,10 +591,6 @@ export function trackSubcategoryFilterApplied(
     parent_category: parentCategory,
     result_count: Math.trunc(resultCount),
   });
-}
-
-export function trackVerificationFilterApplied(status: string) {
-  capturePostHogEvent(ANALYTICS_EVENTS.VERIFICATION_FILTER_APPLIED, { status });
 }
 
 export function trackFilterCleared(
@@ -736,18 +742,6 @@ export function trackNewsletterSubscribed(
     interests,
     has_email: hasEmail,
     ...utmParams,
-  });
-}
-
-export function trackOriginEvidenceSubmitted(
-  brandId: string,
-  brandSlug: string,
-  stance: string,
-) {
-  capturePostHogEvent(ANALYTICS_EVENTS.ORIGIN_EVIDENCE_SUBMITTED, {
-    brand_id: brandId,
-    brand_slug: brandSlug,
-    stance,
   });
 }
 

@@ -32,6 +32,7 @@ import {
   trackFaqItemExpanded,
   trackBrandDetailEngaged,
   trackSavedBrandRevisited,
+  trackNotFoundCategoryClicked,
 } from './analytics'
 import { ANALYTICS_EVENTS } from './analytics/events'
 
@@ -323,6 +324,15 @@ describe('analytics', () => {
 
 
 
+  it('trackNotFoundCategoryClicked fires PostHog event', () => {
+    trackNotFoundCategoryClicked('fashion', 0)
+
+    expect(mockPostHogCapture).toHaveBeenCalledWith(ANALYTICS_EVENTS.NOT_FOUND_CATEGORY_CLICKED, {
+      category_slug: 'fashion',
+      position: 0,
+    })
+  })
+
   it('does not throw when gtag fails', () => {
     mockSendGAEvent.mockImplementation(() => {
       throw new Error('gtag not loaded')
@@ -444,7 +454,7 @@ describe('external link surface attribution', () => {
     trackExternalLinkClicked(
       'my-brand',
       'curated_product',
-      '/discover/small-space-reading-corner',
+      '/style/small-space-reading-corner',
       'trail:small-space-reading-corner:light-first',
       'brand-uuid',
     )
@@ -458,7 +468,7 @@ describe('external link surface attribution', () => {
     expect(mockSendGAEvent).toHaveBeenCalledWith('event', 'external_link_clicked', {
       brand_slug: 'my-brand',
       link_type: 'curated_product',
-      referrer_page: '/discover/small-space-reading-corner',
+      referrer_page: '/style/small-space-reading-corner',
       link_surface: 'trail:small-space-reading-corner:light-first',
     })
   })
@@ -483,11 +493,11 @@ describe('filter result counts', () => {
 
 describe('brand faq tracking', () => {
   it('tracks faq item expanded with preset id', () => {
-    trackFaqItemExpanded('my-brand', 'taiwan-origin')
+    trackFaqItemExpanded('my-brand', 'main-products')
 
     expect(mockPostHogCapture).toHaveBeenCalledWith('faq_item_expanded', {
       brand_slug: 'my-brand',
-      preset_id: 'taiwan-origin',
+      preset_id: 'main-products',
     })
   })
 
@@ -501,19 +511,19 @@ describe('brand faq tracking', () => {
       createElement(BrandFaqAccordion, {
         brandSlug: 'my-brand',
         items: [
-          { id: 'taiwan-origin', question: 'Where is it made?', answer: 'Taiwan.' },
+          { id: 'main-products', question: 'What does it make?', answer: 'Bags.' },
         ],
       })
     )
 
     const details = document.getElementById(
-      'faq-taiwan-origin'
+      'faq-main-products'
     ) as HTMLDetailsElement
 
     // The answer is in the DOM even while collapsed — the whole point of
     // rendering native <details> instead of a JS accordion.
     expect(details.open).toBe(false)
-    expect(details.textContent).toContain('Taiwan.')
+    expect(details.textContent).toContain('Bags.')
 
     act(() => {
       details.open = true

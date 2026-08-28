@@ -153,14 +153,14 @@ describe('keyword map invariants', () => {
       }
 
       if (cluster.page_type === 'l1-category') {
-        if (!L1_SLUGS.has(slug) || cluster.target_url !== `/categories/${slug}`) {
+        if (!L1_SLUGS.has(slug) || cluster.target_url !== `/brands?category=${slug}`) {
           invalid.push(`${describeCluster(cluster)} -> ${cluster.target_url}`)
         }
         continue
       }
 
       const subcategory = subcategoryBySlug(slug)
-      const expectedUrl = subcategory ? `/categories/${subcategory.category}/${slug}` : null
+      const expectedUrl = subcategory ? `/brands?category=${subcategory.category}&sub=${slug}` : null
       if (!subcategory || cluster.target_url !== expectedUrl) {
         invalid.push(`${describeCluster(cluster)} -> ${cluster.target_url}`)
       }
@@ -241,7 +241,7 @@ describe('keyword map invariants', () => {
     expect(live).toEqual([])
   })
 
-  it('the zh-TW L2 launch set stays between five and ten rows', () => {
+  it('the zh-TW L2 launch set matches the promoted count', () => {
     const launch = clusters.filter(
       cluster =>
         cluster.locale === 'zh-TW' &&
@@ -249,8 +249,8 @@ describe('keyword map invariants', () => {
         cluster.eligibility === 'launch',
     )
 
-    expect(launch.length).toBeGreaterThanOrEqual(5)
-    expect(launch.length).toBeLessThanOrEqual(10)
+    // 10 original + 23 promoted from defer-no-demand under launch L1s
+    expect(launch.length).toBeGreaterThanOrEqual(33)
   })
 
   it('every deferred L2 row that clears the 15-brand bar is defer-no-demand', () => {
@@ -491,7 +491,7 @@ describe('keyword map invariants', () => {
       }
       if (!cluster.target_url) violations.push(`${slug} is missing target_url`)
       if (cluster.indexability !== 'index') violations.push(`${slug} is ${cluster.indexability}`)
-      if (cluster.eligibility !== 'defer-no-demand') {
+      if (cluster.eligibility !== 'defer-no-demand' && cluster.eligibility !== 'launch') {
         violations.push(`${slug} has eligibility ${cluster.eligibility}`)
       }
       if (!cluster.content_requirement || cluster.content_requirement.startsWith('None')) {
@@ -524,9 +524,9 @@ describe('keyword map invariants', () => {
     const performanceApparel = clusters.find(cluster => cluster.ontology_slug === 'performance-apparel')
 
     expect(activewear, 'activewear map row is missing').toBeDefined()
-    expect(activewear?.target_status).toBe('proposed')
-    expect(activewear?.target_url).toBe('/categories/fashion/activewear')
-    expect(activewear?.eligibility).not.toBe('reject-taxonomy')
+    expect(activewear?.target_status).toBe('live')
+    expect(activewear?.target_url).toBe('/brands?category=fashion&sub=activewear')
+    expect(activewear?.eligibility).toBe('launch')
     expect(activewear?.indexability).toBe('index')
 
     expect(performanceApparel, 'performance-apparel map row is missing').toBeDefined()

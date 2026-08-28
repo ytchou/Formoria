@@ -252,6 +252,64 @@ export async function loadPersistedScrapeText(
   };
 }
 
+/**
+ * Per-URL structured scrape data rebuilt from persisted `brand_search_results`
+ * rows with `search_type='scrape'`. Returns a `perSourceText`-shaped record
+ * keyed by URL, carrying `title`, `description` and `story` when present.
+ *
+ * Queries the SAME rows and uses the SAME foreign-key branch as
+ * `loadPersistedScrapeText`. `links.ts:599-606` persists the whole
+ * `attempt.extracted` blob plus `url`, so `title` is recoverable.
+ *
+ * Accepts an optional injected client for testing without mocking Supabase.
+ */
+export async function loadPersistedScrapeStructure(
+  targetOrBrandId: EnrichmentTarget | string,
+  injectedClient?: ReturnType<typeof createServiceClient>,
+): Promise<
+  Record<string, { title: string | null; description: string | null; story: string | null }>
+> {
+  const supabase = injectedClient ?? createServiceClient();
+  const target =
+    typeof targetOrBrandId === "string"
+      ? brandTarget(targetOrBrandId)
+      : targetOrBrandId;
+  const foreignKey = target.type === "brand" ? "brand_id" : "submission_id";
+  const { data } = await supabase
+    .from("brand_search_results")
+    .select("urls, raw_response, call_status")
+    .eq(foreignKey, target.id)
+    .eq("search_type", "scrape")
+    .order("created_at", { ascending: false })
+    .limit(20);
+
+  const rows = (data ?? []) as PersistedScrapeRow[];
+  const result: Record<
+    string,
+    { title: string | null; description: string | null; story: string | null }
+  > = {};
+
+  for (const row of rows) {
+    if (row.call_status && !["succeeded", "empty"].includes(row.call_status))
+      continue;
+    const outer = isRecord(row.raw_response) ? row.raw_response : {};
+    const raw = isRecord(outer.extracted) ? outer.extracted : outer;
+    const pageUrl =
+      row.urls?.at(0) ?? stringValue(raw.pageUrl) ?? stringValue(raw.url);
+    if (!pageUrl) continue;
+
+    // First row for a URL wins (rows are ordered newest-first).
+    if (result[pageUrl]) continue;
+
+    result[pageUrl] = {
+      title: stringValue(raw.title),
+      description: stringValue(raw.description),
+      story: stringValue(raw.story),
+    };
+  }
+
+  return result;
+}
 
 /**
  * True when this run affirmatively revoked the column: the site-identity phase
@@ -404,7 +462,23 @@ export async function runDescriptionsPhase({
               : [];
         const truncatedSiteContent =
           persistedScrape.siteContent?.slice(0, 4000) ?? null;
-        const imageAlts: string[] = [];
+        let imageAlts: string[] = [];
+        try {
+          const { data: altRows } = await createServiceClient()
+            .from("brand_images")
+            .select("alt_zh")
+            .eq("brand_id", brand.id)
+            .eq("status", "active")
+            .not("alt_zh", "is", null)
+            .order("sort_order");
+          imageAlts = (altRows ?? [])
+            .map((r) => r.alt_zh)
+            .filter(
+              (v): v is string => typeof v === "string" && v.trim().length > 0,
+            );
+        } catch {
+          // Deploy-order window: alt_zh column may not exist yet (42703).
+        }
         const displayBrandName = getDisplayBrandName(brand);
         const evidence = buildDescriptionEvidence(
           brand,
@@ -492,14 +566,6 @@ export async function runDescriptionsPhase({
             ...(brandFacts.foundingYear != null &&
             shouldWrite(brand.founding_year)
               ? { founding_year: brandFacts.foundingYear }
-              : {}),
-            ...(brandFacts.mitIndicators && shouldWrite(brand.mit_evidence)
-              ? {
-                  mit_evidence: {
-                    enrichment_signals: brandFacts.mitIndicators.evidence,
-                    verified_source: "enrichment_signal",
-                  },
-                }
               : {}),
           };
 

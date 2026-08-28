@@ -17,7 +17,6 @@ function makeBrand(overrides: Partial<Brand> = {}): Brand {
     categorySlug: null,
     categoryLabel: null,
     city: null,
-    mitStatus: "unverified",
     isDemo: false,
     foundingYear: null,
     reputationSummary: null,
@@ -43,6 +42,7 @@ function makeBrand(overrides: Partial<Brand> = {}): Brand {
     createdAt: "",
     updatedAt: "",
     onboardingDismissedAt: null,
+    logoUrl: null,
     ...overrides,
   };
 }
@@ -195,15 +195,6 @@ describe("getBrandFaq", () => {
     // be padded in with weak content.
     expect(ids).not.toContain("main-products");
     expect(ids).not.toContain("reputation");
-    expect(ids).not.toContain("taiwan-origin");
-  });
-
-  it("orders verified taiwan-origin before other presets", async () => {
-    const { items } = await getFaq(
-      makeBrand({ mitStatus: "verified", subcategories: ["陶瓷"] }),
-    );
-
-    expect(items[0].id).toBe("taiwan-origin");
   });
 
   it("renders every eligible preset for a typical approved brand", async () => {
@@ -215,12 +206,11 @@ describe("getBrandFaq", () => {
           textEn: "Covered by a named design publication.",
           sources: [{ url: "https://example.com/feature" }],
         },
-        mitStatus: "unverified",
       }),
     );
 
-    // category-position is prompt-only (no template floor) and taiwan-origin
-    // requires verified MIT evidence; the other two reach the page.
+    // category-position is prompt-only (no template floor); the other two
+    // presets reach the page.
     expect(items.map((item) => item.id)).toEqual([
       "main-products",
       "reputation",

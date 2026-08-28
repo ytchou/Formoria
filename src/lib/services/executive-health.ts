@@ -1,5 +1,6 @@
 import { auditedCall } from "@/lib/audit";
 import { createServiceClient } from "@/lib/supabase/service";
+import { checkMitRegistryHealth } from "@/lib/services/mit-registry";
 import {
   SERVICE_REGISTRY,
   toInventoryProjection,
@@ -304,6 +305,13 @@ export function defaultChecks(): ExecutiveHealthCheckDefinition[] {
           ? { status: "down", message: "Database query failed" }
           : { status: "healthy", message: "Database reachable" };
       },
+    },
+    {
+      id: "mit-registry",
+      service: "MIT registry",
+      tier: "customer-flow",
+      request: { table: "mit_registry", operation: "latest_sync" },
+      run: checkMitRegistryHealth,
     },
     {
       id: "resend",

@@ -60,6 +60,11 @@ import { routes } from "@/lib/routes";
 import { Grid } from "@/components/ui/grid";
 import { shellStyles } from "@/components/ui/page-shell";
 import { cn } from "@/lib/utils";
+import { getCategoryEditorialLinks } from "@/lib/services/editorial-links";
+import {
+  RelatedStoryLink,
+  RelatedTrailLink,
+} from "@/components/stories/related-story-link";
 
 const EMPTY_STATE_RECOMMENDATION_LIMIT = 4;
 const VALID_CATEGORY_SLUGS: ReadonlySet<string> = new Set(
@@ -92,12 +97,8 @@ export async function DirectoryView({
   isCategoryRoute = false,
 }: DirectoryViewProps) {
   const safeLocale = locale;
-  const [t, verificationT, messages] = await Promise.all([
+  const [t, messages] = await Promise.all([
     getTranslations({ locale: safeLocale, namespace: "brands" }),
-    getTranslations({
-      locale: safeLocale,
-      namespace: "brands.verificationFilter",
-    }),
     getMessages({ locale: safeLocale }),
   ]);
 
@@ -128,18 +129,16 @@ export async function DirectoryView({
     ? categoryLabel(categoryTag, safeLocale)
     : t("heading");
   const search = filters.search ?? "";
-  const verificationFilter = filters.verificationFilter ?? "all";
   const shouldLoadTaxonomySummary = Boolean(singleValidCategory) && !search;
   const materials = filters.materials ?? [];
 
-  const [{ brands, totalCount }, taxonomySummary, materialCounts] =
+  const [{ brands, totalCount }, taxonomySummary, materialCounts, editorialLinks] =
     await Promise.all([
       getPublicBrandCards({
         search: search || undefined,
         category: brandCategoryFilter,
         subcategoryTags: activeSubSlugs,
         materials: materials.length > 0 ? materials : undefined,
-        verificationFilter,
         sort,
         page,
       }),
@@ -151,6 +150,12 @@ export async function DirectoryView({
           }),
       // Same single cache entry as the L2 counts, so this costs no extra query.
       getMaterialCounts(),
+      isCategoryRoute && singleValidCategory
+        ? getCategoryEditorialLinks(
+            singleValidCategory,
+            activeSubcategory?.slug,
+          )
+        : Promise.resolve({ trails: [], stories: [] }),
     ]);
   const subcategoriesWithCounts = singleValidCategory
     ? L2_SUBCATEGORIES.filter(
@@ -187,7 +192,6 @@ export async function DirectoryView({
       category: brandCategoryFilter,
       subcategoryTags: activeSubSlugs,
       materials: materials.length > 0 ? materials : undefined,
-      verificationFilter,
       sort,
       page: clampedPage,
     });
@@ -207,7 +211,6 @@ export async function DirectoryView({
     subcategorySlugs: activeSubSlugs,
     search,
     materials,
-    verificationFilter,
     sort,
   });
   const { directoryPath, normalizedParams } = urlState;
@@ -296,21 +299,6 @@ export async function DirectoryView({
       }),
     });
   }
-  if (verificationFilter !== "all") {
-    const value = verificationT(verificationFilter);
-    activeFilters.push({
-      id: "verification",
-      label: t("filters.activeStatus"),
-      value,
-      removeHref: updateDirectoryUrl(directoryPath, normalizedParams, {
-        verification: null,
-      }),
-      removeLabel: t("filters.removeFilter", {
-        label: t("filters.activeStatus"),
-        value,
-      }),
-    });
-  }
 
   let recommendedBrands: PublicBrandCard[] = [];
   let recommendationsHref = directoryPath;
@@ -351,7 +339,6 @@ export async function DirectoryView({
       categorySlugs: validCategoryFilter,
       search,
       materials,
-      verificationFilter,
       page,
     })
   ) {
@@ -385,7 +372,7 @@ export async function DirectoryView({
           ...(activeSubcategory
             ? {
                 href: localizePath(
-                  routes.category(categoryTag.slug),
+                  routes.brands({ category: categoryTag.slug }),
                   safeLocale,
                 ),
               }
@@ -574,6 +561,64 @@ export async function DirectoryView({
             currentPage={clampedPage}
             pageSize={DEFAULT_PAGE_SIZE}
           />
+          {editorialLinks.stories.length > 0 ||
+          editorialLinks.trails.length > 0 ? (
+            <nav
+              aria-label={t("editorialLinksAria")}
+              className="mt-section space-y-6"
+            >
+              {editorialLinks.stories.length > 0 ? (
+                <section aria-labelledby="category-stories" className="space-y-3">
+                  <h2
+                    id="category-stories"
+                    className="type-card-title"
+                  >
+                    {t("editorialStories")}
+                  </h2>
+                  <ul className="flex flex-wrap gap-x-4 gap-y-2 type-body-sm">
+                    {editorialLinks.stories.map((story, position) => (
+                      <li key={story.slug}>
+                        <RelatedStoryLink
+                          href={routes.story(story.slug)}
+                          storySlug={story.slug}
+                          position={position}
+                          storySurface="category_editorial_stories"
+                          className="text-accent underline underline-offset-4 hover:text-ink"
+                        >
+                          {story.title}
+                        </RelatedStoryLink>
+                      </li>
+                    ))}
+                  </ul>
+                </section>
+              ) : null}
+              {editorialLinks.trails.length > 0 ? (
+                <section aria-labelledby="category-trails" className="space-y-3">
+                  <h2
+                    id="category-trails"
+                    className="type-card-title"
+                  >
+                    {t("editorialTrails")}
+                  </h2>
+                  <ul className="flex flex-wrap gap-x-4 gap-y-2 type-body-sm">
+                    {editorialLinks.trails.map((trail, position) => (
+                      <li key={trail.slug}>
+                        <RelatedTrailLink
+                          href={routes.trail(trail.slug)}
+                          trailSlug={trail.slug}
+                          position={position}
+                          trailSurface="category_editorial_trails"
+                          className="text-accent underline underline-offset-4 hover:text-ink"
+                        >
+                          {trail.title}
+                        </RelatedTrailLink>
+                      </li>
+                    ))}
+                  </ul>
+                </section>
+              ) : null}
+            </nav>
+          ) : null}
         </div>
       </Grid>
     </NextIntlClientProvider>

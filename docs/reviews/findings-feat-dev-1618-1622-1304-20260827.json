@@ -1,0 +1,35 @@
+{
+  "findings": [
+    {
+      "severity": "Important",
+      "file": "src/lib/services/enrich-phases/scraper/fetch-guards.ts",
+      "line": "59",
+      "description": "The new gzip-path check constructed URL directly and could throw before the audited fetch guard handled invalid input.",
+      "failure_scenario": "A malformed sitemap URL reaches fetchXml, which throws synchronously instead of returning null without making a request.",
+      "flagged_by": "Angle C",
+      "status": "valid"
+    },
+    {
+      "severity": "Minor",
+      "file": "src/lib/services/enrich-phases/scraper/fetch-guards.ts",
+      "line": "203",
+      "description": "A gzip expansion beyond the output cap was initially classified as a malformed body instead of a bounded response.",
+      "failure_scenario": "A small compressed sitemap expands beyond 5 MiB, producing misleading malformed telemetry and omitting the truncated marker.",
+      "flagged_by": "Angle A",
+      "status": "valid"
+    }
+  ],
+  "active_lenses": [
+    "Angle A",
+    "Angle B",
+    "Angle C",
+    "Angle D",
+    "Angle E",
+    "Cleanup",
+    "Altitude",
+    "Conventions",
+    "Plan Alignment",
+    "Test Quality",
+    "Dead Code"
+  ]
+}

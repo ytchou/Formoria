@@ -1,3 +1,4 @@
+/* eslint-disable @next/next/no-html-link-for-pages -- test mocks use raw <a> tags */
 /**
  * @vitest-environment jsdom
  */
@@ -105,6 +106,69 @@ vi.mock("@/lib/auth/use-user", () => ({
   }),
 }));
 
+// The new async server components call `getTranslations` internally, and the
+// client TrailCarousel depends on embla-carousel which needs a real DOM.
+// Mock them so the zone-structure assertions stay fast and deterministic.
+vi.mock("@/components/landing/curated-product-grid", () => ({
+  CuratedProductGrid: ({ slots }: { slots: unknown[] }) => (
+    <div data-testid="curated-product-grid">{slots.length} products</div>
+  ),
+}));
+
+vi.mock("@/components/landing/trail-carousel", () => ({
+  default: ({
+    trails,
+    labels,
+  }: {
+    trails: { slug: string; frontmatter: { title: string } }[];
+    labels: { eyebrow: string; cta: string; prev: string; next: string };
+  }) => (
+    <ul data-testid="trail-carousel">
+      {trails.map((trail) => (
+        <li key={trail.slug} role="listitem">
+          <a href={`/style/${trail.slug}`}>
+            {/* eslint-disable-next-line @next/next/no-img-element -- test mock */}
+            <img src="/stub.webp" alt={trail.frontmatter.title} />
+            <h3>{trail.frontmatter.title}</h3>
+          </a>
+          <span>{labels.eyebrow}</span>
+        </li>
+      ))}
+    </ul>
+  ),
+}));
+
+vi.mock("@/components/landing/brand-strip", () => ({
+  default: ({
+    brands,
+    totalCount,
+  }: {
+    brands: { id: string; name: string }[];
+    totalCount: number;
+  }) => (
+    <div data-testid="brand-strip">
+      <h2>{en.landing.brands.count.replace("{count}", String(totalCount))}</h2>
+      <span>{brands.length} brands</span>
+      <a href="/brands">{en.landing.brands.browseAll}</a>
+    </div>
+  ),
+}));
+
+vi.mock("@/components/landing/mission-closer", () => ({
+  default: ({ brandCount }: { brandCount: number }) => (
+    <div data-testid="mission-closer">
+      <h2>{en.landing.missionCloser.headline}</h2>
+      <p>
+        {en.landing.missionCloser.subtitle.replace(
+          "{count}",
+          String(brandCount),
+        )}
+      </p>
+      <a href="/brands">{en.landing.missionCloser.cta}</a>
+    </div>
+  ),
+}));
+
 const { LandingZones } = await import("@/components/landing/landing-zones");
 const { isLandingRenderDegraded } = await import("@/app/[locale]/(site)/page");
 
@@ -142,6 +206,7 @@ function buildProduct(index: number): HomepageCuratedProduct {
     nameEn: fixture.nameEn ? `${fixture.nameEn}／${index}` : null,
     category: "home",
     subcategories: [],
+    mitQualified: false,
     officialUrl: "https://example.com/product",
     imageUrl: `/i/curated-products/p/${index}.jpg`,
     imageSourceUrl: null,
@@ -259,6 +324,7 @@ async function renderZones(overrides: ZoneOverrides = {}) {
     trails: [],
     stories: [buildStory("a-story")],
     brands: [buildBrand(0), buildBrand(1)],
+    totalBrandCount: 700,
     ...overrides,
   });
 
@@ -310,14 +376,14 @@ describe("landing page zones", () => {
     ).toBeInTheDocument();
     expect(
       within(trails!).getByRole("link", { name: en.landing.trails.linkText }),
-    ).toHaveAttribute("href", "/discover");
+    ).toHaveAttribute("href", "/style");
 
     const headings = within(trails!).getAllByRole("heading", { level: 3 });
     expect(headings).toHaveLength(1);
     expect(headings[0]).toHaveTextContent("Trail small-kitchen");
     expect(
       within(trails!).getByRole("link", { name: /Trail small-kitchen/ }),
-    ).toHaveAttribute("href", "/discover/small-kitchen");
+    ).toHaveAttribute("href", "/style/small-kitchen");
   });
 
   it("renders every published trail as a card in the zone", async () => {
@@ -379,68 +445,47 @@ describe("landing page zones", () => {
     ]);
   });
 
-  it("renders one brand rail, not two", async () => {
+  it("renders one brand strip, not two", async () => {
     const { container } = await renderZones();
 
     expect(
       container.querySelectorAll('[data-landing-zone="directory"]'),
     ).toHaveLength(1);
-    // `level: 2`, and the query stays page-wide so a second rail smuggled into
-    // any zone is still caught.
-    expect(
-      screen.getAllByRole("heading", {
-        name: en.landing.showcase.heading,
-        level: 2,
-      }),
-    ).toHaveLength(1);
+    // BrandStrip replaced BrandShowcase; verify the count heading renders.
+    expect(screen.getByTestId("brand-strip")).toBeInTheDocument();
 
     // The new-brands rail is gone with its copy: its two keys were deleted in
     // Wave 1, so a surviving second rail would render a missing-message error.
     expect(container.innerHTML).not.toContain("newBrands");
   });
 
-  it("renders the manifesto photo band in the seam slot", async () => {
-    // Restored 2026-08-17, reversing the DEV-1479 recut that put the thin trust
-    // seam here. The trust line itself now ships only on /about, /faq and the
-    // /og/trust card — asserted in the i18n spec, not here.
+  it("renders MissionCloser in the manifesto zone", async () => {
     const { container } = await renderZones();
 
-    // The zone is named for what it renders. It briefly carried
-    // `data-landing-zone="seam"` after the band was restored into the slot the
-    // trust seam had occupied, which made the selector a lie.
-    const seam = container.querySelector<HTMLElement>(
+    const manifesto = container.querySelector<HTMLElement>(
       '[data-landing-zone="manifesto"]',
     )!;
+    expect(manifesto).not.toBeNull();
     expect(
-      within(seam).getByRole("heading", {
-        name: en.landing.manifesto.headline,
+      within(manifesto).getByRole("heading", {
+        name: en.landing.missionCloser.headline,
       }),
     ).toBeInTheDocument();
     expect(
-      within(seam).getByText(en.landing.manifesto.body1),
-    ).toBeInTheDocument();
-    expect(
-      within(seam).getByText(en.landing.manifesto.body2),
-    ).toBeInTheDocument();
-    expect(
-      within(seam).getByRole("link", { name: en.landing.manifesto.cta }),
-    ).toHaveAttribute("href", "/about");
-
-    // The photograph is decorative and must not preload — the hero owns that.
-    const image = seam.querySelector("img")!;
-    expect(image.getAttribute("src")).toContain("manifesto-bg");
-    expect(image.getAttribute("alt")).toBe("");
-    expect(image.getAttribute("data-priority")).toBe("false");
+      within(manifesto).getByRole("link", {
+        name: en.landing.missionCloser.cta,
+      }),
+    ).toHaveAttribute("href", "/brands");
   });
 
-  it("omits the brand-count figure", async () => {
-    const { container } = await renderZones();
+  it("renders the brand count in the directory zone", async () => {
+    const { container } = await renderZones({ totalBrandCount: 700 });
 
     const directory = container.querySelector<HTMLElement>(
       '[data-landing-zone="directory"]',
     )!;
-    // The stat line sat directly above the rail. Nothing in the rail counts.
-    expect(directory.textContent ?? "").not.toMatch(/\d/);
+    // BrandStrip now renders a count line — verify it appears.
+    expect(directory.textContent).toContain("700");
   });
 
   it("keeps the degraded-render wiring intact", () => {

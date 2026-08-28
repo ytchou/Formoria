@@ -509,7 +509,6 @@ const BRAND_DRAFT_EDITABLE_KEYS = [
   "productPhotos",
   "subcategories",
   ...ONLINE_STORE_CAMEL_FIELDS,
-  "mitStory",
   "otherUrls",
   "reputationSummary",
 ] as const satisfies readonly (keyof Brand)[];
@@ -624,9 +623,6 @@ export function draftSnapshotToDomain(
         partial.subcategories =
           (snapshot.subcategories as Brand["subcategories"]) ?? [];
         break;
-      case "mitStory":
-        partial.mitStory = snapshot.mitStory as string | null;
-        break;
       case "otherUrls":
         partial.otherUrls = (snapshot.otherUrls as Brand["otherUrls"]) ?? [];
         break;
@@ -688,18 +684,13 @@ export function brandToDomain(row: BrandRowWithJoins): Brand {
     heroImageUrl:
       imagePathToUrl(row.hero_image_storage_path) ??
       storageBackedHeroFallback(row.hero_image_url),
+    logoUrl: imagePathToUrl(row.logo_storage_path) ?? null,
     heroImageMetadata: null,
     // status is text in the DB — cast to BrandStatus at the boundary
     status: row.status as Brand["status"],
     categorySlug: row.category ?? null,
     categoryLabel:
       deriveCategoryLabel(row.category ?? "") ?? row.category ?? null,
-    mitStatus: (row.mit_status as Brand["mitStatus"]) ?? "unverified",
-    mitDeclaredScope:
-      (row.mit_declared_scope as Brand["mitDeclaredScope"]) ?? null,
-    mitDeclaredAt: row.mit_declared_at ?? null,
-    mitEvidence: (row.mit_evidence as Brand["mitEvidence"]) ?? null,
-    mitStory: row.mit_story ?? null,
     isDemo: row.is_demo ?? false,
     foundingYear: row.founding_year ?? null,
     city: row.city ?? null,
@@ -737,7 +728,7 @@ async function brandToDomainWithImages(
 }
 
 const CARD_IMAGE_SELECT =
-  "brand_id, storage_path, tags, sort_order, width, height";
+  "brand_id, storage_path, tags, sort_order, width, height, alt_zh";
 
 type CardImageRow = Pick<
   Database["public"]["Tables"]["brand_images"]["Row"],
@@ -747,6 +738,7 @@ type CardImageRow = Pick<
   | "sort_order"
   | "width"
   | "height"
+  | "alt_zh"
 >;
 
 /**
@@ -905,6 +897,7 @@ export async function hydrateCardImageMeta<
     const heroMeta = heroRow
       ? {
           isLogo: isLogoImageTags(heroRow.tags),
+          altZh: heroRow.alt_zh ?? undefined,
         }
       : {
           // Unknown hero metadata must not win over a known product photo.
@@ -924,6 +917,7 @@ export async function hydrateCardImageMeta<
           ? [
               {
                 isLogo: false,
+                altZh: productRow.alt_zh ?? undefined,
               },
             ]
           : []),
@@ -944,9 +938,6 @@ export function brandToInsert(data: BrandWriteInput): Record<string, unknown> {
   if (data.reputationSummary !== undefined) {
     row.reputation_summary =
       data.reputationSummary as typeof row.reputation_summary;
-  }
-  if (data.mitEvidence !== undefined) {
-    row.mit_evidence = data.mitEvidence;
   }
   if (data.siteContent !== undefined) {
     // Opaque jsonb pass-through; the microsite shape-enforcer was parked in DEV-1570.
@@ -1011,6 +1002,7 @@ export const BRAND_COLUMN_LIST = [
   "blurb_en",
   "hero_image_url",
   "hero_image_storage_path",
+  "logo_storage_path",
   "category",
   "contact_email",
   "city",
@@ -1032,12 +1024,6 @@ export const BRAND_COLUMN_LIST = [
   "subcategories",
   "subcategories_en",
   "reputation_summary",
-  "mit_status",
-  "mit_declared_scope",
-  "mit_declared_at",
-  "mit_verified_at",
-  "mit_story",
-  "mit_evidence",
   "source",
   "is_demo",
 ] as const;
@@ -1052,7 +1038,6 @@ export const BRAND_COLUMN_LIST = [
 export const DIRECTORY_OMITTED_COLUMNS = [
   "site_content",
   "draft_data",
-  "mit_evidence",
   "reputation_summary",
 ] as const;
 
@@ -1074,12 +1059,12 @@ const PUBLIC_BRAND_CARD_COLUMN_LIST = [
   "blurb_en",
   "hero_image_url",
   "hero_image_storage_path",
+  "logo_storage_path",
   "category",
   "status",
   "founding_year",
   "subcategories",
   "subcategories_en",
-  "mit_status",
 ] as const;
 
 /** Columns allowed to cross the public detail boundary. */
@@ -1091,8 +1076,6 @@ const PUBLIC_BRAND_DETAIL_COLUMN_LIST = [
   "social_threads",
   "social_facebook",
   "other_urls",
-  "mit_story",
-  "mit_evidence",
 ] as const;
 
 /** Evidence fields used only to render the public FAQ template floors. */
@@ -1107,9 +1090,6 @@ const PUBLIC_BRAND_FAQ_CONTEXT_COLUMN_LIST = [
   "subcategories",
   "subcategories_en",
   "reputation_summary",
-  "mit_status",
-  "mit_declared_scope",
-  "mit_story",
 ] as const;
 
 const BRAND_COLUMNS = BRAND_COLUMN_LIST.join(", ");
@@ -1451,7 +1431,7 @@ type GetBrandsFilters = BrandFilters & {
   /**
    * Opt in to the full column projection (jsonb blobs + draft data). Public
    * directory callers must leave this off — those columns are dead weight in
-   * the RSC payload. Only the admin table, which renders `mitEvidence`, needs it.
+   * the RSC payload. Only consumers that render full review data need it.
    */
   includeDetailColumns?: boolean;
 };
@@ -1477,13 +1457,15 @@ export function directoryBrandCategoryFilter(
   if (subcategorySlugs.length > 0) return undefined;
   return categorySlugs.length > 0
     ? [...categorySlugs]
-    : VISIBLE_L1_CATEGORIES.map(c => c.slug);
+    : VISIBLE_L1_CATEGORIES.map((c) => c.slug);
 }
 
 /** Derived from `DEFERRED_CATEGORY_SLUGS` — display-name filter because
  *  `search_brands` RPC only returns `primary_category_name`, not the slug. */
 const DEFERRED_CATEGORY_NAMES: ReadonlySet<string> = new Set(
-  L1_CATEGORIES.filter(c => DEFERRED_CATEGORY_SLUGS.has(c.slug)).flatMap(c => [c.name, c.nameZh])
+  L1_CATEGORIES.filter((c) => DEFERRED_CATEGORY_SLUGS.has(c.slug)).flatMap(
+    (c) => [c.name, c.nameZh],
+  ),
 );
 
 function getBrandsSelect(filters: GetBrandsFilters | undefined): "*" {
@@ -1556,11 +1538,6 @@ export async function getBrands(
       return { brands: [], totalCount: 0 };
     }
 
-    const verificationFilter =
-      filters.verificationFilter && filters.verificationFilter !== "all"
-        ? filters.verificationFilter
-        : null;
-
     const { offset, limit: pageLimit } = getSearchPagination({
       ...filters,
       limit: DEFAULT_PAGE_SIZE,
@@ -1576,7 +1553,7 @@ export async function getBrands(
         // filter added only there would be silently dropped the moment a user
         // types — the same defect class as the `?sub=` no-op (DEV-1510).
         filter_materials: materials,
-        filter_verification: verificationFilter,
+        filter_verification: null,
         page_offset: offset,
         sort_mode:
           filters.sort && filters.sort !== "random" ? filters.sort : "rank",
@@ -1604,7 +1581,7 @@ export async function getBrands(
           filter_categories: filters.category?.length ? filters.category : null,
           filter_subcategories: subcategoryTags,
           filter_materials: materials,
-          filter_verification: verificationFilter,
+          filter_verification: null,
           page_offset: 0,
           sort_mode:
             filters.sort && filters.sort !== "random" ? filters.sort : "rank",
@@ -1648,14 +1625,9 @@ export async function getBrands(
     return { brands: await withCardImageMeta(brands), totalCount };
   }
 
-  const verificationFilter = filters?.verificationFilter;
   const selectClause = getBrandsSelect(filters);
 
   let query = supabase.from("brands").select(selectClause, { count: "exact" });
-
-  if (verificationFilter === "mit-declared") {
-    query = query.eq("mit_status", "declared");
-  }
 
   if (!filters?.includeTestBrands) {
     query = excludeTestBrands(query);
@@ -1722,10 +1694,7 @@ export async function getBrands(
 
 /** Public directory boundary: only card fields are returned to the caller. */
 export async function getPublicBrandCards(
-  filters?: Pick<
-    BrandFilters,
-    "category" | "materials" | "verificationFilter" | "search" | "sort"
-  > & {
+  filters?: Pick<BrandFilters, "category" | "materials" | "search" | "sort"> & {
     page?: number;
     subcategoryTags?: string[];
   },
@@ -1933,7 +1902,7 @@ export async function getMaterialCounts(): Promise<Map<string, number>> {
   return summarizeMaterialCounts(await getCachedSubcategoryRows());
 }
 
-export const EXPLORE_BRAND_LIMIT = 10;
+export const EXPLORE_BRAND_LIMIT = 12;
 
 const getCachedExploreBrandPool = unstable_cache(
   () =>
@@ -2028,7 +1997,9 @@ export async function searchBrandsAutocomplete(
   }
 
   return (data ?? [])
-    .filter((row) => !DEFERRED_CATEGORY_NAMES.has(row.primary_category_name ?? ""))
+    .filter(
+      (row) => !DEFERRED_CATEGORY_NAMES.has(row.primary_category_name ?? ""),
+    )
     .map((row) => ({
       id: row.id,
       slug: row.slug,
@@ -2574,11 +2545,19 @@ export async function getBrandStats(): Promise<{
           .from("brands")
           .select(BRAND_COLUMNS as "*", { count: "exact", head: true })
           .eq("status", "approved")
-          .or(`category.is.null,category.in.(${VISIBLE_L1_CATEGORIES.map(c => c.slug).join(",")})`),
+          .or(
+            `category.is.null,category.in.(${VISIBLE_L1_CATEGORIES.map((c) => c.slug).join(",")})`,
+          ),
       ),
       excludeTestBrands(
-        supabase.from("brands").select("category").eq("status", "approved")
-          .in("category", VISIBLE_L1_CATEGORIES.map(c => c.slug)),
+        supabase
+          .from("brands")
+          .select("category")
+          .eq("status", "approved")
+          .in(
+            "category",
+            VISIBLE_L1_CATEGORIES.map((c) => c.slug),
+          ),
       ).not("category", "is", null),
     ]);
 

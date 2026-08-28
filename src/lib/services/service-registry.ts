@@ -503,10 +503,10 @@ export const SERVICE_REGISTRY: readonly ServiceEntry[] = [
     vendor: "Taiwan Ministry of Economic Affairs",
     category: "registry",
     criticality: "customer-flow",
-    operationalSection: "deprecated",
+    operationalSection: "production",
     operationalKind: "dependency",
-    envVars: [],
-    status: "dormant",
+    envVars: ["NEXT_PUBLIC_SUPABASE_URL", "SUPABASE_SERVICE_ROLE_KEY"],
+    status: "active",
     plan: {
       kind: "free",
       monthlyUsd: 0,
@@ -514,6 +514,7 @@ export const SERVICE_REGISTRY: readonly ServiceEntry[] = [
       sourceUrl: "https://keid.nat.gov.tw/mittw/",
     },
     dashboardUrl: "https://keid.nat.gov.tw/mittw/",
+    probe: "executive-health",
     notes:
       "Health is read from the local mirror and its weekly sync timestamp.",
   },
@@ -642,6 +643,26 @@ export const SERVICE_REGISTRY: readonly ServiceEntry[] = [
     dashboardUrl: "https://console.cloud.google.com/",
     notes:
       "Provisioned for the retail location widget; no production caller is wired.",
+  },
+  {
+    id: "langfuse",
+    name: "Langfuse",
+    vendor: "Langfuse",
+    category: "observability",
+    criticality: "dev-tooling",
+    operationalSection: "back-office",
+    operationalKind: "dependency",
+    envVars: ["LANGFUSE_PUBLIC_KEY", "LANGFUSE_SECRET_KEY", "LANGFUSE_HOST"],
+    status: "active",
+    plan: {
+      kind: "free",
+      monthlyUsd: 0,
+      asOf: TODAY,
+      sourceUrl: "https://langfuse.com/pricing",
+    },
+    dashboardUrl: "https://cloud.langfuse.com",
+    notes:
+      "LLM tracing and eval. Free cloud hobby tier (50k observations/month). No-ops when env vars are unset.",
   },
 ];
 

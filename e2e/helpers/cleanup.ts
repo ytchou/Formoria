@@ -386,9 +386,6 @@ export async function cleanupTestData({ createdSince }: CleanupOptions = {}) {
   const submissionImages = submissionIds.length
     ? await queryRows(supabase, 'submission_images', 'storage_path, submission_id', failures)
     : [];
-  const originEvidence = brandIds.length
-    ? await queryRows(supabase, 'origin_evidence', 'photo_paths, brand_id', failures)
-    : [];
   const reports = (await queryRows(
     supabase,
     'brand_reports',
@@ -405,19 +402,14 @@ export async function cleanupTestData({ createdSince }: CleanupOptions = {}) {
   const submissionImagePaths = submissionImages
     .filter((row) => submissionIds.includes(String(row.submission_id)))
     .map((row) => String(row.storage_path ?? ''));
-  const originEvidencePaths = originEvidence
-    .filter((row) => brandIds.includes(String(row.brand_id)))
-    .flatMap((row) => Array.isArray(row.photo_paths) ? row.photo_paths.map(String) : []);
   const storagePrefixes = {
     brandImages: [
       ...submissionIds.map((id) => `submissions/${id}`),
       ...brandIds.map((id) => `brands/${id}`),
     ],
-    originEvidence: brandIds,
   };
   const storageObjects = {
     brandImages: (await Promise.all(storagePrefixes.brandImages.map((prefix) => listStorageObjects(supabase, 'brand-images', prefix, failures)))).flat(),
-    originEvidence: (await Promise.all(storagePrefixes.originEvidence.map((prefix) => listStorageObjects(supabase, 'origin-evidence', prefix, failures)))).flat(),
   };
 
   const jobs = (await queryRows(
@@ -488,7 +480,6 @@ export async function cleanupTestData({ createdSince }: CleanupOptions = {}) {
   await deleteWhereIn(supabase, 'pending_brand_edits', 'brand_id', brandIds, failures);
   await deleteWhereIn(supabase, 'brand_saves', 'brand_id', brandIds, failures);
   await deleteWhereIn(supabase, 'brand_channels', 'brand_id', brandIds, failures);
-  await deleteWhereIn(supabase, 'origin_evidence', 'brand_id', brandIds, failures);
   await deleteWhereIn(supabase, 'brand_field_events', 'brand_id', brandIds, failures);
   await deleteWhereIn(supabase, 'brand_field_state', 'brand_id', brandIds, failures);
   await deleteWhereIn(supabase, 'brand_images', 'brand_id', brandIds, failures);
@@ -505,7 +496,6 @@ export async function cleanupTestData({ createdSince }: CleanupOptions = {}) {
 
   await removeStorageObjects(supabase, 'brand-images', [...brandImagePaths, ...submissionImagePaths, ...storageObjects.brandImages], failures);
   await removeStorageObjects(supabase, 'claim-proofs', claimProofObjects, failures);
-  await removeStorageObjects(supabase, 'origin-evidence', [...originEvidencePaths, ...storageObjects.originEvidence], failures);
 
   if (!createdSince) {
     for (const failure of failures) console.warn(`[e2e-cleanup] ${failure}`);
@@ -553,7 +543,6 @@ export async function cleanupTestData({ createdSince }: CleanupOptions = {}) {
     ['pending_brand_edits', 'brand_id', brandIds],
     ['brand_saves', 'brand_id', brandIds],
     ['brand_channels', 'brand_id', brandIds],
-    ['origin_evidence', 'brand_id', brandIds],
   ] as const) {
     await countBy(`${table}`, ids.length
       ? supabase.from(table).select('id', { count: 'exact', head: true }).in(column, ids)
@@ -561,7 +550,6 @@ export async function cleanupTestData({ createdSince }: CleanupOptions = {}) {
   }
   for (const [bucket, prefixes] of [
     ['brand-images', storagePrefixes.brandImages],
-    ['origin-evidence', storagePrefixes.originEvidence],
   ] as const) {
     for (const prefix of prefixes) {
       const objects = await listStorageObjects(supabase, bucket, prefix, residue);

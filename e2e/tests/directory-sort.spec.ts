@@ -17,7 +17,7 @@ test.describe("Directory sort deep", () => {
       // directory link that survived is the one at the foot of the brand rail,
       // and it is matched by its /brands href rather than its copy so the next
       // rewrite of the wording does not silently empty this selector.
-      page.getByRole("main").locator('a[href="/brands"]'),
+      page.getByRole("main").locator('a[href="/brands"]').first(),
     ).toBeVisible();
   });
 
@@ -40,7 +40,7 @@ test.describe("Directory sort deep", () => {
   test('selecting "最新" preserves the category landing path', async ({
     page,
   }) => {
-    await page.goto("/categories/home");
+    await page.goto("/brands?category=home");
 
     const sortSelect = page.getByRole("combobox", { name: "排序方式" });
     await expect(sortSelect).toBeVisible({ timeout: BUDGET.INTERACTIVE });
@@ -49,7 +49,8 @@ test.describe("Directory sort deep", () => {
 
     await expect(page).toHaveURL(
       (url) =>
-        url.pathname === "/categories/home" &&
+        url.pathname === "/brands" &&
+        url.searchParams.get("category") === "home" &&
         url.searchParams.get("sort") === "newest",
       { timeout: BUDGET.INTERACTIVE },
     );

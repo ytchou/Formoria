@@ -7,6 +7,7 @@ import {
 import { DESCRIPTION_SYSTEM_PROMPT } from "@/lib/prompts";
 import { auditedCall } from "@/lib/audit";
 import { reportBannedTerms } from "@/lib/i18n/banned-terms";
+import { fetchLangfusePrompt } from "@/lib/langfuse/prompt";
 import { parseJson } from "./openai-client";
 import {
   buildProfiledEnrichmentConfig,
@@ -620,6 +621,7 @@ export async function rewriteBrandDescription(
   // brand whose every call died at the provider may fail its target.
   const calls = noLlmCalls();
 
+  const descriptionSystemPrompt = await fetchLangfusePrompt("descriptions", DESCRIPTION_SYSTEM_PROMPT);
   try {
     for (let attemptIndex = 0; attemptIndex < 2; attemptIndex += 1) {
       const retryInstruction =
@@ -639,7 +641,7 @@ export async function rewriteBrandDescription(
         { apiKey: token },
       );
       const { response, data, content } = await client.chat({
-        system: DESCRIPTION_SYSTEM_PROMPT,
+        system: descriptionSystemPrompt,
         user: `${userContent}${retryInstruction}`,
         json: true,
         ...profileChatParams("descriptions"),

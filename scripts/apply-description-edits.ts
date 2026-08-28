@@ -448,7 +448,7 @@ const BATCH_2: Edit[] = [
     ref: "OD-10",
     brand: "NIKKO HELMETS",
     slug: "nikko-helmets",
-    why: "The record put the brand's manufacturing base in Tainan; its own About pages say NIKKO was founded in California in 2011 and brought to Taiwan in 2016 by 東億兆實業有限公司 (founded 1974), with Tainan 歸仁 as the office address. The India-manufacturing caveat is deliberately NOT included (your call, 2026-08-12): this is a directory that explains brands rather than audits them, and NIKKO operates as a Taiwanese brand today. The result is silent on manufacturing location rather than claiming Taiwan production — so mit_status stays unverified and nothing here feeds the MIT ladder.",
+    why: "The record put the brand's manufacturing base in Tainan; its own About pages say NIKKO was founded in California in 2011 and brought to Taiwan in 2016 by 東億兆實業有限公司 (founded 1974), with Tainan 歸仁 as the office address. The India-manufacturing caveat is deliberately NOT included (your call, 2026-08-12): this is a directory that explains brands rather than audits them, and NIKKO operates as a Taiwanese brand today. The result is silent on manufacturing location.",
     guard: { field: "description", contains: "品牌以台南為製造基地" },
     sets: {
       description:

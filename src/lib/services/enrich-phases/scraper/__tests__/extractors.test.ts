@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, vi } from 'vitest'
 import * as cheerio from 'cheerio'
 import {
   filterHeroImage,
@@ -11,6 +11,8 @@ import {
   extractJsonLdImages,
   upgradeEcommerceImageUrl,
   largestSrcsetUrl,
+  extractFavicons,
+  extractScopedProductImages,
 } from '../parse/extractors'
 
 describe('filterHeroImage', () => {
@@ -155,9 +157,9 @@ describe('extractPinkoiProductImages', () => {
     const $ = cheerio.load(html)
     const images = extractPinkoiProductImages($)
     expect(images).toHaveLength(3)
-    expect(images[0]).toBe('https://cdn01.pinkoi.com/product/abc1/1/800x0.jpg')
-    expect(images[1]).toBe('https://cdn01.pinkoi.com/product/abc2/1/800x0.jpg')
-    expect(images[2]).toBe('https://cdn01.pinkoi.com/product/abc3/1/800x0.jpg')
+    expect(images[0]).toBe('https://cdn01.pinkoi.com/product/abc1/1/1080x0.jpg')
+    expect(images[1]).toBe('https://cdn01.pinkoi.com/product/abc2/1/1080x0.jpg')
+    expect(images[2]).toBe('https://cdn01.pinkoi.com/product/abc3/1/1080x0.jpg')
   })
 
   it('caps at MAX_GALLERY_IMAGES', () => {
@@ -182,6 +184,24 @@ describe('extractPinkoiProductImages', () => {
     const images = extractPinkoiProductImages($)
     expect(images).toHaveLength(1)
     expect(images[0]).toContain('/product/')
+  })
+
+  it('requests gate-sized Pinkoi images instead of storefront thumbnails', () => {
+    const $ = cheerio.load(`
+      <img src="https://cdn01.pinkoi.com/product/jf8Gw87P/0/1/220x220.jpg" />
+    `)
+    expect(extractPinkoiProductImages($)).toEqual([
+      'https://cdn01.pinkoi.com/product/jf8Gw87P/0/1/1080x0.jpg',
+    ])
+  })
+
+  it('extracts product images from cdn02.pinkoi.com', () => {
+    const $ = cheerio.load(`
+      <img src="https://cdn02.pinkoi.com/product/abc/0/1/220x220.jpg" />
+    `)
+    expect(extractPinkoiProductImages($)).toEqual([
+      'https://cdn02.pinkoi.com/product/abc/0/1/1080x0.jpg',
+    ])
   })
 
   it('returns empty array when no Pinkoi CDN product images found', () => {
@@ -342,6 +362,8 @@ describe('upgradeEcommerceImageUrl', () => {
     ['Shopline ?w=', 'https://img.shoplineapp.com/media/image/original.png?w=300', 'https://img.shoplineapp.com/media/image/original.png'],
     // The sibling query params survive — only the width is dropped.
     ['Shopline ?width= among other params', 'https://shoplineimg.com/media/file.jpg?width=400&quality=80', 'https://shoplineimg.com/media/file.jpg?quality=80'],
+    ['Pinkoi cdn01 thumbnail', 'https://cdn01.pinkoi.com/product/abc/0/1/220x220.jpg', 'https://cdn01.pinkoi.com/product/abc/0/1/1080x0.jpg'],
+    ['Pinkoi cdn02 thumbnail', 'https://cdn02.pinkoi.com/product/xyz/0/2/320x320.png', 'https://cdn02.pinkoi.com/product/xyz/0/2/1080x0.png'],
   ])('upgrades %s', (_label, input, expected) => {
     expect(upgradeEcommerceImageUrl(input)).toBe(expected)
   })
@@ -351,6 +373,7 @@ describe('upgradeEcommerceImageUrl', () => {
   it.each([
     ['an unrecognised host', 'https://cdn.example.com/photo.jpg'],
     ['a known host with no dimension token', 'https://cdn.shopify.com/s/files/1/products/photo.jpg'],
+    ['an already-upgraded Pinkoi URL', 'https://cdn01.pinkoi.com/product/abc/0/1/1080x0.jpg'],
   ])('leaves %s untouched', (_label, input) => {
     expect(upgradeEcommerceImageUrl(input)).toBe(input)
   })
@@ -397,5 +420,93 @@ describe('largestSrcsetUrl', () => {
     expect(largestSrcsetUrl('https://cdn.site.com/x.jpg not-a-descriptor')).toBe(
       'https://cdn.site.com/x.jpg'
     )
+  })
+})
+
+describe('extractScopedProductImages', () => {
+  it('falls back to srcset when src is absent', () => {
+    const html = '<div data-product-id="x"><img srcset="https://cdn.site.com/s.jpg 320w, https://cdn.site.com/l.jpg 1280w" /></div>'
+    const $ = cheerio.load(html)
+    const result = extractScopedProductImages($, ['[data-product-id] img'], 'https://cdn.site.com')
+    expect(result).toEqual(['https://cdn.site.com/l.jpg'])
+  })
+
+  it('prefers src over srcset', () => {
+    const html = '<div data-product-id="x"><img src="https://cdn.site.com/main.jpg" srcset="https://cdn.site.com/l.jpg 1280w" /></div>'
+    const $ = cheerio.load(html)
+    const result = extractScopedProductImages($, ['[data-product-id] img'], 'https://cdn.site.com')
+    expect(result).toEqual(['https://cdn.site.com/main.jpg'])
+  })
+})
+
+describe('extractFavicons', () => {
+  it('returns apple-touch-icon URL', async () => {
+    const $ = cheerio.load('<link rel="apple-touch-icon" href="/icon-180.png">')
+    const result = await extractFavicons($, 'https://site.com')
+    expect(result).toContain('https://site.com/icon-180.png')
+  })
+
+  it('prefers apple-touch-icon over generic icon', async () => {
+    const $ = cheerio.load(
+      '<link rel="icon" sizes="32x32" href="/icon-32.png">' +
+      '<link rel="apple-touch-icon" href="/apple-180.png">'
+    )
+    const result = await extractFavicons($, 'https://site.com')
+    expect(result[0]).toBe('https://site.com/apple-180.png')
+  })
+
+  it('skips .ico files', async () => {
+    const $ = cheerio.load(
+      '<link rel="icon" href="/favicon.ico">' +
+      '<link rel="icon" href="/icon-32.png">'
+    )
+    const result = await extractFavicons($, 'https://site.com')
+    expect(result).not.toContain('https://site.com/favicon.ico')
+    expect(result).toContain('https://site.com/icon-32.png')
+  })
+
+  it('resolves relative URLs against baseUrl', async () => {
+    const $ = cheerio.load('<link rel="apple-touch-icon" href="/assets/apple-icon.png">')
+    const result = await extractFavicons($, 'https://example.com')
+    expect(result).toContain('https://example.com/assets/apple-icon.png')
+  })
+
+  it('returns empty for pages with no icon links', async () => {
+    const $ = cheerio.load('<html><head><title>No icons</title></head></html>')
+    const result = await extractFavicons($, 'https://site.com')
+    expect(result).toEqual([])
+  })
+
+  it('includes manifest icon URL when no link icons found', async () => {
+    const manifestJson = JSON.stringify({
+      icons: [{ src: '/icon-512.png', sizes: '512x512', type: 'image/png' }],
+    })
+    vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce(
+      new Response(manifestJson, { status: 200 })
+    )
+
+    const $ = cheerio.load('<link rel="manifest" href="/manifest.json">')
+    const result = await extractFavicons($, 'https://site.com')
+    expect(result).toContain('https://site.com/icon-512.png')
+
+    vi.restoreAllMocks()
+  })
+
+  it('picks largest manifest icon', async () => {
+    const manifestJson = JSON.stringify({
+      icons: [
+        { src: '/icon-192.png', sizes: '192x192', type: 'image/png' },
+        { src: '/icon-512.png', sizes: '512x512', type: 'image/png' },
+      ],
+    })
+    vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce(
+      new Response(manifestJson, { status: 200 })
+    )
+
+    const $ = cheerio.load('<link rel="manifest" href="/manifest.json">')
+    const result = await extractFavicons($, 'https://site.com')
+    expect(result[0]).toBe('https://site.com/icon-512.png')
+
+    vi.restoreAllMocks()
   })
 })

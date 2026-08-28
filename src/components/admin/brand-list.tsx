@@ -55,26 +55,8 @@ import { inkActionClassName } from "@/components/admin/ink-action";
 import { routes } from "@/lib/routes";
 
 type TabValue = "all" | BrandStatus;
-type MitStatus = NonNullable<AdminBrandListItem["mitStatus"]>;
 const PAGE_SIZES = [10, 25, 50] as const;
 
-// Labels live in `admin.brands.mitStatus.*` and are looked up by status inside
-// `MitStatusBadge`: this map is module scope, where `t()` cannot be called.
-const MIT_STATUS_CONFIG: Record<MitStatus, { className: string }> = {
-  unverified: {
-    className: "bg-surface text-ink-muted",
-  },
-  declared: {
-    className: "bg-surface text-ink-muted",
-  },
-  verified: {
-    className: "bg-verified-green-bg text-verified-green",
-  },
-};
-
-function getMitStatus(brand: AdminBrandListItem): MitStatus {
-  return brand.mitStatus ?? "unverified";
-}
 
 /**
  * `request_brand_refresh` accepts approved and hidden brands only (it raises on
@@ -83,22 +65,6 @@ function getMitStatus(brand: AdminBrandListItem): MitStatus {
  */
 function canGenerateProducts(brand: AdminBrandListItem): boolean {
   return brand.status === "approved" || brand.status === "hidden";
-}
-
-function MitStatusBadge({ status }: { status: MitStatus }) {
-  const t = useTranslations("admin.brands");
-  const config = MIT_STATUS_CONFIG[status];
-
-  return (
-    <span
-      className={cn(
-        "inline-flex items-center rounded-full px-2.5 py-0.5 type-metadata",
-        config.className,
-      )}
-    >
-      {t(`mitStatus.${status}`)}
-    </span>
-  );
 }
 
 export function BrandList({
@@ -117,7 +83,6 @@ export function BrandList({
   const t = useTranslations("admin.brands");
   const [activeTab, setActiveTab] = useState<TabValue>(initialTab);
   const [searchQuery, setSearchQuery] = useState(initialSearchQuery);
-  const [mitFilter, setMitFilter] = useState<"all" | MitStatus>("all");
   const [categoryFilter, setCategoryFilter] = useState("all");
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState<(typeof PAGE_SIZES)[number]>(10);
@@ -193,7 +158,6 @@ export function BrandList({
         !searchQuery ||
         b.name.toLowerCase().includes(searchQuery.toLowerCase()),
     )
-    .filter((b) => mitFilter === "all" || getMitStatus(b) === mitFilter)
     .filter(
       (b) => categoryFilter === "all" || b.categoryLabel === categoryFilter,
     );
@@ -390,18 +354,6 @@ export function BrandList({
           className="w-56"
         />
         <NativeSelect
-          value={mitFilter}
-          onChange={(e) => {
-            setMitFilter(e.target.value as typeof mitFilter);
-            setPage(1);
-          }}
-          className="w-fit"
-        >
-          <option value="all">{t("filters.allMitStatus")}</option>
-          <option value="unverified">{t("mitStatus.unverified")}</option>
-          <option value="verified">{t("mitStatus.verified")}</option>
-        </NativeSelect>
-        <NativeSelect
           value={categoryFilter}
           onChange={(e) => {
             setCategoryFilter(e.target.value);
@@ -490,7 +442,6 @@ export function BrandList({
               </TableHead>
               <TableHead>{t("table.brand")}</TableHead>
               <TableHead>{t("table.status")}</TableHead>
-              <TableHead>{t("table.mit")}</TableHead>
               <TableHead>{t("table.category")}</TableHead>
               <TableHead>{t("table.created")}</TableHead>
               <TableHead>{t("table.lastUpdatedAt")}</TableHead>
@@ -559,18 +510,6 @@ export function BrandList({
                   </TableCell>
                   <TableCell>
                     <BrandStatusBadge status={brand.status} />
-                  </TableCell>
-                  <TableCell>
-                    <div className="space-y-1">
-                      <MitStatusBadge status={getMitStatus(brand)} />
-                      {brand.mitEvidence?.mit_smile_cert && (
-                        <p className="type-metadata">
-                          {t("table.cert", {
-                            cert: brand.mitEvidence.mit_smile_cert,
-                          })}
-                        </p>
-                      )}
-                    </div>
                   </TableCell>
                   <TableCell>{brand.categoryLabel ?? "-"}</TableCell>
                   <TableCell>{formatDate(brand.createdAt)}</TableCell>

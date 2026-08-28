@@ -16,6 +16,7 @@ export type EnrichPhase = (typeof ENRICH_PHASES)[number];
 
 export type EnrichBrand = {
   id: string;
+  source_brand_id?: string | null;
   slug: string;
   name?: string;
   status?: string | null;
@@ -39,7 +40,6 @@ export type EnrichBrand = {
   // regenerate rather than gap-fill.
   overwrite_enrichment?: boolean;
   reputation_summary?: unknown | null;
-  mit_evidence?: unknown | null;
 } & Partial<BrandFlatLinkColumns>;
 
 export type SearchPhaseResult = {

@@ -3,7 +3,7 @@ import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 
 /**
- * `CURATED_PRODUCT_COLUMNS` in remove-brand.ts is a hand-written 25-column
+ * `CURATED_PRODUCT_COLUMNS` in remove-brand.ts is a hand-written full-row
  * select on the BACKUP path, and the service client there is untyped — so
  * nothing in the type system holds it to the table.
  *

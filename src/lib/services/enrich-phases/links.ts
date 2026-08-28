@@ -31,6 +31,9 @@ import type { EnrichScrapedData } from './types'
 import { brandTarget, type EnrichmentTarget } from '../_shared/enrichment-target'
 import { buildPhaseResult, hasPatchValues, timePhase, type EnrichBrand, type EnrichPhase } from './types'
 import { ONLINE_STORES } from '@/lib/brands/online-stores'
+import type { RenderProvider } from './scraper/render/types'
+import { downloadAndStoreFavicon } from './favicon-download'
+import { syncLogoDenormalized } from '../brand-images'
 
 type LinksPhaseOptions = {
   brand: EnrichBrand
@@ -41,6 +44,7 @@ type LinksPhaseOptions = {
   target?: EnrichmentTarget
   jobId?: string
   supabase?: SupabaseClient<Database>
+  renderProvider?: RenderProvider
 }
 
 export type LinksPhaseOutput = {
@@ -543,6 +547,7 @@ export async function runLinksPhase({
   target,
   jobId,
   supabase,
+  renderProvider,
 }: LinksPhaseOptions): Promise<LinksPhaseOutput> {
   if (!phases.includes('links')) {
     return {
@@ -569,6 +574,7 @@ export async function runLinksPhase({
     const scrapeOptions: ScrapeBrandUrlsOptions = {
       brandName: brand.name,
       confirmedSourceUrls,
+      renderProvider,
       onAttempt: async ({ url, classification, spanId }) => {
         const auditId = await startSearchAudit({
           target: target ?? brandTarget(brand.id),
@@ -639,6 +645,24 @@ export async function runLinksPhase({
       confirmedIdentityFields(fieldSources),
     )
     const scrapedBrandName = deriveScrapedBrandName(brand, scrapedData)
+
+    // Best-effort favicon harvesting: try each favicon candidate in priority
+    // order until one downloads successfully, then sync the logo column.
+    const faviconUrls = scrapedFromPages.faviconUrls ?? []
+    if (faviconUrls.length > 0 && supabase) {
+      try {
+        for (const faviconUrl of faviconUrls) {
+          const storagePath = await downloadAndStoreFavicon(faviconUrl, brand.id, supabase)
+          if (storagePath) {
+            await syncLogoDenormalized(supabase, brand.id)
+            break
+          }
+        }
+      } catch {
+        // Favicon is supplementary — never fail the enrichment phase for it.
+      }
+    }
+
     return {
       patch,
       scrapedBrandName,

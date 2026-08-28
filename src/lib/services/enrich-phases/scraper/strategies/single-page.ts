@@ -4,6 +4,7 @@ import {
   emptyResult,
   extractAllJsonLd,
   extractCategoryHints,
+  extractFavicons,
   extractGalleryImages,
   extractJsonLd,
   extractJsonLdImages,
@@ -53,6 +54,7 @@ export class SinglePageStrategy implements ScrapeStrategy {
 
       const { socialInstagram, socialThreads, socialFacebook } = extractSocialLinks($)
       const purchaseLinks = extractPurchaseLinks($)
+      const faviconUrls = await extractFavicons($, url)
 
       return {
         brandName,
@@ -70,6 +72,7 @@ export class SinglePageStrategy implements ScrapeStrategy {
         rawJsonLd,
         stockistPageText: null,
         jsonLdImageUrls,
+        faviconUrls,
       }
     } catch {
       return emptyResult(url)

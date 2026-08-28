@@ -29,7 +29,7 @@ const backpackCluster = {
   secondary_keywords: ['後背包推薦', '台灣製後背包'],
   search_intent: 'commercial',
   page_type: 'l2-category',
-  target_url: '/categories/bags-accessories/backpacks',
+  target_url: '/brands?category=bags-accessories&sub=backpacks',
   target_status: 'live',
   ontology_slug: 'backpacks',
   brand_count: 28,
@@ -55,7 +55,7 @@ describe('keyword ownership registry', () => {
     expect(cluster.ontology_slug).toBe('backpacks')
     expect(cluster.brand_count).toBe(28)
     expect(cluster.priority).toBe('P0')
-    expect(cluster.target_url).toBe('/categories/bags-accessories/backpacks')
+    expect(cluster.target_url).toBe('/brands?category=bags-accessories&sub=backpacks')
   })
 
   it('rejects an l2 row missing ontology_slug', () => {
@@ -195,7 +195,7 @@ describe('keyword ownership registry', () => {
         '    secondary_keywords: [後背包推薦, 台灣製後背包]',
         '    search_intent: commercial',
         '    page_type: l2-category',
-        '    target_url: /categories/bags-accessories/backpacks',
+        '    target_url: /brands?category=bags-accessories&sub=backpacks',
         '    target_status: live',
         '    ontology_slug: backpacks',
         '    brand_count: 28',

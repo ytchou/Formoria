@@ -35,6 +35,8 @@ import { BrandSectionNav } from "@/components/brands/brand-section-nav";
 import { StockistsSection } from "@/components/brands/stockists-section";
 import { BrandSelectedProducts } from "@/components/brands/brand-selected-products";
 import { RelatedBrands } from "@/components/brands/related-brands";
+import { EditorialAppearances } from "@/components/brands/editorial-appearances";
+import { getBrandEditorialAppearances } from "@/lib/services/editorial-links";
 import { PageShell } from "@/components/ui/page-shell";
 import { SavedBrandsProvider } from "@/hooks/use-saved-brands";
 import { safeImageSrc } from "@/lib/images/allowed-image-hosts";
@@ -184,11 +186,21 @@ export default async function BrandDetailPage({ params }: PageProps) {
     tBrandDetail(key, params as never)) as BrandFaqTranslateFn;
   const cityLabel = displayBrand.city ? tCities(displayBrand.city) : null;
   const faqContext = await getPublicBrandFaqContextById(displayBrand.id);
-  const [faqItems, stockists, curatedProducts] =
+  const [faqItems, stockists, curatedProducts, editorialAppearances] =
     await Promise.all([
-      getBrandFaq(displayBrand.id, faqContext, tBrandFaq, safeLocale, cityLabel),
+      getBrandFaq(
+        displayBrand.id,
+        faqContext,
+        tBrandFaq,
+        safeLocale,
+        cityLabel,
+      ),
       getStockistsForBrand(displayBrand.id),
       getPublishedCuratedProductsForBrand(displayBrand.id),
+      getBrandEditorialAppearances(displayBrand.slug).catch(() => ({
+        trails: [],
+        stories: [],
+      })),
     ]);
   const stockistCount = stockists.confirmed.length + stockists.possible.length;
   // Same builder generateMetadata uses for <link rel="canonical">, so the
@@ -209,13 +221,14 @@ export default async function BrandDetailPage({ params }: PageProps) {
   const categorySlugCategory = L1_CATEGORIES.find(
     (category) => category.slug === categorySlugSlug,
   );
-  const categoryTag = categorySlugCategory && isVisibleCategory(categorySlugCategory.slug)
-    ? {
-        slug: categorySlugCategory.slug,
-        name: categorySlugCategory.name,
-        nameZh: categorySlugCategory.nameZh,
-      }
-    : null;
+  const categoryTag =
+    categorySlugCategory && isVisibleCategory(categorySlugCategory.slug)
+      ? {
+          slug: categorySlugCategory.slug,
+          name: categorySlugCategory.name,
+          nameZh: categorySlugCategory.nameZh,
+        }
+      : null;
 
   const relatedResult = categoryTag
     ? await getRelatedBrands(categoryTag.slug, displayBrand.slug, 4)
@@ -229,16 +242,6 @@ export default async function BrandDetailPage({ params }: PageProps) {
       ? (displayBrand.descriptionEn ?? displayBrand.description)
       : displayBrand.description;
   const sections = [
-    ...(description
-      ? [{ id: "about", label: tBrandDetail("tabNav.about") }]
-      : []),
-    // Both link sections render unconditionally now — a stockist with no known
-    // URL shows as a dimmed chip rather than disappearing.
-    { id: "social", label: tBrandDetail("tabNav.social") },
-    { id: "purchase", label: tBrandDetail("tabNav.purchase") },
-    ...(stockistCount > 0
-      ? [{ id: "locations", label: tBrandDetail("tabNav.locations") }]
-      : []),
     ...(curatedProducts.length > 0
       ? [
           {
@@ -246,6 +249,13 @@ export default async function BrandDetailPage({ params }: PageProps) {
             label: tBrandDetail("tabNav.selectedProducts"),
           },
         ]
+      : []),
+    // Both link sections render unconditionally now — a stockist with no known
+    // URL shows as a dimmed chip rather than disappearing.
+    { id: "social", label: tBrandDetail("tabNav.social") },
+    { id: "purchase", label: tBrandDetail("tabNav.purchase") },
+    ...(stockistCount > 0
+      ? [{ id: "locations", label: tBrandDetail("tabNav.locations") }]
       : []),
     ...(faqItems.length > 0
       ? [{ id: "faq", label: tBrandDetail("tabNav.faq") }]
@@ -266,7 +276,7 @@ export default async function BrandDetailPage({ params }: PageProps) {
       ? [
           {
             label: categoryLabel || categoryTag.name,
-            href: routes.category(categoryTag.slug),
+            href: routes.brands({ category: categoryTag.slug }),
           },
         ]
       : []),
@@ -290,10 +300,15 @@ export default async function BrandDetailPage({ params }: PageProps) {
             type="application/ld+json"
             dangerouslySetInnerHTML={{
               __html: safeJsonLdStringify(
-                buildBrandJsonLd(displayBrand, safeLocale, canonicalUrl, [
-                  ...stockists.confirmed,
-                  ...stockists.possible,
-                ]),
+                buildBrandJsonLd(
+                  {
+                    ...displayBrand,
+                    heroImageAlt: displayBrand.imageAlts[0]?.altZh ?? null,
+                  },
+                  safeLocale,
+                  canonicalUrl,
+                  [...stockists.confirmed, ...stockists.possible],
+                ),
               ),
             }}
           />
@@ -322,7 +337,7 @@ export default async function BrandDetailPage({ params }: PageProps) {
           />
 
           {/* Hero */}
-          <div className="flex flex-col gap-10 lg:flex-row lg:gap-12">
+          <div className="flex flex-col gap-10 lg:flex-row lg:items-start lg:gap-12">
             <div className="w-full lg:w-1/2">
               <ImageCarousel
                 images={galleryImages}
@@ -358,6 +373,11 @@ export default async function BrandDetailPage({ params }: PageProps) {
                   />
                 }
               />
+              {description ? (
+                <div className="mt-8 pt-8">
+                  <BrandAbout brand={displayBrand} locale={safeLocale} />
+                </div>
+              ) : null}
             </div>
           </div>
 
@@ -380,9 +400,16 @@ export default async function BrandDetailPage({ params }: PageProps) {
                 hasSectionNav && "pt-6 md:col-span-4 md:pt-0",
               )}
             >
-              {description && (
-                <section id="about" className={brandSectionClassName}>
-                  <BrandAbout brand={displayBrand} locale={safeLocale} />
+              {curatedProducts.length > 0 && (
+                <section
+                  id="selected-products"
+                  className={brandSectionClassName}
+                >
+                  <BrandSelectedProducts
+                    locale={safeLocale}
+                    brand={displayBrand}
+                    products={curatedProducts}
+                  />
                 </section>
               )}
 
@@ -404,18 +431,12 @@ export default async function BrandDetailPage({ params }: PageProps) {
                 </section>
               )}
 
-              {curatedProducts.length > 0 && (
-                <section
-                  id="selected-products"
-                  className={brandSectionClassName}
-                >
-                  <BrandSelectedProducts
-                    locale={safeLocale}
-                    brand={displayBrand}
-                    products={curatedProducts}
-                  />
-                </section>
-              )}
+              <EditorialAppearances
+                locale={safeLocale}
+                trails={editorialAppearances.trails}
+                stories={editorialAppearances.stories}
+                sectionClassName={brandSectionClassName}
+              />
 
               {faqItems.length > 0 && (
                 <section id="faq" className={brandSectionClassName}>

@@ -39,14 +39,6 @@ function tokens(value: string): string[] {
 function evidencePresent(key: EvidenceKey, ctx: FaqValidatorContext): boolean {
   const { brand } = ctx.brand;
   switch (key) {
-    case "mitStatus":
-      // `mit_status` is coerced to "unverified" on read, so an empty string is
-      // unreachable and "unverified" is the sentinel for "nothing on file".
-      // Evidence exists only once the brand has declared or been verified —
-      // the same predicate the legacy `made-in-taiwan` generator used.
-      return brand.mitStatus === "declared" || brand.mitStatus === "verified";
-    case "mitStory":
-      return typeof brand.mitStory === "string" && brand.mitStory.trim() !== "";
     case "categorySlug":
       return (
         typeof brand.categorySlug === "string" &&

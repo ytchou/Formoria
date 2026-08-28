@@ -18,6 +18,7 @@
   --color-ground: var(--ground);
   --color-surface: var(--surface);
   --color-surface-deep: var(--surface-deep);
+  --color-surface-dark: var(--surface-dark);
   --color-ink: var(--ink);
   --color-ink-soft: var(--ink-soft);
   --color-ink-muted: var(--ink-muted);
@@ -103,22 +104,15 @@
   --verified-green-bg: oklch(0.95 0.02 140); /* Unchanged */
   --mit-verified: oklch(0.4 0.08 65); /* Unchanged */
   --mit-verified-bg: oklch(0.96 0.03 65); /* Unchanged */
-  /* THE HEADER'S HEIGHT IS DERIVED, NOT TYPED TWICE.
-     Six sticky elements park below the header with `top-(--nav-height)`, so a
-     header row that grows without this number growing hides their first pixels
-     under the z-50 bar. It already happened once: row 1 went `h-14` -> `h-16`
-     and a `min-h-12` category row was added while this token still read 100px,
-     leaving the brand section nav 13px short. So the two rows now READ their
-     height from these tokens (`main-nav.tsx`, `nav-category-tabs.tsx`) and the
-     sum below is the only place the total exists. Change a row here, not
-     there. */
+  /* Six sticky elements park below the header with `top-(--nav-height)`, so
+     the header and its offset both read the same primary-row token. */
   --nav-row-primary: 4rem; /* row 1: wordmark | search | links */
-  --nav-row-categories: 3rem; /* row 2: the L1 category tabs (minimum) */
   --nav-rule: 1px; /* the header's bottom hairline */
-  --nav-height: calc(
-    var(--nav-row-primary) + var(--nav-row-categories) + var(--nav-rule)
-  );
+  --nav-height: calc(var(--nav-row-primary) + var(--nav-rule));
+}
 
+/* prettier-ignore */
+:root {
   /* Motion tokens */
   --ease-standard: cubic-bezier(0.2, 0, 0, 1);
   --ease-settle: cubic-bezier(0.33, 1, 0.68, 1);
@@ -158,6 +152,7 @@
      `--surface` (4.6:1) or `--ground` (5.1:1). Nothing checks this pair, so it
      is written here rather than discovered later. */
   --surface-deep: #e8dfd2;
+  --surface-dark: #2A2824; /* warm-charcoal photographic bands */
   --ink: #1A1815; /* primary text — 18.9:1 on ground */
   --ink-soft: #4A443C; /* body prose — 10.2:1 on ground */
   --ink-muted: #6F685F; /* metadata — 5.1:1 ground / 4.6:1 surface */

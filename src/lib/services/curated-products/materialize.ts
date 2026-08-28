@@ -1,6 +1,8 @@
 import {
   createCuratedProduct,
+  getOriginCandidateUrls,
   getCuratedProductsByBrandBatch,
+  refreshGeneratedCuratedProductOrigin,
   upsertCuratedProductSource,
   type CuratedProductSupabase,
 } from "@/lib/services/curated-products";
@@ -177,6 +179,43 @@ export async function materializeSubmissionCuratedProducts(
     options.review ?? (await getSubmissionProductReview(submissionId));
   if (products.length === 0) return result;
 
+  let originCandidateUrls = new Map<string, string>();
+  try {
+    originCandidateUrls = await getOriginCandidateUrls(
+      products.flatMap((proposal) =>
+        proposal.originCandidateId ? [proposal.originCandidateId] : [],
+      ),
+      options.client,
+    );
+  } catch {
+    // Audit linkage is part of qualification. A read failure clears origin but
+    // cannot block publication of an otherwise approved product.
+  }
+
+  const proposalOrigin = (proposal: CuratedProductProposal) => {
+    const auditedUrl = proposal.originCandidateId
+      ? originCandidateUrls.get(proposal.originCandidateId)
+      : null;
+    const urlStillAssessed =
+      auditedUrl !== null &&
+      auditedUrl !== undefined &&
+      auditedUrl.trim() === proposal.officialUrl.trim();
+    return urlStillAssessed
+      ? {
+          madeInTaiwanConfirmed: proposal.madeInTaiwanConfirmed ?? false,
+          materialsFromTaiwanConfirmed:
+            proposal.materialsFromTaiwanConfirmed ?? false,
+          mitRegistryId: proposal.mitRegistryId ?? null,
+          originCandidateId: proposal.originCandidateId ?? null,
+        }
+      : {
+          madeInTaiwanConfirmed: false,
+          materialsFromTaiwanConfirmed: false,
+          mitRegistryId: null,
+          originCandidateId: null,
+        };
+  };
+
   // The brand's own rows, read ONCE. This is also the create gate: a matched or
   // previously-rejected proposal must never reach `createCuratedProduct`, which
   // resolves a `(brand_id, key)` collision by suffixing and would happily
@@ -207,6 +246,26 @@ export async function materializeSubmissionCuratedProducts(
     // what made the failure permanent. A hand-entered row is left alone: no
     // citation there is a curator's own decision, not a failed write.
     if (state !== "new") {
+      if (
+        state === "matched" &&
+        existing?.id &&
+        existing.proposedBy === "generated" &&
+        isInsertableProposal(proposal)
+      ) {
+        try {
+          await refreshGeneratedCuratedProductOrigin(
+            existing.id,
+            proposalOrigin(proposal),
+            options.client,
+          );
+        } catch (error) {
+          result.failed += 1;
+          console.error(
+            "[materializeCuratedProducts] origin refresh failed:",
+            { submissionId, brandId, productId: existing.id, error },
+          );
+        }
+      }
       if (
         existing?.id &&
         existing.hasActiveSource === false &&
@@ -274,6 +333,7 @@ export async function materializeSubmissionCuratedProducts(
           // Origin, not actor: the review queue has to be able to tell a machine
           // proposal from a curator's own row.
           proposedBy: "generated",
+          ...proposalOrigin(proposal),
         },
         options.client,
       );

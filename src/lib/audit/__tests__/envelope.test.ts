@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi, type Mock } from "vite
 import {
   auditedCall,
   resetAuditEmitterForTests,
+  runWithAuditContext,
   setAuditWriteSeam,
   type AuditRecord,
   type AuditWriteSeam,
@@ -132,6 +133,29 @@ describe("auditedCall", () => {
     expect(writes[0]?.summary).toEqual({ result: { recordCount: 0 } });
   });
 
+  it("fields set on ctx reach the terminal audit record", async () => {
+    await auditedCall(
+      spec(),
+      async (ctx) => {
+        ctx.promptTokens = 100;
+        ctx.completionTokens = 25;
+        ctx.costUsd = 0.0042;
+        return "done";
+      },
+      { wait: async () => {} },
+    );
+
+    expect(writes).toHaveLength(2);
+    // Started row must NOT carry the token/cost fields
+    expect(writes[0]?.promptTokens).toBeUndefined();
+    expect(writes[0]?.completionTokens).toBeUndefined();
+    expect(writes[0]?.costUsd).toBeUndefined();
+    // Terminal row carries them
+    expect(writes[1]?.promptTokens).toBe(100);
+    expect(writes[1]?.completionTokens).toBe(25);
+    expect(writes[1]?.costUsd).toBe(0.0042);
+  });
+
   it("span_id is generated before the first write", async () => {
     let firstSpanId: string | undefined;
     seam.mockImplementation(async (record: AuditRecord) => {
@@ -146,5 +170,73 @@ describe("auditedCall", () => {
     expect(firstSpanId).toEqual(expect.stringMatching(
       /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i,
     ));
+  });
+});
+
+describe("auditedCall — Langfuse span integration", () => {
+  it("creates a Langfuse span for external non-LLM calls", async () => {
+    const mockSpan = vi.fn();
+    const langfuseTrace = { span: mockSpan };
+
+    await runWithAuditContext({ langfuseTrace }, () =>
+      auditedCall(
+        { provider: "serper", operation: "image_search", kind: "external" },
+        async () => "result",
+        { wait: async () => {} },
+      ),
+    );
+
+    expect(mockSpan).toHaveBeenCalledOnce();
+    expect(mockSpan).toHaveBeenCalledWith(
+      expect.objectContaining({
+        name: "serper/image_search",
+        metadata: expect.objectContaining({ provider: "serper" }),
+      }),
+    );
+  });
+
+  it("skips Langfuse for service calls", async () => {
+    const mockSpan = vi.fn();
+    const langfuseTrace = { span: mockSpan };
+
+    await runWithAuditContext({ langfuseTrace }, () =>
+      auditedCall(
+        { provider: "enrich", operation: "runEnrich", kind: "service" },
+        async () => "result",
+        { wait: async () => {} },
+      ),
+    );
+
+    expect(mockSpan).not.toHaveBeenCalled();
+  });
+
+  it("skips Langfuse when no trace context", async () => {
+    // No runWithAuditContext wrapping — no langfuseTrace in context
+    const result = await auditedCall(
+      { provider: "serper", operation: "image_search", kind: "external" },
+      async () => "result",
+      { wait: async () => {} },
+    );
+
+    // The call completes successfully without Langfuse
+    expect(result).toBe("result");
+  });
+
+  it("Langfuse error does not block the production call", async () => {
+    const langfuseTrace = {
+      span: vi.fn(() => {
+        throw new Error("Langfuse SDK exploded");
+      }),
+    };
+
+    const result = await runWithAuditContext({ langfuseTrace }, () =>
+      auditedCall(
+        { provider: "serper", operation: "image_search", kind: "external" },
+        async () => "kept",
+        { wait: async () => {} },
+      ),
+    );
+
+    expect(result).toBe("kept");
   });
 });

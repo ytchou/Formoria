@@ -46,9 +46,9 @@ describe("POST /api/internal/revalidate-brands", () => {
       "page",
     );
     expect(revalidatePath).toHaveBeenCalledWith("/sitemap.xml");
-    expect(revalidatePath).toHaveBeenCalledWith("/zh-TW");
+    expect(revalidatePath).toHaveBeenCalledWith("/");
     expect(revalidatePath).toHaveBeenCalledWith("/en");
-    expect(revalidatePath).toHaveBeenCalledWith("/zh-TW/about");
+    expect(revalidatePath).toHaveBeenCalledWith("/about");
     expect(revalidatePath).toHaveBeenCalledWith("/en/about");
     expect(revalidatePath).toHaveBeenCalledWith("/brands/brand-0");
     expect(revalidatePath).toHaveBeenCalledWith("/en/brands/brand-0");

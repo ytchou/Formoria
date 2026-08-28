@@ -71,7 +71,6 @@ describe("buildSubmissionReviewData", () => {
         city: "台中",
         foundingYear: 2018,
         purchaseWebsite: "https://enriched.example.com",
-        mitEvidence: { verified_source: "registry" },
         reputationSummary: { text: "評價良好" },
       },
       activeImages,
@@ -88,7 +87,6 @@ describe("buildSubmissionReviewData", () => {
       foundingYear: 2018,
       websiteUrl: "https://enriched.example.com",
       heroImageUrl: "https://cdn.example.com/hero.webp",
-      mitEvidence: { verified_source: "registry" },
       reputationSummary: { text: "評價良好" },
     });
   });

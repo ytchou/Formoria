@@ -80,14 +80,12 @@ const SOCIAL_PURCHASE_FIELD_MAP = [
 const BRAND_FIELD_MAP = [
   ["romanizedName", "romanized_name"],
   ["contactEmail", "contact_email"],
-  ["mitStory", "mit_story"],
   ["city", "city"],
   ["otherUrls", "other_urls"],
 ] as const satisfies FieldMap<
   {
     romanizedName?: string | null;
     contactEmail?: string | null;
-    mitStory?: string | null;
     city?: string | null;
     otherUrls?: unknown;
     subcategories?: string[] | null;
@@ -149,10 +147,10 @@ export function toBrandRow(
     description?: string | null;
     descriptionEn?: string | null;
     heroImageUrl?: string | null;
+    logoUrl?: string | null;
     status?: string;
     categorySlug?: string | null;
     foundingYear?: number | null;
-    mitStory?: string | null;
     city?: string | null;
     otherUrls?: unknown;
     contactEmail?: string | null;
@@ -185,6 +183,8 @@ export function toBrandRow(
    */
   if (input.heroImageUrl !== undefined)
     row.hero_image_storage_path = storagePathFromImageUrl(input.heroImageUrl);
+  if (input.logoUrl !== undefined)
+    row.logo_storage_path = storagePathFromImageUrl(input.logoUrl);
   if (input.status !== undefined) row.status = input.status;
   if (input.categorySlug !== undefined) row.category = input.categorySlug;
   if (input.foundingYear !== undefined) row.founding_year = input.foundingYear;

@@ -4,18 +4,20 @@ import en from "../../../messages/en.json";
 import zhTW from "../../../messages/zh-TW.json";
 
 /**
- * The landing namespace was recut for the current homepage zones (DEV-1479).
- * Two of its keys survive for reasons that are invisible from the homepage, so
- * they are pinned here: `metadata.*` is the site-wide `%s | Formoria` title
- * template read by `[locale]/layout.tsx`, and `trustSeam.line` is the commitment
- * baked into the `/og/trust` card, which statically imports both catalogues and
- * is now its only consumer. `manifesto.headline` is NOT one of them — it is
- * rendered on the homepage again by the restored manifesto band, and is
- * asserted below with the rest of that band's copy.
+ * The landing namespace was recut for the current homepage zones (DEV-1479,
+ * then DEV-1607). Two of its keys survive for reasons that are invisible from
+ * the homepage, so they are pinned here: `metadata.*` is the site-wide
+ * `%s | Formoria` title template read by `[locale]/layout.tsx`, and
+ * `trustSeam.line` is the commitment baked into the `/og/trust` card, which
+ * statically imports both catalogues and is now its only consumer.
  */
 type MessageNode = { [key: string]: string | MessageNode };
 
-function flatten(node: MessageNode, prefix = "", keys: string[] = []): string[] {
+function flatten(
+  node: MessageNode,
+  prefix = "",
+  keys: string[] = [],
+): string[] {
   for (const [key, value] of Object.entries(node)) {
     const path = prefix ? `${prefix}.${key}` : key;
     if (typeof value === "string") {
@@ -89,6 +91,20 @@ const DEAD_KEYS = [
   "selectedProducts.trailLinksLabel",
   "selectedProducts.categoryLinksLabel",
   "selectedProducts.brandsLink",
+  // BrandShowcase replaced by BrandStrip — showcase keys are dead.
+  "showcase.heading",
+  "showcase.subheading",
+  "showcase.browseAll",
+  // Inline manifesto PhotoBand replaced by MissionCloser component.
+  "manifesto.headline",
+  "manifesto.body1",
+  "manifesto.body2",
+  "manifesto.cta",
+  // ProductWall replaced by CuratedProductGrid — old wall label keys are dead.
+  "selectedProducts.heading",
+  "selectedProducts.note",
+  "selectedProducts.showMore",
+  "selectedProducts.showLess",
 ];
 
 describe("landing namespace", () => {
@@ -120,6 +136,10 @@ describe("landing namespace", () => {
     expect(enLanding).not.toHaveProperty("featureRequestBand");
     expect(zhLanding).not.toHaveProperty("trust");
     expect(enLanding).not.toHaveProperty("trust");
+    expect(zhLanding).not.toHaveProperty("showcase");
+    expect(enLanding).not.toHaveProperty("showcase");
+    expect(zhLanding).not.toHaveProperty("manifesto");
+    expect(enLanding).not.toHaveProperty("manifesto");
   });
 
   it("the canonical promise ships", () => {
@@ -145,13 +165,12 @@ describe("landing namespace", () => {
     expect(resolve(enLanding, "trustSeam.line")).toBeTruthy();
   });
 
-  it("the manifesto band's copy ships in both catalogues", () => {
+  it("MissionCloser copy ships in both catalogues", () => {
     for (const catalogue of [zhLanding, enLanding]) {
-      for (const key of ["headline", "body1", "body2", "cta"]) {
-        expect(resolve(catalogue, `manifesto.${key}`)).toBeTruthy();
+      for (const key of ["headline", "subtitle", "cta"]) {
+        expect(resolve(catalogue, `missionCloser.${key}`)).toBeTruthy();
       }
     }
-    expect(resolve(zhLanding, "manifesto.headline")).toBeTruthy();
   });
 
   it("keeps the keys the remaining landing zones render", () => {
@@ -167,25 +186,32 @@ describe("landing namespace", () => {
       "hero.eyebrow",
       "hero.lede",
       "hero.browsePrefix",
-      "selectedProducts.heading",
-      "selectedProducts.note",
-      "selectedProducts.showMore",
-      // The reveal control is a disclosure, so it needs both of its labels.
-      "selectedProducts.showLess",
+      // CuratedProductGrid reads its product-tile labels from this namespace.
+      "selectedProducts.productCta",
+      "selectedProducts.brandSiteCta",
+      "selectedProducts.unavailable",
       // Read by /og/trust; the homepage no longer renders the glossary that
       // used to explain the three labels below.
       "trustSeam.line",
       "latestStories.heading",
+      "latestStories.note",
+      "latestStories.linkText",
       "trails.heading",
       "trails.note",
       "trails.linkText",
-      "manifesto.headline",
-      "manifesto.body1",
-      "manifesto.body2",
-      "manifesto.cta",
-      "showcase.heading",
-      "showcase.subheading",
-      "showcase.browseAll",
+      "trails.eyebrow",
+      "trails.cta",
+      // CuratedProductGrid's own copy — selection headline, subtitle, CTA.
+      "selection.headline",
+      "selection.subtitle",
+      "selection.cta",
+      // MissionCloser's copy — the closing mission band.
+      "missionCloser.headline",
+      "missionCloser.subtitle",
+      "missionCloser.cta",
+      // BrandStrip's copy — the count line and browse-all link.
+      "brands.count",
+      "brands.browseAll",
     ];
 
     for (const key of required) {
@@ -197,5 +223,27 @@ describe("landing namespace", () => {
   it("the browse CTA is an invitation, never a brand count", () => {
     expect(resolve(zhLanding, "hero.browseCta")).not.toMatch(/\d/);
     expect(resolve(enLanding, "hero.browseCta")).not.toMatch(/\d/);
+  });
+
+  // Bug caught: presentational arrows in translated labels become part of the
+  // accessible name and can be duplicated when renderers add the shared icon.
+  it("keeps editorial action arrows out of bilingual labels", () => {
+    const paths = [
+      "landing.latestStories.linkText",
+      "landing.trails.linkText",
+      "landing.selection.cta",
+      "landing.missionCloser.cta",
+      "landing.brands.browseAll",
+      "about.guide.cta",
+    ];
+
+    for (const catalogue of [zhTW, en]) {
+      for (const path of paths) {
+        expect(
+          resolve(catalogue as unknown as MessageNode, path),
+          path,
+        ).not.toMatch(/→|->/);
+      }
+    }
   });
 });

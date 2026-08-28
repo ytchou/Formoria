@@ -6,11 +6,6 @@ import { Badge } from "@/components/ui/badge";
 import { InfoField } from "@/components/ui/card";
 import { Grid } from "@/components/ui/grid";
 import { Typography } from "@/components/ui/typography";
-import { cn } from "@/lib/utils";
-import {
-  MitDeclaredBadge,
-  MitVerifiedBadge,
-} from "./brand-verification-badges";
 import { CorrectionDialog } from "./correction-dialog";
 
 const infoLabelClassName = "type-metadata uppercase tracking-[0.08em]";
@@ -33,12 +28,6 @@ export function BrandHeader({
   adminSlot,
 }: BrandHeaderProps) {
   const t = useTranslations("brandDetail");
-  const hasMitDeclaredBadge = brand.mitStatus === "declared";
-  const hasMitVerifiedBadge = brand.mitStatus === "verified";
-  const hasVerification = hasMitDeclaredBadge || hasMitVerifiedBadge;
-  const mitSmileCert = hasMitVerifiedBadge
-    ? brand.mitCertificateNumber
-    : undefined;
   const resolvedCategory = categoryLabel ?? brand.categoryLabel;
   // `subcategories` stores slugs since DEV-1510, so the chips resolve through
   // the ontology rather than rendering the stored value.
@@ -86,32 +75,6 @@ export function BrandHeader({
             subcategories={brand.subcategories}
           />
         </div>
-        {hasVerification && (
-          <div
-            className={cn(
-              "mt-5 flex flex-wrap items-center gap-x-3 gap-y-2 rounded-surface px-3 py-2.5",
-              hasMitVerifiedBadge ? "bg-mit-verified-bg" : "bg-surface",
-            )}
-          >
-            {hasMitDeclaredBadge && (
-              <MitDeclaredBadge
-                label={t("mitDeclared")}
-                title={t("mitDeclaredTitle")}
-              />
-            )}
-            {hasMitVerifiedBadge && (
-              <MitVerifiedBadge
-                label={t("mitVerified")}
-                title={t("mitVerifiedTitle")}
-              />
-            )}
-            {mitSmileCert && (
-              <span className="type-metadata">
-                {t("mitProofLink", { cert: mitSmileCert })}
-              </span>
-            )}
-          </div>
-        )}
         <Grid as="dl" cols="pair" className="mt-5">
           <InfoField
             label={t("label.location")}
@@ -177,14 +140,6 @@ export function BrandHeader({
               )
             }
           />
-          {!hasVerification && (
-            <InfoField
-              label={t("label.certification")}
-              labelClassName={infoLabelClassName}
-              layout="stacked"
-              value={unknownValue}
-            />
-          )}
         </Grid>
       </section>
     </div>

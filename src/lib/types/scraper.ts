@@ -42,4 +42,5 @@ export interface ScrapedBrandData {
   rawJsonLd: Record<string, unknown> | null
   stockistPageText: string | null
   jsonLdImageUrls: string[]
+  faviconUrls: string[]
 }

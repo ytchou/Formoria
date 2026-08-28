@@ -17,7 +17,6 @@ import {
   planColumnDrift,
   planCopyOrder,
   planImageUpserts,
-  planMitRegistryCerts,
   planCategoryQuotas,
   planSlugRedirects,
   planWriteDiff,
@@ -45,8 +44,6 @@ function candidate(
     category: "home",
     city: "台北市",
     model_faq_count: 5,
-    mit_status: "none",
-    mit_evidence: null,
     description: "描".repeat(400),
     purchase_website: "https://example.tw",
     purchase_pinkoi: null,
@@ -91,12 +88,12 @@ function prodBrandRow(overrides: Row = {}): Row {
     reputation_summary: { text: "口碑良好", sources: [] },
     site_content: { about: "…" },
     mit_status: "verified",
-    mit_story: "在鶯歌製作。",
-    mit_evidence: { mit_smile_cert: "MIT-000123", mit_smile_listed: true },
-    mit_declared_at: "2026-01-02T00:00:00Z",
+    mit_story: "Legacy brand-level origin story",
+    mit_evidence: { sources: [] },
+    mit_declared_at: "2026-01-01T00:00:00Z",
     mit_declared_by: OWNER_USER_ID,
     mit_declared_scope: "all",
-    mit_verified_at: "2026-01-03T00:00:00Z",
+    mit_verified_at: "2026-01-02T00:00:00Z",
     model_faq_count: 7,
     seo_promoted: true,
     search_vector: "'陶':1",
@@ -204,7 +201,7 @@ const CATEGORIES = ["home", "food-drink", "beauty", "stationery"];
 
 function selectionCandidates(): SelectionCandidate[] {
   const candidates: SelectionCandidate[] = [];
-  for (const [categoryIndex, categorySlug] of CATEGORIES.entries()) {
+  for (const categorySlug of CATEGORIES) {
     for (let index = 0; index < 15; index += 1) {
       candidates.push(
         candidate({
@@ -218,7 +215,6 @@ function selectionCandidates(): SelectionCandidate[] {
           isEventBrand: index % 4 === 0,
           isRedirectTarget: index % 6 === 0,
           description: index % 7 === 0 ? "短" : "描".repeat(400),
-          mit_status: categoryIndex === 0 && index < 3 ? "verified" : "none",
         }),
       );
     }
@@ -295,21 +291,6 @@ describe("planBrandSelection", () => {
       );
       expect(zeroFaq.some((brand) => selected.has(brand.slug))).toBe(true);
     }
-  });
-
-  it("includes every mit_status=verified brand", () => {
-    const plan = planBrandSelection({
-      candidates,
-      pinnedSlugs,
-      target: 30,
-      seed: 1,
-    });
-    const verified = candidates.filter(
-      (brand) => brand.mit_status === "verified",
-    );
-    expect(verified).toHaveLength(3);
-    for (const brand of verified) expect(plan.slugs).toContain(brand.slug);
-    expect(plan.rationale.coverage.mitVerified).toBe(3);
   });
 
   it("meets the event, redirect, seo and city coverage floors", () => {
@@ -493,6 +474,13 @@ describe("planBrandRows", () => {
       "seo_promoted",
       "search_vector",
       "model_faq_count",
+      "mit_status",
+      "mit_story",
+      "mit_evidence",
+      "mit_declared_at",
+      "mit_declared_by",
+      "mit_declared_scope",
+      "mit_verified_at",
     ]) {
       expect(payload).not.toHaveProperty(column);
     }
@@ -500,7 +488,6 @@ describe("planBrandRows", () => {
 
   it("nulls owner PII and every auth.users reference", () => {
     expect(payload.contact_email).toBeNull();
-    expect(payload.mit_declared_by).toBeNull();
     expect(payload.draft_data).toBeNull();
     expect(payload.draft_updated_at).toBeNull();
     expect(payload.onboarding_dismissed_at).toBeNull();
@@ -513,8 +500,14 @@ describe("planBrandRows", () => {
       "seo_promoted",
       "search_vector",
       "model_faq_count",
-      "contact_email",
+      "mit_status",
+      "mit_story",
+      "mit_evidence",
+      "mit_declared_at",
       "mit_declared_by",
+      "mit_declared_scope",
+      "mit_verified_at",
+      "contact_email",
       "draft_data",
       "draft_updated_at",
       "onboarding_dismissed_at",
@@ -526,7 +519,6 @@ describe("planBrandRows", () => {
       [
         ...expected,
         "contact_email",
-        "mit_declared_by",
         "draft_data",
         "draft_updated_at",
         "onboarding_dismissed_at",
@@ -754,26 +746,6 @@ describe("planSlugRedirects", () => {
   });
 });
 
-describe("planMitRegistryCerts", () => {
-  it("extracts the cert number a verified brand already stores", () => {
-    expect(planMitRegistryCerts([prodBrandRow()])).toEqual(["MIT-000123"]);
-  });
-
-  it("deduplicates and ignores brands with no usable evidence", () => {
-    expect(
-      planMitRegistryCerts([
-        prodBrandRow(),
-        prodBrandRow({ slug: "b" }),
-        prodBrandRow({ slug: "c", mit_evidence: null }),
-        prodBrandRow({ slug: "d", mit_evidence: "not-an-object" }),
-        prodBrandRow({ slug: "e", mit_evidence: ["array"] }),
-        prodBrandRow({ slug: "f", mit_evidence: { mit_smile_cert: "   " } }),
-        prodBrandRow({ slug: "g", mit_evidence: { mit_smile_cert: 42 } }),
-      ]),
-    ).toEqual(["MIT-000123"]);
-  });
-});
-
 // ---------------------------------------------------------------------------
 // Ordering and preflight
 // ---------------------------------------------------------------------------
@@ -899,6 +871,22 @@ describe("planColumnDrift", () => {
     expect(planColumnDrift(prod, staging, ["brands"])).toEqual([
       { table: "brands", columns: ["blurb", "slug"] },
     ]);
+  });
+
+  it("ignores retired source columns while production is one release behind", () => {
+    const staging = new Map([
+      ["brands", new Set(["id", "slug", "blurb"])],
+    ]);
+    expect(
+      planColumnDrift(
+        new Map([
+          ["brands", new Set(["id", "slug", "blurb", "mit_status"])],
+        ]),
+        staging,
+        ["brands"],
+        { brands: ["mit_status"] },
+      ),
+    ).toEqual([]);
   });
 
   it("reports a table absent on either side", () => {
@@ -1049,10 +1037,18 @@ describe("planStorageKeys", () => {
 
   it("keeps keys from tables that have no status column", () => {
     const plan = planStorageKeys({
-      brands: [{ hero_image_storage_path: "brands/b1/hero.webp" }],
+      brands: [
+        {
+          hero_image_storage_path: "brands/b1/hero.webp",
+          logo_storage_path: "brands/b1/favicon.png",
+        },
+      ],
     });
 
-    expect(plan.keys).toEqual(["brands/b1/hero.webp"]);
+    expect(plan.keys).toEqual([
+      "brands/b1/favicon.png",
+      "brands/b1/hero.webp",
+    ]);
   });
 
   it("reports keys outside the synced prefixes instead of copying them", () => {

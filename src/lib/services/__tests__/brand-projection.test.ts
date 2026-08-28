@@ -65,19 +65,11 @@ const COLUMN_FIXTURE: Record<string, unknown> = {
     text: "Well reviewed",
     sources: [{ url: "https://example.com/review" }],
   },
-  mit_status: "verified",
-  mit_declared_scope: "all",
-  mit_declared_at: "2026-01-06T00:00:00Z",
-  mit_verified_at: "2026-01-07T00:00:00Z",
-  mit_story: "Made in Taiwan since 1998",
-  mit_evidence: {
-    mit_smile_cert: "CERT-123",
-    source: "PRIVATE_EVIDENCE_CANARY",
-  },
   source: "PRIVATE_PROVENANCE_CANARY",
   // `true` on purpose: brandToDomain falls back to `false`, so a `false`
   // fixture could not distinguish "column present" from "column dropped".
   is_demo: true,
+  logo_storage_path: "brands/brand-1/logo.webp",
 };
 
 function buildRow(columns: readonly string[]): BrandRowWithJoins {
@@ -96,7 +88,6 @@ function buildRow(columns: readonly string[]): BrandRowWithJoins {
 const FIELDS_OMITTED_ON_DIRECTORY_PATHS = [
   "siteContent",
   "reputationSummary",
-  "mitEvidence",
 ];
 
 /**
@@ -118,7 +109,6 @@ const DIRECTORY_CONSUMED_FIELDS = [
   "blurbEn",
   "subcategories",
   "subcategoriesEn",
-  "mitStatus",
 ];
 
 describe("brand column projections", () => {
@@ -129,11 +119,10 @@ describe("brand column projections", () => {
     expect(missing).toEqual([]);
   });
 
-  it("omits exactly the four heavy/unpublished columns on directory paths", () => {
+  it("omits exactly the heavy/unpublished columns on directory paths", () => {
     expect([...DIRECTORY_OMITTED_COLUMNS]).toEqual([
       "site_content",
       "draft_data",
-      "mit_evidence",
       "reputation_summary",
     ]);
   });
@@ -203,13 +192,11 @@ describe("public brand response contracts", () => {
 
     expect(payload).not.toContain("private-contact-canary@example.com");
     expect(payload).not.toContain("PRIVATE_DRAFT_CANARY");
-    expect(payload).not.toContain("PRIVATE_EVIDENCE_CANARY");
     expect(payload).not.toContain("PRIVATE_PROVENANCE_CANARY");
     expect(payload).not.toContain("submittedAt");
     expect(payload).not.toContain("approvedAt");
     expect(payload).not.toContain("createdAt");
     expect(payload).not.toContain("updatedAt");
-    expect(toPublicBrandDetail(brand).mitCertificateNumber).toBe("CERT-123");
   });
 });
 
@@ -258,5 +245,47 @@ describe("brandToDomain image derivation (DEV-1551)", () => {
     } as unknown as BrandRowWithJoins);
 
     expect(brand.heroImageUrl).toBeNull();
+  });
+});
+
+describe("brandToDomain logoUrl derivation (DEV-1628)", () => {
+  it("emits a relative /i/ path for logoUrl", () => {
+    const brand = brandToDomain({
+      ...COLUMN_FIXTURE,
+      logo_storage_path: "brands/brand-1/logo.webp",
+    } as unknown as BrandRowWithJoins);
+
+    expect(brand.logoUrl).toBe("/i/brands/brand-1/logo.webp");
+  });
+
+  it("logoUrl is null when logo_storage_path is absent", () => {
+    const brand = brandToDomain({
+      ...COLUMN_FIXTURE,
+      logo_storage_path: null,
+    } as unknown as BrandRowWithJoins);
+
+    expect(brand.logoUrl).toBeNull();
+  });
+});
+
+describe("toPublicBrandCard includes logoUrl (DEV-1628)", () => {
+  it("toPublicBrandCard includes logoUrl", () => {
+    const brand = brandToDomain({
+      ...COLUMN_FIXTURE,
+      logo_storage_path: "brands/brand-1/logo.webp",
+    } as unknown as BrandRowWithJoins);
+    const card = toPublicBrandCard(brand);
+
+    expect(card.logoUrl).toBe("/i/brands/brand-1/logo.webp");
+  });
+
+  it("toPublicBrandCard passes null logoUrl through", () => {
+    const brand = brandToDomain({
+      ...COLUMN_FIXTURE,
+      logo_storage_path: null,
+    } as unknown as BrandRowWithJoins);
+    const card = toPublicBrandCard(brand);
+
+    expect(card.logoUrl).toBeNull();
   });
 });

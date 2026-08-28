@@ -213,6 +213,7 @@ describe('getBrandImages', () => {
       'source_url',
       'width',
       'height',
+      'alt_zh',
     ])
     expect(call.eqFilters).toEqual([
       ['brand_id', 'brand-1'],
@@ -331,6 +332,22 @@ describe('toImageFields', () => {
       false,
       false,
     ])
+  })
+
+  it('maps alt_zh to altZh', () => {
+    const rows = [
+      { storage_path: 'brands/a.jpg', status: 'active', tags: ['product'], sort_order: 0, source: 'scrape', alt_zh: '手工皂禮盒' },
+    ]
+    const result = toImageFields(rows as never)
+    expect(result.imageAlts[0]?.altZh).toBe('手工皂禮盒')
+  })
+
+  it('maps null alt_zh to undefined altZh', () => {
+    const rows = [
+      { storage_path: 'brands/a.jpg', status: 'active', tags: ['product'], sort_order: 0, source: 'scrape', alt_zh: null },
+    ]
+    const result = toImageFields(rows as never)
+    expect(result.imageAlts[0]?.altZh).toBeUndefined()
   })
 })
 

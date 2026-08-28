@@ -56,9 +56,10 @@ import {
  * `applyChunkNameCleanup` runs unconditionally, so `clean` is not needed for a
  * usable brand name; `links` scrapes `collectKnownUrls(brand)` — the brand's own
  * link columns, which an existing brand already has — so `discover` (a paid
- * serper call) is not needed to give it URLs; and the products phase loads its
- * image evidence from ALREADY-PERSISTED image rows, so `images` /
- * `classify_images` are not needed either.
+ * serper call) is not needed to give it URLs; and the products phase draws
+ * candidates from the merged pool (scraped pages + stored `brand_images`
+ * provenance), so `images` / `classify_images` are not needed as a
+ * prerequisite — the stored pool is already populated by prior image runs.
  */
 const CURATED_PRODUCT_BACKFILL_PHASES = [
   "links",

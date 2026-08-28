@@ -104,13 +104,6 @@ export type WritablePatchResult = {
   skipped: SkippedBrandField[];
 };
 
-const ENRICHMENT_EXCLUDED_FIELDS = new Set(["mitStory", "mit_story"]);
-const OWNER_PROTECTED_FIELDS = new Set([
-  "mit_status",
-  "mit_declared_scope",
-  "mit_declared_at",
-  "mit_declared_by",
-]);
 const REFRESH_ENRICHMENT_EXCLUDED_FIELDS = new Set([
   "id",
   "name",
@@ -119,9 +112,6 @@ const REFRESH_ENRICHMENT_EXCLUDED_FIELDS = new Set([
   "status",
   "source",
   "contact_email",
-  "mit_story",
-  "mit_status",
-  "mit_verified_at",
   "approved_at",
   "submitted_at",
   "created_at",
@@ -216,17 +206,7 @@ export function resolveWritablePatch(
     }
 
     if (actor.source === "owner") {
-      if (OWNER_PROTECTED_FIELDS.has(field)) {
-        skipped.push({ field, reason: "protected:service_managed" });
-        continue;
-      }
-
       allowed[field] = value;
-      continue;
-    }
-
-    if (ENRICHMENT_EXCLUDED_FIELDS.has(field)) {
-      skipped.push({ field, reason: "excluded:mit_story" });
       continue;
     }
 

@@ -1,11 +1,22 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   resetAuditEmitterForTests,
+  runWithAuditContext,
   setAuditWriteSeam,
   type AuditRecord,
 } from "@/lib/audit";
 import { createAuditedDeepSeekClient, createAuditedOpenAIClient } from "./llm-audit";
 import { brandTarget } from "./_shared/enrichment-target";
+
+vi.mock("./llm-pricing", () => ({
+  priceUsage: vi.fn().mockResolvedValue({
+    promptTokens: 100,
+    cachedPromptTokens: 0,
+    completionTokens: 25,
+    costUsd: 0.005,
+  }),
+  usageFromRawResponse: vi.fn().mockReturnValue(null),
+}));
 
 type InsertedRow = Record<string, unknown>;
 
@@ -83,6 +94,76 @@ describe("audited LLM clients", () => {
     expect(inserts[0]?.prompt_tokens).toBeNull();
   });
 
+  it("onChatComplete bridges usage to audit context for OpenAI", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(
+        new Response(
+          JSON.stringify({
+            choices: [{ message: { content: "answer" } }],
+            usage: { prompt_tokens: 100, completion_tokens: 25 },
+          }),
+          { status: 200 },
+        ),
+      ),
+    );
+
+    const inserts: InsertedRow[] = [];
+    const client = createAuditedOpenAIClient(
+      {
+        target,
+        phase: "descriptions",
+        supabase: fakeSupabase(inserts),
+      },
+      { apiKey: "k" },
+    );
+
+    await client.chat({ system: "s", user: "u" });
+
+    expect(writes).toHaveLength(2);
+    expect(writes[1]).toMatchObject({
+      status: "succeeded",
+      promptTokens: 100,
+      completionTokens: 25,
+      costUsd: 0.005,
+    });
+  });
+
+  it("onChatComplete bridges usage to audit context for DeepSeek", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(
+        new Response(
+          JSON.stringify({
+            choices: [{ message: { content: "answer" } }],
+            usage: { prompt_tokens: 100, completion_tokens: 25 },
+          }),
+          { status: 200 },
+        ),
+      ),
+    );
+
+    const inserts: InsertedRow[] = [];
+    const client = createAuditedDeepSeekClient(
+      {
+        target,
+        phase: "reputation",
+        supabase: fakeSupabase(inserts),
+      },
+      { apiKey: "k" },
+    );
+
+    await client.chat({ system: "s", user: "u" });
+
+    expect(writes).toHaveLength(2);
+    expect(writes[1]).toMatchObject({
+      status: "succeeded",
+      promptTokens: 100,
+      completionTokens: 25,
+      costUsd: 0.005,
+    });
+  });
+
   it("audits a DeepSeek balance call", async () => {
     const client = createAuditedDeepSeekClient(
       {
@@ -106,5 +187,91 @@ describe("audited LLM clients", () => {
       operation: "balance",
       status: "succeeded",
     });
+  });
+});
+
+describe("Langfuse generation integration", () => {
+  it("creates a Langfuse generation on chat complete", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(
+        new Response(
+          JSON.stringify({
+            choices: [{ message: { content: "answer" } }],
+            usage: { prompt_tokens: 100, completion_tokens: 25 },
+          }),
+          { status: 200 },
+        ),
+      ),
+    );
+
+    const mockGeneration = vi.fn();
+    const langfuseTrace = { generation: mockGeneration };
+    const inserts: InsertedRow[] = [];
+
+    await runWithAuditContext({ langfuseTrace }, () => {
+      const client = createAuditedOpenAIClient(
+        {
+          target,
+          phase: "descriptions",
+          supabase: fakeSupabase(inserts),
+        },
+        { apiKey: "k" },
+      );
+      return client.chat({ system: "s", user: "u" });
+    });
+
+    expect(mockGeneration).toHaveBeenCalledOnce();
+    expect(mockGeneration).toHaveBeenCalledWith(
+      expect.objectContaining({
+        name: "openai/chat_completions",
+        model: expect.any(String),
+        usage: expect.objectContaining({
+          promptTokens: 100,
+          completionTokens: 25,
+        }),
+        metadata: expect.objectContaining({
+          phase: "descriptions",
+          ok: true,
+        }),
+      }),
+    );
+  });
+
+  it("Langfuse error does not block production call", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(
+        new Response(
+          JSON.stringify({
+            choices: [{ message: { content: "answer" } }],
+            usage: { prompt_tokens: 10, completion_tokens: 5 },
+          }),
+          { status: 200 },
+        ),
+      ),
+    );
+
+    const langfuseTrace = {
+      generation: vi.fn(() => {
+        throw new Error("Langfuse SDK exploded");
+      }),
+    };
+    const inserts: InsertedRow[] = [];
+
+    const result = await runWithAuditContext({ langfuseTrace }, () => {
+      const client = createAuditedOpenAIClient(
+        {
+          target,
+          phase: "descriptions",
+          supabase: fakeSupabase(inserts),
+        },
+        { apiKey: "k" },
+      );
+      return client.chat({ system: "s", user: "u" });
+    });
+
+    // The call completed successfully despite Langfuse throwing
+    expect(result).toMatchObject({ ok: true });
   });
 });

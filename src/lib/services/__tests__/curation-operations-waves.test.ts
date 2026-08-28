@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { runEnrich } from "../curation-operations";
 import type { DetectResult } from "../category-classifier";
@@ -24,6 +24,12 @@ const mocks = vi.hoisted(() => ({
   batchSearchBrandImages: vi.fn(),
   scrapeBrandUrls: vi.fn(),
   getLatestSearchResults: vi.fn(),
+  getLangfuse: vi.fn(),
+}));
+
+vi.mock("@/lib/langfuse/client", () => ({
+  getLangfuse: mocks.getLangfuse,
+  flushLangfuse: vi.fn(async () => {}),
 }));
 
 vi.mock("../category-classifier", async (importOriginal) => ({
@@ -84,11 +90,15 @@ function submission(
 }
 
 /**
- * Only two chains are exercised: the submission fetch in `runEnrich` and the
- * active-image count in the image-search phase. Both terminate in an awaited
- * thenable, so the builder is a self-returning proxy with a fixed payload.
+ * Only two chains are exercised: the submission fetch in `runEnrich`, the
+ * phase-history fetch from `curation_job_targets`, and the active-image count
+ * in the image-search phase. Both terminate in an awaited thenable, so the
+ * builder is a self-returning proxy with a fixed payload.
  */
-function fakeSupabase(submissions: SubmissionRow[]): SupabaseClient {
+function fakeSupabase(
+  submissions: SubmissionRow[],
+  jobTargets: Array<{ target_type: string; target_id: string; phase_results: unknown[]; created_at: string }> = [],
+): SupabaseClient {
   const builder = (rows: unknown[]): Record<string, unknown> => {
     const chain: Record<string, unknown> = {
       then: (resolve: (value: { data: unknown[]; error: null }) => unknown) =>
@@ -102,6 +112,7 @@ function fakeSupabase(submissions: SubmissionRow[]): SupabaseClient {
       "limit",
       "update",
       "single",
+      "order",
     ]) {
       chain[method] = () => chain;
     }
@@ -109,8 +120,11 @@ function fakeSupabase(submissions: SubmissionRow[]): SupabaseClient {
   };
 
   return {
-    from: (table: string) =>
-      builder(table === "brand_submissions" ? submissions : []),
+    from: (table: string) => {
+      if (table === "brand_submissions") return builder(submissions);
+      if (table === "curation_job_targets") return builder(jobTargets);
+      return builder([]);
+    },
   } as unknown as SupabaseClient;
 }
 
@@ -540,5 +554,206 @@ describe("Gate C and the LLM circuit breaker", () => {
         (phaseResult) => phaseResult.providerFailure === true,
       ),
     ).toBe(false);
+  });
+});
+
+describe("satisfaction skipping", () => {
+  // Stub OPENAI_API_KEY so the env guard inside runProductsPhase never
+  // masks the satisfaction skip — CI runners have no .env.local.
+  const ORIGINAL_KEY = process.env.OPENAI_API_KEY;
+  beforeEach(() => {
+    vi.clearAllMocks();
+    process.env.OPENAI_API_KEY = "test-stub";
+    mocks.getLatestSearchResults.mockResolvedValue(new Map());
+    mocks.batchSearchBrandImages.mockResolvedValue(new Map());
+    mocks.scrapeBrandUrls.mockResolvedValue(scrapeResult());
+  });
+  afterEach(() => {
+    if (ORIGINAL_KEY === undefined) delete process.env.OPENAI_API_KEY;
+    else process.env.OPENAI_API_KEY = ORIGINAL_KEY;
+  });
+
+  /**
+   * A submission with a prior successful `products` run in
+   * `curation_job_targets` history should skip the products phase.
+   */
+  it("products_satisfied_via_history_skips", async () => {
+    const target = submission({
+      id: "sub-satisfied",
+      brand_name: "Satisfied Brand",
+      social_instagram: "https://www.instagram.com/satisfied",
+    });
+    mocks.detectBrandsBatch.mockResolvedValue(detectBatch(new Map()));
+
+    const jobTargets = [{
+      target_type: "submission",
+      target_id: target.id,
+      phase_results: [
+        { phase: "discover", status: "succeeded", changedFields: [], durationMs: 50 },
+        { phase: "detect", status: "succeeded", changedFields: [], durationMs: 50 },
+        { phase: "links", status: "succeeded", changedFields: [], durationMs: 50 },
+        { phase: "names", status: "succeeded", changedFields: [], durationMs: 50 },
+        { phase: "site_identity", status: "succeeded", changedFields: [], durationMs: 50 },
+        { phase: "images", status: "succeeded", changedFields: [], durationMs: 50 },
+        { phase: "classify_images", status: "succeeded", changedFields: [], durationMs: 50 },
+        { phase: "products", status: "succeeded", changedFields: [], durationMs: 100 },
+      ],
+      created_at: "2026-08-01T00:00:00Z",
+    }];
+
+    const result = await runEnrich(
+      {
+        target: "submissions",
+        submissionIds: [target.id],
+        dryRun: true,
+        phases: ["detect", "links", "images", "products"],
+        onProgress: () => {},
+      },
+      fakeSupabase([target], jobTargets),
+    );
+
+    const outcome = result.brandOutcomes.find(
+      (entry) => entry?.submissionId === target.id,
+    );
+    const productsPhase = outcome?.phaseResults?.find(
+      (pr) => pr.phase === "products",
+    );
+    expect(productsPhase).toBeDefined();
+    expect(productsPhase?.status).toBe("skipped");
+    expect(productsPhase?.detail).toBe("phase output already satisfied");
+  });
+
+  /**
+   * When force (overwrite) is set, history-based satisfaction is bypassed and
+   * every phase runs regardless of prior success.
+   */
+  it("force_overrides_history_satisfaction", async () => {
+    const target = submission({
+      id: "sub-force",
+      brand_name: "Force Brand",
+      social_instagram: "https://www.instagram.com/forced",
+    });
+    mocks.detectBrandsBatch.mockResolvedValue(detectBatch(new Map()));
+
+    const jobTargets = [{
+      target_type: "submission",
+      target_id: target.id,
+      phase_results: [
+        { phase: "links", status: "succeeded", changedFields: [], durationMs: 50 },
+        { phase: "site_identity", status: "succeeded", changedFields: [], durationMs: 50 },
+        { phase: "products", status: "succeeded", changedFields: [], durationMs: 100 },
+      ],
+      created_at: "2026-08-01T00:00:00Z",
+    }];
+
+    const result = await runEnrich(
+      {
+        target: "submissions",
+        submissionIds: [target.id],
+        dryRun: true,
+        overwrite: true,
+        phases: ["detect", "links", "images", "products"],
+        onProgress: () => {},
+      },
+      fakeSupabase([target], jobTargets),
+    );
+
+    const outcome = result.brandOutcomes.find(
+      (entry) => entry?.submissionId === target.id,
+    );
+    const productsPhase = outcome?.phaseResults?.find(
+      (pr) => pr.phase === "products",
+    );
+    expect(productsPhase).toBeDefined();
+    expect(productsPhase?.detail).not.toBe("phase output already satisfied");
+  });
+
+  /**
+   * A prior successful `links` run skips the links phase in wave A, so the
+   * scraper is never called.
+   */
+  it("links_satisfied_via_history_skips_in_wave_a", async () => {
+    const target = submission({
+      id: "sub-links-satisfied",
+      brand_name: "Links Satisfied Brand",
+      social_instagram: "https://www.instagram.com/linkssatisfied",
+    });
+    mocks.detectBrandsBatch.mockResolvedValue(detectBatch(new Map()));
+
+    const jobTargets = [{
+      target_type: "submission",
+      target_id: target.id,
+      phase_results: [{ phase: "links", status: "succeeded", changedFields: ["purchase_website"], durationMs: 200 }],
+      created_at: "2026-08-01T00:00:00Z",
+    }];
+
+    await runEnrich(
+      {
+        target: "submissions",
+        submissionIds: [target.id],
+        dryRun: true,
+        phases: ["detect", "links", "images"],
+        onProgress: () => {},
+      },
+      fakeSupabase([target], jobTargets),
+    );
+
+    // links is satisfied, so scrapeBrandUrls should NOT be called for this brand
+    expect(mocks.scrapeBrandUrls).not.toHaveBeenCalled();
+  });
+});
+
+describe("Langfuse trace lifecycle", () => {
+  it("creates a Langfuse trace when client is available", async () => {
+    const mockUpdate = vi.fn();
+    const mockTrace = vi.fn().mockReturnValue({ update: mockUpdate });
+    mocks.getLangfuse.mockReturnValue({ trace: mockTrace });
+
+    const target = submission({ id: "s-lf-1" });
+
+    await runEnrich(
+      {
+        target: "submissions",
+        submissionIds: [target.id],
+        slugs: ["test-brand"],
+        dryRun: true,
+        phases: ["detect"],
+        jobId: "job-lf-1",
+        onProgress: () => {},
+      },
+      fakeSupabase([target]),
+    );
+
+    expect(mockTrace).toHaveBeenCalledOnce();
+    expect(mockTrace).toHaveBeenCalledWith(
+      expect.objectContaining({
+        name: "enrich",
+        metadata: expect.objectContaining({
+          brandSlug: "test-brand",
+          jobId: "job-lf-1",
+        }),
+      }),
+    );
+  });
+
+  it("works without Langfuse", async () => {
+    mocks.getLangfuse.mockReturnValue(null);
+
+    const target = submission({ id: "s-lf-2" });
+
+    const result = await runEnrich(
+      {
+        target: "submissions",
+        submissionIds: [target.id],
+        dryRun: true,
+        phases: ["detect"],
+        onProgress: () => {},
+      },
+      fakeSupabase([target]),
+    );
+
+    // runEnrich completes normally
+    expect(result).toBeDefined();
+    expect(result.errors).toBeDefined();
   });
 });

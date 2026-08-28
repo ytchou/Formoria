@@ -195,3 +195,7 @@ scripts/.remove-backup-*.json
 
 # Production probe state cache (written by scripts/production-probe/probe.ts)
 .probe-state/
+
+# Production restore data from category cleanups (large, and it is a copy of rows
+# that were deleted from production — belongs on disk, never in the repo history).
+backups/

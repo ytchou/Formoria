@@ -17,6 +17,7 @@ import {
   resolveSubcategorySlugs,
 } from "@/lib/taxonomy/ontology";
 import { getPublishedTrailBySlug, getTrailBySlug } from "@/lib/services/trails";
+import { isRegistryRecordActive } from "@/lib/services/curated-products/origin-qualification";
 
 /** The tables are reached through the untyped `from` surface, with generated DB shapes at the boundary. */
 export type CuratedProductSupabase = Pick<SupabaseClient, "from">;
@@ -61,6 +62,7 @@ export type CuratedProduct = {
   trailSlug: string | null;
   sectionKey: string | null;
   position: number | null;
+  mitQualified: boolean;
 };
 
 /** The minimum supply needed for the homepage rail to read as intentional. */
@@ -107,6 +109,8 @@ const CURATED_PRODUCT_READ_SELECT = `
   image_source_url, visible, link_state, link_checked_at,
   source_checked_at, review_due_at, product_description_zh,
   product_description_en, product_position, created_at,
+  made_in_taiwan_confirmed, materials_from_taiwan_confirmed,
+  mit_registry:mit_registry_id(id, valid_until, synced_at),
   curated_product_sources!inner(id),
   curated_product_selections(trail_slug, section_key, position)
 `;
@@ -142,6 +146,13 @@ type CuratedProductReadRow = Pick<
   | "product_position"
   | "created_at"
 > & {
+  made_in_taiwan_confirmed?: boolean | null;
+  materials_from_taiwan_confirmed?: boolean | null;
+  mit_registry?: {
+    id: number;
+    valid_until: string | null;
+    synced_at: string | null;
+  } | null;
   curated_product_selections: CuratedProductSelectionRow[] | null;
 };
 
@@ -249,6 +260,16 @@ function toCuratedProduct(row: CuratedProductReadRow): CuratedProduct {
     trailSlug: selection?.trail_slug ?? null,
     sectionKey: selection?.section_key ?? null,
     position: selection?.position ?? null,
+    mitQualified:
+      (row.made_in_taiwan_confirmed === true &&
+        row.materials_from_taiwan_confirmed === true) ||
+      Boolean(
+        row.mit_registry &&
+          isRegistryRecordActive({
+            validUntil: row.mit_registry.valid_until,
+            syncedAt: row.mit_registry.synced_at,
+          }),
+      ),
   };
 }
 
@@ -288,6 +309,16 @@ function toTrailProduct(
     trailSlug: selection.trail_slug,
     sectionKey: selection.section_key,
     position: selection.position,
+    mitQualified:
+      (row.made_in_taiwan_confirmed === true &&
+        row.materials_from_taiwan_confirmed === true) ||
+      Boolean(
+        row.mit_registry &&
+          isRegistryRecordActive({
+            validUntil: row.mit_registry.valid_until,
+            syncedAt: row.mit_registry.synced_at,
+          }),
+      ),
     brandSlug: brand.slug,
     brandName: brand.name,
     brand: {
@@ -531,6 +562,8 @@ const CURATED_PRODUCT_TRAIL_READ_SELECT = `
   image_source_url, visible, link_state, link_checked_at,
   source_checked_at, review_due_at, product_description_zh,
   product_description_en, product_position, created_at,
+  made_in_taiwan_confirmed, materials_from_taiwan_confirmed,
+  mit_registry:mit_registry_id(id, valid_until, synced_at),
   curated_product_sources!inner(id, state),
   curated_product_selections!inner(trail_slug, section_key, position, state),
   brands!inner(slug, name, status, purchase_website, purchase_pinkoi, purchase_shopee, purchase_myship, social_instagram, social_threads, social_facebook)
@@ -703,6 +736,10 @@ export type CuratedProductWriteInput = {
    * proposal apart from a curator's own row (DEV-1469).
    */
   proposedBy?: "admin" | "generated" | "owner";
+  madeInTaiwanConfirmed?: boolean;
+  materialsFromTaiwanConfirmed?: boolean;
+  mitRegistryId?: number | null;
+  originCandidateId?: string | null;
 };
 
 /**
@@ -728,8 +765,61 @@ export type CuratedProductWriteInput = {
  * live row is a migration, never an edit.
  */
 export type CuratedProductUpdateInput = Partial<
-  Omit<CuratedProductWriteInput, "brandId" | "key" | "material" | "proposedBy">
+  Omit<
+    CuratedProductWriteInput,
+    | "brandId"
+    | "key"
+    | "material"
+    | "proposedBy"
+    | "madeInTaiwanConfirmed"
+    | "materialsFromTaiwanConfirmed"
+    | "mitRegistryId"
+    | "originCandidateId"
+  >
 >;
+
+export async function getOriginCandidateUrls(
+  ids: readonly string[],
+  client?: CuratedProductSupabase,
+): Promise<Map<string, string>> {
+  if (ids.length === 0) return new Map();
+  const { data, error } = await curatedProductClient(client)
+    .from("curated_product_candidates")
+    .select("id, url")
+    .in("id", [...new Set(ids)]);
+  if (error) throw error;
+  return new Map(
+    ((data ?? []) as Array<{ id: string; url: string }>).map((row) => [
+      row.id,
+      row.url,
+    ]),
+  );
+}
+
+export async function refreshGeneratedCuratedProductOrigin(
+  id: string,
+  input: Pick<
+    CuratedProductWriteInput,
+    | "madeInTaiwanConfirmed"
+    | "materialsFromTaiwanConfirmed"
+    | "mitRegistryId"
+    | "originCandidateId"
+  >,
+  client?: CuratedProductSupabase,
+): Promise<void> {
+  const { error } = await curatedProductClient(client)
+    .from("curated_products")
+    .update({
+      made_in_taiwan_confirmed: input.madeInTaiwanConfirmed ?? false,
+      materials_from_taiwan_confirmed:
+        input.materialsFromTaiwanConfirmed ?? false,
+      mit_registry_id: input.mitRegistryId ?? null,
+      origin_candidate_id: input.originCandidateId ?? null,
+    })
+    .eq("id", id)
+    .eq("proposed_by", "generated");
+  if (error) throw error;
+}
 
 /**
  * Curated-product subcategories, normalized to slugs and confined to the
@@ -874,6 +964,11 @@ export async function createCuratedProduct(
         product_position: input.productPosition ?? null,
         visible: input.visible ?? false,
         proposed_by: input.proposedBy ?? "admin",
+        made_in_taiwan_confirmed: input.madeInTaiwanConfirmed ?? false,
+        materials_from_taiwan_confirmed:
+          input.materialsFromTaiwanConfirmed ?? false,
+        mit_registry_id: input.mitRegistryId ?? null,
+        origin_candidate_id: input.originCandidateId ?? null,
       };
 
       reportZhVocabulary(row, ctx);

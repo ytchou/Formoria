@@ -8,7 +8,6 @@ import { sanitizeErrorResponse } from '@/lib/errors'
 import { processImage } from '@/lib/security/image-processor'
 import { createInMemoryRateLimiter } from '@/lib/security/rate-limiter'
 import {
-  uploadPrivateImage,
   uploadPublicImage,
   ALLOWED_UPLOAD_BUCKETS,
   type AllowedUploadBucket,
@@ -33,12 +32,6 @@ const uploadRateLimiter = createInMemoryRateLimiter()
 const UPLOAD_RATE_LIMIT_WINDOW_MS = 60_000
 const UPLOAD_RATE_LIMIT_MAX_REQUESTS = 10
 const MAX_FILE_SIZE = 5 * 1024 * 1024
-
-function isPrivateUploadBucket(
-  bucket: AllowedUploadBucket
-): bucket is 'origin-evidence' {
-  return bucket === 'origin-evidence'
-}
 
 export const POST = withAuditScope(async (request: Request) => {
   try {
@@ -95,10 +88,6 @@ export const POST = withAuditScope(async (request: Request) => {
       return NextResponse.json({ error: 'Rate limit exceeded' }, { status: 429 })
     }
 
-    if (isPrivateUploadBucket(bucket) && !path.startsWith(`${userId}/`)) {
-      return NextResponse.json({ error: 'Invalid path' }, { status: 403 })
-    }
-
     // Convert file to Buffer and process server-side
     const buffer = Buffer.from(await file.arrayBuffer())
 
@@ -121,29 +110,6 @@ export const POST = withAuditScope(async (request: Request) => {
     // Upload via service layer
     const objectPath = `${path}/${Date.now()}-${crypto.randomUUID()}.webp`
     try {
-      if (isPrivateUploadBucket(bucket)) {
-        const result = await uploadPrivateImage({
-          bucket,
-          path: objectPath,
-          data: processed.buffer,
-          contentType: 'image/webp',
-        })
-
-        await captureAssetUploaded(request, userId, {
-          bucket,
-          asset_type: 'image',
-          size_bytes: buffer.length,
-          width: processed.width,
-          height: processed.height,
-          authenticated: true,
-        })
-        return NextResponse.json({
-          key: result.key,
-          width: processed.width,
-          height: processed.height,
-        })
-      }
-
       const result = await uploadPublicImage({
         bucket,
         path: objectPath,

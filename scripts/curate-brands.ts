@@ -1,11 +1,13 @@
 import { readFile } from 'node:fs/promises'
 import path from 'node:path'
 
+import { flushLangfuse } from '@/lib/langfuse/client'
 import { createServiceClient } from '@/lib/supabase/service'
 import {
-  CURATION_STEP_ORDER,
+  CURATION_TASK_ORDER,
   ENRICH_PHASES,
-  type CurationStep,
+  phasesForTask,
+  type CurationTask,
 } from '@/lib/constants/enrich-phases'
 import {
   type CurationConfig,
@@ -27,7 +29,7 @@ type CurationCommand = (typeof COMMANDS)[number]
 type EnrichPhase = (typeof ENRICH_PHASES)[number]
 type ParsedCurationConfig = CurationConfig & {
   phases?: EnrichPhase[]
-  steps?: CurationStep[]
+  task?: CurationTask
 }
 
 type ParsedCliArgs = {
@@ -171,14 +173,11 @@ export function parseCliArgs(argv: string[]): ParsedCliArgs {
         })
       : [...ENRICH_PHASES]
 
-    // --steps is the operator-facing selection; --phases stays for the
+    // --task is the operator-facing selection; --phases stays for the
     // fine-grained reruns that job history and phase_results are written in.
-    const steps = parseCsvFlag(args, 'steps')
-    const parsedSteps = steps?.filter((step): step is CurationStep =>
-      (CURATION_STEP_ORDER as readonly string[]).includes(step)
-    )
-    if (parsedSteps?.length) {
-      config.steps = parsedSteps
+    const taskFlag = args.find(a => a.startsWith('--task='))?.split('=')[1]
+    if (taskFlag && (CURATION_TASK_ORDER as readonly string[]).includes(taskFlag)) {
+      config.task = taskFlag as CurationTask
     }
   }
 
@@ -201,7 +200,7 @@ function printUsage(): void {
   )
   console.log('  --status=approved')
   console.log('  --limit=10')
-  console.log(`  --steps=${CURATION_STEP_ORDER.join(',')}  enrich only (preferred)`)
+  console.log(`  --task=${CURATION_TASK_ORDER.join('|')}  enrich only (preferred)`)
   console.log(`  --phases=${ENRICH_PHASES.join(',')}  enrich only`)
   console.log('  --overwrite                                  submission enrichment only')
 }
@@ -475,8 +474,11 @@ async function runCommand({ command, config }: ParsedCliArgs): Promise<Operation
       return runEnrich(
         {
           ...runConfig,
-          phases: runConfig.phases ?? [...ENRICH_PHASES],
-          ...(runConfig.steps ? { steps: runConfig.steps } : {}),
+          phases: runConfig.task
+            ? phasesForTask(runConfig.task)
+            : runConfig.phases ?? [...ENRICH_PHASES],
+          ...(runConfig.task ? { task: runConfig.task } : {}),
+          explicitPhases: runConfig.task ? [] : runConfig.phases ?? [],
         },
         supabase
       )
@@ -499,6 +501,8 @@ async function main(): Promise<void> {
     console.error(err instanceof Error ? err.message : err)
     printUsage()
     process.exitCode = 1
+  } finally {
+    await flushLangfuse()
   }
 }
 

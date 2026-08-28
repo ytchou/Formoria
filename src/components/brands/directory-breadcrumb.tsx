@@ -23,7 +23,7 @@ export function buildDirectoryBreadcrumbItems({
 }: DirectoryBreadcrumbInput): DirectoryBreadcrumbItem[] {
   if (!category && !subcategory) return []
 
-  const categoryPath = category ? routes.category(category.slug) : null
+  const categoryPath = category ? routes.brands({ category: category.slug }) : null
   const items: DirectoryBreadcrumbItem[] = [
     { label: directoryLabel, href: localizePath(routes.brands(), locale) },
   ]
@@ -32,7 +32,7 @@ export function buildDirectoryBreadcrumbItems({
     items.push({
       label: category.label,
       ...(subcategory
-        ? { href: localizePath(categoryPath ?? routes.categories(), locale) }
+        ? { href: localizePath(categoryPath ?? routes.brands(), locale) }
         : { current: true }),
     })
   }

@@ -1,11 +1,12 @@
 import { randomUUID } from "node:crypto";
-import { auditedCall, type ChatAuditEvent } from "@/lib/audit";
+import { auditedCall, getAuditContext, type ChatAuditEvent } from "@/lib/audit";
 import type { Database } from "@/lib/supabase/database.types";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { insertAiCallResult } from "./_shared/ai-results";
 import { createDeepSeekClient } from "./deepseek-client";
 import type { EnrichmentTarget } from "./_shared/enrichment-target";
 import { createOpenAIClient } from "./openai-client";
+import { priceUsage } from "./llm-pricing";
 import { buildEnrichmentConfig } from "@/lib/constants/enrichment-config";
 import {
   LLM_PROFILES,
@@ -18,7 +19,7 @@ const MAX_PROMPT_LENGTH = 2_000;
 
 export type LlmAuditContext = {
   jobId?: string;
-  target: EnrichmentTarget;
+  target?: EnrichmentTarget;
   phase: string;
   attempt?: number;
   config?: unknown;
@@ -46,12 +47,47 @@ function truncate(value: string): string {
     : `${value.slice(0, MAX_PROMPT_LENGTH)}…`;
 }
 
+/**
+ * Fire-and-forget Langfuse generation for LLM calls.
+ * Must never throw -- all errors are swallowed.
+ */
+function emitLangfuseGeneration(
+  context: LlmAuditContext,
+  event: ChatAuditEvent,
+): void {
+  try {
+    const trace = getAuditContext().langfuseTrace;
+    if (trace) {
+      const langfuseTrace = trace as { generation: (input: Record<string, unknown>) => void };
+      langfuseTrace.generation({
+        name: `${event.provider}/chat_completions`,
+        model: event.model,
+        input: { system: truncate(event.request.system), user: truncate(event.request.user) },
+        output: event.data,
+        usage: {
+          promptTokens: event.usage?.prompt_tokens,
+          completionTokens: event.usage?.completion_tokens,
+        },
+        metadata: {
+          phase: context.phase,
+          ok: event.ok,
+          status: event.status,
+          latencyMs: event.latencyMs,
+        },
+      });
+    }
+  } catch {
+    // Langfuse errors must never block production
+  }
+}
+
 async function persistAuditEvent(
   context: LlmAuditContext,
   event: ChatAuditEvent,
   spanId: string,
 ): Promise<void> {
   try {
+    if (!context.target) return;
     await insertAiCallResult({
       target: context.target,
       phase: context.phase,
@@ -96,10 +132,6 @@ export function createAuditedDeepSeekClient(
   return {
     async chat(input: DeepSeekChatInput) {
       const spanId = randomUUID();
-      const client = createDeepSeekClient({
-        ...options,
-        onChatComplete: (event) => persistAuditEvent(context, event, spanId),
-      });
 
       // The envelope wraps the whole chat call because the client retries
       // internally, so several brand_ai_results rows can share one span_id.
@@ -113,11 +145,30 @@ export function createAuditedDeepSeekClient(
           spanId,
           ...(context.attempt === undefined ? {} : { attempt: context.attempt }),
         },
-        () => client.chat(input),
+        async (ctx) => {
+          const client = createDeepSeekClient({
+            ...options,
+            onChatComplete: async (event) => {
+              if (event.usage) {
+                try {
+                  const cost = await priceUsage(event.model ?? "", event.usage);
+                  ctx.promptTokens = cost.promptTokens;
+                  ctx.completionTokens = cost.completionTokens;
+                  ctx.costUsd = cost.costUsd;
+                } catch {
+                  // Price lookup must never prevent the audit row from being written.
+                }
+              }
+              await persistAuditEvent(context, event, spanId);
+              emitLangfuseGeneration(context, event);
+            },
+          });
+          return client.chat(input);
+        },
         {
           classify: classifyChatResult,
-          summary: { phase: context.phase, targetType: context.target.type },
-          subjectId: context.target.id,
+          summary: { phase: context.phase, targetType: context.target?.type },
+          subjectId: context.target?.id ?? null,
           jobId: context.jobId ?? null,
         },
       );
@@ -134,8 +185,8 @@ export function createAuditedDeepSeekClient(
         () => balanceClient.balance(timeoutMs),
         {
           classify: (result) => (result.ok ? "succeeded" : "failed"),
-          summary: { phase: context.phase, targetType: context.target.type },
-          subjectId: context.target.id,
+          summary: { phase: context.phase, targetType: context.target?.type },
+          subjectId: context.target?.id ?? null,
           jobId: context.jobId ?? null,
         },
       );
@@ -152,10 +203,6 @@ export function createAuditedOpenAIClient(
       input: Parameters<ReturnType<typeof createOpenAIClient>["chat"]>[0],
     ) {
       const spanId = randomUUID();
-      const client = createOpenAIClient({
-        ...options,
-        onChatComplete: (event) => persistAuditEvent(context, event, spanId),
-      });
 
       // The envelope wraps the whole chat call because the client retries
       // internally, so several brand_ai_results rows can share one span_id.
@@ -169,11 +216,30 @@ export function createAuditedOpenAIClient(
           spanId,
           ...(context.attempt === undefined ? {} : { attempt: context.attempt }),
         },
-        () => client.chat(input),
+        async (ctx) => {
+          const client = createOpenAIClient({
+            ...options,
+            onChatComplete: async (event) => {
+              if (event.usage) {
+                try {
+                  const cost = await priceUsage(event.model ?? "", event.usage);
+                  ctx.promptTokens = cost.promptTokens;
+                  ctx.completionTokens = cost.completionTokens;
+                  ctx.costUsd = cost.costUsd;
+                } catch {
+                  // Price lookup must never prevent the audit row from being written.
+                }
+              }
+              await persistAuditEvent(context, event, spanId);
+              emitLangfuseGeneration(context, event);
+            },
+          });
+          return client.chat(input);
+        },
         {
           classify: (result) => (result.ok ? "succeeded" : "failed"),
-          summary: { phase: context.phase, targetType: context.target.type },
-          subjectId: context.target.id,
+          summary: { phase: context.phase, targetType: context.target?.type },
+          subjectId: context.target?.id ?? null,
           jobId: context.jobId ?? null,
         },
       );

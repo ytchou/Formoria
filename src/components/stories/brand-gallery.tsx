@@ -63,7 +63,7 @@ export async function BrandGallery({
   const images = entries
     .map(({ url, sourceIndex: index }) => {
       const imageAlt = source.imageAlts[index]
-      const alt = t('galleryImageAlt', { brand: brand.name })
+      const alt = imageAlt?.altZh ?? t('galleryImageAlt', { brand: brand.name })
 
       // The whole meta rides along rather than three unpacked fields: this is
       // the same `BrandImageMeta` the shared fill helper takes, so nothing has

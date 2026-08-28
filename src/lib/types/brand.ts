@@ -5,9 +5,6 @@ import type {
 } from "@/lib/brands/online-stores";
 
 export type BrandStatus = "approved" | "hidden";
-/** The `brands.mit_status` ladder. Mirrors the CHECK constraint in
- *  20260722100000_mit_status_ladder.sql — keep in lockstep. */
-export type MitStatus = "unverified" | "declared" | "verified";
 export type SubmissionStatus = "pending" | "approved" | "rejected";
 
 export type OtherUrl = {
@@ -31,14 +28,6 @@ export type BrandFlatLinkColumns = {
   social_facebook?: string | null;
   other_urls?: unknown;
 } & { [Column in OnlineStoreColumn]?: string | null };
-
-type MitEvidence = {
-  mit_smile_listed?: boolean;
-  mit_smile_cert?: string;
-  notes?: string;
-  verified_source?: string;
-  verified_by?: string;
-};
 
 /**
  * Per-image metadata, index-aligned with `[heroImageUrl, ...productPhotos]`.
@@ -64,6 +53,7 @@ export type BrandImageMeta = {
    * fails closed: no credit.
    */
   isOwnerSupplied?: boolean;
+  altZh?: string | null;
 };
 
 export type Brand = {
@@ -76,6 +66,7 @@ export type Brand = {
   blurb: string | null;
   blurbEn: string | null;
   heroImageUrl: string | null;
+  logoUrl: string | null;
   heroImageMetadata?: {
     width: number | null;
     height: number | null;
@@ -84,11 +75,6 @@ export type Brand = {
   categorySlug?: string | null;
   city: string | null;
   categoryLabel: string | null;
-  mitStatus?: MitStatus;
-  mitDeclaredScope?: "all" | "most" | "some" | null;
-  mitDeclaredAt?: string | null;
-  mitEvidence?: MitEvidence | null;
-  mitStory?: string | null;
   isDemo: boolean;
   foundingYear: number | null;
   reputationSummary?: ReputationSummary | null;
@@ -119,7 +105,6 @@ export type BrandFilters = {
    * apply it, or `?material=` breaks the moment a user types (DEV-1510).
    */
   materials?: string[];
-  verificationFilter?: "all" | "mit-declared";
   search?: string;
   sort?: BrandSortOption;
   limit?: number;

@@ -238,6 +238,52 @@ describe("ImageCarousel", () => {
     expect(container.querySelector("[data-brand-supplied]")).not.toBeNull();
   });
 
+  it("renders altZh when available", () => {
+    render(
+      <ImageCarousel
+        images={IMAGES}
+        alt="Formoria"
+        brandId="brand-id"
+        brandSlug="formoria"
+        imageAlts={[
+          { isLogo: true, altZh: "品牌標誌" },
+          { isLogo: false, altZh: "被過濾的圖片" },
+          { isLogo: true, altZh: "第三張圖片" },
+        ]}
+      />,
+    );
+
+    const [hero, firstThumb, secondThumb] = images();
+
+    // altZh wins over the generic i18n template.
+    expect(hero).toHaveAttribute("alt", "品牌標誌");
+    expect(firstThumb).toHaveAttribute("alt", "品牌標誌");
+    // Source index 2 maps to filtered index 1 (index 1 is dropped by host
+    // filter), so the second thumbnail carries the THIRD alt.
+    expect(secondThumb).toHaveAttribute("alt", "第三張圖片");
+  });
+
+  it("falls back to i18n when altZh absent", () => {
+    render(
+      <ImageCarousel
+        images={IMAGES}
+        alt="Formoria"
+        brandId="brand-id"
+        brandSlug="formoria"
+        imageAlts={[
+          { isLogo: true },
+          { isLogo: false },
+          { isLogo: true },
+        ]}
+      />,
+    );
+
+    const [hero] = images();
+
+    // No altZh on the meta — falls back to the generic template.
+    expect(hero).toHaveAttribute("alt", "gallery.photoAltWithBrand");
+  });
+
   it("shows no credit when no image carries provenance", () => {
     // A brand with zero owner-supplied rows is the common case today, and a
     // conditional render is correct at zero rows. There is deliberately no

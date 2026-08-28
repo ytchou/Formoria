@@ -18,10 +18,6 @@ function brand(overrides: Partial<RecentBrandEdit> = {}): RecentBrandEdit {
     name: "Test Brand",
     description: null,
     descriptionEn: null,
-    mitStatus: null,
-    mitDeclaredScope: null,
-    mitDeclaredAt: null,
-    mitVerifiedAt: null,
     purchaseWebsite: "https://example.com/",
     purchasePinkoi: null,
     purchaseShopee: null,
@@ -44,80 +40,6 @@ describe("evaluateBrandReview", () => {
       windowStartIso: WINDOW_START_ISO,
       nowIso: NOW_ISO,
     });
-  });
-
-  it("flags declared MIT without scope", () => {
-    const result = evaluateBrandReview(
-      [
-        brand({
-          mitStatus: "declared",
-          mitDeclaredScope: null,
-          mitDeclaredAt: "2026-01-01",
-        }),
-      ],
-      NOW_ISO,
-      WINDOW_START_ISO,
-    );
-
-    expect(result.findings).toHaveLength(1);
-    expect(result.findings[0]).toMatchObject({
-      severity: "medium",
-      title: "MIT declared without scope",
-      evidence: {
-        brandId: "brand-1",
-        brandName: "Test Brand",
-        mitStatus: "declared",
-      },
-      mergePolicy: "human",
-      source: "directory",
-    });
-    expect(result.findings[0]?.fingerprint).toContain(
-      "brand-review-mit-consistency",
-    );
-  });
-
-  it("flags declared MIT without date", () => {
-    const result = evaluateBrandReview(
-      [
-        brand({
-          mitStatus: "declared",
-          mitDeclaredScope: "all",
-          mitDeclaredAt: null,
-        }),
-      ],
-      NOW_ISO,
-      WINDOW_START_ISO,
-    );
-
-    expect(result.findings).toHaveLength(1);
-    expect(result.findings[0]).toMatchObject({
-      severity: "medium",
-      title: "MIT declared without date",
-    });
-  });
-
-  it("flags verified MIT without evidence", () => {
-    const result = evaluateBrandReview(
-      [brand({ mitStatus: "verified", mitVerifiedAt: null })],
-      NOW_ISO,
-      WINDOW_START_ISO,
-    );
-
-    expect(result.findings).toHaveLength(1);
-    expect(result.findings[0]).toMatchObject({
-      severity: "medium",
-      title: "MIT verified without evidence",
-    });
-  });
-
-  it("skips unverified MIT", () => {
-    const result = evaluateBrandReview(
-      [brand({ mitStatus: "unverified" })],
-      NOW_ISO,
-      WINDOW_START_ISO,
-    );
-
-    expect(result.findings).toHaveLength(0);
   });
 
   it("flags description language swap with CJK in the EN field", () => {
@@ -330,9 +252,6 @@ describe("evaluateBrandReview", () => {
     const result = evaluateBrandReview(
       [
         brand({
-          mitStatus: "declared",
-          mitDeclaredScope: null,
-          mitDeclaredAt: "2026-01-01",
           description: "pure english",
           descriptionEn: "這是中文描述",
           purchaseWebsite: "https://formoria.com/brand/test",
@@ -349,8 +268,8 @@ describe("evaluateBrandReview", () => {
       WINDOW_START_ISO,
     );
 
-    expect(result.findings).toHaveLength(4);
-    expect(result.snapshot.findingCount).toBe(4);
+    expect(result.findings).toHaveLength(3);
+    expect(result.snapshot.findingCount).toBe(3);
   });
 
   it("accepts a legitimate deep purchase destination", () => {
@@ -502,29 +421,4 @@ describe("evaluateBrandReview", () => {
     expect(result.findings[0]?.title).toBe("Brand has no usable visit CTA");
   });
 
-  it("deduplicates fingerprints across brands", () => {
-    const result = evaluateBrandReview(
-      [
-        brand({
-          id: "brand-1",
-          mitStatus: "declared",
-          mitDeclaredScope: null,
-          mitDeclaredAt: "2026-01-01",
-        }),
-        brand({
-          id: "brand-2",
-          name: "Second Brand",
-          mitStatus: "declared",
-          mitDeclaredScope: null,
-          mitDeclaredAt: "2026-01-01",
-        }),
-      ],
-      NOW_ISO,
-      WINDOW_START_ISO,
-    );
-
-    const fingerprints = result.findings.map((finding) => finding.fingerprint);
-    expect(fingerprints).toHaveLength(2);
-    expect(new Set(fingerprints).size).toBe(2);
-  });
 });
