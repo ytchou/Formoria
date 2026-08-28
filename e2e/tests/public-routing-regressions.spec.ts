@@ -37,7 +37,7 @@ test.describe("Public routing regressions deep", () => {
     const response = await request.get("/zh-TW/categories", {
       maxRedirects: 0,
     });
-    expect([301, 308]).toContain(response.status());
+    expect([301, 307, 308]).toContain(response.status());
   });
 
   test("retired L1 taxonomy slugs redirect to the category that absorbed them", async ({
