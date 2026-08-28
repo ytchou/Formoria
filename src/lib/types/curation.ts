@@ -48,6 +48,8 @@ export interface PhaseResult {
    * Next split and is readable when the job summary is aggregated.
    */
   providerFailure?: boolean;
+  catalogZeroReason?: string;
+  productsProposed?: number;
 }
 
 export interface BrandOutcome {

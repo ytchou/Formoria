@@ -55,6 +55,47 @@ describe("parsePhaseResults", () => {
     expect(parsed.at(1)).not.toHaveProperty("providerFailure");
   });
 
+  it("preserves catalogZeroReason through round-trip", () => {
+    const parsed = parsePhaseResults([
+      {
+        phase: "products",
+        status: "skipped",
+        changedFields: [],
+        durationMs: 0,
+        catalogZeroReason: "no_catalog",
+      },
+    ] as Json);
+
+    expect(parsed.at(0)?.catalogZeroReason).toBe("no_catalog");
+  });
+
+  it("preserves productsProposed through round-trip", () => {
+    const parsed = parsePhaseResults([
+      {
+        phase: "products",
+        status: "succeeded",
+        changedFields: ["products"],
+        durationMs: 500,
+        productsProposed: 5,
+      },
+    ] as Json);
+
+    expect(parsed.at(0)?.productsProposed).toBe(5);
+  });
+
+  it("omits catalogZeroReason when absent", () => {
+    const parsed = parsePhaseResults([
+      {
+        phase: "products",
+        status: "succeeded",
+        changedFields: [],
+        durationMs: 100,
+      },
+    ] as Json);
+
+    expect(parsed.at(0)).not.toHaveProperty("catalogZeroReason");
+  });
+
   it("coerces malformed changedFields and durationMs instead of trusting them", () => {
     const parsed = parsePhaseResults([
       {

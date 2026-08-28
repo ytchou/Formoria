@@ -68,12 +68,7 @@
     "relatedStories": "Continue reading",
     "relatedTrails": "More styles",
     "derivedStories": "Related stories",
-    "derivedStoriesAriaLabel": "Related stories",
-    "notFound": {
-      "title": "Style not found",
-      "description": "This style does not exist or has been removed.",
-      "browseAll": "Browse all styles"
-    }
+    "derivedStoriesAriaLabel": "Related stories"
   },
   "products": {
     "metaTitle": "Products — Formoria",
@@ -347,11 +342,6 @@
       "shopee": "Shopee",
       "myship": "7-ELEVEN MyShip",
       "unknown": "No link known yet"
-    },
-    "notFound": {
-      "title": "Brand Not Found",
-      "description": "This brand doesn't exist or hasn't been approved yet.",
-      "browseAll": "Browse All Brands"
     },
     "report": {
       "trigger": "Report",
@@ -1799,7 +1789,8 @@
       "title": "Page Not Found",
       "description": "This page doesn't exist or may have moved.",
       "cta": "Back to home",
-      "browseDirectory": "Browse the directory"
+      "browseDirectory": "Browse the directory",
+      "categoriesHeading": "Or explore these categories:"
     },
     "boundary": {
       "title": "Something went wrong",
@@ -2908,12 +2899,7 @@
     "eventFinePrint": "Check the official site for the latest details",
     "boothLabel": "Booth",
     "relatedTrails": "Related styles",
-    "relatedTrailsAria": "Styles related to this story",
-    "notFound": {
-      "title": "Story not found",
-      "description": "This story doesn't exist or has been removed.",
-      "browseAll": "Browse all stories"
-    }
+    "relatedTrailsAria": "Styles related to this story"
   },
   "districts": {
     "alian": "Alian District",

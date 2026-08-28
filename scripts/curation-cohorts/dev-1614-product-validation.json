@@ -1,0 +1,16 @@
+{
+  "name": "dev-1614-product-validation",
+  "title": "DEV-1614 — curated-product validation cohort",
+  "subtitle": "Eight-brand cohort: 1 DEV-1613 Home baseline + 4 random Home + 3 random Fashion (yun-clean, zenu missing from staging).",
+  "warning": "Check-only cohort for measuring the curated-product pipeline. Do not approve or reject results from this run.",
+  "labels": {
+    "aisaniea": "艾莎妮亞名床 Aisaniea",
+    "hokii": "HOKII",
+    "strong-love": "創樂子 Strong Love",
+    "guitar-player": "吉他玩家 Guitar Player",
+    "hh-healthy-happy": "HH 健康於筷",
+    "社頭襪廠二代": "社頭襪廠二代",
+    "rafac": "RAFAC",
+    "333-slippers": "333 Slippers"
+  }
+}

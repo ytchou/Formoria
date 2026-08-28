@@ -32,6 +32,7 @@ import {
   trackFaqItemExpanded,
   trackBrandDetailEngaged,
   trackSavedBrandRevisited,
+  trackNotFoundCategoryClicked,
 } from './analytics'
 import { ANALYTICS_EVENTS } from './analytics/events'
 
@@ -322,6 +323,15 @@ describe('analytics', () => {
 
 
 
+
+  it('trackNotFoundCategoryClicked fires PostHog event', () => {
+    trackNotFoundCategoryClicked('fashion', 0)
+
+    expect(mockPostHogCapture).toHaveBeenCalledWith(ANALYTICS_EVENTS.NOT_FOUND_CATEGORY_CLICKED, {
+      category_slug: 'fashion',
+      position: 0,
+    })
+  })
 
   it('does not throw when gtag fails', () => {
     mockSendGAEvent.mockImplementation(() => {

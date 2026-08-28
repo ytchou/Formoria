@@ -14,6 +14,7 @@ const EVENT_NAME_SNAPSHOT = [
   'curated_product_clicked',
   'story_card_clicked',
   'trail_card_clicked',
+  'not_found_category_clicked',
   'directory_sort_changed',
   'directory_page_navigated',
   'category_filter_applied',
