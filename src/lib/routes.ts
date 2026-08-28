@@ -56,23 +56,10 @@ export const routes = {
   brands: (query?: RouteQuery) => withQuery('/brands', query),
   brand: (slug: string, query?: RouteQuery) => withQuery(`/brands/${seg(slug)}`, query),
 
-  // Taxonomy
-  categories: () => '/categories',
-  category: (categorySlug: string) => `/categories/${seg(categorySlug)}`,
-  subcategory: (categorySlug: string, subcategorySlug: string) =>
-    `/categories/${seg(categorySlug)}/${seg(subcategorySlug)}`,
-  /**
-   * The optional-subcategory case, which the canonical, breadcrumb and sitemap
-   * builders all had to write out by hand as a nested template.
-   */
-  categoryPath: (categorySlug: string, subcategorySlug?: string | null) =>
-    subcategorySlug
-      ? `/categories/${seg(categorySlug)}/${seg(subcategorySlug)}`
-      : `/categories/${seg(categorySlug)}`,
-
   // Editorial
   discover: () => '/discover',
-  trail: (slug: string) => `/discover/${seg(slug)}`,
+  style: () => '/style',
+  trail: (slug: string) => `/style/${seg(slug)}`,
   stories: () => '/stories',
   story: (slug: string) => `/stories/${seg(slug)}`,
 
