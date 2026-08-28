@@ -10,7 +10,7 @@ describe('directory breadcrumb items', () => {
       subcategory: { slug: 'furniture', label: 'Furniture' },
     })).toEqual([
       { label: 'Brands', href: '/brands' },
-      { label: 'Home & Living', href: '/categories/home' },
+      { label: 'Home & Living', href: '/brands?category=home' },
       { label: 'Furniture', current: true },
     ])
   })
@@ -41,6 +41,6 @@ describe('directory breadcrumb items', () => {
       subcategory: { slug: 'furniture', label: 'Furniture' },
     })
 
-    expect(items[1]?.href).toBe('/en/categories/home')
+    expect(items[1]?.href).toBe('/en/brands?category=home')
   })
 })

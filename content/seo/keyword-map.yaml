@@ -120,7 +120,7 @@
 #      — the highest-risk overlap, and the reason Ticket C is sequenced last.
 #   2. homepage vs /brands on 台灣品牌 / 台灣品牌目錄.
 #   3. ?sub= views currently folding into their L1 page — Ticket B must
-#      reposition them before /categories/[l1]/[l2] ships.
+#      reposition them before /brands?category=[l1]&sub=[l2] ships.
 #   4. glossary terms vs informational story content on 台灣品牌是什麼 and
 #      MIT 是什麼.
 
@@ -129,7 +129,7 @@ generated_at: '2026-08-06'
 source: pnpm seo:counts (live Supabase, status=approved AND is_demo<>true)
 owner: DEV-1354
 notes: '91 clusters over 718 approved brands. l1-category and l2-category rows are target_status: proposed
-  — the /categories/[l1] and /categories/[l1]/[l2] URL shape is ratified by Ticket B, not by this file.
+  — the /brands?category=[l1] and /brands?category=[l1]&sub=[l2] URL shape is ratified by Ticket B, not by this file.
   Priority is derived; see the header block.'
 clusters:
 - id: home-taiwan-brands
@@ -214,7 +214,7 @@ clusters:
   - MIT 居家用品
   search_intent: commercial
   page_type: l1-category
-  target_url: /categories/home
+  target_url: /brands?category=home
   target_status: live
   ontology_slug: home
   brand_count: 135
@@ -229,8 +229,8 @@ clusters:
   indexability: index
   locale: zh-TW
   notes: 'Cannibalization risk 3: today the ?sub= filter views fold into this L1 page, so L1 and L2 compete
-    for the same query. Ticket B must reposition ?sub= (canonical or redirect) before the /categories/[l1]/[l2]
-    shape ships. target_status is proposed: the /categories/[l1]/[l2] URL shape is not ratified until
+    for the same query. Ticket B must reposition ?sub= (canonical or redirect) before the /brands?category=[l1]&sub=[l2]
+    shape ships. target_status is proposed: the /brands?category=[l1]&sub=[l2] URL shape is not ratified until
     Ticket B.'
 - id: l1-fashion
   primary_keyword: 台灣服飾品牌
@@ -240,7 +240,7 @@ clusters:
   - 台灣製衣服品牌
   search_intent: commercial
   page_type: l1-category
-  target_url: /categories/fashion
+  target_url: /brands?category=fashion
   target_status: live
   ontology_slug: fashion
   brand_count: 103
@@ -255,8 +255,8 @@ clusters:
   indexability: index
   locale: zh-TW
   notes: 'Cannibalization risk 3: today the ?sub= filter views fold into this L1 page, so L1 and L2 compete
-    for the same query. Ticket B must reposition ?sub= (canonical or redirect) before the /categories/[l1]/[l2]
-    shape ships. target_status is proposed: the /categories/[l1]/[l2] URL shape is not ratified until
+    for the same query. Ticket B must reposition ?sub= (canonical or redirect) before the /brands?category=[l1]&sub=[l2]
+    shape ships. target_status is proposed: the /brands?category=[l1]&sub=[l2] URL shape is not ratified until
     Ticket B.'
 - id: l1-beauty
   primary_keyword: 台灣美妝保養品牌
@@ -266,7 +266,7 @@ clusters:
   - 台灣美妝品牌推薦
   search_intent: commercial
   page_type: l1-category
-  target_url: /categories/beauty
+  target_url: /brands?category=beauty
   target_status: live
   ontology_slug: beauty
   brand_count: 103
@@ -283,8 +283,8 @@ clusters:
   notes: 'differentiation 2: the beauty SERP is dominated by retailers and international brands, so a
     directory page competes on brand-set completeness rather than on product content. Cannibalization
     risk 3: today the ?sub= filter views fold into this L1 page, so L1 and L2 compete for the same query.
-    Ticket B must reposition ?sub= (canonical or redirect) before the /categories/[l1]/[l2] shape ships.
-    target_status is proposed: the /categories/[l1]/[l2] URL shape is not ratified until Ticket B.'
+    Ticket B must reposition ?sub= (canonical or redirect) before the /brands?category=[l1]&sub=[l2] shape ships.
+    target_status is proposed: the /brands?category=[l1]&sub=[l2] URL shape is not ratified until Ticket B.'
 - id: l1-food-drink
   primary_keyword: 台灣食品飲料品牌
   secondary_keywords:
@@ -293,7 +293,7 @@ clusters:
   - MIT 食品
   search_intent: commercial
   page_type: l1-category
-  target_url: /categories/food-drink
+  target_url: /brands?category=food-drink
   target_status: live
   ontology_slug: food-drink
   brand_count: 100
@@ -308,8 +308,8 @@ clusters:
   indexability: index
   locale: zh-TW
   notes: 'Cannibalization risk 3: today the ?sub= filter views fold into this L1 page, so L1 and L2 compete
-    for the same query. Ticket B must reposition ?sub= (canonical or redirect) before the /categories/[l1]/[l2]
-    shape ships. target_status is proposed: the /categories/[l1]/[l2] URL shape is not ratified until
+    for the same query. Ticket B must reposition ?sub= (canonical or redirect) before the /brands?category=[l1]&sub=[l2]
+    shape ships. target_status is proposed: the /brands?category=[l1]&sub=[l2] URL shape is not ratified until
     Ticket B.'
 - id: l1-bags-accessories
   primary_keyword: 台灣包袋配件品牌
@@ -319,7 +319,7 @@ clusters:
   - 台灣配件品牌
   search_intent: commercial
   page_type: l1-category
-  target_url: /categories/bags-accessories
+  target_url: /brands?category=bags-accessories
   target_status: live
   ontology_slug: bags-accessories
   brand_count: 58
@@ -334,8 +334,8 @@ clusters:
   indexability: index
   locale: zh-TW
   notes: 'Cannibalization risk 3: today the ?sub= filter views fold into this L1 page, so L1 and L2 compete
-    for the same query. Ticket B must reposition ?sub= (canonical or redirect) before the /categories/[l1]/[l2]
-    shape ships. target_status is proposed: the /categories/[l1]/[l2] URL shape is not ratified until
+    for the same query. Ticket B must reposition ?sub= (canonical or redirect) before the /brands?category=[l1]&sub=[l2]
+    shape ships. target_status is proposed: the /brands?category=[l1]&sub=[l2] URL shape is not ratified until
     Ticket B.'
 - id: l1-jewelry
   primary_keyword: 台灣飾品珠寶品牌
@@ -345,7 +345,7 @@ clusters:
   - MIT 珠寶品牌
   search_intent: commercial
   page_type: l1-category
-  target_url: /categories/jewelry
+  target_url: /brands?category=jewelry
   target_status: live
   ontology_slug: jewelry
   brand_count: 40
@@ -360,8 +360,8 @@ clusters:
   indexability: index
   locale: zh-TW
   notes: 'Cannibalization risk 3: today the ?sub= filter views fold into this L1 page, so L1 and L2 compete
-    for the same query. Ticket B must reposition ?sub= (canonical or redirect) before the /categories/[l1]/[l2]
-    shape ships. target_status is proposed: the /categories/[l1]/[l2] URL shape is not ratified until
+    for the same query. Ticket B must reposition ?sub= (canonical or redirect) before the /brands?category=[l1]&sub=[l2]
+    shape ships. target_status is proposed: the /brands?category=[l1]&sub=[l2] URL shape is not ratified until
     Ticket B.'
 - id: l1-kids
   primary_keyword: 台灣母嬰品牌
@@ -370,7 +370,7 @@ clusters:
   - MIT 嬰幼兒用品
   search_intent: commercial
   page_type: l1-category
-  target_url: /categories/kids
+  target_url: /brands?category=kids
   target_status: proposed
   ontology_slug: kids
   brand_count: 29
@@ -393,7 +393,7 @@ clusters:
     defect that originally justified it is gone, but a re-measured supply of at most 30 brands does not
     yet earn a 3. Cannibalization risk 3: today the ?sub= filter views fold into this L1 page, so L1 and
     L2 compete for the same query. Ticket B must reposition ?sub= (canonical or redirect) before the
-    /categories/[l1]/[l2] shape ships.'
+    /brands?category=[l1]&sub=[l2] shape ships.'
 - id: l1-pets
   primary_keyword: 台灣寵物品牌
   secondary_keywords:
@@ -401,7 +401,7 @@ clusters:
   - MIT 寵物用品
   search_intent: commercial
   page_type: l1-category
-  target_url: /categories/pets
+  target_url: /brands?category=pets
   target_status: proposed
   ontology_slug: pets
   brand_count: 12
@@ -433,7 +433,7 @@ clusters:
   - MIT 文具
   search_intent: commercial
   page_type: l1-category
-  target_url: /categories/stationery
+  target_url: /brands?category=stationery
   target_status: proposed
   ontology_slug: stationery
   brand_count: 25
@@ -448,8 +448,8 @@ clusters:
   indexability: index
   locale: zh-TW
   notes: 'Cannibalization risk 3: today the ?sub= filter views fold into this L1 page, so L1 and L2 compete
-    for the same query. Ticket B must reposition ?sub= (canonical or redirect) before the /categories/[l1]/[l2]
-    shape ships. target_status is proposed: the /categories/[l1]/[l2] URL shape is not ratified until
+    for the same query. Ticket B must reposition ?sub= (canonical or redirect) before the /brands?category=[l1]&sub=[l2]
+    shape ships. target_status is proposed: the /brands?category=[l1]&sub=[l2] URL shape is not ratified until
     Ticket B.'
 - id: l1-outdoor
   primary_keyword: 台灣戶外露營品牌
@@ -458,7 +458,7 @@ clusters:
   - MIT 戶外用品
   search_intent: commercial
   page_type: l1-category
-  target_url: /categories/outdoor
+  target_url: /brands?category=outdoor
   target_status: proposed
   ontology_slug: outdoor
   brand_count: 17
@@ -473,8 +473,8 @@ clusters:
   indexability: index
   locale: zh-TW
   notes: 'Cannibalization risk 3: today the ?sub= filter views fold into this L1 page, so L1 and L2 compete
-    for the same query. Ticket B must reposition ?sub= (canonical or redirect) before the /categories/[l1]/[l2]
-    shape ships. target_status is proposed: the /categories/[l1]/[l2] URL shape is not ratified until
+    for the same query. Ticket B must reposition ?sub= (canonical or redirect) before the /brands?category=[l1]&sub=[l2]
+    shape ships. target_status is proposed: the /brands?category=[l1]&sub=[l2] URL shape is not ratified until
     Ticket B.'
 - id: l1-fitness
   primary_keyword: 台灣運動健身品牌
@@ -483,7 +483,7 @@ clusters:
   - MIT 運動用品
   search_intent: commercial
   page_type: l1-category
-  target_url: /categories/fitness
+  target_url: /brands?category=fitness
   target_status: proposed
   ontology_slug: fitness
   brand_count: 14
@@ -500,7 +500,7 @@ clusters:
   notes: 'Only 14 brands: too thin to out-rank retailer category pages. Revisit once the L1 clears 20
     approved brands. Cannibalization risk 3: today the ?sub= filter views fold into this L1 page, so L1
     and L2 compete for the same query. Ticket B must reposition ?sub= (canonical or redirect) before the
-    /categories/[l1]/[l2] shape ships. target_status is proposed: the /categories/[l1]/[l2] URL shape
+    /brands?category=[l1]&sub=[l2] shape ships. target_status is proposed: the /brands?category=[l1]&sub=[l2] URL shape
     is not ratified until Ticket B.'
 - id: l1-tech
   primary_keyword: 台灣 3C 科技品牌
@@ -509,7 +509,7 @@ clusters:
   - MIT 科技產品
   search_intent: commercial
   page_type: l1-category
-  target_url: /categories/tech
+  target_url: /brands?category=tech
   target_status: proposed
   ontology_slug: tech
   brand_count: 10
@@ -526,7 +526,7 @@ clusters:
   notes: 'Only 10 brands: the thinnest L1 in the directory and the most commoditised SERP. Revisit at
     20+ approved brands. Cannibalization risk 3: today the ?sub= filter views fold into this L1 page,
     so L1 and L2 compete for the same query. Ticket B must reposition ?sub= (canonical or redirect) before
-    the /categories/[l1]/[l2] shape ships. target_status is proposed: the /categories/[l1]/[l2] URL shape
+    the /brands?category=[l1]&sub=[l2] shape ships. target_status is proposed: the /brands?category=[l1]&sub=[l2] URL shape
     is not ratified until Ticket B.'
 - id: l2-bath-and-shower
   primary_keyword: 台灣洗沐清潔品牌
@@ -536,7 +536,7 @@ clusters:
   - 台灣洗沐品牌推薦
   search_intent: commercial
   page_type: l2-category
-  target_url: /categories/beauty/bath-and-shower
+  target_url: /brands?category=beauty&sub=bath-and-shower
   target_status: live
   ontology_slug: bath-and-shower
   brand_count: 54
@@ -551,9 +551,9 @@ clusters:
   indexability: index
   locale: zh-TW
   notes: 'differentiation 2: the second-largest L2 by brand count, but the SERP is retailer-heavy. target_status
-    is proposed: the /categories/[l1]/[l2] URL shape is not ratified until Ticket B. Cannibalization risk
+    is proposed: the /brands?category=[l1]&sub=[l2] URL shape is not ratified until Ticket B. Cannibalization risk
     3: today the ?sub= filter views fold into this L1 page, so L1 and L2 compete for the same query. Ticket
-    B must reposition ?sub= (canonical or redirect) before the /categories/[l1]/[l2] shape ships.'
+    B must reposition ?sub= (canonical or redirect) before the /brands?category=[l1]&sub=[l2] shape ships.'
 - id: l2-home-decor
   primary_keyword: 台灣居家擺飾品牌
   secondary_keywords:
@@ -562,7 +562,7 @@ clusters:
   - 擴香石
   search_intent: commercial
   page_type: l2-category
-  target_url: /categories/home/home-decor
+  target_url: /brands?category=home&sub=home-decor
   target_status: live
   ontology_slug: home-decor
   brand_count: 30
@@ -576,9 +576,9 @@ clusters:
     grid, and CollectionPage + ItemList JSON-LD.
   indexability: index
   locale: zh-TW
-  notes: 'target_status is proposed: the /categories/[l1]/[l2] URL shape is not ratified until Ticket
+  notes: 'target_status is proposed: the /brands?category=[l1]&sub=[l2] URL shape is not ratified until Ticket
     B. Cannibalization risk 3: today the ?sub= filter views fold into this L1 page, so L1 and L2 compete
-    for the same query. Ticket B must reposition ?sub= (canonical or redirect) before the /categories/[l1]/[l2]
+    for the same query. Ticket B must reposition ?sub= (canonical or redirect) before the /brands?category=[l1]&sub=[l2]
     shape ships.'
 - id: l2-necklaces
   primary_keyword: 台灣項鍊品牌
@@ -588,7 +588,7 @@ clusters:
   - 鎖骨鍊
   search_intent: commercial
   page_type: l2-category
-  target_url: /categories/jewelry/necklaces
+  target_url: /brands?category=jewelry&sub=necklaces
   target_status: live
   ontology_slug: necklaces
   brand_count: 35
@@ -602,9 +602,9 @@ clusters:
     grid, and CollectionPage + ItemList JSON-LD.
   indexability: index
   locale: zh-TW
-  notes: 'target_status is proposed: the /categories/[l1]/[l2] URL shape is not ratified until Ticket
+  notes: 'target_status is proposed: the /brands?category=[l1]&sub=[l2] URL shape is not ratified until Ticket
     B. Cannibalization risk 3: today the ?sub= filter views fold into this L1 page, so L1 and L2 compete
-    for the same query. Ticket B must reposition ?sub= (canonical or redirect) before the /categories/[l1]/[l2]
+    for the same query. Ticket B must reposition ?sub= (canonical or redirect) before the /brands?category=[l1]&sub=[l2]
     shape ships.'
 - id: l2-earrings
   primary_keyword: 台灣耳環品牌
@@ -614,7 +614,7 @@ clusters:
   - 耳夾
   search_intent: commercial
   page_type: l2-category
-  target_url: /categories/jewelry/earrings
+  target_url: /brands?category=jewelry&sub=earrings
   target_status: live
   ontology_slug: earrings
   brand_count: 33
@@ -628,9 +628,9 @@ clusters:
     grid, and CollectionPage + ItemList JSON-LD.
   indexability: index
   locale: zh-TW
-  notes: 'target_status is proposed: the /categories/[l1]/[l2] URL shape is not ratified until Ticket
+  notes: 'target_status is proposed: the /brands?category=[l1]&sub=[l2] URL shape is not ratified until Ticket
     B. Cannibalization risk 3: today the ?sub= filter views fold into this L1 page, so L1 and L2 compete
-    for the same query. Ticket B must reposition ?sub= (canonical or redirect) before the /categories/[l1]/[l2]
+    for the same query. Ticket B must reposition ?sub= (canonical or redirect) before the /brands?category=[l1]&sub=[l2]
     shape ships.'
 - id: l2-storage
   primary_keyword: 台灣收納用品品牌
@@ -639,7 +639,7 @@ clusters:
   - MIT 收納用品
   search_intent: commercial
   page_type: l2-category
-  target_url: /categories/home/storage
+  target_url: /brands?category=home&sub=storage
   target_status: live
   ontology_slug: storage
   brand_count: 33
@@ -654,9 +654,9 @@ clusters:
   indexability: index
   locale: zh-TW
   notes: 'intent_fit 2: 收納用品 queries skew transactional (buy a box now) rather than brand-seeking. target_status
-    is proposed: the /categories/[l1]/[l2] URL shape is not ratified until Ticket B. Cannibalization risk
+    is proposed: the /brands?category=[l1]&sub=[l2] URL shape is not ratified until Ticket B. Cannibalization risk
     3: today the ?sub= filter views fold into this L1 page, so L1 and L2 compete for the same query. Ticket
-    B must reposition ?sub= (canonical or redirect) before the /categories/[l1]/[l2] shape ships.'
+    B must reposition ?sub= (canonical or redirect) before the /brands?category=[l1]&sub=[l2] shape ships.'
 - id: l2-tableware
   primary_keyword: 台灣餐具品牌
   secondary_keywords:
@@ -665,7 +665,7 @@ clusters:
   - MIT 餐具
   search_intent: commercial
   page_type: l2-category
-  target_url: /categories/home/tableware
+  target_url: /brands?category=home&sub=tableware
   target_status: live
   ontology_slug: tableware
   brand_count: 31
@@ -679,9 +679,9 @@ clusters:
     grid, and CollectionPage + ItemList JSON-LD.
   indexability: index
   locale: zh-TW
-  notes: 'target_status is proposed: the /categories/[l1]/[l2] URL shape is not ratified until Ticket
+  notes: 'target_status is proposed: the /brands?category=[l1]&sub=[l2] URL shape is not ratified until Ticket
     B. Cannibalization risk 3: today the ?sub= filter views fold into this L1 page, so L1 and L2 compete
-    for the same query. Ticket B must reposition ?sub= (canonical or redirect) before the /categories/[l1]/[l2]
+    for the same query. Ticket B must reposition ?sub= (canonical or redirect) before the /brands?category=[l1]&sub=[l2]
     shape ships.'
 - id: l2-casual-shoes
   primary_keyword: 台灣休閒鞋品牌
@@ -691,7 +691,7 @@ clusters:
   - 台灣製球鞋
   search_intent: commercial
   page_type: l2-category
-  target_url: /categories/fashion/casual-shoes
+  target_url: /brands?category=fashion&sub=casual-shoes
   target_status: live
   ontology_slug: casual-shoes
   brand_count: 31
@@ -705,9 +705,9 @@ clusters:
     grid, and CollectionPage + ItemList JSON-LD.
   indexability: index
   locale: zh-TW
-  notes: 'target_status is proposed: the /categories/[l1]/[l2] URL shape is not ratified until Ticket
+  notes: 'target_status is proposed: the /brands?category=[l1]&sub=[l2] URL shape is not ratified until Ticket
     B. Cannibalization risk 3: today the ?sub= filter views fold into this L1 page, so L1 and L2 compete
-    for the same query. Ticket B must reposition ?sub= (canonical or redirect) before the /categories/[l1]/[l2]
+    for the same query. Ticket B must reposition ?sub= (canonical or redirect) before the /brands?category=[l1]&sub=[l2]
     shape ships.'
 - id: l2-rings
   primary_keyword: 台灣戒指品牌
@@ -716,7 +716,7 @@ clusters:
   - 客製化戒指品牌
   search_intent: commercial
   page_type: l2-category
-  target_url: /categories/jewelry/rings
+  target_url: /brands?category=jewelry&sub=rings
   target_status: live
   ontology_slug: rings
   brand_count: 29
@@ -730,9 +730,9 @@ clusters:
     grid, and CollectionPage + ItemList JSON-LD.
   indexability: index
   locale: zh-TW
-  notes: 'target_status is proposed: the /categories/[l1]/[l2] URL shape is not ratified until Ticket
+  notes: 'target_status is proposed: the /brands?category=[l1]&sub=[l2] URL shape is not ratified until Ticket
     B. Cannibalization risk 3: today the ?sub= filter views fold into this L1 page, so L1 and L2 compete
-    for the same query. Ticket B must reposition ?sub= (canonical or redirect) before the /categories/[l1]/[l2]
+    for the same query. Ticket B must reposition ?sub= (canonical or redirect) before the /brands?category=[l1]&sub=[l2]
     shape ships.'
 - id: l2-skincare
   primary_keyword: 台灣臉部保養品牌
@@ -742,7 +742,7 @@ clusters:
   - 台灣乳液品牌
   search_intent: commercial
   page_type: l2-category
-  target_url: /categories/beauty/skincare
+  target_url: /brands?category=beauty&sub=skincare
   target_status: live
   ontology_slug: skincare
   brand_count: 32
@@ -757,9 +757,9 @@ clusters:
   indexability: index
   locale: zh-TW
   notes: 'intent_fit 2: skincare searchers usually want a product review, not a brand list. target_status
-    is proposed: the /categories/[l1]/[l2] URL shape is not ratified until Ticket B. Cannibalization risk
+    is proposed: the /brands?category=[l1]&sub=[l2] URL shape is not ratified until Ticket B. Cannibalization risk
     3: today the ?sub= filter views fold into this L1 page, so L1 and L2 compete for the same query. Ticket
-    B must reposition ?sub= (canonical or redirect) before the /categories/[l1]/[l2] shape ships.'
+    B must reposition ?sub= (canonical or redirect) before the /brands?category=[l1]&sub=[l2] shape ships.'
 - id: l2-furniture
   primary_keyword: 台灣家具品牌
   secondary_keywords:
@@ -768,7 +768,7 @@ clusters:
   - 台灣實木家具品牌
   search_intent: commercial
   page_type: l2-category
-  target_url: /categories/home/furniture
+  target_url: /brands?category=home&sub=furniture
   target_status: live
   ontology_slug: furniture
   brand_count: 33
@@ -783,9 +783,9 @@ clusters:
   indexability: index
   locale: zh-TW
   notes: 'intent_fit 2: furniture queries are dominated by retailer showrooms and price comparison. target_status
-    is proposed: the /categories/[l1]/[l2] URL shape is not ratified until Ticket B. Cannibalization risk
+    is proposed: the /brands?category=[l1]&sub=[l2] URL shape is not ratified until Ticket B. Cannibalization risk
     3: today the ?sub= filter views fold into this L1 page, so L1 and L2 compete for the same query. Ticket
-    B must reposition ?sub= (canonical or redirect) before the /categories/[l1]/[l2] shape ships.'
+    B must reposition ?sub= (canonical or redirect) before the /brands?category=[l1]&sub=[l2] shape ships.'
 - id: l2-tote-bags
   primary_keyword: 台灣托特包品牌
   secondary_keywords:
@@ -793,7 +793,7 @@ clusters:
   - MIT 托特包推薦
   search_intent: commercial
   page_type: l2-category
-  target_url: /categories/bags-accessories/tote-bags
+  target_url: /brands?category=bags-accessories&sub=tote-bags
   target_status: live
   ontology_slug: tote-bags
   brand_count: 25
@@ -807,9 +807,9 @@ clusters:
     grid, and CollectionPage + ItemList JSON-LD.
   indexability: index
   locale: zh-TW
-  notes: 'target_status is proposed: the /categories/[l1]/[l2] URL shape is not ratified until Ticket
+  notes: 'target_status is proposed: the /brands?category=[l1]&sub=[l2] URL shape is not ratified until Ticket
     B. Cannibalization risk 3: today the ?sub= filter views fold into this L1 page, so L1 and L2 compete
-    for the same query. Ticket B must reposition ?sub= (canonical or redirect) before the /categories/[l1]/[l2]
+    for the same query. Ticket B must reposition ?sub= (canonical or redirect) before the /brands?category=[l1]&sub=[l2]
     shape ships.'
 - id: l2-body-care
   primary_keyword: 台灣身體保養品牌
@@ -818,7 +818,7 @@ clusters:
   - MIT 身體保養
   search_intent: commercial
   page_type: l2-category
-  target_url: /categories/beauty/body-care
+  target_url: /brands?category=beauty&sub=body-care
   target_status: live
   ontology_slug: body-care
   brand_count: 25
@@ -832,9 +832,9 @@ clusters:
     grid, and CollectionPage + ItemList JSON-LD.
   indexability: index
   locale: zh-TW
-  notes: 'target_status is proposed: the /categories/[l1]/[l2] URL shape is not ratified until Ticket
+  notes: 'target_status is proposed: the /brands?category=[l1]&sub=[l2] URL shape is not ratified until Ticket
     B. Cannibalization risk 3: today the ?sub= filter views fold into this L1 page, so L1 and L2 compete
-    for the same query. Ticket B must reposition ?sub= (canonical or redirect) before the /categories/[l1]/[l2]
+    for the same query. Ticket B must reposition ?sub= (canonical or redirect) before the /brands?category=[l1]&sub=[l2]
     shape ships.'
 - id: l2-stickers
   primary_keyword: 台灣貼紙品牌
@@ -843,7 +843,7 @@ clusters:
   - 手帳貼紙品牌
   search_intent: commercial
   page_type: l2-category
-  target_url: /categories/stationery/stickers
+  target_url: /brands?category=stationery&sub=stickers
   target_status: proposed
   ontology_slug: stickers
   brand_count: 16
@@ -857,9 +857,9 @@ clusters:
     grid, and CollectionPage + ItemList JSON-LD.
   indexability: index
   locale: zh-TW
-  notes: 'target_status is proposed: the /categories/[l1]/[l2] URL shape is not ratified until Ticket
+  notes: 'target_status is proposed: the /brands?category=[l1]&sub=[l2] URL shape is not ratified until Ticket
     B. Cannibalization risk 3: today the ?sub= filter views fold into this L1 page, so L1 and L2 compete
-    for the same query. Ticket B must reposition ?sub= (canonical or redirect) before the /categories/[l1]/[l2]
+    for the same query. Ticket B must reposition ?sub= (canonical or redirect) before the /brands?category=[l1]&sub=[l2]
     shape ships.'
 - id: l2-pants
   primary_keyword: 台灣褲裝品牌
@@ -869,7 +869,7 @@ clusters:
   - 內搭褲
   search_intent: commercial
   page_type: l2-category
-  target_url: /categories/fashion/pants
+  target_url: /brands?category=fashion&sub=pants
   target_status: live
   ontology_slug: pants
   brand_count: 25
@@ -883,9 +883,9 @@ clusters:
     grid, and CollectionPage + ItemList JSON-LD.
   indexability: index
   locale: zh-TW
-  notes: 'target_status is proposed: the /categories/[l1]/[l2] URL shape is not ratified until Ticket
+  notes: 'target_status is proposed: the /brands?category=[l1]&sub=[l2] URL shape is not ratified until Ticket
     B. Cannibalization risk 3: today the ?sub= filter views fold into this L1 page, so L1 and L2 compete
-    for the same query. Ticket B must reposition ?sub= (canonical or redirect) before the /categories/[l1]/[l2]
+    for the same query. Ticket B must reposition ?sub= (canonical or redirect) before the /brands?category=[l1]&sub=[l2]
     shape ships.'
 - id: l2-backpacks
   primary_keyword: 台灣後背包品牌
@@ -895,7 +895,7 @@ clusters:
   - 登山背包
   search_intent: commercial
   page_type: l2-category
-  target_url: /categories/bags-accessories/backpacks
+  target_url: /brands?category=bags-accessories&sub=backpacks
   target_status: live
   ontology_slug: backpacks
   brand_count: 25
@@ -909,9 +909,9 @@ clusters:
     grid, and CollectionPage + ItemList JSON-LD.
   indexability: index
   locale: zh-TW
-  notes: 'target_status is proposed: the /categories/[l1]/[l2] URL shape is not ratified until Ticket
+  notes: 'target_status is proposed: the /brands?category=[l1]&sub=[l2] URL shape is not ratified until Ticket
     B. Cannibalization risk 3: today the ?sub= filter views fold into this L1 page, so L1 and L2 compete
-    for the same query. Ticket B must reposition ?sub= (canonical or redirect) before the /categories/[l1]/[l2]
+    for the same query. Ticket B must reposition ?sub= (canonical or redirect) before the /brands?category=[l1]&sub=[l2]
     shape ships.'
 - id: l2-crossbody-bags
   primary_keyword: 台灣斜背包品牌
@@ -920,7 +920,7 @@ clusters:
   - MIT 斜背包
   search_intent: commercial
   page_type: l2-category
-  target_url: /categories/bags-accessories/crossbody-bags
+  target_url: /brands?category=bags-accessories&sub=crossbody-bags
   target_status: live
   ontology_slug: crossbody-bags
   brand_count: 25
@@ -934,9 +934,9 @@ clusters:
     grid, and CollectionPage + ItemList JSON-LD.
   indexability: index
   locale: zh-TW
-  notes: 'target_status is proposed: the /categories/[l1]/[l2] URL shape is not ratified until Ticket
+  notes: 'target_status is proposed: the /brands?category=[l1]&sub=[l2] URL shape is not ratified until Ticket
     B. Cannibalization risk 3: today the ?sub= filter views fold into this L1 page, so L1 and L2 compete
-    for the same query. Ticket B must reposition ?sub= (canonical or redirect) before the /categories/[l1]/[l2]
+    for the same query. Ticket B must reposition ?sub= (canonical or redirect) before the /brands?category=[l1]&sub=[l2]
     shape ships.'
 - id: l2-activewear
   primary_keyword: 台灣運動服飾品牌
@@ -945,7 +945,7 @@ clusters:
   - MIT 運動服
   search_intent: commercial
   page_type: l2-category
-  target_url: /categories/fashion/activewear
+  target_url: /brands?category=fashion&sub=activewear
   target_status: live
   ontology_slug: activewear
   brand_count: 18
@@ -960,10 +960,10 @@ clusters:
   indexability: index
   locale: zh-TW
   notes: 'Activewear is the sole page owner for the overlapping 機能服飾/運動服飾 intent; performance-apparel
-    remains ontology-compatible but non-owning. target_status is proposed: the /categories/[l1]/[l2] URL
+    remains ontology-compatible but non-owning. target_status is proposed: the /brands?category=[l1]&sub=[l2] URL
     shape is not ratified until Ticket B. Cannibalization risk 3: today the ?sub= filter views fold into
     this L1 page, so L1 and L2 compete for the same query. Ticket B must reposition ?sub= (canonical or
-    redirect) before the /categories/[l1]/[l2] shape ships.'
+    redirect) before the /brands?category=[l1]&sub=[l2] shape ships.'
 - id: l2-socks
   primary_keyword: 台灣襪子品牌
   secondary_keywords:
@@ -972,7 +972,7 @@ clusters:
   - 機能襪
   search_intent: commercial
   page_type: l2-category
-  target_url: /categories/fashion/socks
+  target_url: /brands?category=fashion&sub=socks
   target_status: live
   ontology_slug: socks
   brand_count: 23
@@ -987,9 +987,9 @@ clusters:
   indexability: index
   locale: zh-TW
   notes: 'Socks are one of the strongest genuine MIT manufacturing stories in the directory. target_status
-    is proposed: the /categories/[l1]/[l2] URL shape is not ratified until Ticket B. Cannibalization risk
+    is proposed: the /brands?category=[l1]&sub=[l2] URL shape is not ratified until Ticket B. Cannibalization risk
     3: today the ?sub= filter views fold into this L1 page, so L1 and L2 compete for the same query. Ticket
-    B must reposition ?sub= (canonical or redirect) before the /categories/[l1]/[l2] shape ships.'
+    B must reposition ?sub= (canonical or redirect) before the /brands?category=[l1]&sub=[l2] shape ships.'
 - id: l2-beverages
   primary_keyword: 台灣飲品品牌
   secondary_keywords:
@@ -997,7 +997,7 @@ clusters:
   - 台灣康普茶品牌
   search_intent: commercial
   page_type: l2-category
-  target_url: /categories/food-drink/beverages
+  target_url: /brands?category=food-drink&sub=beverages
   target_status: live
   ontology_slug: beverages
   brand_count: 23
@@ -1012,9 +1012,9 @@ clusters:
   indexability: index
   locale: zh-TW
   notes: 'differentiation 1: beverage SERPs are owned by supermarkets and delivery apps. target_status
-    is proposed: the /categories/[l1]/[l2] URL shape is not ratified until Ticket B. Cannibalization risk
+    is proposed: the /brands?category=[l1]&sub=[l2] URL shape is not ratified until Ticket B. Cannibalization risk
     3: today the ?sub= filter views fold into this L1 page, so L1 and L2 compete for the same query. Ticket
-    B must reposition ?sub= (canonical or redirect) before the /categories/[l1]/[l2] shape ships.'
+    B must reposition ?sub= (canonical or redirect) before the /brands?category=[l1]&sub=[l2] shape ships.'
 - id: l2-handbags
   primary_keyword: 台灣手提包品牌
   secondary_keywords:
@@ -1022,7 +1022,7 @@ clusters:
   - MIT 手提包
   search_intent: commercial
   page_type: l2-category
-  target_url: /categories/bags-accessories/handbags
+  target_url: /brands?category=bags-accessories&sub=handbags
   target_status: live
   ontology_slug: handbags
   brand_count: 22
@@ -1036,9 +1036,9 @@ clusters:
     grid, and CollectionPage + ItemList JSON-LD.
   indexability: index
   locale: zh-TW
-  notes: 'target_status is proposed: the /categories/[l1]/[l2] URL shape is not ratified until Ticket
+  notes: 'target_status is proposed: the /brands?category=[l1]&sub=[l2] URL shape is not ratified until Ticket
     B. Cannibalization risk 3: today the ?sub= filter views fold into this L1 page, so L1 and L2 compete
-    for the same query. Ticket B must reposition ?sub= (canonical or redirect) before the /categories/[l1]/[l2]
+    for the same query. Ticket B must reposition ?sub= (canonical or redirect) before the /brands?category=[l1]&sub=[l2]
     shape ships.'
 - id: l2-outerwear
   primary_keyword: 台灣外套品牌
@@ -1048,7 +1048,7 @@ clusters:
   - 防曬外套
   search_intent: commercial
   page_type: l2-category
-  target_url: /categories/fashion/outerwear
+  target_url: /brands?category=fashion&sub=outerwear
   target_status: live
   ontology_slug: outerwear
   brand_count: 21
@@ -1062,9 +1062,9 @@ clusters:
     grid, and CollectionPage + ItemList JSON-LD.
   indexability: index
   locale: zh-TW
-  notes: 'target_status is proposed: the /categories/[l1]/[l2] URL shape is not ratified until Ticket
+  notes: 'target_status is proposed: the /brands?category=[l1]&sub=[l2] URL shape is not ratified until Ticket
     B. Cannibalization risk 3: today the ?sub= filter views fold into this L1 page, so L1 and L2 compete
-    for the same query. Ticket B must reposition ?sub= (canonical or redirect) before the /categories/[l1]/[l2]
+    for the same query. Ticket B must reposition ?sub= (canonical or redirect) before the /brands?category=[l1]&sub=[l2]
     shape ships.'
 - id: l2-handmade-soap
   primary_keyword: 台灣手工皂品牌
@@ -1073,7 +1073,7 @@ clusters:
   - MIT 手工皂推薦
   search_intent: commercial
   page_type: l2-category
-  target_url: /categories/beauty/handmade-soap
+  target_url: /brands?category=beauty&sub=handmade-soap
   target_status: live
   ontology_slug: handmade-soap
   brand_count: 17
@@ -1087,9 +1087,9 @@ clusters:
     grid, and CollectionPage + ItemList JSON-LD.
   indexability: index
   locale: zh-TW
-  notes: 'target_status is proposed: the /categories/[l1]/[l2] URL shape is not ratified until Ticket
+  notes: 'target_status is proposed: the /brands?category=[l1]&sub=[l2] URL shape is not ratified until Ticket
     B. Cannibalization risk 3: today the ?sub= filter views fold into this L1 page, so L1 and L2 compete
-    for the same query. Ticket B must reposition ?sub= (canonical or redirect) before the /categories/[l1]/[l2]
+    for the same query. Ticket B must reposition ?sub= (canonical or redirect) before the /brands?category=[l1]&sub=[l2]
     shape ships.'
 - id: l2-performance-apparel
   primary_keyword: 台灣機能服飾品牌
@@ -1114,7 +1114,7 @@ clusters:
   notes: 'Non-owning collision with activewear: no stable shopper boundary exists between 機能服飾 and 運動服飾,
     so keywords consolidate into activewear. Keep this slug for ontology matching, but reject taxonomy and
     noindex it; target_status remains proposed with no target_url. Ticket B must reposition ?sub= (canonical
-    or redirect) before the /categories/[l1]/[l2] shape ships.'
+    or redirect) before the /brands?category=[l1]&sub=[l2] shape ships.'
 - id: l2-bedding
   primary_keyword: 台灣寢具品牌
   secondary_keywords:
@@ -1122,7 +1122,7 @@ clusters:
   - MIT 寢具推薦
   search_intent: commercial
   page_type: l2-category
-  target_url: /categories/home/bedding
+  target_url: /brands?category=home&sub=bedding
   target_status: live
   ontology_slug: bedding
   brand_count: 18
@@ -1136,9 +1136,9 @@ clusters:
     grid, and CollectionPage + ItemList JSON-LD.
   indexability: index
   locale: zh-TW
-  notes: 'target_status is proposed: the /categories/[l1]/[l2] URL shape is not ratified until Ticket
+  notes: 'target_status is proposed: the /brands?category=[l1]&sub=[l2] URL shape is not ratified until Ticket
     B. Cannibalization risk 3: today the ?sub= filter views fold into this L1 page, so L1 and L2 compete
-    for the same query. Ticket B must reposition ?sub= (canonical or redirect) before the /categories/[l1]/[l2]
+    for the same query. Ticket B must reposition ?sub= (canonical or redirect) before the /brands?category=[l1]&sub=[l2]
     shape ships.'
 - id: l2-leather-shoes
   primary_keyword: 台灣皮鞋品牌
@@ -1147,7 +1147,7 @@ clusters:
   - MIT 樂福鞋
   search_intent: commercial
   page_type: l2-category
-  target_url: /categories/fashion/leather-shoes
+  target_url: /brands?category=fashion&sub=leather-shoes
   target_status: live
   ontology_slug: leather-shoes
   brand_count: 17
@@ -1161,9 +1161,9 @@ clusters:
     grid, and CollectionPage + ItemList JSON-LD.
   indexability: index
   locale: zh-TW
-  notes: 'target_status is proposed: the /categories/[l1]/[l2] URL shape is not ratified until Ticket
+  notes: 'target_status is proposed: the /brands?category=[l1]&sub=[l2] URL shape is not ratified until Ticket
     B. Cannibalization risk 3: today the ?sub= filter views fold into this L1 page, so L1 and L2 compete
-    for the same query. Ticket B must reposition ?sub= (canonical or redirect) before the /categories/[l1]/[l2]
+    for the same query. Ticket B must reposition ?sub= (canonical or redirect) before the /brands?category=[l1]&sub=[l2]
     shape ships.'
 - id: l2-underwear-and-intimates
   primary_keyword: 台灣貼身衣物品牌
@@ -1172,7 +1172,7 @@ clusters:
   - MIT 內褲品牌
   search_intent: commercial
   page_type: l2-category
-  target_url: /categories/fashion/underwear-and-intimates
+  target_url: /brands?category=fashion&sub=underwear-and-intimates
   target_status: proposed
   ontology_slug: underwear-and-intimates
   brand_count: 13
@@ -1186,9 +1186,9 @@ clusters:
     grid, and CollectionPage + ItemList JSON-LD.
   indexability: index
   locale: zh-TW
-  notes: 'target_status is proposed: the /categories/[l1]/[l2] URL shape is not ratified until Ticket
+  notes: 'target_status is proposed: the /brands?category=[l1]&sub=[l2] URL shape is not ratified until Ticket
     B. Cannibalization risk 3: today the ?sub= filter views fold into this L1 page, so L1 and L2 compete
-    for the same query. Ticket B must reposition ?sub= (canonical or redirect) before the /categories/[l1]/[l2]
+    for the same query. Ticket B must reposition ?sub= (canonical or redirect) before the /brands?category=[l1]&sub=[l2]
     shape ships.'
 - id: l2-fragrance
   primary_keyword: 台灣香水品牌
@@ -1197,7 +1197,7 @@ clusters:
   - MIT 香水推薦
   search_intent: commercial
   page_type: l2-category
-  target_url: /categories/beauty/fragrance
+  target_url: /brands?category=beauty&sub=fragrance
   target_status: live
   ontology_slug: fragrance
   brand_count: 15
@@ -1211,9 +1211,9 @@ clusters:
     grid, and CollectionPage + ItemList JSON-LD.
   indexability: index
   locale: zh-TW
-  notes: 'target_status is proposed: the /categories/[l1]/[l2] URL shape is not ratified until Ticket
+  notes: 'target_status is proposed: the /brands?category=[l1]&sub=[l2] URL shape is not ratified until Ticket
     B. Cannibalization risk 3: today the ?sub= filter views fold into this L1 page, so L1 and L2 compete
-    for the same query. Ticket B must reposition ?sub= (canonical or redirect) before the /categories/[l1]/[l2]
+    for the same query. Ticket B must reposition ?sub= (canonical or redirect) before the /brands?category=[l1]&sub=[l2]
     shape ships.'
 - id: l2-dresses
   primary_keyword: 台灣洋裝品牌
@@ -1222,7 +1222,7 @@ clusters:
   - MIT 洋裝
   search_intent: commercial
   page_type: l2-category
-  target_url: /categories/fashion/dresses
+  target_url: /brands?category=fashion&sub=dresses
   target_status: live
   ontology_slug: dresses
   brand_count: 15
@@ -1236,9 +1236,9 @@ clusters:
     grid, and CollectionPage + ItemList JSON-LD.
   indexability: index
   locale: zh-TW
-  notes: 'target_status is proposed: the /categories/[l1]/[l2] URL shape is not ratified until Ticket
+  notes: 'target_status is proposed: the /brands?category=[l1]&sub=[l2] URL shape is not ratified until Ticket
     B. Cannibalization risk 3: today the ?sub= filter views fold into this L1 page, so L1 and L2 compete
-    for the same query. Ticket B must reposition ?sub= (canonical or redirect) before the /categories/[l1]/[l2]
+    for the same query. Ticket B must reposition ?sub= (canonical or redirect) before the /brands?category=[l1]&sub=[l2]
     shape ships.'
 - id: l2-face-masks
   primary_keyword: 台灣面膜品牌
@@ -1247,7 +1247,7 @@ clusters:
   - 台灣製面膜
   search_intent: commercial
   page_type: l2-category
-  target_url: /categories/beauty/face-masks
+  target_url: /brands?category=beauty&sub=face-masks
   target_status: live
   ontology_slug: face-masks
   brand_count: 15
@@ -1262,10 +1262,10 @@ clusters:
   indexability: index
   locale: zh-TW
   notes: 'differentiation 1: 面膜 is the most commoditised beauty SERP; drugstore and marketplace pages
-    dominate and a directory page adds little. target_status is proposed: the /categories/[l1]/[l2] URL
+    dominate and a directory page adds little. target_status is proposed: the /brands?category=[l1]&sub=[l2] URL
     shape is not ratified until Ticket B. Cannibalization risk 3: today the ?sub= filter views fold into
     this L1 page, so L1 and L2 compete for the same query. Ticket B must reposition ?sub= (canonical or
-    redirect) before the /categories/[l1]/[l2] shape ships.'
+    redirect) before the /brands?category=[l1]&sub=[l2] shape ships.'
 - id: l2-supplements
   primary_keyword: 台灣保健食品品牌
   secondary_keywords:
@@ -1273,7 +1273,7 @@ clusters:
   - MIT 保健食品
   search_intent: commercial
   page_type: l2-category
-  target_url: /categories/food-drink/supplements
+  target_url: /brands?category=food-drink&sub=supplements
   target_status: proposed
   ontology_slug: supplements
   brand_count: 6
@@ -1288,9 +1288,9 @@ clusters:
   indexability: index
   locale: zh-TW
   notes: 'differentiation 1: heavily advertised vertical with entrenched affiliate content. target_status
-    is proposed: the /categories/[l1]/[l2] URL shape is not ratified until Ticket B. Cannibalization risk
+    is proposed: the /brands?category=[l1]&sub=[l2] URL shape is not ratified until Ticket B. Cannibalization risk
     3: today the ?sub= filter views fold into this L1 page, so L1 and L2 compete for the same query. Ticket
-    B must reposition ?sub= (canonical or redirect) before the /categories/[l1]/[l2] shape ships.'
+    B must reposition ?sub= (canonical or redirect) before the /brands?category=[l1]&sub=[l2] shape ships.'
 - id: l2-outdoor-accessories
   primary_keyword: 台灣戶外配件品牌
   secondary_keywords:
@@ -1298,7 +1298,7 @@ clusters:
   - 台灣露營小物
   search_intent: commercial
   page_type: l2-category
-  target_url: /categories/outdoor/outdoor-accessories
+  target_url: /brands?category=outdoor&sub=outdoor-accessories
   target_status: proposed
   ontology_slug: outdoor-accessories
   brand_count: 9
@@ -1313,10 +1313,10 @@ clusters:
   indexability: index
   locale: zh-TW
   notes: '戶外配件 is a catch-all bucket, not a shopping intent, and it overlaps 登山・露營用品. Deferred rather
-    than launched so it does not compete with the outdoor L1 page. target_status is proposed: the /categories/[l1]/[l2]
+    than launched so it does not compete with the outdoor L1 page. target_status is proposed: the /brands?category=[l1]&sub=[l2]
     URL shape is not ratified until Ticket B. Cannibalization risk 3: today the ?sub= filter views fold
     into this L1 page, so L1 and L2 compete for the same query. Ticket B must reposition ?sub= (canonical
-    or redirect) before the /categories/[l1]/[l2] shape ships.'
+    or redirect) before the /brands?category=[l1]&sub=[l2] shape ships.'
 - id: l2-tops-and-tshirts
   primary_keyword: 台灣上衣品牌
   secondary_keywords:
@@ -1325,7 +1325,7 @@ clusters:
   - 台灣襯衫品牌
   search_intent: commercial
   page_type: l2-category
-  target_url: /categories/fashion/tops-and-tshirts
+  target_url: /brands?category=fashion&sub=tops-and-tshirts
   target_status: live
   ontology_slug: tops-and-tshirts
   brand_count: 32
@@ -1339,10 +1339,10 @@ clusters:
     grid, and CollectionPage + ItemList JSON-LD.
   indexability: index
   locale: zh-TW
-  notes: 'target_status is proposed: the /categories/[l1]/[l2] URL shape is not ratified until Ticket
+  notes: 'target_status is proposed: the /brands?category=[l1]&sub=[l2] URL shape is not ratified until Ticket
     B. composite synonym: 上衣・T恤 is two words for one intent, so one page legitimately owns both. Cannibalization
     risk 3: today the ?sub= filter views fold into this L1 page, so L1 and L2 compete for the same query.
-    Ticket B must reposition ?sub= (canonical or redirect) before the /categories/[l1]/[l2] shape ships.'
+    Ticket B must reposition ?sub= (canonical or redirect) before the /brands?category=[l1]&sub=[l2] shape ships.'
 - id: l2-desserts-and-pastries
   primary_keyword: 台灣甜點品牌
   secondary_keywords:
@@ -1351,7 +1351,7 @@ clusters:
   - 伴手禮甜點
   search_intent: commercial
   page_type: l2-category
-  target_url: /categories/food-drink/desserts-and-pastries
+  target_url: /brands?category=food-drink&sub=desserts-and-pastries
   target_status: live
   ontology_slug: desserts-and-pastries
   brand_count: 31
@@ -1365,10 +1365,10 @@ clusters:
     grid, and CollectionPage + ItemList JSON-LD.
   indexability: index
   locale: zh-TW
-  notes: 'target_status is proposed: the /categories/[l1]/[l2] URL shape is not ratified until Ticket
+  notes: 'target_status is proposed: the /brands?category=[l1]&sub=[l2] URL shape is not ratified until Ticket
     B. composite synonym: 甜點・糕點 is two words for one intent, so one page legitimately owns both. Cannibalization
     risk 3: today the ?sub= filter views fold into this L1 page, so L1 and L2 compete for the same query.
-    Ticket B must reposition ?sub= (canonical or redirect) before the /categories/[l1]/[l2] shape ships.'
+    Ticket B must reposition ?sub= (canonical or redirect) before the /brands?category=[l1]&sub=[l2] shape ships.'
 - id: l2-wall-art
   primary_keyword: 台灣插畫品牌
   secondary_keywords:
@@ -1377,7 +1377,7 @@ clusters:
   - 無框畫
   search_intent: commercial
   page_type: l2-category
-  target_url: /categories/home/wall-art
+  target_url: /brands?category=home&sub=wall-art
   target_status: live
   ontology_slug: wall-art
   brand_count: 22
@@ -1391,10 +1391,10 @@ clusters:
     grid, and CollectionPage + ItemList JSON-LD.
   indexability: index
   locale: zh-TW
-  notes: 'target_status is proposed: the /categories/[l1]/[l2] URL shape is not ratified until Ticket
+  notes: 'target_status is proposed: the /brands?category=[l1]&sub=[l2] URL shape is not ratified until Ticket
     B. composite synonym: 掛畫・畫作 is two words for one intent, so one page legitimately owns both. Cannibalization
     risk 3: today the ?sub= filter views fold into this L1 page, so L1 and L2 compete for the same query.
-    Ticket B must reposition ?sub= (canonical or redirect) before the /categories/[l1]/[l2] shape ships.'
+    Ticket B must reposition ?sub= (canonical or redirect) before the /brands?category=[l1]&sub=[l2] shape ships.'
 - id: l2-cookies-and-rice-crackers
   primary_keyword: 台灣餅乾品牌
   secondary_keywords:
@@ -1403,7 +1403,7 @@ clusters:
   - 米香
   search_intent: commercial
   page_type: l2-category
-  target_url: /categories/food-drink/cookies-and-rice-crackers
+  target_url: /brands?category=food-drink&sub=cookies-and-rice-crackers
   target_status: live
   ontology_slug: cookies-and-rice-crackers
   brand_count: 24
@@ -1417,10 +1417,10 @@ clusters:
     grid, and CollectionPage + ItemList JSON-LD.
   indexability: index
   locale: zh-TW
-  notes: 'target_status is proposed: the /categories/[l1]/[l2] URL shape is not ratified until Ticket
+  notes: 'target_status is proposed: the /brands?category=[l1]&sub=[l2] URL shape is not ratified until Ticket
     B. composite synonym: 餅乾・米餅 is two words for one intent, so one page legitimately owns both. Cannibalization
     risk 3: today the ?sub= filter views fold into this L1 page, so L1 and L2 compete for the same query.
-    Ticket B must reposition ?sub= (canonical or redirect) before the /categories/[l1]/[l2] shape ships.'
+    Ticket B must reposition ?sub= (canonical or redirect) before the /brands?category=[l1]&sub=[l2] shape ships.'
 - id: l2-cards-and-postcards
   primary_keyword: 台灣卡片品牌
   secondary_keywords:
@@ -1428,7 +1428,7 @@ clusters:
   - 台灣文創卡片
   search_intent: commercial
   page_type: l2-category
-  target_url: /categories/stationery/cards-and-postcards
+  target_url: /brands?category=stationery&sub=cards-and-postcards
   target_status: proposed
   ontology_slug: cards-and-postcards
   brand_count: 13
@@ -1442,10 +1442,10 @@ clusters:
     grid, and CollectionPage + ItemList JSON-LD.
   indexability: index
   locale: zh-TW
-  notes: 'target_status is proposed: the /categories/[l1]/[l2] URL shape is not ratified until Ticket
+  notes: 'target_status is proposed: the /brands?category=[l1]&sub=[l2] URL shape is not ratified until Ticket
     B. composite synonym: 卡片・明信片 is two words for one intent, so one page legitimately owns both. Cannibalization
     risk 3: today the ?sub= filter views fold into this L1 page, so L1 and L2 compete for the same query.
-    Ticket B must reposition ?sub= (canonical or redirect) before the /categories/[l1]/[l2] shape ships.'
+    Ticket B must reposition ?sub= (canonical or redirect) before the /brands?category=[l1]&sub=[l2] shape ships.'
 - id: l2-sandals-and-slippers
   primary_keyword: 台灣涼鞋品牌
   secondary_keywords:
@@ -1454,7 +1454,7 @@ clusters:
   - 穆勒鞋
   search_intent: commercial
   page_type: l2-category
-  target_url: /categories/fashion/sandals-and-slippers
+  target_url: /brands?category=fashion&sub=sandals-and-slippers
   target_status: live
   ontology_slug: sandals-and-slippers
   brand_count: 18
@@ -1468,10 +1468,10 @@ clusters:
     grid, and CollectionPage + ItemList JSON-LD.
   indexability: index
   locale: zh-TW
-  notes: 'target_status is proposed: the /categories/[l1]/[l2] URL shape is not ratified until Ticket
+  notes: 'target_status is proposed: the /brands?category=[l1]&sub=[l2] URL shape is not ratified until Ticket
     B. composite synonym: 涼鞋・拖鞋 is two words for one intent, so one page legitimately owns both. Cannibalization
     risk 3: today the ?sub= filter views fold into this L1 page, so L1 and L2 compete for the same query.
-    Ticket B must reposition ?sub= (canonical or redirect) before the /categories/[l1]/[l2] shape ships.'
+    Ticket B must reposition ?sub= (canonical or redirect) before the /brands?category=[l1]&sub=[l2] shape ships.'
 - id: l2-eco-and-shopping-bags
   primary_keyword: 台灣環保袋品牌
   secondary_keywords:
@@ -1480,7 +1480,7 @@ clusters:
   - 飲料提袋
   search_intent: commercial
   page_type: l2-category
-  target_url: /categories/bags-accessories/eco-and-shopping-bags
+  target_url: /brands?category=bags-accessories&sub=eco-and-shopping-bags
   target_status: proposed
   ontology_slug: eco-and-shopping-bags
   brand_count: 4
@@ -1494,10 +1494,10 @@ clusters:
     grid, and CollectionPage + ItemList JSON-LD.
   indexability: index
   locale: zh-TW
-  notes: 'target_status is proposed: the /categories/[l1]/[l2] URL shape is not ratified until Ticket
+  notes: 'target_status is proposed: the /brands?category=[l1]&sub=[l2] URL shape is not ratified until Ticket
     B. composite synonym: 環保袋・購物袋 is two words for one intent, so one page legitimately owns both. Cannibalization
     risk 3: today the ?sub= filter views fold into this L1 page, so L1 and L2 compete for the same query.
-    Ticket B must reposition ?sub= (canonical or redirect) before the /categories/[l1]/[l2] shape ships.'
+    Ticket B must reposition ?sub= (canonical or redirect) before the /brands?category=[l1]&sub=[l2] shape ships.'
 - id: l2-wallets
   primary_keyword: 台灣皮夾品牌
   secondary_keywords:
@@ -1506,7 +1506,7 @@ clusters:
   - 手工皮夾
   search_intent: commercial
   page_type: l2-category
-  target_url: /categories/bags-accessories/wallets
+  target_url: /brands?category=bags-accessories&sub=wallets
   target_status: proposed
   ontology_slug: wallets
   brand_count: 12
@@ -1520,10 +1520,10 @@ clusters:
     grid, and CollectionPage + ItemList JSON-LD.
   indexability: index
   locale: zh-TW
-  notes: 'target_status is proposed: the /categories/[l1]/[l2] URL shape is not ratified until Ticket
+  notes: 'target_status is proposed: the /brands?category=[l1]&sub=[l2] URL shape is not ratified until Ticket
     B. composite synonym: 皮夾・錢包 is two words for one intent, so one page legitimately owns both. Cannibalization
     risk 3: today the ?sub= filter views fold into this L1 page, so L1 and L2 compete for the same query.
-    Ticket B must reposition ?sub= (canonical or redirect) before the /categories/[l1]/[l2] shape ships.'
+    Ticket B must reposition ?sub= (canonical or redirect) before the /brands?category=[l1]&sub=[l2] shape ships.'
 - id: l2-home-fragrance
   primary_keyword: 台灣居家香氛品牌
   secondary_keywords:
@@ -1700,7 +1700,7 @@ clusters:
   - 台灣手環品牌
   search_intent: commercial
   page_type: l2-category
-  target_url: /categories/jewelry/bracelets-and-bangles
+  target_url: /brands?category=jewelry&sub=bracelets-and-bangles
   target_status: live
   ontology_slug: bracelets-and-bangles
   brand_count: 21
@@ -1714,11 +1714,11 @@ clusters:
     grid, and CollectionPage + ItemList JSON-LD.
   indexability: index
   locale: zh-TW
-  notes: 'target_status is proposed: the /categories/[l1]/[l2] URL shape is not ratified until Ticket B.
+  notes: 'target_status is proposed: the /brands?category=[l1]&sub=[l2] URL shape is not ratified until Ticket B.
     composite synonym: 手鍊・手環 are two names for the same jewelry shelf and buyer intent, so one page
     legitimately owns both. Cannibalization risk 3: today the ?sub= filter views fold into this L1 page,
     so L1 and L2 compete for the same query. Ticket B must reposition ?sub= (canonical or redirect) before
-    the /categories/[l1]/[l2] shape ships.'
+    the /brands?category=[l1]&sub=[l2] shape ships.'
 - id: l2-essential-oils-and-hydrosols
   primary_keyword: 台灣精油純露品牌
   secondary_keywords:
@@ -1726,7 +1726,7 @@ clusters:
   - 台灣純露品牌
   search_intent: commercial
   page_type: l2-category
-  target_url: /categories/beauty/essential-oils-and-hydrosols
+  target_url: /brands?category=beauty&sub=essential-oils-and-hydrosols
   target_status: live
   ontology_slug: essential-oils-and-hydrosols
   brand_count: 22
@@ -1740,11 +1740,11 @@ clusters:
     grid, and CollectionPage + ItemList JSON-LD.
   indexability: index
   locale: zh-TW
-  notes: 'target_status is proposed: the /categories/[l1]/[l2] URL shape is not ratified until Ticket B.
+  notes: 'target_status is proposed: the /brands?category=[l1]&sub=[l2] URL shape is not ratified until Ticket B.
     composite synonym: 精油・純露 share the same shelf and buyer intent because hydrosol is the distillation
     byproduct sold alongside essential oil, so one page legitimately owns both. Cannibalization risk 3:
     today the ?sub= filter views fold into this L1 page, so L1 and L2 compete for the same query. Ticket B
-    must reposition ?sub= (canonical or redirect) before the /categories/[l1]/[l2] shape ships.'
+    must reposition ?sub= (canonical or redirect) before the /brands?category=[l1]&sub=[l2] shape ships.'
 - id: l2-floral-arrangements
   primary_keyword: 台灣花藝品牌
   secondary_keywords:

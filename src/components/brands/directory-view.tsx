@@ -372,7 +372,7 @@ export async function DirectoryView({
           ...(activeSubcategory
             ? {
                 href: localizePath(
-                  routes.category(categoryTag.slug),
+                  routes.brands({ category: categoryTag.slug }),
                   safeLocale,
                 ),
               }

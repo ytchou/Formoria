@@ -147,33 +147,28 @@ describe("message catalogue parity", () => {
     expect(exempted.every((key) => key.startsWith(EN_ONLY_PREFIX))).toBe(true);
   });
 
-  it("calls the /discover surface one name everywhere", () => {
+  it("calls the /style surface one name everywhere", () => {
     /*
      * ONE NAME FOR ONE THING. The nav link, the footer link, the page's own
      * `<h1>`, its `<title>`, and the breadcrumb crumb that also feeds the
-     * BreadcrumbList JSON-LD all point at `/discover`, so they must all say the
-     * same word. They did not: the nav said 風格 (DESIGN.md, decision D5/D10)
-     * while the pages themselves still said 主題選物, which is a reader
-     * following a link to a page that claims to be somewhere else — and, in the
-     * JSON-LD, a machine-readable disagreement.
-     *
-     * Pinned as an equality against `nav.discover` rather than against the
-     * literal, so renaming the concept once is still a one-line change.
+     * BreadcrumbList JSON-LD all point at `/style`, so they must all say the
+     * same word. Pinned as an equality against `nav.style` rather than against
+     * the literal, so renaming the concept once is still a one-line change.
      */
     for (const catalogue of [zhTW, en]) {
-      const name = catalogue.nav.discover;
+      const name = catalogue.nav.style;
 
       expect(catalogue.footer.discover).toBe(name);
-      expect(catalogue.discover.heading).toBe(name);
-      expect(catalogue.discover.metaTitle).toBe(name);
-      expect(catalogue.discover.breadcrumb).toBe(name);
+      expect(catalogue.style.heading).toBe(name);
+      expect(catalogue.style.metaTitle).toBe(name);
+      expect(catalogue.style.breadcrumb).toBe(name);
     }
   });
 
-  it("retired the 主題選物 vocabulary from the discover namespace", () => {
+  it("retired the 主題選物 vocabulary from the style namespace", () => {
     // The section had two names in one product. Every string the reader sees on
-    // `/discover` and `/discover/[slug]` now uses the 風格 vocabulary; a hit
-    // here means a page has drifted back to the old name.
+    // `/style` and `/style/[slug]` now uses the 風格 vocabulary; a hit here
+    // means a page has drifted back to the old name.
     const stale: string[] = [];
     const walk = (node: unknown, path: string) => {
       if (typeof node === "string") {
@@ -185,7 +180,7 @@ describe("message catalogue parity", () => {
         walk(value, path ? `${path}.${key}` : key);
       }
     };
-    walk(zhTW.discover, "discover");
+    walk(zhTW.style, "style");
 
     expect(stale).toEqual([]);
   });

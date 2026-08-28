@@ -4,7 +4,7 @@ import {
   DIRECTORY_SORT_KEY,
   updateDirectoryUrl,
 } from '@/lib/directory-filter-url'
-import { L1_CATEGORIES, subcategoryBySlug } from '@/lib/taxonomy/ontology'
+import { L1_CATEGORIES } from '@/lib/taxonomy/ontology'
 import { routes } from '@/lib/routes'
 
 export type CategoryTabTargetInput = {
@@ -37,35 +37,15 @@ export function buildCategoryTabTarget({
   )
   const categorySlug = validCategories[0] ?? null
   const activeSubSlug = subSlug ?? null
-  const subcategory = categorySlug && activeSubSlug ? subcategoryBySlug(activeSubSlug) : null
-  // Read from the ONE facet-key list rather than a second hand-kept array:
-  // `material` was added to the indexation predicate and not to this one, and
-  // every subcategory chip then routed to a bare `/categories/<l1>/<l2>` that
-  // dropped the material filter with no trace in the URL.
   const hasFacet = [...DIRECTORY_REFINEMENT_KEYS, DIRECTORY_SORT_KEY].some((key) => {
     const value = params.get(key)
     return typeof value === 'string' && value.trim().length > 0
   })
-  const multiCategory = validCategories.length > 1
   const subValues = activeSubSlug
     ? activeSubSlug.split(',').map((item) => item.trim()).filter(Boolean)
     : []
-  const multiSub = subValues.length > 1
-  const validSub = subValues.length === 1 && subcategory?.category === categorySlug
-    ? subValues[0] ?? null
-    : null
-  // An L2 under a different L1 has no `/categories/<l1>/<l2>` address — that
-  // pair 404s — but it IS a live filter since the brand query stopped
-  // conjoining the L1 (DEV-1510). It therefore keeps the state on `/brands`
-  // instead of resolving to a path that would quietly drop it.
-  const hasUnaddressableSub = subValues.length > 0 && !validSub
-  const pureTaxonomy =
-    Boolean(categorySlug) && !hasFacet && !multiCategory && !multiSub && !hasUnaddressableSub
-
   let routerPath: string
-  if (pureTaxonomy) {
-    routerPath = routes.categoryPath(categorySlug, validSub)
-  } else if (!categorySlug) {
+  if (!categorySlug) {
     routerPath = !clearingAll && hasFacet
       ? updateDirectoryUrl(routes.brands(), params, { category: null, sub: null })
       : routes.brands()
@@ -73,8 +53,6 @@ export function buildCategoryTabTarget({
     const nextCategory = validCategories.join(',')
     routerPath = updateDirectoryUrl(routes.brands(), params, {
       category: nextCategory,
-      // `validSub` gates the PATH, not the query: the query carries any
-      // requested sub verbatim, including a cross-L1 one.
       sub: subValues.length > 0 ? subValues.join(',') : null,
     })
   }

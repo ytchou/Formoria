@@ -1,19 +1,15 @@
 import type { Metadata } from "next";
-import { Compass } from "lucide-react";
 import { getTranslations, setRequestLocale } from "next-intl/server";
+import { PackageOpen } from "lucide-react";
 
 import { EmptyState } from "@/components/ui/empty-state";
 import { PageShell } from "@/components/ui/page-shell";
-import { StoryRow } from "@/components/stories/story-row";
-import { buildAlternates, type Locale } from "@/lib/seo/alternates";
-import { shouldIndexTrailHub } from "@/lib/seo/trail-hub-indexability";
 import { captureReadFailure } from "@/lib/degraded-render";
-import {
-  getAllTrails,
-  type TrailEntry,
-  type TrailListResult,
-} from "@/lib/services/trails";
-import { VISIBLE_L1_CATEGORIES } from "@/lib/taxonomy/ontology";
+import { ProductGrid } from "@/components/products/product-grid";
+import { ProductFilterSidebar } from "@/components/products/product-filter-sidebar";
+import { Pagination } from "@/components/brands/pagination";
+import { buildAlternates } from "@/lib/seo/alternates";
+import { getPublishedCuratedProducts } from "@/lib/services/curated-products-catalog";
 import { routes } from "@/lib/routes";
 
 type PageProps = {
@@ -21,60 +17,26 @@ type PageProps = {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 };
 
-export { shouldIndexTrailHub };
-
 export const revalidate = 3600;
 
-const TRAIL_TAGS = new Set<string>(VISIBLE_L1_CATEGORIES.map((category) => category.slug));
+const PAGE_SIZE = 12;
 
-export function filterTrailsByTag(
-  trails: TrailEntry[],
-  requestedTag: string | null,
-): TrailEntry[] {
-  if (!requestedTag || !TRAIL_TAGS.has(requestedTag)) return trails;
-  return trails.filter((trail) => trail.frontmatter.tags.includes(requestedTag));
-}
-
-export type HubView =
-  | { kind: "loadError" }
-  | { kind: "comingSoon" }
-  | { kind: "list"; trails: TrailEntry[] };
-
-/**
- * Decides exactly what the hub body renders. Published is the only membership
- * test — trail quality is enforced when the trail is authored, so the hub reads
- * the MDX list and nothing else. `comingSoon` now means what it says: no trail
- * is published, or none carries the requested tag.
- */
-export function selectHubView({
-  result,
-  activeTag,
-}: {
-  result: TrailListResult;
-  activeTag: string | null;
-}): HubView {
-  if (!result.ok) return { kind: "loadError" };
-
-  const trails = filterTrailsByTag(result.trails, activeTag);
-
-  return trails.length === 0 ? { kind: "comingSoon" } : { kind: "list", trails };
-}
-
-export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
+export async function generateMetadata({ params, searchParams }: PageProps): Promise<Metadata> {
   const { locale } = await params;
   setRequestLocale(locale);
-  const safeLocale = (locale === "en" ? "en" : "zh-TW") as Locale;
-  const t = await getTranslations({ locale, namespace: "discover" });
-  const result = await getAllTrails(safeLocale);
-  const { canonical, languages } = buildAlternates(routes.discover(), "zh-TW", ["zh-TW"]);
+  const t = await getTranslations({ locale, namespace: "products" });
+  const query = await searchParams;
+  const category = Array.isArray(query.category) ? query.category.at(0) : query.category;
+  const sub = Array.isArray(query.sub) ? query.sub.at(0) : query.sub;
+  const discoverPath = routes.discover(
+    { category: category || undefined, sub: sub || undefined },
+  );
+  const { canonical, languages } = buildAlternates(discoverPath, locale as "zh-TW" | "en");
 
   return {
     title: t("metaTitle"),
     description: t("metaDescription"),
     alternates: { canonical, languages },
-    ...(!shouldIndexTrailHub(result.ok ? result.trails : [])
-      ? { robots: { index: false, follow: true } }
-      : {}),
   };
 }
 
@@ -83,21 +45,32 @@ function firstParam(value: string | string[] | undefined): string | null {
   return candidate?.trim() || null;
 }
 
-export default async function DiscoverHubPage({ params, searchParams }: PageProps) {
+export default async function DiscoverPage({ params, searchParams }: PageProps) {
   const { locale } = await params;
   setRequestLocale(locale);
-  const safeLocale = (locale === "en" ? "en" : "zh-TW") as Locale;
-  const t = await getTranslations({ locale, namespace: "discover" });
+  const t = await getTranslations({ locale, namespace: "products" });
+  const commonT = await getTranslations({ locale, namespace: "common" });
   const query = await searchParams;
-  const activeTag = firstParam(query.tag);
-  const result = await getAllTrails(safeLocale);
-  // The trail list is MDX on disk, so a failed read is a real outage that still
-  // serves a 200 with an error panel. Report it, or the outage is invisible:
-  // `trailListError` only reaches `console.error`. Observability only — the hub
-  // awaits `searchParams`, a Next 16 dynamic API, so the route is already
-  // dynamic and there is no ISR entry for `markRenderDegraded` to opt out of.
-  if (!result.ok) captureReadFailure("discover.hub.trails")(result.error);
-  const view = selectHubView({ result, activeTag });
+
+  const category = firstParam(query.category);
+  const subcategory = firstParam(query.sub);
+  const pageParam = firstParam(query.page);
+  const page = pageParam ? Math.max(1, parseInt(pageParam, 10) || 1) : 1;
+
+  let products: Awaited<ReturnType<typeof getPublishedCuratedProducts>>["products"] = [];
+  let totalCount = 0;
+  try {
+    const result = await getPublishedCuratedProducts({
+      category,
+      subcategory,
+      page,
+      pageSize: PAGE_SIZE,
+    });
+    products = result.products;
+    totalCount = result.totalCount;
+  } catch (err) {
+    captureReadFailure("discover.catalog")(err);
+  }
 
   return (
     <PageShell as="main" measure="page" className="pt-12 pb-section">
@@ -106,32 +79,40 @@ export default async function DiscoverHubPage({ params, searchParams }: PageProp
           <h1 className="type-page-title">{t("heading")}</h1>
           <p className="type-body">{t("subheading")}</p>
         </header>
-        {view.kind === "loadError" ? (
-          <div
-            role="alert"
-            className="rounded-surface border border-rule bg-surface px-6 py-16 text-center"
-          >
-            <p className="type-card-title text-ink-muted">{t("loadError")}</p>
-          </div>
-        ) : view.kind === "comingSoon" ? (
-          <EmptyState icon={<Compass />} title={t("comingSoon")} />
-        ) : (
-          <div className="divide-y divide-rule border-y border-rule">
-            {view.trails.map((trail, index) => (
-              <StoryRow
-                key={trail.slug}
-                story={trail}
-                locale={locale}
-                headingLevel={2}
-                position={index}
-                trackingSurface="discover_hub"
-                trackingKind="trail"
-                hrefBase={routes.discover()}
-                namespace="discover"
+
+        <div className="flex flex-col gap-8 lg:flex-row">
+          <aside className="shrink-0 lg:w-48">
+            <ProductFilterSidebar
+              locale={locale}
+              activeCategory={category}
+              allLabel={commonT("all")}
+            />
+          </aside>
+
+          <div className="min-w-0 flex-1">
+            {totalCount > 0 ? (
+              <p className="mb-4 type-metadata text-ink-muted">
+                {t("resultCount", { count: totalCount })}
+              </p>
+            ) : null}
+
+            {products.length === 0 ? (
+              <EmptyState
+                icon={<PackageOpen />}
+                title={t("emptyState")}
               />
-            ))}
+            ) : (
+              <>
+                <ProductGrid products={products} locale={locale} />
+                <Pagination
+                  totalCount={totalCount}
+                  currentPage={page}
+                  pageSize={PAGE_SIZE}
+                />
+              </>
+            )}
           </div>
-        )}
+        </div>
       </div>
     </PageShell>
   );

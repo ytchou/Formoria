@@ -51,7 +51,7 @@ export function Footer() {
               <p className={columnHeadingClasses}>{t("discoverHeading")}</p>
               <ul className="mt-4 flex list-none flex-col p-0">
                 <li>
-                  <Link href={routes.discover()} prefetch={false} className={linkClasses}>
+                  <Link href={routes.style()} prefetch={false} className={linkClasses}>
                     {t("discover")}
                   </Link>
                 </li>

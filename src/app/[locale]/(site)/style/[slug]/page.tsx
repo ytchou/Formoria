@@ -53,7 +53,7 @@ const getTrailPageData = cache(
     const [trail, products] = await Promise.all([
       getPublishedTrailBySlug(slug),
       getPublishedCuratedProductsForTrail(slug).catch(
-        captureReadFailure("discover.trail.products"),
+        captureReadFailure("style.trail.products"),
       ),
     ]);
     return { trail, products };
@@ -101,7 +101,7 @@ export function buildTrailMetadata({
 // `next build`, and a failed read there calls `markRenderDegraded`, which
 // demotes the route to dynamic for the whole deployment. Production's curated
 // tables exist, but without `visible`, `category` and `subcategories`, so the
-// read fails with Postgres 42703 today and would cost `/discover/[slug]` its
+// read fails with Postgres 42703 today and would cost `/style/[slug]` its
 // ISR cache entirely. Returning no params removes the build-time read, so the
 // route cannot be demoted by one.
 //
@@ -213,19 +213,19 @@ function relatedTrailLinks(title: string, values: string[]): React.ReactNode {
   );
 }
 
-export default async function DiscoverTrailPage({ params }: PageProps) {
+export default async function StyleTrailPage({ params }: PageProps) {
   const { locale, slug: rawSlug } = await params;
   const slug = decodeURIComponent(rawSlug);
   setRequestLocale(locale);
   const safeLocale = (locale === "en" ? "en" : "zh-TW") as Locale;
-  const t = await getTranslations({ locale, namespace: "discover" });
+  const t = await getTranslations({ locale, namespace: "style" });
   const [{ trail, products }, derivedContent] = await Promise.all([
     getTrailPageData(slug),
     getTrailRelatedContent(slug),
   ]);
 
   if (!trail) notFound();
-  if (products === null) await markRenderDegraded("discover.trail.products");
+  if (products === null) await markRenderDegraded("style.trail.products");
   const safeProducts = products ?? [];
 
   const entry = trail.entry;
@@ -254,7 +254,7 @@ export default async function DiscoverTrailPage({ params }: PageProps) {
   });
   const breadcrumbJsonLd = buildBreadcrumbJsonLd(
     [
-      { label: t("breadcrumb"), href: routes.discover() },
+      { label: t("breadcrumb"), href: routes.style() },
       { label: frontmatter.title },
     ],
     safeLocale,
@@ -292,7 +292,7 @@ export default async function DiscoverTrailPage({ params }: PageProps) {
             <Breadcrumb
               ariaLabel={t("breadcrumbAria")}
               items={[
-                { label: t("breadcrumb"), href: routes.discover() },
+                { label: t("breadcrumb"), href: routes.style() },
                 { label: frontmatter.title },
               ]}
             />

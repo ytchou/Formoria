@@ -24,8 +24,8 @@
     "about": "About Formoria",
     "stories": "Stories",
     "whereToBuy": "Where to buy",
-    "discover": "Styles",
-    "categories": "Categories",
+    "products": "Products",
+    "style": "Styles",
     "brands": "Listed brands"
   },
   "footer": {
@@ -45,7 +45,7 @@
     "whereToBuy": "Where to buy",
     "discover": "Styles"
   },
-  "discover": {
+  "style": {
     "metaTitle": "Styles",
     "metaDescription": "Moving into a new home, setting up a shop, changing a lamp — follow a concrete situation to find Taiwanese brands and products that fit.",
     "heading": "Styles",
@@ -74,6 +74,38 @@
       "description": "This style does not exist or has been removed.",
       "browseAll": "Browse all styles"
     }
+  },
+  "products": {
+    "metaTitle": "Products — Formoria",
+    "metaDescription": "Explore Formoria's curated products — everyday objects and design selections for a life that feels more like yours.",
+    "heading": "Curated Products",
+    "subheading": "Selections for everyday life",
+    "emptyState": "No products match your criteria",
+    "resultCount": "{count} products",
+    "moreComingSoon": "More products coming soon"
+  },
+  "brandsJoin": {
+    "metaTitle": "Join Formoria — Brand Recruitment",
+    "metaDescription": "Add your brand to Formoria and help more people discover your products.",
+    "heading": "Help great products get discovered",
+    "heroSubtitle": "Join the Formoria brand directory",
+    "heroDescription": "Formoria is an independent curation platform for Taiwanese brands. We believe great products deserve to be discovered, and we help people find what's right for them through editorial selections and category navigation.",
+    "valueProp1Title": "Exposure and discovery",
+    "valueProp1Description": "Your brand appears in the directory and product pages, helping people with a need find you naturally.",
+    "valueProp2Title": "Editorial coverage",
+    "valueProp2Description": "Qualifying brands may receive a Formoria Selection recommendation, with an editor-written reason.",
+    "valueProp3Title": "Distribution routing",
+    "valueProp3Description": "Every purchase link routes to your own channels. Formoria never handles transactions.",
+    "trustLabelsHeading": "How we work together",
+    "trustLabelDirectory": "Listed Brand — approved for the brand directory, with basic info publicly presented.",
+    "trustLabelSelection": "Formoria Selection — an independent editorial pick, with a stated reason. Brands cannot buy this label.",
+    "trustLabelProvided": "Brand-Provided — materials or info the brand supplied, with source attribution.",
+    "howItWorksHeading": "How to join",
+    "howItWorksStep1": "Fill out the brand form with your website or primary sales channel.",
+    "howItWorksStep2": "The Formoria team reviews your brand to confirm it meets our directory standards.",
+    "howItWorksStep3": "Once approved, your brand info appears in the directory and consumers can find you directly.",
+    "ctaLabel": "Submit your brand",
+    "ctaDescription": "Fill out a simple form to introduce your brand."
   },
   "landing": {
     "metadata": {

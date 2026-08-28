@@ -59,7 +59,7 @@ export async function BrandBreadcrumb({ locale, categorySlug, categoryLabel, bra
           ? [
               {
                 label: categoryLabel,
-                href: routes.category(categorySlug),
+                href: routes.brands({ category: categorySlug }),
               },
             ]
           : []),

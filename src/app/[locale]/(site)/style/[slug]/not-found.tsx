@@ -13,8 +13,8 @@ import { PageShell } from "@/components/ui/page-shell";
 import { Link } from "@/i18n/navigation";
 import { routes } from "@/lib/routes";
 
-export default function DiscoverTrailNotFound() {
-  const t = useTranslations("discover");
+export default function StyleTrailNotFound() {
+  const t = useTranslations("style");
   return (
     // `prose`, as at every error boundary: the empty state is one centred
     // message, and the trail's own 100rem shell would strand it in whitespace.
@@ -25,7 +25,7 @@ export default function DiscoverTrailNotFound() {
         body={t("notFound.description")}
         action={
           <Link
-            href={routes.discover()}
+            href={routes.style()}
             className={buttonVariants({ variant: "primary", size: "large" })}
           >
             {t("notFound.browseAll")}

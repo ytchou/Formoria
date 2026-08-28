@@ -19,7 +19,7 @@ describe("GET /llms.txt", () => {
     for (const category of VISIBLE_L1_CATEGORIES) {
       expect(body).toContain(
         buildAlternates(
-          `/categories/${category.slug}`,
+          `/brands?category=${category.slug}`,
           "zh-TW",
         ).canonical,
       );
@@ -54,7 +54,7 @@ describe("GET /llms.txt", () => {
   });
 
   it("keeps a category URL when its optional description is missing", () => {
-    const url = "https://formoria.com/categories/fashion";
+    const url = "https://formoria.com/brands?category=fashion";
     const body = formatLlmsTxt({
       links: [],
       categories: [{ name: "Fashion & Apparel", nameZh: "服飾鞋履", url }],

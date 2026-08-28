@@ -7,12 +7,10 @@ describe('routes', () => {
     expect(routes.home()).toBe('/')
     expect(routes.brands()).toBe('/brands')
     expect(routes.brand('acme')).toBe('/brands/acme')
-    expect(routes.categories()).toBe('/categories')
-    expect(routes.category('home')).toBe('/categories/home')
-    expect(routes.subcategory('home', 'furniture')).toBe('/categories/home/furniture')
     expect(routes.discover()).toBe('/discover')
+    expect(routes.style()).toBe('/style')
     expect(routes.trail('small-space-reading-corner')).toBe(
-      '/discover/small-space-reading-corner',
+      '/style/small-space-reading-corner',
     )
     expect(routes.stories()).toBe('/stories')
     expect(routes.story('sample-story')).toBe('/stories/sample-story')
@@ -25,8 +23,6 @@ describe('routes', () => {
     // A reserved character is escaped once, never twice: `%2F`, not `%252F`.
     expect(routes.brand('a/b')).toBe('/brands/a%2Fb')
     expect(routes.story('a b')).toBe('/stories/a%20b')
-    expect(routes.category('a?b')).toBe('/categories/a%3Fb')
-    expect(routes.subcategory('a#b', 'c&d')).toBe('/categories/a%23b/c%26d')
     expect(routes.brand('a/b')).not.toContain('%252F')
   })
 
@@ -36,9 +32,8 @@ describe('routes', () => {
       routes.home(),
       routes.brands(),
       routes.brand('acme'),
-      routes.category('home'),
-      routes.subcategory('home', 'furniture'),
       routes.discover(),
+      routes.style(),
       routes.trail('x'),
       routes.stories(),
       routes.story('x'),
@@ -97,9 +92,11 @@ describe('routes', () => {
     expect(routes.admin.operations()).toBe('/admin/operations')
   })
 
-  it('names the category path once whether or not a subcategory is present', () => {
-    expect(routes.categoryPath('home')).toBe('/categories/home')
-    expect(routes.categoryPath('home', null)).toBe('/categories/home')
-    expect(routes.categoryPath('home', 'furniture')).toBe('/categories/home/furniture')
+  it('style returns /style', () => {
+    expect(routes.style()).toBe('/style')
+  })
+
+  it('trail returns /style/slug', () => {
+    expect(routes.trail('foo')).toBe('/style/foo')
   })
 })

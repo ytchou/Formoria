@@ -22,7 +22,7 @@ const trail = (slug: string, tags: string[]): TrailEntry => ({
   },
 });
 
-describe("discovery trail hub", () => {
+describe("style trail hub", () => {
   it("filters by a known tag and ignores an unknown tag", () => {
     const trails = [trail("home-trail", ["home"]), trail("craft-trail", ["crafts"])]
 

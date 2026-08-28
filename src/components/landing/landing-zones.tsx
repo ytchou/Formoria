@@ -99,7 +99,7 @@ export async function LandingZones({
                 id="landing-trails"
                 heading={t("trails.heading")}
                 note={t("trails.note")}
-                linkHref={routes.discover()}
+                linkHref={routes.style()}
                 linkLabel={t("trails.linkText")}
               />
               <div className="mt-8">
