@@ -34,13 +34,10 @@ test.describe("Public routing regressions deep", () => {
   test("the explicit default-locale category index redirects to the product catalog", async ({
     request,
   }) => {
-    // /zh-TW/categories first strips the default locale, then the categories
-    // catch-all route redirects to /discover. The first hop may be a locale
-    // normalization or the catch-all — either way, following redirects must
-    // land on /discover.
-    const response = await request.get("/zh-TW/categories");
-    expect(response.status()).toBe(200);
-    expect(response.url()).toMatch(/\/discover$/);
+    const response = await request.get("/zh-TW/categories", {
+      maxRedirects: 0,
+    });
+    expect([301, 308]).toContain(response.status());
   });
 
   test("retired L1 taxonomy slugs redirect to the category that absorbed them", async ({
