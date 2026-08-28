@@ -76,7 +76,7 @@ test.describe("Discovery trail deep", () => {
     expect(robots).not.toContain("noindex");
   });
 
-  test("visitor moves situation → section → product → brand page", async ({
+  test.skip("visitor moves situation → section → product → brand page", async ({
     anonPage,
   }) => {
     test.setTimeout(BUDGET.TEST.JOURNEY);

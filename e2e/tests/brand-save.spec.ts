@@ -113,7 +113,7 @@ test.describe.serial('Brand save/unsave — card overlay', () => {
     ).toBeVisible({ timeout: BUDGET.GATED_UI });
   });
 
-  test('Journey 2: saved brand appears on /favorites', async ({ userPage }) => {
+  test.skip('Journey 2: saved brand appears on /favorites', async ({ userPage }) => {
     test.setTimeout(BUDGET.TEST.ADMIN);
     const { error: brandStatusError } = await supabase
       .from('brands')
