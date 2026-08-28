@@ -21,7 +21,7 @@ export const GET = withAuditScope(async () => {
   const categories = VISIBLE_L1_CATEGORIES.map((category) => ({
     name: category.name,
     nameZh: category.nameZh,
-    url: canonical(routes.category(category.slug)),
+    url: canonical(routes.brands({ category: category.slug })),
     description:
       en.categories.descriptions[category.slug] ??
       zhTW.categories.descriptions[category.slug],

@@ -50,7 +50,7 @@ export async function RelatedBrands({
             </p>
           </div>
           <Link
-            href={routes.category(category)}
+            href={routes.brands({ category: category })}
             className={actionLinkStyles({
               className: "self-start sm:self-auto",
             })}

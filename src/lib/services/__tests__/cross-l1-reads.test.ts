@@ -5,7 +5,6 @@ import {
   resolveSubcategorySlugs,
   subcategoryBySlug,
 } from '@/lib/taxonomy/ontology'
-import { resolveCategoryRouteParams } from '@/app/[locale]/(site)/categories/category-params'
 import { isDirectoryTargetMember } from '@/lib/seo/directory-sitemap'
 import {
   directoryBrandCategoryFilter,
@@ -160,20 +159,7 @@ describe('cross-L1 reads', () => {
     expect(source).not.toContain('resolveDirectorySubcategorySlugs')
   })
 
-  it('url_pair_validity_is_unchanged', () => {
-    // Loosening the read must NOT mint a second address for one L2. Only the
-    // L2's own parent pairs with it; everything else 404s (a null resolution).
-    expect(
-      resolveCategoryRouteParams({ categorySlug: 'fashion', subcategorySlug: 'backpacks' }),
-    ).toBeNull()
-    expect(
-      resolveCategoryRouteParams({
-        categorySlug: 'bags-accessories',
-        subcategorySlug: 'backpacks',
-      })?.subcategory?.slug,
-    ).toBe('backpacks')
-    expect(
-      resolveCategoryRouteParams({ categorySlug: 'fashion' })?.category.slug,
-    ).toBe('fashion')
-  })
+  // url_pair_validity test removed: `resolveCategoryRouteParams` was removed
+  // with the `/categories/` routes. Taxonomy URL validation now lives entirely
+  // in the `/brands?category=` query-string path.
 })

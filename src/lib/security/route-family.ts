@@ -217,6 +217,10 @@ export function classifyRoute(
     return { family: 'directory:list', resourceId: path }
   }
 
+  if (head === 'style') {
+    return { family: 'public:global-content', resourceId: path }
+  }
+
   if (NON_PUBLIC_HEADS.has(head)) {
     return { family: 'internal:non-public', resourceId: path }
   }

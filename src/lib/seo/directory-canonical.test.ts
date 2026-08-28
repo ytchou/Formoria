@@ -10,8 +10,8 @@ describe('buildDirectoryCanonicals', () => {
     })
     const base = getSiteUrl()
 
-    expect(result.canonical).toBe(`${base}/categories/home`)
-    expect(result.languages.en).toBe(`${base}/en/categories/home`)
+    expect(result.canonical).toBe(`${base}/brands?category=home`)
+    expect(result.languages.en).toBe(`${base}/en/brands?category=home`)
   })
 
   it('builds a path canonical for an L2 target', () => {
@@ -22,9 +22,9 @@ describe('buildDirectoryCanonicals', () => {
     })
     const base = getSiteUrl()
 
-    expect(result.canonical).toBe(`${base}/en/categories/home/furniture`)
-    expect(result.languages['zh-TW']).toBe(`${base}/categories/home/furniture`)
-    expect(result.languages['x-default']).toBe(`${base}/categories/home/furniture`)
+    expect(result.canonical).toBe(`${base}/en/brands?category=home&sub=furniture`)
+    expect(result.languages['zh-TW']).toBe(`${base}/brands?category=home&sub=furniture`)
+    expect(result.languages['x-default']).toBe(`${base}/brands?category=home&sub=furniture`)
   })
 
   it('retains page on page 2 and omits it on page 1', () => {
@@ -40,10 +40,10 @@ describe('buildDirectoryCanonicals', () => {
     })
     const base = getSiteUrl()
 
-    expect(pageTwo.canonical).toBe(`${base}/categories/home?page=2`)
-    expect(pageTwo.languages.en).toBe(`${base}/en/categories/home?page=2`)
-    expect(pageOne.canonical).toBe(`${base}/categories/home`)
-    expect(pageOne.languages.en).toBe(`${base}/en/categories/home`)
+    expect(pageTwo.canonical).toBe(`${base}/brands?category=home&page=2`)
+    expect(pageTwo.languages.en).toBe(`${base}/en/brands?category=home&page=2`)
+    expect(pageOne.canonical).toBe(`${base}/brands?category=home`)
+    expect(pageOne.languages.en).toBe(`${base}/en/brands?category=home`)
   })
 
   it('strips sort and all facets', () => {
@@ -55,8 +55,8 @@ describe('buildDirectoryCanonicals', () => {
     })
 
     for (const url of [result.canonical, ...Object.values(result.languages)]) {
-      expect(url).not.toMatch(/[?&](sort|search|price|verification|sub)=/)
-      expect(url).toContain('/categories/home/furniture')
+      expect(url).not.toMatch(/[?&](sort|search|price|verification)=/)
+      expect(url).toContain('/brands?category=home&sub=furniture')
       expect(url).toContain('page=2')
     }
   })

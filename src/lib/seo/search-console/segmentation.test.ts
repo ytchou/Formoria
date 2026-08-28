@@ -196,17 +196,12 @@ describe('Search Console segmentation', () => {
     expect(classifyLandingPage('/stories/x?category=bags').canonicalPage).toBe('/stories/x')
   })
 
-  it('classifies the proposed /categories URL shape', () => {
-    // Every l1-category and l2-category target_url in the committed map is under
-    // /categories/... . The routes do not exist yet (Ticket B ratifies them), so
-    // this branch fails silently rather than loudly if it is missing.
-    expect(classifyLandingPage('/categories/bags-accessories').pageType).toBe('l1-category')
-    expect(classifyLandingPage('/categories/bags-accessories/totes').pageType).toBe('l2-category')
-    expect(classifyLandingPage('/en/categories/bags-accessories/').pageType).toBe('l1-category')
-    expect(classifyLandingPage('/categories/bags-accessories/totes?page=2').canonicalPage).toBe(
-      '/categories/bags-accessories/totes',
-    )
-    // Deeper than L2 is not a shape the map models.
+  it('classifies legacy /categories URLs as other/static (now redirects)', () => {
+    // `/categories/...` URLs are now 301 redirects to `/brands?category=...`.
+    // They classify as other/static so reporting can track their decay.
+    expect(classifyLandingPage('/categories/bags-accessories').pageType).toBe('other/static')
+    expect(classifyLandingPage('/categories/bags-accessories/totes').pageType).toBe('other/static')
+    expect(classifyLandingPage('/en/categories/bags-accessories/').pageType).toBe('other/static')
     expect(classifyLandingPage('/categories/a/b/c').pageType).toBe('other/static')
   })
 })

@@ -172,11 +172,6 @@ function isSectionOrDescendant(path: string, section: string): boolean {
   return path === section || path.startsWith(`${section}/`)
 }
 
-/** Segments of `path` below `section`, e.g. ('/categories/home/lamps', '/categories') -> ['home', 'lamps']. */
-function segmentsBelow(path: string, section: string): string[] {
-  if (!isSectionOrDescendant(path, section)) return []
-  return path.slice(section.length).split('/').filter(Boolean)
-}
 
 export function classifyLandingPage(raw: string): LandingPageClassification {
   const { path, searchParams } = parseLandingUrl(raw)
@@ -208,13 +203,10 @@ export function classifyLandingPage(raw: string): LandingPageClassification {
       // A bare `sub` with no category is not a page the app can produce.
       pageType = 'directory'
     }
-  } else if (isSectionOrDescendant(path, routes.categories())) {
-    // Proposed URL shape for the L1/L2 category pages a later ticket ratifies;
-    // every l1-category and l2-category target_url in the committed map is here.
-    // The path IS the canonical key — no filter params participate.
-    const segments = segmentsBelow(path, routes.categories())
-    pageType =
-      segments.length === 1 ? 'l1-category' : segments.length === 2 ? 'l2-category' : 'other/static'
+  } else if (isSectionOrDescendant(path, '/categories')) {
+    // Legacy `/categories/...` URLs now 301 to `/brands?category=...`. Classify
+    // them so reporting can track their decay separately from live pages.
+    pageType = 'other/static'
   } else if (path.startsWith(`${routes.brands()}/`)) {
     pageType = 'brand-detail'
   } else if (isSectionOrDescendant(path, routes.stories())) {

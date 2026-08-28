@@ -64,12 +64,18 @@ export function buildDirectoryCanonicals({
   page = 1,
   preserveFacets,
 }: DirectoryCanonicalOptions): AlternatesResult {
-  const directoryPath = categorySlug
-    ? routes.categoryPath(categorySlug, subcategorySlug)
-    : routes.brands();
+  // Category and subcategory live in the query string now, so the base path is
+  // always `/brands`. `appendDirectoryQuery` merges them with page and facets
+  // into one `?` section.
+  const directoryPath = routes.brands();
   const { canonical, languages } = buildAlternates(directoryPath, locale);
+  const taxonomyFacets: DirectoryCanonicalFacets = {
+    ...preserveFacets,
+    ...(categorySlug ? { category: categorySlug } : {}),
+    ...(subcategorySlug ? { sub: subcategorySlug } : {}),
+  };
   const append = (url: string) =>
-    appendDirectoryQuery(url, page, preserveFacets);
+    appendDirectoryQuery(url, page, taxonomyFacets);
 
   return {
     canonical: append(canonical),

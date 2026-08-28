@@ -166,20 +166,20 @@ const nextConfig: NextConfig = {
         destination: "/",
         permanent: true,
       },
-      // Legacy singular category routes now point at the taxonomy landing surface.
+      // Legacy singular category routes redirect to the product catalog.
       {
         source: "/category/:category",
-        destination: "/categories/:category",
+        destination: "/discover?category=:category",
         statusCode: 301,
       },
       {
         source: "/en/category/:category",
-        destination: "/en/categories/:category",
+        destination: "/en/discover?category=:category",
         statusCode: 301,
       },
       {
         source: "/zh-TW/category/:category",
-        destination: "/categories/:category",
+        destination: "/discover?category=:category",
         statusCode: 301,
       },
       // L1 taxonomy slugs that were merged or renamed. Search Console reports
@@ -194,35 +194,35 @@ const nextConfig: NextConfig = {
       ...RETIRED_CATEGORY_SLUGS.flatMap(([from, to]) => [
         {
           source: `/categories/${from}`,
-          destination: `/categories/${to}`,
+          destination: `/discover?category=${to}`,
           permanent: true,
         },
         {
           source: `/en/categories/${from}`,
-          destination: `/en/categories/${to}`,
+          destination: `/en/discover?category=${to}`,
           permanent: true,
         },
         {
           source: `/zh-TW/categories/${from}`,
-          destination: `/categories/${to}`,
+          destination: `/discover?category=${to}`,
           permanent: true,
         },
       ]),
-      // `others` was a catch-all bucket with no successor L1; the directory
-      // root is the closest surface that still answers the same intent.
+      // `others` was a catch-all bucket with no successor L1; the product
+      // catalog is the closest surface that still answers the same intent.
       {
         source: "/categories/others",
-        destination: "/brands",
+        destination: "/discover",
         permanent: true,
       },
       {
         source: "/en/categories/others",
-        destination: "/en/brands",
+        destination: "/en/discover",
         permanent: true,
       },
       {
         source: "/zh-TW/categories/others",
-        destination: "/brands",
+        destination: "/discover",
         permanent: true,
       },
       // `kids-pets` was split into two live L1s (DEV-1510), so neither half is
@@ -233,35 +233,35 @@ const nextConfig: NextConfig = {
       // `-> kids-pets` rows above are gone: with either still standing this
       // would be the second hop of a redirect chain.
       {
-        // `kids` is a deferred L1, so the old baby-kids page must not take a
-        // second hop through a category route that immediately redirects.
+        // `kids` is a deferred L1, so the old baby-kids page redirects to the
+        // product catalog root.
         source: "/categories/baby-kids",
-        destination: "/brands",
+        destination: "/discover",
         permanent: true,
       },
       {
         source: "/en/categories/baby-kids",
-        destination: "/en/brands",
+        destination: "/en/discover",
         permanent: true,
       },
       {
         source: "/zh-TW/categories/baby-kids",
-        destination: "/brands",
+        destination: "/discover",
         permanent: true,
       },
       {
         source: "/categories/kids-pets",
-        destination: "/brands",
+        destination: "/discover",
         permanent: true,
       },
       {
         source: "/en/categories/kids-pets",
-        destination: "/en/brands",
+        destination: "/en/discover",
         permanent: true,
       },
       {
         source: "/zh-TW/categories/kids-pets",
-        destination: "/brands",
+        destination: "/discover",
         permanent: true,
       },
       // `crafts` was dissolved, not merged (DEV-1507): its L2s scattered across
@@ -270,17 +270,17 @@ const nextConfig: NextConfig = {
       // a live L1 — cannot express it. Same shape as `kids-pets` above.
       {
         source: "/categories/crafts",
-        destination: "/brands",
+        destination: "/discover",
         permanent: true,
       },
       {
         source: "/en/categories/crafts",
-        destination: "/en/brands",
+        destination: "/en/discover",
         permanent: true,
       },
       {
         source: "/zh-TW/categories/crafts",
-        destination: "/brands",
+        destination: "/discover",
         permanent: true,
       },
       // The L2 rows below are DERIVED from the ontology diff, not written by

@@ -44,7 +44,7 @@ export function CategoryLinkList({
           return (
             <li key={target.subcategorySlug}>
               <a
-                href={localizePath(routes.subcategory(category.slug, subcategory.slug), locale)}
+                href={localizePath(routes.brands({ category: category.slug, sub: subcategory.slug }), locale)}
                 className={taxonomyLinkClasses()}
               >
                 {subcategoryLabel}

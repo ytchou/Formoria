@@ -78,11 +78,10 @@ describe("directoryTaxonomyHref", () => {
       subcategorySlugs: [BACKPACKS.slug],
     });
 
-    // The taxonomy lives in the PATH here, so deleting a query key resolved to
-    // `/categories/bags-accessories/backpacks` itself — a dead control.
-    expect(state.routePath).toBe("/categories/bags-accessories/backpacks");
+    // All taxonomy now lives in the query string on `/brands`.
+    expect(state.routePath).toBe("/brands");
     expect(directoryTaxonomyHref(state, [BAGS.slug], [])).toBe(
-      "/categories/bags-accessories",
+      "/brands?category=bags-accessories",
     );
   });
 
