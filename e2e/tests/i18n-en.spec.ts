@@ -126,18 +126,7 @@ test.describe("i18n English browse", () => {
     }
   });
 
-  test("/en/contributions preserves the localized return path when signed out", async ({
-    request,
-  }) => {
-    const response = await request.get("/en/contributions", {
-      maxRedirects: 0,
-    });
-
-    expect(response.status()).toBe(307);
-    const location = new URL(response.headers().location, "http://localhost");
-    expect(location.pathname).toBe("/en/auth/sign-in");
-    expect(location.searchParams.get("next")).toBe("/en/contributions");
-  });
+  // /en/contributions test removed: contributions route was deleted (PR #953).
 
   test("/en returns 200 and shows English header chrome", async ({ page }) => {
     const response = await page.goto("/en");
@@ -167,7 +156,7 @@ test.describe("i18n English browse", () => {
   test("LocaleSwitcher persists Traditional Chinese on the equivalent category route", async ({
     page,
   }) => {
-    await page.goto("/en/categories/home/furniture");
+    await page.goto("/en/discover?category=home");
 
     const switcherBtn = page
       .getByRole("banner")
@@ -179,9 +168,14 @@ test.describe("i18n English browse", () => {
     await expect(zhItem).toBeVisible({ timeout: BUDGET.RENDERED });
     await zhItem.click();
 
-    await expect(page).toHaveURL(/\/categories\/home\/furniture$/, {
-      timeout: BUDGET.INTERACTIVE,
-    });
+    await expect(page).toHaveURL(
+      (url) =>
+        url.pathname === "/discover" &&
+        url.searchParams.get("category") === "home",
+      {
+        timeout: BUDGET.INTERACTIVE,
+      },
+    );
     await expect(page.locator("html")).toHaveAttribute("lang", "zh-TW");
     await expect
       .poll(
@@ -228,7 +222,8 @@ test.describe("i18n English browse", () => {
 
     await expect(page).toHaveURL(
       (url) =>
-        url.pathname === "/en/categories/food-drink" &&
+        url.pathname === "/en/brands" &&
+        url.searchParams.get("category") === "food-drink" &&
         url.searchParams.getAll("tag").join("|") === "rice/grains|gift boxes",
       { timeout: BUDGET.INTERACTIVE },
     );
