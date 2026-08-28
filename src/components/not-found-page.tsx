@@ -49,7 +49,7 @@ export function NotFoundPage() {
         {VISIBLE_L1_CATEGORIES.map((cat, index) => (
           <Link
             key={cat.slug}
-            href={routes.category(cat.slug)}
+            href={routes.brands({ category: cat.slug })}
             onClick={() => trackNotFoundCategoryClicked(cat.slug, index)}
             className="group"
           >
