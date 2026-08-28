@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from 'vitest'
 import {
   discoverCatalog,
   extractCatalogRoutes,
+  hasProductSignals,
   type CatalogFetch,
 } from '../catalog-discovery'
 import type { RenderProvider } from '../scraper/render/types'
@@ -209,6 +210,180 @@ describe('catalog discovery', () => {
     })
     expect(result.triples).toHaveLength(1)
     expect(result.zeroReason).toBeUndefined()
+  })
+})
+
+describe('hasProductSignals', () => {
+  it('detects JSON-LD Product', () => {
+    const html =
+      '<html><head><script type="application/ld+json">{"@type":"Product","name":"Cup"}</script></head><body></body></html>'
+    expect(hasProductSignals(html)).toBe(true)
+  })
+
+  it('detects og:type product', () => {
+    const html =
+      '<html><head><meta property="og:type" content="product"></head><body></body></html>'
+    expect(hasProductSignals(html)).toBe(true)
+  })
+
+  it('detects product:price:amount', () => {
+    const html =
+      '<html><head><meta property="product:price:amount" content="299"></head><body></body></html>'
+    expect(hasProductSignals(html)).toBe(true)
+  })
+
+  it('detects microdata Product', () => {
+    const html =
+      '<html><body><div itemtype="https://schema.org/Product"><span>Cup</span></div></body></html>'
+    expect(hasProductSignals(html)).toBe(true)
+  })
+
+  it('returns false for non-product page', () => {
+    const html =
+      '<html><head><meta property="og:type" content="website"></head><body><p>About us</p></body></html>'
+    expect(hasProductSignals(html)).toBe(false)
+  })
+
+  it('detects JSON-LD Product in array @type form', () => {
+    const html =
+      '<html><head><script type="application/ld+json">{"@type":["Product","ItemPage"],"name":"Cup"}</script></head><body></body></html>'
+    expect(hasProductSignals(html)).toBe(true)
+  })
+
+  it('rejects ProductGroup microdata', () => {
+    const html =
+      '<html><body><div itemtype="https://schema.org/ProductGroup"><span>Group</span></div></body></html>'
+    expect(hasProductSignals(html)).toBe(false)
+  })
+})
+
+describe('content sampling fallback', () => {
+  const sitemapXml = (urls: string[]) =>
+    `<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">${urls.map((u) => `<url><loc>${u}</loc></url>`).join('')}</urlset>`
+
+  const productPageHtml = `<html><head><script type="application/ld+json">{"@type":"Product","name":"Test Product"}</script><meta property="og:image" content="https://cdn.example/test.jpg"></head><body><h1>Test Product</h1><p>A product.</p><img src="https://cdn.example/test.jpg"></body></html>`
+
+  it('content sampling produces triples when regex finds nothing but sitemap has product pages', async () => {
+    const sitemapUrls = [
+      'https://custom-brand.com/items-123',
+      'https://custom-brand.com/items-456',
+      'https://custom-brand.com/items-789',
+    ]
+    const fetcher = fetcherFor({
+      'https://custom-brand.com': '<main><h1>Welcome</h1></main>',
+      'https://custom-brand.com/sitemap.xml': sitemapXml(sitemapUrls),
+      'https://custom-brand.com/items-123': productPageHtml,
+      'https://custom-brand.com/items-456': productPageHtml,
+      'https://custom-brand.com/items-789': productPageHtml,
+    })
+    const result = await discoverCatalog({
+      sources: [{ url: 'https://custom-brand.com', channel: 'official' }],
+      fetcher,
+    })
+    expect(result.attempts[0]?.contentSamplingOutcome).toBe('usable')
+    expect(result.triples.length).toBeGreaterThan(0)
+  })
+
+  it('content sampling does not trigger for known-platform sources', async () => {
+    const fetcher = fetcherFor({
+      'https://store.example':
+        '<html><body><script>Shopline.theme={}</script></body></html>',
+      'https://store.example/sitemap.xml': sitemapXml([
+        'https://store.example/items-1',
+        'https://store.example/items-2',
+      ]),
+      'https://store.example/items-1': productPageHtml,
+      'https://store.example/items-2': productPageHtml,
+    })
+    const result = await discoverCatalog({
+      sources: [{ url: 'https://store.example', channel: 'official' }],
+      fetcher,
+    })
+    expect(result.attempts[0]?.contentSamplingOutcome).toBe('not_triggered')
+  })
+
+  it('content sampling does not trigger when sitemap is empty', async () => {
+    const fetcher = fetcherFor({
+      'https://custom-brand.com': '<main><h1>Welcome</h1></main>',
+    })
+    const result = await discoverCatalog({
+      sources: [{ url: 'https://custom-brand.com', channel: 'official' }],
+      fetcher,
+    })
+    expect(result.attempts[0]?.contentSamplingOutcome).toBe('not_triggered')
+  })
+
+  it('content sampling records empty when no sampled URL has product signals', async () => {
+    const sitemapUrls = [
+      'https://custom-brand.com/page-1',
+      'https://custom-brand.com/page-2',
+      'https://custom-brand.com/page-3',
+    ]
+    const fetcher = fetcherFor({
+      'https://custom-brand.com': '<main><h1>Welcome</h1></main>',
+      'https://custom-brand.com/sitemap.xml': sitemapXml(sitemapUrls),
+      'https://custom-brand.com/page-1':
+        '<html><body><p>Just text</p></body></html>',
+      'https://custom-brand.com/page-2':
+        '<html><body><p>Just text</p></body></html>',
+      'https://custom-brand.com/page-3':
+        '<html><body><p>Just text</p></body></html>',
+    })
+    const result = await discoverCatalog({
+      sources: [{ url: 'https://custom-brand.com', channel: 'official' }],
+      fetcher,
+    })
+    expect(result.attempts[0]?.contentSamplingOutcome).toBe('empty')
+    expect(result.triples).toHaveLength(0)
+  })
+
+  it('promoted routes exclude utility URLs when content sampling succeeds', async () => {
+    const sitemapUrls = [
+      'https://custom-brand.com/items-123',
+      'https://custom-brand.com/about',
+      'https://custom-brand.com/contact',
+      'https://custom-brand.com/items-456',
+    ]
+    const fetcher = fetcherFor({
+      'https://custom-brand.com': '<main><h1>Welcome</h1></main>',
+      'https://custom-brand.com/sitemap.xml': sitemapXml(sitemapUrls),
+      'https://custom-brand.com/items-123': productPageHtml,
+      'https://custom-brand.com/items-456': productPageHtml,
+      'https://custom-brand.com/about': productPageHtml,
+      'https://custom-brand.com/contact': productPageHtml,
+    })
+    const result = await discoverCatalog({
+      sources: [{ url: 'https://custom-brand.com', channel: 'official' }],
+      fetcher,
+    })
+    expect(result.attempts[0]?.contentSamplingOutcome).toBe('usable')
+    const urls = result.triples.map((t) => t.url)
+    expect(urls).not.toContain('https://custom-brand.com/about')
+    expect(urls).not.toContain('https://custom-brand.com/contact')
+  })
+
+  it('content sampling skip filter excludes utility paths', async () => {
+    const utilityUrls = [
+      'https://custom-brand.com/about',
+      'https://custom-brand.com/contact',
+      'https://custom-brand.com/cart',
+    ]
+    const fetcher = fetcherFor({
+      'https://custom-brand.com': '<main><h1>Welcome</h1></main>',
+      'https://custom-brand.com/sitemap.xml': sitemapXml(utilityUrls),
+      'https://custom-brand.com/about': productPageHtml,
+      'https://custom-brand.com/contact': productPageHtml,
+      'https://custom-brand.com/cart': productPageHtml,
+    })
+    const result = await discoverCatalog({
+      sources: [{ url: 'https://custom-brand.com', channel: 'official' }],
+      fetcher,
+    })
+    // Utility URLs should be filtered out, so none are sampled
+    for (const url of utilityUrls) {
+      expect(fetcher).not.toHaveBeenCalledWith(url, 'html')
+    }
+    expect(result.attempts[0]?.contentSamplingOutcome).toBe('empty')
   })
 })
 

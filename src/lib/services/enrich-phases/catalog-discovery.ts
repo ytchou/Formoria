@@ -1,6 +1,7 @@
 import * as cheerio from 'cheerio'
 import { auditedCall } from '@/lib/audit'
 import { normalizeProductUrl } from './product-candidates'
+import { shuffle } from '@/lib/utils'
 import {
   fetchHtmlWithMetadata,
   fetchTextDocument,
@@ -50,6 +51,7 @@ export type CatalogAttemptSummary = {
   hydrated: number
   usable: number
   drops: Record<string, number>
+  contentSamplingOutcome?: 'not_triggered' | 'usable' | 'empty'
 }
 
 export type CatalogDiscoveryResult = {
@@ -99,6 +101,7 @@ const MAX_SITEMAP_DOCUMENTS = 20
 const MAX_SITEMAP_LOCATIONS = 2_000
 const MAX_SITEMAP_DEPTH = 2
 const HYDRATION_CONCURRENCY = 5
+const SKIP_PATTERN = /\/(about|contact|privacy|terms|faq|blog|news|pages|category|tag|author|cart|checkout)(\/|$)/i
 
 const SPECIALIZED_ROUTE_SELECTORS: Partial<Record<PlatformId, string>> = {
   shopline:
@@ -111,6 +114,8 @@ const SPECIALIZED_ROUTE_SELECTORS: Partial<Record<PlatformId, string>> = {
     '[data-product-id] a[href], .product-card a[href], .product-item a[href], a[href*="/products/"]',
   pinkoi:
     '[data-product-id] a[href], .product-item a[href], .product-card a[href], a[href*="/product/"]',
+  // Shopee: permanently blocked (render_blocked, pure SPA with zero static text).
+  // Classification confirmed correct — see DEV-1631. No static extraction possible.
   shopee:
     '[data-sqe="item"] a[href], .shopee-search-item-result__item a[href], a[data-sqe="link"]',
   myship:
@@ -337,6 +342,30 @@ function needsRendering(html: string): boolean {
     (visibleText.length < 20 && $('script').length > 0)
 }
 
+// @visibleForTesting
+export function hasProductSignals(html: string): boolean {
+  const $ = cheerio.load(html)
+
+  // JSON-LD @type: "Product"
+  const jsonLdScripts = $('script[type="application/ld+json"]')
+  for (const el of jsonLdScripts.toArray()) {
+    const text = $(el).text()
+    if (/"@type"\s*:\s*"Product"/u.test(text) || /"@type"\s*:\s*\[[^\]]*"Product"/u.test(text)) return true
+  }
+
+  // OpenGraph og:type with value "product"
+  const ogType = $('meta[property="og:type"]').attr('content')
+  if (ogType?.toLowerCase() === 'product') return true
+
+  // OpenGraph product:price:amount
+  if ($('meta[property="product:price:amount"]').length > 0) return true
+
+  // Microdata schema.org/Product
+  if ($('[itemtype="https://schema.org/Product"], [itemtype="http://schema.org/Product"]').length > 0) return true
+
+  return false
+}
+
 type HydratedRoute = {
   route: RouteCandidate
   evidence: CatalogEvidence
@@ -383,6 +412,7 @@ export async function discoverCatalog(
           hydrated: 0,
           usable: 0,
           drops: {},
+          contentSamplingOutcome: 'not_triggered',
         }
         attempts.push(summary)
         if (landing.text) reachableSurfaces += 1
@@ -435,6 +465,26 @@ export async function discoverCatalog(
         } else if (routes.length === 0) {
           summary.renderOutcome = 'unavailable'
           if (needsRendering(listingHtml)) potentiallyUsefulUnrendered = true
+        }
+        if (platform === 'generic' && routes.length === 0 && sitemap.urls.length > 0) {
+          const candidates = sitemap.urls.filter(u => {
+            try { return !SKIP_PATTERN.test(new URL(u).pathname) } catch { return false }
+          })
+          const sample = shuffle(candidates).slice(0, 10)
+          let foundProduct = false
+          for (const sampleUrl of sample) {
+            const page = await fetcher(sampleUrl, 'html')
+            if (page.text && hasProductSignals(page.text)) {
+              foundProduct = true
+              break
+            }
+          }
+          if (foundProduct) {
+            routes = candidates.map((url, i) => ({ url, sourcePosition: i }))
+            summary.contentSamplingOutcome = 'usable'
+          } else {
+            summary.contentSamplingOutcome = 'empty'
+          }
         }
         summary.rawUrls = routes.length
         const uniqueRoutes = selectBreadthFirst(routes).filter((route) => {

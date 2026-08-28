@@ -58,4 +58,103 @@ describe('platform registry', () => {
       ),
     ).toBe(false)
   })
+
+  describe('isOwnedProductRoute — expanded generic patterns', () => {
+    it('accepts /shop/ path as generic product route', () => {
+      expect(
+        isOwnedProductRoute(
+          'https://example.com/shop/blue-cup',
+          'https://example.com',
+          null,
+        ),
+      ).toBe(true)
+    })
+
+    it('accepts /store/ path as generic product route', () => {
+      expect(
+        isOwnedProductRoute(
+          'https://example.com/store/item-1',
+          'https://example.com',
+          null,
+        ),
+      ).toBe(true)
+    })
+
+    it('accepts /catalog/ path as generic product route', () => {
+      expect(
+        isOwnedProductRoute(
+          'https://example.com/catalog/widget',
+          'https://example.com',
+          null,
+        ),
+      ).toBe(true)
+    })
+
+    it('accepts /detail/ path as generic product route', () => {
+      expect(
+        isOwnedProductRoute(
+          'https://example.com/detail/12345',
+          'https://example.com',
+          null,
+        ),
+      ).toBe(true)
+    })
+
+    it('accepts /product-page/ path as generic product route', () => {
+      expect(
+        isOwnedProductRoute(
+          'https://example.com/product-page/blue-widget',
+          'https://example.com',
+          null,
+        ),
+      ).toBe(true)
+    })
+
+    it('rejects /collections/ path as generic product route', () => {
+      expect(
+        isOwnedProductRoute(
+          'https://example.com/collections/summer',
+          'https://example.com',
+          null,
+        ),
+      ).toBe(false)
+    })
+
+    it('rejects /p/ path as generic product route', () => {
+      expect(
+        isOwnedProductRoute(
+          'https://example.com/p/12345',
+          'https://example.com',
+          null,
+        ),
+      ).toBe(false)
+    })
+
+    it('rejects /about/ path', () => {
+      expect(
+        isOwnedProductRoute(
+          'https://example.com/about/team',
+          'https://example.com',
+          null,
+        ),
+      ).toBe(false)
+    })
+
+    it('still accepts existing /product/ and /products/ paths', () => {
+      expect(
+        isOwnedProductRoute(
+          'https://example.com/product/cup',
+          'https://example.com',
+          null,
+        ),
+      ).toBe(true)
+      expect(
+        isOwnedProductRoute(
+          'https://example.com/products/cup',
+          'https://example.com',
+          null,
+        ),
+      ).toBe(true)
+    })
+  })
 })
