@@ -210,7 +210,7 @@ test.describe("i18n English browse", () => {
   test("LocaleSwitcher preserves repeated and encoded query parameters", async ({
     page,
   }) => {
-    const search = "?category=food-drink&tag=rice%2Fgrains&tag=gift%20boxes";
+    const search = "?category=stationery&tag=washi%20tape&tag=stickers";
     await page.goto(`/brands${search}`);
 
     const switcherBtn = page
@@ -223,8 +223,8 @@ test.describe("i18n English browse", () => {
     await expect(page).toHaveURL(
       (url) =>
         url.pathname === "/en/brands" &&
-        url.searchParams.get("category") === "food-drink" &&
-        url.searchParams.getAll("tag").join("|") === "rice/grains|gift boxes",
+        url.searchParams.get("category") === "stationery" &&
+        url.searchParams.getAll("tag").join("|") === "washi tape|stickers",
       { timeout: BUDGET.INTERACTIVE },
     );
   });
