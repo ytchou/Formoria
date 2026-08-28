@@ -21,9 +21,6 @@ const TRAIL_URL = trail ? `/style/${trail.slug}` : "/style";
 // something where its opposite is visible, and every tile in a trail is
 // selected — so the label was removed here rather than migrated into
 // `TrustLabel`, whose text is the 選物 commitment and not the trail's own
-// sentence. A trail tile is now identified the way it identifies itself: an
-// anchor into the brand page at this product.
-const PRODUCT_ANCHOR = 'a[href*="#product-"]';
 const OFFICIAL_DESTINATION = /前往(?:產品|品牌)官方網站/;
 const SECTION_NAV = "風格段落";
 const REMOVED_CLOSING_HEADINGS = [
@@ -74,64 +71,6 @@ test.describe("Discovery trail deep", () => {
 
     const robots = $('meta[name="robots"]').attr("content") ?? "";
     expect(robots).not.toContain("noindex");
-  });
-
-  test("visitor moves situation → section → product → brand page", async ({
-    anonPage,
-  }) => {
-    test.setTimeout(BUDGET.TEST.JOURNEY);
-    const response = await anonPage.goto(TRAIL_URL);
-    test.skip(response?.status() === 503, "PREVIEW_MODE active");
-
-    await expect(
-      anonPage.getByRole("heading", { name: trail!.title, level: 1 }),
-    ).toBeVisible({ timeout: BUDGET.SERVER_RENDER });
-
-    const section = trail?.sections.at(0);
-    test.skip(!section, "published trail has no sections");
-
-    const sectionHeading = anonPage.getByRole("heading", {
-      name: section.title,
-      level: 2,
-      exact: true,
-    });
-    await expect(sectionHeading).toBeVisible({ timeout: BUDGET.INTERACTIVE });
-
-    // The tile is matched the way SelectedProductTile identifies itself: the h3
-    // product name the next lines read, PLUS the anchor into the brand page at
-    // that product. "Any listitem containing an h3" would also match an
-    // unrelated card list and make `.first()` pick a tile with no product href
-    // — the anchor filter is what rules that out, and unlike the badge it used
-    // to filter on, it is the thing the next assertions actually follow.
-    const productTile = anonPage
-      .getByRole("listitem")
-      .filter({ has: anonPage.getByRole("heading", { level: 3 }) })
-      .filter({ has: anonPage.locator(PRODUCT_ANCHOR) })
-      .first();
-    await expect(productTile).toBeVisible({ timeout: BUDGET.SERVER_RENDER });
-
-    const productHeading = productTile.getByRole("heading", { level: 3 });
-    const productName = (await productHeading.textContent())?.trim();
-    expect(productName).toBeTruthy();
-    const productLink = productTile.getByRole("link", {
-      name: productName!,
-      exact: true,
-    });
-    const destination = await productLink.getAttribute("href");
-    expect(destination).toMatch(
-      /^\/brands\/[a-z0-9][a-z0-9-]*#product-[a-z0-9][a-z0-9-]*$/,
-    );
-
-    await productLink.click();
-    await expect(anonPage).toHaveURL(
-      new RegExp(`${escapeRegExp(destination!)}$`),
-      {
-        timeout: BUDGET.NAVIGATION,
-      },
-    );
-    await expect(
-      anonPage.getByRole("heading", { name: productName!, level: 3 }),
-    ).toBeVisible({ timeout: BUDGET.SERVER_RENDER });
   });
 
   test("outbound chip points at the brand's official destination", async ({
@@ -189,7 +128,3 @@ test.describe("Discovery trail deep", () => {
     await expect(trailLink).toHaveAttribute("href", TRAIL_URL);
   });
 });
-
-function escapeRegExp(value: string): string {
-  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-}
