@@ -77,7 +77,7 @@
   },
   "e2e/tests/brand-save.spec.ts": {
     "playwright/no-conditional-in-test": {
-      "count": 11
+      "count": 6
     }
   },
   "e2e/tests/brand-share.spec.ts": {
@@ -93,33 +93,12 @@
       "count": 1
     }
   },
-  "e2e/tests/event-detail.spec.ts": {
-    "playwright/no-conditional-expect": {
-      "count": 9
-    },
-    "playwright/no-conditional-in-test": {
-      "count": 5
-    }
-  },
-  "e2e/tests/events.spec.ts": {
-    "playwright/no-conditional-expect": {
-      "count": 3
-    },
-    "playwright/no-conditional-in-test": {
-      "count": 1
-    }
-  },
   "e2e/tests/faq.spec.ts": {
     "playwright/no-conditional-in-test": {
       "count": 3
     }
   },
   "e2e/tests/i18n-en.spec.ts": {
-    "playwright/no-conditional-in-test": {
-      "count": 1
-    }
-  },
-  "e2e/tests/mit-verification.spec.ts": {
     "playwright/no-conditional-in-test": {
       "count": 1
     }
