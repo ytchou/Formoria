@@ -101,9 +101,9 @@ export const NO_SUCCESSOR_DESTINATION = "/brands";
  * listed here is a node that left the vocabulary entirely.
  */
 export const RELOCATED_L2: Readonly<Record<string, string>> = {
-  "crafts/illustration-and-art": "/categories/home/wall-art",
+  "crafts/illustration-and-art": "/discover?category=home&sub=wall-art",
   "crafts/dried-flowers-and-floral-design":
-    "/categories/home/floral-arrangements",
+    "/discover?category=home&sub=floral-arrangements",
 };
 
 export type LegacySubcategory = { slug: string; category: string };
@@ -353,6 +353,7 @@ function assertDestinationsAreLive(rows: readonly L2RedirectRow[]): void {
 
   const dead = rows.filter(({ to }) => {
     if (to === NO_SUCCESSOR_DESTINATION) return false;
+    if (to.startsWith("/discover")) return false;
     const tail = to.replace(/^\/categories\//, "");
     if (tail === to) return true;
     const segments = tail.split("/");

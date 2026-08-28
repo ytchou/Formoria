@@ -40,7 +40,7 @@ test.describe("Directory sort deep", () => {
   test('selecting "最新" preserves the category landing path', async ({
     page,
   }) => {
-    await page.goto("/categories/home");
+    await page.goto("/discover?category=home");
 
     const sortSelect = page.getByRole("combobox", { name: "排序方式" });
     await expect(sortSelect).toBeVisible({ timeout: BUDGET.INTERACTIVE });
@@ -49,7 +49,8 @@ test.describe("Directory sort deep", () => {
 
     await expect(page).toHaveURL(
       (url) =>
-        url.pathname === "/categories/home" &&
+        url.pathname === "/discover" &&
+        url.searchParams.get("category") === "home" &&
         url.searchParams.get("sort") === "newest",
       { timeout: BUDGET.INTERACTIVE },
     );

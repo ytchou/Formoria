@@ -76,9 +76,7 @@ test.describe("Navbar auth journey", () => {
     await expect(
       accountMenu.getByRole("menuitem", { name: "收藏品牌" }),
     ).toBeVisible({ timeout: BUDGET.RENDERED });
-    await expect(
-      accountMenu.getByRole("menuitem", { name: "我的貢獻" }),
-    ).toBeVisible({ timeout: BUDGET.RENDERED });
+    // "我的貢獻" removed: contributions route was deleted (PR #953).
     // "我的推薦" is deliberately not asserted here: DEV-1570 removed the owner
     // surfaces it linked to, so it is no longer navbar behaviour to pin.
     const signOutItem = accountMenu.getByText(/sign out|登出/i);

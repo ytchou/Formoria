@@ -137,7 +137,7 @@ test.describe("Directory deep", () => {
   });
 
   test("category landing loads with filtered brands", async ({ page }) => {
-    const response = await page.goto("/categories/home");
+    const response = await page.goto("/discover?category=home");
     expect(response?.status()).toBe(200);
     // `home` is a launch category, so an empty result here is a regression,
     // not a data state — asserted as real brands rather than "results OR the

@@ -186,7 +186,7 @@ test.describe.serial("Product-level Made in Taiwan badge", () => {
     });
     await expect(siblingTile.getByLabel(BADGE_LABEL)).toHaveCount(0);
 
-    await anonPage.goto(`/discover/${TRAIL_SLUG}`);
+    await anonPage.goto(`/style/${TRAIL_SLUG}`);
     const trailTile = anonPage.getByRole("listitem").filter({
       has: anonPage.getByRole("heading", {
         level: 3,

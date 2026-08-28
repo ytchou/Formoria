@@ -305,10 +305,13 @@ const nextConfig: NextConfig = {
           ["crafts/embroidery", "/brands"],
           ["crafts/needle-felting", "/brands"],
           ["crafts/weaving-and-crochet", "/brands"],
-          ["crafts/illustration-and-art", "/categories/home/wall-art"],
+          [
+            "crafts/illustration-and-art",
+            "/discover?category=home&sub=wall-art",
+          ],
           [
             "crafts/dried-flowers-and-floral-design",
-            "/categories/home/floral-arrangements",
+            "/discover?category=home&sub=floral-arrangements",
           ],
           ["kids-pets/kids-clothing", "/brands"],
           ["kids-pets/family-matching", "/brands"],

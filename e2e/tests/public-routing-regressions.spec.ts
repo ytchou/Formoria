@@ -1,33 +1,27 @@
 import { test, expect } from "@playwright/test";
 
 test.describe("Public routing regressions deep", () => {
-  test("@smoke legacy category query URLs redirect once to their landing page", async ({
+  test("@smoke /brands?category= renders in place without redirect", async ({
     request,
   }) => {
-    const redirects = [
-      ["/brands?category=home", "/categories/home"],
-      ["/brands?category=home&sub=furniture", "/categories/home/furniture"],
-    ] as const;
-
-    for (const [source, destination] of redirects) {
-      const response = await request.get(source, { maxRedirects: 0 });
-      expect(response.status()).toBe(301);
-      expect(response.headers().location).toBe(destination);
-
-      const destinationResponse = await request.get(destination, {
-        maxRedirects: 0,
-      });
-      expect(destinationResponse.status()).toBe(200);
-      expect(destinationResponse.headers().location).toBeUndefined();
+    // The legacy redirect from /brands?category= to /categories/ was removed
+    // (PR #953). /brands?category=home is now the canonical filtered directory.
+    for (const url of [
+      "/brands?category=home",
+      "/brands?category=home&sub=furniture",
+    ]) {
+      const response = await request.get(url, { maxRedirects: 0 });
+      expect(response.status(), url).toBe(200);
+      expect(response.headers().location, url).toBeUndefined();
     }
   });
 
-  test("legacy locale category aliases target the new localized route family", async ({
+  test("legacy locale category aliases target the product catalog", async ({
     request,
   }) => {
     const redirects = [
-      ["/en/category/food-drink", 301, "/en/categories/food-drink"],
-      ["/zh-TW/category/home", 301, "/categories/home"],
+      ["/en/category/food-drink", 301, "/en/discover?category=food-drink"],
+      ["/zh-TW/category/home", 301, "/discover?category=home"],
     ] as const;
 
     for (const [source, status, destination] of redirects) {
@@ -37,18 +31,16 @@ test.describe("Public routing regressions deep", () => {
     }
   });
 
-  test("the explicit default-locale category index normalizes in one hop", async ({
+  test("the explicit default-locale category index redirects to the product catalog", async ({
     request,
   }) => {
-    const response = await request.get("/zh-TW/categories", {
-      maxRedirects: 0,
-    });
-    expect([307, 308]).toContain(response.status());
-    expect(response.headers().location).toBe("/categories");
-
-    const destination = await request.get("/categories", { maxRedirects: 0 });
-    expect(destination.status()).toBe(200);
-    expect(destination.headers().location).toBeUndefined();
+    // /zh-TW/categories first strips the default locale, then the categories
+    // catch-all route redirects to /discover. The first hop may be a locale
+    // normalization or the catch-all — either way, following redirects must
+    // land on /discover.
+    const response = await request.get("/zh-TW/categories");
+    expect(response.status()).toBe(200);
+    expect(response.url()).toMatch(/\/discover$/);
   });
 
   test("retired L1 taxonomy slugs redirect to the category that absorbed them", async ({
@@ -58,19 +50,19 @@ test.describe("Public routing regressions deep", () => {
     // every one of them. The destination assertion is the point: redirecting a
     // dead category onto another dead alias just moves the 404 one hop out.
     const redirects = [
-      ["/categories/accessories", "/categories/bags-accessories"],
-      ["/categories/bags", "/categories/bags-accessories"],
+      ["/categories/accessories", "/discover?category=bags-accessories"],
+      ["/categories/bags", "/discover?category=bags-accessories"],
       // DEV-1599 deferred both split parents from public surfaces, so legacy
-      // kids traffic lands on the directory without a second redirect hop.
-      ["/categories/baby-kids", "/brands"],
-      ["/categories/kids-pets", "/brands"],
+      // kids traffic lands on the product catalog without a second redirect hop.
+      ["/categories/baby-kids", "/discover"],
+      ["/categories/kids-pets", "/discover"],
       // DEV-1507 dissolved crafts across four live L1s, so like kids-pets it
-      // has no successor category and exits to the directory root.
-      ["/categories/crafts", "/brands"],
-      ["/categories/food", "/categories/food-drink"],
-      ["/categories/beverages", "/categories/food-drink"],
-      ["/en/categories/clothing", "/en/categories/fashion"],
-      ["/categories/others", "/brands"],
+      // has no successor category and exits to the product catalog root.
+      ["/categories/crafts", "/discover"],
+      ["/categories/food", "/discover?category=food-drink"],
+      ["/categories/beverages", "/discover?category=food-drink"],
+      ["/en/categories/clothing", "/en/discover?category=fashion"],
+      ["/categories/others", "/discover"],
       ["/about-us", "/about"],
       // DEV-1531: the L1 rows above rescue /categories/crafts and
       // /categories/kids-pets, but a Next `source` is a literal path, so every
@@ -90,10 +82,13 @@ test.describe("Public routing regressions deep", () => {
       ["/categories/crafts/needle-felting", "/brands"],
       ["/categories/crafts/weaving-and-crochet", "/brands"],
       // Two crafts L2s were relocated rather than dissolved.
-      ["/categories/crafts/illustration-and-art", "/categories/home/wall-art"],
+      [
+        "/categories/crafts/illustration-and-art",
+        "/discover?category=home&sub=wall-art",
+      ],
       [
         "/categories/crafts/dried-flowers-and-floral-design",
-        "/categories/home/floral-arrangements",
+        "/discover?category=home&sub=floral-arrangements",
       ],
       // The kids-pets split kept every slug, but both new parents are deferred;
       // each legacy URL therefore lands directly on the public directory.
@@ -165,7 +160,7 @@ test.describe("Public routing regressions deep", () => {
     request,
   }) => {
     const response = await request.get(
-      "/en/auth/sign-in?next=%2Fen%2Fcontributions",
+      "/en/auth/sign-in?next=%2Fen%2Fbrands",
       {
         maxRedirects: 0,
       },

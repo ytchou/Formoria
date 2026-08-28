@@ -81,7 +81,7 @@ test.describe("Homepage curated product deep", () => {
     await expect(trailsZone).toBeVisible({ timeout: BUDGET.SERVER_RENDER });
     const trailLink = trailsZone.getByRole("listitem").first().getByRole("link");
     const destination = await trailLink.getAttribute("href");
-    expect(destination).toMatch(/^\/discover\/[a-z0-9-]+$/);
+    expect(destination).toMatch(/^\/style\/[a-z0-9-]+$/);
     // The trailing `:?` is load-bearing. Playwright ends a node's line with a
     // colon when it has children, and this link has them — the snapshot reads
     // `- link "<title>":` followed by `- /url:` and `- text:`. Without it the

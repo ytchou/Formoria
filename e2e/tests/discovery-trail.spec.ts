@@ -16,7 +16,7 @@ const trails = publishedTrails("zh-TW");
 // `noUncheckedIndexedAccess`, and the `test.skip` below reads `undefined`.
 const trail: PublishedTrail | undefined =
   trails.find((candidate) => candidate.sections.length >= 3) ?? trails[0];
-const TRAIL_URL = trail ? `/discover/${trail.slug}` : "/discover";
+const TRAIL_URL = trail ? `/style/${trail.slug}` : "/style";
 // NO BADGE ON A TRAIL TILE ANY MORE (D11, DEV-1514). A trust label only says
 // something where its opposite is visible, and every tile in a trail is
 // selected — so the label was removed here rather than migrated into
@@ -33,7 +33,7 @@ const REMOVED_CLOSING_HEADINGS = [
 ];
 
 test.describe("Discovery trail deep", () => {
-  // DEV-1518 deleted the supply gate, so `/discover/<slug>` no longer 404s for
+  // DEV-1518 deleted the supply gate, so `/style/<slug>` no longer 404s for
   // a thin slate — a published trail renders and is indexed whatever its
   // product count. The 404 probe that used to skip here is gone with it: a 404
   // now means the slug is wrong or the MDX is missing, which is a red, not a
@@ -176,7 +176,7 @@ test.describe("Discovery trail deep", () => {
   });
 
   test("hub lists the published trail", async ({ anonPage }) => {
-    const response = await anonPage.goto("/discover");
+    const response = await anonPage.goto("/style");
     test.skip(response?.status() === 503, "PREVIEW_MODE active");
 
     const trailHeading = anonPage.getByRole("heading", {

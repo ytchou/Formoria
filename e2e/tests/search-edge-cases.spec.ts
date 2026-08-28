@@ -243,7 +243,7 @@ test.describe.serial('Public brand search edge cases', () => {
   test('directory sidebar and nav stay synchronized while unrelated filters survive', async ({ page }) => {
     if (!supabase) { test.skip(true, 'PREVIEW_MODE active'); return; }
 
-    await page.goto('/categories/home?sort=name&page=2');
+    await page.goto('/discover?category=home&sort=name&page=2');
     const sidebarSearch = page.locator(
       'main form[aria-label="依品牌或產品關鍵字篩選"] input[role="searchbox"]',
     );
@@ -252,7 +252,8 @@ test.describe.serial('Public brand search edge cases', () => {
 
     await expect(page).toHaveURL(
       (url) =>
-        url.pathname === '/categories/home' &&
+        url.pathname === '/discover' &&
+        url.searchParams.get('category') === 'home' &&
         url.searchParams.get('search') === exactQuery &&
         url.searchParams.get('sort') === 'name' &&
         !url.searchParams.has('page'),
@@ -266,7 +267,8 @@ test.describe.serial('Public brand search edge cases', () => {
       .click();
     await expect(page).toHaveURL(
       (url) =>
-        url.pathname === '/categories/home' &&
+        url.pathname === '/discover' &&
+        url.searchParams.get('category') === 'home' &&
         !url.searchParams.has('search') &&
         url.searchParams.get('sort') === 'name',
     );

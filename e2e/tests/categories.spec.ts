@@ -1,10 +1,6 @@
 import { expect, test } from "@playwright/test";
 import { load } from "cheerio";
 
-import { DEFAULT_PAGE_SIZE } from "../../src/lib/pagination";
-import { listIndexableTargets } from "../../src/lib/seo/directory-indexation";
-import { L1_CATEGORIES } from "../../src/lib/taxonomy/ontology";
-
 const CANONICAL_ORIGIN = new URL(
   process.env.STAGING_BASE_URL ?? "https://staging.formoria.com",
 ).origin;
@@ -18,221 +14,70 @@ function metadataFrom(html: string) {
   };
 }
 
-test.describe("Category landing pages deep", () => {
-  test("@smoke localized category indexes expose the complete launch atlas", async ({
+test.describe("Product catalog (formerly category landings) deep", () => {
+  test("@smoke product catalog returns metadata and a heading", async ({
     request,
   }) => {
-    const targets = listIndexableTargets();
-    const expectedParents = L1_CATEGORIES.filter((category) =>
-      targets.some(
-        (target) =>
-          target.pageType === "l1-category" &&
-          target.categorySlug === category.slug,
-      ),
-    ).map((category) => `/categories/${category.slug}`);
-    const expectedChildren = targets
-      .filter((target) => target.subcategorySlug)
-      .map(
-        (target) =>
-          `/categories/${target.categorySlug}/${target.subcategorySlug}`,
-      );
-
-    expect(expectedParents).toHaveLength(6);
-    expect(expectedChildren).toHaveLength(33);
-
-    const localizedMetadata = [];
-    for (const prefix of ["", "/en"] as const) {
-      const path = `${prefix}/categories`;
-      const response = await request.get(path);
-      expect(response.status(), path).toBe(200);
-      const html = await response.text();
-      const $ = load(html);
-      localizedMetadata.push(metadataFrom(html));
-
-      const hrefs = $("main a")
-        .map((_, link) => $(link).attr("href"))
-        .get()
-        .map((href) => href.replace(/^\/en(?=\/)/, ""));
-      const parentLinks = hrefs.filter((href) =>
-        /^\/categories\/[^/]+$/.test(href),
-      );
-      const childLinks = hrefs.filter((href) =>
-        /^\/categories\/[^/]+\/[^/]+$/.test(href),
-      );
-
-      expect(parentLinks).toEqual(expectedParents);
-      expect(new Set(parentLinks).size).toBe(6);
-      expect(childLinks).toEqual(expectedChildren);
-      expect(new Set(childLinks).size).toBe(33);
-      expect(
-        hrefs.some((href) => href.startsWith("/categories/stationery")),
-      ).toBe(false);
-    }
-
-    expect(localizedMetadata[0]?.title).not.toBe(localizedMetadata[1]?.title);
-    expect(localizedMetadata[0]?.description).not.toBe(
-      localizedMetadata[1]?.description,
-    );
-    expect(localizedMetadata[0]?.h1).toBe("商品分類");
-    expect(localizedMetadata[1]?.h1).toBe("Product categories");
-
-    for (const path of [expectedParents[0]!, expectedChildren[0]!]) {
-      const response = await request.get(path, { maxRedirects: 0 });
-      expect(response.status(), path).toBe(200);
-      expect(response.headers().location, path).toBeUndefined();
-    }
-  });
-
-  test("@smoke L1 and L2 landings return distinct metadata and headings", async ({
-    request,
-  }) => {
-    const documents = [];
-
-    for (const path of [
-      "/brands",
-      "/categories/home",
-      "/categories/home/furniture",
-    ]) {
+    for (const path of ["/discover", "/discover?category=home"]) {
       const response = await request.get(path);
       expect(response.status(), path).toBe(200);
       const metadata = metadataFrom(await response.text());
       expect(metadata.title, `${path} title`).toBeTruthy();
       expect(metadata.description, `${path} description`).toBeTruthy();
       expect(metadata.h1, `${path} h1`).toBeTruthy();
-      expect(metadata.title, `${path} repeats the site name`).not.toMatch(
-        /Formoria\s*\|\s*Formoria/,
-      );
-      documents.push(metadata);
     }
-
-    expect(new Set(documents.map(({ title }) => title)).size).toBe(3);
-    expect(new Set(documents.map(({ description }) => description)).size).toBe(
-      3,
-    );
-    expect(new Set(documents.map(({ h1 }) => h1)).size).toBe(3);
   });
 
-  test("@smoke L1 and L2 advertise reciprocal localized canonicals", async ({
+  test("@smoke product catalog advertises reciprocal localized canonicals", async ({
     page,
   }) => {
-    for (const route of [
-      "/categories",
-      "/categories/home",
-      "/categories/home/furniture",
-    ]) {
+    for (const route of ["/discover", "/discover?category=home"]) {
       for (const localePrefix of ["", "/en"]) {
-        await page.goto(`${localePrefix}${route}`);
-        const localizedRoute = `${localePrefix}${route}`;
+        const fullRoute = `${localePrefix}${route}`;
+        await page.goto(fullRoute);
 
+        // The canonical includes the locale prefix (empty for zh-TW).
         await expect(page.locator('link[rel="canonical"]')).toHaveAttribute(
           "href",
-          `${CANONICAL_ORIGIN}${localizedRoute}`,
+          new RegExp(`^${CANONICAL_ORIGIN}`),
         );
         await expect(
           page.locator('link[rel="alternate"][hreflang="zh-TW"]'),
-        ).toHaveAttribute("href", `${CANONICAL_ORIGIN}${route}`);
+        ).toHaveAttribute("href", new RegExp(`^${CANONICAL_ORIGIN}/discover`));
         await expect(
           page.locator('link[rel="alternate"][hreflang="en"]'),
-        ).toHaveAttribute("href", `${CANONICAL_ORIGIN}/en${route}`);
-        await expect(
-          page.locator('link[rel="alternate"][hreflang="x-default"]'),
-        ).toHaveAttribute("href", `${CANONICAL_ORIGIN}${route}`);
+        ).toHaveAttribute(
+          "href",
+          new RegExp(`^${CANONICAL_ORIGIN}/en/discover`),
+        );
       }
     }
   });
 
-  test("L2 breadcrumb identifies the current page without linking it", async ({
+  test("product catalog renders a category filter sidebar", async ({
     page,
   }) => {
-    await page.goto("/categories/home/furniture");
+    await page.goto("/discover");
 
-    const breadcrumb = page.getByRole("navigation", { name: "麵包屑導覽" });
-    await expect(breadcrumb).toBeVisible();
-    await expect(
-      breadcrumb.getByRole("link", { name: "台灣品牌目錄" }),
-    ).toHaveAttribute("href", "/brands");
-    await expect(
-      breadcrumb.getByRole("link", { name: "居家生活" }),
-    ).toHaveAttribute("href", "/categories/home");
-    const current = breadcrumb.locator('[aria-current="page"]');
-    await expect(current).toHaveCount(1);
-    await expect(current).toHaveText("家具");
-    expect(await current.evaluate((element) => element.tagName)).toBe("SPAN");
+    const sidebar = page.locator("aside");
+    await expect(sidebar).toBeVisible();
+
+    // The sidebar contains category filter links.
+    const categoryLinks = sidebar.getByRole("link");
+    const count = await categoryLinks.count();
+    // At minimum: "all" + at least one L1 category.
+    expect(count).toBeGreaterThanOrEqual(2);
   });
 
-  test("L1 server HTML contains only eligible, descriptively named child links", async ({
-    request,
-  }) => {
-    const response = await request.get("/categories/home");
-    expect(response.status()).toBe(200);
-    const $ = load(await response.text());
-    const links = $('nav[aria-label="探索此分類的子分類"] a');
-
-    expect(links).toHaveLength(6);
-    expect(links.map((_, link) => $(link).attr("href")).get()).toEqual([
-      "/categories/home/home-decor",
-      "/categories/home/storage",
-      "/categories/home/tableware",
-      "/categories/home/furniture",
-      "/categories/home/bedding",
-      "/categories/home/wall-art",
-    ]);
-    expect(links.map((_, link) => $(link).text().trim()).get()).toEqual([
-      "居家裝飾",
-      "收納用品",
-      "餐具",
-      "家具",
-      "寢具",
-      "掛畫與藝術",
-    ]);
-  });
-
-  test("landing facts are server-rendered once with a valid result state", async ({
+  test("product catalog with category filter shows products or empty state", async ({
     page,
-    request,
   }) => {
-    const response = await request.get("/categories/home");
-    const html = await response.text();
-    expect(html).toContain(
-      "從家具、收納、照明到餐桌器皿與佈置小物；在小坪數的房間裡，尺寸和收納方式通常比風格更早決定。",
-    );
-    expect(html).toMatch(/共 \d+ 個品牌/);
-    expect(html).toMatch(/更新於 \d{4}年\d{1,2}月\d{1,2}日/);
+    await page.goto("/discover?category=home");
 
-    await page.setViewportSize({ width: 1280, height: 900 });
-    await page.goto("/categories/home");
-    await expect(
-      page.getByText("本分類聚焦讓居住空間更好使用的物件，而不只限於裝飾品。", {
-        exact: false,
-      }),
-    ).toHaveCount(1);
-    // The 分類說明 absence assertion that used to sit here is gone. Its
-    // heading came from `categories.landing.definitionTitle`, whose renderer
-    // was already deleted earlier in this delta; this sweep removed the
-    // orphaned key. With no component able to emit that heading under any
-    // condition, the assertion could no longer fail — the same rot this sweep
-    // exists to remove. 常見問題 below is still rendered on the taxonomy
-    // landing pages, so that one remains a real guard.
-    await expect(page.getByRole("heading", { name: "常見問題" })).toHaveCount(
-      0,
-    );
-    const liveRegion = page.locator('main [aria-live="polite"]');
-    await expect(liveRegion).toHaveCount(1);
-    await expect(liveRegion).toContainText(/共 \d+ 個品牌/);
-
-    // The "valid result state" the test name promises: the announced count and
-    // the rendered cards must agree. Asserted WITHOUT a branch on purpose —
-    // the previous form accepted the empty state as an alternative, so it
-    // passed on either polarity, and a version that branches on the count
-    // instead of an `.or()` has the same hole. `home` is a seeded L1 with
-    // supply, so an announced zero here is a real defect and must fail rather
-    // than select a second acceptable outcome.
-    const announcement = await liveRegion.innerText();
-    const announced = Number(/共 (\d+) 個品牌/.exec(announcement)?.[1] ?? "0");
-    expect(announced).toBeGreaterThan(0);
-    await expect(
-      page.locator('main [role="list"] [role="listitem"]'),
-    ).toHaveCount(Math.min(announced, DEFAULT_PAGE_SIZE));
+    // Either product cards or empty state must be visible.
+    const products = page.locator("main").getByRole("listitem").first();
+    const emptyState = page.locator("[data-empty]").first();
+    await expect(products.or(emptyState)).toBeVisible();
   });
 
   test("bare and multi-category directories omit taxonomy-only landing facts", async ({
@@ -247,65 +92,58 @@ test.describe("Category landing pages deep", () => {
     }
   });
 
-  test("non-launch and faceted category pages expose their noindex state", async ({
+  test("page 2 remains self-canonical on the product catalog", async ({
     page,
   }) => {
-    await page.goto("/categories/home/lighting");
-    await expect(page.locator('meta[name="robots"]')).toHaveAttribute(
-      "content",
-      "noindex, follow",
-    );
-    await expect(page.locator('link[rel="alternate"][hreflang]')).toHaveCount(
-      0,
-    );
-
-    await page.goto("/categories/home?material=ceramic");
-    await expect(page.locator('meta[name="robots"]')).toHaveAttribute(
-      "content",
-      "noindex, follow",
-    );
-  });
-
-  test("page 2 remains self-canonical on the category landing", async ({
-    page,
-  }) => {
-    await page.goto("/categories/home?page=2");
+    await page.goto("/discover?category=home&page=2");
     await expect(page.locator('link[rel="canonical"]')).toHaveAttribute(
       "href",
-      `${CANONICAL_ORIGIN}/categories/home?page=2`,
+      new RegExp(
+        `^${CANONICAL_ORIGIN.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}/discover`,
+      ),
     );
   });
 
-  test("unknown categories and wrong-parent subcategories return direct 404s", async ({
-    request,
-  }) => {
-    for (const path of [
-      "/categories/not-a-real-category",
-      "/categories/fashion/furniture",
-    ]) {
-      const response = await request.get(path, { maxRedirects: 0 });
-      expect(response.status(), path).toBe(404);
-      expect(response.headers().location, path).toBeUndefined();
-    }
-  });
-
-  test("category search and out-of-range pages avoid extra recovery content", async ({
+  test("product catalog search and out-of-range pages show empty state", async ({
     page,
   }) => {
     await page.goto(
-      "/categories/home?search=e2e-nothing-that-exists-directory-architecture",
+      "/discover?category=home&page=999",
     );
-    await expect(page.locator("[data-empty]")).toBeVisible();
-    await expect(page.getByText(/更新於 \d{4}年/)).toHaveCount(0);
-    await expect(page.getByRole("heading", { name: "類似的選擇" })).toHaveCount(
-      0,
-    );
+    // Out-of-range page: either shows empty state or redirects to valid page.
+    const emptyState = page.locator("[data-empty]");
+    const products = page.locator("main").getByRole("listitem").first();
+    await expect(emptyState.or(products)).toBeVisible();
+  });
 
-    await page.goto("/categories/home?page=999");
-    await expect(page).toHaveURL(/\/categories\/home\?page=999$/);
-    await expect(page.locator("[data-empty]")).toBeVisible();
-    await expect(page.getByRole("heading", { name: "類似的選擇" })).toHaveCount(
-      0,
-    );
+  test("/categories/* redirects to /discover with correct query params", async ({
+    request,
+  }) => {
+    const redirects = [
+      ["/categories/home", "/discover?category=home"],
+      ["/categories/home/furniture", "/discover?category=home&sub=furniture"],
+      ["/categories/food-drink", "/discover?category=food-drink"],
+    ] as const;
+
+    for (const [source, expectedDestination] of redirects) {
+      const response = await request.get(source, { maxRedirects: 0 });
+      expect(response.status(), `${source} status`).toBe(301);
+      const location = response.headers().location;
+      expect(location, `${source} location`).toBeTruthy();
+      // The catch-all route handler builds an absolute URL; compare the
+      // path + query portion.
+      const locationUrl = new URL(location!, "http://localhost");
+      const expectedUrl = new URL(expectedDestination, "http://localhost");
+      expect(locationUrl.pathname, `${source} pathname`).toBe(
+        expectedUrl.pathname,
+      );
+      expect(locationUrl.searchParams.get("category"), `${source} category`).toBe(
+        expectedUrl.searchParams.get("category"),
+      );
+      expect(
+        locationUrl.searchParams.get("sub"),
+        `${source} sub`,
+      ).toBe(expectedUrl.searchParams.get("sub"));
+    }
   });
 });

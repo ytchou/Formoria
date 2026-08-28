@@ -1,46 +1,47 @@
 import { expect, test } from "@playwright/test";
 
-const CATEGORY_PATH = "/categories/home";
-const SUBCATEGORY_PATH = "/categories/home/furniture";
+import { BUDGET } from "../budgets";
 
-test.describe("Subcategory navigation deep", () => {
-  test("selecting and clearing a subcategory crosses between its landing routes", async ({
+test.describe("Product catalog category navigation deep", () => {
+  test("selecting a category navigates to its filtered view", async ({
     page,
   }) => {
-    await page.goto(CATEGORY_PATH);
+    await page.goto("/discover");
 
-    const furnitureLink = page
-      .getByRole("navigation", { name: "探索此分類的子分類" })
-      .getByRole("link", { name: "家具" });
-    await expect(furnitureLink).toHaveAttribute("href", SUBCATEGORY_PATH);
-    await furnitureLink.click();
-    await expect(page).toHaveURL(new RegExp(`${SUBCATEGORY_PATH}$`));
-    await expect(page.getByRole("heading", { level: 1 })).toHaveText(
-      "台灣家具品牌",
+    // The sidebar renders category filter links as a nav with the "all" label.
+    const sidebar = page.locator("aside");
+    const homeLink = sidebar.getByRole("link", { name: "居家生活" });
+    await expect(homeLink).toBeVisible({ timeout: BUDGET.INTERACTIVE });
+    await homeLink.click();
+
+    await expect(page).toHaveURL(
+      (url) =>
+        url.pathname === "/discover" &&
+        url.searchParams.get("category") === "home",
+      { timeout: BUDGET.INTERACTIVE },
     );
-
-    const clearFurnitureLink = page
-      .getByRole("navigation", { name: "麵包屑導覽" })
-      .getByRole("link", { name: "居家生活" });
-    await expect(clearFurnitureLink).toHaveAttribute("href", CATEGORY_PATH);
-    await clearFurnitureLink.click();
-    await expect(page).toHaveURL(new RegExp(`${CATEGORY_PATH}$`));
   });
 
-  test("direct L2 navigation preselects both taxonomy filters", async ({
+  test("active category is marked with aria-current and clearing returns to unfiltered", async ({
     page,
   }) => {
-    const response = await page.goto(SUBCATEGORY_PATH);
-    expect(response?.status()).toBe(200);
+    await page.goto("/discover?category=home");
 
-    await expect(
-      page.locator('aside input[type="checkbox"]:checked'),
-    ).toHaveCount(1);
-    await expect(
-      page.locator("aside").getByRole("link", { name: /^家具 \d+$/ }),
-    ).toHaveAttribute("href", CATEGORY_PATH);
-    await expect(
-      page.getByRole("link", { name: "移除子分類：家具" }),
-    ).toBeVisible();
+    const sidebar = page.locator("aside");
+    const activeLink = sidebar.locator('[aria-current="page"]');
+    await expect(activeLink).toHaveCount(1, { timeout: BUDGET.INTERACTIVE });
+
+    // Clicking the "all" link clears the category filter.
+    const clearLink = sidebar
+      .getByRole("link")
+      .filter({ hasNot: page.locator('[aria-current="page"]') })
+      .first();
+    await clearLink.click();
+
+    await expect(page).toHaveURL(
+      (url) =>
+        url.pathname === "/discover" && !url.searchParams.has("category"),
+      { timeout: BUDGET.INTERACTIVE },
+    );
   });
 });

@@ -127,7 +127,7 @@ describe("EditorialHero", () => {
  */
 const ROUTES = {
   story: join(process.cwd(), "src/app/[locale]/(site)/stories/[slug]/page.tsx"),
-  trail: join(process.cwd(), "src/app/[locale]/(site)/discover/[slug]/page.tsx"),
+  trail: join(process.cwd(), "src/app/[locale]/(site)/style/[slug]/page.tsx"),
 } as const;
 
 describe.each(Object.entries(ROUTES))(
