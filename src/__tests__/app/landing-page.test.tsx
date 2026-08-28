@@ -126,7 +126,7 @@ vi.mock("@/components/landing/trail-carousel", () => ({
     <ul data-testid="trail-carousel">
       {trails.map((trail) => (
         <li key={trail.slug} role="listitem">
-          <a href={`/discover/${trail.slug}`}>
+          <a href={`/style/${trail.slug}`}>
             {/* eslint-disable-next-line @next/next/no-img-element -- test mock */}
             <img src="/stub.webp" alt={trail.frontmatter.title} />
             <h3>{trail.frontmatter.title}</h3>
@@ -376,14 +376,14 @@ describe("landing page zones", () => {
     ).toBeInTheDocument();
     expect(
       within(trails!).getByRole("link", { name: en.landing.trails.linkText }),
-    ).toHaveAttribute("href", "/discover");
+    ).toHaveAttribute("href", "/style");
 
     const headings = within(trails!).getAllByRole("heading", { level: 3 });
     expect(headings).toHaveLength(1);
     expect(headings[0]).toHaveTextContent("Trail small-kitchen");
     expect(
       within(trails!).getByRole("link", { name: /Trail small-kitchen/ }),
-    ).toHaveAttribute("href", "/discover/small-kitchen");
+    ).toHaveAttribute("href", "/style/small-kitchen");
   });
 
   it("renders every published trail as a card in the zone", async () => {

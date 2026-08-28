@@ -444,7 +444,7 @@ describe('external link surface attribution', () => {
     trackExternalLinkClicked(
       'my-brand',
       'curated_product',
-      '/discover/small-space-reading-corner',
+      '/style/small-space-reading-corner',
       'trail:small-space-reading-corner:light-first',
       'brand-uuid',
     )
@@ -458,7 +458,7 @@ describe('external link surface attribution', () => {
     expect(mockSendGAEvent).toHaveBeenCalledWith('event', 'external_link_clicked', {
       brand_slug: 'my-brand',
       link_type: 'curated_product',
-      referrer_page: '/discover/small-space-reading-corner',
+      referrer_page: '/style/small-space-reading-corner',
       link_surface: 'trail:small-space-reading-corner:light-first',
     })
   })

@@ -153,14 +153,14 @@ describe('keyword map invariants', () => {
       }
 
       if (cluster.page_type === 'l1-category') {
-        if (!L1_SLUGS.has(slug) || cluster.target_url !== `/categories/${slug}`) {
+        if (!L1_SLUGS.has(slug) || cluster.target_url !== `/brands?category=${slug}`) {
           invalid.push(`${describeCluster(cluster)} -> ${cluster.target_url}`)
         }
         continue
       }
 
       const subcategory = subcategoryBySlug(slug)
-      const expectedUrl = subcategory ? `/categories/${subcategory.category}/${slug}` : null
+      const expectedUrl = subcategory ? `/brands?category=${subcategory.category}&sub=${slug}` : null
       if (!subcategory || cluster.target_url !== expectedUrl) {
         invalid.push(`${describeCluster(cluster)} -> ${cluster.target_url}`)
       }
@@ -525,7 +525,7 @@ describe('keyword map invariants', () => {
 
     expect(activewear, 'activewear map row is missing').toBeDefined()
     expect(activewear?.target_status).toBe('live')
-    expect(activewear?.target_url).toBe('/categories/fashion/activewear')
+    expect(activewear?.target_url).toBe('/brands?category=fashion&sub=activewear')
     expect(activewear?.eligibility).toBe('launch')
     expect(activewear?.indexability).toBe('index')
 

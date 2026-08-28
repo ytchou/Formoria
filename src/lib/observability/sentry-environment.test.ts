@@ -73,7 +73,7 @@ describe("resolveSentryEnvironment", () => {
 describe("isLocalRequestUrl", () => {
   it("matches the harness URL from the FORMORIA-2H events", () => {
     expect(
-      isLocalRequestUrl("http://localhost:3123/discover/small-space-reading-corner"),
+      isLocalRequestUrl("http://localhost:3123/style/small-space-reading-corner"),
     ).toBe(true);
   });
 
@@ -88,7 +88,7 @@ describe("isLocalRequestUrl", () => {
   });
 
   it.each([
-    "https://formoria.com/discover/small-space-reading-corner",
+    "https://formoria.com/style/small-space-reading-corner",
     "https://formoria.com/admin/submissions",
   ])("does not match real production traffic at %s", (url) => {
     expect(isLocalRequestUrl(url)).toBe(false);
