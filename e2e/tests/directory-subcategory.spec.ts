@@ -32,8 +32,6 @@ test.describe("Product catalog category navigation deep", () => {
     await expect(activeLink).toHaveCount(1, { timeout: BUDGET.INTERACTIVE });
 
     // Clicking the "all" link clears the category filter.
-    const allLink = sidebar.locator('[aria-current="page"]').first();
-    // Find the "all" link — it's the one without a category param.
     const clearLink = sidebar
       .getByRole("link")
       .filter({ hasNot: page.locator('[aria-current="page"]') })

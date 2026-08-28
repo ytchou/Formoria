@@ -140,11 +140,10 @@ test.describe("Product catalog (formerly category landings) deep", () => {
       expect(locationUrl.searchParams.get("category"), `${source} category`).toBe(
         expectedUrl.searchParams.get("category"),
       );
-      if (expectedUrl.searchParams.has("sub")) {
-        expect(locationUrl.searchParams.get("sub"), `${source} sub`).toBe(
-          expectedUrl.searchParams.get("sub"),
-        );
-      }
+      expect(
+        locationUrl.searchParams.get("sub"),
+        `${source} sub`,
+      ).toBe(expectedUrl.searchParams.get("sub"));
     }
   });
 });
