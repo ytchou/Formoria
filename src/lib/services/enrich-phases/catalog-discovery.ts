@@ -12,6 +12,7 @@ import {
   isOwnedProductRoute,
   type PlatformId,
 } from './scraper/platforms'
+import { upgradeEcommerceImageUrl } from './scraper/parse/extractors'
 import type { RenderProvider } from './scraper/render/types'
 import { extractRenderedMainText } from './scraper/product-origin-text'
 
@@ -141,7 +142,8 @@ function imageFromElement(
   const image = $(element).find('img').first()
   const raw =
     image.attr('data-src') ?? image.attr('data-original') ?? image.attr('src')
-  return raw ? (resolveUrl(raw, pageUrl) ?? undefined) : undefined
+  const resolved = raw ? resolveUrl(raw, pageUrl) : undefined
+  return resolved ? upgradeEcommerceImageUrl(resolved) : undefined
 }
 
 export function extractCatalogRoutes(
