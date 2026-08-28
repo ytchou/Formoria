@@ -66,11 +66,11 @@ export default async function BrandsJoinPage({ params }: PageProps) {
     <PageShell as="main" measure="page">
       {/* Hero */}
       <section className="py-section text-center">
-        <p className="type-metadata text-muted">{t("heroSubtitle")}</p>
+        <p className="type-metadata text-ink-muted">{t("heroSubtitle")}</p>
         <h1 className="mt-3 type-page-title text-balance">
           {t("heading")}
         </h1>
-        <p className="mx-auto mt-6 max-w-2xl type-body text-muted">
+        <p className="mx-auto mt-6 max-w-2xl type-body text-ink-muted">
           {t("heroDescription")}
         </p>
       </section>
@@ -83,7 +83,7 @@ export default async function BrandsJoinPage({ params }: PageProps) {
               <h2 className="type-section">
                 {t(`valueProp${n}Title`)}
               </h2>
-              <p className="mt-2 type-body-sm text-muted">
+              <p className="mt-2 type-body-sm text-ink-muted">
                 {t(`valueProp${n}Description`)}
               </p>
             </div>
@@ -98,11 +98,18 @@ export default async function BrandsJoinPage({ params }: PageProps) {
             {t("trustLabelsHeading")}
           </h2>
           <dl className="space-y-6">
-            {TRUST_LABEL_KEYS.map((key) => (
-              <dd key={key} className="type-body">
-                {t(key)}
-              </dd>
-            ))}
+            {TRUST_LABEL_KEYS.map((key) => {
+              const text = t(key);
+              const dashIndex = text.indexOf(" — ");
+              const term = dashIndex >= 0 ? text.slice(0, dashIndex) : text;
+              const desc = dashIndex >= 0 ? text.slice(dashIndex + 3) : null;
+              return (
+                <div key={key}>
+                  <dt className="type-body font-semibold">{term}</dt>
+                  {desc ? <dd className="mt-1 type-body">{desc}</dd> : null}
+                </div>
+              );
+            })}
           </dl>
         </div>
       </section>
@@ -137,7 +144,7 @@ export default async function BrandsJoinPage({ params }: PageProps) {
           {t("ctaLabel")}
           <ArrowRight aria-hidden="true" />
         </Link>
-        <p className="mt-4 type-body-sm text-muted">{t("ctaDescription")}</p>
+        <p className="mt-4 type-body-sm text-ink-muted">{t("ctaDescription")}</p>
       </section>
     </PageShell>
   );

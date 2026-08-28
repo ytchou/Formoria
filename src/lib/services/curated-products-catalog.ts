@@ -139,10 +139,11 @@ export async function getPublishedCuratedProducts(
     query = query.contains("subcategories", [subcategory]);
   }
 
-  query = excludeTestBrands(query, "brands.name");
-  query = query.order("created_at", { ascending: false }).range(offset, offset + pageSize - 1);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Supabase query builder generic depth exceeds TS limit (TS2589)
+  const filtered = excludeTestBrands(query as any, "brands.name") as typeof query;
+  const final = filtered.order("created_at", { ascending: false }).range(offset, offset + pageSize - 1);
 
-  const { data, count, error } = await query;
+  const { data, count, error } = await final;
   if (error) throw error;
 
   const products = ((data ?? []) as unknown as CatalogProductRow[])

@@ -57,7 +57,7 @@ export const routes = {
   brand: (slug: string, query?: RouteQuery) => withQuery(`/brands/${seg(slug)}`, query),
 
   // Editorial
-  discover: () => '/discover',
+  discover: (query?: RouteQuery) => withQuery('/discover', query),
   style: () => '/style',
   trail: (slug: string) => `/style/${seg(slug)}`,
   stories: () => '/stories',

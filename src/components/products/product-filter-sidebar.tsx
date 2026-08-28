@@ -38,7 +38,7 @@ export function ProductFilterSidebar({
           return (
             <li key={category.slug}>
               <Link
-                href={`${routes.discover()}?category=${category.slug}`}
+                href={routes.discover({ category: category.slug })}
                 aria-current={isActive ? "page" : undefined}
                 className={cn(
                   "inline-flex min-h-11 items-center rounded-control px-3 py-1.5 type-nav transition-colors",

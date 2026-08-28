@@ -4,6 +4,7 @@ import { PackageOpen } from "lucide-react";
 
 import { EmptyState } from "@/components/ui/empty-state";
 import { PageShell } from "@/components/ui/page-shell";
+import { captureReadFailure } from "@/lib/degraded-render";
 import { ProductGrid } from "@/components/products/product-grid";
 import { ProductFilterSidebar } from "@/components/products/product-filter-sidebar";
 import { Pagination } from "@/components/brands/pagination";
@@ -20,11 +21,17 @@ export const revalidate = 3600;
 
 const PAGE_SIZE = 12;
 
-export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
+export async function generateMetadata({ params, searchParams }: PageProps): Promise<Metadata> {
   const { locale } = await params;
   setRequestLocale(locale);
   const t = await getTranslations({ locale, namespace: "products" });
-  const { canonical, languages } = buildAlternates(routes.discover(), "zh-TW", ["zh-TW"]);
+  const query = await searchParams;
+  const category = Array.isArray(query.category) ? query.category.at(0) : query.category;
+  const sub = Array.isArray(query.sub) ? query.sub.at(0) : query.sub;
+  const discoverPath = routes.discover(
+    { category: category || undefined, sub: sub || undefined },
+  );
+  const { canonical, languages } = buildAlternates(discoverPath, locale as "zh-TW" | "en");
 
   return {
     title: t("metaTitle"),
@@ -46,14 +53,24 @@ export default async function DiscoverPage({ params, searchParams }: PageProps) 
   const query = await searchParams;
 
   const category = firstParam(query.category);
+  const subcategory = firstParam(query.sub);
   const pageParam = firstParam(query.page);
   const page = pageParam ? Math.max(1, parseInt(pageParam, 10) || 1) : 1;
 
-  const { products, totalCount } = await getPublishedCuratedProducts({
-    category,
-    page,
-    pageSize: PAGE_SIZE,
-  });
+  let products: Awaited<ReturnType<typeof getPublishedCuratedProducts>>["products"] = [];
+  let totalCount = 0;
+  try {
+    const result = await getPublishedCuratedProducts({
+      category,
+      subcategory,
+      page,
+      pageSize: PAGE_SIZE,
+    });
+    products = result.products;
+    totalCount = result.totalCount;
+  } catch (err) {
+    captureReadFailure("discover.catalog")(err);
+  }
 
   return (
     <PageShell as="main" measure="page" className="pt-12 pb-section">
