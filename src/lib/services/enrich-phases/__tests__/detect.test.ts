@@ -130,6 +130,45 @@ describe("runStandaloneClassification", () => {
     expect(result.phaseResult.status).toBe("failed");
     expect(result.phaseResult.providerFailure).toBe(true);
   });
+
+  it("keeps only high-confidence categories available for the write path", async () => {
+    const brands: EnrichBrand[] = [
+      {
+        ...brand,
+        id: "brand-inblooom",
+        slug: "inblooom",
+        name: "印花樂 inBlooom",
+      },
+      { ...brand, id: "brand-yuyu", slug: "yuyu-tea", name: "郁郁 YùYù" },
+      { ...brand, id: "brand-kajitsu", slug: "kajitsu", name: "菓實日" },
+    ];
+    const onProgress = vi.fn();
+    mocks.classifyCategoryBatch.mockResolvedValue({
+      results: new Map([
+        ["inblooom", { categorySlug: "home", confidence: "high" }],
+        ["yuyu-tea", { categorySlug: "food-drink", confidence: "medium" }],
+        ["kajitsu", { categorySlug: "food-drink", confidence: "low" }],
+      ]),
+      calls: { attempted: 1, providerFailed: 0 },
+    });
+
+    const result = await runStandaloneClassification(
+      ctx({
+        chunk: brands,
+        chunkBrandNames: brands.map((item) => item.name ?? item.slug),
+        phases: ["tags"] as EnrichPhase[],
+        onProgress,
+      }),
+    );
+
+    expect([...result.batchClassifications]).toEqual([
+      ["inblooom", { categorySlug: "home", confidence: "high" }],
+    ]);
+    expect(result.phaseResult.changedFields).toEqual(["category"]);
+    expect(onProgress).toHaveBeenCalledWith(
+      "  [TAGS] OK — 1 accepted, 2 withheld",
+    );
+  });
 });
 
 describe("applyDetectResult", () => {
@@ -156,6 +195,18 @@ describe("applyDetectResult", () => {
     expect(result.phaseResult.status).toBe("succeeded");
     expect(result.patch).toEqual({ slug: "better-brand" });
   });
+
+  it.each(["medium", "low"] as const)(
+    "preserves the current slug when detect confidence is %s",
+    (confidence) => {
+      const result = applyDetectResult(
+        { ...brandDetect, confidence, slugGenerated: "unapproved-slug" },
+        { ...brand, slug: "current-slug" },
+      );
+
+      expect(result.patch).not.toHaveProperty("slug");
+    },
+  );
 
   // DETECT_SYSTEM_PROMPT tells the model to return a null slug rather than
   // transliterate a Han name. The model obeys; the generateSlug fallback then
