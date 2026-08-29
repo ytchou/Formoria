@@ -146,6 +146,9 @@ describe("PRODUCTS_SYSTEM_PROMPT", () => {
       expect(PRODUCTS_SYSTEM_PROMPT).toContain(nonSignal);
     }
     expect(PRODUCTS_SYSTEM_PROMPT).toContain("listwise");
+    expect(PRODUCTS_SYSTEM_PROMPT).toContain(
+      "Every supplied candidate must have an evaluation",
+    );
     expect(PRODUCTS_SYSTEM_PROMPT).not.toMatch(/[≥>]\s*70/);
     expect(PRODUCTS_SYSTEM_PROMPT).toContain(
       "golden_case_id=products-pool-compact-01 rubric_version=dev-1649-v1",
