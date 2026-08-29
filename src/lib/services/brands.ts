@@ -706,6 +706,7 @@ export function brandToDomain(row: BrandRowWithJoins): Brand {
     subcategoriesEn: Array.isArray(row.subcategories_en)
       ? row.subcategories_en
       : [],
+    material: Array.isArray(row.material) ? row.material : [],
     reputationSummary: normalizeReputationSummary(row.reputation_summary),
     siteContent: row.site_content ?? null,
     submittedAt: row.submitted_at ?? "",
@@ -1023,6 +1024,7 @@ export const BRAND_COLUMN_LIST = [
   "founding_year",
   "subcategories",
   "subcategories_en",
+  "material",
   "reputation_summary",
   "source",
   "is_demo",
@@ -1039,6 +1041,7 @@ export const DIRECTORY_OMITTED_COLUMNS = [
   "site_content",
   "draft_data",
   "reputation_summary",
+  "material",
 ] as const;
 
 /** Columns hydrated by directory/card queries: the full list minus the four above. */

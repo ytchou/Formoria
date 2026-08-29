@@ -76,6 +76,7 @@ function makeBrand(overrides: Partial<Brand> = {}): Brand {
     contactEmail: null,
     subcategories: ["餐具", "茶具"],
     subcategoriesEn: ["tableware", "tea ware"],
+    material: [],
     siteContent: null,
     submittedAt: "2026-01-01T00:00:00.000Z",
     approvedAt: "2026-01-02T00:00:00.000Z",
@@ -178,16 +179,15 @@ describe("FAQ preset catalog", () => {
     });
 
     expect(mainProducts.eligible(zhOnly, "zh-TW")).toBe(true);
-    // An en render would interpolate an empty tag list into the page and the
-    // FAQPage JSON-LD.
+    // An en render would interpolate an empty tag list into the page.
     expect(mainProducts.eligible(zhOnly, "en")).toBe(false);
     // Authoring still runs: the model writes both sides from the zh evidence.
     expect(mainProducts.authorable?.(zhOnly)).toBe(true);
   });
 
   // `brands.subcategories` stores English slugs since DEV-1510. This floor
-  // writes that value straight into a published zh-TW answer and into the
-  // FAQPage JSON-LD, so an unresolved slug is Latin text in public copy.
+  // writes that value straight into a published zh-TW answer,
+  // so an unresolved slug is Latin text in public copy.
   it("public_faq_renders_zh_labels_not_slugs", () => {
     const mainProducts = presetById("main-products");
     const slugStored = makeContext({

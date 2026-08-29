@@ -25,7 +25,7 @@ import { faqMainProductsPrompt } from "@/lib/prompts";
  * array decides *whether* this preset renders — a brand with no en tags must
  * not produce an en answer. What the answer *says* comes from the ontology:
  * `subcategories` stores English slugs since DEV-1510, and this is published
- * zh-TW copy plus FAQPage JSON-LD, so a raw slug here is Latin text on a public
+ * zh-TW copy, so a raw slug here is Latin text on a public
  * page. The two arrays are index-aligned by `deriveSubcategoriesEn`.
  */
 function localeTags(ctx: FaqBrandContext, locale: string): string[] {
@@ -50,8 +50,8 @@ function subcategories(
 const mainProducts: FaqPreset = {
   id: "main-products",
   // A brand with zh tags and an empty `subcategoriesEn` is eligible in zh and
-  // not in en. Rendering it in en would interpolate an empty string into both
-  // the page and the FAQPage JSON-LD ("Acme makes  as signature products.").
+  // not in en. Rendering it in en would interpolate an empty string into
+  // the page ("Acme makes  as signature products.").
   eligible: (ctx, locale = "zh-TW") => localeTags(ctx, locale).length > 0,
   // Authoring writes both locale sides from the zh evidence, so the zh tags
   // are what decide whether the model has anything to work from.
