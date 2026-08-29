@@ -57,6 +57,7 @@ const PHASE_KIND: Record<string, PhaseKind> = {
   facts: "llm",
   descriptions: "llm",
   stockists: "llm",
+  locations: "search",
   reputation: "llm",
   faq: "llm",
   products: "llm",
@@ -204,8 +205,7 @@ function phaseName(value: string): string {
     description: "descriptions",
     // Renamed 2026-08-03; historical rows still carry the old phase string.
     expansion: "reputation",
-    maps: "stockists",
-    locations: "stockists",
+    maps: "locations",
     scrape: "links",
     serp: "discover",
   };

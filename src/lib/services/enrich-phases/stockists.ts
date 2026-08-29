@@ -81,25 +81,26 @@ type StockistsPhaseOutput = {
  * unfiltered. Returns null when no signal paragraphs are found.
  */
 export function filterStockistEvidence(siteContent: string): string | null {
-  const paragraphs = siteContent.split(/\n\n+/);
+  const paragraphs = siteContent.split(/\n/);
   const kept: string[] = [];
 
   for (const paragraph of paragraphs) {
-    if (!paragraph.trim()) continue;
+    const trimmed = paragraph.trim();
+    if (!trimmed) continue;
 
     // stockistPageText sections pass unfiltered
-    if (paragraph.startsWith("Stockist Page:") || paragraph.startsWith("stockistPageText:")) {
-      kept.push(paragraph);
+    if (trimmed.startsWith("Stockist Page:") || trimmed.startsWith("stockistPageText:")) {
+      kept.push(trimmed);
       continue;
     }
 
-    const lower = paragraph.toLowerCase();
+    const lower = trimmed.toLowerCase();
     if (SIGNAL_WORDS.some((word) => lower.includes(word.toLowerCase()))) {
-      kept.push(paragraph);
+      kept.push(trimmed);
     }
   }
 
-  return kept.length > 0 ? kept.join("\n\n") : null;
+  return kept.length > 0 ? kept.join("\n") : null;
 }
 
 const VALID_CITY_SLUGS = new Set<string>(CITY_SLUGS);
@@ -158,7 +159,8 @@ async function hasEnrichedStockists(brandId: string): Promise<boolean> {
     .select("id", { count: "exact", head: true })
     .eq("brand_id", brandId)
     .eq("source", "enriched")
-    .not("name", "is", null);
+    .not("name", "is", null)
+    .is("removed_at", null);
   return (count ?? 0) > 0;
 }
 
@@ -179,6 +181,20 @@ export async function runStockistsPhase({
         0,
         undefined,
         "stockists phase not requested",
+      ),
+      patch: {},
+    };
+  }
+
+  if (target?.type === "submission") {
+    return {
+      phaseResult: buildPhaseResult(
+        "stockists",
+        "skipped",
+        [],
+        0,
+        undefined,
+        "stockists phase does not run for submission targets",
       ),
       patch: {},
     };
@@ -214,6 +230,10 @@ export async function runStockistsPhase({
           return { candidates: [], skippedReason: "no stockist signal in evidence" };
         }
 
+        const evidence = filteredEvidence.length > 12_000
+          ? filteredEvidence.slice(0, 12_000)
+          : filteredEvidence;
+
         const systemPrompt = await fetchLangfusePrompt("stockists", STOCKIST_SYSTEM_PROMPT);
         const config = buildProfiledEnrichmentConfig(
           "stockists",
@@ -236,7 +256,8 @@ export async function runStockistsPhase({
 
         const response = await client.chat({
           system: systemPrompt,
-          user: filteredEvidence,
+          user: evidence,
+          json: true,
           ...profileChatParams("stockists"),
         });
 
@@ -250,7 +271,9 @@ export async function runStockistsPhase({
         const parsed = parseJson<StockistsModelResult>(response.content ?? "");
         const rawEntries = parsed?.stockists ?? [];
         const candidates = validateStockistCandidates(rawEntries);
-        return { candidates };
+        const now = new Date().toISOString();
+        const timestamped = candidates.map((c) => ({ ...c, fetchedAt: now }));
+        return { candidates: timestamped };
       });
 
       if (result.providerFailed) {
@@ -298,7 +321,19 @@ export async function runStockistsPhase({
       }
 
       if (!dryRun) {
-        await upsertEnrichedStockists(brand.id, result.candidates);
+        const upsertResult = await upsertEnrichedStockists(brand.id, result.candidates);
+        if (!upsertResult.ok) {
+          return {
+            phaseResult: buildPhaseResult(
+              "stockists",
+              "failed",
+              [],
+              durationMs,
+              `stockist upsert failed: ${upsertResult.code}`,
+            ),
+            patch: {},
+          };
+        }
       }
 
       return {

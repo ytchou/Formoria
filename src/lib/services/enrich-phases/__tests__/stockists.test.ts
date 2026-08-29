@@ -59,16 +59,16 @@ describe("validateStockistCandidates", () => {
 
 describe("filterStockistEvidence", () => {
   it("returns null for text with no signal words", () => {
-    const text = "This is a general paragraph about the company history.\n\nAnother paragraph about the team.";
+    const text = "This is a general paragraph about the company history.\nAnother paragraph about the team.";
     expect(filterStockistEvidence(text)).toBeNull();
   });
 
-  it("passes through paragraphs with signal words", () => {
+  it("passes through lines with signal words", () => {
     const text = [
       "About our company and founders.",
       "我們在台北有一間門市，歡迎來逛逛。",
       "Our team values quality and craftsmanship.",
-    ].join("\n\n");
+    ].join("\n");
     const result = filterStockistEvidence(text);
     expect(result).not.toBeNull();
     expect(result).toContain("門市");
@@ -79,10 +79,17 @@ describe("filterStockistEvidence", () => {
     const text = [
       "Stockist Page: Some random text without keywords here that should still pass through completely.",
       "Another paragraph without keywords that should be dropped.",
-    ].join("\n\n");
+    ].join("\n");
     const result = filterStockistEvidence(text);
     expect(result).not.toBeNull();
     expect(result).toContain("Some random text without keywords");
     expect(result).not.toContain("Another paragraph without keywords");
+  });
+
+  it("handles leading whitespace on Stockist Page prefix", () => {
+    const text = "  Stockist Page: indented content here";
+    const result = filterStockistEvidence(text);
+    expect(result).not.toBeNull();
+    expect(result).toContain("Stockist Page: indented content here");
   });
 });
