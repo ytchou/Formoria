@@ -326,6 +326,7 @@ export type BrandImageForClassification = BrandImageRow & {
 
 export type HeroResortPlan = {
   assignments: Array<{ id: string; sortOrder: number }>;
+  candidateIds: string[];
   demotedIds: string[];
   rejectedUpdates: ReturnType<typeof applyClassifications>["rejectedUpdates"];
   ranked: Array<{
@@ -762,6 +763,7 @@ export function planActiveImageOrder(input: {
   rankedJudgedIds: string[];
 }): {
   assignments: Array<{ id: string; sortOrder: number }>;
+  candidateIds: string[];
   demotedIds: string[];
 } {
   const { activeImages, rankedJudgedIds } = input;
@@ -810,16 +812,11 @@ export function planActiveImageOrder(input: {
     sortOrder += 1;
   }
 
-  // Excess logos past the single-logo allowance: assigned sort_order values
-  // above the active cap so they stay out of the visible gallery, but NOT in
-  // demotedIds — this rule must never change an image's status.
-  let overflowOrder = MAX_ACTIVE_IMAGES;
-  for (const row of logoOverflow) {
-    assignments.push({ id: row.id, sortOrder: overflowOrder });
-    overflowOrder += 1;
-  }
+  // Excess logos are still valid candidates, but cannot remain active outside
+  // the database's publishable sort_order window.
+  const candidateIds = logoOverflow.map((row) => row.id);
 
-  return { assignments, demotedIds };
+  return { assignments, candidateIds, demotedIds };
 }
 
 /**
@@ -842,6 +839,7 @@ export function planHeroResort(input: {
     ) {
       return {
         assignments: [],
+        candidateIds: [],
         demotedIds: [],
         rejectedUpdates: [],
         ranked: [],
@@ -851,6 +849,7 @@ export function planHeroResort(input: {
     if (activeImages.length > MAX_ACTIVE_IMAGES) {
       return {
         assignments: [],
+        candidateIds: [],
         demotedIds: [],
         rejectedUpdates: [],
         ranked: [],
@@ -871,6 +870,7 @@ export function planHeroResort(input: {
 
   const result: HeroResortPlan = {
     assignments: ordering.assignments,
+    candidateIds: ordering.candidateIds,
     demotedIds: ordering.demotedIds,
     rejectedUpdates: applied.rejectedUpdates,
     ranked: applied.ordered.map((image) => ({
@@ -887,6 +887,11 @@ export function planHeroResort(input: {
   };
 
   if (mode === "resort") {
+    if (result.candidateIds.length > 0) {
+      throw new Error(
+        "resort mode produced candidateIds; ordering-only plan violated",
+      );
+    }
     if (result.demotedIds.length > 0) {
       throw new Error(
         "resort mode produced demotedIds; ordering-only plan violated",
@@ -1557,10 +1562,14 @@ export async function runClassifyImagesPhase({
         // Reindex every row that is still active — including ones the model never
         // judged. Human-chosen images keep their reserved positions so a
         // classifier-managed image cannot steal sort_order 0 from an admin pick.
-        const { assignments, demotedIds } = plan;
+        const { assignments, candidateIds, demotedIds } = plan;
 
         for (const { id, sortOrder } of assignments) {
           await updateImage(supabase, target, id, { sort_order: sortOrder });
+        }
+
+        for (const id of candidateIds) {
+          await updateImage(supabase, target, id, { status: "candidate" });
         }
 
         // Overflow past the MAX_ACTIVE_IMAGES window steps down to 'rejected', but
