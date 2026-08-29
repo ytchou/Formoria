@@ -170,6 +170,84 @@ export function notDuplicateOf(siblings?: readonly string[]): FaqValidator {
   };
 }
 
+export function notGeneric(): FaqValidator {
+  return (answer, ctx) => {
+    const brand = ctx.brand.brand;
+    // Count evidence signals available
+    const signals = [
+      (brand.material?.length ?? 0) > 0,
+      brand.foundingYear != null,
+      (brand.city?.trim().length ?? 0) > 0,
+      (brand.purchaseWebsite?.trim().length ?? 0) > 0,
+      (brand.stockistCount ?? 0) > 0,
+    ].filter(Boolean).length;
+
+    // Skip for brands with sparse evidence — false positives are worse
+    if (signals < 3) return pass();
+
+    // Strip brand name and city (case-insensitive)
+    let stripped = answer;
+    const brandName = brand.name;
+    if (brandName) {
+      stripped = stripped.replace(
+        new RegExp(
+          brandName.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"),
+          "giu",
+        ),
+        "",
+      );
+    }
+    const cityLabel = ctx.brand.cityLabel;
+    if (cityLabel) {
+      stripped = stripped.replace(
+        new RegExp(
+          cityLabel.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"),
+          "giu",
+        ),
+        "",
+      );
+    }
+    const city = brand.city;
+    if (city) {
+      stripped = stripped.replace(
+        new RegExp(city.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "giu"),
+        "",
+      );
+    }
+
+    // Check for brand-specific tokens: years, material slugs, named products,
+    // URLs, channel names, place names
+    const hasYear = /\b(?:19|20)\d{2}\b/.test(stripped);
+    const hasMaterial = (brand.material ?? []).some((m) =>
+      stripped.toLowerCase().includes(m.toLowerCase()),
+    );
+    const hasUrl = /https?:\/\//.test(stripped);
+    const hasSpecificClaim = hasYear || hasMaterial || hasUrl;
+
+    // Also check: after stripping, are there enough substantive tokens?
+    const substantiveTokens = tokens(stripped);
+    const categoryLabel = brand.categoryLabel;
+    if (categoryLabel) {
+      // Also strip category — it's generic context, not brand-specific
+      const categoryTokens = new Set(tokens(categoryLabel));
+      const remaining = substantiveTokens.filter(
+        (t) => !categoryTokens.has(t),
+      );
+      if (remaining.length < 5 && !hasSpecificClaim) {
+        return fail(
+          "The answer contains no brand-specific claims after name and city ablation.",
+        );
+      }
+    } else if (substantiveTokens.length < 5 && !hasSpecificClaim) {
+      return fail(
+        "The answer contains no brand-specific claims after name and city ablation.",
+      );
+    }
+
+    return pass();
+  };
+}
+
 export function composeValidators(...validators: FaqValidator[]): FaqValidator {
   return (answer, ctx) => {
     for (const validator of validators) {

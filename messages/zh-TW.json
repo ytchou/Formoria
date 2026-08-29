@@ -540,6 +540,20 @@
       "reputation": {
         "question": "{brandName} 的評價如何？",
         "answer": "{brandName} 的評價重點包括：{summary}{context}"
+      },
+      "whereToBuy": {
+        "question": "{brandName} 在哪裡可以買到？",
+        "answer": "{brandName} 的產品可以透過{channels}購買。{stockistNote}{context}",
+        "stockistSuffix": "另外有 {count} 個實體通路據點。",
+        "noOnlineChannels": "實體通路"
+      },
+      "materials": {
+        "question": "{brandName} 使用什麼材料？",
+        "answer": "{brandName} 主要使用{materials}等材料。{context}"
+      },
+      "originStory": {
+        "question": "{brandName} 是怎麼開始的？",
+        "answer": "{brandName} 於 {year} 年在{city}創立。{context}"
       }
     }
   },

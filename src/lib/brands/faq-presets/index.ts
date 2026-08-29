@@ -3,13 +3,16 @@ import { FAQ_PROMPT_PREAMBLE } from "@/lib/prompts";
 import categoryPosition from "./category-position";
 import custom from "./custom";
 import mainProducts from "./main-products";
+import materials from "./materials";
+import originStory from "./origin-story";
 import reputation from "./reputation";
+import whereToBuy from "./where-to-buy";
 import {
   CUSTOM_QUESTION_CEILING,
   type FaqBrandContext,
   type FaqPreset,
 } from "./types";
-import { groundedIn } from "./validators";
+import { groundedIn, notGeneric } from "./validators";
 
 /**
  * `requiredEvidence` was previously documentation that nothing read, with each
@@ -18,10 +21,11 @@ import { groundedIn } from "./validators";
  * *declares* and the one that is *enforced* cannot drift apart.
  */
 function withDerivedValidators(preset: FaqPreset): FaqPreset {
-  if (preset.requiredEvidence.length === 0) return preset;
+  const validators = [...preset.validators, notGeneric()];
+  if (preset.requiredEvidence.length === 0) return { ...preset, validators };
   return {
     ...preset,
-    validators: [groundedIn(preset.requiredEvidence), ...preset.validators],
+    validators: [groundedIn(preset.requiredEvidence), ...validators],
   };
 }
 
@@ -29,6 +33,9 @@ export const FAQ_PRESETS: readonly FaqPreset[] = [
   categoryPosition,
   mainProducts,
   reputation,
+  whereToBuy,
+  materials,
+  originStory,
   custom,
 ].map(withDerivedValidators);
 

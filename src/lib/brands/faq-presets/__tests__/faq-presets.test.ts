@@ -15,6 +15,7 @@ import { CUSTOM_QUESTION_CEILING } from "../types";
 import {
   noCommerceClaims,
   notDuplicateOf,
+  notGeneric,
   withinLengthBand,
 } from "../validators";
 
@@ -139,12 +140,19 @@ describe("FAQ preset catalog", () => {
       "category-position",
       "main-products",
       "reputation",
+      "where-to-buy",
+      "materials",
+      "origin-story",
       "custom",
     ]);
     expect(new Set(FAQ_PRESETS.map((preset) => preset.id)).size).toBe(
       FAQ_PRESETS.length,
     );
     FAQ_PRESETS.forEach(assertPresetShape);
+  });
+
+  it("registry includes 7 presets", () => {
+    expect(FAQ_PRESETS.length).toBe(7);
   });
 
   it("authoring eligibility gates on required evidence", () => {
@@ -155,7 +163,15 @@ describe("FAQ preset catalog", () => {
         subcategories: [],
         subcategoriesEn: [],
         reputationSummary: null,
+        purchaseWebsite: null,
+        purchasePinkoi: null,
+        purchaseShopee: null,
+        purchaseMyship: null,
+        foundingYear: null,
+        city: null,
+        material: [],
       }),
+      cityLabel: null,
     });
     const eligible = eligibleFaqPresets(withoutEvidence).map((item) => item.id);
 
@@ -389,5 +405,101 @@ describe("FAQ preset catalog", () => {
     );
 
     expect(result.ok).toBe(false);
+  });
+
+  it("where-to-buy eligible when purchaseWebsite present", () => {
+    const ctx = makeContext({
+      brand: makeBrand({ purchaseWebsite: "https://example.com" }),
+    });
+    expect(presetById("where-to-buy").eligible(ctx)).toBe(true);
+  });
+
+  it("where-to-buy ineligible when no channels", () => {
+    const ctx = makeContext({
+      brand: makeBrand({
+        purchaseWebsite: null,
+        purchasePinkoi: null,
+        purchaseShopee: null,
+        purchaseMyship: null,
+      }),
+    });
+    expect(presetById("where-to-buy").eligible(ctx)).toBe(false);
+  });
+
+  it("materials eligible when material non-empty", () => {
+    const ctx = makeContext({
+      brand: makeBrand({ material: ["leather"] }),
+    });
+    expect(presetById("materials").eligible(ctx)).toBe(true);
+  });
+
+  it("materials ineligible when material empty", () => {
+    const ctx = makeContext({
+      brand: makeBrand({ material: [] }),
+    });
+    expect(presetById("materials").eligible(ctx)).toBe(false);
+  });
+
+  it("origin-story eligible when foundingYear and city set", () => {
+    const ctx = makeContext();
+    expect(presetById("origin-story").eligible(ctx)).toBe(true);
+  });
+
+  it("origin-story ineligible when foundingYear missing", () => {
+    const ctx = makeContext({
+      brand: makeBrand({ foundingYear: null }),
+    });
+    expect(presetById("origin-story").eligible(ctx)).toBe(false);
+  });
+
+  it("notGeneric rejects answer with only brand name", () => {
+    const ctx = makeValidatorContext("en", []);
+    // foundingYear=2021, city="taipei", purchaseWebsite, material → 4 signals
+    ctx.brand = makeContext({
+      brand: makeBrand({ material: ["leather"], categoryLabel: "bags" }),
+    });
+    const answer = "Harbor Form is a bags brand.";
+    expect(notGeneric()(answer, ctx).ok).toBe(false);
+  });
+
+  it("notGeneric accepts answer with specific claims", () => {
+    const ctx = makeValidatorContext("en", []);
+    ctx.brand = makeContext({
+      brand: makeBrand({ material: ["leather"], categoryLabel: "bags" }),
+    });
+    const answer =
+      "Harbor Form was founded in 2021 and uses leather as its primary material for handcrafted tableware.";
+    expect(notGeneric()(answer, ctx).ok).toBe(true);
+  });
+
+  it("notGeneric skips when evidence signals < 3", () => {
+    const ctx = makeValidatorContext("en", []);
+    // foundingYear: null, material: [], purchaseWebsite: null → only city has
+    // value = 1 signal, well under the threshold of 3.
+    ctx.brand = makeContext({
+      brand: makeBrand({
+        foundingYear: null,
+        material: [],
+        purchaseWebsite: null,
+      }),
+    });
+    const answer = "Harbor Form is a brand in the bags category.";
+    expect(notGeneric()(answer, ctx).ok).toBe(true);
+  });
+
+  it("custom preset receives notGeneric in its validators", () => {
+    const customPreset = presetById("custom");
+    // Verify that notGeneric is present by testing it rejects generic content
+    // for a brand with sufficient signals
+    const ctx: FaqValidatorContext = {
+      locale: "en",
+      brand: makeContext({
+        brand: makeBrand({ material: ["leather"], categoryLabel: "bags" }),
+      }),
+      siblings: [],
+    };
+    const genericAnswer = "Harbor Form is a bags brand.";
+    const results = customPreset.validators.map((v) => v(genericAnswer, ctx));
+    expect(results.some((r) => !r.ok && /brand-specific/.test(r.reason ?? ""))).toBe(true);
   });
 });
