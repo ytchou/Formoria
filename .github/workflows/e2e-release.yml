@@ -23,9 +23,10 @@ jobs:
       contents: read
     env:
       FORMORIA_DEPLOYMENT_ENV: staging
-      STAGING_BASE_URL: https://staging.formoria.com
-      BASE_URL: https://staging.formoria.com
-      NEXT_PUBLIC_SITE_URL: https://staging.formoria.com
+      RELEASE_BASE_URL: ${{ startsWith(github.head_ref, 'release/candidate-') && vars.RELEASE_CANDIDATE_BASE_URL || 'https://staging.formoria.com' }}
+      STAGING_BASE_URL: ${{ startsWith(github.head_ref, 'release/candidate-') && vars.RELEASE_CANDIDATE_BASE_URL || 'https://staging.formoria.com' }}
+      BASE_URL: ${{ startsWith(github.head_ref, 'release/candidate-') && vars.RELEASE_CANDIDATE_BASE_URL || 'https://staging.formoria.com' }}
+      NEXT_PUBLIC_SITE_URL: ${{ startsWith(github.head_ref, 'release/candidate-') && vars.RELEASE_CANDIDATE_BASE_URL || 'https://staging.formoria.com' }}
       SUPABASE_PROJECT_REF: ${{ secrets.SUPABASE_PROJECT_REF }}
       SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
       NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
@@ -72,20 +73,22 @@ jobs:
         run: |
           set -euo pipefail
           [[ "$RELEASE_SHA" =~ ^[0-9a-f]{40}$ ]] || exit 1
-          if [[ "$RELEASE_HEAD_REF" != "staging" ]]; then
-            # A release/candidate-* branch is cherry-picked onto main, so its
-            # tree is never what Railway deployed to staging. Running the suite
-            # anyway would certify staging's revision under the candidate's
-            # name. Refuse instead of manufacturing evidence.
-            echo "::error::$RELEASE_HEAD_REF cannot be certified against deployed staging, which only ever serves the staging branch; promote all of staging, or give the candidate its own deployment before promoting it"
-            exit 1
+          if [[ "$RELEASE_HEAD_REF" == "staging" ]]; then
+            staging_sha="$(git ls-remote https://github.com/${GITHUB_REPOSITORY}.git refs/heads/staging | awk '{print $1}')"
+            [[ "$staging_sha" == "$RELEASE_SHA" ]] || {
+              echo "::error::release E2E must test the current staging head ($RELEASE_SHA), observed $staging_sha"
+              exit 1
+            }
+          else
+            case "$RELEASE_BASE_URL" in
+              https://*.up.railway.app) ;;
+              *)
+                echo "::error::release candidates require an isolated *.up.railway.app deployment, observed '${RELEASE_BASE_URL:-<none>}'"
+                exit 1
+                ;;
+            esac
           fi
-          staging_sha="$(git ls-remote https://github.com/${GITHUB_REPOSITORY}.git refs/heads/staging | awk '{print $1}')"
-          [[ "$staging_sha" == "$RELEASE_SHA" ]] || {
-            echo "::error::release E2E must test the current staging head ($RELEASE_SHA), observed $staging_sha"
-            exit 1
-          }
-      - name: Wait for the exact staging deployment revision
+      - name: Wait for the exact release deployment revision
         shell: bash
         env:
           RELEASE_SHA: ${{ github.event.pull_request.head.sha }}
@@ -108,7 +111,7 @@ jobs:
               -A "$BROWSER_UA" \
               -H "CF-Access-Client-Id: $CF_ACCESS_CLIENT_ID" \
               -H "CF-Access-Client-Secret: $CF_ACCESS_CLIENT_SECRET" \
-              -D - -o /dev/null "$STAGING_BASE_URL/about" 2>/dev/null || true)"
+              -D - -o /dev/null "$RELEASE_BASE_URL/about" 2>/dev/null || true)"
             revision="$(printf '%s' "$headers" \
               | awk -F': ' 'tolower($1) == "x-formoria-revision" {gsub("\\r", "", $2); print $2; exit}')"
             if [[ "$revision" == "$RELEASE_SHA" ]]; then exit 0; fi
