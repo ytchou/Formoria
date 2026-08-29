@@ -194,6 +194,13 @@ export const LLM_PROFILES = {
     model: "vision",
     temperature: 0.1,
   },
+  /** Stockist extraction from scraped website text. */
+  stockists: {
+    model: "text",
+    temperature: 0.1,
+    reasoningEffort: "none",
+    timeoutMs: 60_000,
+  },
 } as const satisfies Record<string, LlmProfile>;
 
 export type LlmProfileKey = keyof typeof LLM_PROFILES;

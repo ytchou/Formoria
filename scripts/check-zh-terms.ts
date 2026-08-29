@@ -197,6 +197,10 @@ export const EXCLUDED_SOURCE_FILES = new Map([
     "lib/brands/stockist-display.ts",
     "retailer noise words stripped before display",
   ],
+  [
+    "lib/services/enrich-phases/stockists.ts",
+    "search-query keywords for stockist scraping",
+  ],
   // --- Character-range regexes. No word appears at all, only range endpoints,
   // so a term match here would be a false positive by construction.
   [

@@ -5,6 +5,7 @@ import {
   type OnlineStoreKey,
 } from "@/lib/brands/online-stores";
 import { DESCRIPTION_SYSTEM_PROMPT } from "@/lib/prompts";
+import { TAIWAN_USAGE_RULES } from "@/lib/prompts/shared";
 import { auditedCall } from "@/lib/audit";
 import { reportBannedTerms } from "@/lib/i18n/banned-terms";
 import { fetchLangfusePrompt } from "@/lib/langfuse/prompt";
@@ -23,6 +24,26 @@ const ZH_DESCRIPTION_BAND = [150, 400] as const;
 const EN_DESCRIPTION_BAND = [300, 700] as const;
 const ZH_BLURB_BAND = [40, 80] as const;
 const EN_BLURB_BAND = [60, 150] as const;
+
+/**
+ * Structured Output schema for the description rewrite call. All four text
+ * fields are required strings — the validator downstream rejects empty or
+ * missing values, so the schema can enforce presence unconditionally.
+ */
+export const DESCRIPTION_SCHEMA = {
+  name: "brand_description",
+  schema: {
+    type: "object" as const,
+    additionalProperties: false,
+    required: ["description_zh", "description_en", "blurb_zh", "blurb_en"],
+    properties: {
+      description_zh: { type: "string" as const },
+      description_en: { type: "string" as const },
+      blurb_zh: { type: "string" as const },
+      blurb_en: { type: "string" as const },
+    },
+  },
+};
 
 /**
  * Prompt-facing display labels for the online stores. The registry supplies
@@ -621,7 +642,9 @@ export async function rewriteBrandDescription(
   // brand whose every call died at the provider may fail its target.
   const calls = noLlmCalls();
 
-  const descriptionSystemPrompt = await fetchLangfusePrompt("descriptions", DESCRIPTION_SYSTEM_PROMPT);
+  const descriptionSystemPrompt = await fetchLangfusePrompt("descriptions", DESCRIPTION_SYSTEM_PROMPT, {
+    taiwan_usage_rules: TAIWAN_USAGE_RULES,
+  });
   try {
     for (let attemptIndex = 0; attemptIndex < 2; attemptIndex += 1) {
       const retryInstruction =
@@ -644,6 +667,7 @@ export async function rewriteBrandDescription(
         system: descriptionSystemPrompt,
         user: `${userContent}${retryInstruction}`,
         json: true,
+        schema: DESCRIPTION_SCHEMA,
         ...profileChatParams("descriptions"),
       });
       const latencyMs = Date.now() - startAt;

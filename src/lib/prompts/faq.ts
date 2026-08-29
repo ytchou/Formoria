@@ -33,6 +33,21 @@ export function faqReputationPrompt(summary: string): string {
   return `Answer only based on the following provided reputation summary — do not add evaluations, ratings, or media information beyond the summary: ${summary}`;
 }
 
+export function faqWhereToBuyPrompt(brandName: string): string {
+  return `List verified purchase channels for brand "${brandName}" — only cite channels present in the evidence. Do not describe pricing, discounts, or availability.`;
+}
+
+export function faqMaterialsPrompt(brandName: string): string {
+  return `Describe the materials used by brand "${brandName}" based on the material tags and evidence provided. Focus on material properties and craftsmanship, not pricing or availability.`;
+}
+
+export function faqOriginStoryPrompt(
+  brandName: string,
+  foundingYear: number,
+): string {
+  return `Tell the founding story of brand "${brandName}" (established ${foundingYear}) based only on the provided evidence. Focus on the brand's origin, founding motivation, and location — do not speculate beyond the sources.`;
+}
+
 export function faqCategoryPositionPrompt(input: {
   brandName: string;
   categorySlug: string;

@@ -9,14 +9,14 @@ describe("parseCliArgs", () => {
   it("parses enrich command with phases", () => {
     const args = parseCliArgs([
       "enrich",
-      "--phases=discover,links,descriptions,locations",
+      "--phases=discover,links,descriptions,stockists",
     ]);
     expect(args.command).toBe("enrich");
     expect(args.config.phases).toEqual([
       "discover",
       "links",
       "descriptions",
-      "locations",
+      "stockists",
     ]);
   });
 

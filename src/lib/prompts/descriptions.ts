@@ -1,5 +1,11 @@
 import { TAIWAN_USAGE_RULES } from "./shared";
 
+/**
+ * The Langfuse template uses `${TAIWAN_USAGE_RULES}` placeholder — the seed
+ * script converts from the JS-interpolated fallback. The local constant has
+ * real values baked in via JS interpolation so the fallback works without
+ * compilation.
+ */
 export const DESCRIPTION_SYSTEM_PROMPT = `You are a Taiwanese brand research editor. Based on the provided sources, write rich but objective bilingual brand descriptions.
 
 ## Workflow (execute in order)

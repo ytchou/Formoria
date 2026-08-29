@@ -1,5 +1,19 @@
-import { describe, expect, it } from "vitest";
-import { parseBrandFactsResult } from "./brand-facts";
+import { describe, expect, it, vi } from "vitest";
+import { parseBrandFactsResult, FACTS_SCHEMA, extractBrandFacts } from "./brand-facts";
+import { L1_CATEGORIES } from "@/lib/taxonomy/ontology";
+import { fetchLangfusePrompt } from "@/lib/langfuse/prompt";
+import { createProfiledOpenAIClient } from "./llm-audit";
+
+vi.mock("@/lib/langfuse/prompt", () => ({
+  fetchLangfusePrompt: vi.fn().mockImplementation(
+    (_name: string, fallback: string) => Promise.resolve(fallback),
+  ),
+}));
+
+vi.mock("./llm-audit", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("./llm-audit")>()),
+  createProfiledOpenAIClient: vi.fn(),
+}));
 
 /**
  * These cases lived in `description-rewrite.test.ts` until the mega-call was
@@ -204,5 +218,58 @@ describe("parseBrandFactsResult — category", () => {
       ).toBeUndefined();
       expect(result.city).toBe("taipei");
     }
+  });
+});
+
+describe("FACTS_SCHEMA", () => {
+  it("has category enum matching L1_CATEGORIES slugs", () => {
+    const categoryProp = FACTS_SCHEMA.schema.properties.category as {
+      enum: unknown[];
+    };
+    const expectedSlugs = L1_CATEGORIES.map((c) => c.slug);
+    // The enum includes null for the nullable case
+    expect(categoryProp.enum).toEqual(expect.arrayContaining(expectedSlugs));
+    expect(categoryProp.enum).toContain(null);
+  });
+
+  it("has listing.reasoning property", () => {
+    const listingProp = FACTS_SCHEMA.schema.properties.listing as {
+      properties: Record<string, unknown>;
+    };
+    expect(listingProp.properties).toHaveProperty("reasoning");
+  });
+
+  it("passes 3 variable keys to fetchLangfusePrompt", async () => {
+    const chat = vi.fn().mockResolvedValue({
+      response: { ok: true, status: 200 },
+      data: {},
+      content: JSON.stringify({
+        category: "home",
+        subcategories: [],
+        material: [],
+        city: null,
+        founding_year: null,
+        listing: { reasoning: "test", verdict: "list", reason: "", taiwan_connection: "created", has_own_products: true, has_purchase_channel: true },
+      }),
+    });
+    vi.mocked(createProfiledOpenAIClient).mockReturnValue({ chat } as never);
+    vi.stubEnv("OPENAI_API_KEY", "test-key");
+
+    await extractBrandFacts(
+      "TestBrand",
+      "some content",
+      { jobId: "job-1", target: { type: "brand", id: "brand-1" } },
+      { summary: {} },
+    );
+
+    expect(fetchLangfusePrompt).toHaveBeenCalledWith(
+      "brand-facts",
+      expect.any(String),
+      expect.objectContaining({
+        category_list: expect.any(String),
+        subcategory_vocab_block: expect.any(String),
+        material_vocab_block: expect.any(String),
+      }),
+    );
   });
 });

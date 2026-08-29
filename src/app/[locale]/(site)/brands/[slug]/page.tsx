@@ -11,7 +11,6 @@ import {
 import {
   buildBrandJsonLd,
   buildBreadcrumbJsonLd,
-  buildFaqPageJsonLd,
   safeJsonLdStringify,
 } from "@/lib/json-ld";
 import type { BreadcrumbItem } from "@/lib/json-ld";
@@ -42,7 +41,7 @@ import { SavedBrandsProvider } from "@/hooks/use-saved-brands";
 import { safeImageSrc } from "@/lib/images/allowed-image-hosts";
 import { getBrandCategoryLabel } from "@/lib/brands/category-label";
 import { getBrandVisitLink } from "@/lib/brands/link-fallback";
-import { faqItemsToQuestions, getBrandFaq } from "@/lib/services/brand-faq";
+import { getBrandFaq } from "@/lib/services/brand-faq";
 import { getStockistsForBrand } from "@/lib/services/stockists";
 import { getPublishedCuratedProductsForBrand } from "@/lib/services/curated-products";
 import { L1_CATEGORIES, isVisibleCategory } from "@/lib/taxonomy/ontology";
@@ -209,12 +208,6 @@ export default async function BrandDetailPage({ params }: PageProps) {
     routes.brand(displayBrand.slug),
     safeLocale,
   );
-  const faqJsonLd = buildFaqPageJsonLd(
-    faqItemsToQuestions(faqItems),
-    safeLocale,
-    canonicalUrl,
-  );
-
   const galleryImages = getBrandGalleryImages(displayBrand);
 
   const categorySlugSlug = displayBrand.categorySlug;
@@ -320,14 +313,6 @@ export default async function BrandDetailPage({ params }: PageProps) {
               ),
             }}
           />
-          {faqJsonLd && (
-            <script
-              type="application/ld+json"
-              dangerouslySetInnerHTML={{
-                __html: safeJsonLdStringify(faqJsonLd),
-              }}
-            />
-          )}
           {/* Breadcrumb */}
           <BrandBreadcrumb
             locale={safeLocale}

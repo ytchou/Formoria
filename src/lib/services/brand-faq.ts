@@ -6,7 +6,7 @@ import {
   hasValue,
   type FaqBrandContext,
 } from "@/lib/brands/faq-presets";
-import type { FaqQuestion } from "@/lib/json-ld";
+
 import type { Database } from "@/lib/supabase/database.types";
 import { auditedCall, type AuditCallContext } from "@/lib/audit";
 import { reportBannedTerms } from "@/lib/i18n/banned-terms";
@@ -18,10 +18,6 @@ export type FaqItem = {
   question: string;
   answer: string;
 };
-
-export function faqItemsToQuestions(items: FaqItem[]): FaqQuestion[] {
-  return items.map((item) => ({ q: item.question, a: item.answer }));
-}
 
 export async function getBrandFaq(
   brandId: string,
@@ -207,7 +203,7 @@ function normalize(value: string | null | undefined): string | null {
   return hasValue(value) ? value.trim() : null;
 }
 
-/** The zh columns this table publishes. `FAQPage` JSON-LD reads both. */
+/** The zh columns this table publishes. */
 const GUARDED_ZH_FIELDS = ["question_zh", "answer_zh"] as const;
 
 /**

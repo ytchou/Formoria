@@ -20,6 +20,9 @@ export {
   faqMainProductsPrompt,
   faqReputationPrompt,
   faqCategoryPositionPrompt,
+  faqWhereToBuyPrompt,
+  faqMaterialsPrompt,
+  faqOriginStoryPrompt,
 } from "./faq";
 export { IMAGE_CLASSIFY_SYSTEM_PROMPT } from "./classify-images";
 export { PRODUCTS_SYSTEM_PROMPT, PRODUCTS_LABELS } from "./products";

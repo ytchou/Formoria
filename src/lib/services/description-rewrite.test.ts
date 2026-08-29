@@ -3,8 +3,10 @@ import { setAuditWriteSeam, type AuditRecord } from "@/lib/audit";
 import {
   parseDescriptionRewriteResult,
   rewriteBrandDescription,
+  DESCRIPTION_SCHEMA,
 } from "./description-rewrite";
 import { createProfiledOpenAIClient } from "./llm-audit";
+import { fetchLangfusePrompt } from "@/lib/langfuse/prompt";
 
 // Partial mock: the profile helpers (`profileChatParams`,
 // `buildProfiledEnrichmentConfig`) are the real ones, so these tests still
@@ -12,6 +14,12 @@ import { createProfiledOpenAIClient } from "./llm-audit";
 vi.mock("./llm-audit", async (importOriginal) => ({
   ...(await importOriginal<typeof import("./llm-audit")>()),
   createProfiledOpenAIClient: vi.fn(),
+}));
+
+vi.mock("@/lib/langfuse/prompt", () => ({
+  fetchLangfusePrompt: vi.fn().mockImplementation(
+    (_name: string, fallback: string) => Promise.resolve(fallback),
+  ),
 }));
 
 describe("parseDescriptionRewriteResult", () => {
@@ -241,5 +249,48 @@ describe("parseDescriptionRewriteResult", () => {
     expect(chat).toHaveBeenCalledTimes(1);
     expect(output?.result?.description_zh).toContain("新台幣5,000,000元");
     expect(output?.result?.description_en).toContain("raised NT$5 million");
+  });
+});
+
+describe("DESCRIPTION_SCHEMA", () => {
+  it("has four required string fields", () => {
+    const { schema } = DESCRIPTION_SCHEMA;
+    const requiredFields = ["description_zh", "description_en", "blurb_zh", "blurb_en"];
+    expect(schema.required).toEqual(expect.arrayContaining(requiredFields));
+    for (const field of requiredFields) {
+      const prop = (schema.properties as Record<string, { type: string }>)[field];
+      expect(prop.type, `${field} should be string`).toBe("string");
+    }
+  });
+
+  it("passes taiwan_usage_rules variable to fetchLangfusePrompt", async () => {
+    const chat = vi.fn().mockResolvedValue({
+      response: { ok: true, status: 200 },
+      data: {},
+      content: JSON.stringify({
+        description_zh: "台灣品牌以手工皮革製品為核心，從選料、裁切到車縫皆由工匠親手完成，產品涵蓋長夾、零錢包與證件套，以植鞣牛皮搭配手工上色工序，打造具使用痕跡質感的皮件。",
+        description_en: "This Taiwanese brand centers on handcrafted leather goods, with artisans personally handling material selection, cutting, and stitching to produce wallets, coin purses, and card holders from vegetable-tanned cowhide finished with hand-dyed techniques.",
+        blurb_zh: "以植鞣牛皮與手工上色打造長夾、零錢包等皮件，強調使用痕跡帶來的獨特質感。",
+        blurb_en: "Handcrafted vegetable-tanned leather goods shaped by artisan dyeing and natural patina.",
+      }),
+    });
+    vi.mocked(createProfiledOpenAIClient).mockReturnValue({ chat } as never);
+    vi.stubEnv("OPENAI_API_KEY", "test-key");
+
+    await rewriteBrandDescription(
+      "TestBrand",
+      null,
+      ["摘要"],
+      null,
+      { jobId: "job-1", target: { type: "brand", id: "brand-1" } },
+    );
+
+    expect(fetchLangfusePrompt).toHaveBeenCalledWith(
+      "descriptions",
+      expect.any(String),
+      expect.objectContaining({
+        taiwan_usage_rules: expect.any(String),
+      }),
+    );
   });
 });

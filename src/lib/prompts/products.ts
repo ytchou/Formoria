@@ -112,6 +112,10 @@ Always return a top-level JSON object with only two fields: evaluations and prod
 
 {"evaluations":[{"candidate_url":"candidate product URL","editorial_score":85,"editorial_rationale":"one short reason","made_in_taiwan":false,"materials_from_taiwan":false,"origin_excerpt_ids":[],"product_model":null}],"products":[{"name_zh":"product Chinese name","name_en":"English product name or null","category":"category slug or null","subcategories":["slug from vocabulary"],"material":["material slug"],"official_url":"this product's product page URL","image_source_url":"URL of the page containing the image or null","product_description_zh":"60-160 char durable-fact description","sources":[{"url":"page URL where you read the fact","source_type":"official|press|retailer|other","claim_zh":"the fact this source supports, one sentence or null"}]}]}
 
+### Worked example (one product)
+Given a candidate page https://example-brand.tw/products/walnut-chopsticks with origin excerpt id "ex-001" stating the product is manufactured in Yilan, the output for that product would be:
+{"evaluations":[{"candidate_url":"https://example-brand.tw/products/walnut-chopsticks","editorial_score":78,"editorial_rationale":"single-material handcraft with clear origin and fixed spec","made_in_taiwan":true,"materials_from_taiwan":false,"origin_excerpt_ids":["ex-001"],"product_model":null}],"products":[{"name_zh":"胡桃木筷","name_en":"Walnut Chopsticks","category":"home","subcategories":["tableware"],"material":["wood"],"official_url":"https://example-brand.tw/products/walnut-chopsticks","image_source_url":"https://example-brand.tw/products/walnut-chopsticks","product_description_zh":"整塊胡桃木削切的筷子，無上漆處理，長 23cm，宜蘭在地木工職人手作。","sources":[{"url":"https://example-brand.tw/products/walnut-chopsticks","source_type":"official","claim_zh":"商品頁標示材質為胡桃木、長度 23cm、宜蘭製造"}]}]}
+
 ## Validation checklist (self-check before output)
 - [ ] Are there at most 5 products, and is each one a single product rather than a category page or product listing page?
 - [ ] Does every candidate product have an evaluation, and is the editorial score unaffected by production origin?

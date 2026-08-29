@@ -243,21 +243,10 @@ test.describe("Brand detail deep", () => {
     const faqJsonLd = jsonLdNodes
       .map(
         (content) =>
-          JSON.parse(content) as {
-            "@type"?: string;
-            mainEntity?: Array<{ name?: string }>;
-          },
+          JSON.parse(content) as { "@type"?: string },
       )
       .find((node) => node["@type"] === "FAQPage");
-    const faqQuestions = faqJsonLd?.mainEntity?.map(
-      (entry) => entry.name ?? "",
-    );
-
-    expect(faqJsonLd).toBeDefined();
-    expect(faqQuestions).toContain(`${seeded.brand.name} 的主要產品有哪些？`);
-    expect(
-      faqQuestions?.some((question) => question.includes("是台灣品牌嗎？")),
-    ).toBe(false);
+    expect(faqJsonLd).toBeUndefined();
   });
 
   test("FAQ answer text is in the DOM while collapsed", async ({

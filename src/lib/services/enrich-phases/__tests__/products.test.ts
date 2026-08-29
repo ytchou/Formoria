@@ -5,6 +5,12 @@ import {
   type AuditRecord,
 } from "@/lib/audit";
 import { MATERIALS, subcategoryBySlug } from "@/lib/taxonomy/ontology";
+import {
+  CATEGORY_LIST,
+  SUBCATEGORY_VOCAB_BLOCK,
+  MATERIAL_VOCAB_BLOCK,
+  TAIWAN_USAGE_RULES,
+} from "@/lib/prompts/shared";
 import type { EnrichBrand, EnrichPhase } from "../types";
 import { runProductsPhase, validateProductProposals } from "../products";
 import type { ProductCandidate } from "../product-candidates";
@@ -29,6 +35,11 @@ vi.mock("../../llm-audit", async (importOriginal) => ({
   ...(await importOriginal<typeof import("../../llm-audit")>()),
   createProfiledOpenAIClient: createClient,
 }));
+
+const fetchLangfusePrompt = vi.hoisted(() =>
+  vi.fn((_name: string, fallback: string) => Promise.resolve(fallback)),
+);
+vi.mock("@/lib/langfuse/prompt", () => ({ fetchLangfusePrompt }));
 
 const SITE = "https://island-studio.example";
 const SUBMISSION_ID = "3f7c1c4e-0b2a-4a9d-9a5a-2c8e1d4b6f01";
@@ -1235,5 +1246,27 @@ describe("rawCount and productsParseError in runProductsPhase", () => {
     expect(result.phaseResult.providerFailure).toBe(true);
     expect(result.phaseResult.catalogZeroReason).toBe("no_catalog");
     expect(result.phaseResult.productsProposed).toBe(0);
+  });
+
+  it("products_variables_passed", async () => {
+    modelReturns([rawProposal()]);
+
+    await runProductsPhase({
+      brand: BRAND,
+      phases: PHASES,
+      scrapedData: SCRAPED,
+      target: { type: "submission", id: SUBMISSION_ID },
+    });
+
+    expect(fetchLangfusePrompt).toHaveBeenCalledWith(
+      "products",
+      expect.any(String),
+      expect.objectContaining({
+        category_list: CATEGORY_LIST,
+        subcategory_vocab_block: SUBCATEGORY_VOCAB_BLOCK,
+        material_vocab_block: MATERIAL_VOCAB_BLOCK,
+        taiwan_usage_rules: TAIWAN_USAGE_RULES,
+      }),
+    );
   });
 });

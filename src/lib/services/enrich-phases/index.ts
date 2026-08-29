@@ -15,4 +15,5 @@ export { runImageSearchPhase } from "./image-search";
 export * from "./detect";
 export * from "./names";
 export * from "./site-identity";
+export * from "./stockists";
 export * from "./types";

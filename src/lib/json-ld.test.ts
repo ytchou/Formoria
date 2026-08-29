@@ -7,7 +7,6 @@ import {
   buildBrandsItemListJsonLd,
   buildEventJsonLd,
   buildStockistItemListJsonLd,
-  buildFaqPageJsonLd,
   buildOrganizationJsonLd,
   buildWebSiteJsonLd,
   safeJsonLdStringify,
@@ -16,8 +15,6 @@ import {
 } from "@/lib/json-ld";
 import type { Brand } from "@/lib/types";
 import { getSiteUrl } from "@/lib/site-url";
-import { faqItemsToQuestions, getBrandFaq } from "@/lib/services/brand-faq";
-import type { FaqSupabase } from "@/lib/services/brand-faq";
 import type { Stockist } from "@/lib/types/stockist";
 
 function makeBrand(overrides: Partial<Brand> = {}): Brand {
@@ -45,6 +42,7 @@ function makeBrand(overrides: Partial<Brand> = {}): Brand {
     siteContent: null,
     subcategories: [],
     subcategoriesEn: [],
+    material: [],
     descriptionEn: null,
     blurb: null,
     blurbEn: null,
@@ -821,119 +819,6 @@ describe("buildEventJsonLd", () => {
       }
     },
   );
-});
-
-describe("buildFaqPageJsonLd", () => {
-  const storyFaq = [
-    {
-      q: "如何確認品牌真的是台灣製造？",
-      a: "Formoria 的三階段驗證會比對品牌自述、公開資料與製造夥伴的回覆。",
-    },
-    {
-      q: "Where can I buy from these brands directly?",
-      a: "Each brand page lists the official website plus Pinkoi and Shopee storefronts when the brand has them.",
-    },
-  ];
-
-  it("buildFaqPageJsonLd emits a FAQPage with one Question per entry", () => {
-    const ld = buildFaqPageJsonLd(storyFaq, "zh-TW") as JsonLdObject;
-    expect(ld["@context"]).toBe("https://schema.org");
-    expect(ld["@type"]).toBe("FAQPage");
-    expect(ld.inLanguage).toBe("zh-TW");
-    expect(ld.mainEntity).toHaveLength(storyFaq.length);
-    expect(ld.mainEntity.map((entry: JsonLdObject) => entry["@type"])).toEqual([
-      "Question",
-      "Question",
-    ]);
-    expect(ld.mainEntity[0].name).toBe(storyFaq[0].q);
-    expect(ld.mainEntity[1].name).toBe(storyFaq[1].q);
-  });
-
-  it("each Question carries an acceptedAnswer of type Answer", () => {
-    const ld = buildFaqPageJsonLd(storyFaq, "en") as JsonLdObject;
-    for (const [index, question] of ld.mainEntity.entries()) {
-      expect(question.acceptedAnswer).toEqual({
-        "@type": "Answer",
-        text: storyFaq[index].a,
-      });
-    }
-  });
-
-  it("buildFaqPageJsonLd returns null for an empty question list", () => {
-    expect(buildFaqPageJsonLd([], "zh-TW")).toBeNull();
-    expect(buildFaqPageJsonLd(null)).toBeNull();
-    expect(buildFaqPageJsonLd(undefined)).toBeNull();
-  });
-
-  it("scopes @id and mainEntityOfPage to the supplied canonical", () => {
-    const canonical = `${getSiteUrl()}/en/brands/chatzutang`;
-    const ld = buildFaqPageJsonLd(storyFaq, "en", canonical) as JsonLdObject;
-
-    expect(ld["@id"]).toBe(`${canonical}#faq`);
-    expect(ld.mainEntityOfPage).toBe(canonical);
-  });
-
-  it("stays unidentified when callers omit the canonical", () => {
-    const ld = buildFaqPageJsonLd(storyFaq, "en") as JsonLdObject;
-
-    expect(ld["@id"]).toBeUndefined();
-    expect(ld.mainEntityOfPage).toBeUndefined();
-  });
-
-  it("escapes values safely via safeJsonLdStringify", () => {
-    const ld = buildFaqPageJsonLd(
-      [
-        {
-          q: "Does </script><script>alert(1)</script> break the page?",
-          a: "No — the payload is escaped before it reaches the document.",
-        },
-      ],
-      "en",
-    ) as JsonLdObject;
-
-    const serialized = safeJsonLdStringify(ld);
-    expect(serialized).not.toContain("</script>");
-    expect(serialized).toContain("\\u003c");
-    expect(JSON.parse(serialized)).toEqual(ld);
-  });
-
-  it("emits FAQPage JSON-LD matching the rendered items", async () => {
-    const client = {
-      from(table: string) {
-        if (table !== "brand_faq_entries")
-          throw new Error(`unexpected table: ${table}`);
-        const builder = {
-          select: () => builder,
-          eq: () => builder,
-          then: (
-            resolve: (result: { data: never[]; error: null }) => unknown,
-          ) => Promise.resolve({ data: [], error: null }).then(resolve),
-        };
-        return builder;
-      },
-    };
-    const translate = (key: string, params?: Record<string, unknown>) =>
-      `${key}|${JSON.stringify(params ?? {})}`;
-    const items = await getBrandFaq(
-      "123",
-      makeBrand({ subcategories: ["陶瓷"] }),
-      translate,
-      "zh-TW",
-      null,
-      client as unknown as FaqSupabase,
-    );
-    const ld = buildFaqPageJsonLd(
-      faqItemsToQuestions(items),
-      "zh-TW",
-    ) as JsonLdObject;
-
-    expect(ld.mainEntity.map((entry: JsonLdObject) => entry.name)).toEqual(
-      items.map((item) => item.question),
-    );
-    expect(
-      ld.mainEntity.map((entry: JsonLdObject) => entry.acceptedAnswer.text),
-    ).toEqual(items.map((item) => item.answer));
-  });
 });
 
 describe("buildStockistItemListJsonLd", () => {

@@ -1,5 +1,6 @@
 import type { Brand } from "@/lib/types";
 import { FAQ_PROMPT_PREAMBLE } from "@/lib/prompts";
+import { TAIWAN_USAGE_RULES } from "@/lib/prompts/shared";
 import { fetchLangfusePrompt } from "@/lib/langfuse/prompt";
 import {
   CUSTOM_QUESTION_CEILING,
@@ -21,7 +22,11 @@ import {
   type BrandFaqEntryRow,
   type FaqSupabase,
 } from "../brand-faq";
-import { buildEnrichmentUserContent } from "../description-rewrite";
+import {
+  buildEnrichmentUserContent,
+  type DescriptionEvidence,
+} from "../description-rewrite";
+import { getStockistsForBrand } from "../stockists";
 import { loadPersistedScrapeText } from "./descriptions";
 import {
   buildProfiledEnrichmentConfig,
@@ -155,8 +160,13 @@ export function localizedCityLabel(
 function toBrandContext(
   brand: Brand,
   peerStats: FaqBrandContext["peerStats"],
+  stockistCount = 0,
 ): FaqBrandContext {
-  return { brand, cityLabel: localizedCityLabel(brand.city), peerStats };
+  return {
+    brand: { ...brand, stockistCount },
+    cityLabel: localizedCityLabel(brand.city),
+    peerStats,
+  };
 }
 
 function sideRenders(
@@ -214,13 +224,21 @@ function siteContentValue(brand: EnrichBrand): string | null {
  * puts Latin tokens in front of the model, which degrades the answer it writes
  * without failing anything. The tags are resolved to their zh labels here.
  */
-export function contextFacts(ctx: FaqBrandContext): string {
+export function contextFacts(
+  ctx: FaqBrandContext,
+  brandRecord?: Brand,
+  stockists?: { confirmed: unknown[]; possible: unknown[] },
+): string {
   const brand = ctx.brand;
   const tags = getBrandSubcategoryLabels(brand, "zh-TW");
   return [
     `結構化品牌事實：產品類型=${brand.categorySlug ?? "無"}；產品標籤=${tags.join("、") || "無"}；成立年份=${brand.foundingYear ?? "無"}；城市=${ctx.cityLabel ?? brand.city ?? "無"}`,
     `聲譽摘要：${brand.reputationSummary?.text ?? brand.reputationSummary?.textEn ?? "無"}`,
     `同類品牌比較資料：${ctx.peerStats ? JSON.stringify(ctx.peerStats) : "無"}`,
+    `材料=${brandRecord?.material?.length ? brandRecord.material.join("、") : "無"}`,
+    `英文描述=${brandRecord?.descriptionEn ?? "無"}`,
+    `品牌定位=${brandRecord?.blurb ?? "無"}`,
+    `通路據點=${stockists ? `確認${stockists.confirmed.length}處、可能${stockists.possible.length}處` : "無"}`,
   ].join("\n");
 }
 
@@ -480,16 +498,17 @@ export async function runFaqPhase({
   const { result, durationMs } = await timePhase<FaqRunOutcome>(async () => {
     // `getBrandById` and the persisted scrape have no data dependency on each
     // other, so they run together; peer stats need the brand's category.
-    const [brandRecord, persistedScrape] = await Promise.all([
+    const [brandRecord, persistedScrape, stockists] = await Promise.all([
       getBrandById(brand.id),
       loadPersistedScrapeText(auditTarget),
+      getStockistsForBrand(brand.id),
     ]);
     const peerStats = await getCategoryPeerStats(
       brandRecord.categorySlug,
       brandRecord.id,
       supabase,
     );
-    const ctx = toBrandContext(brandRecord, peerStats);
+    const ctx = toBrandContext(brandRecord, peerStats, stockists.confirmed.length + stockists.possible.length);
     // A preset with a null `promptFragment` is never model-authored. It is
     // excluded from both the prompt and the accepted set.
     // `authorable` is the preset's own answer to "does the model have enough
@@ -524,7 +543,9 @@ export async function runFaqPhase({
     }
 
     const localSystemPrompt = buildFaqSystemPrompt(authorable, ctx);
-    const langfusePreamble = await fetchLangfusePrompt("faq-preamble", FAQ_PROMPT_PREAMBLE);
+    const langfusePreamble = await fetchLangfusePrompt("faq-preamble", FAQ_PROMPT_PREAMBLE, {
+      taiwan_usage_rules: TAIWAN_USAGE_RULES,
+    });
     const systemPrompt = localSystemPrompt.replace(FAQ_PROMPT_PREAMBLE, langfusePreamble);
     const promptHash = buildFaqPromptHash(authorable);
     const snippets = [
@@ -536,14 +557,30 @@ export async function runFaqPhase({
       [siteContentValue(brand), persistedScrape.siteContent]
         .filter(Boolean)
         .join("\n\n") || null;
+    const imageAlts = brandRecord.imageAlts
+      .map((img) => img.altZh)
+      .filter((alt): alt is string => alt != null && alt.trim() !== "");
+    const evidence: DescriptionEvidence = {
+      links: {
+        purchaseWebsite: brandRecord.purchaseWebsite,
+        socialInstagram: brandRecord.socialInstagram,
+        socialThreads: brandRecord.socialThreads,
+        socialFacebook: brandRecord.socialFacebook,
+        purchasePinkoi: brandRecord.purchasePinkoi,
+        purchaseShopee: brandRecord.purchaseShopee,
+        purchaseMyship: brandRecord.purchaseMyship,
+      },
+      productCategoryZh: brandRecord.categoryLabel,
+      imageAlts,
+    };
     const content = buildEnrichmentUserContent(
       brandRecord.name,
       brandRecord.description,
       snippets,
       siteContent,
-      { productCategoryZh: brandRecord.categoryLabel },
+      evidence,
     );
-    const userContent = `${content.userContent}\n\n${contextFacts(ctx)}`;
+    const userContent = `${content.userContent}\n\n${contextFacts(ctx, brandRecord, stockists)}`;
     const config = buildProfiledEnrichmentConfig("faq", systemPrompt, "faq", {
       ...FAQ_PROMPT_PARAMS,
       promptHash,

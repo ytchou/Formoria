@@ -144,7 +144,7 @@ describe("audited phase coverage", () => {
     for (const phase of [
       "facts",
       "descriptions",
-      "locations",
+      "stockists",
       "classification",
     ]) {
       expect(literals.has(phase), `scan found no writer for ${phase}`).toBe(
@@ -270,15 +270,6 @@ describe("phase dependencies and task vocabulary", () => {
     // products now depends on classify_images (promoted from comment-only edge
     // as part of the visual acquisition task merge, DEV-1633)
     expect(PHASE_DEPENDENCIES.products).toContain("classify_images");
-  });
-
-  it("locations appears in no task", () => {
-    for (const [task, phases] of Object.entries(CURATION_TASKS)) {
-      expect(
-        (phases as readonly string[]).includes("locations"),
-        `${task} contains locations`,
-      ).toBe(false);
-    }
   });
 
   it("task_order_contains_visual_not_image_or_product", () => {
