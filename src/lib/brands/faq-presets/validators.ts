@@ -60,6 +60,16 @@ function evidencePresent(key: EvidenceKey, ctx: FaqValidatorContext): boolean {
       );
     case "peerStats":
       return ctx.brand.peerStats != null;
+    case "purchaseChannels":
+      return (
+        (brand.purchaseWebsite?.trim().length ?? 0) > 0 ||
+        (brand.purchasePinkoi?.trim().length ?? 0) > 0 ||
+        (brand.purchaseShopee?.trim().length ?? 0) > 0 ||
+        (brand.purchaseMyship?.trim().length ?? 0) > 0 ||
+        (brand.stockistCount ?? 0) > 0
+      );
+    case "material":
+      return (brand.material?.length ?? 0) > 0;
   }
 }
 

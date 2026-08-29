@@ -63,6 +63,11 @@ vi.mock("../../brand-faq", async (importOriginal) => ({
   ...(await importOriginal<typeof import("../../brand-faq")>()),
   getBrandFaqEntries,
 }));
+const getStockistsForBrand = vi.hoisted(() => vi.fn());
+vi.mock("../../stockists", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("../../stockists")>()),
+  getStockistsForBrand,
+}));
 
 /**
  * Driven through the phase's exported pure pieces rather than through
@@ -608,6 +613,48 @@ describe("contextFacts", () => {
   it("says 無 when the brand carries no tags", () => {
     expect(contextFacts(context())).toContain("產品標籤=無");
   });
+
+  it("includes material line", () => {
+    const brandWithMaterial = {
+      ...BRAND,
+      material: ["leather", "wood"],
+    } as Brand;
+    const facts = contextFacts(context(), brandWithMaterial);
+    expect(facts).toContain("材料=leather、wood");
+  });
+
+  it("includes English description", () => {
+    const brandWithDesc = {
+      ...BRAND,
+      descriptionEn: "A design brand",
+    } as Brand;
+    const facts = contextFacts(context(), brandWithDesc);
+    expect(facts).toContain("英文描述=A design brand");
+  });
+
+  it("includes blurb", () => {
+    const brandWithBlurb = {
+      ...BRAND,
+      blurb: "生活品牌",
+    } as Brand;
+    const facts = contextFacts(context(), brandWithBlurb);
+    expect(facts).toContain("品牌定位=生活品牌");
+  });
+
+  it("includes stockist summary", () => {
+    const facts = contextFacts(context(), BRAND, {
+      confirmed: [1, 2],
+      possible: [3],
+    });
+    expect(facts).toContain("通路據點=確認2處、可能1處");
+  });
+
+  it("says 無 when no material, blurb, or stockists", () => {
+    const facts = contextFacts(context());
+    expect(facts).toContain("材料=無");
+    expect(facts).toContain("品牌定位=無");
+    expect(facts).toContain("通路據點=無");
+  });
 });
 
 describe("DESCRIPTION_SYSTEM_PROMPT", () => {
@@ -628,6 +675,7 @@ describe("runFaqPhase langfuse variables", () => {
       siteContent: null,
     });
     getBrandFaqEntries.mockResolvedValue([]);
+    getStockistsForBrand.mockResolvedValue({ confirmed: [], possible: [] });
     createClient.mockReturnValue({
       chat: vi.fn().mockResolvedValue({
         response: { ok: true },

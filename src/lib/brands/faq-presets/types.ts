@@ -7,7 +7,9 @@ export type EvidenceKey =
   | "reputationSummary"
   | "foundingYear"
   | "city"
-  | "peerStats";
+  | "peerStats"
+  | "purchaseChannels"
+  | "material";
 
 export type FaqTFn = (key: string, params?: Record<string, unknown>) => string;
 
@@ -76,7 +78,7 @@ export type FaqPreset = {
  * valid result. Lives here rather than in `index.ts` so `custom.ts` can read it
  * without importing the aggregation point back into a preset module.
  */
-export const CUSTOM_QUESTION_CEILING = 4;
+export const CUSTOM_QUESTION_CEILING = 3;
 
 export function hasValue(value: string | null | undefined): value is string {
   return value != null && value.trim() !== "";
