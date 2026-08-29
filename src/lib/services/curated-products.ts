@@ -7,14 +7,14 @@ import type { BrandVisitLinkFields } from "@/lib/brands/link-fallback";
 import type { ExistingCuratedProduct } from "@/lib/services/curated-products/proposal-diff";
 import { withSlugSuffix } from "@/lib/brands/slug";
 import { generateSlug } from "@/lib/services/brands";
-import { normalizeSubcategories } from "@/lib/services/subcategories";
 import {
   excludeTestBrands,
   TEST_BRAND_NAME_PREFIX,
 } from "@/lib/services/public-brand-filter";
 import {
   materialBySlug,
-  resolveSubcategorySlugs,
+  matchSubcategory,
+  subcategoryBySlug,
 } from "@/lib/taxonomy/ontology";
 import { getPublishedTrailBySlug, getTrailBySlug } from "@/lib/services/trails";
 import { isRegistryRecordActive } from "@/lib/services/curated-products/origin-qualification";
@@ -42,7 +42,7 @@ export type CuratedProduct = {
   nameZh: string;
   nameEn: string | null;
   category: string;
-  subcategories: string[];
+  subcategory: string | null;
   officialUrl: string | null;
   imageUrl: string | null;
   imageSourceUrl: string | null;
@@ -104,7 +104,7 @@ export type TrailCuratedProduct = CuratedProduct & {
  * placement and nothing else, so the columns below are the whole of it.
  */
 const CURATED_PRODUCT_READ_SELECT = `
-  id, brand_id, key, name_zh, name_en, category, subcategories,
+  id, brand_id, key, name_zh, name_en, category, subcategory,
   official_url, image_url,
   image_source_url, visible, link_state, link_checked_at,
   source_checked_at, review_due_at, product_description_zh,
@@ -114,6 +114,11 @@ const CURATED_PRODUCT_READ_SELECT = `
   curated_product_sources!inner(id),
   curated_product_selections(trail_slug, section_key, position)
 `;
+
+const LEGACY_CURATED_PRODUCT_READ_SELECT = CURATED_PRODUCT_READ_SELECT.replace(
+  "category, subcategory,",
+  "category, subcategories,",
+);
 
 type ProductTable = Database["public"]["Tables"]["curated_products"];
 type SelectionTable =
@@ -132,7 +137,7 @@ type CuratedProductReadRow = Pick<
   | "name_zh"
   | "name_en"
   | "category"
-  | "subcategories"
+  | "subcategory"
   | "official_url"
   | "image_url"
   | "image_source_url"
@@ -146,6 +151,8 @@ type CuratedProductReadRow = Pick<
   | "product_position"
   | "created_at"
 > & {
+  /** Present only during the compatible-reading window before DEV-1648 migrates. */
+  subcategories?: string[] | null;
   made_in_taiwan_confirmed?: boolean | null;
   materials_from_taiwan_confirmed?: boolean | null;
   mit_registry?: {
@@ -215,6 +222,21 @@ function curatedProductClient(
   return client ?? (createServiceClient() as unknown as CuratedProductSupabase);
 }
 
+function productSubcategory(row: {
+  category: string;
+  subcategory?: string | null;
+  subcategories?: string[] | null;
+}): string | null {
+  const candidate =
+    typeof row.subcategory === "string"
+      ? row.subcategory
+      : row.subcategories?.length === 1
+        ? row.subcategories[0]!
+        : null;
+  const node = candidate ? subcategoryBySlug(candidate) : null;
+  return node && node.category === row.category ? node.slug : null;
+}
+
 /**
  * The one selection a card carries. A product placed in several trails must
  * still render exactly once, so the lowest `position` wins and an equal
@@ -244,7 +266,7 @@ function toCuratedProduct(row: CuratedProductReadRow): CuratedProduct {
     nameZh: row.name_zh,
     nameEn: row.name_en ?? null,
     category: row.category,
-    subcategories: row.subcategories ?? [],
+    subcategory: productSubcategory(row),
     officialUrl: row.official_url ?? null,
     imageUrl: row.image_url ?? null,
     imageSourceUrl: row.image_source_url ?? null,
@@ -265,10 +287,10 @@ function toCuratedProduct(row: CuratedProductReadRow): CuratedProduct {
         row.materials_from_taiwan_confirmed === true) ||
       Boolean(
         row.mit_registry &&
-          isRegistryRecordActive({
-            validUntil: row.mit_registry.valid_until,
-            syncedAt: row.mit_registry.synced_at,
-          }),
+        isRegistryRecordActive({
+          validUntil: row.mit_registry.valid_until,
+          syncedAt: row.mit_registry.synced_at,
+        }),
       ),
   };
 }
@@ -293,7 +315,7 @@ function toTrailProduct(
     nameZh: row.name_zh,
     nameEn: row.name_en ?? null,
     category: row.category,
-    subcategories: row.subcategories ?? [],
+    subcategory: productSubcategory(row),
     officialUrl: row.official_url ?? null,
     imageUrl: row.image_url ?? null,
     imageSourceUrl: row.image_source_url ?? null,
@@ -314,10 +336,10 @@ function toTrailProduct(
         row.materials_from_taiwan_confirmed === true) ||
       Boolean(
         row.mit_registry &&
-          isRegistryRecordActive({
-            validUntil: row.mit_registry.valid_until,
-            syncedAt: row.mit_registry.synced_at,
-          }),
+        isRegistryRecordActive({
+          validUntil: row.mit_registry.valid_until,
+          syncedAt: row.mit_registry.synced_at,
+        }),
       ),
     brandSlug: brand.slug,
     brandName: brand.name,
@@ -341,11 +363,21 @@ const UNPLACED = Number.MAX_SAFE_INTEGER;
 const MISSING_TABLE_CODE = "PGRST205";
 /** Observed from the staging REST read before this migration landed. */
 const MISSING_COLUMN_CODE = "42703";
+const POSTGREST_MISSING_COLUMN_CODE = "PGRST204";
 
 /** True when the error says the database schema is older than this code. */
 function isSchemaLag(error: unknown): boolean {
   const code = (error as { code?: string }).code;
   return code === MISSING_TABLE_CODE || code === MISSING_COLUMN_CODE;
+}
+
+function isMissingSubcategoryColumn(error: unknown): boolean {
+  const code = (error as { code?: string }).code;
+  const message = (error as { message?: string }).message ?? "";
+  return (
+    (code === MISSING_COLUMN_CODE || code === POSTGREST_MISSING_COLUMN_CODE) &&
+    /\bsubcategory\b/u.test(message)
+  );
 }
 
 /**
@@ -393,18 +425,20 @@ export async function getPublishedCuratedProductsForBrand(
   brandId: string,
   client?: CuratedProductSupabase,
 ): Promise<CuratedProduct[]> {
-  const { data, error } = await curatedProductClient(client)
-    .from("curated_products")
-    .select(CURATED_PRODUCT_READ_SELECT)
-    .eq("brand_id", brandId)
-    .eq("visible", true)
-    .not("official_url", "is", null)
-    .not("source_checked_at", "is", null)
-    // Retired evidence is not evidence: `!inner` makes this drop the product.
-    .eq("curated_product_sources.state", "active")
-    // Non-inner, so this narrows the embedded rows only. A product left with no
-    // active selection still renders — it sorts last with a null trail slug.
-    .eq("curated_product_selections.state", "active");
+  const runQuery = (select: string) =>
+    curatedProductClient(client)
+      .from("curated_products")
+      .select(select)
+      .eq("brand_id", brandId)
+      .eq("visible", true)
+      .not("official_url", "is", null)
+      .not("source_checked_at", "is", null)
+      .eq("curated_product_sources.state", "active")
+      .eq("curated_product_selections.state", "active");
+  let { data, error } = await runQuery(CURATED_PRODUCT_READ_SELECT);
+  if (error && isMissingSubcategoryColumn(error)) {
+    ({ data, error } = await runQuery(LEGACY_CURATED_PRODUCT_READ_SELECT));
+  }
   if (error) {
     // PGRST205 = table not in PostgREST schema cache (migration pending or
     // schema cache stale), matching saved-brands.ts. 42703 was observed from
@@ -423,6 +457,7 @@ export async function getPublishedCuratedProductsForBrand(
 
   return ((data ?? []) as unknown as CuratedProductReadRow[])
     .map(toCuratedProduct)
+    .filter((product) => product.subcategory !== null)
     .sort(
       (a, b) =>
         (a.productPosition ?? UNPLACED) - (b.productPosition ?? UNPLACED) ||
@@ -463,24 +498,26 @@ export async function getPublishedCuratedProductsForBrand(
 export async function getPublishedCuratedProductsForHomepage(
   client?: CuratedProductSupabase,
 ): Promise<HomepageCuratedProduct[]> {
-  const query = excludeTestBrands(
-    curatedProductClient(client)
-      .from("curated_products")
-      .select(
-        `${CURATED_PRODUCT_READ_SELECT}, image_width, image_height, brands!inner(slug, name, status, purchase_website, purchase_pinkoi, purchase_shopee, purchase_myship, social_instagram, social_threads, social_facebook)`,
-      )
-      .eq("visible", true)
-      .not("official_url", "is", null)
-      .not("source_checked_at", "is", null)
-      // Retired evidence is not evidence: the inner embed drops products with
-      // no active source row.
-      .eq("curated_product_sources.state", "active")
-      .eq("curated_product_selections.state", "active")
-      .eq("brands.status", "approved")
-      .limit(1_000) as unknown as HomepageCuratedProductQuery,
-    "brands.name",
-  );
-  const { data, error } = await query;
+  const runQuery = (select: string) =>
+    excludeTestBrands(
+      curatedProductClient(client)
+        .from("curated_products")
+        .select(
+          `${select}, image_width, image_height, brands!inner(slug, name, status, purchase_website, purchase_pinkoi, purchase_shopee, purchase_myship, social_instagram, social_threads, social_facebook)`,
+        )
+        .eq("visible", true)
+        .not("official_url", "is", null)
+        .not("source_checked_at", "is", null)
+        .eq("curated_product_sources.state", "active")
+        .eq("curated_product_selections.state", "active")
+        .eq("brands.status", "approved")
+        .limit(1_000) as unknown as HomepageCuratedProductQuery,
+      "brands.name",
+    );
+  let { data, error } = await runQuery(CURATED_PRODUCT_READ_SELECT);
+  if (error && isMissingSubcategoryColumn(error)) {
+    ({ data, error } = await runQuery(LEGACY_CURATED_PRODUCT_READ_SELECT));
+  }
 
   if (error) {
     // Schema lag THROWS here, unlike the brand read. The homepage turns this
@@ -524,6 +561,7 @@ export async function getPublishedCuratedProductsForHomepage(
         ...row,
         curated_product_selections: activeSelections,
       });
+      if (product.subcategory === null) return null;
       return {
         ...product,
         // NULL until the backfill reaches the row; the wall falls back to 4:3.
@@ -555,7 +593,7 @@ export async function getPublishedCuratedProductsForHomepage(
 }
 
 const CURATED_PRODUCT_TRAIL_READ_SELECT = `
-  id, brand_id, key, name_zh, name_en, category, subcategories,
+  id, brand_id, key, name_zh, name_en, category, subcategory,
   official_url, image_url,
   image_source_url, visible, link_state, link_checked_at,
   source_checked_at, review_due_at, product_description_zh,
@@ -566,6 +604,12 @@ const CURATED_PRODUCT_TRAIL_READ_SELECT = `
   curated_product_selections!inner(trail_slug, section_key, position, state),
   brands!inner(slug, name, status, purchase_website, purchase_pinkoi, purchase_shopee, purchase_myship, social_instagram, social_threads, social_facebook)
 `;
+
+const LEGACY_CURATED_PRODUCT_TRAIL_READ_SELECT =
+  CURATED_PRODUCT_TRAIL_READ_SELECT.replace(
+    "category, subcategory,",
+    "category, subcategories,",
+  );
 
 /**
  * Resolves the public placements for one trail. Unlike the homepage rail this
@@ -578,16 +622,23 @@ export async function getPublishedCuratedProductsForTrail(
   trailSlug: string,
   client?: CuratedProductSupabase,
 ): Promise<TrailCuratedProduct[]> {
-  const { data, error } = await curatedProductClient(client)
-    .from("curated_products")
-    .select(CURATED_PRODUCT_TRAIL_READ_SELECT)
-    .eq("visible", true)
-    .not("official_url", "is", null)
-    .not("source_checked_at", "is", null)
-    .eq("curated_product_sources.state", "active")
-    .eq("curated_product_selections.state", "active")
-    .eq("curated_product_selections.trail_slug", trailSlug)
-    .eq("brands.status", "approved");
+  const runQuery = (select: string) =>
+    curatedProductClient(client)
+      .from("curated_products")
+      .select(select)
+      .eq("visible", true)
+      .not("official_url", "is", null)
+      .not("source_checked_at", "is", null)
+      .eq("curated_product_sources.state", "active")
+      .eq("curated_product_selections.state", "active")
+      .eq("curated_product_selections.trail_slug", trailSlug)
+      .eq("brands.status", "approved");
+  let { data, error } = await runQuery(CURATED_PRODUCT_TRAIL_READ_SELECT);
+  if (error && isMissingSubcategoryColumn(error)) {
+    ({ data, error } = await runQuery(
+      LEGACY_CURATED_PRODUCT_TRAIL_READ_SELECT,
+    ));
+  }
 
   if (error) {
     // Schema lag THROWS here, exactly as the homepage read does. A trail page
@@ -638,6 +689,7 @@ export async function getPublishedCuratedProductsForTrail(
         selection.trail_slug === trailSlug &&
         (selection.state === undefined || selection.state === "active"),
     );
+    if (!productSubcategory(row)) continue;
 
     for (const selection of selections) {
       products.push(toTrailProduct(row, selection));
@@ -695,8 +747,8 @@ export type CuratedProductWriteInput = {
   nameEn?: string | null;
   /** CHECK-constrained to the same 12 values as `brands.category`. */
   category: string;
-  /** Subcategory slugs or labels; normalized to slugs within `category`. */
-  subcategories?: string[];
+  /** One L2 slug or label; normalized and checked against `category`. */
+  subcategory?: string | null;
   /**
    * Material slugs from the closed `MATERIALS` vocabulary. CHECK-constrained in
    * Postgres, so unratified terms are dropped rather than forwarded; absent
@@ -820,23 +872,17 @@ export async function refreshGeneratedCuratedProductOrigin(
 }
 
 /**
- * Curated-product subcategories, normalized to slugs and confined to the
- * product's own L1.
- *
- * `normalizeSubcategories` resolves slugs and zh-TW labels alike through the
- * closed vocabulary, dedupes by slug and applies the 5-tag cap.
- * `resolveSubcategorySlugs` then drops anything outside `category` — the
- * write-time conjunct that curated products keep on purpose while the
- * directory read paths dropped theirs (DEV-1510).
+ * A curated-product L2 normalized to a slug and confined to its L1.
  */
-function normalizeCuratedSubcategories(
+function normalizeCuratedSubcategory(
   category: string,
-  values: readonly string[],
-): string[] {
-  const { subcategories } = normalizeSubcategories([...values]);
-  return resolveSubcategorySlugs(category, subcategories).map(
-    (sub) => sub.slug,
-  );
+  value: string | null | undefined,
+): string | null {
+  const candidate = value?.trim();
+  if (!candidate) return null;
+  const node =
+    subcategoryBySlug(candidate.toLowerCase()) ?? matchSubcategory(candidate);
+  return node?.category === category ? node.slug : null;
 }
 
 /**
@@ -940,15 +986,19 @@ export async function createCuratedProduct(
     },
     async (ctx) => {
       const supabase = curatedProductClient(client);
+      const subcategory = normalizeCuratedSubcategory(
+        input.category,
+        input.subcategory,
+      );
+      if (input.visible === true && !subcategory) {
+        throw new Error("Visible products require a known subcategory");
+      }
       const row = {
         brand_id: input.brandId,
         name_zh: input.nameZh,
         name_en: input.nameEn ?? null,
         category: input.category,
-        subcategories: normalizeCuratedSubcategories(
-          input.category,
-          input.subcategories ?? [],
-        ),
+        subcategory,
         material: normalizeCuratedMaterials(input.material ?? []),
         official_url: input.officialUrl ?? null,
         image_url: input.imageUrl ?? null,
@@ -1023,25 +1073,24 @@ export async function updateCuratedProduct(
       const payload: Record<string, unknown> = {};
       if (input.nameZh !== undefined) payload.name_zh = input.nameZh;
       if (input.nameEn !== undefined) payload.name_en = input.nameEn ?? null;
-      if (input.category !== undefined) payload.category = input.category;
-      if (input.subcategories !== undefined) {
-        // A subcategory is only meaningful within a category. Defaulting the branch
-        // to "" would normalize every subcategory away and write an empty array, so
-        // the caller is made to state it instead of losing the tags silently.
-        //
-        // DEFENSIVE BACKSTOP ONLY. The admin boundary rejects this pair in
-        // `curatedProductUpdateSchema.superRefine`, so a raw throw here would
-        // otherwise reach the UI as an internal message; it survives for
-        // non-action callers (scripts, future writers) that skip the schema.
-        if (input.category === undefined) {
-          throw new Error(
-            "Updating subcategories requires category in the same patch",
-          );
-        }
-        payload.subcategories = normalizeCuratedSubcategories(
-          input.category,
-          input.subcategories,
+      if (input.category !== undefined && input.subcategory === undefined) {
+        throw new Error(
+          "Changing category requires subcategory in the same patch",
         );
+      }
+      if (input.subcategory !== undefined && input.category === undefined) {
+        throw new Error(
+          "Updating subcategory requires category in the same patch",
+        );
+      }
+      if (input.category !== undefined) payload.category = input.category;
+      if (input.subcategory !== undefined && input.category !== undefined) {
+        const subcategory = normalizeCuratedSubcategory(
+          input.category,
+          input.subcategory,
+        );
+        payload.subcategory = subcategory;
+        if (!subcategory) payload.visible = false;
       }
       if (input.officialUrl !== undefined) {
         payload.official_url = input.officialUrl ?? null;
@@ -1059,7 +1108,9 @@ export async function updateCuratedProduct(
       if (input.imageHeight !== undefined) {
         payload.image_height = input.imageHeight ?? null;
       }
-      if (input.visible !== undefined) payload.visible = input.visible;
+      if (input.visible !== undefined && payload.visible !== false) {
+        payload.visible = input.visible;
+      }
       if (input.sourceCheckedAt !== undefined) {
         payload.source_checked_at = input.sourceCheckedAt ?? null;
       }
@@ -1384,7 +1435,7 @@ export type AdminCuratedProduct = {
   nameZh: string;
   nameEn: string | null;
   category: string;
-  subcategories: string[];
+  subcategory: string | null;
   officialUrl: string | null;
   imageUrl: string | null;
   imageSourceUrl: string | null;
@@ -1441,10 +1492,11 @@ type AdminCuratedProductRow = Omit<CuratedProductReadRow, "link_checked_at"> & {
 export async function listCuratedProductsForAdmin(
   client?: CuratedProductSupabase,
 ): Promise<AdminCuratedProduct[]> {
-  const { data, error } = await curatedProductClient(client)
-    .from("curated_products")
-    .select(
-      `id, brand_id, key, name_zh, name_en, category, subcategories,
+  const runQuery = (subcategoryColumn: "subcategory" | "subcategories") =>
+    curatedProductClient(client)
+      .from("curated_products")
+      .select(
+        `id, brand_id, key, name_zh, name_en, category, ${subcategoryColumn},
        official_url, image_url,
        image_source_url, visible, link_state, proposed_by,
        source_checked_at, review_due_at, product_description_zh,
@@ -1452,9 +1504,13 @@ export async function listCuratedProductsForAdmin(
        brands(slug, name),
        curated_product_sources(id, url, source_type, claim_zh, state, checked_at),
        curated_product_selections(trail_slug, section_key, position, state)`,
-    )
-    .order("updated_at", { ascending: false })
-    .limit(ADMIN_CURATED_PRODUCT_LIMIT);
+      )
+      .order("updated_at", { ascending: false })
+      .limit(ADMIN_CURATED_PRODUCT_LIMIT);
+  let { data, error } = await runQuery("subcategory");
+  if (error && isMissingSubcategoryColumn(error)) {
+    ({ data, error } = await runQuery("subcategories"));
+  }
 
   if (error) {
     // Both lag codes, not just the missing table: this branch renames columns,
@@ -1474,7 +1530,7 @@ export async function listCuratedProductsForAdmin(
     nameZh: row.name_zh,
     nameEn: row.name_en ?? null,
     category: row.category,
-    subcategories: row.subcategories ?? [],
+    subcategory: productSubcategory(row),
     officialUrl: row.official_url ?? null,
     imageUrl: row.image_url ?? null,
     imageSourceUrl: row.image_source_url ?? null,
@@ -1539,8 +1595,21 @@ const CURATED_PRODUCT_BATCH_MAX_PAGES = 200;
 
 type CuratedProductBatchRow = Pick<
   ProductTable["Row"],
-  "id" | "brand_id" | "key" | "official_url" | "visible" | "proposed_by" | "image_source_url" | "name_en" | "product_description_zh" | "product_description_en" | "category" | "subcategories" | "material"
+  | "id"
+  | "brand_id"
+  | "key"
+  | "official_url"
+  | "visible"
+  | "proposed_by"
+  | "image_source_url"
+  | "name_en"
+  | "product_description_zh"
+  | "product_description_en"
+  | "category"
+  | "subcategory"
+  | "material"
 > & {
+  subcategories?: string[] | null;
   /** Narrowed to `state = 'active'` by the query; `[]` means no live evidence. */
   curated_product_sources?: { id: string }[] | null;
 };
@@ -1591,27 +1660,35 @@ export async function getCuratedProductsByBrandBatch(
   const pages = await Promise.all(
     chunks.map(async (chunk) => {
       const rows: CuratedProductBatchRow[] = [];
+      let useLegacySubcategories = false;
       // Range-paged to the first SHORT page. `.order()` is what makes that
       // sound: without a total order the same row can appear on two pages and
       // another on none, so the loop needs a stable one — `(brand_id, key)` is
       // unique, so it is total.
       for (let page = 0; page < CURATED_PRODUCT_BATCH_MAX_PAGES; page += 1) {
         const from = page * CURATED_PRODUCT_BATCH_PAGE_SIZE;
-        const { data, error } = await supabase
-          .from("curated_products")
-          .select(
-            // A PLAIN embed, never `!inner`: the default is a left join, so a
-            // product with no active source is still returned. That row is
-            // precisely the half-created one the approval materializer has to
-            // REPAIR, and an inner join would hide it and make every re-run a
-            // no-op. The `.eq` below narrows the EMBEDDED rows only.
-            "id, brand_id, key, official_url, visible, proposed_by, image_source_url, name_en, product_description_zh, product_description_en, category, subcategories, material, curated_product_sources(id)",
-          )
-          .in("brand_id", chunk)
-          .eq("curated_product_sources.state", "active")
-          .order("brand_id", { ascending: true })
-          .order("key", { ascending: true })
-          .range(from, from + CURATED_PRODUCT_BATCH_PAGE_SIZE - 1);
+        const runPage = (subcategoryColumn: "subcategory" | "subcategories") =>
+          supabase
+            .from("curated_products")
+            .select(
+              `id, brand_id, key, official_url, visible, proposed_by, image_source_url, name_en, product_description_zh, product_description_en, category, ${subcategoryColumn}, material, curated_product_sources(id)`,
+            )
+            .in("brand_id", chunk)
+            .eq("curated_product_sources.state", "active")
+            .order("brand_id", { ascending: true })
+            .order("key", { ascending: true })
+            .range(from, from + CURATED_PRODUCT_BATCH_PAGE_SIZE - 1);
+        let { data, error } = await runPage(
+          useLegacySubcategories ? "subcategories" : "subcategory",
+        );
+        if (
+          error &&
+          !useLegacySubcategories &&
+          isMissingSubcategoryColumn(error)
+        ) {
+          useLegacySubcategories = true;
+          ({ data, error } = await runPage("subcategories"));
+        }
         if (error) throw error;
         const pageRows = (data ?? []) as unknown as CuratedProductBatchRow[];
         rows.push(...pageRows);
@@ -1638,7 +1715,7 @@ export async function getCuratedProductsByBrandBatch(
       productDescriptionZh: row.product_description_zh ?? null,
       productDescriptionEn: row.product_description_en ?? null,
       category: row.category ?? null,
-      subcategories: row.subcategories ?? null,
+      subcategory: productSubcategory(row),
       material: row.material ?? null,
     });
     byBrandId.set(row.brand_id, rows);

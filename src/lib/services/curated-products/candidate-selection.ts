@@ -113,9 +113,13 @@ export function createDefaultCandidateWriter(): CandidateWriter {
 }
 
 /** LLM ranking function — injected so the phase's audited call wraps it. */
-export type LlmRanker = (
-  candidates: ProductCandidate[],
-) => Promise<Array<{ url: string; score: number; rationale: string }>>;
+export type LlmRanker = (candidates: ProductCandidate[]) => Promise<
+  Array<{
+    url: string;
+    score: number | null;
+    rationale: string | null;
+  }>
+>;
 
 export type CandidateSelectionResult = {
   ranked: RankedCandidate[];
@@ -123,6 +127,11 @@ export type CandidateSelectionResult = {
   persistError: string | null;
   /** Present only after the append succeeds; failed logging cannot qualify a proposal. */
   auditIdsByUrl: Map<string, string>;
+  bestScore: number | null;
+  cutoff: number | null;
+  evaluatedCount: number;
+  invalidOrMissingCount: number;
+  belowWindowCount: number;
 };
 
 // ---------------------------------------------------------------------------
@@ -205,24 +214,44 @@ export function applyGates(
  *
  * @returns Ranked candidates sorted by (llmScore DESC, searchPosition ASC).
  */
-export async function rankAndSelect(
+async function rankCandidates(
   candidates: ProductCandidate[],
   ranker: LlmRanker,
-  maxProducts: number,
 ): Promise<RankedCandidate[]> {
   if (candidates.length === 0) return [];
 
   const scores = await ranker(candidates);
-  const scoreMap = new Map(scores.map((s) => [s.url, s]));
+  const candidateUrls = new Set(candidates.map((candidate) => candidate.url));
+  const scoreMap = new Map(
+    scores.flatMap((evaluation) => {
+      const rationale = evaluation.rationale?.trim();
+      return candidateUrls.has(evaluation.url) &&
+        Number.isInteger(evaluation.score) &&
+        evaluation.score !== null &&
+        evaluation.score >= 0 &&
+        evaluation.score <= 100 &&
+        rationale
+        ? [
+            [
+              evaluation.url,
+              { ...evaluation, score: evaluation.score, rationale },
+            ],
+          ]
+        : [];
+    }),
+  );
 
-  // Build scored entries.
-  const scored = candidates.map((c) => {
+  const scored = candidates.flatMap((c) => {
     const entry = scoreMap.get(c.url);
-    return {
-      candidate: c,
-      llmScore: entry?.score ?? 0,
-      llmRationale: entry?.rationale ?? "",
-    };
+    return entry
+      ? [
+          {
+            candidate: c,
+            llmScore: entry.score,
+            llmRationale: entry.rationale,
+          },
+        ]
+      : [];
   });
 
   // Sort: LLM score descending, then search_position ascending (tie-break).
@@ -234,7 +263,7 @@ export async function rankAndSelect(
     return posA - posB;
   });
 
-  return scored.slice(0, maxProducts).map((entry, index) => ({
+  return scored.map((entry, index) => ({
     url: entry.candidate.url,
     normalizedUrl: entry.candidate.normalizedUrl,
     title: entry.candidate.title,
@@ -246,6 +275,21 @@ export async function rankAndSelect(
     llmRationale: entry.llmRationale,
     finalRank: index + 1,
   }));
+}
+
+export async function rankAndSelect(
+  candidates: ProductCandidate[],
+  ranker: LlmRanker,
+  maxProducts: number,
+): Promise<RankedCandidate[]> {
+  const evaluated = await rankCandidates(candidates, ranker);
+  const bestScore = evaluated[0]?.llmScore;
+  if (bestScore === undefined) return [];
+  const cutoff = bestScore - 15;
+  return evaluated
+    .filter((candidate) => candidate.llmScore >= cutoff)
+    .slice(0, maxProducts)
+    .map((candidate, index) => ({ ...candidate, finalRank: index + 1 }));
 }
 
 // ---------------------------------------------------------------------------
@@ -350,11 +394,14 @@ export async function persistCandidatePool(options: {
     candidateIds.get(candidate) ?? randomUUID();
 
   // Step 2: Rank
-  const allRanked = await rankAndSelect(passed, ranker, passed.length);
-  // First choose the five on editorial score + search order alone. MIT may
-  // reorder equal-scored finalists, but can never pull candidate six inside.
-  const ranked = allRanked
-    .slice(0, maxProducts)
+  const allRanked = await rankCandidates(passed, ranker);
+  const bestScore = allRanked[0]?.llmScore ?? null;
+  const cutoff = bestScore === null ? null : bestScore - 15;
+  const finalists =
+    cutoff === null
+      ? []
+      : allRanked.filter((candidate) => candidate.llmScore >= cutoff);
+  const ranked = finalists
     .sort((left, right) => {
       const score = right.llmScore - left.llmScore;
       if (score !== 0) return score;
@@ -366,6 +413,7 @@ export async function persistCandidatePool(options: {
         (right.searchPosition ?? Number.MAX_SAFE_INTEGER)
       );
     })
+    .slice(0, maxProducts)
     .map((candidate, index) => ({ ...candidate, finalRank: index + 1 }));
 
   // Step 3: Build rows for persistence — every candidate, including gated ones.
@@ -428,5 +476,15 @@ export async function persistCandidatePool(options: {
         )
       : new Map<string, string>();
 
-  return { ranked, gated, persistError, auditIdsByUrl };
+  return {
+    ranked,
+    gated,
+    persistError,
+    auditIdsByUrl,
+    bestScore,
+    cutoff,
+    evaluatedCount: allRanked.length,
+    invalidOrMissingCount: passed.length - allRanked.length,
+    belowWindowCount: allRanked.length - finalists.length,
+  };
 }

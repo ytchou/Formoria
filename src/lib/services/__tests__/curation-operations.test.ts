@@ -102,7 +102,7 @@ describe("seedEnrichedDataFromOwnerData", () => {
 });
 
 describe("mergeSubmissionEnrichedData", () => {
-  it("replaces and caps subcategory pairs instead of accumulating rerun outputs", () => {
+  it("replaces complete subcategory pairs instead of accumulating rerun outputs", () => {
     const result = mergeSubmissionEnrichedData(
       {
         subcategories: ["既有一", "既有二", "既有三"],
@@ -127,6 +127,7 @@ describe("mergeSubmissionEnrichedData", () => {
       "新三",
       "新四",
       "新五",
+      "新六",
     ]);
     expect(result.subcategories_en).toEqual([
       "New 1",
@@ -134,6 +135,7 @@ describe("mergeSubmissionEnrichedData", () => {
       "New 3",
       "New 4",
       "New 5",
+      "New 6",
     ]);
   });
 
@@ -207,8 +209,8 @@ describe("enriched_data.products[] payload contract", () => {
     key,
     nameZh: `${key} 陶杯`,
     nameEn: `${key} cup`,
-    category: "home-living",
-    subcategories: ["tableware"],
+    category: "home",
+    subcategory: "tableware",
     material: ["ceramic"],
     officialUrl: `https://example.com/products/${key}`,
     imageSourceUrl: `https://example.com/products/${key}#photo`,
@@ -278,7 +280,7 @@ describe("enriched_data.products[] payload contract", () => {
       nameZh: true,
       nameEn: true,
       category: true,
-      subcategories: true,
+      subcategory: true,
       material: true,
       officialUrl: true,
       imageSourceUrl: true,

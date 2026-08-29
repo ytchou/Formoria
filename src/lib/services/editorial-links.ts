@@ -211,7 +211,7 @@ const collectAllPlacements = cache(
               trailSlug: trail.slug,
               trailTitle: trail.frontmatter.title,
               category: product.category,
-              subcategories: product.subcategories,
+              subcategories: product.subcategory ? [product.subcategory] : [],
             }),
           );
         } catch {
@@ -344,7 +344,7 @@ export async function getTrailRelatedContent(
     trailSlug,
     trailTitle,
     category: product.category,
-    subcategories: product.subcategories,
+    subcategories: product.subcategory ? [product.subcategory] : [],
   }));
 
   const storyBrands = await collectStoryBrands();

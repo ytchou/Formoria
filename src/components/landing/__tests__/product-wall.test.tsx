@@ -128,7 +128,7 @@ function buildProduct(index: number): HomepageCuratedProduct {
     nameZh: `${fixture.nameZh}／${index}`,
     nameEn: fixture.nameEn ? `${fixture.nameEn}／${index}` : null,
     category: "home",
-    subcategories: [],
+    subcategory: "tableware",
     mitQualified: false,
     officialUrl: "https://example.com/product",
     imageUrl: `/i/curated-products/p/${index}.jpg`,
@@ -211,7 +211,9 @@ describe("ProductWall", () => {
     ]);
 
     const tiles = Array.from(
-      container.querySelectorAll<HTMLLIElement>("li:not([role='presentation'])"),
+      container.querySelectorAll<HTMLLIElement>(
+        "li:not([role='presentation'])",
+      ),
     );
     expect(tiles).toHaveLength(4);
 
@@ -330,7 +332,9 @@ describe("ProductWall", () => {
     expect(screen.queryByRole("button", { name: labels.showMore })).toBeNull();
     unmount();
 
-    renderWall(productSlots(WALL_MOBILE_VISIBLE_COUNT + WALL_LINE_SIZE_DESKTOP));
+    renderWall(
+      productSlots(WALL_MOBILE_VISIBLE_COUNT + WALL_LINE_SIZE_DESKTOP),
+    );
     expect(
       screen.getByRole("button", { name: labels.showMore }),
     ).toBeInTheDocument();
@@ -338,7 +342,9 @@ describe("ProductWall", () => {
 
   it("reveals with disclosure semantics and keeps focus on the control", async () => {
     const user = userEvent.setup();
-    renderWall(productSlots(WALL_MOBILE_VISIBLE_COUNT + WALL_LINE_SIZE_DESKTOP));
+    renderWall(
+      productSlots(WALL_MOBILE_VISIBLE_COUNT + WALL_LINE_SIZE_DESKTOP),
+    );
 
     const control = screen.getByRole("button", { name: labels.showMore });
     const list = screen.getByRole("list", { name: labels.heading });

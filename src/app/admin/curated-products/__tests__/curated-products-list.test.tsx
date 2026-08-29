@@ -33,7 +33,7 @@ beforeEach(() => {
 });
 
 describe("CuratedProductsList", () => {
-  it("shows two tabs and routes ?stage= to each", async () => {
+  it("shows three mutually exclusive tabs and routes ?stage= to each", async () => {
     const user = userEvent.setup();
     renderList([
       makeProduct({ id: "a", nameZh: "看得見的商品", visible: true }),
@@ -41,10 +41,11 @@ describe("CuratedProductsList", () => {
     ]);
 
     const tabs = screen.getAllByRole("tab");
-    expect(tabs).toHaveLength(2);
+    expect(tabs).toHaveLength(3);
     expect(tabs.map((tab) => tab.textContent)).toEqual([
       "Visible (1)",
       "Hidden (1)",
+      "Needs L2 (0)",
     ]);
 
     await user.click(screen.getByRole("tab", { name: /^Hidden/ }));
@@ -55,6 +56,11 @@ describe("CuratedProductsList", () => {
     await user.click(screen.getByRole("tab", { name: /^Visible/ }));
     expect(navigation.replace).toHaveBeenCalledWith(
       "/admin/curated-products?stage=visible",
+    );
+
+    await user.click(screen.getByRole("tab", { name: /^Needs L2/ }));
+    expect(navigation.replace).toHaveBeenCalledWith(
+      "/admin/curated-products?stage=needs-l2",
     );
   });
 
@@ -81,6 +87,18 @@ describe("CuratedProductsList", () => {
     expect(screen.queryByText("看得見的商品")).not.toBeInTheDocument();
   });
 
+  it("the needs L2 tab lists only products without a canonical L2", () => {
+    renderList(
+      [
+        makeProduct({ id: "a", nameZh: "已分類商品" }),
+        makeProduct({ id: "b", nameZh: "待分類商品", subcategory: null }),
+      ],
+      "needs-l2",
+    );
+    expect(screen.getByText("待分類商品")).toBeInTheDocument();
+    expect(screen.queryByText("已分類商品")).not.toBeInTheDocument();
+  });
+
   it("offers no bulk promote control", () => {
     renderList([makeProduct({ id: "a", nameZh: "看得見的商品" })]);
 
@@ -99,10 +117,14 @@ describe("CuratedProductsList", () => {
     expect(
       screen.getByRole("columnheader", { name: "Visible" }),
     ).toBeInTheDocument();
-    expect(within(rowFor("看得見的商品")).getByText("Visible")).toBeInTheDocument();
+    expect(
+      within(rowFor("看得見的商品")).getByText("Visible"),
+    ).toBeInTheDocument();
 
     renderHiddenTab();
-    expect(within(rowFor("隱藏的商品")).getByText("Hidden")).toBeInTheDocument();
+    expect(
+      within(rowFor("隱藏的商品")).getByText("Hidden"),
+    ).toBeInTheDocument();
   });
 });
 
@@ -129,8 +151,8 @@ function makeProduct(
     key: `key-${overrides.id}`,
     nameZh: "商品",
     nameEn: null,
-    category: "food",
-    subcategories: [],
+    category: "home",
+    subcategory: "tableware",
     officialUrl: "https://brand.example.com/product",
     imageUrl: "https://cdn.example.com/product.webp",
     imageSourceUrl: "https://brand.example.com/product",
@@ -151,7 +173,7 @@ function makeProduct(
 
 function renderList(
   products: AdminCuratedProduct[],
-  initialTab: "visible" | "hidden" = "visible",
+  initialTab: "visible" | "hidden" | "needs-l2" = "visible",
 ) {
   return render(
     <NextIntlClientProvider locale="en" messages={messages}>

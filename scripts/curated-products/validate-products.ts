@@ -1,6 +1,7 @@
 import * as fs from "node:fs";
 
 import { createServiceClient } from "@/lib/supabase/service";
+import { subcategoryBySlug } from "@/lib/taxonomy/ontology";
 
 import { fetchAllRows, parseBrandOption, parseCsvPath } from "./shared";
 
@@ -27,6 +28,8 @@ type Product = {
   id: string;
   key: string;
   brand_id: string;
+  category: string;
+  subcategory: string | null;
   product_description_zh: string | null;
   image_url: string | null;
   official_url: string | null;
@@ -53,7 +56,7 @@ type GateFailure = {
   productId: string;
   key: string;
   brandSlug: string;
-  field: "image_url" | "official_url" | "source_checked_at";
+  field: "image_url" | "official_url" | "source_checked_at" | "subcategory";
 };
 
 type ForbiddenTermHit = {
@@ -196,11 +199,30 @@ export async function validateProducts(
 
   for (const p of products) {
     const slug = resolveBrandSlug(p);
+    const subcategory = p.subcategory ? subcategoryBySlug(p.subcategory) : null;
+    if (!subcategory || subcategory.category !== p.category) {
+      gateFailures.push({
+        productId: p.id,
+        key: p.key,
+        brandSlug: slug,
+        field: "subcategory",
+      });
+    }
     if (p.image_url === null) {
-      gateFailures.push({ productId: p.id, key: p.key, brandSlug: slug, field: "image_url" });
+      gateFailures.push({
+        productId: p.id,
+        key: p.key,
+        brandSlug: slug,
+        field: "image_url",
+      });
     }
     if (p.official_url === null) {
-      gateFailures.push({ productId: p.id, key: p.key, brandSlug: slug, field: "official_url" });
+      gateFailures.push({
+        productId: p.id,
+        key: p.key,
+        brandSlug: slug,
+        field: "official_url",
+      });
     }
   }
 
@@ -232,7 +254,12 @@ export async function validateProducts(
     const slug = resolveBrandSlug(p);
     for (const term of FORBIDDEN_TERMS) {
       if (p.product_description_zh.includes(term)) {
-        forbiddenTerms.push({ productId: p.id, key: p.key, brandSlug: slug, term });
+        forbiddenTerms.push({
+          productId: p.id,
+          key: p.key,
+          brandSlug: slug,
+          term,
+        });
       }
     }
   }
@@ -291,7 +318,8 @@ export async function validateProducts(
 
   // 5. Report
   const hasIssues = gateFailures.length > 0 || forbiddenTerms.length > 0;
-  const hasCsvIssues = csvComparison !== null && csvComparison.overall.matchRate < 0.5;
+  const hasCsvIssues =
+    csvComparison !== null && csvComparison.overall.matchRate < 0.5;
 
   return {
     productCount: products.length,
@@ -315,7 +343,9 @@ function createRealDeps(): ValidateProductsDeps {
       return fetchAllRows<Product>("curated_products", (from, to) => {
         const q = supabase
           .from("curated_products")
-          .select("id, key, brand_id, product_description_zh, image_url, official_url, visible, brands!inner(slug)")
+          .select(
+            "id, key, brand_id, category, subcategory, product_description_zh, image_url, official_url, visible, brands!inner(slug)",
+          )
           .eq("visible", true)
           .order("key")
           .range(from, to);
@@ -350,7 +380,9 @@ async function main() {
 
   // Print report
   console.log(`\n=== Curated Product Validation ===`);
-  console.log(`Products: ${result.productCount} across ${result.brandCount} brands`);
+  console.log(
+    `Products: ${result.productCount} across ${result.brandCount} brands`,
+  );
 
   if (result.gateFailures.length > 0) {
     console.log(`\n--- Gate Failures (${result.gateFailures.length}) ---`);

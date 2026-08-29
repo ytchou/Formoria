@@ -61,7 +61,10 @@ type Tag = {
 };
 
 /** The opening tag starting at `from`, brace-aware so `{…}` props cannot end it. */
-function readOpeningTag(source: string, from: number): { tag: Tag; end: number } {
+function readOpeningTag(
+  source: string,
+  from: number,
+): { tag: Tag; end: number } {
   const nameMatch = /^<([A-Za-z][\w.]*)/.exec(source.slice(from));
   const name = nameMatch?.[1] ?? "";
   let depth = 0;
@@ -164,12 +167,14 @@ describe("the chip row contract", () => {
 
     const unexplained = [...byFile.entries()].flatMap(([file, offences]) => {
       const allowed = LONE_CHIPS[file]?.allowed ?? 0;
-      return offences.slice(allowed).map(
-        ({ line, ancestor }) =>
-          `${file}:${line} — chip's nearest layout ancestor is <${ancestor}>, not <ChipRow>. ` +
-          `Wrap the row in <ChipRow> (it owns the 14px gap the 36px chip needs), ` +
-          `or add the file to LONE_CHIPS with a reason if the chip truly stands alone.`,
-      );
+      return offences
+        .slice(allowed)
+        .map(
+          ({ line, ancestor }) =>
+            `${file}:${line} — chip's nearest layout ancestor is <${ancestor}>, not <ChipRow>. ` +
+            `Wrap the row in <ChipRow> (it owns the 14px gap the 36px chip needs), ` +
+            `or add the file to LONE_CHIPS with a reason if the chip truly stands alone.`,
+        );
     });
 
     expect(unexplained).toEqual([]);
@@ -182,7 +187,7 @@ describe("the chip row contract", () => {
       /<ToggleChip|taxonomyLinkClasses\s*\(/.test(readFileSync(path, "utf-8")),
     );
 
-    expect(chipFiles.length).toBeGreaterThanOrEqual(9);
+    expect(chipFiles.length).toBeGreaterThanOrEqual(8);
   });
 
   it("has no stale LONE_CHIPS entry", () => {

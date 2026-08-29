@@ -24,9 +24,7 @@ import type { CuratedProductProposal } from "@/lib/types/enriched-data";
  * `new` — nothing in the brand's catalog answers to this URL or this key.
  */
 export type CuratedProductProposalState =
-  | "new"
-  | "matched"
-  | "previously-rejected";
+  "new" | "matched" | "previously-rejected";
 
 /**
  * The minimum a diff needs from a `curated_products` row. Structural on
@@ -64,7 +62,7 @@ export type ExistingCuratedProduct = {
   productDescriptionZh?: string | null;
   productDescriptionEn?: string | null;
   category?: string | null;
-  subcategories?: string[] | null;
+  subcategory?: string | null;
   material?: string[] | null;
 };
 

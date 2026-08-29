@@ -74,17 +74,16 @@ describe('normalizeSubcategories', () => {
 
   it('logs every rejection — the closed vocabulary cannot otherwise report its gaps', () => {
     normalizeSubcategories(['手工燈籠', '藍鵲系列襪子'])
-    expect(readRejectedSubcategoryInputs().map((entry) => entry.input)).toEqual([
-      '手工燈籠',
-      '藍鵲系列襪子',
-    ])
+    expect(readRejectedSubcategoryInputs().map((entry) => entry.input)).toEqual(
+      ['手工燈籠', '藍鵲系列襪子'],
+    )
   })
 
-  it('caps at 5 and keeps the two arrays paired', () => {
+  it('keeps every resolved value and the two arrays paired', () => {
     const zh = ['托特包', '後背包', '斜背包', '手提包', '水桶包', '零錢包']
     const result = normalizeSubcategories(zh)
-    expect(result.subcategories).toHaveLength(5)
-    expect(result.subcategoriesEn).toHaveLength(5)
+    expect(result.subcategories).toHaveLength(6)
+    expect(result.subcategoriesEn).toHaveLength(6)
   })
 
   it('splits an unmatched composite and keeps the halves that resolve', () => {
@@ -128,7 +127,10 @@ describe('resolveSubcategorySelection', () => {
   })
 
   it('resolves a canonical nameZh, an alias and an English name to the same slug', () => {
-    expect(resolveSubcategorySelection('洋裝')).toMatchObject({ ok: true, slug: 'dresses' })
+    expect(resolveSubcategorySelection('洋裝')).toMatchObject({
+      ok: true,
+      slug: 'dresses',
+    })
     expect(resolveSubcategorySelection('T恤')).toMatchObject({
       ok: true,
       slug: 'tops-and-tshirts',
@@ -155,7 +157,10 @@ describe('resolveSubcategorySelection', () => {
       ok: false,
       reason: 'unknown-term',
     })
-    expect(resolveSubcategorySelection('   ')).toEqual({ ok: false, reason: 'empty' })
+    expect(resolveSubcategorySelection('   ')).toEqual({
+      ok: false,
+      reason: 'empty',
+    })
   })
 
   it('agrees with isKnownSubcategoryTerm — one vocabulary, one membership rule', () => {
@@ -189,7 +194,10 @@ describe('resolveSubcategorySelection', () => {
 
 describe('the rejected-input log', () => {
   it('records the input, the surface and when it happened', () => {
-    recordRejectedSubcategoryInput({ input: '止滑墊', surface: 'correction-dialog' })
+    recordRejectedSubcategoryInput({
+      input: '止滑墊',
+      surface: 'correction-dialog',
+    })
     const [entry] = readRejectedSubcategoryInputs()
     expect(entry?.input).toBe('止滑墊')
     expect(entry?.surface).toBe('correction-dialog')
@@ -205,7 +213,10 @@ describe('the rejected-input log', () => {
 
   it('never lets an unbounded client session grow the buffer without limit', () => {
     for (let index = 0; index < 260; index++) {
-      recordRejectedSubcategoryInput({ input: `gap-${index}`, surface: 'test' })
+      recordRejectedSubcategoryInput({
+        input: `gap-${index}`,
+        surface: 'test',
+      })
     }
     const entries = readRejectedSubcategoryInputs()
     expect(entries.length).toBeLessThanOrEqual(200)
@@ -216,7 +227,9 @@ describe('the rejected-input log', () => {
 
 describe('deriveCategoryFromSubcategories', () => {
   it('derives the only L1 represented by the stored slugs', () => {
-    expect(deriveCategoryFromSubcategories(['furniture', 'candles'])).toBe('home')
+    expect(deriveCategoryFromSubcategories(['furniture', 'candles'])).toBe(
+      'home',
+    )
   })
 
   it('still reads pre-migration labels', () => {
@@ -224,26 +237,30 @@ describe('deriveCategoryFromSubcategories', () => {
   })
 
   it('uses the unique winner when the slugs span L1s', () => {
-    expect(deriveCategoryFromSubcategories(['casual-shoes', 'dresses', 'furniture'])).toBe(
-      'fashion',
-    )
+    expect(
+      deriveCategoryFromSubcategories(['casual-shoes', 'dresses', 'furniture']),
+    ).toBe('fashion')
   })
 
   it('leaves tied or entirely unknown sets uncategorized', () => {
-    expect(deriveCategoryFromSubcategories(['casual-shoes', 'furniture'])).toBeNull()
+    expect(
+      deriveCategoryFromSubcategories(['casual-shoes', 'furniture']),
+    ).toBeNull()
     expect(deriveCategoryFromSubcategories(['學步鞋', '機能鞋'])).toBeNull()
   })
 })
 
 describe('applySubcategoryDelta', () => {
   it('removes and dedupes on the ontology matching key, keeping first casing', () => {
-    expect(applySubcategoryDelta(['Vegan'], { add: ['vegan'], remove: [] })).toEqual([
-      'Vegan',
-    ])
-    expect(applySubcategoryDelta([], { add: ['Vegan', 'vegan'], remove: [] })).toEqual([
-      'Vegan',
-    ])
-    expect(applySubcategoryDelta(['Vegan'], { add: [], remove: ['vegan'] })).toEqual([])
+    expect(
+      applySubcategoryDelta(['Vegan'], { add: ['vegan'], remove: [] }),
+    ).toEqual(['Vegan'])
+    expect(
+      applySubcategoryDelta([], { add: ['Vegan', 'vegan'], remove: [] }),
+    ).toEqual(['Vegan'])
+    expect(
+      applySubcategoryDelta(['Vegan'], { add: [], remove: ['vegan'] }),
+    ).toEqual([])
   })
 
   it('preserves order and leaves unrelated slugs alone', () => {
@@ -274,8 +291,12 @@ describe('deriveSubcategoriesEn', () => {
 
   it('lets a vocabulary hit override a stale stored EN', () => {
     // The DEV-1266 drift case: '後背包' was stored as 'Backpack'.
-    expect(deriveSubcategoriesEn(['backpacks'], ['Backpack'])).toEqual(['Backpacks'])
-    expect(deriveSubcategoriesEn(['後背包'], ['backpack'])).toEqual(['Backpacks'])
+    expect(deriveSubcategoriesEn(['backpacks'], ['Backpack'])).toEqual([
+      'Backpacks',
+    ])
+    expect(deriveSubcategoriesEn(['後背包'], ['backpack'])).toEqual([
+      'Backpacks',
+    ])
   })
 
   it('keeps a value the vocabulary does not know, Title Cased from its stored EN', () => {
@@ -286,9 +307,8 @@ describe('deriveSubcategoriesEn', () => {
   })
 
   it('aligns existingEn by index and ignores a shorter stored array', () => {
-    expect(deriveSubcategoriesEn(['backpacks', '手工燈籠'], ['backpack'])).toEqual([
-      'Backpacks',
-      '手工燈籠',
-    ])
+    expect(
+      deriveSubcategoriesEn(['backpacks', '手工燈籠'], ['backpack']),
+    ).toEqual(['Backpacks', '手工燈籠'])
   })
 })

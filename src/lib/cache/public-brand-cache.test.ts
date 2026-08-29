@@ -34,6 +34,8 @@ describe("revalidatePublicBrands", () => {
         ["/en/brands/kiln"],
         ["/"],
         ["/en"],
+        ["/discover"],
+        ["/en/discover"],
         ["/about"],
         ["/en/about"],
         ["/sitemap.xml"],

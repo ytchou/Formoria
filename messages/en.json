@@ -293,7 +293,10 @@
       "cta": "Go to the brand's official website",
       "unavailable": "This product page is temporarily unreachable.",
       "brandSiteCta": "Go to the brand's website",
-      "madeInTaiwan": "Made in Taiwan"
+      "madeInTaiwan": "Made in Taiwan",
+      "previous": "Previous products",
+      "next": "Next products",
+      "moreCategories": "Show {count} more product categories"
     },
     "verified": "Brand-managed",
     "foundingYear": "Est. {year}",
@@ -410,9 +413,9 @@
       "currentSubcategoriesHeading": "Current (tap to remove)",
       "changeToHeading": "Change to",
       "addSubcategoriesHeading": "Categories you can add",
-      "subcategoriesSubtitle": "Product subcategories (up to 5, any category)",
-      "subcategoriesSelected": "Selected {count} / 5",
-      "subcategoriesLimit": "Select up to 5 product subcategories.",
+      "subcategoriesSubtitle": "Product subcategories from any category. Product-backed subcategories remain while a visible product uses them.",
+      "subcategoriesSelected": "Selected {count}",
+      "subcategoriesLimit": "Product-backed subcategories remain until the product is hidden or reassigned.",
       "success": "Correction submitted. Thank you for helping keep this listing accurate.",
       "subcategorySearchLabel": "Search subcategories",
       "subcategorySearchHint": "Type to filter, then pick a chip below to add it.",
@@ -421,7 +424,6 @@
       "errors": {
         "invalid_brand": "This brand could not be found. Please refresh and try again.",
         "invalid_value": "That correction is not valid. Please choose another value.",
-        "too_many_subcategories": "A brand can have at most 5 product subcategories.",
         "unchanged": "This correction does not change the current information.",
         "already_submitted": "This correction has already been submitted. Please wait for review.",
         "rate_limited": "Too many correction submissions. Please try again later.",
@@ -1745,7 +1747,7 @@
     "fieldCategoryHint": "Used for navigation, search, and filtering",
     "fieldDescription": "Description",
     "fieldSubcategories": "Product subcategories",
-    "subcategoriesMax": "Up to 5 subcategories. Describe products, not promotional claims.",
+    "subcategoriesMax": "Describe product categories, not promotional claims. Categories used by visible products remain until those products are hidden or reassigned.",
     "fieldFoundingYear": "Founding Year",
     "fieldHeroImage": "Hero Image",
     "heroImageEditHint": "One image only. This is the first image on your brand page and the cover used on masonry brand cards. Use a clear 16:9 landscape image.",
@@ -2225,10 +2227,8 @@
       "stale": "Brand data changed after submission",
       "novelSubcategory": "Not in taxonomy",
       "novelSubcategoryTitle": "Approving this adds a display-only subcategory: it matches no ?sub= filter, so it will not appear in directory filtering.",
-      "tooManySubcategories": "Cannot approve: the result would exceed 5 product subcategories",
       "bulkApprove": "Approve {count} selected",
       "bulkReject": "Reject {count} selected",
-      "capBlocker": "{projected} subcategories after apply — the limit for this brand is {limit}",
       "actions": {
         "approve": "Approve",
         "reject": "Reject"
@@ -2371,7 +2371,7 @@
       "missingFields": {
         "description": "Description",
         "categorySlug": "Valid brand category",
-        "subcategories": "1–5 product subcategories",
+        "subcategories": "At least 1 product subcategory",
         "website": "Valid official website",
         "heroImage": "Hero image",
         "successfulEnrichment": "Successful latest enrichment"
@@ -2417,6 +2417,8 @@
           "officialUrl": "Official product URL",
           "sources": "Sources",
           "locked": "Already in this brand's catalog. Approval creates products only from new proposals, so a tick or an edit here has no effect.",
+          "needsL2": "Choose a product subcategory before this proposal can be kept or published.",
+          "needsL2Option": "Needs product subcategory",
           "save": "Save product selection and edits"
         },
         "subcategories": "Product subcategories",
@@ -2430,7 +2432,7 @@
         "subcategoriesSearchHint": "Type to filter, then pick a subcategory below.",
         "subcategoriesSelectedHeading": "Selected (click to remove)",
         "subcategoriesOptionsHeading": "Subcategories you can add",
-        "subcategoriesLimit": "Up to 5 product subcategories.",
+        "subcategoriesLimit": "Product-backed subcategories remain until the product is hidden or reassigned.",
         "subcategoriesRejected": "That term is not in the subcategory list. Pick the closest one from the list below.",
         "subcategoriesEmpty": "No subcategory matches that search. Try another word."
       },
@@ -2503,7 +2505,8 @@
       "collapseProduct": "Hide details for {name}",
       "tabs": {
         "visible": "Visible",
-        "hidden": "Hidden"
+        "hidden": "Hidden",
+        "needs-l2": "Needs L2"
       },
       "table": {
         "brand": "Brand",
@@ -2546,6 +2549,7 @@
         "nameEn": "Product name (English)",
         "l1": "Product category",
         "l2": "Product subcategory",
+        "l2None": "Needs product subcategory",
         "officialUrl": "Official product URL",
         "imageSourceUrl": "Image page URL",
         "imageHint": "The image is downloaded, converted to WebP, and stored when you save. GIF and SVG are rejected; use a JPEG, PNG, or WebP source.",
@@ -2565,7 +2569,8 @@
         "removeSource": "Remove source",
         "sourcesChecked": "I opened and read every source listed here",
         "visible": "Show this product on the site",
-        "visibleHint": "A new product starts hidden. Tick this box and save to publish it; clear it and save to take it down.",
+        "visibleHint": "A new product starts hidden and publishes only after its sources, image, and product subcategory are saved.",
+        "visibleNeedsL2": "Choose a product subcategory before publishing.",
         "sourcesCheckedPublishedHint": "This product is published. Clearing this box removes it from the brand page as soon as you save.",
         "uncheckSourcesTitle": "Remove this product from the brand page?",
         "uncheckSourcesDescription": "A published product only shows on the brand page while the sources are marked as read. Clearing this box removes it from the brand page when you save. Tick the box again and save to put it back, or use “Retire product” if you want it gone for good.",

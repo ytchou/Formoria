@@ -70,7 +70,7 @@ function product(
     nameZh: "Ceramic teacup",
     nameEn: "Ceramic teacup",
     category: "home",
-    subcategories: ["tableware"],
+    subcategory: "tableware",
     officialUrl: "https://kilnandclay.example.com/teacup",
     imageUrl: null,
     imageSourceUrl: null,
@@ -134,9 +134,9 @@ describe("CuratedProductEditor", () => {
     expect(container.querySelector('[id*="wall-position"]')).toBeNull();
     expect(container.querySelector('[id*="image-usage"]')).toBeNull();
     for (const element of container.querySelectorAll("[aria-describedby]")) {
-      for (const id of (
-        element.getAttribute("aria-describedby") ?? ""
-      ).split(/\s+/)) {
+      for (const id of (element.getAttribute("aria-describedby") ?? "").split(
+        /\s+/,
+      )) {
         expect(container.querySelector(`#${CSS.escape(id)}`)).not.toBeNull();
       }
     }

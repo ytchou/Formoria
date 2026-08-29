@@ -1,9 +1,8 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { createServiceClient } from "@/lib/supabase/service";
-import {
-  excludeTestBrands,
-} from "@/lib/services/public-brand-filter";
+import { excludeTestBrands } from "@/lib/services/public-brand-filter";
 import type { BrandVisitLinkFields } from "@/lib/brands/link-fallback";
+import { L2_SUBCATEGORIES, subcategoryBySlug } from "@/lib/taxonomy/ontology";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -16,7 +15,8 @@ export type CatalogProduct = {
   nameZh: string;
   nameEn: string | null;
   category: string;
-  subcategories: string[];
+  subcategory: string;
+  createdAt: string;
   imageUrl: string | null;
   officialUrl: string | null;
   brandSlug: string;
@@ -43,7 +43,9 @@ export type CatalogProductRow = {
   name_zh: string;
   name_en: string | null;
   category: string;
-  subcategories: string[] | null;
+  subcategory?: string | null;
+  subcategories?: string[] | null;
+  created_at: string;
   image_url: string | null;
   official_url: string | null;
   brands: CatalogBrandRow | null;
@@ -53,10 +55,27 @@ export type CatalogProductRow = {
 // Transformer — exported for tests (no Supabase mock needed)
 // ---------------------------------------------------------------------------
 
+function canonicalCatalogSubcategory(row: CatalogProductRow): string | null {
+  const candidate =
+    typeof row.subcategory === "string"
+      ? row.subcategory
+      : row.subcategories?.length === 1
+        ? row.subcategories[0]!
+        : null;
+  const subcategory = candidate ? subcategoryBySlug(candidate) : null;
+  return subcategory?.category === row.category ? subcategory.slug : null;
+}
+
 export function transformCatalogRow(row: CatalogProductRow): CatalogProduct {
   const brand = row.brands;
   if (!brand) {
     throw new Error(`Catalog product ${row.id} is missing its brand`);
+  }
+  const subcategory = canonicalCatalogSubcategory(row);
+  if (!subcategory) {
+    throw new Error(
+      `Catalog product ${row.id} is missing a canonical subcategory`,
+    );
   }
   return {
     id: row.id,
@@ -64,7 +83,8 @@ export function transformCatalogRow(row: CatalogProductRow): CatalogProduct {
     nameZh: row.name_zh,
     nameEn: row.name_en ?? null,
     category: row.category,
-    subcategories: row.subcategories ?? [],
+    subcategory,
+    createdAt: row.created_at,
     imageUrl: row.image_url ?? null,
     officialUrl: row.official_url ?? null,
     brandSlug: brand.slug,
@@ -86,14 +106,16 @@ export function transformCatalogRow(row: CatalogProductRow): CatalogProduct {
 // Query
 // ---------------------------------------------------------------------------
 
-const CATALOG_SELECT = `
-  id, key, name_zh, name_en, category, subcategories,
+const catalogSelect = (legacy: boolean) => `
+  id, key, name_zh, name_en, category, ${legacy ? "subcategories" : "subcategory"}, created_at,
   image_url, official_url,
   curated_product_sources!inner(id),
   brands!inner(slug, name, status, purchase_website, purchase_pinkoi, purchase_shopee, purchase_myship, social_instagram, social_threads, social_facebook)
 `;
 
 const DEFAULT_PAGE_SIZE = 12;
+const CATALOG_RANGE_SIZE = 500;
+const CATALOG_MAX_RANGES = 200;
 
 export type CatalogQueryOptions = {
   category?: string | null;
@@ -102,14 +124,20 @@ export type CatalogQueryOptions = {
   pageSize?: number;
 };
 
+type CatalogFilterQuery = {
+  not(column: string, operator: string, value: string): CatalogFilterQuery;
+};
+
 /**
  * Published curated products for the /discover catalog, with optional category
  * filtering and pagination. Shares the publication/evidence gates of the
  * homepage read: visible, has official_url, source_checked_at, at least one
- * active source, approved brand, non-null image.
+ * active source and approved brand. Products without mirrored images remain
+ * eligible.
  */
 export async function getPublishedCuratedProducts(
   options: CatalogQueryOptions = {},
+  client?: Pick<SupabaseClient, "from">,
 ): Promise<{ products: CatalogProduct[]; totalCount: number }> {
   const {
     category,
@@ -117,36 +145,145 @@ export async function getPublishedCuratedProducts(
     page = 1,
     pageSize = DEFAULT_PAGE_SIZE,
   } = options;
-  const offset = (page - 1) * pageSize;
-
   const supabase: Pick<SupabaseClient, "from"> =
-    createServiceClient() as unknown as Pick<SupabaseClient, "from">;
+    client ??
+    (createServiceClient() as unknown as Pick<SupabaseClient, "from">);
 
-  let query = supabase
-    .from("curated_products")
-    .select(CATALOG_SELECT, { count: "exact", head: false })
-    .eq("visible", true)
-    .not("official_url", "is", null)
-    .not("source_checked_at", "is", null)
-    .eq("curated_product_sources.state", "active")
-    .eq("brands.status", "approved");
+  const readAll = async (legacy: boolean): Promise<CatalogProductRow[]> => {
+    const rows: CatalogProductRow[] = [];
+    for (let range = 0; range < CATALOG_MAX_RANGES; range += 1) {
+      const from = range * CATALOG_RANGE_SIZE;
+      let query = supabase
+        .from("curated_products")
+        .select(catalogSelect(legacy))
+        .eq("visible", true)
+        .not("official_url", "is", null)
+        .not("source_checked_at", "is", null)
+        .eq("curated_product_sources.state", "active")
+        .eq("brands.status", "approved");
+      if (category) query = query.eq("category", category);
+      if (subcategory) {
+        query = legacy
+          ? query.contains("subcategories", [subcategory])
+          : query.eq("subcategory", subcategory);
+      }
+      const filtered = excludeTestBrands(
+        query as unknown as CatalogFilterQuery,
+        "brands.name",
+      ) as unknown as typeof query;
+      const { data, error } = await filtered
+        .order("created_at", { ascending: false })
+        .order("id", { ascending: true })
+        .range(from, from + CATALOG_RANGE_SIZE - 1);
+      if (error) throw error;
+      const pageRows = (data ?? []) as unknown as CatalogProductRow[];
+      rows.push(...pageRows);
+      if (pageRows.length < CATALOG_RANGE_SIZE) return rows;
+    }
+    throw new Error(
+      `Discover catalog read exceeded ${CATALOG_MAX_RANGES} ranges`,
+    );
+  };
 
-  if (category) {
-    query = query.eq("category", category);
+  let rawRows: CatalogProductRow[];
+  try {
+    rawRows = await readAll(false);
+  } catch (error) {
+    const code = (error as { code?: string }).code;
+    const message = (error as { message?: string }).message ?? "";
+    if (
+      (code !== "42703" && code !== "PGRST204") ||
+      !/\bsubcategory\b/u.test(message)
+    ) {
+      throw error;
+    }
+    rawRows = await readAll(true);
   }
-  if (subcategory) {
-    query = query.contains("subcategories", [subcategory]);
-  }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Supabase query builder generic depth exceeds TS limit (TS2589)
-  const filtered = excludeTestBrands(query as any, "brands.name") as typeof query;
-  const final = filtered.order("created_at", { ascending: false }).range(offset, offset + pageSize - 1);
-
-  const { data, count, error } = await final;
-  if (error) throw error;
-
-  const products = ((data ?? []) as unknown as CatalogProductRow[])
+  const allProducts = rawRows
+    .filter((row) => canonicalCatalogSubcategory(row) !== null)
     .map(transformCatalogRow);
+  const ordered = interleaveCatalogProducts(allProducts);
+  const offset = (page - 1) * pageSize;
+  return {
+    products: ordered.slice(offset, offset + pageSize),
+    totalCount: ordered.length,
+  };
+}
 
-  return { products, totalCount: count ?? 0 };
+/** Brand round-robin with an independent L2 rotation inside each brand. */
+export function interleaveCatalogProducts(
+  products: readonly CatalogProduct[],
+): CatalogProduct[] {
+  const ontologyOrder = new Map(
+    L2_SUBCATEGORIES.map((node, index) => [node.slug, index]),
+  );
+  const byBrand = new Map<string, CatalogProduct[]>();
+  for (const product of products) {
+    const queue = byBrand.get(product.brandSlug) ?? [];
+    queue.push(product);
+    byBrand.set(product.brandSlug, queue);
+  }
+  const brands = [...byBrand.entries()]
+    .map(([slug, rows]) => {
+      const grouped = new Map<string, CatalogProduct[]>();
+      for (const row of rows) {
+        const queue = grouped.get(row.subcategory) ?? [];
+        queue.push(row);
+        grouped.set(row.subcategory, queue);
+      }
+      for (const queue of grouped.values()) {
+        queue.sort(
+          (left, right) =>
+            right.createdAt.localeCompare(left.createdAt) ||
+            left.id.localeCompare(right.id),
+        );
+      }
+      return {
+        slug,
+        newest:
+          [...rows].sort(
+            (left, right) =>
+              right.createdAt.localeCompare(left.createdAt) ||
+              left.id.localeCompare(right.id),
+          )[0]?.createdAt ?? "",
+        queues: [...grouped.entries()]
+          .map(([subcategory, queue]) => ({ subcategory, queue: [...queue] }))
+          .sort(
+            (left, right) =>
+              (right.queue[0]?.createdAt ?? "").localeCompare(
+                left.queue[0]?.createdAt ?? "",
+              ) ||
+              (ontologyOrder.get(left.subcategory) ?? Number.MAX_SAFE_INTEGER) -
+                (ontologyOrder.get(right.subcategory) ??
+                  Number.MAX_SAFE_INTEGER),
+          ),
+        cursor: 0,
+      };
+    })
+    .sort(
+      (left, right) =>
+        right.newest.localeCompare(left.newest) ||
+        left.slug.localeCompare(right.slug),
+    );
+
+  const ordered: CatalogProduct[] = [];
+  let remaining = products.length;
+  while (remaining > 0) {
+    for (const brand of brands) {
+      if (brand.queues.length === 0) continue;
+      let attempts = 0;
+      while (attempts < brand.queues.length) {
+        const index = brand.cursor % brand.queues.length;
+        const product = brand.queues[index]?.queue.shift();
+        brand.cursor = (index + 1) % brand.queues.length;
+        attempts += 1;
+        if (!product) continue;
+        ordered.push(product);
+        remaining -= 1;
+        break;
+      }
+    }
+  }
+  return ordered;
 }

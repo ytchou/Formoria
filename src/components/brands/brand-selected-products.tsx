@@ -1,13 +1,18 @@
 import { getTranslations } from "next-intl/server";
-import { Grid } from "@/components/ui/grid";
 import { Typography } from "@/components/ui/typography";
 import type { AppLocale } from "@/i18n/locale-preference";
 import type { BrandVisitLinkFields } from "@/lib/brands/link-fallback";
 import type { CuratedProduct } from "@/lib/services/curated-products";
+import { subcategoryBySlug, subcategoryLabel } from "@/lib/taxonomy/ontology";
+import {
+  groupProductsIntoRails,
+  type ProductRailGroup,
+} from "@/lib/curated-products/brand-rails";
 import {
   SelectedProductTile,
   type SelectedProductTileLabels,
 } from "./selected-product-tile";
+import { ProductRail } from "./product-rail";
 
 export type BrandSelectedProductsProps = {
   locale: AppLocale;
@@ -37,6 +42,38 @@ export async function BrandSelectedProducts({
     unavailable: t("unavailable"),
     madeInTaiwan: t("madeInTaiwan"),
   };
+  const rails = groupProductsIntoRails(products);
+  const renderRail = ({
+    subcategory,
+    products: railProducts,
+  }: ProductRailGroup) => {
+    const node = subcategoryBySlug(subcategory);
+    const heading = node ? subcategoryLabel(node, locale) : subcategory;
+    return (
+      <section key={subcategory} className="space-y-4">
+        <Typography as="h3" variant="cardTitle">
+          {heading}
+        </Typography>
+        <ProductRail
+          ariaLabel={heading}
+          previousLabel={t("previous")}
+          nextLabel={t("next")}
+        >
+          {railProducts.map((product) => (
+            <SelectedProductTile
+              key={product.key}
+              locale={locale}
+              product={product}
+              labels={labels}
+              mode="outbound"
+              showsTrustLabel
+              brand={brand}
+            />
+          ))}
+        </ProductRail>
+      </section>
+    );
+  };
 
   return (
     <section className="space-y-stack" data-brand-selected-products>
@@ -49,25 +86,17 @@ export async function BrandSelectedProducts({
         </Typography>
       </div>
 
-      <Grid as="ul" cols="thirds" className="list-none gap-y-stack p-0">
-        {products.map((product) => (
-          <SelectedProductTile
-            key={product.key}
-            locale={locale}
-            product={product}
-            labels={labels}
-            mode="outbound"
-            // THE ONE SURFACE THAT ASKS FOR THE TRUST LABEL (D11). Here a
-            // selected product sits among the brand's other things, so the
-            // label distinguishes something; on the homepage wall and in a
-            // trail every tile is selected and it would distinguish nothing.
-            // A flag, not a string: `TrustLabel` reads the text from
-            // `trustLabel.selected`, the one place that sentence is spelled.
-            showsTrustLabel
-            brand={brand}
-          />
-        ))}
-      </Grid>
+      <div className="space-y-stack">{rails.slice(0, 3).map(renderRail)}</div>
+      {rails.length > 3 ? (
+        <details className="border-t border-rule pt-4">
+          <summary className="min-h-12 cursor-pointer type-body-sm font-medium text-accent">
+            {t("moreCategories", { count: rails.length - 3 })}
+          </summary>
+          <div className="mt-stack space-y-stack">
+            {rails.slice(3).map(renderRail)}
+          </div>
+        </details>
+      ) : null}
     </section>
   );
 }

@@ -564,7 +564,7 @@ const mugProposal: CuratedProductProposal = {
   nameZh: "柴燒手感馬克杯",
   nameEn: "Wood-fired Mug",
   category: "home",
-  subcategories: ["tableware"],
+  subcategory: "tableware",
   material: ["ceramic"],
   officialUrl: "https://taoqi.com.tw/products/wood-fired-mug",
   productDescriptionZh:
@@ -582,7 +582,7 @@ const trayProposal: CuratedProductProposal = {
   nameZh: "竹編手織托盤",
   nameEn: "Handwoven Bamboo Tray",
   category: "home",
-  subcategories: ["storage"],
+  subcategory: "storage",
   material: ["bamboo"],
   officialUrl: "https://taoqi.com.tw/products/bamboo-tray",
   productDescriptionZh: "南投竹山的桂竹，師傅手工編成的方形托盤，可以水洗。",

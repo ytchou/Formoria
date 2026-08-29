@@ -88,7 +88,7 @@ function eligibleProductsQuery(
     .eq("visible", true)
     .not("official_url", "is", null)
     .not("source_checked_at", "is", null)
-    .not("image_url", "is", null)
+    .not("subcategory", "is", null)
     .eq("curated_product_sources.state", "active")
     .eq("brands.status", "approved")
     .not("brands.name", "like", TEST_BRAND_NAME_PATTERN)
@@ -178,12 +178,12 @@ export async function requireWallOrSkip(
   const supply = await homepageSupplyCount(client);
   if (supply !== null && supply >= MIN_HOME_CURATED_PRODUCTS) {
     throw new Error(
-      `The homepage selection zone is missing while ${supply} curated products `
-        + "clear the homepage publication gate — at or above "
-        + `MIN_HOME_CURATED_PRODUCTS (${MIN_HOME_CURATED_PRODUCTS}). The wall `
-        + "regressed — it did not fall below its supply gate. See DEV-1490 for "
-        + "the last cause: a build that prerendered against a pre-migration "
-        + "schema.",
+      `The homepage selection zone is missing while ${supply} curated products ` +
+        "clear the homepage publication gate — at or above " +
+        `MIN_HOME_CURATED_PRODUCTS (${MIN_HOME_CURATED_PRODUCTS}). The wall ` +
+        "regressed — it did not fall below its supply gate. See DEV-1490 for " +
+        "the last cause: a build that prerendered against a pre-migration " +
+        "schema.",
     );
   }
 

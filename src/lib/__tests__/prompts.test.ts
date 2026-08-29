@@ -25,7 +25,9 @@ import { L1_CATEGORIES, MATERIALS } from "@/lib/taxonomy/ontology";
 const SLUG_LINE = /^- ([a-z][a-z0-9-]*): /gmu;
 
 function listedSlugs(): string[] {
-  return [...PRODUCTS_SYSTEM_PROMPT.matchAll(SLUG_LINE)].map((match) => match[1]!);
+  return [...PRODUCTS_SYSTEM_PROMPT.matchAll(SLUG_LINE)].map(
+    (match) => match[1]!,
+  );
 }
 
 const CATEGORY_SLUGS: string[] = L1_CATEGORIES.map((category) => category.slug);
@@ -44,7 +46,9 @@ describe("PRODUCTS_SYSTEM_PROMPT", () => {
     expect(listed.filter((slug) => CATEGORY_SLUGS.includes(slug))).toHaveLength(
       CATEGORY_SLUGS.length,
     );
-    expect(PRODUCTS_SYSTEM_PROMPT).toContain("category (single select, use only the following slugs)");
+    expect(PRODUCTS_SYSTEM_PROMPT).toContain(
+      "category (single select, use only the following slugs)",
+    );
   });
 
   it("products_prompt_lists_the_twelve_materials", () => {
@@ -61,8 +65,16 @@ describe("PRODUCTS_SYSTEM_PROMPT", () => {
     // Exactly the two vocabularies and nothing else — this is the assertion that
     // fails on a thirteenth material added to the prompt but not to MATERIALS
     // (whose CHECK constraint would 23514 the write).
-    expect(new Set(listed)).toEqual(new Set([...CATEGORY_SLUGS, ...MATERIAL_SLUGS]));
-    for (const absent of ["plastic", "silicone", "resin", "acrylic", "concrete"]) {
+    expect(new Set(listed)).toEqual(
+      new Set([...CATEGORY_SLUGS, ...MATERIAL_SLUGS]),
+    );
+    for (const absent of [
+      "plastic",
+      "silicone",
+      "resin",
+      "acrylic",
+      "concrete",
+    ]) {
       expect(listed).not.toContain(absent);
     }
     // Slug-only, because `createCuratedProduct`'s material normalisation is
@@ -84,7 +96,9 @@ describe("PRODUCTS_SYSTEM_PROMPT", () => {
       "shipping",
       "pre-order",
     ]) {
-      expect(PRODUCTS_SYSTEM_PROMPT.toLowerCase()).toContain(forbidden.toLowerCase());
+      expect(PRODUCTS_SYSTEM_PROMPT.toLowerCase()).toContain(
+        forbidden.toLowerCase(),
+      );
     }
     expect(PRODUCTS_SYSTEM_PROMPT).toContain(
       "The following facts must never be written in any field, even if the source page clearly states them",
@@ -115,17 +129,24 @@ describe("PRODUCTS_SYSTEM_PROMPT", () => {
     expect(PRODUCTS_SYSTEM_PROMPT).toContain(
       "When no products qualify, still return two empty arrays",
     );
-    expect(PRODUCTS_SYSTEM_PROMPT).toContain("never make the top level an array");
+    expect(PRODUCTS_SYSTEM_PROMPT).toContain(
+      "never make the top level an array",
+    );
     expect(PRODUCTS_SYSTEM_PROMPT).not.toMatch(/^\[\{/m);
   });
 
-  it("products_prompt_caps_five_proposals_and_demands_a_source", () => {
-    expect(PRODUCTS_SYSTEM_PROMPT).toContain("3-5");
-    expect(PRODUCTS_SYSTEM_PROMPT).toContain("do not pad");
-    expect(PRODUCTS_SYSTEM_PROMPT).toContain("do not output products without sources");
+  it("products_prompt_uses_the_twenty_item_score_window_and_demands_a_source", () => {
+    expect(PRODUCTS_SYSTEM_PROMPT).toContain("up to 20 products");
+    expect(PRODUCTS_SYSTEM_PROMPT).toContain("best valid score minus 15");
+    expect(PRODUCTS_SYSTEM_PROMPT).toContain("Never pad");
+    expect(PRODUCTS_SYSTEM_PROMPT).toContain(
+      "do not output products without sources",
+    );
     // The one editorial text field carries durable facts only: DEV-1496 abolished
     // the per-product selection reason, so the prompt must not ask for one back.
-    expect(PRODUCTS_SYSTEM_PROMPT).toContain("Do not write editorial selection reasons");
+    expect(PRODUCTS_SYSTEM_PROMPT).toContain(
+      "Do not write editorial selection reasons",
+    );
     expect(PRODUCTS_SYSTEM_PROMPT).toContain(
       "official_url must be this specific product's own product page",
     );

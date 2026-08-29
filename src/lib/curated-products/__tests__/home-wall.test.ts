@@ -8,6 +8,7 @@ import {
   wallSeedForDate,
 } from "../home-wall";
 import { MAX_HOME_CURATED_PRODUCTS_PER_BRAND } from "../wall-ratio";
+import { groupProductsIntoRails } from "../brand-rails";
 
 function product(
   key: string,
@@ -20,7 +21,7 @@ function product(
     nameZh: key,
     nameEn: key,
     category: "home",
-    subcategories: [],
+    subcategory: "tableware",
     mitQualified: false,
     officialUrl: `https://example.com/${key}`,
     imageUrl: `https://images.example.com/${key}.webp`,
@@ -126,9 +127,9 @@ describe("buildWallSlots", () => {
       product(`p-${index}`),
     );
     const keys = () =>
-      productSlots(
-        buildWallSlots({ products, seed: SEED }),
-      ).map((slot) => slot.product.key);
+      productSlots(buildWallSlots({ products, seed: SEED })).map(
+        (slot) => slot.product.key,
+      );
 
     expect(keys()).toEqual(keys());
   });
@@ -138,9 +139,9 @@ describe("buildWallSlots", () => {
       product(`p-${index}`),
     );
     const keysFor = (seed: string) =>
-      productSlots(
-        buildWallSlots({ products, seed }),
-      ).map((slot) => slot.product.key);
+      productSlots(buildWallSlots({ products, seed })).map(
+        (slot) => slot.product.key,
+      );
 
     expect(keysFor(SEED)).not.toEqual(keysFor(OTHER_SEED));
   });
@@ -157,7 +158,10 @@ describe("buildWallSlots", () => {
       expect(values).not.toContain("2x1");
     }
 
-    const wallModule = (await import("../home-wall")) as Record<string, unknown>;
+    const wallModule = (await import("../home-wall")) as Record<
+      string,
+      unknown
+    >;
     expect(wallModule.MAX_HOME_WALL_ANCHOR_RATIO).toBeUndefined();
   });
 
@@ -180,9 +184,7 @@ describe("buildWallSlots", () => {
       ),
     ];
 
-    const slots = productSlots(
-      buildWallSlots({ products, seed: SEED }),
-    );
+    const slots = productSlots(buildWallSlots({ products, seed: SEED }));
 
     expect(slots).toHaveLength(16);
     expect(slots.map((slot) => slot.product.key)).toEqual(
@@ -194,7 +196,10 @@ describe("buildWallSlots", () => {
 
   it("caps each brand at MAX_HOME_CURATED_PRODUCTS_PER_BRAND", () => {
     const shared = Array.from({ length: 5 }, (_, index) =>
-      product(`shared-${index}`, { brandId: "brand-shared", category: "beauty" }),
+      product(`shared-${index}`, {
+        brandId: "brand-shared",
+        category: "beauty",
+      }),
     );
     const slots = buildWallSlots({
       products: [
@@ -230,13 +235,79 @@ describe("buildWallSlots", () => {
     expect(visiblePair(SEED)).toHaveLength(2);
     expect(visiblePair(SEED)).not.toEqual(visiblePair(OTHER_SEED));
   });
+
+  it("keeps the daily first product and prefers a different L2 for the brand's second", () => {
+    // Catches a plain take-two cap that can spend both brand slots on one L2.
+    const products = [
+      product("table-1", { brandId: "brand-shared", subcategory: "tableware" }),
+      product("table-2", { brandId: "brand-shared", subcategory: "tableware" }),
+      product("table-3", { brandId: "brand-shared", subcategory: "tableware" }),
+      product("candle", { brandId: "brand-shared", subcategory: "candles" }),
+    ];
+    const shuffled = shuffleWithSeed(products, SEED);
+    const selected = buildWallSlots({ products, seed: SEED }).map(
+      (slot) => slot.product,
+    );
+
+    expect(selected[0]).toBe(shuffled[0]);
+    expect(selected).toHaveLength(2);
+    expect(selected[1]!.subcategory).not.toBe(selected[0]!.subcategory);
+  });
+});
+
+describe("groupProductsIntoRails", () => {
+  it("ranks larger L2 groups first and sorts products inside each rail", () => {
+    // Catches grouping that inherits an unstable fetch order or ranks rails alphabetically.
+    const rails = groupProductsIntoRails([
+      product("candle-late", {
+        subcategory: "candles",
+        productPosition: null,
+        createdAt: "2026-08-20T00:00:00Z",
+      }),
+      product("table-second", {
+        subcategory: "tableware",
+        productPosition: 2,
+      }),
+      product("table-first", {
+        subcategory: "tableware",
+        productPosition: 1,
+      }),
+      product("candle-early", {
+        subcategory: "candles",
+        productPosition: null,
+        createdAt: "2026-08-10T00:00:00Z",
+      }),
+      product("table-unplaced", {
+        subcategory: "tableware",
+        productPosition: null,
+      }),
+    ]);
+
+    expect(rails.map((rail) => rail.subcategory)).toEqual([
+      "tableware",
+      "candles",
+    ]);
+    expect(rails[0]!.products.map((entry) => entry.key)).toEqual([
+      "table-first",
+      "table-second",
+      "table-unplaced",
+    ]);
+    expect(rails[1]!.products.map((entry) => entry.key)).toEqual([
+      "candle-early",
+      "candle-late",
+    ]);
+  });
 });
 
 describe("wallSeedForDate", () => {
   it("resolves the calendar day in Asia/Taipei, not UTC", () => {
     // 23:30 UTC is already the next day in Taipei; a UTC seed would rotate the
     // wall eight hours late for every reader in Taiwan.
-    expect(wallSeedForDate(new Date("2026-08-16T23:30:00Z"))).toBe("2026-08-17");
-    expect(wallSeedForDate(new Date("2026-08-16T15:00:00Z"))).toBe("2026-08-16");
+    expect(wallSeedForDate(new Date("2026-08-16T23:30:00Z"))).toBe(
+      "2026-08-17",
+    );
+    expect(wallSeedForDate(new Date("2026-08-16T15:00:00Z"))).toBe(
+      "2026-08-16",
+    );
   });
 });
