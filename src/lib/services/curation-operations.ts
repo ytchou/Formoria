@@ -67,6 +67,7 @@ import {
   runReputationPhase,
   runFaqPhase,
   runProductsPhase,
+  runStockistsPhase,
   runClassifyImagesPhase,
   STORAGE_FAILURE_PREFIX,
   runImageSearchPhase,
@@ -236,7 +237,7 @@ type EnrichPhase =
   | "site_identity"
   | "images"
   | "descriptions"
-  | "locations"
+  | "stockists"
   | "tags";
 /**
  * Every phase `runEnrich` can be asked for. Aliased to the canonical
@@ -1084,7 +1085,7 @@ function buildBrandPhaseOrder(
     "site_identity",
     "images",
     "descriptions",
-    "locations",
+    "stockists",
     "reputation",
     "faq",
     phases.includes("tags") && "tags",
@@ -1575,9 +1576,7 @@ export async function runEnrich(
           phases.includes("descriptions") &&
             !phases.includes("tags") &&
             "descriptions",
-          phases.includes("locations") &&
-            !isDeferredPhase("locations") &&
-            "locations",
+          phases.includes("stockists") && "stockists",
         ].filter(Boolean);
         onProgress(
           `\n[BATCH ${chunkIndex + 1}/${brandChunks.length}] ${chunk.length} brands — fetching ${activeSteps.join(" + ")}...`,
@@ -2695,27 +2694,21 @@ export async function runEnrich(
                 }
               }
 
-              // A deferred phase is not called at all: no `current_phase` write, no
-              // function call, no serper /maps budget. The `skipped` PhaseResult is
-              // still recorded (in memory — it ships with the target's terminal
-              // progress event, not as its own DB round trip) for two reasons: the
-              // admin timeline must show "locations: skipped — deferred" rather
-              // than a silent gap, and `planCurationResume` treats a phase in scope
-              // with no `phase_results` entry as unfinished work, so omitting it
-              // would make every resume re-owe `locations` forever.
-              const locationsDeferred = isDeferredPhase("locations");
-              state.phaseResults.push(
-                buildPhaseResult(
-                  "locations",
-                  "skipped",
-                  [],
-                  0,
-                  undefined,
-                  locationsDeferred
-                    ? "locations phase is deferred"
-                    : "locations phase not requested",
-                ),
-              );
+              if (!satisfiedPhaseSet.has("stockists")) {
+                await markCurrentPhase(ctx, "stockists");
+                const stockistsResult = await runStockistsPhase({
+                  brand,
+                  phases,
+                  scrapedData: state.scrapedData,
+                  overwrite,
+                  dryRun: config.dryRun,
+                  target: { type: targetType, id: brand.id },
+                  jobId: config.jobId,
+                });
+                state.phaseResults.push(stockistsResult.phaseResult);
+                await logCurrentPhase(ctx, stockistsResult.phaseResult);
+                appendPatch(state, stockistsResult.patch);
+              }
 
               if (!satisfiedPhaseSet.has("reputation")) {
                 await markCurrentPhase(ctx, "reputation");

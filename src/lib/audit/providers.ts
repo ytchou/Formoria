@@ -130,6 +130,7 @@ const PROVIDERS = {
     "runReputationResearch",
     "runSiteIdentityPhase",
     "runStandaloneClassification",
+    "runStockistsPhase",
   ],
   images: [
     // DEV-1551: an approved brand's images keep their `submissions/` key, which

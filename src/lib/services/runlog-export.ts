@@ -35,7 +35,7 @@ const PHASE_ORDER = [
   "classify_images",
   "facts",
   "descriptions",
-  "locations",
+  "stockists",
   "reputation",
   "faq",
   "products",
@@ -56,7 +56,7 @@ const PHASE_KIND: Record<string, PhaseKind> = {
   classify_images: "llm",
   facts: "llm",
   descriptions: "llm",
-  locations: "search",
+  stockists: "llm",
   reputation: "llm",
   faq: "llm",
   products: "llm",
@@ -204,7 +204,8 @@ function phaseName(value: string): string {
     description: "descriptions",
     // Renamed 2026-08-03; historical rows still carry the old phase string.
     expansion: "reputation",
-    maps: "locations",
+    maps: "stockists",
+    locations: "stockists",
     scrape: "links",
     serp: "discover",
   };
