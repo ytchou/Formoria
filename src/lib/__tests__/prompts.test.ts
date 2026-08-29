@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { PRODUCTS_SYSTEM_PROMPT } from "@/lib/prompts";
+import {
+  CLASSIFY_SYSTEM_PROMPT,
+  DETECT_SYSTEM_PROMPT,
+  NAME_ARBITER_SYSTEM_PROMPT,
+  PRODUCTS_SYSTEM_PROMPT,
+  SITE_IDENTITY_SYSTEM_PROMPT,
+} from "@/lib/prompts";
 import { L1_CATEGORIES, MATERIALS } from "@/lib/taxonomy/ontology";
 
 /**
@@ -124,4 +130,71 @@ describe("PRODUCTS_SYSTEM_PROMPT", () => {
       "official_url must be this specific product's own product page",
     );
   });
+
+  it("anchors listwise selection to the approved editorial bands", () => {
+    for (const band of ["0-39", "40-59", "60-74", "75-89", "90-100"]) {
+      expect(PRODUCTS_SYSTEM_PROMPT).toContain(band);
+    }
+    for (const nonSignal of [
+      "production origin",
+      "website polish",
+      "brand size",
+      "responsiveness",
+      "sponsorship",
+      "research ease",
+    ]) {
+      expect(PRODUCTS_SYSTEM_PROMPT).toContain(nonSignal);
+    }
+    expect(PRODUCTS_SYSTEM_PROMPT).toContain("listwise");
+    expect(PRODUCTS_SYSTEM_PROMPT).toContain(
+      "Every supplied candidate must have an evaluation",
+    );
+    expect(PRODUCTS_SYSTEM_PROMPT).not.toMatch(/[≥>]\s*70/);
+    expect(PRODUCTS_SYSTEM_PROMPT).toContain(
+      "golden_case_id=products-pool-compact-01 rubric_version=dev-1649-v1",
+    );
+  });
+});
+
+describe("confidence prompt rubric anchors", () => {
+  const prompts = [
+    {
+      prompt: DETECT_SYSTEM_PROMPT,
+      ids: [
+        "detect-high-curated-shop",
+        "detect-medium-own-line-ambiguity",
+        "detect-low-sparse-workshop",
+      ],
+    },
+    {
+      prompt: CLASSIFY_SYSTEM_PROMPT,
+      ids: [
+        "category-high-handmade-soap",
+        "category-medium-tea-fragrance",
+        "category-low-lifestyle-objects",
+      ],
+    },
+    {
+      prompt: NAME_ARBITER_SYSTEM_PROMPT,
+      ids: ["name-high-unigaze", "name-medium-aromase", "name-low-trista"],
+    },
+    {
+      prompt: SITE_IDENTITY_SYSTEM_PROMPT,
+      ids: ["site-high-smore", "site-medium-jaibei", "site-low-1koshijimi"],
+    },
+  ];
+
+  it.each(prompts)(
+    "includes one versioned high, medium, and low anchor",
+    ({ prompt, ids }) => {
+      for (const id of ids) {
+        expect(prompt).toContain(
+          `golden_case_id=${id} rubric_version=dev-1649-v1`,
+        );
+      }
+      for (const confidence of ["high", "medium", "low"]) {
+        expect(prompt).toContain(`confidence=${confidence}`);
+      }
+    },
+  );
 });

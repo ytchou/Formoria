@@ -7,24 +7,33 @@ ${CATEGORY_LIST}
 
 Rules:
 - Base classification only on the provided text. Do not use external knowledge about the brand.
-- Choose the category that best matches the brand's core products
-- If the brand spans multiple categories, choose the category of the primary product line
-- Think step by step: identify the brand's core products, match them to a category, then assess confidence
+- Choose the category that best matches the brand's core products.
+- If the brand spans multiple categories, choose the category of the primary product line.
+- Always return the best supported category from the closed list, even at low confidence; confidence controls whether the result is safe to write.
+- Think step by step: identify the brand's core products, match them to a category, then assess confidence.
+
+Confidence rubric:
+- high — the text explicitly names a dominant product line that maps unambiguously to one category; no material competing category remains.
+- medium — the dominant product line is reasonably identifiable, but the text is indirect or names meaningful products from another category.
+- low — the text is generic, sparse, or balanced across categories; the required category is only the least-bad supported choice.
 
 Negative examples (common mistakes):
 - A brand selling scented candles is beauty, NOT home — candles belong with fragrance and personal care
 - A brand selling leather wallets is bags-accessories, NOT fashion — wallets are accessories, not apparel
 - A brand selling ceramic teapots is home, NOT food-drink — the vessel is a home good, not a consumable
 
-Few-shot examples:
+Golden anchors:
+[golden_case_id=category-high-handmade-soap rubric_version=dev-1649-v1 confidence=high]
 輸入：品牌名稱：好日子 / 描述：手工皂與天然精油保養品
 輸出：{"reasoning":"Core products are handmade soap and natural essential oil skincare — personal care items","category":"beauty","confidence":"high"}
 
-輸入：品牌名稱：山野行 / 描述：露營帳篷與戶外炊具
-輸出：{"reasoning":"Tents and outdoor cookware are camping gear","category":"outdoor","confidence":"high"}
+[golden_case_id=category-medium-tea-fragrance rubric_version=dev-1649-v1 confidence=medium]
+輸入：品牌名稱：郁郁 YùYù / 描述：以台灣茶為主題，推出原葉茶，也製作茶韻與山林氣味擴香
+輸出：{"reasoning":"Tea is the stated theme and includes consumable tea, but home-fragrance products create a meaningful second category","category":"food-drink","confidence":"medium"}
 
-輸入：品牌名稱：小物研究所 / 描述：原創設計文具與手帳配件
-輸出：{"reasoning":"Original design stationery and planner accessories","category":"stationery","confidence":"high"}
+[golden_case_id=category-low-lifestyle-objects rubric_version=dev-1649-v1 confidence=low]
+輸入：品牌名稱：日常研究室 / 描述：為生活設計有溫度的物件
+輸出：{"reasoning":"The description only suggests general lifestyle objects; home is the least-bad match without a named product line","category":"home","confidence":"low"}
 
 Response format (strict JSON, no additional text):
 Single brand: {"reasoning":"...","category":"<category slug>","confidence":"high|medium|low"}
@@ -53,11 +62,11 @@ Boundaries:
 
 ## Confidence
 
-- high — the evidence names the category outright (「代購」, 「選物店」, a platform, a media masthead).
-- medium — strongly implied but not stated.
-- low — thin, conflicting, or possibly about a different entity.
+- high — the entity type and every proposed normalisation are directly supported by the input: explicit terms such as 「代購」 or 「選物店」, an unmistakable platform/media identity, or the brand's own displayed formal name and romanisation.
+- medium — the decision is likely and evidence is coherent, but at least one material inference remains, such as a shop that appears to mix curation with a small own line.
+- low — evidence is thin, conflicting, or possibly about a different entity; keep isNonBrand false and do not invent a name or romanisation.
 
-Only a high-confidence rejection stops the pipeline. Use high sparingly.
+Only high confidence is write-eligible for a direct slug or a non-brand rejection. Use high sparingly; confidence describes the complete returned decision, not how fluent the explanation sounds.
 
 ## Slug
 
@@ -84,31 +93,19 @@ Only a high-confidence rejection stops the pipeline. Use high sparingly.
 
 The input carries a name, sometimes a description and website, and often Google search snippets. nonBrandReason is written in Traditional Chinese; every other instruction above is for you, not for output.
 
-## Examples
+## Golden anchors
 
-輸入：品牌名：好物嚴選 / 網站：goodstuff.tw
-輸出：{"isNonBrand":true,"nonBrandReason":"選物店，策展銷售多品牌商品，無自有產品","brand_name":"好物嚴選","slug_generated":null,"confidence":"high"}
+[golden_case_id=detect-high-curated-shop rubric_version=dev-1649-v1 confidence=high]
+輸入：品牌名：好物嚴選 / 描述：台灣與日本生活品牌選物店 / 網站：goodstuff.tw
+輸出：{"reasoning":"The description explicitly identifies a multi-brand curated shop and gives no own product line","isNonBrand":true,"nonBrandReason":"選物店，策展銷售多品牌商品，無自有產品","brand_name":"好物嚴選","slug_generated":null,"confidence":"high"}
 
-輸入：品牌名：小島插畫 / 描述：販售原創角色貼紙與明信片 / 購買管道：Pinkoi
-輸出：{"isNonBrand":false,"nonBrandReason":null,"brand_name":"小島插畫","slug_generated":null,"confidence":"high"}
+[golden_case_id=detect-medium-own-line-ambiguity rubric_version=dev-1649-v1 confidence=medium]
+輸入：品牌名：島嶼紙品 / 描述：選品，也推出少量自製卡片與紙品
+輸出：{"reasoning":"The description mixes curation with a possible own physical product line, so it must pass through","isNonBrand":false,"nonBrandReason":null,"brand_name":"島嶼紙品","slug_generated":null,"confidence":"medium"}
 
-輸入：品牌名：小熊日常 / 描述：發布原創角色貼圖與插畫，尚無商品販售資訊 / 社群：Instagram
-輸出：{"isNonBrand":true,"nonBrandReason":"插畫創作者，無可購買的實體商品或可驗證購買管道","brand_name":"小熊日常","slug_generated":null,"confidence":"high"}
-
-輸入：品牌名：Ariel 的設計工作室 / 描述：平面設計接案、品牌識別規劃 / 社群：Instagram
-輸出：{"isNonBrand":true,"nonBrandReason":"個人接案工作室，無自有實體商品","brand_name":"Ariel 的設計工作室","slug_generated":null,"confidence":"high"}
-
-輸入：品牌名：某某工作室 / 描述：搜尋結果稀少，僅有一則社群貼文
-輸出：{"isNonBrand":false,"nonBrandReason":null,"brand_name":"某某工作室","slug_generated":null,"confidence":"low"}
-
-輸入：品牌名：印花樂 / 網站：inblooom.com
-輸出：{"isNonBrand":false,"nonBrandReason":null,"brand_name":"印花樂 inBlooom","slug_generated":"inblooom","confidence":"high"}
-
-輸入：品牌名：djulis德朱利斯-台東必買伴手禮-紅藜穀物棒-紅藜小米起司棒-紅藜黑芝麻糕
-輸出：{"reasoning":"Product keywords (穀物棒, 起司棒, 黑芝麻糕) indicate a food brand, not a proxy buyer","isNonBrand":false,"nonBrandReason":null,"brand_name":"Djulis 德朱利斯","slug_generated":"djulis","confidence":"high"}
-
-輸入：品牌名：貓小姐插畫 / 描述：插畫創作者，有販售印花布包、馬克杯等自有商品 / 購買管道：Pinkoi
-輸出：{"reasoning":"Illustrator with self-designed physical products (fabric bags, mugs) sold under a brand name — this is a brand, not a personal portfolio","isNonBrand":false,"nonBrandReason":null,"brand_name":"貓小姐插畫","slug_generated":null,"confidence":"high"}
+[golden_case_id=detect-low-sparse-workshop rubric_version=dev-1649-v1 confidence=low]
+輸入：品牌名：某某工作室 / 描述：搜尋結果稀少，僅有一則可能同名的社群貼文
+輸出：{"reasoning":"The evidence is too sparse and may describe a different entity","isNonBrand":false,"nonBrandReason":null,"brand_name":"某某工作室","slug_generated":null,"confidence":"low"}
 
 Think step by step: first determine what the entity does, then check it against the non-brand categories, then decide confidence based on evidence strength.
 

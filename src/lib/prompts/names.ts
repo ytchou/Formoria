@@ -15,22 +15,24 @@ Rules:
 - When candidates conflict and context cannot reasonably resolve it, return confidence: "low" — do not guess.
 - reason must be a short Chinese phrase explaining why the name was chosen or kept.
 
-Input and output examples:
+Confidence rubric:
+- high — one candidate is directly supported as the brand's own formal usage, or the only change is an unambiguous removal of page chrome, SEO copy, or a clear product tagline.
+- medium — the semantic choice is more likely than the alternatives but relies on indirect context, such as deciding whether a trailing phrase is brand identity or descriptive copy.
+- low — candidates identify different entities, drop a plausible identity half, or otherwise conflict without enough context. Keep the safest existing candidate rather than guessing.
 
-輸入：儲存名稱：74OUNCE / 候選：stored：74OUNCE；scraped：74OUNCE BAGSMART 全家人的包
-輸出：{"results":[{"slug":"74ounce","chosen":"74OUNCE","confidence":"high","reason":"頁面標題後段是商品文案"}]}
+Golden anchors:
 
-輸入：儲存名稱：小朱甜點 / 候選：stored：小朱甜點；scraped：首頁 - 小朱甜點
-輸出：{"results":[{"slug":"xiao-zhu-dessert","chosen":"小朱甜點","confidence":"high","reason":"去除首頁標題外框"}]}
+[golden_case_id=name-high-unigaze rubric_version=dev-1649-v1 confidence=high]
+輸入：儲存名稱：UNIGAZE 慢火金工創作室 / 候選：stored：UNIGAZE 慢火金工創作室；cleaned：UNIGAZE 慢火金工創作室；detected：UNIGAZE
+輸出：{"results":[{"slug":"unigaze","chosen":"UNIGAZE 慢火金工創作室","confidence":"high","reason":"中文尾段是正式工作室名稱"}]}
 
-輸入：儲存名稱：UNIGAZE / 候選：stored：UNIGAZE；detected：UNIGAZE 慢火金工創作室
-輸出：{"results":[{"slug":"unigaze","chosen":"UNIGAZE 慢火金工創作室","confidence":"high","reason":"中文尾段是正式名稱"}]}
+[golden_case_id=name-medium-aromase rubric_version=dev-1649-v1 confidence=medium]
+輸入：儲存名稱：AROMASE 艾瑪絲 頭皮療癒永續品牌 / 候選：stored：AROMASE 艾瑪絲 頭皮療癒永續品牌；cleaned：AROMASE 艾瑪絲
+輸出：{"results":[{"slug":"aromase","chosen":"AROMASE 艾瑪絲","confidence":"medium","reason":"尾段較像品牌定位文案"}]}
 
-輸入：儲存名稱：BoingBoing / 候選：stored：BoingBoing；detected：BoingBoing 故事鞋與童畫包
-輸出：{"results":[{"slug":"boingboing","chosen":"BoingBoing","confidence":"high","reason":"中文尾段是行銷標語"}]}
-
-輸入：儲存名稱：qn dessert / 候選：stored：qn dessert；cleaned：QN Dessert
-輸出：{"results":[{"slug":"qn-dessert","chosen":"qn dessert","confidence":"high","reason":"保留品牌自己的大小寫"}]}
+[golden_case_id=name-low-trista rubric_version=dev-1649-v1 confidence=low]
+輸入：儲存名稱：Trista Handmade / 候選：stored：Trista Handmade；scraped：Trista Smile Girl 微笑女孩
+輸出：{"results":[{"slug":"trista","chosen":"Trista Handmade","confidence":"low","reason":"候選可能是只共享單字的不同品牌"}]}
 
 Response format (strict JSON object, no Markdown, explanatory text, or extra fields):
 Always return a top-level JSON object with a single field results whose value is an array. results must contain one object for each numbered input line, matching the count and order of the input exactly; 20 input lines means 20 objects, 1 input line means an array with 1 object. Never answer only the first entry, and never make the top level an array.
