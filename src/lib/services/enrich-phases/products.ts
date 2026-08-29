@@ -2,6 +2,12 @@ import { randomUUID } from "node:crypto";
 import { auditedCall } from "@/lib/audit";
 import { PRODUCTS_LABELS, PRODUCTS_SYSTEM_PROMPT } from "@/lib/prompts";
 import {
+  CATEGORY_LIST,
+  SUBCATEGORY_VOCAB_BLOCK,
+  MATERIAL_VOCAB_BLOCK,
+  TAIWAN_USAGE_RULES,
+} from "@/lib/prompts/shared";
+import {
   categoryLabelZh,
   L1_CATEGORIES,
   materialBySlug,
@@ -1068,7 +1074,12 @@ export async function runProductsPhase({
             },
             { apiKey: token },
           );
-          const productsSystemPrompt = await fetchLangfusePrompt("products", PRODUCTS_SYSTEM_PROMPT);
+          const productsSystemPrompt = await fetchLangfusePrompt("products", PRODUCTS_SYSTEM_PROMPT, {
+            category_list: CATEGORY_LIST,
+            subcategory_vocab_block: SUBCATEGORY_VOCAB_BLOCK,
+            material_vocab_block: MATERIAL_VOCAB_BLOCK,
+            taiwan_usage_rules: TAIWAN_USAGE_RULES,
+          });
           const response = await client.chat({
             system: productsSystemPrompt,
             user: userContent,

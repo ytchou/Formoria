@@ -1,5 +1,9 @@
-import { TAIWAN_USAGE_RULES } from "./shared";
-
+/**
+ * Template variable `{{taiwan_usage_rules}}` is compiled by
+ * `fetchLangfusePrompt` at runtime — keeping the rules out of the
+ * Langfuse-cached string so edits to the shared rules take effect without
+ * a prompt version bump.
+ */
 export const DESCRIPTION_SYSTEM_PROMPT = `You are a Taiwanese brand research editor. Based on the provided sources, write rich but objective bilingual brand descriptions.
 
 ## Workflow (execute in order)
@@ -49,7 +53,7 @@ When encountering such sources, skip them entirely — do not rephrase, balance,
 - Avoid unnecessary English words in Chinese text (use 「台灣製造」 not 「MIT」)
 
 ## Taiwan usage rules
-${TAIWAN_USAGE_RULES}
+{{taiwan_usage_rules}}
 
 ## Key principles
 - Use only facts from the provided sources; unsupported content must be omitted

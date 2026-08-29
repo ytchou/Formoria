@@ -6,12 +6,29 @@ Category definitions:
 ${CATEGORY_LIST}
 
 Rules:
+- Base classification only on the provided text. Do not use external knowledge about the brand.
 - Choose the category that best matches the brand's core products
 - If the brand spans multiple categories, choose the category of the primary product line
+- Think step by step: identify the brand's core products, match them to a category, then assess confidence
+
+Negative examples (common mistakes):
+- A brand selling scented candles is beauty, NOT home — candles belong with fragrance and personal care
+- A brand selling leather wallets is bags-accessories, NOT fashion — wallets are accessories, not apparel
+- A brand selling ceramic teapots is home, NOT food-drink — the vessel is a home good, not a consumable
+
+Few-shot examples:
+輸入：品牌名稱：好日子 / 描述：手工皂與天然精油保養品
+輸出：{"reasoning":"Core products are handmade soap and natural essential oil skincare — personal care items","category":"beauty","confidence":"high"}
+
+輸入：品牌名稱：山野行 / 描述：露營帳篷與戶外炊具
+輸出：{"reasoning":"Tents and outdoor cookware are camping gear","category":"outdoor","confidence":"high"}
+
+輸入：品牌名稱：小物研究所 / 描述：原創設計文具與手帳配件
+輸出：{"reasoning":"Original design stationery and planner accessories","category":"stationery","confidence":"high"}
 
 Response format (strict JSON, no additional text):
-Single brand: {"category":"<category slug>","confidence":"high|medium|low"}
-Multiple brands: [{"slug":"<brand slug>","category":"<category slug>","confidence":"high|medium|low"}]`;
+Single brand: {"reasoning":"...","category":"<category slug>","confidence":"high|medium|low"}
+Multiple brands: {"results":[{"slug":"<brand slug>","reasoning":"...","category":"<category slug>","confidence":"high|medium|low"}]}`;
 
 export const DETECT_SYSTEM_PROMPT = `You triage submissions to Formoria, a directory of Taiwanese product brands. You do two things: flag entities that are definitionally not a product brand, and normalise the brand's name and slug.
 
@@ -88,8 +105,13 @@ The input carries a name, sometimes a description and website, and often Google 
 輸出：{"isNonBrand":false,"nonBrandReason":null,"brand_name":"印花樂 inBlooom","slug_generated":"inblooom","confidence":"high"}
 
 輸入：品牌名：djulis德朱利斯-台東必買伴手禮-紅藜穀物棒-紅藜小米起司棒-紅藜黑芝麻糕
-輸出：{"isNonBrand":false,"nonBrandReason":null,"brand_name":"Djulis 德朱利斯","slug_generated":"djulis","confidence":"high"}
+輸出：{"reasoning":"Product keywords (穀物棒, 起司棒, 黑芝麻糕) indicate a food brand, not a proxy buyer","isNonBrand":false,"nonBrandReason":null,"brand_name":"Djulis 德朱利斯","slug_generated":"djulis","confidence":"high"}
+
+輸入：品牌名：貓小姐插畫 / 描述：插畫創作者，有販售印花布包、馬克杯等自有商品 / 購買管道：Pinkoi
+輸出：{"reasoning":"Illustrator with self-designed physical products (fabric bags, mugs) sold under a brand name — this is a brand, not a personal portfolio","isNonBrand":false,"nonBrandReason":null,"brand_name":"貓小姐插畫","slug_generated":null,"confidence":"high"}
+
+Think step by step: first determine what the entity does, then check it against the non-brand categories, then decide confidence based on evidence strength.
 
 Response format (strict JSON, no additional text):
-Single brand: {"isNonBrand":true|false,"nonBrandReason":"...or null","brand_name":"formal brand name","slug_generated":"...","confidence":"high|medium|low"}
-Multiple brands: [{"slug":"<original slug>","isNonBrand":...,"nonBrandReason":...,"brand_name":"...","slug_generated":"...","confidence":...}]`;
+Single brand: {"reasoning":"...","isNonBrand":true|false,"nonBrandReason":"...or null","brand_name":"formal brand name","slug_generated":"...","confidence":"high|medium|low"}
+Multiple brands: {"results":[{"slug":"<original slug>","reasoning":"...","isNonBrand":...,"nonBrandReason":...,"brand_name":"...","slug_generated":"...","confidence":...}]}`;

@@ -3,6 +3,7 @@ import {
   DETECT_SYSTEM_PROMPT,
   FACTS_SYSTEM_PROMPT,
   SUBCATEGORY_VOCAB_BLOCK,
+  MATERIAL_VOCAB_BLOCK,
 } from "@/lib/prompts";
 import { L2_SUBCATEGORIES, MATERIALS } from "@/lib/taxonomy/ontology";
 
@@ -23,7 +24,10 @@ describe("FACTS_SYSTEM_PROMPT subcategories vocabulary", () => {
         `${subcategory.slug}（${subcategory.nameZh}）`,
       );
     }
-    expect(FACTS_SYSTEM_PROMPT).toContain(SUBCATEGORY_VOCAB_BLOCK);
+    // The vocab block is now a template variable compiled at runtime by
+    // `fetchLangfusePrompt`. The prompt carries the placeholder, and the
+    // compiled result will contain the full block.
+    expect(FACTS_SYSTEM_PROMPT).toContain("{{subcategory_vocab_block}}");
 
     // The output contract asks for the slug, not the zh-TW label it replaced.
     expect(FACTS_SYSTEM_PROMPT).toContain(
@@ -32,18 +36,19 @@ describe("FACTS_SYSTEM_PROMPT subcategories vocabulary", () => {
   });
 
   it("material_vocab_block_lists_slug_and_gloss", () => {
-    // `MATERIALS.join()` over the slug objects rendered `[object Object]` —
-    // the model was handed twelve of them and no vocabulary at all. Slug first
-    // because the slug is what `brands.material` stores and what the CHECK
-    // constraint accepts; the zh gloss rides along only so a model reading a
-    // zh-TW product page can recognise which slug it is looking at.
+    // The material vocab is now a template variable compiled at runtime.
+    // The SUBCATEGORY_VOCAB_BLOCK and MATERIAL_VOCAB_BLOCK are generated from
+    // ontology and passed as variables to `fetchLangfusePrompt`. Verify the
+    // prompt carries the placeholder, and the shared block itself is correct.
+    expect(FACTS_SYSTEM_PROMPT).toContain("{{material_vocab_block}}");
+    // The shared block (imported separately) still lists every slug with gloss.
     for (const material of MATERIALS) {
-      expect(FACTS_SYSTEM_PROMPT).toContain(
+      expect(MATERIAL_VOCAB_BLOCK).toContain(
         `- ${material.slug}: ${material.nameZh}`,
       );
     }
-    expect(FACTS_SYSTEM_PROMPT).toContain("- ceramic: 陶瓷");
-    expect(FACTS_SYSTEM_PROMPT).not.toContain("[object Object]");
+    expect(MATERIAL_VOCAB_BLOCK).toContain("- ceramic: 陶瓷");
+    expect(MATERIAL_VOCAB_BLOCK).not.toContain("[object Object]");
   });
 
   it("material_rule_demands_slugs_and_bans_labels", () => {
