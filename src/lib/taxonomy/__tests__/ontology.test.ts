@@ -64,6 +64,7 @@ describe('category visibility', () => {
   it('isVisibleCategory returns true for visible and false for deferred', () => {
     expect(isVisibleCategory('home')).toBe(true)
     expect(isVisibleCategory('pets')).toBe(false)
+    expect(isVisibleCategory('not-a-category')).toBe(false)
   })
 })
 

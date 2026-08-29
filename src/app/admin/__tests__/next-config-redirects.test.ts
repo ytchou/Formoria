@@ -33,7 +33,7 @@ describe("removed admin claim routes", () => {
 });
 
 describe("legacy category redirects", () => {
-  it("uses HTTP 301 for every singular category locale variant", async () => {
+  it("leaves singular category variants to taxonomy-aware proxy handling", async () => {
     const redirects = await nextConfig.redirects?.();
     const legacySources = new Set([
       "/category/:category",
@@ -44,13 +44,7 @@ describe("legacy category redirects", () => {
       legacySources.has(source),
     );
 
-    expect(legacyRedirects).toHaveLength(3);
-    expect(
-      legacyRedirects?.every((redirect) => redirect.statusCode === 301),
-    ).toBe(true);
-    expect(
-      legacyRedirects?.every((redirect) => !("permanent" in redirect)),
-    ).toBe(true);
+    expect(legacyRedirects).toEqual([]);
   });
 
   it("does not redirect localized category indexes to the brand directory", async () => {

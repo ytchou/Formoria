@@ -477,7 +477,6 @@ export async function getPublishedCuratedProductsForHomepage(
       .eq("curated_product_sources.state", "active")
       .eq("curated_product_selections.state", "active")
       .eq("brands.status", "approved")
-      .not("image_url", "is", null)
       .limit(1_000) as unknown as HomepageCuratedProductQuery,
     "brands.name",
   );
@@ -506,7 +505,6 @@ export async function getPublishedCuratedProductsForHomepage(
         !row.visible ||
         !row.official_url ||
         !row.source_checked_at ||
-        !row.image_url ||
         (row.curated_product_sources !== undefined &&
           !(row.curated_product_sources ?? []).some(
             (source) => source.state === undefined || source.state === "active",
@@ -1541,7 +1539,7 @@ const CURATED_PRODUCT_BATCH_MAX_PAGES = 200;
 
 type CuratedProductBatchRow = Pick<
   ProductTable["Row"],
-  "id" | "brand_id" | "key" | "official_url" | "visible" | "proposed_by"
+  "id" | "brand_id" | "key" | "official_url" | "visible" | "proposed_by" | "image_source_url" | "name_en" | "product_description_zh" | "product_description_en" | "category" | "subcategories" | "material"
 > & {
   /** Narrowed to `state = 'active'` by the query; `[]` means no live evidence. */
   curated_product_sources?: { id: string }[] | null;
@@ -1607,7 +1605,7 @@ export async function getCuratedProductsByBrandBatch(
             // precisely the half-created one the approval materializer has to
             // REPAIR, and an inner join would hide it and make every re-run a
             // no-op. The `.eq` below narrows the EMBEDDED rows only.
-            "id, brand_id, key, official_url, visible, proposed_by, curated_product_sources(id)",
+            "id, brand_id, key, official_url, visible, proposed_by, image_source_url, name_en, product_description_zh, product_description_en, category, subcategories, material, curated_product_sources(id)",
           )
           .in("brand_id", chunk)
           .eq("curated_product_sources.state", "active")
@@ -1635,6 +1633,13 @@ export async function getCuratedProductsByBrandBatch(
       visible: row.visible,
       hasActiveSource: (row.curated_product_sources ?? []).length > 0,
       proposedBy: row.proposed_by,
+      imageSourceUrl: row.image_source_url ?? null,
+      nameEn: row.name_en ?? null,
+      productDescriptionZh: row.product_description_zh ?? null,
+      productDescriptionEn: row.product_description_en ?? null,
+      category: row.category ?? null,
+      subcategories: row.subcategories ?? null,
+      material: row.material ?? null,
     });
     byBrandId.set(row.brand_id, rows);
   }

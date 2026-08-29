@@ -1,0 +1,12 @@
+{
+  "name": "dev-1614-production-validation",
+  "title": "DEV-1614 — full pipeline validation on production",
+  "subtitle": "5 randomly selected approved brands: 2 Home, 2 Fashion, 1 Food & Drink.",
+  "labels": {
+    "li-jaou": "Li Jaou",
+    "sammm-studio": "Sammm._.Studio",
+    "boingboing": "BoingBoing 故事鞋與童畫包",
+    "lid-shoes": "LID Shoes",
+    "fu-wan-chocolate": "福灣巧克力 Fu Wan Chocolate"
+  }
+}

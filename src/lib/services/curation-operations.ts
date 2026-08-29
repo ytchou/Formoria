@@ -1236,7 +1236,7 @@ export async function persistSubmissionEnrichmentResults(
         }
         const { data: fieldStates, error: fieldStateError } = await supabase
           .from("brand_field_state")
-          .select("field, source, updated_at")
+          .select("field, source, updated_at, updated_by")
           .eq("brand_id", row.brand_id);
         if (fieldStateError) throw fieldStateError;
 
@@ -1346,10 +1346,10 @@ export function submissionToEnrichBrand(
     ...existing,
     id: submission.id,
     source_brand_id: submission.brand_id,
-    // A refresh always overwrites; an explicit job-level `overwrite` lets an
-    // admin force a re-run to re-touch already-populated rows (e.g. re-running
+    // A refresh seeds from the live snapshot, but only an explicit job-level
+    // `overwrite` lets an admin re-touch already-populated rows (e.g. re-running
     // image classification on submissions whose tags are already set).
-    overwrite_enrichment: isRefresh || options?.overwrite === true,
+    overwrite_enrichment: options?.overwrite === true,
     slug: `submission-${submission.id}`,
     name:
       typeof existing.name === "string" ? existing.name : submission.brand_name,

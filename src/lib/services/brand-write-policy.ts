@@ -7,12 +7,14 @@ export type BrandWriteActor = {
 export type BrandFieldWriteState = {
   source: string;
   updatedAt?: string;
+  updatedBy?: string | null;
 };
 
 export type BrandFieldStateRow = {
   field: string;
   source: string;
   updated_at?: string | null;
+  updated_by?: string | null;
 };
 
 const FIELD_STATE_SOURCE_PRIORITY: Record<string, number> = {
@@ -89,6 +91,7 @@ export function mergeBrandFieldStates(
       {
         source: row.source,
         ...(row.updated_at ? { updatedAt: row.updated_at } : {}),
+        ...(row.updated_by ? { updatedBy: row.updated_by } : {}),
       },
     ]),
   );
@@ -144,6 +147,7 @@ function refreshWriteBlockReason(
   const state = fieldState[field];
   if (REFRESH_ENRICHMENT_EXCLUDED_FIELDS.has(field)) return "excluded:identity";
   if (state?.source === "owner") return "protected:owner";
+  if (state?.source === "admin" && state.updatedBy) return "protected:admin";
   return null;
 }
 

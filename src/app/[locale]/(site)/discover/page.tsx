@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { notFound } from "next/navigation";
 import { getTranslations, setRequestLocale } from "next-intl/server";
 import { PackageOpen } from "lucide-react";
 
@@ -11,6 +12,7 @@ import { Pagination } from "@/components/brands/pagination";
 import { buildAlternates } from "@/lib/seo/alternates";
 import { getPublishedCuratedProducts } from "@/lib/services/curated-products-catalog";
 import { routes } from "@/lib/routes";
+import { isVisibleCategory, subcategoryBySlug } from "@/lib/taxonomy/ontology";
 
 type PageProps = {
   params: Promise<{ locale: string }>;
@@ -21,16 +23,41 @@ export const revalidate = 3600;
 
 const PAGE_SIZE = 12;
 
+function firstParam(value: string | string[] | undefined): string | null {
+  const candidate = Array.isArray(value) ? value.at(0) : value;
+  return candidate?.trim() || null;
+}
+
+function resolveDiscoverTaxonomy(
+  query: Record<string, string | string[] | undefined>,
+): { category: string | null; subcategory: string | null } {
+  const category = firstParam(query.category);
+  const subcategory = firstParam(query.sub);
+  const subcategoryNode = subcategory ? subcategoryBySlug(subcategory) : null;
+
+  if (
+    (category && !isVisibleCategory(category)) ||
+    (subcategory &&
+      (!subcategoryNode ||
+        !isVisibleCategory(subcategoryNode.category) ||
+        (category && subcategoryNode.category !== category)))
+  ) {
+    notFound();
+  }
+
+  return { category, subcategory };
+}
+
 export async function generateMetadata({ params, searchParams }: PageProps): Promise<Metadata> {
   const { locale } = await params;
   setRequestLocale(locale);
-  const t = await getTranslations({ locale, namespace: "products" });
   const query = await searchParams;
-  const category = Array.isArray(query.category) ? query.category.at(0) : query.category;
-  const sub = Array.isArray(query.sub) ? query.sub.at(0) : query.sub;
-  const discoverPath = routes.discover(
-    { category: category || undefined, sub: sub || undefined },
-  );
+  const { category, subcategory } = resolveDiscoverTaxonomy(query);
+  const t = await getTranslations({ locale, namespace: "products" });
+  const discoverPath = routes.discover({
+    category: category || undefined,
+    sub: subcategory || undefined,
+  });
   const { canonical, languages } = buildAlternates(discoverPath, locale as "zh-TW" | "en");
 
   return {
@@ -40,20 +67,13 @@ export async function generateMetadata({ params, searchParams }: PageProps): Pro
   };
 }
 
-function firstParam(value: string | string[] | undefined): string | null {
-  const candidate = Array.isArray(value) ? value.at(0) : value;
-  return candidate?.trim() || null;
-}
-
 export default async function DiscoverPage({ params, searchParams }: PageProps) {
   const { locale } = await params;
   setRequestLocale(locale);
+  const query = await searchParams;
+  const { category, subcategory } = resolveDiscoverTaxonomy(query);
   const t = await getTranslations({ locale, namespace: "products" });
   const commonT = await getTranslations({ locale, namespace: "common" });
-  const query = await searchParams;
-
-  const category = firstParam(query.category);
-  const subcategory = firstParam(query.sub);
   const pageParam = firstParam(query.page);
   const page = pageParam ? Math.max(1, parseInt(pageParam, 10) || 1) : 1;
 

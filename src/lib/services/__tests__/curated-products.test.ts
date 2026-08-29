@@ -684,7 +684,7 @@ describe("getPublishedCuratedProductsForHomepage", () => {
     expect(first.calls.select[0]).not.toContain("lifecycle");
   });
 
-  it("keeps the rest of the publication gate", async () => {
+  it("publishes image-less products while keeping the other publication gates", async () => {
     const { client } = stubClient({
       data: [
         homepageRow({ key: "live" }),
@@ -701,7 +701,7 @@ describe("getPublishedCuratedProductsForHomepage", () => {
 
     const products = await getPublishedCuratedProductsForHomepage(client);
 
-    expect(products.map((product) => product.key)).toEqual(["live"]);
+    expect(products.map((product) => product.key)).toEqual(["live", "no-image"]);
   });
 
   // A missing table or column means the schema is older than this code, which
@@ -1512,6 +1512,13 @@ describe("getCuratedProductsByBrandBatch", () => {
         visible: false,
         hasActiveSource: true,
         proposedBy: "generated",
+        imageSourceUrl: null,
+        nameEn: null,
+        productDescriptionZh: null,
+        productDescriptionEn: null,
+        category: null,
+        subcategories: null,
+        material: null,
       },
     ]);
   });

@@ -8,6 +8,7 @@
  * Usage:
  *   pnpm langfuse:seed          # create/update prompts on Langfuse
  *   pnpm langfuse:seed --dry    # print actions without executing
+ *   pnpm langfuse:seed --public-key pk-… --secret-key sk-… --host https://…
  */
 
 import { createHash } from "node:crypto";
@@ -154,6 +155,11 @@ function contentHash(text: string): string {
 // Main
 // ---------------------------------------------------------------------------
 
+function cliArg(flag: string): string | undefined {
+  const idx = process.argv.indexOf(flag);
+  return idx !== -1 && idx + 1 < process.argv.length ? process.argv[idx + 1] : undefined;
+}
+
 async function main(): Promise<void> {
   const dry = process.argv.includes("--dry");
 
@@ -183,16 +189,14 @@ async function main(): Promise<void> {
     return;
   }
 
-  // Initialize Langfuse directly (not via getLangfuse — the singleton swallows
-  // errors, but this script needs them loud).
-  const publicKey = process.env.LANGFUSE_PUBLIC_KEY;
-  const secretKey = process.env.LANGFUSE_SECRET_KEY;
-  const baseUrl = process.env.LANGFUSE_HOST;
+  const publicKey = cliArg("--public-key") ?? process.env.LANGFUSE_PUBLIC_KEY;
+  const secretKey = cliArg("--secret-key") ?? process.env.LANGFUSE_SECRET_KEY;
+  const baseUrl = cliArg("--host") ?? process.env.LANGFUSE_HOST;
 
   if (!publicKey || !secretKey || !baseUrl) {
     console.error(
-      "Missing LANGFUSE_PUBLIC_KEY, LANGFUSE_SECRET_KEY, or LANGFUSE_HOST. " +
-        "Set them in .env.local or export them.",
+      "Missing Langfuse credentials. Pass --public-key, --secret-key, --host " +
+        "or set LANGFUSE_PUBLIC_KEY, LANGFUSE_SECRET_KEY, LANGFUSE_HOST.",
     );
     process.exitCode = 1;
     return;

@@ -37,8 +37,6 @@ const RETIRED_CATEGORY_SLUGS: ReadonlyArray<
 > = [
   ["accessories", "bags-accessories"],
   ["bags", "bags-accessories"],
-  ["food", "food-drink"],
-  ["beverages", "food-drink"],
   ["clothing", "fashion"],
 ];
 
@@ -166,31 +164,10 @@ const nextConfig: NextConfig = {
         destination: "/",
         permanent: true,
       },
-      // Legacy singular category routes redirect to the product catalog.
-      {
-        source: "/category/:category",
-        destination: "/discover?category=:category",
-        statusCode: 301,
-      },
-      {
-        source: "/en/category/:category",
-        destination: "/en/discover?category=:category",
-        statusCode: 301,
-      },
-      {
-        source: "/zh-TW/category/:category",
-        destination: "/discover?category=:category",
-        statusCode: 301,
-      },
       // L1 taxonomy slugs that were merged or renamed. Search Console reports
       // every one of these still being crawled and 404ing, so the equity they
       // earned is recoverable — category pages are the highest-value non-brand
       // URLs in the directory.
-      //
-      // `/category/:category` above already 301s the singular form into
-      // `/categories/:category`, so a legacy `/category/food` now resolves in
-      // two hops rather than landing on a 404. Two is within Google's budget;
-      // do not stack a third by pointing anything here at another alias.
       ...RETIRED_CATEGORY_SLUGS.flatMap(([from, to]) => [
         {
           source: `/categories/${from}`,

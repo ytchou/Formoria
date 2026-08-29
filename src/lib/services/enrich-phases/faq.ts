@@ -477,18 +477,16 @@ export async function runFaqPhase({
   explicitPhases,
 }: FaqPhaseOptions): Promise<FaqPhaseOutput> {
   if (!phases.includes("faq")) return skipped("faq phase not requested");
-  // `runEnrich` also runs against submissions, whose id has no `brands` row:
-  // `getBrandById` would throw out of `timePhase` and abort the whole target
-  // after descriptions and reputation already spent their calls, and an upsert
-  // keyed by a submission id would violate the `brand_faq_entries` FK. A
-  // submission's FAQ is authored once it is approved and the phase runs against
-  // the resulting brand; the template floors render until then.
-  if (target?.type === "submission")
-    return skipped("faq phase does not run for submission targets");
+  // A submission's id has no `brands` row, so `getBrandById` and the FK on
+  // `brand_faq_entries` need the real brand id. Refresh submissions carry it
+  // as `source_brand_id`; new submissions have no brand yet and skip FAQ.
+  const faqBrandId = brand.source_brand_id ?? (target?.type !== "submission" ? brand.id : null);
+  if (!faqBrandId)
+    return skipped("faq phase requires a brand_id");
   const token = process.env.OPENAI_API_KEY;
   if (!token) return skipped("OPENAI_API_KEY is not configured");
 
-  const auditTarget = target ?? brandTarget(brand.id);
+  const auditTarget = target ?? brandTarget(faqBrandId);
   // `overwrite` was declared, passed by the caller, and then dropped on the
   // floor: re-authoring must honour the caller's explicit request as well as an
   // explicitly requested `faq` phase.
@@ -499,9 +497,9 @@ export async function runFaqPhase({
     // `getBrandById` and the persisted scrape have no data dependency on each
     // other, so they run together; peer stats need the brand's category.
     const [brandRecord, persistedScrape, stockists] = await Promise.all([
-      getBrandById(brand.id),
+      getBrandById(faqBrandId),
       loadPersistedScrapeText(auditTarget),
-      getStockistsForBrand(brand.id),
+      getStockistsForBrand(faqBrandId),
     ]);
     const peerStats = await getCategoryPeerStats(
       brandRecord.categorySlug,
@@ -531,7 +529,7 @@ export async function runFaqPhase({
     // One cheap read stands in for the LLM call a fill-gaps run would have
     // thrown away anyway.
     if (!explicitFaqPhase) {
-      const stored = await getBrandFaqEntries(brand.id, supabase);
+      const stored = await getBrandFaqEntries(faqBrandId, supabase);
       if (faqCoverageIsComplete(authorable, stored))
         return {
           entries: [],
@@ -612,7 +610,7 @@ export async function runFaqPhase({
       return { entries: [], dropped, calls, failed: true };
     // A dry run still reports what it accepted; it just never writes it.
     if (accepted.length > 0 && dryRun !== true) {
-      await upsertBrandFaqEntries(brand.id, accepted, {
+      await upsertBrandFaqEntries(faqBrandId, accepted, {
         explicitFaqPhase,
         client: supabase,
       });

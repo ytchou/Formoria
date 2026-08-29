@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { BrandSeoEntry } from '@/lib/services/brands'
+import { DEFERRED_CATEGORY_SLUGS } from '@/lib/taxonomy/ontology'
 import { getSiteUrl } from './site-url'
 import {
   buildDirectorySitemapEntries,
@@ -30,7 +31,9 @@ describe('buildDirectorySitemapEntries', () => {
 
     expect(urls).toContain(`${base}/brands?category=home`)
     expect(urls).toContain(`${base}/brands?category=home&sub=furniture`)
-    expect(urls.some((url) => url.includes('category=tech'))).toBe(false)
+    for (const slug of DEFERRED_CATEGORY_SLUGS) {
+      expect(urls.some((url) => url.includes(`category=${slug}`))).toBe(false)
+    }
     expect(urls.some((url) => url.endsWith('/outdoor-accessories'))).toBe(false)
   })
 

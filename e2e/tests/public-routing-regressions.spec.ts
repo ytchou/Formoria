@@ -16,18 +16,31 @@ test.describe("Public routing regressions deep", () => {
     }
   });
 
-  test("legacy locale category aliases target the product catalog", async ({
+  test("legacy singular category routes redirect only visible taxonomy", async ({
     request,
   }) => {
     const redirects = [
-      ["/en/category/food-drink", 301, "/en/discover?category=food-drink"],
-      ["/zh-TW/category/home", 301, "/discover?category=home"],
+      ["/en/category/home", "/en/discover?category=home"],
+      ["/zh-TW/category/home", "/discover?category=home"],
     ] as const;
 
-    for (const [source, status, destination] of redirects) {
+    for (const [source, destination] of redirects) {
       const response = await request.get(source, { maxRedirects: 0 });
-      expect(response.status()).toBe(status);
-      expect(response.headers().location).toBe(destination);
+      expect(response.status(), source).toBe(301);
+      const location = new URL(response.headers().location, "http://localhost");
+      const expected = new URL(destination, "http://localhost");
+      expect(location.pathname, source).toBe(expected.pathname);
+      expect(location.search, source).toBe(expected.search);
+    }
+
+    for (const source of [
+      "/category/not-a-category",
+      "/en/category/food-drink",
+      "/zh-TW/category/tech",
+    ]) {
+      const response = await request.get(source, { maxRedirects: 0 });
+      expect(response.status(), source).toBe(410);
+      expect(response.headers().location, source).toBeUndefined();
     }
   });
 
@@ -56,8 +69,6 @@ test.describe("Public routing regressions deep", () => {
       // DEV-1507 dissolved crafts across four live L1s, so like kids-pets it
       // has no successor category and exits to the product catalog root.
       ["/categories/crafts", "/discover"],
-      ["/categories/food", "/discover?category=food-drink"],
-      ["/categories/beverages", "/discover?category=food-drink"],
       ["/en/categories/clothing", "/en/discover?category=fashion"],
       ["/categories/others", "/discover"],
       ["/about-us", "/about"],

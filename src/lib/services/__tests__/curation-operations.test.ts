@@ -367,7 +367,7 @@ describe("enrichment write guards", () => {
     ).rejects.toThrow("Direct brand enrichment is retired");
   });
 
-  it("derives overwrite behavior from refresh intent and seeds the base snapshot", () => {
+  it("seeds the refresh snapshot without implicitly enabling overwrite", () => {
     const refresh = submissionToEnrichBrand({
       id: "submission-1",
       brand_id: "brand-1",
@@ -422,7 +422,7 @@ describe("enrichment write guards", () => {
       name: "Live name",
       city: "台北",
       source_brand_id: "brand-1",
-      overwrite_enrichment: true,
+      overwrite_enrichment: false,
     });
     expect(linkedNonRefresh.overwrite_enrichment).toBe(false);
   });
