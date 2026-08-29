@@ -3,6 +3,7 @@ import {
   getOriginCandidateUrls,
   getCuratedProductsByBrandBatch,
   refreshGeneratedCuratedProductOrigin,
+  updateCuratedProduct,
   upsertCuratedProductSource,
   type CuratedProductSupabase,
 } from "@/lib/services/curated-products";
@@ -264,6 +265,33 @@ export async function materializeSubmissionCuratedProducts(
             "[materializeCuratedProducts] origin refresh failed:",
             { submissionId, brandId, productId: existing.id, error },
           );
+        }
+      }
+      if (
+        state === "matched" &&
+        existing?.id &&
+        existing.proposedBy === "generated"
+      ) {
+        const gapFill: Partial<{ imageSourceUrl: string; nameEn: string; productDescriptionZh: string; subcategories: string[]; category: string }> = {};
+        if (!existing.imageSourceUrl && proposal.imageSourceUrl) gapFill.imageSourceUrl = proposal.imageSourceUrl;
+        if (!existing.nameEn && proposal.nameEn) gapFill.nameEn = proposal.nameEn;
+        if (!existing.productDescriptionZh && proposal.productDescriptionZh) gapFill.productDescriptionZh = proposal.productDescriptionZh;
+        if ((!existing.subcategories || existing.subcategories.length === 0) && proposal.subcategories?.length) {
+          gapFill.subcategories = proposal.subcategories;
+          gapFill.category = proposal.category; // required with subcategories
+        }
+
+        if (Object.keys(gapFill).length > 0) {
+          try {
+            await updateCuratedProduct(existing.id, gapFill, options.client);
+            result.repaired += 1;
+          } catch (error) {
+            result.failed += 1;
+            console.error(
+              "[materializeCuratedProducts] gap-fill failed:",
+              { submissionId, brandId, productId: existing.id, error },
+            );
+          }
         }
       }
       if (

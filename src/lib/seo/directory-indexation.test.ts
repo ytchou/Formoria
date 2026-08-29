@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { DEFERRED_CATEGORY_SLUGS } from "@/lib/taxonomy/ontology";
 import { getSiteUrl } from "./site-url";
 import {
   isIndexableTarget,
@@ -208,9 +209,12 @@ describe("directory indexable targets", () => {
         }),
       ]),
     );
-    expect(targets.some((target) => target.categorySlug === "tech")).toBe(
-      false,
-    );
+    expect(
+      targets.some((target) =>
+        DEFERRED_CATEGORY_SLUGS.has(target.categorySlug),
+      ),
+    ).toBe(false);
+    expect(isIndexableTarget("food-drink")).toBe(false);
     expect(
       targets.some(
         (target) => target.subcategorySlug === "outdoor-accessories",

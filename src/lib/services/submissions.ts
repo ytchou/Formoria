@@ -2083,6 +2083,8 @@ export async function applyBrandRefresh(
         );
       }
 
+      await promoteApprovedBrandImages(submission.brand_id);
+
       return { brandId: submission.brand_id, cleanupFailed };
     },
   );

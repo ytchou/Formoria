@@ -4,7 +4,10 @@ import {
   parseSortParam,
   type BrandSortOption,
 } from "@/lib/pagination";
-import { MATERIALS } from "@/lib/taxonomy/ontology";
+import {
+  DEFERRED_CATEGORY_SLUGS,
+  MATERIALS,
+} from "@/lib/taxonomy/ontology";
 
 export type DirectorySearchParams = Record<
   string,
@@ -30,6 +33,14 @@ function parseCommaParam(value: string | string[] | undefined): string[] {
       .split(",")
       .map((entry) => entry.trim())
       .filter(Boolean),
+  );
+}
+
+export function hasDeferredCategoryFilter(
+  value: string | string[] | undefined,
+): boolean {
+  return parseCommaParam(value).some((slug) =>
+    DEFERRED_CATEGORY_SLUGS.has(slug),
   );
 }
 

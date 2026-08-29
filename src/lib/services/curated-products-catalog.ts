@@ -129,8 +129,7 @@ export async function getPublishedCuratedProducts(
     .not("official_url", "is", null)
     .not("source_checked_at", "is", null)
     .eq("curated_product_sources.state", "active")
-    .eq("brands.status", "approved")
-    .not("image_url", "is", null);
+    .eq("brands.status", "approved");
 
   if (category) {
     query = query.eq("category", category);

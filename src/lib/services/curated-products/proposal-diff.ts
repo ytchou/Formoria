@@ -59,6 +59,13 @@ export type ExistingCuratedProduct = {
   id?: string;
   hasActiveSource?: boolean;
   proposedBy?: string;
+  imageSourceUrl?: string | null;
+  nameEn?: string | null;
+  productDescriptionZh?: string | null;
+  productDescriptionEn?: string | null;
+  category?: string | null;
+  subcategories?: string[] | null;
+  material?: string[] | null;
 };
 
 export type CuratedProductProposalDiff<

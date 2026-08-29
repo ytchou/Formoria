@@ -1,6 +1,10 @@
 import { cache } from "react";
 import { DIRECTORY_REFINEMENT_KEYS } from "@/lib/directory-filter-url";
-import { L1_CATEGORIES, subcategoryBySlug } from "@/lib/taxonomy/ontology";
+import {
+  L1_CATEGORIES,
+  VISIBLE_L1_CATEGORIES,
+  subcategoryBySlug,
+} from "@/lib/taxonomy/ontology";
 import type { Locale } from "./alternates";
 import {
   buildDirectoryCanonicals,
@@ -74,6 +78,9 @@ const getKeywordMap = cache(() => {
 const CATEGORY_SLUGS = new Set<string>(
   L1_CATEGORIES.map((category) => category.slug),
 );
+const VISIBLE_CATEGORY_SLUGS = new Set<string>(
+  VISIBLE_L1_CATEGORIES.map((category) => category.slug),
+);
 
 function taxonomyTarget(
   categorySlug: string | null | undefined,
@@ -113,6 +120,7 @@ export function isIndexableTarget(
   }
   const target = taxonomyTarget(categorySlug, subcategorySlug);
   if (!target) return false;
+  if (!VISIBLE_CATEGORY_SLUGS.has(target.categorySlug)) return false;
   return (
     clusterForTarget(target.categorySlug, target.subcategorySlug)
       ?.eligibility === "launch"
@@ -136,7 +144,7 @@ export function listIndexableTargets(): DirectoryTarget[] {
     }
 
     if (cluster.page_type === "l1-category") {
-      if (!CATEGORY_SLUGS.has(cluster.ontology_slug)) continue;
+      if (!VISIBLE_CATEGORY_SLUGS.has(cluster.ontology_slug)) continue;
       targets.push({
         categorySlug: cluster.ontology_slug,
         pageType: cluster.page_type,
@@ -146,7 +154,8 @@ export function listIndexableTargets(): DirectoryTarget[] {
     }
 
     const subcategory = subcategoryBySlug(cluster.ontology_slug);
-    if (!subcategory || !CATEGORY_SLUGS.has(subcategory.category)) continue;
+    if (!subcategory || !VISIBLE_CATEGORY_SLUGS.has(subcategory.category))
+      continue;
     targets.push({
       categorySlug: subcategory.category,
       subcategorySlug: subcategory.slug,

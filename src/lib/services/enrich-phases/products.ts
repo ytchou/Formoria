@@ -632,31 +632,18 @@ export function validateProductProposals(
     }
 
     const nameEn = trimmedString(raw.name_en);
-    // HOST-GATED like `official_url`, then CLEARED rather than fatal.
-    // `imageSourceUrl` exists so usage rights stay re-checkable, and a
-    // provenance URL on a host the brand does not own records a permission the
-    // brand cannot give — `materialize.ts` forwards the value into the row
-    // verbatim and nothing re-checks it later. A `httpUrl()` protocol bar was
-    // the only gate, so a Pinterest pin was stored as provenance.
-    //
-    // The gate is HOST EQUALITY ALONE, not the whole of `isProductPageUrl`: an
-    // image legitimately comes from a page that is not a product page — the
-    // `classify_images` candidates this phase hands the model include the
-    // brand's own homepage — so the non-root-path half would clear provenance
-    // the phase itself proposed. The host half is what a stranger's shop fails.
-    //
-    // A failing URL CLEARS THE FIELD instead of dropping the proposal. That is
-    // the reversible choice: the product is still a good proposal, the
-    // moderator can paste the right page, and losing a real product over one
-    // optional citation costs more than it saves.
-    const imageSource = httpUrl(raw.image_source_url);
+    // Use the candidate's known image when available. When there are no
+    // candidates (no catalog), fall back to the model's value if it's on
+    // the brand's own host.
+    const modelImageSource = httpUrl(raw.image_source_url);
     const imageSourceUrl =
-      imageSource &&
-      (candidateByUrl.size > 0
-        ? ownedCandidate?.imageUrl === imageSource.toString()
-        : site && bareHost(imageSource) === bareHost(site))
-        ? imageSource.toString()
-        : null;
+      ownedCandidate?.imageUrl ??
+      (candidateByUrl.size === 0 &&
+      modelImageSource &&
+      site &&
+      bareHost(modelImageSource) === bareHost(site)
+        ? modelImageSource.toString()
+        : null);
 
     const key = proposalKey(nameZh, nameEn, takenKeys, max);
     const proposal: CuratedProductProposal = {

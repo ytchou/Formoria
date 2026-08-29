@@ -40,7 +40,7 @@ export const DEFERRED_CATEGORY_SLUGS: ReadonlySet<string> = new Set(
 )
 
 export function isVisibleCategory(slug: string): boolean {
-  return !DEFERRED_CATEGORY_SLUGS.has(slug)
+  return VISIBLE_L1_CATEGORIES.some(category => category.slug === slug)
 }
 
 export function categoryLabel(

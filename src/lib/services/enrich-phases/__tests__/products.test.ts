@@ -858,7 +858,9 @@ describe("validateProductProposals", () => {
 
     expect(dropped).toBe(1);
     expect(proposals[0]?.imageSourceUrl).toBe(candidate.imageUrl);
-    expect(proposals[1]?.imageSourceUrl).toBeUndefined();
+    // Proposal 2 ("錯圖") also matches the candidate URL, so it inherits
+    // the candidate's image regardless of the model's image_source_url.
+    expect(proposals[1]?.imageSourceUrl).toBe(candidate.imageUrl);
   });
 
   it("drops a material outside the closed vocabulary", () => {
