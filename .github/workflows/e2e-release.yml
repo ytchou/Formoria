@@ -23,6 +23,7 @@ jobs:
       contents: read
     env:
       FORMORIA_DEPLOYMENT_ENV: staging
+      RELEASE_CANDIDATE_BASE_URL: ${{ vars.RELEASE_CANDIDATE_BASE_URL }}
       RELEASE_BASE_URL: ${{ startsWith(github.head_ref, 'release/candidate-') && vars.RELEASE_CANDIDATE_BASE_URL || 'https://staging.formoria.com' }}
       STAGING_BASE_URL: ${{ startsWith(github.head_ref, 'release/candidate-') && vars.RELEASE_CANDIDATE_BASE_URL || 'https://staging.formoria.com' }}
       BASE_URL: ${{ startsWith(github.head_ref, 'release/candidate-') && vars.RELEASE_CANDIDATE_BASE_URL || 'https://staging.formoria.com' }}
@@ -111,6 +112,7 @@ jobs:
               -A "$BROWSER_UA" \
               -H "CF-Access-Client-Id: $CF_ACCESS_CLIENT_ID" \
               -H "CF-Access-Client-Secret: $CF_ACCESS_CLIENT_SECRET" \
+              -H "x-formoria-edge: $E2E_ORIGIN_SECRET" \
               -D - -o /dev/null "$RELEASE_BASE_URL/about" 2>/dev/null || true)"
             revision="$(printf '%s' "$headers" \
               | awk -F': ' 'tolower($1) == "x-formoria-revision" {gsub("\\r", "", $2); print $2; exit}')"

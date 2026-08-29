@@ -26,7 +26,8 @@ process.env.PLAYWRIGHT_TEST = "true";
  * exact reason the old single flag could not be turned back on per project.
  */
 const securityGates = {
-  SECURITY_DISABLE_RATE_LIMIT: process.env.SECURITY_DISABLE_RATE_LIMIT ?? "true",
+  SECURITY_DISABLE_RATE_LIMIT:
+    process.env.SECURITY_DISABLE_RATE_LIMIT ?? "true",
   SECURITY_STUB_TURNSTILE: process.env.SECURITY_STUB_TURNSTILE ?? "true",
 };
 for (const [name, value] of Object.entries(securityGates)) {
@@ -49,6 +50,7 @@ const remoteHeaders = Object.fromEntries(
   [
     ["CF-Access-Client-Id", process.env.CF_ACCESS_CLIENT_ID],
     ["CF-Access-Client-Secret", process.env.CF_ACCESS_CLIENT_SECRET],
+    ["x-formoria-edge", process.env.E2E_ORIGIN_SECRET],
   ].filter((entry): entry is [string, string] => Boolean(entry[1])),
 );
 

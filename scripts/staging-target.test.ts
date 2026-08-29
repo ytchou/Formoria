@@ -38,6 +38,30 @@ describe("staging target guard", () => {
     });
   });
 
+  it("accepts only the explicitly declared Railway candidate origin", () => {
+    const candidateUrl = "https://formoria-candidate-production.up.railway.app";
+    expect(
+      validateStagingTarget({
+        ...stagingEnvironment,
+        STAGING_BASE_URL: candidateUrl,
+        BASE_URL: candidateUrl,
+        RELEASE_CANDIDATE_BASE_URL: candidateUrl,
+      }),
+    ).toMatchObject({
+      appHostname: "formoria-candidate-production.up.railway.app",
+      projectRef: STAGING_PROJECT_REF,
+    });
+    expect(() =>
+      validateStagingTarget({
+        ...stagingEnvironment,
+        STAGING_BASE_URL: candidateUrl,
+        BASE_URL: candidateUrl,
+        RELEASE_CANDIDATE_BASE_URL:
+          "https://different-candidate-production.up.railway.app",
+      }),
+    ).toThrow(/declared Railway candidate/);
+  });
+
   it("rejects production and cross-wired application targets", () => {
     expect(() =>
       validateStagingTarget({

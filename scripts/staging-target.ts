@@ -140,9 +140,19 @@ export function validateStagingTarget(
       );
     }
   }
-  if (appUrl.hostname.toLowerCase() !== STAGING_HOSTNAME) {
+  const candidateValue = environment.RELEASE_CANDIDATE_BASE_URL?.trim();
+  const candidateUrl = candidateValue
+    ? parseHttpsUrl(candidateValue, "RELEASE_CANDIDATE_BASE_URL")
+    : null;
+  const appHostname = appUrl.hostname.toLowerCase();
+  const isCanonicalStaging = appHostname === STAGING_HOSTNAME;
+  const isDeclaredRailwayCandidate =
+    candidateUrl?.toString() === appUrl.toString() &&
+    appHostname.endsWith(".up.railway.app") &&
+    appHostname !== "up.railway.app";
+  if (!isCanonicalStaging && !isDeclaredRailwayCandidate) {
     throw new Error(
-      `STAGING_BASE_URL must use ${STAGING_HOSTNAME}, not ${appUrl.hostname}`,
+      `STAGING_BASE_URL must use ${STAGING_HOSTNAME} or the declared Railway candidate, not ${appUrl.hostname}`,
     );
   }
   if (appUrl.pathname !== "/") {
@@ -181,7 +191,7 @@ export function validateStagingTarget(
 
   return {
     appUrl: appUrl.toString().replace(/\/$/, ""),
-    appHostname: appUrl.hostname.toLowerCase(),
+    appHostname,
     projectRef,
     supabaseUrl: new URL(supabaseUrl).toString().replace(/\/$/, ""),
   };
