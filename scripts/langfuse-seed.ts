@@ -61,6 +61,16 @@ function templatize(
   let result = raw;
   for (const [varName, value] of Object.entries(variables)) {
     const placeholder = `{{${varName}}}`;
+
+    // If the prompt already contains the {{placeholder}} (e.g. it was authored
+    // with mustache syntax rather than JS interpolation), skip this variable.
+    if (result.includes(placeholder)) {
+      console.warn(
+        `  WARN  Variable "${varName}" already present as {{${varName}}} — skipping templatize for this variable.`,
+      );
+      continue;
+    }
+
     const count = result.split(value).length - 1;
     if (count === 0) {
       throw new Error(

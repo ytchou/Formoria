@@ -177,6 +177,23 @@ export const CLASSIFY_BATCH_SCHEMA = {
 type UnknownRecord = Record<string, unknown>;
 
 /**
+ * Unwrap a parsed LLM batch response that may be either a bare array or
+ * wrapped in `{ results: [...] }` (structured-output mode). Returns null
+ * when the shape matches neither pattern.
+ */
+function unwrapBatchResults(parsed: unknown): unknown[] | null {
+  if (Array.isArray(parsed)) return parsed;
+  if (
+    parsed &&
+    typeof parsed === "object" &&
+    Array.isArray((parsed as UnknownRecord).results)
+  ) {
+    return (parsed as UnknownRecord).results as unknown[];
+  }
+  return null;
+}
+
+/**
  * What a whole batch (chunk calls plus any per-brand fallbacks) did. `results`
  * is always a map — partial results from a partly-healthy run are still usable
  * — and `calls` is what the phase reads to decide `succeeded` vs `failed`.
@@ -365,15 +382,7 @@ function parseBatchClassification(
   validSlugs: Set<string>,
 ): Map<string, ClassificationResult> | null {
   const parsed = JSON.parse(content) as unknown;
-
-  // Structured output wraps in { results: [...] }; legacy responses are bare arrays
-  const entries = Array.isArray(parsed)
-    ? parsed
-    : parsed &&
-        typeof parsed === "object" &&
-        Array.isArray((parsed as UnknownRecord).results)
-      ? ((parsed as UnknownRecord).results as unknown[])
-      : null;
+  const entries = unwrapBatchResults(parsed);
 
   if (!entries) {
     return null;
@@ -448,15 +457,7 @@ function parseTriageResponse(
   brands: DetectBatchItem[],
 ): Map<string, DetectResult> | null {
   const parsed = JSON.parse(content) as unknown;
-
-  // Structured output wraps in { results: [...] }; legacy responses are bare arrays
-  const entries = Array.isArray(parsed)
-    ? parsed
-    : parsed &&
-        typeof parsed === "object" &&
-        Array.isArray((parsed as UnknownRecord).results)
-      ? ((parsed as UnknownRecord).results as unknown[])
-      : null;
+  const entries = unwrapBatchResults(parsed);
 
   if (!entries) {
     return null;

@@ -1,13 +1,19 @@
+import {
+  CATEGORY_LIST,
+  SUBCATEGORY_VOCAB_BLOCK,
+  MATERIAL_VOCAB_BLOCK,
+} from "./shared";
+
 /**
  * The extraction half of the old mega-call. Deliberately carries no prose
  * instructions: the copy prompt and this one are sent as two separate calls so
  * neither task competes for the model's attention, and a retry re-bills only
  * the half that failed.
  *
- * Template variables (`{{category_list}}`, `{{subcategory_vocab_block}}`,
- * `{{material_vocab_block}}`) are compiled by `fetchLangfusePrompt` at
- * runtime — keeping the vocabularies out of the Langfuse-cached string so a
- * taxonomy change takes effect without a prompt version bump.
+ * The Langfuse template uses `${CATEGORY_LIST}`, `${SUBCATEGORY_VOCAB_BLOCK}`,
+ * `${MATERIAL_VOCAB_BLOCK}` placeholders — the seed script converts from the
+ * JS-interpolated fallback. The local constant has real values baked in via JS
+ * interpolation so the fallback works without compilation.
  */
 export const FACTS_SYSTEM_PROMPT = `You are a Taiwanese brand data analyst. Based on the provided sources (website content, links, product image descriptions, search summaries), extract verifiable structured facts and determine whether this brand is suitable for listing on Formoria.
 
@@ -72,14 +78,14 @@ Output:
 ## Field rules
 
 category (brand category):
-{{category_list}}
+${CATEGORY_LIST}
 
 Choose the single category that best matches the brand's core product line — only the slugs listed above are valid. Base the judgment primarily on website content and product image descriptions, with search summaries as secondary evidence; when the brand spans multiple categories, choose the primary product line's category. Return null when evidence is insufficient to support any category — do not guess.
 
 subcategories (product subcategories):
 
 Product subcategory vocabulary (closed list — use only the following slugs):
-{{subcategory_vocab_block}}
+${SUBCATEGORY_VOCAB_BLOCK}
 
 First identify the brand's product lines, then for each product line select the corresponding slug from the vocabulary (prefer slugs under the brand's category; when a product clearly belongs to another category, use that category's slug). The vocabulary is closed and must satisfy all of the following:
 1. Only output slugs that appear in the table above, verbatim; when no suitable slug exists, leave it out rather than inventing a label.
@@ -93,7 +99,7 @@ First identify the brand's product lines, then for each product line select the 
 material:
 
 Material vocabulary (closed list — use only the following slugs):
-{{material_vocab_block}}
+${MATERIAL_VOCAB_BLOCK}
 
 Fill with the product's primary materials, maximum 3. material accepts only English slugs; Chinese labels (e.g. 「陶瓷」) will be discarded — slugs are always lowercase English with hyphens and must appear verbatim in the table above. Materials must have source evidence (product description, material label, product specifications) — do not infer from photo appearance; return [] when there is no clear evidence.
 
