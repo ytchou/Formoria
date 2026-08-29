@@ -1,5 +1,5 @@
 /**
- * Seed Langfuse with the 10 prompt constants from src/lib/prompts/*.
+ * Seed Langfuse with the 11 prompt constants from src/lib/prompts/*.
  *
  * Vocab blocks (CATEGORY_LIST, SUBCATEGORY_VOCAB_BLOCK, MATERIAL_VOCAB_BLOCK,
  * TAIWAN_USAGE_RULES) are replaced with {{mustache}} placeholders so prompts
@@ -22,6 +22,7 @@ import { REPUTATION_SYSTEM_PROMPT } from "@/lib/prompts/reputation";
 import { FAQ_PROMPT_PREAMBLE } from "@/lib/prompts/faq";
 import { IMAGE_CLASSIFY_SYSTEM_PROMPT } from "@/lib/prompts/classify-images";
 import { PRODUCTS_SYSTEM_PROMPT } from "@/lib/prompts/products";
+import { STOCKIST_SYSTEM_PROMPT } from "@/lib/prompts/stockists";
 import {
   CATEGORY_LIST,
   SUBCATEGORY_VOCAB_BLOCK,
@@ -129,6 +130,7 @@ function buildManifest(): PromptEntry[] {
       prompt: PRODUCTS_SYSTEM_PROMPT,
       variableNames: ["category_list", "subcategory_vocab_block", "material_vocab_block", "taiwan_usage_rules"],
     },
+    { name: "stockists", prompt: STOCKIST_SYSTEM_PROMPT, variableNames: [] },
   ];
 
   return entries.map(({ name, prompt, variableNames }) => {
