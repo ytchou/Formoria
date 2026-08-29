@@ -11,7 +11,7 @@ import { createServiceClient } from "@/lib/supabase/service";
  * Taiwanese words and proper nouns; report-only is the settled answer.
  *
  * But nothing read those fields. A term that reached `brand_faq_entries` was
- * published on the brand page and inside its FAQPage JSON-LD, and its only
+ * published on the brand page, and its only
  * trace was a JSON blob in a table nobody queries — "detect and audit" with no
  * audience is a weaker promise than the "detect and fix" it replaced. This
  * module is the audience.

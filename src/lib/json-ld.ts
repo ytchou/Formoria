@@ -479,43 +479,6 @@ export function buildStockistItemListJsonLd({
   };
 }
 
-export type FaqQuestion = {
-  q: string;
-  a: string;
-};
-
-/**
- * Build FAQPage JSON-LD structured data for an editorial FAQ block.
- * Returns null when there is nothing to describe so callers can skip
- * rendering the <script> tag entirely.
- */
-export function buildFaqPageJsonLd(
-  questions: FaqQuestion[] | null | undefined,
-  locale?: string,
-  canonicalUrl?: string,
-): JsonLdObject | null {
-  const entries = questions ?? [];
-  if (entries.length === 0) return null;
-
-  return {
-    "@context": "https://schema.org",
-    "@type": "FAQPage",
-    // Same reasoning as buildBrandJsonLd: a locale-scoped @id keeps the two
-    // editions of one brand's FAQ from reading as a single node.
-    ...(canonicalUrl ? { "@id": `${canonicalUrl}#faq` } : {}),
-    inLanguage: toInLanguage(locale),
-    ...(canonicalUrl ? { mainEntityOfPage: canonicalUrl } : {}),
-    mainEntity: entries.map((entry) => ({
-      "@type": "Question",
-      name: entry.q,
-      acceptedAnswer: {
-        "@type": "Answer",
-        text: entry.a,
-      },
-    })),
-  };
-}
-
 export function safeJsonLdStringify(data: Record<string, unknown>): string {
   return JSON.stringify(data).replace(/</g, "\\u003c");
 }

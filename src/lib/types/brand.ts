@@ -87,6 +87,7 @@ export type Brand = {
   contactEmail: string | null;
   subcategories: string[];
   subcategoriesEn: string[];
+  material: string[];
   /** Raw `brands.site_content` jsonb, passed through unshaped. */
   siteContent: unknown | null;
   submittedAt: string;

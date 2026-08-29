@@ -133,16 +133,8 @@ export function createStoryComponentMap({
     // shortcodes do — so an authored `<figure>` renders unstyled.
     Figure: (props: { src: string; alt: string; caption?: string }) =>
       createElement(StoryFigure, props),
-    // `emitJsonLd: false` is load-bearing. The detail page already renders a
-    // FaqBlock from `frontmatter.faq`, and that render is the single source of
-    // FAQPage structured data for the URL. An in-body `<FaqBlock>` emitting its
-    // own `ld+json` would put two FAQPage entities on one page, which can
-    // invalidate the rich result outright. In-body blocks are visual only.
     FaqBlock: (props: { questions: Array<{ q: string; a: string }> }) =>
-      createElement(FaqBlock, {
-        questions: props.questions,
-        emitJsonLd: false,
-      }),
+      createElement(FaqBlock, { questions: props.questions }),
 
     h1: (props: ComponentPropsWithoutRef<"h1">) =>
       createElement("h1", {

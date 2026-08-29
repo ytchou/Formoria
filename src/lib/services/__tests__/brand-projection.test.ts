@@ -61,6 +61,7 @@ const COLUMN_FIXTURE: Record<string, unknown> = {
   founding_year: 1998,
   subcategories: ["tote"],
   subcategories_en: ["tote-en"],
+  material: ["leather"],
   reputation_summary: {
     text: "Well reviewed",
     sources: [{ url: "https://example.com/review" }],
@@ -88,6 +89,7 @@ function buildRow(columns: readonly string[]): BrandRowWithJoins {
 const FIELDS_OMITTED_ON_DIRECTORY_PATHS = [
   "siteContent",
   "reputationSummary",
+  "material",
 ];
 
 /**
@@ -124,6 +126,7 @@ describe("brand column projections", () => {
       "site_content",
       "draft_data",
       "reputation_summary",
+      "material",
     ]);
   });
 

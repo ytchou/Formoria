@@ -6,7 +6,7 @@ import {
   buildTrailHubSitemapEntries,
   buildTrailSitemapEntries,
 } from "@/app/sitemap";
-import { createStoryComponentMap } from "@/lib/mdx/components";
+
 
 const trail: TrailEntry = {
   slug: "small-space-reading-corner",
@@ -112,13 +112,5 @@ describe("style trail metadata", () => {
 
     expect(entries).toHaveLength(1);
     expect(entries[0]?.url).toMatch(/^https?:\/\/[^/]+\/style$/);
-  });
-
-  it("keeps the in-body FAQ block visual-only so the page emits one FAQPage", () => {
-    const element = createStoryComponentMap().FaqBlock({
-      questions: [{ q: "Question", a: "Answer" }],
-    }) as { props?: { emitJsonLd?: boolean } };
-
-    expect(element.props?.emitJsonLd).toBe(false);
   });
 });
