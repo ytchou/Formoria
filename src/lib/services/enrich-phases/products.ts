@@ -86,7 +86,7 @@ import {
 /**
  * Curated-product proposals from a brand's own site (DEV-1469).
  *
- * The phase writes NO rows. It proposes at most five products, the proposals
+ * The phase writes NO rows. It proposes at most twenty products, the proposals
  * ride the submission's `enriched_data.products[]`, a moderator ticks the
  * keepers in the existing submission review, and approval is what materializes
  * `curated_products`. Every validation rule below is written for that asymmetry:
@@ -99,10 +99,8 @@ import {
  * one off the model's reply, and `PRODUCTS_SYSTEM_PROMPT` forbids them twice.
  */
 
-/** The phase ceiling. Five is a brand-page shelf, not a catalogue. */
-const MAX_PROPOSALS = 5;
-/** Both axes are labels on a card, not a taxonomy dump. */
-const MAX_SUBCATEGORIES_PER_PRODUCT = 3;
+/** The qualified-proposal ceiling after the best-score window is applied. */
+const MAX_PROPOSALS = 20;
 const MAX_MATERIALS_PER_PRODUCT = 3;
 /** A proposal cites its provenance; it does not carry a bibliography. */
 const MAX_SOURCES_PER_PRODUCT = 5;
@@ -168,7 +166,7 @@ const PRODUCTS_SCHEMA = {
             name_zh: { type: "string" },
             name_en: { type: ["string", "null"] },
             category: { type: ["string", "null"] },
-            subcategories: { type: "array", items: { type: "string" } },
+            subcategory: { type: ["string", "null"] },
             material: { type: "array", items: { type: "string" } },
             official_url: { type: "string" },
             image_source_url: { type: ["string", "null"] },
@@ -191,7 +189,7 @@ const PRODUCTS_SCHEMA = {
             "name_zh",
             "name_en",
             "category",
-            "subcategories",
+            "subcategory",
             "material",
             "official_url",
             "image_source_url",
@@ -212,8 +210,8 @@ export type ProductsModelResult = {
 
 export type ProductCandidateEvaluation = {
   url: string;
-  score: number;
-  rationale: string;
+  score: number | null;
+  rationale: string | null;
   productModel: string | null;
   llmOrigin: LlmOriginAssessment;
 };
@@ -377,17 +375,16 @@ export function validateCandidateEvaluations(
       score >= 0 &&
       score <= 100
         ? score
-        : 0;
+        : null;
+    const rationale = trimmedString(raw?.editorial_rationale);
     const madeInTaiwan = allCitationsValid && raw?.made_in_taiwan === true;
     const materialsFromTaiwan =
       allCitationsValid && raw?.materials_from_taiwan === true;
 
     evaluations.set(candidate.url, {
       url: candidate.url,
-      score: validScore,
-      rationale:
-        trimmedString(raw?.editorial_rationale) ??
-        "evaluation missing or invalid",
+      score: validScore !== null && rationale ? validScore : null,
+      rationale: validScore !== null && rationale ? rationale : null,
       productModel: trimmedString(raw?.product_model),
       llmOrigin: {
         madeInTaiwan,
@@ -473,32 +470,22 @@ function resolveMaterials(raw: unknown): string[] {
 }
 
 /**
- * Subcategories arrive as ontology slugs or as the Chinese labels the prompt's
- * vocabulary block lists, so both are folded to slugs — `curated_products.subcategories`
- * is a slug column, and a label stored there renders as a dead filter. A
- * subcategory belonging to another L1 branch is dropped for the same reason
- * `normalizeCuratedSubcategories` drops it: it would never match the product's
- * own category.
+ * The subcategory arrives as an ontology slug or as a Chinese label from the
+ * prompt's vocabulary block, so either form is folded to the scalar slug. A
+ * subcategory belonging to another L1 branch is dropped because it would never
+ * match the product's own category.
  *
  * The slug half of the lookup is folded to lower case for the same reason
  * `resolveMaterials` folds its own: `matchSubcategory` normalises case itself,
  * but it matches LABELS, and `subcategoryBySlug` does not fold anything — so
  * `"Home-Fragrance"` resolved through neither and was lost.
  */
-function resolveSubcategories(raw: unknown, category: string): string[] {
-  if (!Array.isArray(raw)) return [];
-  const slugs: string[] = [];
-  for (const value of raw) {
-    const candidate = trimmedString(value);
-    if (!candidate) continue;
-    const subcategory =
-      subcategoryBySlug(candidate.toLowerCase()) ?? matchSubcategory(candidate);
-    if (!subcategory || subcategory.category !== category) continue;
-    if (slugs.includes(subcategory.slug)) continue;
-    slugs.push(subcategory.slug);
-    if (slugs.length === MAX_SUBCATEGORIES_PER_PRODUCT) break;
-  }
-  return slugs;
+function resolveSubcategory(raw: unknown, category: string): string | null {
+  const candidate = trimmedString(raw);
+  if (!candidate) return null;
+  const subcategory =
+    subcategoryBySlug(candidate.toLowerCase()) ?? matchSubcategory(candidate);
+  return subcategory?.category === category ? subcategory.slug : null;
 }
 
 /**
@@ -651,7 +638,7 @@ export function validateProductProposals(
       nameZh,
       ...(nameEn ? { nameEn } : {}),
       category,
-      subcategories: resolveSubcategories(raw.subcategories, category),
+      subcategory: resolveSubcategory(raw.subcategory, category),
       material: resolveMaterials(raw.material),
       officialUrl: officialUrl.toString(),
       ...(imageSourceUrl ? { imageSourceUrl } : {}),
@@ -825,9 +812,11 @@ export async function runProductsPhase({
   const isOwnedCandidate = (url: string): boolean => {
     const parsed = httpUrl(url);
     const normalized = normalizeProductUrl(url);
-    if (!parsed || !normalized || !ownedHosts.has(bareHost(parsed))) return false;
+    if (!parsed || !normalized || !ownedHosts.has(bareHost(parsed)))
+      return false;
     return (
-      !marketplaceHosts.has(bareHost(parsed)) || catalogOwnedUrls.has(normalized)
+      !marketplaceHosts.has(bareHost(parsed)) ||
+      catalogOwnedUrls.has(normalized)
     );
   };
   // Build a unified pool of ProductCandidate entries from the scraped pages.
@@ -860,7 +849,9 @@ export async function runProductsPhase({
   // Acquisition candidates from the images phase (DEV-1633): page URLs
   // discovered during image acquisition that may contain product pages.
   const acquisitionCandidates: ProductCandidate[] = [];
-  for (const [index, url] of (acquisitionPageUrls ?? []).filter(isOwnedCandidate).entries()) {
+  for (const [index, url] of (acquisitionPageUrls ?? [])
+    .filter(isOwnedCandidate)
+    .entries()) {
     const normalizedUrl = normalizeProductUrl(url);
     if (!normalizedUrl) continue;
     acquisitionCandidates.push({
@@ -912,9 +903,11 @@ export async function runProductsPhase({
     catalogCandidates.map((candidate) => candidate.url),
   );
   const { kept: dedupedCandidates, collapsedCount } = dedupeNearDuplicates(
-    [...enumeratedCandidates, ...acquisitionCandidates, ...scrapedCandidates].filter(
-      (candidate) => catalogUrls.has(candidate.url),
-    ),
+    [
+      ...enumeratedCandidates,
+      ...acquisitionCandidates,
+      ...scrapedCandidates,
+    ].filter((candidate) => catalogUrls.has(candidate.url)),
   );
   const pool = mergeCandidatePool(dedupedCandidates);
 
@@ -961,7 +954,7 @@ export async function runProductsPhase({
   // Both suppliers are host-filtered (same-host as the brand site) and deduped
   // before reaching this point. Without candidates the model is asked to pick
   // product pages while being shown none, and nothing downstream can catch
-  // fabricated URLs. Zero proposals beats five fabricated ones.
+  // fabricated URLs. Zero proposals beats twenty fabricated ones.
   if (pages.length === 0)
     return {
       phaseResult: {
@@ -973,7 +966,9 @@ export async function runProductsPhase({
           undefined,
           "no product candidates in the merged pool (scraped + stored)",
         ),
-        ...(catalog.zeroReason ? { catalogZeroReason: catalog.zeroReason } : {}),
+        ...(catalog.zeroReason
+          ? { catalogZeroReason: catalog.zeroReason }
+          : {}),
         productsProposed: 0,
       },
       patch: {},
@@ -1044,9 +1039,19 @@ export async function runProductsPhase({
             listingLines,
             originLines,
           );
-          const config = buildProfiledEnrichmentConfig(
+          const productsSystemPrompt = await fetchLangfusePrompt(
             "products",
             PRODUCTS_SYSTEM_PROMPT,
+            {
+              category_list: CATEGORY_LIST,
+              subcategory_vocab_block: SUBCATEGORY_VOCAB_BLOCK,
+              material_vocab_block: MATERIAL_VOCAB_BLOCK,
+              taiwan_usage_rules: TAIWAN_USAGE_RULES,
+            },
+          );
+          const config = buildProfiledEnrichmentConfig(
+            "products",
+            productsSystemPrompt,
             "products",
             { maxProposals: MAX_PROPOSALS },
           );
@@ -1061,12 +1066,6 @@ export async function runProductsPhase({
             },
             { apiKey: token },
           );
-          const productsSystemPrompt = await fetchLangfusePrompt("products", PRODUCTS_SYSTEM_PROMPT, {
-            category_list: CATEGORY_LIST,
-            subcategory_vocab_block: SUBCATEGORY_VOCAB_BLOCK,
-            material_vocab_block: MATERIAL_VOCAB_BLOCK,
-            taiwan_usage_rules: TAIWAN_USAGE_RULES,
-          });
           const response = await client.chat({
             system: productsSystemPrompt,
             user: userContent,
@@ -1171,10 +1170,8 @@ export async function runProductsPhase({
           (async (candidates) =>
             candidates.map((c) => ({
               url: c.url,
-              score: result.evaluations.get(c.url)?.score ?? 0,
-              rationale:
-                result.evaluations.get(c.url)?.rationale ??
-                "evaluation missing or invalid",
+              score: result.evaluations.get(c.url)?.score ?? null,
+              rationale: result.evaluations.get(c.url)?.rationale ?? null,
             })));
 
         const writer = candidateWriter ?? createDefaultCandidateWriter();
@@ -1236,7 +1233,12 @@ export async function runProductsPhase({
         Object.assign(ctx.summary, {
           candidatesCollapsed: collapsedCount,
           candidatesGated: selectionResult.gated.length,
-          candidatesRanked: selectionResult.ranked.length,
+          candidateBestScore: selectionResult.bestScore,
+          candidateCutoff: selectionResult.cutoff,
+          candidatesEvaluated: selectionResult.evaluatedCount,
+          candidatesInvalidOrMissing: selectionResult.invalidOrMissingCount,
+          candidatesBelowWindow: selectionResult.belowWindowCount,
+          candidatesSelected: selectionResult.ranked.length,
           proposalYield:
             catalogCandidates.length - selectionResult.gated.length > 0
               ? publishedProposals.length /
@@ -1274,7 +1276,9 @@ export async function runProductsPhase({
               "LLM provider failed the products call",
             ),
             providerFailure: true,
-            ...(catalog.zeroReason ? { catalogZeroReason: catalog.zeroReason } : {}),
+            ...(catalog.zeroReason
+              ? { catalogZeroReason: catalog.zeroReason }
+              : {}),
             productsProposed: 0,
           },
           // NO ANSWER, NO OPINION: an empty patch leaves the previous run's
@@ -1297,7 +1301,9 @@ export async function runProductsPhase({
               dryRun === true ? " (dry run — nothing written)" : ""
             }`,
           ),
-          ...(catalog.zeroReason ? { catalogZeroReason: catalog.zeroReason } : {}),
+          ...(catalog.zeroReason
+            ? { catalogZeroReason: catalog.zeroReason }
+            : {}),
           productsProposed: publishedProposals.length,
         },
         // ALWAYS CARRIES THE KEY, empty list included. The phase ran and the

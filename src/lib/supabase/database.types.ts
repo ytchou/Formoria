@@ -1519,7 +1519,7 @@ export type Database = {
           proposed_by: string
           review_due_at: string | null
           source_checked_at: string | null
-          subcategories: string[]
+          subcategory: string | null
           updated_at: string
           visible: boolean
         }
@@ -1549,7 +1549,7 @@ export type Database = {
           proposed_by?: string
           review_due_at?: string | null
           source_checked_at?: string | null
-          subcategories?: string[]
+          subcategory?: string | null
           updated_at?: string
           visible?: boolean
         }
@@ -1579,7 +1579,7 @@ export type Database = {
           proposed_by?: string
           review_due_at?: string | null
           source_checked_at?: string | null
-          subcategories?: string[]
+          subcategory?: string | null
           updated_at?: string
           visible?: boolean
         }

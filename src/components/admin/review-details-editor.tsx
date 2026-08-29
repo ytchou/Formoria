@@ -76,12 +76,7 @@ const PURCHASE_DISPLAY_LABELS = {
 } satisfies Record<OnlineStoreKey, string>;
 
 type EditableSection =
-  | "content"
-  | "reputation"
-  | "catalog"
-  | "products"
-  | "links"
-  | "images";
+  "content" | "reputation" | "catalog" | "products" | "links" | "images";
 
 /**
  * Message-key suffixes for the proposal states. The diff's own values are
@@ -183,7 +178,9 @@ export function ReviewDetailsEditor({
    * would insert it a second time under a suffixed key.
    */
   const defaultKeptProductKeys = productDiffs
-    .filter((diff) => diff.state === "new")
+    .filter(
+      (diff) => diff.state === "new" && Boolean(diff.proposal.subcategory),
+    )
     .map((diff) => diff.proposal.key);
   const keptProductKeys = data.keptProductKeys ?? defaultKeptProductKeys;
   const gallery = activeImages(reviewImages);
@@ -539,7 +536,6 @@ export function ReviewDetailsEditor({
               </div>
             )}
           </InlineEditSection>
-
         </div>
 
         <InlineEditSection
@@ -909,7 +905,7 @@ function ProductProposalsReadOnly({
         // the type declares required can still be missing on a stored row. A
         // dereference that threw here would blank the whole review drawer and
         // block the approval, not just this row.
-        const subcategories = proposal.subcategories ?? [];
+        const subcategory = proposal.subcategory ?? null;
         const material = proposal.material ?? [];
 
         return (
@@ -932,13 +928,13 @@ function ProductProposalsReadOnly({
                 value={getCategoryLabel(proposal.category) ?? proposal.category}
               />
             </dl>
-            {(subcategories.length > 0 || material.length > 0) && (
+            {(subcategory || material.length > 0) && (
               <div className="flex flex-wrap gap-2">
-                {subcategories.map((slug) => (
-                  <Badge key={`subcategory-${slug}`} variant="outline">
-                    {subcategoryBySlug(slug)?.nameZh ?? slug}
+                {subcategory ? (
+                  <Badge variant="outline">
+                    {subcategoryBySlug(subcategory)?.nameZh ?? subcategory}
                   </Badge>
-                ))}
+                ) : null}
                 {material.map((slug) => (
                   <Badge key={`material-${slug}`} variant="secondary">
                     {materialBySlug(slug)?.nameZh ?? slug}
@@ -1011,7 +1007,6 @@ function ProductProposalsEditor({
         const rowId = `${fieldId}-${index}`;
         // Same reason as the read-only view: a stored proposal can be missing a
         // field the type declares required.
-        const subcategories = proposal.subcategories ?? [];
         const material = proposal.material ?? [];
         const subcategoryOptions = L2_SUBCATEGORIES.filter(
           (subcategory) => subcategory.category === proposal.category,
@@ -1026,6 +1021,7 @@ function ProductProposalsEditor({
         // honest reading of that rule, and the note below says so on screen
         // rather than only in a tooltip.
         const locked = state !== "new";
+        const missingL2 = !proposal.subcategory;
 
         return (
           <fieldset
@@ -1049,7 +1045,7 @@ function ProductProposalsEditor({
                   id={`${rowId}-keep`}
                   className="size-5"
                   checked={keptKeys.includes(proposal.key)}
-                  disabled={locked}
+                  disabled={locked || missingL2}
                   onCheckedChange={(checked) => setKept(proposal.key, checked)}
                 />
                 {t("details.productEditor.keep", { name: proposal.nameZh })}
@@ -1064,6 +1060,11 @@ function ProductProposalsEditor({
                 {t("details.productEditor.locked")}
               </p>
             )}
+            {!locked && missingL2 ? (
+              <p className="type-metadata">
+                {t("details.productEditor.needsL2")}
+              </p>
+            ) : null}
             <div className="grid gap-4 md:grid-cols-2">
               <Field label={t("details.productEditor.nameZh")}>
                 <Input
@@ -1090,15 +1091,13 @@ function ProductProposalsEditor({
               <NativeSelect
                 value={proposal.category}
                 disabled={locked}
-                onChange={(event) =>
-                  // A subcategory slug exists only inside one category, so a
-                  // category change clears them rather than carrying dead tags
-                  // into the new branch.
+                onChange={(event) => {
                   patchProposal(index, {
                     category: event.target.value,
-                    subcategories: [],
-                  })
-                }
+                    subcategory: null,
+                  });
+                  setKept(proposal.key, false);
+                }}
               >
                 {L1_CATEGORIES.map((category) => (
                   <option key={category.slug} value={category.slug}>
@@ -1107,31 +1106,26 @@ function ProductProposalsEditor({
                 ))}
               </NativeSelect>
             </Field>
-            <fieldset className="space-y-2">
-              <legend className="type-metadata">
-                {t("details.productEditor.subcategories")}
-              </legend>
-              <ChipRow>
+            <Field label={t("details.productEditor.subcategories")}>
+              <NativeSelect
+                value={proposal.subcategory ?? ""}
+                disabled={locked}
+                onChange={(event) => {
+                  const next = event.target.value || null;
+                  patchProposal(index, { subcategory: next });
+                  if (!next) setKept(proposal.key, false);
+                }}
+              >
+                <option value="">
+                  {t("details.productEditor.needsL2Option")}
+                </option>
                 {subcategoryOptions.map((subcategory) => (
-                  <ToggleChip
-                    key={subcategory.slug}
-                    pressed={subcategories.includes(subcategory.slug)}
-                    disabled={locked}
-                    onPressedChange={(pressed) =>
-                      patchProposal(index, {
-                        subcategories: toggleSlug(
-                          subcategories,
-                          subcategory.slug,
-                          pressed,
-                        ),
-                      })
-                    }
-                  >
+                  <option key={subcategory.slug} value={subcategory.slug}>
                     {subcategory.nameZh}
-                  </ToggleChip>
+                  </option>
                 ))}
-              </ChipRow>
-            </fieldset>
+              </NativeSelect>
+            </Field>
             <fieldset className="space-y-2">
               <legend className="type-metadata">
                 {t("details.productEditor.material")}

@@ -55,9 +55,9 @@ describe('cross-L1 reads', () => {
     expect(
       directoryBrandCategoryFilter(['bags-accessories'], ['backpacks']),
     ).toBeUndefined()
-    expect(resolveDirectorySubcategorySlugs(['backpacks']).map((sub) => sub.slug)).toEqual([
-      'backpacks',
-    ])
+    expect(
+      resolveDirectorySubcategorySlugs(['backpacks']).map((sub) => sub.slug),
+    ).toEqual(['backpacks'])
 
     // Membership in the L2 target is the L2 tag alone — the same rule the page
     // now selects on, and the reason the sitemap's lastmod tracks these rows.
@@ -90,14 +90,18 @@ describe('cross-L1 reads', () => {
 
     // The fashion rail does not inherit a foreign L2 in exchange.
     expect(
-      summarizeSubcategoryRows([CROSS_L1_BRAND, NATIVE_BRAND], 'fashion').counts.size,
+      summarizeSubcategoryRows([CROSS_L1_BRAND, NATIVE_BRAND], 'fashion').counts
+        .size,
     ).toBe(0)
 
     // `latestUpdatedAt` is scoped by the L2 too, so the cross-L1 row now dates
     // the page it actually appears on.
     expect(
-      summarizeSubcategoryRows([CROSS_L1_BRAND, NATIVE_BRAND], 'bags-accessories', 'backpacks')
-        .latestUpdatedAt,
+      summarizeSubcategoryRows(
+        [CROSS_L1_BRAND, NATIVE_BRAND],
+        'bags-accessories',
+        'backpacks',
+      ).latestUpdatedAt,
     ).toBe(CROSS_L1_BRAND.updatedAt)
   })
 
@@ -108,19 +112,23 @@ describe('cross-L1 reads', () => {
     // the row a whole-corpus scope would wrongly hand to
     // /categories/bags-accessories.
     expect(
-      summarizeSubcategoryRows([CROSS_L1_BRAND, NATIVE_BRAND], 'bags-accessories')
-        .latestUpdatedAt,
+      summarizeSubcategoryRows(
+        [CROSS_L1_BRAND, NATIVE_BRAND],
+        'bags-accessories',
+      ).latestUpdatedAt,
     ).toBe(NATIVE_BRAND.updatedAt)
 
     // And the fashion page is dated by the fashion brand, not by the newest
     // edit anywhere in the directory.
     expect(
-      summarizeSubcategoryRows([CROSS_L1_BRAND, NATIVE_BRAND], 'fashion').latestUpdatedAt,
+      summarizeSubcategoryRows([CROSS_L1_BRAND, NATIVE_BRAND], 'fashion')
+        .latestUpdatedAt,
     ).toBe(CROSS_L1_BRAND.updatedAt)
 
     // An L1 nobody belongs to has no date at all, rather than inheriting one.
     expect(
-      summarizeSubcategoryRows([CROSS_L1_BRAND, NATIVE_BRAND], 'stationery').latestUpdatedAt,
+      summarizeSubcategoryRows([CROSS_L1_BRAND, NATIVE_BRAND], 'stationery')
+        .latestUpdatedAt,
     ).toBeNull()
   })
 
@@ -133,7 +141,9 @@ describe('cross-L1 reads', () => {
 
     const resolved = resolveDirectorySubcategorySlugs(['backpacks'])
     expect(resolved.map((sub) => sub.slug)).toEqual(['backpacks'])
-    expect(directoryBrandCategoryFilter(['fashion'], ['backpacks'])).toBeUndefined()
+    expect(
+      directoryBrandCategoryFilter(['fashion'], ['backpacks']),
+    ).toBeUndefined()
 
     // Unknown slugs are dropped, not passed through as free text.
     expect(resolveDirectorySubcategorySlugs(['not-a-real-l2'])).toEqual([])
@@ -145,17 +155,19 @@ describe('cross-L1 reads', () => {
     // `resolveSubcategorySlugs` keeps its conjunct because curated products are
     // a WRITE-time normalizer with a separate contract: they hard-drop an L2
     // outside the product's own L1 on create and update.
-    expect(resolveSubcategorySlugs('bags-accessories', ['backpacks']).map((sub) => sub.slug)).toEqual([
-      'backpacks',
-    ])
+    expect(
+      resolveSubcategorySlugs('bags-accessories', ['backpacks']).map(
+        (sub) => sub.slug,
+      ),
+    ).toEqual(['backpacks'])
     expect(resolveSubcategorySlugs('fashion', ['backpacks'])).toEqual([])
 
-    // And it is still the function curated-products calls, with a category.
+    // And the scalar curated-products normalizer still applies that conjunct.
     const source = readFileSync('src/lib/services/curated-products.ts', 'utf8')
     // The conjunct, not the argument name: DEV-1510 Task 15 rewrote the
     // normalizer around slug-native `normalizeSubcategories`, and pinning a
     // local variable name would fail on a refactor that keeps the contract.
-    expect(source).toMatch(/resolveSubcategorySlugs\(\s*category,/)
+    expect(source).toContain('node?.category === category')
     expect(source).not.toContain('resolveDirectorySubcategorySlugs')
   })
 

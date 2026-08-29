@@ -60,6 +60,30 @@ describe("enrichedDataFromDb", () => {
       }),
     ).toEqual({ city: "台北" });
   });
+
+  it("adapts only a compatible legacy singleton product L2", () => {
+    // Catches an old multi-value or cross-L1 proposal being treated as canonical.
+    const result = enrichedDataFromDb({
+      products: [
+        { key: "plate", category: "home", subcategories: ["tableware"] },
+        {
+          key: "ambiguous",
+          category: "home",
+          subcategories: ["tableware", "candles"],
+        },
+        { key: "cross-l1", category: "home", subcategories: ["handbags"] },
+      ],
+    });
+
+    expect(result.products?.map((product) => product.subcategory)).toEqual([
+      "tableware",
+      null,
+      null,
+    ]);
+    expect(result.products?.every((product) => !("subcategories" in product))).toBe(
+      true,
+    );
+  });
 });
 
 describe("enrichedDataToDb", () => {
@@ -93,5 +117,35 @@ describe("enrichedDataToDb", () => {
       founding_year: 2020,
       subcategories_en: ["Handmade"],
     });
+  });
+
+  it("writes product proposals with only the scalar L2 key", () => {
+    // Catches reintroducing the retired product array into new enrichment blobs.
+    const result = enrichedDataToDb({
+      products: [
+        {
+          key: "plate",
+          nameZh: "手拉坯餐盤",
+          category: "home",
+          subcategory: "tableware",
+          material: ["ceramic"],
+          officialUrl: "https://studio.example/products/plate",
+          productDescriptionZh: "台灣陶土手拉坯餐盤。",
+          sources: [
+            {
+              url: "https://studio.example/products/plate",
+              sourceType: "official",
+            },
+          ],
+        },
+      ],
+    });
+
+    expect(result.products).toEqual([
+      expect.objectContaining({ subcategory: "tableware" }),
+    ]);
+    expect(
+      (result.products as Record<string, unknown>[])[0],
+    ).not.toHaveProperty("subcategories");
   });
 });

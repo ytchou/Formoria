@@ -20,10 +20,7 @@ import {
   type OnlineStoreColumn,
 } from "@/lib/brands/online-stores";
 import type { CorrectionField } from "@/lib/services/brand-corrections";
-import {
-  MAX_SUBCATEGORIES,
-  sameSubcategorySet,
-} from "@/lib/services/subcategories";
+import { sameSubcategorySet } from "@/lib/services/subcategories";
 import { categoryLabel, L1_CATEGORIES } from "@/lib/taxonomy/ontology";
 import { sanitizeHref, stripUrlQuery } from "@/lib/url";
 import { SubcategoryPicker } from "@/components/forms/subcategory-picker";
@@ -48,7 +45,6 @@ import { SubmitButton } from "@/components/ui/submit-button";
 const CORRECTION_ERROR_KEYS = {
   invalid_brand: "errors.invalid_brand",
   invalid_value: "errors.invalid_value",
-  too_many_subcategories: "errors.too_many_subcategories",
   unchanged: "errors.unchanged",
   already_submitted: "errors.already_submitted",
   rate_limited: "errors.rate_limited",
@@ -172,8 +168,8 @@ export function CorrectionDialogContent({
               ? (socialFacebook ?? "")
               : "";
   // `brands.subcategories` is a bare text[] with no unique constraint, so a
-  // legacy row can carry the same subcategory twice. De-duplicating once here keeps the
-  // counter, the 5-subcategory cap and the row-1 chips reading the same list.
+  // legacy row can carry the same subcategory twice. De-duplicating once keeps
+  // the counter and selected chips reading the same list.
   const originalSubcategories =
     field === "subcategories" ? Array.from(new Set(subcategories)) : [];
   // Both branches share one reset key so a changed `currentValue` re-baselines
@@ -426,7 +422,6 @@ export function CorrectionDialogContent({
                 locale={locale}
                 priorityCategorySlug={categorySlug}
                 surface="correction-dialog"
-                max={MAX_SUBCATEGORIES}
                 labels={{
                   search: tCorrection("subcategorySearchLabel"),
                   searchHint: tCorrection("subcategorySearchHint"),

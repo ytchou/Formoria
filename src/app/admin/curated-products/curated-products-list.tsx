@@ -28,9 +28,9 @@ import {
   type TrailOption,
 } from "./curated-product-editor";
 
-export type CuratedProductTab = "visible" | "hidden";
+export type CuratedProductTab = "visible" | "hidden" | "needs-l2";
 
-const TAB_ORDER: CuratedProductTab[] = ["visible", "hidden"];
+const TAB_ORDER: CuratedProductTab[] = ["visible", "hidden", "needs-l2"];
 
 const getProductId = (product: AdminCuratedProduct) => product.id;
 
@@ -62,7 +62,11 @@ export function CuratedProductsList({
       TAB_ORDER.map((tab) => ({
         value: tab,
         label: t(`tabs.${tab}`),
-        match: (product) => product.visible === (tab === "visible"),
+        match: (product) =>
+          tab === "needs-l2"
+            ? product.subcategory === null
+            : product.subcategory !== null &&
+              product.visible === (tab === "visible"),
       })),
     [t],
   );

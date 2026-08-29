@@ -7,6 +7,11 @@ import {
   type ValidateProductsInput,
 } from "../validate-products";
 
+const VALID_PRODUCT_TAXONOMY = {
+  category: "home",
+  subcategory: "tableware",
+} as const;
+
 /**
  * Curated-product validator (DEV-1609).
  *
@@ -14,9 +19,7 @@ import {
  * (enforced by `scripts/check-test-boundaries.mjs`).
  */
 
-function makeDeps(
-  overrides: Partial<ValidateProductsDeps> = {},
-): {
+function makeDeps(overrides: Partial<ValidateProductsDeps> = {}): {
   deps: ValidateProductsDeps;
   calls: { fetchProducts: Array<string | undefined>; fetchSources: string[][] };
 } {
@@ -46,7 +49,9 @@ function makeDeps(
   return { deps, calls };
 }
 
-function input(overrides: Partial<ValidateProductsInput> = {}): ValidateProductsInput {
+function input(
+  overrides: Partial<ValidateProductsInput> = {},
+): ValidateProductsInput {
   return {
     brandSlug: null,
     csvPath: null,
@@ -62,6 +67,7 @@ describe("validateProducts", () => {
           id: "p1",
           key: "brand-a/product-1",
           brand_id: "b1",
+          ...VALID_PRODUCT_TAXONOMY,
           product_description_zh: "好產品",
           image_url: null,
           official_url: null,
@@ -72,6 +78,7 @@ describe("validateProducts", () => {
           id: "p2",
           key: "brand-a/product-2",
           brand_id: "b1",
+          ...VALID_PRODUCT_TAXONOMY,
           product_description_zh: "另一個產品",
           image_url: "https://img.example.com/p2.jpg",
           official_url: "https://brand-a.com/p2",
@@ -94,7 +101,11 @@ describe("validateProducts", () => {
     expect(p1Failures).toHaveLength(3);
 
     const failedFields = p1Failures.map((f) => f.field).sort();
-    expect(failedFields).toEqual(["image_url", "official_url", "source_checked_at"]);
+    expect(failedFields).toEqual([
+      "image_url",
+      "official_url",
+      "source_checked_at",
+    ]);
 
     // p2 has all fields
     const p2Failures = result.gateFailures.filter((f) => f.productId === "p2");
@@ -110,6 +121,7 @@ describe("validateProducts", () => {
           id: "p1",
           key: "brand-a/bag",
           brand_id: "b1",
+          ...VALID_PRODUCT_TAXONOMY,
           product_description_zh: "這是一個價格合理的產品",
           image_url: "https://img.example.com/p1.jpg",
           official_url: "https://brand-a.com/bag",
@@ -120,6 +132,7 @@ describe("validateProducts", () => {
           id: "p2",
           key: "brand-a/hat",
           brand_id: "b1",
+          ...VALID_PRODUCT_TAXONOMY,
           product_description_zh: "必買的好東西，讓你的生活更好",
           image_url: "https://img.example.com/p2.jpg",
           official_url: "https://brand-a.com/hat",
@@ -130,6 +143,7 @@ describe("validateProducts", () => {
           id: "p3",
           key: "brand-b/shoe",
           brand_id: "b2",
+          ...VALID_PRODUCT_TAXONOMY,
           product_description_zh: "普通的描述",
           image_url: "https://img.example.com/p3.jpg",
           official_url: "https://brand-b.com/shoe",
@@ -164,6 +178,7 @@ describe("validateProducts", () => {
           id: "p1",
           key: "brand-a/product-1",
           brand_id: "b1",
+          ...VALID_PRODUCT_TAXONOMY,
           product_description_zh: "好產品",
           image_url: "https://img.example.com/p1.jpg",
           official_url: "https://Brand-A.com/product-1/",
@@ -174,6 +189,7 @@ describe("validateProducts", () => {
           id: "p2",
           key: "brand-a/product-2",
           brand_id: "b1",
+          ...VALID_PRODUCT_TAXONOMY,
           product_description_zh: "另一個產品",
           image_url: "https://img.example.com/p2.jpg",
           official_url: "https://brand-a.com/product-2",
@@ -188,7 +204,11 @@ describe("validateProducts", () => {
       "brand-a,https://brand-a.com/product-1?ref=test#top,https://brand-a.com/product-2/",
     ].join("\n");
 
-    const result = await validateProducts(input({ csvPath: "__test__" }), deps, csvContent);
+    const result = await validateProducts(
+      input({ csvPath: "__test__" }),
+      deps,
+      csvContent,
+    );
 
     // URL normalization: Brand-A.com/product-1/ == brand-a.com/product-1?ref=test#top
     expect(result.csvComparison).not.toBeNull();
@@ -203,6 +223,7 @@ describe("validateProducts", () => {
           id: "p1",
           key: "brand-a/bag",
           brand_id: "b1",
+          ...VALID_PRODUCT_TAXONOMY,
           product_description_zh: "好產品",
           image_url: "https://img.example.com/p1.jpg",
           official_url: "https://brand-a.com/bag",
@@ -213,6 +234,7 @@ describe("validateProducts", () => {
           id: "p2",
           key: "brand-a/hat",
           brand_id: "b1",
+          ...VALID_PRODUCT_TAXONOMY,
           product_description_zh: "帽子",
           image_url: "https://img.example.com/p2.jpg",
           official_url: "https://brand-a.com/hat",
@@ -223,6 +245,7 @@ describe("validateProducts", () => {
           id: "p3",
           key: "brand-b/shoe",
           brand_id: "b2",
+          ...VALID_PRODUCT_TAXONOMY,
           product_description_zh: "鞋子",
           image_url: "https://img.example.com/p3.jpg",
           official_url: "https://brand-b.com/shoe",
@@ -238,7 +261,11 @@ describe("validateProducts", () => {
       "brand-b,https://brand-b.com/shoe,",
     ].join("\n");
 
-    const result = await validateProducts(input({ csvPath: "__test__" }), deps, csvContent);
+    const result = await validateProducts(
+      input({ csvPath: "__test__" }),
+      deps,
+      csvContent,
+    );
 
     expect(result.csvComparison).not.toBeNull();
     const csv = result.csvComparison!;
@@ -266,11 +293,15 @@ describe("validateProducts", () => {
 
 describe("normalizeUrl", () => {
   it("strips trailing slash, lowercases host, drops query and fragment", () => {
-    expect(normalizeUrl("https://Brand-A.com/path/")).toBe("https://brand-a.com/path");
+    expect(normalizeUrl("https://Brand-A.com/path/")).toBe(
+      "https://brand-a.com/path",
+    );
     expect(normalizeUrl("https://brand-a.com/path?ref=test#top")).toBe(
       "https://brand-a.com/path",
     );
-    expect(normalizeUrl("https://BRAND-A.COM/Path/")).toBe("https://brand-a.com/Path");
+    expect(normalizeUrl("https://BRAND-A.COM/Path/")).toBe(
+      "https://brand-a.com/Path",
+    );
   });
 
   it("handles invalid URLs gracefully", () => {

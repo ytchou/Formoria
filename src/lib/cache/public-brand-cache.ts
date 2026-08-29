@@ -64,6 +64,7 @@ export function revalidatePublicBrands(slugs: readonly string[]): void {
 
   // These shared pages read brand data and must be invalidated once per batch.
   revalidateLocalizedPath('/')
+  revalidateLocalizedPath(routes.discover())
   revalidateLocalizedPath(routes.about())
   revalidatePath('/sitemap.xml')
   revalidatePath('/[locale]/stories/[slug]', 'page')

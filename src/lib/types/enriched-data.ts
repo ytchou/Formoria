@@ -1,5 +1,6 @@
 import type { Json } from "@/lib/supabase/database.types";
 import type { OtherUrl } from "@/lib/types/brand";
+import { subcategoryBySlug } from "@/lib/taxonomy/ontology";
 
 /**
  * One provenance citation on a proposed product. Mirrors
@@ -38,7 +39,7 @@ export type CuratedProductProposal = {
   nameEn?: string;
   /** L1 category slug. */
   category: string;
-  subcategories: string[];
+  subcategory: string | null;
   /**
    * Slugs from the closed `MATERIALS` vocabulary. Deliberately `string[]` and
    * not the union: this is a wire payload, and the vocabulary check belongs to
@@ -92,6 +93,33 @@ export type EnrichedData = {
   products?: CuratedProductProposal[];
   name?: string;
 };
+
+function adaptProductProposal(value: unknown): CuratedProductProposal | null {
+  if (typeof value !== "object" || value === null || Array.isArray(value)) {
+    return null;
+  }
+  const proposal = value as Record<string, unknown>;
+  const category =
+    typeof proposal.category === "string" ? proposal.category : "";
+  const scalar =
+    typeof proposal.subcategory === "string"
+      ? proposal.subcategory
+      : proposal.subcategory === null
+        ? null
+        : null;
+  const legacy = Array.isArray(proposal.subcategories)
+    ? proposal.subcategories.filter(
+        (entry): entry is string => typeof entry === "string",
+      )
+    : [];
+  const candidate = scalar ?? (legacy.length === 1 ? legacy[0]! : null);
+  const node = candidate ? subcategoryBySlug(candidate) : null;
+  const { subcategories: _legacySubcategories, ...rest } = proposal;
+  return {
+    ...(rest as unknown as CuratedProductProposal),
+    subcategory: node?.category === category ? node.slug : null,
+  };
+}
 
 type EnrichmentCompleteness = "none" | "partial" | "complete";
 
@@ -185,7 +213,14 @@ export function enrichedDataFromDb(
       ? { purchaseMyship: json.purchase_myship }
       : {}),
     ...(Array.isArray(json.products)
-      ? { products: json.products as CuratedProductProposal[] }
+      ? {
+          products: json.products
+            .map(adaptProductProposal)
+            .filter(
+              (proposal): proposal is CuratedProductProposal =>
+                proposal !== null,
+            ),
+        }
       : {}),
     ...(Array.isArray(json.other_urls)
       ? {

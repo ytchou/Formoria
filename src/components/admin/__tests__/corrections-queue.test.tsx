@@ -5,7 +5,6 @@ import { NextIntlClientProvider } from "next-intl";
 import { describe, expect, it, vi } from "vitest";
 
 import messages from "../../../../messages/en.json";
-import { MAX_SUBCATEGORIES } from "@/lib/services/subcategories";
 import type {
   CorrectionBatchFailure,
   CorrectionDecision,
@@ -126,11 +125,12 @@ describe("CorrectionsQueue", () => {
       `+${CANONICAL_SUBCATEGORY}`,
     );
     const canonicalGroup = canonicalSubcategory.parentElement;
-    if (!canonicalGroup) throw new Error("expected canonical subcategory group");
+    if (!canonicalGroup)
+      throw new Error("expected canonical subcategory group");
     expect(within(canonicalGroup).queryByText(NOVEL_MARKER)).toBeNull();
   });
 
-  it("allows selecting a cap-exceeding row but excludes it from the approve count", async () => {
+  it("includes a sixth subcategory correction in the approve count", async () => {
     const user = userEvent.setup();
     const capCorrection = correction({
       id: "correction-cap-exceeded",
@@ -151,7 +151,7 @@ describe("CorrectionsQueue", () => {
       .mockResolvedValue({ failures: [] });
     renderQueue([capCorrection, eligibleCorrection], { bulkReviewAction });
 
-    expect(CAP_SUBCATEGORIES).toHaveLength(MAX_SUBCATEGORIES);
+    expect(CAP_SUBCATEGORIES).toHaveLength(5);
     const capCheckbox = screen.getByRole("checkbox", {
       name: `Select ${capCorrection.brandName}`,
     });
@@ -166,12 +166,12 @@ describe("CorrectionsQueue", () => {
     );
 
     const approveButton = screen.getByRole("button", {
-      name: messages.admin.corrections.bulkApprove.replace("{count}", "1"),
+      name: messages.admin.corrections.bulkApprove.replace("{count}", "2"),
     });
     expect(approveButton).toBeEnabled();
     expect(
       screen.queryByRole("button", {
-        name: messages.admin.corrections.bulkApprove.replace("{count}", "2"),
+        name: messages.admin.corrections.bulkApprove.replace("{count}", "1"),
       }),
     ).toBeNull();
   });
@@ -247,7 +247,9 @@ describe("CorrectionsQueue", () => {
   it("renders the empty state when corrections=[]", () => {
     renderQueue([]);
 
-    expect(screen.getByText(messages.admin.corrections.empty)).toBeInTheDocument();
+    expect(
+      screen.getByText(messages.admin.corrections.empty),
+    ).toBeInTheDocument();
     expect(
       screen.getByRole("textbox", {
         name: messages.admin.queue.search,
@@ -289,9 +291,7 @@ describe("CorrectionsQueue", () => {
 
     const row = rowFor(purchase.brandName ?? "");
     expect(
-      within(row).getByText(
-        messages.admin.corrections.fields.purchase_website,
-      ),
+      within(row).getByText(messages.admin.corrections.fields.purchase_website),
     ).toBeInTheDocument();
     const proposed = proposedCellFor(row, WEBSITE_URL);
     expect(within(proposed).getByText(WEBSITE_URL)).toBeInTheDocument();
@@ -301,11 +301,12 @@ describe("CorrectionsQueue", () => {
   it("renders a remove badge for a subcategory-delta correction", () => {
     renderQueue();
 
-    const cell = within(rowFor(SUBCATEGORY_CORRECTION.brandName ?? "")).getByRole(
-      "cell",
-      { name: new RegExp(`−${REMOVED_SUBCATEGORY}`) },
-    );
-    expect(within(cell).getByText(`−${REMOVED_SUBCATEGORY}`)).toBeInTheDocument();
+    const cell = within(
+      rowFor(SUBCATEGORY_CORRECTION.brandName ?? ""),
+    ).getByRole("cell", { name: new RegExp(`−${REMOVED_SUBCATEGORY}`) });
+    expect(
+      within(cell).getByText(`−${REMOVED_SUBCATEGORY}`),
+    ).toBeInTheDocument();
     // The novel marker belongs to the added novel subcategory's group, not to the
     // removal — the whole Proposed cell holds exactly one.
     const novelGroup = within(cell).getByText(`+${NOVEL_SUBCATEGORY}`)

@@ -70,9 +70,12 @@ export function BrandCard({
     brand,
     locale === "en" ? "en" : "zh-TW",
   );
-  // The card shows one L2 chip. `subcategories` stores slugs since DEV-1510, so
-  // the stored value is resolved to its label before it reaches the badge.
-  const primarySubcategory = getBrandSubcategoryLabels(brand, locale).at(0);
+  // Compact surfaces show the first five STORED L2s without expanding the
+  // card. Directory/search data still carries the complete array.
+  const compactSubcategories = getBrandSubcategoryLabels(brand, locale).slice(
+    0,
+    5,
+  );
   // The directory blurb, resolved once: both the directory variant and the
   // editorial variant (as its fallback when there is no curator note) render it,
   // and two copies of this chain drift apart the next time it changes.
@@ -265,15 +268,19 @@ export function BrandCard({
             >
               {blurb ?? " "}
             </p>
-            <div className="mt-3 flex items-center gap-1.5 overflow-hidden">
+            <div className="mt-3 flex flex-wrap items-center gap-1.5 overflow-hidden">
               {categoryLabel && (
                 <Badge variant="secondary">{categoryLabel}</Badge>
               )}
-              {primarySubcategory && (
-                <Badge variant="secondary" className="max-w-full truncate">
-                  {primarySubcategory}
+              {compactSubcategories.map((subcategory, index) => (
+                <Badge
+                  key={`${subcategory}-${index}`}
+                  variant="secondary"
+                  className="max-w-full truncate"
+                >
+                  {subcategory}
                 </Badge>
-              )}
+              ))}
             </div>
           </>
         )}

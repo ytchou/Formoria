@@ -85,10 +85,7 @@ import type { CatalogDiscoveryResult } from "./enrich-phases/catalog-discovery";
 import { buildCandidatePool } from "./enrich-phases/candidate-pool";
 import type { EnrichmentTarget } from "./_shared/enrichment-target";
 import type { RenderProvider } from "./enrich-phases/scraper/render/types";
-import {
-  deriveCategoryFromSubcategories,
-  MAX_SUBCATEGORIES,
-} from "./subcategories";
+import { deriveCategoryFromSubcategories } from "./subcategories";
 import {
   fetchPhaseHistory,
   filterSatisfiedPhases,
@@ -460,7 +457,9 @@ export function seedEnrichedDataFromOwnerData(
  * The merge's default is a `Set` union, which is right for arrays of scalars
  * and wrong for everything here. `channels` and `products` are arrays of
  * OBJECTS, so the Set union is a no-op on identity and every rerun appends its
- * whole list to the stored one; the newest run's list is the whole list.
+ * whole list to the stored one. `subcategories` and its aligned English labels
+ * are complete classifier results, so the newest pair is likewise the whole
+ * list rather than a union.
  * `_cleared_fields` is the mirror case — a later run that finds real evidence
  * has to be able to un-clear a field, and a union would make the first clear
  * permanent.
@@ -472,6 +471,8 @@ export function seedEnrichedDataFromOwnerData(
 const REPLACE_NOT_UNION_KEYS = new Set<string>([
   "channels",
   "products",
+  "subcategories",
+  "subcategories_en",
   CLEARED_FIELDS_KEY,
 ]);
 
@@ -480,14 +481,6 @@ function deepMergeJsonObjects(base: JsonObject, patch: JsonObject): JsonObject {
 
   for (const [key, value] of Object.entries(patch)) {
     const existing = merged[key];
-    if (
-      (key === "subcategories" || key === "subcategories_en") &&
-      Array.isArray(value)
-    ) {
-      merged[key] = value.slice(0, MAX_SUBCATEGORIES);
-      continue;
-    }
-
     if (REPLACE_NOT_UNION_KEYS.has(key)) {
       merged[key] = value;
       continue;
@@ -520,8 +513,8 @@ export function mergeSubmissionEnrichedData(
   base: JsonObject,
   patch: JsonObject,
 ): JsonObject {
-  // `channels`, `products` and `_cleared_fields` are replaced, not unioned, by
-  // `deepMergeJsonObjects` itself — see REPLACE_NOT_UNION_KEYS.
+  // Complete arrays in REPLACE_NOT_UNION_KEYS are replaced, not unioned, by
+  // `deepMergeJsonObjects` itself.
   const merged = deepMergeJsonObjects(base, patch);
   if (Object.hasOwn(patch, CLEARED_FIELDS_KEY)) {
     // A clear from this run must beat a stale value in the stored base. The

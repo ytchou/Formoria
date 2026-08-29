@@ -36,7 +36,6 @@ export type SubmitCorrectionActionResult =
       error:
         | "invalid_brand"
         | "invalid_value"
-        | "too_many_subcategories"
         | "unchanged"
         | "already_submitted"
         | "rate_limited"

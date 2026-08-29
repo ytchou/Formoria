@@ -26,7 +26,6 @@ import {
   applySubcategoryDelta,
   deriveSubcategoriesEn,
   isSubcategoriesDelta,
-  MAX_SUBCATEGORIES,
   recordRejectedSubcategoryInput,
   resolveSubcategorySelection,
   sameSubcategorySet,
@@ -185,7 +184,6 @@ export type SubmitCorrectionResult =
         | "invalid_field"
         | "invalid_value"
         | "unchanged"
-        | "too_many_subcategories"
         | "already_submitted"
         | "not_found"
         | "database_error";
@@ -202,11 +200,7 @@ export type ReviewCorrectionResult =
   | {
       ok: false;
       code:
-        | "invalid_value"
-        | "too_many_subcategories"
-        | "not_found"
-        | "already_reviewed"
-        | "database_error";
+        "invalid_value" | "not_found" | "already_reviewed" | "database_error";
     };
 
 export type CorrectionBatchFailure = { id: string; code: string };
@@ -877,9 +871,6 @@ export async function submitCorrection(
           const next = applySubcategoryDelta(currentSubcategories, delta);
           if (sameSubcategorySet(currentSubcategories, next))
             return { ok: false, code: "unchanged" };
-          if (next.length > MAX_SUBCATEGORIES) {
-            return { ok: false, code: "too_many_subcategories" };
-          }
           previousValue = currentSubcategories;
         } else if (input.field === "material") {
           // The second array branch. No cap check: the vocabulary is closed at
@@ -1047,8 +1038,6 @@ export async function reviewCorrection(
           const next = applySubcategoryDelta(currentSubcategories, delta);
           if (sameSubcategorySet(currentSubcategories, next)) {
             patch = null;
-          } else if (next.length > MAX_SUBCATEGORIES) {
-            return { ok: false, code: "too_many_subcategories" };
           } else {
             patch = {
               subcategories: next,

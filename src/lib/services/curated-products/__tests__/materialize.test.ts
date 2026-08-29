@@ -14,6 +14,12 @@ type ExistingRow = {
   brand_id: string;
   key: string;
   official_url: string | null;
+  name_en: string | null;
+  category: string;
+  subcategory: string | null;
+  image_source_url: string | null;
+  product_description_zh: string;
+  product_description_en: string | null;
   visible: boolean;
   proposed_by: string;
   curated_product_sources: { id: string }[];
@@ -22,8 +28,10 @@ type ExistingRow = {
 type Recorded = {
   inserts: Record<string, unknown>[];
   upserts: Record<string, unknown>[];
+  updates: Record<string, unknown>[];
   tables: string[];
   ranges: [number, number][];
+  maxConcurrentInserts: number;
 };
 
 /**
@@ -41,22 +49,32 @@ function stubClient(options: {
   /** Thrown by the Nth source upsert, counting from 1. */
   failSourceUpsertAt?: number;
   failInsertKeys?: string[];
+  insertDelayMs?: number;
 }): { client: CuratedProductSupabase; calls: Recorded } {
   const calls: Recorded = {
     inserts: [],
     upserts: [],
+    updates: [],
     tables: [],
     ranges: [],
+    maxConcurrentInserts: 0,
   };
   let upsertCount = 0;
+  let concurrentInserts = 0;
+  const createdById = new Map<string, Record<string, unknown>>();
 
   function chainFor(table: string) {
     let insertedRow: Record<string, unknown> | null = null;
+    let pendingUpdate: Record<string, unknown> | null = null;
     const chain = {
       select() {
         return chain;
       },
-      eq() {
+      eq(column: string, value: unknown) {
+        if (pendingUpdate && column === "id") {
+          const created = createdById.get(String(value));
+          if (created) Object.assign(created, pendingUpdate);
+        }
         return chain;
       },
       in() {
@@ -74,6 +92,11 @@ function stubClient(options: {
         calls.inserts.push(row);
         return chain;
       },
+      update(row: Record<string, unknown>) {
+        calls.updates.push(row);
+        pendingUpdate = row;
+        return chain;
+      },
       upsert(row: Record<string, unknown>) {
         upsertCount += 1;
         calls.upserts.push(row);
@@ -84,27 +107,38 @@ function stubClient(options: {
             : { data: null, error: null },
         );
       },
-      single() {
+      async single() {
+        concurrentInserts += 1;
+        calls.maxConcurrentInserts = Math.max(
+          calls.maxConcurrentInserts,
+          concurrentInserts,
+        );
+        if (options.insertDelayMs) {
+          await new Promise((resolve) =>
+            setTimeout(resolve, options.insertDelayMs),
+          );
+        }
         const key = String(insertedRow?.key ?? "");
+        concurrentInserts -= 1;
         if (options.failInsertKeys?.includes(key)) {
-          return Promise.resolve({
+          return {
             data: null,
             error: { code: "08006", message: "insert failed" },
-          });
+          };
         }
-        return Promise.resolve({
-          data: { id: `product-${key}`, key },
+        const id = `product-${key}`;
+        if (insertedRow) createdById.set(id, insertedRow);
+        return {
+          data: { id, key },
           error: null,
-        });
+        };
       },
       then<TResult>(
-        resolve: (value: {
-          data: unknown[] | null;
-          error: unknown;
-        }) => TResult,
+        resolve: (value: { data: unknown[] | null; error: unknown }) => TResult,
         reject?: (reason: unknown) => TResult,
       ) {
-        const data = table === "curated_products" ? (options.existing ?? []) : [];
+        const data =
+          table === "curated_products" ? (options.existing ?? []) : [];
         return Promise.resolve({ data, error: null }).then(resolve, reject);
       },
     };
@@ -129,7 +163,7 @@ function proposal(
     nameZh: "柴燒手感馬克杯",
     nameEn: "Wood-fired Mug",
     category: "home",
-    subcategories: [],
+    subcategory: "tableware",
     material: [],
     officialUrl: "https://taoqi.com.tw/products/wood-fired-mug",
     productDescriptionZh:
@@ -224,6 +258,56 @@ describe("materializeSubmissionCuratedProducts", () => {
     expect(calls.inserts.at(0)?.source_checked_at).toBeNull();
   });
 
+  it("keeps a selected proposal without L2 hidden after its evidence is written", async () => {
+    // Catches treating the review tick as sufficient to publish an unclassified product.
+    const noL2 = proposal({ subcategory: null });
+    const { client, calls } = stubClient({});
+
+    const result = await materializeSubmissionCuratedProducts(
+      SUBMISSION_ID,
+      BRAND_ID,
+      { review: review([noL2], [noL2.key]), client },
+    );
+
+    expect(result).toMatchObject({ created: 1, visible: 0, hidden: 1 });
+    expect(calls.inserts.at(0)?.visible).toBe(false);
+    expect(calls.updates).toEqual([]);
+  });
+
+  it("materializes twenty proposals with no more than four concurrent creates", async () => {
+    // Catches restoring the five-product cap or launching one write chain per proposal.
+    const proposals = Array.from({ length: 20 }, (_, index) =>
+      proposal({
+        key: `product-${index + 1}`,
+        nameZh: `手作杯 ${index + 1}`,
+        officialUrl: `https://taoqi.com.tw/products/cup-${index + 1}`,
+        sources: [
+          {
+            url: `https://taoqi.com.tw/products/cup-${index + 1}`,
+            sourceType: "official",
+          },
+        ],
+      }),
+    );
+    const { client, calls } = stubClient({ insertDelayMs: 2 });
+
+    const result = await materializeSubmissionCuratedProducts(
+      SUBMISSION_ID,
+      BRAND_ID,
+      {
+        review: review(
+          proposals,
+          proposals.map((item) => item.key),
+        ),
+        client,
+      },
+    );
+
+    expect(result).toMatchObject({ created: 20, visible: 20, failed: 0 });
+    expect(calls.maxConcurrentInserts).toBeGreaterThan(1);
+    expect(calls.maxConcurrentInserts).toBeLessThanOrEqual(4);
+  });
+
   it("skips_a_proposal_whose_official_url_was_emptied", async () => {
     // `""` is legal on a proposal so the section stays saveable mid-edit. It is
     // half the publication proof, so materializing it either publishes a row
@@ -233,7 +317,10 @@ describe("materializeSubmissionCuratedProducts", () => {
     const result = await materializeSubmissionCuratedProducts(
       SUBMISSION_ID,
       BRAND_ID,
-      { review: review([proposal({ officialUrl: "" })], [proposal().key]), client },
+      {
+        review: review([proposal({ officialUrl: "" })], [proposal().key]),
+        client,
+      },
     );
 
     expect(result).toMatchObject({ created: 0, skipped: 1, failed: 0 });
@@ -276,7 +363,10 @@ describe("materializeSubmissionCuratedProducts", () => {
   });
 
   it("keeps_going_after_one_proposal_fails", async () => {
-    const failing = proposal({ key: "failing-product", nameZh: "會失敗的產品" });
+    const failing = proposal({
+      key: "failing-product",
+      nameZh: "會失敗的產品",
+    });
     const healthy = proposal({
       key: "healthy-product",
       nameZh: "正常的產品",
@@ -292,7 +382,10 @@ describe("materializeSubmissionCuratedProducts", () => {
     const result = await materializeSubmissionCuratedProducts(
       SUBMISSION_ID,
       BRAND_ID,
-      { review: review([failing, healthy], [failing.key, healthy.key]), client },
+      {
+        review: review([failing, healthy], [failing.key, healthy.key]),
+        client,
+      },
     );
 
     expect(result).toMatchObject({ created: 1, failed: 1 });
@@ -327,6 +420,12 @@ describe("materializeSubmissionCuratedProducts", () => {
       brand_id: BRAND_ID,
       key: proposal().key,
       official_url: proposal().officialUrl ?? null,
+      name_en: proposal().nameEn ?? null,
+      category: "home",
+      subcategory: "tableware",
+      image_source_url: null,
+      product_description_zh: proposal().productDescriptionZh,
+      product_description_en: null,
       visible: true,
       proposed_by: "generated",
       curated_product_sources: [],
@@ -354,6 +453,12 @@ describe("materializeSubmissionCuratedProducts", () => {
       brand_id: BRAND_ID,
       key: proposal().key,
       official_url: proposal().officialUrl ?? null,
+      name_en: proposal().nameEn ?? null,
+      category: "home",
+      subcategory: "tableware",
+      image_source_url: null,
+      product_description_zh: proposal().productDescriptionZh,
+      product_description_en: null,
       visible: true,
       proposed_by: "admin",
       curated_product_sources: [],
@@ -376,6 +481,12 @@ describe("materializeSubmissionCuratedProducts", () => {
       brand_id: BRAND_ID,
       key: proposal().key,
       official_url: proposal().officialUrl ?? null,
+      name_en: proposal().nameEn ?? null,
+      category: "home",
+      subcategory: "tableware",
+      image_source_url: null,
+      product_description_zh: proposal().productDescriptionZh,
+      product_description_en: null,
       visible: true,
       proposed_by: "generated",
       curated_product_sources: [{ id: "source-1" }],
@@ -406,7 +517,10 @@ function readRowClient(row: Record<string, unknown>): CuratedProductSupabase {
       resolve: (value: { data: unknown[]; error: null }) => TResult,
       reject?: (reason: unknown) => TResult,
     ) {
-      return Promise.resolve({ data: [row], error: null }).then(resolve, reject);
+      return Promise.resolve({ data: [row], error: null }).then(
+        resolve,
+        reject,
+      );
     },
   };
   return { from: () => chain } as unknown as CuratedProductSupabase;

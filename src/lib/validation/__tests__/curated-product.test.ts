@@ -36,11 +36,13 @@ describe("curated product validation", () => {
     // pin moved.
     expect(CURATED_PRODUCT_CATEGORY_VALUES).toHaveLength(12);
     expect(
-      curatedProductCreateSchema.safeParse(validCreate({ category: "furniture" }))
-        .success,
+      curatedProductCreateSchema.safeParse(
+        validCreate({ category: "furniture" }),
+      ).success,
     ).toBe(false);
     expect(
-      curatedProductCreateSchema.safeParse(validCreate({ category: "home" })).success,
+      curatedProductCreateSchema.safeParse(validCreate({ category: "home" }))
+        .success,
     ).toBe(true);
   });
 
@@ -142,8 +144,8 @@ describe("curated product validation", () => {
   it("rejects a create with no zh description", () => {
     for (const value of [undefined, "", "  \t"]) {
       const payload = validCreate();
-      if (value === undefined) delete (payload as Record<string, unknown>)
-        .productDescriptionZh;
+      if (value === undefined)
+        delete (payload as Record<string, unknown>).productDescriptionZh;
       else (payload as Record<string, unknown>).productDescriptionZh = value;
 
       const result = curatedProductCreateSchema.safeParse(payload);
@@ -209,12 +211,35 @@ describe("curated product validation", () => {
     expect(created.success).toBe(true);
     if (!created.success) return;
     expect(created.data.visible).toBe(false);
-    expect(curatedProductUpdateSchema.safeParse({ visible: true }).success).toBe(
+    expect(
+      curatedProductUpdateSchema.safeParse({ visible: true }).success,
+    ).toBe(true);
+    // Absent is legal — the column carries its own NOT NULL DEFAULT true.
+    expect(curatedProductCreateSchema.safeParse(validCreate()).success).toBe(
       true,
     );
-    // Absent is legal — the column carries its own NOT NULL DEFAULT true.
+  });
+
+  it("requires a known category-compatible L2 before creating a visible product", () => {
+    // Catches publication through the input boundary with a missing, unknown, or cross-L1 L2.
     expect(
-      curatedProductCreateSchema.safeParse(validCreate()).success,
+      curatedProductCreateSchema.safeParse(validCreate({ visible: true }))
+        .success,
+    ).toBe(false);
+    expect(
+      curatedProductCreateSchema.safeParse(
+        validCreate({ visible: true, subcategory: "not-in-ontology" }),
+      ).success,
+    ).toBe(false);
+    expect(
+      curatedProductCreateSchema.safeParse(
+        validCreate({ visible: true, subcategory: "handbags" }),
+      ).success,
+    ).toBe(false);
+    expect(
+      curatedProductCreateSchema.safeParse(
+        validCreate({ visible: true, subcategory: "tableware" }),
+      ).success,
     ).toBe(true);
   });
 
@@ -245,18 +270,18 @@ describe("curated product validation", () => {
     );
   });
 
-  it("refuses a subcategories patch that does not name its category", () => {
+  it("refuses a subcategory patch that does not name its category", () => {
     // Refused at the BOUNDARY so the action returns its generic
     // "Invalid curated product"; the service keeps the same rule as a throwing
     // backstop, whose raw message would otherwise reach the editor.
     expect(
-      curatedProductUpdateSchema.safeParse({ subcategories: ["tableware"] })
+      curatedProductUpdateSchema.safeParse({ subcategory: "tableware" })
         .success,
     ).toBe(false);
     expect(
       curatedProductUpdateSchema.safeParse({
         category: "home",
-        subcategories: ["tableware"],
+        subcategory: "tableware",
       }).success,
     ).toBe(true);
   });

@@ -61,11 +61,10 @@ export const adminReviewSchema = z.object({
   // before the backfill still carries zh-TW labels into review.
   subcategories: z
     .array(z.string().trim().min(1).max(100))
-    .max(5)
     .refine((values) => values.every(isKnownSubcategoryTerm), {
       message: "Unknown subcategory",
     }),
-  subcategoriesEn: z.array(z.string().trim().min(1).max(100)).max(5),
+  subcategoriesEn: z.array(z.string().trim().min(1).max(100)),
   websiteUrl: nullableText,
   socialInstagram: nullableText,
   socialThreads: nullableText,

@@ -61,8 +61,7 @@ import { routes } from "@/lib/routes";
  */
 
 type ActionResult =
-  | { error: string; fieldErrors?: Record<string, string> }
-  | undefined;
+  { error: string; fieldErrors?: Record<string, string> } | undefined;
 
 /**
  * Cache invalidation for a curated write. Silent when missed: `/brands/[slug]`
@@ -141,7 +140,7 @@ export async function createCuratedProductAction(
         nameZh: payload.nameZh,
         nameEn: payload.nameEn ?? null,
         category: payload.category,
-        subcategories: payload.subcategories ?? [],
+        subcategory: payload.subcategory ?? null,
         officialUrl: payload.officialUrl ?? null,
         imageSourceUrl: payload.imageSourceUrl ?? null,
         productDescriptionZh: payload.productDescriptionZh,
@@ -154,6 +153,7 @@ export async function createCuratedProductAction(
           ? new Date().toISOString()
           : null,
       });
+      let publishedBrandSlug: string | null = null;
 
       try {
         await saveSources(id, payload.sources);
@@ -175,6 +175,10 @@ export async function createCuratedProductAction(
             imageHeight: height,
           });
         }
+        if (payload.visible === true && payload.subcategory) {
+          await updateCuratedProduct(id, { visible: true });
+          publishedBrandSlug = await getCuratedProductBrandSlug(id);
+        }
       } catch (error) {
         // The row exists from here on, so the compensating action is to SAY so
         // rather than to unwind: retiring it would keep `(brand_id, key)`
@@ -192,9 +196,8 @@ export async function createCuratedProductAction(
         };
       }
 
-      // A new product is hidden, so no public page renders it yet — only the
-      // queue needs invalidating.
-      revalidatePath(routes.admin.curatedProducts());
+      if (publishedBrandSlug) revalidateCurated(publishedBrandSlug);
+      else revalidatePath(routes.admin.curatedProducts());
       return undefined;
     } catch (error) {
       return actionError(error, "Unable to create the curated product");
@@ -422,7 +425,9 @@ export async function retireCuratedProductSourceAction(
   });
 }
 
-function parseSelectionInput(input: unknown): CuratedProductSelectionInput | null {
+function parseSelectionInput(
+  input: unknown,
+): CuratedProductSelectionInput | null {
   if (!input || typeof input !== "object") return null;
   const value = input as Record<string, unknown>;
   if (
@@ -483,7 +488,8 @@ export async function retireCuratedProductSelectionAction(
   return runWithAuditContext({}, async () => {
     const auth = await requireAdminAction();
     if ("error" in auth) return { error: auth.error };
-    if (!input || typeof input !== "object") return { error: "Invalid trail placement" };
+    if (!input || typeof input !== "object")
+      return { error: "Invalid trail placement" };
     const value = input as Record<string, unknown>;
     if (
       typeof value.productId !== "string" ||

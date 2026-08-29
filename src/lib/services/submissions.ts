@@ -1004,7 +1004,7 @@ export function getSubmissionReviewCompleteness(
   if (!data.categorySlug || !validCategories.has(data.categorySlug)) {
     missingFields.push("categorySlug");
   }
-  if (data.subcategories.length < 1 || data.subcategories.length > 5) {
+  if (data.subcategories.length < 1) {
     missingFields.push("subcategories");
   }
   const purchaseLinkFields = ONLINE_STORE_CAMEL_FIELDS.filter(

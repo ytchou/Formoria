@@ -26,6 +26,7 @@ import { SelectedProductExternalLink } from "./selected-product-external-link";
 import { routes } from "@/lib/routes";
 import { Badge } from "@/components/ui/badge";
 import { ShieldCheck } from "lucide-react";
+import { subcategoryDisplayLabel } from "@/lib/taxonomy/ontology";
 
 export type SelectedProductTileLabels = {
   cta: string;
@@ -115,6 +116,9 @@ export function SelectedProductTile({
     ? (product.productDescriptionEn ?? product.productDescriptionZh)
     : product.productDescriptionZh;
   const imageSrc = safeImageSrc(product.imageUrl);
+  const subcategoryName = product.subcategory
+    ? subcategoryDisplayLabel(product.subcategory, locale)
+    : null;
   /*
    * D11, THE CONTRAST RULE: a label renders only where its opposite is visible.
    *
@@ -276,6 +280,7 @@ export function SelectedProductTile({
           // almost no margin. Never smaller, never lighter.
           <Typography as="p" variant="metadata">
             {brandName}
+            {subcategoryName ? ` · ${subcategoryName}` : ""}
           </Typography>
         ) : null}
       </div>
