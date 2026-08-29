@@ -41,7 +41,7 @@ jobs:
       E2E_SIGNUP_EMAIL_DOMAIN: example.test
       CF_ACCESS_CLIENT_ID: ${{ secrets.CF_ACCESS_CLIENT_ID }}
       CF_ACCESS_CLIENT_SECRET: ${{ secrets.CF_ACCESS_CLIENT_SECRET }}
-      E2E_ORIGIN_SECRET: ${{ secrets.E2E_ORIGIN_SECRET }}
+      E2E_ORIGIN_SECRET: ${{ startsWith(github.head_ref, 'release/candidate-') && secrets.RELEASE_CANDIDATE_ORIGIN_SECRET || secrets.E2E_ORIGIN_SECRET }}
       CI: "true"
       PLAYWRIGHT_TEST: "true"
     steps:

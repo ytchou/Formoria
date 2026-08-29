@@ -5,16 +5,10 @@ import { BUDGET } from '../budgets';
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AnySupabaseClient = SupabaseClient<any, any, any>;
 
-const IS_CANONICAL_STAGING_TARGET =
-  new URL(
-    process.env.BASE_URL ??
-      process.env.PLAYWRIGHT_BASE_URL ??
-      process.env.STAGING_BASE_URL ??
-      'http://localhost:3000',
-  ).origin === 'https://staging.formoria.com';
+const IS_STAGING_TARGET = process.env.FORMORIA_DEPLOYMENT_ENV === 'staging';
 
 function expectShareCardCacheContract(cacheControl: string): void {
-  if (IS_CANONICAL_STAGING_TARGET) {
+  if (IS_STAGING_TARGET) {
     expect(cacheControl).toBe('private, no-store');
     return;
   }
