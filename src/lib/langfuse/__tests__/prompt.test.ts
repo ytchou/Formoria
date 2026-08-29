@@ -14,14 +14,17 @@ describe("langfuse/prompt", () => {
   });
 
   async function loadModule() {
-    // Dynamic import so each test gets a fresh module-level cache
     const mod = await import("../prompt");
     return mod.fetchLangfusePrompt;
   }
 
-  it("returns_langfuse_prompt_when_available", async () => {
+  it("fetches_prompt_from_langfuse", async () => {
+    const mockPromptClient = {
+      prompt: "remote-text",
+      compile: vi.fn(),
+    };
     const mockClient = {
-      getPrompt: vi.fn().mockResolvedValue({ prompt: "remote-text" }),
+      getPrompt: vi.fn().mockResolvedValue(mockPromptClient),
     };
     mockGetLangfuse.mockReturnValue(mockClient);
 
@@ -29,10 +32,53 @@ describe("langfuse/prompt", () => {
     const result = await fetchLangfusePrompt("my-prompt", "local-fallback");
 
     expect(result).toBe("remote-text");
-    expect(mockClient.getPrompt).toHaveBeenCalledWith("my-prompt");
+    expect(mockClient.getPrompt).toHaveBeenCalledWith("my-prompt", undefined, {
+      fallback: "local-fallback",
+      label: "production",
+    });
   });
 
-  it("falls_back_to_local_constant_when_langfuse_unavailable", async () => {
+  it("compiles_variables_when_provided", async () => {
+    const mockPromptClient = {
+      prompt: "Hello {{name}}, welcome to {{place}}",
+      compile: vi.fn().mockReturnValue("Hello Alice, welcome to Wonderland"),
+    };
+    const mockClient = {
+      getPrompt: vi.fn().mockResolvedValue(mockPromptClient),
+    };
+    mockGetLangfuse.mockReturnValue(mockClient);
+
+    const fetchLangfusePrompt = await loadModule();
+    const result = await fetchLangfusePrompt("greeting", "fallback", {
+      name: "Alice",
+      place: "Wonderland",
+    });
+
+    expect(result).toBe("Hello Alice, welcome to Wonderland");
+    expect(mockPromptClient.compile).toHaveBeenCalledWith({
+      name: "Alice",
+      place: "Wonderland",
+    });
+  });
+
+  it("asserts_missing_variables", async () => {
+    const mockPromptClient = {
+      prompt: "Hello {{name}}, welcome to {{place}}",
+      compile: vi.fn(),
+    };
+    const mockClient = {
+      getPrompt: vi.fn().mockResolvedValue(mockPromptClient),
+    };
+    mockGetLangfuse.mockReturnValue(mockClient);
+
+    const fetchLangfusePrompt = await loadModule();
+
+    await expect(
+      fetchLangfusePrompt("greeting", "fallback", { name: "Alice" }),
+    ).rejects.toThrow("place");
+  });
+
+  it("returns_fallback_when_no_client", async () => {
     mockGetLangfuse.mockReturnValue(null);
 
     const fetchLangfusePrompt = await loadModule();
@@ -41,41 +87,21 @@ describe("langfuse/prompt", () => {
     expect(result).toBe("local-fallback");
   });
 
-  it("falls_back_on_getPrompt_error", async () => {
+  it("returns_fallback_on_sdk_error", async () => {
+    const fallbackPromptClient = {
+      prompt: "safe-fallback",
+      compile: vi.fn(),
+    };
     const mockClient = {
-      getPrompt: vi.fn().mockRejectedValue(new Error("network error")),
+      // SDK's built-in fallback: when getPrompt is configured with a fallback
+      // and the fetch fails, the SDK returns a TextPromptClient with the fallback text
+      getPrompt: vi.fn().mockResolvedValue(fallbackPromptClient),
     };
     mockGetLangfuse.mockReturnValue(mockClient);
 
-    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
     const fetchLangfusePrompt = await loadModule();
     const result = await fetchLangfusePrompt("broken", "safe-fallback");
 
     expect(result).toBe("safe-fallback");
-    expect(warnSpy).toHaveBeenCalled();
-    warnSpy.mockRestore();
-  });
-
-  it("caches_fallback_when_client_is_null", async () => {
-    mockGetLangfuse.mockReturnValue(null);
-
-    const fetchLangfusePrompt = await loadModule();
-    await fetchLangfusePrompt("no-client", "fallback-a");
-    await fetchLangfusePrompt("no-client", "fallback-b");
-
-    expect(mockGetLangfuse).toHaveBeenCalledTimes(1);
-  });
-
-  it("caches_prompt_within_same_name", async () => {
-    const mockClient = {
-      getPrompt: vi.fn().mockResolvedValue({ prompt: "cached-text" }),
-    };
-    mockGetLangfuse.mockReturnValue(mockClient);
-
-    const fetchLangfusePrompt = await loadModule();
-    await fetchLangfusePrompt("same-name", "fallback");
-    await fetchLangfusePrompt("same-name", "fallback");
-
-    expect(mockClient.getPrompt).toHaveBeenCalledTimes(1);
   });
 });
