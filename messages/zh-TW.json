@@ -544,7 +544,7 @@
       "whereToBuy": {
         "question": "{brandName} 在哪裡可以買到？",
         "answer": "{brandName} 的產品可以透過{channels}購買。{stockistNote}{context}",
-        "stockistSuffix": "另外有 {count} 個實體通路據點。",
+        "stockistSuffix": "另有 {count} 個線下合作店家。",
         "noOnlineChannels": "實體通路"
       },
       "materials": {
