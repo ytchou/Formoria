@@ -55,7 +55,7 @@ const SEEDABLE_PHASES: readonly EnrichPhaseName[] = [
   'reputation',
   'tags',
   'faq',
-  'locations',
+  'stockists',
 ] as const
 
 function isNonEmptyString(value: unknown): boolean {
@@ -78,6 +78,7 @@ function inferPhaseStatus(
   row: SubmissionRow,
   imageCount: number,
   faqCount: number,
+  stockistCountMap: Map<string, number>,
 ): 'succeeded' | null {
   switch (phase) {
     case 'links':
@@ -109,9 +110,8 @@ function inferPhaseStatus(
       // FAQ writes to brand_faq_entries, not enriched_data
       return faqCount > 0 ? 'succeeded' : null
 
-    case 'locations':
-      // Was hardcoded unsatisfied — never seed it
-      return null
+    case 'stockists':
+      return stockistCountMap.get(row.brand_id ?? '') ? 'succeeded' : null
 
     default:
       return null
@@ -240,6 +240,33 @@ async function main(): Promise<void> {
     }
   }
 
+  // Step 4b: Count enriched stockists per brand
+  const stockistCountMap = new Map<string, number>()
+  for (let i = 0; i < brandIds.length; i += CHUNK_SIZE) {
+    const chunk = brandIds.slice(i, i + CHUNK_SIZE)
+    let stockistOffset = 0
+    while (true) {
+      const { data, error: stockistError } = await supabase
+        .from('brand_channels')
+        .select('brand_id')
+        .in('brand_id', chunk)
+        .eq('source', 'enriched')
+        .not('name', 'is', null)
+        .range(stockistOffset, stockistOffset + PAGE_SIZE - 1)
+
+      if (stockistError) {
+        throw new Error(`Failed to query brand_channels: ${stockistError.message}`)
+      }
+
+      for (const row of data ?? []) {
+        stockistCountMap.set(row.brand_id, (stockistCountMap.get(row.brand_id) ?? 0) + 1)
+      }
+
+      if (!data || data.length < PAGE_SIZE) break
+      stockistOffset += PAGE_SIZE
+    }
+  }
+
   // Step 5: Build phase results for each submission
   type TargetInsert = {
     job_id: string
@@ -264,7 +291,7 @@ async function main(): Promise<void> {
     const phaseResults: PhaseResult[] = []
 
     for (const phase of SEEDABLE_PHASES) {
-      const status = inferPhaseStatus(phase, row, imageCount, faqCount)
+      const status = inferPhaseStatus(phase, row, imageCount, faqCount, stockistCountMap)
       if (status) {
         phaseResults.push({
           phase,

@@ -50,7 +50,8 @@ const phaseDescriptions = {
   classify_images: "Classifies candidate images by their role and quality.",
   facts: "Extracts the brand's category, tags, city and founding year.",
   descriptions: "Writes the bilingual description and blurb.",
-  locations: "Finds physical shops and retail channels.",
+  stockists: "Stockist discovery from website evidence.",
+  locations: "Retail location search (retired).",
   reputation:
     "Adds third-party reputation context — coverage, awards, ratings.",
   faq: "Writes the bilingual FAQ answers the brand's evidence supports.",
@@ -69,7 +70,7 @@ const phaseDescriptions = {
   // constant behind it, because nothing writes it any more — only historical
   // rows carry it, and dropping it would render `undefined` on those pages.
   expansion: "Adds reputation context when it is not already available.",
-} satisfies Record<AuditedPhaseName | "expansion", string>;
+} satisfies Record<AuditedPhaseName | "expansion" | "locations", string>;
 
 const phaseDefinitions = [
   [

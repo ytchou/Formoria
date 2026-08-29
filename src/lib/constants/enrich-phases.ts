@@ -23,7 +23,7 @@ export const ENRICH_PHASES = [
   "images",
   "classify_images",
   "descriptions",
-  "locations",
+  "stockists",
   "reputation",
   // FAQ must run after `descriptions` (for `facts`) and `reputation` (for
   // `reputationSummary`); both are hard ordering constraints.
@@ -81,12 +81,10 @@ export type AuditedPhaseName = EnrichPhaseName | SubPhaseName;
  *
  * - `discover` -> serper /search
  * - `images` -> serper /images (image-search phase)
- * - `locations` -> serper /maps (channels phase)
  */
 export const SERP_PHASES = [
   "discover",
   "images",
-  "locations",
 ] as const satisfies readonly EnrichPhaseName[];
 
 /**
@@ -108,6 +106,7 @@ export const ENRICH_LLM_PHASES = [
   "site_identity",
   "faq",
   "products",
+  "stockists",
 ] as const satisfies readonly EnrichPhaseName[];
 
 /**
@@ -164,7 +163,7 @@ export const PHASE_DEPENDENCIES: Record<EnrichPhaseName, readonly EnrichPhaseNam
   images: ["names"],
   classify_images: ["images"],
   descriptions: ["links"],
-  locations: [],
+  stockists: ["links"],
   reputation: ["links"],
   faq: [],
   products: ["links", "site_identity", "classify_images"],
@@ -173,22 +172,11 @@ export const PHASE_DEPENDENCIES: Record<EnrichPhaseName, readonly EnrichPhaseNam
 /**
  * Phases that still exist but are deliberately not run.
  *
- * `locations` (serper /maps -> retail channels) is deferred as of 2026-08-03:
- * the retail-location output was not good enough to publish, so paying for a
- * /maps call per brand buys nothing. It stays in ENRICH_PHASES because the name
- * is persisted in `curation_jobs.params`, `curation_job_targets.phase_results`
- * and `brand_ai_results.phase`, and historical rows must keep rendering.
- *
- * Removing a phase from every task is what actually disables it — this list
- * exists so that absence reads as a decision rather than an oversight, and so
- * the coverage test can tell the two apart.
- *
- * The runner also consults this list directly (`isDeferredPhase`) so a deferred
- * phase costs neither a `current_phase` write nor a phase function call even
- * when an explicit `params.phases` array names it.
+ * Empty as of 2026-08-29: `locations` was retired and replaced by `stockists`
+ * (an LLM enrichment phase). The array and `isDeferredPhase` are kept because
+ * the runner still consults them, and future deferrals can reuse the mechanism.
  */
 export const DEFERRED_PHASES = [
-  "locations",
 ] as const satisfies readonly EnrichPhaseName[];
 
 /** True when the phase exists but is deliberately not run. See DEFERRED_PHASES. */
@@ -217,7 +205,7 @@ export const CURATION_TASKS = {
   // Hidden aliases — DB compat for stored params.task values
   image: VISUAL_PHASES,
   product: VISUAL_PHASES,
-  editorial: ["descriptions", "reputation", "faq", "tags"],
+  editorial: ["descriptions", "reputation", "faq", "tags", "stockists"],
   full: ENRICH_PHASES.filter(
     (phase) => !(DEFERRED_PHASES as readonly string[]).includes(phase),
   ),
@@ -268,7 +256,7 @@ export function phasesForTask(
 const LEGACY_STEP_PHASES: Record<string, readonly EnrichPhaseName[]> = {
   context: ["discover", "detect", "slugs", "clean", "links", "names", "site_identity"],
   image: ["images", "classify_images"],
-  detail: ["descriptions", "reputation", "faq", "products", "tags"],
+  detail: ["descriptions", "reputation", "faq", "products", "tags", "stockists"],
 };
 
 /**

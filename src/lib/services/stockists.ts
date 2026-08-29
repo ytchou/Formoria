@@ -30,7 +30,7 @@ import {
 import { districtSlugFromName } from '@/lib/constants/taiwan-districts'
 import { matchDistrict } from '@/lib/brands/district'
 
-const MAX_ACTIVE_STOCKISTS_PER_BRAND = 5
+export const MAX_ACTIVE_STOCKISTS_PER_BRAND = 5
 const MAX_SUBMISSIONS_PER_DAY = 20
 
 const REGION_LABEL_MAP = CITY_NAMES_ZH
