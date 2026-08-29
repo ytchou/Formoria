@@ -76,7 +76,8 @@
     "test:search:load": "node --env-file=.env.local scripts/search-load.mjs",
     "design:tokens": "node scripts/generate-design-tokens.mjs",
     "check:design-tokens": "node scripts/generate-design-tokens.mjs --check",
-    "check:category-redirects": "tsx scripts/generate-category-redirects.ts --check"
+    "check:category-redirects": "tsx scripts/generate-category-redirects.ts --check",
+    "langfuse:seed": "tsx scripts/langfuse-seed.ts"
   },
   "dependencies": {
     "@base-ui/react": "^1.7.0",

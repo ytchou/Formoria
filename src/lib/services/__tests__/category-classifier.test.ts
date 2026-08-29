@@ -4,7 +4,12 @@ import {
   detectBrandsBatch,
   type DetectBatchItem,
   type DetectResult,
+  DETECT_SCHEMA,
+  DETECT_BATCH_SCHEMA,
+  CLASSIFY_SCHEMA,
+  CLASSIFY_BATCH_SCHEMA,
 } from "../category-classifier";
+import { L1_CATEGORIES } from "@/lib/taxonomy/ontology";
 
 const mockFetch = vi.fn();
 void (null as DetectResult | null);
@@ -276,5 +281,160 @@ describe("parseExtractionResult", () => {
     expect(parsed.foundingYear).toBe(2015);
     expect(parsed.categoryMismatch).toBe(true);
     expect("category" in parsed).toBe(false);
+  });
+});
+
+describe("structured output schemas", () => {
+  it("detect_schema_matches_parser_fields", () => {
+    // DETECT_SCHEMA must contain every field that parseTriageEntry reads
+    const schemaProps = DETECT_SCHEMA.schema.properties as Record<
+      string,
+      unknown
+    >;
+    const requiredFields = [
+      "reasoning",
+      "isNonBrand",
+      "nonBrandReason",
+      "brand_name",
+      "slug_generated",
+      "confidence",
+    ];
+    for (const field of requiredFields) {
+      expect(schemaProps).toHaveProperty(field);
+    }
+
+    // Batch schema wraps single fields in { results: [...] }
+    const batchProps = DETECT_BATCH_SCHEMA.schema.properties as Record<
+      string,
+      unknown
+    >;
+    expect(batchProps).toHaveProperty("results");
+    const itemsSchema = (
+      batchProps.results as { items: { properties: Record<string, unknown> } }
+    ).items;
+    // Batch items include slug plus the single-entry fields
+    expect(itemsSchema.properties).toHaveProperty("slug");
+    for (const field of requiredFields) {
+      expect(itemsSchema.properties).toHaveProperty(field);
+    }
+  });
+
+  it("classify_schema_has_enum_categories", () => {
+    const schemaProps = CLASSIFY_SCHEMA.schema.properties as unknown as Record<
+      string,
+      { enum?: string[] }
+    >;
+    expect(schemaProps).toHaveProperty("category");
+
+    const expectedSlugs = L1_CATEGORIES.map((c) => c.slug);
+    expect(schemaProps.category.enum).toEqual(expectedSlugs);
+
+    // Batch schema wraps in { results: [...] }
+    const batchProps = CLASSIFY_BATCH_SCHEMA.schema.properties as Record<
+      string,
+      unknown
+    >;
+    expect(batchProps).toHaveProperty("results");
+    const batchItemProps = (
+      batchProps.results as {
+        items: { properties: Record<string, { enum?: string[] }> };
+      }
+    ).items.properties;
+    expect(batchItemProps.category.enum).toEqual(expectedSlugs);
+  });
+
+  it("batch_triage_response_unwraps_results", async () => {
+    // parseTriageResponse must handle { results: [...] } wrapper from
+    // structured output
+    mockFetch.mockClear();
+    vi.stubGlobal("fetch", mockFetch);
+    vi.stubEnv("OPENAI_API_KEY", "test-key");
+
+    const testBrands: DetectBatchItem[] = [
+      {
+        slug: "test-brand",
+        name: "Test Brand",
+        description: "A test brand",
+        website: null,
+      },
+    ];
+
+    // Model returns { results: [...] } wrapper
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({
+        choices: [
+          {
+            message: {
+              content: JSON.stringify({
+                results: [
+                  {
+                    slug: "test-brand",
+                    reasoning: "Clearly a product brand",
+                    isNonBrand: false,
+                    nonBrandReason: null,
+                    brand_name: "Test Brand",
+                    slug_generated: "test-brand",
+                    confidence: "high",
+                  },
+                ],
+              }),
+            },
+          },
+        ],
+      }),
+    });
+
+    const { results } = await detectBrandsBatch(testBrands);
+    expect(results.size).toBe(1);
+    expect(results.get("test-brand")!.isNonBrand).toBe(false);
+
+    vi.unstubAllGlobals();
+    vi.unstubAllEnvs();
+  });
+
+  it("batch_classification_unwraps_results", async () => {
+    // parseBatchClassification must handle { results: [...] } wrapper
+    // We test via the public classifyCategoryBatch function
+    const { classifyCategoryBatch } = await import("../category-classifier");
+
+    mockFetch.mockClear();
+    vi.stubGlobal("fetch", mockFetch);
+    vi.stubEnv("OPENAI_API_KEY", "test-key");
+
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({
+        choices: [
+          {
+            message: {
+              content: JSON.stringify({
+                results: [
+                  {
+                    slug: "test-brand",
+                    reasoning: "Home goods brand",
+                    category: "home",
+                    confidence: "high",
+                  },
+                ],
+              }),
+            },
+          },
+        ],
+      }),
+    });
+
+    const { results } = await classifyCategoryBatch([
+      {
+        slug: "test-brand",
+        name: "Test Brand",
+        description: "Sells home goods",
+      },
+    ]);
+    expect(results.size).toBe(1);
+    expect(results.get("test-brand")!.categorySlug).toBe("home");
+
+    vi.unstubAllGlobals();
+    vi.unstubAllEnvs();
   });
 });

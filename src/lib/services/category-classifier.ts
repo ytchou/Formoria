@@ -1,4 +1,8 @@
-import { CLASSIFY_SYSTEM_PROMPT, DETECT_SYSTEM_PROMPT } from "@/lib/prompts";
+import {
+  CLASSIFY_SYSTEM_PROMPT,
+  DETECT_SYSTEM_PROMPT,
+  CATEGORY_LIST,
+} from "@/lib/prompts";
 import { fetchLangfusePrompt } from "@/lib/langfuse/prompt";
 import { auditedCall } from "@/lib/audit";
 import {
@@ -68,7 +72,126 @@ const VALID_CATEGORY_SLUGS = new Set<string>(
   L1_CATEGORIES.map((category) => category.slug),
 );
 
+const L1_SLUGS = L1_CATEGORIES.map((c) => c.slug);
+
+// ---------------------------------------------------------------------------
+// Structured output schemas — passed to OpenAI via `schema:` alongside `json: true`
+// ---------------------------------------------------------------------------
+
+const DETECT_SINGLE_PROPERTIES = {
+  reasoning: { type: "string" },
+  isNonBrand: { type: "boolean" },
+  nonBrandReason: { type: ["string", "null"] },
+  brand_name: { type: ["string", "null"] },
+  slug_generated: { type: ["string", "null"] },
+  confidence: { type: "string", enum: ["high", "medium", "low"] },
+} as const;
+
+export const DETECT_SCHEMA = {
+  name: "detect_single",
+  schema: {
+    type: "object",
+    properties: DETECT_SINGLE_PROPERTIES,
+    required: [
+      "reasoning",
+      "isNonBrand",
+      "nonBrandReason",
+      "brand_name",
+      "slug_generated",
+      "confidence",
+    ],
+    additionalProperties: false,
+  },
+} as const;
+
+export const DETECT_BATCH_SCHEMA = {
+  name: "detect_batch",
+  schema: {
+    type: "object",
+    properties: {
+      results: {
+        type: "array",
+        items: {
+          type: "object",
+          properties: {
+            slug: { type: "string" },
+            ...DETECT_SINGLE_PROPERTIES,
+          },
+          required: [
+            "slug",
+            "reasoning",
+            "isNonBrand",
+            "nonBrandReason",
+            "brand_name",
+            "slug_generated",
+            "confidence",
+          ],
+          additionalProperties: false,
+        },
+      },
+    },
+    required: ["results"],
+    additionalProperties: false,
+  },
+} as const;
+
+const CLASSIFY_SINGLE_PROPERTIES = {
+  reasoning: { type: "string" },
+  category: { type: "string", enum: L1_SLUGS },
+  confidence: { type: "string", enum: ["high", "medium", "low"] },
+} as const;
+
+export const CLASSIFY_SCHEMA = {
+  name: "classify_single",
+  schema: {
+    type: "object",
+    properties: CLASSIFY_SINGLE_PROPERTIES,
+    required: ["reasoning", "category", "confidence"],
+    additionalProperties: false,
+  },
+} as const;
+
+export const CLASSIFY_BATCH_SCHEMA = {
+  name: "classify_batch",
+  schema: {
+    type: "object",
+    properties: {
+      results: {
+        type: "array",
+        items: {
+          type: "object",
+          properties: {
+            slug: { type: "string" },
+            ...CLASSIFY_SINGLE_PROPERTIES,
+          },
+          required: ["slug", "reasoning", "category", "confidence"],
+          additionalProperties: false,
+        },
+      },
+    },
+    required: ["results"],
+    additionalProperties: false,
+  },
+} as const;
+
 type UnknownRecord = Record<string, unknown>;
+
+/**
+ * Unwrap a parsed LLM batch response that may be either a bare array or
+ * wrapped in `{ results: [...] }` (structured-output mode). Returns null
+ * when the shape matches neither pattern.
+ */
+function unwrapBatchResults(parsed: unknown): unknown[] | null {
+  if (Array.isArray(parsed)) return parsed;
+  if (
+    parsed &&
+    typeof parsed === "object" &&
+    Array.isArray((parsed as UnknownRecord).results)
+  ) {
+    return (parsed as UnknownRecord).results as unknown[];
+  }
+  return null;
+}
 
 /**
  * What a whole batch (chunk calls plus any per-brand fallbacks) did. `results`
@@ -259,14 +382,15 @@ function parseBatchClassification(
   validSlugs: Set<string>,
 ): Map<string, ClassificationResult> | null {
   const parsed = JSON.parse(content) as unknown;
+  const entries = unwrapBatchResults(parsed);
 
-  if (!Array.isArray(parsed)) {
+  if (!entries) {
     return null;
   }
 
   const results = new Map<string, ClassificationResult>();
 
-  for (const entry of parsed) {
+  for (const entry of entries) {
     if (!entry || typeof entry !== "object") continue;
 
     const item = entry as UnknownRecord;
@@ -333,15 +457,16 @@ function parseTriageResponse(
   brands: DetectBatchItem[],
 ): Map<string, DetectResult> | null {
   const parsed = JSON.parse(content) as unknown;
+  const entries = unwrapBatchResults(parsed);
 
-  if (!Array.isArray(parsed)) {
+  if (!entries) {
     return null;
   }
 
   const validSlugs = new Set(brands.map((brand) => brand.slug));
   const results = new Map<string, DetectResult>();
 
-  parsed.forEach((entry, index) => {
+  entries.forEach((entry, index) => {
     if (!entry || typeof entry !== "object") return;
 
     const item = entry as UnknownRecord;
@@ -395,11 +520,16 @@ async function classifyCategory(
   try {
     // The 300-token budget and why it is not 100 live with the profile in
     // `@/lib/constants/llm-models`.
-    const classifyPrompt = await fetchLangfusePrompt("category-classify", CLASSIFY_SYSTEM_PROMPT);
+    const classifyPrompt = await fetchLangfusePrompt(
+      "category-classify",
+      CLASSIFY_SYSTEM_PROMPT,
+      { category_list: CATEGORY_LIST },
+    );
     const { response, data, content } = await client.chat({
       system: classifyPrompt,
       user: userContent,
       json: true,
+      schema: CLASSIFY_SCHEMA,
       ...profileChatParams("classification"),
     });
 
@@ -458,11 +588,16 @@ async function classifyCategoryBatchChunk(
   );
 
   try {
-    const classifyBatchPrompt = await fetchLangfusePrompt("category-classify", CLASSIFY_SYSTEM_PROMPT);
+    const classifyBatchPrompt = await fetchLangfusePrompt(
+      "category-classify",
+      CLASSIFY_SYSTEM_PROMPT,
+      { category_list: CATEGORY_LIST },
+    );
     const { response, data, content } = await client.chat({
       system: classifyBatchPrompt,
       user: userContent,
       json: true,
+      schema: CLASSIFY_BATCH_SCHEMA,
       ...profileChatParams("classificationBatch"),
     });
 
@@ -568,6 +703,7 @@ async function detectBrand(
       system: detectPrompt,
       user: userContent,
       json: true,
+      schema: DETECT_SCHEMA,
       ...profileChatParams("detect"),
     });
 
@@ -632,6 +768,7 @@ async function detectBrandsBatchChunk(
       system: detectBatchPrompt,
       user: userContent,
       json: true,
+      schema: DETECT_BATCH_SCHEMA,
       ...profileChatParams("detectBatch"),
     });
 

@@ -1,5 +1,6 @@
 import type { Brand } from "@/lib/types";
 import { FAQ_PROMPT_PREAMBLE } from "@/lib/prompts";
+import { TAIWAN_USAGE_RULES } from "@/lib/prompts/shared";
 import { fetchLangfusePrompt } from "@/lib/langfuse/prompt";
 import {
   CUSTOM_QUESTION_CEILING,
@@ -524,7 +525,9 @@ export async function runFaqPhase({
     }
 
     const localSystemPrompt = buildFaqSystemPrompt(authorable, ctx);
-    const langfusePreamble = await fetchLangfusePrompt("faq-preamble", FAQ_PROMPT_PREAMBLE);
+    const langfusePreamble = await fetchLangfusePrompt("faq-preamble", FAQ_PROMPT_PREAMBLE, {
+      taiwan_usage_rules: TAIWAN_USAGE_RULES,
+    });
     const systemPrompt = localSystemPrompt.replace(FAQ_PROMPT_PREAMBLE, langfusePreamble);
     const promptHash = buildFaqPromptHash(authorable);
     const snippets = [

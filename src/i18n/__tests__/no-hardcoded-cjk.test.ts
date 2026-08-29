@@ -101,6 +101,8 @@ const ALLOWLIST = [
   // FAQ phase prompt fragments and repair instructions are Chinese model
   // instructions, not UI copy.
   "lib/services/enrich-phases/faq.ts",
+  // Stockist enrichment phase uses Chinese search keywords for scraping (data constants, not UI copy).
+  "lib/services/enrich-phases/stockists.ts",
   // Region slug-to-label map uses Chinese city names for display (data constants, not UI copy).
   "lib/services/stockists.ts",
   // City labels the curation worker needs outside any request scope. They cannot

@@ -10,14 +10,59 @@ import {
 } from "@/lib/brands/faq-presets";
 import type { FaqBrandContext } from "@/lib/brands/faq-presets";
 import type { Brand } from "@/lib/types";
+import { TAIWAN_USAGE_RULES } from "@/lib/prompts/shared";
 import type { BrandFaqEntryRow } from "../../brand-faq";
+import type { EnrichBrand, EnrichPhase } from "../types";
 import {
   contextFacts,
   faqCoverageIsComplete,
   localizedCityLabel,
   resolveFaqAttempts,
+  runFaqPhase,
   validateFaqEntries,
 } from "../faq";
+
+/**
+ * The `fetchLangfusePrompt` mock is legitimate because `@/lib/langfuse/prompt`
+ * is an adapter (external service client), not an internal service — the
+ * `check:test-boundaries` gate forbids mocking `@/lib/services/*` and
+ * `@/lib/supabase/*`, not the Langfuse adapter.
+ */
+const fetchLangfusePrompt = vi.hoisted(() =>
+  vi.fn((_name: string, fallback: string) => Promise.resolve(fallback)),
+);
+vi.mock("@/lib/langfuse/prompt", () => ({ fetchLangfusePrompt }));
+
+/**
+ * Service dependencies mocked via relative path to reach the
+ * `fetchLangfusePrompt` call inside `runFaqPhase`. Same technique as
+ * `products.test.ts` uses for `../../llm-audit`.
+ */
+const createClient = vi.hoisted(() => vi.fn());
+vi.mock("../../llm-audit", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("../../llm-audit")>()),
+  createProfiledOpenAIClient: createClient,
+}));
+const getBrandById = vi.hoisted(() => vi.fn());
+vi.mock("../../brands", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("../../brands")>()),
+  getBrandById,
+}));
+const getCategoryPeerStats = vi.hoisted(() => vi.fn());
+vi.mock("../../brand-peer-stats", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("../../brand-peer-stats")>()),
+  getCategoryPeerStats,
+}));
+const loadPersistedScrapeText = vi.hoisted(() => vi.fn());
+vi.mock("../descriptions", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("../descriptions")>()),
+  loadPersistedScrapeText,
+}));
+const getBrandFaqEntries = vi.hoisted(() => vi.fn());
+vi.mock("../../brand-faq", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("../../brand-faq")>()),
+  getBrandFaqEntries,
+}));
 
 /**
  * Driven through the phase's exported pure pieces rather than through
@@ -569,5 +614,39 @@ describe("DESCRIPTION_SYSTEM_PROMPT", () => {
     expect(DESCRIPTION_SYSTEM_PROMPT).toContain("Purchase channels and distribution");
     expect(DESCRIPTION_SYSTEM_PROMPT).toContain("pricing information is never written in these four fields");
     expect(DESCRIPTION_SYSTEM_PROMPT.toLowerCase()).not.toContain("faq");
+  });
+});
+
+describe("runFaqPhase langfuse variables", () => {
+  it("faq_variables_passed", async () => {
+    vi.stubEnv("OPENAI_API_KEY", "test-key");
+    getBrandById.mockResolvedValue({ ...BRAND, categorySlug: "home" });
+    getCategoryPeerStats.mockResolvedValue(null);
+    loadPersistedScrapeText.mockResolvedValue({
+      snippets: [],
+      siteContent: null,
+    });
+    getBrandFaqEntries.mockResolvedValue([]);
+    createClient.mockReturnValue({
+      chat: vi.fn().mockResolvedValue({
+        response: { ok: true },
+        content: JSON.stringify({ entries: [] }),
+      }),
+    });
+
+    await runFaqPhase({
+      brand: BRAND as unknown as EnrichBrand,
+      phases: ["faq"] as EnrichPhase[],
+      scrapedData: null,
+      serpSnippets: [],
+    });
+
+    expect(fetchLangfusePrompt).toHaveBeenCalledWith(
+      "faq-preamble",
+      expect.any(String),
+      expect.objectContaining({ taiwan_usage_rules: TAIWAN_USAGE_RULES }),
+    );
+
+    vi.unstubAllEnvs();
   });
 });

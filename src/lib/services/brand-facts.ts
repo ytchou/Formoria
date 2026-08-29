@@ -1,4 +1,9 @@
 import { FACTS_SYSTEM_PROMPT } from "@/lib/prompts";
+import {
+  CATEGORY_LIST,
+  SUBCATEGORY_VOCAB_BLOCK,
+  MATERIAL_VOCAB_BLOCK,
+} from "@/lib/prompts/shared";
 import { fetchLangfusePrompt } from "@/lib/langfuse/prompt";
 import { parseJson } from "./openai-client";
 import {
@@ -63,6 +68,64 @@ const TAIWAN_CONNECTIONS = [
   "manufactured",
   "unclear",
 ] as const;
+
+/**
+ * Structured Output schema for the facts extraction call. The `category` enum
+ * is derived from the live L1_CATEGORIES so a new category automatically
+ * appears in the schema without a second edit.
+ */
+export const FACTS_SCHEMA = {
+  name: "brand_facts",
+  schema: {
+    type: "object" as const,
+    additionalProperties: false,
+    required: [
+      "category",
+      "subcategories",
+      "material",
+      "city",
+      "founding_year",
+      "listing",
+    ],
+    properties: {
+      category: {
+        enum: [...L1_CATEGORIES.map((c) => c.slug), null],
+      },
+      subcategories: {
+        type: "array" as const,
+        items: { type: "string" as const },
+      },
+      material: {
+        type: "array" as const,
+        items: { type: "string" as const },
+      },
+      city: { type: ["string", "null"] as const },
+      founding_year: { type: ["number", "null"] as const },
+      listing: {
+        type: "object" as const,
+        additionalProperties: false,
+        required: [
+          "reasoning",
+          "verdict",
+          "reason",
+          "taiwan_connection",
+          "has_own_products",
+          "has_purchase_channel",
+        ],
+        properties: {
+          reasoning: { type: "string" as const },
+          verdict: { type: "string" as const, enum: [...LISTING_VERDICTS] },
+          reason: { type: "string" as const },
+          taiwan_connection: {
+            enum: [...TAIWAN_CONNECTIONS, null],
+          },
+          has_own_products: { type: ["boolean", "null"] as const },
+          has_purchase_channel: { type: ["boolean", "null"] as const },
+        },
+      },
+    },
+  },
+};
 
 export type ListingVerdict = {
   verdict: "list" | "reject";
@@ -216,7 +279,11 @@ export async function extractBrandFacts(
   // Counted across both attempts: a first call the model answered and a second
   // that hit a spent account is not an outage.
   const calls = noLlmCalls();
-  const factsSystemPrompt = await fetchLangfusePrompt("brand-facts", FACTS_SYSTEM_PROMPT);
+  const factsSystemPrompt = await fetchLangfusePrompt("brand-facts", FACTS_SYSTEM_PROMPT, {
+    category_list: CATEGORY_LIST,
+    subcategory_vocab_block: SUBCATEGORY_VOCAB_BLOCK,
+    material_vocab_block: MATERIAL_VOCAB_BLOCK,
+  });
 
   try {
     for (let attemptIndex = 0; attemptIndex < 2; attemptIndex += 1) {
@@ -240,6 +307,7 @@ export async function extractBrandFacts(
         system: factsSystemPrompt,
         user: `${userContent}${retryInstruction}`,
         json: true,
+        schema: FACTS_SCHEMA,
         ...profileChatParams("facts"),
       });
       const latencyMs = Date.now() - startAt;

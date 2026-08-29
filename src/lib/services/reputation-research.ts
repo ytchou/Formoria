@@ -9,6 +9,46 @@ import {
 import type { ReputationSummary } from "@/lib/types/brand";
 import type { LlmCallCounts } from "@/lib/services/_shared/llm-call-outcome";
 
+/**
+ * Structured Output schema for the reputation research call. The top-level
+ * `reputation_summary` is nullable — `null` means no reputation evidence found.
+ */
+const REPUTATION_SCHEMA = {
+  name: "brand_reputation",
+  schema: {
+    type: "object" as const,
+    additionalProperties: false,
+    required: ["reputation_summary"],
+    properties: {
+      reputation_summary: {
+        anyOf: [
+          {
+            type: "object" as const,
+            additionalProperties: false,
+            required: ["text", "text_en", "sources"],
+            properties: {
+              text: { type: "string" as const },
+              text_en: { type: "string" as const },
+              sources: {
+                type: "array" as const,
+                items: {
+                  type: "object" as const,
+                  additionalProperties: false,
+                  required: ["url"],
+                  properties: {
+                    url: { type: "string" as const },
+                  },
+                },
+              },
+            },
+          },
+          { type: "null" as const },
+        ],
+      },
+    },
+  },
+};
+
 type ReputationResult = {
   reputationSummary: ReputationSummary | null;
 };
@@ -112,6 +152,7 @@ export async function runReputationResearch(
       system: reputationPrompt,
       user: userContent,
       json: true,
+      schema: REPUTATION_SCHEMA,
       ...profileChatParams("reputation"),
     });
     // The only provider-failure site: a non-2xx never reached the model. An
