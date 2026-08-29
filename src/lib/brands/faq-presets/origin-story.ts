@@ -25,7 +25,7 @@ const originStory: FaqPreset = {
       }),
   },
   promptFragment: (ctx) =>
-    faqOriginStoryPrompt(ctx.brand.name, ctx.brand.foundingYear ?? 0),
+    faqOriginStoryPrompt(ctx.brand.name, ctx.brand.foundingYear!),
   // `groundedIn(requiredEvidence)` is derived in the registry (index.ts).
   validators: [
     pureLanguage(),

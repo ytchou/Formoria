@@ -163,15 +163,7 @@ function toBrandContext(
   stockistCount = 0,
 ): FaqBrandContext {
   return {
-    brand: {
-      ...brand,
-      purchaseWebsite: brand.purchaseWebsite,
-      purchasePinkoi: brand.purchasePinkoi,
-      purchaseShopee: brand.purchaseShopee,
-      purchaseMyship: brand.purchaseMyship,
-      material: brand.material,
-      stockistCount,
-    },
+    brand: { ...brand, stockistCount },
     cityLabel: localizedCityLabel(brand.city),
     peerStats,
   };
