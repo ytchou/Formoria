@@ -28,19 +28,24 @@ Rules:
 - reason must be a short Chinese phrase explaining the primary basis for the ownership judgment.
 - subjectUrl must be returned exactly as received in the input, without modification.
 
-Input and output examples:
+Confidence rubric:
+- high — decisive first-party identity signals establish ownership, or decisive third-party/platform/publisher identity establishes non-ownership; the page's operator and relationship to the brand are explicit.
+- medium — several coherent but indirect signals support one judgment, such as a corporate site introducing the named brand or a translated/abbreviated domain matching the page's products, but ownership is not stated outright.
+- low — content is sparse, conflicting, shared-name, or otherwise insufficient. Make the best available owned judgment, but do not turn weak string similarity into high confidence.
 
-輸入：品牌名稱：小朱甜點 / 產品類型：甜點 / 宣稱的官方網站 / 網址：https://xiao-zhu.example / 頁面標題：小朱甜點 官方網站 / 頁面描述：手作甜點與訂購資訊
-輸出：{"results":[{"slug":"xiao-zhu-dessert","subjectUrl":"https://xiao-zhu.example","owned":true,"confidence":"high","reason":"頁面提供品牌自有訂購資訊"}]}
+Golden anchors:
 
-輸入：品牌名稱：小朱甜點 / 產品類型：甜點 / 抓取來源頁面 / 網址：https://market.example/item / 頁面標題：小朱甜點蛋糕｜市集商品頁
-輸出：{"results":[{"slug":"xiao-zhu-dessert","subjectUrl":"https://market.example/item","owned":false,"confidence":"high","reason":"市集只是販售品牌商品"}]}
+[golden_case_id=site-high-smore rubric_version=dev-1649-v1 confidence=high]
+輸入：品牌名稱：S'MORE / 宣稱的官方網站 / 網址：https://www.smore.com / 頁面標題：Smore Newsletter Builder for Educators - Sign Up Free / 頁面描述：Create engaging newsletters with Smore's newsletter builder
+輸出：{"results":[{"slug":"s-more","subjectUrl":"https://www.smore.com","owned":false,"confidence":"high","reason":"頁面明確是教育電子報工具，並非商品品牌"}]}
 
-輸入：品牌名稱：UNIGAZE / 產品類型：金工 / 抓取來源頁面 / 網址：https://news.example/unigaze / 頁面標題：專訪 UNIGAZE 創辦人
-輸出：{"results":[{"slug":"unigaze","subjectUrl":"https://news.example/unigaze","owned":false,"confidence":"high","reason":"媒體文章是在介紹品牌"}]}
+[golden_case_id=site-medium-jaibei rubric_version=dev-1649-v1 confidence=medium]
+輸入：品牌名稱：佳貝牙刷 / 產品類型：beauty / 宣稱的官方網站 / 網址：https://www.jaibei.com.tw / 頁面標題：恆瑞亞實業有限公司 / 頁面描述：2024年投創新品牌-Jaibei 佳貝牙刷口腔清潔產品
+輸出：{"results":[{"slug":"chia-pei-ya-shua","subjectUrl":"https://www.jaibei.com.tw","owned":true,"confidence":"medium","reason":"公司頁面明載其創立佳貝牙刷品牌"}]}
 
-輸入：品牌名稱：晨光 / 產品類型：保養品 / 宣稱的官方網站 / 網址：https://morning.example / 頁面標題：晨光
-輸出：{"results":[{"slug":"morning","subjectUrl":"https://morning.example","owned":false,"confidence":"low","reason":"頁面內容不足以判斷所有權"}]}
+[golden_case_id=site-low-1koshijimi rubric_version=dev-1649-v1 confidence=low]
+輸入：品牌名稱：壹顆蜆 / 產品類型：food-drink / 宣稱的官方網站 / 網址：https://1koshijimi.com.tw / 頁面標題：壹顆蜆
+輸出：{"results":[{"slug":"1-koshijimi","subjectUrl":"https://1koshijimi.com.tw","owned":true,"confidence":"low","reason":"名稱相符但頁面文字不足以直接確認營運者"}]}
 
 Response format (strict JSON object, no Markdown, explanatory text, or extra fields):
 Always return a top-level JSON object with a single field results whose value is an array. results must contain one object for each numbered input line, matching the count and order of the input exactly; 20 input lines means 20 objects, 1 input line means an array with 1 object. Never answer only the first entry, and never make the top level an array.

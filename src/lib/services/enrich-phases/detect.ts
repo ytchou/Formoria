@@ -56,6 +56,7 @@ function buildDetectPatch(
   const KEBAB_CASE_RE = /^[a-z0-9]+(-[a-z0-9]+)*$/;
   if (
     phases.includes("slugs") &&
+    detectResult.confidence === "high" &&
     detectResult.slugGenerated &&
     detectResult.slugGenerated !== brand.slug &&
     KEBAB_CASE_RE.test(detectResult.slugGenerated)
@@ -235,10 +236,18 @@ export async function runStandaloneClassification(
       target: { type: ctx.targetType ?? "brand", id: brand.id },
     }));
     const outcome = await classifyCategoryBatch(classifyItems, ctx.jobId);
-    ctx.onProgress?.(`  [TAGS] OK — ${outcome.results.size} classifications`);
 
     return outcome;
   });
+
+  const batchClassifications = new Map(
+    [...result.results].filter(
+      ([, classification]) => classification.confidence === "high",
+    ),
+  );
+  ctx.onProgress?.(
+    `  [TAGS] OK — ${batchClassifications.size} accepted, ${result.results.size - batchClassifications.size} withheld`,
+  );
 
   // Same rule as detect: an empty classification map from a dead account is not
   // "no category applies", it is "we never asked".
@@ -257,7 +266,7 @@ export async function runStandaloneClassification(
         ),
         providerFailure: true,
       },
-      batchClassifications: result.results,
+      batchClassifications,
     };
   }
 
@@ -265,10 +274,10 @@ export async function runStandaloneClassification(
     phaseResult: buildPhaseResult(
       "tags",
       "succeeded",
-      result.results.size > 0 ? ["category"] : [],
+      batchClassifications.size > 0 ? ["category"] : [],
       durationMs,
     ),
-    batchClassifications: result.results,
+    batchClassifications,
   };
     },
     {
