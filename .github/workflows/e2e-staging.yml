@@ -64,15 +64,19 @@ jobs:
         run: |
           set -euo pipefail
           # X-Formoria-Revision must equal the tested staging SHA.
+          BROWSER_UA="Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+          revision=""
           for attempt in $(seq 1 60); do
-            revision="$(curl --fail --silent --show-error --location \
+            headers="$(curl --silent --show-error --location \
+              -A "$BROWSER_UA" \
               -H "CF-Access-Client-Id: $CF_ACCESS_CLIENT_ID" \
               -H "CF-Access-Client-Secret: $CF_ACCESS_CLIENT_SECRET" \
-              -D - -o /dev/null "$STAGING_BASE_URL/about" \
+              -D - -o /dev/null "$STAGING_BASE_URL/about" 2>/dev/null || true)"
+            revision="$(printf '%s' "$headers" \
               | awk -F': ' 'tolower($1) == "x-formoria-revision" {gsub("\\r", "", $2); print $2; exit}')"
             if [[ "$revision" == "$EXPECTED_SHA" ]]; then exit 0; fi
             if [[ "$attempt" == 60 ]]; then
-              echo "::error::staging revision evidence is missing or stale"
+              echo "::error::missing or mismatched X-Formoria-Revision after 60 attempts; last seen '${revision:-<none>}', expected '$EXPECTED_SHA'"
               exit 1
             fi
             sleep 10
