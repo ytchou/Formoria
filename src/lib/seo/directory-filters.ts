@@ -26,7 +26,7 @@ const VALID_MATERIALS: ReadonlySet<string> = new Set(
   MATERIALS.map((m) => m.slug),
 );
 
-function parseCommaParam(value: string | string[] | undefined): string[] {
+export function parseCommaParam(value: string | string[] | undefined): string[] {
   const values = Array.isArray(value) ? value : value ? [value] : [];
   return values.flatMap((item) =>
     item

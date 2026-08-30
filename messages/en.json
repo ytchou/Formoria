@@ -77,7 +77,20 @@
     "subheading": "Selections for everyday life",
     "emptyState": "No products match your criteria",
     "resultCount": "{count} products",
-    "moreComingSoon": "More products coming soon"
+    "moreComingSoon": "More products coming soon",
+    "filters": {
+      "subcategory": "Subcategory",
+      "material": "Material",
+      "trigger": "Filters",
+      "title": "Filter Products",
+      "showResults": "Show {count, plural, one {# product} other {# products}}",
+      "clearAll": "Clear all",
+      "removeFilter": "Remove {label}: {value}",
+      "sortNewest": "Newest",
+      "sortAlphabetical": "Sort by name",
+      "resultCount": "{count, plural, one {# product} other {# products}}",
+      "sortLabel": "Sort"
+    }
   },
   "brandsJoin": {
     "metaTitle": "Join Formoria — Brand Recruitment",

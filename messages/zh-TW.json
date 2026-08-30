@@ -77,7 +77,20 @@
     "subheading": "為日常找到更適合的選擇",
     "emptyState": "目前還沒有符合條件的商品",
     "resultCount": "{count} 件商品",
-    "moreComingSoon": "更多商品持續收錄中"
+    "moreComingSoon": "更多商品持續收錄中",
+    "filters": {
+      "subcategory": "子分類",
+      "material": "材質",
+      "trigger": "篩選",
+      "title": "篩選商品",
+      "showResults": "顯示 {count} 件商品",
+      "clearAll": "清除全部",
+      "removeFilter": "移除 {label}: {value}",
+      "sortNewest": "最新",
+      "sortAlphabetical": "依名稱排序",
+      "resultCount": "{count} 件商品",
+      "sortLabel": "排序"
+    }
   },
   "brandsJoin": {
     "metaTitle": "加入 Formoria — 品牌招募",

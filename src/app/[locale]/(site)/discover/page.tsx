@@ -82,7 +82,7 @@ export default async function DiscoverPage({ params, searchParams }: PageProps) 
   try {
     const result = await getPublishedCuratedProducts({
       category,
-      subcategory,
+      subcategories: subcategory ? [subcategory] : undefined,
       page,
       pageSize: PAGE_SIZE,
     });

@@ -40,6 +40,7 @@ describe("transformCatalogRow", () => {
       nameEn: "Test Product",
       category: "home",
       subcategory: "candles",
+      material: [],
       createdAt: "2026-08-29T12:00:00.000Z",
       imageUrl: "https://example.com/image.jpg",
       officialUrl: "https://example.com/product",
@@ -112,6 +113,7 @@ describe("interleaveCatalogProducts", () => {
     nameEn: null,
     category: subcategory === "handbags" ? "bags-accessories" : "home",
     subcategory,
+    material: [],
     createdAt,
     imageUrl: null,
     officialUrl: `https://example.com/${id}`,
@@ -174,11 +176,12 @@ describe("interleaveCatalogProducts", () => {
 });
 
 describe("getPublishedCuratedProducts", () => {
-  it("reads the full corpus in bounded ranges before slicing and uses scalar L2 equality", async () => {
-    // Catches PostgREST's silent 1,000-row ceiling, pre-interleave slicing, or an array filter on the scalar column.
+  /** Reusable mock client factory for query tests. */
+  function createMockClient() {
     const ranges: [number, number][] = [];
     const equals: [string, unknown][] = [];
-    const contains: [string, unknown][] = [];
+    const overlaps: [string, unknown][] = [];
+    const orders: [string, { ascending: boolean }][] = [];
     const pages = [
       Array.from({ length: 500 }, (_, index) => ({
         ...baseRow,
@@ -200,11 +203,15 @@ describe("getPublishedCuratedProducts", () => {
         return chain;
       },
       not: () => chain,
-      contains(column: string, value: unknown) {
-        contains.push([column, value]);
+      contains: () => chain,
+      overlaps(column: string, value: unknown) {
+        overlaps.push([column, value]);
         return chain;
       },
-      order: () => chain,
+      order(column: string, opts: { ascending: boolean }) {
+        orders.push([column, opts]);
+        return chain;
+      },
       range(from: number, to: number) {
         ranges.push([from, to]);
         return chain;
@@ -219,9 +226,14 @@ describe("getPublishedCuratedProducts", () => {
       },
     };
     const client = { from: () => chain } as never;
+    return { client, ranges, equals, overlaps, orders };
+  }
+
+  it("reads the full corpus in bounded ranges before slicing and uses overlaps for subcategory filter", async () => {
+    const { client, ranges, overlaps } = createMockClient();
 
     const result = await getPublishedCuratedProducts(
-      { category: "home", subcategory: "candles", page: 42, pageSize: 12 },
+      { category: "home", subcategories: ["candles"], page: 42, pageSize: 12 },
       client,
     );
 
@@ -229,12 +241,76 @@ describe("getPublishedCuratedProducts", () => {
       [0, 499],
       [500, 999],
     ]);
-    expect(equals).toContainEqual(["subcategory", "candles"]);
-    expect(contains).toEqual([]);
+    expect(overlaps).toContainEqual(["subcategories", ["candles"]]);
     expect(result.totalCount).toBe(502);
     expect(result.products).toHaveLength(10);
     expect(result.products.every((product) => product.imageUrl === null)).toBe(
       true,
     );
+  });
+
+  it("filters by multiple subcategories using overlaps", async () => {
+    const { client, overlaps } = createMockClient();
+
+    await getPublishedCuratedProducts(
+      { category: "home", subcategories: ["candles", "tableware"] },
+      client,
+    );
+
+    expect(overlaps).toContainEqual([
+      "subcategories",
+      ["candles", "tableware"],
+    ]);
+  });
+
+  it("filters by materials using overlaps", async () => {
+    const { client, overlaps } = createMockClient();
+
+    await getPublishedCuratedProducts(
+      { category: "home", materials: ["ceramic", "wood"] },
+      client,
+    );
+
+    expect(overlaps).toContainEqual(["material", ["ceramic", "wood"]]);
+  });
+
+  it("sorts alphabetical by name_zh when sort is alphabetical", async () => {
+    const { client, orders } = createMockClient();
+
+    await getPublishedCuratedProducts(
+      { category: "home", sort: "alphabetical" },
+      client,
+    );
+
+    // First order call per range should be name_zh ascending
+    expect(orders).toContainEqual(["name_zh", { ascending: true }]);
+    expect(orders).toContainEqual(["id", { ascending: true }]);
+  });
+
+  it("sorts by created_at desc by default (newest)", async () => {
+    const { client, orders } = createMockClient();
+
+    await getPublishedCuratedProducts({ category: "home" }, client);
+
+    expect(orders).toContainEqual(["created_at", { ascending: false }]);
+  });
+});
+
+describe("transformCatalogRow — material field", () => {
+  it("includes material as string array", () => {
+    const row = { ...baseRow, material: ["ceramic", "wood"] };
+    const result = transformCatalogRow(row);
+    expect(result.material).toEqual(["ceramic", "wood"]);
+  });
+
+  it("defaults material to empty array when null", () => {
+    const row = { ...baseRow, material: null };
+    const result = transformCatalogRow(row);
+    expect(result.material).toEqual([]);
+  });
+
+  it("defaults material to empty array when absent", () => {
+    const result = transformCatalogRow(baseRow);
+    expect(result.material).toEqual([]);
   });
 });
