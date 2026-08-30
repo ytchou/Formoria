@@ -479,9 +479,11 @@ describe("SelectedProductTile", () => {
     const img = container.querySelector("img")!;
     expect(img.className).toContain("object-cover");
 
-    // The scrim caption div carries the bg-ground/95 class
-    const scrim = container.querySelector(".bg-ground\\/95");
-    expect(scrim).not.toBeNull();
+    // The scrim caption div carries sm:bg-ground/95 (responsive prefix)
+    const scrim = [...container.querySelectorAll("div")].find((el) =>
+      el.className.includes("bg-ground/95"),
+    );
+    expect(scrim).toBeDefined();
 
     // Name and description present in the DOM
     expect(container.textContent).toContain("Pour-over kettle");
@@ -503,7 +505,9 @@ describe("SelectedProductTile", () => {
     expect(descEl.className).toContain("sm:block");
 
     // It must be inside the scrim div, not in a separate in-flow block
-    const scrim = container.querySelector(".bg-ground\\/95")!;
+    const scrim = [...container.querySelectorAll("div")].find((el) =>
+      el.className.includes("bg-ground/95"),
+    )!;
     expect(scrim.contains(descEl)).toBe(true);
   });
 
