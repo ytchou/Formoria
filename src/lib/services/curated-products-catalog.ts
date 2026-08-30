@@ -314,6 +314,34 @@ export type FacetCounts = {
   materialCounts: { slug: string; count: number }[];
 };
 
+type ProductFacetRow = {
+  subcategory: string | null;
+  material: string[] | null;
+};
+
+export function aggregateProductFacetRows(
+  rows: readonly ProductFacetRow[],
+): FacetCounts {
+  const subCounts = new Map<string, number>();
+  const matCounts = new Map<string, number>();
+  for (const row of rows) {
+    if (row.subcategory) {
+      subCounts.set(row.subcategory, (subCounts.get(row.subcategory) ?? 0) + 1);
+    }
+    for (const material of row.material ?? []) {
+      matCounts.set(material, (matCounts.get(material) ?? 0) + 1);
+    }
+  }
+  return {
+    subcategoryCounts: [...subCounts.entries()]
+      .map(([slug, count]) => ({ slug, count }))
+      .sort((a, b) => b.count - a.count),
+    materialCounts: [...matCounts.entries()]
+      .map(([slug, count]) => ({ slug, count }))
+      .sort((a, b) => b.count - a.count),
+  };
+}
+
 export async function getProductFacetCounts(
   category: string | null,
 ): Promise<FacetCounts> {
@@ -328,14 +356,13 @@ const getCachedProductFacetCounts = unstable_cache(
 
     // Corpus is small (~60 per category), so client-side aggregation is fine.
     // PostgREST does not support unnest + group-by.
-    const rows: { subcategories: string[] | null; material: string[] | null }[] =
-      [];
+    const rows: ProductFacetRow[] = [];
     for (let range = 0; range < CATALOG_MAX_RANGES; range += 1) {
       const from = range * CATALOG_RANGE_SIZE;
       let query = supabase
         .from("curated_products")
         .select(
-          "subcategories, material, curated_product_sources!inner(id), brands!inner(slug, name, status)",
+          "subcategory, material, curated_product_sources!inner(id), brands!inner(slug, name, status)",
         )
         .eq("visible", true)
         .not("official_url", "is", null)
@@ -357,32 +384,7 @@ const getCachedProductFacetCounts = unstable_cache(
       if (pageRows.length < CATALOG_RANGE_SIZE) break;
     }
 
-    const subCounts = new Map<string, number>();
-    for (const row of rows) {
-      if (row.subcategories) {
-        for (const sub of row.subcategories) {
-          subCounts.set(sub, (subCounts.get(sub) ?? 0) + 1);
-        }
-      }
-    }
-
-    const matCounts = new Map<string, number>();
-    for (const row of rows) {
-      if (row.material) {
-        for (const mat of row.material) {
-          matCounts.set(mat, (matCounts.get(mat) ?? 0) + 1);
-        }
-      }
-    }
-
-    return {
-      subcategoryCounts: [...subCounts.entries()]
-        .map(([slug, count]) => ({ slug, count }))
-        .sort((a, b) => b.count - a.count),
-      materialCounts: [...matCounts.entries()]
-        .map(([slug, count]) => ({ slug, count }))
-        .sort((a, b) => b.count - a.count),
-    };
+    return aggregateProductFacetRows(rows);
   },
   ["discover-facets-v1"],
   { revalidate: 3600 },

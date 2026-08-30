@@ -68,6 +68,8 @@ export type PhotoBandProps = {
    * fetch priority.
    */
   preload?: boolean;
+  /** Optional Next image quality for a specific photograph. */
+  imageQuality?: number;
   /** Classes for the `<section>` — spacing, mostly. */
   className?: string;
   /** Classes for the inner `PageShell` — alignment of the copy. */
@@ -80,6 +82,7 @@ export function PhotoBand({
   alt,
   scrim,
   preload = false,
+  imageQuality,
   className,
   contentClassName,
   children,
@@ -99,6 +102,7 @@ export function PhotoBand({
         // a band that claims the preload wants the high hint too, and one that
         // does not must not send it.
         fetchPriority={preload ? "high" : "auto"}
+        quality={imageQuality}
         surface="hero"
         className="object-cover"
       />

@@ -116,6 +116,26 @@ describe("EditorialHero", () => {
 
     expect(container.firstElementChild?.className).toContain("mb-10");
   });
+
+  it("uses a route-specific image delivery contract when provided", () => {
+    // The shared banner default describes the 100rem trail shell, while a
+    // story renders the same component inside the much narrower prose shell.
+    render(
+      <EditorialHero
+        src={REPO_PATH}
+        alt=""
+        sizes="(max-width: 768px) calc(100vw - 3rem), calc(768px - 5rem)"
+        imageQuality={60}
+      />,
+    );
+
+    const image = screen.getByRole("presentation");
+    expect(image).toHaveAttribute(
+      "sizes",
+      "(max-width: 768px) calc(100vw - 3rem), calc(768px - 5rem)",
+    );
+    expect(image).toHaveAttribute("quality", "60");
+  });
 });
 
 /**

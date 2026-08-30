@@ -230,7 +230,10 @@ export function ImageCarousel({
             src={currentImage.src}
             alt={getAlt(current)}
             fill
-            className={cn("animate-in fade-in duration-200", currentFill)}
+            className={cn(
+              previous !== null && "animate-in fade-in duration-200",
+              currentFill,
+            )}
             surface="card"
             // The detail hero is a single column capped at 580px; in the grid
             // variant it is a fixed 192px cell. Neither is the four-up card

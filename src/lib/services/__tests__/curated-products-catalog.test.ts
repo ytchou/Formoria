@@ -1,10 +1,32 @@
 import { describe, expect, it } from "vitest";
 import {
+  aggregateProductFacetRows,
   getPublishedCuratedProducts,
   interleaveCatalogProducts,
   transformCatalogRow,
   type CatalogProduct,
 } from "../curated-products-catalog";
+
+describe("aggregateProductFacetRows", () => {
+  it("counts each canonical scalar subcategory once per product", () => {
+    expect(
+      aggregateProductFacetRows([
+        { subcategory: "candles", material: ["wax", "ceramic"] },
+        { subcategory: "candles", material: ["wax"] },
+        { subcategory: "tableware", material: ["ceramic"] },
+      ]),
+    ).toEqual({
+      subcategoryCounts: [
+        { slug: "candles", count: 2 },
+        { slug: "tableware", count: 1 },
+      ],
+      materialCounts: [
+        { slug: "wax", count: 2 },
+        { slug: "ceramic", count: 2 },
+      ],
+    });
+  });
+});
 
 const baseRow = {
   id: "prod-1",
