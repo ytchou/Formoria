@@ -297,7 +297,10 @@ export function SelectedProductTile({
   );
 
   const shelfContent = (
-    <div className="group relative flex h-full flex-col">
+    <div
+      tabIndex={0}
+      className="group relative flex h-full flex-col rounded-surface focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-3"
+    >
       <div className="relative aspect-square w-full overflow-hidden rounded-surface bg-surface-deep">
         {imageSrc ? (
           <SurfaceImage
@@ -305,7 +308,7 @@ export function SelectedProductTile({
             alt={name}
             fill
             className="object-cover"
-            surface="tile"
+            sizes="(max-width: 640px) 80vw, (max-width: 1024px) 45vw, (max-width: 1600px) 23vw, 368px"
           />
         ) : (
           <BrandImageFallback
@@ -322,11 +325,7 @@ export function SelectedProductTile({
           aria-hidden="true"
           className="pointer-events-none absolute inset-x-0 -top-4 hidden h-4 bg-gradient-to-t from-ground/95 to-transparent sm:block"
         />
-        <Typography
-          as="h3"
-          variant="cardTitle"
-          className="group-hover:text-accent"
-        >
+        <Typography as="h3" variant="cardTitle">
           {name}
         </Typography>
         {productDescription ? (

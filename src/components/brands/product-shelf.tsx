@@ -79,7 +79,12 @@ export function ProductShelf({
   }, [activeSubcategory, emblaApi]);
 
   return (
-    <div className="space-y-stack">
+    <div
+      role="region"
+      aria-roledescription="carousel"
+      aria-label={ariaLabel}
+      className="space-y-stack"
+    >
       <div className="space-y-2">
         <div className="flex items-center justify-between gap-4">
           <Typography as="h2" variant="sectionTitleLarge">
@@ -133,21 +138,19 @@ export function ProductShelf({
         ))}
       </ChipRow>
 
-      <div role="region" aria-roledescription="carousel" aria-label={ariaLabel}>
-        <div ref={viewportRef} className="overflow-hidden">
-          <ul className="-ml-4 flex list-none p-0 [&>li]:min-w-0 [&>li]:flex-none [&>li]:basis-[80%] [&>li]:pl-4 sm:[&>li]:basis-[45%] lg:[&>li]:basis-[23%]">
-            {filteredProducts.map((product) => (
-              <SelectedProductTile
-                key={product.key}
-                locale={locale}
-                product={product}
-                labels={labels}
-                mode="shelf"
-                brand={brand}
-              />
-            ))}
-          </ul>
-        </div>
+      <div ref={viewportRef} className="overflow-hidden">
+        <ul className="-ml-4 flex list-none p-0 [&>li]:min-w-0 [&>li]:flex-none [&>li]:basis-[80%] [&>li]:pl-4 sm:[&>li]:basis-[45%] lg:[&>li]:basis-[23%]">
+          {filteredProducts.map((product) => (
+            <SelectedProductTile
+              key={product.key}
+              locale={locale}
+              product={product}
+              labels={labels}
+              mode="shelf"
+              brand={brand}
+            />
+          ))}
+        </ul>
       </div>
     </div>
   );
