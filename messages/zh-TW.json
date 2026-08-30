@@ -309,7 +309,7 @@
       "madeInTaiwan": "台灣製造",
       "previous": "上一組產品",
       "next": "下一組產品",
-      "moreCategories": "顯示其餘 {count} 個產品分類"
+      "allCategories": "全部"
     },
     "verified": "品牌經營",
     "foundingYear": "創立於 {year}",

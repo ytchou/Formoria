@@ -39,7 +39,7 @@ export type SelectedProductTileProps = {
   locale: AppLocale;
   product: CuratedProduct;
   labels: SelectedProductTileLabels;
-  mode: "outbound" | "trail" | "wall";
+  mode: "outbound" | "trail" | "wall" | "shelf";
   /**
    * THE CALLER'S OPT-IN TO THE SELECTED LABEL — a flag, because that is all it
    * ever was. It used to be `labels.selectedBadge`, a STRING whose value was
@@ -287,6 +287,60 @@ export function SelectedProductTile({
     </div>
   );
 
+  const shelfCaptionClass = cn(
+    "flex flex-col gap-1 pt-3",
+    "sm:absolute sm:inset-x-0 sm:bottom-0 sm:z-10 sm:rounded-b-surface sm:bg-ground/95 sm:p-4",
+    "sm:transition-opacity sm:duration-300 motion-reduce:sm:duration-[0.01ms]",
+    "[@media(hover:hover)]:sm:opacity-0",
+    "[@media(hover:hover)]:sm:group-hover:opacity-100",
+    "[@media(hover:hover)]:sm:group-focus-within:opacity-100",
+  );
+
+  const shelfContent = (
+    <div
+      tabIndex={0}
+      className="group relative flex h-full flex-col rounded-surface focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-3"
+    >
+      <div className="relative aspect-square w-full overflow-hidden rounded-surface bg-surface-deep">
+        {imageSrc ? (
+          <SurfaceImage
+            src={imageSrc}
+            alt={name}
+            fill
+            className="object-cover"
+            sizes="(max-width: 640px) 80vw, (max-width: 1024px) 45vw, (max-width: 1600px) 23vw, 368px"
+          />
+        ) : (
+          <BrandImageFallback
+            name={name}
+            category={product.category}
+            size="card"
+          />
+        )}
+        {originBadge}
+      </div>
+
+      <div className={shelfCaptionClass}>
+        <span
+          aria-hidden="true"
+          className="pointer-events-none absolute inset-x-0 -top-4 hidden h-4 bg-gradient-to-t from-ground/95 to-transparent sm:block"
+        />
+        <Typography as="h3" variant="cardTitle">
+          {name}
+        </Typography>
+        {productDescription ? (
+          <Typography
+            as="p"
+            variant="body"
+            className="line-clamp-3 hidden sm:block"
+          >
+            {productDescription}
+          </Typography>
+        ) : null}
+      </div>
+    </div>
+  );
+
   const content = (
     <>
       {/*
@@ -484,6 +538,17 @@ export function SelectedProductTile({
             {wallContent}
           </Link>
         )}
+      </li>
+    );
+  }
+
+  if (mode === "shelf") {
+    return (
+      <li
+        id={`product-${product.key}`}
+        className={cn("relative list-none", className)}
+      >
+        {shelfContent}
       </li>
     );
   }
