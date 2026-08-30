@@ -2,7 +2,7 @@ import { test, expect } from "../fixtures/auth";
 import type { Page } from "@playwright/test";
 import { createClient } from "@supabase/supabase-js";
 import { load } from "cheerio";
-import { seedBrand, SeededBrand } from "../helpers/seed";
+import { getServiceClient, seedBrand, SeededBrand } from "../helpers/seed";
 import { isLocalTarget } from "../helpers/target";
 
 import { BUDGET, POLL } from "../budgets";
@@ -295,6 +295,89 @@ test.describe("Brand detail deep", () => {
     expect(serverItem.attr("id")).toBe("faq-main-products");
     expect(serverItem.attr("open")).toBeUndefined();
     expect(serverItem.find("p").text()).toContain("代表產品包含");
+  });
+});
+
+test.describe("Brand detail — product shelf focus", () => {
+  let seeded: SeededBrand | undefined;
+  const productKey = "perch-wireless-table-lamp";
+  const productName = "Perch 棲木無線桌燈";
+
+  test.beforeAll(async ({}, workerInfo) => {
+    seeded = await seedBrand({
+      name: "product-shelf-focus",
+      status: "approved",
+      workerIndex: workerInfo.workerIndex,
+    });
+
+    const supabase = getServiceClient();
+    const { data: product, error: productError } = await supabase
+      .from("curated_products")
+      .insert({
+        brand_id: seeded.brand.id,
+        key: productKey,
+        name_zh: productName,
+        category: "home",
+        subcategory: "lighting",
+        official_url:
+          "https://sammm-studio.com/products/perch-wireless-table-lamp",
+        source_checked_at: new Date().toISOString(),
+        product_description_zh:
+          "PETG 懸臂結構搭配 Type-C 充電、觸控調光與 3000K 暖白光。",
+        visible: true,
+      })
+      .select("id")
+      .single();
+    if (productError || !product) {
+      throw new Error(`curated product seed failed: ${productError?.message}`);
+    }
+
+    const { error: sourceError } = await supabase
+      .from("curated_product_sources")
+      .insert({
+        product_id: product.id,
+        url: "https://sammm-studio.com/products/perch-wireless-table-lamp",
+        checked_at: new Date().toISOString(),
+        state: "active",
+      });
+    if (sourceError) {
+      throw new Error(
+        `curated product source seed failed: ${sourceError.message}`,
+      );
+    }
+  });
+
+  test.afterAll(async () => {
+    await seeded?.cleanup();
+  });
+
+  test("a pointer click does not pin the product caption open", async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 1920, height: 929 });
+    await page.goto(`/brands/${seeded!.slug}`);
+
+    const tile = page.locator(`#product-${productKey}`);
+    await expect(tile).toBeVisible({ timeout: BUDGET.INTERACTIVE });
+    await tile.scrollIntoViewIfNeeded();
+    const focusTarget = tile.locator('[tabindex="0"]');
+    const image = focusTarget.locator(":scope > div").first();
+    const caption = tile
+      .getByRole("heading", { name: productName })
+      .locator("..");
+
+    await page.keyboard.press("Tab");
+    await focusTarget.focus();
+    await expect
+      .poll(() => caption.evaluate((node) => getComputedStyle(node).opacity))
+      .toBe("1");
+    await focusTarget.evaluate((node) => (node as HTMLElement).blur());
+
+    await image.click();
+    await page.mouse.move(0, 0);
+    await expect
+      .poll(() => caption.evaluate((node) => getComputedStyle(node).opacity))
+      .toBe("0");
   });
 });
 

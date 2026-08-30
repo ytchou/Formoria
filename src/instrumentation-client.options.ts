@@ -2,7 +2,7 @@
 // without importing `instrumentation-client.ts`, whose module load calls
 // `Sentry.init` and installs global browser handlers.
 
-import * as Sentry from "@sentry/nextjs";
+import type { BrowserOptions } from "@sentry/nextjs";
 import {
   isLocalRequestUrl,
   resolveSentryEnvironment,
@@ -16,25 +16,19 @@ export const clientSentryOptions = {
   // back to `NODE_ENV` and tag a local `next start` as production (DEV-1561).
   environment: resolveSentryEnvironment(),
 
-  // `replayIntegration` exists only in the browser build of `@sentry/nextjs`.
-  // This module is imported by a node-environment test, where evaluating it at
-  // module scope throws and the suite collects zero tests. The array form is
-  // merged into the defaults by `Sentry.init`, so the browser behavior here is
-  // unchanged and the node case simply contributes nothing.
-  integrations: Sentry.replayIntegration ? [Sentry.replayIntegration()] : [],
+  // Error capture and tracing stay enabled; recording the whole session does
+  // not justify putting Replay and rrweb on every visitor's critical path.
+  integrations: [],
 
   // Define how likely traces are sampled. Adjust this value in production, or use tracesSampler for greater control.
   tracesSampleRate: process.env.NODE_ENV === 'production' ? 0.1 : 1,
   // Enable logs to be sent to Sentry
   enableLogs: true,
 
-  // Session replay is disabled: recording 10% of all sessions burns the Sentry
-  // quota on a pre-launch site. On-error replay below keeps the high-value half.
-  // Raise this once quota headroom is known.
+  // Session replay is disabled, including error sessions. Error events and
+  // their normal breadcrumbs still report through Sentry.
   replaysSessionSampleRate: 0,
-
-  // Define how likely Replay events are sampled when an error occurs.
-  replaysOnErrorSampleRate: 1.0,
+  replaysOnErrorSampleRate: 0,
 
   // Enable sending user PII (Personally Identifiable Information)
   // https://docs.sentry.io/platforms/javascript/guides/nextjs/configuration/options/#sendDefaultPii
@@ -82,4 +76,4 @@ export const clientSentryOptions = {
 
     return event;
   },
-} satisfies Sentry.BrowserOptions;
+} satisfies BrowserOptions;
