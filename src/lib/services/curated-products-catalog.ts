@@ -1,4 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { unstable_cache } from "next/cache";
 import { createServiceClient } from "@/lib/supabase/service";
 import { excludeTestBrands } from "@/lib/services/public-brand-filter";
 import type { BrandVisitLinkFields } from "@/lib/brands/link-fallback";
@@ -16,6 +17,7 @@ export type CatalogProduct = {
   nameEn: string | null;
   category: string;
   subcategory: string;
+  material: string[];
   createdAt: string;
   imageUrl: string | null;
   officialUrl: string | null;
@@ -45,6 +47,7 @@ export type CatalogProductRow = {
   category: string;
   subcategory?: string | null;
   subcategories?: string[] | null;
+  material?: string[] | null;
   created_at: string;
   image_url: string | null;
   official_url: string | null;
@@ -84,6 +87,7 @@ export function transformCatalogRow(row: CatalogProductRow): CatalogProduct {
     nameEn: row.name_en ?? null,
     category: row.category,
     subcategory,
+    material: row.material ?? [],
     createdAt: row.created_at,
     imageUrl: row.image_url ?? null,
     officialUrl: row.official_url ?? null,
@@ -108,7 +112,7 @@ export function transformCatalogRow(row: CatalogProductRow): CatalogProduct {
 
 const catalogSelect = (legacy: boolean) => `
   id, key, name_zh, name_en, category, ${legacy ? "subcategories" : "subcategory"}, created_at,
-  image_url, official_url,
+  image_url, official_url, material,
   curated_product_sources!inner(id),
   brands!inner(slug, name, status, purchase_website, purchase_pinkoi, purchase_shopee, purchase_myship, social_instagram, social_threads, social_facebook)
 `;
@@ -119,7 +123,9 @@ const CATALOG_MAX_RANGES = 200;
 
 export type CatalogQueryOptions = {
   category?: string | null;
-  subcategory?: string | null;
+  subcategories?: string[];
+  materials?: string[];
+  sort?: "newest" | "alphabetical";
   page?: number;
   pageSize?: number;
 };
@@ -141,7 +147,9 @@ export async function getPublishedCuratedProducts(
 ): Promise<{ products: CatalogProduct[]; totalCount: number }> {
   const {
     category,
-    subcategory,
+    subcategories,
+    materials,
+    sort = "newest",
     page = 1,
     pageSize = DEFAULT_PAGE_SIZE,
   } = options;
@@ -162,17 +170,23 @@ export async function getPublishedCuratedProducts(
         .eq("curated_product_sources.state", "active")
         .eq("brands.status", "approved");
       if (category) query = query.eq("category", category);
-      if (subcategory) {
+      if (subcategories && subcategories.length > 0) {
         query = legacy
-          ? query.contains("subcategories", [subcategory])
-          : query.eq("subcategory", subcategory);
+          ? query.overlaps("subcategories", subcategories)
+          : query.in("subcategory", subcategories);
+      }
+      if (materials && materials.length > 0) {
+        query = query.overlaps("material", materials);
       }
       const filtered = excludeTestBrands(
         query as unknown as CatalogFilterQuery,
         "brands.name",
       ) as unknown as typeof query;
-      const { data, error } = await filtered
-        .order("created_at", { ascending: false })
+      const sorted =
+        sort === "alphabetical"
+          ? filtered.order("name_zh", { ascending: true })
+          : filtered.order("created_at", { ascending: false });
+      const { data, error } = await sorted
         .order("id", { ascending: true })
         .range(from, from + CATALOG_RANGE_SIZE - 1);
       if (error) throw error;
@@ -203,7 +217,10 @@ export async function getPublishedCuratedProducts(
   const allProducts = rawRows
     .filter((row) => canonicalCatalogSubcategory(row) !== null)
     .map(transformCatalogRow);
-  const ordered = interleaveCatalogProducts(allProducts);
+  const ordered =
+    sort === "alphabetical"
+      ? allProducts
+      : interleaveCatalogProducts(allProducts);
   const offset = (page - 1) * pageSize;
   return {
     products: ordered.slice(offset, offset + pageSize),
@@ -287,3 +304,86 @@ export function interleaveCatalogProducts(
   }
   return ordered;
 }
+
+// ---------------------------------------------------------------------------
+// Facet counts — powers the filter sidebar
+// ---------------------------------------------------------------------------
+
+export type FacetCounts = {
+  subcategoryCounts: { slug: string; count: number }[];
+  materialCounts: { slug: string; count: number }[];
+};
+
+export async function getProductFacetCounts(
+  category: string | null,
+): Promise<FacetCounts> {
+  return getCachedProductFacetCounts(category ?? "all");
+}
+
+const getCachedProductFacetCounts = unstable_cache(
+  async (categoryKey: string): Promise<FacetCounts> => {
+    const category = categoryKey === "all" ? null : categoryKey;
+    const supabase: Pick<SupabaseClient, "from"> =
+      createServiceClient() as unknown as Pick<SupabaseClient, "from">;
+
+    // Corpus is small (~60 per category), so client-side aggregation is fine.
+    // PostgREST does not support unnest + group-by.
+    const rows: { subcategories: string[] | null; material: string[] | null }[] =
+      [];
+    for (let range = 0; range < CATALOG_MAX_RANGES; range += 1) {
+      const from = range * CATALOG_RANGE_SIZE;
+      let query = supabase
+        .from("curated_products")
+        .select(
+          "subcategories, material, curated_product_sources!inner(id), brands!inner(slug, name, status)",
+        )
+        .eq("visible", true)
+        .not("official_url", "is", null)
+        .not("source_checked_at", "is", null)
+        .eq("curated_product_sources.state", "active")
+        .eq("brands.status", "approved");
+      if (category) query = query.eq("category", category);
+      const filtered = excludeTestBrands(
+        query as unknown as CatalogFilterQuery,
+        "brands.name",
+      ) as unknown as typeof query;
+      const { data, error } = await filtered.range(
+        from,
+        from + CATALOG_RANGE_SIZE - 1,
+      );
+      if (error) throw error;
+      const pageRows = (data ?? []) as unknown as typeof rows;
+      rows.push(...pageRows);
+      if (pageRows.length < CATALOG_RANGE_SIZE) break;
+    }
+
+    const subCounts = new Map<string, number>();
+    for (const row of rows) {
+      if (row.subcategories) {
+        for (const sub of row.subcategories) {
+          subCounts.set(sub, (subCounts.get(sub) ?? 0) + 1);
+        }
+      }
+    }
+
+    const matCounts = new Map<string, number>();
+    for (const row of rows) {
+      if (row.material) {
+        for (const mat of row.material) {
+          matCounts.set(mat, (matCounts.get(mat) ?? 0) + 1);
+        }
+      }
+    }
+
+    return {
+      subcategoryCounts: [...subCounts.entries()]
+        .map(([slug, count]) => ({ slug, count }))
+        .sort((a, b) => b.count - a.count),
+      materialCounts: [...matCounts.entries()]
+        .map(([slug, count]) => ({ slug, count }))
+        .sort((a, b) => b.count - a.count),
+    };
+  },
+  ["discover-facets-v1"],
+  { revalidate: 3600 },
+);

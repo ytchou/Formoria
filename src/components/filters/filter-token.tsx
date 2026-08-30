@@ -5,7 +5,7 @@ import Link from 'next/link'
 import { buttonVariants } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 
-type DirectoryFilterTokenProps = {
+type FilterTokenProps = {
   href: string
   label: string
   removeLabel: string
@@ -13,13 +13,13 @@ type DirectoryFilterTokenProps = {
   variant: 'row' | 'chip'
 }
 
-export function DirectoryFilterToken({
+export function FilterToken({
   href,
   label,
   removeLabel,
   value,
   variant,
-}: DirectoryFilterTokenProps) {
+}: FilterTokenProps) {
   return (
     <Link
       aria-label={removeLabel}
@@ -44,3 +44,6 @@ export function DirectoryFilterToken({
     </Link>
   )
 }
+
+/** @deprecated Use `FilterToken` instead. Alias kept for backward compatibility. */
+export { FilterToken as DirectoryFilterToken }
