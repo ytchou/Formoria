@@ -106,6 +106,7 @@ export default async function DiscoverPage({ params, searchParams }: PageProps) 
               locale={locale}
               activeCategory={category}
               allLabel={commonT("all")}
+              totalCount={totalCount}
             />
           </aside>
 

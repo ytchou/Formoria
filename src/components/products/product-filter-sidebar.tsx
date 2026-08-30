@@ -1,13 +1,45 @@
-import { Link } from "@/i18n/navigation";
+"use client";
+
+import { useMemo, useTransition } from "react";
+import { useSearchParams } from "next/navigation";
+import { useTranslations } from "next-intl";
+import { Link, usePathname, useRouter } from "@/i18n/navigation";
 import { VISIBLE_L1_CATEGORIES, categoryLabel } from "@/lib/taxonomy/ontology";
 import { routes } from "@/lib/routes";
 import { buttonVariants } from "@/components/ui/button";
+import { Separator } from "@/components/ui/separator";
 import { cn } from "@/lib/utils";
+import {
+  FilterSection,
+  FilterCheckboxGroup,
+  FilterDrawerShell,
+} from "@/components/filters";
+import {
+  updateDirectoryUrl,
+  clearDirectoryFilters,
+} from "@/lib/directory-filter-url";
+
+type SubcategoryOption = {
+  slug: string;
+  label: string;
+  count: number;
+};
+
+type MaterialOption = {
+  value: string;
+  label: string;
+  count: number;
+};
 
 type ProductFilterSidebarProps = {
   locale: string;
   activeCategory: string | null;
   allLabel: string;
+  subcategoryOptions?: SubcategoryOption[];
+  activeSubSlugs?: string[];
+  materialOptions?: MaterialOption[];
+  activeMaterials?: string[];
+  totalCount: number;
 };
 
 function filterLinkClasses(isActive: boolean) {
@@ -25,7 +57,70 @@ export function ProductFilterSidebar({
   locale,
   activeCategory,
   allLabel,
+  subcategoryOptions = [],
+  activeSubSlugs = [],
+  materialOptions = [],
+  activeMaterials = [],
+  totalCount: _totalCount,
 }: ProductFilterSidebarProps) {
+  const t = useTranslations("products.filters");
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const [, startTransition] = useTransition();
+
+  const activeSubSet = useMemo(
+    () => new Set(activeSubSlugs),
+    [activeSubSlugs],
+  );
+  const activeMaterialSet = useMemo(
+    () => new Set(activeMaterials),
+    [activeMaterials],
+  );
+
+  const hasSubcategories =
+    activeCategory !== null && subcategoryOptions.length > 0;
+  const hasMaterials = materialOptions.length > 0;
+
+  // Map subcategory options to FilterCheckboxGroup shape
+  const subCheckboxOptions = useMemo(
+    () =>
+      subcategoryOptions.map((opt) => ({
+        value: opt.slug,
+        label: opt.label,
+        count: opt.count,
+      })),
+    [subcategoryOptions],
+  );
+
+  function toggleSubcategory(value: string, checked: boolean) {
+    const next = new Set(activeSubSet);
+    if (checked) next.add(value);
+    else next.delete(value);
+    startTransition(() => {
+      router.replace(
+        updateDirectoryUrl(pathname, searchParams, {
+          sub: next.size > 0 ? Array.from(next).join(",") : null,
+        }),
+        { scroll: false },
+      );
+    });
+  }
+
+  function toggleMaterial(value: string, checked: boolean) {
+    const next = new Set(activeMaterialSet);
+    if (checked) next.add(value);
+    else next.delete(value);
+    startTransition(() => {
+      router.replace(
+        updateDirectoryUrl(pathname, searchParams, {
+          material: next.size > 0 ? Array.from(next).join(",") : null,
+        }),
+        { scroll: false },
+      );
+    });
+  }
+
   return (
     <nav aria-label={allLabel}>
       <ul className="flex flex-wrap gap-2 lg:flex-col lg:gap-1">
@@ -54,6 +149,67 @@ export function ProductFilterSidebar({
           );
         })}
       </ul>
+
+      {hasSubcategories && (
+        <>
+          <Separator className="my-4" />
+          <FilterSection
+            title={t("subcategory")}
+            defaultOpen={activeSubSlugs.length > 0}
+          >
+            <FilterCheckboxGroup
+              options={subCheckboxOptions}
+              activeValues={activeSubSet}
+              onToggle={toggleSubcategory}
+            />
+          </FilterSection>
+        </>
+      )}
+
+      {hasMaterials && (
+        <>
+          <Separator className="my-4" />
+          <FilterSection
+            title={t("material")}
+            defaultOpen={activeMaterials.length > 0}
+          >
+            <FilterCheckboxGroup
+              options={materialOptions}
+              activeValues={activeMaterialSet}
+              onToggle={toggleMaterial}
+            />
+          </FilterSection>
+        </>
+      )}
     </nav>
+  );
+}
+
+export function ProductFilterDrawer(props: ProductFilterSidebarProps) {
+  const t = useTranslations("products.filters");
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const [, startTransition] = useTransition();
+
+  function clearAll() {
+    startTransition(() => {
+      router.replace(clearDirectoryFilters(pathname, searchParams), {
+        scroll: false,
+      });
+    });
+  }
+
+  return (
+    <FilterDrawerShell
+      triggerLabel={t("trigger")}
+      title={t("title")}
+      totalCount={props.totalCount}
+      showResultsLabel={t("showResults", { count: props.totalCount })}
+      clearAllLabel={t("clearAll")}
+      onClearAll={clearAll}
+    >
+      <ProductFilterSidebar {...props} />
+    </FilterDrawerShell>
   );
 }
