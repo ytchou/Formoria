@@ -7,6 +7,11 @@ export type Json =
   | Json[]
 
 export type Database = {
+  // Allows to automatically instantiate createClient with right options
+  // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
+  __InternalSupabase: {
+    PostgrestVersion: "14.5"
+  }
   public: {
     Tables: {
       admin_audit_log: {
@@ -650,6 +655,32 @@ export type Database = {
             foreignKeyName: "brand_owners_brand_id_fkey"
             columns: ["brand_id"]
             isOneToOne: true
+            referencedRelation: "brands"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      brand_product_subcategory_additions: {
+        Row: {
+          brand_id: string
+          created_at: string
+          subcategory: string
+        }
+        Insert: {
+          brand_id: string
+          created_at?: string
+          subcategory: string
+        }
+        Update: {
+          brand_id?: string
+          created_at?: string
+          subcategory?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "brand_product_subcategory_additions_brand_id_fkey"
+            columns: ["brand_id"]
+            isOneToOne: false
             referencedRelation: "brands"
             referencedColumns: ["id"]
           },
@@ -3240,6 +3271,10 @@ export type Database = {
       }
       dev1648_l2_order: { Args: never; Returns: string[] }
       dev1648_l2_ordinal: { Args: { p_slug: string }; Returns: number }
+      dev1648_release_brand_product_subcategory: {
+        Args: { p_brand_id: string; p_subcategory: string }
+        Returns: undefined
+      }
       drop_needs_data_submissions: {
         Args: { p_submission_ids: string[] }
         Returns: string[]
