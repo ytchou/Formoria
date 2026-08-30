@@ -2,9 +2,7 @@ import { getTranslations } from "next-intl/server";
 import type { AppLocale } from "@/i18n/locale-preference";
 import type { BrandVisitLinkFields } from "@/lib/brands/link-fallback";
 import type { CuratedProduct } from "@/lib/services/curated-products";
-import {
-  groupProductsIntoRails,
-} from "@/lib/curated-products/brand-rails";
+import { groupProductsIntoRails } from "@/lib/curated-products/brand-rails";
 import type { SelectedProductTileLabels } from "./selected-product-tile";
 import { ProductShelf } from "./product-shelf";
 

@@ -42,7 +42,24 @@ async function sourceImage(width: number, height: number): Promise<Buffer> {
     .toBuffer();
 }
 
-type WritePayloads = { insert: Record<string, unknown>[]; update: Record<string, unknown>[] };
+/** A valid image above the generic 5 MiB cap but below the curated 10 MiB cap. */
+async function largeSourceImage(): Promise<Buffer> {
+  return sharp({
+    create: {
+      width: 1500,
+      height: 1500,
+      channels: 3,
+      background: { r: 210, g: 190, b: 170 },
+    },
+  })
+    .png({ compressionLevel: 0 })
+    .toBuffer();
+}
+
+type WritePayloads = {
+  insert: Record<string, unknown>[];
+  update: Record<string, unknown>[];
+};
 
 /**
  * Chainable stand-in passed as an argument, never a module mock:
@@ -98,7 +115,10 @@ function stubFetch(response: Response): ReturnType<typeof vi.fn> {
 }
 
 /** A body with no content-length, so only the streaming cap can stop it. */
-function chunkedBody(totalBytes: number, chunkBytes = 64 * 1024): ReadableStream<Uint8Array> {
+function chunkedBody(
+  totalBytes: number,
+  chunkBytes = 64 * 1024,
+): ReadableStream<Uint8Array> {
   let sent = 0;
   return new ReadableStream<Uint8Array>({
     pull(controller) {
@@ -124,7 +144,10 @@ describe("prepareCuratedProductImage", () => {
     const fetchMock = stubFetch(new Response(new Uint8Array(0)));
 
     await expect(
-      prepareCuratedProductImage("http://169.254.169.254/latest/meta-data/", PRODUCT_ID),
+      prepareCuratedProductImage(
+        "http://169.254.169.254/latest/meta-data/",
+        PRODUCT_ID,
+      ),
     ).rejects.toThrow(/not reachable/i);
     expect(fetchMock).not.toHaveBeenCalled();
   });
@@ -138,17 +161,45 @@ describe("prepareCuratedProductImage", () => {
     );
 
     await expect(
-      prepareCuratedProductImage("https://example.com/not-an-image", PRODUCT_ID),
+      prepareCuratedProductImage(
+        "https://example.com/not-an-image",
+        PRODUCT_ID,
+      ),
     ).rejects.toThrow(/did not serve an image/i);
   });
 
-  it("refuses a declared content-length over the processor's 5 MB cap", async () => {
+  it("accepts a valid source above 5 MiB and normalizes it before storage", async () => {
+    const source = await largeSourceImage();
+    expect(source.length).toBeGreaterThan(5 * 1024 * 1024);
+    expect(source.length).toBeLessThan(10 * 1024 * 1024);
+    stubFetch(
+      new Response(new Uint8Array(source), {
+        status: 200,
+        headers: {
+          "content-type": "image/png",
+          "content-length": String(source.length),
+        },
+      }),
+    );
+
+    const result = await prepareCuratedProductImage(
+      "https://example.com/large.png",
+      PRODUCT_ID,
+    );
+
+    expect(result.contentType).toBe("image/webp");
+    expect(result.width).toBe(1200);
+    expect(result.height).toBe(1200);
+    expect(result.processedSize).toBeLessThan(source.length);
+  });
+
+  it("refuses a declared content-length over the curated-product 10 MiB cap", async () => {
     stubFetch(
       new Response(new Uint8Array(8), {
         status: 200,
         headers: {
           "content-type": "image/png",
-          "content-length": String(6 * 1024 * 1024),
+          "content-length": String(11 * 1024 * 1024),
         },
       }),
     );
@@ -162,7 +213,7 @@ describe("prepareCuratedProductImage", () => {
     // No content-length at all: the header check cannot fire, so the running
     // total is the only thing between a hostile origin and this process's heap.
     stubFetch(
-      new Response(chunkedBody(6 * 1024 * 1024), {
+      new Response(chunkedBody(11 * 1024 * 1024), {
         status: 200,
         headers: { "content-type": "image/png" },
       }),
@@ -186,7 +237,10 @@ describe("prepareCuratedProductImage", () => {
     stubFetch(response);
 
     await expect(
-      prepareCuratedProductImage("https://example.com/redirects.png", PRODUCT_ID),
+      prepareCuratedProductImage(
+        "https://example.com/redirects.png",
+        PRODUCT_ID,
+      ),
     ).rejects.toThrow(/unreachable/i);
   });
 });
