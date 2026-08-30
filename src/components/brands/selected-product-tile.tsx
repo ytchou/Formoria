@@ -260,7 +260,7 @@ export function SelectedProductTile({
     "sm:transition-opacity sm:duration-300 motion-reduce:sm:duration-[0.01ms]",
     "[@media(hover:hover)]:sm:opacity-0",
     "[@media(hover:hover)]:sm:group-hover:opacity-100",
-    "[@media(hover:hover)]:sm:group-focus-within:opacity-100",
+    "[@media(hover:hover)]:sm:group-focus-visible:opacity-100",
   );
 
   const shelfContent = (
