@@ -6,6 +6,7 @@ import { useTranslations } from "next-intl";
 import { usePathname, useRouter } from "@/i18n/navigation";
 import { NativeSelect } from "@/components/ui/native-select";
 import { Label } from "@/components/ui/label";
+import { trackProductSortChanged } from "@/lib/analytics";
 
 type ProductSortSelectProps = {
   currentSort: string;
@@ -20,6 +21,7 @@ export function ProductSortSelect({ currentSort }: ProductSortSelectProps) {
 
   function handleChange(event: React.ChangeEvent<HTMLSelectElement>) {
     const value = event.target.value;
+    trackProductSortChanged(value, currentSort);
     const params = new URLSearchParams(searchParams.toString());
     if (value === "newest") {
       params.delete("sort");

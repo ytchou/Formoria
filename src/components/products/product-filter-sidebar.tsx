@@ -14,10 +14,11 @@ import {
   FilterCheckboxGroup,
   FilterDrawerShell,
 } from "@/components/filters";
+import { updateDirectoryUrl } from "@/lib/directory-filter-url";
 import {
-  updateDirectoryUrl,
-  clearDirectoryFilters,
-} from "@/lib/directory-filter-url";
+  trackProductSubcategoryFilterApplied,
+  trackProductMaterialFilterApplied,
+} from "@/lib/analytics";
 
 type SubcategoryOption = {
   slug: string;
@@ -95,8 +96,16 @@ export function ProductFilterSidebar({
 
   function toggleSubcategory(value: string, checked: boolean) {
     const next = new Set(activeSubSet);
-    if (checked) next.add(value);
-    else next.delete(value);
+    if (checked) {
+      next.add(value);
+      trackProductSubcategoryFilterApplied(
+        value,
+        activeCategory!,
+        subcategoryOptions.find((o) => o.slug === value)?.count ?? 0,
+      );
+    } else {
+      next.delete(value);
+    }
     startTransition(() => {
       router.replace(
         updateDirectoryUrl(pathname, searchParams, {
@@ -109,8 +118,15 @@ export function ProductFilterSidebar({
 
   function toggleMaterial(value: string, checked: boolean) {
     const next = new Set(activeMaterialSet);
-    if (checked) next.add(value);
-    else next.delete(value);
+    if (checked) {
+      next.add(value);
+      trackProductMaterialFilterApplied(
+        value,
+        materialOptions.find((o) => o.value === value)?.count ?? 0,
+      );
+    } else {
+      next.delete(value);
+    }
     startTransition(() => {
       router.replace(
         updateDirectoryUrl(pathname, searchParams, {
@@ -122,7 +138,7 @@ export function ProductFilterSidebar({
   }
 
   return (
-    <nav aria-label={allLabel}>
+    <nav aria-label={t("title")}>
       <ul className="flex flex-wrap gap-2 lg:flex-col lg:gap-1">
         <li>
           <Link
@@ -194,9 +210,13 @@ export function ProductFilterDrawer(props: ProductFilterSidebarProps) {
 
   function clearAll() {
     startTransition(() => {
-      router.replace(clearDirectoryFilters(pathname, searchParams), {
-        scroll: false,
-      });
+      router.replace(
+        updateDirectoryUrl(pathname, searchParams, {
+          sub: null,
+          material: null,
+        }),
+        { scroll: false },
+      );
     });
   }
 
@@ -204,7 +224,6 @@ export function ProductFilterDrawer(props: ProductFilterSidebarProps) {
     <FilterDrawerShell
       triggerLabel={t("trigger")}
       title={t("title")}
-      totalCount={props.totalCount}
       showResultsLabel={t("showResults", { count: props.totalCount })}
       clearAllLabel={t("clearAll")}
       onClearAll={clearAll}

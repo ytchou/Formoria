@@ -16,7 +16,6 @@ import {
 type FilterDrawerShellProps = {
   triggerLabel: string;
   title: string;
-  totalCount: number;
   showResultsLabel: string;
   clearAllLabel: string;
   onClearAll: () => void;
@@ -26,7 +25,6 @@ type FilterDrawerShellProps = {
 export function FilterDrawerShell({
   triggerLabel,
   title,
-  totalCount: _totalCount,
   showResultsLabel,
   clearAllLabel,
   onClearAll,

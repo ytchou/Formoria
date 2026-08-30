@@ -71,6 +71,13 @@ export function getContentGroup(pathname: string): string {
   }
 
   if (
+    pathWithoutLocale === routes.discover() ||
+    pathWithoutLocale.startsWith(`${routes.discover()}/`)
+  ) {
+    return "discover";
+  }
+
+  if (
     pathWithoutLocale === routes.whereToBuy() ||
     pathWithoutLocale.startsWith(`${routes.whereToBuy()}/`)
   ) {

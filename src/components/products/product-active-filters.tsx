@@ -4,10 +4,8 @@ import { useSearchParams } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { Link, usePathname } from "@/i18n/navigation";
 import { FilterToken } from "@/components/filters";
-import {
-  updateDirectoryUrl,
-  clearDirectoryFilters,
-} from "@/lib/directory-filter-url";
+import { updateDirectoryUrl } from "@/lib/directory-filter-url";
+import { parseCommaParam } from "@/lib/seo/directory-filters";
 
 type ActiveFilter = {
   type: "subcategory" | "material";
@@ -30,27 +28,26 @@ export function ProductActiveFilters({
 
   function removeHref(filter: ActiveFilter): string {
     if (filter.type === "subcategory") {
-      const currentSubs = (searchParams.get("sub") ?? "")
-        .split(",")
-        .map((s) => s.trim())
-        .filter(Boolean)
-        .filter((s) => s !== filter.slug);
+      const currentSubs = parseCommaParam(
+        searchParams.get("sub") ?? undefined,
+      ).filter((s) => s !== filter.slug);
       return updateDirectoryUrl(pathname, searchParams, {
         sub: currentSubs.length > 0 ? currentSubs.join(",") : null,
       });
     }
     // material
-    const currentMats = (searchParams.get("material") ?? "")
-      .split(",")
-      .map((s) => s.trim())
-      .filter(Boolean)
-      .filter((s) => s !== filter.slug);
+    const currentMats = parseCommaParam(
+      searchParams.get("material") ?? undefined,
+    ).filter((s) => s !== filter.slug);
     return updateDirectoryUrl(pathname, searchParams, {
       material: currentMats.length > 0 ? currentMats.join(",") : null,
     });
   }
 
-  const clearAllHref = clearDirectoryFilters(pathname, searchParams);
+  const clearAllHref = updateDirectoryUrl(pathname, searchParams, {
+    sub: null,
+    material: null,
+  });
 
   return (
     <div className="flex flex-wrap items-center gap-2">

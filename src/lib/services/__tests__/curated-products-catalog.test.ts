@@ -287,6 +287,47 @@ describe("getPublishedCuratedProducts", () => {
     expect(orders).toContainEqual(["id", { ascending: true }]);
   });
 
+  it("preserves alphabetical order without interleaving", async () => {
+    // When sort is 'alphabetical', the SQL returns name_zh-ordered rows.
+    // interleaveCatalogProducts must NOT run, otherwise brand round-robin
+    // overwrites the alphabetical order.
+    const nameOrdered = [
+      { ...baseRow, id: "p-aaa", key: "p-aaa", name_zh: "AAA", brands: { ...baseRow.brands, slug: "brand-x" } },
+      { ...baseRow, id: "p-bbb", key: "p-bbb", name_zh: "BBB", brands: { ...baseRow.brands, slug: "brand-y" } },
+      { ...baseRow, id: "p-ccc", key: "p-ccc", name_zh: "CCC", brands: { ...baseRow.brands, slug: "brand-x" } },
+      { ...baseRow, id: "p-ddd", key: "p-ddd", name_zh: "DDD", brands: { ...baseRow.brands, slug: "brand-y" } },
+    ];
+    let pageIndex = 0;
+    const chain = {
+      select: () => chain,
+      eq: () => chain,
+      not: () => chain,
+      contains: () => chain,
+      overlaps: () => chain,
+      order: () => chain,
+      range: () => chain,
+      then<T>(resolve: (v: { data: unknown[]; error: null }) => T, reject?: (r: unknown) => T) {
+        const data = pageIndex === 0 ? nameOrdered : [];
+        pageIndex += 1;
+        return Promise.resolve({ data, error: null }).then(resolve, reject);
+      },
+    };
+    const client = { from: () => chain } as never;
+
+    const result = await getPublishedCuratedProducts(
+      { sort: "alphabetical" },
+      client,
+    );
+
+    // Products must stay in name_zh order — no brand round-robin
+    expect(result.products.map((p) => p.id)).toEqual([
+      "p-aaa",
+      "p-bbb",
+      "p-ccc",
+      "p-ddd",
+    ]);
+  });
+
   it("sorts by created_at desc by default (newest)", async () => {
     const { client, orders } = createMockClient();
 

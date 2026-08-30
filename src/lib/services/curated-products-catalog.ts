@@ -215,7 +215,10 @@ export async function getPublishedCuratedProducts(
   const allProducts = rawRows
     .filter((row) => canonicalCatalogSubcategory(row) !== null)
     .map(transformCatalogRow);
-  const ordered = interleaveCatalogProducts(allProducts);
+  const ordered =
+    sort === "alphabetical"
+      ? allProducts
+      : interleaveCatalogProducts(allProducts);
   const offset = (page - 1) * pageSize;
   return {
     products: ordered.slice(offset, offset + pageSize),
