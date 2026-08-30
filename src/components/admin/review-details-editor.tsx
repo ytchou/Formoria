@@ -819,6 +819,7 @@ function ContentEditor({
             className="mt-4"
             type="button"
             size="large"
+            variant="secondary"
             onClick={() => onUpdate("name", nameProposal.value)}
           >
             {t("details.nameProposal.use")}
