@@ -1,5 +1,9 @@
 import { describe, expect, it } from 'vitest'
-import { cleanBrandName } from '../brand-cleanup'
+import {
+  canonicalizeBilingualBrandName,
+  cleanBrandName,
+  isTaiwanFirstBilingualBrandName,
+} from '../brand-cleanup'
 
 describe('cleanBrandName', () => {
   it('leaves already clean names unchanged', () => {
@@ -145,5 +149,46 @@ describe('cleanBrandName', () => {
     ['Dasuit大適坐墊', 'Dasuit 大適坐墊'],
   ])('handles combined cleanup for %s', (input, expected) => {
     expect(cleanBrandName(input).cleanedName).toBe(expected)
+  })
+})
+
+describe('Taiwan-first bilingual brand identity', () => {
+  it('builds the LID Shoes Taiwan-first identity without Han spacing', () => {
+    expect(canonicalizeBilingualBrandName('LID Shoes', '劉一刀 手工鞋')).toBe(
+      '劉一刀手工鞋 LID Shoes',
+    )
+    expect(
+      canonicalizeBilingualBrandName(
+        'LID Shoes',
+        'LID Shoes | 劉一刀 手工鞋 | 官方網站',
+      ),
+    ).toBe('劉一刀手工鞋 LID Shoes')
+  })
+
+  it('uses the official bilingual title casing without duplicating the alias', () => {
+    expect(canonicalizeBilingualBrandName('ADELA', 'Adela愛德拉')).toBe(
+      '愛德拉 Adela',
+    )
+  })
+
+  it('reorders an existing bilingual identity', () => {
+    expect(
+      canonicalizeBilingualBrandName('AROMASE 艾瑪絲', 'AROMASE 艾瑪絲'),
+    ).toBe('艾瑪絲 AROMASE')
+  })
+
+  it('rejects an unrelated or legal-company title', () => {
+    expect(
+      canonicalizeBilingualBrandName('LID Shoes', '別家公司 Other Company'),
+    ).toBeNull()
+    expect(
+      canonicalizeBilingualBrandName('LID Shoes', '劉一刀鞋業有限公司'),
+    ).toBeNull()
+  })
+
+  it('recognizes only Han-first bilingual names', () => {
+    expect(isTaiwanFirstBilingualBrandName('愛德拉 Adela')).toBe(true)
+    expect(isTaiwanFirstBilingualBrandName('Adela 愛德拉')).toBe(false)
+    expect(isTaiwanFirstBilingualBrandName('愛德拉')).toBe(false)
   })
 })

@@ -11,6 +11,7 @@ import type { ScrapedBrandData } from "@/lib/types/scraper";
 import type { EnrichmentTarget } from "../_shared/enrichment-target";
 import type { SearchCallStatus } from "../search-results";
 import type { BrandSearchEntry } from "./scraper/types";
+import type { BrandNameProposal } from "@/lib/types/enriched-data";
 
 export type EnrichPhase = (typeof ENRICH_PHASES)[number];
 
@@ -105,6 +106,8 @@ export type EnrichPatch = Partial<BrandFlatLinkColumns> &
      * in `brand-write-policy`.
      */
     _cleared_fields: string[];
+    /** Internal refresh-only proposal; never a brand column. */
+    _name_proposal: BrandNameProposal;
   }>;
 
 export type BatchPhaseContext = {

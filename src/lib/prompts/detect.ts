@@ -86,7 +86,7 @@ Only high confidence is write-eligible for a direct slug or a non-brand rejectio
 - Not the legal entity — drop 「有限公司」, 「股份有限公司」 and equivalents.
 - Not a founder's personal name.
 - No product descriptions or SEO keywords (推薦, 必買, 伴手禮, 評價).
-- Max 30 characters. Format 「English Name 中文名」, or a single language.
+- Max 100 characters. When both identity halves are explicitly present in the input, format 「中文名 English Name」 for Taiwan-first display. Never translate, transliterate, or invent a missing half.
 - If the input name is already correct, return it unchanged.
 
 ## Input

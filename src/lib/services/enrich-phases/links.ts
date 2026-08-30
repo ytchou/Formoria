@@ -19,7 +19,13 @@ import {
   sameUrl,
   scrapeKey,
 } from '../link-enrichment'
-import { cleanBrandName, isValidBrandName, titleCaseScrapedTitle } from '../brand-cleanup'
+import {
+  canonicalizeBilingualBrandName,
+  cleanBrandName,
+  isValidBrandName,
+  titleCaseScrapedTitle,
+} from '../brand-cleanup'
+import type { NameCandidate } from '../name-arbiter'
 import { finishSearchAudit, startSearchAudit } from '../search-results'
 import { MAX_SCRAPE_URLS_PER_BRAND, scrapeBrandUrls, type ScrapeBrandUrlsOptions } from './scraper'
 import { classifyByDomain, isNonBrandSiteHost } from './scraper/input-detector'
@@ -57,12 +63,19 @@ export type LinksPhaseOutput = {
    * exactly one writer.
    */
   scrapedBrandName: string | null
+  /** Name candidates observed only on URLs already stored as first-party. */
+  officialNameCandidates: NameCandidate[]
   scrapedData: EnrichScrapedData | null
   scrapedImageUrls: string[]
   /** Parallel provenance for `scrapedImageUrls`; empty when the scraper predates it. */
   scrapedImageSources: ScrapedImageSource[]
   jsonLdImageUrls: string[]
   quarantine: Record<string, QuarantineGroup>
+}
+
+type StoredNameSource = {
+  source: 'official_website' | 'official_social'
+  url: string
 }
 
 export type QuarantineGroup = {
@@ -272,6 +285,62 @@ export function deriveScrapedBrandName(
   if (cleaned.length <= current.length) return null
 
   return cleaned
+}
+
+function storedNameSources(brand: EnrichBrand): StoredNameSource[] {
+  const sources: StoredNameSource[] = []
+  const seen = new Set<string>()
+  const add = (source: StoredNameSource['source'], value: unknown) => {
+    if (typeof value !== 'string' || value.trim() === '') return
+    const url = value.trim()
+    const key = `${source}:${pageKey(url)}`
+    if (seen.has(key)) return
+    seen.add(key)
+    sources.push({ source, url })
+  }
+
+  add('official_website', brand.purchase_website ?? brand.purchaseWebsite)
+  add('official_social', brand.social_instagram)
+  add('official_social', brand.social_threads)
+  add('official_social', brand.social_facebook)
+  return sources
+}
+
+/**
+ * Produces candidates only from first-party URLs already stored on the brand.
+ * Discovered SERP pages, marketplaces, and retailers may still enrich links,
+ * but their titles can never enter name arbitration through this path.
+ */
+export function deriveOfficialNameCandidates(
+  brand: EnrichBrand,
+  scrapedData: EnrichScrapedData,
+): NameCandidate[] {
+  const perSource = Object.entries(scrapedData.perSourceText ?? {})
+  const candidates: NameCandidate[] = []
+
+  for (const stored of storedNameSources(brand)) {
+    const match = perSource.find(([sourceUrl]) => sameUrl(sourceUrl, stored.url))
+    let observedName = match?.[1].title?.trim()
+
+    if (!observedName) {
+      const provenanceUrl = scrapedData.textProvenance?.brandName?.sourceUrl
+      const provenanceMatches = provenanceUrl && sameUrl(provenanceUrl, stored.url)
+      if (provenanceMatches && typeof scrapedData.brandName === 'string') {
+        observedName = scrapedData.brandName.trim()
+      }
+    }
+
+    if (!observedName || !brand.name) continue
+    const value = canonicalizeBilingualBrandName(brand.name, observedName)
+    if (!value || value === brand.name.trim()) continue
+    candidates.push({
+      source: stored.source,
+      value,
+      evidence: [{ ...stored, observedName }],
+    })
+  }
+
+  return candidates
 }
 
 /**
@@ -554,6 +623,7 @@ export async function runLinksPhase({
       phaseResult: buildPhaseResult('links', 'skipped', [], 0, undefined, 'links phase not requested'),
       patch: {},
       scrapedBrandName: null,
+      officialNameCandidates: [],
       scrapedData: null,
       scrapedImageUrls: [],
       scrapedImageSources: [],
@@ -645,6 +715,7 @@ export async function runLinksPhase({
       confirmedIdentityFields(fieldSources),
     )
     const scrapedBrandName = deriveScrapedBrandName(brand, scrapedData)
+    const officialNameCandidates = deriveOfficialNameCandidates(brand, scrapedData)
 
     // Best-effort favicon harvesting: try each favicon candidate in priority
     // order until one downloads successfully, then sync the logo column.
@@ -666,6 +737,7 @@ export async function runLinksPhase({
     return {
       patch,
       scrapedBrandName,
+      officialNameCandidates,
       scrapedData,
       scrapedImageUrls: scrapedData.galleryImageUrls ?? [],
       scrapedImageSources: scrapedData.imageSources ?? [],
@@ -683,6 +755,7 @@ export async function runLinksPhase({
     phaseResult: buildPhaseResult('links', status, changedFields, durationMs),
     patch: result.patch,
     scrapedBrandName: result.scrapedBrandName,
+    officialNameCandidates: result.officialNameCandidates,
     scrapedData: result.scrapedData,
     scrapedImageUrls: result.scrapedImageUrls,
     scrapedImageSources: result.scrapedImageSources,

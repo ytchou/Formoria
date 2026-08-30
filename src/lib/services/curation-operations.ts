@@ -80,6 +80,7 @@ import {
   isProviderFailure,
 } from "./enrich-phases";
 import type { NameCandidate } from "./name-arbiter";
+import { isBrandNameProposal } from "@/lib/types/enriched-data";
 import type { BrandImageSearchOutcome } from "./enrich-phases/scraper/types";
 import type { CatalogDiscoveryResult } from "./enrich-phases/catalog-discovery";
 import { buildCandidatePool } from "./enrich-phases/candidate-pool";
@@ -1222,7 +1223,7 @@ export async function persistSubmissionEnrichmentResults(
         return;
       }
 
-      let persistablePatch = patch as Record<string, unknown>;
+      let persistablePatch = routeSubmissionNamePatch(row.intent, patch);
       if (row.intent === "refresh") {
         if (!row.brand_id || !isPlainObject(row.base_brand_data)) {
           throw new Error("Refresh submission is missing its brand snapshot");
@@ -1248,7 +1249,10 @@ export async function persistSubmissionEnrichmentResults(
         }
       }
 
-      const existing = (row.enriched_data ?? {}) as Record<string, unknown>;
+      const existing = {
+        ...((row.enriched_data ?? {}) as Record<string, unknown>),
+      };
+      if (row.intent === "refresh") delete existing.name;
       const merged = mergeSubmissionEnrichedData(existing, persistablePatch);
       if (jobId) {
         const { data, error } = await (
@@ -1294,6 +1298,29 @@ export async function persistSubmissionEnrichmentResults(
       }
     },
   );
+}
+
+/**
+ * New submissions publish an accepted name through their enrichment blob.
+ * Refreshes stage only a high-confidence proposal; their live name changes
+ * exclusively when an admin copies it into the ordinary review override.
+ */
+export function routeSubmissionNamePatch(
+  intent: string,
+  patch: Record<string, unknown>,
+): Record<string, unknown> {
+  const routed = { ...patch };
+  const proposal = isBrandNameProposal(routed._name_proposal)
+    ? routed._name_proposal
+    : null;
+  delete routed._name_proposal;
+
+  if (intent === "refresh") {
+    delete routed.name;
+    if (proposal) routed._name_proposal = proposal;
+  }
+
+  return routed;
 }
 
 /**
@@ -2203,11 +2230,8 @@ export async function runEnrich(
                   value: detectApplication.brandName,
                 });
               }
-              if (linksResult?.scrapedBrandName) {
-                candidates.push({
-                  source: "scraped",
-                  value: linksResult.scrapedBrandName,
-                });
+              if (linksResult?.officialNameCandidates.length) {
+                candidates.push(...linksResult.officialNameCandidates);
               }
               nameCandidates.set(brand.id, {
                 candidates,

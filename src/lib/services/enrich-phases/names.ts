@@ -1,7 +1,15 @@
 import type { PhaseResult } from "@/lib/types/curation";
 import { auditedCall } from "@/lib/audit";
 import { isLlmProviderFailure } from "../_shared/llm-call-outcome";
-import { isValidBrandName } from "../brand-cleanup";
+import {
+  isBilingualBrandName,
+  isTaiwanFirstBilingualBrandName,
+  isValidBrandName,
+} from "../brand-cleanup";
+import type {
+  BrandNameEvidence,
+  BrandNameProposal,
+} from "@/lib/types/enriched-data";
 import {
   arbitrateBrandNames,
   type NameArbiterItem,
@@ -58,12 +66,38 @@ export function normalizeCandidates(
   const byValue = new Map<string, NameCandidate>();
 
   for (const candidate of supplied) {
-    const value = candidate.value.trim();
-    if (!value || byValue.has(value)) continue;
-    byValue.set(value, { ...candidate, value });
+    const value = normalizeCandidateValue(candidate.value);
+    if (!value) continue;
+    const existing = byValue.get(value);
+    if (!existing) {
+      byValue.set(value, { ...candidate, value });
+      continue;
+    }
+    const evidence = dedupeEvidence([
+      ...(existing.evidence ?? []),
+      ...(candidate.evidence ?? []),
+    ]);
+    if (evidence.length > 0) existing.evidence = evidence;
   }
 
   return [...byValue.values()];
+}
+
+function normalizeCandidateValue(value: string): string {
+  return value
+    .normalize("NFC")
+    .trim()
+    .replace(/\s+/gu, " ")
+    .replace(/(?<=\p{Script=Han})\s+(?=\p{Script=Han})/gu, "");
+}
+
+function dedupeEvidence(evidence: BrandNameEvidence[]): BrandNameEvidence[] {
+  const byKey = new Map<string, BrandNameEvidence>();
+  for (const entry of evidence) {
+    const key = `${entry.source}\u0000${entry.url}\u0000${entry.observedName}`;
+    if (!byKey.has(key)) byKey.set(key, entry);
+  }
+  return [...byKey.values()];
 }
 
 /**
@@ -119,7 +153,19 @@ function fallbackName(candidates: NameCandidate[], storedName: string): string {
 function isAcceptedConfidence(
   verdict: NameVerdict,
   storedName: string,
+  candidate: NameCandidate,
 ): boolean {
+  const addsBilingualIdentity =
+    isBilingualBrandName(candidate.value) && !isBilingualBrandName(storedName);
+  if (addsBilingualIdentity) {
+    return (
+      verdict.confidence === "high" &&
+      isTaiwanFirstBilingualBrandName(candidate.value) &&
+      (candidate.source === "official_website" ||
+        candidate.source === "official_social") &&
+      (candidate.evidence?.length ?? 0) > 0
+    );
+  }
   if (verdict.confidence === "high") return true;
   return verdict.confidence === "medium" && storedName.includes(verdict.chosen);
 }
@@ -137,11 +183,51 @@ export function resolveArbitratedName(
   normalizedCandidates: NameCandidate[],
   storedName: string,
 ): string {
-  return verdict &&
-    isAcceptedConfidence(verdict, storedName) &&
-    isValidBrandName(verdict.chosen, storedName)
-    ? verdict.chosen
-    : fallbackName(normalizedCandidates, storedName);
+  if (!verdict) return fallbackName(normalizedCandidates, storedName);
+  const normalizedChosen = normalizeCandidateValue(verdict.chosen);
+  const selected = normalizedCandidates.find(
+    (candidate) => candidate.value === normalizedChosen,
+  );
+  if (
+    !selected ||
+    !isAcceptedConfidence(verdict, storedName, selected) ||
+    !isValidBrandName(selected.value, storedName)
+  ) {
+    return fallbackName(normalizedCandidates, storedName);
+  }
+  return selected.value;
+}
+
+function proposalForChosen(
+  verdict: NameVerdict | undefined,
+  chosen: string,
+  storedName: string,
+  candidates: NameCandidate[],
+): BrandNameProposal | null {
+  if (
+    !verdict ||
+    verdict.confidence !== "high" ||
+    chosen === storedName ||
+    !isTaiwanFirstBilingualBrandName(chosen)
+  ) {
+    return null;
+  }
+  const candidate = candidates.find((entry) => entry.value === chosen);
+  const evidence = dedupeEvidence(candidate?.evidence ?? []);
+  if (
+    !candidate ||
+    (candidate.source !== "official_website" &&
+      candidate.source !== "official_social") ||
+    evidence.length === 0
+  ) {
+    return null;
+  }
+  return {
+    value: chosen,
+    confidence: "high",
+    reason: verdict.reason,
+    evidence,
+  };
 }
 
 function skippedBatch(detail: string): NamesPhaseOutput {
@@ -303,6 +389,12 @@ export function applyNamesResult(
     storedName,
   );
   const changed = chosen !== storedName;
+  const proposal = proposalForChosen(
+    verdict,
+    chosen,
+    storedName,
+    normalizedCandidates,
+  );
 
   return {
     phaseResult: buildPhaseResult(
@@ -313,6 +405,11 @@ export function applyNamesResult(
       undefined,
       changed ? `${storedName} → ${chosen}` : undefined,
     ),
-    patch: changed ? { name: chosen } : {},
+    patch: changed
+      ? {
+          name: chosen,
+          ...(proposal ? { _name_proposal: proposal } : {}),
+        }
+      : {},
   };
 }

@@ -17,6 +17,19 @@ export interface NameCleanupResult {
 }
 
 const SEO_JUNK_KEYWORDS = ['推薦', '必買', '伴手禮', '評價', '優惠', '折扣', '開箱', '比較']
+const LEGAL_COMPANY_MARKERS = [
+  '有限公司',
+  '股份有限公司',
+  '企業社',
+  '商行',
+  'company limited',
+  'co., ltd',
+  'co. ltd',
+  'incorporated',
+]
+const MAX_SUBMISSION_BRAND_NAME_LENGTH = 100
+const HAN_REGEX = /\p{Script=Han}/u
+const LATIN_REGEX = /\p{Script=Latin}/u
 
 /**
  * Is `candidate` a plausible replacement for `current`?
@@ -28,13 +41,14 @@ const SEO_JUNK_KEYWORDS = ['推薦', '必買', '伴手禮', '評價', '優惠', 
  * proposals) and the links phase (scraped page titles) rename from it.
  */
 export function isValidBrandName(candidate: string, current: string): boolean {
-  if (candidate.length > 40) return false
+  if (candidate.length > MAX_SUBMISSION_BRAND_NAME_LENGTH) return false
   if (SEO_JUNK_KEYWORDS.some((keyword) => candidate.includes(keyword))) return false
+  const lowerCandidate = candidate.toLowerCase()
+  if (LEGAL_COMPANY_MARKERS.some((marker) => lowerCandidate.includes(marker))) return false
   // Overlap is compared case-insensitively: `ADELA` and `Adela` are the same
   // token, and cleanBrandName re-cases names, so a case-sensitive check
   // rejected every rename that only fixed capitalisation.
   const lowerCurrent = current.toLowerCase()
-  const lowerCandidate = candidate.toLowerCase()
   const currentWords = lowerCurrent.split(/[\s\-]+/).filter(Boolean)
   const candidateWords = lowerCandidate.split(/[\s\-]+/).filter(Boolean)
   return (
@@ -380,4 +394,89 @@ export function cleanBrandName(name: string): NameCleanupResult {
     patternsMatched: cleanedName === originalName ? [] : patternsMatched,
     confidence: confidenceFor(patternsMatched),
   }
+}
+
+function compactHanWhitespace(value: string): string {
+  return value.replace(/(?<=\p{Script=Han})\s+(?=\p{Script=Han})/gu, '')
+}
+
+function latinIdentityRuns(value: string): string[] {
+  return (value.match(
+    /[\p{Script=Latin}\p{Number}][\p{Script=Latin}\p{Number}\s&+.'’’,_-]*/gu,
+  ) ?? [])
+    .map((run) => run.trim())
+    .filter(Boolean)
+}
+
+function latinIdentity(value: string): string | null {
+  const identity = latinIdentityRuns(value).join(' ').trim()
+  return identity || null
+}
+
+function hanIdentity(value: string): string | null {
+  const runs = value.match(/\p{Script=Han}+(?:\s+\p{Script=Han}+)*/gu)
+  const identity = compactHanWhitespace(runs?.join(' ') ?? '').trim()
+  return identity || null
+}
+
+function latinIdentityKey(value: string): string {
+  return value
+    .normalize('NFC')
+    .toLocaleLowerCase()
+    .replace(/[^\p{Script=Latin}\p{Number}]/gu, '')
+}
+
+export function isBilingualBrandName(value: string): boolean {
+  return HAN_REGEX.test(value) && LATIN_REGEX.test(value)
+}
+
+export function isTaiwanFirstBilingualBrandName(value: string): boolean {
+  if (!isBilingualBrandName(value)) return false
+  const hanIndex = value.search(/\p{Script=Han}/u)
+  const latinIndex = value.search(/\p{Script=Latin}/u)
+  return hanIndex >= 0 && latinIndex >= 0 && hanIndex < latinIndex
+}
+
+/**
+ * Builds a Taiwan-first bilingual identity from an existing name and a name
+ * observed on a first-party page. It only rearranges supplied text: the Han
+ * half comes from the observation and the Latin half comes from either the
+ * same observation or the stored identity. Nothing is translated or coined.
+ */
+export function canonicalizeBilingualBrandName(
+  currentName: string,
+  observedName: string,
+): string | null {
+  const current = cleanBrandName(currentName).cleanedName.trim()
+  const observed = compactWhitespace(
+    observedName
+      .split(SEGMENT_SPLIT_REGEX)
+      .map((segment) => segment.trim())
+      .filter(
+        (segment) =>
+          segment !== '' &&
+          !PAGE_TITLE_BOILERPLATE.has(segment.toLocaleLowerCase()),
+      )
+      .map((segment) => cleanBrandName(segment).cleanedName.trim())
+      .filter(Boolean)
+      .join(' '),
+  )
+  if (!current || !observed) return null
+
+  const currentLatin = latinIdentity(current)
+  const observedHan = hanIdentity(observed) ?? hanIdentity(current)
+  if (!currentLatin || !observedHan) return null
+
+  const currentKey = latinIdentityKey(currentLatin)
+  const observedLatinRuns = latinIdentityRuns(observed)
+  const observedLatin = observedLatinRuns.find(
+    (run) => latinIdentityKey(run) === currentKey,
+  )
+  if (observedLatinRuns.length > 0 && !observedLatin) return null
+
+  const english = observedLatin ?? currentLatin
+  const candidate = compactWhitespace(`${observedHan} ${english}`)
+  if (!isTaiwanFirstBilingualBrandName(candidate)) return null
+  if (!isValidBrandName(candidate, currentName)) return null
+  return candidate
 }

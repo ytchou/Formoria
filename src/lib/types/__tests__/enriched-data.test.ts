@@ -84,6 +84,26 @@ describe("enrichedDataFromDb", () => {
       true,
     );
   });
+
+  it("round-trips a refresh name proposal under its internal JSON key", () => {
+    const proposal = {
+      value: "劉一刀手工鞋 LID Shoes",
+      confidence: "high" as const,
+      reason: "官網直接使用雙語品牌名",
+      evidence: [
+        {
+          source: "official_website" as const,
+          url: "https://www.lidshoes.com",
+          observedName: "劉一刀 手工鞋",
+        },
+      ],
+    };
+
+    const domain = enrichedDataFromDb({ _name_proposal: proposal });
+
+    expect(domain.nameProposal).toEqual(proposal);
+    expect(enrichedDataToDb(domain)).toEqual({ _name_proposal: proposal });
+  });
 });
 
 describe("enrichedDataToDb", () => {

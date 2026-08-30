@@ -6,6 +6,7 @@ import {
   mergeEnrichPatches,
   mergeSubmissionEnrichedData,
   persistEnrichmentResults,
+  routeSubmissionNamePatch,
   needsPhase,
   seedEnrichedDataFromOwnerData,
   submissionToEnrichBrand,
@@ -98,6 +99,40 @@ describe("seedEnrichedDataFromOwnerData", () => {
   it("returns empty object when both are null", () => {
     const result = seedEnrichedDataFromOwnerData(null, null);
     expect(result).toEqual({});
+  });
+});
+
+describe("submission name publication routing", () => {
+  const proposal = {
+    value: "劉一刀手工鞋 LID Shoes",
+    confidence: "high" as const,
+    reason: "官網直接使用雙語品牌名",
+    evidence: [
+      {
+        source: "official_website" as const,
+        url: "https://www.lidshoes.com/about",
+        observedName: "劉一刀 手工鞋",
+      },
+    ],
+  };
+
+  it("keeps an accepted name for a new submission and drops proposal metadata", () => {
+    expect(
+      routeSubmissionNamePatch("recommend", {
+        name: proposal.value,
+        _name_proposal: proposal,
+      }),
+    ).toEqual({ name: proposal.value });
+  });
+
+  it("stages a refresh proposal without putting name in automatic writes", () => {
+    expect(
+      routeSubmissionNamePatch("refresh", {
+        name: proposal.value,
+        description: "新的描述",
+        _name_proposal: proposal,
+      }),
+    ).toEqual({ description: "新的描述", _name_proposal: proposal });
   });
 });
 

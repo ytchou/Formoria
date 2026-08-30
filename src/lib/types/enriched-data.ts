@@ -59,6 +59,19 @@ export type CuratedProductProposal = {
   originCandidateId?: string | null;
 };
 
+export type BrandNameEvidence = {
+  source: "official_website" | "official_social";
+  url: string;
+  observedName: string;
+};
+
+export type BrandNameProposal = {
+  value: string;
+  confidence: "high";
+  reason: string;
+  evidence: BrandNameEvidence[];
+};
+
 /**
  * FAQ deliberately has no field here. The dedicated `faq` phase writes
  * `brand_faq_entries` directly, behind the preset validators; carrying a copy
@@ -92,7 +105,40 @@ export type EnrichedData = {
    */
   products?: CuratedProductProposal[];
   name?: string;
+  /** Refresh-only proposal; never part of the automatic review baseline. */
+  nameProposal?: BrandNameProposal;
 };
+
+export function isBrandNameProposal(value: unknown): value is BrandNameProposal {
+  if (typeof value !== "object" || value === null || Array.isArray(value)) {
+    return false;
+  }
+  const proposal = value as Record<string, unknown>;
+  if (
+    typeof proposal.value !== "string" ||
+    proposal.value.trim() === "" ||
+    proposal.confidence !== "high" ||
+    typeof proposal.reason !== "string" ||
+    !Array.isArray(proposal.evidence) ||
+    proposal.evidence.length === 0
+  ) {
+    return false;
+  }
+  return proposal.evidence.every((entry) => {
+    if (typeof entry !== "object" || entry === null || Array.isArray(entry)) {
+      return false;
+    }
+    const evidence = entry as Record<string, unknown>;
+    return (
+      (evidence.source === "official_website" ||
+        evidence.source === "official_social") &&
+      typeof evidence.url === "string" &&
+      evidence.url.trim() !== "" &&
+      typeof evidence.observedName === "string" &&
+      evidence.observedName.trim() !== ""
+    );
+  });
+}
 
 function adaptProductProposal(value: unknown): CuratedProductProposal | null {
   if (typeof value !== "object" || value === null || Array.isArray(value)) {
@@ -179,6 +225,9 @@ export function enrichedDataFromDb(
       ? { foundingYear: json.founding_year }
       : {}),
     ...(typeof json.name === "string" ? { name: json.name } : {}),
+    ...(isBrandNameProposal(json._name_proposal)
+      ? { nameProposal: json._name_proposal }
+      : {}),
     ...(typeof json.hero_image_url === "string"
       ? { heroImageUrl: json.hero_image_url }
       : {}),
@@ -249,6 +298,7 @@ export function enrichedDataToDb(data: EnrichedData): Record<string, unknown> {
   if (data.siteContent !== undefined) result.site_content = data.siteContent;
   if (data.foundingYear !== undefined) result.founding_year = data.foundingYear;
   if (data.name !== undefined) result.name = data.name;
+  if (data.nameProposal !== undefined) result._name_proposal = data.nameProposal;
   if (data.heroImageUrl !== undefined)
     result.hero_image_url = data.heroImageUrl;
   if (data.categorySlug !== undefined) result.category = data.categorySlug;

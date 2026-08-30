@@ -25,6 +25,7 @@ const linksOutput = (): LinksPhaseOutput => ({
   phaseResult: buildPhaseResult('links', 'succeeded', [], 0),
   patch: {},
   scrapedBrandName: null,
+  officialNameCandidates: [],
   scrapedData: { websiteUrl: 'https://other.example' },
   scrapedImageUrls: ['https://other.example/a.jpg', 'https://clean.example/clean.jpg', 'https://unprovenanced.example/unknown.jpg'],
   scrapedImageSources: [

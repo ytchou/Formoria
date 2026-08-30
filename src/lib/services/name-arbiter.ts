@@ -21,12 +21,19 @@ import {
 } from "./_shared/llm-call-outcome";
 import type { EnrichmentTarget } from "./_shared/enrichment-target";
 import type { LlmBatchOutcome } from "./category-classifier";
+import type { BrandNameEvidence } from "@/lib/types/enriched-data";
 
-type NameCandidateSource = "stored" | "cleaned" | "detected" | "scraped";
+type NameCandidateSource =
+  | "stored"
+  | "cleaned"
+  | "detected"
+  | "scraped"
+  | BrandNameEvidence["source"];
 
 export type NameCandidate = {
   source: NameCandidateSource;
   value: string;
+  evidence?: BrandNameEvidence[];
 };
 
 export type NameArbiterItem = {
@@ -122,7 +129,15 @@ function createNameArbiterClient(
 
 function formatNameArbiterItem(item: NameArbiterItem, index: number): string {
   const candidateLine = item.candidates
-    .map((candidate) => `${candidate.source}：${candidate.value}`)
+    .map((candidate) => {
+      const evidence = candidate.evidence
+        ?.map(
+          (entry) =>
+            `${entry.source} ${entry.url} observed=${JSON.stringify(entry.observedName)}`,
+        )
+        .join(", ");
+      return `${candidate.source}：${candidate.value}${evidence ? `（${evidence}）` : ""}`;
+    })
     .join("；");
   const snippetLine = item.snippets?.length
     ? ` / 搜尋摘要：${item.snippets.slice(0, 10).join("；")}`
@@ -163,6 +178,24 @@ function parseNameVerdict(value: unknown): NameVerdict | null {
   };
 }
 
+function normalizedCandidateValue(value: string): string {
+  return value
+    .normalize("NFC")
+    .trim()
+    .replace(/\s+/gu, " ")
+    .replace(/(?<=\p{Script=Han})\s+(?=\p{Script=Han})/gu, "");
+}
+
+function verdictSelectsSuppliedCandidate(
+  verdict: NameVerdict,
+  item: NameArbiterItem,
+): boolean {
+  const chosen = normalizedCandidateValue(verdict.chosen);
+  return item.candidates.some(
+    (candidate) => normalizedCandidateValue(candidate.value) === chosen,
+  );
+}
+
 function parseArbiterResponse(
   content: string,
   items: NameArbiterItem[],
@@ -189,17 +222,30 @@ function parseArbiterResponse(
     if (!slug) return;
 
     const verdict = parseNameVerdict(item);
-    if (verdict) results.set(slug, verdict);
+    const requestedItem = items.find((candidate) => candidate.slug === slug);
+    if (
+      verdict &&
+      requestedItem &&
+      verdictSelectsSuppliedCandidate(verdict, requestedItem)
+    ) {
+      results.set(slug, verdict);
+    }
   });
 
   return results;
 }
 
-function parseSingleArbiterResponse(content: string): NameVerdict | null {
+function parseSingleArbiterResponse(
+  content: string,
+  item: NameArbiterItem,
+): NameVerdict | null {
   // The fan-out path sends one brand but the contract is still a `results`
   // array, so unwrap it and take the first entry.
   const entries = toArbiterEntries(JSON.parse(content) as unknown);
-  return entries ? parseNameVerdict(entries.at(0)) : null;
+  const verdict = entries ? parseNameVerdict(entries.at(0)) : null;
+  return verdict && verdictSelectsSuppliedCandidate(verdict, item)
+    ? verdict
+    : null;
 }
 
 async function arbitrateBrandName(
@@ -233,7 +279,7 @@ async function arbitrateBrandName(
       return contentFailed();
     }
 
-    const result = parseSingleArbiterResponse(content);
+    const result = parseSingleArbiterResponse(content, item);
     if (!result) {
       console.error(
         `  → name arbitration: invalid response: ${content.slice(0, 200)}`,

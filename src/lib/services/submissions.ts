@@ -14,6 +14,7 @@ import type {
 } from "@/lib/types/submission";
 import type { Database, Json } from "@/lib/supabase/database.types";
 import type {
+  BrandNameProposal,
   CuratedProductProposal,
   EnrichedData,
 } from "@/lib/types/enriched-data";
@@ -216,6 +217,8 @@ export type BrandSubmissionForReview = BrandSubmissionWithCategoryNote & {
   baseBrandUpdatedAt: string | null;
   reviewOverrides: Json;
   enriched_data: EnrichedSubmissionData | null;
+  /** Refresh-only suggestion, kept outside the editable baseline. */
+  nameProposal: BrandNameProposal | null;
   latestCurationTargetStatus: CurationTargetStatus | null;
   latestCurationJobId: string | null;
   latestCurationPhase: string | null;
@@ -1790,6 +1793,7 @@ export async function getSubmissionsForReview(options?: {
       baseBrandUpdatedAt: row.base_brand_updated_at ?? null,
       reviewOverrides: row.review_overrides ?? {},
       enriched_data: enrichedData,
+      nameProposal: enrichedData?.nameProposal ?? null,
       latestCurationTargetStatus: targetStatus,
       latestCurationJobId: latestTarget?.job_id ?? null,
       latestCurationPhase: latestTarget?.current_phase ?? null,
