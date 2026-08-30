@@ -93,6 +93,16 @@ A single fixed specification (e.g. "capacity 200ml", "dimensions 15x15 cm") is a
 - official_url must be this specific product's own product page; home pages, category pages, social media posts, and platform search results do not count — if you cannot find it, do not output this product.
 - Use only the provided data. Do not add products from memory that are not in the provided data.
 
+## name_zh
+Write a concise, consumer-facing product identity instead of copying the page title verbatim.
+- Preserve the official model or SKU exactly and place it at the end.
+- Remove promotional, release, and version labels such as 「新品上市」「官網獨家」「升級2.0」.
+- Use one evidence-supported product type. Do not join synonyms, categories, or usage labels with 「／」 or "/".
+- Keep a feature, material, or grade in the name only when it distinguishes this product from sibling products; otherwise put it in product_description_zh.
+
+[golden_case_id=product-name-concise-01]
+「升級2.0⬆︎ 高硬度牙口剪／拼布縫紉剪 709B-55PH」→「拼布牙口剪 709B-55PH」. 「拼布」 supplies the useful context, 「牙口剪」 names the physical product, the model stays verbatim, and 「高硬度」 belongs in product_description_zh.
+
 ## Classification vocabularies (three closed lists)
 category (single select, use only the following slugs):
 ${CATEGORY_LIST}
@@ -104,6 +114,12 @@ material (0-3 items, use only the following English slugs — no Chinese, no inv
 ${MATERIAL_VOCAB_BLOCK}
 
 All three lists are closed: values outside these lists must never be output. When no matching value exists, return null for category/subcategory or [] for material — do not guess, and do not invent slugs or new labels. When category cannot be determined, return null — a product with null category will be discarded, which is better than an incorrect category. material accepts only English slugs; Chinese labels (e.g. 「陶瓷」) will be discarded.
+
+### Classification rule: physical form over usage context
+When a product's physical form maps to one subcategory and its usage context maps to another, classify by physical form.
+[golden_case_id=classification-form-over-context-01]
+「高硬度廚房剪」→ category: home, subcategory: hand-tools (NOT cookware). The product is scissors (hand-tools) used in a kitchen, not a piece of cookware.
+「園藝鏟」→ category: home, subcategory: hand-tools (NOT planters-and-pots). The product is a hand tool used for gardening, not a planter.
 
 ## product_description_zh
 ### Identity and material priority
@@ -148,6 +164,7 @@ Given a candidate page https://example-brand.tw/products/walnut-chopsticks with 
 - [ ] Are all material values English slugs with no Chinese labels?
 - [ ] Have fields with no matching value been returned as null or [] rather than invented slugs or guessed values?
 - [ ] Does every product have at least one sources entry, and does official_url point to this product's own product page?
+- [ ] Is each name_zh a concise single product identity with promotional labels removed and the official model preserved?
 - [ ] Are all fields completely free of prices, discounts, inventory, supply status, shipping costs, variants, or offers?
 - [ ] Does product_description_zh contain only durable facts, with no editorial selection reasons, recommendations, or marketing tone?
 - [ ] Is the top level an object, not an array?`;

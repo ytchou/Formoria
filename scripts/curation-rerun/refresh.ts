@@ -520,42 +520,40 @@ async function main(): Promise<void> {
           brandId,
         );
 
-      // Mirror images for newly materialized products
+      // Mirror images for any product with a source URL but no mirrored image
       let mirrored = 0;
       let mirrorFailed = 0;
-      if (materialized.created > 0) {
-        const { data: unmirroredProducts } = await supabase
-          .from("curated_products")
-          .select("id, brand_id, image_source_url")
-          .eq("brand_id", brandId)
-          .eq("visible", true)
-          .not("image_source_url", "is", null)
-          .is("image_url", null);
+      const { data: unmirroredProducts } = await supabase
+        .from("curated_products")
+        .select("id, brand_id, image_source_url")
+        .eq("brand_id", brandId)
+        .eq("visible", true)
+        .not("image_source_url", "is", null)
+        .is("image_url", null);
 
-        for (const product of unmirroredProducts ?? []) {
-          try {
-            const stored = await storeCuratedProductImage({
-              brandId: product.brand_id,
-              productId: product.id,
-              imageSourceUrl: product.image_source_url,
-            });
-            await supabase
-              .from("curated_products")
-              .update({
-                image_url: stored.url,
-                image_width: stored.width,
-                image_height: stored.height,
-              })
-              .eq("id", product.id);
-            mirrored += 1;
-          } catch {
-            mirrorFailed += 1;
-          }
+      for (const product of unmirroredProducts ?? []) {
+        try {
+          const stored = await storeCuratedProductImage({
+            brandId: product.brand_id,
+            productId: product.id,
+            imageSourceUrl: product.image_source_url,
+          });
+          await supabase
+            .from("curated_products")
+            .update({
+              image_url: stored.url,
+              image_width: stored.width,
+              image_height: stored.height,
+            })
+            .eq("id", product.id);
+          mirrored += 1;
+        } catch {
+          mirrorFailed += 1;
         }
       }
 
       const productSummary =
-        materialized.created > 0
+        materialized.created > 0 || mirrored > 0
           ? `, ${materialized.visible} product(s) live, ${materialized.hidden} hidden, ${mirrored} image(s) mirrored${mirrorFailed > 0 ? `, ${mirrorFailed} mirror failed` : ""}`
           : "";
       applied.push({

@@ -2,7 +2,6 @@ import crypto from "node:crypto";
 
 import { auditedCall } from "@/lib/audit";
 import {
-  DEFAULT_CONFIG,
   processImage,
   type ProcessedImage,
 } from "@/lib/security/image-processor";
@@ -33,12 +32,8 @@ import { imagePathToUrl } from "@/lib/images/image-url";
 /** Long enough for a slow origin, short enough not to hang an editor's save. */
 const IMAGE_FETCH_TIMEOUT_MS = 15_000;
 
-/**
- * The cap is `processImage`'s own limit, imported rather than re-typed: a
- * download bound larger than what the processor accepts only buys the fetch the
- * right to burn memory on bytes that are then rejected.
- */
-const MAX_IMAGE_BYTES = DEFAULT_CONFIG.maxFileSizeBytes;
+/** Matches the `brand-images` bucket limit while keeping other upload paths at 5 MiB. */
+const MAX_CURATED_PRODUCT_SOURCE_BYTES = 10 * 1024 * 1024;
 
 /**
  * The content types whose bytes `processImage` is willing to decode
@@ -78,9 +73,12 @@ export async function readImageBodyCapped(response: Response): Promise<Buffer> {
     response.headers.get("content-length") ?? "",
     10,
   );
-  if (Number.isFinite(declaredLength) && declaredLength > MAX_IMAGE_BYTES) {
+  if (
+    Number.isFinite(declaredLength) &&
+    declaredLength > MAX_CURATED_PRODUCT_SOURCE_BYTES
+  ) {
     throw new Error(
-      `The image is too large (${declaredLength} bytes); the maximum is ${MAX_IMAGE_BYTES}`,
+      `The image is too large (${declaredLength} bytes); the maximum is ${MAX_CURATED_PRODUCT_SOURCE_BYTES}`,
     );
   }
 
@@ -100,9 +98,9 @@ export async function readImageBodyCapped(response: Response): Promise<Buffer> {
       if (done) break;
       if (!value) continue;
       total += value.byteLength;
-      if (total > MAX_IMAGE_BYTES) {
+      if (total > MAX_CURATED_PRODUCT_SOURCE_BYTES) {
         throw new Error(
-          `The image is too large; the maximum is ${MAX_IMAGE_BYTES} bytes`,
+          `The image is too large; the maximum is ${MAX_CURATED_PRODUCT_SOURCE_BYTES} bytes`,
         );
       }
       chunks.push(Buffer.from(value));
@@ -172,10 +170,11 @@ function curatedProductImageKey(input: {
  * `url === ''`, and `isPrivateUrl('')` fails closed.
  *
  * `processImage` THROWS on GIF and SVG (its format allowlist is jpeg/png/webp),
- * on anything over 5 MB, and on undecodable bytes. That throw is propagated
- * deliberately, as is every rejection above: the caller surfaces them as a
- * FIELD error on the image URL, since "this image cannot be used" is a fact
- * about the value the editor typed, not an internal failure to swallow.
+ * on anything over this flow's 10 MiB source cap, and on undecodable bytes.
+ * That throw is propagated deliberately, as is every rejection above: the
+ * caller surfaces them as a FIELD error on the image URL, since "this image
+ * cannot be used" is a fact about the value the editor typed, not an internal
+ * failure to swallow.
  *
  * SPLIT FROM THE UPLOAD ON PURPOSE: every fallible external step lives here and
  * needs no product id, so a create path can run it BEFORE inserting a row and
@@ -235,7 +234,9 @@ export async function prepareCuratedProductImage(
     { subjectId },
   );
 
-  return processImage(buffer);
+  return processImage(buffer, {
+    maxFileSizeBytes: MAX_CURATED_PRODUCT_SOURCE_BYTES,
+  });
 }
 
 /**

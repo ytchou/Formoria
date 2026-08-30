@@ -97,6 +97,8 @@ $rollback$;
 alter table public.curated_products drop column subcategory;
 
 drop function public.dev1648_append_product_subcategory_to_brand();
+drop function if exists public.dev1648_release_brand_product_subcategory(uuid, text);
+drop table if exists public.brand_product_subcategory_additions;
 drop function public.dev1648_preserve_brand_product_subcategories();
 drop function public.dev1648_validate_product_subcategory();
 drop function public.dev1648_aligned_subcategory_labels(text[], text[]);

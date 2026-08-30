@@ -66,7 +66,6 @@ export async function BrandSelectedProducts({
               product={product}
               labels={labels}
               mode="outbound"
-              showsTrustLabel
               brand={brand}
             />
           ))}

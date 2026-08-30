@@ -2,7 +2,6 @@ import { SurfaceImage } from "@/components/ui/image";
 import type { CSSProperties } from "react";
 import { Link } from "@/i18n/navigation";
 import { buttonVariants } from "@/components/ui/button";
-import { TrustLabel } from "@/components/ui/trust-label";
 import { surfaceCardStyles } from "@/components/ui/card";
 import { Typography } from "@/components/ui/typography";
 import type { AppLocale } from "@/i18n/locale-preference";
@@ -41,18 +40,6 @@ export type SelectedProductTileProps = {
   labels: SelectedProductTileLabels;
   mode: "outbound" | "trail" | "wall";
   /**
-   * THE CALLER'S OPT-IN TO THE SELECTED LABEL — a flag, because that is all it
-   * ever was. It used to be `labels.selectedBadge`, a STRING whose value was
-   * discarded: `TrustLabel` reads its own text from `trustLabel.selected`, so
-   * the catalogue held the same sentence twice and only one copy could reach a
-   * reader. A translator editing the other one saw nothing change.
-   *
-   * A flag, not a mode test, so a surface can withdraw the label without this
-   * file learning which surface it is. Necessary but not sufficient: see
-   * `rendersTrustLabel` below.
-   */
-  showsTrustLabel?: boolean;
-  /**
    * Wall geometry: the snapped ratio bucket the tile renders at. Absent means
    * the row carries no measurement yet, which renders the legacy 4:3.
    */
@@ -82,17 +69,17 @@ export type SelectedProductTileProps = {
 const BROKEN_LINK_STATE = "broken";
 
 /**
- * The selected-product tile stays server-rendered. Outbound product chips
- * preserve the brand-page behavior; the wall turns the whole tile into one
- * accessible link to that brand's page. The optional client link child adds
- * click tracking without moving the tile into the client graph.
+ * The selected-product tile stays server-rendered. Trail cards keep their
+ * outbound product chip; brand-page cards rely on the brand-level link above
+ * them. The wall turns the whole tile into one accessible link to that brand's
+ * page. The optional client link child adds click tracking without moving the
+ * tile into the client graph.
  */
 export function SelectedProductTile({
   locale,
   product,
   labels,
   mode,
-  showsTrustLabel = false,
   ratio,
   imageSizes,
   className,
@@ -119,26 +106,8 @@ export function SelectedProductTile({
   const subcategoryName = product.subcategory
     ? subcategoryDisplayLabel(product.subcategory, locale)
     : null;
-  /*
-   * D11, THE CONTRAST RULE: a label renders only where its opposite is visible.
-   *
-   * `outbound` is the brand page, and it is the only place a selected product
-   * sits among the brand's other things — so it is the only place the
-   * label distinguishes anything. On the wall and in a trail every tile is
-   * selected, so the label would repeat 32 times and say nothing; the trail's
-   * own string was a different commitment and is dropped rather
-   * than folded into this one.
-   *
-   * BOTH halves of the gate are load-bearing. The mode is Formoria's rule and
-   * holds even for a caller that still opts in; the flag is the caller's
-   * opt-in, so a surface can withdraw without editing this file.
-   */
-  const rendersTrustLabel = mode === "outbound" && showsTrustLabel;
   const isBroken = product.linkState === BROKEN_LINK_STATE;
-  const visitLink =
-    (mode === "outbound" || mode === "trail") && brand
-      ? getBrandVisitLink(brand)
-      : null;
+  const visitLink = mode === "trail" && brand ? getBrandVisitLink(brand) : null;
   const productHref = sanitizeHref(product.officialUrl);
   const chipHref = isBroken ? (visitLink?.href ?? null) : productHref;
   const chipLabel = isBroken ? labels.brandSiteCta : labels.cta;
@@ -183,9 +152,9 @@ export function SelectedProductTile({
    * Removed deliberately on 2026-08-17: the copy read as generated product
    * specs ("lens and frame replaceable separately") rather than something a
    * reader wanted at that size, and the wall is a sheet of photographs. The
-   * cost is accepted and real — the wall shows selections with neither a
-   * per-tile trust label (removed earlier) nor any description, so
-   * brand-voice.md's commitment is carried only by the surfaces below.
+   * cost is accepted and real — the wall shows selections without a per-tile
+   * trust label or description, so the surrounding section carries the
+   * editorial context.
    *
    * `productDescription` still renders on every NON-wall mode
    * (outbound/trail) further down this file. Do not remove it there
@@ -258,9 +227,7 @@ export function SelectedProductTile({
         {originBadge}
         {/* No selection badge here. The whole wall IS the selection — the section
             heading says so once — so a per-tile label repeated 32 times adds
-            no information and breaks the sheet of photographs. The trust
-            label still appears on every non-wall surface, where a selected
-            product sits beside items that are not selected. */}
+            no information and breaks the sheet of photographs. */}
       </div>
 
       <div className={wallCaptionClass}>
@@ -397,20 +364,14 @@ export function SelectedProductTile({
           </Typography>
         ) : null}
 
-        {rendersTrustLabel ? (
-          <div>
-            <TrustLabel />
-          </div>
-        ) : null}
-
         {isBroken ? (
           <Typography as="p" variant="metadata">
             {labels.unavailable}
           </Typography>
         ) : null}
 
-        {(mode === "outbound" || mode === "trail") && chipHref ? (
-          mode === "trail" && tracking && brand ? (
+        {mode === "trail" && chipHref ? (
+          tracking && brand ? (
             <SelectedProductExternalLink
               href={chipHref}
               brandSlug={brand.slug}
