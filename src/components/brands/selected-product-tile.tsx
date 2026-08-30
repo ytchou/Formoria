@@ -46,6 +46,8 @@ export type SelectedProductTileProps = {
   ratio?: WallRatio;
   /** Explicit image measurement when a wall uses a non-default column count. */
   imageSizes?: string;
+  /** Optional Next image quality for a specific wall. */
+  imageQuality?: number;
   /**
    * Extra classes on the tile's `<li>`. The wall supplies its flex sizing and
    * the mobile cap through it; every other mode merges it too.
@@ -82,6 +84,7 @@ export function SelectedProductTile({
   mode,
   ratio,
   imageSizes,
+  imageQuality,
   className,
   brand,
   brandSlug,
@@ -216,6 +219,7 @@ export function SelectedProductTile({
             className="object-cover transition-transform duration-300 group-hover:scale-[1.03] motion-reduce:duration-[0.01ms]"
             surface="card"
             sizes={imageSizes ?? wallImageSizes}
+            quality={imageQuality}
           />
         ) : (
           <BrandImageFallback

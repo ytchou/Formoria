@@ -1,6 +1,7 @@
 'use client'
 
 import dynamic from 'next/dynamic'
+import { useEffect, useState } from 'react'
 
 import { useUser } from '@/lib/auth/use-user'
 
@@ -10,6 +11,8 @@ const Agentation = dynamic(
   () => import('agentation').then((m) => m.Agentation),
   { ssr: false },
 )
+
+const MIN_AGENTATION_VIEWPORT_WIDTH = 768
 
 /**
  * Renders the Agentation annotation toolbar for admins in deployed
@@ -29,6 +32,19 @@ const Agentation = dynamic(
  */
 export function AdminAgentation() {
   const { viewer, viewerLoading } = useUser()
+  const [isSupportedViewport, setIsSupportedViewport] = useState(false)
+
+  useEffect(() => {
+    const syncViewport = () => {
+      setIsSupportedViewport(
+        window.innerWidth >= MIN_AGENTATION_VIEWPORT_WIDTH,
+      )
+    }
+
+    syncViewport()
+    window.addEventListener('resize', syncViewport)
+    return () => window.removeEventListener('resize', syncViewport)
+  }, [])
 
   // `viewerLoading` starts true, so the server render and the hydration pass
   // both bail here — anything below this line only ever runs on the client.
@@ -38,6 +54,10 @@ export function AdminAgentation() {
   // test, which runs under NODE_ENV=test.
   const isLocalDevelopment = process.env.NODE_ENV === 'development'
   if (!isLocalDevelopment && !viewer.isAdmin) return null
+
+  // Agentation does not support mobile. DevTools can apply mobile emulation
+  // after hydration, so this gate follows resize instead of sampling once.
+  if (!isSupportedViewport) return null
 
   // Playwright signs in as an admin for the admin specs, and a floating toolbar
   // intercepts their clicks. The suppression has to be a client-side runtime

@@ -35,12 +35,15 @@ import { StoryContent } from "./story-content";
 import { routes } from "@/lib/routes";
 import { getStoryRelatedTrails } from "@/lib/services/editorial-links";
 import { RelatedTrailLink } from "@/components/stories/related-story-link";
+import { MEASURE_PX } from "@/lib/constants/layout";
 
 type PageProps = {
   params: Promise<{ locale: string; slug: string }>;
 };
 
 export const revalidate = 3600;
+
+const STORY_HERO_SIZES = `(max-width: ${MEASURE_PX.prose}px) calc(100vw - 3rem), calc(${MEASURE_PX.prose}px - 5rem)`;
 
 // Prebuild every published story so the first production visit is served from the
 // ISR cache instead of paying on-demand generation. Locale comes from the parent
@@ -294,6 +297,8 @@ export default async function StoryPage({ params }: PageProps) {
         <EditorialHero
           src={story.entry.frontmatter.heroImage}
           alt={story.entry.frontmatter.heroImageAlt ?? ""}
+          sizes={STORY_HERO_SIZES}
+          imageQuality={60}
         />
         <header className="space-y-4">
           <h1 className="type-page-title">
