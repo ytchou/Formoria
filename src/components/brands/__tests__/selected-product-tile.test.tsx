@@ -166,7 +166,7 @@ describe("SelectedProductTile", () => {
   });
 
   it("carries no data-selection-rationale attribute in any mode", () => {
-    for (const mode of ["wall", "trail", "outbound"] as const) {
+    for (const mode of ["wall", "trail", "outbound", "shelf"] as const) {
       const tile = renderWallTile({ mode });
       expect(
         tile.container.querySelectorAll("[data-selection-rationale]").length,
@@ -211,7 +211,7 @@ describe("SelectedProductTile", () => {
     // badge. Every brand in the directory is 收錄, so a badge saying so on one
     // tile distinguishes it from nothing. The word may appear in headings and
     // on /about; it may not appear inside a tile.
-    for (const mode of ["wall", "trail", "outbound"] as const) {
+    for (const mode of ["wall", "trail", "outbound", "shelf"] as const) {
       const tile = renderWallTile({ mode });
       expect(tile.container.textContent).not.toContain("收錄");
       tile.unmount();
@@ -420,5 +420,63 @@ describe("SelectedProductTile", () => {
     expect(screen.queryByText("Brand provided")).toBeNull();
     expect(screen.queryByText("Link unavailable")).toBeNull();
     expect(screen.queryByRole("link", { name: /Visit brand site/ })).toBeNull();
+  });
+
+  // --- shelf mode ---
+
+  it("renders image-led tile with hover scrim in shelf mode", () => {
+    const { container } = renderWallTile({ mode: "shelf" });
+
+    const img = container.querySelector("img")!;
+    expect(img.className).toContain("object-cover");
+
+    // The scrim caption div carries sm:bg-ground/95 (responsive prefix)
+    const scrim = [...container.querySelectorAll("div")].find((el) =>
+      el.className.includes("bg-ground/95"),
+    );
+    expect(scrim).toBeDefined();
+
+    // Name and description present in the DOM
+    expect(container.textContent).toContain("Pour-over kettle");
+    expect(container.textContent).toContain(
+      "Steady in the hand, made for small kitchens",
+    );
+  });
+
+  it("hides description on mobile in shelf mode", () => {
+    const { container } = renderWallTile({ mode: "shelf" });
+
+    // The description lives inside the scrim overlay, which carries sm: prefix
+    // classes for visibility. The description itself is hidden on mobile via
+    // `hidden sm:block`.
+    const descEl = screen.getByText(
+      "Steady in the hand, made for small kitchens",
+    );
+    expect(descEl.className).toContain("hidden");
+    expect(descEl.className).toContain("sm:block");
+
+    // It must be inside the scrim div, not in a separate in-flow block
+    const scrim = [...container.querySelectorAll("div")].find((el) =>
+      el.className.includes("bg-ground/95"),
+    )!;
+    expect(scrim.contains(descEl)).toBe(true);
+  });
+
+  it("keeps product anchor id in shelf mode", () => {
+    const { container } = renderWallTile({ mode: "shelf" });
+
+    expect(container.querySelector("#product-kettle")).not.toBeNull();
+  });
+
+  it("renders no outbound chip in shelf mode", () => {
+    const { container } = renderWallTile({ mode: "shelf" });
+
+    // No link with CTA text — shelf tiles are not clickable
+    expect(screen.queryByRole("link", { name: /Visit product/ })).toBeNull();
+    expect(
+      screen.queryByRole("link", { name: /Visit brand site/ }),
+    ).toBeNull();
+    // No <a> elements at all
+    expect(container.querySelectorAll("a").length).toBe(0);
   });
 });

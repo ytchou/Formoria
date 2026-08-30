@@ -309,7 +309,7 @@
       "madeInTaiwan": "Made in Taiwan",
       "previous": "Previous products",
       "next": "Next products",
-      "moreCategories": "Show {count} more product categories"
+      "allCategories": "All"
     },
     "verified": "Brand-managed",
     "foundingYear": "Est. {year}",
