@@ -1,14 +1,16 @@
 import { NextResponse, type NextRequest } from "next/server";
+import { isVisibleCategory, subcategoryBySlug } from "@/lib/taxonomy/ontology";
 
 /**
- * Catch-all 301 redirect: /categories is gone, everything moves to /discover.
+ * Catch-all redirect for retired category pages. Only visible taxonomy moves
+ * to /discover; deferred or invalid paths are gone (410).
  *
  * - /categories          -> /discover
  * - /categories/[l1]     -> /discover?category=[l1]
  * - /categories/[l1]/[l2] -> /discover?category=[l1]&sub=[l2]
  *
  * The next.config.ts redirects handle legacy slug aliases (crafts, kids-pets,
- * etc.) BEFORE this route fires, so only live or unknown slugs arrive here.
+ * etc.) before this route fires.
  */
 export async function GET(
   request: NextRequest,
@@ -16,6 +18,13 @@ export async function GET(
 ) {
   const { locale, path } = await params;
   const [l1, l2] = path ?? [];
+
+  if (
+    (l1 && !isVisibleCategory(l1)) ||
+    (l2 && subcategoryBySlug(l2)?.category !== l1)
+  ) {
+    return new NextResponse(null, { status: 410 });
+  }
 
   const baseUrl = new URL(request.url);
 

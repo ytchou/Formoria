@@ -294,14 +294,14 @@ clusters:
   search_intent: commercial
   page_type: l1-category
   target_url: /brands?category=food-drink
-  target_status: live
+  target_status: proposed
   ontology_slug: food-drink
   brand_count: 100
   data_quality: pass
   intent_fit: 3
   differentiation: 3
   priority: P0
-  eligibility: launch
+  eligibility: defer-brands
   composite: none
   content_requirement: Category intro explaining what makes this category's Taiwanese brands distinct,
     a brand grid with verification tiers, and CollectionPage + ItemList JSON-LD.
@@ -998,14 +998,14 @@ clusters:
   search_intent: commercial
   page_type: l2-category
   target_url: /brands?category=food-drink&sub=beverages
-  target_status: live
+  target_status: proposed
   ontology_slug: beverages
   brand_count: 23
   data_quality: pass
   intent_fit: 2
   differentiation: 1
   priority: P2
-  eligibility: launch
+  eligibility: defer-brands
   composite: none
   content_requirement: Subcategory intro naming what distinguishes Taiwanese brands here, filtered brand
     grid, and CollectionPage + ItemList JSON-LD.
@@ -1352,14 +1352,14 @@ clusters:
   search_intent: commercial
   page_type: l2-category
   target_url: /brands?category=food-drink&sub=desserts-and-pastries
-  target_status: live
+  target_status: proposed
   ontology_slug: desserts-and-pastries
   brand_count: 31
   data_quality: pass
   intent_fit: 3
   differentiation: 3
   priority: P0
-  eligibility: launch
+  eligibility: defer-brands
   composite: synonym
   content_requirement: Subcategory intro naming what distinguishes Taiwanese brands here, filtered brand
     grid, and CollectionPage + ItemList JSON-LD.
@@ -1404,14 +1404,14 @@ clusters:
   search_intent: commercial
   page_type: l2-category
   target_url: /brands?category=food-drink&sub=cookies-and-rice-crackers
-  target_status: live
+  target_status: proposed
   ontology_slug: cookies-and-rice-crackers
   brand_count: 24
   data_quality: pass
   intent_fit: 3
   differentiation: 2
   priority: P1
-  eligibility: launch
+  eligibility: defer-brands
   composite: synonym
   content_requirement: Subcategory intro naming what distinguishes Taiwanese brands here, filtered brand
     grid, and CollectionPage + ItemList JSON-LD.

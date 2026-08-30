@@ -368,4 +368,97 @@ describe("candidate-selection", () => {
     );
     expect(result.auditIdsByUrl.get(url)).toBe(plannedId);
   });
+
+  it("keeps the inclusive best-minus-fifteen boundary without padding", async () => {
+    // Catches an exclusive cutoff or a fallback that pads the result to a target size.
+    const products = [90, 75, 74].map((_score, index) =>
+      candidate({
+        url: `https://brand.example/products/window-${index}`,
+        normalizedUrl: `https://brand.example/products/window-${index}`,
+        searchPosition: index + 1,
+      }),
+    );
+
+    const result = await rankAndSelect(
+      products,
+      fixedRanker(
+        Object.fromEntries(
+          products.map((item, index) => [item.url, [90, 75, 74][index]!]),
+        ),
+      ),
+      20,
+    );
+
+    expect(result.map((item) => item.llmScore)).toEqual([90, 75]);
+  });
+
+  it("keeps low-scoring evaluations when they are inside the relative window", async () => {
+    // Catches reintroducing the former absolute score floor.
+    const products = [12, 0].map((_score, index) =>
+      candidate({
+        url: `https://brand.example/products/low-${index}`,
+        normalizedUrl: `https://brand.example/products/low-${index}`,
+        searchPosition: index + 1,
+      }),
+    );
+
+    const result = await rankAndSelect(
+      products,
+      fixedRanker(
+        Object.fromEntries(
+          products.map((item, index) => [item.url, [12, 0][index]!]),
+        ),
+      ),
+      20,
+    );
+
+    expect(result).toHaveLength(2);
+  });
+
+  it("returns zero and persists null evaluation fields when every evaluation is invalid or missing", async () => {
+    // Catches invalid model output becoming a score of zero and qualifying accidentally.
+    const products = Array.from({ length: 3 }, (_, index) =>
+      candidate({
+        url: `https://brand.example/products/invalid-${index}`,
+        normalizedUrl: `https://brand.example/products/invalid-${index}`,
+        searchPosition: index + 1,
+      }),
+    );
+    const writer = noopWriter();
+    const result = await persistCandidatePool({
+      pool: products,
+      acceptedCandidates: [],
+      ranker: async () => [
+        { url: products[0]!.url, score: 80, rationale: "   " },
+        { url: products[1]!.url, score: 80.5, rationale: "Editorial fit" },
+        {
+          url: "https://unknown.example/products/not-a-candidate",
+          score: 100,
+          rationale: "Unknown URL",
+        },
+      ],
+      writer,
+      brandId: "brand-uuid",
+      submissionId: "sub-uuid",
+      maxProducts: 20,
+    });
+
+    expect(result.ranked).toEqual([]);
+    expect(result).toMatchObject({
+      bestScore: null,
+      cutoff: null,
+      evaluatedCount: 0,
+      invalidOrMissingCount: 3,
+      belowWindowCount: 0,
+    });
+    expect(writer.written).toHaveLength(3);
+    for (const row of writer.written) {
+      expect(row).toMatchObject({
+        gate_result: "passed",
+        llm_score: null,
+        llm_rationale: null,
+        final_rank: null,
+      });
+    }
+  });
 });

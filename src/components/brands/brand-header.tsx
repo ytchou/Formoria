@@ -31,7 +31,10 @@ export function BrandHeader({
   const resolvedCategory = categoryLabel ?? brand.categoryLabel;
   // `subcategories` stores slugs since DEV-1510, so the chips resolve through
   // the ontology rather than rendering the stored value.
-  const resolvedTags = getBrandSubcategoryLabels(brand, locale ?? "zh-TW");
+  const resolvedTags = getBrandSubcategoryLabels(
+    brand,
+    locale ?? "zh-TW",
+  ).slice(0, 5);
   const unknownValue = (
     <Typography as="span" className="text-ink-muted" variant="fieldValue">
       {t("unknown")}

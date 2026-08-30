@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { createHash } from "node:crypto";
 import {
   resetAuditEmitterForTests,
   setAuditWriteSeam,
@@ -85,7 +86,7 @@ function rawProposal(overrides: RawProposal = {}): RawProposal {
     name_zh: "陶土餐盤",
     name_en: "Clay Plate",
     category: "home",
-    subcategories: ["餐具"],
+    subcategory: "餐具",
     material: ["ceramic"],
     official_url: `${SITE}/products/clay-plate`,
     image_source_url: `${SITE}/products/clay-plate`,
@@ -225,7 +226,7 @@ describe("runProductsPhase", () => {
       nameZh: "陶土餐盤",
       nameEn: "Clay Plate",
       category: "home",
-      subcategories: ["tableware"],
+      subcategory: "tableware",
       material: ["ceramic"],
       officialUrl: `${SITE}/products/clay-plate`,
       productDescriptionZh: "南投陶土手拉坏，直徑 21 公分，適合日常盛裝主餐。",
@@ -301,7 +302,7 @@ describe("runProductsPhase", () => {
     expect(result.phaseResult.detail).toContain("dropped 3");
   });
 
-  it("caps_proposals_per_brand", async () => {
+  it("keeps every qualified proposal below the twenty-product ceiling", async () => {
     const catalogTriples = Array.from({ length: 8 }, (_, index) => ({
       url: `${SITE}/products/clay-plate-${index + 1}`,
       title: `陶土餐盤 ${index + 1}`,
@@ -338,10 +339,10 @@ describe("runProductsPhase", () => {
       },
     });
 
-    expect(result.proposals).toHaveLength(5);
-    expect(result.patch.products).toHaveLength(5);
+    expect(result.proposals).toHaveLength(8);
+    expect(result.patch.products).toHaveLength(8);
     expect(new Set(result.proposals.map((proposal) => proposal.key)).size).toBe(
-      5,
+      8,
     );
   });
 
@@ -858,7 +859,9 @@ describe("validateProductProposals", () => {
 
     expect(dropped).toBe(1);
     expect(proposals[0]?.imageSourceUrl).toBe(candidate.imageUrl);
-    expect(proposals[1]?.imageSourceUrl).toBeUndefined();
+    // Proposal 2 ("錯圖") also matches the candidate URL, so it inherits
+    // the candidate's image regardless of the model's image_source_url.
+    expect(proposals[1]?.imageSourceUrl).toBe(candidate.imageUrl);
   });
 
   it("drops a material outside the closed vocabulary", () => {
@@ -878,26 +881,22 @@ describe("validateProductProposals", () => {
   it("drops a subcategory the ontology cannot resolve", () => {
     const { proposals } = validateProductProposals(
       {
-        products: [
-          rawProposal({ subcategories: ["馬克杯", "餐具", "bedding"] }),
-        ],
+        products: [rawProposal({ subcategory: "餐具" })],
       },
       { siteUrl: SITE },
     );
 
-    // Chinese label, ontology slug, and a novel label: the first two resolve,
-    // the novel one is dropped rather than stored as a dead filter value.
-    expect(proposals[0]!.subcategories).toEqual(["tableware", "bedding"]);
+    expect(proposals[0]!.subcategory).toBe("tableware");
     expect(subcategoryBySlug("tableware")?.category).toBe("home");
   });
 
   it("drops a subcategory belonging to another L1 branch", () => {
     const { proposals } = validateProductProposals(
-      { products: [rawProposal({ subcategories: ["托特包"] })] },
+      { products: [rawProposal({ subcategory: "托特包" })] },
       { siteUrl: SITE },
     );
 
-    expect(proposals[0]!.subcategories).toEqual([]);
+    expect(proposals[0]!.subcategory).toBeNull();
   });
 
   it("drops a proposal whose category is not an L1 slug", () => {
@@ -1005,13 +1004,13 @@ describe("validateProductProposals", () => {
 
   it("resolves a subcategory slug whatever case the model returned", () => {
     const { proposals } = validateProductProposals(
-      { products: [rawProposal({ subcategories: ["Home-Fragrance"] })] },
+      { products: [rawProposal({ subcategory: "Home-Fragrance" })] },
       { siteUrl: SITE },
     );
 
     // `matchSubcategory` normalises case itself; `subcategoryBySlug` does not,
     // and a hyphenated slug matches no label, so this resolved through neither.
-    expect(proposals[0]!.subcategories).toEqual(["home-fragrance"]);
+    expect(proposals[0]!.subcategory).toBe("home-fragrance");
   });
 
   it("clears an image_source_url the brand does not own, and keeps the product", () => {
@@ -1268,5 +1267,29 @@ describe("rawCount and productsParseError in runProductsPhase", () => {
         taiwan_usage_rules: TAIWAN_USAGE_RULES,
       }),
     );
+  });
+
+  it("hashes the effective Langfuse prompt recorded with the request", async () => {
+    // Catches constructing audit configuration from the fallback before Langfuse resolves.
+    const effectivePrompt = "Effective products prompt with scalar subcategory";
+    fetchLangfusePrompt.mockResolvedValueOnce(effectivePrompt);
+    const chat = modelReturns([rawProposal()]);
+
+    await runProductsPhase({
+      brand: BRAND,
+      phases: PHASES,
+      scrapedData: SCRAPED,
+      target: { type: "submission", id: SUBMISSION_ID },
+    });
+
+    const context = createClient.mock.calls.at(-1)?.[1] as {
+      config?: { promptHash?: string };
+    };
+    const expectedHash = createHash("sha256")
+      .update(effectivePrompt)
+      .digest("hex")
+      .slice(0, 8);
+    expect(context.config?.promptHash).toBe(expectedHash);
+    expect(chat.mock.calls[0]?.[0]).toMatchObject({ system: effectivePrompt });
   });
 });

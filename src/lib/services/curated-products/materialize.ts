@@ -3,6 +3,7 @@ import {
   getOriginCandidateUrls,
   getCuratedProductsByBrandBatch,
   refreshGeneratedCuratedProductOrigin,
+  updateCuratedProduct,
   upsertCuratedProductSource,
   type CuratedProductSupabase,
 } from "@/lib/services/curated-products";
@@ -53,7 +54,7 @@ export type MaterializedCuratedProducts = {
   skipped: number;
   /**
    * Proposals whose write threw. The loop keeps going — one bad proposal must
-   * not cost the other four — and the count is what tells the caller the run
+   * not cost the rest — and the count is what tells the caller the run
    * was partial.
    */
   failed: number;
@@ -97,11 +98,11 @@ function normalizedOfficialUrl(
 function isInsertableProposal(proposal: CuratedProductProposal): boolean {
   return Boolean(
     proposal?.key &&
-      proposal.nameZh?.trim() &&
-      proposal.category?.trim() &&
-      proposal.productDescriptionZh?.trim() &&
-      normalizedOfficialUrl(proposal) &&
-      insertableSources(proposal).length > 0,
+    proposal.nameZh?.trim() &&
+    proposal.category?.trim() &&
+    proposal.productDescriptionZh?.trim() &&
+    normalizedOfficialUrl(proposal) &&
+    insertableSources(proposal).length > 0,
   );
 }
 
@@ -129,7 +130,7 @@ async function writeSources(
   proposal: CuratedProductProposal,
   client?: CuratedProductSupabase,
 ): Promise<void> {
-  // Parallel: up to five citations per product, each its own round trip plus an
+  // Parallel: each citation is its own round trip plus an
   // `external_call_audit` row, all inside an interactive approval's budget. The
   // sequencing rationale on the product loop below covers `createCuratedProduct`
   // only — these share no key space, so nothing orders them.
@@ -232,13 +233,16 @@ export async function materializeSubmissionCuratedProducts(
   // not fall back to the default.
   const keptKeys = new Set(
     keptProductKeys ??
-      diffs.filter((diff) => diff.state === "new").map((diff) => diff.proposal.key),
+      diffs
+        .filter((diff) => diff.state === "new")
+        .map((diff) => diff.proposal.key),
   );
 
-  // One product at a time, and cheap: the enrichment phase caps a run at five
-  // proposals. Concurrency would buy nothing and would put two inserts that
-  // derive the same base key into the same retry window.
-  for (const { proposal, state, existing } of diffs) {
+  const processDiff = async ({
+    proposal,
+    state,
+    existing,
+  }: (typeof diffs)[number]) => {
     // REPAIR, not skip. A GENERATED row that carries no ACTIVE source is not a
     // decision the catalog made — it is a create whose second half failed, and
     // the public reads drop it on the `curated_product_sources!inner` evidence
@@ -260,10 +264,50 @@ export async function materializeSubmissionCuratedProducts(
           );
         } catch (error) {
           result.failed += 1;
-          console.error(
-            "[materializeCuratedProducts] origin refresh failed:",
-            { submissionId, brandId, productId: existing.id, error },
-          );
+          console.error("[materializeCuratedProducts] origin refresh failed:", {
+            submissionId,
+            brandId,
+            productId: existing.id,
+            error,
+          });
+        }
+      }
+      if (
+        state === "matched" &&
+        existing?.id &&
+        existing.proposedBy === "generated"
+      ) {
+        const gapFill: Partial<{
+          imageSourceUrl: string;
+          nameEn: string;
+          productDescriptionZh: string;
+          subcategory: string;
+          category: string;
+        }> = {};
+        if (!existing.imageSourceUrl && proposal.imageSourceUrl)
+          gapFill.imageSourceUrl = proposal.imageSourceUrl;
+        if (!existing.nameEn && proposal.nameEn)
+          gapFill.nameEn = proposal.nameEn;
+        if (!existing.productDescriptionZh && proposal.productDescriptionZh)
+          gapFill.productDescriptionZh = proposal.productDescriptionZh;
+        if (!existing.subcategory && proposal.subcategory) {
+          gapFill.subcategory = proposal.subcategory;
+          gapFill.category = proposal.category;
+        }
+
+        if (Object.keys(gapFill).length > 0) {
+          try {
+            await updateCuratedProduct(existing.id, gapFill, options.client);
+            result.repaired += 1;
+          } catch (error) {
+            result.failed += 1;
+            console.error("[materializeCuratedProducts] gap-fill failed:", {
+              submissionId,
+              brandId,
+              productId: existing.id,
+              error,
+            });
+          }
         }
       }
       if (
@@ -277,23 +321,26 @@ export async function materializeSubmissionCuratedProducts(
           result.repaired += 1;
         } catch (error) {
           result.failed += 1;
-          console.error(
-            "[materializeCuratedProducts] source repair failed:",
-            { submissionId, brandId, productId: existing.id, error },
-          );
+          console.error("[materializeCuratedProducts] source repair failed:", {
+            submissionId,
+            brandId,
+            productId: existing.id,
+            error,
+          });
         }
-        continue;
+        return;
       }
       result.skipped += 1;
-      continue;
+      return;
     }
 
     if (!isInsertableProposal(proposal)) {
       result.skipped += 1;
-      continue;
+      return;
     }
 
-    const visible = keptKeys.has(proposal.key);
+    const publishAfterEvidence =
+      keptKeys.has(proposal.key) && Boolean(proposal.subcategory);
     try {
       // `imageUrl` is deliberately absent: mirroring an image is a network fetch
       // plus a decode, and this runs inside the approval's own timeout budget.
@@ -310,12 +357,12 @@ export async function materializeSubmissionCuratedProducts(
           nameZh: proposal.nameZh,
           nameEn: proposal.nameEn ?? null,
           category: proposal.category,
-          subcategories: proposal.subcategories ?? [],
+          subcategory: proposal.subcategory ?? null,
           material: proposal.material ?? [],
           officialUrl: normalizedOfficialUrl(proposal),
           imageSourceUrl: proposal.imageSourceUrl ?? null,
           productDescriptionZh: proposal.productDescriptionZh,
-          visible,
+          visible: false,
           // THE TICK IS THE CHECK. `source_checked_at` is half the public
           // read's four-condition proof gate, and the only other writer is the
           // hand editor's explicit "sources checked" toggle — so stamping it
@@ -329,7 +376,9 @@ export async function materializeSubmissionCuratedProducts(
           // rejection memory; nobody vouched for its sources, so a curator who
           // later publishes it by hand must make that check themselves rather
           // than inherit one that never happened.
-          sourceCheckedAt: visible ? new Date().toISOString() : null,
+          sourceCheckedAt: publishAfterEvidence
+            ? new Date().toISOString()
+            : null,
           // Origin, not actor: the review queue has to be able to tell a machine
           // proposal from a curator's own row.
           proposedBy: "generated",
@@ -339,9 +388,12 @@ export async function materializeSubmissionCuratedProducts(
       );
 
       await writeSources(id, proposal, options.client);
+      if (publishAfterEvidence) {
+        await updateCuratedProduct(id, { visible: true }, options.client);
+      }
 
       result.created += 1;
-      if (visible) result.visible += 1;
+      if (publishAfterEvidence) result.visible += 1;
       else result.hidden += 1;
     } catch (error) {
       // Per proposal, so one failure costs one product rather than every
@@ -355,7 +407,20 @@ export async function materializeSubmissionCuratedProducts(
         error,
       });
     }
-  }
+  };
+
+  let nextDiff = 0;
+  const workers = Array.from(
+    { length: Math.min(4, diffs.length) },
+    async () => {
+      while (nextDiff < diffs.length) {
+        const diff = diffs[nextDiff];
+        nextDiff += 1;
+        if (diff) await processDiff(diff);
+      }
+    },
+  );
+  await Promise.all(workers);
 
   return result;
 }

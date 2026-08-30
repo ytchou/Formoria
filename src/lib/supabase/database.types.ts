@@ -1519,7 +1519,7 @@ export type Database = {
           proposed_by: string
           review_due_at: string | null
           source_checked_at: string | null
-          subcategories: string[]
+          subcategory: string | null
           updated_at: string
           visible: boolean
         }
@@ -1549,7 +1549,7 @@ export type Database = {
           proposed_by?: string
           review_due_at?: string | null
           source_checked_at?: string | null
-          subcategories?: string[]
+          subcategory?: string | null
           updated_at?: string
           visible?: boolean
         }
@@ -1579,7 +1579,7 @@ export type Database = {
           proposed_by?: string
           review_due_at?: string | null
           source_checked_at?: string | null
-          subcategories?: string[]
+          subcategory?: string | null
           updated_at?: string
           visible?: boolean
         }
@@ -3234,6 +3234,12 @@ export type Database = {
         }
         Returns: boolean
       }
+      dev1648_aligned_subcategory_labels: {
+        Args: { p_existing_labels: string[]; p_slugs: string[] }
+        Returns: string[]
+      }
+      dev1648_l2_order: { Args: never; Returns: string[] }
+      dev1648_l2_ordinal: { Args: { p_slug: string }; Returns: number }
       drop_needs_data_submissions: {
         Args: { p_submission_ids: string[] }
         Returns: string[]
@@ -3830,4 +3836,3 @@ export const Constants = {
     Enums: {},
   },
 } as const
-

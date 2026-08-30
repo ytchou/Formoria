@@ -20,7 +20,11 @@ export async function generateMetadata(): Promise<Metadata> {
   return { title: t("title") };
 }
 
-const VALID_TABS = new Set<CuratedProductTab>(["visible", "hidden"]);
+const VALID_TABS = new Set<CuratedProductTab>([
+  "visible",
+  "hidden",
+  "needs-l2",
+]);
 
 function firstParam(value: string | string[] | undefined): string | undefined {
   return Array.isArray(value) ? value.at(0) : value;

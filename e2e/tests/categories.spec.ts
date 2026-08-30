@@ -122,7 +122,6 @@ test.describe("Product catalog (formerly category landings) deep", () => {
     const redirects = [
       ["/categories/home", "/discover?category=home"],
       ["/categories/home/furniture", "/discover?category=home&sub=furniture"],
-      ["/categories/food-drink", "/discover?category=food-drink"],
     ] as const;
 
     for (const [source, expectedDestination] of redirects) {
@@ -137,13 +136,41 @@ test.describe("Product catalog (formerly category landings) deep", () => {
       expect(locationUrl.pathname, `${source} pathname`).toBe(
         expectedUrl.pathname,
       );
-      expect(locationUrl.searchParams.get("category"), `${source} category`).toBe(
-        expectedUrl.searchParams.get("category"),
-      );
       expect(
-        locationUrl.searchParams.get("sub"),
-        `${source} sub`,
-      ).toBe(expectedUrl.searchParams.get("sub"));
+        locationUrl.searchParams.get("category"),
+        `${source} category`,
+      ).toBe(expectedUrl.searchParams.get("category"));
+      expect(locationUrl.searchParams.get("sub"), `${source} sub`).toBe(
+        expectedUrl.searchParams.get("sub"),
+      );
+    }
+  });
+
+  test("deferred categories are gone from public catalog routes", async ({
+    request,
+  }) => {
+    for (const path of [
+      "/brands?category=food-drink",
+      "/discover?category=food-drink",
+      "/discover?category=tech",
+      "/discover?sub=beverages",
+      "/discover?sub=not-a-subcategory",
+      "/discover?category=home&sub=beverages",
+    ]) {
+      expect((await request.get(path)).status(), path).toBe(404);
+    }
+
+    expect((await request.get("/discover?sub=furniture")).status()).toBe(200);
+
+    for (const path of [
+      "/categories/food-drink",
+      "/categories/food",
+      "/categories/tech",
+    ]) {
+      expect(
+        (await request.get(path, { maxRedirects: 0 })).status(),
+        path,
+      ).toBe(410);
     }
   });
 });

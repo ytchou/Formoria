@@ -2,7 +2,6 @@ import { isoDateInTimeZone } from "@/lib/date-range";
 import type { HomepageCuratedProduct } from "@/lib/services/curated-products";
 import {
   DEFAULT_WALL_RATIO,
-  MAX_HOME_CURATED_PRODUCTS_PER_BRAND,
   WALL_RATIOS,
   type WallRatio,
 } from "@/lib/curated-products/wall-ratio";
@@ -141,17 +140,24 @@ export function shuffleWithSeed<T>(items: readonly T[], seed: string): T[] {
 function capProductsPerBrand(
   products: HomepageCuratedProduct[],
 ): HomepageCuratedProduct[] {
-  const counts = new Map<string, number>();
-  const kept: HomepageCuratedProduct[] = [];
-
+  const selected = new Set<HomepageCuratedProduct>();
+  const byBrand = new Map<string, HomepageCuratedProduct[]>();
   for (const product of products) {
-    const count = counts.get(product.brandId) ?? 0;
-    if (count >= MAX_HOME_CURATED_PRODUCTS_PER_BRAND) continue;
-    counts.set(product.brandId, count + 1);
-    kept.push(product);
+    const brandProducts = byBrand.get(product.brandId) ?? [];
+    brandProducts.push(product);
+    byBrand.set(product.brandId, brandProducts);
   }
-
-  return kept;
+  for (const brandProducts of byBrand.values()) {
+    const first = brandProducts[0];
+    if (!first) continue;
+    selected.add(first);
+    const second =
+      brandProducts.find(
+        (product) => product.subcategory !== first.subcategory,
+      ) ?? brandProducts[1];
+    if (second) selected.add(second);
+  }
+  return products.filter((product) => selected.has(product));
 }
 
 /**

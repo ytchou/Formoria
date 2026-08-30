@@ -43,6 +43,7 @@ import {
 } from "@/lib/services/brand-redirects-edge";
 import {
   L1_CATEGORIES,
+  isVisibleCategory,
   materialBySlug,
   subcategoryBySlug,
 } from "@/lib/taxonomy/ontology";
@@ -69,6 +70,7 @@ export const RESERVED_ROUTES = new Set([
   "challenge",
   "submit",
   "brands",
+  "category",
   "categories",
   "contact",
   "stories",
@@ -842,6 +844,29 @@ async function runProxy(request: NextRequest) {
     const url = request.nextUrl.clone();
     url.pathname = normalizedPathname;
     return finalizeResponse(NextResponse.redirect(url, 301), staging);
+  }
+
+  const legacyCategoryPath = parseDirectoryPath(pathname);
+  const legacyCategorySegments = legacyCategoryPath.path
+    .split("/")
+    .filter(Boolean);
+  if (
+    legacyCategorySegments.length === 2 &&
+    legacyCategorySegments[0] === "category"
+  ) {
+    const category = legacyCategorySegments[1] ?? "";
+    if (!isVisibleCategory(category)) {
+      return finalizeResponse(new NextResponse(null, { status: 410 }), staging);
+    }
+
+    const destination = localizePath(
+      routes.discover({ category }),
+      legacyCategoryPath.locale,
+    );
+    return finalizeResponse(
+      NextResponse.redirect(new URL(destination, request.url), 301),
+      staging,
+    );
   }
 
   // Below the pathname normalization 301. A crawler that requests a

@@ -39,7 +39,7 @@ describe("POST /api/internal/revalidate-brands", () => {
     expect(await response.json()).toEqual({ revalidated: 200 });
     expect(revalidateTag).toHaveBeenCalledTimes(1);
     expect(revalidateTag).toHaveBeenCalledWith(PUBLIC_BRAND_DATA_TAG, "max");
-    expect(revalidatePath).toHaveBeenCalledTimes(406);
+    expect(revalidatePath).toHaveBeenCalledTimes(408);
 
     expect(revalidatePath).toHaveBeenCalledWith(
       "/[locale]/stories/[slug]",
@@ -48,6 +48,8 @@ describe("POST /api/internal/revalidate-brands", () => {
     expect(revalidatePath).toHaveBeenCalledWith("/sitemap.xml");
     expect(revalidatePath).toHaveBeenCalledWith("/");
     expect(revalidatePath).toHaveBeenCalledWith("/en");
+    expect(revalidatePath).toHaveBeenCalledWith("/discover");
+    expect(revalidatePath).toHaveBeenCalledWith("/en/discover");
     expect(revalidatePath).toHaveBeenCalledWith("/about");
     expect(revalidatePath).toHaveBeenCalledWith("/en/about");
     expect(revalidatePath).toHaveBeenCalledWith("/brands/brand-0");
@@ -85,5 +87,4 @@ describe("POST /api/internal/revalidate-brands", () => {
     expect(revalidatePath).not.toHaveBeenCalled();
     expect(revalidateTag).not.toHaveBeenCalled();
   });
-
 });

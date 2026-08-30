@@ -3,6 +3,7 @@ import { resolve } from 'node:path'
 import { parse as parseYaml } from 'yaml'
 import { describe, expect, it } from 'vitest'
 import {
+  DEFERRED_CATEGORY_SLUGS,
   L1_CATEGORIES,
   L2_SUBCATEGORIES,
   isCompositeSubcategory,
@@ -249,11 +250,11 @@ describe('keyword map invariants', () => {
         cluster.eligibility === 'launch',
     )
 
-    // 10 original + 23 promoted from defer-no-demand under launch L1s
-    expect(launch.length).toBeGreaterThanOrEqual(33)
+    // Three food-drink children left the launch set with their deferred parent.
+    expect(launch.length).toBeGreaterThanOrEqual(30)
   })
 
-  it('every deferred L2 row that clears the 15-brand bar is defer-no-demand', () => {
+  it('classifies qualifying deferred L2 rows by parent visibility', () => {
     const deferredQualifying = clusters.filter(
       cluster =>
         cluster.locale === 'zh-TW' &&
@@ -265,11 +266,13 @@ describe('keyword map invariants', () => {
     )
 
     expect(deferredQualifying.length).toBeGreaterThan(0)
-    expect(
-      deferredQualifying.every(
-        cluster => cluster.eligibility === 'defer-no-demand' && cluster.target_status === 'proposed',
-      ),
-    ).toBe(true)
+    expect(deferredQualifying.every(cluster => {
+      const parent = subcategoryBySlug(cluster.ontology_slug ?? '')?.category
+      const expectedEligibility = parent && DEFERRED_CATEGORY_SLUGS.has(parent)
+        ? 'defer-brands'
+        : 'defer-no-demand'
+      return cluster.eligibility === expectedEligibility && cluster.target_status === 'proposed'
+    })).toBe(true)
   })
 
   it('every launched L2 has bespoke zh-TW copy', () => {
@@ -364,6 +367,24 @@ describe('keyword map invariants', () => {
     }
 
     expect(unresolved).toEqual([])
+  })
+
+  it('no deferred L1 or child L2 is launch-eligible', () => {
+    const leaked = clusters
+      .filter(cluster => cluster.eligibility === 'launch')
+      .filter(cluster => {
+        if (cluster.page_type === 'l1-category') {
+          return Boolean(
+            cluster.ontology_slug && DEFERRED_CATEGORY_SLUGS.has(cluster.ontology_slug),
+          )
+        }
+        if (cluster.page_type !== 'l2-category' || !cluster.ontology_slug) return false
+        const subcategory = subcategoryBySlug(cluster.ontology_slug)
+        return Boolean(subcategory && DEFERRED_CATEGORY_SLUGS.has(subcategory.category))
+      })
+      .map(cluster => cluster.id)
+
+    expect(leaked).toEqual([])
   })
 
   it('every ontology L2 slug appears in the keyword map exactly once', () => {

@@ -151,17 +151,6 @@ async function openCategoryDialog(categorySlug: string | null = "home") {
   selectField("category");
 }
 
-const HOME_SUBCATEGORIES = L2_SUBCATEGORIES.filter(
-  (subcategory) => subcategory.category === "home",
-);
-
-/** Stored values are slugs since DEV-1510; the chips render their labels. */
-function homeSubcategoriesAt(count: number) {
-  return HOME_SUBCATEGORIES.slice(0, count).map(
-    (subcategory) => subcategory.slug,
-  );
-}
-
 function label(slug: string) {
   return subcategoryDisplayLabel(slug, "zh-TW");
 }
@@ -524,7 +513,7 @@ describe("CorrectionDialog", () => {
       ).toBeInTheDocument();
     });
 
-    it("counts out-of-category subcategories against the 5 cap", async () => {
+    it("allows selecting more than five cross-category subcategories", async () => {
       renderSubcategories(["tops-and-tshirts", "pants", "skirts", "dresses"]);
       await openSubcategoriesDialog();
 
@@ -533,57 +522,8 @@ describe("CorrectionDialog", () => {
       clickChip(ADD_SUBCATEGORIES_HEADING, label("bedding"));
 
       expect(screen.getByText(selectedCount(5))).toBeInTheDocument();
-      expect(screen.getByText(COPY.subcategoriesLimit)).toBeInTheDocument();
-      expect(
-        chip(ADD_SUBCATEGORIES_HEADING, label("mattresses")),
-      ).toBeDisabled();
-    });
-
-    it("disables the whole offer set at the cap while selected chips stay enabled", async () => {
-      const currentSubcategories = homeSubcategoriesAt(5);
-      renderSubcategories(currentSubcategories);
-      await openSubcategoriesDialog();
-
-      expect(screen.getByText(selectedCount(5))).toBeInTheDocument();
-
-      const options = within(group(ADD_SUBCATEGORIES_HEADING)).getAllByRole(
-        "button",
-      );
-      expect(options.length).toBeGreaterThan(0);
-      expect(options.every((button) => button.hasAttribute("disabled"))).toBe(
-        true,
-      );
-
-      for (const slug of currentSubcategories) {
-        expect(chip(CURRENT_SUBCATEGORIES_HEADING, label(slug))).toBeEnabled();
-      }
-    });
-
-    // Restoring a subcategory marked for removal is an add, and adds no-op at
-    // the cap. Without the guard the chip would look live and do nothing.
-    it("disables a removed row-1 subcategory once the cap is refilled elsewhere", async () => {
-      const currentSubcategories = homeSubcategoriesAt(5);
-      const [removed] = currentSubcategories;
-      const replacement = HOME_SUBCATEGORIES[5]?.slug;
-      expect(removed).toBeDefined();
-      expect(replacement).toBeDefined();
-      if (!removed || !replacement) return;
-
-      renderSubcategories(currentSubcategories);
-      await openSubcategoriesDialog();
-
-      clickChip(CURRENT_SUBCATEGORIES_HEADING, label(removed));
-      expect(screen.getByText(selectedCount(4))).toBeInTheDocument();
-      expect(chip(CURRENT_SUBCATEGORIES_HEADING, label(removed))).toBeEnabled();
-
-      clickChip(ADD_SUBCATEGORIES_HEADING, label(replacement));
-      expect(screen.getByText(selectedCount(5))).toBeInTheDocument();
-      expect(
-        chip(CURRENT_SUBCATEGORIES_HEADING, label(removed)),
-      ).toBeDisabled();
-      expect(
-        chip(CURRENT_SUBCATEGORIES_HEADING, label(removed)),
-      ).toHaveAttribute("aria-pressed", "false");
+      clickChip(ADD_SUBCATEGORIES_HEADING, label("mattresses"));
+      expect(screen.getByText(selectedCount(6))).toBeInTheDocument();
     });
 
     it("counts a duplicated legacy subcategory once", async () => {

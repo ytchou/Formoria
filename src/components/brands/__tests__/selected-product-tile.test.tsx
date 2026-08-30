@@ -66,10 +66,9 @@ function buildProduct(overrides: Partial<CuratedProduct> = {}): CuratedProduct {
     nameZh: "手沖壺",
     nameEn: "Pour-over kettle",
     category: "home",
-    subcategories: [],
+    subcategory: "tableware",
     officialUrl: "https://example.com/kettle",
-    imageUrl:
-      "/i/curated-products/p/kettle.jpg",
+    imageUrl: "/i/curated-products/p/kettle.jpg",
     imageSourceUrl: null,
     visible: true,
     linkState: "ok",
@@ -427,7 +426,8 @@ describe("SelectedProductTile", () => {
     // requested roughly 3x the pixels it displayed. Pinned as ONE expected
     // string for both modes, because a second string here is the thing that
     // went stale last time.
-    const tileSizes = "(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw";
+    const tileSizes =
+      "(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw";
 
     const trail = renderImageBox("trail");
     expect(trail.img.getAttribute("sizes")).toBe(tileSizes);

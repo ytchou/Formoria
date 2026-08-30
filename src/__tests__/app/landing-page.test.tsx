@@ -205,7 +205,7 @@ function buildProduct(index: number): HomepageCuratedProduct {
     nameZh: `${fixture.nameZh}／${index}`,
     nameEn: fixture.nameEn ? `${fixture.nameEn}／${index}` : null,
     category: "home",
-    subcategories: [],
+    subcategory: "tableware",
     mitQualified: false,
     officialUrl: "https://example.com/product",
     imageUrl: `/i/curated-products/p/${index}.jpg`,

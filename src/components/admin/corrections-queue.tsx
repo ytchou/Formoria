@@ -12,7 +12,6 @@ import type {
 import {
   applySubcategoryDelta,
   isSubcategoriesDelta,
-  MAX_SUBCATEGORIES,
   type SubcategoriesDelta,
 } from "@/lib/services/subcategories";
 import { ONLINE_STORE_COLUMNS } from "@/lib/brands/online-stores";
@@ -66,7 +65,6 @@ type BulkReviewAction = (
 type SubcategoryDeltaState = {
   delta: SubcategoriesDelta;
   projectedSubcategories: string[];
-  exceedsCap: boolean;
 };
 
 /**
@@ -111,7 +109,6 @@ function subcategoryDeltaState(
   return {
     delta: correction.proposedValue,
     projectedSubcategories,
-    exceedsCap: projectedSubcategories.length > MAX_SUBCATEGORIES,
   };
 }
 
@@ -291,16 +288,11 @@ export function CorrectionsQueue({
       id: "proposed",
       header: t("table.proposed"),
       cell: (item) => {
-        const delta = subcategoryDeltaState(item);
-
         return (
           <div className="space-y-2">
             {renderProposedValue(item)}
             <div className="flex flex-wrap gap-2">
               {item.stale && <Badge variant="secondary">{t("stale")}</Badge>}
-              {delta?.exceedsCap && (
-                <Badge variant="secondary">{t("tooManySubcategories")}</Badge>
-              )}
             </div>
           </div>
         );
@@ -371,7 +363,6 @@ export function CorrectionsQueue({
     {
       id: "approve",
       label: (count) => t("bulkApprove", { count }),
-      eligible: (item) => !subcategoryDeltaState(item)?.exceedsCap,
       pending: queueAction.isPending,
       onRun: (items) => runBulk(items, "approved"),
     },
@@ -435,10 +426,7 @@ export function CorrectionsQueue({
               notesPolicy="optional"
               notesLabel={t("reviewerNotes")}
               notesPlaceholder={t("reviewerNotesPlaceholder")}
-              // `blocker` is deliberately NOT passed: the cap message is stated
-              // contextually in the body, right under the projected subcategory list,
-              // so repeating it down here would duplicate it.
-              eligible={!subcategoryDeltaState(item)?.exceedsCap}
+              eligible
               isPending={queueAction.isRowPending(item.id)}
               error={queueAction.error}
             />
@@ -446,9 +434,6 @@ export function CorrectionsQueue({
         )}
       >
         {(item) => {
-          const delta = subcategoryDeltaState(item);
-          const exceedsCap = delta?.exceedsCap ?? false;
-
           return (
             <div className="space-y-6">
               <dl className="grid gap-4 sm:grid-cols-2">
@@ -460,17 +445,6 @@ export function CorrectionsQueue({
                   <dt className="type-metadata">{t("table.proposed")}</dt>
                   <dd className="mt-1 space-y-2">
                     {renderProposedValue(item)}
-                    {/* Stated contextually, right under the projected result —
-                        the footer panel is deliberately given `eligible` only,
-                        so this message is never duplicated down there. */}
-                    {exceedsCap && delta ? (
-                      <p className="type-metadata text-danger" role="alert">
-                        {t("capBlocker", {
-                          projected: delta.projectedSubcategories.length,
-                          limit: MAX_SUBCATEGORIES,
-                        })}
-                      </p>
-                    ) : null}
                   </dd>
                 </div>
               </dl>

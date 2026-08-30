@@ -47,9 +47,10 @@ export function createPromotionStorage(
     statObject: (key) => statBrandImageObject(key),
     copyObject: (sourceKey, targetKey) => copyBrandImageObject(sourceKey, targetKey),
     setStoragePath: async (rowId, targetKey) => {
+      const url = `${process.env.NEXT_PUBLIC_SUPABASE_URL ?? ''}/storage/v1/object/public/brand-images/${targetKey}`
       const { error } = await supabase
         .from('brand_images')
-        .update({ storage_path: targetKey })
+        .update({ storage_path: targetKey, url })
         .eq('id', rowId)
         .like('storage_path', `${SUBMISSION_IMAGES_KEY_PREFIX}%`)
 

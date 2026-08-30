@@ -146,7 +146,6 @@ describe("getSubmissionReviewCompleteness", () => {
     ["description", { description: "" }],
     ["categorySlug", { categorySlug: "unknown-category" }],
     ["subcategories", { subcategories: [] }],
-    ["subcategories", { subcategories: ["一", "二", "三", "四", "五", "六"] }],
     [
       "website",
       {
@@ -167,6 +166,18 @@ describe("getSubmissionReviewCompleteness", () => {
 
     expect(result.complete).toBe(false);
     expect(result.missingFields).toContain(missingField);
+  });
+
+  it("accepts more than five subcategories", () => {
+    const result = getSubmissionReviewCompleteness(
+      {
+        ...completeData(),
+        subcategories: ["一", "二", "三", "四", "五", "六"],
+      },
+      activeImages,
+      "succeeded",
+    );
+    expect(result.complete).toBe(true);
   });
 
   it("accepts a hero image as the only active image", () => {

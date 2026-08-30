@@ -1,6 +1,9 @@
 import { describe, expect, it } from 'vitest'
 
-import { parseDirectoryViewFilters } from './directory-filters'
+import {
+  hasDeferredCategoryFilter,
+  parseDirectoryViewFilters,
+} from './directory-filters'
 import { MATERIALS } from '@/lib/taxonomy/ontology'
 
 /**
@@ -40,5 +43,14 @@ describe('parseDirectoryViewFilters — material', () => {
     // past that ceiling, which would raise 22023 and render an empty page with
     // the chip still shown.
     expect(materialsFor('ceramic,ceramic,ceramic')).toEqual(['ceramic'])
+  })
+})
+
+describe('hasDeferredCategoryFilter', () => {
+  it('detects deferred slugs in scalar, comma-separated, and array params', () => {
+    expect(hasDeferredCategoryFilter(undefined)).toBe(false)
+    expect(hasDeferredCategoryFilter('home')).toBe(false)
+    expect(hasDeferredCategoryFilter('home,food-drink')).toBe(true)
+    expect(hasDeferredCategoryFilter(['home', 'tech'])).toBe(true)
   })
 })

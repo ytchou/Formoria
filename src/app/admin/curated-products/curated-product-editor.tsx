@@ -19,7 +19,6 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { NativeSelect } from "@/components/ui/native-select";
 import { Textarea } from "@/components/ui/textarea";
-import { ChipRow, ToggleChip } from "@/components/ui/toggle-chip";
 import { L2_SUBCATEGORIES, L1_CATEGORIES } from "@/lib/taxonomy/ontology";
 import type { AdminCuratedProduct } from "@/lib/services/curated-products";
 import type { TrailAuthoringWarning } from "@/lib/services/trail-authoring";
@@ -122,8 +121,8 @@ export function CuratedProductEditor({
   const [category, setCategory] = useState(
     product?.category ?? L1_CATEGORIES.at(0)?.slug ?? "",
   );
-  const [subcategorySlugs, setSubcategorySlugs] = useState<string[]>(
-    product?.subcategories ?? [],
+  const [subcategory, setSubcategory] = useState<string | null>(
+    product?.subcategory ?? null,
   );
   const [officialUrl, setOfficialUrl] = useState(product?.officialUrl ?? "");
   const [imageSourceUrl, setImageSourceUrl] = useState(
@@ -419,7 +418,7 @@ export function CuratedProductEditor({
     const payload = {
       nameZh: nameZh.trim(),
       category,
-      subcategories: subcategorySlugs,
+      subcategory,
       sourcesChecked,
       productDescriptionZh: trimmedDescriptionZh,
       ...(sources.length > 0 ? { sources } : {}),
@@ -578,10 +577,8 @@ export function CuratedProductEditor({
           value={category}
           onChange={(event) => {
             setCategory(event.target.value);
-            // A subcategory slug only exists inside one category, so a category
-            // change clears them rather than carrying dead tags into the new
-            // branch.
-            setSubcategorySlugs([]);
+            setSubcategory(null);
+            setVisible(false);
           }}
         >
           {L1_CATEGORIES.map((option) => (
@@ -592,26 +589,26 @@ export function CuratedProductEditor({
         </NativeSelect>
       </div>
 
-      <fieldset className="space-y-2">
-        <legend className="type-body-sm font-semibold text-ink">{t("l2")}</legend>
-        <ChipRow>
+      <div className="space-y-2">
+        <Label htmlFor={`${fieldId}-l2`}>{t("l2")}</Label>
+        <NativeSelect
+          id={`${fieldId}-l2`}
+          className="max-w-lg"
+          value={subcategory ?? ""}
+          onChange={(event) => {
+            const value = event.target.value || null;
+            setSubcategory(value);
+            if (!value) setVisible(false);
+          }}
+        >
+          <option value="">{t("l2None")}</option>
           {subcategoryOptions.map((sub) => (
-            <ToggleChip
-              key={sub.slug}
-              pressed={subcategorySlugs.includes(sub.slug)}
-              onPressedChange={(pressed) =>
-                setSubcategorySlugs((current) =>
-                  pressed
-                    ? [...current, sub.slug]
-                    : current.filter((slug) => slug !== sub.slug),
-                )
-              }
-            >
+            <option key={sub.slug} value={sub.slug}>
               {sub.nameEn}
-            </ToggleChip>
+            </option>
           ))}
-        </ChipRow>
-      </fieldset>
+        </NativeSelect>
+      </div>
 
       <div className="space-y-2">
         <Label htmlFor={`${fieldId}-official-url`}>{t("officialUrl")}</Label>
@@ -695,7 +692,10 @@ export function CuratedProductEditor({
             {t("productDescriptionHint")}
           </p>
           {productDescriptionZhError ? (
-            <p className="type-metadata text-danger" id={productDescriptionZhErrorId}>
+            <p
+              className="type-metadata text-danger"
+              id={productDescriptionZhErrorId}
+            >
               {productDescriptionZhError}
             </p>
           ) : null}
@@ -739,7 +739,10 @@ export function CuratedProductEditor({
             }
           />
           {productPositionError ? (
-            <p className="type-metadata text-danger" id={productPositionErrorId}>
+            <p
+              className="type-metadata text-danger"
+              id={productPositionErrorId}
+            >
               {productPositionError}
             </p>
           ) : null}
@@ -752,12 +755,13 @@ export function CuratedProductEditor({
             id={`${fieldId}-visible`}
             checked={visible}
             onCheckedChange={setVisible}
+            disabled={!subcategory}
             aria-describedby={`${fieldId}-visible-hint`}
           />
           <Label htmlFor={`${fieldId}-visible`}>{t("visible")}</Label>
         </div>
         <p className="type-metadata" id={`${fieldId}-visible-hint`}>
-          {t("visibleHint")}
+          {t(subcategory ? "visibleHint" : "visibleNeedsL2")}
         </p>
       </div>
 
@@ -773,7 +777,9 @@ export function CuratedProductEditor({
       </div>
 
       <fieldset className="space-y-3">
-        <legend className="type-body-sm font-semibold text-ink">{t("sources")}</legend>
+        <legend className="type-body-sm font-semibold text-ink">
+          {t("sources")}
+        </legend>
 
         {product && product.sources.length > 0 ? (
           <ul className="space-y-2">
@@ -825,7 +831,10 @@ export function CuratedProductEditor({
                 }
               />
               {sourceUrlErrors[index] ? (
-                <p className="type-metadata text-danger" id={sourceUrlErrorId(index)}>
+                <p
+                  className="type-metadata text-danger"
+                  id={sourceUrlErrorId(index)}
+                >
                   {t("urlInvalid")}
                 </p>
               ) : null}
@@ -953,7 +962,9 @@ export function CuratedProductEditor({
               role="status"
               className="space-y-2 rounded-[4px] bg-surface p-3"
             >
-              <p className="type-body-sm font-semibold text-ink">{t("placement.blockersTitle")}</p>
+              <p className="type-body-sm font-semibold text-ink">
+                {t("placement.blockersTitle")}
+              </p>
               <ul className="list-disc pl-5 type-metadata">
                 {selectedTrail.warnings.map((warning) => (
                   <li key={warning}>{warning}</li>
@@ -978,7 +989,11 @@ export function CuratedProductEditor({
             />
           </div>
           {placementError ? (
-            <p className="type-metadata text-danger" id={placementErrorId} role="alert">
+            <p
+              className="type-metadata text-danger"
+              id={placementErrorId}
+              role="alert"
+            >
               {placementError}
             </p>
           ) : null}

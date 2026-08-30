@@ -1,6 +1,7 @@
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
+import { adaptCuratedProductBackupRow } from "./remove-brand";
 
 /**
  * `CURATED_PRODUCT_COLUMNS` in remove-brand.ts is a hand-written full-row
@@ -30,7 +31,7 @@ const databaseTypes = readFileSync(
 
 function listedColumns(): string[] {
   const match = script.match(
-    /const CURATED_PRODUCT_COLUMNS\s*=\s*'([^']+)'\s*as const/,
+    /const CURATED_PRODUCT_COLUMNS\s*=\s*["']([^"']+)["']\s*as const/,
   );
   if (!match?.[1])
     throw new Error(
@@ -63,6 +64,33 @@ describe("remove-brand curated_products backup columns", () => {
     // Sorted comparison: the select string is ordered for readability, the
     // generated type is alphabetical, and ORDER is not part of the invariant.
     expect([...listed].sort()).toEqual([...actual].sort());
+  });
+
+  it("adapts old backup arrays with the same fail-closed migration rules", () => {
+    // Catches restoring an ambiguous or cross-L1 legacy row as visible.
+    const valid = adaptCuratedProductBackupRow({
+      id: "product-valid",
+      category: "home",
+      subcategories: ["tableware"],
+      visible: true,
+    });
+    const ambiguous = adaptCuratedProductBackupRow({
+      id: "product-ambiguous",
+      category: "home",
+      subcategories: ["tableware", "candles"],
+      visible: true,
+    });
+    const crossL1 = adaptCuratedProductBackupRow({
+      id: "product-cross-l1",
+      category: "home",
+      subcategories: ["handbags"],
+      visible: true,
+    });
+
+    expect(valid).toMatchObject({ subcategory: "tableware", visible: true });
+    expect(ambiguous).toMatchObject({ subcategory: null, visible: false });
+    expect(crossL1).toMatchObject({ subcategory: null, visible: false });
+    expect(valid).not.toHaveProperty("subcategories");
   });
 
   it("lists every column once", () => {

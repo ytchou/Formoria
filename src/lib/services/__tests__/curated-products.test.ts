@@ -41,10 +41,11 @@ type RecordedCalls = {
  * evaluate the filters. Row-level filtering behaviour belongs in
  * `curated-products.integration.test.ts`, against a real PostgREST.
  */
-function stubClient(result: QueryResult): {
+function stubClient(result: QueryResult | QueryResult[]): {
   client: CuratedProductSupabase;
   calls: RecordedCalls;
 } {
+  const results = Array.isArray(result) ? [...result] : [result];
   const calls: RecordedCalls = {
     table: [],
     select: [],
@@ -84,9 +85,10 @@ function stubClient(result: QueryResult): {
       }) => TResult,
       reject?: (reason: unknown) => TResult,
     ) {
+      const next = results.length > 1 ? results.shift()! : results[0]!;
       return Promise.resolve({
-        data: result.data ?? null,
-        error: result.error ?? null,
+        data: next.data ?? null,
+        error: next.error ?? null,
       }).then(resolve, reject);
     },
   };
@@ -109,7 +111,7 @@ function productRow(overrides: Record<string, unknown> = {}) {
     name_zh: "Pick",
     name_en: "Pick",
     category: "home",
-    subcategories: ["tableware"],
+    subcategory: "tableware",
     official_url: "https://example.com/pick",
     image_url: null,
     image_source_url: null,
@@ -129,145 +131,229 @@ function productRow(overrides: Record<string, unknown> = {}) {
 
 function trailProductRow(overrides: Record<string, unknown> = {}) {
   return productRow({
-    brands: { slug: 'fixture-brand', name: 'Fixture Brand', status: 'approved' },
+    brands: {
+      slug: "fixture-brand",
+      name: "Fixture Brand",
+      status: "approved",
+    },
     curated_product_selections: [
       {
-        trail_slug: 'small-space-reading-corner',
-        section_key: 'first',
+        trail_slug: "small-space-reading-corner",
+        section_key: "first",
         position: 1,
-        state: 'active',
+        state: "active",
       },
     ],
     ...overrides,
-  })
+  });
 }
 
-describe('getPublishedCuratedProductsForTrail', () => {
-  it('keeps the four-condition publication gate and trail filters', async () => {
-    const { client, calls } = stubClient({ data: [] })
+describe("getPublishedCuratedProductsForTrail", () => {
+  it("keeps the four-condition publication gate and trail filters", async () => {
+    const { client, calls } = stubClient({ data: [] });
 
-    await getPublishedCuratedProductsForTrail('small-space-reading-corner', client)
+    await getPublishedCuratedProductsForTrail(
+      "small-space-reading-corner",
+      client,
+    );
 
-    expect(calls.eq).toContainEqual(['visible', true])
-    expect(calls.not).toContainEqual(['official_url', 'is', null])
-    expect(calls.not).toContainEqual(['source_checked_at', 'is', null])
-    expect(calls.eq).toContainEqual(['curated_product_sources.state', 'active'])
-    expect(calls.eq).toContainEqual(['curated_product_selections.state', 'active'])
+    expect(calls.eq).toContainEqual(["visible", true]);
+    expect(calls.not).toContainEqual(["official_url", "is", null]);
+    expect(calls.not).toContainEqual(["source_checked_at", "is", null]);
     expect(calls.eq).toContainEqual([
-      'curated_product_selections.trail_slug',
-      'small-space-reading-corner',
-    ])
-  })
+      "curated_product_sources.state",
+      "active",
+    ]);
+    expect(calls.eq).toContainEqual([
+      "curated_product_selections.state",
+      "active",
+    ]);
+    expect(calls.eq).toContainEqual([
+      "curated_product_selections.trail_slug",
+      "small-space-reading-corner",
+    ]);
+  });
 
   // Same reasoning as the homepage rail: a trail page turns this read into its
   // whole product body, so degrading to `[]` during the deploy->migrate window
   // caches an empty trail with a green build and nothing in Sentry.
   it.each([
     [
-      'PGRST205',
+      "PGRST205",
       "Could not find the table 'public.curated_product_selections' in the schema cache",
     ],
-    ['42703', 'column curated_products.visible does not exist'],
-  ])('throws CuratedProductSchemaLagError rather than degrading to [] when the schema lags (%s)', async (code, message) => {
+    ["42703", "column curated_products.visible does not exist"],
+  ])(
+    "throws CuratedProductSchemaLagError rather than degrading to [] when the schema lags (%s)",
+    async (code, message) => {
+      const { client } = stubClient({
+        error: { code, message },
+      });
+
+      await expect(
+        getPublishedCuratedProductsForTrail(
+          "small-space-reading-corner",
+          client,
+        ),
+      ).rejects.toBeInstanceOf(CuratedProductSchemaLagError);
+    },
+  );
+
+  it("rethrows any other trail-read error untouched", async () => {
     const { client } = stubClient({
-      error: { code, message },
-    })
+      error: { code: "42501", message: "permission denied" },
+    });
 
     await expect(
-      getPublishedCuratedProductsForTrail('small-space-reading-corner', client),
-    ).rejects.toBeInstanceOf(CuratedProductSchemaLagError)
-  })
+      getPublishedCuratedProductsForTrail("small-space-reading-corner", client),
+    ).rejects.toMatchObject({ code: "42501" });
+  });
 
-  it('rethrows any other trail-read error untouched', async () => {
-    const { client } = stubClient({
-      error: { code: '42501', message: 'permission denied' },
-    })
-
-    await expect(
-      getPublishedCuratedProductsForTrail('small-space-reading-corner', client),
-    ).rejects.toMatchObject({ code: '42501' })
-  })
-
-  it('does not cap products per brand', async () => {
+  it("does not cap products per brand", async () => {
     const { client } = stubClient({
       data: [
-        trailProductRow({ key: 'first' }),
-        trailProductRow({ key: 'second' }),
-        trailProductRow({ key: 'third' }),
+        trailProductRow({ key: "first" }),
+        trailProductRow({ key: "second" }),
+        trailProductRow({ key: "third" }),
       ],
-    })
+    });
 
     const products = await getPublishedCuratedProductsForTrail(
-      'small-space-reading-corner',
+      "small-space-reading-corner",
       client,
-    )
+    );
 
-    expect(products).toHaveLength(3)
-    expect(products.every((product) => product.brandSlug === 'fixture-brand')).toBe(true)
-  })
+    expect(products).toHaveLength(3);
+    expect(
+      products.every((product) => product.brandSlug === "fixture-brand"),
+    ).toBe(true);
+  });
 
-  it('renders the trail read from product_description', async () => {
+  it("renders the trail read from product_description", async () => {
     const { client, calls } = stubClient({
       data: [
         trailProductRow({
-          product_description_zh: '一盞放在桌角也不擠的燈。',
-          product_description_en: 'A lamp that fits the corner of a desk.',
+          product_description_zh: "一盞放在桌角也不擠的燈。",
+          product_description_en: "A lamp that fits the corner of a desk.",
         }),
       ],
-    })
+    });
 
     const [product] = await getPublishedCuratedProductsForTrail(
-      'small-space-reading-corner',
+      "small-space-reading-corner",
       client,
-    )
+    );
 
-    expect(product?.productDescriptionZh).toBe('一盞放在桌角也不擠的燈。')
+    expect(product?.productDescriptionZh).toBe("一盞放在桌角也不擠的燈。");
     expect(product?.productDescriptionEn).toBe(
-      'A lamp that fits the corner of a desk.',
-    )
+      "A lamp that fits the corner of a desk.",
+    );
     // The dropped column must not come back through the select list: a
     // selection-scoped rationale is what this ticket collapsed away.
-    expect(calls.select.at(0)).not.toContain('rationale_zh')
-    expect(calls.select.at(0)).toContain('product_description_zh')
-  })
+    expect(calls.select.at(0)).not.toContain("rationale_zh");
+    expect(calls.select.at(0)).toContain("product_description_zh");
+  });
 
-  it('excludes retired selections', async () => {
+  it("excludes retired selections", async () => {
     const { client } = stubClient({
       data: [
         trailProductRow({
           curated_product_selections: [
             {
-              trail_slug: 'small-space-reading-corner',
-              section_key: 'first',
+              trail_slug: "small-space-reading-corner",
+              section_key: "first",
               position: 1,
-              state: 'retired',
+              state: "retired",
             },
           ],
         }),
       ],
-    })
+    });
 
     await expect(
-      getPublishedCuratedProductsForTrail('small-space-reading-corner', client),
-    ).resolves.toEqual([])
-  })
+      getPublishedCuratedProductsForTrail("small-space-reading-corner", client),
+    ).resolves.toEqual([]);
+  });
 
-  it('orders equal-position selections deterministically by product key', async () => {
+  it("orders equal-position selections deterministically by product key", async () => {
     const { client } = stubClient({
       data: [
-        trailProductRow({ key: 'zeta' }),
-        trailProductRow({ key: 'alpha' }),
+        trailProductRow({ key: "zeta" }),
+        trailProductRow({ key: "alpha" }),
       ],
-    })
+    });
 
     const products = await getPublishedCuratedProductsForTrail(
-      'small-space-reading-corner',
+      "small-space-reading-corner",
       client,
-    )
+    );
 
-    expect(products.map((product) => product.key)).toEqual(['alpha', 'zeta'])
-  })
-})
+    expect(products.map((product) => product.key)).toEqual(["alpha", "zeta"]);
+  });
+});
+
+describe("legacy product L2 reads", () => {
+  it("retries only the missing scalar column and drops ambiguous public rows", async () => {
+    // Catches a rolling deploy either blanking the brand section or exposing an ambiguous product.
+    const { subcategory: _subcategory, ...legacySingleton } = productRow();
+    const { subcategory: _ignored, ...legacyAmbiguous } = productRow({
+      id: "33333333-3333-3333-3333-333333333333",
+      key: "ambiguous",
+    });
+    const { client, calls } = stubClient([
+      {
+        error: {
+          code: "42703",
+          message: "column curated_products.subcategory does not exist",
+        },
+      },
+      {
+        data: [
+          { ...legacySingleton, subcategories: ["tableware"] },
+          {
+            ...legacyAmbiguous,
+            subcategories: ["tableware", "candles"],
+          },
+        ],
+      },
+    ]);
+
+    const products = await getPublishedCuratedProductsForBrand(
+      "22222222-2222-2222-2222-222222222222",
+      client,
+    );
+
+    expect(products.map((product) => product.key)).toEqual(["pick"]);
+    expect(products[0]?.subcategory).toBe("tableware");
+    expect(calls.select).toHaveLength(2);
+    expect(calls.select[0]).toContain("subcategory");
+    expect(calls.select[1]).toContain("subcategories");
+  });
+
+  it("keeps an ambiguous legacy row repairable in the admin queue", async () => {
+    // Catches compatibility code hiding the exact rows the Needs L2 tab must repair.
+    const { subcategory: _subcategory, ...legacy } = productRow({
+      brands: { slug: "studio-kiln", name: "Studio Kiln" },
+      proposed_by: "admin",
+      updated_at: "2026-08-16T00:00:00Z",
+      curated_product_sources: [],
+    });
+    const { client } = stubClient([
+      {
+        error: {
+          code: "PGRST204",
+          message: "Could not find the 'subcategory' column",
+        },
+      },
+      { data: [{ ...legacy, subcategories: ["tableware", "candles"] }] },
+    ]);
+
+    const products = await listCuratedProductsForAdmin(client);
+
+    expect(products).toHaveLength(1);
+    expect(products[0]).toMatchObject({ key: "pick", subcategory: null });
+  });
+});
 
 describe("getPublishedCuratedProductsForBrand", () => {
   it("counts only ACTIVE sources and selections as live", async () => {
@@ -321,7 +407,8 @@ describe("getPublishedCuratedProductsForBrand", () => {
     const { client } = stubClient({
       error: {
         code: "42703",
-        message: "column curated_products.product_description_zh does not exist",
+        message:
+          "column curated_products.product_description_zh does not exist",
       },
     });
 
@@ -481,7 +568,12 @@ function homepageRow(overrides: Record<string, unknown> = {}) {
     image_url: "https://images.example.com/selected-product.webp",
     curated_product_sources: [{ id: "source-1", state: "active" }],
     curated_product_selections: [
-      { trail_slug: "picks", section_key: "home", position: 1, state: "active" },
+      {
+        trail_slug: "picks",
+        section_key: "home",
+        position: 1,
+        state: "active",
+      },
     ],
     brands: {
       slug: "warmwood",
@@ -592,14 +684,20 @@ describe("getPublishedCuratedProductsForHomepage", () => {
         homepageRow({
           key: "other-brand",
           brand_id: "brand-2",
-          brands: { slug: "other-brand", name: "Other Brand", status: "approved" },
+          brands: {
+            slug: "other-brand",
+            name: "Other Brand",
+            status: "approved",
+          },
         }),
       ],
     });
 
     const products = await getPublishedCuratedProductsForHomepage(client);
 
-    expect(products.filter((product) => product.brandId === "brand-1")).toHaveLength(3);
+    expect(
+      products.filter((product) => product.brandId === "brand-1"),
+    ).toHaveLength(3);
     expect(products.map((product) => product.key)).toContain("other-brand");
   });
 
@@ -615,7 +713,10 @@ describe("getPublishedCuratedProductsForHomepage", () => {
 
     const products = await getPublishedCuratedProductsForHomepage(client);
 
-    expect(products.map((product) => product.key)).toEqual(["licensed", "none"]);
+    expect(products.map((product) => product.key)).toEqual([
+      "licensed",
+      "none",
+    ]);
     expect(calls.in.map(([column]) => column)).not.toContain("image_usage");
     expect(calls.select.at(0)).not.toContain("image_usage");
   });
@@ -674,7 +775,9 @@ describe("getPublishedCuratedProductsForHomepage", () => {
       secondProducts.map((product) => product.key),
     );
     expect(first.calls.limit).toEqual([1_000]);
-    expect(first.calls.select[0]).not.toContain("curated_product_selections!inner");
+    expect(first.calls.select[0]).not.toContain(
+      "curated_product_selections!inner",
+    );
     // The select list asks for the CURRENT text column and for none of the
     // three it replaced — a stale name here is a schema-lag 42703 in prod.
     expect(first.calls.select[0]).toContain("product_description_zh");
@@ -684,7 +787,7 @@ describe("getPublishedCuratedProductsForHomepage", () => {
     expect(first.calls.select[0]).not.toContain("lifecycle");
   });
 
-  it("keeps the rest of the publication gate", async () => {
+  it("publishes image-less products while keeping the other publication gates", async () => {
     const { client } = stubClient({
       data: [
         homepageRow({ key: "live" }),
@@ -701,7 +804,10 @@ describe("getPublishedCuratedProductsForHomepage", () => {
 
     const products = await getPublishedCuratedProductsForHomepage(client);
 
-    expect(products.map((product) => product.key)).toEqual(["live"]);
+    expect(products.map((product) => product.key)).toEqual([
+      "live",
+      "no-image",
+    ]);
   });
 
   // A missing table or column means the schema is older than this code, which
@@ -726,7 +832,8 @@ describe("getPublishedCuratedProductsForHomepage", () => {
     const { client } = stubClient({
       error: {
         code: "42703",
-        message: "column curated_products.product_description_zh does not exist",
+        message:
+          "column curated_products.product_description_zh does not exist",
       },
     });
 
@@ -847,7 +954,12 @@ describe("createCuratedProduct", () => {
     ]);
 
     await createCuratedProduct(
-      { brandId: BRAND_ID, nameZh: "陶瓷茶杯", category: "home", productDescriptionZh: "陶土燒製，容量約 200 毫升。" },
+      {
+        brandId: BRAND_ID,
+        nameZh: "陶瓷茶杯",
+        category: "home",
+        productDescriptionZh: "陶土燒製，容量約 200 毫升。",
+      },
       client,
     );
 
@@ -890,7 +1002,12 @@ describe("createCuratedProduct", () => {
     ]);
 
     const created = await createCuratedProduct(
-      { brandId: BRAND_ID, nameZh: "Teacup", category: "home", productDescriptionZh: "陶土燒製，容量約 200 毫升。" },
+      {
+        brandId: BRAND_ID,
+        nameZh: "Teacup",
+        category: "home",
+        productDescriptionZh: "陶土燒製，容量約 200 毫升。",
+      },
       client,
     );
 
@@ -901,7 +1018,7 @@ describe("createCuratedProduct", () => {
     expect(created.key).toBe("teacup-2");
   });
 
-  it("keeps only subcategories that belong to the given category", async () => {
+  it("normalizes a subcategory label within the given category", async () => {
     const { client, calls } = stubWriteClient([
       { data: { id: "6d5f1b0c-2a44-4f13-8c9e-5b7a1d3e9f20", key: "teacup" } },
     ]);
@@ -912,13 +1029,32 @@ describe("createCuratedProduct", () => {
         nameZh: "Teacup",
         category: "home",
         productDescriptionZh: "陶土燒製，容量約 200 毫升。",
-        // A slug, a Chinese label, and a subcategory from another branch.
-        subcategories: ["tableware", "餐具", "kids-tableware"],
+        subcategory: "餐具",
       },
       client,
     );
 
-    expect(calls.insert.at(0)?.subcategories).toEqual(["tableware"]);
+    expect(calls.insert.at(0)?.subcategory).toBe("tableware");
+  });
+
+  it("refuses to create a visible product without a compatible L2", async () => {
+    // Catches bypassing the action schema and publishing a row the database must reject.
+    const { client, calls } = stubWriteClient([]);
+
+    await expect(
+      createCuratedProduct(
+        {
+          brandId: BRAND_ID,
+          nameZh: "Cross-category bag",
+          category: "home",
+          subcategory: "handbags",
+          visible: true,
+          productDescriptionZh: "A product with mismatched taxonomy input.",
+        },
+        client,
+      ),
+    ).rejects.toThrow("Visible products require a known subcategory");
+    expect(calls.insert).toEqual([]);
   });
 
   it("createCuratedProduct writes the description and brand-page position", async () => {
@@ -1121,7 +1257,9 @@ describe("curated product writers", () => {
   });
 
   it("retires a trail selection without deleting it", async () => {
-    const { client, calls } = stubWriteClient([{ data: [{ product_id: PRODUCT_ID }] }]);
+    const { client, calls } = stubWriteClient([
+      { data: [{ product_id: PRODUCT_ID }] },
+    ]);
 
     await retireCuratedProductSelection(
       {
@@ -1202,33 +1340,70 @@ describe("curated product writers", () => {
     expect(Object.keys(payload)).not.toContain("wall_position");
   });
 
-  it("update_rejects_subcategories_without_category — a subcategory slug is only meaningful inside one category", async () => {
+  it("update_rejects_subcategory_without_category — an L2 is only meaningful inside one L1", async () => {
     const { client, calls } = stubWriteClient([{}]);
 
     await expect(
-      updateCuratedProduct(PRODUCT_ID, { subcategories: ["tableware"] }, client),
+      updateCuratedProduct(PRODUCT_ID, { subcategory: "tableware" }, client),
     ).rejects.toThrow(
-      "Updating subcategories requires category in the same patch",
+      "Updating subcategory requires category in the same patch",
     );
     expect(calls.update).toEqual([]);
   });
 
-  it("update_normalizes_subcategories_within_the_patched_category", async () => {
+  it("update_normalizes_subcategory_within_the_patched_category", async () => {
     const { client, calls } = stubWriteClient([{}]);
 
     await updateCuratedProduct(
       PRODUCT_ID,
-      // A slug, a Chinese label, and a subcategory from another branch.
       {
         category: "home",
-        subcategories: ["tableware", "餐具", "kids-tableware"],
+        subcategory: "餐具",
       },
       client,
     );
 
     const payload = calls.update.at(0) ?? {};
     expect(payload.category).toBe("home");
-    expect(payload.subcategories).toEqual(["tableware"]);
+    expect(payload.subcategory).toBe("tableware");
+  });
+
+  it("clears an incompatible L2 and forces the product hidden", async () => {
+    // Catches a category move leaving a visible product attached to another L1.
+    const { client, calls } = stubWriteClient([{}]);
+
+    await updateCuratedProduct(
+      PRODUCT_ID,
+      {
+        category: "home",
+        subcategory: "handbags",
+        visible: true,
+      },
+      client,
+    );
+
+    expect(calls.update.at(0)).toMatchObject({
+      category: "home",
+      subcategory: null,
+      visible: false,
+    });
+  });
+
+  it("clears an explicit L2 and forces the product hidden", async () => {
+    // Catches an explicit clear being overwritten by a simultaneous publication request.
+    const { client, calls } = stubWriteClient([{}]);
+
+    await updateCuratedProduct(
+      PRODUCT_ID,
+      { category: "home", subcategory: null, visible: true },
+      client,
+    );
+
+    expect(calls.update.at(0)).toMatchObject({
+      category: "home",
+      subcategory: null,
+      visible: false,
+    });
   });
 
   it("update payload omits the dropped columns even when a caller supplies them", async () => {
@@ -1406,7 +1581,10 @@ describe("listCuratedProductsForAdmin", () => {
   // returns 42703 from a table that is already in the schema cache, so guarding
   // on the missing-table code alone let that escape.
   it.each([
-    ["PGRST205", "Could not find the table 'public.curated_products' in the schema cache"],
+    [
+      "PGRST205",
+      "Could not find the table 'public.curated_products' in the schema cache",
+    ],
     ["42703", "column curated_products.visible does not exist"],
   ])("returns [] when the schema lags (%s)", async (code, message) => {
     const { client } = stubClient({ error: { code, message } });
@@ -1512,6 +1690,13 @@ describe("getCuratedProductsByBrandBatch", () => {
         visible: false,
         hasActiveSource: true,
         proposedBy: "generated",
+        imageSourceUrl: null,
+        nameEn: null,
+        productDescriptionZh: null,
+        productDescriptionEn: null,
+        category: null,
+        subcategory: null,
+        material: null,
       },
     ]);
   });

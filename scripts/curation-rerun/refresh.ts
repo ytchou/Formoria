@@ -57,6 +57,8 @@ import {
   requestBrandRefreshesBySlugs,
   applyBrandRefresh,
 } from "@/lib/services/submissions";
+import { materializeSubmissionCuratedProducts } from "@/lib/services/curated-products/materialize";
+import { storeCuratedProductImage } from "@/lib/services/curated-product-image";
 import {
   CURATION_TASK_ORDER,
   phasesForTask,
@@ -233,10 +235,10 @@ async function main(): Promise<void> {
   // A check-only run needs exactly this and nothing else offered it:
   // `--enqueue-only` also skips step 3, handing the work to whatever SHA the
   // Railway worker happens to be on, and a plain `--confirm` applies. Applying
-  // is not a formality — `apply_brand_refresh` materializes the curated-product
-  // proposals, and an absent `keptProductKeys` means "the reviewer never opened
-  // the section", whose default is to keep EVERY proposal. So the unflagged
-  // path publishes the machine's first draft to live brands.
+  // is not a formality — it writes enrichment onto the brand AND materializes
+  // curated-product proposals. An absent `keptProductKeys` means "the reviewer
+  // never opened the section", whose default is to keep EVERY new proposal. So
+  // the unflagged path publishes the machine's first draft to live brands.
   const noApply = hasFlag("--no-apply");
   if (noApply && enqueueOnly) {
     throw new Error(
@@ -400,7 +402,7 @@ async function main(): Promise<void> {
         target: "submissions",
         submissionIds: ids,
         task,
-        overwrite: true,
+        overwrite: hasFlag('--overwrite'),
       },
       dryRun: false,
       startedBy: adminEmail,
@@ -508,18 +510,64 @@ async function main(): Promise<void> {
   for (const r of requested) {
     if (!r.submissionId) continue;
     try {
-      const { cleanupFailed } = await applyBrandRefresh(
+      const { brandId, cleanupFailed } = await applyBrandRefresh(
         r.submissionId,
         reviewerId,
       );
+      const materialized =
+        await materializeSubmissionCuratedProducts(
+          r.submissionId,
+          brandId,
+        );
+
+      // Mirror images for newly materialized products
+      let mirrored = 0;
+      let mirrorFailed = 0;
+      if (materialized.created > 0) {
+        const { data: unmirroredProducts } = await supabase
+          .from("curated_products")
+          .select("id, brand_id, image_source_url")
+          .eq("brand_id", brandId)
+          .eq("visible", true)
+          .not("image_source_url", "is", null)
+          .is("image_url", null);
+
+        for (const product of unmirroredProducts ?? []) {
+          try {
+            const stored = await storeCuratedProductImage({
+              brandId: product.brand_id,
+              productId: product.id,
+              imageSourceUrl: product.image_source_url,
+            });
+            await supabase
+              .from("curated_products")
+              .update({
+                image_url: stored.url,
+                image_width: stored.width,
+                image_height: stored.height,
+              })
+              .eq("id", product.id);
+            mirrored += 1;
+          } catch {
+            mirrorFailed += 1;
+          }
+        }
+      }
+
+      const productSummary =
+        materialized.created > 0
+          ? `, ${materialized.visible} product(s) live, ${materialized.hidden} hidden, ${mirrored} image(s) mirrored${mirrorFailed > 0 ? `, ${mirrorFailed} mirror failed` : ""}`
+          : "";
       applied.push({
         slug: r.slug,
         submissionId: r.submissionId,
         ok: true,
-        detail: cleanupFailed ? "applied (storage cleanup failed)" : "applied",
+        detail:
+          (cleanupFailed ? "applied (storage cleanup failed)" : "applied") +
+          productSummary,
       });
       console.log(
-        `  ${r.slug.padEnd(18)} applied${cleanupFailed ? " (storage cleanup failed)" : ""}`,
+        `  ${r.slug.padEnd(18)} applied${cleanupFailed ? " (storage cleanup failed)" : ""}${productSummary}`,
       );
     } catch (err) {
       const detail = err instanceof Error ? err.message : JSON.stringify(err);

@@ -132,7 +132,7 @@ describe("planActiveImageOrder", () => {
   });
 
   it("allows at most one logo within the active cap (at_most_one_logo_within_the_active_cap)", () => {
-    const { assignments, demotedIds } = planActiveImageOrder({
+    const { assignments, candidateIds, demotedIds } = planActiveImageOrder({
       activeImages: [
         row("product-1", { tags: ["product"] }),
         row("logo-1", { tags: ["logo"] }),
@@ -148,11 +148,11 @@ describe("planActiveImageOrder", () => {
     const logosWithinCap = withinCap.filter((a) => a.id.startsWith("logo"));
     expect(logosWithinCap).toHaveLength(1);
 
-    // The second logo is assigned past the cap, NOT rejected (not in demotedIds).
+    // The second logo remains recoverable without violating the active
+    // sort_order contract.
     expect(demotedIds).not.toContain("logo-2");
-    const secondLogo = assignments.find((a) => a.id === "logo-2");
-    expect(secondLogo).toBeDefined();
-    expect(secondLogo!.sortOrder).toBeGreaterThanOrEqual(MAX_BRAND_ACTIVE_IMAGES);
+    expect(candidateIds).toContain("logo-2");
+    expect(assignments.some((a) => a.id === "logo-2")).toBe(false);
   });
 
   it("handles the all-unjudged case that produced the ten-rows-at-zero bug", () => {

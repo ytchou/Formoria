@@ -23,8 +23,6 @@ export type SubcategorySelectionResult =
   | { ok: true; slug: string; subcategory: L2Subcategory }
   | { ok: false; reason: RejectedSubcategoryReason }
 
-export const MAX_SUBCATEGORIES = 5
-
 // ---------------------------------------------------------------------------
 // The rejected-input log
 // ---------------------------------------------------------------------------
@@ -111,8 +109,9 @@ export function clearRejectedSubcategoryInputs(): void {
  * capitals survive ('USB-C' stays 'USB-C') and a Chinese fallback is a no-op.
  */
 function toSubcategoryTitleCase(value: string): string {
-  return value.replace(/(^|\s)(\p{Ll})/gu, (_, lead: string, letter: string) =>
-    `${lead}${letter.toLocaleUpperCase()}`,
+  return value.replace(
+    /(^|\s)(\p{Ll})/gu,
+    (_, lead: string, letter: string) => `${lead}${letter.toLocaleUpperCase()}`,
   )
 }
 
@@ -126,7 +125,9 @@ function toSubcategoryTitleCase(value: string): string {
  * Pure and ontology-only, so a client component can import it for inline
  * feedback and the server can reuse it as the guard.
  */
-export function resolveSubcategorySelection(input: string): SubcategorySelectionResult {
+export function resolveSubcategorySelection(
+  input: string,
+): SubcategorySelectionResult {
   const trimmed = input.trim()
   if (!trimmed) return { ok: false, reason: 'empty' }
 
@@ -192,10 +193,9 @@ export function normalizeSubcategories(
     recordRejectedSubcategoryInput({ input: rawValue, surface: 'normalize' })
   }
 
-  const capped = pairs.slice(0, MAX_SUBCATEGORIES)
   return {
-    subcategories: capped.map((pair) => pair.slug),
-    subcategoriesEn: capped.map((pair) => pair.en),
+    subcategories: pairs.map((pair) => pair.slug),
+    subcategoriesEn: pairs.map((pair) => pair.en),
     rejected,
   }
 }
@@ -260,7 +260,9 @@ function isStringArray(value: unknown): value is string[] {
   return Array.isArray(value) && value.every((item) => typeof item === 'string')
 }
 
-export function isSubcategoriesDelta(value: unknown): value is SubcategoriesDelta {
+export function isSubcategoriesDelta(
+  value: unknown,
+): value is SubcategoriesDelta {
   if (typeof value !== 'object' || value === null || Array.isArray(value))
     return false
   const record = value as Record<string, unknown>
@@ -305,4 +307,3 @@ export function sameSubcategorySet(left: string[], right: string[]): boolean {
   const rightSet = new Set(right)
   return left.every((subcategory) => rightSet.has(subcategory))
 }
-

@@ -1,8 +1,10 @@
 import { readFileSync } from 'node:fs'
 import { readFile, writeFile } from 'node:fs/promises'
 import path from 'node:path'
+import { pathToFileURL } from 'node:url'
 import { createServiceClient } from '@/lib/supabase/service'
 import type { Database } from '@/lib/supabase/database.types'
+import { subcategoryBySlug } from '@/lib/taxonomy/ontology'
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -28,9 +30,9 @@ function isMissingTableError(error: { code?: string | null } | null): boolean {
 
 type BrandRow = Database['public']['Tables']['brands']['Row']
 type BrandSubmissionRow = Database['public']['Tables']['brand_submissions']['Row']
-// `curated_products` (DEV-1404) is not in the generated Database types yet, and
-// the service client is untyped anyway. Its children (sources, selections)
-// cascade from it, so only the parent row needs enumerating.
+// The service client is deliberately untyped here because old backup rows can
+// carry the retired plural key. Its children cascade, so only the parent row
+// needs enumerating.
 type CuratedProductRow = Record<string, unknown> & { id: string }
 
 // Explicit column list for the backup snapshot. The restore path re-inserts the
@@ -45,7 +47,26 @@ type CuratedProductRow = Record<string, unknown> & { id: string }
 // string at the type level, and a runtime-joined `string[]` resolves to
 // `GenericStringError[]` instead of a row type.
 const CURATED_PRODUCT_COLUMNS =
-  'id,brand_id,key,name_zh,name_en,category,subcategories,material,official_url,image_url,image_source_url,link_state,link_checked_at,source_checked_at,review_due_at,created_at,updated_at,proposed_by,image_width,image_height,product_description_zh,product_description_en,product_position,visible,made_in_taiwan_confirmed,materials_from_taiwan_confirmed,mit_registry_id,origin_candidate_id' as const
+  'id,brand_id,key,name_zh,name_en,category,subcategory,material,official_url,image_url,image_source_url,link_state,link_checked_at,source_checked_at,review_due_at,created_at,updated_at,proposed_by,image_width,image_height,product_description_zh,product_description_en,product_position,visible,made_in_taiwan_confirmed,materials_from_taiwan_confirmed,mit_registry_id,origin_candidate_id' as const
+
+export function adaptCuratedProductBackupRow(
+  row: CuratedProductRow,
+): CuratedProductRow {
+  if (!('subcategories' in row)) return row
+  const { subcategories, ...current } = row
+  const values = Array.isArray(subcategories) ? subcategories : []
+  const candidate =
+    values.length === 1 && typeof values[0] === 'string'
+      ? subcategoryBySlug(values[0])
+      : null
+  const compatible =
+    candidate && candidate.category === row.category ? candidate.slug : null
+  return {
+    ...current,
+    subcategory: compatible,
+    visible: compatible ? row.visible : false,
+  }
+}
 
 type BackupEntry = {
   brand: BrandRow
@@ -569,7 +590,7 @@ async function restoreBackup(
       if (curatedProducts && curatedProducts.length > 0) {
         const { error: curatedErr } = await supabase
           .from('curated_products')
-          .insert(curatedProducts)
+          .insert(curatedProducts.map(adaptCuratedProductBackupRow))
         if (curatedErr)
           throw new Error(`curated_products insert failed: ${curatedErr.message}`)
       }
@@ -608,7 +629,12 @@ async function main(): Promise<void> {
   await removeBrands(supabase, options.slugs)
 }
 
-main().catch((err) => {
-  console.error(err)
-  process.exit(1)
-})
+if (
+  process.argv[1] &&
+  import.meta.url === pathToFileURL(path.resolve(process.argv[1])).href
+) {
+  main().catch((err) => {
+    console.error(err)
+    process.exit(1)
+  })
+}

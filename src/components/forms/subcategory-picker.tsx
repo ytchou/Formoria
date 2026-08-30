@@ -11,7 +11,6 @@ import {
 import { X } from "lucide-react";
 
 import {
-  MAX_SUBCATEGORIES,
   recordRejectedSubcategoryInput,
   resolveSubcategorySelection,
   type RejectedSubcategoryInput,
@@ -125,7 +124,7 @@ export function SubcategoryPicker({
   baseline = NO_SLUGS,
   priorityCategorySlug = null,
   prioritySlugs = NO_SLUGS,
-  max = MAX_SUBCATEGORIES,
+  max = Number.POSITIVE_INFINITY,
   disabled = false,
   onRejectedInput,
 }: SubcategoryPickerProps) {
@@ -201,8 +200,8 @@ export function SubcategoryPicker({
   /**
    * Activating a chip unmounts it: the offer set excludes anything already
    * selected, so the button the user just pressed leaves the DOM and focus
-   * falls to `<body>`. Re-entering a 175-button list at position zero for each
-   * of up to five selections is the whole cost, so focus is moved deliberately
+   * falls to `<body>`. Re-entering a 175-button list at position zero after each
+   * selection is the whole cost, so focus is moved deliberately
    * to the same node in its new row — the strongest rung of the announcement
    * ladder, and it lands on the chip that undoes what just happened.
    *

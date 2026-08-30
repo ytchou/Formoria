@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-import { L1_CATEGORIES } from "@/lib/taxonomy/ontology";
+import { L1_CATEGORIES, subcategoryBySlug } from "@/lib/taxonomy/ontology";
 
 /**
  * Payload shapes for the curated-product admin write path (DEV-1465).
@@ -33,8 +33,6 @@ const MAX_URL = 2_000;
 export const MAX_NOTE = 10_000;
 /** A claim is a one-line factual note, not an essay. */
 const MAX_CLAIM = 1_000;
-/** Subcategories are capped by `normalizeSubcategories`; this is only a payload bound. */
-const MAX_SUBCATEGORIES = 20;
 /** A product cites its provenance; it does not carry a bibliography. */
 const MAX_SOURCES = 20;
 
@@ -49,9 +47,7 @@ const httpUrlSchema = z.url({ protocol: /^https?$/ }).max(MAX_URL);
 
 const nameSchema = z.string().trim().min(1).max(MAX_CURATED_PRODUCT_NAME);
 const noteSchema = z.string().max(MAX_NOTE);
-const subcategoriesSchema = z
-  .array(z.string().trim().min(1).max(100))
-  .max(MAX_SUBCATEGORIES);
+const subcategorySchema = z.string().trim().min(1).max(100).nullable();
 /** `timestamptz` column; an offset-bearing ISO string is what Postgres stores. */
 const timestampSchema = z.iso.datetime({ offset: true });
 
@@ -87,7 +83,7 @@ const curatedProductFields = {
   nameZh: nameSchema,
   nameEn: nameSchema.nullable().optional(),
   category: z.enum(CURATED_PRODUCT_CATEGORY_VALUES),
-  subcategories: subcategoriesSchema.optional(),
+  subcategory: subcategorySchema.optional(),
   officialUrl: httpUrlSchema.nullable().optional(),
   /** The page an image was taken from, kept so usage rights stay re-checkable. */
   imageSourceUrl: httpUrlSchema.nullable().optional(),
@@ -126,10 +122,44 @@ const curatedProductFields = {
  * position requires a zh rationale" — cannot fail any more: the description is
  * mandatory on every create, so a positioned product always carries text.
  */
-export const curatedProductCreateSchema = z.object({
-  brandId: curatedProductIdSchema,
-  ...curatedProductFields,
-});
+function validateTaxonomyPair(
+  payload: {
+    category?: string;
+    subcategory?: string | null;
+    visible?: boolean;
+  },
+  ctx: z.RefinementCtx,
+  requireVisibleSubcategory: boolean,
+): void {
+  if (payload.subcategory) {
+    const node = subcategoryBySlug(payload.subcategory);
+    if (!node || !payload.category || node.category !== payload.category) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["subcategory"],
+        message: "Subcategory must belong to category",
+      });
+    }
+  }
+  if (
+    payload.visible === true &&
+    (payload.subcategory === null ||
+      (requireVisibleSubcategory && payload.subcategory === undefined))
+  ) {
+    ctx.addIssue({
+      code: "custom",
+      path: ["subcategory"],
+      message: "Visible products require a subcategory",
+    });
+  }
+}
+
+export const curatedProductCreateSchema = z
+  .object({
+    brandId: curatedProductIdSchema,
+    ...curatedProductFields,
+  })
+  .superRefine((payload, ctx) => validateTaxonomyPair(payload, ctx, true));
 
 /**
  * Every field optional: the editor patches what it touched. An empty object is
@@ -140,29 +170,28 @@ export const curatedProductUpdateSchema = z
   .object(curatedProductFields)
   .partial()
   .superRefine((payload, ctx) => {
-    // A subcategory slug is only meaningful inside one category, so a patch
-    // that moves the subcategories without naming the category cannot be
-    // normalized.
-    // `updateCuratedProduct` throws on the same pair, but a service throw
-    // reaches the editor as its raw message; refusing at the boundary turns it
-    // into the generic `{ error: "Invalid curated product" }` the action
-    // returns for every other malformed payload.
-    if (payload.subcategories !== undefined && payload.category === undefined) {
+    if (payload.category !== undefined && payload.subcategory === undefined) {
       ctx.addIssue({
         code: "custom",
-        path: ["subcategories"],
-        message: "Updating subcategories requires category in the same patch",
+        path: ["subcategory"],
+        message: "Changing category requires subcategory in the same patch",
       });
     }
+    if (payload.subcategory !== undefined && payload.category === undefined) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["category"],
+        message: "Updating subcategory requires category in the same patch",
+      });
+    }
+    validateTaxonomyPair(payload, ctx, false);
   });
 
 /** The paste-URL field behind "Fetch details". Same protocol bar as the rest. */
 export const prefillUrlSchema = httpUrlSchema;
 
 /**
- * A payload bound, not an editorial cap: the products prompt asks for at most 5
- * proposals per brand, and this only stops a hand-rolled request from posting a
- * thousand.
+ * A payload bound matching the enrichment selection ceiling.
  */
 export const MAX_CURATED_PRODUCT_PROPOSALS = 20;
 
@@ -184,9 +213,9 @@ export const curatedProductProposalSchema = z.object({
   nameZh: nameSchema,
   nameEn: nameSchema.optional(),
   category: z.enum(CURATED_PRODUCT_CATEGORY_VALUES),
-  subcategories: subcategoriesSchema,
+  subcategory: subcategorySchema,
   /** Slugs of the closed `MATERIALS` vocabulary; the CHECK is the real gate. */
-  material: z.array(z.string().trim().min(1).max(100)).max(MAX_SUBCATEGORIES),
+  material: z.array(z.string().trim().min(1).max(100)).max(20),
   officialUrl: z.union([httpUrlSchema, z.literal("")]),
   imageSourceUrl: httpUrlSchema.optional(),
   productDescriptionZh: z.string().trim().min(1).max(MAX_NOTE),

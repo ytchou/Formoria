@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { notFound } from "next/navigation";
 import { getTranslations, setRequestLocale } from "next-intl/server";
 import { DirectoryView } from "@/components/brands/directory-view";
 import {
@@ -8,6 +9,7 @@ import {
   resolveDirectorySubcategorySlugs,
 } from "@/lib/taxonomy/ontology";
 import {
+  hasDeferredCategoryFilter,
   parseDirectoryViewFilters,
   type DirectorySearchParams,
 } from "@/lib/seo/directory-filters";
@@ -37,6 +39,7 @@ export async function generateMetadata({
   setRequestLocale(locale);
   const safeLocale = (locale === "en" ? "en" : "zh-TW") as Locale;
   const sp = await searchParams;
+  if (hasDeferredCategoryFilter(sp.category)) notFound();
   const { filters, page } = parseDirectoryViewFilters(sp, VALID_CATEGORY_SLUGS);
   const categorySlug =
     filters.categorySlugs.length === 1
@@ -158,6 +161,7 @@ export default async function BrandsPage({
   setRequestLocale(locale);
   const safeLocale = (locale === "en" ? "en" : "zh-TW") as Locale;
   const sp = await searchParams;
+  if (hasDeferredCategoryFilter(sp.category)) notFound();
   const { filters, page, sort } = parseDirectoryViewFilters(
     sp,
     VALID_CATEGORY_SLUGS,

@@ -5,7 +5,7 @@ import { surfaceCardStyles } from "@/components/ui/card";
 import { safeImageSrc } from "@/lib/images/allowed-image-hosts";
 import { routes } from "@/lib/routes";
 import type { CatalogProduct } from "@/lib/services/curated-products-catalog";
-import { categoryLabel, L1_CATEGORIES } from "@/lib/taxonomy/ontology";
+import { subcategoryBySlug, subcategoryLabel } from "@/lib/taxonomy/ontology";
 import { cn } from "@/lib/utils";
 
 type ProductCardProps = {
@@ -15,13 +15,12 @@ type ProductCardProps = {
 
 export function ProductCard({ product, locale }: ProductCardProps) {
   const isEnglish = locale === "en";
-  const name =
-    (isEnglish ? product.nameEn : product.nameZh) ?? product.nameZh;
+  const name = (isEnglish ? product.nameEn : product.nameZh) ?? product.nameZh;
   const imageSrc = safeImageSrc(product.imageUrl);
-  const category = L1_CATEGORIES.find((c) => c.slug === product.category);
-  const categoryName = category
-    ? categoryLabel(category, locale)
-    : product.category;
+  const subcategory = subcategoryBySlug(product.subcategory);
+  const subcategoryName = subcategory
+    ? subcategoryLabel(subcategory, locale)
+    : product.subcategory;
 
   return (
     <li
@@ -51,7 +50,11 @@ export function ProductCard({ product, locale }: ProductCardProps) {
         </div>
 
         <div className="flex flex-1 flex-col gap-1.5 p-4">
-          <Typography as="h3" variant="cardTitle" className="group-hover:text-accent">
+          <Typography
+            as="h3"
+            variant="cardTitle"
+            className="group-hover:text-accent"
+          >
             {name}
           </Typography>
           <Typography as="p" variant="metadata">
@@ -64,7 +67,7 @@ export function ProductCard({ product, locale }: ProductCardProps) {
               "border border-rule",
             )}
           >
-            {categoryName}
+            {subcategoryName}
           </span>
         </div>
       </Link>
