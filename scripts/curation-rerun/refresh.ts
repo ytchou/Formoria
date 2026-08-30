@@ -402,7 +402,7 @@ async function main(): Promise<void> {
         target: "submissions",
         submissionIds: ids,
         task,
-        overwrite: hasFlag('--overwrite'),
+        overwrite: hasFlag("--overwrite"),
       },
       dryRun: false,
       startedBy: adminEmail,
@@ -514,11 +514,10 @@ async function main(): Promise<void> {
         r.submissionId,
         reviewerId,
       );
-      const materialized =
-        await materializeSubmissionCuratedProducts(
-          r.submissionId,
-          brandId,
-        );
+      const materialized = await materializeSubmissionCuratedProducts(
+        r.submissionId,
+        brandId,
+      );
 
       // Mirror images for any product with a source URL but no mirrored image
       let mirrored = 0;

@@ -56,7 +56,10 @@ async function largeSourceImage(): Promise<Buffer> {
     .toBuffer();
 }
 
-type WritePayloads = { insert: Record<string, unknown>[]; update: Record<string, unknown>[] };
+type WritePayloads = {
+  insert: Record<string, unknown>[];
+  update: Record<string, unknown>[];
+};
 
 /**
  * Chainable stand-in passed as an argument, never a module mock:
@@ -112,7 +115,10 @@ function stubFetch(response: Response): ReturnType<typeof vi.fn> {
 }
 
 /** A body with no content-length, so only the streaming cap can stop it. */
-function chunkedBody(totalBytes: number, chunkBytes = 64 * 1024): ReadableStream<Uint8Array> {
+function chunkedBody(
+  totalBytes: number,
+  chunkBytes = 64 * 1024,
+): ReadableStream<Uint8Array> {
   let sent = 0;
   return new ReadableStream<Uint8Array>({
     pull(controller) {
@@ -138,7 +144,10 @@ describe("prepareCuratedProductImage", () => {
     const fetchMock = stubFetch(new Response(new Uint8Array(0)));
 
     await expect(
-      prepareCuratedProductImage("http://169.254.169.254/latest/meta-data/", PRODUCT_ID),
+      prepareCuratedProductImage(
+        "http://169.254.169.254/latest/meta-data/",
+        PRODUCT_ID,
+      ),
     ).rejects.toThrow(/not reachable/i);
     expect(fetchMock).not.toHaveBeenCalled();
   });
@@ -152,7 +161,10 @@ describe("prepareCuratedProductImage", () => {
     );
 
     await expect(
-      prepareCuratedProductImage("https://example.com/not-an-image", PRODUCT_ID),
+      prepareCuratedProductImage(
+        "https://example.com/not-an-image",
+        PRODUCT_ID,
+      ),
     ).rejects.toThrow(/did not serve an image/i);
   });
 
@@ -225,7 +237,10 @@ describe("prepareCuratedProductImage", () => {
     stubFetch(response);
 
     await expect(
-      prepareCuratedProductImage("https://example.com/redirects.png", PRODUCT_ID),
+      prepareCuratedProductImage(
+        "https://example.com/redirects.png",
+        PRODUCT_ID,
+      ),
     ).rejects.toThrow(/unreachable/i);
   });
 });
