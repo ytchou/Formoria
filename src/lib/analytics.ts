@@ -556,6 +556,38 @@ export function trackTrailCardClicked(
   });
 }
 
+export function trackProductSubcategoryFilterApplied(
+  subcategory: string,
+  parentCategory: string,
+  count: number,
+) {
+  capturePostHogEvent(ANALYTICS_EVENTS.PRODUCT_SUBCATEGORY_FILTER_APPLIED, {
+    subcategory,
+    parent_category: parentCategory,
+    result_count: Math.trunc(count),
+  });
+}
+
+export function trackProductMaterialFilterApplied(
+  material: string,
+  count: number,
+) {
+  capturePostHogEvent(ANALYTICS_EVENTS.PRODUCT_MATERIAL_FILTER_APPLIED, {
+    material,
+    result_count: Math.trunc(count),
+  });
+}
+
+export function trackProductSortChanged(
+  sortValue: string,
+  previousSort: string,
+) {
+  capturePostHogEvent(ANALYTICS_EVENTS.PRODUCT_SORT_CHANGED, {
+    sort_value: sortValue,
+    previous_sort: previousSort,
+  });
+}
+
 export function trackDirectorySortChanged(
   sortValue: string,
   previousSort: string,
