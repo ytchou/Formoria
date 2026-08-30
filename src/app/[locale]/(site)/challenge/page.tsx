@@ -100,7 +100,7 @@ function ChallengeContent() {
 
 export default function ChallengePage() {
   return (
-    <Suspense fallback={null}>
+    <Suspense fallback={<main aria-hidden className="min-h-screen" />}>
       <ChallengeContent />
     </Suspense>
   )

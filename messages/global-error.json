@@ -1,0 +1,12 @@
+{
+  "en": {
+    "title": "Something went wrong",
+    "description": "An unexpected error occurred. Please try again.",
+    "retry": "Try again"
+  },
+  "zh-TW": {
+    "title": "發生錯誤",
+    "description": "發生了預期外的錯誤，請再試一次。",
+    "retry": "重試"
+  }
+}
