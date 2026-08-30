@@ -181,6 +181,7 @@ describe("getPublishedCuratedProducts", () => {
     const ranges: [number, number][] = [];
     const equals: [string, unknown][] = [];
     const overlaps: [string, unknown][] = [];
+    const ins: [string, unknown][] = [];
     const orders: [string, { ascending: boolean }][] = [];
     const pages = [
       Array.from({ length: 500 }, (_, index) => ({
@@ -208,6 +209,10 @@ describe("getPublishedCuratedProducts", () => {
         overlaps.push([column, value]);
         return chain;
       },
+      in(column: string, value: unknown) {
+        ins.push([column, value]);
+        return chain;
+      },
       order(column: string, opts: { ascending: boolean }) {
         orders.push([column, opts]);
         return chain;
@@ -226,11 +231,11 @@ describe("getPublishedCuratedProducts", () => {
       },
     };
     const client = { from: () => chain } as never;
-    return { client, ranges, equals, overlaps, orders };
+    return { client, ranges, equals, overlaps, ins, orders };
   }
 
-  it("reads the full corpus in bounded ranges before slicing and uses overlaps for subcategory filter", async () => {
-    const { client, ranges, overlaps } = createMockClient();
+  it("reads the full corpus in bounded ranges before slicing and uses in-filter for subcategory", async () => {
+    const { client, ranges, ins } = createMockClient();
 
     const result = await getPublishedCuratedProducts(
       { category: "home", subcategories: ["candles"], page: 42, pageSize: 12 },
@@ -241,7 +246,7 @@ describe("getPublishedCuratedProducts", () => {
       [0, 499],
       [500, 999],
     ]);
-    expect(overlaps).toContainEqual(["subcategories", ["candles"]]);
+    expect(ins).toContainEqual(["subcategory", ["candles"]]);
     expect(result.totalCount).toBe(502);
     expect(result.products).toHaveLength(10);
     expect(result.products.every((product) => product.imageUrl === null)).toBe(
@@ -249,16 +254,16 @@ describe("getPublishedCuratedProducts", () => {
     );
   });
 
-  it("filters by multiple subcategories using overlaps", async () => {
-    const { client, overlaps } = createMockClient();
+  it("filters by multiple subcategories using in-filter on scalar column", async () => {
+    const { client, ins } = createMockClient();
 
     await getPublishedCuratedProducts(
       { category: "home", subcategories: ["candles", "tableware"] },
       client,
     );
 
-    expect(overlaps).toContainEqual([
-      "subcategories",
+    expect(ins).toContainEqual([
+      "subcategory",
       ["candles", "tableware"],
     ]);
   });
@@ -304,6 +309,7 @@ describe("getPublishedCuratedProducts", () => {
       not: () => chain,
       contains: () => chain,
       overlaps: () => chain,
+      in: () => chain,
       order: () => chain,
       range: () => chain,
       then<T>(resolve: (v: { data: unknown[]; error: null }) => T, reject?: (r: unknown) => T) {

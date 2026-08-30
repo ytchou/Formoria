@@ -171,7 +171,9 @@ export async function getPublishedCuratedProducts(
         .eq("brands.status", "approved");
       if (category) query = query.eq("category", category);
       if (subcategories && subcategories.length > 0) {
-        query = query.overlaps("subcategories", subcategories);
+        query = legacy
+          ? query.overlaps("subcategories", subcategories)
+          : query.in("subcategory", subcategories);
       }
       if (materials && materials.length > 0) {
         query = query.overlaps("material", materials);
