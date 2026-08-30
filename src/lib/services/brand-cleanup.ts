@@ -30,6 +30,8 @@ const LEGAL_COMPANY_MARKERS = [
 const MAX_SUBMISSION_BRAND_NAME_LENGTH = 100
 const HAN_REGEX = /\p{Script=Han}/u
 const LATIN_REGEX = /\p{Script=Latin}/u
+const BRACKETED_HAN_TAGLINE_REGEX =
+  /^【[^】]*\p{Script=Han}[-–—][^】]*\p{Script=Han}[^】]*】/u
 
 /**
  * Is `candidate` a plausible replacement for `current`?
@@ -447,6 +449,8 @@ export function canonicalizeBilingualBrandName(
   currentName: string,
   observedName: string,
 ): string | null {
+  if (BRACKETED_HAN_TAGLINE_REGEX.test(observedName)) return null
+
   const current = cleanBrandName(currentName).cleanedName.trim()
   const observed = compactWhitespace(
     observedName
@@ -466,6 +470,7 @@ export function canonicalizeBilingualBrandName(
   const currentLatin = latinIdentity(current)
   const observedHan = hanIdentity(observed) ?? hanIdentity(current)
   if (!currentLatin || !observedHan) return null
+  if (observedHan === '家具') return null
 
   const currentKey = latinIdentityKey(currentLatin)
   const observedLatinRuns = latinIdentityRuns(observed)

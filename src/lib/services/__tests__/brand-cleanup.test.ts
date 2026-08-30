@@ -186,6 +186,24 @@ describe('Taiwan-first bilingual brand identity', () => {
     ).toBeNull()
   })
 
+  it('rejects a generic Han product category as a brand identity', () => {
+    expect(
+      canonicalizeBilingualBrandName(
+        '1973 Furniture',
+        '1973家具 (@1973furniture)',
+      ),
+    ).toBeNull()
+  })
+
+  it('rejects a bracketed marketing tagline as a Han identity', () => {
+    expect(
+      canonicalizeBilingualBrandName(
+        'Sockshop',
+        '【貝柔-全家的好織己】30年產品與市場經驗，專注開發最適合台灣人的機能織品',
+      ),
+    ).toBeNull()
+  })
+
   it('recognizes only Han-first bilingual names', () => {
     expect(isTaiwanFirstBilingualBrandName('愛德拉 Adela')).toBe(true)
     expect(isTaiwanFirstBilingualBrandName('Adela 愛德拉')).toBe(false)
