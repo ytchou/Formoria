@@ -241,6 +241,9 @@ export function ImageCarousel({
                 : "192px"
             }
             loading={variant === "detail" && current === 0 ? "eager" : "lazy"}
+            fetchPriority={
+              variant === "detail" && current === 0 ? "high" : "auto"
+            }
             onError={() => handleImageError(current)}
           />
         )}

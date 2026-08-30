@@ -78,6 +78,16 @@ function images(): HTMLElement[] {
 }
 
 describe("ImageCarousel", () => {
+  it("gives the first detail image high fetch priority", () => {
+    renderCarousel();
+    const [hero, firstThumb] = images();
+
+    // The hero is the mobile LCP candidate. Eager loading alone left its
+    // request behind lower-value resources in Lighthouse's critical path.
+    expect(hero).toHaveAttribute("fetchpriority", "high");
+    expect(firstThumb).not.toHaveAttribute("fetchpriority", "high");
+  });
+
   it("no longer boxes at 4:3", () => {
     const { container } = renderCarousel();
 
