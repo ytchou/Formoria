@@ -38,7 +38,9 @@ for (const sub of L2_SUBCATEGORIES) {
   // The slug is what gets STORED (`brands.subcategories`), so the model must
   // emit it verbatim; the gloss is only there to make the slug recognisable to
   // a model reasoning over zh-TW source material.
-  arr.push(`${sub.slug}（${sub.nameZh}）`);
+  const aliasSuffix =
+    sub.aliases.length > 0 ? `：${sub.aliases.join("、")}` : "";
+  arr.push(`${sub.slug}（${sub.nameZh}${aliasSuffix}）`);
   _subcatByCategory.set(sub.category, arr);
 }
 
