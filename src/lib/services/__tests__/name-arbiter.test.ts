@@ -89,6 +89,34 @@ describe("arbitrateBrandNames", () => {
     ).toBe("array");
   });
 
+  it("rejects a model-invented value that is not a supplied candidate", async () => {
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({
+        choices: [
+          {
+            message: {
+              content: JSON.stringify({
+                results: [
+                  {
+                    slug: "xiao-zhu-dessert",
+                    chosen: "小朱甜點工作室",
+                    confidence: "high",
+                    reason: "模型補寫",
+                  },
+                ],
+              }),
+            },
+          },
+        ],
+      }),
+    });
+
+    const outcome = await arbitrateBrandNames([items[0]!]);
+
+    expect(outcome.results).toEqual(new Map());
+  });
+
   it("tolerates a bare top-level array in one call with no fan-out", async () => {
     mockFetch.mockResolvedValueOnce({
       ok: true,

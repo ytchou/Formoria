@@ -72,6 +72,34 @@ describe("refresh review overrides", () => {
     ).toEqual({ description: "Admin description", city: null });
   });
 
+  it("does not treat _name_proposal as the refresh baseline", () => {
+    const proposal = {
+      value: "劉一刀手工鞋 LID Shoes",
+      confidence: "high",
+      reason: "官網直接使用雙語品牌名",
+      evidence: [
+        {
+          source: "official_website",
+          url: "https://www.lidshoes.com/about",
+          observedName: "劉一刀 手工鞋",
+        },
+      ],
+    };
+    const enrichedBaseline = buildRefreshSubmissionReviewData(
+      { ...baseline, name: "LID Shoes" },
+      { _name_proposal: proposal },
+      { ...baseline, name: "LID Shoes" },
+    );
+
+    expect(enrichedBaseline.name).toBe("LID Shoes");
+    expect(
+      buildSubmissionReviewOverrides(enrichedBaseline, {
+        ...enrichedBaseline,
+        name: proposal.value,
+      }),
+    ).toEqual({ name: proposal.value });
+  });
+
   it("applies explicit nulls after enrichment values", () => {
     expect(
       applySubmissionReviewOverrides(baseline, {

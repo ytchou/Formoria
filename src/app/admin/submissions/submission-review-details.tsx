@@ -24,6 +24,7 @@ export function SubmissionReviewDetails({
     <ReviewDetailsEditor
       entityId={`submission-review-${submission.id}`}
       reviewData={submission.reviewData}
+      nameProposal={submission.nameProposal}
       reviewImages={submission.reviewImages}
       existingProducts={existingProducts}
       canEdit={submission.status === "pending"}

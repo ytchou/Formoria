@@ -2396,6 +2396,16 @@
       "details": {
         "content": "Content",
         "brandName": "Brand name",
+        "nameProposal": {
+          "proposedName": "Proposed brand name",
+          "high": "High confidence",
+          "confidenceReason": "{confidence} — {reason}",
+          "use": "Use proposed name",
+          "sources": {
+            "official_website": "Official website",
+            "official_social": "Official social profile"
+          }
+        },
         "chineseContent": "Chinese content",
         "englishContent": "English content",
         "chineseDescription": "Chinese description",

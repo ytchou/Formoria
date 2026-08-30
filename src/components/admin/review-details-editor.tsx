@@ -36,7 +36,10 @@ import {
   subcategoryDisplayLabel,
 } from "@/lib/taxonomy/ontology";
 import type { OtherUrl } from "@/lib/types";
-import type { CuratedProductProposal } from "@/lib/types/enriched-data";
+import type {
+  BrandNameProposal,
+  CuratedProductProposal,
+} from "@/lib/types/enriched-data";
 import {
   diffCuratedProductProposals,
   type CuratedProductProposalState,
@@ -93,6 +96,7 @@ const PRODUCT_STATE_KEYS = {
 type Props = {
   entityId: string;
   reviewData: SubmissionReviewData;
+  nameProposal?: BrandNameProposal | null;
   reviewImages: SubmissionReviewImage[];
   canEdit: boolean;
   /**
@@ -116,6 +120,7 @@ type Props = {
 export function ReviewDetailsEditor({
   entityId,
   reviewData,
+  nameProposal = null,
   reviewImages,
   canEdit,
   existingProducts = [],
@@ -376,9 +381,42 @@ export function ReviewDetailsEditor({
             error={error}
           >
             {editingSection === "content" ? (
-              <ContentEditor draft={draft} onUpdate={update} />
+              <ContentEditor
+                draft={draft}
+                nameProposal={nameProposal}
+                onUpdate={update}
+              />
             ) : (
               <div className="space-y-5">
+                <ValueBlock label={t("details.brandName")} value={data.name} />
+                {nameProposal && (
+                  <div className="rounded-surface border border-rule p-4">
+                    <ValueBlock
+                      label={t("details.nameProposal.proposedName")}
+                      value={nameProposal.value}
+                    />
+                    <p className="mt-3 type-body-sm text-ink-soft">
+                      {t("details.nameProposal.confidenceReason", {
+                        confidence: t("details.nameProposal.high"),
+                        reason: nameProposal.reason,
+                      })}
+                    </p>
+                    <ul className="mt-3 space-y-1">
+                      {nameProposal.evidence.map((evidence) => (
+                        <li key={`${evidence.source}-${evidence.url}-${evidence.observedName}`}>
+                          <a
+                            className="type-nav font-semibold text-accent underline-offset-4 hover:underline break-all"
+                            href={evidence.url}
+                            target="_blank"
+                            rel="noreferrer"
+                          >
+                            {t(`details.nameProposal.sources.${evidence.source}`)}: {evidence.observedName}
+                          </a>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
                 <ValueBlock
                   label={t("fields.description")}
                   value={narrative.description}
@@ -733,9 +771,11 @@ function InlineEditSection({
 
 function ContentEditor({
   draft,
+  nameProposal,
   onUpdate,
 }: {
   draft: SubmissionReviewData;
+  nameProposal: BrandNameProposal | null;
   onUpdate: <K extends keyof SubmissionReviewData>(
     key: K,
     value: SubmissionReviewData[K],
@@ -750,6 +790,42 @@ function ContentEditor({
           onChange={(event) => onUpdate("name", event.target.value)}
         />
       </Field>
+      {nameProposal && (
+        <div className="rounded-surface border border-rule p-4">
+          <Field label={t("details.nameProposal.proposedName")}>
+            <Input value={nameProposal.value} readOnly />
+          </Field>
+          <p className="mt-3 type-body-sm text-ink-soft">
+            {t("details.nameProposal.confidenceReason", {
+              confidence: t("details.nameProposal.high"),
+              reason: nameProposal.reason,
+            })}
+          </p>
+          <ul className="mt-3 space-y-1">
+            {nameProposal.evidence.map((evidence) => (
+              <li key={`${evidence.source}-${evidence.url}-${evidence.observedName}`}>
+                <a
+                  className="type-nav font-semibold text-accent underline-offset-4 hover:underline break-all"
+                  href={evidence.url}
+                  target="_blank"
+                  rel="noreferrer"
+                >
+                  {t(`details.nameProposal.sources.${evidence.source}`)}: {evidence.observedName}
+                </a>
+              </li>
+            ))}
+          </ul>
+          <Button
+            className="mt-4"
+            type="button"
+            size="large"
+            variant="secondary"
+            onClick={() => onUpdate("name", nameProposal.value)}
+          >
+            {t("details.nameProposal.use")}
+          </Button>
+        </div>
+      )}
       <div className="grid gap-4 lg:grid-cols-2">
         <Field label={t("details.chineseDescription")}>
           <Textarea
