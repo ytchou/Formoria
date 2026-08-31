@@ -120,7 +120,6 @@ const BRAND: Brand = {
 
 const PEER_STATS: NonNullable<FaqBrandContext["peerStats"]> = {
   peerCount: 2,
-  cityClusters: [{ city: "臺南", count: 2 }],
 };
 
 function context(

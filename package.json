@@ -78,7 +78,8 @@
     "check:design-tokens": "node scripts/generate-design-tokens.mjs --check",
     "check:category-redirects": "tsx scripts/generate-category-redirects.ts --check",
     "langfuse:seed": "tsx scripts/langfuse-seed.ts",
-    "brand-names:backfill": "tsx --env-file=.env.local scripts/name-backfill/run.ts"
+    "brand-names:backfill": "tsx --env-file=.env.local scripts/name-backfill/run.ts",
+    "founding-facts:audit": "tsx --env-file=.env.local scripts/founding-facts-audit/index.ts"
   },
   "dependencies": {
     "@base-ui/react": "^1.7.0",

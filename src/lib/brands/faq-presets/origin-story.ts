@@ -1,4 +1,4 @@
-import { buildBrandContextSuffix, type FaqPreset } from "./types";
+import type { FaqPreset } from "./types";
 import {
   noKeywordStuffing,
   noCommerceClaims,
@@ -6,13 +6,11 @@ import {
   pureLanguage,
   withinLengthBand,
 } from "./validators";
-import { faqOriginStoryPrompt } from "@/lib/prompts";
 
 const originStory: FaqPreset = {
   id: "origin-story",
   eligible: (ctx) =>
-    ctx.brand.foundingYear != null &&
-    (ctx.brand.city?.trim().length ?? 0) > 0,
+    ctx.brand.foundingYear != null && (ctx.brand.city?.trim().length ?? 0) > 0,
   requiredEvidence: ["foundingYear", "city"],
   render: {
     questionKey: "brandFaq.originStory.question",
@@ -21,11 +19,10 @@ const originStory: FaqPreset = {
         brandName: ctx.brand.name,
         year: ctx.brand.foundingYear,
         city: ctx.cityLabel ?? ctx.brand.city ?? "",
-        context: buildBrandContextSuffix(ctx, t),
+        context: "",
       }),
   },
-  promptFragment: (ctx) =>
-    faqOriginStoryPrompt(ctx.brand.name, ctx.brand.foundingYear!),
+  promptFragment: null,
   // `groundedIn(requiredEvidence)` is derived in the registry (index.ts).
   validators: [
     pureLanguage(),

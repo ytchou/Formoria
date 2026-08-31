@@ -7,11 +7,14 @@ import {
 } from "../description-rewrite";
 import {
   extractBrandFacts,
+  researchFoundingFacts,
   type BrandFactsAttempt,
   type BrandFactsResult,
+  type FoundingFactSource,
   type ListingVerdict,
 } from "../brand-facts";
 import { normalizeSubcategories } from "@/lib/services/subcategories";
+import { acceptedFoundingFactValue } from "@/lib/services/founding-facts";
 import { CLEARED_FIELDS_KEY } from "@/lib/services/brand-write-policy";
 import { createServiceClient } from "@/lib/supabase/service";
 import { categoryLabelZh } from "@/lib/taxonomy/ontology";
@@ -267,7 +270,10 @@ export async function loadPersistedScrapeStructure(
   targetOrBrandId: EnrichmentTarget | string,
   injectedClient?: ReturnType<typeof createServiceClient>,
 ): Promise<
-  Record<string, { title: string | null; description: string | null; story: string | null }>
+  Record<
+    string,
+    { title: string | null; description: string | null; story: string | null }
+  >
 > {
   const supabase = injectedClient ?? createServiceClient();
   const target =
@@ -398,9 +404,72 @@ export function buildDescriptionEvidence(
   };
 }
 
+type SourceAddressableText = Record<
+  string,
+  {
+    title?: string | null;
+    description?: string | null;
+    story?: string | null;
+  }
+>;
+
+function parsedUrl(value: string): URL | null {
+  try {
+    return new URL(value);
+  } catch {
+    return null;
+  }
+}
+
+function isKnownBrandPage(
+  sourceUrl: string,
+  knownUrls: readonly string[],
+): boolean {
+  const source = parsedUrl(sourceUrl);
+  if (!source) return false;
+  return knownUrls.some((knownUrl) => {
+    const known = parsedUrl(knownUrl);
+    if (!known || known.hostname !== source.hostname) return false;
+    const knownPath = known.pathname.replace(/\/$/u, "");
+    return knownPath === "" || source.pathname.startsWith(knownPath);
+  });
+}
+
+/** Converts scrape output into the source-addressable contract the verifier needs. */
+export function buildFoundingFactSources(
+  perSourceText: SourceAddressableText,
+  evidence: DescriptionEvidence,
+): FoundingFactSource[] {
+  const knownUrls = Object.values(evidence.links ?? {}).filter(
+    (value): value is string => typeof value === "string" && value.length > 0,
+  );
+
+  return Object.entries(perSourceText).flatMap(([url, source]) => {
+    const text = [source.title, source.description, source.story]
+      .filter(
+        (value): value is string =>
+          typeof value === "string" && value.trim().length > 0,
+      )
+      .join("\n");
+    if (!text || !parsedUrl(url)) return [];
+    return [
+      {
+        url,
+        text,
+        sourceType: isKnownBrandPage(url, knownUrls)
+          ? "first-party"
+          : "independent",
+        reputable: isKnownBrandPage(url, knownUrls),
+        fetched: true,
+      } satisfies FoundingFactSource,
+    ];
+  });
+}
+
 export async function runDescriptionsPhase({
   brand,
   phases,
+  scrapedData,
   serpSnippets,
   overwrite = false,
   dryRun = false,
@@ -431,7 +500,10 @@ export async function runDescriptionsPhase({
     { provider: "enrich", operation: "runDescriptionsPhase", kind: "service" },
     async (ctx) => {
       const effectiveTarget = target ?? brandTarget(brand.id);
-      const persistedScrape = await loadPersistedScrapeText(effectiveTarget);
+      const [persistedScrape, persistedStructure] = await Promise.all([
+        loadPersistedScrapeText(effectiveTarget),
+        loadPersistedScrapeStructure(effectiveTarget),
+      ]);
       const effectiveSnippets = [...serpSnippets, ...persistedScrape.snippets];
 
       if (effectiveSnippets.length === 0 && !brand.description) {
@@ -485,6 +557,13 @@ export async function runDescriptionsPhase({
           pendingPatch,
           imageAlts,
         );
+        const foundingSources = buildFoundingFactSources(
+          {
+            ...persistedStructure,
+            ...(scrapedData?.perSourceText ?? {}),
+          },
+          evidence,
+        );
         const auditContext = {
           target: effectiveTarget,
           ...(jobId ? { jobId } : {}),
@@ -517,7 +596,28 @@ export async function runDescriptionsPhase({
               ctx,
             )
           : null;
-        const brandFacts = factsOutput?.result ?? null;
+        const rawBrandFacts = factsOutput?.result ?? null;
+        const foundingOutput =
+          rawBrandFacts && rawBrandFacts.listing?.verdict !== "reject"
+            ? await researchFoundingFacts(
+                displayBrandName,
+                foundingSources,
+                auditContext,
+              )
+            : null;
+        const brandFacts = rawBrandFacts
+          ? {
+              ...rawBrandFacts,
+              city: foundingOutput
+                ? (acceptedFoundingFactValue(foundingOutput.city) as
+                    string | null)
+                : null,
+              foundingYear: foundingOutput
+                ? (acceptedFoundingFactValue(foundingOutput.foundingYear) as
+                    number | null)
+                : null,
+            }
+          : null;
         const factsAttempts = factsOutput?.attempts ?? [];
         const listingVerdict = brandFacts?.listing ?? null;
 
@@ -593,7 +693,10 @@ export async function runDescriptionsPhase({
             brandFacts,
             attempts: [] as DescriptionAttempt[],
             factsAttempts,
-            calls: factsOutput?.calls ?? noLlmCalls(),
+            calls: addLlmCalls(
+              factsOutput?.calls ?? noLlmCalls(),
+              foundingOutput?.calls ?? noLlmCalls(),
+            ),
             listingVerdict,
           };
         }
@@ -612,7 +715,10 @@ export async function runDescriptionsPhase({
         const descriptionRewrite = descriptionRewriteOutput?.result ?? null;
         const attempts = descriptionRewriteOutput?.attempts ?? [];
         const calls = addLlmCalls(
-          factsOutput?.calls ?? noLlmCalls(),
+          addLlmCalls(
+            factsOutput?.calls ?? noLlmCalls(),
+            foundingOutput?.calls ?? noLlmCalls(),
+          ),
           descriptionRewriteOutput?.calls ?? noLlmCalls(),
         );
 

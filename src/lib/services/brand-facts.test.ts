@@ -1,5 +1,10 @@
 import { describe, expect, it, vi } from "vitest";
-import { parseBrandFactsResult, FACTS_SCHEMA, extractBrandFacts } from "./brand-facts";
+import {
+  parseBrandFactsResult,
+  FACTS_SCHEMA,
+  extractBrandFacts,
+  researchFoundingFacts,
+} from "./brand-facts";
 import { L1_CATEGORIES } from "@/lib/taxonomy/ontology";
 import { fetchLangfusePrompt } from "@/lib/langfuse/prompt";
 import { createProfiledOpenAIClient } from "./llm-audit";
@@ -271,5 +276,105 @@ describe("FACTS_SCHEMA", () => {
         material_vocab_block: expect.any(String),
       }),
     );
+  });
+});
+
+describe("researchFoundingFacts", () => {
+  const sources = [
+    {
+      url: "https://harbor-form.tw/about",
+      text: "Harbor Form was founded in Taipei in 2019.",
+      sourceType: "first-party" as const,
+      reputable: true,
+      fetched: true,
+    },
+  ];
+
+  it("uses a separate verification call before accepting an extracted fact", async () => {
+    const extractionChat = vi.fn().mockResolvedValue({
+      response: { ok: true, status: 200 },
+      data: {},
+      content: JSON.stringify({
+        claims: [
+          {
+            field: "city",
+            value: "taipei",
+            cited_url: sources[0].url,
+            exact_excerpt: sources[0].text,
+            location_context: "founding",
+          },
+        ],
+      }),
+    });
+    const verificationChat = vi.fn().mockResolvedValue({
+      response: { ok: true, status: 200 },
+      data: {},
+      content: JSON.stringify({
+        results: [{ claim_index: 0, passed: true, reason: null }],
+      }),
+    });
+    vi.mocked(createProfiledOpenAIClient)
+      .mockReturnValueOnce({ chat: extractionChat } as never)
+      .mockReturnValueOnce({ chat: verificationChat } as never);
+    vi.stubEnv("OPENAI_API_KEY", "test-key");
+
+    const result = await researchFoundingFacts("Harbor Form", sources, {
+      jobId: "job-1",
+      target: { type: "brand", id: "brand-1" },
+    });
+
+    expect(result?.city.value).toBe("taipei");
+    expect(result?.city.confidence).toBe("high");
+    expect(extractionChat).toHaveBeenCalledTimes(1);
+    expect(verificationChat).toHaveBeenCalledTimes(1);
+    expect(createProfiledOpenAIClient).toHaveBeenCalledWith(
+      "foundingFactsVerify",
+      expect.objectContaining({ phase: "founding_facts_verify" }),
+      { apiKey: "test-key" },
+    );
+  });
+
+  it("rejects a proposal when the verification call does not support it", async () => {
+    vi.mocked(createProfiledOpenAIClient)
+      .mockReturnValueOnce({
+        chat: vi.fn().mockResolvedValue({
+          response: { ok: true, status: 200 },
+          data: {},
+          content: JSON.stringify({
+            claims: [
+              {
+                field: "city",
+                value: "taipei",
+                cited_url: sources[0].url,
+                exact_excerpt: sources[0].text,
+                location_context: "founding",
+              },
+            ],
+          }),
+        }),
+      } as never)
+      .mockReturnValueOnce({
+        chat: vi.fn().mockResolvedValue({
+          response: { ok: true, status: 200 },
+          data: {},
+          content: JSON.stringify({
+            results: [
+              {
+                claim_index: 0,
+                passed: false,
+                reason: "The excerpt does not describe founding.",
+              },
+            ],
+          }),
+        }),
+      } as never);
+    vi.stubEnv("OPENAI_API_KEY", "test-key");
+
+    const result = await researchFoundingFacts("Harbor Form", sources, {
+      target: { type: "brand", id: "brand-1" },
+    });
+
+    expect(result?.city.value).toBeNull();
+    expect(result?.city.rejections).toContain("verification-failed");
   });
 });

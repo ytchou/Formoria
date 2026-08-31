@@ -15,16 +15,10 @@ const categoryPosition: FaqPreset = {
     const stats = ctx.peerStats;
     if (!stats) return "";
 
-    const cities = stats.cityClusters
-      .slice(0, 3)
-      .map((cluster) => `${cluster.city}: ${cluster.count}`)
-      .join(", ");
-
     return faqCategoryPositionPrompt({
       brandName: ctx.brand.name,
       categorySlug: ctx.brand.categorySlug ?? "",
       peerCount: stats.peerCount,
-      cities,
     });
   },
   // `groundedIn(requiredEvidence)` is derived once in the registry (index.ts),

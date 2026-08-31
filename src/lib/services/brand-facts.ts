@@ -1,4 +1,8 @@
-import { FACTS_SYSTEM_PROMPT } from "@/lib/prompts";
+import {
+  FACTS_SYSTEM_PROMPT,
+  FOUNDING_FACTS_SYSTEM_PROMPT,
+  FOUNDING_FACTS_VERIFY_SYSTEM_PROMPT,
+} from "@/lib/prompts";
 import {
   CATEGORY_LIST,
   SUBCATEGORY_VOCAB_BLOCK,
@@ -19,6 +23,14 @@ import { parseExtractionResult } from "./category-classifier";
 import { L1_CATEGORIES } from "@/lib/taxonomy/ontology";
 import { normalizeSubcategories } from "@/lib/services/subcategories";
 import { noLlmCalls, type LlmCallCounts } from "./_shared/llm-call-outcome";
+import {
+  evaluateFoundingFact,
+  type EvaluatedFoundingFact,
+  type FoundingFactClaim,
+  type FoundingFactField,
+  type FoundingFactSourceType,
+  type FoundingLocationContext,
+} from "./founding-facts";
 
 /** Punctuation-only zh-TW normalization. Nothing here rewrites vocabulary. */
 function localizeZhText(text: string): string {
@@ -239,6 +251,285 @@ export type BrandFactsOutput = {
   calls: LlmCallCounts;
 };
 
+export type FoundingFactSource = {
+  url: string;
+  text: string;
+  sourceType: FoundingFactSourceType;
+  reputable: boolean;
+  fetched: boolean;
+};
+
+export type FoundingFactResearchOutput = {
+  city: EvaluatedFoundingFact;
+  foundingYear: EvaluatedFoundingFact;
+  claims: FoundingFactClaim[];
+  calls: LlmCallCounts;
+};
+
+type RawFoundingClaim = {
+  field?: unknown;
+  value?: unknown;
+  cited_url?: unknown;
+  exact_excerpt?: unknown;
+  location_context?: unknown;
+};
+
+type RawVerificationResult = {
+  claim_index?: unknown;
+  passed?: unknown;
+  reason?: unknown;
+};
+
+const FOUNDING_LOCATION_CONTEXTS = new Set<FoundingLocationContext>([
+  "founding",
+  "headquarters",
+  "contact",
+  "studio",
+  "store",
+  "current",
+  "unclear",
+]);
+
+export const FOUNDING_FACTS_SCHEMA = {
+  name: "founding_fact_claims",
+  schema: {
+    type: "object" as const,
+    additionalProperties: false,
+    required: ["claims"],
+    properties: {
+      claims: {
+        type: "array" as const,
+        items: {
+          type: "object" as const,
+          additionalProperties: false,
+          required: [
+            "field",
+            "value",
+            "cited_url",
+            "exact_excerpt",
+            "location_context",
+          ],
+          properties: {
+            field: { enum: ["city", "founding_year"] },
+            value: { type: ["string", "number"] as const },
+            cited_url: { type: "string" as const },
+            exact_excerpt: { type: "string" as const },
+            location_context: {
+              enum: [
+                "founding",
+                "headquarters",
+                "contact",
+                "studio",
+                "store",
+                "current",
+                "unclear",
+              ],
+            },
+          },
+        },
+      },
+    },
+  },
+};
+
+export const FOUNDING_FACTS_VERIFY_SCHEMA = {
+  name: "founding_fact_verification",
+  schema: {
+    type: "object" as const,
+    additionalProperties: false,
+    required: ["results"],
+    properties: {
+      results: {
+        type: "array" as const,
+        items: {
+          type: "object" as const,
+          additionalProperties: false,
+          required: ["claim_index", "passed", "reason"],
+          properties: {
+            claim_index: { type: "integer" as const },
+            passed: { type: "boolean" as const },
+            reason: { type: ["string", "null"] as const },
+          },
+        },
+      },
+    },
+  },
+};
+
+function sourceKey(url: string): string | null {
+  try {
+    const parsed = new URL(url);
+    parsed.hash = "";
+    return parsed.href.replace(/\/$/u, "");
+  } catch {
+    return null;
+  }
+}
+
+function parseFoundingClaims(
+  content: string,
+  sources: readonly FoundingFactSource[],
+): Array<Omit<FoundingFactClaim, "verification">> {
+  const parsed = parseJson<{ claims?: RawFoundingClaim[] }>(content);
+  if (!Array.isArray(parsed?.claims)) return [];
+  const sourceByUrl = new Map(
+    sources.flatMap((source) => {
+      const key = sourceKey(source.url);
+      return key ? [[key, source] as const] : [];
+    }),
+  );
+
+  return parsed.claims.slice(0, 20).flatMap((raw) => {
+    const field =
+      raw.field === "city" || raw.field === "founding_year"
+        ? (raw.field as FoundingFactField)
+        : null;
+    const citedUrl = typeof raw.cited_url === "string" ? raw.cited_url : "";
+    const source = sourceByUrl.get(sourceKey(citedUrl) ?? "");
+    const value = raw.value;
+    const exactExcerpt =
+      typeof raw.exact_excerpt === "string" ? raw.exact_excerpt.trim() : "";
+    const locationContext = FOUNDING_LOCATION_CONTEXTS.has(
+      raw.location_context as FoundingLocationContext,
+    )
+      ? (raw.location_context as FoundingLocationContext)
+      : "unclear";
+    if (
+      !field ||
+      !source ||
+      (typeof value !== "string" && typeof value !== "number") ||
+      !exactExcerpt
+    ) {
+      return [];
+    }
+    return [
+      {
+        field,
+        value,
+        citedUrl: source.url,
+        exactExcerpt,
+        sourceText: source.fetched ? source.text : null,
+        sourceType: source.sourceType,
+        reputable: source.reputable,
+        locationContext,
+      },
+    ];
+  });
+}
+
+function parseVerificationResults(
+  content: string,
+): Map<number, { passed: boolean; reason: string | null }> {
+  const parsed = parseJson<{ results?: RawVerificationResult[] }>(content);
+  const results = new Map<number, { passed: boolean; reason: string | null }>();
+  for (const raw of parsed?.results ?? []) {
+    if (!Number.isInteger(raw.claim_index) || typeof raw.passed !== "boolean")
+      continue;
+    results.set(raw.claim_index as number, {
+      passed: raw.passed,
+      reason: typeof raw.reason === "string" ? raw.reason : null,
+    });
+  }
+  return results;
+}
+
+function emptyFoundingResearch(
+  calls = noLlmCalls(),
+): FoundingFactResearchOutput {
+  return {
+    city: evaluateFoundingFact("city", []),
+    foundingYear: evaluateFoundingFact("founding_year", []),
+    claims: [],
+    calls,
+  };
+}
+
+/** Runs extraction and a distinct verifier; deterministic code assigns confidence. */
+export async function researchFoundingFacts(
+  brandName: string,
+  sources: readonly FoundingFactSource[],
+  audit: Pick<LlmAuditContext, "jobId" | "target">,
+): Promise<FoundingFactResearchOutput | null> {
+  const token = process.env.OPENAI_API_KEY;
+  if (!token || sources.length === 0) return null;
+  const calls = noLlmCalls();
+  const boundedSources = sources.map((source) => ({
+    ...source,
+    text: source.text.slice(0, 8_000),
+  }));
+  const extractionConfig = buildProfiledEnrichmentConfig(
+    "founding_facts",
+    FOUNDING_FACTS_SYSTEM_PROMPT,
+    "foundingFacts",
+  );
+  const extraction = await createProfiledOpenAIClient(
+    "foundingFacts",
+    { ...audit, phase: "founding_facts", config: extractionConfig },
+    { apiKey: token },
+  ).chat({
+    system: FOUNDING_FACTS_SYSTEM_PROMPT,
+    user: JSON.stringify({ brandName, sources: boundedSources }),
+    json: true,
+    schema: FOUNDING_FACTS_SCHEMA,
+    ...profileChatParams("foundingFacts"),
+  });
+  calls.attempted += 1;
+  if (!extraction.response.ok) {
+    calls.providerFailed += 1;
+    return emptyFoundingResearch(calls);
+  }
+  if (!extraction.content) return emptyFoundingResearch(calls);
+
+  const proposed = parseFoundingClaims(extraction.content, boundedSources);
+  if (proposed.length === 0) return emptyFoundingResearch(calls);
+
+  const verificationConfig = buildProfiledEnrichmentConfig(
+    "founding_facts_verify",
+    FOUNDING_FACTS_VERIFY_SYSTEM_PROMPT,
+    "foundingFactsVerify",
+  );
+  const verification = await createProfiledOpenAIClient(
+    "foundingFactsVerify",
+    { ...audit, phase: "founding_facts_verify", config: verificationConfig },
+    { apiKey: token },
+  ).chat({
+    system: FOUNDING_FACTS_VERIFY_SYSTEM_PROMPT,
+    user: JSON.stringify({
+      brandName,
+      sources: boundedSources,
+      claims: proposed.map((claim, claimIndex) => ({ claimIndex, ...claim })),
+    }),
+    json: true,
+    schema: FOUNDING_FACTS_VERIFY_SCHEMA,
+    ...profileChatParams("foundingFactsVerify"),
+  });
+  calls.attempted += 1;
+  if (!verification.response.ok) calls.providerFailed += 1;
+  const verified = verification.content
+    ? parseVerificationResults(verification.content)
+    : new Map<number, { passed: boolean; reason: string | null }>();
+  const claims: FoundingFactClaim[] = proposed.map((claim, index) => ({
+    ...claim,
+    verification: verified.get(index) ?? {
+      passed: false,
+      reason: "verification result missing",
+    },
+  }));
+
+  return {
+    city: evaluateFoundingFact(
+      "city",
+      claims.filter((claim) => claim.field === "city"),
+    ),
+    foundingYear: evaluateFoundingFact(
+      "founding_year",
+      claims.filter((claim) => claim.field === "founding_year"),
+    ),
+    claims,
+    calls,
+  };
+}
+
 /** Prompt-shaping params — stored in the audit contract, not sent as request params. */
 const FACTS_PROMPT_PARAMS = {
   snippetLimit: 10,
@@ -279,11 +570,15 @@ export async function extractBrandFacts(
   // Counted across both attempts: a first call the model answered and a second
   // that hit a spent account is not an outage.
   const calls = noLlmCalls();
-  const factsSystemPrompt = await fetchLangfusePrompt("brand-facts", FACTS_SYSTEM_PROMPT, {
-    category_list: CATEGORY_LIST,
-    subcategory_vocab_block: SUBCATEGORY_VOCAB_BLOCK,
-    material_vocab_block: MATERIAL_VOCAB_BLOCK,
-  });
+  const factsSystemPrompt = await fetchLangfusePrompt(
+    "brand-facts",
+    FACTS_SYSTEM_PROMPT,
+    {
+      category_list: CATEGORY_LIST,
+      subcategory_vocab_block: SUBCATEGORY_VOCAB_BLOCK,
+      material_vocab_block: MATERIAL_VOCAB_BLOCK,
+    },
+  );
 
   try {
     for (let attemptIndex = 0; attemptIndex < 2; attemptIndex += 1) {

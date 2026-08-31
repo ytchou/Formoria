@@ -11,7 +11,11 @@ export {
   SITE_IDENTITY_SYSTEM_PROMPT,
   SITE_IDENTITY_LABELS,
 } from "./site-identity";
-export { FACTS_SYSTEM_PROMPT } from "./facts";
+export {
+  FACTS_SYSTEM_PROMPT,
+  FOUNDING_FACTS_SYSTEM_PROMPT,
+  FOUNDING_FACTS_VERIFY_SYSTEM_PROMPT,
+} from "./facts";
 export { DESCRIPTION_SYSTEM_PROMPT } from "./descriptions";
 export { REPUTATION_SYSTEM_PROMPT } from "./reputation";
 export {
@@ -22,7 +26,6 @@ export {
   faqCategoryPositionPrompt,
   faqWhereToBuyPrompt,
   faqMaterialsPrompt,
-  faqOriginStoryPrompt,
 } from "./faq";
 export { IMAGE_CLASSIFY_SYSTEM_PROMPT } from "./classify-images";
 export { PRODUCTS_SYSTEM_PROMPT, PRODUCTS_LABELS } from "./products";
