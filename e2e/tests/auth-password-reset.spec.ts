@@ -46,28 +46,12 @@ test.describe('Auth — forgot password request', () => {
       captureId = capture.id;
       await anonPage.goto(capturedAuthLink(capture));
       await anonPage.waitForURL(/\/auth\/reset-password/, { timeout: BUDGET.NAVIGATION });
-      // Wait for the form to be interactive — confirms the recovery session
-      // cookies were set by the callback redirect chain.
+      // The callback redirect can expose the server-rendered form before the
+      // client tree is ready. Reload the settled route so this submit cannot
+      // fall back to a native POST during that redirect window.
+      await anonPage.reload({ waitUntil: "load" });
       const passwordInput = anonPage.getByLabel('新密碼', { exact: true });
       await expect(passwordInput).toBeVisible({ timeout: BUDGET.INTERACTIVE });
-      // The inputs are server-rendered before React hydrates. Probe a client
-      // Link without navigating so the submit below cannot fall back to a
-      // native POST before React's event handlers are attached.
-      await anonPage.waitForFunction(() => {
-        const link = Array.from(document.querySelectorAll("a")).find((item) =>
-          item.textContent?.includes("回到登入"),
-        );
-        if (!link) return false;
-        let handled = false;
-        const onClick = (event: MouseEvent) => {
-          handled = event.defaultPrevented;
-          event.preventDefault();
-        };
-        document.addEventListener("click", onClick);
-        link.click();
-        document.removeEventListener("click", onClick);
-        return handled;
-      }, undefined, { timeout: BUDGET.INTERACTIVE });
       const nextPassword = `Recovery-updated-${Date.now()}A!`;
       await passwordInput.fill(nextPassword);
       await anonPage.getByLabel('確認新密碼', { exact: true }).fill(nextPassword);
