@@ -10,6 +10,7 @@ import AboutHero from "@/components/about/about-hero";
 import { PullQuote } from "@/components/stories/pull-quote";
 import { buttonVariants } from "@/components/ui/button";
 import { PageShell } from "@/components/ui/page-shell";
+import { PhotoBand } from "@/components/ui/photo-band";
 import { getBrandStats, getRecentBrandCount } from "@/lib/services/brands";
 import { captureReadFailure, markRenderDegraded } from "@/lib/degraded-render";
 import { routes } from "@/lib/routes";
@@ -174,6 +175,13 @@ export default async function AboutPage({ params }: PageProps) {
             </div>
           </PageShell>
         </section>
+
+        <PhotoBand
+          image="/images/about-rush-clay.webp"
+          alt=""
+          scrim="decorative"
+          className="h-90 py-0"
+        />
 
         {/* Stance */}
         <section className="py-section">
