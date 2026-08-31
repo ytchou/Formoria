@@ -10,7 +10,9 @@ const SESSION_EXPIRED = '重設連結已過期，請重新申請';
 
 test.describe('Auth — forgot password request', () => {
   test('follows a captured recovery link and updates the password', async ({ anonPage }, testInfo) => {
-    test.setTimeout(BUDGET.TEST.JOURNEY);
+    // This journey creates a user, triggers an email, captures it via Resend,
+    // follows the link, and submits a new password — MUTATION budget, not JOURNEY.
+    test.setTimeout(BUDGET.TEST.MUTATION);
     const admin = createClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
       process.env.SUPABASE_SERVICE_ROLE_KEY!,
@@ -56,7 +58,8 @@ test.describe('Auth — forgot password request', () => {
         deleteCapturedAuthEmail(captureId)
           .then(() => null)
           .catch((error: unknown) => error instanceof Error ? error.message : String(error)),
-        admin.auth.admin.deleteUser(createdUserId!).then(({ error }) => error?.message ?? null),
+        admin.auth.admin.deleteUser(createdUserId!).then(({ error }) =>
+          error && error.message !== 'User not found' ? error.message : null),
       ])).filter(Boolean);
       expect(cleanupErrors, 'recovery journey cleanup must remove every resource').toEqual([]);
     }
