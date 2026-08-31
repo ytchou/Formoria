@@ -7,6 +7,11 @@ export type Json =
   | Json[]
 
 export type Database = {
+  // Allows to automatically instantiate createClient with right options
+  // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
+  __InternalSupabase: {
+    PostgrestVersion: "14.5"
+  }
   public: {
     Tables: {
       admin_audit_log: {
@@ -2976,6 +2981,18 @@ export type Database = {
       apply_brand_refresh_with_protected_location_gate: {
         Args: { p_reviewer_id: string; p_submission_id: string }
         Returns: string[]
+      }
+      apply_founding_fact_audit_patch: {
+        Args: {
+          p_actor: string
+          p_allow_protected?: boolean
+          p_brand_id: string
+          p_expected: Json
+          p_expected_protection: Json
+          p_patch: Json
+          p_source: string
+        }
+        Returns: boolean
       }
       apply_submission_enrichment_result: {
         Args: {
