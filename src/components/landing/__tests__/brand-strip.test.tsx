@@ -72,7 +72,6 @@ const mockBrands = [
     id: "1",
     name: "Brand A",
     slug: "brand-a",
-    logoUrl: "/i/logos/a.webp",
     heroImageUrl: "/img/a.webp",
     categorySlug: "home",
     cityName: null,
@@ -81,7 +80,6 @@ const mockBrands = [
     id: "2",
     name: "Brand B",
     slug: "brand-b",
-    logoUrl: "/i/logos/b.webp",
     heroImageUrl: "/img/b.webp",
     categorySlug: "kitchen",
     cityName: null,
@@ -90,7 +88,6 @@ const mockBrands = [
     id: "3",
     name: "Brand C",
     slug: "brand-c",
-    logoUrl: null,
     heroImageUrl: null,
     categorySlug: "stationery",
     cityName: null,
@@ -99,7 +96,6 @@ const mockBrands = [
     id: "4",
     name: "Brand D",
     slug: "brand-d",
-    logoUrl: null,
     heroImageUrl: "/img/d.webp",
     categorySlug: "food",
     cityName: null,
@@ -138,7 +134,7 @@ describe("BrandStrip", () => {
     expect(screen.queryByTestId("brand-image")).not.toBeInTheDocument();
   });
 
-  it("renders initial-letter fallback when brand has neither logoUrl nor heroImageUrl", async () => {
+  it("renders initial-letter fallback when brand has no heroImageUrl", async () => {
     render(await BrandStrip({ brands: mockBrands, totalCount: 700 }));
 
     const fallbacks = screen.getAllByText(/^[A-Z]$/);
