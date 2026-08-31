@@ -917,18 +917,21 @@ function targetToEnqueueInput(target: CurationJobTarget): EnqueueTarget {
   };
 }
 
+const RETIRED_PHASE_NAMES = new Set(["expansion", "reputation"]);
+
 /**
- * Preserves a job's stored params for a retry or rerun, normalising the one
- * phase name that was renamed in place: `expansion` became `reputation` on
- * 2026-08-03. Re-enqueuing the legacy value would have it dropped by
- * `parseEnrichPhases` at run time, quietly narrowing the retry's scope.
+ * Preserves a job's stored params for a retry or rerun, dropping retired
+ * phase names. `expansion` was renamed to `reputation` on 2026-08-03; the
+ * reputation phase itself was removed on 2026-08-31. Both are filtered out
+ * so a historical job rerun doesn't silently escalate to full enrichment
+ * (empty phases array falls through to "run everything").
  */
 function parseJobParams(params: Json | null): CurationJobParams {
   if (!params || typeof params !== "object" || Array.isArray(params)) return {};
   const parsed = { ...params } as CurationJobParams;
   if (Array.isArray(parsed.phases)) {
-    parsed.phases = parsed.phases.map((phase) =>
-      phase === "expansion" ? "reputation" : phase,
+    parsed.phases = parsed.phases.filter(
+      (phase) => !RETIRED_PHASE_NAMES.has(phase),
     );
   }
   return parsed;
@@ -982,18 +985,12 @@ export type CurationResumeJob = CurationJob & {
 };
 
 /**
- * `reputation` was called `expansion` until 2026-08-03 and historical
- * `phase_results` rows still carry the old string. Normalising here is what
- * lets a pre-rename job's recorded phases be matched against the current
- * `ENRICH_PHASES` scope; without it every such phase would look "never
- * recorded" and the resume would re-run work that already succeeded.
- *
- * `job-runner` exports the same mapping, but importing it here would close an
- * import cycle (job-runner already imports this module), so the one-line
- * mapping is repeated rather than shared.
+ * Drops retired phase names from historical phase_results rows so they don't
+ * pollute resume scope calculations. `expansion` → `reputation` (2026-08-03),
+ * then `reputation` removed entirely (2026-08-31).
  */
-function normalizeLegacyPhaseName(phase: string): string {
-  return phase === "expansion" ? "reputation" : phase;
+function normalizeLegacyPhaseName(phase: string): string | null {
+  return RETIRED_PHASE_NAMES.has(phase) ? null : phase;
 }
 
 /**
@@ -1009,7 +1006,7 @@ export function effectiveRequestedPhases(
 ): EnrichPhaseName[] {
   // Explicit phases take precedence
   const phases = Array.isArray(params.phases)
-    ? new Set(params.phases.map(normalizeLegacyPhaseName))
+    ? new Set(params.phases.map(normalizeLegacyPhaseName).filter(Boolean))
     : null;
   if (phases && phases.size > 0) {
     const known = ENRICH_PHASES.filter((phase) => phases.has(phase));
@@ -1062,11 +1059,12 @@ function unfinishedPhasesForTargets(
   for (const target of targets) {
     const results = parsePhaseResults(target.phase_results);
     const recorded = new Set(
-      results.map((result) => normalizeLegacyPhaseName(result.phase)),
+      results.map((result) => normalizeLegacyPhaseName(result.phase)).filter(Boolean),
     );
     for (const result of results) {
-      if (result.status === "failed") {
-        owed.add(normalizeLegacyPhaseName(result.phase));
+      const normalized = normalizeLegacyPhaseName(result.phase);
+      if (result.status === "failed" && normalized) {
+        owed.add(normalized);
       }
     }
     for (const phase of scope) {

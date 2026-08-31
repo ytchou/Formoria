@@ -1089,7 +1089,7 @@ type LinksPhaseResult = Awaited<ReturnType<typeof runLinksPhase>>;
  *
  * Wave A runs detect application -> clean -> links. The batched serper image
  * call then runs with the websites and names those phases produced. Wave B
- * resumes from this object for the images, description, location, reputation,
+ * resumes from this object for the images, description, location, faq,
  * tag and persist phases.
  *
  * `completed` is the single source of truth for "this target already recorded a

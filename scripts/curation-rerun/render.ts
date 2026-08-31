@@ -248,9 +248,9 @@ async function resolveJobIds(
  * brand, resolved through the after-snapshot rather than a second query.
  *
  * Rows with a null `job_id` are excluded by the job filter, and that is load
- * bearing: `insertTriageResult` / `insertReputationResult` write result-shaped
- * rows carrying no usage, and counting them would inflate the call count with
- * calls that were already billed under their audit row.
+ * bearing: `insertTriageResult` writes result-shaped rows carrying no usage,
+ * and counting them would inflate the call count with calls that were already
+ * billed under their audit row.
  */
 async function loadCosts(
   supabase: SupabaseClient,
