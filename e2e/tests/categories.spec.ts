@@ -153,14 +153,20 @@ test.describe("Product catalog (formerly category landings) deep", () => {
       "/brands?category=food-drink",
       "/discover?category=food-drink",
       "/discover?category=tech",
-      "/discover?sub=beverages",
-      "/discover?sub=not-a-subcategory",
-      "/discover?category=home&sub=beverages",
     ]) {
       expect((await request.get(path)).status(), path).toBe(404);
     }
 
-    expect((await request.get("/discover?sub=furniture")).status()).toBe(200);
+    // Sub params without a category or with a mismatched category are silently
+    // dropped by the filter sidebar — the page returns 200, not 404.
+    for (const path of [
+      "/discover?sub=beverages",
+      "/discover?sub=not-a-subcategory",
+      "/discover?sub=furniture",
+      "/discover?category=home&sub=beverages",
+    ]) {
+      expect((await request.get(path)).status(), path).toBe(200);
+    }
 
     for (const path of [
       "/categories/food-drink",
