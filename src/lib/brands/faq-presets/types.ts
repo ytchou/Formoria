@@ -4,12 +4,10 @@ import type { PublicBrandFaqContext } from "@/lib/brands/contracts";
 export type EvidenceKey =
   | "categorySlug"
   | "subcategories"
-  | "reputationSummary"
   | "foundingYear"
   | "city"
   | "peerStats"
-  | "purchaseChannels"
-  | "material";
+  | "purchaseChannels";
 
 export type FaqTFn = (key: string, params?: Record<string, unknown>) => string;
 

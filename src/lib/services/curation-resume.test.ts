@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { ENRICH_LLM_PHASES } from "@/lib/constants/enrich-phases";
+import { ENRICH_LLM_PHASES, ENRICH_PHASES } from "@/lib/constants/enrich-phases";
 import type { Json } from "@/lib/supabase/database.types";
 import {
   planCurationResume,
@@ -63,7 +63,6 @@ describe("planCurationResume", () => {
       "classify_images",
       "descriptions",
       "stockists",
-      "reputation",
       "faq",
       "products",
     ]);
@@ -93,7 +92,6 @@ describe("planCurationResume", () => {
       "classify_images",
       "descriptions",
       "stockists",
-      "reputation",
       "faq",
       "products",
     ].map((name) => phase(name, "succeeded"));
@@ -148,14 +146,14 @@ describe("planCurationResume", () => {
     }
   });
 
-  it("normalizes the legacy `expansion` phase name so it is not resumed twice", () => {
+  it("normalizes the legacy `expansion` phase name (now removed) into the full-scope fallback", () => {
     const plans = planCurationResume({ phases: ["expansion"] } as Json, [
       target({ phaseResults: [phase("expansion", "succeeded")] }),
     ]);
 
-    // Recorded and requested both normalize to `reputation`: nothing is owed,
-    // so the LLM fallback returns just that phase rather than the whole set.
-    expect(plans.at(0)?.params.phases).toEqual(["reputation"]);
+    // `expansion` normalizes to `reputation`, but `reputation` is no longer in
+    // ENRICH_PHASES, so effectiveRequestedPhases falls through to the full set.
+    expect(plans.at(0)?.params.phases).toEqual([...ENRICH_PHASES]);
   });
 
   it("preserves the source job's overwrite flag", () => {

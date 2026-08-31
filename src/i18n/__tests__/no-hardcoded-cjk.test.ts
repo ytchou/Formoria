@@ -77,7 +77,6 @@ const ALLOWLIST = [
   "lib/services/description-rewrite.ts",
   "lib/services/brand-facts.ts",
   "lib/services/category-classifier.ts",
-  "lib/services/reputation-research.ts",
   // Image classify user message includes brand name in Chinese; detect has SEO keyword constants.
   "lib/services/enrich-phases/classify-images.ts",
   "lib/services/enrich-phases/detect.ts",

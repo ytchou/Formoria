@@ -24,9 +24,8 @@ export const ENRICH_PHASES = [
   "classify_images",
   "descriptions",
   "stockists",
-  "reputation",
-  // FAQ must run after `descriptions` (for `facts`) and `reputation` (for
-  // `reputationSummary`); both are hard ordering constraints.
+  // FAQ must run after `descriptions` (for `facts`); that is a hard ordering
+  // constraint.
   "faq",
   // Curated-product proposals (DEV-1469). Last, and after `links` /
   // `site_identity` by hard dependency: it proposes products from the brand's
@@ -105,7 +104,6 @@ export const ENRICH_LLM_PHASES = [
   "tags",
   "classify_images",
   "descriptions",
-  "reputation",
   "names",
   "site_identity",
   "faq",
@@ -143,7 +141,6 @@ export const ENRICH_STAGE_GROUPS = {
  *
  * Ordering-only edges are NOT listed here and do not enter the closure:
  *   - `faq ← descriptions` (reads `facts`)
- *   - `faq ← reputation` (reads `reputationSummary`)
  *   - `descriptions ← classify_images` (comment-only; `imageAlts` hardcoded [])
  * Those are enforced by ENRICH_PHASES ordering, not by the dependency map.
  *
@@ -168,7 +165,6 @@ export const PHASE_DEPENDENCIES: Record<EnrichPhaseName, readonly EnrichPhaseNam
   classify_images: ["images"],
   descriptions: ["links"],
   stockists: ["links"],
-  reputation: ["links"],
   faq: [],
   products: ["links", "site_identity", "classify_images"],
 };
@@ -209,7 +205,7 @@ export const CURATION_TASKS = {
   // Hidden aliases — DB compat for stored params.task values
   image: VISUAL_PHASES,
   product: VISUAL_PHASES,
-  editorial: ["descriptions", "reputation", "faq", "tags", "stockists"],
+  editorial: ["descriptions", "faq", "tags", "stockists"],
   full: ENRICH_PHASES.filter(
     (phase) => !(DEFERRED_PHASES as readonly string[]).includes(phase),
   ),
@@ -260,7 +256,7 @@ export function phasesForTask(
 const LEGACY_STEP_PHASES: Record<string, readonly EnrichPhaseName[]> = {
   context: ["discover", "detect", "slugs", "clean", "links", "names", "site_identity"],
   image: ["images", "classify_images"],
-  detail: ["descriptions", "reputation", "faq", "products", "tags", "stockists"],
+  detail: ["descriptions", "faq", "products", "tags", "stockists"],
 };
 
 /**

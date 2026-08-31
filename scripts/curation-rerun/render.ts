@@ -98,7 +98,6 @@ const CONTENT_FIELDS: ReadonlyArray<readonly [string, string]> = [
   ["blurb_en", "Blurb (en)"],
   ["description", "Description (zh)"],
   ["description_en", "Description (en)"],
-  ["reputation_summary", "Reputation"],
 ];
 
 function cmpRow(label: string, before: unknown, after: unknown): string {
@@ -177,7 +176,7 @@ type RefreshLog = {
  * and fall back to the legacy set, which is what those runs did execute.
  */
 const LEGACY_PHASE_PROSE =
-  "discover, detect, slugs, clean, links, names, site_identity, images, classify_images, descriptions, reputation, faq, products, tags";
+  "discover, detect, slugs, clean, links, names, site_identity, images, classify_images, descriptions, faq, products, tags";
 
 function phaseProse(logs: RefreshLog[]): string {
   const phases = [...new Set(logs.flatMap((l) => l.phases ?? []))];

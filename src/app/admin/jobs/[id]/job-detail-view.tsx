@@ -73,7 +73,7 @@ const phaseDescriptions = {
   // constant behind it, because nothing writes it any more — only historical
   // rows carry it, and dropping it would render `undefined` on those pages.
   expansion: "Adds reputation context when it is not already available.",
-} satisfies Record<AuditedPhaseName | "expansion" | "locations", string>;
+} satisfies Record<AuditedPhaseName | "expansion" | "locations" | "reputation", string>;
 
 const phaseDefinitions = [
   [

@@ -104,14 +104,6 @@ export const LLM_PROFILES = {
     reasoningEffort: "none",
     timeoutMs: 30_000,
   },
-  /** Reputation research. Longer timeout: the prompt carries full SERP + site text. */
-  reputation: {
-    model: "text",
-    maxTokens: 1200,
-    temperature: 0.1,
-    reasoningEffort: "none",
-    timeoutMs: 60_000,
-  },
   /** Structured bilingual FAQ generation from the eligible preset registry. */
   faq: {
     model: "text",

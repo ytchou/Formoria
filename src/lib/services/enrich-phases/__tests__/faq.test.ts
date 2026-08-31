@@ -209,12 +209,9 @@ describe("faq phase wiring", () => {
     expect(groups).toHaveLength(1);
   });
 
-  it("faq runs after descriptions and reputation", () => {
+  it("faq runs after descriptions", () => {
     expect(ENRICH_PHASES.indexOf("faq")).toBeGreaterThan(
       ENRICH_PHASES.indexOf("descriptions"),
-    );
-    expect(ENRICH_PHASES.indexOf("faq")).toBeGreaterThan(
-      ENRICH_PHASES.indexOf("reputation"),
     );
     // `products` runs after faq, so the last-phase claim now lives in
     // src/lib/constants/__tests__/enrich-phases.test.ts, which owns that ordering.

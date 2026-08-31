@@ -373,13 +373,13 @@ describe("upsertBrandFaqEntries — orphaned custom rows", () => {
 
   it("leaves non-custom presets untouched", async () => {
     table.push(
-      row({ preset_id: "reputation", position: 0, question_zh: "評價？", answer_zh: "舊評價" }),
+      row({ preset_id: "where-to-buy", position: 0, question_zh: "哪裡買？", answer_zh: "舊通路" }),
       row({ preset_id: "custom", position: 1, question_zh: "二", answer_zh: "舊二" }),
     );
 
     await write([customEntry(0, "新一")], { explicitFaqPhase: true });
 
-    expect(stored("reputation")?.answer_zh).toBe("舊評價");
+    expect(stored("where-to-buy")?.answer_zh).toBe("舊通路");
     expect(table.filter((entry) => entry.preset_id === "custom")).toHaveLength(1);
   });
 });

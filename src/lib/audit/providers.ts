@@ -126,8 +126,6 @@ const PROVIDERS = {
     "runLinksPhase",
     "runNamesPhase",
     "runProductsPhase",
-    "runReputationPhase",
-    "runReputationResearch",
     "runSiteIdentityPhase",
     "runStandaloneClassification",
     "runStockistsPhase",

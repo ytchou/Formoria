@@ -552,19 +552,11 @@
         "answerWithCategoryAndSubcategories": "{brandName} 以{category}為主要領域，代表產品包含{subcategories}。{context}",
         "answerWithSubcategories": "{brandName} 的代表產品包含{subcategories}。{context}"
       },
-      "reputation": {
-        "question": "{brandName} 的評價如何？",
-        "answer": "{brandName} 的評價重點包括：{summary}{context}"
-      },
       "whereToBuy": {
         "question": "{brandName} 在哪裡可以買到？",
         "answer": "{brandName} 的產品可以透過{channels}購買。{stockistNote}{context}",
         "stockistSuffix": "另有 {count} 個線下合作店家。",
         "noOnlineChannels": "實體通路"
-      },
-      "materials": {
-        "question": "{brandName} 使用什麼材料？",
-        "answer": "{brandName} 主要使用{materials}等材料。{context}"
       },
       "originStory": {
         "question": "{brandName} 是怎麼開始的？",
@@ -1819,7 +1811,7 @@
       "description": "這個頁面不存在或已移至其他位置。",
       "cta": "返回首頁",
       "browseDirectory": "瀏覽品牌目錄",
-      "categoriesHeading": "或者，探索這些類別："
+      "categoriesHeading": "從這裡開始探索："
     },
     "boundary": {
       "title": "發生錯誤",
