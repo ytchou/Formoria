@@ -24,7 +24,7 @@ export type SiteIdentityQuarantine = QuarantineGroup & {
   /**
    * The SAME object the caller holds as `state.scrapedData` (see
    * `curation-operations`), not a copy — `revokeText` mutates it in place so the
-   * channels, reputation and faq phases, which run after this one, never see
+   * downstream phases (faq, descriptions), which run after this one, never see
    * text from a page judged not-owned. Do not spread it on the way in.
    */
   scrapedData?: EnrichScrapedData
@@ -213,8 +213,8 @@ function revokedUrlMatcher(
  * a brand whose name yields zero Latin tokens the link-identity gate is a no-op,
  * so a stranger's social page can be scraped and — when the official site
  * yielded no text — win the merge. Without this, a high-confidence "not owned"
- * verdict left that copy in `scrapedData` for the channels, reputation and faq
- * phases, all of which run after this one.
+ * verdict left that copy in `scrapedData` for downstream phases (faq,
+ * descriptions), all of which run after this one.
  *
  * Scope is this run's payload, deliberately. Text is NOT added to
  * `_cleared_fields` the way a revoked link column is: `textProvenance` describes

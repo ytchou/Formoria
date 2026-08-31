@@ -41,9 +41,7 @@ export async function fetchPhaseHistory(
     for (const result of results) {
       if (result.status !== "succeeded") continue;
 
-      // Normalise the legacy `expansion` name to `reputation`.
-      const rawPhase =
-        result.phase === "expansion" ? "reputation" : result.phase;
+      const rawPhase = result.phase;
 
       if (!(ENRICH_PHASES as readonly string[]).includes(rawPhase)) continue;
       const phase = rawPhase as EnrichPhaseName;

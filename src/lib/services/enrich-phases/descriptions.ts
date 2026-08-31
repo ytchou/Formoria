@@ -112,11 +112,9 @@ async function canonicalizeSubcategorySlugs(
 
 /**
  * `_cleared_fields` — the verdict that a live field should now be EMPTY — is
- * deliberately absent from this phase. The only field whose null is an
- * affirmative verdict is `reputation_summary`, and that moved to `reputation.ts`
- * together with its resolver. A null `city`, `founding_year` or `category`
- * from this phase means "could not determine this run", and clearing those would
- * destroy correct data whenever a SERP call came back thin.
+ * deliberately absent from this phase. A null `city`, `founding_year` or
+ * `category` from this phase means "could not determine this run", and clearing
+ * those would destroy correct data whenever a SERP call came back thin.
  */
 function changedFieldsForPatch(patch: Record<string, unknown>): string[] {
   const changedFields: string[] = [];

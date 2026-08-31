@@ -52,7 +52,6 @@ const SEEDABLE_PHASES: readonly EnrichPhaseName[] = [
   'images',
   'products',
   'descriptions',
-  'reputation',
   'tags',
   'faq',
   'stockists',
@@ -98,9 +97,6 @@ function inferPhaseStatus(
     case 'descriptions':
       // Old predicate: brand.description is truthy
       return isNonEmptyString(row.brands?.description) ? 'succeeded' : null
-
-    case 'reputation':
-      return enrichedJson(row).reputation_summary ? 'succeeded' : null
 
     case 'tags':
       // DB key is `category` (mapped to categorySlug in TS)

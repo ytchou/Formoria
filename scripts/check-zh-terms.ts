@@ -155,7 +155,6 @@ export const EXCLUDED_SOURCE_FILES = new Map([
   ["lib/services/description-rewrite.ts", "LLM user-message template"],
   ["lib/services/brand-facts.ts", "LLM user-message template"],
   ["lib/services/category-classifier.ts", "LLM user-message template"],
-  ["lib/services/reputation-research.ts", "LLM user-message template"],
   ["lib/services/name-arbiter.ts", "LLM field labels and source examples"],
   [
     "lib/services/enrich-phases/names.ts",

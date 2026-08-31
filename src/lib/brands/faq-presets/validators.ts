@@ -46,11 +46,6 @@ function evidencePresent(key: EvidenceKey, ctx: FaqValidatorContext): boolean {
       );
     case "subcategories":
       return brand.subcategories.some((tag) => tag.trim() !== "");
-    case "reputationSummary":
-      return (
-        (brand.reputationSummary?.text?.trim().length ?? 0) >= 10 ||
-        (brand.reputationSummary?.textEn?.trim().length ?? 0) >= 10
-      );
     case "foundingYear":
       return brand.foundingYear != null;
     case "city":
@@ -68,8 +63,6 @@ function evidencePresent(key: EvidenceKey, ctx: FaqValidatorContext): boolean {
         (brand.purchaseMyship?.trim().length ?? 0) > 0 ||
         (brand.stockistCount ?? 0) > 0
       );
-    case "material":
-      return (brand.material?.length ?? 0) > 0;
   }
 }
 

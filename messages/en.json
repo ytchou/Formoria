@@ -552,19 +552,11 @@
         "answerWithCategoryAndSubcategories": "{brandName} focuses on {category}, with signature products including {subcategories}.{context}",
         "answerWithSubcategories": "{brandName} makes {subcategories} as signature products.{context}"
       },
-      "reputation": {
-        "question": "What is {brandName}'s reputation?",
-        "answer": "{brandName}'s reputation signals point to {summary}{context}"
-      },
       "whereToBuy": {
         "question": "Where can I buy {brandName} products?",
         "answer": "{brandName} products are available through {channels}.{stockistNote}{context}",
         "stockistSuffix": " There are also {count} physical retail locations.",
         "noOnlineChannels": "physical retail locations"
-      },
-      "materials": {
-        "question": "What materials does {brandName} use?",
-        "answer": "{brandName} primarily uses {materials}.{context}"
       },
       "originStory": {
         "question": "How did {brandName} get started?",
@@ -1819,7 +1811,7 @@
       "description": "This page doesn't exist or may have moved.",
       "cta": "Back to home",
       "browseDirectory": "Browse the directory",
-      "categoriesHeading": "Or explore these categories:"
+      "categoriesHeading": "Start exploring:"
     },
     "boundary": {
       "title": "Something went wrong",

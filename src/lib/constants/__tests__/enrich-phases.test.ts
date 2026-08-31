@@ -397,7 +397,6 @@ describe("SERP vs enrichment stage groups", () => {
     expect(ENRICH_LLM_PHASES).not.toContain("images");
     expect(ENRICH_LLM_PHASES).toContain("classify_images");
     expect(ENRICH_LLM_PHASES).toContain("descriptions");
-    expect(ENRICH_LLM_PHASES).toContain("reputation");
   });
 
   it("keeps LLM and serper phases out of the local stage", () => {

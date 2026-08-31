@@ -29,16 +29,8 @@ export function faqMainProductsPrompt(brandName: string): string {
   return `Based on the product tags provided for brand "${brandName}", supplement with verifiable material, process, or craftsmanship details; do not fabricate information not present in the sources.`;
 }
 
-export function faqReputationPrompt(summary: string): string {
-  return `Answer only based on the following provided reputation summary — do not add evaluations, ratings, or media information beyond the summary: ${summary}`;
-}
-
 export function faqWhereToBuyPrompt(brandName: string): string {
   return `List verified purchase channels for brand "${brandName}" — only cite channels present in the evidence. Do not describe pricing, discounts, or availability.`;
-}
-
-export function faqMaterialsPrompt(brandName: string): string {
-  return `Describe the materials used by brand "${brandName}" based on the material tags and evidence provided. Focus on material properties and craftsmanship, not pricing or availability.`;
 }
 
 export function faqCategoryPositionPrompt(input: {
