@@ -104,7 +104,7 @@
     "jose": "^6.2.4",
     "langfuse": "^3.38.20",
     "lucide-react": "^1.30.0",
-    "next": "16.2.10",
+    "next": "16.3.3",
     "next-intl": "^4.13.7",
     "next-mdx-remote": "^6.0.0",
     "pinyin-pro": "^3.29.3",
