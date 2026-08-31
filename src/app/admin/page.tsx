@@ -1,12 +1,14 @@
-import type { ReactNode } from "react";
+import { Suspense, type ReactNode } from "react";
 import Link from "next/link";
 import { ArrowUpRight } from "lucide-react";
 import { getTranslations } from "next-intl/server";
 import { AdminQuickActions } from "@/components/admin/admin-quick-actions";
+import { Skeleton } from "@/components/ui/skeleton";
 import { JobStatusBadge, formatJobDate } from "@/app/admin/jobs/job-display";
 import {
   getAdminOperationsSnapshot,
   type AdminOperationsMetrics,
+  type AdminOperationsSnapshot,
 } from "@/lib/services/admin-operations";
 import { cn } from "@/lib/utils";
 import { routes } from "@/lib/routes";
@@ -115,12 +117,99 @@ const metrics: Metric[] = [
   },
 ];
 
+type SnapshotPromise = Promise<AdminOperationsSnapshot>;
+
+async function OperationsGrid({
+  snapshotPromise,
+  unavailableLabel,
+}: {
+  snapshotPromise: SnapshotPromise;
+  unavailableLabel: string;
+}) {
+  const snapshot = await snapshotPromise;
+
+  return (
+    <div className="grid overflow-hidden rounded-surface border-l border-t border-rule sm:grid-cols-2 xl:grid-cols-5">
+      {metrics.map((metric) => {
+        const value = snapshot.metrics[metric.key];
+        return (
+          <OperationsCard
+            key={metric.key}
+            href={metric.href}
+            label={metric.label}
+            value={value ?? "—"}
+            description={value === null ? unavailableLabel : metric.description}
+            needsAttention={
+              metric.requiresAction && value !== null && value > 0
+            }
+          />
+        );
+      })}
+    </div>
+  );
+}
+
+async function QuickOperations({
+  snapshotPromise,
+}: {
+  snapshotPromise: SnapshotPromise;
+}) {
+  const snapshot = await snapshotPromise;
+  return <AdminQuickActions needsDataCount={snapshot.metrics.needsData} />;
+}
+
+async function RecentJobs({
+  snapshotPromise,
+  emptyLabel,
+}: {
+  snapshotPromise: SnapshotPromise;
+  emptyLabel: string;
+}) {
+  const snapshot = await snapshotPromise;
+
+  return (
+    <div className="divide-y divide-rule border-y border-rule">
+      {snapshot.recentJobs.length === 0 ? (
+        <p className="py-8 text-center text-ink-muted">{emptyLabel}</p>
+      ) : (
+        snapshot.recentJobs.map((job) => (
+          <Link
+            key={job.id}
+            href={routes.admin.job(job.id)}
+            className="grid min-h-16 gap-2 py-3 transition-colors hover:bg-surface focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent sm:grid-cols-[minmax(220px,1fr)_auto_auto] sm:items-center sm:px-3"
+          >
+            <span className="font-medium">{formatJobDate(job.created_at)}</span>
+            <span className="type-body-sm">
+              {job.succeeded_count +
+                job.skipped_count +
+                job.failed_count +
+                (job.cancelled_count ?? 0)}{" "}
+              / {job.target_total}
+            </span>
+            <JobStatusBadge job={job} />
+          </Link>
+        ))
+      )}
+    </div>
+  );
+}
+
+function OperationsGridFallback() {
+  return (
+    <div
+      aria-hidden
+      className="grid gap-px overflow-hidden rounded-surface bg-rule sm:grid-cols-2 xl:grid-cols-5"
+    >
+      {metrics.map((metric) => (
+        <Skeleton key={metric.href} className="h-40 rounded-none" />
+      ))}
+    </div>
+  );
+}
+
 export default async function AdminPage() {
-  const [snapshot, t] = await Promise.all([
-    getAdminOperationsSnapshot(),
-    getTranslations("admin.dashboard"),
-  ]);
-  const dashboardMetrics: Metric[] = metrics;
+  const snapshotPromise = getAdminOperationsSnapshot();
+  const t = await getTranslations("admin.dashboard");
 
   return (
     <div className="space-y-stack">
@@ -133,25 +222,12 @@ export default async function AdminPage() {
             {t("operationsOverviewDescription")}
           </p>
         </div>
-        <div className="grid overflow-hidden rounded-surface border-l border-t border-rule sm:grid-cols-2 xl:grid-cols-5">
-          {dashboardMetrics.map((metric) => {
-            const value = snapshot.metrics[metric.key];
-            return (
-              <OperationsCard
-                key={metric.key}
-                href={metric.href}
-                label={metric.label}
-                value={value ?? "—"}
-                description={
-                  value === null ? t("unavailable") : metric.description
-                }
-                needsAttention={
-                  metric.requiresAction && value !== null && value > 0
-                }
-              />
-            );
-          })}
-        </div>
+        <Suspense fallback={<OperationsGridFallback />}>
+          <OperationsGrid
+            snapshotPromise={snapshotPromise}
+            unavailableLabel={t("unavailable")}
+          />
+        </Suspense>
       </section>
 
       <section
@@ -163,7 +239,9 @@ export default async function AdminPage() {
             {t("quickOperations")}
           </h2>
         </div>
-        <AdminQuickActions needsDataCount={snapshot.metrics.needsData} />
+        <Suspense fallback={<Skeleton aria-hidden className="h-12 w-full" />}>
+          <QuickOperations snapshotPromise={snapshotPromise} />
+        </Suspense>
       </section>
 
       <section
@@ -184,33 +262,12 @@ export default async function AdminPage() {
             {t("recentJobs.viewAll")}
           </Link>
         </div>
-        <div className="divide-y divide-rule border-y border-rule">
-          {snapshot.recentJobs.length === 0 ? (
-            <p className="py-8 text-center text-ink-muted">
-              {t("recentJobs.empty")}
-            </p>
-          ) : (
-            snapshot.recentJobs.map((job) => (
-              <Link
-                key={job.id}
-                href={routes.admin.job(job.id)}
-                className="grid min-h-16 gap-2 py-3 transition-colors hover:bg-surface focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent sm:grid-cols-[minmax(220px,1fr)_auto_auto] sm:items-center sm:px-3"
-              >
-                <span className="font-medium">
-                  {formatJobDate(job.created_at)}
-                </span>
-                <span className="type-body-sm">
-                  {job.succeeded_count +
-                    job.skipped_count +
-                    job.failed_count +
-                    (job.cancelled_count ?? 0)}{" "}
-                  / {job.target_total}
-                </span>
-                <JobStatusBadge job={job} />
-              </Link>
-            ))
-          )}
-        </div>
+        <Suspense fallback={<Skeleton aria-hidden className="h-24 w-full" />}>
+          <RecentJobs
+            snapshotPromise={snapshotPromise}
+            emptyLabel={t("recentJobs.empty")}
+          />
+        </Suspense>
       </section>
     </div>
   );

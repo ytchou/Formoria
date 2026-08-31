@@ -4,8 +4,7 @@ import * as Sentry from "@sentry/nextjs";
 import { useEffect, useSyncExternalStore } from "react";
 import { Button } from "@/components/ui/button";
 import { PageShell } from "@/components/ui/page-shell";
-import en from "../../messages/en.json";
-import zhTW from "../../messages/zh-TW.json";
+import globalErrorCopy from "../../messages/global-error.json";
 
 function getBrowserLocale() {
   if (
@@ -31,7 +30,8 @@ export default function GlobalError({
     getBrowserLocale,
     () => "zh-TW",
   );
-  const copy = locale === "en" ? en.errors.boundary : zhTW.errors.boundary;
+  const copy =
+    locale === "en" ? globalErrorCopy.en : globalErrorCopy["zh-TW"];
 
   useEffect(() => {
     Sentry.captureException(error);

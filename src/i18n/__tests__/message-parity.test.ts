@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import { L1_CATEGORIES, L2_SUBCATEGORIES } from "@/lib/taxonomy/ontology";
 import en from "../../../messages/en.json";
+import globalErrorCopy from "../../../messages/global-error.json";
 import zhTW from "../../../messages/zh-TW.json";
 
 /**
@@ -98,6 +99,19 @@ const SEARCH_INTENT_KEYS = [
 ];
 
 describe("message catalogue parity", () => {
+  it("keeps the lightweight global error copy in sync", () => {
+    expect(globalErrorCopy.en).toEqual({
+      title: en.errors.boundary.title,
+      description: en.errors.boundary.description,
+      retry: en.errors.boundary.retry,
+    });
+    expect(globalErrorCopy["zh-TW"]).toEqual({
+      title: zhTW.errors.boundary.title,
+      description: zhTW.errors.boundary.description,
+      retry: zhTW.errors.boundary.retry,
+    });
+  });
+
   it("owns trail card labels in the trails namespace", () => {
     const oldEyebrowKey = ["trail", "Eyebrow"].join("");
     const oldCtaKey = ["trail", "Cta"].join("");

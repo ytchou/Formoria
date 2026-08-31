@@ -5,6 +5,11 @@ import { isActingAsAdmin } from '@/lib/auth/admin-mode'
 import { createClient } from '@/lib/supabase/server'
 
 export type ViewerContext = {
+  user: {
+    id: string
+    email: string | null
+    provider: string
+  } | null
   isAdmin: boolean
 }
 
@@ -17,10 +22,15 @@ export async function getViewerContextAction(): Promise<ViewerContext> {
     } = await supabase.auth.getUser()
 
     if (!user) {
-      return { isAdmin: false }
+      return { user: null, isAdmin: false }
     }
 
     return {
+      user: {
+        id: user.id,
+        email: user.email ?? null,
+        provider: user.app_metadata?.provider ?? 'email',
+      },
       isAdmin: await isActingAsAdmin(user.email),
     }
   });
