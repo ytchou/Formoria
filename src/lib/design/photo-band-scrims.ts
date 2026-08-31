@@ -39,8 +39,8 @@
  * from them, so the two cannot disagree.
  */
 
-/** Named after the alignment of the copy the scrim is protecting. */
-export type ScrimVariant = "left" | "center" | "flat" | "dark";
+/** Copy alignment, or `decorative` for a band with no overlaid copy. */
+export type ScrimVariant = "left" | "center" | "flat" | "dark" | "decorative";
 
 export type ScrimColorToken = "--ground" | "--surface-dark";
 
@@ -244,6 +244,36 @@ export const PHOTO_BAND_SCRIMS: Record<ScrimVariant, ScrimSpec> = {
         stops: [
           { offset: 0, alpha: 0.85 },
           { offset: 1, alpha: 0.85 },
+        ],
+      },
+    ],
+  },
+
+  /**
+   * Uniform warm-paper coverage for a copy-free atmospheric band. It keeps the
+   * photograph present while retaining the same fail-closed contrast proof as
+   * bands that carry copy; local opacity tuning remains forbidden.
+   */
+  decorative: {
+    breakpoints: [
+      {
+        colorToken: "--ground",
+        minWidth: 0,
+        textZone: [0, 1],
+        bandAspect: 0.75,
+        stops: [
+          { offset: 0, alpha: 0.7 },
+          { offset: 1, alpha: 0.7 },
+        ],
+      },
+      {
+        colorToken: "--ground",
+        minWidth: BREAKPOINT_PX,
+        textZone: [0, 1],
+        bandAspect: 2.4,
+        stops: [
+          { offset: 0, alpha: 0.7 },
+          { offset: 1, alpha: 0.7 },
         ],
       },
     ],

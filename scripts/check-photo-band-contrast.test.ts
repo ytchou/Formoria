@@ -107,6 +107,21 @@ describe("findBands — the JSX scanner", () => {
 
     expect(errors[0]).toContain('unknown scrim variant "diagonal"');
   });
+
+  it("does not treat a self-closing band's sibling text as overlaid copy", () => {
+    const { bands } = analyzeSource(
+      "fixture.tsx",
+      `export const A = () => (
+        <main>
+          <section><p className="type-eyebrow">Sibling copy</p></section>
+          <PhotoBand image="/images/x.webp" alt="" scrim="flat" />
+        </main>
+      );`,
+    );
+
+    expect(bands).toHaveLength(1);
+    expect(bands[0]!.classLists).toEqual([]);
+  });
 });
 
 describe("findHandRolledScrims — the ban", () => {

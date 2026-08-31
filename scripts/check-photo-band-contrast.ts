@@ -374,9 +374,8 @@ export function analyzeSource(
           );
         } else {
           const classLists: string[][] = [];
-          const parent = node.parent;
-          if (parent && ts.isJsxElement(parent)) {
-            for (const child of parent.children) {
+          if (ts.isJsxOpeningElement(node) && ts.isJsxElement(node.parent)) {
+            for (const child of node.parent.children) {
               collectClassLists(child, classLists);
             }
           }
