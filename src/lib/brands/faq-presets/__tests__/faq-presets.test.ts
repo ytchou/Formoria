@@ -97,7 +97,6 @@ function makeContext(
     cityLabel: "taipei",
     peerStats: {
       peerCount: 4,
-      cityClusters: [{ city: "Taipei", count: 2 }],
     },
     ...overrides,
   };
@@ -443,6 +442,15 @@ describe("FAQ preset catalog", () => {
   it("origin-story eligible when foundingYear and city set", () => {
     const ctx = makeContext();
     expect(presetById("origin-story").eligible(ctx)).toBe(true);
+    expect(presetById("origin-story").promptFragment).toBeNull();
+  });
+
+  it("category-position prompt contains no founding-city clusters", () => {
+    const ctx = makeContext();
+    const prompt = presetById("category-position").promptFragment?.(ctx) ?? "";
+
+    expect(prompt).not.toContain("Taipei");
+    expect(prompt).not.toMatch(/city|geographic distribution/iu);
   });
 
   it("origin-story ineligible when foundingYear missing", () => {
@@ -500,6 +508,8 @@ describe("FAQ preset catalog", () => {
     };
     const genericAnswer = "Harbor Form is a bags brand.";
     const results = customPreset.validators.map((v) => v(genericAnswer, ctx));
-    expect(results.some((r) => !r.ok && /brand-specific/.test(r.reason ?? ""))).toBe(true);
+    expect(
+      results.some((r) => !r.ok && /brand-specific/.test(r.reason ?? "")),
+    ).toBe(true);
   });
 });

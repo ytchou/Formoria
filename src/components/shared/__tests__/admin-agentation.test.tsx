@@ -1,7 +1,7 @@
 /**
  * @vitest-environment jsdom
  */
-import { render } from '@testing-library/react'
+import { fireEvent, render } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 const mocks = vi.hoisted(() => ({ useUser: vi.fn() }))
@@ -30,6 +30,10 @@ function toolbar(container: HTMLElement) {
 describe('AdminAgentation', () => {
   beforeEach(() => {
     mocks.useUser.mockReset()
+    Object.defineProperty(window, 'innerWidth', {
+      value: 1024,
+      configurable: true,
+    })
     // jsdom leaves navigator.webdriver undefined, which is the non-automated
     // case. The suppression itself is asserted explicitly below.
     Object.defineProperty(navigator, 'webdriver', {
@@ -88,6 +92,24 @@ describe('AdminAgentation', () => {
     setViewer({ isAdmin: true })
 
     const { container } = render(<AdminAgentation />)
+
+    expect(toolbar(container)).toBeNull()
+  })
+
+  it('unmounts when mobile emulation narrows the viewport after hydration', () => {
+    // DevTools Lighthouse can apply mobile emulation after the app hydrates.
+    // A one-time width read leaves the desktop-only toolbar in the audit DOM.
+    vi.stubEnv('NODE_ENV', 'development')
+    setViewer({ isAdmin: false })
+
+    const { container } = render(<AdminAgentation />)
+    expect(toolbar(container)).not.toBeNull()
+
+    Object.defineProperty(window, 'innerWidth', {
+      value: 390,
+      configurable: true,
+    })
+    fireEvent(window, new Event('resize'))
 
     expect(toolbar(container)).toBeNull()
   })

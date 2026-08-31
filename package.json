@@ -77,7 +77,9 @@
     "design:tokens": "node scripts/generate-design-tokens.mjs",
     "check:design-tokens": "node scripts/generate-design-tokens.mjs --check",
     "check:category-redirects": "tsx scripts/generate-category-redirects.ts --check",
-    "langfuse:seed": "tsx scripts/langfuse-seed.ts"
+    "langfuse:seed": "tsx scripts/langfuse-seed.ts",
+    "brand-names:backfill": "tsx --env-file=.env.local scripts/name-backfill/run.ts",
+    "founding-facts:audit": "tsx --env-file=.env.local scripts/founding-facts-audit/index.ts"
   },
   "dependencies": {
     "@base-ui/react": "^1.7.0",
@@ -136,6 +138,7 @@
     "eslint-plugin-playwright": "^2.11.0",
     "jsdom": "^29.1.1",
     "knip": "^6.23.0",
+    "lighthouse": "13.4.1",
     "prettier": "^3.9.6",
     "react-email": "^6.6.8",
     "shadcn": "^4.18.0",

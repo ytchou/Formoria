@@ -176,6 +176,44 @@ describe("getBrandFaq", () => {
     ]);
   });
 
+  it("computes origin-story from canonical facts instead of rendering stored model copy", async () => {
+    const { items } = await getFaq(
+      makeBrand({ city: "taipei", foundingYear: 2019 }),
+      [
+        row({
+          preset_id: "origin-story",
+          question_zh: "模型問題",
+          answer_zh: "模型寫下的舊城市與年份",
+        }),
+      ],
+    );
+
+    const origin = items.find((item) => item.id === "origin-story");
+    expect(origin?.answer).toContain('"year":2019');
+    expect(origin?.answer).toContain('"city":"taipei"');
+    expect(origin?.answer).not.toContain("模型寫下的舊城市與年份");
+  });
+
+  it("keeps human-authored origin copy ahead of the computed answer", async () => {
+    const { items } = await getFaq(
+      makeBrand({ city: "taipei", foundingYear: 2019 }),
+      [
+        row({
+          preset_id: "origin-story",
+          source: "human",
+          question_zh: "人工問題",
+          answer_zh: "人工查證後的創立故事",
+        }),
+      ],
+    );
+
+    expect(items.find((item) => item.id === "origin-story")).toEqual({
+      id: "origin-story",
+      question: "人工問題",
+      answer: "人工查證後的創立故事",
+    });
+  });
+
   it("keeps template floors for other presets when one preset has a stored answer", async () => {
     const { items } = await getFaq(makeBrand({ subcategories: ["陶瓷"] }), [
       row({

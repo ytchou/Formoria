@@ -1,6 +1,5 @@
 import { Suspense } from "react";
-import { NextIntlClientProvider } from "next-intl";
-import { getMessages, getTranslations } from "next-intl/server";
+import { getTranslations } from "next-intl/server";
 import {
   directoryBrandCategoryFilter,
   getMaterialCounts,
@@ -97,10 +96,7 @@ export async function DirectoryView({
   isCategoryRoute = false,
 }: DirectoryViewProps) {
   const safeLocale = locale;
-  const [t, messages] = await Promise.all([
-    getTranslations({ locale: safeLocale, namespace: "brands" }),
-    getMessages({ locale: safeLocale }),
-  ]);
+  const t = await getTranslations({ locale: safeLocale, namespace: "brands" });
 
   const validCategoryFilter = filters.categorySlugs.filter((slug) =>
     VALID_CATEGORY_SLUGS.has(slug),
@@ -410,7 +406,7 @@ export async function DirectoryView({
     : null;
 
   return (
-    <NextIntlClientProvider messages={messages}>
+    <>
       {/* The shell is the shared grid too, not a formula that agrees with it by
           coincidence — the rail measure and the column gap both belong to the
           primitive, so a change to either moves every surface that uses it. */}
@@ -621,6 +617,6 @@ export async function DirectoryView({
           ) : null}
         </div>
       </Grid>
-    </NextIntlClientProvider>
+    </>
   );
 }

@@ -39,6 +39,7 @@ export async function CuratedProductGrid({
       image="/images/selection-bg.webp"
       alt=""
       scrim="dark"
+      imageQuality={20}
       contentClassName="text-on-ink"
     >
       <div className="text-center">
@@ -48,7 +49,7 @@ export async function CuratedProductGrid({
         <p className="mt-3 type-body text-on-ink">{t("selection.subtitle")}</p>
       </div>
 
-      <Grid cols="cards" className="mt-8 lg:grid-cols-5">
+      <Grid as="ul" cols="cards" className="mt-8 list-none p-0 lg:grid-cols-5">
         {visible.map((slot, index) => (
           <SelectedProductTile
             key={`${slot.product.brandSlug}-${slot.product.key}`}
@@ -57,7 +58,8 @@ export async function CuratedProductGrid({
             labels={productLabels}
             mode="wall"
             ratio="1:1"
-            imageSizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, (max-width: 1600px) 20vw, 282px"
+            imageSizes="(max-width: 640px) calc(100vw - 3rem), (max-width: 1024px) 50vw, (max-width: 1600px) 20vw, 282px"
+            imageQuality={60}
             className="bg-ground"
             brand={slot.product.brand}
             brandSlug={slot.product.brandSlug}

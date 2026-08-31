@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import {
+  deriveOfficialNameCandidates,
   deriveOfficialWebsite,
   deriveScrapedBrandName,
   resolveOfficialWebsite,
@@ -258,6 +259,83 @@ const brand: EnrichBrand = {
   purchase_pinkoi: null,
   purchase_shopee: null,
 }
+
+describe('first-party bilingual name evidence', () => {
+  it('builds separate website and social candidates from stored first-party URLs', () => {
+    const candidates = deriveOfficialNameCandidates(
+      {
+        ...brand,
+        name: 'LID Shoes',
+        purchase_website: 'https://www.lidshoes.com/about',
+        social_instagram: 'https://www.instagram.com/lidshoes',
+      },
+      {
+        perSourceText: {
+          'https://www.lidshoes.com/about': { title: '劉一刀 手工鞋' },
+          'https://www.instagram.com/lidshoes': {
+            title: '劉一刀手工鞋 LID Shoes',
+          },
+        },
+      },
+    )
+
+    expect(candidates).toEqual([
+      {
+        source: 'official_website',
+        value: '劉一刀手工鞋 LID Shoes',
+        evidence: [
+          {
+            source: 'official_website',
+            url: 'https://www.lidshoes.com/about',
+            observedName: '劉一刀 手工鞋',
+          },
+        ],
+      },
+      {
+        source: 'official_social',
+        value: '劉一刀手工鞋 LID Shoes',
+        evidence: [
+          {
+            source: 'official_social',
+            url: 'https://www.instagram.com/lidshoes',
+            observedName: '劉一刀手工鞋 LID Shoes',
+          },
+        ],
+      },
+    ])
+  })
+
+  it('does not turn discovered or retailer titles into name candidates', () => {
+    expect(
+      deriveOfficialNameCandidates(
+        { ...brand, name: 'LID Shoes' },
+        {
+          perSourceText: {
+            'https://retailer.example/lid-shoes': {
+              title: '劉一刀手工鞋 LID Shoes',
+            },
+          },
+        },
+      ),
+    ).toEqual([])
+    expect(
+      deriveOfficialNameCandidates(
+        {
+          ...brand,
+          name: 'LID Shoes',
+          purchase_website: 'https://www.lidshoes.com',
+        },
+        {
+          perSourceText: {
+            'https://www.lidshoes.com/discovered-about': {
+              title: '劉一刀手工鞋 LID Shoes',
+            },
+          },
+        },
+      ),
+    ).toEqual([])
+  })
+})
 
 describe('runLinksPhase', () => {
   it('returns skipped when links is not in requested phases', async () => {

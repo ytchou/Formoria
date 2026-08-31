@@ -655,6 +655,32 @@ export type Database = {
           },
         ]
       }
+      brand_product_subcategory_additions: {
+        Row: {
+          brand_id: string
+          created_at: string
+          subcategory: string
+        }
+        Insert: {
+          brand_id: string
+          created_at?: string
+          subcategory: string
+        }
+        Update: {
+          brand_id?: string
+          created_at?: string
+          subcategory?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "brand_product_subcategory_additions_brand_id_fkey"
+            columns: ["brand_id"]
+            isOneToOne: false
+            referencedRelation: "brands"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       brand_reports: {
         Row: {
           brand_id: string
@@ -2951,6 +2977,18 @@ export type Database = {
         Args: { p_reviewer_id: string; p_submission_id: string }
         Returns: string[]
       }
+      apply_founding_fact_audit_patch: {
+        Args: {
+          p_actor: string
+          p_allow_protected?: boolean
+          p_brand_id: string
+          p_expected: Json
+          p_expected_protection: Json
+          p_patch: Json
+          p_source: string
+        }
+        Returns: boolean
+      }
       apply_submission_enrichment_result: {
         Args: {
           p_enriched_data: Json
@@ -3240,6 +3278,10 @@ export type Database = {
       }
       dev1648_l2_order: { Args: never; Returns: string[] }
       dev1648_l2_ordinal: { Args: { p_slug: string }; Returns: number }
+      dev1648_release_brand_product_subcategory: {
+        Args: { p_brand_id: string; p_subcategory: string }
+        Returns: undefined
+      }
       drop_needs_data_submissions: {
         Args: { p_submission_ids: string[] }
         Returns: string[]

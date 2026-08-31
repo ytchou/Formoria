@@ -41,18 +41,10 @@ export function faqMaterialsPrompt(brandName: string): string {
   return `Describe the materials used by brand "${brandName}" based on the material tags and evidence provided. Focus on material properties and craftsmanship, not pricing or availability.`;
 }
 
-export function faqOriginStoryPrompt(
-  brandName: string,
-  foundingYear: number,
-): string {
-  return `Tell the founding story of brand "${brandName}" (established ${foundingYear}) based only on the provided evidence. Focus on the brand's origin, founding motivation, and location — do not speculate beyond the sources.`;
-}
-
 export function faqCategoryPositionPrompt(input: {
   brandName: string;
   categorySlug: string;
   peerCount: number;
-  cities: string;
 }): string {
-  return `Category facts for brand "${input.brandName}": the ${input.categorySlug} category has ${input.peerCount} other brands; primary city distribution is ${input.cities || "none"}. State only the product scope of the category and the provided geographic distribution — do not claim price, ranking, value, superiority, leadership, popularity, or any relative position.`;
+  return `Category facts for brand "${input.brandName}": the ${input.categorySlug} category has ${input.peerCount} other brands. State only the product scope and size of the category — do not claim price, ranking, value, superiority, leadership, popularity, or any relative position.`;
 }

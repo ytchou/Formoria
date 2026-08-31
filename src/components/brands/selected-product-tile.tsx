@@ -2,7 +2,6 @@ import { SurfaceImage } from "@/components/ui/image";
 import type { CSSProperties } from "react";
 import { Link } from "@/i18n/navigation";
 import { buttonVariants } from "@/components/ui/button";
-import { TrustLabel } from "@/components/ui/trust-label";
 import { surfaceCardStyles } from "@/components/ui/card";
 import { Typography } from "@/components/ui/typography";
 import type { AppLocale } from "@/i18n/locale-preference";
@@ -39,19 +38,7 @@ export type SelectedProductTileProps = {
   locale: AppLocale;
   product: CuratedProduct;
   labels: SelectedProductTileLabels;
-  mode: "outbound" | "trail" | "wall";
-  /**
-   * THE CALLER'S OPT-IN TO THE SELECTED LABEL — a flag, because that is all it
-   * ever was. It used to be `labels.selectedBadge`, a STRING whose value was
-   * discarded: `TrustLabel` reads its own text from `trustLabel.selected`, so
-   * the catalogue held the same sentence twice and only one copy could reach a
-   * reader. A translator editing the other one saw nothing change.
-   *
-   * A flag, not a mode test, so a surface can withdraw the label without this
-   * file learning which surface it is. Necessary but not sufficient: see
-   * `rendersTrustLabel` below.
-   */
-  showsTrustLabel?: boolean;
+  mode: "outbound" | "trail" | "wall" | "shelf";
   /**
    * Wall geometry: the snapped ratio bucket the tile renders at. Absent means
    * the row carries no measurement yet, which renders the legacy 4:3.
@@ -59,6 +46,8 @@ export type SelectedProductTileProps = {
   ratio?: WallRatio;
   /** Explicit image measurement when a wall uses a non-default column count. */
   imageSizes?: string;
+  /** Optional Next image quality for a specific wall. */
+  imageQuality?: number;
   /**
    * Extra classes on the tile's `<li>`. The wall supplies its flex sizing and
    * the mobile cap through it; every other mode merges it too.
@@ -82,19 +71,20 @@ export type SelectedProductTileProps = {
 const BROKEN_LINK_STATE = "broken";
 
 /**
- * The selected-product tile stays server-rendered. Outbound product chips
- * preserve the brand-page behavior; the wall turns the whole tile into one
- * accessible link to that brand's page. The optional client link child adds
- * click tracking without moving the tile into the client graph.
+ * The selected-product tile stays server-rendered. Trail cards keep their
+ * outbound product chip; brand-page cards rely on the brand-level link above
+ * them. The wall turns the whole tile into one accessible link to that brand's
+ * page. The optional client link child adds click tracking without moving the
+ * tile into the client graph.
  */
 export function SelectedProductTile({
   locale,
   product,
   labels,
   mode,
-  showsTrustLabel = false,
   ratio,
   imageSizes,
+  imageQuality,
   className,
   brand,
   brandSlug,
@@ -119,26 +109,8 @@ export function SelectedProductTile({
   const subcategoryName = product.subcategory
     ? subcategoryDisplayLabel(product.subcategory, locale)
     : null;
-  /*
-   * D11, THE CONTRAST RULE: a label renders only where its opposite is visible.
-   *
-   * `outbound` is the brand page, and it is the only place a selected product
-   * sits among the brand's other things — so it is the only place the
-   * label distinguishes anything. On the wall and in a trail every tile is
-   * selected, so the label would repeat 32 times and say nothing; the trail's
-   * own string was a different commitment and is dropped rather
-   * than folded into this one.
-   *
-   * BOTH halves of the gate are load-bearing. The mode is Formoria's rule and
-   * holds even for a caller that still opts in; the flag is the caller's
-   * opt-in, so a surface can withdraw without editing this file.
-   */
-  const rendersTrustLabel = mode === "outbound" && showsTrustLabel;
   const isBroken = product.linkState === BROKEN_LINK_STATE;
-  const visitLink =
-    (mode === "outbound" || mode === "trail") && brand
-      ? getBrandVisitLink(brand)
-      : null;
+  const visitLink = mode === "trail" && brand ? getBrandVisitLink(brand) : null;
   const productHref = sanitizeHref(product.officialUrl);
   const chipHref = isBroken ? (visitLink?.href ?? null) : productHref;
   const chipLabel = isBroken ? labels.brandSiteCta : labels.cta;
@@ -183,9 +155,9 @@ export function SelectedProductTile({
    * Removed deliberately on 2026-08-17: the copy read as generated product
    * specs ("lens and frame replaceable separately") rather than something a
    * reader wanted at that size, and the wall is a sheet of photographs. The
-   * cost is accepted and real — the wall shows selections with neither a
-   * per-tile trust label (removed earlier) nor any description, so
-   * brand-voice.md's commitment is carried only by the surfaces below.
+   * cost is accepted and real — the wall shows selections without a per-tile
+   * trust label or description, so the surrounding section carries the
+   * editorial context.
    *
    * `productDescription` still renders on every NON-wall mode
    * (outbound/trail) further down this file. Do not remove it there
@@ -247,6 +219,7 @@ export function SelectedProductTile({
             className="object-cover transition-transform duration-300 group-hover:scale-[1.03] motion-reduce:duration-[0.01ms]"
             surface="card"
             sizes={imageSizes ?? wallImageSizes}
+            quality={imageQuality}
           />
         ) : (
           <BrandImageFallback
@@ -258,9 +231,7 @@ export function SelectedProductTile({
         {originBadge}
         {/* No selection badge here. The whole wall IS the selection — the section
             heading says so once — so a per-tile label repeated 32 times adds
-            no information and breaks the sheet of photographs. The trust
-            label still appears on every non-wall surface, where a selected
-            product sits beside items that are not selected. */}
+            no information and breaks the sheet of photographs. */}
       </div>
 
       <div className={wallCaptionClass}>
@@ -281,6 +252,60 @@ export function SelectedProductTile({
           <Typography as="p" variant="metadata">
             {brandName}
             {subcategoryName ? ` · ${subcategoryName}` : ""}
+          </Typography>
+        ) : null}
+      </div>
+    </div>
+  );
+
+  const shelfCaptionClass = cn(
+    "flex flex-col gap-1 pt-3",
+    "sm:absolute sm:inset-x-0 sm:bottom-0 sm:z-10 sm:rounded-b-surface sm:bg-ground/95 sm:p-4",
+    "sm:transition-opacity sm:duration-300 motion-reduce:sm:duration-[0.01ms]",
+    "[@media(hover:hover)]:sm:opacity-0",
+    "[@media(hover:hover)]:sm:group-hover:opacity-100",
+    "[@media(hover:hover)]:sm:group-focus-visible:opacity-100",
+  );
+
+  const shelfContent = (
+    <div
+      tabIndex={0}
+      className="group relative flex h-full flex-col rounded-surface focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-3"
+    >
+      <div className="relative aspect-square w-full overflow-hidden rounded-surface bg-surface-deep">
+        {imageSrc ? (
+          <SurfaceImage
+            src={imageSrc}
+            alt={name}
+            fill
+            className="object-cover"
+            sizes="(max-width: 640px) 80vw, (max-width: 1024px) 45vw, (max-width: 1600px) 23vw, 368px"
+          />
+        ) : (
+          <BrandImageFallback
+            name={name}
+            category={product.category}
+            size="card"
+          />
+        )}
+        {originBadge}
+      </div>
+
+      <div className={shelfCaptionClass}>
+        <span
+          aria-hidden="true"
+          className="pointer-events-none absolute inset-x-0 -top-4 hidden h-4 bg-gradient-to-t from-ground/95 to-transparent sm:block"
+        />
+        <Typography as="h3" variant="cardTitle">
+          {name}
+        </Typography>
+        {productDescription ? (
+          <Typography
+            as="p"
+            variant="body"
+            className="line-clamp-3 hidden sm:block"
+          >
+            {productDescription}
           </Typography>
         ) : null}
       </div>
@@ -397,20 +422,14 @@ export function SelectedProductTile({
           </Typography>
         ) : null}
 
-        {rendersTrustLabel ? (
-          <div>
-            <TrustLabel />
-          </div>
-        ) : null}
-
         {isBroken ? (
           <Typography as="p" variant="metadata">
             {labels.unavailable}
           </Typography>
         ) : null}
 
-        {(mode === "outbound" || mode === "trail") && chipHref ? (
-          mode === "trail" && tracking && brand ? (
+        {mode === "trail" && chipHref ? (
+          tracking && brand ? (
             <SelectedProductExternalLink
               href={chipHref}
               brandSlug={brand.slug}
@@ -484,6 +503,17 @@ export function SelectedProductTile({
             {wallContent}
           </Link>
         )}
+      </li>
+    );
+  }
+
+  if (mode === "shelf") {
+    return (
+      <li
+        id={`product-${product.key}`}
+        className={cn("relative list-none", className)}
+      >
+        {shelfContent}
       </li>
     );
   }

@@ -643,6 +643,7 @@ function makeSubmission(
     baseBrandUpdatedAt: null,
     reviewOverrides: {},
     enriched_data: null,
+    nameProposal: null,
     latestCurationTargetStatus: "succeeded",
     latestCurationJobId: null,
     latestCurationPhase: null,

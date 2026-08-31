@@ -71,6 +71,13 @@ export function getContentGroup(pathname: string): string {
   }
 
   if (
+    pathWithoutLocale === routes.discover() ||
+    pathWithoutLocale.startsWith(`${routes.discover()}/`)
+  ) {
+    return "discover";
+  }
+
+  if (
     pathWithoutLocale === routes.whereToBuy() ||
     pathWithoutLocale.startsWith(`${routes.whereToBuy()}/`)
   ) {
@@ -553,6 +560,38 @@ export function trackTrailCardClicked(
     trail_slug: trailSlug,
     position,
     trail_surface: trailSurface,
+  });
+}
+
+export function trackProductSubcategoryFilterApplied(
+  subcategory: string,
+  parentCategory: string,
+  count: number,
+) {
+  capturePostHogEvent(ANALYTICS_EVENTS.PRODUCT_SUBCATEGORY_FILTER_APPLIED, {
+    subcategory,
+    parent_category: parentCategory,
+    result_count: Math.trunc(count),
+  });
+}
+
+export function trackProductMaterialFilterApplied(
+  material: string,
+  count: number,
+) {
+  capturePostHogEvent(ANALYTICS_EVENTS.PRODUCT_MATERIAL_FILTER_APPLIED, {
+    material,
+    result_count: Math.trunc(count),
+  });
+}
+
+export function trackProductSortChanged(
+  sortValue: string,
+  previousSort: string,
+) {
+  capturePostHogEvent(ANALYTICS_EVENTS.PRODUCT_SORT_CHANGED, {
+    sort_value: sortValue,
+    previous_sort: previousSort,
   });
 }
 

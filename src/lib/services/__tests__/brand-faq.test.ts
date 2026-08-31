@@ -189,6 +189,20 @@ function customEntry(position: number, text: string): BrandFaqEntryInput {
 }
 
 describe("upsertBrandFaqEntries", () => {
+  it("never persists a model-authored origin-story", async () => {
+    await write([
+      {
+        presetId: "origin-story",
+        questionZh: "品牌怎麼開始？",
+        answerZh: "模型創立故事",
+      },
+    ]);
+
+    expect(selectCalls).toBe(0);
+    expect(upsertCalls).toHaveLength(0);
+    expect(stored("origin-story")).toBeUndefined();
+  });
+
   it("never overwrites a human-authored row", async () => {
     table.push(
       row({

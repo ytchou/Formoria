@@ -24,6 +24,11 @@ const isFiltered = (value: string): boolean =>
   );
 
 describe('client Sentry options', () => {
+  it('keeps session replay out of the initial client bundle', () => {
+    expect(clientSentryOptions.integrations).toEqual([]);
+    expect(clientSentryOptions.replaysOnErrorSampleRate).toBe(0);
+  });
+
   it('filters the GA collect failure on the Chrome wording with the host', () => {
     expect(isFiltered('Failed to fetch (analytics.google.com)')).toBe(true);
   });

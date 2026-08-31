@@ -59,11 +59,21 @@ export type EditorialHeroProps = {
    * repeating the title as image text is noise, not description.
    */
   alt: string;
+  /** Route-specific measurement when the shared frame sits in a narrower shell. */
+  sizes?: string;
+  /** Route-specific Next image quality for an oversized source photograph. */
+  imageQuality?: number;
   /** Spacing the surrounding page owns — the trail's `mb-10`, for instance. */
   className?: string;
 };
 
-export function EditorialHero({ src, alt, className }: EditorialHeroProps) {
+export function EditorialHero({
+  src,
+  alt,
+  sizes,
+  imageQuality,
+  className,
+}: EditorialHeroProps) {
   const imageSrc = editorialHeroSrc(src);
 
   if (!imageSrc) return null;
@@ -86,6 +96,8 @@ export function EditorialHero({ src, alt, className }: EditorialHeroProps) {
         priority
         fetchPriority="high"
         surface="banner"
+        sizes={sizes}
+        quality={imageQuality}
         className="object-cover"
       />
     </div>

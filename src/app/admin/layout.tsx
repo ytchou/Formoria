@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import type { Metadata } from "next";
+import { Suspense } from "react";
 import { NextIntlClientProvider } from "next-intl";
 import { getMessages, getTranslations } from "next-intl/server";
 import { RootDocument } from "@/components/shared/root-document";
@@ -12,6 +13,71 @@ import { getAdminNavCounts } from "@/lib/services/admin-operations";
 import { getSiteUrl } from "@/lib/seo/site-url";
 import "../globals.css";
 import { routes } from "@/lib/routes";
+
+type AdminNavLabels = {
+  overview: string;
+  submissions: string;
+  jobs: string;
+  moderation: string;
+  reports: string;
+  brands: string;
+  curatedProducts: string;
+  corrections: string;
+  stockists: string;
+  quality: string;
+  newsletter: string;
+  scripts: string;
+};
+
+type AdminNavCounts = Awaited<ReturnType<typeof getAdminNavCounts>>;
+
+function buildAdminNavItems(
+  labels: AdminNavLabels,
+  counts?: AdminNavCounts,
+): NavItem[] {
+  return [
+    { label: labels.overview, href: routes.admin.index() },
+    {
+      label: labels.submissions,
+      href: routes.admin.submissions(),
+      count: counts?.submissions ?? undefined,
+    },
+    { label: labels.jobs, href: routes.admin.jobs() },
+    {
+      label: labels.moderation,
+      href: routes.admin.moderation(),
+      count: counts?.moderation ?? undefined,
+    },
+    {
+      label: labels.reports,
+      href: routes.admin.reports(),
+      count: counts?.reports ?? undefined,
+    },
+    { label: labels.brands, href: routes.admin.brands() },
+    {
+      label: labels.curatedProducts,
+      href: routes.admin.curatedProducts(),
+    },
+    {
+      label: labels.corrections,
+      href: routes.admin.corrections(),
+      count: counts?.corrections ?? undefined,
+    },
+    {
+      label: labels.stockists,
+      href: routes.admin.stockists(),
+      count: counts?.stockists ?? undefined,
+    },
+    { label: labels.quality, href: routes.admin.quality() },
+    { label: labels.newsletter, href: routes.admin.newsletter() },
+    { label: labels.scripts, href: routes.admin.scripts() },
+  ];
+}
+
+async function AdminNavigation({ labels }: { labels: AdminNavLabels }) {
+  const counts = await getAdminNavCounts();
+  return <AdminNav items={buildAdminNavItems(labels, counts)} />;
+}
 
 export const metadata: Metadata = {
   metadataBase: new URL(getSiteUrl()),
@@ -42,47 +108,31 @@ export default async function AdminLayout({
     redirect("/");
   }
 
-  const [messages, counts, t, tCommon] = await Promise.all([
+  const [allMessages, t, tCommon] = await Promise.all([
     getMessages({ locale: "en" }),
-    getAdminNavCounts(),
     getTranslations({ locale: "en", namespace: "admin.layout" }),
     getTranslations({ locale: "en", namespace: "common" }),
   ]);
+  const messages = {
+    admin: allMessages.admin,
+    common: allMessages.common,
+    errors: allMessages.errors,
+  };
 
-  const navItems: NavItem[] = [
-    { label: t("nav.overview"), href: routes.admin.index() },
-    {
-      label: t("nav.submissions"),
-      href: routes.admin.submissions(),
-      count: counts.submissions ?? undefined,
-    },
-    { label: t("nav.jobs"), href: routes.admin.jobs() },
-    {
-      label: t("nav.moderation"),
-      href: routes.admin.moderation(),
-      count: counts.moderation ?? undefined,
-    },
-    {
-      label: t("nav.reports"),
-      href: routes.admin.reports(),
-      count: counts.reports ?? undefined,
-    },
-    { label: t("nav.brands"), href: routes.admin.brands() },
-    { label: t("nav.curatedProducts"), href: routes.admin.curatedProducts() },
-    {
-      label: t("nav.corrections"),
-      href: routes.admin.corrections(),
-      count: counts.corrections ?? undefined,
-    },
-    {
-      label: t("nav.stockists"),
-      href: routes.admin.stockists(),
-      count: counts.stockists ?? undefined,
-    },
-    { label: t("nav.quality"), href: routes.admin.quality() },
-    { label: t("nav.newsletter"), href: routes.admin.newsletter() },
-    { label: t("nav.scripts"), href: routes.admin.scripts() },
-  ];
+  const navLabels: AdminNavLabels = {
+    overview: t("nav.overview"),
+    submissions: t("nav.submissions"),
+    jobs: t("nav.jobs"),
+    moderation: t("nav.moderation"),
+    reports: t("nav.reports"),
+    brands: t("nav.brands"),
+    curatedProducts: t("nav.curatedProducts"),
+    corrections: t("nav.corrections"),
+    stockists: t("nav.stockists"),
+    quality: t("nav.quality"),
+    newsletter: t("nav.newsletter"),
+    scripts: t("nav.scripts"),
+  };
 
   return (
     <RootDocument locale="en" skipToContentLabel={tCommon("skipToContent")}>
@@ -98,7 +148,11 @@ export default async function AdminLayout({
             className="py-stack"
           >
             <h1 className="type-tool-heading">{t("title")}</h1>
-            <AdminNav items={navItems} />
+            <Suspense
+              fallback={<AdminNav items={buildAdminNavItems(navLabels)} />}
+            >
+              <AdminNavigation labels={navLabels} />
+            </Suspense>
             <div className="mt-8">{children}</div>
           </PageShell>
         </div>

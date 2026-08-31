@@ -13,6 +13,11 @@ vi.mock('next/navigation', () => ({ usePathname: () => '/' }))
 const { ViewerProvider, useUser } = await import('./use-user')
 
 const ADMIN_VIEWER: ViewerContext = {
+  user: {
+    id: '6c9e392e-04d5-4ca2-b008-c07a17f39f26',
+    email: 'maría.garcía+test@company.co.uk',
+    provider: 'email',
+  },
   isAdmin: true,
 }
 
@@ -22,26 +27,9 @@ function renderViewer() {
   })
 }
 
-/**
- * These cover the invariants that make the DEV-1414 fix safe rather than just
- * fast. There is no signed-in session here, so the auth lookup resolves to the
- * anonymous branch — which is the path that adopts the mount-time viewer fetch,
- * and therefore the path that proves the two round trips overlap.
- */
 describe('ViewerProvider', () => {
   beforeEach(() => {
     vi.clearAllMocks()
-    // The Supabase browser client is constructed for real — `check-test-boundaries`
-    // forbids mocking `@/lib/supabase/*`, and rightly so. It is given credentials
-    // that resolve to nothing and a transport that always fails, so `getUser()`
-    // returns an error and the provider takes its anonymous branch deterministically,
-    // with no network access.
-    vi.stubEnv('NEXT_PUBLIC_SUPABASE_URL', 'http://127.0.0.1:1')
-    vi.stubEnv('NEXT_PUBLIC_SUPABASE_ANON_KEY', 'test-anon-key')
-    vi.stubGlobal(
-      'fetch',
-      vi.fn(() => Promise.reject(new Error('offline in unit tests'))),
-    )
   })
 
   afterEach(() => {
@@ -50,16 +38,14 @@ describe('ViewerProvider', () => {
     delete document.documentElement.dataset.viewerState
   })
 
-  it('issues one viewer request, not one per auth phase', async () => {
+  it('resolves user and viewer state with one server request', async () => {
     getViewerContextAction.mockResolvedValue(ADMIN_VIEWER)
 
     const { result } = renderViewer()
     await waitFor(() => expect(result.current.viewerLoading).toBe(false))
 
-    // The mount-time request is primed under a speculative key and adopted when
-    // auth resolves. If adoption ever breaks, this becomes 2 and the "parallel"
-    // fetch is silently just an extra round trip.
     expect(getViewerContextAction).toHaveBeenCalledTimes(1)
+    expect(result.current.user).toEqual(ADMIN_VIEWER.user)
     expect(result.current.viewer.isAdmin).toBe(true)
     expect(result.current.viewerError).toBe(false)
   })

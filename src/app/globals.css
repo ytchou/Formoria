@@ -49,24 +49,11 @@
   --radius-control: 4px;
   --radius-surface: 3px;
 
-  /* 明體 (content) and 黑體 (interface). One rule, no route exceptions.
-     Declared here rather than in `:root` so a single declaration both registers
-     the `font-ming` / `font-hei` utilities and stays the one value the
-     design-token generator reads.
-     TWO CJK WEBFONTS, DELIBERATELY. This file used to declare three Latin-only
-     faces and a comment forbidding a CJK webfont;
-     docs/decisions/2026-08-20-two-cjk-webfonts-supersede-the-system-face-rule.md
-     SUPERSEDES that rule — do not re-assert it. It is affordable because Google
-     splits both families by `unicode-range`, so per-page transfer is bounded by
-     the text on the page, and because `next/font` self-hosts the files, which
-     is what satisfies the CSP `font-src 'self'` at next.config.ts:101. The
-     loader options that keep this off the cold-visit critical path live in
-     src/components/shared/root-document.tsx.
-     The two v1 aliases that pointed at these stacks are gone: every `type-*`
-     role below binds `--font-ming` or `--font-hei` directly, so there is no
-     second name for either face. */
-  --font-ming: var(--font-noto-serif-tc), "Songti TC", serif;
-  --font-hei: var(--font-noto-sans-tc), "PingFang TC", sans-serif;
+  /* 明體 carries content and 黑體 carries interface. System CJK faces preserve
+     that distinction without making every Chinese-rich page download dozens of
+     unicode-range font files before LCP. */
+  --font-ming: "Songti TC", "Noto Serif CJK TC", "PMingLiU", serif;
+  --font-hei: "PingFang TC", "Noto Sans CJK TC", "Microsoft JhengHei", sans-serif;
 }
 
 /* prettier-ignore */

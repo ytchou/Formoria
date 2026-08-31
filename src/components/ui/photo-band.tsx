@@ -10,7 +10,7 @@ import {
 import { cn } from "@/lib/utils";
 
 /**
- * A FULL-BLEED PHOTOGRAPH WITH COPY ON TOP OF IT.
+ * A FULL-BLEED PHOTOGRAPHIC BAND, WITH OPTIONAL COPY ON TOP OF IT.
  *
  * IT IS ONE COMPONENT BECAUSE IT WAS TWO HAND-ROLLED COPIES. The homepage
  * opener and the manifesto band each carried the same four layers — a
@@ -68,11 +68,14 @@ export type PhotoBandProps = {
    * fetch priority.
    */
   preload?: boolean;
+  /** Optional Next image quality for a specific photograph. */
+  imageQuality?: number;
   /** Classes for the `<section>` — spacing, mostly. */
   className?: string;
   /** Classes for the inner `PageShell` — alignment of the copy. */
   contentClassName?: string;
-  children: ReactNode;
+  /** Optional for a purely decorative photographic band. */
+  children?: ReactNode;
 } & Omit<ComponentProps<"section">, "children" | "className">;
 
 export function PhotoBand({
@@ -80,6 +83,7 @@ export function PhotoBand({
   alt,
   scrim,
   preload = false,
+  imageQuality,
   className,
   contentClassName,
   children,
@@ -99,6 +103,7 @@ export function PhotoBand({
         // a band that claims the preload wants the high hint too, and one that
         // does not must not send it.
         fetchPriority={preload ? "high" : "auto"}
+        quality={imageQuality}
         surface="hero"
         className="object-cover"
       />
@@ -119,10 +124,12 @@ export function PhotoBand({
         className={cn("absolute inset-0", scrimClassName(scrim))}
       />
 
-      {/* `relative` keeps the copy above the absolute scrim behind it. */}
-      <PageShell measure="page" className={cn("relative", contentClassName)}>
-        {children}
-      </PageShell>
+      {children != null && (
+        // `relative` keeps the copy above the absolute scrim behind it.
+        <PageShell measure="page" className={cn("relative", contentClassName)}>
+          {children}
+        </PageShell>
+      )}
     </section>
   );
 }

@@ -105,6 +105,9 @@ const nextConfig: NextConfig = {
     // already-efficient source does not justify its much slower encode on a
     // container whose optimizer cache is ephemeral and re-derives on cold start.
     formats: ["image/webp"],
+    // Keep the default while allowing lower, explicitly requested qualities
+    // for the scrimmed selection background and its product photography.
+    qualities: [20, 60, 75],
     // The optimizer cache lives on the single Railway container's ephemeral disk,
     // so every cold start re-derives from source. A long TTL maximises reuse within
     // a container's lifetime; 30 days bounds staleness if a brand image is replaced

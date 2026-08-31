@@ -51,6 +51,8 @@ export type EnrichPhaseName = (typeof ENRICH_PHASES)[number];
  *   unless `phases.includes('descriptions')`, and `extractBrandFacts` is called
  *   unconditionally after that gate, so `facts` cannot run alone and cannot be
  *   skipped while `descriptions` runs.
+ * - `founding_facts` and `founding_facts_verify` are the cited extraction and
+ *   separate verification calls inside `descriptions` and the one-time audit.
  * - `classification` is the standalone category classifier that backs
  *   `tags` when `descriptions` did not already decide the category.
  * - `image-search` is the batched serper /images call that backs `images`. It
@@ -58,6 +60,8 @@ export type EnrichPhaseName = (typeof ENRICH_PHASES)[number];
  */
 export const SUB_PHASES = [
   "facts",
+  "founding_facts",
+  "founding_facts_verify",
   "classification",
   "image-search",
   "persist",

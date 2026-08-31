@@ -77,7 +77,20 @@
     "subheading": "為日常找到更適合的選擇",
     "emptyState": "目前還沒有符合條件的商品",
     "resultCount": "{count} 件商品",
-    "moreComingSoon": "更多商品持續收錄中"
+    "moreComingSoon": "更多商品持續收錄中",
+    "filters": {
+      "subcategory": "子分類",
+      "material": "材質",
+      "trigger": "篩選",
+      "title": "篩選商品",
+      "showResults": "顯示 {count} 件商品",
+      "clearAll": "清除全部",
+      "removeFilter": "移除 {label}: {value}",
+      "sortNewest": "最新",
+      "sortAlphabetical": "依名稱排序",
+      "resultCount": "{count} 件商品",
+      "sortLabel": "排序"
+    }
   },
   "brandsJoin": {
     "metaTitle": "加入 Formoria — 品牌招募",
@@ -289,21 +302,21 @@
     },
     "selectedProducts": {
       "heading": "Formoria 選物",
-      "note": "這裡是 Formoria 從這個品牌挑出的產品，並說明每一件是什麼；產品資料由品牌提供，實際內容請以品牌官方頁面為準。",
+      "note": "以下產品由 Formoria 挑選；實際產品資訊請以品牌官方頁面為準。",
       "cta": "前往品牌官方網站",
       "unavailable": "這個產品頁面暫時無法連線。",
       "brandSiteCta": "前往品牌官網",
       "madeInTaiwan": "台灣製造",
       "previous": "上一組產品",
       "next": "下一組產品",
-      "moreCategories": "顯示其餘 {count} 個產品分類"
+      "allCategories": "全部"
     },
     "verified": "品牌經營",
     "foundingYear": "創立於 {year}",
     "sectionTitle": "品牌資訊",
     "unknown": "尚無資料",
     "label": {
-      "location": "地點",
+      "location": "創立縣市",
       "foundingYear": "創立年份",
       "category": "品牌類別",
       "subcategories": "商品子類別",
@@ -525,9 +538,9 @@
         "myship": "7-ELEVEN 賣貨便"
       },
       "context": {
-        "city": "位於{city}",
-        "founded": "{year}年創立",
-        "suffix": " 這個品牌{details}。"
+        "city": "在{city}創立",
+        "founded": "於 {year} 年成立",
+        "suffix": " 其創立背景為{details}。"
       },
       "isMadeInTaiwan": {
         "question": "{brandName} 是台灣品牌嗎？",
@@ -1392,7 +1405,7 @@
       "lastUpdated": "最後更新：2026 年 7 月",
       "dataCollection": {
         "heading": "資料蒐集",
-        "body": "當您使用 Formoria 時，我們可能蒐集以下個人資料：推薦品牌、提供品牌資料、提供意見或聯絡支援時留下的電子郵件地址與姓名（選填）、品牌名稱、品牌官方網站、品牌所在地區、社群連結、購買連結、是否為品牌負責人，以及資料來源。註冊帳號時，我們透過 Supabase Auth 蒐集您的電子郵件與驗證資訊。若您選擇接收行銷信件，我們也會保存同意類別、來源、版本與時間。我們透過 PostHog 蒐集瀏覽與產品使用事件，並持續使用 Google Analytics。分析事件會記錄您在站內搜尋輸入的關鍵字，讓我們了解訪客想找什麼、補上找不到的品牌；若搜尋內容看起來像電子郵件地址或電話號碼，則完全不會記錄。分析事件不包含表單內容、姓名、電子郵件地址、電話號碼、驗證碼或權杖。"
+        "body": "當您使用 Formoria 時，我們可能蒐集以下個人資料：推薦品牌、提供品牌資料、提供意見或聯絡支援時留下的電子郵件地址與姓名（選填）、品牌名稱、品牌官方網站、品牌創立縣市、社群連結、購買連結、是否為品牌負責人，以及資料來源。註冊帳號時，我們透過 Supabase Auth 蒐集您的電子郵件與驗證資訊。若您選擇接收行銷信件，我們也會保存同意類別、來源、版本與時間。我們透過 PostHog 蒐集瀏覽與產品使用事件，並持續使用 Google Analytics。分析事件會記錄您在站內搜尋輸入的關鍵字，讓我們了解訪客想找什麼、補上找不到的品牌；若搜尋內容看起來像電子郵件地址或電話號碼，則完全不會記錄。分析事件不包含表單內容、姓名、電子郵件地址、電話號碼、驗證碼或權杖。"
       },
       "purpose": {
         "heading": "使用目的",
@@ -1454,7 +1467,7 @@
       },
       "taiwaneseBrandCriteria": {
         "question": "什麼樣的品牌符合收錄資格？",
-        "answer": "只要品牌在台灣創立、設計或製造，符合其中任何一項即可。例如：總部設在台北的公司符合「創立」條件；在台灣設計、海外生產的工作室符合「設計」條件；在鶯歌製作產品的工坊符合「製造」條件。歡迎品牌主、品牌愛好者或社群成員推薦。"
+        "answer": "只要品牌在台灣創立、設計或製造，符合其中任何一項即可。例如：在台北創立的公司符合「創立」條件；在台灣設計、海外生產的工作室符合「設計」條件；在鶯歌製作產品的工坊符合「製造」條件。歡迎品牌主、品牌愛好者或社群成員推薦。"
       },
       "notListedBrands": {
         "question": "哪些類型的品牌不會被收錄？",
@@ -1753,8 +1766,8 @@
     "heroImageEditHint": "僅限 1 張。這是品牌頁面最先顯示的圖片，也會作為瀑布流品牌卡片封面。建議使用清晰的 16:9 橫式圖片。",
     "fieldProductPhotos": "產品照片",
     "productPhotosEditHint": "最多可上傳 9 張產品單品、細節或使用情境照片，這些圖片會顯示於品牌頁面的產品圖庫。",
-    "city": "品牌創立城市",
-    "cityPlaceholder": "請選擇品牌創立城市",
+    "city": "品牌創立縣市",
+    "cityPlaceholder": "請選擇品牌創立縣市",
     "fieldOfficialWebsite": "官方網站",
     "fieldInstagram": "Instagram",
     "fieldThreads": "Threads",
@@ -1790,8 +1803,8 @@
     "requiredHint": "為必填欄位",
     "requiredFieldError": "發布前請完成此必填欄位。",
     "fieldDescriptionHint": "顯示在品牌頁面上的公開介紹",
-    "fieldFoundingYearHint": "顯示在品牌頁面上",
-    "cityHint": "填寫後品牌會顯示在地圖上",
+    "fieldFoundingYearHint": "品牌最初創立的年份",
+    "cityHint": "請填品牌創立縣市，而非總部或目前所在地",
     "unsavedChanges": "有未儲存的變更",
     "slugChangeBlocked": "品牌網址基於此名稱。如需更改，請聯繫我們。",
     "subcategoriesSearchHint": "輸入關鍵字篩選，再點選下方標籤加入。",
@@ -1878,8 +1891,8 @@
       "friend_recommended": "朋友推薦",
       "work_there": "在這裡工作"
     },
-    "city": "品牌所在縣市",
-    "cityPlaceholder": "請選擇縣市（選填）",
+    "city": "品牌創立縣市",
+    "cityPlaceholder": "請選擇創立縣市（選填）",
     "fields": {
       "brandName": "品牌名稱",
       "brandNamePlaceholder": "例：雨靴工作室",
@@ -1927,9 +1940,9 @@
       "storeName": "店名",
       "address": "地址",
       "addLocation": "新增地點",
-      "region": "品牌所在地區",
-      "regionPlaceholder": "選擇地區",
-      "regionHint": "品牌總部或主要營運的城市",
+      "region": "品牌創立縣市",
+      "regionPlaceholder": "選擇創立縣市",
+      "regionHint": "品牌最初創立的縣市",
       "regionOptionalHint": "選填",
       "categoryMultiSelect": "",
       "categoryHint": "選擇最符合的品牌類別",

@@ -153,6 +153,28 @@ export const ANALYTICS_EVENTS = {
   SUBCATEGORY_FILTER_APPLIED: "subcategory_filter_applied",
 
   /**
+   * A product subcategory filter was applied on the discover page.
+   * @property subcategory {string} Subcategory key applied.
+   * @property parent_category {string} Parent category of the subcategory.
+   * @property result_count {number} Post-filter product count; always an integer.
+   */
+  PRODUCT_SUBCATEGORY_FILTER_APPLIED: "product_subcategory_filter_applied",
+
+  /**
+   * A material filter was applied on the discover page.
+   * @property material {string} Material key applied.
+   * @property result_count {number} Post-filter product count; always an integer.
+   */
+  PRODUCT_MATERIAL_FILTER_APPLIED: "product_material_filter_applied",
+
+  /**
+   * The product sort control changed value on the discover page.
+   * @property sort_value {string} Newly selected sort key.
+   * @property previous_sort {string} Sort key in effect before the change.
+   */
+  PRODUCT_SORT_CHANGED: "product_sort_changed",
+
+  /**
    * A price-range filter was applied.
    * @deprecated Retired 2026-08-24 with the price-range facet. The event name
    * and payload remain in this permanent analytics ledger for historical rows.
@@ -756,6 +778,19 @@ export interface AnalyticsEventPayloads {
     subcategory: string;
     parent_category: string;
     result_count: number;
+  };
+  [ANALYTICS_EVENTS.PRODUCT_SUBCATEGORY_FILTER_APPLIED]: {
+    subcategory: string;
+    parent_category: string;
+    result_count: number;
+  };
+  [ANALYTICS_EVENTS.PRODUCT_MATERIAL_FILTER_APPLIED]: {
+    material: string;
+    result_count: number;
+  };
+  [ANALYTICS_EVENTS.PRODUCT_SORT_CHANGED]: {
+    sort_value: string;
+    previous_sort: string;
   };
   [ANALYTICS_EVENTS.PRICE_FILTER_APPLIED]: { price_range: string };
   [ANALYTICS_EVENTS.FILTER_CLEARED]: {

@@ -420,4 +420,77 @@ describe("applyNamesResult guards", () => {
     expect(applied.phaseResult.changedFields).toEqual([]);
     expect(applied.patch).toEqual({});
   });
+
+  it("accepts the exact high-confidence LID Shoes first-party candidate", () => {
+    const evidence = [{
+      source: "official_website" as const,
+      url: "https://www.lidshoes.com",
+      observedName: "劉一刀 手工鞋",
+    }];
+    const candidates: NameCandidate[] = [
+      candidate("stored", "LID Shoes"),
+      {
+        source: "official_website",
+        value: "劉一刀 手工鞋 LID Shoes",
+        evidence,
+      },
+    ];
+
+    const applied = applyNamesResult(
+      {
+        chosen: "劉一刀手工鞋 LID Shoes",
+        confidence: "high",
+        reason: "官網直接使用雙語品牌名",
+      },
+      brand("brand-lid", "lid-shoes", "LID Shoes"),
+      candidates,
+    );
+
+    expect(applied.patch).toEqual({
+      name: "劉一刀手工鞋 LID Shoes",
+      _name_proposal: {
+        value: "劉一刀手工鞋 LID Shoes",
+        confidence: "high",
+        reason: "官網直接使用雙語品牌名",
+        evidence,
+      },
+    });
+  });
+
+  it("rejects a high-confidence value not present in the candidate set", () => {
+    const applied = applyNamesResult(
+      {
+        chosen: "劉一刀鞋坊 LID Shoes",
+        confidence: "high",
+        reason: "模型自行改寫",
+      },
+      brand("brand-lid", "lid-shoes", "LID Shoes"),
+      [candidate("stored", "LID Shoes")],
+    );
+
+    expect(applied.patch).toEqual({});
+  });
+
+  it("rejects a medium-confidence bilingual addition even with official evidence", () => {
+    const candidateWithEvidence: NameCandidate = {
+      source: "official_social",
+      value: "愛德拉 Adela",
+      evidence: [{
+        source: "official_social",
+        url: "https://www.instagram.com/adela.tw",
+        observedName: "Adela愛德拉",
+      }],
+    };
+    const applied = applyNamesResult(
+      {
+        chosen: "愛德拉 Adela",
+        confidence: "medium",
+        reason: "候選可能是品牌名",
+      },
+      brand("brand-adela", "adela", "ADELA"),
+      [candidate("stored", "ADELA"), candidateWithEvidence],
+    );
+
+    expect(applied.patch).toEqual({});
+  });
 });

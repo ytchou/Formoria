@@ -4,14 +4,17 @@
 
 import * as Sentry from "@sentry/nextjs";
 import { isPostHogConfigured } from '@/lib/analytics/posthog-provider';
+import { deferNoncritical } from '@/lib/browser/defer-noncritical';
 import { clientSentryOptions } from './instrumentation-client.options';
 
 Sentry.init(clientSentryOptions);
 
 if (isPostHogConfigured()) {
-  void import('@/lib/analytics/posthog-client')
-    .then(({ initializePostHog }) => initializePostHog())
-    .catch(() => undefined)
+  deferNoncritical(() => {
+    void import('@/lib/analytics/posthog-client')
+      .then(({ initializePostHog }) => initializePostHog())
+      .catch(() => undefined)
+  })
 }
 
 export const onRouterTransitionStart = Sentry.captureRouterTransitionStart;

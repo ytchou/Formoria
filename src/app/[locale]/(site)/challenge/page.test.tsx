@@ -6,14 +6,7 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { NextIntlClientProvider } from 'next-intl'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import zh from '../../../../../messages/zh-TW.json'
-import ChallengePage from './page'
-
-const mockPush = vi.fn()
-
-vi.mock('next/navigation', () => ({
-  useRouter: () => ({ push: mockPush }),
-  useSearchParams: () => new URLSearchParams('returnTo=%2Fbrands%2Ftalkoo'),
-}))
+import { ChallengeWidget } from './challenge-widget'
 
 vi.mock('@/components/submit/TurnstileWidget', () => ({
   TurnstileWidget: ({
@@ -95,7 +88,7 @@ describe('ChallengePage', () => {
   it('uses a full-page navigation after successful verification', async () => {
     render(
       <NextIntlClientProvider locale="zh-TW" messages={zh}>
-        <ChallengePage />
+        <TestChallengeWidget />
       </NextIntlClientProvider>,
     )
 
@@ -104,7 +97,6 @@ describe('ChallengePage', () => {
     await waitFor(() => {
       expect(hrefValues).toContain('/brands/talkoo')
     })
-    expect(mockPush).not.toHaveBeenCalled()
   })
 
 
@@ -115,7 +107,7 @@ describe('ChallengePage', () => {
     } as Response)
     render(
       <NextIntlClientProvider locale="zh-TW" messages={zh}>
-        <ChallengePage />
+        <TestChallengeWidget />
       </NextIntlClientProvider>,
     )
 
@@ -131,7 +123,7 @@ describe('ChallengePage', () => {
     vi.mocked(global.fetch).mockResolvedValueOnce(response)
     render(
       <NextIntlClientProvider locale="zh-TW" messages={zh}>
-        <ChallengePage />
+        <TestChallengeWidget />
       </NextIntlClientProvider>,
     )
 
@@ -145,7 +137,7 @@ describe('ChallengePage', () => {
     vi.mocked(global.fetch).mockRejectedValueOnce(new Error('network unavailable'))
     render(
       <NextIntlClientProvider locale="zh-TW" messages={zh}>
-        <ChallengePage />
+        <TestChallengeWidget />
       </NextIntlClientProvider>,
     )
 
@@ -158,7 +150,7 @@ describe('ChallengePage', () => {
   it('shows an error when Turnstile reports a widget failure', async () => {
     render(
       <NextIntlClientProvider locale="zh-TW" messages={zh}>
-        <ChallengePage />
+        <TestChallengeWidget />
       </NextIntlClientProvider>,
     )
 
@@ -177,7 +169,7 @@ describe('ChallengePage', () => {
       } as Response)
     render(
       <NextIntlClientProvider locale="zh-TW" messages={zh}>
-        <ChallengePage />
+        <TestChallengeWidget />
       </NextIntlClientProvider>,
     )
 
@@ -192,3 +184,13 @@ describe('ChallengePage', () => {
     expect(global.fetch).toHaveBeenCalledTimes(2)
   })
 })
+
+function TestChallengeWidget() {
+  return (
+    <ChallengeWidget
+      returnTo="/brands/talkoo"
+      verifyingLabel="驗證中…"
+      errorLabel="驗證失敗，請再試一次。"
+    />
+  )
+}

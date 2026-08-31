@@ -4,13 +4,6 @@
 import { render } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
-// next/font runs inside `next build` only; outside it the loader throws. The
-// return shape is the one thing this file depends on.
-vi.mock('next/font/google', () => ({
-  Noto_Sans_TC: () => ({ variable: '--font-noto-sans-tc' }),
-  Noto_Serif_TC: () => ({ variable: '--font-noto-serif-tc' }),
-}))
-
 // Stand-in for the GA4 snippet. The real component pulls in next/script and the
 // router hooks; what is under test is whether RootDocument renders it at all.
 vi.mock('@/components/analytics/public-google-analytics', () => ({
@@ -56,6 +49,16 @@ function snippet(container: HTMLElement) {
 
 describe('RootDocument GA4 gate', () => {
   afterEach(() => vi.unstubAllEnvs())
+
+  it('does not activate page-wide hosted CJK fonts', () => {
+    // The regression: a Chinese-rich brand page activated 32 font files and
+    // transferred 2.4 MiB before LCP, despite both families being non-critical.
+    renderDocument()
+
+    expect(document.documentElement.className).not.toMatch(
+      /font-noto-(?:serif|sans)-tc/,
+    )
+  })
 
   it('renders no snippet on staging, even with the measurement ID present', () => {
     // The bug: a non-production build carrying the production measurement ID

@@ -12,15 +12,25 @@ describe("FACTS_SYSTEM_PROMPT subcategories vocabulary", () => {
     // emit the slug itself. The gloss keeps the slug recognisable to a model
     // reading zh-TW source material — the shape `CATEGORY_LIST` already uses
     // for L1 and which demonstrably works.
-    expect(SUBCATEGORY_VOCAB_BLOCK).toContain("- bags-accessories（包袋配件）：");
-    expect(SUBCATEGORY_VOCAB_BLOCK).toContain("tote-bags（托特包）");
-    expect(SUBCATEGORY_VOCAB_BLOCK).toContain("clasp-frame-bags（口金包）");
-    expect(SUBCATEGORY_VOCAB_BLOCK).toContain("handmade-soap（手工皂）");
+    expect(SUBCATEGORY_VOCAB_BLOCK).toContain(
+      "- bags-accessories（包袋配件）：",
+    );
+    expect(SUBCATEGORY_VOCAB_BLOCK).toContain("tote-bags（托特包：帆布包）");
+    expect(SUBCATEGORY_VOCAB_BLOCK).toContain(
+      "clasp-frame-bags（口金包：口金零錢包、口金夾）",
+    );
+    expect(SUBCATEGORY_VOCAB_BLOCK).toContain(
+      "handmade-soap（手工皂：冷製皂、洗顏皂）",
+    );
 
     // Every live node is offered, and every one of them carries its slug.
     for (const subcategory of L2_SUBCATEGORIES) {
+      const aliasSuffix =
+        subcategory.aliases.length > 0
+          ? `：${subcategory.aliases.join("、")}`
+          : "";
       expect(SUBCATEGORY_VOCAB_BLOCK).toContain(
-        `${subcategory.slug}（${subcategory.nameZh}）`,
+        `${subcategory.slug}（${subcategory.nameZh}${aliasSuffix}）`,
       );
     }
     expect(FACTS_SYSTEM_PROMPT).toContain(SUBCATEGORY_VOCAB_BLOCK);

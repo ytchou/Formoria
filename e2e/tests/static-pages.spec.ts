@@ -124,7 +124,7 @@ test.describe("Static & compliance pages", () => {
     }
   });
 
-  test("challenge page renders the localized verification heading", async ({
+  test("challenge page server-renders the localized verification heading", async ({
     anonPage,
   }) => {
     // /challenge uses the default zh-TW locale; /en/challenge is the English variant.
@@ -135,6 +135,7 @@ test.describe("Static & compliance pages", () => {
       test.skip(true, "PREVIEW_MODE active");
       return;
     }
+    expect(await resp?.text()).toMatch(/<h1[^>]*>快速驗證<\/h1>/);
     await expect(
       anonPage.getByRole("heading", { name: "快速驗證" }),
     ).toBeVisible({ timeout: BUDGET.SERVER_RENDER });

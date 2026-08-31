@@ -3,6 +3,11 @@ import { getTranslations, setRequestLocale } from "next-intl/server";
 import { redirectIfAuthenticated } from "@/lib/auth/redirect-if-authenticated";
 import { SignInForm } from "@/components/auth/sign-in-form";
 
+// The page reads the request session before rendering. Without an explicit
+// dynamic boundary, the RSC response can be reused across auth states and a
+// recovery redirect may never show its success message.
+export const dynamic = "force-dynamic";
+
 type Props = {
   params: Promise<{ locale: string }>;
   searchParams: Promise<{ error?: string }>;

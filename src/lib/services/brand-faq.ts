@@ -40,6 +40,7 @@ export async function getBrandFaq(
   // re-check for nulls.
   const rowsByPreset = new Map<string, RenderableRow[]>();
   for (const row of rows) {
+    if (row.presetId === "origin-story" && row.source === "model") continue;
     const question = isZh ? row.questionZh : row.questionEn;
     const answer = isZh ? row.answerZh : row.answerEn;
     if (!hasValue(question) || !hasValue(answer)) continue;
@@ -267,6 +268,7 @@ export async function upsertBrandFaqEntries(
     },
     async (ctx) => {
       const candidates = (entries ?? [])
+        .filter((entry) => entry.presetId !== "origin-story")
         .map((entry) => ({
           presetId: entry.presetId,
           position: entry.position ?? 0,
