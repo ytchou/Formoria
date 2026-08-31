@@ -28,7 +28,6 @@ const PROVIDERS = {
     // traced back to the request that produced them.
     "fetch_curated_image",
     "fetch_manifest",
-    "fetch_favicon",
   ],
   brands: [
     "cleanupAdminBrandReviewImages",
@@ -148,7 +147,6 @@ const PROVIDERS = {
     "releaseBrandImageUrls",
     "storeCuratedProductImage",
     "syncHeroDenormalized",
-    "syncLogoDenormalized",
     "uploadImageEvalAsset",
     "uploadPrivateFile",
     "uploadPublicImage",

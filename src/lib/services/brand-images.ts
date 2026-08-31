@@ -7,10 +7,9 @@ import { isLogoImageTags } from '@/lib/constants/brand-images'
 import type { BrandImageMeta } from '@/lib/types/brand'
 import { deleteStoredImagePaths } from './image-upload'
 import { isBrandOwnedStoragePath } from '@/lib/images/storage-keys'
-import { pickLogoImage } from './enrich-phases/favicon-download'
 
 type BrandImageStatus = 'active' | 'candidate' | 'rejected'
-type BrandImageSource = 'scrape' | 'google_image' | 'owner' | 'admin' | 'legacy' | 'json_ld' | 'favicon'
+type BrandImageSource = 'scrape' | 'google_image' | 'owner' | 'admin' | 'legacy' | 'json_ld'
 type BrandImageProviderMetadata = Record<string, string | number | null | undefined>
 
 export type BrandImageRow = {
@@ -112,31 +111,15 @@ type BrandHeroTable = {
     ) => Promise<{ error: QueryError | null }>
   }
 }
-type BrandLogoTable = {
-  update: (row: { logo_storage_path: string | null }) => {
-    eq: (
-      column: 'id',
-      value: string,
-    ) => Promise<{ error: QueryError | null }>
-  }
-}
 type BrandHeroClient = {
   from: (table: 'brands') => BrandHeroTable
 }
-type BrandLogoClient = {
-  from: (table: 'brands') => BrandLogoTable
-}
-
 function brandImagesTable(supabase: unknown): BrandImagesTable {
   return (supabase as BrandImagesClient).from('brand_images')
 }
 
 function brandHeroTable(supabase: unknown): BrandHeroTable {
   return (supabase as BrandHeroClient).from('brands')
-}
-
-function brandLogoTable(supabase: unknown): BrandLogoTable {
-  return (supabase as BrandLogoClient).from('brands')
 }
 
 /**
@@ -478,58 +461,3 @@ export async function syncHeroDenormalized(
   )
 }
 
-/**
- * Denormalizes the best logo-class image into `brands.logo_storage_path`.
- *
- * Queries `brand_images` for active rows tagged `'favicon'` or `'logo'`,
- * picks the winner via {@link pickLogoImage} (favicon beats logo), and
- * writes the result to the brands row. Returns the winning `storage_path`
- * or null when no qualifying image exists.
- */
-export async function syncLogoDenormalized(
-  supabase: unknown,
-  brandId: string,
-): Promise<string | null> {
-  return auditedCall(
-    {
-      provider: 'images',
-      operation: 'syncLogoDenormalized',
-      kind: 'service',
-    },
-    async () => {
-      // Query active images that carry a favicon or logo tag.
-      // Supabase's `.contains()` checks array containment; we need rows where
-      // tags overlaps with ['favicon', 'logo']. The `.overlaps()` filter is the
-      // correct operator, but the untyped client makes calling it fragile, so
-      // fetch all active images and filter in JS — the row count per brand is
-      // capped at MAX_BRAND_ACTIVE_IMAGES (~10), so the over-fetch is trivial.
-      const { data, error } = await brandImagesTable(supabase)
-        .select('storage_path, tags')
-        .eq('brand_id', brandId)
-        .eq('status', 'active')
-        .order('sort_order', { ascending: true })
-
-      if (error) throw error
-
-      const rows = (data ?? []).filter(
-        (row) =>
-          row.tags?.includes('favicon') || row.tags?.includes('logo'),
-      )
-
-      const winnerPath = pickLogoImage(rows)
-
-      // logo_storage_path is a derived column: it always reflects the current
-      // set of qualifying images.  Writing null when no images remain is
-      // intentional — it keeps the column in sync rather than preserving a
-      // stale reference to a deleted or re-tagged image.
-      const { error: updateError } = await brandLogoTable(supabase)
-        .update({ logo_storage_path: winnerPath })
-        .eq('id', brandId)
-
-      if (updateError) throw updateError
-
-      return winnerPath
-    },
-    { subjectId: brandId },
-  )
-}
