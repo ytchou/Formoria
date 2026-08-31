@@ -715,7 +715,6 @@ export async function runLinksPhase({
     const scrapedBrandName = deriveScrapedBrandName(brand, scrapedData)
     const officialNameCandidates = deriveOfficialNameCandidates(brand, scrapedData)
 
-
     return {
       patch,
       scrapedBrandName,

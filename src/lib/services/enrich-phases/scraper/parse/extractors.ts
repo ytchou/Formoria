@@ -448,8 +448,6 @@ export function toImageSources(
   return urls.map((url, position) => ({ url, method, pageUrl, position }))
 }
 
-
-
 export function extractJsonLd($: cheerio.CheerioAPI): Record<string, unknown> | null {
   const scriptTag = $('script[type="application/ld+json"]').first().html()
   if (!scriptTag) return null
