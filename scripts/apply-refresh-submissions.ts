@@ -11,6 +11,8 @@
 import { createServiceClient } from '@/lib/supabase/service'
 import { applyBrandRefresh } from '@/lib/services/submissions'
 import { requestPublicBrandRevalidation } from '@/lib/cache/revalidate-client'
+import { materializeSubmissionCuratedProducts } from '@/lib/services/curated-products/materialize'
+import { storeCuratedProductImage } from '@/lib/services/curated-product-image'
 
 const DRY_RUN = process.argv.includes('--dry-run')
 
@@ -61,6 +63,56 @@ async function main(): Promise<void> {
       if (result.cleanupFailed) {
         console.warn(`[apply-refresh] ${submission.brand_name}: storage cleanup failed`)
       }
+
+      // Materialize + mirror in a separate try/catch so a failure here does
+      // not mask the already-committed brand refresh as a "failure"
+      let materialized = { created: 0, visible: 0, hidden: 0 }
+      let mirrored = 0
+      let mirrorFailed = 0
+      try {
+        materialized = await materializeSubmissionCuratedProducts(
+          submission.id,
+          result.brandId,
+        )
+
+        const { data: unmirroredProducts } = await supabase
+          .from('curated_products')
+          .select('id, brand_id, image_source_url')
+          .eq('brand_id', result.brandId)
+          .eq('visible', true)
+          .not('image_source_url', 'is', null)
+          .is('image_url', null)
+
+        for (const product of unmirroredProducts ?? []) {
+          try {
+            const stored = await storeCuratedProductImage({
+              brandId: product.brand_id,
+              productId: product.id,
+              imageSourceUrl: product.image_source_url,
+            })
+            await supabase
+              .from('curated_products')
+              .update({
+                image_url: stored.url,
+                image_width: stored.width,
+                image_height: stored.height,
+              })
+              .eq('id', product.id)
+            mirrored += 1
+          } catch (mirrorErr) {
+            mirrorFailed += 1
+            console.warn(`  [apply-refresh] ${submission.brand_name}: mirror failed for product ${product.id} — ${mirrorErr instanceof Error ? mirrorErr.message : String(mirrorErr)}`)
+          }
+        }
+      } catch (matErr) {
+        console.error(`  [apply-refresh] ${submission.brand_name}: product materialization failed — ${matErr instanceof Error ? matErr.message : String(matErr)}`)
+      }
+
+      const productSummary =
+        materialized.created > 0 || mirrored > 0
+          ? `, ${materialized.visible} product(s) live, ${materialized.hidden} hidden, ${mirrored} image(s) mirrored${mirrorFailed > 0 ? `, ${mirrorFailed} mirror failed` : ''}`
+          : ''
+      console.log(`  [apply-refresh] ${submission.brand_name}: applied${productSummary}`)
     } catch (err) {
       const message =
         err instanceof Error
