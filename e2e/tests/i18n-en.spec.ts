@@ -285,21 +285,15 @@ test.describe("i18n English browse", () => {
   test("switching to EN via the switcher updates chrome + client components without refresh", async ({
     page,
   }) => {
-    // `networkidle` on `/` alone outgrew the 30s CI default when DEV-1514
-    // rebuilt the homepage — the wall now ships more image requests, and four
-    // parallel workers share one origin. Measured at 17.3s serially against
-    // deployed staging, so the failure was the budget, not the page: this is
-    // the only test in the file that waits on idle rather than on an element.
     test.setTimeout(BUDGET.TEST.JOURNEY);
 
-    // The homepage has the largest client tree in this suite. Wait for its
-    // hydration requests to settle before clicking a trigger that is present in
-    // the server HTML but only becomes interactive on the client.
-    await page.goto("/", { waitUntil: "networkidle" });
+    // Wait for the switcher button to be interactive rather than for network
+    // idle — deferred analytics means long-tail requests never settle.
+    await page.goto("/");
     const switcherBtn = page
       .getByRole("banner")
       .getByRole("button", { name: "切換語言" });
-    await expect(switcherBtn).toBeVisible({ timeout: BUDGET.INTERACTIVE });
+    await expect(switcherBtn).toBeVisible({ timeout: BUDGET.NAVIGATION });
     await switcherBtn.click();
     const enItem = page.getByRole("menuitem", { name: "English" });
     await expect(enItem).toBeVisible({ timeout: BUDGET.INTERACTIVE });
