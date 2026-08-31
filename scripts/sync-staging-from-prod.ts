@@ -251,7 +251,6 @@ export const KNOWN_COLUMNS: Record<CopyTable, readonly string[]> = {
     "material",
     "hero_image_url",
     "hero_image_storage_path",
-    "logo_storage_path",
     "other_urls",
     "purchase_website",
     "purchase_pinkoi",
@@ -543,7 +542,7 @@ export const SYNCED_STORAGE_PREFIXES = ["brands/", "submissions/"] as const;
 
 /** Columns that hold a bucket-relative key, per copied table. */
 const STORAGE_KEY_COLUMNS: Partial<Record<CopyTable, readonly string[]>> = {
-  brands: ["hero_image_storage_path", "logo_storage_path"],
+  brands: ["hero_image_storage_path"],
   brand_images: ["storage_path"],
   events: ["hero_image_storage_path"],
   event_exhibitors: ["image_storage_path"],
@@ -2407,8 +2406,7 @@ async function runSync(argv: string[]): Promise<void> {
 
   // --- 11. Storage objects -------------------------------------------------
   // Gated on brand_images: it holds all but a handful of the referenced keys.
-  // `brands.hero_image_storage_path` is denormalized from one of its rows;
-  // `brands.logo_storage_path` can point at an independent favicon object.
+  // `brands.hero_image_storage_path` is denormalized from one of its rows.
   let storage: StorageCopyReport | null = null;
   if (wants("brand_images")) {
     const keyPlan = planStorageKeys({
