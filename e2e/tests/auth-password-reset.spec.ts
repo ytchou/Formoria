@@ -50,6 +50,14 @@ test.describe('Auth — forgot password request', () => {
       // cookies were set by the callback redirect chain.
       const passwordInput = anonPage.getByLabel('新密碼', { exact: true });
       await expect(passwordInput).toBeVisible({ timeout: BUDGET.INTERACTIVE });
+      // The inputs are server-rendered before React hydrates. A native submit
+      // in that window follows the page response and cannot consume Next's
+      // internal server-action redirect, leaving the reset form on screen.
+      await expect(anonPage.locator('form')).toHaveAttribute(
+        'action',
+        /^javascript:/,
+        { timeout: BUDGET.INTERACTIVE },
+      );
       const nextPassword = `Recovery-updated-${Date.now()}A!`;
       await passwordInput.fill(nextPassword);
       await anonPage.getByLabel('確認新密碼', { exact: true }).fill(nextPassword);
