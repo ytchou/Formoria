@@ -55,7 +55,6 @@ function emptyMergedResult(): ScrapedBrandData {
     rawJsonLd: null,
     stockistPageText: null,
     jsonLdImageUrls: [],
-    faviconUrls: [],
   }
 }
 
@@ -232,10 +231,6 @@ export function mergeScrapedData(results: ScrapeResult[]): ScrapedBrandData {
           merged.jsonLdImageUrls.push(url)
         }
       }
-    }
-    // Favicon URLs: first non-empty wins (same as scalar fields).
-    if (!hasValue(merged.faviconUrls) && hasValue(data.faviconUrls)) {
-      merged.faviconUrls = data.faviconUrls
     }
 
     // Link provenance records the result page that first supplied each value;

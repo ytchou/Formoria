@@ -70,7 +70,6 @@ const COLUMN_FIXTURE: Record<string, unknown> = {
   // `true` on purpose: brandToDomain falls back to `false`, so a `false`
   // fixture could not distinguish "column present" from "column dropped".
   is_demo: true,
-  logo_storage_path: "brands/brand-1/logo.webp",
 };
 
 function buildRow(columns: readonly string[]): BrandRowWithJoins {
@@ -251,44 +250,3 @@ describe("brandToDomain image derivation (DEV-1551)", () => {
   });
 });
 
-describe("brandToDomain logoUrl derivation (DEV-1628)", () => {
-  it("emits a relative /i/ path for logoUrl", () => {
-    const brand = brandToDomain({
-      ...COLUMN_FIXTURE,
-      logo_storage_path: "brands/brand-1/logo.webp",
-    } as unknown as BrandRowWithJoins);
-
-    expect(brand.logoUrl).toBe("/i/brands/brand-1/logo.webp");
-  });
-
-  it("logoUrl is null when logo_storage_path is absent", () => {
-    const brand = brandToDomain({
-      ...COLUMN_FIXTURE,
-      logo_storage_path: null,
-    } as unknown as BrandRowWithJoins);
-
-    expect(brand.logoUrl).toBeNull();
-  });
-});
-
-describe("toPublicBrandCard includes logoUrl (DEV-1628)", () => {
-  it("toPublicBrandCard includes logoUrl", () => {
-    const brand = brandToDomain({
-      ...COLUMN_FIXTURE,
-      logo_storage_path: "brands/brand-1/logo.webp",
-    } as unknown as BrandRowWithJoins);
-    const card = toPublicBrandCard(brand);
-
-    expect(card.logoUrl).toBe("/i/brands/brand-1/logo.webp");
-  });
-
-  it("toPublicBrandCard passes null logoUrl through", () => {
-    const brand = brandToDomain({
-      ...COLUMN_FIXTURE,
-      logo_storage_path: null,
-    } as unknown as BrandRowWithJoins);
-    const card = toPublicBrandCard(brand);
-
-    expect(card.logoUrl).toBeNull();
-  });
-});
