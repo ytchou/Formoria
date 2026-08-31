@@ -3,6 +3,7 @@ import { buildEnrichmentUserContent } from '../../description-rewrite'
 import { CLEARED_FIELDS_KEY } from '@/lib/services/brand-write-policy'
 import {
   buildDescriptionEvidence,
+  buildFoundingFactSources,
   loadPersistedScrapeStructure,
   preferPatched,
 } from '../descriptions'
@@ -53,6 +54,49 @@ describe('description prompt behaviour', () => {
     expect(userContent).not.toContain('smore.com')
     expect(userContent).toContain('instagram.com/test-brand')
     expect(userContent).toContain('shopee.tw/test-brand')
+  })
+})
+
+describe('buildFoundingFactSources', () => {
+  it('keeps source text addressable and classifies known brand links as first-party', () => {
+    const result = buildFoundingFactSources(
+      {
+        'https://official.example/about': {
+          title: 'About',
+          story: 'Founded in Taipei in 2019.',
+        },
+        'https://design-journal.example/interview': {
+          title: 'Interview',
+          description: 'The studio began in Taipei.',
+        },
+      },
+      {
+        links: {
+          purchaseWebsite: 'https://official.example',
+          socialInstagram: null,
+          socialThreads: null,
+          socialFacebook: null,
+          purchasePinkoi: null,
+          purchaseShopee: null,
+          purchaseMyship: null,
+        },
+        productCategoryZh: null,
+        imageAlts: [],
+      },
+    )
+
+    expect(result).toEqual([
+      expect.objectContaining({
+        url: 'https://official.example/about',
+        sourceType: 'first-party',
+        fetched: true,
+        text: expect.stringContaining('Founded in Taipei in 2019.'),
+      }),
+      expect.objectContaining({
+        url: 'https://design-journal.example/interview',
+        sourceType: 'independent',
+      }),
+    ])
   })
 })
 

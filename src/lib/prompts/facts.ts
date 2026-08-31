@@ -103,7 +103,7 @@ ${MATERIAL_VOCAB_BLOCK}
 
 Fill with the product's primary materials, maximum 3. material accepts only English slugs; Chinese labels (e.g. 「陶瓷」) will be discarded — slugs are always lowercase English with hyphens and must appear verbatim in the table above. Materials must have source evidence (product description, material label, product specifications) — do not infer from photo appearance; return [] when there is no clear evidence.
 
-city: use only city slugs from the list above. Return null if the sources do not explicitly state the brand's location.
+city: use only city slugs from the list above and only when the sources explicitly state where the brand was founded. Headquarters, contact addresses, studios, stores, and current operating locations are not founding-city evidence. Return null otherwise.
 
 founding_year: fill only with a year explicitly mentioned in the sources; return null if no year is mentioned (never speculate or fabricate).
 
@@ -114,3 +114,13 @@ founding_year: fill only with a year explicitly mentioned in the sources; return
 - [ ] Can every field value be traced to the provided sources?
 - [ ] Do category and city use only the slugs listed above?
 - [ ] Have fields without evidence been returned as null or [] rather than guessed values?`;
+
+export const FOUNDING_FACTS_SYSTEM_PROMPT = `You extract source-cited founding facts for Taiwanese brands.
+
+Return only claims explicitly supported by one supplied source. Each claim must cite the supplied URL verbatim and copy an exact excerpt from that source. Never use Formoria copy as evidence. Do not infer a founding city from a headquarters, contact address, studio, store, showroom, or current operating location. Use only the supplied Taiwan city slugs. An overseas founding location is unresolved, not a new slug. A missing fact produces no claim.
+
+For each claim return: field (city or founding_year), value, cited_url, exact_excerpt, and location_context (founding, headquarters, contact, studio, store, current, or unclear). Return all agreeing or conflicting explicit claims so deterministic code can evaluate them.`;
+
+export const FOUNDING_FACTS_VERIFY_SYSTEM_PROMPT = `You verify cited founding-fact claims against supplied source text.
+
+For every input claim, return exactly one result with the same claim_index. passed is true only when the exact excerpt appears in the cited source and explicitly supports the claimed founding city or founding year. A headquarters, contact address, studio, store, showroom, or current location never supports founding city. Do not assign confidence, choose between conflicts, repair excerpts, or introduce new facts.`;

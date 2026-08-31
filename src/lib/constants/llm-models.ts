@@ -80,6 +80,22 @@ export const LLM_PROFILES = {
     reasoningEffort: "none",
     timeoutMs: 30_000,
   },
+  /** Source-cited city/year extraction; confidence is computed afterward. */
+  foundingFacts: {
+    model: "text",
+    maxTokens: 1800,
+    temperature: 0,
+    reasoningEffort: "none",
+    timeoutMs: 30_000,
+  },
+  /** Separate constrained check of every founding-fact claim and excerpt. */
+  foundingFactsVerify: {
+    model: "text",
+    maxTokens: 1400,
+    temperature: 0,
+    reasoningEffort: "none",
+    timeoutMs: 30_000,
+  },
   /** Prose only; FAQ has its own final phase and token budget. */
   descriptions: {
     model: "text",

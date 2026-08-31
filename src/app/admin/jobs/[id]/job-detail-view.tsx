@@ -48,7 +48,10 @@ const phaseDescriptions = {
   links: "Extracts and verifies official website and social links.",
   images: "Finds and selects usable brand and product images.",
   classify_images: "Classifies candidate images by their role and quality.",
-  facts: "Extracts the brand's category, tags, city and founding year.",
+  facts: "Extracts the brand's category, tags, and listing verdict.",
+  founding_facts: "Extracts source-cited founding city and year proposals.",
+  founding_facts_verify:
+    "Verifies each founding fact against its cited source text.",
   descriptions: "Writes the bilingual description and blurb.",
   stockists: "Stockist discovery from website evidence.",
   locations: "Retail location search (retired).",

@@ -2977,6 +2977,18 @@ export type Database = {
         Args: { p_reviewer_id: string; p_submission_id: string }
         Returns: string[]
       }
+      apply_founding_fact_audit_patch: {
+        Args: {
+          p_actor: string
+          p_allow_protected?: boolean
+          p_brand_id: string
+          p_expected: Json
+          p_expected_protection: Json
+          p_patch: Json
+          p_source: string
+        }
+        Returns: boolean
+      }
       apply_submission_enrichment_result: {
         Args: {
           p_enriched_data: Json

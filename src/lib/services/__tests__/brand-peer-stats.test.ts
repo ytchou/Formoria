@@ -84,7 +84,7 @@ describe("getCategoryPeerStats", () => {
 
     const result = await getCategoryPeerStats("home", "subject", double.client);
 
-    expect(double.selectCalls).toEqual(["id, city"]);
+    expect(double.selectCalls).toEqual(["id"]);
     expect(double.eqCalls).toEqual([
       ["status", "approved"],
       ["category", "home"],
@@ -100,10 +100,7 @@ describe("getCategoryPeerStats", () => {
 
     const result = await getCategoryPeerStats("home", "subject", double.client);
 
-    expect(result).toEqual({
-      peerCount: 1,
-      cityClusters: [{ city: "Taipei", count: 1 }],
-    });
+    expect(result).toEqual({ peerCount: 1 });
   });
 
   it("returns null for a brand with no category", async () => {

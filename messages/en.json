@@ -316,7 +316,7 @@
     "sectionTitle": "Brand information",
     "unknown": "Not available",
     "label": {
-      "location": "Location",
+      "location": "Founding city or county",
       "foundingYear": "Founded",
       "category": "Brand category",
       "subcategories": "Product subcategory",
@@ -538,9 +538,9 @@
         "myship": "7-ELEVEN MyShip"
       },
       "context": {
-        "city": "based in {city}",
-        "founded": "founded in {year}",
-        "suffix": " It is {details}."
+        "city": "founded in {city}",
+        "founded": "established in {year}",
+        "suffix": " Its founding origin is {details}."
       },
       "isMadeInTaiwan": {
         "question": "Is {brandName} a Taiwanese brand?",
@@ -1467,7 +1467,7 @@
       },
       "taiwaneseBrandCriteria": {
         "question": "What counts as a Taiwanese brand?",
-        "answer": "A brand qualifies if it was founded, designed, or manufactured in Taiwan — meeting any one of the three is enough. For example, a company headquartered in Taipei qualifies under 'founded'; a studio that designs products in Taiwan but manufactures overseas qualifies under 'designed'; a workshop producing goods in Yingge qualifies under 'manufactured'. We welcome recommendations from brand owners, fans, and community members alike."
+        "answer": "A brand qualifies if it was founded, designed, or manufactured in Taiwan — meeting any one of the three is enough. For example, a company founded in Taipei qualifies under 'founded'; a studio that designs products in Taiwan but manufactures overseas qualifies under 'designed'; a workshop producing goods in Yingge qualifies under 'manufactured'. We welcome recommendations from brand owners, fans, and community members alike."
       },
       "notListedBrands": {
         "question": "What kinds of brands are not listed?",
@@ -1766,8 +1766,8 @@
     "heroImageEditHint": "One image only. This is the first image on your brand page and the cover used on masonry brand cards. Use a clear 16:9 landscape image.",
     "fieldProductPhotos": "Product photos",
     "productPhotosEditHint": "Add up to 9 photos showing individual products, details, or products in use. These appear in the product gallery on your brand page.",
-    "city": "Brand founding city",
-    "cityPlaceholder": "Select the brand founding city",
+    "city": "Brand founding city or county",
+    "cityPlaceholder": "Select where the brand was founded",
     "fieldOfficialWebsite": "Official Website",
     "fieldInstagram": "Instagram",
     "fieldThreads": "Threads",
@@ -1803,8 +1803,8 @@
     "requiredHint": "indicates a required field",
     "requiredFieldError": "Complete this required field before publishing.",
     "fieldDescriptionHint": "Public description shown on the brand page",
-    "fieldFoundingYearHint": "Shown on the brand page",
-    "cityHint": "Your brand will be shown on the map if provided",
+    "fieldFoundingYearHint": "The year the brand was founded",
+    "cityHint": "Where the brand was founded, not its headquarters or current location",
     "unsavedChanges": "Unsaved changes",
     "slugChangeBlocked": "Your brand URL is based on this name. To change it, contact us.",
     "subcategoriesSearchHint": "Type to filter, then pick a subcategory below.",
@@ -1891,8 +1891,8 @@
       "friend_recommended": "Friend recommended",
       "work_there": "Work there"
     },
-    "city": "Brand City",
-    "cityPlaceholder": "Select a county/city (optional)",
+    "city": "Brand founding city",
+    "cityPlaceholder": "Select the founding county/city (optional)",
     "fields": {
       "brandName": "Brand Name",
       "brandNamePlaceholder": "e.g. Rain Boot Studio",
@@ -1940,9 +1940,9 @@
       "storeName": "Store name",
       "address": "Address",
       "addLocation": "Add location",
-      "region": "Region",
-      "regionPlaceholder": "Select a region",
-      "regionHint": "The brand's headquarters or main city of operations",
+      "region": "Founding city or county",
+      "regionPlaceholder": "Select the founding city or county",
+      "regionHint": "The county or city where the brand was founded",
       "regionOptionalHint": "optional",
       "categoryMultiSelect": "",
       "categoryHint": "Select the brand category that fits best",
@@ -2445,7 +2445,7 @@
           "save": "Save product selection and edits"
         },
         "subcategories": "Product subcategories",
-        "city": "City",
+        "city": "Founding city",
         "foundingYear": "Founding year",
         "links": "Links",
         "otherLinks": "Other links",
