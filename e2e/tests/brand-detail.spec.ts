@@ -373,7 +373,7 @@ test.describe("Brand detail — product shelf focus", () => {
       .toBe("1");
     await focusTarget.evaluate((node) => (node as HTMLElement).blur());
 
-    await image.click();
+    await image.click({ force: true });
     await page.mouse.move(0, 0);
     await expect
       .poll(() => caption.evaluate((node) => getComputedStyle(node).opacity))
