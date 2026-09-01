@@ -1,0 +1,26 @@
+{
+  "name": "dev-1616-dryrun",
+  "title": "DEV-1616 — dryrun cohort (~20 brands)",
+  "subtitle": "19 brands sampled proportionally from 6 categories",
+  "labels": {
+    "1973-furniture": "1973 Furniture",
+    "2bm": "母子鱷魚 2BM",
+    "3triforce": "TRIFORCE 翠芙思",
+    "5am-jewelry": "5AM Jewelry",
+    "a-merry-heart": "寬寬製造 A_merryheart",
+    "b-610-asteroid-b-610": "小行星B-610 Asteroid B-610",
+    "huuray": "Huuray 瑞鴻寢飾",
+    "island-soaps": "Island Soaps 島女製皂",
+    "la-brisa": "La Brisa",
+    "mount": "山織 Mount",
+    "purifycare": "蓓樂膚 PurifyCare",
+    "sanly-joy": "Sanly Joy",
+    "shensenwood": "紳森實木 Shensenwood",
+    "zhioo-studio": "質物園 Zhioo Studio",
+    "ziliaoshi": "織療室 Ziliaoshi",
+    "好貼制所-good-sticker": "好貼制所 Good Sticker",
+    "聲聲慢手染服飾": "聲聲慢手染服飾",
+    "裏-外": "Laiwa Cozy 裏。外",
+    "阿嬤的配方-腿部保養專家": "阿嬤的配方"
+  }
+}

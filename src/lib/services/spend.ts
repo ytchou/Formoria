@@ -54,7 +54,6 @@ export type AuditSpanRow = {
 
 const CACHE_TTL_MS = 5 * 60_000;
 const PAGE_SIZE = 1_000;
-const DEEPSEEK_MODELS = ["deepseek-v4-flash"] as const;
 const AUDITED_METER_PROVIDERS = ["serper", "resend"] as const;
 
 function startOfCycle(at: Date, resetsOnDay: number): Date {
@@ -134,7 +133,6 @@ export async function loadAllPages<T>(
 }
 
 function modelsForService(id: string): readonly string[] {
-  if (id === "deepseek") return DEEPSEEK_MODELS;
   if (id === "openai") return [...new Set(Object.values(LLM_MODELS))];
   return [];
 }
@@ -345,7 +343,7 @@ export async function loadSpendWindow(
   auditSpans: AuditSpanRow[];
 }> {
   const models = [
-    ...new Set([...Object.values(LLM_MODELS), ...DEEPSEEK_MODELS]),
+    ...new Set(Object.values(LLM_MODELS)),
   ];
   const pricedRowsRequest = loadAllPages<LlmSpendRow>(
     (from, to, includeCount) =>

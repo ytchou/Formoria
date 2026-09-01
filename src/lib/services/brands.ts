@@ -1902,7 +1902,7 @@ export async function getMaterialCounts(): Promise<Map<string, number>> {
   return summarizeMaterialCounts(await getCachedSubcategoryRows());
 }
 
-export const EXPLORE_BRAND_LIMIT = 12;
+const BRANDS_PER_CATEGORY = 3;
 
 const getCachedExploreBrandPool = unstable_cache(
   () =>
@@ -1915,66 +1915,52 @@ const getCachedExploreBrandPool = unstable_cache(
       () =>
         getBrands({
           status: "approved",
+          category: VISIBLE_L1_CATEGORIES.map((c) => c.slug),
           sort: "random",
-          limit: 200,
         }),
       { summary: { cached: true } },
     ),
-  // PAYLOAD-SHAPE version, the same rule as `subcategory-summary-rows-v3`
-  // above: these are whole `Brand` rows carrying `categorySlug` and
-  // `subcategories` verbatim, and nothing invalidates a taxonomy respelling, so
-  // a warm entry keeps a retired L1 alive for a full hour. It surfaces as
-  // `getBrandCategoryLabel` falling back to the raw slug — the bare Latin
-  // `crafts` printed inside zh-TW homepage copy — because
-  // `selectCategoryBalancedBrands`'s fill loop applies no L1 test. `v2` is
-  // DEV-1507, which retired `crafts`. Bump it again on the next respelling,
-  // in step with `subcategory-summary-rows-*` and `stockist-directory-*`.
-  ["homepage-explore-brand-pool-v2"],
-  { revalidate: 3600, tags: [PUBLIC_BRAND_DATA_TAG] },
+  ["homepage-explore-brand-pool-v3"],
+  { revalidate: 900, tags: [PUBLIC_BRAND_DATA_TAG] },
 );
 
 function selectCategoryBalancedBrands(
   brands: Brand[],
   categorySlugs: readonly string[],
-  limit = categorySlugs.length,
+  perCategory: number,
 ): Brand[] {
-  const selectionLimit = Math.max(0, Math.floor(limit));
   const selected: Brand[] = [];
   const selectedIds = new Set<string>();
 
   for (const categorySlug of categorySlugs) {
-    if (selected.length >= selectionLimit) break;
+    let count = 0;
+    for (const brand of brands) {
+      if (count >= perCategory) break;
+      if (brand.categorySlug !== categorySlug || selectedIds.has(brand.id))
+        continue;
 
-    const brand = brands.find(
-      (candidate) =>
-        candidate.categorySlug === categorySlug &&
-        !selectedIds.has(candidate.id),
-    );
-    if (!brand) continue;
-
-    selected.push(brand);
-    selectedIds.add(brand.id);
-  }
-
-  for (const brand of brands) {
-    if (selected.length >= selectionLimit) break;
-    if (selectedIds.has(brand.id)) continue;
-
-    selected.push(brand);
-    selectedIds.add(brand.id);
+      selected.push(brand);
+      selectedIds.add(brand.id);
+      count++;
+    }
   }
 
   return selected;
 }
 
-export async function getExploreBrands(
-  limit = EXPLORE_BRAND_LIMIT,
-): Promise<{ brands: Brand[]; totalCount: number }> {
+export async function getExploreBrands(): Promise<{
+  brands: Brand[];
+  totalCount: number;
+}> {
   const { brands, totalCount } = await getCachedExploreBrandPool();
-  const categorySlugs = L1_CATEGORIES.map(({ slug }) => slug);
+  const categorySlugs = VISIBLE_L1_CATEGORIES.map(({ slug }) => slug);
 
   return {
-    brands: selectCategoryBalancedBrands(brands, categorySlugs, limit),
+    brands: selectCategoryBalancedBrands(
+      brands,
+      categorySlugs,
+      BRANDS_PER_CATEGORY,
+    ),
     totalCount,
   };
 }

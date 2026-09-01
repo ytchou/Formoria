@@ -8,12 +8,12 @@ import {
 import HeroSection from "@/components/landing/hero-section";
 import { LandingZones } from "@/components/landing/landing-zones";
 import SectionBand from "@/components/landing/section-band";
-import { EXPLORE_BRAND_LIMIT, getExploreBrands } from "@/lib/services/brands";
+import { getExploreBrands } from "@/lib/services/brands";
 import {
   getPublishedCuratedProductsForHomepage,
   MIN_HOME_CURATED_PRODUCTS,
 } from "@/lib/services/curated-products";
-import { buildWallSlots } from "@/lib/curated-products/home-wall";
+import { buildGroupedWallSlots } from "@/lib/curated-products/home-wall";
 import { captureReadFailure, markRenderDegraded } from "@/lib/degraded-render";
 import { buildAlternates } from "@/lib/seo/alternates";
 import type { Locale } from "@/lib/seo/alternates";
@@ -96,7 +96,7 @@ export default async function LandingPage({ params }: PageProps) {
 
   const [exploreResult, curatedProductsResult, storyResult, trailResult] =
     await Promise.all([
-      getExploreBrands(EXPLORE_BRAND_LIMIT).catch(
+      getExploreBrands().catch(
         captureReadFailure("landing.exploreBrands"),
       ),
       getPublishedCuratedProductsForHomepage().catch(
@@ -132,7 +132,7 @@ export default async function LandingPage({ params }: PageProps) {
   // Straight off the MDX read already in flight, so `/` stays statically
   // rendered without a second query.
   const publishedTrails = trailResult?.ok ? trailResult.trails : [];
-  const wallSlots = buildWallSlots({
+  const wallGroups = buildGroupedWallSlots({
     products: curatedProducts,
   });
 
@@ -155,7 +155,7 @@ export default async function LandingPage({ params }: PageProps) {
           close={<SectionBand />}
           wall={
             curatedProducts.length >= MIN_HOME_CURATED_PRODUCTS
-              ? { slots: wallSlots }
+              ? { groups: wallGroups }
               : null
           }
           trails={publishedTrails}

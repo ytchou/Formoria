@@ -78,10 +78,10 @@ export function ProvideStockistInfoDialog({
   const requiresSignIn = !loading && !user;
   // The select offers Taiwan regions only, so a blank one is not "somewhere
   // else" — it is a missing fact. Left optional, it stored `region_label: null`
-  // and the brand page grouped the approved row under the Overseas heading
-  // while `/where-to-buy` dropped it entirely. `required` is the enforcement
-  // here; the service rejects `invalid_region` for callers that skip it. This
-  // state is what makes the failure readable after the native bubble goes.
+  // and the brand page grouped the approved row under the Overseas heading.
+  // `required` is the enforcement here; the service rejects `invalid_region`
+  // for callers that skip it. This state is what makes the failure readable
+  // after the native bubble goes.
   const [regionMissing, setRegionMissing] = useState(false);
   const regionErrorId = `${fieldId}-region-error`;
 

@@ -86,7 +86,7 @@ export default function TrailCarousel({ trails, labels }: TrailCarouselProps) {
                 role="group"
                 aria-roledescription="slide"
                 aria-label={`${index + 1} / ${total}`}
-                className="min-w-0 flex-none basis-[80%] px-3 sm:basis-[60%] md:basis-[40%] lg:basis-1/3"
+                className="min-w-0 flex-none basis-[85%] px-3 sm:basis-[70%] md:basis-[55%] lg:basis-[45%]"
               >
                 {/* Inner wrapper carries the scale/opacity transforms —
                     never on the Embla slide div itself. */}
@@ -109,7 +109,7 @@ export default function TrailCarousel({ trails, labels }: TrailCarouselProps) {
                     }
                   >
                     {/* Image */}
-                    <div className="relative aspect-[3/4] overflow-hidden rounded-surface bg-surface">
+                    <div className="relative aspect-[3/2] overflow-hidden rounded-surface bg-surface">
                       {heroSrc ? (
                         <SurfaceImage
                           src={heroSrc}

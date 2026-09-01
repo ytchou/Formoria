@@ -19,7 +19,7 @@ import {
   verifyChecksumManifest,
 } from "./db-deploy";
 
-const STAGING_REF = "xwkigpvnheecihpxyvsl";
+const STAGING_REF = "ttkkyvgvcamfoezsetvf";
 const key = (ref: string, role: string) => {
   const encode = (value: unknown) =>
     Buffer.from(JSON.stringify(value)).toString("base64url");

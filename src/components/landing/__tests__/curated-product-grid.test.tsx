@@ -3,7 +3,7 @@ import { render, screen } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { describe, expect, it, vi } from "vitest";
 
-import type { WallSlot } from "@/lib/curated-products/home-wall";
+import type { GroupedWallSlots, WallSlot } from "@/lib/curated-products/home-wall";
 import type { HomepageCuratedProduct } from "@/lib/services/curated-products";
 
 vi.mock("@/components/ui/photo-band", () => ({
@@ -75,6 +75,12 @@ vi.mock("@/components/ui/button", () => ({
   buttonVariants: () => "btn",
 }));
 
+vi.mock("@/components/landing/category-filter", () => ({
+  CategoryFilter: ({ children }: { children: ReactNode }) => (
+    <div data-testid="category-filter">{children}</div>
+  ),
+}));
+
 const FIXTURES = [
   { nameZh: "手沖壺", brandName: "小器生活" },
   { nameZh: "麻布長桌巾", brandName: "本嶼織物" },
@@ -136,17 +142,20 @@ function productSlots(count: number): WallSlot[] {
   }));
 }
 
-// CuratedProductGrid is async (server component), so we await it.
-async function renderGrid(slots: WallSlot[]) {
+function makeGroups(slots: WallSlot[]): GroupedWallSlots {
+  return { all: slots };
+}
+
+async function renderGrid(groups: GroupedWallSlots) {
   const { CuratedProductGrid } = await import("../curated-product-grid");
-  const jsx = await CuratedProductGrid({ slots, locale: "zh-TW" });
+  const jsx = await CuratedProductGrid({ groups, locale: "zh-TW" });
   return render(jsx);
 }
 
 describe("CuratedProductGrid", () => {
   it("renders grid with products", async () => {
     const slots = productSlots(8);
-    await renderGrid(slots);
+    await renderGrid(makeGroups(slots));
 
     for (let i = 0; i < 8; i++) {
       expect(
@@ -156,28 +165,22 @@ describe("CuratedProductGrid", () => {
   });
 
   it("renders cta button linking to discover", async () => {
-    await renderGrid(productSlots(4));
+    await renderGrid(makeGroups(productSlots(4)));
 
     const cta = screen.getByText("selection.cta");
     expect(cta.closest("a")).toHaveAttribute("href", "/discover");
   });
 
   it("includes view item list tracker", async () => {
-    await renderGrid(productSlots(4));
+    await renderGrid(makeGroups(productSlots(4)));
 
     const tracker = screen.getByTestId("tracker");
     expect(tracker).toHaveAttribute("data-list-name", "homepage_wall");
   });
 
-  it("slices to two complete desktop rows", async () => {
-    const slots = productSlots(12);
-    await renderGrid(slots);
+  it("renders a category filter", async () => {
+    await renderGrid(makeGroups(productSlots(4)));
 
-    for (let i = 0; i < 10; i++) {
-      expect(
-        screen.getByTestId(`product-${slots[i]!.product.id}`),
-      ).toBeInTheDocument();
-    }
-    expect(screen.queryByTestId(`product-${slots[10]!.product.id}`)).toBeNull();
+    expect(screen.getByTestId("category-filter")).toBeInTheDocument();
   });
 });

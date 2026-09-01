@@ -1041,7 +1041,7 @@ export async function reviewStockistAction(
       revalidatePath(routes.admin.stockists())
       revalidatePath(routes.admin.index())
       revalidatePublicBrands([result.brandSlug])
-      revalidatePublicStockists(result.city)
+      revalidatePublicStockists()
       return undefined
     } catch (error) {
       console.error('[admin:reviewStockist]', error)

@@ -275,7 +275,7 @@ export function BrandCard({
               {compactSubcategories.map((subcategory, index) => (
                 <Badge
                   key={`${subcategory}-${index}`}
-                  variant="secondary"
+                  variant="declared"
                   className="max-w-full truncate"
                 >
                   {subcategory}

@@ -1,5 +1,5 @@
 export const PRODUCTION_PROJECT_REF = "xkcayngbttpxyibgzern";
-export const STAGING_PROJECT_REF = "xwkigpvnheecihpxyvsl";
+export const STAGING_PROJECT_REF = "ttkkyvgvcamfoezsetvf";
 export const STAGING_HOSTNAME = "staging.formoria.com";
 export const STAGING_BASE_URL = `https://${STAGING_HOSTNAME}`;
 

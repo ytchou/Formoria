@@ -2,6 +2,7 @@ import { withAuditScope } from '@/lib/audit/scope'
 import { NextRequest, NextResponse } from 'next/server'
 import { confirmSubscriber } from '@/lib/services/newsletter'
 import { createServiceClient } from '@/lib/supabase/service'
+import { getPublicOrigin } from '@/lib/url'
 import { buildConfirmRedirectUrl, extractToken } from './helpers'
 
 const htmlHeaders = {
@@ -48,5 +49,5 @@ export const GET = withAuditScope(async (request: NextRequest) => {
     )
   }
 
-  return NextResponse.redirect(buildConfirmRedirectUrl(url.origin))
+  return NextResponse.redirect(buildConfirmRedirectUrl(getPublicOrigin(request)))
 })

@@ -17,7 +17,7 @@ import {
 } from "@/lib/services/subcategories";
 import {
   categoryLabel,
-  L1_CATEGORIES,
+  VISIBLE_L1_CATEGORIES,
   L2_SUBCATEGORIES,
   normalizeSubcategoryKey,
   subcategoryDisplayLabel,
@@ -171,8 +171,8 @@ export function SubcategoryPicker({
     const priority = new Set(prioritySlugs);
 
     const categories = [
-      ...L1_CATEGORIES.filter((item) => item.slug === priorityCategorySlug),
-      ...L1_CATEGORIES.filter((item) => item.slug !== priorityCategorySlug),
+      ...VISIBLE_L1_CATEGORIES.filter((item) => item.slug === priorityCategorySlug),
+      ...VISIBLE_L1_CATEGORIES.filter((item) => item.slug !== priorityCategorySlug),
     ];
 
     return categories

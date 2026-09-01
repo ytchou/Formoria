@@ -4,8 +4,6 @@ import { getAllStories } from "@/lib/services/stories";
 import { buildAlternates, type Locale } from "@/lib/seo/alternates";
 import { buildBrandSitemapEntries } from "@/lib/seo/brand-sitemap";
 import { buildDirectorySitemapSection } from "@/lib/seo/directory-sitemap";
-import { getStockistDirectory } from "@/lib/services/stockists";
-import { buildWhereToBuySitemapSection } from "@/lib/seo/where-to-buy-sitemap";
 import { getAllTrails, type TrailEntry } from "@/lib/services/trails";
 import { shouldIndexTrailHub } from "@/lib/seo/trail-hub-indexability";
 import { routes } from "@/lib/routes";
@@ -122,16 +120,12 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     const brandsPromise = rawBrandsPromise.catch(() => []);
     const directoryPagesPromise =
       buildDirectorySitemapSection(rawBrandsPromise);
-    const stockistPagesPromise = buildWhereToBuySitemapSection(
-      getStockistDirectory(),
-    );
     const trailPagesPromise = buildTrailSitemapSection().catch(() => []);
-    const [brands, storyResult, categoryPages, stockistPages, trailPages] =
+    const [brands, storyResult, categoryPages, trailPages] =
       await Promise.all([
         brandsPromise,
         getAllStories(),
         directoryPagesPromise,
-        stockistPagesPromise,
         trailPagesPromise,
       ]);
     const stories = storyResult.ok ? storyResult.stories : [];
@@ -154,7 +148,6 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       ...staticPages,
       ...storyIndexPages,
       ...categoryPages,
-      ...stockistPages,
       ...brandPages,
       ...storyPages,
       ...trailPages,

@@ -787,7 +787,7 @@ describe("getPublishedCuratedProductsForHomepage", () => {
     expect(first.calls.select[0]).not.toContain("lifecycle");
   });
 
-  it("publishes image-less products while keeping the other publication gates", async () => {
+  it("requires an image and keeps the other publication gates", async () => {
     const { client } = stubClient({
       data: [
         homepageRow({ key: "live" }),
@@ -806,7 +806,6 @@ describe("getPublishedCuratedProductsForHomepage", () => {
 
     expect(products.map((product) => product.key)).toEqual([
       "live",
-      "no-image",
     ]);
   });
 

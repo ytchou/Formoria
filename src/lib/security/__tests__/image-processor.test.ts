@@ -4,8 +4,8 @@ import sharp from 'sharp'
 
 async function createTestImage(
   format: 'jpeg' | 'png' | 'webp',
-  width = 100,
-  height = 100
+  width = 400,
+  height = 400
 ): Promise<Buffer> {
   return sharp({
     create: {
@@ -86,9 +86,26 @@ describe('processImage', () => {
     expect(Math.max(result.width, result.height)).toBeGreaterThan(1200)
   })
 
-  it('does not enlarge small images', async () => {
-    const small = await createTestImage('jpeg', 50, 50)
+  it('does not enlarge images above the minimum', async () => {
+    const small = await createTestImage('jpeg', 300, 300)
     const result = await processImage(small)
+    expect(result.width).toBe(300)
+    expect(result.height).toBe(300)
+  })
+
+  it('rejects images below the minimum dimensions', async () => {
+    const tiny = await createTestImage('jpeg', 50, 50)
+    await expect(processImage(tiny)).rejects.toThrow(/below the minimum/)
+  })
+
+  it('rejects images where only one axis is below minimum', async () => {
+    const narrow = await createTestImage('jpeg', 100, 400)
+    await expect(processImage(narrow)).rejects.toThrow(/below the minimum/)
+  })
+
+  it('honors minWidth/minHeight config overrides', async () => {
+    const small = await createTestImage('jpeg', 50, 50)
+    const result = await processImage(small, { minWidth: 10, minHeight: 10 })
     expect(result.width).toBe(50)
     expect(result.height).toBe(50)
   })

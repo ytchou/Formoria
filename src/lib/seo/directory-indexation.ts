@@ -1,7 +1,7 @@
 import { cache } from "react";
 import { DIRECTORY_REFINEMENT_KEYS } from "@/lib/directory-filter-url";
 import {
-  L1_CATEGORIES,
+  DEFERRED_CATEGORY_SLUGS,
   VISIBLE_L1_CATEGORIES,
   subcategoryBySlug,
 } from "@/lib/taxonomy/ontology";
@@ -75,9 +75,6 @@ const getKeywordMap = cache(() => {
   return keywordMapMemo;
 });
 
-const CATEGORY_SLUGS = new Set<string>(
-  L1_CATEGORIES.map((category) => category.slug),
-);
 const VISIBLE_CATEGORY_SLUGS = new Set<string>(
   VISIBLE_L1_CATEGORIES.map((category) => category.slug),
 );
@@ -86,7 +83,7 @@ function taxonomyTarget(
   categorySlug: string | null | undefined,
   subcategorySlug: string | null | undefined,
 ): { categorySlug: string; subcategorySlug?: string } | null {
-  if (!categorySlug || !CATEGORY_SLUGS.has(categorySlug)) return null;
+  if (!categorySlug || !VISIBLE_CATEGORY_SLUGS.has(categorySlug)) return null;
   if (!subcategorySlug) return { categorySlug };
 
   const subcategory = subcategoryBySlug(subcategorySlug);
@@ -209,7 +206,9 @@ function selfCanonicalFacets(state: DirectoryState): DirectoryCanonicalFacets {
   const category =
     serializableFacetValue(facets.category) ??
     serializableFacetValue(facets.multiCategory) ??
-    (state.categorySlug && !CATEGORY_SLUGS.has(state.categorySlug)
+    (state.categorySlug &&
+    !VISIBLE_CATEGORY_SLUGS.has(state.categorySlug) &&
+    !DEFERRED_CATEGORY_SLUGS.has(state.categorySlug)
       ? state.categorySlug
       : undefined);
   const sub =

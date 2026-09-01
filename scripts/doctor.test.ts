@@ -22,7 +22,7 @@ function runDoctorWithMigrationOutput(output: string) {
         ...process.env,
         PATH: `${directory}:${process.env.PATH ?? ""}`,
         SUPABASE_DB_URL:
-          "postgresql://postgres:unused@db.xwkigpvnheecihpxyvsl.supabase.co:5432/postgres",
+          "postgresql://postgres:unused@db.ttkkyvgvcamfoezsetvf.supabase.co:5432/postgres",
         DATABASE_URL: "",
         HEALTH_AGENT_READ_DATABASE_URL: "",
       },

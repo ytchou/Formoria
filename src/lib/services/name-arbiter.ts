@@ -5,6 +5,12 @@ import {
   LLM_BATCH_CHUNK_SIZE,
   type LlmProfileKey,
 } from "@/lib/constants/llm-models";
+import { z } from "zod";
+import {
+  parseBatchEntries,
+  toStrictJsonSchema,
+  formatRetryInstruction,
+} from "./_shared/zod-schema";
 import {
   buildProfiledEnrichmentConfig,
   createProfiledOpenAIClient,
@@ -50,7 +56,22 @@ export type NameVerdict = {
   reason: string;
 };
 
-type UnknownRecord = Record<string, unknown>;
+// ---------------------------------------------------------------------------
+// Zod schemas — single source of truth for both validation and wire format
+// ---------------------------------------------------------------------------
+
+const confidenceShape = z.enum(["high", "medium", "low"]);
+
+export const nameVerdictItemShape = z.object({
+  slug: z.string(),
+  chosen: z.string(),
+  confidence: confidenceShape,
+  reason: z.string(),
+});
+
+export const nameArbitrationShape = z.object({
+  results: z.array(nameVerdictItemShape),
+});
 
 /**
  * The verdicts are wrapped in a `results` object rather than returned as a bare
@@ -62,44 +83,13 @@ type UnknownRecord = Record<string, unknown>;
  */
 const NAME_ARBITRATION_SCHEMA = {
   name: "name_arbitration",
-  schema: {
-    type: "object",
-    additionalProperties: false,
-    required: ["results"],
-    properties: {
-      results: {
-        type: "array",
-        items: {
-          type: "object",
-          additionalProperties: false,
-          required: ["slug", "chosen", "confidence", "reason"],
-          properties: {
-            slug: { type: "string" },
-            chosen: { type: "string" },
-            confidence: { type: "string", enum: ["high", "medium", "low"] },
-            reason: { type: "string" },
-          },
-        },
-      },
-    },
-  },
+  schema: toStrictJsonSchema(nameArbitrationShape),
 };
 
-/**
- * Tolerated shapes, in order: the schema-pinned `{results: [...]}`, a bare
- * array, and a bare single object. The latter two are the robustness the
- * `json_object` fallback path needs — that mode enforces "an object", not
- * "this object".
- */
-function toArbiterEntries(parsed: unknown): unknown[] | null {
-  if (Array.isArray(parsed)) return parsed;
-  if (!parsed || typeof parsed !== "object") return null;
-
-  const wrapped = (parsed as UnknownRecord).results;
-  if (Array.isArray(wrapped)) return wrapped;
-
-  return [parsed];
-}
+// Lenient wrapper for batch parsing — validates structure, not item contents.
+const batchParseShape = z.object({
+  results: z.array(z.unknown()),
+});
 
 type NameArbiterProfileKey = Extract<LlmProfileKey, "names" | "namesBatch">;
 
@@ -153,28 +143,17 @@ function buildNameArbiterUserContent(items: NameArbiterItem[]): string {
   return `請裁決以下品牌的正式名稱：\n${list}`;
 }
 
-function isConfidence(value: unknown): value is NameVerdict["confidence"] {
-  return value === "high" || value === "medium" || value === "low";
-}
-
 function parseNameVerdict(value: unknown): NameVerdict | null {
-  if (!value || typeof value !== "object") return null;
+  const result = nameVerdictItemShape.safeParse(value);
+  if (!result.success) return null;
 
-  const entry = value as UnknownRecord;
-  const chosen = entry.chosen;
-  const confidence = entry.confidence;
-  if (
-    typeof chosen !== "string" ||
-    chosen.trim().length === 0 ||
-    !isConfidence(confidence)
-  ) {
-    return null;
-  }
+  const chosen = result.data.chosen.trim();
+  if (chosen.length === 0) return null;
 
   return {
-    chosen: chosen.trim(),
-    confidence,
-    reason: typeof entry.reason === "string" ? entry.reason.trim() : "",
+    chosen,
+    confidence: result.data.confidence,
+    reason: result.data.reason.trim(),
   };
 }
 
@@ -200,31 +179,41 @@ function parseArbiterResponse(
   content: string,
   items: NameArbiterItem[],
 ): Map<string, NameVerdict> | null {
-  const entries = toArbiterEntries(JSON.parse(content) as unknown);
-  if (!entries) return null;
+  const parsed = parseBatchEntries(content, batchParseShape);
+  if (!parsed.success) {
+    if (parsed.issues) {
+      console.error(`  → name arbiter batch validation: ${formatRetryInstruction(parsed.issues)}`);
+    }
+    return null;
+  }
 
   const validSlugs = new Set(items.map((item) => item.slug));
   const results = new Map<string, NameVerdict>();
 
-  entries.forEach((entry, index) => {
-    if (!entry || typeof entry !== "object") return;
+  parsed.entries.forEach((entry, index) => {
+    const validated = nameVerdictItemShape.safeParse(entry);
+    if (!validated.success) return;
 
-    const item = entry as UnknownRecord;
-    const responseSlug = item.slug;
+    const chosen = validated.data.chosen.trim();
+    if (chosen.length === 0) return;
+
+    const verdict: NameVerdict = {
+      chosen,
+      confidence: validated.data.confidence,
+      reason: validated.data.reason.trim(),
+    };
+
     // parseBatchClassification lacks this positional fallback. We deliberately
     // follow the detect side because a numbered list must survive a model that
     // omits or mangles one join key.
-    const slug =
-      typeof responseSlug === "string" && validSlugs.has(responseSlug)
-        ? responseSlug
-        : items[index]?.slug;
+    const slug = validSlugs.has(validated.data.slug)
+      ? validated.data.slug
+      : items[index]?.slug;
 
     if (!slug) return;
 
-    const verdict = parseNameVerdict(item);
     const requestedItem = items.find((candidate) => candidate.slug === slug);
     if (
-      verdict &&
       requestedItem &&
       verdictSelectsSuppliedCandidate(verdict, requestedItem)
     ) {
@@ -241,8 +230,14 @@ function parseSingleArbiterResponse(
 ): NameVerdict | null {
   // The fan-out path sends one brand but the contract is still a `results`
   // array, so unwrap it and take the first entry.
-  const entries = toArbiterEntries(JSON.parse(content) as unknown);
-  const verdict = entries ? parseNameVerdict(entries.at(0)) : null;
+  const parsed = parseBatchEntries(content, batchParseShape);
+  if (!parsed.success) {
+    if (parsed.issues) {
+      console.error(`  → name arbiter validation: ${formatRetryInstruction(parsed.issues)}`);
+    }
+    return null;
+  }
+  const verdict = parseNameVerdict(parsed.entries.at(0));
   return verdict && verdictSelectsSuppliedCandidate(verdict, item)
     ? verdict
     : null;

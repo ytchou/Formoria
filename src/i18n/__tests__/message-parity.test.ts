@@ -81,23 +81,6 @@ const RETIRED_VOCABULARY = [
   "經銷",
 ] as const;
 
-/**
- * 哪裡買 is deliberately NOT retired. It is a search-intent phrase people type,
- * not a label Formoria uses for the concept — `{品牌名} 哪裡買` is a P0 secondary
- * keyword in `content/seo/keyword-map.yaml` on the `brand-detail-template`, which
- * covers every live brand page. Nothing else in CI enforces its survival, so the
- * assertion below states it positively rather than trusting a reviewer to notice
- * a deletion.
- */
-const SEARCH_INTENT_KEYS = [
-  "nav.whereToBuy",
-  "footer.whereToBuy",
-  "whereToBuy.metaTitle",
-  "whereToBuy.indexTitle",
-  "whereToBuy.cityTitle",
-  "whereToBuy.directory",
-];
-
 describe("message catalogue parity", () => {
   it("keeps the lightweight global error copy in sync", () => {
     expect(globalErrorCopy.en).toEqual({
@@ -218,18 +201,6 @@ describe("message catalogue parity", () => {
     }
 
     expect(stale).toEqual([]);
-  });
-
-  it("keeps 哪裡買 as the search-intent phrase", () => {
-    const values = Object.fromEntries(stringEntries(zhTW));
-    const missing = SEARCH_INTENT_KEYS.filter(
-      (key) => !values[key]?.includes("哪裡買"),
-    );
-
-    // A find-and-replace that swept 哪裡買 along with the retired words would
-    // pass every other test in this file while dropping a keyword that ranks on
-    // hundreds of live pages.
-    expect(missing).toEqual([]);
   });
 
   it("names the offline concept 實體通路 and the online concept 線上購買", () => {

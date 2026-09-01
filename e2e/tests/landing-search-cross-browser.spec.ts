@@ -29,7 +29,7 @@ test.describe("Directory search compatibility", () => {
     ).toBeVisible({ timeout: BUDGET.SERVER_RENDER });
 
     const searchbox = page.locator(
-      'main form[aria-label="依品牌或產品關鍵字篩選"] input[role="searchbox"]',
+      'header form[role="search"] input[role="searchbox"]:visible',
     );
     await expect(searchbox).toBeVisible({ timeout: BUDGET.INTERACTIVE });
     await searchbox.pressSequentially(seeded.brand.name, { delay: 10 });

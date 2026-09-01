@@ -77,14 +77,15 @@ export default function BrandMarquee({ brands }: BrandMarqueeProps) {
               className="flex flex-col items-center rounded-surface focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-ground"
             >
               {brand.imageSrc ? (
-                <SurfaceImage
-                  src={brand.imageSrc}
-                  alt={brand.name}
-                  width={44}
-                  height={44}
-                  surface="thumb"
-                  className="rounded-full"
-                />
+                <div className="relative h-11 w-11 shrink-0 overflow-hidden rounded-full bg-surface">
+                  <SurfaceImage
+                    src={brand.imageSrc}
+                    alt={brand.name}
+                    fill
+                    surface="thumb"
+                    className="object-cover"
+                  />
+                </div>
               ) : (
                 <div
                   className="flex h-11 w-11 items-center justify-center rounded-full bg-surface-deep"

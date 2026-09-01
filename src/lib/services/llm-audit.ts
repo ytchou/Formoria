@@ -3,7 +3,6 @@ import { auditedCall, getAuditContext, type ChatAuditEvent } from "@/lib/audit";
 import type { Database } from "@/lib/supabase/database.types";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { insertAiCallResult } from "./_shared/ai-results";
-import { createDeepSeekClient } from "./deepseek-client";
 import type { EnrichmentTarget } from "./_shared/enrichment-target";
 import { createOpenAIClient } from "./openai-client";
 import { priceUsage } from "./llm-pricing";
@@ -31,15 +30,6 @@ type ClientOptions = {
   apiKey?: string;
   model?: string;
 };
-
-type DeepSeekChatInput = Parameters<
-  ReturnType<typeof createDeepSeekClient>["chat"]
->[0];
-
-function classifyChatResult(result: { status?: number }): "succeeded" | "failed" {
-  const status = result.status ?? 0;
-  return status >= 200 && status < 300 ? "succeeded" : "failed";
-}
 
 function truncate(value: string): string {
   return value.length <= MAX_PROMPT_LENGTH
@@ -121,77 +111,6 @@ async function persistAuditEvent(
       error: error instanceof Error ? error.message : String(error),
     });
   }
-}
-
-export function createAuditedDeepSeekClient(
-  context: LlmAuditContext,
-  options: ClientOptions = {},
-) {
-  const balanceClient = createDeepSeekClient(options);
-
-  return {
-    async chat(input: DeepSeekChatInput) {
-      const spanId = randomUUID();
-
-      // The envelope wraps the whole chat call because the client retries
-      // internally, so several brand_ai_results rows can share one span_id.
-      // The hook remains the payload-capture seam (ADR
-      // 2026-07-15-adapter-injected-llm-audit.md), not a replacement for it.
-      return auditedCall(
-        {
-          provider: "deepseek",
-          operation: "chat_completions",
-          kind: "external",
-          spanId,
-          ...(context.attempt === undefined ? {} : { attempt: context.attempt }),
-        },
-        async (ctx) => {
-          const client = createDeepSeekClient({
-            ...options,
-            onChatComplete: async (event) => {
-              if (event.usage) {
-                try {
-                  const cost = await priceUsage(event.model ?? "", event.usage);
-                  ctx.promptTokens = cost.promptTokens;
-                  ctx.completionTokens = cost.completionTokens;
-                  ctx.costUsd = cost.costUsd;
-                } catch {
-                  // Price lookup must never prevent the audit row from being written.
-                }
-              }
-              await persistAuditEvent(context, event, spanId);
-              emitLangfuseGeneration(context, event);
-            },
-          });
-          return client.chat(input);
-        },
-        {
-          classify: classifyChatResult,
-          summary: { phase: context.phase, targetType: context.target?.type },
-          subjectId: context.target?.id ?? null,
-          jobId: context.jobId ?? null,
-        },
-      );
-    },
-
-    balance(timeoutMs?: number) {
-      return auditedCall(
-        {
-          provider: "deepseek",
-          operation: "balance",
-          kind: "external",
-          ...(context.attempt === undefined ? {} : { attempt: context.attempt }),
-        },
-        () => balanceClient.balance(timeoutMs),
-        {
-          classify: (result) => (result.ok ? "succeeded" : "failed"),
-          summary: { phase: context.phase, targetType: context.target?.type },
-          subjectId: context.target?.id ?? null,
-          jobId: context.jobId ?? null,
-        },
-      );
-    },
-  };
 }
 
 export function createAuditedOpenAIClient(

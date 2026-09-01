@@ -77,13 +77,6 @@ export function getContentGroup(pathname: string): string {
     return "discover";
   }
 
-  if (
-    pathWithoutLocale === routes.whereToBuy() ||
-    pathWithoutLocale.startsWith(`${routes.whereToBuy()}/`)
-  ) {
-    return "where_to_buy";
-  }
-
   if (pathWithoutLocale.startsWith(`${routes.brands()}/`)) {
     return "brand_detail";
   }
@@ -504,17 +497,6 @@ export function trackViewItemList(listName: string, itemCount: number) {
   });
 }
 
-export function trackStockistListViewed(listName: string, itemCount: number) {
-  safeGAEvent("event", "view_item_list", {
-    item_list_name: listName,
-    item_count: itemCount,
-  });
-  capturePostHogEvent(ANALYTICS_EVENTS.STOCKIST_LIST_VIEWED, {
-    list_name: listName,
-    item_count: itemCount,
-  });
-}
-
 export function trackCuratedProductClicked(
   productKey: string,
   brandSlug: string,
@@ -709,6 +691,30 @@ export function trackBrandUnsaved(
   capturePostHogEvent(ANALYTICS_EVENTS.BRAND_UNSAVED, {
     brand_id: brandId,
     brand_slug: slug,
+    location,
+  });
+}
+
+export function trackProductSaved(
+  productId: string,
+  productKey: string,
+  location: string,
+) {
+  capturePostHogEvent(ANALYTICS_EVENTS.PRODUCT_SAVED, {
+    product_id: productId,
+    product_key: productKey,
+    location,
+  });
+}
+
+export function trackProductUnsaved(
+  productId: string,
+  productKey: string,
+  location: string,
+) {
+  capturePostHogEvent(ANALYTICS_EVENTS.PRODUCT_UNSAVED, {
+    product_id: productId,
+    product_key: productKey,
     location,
   });
 }

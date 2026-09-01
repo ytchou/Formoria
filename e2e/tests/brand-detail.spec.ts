@@ -360,7 +360,7 @@ test.describe("Brand detail — product shelf focus", () => {
     const tile = page.locator(`#product-${productKey}`);
     await expect(tile).toBeVisible({ timeout: BUDGET.INTERACTIVE });
     await tile.scrollIntoViewIfNeeded();
-    const focusTarget = tile.locator('[tabindex="0"]');
+    const focusTarget = tile.locator('[tabindex="0"]').first();
     const image = focusTarget.locator(":scope > div").first();
     const caption = tile
       .getByRole("heading", { name: productName })
@@ -373,7 +373,7 @@ test.describe("Brand detail — product shelf focus", () => {
       .toBe("1");
     await focusTarget.evaluate((node) => (node as HTMLElement).blur());
 
-    await image.click();
+    await image.click({ force: true });
     await page.mouse.move(0, 0);
     await expect
       .poll(() => caption.evaluate((node) => getComputedStyle(node).opacity))

@@ -4,13 +4,7 @@ import { describe, expect, it } from 'vitest'
 
 import {
   buildEnrichedStockistRows,
-  buildStockistPageRanges,
   STOCKIST_DETAIL_READ_SELECT,
-  groupStockistsForCity,
-  matchesCategory,
-  stockistDistrictSlugs,
-  summarizeStockistCities,
-  type StockistLocation,
 } from '../stockists'
 
 const serviceSource = readFileSync(
@@ -31,22 +25,6 @@ function functionBody(source: string, name: string): string {
     starts[position].index,
     starts[position + 1]?.index ?? source.length,
   )
-}
-
-function location(id: string, district: string | null): StockistLocation {
-  return {
-    id,
-    name: `María García Stockist ${id}`,
-    address: `臺北市${district ?? ''}南京東路1號`,
-    url: null,
-    country: 'TW',
-    city: 'taipei',
-    district,
-    brandSlug: `maria-garcia-${id}`,
-    brandName: `María García ${id}`,
-    categorySlug: 'home',
-    subcategories: [],
-  }
 }
 
 describe('brand channel provenance', () => {
@@ -104,71 +82,6 @@ describe('brand channel provenance', () => {
     expect(STOCKIST_DETAIL_READ_SELECT).toContain('country')
   })
 
-  it('orders district sections by location count and leaves unmatched locations last', () => {
-    const locations = [
-      location('alpha', '信義區'),
-      location('bravo', '中山區'),
-      location('charlie', '中山區'),
-      location('delta', null),
-    ]
-
-    expect(
-      groupStockistsForCity(locations, 'taipei').map((group) => group.slug),
-    ).toEqual(['taipei-zhongshan', 'taipei-xinyi', 'unassigned'])
-  })
-
-  it('summarizes only cities that have real locations', () => {
-    expect(summarizeStockistCities([location('echo', '中山區')])).toMatchObject(
-      [{ city: 'taipei', count: 1 }],
-    )
-  })
-
-  it('requests every stockist page when the directory exceeds the Data API row cap', () => {
-    expect(buildStockistPageRanges(1_354)).toEqual([
-      { from: 0, to: 999 },
-      { from: 1000, to: 1353 },
-    ])
-  })
-
-  it('offers location jumps only for district sections present in the directory', () => {
-    expect(
-      stockistDistrictSlugs([
-        location('foxtrot', '中山區'),
-        location('golf', '中山區'),
-        location('hotel', null),
-      ]),
-    ).toEqual(['taipei-zhongshan'])
-  })
-})
-
-describe('stockist category filter over slug-stored subcategories', () => {
-  function stockist(subcategories: string[]): StockistLocation {
-    return {
-      ...location('india', '中山區'),
-      categorySlug: 'bags-accessories',
-      subcategories,
-    }
-  }
-
-  // A multi-word slug is the load-bearing case: 'tote-bags' normalizes to
-  // neither nameZh nor an alias, so a name-keyed lookup resolves it to null and
-  // the whole city page renders empty. The 58 single-word slugs pass either way.
-  it('matches a brand whose stored subcategory is a multi-word slug', () => {
-    expect(matchesCategory(stockist(['tote-bags']), 'tote-bags')).toBe(true)
-  })
-
-  it('still matches a pre-migration zh-TW label for the same node', () => {
-    expect(matchesCategory(stockist(['托特包']), 'tote-bags')).toBe(true)
-  })
-
-  it('does not match a different L2 of the same L1', () => {
-    expect(matchesCategory(stockist(['tote-bags']), 'backpacks')).toBe(false)
-  })
-
-  it('matches on the brand L1 and passes everything through with no filter', () => {
-    expect(matchesCategory(stockist([]), 'bags-accessories')).toBe(true)
-    expect(matchesCategory(stockist([]), undefined)).toBe(true)
-  })
 })
 
 /**
@@ -196,15 +109,6 @@ describe('pending community stockists are hidden from public reads', () => {
     expect(functionBody(serviceSource, 'getStockistsForBrand')).toContain(
       'applyPublicStockistVisibility(',
     )
-  })
-
-  it('hides pending community rows from the cross-brand directory', () => {
-    // TWO queries, because the reader pages: the first page and every
-    // subsequent one. A predicate on only the first is a half-fix that hides
-    // nothing beyond row 1000.
-    const body = functionBody(serviceSource, 'fetchStockistRows')
-
-    expect(body.match(/applyPublicStockistVisibility\(/g)).toHaveLength(2)
   })
 
   it('keeps pending community rows out of story facts', () => {

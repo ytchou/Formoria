@@ -11,7 +11,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import {
   L2_SUBCATEGORIES,
-  L1_CATEGORIES,
+  VISIBLE_L1_CATEGORIES,
   subcategoryDisplayLabel,
 } from "@/lib/taxonomy/ontology";
 
@@ -221,8 +221,8 @@ describe("CorrectionDialog", () => {
     // One chip per category the brand is not already in — so an unset brand is
     // offered the whole list, and a set one is offered the list minus itself.
     it.each([
-      ["a brand with a category", "home", L1_CATEGORIES.length - 1],
-      ["a brand with none", null, L1_CATEGORIES.length],
+      ["a brand with a category", "home", VISIBLE_L1_CATEGORIES.length - 1],
+      ["a brand with none", null, VISIBLE_L1_CATEGORIES.length],
     ] as const)(
       "renders one option chip per selectable category for %s",
       async (_label, categorySlug, expected) => {
@@ -502,8 +502,10 @@ describe("CorrectionDialog", () => {
       await openSubcategoriesDialog();
 
       const options = group(ADD_SUBCATEGORIES_HEADING);
+      const visibleL1Slugs = new Set(VISIBLE_L1_CATEGORIES.map(c => c.slug));
+      const visibleL2Count = L2_SUBCATEGORIES.filter(s => visibleL1Slugs.has(s.category)).length;
       expect(within(options).getAllByRole("button")).toHaveLength(
-        L2_SUBCATEGORIES.length - 1,
+        visibleL2Count - 1,
       );
       expect(
         within(options).queryByRole("button", { name: label("bedding") }),

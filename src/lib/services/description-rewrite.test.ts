@@ -3,7 +3,7 @@ import { setAuditWriteSeam, type AuditRecord } from "@/lib/audit";
 import {
   parseDescriptionRewriteResult,
   rewriteBrandDescription,
-  DESCRIPTION_SCHEMA,
+  descriptionShape,
 } from "./description-rewrite";
 import { createProfiledOpenAIClient } from "./llm-audit";
 import { fetchLangfusePrompt } from "@/lib/langfuse/prompt";
@@ -254,12 +254,15 @@ describe("parseDescriptionRewriteResult", () => {
 
 describe("DESCRIPTION_SCHEMA", () => {
   it("has four required string fields", () => {
-    const { schema } = DESCRIPTION_SCHEMA;
-    const requiredFields = ["description_zh", "description_en", "blurb_zh", "blurb_en"];
-    expect(schema.required).toEqual(expect.arrayContaining(requiredFields));
+    const requiredFields = ["description_zh", "description_en", "blurb_zh", "blurb_en"] as const;
+    const shapeKeys = Object.keys(descriptionShape.shape);
     for (const field of requiredFields) {
-      const prop = (schema.properties as Record<string, { type: string }>)[field];
-      expect(prop.type, `${field} should be string`).toBe("string");
+      expect(shapeKeys, `${field} should be a key in the Zod shape`).toContain(field);
+      // Each field is a z.string() — in Zod 4 its _def.type is "string"
+      expect(
+        (descriptionShape.shape[field] as { _def: { type: string } })._def.type,
+        `${field} should be z.string()`,
+      ).toBe("string");
     }
   });
 

@@ -1,3 +1,4 @@
+import { z } from "zod";
 import type { Brand } from "@/lib/types";
 import { FAQ_PROMPT_PREAMBLE } from "@/lib/prompts";
 import { TAIWAN_USAGE_RULES } from "@/lib/prompts/shared";
@@ -33,7 +34,11 @@ import {
   createProfiledOpenAIClient,
   profileChatParams,
 } from "../llm-audit";
-import { parseJson } from "../openai-client";
+import {
+  parseAndValidate,
+  toStrictJsonSchema,
+  formatRetryInstruction,
+} from "../_shared/zod-schema";
 import { isLlmProviderFailure, noLlmCalls } from "../_shared/llm-call-outcome";
 import {
   brandTarget,
@@ -94,39 +99,36 @@ const FAQ_PROMPT_PARAMS = {
   siteContentLimit: 4000,
 };
 
-function buildFaqSchema(presetIds: string[]) {
-  return {
-    name: "faq_entries",
-    schema: {
-      type: "object" as const,
-      additionalProperties: false,
-      properties: {
-        entries: {
-          type: "array" as const,
-          items: {
-            type: "object" as const,
-            additionalProperties: false,
-            properties: {
-              preset_id: { type: "string" as const, enum: presetIds },
-              question_zh: { type: "string" as const },
-              answer_zh: { type: "string" as const },
-              question_en: { type: "string" as const },
-              answer_en: { type: "string" as const },
-            },
-            required: [
-              "preset_id",
-              "question_zh",
-              "answer_zh",
-              "question_en",
-              "answer_en",
-            ],
-          },
-        },
-      },
-      required: ["entries"],
-    },
-  };
+function buildFaqZodSchema(presetIds: string[]) {
+  return z.object({
+    entries: z.array(
+      z.object({
+        preset_id: z.enum(presetIds as [string, ...string[]]),
+        question_zh: z.string(),
+        answer_zh: z.string(),
+        question_en: z.string(),
+        answer_en: z.string(),
+      }),
+    ),
+  });
 }
+
+/**
+ * Loose parse schema for `parseAndValidate`: uses `z.string()` for `preset_id`
+ * so an ineligible preset_id is caught by `validateFaqEntries` (which reports it
+ * as `unrepairable`) rather than by Zod (which would silently swallow the entry).
+ */
+const faqParseShape = z.object({
+  entries: z.array(
+    z.object({
+      preset_id: z.string(),
+      question_zh: z.string(),
+      answer_zh: z.string(),
+      question_en: z.string(),
+      answer_en: z.string(),
+    }),
+  ),
+});
 
 function skipped(detail: string): FaqPhaseOutput {
   return {
@@ -417,25 +419,35 @@ export async function resolveFaqAttempts(
   let dropped = 0;
   let failures: FaqFailure[] = [];
   let unrepairable: FaqFailure[] = [];
+  let schemaRetryInstruction = "";
 
   for (let attempt = 1; attempt <= 2; attempt += 1) {
-    const response = await send(
-      buildFaqRetryInstruction([...failures, ...unrepairable]),
-      attempt,
-    );
+    const retryContext =
+      schemaRetryInstruction ||
+      buildFaqRetryInstruction([...failures, ...unrepairable]);
+    const response = await send(retryContext, attempt);
     calls.attempted += 1;
+    schemaRetryInstruction = "";
     if (!response.ok) {
       calls.providerFailed += 1;
       break;
     }
-    const parsed = response.content
-      ? parseJson<FaqModelResult>(response.content)
+    const parseResult = response.content
+      ? parseAndValidate(response.content, faqParseShape)
       : null;
-    const validation = validateFaqEntries(
-      parsed ?? { entries: [] },
-      presets,
-      ctx,
-    );
+    // On JSON/schema failure, build a direct retry instruction from the
+    // validation issues so the model gets field-level feedback rather than
+    // a preset-correction format it cannot act on.
+    if (parseResult && !parseResult.success) {
+      schemaRetryInstruction = parseResult.issues
+        ? formatRetryInstruction(parseResult.issues)
+        : parseResult.error;
+      continue;
+    }
+    const parsed: FaqModelResult = parseResult?.success
+      ? parseResult.data
+      : { entries: [] };
+    const validation = validateFaqEntries(parsed, presets, ctx);
     for (const entry of validation.entries) {
       merged.set(entryKey(entry.presetId, entry.position ?? 0), entry);
     }
@@ -542,7 +554,11 @@ export async function runFaqPhase({
         };
     }
 
-    const faqSchema = buildFaqSchema(authorable.map((p) => p.id));
+    const faqZodSchema = buildFaqZodSchema(authorable.map((p) => p.id));
+    const faqSchema = {
+      name: "faq_entries",
+      schema: toStrictJsonSchema(faqZodSchema),
+    };
     const localSystemPrompt = buildFaqSystemPrompt(authorable, ctx);
     const langfusePreamble = await fetchLangfusePrompt("faq-preamble", FAQ_PROMPT_PREAMBLE, {
       taiwan_usage_rules: TAIWAN_USAGE_RULES,

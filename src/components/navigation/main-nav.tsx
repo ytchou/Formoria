@@ -19,6 +19,7 @@ import { PageShell } from "@/components/ui/page-shell";
 import { useUser } from "@/lib/auth/use-user";
 import { trackCtaClicked } from "@/lib/analytics";
 import { routes } from "@/lib/routes";
+import { cn } from "@/lib/utils";
 
 export function MainNav() {
   const [open, setOpen] = useState(false);
@@ -153,46 +154,62 @@ export function MainNav() {
                   top of the per-row `px-1` / `px-4` this list already
                   carries. */}
               <SheetTitle className="sr-only">{t("navigation")}</SheetTitle>
-              <SheetBody className="flex flex-col gap-4 px-0 pt-14">
+              <SheetBody className="flex flex-col px-0 pt-14">
                 {/* Search in mobile sheet */}
-                <div className="px-1">
+                <div className="px-4">
                   <NavSearchInput />
                 </div>
 
-                {primaryLinks.map((link) => (
-                  <Link
-                    key={link.href}
-                    href={link.href}
-                    className="flex min-h-11 items-center px-1 type-nav"
-                    onClick={() => setOpen(false)}
-                  >
-                    {link.label}
-                  </Link>
-                ))}
-
-                <Link
-                  href={routes.submit.index()}
-                  data-ph-no-autocapture
-                  onClick={() => {
-                    trackCtaClicked(
-                      "submit_brand",
-                      "header_nav",
-                      routes.submit.index(),
-                      pathname,
+                {/* Primary navigation links */}
+                <nav aria-label={t("navigation")} className="mt-6 flex flex-col gap-1 px-2">
+                  {primaryLinks.map((link) => {
+                    const isActive = pathname === link.href || pathname.startsWith(link.href + "/");
+                    return (
+                      <Link
+                        key={link.href}
+                        href={link.href}
+                        className={cn(
+                          "flex min-h-12 items-center rounded-control px-3 font-hei text-base font-medium transition-colors",
+                          isActive
+                            ? "bg-surface text-accent"
+                            : "text-ink hover:bg-surface/60",
+                        )}
+                        onClick={() => setOpen(false)}
+                      >
+                        {link.label}
+                      </Link>
                     );
-                    setOpen(false);
-                  }}
-                  className={buttonVariants({
-                    variant: "primary",
-                    width: "full",
                   })}
-                >
-                  {t("submitBrand")}
-                </Link>
-                <div className="px-4">
-                  <LocaleSwitcher compact />
+                </nav>
+
+                <div className="mx-4 mt-6 border-t border-rule" />
+
+                {/* CTA */}
+                <div className="mt-6 px-4">
+                  <Link
+                    href={routes.submit.index()}
+                    data-ph-no-autocapture
+                    onClick={() => {
+                      trackCtaClicked(
+                        "submit_brand",
+                        "header_nav",
+                        routes.submit.index(),
+                        pathname,
+                      );
+                      setOpen(false);
+                    }}
+                    className={buttonVariants({
+                      variant: "primary",
+                      width: "full",
+                    })}
+                  >
+                    {t("submitBrand")}
+                  </Link>
                 </div>
-                <div className="px-4">
+
+                {/* Utilities — pushed to bottom */}
+                <div className="mt-auto flex items-center justify-between border-t border-rule px-4 py-4">
+                  <LocaleSwitcher compact />
                   <AccountMenu />
                 </div>
               </SheetBody>

@@ -1,3 +1,4 @@
+import { z } from "zod";
 import { auditedCall } from "@/lib/audit";
 import { loadPersistedScrapeText } from "./descriptions";
 import {
@@ -7,7 +8,11 @@ import {
 } from "../llm-audit";
 import { STOCKIST_SYSTEM_PROMPT } from "@/lib/prompts/stockists";
 import { fetchLangfusePrompt } from "@/lib/langfuse/prompt";
-import { parseJson } from "../openai-client";
+import {
+  parseAndValidate,
+  toStrictJsonSchema,
+  formatRetryInstruction,
+} from "../_shared/zod-schema";
 import type { PhaseResult } from "@/lib/types/curation";
 import type { StockistCandidate } from "@/lib/types/stockist";
 import {
@@ -58,6 +63,23 @@ type LlmStockistEntry = {
 
 type StockistsModelResult = {
   stockists: LlmStockistEntry[];
+};
+
+const stockistsShape = z.object({
+  stockists: z.array(
+    z.object({
+      name: z.string(),
+      regionSlug: z.string(),
+      address: z.string().nullable(),
+      locationType: z.string().nullable(),
+      sourceUrl: z.string().nullable(),
+    }),
+  ),
+});
+
+const STOCKISTS_SCHEMA = {
+  name: "stockists",
+  schema: toStrictJsonSchema(stockistsShape),
 };
 
 type StockistsPhaseOptions = {
@@ -254,12 +276,13 @@ export async function runStockistsPhase({
           { apiKey: token },
         );
 
-        const response = await client.chat({
+        const chatParams = {
           system: systemPrompt,
           user: evidence,
-          json: true,
+          schema: STOCKISTS_SCHEMA,
           ...profileChatParams("stockists"),
-        });
+        };
+        const response = await client.chat(chatParams);
 
         if (!response.response.ok) {
           return {
@@ -268,8 +291,31 @@ export async function runStockistsPhase({
           };
         }
 
-        const parsed = parseJson<StockistsModelResult>(response.content ?? "");
-        const rawEntries = parsed?.stockists ?? [];
+        let validatedContent = parseAndValidate(
+          response.content ?? "",
+          stockistsShape,
+        );
+        // 1-retry: on validation failure, retry once with structured feedback
+        if (!validatedContent.success) {
+          const retryInstruction = validatedContent.issues
+            ? formatRetryInstruction(validatedContent.issues)
+            : validatedContent.error;
+          const retryResponse = await client.chat({
+            ...chatParams,
+            user: `${evidence}\n\n${retryInstruction}`,
+          });
+          if (retryResponse.response.ok) {
+            validatedContent = parseAndValidate(
+              retryResponse.content ?? "",
+              stockistsShape,
+            );
+          }
+        }
+
+        const parsed: StockistsModelResult = validatedContent.success
+          ? validatedContent.data
+          : { stockists: [] };
+        const rawEntries = parsed.stockists;
         const candidates = validateStockistCandidates(rawEntries);
         const now = new Date().toISOString();
         const timestamped = candidates.map((c) => ({ ...c, fetchedAt: now }));

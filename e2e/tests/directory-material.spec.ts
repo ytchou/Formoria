@@ -139,22 +139,18 @@ test.describe("Directory — material facet", () => {
     await page.goto(`/brands?material=${MATERIAL.slug}`);
 
     const sidebar = sidebarOf(page);
-    const categoryToggle = sidebar.getByRole("button", {
-      name: zhTW.brands.filters.category,
-      exact: true,
+    // Categories are now direct links in the new FilterSidebar — no collapsible
+    // toggle. They are always visible; pick the first category link.
+    const nav = sidebar.getByRole("navigation", {
+      name: zhTW.brands.filters.title,
     });
-    // Deterministically collapsed on arrival: the category section is
-    // `defaultOpen` only when a category is already active, and this request
-    // carries a material and nothing else.
-    await expect(categoryToggle).toHaveAttribute("aria-expanded", "false");
-    await categoryToggle.click();
-    await expect(categoryToggle).toHaveAttribute("aria-expanded", "true");
 
     // `material` is an orthogonal axis, so a taxonomy selection must keep it and
     // stay on `/brands` rather than resolving to a bare `/categories/<l1>` path.
     // That path resolution is driven by a `hasFacet` predicate which once
     // omitted `material` entirely, silently dropping the filter on this click.
-    const firstCategory = sidebar.getByRole("checkbox").first();
+    // Skip the first link ("全部" / All) and click the first actual category.
+    const firstCategory = nav.getByRole("link").nth(1);
     await firstCategory.click();
 
     await expect(page).toHaveURL(new RegExp(`material=${MATERIAL.slug}`), {

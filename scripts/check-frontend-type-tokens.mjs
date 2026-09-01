@@ -153,6 +153,21 @@ export const allowedMatches = [
     names: ["unnamed page width"],
     values: ["max-w-[8rem]"],
   },
+  {
+    // VIEWPORT CLAMP — caps the image to 70% of the viewport height so tall
+    // screens do not produce an oversized square. The `svh` unit is a viewport
+    // measure, not a page width; `xl:max-w-none` removes it at wide widths.
+    file: "src/components/brands/image-carousel.tsx",
+    names: ["unnamed page width"],
+    values: ["max-w-[70svh]"],
+  },
+  {
+    // Mobile nav drawer links: `text-base font-medium` is the deliberate
+    // size/weight for touch-target readability in the slide-out menu.
+    file: "src/components/navigation/main-nav.tsx",
+    names: ["direct text size", "raw-type-combo"],
+    values: ["text-base", "text-base font-medium"],
+  },
 ];
 
 export const frontendTokenChecks = [

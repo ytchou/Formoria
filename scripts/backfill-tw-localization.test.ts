@@ -49,7 +49,7 @@ const EXHIBITOR_ID = "33333333-3333-3333-3333-333333333333";
 const BRAND_ID = "22222222-2222-2222-2222-222222222222";
 
 /** The staging project ref, which is what a local dry run actually reads. */
-const STAGING_URL = "https://xwkigpvnheecihpxyvsl.supabase.co";
+const STAGING_URL = "https://ttkkyvgvcamfoezsetvf.supabase.co";
 const STAGING: SupabaseEnvironment = supabaseEnvironment(STAGING_URL);
 
 describe("buildCuratedProductPatches", () => {
@@ -407,8 +407,8 @@ describe("parseArgs", () => {
 describe("supabaseEnvironment", () => {
   it("reads the project ref out of a hosted Supabase URL", () => {
     expect(supabaseEnvironment(STAGING_URL)).toEqual({
-      projectRef: "xwkigpvnheecihpxyvsl",
-      host: "xwkigpvnheecihpxyvsl.supabase.co",
+      projectRef: "ttkkyvgvcamfoezsetvf",
+      host: "ttkkyvgvcamfoezsetvf.supabase.co",
     });
   });
 
@@ -622,17 +622,17 @@ describe("dry-run report file", () => {
     const summary = await writeReport(path, async () => []);
 
     expect(readHeader(path).environment).toEqual(STAGING);
-    expect(summary.environment.projectRef).toBe("xwkigpvnheecihpxyvsl");
+    expect(summary.environment.projectRef).toBe("ttkkyvgvcamfoezsetvf");
     // Read back off disk, not just the value finish() returned: the summary is
     // the last line, so a reviewer opening a completed report sees the database
     // named at both ends of the file.
     expect(readSummary(path).environment).toEqual(STAGING);
     // In the file, so a grep finds it even in a partial artifact.
-    expect(readFileSync(path, "utf8")).toContain("xwkigpvnheecihpxyvsl");
+    expect(readFileSync(path, "utf8")).toContain("ttkkyvgvcamfoezsetvf");
     // And on disk, so two environments' reports are distinguishable unopened.
     expect(
       dryRunReportPath({ projectRef: summary.environment.projectRef }),
-    ).toContain("xwkigpvnheecihpxyvsl");
+    ).toContain("ttkkyvgvcamfoezsetvf");
   });
 
   it("is not opened at all on an apply run", async () => {
@@ -1094,7 +1094,7 @@ describe("assertSameEnvironment", () => {
     );
 
     expect(() => assertSameEnvironment(STAGING, production)).toThrow(
-      /xwkigpvnheecihpxyvsl/,
+      /ttkkyvgvcamfoezsetvf/,
     );
     expect(() => assertSameEnvironment(STAGING, STAGING)).not.toThrow();
   });

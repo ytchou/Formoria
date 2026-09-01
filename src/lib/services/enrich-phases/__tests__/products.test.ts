@@ -105,7 +105,7 @@ function rawProposal(overrides: RawProposal = {}): RawProposal {
 function modelReturns(products: RawProposal[]) {
   const chat = vi.fn().mockResolvedValue({
     response: { ok: true },
-    content: JSON.stringify({ products }),
+    content: JSON.stringify({ evaluations: [], products }),
   });
   createClient.mockReturnValue({ chat });
   return chat;
@@ -809,6 +809,33 @@ describe("runProductsPhase", () => {
     const user = chat.mock.calls[0]![0].user as string;
     // The catalog evidence text should appear in the user content
     expect(user).toContain("A ceramic plate from catalog.");
+  });
+
+  it("retries once when schema validation fails", async () => {
+    // First response is missing `products` key, so the lenient parse shape rejects it.
+    // Second response includes the required field and parses correctly.
+    const chat = vi
+      .fn()
+      .mockResolvedValueOnce({
+        response: { ok: true },
+        content: JSON.stringify({ evaluations: [] }),
+      })
+      .mockResolvedValueOnce({
+        response: { ok: true },
+        content: JSON.stringify({ evaluations: [], products: [rawProposal()] }),
+      });
+    createClient.mockReturnValue({ chat });
+
+    const result = await runProductsPhase({
+      brand: BRAND,
+      phases: PHASES,
+      scrapedData: SCRAPED,
+      target: { type: "submission", id: SUBMISSION_ID },
+    });
+
+    expect(chat).toHaveBeenCalledTimes(2);
+    expect(result.proposals).toHaveLength(1);
+    expect(result.phaseResult.status).toBe("succeeded");
   });
 
   it("products_phase_accepts_acquisition_page_urls", async () => {
