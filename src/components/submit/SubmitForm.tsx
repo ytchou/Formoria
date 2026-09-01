@@ -386,7 +386,7 @@ export default function SubmitForm({
         </p>
       </div>
 
-      <StandardForm onSubmit={onSubmit} noValidate>
+      <StandardForm onSubmit={onSubmit} noValidate className="bg-white">
         <div className="flex flex-col gap-5">
           <p className="type-metadata">
             <span className="text-danger">*</span> {tForm("requiredHint")}

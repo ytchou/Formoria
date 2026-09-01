@@ -7,6 +7,7 @@ import { resolveApprovedBrandRedirect } from '@/lib/services/brand-redirects'
 import { getOgFonts, getOgMarkDataUri } from '@/lib/brand/og-fonts'
 import { NotFoundError } from '@/lib/errors'
 import { renderShareCard } from '@/lib/growth/share-card'
+import { getPublicOrigin } from '@/lib/url'
 
 const CACHE_CONTROL =
   'public, max-age=3600, s-maxage=86400, stale-while-revalidate=604800'
@@ -26,7 +27,7 @@ export async function GET(
     if (err instanceof NotFoundError && !err.cause) {
       const newSlug = await resolveApprovedBrandRedirect(slug)
       if (newSlug) {
-        const redirectTarget = new URL(`/api/share-card/${newSlug}`, request.url)
+        const redirectTarget = new URL(`/api/share-card/${newSlug}`, getPublicOrigin(request))
         redirectTarget.search = searchParams.toString()
         return NextResponse.redirect(redirectTarget, {
           status: 302,

@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { isVisibleCategory, subcategoryBySlug } from "@/lib/taxonomy/ontology";
+import { getPublicOrigin } from "@/lib/url";
 
 /**
  * Catch-all redirect for retired category pages. Only visible taxonomy moves
@@ -26,12 +27,10 @@ export async function GET(
     return new NextResponse(null, { status: 410 });
   }
 
-  const baseUrl = new URL(request.url);
-
   // Build the /discover destination with optional query params
   const localePart = locale === "zh-TW" ? "" : `/${locale}`;
   const discoverPath = `${localePart}/discover`;
-  const destination = new URL(discoverPath, baseUrl.origin);
+  const destination = new URL(discoverPath, getPublicOrigin(request));
 
   if (l1) {
     destination.searchParams.set("category", l1);

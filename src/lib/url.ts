@@ -41,6 +41,22 @@ export function isPrivateUrl(urlString: string): boolean {
   }
 }
 
+/**
+ * Derive the public-facing origin from a server-side request.
+ *
+ * Behind Railway + Cloudflare, `request.url` resolves to the internal listen
+ * address (e.g. `https://localhost:8080`). The `host` header carries the real
+ * hostname that the client connected to.
+ */
+export function getPublicOrigin(request: Request): string {
+  const host = request.headers.get('x-forwarded-host') ?? request.headers.get('host')
+  if (host) {
+    const proto = request.headers.get('x-forwarded-proto') ?? 'https'
+    return `${proto}://${host}`
+  }
+  return new URL(request.url).origin
+}
+
 export function normalizeToRootUrl(url: string | null | undefined): string | null {
   if (!url) return null
   try {

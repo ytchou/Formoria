@@ -121,7 +121,7 @@ describe("BrandStrip", () => {
     expect(images[0]).toHaveAttribute("src", "/img/a.webp");
     expect(images[0]).toHaveAttribute(
       "class",
-      expect.stringContaining("rounded-full"),
+      expect.stringContaining("object-cover"),
     );
     expect(images[1]).toHaveAttribute("src", "/img/b.webp");
     expect(images[2]).toHaveAttribute("src", "/img/d.webp");

@@ -61,7 +61,7 @@ export function ImageCarousel({
         // in the grid, so the same photo was cropped two different ways
         // depending on where you looked at it. `aspect-media` is 1:1 — see the
         // token's comment in globals.css for the measurement.
-        className="relative aspect-media overflow-hidden rounded-surface bg-surface-deep"
+        className="relative mx-auto aspect-media max-w-[70svh] overflow-hidden rounded-surface bg-surface-deep xl:max-w-none"
       >
         <BrandImageFallback
           name={alt}
@@ -189,7 +189,7 @@ export function ImageCarousel({
         // depending on where you looked at it. `aspect-media` is 1:1 — see the
         // token's comment in globals.css for the measurement.
         className={cn(
-          "relative aspect-media overflow-hidden rounded-surface bg-surface-deep",
+          "relative mx-auto aspect-media max-w-[70svh] overflow-hidden rounded-surface bg-surface-deep xl:max-w-none",
           hasDetailGallery && "xl:col-start-2 xl:row-start-1",
         )}
       >

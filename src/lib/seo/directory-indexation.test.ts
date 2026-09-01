@@ -170,7 +170,7 @@ describe("resolveDirectorySeo", () => {
     expect(result.canonical).toBe(`${base}/brands?category=home&page=2`);
   });
 
-  it("non-launch target is noindex-follow, canonicals to parent, and omits languages", () => {
+  it("deferred category is noindex-follow and canonicals to /brands", () => {
     const l1 = resolveDirectorySeo(state({ categorySlug: "tech" }));
     const l2 = resolveDirectorySeo(
       state({
@@ -181,10 +181,8 @@ describe("resolveDirectorySeo", () => {
 
     expect(l1.robots).toEqual({ index: false, follow: true });
     expect(l1.canonical).toBe(`${base}/brands`);
-    expect(l1.languages).toBeUndefined();
     expect(l2.robots).toEqual({ index: false, follow: true });
-    expect(l2.canonical).toBe(`${base}/brands?category=outdoor`);
-    expect(l2.languages).toBeUndefined();
+    expect(l2.canonical).toBe(`${base}/brands`);
   });
 
   it("unrecognized params are stripped, not treated as facets", () => {

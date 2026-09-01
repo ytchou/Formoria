@@ -8,7 +8,7 @@
  */
 import { cache } from "react";
 
-import { L1_CATEGORIES } from "@/lib/taxonomy/ontology";
+import { VISIBLE_L1_CATEGORIES } from "@/lib/taxonomy/ontology";
 import {
   getPublishedCuratedProductsForTrail,
   type TrailCuratedProduct,
@@ -166,7 +166,7 @@ export function deriveTrailRelatedContent(
   const categorySlugs = new Set(trailPlacements.map((p) => p.category));
   const categories: CategoryLink[] = [];
   for (const slug of categorySlugs) {
-    const l1 = L1_CATEGORIES.find((c) => c.slug === slug);
+    const l1 = VISIBLE_L1_CATEGORIES.find((c) => c.slug === slug);
     if (l1) {
       categories.push({ slug: l1.slug, name: l1.name, nameZh: l1.nameZh });
     }
