@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars -- operational script with untyped Supabase client */
 /**
  * Extracts enriched submission data for the review artifact.
  * Outputs JSON to stdout in the shape the artifact expects.

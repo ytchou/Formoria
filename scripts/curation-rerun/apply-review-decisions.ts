@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any -- operational script with untyped Supabase client */
 /**
  * Applies reviewed enrichment decisions via direct PostgREST PATCH.
  * Reads enriched values from the latest approved/pending submission per brand,
@@ -111,7 +112,7 @@ async function main() {
   // Query per brand to avoid PostgREST max-rows truncation (51 brands ×
   // multiple submissions each can exceed 1000).
   const subByBrandId = new Map<string, any>()
-  for (const [slug, brandId] of brandIdBySlug) {
+  for (const [, brandId] of brandIdBySlug) {
     const { data: subs } = await supabase
       .from('brand_submissions')
       .select('id, brand_id, enriched_data')

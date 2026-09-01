@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars -- operational script with untyped Supabase client */
 /**
  * Materializes curated products for all brands in a cohort whose submissions
  * have enriched products but no curated_products rows yet.
