@@ -11,7 +11,7 @@ import { describe, expect, it, vi } from "vitest";
 
 import en from "../../../messages/en.json";
 import type { PublicBrandCard } from "@/lib/brands/contracts";
-import type { WallSlot } from "@/lib/curated-products/home-wall";
+import type { GroupedWallSlots, WallSlot } from "@/lib/curated-products/home-wall";
 import type { HomepageCuratedProduct } from "@/lib/services/curated-products";
 import type { StoryEntry } from "@/lib/services/stories";
 import type { TrailEntry } from "@/lib/services/trails";
@@ -109,8 +109,8 @@ vi.mock("@/lib/auth/use-user", () => ({
 // client TrailCarousel depends on embla-carousel which needs a real DOM.
 // Mock them so the zone-structure assertions stay fast and deterministic.
 vi.mock("@/components/landing/curated-product-grid", () => ({
-  CuratedProductGrid: ({ slots }: { slots: unknown[] }) => (
-    <div data-testid="curated-product-grid">{slots.length} products</div>
+  CuratedProductGrid: ({ groups }: { groups: Record<string, unknown[]> }) => (
+    <div data-testid="curated-product-grid">{(groups.all ?? []).length} products</div>
   ),
 }));
 
@@ -238,13 +238,12 @@ function buildProduct(index: number): HomepageCuratedProduct {
   };
 }
 
-function buildWall(count = 2): { slots: WallSlot[] } {
-  return {
-    slots: Array.from({ length: count }, (_, index) => ({
-      product: buildProduct(index),
-      ratio: "4:3" as const,
-    })),
-  };
+function buildWall(count = 2): { groups: GroupedWallSlots } {
+  const slots: WallSlot[] = Array.from({ length: count }, (_, index) => ({
+    product: buildProduct(index),
+    ratio: "4:3" as const,
+  }));
+  return { groups: { all: slots } };
 }
 
 function buildStory(slug: string): StoryEntry {

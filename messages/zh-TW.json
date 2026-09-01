@@ -160,7 +160,8 @@
     "selection": {
       "headline": "每一件，都說得出選它的理由。",
       "subtitle": "搬新家、佈置店面、想換一盞燈 — 這裡是為了這些時刻刻意挑出的產品。",
-      "cta": "探索所有選物"
+      "cta": "探索所有選物",
+      "allCategories": "全部"
     },
     "missionCloser": {
       "headline": "讓好東西，被更多人遇見。",
@@ -205,7 +206,7 @@
     "sortLabel": "排序方式",
     "filters": {
       "title": "篩選",
-      "trigger": "篩選（{count}）",
+      "trigger": "篩選",
       "all": "全部",
       "category": "分類",
       "material": "材質",
@@ -222,7 +223,8 @@
       "activeStatus": "品牌狀態",
       "removeFilter": "移除{label}：{value}",
       "clearAll": "清除全部",
-      "showResults": "顯示 {count} 個結果"
+      "showResults": "顯示 {count} 個結果",
+      "subcategory": "子分類"
     },
     "sort": {
       "random": "隨機",
@@ -251,7 +253,8 @@
     "noResultsInSuggestions": "找不到結果",
     "editorialLinksAria": "相關專題與風格",
     "editorialStories": "相關專題",
-    "editorialTrails": "相關風格"
+    "editorialTrails": "相關風格",
+    "subheading": "探索收錄的台灣品牌"
   },
   "challenge": {
     "title": "快速驗證",
@@ -2519,5 +2522,12 @@
     "ziguan": "梓官區",
     "zuoying": "左營區",
     "zuozhen": "左鎮區"
+  },
+  "saveProduct": {
+    "save": "收藏",
+    "unsave": "取消收藏",
+    "saveAriaLabel": "收藏這個商品",
+    "unsaveAriaLabel": "取消收藏這個商品",
+    "loginToSave": "登入後即可收藏商品"
   }
 }

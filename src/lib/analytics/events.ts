@@ -353,6 +353,22 @@ export const ANALYTICS_EVENTS = {
    */
   BRAND_UNSAVED: "brand_unsaved",
 
+  /**
+   * A curated product was saved/bookmarked.
+   * @property product_id {string} Product UUID.
+   * @property product_key {string} Product key slug.
+   * @property location {string} UI surface the save was triggered from.
+   */
+  PRODUCT_SAVED: "product_saved",
+
+  /**
+   * A curated product was removed from the visitor's saved list.
+   * @property product_id {string} Product UUID.
+   * @property product_key {string} Product key slug.
+   * @property location {string} UI surface the unsave was triggered from.
+   */
+  PRODUCT_UNSAVED: "product_unsaved",
+
   // ---------------------------------------------------------------------------
   // Submission funnel
   // ---------------------------------------------------------------------------
@@ -879,6 +895,16 @@ export interface AnalyticsEventPayloads {
   [ANALYTICS_EVENTS.BRAND_UNSAVED]: {
     brand_id: string;
     brand_slug: string;
+    location: string;
+  };
+  [ANALYTICS_EVENTS.PRODUCT_SAVED]: {
+    product_id: string;
+    product_key: string;
+    location: string;
+  };
+  [ANALYTICS_EVENTS.PRODUCT_UNSAVED]: {
+    product_id: string;
+    product_key: string;
     location: string;
   };
 

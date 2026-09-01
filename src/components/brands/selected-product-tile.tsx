@@ -22,6 +22,7 @@ import { cn } from "@/lib/utils";
 import { BrandImageFallback } from "./brand-image-fallback";
 import { SelectedProductTileLink } from "./selected-product-tile-link";
 import { SelectedProductExternalLink } from "./selected-product-external-link";
+import { SaveButton } from "@/components/ui/save-button";
 import { routes } from "@/lib/routes";
 import { Badge } from "@/components/ui/badge";
 import { ShieldCheck } from "lucide-react";
@@ -251,8 +252,12 @@ export function SelectedProductTile({
           // almost no margin. Never smaller, never lighter.
           <Typography as="p" variant="metadata">
             {brandName}
-            {subcategoryName ? ` · ${subcategoryName}` : ""}
           </Typography>
+        ) : null}
+        {subcategoryName ? (
+          <Badge variant="declared" className="self-start">
+            {subcategoryName}
+          </Badge>
         ) : null}
       </div>
     </div>
@@ -289,6 +294,12 @@ export function SelectedProductTile({
           />
         )}
         {originBadge}
+        <SaveButton
+          kind="product"
+          id={product.id}
+          slug={product.key}
+          variant="overlay"
+        />
       </div>
 
       <div className={shelfCaptionClass}>
@@ -307,6 +318,11 @@ export function SelectedProductTile({
           >
             {productDescription}
           </Typography>
+        ) : null}
+        {subcategoryName ? (
+          <Badge variant="declared" className="self-start">
+            {subcategoryName}
+          </Badge>
         ) : null}
       </div>
     </div>

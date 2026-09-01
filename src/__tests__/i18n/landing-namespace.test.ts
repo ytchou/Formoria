@@ -201,10 +201,11 @@ describe("landing namespace", () => {
       "trails.linkText",
       "trails.eyebrow",
       "trails.cta",
-      // CuratedProductGrid's own copy — selection headline, subtitle, CTA.
+      // CuratedProductGrid's own copy — selection headline, subtitle, CTA, filter.
       "selection.headline",
       "selection.subtitle",
       "selection.cta",
+      "selection.allCategories",
       // MissionCloser's copy — the closing mission band.
       "missionCloser.headline",
       "missionCloser.subtitle",

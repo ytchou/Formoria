@@ -695,6 +695,30 @@ export function trackBrandUnsaved(
   });
 }
 
+export function trackProductSaved(
+  productId: string,
+  productKey: string,
+  location: string,
+) {
+  capturePostHogEvent(ANALYTICS_EVENTS.PRODUCT_SAVED, {
+    product_id: productId,
+    product_key: productKey,
+    location,
+  });
+}
+
+export function trackProductUnsaved(
+  productId: string,
+  productKey: string,
+  location: string,
+) {
+  capturePostHogEvent(ANALYTICS_EVENTS.PRODUCT_UNSAVED, {
+    product_id: productId,
+    product_key: productKey,
+    location,
+  });
+}
+
 export function trackRecommendationBrandClicked(
   brandId: string,
   slug: string,

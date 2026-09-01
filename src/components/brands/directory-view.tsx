@@ -51,14 +51,10 @@ import {
   shouldEmitDirectoryItemList,
 } from "@/lib/brands/directory-presentation";
 import type { PublicBrandCard } from "@/lib/brands/contracts";
-import {
-  DirectoryLandingHead,
-  DirectoryResultStatus,
-} from "./directory-landing-head";
+import { DirectoryResultStatus } from "./directory-landing-head";
 import { routes } from "@/lib/routes";
-import { Grid } from "@/components/ui/grid";
-import { shellStyles } from "@/components/ui/page-shell";
-import { cn } from "@/lib/utils";
+import { PageShell } from "@/components/ui/page-shell";
+import { FilterToken } from "@/components/filters";
 import { getCategoryEditorialLinks } from "@/lib/services/editorial-links";
 import {
   RelatedStoryLink,
@@ -97,6 +93,7 @@ export async function DirectoryView({
 }: DirectoryViewProps) {
   const safeLocale = locale;
   const t = await getTranslations({ locale: safeLocale, namespace: "brands" });
+  const commonT = await getTranslations({ locale: safeLocale, namespace: "common" });
 
   const validCategoryFilter = filters.categorySlugs.filter((slug) =>
     VALID_CATEGORY_SLUGS.has(slug),
@@ -389,234 +386,207 @@ export async function DirectoryView({
     );
   }
 
-  const categoryBreadcrumb = categoryTag
-    ? {
-        slug: categoryTag.slug,
-        label: categoryLabel(categoryTag, safeLocale),
-      }
-    : null;
-  const subcategoryBreadcrumb = activeSubcategory
-    ? {
-        slug: activeSubcategory.slug,
-        label:
-          safeLocale === "zh-TW"
-            ? activeSubcategory.nameZh
-            : activeSubcategory.nameEn,
-      }
-    : null;
+  const sidebarProps = {
+    locale: safeLocale,
+    activeCategory: singleValidCategory,
+    allLabel: commonT("all"),
+    subcategoryOptions,
+    activeSubSlugs,
+    materialOptions,
+    activeMaterials: materials,
+    totalCount,
+  };
 
   return (
-    <>
-      {/* The shell is the shared grid too, not a formula that agrees with it by
-          coincidence — the rail measure and the column gap both belong to the
-          primitive, so a change to either moves every surface that uses it. */}
-      <Grid
-        as="main"
-        cols="sidebar"
-        className={cn(shellStyles({ measure: "page" }), "py-10")}
-      >
+    <PageShell as="main" measure="page" className="pt-12 pb-section">
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{
+          __html: safeJsonLdStringify(buildWebSiteJsonLd(safeLocale)),
+        }}
+      />
+      {brandsItemListJsonLd ? (
         <script
           type="application/ld+json"
           dangerouslySetInnerHTML={{
-            __html: safeJsonLdStringify(buildWebSiteJsonLd(safeLocale)),
+            __html: safeJsonLdStringify(brandsItemListJsonLd),
           }}
         />
-        {brandsItemListJsonLd ? (
-          <script
-            type="application/ld+json"
-            dangerouslySetInnerHTML={{
-              __html: safeJsonLdStringify(brandsItemListJsonLd),
-            }}
-          />
-        ) : null}
-        {categoryItemListJsonLd ? (
-          <script
-            type="application/ld+json"
-            dangerouslySetInnerHTML={{
-              __html: safeJsonLdStringify(categoryItemListJsonLd),
-            }}
-          />
-        ) : null}
-        {categoryBreadcrumbJsonLd ? (
-          <script
-            type="application/ld+json"
-            dangerouslySetInnerHTML={{
-              __html: safeJsonLdStringify(categoryBreadcrumbJsonLd),
-            }}
-          />
-        ) : null}
-        <ViewItemListTracker
-          listName="directory"
-          itemCount={displayBrands.length}
+      ) : null}
+      {categoryItemListJsonLd ? (
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{
+            __html: safeJsonLdStringify(categoryItemListJsonLd),
+          }}
         />
-        {/* `totalCount`, not `displayBrands.length` — the search matched that many,
-            the page only renders one slice of them. */}
-        <SearchResultsTracker query={search} resultCount={totalCount} />
+      ) : null}
+      {categoryBreadcrumbJsonLd ? (
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{
+            __html: safeJsonLdStringify(categoryBreadcrumbJsonLd),
+          }}
+        />
+      ) : null}
+      <ViewItemListTracker
+        listName="directory"
+        itemCount={displayBrands.length}
+      />
+      <SearchResultsTracker query={search} resultCount={totalCount} />
 
-        <aside className="hidden lg:block" aria-label={t("filters.title")}>
-          <div className="sticky top-(--nav-height)">
-            {/*
-              `activeCategorySlugs` is SELECTION state, not a claim about what
-              filters: the checked L1 is what opens its L2 rail, and unchecking
-              it clears the pair. `?sub=` is only read alongside a single
-              `?category=` (`seo/directory-filters.ts`), so there is no
-              "subcategory without its L1" URL to preserve. What the L1 must not
-              do is advertise itself as an applied filter — that is why the
-              chips above and the count beside the box are both derived from
-              what the brand query actually conjoins.
-            */}
-            <BrandFilterSidebar
-              activeFilters={activeFilters}
-              categories={[...VISIBLE_L1_CATEGORIES]}
-              activeCategorySlugs={validCategoryFilter}
-              subcategories={subcategoryOptions}
-              activeSubSlugs={activeSubSlugs}
-              materials={materialOptions}
-              activeMaterials={materials}
-              announceSearchLoading={!isCategoryRoute}
-              totalCount={totalCount}
-            />
-          </div>
-        </aside>
+      <div className="space-y-stack">
+        <header className="prose-measure space-y-3">
+          <h1 className="type-page-title">{pageHeading}</h1>
+          <p className="type-body">{t("subheading")}</p>
+        </header>
 
-        <div className="min-w-0">
-          <DirectoryLandingHead
-            locale={safeLocale}
-            directoryLabel={t("heading")}
-            category={categoryBreadcrumb}
-            subcategory={subcategoryBreadcrumb}
-            breadcrumbAria={t("breadcrumbAria")}
-            pageHeading={pageHeading}
-          />
-          <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
-            <div className="flex items-center gap-3">
-              <BrandFilterDrawer
-                activeFilters={activeFilters}
-                categories={[...VISIBLE_L1_CATEGORIES]}
-                activeCategorySlugs={validCategoryFilter}
-                subcategories={subcategoryOptions}
-                activeSubSlugs={activeSubSlugs}
-                materials={materialOptions}
-                activeMaterials={materials}
-                announceSearchLoading={!isCategoryRoute}
-                totalCount={totalCount}
-              />
+        {/* Mobile drawer trigger */}
+        <div className="lg:hidden">
+          <BrandFilterDrawer {...sidebarProps} />
+        </div>
+
+        <div className="flex flex-col gap-8 lg:flex-row">
+          {/* Desktop sidebar */}
+          <aside className="hidden shrink-0 lg:block lg:w-48" aria-label={t("filters.title")}>
+            <BrandFilterSidebar {...sidebarProps} />
+          </aside>
+
+          <div className="min-w-0 flex-1">
+            {/* Toolbar: result count + sort */}
+            <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
               <DirectoryResultStatus
                 locale={safeLocale}
                 totalCount={totalCount}
                 latestUpdatedAt={latestUpdatedAt}
                 announceLiveRegion={isCategoryRoute}
               />
+              <Suspense fallback={null}>
+                <SortSelect />
+              </Suspense>
             </div>
-            <Suspense fallback={null}>
-              <SortSelect />
-            </Suspense>
-          </div>
 
-          <Suspense
-            fallback={
-              <Grid aria-label={t("loadingAria")}>
-                {Array.from({ length: 8 }).map((_, index) => (
-                  <div
-                    key={index}
-                    className={surfaceCardStyles({ padding: "none" })}
-                  >
-                    <div className="aspect-media animate-pulse rounded-t-surface bg-surface" />
-                    <div className="p-4">
-                      <div className="h-4 animate-pulse rounded-surface bg-surface" />
-                      <div className="mt-2 h-3 w-2/3 animate-pulse rounded-surface bg-surface" />
-                    </div>
-                  </div>
+            {/* Active filter chips */}
+            {activeFilters.length > 0 && (
+              <div className="mb-4 flex flex-wrap items-center gap-2">
+                {activeFilters.map((filter) => (
+                  <FilterToken
+                    key={filter.id}
+                    href={filter.removeHref}
+                    label={filter.label}
+                    removeLabel={filter.removeLabel}
+                    value={filter.value}
+                    variant="chip"
+                  />
                 ))}
-              </Grid>
-            }
-          >
-            <SavedBrandsProvider>
-              {displayBrands.length === 0 ? (
-                <SearchEmptyState
-                  activeFilters={activeFilters}
-                  recommendedBrands={recommendedBrands}
-                  recommendationsHref={recommendationsHref}
-                />
-              ) : (
+              </div>
+            )}
+
+            <Suspense
+              fallback={
                 <MasonryGrid>
-                  {displayBrands.map((brand, index) => (
-                    <BrandCard
-                      key={brand.id}
-                      brand={brand}
-                      preload={index < 1}
-                    />
+                  {Array.from({ length: 8 }).map((_, index) => (
+                    <div
+                      key={index}
+                      className={surfaceCardStyles({ padding: "none" })}
+                    >
+                      <div className="aspect-media animate-pulse rounded-t-surface bg-surface" />
+                      <div className="p-4">
+                        <div className="h-4 animate-pulse rounded-surface bg-surface" />
+                        <div className="mt-2 h-3 w-2/3 animate-pulse rounded-surface bg-surface" />
+                      </div>
+                    </div>
                   ))}
                 </MasonryGrid>
-              )}
-            </SavedBrandsProvider>
-          </Suspense>
-
-          <Pagination
-            totalCount={totalCount}
-            currentPage={clampedPage}
-            pageSize={DEFAULT_PAGE_SIZE}
-          />
-          {editorialLinks.stories.length > 0 ||
-          editorialLinks.trails.length > 0 ? (
-            <nav
-              aria-label={t("editorialLinksAria")}
-              className="mt-section space-y-6"
+              }
             >
-              {editorialLinks.stories.length > 0 ? (
-                <section aria-labelledby="category-stories" className="space-y-3">
-                  <h2
-                    id="category-stories"
-                    className="type-card-title"
-                  >
-                    {t("editorialStories")}
-                  </h2>
-                  <ul className="flex flex-wrap gap-x-4 gap-y-2 type-body-sm">
-                    {editorialLinks.stories.map((story, position) => (
-                      <li key={story.slug}>
-                        <RelatedStoryLink
-                          href={routes.story(story.slug)}
-                          storySlug={story.slug}
-                          position={position}
-                          storySurface="category_editorial_stories"
-                          className="text-accent underline underline-offset-4 hover:text-ink"
-                        >
-                          {story.title}
-                        </RelatedStoryLink>
-                      </li>
+              <SavedBrandsProvider>
+                {displayBrands.length === 0 ? (
+                  <SearchEmptyState
+                    activeFilters={activeFilters}
+                    recommendedBrands={recommendedBrands}
+                    recommendationsHref={recommendationsHref}
+                  />
+                ) : (
+                  <MasonryGrid>
+                    {displayBrands.map((brand, index) => (
+                      <BrandCard
+                        key={brand.id}
+                        brand={brand}
+                        preload={index < 1}
+                      />
                     ))}
-                  </ul>
-                </section>
-              ) : null}
-              {editorialLinks.trails.length > 0 ? (
-                <section aria-labelledby="category-trails" className="space-y-3">
-                  <h2
-                    id="category-trails"
-                    className="type-card-title"
-                  >
-                    {t("editorialTrails")}
-                  </h2>
-                  <ul className="flex flex-wrap gap-x-4 gap-y-2 type-body-sm">
-                    {editorialLinks.trails.map((trail, position) => (
-                      <li key={trail.slug}>
-                        <RelatedTrailLink
-                          href={routes.trail(trail.slug)}
-                          trailSlug={trail.slug}
-                          position={position}
-                          trailSurface="category_editorial_trails"
-                          className="text-accent underline underline-offset-4 hover:text-ink"
-                        >
-                          {trail.title}
-                        </RelatedTrailLink>
-                      </li>
-                    ))}
-                  </ul>
-                </section>
-              ) : null}
-            </nav>
-          ) : null}
+                  </MasonryGrid>
+                )}
+              </SavedBrandsProvider>
+            </Suspense>
+
+            <Pagination
+              totalCount={totalCount}
+              currentPage={clampedPage}
+              pageSize={DEFAULT_PAGE_SIZE}
+            />
+            {editorialLinks.stories.length > 0 ||
+            editorialLinks.trails.length > 0 ? (
+              <nav
+                aria-label={t("editorialLinksAria")}
+                className="mt-section space-y-6"
+              >
+                {editorialLinks.stories.length > 0 ? (
+                  <section aria-labelledby="category-stories" className="space-y-3">
+                    <h2
+                      id="category-stories"
+                      className="type-card-title"
+                    >
+                      {t("editorialStories")}
+                    </h2>
+                    <ul className="flex flex-wrap gap-x-4 gap-y-2 type-body-sm">
+                      {editorialLinks.stories.map((story, position) => (
+                        <li key={story.slug}>
+                          <RelatedStoryLink
+                            href={routes.story(story.slug)}
+                            storySlug={story.slug}
+                            position={position}
+                            storySurface="category_editorial_stories"
+                            className="text-accent underline underline-offset-4 hover:text-ink"
+                          >
+                            {story.title}
+                          </RelatedStoryLink>
+                        </li>
+                      ))}
+                    </ul>
+                  </section>
+                ) : null}
+                {editorialLinks.trails.length > 0 ? (
+                  <section aria-labelledby="category-trails" className="space-y-3">
+                    <h2
+                      id="category-trails"
+                      className="type-card-title"
+                    >
+                      {t("editorialTrails")}
+                    </h2>
+                    <ul className="flex flex-wrap gap-x-4 gap-y-2 type-body-sm">
+                      {editorialLinks.trails.map((trail, position) => (
+                        <li key={trail.slug}>
+                          <RelatedTrailLink
+                            href={routes.trail(trail.slug)}
+                            trailSlug={trail.slug}
+                            position={position}
+                            trailSurface="category_editorial_trails"
+                            className="text-accent underline underline-offset-4 hover:text-ink"
+                          >
+                            {trail.title}
+                          </RelatedTrailLink>
+                        </li>
+                      ))}
+                    </ul>
+                  </section>
+                ) : null}
+              </nav>
+            ) : null}
+          </div>
         </div>
-      </Grid>
-    </>
+      </div>
+    </PageShell>
   );
 }

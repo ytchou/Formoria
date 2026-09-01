@@ -60,6 +60,10 @@ vi.mock("@/lib/analytics", () => ({
   trackOutboundClick: vi.fn(),
 }));
 
+vi.mock("@/components/ui/save-button", () => ({
+  SaveButton: () => <button data-testid="save-button" />,
+}));
+
 vi.mock("next-intl", () => ({
   useTranslations: () => (key: string) => key,
 }));

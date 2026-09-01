@@ -7,6 +7,7 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { PageShell } from "@/components/ui/page-shell";
 import { captureReadFailure } from "@/lib/degraded-render";
 import { ProductGrid } from "@/components/products/product-grid";
+import { SavedProductsProvider } from "@/hooks/use-saved-products";
 import {
   ProductFilterSidebar,
   ProductFilterDrawer,
@@ -231,6 +232,7 @@ export default async function DiscoverPage({
           />
         </div>
 
+        <SavedProductsProvider>
         <div className="flex flex-col gap-8 lg:flex-row">
           {/* Desktop sidebar */}
           <aside className="hidden shrink-0 lg:block lg:w-48">
@@ -278,6 +280,7 @@ export default async function DiscoverPage({
             )}
           </div>
         </div>
+        </SavedProductsProvider>
       </div>
     </PageShell>
   );
