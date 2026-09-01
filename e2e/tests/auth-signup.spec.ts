@@ -102,7 +102,6 @@ test.describe('Auth — sign-up flow', () => {
       .then(() => true)
       .catch(() => false);
 
-    // eslint-disable-next-line playwright/no-conditional-in-test
     if (redirected) {
       // Supabase accepted signup and the staging Send Email Hook captured the
       // real token. The signup journey follows this same link in its E2E flow.
@@ -131,7 +130,6 @@ test.describe('Auth — sign-up flow', () => {
 
     // Supabase free-tier email rate limit is an infrastructure ceiling, not a
     // code bug. Skip instead of failing the release gate.
-    // eslint-disable-next-line playwright/no-conditional-in-test
     if (alertText && /rate limit/i.test(alertText)) {
       test.skip(true, 'Supabase email rate limit exceeded on free tier');
       return;
@@ -145,7 +143,6 @@ test.describe('Auth — sign-up flow', () => {
       'redirected to /auth/sign-in with the confirmation message',
     );
 
-    // eslint-disable-next-line playwright/no-conditional-in-test
     if (captureId) await deleteCapturedAuthEmail(captureId);
   });
 });

@@ -67,7 +67,7 @@
       "count": 2
     },
     "playwright/no-conditional-in-test": {
-      "count": 2
+      "count": 4
     }
   },
   "e2e/tests/brand-actions.spec.ts": {
@@ -78,14 +78,6 @@
   "e2e/tests/brand-share.spec.ts": {
     "playwright/no-conditional-in-test": {
       "count": 4
-    }
-  },
-  "e2e/tests/directory.spec.ts": {
-    "playwright/no-conditional-expect": {
-      "count": 1
-    },
-    "playwright/no-conditional-in-test": {
-      "count": 1
     }
   },
   "e2e/tests/faq.spec.ts": {
