@@ -9,7 +9,7 @@ import {
   readRejectedSubcategoryInputs,
   setRejectedSubcategorySink,
 } from "@/lib/services/subcategories";
-import { L2_SUBCATEGORIES } from "@/lib/taxonomy/ontology";
+import { L2_SUBCATEGORIES, VISIBLE_L1_CATEGORIES } from "@/lib/taxonomy/ontology";
 
 const LABELS = {
   search: "Find a subcategory",
@@ -92,9 +92,11 @@ describe("SubcategoryPicker", () => {
     // on the write side, and it is the counterpart of the cross-L1 read fix.
     const { onChange } = renderPicker({ priorityCategorySlug: "fashion" });
 
+    const visibleL1Slugs = new Set(VISIBLE_L1_CATEGORIES.map(c => c.slug));
+    const visibleL2Count = L2_SUBCATEGORIES.filter(s => visibleL1Slugs.has(s.category)).length;
     const options = within(optionsGroup()).getAllByRole("button");
-    expect(options).toHaveLength(L2_SUBCATEGORIES.length);
-    expect(L2_SUBCATEGORIES).toHaveLength(164);
+    expect(options).toHaveLength(visibleL2Count);
+    expect(visibleL2Count).toBe(105);
 
     // `backpacks` lives under `bags-accessories`, not under `fashion`.
     fireEvent.click(within(optionsGroup()).getByRole("button", { name: "後背包" }));
