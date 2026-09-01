@@ -326,11 +326,8 @@ export async function collectChecks(
     request("health", `${base}/api/health`, {}, fetchImpl),
     request(
       "supabase",
-      `${supabase}/rest/v1/brands?select=id&limit=1`,
-      {
-        Authorization: `Bearer ${config.supabaseAnonKey}`,
-        apikey: config.supabaseAnonKey,
-      },
+      `${supabase}/auth/v1/health`,
+      { apikey: config.supabaseAnonKey },
       fetchImpl,
     ),
   ]);
