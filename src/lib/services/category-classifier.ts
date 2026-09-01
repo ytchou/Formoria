@@ -17,6 +17,7 @@ import { L1_CATEGORIES } from "@/lib/taxonomy/ontology";
 import { z } from "zod";
 import {
   parseAndValidate,
+  parseBatchEntries,
   toStrictJsonSchema,
   formatRetryInstruction,
 } from "./_shared/zod-schema";
@@ -318,7 +319,7 @@ function parseBatchClassification(
   content: string,
   validSlugs: Set<string>,
 ): Map<string, ClassificationResult> | null {
-  const parsed = parseAndValidate(content, batchParseShape);
+  const parsed = parseBatchEntries(content, batchParseShape);
   if (!parsed.success) {
     if (parsed.issues) {
       console.error(`  → classify batch validation: ${formatRetryInstruction(parsed.issues)}`);
@@ -328,7 +329,7 @@ function parseBatchClassification(
 
   const results = new Map<string, ClassificationResult>();
 
-  for (const entry of parsed.data.results) {
+  for (const entry of parsed.entries) {
     const validated = classifyBatchItemShape.safeParse(entry);
     if (!validated.success) continue;
 
@@ -364,7 +365,7 @@ function parseTriageResponse(
   content: string,
   brands: DetectBatchItem[],
 ): Map<string, DetectResult> | null {
-  const parsed = parseAndValidate(content, batchParseShape);
+  const parsed = parseBatchEntries(content, batchParseShape);
   if (!parsed.success) {
     if (parsed.issues) {
       console.error(`  → detect batch validation: ${formatRetryInstruction(parsed.issues)}`);
@@ -375,7 +376,7 @@ function parseTriageResponse(
   const validSlugs = new Set(brands.map((brand) => brand.slug));
   const results = new Map<string, DetectResult>();
 
-  parsed.data.results.forEach((entry, index) => {
+  parsed.entries.forEach((entry, index) => {
     const validated = detectBatchItemShape.safeParse(entry);
     if (!validated.success) return;
 

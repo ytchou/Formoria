@@ -7,7 +7,7 @@ import {
 } from "@/lib/constants/llm-models";
 import { z } from "zod";
 import {
-  parseAndValidate,
+  parseBatchEntries,
   toStrictJsonSchema,
   formatRetryInstruction,
 } from "./_shared/zod-schema";
@@ -233,7 +233,7 @@ function parseSiteIdentityResponse(
   content: string,
   items: SiteIdentityItem[],
 ): Map<string, SiteIdentityVerdict> | null {
-  const parsed = parseAndValidate(content, batchParseShape);
+  const parsed = parseBatchEntries(content, batchParseShape);
   if (!parsed.success) {
     if (parsed.issues) {
       console.error(`  → site identity batch validation: ${formatRetryInstruction(parsed.issues)}`);
@@ -242,7 +242,7 @@ function parseSiteIdentityResponse(
   }
 
   const results = new Map<string, SiteIdentityVerdict>();
-  parsed.data.results.forEach((entry) => {
+  parsed.entries.forEach((entry) => {
     if (!entry || typeof entry !== "object") return;
 
     const resolvedItem = resolveSiteIdentityItem(entry as UnknownRecord, items);

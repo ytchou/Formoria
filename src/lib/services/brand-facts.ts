@@ -32,7 +32,6 @@ import {
   evaluateFoundingFact,
   type EvaluatedFoundingFact,
   type FoundingFactClaim,
-  type FoundingFactField,
   type FoundingFactSourceType,
   type FoundingLocationContext,
 } from "./founding-facts";
@@ -169,10 +168,8 @@ const EMPTY_FACTS: BrandFactsResult = {
 };
 
 export function parseBrandFactsResult(content: string): BrandFactsResult {
-  let parsed: Record<string, unknown>;
-  try {
-    parsed = JSON.parse(content) as Record<string, unknown>;
-  } catch {
+  const validated = parseAndValidate(content, factsShape);
+  if (!validated.success) {
     return { ...EMPTY_FACTS };
   }
 
@@ -188,8 +185,8 @@ export function parseBrandFactsResult(content: string): BrandFactsResult {
     extraction.subcategories,
   );
 
-  const listing = parseListingVerdict(parsed.listing);
-  const categorySlug = parseDescriptionCategory(parsed.category);
+  const listing = parseListingVerdict(validated.data.listing);
+  const categorySlug = parseDescriptionCategory(validated.data.category);
 
   const acceptedSubcategories =
     normalizedSubcategories.subcategories.length >= 1
@@ -249,20 +246,6 @@ export type FoundingFactResearchOutput = {
   foundingYear: EvaluatedFoundingFact;
   claims: FoundingFactClaim[];
   calls: LlmCallCounts;
-};
-
-type RawFoundingClaim = {
-  field?: unknown;
-  value?: unknown;
-  cited_url?: unknown;
-  exact_excerpt?: unknown;
-  location_context?: unknown;
-};
-
-type RawVerificationResult = {
-  claim_index?: unknown;
-  passed?: unknown;
-  reason?: unknown;
 };
 
 const FOUNDING_LOCATION_CONTEXTS = new Set<FoundingLocationContext>([
@@ -329,13 +312,9 @@ function parseFoundingClaims(
   content: string,
   sources: readonly FoundingFactSource[],
 ): Array<Omit<FoundingFactClaim, "verification">> {
-  let parsed: { claims?: RawFoundingClaim[] };
-  try {
-    parsed = JSON.parse(content) as { claims?: RawFoundingClaim[] };
-  } catch {
-    return [];
-  }
-  if (!Array.isArray(parsed?.claims)) return [];
+  const validated = parseAndValidate(content, foundingFactsShape);
+  if (!validated.success) return [];
+
   const sourceByUrl = new Map(
     sources.flatMap((source) => {
       const key = sourceKey(source.url);
@@ -343,27 +322,18 @@ function parseFoundingClaims(
     }),
   );
 
-  return parsed.claims.slice(0, 20).flatMap((raw) => {
-    const field =
-      raw.field === "city" || raw.field === "founding_year"
-        ? (raw.field as FoundingFactField)
-        : null;
-    const citedUrl = typeof raw.cited_url === "string" ? raw.cited_url : "";
+  return validated.data.claims.slice(0, 20).flatMap((raw) => {
+    const field = raw.field;
+    const citedUrl = raw.cited_url;
     const source = sourceByUrl.get(sourceKey(citedUrl) ?? "");
     const value = raw.value;
-    const exactExcerpt =
-      typeof raw.exact_excerpt === "string" ? raw.exact_excerpt.trim() : "";
+    const exactExcerpt = raw.exact_excerpt.trim();
     const locationContext = FOUNDING_LOCATION_CONTEXTS.has(
       raw.location_context as FoundingLocationContext,
     )
-      ? (raw.location_context as FoundingLocationContext)
+      ? raw.location_context
       : "unclear";
-    if (
-      !field ||
-      !source ||
-      (typeof value !== "string" && typeof value !== "number") ||
-      !exactExcerpt
-    ) {
+    if (!source || !exactExcerpt) {
       return [];
     }
     return [
@@ -384,19 +354,14 @@ function parseFoundingClaims(
 function parseVerificationResults(
   content: string,
 ): Map<number, { passed: boolean; reason: string | null }> {
-  let parsed: { results?: RawVerificationResult[] };
-  try {
-    parsed = JSON.parse(content) as { results?: RawVerificationResult[] };
-  } catch {
-    return new Map();
-  }
+  const validated = parseAndValidate(content, foundingFactsVerifyShape);
+  if (!validated.success) return new Map();
+
   const results = new Map<number, { passed: boolean; reason: string | null }>();
-  for (const raw of parsed?.results ?? []) {
-    if (!Number.isInteger(raw.claim_index) || typeof raw.passed !== "boolean")
-      continue;
-    results.set(raw.claim_index as number, {
+  for (const raw of validated.data.results) {
+    results.set(raw.claim_index, {
       passed: raw.passed,
-      reason: typeof raw.reason === "string" ? raw.reason : null,
+      reason: raw.reason,
     });
   }
   return results;

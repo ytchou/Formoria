@@ -7,7 +7,7 @@ import {
 } from "@/lib/constants/llm-models";
 import { z } from "zod";
 import {
-  parseAndValidate,
+  parseBatchEntries,
   toStrictJsonSchema,
   formatRetryInstruction,
 } from "./_shared/zod-schema";
@@ -179,7 +179,7 @@ function parseArbiterResponse(
   content: string,
   items: NameArbiterItem[],
 ): Map<string, NameVerdict> | null {
-  const parsed = parseAndValidate(content, batchParseShape);
+  const parsed = parseBatchEntries(content, batchParseShape);
   if (!parsed.success) {
     if (parsed.issues) {
       console.error(`  → name arbiter batch validation: ${formatRetryInstruction(parsed.issues)}`);
@@ -190,7 +190,7 @@ function parseArbiterResponse(
   const validSlugs = new Set(items.map((item) => item.slug));
   const results = new Map<string, NameVerdict>();
 
-  parsed.data.results.forEach((entry, index) => {
+  parsed.entries.forEach((entry, index) => {
     const validated = nameVerdictItemShape.safeParse(entry);
     if (!validated.success) return;
 
@@ -230,14 +230,14 @@ function parseSingleArbiterResponse(
 ): NameVerdict | null {
   // The fan-out path sends one brand but the contract is still a `results`
   // array, so unwrap it and take the first entry.
-  const parsed = parseAndValidate(content, batchParseShape);
+  const parsed = parseBatchEntries(content, batchParseShape);
   if (!parsed.success) {
     if (parsed.issues) {
       console.error(`  → name arbiter validation: ${formatRetryInstruction(parsed.issues)}`);
     }
     return null;
   }
-  const verdict = parseNameVerdict(parsed.data.results.at(0));
+  const verdict = parseNameVerdict(parsed.entries.at(0));
   return verdict && verdictSelectsSuppliedCandidate(verdict, item)
     ? verdict
     : null;

@@ -296,10 +296,13 @@ export async function runStockistsPhase({
           stockistsShape,
         );
         // 1-retry: on validation failure, retry once with structured feedback
-        if (!validatedContent.success && validatedContent.issues) {
+        if (!validatedContent.success) {
+          const retryInstruction = validatedContent.issues
+            ? formatRetryInstruction(validatedContent.issues)
+            : validatedContent.error;
           const retryResponse = await client.chat({
             ...chatParams,
-            user: `${evidence}\n\n${formatRetryInstruction(validatedContent.issues)}`,
+            user: `${evidence}\n\n${retryInstruction}`,
           });
           if (retryResponse.response.ok) {
             validatedContent = parseAndValidate(

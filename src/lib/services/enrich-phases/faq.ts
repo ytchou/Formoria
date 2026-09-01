@@ -37,6 +37,7 @@ import {
 import {
   parseAndValidate,
   toStrictJsonSchema,
+  formatRetryInstruction,
 } from "../_shared/zod-schema";
 import { isLlmProviderFailure, noLlmCalls } from "../_shared/llm-call-outcome";
 import {
@@ -418,13 +419,15 @@ export async function resolveFaqAttempts(
   let dropped = 0;
   let failures: FaqFailure[] = [];
   let unrepairable: FaqFailure[] = [];
+  let schemaRetryInstruction = "";
 
   for (let attempt = 1; attempt <= 2; attempt += 1) {
-    const response = await send(
-      buildFaqRetryInstruction([...failures, ...unrepairable]),
-      attempt,
-    );
+    const retryContext =
+      schemaRetryInstruction ||
+      buildFaqRetryInstruction([...failures, ...unrepairable]);
+    const response = await send(retryContext, attempt);
     calls.attempted += 1;
+    schemaRetryInstruction = "";
     if (!response.ok) {
       calls.providerFailed += 1;
       break;
@@ -432,19 +435,13 @@ export async function resolveFaqAttempts(
     const parseResult = response.content
       ? parseAndValidate(response.content, faqParseShape)
       : null;
-    // On JSON/schema failure, add a structured retry instruction so the
-    // model knows exactly what to fix. The entry set is empty — the
-    // business validator never sees a malformed payload.
+    // On JSON/schema failure, build a direct retry instruction from the
+    // validation issues so the model gets field-level feedback rather than
+    // a preset-correction format it cannot act on.
     if (parseResult && !parseResult.success) {
-      failures = [
-        {
-          presetId: "schema",
-          locale: "zh",
-          reason: parseResult.error,
-          measured: 0,
-          target: "valid JSON matching the FAQ schema",
-        },
-      ];
+      schemaRetryInstruction = parseResult.issues
+        ? formatRetryInstruction(parseResult.issues)
+        : parseResult.error;
       continue;
     }
     const parsed: FaqModelResult = parseResult?.success

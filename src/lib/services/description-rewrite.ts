@@ -210,33 +210,26 @@ const EMPTY_DESCRIPTION_RESULT: DescriptionRewriteResult = {
 export function parseDescriptionRewriteResult(
   content: string,
 ): DescriptionRewriteResult {
-  let parsed: Record<string, unknown>;
-  try {
-    parsed = JSON.parse(content) as Record<string, unknown>;
-  } catch {
+  const result = parseAndValidate(content, descriptionShape);
+  if (!result.success) {
     return { ...EMPTY_DESCRIPTION_RESULT };
   }
 
-  const rawDescriptionZh = parsed.description_zh ?? parsed.description;
-  const rawDescriptionEn = parsed.description_en;
   const descriptionZh =
-    typeof rawDescriptionZh === "string" && rawDescriptionZh.trim().length > 0
-      ? rawDescriptionZh.trim()
+    result.data.description_zh.trim().length > 0
+      ? result.data.description_zh.trim()
       : null;
   const descriptionEn =
-    typeof rawDescriptionEn === "string" && rawDescriptionEn.trim().length > 0
-      ? rawDescriptionEn.trim()
+    result.data.description_en.trim().length > 0
+      ? result.data.description_en.trim()
       : null;
-
-  const rawBlurbZh = parsed.blurb_zh;
-  const rawBlurbEn = parsed.blurb_en;
   const blurbZh =
-    typeof rawBlurbZh === "string" && rawBlurbZh.trim().length > 0
-      ? rawBlurbZh.trim()
+    result.data.blurb_zh.trim().length > 0
+      ? result.data.blurb_zh.trim()
       : null;
   const blurbEn =
-    typeof rawBlurbEn === "string" && rawBlurbEn.trim().length > 0
-      ? rawBlurbEn.trim()
+    result.data.blurb_en.trim().length > 0
+      ? result.data.blurb_en.trim()
       : null;
 
   return {

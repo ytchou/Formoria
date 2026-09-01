@@ -67,6 +67,42 @@ export function toStrictJsonSchema(shape: z.ZodType): Record<string, unknown> {
 }
 
 /**
+ * Parse a batch LLM response that may arrive as one of three shapes:
+ *
+ * 1. `{ results: [...] }` — the structured outputs wrapper (preferred)
+ * 2. A bare top-level array `[...]` — json_object fallback
+ * 3. A single bare object `{ ... }` — json_object fallback with one entry
+ *
+ * When `json_schema` is rejected and the client falls back to `json_object`
+ * mode, the model may return shapes 2 or 3. This helper preserves the
+ * tolerance the old `unwrapBatchResults`/`toArbiterEntries` code provided.
+ */
+export function parseBatchEntries(
+  content: string,
+  batchShape: z.ZodType<{ results: unknown[] }>,
+): { success: true; entries: unknown[] } | { success: false; issues?: ZodIssue[] } {
+  const batchResult = parseAndValidate(content, batchShape);
+  if (batchResult.success) {
+    return { success: true, entries: batchResult.data.results };
+  }
+
+  // Fallback: bare array or single object (json_object mode tolerance)
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(content);
+  } catch {
+    return { success: false, issues: batchResult.issues };
+  }
+  if (Array.isArray(parsed)) {
+    return { success: true, entries: parsed };
+  }
+  if (parsed !== null && typeof parsed === "object") {
+    return { success: true, entries: [parsed] };
+  }
+  return { success: false, issues: batchResult.issues };
+}
+
+/**
  * Build a structured retry instruction from Zod validation issues.
  *
  * Returns a stringified JSON object with a `validation_errors` array,

@@ -1061,16 +1061,21 @@ export async function runProductsPhase({
               candidateIdsByUrl,
             };
           }
+          let callCount = 1;
           let validatedContent = parseAndValidate(
             response.content ?? "",
             productsParseShape,
           );
           // 1-retry: on validation failure, retry once with structured feedback
-          if (!validatedContent.success && validatedContent.issues) {
+          if (!validatedContent.success) {
+            const retryInstruction = validatedContent.issues
+              ? formatRetryInstruction(validatedContent.issues)
+              : validatedContent.error;
             const retryResponse = await client.chat({
               ...chatParams,
-              user: `${userContent}\n\n${formatRetryInstruction(validatedContent.issues)}`,
+              user: `${userContent}\n\n${retryInstruction}`,
             });
+            callCount += 1;
             if (retryResponse.response.ok) {
               validatedContent = parseAndValidate(
                 retryResponse.content ?? "",
@@ -1143,7 +1148,7 @@ export async function runProductsPhase({
           });
           return {
             ...validation,
-            calls: { attempted: 1, providerFailed: 0 },
+            calls: { attempted: callCount, providerFailed: 0 },
             evaluations,
             originDecisions,
             candidateIdsByUrl,

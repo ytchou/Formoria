@@ -1211,10 +1211,13 @@ async function classifyChunk(
     effectiveContent,
     imageClassificationShape,
   );
-  if (!validationCheck.success && validationCheck.issues) {
+  if (!validationCheck.success) {
+    const retryInstruction = validationCheck.issues
+      ? formatRetryInstruction(validationCheck.issues)
+      : validationCheck.error;
     const retryResponse = await client.chat({
       ...chatParams,
-      user: `${userMessage}\n\n${formatRetryInstruction(validationCheck.issues)}`,
+      user: `${userMessage}\n\n${retryInstruction}`,
     });
     if (!failureReason(retryResponse) && retryResponse.content) {
       effectiveContent = retryResponse.content;
