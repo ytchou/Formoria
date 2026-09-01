@@ -169,6 +169,16 @@ const PRODUCTS_SCHEMA = {
   schema: toStrictJsonSchema(productsShape),
 };
 
+/**
+ * Lenient parse shape for `parseAndValidate`: validates only the top-level
+ * structure so that individual product/evaluation failures are caught downstream
+ * by `validateProductProposals` rather than rejecting the entire response.
+ */
+const productsParseShape = z.object({
+  evaluations: z.array(z.unknown()).optional(),
+  products: z.array(z.unknown()),
+});
+
 export type ProductsModelResult = {
   evaluations?: unknown;
   products?: unknown;
@@ -1053,7 +1063,7 @@ export async function runProductsPhase({
           }
           let validatedContent = parseAndValidate(
             response.content ?? "",
-            productsShape,
+            productsParseShape,
           );
           // 1-retry: on validation failure, retry once with structured feedback
           if (!validatedContent.success && validatedContent.issues) {
@@ -1064,7 +1074,7 @@ export async function runProductsPhase({
             if (retryResponse.response.ok) {
               validatedContent = parseAndValidate(
                 retryResponse.content ?? "",
-                productsShape,
+                productsParseShape,
               );
             }
           }

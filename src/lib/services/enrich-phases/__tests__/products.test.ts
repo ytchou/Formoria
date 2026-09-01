@@ -812,13 +812,13 @@ describe("runProductsPhase", () => {
   });
 
   it("retries once when schema validation fails", async () => {
-    // First response is missing `evaluations` key, so Zod rejects it.
+    // First response is missing `products` key, so the lenient parse shape rejects it.
     // Second response includes the required field and parses correctly.
     const chat = vi
       .fn()
       .mockResolvedValueOnce({
         response: { ok: true },
-        content: JSON.stringify({ products: [rawProposal()] }),
+        content: JSON.stringify({ evaluations: [] }),
       })
       .mockResolvedValueOnce({
         response: { ok: true },
