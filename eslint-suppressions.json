@@ -115,7 +115,7 @@
   },
   "e2e/tests/share-card-api.spec.ts": {
     "playwright/no-conditional-in-test": {
-      "count": 4
+      "count": 5
     }
   },
   "e2e/tests/static-pages.spec.ts": {
