@@ -51,12 +51,11 @@ test.describe("Discovery trail deep", () => {
     for (const section of trail!.sections) {
       expect(serverText).toContain(section.title);
     }
-    // When trail products exist, their outbound links appear in server HTML.
-    // A staging database without trail-product associations renders sections
-    // but no product tiles, so this assertion is conditional.
-    if (OFFICIAL_DESTINATION.test(serverText)) {
-      expect(serverText).toMatch(OFFICIAL_DESTINATION);
-    }
+    // Trail products carry outbound links. A staging database without
+    // trail-product associations renders sections but no product tiles.
+    const hasProducts = OFFICIAL_DESTINATION.test(serverText);
+    test.skip(!hasProducts, "no trail products in staging database");
+    expect(serverText).toMatch(OFFICIAL_DESTINATION);
   });
 
   // The regression guard for DEV-1518. Before it, four frontmatter blockers,
