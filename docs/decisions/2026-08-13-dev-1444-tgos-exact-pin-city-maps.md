@@ -1,14 +1,39 @@
 # ADR: DEV-1444 TGOS Exact-Pin City Maps
 
-Status: accepted, implementation blocked by prerequisite gate
+Status: deferred; retained as a conditional future design
 
 Date: 2026-08-13
 
+Decision updated: 2026-09-01
+
+## Deferral update
+
+Production-data review found 733 active stockist-brand associations across 67
+approved brands. Of those, 635 Taiwan associations have addresses, representing
+624 distinct normalized Taiwan address strings. Only nine exact addresses
+currently contain multiple Formoria brands: 19 associations across 14 brands,
+with at most three brands at one address. Formoria has no product-to-stockist
+relationship, so a map must never imply that a specific product is available at
+a stockist.
+
+The address supply makes a future exact-pin map technically viable, but the
+currently demonstrated multi-brand discovery value does not justify provider
+licensing, credential management, coordinate persistence, geocoding operations,
+and freshness obligations now. DEV-1444 is deferred to Backlog. No runtime
+implementation exists on `main` or `staging`, and the connected database has
+none of the proposed geocoding columns or RPC.
+
+Restart only after retailer/address normalization measures hidden shared
+locations, `/where-to-buy` demand is validated, the nearby-versus-multi-brand
+user story is resolved, provider operating and storage terms are confirmed, and
+exact geocoding passes explicit coverage gates.
+
 ## Decision
 
-Use TGOS for clustered exact-pin maps on `/where-to-buy/[city]` only. The
-existing city page remains the source of truth: it applies the current
-category filter, renders `DistrictSection`/`StockistRow`, and provides
+If the restart gates are satisfied, use TGOS for clustered exact-pin maps on
+`/where-to-buy/[city]` only. The existing city page remains the source of truth:
+it applies the current category filter, renders `DistrictSection`/`StockistRow`,
+and provides
 `LocateButton` and Google destination links. `StockistCityMap` is inserted
 after the category filters, receives that same filtered result, synchronizes
 with the filter, and shows mapped/total counts. It reuses `DistrictSection`,
@@ -48,10 +73,10 @@ dry-run by default, requiring an explicit live opt-in for persistence.
 Every TGOS external call stays behind the audited adapter boundary and records
 sanitized request/response payloads, latency, HTTP status, and outcome.
 
-This decision does not authorize implementation yet. As of 2026-08-13 there
-are no TGOS credentials, TGOS approval, persistent-storage permission, or
-benchmark evidence in the repository or local environment. Schema and
-application work is blocked until those hard prerequisites are supplied.
+This conditional design does not authorize implementation. The 2026-09-01
+product restart gates take precedence; after they pass, TGOS credentials,
+approval, persistent-storage permission, and benchmark evidence remain hard
+prerequisites.
 
 ## Environment and prerequisites
 
@@ -150,10 +175,11 @@ to change providers later without changing the directory contract.
 
 ## Pre-mortem and silent failures
 
-The single assumption that would make this fail entirely is that TGOS approval,
-credentials, storage permission, and benchmark evidence will arrive. If any is
-missing, implementation must remain blocked. The most dangerous silent failure
-is a stale or wrong pin after an address edit; atomic database invalidation,
-paired-coordinate constraints, county/town locking, exact-only persistence,
-benchmark gates, audit records, and the visible list fallback are independent
-controls.
+The earlier scheduling assumption was that exact-pin browsing had enough
+demonstrated product value to justify the provider and freshness obligations.
+The 2026-09-01 evidence does not establish that yet. If the restart gates later
+pass, TGOS approval, credentials, storage permission, and benchmark evidence
+remain hard prerequisites. The most dangerous silent failure is a stale or
+wrong pin after an address edit; atomic database invalidation, paired-coordinate
+constraints, county/town locking, exact-only persistence, benchmark gates,
+audit records, and the visible list fallback are independent controls.

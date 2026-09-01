@@ -1,14 +1,34 @@
 # DEV-1444 — TGOS Exact-Pin City Maps Implementation Plan
 
-## Status and hard prerequisite
+## Status and restart gates
 
-This plan is approved for implementation design, but implementation is blocked
-until the prerequisite gate is closed. As of 2026-08-13, the repository and
-local environment contain no TGOS credentials, TGOS approval or license
-evidence, permission to persist TGOS-derived coordinates/provenance, or
-benchmark evidence. Do not add schema, application code, migrations, tests,
-configuration, or dependencies until those artifacts are supplied and the
-persistent-storage permission is explicit.
+**Deferred to Backlog on 2026-09-01.** This plan is retained as a conditional
+future design, not an approved implementation task. Production-data review
+found 733 active stockist-brand associations across 67 approved brands, with
+635 Taiwan associations carrying addresses and 624 distinct normalized Taiwan
+address strings. Only nine exact addresses currently contain multiple Formoria
+brands: 19 associations across 14 brands, with at most three brands at one
+address. Formoria has no product-to-stockist relationship, so the product
+cannot claim that a specific product is available at a stockist.
+
+The address supply makes a future map technically viable, but the demonstrated
+multi-brand discovery value does not yet justify geocoding infrastructure,
+provider licensing, credential management, coordinate persistence, and
+freshness obligations. Do not start schema or application implementation until:
+
+1. retailer identities and addresses are normalized to measure hidden shared
+   physical stockists;
+2. `/where-to-buy` demand is validated through traffic or direct user evidence;
+3. the user story is resolved as general nearby discovery or specifically
+   multi-brand stockist discovery;
+4. the selected provider's coordinate-storage, attribution, credential, and
+   operating terms are confirmed; and
+5. exact geocoding is benchmarked again against explicit coverage gates.
+
+The original provider prerequisites still apply if the product gates reopen
+implementation. As of 2026-08-13, the repository and local environment
+contained no TGOS credentials, TGOS approval or license evidence, permission
+to persist TGOS-derived coordinates/provenance, or benchmark evidence.
 
 The prerequisite packet must contain TGOS approval and credential details,
 permission to persist the six derived `brand_channels` fields, a reviewed
@@ -110,10 +130,11 @@ single-key variable may be introduced.
 
 ### Wave 0 — prerequisite and benchmark gate
 
-Obtain TGOS approval/credentials, storage permission, attribution and
-retention terms, the dedicated Supabase test project, and the reviewed address
-corpus. Run the 33 known-address benchmark first. Only proceed to all eligible
-Taiwan rows after the initial evidence is reviewable.
+First satisfy the product restart gates above. Then obtain TGOS approval/
+credentials, storage permission, attribution and retention terms, the dedicated
+Supabase test project, and the reviewed address corpus. Run the 33 known-address
+benchmark first. Only proceed to all eligible Taiwan rows after the initial
+evidence is reviewable.
 
 ### Wave 1 — schema and provider-neutral service contract
 
