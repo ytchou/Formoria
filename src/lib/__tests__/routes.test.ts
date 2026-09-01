@@ -14,8 +14,6 @@ describe('routes', () => {
     )
     expect(routes.stories()).toBe('/stories')
     expect(routes.story('sample-story')).toBe('/stories/sample-story')
-    expect(routes.whereToBuy()).toBe('/where-to-buy')
-    expect(routes.whereToBuyCity('taipei')).toBe('/where-to-buy/taipei')
     expect(routes.about()).toBe('/about')
   })
 
@@ -37,8 +35,6 @@ describe('routes', () => {
       routes.trail('x'),
       routes.stories(),
       routes.story('x'),
-      routes.whereToBuy(),
-      routes.whereToBuyCity('taipei'),
       routes.about(),
       routes.faq(),
       routes.submit.index(),

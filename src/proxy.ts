@@ -77,7 +77,6 @@ export const RESERVED_ROUTES = new Set([
   "discover",
   "style",
   "events",
-  "where-to-buy",
   "favorites",
   // Retired routes. None serve a page, but they stay reserved so a bare hit
   // 404s cleanly instead of being redirected into `/brands/<segment>` by
@@ -89,6 +88,7 @@ export const RESERVED_ROUTES = new Set([
   // `/brands/dashboard` that browsers cache forever; and `isReservedSlug` reads
   // this same set, so a brand called "Dashboard" could otherwise take the slug
   // and shadow the app route if DEV-1570 is ever reverted.
+  "where-to-buy",
   "feature-requests",
   "feedback",
   "getting-started",
@@ -188,7 +188,6 @@ export const PUBLIC_INTL_SEGMENTS = new Set([
   "discover",
   "style",
   "events",
-  "where-to-buy",
   "about",
   "contact",
   "faq",

@@ -74,7 +74,6 @@ vi.mock("@/lib/analytics", () => ({
   trackExternalLinkClicked: vi.fn(),
   trackRecommendationBrandClicked: vi.fn(),
   trackSavedBrandRevisited: vi.fn(),
-  trackStockistListViewed: vi.fn(),
   trackStoryCardClicked: vi.fn(),
   trackTrailCardClicked: vi.fn(),
   trackViewItemList: vi.fn(),

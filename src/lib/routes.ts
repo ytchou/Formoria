@@ -63,10 +63,6 @@ export const routes = {
   stories: () => '/stories',
   story: (slug: string) => `/stories/${seg(slug)}`,
 
-  // Retail
-  whereToBuy: () => '/where-to-buy',
-  whereToBuyCity: (citySlug: string) => `/where-to-buy/${seg(citySlug)}`,
-
   // Static
   about: () => '/about',
   faq: () => '/faq',

@@ -1,7 +1,6 @@
 import { revalidatePath, revalidateTag } from 'next/cache'
 import { localizePath } from '@/i18n/locale-preference'
 import { routing } from '@/i18n/routing'
-import { citySlugToPath, type CitySlug } from '@/lib/constants/taiwan-cities'
 import { routes } from '@/lib/routes'
 
 export const PUBLIC_BRAND_DATA_TAG = 'public-brand-data'
@@ -70,10 +69,6 @@ export function revalidatePublicBrands(slugs: readonly string[]): void {
   revalidatePath('/[locale]/stories/[slug]', 'page')
 }
 
-export function revalidatePublicStockists(city?: CitySlug | null): void {
+export function revalidatePublicStockists(): void {
   revalidateTag(PUBLIC_BRAND_DATA_TAG, 'max')
-  revalidateLocalizedPath(routes.whereToBuy())
-  if (city) {
-    revalidateLocalizedPath(routes.whereToBuyCity(citySlugToPath(city)))
-  }
 }

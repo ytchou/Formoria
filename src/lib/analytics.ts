@@ -77,13 +77,6 @@ export function getContentGroup(pathname: string): string {
     return "discover";
   }
 
-  if (
-    pathWithoutLocale === routes.whereToBuy() ||
-    pathWithoutLocale.startsWith(`${routes.whereToBuy()}/`)
-  ) {
-    return "where_to_buy";
-  }
-
   if (pathWithoutLocale.startsWith(`${routes.brands()}/`)) {
     return "brand_detail";
   }
@@ -499,17 +492,6 @@ export function trackViewItemList(listName: string, itemCount: number) {
     item_count: itemCount,
   });
   capturePostHogEvent(ANALYTICS_EVENTS.BRAND_LIST_VIEWED, {
-    list_name: listName,
-    item_count: itemCount,
-  });
-}
-
-export function trackStockistListViewed(listName: string, itemCount: number) {
-  safeGAEvent("event", "view_item_list", {
-    item_list_name: listName,
-    item_count: itemCount,
-  });
-  capturePostHogEvent(ANALYTICS_EVENTS.STOCKIST_LIST_VIEWED, {
     list_name: listName,
     item_count: itemCount,
   });

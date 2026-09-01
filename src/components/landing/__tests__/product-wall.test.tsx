@@ -47,7 +47,6 @@ vi.mock("@/i18n/navigation", () => ({
 vi.mock("@/lib/analytics", () => ({
   trackCuratedProductClicked: vi.fn(),
   trackViewItemList: vi.fn(),
-  trackStockistListViewed: vi.fn(),
 }));
 
 const labels = {

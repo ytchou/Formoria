@@ -6,7 +6,6 @@ import { ANALYTICS_EVENTS } from './events'
 // a metric's history into two irreconcilable time series.
 const EVENT_NAME_SNAPSHOT = [
   'brand_list_viewed',
-  'stockist_list_viewed',
   'brand_card_clicked',
   'booth_selected',
   'exhibitor_site_clicked',

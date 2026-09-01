@@ -186,7 +186,7 @@ export function groupStockistsByRegion(
     // dialog offers Taiwan regions only, which is why it now requires one
     // (`provide-stockist-info-dialog.tsx`). Imported and backfilled rows can
     // still carry `region_label: null` and will read as 海外 on the brand page
-    // while being absent from `/where-to-buy` entirely, until one is supplied.
+    // until one is supplied.
     // Every stockist is a physical place since DEV-1513, so there is no online
     // bucket to divert into.
     const key =

@@ -187,7 +187,7 @@ describe("the chip row contract", () => {
       /<ToggleChip|taxonomyLinkClasses\s*\(/.test(readFileSync(path, "utf-8")),
     );
 
-    expect(chipFiles.length).toBeGreaterThanOrEqual(8);
+    expect(chipFiles.length).toBeGreaterThanOrEqual(7);
   });
 
   it("has no stale LONE_CHIPS entry", () => {
