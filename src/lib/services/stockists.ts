@@ -18,12 +18,6 @@ import {
   citySlugFromName,
   type CitySlug,
 } from '@/lib/constants/taiwan-cities'
-import {
-  matchSubcategory,
-  subcategoryBySlug,
-  L2_SUBCATEGORIES,
-  L1_CATEGORIES,
-} from '@/lib/taxonomy/ontology'
 import { matchDistrict } from '@/lib/brands/district'
 
 export const MAX_ACTIVE_STOCKISTS_PER_BRAND = 5
@@ -84,20 +78,6 @@ type EnrichedStockistRow = {
   provider_metadata?: Record<string, unknown> | null
 }
 
-export type StockistLocation = {
-  id: string
-  name: string
-  address: string | null
-  url: string | null
-  country: string | null
-  city: CitySlug | null
-  district: string | null
-  brandSlug: string
-  brandName: string
-  categorySlug: string | null
-  subcategories: string[]
-}
-
 type StockistDistrictBackfillRow = {
   id: string
   address: string
@@ -107,39 +87,6 @@ type StockistDistrictBackfillRow = {
 
 export const STOCKIST_DETAIL_READ_SELECT =
   'id, name, region_label, address, url, source_url, fetched_at, location_type, country, owner_status, owner_status_by, source, removed_at'
-
-/** Exported for the slug-storage regression test. */
-export function matchesCategory(
-  location: StockistLocation,
-  category?: string,
-): boolean {
-  if (!category) return true
-  if (location.categorySlug === category) return true
-  const subcategory = subcategoryBySlug(category)
-  return Boolean(
-    subcategory &&
-    location.subcategories.some(
-      // Stored values are SLUGS since DEV-1510, so the slug map is tried
-      // first; `matchSubcategory` is the fallback for any row still holding a
-      // pre-migration zh-TW label. Slug-only lookup through `matchSubcategory`
-      // resolves none of the 117 multi-word slugs ('tote-bags'), which reads as
-      // an empty stockist list rather than an error. Same order as
-      // `resolveSubcategorySelection`.
-      (tag) =>
-        (subcategoryBySlug(tag) ?? matchSubcategory(tag))?.slug ===
-        subcategory.slug,
-    ),
-  )
-}
-
-export function resolveStockistCategory(value: unknown): string | undefined {
-  if (typeof value !== 'string') return undefined
-  const validCategories = [
-    ...L1_CATEGORIES.map((category) => category.slug),
-    ...L2_SUBCATEGORIES.map((subcategory) => subcategory.slug),
-  ]
-  return validCategories.includes(value) ? value : undefined
-}
 
 export async function listStockistDistrictBackfillRows(): Promise<
   StockistDistrictBackfillRow[]

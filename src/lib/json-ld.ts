@@ -5,6 +5,7 @@ import { absoluteImageUrl } from "@/lib/images/image-url";
 import { FORMORIA_SOCIALS } from "./constants";
 import { getSiteUrl } from "./seo/site-url";
 import type { Stockist } from "./types/stockist";
+
 export type BreadcrumbItem = {
   label: string;
   href?: string;
