@@ -9,7 +9,12 @@ import {
   MATERIAL_VOCAB_BLOCK,
 } from "@/lib/prompts/shared";
 import { fetchLangfusePrompt } from "@/lib/langfuse/prompt";
-import { parseJson } from "./openai-client";
+import { z } from "zod";
+import {
+  parseAndValidate,
+  toStrictJsonSchema,
+  formatRetryInstruction,
+} from "./_shared/zod-schema";
 import {
   buildProfiledEnrichmentConfig,
   createProfiledOpenAIClient,
@@ -82,61 +87,37 @@ const TAIWAN_CONNECTIONS = [
 ] as const;
 
 /**
- * Structured Output schema for the facts extraction call. The `category` enum
- * is derived from the live L1_CATEGORIES so a new category automatically
- * appears in the schema without a second edit.
+ * Zod shape for the facts extraction call. The `category` enum is derived from
+ * the live L1_CATEGORIES so a new category automatically appears in the schema
+ * without a second edit.
+ */
+const l1Slugs = L1_CATEGORIES.map((c) => c.slug) as [string, ...string[]];
+
+const listingShape = z.object({
+  reasoning: z.string(),
+  verdict: z.enum(LISTING_VERDICTS),
+  reason: z.string(),
+  taiwan_connection: z.enum(TAIWAN_CONNECTIONS).nullable(),
+  has_own_products: z.boolean().nullable(),
+  has_purchase_channel: z.boolean().nullable(),
+});
+
+export const factsShape = z.object({
+  category: z.enum(l1Slugs).nullable(),
+  subcategories: z.array(z.string()),
+  material: z.array(z.string()),
+  city: z.string().nullable(),
+  founding_year: z.number().nullable(),
+  listing: listingShape,
+});
+
+/**
+ * Structured Output schema for the facts extraction call, derived from the Zod
+ * shape via `toStrictJsonSchema`.
  */
 export const FACTS_SCHEMA = {
   name: "brand_facts",
-  schema: {
-    type: "object" as const,
-    additionalProperties: false,
-    required: [
-      "category",
-      "subcategories",
-      "material",
-      "city",
-      "founding_year",
-      "listing",
-    ],
-    properties: {
-      category: {
-        enum: [...L1_CATEGORIES.map((c) => c.slug), null],
-      },
-      subcategories: {
-        type: "array" as const,
-        items: { type: "string" as const },
-      },
-      material: {
-        type: "array" as const,
-        items: { type: "string" as const },
-      },
-      city: { type: ["string", "null"] as const },
-      founding_year: { type: ["number", "null"] as const },
-      listing: {
-        type: "object" as const,
-        additionalProperties: false,
-        required: [
-          "reasoning",
-          "verdict",
-          "reason",
-          "taiwan_connection",
-          "has_own_products",
-          "has_purchase_channel",
-        ],
-        properties: {
-          reasoning: { type: "string" as const },
-          verdict: { type: "string" as const, enum: [...LISTING_VERDICTS] },
-          reason: { type: "string" as const },
-          taiwan_connection: {
-            enum: [...TAIWAN_CONNECTIONS, null],
-          },
-          has_own_products: { type: ["boolean", "null"] as const },
-          has_purchase_channel: { type: ["boolean", "null"] as const },
-        },
-      },
-    },
-  },
+  schema: toStrictJsonSchema(factsShape),
 };
 
 export type ListingVerdict = {
@@ -188,8 +169,12 @@ const EMPTY_FACTS: BrandFactsResult = {
 };
 
 export function parseBrandFactsResult(content: string): BrandFactsResult {
-  const parsed = parseJson<Record<string, unknown>>(content);
-  if (!parsed) return { ...EMPTY_FACTS };
+  let parsed: Record<string, unknown>;
+  try {
+    parsed = JSON.parse(content) as Record<string, unknown>;
+  } catch {
+    return { ...EMPTY_FACTS };
+  }
 
   // `parseExtractionResult` owns city/year/tags for every extraction call
   // in the pipeline, so the facts call reuses it rather than re-deriving the
@@ -290,70 +275,44 @@ const FOUNDING_LOCATION_CONTEXTS = new Set<FoundingLocationContext>([
   "unclear",
 ]);
 
+const foundingClaimShape = z.object({
+  field: z.enum(["city", "founding_year"]),
+  value: z.union([z.string(), z.number()]),
+  cited_url: z.string(),
+  exact_excerpt: z.string(),
+  location_context: z.enum([
+    "founding",
+    "headquarters",
+    "contact",
+    "studio",
+    "store",
+    "current",
+    "unclear",
+  ]),
+});
+
+export const foundingFactsShape = z.object({
+  claims: z.array(foundingClaimShape),
+});
+
 export const FOUNDING_FACTS_SCHEMA = {
   name: "founding_fact_claims",
-  schema: {
-    type: "object" as const,
-    additionalProperties: false,
-    required: ["claims"],
-    properties: {
-      claims: {
-        type: "array" as const,
-        items: {
-          type: "object" as const,
-          additionalProperties: false,
-          required: [
-            "field",
-            "value",
-            "cited_url",
-            "exact_excerpt",
-            "location_context",
-          ],
-          properties: {
-            field: { enum: ["city", "founding_year"] },
-            value: { type: ["string", "number"] as const },
-            cited_url: { type: "string" as const },
-            exact_excerpt: { type: "string" as const },
-            location_context: {
-              enum: [
-                "founding",
-                "headquarters",
-                "contact",
-                "studio",
-                "store",
-                "current",
-                "unclear",
-              ],
-            },
-          },
-        },
-      },
-    },
-  },
+  schema: toStrictJsonSchema(foundingFactsShape),
 };
+
+const verificationResultShape = z.object({
+  claim_index: z.number().int(),
+  passed: z.boolean(),
+  reason: z.string().nullable(),
+});
+
+export const foundingFactsVerifyShape = z.object({
+  results: z.array(verificationResultShape),
+});
 
 export const FOUNDING_FACTS_VERIFY_SCHEMA = {
   name: "founding_fact_verification",
-  schema: {
-    type: "object" as const,
-    additionalProperties: false,
-    required: ["results"],
-    properties: {
-      results: {
-        type: "array" as const,
-        items: {
-          type: "object" as const,
-          additionalProperties: false,
-          required: ["claim_index", "passed", "reason"],
-          properties: {
-            claim_index: { type: "integer" as const },
-            passed: { type: "boolean" as const },
-            reason: { type: ["string", "null"] as const },
-          },
-        },
-      },
-    },
-  },
+  schema: toStrictJsonSchema(foundingFactsVerifyShape),
 };
 
 function sourceKey(url: string): string | null {
@@ -370,7 +329,12 @@ function parseFoundingClaims(
   content: string,
   sources: readonly FoundingFactSource[],
 ): Array<Omit<FoundingFactClaim, "verification">> {
-  const parsed = parseJson<{ claims?: RawFoundingClaim[] }>(content);
+  let parsed: { claims?: RawFoundingClaim[] };
+  try {
+    parsed = JSON.parse(content) as { claims?: RawFoundingClaim[] };
+  } catch {
+    return [];
+  }
   if (!Array.isArray(parsed?.claims)) return [];
   const sourceByUrl = new Map(
     sources.flatMap((source) => {
@@ -420,7 +384,12 @@ function parseFoundingClaims(
 function parseVerificationResults(
   content: string,
 ): Map<number, { passed: boolean; reason: string | null }> {
-  const parsed = parseJson<{ results?: RawVerificationResult[] }>(content);
+  let parsed: { results?: RawVerificationResult[] };
+  try {
+    parsed = JSON.parse(content) as { results?: RawVerificationResult[] };
+  } catch {
+    return new Map();
+  }
   const results = new Map<number, { passed: boolean; reason: string | null }>();
   for (const raw of parsed?.results ?? []) {
     if (!Number.isInteger(raw.claim_index) || typeof raw.passed !== "boolean")
@@ -581,11 +550,8 @@ export async function extractBrandFacts(
   );
 
   try {
+    let retryInstruction = "";
     for (let attemptIndex = 0; attemptIndex < 2; attemptIndex += 1) {
-      const retryInstruction =
-        attemptIndex === 0
-          ? ""
-          : "\n\n前一次輸出無法解析：請只輸出單一 JSON 物件，不要加上說明文字或 Markdown。";
 
       const startAt = Date.now();
       const client = createProfiledOpenAIClient(
@@ -623,8 +589,11 @@ export async function extractBrandFacts(
         return { result: null, attempts, calls };
       }
 
-      const parsed = parseJson<Record<string, unknown>>(content);
-      if (!parsed) {
+      const validated = parseAndValidate(content, factsShape);
+      if (!validated.success) {
+        const retryDetail = validated.issues
+          ? formatRetryInstruction(validated.issues)
+          : "";
         attempts.push({
           attempt: attemptIndex + 1,
           input: attemptInput,
@@ -633,7 +602,13 @@ export async function extractBrandFacts(
           latencyMs,
           config: attemptConfig,
         });
-        if (attemptIndex === 0) continue;
+        if (attemptIndex === 0) {
+          // Override the generic retry message with structured Zod feedback
+          retryInstruction = retryDetail
+            ? `\n\n前一次輸出未通過結構檢查，請修正以下欄位：\n${retryDetail}`
+            : "\n\n前一次輸出無法解析：請只輸出單一 JSON 物件，不要加上說明文字或 Markdown。";
+          continue;
+        }
         return {
           result: { ...EMPTY_FACTS, rawResponse: data },
           attempts,

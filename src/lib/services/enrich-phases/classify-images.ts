@@ -10,7 +10,12 @@ import {
 } from "@/lib/constants/brand-images";
 import { cropDamage } from "@/lib/images/crop-damage";
 import { fetchLangfusePrompt } from "@/lib/langfuse/prompt";
-import { parseJson, type OpenAIChatResult } from "../openai-client";
+import type { OpenAIChatResult } from "../openai-client";
+import {
+  parseAndValidate,
+  toStrictJsonSchema,
+  formatRetryInstruction,
+} from "../_shared/zod-schema";
 import {
   buildProfiledEnrichmentConfig,
   createProfiledOpenAIClient,
@@ -275,34 +280,22 @@ type ClassifiedImage = {
   caption?: string | null;
 };
 
-function toStrictJsonSchema(shape: z.ZodType): Record<string, unknown> {
-  const schema = z.toJSONSchema(shape, { target: "draft-7" }) as Record<
-    string,
-    unknown
-  >;
-  // OpenAI strict mode rejects the `$schema` keyword; every object already carries
-  // `additionalProperties: false` and a fully populated `required`, as strict mode demands.
-  return Object.fromEntries(
-    Object.entries(schema).filter(([key]) => key !== "$schema"),
-  );
-}
+export const imageClassificationShape = z.object({
+  classifications: z.array(
+    z.object({
+      id: z.string(),
+      disposition: z.enum(["keep", "reject"]),
+      tag: z.enum(KEEP_TAGS).nullable(),
+      reasons: z.array(z.enum(REJECTION_REASONS)),
+      score: z.number(),
+      caption: z.string().nullable(),
+    }),
+  ),
+});
 
 export const IMAGE_CLASSIFICATION_SCHEMA = {
   name: "image_classifications",
-  schema: toStrictJsonSchema(
-    z.object({
-      classifications: z.array(
-        z.object({
-          id: z.string(),
-          disposition: z.enum(["keep", "reject"]),
-          tag: z.enum(KEEP_TAGS).nullable(),
-          reasons: z.array(z.enum(REJECTION_REASONS)),
-          score: z.number(),
-          caption: z.string().nullable(),
-        }),
-      ),
-    }),
-  ),
+  schema: toStrictJsonSchema(imageClassificationShape),
 };
 
 type ClassifyImagesPhaseOptions = {
@@ -484,8 +477,26 @@ export function parseClassificationBatch(
   };
 
   const verdicts = new Map<string, ParsedImageClassification>();
-  const raw = parseJson<unknown>(responseText);
-  const items = extractArray(raw) as RawClassification[] | null;
+
+  // Try structured parse with Zod first; fall back to extractArray for legacy
+  // formats (bare arrays, single-object responses).
+  const structuredResult = parseAndValidate(
+    responseText,
+    imageClassificationShape,
+  );
+  let items: RawClassification[] | null;
+  if (structuredResult.success) {
+    items = structuredResult.data
+      .classifications as unknown as RawClassification[];
+  } else {
+    let raw: unknown;
+    try {
+      raw = JSON.parse(responseText);
+    } catch {
+      return verdicts;
+    }
+    items = extractArray(raw) as RawClassification[] | null;
+  }
   if (!items) return verdicts;
 
   for (const item of items) {
@@ -1156,9 +1167,10 @@ async function classifyChunk(
   const ordinals = [...imageByOrdinal.keys()];
 
   const classifySystemPrompt = await fetchLangfusePrompt("classify-images", IMAGE_CLASSIFY_SYSTEM_PROMPT);
-  const response = await client.chat({
+  const userMessage = `${brandContext}Classify the ${sendable.length} brand images that follow, numbered ${ordinals.join(", ")} in order. Return a JSON object with a "classifications" array holding exactly ${sendable.length} objects, whose "id" values are the image numbers as strings. Do not omit any image.`;
+  const chatParams = {
     system: classifySystemPrompt,
-    user: `${brandContext}Classify the ${sendable.length} brand images that follow, numbered ${ordinals.join(", ")} in order. Return a JSON object with a "classifications" array holding exactly ${sendable.length} objects, whose "id" values are the image numbers as strings. Do not omit any image.`,
+    user: userMessage,
     images: sendable.map(({ dataUri }) => dataUri),
     imageDetail: CLASSIFY_IMAGE_DETAIL,
     json: true,
@@ -1184,14 +1196,32 @@ async function classifyChunk(
       // also dump megabytes into every audit row.
       imageUrls: sendable.map(({ image }) => image.url),
     },
-  });
+  };
+  const response = await client.chat(chatParams);
 
   const failure = failureReason(response);
   if (failure) {
     return { verdictsByImageId: new Map(), failure, unavailableIds };
   }
 
-  const parsed = parseClassificationBatch(response.content ?? "");
+  let effectiveContent = response.content ?? "";
+
+  // 1-retry: on validation failure, retry the chunk once with structured feedback
+  const validationCheck = parseAndValidate(
+    effectiveContent,
+    imageClassificationShape,
+  );
+  if (!validationCheck.success && validationCheck.issues) {
+    const retryResponse = await client.chat({
+      ...chatParams,
+      user: `${userMessage}\n\n${formatRetryInstruction(validationCheck.issues)}`,
+    });
+    if (!failureReason(retryResponse) && retryResponse.content) {
+      effectiveContent = retryResponse.content;
+    }
+  }
+
+  const parsed = parseClassificationBatch(effectiveContent);
   const verdictsByImageId = new Map<string, ParsedImageClassification>();
   for (const [ordinal, image] of imageByOrdinal) {
     const verdict = parsed.get(ordinal);

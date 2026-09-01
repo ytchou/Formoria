@@ -14,6 +14,12 @@ import {
   type LlmProfileKey,
 } from "@/lib/constants/llm-models";
 import { L1_CATEGORIES } from "@/lib/taxonomy/ontology";
+import { z } from "zod";
+import {
+  parseAndValidate,
+  toStrictJsonSchema,
+  formatRetryInstruction,
+} from "./_shared/zod-schema";
 import {
   addLlmCalls,
   contentFailed,
@@ -68,130 +74,72 @@ export type ExtractionResult = {
   categoryMismatch: boolean;
 };
 
-const VALID_CATEGORY_SLUGS = new Set<string>(
-  L1_CATEGORIES.map((category) => category.slug),
-);
-
 const L1_SLUGS = L1_CATEGORIES.map((c) => c.slug);
 
 // ---------------------------------------------------------------------------
-// Structured output schemas — passed to OpenAI via `schema:` alongside `json: true`
+// Zod schemas — single source of truth for both validation and wire format
 // ---------------------------------------------------------------------------
 
-const DETECT_SINGLE_PROPERTIES = {
-  reasoning: { type: "string" },
-  isNonBrand: { type: "boolean" },
-  nonBrandReason: { type: ["string", "null"] },
-  brand_name: { type: ["string", "null"] },
-  slug_generated: { type: ["string", "null"] },
-  confidence: { type: "string", enum: ["high", "medium", "low"] },
-} as const;
+const confidenceShape = z.enum(["high", "medium", "low"]);
 
+export const detectSingleShape = z.object({
+  reasoning: z.string(),
+  isNonBrand: z.boolean(),
+  nonBrandReason: z.string().nullable(),
+  brand_name: z.string().nullable(),
+  slug_generated: z.string().nullable(),
+  confidence: confidenceShape,
+});
+
+const detectBatchItemShape = detectSingleShape.extend({ slug: z.string() });
+
+export const detectBatchShape = z.object({
+  results: z.array(detectBatchItemShape),
+});
+
+export const classifySingleShape = z.object({
+  reasoning: z.string(),
+  category: z.enum(L1_SLUGS as [string, ...string[]]),
+  confidence: confidenceShape,
+});
+
+const classifyBatchItemShape = classifySingleShape.extend({
+  slug: z.string(),
+});
+
+export const classifyBatchShape = z.object({
+  results: z.array(classifyBatchItemShape),
+});
+
+// Wire-format schemas for OpenAI structured output
 export const DETECT_SCHEMA = {
   name: "detect_single",
-  schema: {
-    type: "object",
-    properties: DETECT_SINGLE_PROPERTIES,
-    required: [
-      "reasoning",
-      "isNonBrand",
-      "nonBrandReason",
-      "brand_name",
-      "slug_generated",
-      "confidence",
-    ],
-    additionalProperties: false,
-  },
-} as const;
+  schema: toStrictJsonSchema(detectSingleShape),
+};
 
 export const DETECT_BATCH_SCHEMA = {
   name: "detect_batch",
-  schema: {
-    type: "object",
-    properties: {
-      results: {
-        type: "array",
-        items: {
-          type: "object",
-          properties: {
-            slug: { type: "string" },
-            ...DETECT_SINGLE_PROPERTIES,
-          },
-          required: [
-            "slug",
-            "reasoning",
-            "isNonBrand",
-            "nonBrandReason",
-            "brand_name",
-            "slug_generated",
-            "confidence",
-          ],
-          additionalProperties: false,
-        },
-      },
-    },
-    required: ["results"],
-    additionalProperties: false,
-  },
-} as const;
-
-const CLASSIFY_SINGLE_PROPERTIES = {
-  reasoning: { type: "string" },
-  category: { type: "string", enum: L1_SLUGS },
-  confidence: { type: "string", enum: ["high", "medium", "low"] },
-} as const;
+  schema: toStrictJsonSchema(detectBatchShape),
+};
 
 export const CLASSIFY_SCHEMA = {
   name: "classify_single",
-  schema: {
-    type: "object",
-    properties: CLASSIFY_SINGLE_PROPERTIES,
-    required: ["reasoning", "category", "confidence"],
-    additionalProperties: false,
-  },
-} as const;
+  schema: toStrictJsonSchema(classifySingleShape),
+};
 
 export const CLASSIFY_BATCH_SCHEMA = {
   name: "classify_batch",
-  schema: {
-    type: "object",
-    properties: {
-      results: {
-        type: "array",
-        items: {
-          type: "object",
-          properties: {
-            slug: { type: "string" },
-            ...CLASSIFY_SINGLE_PROPERTIES,
-          },
-          required: ["slug", "reasoning", "category", "confidence"],
-          additionalProperties: false,
-        },
-      },
-    },
-    required: ["results"],
-    additionalProperties: false,
-  },
-} as const;
+  schema: toStrictJsonSchema(classifyBatchShape),
+};
+
+// Lenient wrapper for batch parsing — validates structure, not item contents.
+// Per-entry validation uses the strict item shapes, so one malformed entry
+// does not invalidate the entire batch.
+const batchParseShape = z.object({
+  results: z.array(z.unknown()),
+});
 
 type UnknownRecord = Record<string, unknown>;
-
-/**
- * Unwrap a parsed LLM batch response that may be either a bare array or
- * wrapped in `{ results: [...] }` (structured-output mode). Returns null
- * when the shape matches neither pattern.
- */
-function unwrapBatchResults(parsed: unknown): unknown[] | null {
-  if (Array.isArray(parsed)) return parsed;
-  if (
-    parsed &&
-    typeof parsed === "object" &&
-    Array.isArray((parsed as UnknownRecord).results)
-  ) {
-    return (parsed as UnknownRecord).results as unknown[];
-  }
-  return null;
-}
 
 /**
  * What a whole batch (chunk calls plus any per-brand fallbacks) did. `results`
@@ -221,26 +169,15 @@ function createClassifierClient(
   );
 }
 
-function isConfidence(
-  value: unknown,
-): value is ClassificationResult["confidence"] {
-  return value === "high" || value === "medium" || value === "low";
-}
-
 function parseClassification(content: string): ClassificationResult | null {
-  const parsed = JSON.parse(content) as UnknownRecord;
-  const categorySlug = parsed.category;
-  const confidence = parsed.confidence;
-
-  if (
-    typeof categorySlug !== "string" ||
-    !VALID_CATEGORY_SLUGS.has(categorySlug) ||
-    !isConfidence(confidence)
-  ) {
+  const result = parseAndValidate(content, classifySingleShape);
+  if (!result.success) {
+    if (result.issues) {
+      console.error(`  → classify validation: ${formatRetryInstruction(result.issues)}`);
+    }
     return null;
   }
-
-  return { categorySlug, confidence };
+  return { categorySlug: result.data.category, confidence: result.data.confidence };
 }
 
 function parseStringArray(value: unknown): string[] {
@@ -381,74 +318,45 @@ function parseBatchClassification(
   content: string,
   validSlugs: Set<string>,
 ): Map<string, ClassificationResult> | null {
-  const parsed = JSON.parse(content) as unknown;
-  const entries = unwrapBatchResults(parsed);
-
-  if (!entries) {
+  const parsed = parseAndValidate(content, batchParseShape);
+  if (!parsed.success) {
+    if (parsed.issues) {
+      console.error(`  → classify batch validation: ${formatRetryInstruction(parsed.issues)}`);
+    }
     return null;
   }
 
   const results = new Map<string, ClassificationResult>();
 
-  for (const entry of entries) {
-    if (!entry || typeof entry !== "object") continue;
+  for (const entry of parsed.data.results) {
+    const validated = classifyBatchItemShape.safeParse(entry);
+    if (!validated.success) continue;
 
-    const item = entry as UnknownRecord;
-    const slug = item.slug;
-    const categorySlug = item.category;
-    const confidence = item.confidence;
+    const { slug, category, confidence } = validated.data;
+    if (!validSlugs.has(slug)) continue;
 
-    if (
-      typeof slug !== "string" ||
-      !validSlugs.has(slug) ||
-      typeof categorySlug !== "string" ||
-      !VALID_CATEGORY_SLUGS.has(categorySlug) ||
-      !isConfidence(confidence)
-    ) {
-      continue;
-    }
-
-    results.set(slug, { categorySlug, confidence });
+    results.set(slug, { categorySlug: category, confidence });
   }
 
   return results;
 }
 
-function parseTriageEntry(
-  entry: UnknownRecord,
+/**
+ * Map a validated detect entry to a DetectResult. The detect prompt no longer
+ * asks for a category, so categorySlug is always null.
+ */
+function mapDetectEntry(
+  entry: z.infer<typeof detectSingleShape>,
   slug: string,
-): DetectResult | null {
-  const isNonBrand = entry.isNonBrand;
-  const nonBrandReason = entry.nonBrandReason;
-  const slugGenerated = entry.slug_generated;
-  const confidence = entry.confidence;
-
-  if (typeof isNonBrand !== "boolean" || !isConfidence(confidence)) {
-    return null;
-  }
-
-  // The detect prompt no longer asks for a category, so the key is normally
-  // absent. An absent or unrecognised value is null, never a discarded triage
-  // result — the non-brand gate and the name/slug are what this call is for.
-  const rawCategory = entry.category;
-  const categorySlug =
-    typeof rawCategory === "string" && VALID_CATEGORY_SLUGS.has(rawCategory)
-      ? rawCategory
-      : null;
-
-  const brandName = entry.brand_name;
-
+): DetectResult {
   return {
-    isNonBrand,
-    nonBrandReason: typeof nonBrandReason === "string" ? nonBrandReason : null,
-    brandName:
-      typeof brandName === "string" && brandName.trim().length > 0
-        ? brandName.trim()
-        : null,
+    isNonBrand: entry.isNonBrand,
+    nonBrandReason: entry.nonBrandReason,
+    brandName: entry.brand_name?.trim() || null,
     slug,
-    slugGenerated: typeof slugGenerated === "string" ? slugGenerated : null,
-    categorySlug,
-    confidence,
+    slugGenerated: entry.slug_generated,
+    categorySlug: null,
+    confidence: entry.confidence,
   };
 }
 
@@ -456,32 +364,27 @@ function parseTriageResponse(
   content: string,
   brands: DetectBatchItem[],
 ): Map<string, DetectResult> | null {
-  const parsed = JSON.parse(content) as unknown;
-  const entries = unwrapBatchResults(parsed);
-
-  if (!entries) {
+  const parsed = parseAndValidate(content, batchParseShape);
+  if (!parsed.success) {
+    if (parsed.issues) {
+      console.error(`  → detect batch validation: ${formatRetryInstruction(parsed.issues)}`);
+    }
     return null;
   }
 
   const validSlugs = new Set(brands.map((brand) => brand.slug));
   const results = new Map<string, DetectResult>();
 
-  entries.forEach((entry, index) => {
-    if (!entry || typeof entry !== "object") return;
+  parsed.data.results.forEach((entry, index) => {
+    const validated = detectBatchItemShape.safeParse(entry);
+    if (!validated.success) return;
 
-    const item = entry as UnknownRecord;
-    const responseSlug = item.slug;
-    const slug =
-      typeof responseSlug === "string" && validSlugs.has(responseSlug)
-        ? responseSlug
-        : brands[index]?.slug;
-
+    const slug = validSlugs.has(validated.data.slug)
+      ? validated.data.slug
+      : brands[index]?.slug;
     if (!slug) return;
 
-    const result = parseTriageEntry(item, slug);
-    if (result) {
-      results.set(slug, result);
-    }
+    results.set(slug, mapDetectEntry(validated.data, slug));
   });
 
   return results;
@@ -491,13 +394,15 @@ function parseSingleTriageResponse(
   content: string,
   slug: string,
 ): DetectResult | null {
-  const parsed = JSON.parse(content) as unknown;
-
-  if (!parsed || typeof parsed !== "object") {
+  const result = parseAndValidate(content, detectSingleShape);
+  if (!result.success) {
+    if (result.issues) {
+      console.error(`  → detect validation: ${formatRetryInstruction(result.issues)}`);
+    }
     return null;
   }
 
-  return parseTriageEntry(parsed as UnknownRecord, slug);
+  return mapDetectEntry(result.data, slug);
 }
 
 async function classifyCategory(

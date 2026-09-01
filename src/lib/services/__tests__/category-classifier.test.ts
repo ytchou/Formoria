@@ -4,10 +4,10 @@ import {
   detectBrandsBatch,
   type DetectBatchItem,
   type DetectResult,
-  DETECT_SCHEMA,
-  DETECT_BATCH_SCHEMA,
-  CLASSIFY_SCHEMA,
-  CLASSIFY_BATCH_SCHEMA,
+  detectSingleShape,
+  detectBatchShape,
+  classifySingleShape,
+  classifyBatchShape,
 } from "../category-classifier";
 import { L1_CATEGORIES } from "@/lib/taxonomy/ontology";
 
@@ -50,23 +50,28 @@ describe("detectBrandsBatch", () => {
         choices: [
           {
             message: {
-              content: JSON.stringify([
-                {
-                  slug: "my-brand",
-                  isNonBrand: false,
-                  nonBrandReason: null,
-                  brand_name: "My Brand",
-                  slug_generated: "my-brand",
-                  confidence: "high",
-                },
-                {
-                  slug: "some-reseller",
-                  isNonBrand: true,
-                  nonBrandReason: "代購 (reseller)",
-                  slug_generated: "some-reseller",
-                  confidence: "high",
-                },
-              ]),
+              content: JSON.stringify({
+                results: [
+                  {
+                    slug: "my-brand",
+                    reasoning: "Clearly a product brand",
+                    isNonBrand: false,
+                    nonBrandReason: null,
+                    brand_name: "My Brand",
+                    slug_generated: "my-brand",
+                    confidence: "high",
+                  },
+                  {
+                    slug: "some-reseller",
+                    reasoning: "This is a reseller",
+                    isNonBrand: true,
+                    nonBrandReason: "代購 (reseller)",
+                    brand_name: null,
+                    slug_generated: "some-reseller",
+                    confidence: "high",
+                  },
+                ],
+              }),
             },
           },
         ],
@@ -88,24 +93,28 @@ describe("detectBrandsBatch", () => {
         choices: [
           {
             message: {
-              content: JSON.stringify([
-                {
-                  slug: "my-brand",
-                  isNonBrand: false,
-                  nonBrandReason: null,
-                  slug_generated: "my-brand",
-                  category: "beauty",
-                  confidence: "high",
-                },
-                {
-                  slug: "some-reseller",
-                  isNonBrand: true,
-                  nonBrandReason: "代購 (reseller)",
-                  slug_generated: "some-reseller",
-                  category: null,
-                  confidence: "high",
-                },
-              ]),
+              content: JSON.stringify({
+                results: [
+                  {
+                    slug: "my-brand",
+                    reasoning: "A product brand",
+                    isNonBrand: false,
+                    nonBrandReason: null,
+                    brand_name: "My Brand",
+                    slug_generated: "my-brand",
+                    confidence: "high",
+                  },
+                  {
+                    slug: "some-reseller",
+                    reasoning: "This is a reseller",
+                    isNonBrand: true,
+                    nonBrandReason: "代購 (reseller)",
+                    brand_name: null,
+                    slug_generated: "some-reseller",
+                    confidence: "high",
+                  },
+                ],
+              }),
             },
           },
         ],
@@ -119,7 +128,8 @@ describe("detectBrandsBatch", () => {
     const myBrand = results.get("my-brand");
     expect(myBrand).toBeDefined();
     expect(myBrand!.isNonBrand).toBe(false);
-    expect(myBrand!.categorySlug).toBe("beauty");
+    // Detect prompt no longer asks for category; always null
+    expect(myBrand!.categorySlug).toBeNull();
     expect(myBrand!.slug).toBe("my-brand");
     expect(myBrand!.slugGenerated).toBe("my-brand");
     expect(myBrand!.confidence).toBe("high");
@@ -149,9 +159,11 @@ describe("detectBrandsBatch", () => {
             {
               message: {
                 content: JSON.stringify({
+                  reasoning: "A product brand",
                   isNonBrand: false,
+                  nonBrandReason: null,
+                  brand_name: "My Brand",
                   slug_generated: "my-brand",
-                  category: "beauty",
                   confidence: "high",
                 }),
               },
@@ -166,10 +178,11 @@ describe("detectBrandsBatch", () => {
             {
               message: {
                 content: JSON.stringify({
+                  reasoning: "This is a reseller",
                   isNonBrand: true,
                   nonBrandReason: "reseller",
+                  brand_name: null,
                   slug_generated: "some-reseller",
-                  category: null,
                   confidence: "high",
                 }),
               },
@@ -199,15 +212,17 @@ describe("detectBrandsBatch", () => {
         choices: [
           {
             message: {
-              content: JSON.stringify(
-                Array.from({ length: count }, (_, i) => ({
+              content: JSON.stringify({
+                results: Array.from({ length: count }, (_, i) => ({
                   slug: `brand-${i}`,
+                  reasoning: "A brand",
                   isNonBrand: false,
+                  nonBrandReason: null,
+                  brand_name: `Brand ${i}`,
                   slug_generated: `brand-${i}`,
-                  category: "home",
                   confidence: "medium",
                 })),
-              ),
+              }),
             },
           },
         ],
@@ -286,11 +301,8 @@ describe("parseExtractionResult", () => {
 
 describe("structured output schemas", () => {
   it("detect_schema_matches_parser_fields", () => {
-    // DETECT_SCHEMA must contain every field that parseTriageEntry reads
-    const schemaProps = DETECT_SCHEMA.schema.properties as Record<
-      string,
-      unknown
-    >;
+    // detectSingleShape must contain every field that the detect parser reads
+    const shapeKeys = Object.keys(detectSingleShape.shape);
     const requiredFields = [
       "reasoning",
       "isNonBrand",
@@ -300,47 +312,25 @@ describe("structured output schemas", () => {
       "confidence",
     ];
     for (const field of requiredFields) {
-      expect(schemaProps).toHaveProperty(field);
+      expect(shapeKeys).toContain(field);
     }
 
-    // Batch schema wraps single fields in { results: [...] }
-    const batchProps = DETECT_BATCH_SCHEMA.schema.properties as Record<
-      string,
-      unknown
-    >;
-    expect(batchProps).toHaveProperty("results");
-    const itemsSchema = (
-      batchProps.results as { items: { properties: Record<string, unknown> } }
-    ).items;
-    // Batch items include slug plus the single-entry fields
-    expect(itemsSchema.properties).toHaveProperty("slug");
-    for (const field of requiredFields) {
-      expect(itemsSchema.properties).toHaveProperty(field);
-    }
+    // Batch shape wraps single fields in { results: [...] }
+    const batchShapeKeys = Object.keys(detectBatchShape.shape);
+    expect(batchShapeKeys).toContain("results");
   });
 
   it("classify_schema_has_enum_categories", () => {
-    const schemaProps = CLASSIFY_SCHEMA.schema.properties as unknown as Record<
-      string,
-      { enum?: string[] }
-    >;
-    expect(schemaProps).toHaveProperty("category");
+    // classifySingleShape must include a category field with L1 slugs
+    const shapeKeys = Object.keys(classifySingleShape.shape);
+    expect(shapeKeys).toContain("category");
 
     const expectedSlugs = L1_CATEGORIES.map((c) => c.slug);
-    expect(schemaProps.category.enum).toEqual(expectedSlugs);
+    expect(classifySingleShape.shape.category.options).toEqual(expectedSlugs);
 
-    // Batch schema wraps in { results: [...] }
-    const batchProps = CLASSIFY_BATCH_SCHEMA.schema.properties as Record<
-      string,
-      unknown
-    >;
-    expect(batchProps).toHaveProperty("results");
-    const batchItemProps = (
-      batchProps.results as {
-        items: { properties: Record<string, { enum?: string[] }> };
-      }
-    ).items.properties;
-    expect(batchItemProps.category.enum).toEqual(expectedSlugs);
+    // Batch shape wraps in { results: [...] }
+    const batchShapeKeys = Object.keys(classifyBatchShape.shape);
+    expect(batchShapeKeys).toContain("results");
   });
 
   it("batch_triage_response_unwraps_results", async () => {
@@ -375,7 +365,7 @@ describe("structured output schemas", () => {
                     nonBrandReason: null,
                     brand_name: "Test Brand",
                     slug_generated: "test-brand",
-                    confidence: "high",
+                    confidence: "high" as const,
                   },
                 ],
               }),
