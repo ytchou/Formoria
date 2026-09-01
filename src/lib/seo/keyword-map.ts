@@ -181,7 +181,7 @@ export const DEFAULT_KEYWORD_MAP_PATH = 'content/seo/keyword-map.yaml'
  * with the file path in the message so a script operator knows which file to fix.
  */
 export function loadKeywordMap(path: string = DEFAULT_KEYWORD_MAP_PATH): KeywordMap {
-  const absolutePath = isAbsolute(path) ? path : resolve(process.cwd(), path)
+  const absolutePath = isAbsolute(path) ? path : resolve(/* turbopackIgnore: true */ process.cwd(), path)
 
   let raw: string
   try {
