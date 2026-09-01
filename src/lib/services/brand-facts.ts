@@ -128,7 +128,7 @@ const factsParseShape = z.object({
  * Structured Output schema for the facts extraction call, derived from the Zod
  * shape via `toStrictJsonSchema`.
  */
-export const FACTS_SCHEMA = {
+const FACTS_SCHEMA = {
   name: "brand_facts",
   schema: toStrictJsonSchema(factsShape),
 };
@@ -290,11 +290,11 @@ const foundingClaimShape = z.object({
   ]),
 });
 
-export const foundingFactsShape = z.object({
+const foundingFactsShape = z.object({
   claims: z.array(foundingClaimShape),
 });
 
-export const FOUNDING_FACTS_SCHEMA = {
+const FOUNDING_FACTS_SCHEMA = {
   name: "founding_fact_claims",
   schema: toStrictJsonSchema(foundingFactsShape),
 };
@@ -309,7 +309,7 @@ export const foundingFactsVerifyShape = z.object({
   results: z.array(verificationResultShape),
 });
 
-export const FOUNDING_FACTS_VERIFY_SCHEMA = {
+const FOUNDING_FACTS_VERIFY_SCHEMA = {
   name: "founding_fact_verification",
   schema: toStrictJsonSchema(foundingFactsVerifyShape),
 };

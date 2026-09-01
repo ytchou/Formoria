@@ -1,8 +1,4 @@
-import type {
-  ComponentPropsWithoutRef,
-  FormHTMLAttributes,
-  ReactNode,
-} from 'react'
+import type { FormHTMLAttributes, ReactNode } from 'react'
 import { surfaceCardStyles } from '@/components/ui/card'
 import { cn } from '@/lib/utils'
 
@@ -10,19 +6,10 @@ type StandardFormProps = FormHTMLAttributes<HTMLFormElement> & {
   children: ReactNode
 }
 
-type StandardFormSectionProps = ComponentPropsWithoutRef<'section'> & {
-  children: ReactNode
-}
-
-type StandardFormStackProps = ComponentPropsWithoutRef<'div'> & {
-  children: ReactNode
-}
-
 const panelClassName = surfaceCardStyles({
   className: 'p-8',
   padding: 'none',
 })
-const stackClassName = 'flex flex-col gap-5'
 
 export function StandardForm({
   className,
@@ -36,26 +23,3 @@ export function StandardForm({
   )
 }
 
-export function StandardFormSection({
-  className,
-  children,
-  ...props
-}: StandardFormSectionProps) {
-  return (
-    <section className={cn(panelClassName, className)} {...props}>
-      {children}
-    </section>
-  )
-}
-
-export function StandardFormStack({
-  className,
-  children,
-  ...props
-}: StandardFormStackProps) {
-  return (
-    <div className={cn(stackClassName, className)} {...props}>
-      {children}
-    </div>
-  )
-}

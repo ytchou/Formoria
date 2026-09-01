@@ -37,7 +37,7 @@ export async function SeriesNav({ series, currentSlug, locale }: SeriesNavProps)
   )
 }
 
-export function SeriesList({ series, currentSlug }: Omit<SeriesNavProps, 'locale'>) {
+function SeriesList({ series, currentSlug }: Omit<SeriesNavProps, 'locale'>) {
   return (
     <ol className="mt-3 divide-y divide-rule">
       {series.map((entry, index) => {

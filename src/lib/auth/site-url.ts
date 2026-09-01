@@ -1,8 +1,6 @@
 import { headers } from "next/headers";
 import { getSiteUrl } from "../site-url";
 
-export { getSiteUrl };
-
 export async function getRequestOrigin(): Promise<string> {
   const h = await headers();
   const forwardedHost = h.get("x-forwarded-host");

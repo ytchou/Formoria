@@ -211,29 +211,6 @@ export function trackBrandCardClicked(
   }
 }
 
-/**
- * An exhibitor's own site, opened from the event exhibitor list.
- *
- * Deliberately not `trackExternalLinkClicked`: that one is keyed on a brand slug and
- * gates the PostHog call on `brandId`, so it would silently drop every exhibitor we
- * do not list — the majority of a hall.
- */
-export function trackExhibitorSiteClicked(
-  sourceKey: string,
-  eventSlug: string,
-  booth: string | null,
-  brandSlug: string | null,
-) {
-  const properties = {
-    source_key: sourceKey,
-    event_slug: eventSlug,
-    booth,
-    brand_slug: brandSlug,
-  };
-  safeGAEvent("event", "exhibitor_site_clicked", properties);
-  capturePostHogEvent(ANALYTICS_EVENTS.EXHIBITOR_SITE_CLICKED, properties);
-}
-
 export type ExternalLinkSurface =
   | "detail_page"
   | "card"
@@ -611,18 +588,6 @@ export function trackSubcategoryFilterApplied(
     subcategory,
     parent_category: parentCategory,
     result_count: Math.trunc(resultCount),
-  });
-}
-
-export function trackFilterCleared(
-  clearType: string,
-  filterType?: string,
-  filterValue?: string,
-) {
-  capturePostHogEvent(ANALYTICS_EVENTS.FILTER_CLEARED, {
-    clear_type: clearType,
-    filter_type: filterType,
-    filter_value: filterValue,
   });
 }
 
