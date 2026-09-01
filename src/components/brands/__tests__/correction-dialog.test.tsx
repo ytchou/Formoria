@@ -11,7 +11,6 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import {
   L2_SUBCATEGORIES,
-  L1_CATEGORIES,
   VISIBLE_L1_CATEGORIES,
   subcategoryDisplayLabel,
 } from "@/lib/taxonomy/ontology";
