@@ -58,39 +58,24 @@ test.describe("Directory deep", () => {
     const unfilteredCount = await readAnnouncedCount(page);
     expect(unfilteredCount).toBeGreaterThan(0);
 
-    // The sidebar is the one named `filters.title`; `page.locator("aside")`
-    // alone also matched the mobile filter sheet's aside once it existed.
-    const sidebar = page.getByRole("complementary", {
+    // The sidebar is rendered as a <nav> with aria-label matching filters.title.
+    const sidebar = page.getByRole("navigation", {
       name: zhTW.brands.filters.title,
     });
-    const categoryToggle = sidebar.getByRole("button", {
-      name: zhTW.brands.filters.category,
-      exact: true,
-    });
-    await categoryToggle.click();
-    await expect(categoryToggle).toHaveAttribute("aria-expanded", "true");
 
     for (const category of FILTER_SUBJECTS) {
-      // Selecting a category navigates to its dedicated taxonomy URL, and
-      // deselecting navigates back to the plain directory — both are full
-      // route changes that remount the sidebar and collapse this section.
-      if ((await categoryToggle.getAttribute("aria-expanded")) !== "true") {
-        await categoryToggle.click();
-        await expect(categoryToggle).toHaveAttribute("aria-expanded", "true");
-      }
-      // The zh-TW name is the checkbox's accessible name because the visible
-      // `<span>` sits inside the wrapping `<label>` and the count `<span>` is
-      // `aria-hidden`. There is deliberately no `aria-label` — DEV-1510 removed
-      // it as a duplicate of the visible text, against accessible-name
-      // precedence. `exact: true` holds only while that count stays hidden.
-      const filter = sidebar.getByRole("checkbox", {
+      // Categories are direct links in the new FilterSidebar — no collapsible
+      // toggle. Clicking a category link navigates to its filtered URL; the
+      // "All" link navigates back.
+      const categoryLink = sidebar.getByRole("link", {
         name: category.nameZh,
         exact: true,
       });
-      await filter.click();
-      // Selecting is a route change that remounts the sidebar; wait for the
-      // filtered render before reading its count.
-      await expect(filter).toBeChecked({ timeout: BUDGET.RENDERED });
+      await categoryLink.click();
+      // Wait for the filtered render by checking aria-current on the link.
+      await expect(categoryLink).toHaveAttribute("aria-current", "page", {
+        timeout: BUDGET.RENDERED,
+      });
 
       const filteredCount = await readAnnouncedCount(page);
       // A category with no seeded supply is a data state, not a filter bug —
@@ -105,7 +90,12 @@ test.describe("Directory deep", () => {
         page.locator('main [role="list"] [role="listitem"]').first(),
       ).toBeVisible({ timeout: BUDGET.RENDERED });
 
-      await filter.click(); // deselect
+      // Navigate back to the unfiltered directory by clicking "All".
+      const allLink = sidebar.getByRole("link", { name: zhTW.brands.filters.all, exact: true });
+      await allLink.click();
+      await expect(allLink).toHaveAttribute("aria-current", "page", {
+        timeout: BUDGET.RENDERED,
+      });
     }
   });
 

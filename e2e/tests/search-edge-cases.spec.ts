@@ -212,7 +212,7 @@ test.describe.serial('Public brand search edge cases', () => {
 
     await page.goto('/brands');
     const directorySearch = page.locator(
-      'main form[aria-label="依品牌或產品關鍵字篩選"] input[role="searchbox"]',
+      'header form[role="search"] input[role="searchbox"]:visible',
     );
     await directorySearch.fill(exactQuery);
     await expect(page).toHaveURL((url) =>
@@ -245,7 +245,7 @@ test.describe.serial('Public brand search edge cases', () => {
 
     await page.goto('/brands?category=home&sort=name&page=2');
     const sidebarSearch = page.locator(
-      'main form[aria-label="依品牌或產品關鍵字篩選"] input[role="searchbox"]',
+      'header form[role="search"] input[role="searchbox"]:visible',
     );
     const navSearch = page.locator('header form[role="search"] input[role="searchbox"]:visible');
     await sidebarSearch.fill(exactQuery);
