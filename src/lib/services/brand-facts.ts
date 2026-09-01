@@ -111,6 +111,20 @@ export const factsShape = z.object({
 });
 
 /**
+ * Lenient parse shape: tolerates absent or malformed optional fields so one bad
+ * field (listing, category, material) never voids the entire extraction. The
+ * strict `factsShape` stays for the OpenAI Structured Outputs JSON schema.
+ */
+const factsParseShape = z.object({
+  category: z.unknown().optional(),
+  subcategories: z.array(z.string()).optional(),
+  material: z.unknown().optional(),
+  city: z.unknown().optional(),
+  founding_year: z.unknown().optional(),
+  listing: z.unknown().optional(),
+});
+
+/**
  * Structured Output schema for the facts extraction call, derived from the Zod
  * shape via `toStrictJsonSchema`.
  */
@@ -168,7 +182,7 @@ const EMPTY_FACTS: BrandFactsResult = {
 };
 
 export function parseBrandFactsResult(content: string): BrandFactsResult {
-  const validated = parseAndValidate(content, factsShape);
+  const validated = parseAndValidate(content, factsParseShape);
   if (!validated.success) {
     return { ...EMPTY_FACTS };
   }
@@ -185,7 +199,9 @@ export function parseBrandFactsResult(content: string): BrandFactsResult {
     extraction.subcategories,
   );
 
-  const listing = parseListingVerdict(validated.data.listing);
+  const listing = validated.data.listing != null
+    ? parseListingVerdict(validated.data.listing)
+    : undefined;
   const categorySlug = parseDescriptionCategory(validated.data.category);
 
   const acceptedSubcategories =
@@ -554,7 +570,7 @@ export async function extractBrandFacts(
         return { result: null, attempts, calls };
       }
 
-      const validated = parseAndValidate(content, factsShape);
+      const validated = parseAndValidate(content, factsParseShape);
       if (!validated.success) {
         const retryDetail = validated.issues
           ? formatRetryInstruction(validated.issues)

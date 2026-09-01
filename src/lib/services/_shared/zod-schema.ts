@@ -67,15 +67,15 @@ export function toStrictJsonSchema(shape: z.ZodType): Record<string, unknown> {
 }
 
 /**
- * Parse a batch LLM response that may arrive as one of three shapes:
+ * Parse a batch LLM response that may arrive as one of two shapes:
  *
  * 1. `{ results: [...] }` — the structured outputs wrapper (preferred)
  * 2. A bare top-level array `[...]` — json_object fallback
- * 3. A single bare object `{ ... }` — json_object fallback with one entry
  *
  * When `json_schema` is rejected and the client falls back to `json_object`
- * mode, the model may return shapes 2 or 3. This helper preserves the
- * tolerance the old `unwrapBatchResults`/`toArbiterEntries` code provided.
+ * mode, the model may return shape 2. A single bare object is NOT treated as
+ * a one-entry batch — doing so would mask genuinely unusable responses and
+ * prevent the per-brand fallback from firing.
  */
 export function parseBatchEntries(
   content: string,
@@ -95,9 +95,6 @@ export function parseBatchEntries(
   }
   if (Array.isArray(parsed)) {
     return { success: true, entries: parsed };
-  }
-  if (parsed !== null && typeof parsed === "object") {
-    return { success: true, entries: [parsed] };
   }
   return { success: false, issues: batchResult.issues };
 }
