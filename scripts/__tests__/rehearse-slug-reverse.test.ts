@@ -69,12 +69,12 @@ describe("slug storage reverse migration", () => {
   it("rehearsal_refuses_every_target_but_staging", () => {
     const staging = {
       FORMORIA_DEPLOYMENT_ENV: "staging",
-      SUPABASE_PROJECT_REF: "xwkigpvnheecihpxyvsl",
+      SUPABASE_PROJECT_REF: "ttkkyvgvcamfoezsetvf",
       SUPABASE_DB_URL:
-        "postgresql://postgres.xwkigpvnheecihpxyvsl:secret@aws-0-ap-northeast-1.pooler.supabase.com:6543/postgres",
+        "postgresql://postgres.ttkkyvgvcamfoezsetvf:secret@aws-0-ap-northeast-1.pooler.supabase.com:6543/postgres",
     };
     expect(assertStagingRehearsalTarget(staging).projectRef).toBe(
-      "xwkigpvnheecihpxyvsl",
+      "ttkkyvgvcamfoezsetvf",
     );
 
     expect(() =>
