@@ -89,6 +89,7 @@ export type OpenAIChatResult = {
   refusal: string | null;
 };
 
+/** @deprecated Use parseAndValidate from _shared/zod-schema instead */
 export function parseJson<T>(content: string): T | null {
   try {
     return JSON.parse(content) as T;

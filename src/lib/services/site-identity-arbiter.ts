@@ -5,6 +5,12 @@ import {
   LLM_BATCH_CHUNK_SIZE,
   type LlmProfileKey,
 } from "@/lib/constants/llm-models";
+import { z } from "zod";
+import {
+  parseBatchEntries,
+  toStrictJsonSchema,
+  formatRetryInstruction,
+} from "./_shared/zod-schema";
 import {
   buildProfiledEnrichmentConfig,
   createProfiledOpenAIClient,
@@ -45,6 +51,24 @@ export type SiteIdentityVerdict = {
 
 type UnknownRecord = Record<string, unknown>;
 
+// ---------------------------------------------------------------------------
+// Zod schemas — single source of truth for both validation and wire format
+// ---------------------------------------------------------------------------
+
+const confidenceShape = z.enum(["high", "medium", "low"]);
+
+export const siteIdentityVerdictItemShape = z.object({
+  slug: z.string(),
+  subjectUrl: z.string(),
+  owned: z.boolean(),
+  confidence: confidenceShape,
+  reason: z.string(),
+});
+
+export const siteIdentityShape = z.object({
+  results: z.array(siteIdentityVerdictItemShape),
+});
+
 /**
  * The verdicts are wrapped in a results object instead of returned as a bare
  * top-level array because the json_object fallback rejects top-level arrays.
@@ -53,44 +77,13 @@ type UnknownRecord = Record<string, unknown>;
  */
 const SITE_IDENTITY_SCHEMA = {
   name: "site_identity",
-  schema: {
-    type: "object",
-    additionalProperties: false,
-    required: ["results"],
-    properties: {
-      results: {
-        type: "array",
-        items: {
-          type: "object",
-          additionalProperties: false,
-          required: ["slug", "subjectUrl", "owned", "confidence", "reason"],
-          properties: {
-            slug: { type: "string" },
-            subjectUrl: { type: "string" },
-            owned: { type: "boolean" },
-            confidence: { type: "string", enum: ["high", "medium", "low"] },
-            reason: { type: "string" },
-          },
-        },
-      },
-    },
-  },
+  schema: toStrictJsonSchema(siteIdentityShape),
 };
 
-/**
- * Tolerated shapes, in order: the schema-pinned results wrapper, a bare array,
- * and a bare single object. The latter two are the robustness the
- * json_object fallback path needs — that mode enforces an object, not this object.
- */
-function toArbiterEntries(parsed: unknown): unknown[] | null {
-  if (Array.isArray(parsed)) return parsed;
-  if (!parsed || typeof parsed !== "object") return null;
-
-  const wrapped = (parsed as UnknownRecord).results;
-  if (Array.isArray(wrapped)) return wrapped;
-
-  return [parsed];
-}
+// Lenient wrapper for batch parsing — validates structure, not item contents.
+const batchParseShape = z.object({
+  results: z.array(z.unknown()),
+});
 
 type SiteIdentityProfileKey = Extract<
   LlmProfileKey,
@@ -171,26 +164,18 @@ function buildSiteIdentityUserContent(items: SiteIdentityItem[]): string {
   return SITE_IDENTITY_LABELS.userPreamble + "\n" + list;
 }
 
-function isConfidence(value: unknown): value is SiteIdentityVerdict["confidence"] {
-  return value === "high" || value === "medium" || value === "low";
-}
-
 function parseSiteIdentityVerdict(
   value: unknown,
   resolvedSlug: string,
 ): SiteIdentityVerdict | null {
-  if (!value || typeof value !== "object") return null;
-
-  const entry = value as UnknownRecord;
-  if (typeof entry.owned !== "boolean" || !isConfidence(entry.confidence)) {
-    return null;
-  }
+  const result = siteIdentityVerdictItemShape.safeParse(value);
+  if (!result.success) return null;
 
   return {
     slug: resolvedSlug,
-    owned: entry.owned,
-    confidence: entry.confidence,
-    reason: typeof entry.reason === "string" ? entry.reason.trim() : "",
+    owned: result.data.owned,
+    confidence: result.data.confidence,
+    reason: result.data.reason.trim(),
   };
 }
 
@@ -248,11 +233,16 @@ function parseSiteIdentityResponse(
   content: string,
   items: SiteIdentityItem[],
 ): Map<string, SiteIdentityVerdict> | null {
-  const entries = toArbiterEntries(JSON.parse(content) as unknown);
-  if (!entries) return null;
+  const parsed = parseBatchEntries(content, batchParseShape);
+  if (!parsed.success) {
+    if (parsed.issues) {
+      console.error(`  → site identity batch validation: ${formatRetryInstruction(parsed.issues)}`);
+    }
+    return null;
+  }
 
   const results = new Map<string, SiteIdentityVerdict>();
-  entries.forEach((entry) => {
+  parsed.entries.forEach((entry) => {
     if (!entry || typeof entry !== "object") return;
 
     const resolvedItem = resolveSiteIdentityItem(entry as UnknownRecord, items);

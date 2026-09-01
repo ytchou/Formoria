@@ -90,7 +90,8 @@ describe("arbitrateBrandNames", () => {
   });
 
   it("rejects a model-invented value that is not a supplied candidate", async () => {
-    mockFetch.mockResolvedValueOnce({
+    vi.spyOn(console, "error").mockImplementation(() => undefined);
+    mockFetch.mockResolvedValue({
       ok: true,
       json: async () => ({
         choices: [
@@ -117,27 +118,29 @@ describe("arbitrateBrandNames", () => {
     expect(outcome.results).toEqual(new Map());
   });
 
-  it("tolerates a bare top-level array in one call with no fan-out", async () => {
+  it("parses a wrapped results array in one call with no fan-out", async () => {
     mockFetch.mockResolvedValueOnce({
       ok: true,
       json: async () => ({
         choices: [
           {
             message: {
-              content: JSON.stringify([
-                {
-                  slug: "xiao-zhu-dessert",
-                  chosen: "小朱甜點",
-                  confidence: "high",
-                  reason: "去除頁面標題外框",
-                },
-                {
-                  slug: "unigaze",
-                  chosen: "UNIGAZE 慢火金工創作室",
-                  confidence: "high",
-                  reason: "中文尾段是正式名稱",
-                },
-              ]),
+              content: JSON.stringify({
+                results: [
+                  {
+                    slug: "xiao-zhu-dessert",
+                    chosen: "小朱甜點",
+                    confidence: "high",
+                    reason: "去除頁面標題外框",
+                  },
+                  {
+                    slug: "unigaze",
+                    chosen: "UNIGAZE 慢火金工創作室",
+                    confidence: "high",
+                    reason: "中文尾段是正式名稱",
+                  },
+                ],
+              }),
             },
           },
         ],
@@ -151,10 +154,7 @@ describe("arbitrateBrandNames", () => {
     expect(outcome.calls).toEqual({ attempted: 1, providerFailed: 0 });
   });
 
-  it("accepts a bare single object as a one-element array", async () => {
-    // The 2026-08-03 DEV-1321 eval: a 20-item prompt came back as one object
-    // for the first item, the chunk was scored malformed, and every case fell
-    // through to per-item fan-out (28 calls for 26 cases).
+  it("parses a single-item results array in one call", async () => {
     mockFetch.mockResolvedValueOnce({
       ok: true,
       json: async () => ({
@@ -162,10 +162,14 @@ describe("arbitrateBrandNames", () => {
           {
             message: {
               content: JSON.stringify({
-                slug: "unigaze",
-                chosen: "UNIGAZE 慢火金工創作室",
-                confidence: "high",
-                reason: "中文尾段是正式名稱",
+                results: [
+                  {
+                    slug: "unigaze",
+                    chosen: "UNIGAZE 慢火金工創作室",
+                    confidence: "high",
+                    reason: "中文尾段是正式名稱",
+                  },
+                ],
               }),
             },
           },
@@ -230,7 +234,7 @@ describe("arbitrateBrandNames", () => {
     expect(outcome.calls).toEqual({ attempted: 2, providerFailed: 0 });
   });
 
-  it("uses positional fallback when a response slug is missing or unknown", async () => {
+  it("uses positional fallback when a response slug is unknown", async () => {
     mockFetch.mockResolvedValueOnce({
       ok: true,
       json: async () => ({
@@ -240,6 +244,7 @@ describe("arbitrateBrandNames", () => {
               content: JSON.stringify({
                 results: [
                   {
+                    slug: "wrong-slug",
                     chosen: "小朱甜點",
                     confidence: "high",
                     reason: "保留正式名稱",
@@ -281,9 +286,14 @@ describe("arbitrateBrandNames", () => {
             {
               message: {
                 content: JSON.stringify({
-                  chosen: "小朱甜點",
-                  confidence: "high",
-                  reason: "保留正式名稱",
+                  results: [
+                    {
+                      slug: "xiao-zhu-dessert",
+                      chosen: "小朱甜點",
+                      confidence: "high",
+                      reason: "保留正式名稱",
+                    },
+                  ],
                 }),
               },
             },
@@ -297,9 +307,14 @@ describe("arbitrateBrandNames", () => {
             {
               message: {
                 content: JSON.stringify({
-                  chosen: "UNIGAZE 慢火金工創作室",
-                  confidence: "high",
-                  reason: "保留完整名稱",
+                  results: [
+                    {
+                      slug: "unigaze",
+                      chosen: "UNIGAZE 慢火金工創作室",
+                      confidence: "high",
+                      reason: "保留完整名稱",
+                    },
+                  ],
                 }),
               },
             },

@@ -9,7 +9,12 @@ import { TAIWAN_USAGE_RULES } from "@/lib/prompts/shared";
 import { auditedCall } from "@/lib/audit";
 import { reportBannedTerms } from "@/lib/i18n/banned-terms";
 import { fetchLangfusePrompt } from "@/lib/langfuse/prompt";
-import { parseJson } from "./openai-client";
+import { z } from "zod";
+import {
+  parseAndValidate,
+  toStrictJsonSchema,
+  formatRetryInstruction,
+} from "./_shared/zod-schema";
 import {
   buildProfiledEnrichmentConfig,
   createProfiledOpenAIClient,
@@ -26,23 +31,24 @@ const ZH_BLURB_BAND = [40, 80] as const;
 const EN_BLURB_BAND = [60, 150] as const;
 
 /**
- * Structured Output schema for the description rewrite call. All four text
- * fields are required strings — the validator downstream rejects empty or
- * missing values, so the schema can enforce presence unconditionally.
+ * Zod shape for the description rewrite call. All four text fields are required
+ * strings — the validator downstream rejects empty or missing values, so the
+ * schema can enforce presence unconditionally.
+ */
+export const descriptionShape = z.object({
+  description_zh: z.string(),
+  description_en: z.string(),
+  blurb_zh: z.string(),
+  blurb_en: z.string(),
+});
+
+/**
+ * Structured Output schema for the description rewrite call, derived from the
+ * Zod shape via `toStrictJsonSchema`.
  */
 export const DESCRIPTION_SCHEMA = {
   name: "brand_description",
-  schema: {
-    type: "object" as const,
-    additionalProperties: false,
-    required: ["description_zh", "description_en", "blurb_zh", "blurb_en"],
-    properties: {
-      description_zh: { type: "string" as const },
-      description_en: { type: "string" as const },
-      blurb_zh: { type: "string" as const },
-      blurb_en: { type: "string" as const },
-    },
-  },
+  schema: toStrictJsonSchema(descriptionShape),
 };
 
 /**
@@ -204,32 +210,26 @@ const EMPTY_DESCRIPTION_RESULT: DescriptionRewriteResult = {
 export function parseDescriptionRewriteResult(
   content: string,
 ): DescriptionRewriteResult {
-  const parsed = parseJson<Record<string, unknown>>(content);
-
-  if (!parsed) {
+  const result = parseAndValidate(content, descriptionShape);
+  if (!result.success) {
     return { ...EMPTY_DESCRIPTION_RESULT };
   }
 
-  const rawDescriptionZh = parsed.description_zh ?? parsed.description;
-  const rawDescriptionEn = parsed.description_en;
   const descriptionZh =
-    typeof rawDescriptionZh === "string" && rawDescriptionZh.trim().length > 0
-      ? rawDescriptionZh.trim()
+    result.data.description_zh.trim().length > 0
+      ? result.data.description_zh.trim()
       : null;
   const descriptionEn =
-    typeof rawDescriptionEn === "string" && rawDescriptionEn.trim().length > 0
-      ? rawDescriptionEn.trim()
+    result.data.description_en.trim().length > 0
+      ? result.data.description_en.trim()
       : null;
-
-  const rawBlurbZh = parsed.blurb_zh;
-  const rawBlurbEn = parsed.blurb_en;
   const blurbZh =
-    typeof rawBlurbZh === "string" && rawBlurbZh.trim().length > 0
-      ? rawBlurbZh.trim()
+    result.data.blurb_zh.trim().length > 0
+      ? result.data.blurb_zh.trim()
       : null;
   const blurbEn =
-    typeof rawBlurbEn === "string" && rawBlurbEn.trim().length > 0
-      ? rawBlurbEn.trim()
+    result.data.blurb_en.trim().length > 0
+      ? result.data.blurb_en.trim()
       : null;
 
   return {
@@ -646,11 +646,8 @@ export async function rewriteBrandDescription(
     taiwan_usage_rules: TAIWAN_USAGE_RULES,
   });
   try {
+    let retryInstruction = "";
     for (let attemptIndex = 0; attemptIndex < 2; attemptIndex += 1) {
-      const retryInstruction =
-        attemptIndex === 0
-          ? ""
-          : buildDescriptionRetryInstruction(lastRejections, lastParsed);
 
       const startAt = Date.now();
       const client = createProfiledOpenAIClient(
@@ -694,8 +691,11 @@ export async function rewriteBrandDescription(
         return { result: null, attempts, calls };
       }
 
-      const parsed = parseJson<Record<string, unknown>>(content);
-      if (!parsed) {
+      const zodResult = parseAndValidate(content, descriptionShape);
+      if (!zodResult.success) {
+        const zodRetryDetail = zodResult.issues
+          ? formatRetryInstruction(zodResult.issues)
+          : "";
         attempts.push({
           attempt: attemptIndex + 1,
           input: attemptInput,
@@ -714,6 +714,10 @@ export async function rewriteBrandDescription(
         });
 
         if (attemptIndex === 0) {
+          // Structural Zod failure takes priority over business validation
+          retryInstruction = zodRetryDetail
+            ? `\n\n前一次輸出未通過結構檢查，請修正以下欄位：\n${zodRetryDetail}`
+            : "\n\n前一次輸出無法解析：請只輸出單一 JSON 物件，不要加上說明文字或 Markdown。";
           continue;
         }
 
@@ -770,6 +774,9 @@ export async function rewriteBrandDescription(
       ) {
         return { result: bestResult, attempts, calls };
       }
+
+      // Zod passed but business validation failed — use the semantic retry
+      retryInstruction = buildDescriptionRetryInstruction(lastRejections, lastParsed);
     }
 
     const finalResult = bestResult ?? { ...EMPTY_DESCRIPTION_RESULT };

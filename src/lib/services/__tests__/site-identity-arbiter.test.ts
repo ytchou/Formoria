@@ -52,12 +52,14 @@ describe("arbitrateSiteIdentity", () => {
         results: [
           {
             slug: "xiao-zhu-dessert",
+            subjectUrl: "https://xiao-zhu.example",
             owned: true,
             confidence: "high",
             reason: "品牌官方網站",
           },
           {
             slug: "unigaze",
+            subjectUrl: "https://example.com/unigaze",
             owned: false,
             confidence: "medium",
             reason: "媒體文章",
@@ -93,12 +95,14 @@ describe("arbitrateSiteIdentity", () => {
         results: [
           {
             slug: "xiao-zhu-dessert",
+            subjectUrl: "https://xiao-zhu.example",
             owned: true,
             confidence: "certain",
             reason: "不接受未知信心值",
           },
           {
             slug: "unigaze",
+            subjectUrl: "https://example.com/unigaze",
             owned: false,
             confidence: "low",
             reason: "資訊不足",
@@ -213,6 +217,7 @@ describe("arbitrateSiteIdentity", () => {
           results: [
             {
               slug: "xiao-zhu-dessert",
+              subjectUrl: "https://xiao-zhu.example",
               owned: true,
               confidence: "high",
               reason: "官方網域",
@@ -225,6 +230,7 @@ describe("arbitrateSiteIdentity", () => {
           results: [
             {
               slug: "unigaze",
+              subjectUrl: "https://example.com/unigaze",
               owned: false,
               confidence: "medium",
               reason: "外部頁面",

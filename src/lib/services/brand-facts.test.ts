@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import {
   parseBrandFactsResult,
-  FACTS_SCHEMA,
+  factsShape,
   extractBrandFacts,
   researchFoundingFacts,
 } from "./brand-facts";
@@ -228,20 +228,17 @@ describe("parseBrandFactsResult — category", () => {
 
 describe("FACTS_SCHEMA", () => {
   it("has category enum matching L1_CATEGORIES slugs", () => {
-    const categoryProp = FACTS_SCHEMA.schema.properties.category as {
-      enum: unknown[];
-    };
     const expectedSlugs = L1_CATEGORIES.map((c) => c.slug);
-    // The enum includes null for the nullable case
-    expect(categoryProp.enum).toEqual(expect.arrayContaining(expectedSlugs));
-    expect(categoryProp.enum).toContain(null);
+    // The Zod enum's `.options` carries the allowed string values
+    const categoryOptions = factsShape.shape.category.unwrap().options;
+    expect(categoryOptions).toEqual(expect.arrayContaining(expectedSlugs));
+    // Nullable — the outer wrapper is z.nullable()
+    expect(factsShape.shape.category.isNullable()).toBe(true);
   });
 
   it("has listing.reasoning property", () => {
-    const listingProp = FACTS_SCHEMA.schema.properties.listing as {
-      properties: Record<string, unknown>;
-    };
-    expect(listingProp.properties).toHaveProperty("reasoning");
+    const listingKeys = Object.keys(factsShape.shape.listing.shape);
+    expect(listingKeys).toContain("reasoning");
   });
 
   it("passes 3 variable keys to fetchLangfusePrompt", async () => {

@@ -38,9 +38,6 @@ export const ALLOWED_UNAUDITED_FETCH = [
   // OpenAI HTTP adapter. Wrapped by src/lib/services/llm-audit.ts as
   // openai.chat_completions.
   'src/lib/services/openai-client.ts',
-  // DeepSeek HTTP adapter. Wrapped by src/lib/services/llm-audit.ts as
-  // deepseek.chat_completions and deepseek.balance.
-  'src/lib/services/deepseek-client.ts',
   // Edge-runtime breaker telemetry to PostHog ingest. Same structural bar as the
   // 'use client' rule above, one layer out: the envelope reaches src/lib/audit/emit.ts,
   // which imports the Node Sentry SDK, and this module is loaded by the proxy in the

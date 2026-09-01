@@ -1,4 +1,5 @@
 import { randomUUID } from "node:crypto";
+import { z } from "zod";
 import { auditedCall } from "@/lib/audit";
 import { PRODUCTS_LABELS, PRODUCTS_SYSTEM_PROMPT } from "@/lib/prompts";
 import {
@@ -33,7 +34,11 @@ import {
   profileChatParams,
 } from "../llm-audit";
 import { fetchLangfusePrompt } from "@/lib/langfuse/prompt";
-import { parseJson } from "../openai-client";
+import {
+  parseAndValidate,
+  toStrictJsonSchema,
+  formatRetryInstruction,
+} from "../_shared/zod-schema";
 import {
   isLlmProviderFailure,
   type LlmCallCounts,
@@ -126,82 +131,53 @@ const L1_SLUGS = new Set<string>(
  * an illegal reply under `json_object` and returned an empty object on every
  * call of the DEV-1321 eval. See `NAME_ARBITRATION_SCHEMA`.
  */
+const productsShape = z.object({
+  evaluations: z.array(
+    z.object({
+      candidate_url: z.string(),
+      editorial_score: z.number().int().min(0).max(100),
+      editorial_rationale: z.string(),
+      made_in_taiwan: z.boolean(),
+      materials_from_taiwan: z.boolean(),
+      origin_excerpt_ids: z.array(z.string()),
+      product_model: z.string().nullable(),
+    }),
+  ),
+  products: z.array(
+    z.object({
+      name_zh: z.string(),
+      name_en: z.string().nullable(),
+      category: z.string().nullable(),
+      subcategory: z.string().nullable(),
+      material: z.array(z.string()),
+      official_url: z.string(),
+      image_source_url: z.string().nullable(),
+      product_description_zh: z.string(),
+      sources: z.array(
+        z.object({
+          url: z.string(),
+          source_type: z.string(),
+          claim_zh: z.string().nullable(),
+        }),
+      ),
+    }),
+  ),
+});
+
 const PRODUCTS_SCHEMA = {
   name: "curated_product_proposals",
-  schema: {
-    type: "object",
-    additionalProperties: false,
-    properties: {
-      evaluations: {
-        type: "array",
-        items: {
-          type: "object",
-          additionalProperties: false,
-          properties: {
-            candidate_url: { type: "string" },
-            editorial_score: { type: "integer", minimum: 0, maximum: 100 },
-            editorial_rationale: { type: "string" },
-            made_in_taiwan: { type: "boolean" },
-            materials_from_taiwan: { type: "boolean" },
-            origin_excerpt_ids: { type: "array", items: { type: "string" } },
-            product_model: { type: ["string", "null"] },
-          },
-          required: [
-            "candidate_url",
-            "editorial_score",
-            "editorial_rationale",
-            "made_in_taiwan",
-            "materials_from_taiwan",
-            "origin_excerpt_ids",
-            "product_model",
-          ],
-        },
-      },
-      products: {
-        type: "array",
-        items: {
-          type: "object",
-          additionalProperties: false,
-          properties: {
-            name_zh: { type: "string" },
-            name_en: { type: ["string", "null"] },
-            category: { type: ["string", "null"] },
-            subcategory: { type: ["string", "null"] },
-            material: { type: "array", items: { type: "string" } },
-            official_url: { type: "string" },
-            image_source_url: { type: ["string", "null"] },
-            product_description_zh: { type: "string" },
-            sources: {
-              type: "array",
-              items: {
-                type: "object",
-                additionalProperties: false,
-                properties: {
-                  url: { type: "string" },
-                  source_type: { type: "string" },
-                  claim_zh: { type: ["string", "null"] },
-                },
-                required: ["url", "source_type", "claim_zh"],
-              },
-            },
-          },
-          required: [
-            "name_zh",
-            "name_en",
-            "category",
-            "subcategory",
-            "material",
-            "official_url",
-            "image_source_url",
-            "product_description_zh",
-            "sources",
-          ],
-        },
-      },
-    },
-    required: ["evaluations", "products"],
-  },
-} as const;
+  schema: toStrictJsonSchema(productsShape),
+};
+
+/**
+ * Lenient parse shape for `parseAndValidate`: validates only the top-level
+ * structure so that individual product/evaluation failures are caught downstream
+ * by `validateProductProposals` rather than rejecting the entire response.
+ */
+const productsParseShape = z.object({
+  evaluations: z.array(z.unknown()).optional(),
+  products: z.array(z.unknown()),
+});
 
 export type ProductsModelResult = {
   evaluations?: unknown;
@@ -1066,12 +1042,13 @@ export async function runProductsPhase({
             },
             { apiKey: token },
           );
-          const response = await client.chat({
+          const chatParams = {
             system: productsSystemPrompt,
             user: userContent,
             schema: PRODUCTS_SCHEMA,
             ...profileChatParams("products"),
-          });
+          };
+          const response = await client.chat(chatParams);
           if (!response.response.ok) {
             return {
               proposals: [],
@@ -1084,8 +1061,32 @@ export async function runProductsPhase({
               candidateIdsByUrl,
             };
           }
-          const parsed = parseJson<ProductsModelResult>(response.content ?? "");
-          parseError = parsed === null;
+          let callCount = 1;
+          let validatedContent = parseAndValidate(
+            response.content ?? "",
+            productsParseShape,
+          );
+          // 1-retry: on validation failure, retry once with structured feedback
+          if (!validatedContent.success) {
+            const retryInstruction = validatedContent.issues
+              ? formatRetryInstruction(validatedContent.issues)
+              : validatedContent.error;
+            const retryResponse = await client.chat({
+              ...chatParams,
+              user: `${userContent}\n\n${retryInstruction}`,
+            });
+            callCount += 1;
+            if (retryResponse.response.ok) {
+              validatedContent = parseAndValidate(
+                retryResponse.content ?? "",
+                productsParseShape,
+              );
+            }
+          }
+          const parsed: ProductsModelResult = validatedContent.success
+            ? validatedContent.data
+            : {};
+          parseError = !validatedContent.success;
           const evaluations = validateCandidateEvaluations(
             parsed ?? {},
             evaluationCandidates,
@@ -1147,7 +1148,7 @@ export async function runProductsPhase({
           });
           return {
             ...validation,
-            calls: { attempted: 1, providerFailed: 0 },
+            calls: { attempted: callCount, providerFailed: 0 },
             evaluations,
             originDecisions,
             candidateIdsByUrl,

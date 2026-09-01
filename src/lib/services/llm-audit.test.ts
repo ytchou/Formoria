@@ -5,7 +5,7 @@ import {
   setAuditWriteSeam,
   type AuditRecord,
 } from "@/lib/audit";
-import { createAuditedDeepSeekClient, createAuditedOpenAIClient } from "./llm-audit";
+import { createAuditedOpenAIClient } from "./llm-audit";
 import { brandTarget } from "./_shared/enrichment-target";
 
 vi.mock("./llm-pricing", () => ({
@@ -129,65 +129,6 @@ describe("audited LLM clients", () => {
     });
   });
 
-  it("onChatComplete bridges usage to audit context for DeepSeek", async () => {
-    vi.stubGlobal(
-      "fetch",
-      vi.fn().mockResolvedValue(
-        new Response(
-          JSON.stringify({
-            choices: [{ message: { content: "answer" } }],
-            usage: { prompt_tokens: 100, completion_tokens: 25 },
-          }),
-          { status: 200 },
-        ),
-      ),
-    );
-
-    const inserts: InsertedRow[] = [];
-    const client = createAuditedDeepSeekClient(
-      {
-        target,
-        phase: "descriptions",
-        supabase: fakeSupabase(inserts),
-      },
-      { apiKey: "k" },
-    );
-
-    await client.chat({ system: "s", user: "u" });
-
-    expect(writes).toHaveLength(2);
-    expect(writes[1]).toMatchObject({
-      status: "succeeded",
-      promptTokens: 100,
-      completionTokens: 25,
-      costUsd: 0.005,
-    });
-  });
-
-  it("audits a DeepSeek balance call", async () => {
-    const client = createAuditedDeepSeekClient(
-      {
-        target,
-        phase: "descriptions",
-      },
-      { apiKey: "k" },
-    );
-
-    await client.balance();
-
-    expect(writes).toHaveLength(2);
-    expect(writes[0]).toMatchObject({
-      provider: "deepseek",
-      operation: "balance",
-      status: "started",
-      summary: { phase: "descriptions", targetType: "brand" },
-    });
-    expect(writes[1]).toMatchObject({
-      provider: "deepseek",
-      operation: "balance",
-      status: "succeeded",
-    });
-  });
 });
 
 describe("Langfuse generation integration", () => {

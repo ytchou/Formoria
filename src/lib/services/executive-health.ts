@@ -422,10 +422,6 @@ export function defaultChecks(): ExecutiveHealthCheckDefinition[] {
         ),
       ),
     },
-    // DeepSeek is deliberately absent since the gpt-5.6-luna migration: no
-    // production path calls it, so its account balance signals nothing about
-    // work we actually do — a lapsed balance on a dormant fallback provider
-    // must not page anyone. See deepseek-client.ts for the revival path.
     {
       id: "openai",
       service: "OpenAI",
