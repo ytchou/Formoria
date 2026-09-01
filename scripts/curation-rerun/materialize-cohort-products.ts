@@ -42,7 +42,8 @@ async function main() {
       .order('submitted_at', { ascending: false })
       .limit(1)
     const sub = subs?.[0]
-    const products = sub?.enriched_data?.products ?? []
+    if (!sub) continue
+    const products = sub.enriched_data?.products ?? []
     if (products.length > 0) {
       // Check if brand already has curated_products
       const { count } = await rawClient
