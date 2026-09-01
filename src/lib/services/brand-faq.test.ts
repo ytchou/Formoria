@@ -43,7 +43,6 @@ function makeBrand(overrides: Partial<Brand> = {}): Brand {
     createdAt: "",
     updatedAt: "",
     onboardingDismissedAt: null,
-    logoUrl: null,
     ...overrides,
   };
 }
@@ -248,12 +247,9 @@ describe("getBrandFaq", () => {
       }),
     );
 
-    // category-position is prompt-only (no template floor); the other two
-    // presets reach the page.
-    expect(items.map((item) => item.id)).toEqual([
-      "main-products",
-      "reputation",
-    ]);
+    // category-position is prompt-only (no template floor); main-products is
+    // the only preset that reaches the page (reputation was removed).
+    expect(items.map((item) => item.id)).toEqual(["main-products"]);
   });
 
   // I10: the floor interpolates the locale's own tag array, so eligibility has

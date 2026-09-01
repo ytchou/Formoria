@@ -13,9 +13,7 @@
  * visitors and crawlers see, not the raw table.
  *
  * A column counts as populated using the same semantics the render path
- * applies: strings must be non-blank, and `reputation_summary` must carry a
- * `text` string (see `normalizeReputationSummary` in lib/services/brands.ts) —
- * a bare `{}` renders nothing and is not coverage.
+ * applies: strings must be non-blank.
  *
  * This script performs NO writes of any kind.
  *
@@ -27,20 +25,10 @@ import { excludeTestBrands } from "@/lib/services/public-brand-filter";
 
 type CoverageRow = {
   category: string | null;
-  reputation_summary: unknown;
 };
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
-}
 
 function hasText(value: unknown): boolean {
   return typeof value === "string" && value.trim().length > 0;
-}
-
-/** Mirrors normalizeReputationSummary: no `text` string means nothing renders. */
-function hasReputationSummary(value: unknown): boolean {
-  return isRecord(value) && hasText(value.text);
 }
 
 function percent(part: number, whole: number): string {
@@ -58,7 +46,7 @@ async function main(): Promise<void> {
   const { data, error, count } = await excludeTestBrands(
     supabase
       .from("brands")
-      .select("category, reputation_summary", {
+      .select("category", {
         count: "exact",
       })
       .eq("status", "approved"),
@@ -86,14 +74,10 @@ async function main(): Promise<void> {
   }
 
   const typePopulated = rows.filter((row) => hasText(row.category)).length;
-  const reputationPopulated = rows.filter((row) =>
-    hasReputationSummary(row.reputation_summary),
-  ).length;
 
   console.log("\n  column                 populated / total   coverage");
   console.log("  " + "-".repeat(48));
   console.log(line("category", typePopulated, total));
-  console.log(line("reputation_summary", reputationPopulated, total));
 
 }
 

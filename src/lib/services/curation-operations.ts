@@ -64,7 +64,6 @@ import {
   runCleanPhase,
   runDescriptionsPhase,
   runDiscoverPhase,
-  runReputationPhase,
   runFaqPhase,
   runProductsPhase,
   runStockistsPhase,
@@ -122,7 +121,6 @@ type CurationBrand = {
   category?: string | null;
   subcategories?: string[] | null;
   site_content?: unknown | null;
-  reputation_summary?: unknown | null;
   purchase_website?: string | null;
   purchaseWebsite?: string | null;
 };
@@ -329,10 +327,6 @@ export function needsPhase(
         brand.hero_image_url ??
         brand.heroImageUrl,
     );
-  }
-
-  if (phase === "reputation") {
-    return isEmptyField(brand.reputation_summary ?? brand.reputationSummary);
   }
 
   if (phase === "faq") {
@@ -1080,7 +1074,6 @@ function buildBrandPhaseOrder(
     "images",
     "descriptions",
     "stockists",
-    "reputation",
     "faq",
     phases.includes("tags") && "tags",
   ]
@@ -1096,7 +1089,7 @@ type LinksPhaseResult = Awaited<ReturnType<typeof runLinksPhase>>;
  *
  * Wave A runs detect application -> clean -> links. The batched serper image
  * call then runs with the websites and names those phases produced. Wave B
- * resumes from this object for the images, description, location, reputation,
+ * resumes from this object for the images, description, location, faq,
  * tag and persist phases.
  *
  * `completed` is the single source of truth for "this target already recorded a
@@ -1386,7 +1379,6 @@ export function submissionToEnrichBrand(
     site_content: isPlainObject(existing.site_content)
       ? existing.site_content
       : null,
-    reputation_summary: existing.reputation_summary ?? null,
     category: typeof existing.category === "string" ? existing.category : null,
     social_instagram:
       typeof existing.social_instagram === "string"
@@ -2409,7 +2401,7 @@ export async function runEnrich(
           );
         }
 
-        // ---- Wave B: images -> descriptions -> reputation -> ... -> persist ---
+        // ---- Wave B: images -> descriptions -> ... -> persist ---
         await mapWithConcurrency(
           pendingBrands,
           ENRICH_BRAND_CONCURRENCY,
@@ -2725,22 +2717,6 @@ export async function runEnrich(
                 state.phaseResults.push(stockistsResult.phaseResult);
                 await logCurrentPhase(ctx, stockistsResult.phaseResult);
                 appendPatch(state, stockistsResult.patch);
-              }
-
-              if (!satisfiedPhaseSet.has("reputation")) {
-                await markCurrentPhase(ctx, "reputation");
-                const reputationResult = await runReputationPhase({
-                  brand,
-                  phases,
-                  serpSnippets: state.serpSnippets,
-                  scrapedData: state.scrapedData,
-                  overwrite,
-                  target: { type: targetType, id: brand.id },
-                  jobId: config.jobId,
-                });
-                state.phaseResults.push(reputationResult.phaseResult);
-                await logCurrentPhase(ctx, reputationResult.phaseResult);
-                appendPatch(state, reputationResult.patch);
               }
 
               if (!satisfiedPhaseSet.has("faq")) {

@@ -1,5 +1,4 @@
 import * as cheerio from 'cheerio'
-import { auditedCall } from '@/lib/audit'
 import {
   ONLINE_STORES,
   type OnlineStoreCamelField,
@@ -449,105 +448,6 @@ export function toImageSources(
   return urls.map((url, position) => ({ url, method, pageUrl, position }))
 }
 
-/**
- * Parse an icon `sizes` attribute (e.g. "192x192") into a comparable number.
- * Returns 0 when the format is unrecognised.
- */
-function parseIconSize(sizes: string | undefined): number {
-  if (!sizes) return 0
-  const match = sizes.match(/^(\d+)x(\d+)$/i)
-  if (!match) return 0
-  return Math.max(Number(match[1]), Number(match[2]))
-}
-
-const MANIFEST_FETCH_TIMEOUT_MS = 5_000
-
-/**
- * Extract favicon / app-icon URLs from a page, ordered by quality:
- * 1. apple-touch-icon (usually 180x180 PNG)
- * 2. generic <link rel="icon"> (excluding .ico), sorted by `sizes` descending
- * 3. Web manifest fallback — fetch manifest.json, pick the largest icon
- */
-export async function extractFavicons(
-  $: cheerio.CheerioAPI,
-  baseUrl: string
-): Promise<string[]> {
-  const urls: string[] = []
-
-  // 1. apple-touch-icon
-  $('link[rel="apple-touch-icon"]').each((_, el) => {
-    const href = $(el).attr('href')
-    if (!href) return
-    const resolved = resolveUrl(href, baseUrl)
-    if (resolved) urls.push(resolved)
-  })
-
-  // 2. generic <link rel="icon">, filter .ico, sort by sizes descending
-  const iconEntries: Array<{ url: string; size: number }> = []
-  $('link[rel="icon"]').each((_, el) => {
-    const href = $(el).attr('href')
-    if (!href) return
-    const resolved = resolveUrl(href, baseUrl)
-    if (!resolved) return
-    try {
-      const pathname = new URL(resolved).pathname
-      if (pathname.toLowerCase().endsWith('.ico')) return
-    } catch {
-      return
-    }
-    iconEntries.push({
-      url: resolved,
-      size: parseIconSize($(el).attr('sizes') ?? undefined),
-    })
-  })
-  iconEntries.sort((a, b) => b.size - a.size)
-  for (const entry of iconEntries) {
-    urls.push(entry.url)
-  }
-
-  if (urls.length > 0) return urls
-
-  // 3. Web manifest fallback — only when no link icons were found
-  const manifestHref = $('link[rel="manifest"]').attr('href')
-  if (!manifestHref) return []
-
-  const manifestUrl = resolveUrl(manifestHref, baseUrl)
-  if (!manifestUrl) return []
-
-  try {
-    const manifestIcons = await auditedCall(
-      { provider: 'http', operation: 'fetch_manifest', kind: 'external' },
-      async (): Promise<string[]> => {
-        const response = await fetch(manifestUrl, {
-          signal: AbortSignal.timeout(MANIFEST_FETCH_TIMEOUT_MS),
-        })
-        if (!response.ok) return []
-
-        const manifest = (await response.json()) as {
-          icons?: Array<{ src?: string; sizes?: string }>
-        }
-        if (!Array.isArray(manifest.icons) || manifest.icons.length === 0)
-          return []
-
-        // Pick the largest icon
-        const sorted = [...manifest.icons]
-          .filter((icon) => icon.src)
-          .sort((a, b) => parseIconSize(b.sizes) - parseIconSize(a.sizes))
-
-        const best = sorted[0]
-        if (!best?.src) return []
-
-        const resolved = resolveUrl(best.src, baseUrl)
-        return resolved ? [resolved] : []
-      },
-    )
-    return manifestIcons
-  } catch {
-    // Manifest fetch failed — skip silently
-    return []
-  }
-}
-
 export function extractJsonLd($: cheerio.CheerioAPI): Record<string, unknown> | null {
   const scriptTag = $('script[type="application/ld+json"]').first().html()
   if (!scriptTag) return null
@@ -738,6 +638,5 @@ export function emptyResult(websiteUrl: string): ScrapedBrandData {
     rawJsonLd: null,
     stockistPageText: null,
     jsonLdImageUrls: [],
-    faviconUrls: [],
   }
 }

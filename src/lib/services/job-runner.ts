@@ -375,15 +375,17 @@ function parseStatus(value: unknown): BrandStatus | undefined {
     : undefined;
 }
 
+const RETIRED_ENRICH_PHASES = new Set(["expansion", "reputation"]);
+
 /**
- * Historical jobs (and automatic retries of them) store `expansion` — the name
- * the reputation phase had until 2026-08-03. Mapping it BEFORE validation is
- * what keeps such a job at its original scope: the filter below drops unknown
- * names, so an unmapped `expansion` would silently shrink the run instead of
- * failing loudly.
+ * Drops retired phase names from historical jobs. `expansion` was renamed to
+ * `reputation` (2026-08-03); `reputation` removed entirely (2026-08-31).
+ * The filter on line 401 already drops unknown names, but normalizing here
+ * prevents `expansion` from being carried as a valid-looking but unrecognized
+ * string into other code paths.
  */
 function normalizeLegacyEnrichPhase(phase: string): string {
-  return phase === "expansion" ? "reputation" : phase;
+  return RETIRED_ENRICH_PHASES.has(phase) ? "" : phase;
 }
 
 function parseEnrichPhases(value: unknown): EnrichPhase[] | undefined {

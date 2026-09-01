@@ -1040,13 +1040,11 @@ describe("planStorageKeys", () => {
       brands: [
         {
           hero_image_storage_path: "brands/b1/hero.webp",
-          logo_storage_path: "brands/b1/favicon.png",
         },
       ],
     });
 
     expect(plan.keys).toEqual([
-      "brands/b1/favicon.png",
       "brands/b1/hero.webp",
     ]);
   });

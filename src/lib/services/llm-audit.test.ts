@@ -147,7 +147,7 @@ describe("audited LLM clients", () => {
     const client = createAuditedDeepSeekClient(
       {
         target,
-        phase: "reputation",
+        phase: "descriptions",
         supabase: fakeSupabase(inserts),
       },
       { apiKey: "k" },
@@ -168,7 +168,7 @@ describe("audited LLM clients", () => {
     const client = createAuditedDeepSeekClient(
       {
         target,
-        phase: "reputation",
+        phase: "descriptions",
       },
       { apiKey: "k" },
     );
@@ -180,7 +180,7 @@ describe("audited LLM clients", () => {
       provider: "deepseek",
       operation: "balance",
       status: "started",
-      summary: { phase: "reputation", targetType: "brand" },
+      summary: { phase: "descriptions", targetType: "brand" },
     });
     expect(writes[1]).toMatchObject({
       provider: "deepseek",

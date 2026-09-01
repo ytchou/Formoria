@@ -19,7 +19,6 @@ import { FACTS_SYSTEM_PROMPT } from "@/lib/prompts/facts";
 import { NAME_ARBITER_SYSTEM_PROMPT } from "@/lib/prompts/names";
 import { SITE_IDENTITY_SYSTEM_PROMPT } from "@/lib/prompts/site-identity";
 import { DESCRIPTION_SYSTEM_PROMPT } from "@/lib/prompts/descriptions";
-import { REPUTATION_SYSTEM_PROMPT } from "@/lib/prompts/reputation";
 import { FAQ_PROMPT_PREAMBLE } from "@/lib/prompts/faq";
 import { IMAGE_CLASSIFY_SYSTEM_PROMPT } from "@/lib/prompts/classify-images";
 import { PRODUCTS_SYSTEM_PROMPT } from "@/lib/prompts/products";
@@ -123,7 +122,6 @@ function buildManifest(): PromptEntry[] {
     { name: "name-arbiter", prompt: NAME_ARBITER_SYSTEM_PROMPT, variableNames: [] },
     { name: "site-identity", prompt: SITE_IDENTITY_SYSTEM_PROMPT, variableNames: [] },
     { name: "descriptions", prompt: DESCRIPTION_SYSTEM_PROMPT, variableNames: ["taiwan_usage_rules"] },
-    { name: "reputation", prompt: REPUTATION_SYSTEM_PROMPT, variableNames: [] },
     { name: "faq-preamble", prompt: FAQ_PROMPT_PREAMBLE, variableNames: ["taiwan_usage_rules"] },
     { name: "classify-images", prompt: IMAGE_CLASSIFY_SYSTEM_PROMPT, variableNames: [] },
     {

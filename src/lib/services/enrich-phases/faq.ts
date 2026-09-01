@@ -94,37 +94,39 @@ const FAQ_PROMPT_PARAMS = {
   siteContentLimit: 4000,
 };
 
-const FAQ_SCHEMA = {
-  name: "faq_entries",
-  schema: {
-    type: "object",
-    additionalProperties: false,
-    properties: {
-      entries: {
-        type: "array",
-        items: {
-          type: "object",
-          additionalProperties: false,
-          properties: {
-            preset_id: { type: "string" },
-            question_zh: { type: "string" },
-            answer_zh: { type: "string" },
-            question_en: { type: "string" },
-            answer_en: { type: "string" },
+function buildFaqSchema(presetIds: string[]) {
+  return {
+    name: "faq_entries",
+    schema: {
+      type: "object" as const,
+      additionalProperties: false,
+      properties: {
+        entries: {
+          type: "array" as const,
+          items: {
+            type: "object" as const,
+            additionalProperties: false,
+            properties: {
+              preset_id: { type: "string" as const, enum: presetIds },
+              question_zh: { type: "string" as const },
+              answer_zh: { type: "string" as const },
+              question_en: { type: "string" as const },
+              answer_en: { type: "string" as const },
+            },
+            required: [
+              "preset_id",
+              "question_zh",
+              "answer_zh",
+              "question_en",
+              "answer_en",
+            ],
           },
-          required: [
-            "preset_id",
-            "question_zh",
-            "answer_zh",
-            "question_en",
-            "answer_en",
-          ],
         },
       },
+      required: ["entries"],
     },
-    required: ["entries"],
-  },
-} as const;
+  };
+}
 
 function skipped(detail: string): FaqPhaseOutput {
   return {
@@ -540,6 +542,7 @@ export async function runFaqPhase({
         };
     }
 
+    const faqSchema = buildFaqSchema(authorable.map((p) => p.id));
     const localSystemPrompt = buildFaqSystemPrompt(authorable, ctx);
     const langfusePreamble = await fetchLangfusePrompt("faq-preamble", FAQ_PROMPT_PREAMBLE, {
       taiwan_usage_rules: TAIWAN_USAGE_RULES,
@@ -599,7 +602,7 @@ export async function runFaqPhase({
         const response = await client.chat({
           system: systemPrompt,
           user: `${userContent}${retryInstruction}`,
-          schema: FAQ_SCHEMA,
+          schema: faqSchema,
           ...profileChatParams("faq"),
         });
         return { ok: response.response.ok, content: response.content };

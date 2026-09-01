@@ -17,15 +17,12 @@ export {
   FOUNDING_FACTS_VERIFY_SYSTEM_PROMPT,
 } from "./facts";
 export { DESCRIPTION_SYSTEM_PROMPT } from "./descriptions";
-export { REPUTATION_SYSTEM_PROMPT } from "./reputation";
 export {
   FAQ_PROMPT_PREAMBLE,
   faqCustomPrompt,
   faqMainProductsPrompt,
-  faqReputationPrompt,
   faqCategoryPositionPrompt,
   faqWhereToBuyPrompt,
-  faqMaterialsPrompt,
 } from "./faq";
 export { IMAGE_CLASSIFY_SYSTEM_PROMPT } from "./classify-images";
 export { PRODUCTS_SYSTEM_PROMPT, PRODUCTS_LABELS } from "./products";

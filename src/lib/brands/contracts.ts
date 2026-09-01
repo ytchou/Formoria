@@ -23,7 +23,6 @@ export type PublicBrandCard = {
   blurb: string | null;
   blurbEn: string | null;
   heroImageUrl: string | null;
-  logoUrl: string | null;
   status: "approved" | "hidden";
   categorySlug?: string | null;
   categoryLabel: string | null;
@@ -117,7 +116,6 @@ export function toPublicBrandCard(brand: Brand): PublicBrandCard {
     blurb: brand.blurb,
     blurbEn: brand.blurbEn,
     heroImageUrl: brand.heroImageUrl,
-    logoUrl: brand.logoUrl,
     status: brand.status,
     categorySlug: brand.categorySlug ?? null,
     categoryLabel: brand.categoryLabel,

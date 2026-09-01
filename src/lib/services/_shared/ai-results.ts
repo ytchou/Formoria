@@ -203,11 +203,6 @@ export type AiTriageInput = {
   confidence: "high" | "medium" | "low";
 };
 
-export type AiReputationInput = {
-  brandId: string;
-  target?: EnrichmentTarget;
-};
-
 export async function insertTriageResult(input: AiTriageInput): Promise<void> {
   const supabase = createServiceClient();
   const { error } = await supabase.from("brand_ai_results").insert({
@@ -344,22 +339,6 @@ export async function updateFactsAuditResult(input: {
     console.error(
       `  [AI-RESULTS] updateFactsAuditResult failed:`,
       updateError.message,
-    );
-}
-
-export async function insertReputationResult(
-  input: AiReputationInput,
-): Promise<void> {
-  const supabase = createServiceClient();
-  const { error } = await supabase.from("brand_ai_results").insert({
-    ...targetForeignKey(input.target ?? brandTarget(input.brandId)),
-    phase: "reputation",
-    model: textModel(),
-  } as never);
-  if (error)
-    console.error(
-      `  [AI-RESULTS] insertReputationResult failed:`,
-      error.message,
     );
 }
 

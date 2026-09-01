@@ -175,7 +175,7 @@ describe("mergeSubmissionEnrichedData", () => {
   });
 
   // A union would make the first clear permanent: the run that finally finds a
-  // real reputation could never take the field back off the cleared list.
+  // real value could never take the field back off the cleared list.
   it("replaces rather than unions _cleared_fields", () => {
     const result = mergeSubmissionEnrichedData(
       { _cleared_fields: ["reputation_summary"] },

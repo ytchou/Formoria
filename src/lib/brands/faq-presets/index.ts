@@ -3,9 +3,7 @@ import { FAQ_PROMPT_PREAMBLE } from "@/lib/prompts";
 import categoryPosition from "./category-position";
 import custom from "./custom";
 import mainProducts from "./main-products";
-import materials from "./materials";
 import originStory from "./origin-story";
-import reputation from "./reputation";
 import whereToBuy from "./where-to-buy";
 import {
   CUSTOM_QUESTION_CEILING,
@@ -21,7 +19,9 @@ import { groundedIn, notGeneric } from "./validators";
  * *declares* and the one that is *enforced* cannot drift apart.
  */
 function withDerivedValidators(preset: FaqPreset): FaqPreset {
-  const validators = [...preset.validators, notGeneric()];
+  const validators = preset.id === "custom"
+    ? [...preset.validators]
+    : [...preset.validators, notGeneric()];
   if (preset.requiredEvidence.length === 0) return { ...preset, validators };
   return {
     ...preset,
@@ -32,9 +32,7 @@ function withDerivedValidators(preset: FaqPreset): FaqPreset {
 export const FAQ_PRESETS: readonly FaqPreset[] = [
   categoryPosition,
   mainProducts,
-  reputation,
   whereToBuy,
-  materials,
   originStory,
   custom,
 ].map(withDerivedValidators);
