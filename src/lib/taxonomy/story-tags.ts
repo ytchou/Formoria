@@ -1,4 +1,4 @@
-import { L1_CATEGORIES } from "@/lib/taxonomy/ontology";
+import { VISIBLE_L1_CATEGORIES } from "@/lib/taxonomy/ontology";
 
 /**
  * Editorial tags live alongside the L1 category vocabulary on the same axis.
@@ -14,7 +14,7 @@ export const STORY_EDITORIAL_TAGS = ["event", "creative-expo"] as const;
  * story axis can never drift from the brand taxonomy.
  */
 export const STORY_TAGS: readonly string[] = [
-  ...L1_CATEGORIES.map((category) => category.slug),
+  ...VISIBLE_L1_CATEGORIES.map((category) => category.slug),
   ...STORY_EDITORIAL_TAGS,
 ];
 

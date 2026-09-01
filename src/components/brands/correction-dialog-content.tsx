@@ -21,7 +21,7 @@ import {
 } from "@/lib/brands/online-stores";
 import type { CorrectionField } from "@/lib/services/brand-corrections";
 import { sameSubcategorySet } from "@/lib/services/subcategories";
-import { categoryLabel, L1_CATEGORIES } from "@/lib/taxonomy/ontology";
+import { categoryLabel, L1_CATEGORIES, VISIBLE_L1_CATEGORIES } from "@/lib/taxonomy/ontology";
 import { sanitizeHref, stripUrlQuery } from "@/lib/url";
 import { SubcategoryPicker } from "@/components/forms/subcategory-picker";
 import { Badge } from "@/components/ui/badge";
@@ -388,7 +388,7 @@ export function CorrectionDialogContent({
           {field === "category" &&
             scalarRows(
               currentCategory ? categoryLabel(currentCategory, locale) : null,
-              L1_CATEGORIES.filter(
+              VISIBLE_L1_CATEGORIES.filter(
                 (item) => item.slug !== originalSelection,
               ).map((item) => ({
                 key: item.slug,

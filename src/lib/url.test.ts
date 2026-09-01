@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
+  getPublicOrigin,
   isPrivateUrl,
   normalizeInstagramHref,
   normalizeThreadsHref,
@@ -7,6 +8,47 @@ import {
   safeDecodeSlug,
   sanitizeHref,
 } from './url'
+
+describe('getPublicOrigin', () => {
+  function fakeRequest(url: string, headers: Record<string, string> = {}): Request {
+    return { url, headers: new Headers(headers) } as unknown as Request
+  }
+
+  it('uses x-forwarded-host and x-forwarded-proto when present', () => {
+    const req = fakeRequest('https://localhost:8080/foo', {
+      'x-forwarded-host': 'formoria.com',
+      'x-forwarded-proto': 'https',
+    })
+    expect(getPublicOrigin(req)).toBe('https://formoria.com')
+  })
+
+  it('prefers x-forwarded-host over host', () => {
+    const req = fakeRequest('https://localhost:8080/foo', {
+      host: 'internal.railway.app',
+      'x-forwarded-host': 'formoria.com',
+    })
+    expect(getPublicOrigin(req)).toBe('https://formoria.com')
+  })
+
+  it('falls back to host header', () => {
+    const req = fakeRequest('https://localhost:8080/foo', {
+      host: 'formoria.com',
+    })
+    expect(getPublicOrigin(req)).toBe('https://formoria.com')
+  })
+
+  it('falls back to request.url origin when no host headers', () => {
+    const req = fakeRequest('http://localhost:3000/foo')
+    expect(getPublicOrigin(req)).toBe('http://localhost:3000')
+  })
+
+  it('defaults proto to https when x-forwarded-proto is absent', () => {
+    const req = fakeRequest('http://localhost:8080/foo', {
+      host: 'formoria.com',
+    })
+    expect(getPublicOrigin(req)).toBe('https://formoria.com')
+  })
+})
 
 describe('isPrivateUrl', () => {
   it.each([

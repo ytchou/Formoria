@@ -8,7 +8,7 @@ import {
 import HeroSection from "@/components/landing/hero-section";
 import { LandingZones } from "@/components/landing/landing-zones";
 import SectionBand from "@/components/landing/section-band";
-import { EXPLORE_BRAND_LIMIT, getExploreBrands } from "@/lib/services/brands";
+import { getExploreBrands } from "@/lib/services/brands";
 import {
   getPublishedCuratedProductsForHomepage,
   MIN_HOME_CURATED_PRODUCTS,
@@ -96,7 +96,7 @@ export default async function LandingPage({ params }: PageProps) {
 
   const [exploreResult, curatedProductsResult, storyResult, trailResult] =
     await Promise.all([
-      getExploreBrands(EXPLORE_BRAND_LIMIT).catch(
+      getExploreBrands().catch(
         captureReadFailure("landing.exploreBrands"),
       ),
       getPublishedCuratedProductsForHomepage().catch(
