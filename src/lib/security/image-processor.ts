@@ -13,6 +13,8 @@ export interface ImageProcessorConfig {
   maxFileSizeBytes: number
   maxWidth: number
   maxHeight: number
+  minWidth: number
+  minHeight: number
   quality: number
 }
 
@@ -26,6 +28,8 @@ export const DEFAULT_CONFIG: ImageProcessorConfig = {
   maxFileSizeBytes: 5 * 1024 * 1024, // 5MB
   maxWidth: 1200,
   maxHeight: 1200,
+  minWidth: 200,
+  minHeight: 200,
   quality: 80,
 }
 
@@ -45,17 +49,26 @@ export async function processImage(
   // 2. Enforce the input format allowlist. metadata() itself throws
   // "unsupported image format" on non-image bytes, so this only has to reject
   // formats sharp is willing to decode but we do not want (gif, svg, tiff, …).
-  const { format } = await sharp(buffer).metadata()
+  const meta = await sharp(buffer).metadata()
   if (
-    !format ||
-    !(ALLOWED_INPUT_FORMATS as readonly string[]).includes(format)
+    !meta.format ||
+    !(ALLOWED_INPUT_FORMATS as readonly string[]).includes(meta.format)
   ) {
     throw new Error(
-      `Unsupported image format "${format ?? 'unknown'}"; allowed formats: ${ALLOWED_INPUT_FORMATS.join(', ')}`
+      `Unsupported image format "${meta.format ?? 'unknown'}"; allowed formats: ${ALLOWED_INPUT_FORMATS.join(', ')}`
     )
   }
 
-  // 3. Process: auto-rotate (strips EXIF), resize (fit inside, no upscale), encode to WebP
+  // 3. Reject images below the minimum dimensions.
+  const srcWidth = meta.width ?? 0
+  const srcHeight = meta.height ?? 0
+  if (srcWidth < cfg.minWidth || srcHeight < cfg.minHeight) {
+    throw new Error(
+      `Image dimensions ${srcWidth}×${srcHeight} are below the minimum ${cfg.minWidth}×${cfg.minHeight}`
+    )
+  }
+
+  // 4. Process: auto-rotate (strips EXIF), resize (fit inside, no upscale), encode to WebP
   const processed = await sharp(buffer)
     .rotate() // auto-rotate based on EXIF orientation, strips EXIF
     .resize({

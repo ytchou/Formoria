@@ -541,6 +541,7 @@ export async function getPublishedCuratedProductsForHomepage(
         row.brands.name.startsWith(TEST_BRAND_NAME_PREFIX) ||
         !row.visible ||
         !row.official_url ||
+        !row.image_url ||
         !row.source_checked_at ||
         (row.curated_product_sources !== undefined &&
           !(row.curated_product_sources ?? []).some(
@@ -562,6 +563,15 @@ export async function getPublishedCuratedProductsForHomepage(
         curated_product_selections: activeSelections,
       });
       if (product.subcategory === null) return null;
+      const MIN_WALL_IMAGE_PX = 200;
+      if (
+        row.image_width != null &&
+        row.image_height != null &&
+        (row.image_width < MIN_WALL_IMAGE_PX ||
+          row.image_height < MIN_WALL_IMAGE_PX)
+      ) {
+        return null;
+      }
       return {
         ...product,
         // NULL until the backfill reaches the row; the wall falls back to 4:3.

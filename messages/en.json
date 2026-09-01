@@ -162,7 +162,8 @@
     "selection": {
       "headline": "Every pick has a reason.",
       "subtitle": "Moving in, setting up a shop, switching a lamp — these are the products we chose for those moments.",
-      "cta": "Explore all selections"
+      "cta": "Explore all selections",
+      "allCategories": "All"
     },
     "missionCloser": {
       "headline": "Helping good things find more people.",
@@ -207,7 +208,7 @@
     "sortLabel": "Sort by",
     "filters": {
       "title": "Filters",
-      "trigger": "Filters ({count})",
+      "trigger": "Filters",
       "all": "All",
       "category": "Category",
       "material": "Material",
@@ -224,7 +225,8 @@
       "activeStatus": "Brand status",
       "removeFilter": "Remove {label}: {value}",
       "clearAll": "Clear all",
-      "showResults": "Show {count} results"
+      "showResults": "Show {count} results",
+      "subcategory": "Subcategory"
     },
     "sort": {
       "random": "Random",
@@ -253,7 +255,8 @@
     "noResultsInSuggestions": "No results found",
     "editorialLinksAria": "Related stories and styles",
     "editorialStories": "Related stories",
-    "editorialTrails": "Related styles"
+    "editorialTrails": "Related styles",
+    "subheading": "Explore Taiwanese brands in the directory"
   },
   "challenge": {
     "title": "Quick verification",
@@ -3326,5 +3329,12 @@
     "allCategories": "All categories",
     "categoryNavLabel": "Filter locations by category",
     "empty": "No matching locations are available yet."
+  },
+  "saveProduct": {
+    "save": "Save",
+    "unsave": "Unsave",
+    "saveAriaLabel": "Save this product",
+    "unsaveAriaLabel": "Unsave this product",
+    "loginToSave": "Sign in to save products"
   }
 }

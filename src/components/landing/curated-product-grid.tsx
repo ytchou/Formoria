@@ -11,21 +11,20 @@ import { buttonVariants } from "@/components/ui/button";
 import { PhotoBand } from "@/components/ui/photo-band";
 import type { AppLocale } from "@/i18n/locale-preference";
 import { Link } from "@/i18n/navigation";
-import {
-  MAX_HOME_GRID_PRODUCTS,
-  type WallSlot,
-} from "@/lib/curated-products/home-wall";
+import type { GroupedWallSlots } from "@/lib/curated-products/home-wall";
 import { routes } from "@/lib/routes";
+import { VISIBLE_L1_CATEGORIES } from "@/lib/taxonomy/ontology";
+import { CategoryFilter } from "./category-filter";
 
 export async function CuratedProductGrid({
-  slots,
+  groups,
   locale,
 }: {
-  slots: WallSlot[];
+  groups: GroupedWallSlots;
   locale: AppLocale;
 }) {
   const t = await getTranslations("landing");
-  const visible = slots.slice(0, MAX_HOME_GRID_PRODUCTS);
+  const isEnglish = locale === "en";
 
   const productLabels: SelectedProductTileLabels = {
     cta: t("selectedProducts.productCta"),
@@ -33,6 +32,16 @@ export async function CuratedProductGrid({
     unavailable: t("selectedProducts.unavailable"),
     madeInTaiwan: t("selectedProducts.madeInTaiwan"),
   };
+
+  const categories = [
+    { slug: "all", label: t("selection.allCategories") },
+    ...VISIBLE_L1_CATEGORIES.map((cat) => ({
+      slug: cat.slug,
+      label: isEnglish ? cat.name : cat.nameZh,
+    })),
+  ];
+
+  const allSlots = groups.all ?? [];
 
   return (
     <PhotoBand
@@ -49,29 +58,39 @@ export async function CuratedProductGrid({
         <p className="mt-3 type-body text-on-ink">{t("selection.subtitle")}</p>
       </div>
 
-      <Grid as="ul" cols="cards" className="mt-8 list-none p-0 lg:grid-cols-5">
-        {visible.map((slot, index) => (
-          <SelectedProductTile
-            key={`${slot.product.brandSlug}-${slot.product.key}`}
-            locale={locale}
-            product={slot.product}
-            labels={productLabels}
-            mode="wall"
-            ratio="1:1"
-            imageSizes="(max-width: 640px) calc(100vw - 3rem), (max-width: 1024px) 50vw, (max-width: 1600px) 20vw, 282px"
-            imageQuality={60}
-            className="bg-ground"
-            brand={slot.product.brand}
-            brandSlug={slot.product.brandSlug}
-            brandName={slot.product.brandName}
-            tracking={{
-              brandSlug: slot.product.brandSlug,
-              position: index,
-              surface: "homepage_wall",
-            }}
-          />
+      <CategoryFilter categories={categories}>
+        {Object.entries(groups).map(([slug, slots]) => (
+          <div key={slug} data-category={slug} hidden={slug !== "all"}>
+            <Grid
+              as="ul"
+              cols="cards"
+              className="mt-8 list-none p-0 lg:grid-cols-5"
+            >
+              {slots.map((slot, index) => (
+                <SelectedProductTile
+                  key={`${slot.product.brandSlug}-${slot.product.key}`}
+                  locale={locale}
+                  product={slot.product}
+                  labels={productLabels}
+                  mode="wall"
+                  ratio="1:1"
+                  imageSizes="(max-width: 640px) calc(100vw - 3rem), (max-width: 1024px) 50vw, (max-width: 1600px) 20vw, 282px"
+                  imageQuality={60}
+                  className="bg-ground"
+                  brand={slot.product.brand}
+                  brandSlug={slot.product.brandSlug}
+                  brandName={slot.product.brandName}
+                  tracking={{
+                    brandSlug: slot.product.brandSlug,
+                    position: index,
+                    surface: "homepage_wall",
+                  }}
+                />
+              ))}
+            </Grid>
+          </div>
         ))}
-      </Grid>
+      </CategoryFilter>
 
       <div className="mt-8 text-center">
         <Link
@@ -90,7 +109,7 @@ export async function CuratedProductGrid({
 
       <ViewItemListTracker
         listName="homepage_wall"
-        itemCount={visible.length}
+        itemCount={allSlots.length}
       />
     </PhotoBand>
   );

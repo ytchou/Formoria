@@ -11,7 +11,7 @@ import { SavedBrandsProvider } from "@/hooks/use-saved-brands";
 import { Grid } from "@/components/ui/grid";
 import { PageShell } from "@/components/ui/page-shell";
 import type { PublicBrandCard } from "@/lib/brands/contracts";
-import type { WallSlot } from "@/lib/curated-products/home-wall";
+import type { GroupedWallSlots } from "@/lib/curated-products/home-wall";
 import type { Locale } from "@/lib/seo/alternates";
 import type { StoryEntry } from "@/lib/services/stories";
 import type { TrailEntry } from "@/lib/services/trails";
@@ -28,7 +28,7 @@ export type LandingZonesProps = {
   hero: ReactNode;
   close: ReactNode;
   /** `null` when the wall is below its publication floor and must not render. */
-  wall: { slots: WallSlot[] } | null;
+  wall: { groups: GroupedWallSlots } | null;
   /** Every indexable trail rendered in the dedicated editorial zone. */
   trails: TrailEntry[];
   stories: StoryEntry[];
@@ -82,7 +82,7 @@ export async function LandingZones({
       <SavedBrandsProvider>
         {wall ? (
           <div data-landing-zone="selection">
-            <CuratedProductGrid slots={wall.slots} locale={locale} />
+            <CuratedProductGrid groups={wall.groups} locale={locale} />
           </div>
         ) : null}
 
