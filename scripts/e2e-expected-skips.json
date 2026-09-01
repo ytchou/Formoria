@@ -75,6 +75,21 @@
       "file": "image-route.spec.ts",
       "title": "sets an immutable one-year cache header",
       "reason": "Cloudflare rewrites cache-control on remote targets"
+    },
+    {
+      "file": "discovery-trail.spec.ts",
+      "title": "trail entrance renders in server HTML",
+      "reason": "no trail products in staging database"
+    },
+    {
+      "file": "discovery-trail.spec.ts",
+      "title": "outbound chip points at the brand's official destination",
+      "reason": "no trail products in staging database"
+    },
+    {
+      "file": "auth-signup.spec.ts",
+      "title": "registers a new user and redirects to sign-in with confirmation message",
+      "reason": "Supabase email rate limit exceeded on free tier"
     }
   ]
 }
