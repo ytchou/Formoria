@@ -11,7 +11,6 @@ import type {
   StockistLocationType,
   StockistSource,
 } from '@/lib/types/stockist'
-import { unstable_cache } from 'next/cache'
 import { createServiceClient } from '@/lib/supabase/service'
 import {
   CITY_SLUGS,
@@ -19,15 +18,12 @@ import {
   citySlugFromName,
   type CitySlug,
 } from '@/lib/constants/taiwan-cities'
-import { PUBLIC_BRAND_DATA_TAG } from '@/lib/cache/public-brand-cache'
-import { TEST_BRAND_NAME_PATTERN } from './public-brand-filter'
 import {
   matchSubcategory,
   subcategoryBySlug,
   L2_SUBCATEGORIES,
   L1_CATEGORIES,
 } from '@/lib/taxonomy/ontology'
-import { districtSlugFromName } from '@/lib/constants/taiwan-districts'
 import { matchDistrict } from '@/lib/brands/district'
 
 export const MAX_ACTIVE_STOCKISTS_PER_BRAND = 5
@@ -102,43 +98,6 @@ export type StockistLocation = {
   subcategories: string[]
 }
 
-export type StockistCitySummary = {
-  city: CitySlug
-  count: number
-  districts: Array<{ name: string; slug: string; count: number }>
-}
-
-export type StockistDistrictGroup = {
-  name: string | null
-  slug: string
-  locations: StockistLocation[]
-}
-
-type StockistReadRow = {
-  id: string
-  name: string
-  address: string | null
-  url: string | null
-  country: string | null
-  region_label: string | null
-  district?: string | null
-  brands:
-    | {
-        slug: string
-        name: string
-        category: string | null
-        subcategories: unknown
-        status: string
-      }
-    | Array<{
-        slug: string
-        name: string
-        category: string | null
-        subcategories: unknown
-        status: string
-      }>
-}
-
 type StockistDistrictBackfillRow = {
   id: string
   address: string
@@ -149,52 +108,7 @@ type StockistDistrictBackfillRow = {
 export const STOCKIST_DETAIL_READ_SELECT =
   'id, name, region_label, address, url, source_url, fetched_at, location_type, country, owner_status, owner_status_by, source, removed_at'
 
-const STOCKIST_READ_SELECT =
-  'id, name, address, url, country, region_label, district, brands!inner(slug, name, category, subcategories, status)'
-
-const LEGACY_STOCKIST_READ_SELECT =
-  'id, name, address, url, country, region_label, brands!inner(slug, name, category, subcategories, status)'
-
-const STOCKIST_PAGE_SIZE = 1000
-
-export function buildStockistPageRanges(
-  total: number,
-): Array<{ from: number; to: number }> {
-  return Array.from(
-    { length: Math.ceil(total / STOCKIST_PAGE_SIZE) },
-    (_, index) => ({
-      from: index * STOCKIST_PAGE_SIZE,
-      to: Math.min(total, (index + 1) * STOCKIST_PAGE_SIZE) - 1,
-    }),
-  )
-}
-
-function mapStockistRow(row: StockistReadRow): StockistLocation | null {
-  const brand = Array.isArray(row.brands) ? row.brands.at(0) : row.brands
-  if (!brand) return null
-  const city = row.country === 'TW' ? citySlugFromName(row.region_label) : null
-  return {
-    id: row.id,
-    name: row.name,
-    address: row.address,
-    url: row.url,
-    country: row.country,
-    city,
-    district:
-      row.district ??
-      (city && row.address ? matchDistrict(row.address, city) : null),
-    brandSlug: brand.slug,
-    brandName: brand.name,
-    categorySlug: brand.category,
-    subcategories: Array.isArray(brand.subcategories)
-      ? brand.subcategories.filter(
-          (tag): tag is string => typeof tag === 'string',
-        )
-      : [],
-  }
-}
-
-/** Exported for the slug-storage regression test; `getStockistDirectory` is the only runtime caller. */
+/** Exported for the slug-storage regression test. */
 export function matchesCategory(
   location: StockistLocation,
   category?: string,
@@ -226,171 +140,6 @@ export function resolveStockistCategory(value: unknown): string | undefined {
   ]
   return validCategories.includes(value) ? value : undefined
 }
-
-export function summarizeStockistCities(
-  locations: StockistLocation[],
-): StockistCitySummary[] {
-  const byCity = new Map<CitySlug, StockistLocation[]>()
-  for (const location of locations) {
-    if (!location.city) continue
-    const cityLocations = byCity.get(location.city) ?? []
-    cityLocations.push(location)
-    byCity.set(location.city, cityLocations)
-  }
-
-  return [...byCity.entries()]
-    .map(([city, cityLocations]) => {
-      const counts = new Map<string, number>()
-      for (const location of cityLocations) {
-        if (location.district) {
-          counts.set(
-            location.district,
-            (counts.get(location.district) ?? 0) + 1,
-          )
-        }
-      }
-      return {
-        city,
-        count: cityLocations.length,
-        districts: [...counts.entries()]
-          .flatMap(([name, count]) => {
-            const slug = districtSlugFromName(city, name)
-            return slug ? [{ name, slug, count }] : []
-          })
-          .sort(
-            (left, right) =>
-              right.count - left.count || left.name.localeCompare(right.name),
-          ),
-      }
-    })
-    .sort((left, right) => right.count - left.count)
-}
-
-export function groupStockistsForCity(
-  locations: StockistLocation[],
-  city: CitySlug,
-): StockistDistrictGroup[] {
-  const groups = new Map<string | null, StockistLocation[]>()
-  for (const location of locations) {
-    if (location.city !== city) continue
-    const districtLocations = groups.get(location.district) ?? []
-    districtLocations.push(location)
-    groups.set(location.district, districtLocations)
-  }
-
-  const assigned = [...groups.entries()]
-    .filter((entry): entry is [string, StockistLocation[]] => Boolean(entry[0]))
-    .flatMap(([name, districtLocations]) => {
-      const slug = districtSlugFromName(city, name)
-      return slug ? [{ name, slug, locations: districtLocations }] : []
-    })
-    .sort(
-      (left, right) =>
-        right.locations.length - left.locations.length ||
-        left.name.localeCompare(right.name),
-    )
-  const unassigned = groups.get(null)
-  return unassigned
-    ? [...assigned, { name: null, slug: 'unassigned', locations: unassigned }]
-    : assigned
-}
-
-export function stockistDistrictSlugs(locations: StockistLocation[]): string[] {
-  return [
-    ...new Set(
-      locations.flatMap((location) => {
-        if (!location.city || !location.district) return []
-        const slug = districtSlugFromName(location.city, location.district)
-        return slug ? [slug] : []
-      }),
-    ),
-  ]
-}
-
-function isMissingDistrictColumnError(error: unknown): boolean {
-  if (!isRecord(error)) return false
-  return (
-    error.code === '42703' &&
-    typeof error.message === 'string' &&
-    error.message.includes('brand_channels.district')
-  )
-}
-
-/**
- * Both queries below apply `applyPublicStockistVisibility`, and both have to: a
- * filter on the first page only hides nothing past row 1000, and no type
- * checker can see the difference. `stockists.test.ts` pins the count at
- * two.
- */
-async function fetchStockistRows(select: string): Promise<StockistReadRow[]> {
-  const supabase = createServiceClient()
-  const { data, error, count } = await applyPublicStockistVisibility(
-    supabase
-      .from('brand_channels')
-      .select(select, { count: 'exact' })
-      .eq('brands.status', 'approved')
-      .not('brands.name', 'like', TEST_BRAND_NAME_PATTERN),
-  )
-    .order('region_label')
-    .order('name')
-    .order('id')
-    .range(0, STOCKIST_PAGE_SIZE - 1)
-
-  if (error) throw error
-  if (count === null)
-    throw new Error('Stockist directory query returned no exact count')
-
-  const remainingPages = await Promise.all(
-    buildStockistPageRanges(count)
-      .slice(1)
-      .map(async ({ from, to }) => {
-        const { data: page, error: pageError } = await applyPublicStockistVisibility(
-          supabase
-            .from('brand_channels')
-            .select(select)
-            .eq('brands.status', 'approved')
-            .not('brands.name', 'like', TEST_BRAND_NAME_PATTERN),
-        )
-          .order('region_label')
-          .order('name')
-          .order('id')
-          .range(from, to)
-        if (pageError) throw pageError
-        return page ?? []
-      }),
-  )
-
-  return [
-    ...(data ?? []),
-    ...remainingPages.flat(),
-  ] as unknown as StockistReadRow[]
-}
-
-export const getStockistDirectory = unstable_cache(
-  async (category?: string): Promise<StockistLocation[]> => {
-    let rows: StockistReadRow[]
-    try {
-      rows = await fetchStockistRows(STOCKIST_READ_SELECT)
-    } catch (error) {
-      if (!isMissingDistrictColumnError(error)) throw error
-      rows = await fetchStockistRows(LEGACY_STOCKIST_READ_SELECT)
-    }
-
-    return rows
-      .map(mapStockistRow)
-      .filter((location): location is StockistLocation => Boolean(location))
-      .filter((location) => matchesCategory(location, category))
-  },
-  // PAYLOAD-SHAPE version, in step with `subcategory-summary-rows-*` and
-  // `homepage-explore-brand-pool-*` in `brands.ts`: these rows carry
-  // `categorySlug` and subcategory slugs verbatim and nothing invalidates a
-  // taxonomy respelling, so a warm entry keeps filtering on a retired spelling
-  // for a full hour — `?category=home` would drop every re-filed brand's
-  // stockists. `v2` is DEV-1507, which retired the `crafts` L1 and re-filed its
-  // L2s. Bump it again on the next respelling.
-  ['stockist-directory-v2'],
-  { revalidate: 3600, tags: [PUBLIC_BRAND_DATA_TAG] },
-)
 
 export async function listStockistDistrictBackfillRows(): Promise<
   StockistDistrictBackfillRow[]
@@ -431,6 +180,15 @@ export async function updateStockistDistricts(
   if (data !== rows.length) {
     throw new Error(`Updated ${data} of ${rows.length} stockist districts`)
   }
+}
+
+function isMissingDistrictColumnError(error: unknown): boolean {
+  if (!isRecord(error)) return false
+  return (
+    error.code === '42703' &&
+    typeof error.message === 'string' &&
+    error.message.includes('brand_channels.district')
+  )
 }
 
 function trimNullable(value: string | null | undefined): string | null {

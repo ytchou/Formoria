@@ -4,12 +4,8 @@ import { describe, expect, it } from 'vitest'
 
 import {
   buildEnrichedStockistRows,
-  buildStockistPageRanges,
   STOCKIST_DETAIL_READ_SELECT,
-  groupStockistsForCity,
   matchesCategory,
-  stockistDistrictSlugs,
-  summarizeStockistCities,
   type StockistLocation,
 } from '../stockists'
 
@@ -104,41 +100,6 @@ describe('brand channel provenance', () => {
     expect(STOCKIST_DETAIL_READ_SELECT).toContain('country')
   })
 
-  it('orders district sections by location count and leaves unmatched locations last', () => {
-    const locations = [
-      location('alpha', '信義區'),
-      location('bravo', '中山區'),
-      location('charlie', '中山區'),
-      location('delta', null),
-    ]
-
-    expect(
-      groupStockistsForCity(locations, 'taipei').map((group) => group.slug),
-    ).toEqual(['taipei-zhongshan', 'taipei-xinyi', 'unassigned'])
-  })
-
-  it('summarizes only cities that have real locations', () => {
-    expect(summarizeStockistCities([location('echo', '中山區')])).toMatchObject(
-      [{ city: 'taipei', count: 1 }],
-    )
-  })
-
-  it('requests every stockist page when the directory exceeds the Data API row cap', () => {
-    expect(buildStockistPageRanges(1_354)).toEqual([
-      { from: 0, to: 999 },
-      { from: 1000, to: 1353 },
-    ])
-  })
-
-  it('offers location jumps only for district sections present in the directory', () => {
-    expect(
-      stockistDistrictSlugs([
-        location('foxtrot', '中山區'),
-        location('golf', '中山區'),
-        location('hotel', null),
-      ]),
-    ).toEqual(['taipei-zhongshan'])
-  })
 })
 
 describe('stockist category filter over slug-stored subcategories', () => {
@@ -196,15 +157,6 @@ describe('pending community stockists are hidden from public reads', () => {
     expect(functionBody(serviceSource, 'getStockistsForBrand')).toContain(
       'applyPublicStockistVisibility(',
     )
-  })
-
-  it('hides pending community rows from the cross-brand directory', () => {
-    // TWO queries, because the reader pages: the first page and every
-    // subsequent one. A predicate on only the first is a half-fix that hides
-    // nothing beyond row 1000.
-    const body = functionBody(serviceSource, 'fetchStockistRows')
-
-    expect(body.match(/applyPublicStockistVisibility\(/g)).toHaveLength(2)
   })
 
   it('keeps pending community rows out of story facts', () => {

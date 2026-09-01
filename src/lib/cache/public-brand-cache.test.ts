@@ -7,7 +7,6 @@ const { revalidatePath, revalidateTag } = vi.hoisted(() => ({
 
 vi.mock("next/cache", () => ({ revalidatePath, revalidateTag }));
 
-import { routing } from "@/i18n/routing";
 import {
   PUBLIC_BRAND_DATA_TAG,
   revalidatePublicBrands,
@@ -81,36 +80,10 @@ describe("revalidatePublicBrands", () => {
 describe("revalidatePublicStockists", () => {
   beforeEach(() => vi.clearAllMocks());
 
-  it("revalidates the index and the affected city", () => {
-    revalidatePublicStockists("new_taipei");
-    expect(revalidatedPaths()).toEqual([
-      ["/where-to-buy"],
-      ["/en/where-to-buy"],
-      ["/where-to-buy/new-taipei"],
-      ["/en/where-to-buy/new-taipei"],
-    ]);
-  });
-
-  it("emits one path per configured locale", () => {
-    revalidatePublicStockists("taipei");
-    expect(
-      revalidatedPaths().filter(([path]) =>
-        path.endsWith("/where-to-buy/taipei"),
-      ),
-    ).toHaveLength(routing.locales.length);
-  });
-
-  it("emits canonical default-locale paths", () => {
-    revalidatePublicStockists("taipei");
-    expect(revalidatedPaths()).toContainEqual(["/where-to-buy"]);
-    expect(revalidatedPaths()).toContainEqual(["/where-to-buy/taipei"]);
-  });
-
-  it("revalidates only the index when the channel has no city", () => {
-    revalidatePublicStockists(null);
-    expect(revalidatedPaths()).toEqual([
-      ["/where-to-buy"],
-      ["/en/where-to-buy"],
-    ]);
+  it("invalidates the brand data cache tag", () => {
+    revalidatePublicStockists();
+    expect(revalidateTag).toHaveBeenCalledWith(PUBLIC_BRAND_DATA_TAG, "max");
+    expect(revalidateTag).toHaveBeenCalledTimes(1);
+    expect(revalidatePath).not.toHaveBeenCalled();
   });
 });

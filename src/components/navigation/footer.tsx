@@ -71,11 +71,6 @@ export function Footer() {
                     {t("stories")}
                   </a>
                 </li>
-                <li>
-                  <Link href={routes.whereToBuy()} prefetch={false} className={linkClasses}>
-                    {t("whereToBuy")}
-                  </Link>
-                </li>
               </ul>
             </div>
 

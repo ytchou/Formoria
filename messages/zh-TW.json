@@ -23,7 +23,6 @@
     "languageEnglish": "English",
     "about": "關於 Formoria",
     "stories": "專題",
-    "whereToBuy": "哪裡買",
     "products": "商品",
     "style": "風格",
     "brands": "收錄品牌"
@@ -42,7 +41,6 @@
     "companyHeading": "關於",
     "faq": "常見問題",
     "connectHeading": "聯絡",
-    "whereToBuy": "哪裡買",
     "discover": "風格"
   },
   "style": {
@@ -2521,27 +2519,5 @@
     "ziguan": "梓官區",
     "zuoying": "左營區",
     "zuozhen": "左鎮區"
-  },
-  "whereToBuy": {
-    "metaTitle": "台灣品牌哪裡買",
-    "metaDescription": "依縣市與行政區尋找販售台灣品牌的實體通路。",
-    "indexTitle": "哪裡買",
-    "indexIntro": "瀏覽台灣各地與海外販售台灣品牌的實體通路。",
-    "cityTitle": "{city}哪裡買",
-    "cityDescription": "探索 {city} 的 {count} 個實體通路，依行政區整理。",
-    "locations": "個地點",
-    "maps": "地圖",
-    "useLocation": "使用我的位置",
-    "locating": "正在尋找最近的行政區…",
-    "locationDenied": "位置權限已被拒絕，請改從下方選擇縣市。",
-    "locationUnavailable": "目前無法判斷所在位置，請改從下方選擇縣市。",
-    "overseasTitle": "海外實體通路",
-    "overseasDescription": "共有 {count} 個地點，分布於 {countries} 個國家與地區。",
-    "unassigned": "其他地點",
-    "breadcrumbLabel": "麵包屑導覽",
-    "directory": "哪裡買",
-    "allCategories": "所有分類",
-    "categoryNavLabel": "依商品分類篩選地點",
-    "empty": "目前沒有符合條件的實體通路。"
   }
 }
