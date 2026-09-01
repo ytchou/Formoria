@@ -53,7 +53,7 @@ type AuditCommon = {
 };
 
 /** Providers whose LLM calls are recorded as Langfuse generations in llm-audit.ts. */
-const LLM_PROVIDERS = ["openai", "deepseek"];
+const LLM_PROVIDERS = ["openai"];
 
 /**
  * Fire-and-forget Langfuse span for external non-LLM calls.

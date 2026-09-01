@@ -9,8 +9,7 @@ import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { LLM_MODELS } from "@/lib/constants/llm-models";
 
-const DORMANT_MODELS = new Set([
-  "deepseek-v4-flash", // Registry-only dormant provider; no production calls or seeded price.
+const DORMANT_MODELS = new Set<string>([
 ]);
 
 function seededModels(): Set<string> {

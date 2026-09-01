@@ -176,16 +176,10 @@ describe("createOpenAIClient", () => {
       resolve(process.cwd(), "src/lib/services/openai-client.ts"),
       "utf8",
     );
-    const deepSeekSource = readFileSync(
-      resolve(process.cwd(), "src/lib/services/deepseek-client.ts"),
-      "utf8",
-    );
     const localDeclaration = `type ChatAudit${"Event"} = {`;
 
     expect(openAiSource).not.toContain(localDeclaration);
-    expect(deepSeekSource).not.toContain(localDeclaration);
     expect(openAiSource).toContain('from "@/lib/audit"');
-    expect(deepSeekSource).toContain('from "@/lib/audit"');
   });
 
   describe("request body", () => {

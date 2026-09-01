@@ -63,16 +63,16 @@ function providerBreakdown(summary: EnrichmentSummary): ProviderBreakdown {
  */
 function providerAction({ llm, search }: ProviderBreakdown): string {
   if (llm > 0 && search > 0) {
-    return "Both the LLM provider (OpenAI/DeepSeek) and the search provider (Serper) failed — check each account's quota, balance and API key before rerunning";
+    return "Both the LLM provider (OpenAI) and the search provider (Serper) failed — check each account's quota, balance and API key before rerunning";
   }
   if (llm > 0) {
-    return "Check the LLM provider account (OpenAI/DeepSeek): every attempted call failed at the provider, which is usually an exhausted quota/balance or a rejected API key, not a code fault. Verify billing and the key before rerunning";
+    return "Check the LLM provider account (OpenAI): every attempted call failed at the provider, which is usually an exhausted quota/balance or a rejected API key, not a code fault. Verify billing and the key before rerunning";
   }
   if (search > 0) {
     return "Check the search provider (Serper) status and API quota before rerunning";
   }
   // The target carried the `providerFailure` flag but no prefixed message.
-  return "A provider failed without naming itself — open the job run log and check the LLM (OpenAI/DeepSeek) and search (Serper) accounts before rerunning";
+  return "A provider failed without naming itself — open the job run log and check the LLM (OpenAI) and search (Serper) accounts before rerunning";
 }
 
 function providerLabel({ llm, search }: ProviderBreakdown): string {
@@ -201,7 +201,7 @@ export async function reportCircuitBreakerTrip(
             "• Remaining targets were cancelled, not attempted",
           ],
           managerAction:
-            "Check the LLM provider account NOW (OpenAI/DeepSeek billing balance, quota, API key). The breaker only trips when every LLM call fails at the provider — no further curation will produce usable output until the account is fixed",
+            "Check the LLM provider account NOW (OpenAI billing balance, quota, API key). The breaker only trips when every LLM call fails at the provider — no further curation will produce usable output until the account is fixed",
         },
         {
           message: `Curation job ${job.id}: LLM circuit breaker tripped — ${message}`,

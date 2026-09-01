@@ -191,27 +191,6 @@ export const SERVICE_REGISTRY: readonly ServiceEntry[] = [
     ],
   },
   {
-    id: "deepseek",
-    name: "DeepSeek",
-    vendor: "DeepSeek",
-    category: "ai",
-    criticality: "back-office",
-    operationalSection: "deprecated",
-    operationalKind: "dependency",
-    envVars: ["DEEPSEEK_API_KEY"],
-    status: "dormant",
-    plan: {
-      kind: "usage",
-      asOf: TODAY,
-      sourceUrl: "https://api-docs.deepseek.com/quick_start/pricing",
-    },
-    meter: "llm-tokens",
-    dashboardUrl: "https://platform.deepseek.com/usage",
-    blindSpots: [
-      "Eval spend bypasses persistence through CURATION_EVAL_SINK at _shared/ai-results.ts:130-140; model-A/B installs setAuditWriteSeam at scripts/model-ab/run.ts:63.",
-    ],
-  },
-  {
     id: "serper",
     name: "Serper",
     vendor: "Serper",

@@ -105,7 +105,7 @@ describe('reportProviderFailures', () => {
     )
 
     const notification = vi.mocked(postSlackAlert).mock.calls[0]?.[0]
-    expect(notification?.managerAction).toContain('OpenAI/DeepSeek')
+    expect(notification?.managerAction).toContain('OpenAI')
     // The 11.5-hour outage was an exhausted balance; pointing at Serper is what
     // made the alert useless.
     expect(notification?.managerAction).not.toContain('Serper')
@@ -140,7 +140,7 @@ describe('reportProviderFailures', () => {
 
     const notification = vi.mocked(postSlackAlert).mock.calls[0]?.[0]
     expect(notification?.managerAction).toContain('Serper')
-    expect(notification?.managerAction).toContain('OpenAI/DeepSeek')
+    expect(notification?.managerAction).toContain('OpenAI')
   })
 
   it('does NOT alert when targets failed but no provider failed', async () => {
@@ -181,7 +181,7 @@ describe('reportCircuitBreakerTrip', () => {
       context: expect.objectContaining({ circuitBreaker: 'llm' }),
     })
     const notification = vi.mocked(postSlackAlert).mock.calls[0]?.[0]
-    expect(notification?.managerAction).toContain('OpenAI/DeepSeek')
+    expect(notification?.managerAction).toContain('OpenAI')
     expect(notification?.managerAction).not.toContain('worker logs')
   })
 })
