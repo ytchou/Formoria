@@ -1,12 +1,14 @@
 import { Link } from "@/i18n/navigation";
+import { Badge } from "@/components/ui/badge";
 import { SurfaceImage } from "@/components/ui/image";
 import { Typography } from "@/components/ui/typography";
 import { surfaceCardStyles } from "@/components/ui/card";
+import { BrandImageFallback } from "@/components/brands/brand-image-fallback";
 import { safeImageSrc } from "@/lib/images/allowed-image-hosts";
 import { routes } from "@/lib/routes";
 import type { CatalogProduct } from "@/lib/services/curated-products-catalog";
 import { subcategoryBySlug, subcategoryLabel } from "@/lib/taxonomy/ontology";
-import { cn } from "@/lib/utils";
+import { SaveButton } from "@/components/ui/save-button";
 
 type ProductCardProps = {
   product: CatalogProduct;
@@ -43,10 +45,18 @@ export function ProductCard({ product, locale }: ProductCardProps) {
               surface="card"
             />
           ) : (
-            <div className="flex h-full items-center justify-center bg-surface text-ink-muted">
-              <span className="type-body-sm">{name}</span>
-            </div>
+            <BrandImageFallback
+              name={name}
+              category={product.category}
+              size="card"
+            />
           )}
+          <SaveButton
+            kind="product"
+            id={product.id}
+            slug={product.key}
+            variant="overlay"
+          />
         </div>
 
         <div className="flex flex-1 flex-col gap-1.5 p-4">
@@ -60,15 +70,9 @@ export function ProductCard({ product, locale }: ProductCardProps) {
           <Typography as="p" variant="metadata">
             {product.brandName}
           </Typography>
-          <span
-            className={cn(
-              "mt-auto inline-block self-start rounded-full px-2 py-0.5",
-              "type-metadata text-ink-muted",
-              "border border-rule",
-            )}
-          >
+          <Badge variant="declared" className="mt-auto self-start">
             {subcategoryName}
-          </span>
+          </Badge>
         </div>
       </Link>
     </li>

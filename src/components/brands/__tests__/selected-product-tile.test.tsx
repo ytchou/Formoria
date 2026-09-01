@@ -39,6 +39,10 @@ vi.mock("@/lib/analytics", () => ({
   trackOutboundClick: vi.fn(),
 }));
 
+vi.mock("@/components/ui/save-button", () => ({
+  SaveButton: () => <button data-testid="save-button" />,
+}));
+
 const labels = {
   cta: "Visit product",
   brandSiteCta: "Visit brand site",

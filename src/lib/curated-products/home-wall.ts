@@ -5,6 +5,7 @@ import {
   WALL_RATIOS,
   type WallRatio,
 } from "@/lib/curated-products/wall-ratio";
+import { VISIBLE_L1_CATEGORIES } from "@/lib/taxonomy/ontology";
 
 /**
  * Re-exported so existing importers of this module keep working. The values
@@ -180,4 +181,28 @@ export function buildWallSlots({
   return capProductsPerBrand(shuffleWithSeed(products, seed))
     .slice(0, MAX_HOME_WALL_PRODUCTS)
     .map((product) => ({ product, ratio: wallRatioFor(product) }));
+}
+
+export type GroupedWallSlots = Record<string, WallSlot[]>;
+
+export function buildGroupedWallSlots({
+  products,
+  seed = wallSeedForDate(),
+}: BuildWallSlotsInput): GroupedWallSlots {
+  const allSlots = buildWallSlots({ products, seed }).slice(
+    0,
+    MAX_HOME_GRID_PRODUCTS,
+  );
+
+  const groups: GroupedWallSlots = { all: allSlots };
+
+  for (const category of VISIBLE_L1_CATEGORIES) {
+    const filtered = products.filter((p) => p.category === category.slug);
+    groups[category.slug] = buildWallSlots({ products: filtered, seed }).slice(
+      0,
+      MAX_HOME_GRID_PRODUCTS,
+    );
+  }
+
+  return groups;
 }

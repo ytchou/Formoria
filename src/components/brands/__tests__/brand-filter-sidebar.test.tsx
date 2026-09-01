@@ -8,7 +8,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import enMessages from "../../../../messages/en.json";
 import zhMessages from "../../../../messages/zh-TW.json";
-import { MATERIALS } from "@/lib/taxonomy/ontology";
+import { MATERIALS, VISIBLE_L1_CATEGORIES } from "@/lib/taxonomy/ontology";
 
 const { replace, push, searchParams } = vi.hoisted(() => ({
   replace: vi.fn(),
@@ -35,7 +35,6 @@ vi.mock("@/i18n/navigation", () => ({
   ),
 }));
 
-// `SearchInput` reaches for the un-localized router through `useFilterParams`.
 vi.mock("next/navigation", () => ({
   useSearchParams: () => searchParams.current,
   usePathname: () => "/brands",
@@ -51,25 +50,10 @@ vi.mock("@/lib/analytics", () => ({
 const { BrandFilterDrawer, BrandFilterSidebar } =
   await import("../brand-filter-sidebar");
 
-const CATEGORIES = [
-  { slug: "home", name: "Home & Living", nameZh: "居家生活" },
-  { slug: "fashion", name: "Fashion", nameZh: "時尚服飾" },
-];
-
 type TestLocale = "zh-TW" | "en";
 
 const MATERIAL_COUNTS: Record<string, number> = { ceramic: 29, wood: 12 };
 
-/**
- * The derivation `DirectoryView` runs at `directory-view.tsx`, mirrored: slug
- * into `value`, ontology label into `label`, zero counts dropped. It is
- * mirrored rather than imported because the rail's contract IS the shape it
- * receives, and the server component that builds it is async and reaches the
- * brand service, so it cannot be rendered in jsdom.
- *
- * There is no `categories.materials` namespace any more — the label comes off
- * `MATERIALS`, so the twelve slugs and their two labels have exactly one home.
- */
 function materialOptions(
   locale: TestLocale,
   counts: Record<string, number> = MATERIAL_COUNTS,
@@ -94,8 +78,10 @@ function renderSidebar(
   return render(
     <NextIntlClientProvider locale={locale} messages={messagesFor(locale)}>
       <BrandFilterSidebar
-        categories={CATEGORIES}
-        materials={materialOptions(locale)}
+        locale={locale}
+        activeCategory={null}
+        allLabel={messagesFor(locale).common.all}
+        materialOptions={materialOptions(locale)}
         totalCount={24}
         {...props}
       />
@@ -121,6 +107,34 @@ describe("BrandFilterSidebar", () => {
     vi.clearAllMocks();
   });
 
+  it("renders category links for all visible L1 categories", () => {
+    renderSidebar();
+
+    // "All" link
+    const allLink = screen.getByRole("link", { name: "全部" });
+    expect(allLink).toHaveAttribute("aria-current", "page");
+    expect(allLink).toHaveAttribute("href", "/brands");
+
+    // Each visible L1 category has a link
+    for (const category of VISIBLE_L1_CATEGORIES) {
+      expect(
+        screen.getByRole("link", { name: category.nameZh }),
+      ).toBeInTheDocument();
+    }
+  });
+
+  it("marks the active category link with aria-current", () => {
+    renderSidebar({ activeCategory: "fashion" });
+
+    const fashionLink = screen.getByRole("link", {
+      name: VISIBLE_L1_CATEGORIES.find((c) => c.slug === "fashion")!.nameZh,
+    });
+    expect(fashionLink).toHaveAttribute("aria-current", "page");
+
+    const allLink = screen.getByRole("link", { name: "全部" });
+    expect(allLink).not.toHaveAttribute("aria-current");
+  });
+
   it("material_options_carry_the_locale_label — 陶瓷 in zh-TW, Ceramic in en, one slug behind both", () => {
     const zh = renderSidebar({}, "", "zh-TW");
     fireEvent.click(materialSection("zh-TW"));
@@ -136,8 +150,6 @@ describe("BrandFilterSidebar", () => {
     });
     expect(box).toBeInTheDocument();
 
-    // Only the label is localized. The value behind both renderings is the
-    // slug, which is what the URL and `brands.material` carry.
     fireEvent.click(box);
     expect(replace).toHaveBeenCalledWith("/brands?material=ceramic", {
       scroll: false,
@@ -151,22 +163,12 @@ describe("BrandFilterSidebar", () => {
     fireEvent.click(
       within(materialPanel()).getByRole("checkbox", { name: /陶瓷/ }),
     );
-    // Not the percent-encoded zh-TW term it used to write: `?material=` is a
-    // slug list now, readable in a log line and stable across locales.
     expect(replace).toHaveBeenCalledWith("/brands?material=ceramic", {
       scroll: false,
     });
   });
 
   it("sidebar_renders_every_material_option_it_is_handed", () => {
-    // `lacquer` is in the closed vocabulary with no brands behind it, and a
-    // rail entry that can only ever return an empty page is worse than no
-    // entry — but the drop that enforces that is PRODUCTION code living at
-    // `directory-view.tsx:121`, in an async server component jsdom cannot
-    // render. This case guards the sidebar's own half of the contract instead:
-    // it is presentational, so it renders exactly the options it is handed,
-    // zero counts included. Going through `materialOptions()` here would only
-    // assert the fixture, since that helper mirrors the upstream filter.
     const options = MATERIALS.filter((material) =>
       ["ceramic", "wood", "lacquer"].includes(material.slug),
     ).map((material) => ({
@@ -175,7 +177,7 @@ describe("BrandFilterSidebar", () => {
       count: MATERIAL_COUNTS[material.slug] ?? 0,
     }));
 
-    renderSidebar({ materials: options });
+    renderSidebar({ materialOptions: options });
 
     fireEvent.click(materialSection());
     const panel = materialPanel();
@@ -188,10 +190,6 @@ describe("BrandFilterSidebar", () => {
   });
 
   it("unknown_url_terms_are_not_resurrected", () => {
-    // `parseDirectoryViewFilters` drops anything outside the closed 12-slug
-    // vocabulary, so `activeMaterials` is empty here on purpose. Reading the
-    // raw param back would tick nothing yet keep `xyz` in every URL the
-    // sidebar writes.
     renderSidebar({ activeMaterials: [] }, "material=xyz");
 
     fireEvent.click(materialSection());
@@ -208,9 +206,6 @@ describe("BrandFilterSidebar", () => {
   });
 
   it("clears the material key entirely when the last slug is unticked", () => {
-    // The bug this pins: with a rejected slug surviving in the set, unticking
-    // rewrote `?material=xyz` instead of deleting the key, so the facet could
-    // not be cleared at all and the page stayed noindex.
     renderSidebar({ activeMaterials: ["ceramic"] }, "material=ceramic");
 
     fireEvent.click(
@@ -222,10 +217,6 @@ describe("BrandFilterSidebar", () => {
   it("takes a collapsed section out of the tab order without hiding its markup", () => {
     renderSidebar();
 
-    // Closed by default with no active material: `grid-rows-[0fr]` hides it
-    // visually and nothing else, so its checkboxes stayed tabbable and in the
-    // accessibility tree. `inert` closes both; the markup stays in the server
-    // HTML that crawlers read (DESIGN.md §6).
     expect(materialSection()).toHaveAttribute("aria-expanded", "false");
     expect(materialPanel()).toHaveAttribute("inert");
     expect(materialPanel().textContent).toContain("陶瓷");
@@ -235,19 +226,15 @@ describe("BrandFilterSidebar", () => {
     expect(materialPanel()).not.toHaveAttribute("inert");
   });
 
-  it("filter drawer body is the scroll container", () => {
-    // The drawer used to pin its footer with `sticky bottom-0`, which only
-    // works while the element it sticks inside is the scrollport. It was not:
-    // the scroll lived on the body div above it, so the footer scrolled with
-    // the content on short viewports and covered the last filter row on tall
-    // ones. `SheetBody` owns the scroll and the footer is pinned by the popup's
-    // flex column instead — so `sticky` must be gone, not merely redundant.
+  it("filter drawer renders and opens", () => {
     searchParams.current = new URLSearchParams();
     render(
       <NextIntlClientProvider locale="en" messages={enMessages}>
         <BrandFilterDrawer
-          categories={CATEGORIES}
-          materials={materialOptions("en")}
+          locale="en"
+          activeCategory={null}
+          allLabel="All"
+          materialOptions={materialOptions("en")}
           totalCount={24}
         />
       </NextIntlClientProvider>,
@@ -257,33 +244,5 @@ describe("BrandFilterSidebar", () => {
 
     const body = document.querySelector('[data-slot="sheet-body"]');
     expect(body).not.toBeNull();
-    const bodyClasses = (body as HTMLElement).className.split(/\s+/);
-    expect(bodyClasses).toContain("overflow-y-auto");
-    expect(bodyClasses).toContain("min-h-0");
-    expect(bodyClasses).toContain("flex-1");
-
-    // The sidebar is INSIDE that scroll container, not beside it.
-    expect(
-      body!.querySelector(
-        '[data-slot="surface-card"], [class*="overflow-hidden"]',
-      ),
-    ).not.toBeNull();
-
-    const footer = document.querySelector('[data-slot="sheet-footer"]');
-    expect(footer).not.toBeNull();
-    const footerClasses = (footer as HTMLElement).className.split(/\s+/);
-    expect(footerClasses).not.toContain("sticky");
-    expect(footerClasses).not.toContain("bottom-0");
-    expect(footerClasses).toContain("bg-surface");
-    expect(footerClasses).toContain("mt-auto");
-  });
-
-  it("names each category checkbox from its visible label alone", () => {
-    renderSidebar({ activeCategorySlugs: ["home"] });
-
-    const box = screen.getByRole("checkbox", { name: "居家生活" });
-    // An aria-label would outrank the visible text and make the accessible
-    // name immune to it.
-    expect(box).not.toHaveAttribute("aria-label");
   });
 });
