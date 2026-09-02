@@ -70,7 +70,7 @@ import {
   runClassifyImagesPhase,
   STORAGE_FAILURE_PREFIX,
   runImageSearchPhase,
-  runLinksPhase,
+  runAcquirePhase,
   runStandaloneClassification,
   runDetectPhase,
   type BrandEnrichState,
@@ -86,6 +86,16 @@ import { buildCandidatePool } from "./enrich-phases/candidate-pool";
 import type { EnrichmentTarget } from "./_shared/enrichment-target";
 import type { RenderProvider } from "./enrich-phases/scraper/render/types";
 import { deriveCategoryFromSubcategories } from "./subcategories";
+import {
+  runEditorialAgent,
+  type EditorialInput,
+  type EditorialDeps,
+} from "./enrich-phases/editorial/graph";
+import type {
+  EnrichBrand as EditorialEnrichBrand,
+  EnrichPatch as EditorialEnrichPatch,
+  EnrichPhase as EditorialEnrichPhase,
+} from "./enrich-phases/types";
 import {
   fetchPhaseHistory,
   filterSatisfiedPhases,
@@ -1081,7 +1091,7 @@ function buildBrandPhaseOrder(
     .filter((phase) => !isDeferredPhase(phase));
 }
 
-type LinksPhaseResult = Awaited<ReturnType<typeof runLinksPhase>>;
+type AcquirePhaseResult = Awaited<ReturnType<typeof runAcquirePhase>>;
 
 /**
  * Per-target state carried across the two per-brand waves that the batched
@@ -1108,7 +1118,7 @@ type BrandWaveContext = {
   state: BrandEnrichState;
   detectResult: DetectResult | undefined;
   /** Wave A's links output; wave B feeds it into the candidate image pool. */
-  linksResult: LinksPhaseResult | null;
+  linksResult: AcquirePhaseResult | null;
   urlExtracted: Partial<BrandFlatLinkColumns>;
   currentPhase: string | undefined;
   completed: boolean;
@@ -2174,10 +2184,10 @@ export async function runEnrich(
                 await logCurrentPhase(ctx, cleanResult.phaseResult);
               }
 
-              let linksResult: Awaited<ReturnType<typeof runLinksPhase>> | undefined;
+              let linksResult: Awaited<ReturnType<typeof runAcquirePhase>> | undefined;
               if (!ctx.satisfiedPhaseSet.has("links")) {
                 await markCurrentPhase(ctx, "links");
-                linksResult = await runLinksPhase({
+                linksResult = await runAcquirePhase({
                   brand,
                   phases,
                   discoveredUrls: state.discoveredUrls,
@@ -2586,157 +2596,334 @@ export async function runEnrich(
                 appendPatch(state, classifyImagesResult.patch);
               }
 
+              // ---- Editorial agent (descriptions + stockists + faq) --------
+              // When at least one editorial sub-phase is unsatisfied, run the
+              // editorial agent which wraps all three phases with cross-output
+              // validation and repair. When EDITORIAL_AGENT=off the agent
+              // returns a fallback and we fall through to the individual calls.
+              //
               // Track whether descriptions ran so downstream listing-verdict and
               // ai-result attachment logic can reference its output safely.
               let descriptionsResult:
                 | Awaited<ReturnType<typeof runDescriptionsPhase>>
                 | undefined;
-              if (!satisfiedPhaseSet.has("descriptions")) {
-                await markCurrentPhase(ctx, "descriptions");
-                descriptionsResult = await runDescriptionsPhase({
-                  brand,
-                  phases,
+
+              const editorialUnsatisfied =
+                !satisfiedPhaseSet.has("descriptions") ||
+                !satisfiedPhaseSet.has("stockists") ||
+                !satisfiedPhaseSet.has("faq");
+
+              if (editorialUnsatisfied) {
+                // Filter out satisfied phases so the editorial agent skips them
+                const editorialPhases = (phases as EditorialEnrichPhase[]).filter(
+                  (p) => !satisfiedPhaseSet.has(p),
+                );
+                const editorialInput: EditorialInput = {
+                  brand: brand as EditorialEnrichBrand,
+                  phases: editorialPhases,
+                  scrapedData: state.scrapedData,
                   serpSnippets: state.serpSnippets,
                   overwrite,
                   dryRun: config.dryRun,
                   target: { type: targetType, id: brand.id },
                   jobId: config.jobId,
-                  pendingPatch: state.patches,
-                });
-                // The descriptions phase now assigns the category explicitly, from
-                // site content and image alt text. That value wins: the tag-vote
-                // derivation below is a fallback for when the model returned null.
-                const effectiveCategory =
-                  typeof descriptionsResult.patch.category === "string"
-                    ? descriptionsResult.patch.category
-                    : typeof state.patches.category === "string"
-                      ? state.patches.category
-                      : brand.category;
-                const effectiveSubcategories = Array.isArray(
-                  descriptionsResult.patch.subcategories,
-                )
-                  ? descriptionsResult.patch.subcategories.filter(
-                      (tag): tag is string => typeof tag === "string",
-                    )
-                  : (brand.subcategories ?? []);
-                if (
-                  descriptionsResult.phaseResult.status === "succeeded" &&
-                  !effectiveCategory
-                ) {
-                  const derivedCategory = deriveCategoryFromSubcategories(
-                    effectiveSubcategories,
-                  );
-                  if (derivedCategory) {
-                    descriptionsResult.patch.category = derivedCategory;
-                    descriptionsResult.phaseResult.changedFields = [
-                      ...new Set([
-                        ...descriptionsResult.phaseResult.changedFields,
-                        "category",
-                      ]),
-                    ];
-                    onProgress(
-                      `  [CATEGORY] ${brand.slug}: derived ${derivedCategory} from subcategories`,
-                    );
+                  pendingPatch: state.patches as EditorialEnrichPatch,
+                  explicitPhases: config.explicitPhases ?? [],
+                };
+
+                // Build production deps that delegate to the real phase functions
+                const editorialDeps: EditorialDeps = {
+                  runDescriptions: async (input) => {
+                    const result = await runDescriptionsPhase({
+                      brand: input.brand,
+                      phases: input.phases,
+                      serpSnippets: input.serpSnippets,
+                      overwrite: input.overwrite,
+                      dryRun: input.dryRun,
+                      target: input.target,
+                      jobId: input.jobId,
+                      pendingPatch: input.pendingPatch,
+                    });
+                    return {
+                      phaseResult: result.phaseResult,
+                      patch: result.patch,
+                      descriptionRewrite: result.descriptionRewrite,
+                      brandFacts: result.brandFacts,
+                      attempts: result.attempts,
+                      factsAttempts: result.factsAttempts,
+                      listingVerdict: result.listingVerdict,
+                    };
+                  },
+                  runStockists: async (input) => {
+                    const result = await runStockistsPhase({
+                      brand: input.brand,
+                      phases: input.phases,
+                      scrapedData: input.scrapedData ?? undefined,
+                      overwrite: input.overwrite,
+                      dryRun: input.dryRun,
+                      target: input.target,
+                      jobId: input.jobId,
+                    });
+                    return { phaseResult: result.phaseResult, patch: result.patch };
+                  },
+                  runFaq: async (input) => {
+                    const result = await runFaqPhase({
+                      brand: input.brand,
+                      phases: input.phases,
+                      serpSnippets: input.serpSnippets,
+                      scrapedData: input.scrapedData ?? null,
+                      overwrite: input.overwrite,
+                      dryRun: input.dryRun,
+                      target: input.target,
+                      jobId: input.jobId,
+                      explicitPhases: input.explicitPhases ?? [],
+                    });
+                    return { phaseResult: result.phaseResult, patch: result.patch };
+                  },
+                  validateCrossOutput: () => [],
+                  repairCrossOutput: async (patch) => patch,
+                };
+
+                const editorialOutput = await runEditorialAgent(editorialInput, editorialDeps);
+
+                if (editorialOutput.agentOutcome !== "fallback") {
+                  // Agent ran — apply its results
+                  for (const pr of editorialOutput.phaseResults) {
+                    state.phaseResults.push(pr);
+                    await logCurrentPhase(ctx, pr);
                   }
-                }
-                // Stage-2 listing gate. Absent or `list` verdicts are a no-op, so a model
-                // that never emitted the field behaves exactly as before. Read from the
-                // typed handoff, never from the patch: the verdict is a control value
-                // and would otherwise be persisted into `enriched_data`.
-                const listingVerdict = descriptionsResult.listingVerdict;
-                const listingReason =
-                  listingVerdict?.reason ??
-                  "Listing check rejected this brand (no reason given)";
-                if (listingVerdict?.verdict === "reject") {
-                  onProgress(
-                    `  [NOT-LISTABLE] ${brand.slug}: ${listingReason} (taiwan_connection=${listingVerdict.taiwanConnection ?? "unknown"}, own_products=${listingVerdict.hasOwnProducts ?? "unknown"}, purchase_channel=${listingVerdict.hasPurchaseChannel ?? "unknown"})`,
+                  appendPatch(state, editorialOutput.patch);
+
+                  // Extract descriptions-specific output for downstream logic
+                  const descriptionsPhaseResult = editorialOutput.phaseResults.find(
+                    (pr) => pr.phase === "descriptions",
                   );
-                  // Annotated before the phase is logged so the emitted progress event and
-                  // the recorded outcome carry the same detail string.
-                  descriptionsResult.phaseResult.detail = [
-                    descriptionsResult.phaseResult.detail,
-                    `listing verdict: reject — ${listingReason}`,
-                  ]
-                    .filter(Boolean)
-                    .join("; ");
-                }
+                  if (descriptionsPhaseResult) {
+                    descriptionsResult = {
+                      phaseResult: descriptionsPhaseResult,
+                      patch: editorialOutput.patch,
+                      descriptionRewrite: editorialOutput.descriptionRewrite,
+                      brandFacts: editorialOutput.brandFacts,
+                      attempts: editorialOutput.attempts,
+                      factsAttempts: editorialOutput.factsAttempts,
+                      listingVerdict: editorialOutput.listingVerdict,
+                    };
+                  }
 
-                state.phaseResults.push(descriptionsResult.phaseResult);
-                await logCurrentPhase(ctx, descriptionsResult.phaseResult);
-                appendPatch(state, descriptionsResult.patch);
-
-                if (listingVerdict?.verdict === "reject") {
-                  if (target === "submissions") {
-                    // A submission is not yet published, so this is a real gate: mirror the
-                    // detect non-brand path exactly — triage row, then a skipped outcome.
-                    if (!config.dryRun) {
-                      await insertTriageResult({
-                        brandId: brand.id,
-                        target: { type: targetType, id: brand.id },
-                        isNonBrand: true,
-                        nonBrandReason: `listing_reject: ${listingReason}`,
-                        slugGenerated: null,
-                        categorySlug: effectiveCategory ?? null,
-                        confidence: "medium",
-                      });
+                  // Category derivation from subcategories (same logic as before)
+                  if (descriptionsResult) {
+                    const effectiveCategory =
+                      typeof descriptionsResult.patch.category === "string"
+                        ? descriptionsResult.patch.category
+                        : typeof state.patches.category === "string"
+                          ? state.patches.category
+                          : brand.category;
+                    const effectiveSubcategories = Array.isArray(
+                      descriptionsResult.patch.subcategories,
+                    )
+                      ? descriptionsResult.patch.subcategories.filter(
+                          (tag): tag is string => typeof tag === "string",
+                        )
+                      : (brand.subcategories ?? []);
+                    if (
+                      descriptionsResult.phaseResult.status === "succeeded" &&
+                      !effectiveCategory
+                    ) {
+                      const derivedCategory = deriveCategoryFromSubcategories(
+                        effectiveSubcategories,
+                      );
+                      if (derivedCategory) {
+                        appendPatch(state, { category: derivedCategory });
+                        // Mutate the phase result in-place so the outcome carries
+                        // the derived category field
+                        descriptionsResult.phaseResult.changedFields = [
+                          ...new Set([
+                            ...descriptionsResult.phaseResult.changedFields,
+                            "category",
+                          ]),
+                        ];
+                        onProgress(
+                          `  [CATEGORY] ${brand.slug}: derived ${derivedCategory} from subcategories`,
+                        );
+                      }
                     }
 
-                    await recordOutcome(ctx, {
-                      slug: brand.slug,
-                      name: getDisplayBrandName(brand),
-                      submissionId: brand.id,
-                      status: "skipped",
-                      changedFields: changedFieldsFromPhaseResults(
-                        state.phaseResults,
-                      ),
-                      phaseResults: state.phaseResults,
-                      error: `Listing check rejected this submission: ${listingReason}`,
-                    });
-                    result.skipped += 1;
-                    finishBrand(ctx);
-                    return;
+                    // Stage-2 listing gate
+                    const listingVerdict = descriptionsResult.listingVerdict;
+                    const listingReason =
+                      listingVerdict?.reason ??
+                      "Listing check rejected this brand (no reason given)";
+                    if (listingVerdict?.verdict === "reject") {
+                      onProgress(
+                        `  [NOT-LISTABLE] ${brand.slug}: ${listingReason} (taiwan_connection=${listingVerdict.taiwanConnection ?? "unknown"}, own_products=${listingVerdict.hasOwnProducts ?? "unknown"}, purchase_channel=${listingVerdict.hasPurchaseChannel ?? "unknown"})`,
+                      );
+
+                      if (target === "submissions") {
+                        if (!config.dryRun) {
+                          await insertTriageResult({
+                            brandId: brand.id,
+                            target: { type: targetType, id: brand.id },
+                            isNonBrand: true,
+                            nonBrandReason: `listing_reject: ${listingReason}`,
+                            slugGenerated: null,
+                            categorySlug:
+                              (typeof descriptionsResult.patch.category === "string"
+                                ? descriptionsResult.patch.category
+                                : brand.category) ?? null,
+                            confidence: "medium",
+                          });
+                        }
+
+                        await recordOutcome(ctx, {
+                          slug: brand.slug,
+                          name: getDisplayBrandName(brand),
+                          submissionId: brand.id,
+                          status: "skipped",
+                          changedFields: changedFieldsFromPhaseResults(
+                            state.phaseResults,
+                          ),
+                          phaseResults: state.phaseResults,
+                          error: `Listing check rejected this submission: ${listingReason}`,
+                        });
+                        result.skipped += 1;
+                        finishBrand(ctx);
+                        return;
+                      }
+                    }
                   }
-                  // An approved brand is already public: record only — the onProgress log
-                  // and the phase detail above are the whole action. Nothing is
-                  // unpublished or hidden, brands.status is untouched, and the run
-                  // continues to the remaining phases. insertTriageResult is deliberately
-                  // NOT called here: its row shape is the detect-phase triage schema, and
-                  // widening it would be a schema change.
+                } else {
+                  // Fallback: EDITORIAL_AGENT=off or agent error — run individual phases
+                  if (!satisfiedPhaseSet.has("descriptions")) {
+                    await markCurrentPhase(ctx, "descriptions");
+                    descriptionsResult = await runDescriptionsPhase({
+                      brand,
+                      phases,
+                      serpSnippets: state.serpSnippets,
+                      overwrite,
+                      dryRun: config.dryRun,
+                      target: { type: targetType, id: brand.id },
+                      jobId: config.jobId,
+                      pendingPatch: state.patches,
+                    });
+                    const effectiveCategory =
+                      typeof descriptionsResult.patch.category === "string"
+                        ? descriptionsResult.patch.category
+                        : typeof state.patches.category === "string"
+                          ? state.patches.category
+                          : brand.category;
+                    const effectiveSubcategories = Array.isArray(
+                      descriptionsResult.patch.subcategories,
+                    )
+                      ? descriptionsResult.patch.subcategories.filter(
+                          (tag): tag is string => typeof tag === "string",
+                        )
+                      : (brand.subcategories ?? []);
+                    if (
+                      descriptionsResult.phaseResult.status === "succeeded" &&
+                      !effectiveCategory
+                    ) {
+                      const derivedCategory = deriveCategoryFromSubcategories(
+                        effectiveSubcategories,
+                      );
+                      if (derivedCategory) {
+                        descriptionsResult.patch.category = derivedCategory;
+                        descriptionsResult.phaseResult.changedFields = [
+                          ...new Set([
+                            ...descriptionsResult.phaseResult.changedFields,
+                            "category",
+                          ]),
+                        ];
+                        onProgress(
+                          `  [CATEGORY] ${brand.slug}: derived ${derivedCategory} from subcategories`,
+                        );
+                      }
+                    }
+                    const listingVerdict = descriptionsResult.listingVerdict;
+                    const listingReason =
+                      listingVerdict?.reason ??
+                      "Listing check rejected this brand (no reason given)";
+                    if (listingVerdict?.verdict === "reject") {
+                      onProgress(
+                        `  [NOT-LISTABLE] ${brand.slug}: ${listingReason} (taiwan_connection=${listingVerdict.taiwanConnection ?? "unknown"}, own_products=${listingVerdict.hasOwnProducts ?? "unknown"}, purchase_channel=${listingVerdict.hasPurchaseChannel ?? "unknown"})`,
+                      );
+                      descriptionsResult.phaseResult.detail = [
+                        descriptionsResult.phaseResult.detail,
+                        `listing verdict: reject — ${listingReason}`,
+                      ]
+                        .filter(Boolean)
+                        .join("; ");
+                    }
+
+                    state.phaseResults.push(descriptionsResult.phaseResult);
+                    await logCurrentPhase(ctx, descriptionsResult.phaseResult);
+                    appendPatch(state, descriptionsResult.patch);
+
+                    if (listingVerdict?.verdict === "reject") {
+                      if (target === "submissions") {
+                        if (!config.dryRun) {
+                          await insertTriageResult({
+                            brandId: brand.id,
+                            target: { type: targetType, id: brand.id },
+                            isNonBrand: true,
+                            nonBrandReason: `listing_reject: ${listingReason}`,
+                            slugGenerated: null,
+                            categorySlug: effectiveCategory ?? null,
+                            confidence: "medium",
+                          });
+                        }
+
+                        await recordOutcome(ctx, {
+                          slug: brand.slug,
+                          name: getDisplayBrandName(brand),
+                          submissionId: brand.id,
+                          status: "skipped",
+                          changedFields: changedFieldsFromPhaseResults(
+                            state.phaseResults,
+                          ),
+                          phaseResults: state.phaseResults,
+                          error: `Listing check rejected this submission: ${listingReason}`,
+                        });
+                        result.skipped += 1;
+                        finishBrand(ctx);
+                        return;
+                      }
+                    }
+                  }
+
+                  if (!satisfiedPhaseSet.has("stockists")) {
+                    await markCurrentPhase(ctx, "stockists");
+                    const stockistsResult = await runStockistsPhase({
+                      brand,
+                      phases,
+                      scrapedData: state.scrapedData,
+                      overwrite,
+                      dryRun: config.dryRun,
+                      target: { type: targetType, id: brand.id },
+                      jobId: config.jobId,
+                    });
+                    state.phaseResults.push(stockistsResult.phaseResult);
+                    await logCurrentPhase(ctx, stockistsResult.phaseResult);
+                    appendPatch(state, stockistsResult.patch);
+                  }
+
+                  if (!satisfiedPhaseSet.has("faq")) {
+                    await markCurrentPhase(ctx, "faq");
+                    const faqResult = await runFaqPhase({
+                      brand,
+                      phases,
+                      serpSnippets: state.serpSnippets,
+                      scrapedData: state.scrapedData,
+                      overwrite,
+                      dryRun: config.dryRun,
+                      target: { type: targetType, id: brand.id },
+                      jobId: config.jobId,
+                      explicitPhases: config.explicitPhases ?? [],
+                    });
+                    state.phaseResults.push(faqResult.phaseResult);
+                    await logCurrentPhase(ctx, faqResult.phaseResult);
+                    appendPatch(state, faqResult.patch);
+                  }
                 }
-              }
-
-              if (!satisfiedPhaseSet.has("stockists")) {
-                await markCurrentPhase(ctx, "stockists");
-                const stockistsResult = await runStockistsPhase({
-                  brand,
-                  phases,
-                  scrapedData: state.scrapedData,
-                  overwrite,
-                  dryRun: config.dryRun,
-                  target: { type: targetType, id: brand.id },
-                  jobId: config.jobId,
-                });
-                state.phaseResults.push(stockistsResult.phaseResult);
-                await logCurrentPhase(ctx, stockistsResult.phaseResult);
-                appendPatch(state, stockistsResult.patch);
-              }
-
-              if (!satisfiedPhaseSet.has("faq")) {
-                await markCurrentPhase(ctx, "faq");
-                const faqResult = await runFaqPhase({
-                  brand,
-                  phases,
-                  serpSnippets: state.serpSnippets,
-                  scrapedData: state.scrapedData,
-                  overwrite,
-                  dryRun: config.dryRun,
-                  target: { type: targetType, id: brand.id },
-                  jobId: config.jobId,
-                  explicitPhases: config.explicitPhases ?? [],
-                });
-                state.phaseResults.push(faqResult.phaseResult);
-                await logCurrentPhase(ctx, faqResult.phaseResult);
-                appendPatch(state, faqResult.patch);
               }
 
               if (!satisfiedPhaseSet.has("products")) {

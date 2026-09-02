@@ -4,8 +4,8 @@ import {
   deriveOfficialWebsite,
   deriveScrapedBrandName,
   resolveOfficialWebsite,
-  runLinksPhase,
-} from '../links'
+  runAcquirePhase,
+} from '../acquire'
 import type { EnrichBrand, EnrichPhase } from '../types'
 import { emptyResult } from '../scraper/parse/extractors'
 import { mergeScrapedData } from '../scraper/merge'
@@ -331,9 +331,9 @@ describe('first-party bilingual name evidence', () => {
   })
 })
 
-describe('runLinksPhase', () => {
+describe('runAcquirePhase', () => {
   it('returns skipped when links is not in requested phases', async () => {
-    const result = await runLinksPhase({
+    const result = await runAcquirePhase({
       brand,
       phases: ['clean'] as EnrichPhase[],
       discoveredUrls: ['https://www.instagram.com/testbrand/'],
@@ -348,7 +348,7 @@ describe('runLinksPhase', () => {
   })
 
   it('returns empty jsonLdImageUrls when links phase is skipped', async () => {
-    const result = await runLinksPhase({
+    const result = await runAcquirePhase({
       brand,
       phases: ['clean'] as EnrichPhase[],
       discoveredUrls: [],
@@ -402,8 +402,8 @@ describe('links quarantine identity rules', () => {
     }
   }
 
-  const run = async (overrides: Partial<Parameters<typeof runLinksPhase>[0]>) =>
-    runLinksPhase({
+  const run = async (overrides: Partial<Parameters<typeof runAcquirePhase>[0]>) =>
+    runAcquirePhase({
       brand,
       phases: ['links'] as EnrichPhase[],
       discoveredUrls: [],
@@ -789,8 +789,8 @@ describe('acquisition agent integration', () => {
     purchase_shopee: null,
   }
 
-  const agentRun = (overrides: Partial<Parameters<typeof runLinksPhase>[0]> = {}) =>
-    runLinksPhase({
+  const agentRun = (overrides: Partial<Parameters<typeof runAcquirePhase>[0]> = {}) =>
+    runAcquirePhase({
       brand: agentBrand,
       phases: ['links'] as EnrichPhase[],
       discoveredUrls: ['https://agentbrand.com/about'],
@@ -881,7 +881,7 @@ describe('acquisition agent integration', () => {
   })
 
   it('links_phase_not_requested_still_returns_skipped', async () => {
-    const result = await runLinksPhase({
+    const result = await runAcquirePhase({
       brand: agentBrand,
       phases: ['clean'] as EnrichPhase[],
       discoveredUrls: [],

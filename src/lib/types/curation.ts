@@ -52,6 +52,8 @@ export interface PhaseResult {
   productsProposed?: number;
   agentOutcome?: 'planned' | 'recovered' | 'fallback' | 'blocked' | 'skipped' | 'proposed' | 'repaired';
   acquisitionPlan?: Record<string, unknown>;
+  /** Classified image pool for downstream phases. Capped at 16 KB. */
+  imagePool?: Array<{ url: string; score: number; tags: string[]; pageUrl?: string; storageKey?: string }>;
   productsVerification?: Record<string, unknown>;
   revokedColumns?: string[];
 }

@@ -115,7 +115,7 @@ const SITE_IDENTITY_ITEM_TEXT_BUDGET = 1800;
 // Bounds recovery calls per chunk; raise only after provider-cost telemetry confirms it is safe.
 const SITE_IDENTITY_MAX_FANOUT_PER_CHUNK = 8;
 
-// Deliberately tighter than boundedScrapeSnippets' 4000 in enrich-phases/links.ts:
+// Deliberately tighter than boundedScrapeSnippets' 4000 in enrich-phases/acquire.ts:
 // a 20-item batch at 4000 crowds the profile's maxTokens.
 function boundSiteIdentityText(value: string | undefined): string | undefined {
   if (!value) return undefined;

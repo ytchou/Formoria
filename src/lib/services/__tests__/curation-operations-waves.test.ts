@@ -26,7 +26,11 @@ const mocks = vi.hoisted(() => ({
   getLatestSearchResults: vi.fn(),
   getLangfuse: vi.fn(),
   runBrandImagePhase: vi.fn(),
-  runLinksPhase: vi.fn(),
+  runAcquirePhase: vi.fn(),
+  runEditorialAgent: vi.fn(),
+  runDescriptionsPhase: vi.fn(),
+  runStockistsPhase: vi.fn(),
+  runFaqPhase: vi.fn(),
 }));
 
 vi.mock("@/lib/langfuse/client", () => ({
@@ -66,12 +70,52 @@ vi.mock("../enrich-phases/images", async (importOriginal) => {
   };
 });
 
-vi.mock("../enrich-phases/links", async (importOriginal) => {
-  const original = await importOriginal<typeof import("../enrich-phases/links")>();
+vi.mock("../enrich-phases/acquire", async (importOriginal) => {
+  const original = await importOriginal<typeof import("../enrich-phases/acquire")>();
   return {
     ...original,
-    runLinksPhase: mocks.runLinksPhase.mockImplementation(
-      original.runLinksPhase,
+    runAcquirePhase: mocks.runAcquirePhase.mockImplementation(
+      original.runAcquirePhase,
+    ),
+  };
+});
+
+vi.mock("../enrich-phases/editorial/graph", async (importOriginal) => {
+  const original = await importOriginal<typeof import("../enrich-phases/editorial/graph")>();
+  return {
+    ...original,
+    runEditorialAgent: mocks.runEditorialAgent.mockImplementation(
+      original.runEditorialAgent,
+    ),
+  };
+});
+
+vi.mock("../enrich-phases/descriptions", async (importOriginal) => {
+  const original = await importOriginal<typeof import("../enrich-phases/descriptions")>();
+  return {
+    ...original,
+    runDescriptionsPhase: mocks.runDescriptionsPhase.mockImplementation(
+      original.runDescriptionsPhase,
+    ),
+  };
+});
+
+vi.mock("../enrich-phases/stockists", async (importOriginal) => {
+  const original = await importOriginal<typeof import("../enrich-phases/stockists")>();
+  return {
+    ...original,
+    runStockistsPhase: mocks.runStockistsPhase.mockImplementation(
+      original.runStockistsPhase,
+    ),
+  };
+});
+
+vi.mock("../enrich-phases/faq", async (importOriginal) => {
+  const original = await importOriginal<typeof import("../enrich-phases/faq")>();
+  return {
+    ...original,
+    runFaqPhase: mocks.runFaqPhase.mockImplementation(
+      original.runFaqPhase,
     ),
   };
 });
@@ -815,8 +859,8 @@ describe("acquisition plan catalog threading", () => {
       "https://catalog.example.com/products/vase",
     ];
 
-    // Override runLinksPhase to return a result with an acquisitionPlan
-    mocks.runLinksPhase.mockResolvedValueOnce({
+    // Override runAcquirePhase to return a result with an acquisitionPlan
+    mocks.runAcquirePhase.mockResolvedValueOnce({
       phaseResult: {
         phase: "links",
         status: "succeeded",
@@ -874,5 +918,210 @@ describe("acquisition plan catalog threading", () => {
     expect(imageArgs.catalogPriorityProductUrls).toEqual(
       catalogPriorityProductUrls,
     );
+  });
+});
+
+/**
+ * Editorial agent integration: when EDITORIAL_AGENT is not 'off', the
+ * orchestrator calls `runEditorialAgent` instead of the three individual
+ * phase functions (runDescriptionsPhase, runStockistsPhase, runFaqPhase).
+ */
+describe("editorial agent integration", () => {
+  const ORIGINAL_EDITORIAL_AGENT = process.env.EDITORIAL_AGENT;
+  const ORIGINAL_OPENAI_KEY = process.env.OPENAI_API_KEY;
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    process.env.OPENAI_API_KEY = "test-stub";
+    mocks.getLatestSearchResults.mockResolvedValue(new Map());
+    mocks.batchSearchBrandImages.mockResolvedValue(new Map());
+    mocks.scrapeBrandUrls.mockResolvedValue(scrapeResult());
+    mocks.detectBrandsBatch.mockResolvedValue(detectBatch(new Map()));
+  });
+
+  afterEach(() => {
+    if (ORIGINAL_EDITORIAL_AGENT === undefined) delete process.env.EDITORIAL_AGENT;
+    else process.env.EDITORIAL_AGENT = ORIGINAL_EDITORIAL_AGENT;
+    if (ORIGINAL_OPENAI_KEY === undefined) delete process.env.OPENAI_API_KEY;
+    else process.env.OPENAI_API_KEY = ORIGINAL_OPENAI_KEY;
+  });
+
+  it("editorial_agent_replaces_individual_calls", async () => {
+    delete process.env.EDITORIAL_AGENT;
+
+    mocks.runEditorialAgent.mockResolvedValueOnce({
+      agentOutcome: "generated",
+      phaseResults: [
+        { phase: "descriptions", status: "succeeded", changedFields: ["description"], durationMs: 100 },
+        { phase: "stockists", status: "skipped", changedFields: [], durationMs: 10 },
+        { phase: "faq", status: "succeeded", changedFields: [], durationMs: 50 },
+      ],
+      patch: { description: "A test description" },
+      listingVerdict: null,
+      descriptionRewrite: null,
+      brandFacts: null,
+      attempts: [],
+      factsAttempts: [],
+      decisions: [],
+    });
+
+    const target = submission({
+      id: "sub-editorial",
+      brand_name: "Editorial Brand",
+      social_instagram: "https://www.instagram.com/editorialbrand",
+    });
+
+    await runEnrich(
+      {
+        target: "submissions",
+        submissionIds: [target.id],
+        dryRun: true,
+        phases: ["detect", "links", "images", "descriptions", "stockists", "faq"],
+        onProgress: () => {},
+      },
+      fakeSupabase([target]),
+    );
+
+    // The editorial agent was called instead of individual phases
+    expect(mocks.runEditorialAgent).toHaveBeenCalledOnce();
+    // The three individual phase functions must NOT have been called directly
+    expect(mocks.runDescriptionsPhase).not.toHaveBeenCalled();
+    expect(mocks.runStockistsPhase).not.toHaveBeenCalled();
+    expect(mocks.runFaqPhase).not.toHaveBeenCalled();
+  });
+
+  it("editorial_phase_results_granular", async () => {
+    delete process.env.EDITORIAL_AGENT;
+
+    mocks.runEditorialAgent.mockResolvedValueOnce({
+      agentOutcome: "generated",
+      phaseResults: [
+        { phase: "descriptions", status: "succeeded", changedFields: ["description", "description_en"], durationMs: 100 },
+        { phase: "stockists", status: "succeeded", changedFields: ["channels"], durationMs: 80 },
+        { phase: "faq", status: "succeeded", changedFields: [], durationMs: 50 },
+      ],
+      patch: { description: "Test", description_en: "Test EN" },
+      listingVerdict: null,
+      descriptionRewrite: null,
+      brandFacts: null,
+      attempts: [],
+      factsAttempts: [],
+      decisions: [],
+    });
+
+    const target = submission({
+      id: "sub-granular",
+      brand_name: "Granular Brand",
+      social_instagram: "https://www.instagram.com/granularbrand",
+    });
+
+    const result = await runEnrich(
+      {
+        target: "submissions",
+        submissionIds: [target.id],
+        dryRun: true,
+        phases: ["detect", "links", "images", "descriptions", "stockists", "faq"],
+        onProgress: () => {},
+      },
+      fakeSupabase([target]),
+    );
+
+    const outcome = result.brandOutcomes.find(
+      (entry) => entry?.submissionId === target.id,
+    );
+    // Each editorial sub-phase has its own PhaseResult in the outcome
+    const descPhase = outcome?.phaseResults?.find((pr) => pr.phase === "descriptions");
+    const stockPhase = outcome?.phaseResults?.find((pr) => pr.phase === "stockists");
+    const faqPhase = outcome?.phaseResults?.find((pr) => pr.phase === "faq");
+    expect(descPhase?.status).toBe("succeeded");
+    expect(descPhase?.changedFields).toContain("description");
+    expect(stockPhase?.status).toBe("succeeded");
+    expect(faqPhase?.status).toBe("succeeded");
+  });
+
+  it("editorial_respects_satisfaction", async () => {
+    delete process.env.EDITORIAL_AGENT;
+
+    // The editorial agent should NOT be called when all three sub-phases are
+    // satisfied from history.
+    const target = submission({
+      id: "sub-satisfied-editorial",
+      brand_name: "Satisfied Editorial",
+      social_instagram: "https://www.instagram.com/satisfiededitorial",
+    });
+
+    const jobTargets = [{
+      target_type: "submission",
+      target_id: target.id,
+      phase_results: [
+        { phase: "descriptions", status: "succeeded", changedFields: ["description"], durationMs: 100 },
+        { phase: "stockists", status: "succeeded", changedFields: [], durationMs: 50 },
+        { phase: "faq", status: "succeeded", changedFields: [], durationMs: 50 },
+      ],
+      created_at: "2026-08-01T00:00:00Z",
+    }];
+
+    await runEnrich(
+      {
+        target: "submissions",
+        submissionIds: [target.id],
+        dryRun: true,
+        phases: ["detect", "links", "images", "descriptions", "stockists", "faq"],
+        onProgress: () => {},
+      },
+      fakeSupabase([target], jobTargets),
+    );
+
+    // All editorial sub-phases are satisfied, so the agent should not be called
+    expect(mocks.runEditorialAgent).not.toHaveBeenCalled();
+    expect(mocks.runDescriptionsPhase).not.toHaveBeenCalled();
+    expect(mocks.runStockistsPhase).not.toHaveBeenCalled();
+    expect(mocks.runFaqPhase).not.toHaveBeenCalled();
+  });
+
+  it("editorial_agent_off_falls_back_to_individual_phases", async () => {
+    process.env.EDITORIAL_AGENT = "off";
+
+    // Mock individual phases to return canned results since the fallback
+    // path calls them directly and they would otherwise hit real Supabase.
+    mocks.runDescriptionsPhase.mockResolvedValueOnce({
+      phaseResult: { phase: "descriptions", status: "skipped", changedFields: [], durationMs: 0 },
+      patch: {},
+      descriptionRewrite: null,
+      brandFacts: null,
+      attempts: [],
+      factsAttempts: [],
+      listingVerdict: null,
+    });
+    mocks.runStockistsPhase.mockResolvedValueOnce({
+      phaseResult: { phase: "stockists", status: "skipped", changedFields: [], durationMs: 0 },
+      patch: {},
+    });
+    mocks.runFaqPhase.mockResolvedValueOnce({
+      phaseResult: { phase: "faq", status: "skipped", changedFields: [], durationMs: 0 },
+      patch: {},
+    });
+
+    const target = submission({
+      id: "sub-fallback",
+      brand_name: "Fallback Brand",
+      social_instagram: "https://www.instagram.com/fallbackbrand",
+    });
+
+    await runEnrich(
+      {
+        target: "submissions",
+        submissionIds: [target.id],
+        dryRun: true,
+        phases: ["detect", "links", "images", "descriptions", "stockists", "faq"],
+        onProgress: () => {},
+      },
+      fakeSupabase([target]),
+    );
+
+    // With EDITORIAL_AGENT=off, the agent returns fallback and individual
+    // phases are called directly.
+    expect(mocks.runEditorialAgent).toHaveBeenCalledOnce();
+    expect(mocks.runDescriptionsPhase).toHaveBeenCalled();
   });
 });

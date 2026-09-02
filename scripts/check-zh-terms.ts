@@ -170,7 +170,7 @@ export const EXCLUDED_SOURCE_FILES = new Map([
     "LLM field labels and source examples",
   ],
   [
-    "lib/services/enrich-phases/links.ts",
+    "lib/services/enrich-phases/acquire.ts",
     "LLM field labels and source examples",
   ],
   ["lib/services/enrich-phases/classify-images.ts", "LLM user message"],

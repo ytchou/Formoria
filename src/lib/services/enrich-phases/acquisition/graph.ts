@@ -13,9 +13,12 @@ import type { FetchMetadata } from '../scraper/fetch-guards'
 import type { RenderProvider } from '../scraper/render/types'
 import type { MultiScrapeResult, ScrapeBrandUrlsOptions } from '../scraper/index'
 import type { SurfaceDirective } from '../scraper/strategies/types'
-import { needsRendering } from '../catalog-discovery'
+import { needsRendering, type CatalogDiscoveryResult } from '../catalog-discovery'
+import type { DiscoverCatalogOptions } from '../catalog-discovery'
 import { buildCandidatePool, type CandidateImage } from '../candidate-pool'
 import type { ClassifiedImage } from '../classify-images'
+import { rank } from '../image-ranking'
+import { HERO_TARGET_RATIO } from '@/lib/constants/brand-images'
 import type { EnrichBrand } from '../types'
 import type { z } from 'zod'
 import {
@@ -53,12 +56,24 @@ export type AcquisitionInput = {
   jobId?: string
 }
 
+export type ImagePoolEntry = {
+  url: string
+  score: number
+  tags: string[]
+  pageUrl?: string
+  storageKey?: string
+}
+
 export type AcquisitionOutput = {
   agentOutcome: 'planned' | 'recovered' | 'fallback' | 'blocked'
   plan?: AcquisitionPlanType
   directives?: Map<string, SurfaceDirective>
   scrapeResult?: MultiScrapeResult
   classifiedImages?: ClassifiedImage[]
+  /** Ranked image pool for downstream consumers (products agent). Capped at 16 KB. */
+  imagePool?: ImagePoolEntry[]
+  /** Catalog discovery result from priority product URLs in the plan. */
+  catalogResult?: CatalogDiscoveryResult
   budget?: { allowed: AcquisitionBudget; used: AcquisitionBudget }
   decisions: Array<{ step: string; action: string; reason: string; ms: number }>
   error?: string
@@ -73,6 +88,8 @@ export type AcquisitionDeps = {
   downloadAndStoreImages?: (candidates: CandidateImage[], brandId: string) => Promise<(string | null)[]>
   /** Run vision classification on stored images. Returns classified images with scores/tags. */
   classifyImages?: (brandId: string, dryRun?: boolean) => Promise<ClassifiedImage[]>
+  /** Discover product catalog from brand URLs. Injected so tests can provide a fake. */
+  discoverCatalog?: (options: DiscoverCatalogOptions) => Promise<CatalogDiscoveryResult>
 }
 
 type RunOptions = {
@@ -777,12 +794,59 @@ export async function runAcquisition(
   // Finalize — record final wall-clock usage
   wallClockExhausted()
 
+  // ---------------------------------------------------------------------------
+  // Image ranking: sort classified images by quality for hero (4:3) frame
+  // ---------------------------------------------------------------------------
+  const ranked = state.classifiedImages.length > 0
+    ? rank(state.classifiedImages, HERO_TARGET_RATIO)
+    : []
+
+  // Build imagePool for downstream (products agent): each entry carries url, score,
+  // tags, and optional pageUrl/storageKey. Capped at ~16 KB (same as acquisitionPlan).
+  const MAX_IMAGE_POOL_BYTES = 16_384
+  let imagePool: ImagePoolEntry[] = ranked.map((img) => ({
+    url: img.storage_path ?? img.id,
+    score: img.score,
+    tags: [img.tag, ...(img.disposition ? [img.disposition] : [])],
+    ...(img.storage_path ? { storageKey: img.storage_path } : {}),
+  }))
+  // Trim entries until under the cap
+  while (imagePool.length > 0 && JSON.stringify(imagePool).length > MAX_IMAGE_POOL_BYTES) {
+    imagePool = imagePool.slice(0, -1)
+  }
+
+  // ---------------------------------------------------------------------------
+  // Catalog discovery: run if the plan has priority product URLs
+  // ---------------------------------------------------------------------------
+  let catalogResult: CatalogDiscoveryResult | undefined
+  const catalogUrls = state.plan?.catalog
+  if (
+    deps.discoverCatalog &&
+    catalogUrls &&
+    (catalogUrls.priorityProductUrls.length > 0 || catalogUrls.entryUrls.length > 0)
+  ) {
+    try {
+      const knownSources = state.input.knownUrls
+        .slice(0, 3)
+        .map((url) => ({ url, channel: 'official' as const }))
+      catalogResult = await deps.discoverCatalog({
+        sources: knownSources,
+        entryUrls: catalogUrls.entryUrls,
+        priorityProductUrls: catalogUrls.priorityProductUrls,
+      })
+    } catch {
+      // Catalog discovery is non-critical; swallow and continue
+    }
+  }
+
   return {
     agentOutcome: state.agentOutcome,
     plan: state.plan ?? undefined,
     directives: state.directives.size > 0 ? state.directives : undefined,
     scrapeResult: state.scrapeResult ?? undefined,
     classifiedImages: state.classifiedImages,
+    imagePool: imagePool.length > 0 ? imagePool : undefined,
+    catalogResult,
     budget: { allowed: state.budget.allowed, used: state.budget.used },
     decisions: state.decisions,
     error: state.error,

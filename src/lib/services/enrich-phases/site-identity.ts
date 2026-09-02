@@ -16,7 +16,7 @@ import {
   type EnrichPatch,
 } from './types'
 import type { EnrichScrapedData } from './types'
-import type { QuarantineGroup, LinksPhaseOutput } from './links'
+import type { QuarantineGroup, AcquirePhaseOutput } from './acquire'
 import { linkColumnFor } from '../link-enrichment'
 
 export type SiteIdentityQuarantine = QuarantineGroup & {
@@ -28,7 +28,7 @@ export type SiteIdentityQuarantine = QuarantineGroup & {
    * text from a page judged not-owned. Do not spread it on the way in.
    */
   scrapedData?: EnrichScrapedData
-  linksResult?: LinksPhaseOutput | null
+  linksResult?: AcquirePhaseOutput | null
 }
 
 type SiteIdentityApplication = {
@@ -262,7 +262,7 @@ function revokeText(
 }
 
 function filterRevokedImages(
-  linksResult: LinksPhaseOutput | null | undefined,
+  linksResult: AcquirePhaseOutput | null | undefined,
   subjectUrl: string,
   subjectKind: SiteIdentityQuarantine['subjectKind'],
 ): void {

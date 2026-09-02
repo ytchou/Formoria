@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { siteIdentityKey } from '../../site-identity-arbiter'
 import { resolveQuarantine, runSiteIdentityPhase, type SiteIdentityQuarantine } from '../site-identity'
 import { buildPhaseResult } from '../types'
-import type { LinksPhaseOutput } from '../links'
+import type { AcquirePhaseOutput } from '../acquire'
 import { CLEARED_FIELDS_KEY, resolveRefreshEnrichmentPatch } from '../../brand-write-policy'
 
 const arbitrate = vi.hoisted(() => vi.fn())
@@ -21,7 +21,7 @@ const group = (overrides: Partial<SiteIdentityQuarantine> = {}): SiteIdentityQua
   scrapedData: { textSourceUrl: 'https://other.example' },
   ...overrides,
 })
-const linksOutput = (): LinksPhaseOutput => ({
+const linksOutput = (): AcquirePhaseOutput => ({
   phaseResult: buildPhaseResult('links', 'succeeded', [], 0),
   patch: {},
   scrapedBrandName: null,
@@ -649,7 +649,7 @@ describe('site identity quarantine', () => {
       socialBios: {},
       decisions: [],
     }
-    const linksResultWithPlan: LinksPhaseOutput = {
+    const linksResultWithPlan: AcquirePhaseOutput = {
       ...linksOutput(),
       acquisitionPlan,
     }

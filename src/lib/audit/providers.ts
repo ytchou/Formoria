@@ -124,7 +124,7 @@ const PROVIDERS = {
     "runDiscoverPhase",
     "runEnrich",
     "runImageSearchPhase",
-    "runLinksPhase",
+    "runAcquirePhase",
     "runNamesPhase",
     "runProductsPhase",
     "runSiteIdentityPhase",

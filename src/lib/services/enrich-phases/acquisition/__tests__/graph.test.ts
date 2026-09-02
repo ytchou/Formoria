@@ -168,6 +168,30 @@ describe('acquisition graph', () => {
 })
 
 // ---------------------------------------------------------------------------
+// CritiqueVerdict schema tests
+// ---------------------------------------------------------------------------
+
+describe('CritiqueVerdict schema', () => {
+  it('critique_includes_ownership_verdicts', async () => {
+    const { CritiqueVerdictSchema } = await import('../../acquisition/plan')
+    const verdictWithOwnership = {
+      verdict: 'sufficient',
+      reason: 'all URLs verified',
+      urlVerdicts: [
+        { url: 'https://example.com', owned: true, confidence: 'high', reason: 'domain matches brand name' },
+        { url: 'https://other.com', owned: false, confidence: 'medium', reason: 'no brand signals' },
+      ],
+    }
+    const result = CritiqueVerdictSchema.safeParse(verdictWithOwnership)
+    expect(result.success).toBe(true)
+    if (result.success) {
+      expect(result.data.urlVerdicts).toHaveLength(2)
+      expect(result.data.urlVerdicts![0]).toMatchObject({ url: 'https://example.com', owned: true, confidence: 'high' })
+    }
+  })
+})
+
+// ---------------------------------------------------------------------------
 // Images node tests
 // ---------------------------------------------------------------------------
 
@@ -265,6 +289,102 @@ describe('acquisition graph — images node', () => {
     // download and classify should NOT be called when no candidates exist
     expect(deps.downloadAndStoreImages).not.toHaveBeenCalled()
     expect(deps.classifyImages).not.toHaveBeenCalled()
+  })
+
+  it('finalize_ranks_images', async () => {
+    const deps = makeDeps({
+      scrapeBrandUrls: vi.fn().mockResolvedValue({
+        data: {
+          name: 'Test Brand',
+          description: 'A test brand',
+          galleryImageUrls: ['https://cdn.example.com/img1.jpg', 'https://cdn.example.com/img2.jpg'],
+          imageSources: [],
+          jsonLdImageUrls: [],
+        },
+        statuses: [{ url: 'https://example.com', ok: true, classification: 'official-site', httpStatus: 200, latencyMs: 100, error: null }],
+      }),
+      downloadAndStoreImages: vi.fn().mockResolvedValue([
+        'https://storage.example.com/img1.jpg',
+        'https://storage.example.com/img2.jpg',
+      ]),
+      classifyImages: vi.fn().mockResolvedValue([
+        { id: 'img-1', tag: 'product', score: 0.7, storage_path: 'brands/brand-1/img1.jpg', width: 800, height: 600 },
+        { id: 'img-2', tag: 'hero', score: 0.95, storage_path: 'brands/brand-1/img2.jpg', width: 1200, height: 900 },
+      ]),
+    })
+
+    const model = fakeModel([validPlan, verdict])
+    const result = await runAcquisition(baseInput, deps, { model })
+
+    expect(result.agentOutcome).toBe('planned')
+    // imagePool should be populated with ranked images (hero first)
+    expect(result.imagePool).toBeDefined()
+    expect(result.imagePool!.length).toBeGreaterThan(0)
+    // Highest score image should be first (hero)
+    expect(result.imagePool![0]!.score).toBeGreaterThanOrEqual(result.imagePool![1]?.score ?? 0)
+  })
+
+  it('finalize_writes_image_pool_to_phase_result', async () => {
+    const deps = makeDeps({
+      scrapeBrandUrls: vi.fn().mockResolvedValue({
+        data: {
+          name: 'Test Brand',
+          description: 'A test brand',
+          galleryImageUrls: ['https://cdn.example.com/img1.jpg'],
+          imageSources: [
+            { url: 'https://cdn.example.com/img1.jpg', method: 'crawl', pageUrl: 'https://example.com', position: 0 },
+          ],
+          jsonLdImageUrls: [],
+        },
+        statuses: [{ url: 'https://example.com', ok: true, classification: 'official-site', httpStatus: 200, latencyMs: 100, error: null }],
+      }),
+      downloadAndStoreImages: vi.fn().mockResolvedValue(['https://storage.example.com/img1.jpg']),
+      classifyImages: vi.fn().mockResolvedValue([
+        { id: 'img-1', tag: 'product', score: 0.9, storage_path: 'brands/brand-1/img1.jpg', width: 800, height: 600 },
+      ]),
+    })
+
+    const model = fakeModel([validPlan, verdict])
+    const result = await runAcquisition(baseInput, deps, { model })
+
+    expect(result.imagePool).toBeDefined()
+    expect(result.imagePool).toHaveLength(1)
+    expect(result.imagePool![0]).toMatchObject({
+      url: expect.any(String),
+      score: expect.any(Number),
+      tags: expect.any(Array),
+    })
+  })
+
+  it('finalize_discovers_catalog', async () => {
+    const planWithCatalog = {
+      ...validPlan,
+      catalog: {
+        entryUrls: ['https://example.com/products'],
+        priorityProductUrls: ['https://example.com/products/item-1'],
+      },
+    }
+    const fakeCatalogResult = { triples: [], attempts: [], evidence: new Map() }
+    const deps = makeDeps({
+      scrapeBrandUrls: vi.fn().mockResolvedValue({
+        data: {
+          name: 'Test Brand',
+          description: 'A test brand',
+          galleryImageUrls: [],
+          imageSources: [],
+          jsonLdImageUrls: [],
+        },
+        statuses: [{ url: 'https://example.com', ok: true, classification: 'official-site', httpStatus: 200, latencyMs: 100, error: null }],
+      }),
+      discoverCatalog: vi.fn().mockResolvedValue(fakeCatalogResult),
+    })
+
+    const model = fakeModel([planWithCatalog, verdict])
+    const result = await runAcquisition(baseInput, deps, { model })
+
+    // catalogResult should be present when catalog URLs are available
+    expect(result.catalogResult).toBeDefined()
+    expect(deps.discoverCatalog).toHaveBeenCalledTimes(1)
   })
 
   it('images_recover_merges_new_batch', async () => {

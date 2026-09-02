@@ -1,5 +1,5 @@
 export * from "./clean";
-export * from "./links";
+export * from "./acquire";
 export * from "./descriptions";
 export * from "./faq";
 export * from "./products";
