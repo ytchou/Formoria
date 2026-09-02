@@ -8,7 +8,11 @@ import {
   isLogoImageTags,
   MAX_BRAND_ACTIVE_IMAGES,
 } from "@/lib/constants/brand-images";
-import { cropDamage } from "@/lib/images/crop-damage";
+import {
+  rank,
+  heroQualityForAspect,
+  cropDamagePenaltyForAspect,
+} from "./image-ranking";
 import { fetchLangfusePrompt } from "@/lib/langfuse/prompt";
 import type { OpenAIChatResult } from "../openai-client";
 import {
@@ -255,7 +259,7 @@ type ParsedImageClassification = {
   caption: string | null;
 };
 
-type ClassifiedImage = {
+export type ClassifiedImage = {
   id: string;
   tag: ImageClassificationTag;
   score: number;
@@ -567,14 +571,6 @@ export function parseClassificationBatch(
   return verdicts;
 }
 
-/** Taller than wide. Square and unknown-dimension images carry no quality prior. */
-function isPortrait(image: ClassifiedImage): boolean {
-  const { width, height } = image;
-  return (
-    typeof width === "number" && typeof height === "number" && height > width
-  );
-}
-
 /**
  * Full weight of the crop-damage term, in score points.
  *
@@ -605,99 +601,9 @@ function isPortrait(image: ClassifiedImage): boolean {
  */
 export const CROP_DAMAGE_WEIGHT = 12;
 
-/**
- * Damage below this is free, damage at or above it costs the full weight.
- *
- * The floor exists because a 1.5:1 photo loses 11% of its area and is still a
- * perfectly good hero — charging it would make the term fire on almost every
- * image and stop discriminating. The ceiling is where "cropped" becomes
- * "destroyed": a 2:3 portrait already loses half its area at 0.50, and images
- * past that (phone screenshots, description strips) are not meaningfully worse
- * as heroes than each other — they are all unusable, and the download gate at
- * 3:1 is what actually keeps the extremes out.
- */
-const CROP_DAMAGE_FLOOR = 0.1;
-const CROP_DAMAGE_CEILING = 0.5;
-
-/**
- * Shape corrections are quantised to this before subtraction.
- *
- * Not cosmetic: the re-sort preview and the apply must produce byte-identical
- * orderings from the same rows, and float noise in the tenth decimal place is
- * enough to swap two images whose corrected scores are otherwise tied. Rounding
- * to a tenth of a point makes near-ties resolve by the sort's stability (input
- * order) instead of by accumulated rounding error.
- *
- * Expressed as steps-per-point and applied as `round(x * N) / N` rather than
- * `round(x / q) * q`: multiplying back by an inexact 0.1 re-introduces the noise
- * the rounding just removed (103 * 0.1 is 10.300000000000001, 103 / 10 is 10.3).
- */
-const SHAPE_CORRECTION_STEPS_PER_POINT = 10;
-
-function cropDamagePenalty(image: ClassifiedImage): number {
-  const damage = cropDamage({
-    width: image.width,
-    height: image.height,
-    // Logos render `object-contain` and are never cut, so they must take zero
-    // crop damage whatever their shape. 83 of 844 production heroes are logos;
-    // charging them for a crop that does not happen would demote a tenth of the
-    // catalogue's heroes for nothing.
-    //
-    // `image.isLogo` carries the renderer's own answer (membership in `tags`).
-    // The fallback covers callers that built a `ClassifiedImage` without a tag
-    // array — only the unit tests do — and routes through the same shared
-    // predicate so there is still exactly one definition of "is a logo".
-    isLogo: image.isLogo ?? isLogoImageTags([image.tag]),
-    targetRatio: HERO_TARGET_RATIO,
-  });
-
-  const scaled =
-    (damage - CROP_DAMAGE_FLOOR) / (CROP_DAMAGE_CEILING - CROP_DAMAGE_FLOOR);
-  return CROP_DAMAGE_WEIGHT * Math.min(Math.max(scaled, 0), 1);
-}
-
-/**
- * The single ranking signal for hero selection: the model's quality score, minus
- * how badly the hero frame will cut the image, minus the portrait quality prior.
- *
- *   heroQuality = score - cropDamagePenalty - portraitQualityPrior
- *
- * This replaces three flat constants (a 15-point portrait penalty, a 10-point
- * wide penalty, and a 2:1 threshold that decided which applied) with one
- * computed term plus one residual prior. The flat penalties charged a mildly
- * tall photo and a phone-screenshot strip exactly the same amount, and charged
- * a 1.99:1 banner nothing at all while its 2.01:1 twin lost 10 points.
- *
- * The asymmetry — the portrait prior survives, the wide penalty does NOT — is
- * the whole justification for the split, so it is stated rather than implied:
- *   - The old WIDE_ASPECT_PENALTY comment claimed only a crop rationale ("crops
- *     badly in the landscape hero frame") and cited no quality evidence. Crop
- *     damage now computes that rationale exactly, so the constant is fully
- *     replaced and was deleted.
- *   - PORTRAIT_QUALITY_PRIOR has evidence that outlives the geometry: the
- *     portrait effect survives conditioning on crop damage (see the constant).
- *     Deleting it would discard a measured signal, not a redundant one.
- *
- * The prior is deliberately NOT exempted for logos, unlike crop damage. Its
- * mechanism is provenance (a portrait web image skews toward an Instagram crop
- * or a screenshot), which has nothing to do with how the image is rendered — a
- * portrait logo is as likely to be a scraped screenshot as a portrait photo is.
- *
- * Still a correction, never an exclusion: a brand whose images are all portrait
- * still gets a hero, because every candidate takes the same subtraction.
- *
- * The kept band is MIN_KEEP_SCORE-100. The prompt pushes the model to spread
- * scores across that range rather than cluster near 85, because this sort is
- * the only thing deciding which image leads the page.
- */
-function heroQuality(image: ClassifiedImage): number {
-  const correction =
-    cropDamagePenalty(image) + (isPortrait(image) ? PORTRAIT_QUALITY_PRIOR : 0);
-  const quantised =
-    Math.round(correction * SHAPE_CORRECTION_STEPS_PER_POINT) /
-    SHAPE_CORRECTION_STEPS_PER_POINT;
-  return image.score - quantised;
-}
+// cropDamagePenalty, heroQuality, isPortrait and their private constants
+// moved to ./image-ranking.ts — imported as `rank` for the ordering and
+// `heroQualityForAspect` / `cropDamagePenaltyForAspect` for the resort plan.
 
 /**
  * Applies the model's verdicts and produces the hero ordering.
@@ -737,11 +643,7 @@ export function applyClassifications(images: ClassifiedImage[]): {
         : {}),
     },
   }));
-  const ordered = images
-    .filter(
-      (image) => image.disposition !== "reject" && !JUNK_TAGS.has(image.tag),
-    )
-    .toSorted((left, right) => heroQuality(right) - heroQuality(left));
+  const ordered = rank(images, HERO_TARGET_RATIO);
 
   return { rejectedIds, rejectedUpdates, ordered };
 }
@@ -886,8 +788,8 @@ export function planHeroResort(input: {
     ranked: applied.ordered.map((image) => ({
       id: image.id,
       score: image.score,
-      cropDamage: cropDamagePenalty(image),
-      heroQuality: heroQuality(image),
+      cropDamage: cropDamagePenaltyForAspect(image, HERO_TARGET_RATIO),
+      heroQuality: heroQualityForAspect(image, HERO_TARGET_RATIO),
     })),
     skipReason:
       mode === "resort" &&

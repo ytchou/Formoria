@@ -50,8 +50,9 @@ export interface PhaseResult {
   providerFailure?: boolean;
   catalogZeroReason?: string;
   productsProposed?: number;
-  agentOutcome?: 'planned' | 'recovered' | 'fallback' | 'blocked' | 'skipped';
+  agentOutcome?: 'planned' | 'recovered' | 'fallback' | 'blocked' | 'skipped' | 'proposed' | 'repaired';
   acquisitionPlan?: Record<string, unknown>;
+  productsVerification?: Record<string, unknown>;
   revokedColumns?: string[];
 }
 

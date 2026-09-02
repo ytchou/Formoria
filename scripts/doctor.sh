@@ -165,6 +165,10 @@ check_env() {
     if grep -q '^ACQUISITION_AGENT=off$' .env.local 2>/dev/null; then
       echo "WARN: ACQUISITION_AGENT=off — the acquisition agent is disabled in the links phase"
     fi
+    # PRODUCTS_AGENT (optional): "off" disables the products agent
+    if grep -q '^PRODUCTS_AGENT=off$' .env.local 2>/dev/null; then
+      echo "WARN: PRODUCTS_AGENT=off — the products agent is disabled in the products phase"
+    fi
     # NOTE: the scheduled HTTP jobs authenticate with ORIGIN_SECRET and are
     # configured entirely in the database, not here. Scheduling, host routing and
     # how to verify a job actually ran: docs/runbooks/cloudflare-edge.md.

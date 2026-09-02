@@ -181,4 +181,83 @@ describe("parsePhaseResults", () => {
 
     expect(parsed.at(0)).not.toHaveProperty("acquisitionPlan");
   });
+
+  it("preserves productsVerification through round-trip", () => {
+    const verification = {
+      read: 10,
+      proposed: 5,
+      verified: 4,
+      repaired: 1,
+      dropped: 1,
+      dropReasons: { no_source: 1 },
+    };
+    const parsed = parsePhaseResults([
+      {
+        phase: "products",
+        status: "succeeded",
+        changedFields: ["products"],
+        durationMs: 3000,
+        productsVerification: verification,
+      },
+    ] as Json);
+
+    expect(parsed.at(0)?.productsVerification).toEqual(verification);
+  });
+
+  it("drops productsVerification when it is not a plain object", () => {
+    const parsed = parsePhaseResults([
+      {
+        phase: "products",
+        status: "succeeded",
+        changedFields: [],
+        durationMs: 100,
+        productsVerification: "not-an-object",
+      },
+    ] as Json);
+
+    expect(parsed.at(0)).not.toHaveProperty("productsVerification");
+
+    const parsed2 = parsePhaseResults([
+      {
+        phase: "products",
+        status: "succeeded",
+        changedFields: [],
+        durationMs: 100,
+        productsVerification: [1, 2, 3],
+      },
+    ] as Json);
+
+    expect(parsed2.at(0)).not.toHaveProperty("productsVerification");
+  });
+
+  it("drops productsVerification when serialized size exceeds 8KB", () => {
+    const largeVerification = { data: "x".repeat(9000) };
+    const parsed = parsePhaseResults([
+      {
+        phase: "products",
+        status: "succeeded",
+        changedFields: [],
+        durationMs: 100,
+        productsVerification: largeVerification,
+      },
+    ] as Json);
+
+    expect(parsed.at(0)).not.toHaveProperty("productsVerification");
+  });
+
+  it("accepts proposed and repaired as valid agentOutcome values", () => {
+    for (const outcome of ["proposed", "repaired"] as const) {
+      const parsed = parsePhaseResults([
+        {
+          phase: "products",
+          status: "succeeded",
+          changedFields: [],
+          durationMs: 100,
+          agentOutcome: outcome,
+        },
+      ] as Json);
+
+      expect(parsed.at(0)?.agentOutcome).toBe(outcome);
+    }
+  });
 });
