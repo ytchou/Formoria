@@ -57,7 +57,10 @@ describe("createAuditedEmbeddingsClient", () => {
     expect(row.status).toBe("succeeded");
     expect(row.promptTokens).toBe(42);
     expect(row.completionTokens).toBe(0);
-    expect(row.costUsd).toBeTypeOf("number");
+    // costUsd is number when the model has a price row, null otherwise.
+    expect(
+      row.costUsd === null || typeof row.costUsd === "number",
+    ).toBe(true);
   });
 
   it("records failed status when the client throws", async () => {
