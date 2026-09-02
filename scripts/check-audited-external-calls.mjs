@@ -52,6 +52,9 @@ export const ALLOWED_UNAUDITED_FETCH = [
   // would add noise to the real call record the same way the health probes above
   // would. The probe results are consumed by the acquisition agent's plan node.
   'src/lib/services/enrich-phases/gather.ts',
+  // OpenAI embeddings HTTP adapter. Wrapped by src/lib/services/embeddings-audit.ts
+  // as openai.embeddings.
+  'src/lib/services/openai-embeddings-client.ts',
   // Edge-runtime breaker telemetry to PostHog ingest. Same structural bar as the
   // 'use client' rule above, one layer out: the envelope reaches src/lib/audit/emit.ts,
   // which imports the Node Sentry SDK, and this module is loaded by the proxy in the

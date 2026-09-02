@@ -189,6 +189,7 @@ export const SERVICE_REGISTRY: readonly ServiceEntry[] = [
     dashboardUrl: "https://platform.openai.com/usage",
     blindSpots: [
       "Eval spend bypasses persistence through CURATION_EVAL_SINK at _shared/ai-results.ts:130-140; an eval harness must also install setAuditWriteSeam or its spend goes unrecorded.",
+      "Embeddings share the llm-tokens meter and write no brand_ai_results row; spend is tracked only through external_call_audit.",
     ],
   },
   {

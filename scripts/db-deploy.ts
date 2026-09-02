@@ -41,7 +41,7 @@ const MIGRATIONS = resolve(ROOT, "supabase/migrations");
 const EXPECTED_STORAGE_BUCKETS =
   "brand-images:false,claim-proofs:false,image-eval:false,run-logs:false";
 const EXPECTED_EXTENSIONS =
-  "pg_cron:pg_catalog,pg_net:public,pg_stat_statements:extensions,pg_trgm:public,pgcrypto:extensions,plpgsql:pg_catalog,supabase_vault:vault,uuid-ossp:extensions";
+  "pg_cron:pg_catalog,pg_net:public,pg_stat_statements:extensions,pg_trgm:public,pgcrypto:extensions,plpgsql:pg_catalog,supabase_vault:vault,uuid-ossp:extensions,vector:extensions";
 const CHECKSUM_MANIFEST = resolve(ROOT, "supabase/migration-checksums.json");
 
 // ---------------------------------------------------------------------------

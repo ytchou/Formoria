@@ -134,6 +134,7 @@ describe("release source guard", () => {
       execFileSync(process.execPath, ["scripts/check-release-source.mjs"], {
         cwd: process.cwd(),
         encoding: "utf8",
+        stdio: ["pipe", "pipe", "pipe"],
         env: cliEnvWithoutRepositoryIdentity({
           GITHUB_BASE_REF: "develop",
           GITHUB_HEAD_REF: "staging",
@@ -147,6 +148,7 @@ describe("release source guard", () => {
       execFileSync(process.execPath, ["scripts/check-release-source.mjs"], {
         cwd: process.cwd(),
         encoding: "utf8",
+        stdio: ["pipe", "pipe", "pipe"],
         env: cliEnvWithoutRepositoryIdentity({
           GITHUB_BASE_REF: "main",
           GITHUB_HEAD_REF: "staging",

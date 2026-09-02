@@ -10,9 +10,11 @@ import { trackProductSortChanged } from "@/lib/analytics";
 
 type ProductSortSelectProps = {
   currentSort: string;
+  /** Show the "relevance" option — only meaningful when a search query is active. */
+  showRelevance?: boolean;
 };
 
-export function ProductSortSelect({ currentSort }: ProductSortSelectProps) {
+export function ProductSortSelect({ currentSort, showRelevance }: ProductSortSelectProps) {
   const t = useTranslations("products.filters");
   const router = useRouter();
   const pathname = usePathname();
@@ -23,7 +25,9 @@ export function ProductSortSelect({ currentSort }: ProductSortSelectProps) {
     const value = event.target.value;
     trackProductSortChanged(value, currentSort);
     const params = new URLSearchParams(searchParams.toString());
-    if (value === "newest") {
+    // When a search query is active, always set `sort` explicitly — deleting it
+    // would cause parseDiscoverQuery to default back to 'relevance'.
+    if (value === "newest" && !params.has("q")) {
       params.delete("sort");
     } else {
       params.set("sort", value);
@@ -46,6 +50,9 @@ export function ProductSortSelect({ currentSort }: ProductSortSelectProps) {
         disabled={isPending}
         className="min-h-12 w-auto"
       >
+        {showRelevance && (
+          <option value="relevance">{t("sortRelevance")}</option>
+        )}
         <option value="newest">{t("sortNewest")}</option>
         <option value="alphabetical">{t("sortAlphabetical")}</option>
       </NativeSelect>

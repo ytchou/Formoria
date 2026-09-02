@@ -72,6 +72,10 @@ const phaseDescriptions = {
     "Runs the full acquisition agent: search, scrape, images, classify, quarantine, rank, hero, catalog.",
   acquisition:
     "Plans and recovers evidence acquisition per brand: which URLs to fetch, whether to render, what to fan out to.",
+  product_embeddings:
+    "Embeds curated product documents into vectors for situation search.",
+  rerank:
+    "LLM reranking pass over retrieved candidates to improve precision.",
   // Legacy: `reputation` was called `expansion` until 2026-08-03 and historical
   // jobs still store that phase string. It is the one entry here with no
   // constant behind it, because nothing writes it any more — only historical

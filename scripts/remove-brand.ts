@@ -57,7 +57,7 @@ type CuratedProductRow = Record<string, unknown> & { id: string }
 // string at the type level, and a runtime-joined `string[]` resolves to
 // `GenericStringError[]` instead of a row type.
 const CURATED_PRODUCT_COLUMNS =
-  'id,brand_id,key,name_zh,name_en,category,subcategory,material,official_url,image_url,image_source_url,link_state,link_checked_at,source_checked_at,review_due_at,created_at,updated_at,proposed_by,image_width,image_height,product_description_zh,product_description_en,product_position,visible,made_in_taiwan_confirmed,materials_from_taiwan_confirmed,mit_registry_id,origin_candidate_id' as const
+  'id,brand_id,key,name_zh,name_en,category,subcategory,material,official_url,image_url,image_source_url,link_state,link_checked_at,source_checked_at,review_due_at,search_vector,created_at,updated_at,proposed_by,image_width,image_height,product_description_zh,product_description_en,product_position,visible,made_in_taiwan_confirmed,materials_from_taiwan_confirmed,mit_registry_id,origin_candidate_id' as const
 
 export function adaptCuratedProductBackupRow(
   row: CuratedProductRow,
