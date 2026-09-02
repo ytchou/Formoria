@@ -412,14 +412,6 @@ export async function runSiteIdentityPhase(
             continue
           }
           escalations += 1
-          // Look up the acquisition agent's belief about this URL, if a plan exists.
-          const acquisitionBelief = (() => {
-            const surfaces = quarantine.linksResult?.acquisitionPlan?.surfaces
-            if (!surfaces) return undefined
-            const surface = surfaces.find((s) => s.url === quarantine.subjectUrl)
-            if (!surface) return undefined
-            return { class: surface.strategy ?? surface.fetch, reason: surface.reason }
-          })()
           const item: SiteIdentityItem = {
             slug: brand.slug,
             brandName: brand.name ?? '',
@@ -430,7 +422,6 @@ export async function runSiteIdentityPhase(
             pageDescription: evidence.description,
             pageStory: evidence.story,
             target: { type: ctx.targetType ?? 'brand', id: brand.id },
-            ...(acquisitionBelief ? { acquisitionBelief } : {}),
           }
           items.push(item)
           itemByKey.set(siteIdentityKey(item.slug, item.subjectUrl), { brand, quarantine })

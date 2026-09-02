@@ -36,7 +36,6 @@ import {
 } from "./category-classifier";
 import type { DescriptionAttempt } from "./description-rewrite";
 import type { BrandFactsAttempt } from "./brand-facts";
-import { SEARCH_DELAY_MS } from "./enrich-phases/scraper/search";
 import {
   insertTriageResult,
   insertClassificationResult,
@@ -54,35 +53,26 @@ import {
   applyDetectResult,
   applyNamesResult,
   runNamesPhase,
-  runSiteIdentityPhase,
-  type SiteIdentityQuarantine,
   type NameCandidateInput,
   buildPhaseResult,
   getDisplayBrandName,
   loadCachedSearchResults,
-  runBrandImagePhase,
   runCleanPhase,
   runDescriptionsPhase,
-  runDiscoverPhase,
   runFaqPhase,
   runProductsPhase,
   runStockistsPhase,
-  runClassifyImagesPhase,
   STORAGE_FAILURE_PREFIX,
-  runImageSearchPhase,
   runAcquirePhase,
   runStandaloneClassification,
   runDetectPhase,
   type BrandEnrichState,
   type SearchPhaseResult,
   hasPatchValues,
-  isProviderFailure,
 } from "./enrich-phases";
 import type { NameCandidate } from "./name-arbiter";
 import { isBrandNameProposal } from "@/lib/types/enriched-data";
-import type { BrandImageSearchOutcome } from "./enrich-phases/scraper/types";
-import type { CatalogDiscoveryResult } from "./enrich-phases/catalog-discovery";
-import { buildCandidatePool } from "./enrich-phases/candidate-pool";
+import { probeStatic } from "./enrich-phases/gather";
 import type { EnrichmentTarget } from "./_shared/enrichment-target";
 import type { RenderProvider } from "./enrich-phases/scraper/render/types";
 import { deriveCategoryFromSubcategories } from "./subcategories";
@@ -677,43 +667,6 @@ export function hasMaterialPatchValues(
   );
 }
 
-/**
- * Gate A: the SERP stage for this brand failed at the provider, so any absence
- * of results says nothing about the brand. Returns the failure message to throw
- * with, or `null` when the stage is healthy.
- *
- * A `fromCache` search result is a replayed `brand_search_results` row whose
- * `callStatus` was copied verbatim from a past run — a failure recorded during
- * an outage that ended days ago must never fail a live run, so cached results
- * are ignored entirely.
- */
-export function serpStageFailure(input: {
-  searchResult?: SearchPhaseResult;
-  imageOutcome?: BrandImageSearchOutcome;
-}): string | null {
-  const { searchResult, imageOutcome } = input;
-
-  if (
-    searchResult &&
-    searchResult.fromCache !== true &&
-    isProviderFailure(searchResult.callStatus)
-  ) {
-    return describeProviderFailure("SERP", {
-      error: searchResult.error,
-      httpStatus: searchResult.httpStatus,
-    });
-  }
-
-  if (imageOutcome && isProviderFailure(imageOutcome.callStatus)) {
-    return describeProviderFailure("image search", {
-      error: imageOutcome.error,
-      httpStatus: imageOutcome.httpStatus,
-    });
-  }
-
-  return null;
-}
-
 export type ProviderGateDecision = {
   /** `warn` when the kill switch is off — log and continue instead of failing. */
   action: "fail" | "warn";
@@ -721,18 +674,27 @@ export type ProviderGateDecision = {
 };
 
 /**
- * Gate A with its kill switch applied. `CURATION_PROVIDER_GATE=off` downgrades a
- * hard fail to a logged warning so the gate can be disabled without a deploy;
- * unset (the default) keeps the gate active.
+ * Gate A: acquire failed at the provider, so any absence of results says
+ * nothing about the brand. Returns the gate decision, or `null` when healthy.
+ *
+ * After the wave collapse, Gate A reads the acquire PhaseResult instead of
+ * individual SERP and image-search outcomes.
  */
 export function evaluateProviderGate(input: {
-  searchResult?: SearchPhaseResult;
-  imageOutcome?: BrandImageSearchOutcome;
+  acquireResult?: PhaseResult;
 }): ProviderGateDecision | null {
-  const message = serpStageFailure(input);
-  if (!message) {
+  const { acquireResult } = input;
+  if (
+    !acquireResult ||
+    acquireResult.status !== "failed" ||
+    acquireResult.providerFailure !== true
+  ) {
     return null;
   }
+
+  const message = describeProviderFailure("acquire", {
+    error: acquireResult.error,
+  });
 
   return {
     action: process.env.CURATION_PROVIDER_GATE === "off" ? "warn" : "fail",
@@ -855,24 +817,32 @@ export function evaluateStorageGate(
 }
 
 /**
- * Gate B: nothing downstream can consume. URLs feed scraping and link phases,
- * images feed classification, and SERP snippets feed the description phase —
- * so a brand with snippets but zero URLs still has usable LLM
- * input and must NOT be treated as empty.
+ * Gate B: nothing downstream can consume. After the wave collapse, acquire is
+ * the primary evidence source. If acquire ran and produced evidence (scrapedData
+ * or images), there are inputs. If acquire was satisfied-skipped, fall back to
+ * the knownUrls check.
  */
 export function hasNoEnrichmentInputs(input: {
   knownUrls: string[];
-  discoveredUrls: string[];
-  urlExtracted: object;
-  imageSearchUrls: string[];
-  serpSnippets: string[];
+  acquireResult?: {
+    scrapedData?: unknown;
+    scrapedImageUrls?: string[];
+  };
 }): boolean {
-  return (
-    uniqueUrls([...input.knownUrls, ...input.discoveredUrls]).length === 0 &&
-    !hasPatchValues(input.urlExtracted) &&
-    input.imageSearchUrls.length === 0 &&
-    input.serpSnippets.length === 0
-  );
+  const { acquireResult } = input;
+
+  // If acquire ran and produced evidence, there are inputs
+  if (acquireResult) {
+    if (acquireResult.scrapedData != null) return false;
+    if (
+      acquireResult.scrapedImageUrls &&
+      acquireResult.scrapedImageUrls.length > 0
+    )
+      return false;
+  }
+
+  // Fall back to known URLs
+  return uniqueUrls(input.knownUrls).length === 0;
 }
 
 function chunkItems<T>(items: T[], size: number): T[][] {
@@ -1067,9 +1037,9 @@ function logPhaseResult(
 /**
  * The phase labels the per-brand progress log counts through ("[3/7] links").
  *
- * Deferred phases are filtered out rather than removed from the literal list:
- * the order is the one the pipeline would run, and un-deferring a phase should
- * restore its position without anyone having to remember this function.
+ * After the wave collapse, the order is: detect → clean → acquire → names →
+ * descriptions → stockists → faq → tags → products → persist.
+ * Discover, site_identity, images, and classify_images are retired.
  */
 function buildBrandPhaseOrder(
   phases: RunEnrichPhase[],
@@ -1080,8 +1050,6 @@ function buildBrandPhaseOrder(
     "clean",
     "links",
     "names",
-    "site_identity",
-    "images",
     "descriptions",
     "stockists",
     "faq",
@@ -1094,18 +1062,14 @@ function buildBrandPhaseOrder(
 type AcquirePhaseResult = Awaited<ReturnType<typeof runAcquirePhase>>;
 
 /**
- * Per-target state carried across the two per-brand waves that the batched
- * image search now sits between.
+ * Per-target state carried across the single per-brand loop.
  *
- * Wave A runs detect application -> clean -> links. The batched serper image
- * call then runs with the websites and names those phases produced. Wave B
- * resumes from this object for the images, description, location, faq,
- * tag and persist phases.
+ * After the wave collapse, there is ONE per-brand loop: detect application →
+ * clean → acquire → names → descriptions → stockists → faq → products → persist.
  *
  * `completed` is the single source of truth for "this target already recorded a
- * terminal outcome in wave A". Both the batch phases between the waves and wave
- * B itself read it, so a target that skipped or failed early is never
- * re-emitted, never re-processed, and never counted twice.
+ * terminal outcome". Batch phases and the per-brand loop read it, so a target
+ * that skipped or failed early is never re-emitted and never counted twice.
  */
 type BrandWaveContext = {
   brand: EnrichBrand;
@@ -1117,8 +1081,8 @@ type BrandWaveContext = {
   overwrite: boolean;
   state: BrandEnrichState;
   detectResult: DetectResult | undefined;
-  /** Wave A's links output; wave B feeds it into the candidate image pool. */
-  linksResult: AcquirePhaseResult | null;
+  /** Acquire phase output, threaded to products and Gate A/B. */
+  acquireResult: AcquirePhaseResult | null;
   urlExtracted: Partial<BrandFlatLinkColumns>;
   currentPhase: string | undefined;
   completed: boolean;
@@ -1500,10 +1464,7 @@ export async function runEnrich(
           "Brand-target enrichment is retired; create a refresh submission instead",
         );
       }
-      const enrichDelayMs = phases.includes("discover")
-        ? SEARCH_DELAY_MS
-        : SCRAPE_DELAY_MS;
-      const includesDiscover = phases.includes("discover");
+      const enrichDelayMs = SCRAPE_DELAY_MS;
       let weakBrandCount = 0;
       let allBrands: EnrichBrand[] = [];
 
@@ -1588,9 +1549,8 @@ export async function runEnrich(
         const hasDetectPhases =
           phases.includes("detect") || phases.includes("slugs");
         const activeSteps = [
-          phases.includes("discover") && "SERP",
-          phases.includes("images") && "images",
           hasDetectPhases && "detect",
+          phases.includes("links") && "acquire",
           phases.includes("tags") && !phases.includes("descriptions") && "tags",
           phases.includes("descriptions") &&
             phases.includes("tags") &&
@@ -1720,7 +1680,7 @@ export async function runEnrich(
               })),
           );
         };
-        const recordBatchPhase = async (
+        const _recordBatchPhase = async (
           phaseResult: PhaseResult,
           changedField: string,
           hasTargetResult: (brand: EnrichBrand) => boolean,
@@ -1750,34 +1710,15 @@ export async function runEnrich(
           await emitBatchPhaseProgress(phaseResult.phase);
         };
 
-        if (phases.includes("discover"))
-          await emitBatchPhaseProgress("discover");
-        const discoverResult = await runDiscoverPhase(batchContext);
-        let searchResults = discoverResult.searchResults;
-        const searchError = discoverResult.searchError;
-        if (phases.includes("discover")) {
-          await recordBatchPhase(
-            discoverResult.phaseResult,
-            "serp_search_results",
-            (brand) => {
-              const result = searchResults.get(getDisplayBrandName(brand));
-              return Boolean(
-                result &&
-                (result.urls.length > 0 || result.snippets.length > 0),
-              );
-            },
-          );
-        }
-
-        // An enrichment-only run (no `discover`) still needs SERP context, so replay
-        // the stored results for any run that includes at least one LLM phase.
-        // Replayed rows are marked `fromCache` so a historical provider failure is
-        // never mistaken for a live one.
+        // ---- Cached SERP loading (replays stored search results) ----
+        // An enrichment run needs SERP context for detect and LLM phases,
+        // so replay the stored results. Replayed rows are marked `fromCache`
+        // so a historical provider failure is never mistaken for a live one.
         const requestedPhases = new Set<string>(phases);
         const needsCachedSerp =
-          !requestedPhases.has("discover") &&
           ENRICH_LLM_PHASES.some((phase) => requestedPhases.has(phase));
 
+        let searchResults = new Map<string, SearchPhaseResult>();
         if (needsCachedSerp) {
           const cached = await loadCachedSearchResults(
             chunk.map((brand) => brand.id),
@@ -1801,10 +1742,14 @@ export async function runEnrich(
           }
         }
 
-        // Detect (and the standalone classification that shares its batch slot) now
-        // runs BEFORE the image search. Image search is a paid serper call per
-        // brand, and detect is what rejects non-brands — running detect first stops
-        // credits being spent on entries the very next step throws away.
+        // ---- Probe evidence collection (per-brand, before detect) ----
+        // Gather static probes from known URLs for every brand in the chunk.
+        const allKnownUrls = chunk.flatMap(collectKnownUrls);
+        if (allKnownUrls.length > 0) {
+          await probeStatic(allKnownUrls);
+        }
+
+        // ---- Detect batch (reads probes + cached SERP) ----
         if (hasDetectPhases) await emitBatchPhaseProgress("detect");
         const detectPhaseResult = await runDetectPhase(
           batchContext,
@@ -2024,14 +1969,18 @@ export async function runEnrich(
           throw new Error(decision.message);
         };
 
-        // ---- Wave A: detect application -> clean -> links -------------------
-        // Everything the image query needs (the brand's own domain, the corrected
-        // name) is produced here, so it has to complete before the batched serper
-        // call below.
+        // ---- Single per-brand loop: detect → clean → acquire → names →
+        //      descriptions → stockists → faq → products → persist ----
         await mapWithConcurrency(
           chunk,
           ENRICH_BRAND_CONCURRENCY,
           async (brand, brandOffset) => {
+            // Cooperative abort: the breaker tripped while earlier targets in this
+            // chunk were running. Return WITHOUT recording anything — the target
+            // stays `pending`/`running` so `runJob` can sweep it to `cancelled`,
+            // which is what makes it eligible for Resume later.
+            if (llmBreakerTripped) return;
+
             result.processed += 1;
             const brandIndex = chunkStartIndex + brandOffset + 1;
             const ctx: BrandWaveContext = {
@@ -2050,7 +1999,7 @@ export async function runEnrich(
                 scrapedData: {},
               },
               detectResult: detectResults.get(brand.slug),
-              linksResult: null,
+              acquireResult: null,
               urlExtracted: {},
               currentPhase: undefined,
               completed: false,
@@ -2060,9 +2009,6 @@ export async function runEnrich(
             const state = ctx.state;
 
             // ---- Satisfaction check (history-based) --------------------------
-            // Fetch phase-success history and pre-compute which phases can be
-            // skipped. This runs once per target in wave A so the guards below
-            // and in wave B can read `ctx.satisfiedPhaseSet` synchronously.
             const history = await fetchPhaseHistory(
               supabase as unknown as SupabaseClient,
               'submission',
@@ -2085,8 +2031,12 @@ export async function runEnrich(
             await emitTargetProgress(ctx, "running");
 
             try {
+              const overwrite = ctx.overwrite;
+              const satisfiedPhaseSet = ctx.satisfiedPhaseSet;
+
+              // ---- Detect application ----
               let detectApplication: ReturnType<typeof applyDetectResult> | undefined;
-              if (!ctx.satisfiedPhaseSet.has("detect")) {
+              if (!satisfiedPhaseSet.has("detect")) {
                 detectApplication = applyDetectResult(
                   ctx.detectResult,
                   brand,
@@ -2145,16 +2095,11 @@ export async function runEnrich(
                 }
               }
 
-              if (searchError) {
-                throw new Error(searchError);
-              }
-
-              if (phases.includes("discover") || searchResults.size > 0) {
+              // Populate SERP-derived data from cached search results
+              if (searchResults.size > 0) {
                 const searchResult = searchResults.get(
                   getDisplayBrandName(brand),
                 ) ?? { urls: [], snippets: [] };
-                // Always populate discoveredUrls from (cached) search results
-                // so downstream phases see them even when discover is satisfied.
                 state.discoveredUrls = uniqueUrls(
                   searchResult.urls.filter(
                     (url) => !state.knownUrls.includes(url),
@@ -2164,16 +2109,14 @@ export async function runEnrich(
                 state.serpEntries = searchResult.entries ?? [];
               }
 
-              // Same SERP-derived path the links phase gates: without the brand
-              // name these are just "first URL matching a platform shape", which is
-              // how One Wood acquired facebook.com/threebrothersboards.
               ctx.urlExtracted = extractLinksFromUrls(
                 state.discoveredUrls,
                 getDisplayBrandName(brand),
               );
 
+              // ---- Clean ----
               let cleanResult: Awaited<ReturnType<typeof runCleanPhase>> | undefined;
-              if (!ctx.satisfiedPhaseSet.has("clean")) {
+              if (!satisfiedPhaseSet.has("clean")) {
                 await markCurrentPhase(ctx, "clean");
                 cleanResult = await runCleanPhase(
                   brand,
@@ -2184,10 +2127,11 @@ export async function runEnrich(
                 await logCurrentPhase(ctx, cleanResult.phaseResult);
               }
 
-              let linksResult: Awaited<ReturnType<typeof runAcquirePhase>> | undefined;
-              if (!ctx.satisfiedPhaseSet.has("links")) {
+              // ---- Acquire (replaces links + images + classify + quarantine) ----
+              let acquireResult: Awaited<ReturnType<typeof runAcquirePhase>> | undefined;
+              if (!satisfiedPhaseSet.has("links")) {
                 await markCurrentPhase(ctx, "links");
-                linksResult = await runAcquirePhase({
+                acquireResult = await runAcquirePhase({
                   brand,
                   phases,
                   discoveredUrls: state.discoveredUrls,
@@ -2197,18 +2141,65 @@ export async function runEnrich(
                   jobId: config.jobId,
                   renderProvider: config.renderProvider,
                 });
-                ctx.linksResult = linksResult;
-                state.phaseResults.push(linksResult.phaseResult);
-                await logCurrentPhase(ctx, linksResult.phaseResult);
-                state.scrapedData = linksResult.scrapedData ?? {};
-                appendPatch(state, linksResult.patch);
+                ctx.acquireResult = acquireResult;
+                state.phaseResults.push(acquireResult.phaseResult);
+                await logCurrentPhase(ctx, acquireResult.phaseResult);
+                state.scrapedData = acquireResult.scrapedData ?? {};
+                appendPatch(state, acquireResult.patch);
               }
 
-              // DEV-1321: every proposer that used to write `name` contributes a
-              // CANDIDATE here instead. `stored` is the value the DATABASE holds —
-              // `applyChunkNameCleanup` already mutated `brand.name` to the cleaned
-              // form in memory, so the row's own value only survives in
-              // `nameCleanups`.
+              // Gate A — acquire provider failure means no input for downstream
+              const providerGate = evaluateProviderGate({
+                acquireResult: acquireResult?.phaseResult,
+              });
+              if (providerGate) {
+                if (providerGate.action === "warn") {
+                  onProgress(
+                    `  [PROVIDER-GATE OFF] ${brand.slug}: ${providerGate.message}`,
+                  );
+                } else {
+                  throw new Error(providerGate.message);
+                }
+              }
+
+              // Gate B — nothing downstream can consume
+              if (
+                hasNoEnrichmentInputs({
+                  knownUrls: state.knownUrls,
+                  acquireResult: acquireResult
+                    ? {
+                        scrapedData: acquireResult.scrapedData,
+                        scrapedImageUrls: acquireResult.scrapedImageUrls,
+                      }
+                    : undefined,
+                })
+              ) {
+                enforcePostPhaseGates(ctx);
+
+                weakBrandCount += 1;
+                onProgress(
+                  `  [WEAK-BRAND] ${brand.slug}: no useful data found`,
+                );
+                await recordOutcome(ctx, {
+                  slug: brand.slug,
+                  name: getDisplayBrandName(brand),
+                  ...(target === "submissions"
+                    ? { submissionId: brand.id }
+                    : {}),
+                  status: "skipped",
+                  changedFields: changedFieldsFromPhaseResults(
+                    state.phaseResults,
+                  ),
+                  phaseResults: state.phaseResults,
+                  error:
+                    "No usable enrichment inputs: acquire found no evidence and no known URLs",
+                });
+                result.skipped += 1;
+                finishBrand(ctx);
+                return;
+              }
+
+              // ---- Names phase (per-brand) ----
               const candidates: NameCandidate[] = [
                 {
                   source: "stored",
@@ -2232,368 +2223,38 @@ export async function runEnrich(
                   value: detectApplication.brandName,
                 });
               }
-              if (linksResult?.officialNameCandidates.length) {
-                candidates.push(...linksResult.officialNameCandidates);
+              if (acquireResult?.officialNameCandidates.length) {
+                candidates.push(...acquireResult.officialNameCandidates);
               }
-              nameCandidates.set(brand.id, {
+              const brandNameCandidateInput: NameCandidateInput = {
                 candidates,
                 snippets: state.serpSnippets,
-              });
-            } catch (err) {
-              await failBrand(ctx, err);
-            }
-          },
-        );
-
-        // ---- Batched name arbitration and image search (between the waves) ----
-        // Both calls stay outside the per-brand loops: names arbitrates the complete
-        // candidate set first, then image search can use the accepted name.
-        const pendingBrands = chunk.filter(
-          (brand) => !isBrandCompleted(brand.id),
-        );
-
-        // ---- Batched name arbitration (between the waves) -------------------
-        // Exactly ONE batched LLM call for the whole chunk, and it sits HERE for two
-        // reasons. Upstream: every proposer that can suggest a name — detect's model
-        // name, the regex cleaner, and the scraped page title — has finished by the
-        // end of wave A, so this is the first point at which the arbiter can see the
-        // full candidate set. Downstream: the batched image search below builds its
-        // query from the name in the pending patch, so the arbitrated name has to be
-        // in that patch before the `site:` query fires, or the run searches under a
-        // name we are about to overwrite.
-        //
-        // SINGLE-WRITER INVARIANT (DEV-1321): from here on, `names` is the ONLY
-        // phase in the pipeline that emits `patch.name`. `detect`, `clean` and
-        // `links` each used to write it and clobbered each other by accident of
-        // ordering — that is how the live row `小朱甜點` became `首頁 - 小朱甜點`.
-        // Do not reintroduce a `name` key in any other phase's patch; the same
-        // invariant is spelled out on `EnrichPatches.names` for the other
-        // precedence path.
-        if (phases.includes("names")) await emitBatchPhaseProgress("names");
-        const namesPhaseResult = await runNamesPhase(
-          {
-            ...batchContext,
-            chunk: pendingBrands,
-            chunkBrandNames: pendingBrands.map(getDisplayBrandName),
-          },
-          nameCandidates,
-        );
-        for (const brand of pendingBrands) {
-          const ctx = brandContexts.get(brand.id);
-          if (!ctx || ctx.completed || ctx.satisfiedPhaseSet.has("names")) continue;
-          await markCurrentPhase(ctx, "names");
-          // Runs even on a provider failure: with no verdict the application falls
-          // back to the `cleaned` candidate, so a dead provider still persists the
-          // regex cleanup instead of leaving the dirty row.
-          const application = phases.includes("names")
-            ? applyNamesResult(
-                // Keyed by target id, not display name — clean/detect can rewrite a
-                // name, and this phase runs after both.
-                namesPhaseResult.verdicts.get(brand.id),
-                brand,
-                nameCandidates.get(brand.id)?.candidates ?? [],
-              )
-            : { phaseResult: namesPhaseResult.phaseResult, patch: {} };
-          // Same grafting rule detect uses: when the whole batch died at the
-          // provider, the per-brand entry carries that signal rather than
-          // reporting a clean fallback as success.
-          const namesEntry = namesPhaseResult.providerFailure
-            ? { ...namesPhaseResult.phaseResult, changedFields: [] }
-            : application.phaseResult;
-          ctx.state.phaseResults.push(namesEntry);
-          await logCurrentPhase(ctx, namesEntry);
-          appendPatch(ctx.state, application.patch);
-        }
-
-        const quarantinesByBrandId = new Map<
-          string,
-          SiteIdentityQuarantine[]
-        >();
-        for (const brand of pendingBrands) {
-          const ctx = brandContexts.get(brand.id);
-          if (!ctx || ctx.completed || !ctx.linksResult) continue;
-          const quarantines = Object.values(ctx.linksResult.quarantine).map(
-            (quarantine) => ({
-              ...quarantine,
-              patch: { ...ctx.state.patches },
-              scrapedData: ctx.state.scrapedData,
-              linksResult: ctx.linksResult,
-            }),
-          );
-          if (quarantines.length > 0)
-            quarantinesByBrandId.set(brand.id, quarantines);
-        }
-        if (phases.includes("site_identity"))
-          await emitBatchPhaseProgress("site_identity");
-        // The outer span owns the mutable summary: auditedCall snapshots options at
-        // open, so site-identity telemetry must be attached inside this callback.
-        const siteIdentityPhaseResult = await auditedCall(
-          {
-            provider: "enrich",
-            operation: "runSiteIdentityPhase",
-            kind: "service",
-          },
-          async (auditCtx) =>
-            runSiteIdentityPhase(
-              {
-                ...batchContext,
-                chunk: pendingBrands,
-                chunkBrandNames: pendingBrands.map(getDisplayBrandName),
-                summary: auditCtx.summary,
-              },
-              quarantinesByBrandId,
-            ),
-          {
-            jobId: config.jobId ?? null,
-            classify: (result) =>
-              result.phaseResult.status === "succeeded" ? "succeeded" : "empty",
-          },
-        );
-        for (const brand of pendingBrands) {
-          const ctx = brandContexts.get(brand.id);
-          if (!ctx || ctx.completed || ctx.satisfiedPhaseSet.has("site_identity")) continue;
-          await markCurrentPhase(ctx, "site_identity");
-          const application = siteIdentityPhaseResult.applications.get(
-            brand.id,
-          );
-          const phaseResult =
-            application?.phaseResult ??
-            buildPhaseResult(
-              "site_identity",
-              "skipped",
-              [],
-              0,
-              undefined,
-              "no escalations for this brand",
-            );
-          ctx.state.phaseResults.push(phaseResult);
-          await logCurrentPhase(ctx, phaseResult);
-          if (application) {
-            // Revoked columns are named in `changedFields`; `appendPatch` is an
-            // Object.assign and cannot express deletion, so drop them first. The
-            // application patch then re-adds `_cleared_fields` after the deletion.
-            for (const column of application.phaseResult.changedFields) {
-              delete (ctx.state.patches as Record<string, unknown>)[column];
-            }
-            appendPatch(ctx.state, application.patch);
-          }
-        }
-
-        // `BrandEnrichState["patches"]` deliberately, not the local `EnrichPatch`:
-        // this is the phase-layer patch shape the image search reads.
-        const pendingPatches = new Map<string, BrandEnrichState["patches"]>();
-        for (const brand of pendingBrands) {
-          const ctx = brandContexts.get(brand.id);
-          if (ctx) pendingPatches.set(brand.id, ctx.state.patches);
-        }
-        if (phases.includes("images"))
-          await emitBatchPhaseProgress("image-search");
-        const imageSearchResult = await runImageSearchPhase(
-          {
-            ...batchContext,
-            chunk: pendingBrands,
-            chunkBrandNames: pendingBrands.map(getDisplayBrandName),
-          },
-          searchResults,
-          pendingPatches,
-        );
-        // Both maps are keyed by target id, not by display name — `clean`/`detect`
-        // can rewrite a name and this phase now runs after them.
-        const imageSearchResults = imageSearchResult.imageSearchResults;
-        // Per-brand provider call outcomes; Gate A consumes these to hard-fail a
-        // target whose image search never actually reached the provider.
-        const imageSearchOutcomes = imageSearchResult.imageSearchOutcomes;
-        if (phases.includes("images")) {
-          await recordBatchPhase(
-            imageSearchResult.phaseResult,
-            "image_search_results",
-            (brand) => (imageSearchResults.get(brand.id)?.length ?? 0) > 0,
-          );
-        }
-
-        // ---- Wave B: images -> descriptions -> ... -> persist ---
-        await mapWithConcurrency(
-          pendingBrands,
-          ENRICH_BRAND_CONCURRENCY,
-          async (brand) => {
-            // Cooperative abort: the breaker tripped while earlier targets in this
-            // chunk were running. Return WITHOUT recording anything — the target
-            // stays `pending`/`running` so `runJob` can sweep it to `cancelled`,
-            // which is what makes it eligible for Resume later.
-            if (llmBreakerTripped) return;
-
-            const ctx = brandContexts.get(brand.id);
-            // A brand with no context never entered wave A, and one already marked
-            // completed recorded its outcome there — neither may be processed (or
-            // counted) again here.
-            if (!ctx || ctx.completed) return;
-            const state = ctx.state;
-            const overwrite = ctx.overwrite;
-
-            try {
-              // Satisfaction was already computed in wave A and stored on the
-              // context — wave B reads it synchronously.
-              const satisfiedPhaseSet = ctx.satisfiedPhaseSet;
-
-              let imageSearchUrls: string[] = [];
-              if (
-                phases.includes("images") &&
-                !satisfiedPhaseSet.has("images")
-              ) {
-                imageSearchUrls = imageSearchResults.get(brand.id) ?? [];
-                onProgress(
-                  `  [IMAGE-SEARCH] ${imageSearchUrls.length} images found`,
-                );
-              }
-
-              // Gate A — the pipeline is one-way SERP -> ENRICHMENT: a provider
-              // failure means there is no input, so hard-fail the target instead of
-              // burning LLM tokens on nothing. The per-brand catch below turns this
-              // throw into a recorded FAILED target carrying the provider message.
-              const providerGate = evaluateProviderGate({
-                searchResult: searchResults.get(getDisplayBrandName(brand)),
-                imageOutcome: imageSearchOutcomes.get(brand.id),
-              });
-              if (providerGate) {
-                if (providerGate.action === "warn") {
-                  // Kill switch (CURATION_PROVIDER_GATE=off) is engaged.
-                  onProgress(
-                    `  [PROVIDER-GATE OFF] ${brand.slug}: ${providerGate.message}`,
-                  );
-                } else {
-                  throw new Error(providerGate.message);
-                }
-              }
-
-              // Gate B — nothing downstream can consume, so skip before any LLM
-              // phase runs. Snippets count as usable input for descriptions, so
-              // this only fires when every input is empty.
-              //
-              // It sits in wave B rather than wave A because `imageSearchUrls` is
-              // one of its inputs and only exists once the batched search above has
-              // run. Clean and links having already run costs nothing: a target
-              // that trips this gate has no URLs at all, so the links phase had an
-              // empty URL set and issued no fetches.
-              if (
-                hasNoEnrichmentInputs({
-                  knownUrls: state.knownUrls,
-                  discoveredUrls: state.discoveredUrls,
-                  urlExtracted: ctx.urlExtracted,
-                  imageSearchUrls,
-                  serpSnippets: state.serpSnippets,
-                })
-              ) {
-                // Gate C before the skip is recorded: the batch detect phase runs
-                // pre-wave-B, so a brand can arrive here already carrying a
-                // provider-failed LLM phase and would otherwise be filed as
-                // "legitimately empty".
-                enforcePostPhaseGates(ctx);
-
-                if (includesDiscover && state.discoveredUrls.length <= 1) {
-                  weakBrandCount += 1;
-                  onProgress(
-                    `  [WEAK-BRAND] ${brand.slug}: no useful data found (${state.discoveredUrls.length} search results, nothing to scrape)`,
-                  );
-                }
-                await recordOutcome(ctx, {
-                  slug: brand.slug,
-                  name: getDisplayBrandName(brand),
-                  ...(target === "submissions"
-                    ? { submissionId: brand.id }
-                    : {}),
-                  status: "skipped",
-                  changedFields: changedFieldsFromPhaseResults(
-                    state.phaseResults,
-                  ),
-                  phaseResults: state.phaseResults,
-                  error:
-                    "No usable enrichment inputs: no known or discovered URLs, no extractable links, no image results, and no search snippets",
-                });
-                result.skipped += 1;
-                finishBrand(ctx);
-                return;
-              }
-
-              const linksResult = ctx.linksResult;
-              // Catalog and acquisition outputs from the images phase, passed
-              // downstream to the products phase (DEV-1633).
-              let imageCatalogResult: CatalogDiscoveryResult = {
-                triples: [],
-                attempts: [],
-                evidence: new Map(),
               };
-              let imageAcquisitionPageUrls: string[] = [];
+              nameCandidates.set(brand.id, brandNameCandidateInput);
 
-              if (!satisfiedPhaseSet.has("images")) {
-                const candidateImages = buildCandidatePool({
-                  // Prefer the provenance-carrying list; fall back to bare URLs so a
-                  // scraper result predating `imageSources` still contributes.
-                  scraped:
-                    linksResult && linksResult.scrapedImageSources.length > 0
-                      ? linksResult.scrapedImageSources.map((image) => ({
-                          url: image.url,
-                          method: image.method,
-                          pageUrl: image.pageUrl,
-                          position: image.position,
-                        }))
-                      : (linksResult?.scrapedImageUrls ?? []),
-                  jsonLdImages: linksResult?.jsonLdImageUrls ?? [],
-                  googleImages: (
-                    imageSearchOutcomes.get(brand.id)?.rows ?? imageSearchUrls
-                  ).map((row) =>
-                    typeof row === "string"
-                      ? row
-                      : {
-                          url: row.url,
-                          sourceUrl: row.sourceUrl ?? row.url,
-                          pageUrl: row.pageUrl,
-                          previewUrl: row.previewUrl,
-                          title: row.title,
-                          providerSource: row.source,
-                          domain: row.domain,
-                          position: row.position,
-                          query: row.query,
-                          auditResultId: row.auditResultId,
-                          imageWidth: row.imageWidth,
-                          imageHeight: row.imageHeight,
-                          thumbnailWidth: row.thumbnailWidth,
-                          thumbnailHeight: row.thumbnailHeight,
-                        },
-                  ),
-                });
-                await markCurrentPhase(ctx, "images");
-                const brandImageResult = await runBrandImagePhase({
-                  brand,
-                  phases,
-                  imageSearchUrls,
-                  candidateImages,
-                  dryRun: config.dryRun,
-                  target: { type: targetType, id: brand.id },
-                  renderProvider: config.renderProvider,
-                  catalogEntryUrls: linksResult?.acquisitionPlan?.catalog?.entryUrls ?? [],
-                  catalogPriorityProductUrls: linksResult?.acquisitionPlan?.catalog?.priorityProductUrls ?? [],
-                });
-                state.phaseResults.push(brandImageResult.phaseResult);
-                await logCurrentPhase(ctx, brandImageResult.phaseResult);
-                appendPatch(state, brandImageResult.patch);
-                imageCatalogResult = brandImageResult.catalogResult;
-                imageAcquisitionPageUrls = brandImageResult.acquisitionPageUrls;
-              }
-
-              if (!satisfiedPhaseSet.has("classify_images")) {
-                await markCurrentPhase(ctx, "classify-images");
-                const classifyImagesResult = await runClassifyImagesPhase({
-                  brand,
-                  phases,
-                  dryRun: config.dryRun,
-                  overwrite,
-                  target: { type: targetType, id: brand.id },
-                  jobId: config.jobId,
-                  pendingPatch: state.patches,
-                });
-                state.phaseResults.push(classifyImagesResult.phaseResult);
-                await logCurrentPhase(ctx, classifyImagesResult.phaseResult);
-                appendPatch(state, classifyImagesResult.patch);
+              if (!satisfiedPhaseSet.has("names")) {
+                await markCurrentPhase(ctx, "names");
+                const namesResult = await runNamesPhase(
+                  {
+                    ...batchContext,
+                    chunk: [brand],
+                    chunkBrandNames: [getDisplayBrandName(brand)],
+                  },
+                  new Map([[brand.id, brandNameCandidateInput]]),
+                );
+                const application = phases.includes("names")
+                  ? applyNamesResult(
+                      namesResult.verdicts.get(brand.id),
+                      brand,
+                      candidates,
+                    )
+                  : { phaseResult: namesResult.phaseResult, patch: {} };
+                const namesEntry = namesResult.providerFailure
+                  ? { ...namesResult.phaseResult, changedFields: [] }
+                  : application.phaseResult;
+                state.phaseResults.push(namesEntry);
+                await logCurrentPhase(ctx, namesEntry);
+                appendPatch(state, application.patch);
               }
 
               // ---- Editorial agent (descriptions + stockists + faq) --------
@@ -2938,8 +2599,10 @@ export async function runEnrich(
                   dryRun: config.dryRun,
                   target: { type: targetType, id: brand.id },
                   jobId: config.jobId,
-                  catalogResult: imageCatalogResult,
-                  acquisitionPageUrls: imageAcquisitionPageUrls,
+                  // Images/classify are retired; pass empty catalog and
+                  // acquisition URLs until acquire subsumes them fully.
+                  catalogResult: undefined,
+                  acquisitionPageUrls: [],
                   renderProvider: config.renderProvider,
                 });
                 state.phaseResults.push(productsResult.phaseResult);
@@ -3008,11 +2671,6 @@ export async function runEnrich(
               }
 
               const patch = state.patches;
-              if (includesDiscover) {
-                onProgress(
-                  `  [DISCOVER] ${state.discoveredUrls.length} new URLs found`,
-                );
-              }
               const patchKeys = Object.keys(patch);
               if (patchKeys.length > 0) {
                 for (const key of patchKeys) {
@@ -3037,10 +2695,10 @@ export async function runEnrich(
                 // 2026-08-02 incident, so it has to be checked before the skip.
                 enforcePostPhaseGates(ctx);
 
-                if (includesDiscover && state.discoveredUrls.length <= 1) {
+                if (state.discoveredUrls.length <= 1) {
                   weakBrandCount += 1;
                   onProgress(
-                    `  [WEAK-BRAND] ${brand.slug}: no useful data found (${state.discoveredUrls.length} search results, no enrichment changes)`,
+                    `  [WEAK-BRAND] ${brand.slug}: no useful data found (no enrichment changes)`,
                   );
                 }
                 if (!config.dryRun && descriptionsResult) {

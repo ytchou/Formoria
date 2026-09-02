@@ -40,7 +40,6 @@ export type SiteIdentityItem = {
   pageDescription?: string;
   pageStory?: string;
   target?: EnrichmentTarget;
-  acquisitionBelief?: { class: string; reason: string };
 };
 
 export type SiteIdentityVerdict = {
@@ -152,9 +151,6 @@ function formatSiteIdentityItem(item: SiteIdentityItem, index: number): string {
       : "",
     story
       ? SITE_IDENTITY_LABELS.story + "：" + story
-      : "",
-    item.acquisitionBelief
-      ? "Acquisition agent believed: " + item.acquisitionBelief.class + " — " + item.acquisitionBelief.reason
       : "",
   ].filter(Boolean);
 
