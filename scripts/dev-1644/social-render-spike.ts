@@ -4,12 +4,13 @@
  * what each platform returns for bio text and outbound links.
  *
  * Usage:
- *   pnpm exec tsx --env-file=.env.local scripts/dev-1644/social-render-spike.ts
+ *   pnpm exec tsx scripts/dev-1644/social-render-spike.ts --target staging
  */
 
 import * as cheerio from 'cheerio'
 import { writeFileSync } from 'node:fs'
 import { isPrivateUrl } from '@/lib/url'
+import { loadScriptTarget } from '../shared/target'
 import { extractRenderedMainText } from '@/lib/services/enrich-phases/scraper/product-origin-text'
 import { createLocalPlaywrightProvider } from '@/lib/services/enrich-phases/scraper/render/local-playwright-provider'
 import { createBrowserlessProvider } from '@/lib/services/enrich-phases/scraper/render/browserless-provider'
@@ -199,6 +200,8 @@ function toMarkdownTable(results: ProbeResult[]): string {
 // ---------------------------------------------------------------------------
 
 async function main() {
+  loadScriptTarget()
+
   // Security check: reject any private URLs
   for (const target of TARGETS) {
     if (isPrivateUrl(target.url)) {

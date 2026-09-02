@@ -3,7 +3,7 @@
 # @formoria-script
 # purpose: DEV-1644 acquisition agent evaluation — render spike, cohort census, trace export
 # class: operator
-# invoke: npx tsx scripts/dev-1644/<script>.ts
+# invoke: pnpm exec tsx scripts/dev-1644/<script>.ts
 # target: staging-default
 # safety: read-only
 # owner: DEV-1644

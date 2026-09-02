@@ -756,11 +756,6 @@ export async function runLinksPhase({
           {
             fetchHtml: (await import('./scraper/fetch-guards')).fetchHtmlWithMetadata,
             renderProvider,
-            searchBrand: async (query: string) => {
-              const { searchBrandUrls } = await import('./scraper/serper')
-              const urls = await searchBrandUrls(query)
-              return { urls, snippets: [] }
-            },
             scrapeBrandUrls: (agentUrls, opts) =>
               scrapeBrandUrls(agentUrls, { ...scrapeOptions, ...opts }),
           },

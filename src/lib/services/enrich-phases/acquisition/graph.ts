@@ -1,6 +1,7 @@
 /**
  * Acquisition agent graph. Orchestrates the gather → plan → execute → critique
- * → recover → finalize flow using LangGraph's StateGraph.
+ * → recover → finalize flow as a linear state machine with
+ * gather → plan → execute → critique → recover → finalize nodes.
  *
  * All external dependencies (fetch, render, search, scrape, model) are injected
  * so the graph is fully testable with fakes.
@@ -13,6 +14,7 @@ import type { FetchMetadata } from '../scraper/fetch-guards'
 import type { RenderProvider } from '../scraper/render/types'
 import type { MultiScrapeResult, ScrapeBrandUrlsOptions } from '../scraper/index'
 import type { SurfaceDirective } from '../scraper/strategies/types'
+import { needsRendering } from '../catalog-discovery'
 import type { EnrichBrand } from '../types'
 import type { z } from 'zod'
 import {
@@ -63,7 +65,7 @@ export type AcquisitionOutput = {
 export type AcquisitionDeps = {
   fetchHtml: (url: string) => Promise<FetchMetadata>
   renderProvider?: RenderProvider
-  searchBrand: (query: string) => Promise<SearchResult>
+  searchBrand?: (query: string) => Promise<SearchResult>
   scrapeBrandUrls: (urls: string[], options: ScrapeBrandUrlsOptions) => Promise<MultiScrapeResult>
 }
 
@@ -154,7 +156,7 @@ async function gatherNode(
         return {
           url,
           textLength: bodyText.length,
-          needsRendering: !text.trim() || (bodyText.length < 20 && text.includes('<script')),
+          needsRendering: needsRendering(text),
         }
       }),
     )
@@ -282,9 +284,8 @@ async function executeNode(
   const start = Date.now()
   if (!state.plan) return state
 
-  const urls = state.plan.surfaces
-    .filter((s) => s.fetch !== 'skip')
-    .map((s) => s.url)
+  const nonSkipSurfaces = state.plan.surfaces.filter((s) => s.fetch !== 'skip')
+  const urls = nonSkipSurfaces.map((s) => s.url)
 
   const scrapeResult = await deps.scrapeBrandUrls(urls, {
     directives: state.directives,
@@ -292,9 +293,21 @@ async function executeNode(
     brandName: state.input.brand.name,
   })
 
+  // Track budget usage: renders and probes
+  const renderCount = nonSkipSurfaces.filter((s) => s.fetch === 'render').length
+  const probeCount = nonSkipSurfaces.length
+
   return {
     ...state,
     scrapeResult,
+    budget: {
+      ...state.budget,
+      used: {
+        ...state.budget.used,
+        renders: state.budget.used.renders + renderCount,
+        probes: state.budget.used.probes + probeCount,
+      },
+    },
     decisions: [...state.decisions, {
       step: 'execute',
       action: `scraped ${urls.length} URLs`,
@@ -371,6 +384,24 @@ async function critiqueNode(
   }
 }
 
+/** Merge recovery data into existing results with first-pass-wins semantics. */
+function mergeRecoveryResult(
+  existing: MultiScrapeResult | null,
+  recovery: MultiScrapeResult,
+): MultiScrapeResult {
+  if (!existing) return recovery
+  const mergedStatuses = [...existing.statuses, ...recovery.statuses]
+  // First-pass-wins: only fill fields that are empty/null in existing data
+  const mergedData = { ...recovery.data }
+  for (const [key, value] of Object.entries(existing.data)) {
+    if (value !== null && value !== undefined && value !== '' &&
+        !(Array.isArray(value) && value.length === 0)) {
+      (mergedData as Record<string, unknown>)[key] = value
+    }
+  }
+  return { data: mergedData as MultiScrapeResult['data'], statuses: mergedStatuses }
+}
+
 async function recoverNode(
   state: GraphState,
   deps: AcquisitionDeps,
@@ -379,33 +410,69 @@ async function recoverNode(
 
   if (!state.plan) return { ...state, recoveryDone: true }
 
-  // Fan-out: scrape the fanOut URLs
-  const fanOutUrls = state.plan.fanOut.filter((u) =>
-    !state.plan!.surfaces.some((s) => s.url === u),
-  )
+  const action = state.verdict?.recoveryAction ?? 'fanout'
+  let recoveryDescription = 'no-op'
+  let didRecover = false
 
-  if (fanOutUrls.length > 0) {
-    const scrapeResult = await deps.scrapeBrandUrls(fanOutUrls, {
-      renderProvider: deps.renderProvider,
-      brandName: state.input.brand.name,
-    })
-
-    // Merge results
-    if (state.scrapeResult) {
-      state.scrapeResult.statuses.push(...scrapeResult.statuses)
-      Object.assign(state.scrapeResult.data, scrapeResult.data)
-    } else {
-      state.scrapeResult = scrapeResult
+  if (action === 'search' && deps.searchBrand) {
+    // Recovery via search: discover new URLs then scrape them
+    const searchResult = await deps.searchBrand(state.input.brand.name ?? state.input.brand.slug)
+    const newUrls = searchResult.urls.filter(
+      (u) => !state.plan!.surfaces.some((s) => s.url === u),
+    )
+    if (newUrls.length > 0) {
+      const scrapeResult = await deps.scrapeBrandUrls(newUrls.slice(0, 3), {
+        renderProvider: deps.renderProvider,
+        brandName: state.input.brand.name,
+      })
+      state = { ...state, scrapeResult: mergeRecoveryResult(state.scrapeResult, scrapeResult) }
+      didRecover = true
     }
+    recoveryDescription = `search found ${searchResult.urls.length} URLs, scraped ${Math.min(newUrls.length, 3)}`
+  } else if (action === 'render') {
+    // Recovery via render: re-scrape surfaces that had static fetch with render directive
+    const renderUrls = state.plan.surfaces
+      .filter((s) => s.fetch === 'static')
+      .map((s) => s.url)
+      .slice(0, 3)
+    if (renderUrls.length > 0 && deps.renderProvider) {
+      const renderDirectives = new Map<string, SurfaceDirective>()
+      for (const url of renderUrls) {
+        renderDirectives.set(url, { fetch: 'render', reason: 'recovery render' })
+      }
+      const scrapeResult = await deps.scrapeBrandUrls(renderUrls, {
+        directives: renderDirectives,
+        renderProvider: deps.renderProvider,
+        brandName: state.input.brand.name,
+      })
+      state = { ...state, scrapeResult: mergeRecoveryResult(state.scrapeResult, scrapeResult) }
+      didRecover = true
+    }
+    recoveryDescription = `render recovery on ${renderUrls.length} URLs`
+  } else {
+    // Default: fan-out
+    const fanOutUrls = state.plan.fanOut.filter((u) =>
+      !state.plan!.surfaces.some((s) => s.url === u),
+    )
+    if (fanOutUrls.length > 0) {
+      const scrapeResult = await deps.scrapeBrandUrls(fanOutUrls, {
+        renderProvider: deps.renderProvider,
+        brandName: state.input.brand.name,
+      })
+      state = { ...state, scrapeResult: mergeRecoveryResult(state.scrapeResult, scrapeResult) }
+      didRecover = true
+    }
+    recoveryDescription = `fan-out ${fanOutUrls.length} URLs`
   }
 
   return {
     ...state,
     recoveryDone: true,
+    agentOutcome: didRecover ? 'recovered' : state.agentOutcome,
     decisions: [...state.decisions, {
       step: 'recover',
-      action: `fan-out ${fanOutUrls.length} URLs`,
-      reason: state.verdict?.recoveryAction ?? 'recovery',
+      action: recoveryDescription,
+      reason: action,
       ms: Date.now() - start,
     }],
   }
@@ -435,6 +502,8 @@ export async function runAcquisition(
     }
   }
 
+  const wallClockStart = Date.now()
+
   let state: GraphState = {
     input,
     probeResults: [],
@@ -450,6 +519,13 @@ export async function runAcquisition(
     recoveryDone: false,
     agentOutcome: 'planned',
     decisions: [],
+  }
+
+  /** Update wall-clock usage and return true if budget is exhausted. */
+  function wallClockExhausted(): boolean {
+    state.budget.used.wallClockMs = Date.now() - wallClockStart
+    return state.budget.allowed.wallClockMs > 0 &&
+      state.budget.used.wallClockMs >= state.budget.allowed.wallClockMs
   }
 
   // 1. Gather
@@ -472,7 +548,7 @@ export async function runAcquisition(
 
   // 2. Plan (with one retry on failure)
   state = await planNode(state, model, options)
-  if (!state.plan && state.planAttempts < 2) {
+  if (!state.plan && state.planAttempts < 2 && !wallClockExhausted()) {
     state = await planNode(state, model, options)
   }
   if (!state.plan) {
@@ -493,21 +569,52 @@ export async function runAcquisition(
   }
 
   // 3. Execute
-  state = await executeNode(state, deps)
+  if (!wallClockExhausted()) {
+    state = await executeNode(state, deps)
+  }
 
   // 4. Critique
-  state = await critiqueNode(state, model, options)
-
-  // 5. If thin and no recovery yet, recover then re-critique
-  if (state.verdict?.verdict === 'thin' && !state.recoveryDone) {
-    state = await recoverNode(state, deps)
-    state.agentOutcome = 'recovered'
-
-    // Re-critique after recovery (but don't loop again)
+  if (!wallClockExhausted()) {
     state = await critiqueNode(state, model, options)
   }
 
-  // Finalize
+  // 5. Handle 'fail' verdict — the critique says data is unusable
+  if (state.verdict?.verdict === 'fail') {
+    wallClockExhausted() // final update
+    return {
+      agentOutcome: 'blocked',
+      plan: state.plan ? boundedPlan(state.plan) : undefined,
+      budget: { allowed: state.budget.allowed, used: state.budget.used },
+      decisions: state.decisions,
+      error: `critique_failed: ${state.verdict.reason}`,
+    }
+  }
+
+  // 6. If thin and no recovery yet, recover then re-critique
+  if (state.verdict?.verdict === 'thin' && !state.recoveryDone && !wallClockExhausted()) {
+    state = await recoverNode(state, deps)
+
+    // Re-critique after recovery (but don't loop again)
+    if (!wallClockExhausted()) {
+      state = await critiqueNode(state, model, options)
+    }
+
+    // A 'fail' after recovery is also terminal
+    if (state.verdict?.verdict === 'fail') {
+      wallClockExhausted()
+      return {
+        agentOutcome: 'blocked',
+        plan: state.plan ? boundedPlan(state.plan) : undefined,
+        budget: { allowed: state.budget.allowed, used: state.budget.used },
+        decisions: state.decisions,
+        error: `critique_failed: ${state.verdict.reason}`,
+      }
+    }
+  }
+
+  // Finalize — record final wall-clock usage
+  wallClockExhausted()
+
   return {
     agentOutcome: state.agentOutcome,
     plan: state.plan ?? undefined,
@@ -516,20 +623,5 @@ export async function runAcquisition(
     budget: { allowed: state.budget.allowed, used: state.budget.used },
     decisions: state.decisions,
     error: state.error,
-  }
-}
-
-/**
- * Builds the acquisition graph with all dependencies wired. This is the
- * production entry point — tests use `runAcquisition` directly with injected
- * fakes.
- */
-export function buildAcquisitionGraph(deps: AcquisitionDeps) {
-  // The ChatOpenAI model is created at call time by the caller, not here,
-  // because the model configuration (API key, model name) is environment-
-  // dependent and should not be baked into the graph builder.
-  return {
-    run: (input: AcquisitionInput, options: RunOptions) =>
-      runAcquisition(input, deps, options),
   }
 }

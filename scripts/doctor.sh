@@ -161,6 +161,10 @@ check_env() {
     if ! grep -q "INDEXNOW_KEY=." .env.local 2>/dev/null; then
       echo "WARN: INDEXNOW_KEY not set (optional — needed for Bing IndexNow submission)"
     fi
+    # ACQUISITION_AGENT (optional): "off" disables the acquisition agent
+    if grep -q '^ACQUISITION_AGENT=off$' .env.local 2>/dev/null; then
+      echo "WARN: ACQUISITION_AGENT=off — the acquisition agent is disabled in the links phase"
+    fi
     # NOTE: the scheduled HTTP jobs authenticate with ORIGIN_SECRET and are
     # configured entirely in the database, not here. Scheduling, host routing and
     # how to verify a job actually ran: docs/runbooks/cloudflare-edge.md.

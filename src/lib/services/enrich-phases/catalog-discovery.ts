@@ -500,11 +500,20 @@ export async function discoverCatalog(
           const sample = shuffle(candidates).slice(0, 10)
           let foundProduct = false
           let hitPrefix: string | undefined
+          // Only use hitPrefix filtering for common catalog path prefixes.
+          // Root-level product slugs (e.g. /my-product) would incorrectly
+          // collapse all candidates to a single prefix segment.
+          const CATALOG_PREFIXES = new Set([
+            'products', 'shop', 'collections', 'items', 'store', 'product',
+          ])
           for (const sampleUrl of sample) {
             const page = await fetcher(sampleUrl, 'html')
             if (page.text && hasProductSignals(page.text)) {
               foundProduct = true
-              try { hitPrefix = new URL(sampleUrl).pathname.split('/')[1] } catch { /* noop */ }
+              try {
+                const seg = new URL(sampleUrl).pathname.split('/')[1]
+                if (seg && CATALOG_PREFIXES.has(seg)) hitPrefix = seg
+              } catch { /* noop */ }
               break
             }
           }

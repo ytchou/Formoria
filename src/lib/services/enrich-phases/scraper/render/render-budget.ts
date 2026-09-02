@@ -17,12 +17,19 @@ interface RenderBudgetOptions {
   }
 }
 
+/** RenderProvider extended with a mutable brand-key setter for per-brand tracking. */
+export interface BudgetWrappedProvider extends RenderProvider {
+  /** Override the brand key used for per-brand budget tracking. */
+  setBrandKey(key: string): void
+}
+
 const MAX_CONCURRENCY = 2
 
 /**
  * Wraps a RenderProvider with concurrency limiting and budget enforcement.
  *
- * - 2-slot semaphore limits in-flight renders.
+ * - 2-slot semaphore serializes the check-then-increment so concurrent calls
+ *   cannot race past a budget cap.
  * - Per-brand cap prevents a single brand from consuming the entire budget.
  * - Per-job cap prevents a single job from consuming the entire budget.
  * - Monthly gauge loaded once and incremented locally; refuses at threshold.
@@ -30,9 +37,10 @@ const MAX_CONCURRENCY = 2
 export function withRenderBudget(
   inner: RenderProvider,
   opts: RenderBudgetOptions,
-): RenderProvider {
+): BudgetWrappedProvider {
   const brandCounts = new Map<string, number>()
   let jobCount = 0
+  let brandKeyOverride: string | null = null
 
   // Monthly gauge: loaded lazily once, then tracked in-memory.
   let monthlyGauge: number | null = null
@@ -71,26 +79,24 @@ export function withRenderBudget(
   }
 
   async function guardedFetchRendered(url: string): Promise<RenderResult> {
-    // Check per-brand cap
-    const brand = opts.brandKey()
-    const brandCount = brandCounts.get(brand) ?? 0
-    if (brandCount >= opts.perBrand) {
-      throw new RenderBudgetExceeded('brand')
-    }
-
-    // Check per-job cap
-    if (jobCount >= opts.perJob) {
-      throw new RenderBudgetExceeded('job')
-    }
-
-    // Check monthly gauge
-    const gauge = await getMonthlyGauge()
-    if (gauge >= opts.monthly.threshold) {
-      throw new RenderBudgetExceeded('monthly')
-    }
-
+    // Acquire the semaphore FIRST so check-then-increment is serialized.
     await acquire()
     try {
+      const brand = brandKeyOverride ?? opts.brandKey()
+      const brandCount = brandCounts.get(brand) ?? 0
+      if (brandCount >= opts.perBrand) {
+        throw new RenderBudgetExceeded('brand')
+      }
+
+      if (jobCount >= opts.perJob) {
+        throw new RenderBudgetExceeded('job')
+      }
+
+      const gauge = await getMonthlyGauge()
+      if (gauge >= opts.monthly.threshold) {
+        throw new RenderBudgetExceeded('monthly')
+      }
+
       const result = await inner.fetchRendered(url)
       // Increment counters on success
       brandCounts.set(brand, brandCount + 1)
@@ -109,11 +115,15 @@ export function withRenderBudget(
         urls.map(async (url) => {
           try {
             return await guardedFetchRendered(url)
-          } catch {
+          } catch (err) {
+            if (err instanceof RenderBudgetExceeded) throw err
             return null
           }
         }),
       )
+    },
+    setBrandKey(key: string): void {
+      brandKeyOverride = key
     },
   }
 }
