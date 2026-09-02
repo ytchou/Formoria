@@ -49,6 +49,7 @@
     "backfill:tw": "tsx scripts/backfill-tw-localization.ts",
     "brand-storage-maintenance": "tsx scripts/brand-storage-maintenance.ts",
     "approve-ready": "tsx scripts/approve-ready-submissions.ts",
+    "embeddings:backfill": "tsx scripts/embed-products.ts",
     "story:facts": "tsx scripts/story-facts.ts",
     "rerun-curation": "tsx scripts/rerun-submission-curation.ts",
     "reject-skipped": "tsx scripts/reject-skipped-submissions.ts",

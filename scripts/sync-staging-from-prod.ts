@@ -397,6 +397,7 @@ export const KNOWN_COLUMNS: Record<CopyTable, readonly string[]> = {
     "link_checked_at",
     "source_checked_at",
     "review_due_at",
+    "search_vector",
     "product_position",
     "proposed_by",
     "visible",

@@ -70,6 +70,8 @@ const phaseDescriptions = {
   persist: "Writes the accumulated patch back to the brand record.",
   acquisition:
     "Plans and recovers evidence acquisition per brand: which URLs to fetch, whether to render, what to fan out to.",
+  product_embeddings:
+    "Embeds curated product documents into vectors for situation search.",
   // Legacy: `reputation` was called `expansion` until 2026-08-03 and historical
   // jobs still store that phase string. It is the one entry here with no
   // constant behind it, because nothing writes it any more — only historical

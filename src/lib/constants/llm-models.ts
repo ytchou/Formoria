@@ -20,6 +20,10 @@ export const LLM_MODELS = {
   vision: "gpt-5.6-luna",
 } as const;
 
+export const EMBEDDING_MODEL = "text-embedding-3-small";
+export const EMBEDDING_DIMENSIONS = 1536;
+export const EMBEDDING_BATCH_SIZE = 100;
+
 export type LlmModelKey = keyof typeof LLM_MODELS;
 
 /**
@@ -222,6 +226,12 @@ export const LLM_PROFILES = {
     temperature: 0.1,
     reasoningEffort: "none",
     timeoutMs: 60_000,
+  },
+  /** Rerank candidates against a query for retrieval. */
+  rerank: {
+    model: "text",
+    temperature: 0,
+    maxTokens: 400,
   },
 } as const satisfies Record<string, LlmProfile>;
 
