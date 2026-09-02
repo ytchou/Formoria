@@ -49,7 +49,7 @@ import {
   PRODUCTION_PROJECT_REF,
   STAGING_PROJECT_REF,
   projectRefFromSupabaseUrl,
-} from "./staging-target";
+} from "@/lib/supabase/project-target";
 
 /**
  * The status the public reads filter on (`.eq('status', 'active')` in

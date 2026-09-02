@@ -7,7 +7,7 @@ import {
   PRODUCTION_PROJECT_REF,
   STAGING_PROJECT_REF,
   validateStagingTarget,
-} from "./staging-target";
+} from "@/lib/supabase/project-target";
 
 type DeploymentEnvironment = "production" | "staging";
 

@@ -458,14 +458,13 @@ ${YELLOW}═══════════════════════�
      │ SUPABASE_SERVICE_ROLE_KEY=${NEW_SERVICE_KEY}
      └──────────────────────────────────────────────────────────────┘
 
-  2. UPDATE scripts/staging-target.ts:
+  2. UPDATE src/lib/supabase/project-target.ts:
      Change STAGING_PROJECT_REF from "${OLD_STAGING_REF}" to "${NEW_REF}"
 
   3. UPDATE these files that hardcode the old ref:
      - scripts/db-deploy.test.ts
      - scripts/backfill-tw-localization.test.ts
      - scripts/doctor.test.ts
-     - scripts/__tests__/rehearse-slug-reverse.test.ts
 
   4. UPDATE Railway staging environment variables:
      Same values as .env.staging above

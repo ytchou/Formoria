@@ -5,9 +5,9 @@
 // Railway kept the previous container forever (DEV-1548).
 //
 // The worker answers both: its own `/health`, and whatever railway.json probes.
-// `scripts/__tests__/curation-worker-healthcheck.test.ts` asserts the two stay
-// in sync, so changing railway.json without changing this list fails CI rather
-// than silently pinning production to a stale build.
+// `src/curation-worker/__tests__/curation-worker-healthcheck.test.ts` asserts
+// the two stay in sync, so changing railway.json without changing this list
+// fails CI rather than silently pinning production to a stale build.
 export const CURATION_WORKER_HEALTH_PATHS = ["/health", "/api/health"] as const;
 
 export function isCurationWorkerHealthPath(pathname: string | undefined): boolean {

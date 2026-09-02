@@ -5,11 +5,18 @@ describe("curation worker startup boundary", () => {
   it("loads the plain Node worker dependency graph before it can listen", async () => {
     // Regression: the worker previously imported `server-only` through a
     // service module, so plain Node crashed before the HTTP server listened.
+    // The static half of `src/curation-worker/server.ts` is loaded too: the
+    // worker moved out of `scripts/` (DEV-1318) and the container no longer
+    // copies that directory, so a re-introduced `scripts/` import must fail
+    // here rather than at boot inside Railway.
     const probe = [
       "./src/lib/services/curation-jobs.ts",
       "./src/lib/services/job-runner.ts",
       "./src/lib/services/curation-worker.ts",
       "./src/lib/services/job-alerts.ts",
+      "./src/curation-worker/loop.ts",
+      "./src/curation-worker/health-paths.ts",
+      "./src/lib/supabase/project-target.ts",
     ]
       .map((modulePath) => `import(${JSON.stringify(modulePath)})`)
       .join(", ");

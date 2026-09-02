@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   CURATION_WORKER_HEALTH_PATHS,
   isCurationWorkerHealthPath,
-} from "../curation-worker-health-paths";
+} from "../health-paths";
 
 describe("curation worker healthcheck", () => {
   it("answers the path Railway probes", () => {

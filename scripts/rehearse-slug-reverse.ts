@@ -13,7 +13,7 @@ import {
 } from "@/lib/taxonomy/ontology";
 
 import { validateDeploymentTarget, type DeploymentTarget } from "./db-deploy";
-import { STAGING_PROJECT_REF } from "./staging-target";
+import { STAGING_PROJECT_REF } from "@/lib/supabase/project-target";
 
 /**
  * Rehearses `supabase/migrations/reverse/20260820120000_revert_slug_storage.sql`

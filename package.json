@@ -40,7 +40,7 @@
     "prepare": "git config core.hooksPath scripts/hooks 2>/dev/null || true",
     "curate": "tsx --env-file=.env.local scripts/curate-brands.ts",
     "posthog:sync": "tsx --env-file=.env.local scripts/posthog-sync.ts",
-    "curation:worker": "tsx scripts/curation-worker-server.ts",
+    "curation:worker": "tsx src/curation-worker/server.ts",
     "curation:snapshot": "tsx --env-file=.env.local scripts/curation-rerun/snapshot.ts",
     "curation:rerun": "tsx --env-file=.env.local scripts/curation-rerun/refresh.ts",
     "curation:render": "tsx --env-file=.env.local scripts/curation-rerun/render.ts",

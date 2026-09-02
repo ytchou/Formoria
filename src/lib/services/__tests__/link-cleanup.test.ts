@@ -13,6 +13,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
  */
 import {
   AUTO_NULL_STATUS_CODES,
+  buildLinkCleanupNotification,
   cleanupDeadLinks,
   type BrandWriter,
   type LinkCleanupDatabaseClient,
@@ -576,5 +577,105 @@ describe("cleanupDeadLinks", () => {
       expect(result.applied).toEqual([]);
       expect(result.skipped[0]?.reason).toBe("recheck_alive:200");
     });
+  });
+});
+
+/**
+ * The Slack message the nightly cron route posts. Pure: it takes the cleanup
+ * result, whether the run wrote, and the recent-removal window, and returns an
+ * `AgentNotification`. It moved out of `scripts/link-cleanup/run.ts` verbatim
+ * when the job became `POST /api/cron/link-cleanup` (DEV-1318), so these cases
+ * pin the wording the channel has been reading.
+ */
+describe("buildLinkCleanupNotification", () => {
+  const appliedEntry = {
+    brandId: BRAND_A,
+    brandName: "Studio A",
+    field: "purchase_shopee",
+    statusCode: 404,
+    url: "https://shopee.tw/studio-a",
+  };
+
+  function result(
+    overrides: Partial<{
+      applied: (typeof appliedEntry)[];
+      skipped: {
+        brandId: string;
+        field: string;
+        reason: string;
+        url: string;
+      }[];
+      scanned: number;
+    }> = {},
+  ) {
+    return {
+      applied: overrides.applied ?? [],
+      scanned: overrides.scanned ?? 0,
+      skipped: overrides.skipped ?? [],
+    };
+  }
+
+  it("reports applied removals", () => {
+    const notification = buildLinkCleanupNotification(
+      result({ applied: [appliedEntry], scanned: 3 }),
+      true,
+      [],
+    );
+
+    expect(notification.summary[0]).toMatch(/^Removed 1 dead brand link\b/);
+    expect(notification.workDone).toEqual([
+      "Studio A · purchase_shopee · HTTP 404 · https://shopee.tw/studio-a",
+    ]);
+  });
+
+  it("uses dry run wording when nothing was written", () => {
+    const notification = buildLinkCleanupNotification(
+      result({ applied: [appliedEntry], scanned: 1 }),
+      false,
+      [],
+    );
+
+    expect(notification.summary[0]).toMatch(/^Dry run: /);
+  });
+
+  it("falls back to recent removals when nothing was applied", () => {
+    const notification = buildLinkCleanupNotification(result(), true, [
+      {
+        brandName: "Studio B",
+        field: "official_url",
+        removedAt: "2026-09-02T01:00:00.000Z",
+        url: "https://studio-b.example",
+      },
+    ]);
+
+    expect(notification.workDone).toEqual([
+      "earlier today: Studio B · official_url · https://studio-b.example",
+    ]);
+  });
+
+  it("is needs_attention when anything was skipped, success otherwise", () => {
+    const skipped = [
+      {
+        brandId: BRAND_B,
+        field: "official_url",
+        reason: "protected:owner",
+        url: "https://studio-b.example",
+      },
+    ];
+
+    expect(
+      buildLinkCleanupNotification(result({ skipped }), true, []).status,
+    ).toBe("needs_attention");
+    expect(buildLinkCleanupNotification(result(), true, []).status).toBe(
+      "success",
+    );
+  });
+
+  it("appends the report-only tickets to details", () => {
+    const notification = buildLinkCleanupNotification(result(), true, []);
+
+    expect(notification.details).toContain(
+      "report-only: DEV-1439 — 405/402 are classified broken rather than blocked, inflating the queue",
+    );
   });
 });

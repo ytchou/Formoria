@@ -1,11 +1,13 @@
 import { describe, expect, it } from "vitest";
 import {
+  assertDatabaseTarget,
   assertStagingRevision,
   projectRefFromSupabaseUrl,
   validateSupabaseKeyIdentity,
   validateStagingTarget,
+  PRODUCTION_PROJECT_REF,
   STAGING_PROJECT_REF,
-} from "./staging-target";
+} from "./project-target";
 
 const stagingUrl = `https://${STAGING_PROJECT_REF}.supabase.co`;
 const jwt = (ref: string, role: string) => {
@@ -142,5 +144,86 @@ describe("staging target guard", () => {
     expect(() => assertStagingRevision(sha, `${sha.slice(0, -1)}8`)).toThrow(
       /mismatch/,
     );
+  });
+});
+
+const environmentFor = (ref: string) => ({
+  NEXT_PUBLIC_SUPABASE_URL: `https://${ref}.supabase.co`,
+  SUPABASE_SERVICE_ROLE_KEY: jwt(ref, "service_role"),
+});
+
+describe("curation worker database target guard", () => {
+  it("accepts credentials that match the declared environment", () => {
+    expect(
+      assertDatabaseTarget(
+        "staging",
+        environmentFor(STAGING_PROJECT_REF),
+      ),
+    ).toEqual({
+      deploymentEnvironment: "staging",
+      projectRef: STAGING_PROJECT_REF,
+    });
+    expect(
+      assertDatabaseTarget(
+        "production",
+        environmentFor(PRODUCTION_PROJECT_REF),
+      ),
+    ).toEqual({
+      deploymentEnvironment: "production",
+      projectRef: PRODUCTION_PROJECT_REF,
+    });
+  });
+
+  it("refuses a staging worker holding production credentials", () => {
+    expect(() =>
+      assertDatabaseTarget(
+        "staging",
+        environmentFor(PRODUCTION_PROJECT_REF),
+      ),
+    ).toThrow(
+      /identifies project xkcayngbttpxyibgzern, but this worker declares staging/,
+    );
+  });
+
+  // The fail-open declaration: an unset FORMORIA_DEPLOYMENT_ENV resolves to
+  // production, so staging credentials under it must crash rather than run.
+  it("refuses a production-declared worker holding staging credentials", () => {
+    expect(() =>
+      assertDatabaseTarget(
+        "production",
+        environmentFor(STAGING_PROJECT_REF),
+      ),
+    ).toThrow(/but this worker declares production/);
+  });
+
+  it("refuses a key whose ref matches but whose role is not service_role", () => {
+    expect(() =>
+      assertDatabaseTarget("staging", {
+        ...environmentFor(STAGING_PROJECT_REF),
+        SUPABASE_SERVICE_ROLE_KEY: jwt(STAGING_PROJECT_REF, "anon"),
+      }),
+    ).toThrow(/has role anon, expected service_role/);
+  });
+
+  it("refuses a non-JWT key, which exposes no verifiable ref", () => {
+    expect(() =>
+      assertDatabaseTarget("staging", {
+        ...environmentFor(STAGING_PROJECT_REF),
+        SUPABASE_SERVICE_ROLE_KEY: "sb_secret_abcdefghijklmnop",
+      }),
+    ).toThrow(/must be a Supabase JWT with a verifiable project ref/);
+  });
+
+  it("refuses a missing connection URL or key", () => {
+    expect(() =>
+      assertDatabaseTarget("staging", {
+        SUPABASE_SERVICE_ROLE_KEY: jwt(STAGING_PROJECT_REF, "service_role"),
+      }),
+    ).toThrow(/NEXT_PUBLIC_SUPABASE_URL is required for the curation worker/);
+    expect(() =>
+      assertDatabaseTarget("staging", {
+        NEXT_PUBLIC_SUPABASE_URL: `https://${STAGING_PROJECT_REF}.supabase.co`,
+      }),
+    ).toThrow(/SUPABASE_SERVICE_ROLE_KEY is required for the curation worker/);
   });
 });

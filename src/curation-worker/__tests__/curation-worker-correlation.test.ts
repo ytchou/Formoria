@@ -5,7 +5,7 @@ import {
   drainJobQueue,
   runInCronScope,
   startStaleJobMaintenance,
-} from "../curation-worker-loop";
+} from "../loop";
 
 afterEach(() => {
   vi.useRealTimers();

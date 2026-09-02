@@ -9,18 +9,18 @@ import {
   drainJobQueue,
   runInCronScope,
   startStaleJobMaintenance,
-} from "./curation-worker-loop";
+} from "./loop";
 import { isStagingEnvironment } from "@/lib/deployment-environment";
-import { assertWorkerDatabaseTarget } from "./worker-target";
-import { isCurationWorkerHealthPath } from "./curation-worker-health-paths";
+import { assertDatabaseTarget } from "@/lib/supabase/project-target";
+import { isCurationWorkerHealthPath } from "./health-paths";
 
 config({ path: ".env.local", quiet: true });
 
 // Runs before the service modules below are imported, so a cross-wired worker
 // dies at boot instead of claiming a job. The environment declaration is
 // fail-open (unset means production), so it is never trusted on its own — the
-// attached database must corroborate it. See worker-target.ts.
-const target = assertWorkerDatabaseTarget(
+// attached database must corroborate it. See src/lib/supabase/project-target.ts.
+const target = assertDatabaseTarget(
   isStagingEnvironment() ? "staging" : "production",
 );
 

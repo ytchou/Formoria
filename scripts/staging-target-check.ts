@@ -1,4 +1,4 @@
-import { validateStagingTarget } from "./staging-target";
+import { validateStagingTarget } from "@/lib/supabase/project-target";
 
 const target = validateStagingTarget();
 console.log(

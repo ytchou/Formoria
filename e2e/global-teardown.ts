@@ -1,5 +1,5 @@
 import { cleanupTestData } from './helpers/cleanup';
-import { validateStagingTarget } from '../scripts/staging-target';
+import { validateStagingTarget } from '../src/lib/supabase/project-target';
 
 async function globalTeardown() {
   validateStagingTarget(process.env);
