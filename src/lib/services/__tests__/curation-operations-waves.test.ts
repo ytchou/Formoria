@@ -804,6 +804,7 @@ describe("satisfaction skipping", () => {
       phase_results: [
         { phase: "discover", status: "succeeded", changedFields: [], durationMs: 50 },
         { phase: "detect", status: "succeeded", changedFields: [], durationMs: 50 },
+        { phase: "acquire", status: "succeeded", changedFields: [], durationMs: 50 },
         { phase: "links", status: "succeeded", changedFields: [], durationMs: 50 },
         { phase: "names", status: "succeeded", changedFields: [], durationMs: 50 },
         { phase: "site_identity", status: "succeeded", changedFields: [], durationMs: 50 },
@@ -1191,6 +1192,8 @@ describe("editorial agent integration", () => {
       target_type: "submission",
       target_id: target.id,
       phase_results: [
+        { phase: "detect", status: "succeeded", changedFields: [], durationMs: 50 },
+        { phase: "acquire", status: "succeeded", changedFields: [], durationMs: 50 },
         { phase: "descriptions", status: "succeeded", changedFields: ["description"], durationMs: 100 },
         { phase: "stockists", status: "succeeded", changedFields: [], durationMs: 50 },
         { phase: "faq", status: "succeeded", changedFields: [], durationMs: 50 },
