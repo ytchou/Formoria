@@ -41,13 +41,16 @@ describe("task-based phase resolution", () => {
   it("task_param_resolves_to_phase_closure", () => {
     const params: CurationJobParams = { task: "visual" };
     const phases = effectiveRequestedPhases(params);
-    // visual's closure: images, classify_images, products and their transitive deps
-    expect(phases).toContain("links");
-    expect(phases).toContain("site_identity");
-    expect(phases).toContain("products");
-    expect(phases).toContain("images");
-    expect(phases).toContain("classify_images");
+    // visual's closure: products and its transitive deps (acquire, names, detect)
+    expect(phases).toContain("detect");
+    expect(phases).toContain("acquire");
     expect(phases).toContain("names");
+    expect(phases).toContain("products");
+    // Deferred phases must not appear in the closure
+    expect(phases).not.toContain("links");
+    expect(phases).not.toContain("site_identity");
+    expect(phases).not.toContain("images");
+    expect(phases).not.toContain("classify_images");
     // Must exclude unrelated phases
     expect(phases).not.toContain("descriptions");
     expect(phases).not.toContain("reputation");
@@ -59,9 +62,10 @@ describe("task-based phase resolution", () => {
     // must still resolve to phases without throwing.
     const params: CurationJobParams = { steps: ["context", "image"] };
     const phases = effectiveRequestedPhases(params);
-    expect(phases).toContain("discover");
     expect(phases).toContain("detect");
-    expect(phases).toContain("links");
+    expect(phases).toContain("acquire");
+    expect(phases).toContain("names");
+    // Legacy image step still maps to deferred phases (they exist in ENRICH_PHASES)
     expect(phases).toContain("images");
     expect(phases).toContain("classify_images");
     expect(phases).not.toContain("descriptions");
@@ -83,9 +87,10 @@ describe("task-based phase resolution", () => {
     expect(phases).toEqual([...ENRICH_PHASES]);
   });
 
-  it("ignores unknown legacy step names", () => {
+  it("ignores unknown legacy step names and keeps deferred phases from mapping", () => {
     const params: CurationJobParams = { steps: ["unknown_step", "image"] };
     const phases = effectiveRequestedPhases(params);
+    // Legacy image step maps to deferred phases that still exist in ENRICH_PHASES
     expect(phases).toEqual(["images", "classify_images"]);
   });
 });
@@ -122,22 +127,21 @@ describe("satisfaction-based phase skipping", () => {
 
   it("satisfied_prerequisites_are_skipped", () => {
     const resolved = phasesForTask("visual");
-    // links has a history entry (satisfied), other deps do not
+    // acquire has a history entry (satisfied), other deps do not
     const history = makeHistory([
-      ["links", new Date("2026-08-01T00:00:00Z")],
+      ["acquire", new Date("2026-08-01T00:00:00Z")],
     ]);
 
     const { execute, skipped } = filterSatisfiedPhases(resolved, history);
 
     expect(skipped).toEqual(
       expect.arrayContaining([
-        expect.objectContaining({ phase: "links", reason: "satisfied" }),
+        expect.objectContaining({ phase: "acquire", reason: "satisfied" }),
       ]),
     );
-    expect(execute).not.toContain("links");
+    expect(execute).not.toContain("acquire");
     expect(execute).toContain("products");
-    expect(execute).toContain("site_identity");
-    expect(execute).toContain("images");
+    expect(execute).toContain("names");
   });
 });
 
