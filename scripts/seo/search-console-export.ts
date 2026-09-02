@@ -9,6 +9,7 @@ import {
   type LandingPageType,
   type QueryCluster,
 } from '@/lib/seo/search-console/segmentation'
+import { loadScriptTarget } from '../shared/target'
 
 /**
  * `position` is optional on purpose: Search Console omits it for rows it has no
@@ -704,6 +705,7 @@ async function writeBaseline(
 }
 
 async function main(): Promise<void> {
+  loadScriptTarget()
   const { credentials, property } = assertSearchConsoleCredentials()
   const extractedAt = new Date().toISOString()
   const windows = resolveWindows(new Date())

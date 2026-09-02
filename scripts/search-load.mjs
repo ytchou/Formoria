@@ -1,5 +1,9 @@
 import { randomUUID } from 'node:crypto'
 
+// Run under tsx (see the `test:search:load` alias) so this file can share the
+// one target resolver every operator script uses instead of a second env path.
+import { loadScriptTarget } from './shared/target.ts'
+
 const DEFAULT_BASE_URL = 'http://localhost:3000'
 const WARMUP_REQUESTS = 10
 
@@ -120,6 +124,7 @@ async function makeSearchRequest(searchUrl, query, expectedSlug, expectEmpty, cl
 }
 
 async function run() {
+  loadScriptTarget()
   const baseUrl = new URL(process.env.SEARCH_LOAD_BASE_URL ?? DEFAULT_BASE_URL)
   assertAllowedTarget(baseUrl)
 

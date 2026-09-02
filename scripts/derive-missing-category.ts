@@ -24,6 +24,7 @@ import { getSubmissionsForReview } from "@/lib/services/submissions";
 import { persistSubmissionEnrichmentResults } from "@/lib/services/curation-operations";
 import { deriveCategoryFromSubcategories } from "@/lib/services/subcategories";
 import { createServiceClient } from "@/lib/supabase/service";
+import { loadScriptTarget } from "./shared/target";
 
 const APPLY = process.argv.includes("--apply");
 const ONLY = (
@@ -40,6 +41,7 @@ function describeError(error: unknown): string {
 }
 
 async function main(): Promise<void> {
+  loadScriptTarget();
   const all = await getSubmissionsForReview();
   const bucket = all.filter(
     (submission) =>

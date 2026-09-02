@@ -28,6 +28,7 @@ import { createClient as createSupabaseClient } from '@supabase/supabase-js'
 // delete-path helper is scoped to `brands/` alone on purpose. Nothing here
 // deletes, so resolving the wider prefix set is the safe direction.
 import { storageKeyFromPublicUrlForRead } from '@/lib/services/image-upload'
+import { loadScriptTarget } from './shared/target'
 
 const PAGE_SIZE = 1_000
 
@@ -351,8 +352,9 @@ const USAGE =
   'Usage: backfill-storage-paths.ts [audit | backfill [--live]] (audit is the default and writes nothing)'
 
 async function main(): Promise<void> {
-  const subcommand = process.argv[2] ?? 'audit'
-  const args = process.argv.slice(3)
+  const { argv } = loadScriptTarget()
+  const subcommand = argv[0] ?? 'audit'
+  const args = argv.slice(1)
 
   if (subcommand === 'audit' && args.length === 0) {
     await run(false)

@@ -50,6 +50,7 @@ import {
   STAGING_PROJECT_REF,
   projectRefFromSupabaseUrl,
 } from "@/lib/supabase/project-target";
+import { loadScriptTarget } from "./shared/target";
 
 /**
  * The status the public reads filter on (`.eq('status', 'active')` in
@@ -105,7 +106,8 @@ async function readRenderedImages(
 }
 
 async function main(): Promise<void> {
-  const ref = parseProjectRef(process.argv.slice(2));
+  const { argv } = loadScriptTarget();
+  const ref = parseProjectRef(argv);
   const { url, key } = resolveServiceRoleKey(ref);
   if (projectRefFromSupabaseUrl(url) !== ref) {
     throw new Error(`Resolved URL identifies another project than ${ref}`);

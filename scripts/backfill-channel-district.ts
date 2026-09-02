@@ -4,10 +4,12 @@ import {
   listStockistDistrictBackfillRows,
   updateStockistDistricts,
 } from "@/lib/services/stockists";
+import { loadScriptTarget } from "./shared/target";
 
 const APPLY = process.argv.includes("--apply");
 
 async function main() {
+  loadScriptTarget();
   const rows = await listStockistDistrictBackfillRows();
   const updates: Array<{ id: string; district: string | null }> = [];
   const summaries = new Map<string, { matched: number; unmatched: string[] }>();

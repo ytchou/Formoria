@@ -7,9 +7,11 @@
  * credibility problem, and 公平交易委員會 rules bite on unsupported quality
  * claims. A fact with no `source` is a fact the drafter invented.
  *
- *   pnpm exec tsx --env-file=.env.local scripts/story-facts.ts --event 2026-taiwan-creative-expo
- *   pnpm exec tsx --env-file=.env.local scripts/story-facts.ts --brands woky,filter017 --out facts.json
- *   pnpm exec tsx --env-file=.env.local scripts/story-facts.ts --event 2026-taiwan-creative-expo --brands woky --out facts.json
+ *   pnpm exec tsx scripts/story-facts.ts --event 2026-taiwan-creative-expo
+ *   pnpm exec tsx scripts/story-facts.ts --brands woky,filter017 --out facts.json
+ *   pnpm exec tsx scripts/story-facts.ts --event 2026-taiwan-creative-expo --brands woky --out facts.json
+ *
+ * Staging is the default; pass --target production to run against production.
  *
  * Or via the package script: `pnpm story:facts --event <slug>`.
  *
@@ -33,6 +35,7 @@ import { createServiceClient } from "@/lib/supabase/service";
 import { getBrandsBySlugs } from "@/lib/services/brands";
 import { applyPublicStockistVisibility } from "@/lib/brands/stockist-display";
 import type { Brand } from "@/lib/types";
+import { loadScriptTarget } from "./shared/target";
 
 /**
  * PostgREST sends `.in()` filters in the GET query string, so a few hundred ids
@@ -164,7 +167,7 @@ function requireEnv(name: string): string {
   const value = process.env[name];
   if (!value) {
     throw new Error(
-      `Missing ${name}. Run with --env-file=.env.local (see the header comment).`,
+      `Missing ${name}. The target env file did not define it (see the header comment).`,
     );
   }
   return value;
@@ -463,6 +466,7 @@ type FactSheet = {
 };
 
 async function main(): Promise<void> {
+  loadScriptTarget();
   const eventSlug = argValue("--event");
   const brandsArg = argValue("--brands");
   const outPath = argValue("--out");

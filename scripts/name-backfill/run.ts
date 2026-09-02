@@ -26,6 +26,7 @@ import {
   type NameBackfillJob,
   type NameBackfillWriteEvent,
 } from "./policy";
+import { loadScriptTarget } from "../shared/target";
 
 type RefreshRow = {
   id: string;
@@ -332,7 +333,8 @@ async function writeAudit(
 }
 
 async function main(): Promise<void> {
-  const mode = parseNameBackfillMode(process.argv);
+  const { argv } = loadScriptTarget();
+  const mode = parseNameBackfillMode(argv);
   const cohort = await loadCohort();
   const slugs = selectedSlugs(cohort);
   const limit = batchSize();

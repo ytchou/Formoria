@@ -4,8 +4,6 @@
 /.github/selfheal/ @ytchou
 /.github/CODEOWNERS @ytchou
 /scripts/health-agent/ @ytchou
-/scripts/ci/change-policy.ts @ytchou
-/scripts/ci/change-policy.test.ts @ytchou
 
 # Database and authorization boundaries
 /supabase/migrations/ @ytchou

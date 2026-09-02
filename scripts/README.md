@@ -78,3 +78,33 @@ Retirement is deletion. The history is the archive.
 
 | name | ticket | tag | date |
 |---|---|---|---|
+| `scripts/apply-audit-corrections.ts` | DEV-1318 | `scripts-retired/2026-09-02` | 2026-09-02 |
+| `scripts/apply-description-edits.ts` | DEV-1318 | `scripts-retired/2026-09-02` | 2026-09-02 |
+| `scripts/apply-refresh-submissions.ts` | DEV-1318 | `scripts-retired/2026-09-02` | 2026-09-02 |
+| `scripts/backfill-brand-image-alt-zh.ts` | DEV-1318 | `scripts-retired/2026-09-02` | 2026-09-02 |
+| `scripts/backfill-brand-image-alt-zh.test.ts` | DEV-1318 | `scripts-retired/2026-09-02` | 2026-09-02 |
+| `scripts/backfill-brand-images.ts` | DEV-1318 | `scripts-retired/2026-09-02` | 2026-09-02 |
+| `scripts/backfill-faq-entries.ts` | DEV-1318 | `scripts-retired/2026-09-02` | 2026-09-02 |
+| `scripts/backfill-subcategory-slugs.ts` | DEV-1318 | `scripts-retired/2026-09-02` | 2026-09-02 |
+| `scripts/cleanup-pending-edits.ts` | DEV-1318 | `scripts-retired/2026-09-02` | 2026-09-02 |
+| `scripts/clear-contaminated-links.ts` | DEV-1318 | `scripts-retired/2026-09-02` | 2026-09-02 |
+| `scripts/clear-dev-1309-websites.ts` | DEV-1318 | `scripts-retired/2026-09-02` | 2026-09-02 |
+| `scripts/link-cleanup/run.ts` | DEV-1318 | `scripts-retired/2026-09-02` | 2026-09-02 |
+| `scripts/migrate-staging-to-free-org.sh` | DEV-1318 | `scripts-retired/2026-09-02` | 2026-09-02 |
+| `scripts/rehearse-slug-reverse.ts` | DEV-1318 | `scripts-retired/2026-09-02` | 2026-09-02 |
+| `scripts/__tests__/rehearse-slug-reverse.test.ts` | DEV-1318 | `scripts-retired/2026-09-02` | 2026-09-02 |
+| `scripts/slug-reverse-corpus.json` | DEV-1318 | `scripts-retired/2026-09-02` | 2026-09-02 |
+| `scripts/run-refresh-enrichment.ts` | DEV-1318 | `scripts-retired/2026-09-02` | 2026-09-02 |
+| `scripts/seed-expansion-data.ts` | DEV-1318 | `scripts-retired/2026-09-02` | 2026-09-02 |
+| `scripts/seed-expo-exhibitor-content.ts` | DEV-1318 | `scripts-retired/2026-09-02` | 2026-09-02 |
+| `scripts/tmp-recuration-monitor.ts` | DEV-1318 | `scripts-retired/2026-09-02` | 2026-09-02 |
+
+`scripts/slug-reverse-corpus.json` is retired from `scripts/` but not deleted:
+the 2,446-string pre-migration corpus is evidence, and
+`src/lib/services/__tests__/material-corrections.test.ts` asserts against it, so
+it moved to `src/lib/services/__tests__/fixtures/slug-reverse-corpus.json`.
+
+The nine `scripts/health-audit-2026-*.sql` snapshots carry no row: they were
+already deleted in `546107846`, before this ticket and before the tag, so
+`scripts-retired/2026-09-02` is not where they are recovered from.
+

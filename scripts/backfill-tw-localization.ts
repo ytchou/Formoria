@@ -12,6 +12,7 @@ import {
 import { fixBannedTerms } from "../src/lib/i18n/banned-terms";
 import { localizeToTW } from "../src/lib/services/taiwan-localization";
 import { artifactPath } from "./shared/artifact";
+import { loadScriptTarget } from "./shared/target";
 
 /**
  * Cleans already-stored zh-TW text: FORMATTING via `localizeToTW` (markdown,
@@ -72,8 +73,9 @@ import { artifactPath } from "./shared/artifact";
  * all-or-none is not a decision a reviewer can make. See the apply section
  * below for why the manifest is replayed rather than recomputed.
  *
- * Run: `pnpm backfill:tw -- --dry-run` (staging by construction; see the
- * package script's `--env-file`).
+ * Run: `pnpm backfill:tw -- --dry-run` (staging by default; the target is
+ * resolved by `scripts/shared/target.ts`, and `--target production` is the
+ * only way to reach production).
  */
 
 /** Rows updated per concurrent write batch. */
@@ -1349,7 +1351,8 @@ export async function runApply(
 }
 
 async function main(): Promise<void> {
-  const options = parseArgs(process.argv.slice(2));
+  const { argv } = loadScriptTarget();
+  const options = parseArgs(argv);
   const environment = supabaseEnvironment(process.env.NEXT_PUBLIC_SUPABASE_URL);
   const supabase = createServiceClient();
 

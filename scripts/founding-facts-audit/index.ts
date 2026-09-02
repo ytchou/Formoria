@@ -1,6 +1,7 @@
 import { applyAudit } from "./apply";
 import { runAudit } from "./audit";
 import { renderAudit } from "./render";
+import { loadScriptTarget } from "../shared/target";
 
 function argValue(flag: string): string | undefined {
   const inline = process.argv.find((argument) =>
@@ -18,7 +19,8 @@ function requiredArg(flag: string): string {
 }
 
 async function main(): Promise<void> {
-  const command = process.argv.at(2);
+  const { argv } = loadScriptTarget();
+  const command = argv.at(0);
   if (command === "audit") {
     if (process.argv.includes("--all") && process.argv.includes("--pilot"))
       throw new Error("choose only one of --pilot or --all");

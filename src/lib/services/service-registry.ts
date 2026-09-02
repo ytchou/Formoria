@@ -187,7 +187,7 @@ export const SERVICE_REGISTRY: readonly ServiceEntry[] = [
     probe: "executive-health",
     dashboardUrl: "https://platform.openai.com/usage",
     blindSpots: [
-      "Eval spend bypasses persistence through CURATION_EVAL_SINK at _shared/ai-results.ts:130-140; model-A/B installs setAuditWriteSeam at scripts/model-ab/run.ts:63.",
+      "Eval spend bypasses persistence through CURATION_EVAL_SINK at _shared/ai-results.ts:130-140; an eval harness must also install setAuditWriteSeam or its spend goes unrecorded.",
     ],
   },
   {

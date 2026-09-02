@@ -22,6 +22,7 @@ import {
   lengthBand,
   type LabeledImage,
 } from '@/lib/services/eval/scorers'
+import { loadScriptTarget } from './shared/target'
 
 const COMMANDS = ['enrich', 'eval'] as const
 
@@ -489,8 +490,9 @@ async function runCommand({ command, config }: ParsedCliArgs): Promise<Operation
 }
 
 async function main(): Promise<void> {
+  const { argv } = loadScriptTarget()
   try {
-    const parsed = parseCliArgs(process.argv.slice(2))
+    const parsed = parseCliArgs(argv)
     const result = await runCommand(parsed)
     printResult(parsed.command, result, parsed.config.dryRun)
 

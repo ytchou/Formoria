@@ -3,6 +3,7 @@ import { syncHeroDenormalized } from '@/lib/services/brand-images'
 import { mapWithConcurrency } from '@/lib/services/_shared/concurrency'
 import { createServiceClient } from '@/lib/supabase/service'
 import { loadActiveRows, type RestoreManifest } from './shared'
+import { loadScriptTarget } from '../shared/target'
 
 /**
  * Rollback deliberately does NOT compare sort_order against the manifest: after a
@@ -35,6 +36,7 @@ function manifestArg(): string {
 }
 
 async function main(): Promise<void> {
+  loadScriptTarget()
   const manifest = JSON.parse(
     await readFile(manifestArg(), 'utf8'),
   ) as RestoreManifest

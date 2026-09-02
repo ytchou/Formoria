@@ -36,6 +36,7 @@ import {
   enqueueAdminCurationJob,
 } from "@/lib/services/curation-jobs";
 import { runJob } from "@/lib/services/job-runner";
+import { loadScriptTarget } from "./shared/target";
 
 const RUN = process.argv.includes("--run");
 const OVERWRITE = !process.argv.includes("--no-overwrite");
@@ -60,6 +61,7 @@ const LIMIT = (() => {
 })();
 
 async function main(): Promise<void> {
+  loadScriptTarget();
   const startedAt = Date.now();
   const supabase = createServiceClient();
 

@@ -1,6 +1,7 @@
 import { createClient as createSupabaseClient } from "@supabase/supabase-js";
 
 import { ONLINE_STORE_COLUMNS } from "@/lib/brands/online-stores";
+import { loadScriptTarget } from "./shared/target";
 
 type Source = "enriched" | "owner";
 
@@ -117,7 +118,8 @@ function buildRows(brand: BrandRow): FieldStateInsert[] {
 }
 
 async function main(): Promise<void> {
-  const options = parseArgs(process.argv.slice(2));
+  const { argv } = loadScriptTarget();
+  const options = parseArgs(argv);
   const supabase = createServiceClient();
   let offset = 0;
   let scanned = 0;

@@ -11,13 +11,16 @@
  * refresh rewrites those as well and restoring only `brands` would leave the
  * brand pointing at images that no longer exist.
  *
- *   pnpm exec tsx --env-file=.env.local scripts/curation-rerun/snapshot.ts --out before.json
- *   pnpm exec tsx --env-file=.env.local scripts/curation-rerun/snapshot.ts --cohort batch1-never-curated --out before.json
+ *   pnpm exec tsx scripts/curation-rerun/snapshot.ts --out before.json
+ *   pnpm exec tsx scripts/curation-rerun/snapshot.ts --cohort batch1-never-curated --out before.json
+ *
+ * Staging is the default; pass --target production to run against production.
  */
 import { writeFile, mkdir, access } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
 import { createClient } from "@supabase/supabase-js";
 import { loadCohort, snapshotDir } from "./cohort";
+import { loadScriptTarget } from "../shared/target";
 
 function argValue(flag: string): string | undefined {
   const index = process.argv.indexOf(flag);
@@ -76,6 +79,7 @@ async function selectAllPages<T>(
 }
 
 async function main(): Promise<void> {
+  loadScriptTarget();
   const cohort = await loadCohort();
   const out = resolve(
     snapshotDir(cohort),

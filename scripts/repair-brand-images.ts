@@ -5,6 +5,7 @@ import { syncHeroDenormalized } from '@/lib/services/brand-images'
 import { storageKeyFromPublicUrl } from '@/lib/services/image-upload'
 import { JUNK_TAGS } from '@/lib/services/enrich-phases/classify-images'
 import { listAllObjects } from './brand-storage-maintenance'
+import { loadScriptTarget } from './shared/target'
 
 // ---------------------------------------------------------------------------
 // One-off repair for the three known brand_images data defects:
@@ -1499,7 +1500,8 @@ async function repair({ live, force, includeLogos }: CliOptions): Promise<void> 
 }
 
 async function main(): Promise<void> {
-  const options = parseArgs(process.argv.slice(2))
+  const { argv } = loadScriptTarget()
+  const options = parseArgs(argv)
   await repair(options)
 }
 

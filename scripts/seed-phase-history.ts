@@ -16,6 +16,7 @@ import { createServiceClient } from '@/lib/supabase/service'
 import { type EnrichPhaseName } from '@/lib/constants/enrich-phases'
 import type { PhaseResult } from '@/lib/types/curation'
 import type { Json } from '@/lib/supabase/database.types'
+import { loadScriptTarget } from './shared/target'
 
 // ---------------------------------------------------------------------------
 // CLI
@@ -119,6 +120,7 @@ function inferPhaseStatus(
 // ---------------------------------------------------------------------------
 
 async function main(): Promise<void> {
+  loadScriptTarget()
   const supabase = createServiceClient()
 
   console.log(`seed-phase-history: ${dryRun ? 'DRY RUN' : 'APPLY'} mode`)

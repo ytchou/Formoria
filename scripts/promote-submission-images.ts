@@ -41,6 +41,7 @@ import {
 } from '@/lib/images/submission-image-promotion'
 import { createPromotionStorage } from '@/lib/services/promote-submission-images'
 import { createServiceClient } from '@/lib/supabase/service'
+import { loadScriptTarget } from './shared/target'
 
 const PAGE_SIZE = 1_000
 
@@ -121,8 +122,9 @@ const USAGE =
   'Usage: promote-submission-images.ts [audit | promote [--live]] (audit is the default and writes nothing)'
 
 async function main(): Promise<void> {
-  const subcommand = process.argv[2] ?? 'audit'
-  const args = process.argv.slice(3)
+  const { argv } = loadScriptTarget()
+  const subcommand = argv[0] ?? 'audit'
+  const args = argv.slice(1)
 
   if (subcommand === 'audit' && args.length === 0) {
     await run(false)

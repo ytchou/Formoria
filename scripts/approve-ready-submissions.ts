@@ -16,9 +16,9 @@
  *     submissions) or an approval notice (real submitter address); this script
  *     SKIPS any row that would trigger either and reports it, so a bulk run can
  *     never surprise a real person. Those rows must go through the admin UI.
- *  3. `--apply` is required. The sibling apply-refresh-submissions.ts applies by
- *     default with an opt-in `--dry-run`; inverted here because this path
- *     publishes brands to the live directory, so the safe mode is the default.
+ *  3. `--apply` is required — the dry run is the default. This path publishes
+ *     brands to the live directory, so the safe mode has to be what an
+ *     operator gets by typing nothing.
  *
  * Usage:
  *   pnpm approve-ready                                  # dry run, whole bucket
@@ -40,6 +40,7 @@ import {
 } from "@/lib/services/brands";
 import { markFlagsReviewed } from "@/lib/services/moderation";
 import { requestPublicBrandRevalidation } from "@/lib/cache/revalidate-client";
+import { loadScriptTarget } from "./shared/target";
 
 const APPLY = process.argv.includes("--apply");
 const ONLY = (
@@ -51,7 +52,7 @@ const ONLY = (
   .map((id) => id.trim())
   .filter(Boolean);
 
-/** Same resolution as apply-refresh-submissions.ts: first entry of ADMIN_EMAILS. */
+/** The reviewer of record: the first entry of ADMIN_EMAILS. */
 async function resolveReviewerId(email: string): Promise<string> {
   const supabase = createServiceClient();
   for (let page = 1; ; page += 1) {
@@ -79,6 +80,7 @@ function describeError(error: unknown): string {
 }
 
 async function main(): Promise<void> {
+  loadScriptTarget();
   const adminEmail = process.env.ADMIN_EMAILS?.split(",")
     .map((value) => value.trim())
     .find(Boolean);

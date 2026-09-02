@@ -11,6 +11,7 @@ import {
   type PreviewBrand,
   type PreviewFile,
 } from './shared'
+import { loadScriptTarget } from '../shared/target'
 
 type Brand = {
   id: string
@@ -20,6 +21,7 @@ type Brand = {
 }
 
 async function main(): Promise<void> {
+  loadScriptTarget()
   const { client, blocked } = createWriteBlockingClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.SUPABASE_SERVICE_ROLE_KEY!,

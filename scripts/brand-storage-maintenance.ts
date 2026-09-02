@@ -7,6 +7,7 @@ import sharp from 'sharp'
 import { processImage } from '@/lib/security/image-processor'
 import { syncHeroDenormalized } from '@/lib/services/brand-images'
 import { computeDHash, dominantColorToHex } from '@/lib/services/image-download'
+import { loadScriptTarget } from './shared/target'
 
 const BUCKET = 'brand-images'
 const PAGE_SIZE = 1_000
@@ -1314,8 +1315,9 @@ async function reencode(live: boolean): Promise<void> {
 }
 
 async function main(): Promise<void> {
-  const subcommand = process.argv[2] ?? 'audit'
-  const args = process.argv.slice(3)
+  const { argv } = loadScriptTarget()
+  const subcommand = argv[0] ?? 'audit'
+  const args = argv.slice(1)
   if (subcommand === 'audit' && args.length === 0) {
     await audit()
     return

@@ -34,12 +34,14 @@
  * `scripts/curation-rerun/snapshot.ts --out before.json` first; that file is
  * the rollback copy.
  *
- *   pnpm exec tsx --env-file=.env.local scripts/curation-rerun/refresh.ts --dry-run
- *   pnpm exec tsx --env-file=.env.local scripts/curation-rerun/refresh.ts --confirm
- *   pnpm exec tsx --env-file=.env.local scripts/curation-rerun/refresh.ts --cohort batch1-never-curated --confirm --via-worker
- *   pnpm exec tsx --env-file=.env.local scripts/curation-rerun/refresh.ts --task product --confirm
- *   pnpm exec tsx --env-file=.env.local scripts/curation-rerun/refresh.ts --task product --no-apply --confirm
- *   pnpm exec tsx --env-file=.env.local scripts/curation-rerun/refresh.ts --task product --local-render --no-apply --confirm
+ *   pnpm exec tsx scripts/curation-rerun/refresh.ts --dry-run
+ *   pnpm exec tsx scripts/curation-rerun/refresh.ts --confirm
+ *   pnpm exec tsx scripts/curation-rerun/refresh.ts --cohort batch1-never-curated --confirm --via-worker
+ *   pnpm exec tsx scripts/curation-rerun/refresh.ts --task product --confirm
+ *   pnpm exec tsx scripts/curation-rerun/refresh.ts --task product --no-apply --confirm
+ *   pnpm exec tsx scripts/curation-rerun/refresh.ts --task product --local-render --no-apply --confirm
+ *
+ * Staging is the default; pass --target production to run against production.
  */
 import { randomUUID } from "node:crypto";
 import { writeFile, mkdir } from "node:fs/promises";
@@ -66,6 +68,7 @@ import {
 } from "@/lib/constants/enrich-phases";
 import { loadCohort, snapshotDir, type Cohort } from "./cohort";
 import { validateLocalRenderFlags } from "./refresh-options";
+import { loadScriptTarget } from "../shared/target";
 
 /**
  * Default task. `full` expands to exactly the phase set the retired
@@ -211,6 +214,7 @@ function targetSlugs(cohort: Cohort): string[] {
 }
 
 async function main(): Promise<void> {
+  const { argv } = loadScriptTarget();
   const cohort = await loadCohort();
   const logPath = resolve(
     snapshotDir(cohort),
@@ -218,7 +222,7 @@ async function main(): Promise<void> {
   );
   const dryRun = hasFlag("--dry-run");
   const viaWorker = hasFlag("--via-worker");
-  const localRender = validateLocalRenderFlags(process.argv);
+  const localRender = validateLocalRenderFlags(argv);
   const task = targetTask();
   // Recorded alongside the task so a log stays readable after CURATION_TASKS
   // changes shape — the task name alone would not say what actually ran.
@@ -227,8 +231,8 @@ async function main(): Promise<void> {
   // job as soon as it finishes its current one (runQueuedJobs -> claimNextCurationJob),
   // so leaving a job pending IS the queue — no dispatch, no poller, nothing on
   // this machine to keep alive. The trade is that step 4 never runs for these
-  // jobs: apply is a separate pass (scripts/apply-refresh-submissions.ts) once
-  // the job reaches `completed`.
+  // jobs: the refresh submissions wait in the admin review queue and are
+  // applied from there once the job reaches `completed`.
   const enqueueOnly = hasFlag("--enqueue-only");
   // Run the job here, in this checkout, but stop before step 4.
   //
@@ -417,8 +421,8 @@ async function main(): Promise<void> {
   if (enqueueOnly) {
     console.log(
       `\n[3/4] skipped — ${jobIds.length} job(s) left PENDING for the deployed worker to claim.` +
-        `\n[4/4] skipped — apply separately once the jobs are completed:` +
-        `\n      pnpm exec tsx --env-file=.env.local scripts/apply-refresh-submissions.ts --dry-run\n`,
+        `\n[4/4] skipped — the refresh submissions wait in the admin review` +
+        `\n      queue; apply them there once the jobs are completed.\n`,
     );
     await mkdir(dirname(logPath), { recursive: true });
     await writeFile(
@@ -473,9 +477,8 @@ async function main(): Promise<void> {
   if (noApply) {
     console.log(
       `\n[4/4] SKIPPED — --no-apply. ${submissionIds.length} refresh submission(s) stay` +
-        `\n      pending for human review; no live brand was modified. Review them in` +
-        `\n      the admin queue, or apply later with:` +
-        `\n      pnpm exec tsx --env-file=<env> scripts/apply-refresh-submissions.ts --dry-run\n`,
+        `\n      pending for human review; no live brand was modified. Review and` +
+        `\n      apply them in the admin queue.\n`,
     );
     await mkdir(dirname(logPath), { recursive: true });
     await writeFile(

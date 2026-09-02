@@ -1,6 +1,7 @@
 import { mkdir, writeFile } from 'node:fs/promises'
 import path from 'node:path'
 import { createServiceClient } from '@/lib/supabase/service'
+import { loadScriptTarget } from './shared/target'
 
 const PAGE_SIZE = 1_000
 const UPDATE_BATCH_SIZE = 100
@@ -116,8 +117,9 @@ async function blockPendingRows(
 }
 
 async function main(): Promise<void> {
-  const live = process.argv.includes('--live')
-  const invalidArgs = process.argv.slice(2).filter((arg) => arg !== '--live')
+  const { argv } = loadScriptTarget()
+  const live = argv.includes('--live')
+  const invalidArgs = argv.filter((arg) => arg !== '--live')
   if (invalidArgs.length > 0) {
     throw new Error('Usage: image-recovery:audit [--live]')
   }

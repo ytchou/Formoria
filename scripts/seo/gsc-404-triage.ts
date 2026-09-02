@@ -15,6 +15,7 @@ import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 import { createServiceClient } from "@/lib/supabase/service";
+import { loadScriptTarget } from "../shared/target";
 
 export type GscExportRow = {
   url: string;
@@ -401,7 +402,8 @@ async function readExport(target: string): Promise<string> {
 }
 
 async function main(): Promise<void> {
-  const target = process.argv[2];
+  const { argv } = loadScriptTarget();
+  const target = argv[0];
   if (!target) {
     console.error(
       "Usage: pnpm seo:gsc-404 <path-to-Table.csv-or-export-directory>",

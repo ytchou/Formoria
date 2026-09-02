@@ -18,6 +18,7 @@ import {
   subcategoryBySlug,
   type L2Subcategory,
 } from '@/lib/taxonomy/ontology'
+import { loadScriptTarget } from '../shared/target'
 
 export type BrandCountRow = {
   name: string | null
@@ -255,6 +256,7 @@ async function fetchAllBrandRows(): Promise<BrandCountRow[]> {
 // no "type": "module"), and esbuild rejects top-level await under the cjs
 // output format.
 async function main(): Promise<void> {
+  loadScriptTarget();
   try {
     const result = aggregateBrandCounts(await fetchAllBrandRows())
     console.log(JSON.stringify(result, null, 2))

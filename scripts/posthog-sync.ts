@@ -4,6 +4,7 @@ import {
   SITE_DASHBOARD_NAME,
   type OwnerEndpointDef,
 } from '@/lib/analytics/posthog-queries'
+import { loadScriptTarget } from './shared/target'
 
 type EndpointPayload = {
   name: string
@@ -315,6 +316,7 @@ async function syncDashboard(
 }
 
 async function main(): Promise<void> {
+  loadScriptTarget()
   const client = createPostHogClient()
   const failures: string[] = []
 
