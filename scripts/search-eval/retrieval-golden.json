@@ -1,0 +1,178 @@
+[
+  {
+    "id": "tea-gift-for-friend",
+    "query": "送給喜歡泡茶的朋友",
+    "expected": [
+      { "brandSlug": "lin-guan-kiln", "productKey": "tea-set-celadon" },
+      { "brandSlug": "tseng-ming-nan", "productKey": "handmade-teapot" }
+    ]
+  },
+  {
+    "id": "natural-skincare-sensitive",
+    "query": "敏感肌膚適合的天然保養品",
+    "category": "beauty",
+    "expected": [
+      { "brandSlug": "mu-wood", "productKey": "gentle-face-oil" },
+      { "brandSlug": "herbal-lab", "productKey": "sensitive-cream" }
+    ]
+  },
+  {
+    "id": "housewarming-candle",
+    "query": "朋友搬新家想送香氛蠟燭",
+    "category": "home",
+    "expected": [
+      { "brandSlug": "chou-chou", "productKey": "soy-candle-hinoki" },
+      { "brandSlug": "isle-fragrance", "productKey": "botanical-candle" }
+    ]
+  },
+  {
+    "id": "chaze-tea-scoop",
+    "query": "想找一支好看的茶則",
+    "expected": [
+      { "brandSlug": "tseng-ming-nan", "productKey": "copper-tea-scoop" },
+      { "brandSlug": "just-metal", "productKey": "brass-tea-scoop" }
+    ]
+  },
+  {
+    "id": "woodfired-ceramics",
+    "query": "柴燒陶杯送給喜歡喝咖啡的人",
+    "expected": [
+      { "brandSlug": "lin-guan-kiln", "productKey": "woodfired-cup" },
+      { "brandSlug": "soil-pottery", "productKey": "woodfired-mug" }
+    ]
+  },
+  {
+    "id": "indigo-dye-bag",
+    "query": "藍染的手作包包",
+    "category": "bags",
+    "expected": [
+      { "brandSlug": "zhuo-ye", "productKey": "indigo-tote" },
+      { "brandSlug": "shan-ran", "productKey": "indigo-crossbody" }
+    ]
+  },
+  {
+    "id": "hinoki-home-decor",
+    "query": "檜木做的居家小物",
+    "category": "home",
+    "expected": [
+      { "brandSlug": "wood-and-co", "productKey": "hinoki-tray" },
+      { "brandSlug": "chou-chou", "productKey": "hinoki-diffuser" }
+    ]
+  },
+  {
+    "id": "minimal-leather-wallet",
+    "query": "極簡風格的皮革短夾",
+    "category": "fashion",
+    "expected": [
+      { "brandSlug": "hands-craft", "productKey": "veg-tan-wallet" },
+      { "brandSlug": "one-leather", "productKey": "slim-bifold" }
+    ]
+  },
+  {
+    "id": "wedding-gold-jewelry",
+    "query": "結婚週年紀念送太太的金飾",
+    "category": "jewelry",
+    "expected": [
+      { "brandSlug": "gold-lotus", "productKey": "gold-pendant" },
+      { "brandSlug": "ming-jewel", "productKey": "gold-bracelet" }
+    ]
+  },
+  {
+    "id": "fountain-pen-daily",
+    "query": "適合日常書寫的鋼筆",
+    "category": "stationery",
+    "expected": [
+      { "brandSlug": "ystudio", "productKey": "classic-fountain" },
+      { "brandSlug": "opus88", "productKey": "demonstrator-pen" }
+    ]
+  },
+  {
+    "id": "summer-sun-protection",
+    "query": "夏天戶外活動用的防曬",
+    "category": "beauty",
+    "expected": [
+      { "brandSlug": "sunkeeper", "productKey": "mineral-sunscreen" },
+      { "brandSlug": "herbal-lab", "productKey": "botanical-sunblock" }
+    ]
+  },
+  {
+    "id": "birthday-earrings",
+    "query": "送女朋友生日禮物想找耳環",
+    "category": "jewelry",
+    "expected": [
+      { "brandSlug": "muse-jewelry", "productKey": "pearl-studs" },
+      { "brandSlug": "gold-lotus", "productKey": "drop-earrings" }
+    ]
+  },
+  {
+    "id": "linen-home-textile",
+    "query": "亞麻材質的居家布品",
+    "category": "home",
+    "expected": [
+      { "brandSlug": "casa-linen", "productKey": "linen-pillowcase" },
+      { "brandSlug": "simple-cloth", "productKey": "linen-tablecloth" }
+    ]
+  },
+  {
+    "id": "laptop-canvas-bag",
+    "query": "放得下筆電的帆布包",
+    "category": "bags",
+    "expected": [
+      { "brandSlug": "daily-objects", "productKey": "canvas-laptop-tote" },
+      { "brandSlug": "bagcom", "productKey": "waxed-canvas-briefcase" }
+    ]
+  },
+  {
+    "id": "botanical-fragrance",
+    "query": "想找植物調的香水",
+    "category": "beauty",
+    "expected": [
+      { "brandSlug": "isle-fragrance", "productKey": "botanical-eau" },
+      { "brandSlug": "scent-lab", "productKey": "green-tea-perfume" }
+    ]
+  },
+  {
+    "id": "ceramic-incense-holder",
+    "query": "陶瓷的線香座",
+    "category": "home",
+    "expected": [
+      { "brandSlug": "soil-pottery", "productKey": "incense-holder-ash" },
+      { "brandSlug": "studio-liang", "productKey": "wave-incense-holder" }
+    ]
+  },
+  {
+    "id": "travel-notebook-set",
+    "query": "旅行用的手帳組合",
+    "category": "stationery",
+    "expected": [
+      { "brandSlug": "ystudio", "productKey": "travel-journal" },
+      { "brandSlug": "keep-a-notebook", "productKey": "traveler-insert" }
+    ]
+  },
+  {
+    "id": "handmade-silver-ring",
+    "query": "手工純銀戒指",
+    "category": "jewelry",
+    "expected": [
+      { "brandSlug": "ming-jewel", "productKey": "hammered-silver-ring" },
+      { "brandSlug": "muse-jewelry", "productKey": "open-band-silver" }
+    ]
+  },
+  {
+    "id": "kids-birthday-gift",
+    "query": "小朋友的生日禮物",
+    "expected": [
+      { "brandSlug": "playwood", "productKey": "stacking-blocks" },
+      { "brandSlug": "dough-planet", "productKey": "clay-kit" }
+    ]
+  },
+  {
+    "id": "office-desk-organizer",
+    "query": "辦公桌上的收納小物",
+    "category": "stationery",
+    "expected": [
+      { "brandSlug": "ystudio", "productKey": "brass-pen-holder" },
+      { "brandSlug": "wood-and-co", "productKey": "desk-organizer-walnut" }
+    ]
+  }
+]
