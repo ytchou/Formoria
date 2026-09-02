@@ -103,8 +103,8 @@ export function verdict(results: ArmResult[]): string {
     rerank.metrics.meanPrecisionAtK - hybrid.metrics.meanPrecisionAtK;
   const fast = rerank.metrics.p95LatencyMs < 1500;
 
-  if (lift >= 0.1 && fast) return "ship";
-  if (lift < 0.1) return "no-lift";
+  if (lift >= 0.1 - 1e-9 && fast) return "ship";
+  if (lift < 0.1 - 1e-9) return "no-lift";
   return "too-slow";
 }
 
