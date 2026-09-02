@@ -10,7 +10,6 @@ import { cropDamage } from "@/lib/images/crop-damage";
 import { isLogoImageTags } from "@/lib/constants/brand-images";
 import {
   CROP_DAMAGE_WEIGHT,
-  MIN_KEEP_SCORE,
   PORTRAIT_QUALITY_PRIOR,
   JUNK_TAGS,
   type ClassifiedImage,
@@ -101,8 +100,8 @@ export { cropDamagePenalty as cropDamagePenaltyForAspect };
 /**
  * Rank a pool of classified images by quality for a given frame aspect ratio.
  *
- * Filters out rejected images, junk-tagged images, and images below
- * `MIN_KEEP_SCORE`, then sorts descending by `heroQuality`.
+ * Filters out rejected images and junk-tagged images, then sorts descending
+ * by `heroQuality`.
  *
  * @param pool     Images to rank — may include rejects; they are filtered out.
  * @param frameAspect  Width / height of the rendering frame (e.g. 4/3 for hero, 1 for square).
@@ -115,8 +114,7 @@ export function rank(
     .filter(
       (image) =>
         image.disposition !== "reject" &&
-        !JUNK_TAGS.has(image.tag) &&
-        image.score >= MIN_KEEP_SCORE,
+        !JUNK_TAGS.has(image.tag),
     )
     .toSorted(
       (left, right) =>

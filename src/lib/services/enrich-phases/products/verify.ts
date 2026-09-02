@@ -151,14 +151,16 @@ export function verifyProposal(
     urlChecksFailed = true
   }
 
-  // 3. Image
-  const imageResult = verifyImage(
-    { url: proposal.url },
-    deps.imagePool,
-    deps.rankFn,
-  )
-  if (!imageResult.ok) {
-    failures.push(imageResult.reason ?? 'no image')
+  // 3. Image — skip when the pool is empty (no images available to rank)
+  if (deps.imagePool.length > 0) {
+    const imageResult = verifyImage(
+      { url: proposal.url },
+      deps.imagePool,
+      deps.rankFn,
+    )
+    if (!imageResult.ok) {
+      failures.push(imageResult.reason ?? 'no image')
+    }
   }
 
   // 4. Closed sets

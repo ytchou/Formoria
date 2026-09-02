@@ -28,14 +28,18 @@ Evaluate the supplied product evidence and propose up to 20 curated products. Ea
 
 ## Required fields per product
 
-- nameZh: concise consumer-facing product name in Traditional Chinese (zh-TW). Preserve the official model/SKU verbatim at the end. Remove promotional labels.
-- nameEn: English product name, or null when no English name appears in the evidence.
-- productDescription: factual product description in Traditional Chinese, 60-160 characters. Write what the product IS (identity), then materials, then one distinguishing fact (origin, technique, fixed spec). No marketing tone, no editorial recommendations, no prices/discounts/inventory.
+- name_zh: concise consumer-facing product name in Traditional Chinese (zh-TW). Preserve the official model/SKU verbatim at the end. Remove promotional labels.
+- name_en: English product name, or null when no English name appears in the evidence.
+- product_description_zh: factual product description in Traditional Chinese, 60-160 characters. Write what the product IS (identity), then materials, then one distinguishing fact (origin, technique, fixed spec). No marketing tone, no editorial recommendations, no prices/discounts/inventory.
 - category: a single slug from the provided category list, or null when undetermined.
 - subcategory: a single slug from the provided subcategory list under the selected category branch, or null.
 - material: an array of 0-3 English slugs from the provided material list. No Chinese labels, no invented values.
-- productUrl: the product's own product page URL. Must be on the same host as the brand's site. Home pages, category pages, social media posts, and platform search results do not qualify. If no valid product page exists, do not propose this product.
-- imageUrl: URL of the best product image from the evidence, or null when unavailable.
+- official_url: the product's own product page URL. Must be on the same host as the brand's site. Home pages, category pages, social media posts, and platform search results do not qualify. If no valid product page exists, do not propose this product.
+- image_source_url: URL of the best product image from the evidence, or null when unavailable.
+- sources: an array of provenance citations (1-5 entries). Each source is an object with:
+  - url: the page URL where the fact was found
+  - source_type: one of "official", "press", "retailer", "other"
+  - claim_zh: the specific claim from that source in Traditional Chinese, or null
 
 ## Classification vocabularies (closed lists — values outside these are rejected)
 
@@ -56,8 +60,8 @@ When a product's physical form maps to one subcategory and its usage context map
 ## Constraints
 
 1. Maximum 20 products per brand. Prefer quality over quantity — a smaller list of well-evidenced products beats a padded list.
-2. Skip products without enough evidence to fill the required fields. A product with no valid productUrl must not be proposed.
-3. Each product must have a unique productUrl. Different colour/size variants of the same product count as one entry.
+2. Skip products without enough evidence to fill the required fields. A product with no valid official_url must not be proposed. A product with no sources must not be proposed.
+3. Each product must have a unique official_url. Different colour/size variants of the same product count as one entry.
 4. Use only the provided evidence. Do not add products from memory or external knowledge.
 
 ## Commerce facts that must NEVER appear in any field
@@ -66,7 +70,7 @@ Prices, discounts, promotions, inventory, stock status, pre-order status, shippi
 A single fixed specification (e.g. "capacity 200ml") is a durable fact and may be written; a set of selectable specifications is a variant and must not appear.
 
 ## Output
-Return a JSON object matching the provided JSON Schema exactly.`;
+Return a JSON object with a top-level "products" key containing an array of product objects. Match the provided JSON Schema exactly.`;
 
 // ---------------------------------------------------------------------------
 // Repair step
@@ -90,14 +94,14 @@ Return a corrected version of the proposal.
    - Wrong category: the slug does not exist in the closed list, or the physical-form-over-context rule was violated.
    - Wrong or missing subcategory: the slug does not belong to the selected category branch.
    - Invalid material: a Chinese label was used instead of an English slug, or the slug is not in the closed list.
-   - productDescription too short or too long: must be 60-160 characters.
+   - product_description_zh too short or too long: must be 60-160 characters.
    - Commerce facts leaked into a field: remove prices, discounts, inventory, variants.
-   - productUrl is not a valid single-product page: if no valid URL exists, remove the product entirely.
+   - official_url is not a valid single-product page: if no valid URL exists, remove the product entirely.
 4. If a failure cannot be repaired (e.g. no valid productUrl exists for a product), remove that product from the output rather than guessing.
 5. Use only the classification vocabularies provided in the original prompt. Never invent slugs.
 
 ## Output
-Return the corrected JSON object matching the provided JSON Schema exactly.`;
+Return the corrected JSON object with a top-level "products" key containing an array of product objects. Match the provided JSON Schema exactly.`;
 
 // ---------------------------------------------------------------------------
 // Schema trailer (appended after inlined JSON Schema in user messages)

@@ -1,8 +1,5 @@
 import { describe, expect, it } from "vitest";
 import { rank, rankForProduct, type RankableImage } from "../image-ranking";
-import {
-  MIN_KEEP_SCORE,
-} from "../classify-images";
 import { HERO_TARGET_RATIO } from "@/lib/constants/brand-images";
 
 /**
@@ -83,17 +80,17 @@ describe("rank", () => {
     // The key assertion: square leads in both, confirming square is preferred.
   });
 
-  it("rank_filters_below_min_keep_score — images with score < MIN_KEEP_SCORE excluded", () => {
+  it("rank_keeps_low_score_images — no MIN_KEEP_SCORE filter, matching pre-extraction behavior", () => {
     const pool: RankableImage[] = [
       img("good", 80),
-      img("low", MIN_KEEP_SCORE - 1),
-      img("borderline", MIN_KEEP_SCORE),
+      img("low", 5),
+      img("medium", 40),
     ];
 
     const ordered = rank(pool, HERO_TARGET_RATIO);
 
-    expect(ordered.map((i) => i.id)).toEqual(["good", "borderline"]);
-    expect(ordered.find((i) => i.id === "low")).toBeUndefined();
+    // All non-rejected, non-junk images are kept regardless of score
+    expect(ordered.map((i) => i.id)).toEqual(["good", "medium", "low"]);
   });
 
   it("returns empty array for empty input", () => {

@@ -951,88 +951,102 @@ export async function runProductsPhase({
       proposals: [],
     };
 
-  // --- Products agent gate (DEV-1644) ---
-  // When enabled (default), the multi-step agent runs select → read → propose →
-  // verify → repair. On any failure, falls back to the existing single-call body.
-  if (process.env.PRODUCTS_AGENT !== 'off') {
-    try {
-      const { runProductsAgent } = await import('./products/graph');
-      const { ChatOpenAI } = await import('@langchain/openai');
-      const { LLM_PROFILES, resolveProfileModel } = await import('@/lib/constants/llm-models');
-      const profile = LLM_PROFILES.products_agent;
-      const modelName = resolveProfileModel('products_agent');
-      const model = new ChatOpenAI({
-        model: modelName,
-        temperature: profile.temperature,
-        timeout: profile.timeoutMs,
-        maxRetries: 1,
-        modelKwargs: {
-          reasoning_effort: profile.reasoningEffort ?? 'none',
-          response_format: { type: 'json_object' },
-        },
-      });
-      const agentResult = await runProductsAgent(
-        {
-          brand: {
-            id: brand.id,
-            slug: brand.slug,
-            name: brand.name ?? brand.slug,
-            url: site.toString(),
-          },
-          pool: dedupedCandidates,
-          imagePool: [],
-          catalogResult: catalogResult ?? undefined,
-          scrapedData: scrapedData ?? undefined,
-          priorityProductUrls: acquisitionPageUrls,
-        },
-        {
-          renderProvider,
-        },
-        {
-          model,
-          audit: {
-            target: effectiveTarget,
-            ...(jobId ? { jobId } : {}),
-            modelName,
-          },
-        },
-      );
-
-      const agentOutcome = agentResult.agentOutcome;
-      if (agentOutcome !== 'blocked') {
-        const productsVerification = agentResult.verification as Record<string, unknown>;
-        return {
-          phaseResult: {
-            ...buildPhaseResult(
-              "products",
-              "succeeded",
-              agentResult.proposals.length > 0 ? ["products"] : [],
-              0,
-              undefined,
-              `agent ${agentOutcome}: proposed ${agentResult.proposals.length}`,
-            ),
-            agentOutcome,
-            productsVerification,
-            ...(catalog.zeroReason
-              ? { catalogZeroReason: catalog.zeroReason }
-              : {}),
-            productsProposed: agentResult.proposals.length,
-          },
-          patch: {
-            products: agentResult.proposals,
-          },
-          proposals: agentResult.proposals,
-        };
-      }
-      // Agent returned 'blocked' — fall through to single-call body
-    } catch {
-      // Agent failed — fall through to single-call body
-    }
-  }
-
   return auditedCall(
     { provider: "enrich", operation: "runProductsPhase", kind: "service" },
     async (ctx) => {
+      // --- Products agent gate (DEV-1644) ---
+      // When enabled (default), the multi-step agent runs select → read → propose →
+      // verify → repair. On any failure, falls back to the existing single-call body.
+      if (process.env.PRODUCTS_AGENT !== 'off') {
+        try {
+          const { runProductsAgent } = await import('./products/graph');
+          const { ChatOpenAI } = await import('@langchain/openai');
+          const { LLM_PROFILES, resolveProfileModel } = await import('@/lib/constants/llm-models');
+          const profile = LLM_PROFILES.products_agent;
+          const modelName = resolveProfileModel('products_agent');
+          const model = new ChatOpenAI({
+            model: modelName,
+            temperature: profile.temperature,
+            timeout: profile.timeoutMs,
+            maxRetries: 1,
+            modelKwargs: {
+              reasoning_effort: profile.reasoningEffort ?? 'none',
+              response_format: { type: 'json_object' },
+            },
+          });
+          const agentResult = await runProductsAgent(
+            {
+              brand: {
+                id: brand.id,
+                slug: brand.slug,
+                name: brand.name ?? brand.slug,
+                url: site.toString(),
+              },
+              pool: pool.products,
+              imagePool: [],
+              catalogResult: catalogResult ?? undefined,
+              scrapedData: scrapedData ?? undefined,
+              priorityProductUrls: acquisitionPageUrls,
+            },
+            {
+              fetchHtml: async (url: string) => {
+                try {
+                  const response = await fetch(url, { signal: AbortSignal.timeout(15_000) });
+                  const text = await response.text();
+                  return { text, statusCode: response.status };
+                } catch {
+                  return { text: '', statusCode: 500 };
+                }
+              },
+              renderProvider,
+            },
+            {
+              model,
+              audit: {
+                target: effectiveTarget,
+                ...(jobId ? { jobId } : {}),
+                modelName,
+              },
+            },
+          );
+
+          const agentOutcome = agentResult.agentOutcome;
+          if (agentOutcome !== 'blocked' && agentOutcome !== 'fallback') {
+            const productsVerification = agentResult.verification as Record<string, unknown>;
+            Object.assign(ctx.summary, {
+              agentOutcome,
+              productsVerification,
+              productsProposed: agentResult.proposals.length,
+              catalogZeroReason: catalog.zeroReason ?? null,
+            });
+            return {
+              phaseResult: {
+                ...buildPhaseResult(
+                  "products",
+                  "succeeded",
+                  agentResult.proposals.length > 0 ? ["products"] : [],
+                  0,
+                  undefined,
+                  `agent ${agentOutcome}: proposed ${agentResult.proposals.length}`,
+                ),
+                agentOutcome,
+                productsVerification,
+                ...(catalog.zeroReason
+                  ? { catalogZeroReason: catalog.zeroReason }
+                  : {}),
+                productsProposed: agentResult.proposals.length,
+              },
+              patch: {
+                products: agentResult.proposals,
+              },
+              proposals: agentResult.proposals,
+            };
+          }
+          // Agent returned 'blocked' or 'fallback' — fall through to single-call body
+        } catch (error) {
+          console.error(' → products agent failed, falling back to single-call body:', error instanceof Error ? error.message : String(error));
+        }
+      }
       let parseError = false;
       const { result, durationMs } = await timePhase<ProductsRunOutcome>(
         async () => {

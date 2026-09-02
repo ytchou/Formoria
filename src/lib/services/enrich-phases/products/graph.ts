@@ -8,6 +8,7 @@
 
 import { HumanMessage, SystemMessage, type BaseMessage } from '@langchain/core/messages'
 import type { Runnable } from '@langchain/core/runnables'
+import { z } from 'zod'
 import type { RenderProvider } from '../scraper/render/types'
 import type { ProductCandidate } from '../product-candidates'
 import type { RankableImage } from '../image-ranking'
@@ -15,10 +16,12 @@ import { rankForProduct } from '../image-ranking'
 import type { CuratedProductProposal } from '@/lib/types/enriched-data'
 import type { ProductsModelResult, ProductProposalValidationOptions } from '../products'
 import { validateProductProposals } from '../products'
+import { toStrictJsonSchema } from '../../_shared/zod-schema'
 import {
   verifySameHost,
   verifyReachable,
   verifyProposal,
+  verifyClosedSets,
 } from './verify'
 import {
   budgetFor,
@@ -95,8 +98,36 @@ async function callModel(
   )) as ModelResponse
 }
 
+/**
+ * Agent-specific product schema. Mirrors the `products` array from the
+ * monolithic `productsShape` in `products.ts`, without the `evaluations` key
+ * the agent does not use. Inlined into the prompt so the model sees the exact
+ * field names `validateProductProposals` reads.
+ */
+const agentProductsSchema = z.object({
+  products: z.array(
+    z.object({
+      name_zh: z.string(),
+      name_en: z.string().nullable(),
+      category: z.string().nullable(),
+      subcategory: z.string().nullable(),
+      material: z.array(z.string()),
+      official_url: z.string(),
+      image_source_url: z.string().nullable(),
+      product_description_zh: z.string(),
+      sources: z.array(
+        z.object({
+          url: z.string(),
+          source_type: z.string(),
+          claim_zh: z.string().nullable(),
+        }),
+      ),
+    }),
+  ),
+})
+
 function withSchema(prompt: string): string {
-  return `${prompt}\n${PRODUCTS_SCHEMA_TRAILER}`
+  return `${prompt}\n\n## Curated Product Proposals JSON Schema\n\`\`\`json\n${JSON.stringify(toStrictJsonSchema(agentProductsSchema))}\n\`\`\`\n${PRODUCTS_SCHEMA_TRAILER}`
 }
 
 function extractJson(text: string): string {
@@ -476,16 +507,27 @@ async function repairNode(
     { siteUrl: brandUrl, candidates: state.input.pool },
   )
 
+  // Re-verify closed sets and same-host on repaired proposals
+  const reVerified = validation.proposals.filter((p) => {
+    const closedSet = verifyClosedSets({
+      category: p.category,
+      subcategory: p.subcategory ?? undefined,
+      material: p.material,
+    })
+    const sameHost = verifySameHost(p.officialUrl, brandUrl)
+    return closedSet.ok && sameHost.ok
+  })
+
   return {
     ...state,
-    repaired: validation.proposals,
-    agentOutcome: validation.proposals.length > 0 ? 'repaired' : state.agentOutcome,
+    repaired: reVerified,
+    agentOutcome: reVerified.length > 0 ? 'repaired' : state.agentOutcome,
     decisions: [
       ...state.decisions,
       {
         step: 'repair',
-        action: `repaired ${validation.proposals.length} of ${state.repairable.length}`,
-        reason: `${validation.dropped} dropped during repair validation`,
+        action: `repaired ${reVerified.length} of ${state.repairable.length}`,
+        reason: `${validation.dropped} dropped during repair validation, ${validation.proposals.length - reVerified.length} failed re-verification`,
         ms: Date.now() - start,
       },
     ],

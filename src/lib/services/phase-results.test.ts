@@ -230,6 +230,21 @@ describe("parsePhaseResults", () => {
     expect(parsed2.at(0)).not.toHaveProperty("productsVerification");
   });
 
+  it("drops productsVerification when serialized size exceeds 8KB", () => {
+    const largeVerification = { data: "x".repeat(9000) };
+    const parsed = parsePhaseResults([
+      {
+        phase: "products",
+        status: "succeeded",
+        changedFields: [],
+        durationMs: 100,
+        productsVerification: largeVerification,
+      },
+    ] as Json);
+
+    expect(parsed.at(0)).not.toHaveProperty("productsVerification");
+  });
+
   it("accepts proposed and repaired as valid agentOutcome values", () => {
     for (const outcome of ["proposed", "repaired"] as const) {
       const parsed = parsePhaseResults([
