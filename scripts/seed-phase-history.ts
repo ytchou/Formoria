@@ -1,5 +1,15 @@
 #!/usr/bin/env tsx
 /**
+ * @formoria-script
+ * purpose: Seeds synthetic curation_job_targets history for submissions that predate the job-targets system.
+ * class: operator
+ * invoke: pnpm exec tsx scripts/seed-phase-history.ts
+ * target: staging-default
+ * safety: dry-run-default
+ * owner: engineering
+ * notes: pending one-off: 1 row on 2026-09-02
+ */
+/**
  * One-shot idempotent seed script: generates synthetic `curation_job_targets`
  * history for brand submissions that predate the job-targets system.
  *
@@ -16,6 +26,7 @@ import { createServiceClient } from '@/lib/supabase/service'
 import { type EnrichPhaseName } from '@/lib/constants/enrich-phases'
 import type { PhaseResult } from '@/lib/types/curation'
 import type { Json } from '@/lib/supabase/database.types'
+import { loadScriptTarget } from './shared/target'
 
 // ---------------------------------------------------------------------------
 // CLI
@@ -119,6 +130,7 @@ function inferPhaseStatus(
 // ---------------------------------------------------------------------------
 
 async function main(): Promise<void> {
+  loadScriptTarget()
   const supabase = createServiceClient()
 
   console.log(`seed-phase-history: ${dryRun ? 'DRY RUN' : 'APPLY'} mode`)

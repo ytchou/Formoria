@@ -2299,8 +2299,8 @@ export async function getBrandById(id: string): Promise<Brand> {
 
 /**
  * Our own Storage origin, or any `*.supabase.co` host serving `/storage/`.
- * Exported so scripts/seed-events.ts validates hero images against the same
- * rule instead of keeping its own copy.
+ * Exported so callers outside this module validate hero images against the
+ * same rule instead of keeping their own copy.
  */
 export function isSupabaseStorageUrl(url: string): boolean {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL?.trim();

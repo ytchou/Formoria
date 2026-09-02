@@ -1,3 +1,12 @@
+/**
+ * @formoria-script
+ * purpose: Fails the build when a test mocks Supabase or the service layer, or uses placeholder fixtures.
+ * class: ci-gate
+ * invoke: pnpm check:test-boundaries
+ * target: none
+ * safety: read-only
+ * owner: engineering
+ */
 import { existsSync, readFileSync, statSync } from "node:fs";
 import { extname, join, relative } from "node:path";
 import { readdirSync } from "node:fs";

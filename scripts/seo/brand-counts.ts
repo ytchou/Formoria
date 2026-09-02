@@ -1,4 +1,13 @@
 /**
+ * @formoria-script
+ * purpose: Reports approved-brand counts per category for the SEO keyword map.
+ * class: operator
+ * invoke: pnpm seo:counts
+ * target: staging-default
+ * safety: read-only
+ * owner: engineering
+ */
+/**
  * Reports approved-brand counts for the SEO keyword map.
  *
  * Usage: pnpm seo:counts
@@ -18,6 +27,7 @@ import {
   subcategoryBySlug,
   type L2Subcategory,
 } from '@/lib/taxonomy/ontology'
+import { loadScriptTarget } from '../shared/target'
 
 export type BrandCountRow = {
   name: string | null
@@ -255,6 +265,7 @@ async function fetchAllBrandRows(): Promise<BrandCountRow[]> {
 // no "type": "module"), and esbuild rejects top-level await under the cjs
 // output format.
 async function main(): Promise<void> {
+  loadScriptTarget();
   try {
     const result = aggregateBrandCounts(await fetchAllBrandRows())
     console.log(JSON.stringify(result, null, 2))

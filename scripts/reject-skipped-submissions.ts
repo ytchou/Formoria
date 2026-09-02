@@ -1,4 +1,13 @@
 /**
+ * @formoria-script
+ * purpose: Rejects the pending submissions the detect phase already judged to be non-brands.
+ * class: operator
+ * invoke: pnpm reject-skipped
+ * target: staging-default
+ * safety: writes-on-apply
+ * owner: engineering
+ */
+/**
  * Operator script: reject the pending submissions the curation pipeline already
  * judged to be non-brands.
  *
@@ -36,6 +45,7 @@ import {
   isGeneratedGuestSubmissionEmail,
 } from "@/lib/services/submissions";
 import { createServiceClient } from "@/lib/supabase/service";
+import { loadScriptTarget } from "./shared/target";
 
 const APPLY = process.argv.includes("--apply");
 const ONLY = (
@@ -139,6 +149,7 @@ async function loadCandidates(): Promise<Candidate[]> {
 }
 
 async function main(): Promise<void> {
+  loadScriptTarget();
   const adminEmail = process.env.ADMIN_EMAILS?.split(",")
     .map((value) => value.trim())
     .find(Boolean);

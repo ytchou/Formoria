@@ -1,3 +1,12 @@
+/**
+ * @formoria-script
+ * purpose: Applies a reviewed hero re-sort manifest to brand_images and resyncs the denormalized hero.
+ * class: operator
+ * invoke: pnpm resort-heroes:apply
+ * target: staging-default
+ * safety: writes-on-apply
+ * owner: engineering
+ */
 import { mkdir, open, readFile } from 'node:fs/promises'
 import { dirname, resolve } from 'node:path'
 import { syncHeroDenormalized } from '@/lib/services/brand-images'
@@ -14,6 +23,7 @@ import {
   type PreviewFile,
   type RestoreManifest,
 } from './shared'
+import { loadScriptTarget } from '../shared/target'
 
 /**
  * Recovery from a failed or unwanted apply is `pnpm resort-heroes:rollback
@@ -29,8 +39,7 @@ import {
 // Every argument is validated before the flag is honoured: a typo'd flag next to
 // `--live` must fail loudly, not be silently ignored on a run that mutates 844
 // brands.
-function liveOnly(): boolean {
-  const args = process.argv.slice(2)
+function liveOnly(args: readonly string[]): boolean {
   const unknown = args.filter((arg) => arg !== '--live')
   if (unknown.length > 0) {
     throw new Error(`unknown argument(s): ${unknown.join(' ')}`)
@@ -65,10 +74,11 @@ async function appendFlushed(path: string, content: string): Promise<void> {
 let activeManifestPath: string | null = null
 
 async function main(): Promise<void> {
+  const { argv } = loadScriptTarget()
   const preview = JSON.parse(
     await readFile(PREVIEW_PATH, 'utf8'),
   ) as PreviewFile
-  if (!liveOnly()) {
+  if (!liveOnly(argv)) {
     console.log(
       `dry run: ${preview.brands.length} reviewed brand(s); no changes made`,
     )

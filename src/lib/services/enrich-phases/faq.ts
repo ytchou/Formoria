@@ -61,7 +61,7 @@ type FaqPhaseOptions = {
   overwrite?: boolean;
   /**
    * A dry run reports what it would have written and writes nothing, the way
-   * every other write phase does. `scripts/model-ab/` depends on it: a model
+   * every other write phase does. An eval harness depends on it: a model
    * comparison must cost zero production rows.
    */
   dryRun?: boolean;

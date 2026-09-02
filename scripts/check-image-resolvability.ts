@@ -1,4 +1,13 @@
 /**
+ * @formoria-script
+ * purpose: Checks that the read proxy can serve every image row the site renders in a project.
+ * class: ci-gate
+ * invoke: pnpm check:image-resolvability
+ * target: ci
+ * safety: read-only
+ * owner: engineering
+ */
+/**
  * DEV-1568 — health check: can the read proxy actually serve every image the
  * site renders?
  *
@@ -49,7 +58,8 @@ import {
   PRODUCTION_PROJECT_REF,
   STAGING_PROJECT_REF,
   projectRefFromSupabaseUrl,
-} from "./staging-target";
+} from "@/lib/supabase/project-target";
+import { loadScriptTarget } from "./shared/target";
 
 /**
  * The status the public reads filter on (`.eq('status', 'active')` in
@@ -105,7 +115,8 @@ async function readRenderedImages(
 }
 
 async function main(): Promise<void> {
-  const ref = parseProjectRef(process.argv.slice(2));
+  const { argv } = loadScriptTarget();
+  const ref = parseProjectRef(argv);
   const { url, key } = resolveServiceRoleKey(ref);
   if (projectRefFromSupabaseUrl(url) !== ref) {
     throw new Error(`Resolved URL identifies another project than ${ref}`);

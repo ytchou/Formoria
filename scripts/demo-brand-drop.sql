@@ -1,3 +1,11 @@
+-- @formoria-script
+-- purpose: Removes the fixed-id demo brand and every child row referencing it.
+-- class: operator
+-- invoke: supabase db query --db-url "$SUPABASE_DB_URL" --file scripts/demo-brand-drop.sql
+-- target: none
+-- safety: writes
+-- owner: engineering
+
 -- ============================================================
 -- Formoria — Demo / test brand TEARDOWN
 -- ------------------------------------------------------------

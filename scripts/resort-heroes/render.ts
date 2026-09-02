@@ -5,6 +5,7 @@ import { CROP_DAMAGE_WEIGHT } from '@/lib/services/enrich-phases/classify-images
 // scripts/curation-rerun/render.ts; see scripts/shared/artifact.ts.
 import { ARTIFACT_ROOT, artifactPath, esc } from '../shared/artifact'
 import { PREVIEW_PATH, type PreviewBrand, type PreviewFile } from './shared'
+import { loadScriptTarget } from '../shared/target'
 
 function ratio(
   image: { width: number | null; height: number | null } | null,
@@ -40,6 +41,7 @@ function renderChanged(entry: PreviewBrand): string {
 }
 
 async function main(): Promise<void> {
+  loadScriptTarget()
   const preview = JSON.parse(
     await readFile(PREVIEW_PATH, 'utf8'),
   ) as PreviewFile

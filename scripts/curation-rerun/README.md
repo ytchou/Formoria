@@ -55,27 +55,32 @@ never be refreshed but missing from the comparison page.
 
 ## Workflow
 
+Every command below defaults to staging. Add `--target production` to run
+against production; the script prints the project ref it resolved before it
+touches anything, and warns when production is driven from a branch other than
+`main`.
+
 ```bash
 # 1. Snapshot production BEFORE touching anything.
-pnpm exec tsx --env-file=.env.local scripts/curation-rerun/snapshot.ts \
-  --cohort batch1-never-curated --out before.json
+pnpm exec tsx scripts/curation-rerun/snapshot.ts \
+  --cohort batch1-never-curated --target production --out before.json
 
 # 2. Dry run. Creates nothing; prints how many refresh submissions exist and
 #    how many would be created.
-pnpm exec tsx --env-file=.env.local scripts/curation-rerun/refresh.ts \
-  --cohort batch1-never-curated --dry-run
+pnpm exec tsx scripts/curation-rerun/refresh.ts \
+  --cohort batch1-never-curated --target production --dry-run
 
 # 3. The real run. Requires --confirm.
-pnpm exec tsx --env-file=.env.local scripts/curation-rerun/refresh.ts \
-  --cohort batch1-never-curated --confirm
+pnpm exec tsx scripts/curation-rerun/refresh.ts \
+  --cohort batch1-never-curated --target production --confirm
 
 # 4. Snapshot production AFTER.
-pnpm exec tsx --env-file=.env.local scripts/curation-rerun/snapshot.ts \
-  --cohort batch1-never-curated --out after.json
+pnpm exec tsx scripts/curation-rerun/snapshot.ts \
+  --cohort batch1-never-curated --target production --out after.json
 
 # 5. Render the comparison artifact.
-pnpm exec tsx --env-file=.env.local scripts/curation-rerun/render.ts \
-  --cohort batch1-never-curated
+pnpm exec tsx scripts/curation-rerun/render.ts \
+  --cohort batch1-never-curated --target production
 ```
 
 The `pnpm` script aliases are equivalent:

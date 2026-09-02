@@ -1,4 +1,13 @@
 /**
+ * @formoria-script
+ * purpose: Generates the public.taxonomy_terms seed SQL from the TypeScript ontology.
+ * class: generator
+ * invoke: pnpm exec tsx scripts/generate-taxonomy-terms.ts
+ * target: none
+ * safety: writes
+ * owner: engineering
+ */
+/**
  * Generates the `public.taxonomy_terms` seed from `src/lib/taxonomy/ontology.ts`.
  *
  * `taxonomy_terms` is the SQL-side mirror of the TypeScript ontology. It exists

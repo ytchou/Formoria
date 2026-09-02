@@ -1,4 +1,12 @@
 #!/usr/bin/env python3
+# @formoria-script
+# purpose: Reports the structural tells that make zh-TW long-form prose read as machine-written.
+# class: ci-gate
+# invoke: pnpm story:lint
+# target: none
+# safety: read-only
+# owner: engineering
+
 """
 zh-TW long-form prose linter for story MDX.
 

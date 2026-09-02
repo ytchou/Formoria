@@ -1,3 +1,12 @@
+/**
+ * @formoria-script
+ * purpose: Runtime behind the nightly health agent workflow: collects findings and opens repair PRs.
+ * class: scheduled-automation
+ * invoke: pnpm exec tsx scripts/health-agent/workflow-runtime.ts
+ * target: ci
+ * safety: writes
+ * owner: engineering
+ */
 import { execFile } from "node:child_process";
 import { readFile, writeFile } from "node:fs/promises";
 import { pathToFileURL } from "node:url";

@@ -11,17 +11,25 @@
  * refresh rewrites those as well and restoring only `brands` would leave the
  * brand pointing at images that no longer exist.
  *
- *   pnpm exec tsx --env-file=.env.local scripts/curation-rerun/snapshot.ts --out before.json
- *   pnpm exec tsx --env-file=.env.local scripts/curation-rerun/snapshot.ts --cohort batch1-never-curated --out before.json
+ *   pnpm exec tsx scripts/curation-rerun/snapshot.ts --out before.json
+ *   pnpm exec tsx scripts/curation-rerun/snapshot.ts --cohort batch1-never-curated --out before.json
+ *
+ * Staging is the default; pass --target production to run against production.
  */
 import { writeFile, mkdir, access } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
 import { createClient } from "@supabase/supabase-js";
 import { loadCohort, snapshotDir } from "./cohort";
+import { loadScriptTarget } from "../shared/target";
 
-function argValue(flag: string): string | undefined {
-  const index = process.argv.indexOf(flag);
-  return index === -1 ? undefined : process.argv.at(index + 1);
+/**
+ * Reads `--flag <value>` out of the argv `loadScriptTarget` returns, which has
+ * `--target <x>` already removed. Reading `process.argv` here instead would let
+ * `--out --target production` resolve `--out` to the literal `"--target"`.
+ */
+function argValue(argv: readonly string[], flag: string): string | undefined {
+  const index = argv.indexOf(flag);
+  return index === -1 ? undefined : argv.at(index + 1);
 }
 
 async function refuseToClobber(path: string): Promise<void> {
@@ -76,10 +84,11 @@ async function selectAllPages<T>(
 }
 
 async function main(): Promise<void> {
+  const { argv } = loadScriptTarget();
   const cohort = await loadCohort();
   const out = resolve(
     snapshotDir(cohort),
-    argValue("--out") ?? `snapshot-${Date.now()}.json`,
+    argValue(argv, "--out") ?? `snapshot-${Date.now()}.json`,
   );
   await refuseToClobber(out);
   console.log(`cohort: ${cohort.name} (${cohort.slugs.length} brands)`);

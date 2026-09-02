@@ -1,4 +1,13 @@
 /**
+ * @formoria-script
+ * purpose: Read-only fact sheet with provenance for the zh-TW story drafting skill.
+ * class: operator
+ * invoke: pnpm story:facts
+ * target: staging-default
+ * safety: read-only
+ * owner: engineering
+ */
+/**
  * Read-only fact sheet for the zh-TW article-drafting skill.
  *
  * The drafting step is only allowed to assert what appears here, and every fact
@@ -7,9 +16,11 @@
  * credibility problem, and 公平交易委員會 rules bite on unsupported quality
  * claims. A fact with no `source` is a fact the drafter invented.
  *
- *   pnpm exec tsx --env-file=.env.local scripts/story-facts.ts --event 2026-taiwan-creative-expo
- *   pnpm exec tsx --env-file=.env.local scripts/story-facts.ts --brands woky,filter017 --out facts.json
- *   pnpm exec tsx --env-file=.env.local scripts/story-facts.ts --event 2026-taiwan-creative-expo --brands woky --out facts.json
+ *   pnpm exec tsx scripts/story-facts.ts --event 2026-taiwan-creative-expo
+ *   pnpm exec tsx scripts/story-facts.ts --brands woky,filter017 --out facts.json
+ *   pnpm exec tsx scripts/story-facts.ts --event 2026-taiwan-creative-expo --brands woky --out facts.json
+ *
+ * Staging is the default; pass --target production to run against production.
  *
  * Or via the package script: `pnpm story:facts --event <slug>`.
  *
@@ -33,6 +44,7 @@ import { createServiceClient } from "@/lib/supabase/service";
 import { getBrandsBySlugs } from "@/lib/services/brands";
 import { applyPublicStockistVisibility } from "@/lib/brands/stockist-display";
 import type { Brand } from "@/lib/types";
+import { loadScriptTarget } from "./shared/target";
 
 /**
  * PostgREST sends `.in()` filters in the GET query string, so a few hundred ids
@@ -120,9 +132,14 @@ const EVENT_FACT_KEYS = [
 const FAQ_ENTRY_COLUMNS =
   "brand_id, preset_id, position, question_zh, answer_zh, question_en, answer_en, source";
 
-function argValue(flag: string): string | undefined {
-  const index = process.argv.indexOf(flag);
-  return index === -1 ? undefined : process.argv.at(index + 1);
+/**
+ * Reads `--flag <value>` out of the argv `loadScriptTarget` returns, which has
+ * `--target <x>` already removed. Reading `process.argv` here instead would let
+ * `--out --target production` resolve `--out` to the literal `"--target"`.
+ */
+function argValue(argv: readonly string[], flag: string): string | undefined {
+  const index = argv.indexOf(flag);
+  return index === -1 ? undefined : argv.at(index + 1);
 }
 
 function chunk<T>(items: T[], size: number): T[][] {
@@ -164,7 +181,7 @@ function requireEnv(name: string): string {
   const value = process.env[name];
   if (!value) {
     throw new Error(
-      `Missing ${name}. Run with --env-file=.env.local (see the header comment).`,
+      `Missing ${name}. The target env file did not define it (see the header comment).`,
     );
   }
   return value;
@@ -463,9 +480,10 @@ type FactSheet = {
 };
 
 async function main(): Promise<void> {
-  const eventSlug = argValue("--event");
-  const brandsArg = argValue("--brands");
-  const outPath = argValue("--out");
+  const { argv } = loadScriptTarget();
+  const eventSlug = argValue(argv, "--event");
+  const brandsArg = argValue(argv, "--brands");
+  const outPath = argValue(argv, "--out");
 
   if (!eventSlug && !brandsArg) {
     throw new Error(

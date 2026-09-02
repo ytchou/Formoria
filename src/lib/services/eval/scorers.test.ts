@@ -37,7 +37,7 @@ it('cannot see a rejection that carries no tag — callers must supply one', () 
   // Documented limitation, not desired behaviour. Under the disposition/reasons
   // contract a rejected image has `tags: null`, and an absent prediction reads
   // as "not junk" here. Callers scoring modern rows must map disposition to a
-  // tag before calling; the image-eval harness scores dispositions directly.
+  // tag before calling; a disposition-aware harness scores them directly.
   expect(
     classificationPrecision([{ url: 'i1', junk: true }], new Map()),
   ).toBe(0)

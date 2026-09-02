@@ -1,4 +1,13 @@
 /**
+ * @formoria-script
+ * purpose: Copies a curated subset of production content into the staging project.
+ * class: operator
+ * invoke: pnpm db:sync:staging
+ * target: none
+ * safety: writes
+ * owner: engineering
+ */
+/**
  * Copies a curated subset of production content into the staging project.
  *
  * Staging is seeded from `supabase/fixtures/staging.sql` with brand rows that
@@ -68,7 +77,7 @@ import {
   STAGING_PROJECT_REF,
   projectRefFromSupabaseUrl,
   validateSupabaseKeyIdentity,
-} from "./staging-target";
+} from "@/lib/supabase/project-target";
 import { TEST_BRAND_NAME_PATTERN } from "@/lib/services/public-brand-filter";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");

@@ -149,8 +149,8 @@ export const JUNK_TAGS = new Set(["promo", "text_banner", "irrelevant"]);
  * survives is a separate, measured effect: portrait images are WORSE, not just
  * worse-framed.
  *
- * Measured 2026-08-08 against `scripts/image-eval/corpus`, the same 231 labelled
- * images the old comment cited:
+ * Measured 2026-08-08 against the labelled image-classification corpus, the
+ * same 231 images the old comment cited:
  *   - Portrait share of human rejects 58.2% vs keeps 24.8% — reproduces the old
  *     "58% vs 23%" headline.
  *   - Logistic `reject ~ cropDamage + isPortrait`: the portrait residual
@@ -702,13 +702,12 @@ function heroQuality(image: ClassifiedImage): number {
 /**
  * Applies the model's verdicts and produces the hero ordering.
  *
- * RE-BASELINE NOTE for `scripts/image-eval/pipeline-ab.ts`, which consumes this
- * function to compare pipeline variants: its stored baselines predate the
- * crop-damage ranking term (`heroQuality` above), so the first A/B run after
- * this change will show an ordering shift on almost every brand. That shift is
- * the intended new behaviour, not a regression — re-baseline before reading the
- * comparison. Left here rather than in that script because this is where the
- * ordering is decided, and the next operator will be reading this file.
+ * RE-BASELINE NOTE for any pipeline A/B harness that consumes this function to
+ * compare variants: baselines stored before the crop-damage ranking term
+ * (`heroQuality` above) will show an ordering shift on almost every brand.
+ * That shift is the intended behaviour, not a regression — re-baseline before
+ * reading the comparison. Left here because this is where the ordering is
+ * decided, and the next operator will be reading this file.
  */
 export function applyClassifications(images: ClassifiedImage[]): {
   rejectedIds: string[];
@@ -1339,8 +1338,8 @@ export function planChunkImageWrites(input: {
  * wrong_brand and twice keeping all ten. The official domain gives it something
  * verifiable.
  *
- * English, matching the system prompt. Shared with `scripts/image-eval/baseline.ts` so the
- * harness measures the context production actually sends; the corpus manifest
+ * English, matching the system prompt. An offline harness must build the same
+ * context so it measures what production actually sends; the corpus manifest
  * carries no website, so it passes `website: null` until the next capture.
  */
 /**

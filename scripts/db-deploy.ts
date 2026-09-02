@@ -1,3 +1,12 @@
+/**
+ * @formoria-script
+ * purpose: Migration, type generation, seeding and verification entry point for a Supabase project.
+ * class: deploy-tool
+ * invoke: pnpm db:migrate
+ * target: none
+ * safety: writes
+ * owner: engineering
+ */
 import { spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import { existsSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
@@ -7,7 +16,7 @@ import {
   PRODUCTION_PROJECT_REF,
   STAGING_PROJECT_REF,
   validateStagingTarget,
-} from "./staging-target";
+} from "@/lib/supabase/project-target";
 
 type DeploymentEnvironment = "production" | "staging";
 

@@ -1,4 +1,12 @@
 #!/bin/bash
+# @formoria-script
+# purpose: Environment preflight: checks the toolchain, env vars and external services before env work.
+# class: validator
+# invoke: make doctor
+# target: none
+# safety: read-only
+# owner: engineering
+
 set -e
 
 echo "Formoria — Environment Doctor"

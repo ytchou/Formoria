@@ -41,10 +41,10 @@ const MAX_SOURCE_BYTES = 10 * 1024 * 1024
  *
  * Sending a base64 data URI removes OpenAI's fetcher from the path entirely, so
  * the failure class behind DEV-1255 becomes structurally impossible while the
- * transformation counter goes structurally to zero. `scripts/model-ab/run.ts` —
- * the eval harness that is ground truth for classifier quality — has always
- * worked this way; this module is that code promoted into production so both
- * sides encode the identical picture.
+ * transformation counter goes structurally to zero. The since-retired model
+ * A/B eval harness — ground truth for classifier quality — always worked this
+ * way; this module is that code promoted into production so both sides encode
+ * the identical picture.
  */
 
 /**
@@ -56,8 +56,8 @@ const MAX_SOURCE_BYTES = 10 * 1024 * 1024
  * `processImage`, which encodes webp at quality 80, so production re-encodes
  * webp-80 from a webp-80 source and the generation loss lands on exactly the
  * blur and text-density judgements the classifier scores. 80 is kept anyway
- * because `scripts/model-ab/run.ts` — which holds the original fetched bytes and
- * genuinely does encode once — is the eval baseline every verdict is compared
+ * because the model A/B eval harness — which held the original fetched bytes
+ * and genuinely did encode once — set the baseline every verdict is compared
  * against; moving this number off the harness value would break that
  * comparability for a saving the model cannot see. The generation loss is the
  * accepted cost of parity.
@@ -66,9 +66,9 @@ export const VISION_IMAGE_WIDTH = 512
 const VISION_IMAGE_QUALITY = 80
 
 /**
- * Pure: bytes -> 512px webp data URI. No I/O, no Supabase client, so
- * `scripts/model-ab/` can import it without dragging a service-role client into
- * a harness that deliberately runs on a write-blocking client.
+ * Pure: bytes -> 512px webp data URI. No I/O, no Supabase client, so an eval
+ * harness can import it without dragging a service-role client into code that
+ * deliberately runs on a write-blocking client.
  *
  * `withoutEnlargement` matters for parity: a 200px source must stay 200px in
  * both prod and the harness, or the two stop seeing the same image.
@@ -162,7 +162,7 @@ export async function encodeVisionDownload(
  * be allowlisted past `check:audited-external-calls`.
  *
  * The service client is constructed here, not at module scope, so importing the
- * pure encoder above cannot pull a write-capable client into `scripts/model-ab/`.
+ * pure encoder above cannot pull a write-capable client into a harness.
  */
 export async function loadVisionDataUri(image: {
   storage_path?: string | null

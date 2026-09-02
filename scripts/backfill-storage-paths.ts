@@ -1,4 +1,14 @@
 /**
+ * @formoria-script
+ * purpose: Backfills bucket-relative storage_path companions for every image row that has only a public url.
+ * class: operator
+ * invoke: pnpm exec tsx scripts/backfill-storage-paths.ts
+ * target: staging-default
+ * safety: dry-run-default
+ * owner: engineering
+ * notes: pending one-off: 1045 rows on 2026-09-02
+ */
+/**
  * DEV-1551 (task 5) — backfill bucket-relative `storage_path` companions.
  *
  * Every image read is moving behind a same-origin `/i/<bucket-relative-path>`
@@ -28,6 +38,7 @@ import { createClient as createSupabaseClient } from '@supabase/supabase-js'
 // delete-path helper is scoped to `brands/` alone on purpose. Nothing here
 // deletes, so resolving the wider prefix set is the safe direction.
 import { storageKeyFromPublicUrlForRead } from '@/lib/services/image-upload'
+import { loadScriptTarget } from './shared/target'
 
 const PAGE_SIZE = 1_000
 
@@ -351,8 +362,9 @@ const USAGE =
   'Usage: backfill-storage-paths.ts [audit | backfill [--live]] (audit is the default and writes nothing)'
 
 async function main(): Promise<void> {
-  const subcommand = process.argv[2] ?? 'audit'
-  const args = process.argv.slice(3)
+  const { argv } = loadScriptTarget()
+  const subcommand = argv[0] ?? 'audit'
+  const args = argv.slice(1)
 
   if (subcommand === 'audit' && args.length === 0) {
     await run(false)

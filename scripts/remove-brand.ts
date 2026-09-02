@@ -1,3 +1,12 @@
+/**
+ * @formoria-script
+ * purpose: Removes a brand and every row and storage object that belongs to it.
+ * class: operator
+ * invoke: pnpm remove-brand
+ * target: staging-default
+ * safety: writes-on-apply
+ * owner: engineering
+ */
 import { readFileSync } from 'node:fs'
 import { readFile, writeFile } from 'node:fs/promises'
 import path from 'node:path'
@@ -5,6 +14,7 @@ import { pathToFileURL } from 'node:url'
 import { createServiceClient } from '@/lib/supabase/service'
 import type { Database } from '@/lib/supabase/database.types'
 import { subcategoryBySlug } from '@/lib/taxonomy/ontology'
+import { loadScriptTarget } from './shared/target'
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -613,7 +623,8 @@ async function restoreBackup(
 // ---------------------------------------------------------------------------
 
 async function main(): Promise<void> {
-  const options = parseArgs(process.argv.slice(2))
+  const { argv } = loadScriptTarget()
+  const options = parseArgs(argv)
   const supabase = createServiceClient()
 
   if (options.mode === 'restore') {

@@ -1,4 +1,13 @@
 #!/usr/bin/env node
+/**
+ * @formoria-script
+ * purpose: Fails the build when src/app/favicon.ico is not RGBA, which crashes next build.
+ * class: ci-gate
+ * invoke: pnpm check:favicon
+ * target: none
+ * safety: read-only
+ * owner: engineering
+ */
 // CI/pre-commit guard: src/app/favicon.ico must be RGBA.
 //
 // Next.js 16's Turbopack decodes favicon.ico with the Rust `image` crate,

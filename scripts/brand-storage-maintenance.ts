@@ -1,3 +1,12 @@
+/**
+ * @formoria-script
+ * purpose: Audits and sweeps the brand-images bucket: untracked objects, re-encodes, orphan deletes.
+ * class: operator
+ * invoke: pnpm brand-storage-maintenance
+ * target: staging-default
+ * safety: writes-on-apply
+ * owner: engineering
+ */
 import { randomUUID } from 'node:crypto'
 import { readdir, readFile, rename, stat, writeFile } from 'node:fs/promises'
 import path from 'node:path'
@@ -7,6 +16,7 @@ import sharp from 'sharp'
 import { processImage } from '@/lib/security/image-processor'
 import { syncHeroDenormalized } from '@/lib/services/brand-images'
 import { computeDHash, dominantColorToHex } from '@/lib/services/image-download'
+import { loadScriptTarget } from './shared/target'
 
 const BUCKET = 'brand-images'
 const PAGE_SIZE = 1_000
@@ -1314,8 +1324,9 @@ async function reencode(live: boolean): Promise<void> {
 }
 
 async function main(): Promise<void> {
-  const subcommand = process.argv[2] ?? 'audit'
-  const args = process.argv.slice(3)
+  const { argv } = loadScriptTarget()
+  const subcommand = argv[0] ?? 'audit'
+  const args = argv.slice(1)
   if (subcommand === 'audit' && args.length === 0) {
     await audit()
     return

@@ -5,8 +5,10 @@
  * there is no `enriched_data` indirection — every value on both sides is read
  * straight off the column the site renders from.
  *
- *   pnpm exec tsx --env-file=.env.local scripts/curation-rerun/render.ts
- *   pnpm exec tsx --env-file=.env.local scripts/curation-rerun/render.ts --cohort batch1-never-curated
+ *   pnpm exec tsx scripts/curation-rerun/render.ts
+ *   pnpm exec tsx scripts/curation-rerun/render.ts --cohort batch1-never-curated
+ *
+ * Staging is the default; pass --target production to run against production.
  */
 import { readFile, writeFile, mkdir, readdir } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
@@ -19,6 +21,7 @@ import { loadCohort, snapshotDir } from "./cohort";
 // artifactPath / esc are shared with
 // scripts/resort-heroes/render.ts; see scripts/shared/artifact.ts.
 import { artifactPath, esc } from "../shared/artifact";
+import { loadScriptTarget } from "../shared/target";
 
 type Img = Record<string, unknown> & {
   url: string;
@@ -363,17 +366,21 @@ const sortImgs = (imgs: Img[]): Img[] =>
   imgs.slice().sort((l, r) => (l.sort_order ?? 99) - (r.sort_order ?? 99));
 
 async function main(): Promise<void> {
+  // The argv `loadScriptTarget` returns has `--target <x>` already removed;
+  // reading `process.argv` here would let `--after --target production` resolve
+  // `--after` to the literal `"--target"`.
+  const { argv } = loadScriptTarget();
   const cohort = await loadCohort();
   const dir = snapshotDir(cohort);
-  const argAfter = process.argv.indexOf("--after");
-  const argBefore = process.argv.indexOf("--before");
+  const argAfter = argv.indexOf("--after");
+  const argBefore = argv.indexOf("--before");
   const beforeFile = resolve(
     dir,
-    argBefore === -1 ? "before.json" : String(process.argv.at(argBefore + 1)),
+    argBefore === -1 ? "before.json" : String(argv.at(argBefore + 1)),
   );
   const afterFile = resolve(
     dir,
-    argAfter === -1 ? "after.json" : String(process.argv.at(argAfter + 1)),
+    argAfter === -1 ? "after.json" : String(argv.at(argAfter + 1)),
   );
 
   const before = JSON.parse(await readFile(beforeFile, "utf8")) as Snapshot;

@@ -1,3 +1,12 @@
+/**
+ * @formoria-script
+ * purpose: Probes production for reachability and reports down, heartbeat or recovered to Slack.
+ * class: scheduled-automation
+ * invoke: pnpm exec tsx scripts/production-probe/probe.ts
+ * target: ci
+ * safety: read-only
+ * owner: engineering
+ */
 import { readFileSync, mkdirSync, writeFileSync } from "node:fs";
 import { dirname } from "node:path";
 import { pathToFileURL } from "node:url";

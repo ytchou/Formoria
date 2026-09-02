@@ -4,7 +4,7 @@ import * as Sentry from "@sentry/nextjs";
  * Sentry adapter for background alerting.
  *
  * The curation worker is a separate container (`Dockerfile.curation-worker`)
- * that runs `tsx scripts/curation-worker-server.ts` — it never loads Next's
+ * that runs `tsx src/curation-worker/server.ts` — it never loads Next's
  * instrumentation hook, so `sentry.server.config.ts` never runs there. This
  * adapter therefore self-initializes when no client is present, and piggybacks
  * on the existing client when it is (the Next runtime).

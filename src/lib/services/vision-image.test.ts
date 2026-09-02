@@ -27,10 +27,10 @@ function decode(dataUri: string): Buffer {
 }
 
 /**
- * These lock eval parity, not encoder mechanics. Production and
- * `scripts/model-ab/run.ts` share this function precisely so the model sees the
- * same picture in both; a silent change to the width or the format would make
- * the harness stop predicting production without any test going red.
+ * These lock eval parity, not encoder mechanics. Production and the retired
+ * model A/B harness shared this function precisely so the model saw the same
+ * picture in both; a silent change to the width or the format would make any
+ * future harness stop predicting production without a test going red.
  */
 describe('visionDataUri', () => {
   it('downscales a large image to a 512px webp data URI', async () => {

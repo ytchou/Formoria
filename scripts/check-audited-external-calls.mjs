@@ -1,4 +1,13 @@
 #!/usr/bin/env node
+/**
+ * @formoria-script
+ * purpose: Fails the build when an external call in src escapes the audit envelope.
+ * class: ci-gate
+ * invoke: pnpm check:audited-calls
+ * target: none
+ * safety: read-only
+ * owner: engineering
+ */
 // CI guard: external calls in src must stay inside the audit envelope.
 //
 // This guard scans src/**/*.{ts,tsx}. The scripts/ directory is excluded because
