@@ -151,7 +151,7 @@ describe("searchProductsBySituation", () => {
     expect(rpcArgs[1]).toMatchObject({
       query_text: "送禮推薦",
       query_embedding: EMBEDDING,
-      search_mode: "hybrid",
+      mode: "hybrid",
       filter_category: "food",
       filter_subcategories: ["tea"],
       filter_materials: ["ceramic"],
@@ -203,7 +203,7 @@ describe("searchProductsBySituation", () => {
     // RPC called with lexical mode and null embedding
     const rpcArgs = (deps.rpc as ReturnType<typeof vi.fn>).mock.calls[0];
     expect(rpcArgs[1]).toMatchObject({
-      search_mode: "lexical",
+      mode: "lexical",
       query_embedding: null,
     });
 
@@ -336,8 +336,10 @@ describe("searchProductsBySituation", () => {
 // ---------------------------------------------------------------------------
 
 describe("findSimilarProducts", () => {
-  it("reads stored vector, excludes source product", async () => {
+  it("reads stored vector, excludes source product, truncates to limit", async () => {
+    const storedEmbedding = [0.5, 0.6, 0.7];
     const deps = createDeps({
+      readProductEmbedding: vi.fn().mockResolvedValue(storedEmbedding),
       rpc: vi.fn().mockResolvedValue({
         data: [rpcRow("p1", 0.9), rpcRow("p-source", 0.8), rpcRow("p2", 0.7)],
         error: null,
@@ -350,17 +352,33 @@ describe("findSimilarProducts", () => {
 
     const result = await findSimilarProducts("p-source", 5, deps);
 
-    // RPC called with vector mode
+    // readProductEmbedding called with source product id
+    expect(deps.readProductEmbedding).toHaveBeenCalledWith("p-source");
+
+    // RPC called with vector mode and the stored embedding
     const rpcArgs = (deps.rpc as ReturnType<typeof vi.fn>).mock.calls[0];
     expect(rpcArgs[0]).toBe("search_products_semantic");
     expect(rpcArgs[1]).toMatchObject({
-      search_mode: "vector",
-      source_product_id: "p-source",
+      mode: "vector",
       match_count: 6, // limit + 1
+      query_embedding: storedEmbedding,
+      filter_category: null,
+      filter_subcategories: null,
+      filter_materials: null,
     });
 
     // Source product excluded
     expect(result.products.map((p) => p.id)).not.toContain("p-source");
     expect(result.products).toHaveLength(2);
+  });
+
+  it("returns empty when no stored embedding exists", async () => {
+    const deps = createDeps({
+      readProductEmbedding: vi.fn().mockResolvedValue(null),
+    });
+
+    const result = await findSimilarProducts("p-missing", 5, deps);
+    expect(result.products).toEqual([]);
+    expect(deps.rpc).not.toHaveBeenCalled();
   });
 });

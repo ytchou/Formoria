@@ -25,7 +25,9 @@ export function ProductSortSelect({ currentSort, showRelevance }: ProductSortSel
     const value = event.target.value;
     trackProductSortChanged(value, currentSort);
     const params = new URLSearchParams(searchParams.toString());
-    if (value === "newest") {
+    // When a search query is active, always set `sort` explicitly — deleting it
+    // would cause parseDiscoverQuery to default back to 'relevance'.
+    if (value === "newest" && !params.has("q")) {
       params.delete("sort");
     } else {
       params.set("sort", value);

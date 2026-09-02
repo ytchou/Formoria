@@ -52,6 +52,8 @@ export function createQueryEmbeddingCache(
         const key = await cacheKey(normalizedQuery, model);
         const raw = await redis.get(key);
         if (raw === null) return null;
+        // @upstash/redis auto-deserializes JSON, so `raw` may already be number[].
+        if (typeof raw === "object" && Array.isArray(raw)) return raw;
         return JSON.parse(raw) as number[];
       } catch {
         return null;

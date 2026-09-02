@@ -174,6 +174,20 @@ describe('SearchResultsTracker', () => {
     expect(trackSearchExecuted).not.toHaveBeenCalled()
   })
 
+  it('with trackerKind="product" does not fire brand zero-result tracker', () => {
+    render(
+      <SearchResultsTracker
+        query="罕見商品"
+        resultCount={0}
+        trackerKind="product"
+      />,
+    )
+    settle()
+
+    expect(trackProductSearchExecuted).toHaveBeenCalledOnce()
+    expect(trackSearchNoResults).not.toHaveBeenCalled()
+  })
+
   it('with trackerKind="product" defaults searchSource and degraded when omitted', () => {
     render(
       <SearchResultsTracker

@@ -88,7 +88,7 @@ export function SearchResultsTracker({ query, resultCount, trackerKind = 'brand'
       } else {
         trackSearchExecuted(trimmed, resultCount)
       }
-      if (resultCount === 0) {
+      if (resultCount === 0 && trackerKind !== 'product') {
         trackSearchNoResults(trimmed)
       }
     }

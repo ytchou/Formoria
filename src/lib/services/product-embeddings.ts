@@ -12,7 +12,7 @@ import type { EmbeddingsResult } from "./openai-embeddings-client";
 type DocumentRow = {
   product_id: string;
   source_hash: string;
-  content: string;
+  document: string;
 };
 
 type ExistingRow = {
@@ -109,7 +109,8 @@ async function defaultReader(limit: number): Promise<ReaderResult> {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any -- table not in generated types until migration apply + db:types
     const { data, error } = await (supabase as any)
       .from("product_embedding_documents")
-      .select("product_id, source_hash, content")
+      .select("product_id, source_hash, document")
+      .order("product_id")
       .range(from, from + pageSize - 1);
     if (error) throw new Error(error.message);
     if (!data || data.length === 0) break;
@@ -118,13 +119,23 @@ async function defaultReader(limit: number): Promise<ReaderResult> {
     if (data.length < pageSize) break;
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- table not in generated types until migration apply + db:types
-  const { data: existingData, error: existingError } = await (supabase as any)
-    .from("product_embeddings")
-    .select("product_id, source_hash");
-  if (existingError) throw new Error(existingError.message);
+  const existing: ExistingRow[] = [];
+  let existingFrom = 0;
+  while (true) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- table not in generated types until migration apply + db:types
+    const { data: existingPage, error: existingError } = await (supabase as any)
+      .from("product_embeddings")
+      .select("product_id, source_hash")
+      .order("product_id")
+      .range(existingFrom, existingFrom + PAGE_SIZE - 1);
+    if (existingError) throw new Error(existingError.message);
+    if (!existingPage || existingPage.length === 0) break;
+    existing.push(...existingPage);
+    existingFrom += existingPage.length;
+    if (existingPage.length < PAGE_SIZE) break;
+  }
 
-  return { documents, existing: existingData ?? [] };
+  return { documents, existing };
 }
 
 async function defaultWriter(input: WriterInput): Promise<void> {
@@ -193,7 +204,7 @@ export async function refreshProductEmbeddings(
 
   for (const batch of batches) {
     try {
-      const result = await embed(batch.map((doc) => doc.content));
+      const result = await embed(batch.map((doc) => doc.document));
       for (let i = 0; i < batch.length; i++) {
         allUpserts.push({
           product_id: batch[i]!.product_id,

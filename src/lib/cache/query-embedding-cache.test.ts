@@ -66,6 +66,18 @@ describe("query-embedding-cache", () => {
       expect(result).toEqual(embedding);
     });
 
+    it("handles Upstash auto-deserialized array (not a string)", async () => {
+      // @upstash/redis auto-deserializes JSON, so get() may return number[] instead of string
+      const autoDeserializeRedis = {
+        get: vi.fn(async () => [0.1, 0.2, 0.3]),
+        set: vi.fn(),
+      };
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- mock Redis
+      const cache = createQueryEmbeddingCache({ redis: autoDeserializeRedis as any });
+      const result = await cache.get("query", MODEL);
+      expect(result).toEqual([0.1, 0.2, 0.3]);
+    });
+
     it("passes TTL to set", async () => {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any -- mock Redis
       const cache = createQueryEmbeddingCache({ redis: mockRedis as any });

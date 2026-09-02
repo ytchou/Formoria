@@ -5,6 +5,7 @@ import {
   getDefaultQueryEmbeddingCache,
   type QueryEmbeddingCache,
 } from "@/lib/cache/query-embedding-cache";
+import { EMBEDDING_MODEL } from "@/lib/constants/llm-models";
 import * as Sentry from "@sentry/nextjs";
 
 // ---------------------------------------------------------------------------
@@ -118,9 +119,10 @@ export type SearchDeps = {
   cache: Pick<QueryEmbeddingCache, "get" | "set">;
   report: (error: unknown) => void;
   now: () => number;
+  /** Read the stored embedding for a product. Used by findSimilarProducts. */
+  readProductEmbedding?: (productId: string) => Promise<number[] | null>;
 };
 
-const EMBEDDING_MODEL = "text-embedding-3-small";
 const DEGRADE_COOLDOWN_MS = 5 * 60 * 1000; // 5 minutes
 
 /**
@@ -157,6 +159,18 @@ function defaultDeps(): SearchDeps {
       Sentry.captureException(error);
     },
     now: () => Date.now(),
+    readProductEmbedding: async (productId: string) => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- table not in generated types
+      const { data, error } = await (client as any)
+        .from("product_embeddings")
+        .select("embedding")
+        .eq("product_id", productId)
+        .single();
+      if (error || !data?.embedding) return null;
+      return typeof data.embedding === "string"
+        ? JSON.parse(data.embedding)
+        : data.embedding;
+    },
   };
 }
 
@@ -210,7 +224,7 @@ export async function searchProductsBySituation(
   const rpcParams: Record<string, unknown> = {
     query_text: normalized,
     query_embedding: embedding,
-    search_mode: effectiveMode,
+    mode: effectiveMode,
     match_count: pageSize * page + pageSize, // fetch enough for pagination
     filter_category: input.category ?? null,
     filter_subcategories: input.subcategories ?? null,
@@ -283,18 +297,29 @@ export async function findSimilarProducts(
   limit = 5,
   deps: SearchDeps = defaultDeps(),
 ): Promise<SimilarResult> {
+  // Fetch the product's stored embedding vector via the injected dep.
+  const readEmbedding =
+    deps.readProductEmbedding ?? defaultDeps().readProductEmbedding!;
+  const storedEmbedding = await readEmbedding(productId);
+  if (!storedEmbedding) {
+    return { products: [] };
+  }
+
   const { data: rpcRows, error } = await deps.rpc("search_products_semantic", {
-    search_mode: "vector",
-    source_product_id: productId,
-    match_count: limit + 1,
+    mode: "vector",
+    match_count: limit + 1, // +1 to account for self
     query_text: null,
-    query_embedding: null,
+    query_embedding: storedEmbedding,
+    filter_category: null,
+    filter_subcategories: null,
+    filter_materials: null,
   });
 
   if (error) throw error;
 
+  // Remove the source product and truncate to limit
   const rows = (rpcRows ?? []).filter((r) => r.product_id !== productId);
-  const ids = rows.map((r) => r.product_id);
+  const ids = rows.slice(0, limit).map((r) => r.product_id);
 
   if (ids.length === 0) return { products: [] };
 

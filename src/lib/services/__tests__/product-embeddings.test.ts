@@ -30,7 +30,7 @@ describe("chunkInputs", () => {
     const items = Array.from({ length: EMBEDDING_BATCH_SIZE + 5 }, (_, i) => ({
       product_id: `p${i}`,
       source_hash: `h${i}`,
-      content: `text ${i}`,
+      document: `text ${i}`,
     }));
     const chunks = chunkInputs(items);
     expect(chunks).toHaveLength(2);
@@ -45,7 +45,7 @@ describe("refreshProductEmbeddings", () => {
   const makeDoc = (id: string, hash: string) => ({
     product_id: id,
     source_hash: hash,
-    content: `text for ${id}`,
+    document: `text for ${id}`,
   });
 
   it("dryRun embeds nothing and reports counts", async () => {
