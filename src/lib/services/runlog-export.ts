@@ -29,6 +29,7 @@ const PHASE_ORDER = [
   "detect",
   "clean",
   "links",
+  "acquisition",
   "names",
   "site_identity",
   "images",
@@ -50,6 +51,7 @@ const PHASE_KIND: Record<string, PhaseKind> = {
   detect: "llm",
   clean: "transform",
   links: "scrape",
+  acquisition: "llm",
   names: "llm",
   site_identity: "llm",
   images: "io",
@@ -699,3 +701,8 @@ export async function exportJobRunLog(
     ...(gaps.length > 0 ? { gaps } : {}),
   };
 }
+
+/** @internal test-only export */
+export const _test_PHASE_ORDER = PHASE_ORDER as readonly string[];
+/** @internal test-only export */
+export const _test_PHASE_KIND = PHASE_KIND;

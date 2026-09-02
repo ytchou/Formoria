@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { CurationJob, CurationJobTarget } from '../curation-jobs'
-import { aiEvent, exportJobRunLog, searchEvent } from '../runlog-export'
+import { aiEvent, exportJobRunLog, searchEvent, _test_PHASE_ORDER, _test_PHASE_KIND } from '../runlog-export'
 
 const targetById = new Map<string, CurationJobTarget>()
 
@@ -278,5 +278,14 @@ describe('run-log correlation', () => {
     expect(runlog.gaps).not.toContain(
       'Job correlation_id is unavailable; audit rows cannot be correlated until the correlation_id migration is applied',
     )
+  })
+})
+
+describe('run-log phase order', () => {
+  it('orders acquisition after links and classifies it as llm', () => {
+    const linksIndex = _test_PHASE_ORDER.indexOf('links')
+    const acquisitionIndex = _test_PHASE_ORDER.indexOf('acquisition')
+    expect(acquisitionIndex).toBe(linksIndex + 1)
+    expect(_test_PHASE_KIND.acquisition).toBe('llm')
   })
 })

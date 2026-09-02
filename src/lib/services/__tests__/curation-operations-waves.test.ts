@@ -25,6 +25,8 @@ const mocks = vi.hoisted(() => ({
   scrapeBrandUrls: vi.fn(),
   getLatestSearchResults: vi.fn(),
   getLangfuse: vi.fn(),
+  runBrandImagePhase: vi.fn(),
+  runLinksPhase: vi.fn(),
 }));
 
 vi.mock("@/lib/langfuse/client", () => ({
@@ -53,6 +55,26 @@ vi.mock("../search-results", async (importOriginal) => ({
   startSearchAudit: vi.fn(async () => "audit-1"),
   finishSearchAudit: vi.fn(async () => undefined),
 }));
+
+vi.mock("../enrich-phases/images", async (importOriginal) => {
+  const original = await importOriginal<typeof import("../enrich-phases/images")>();
+  return {
+    ...original,
+    runBrandImagePhase: mocks.runBrandImagePhase.mockImplementation(
+      original.runBrandImagePhase,
+    ),
+  };
+});
+
+vi.mock("../enrich-phases/links", async (importOriginal) => {
+  const original = await importOriginal<typeof import("../enrich-phases/links")>();
+  return {
+    ...original,
+    runLinksPhase: mocks.runLinksPhase.mockImplementation(
+      original.runLinksPhase,
+    ),
+  };
+});
 
 type SubmissionRow = {
   id: string;
@@ -755,5 +777,102 @@ describe("Langfuse trace lifecycle", () => {
     // runEnrich completes normally
     expect(result).toBeDefined();
     expect(result.errors).toBeDefined();
+  });
+});
+
+describe("acquisition plan catalog threading", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mocks.getLatestSearchResults.mockResolvedValue(new Map());
+    mocks.batchSearchBrandImages.mockResolvedValue(new Map());
+    // Re-attach the call-through for existing behavior
+    mocks.scrapeBrandUrls.mockResolvedValue(scrapeResult());
+  });
+
+  it("wave_b_reads_catalog_hints_from_links_result", async () => {
+    const target = submission({
+      id: "sub-catalog",
+      brand_name: "Catalog Brand",
+      social_instagram: "https://www.instagram.com/catalogbrand",
+      purchase_website: "https://catalog.example.com",
+    });
+    mocks.detectBrandsBatch.mockResolvedValue(
+      detectBatch(
+        new Map([
+          [
+            `submission-${target.id}`,
+            detectResult({ slug: `submission-${target.id}` }),
+          ],
+        ]),
+      ),
+    );
+
+    const catalogEntryUrls = [
+      "https://catalog.example.com/collections/all",
+      "https://catalog.example.com/shop",
+    ];
+    const catalogPriorityProductUrls = [
+      "https://catalog.example.com/products/vase",
+    ];
+
+    // Override runLinksPhase to return a result with an acquisitionPlan
+    mocks.runLinksPhase.mockResolvedValueOnce({
+      phaseResult: {
+        phase: "links",
+        status: "succeeded",
+        changedFields: [],
+        durationMs: 50,
+      },
+      patch: {},
+      scrapedBrandName: null,
+      officialNameCandidates: [],
+      scrapedData: null,
+      scrapedImageUrls: [],
+      scrapedImageSources: [],
+      jsonLdImageUrls: [],
+      quarantine: {},
+      acquisitionPlan: {
+        surfaces: [],
+        fanOut: [],
+        catalog: {
+          entryUrls: catalogEntryUrls,
+          priorityProductUrls: catalogPriorityProductUrls,
+        },
+        socialBios: {},
+        decisions: [],
+      },
+    });
+
+    // Override runBrandImagePhase to return a canned result (avoid real execution)
+    mocks.runBrandImagePhase.mockResolvedValueOnce({
+      phaseResult: {
+        phase: "images",
+        status: "succeeded",
+        changedFields: [],
+        durationMs: 10,
+      },
+      patch: {},
+      catalogResult: { triples: [], attempts: [], evidence: new Map() },
+      acquisitionPageUrls: [],
+    });
+
+    await runEnrich(
+      {
+        target: "submissions",
+        submissionIds: [target.id],
+        dryRun: true,
+        phases: PHASES,
+        onProgress: () => {},
+      },
+      fakeSupabase([target]),
+    );
+
+    // The orchestrator must thread the plan's catalog into runBrandImagePhase
+    expect(mocks.runBrandImagePhase).toHaveBeenCalledOnce();
+    const imageArgs = mocks.runBrandImagePhase.mock.calls[0]![0];
+    expect(imageArgs.catalogEntryUrls).toEqual(catalogEntryUrls);
+    expect(imageArgs.catalogPriorityProductUrls).toEqual(
+      catalogPriorityProductUrls,
+    );
   });
 });

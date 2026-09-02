@@ -219,6 +219,44 @@ describe("images phase catalog-discovery integration", () => {
     expect(output.acquisitionPageUrls).toEqual([]);
   });
 
+  it("images_phase_forwards_entry_and_priority_urls_to_catalog", async () => {
+    const entryUrls = [`${SITE}/collections/all`, `${SITE}/shop`];
+    const priorityProductUrls = [`${SITE}/products/plate`, `${SITE}/products/cup`];
+    const { fn, calls } = stubDiscoverCatalog();
+
+    await runBrandImagePhase({
+      brand: BRAND,
+      phases: PHASES,
+      imageSearchUrls: [`${SITE}/img/plate.jpg`],
+      dryRun: true,
+      discoverCatalog: fn,
+      catalogEntryUrls: entryUrls,
+      catalogPriorityProductUrls: priorityProductUrls,
+    });
+
+    expect(calls).toHaveLength(1);
+    expect(calls[0]!.entryUrls).toEqual(entryUrls);
+    expect(calls[0]!.priorityProductUrls).toEqual(priorityProductUrls);
+  });
+
+  it("images_phase_defaults_to_empty_arrays_when_plan_absent", async () => {
+    const { fn, calls } = stubDiscoverCatalog();
+
+    await runBrandImagePhase({
+      brand: BRAND,
+      phases: PHASES,
+      imageSearchUrls: [`${SITE}/img/plate.jpg`],
+      dryRun: true,
+      discoverCatalog: fn,
+      // No catalogEntryUrls or catalogPriorityProductUrls provided
+    });
+
+    expect(calls).toHaveLength(1);
+    // When omitted, the fields should be undefined (pass-through as optional)
+    expect(calls[0]!.entryUrls).toBeUndefined();
+    expect(calls[0]!.priorityProductUrls).toBeUndefined();
+  });
+
   it("empty candidates still runs catalog discovery", async () => {
     // Catalog discovery is about product pages, not images.
     // Even with zero image candidates, it should still run.

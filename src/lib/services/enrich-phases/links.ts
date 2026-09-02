@@ -69,7 +69,12 @@ export type LinksPhaseOutput = {
   scrapedImageSources: ScrapedImageSource[]
   jsonLdImageUrls: string[]
   quarantine: Record<string, QuarantineGroup>
+  /** Present when the acquisition agent ran successfully. */
+  acquisitionPlan?: AcquisitionPlanType | null
 }
+
+// Lazy-import type only; the module is loaded dynamically at runtime.
+type AcquisitionPlanType = import('./acquisition/plan').AcquisitionPlanType
 
 type StoredNameSource = {
   source: 'official_website' | 'official_social'
@@ -605,6 +610,27 @@ function buildQuarantine(
   return groups
 }
 
+// `parsePhaseResults` drops any acquisitionPlan over 8 KB outright, so trim the
+// runtime trace (least valuable tail first) rather than lose the whole record.
+const MAX_AGENT_RECORD_BYTES = 7_800
+function boundedAgentRecord(record: Record<string, unknown>): Record<string, unknown> {
+  let current = record
+  const size = (value: unknown): number => JSON.stringify(value).length
+  while (size(current) > MAX_AGENT_RECORD_BYTES && Array.isArray(current.trace) && current.trace.length > 1) {
+    current = { ...current, trace: current.trace.slice(0, -1) }
+  }
+  if (size(current) > MAX_AGENT_RECORD_BYTES && Array.isArray(current.surfaces)) {
+    current = {
+      ...current,
+      surfaces: (current.surfaces as Array<Record<string, unknown>>).map((surface) => ({
+        ...surface,
+        reason: String(surface.reason ?? '').slice(0, 40),
+      })),
+    }
+  }
+  return current
+}
+
 export async function runLinksPhase({
   brand,
   phases,
@@ -687,10 +713,100 @@ export async function runLinksPhase({
         }
       },
     }
-    const firstPass = urls.length > 0 ? await scrapeBrandUrls(urls, scrapeOptions) : null
-    const scrapedFromPages: EnrichScrapedData = firstPass
-      ? await scrapeDiscoveredLinks(firstPass.data, urls, scrapeOptions, urlExtracted)
-      : ({} as EnrichScrapedData)
+    // -----------------------------------------------------------------------
+    // Acquisition agent path: when enabled, delegates gather+plan+scrape to the
+    // agent. On success, its scrapeResult replaces firstPass + scrapeDiscoveredLinks.
+    // On failure or fallback outcome, falls through to the legacy path below.
+    // -----------------------------------------------------------------------
+    let agentAcquisitionPlan: AcquisitionPlanType | undefined
+    let agentScrapeData: EnrichScrapedData | null = null
+    let agentOutcome: string | undefined
+    // Persisted alongside the plan so a fallback/blocked brand still carries a
+    // decision timeline and its budget usage; without it the trace only exists
+    // in process memory.
+    let agentTrace: Record<string, unknown> | undefined
+
+    if (process.env.ACQUISITION_AGENT !== 'off') {
+      try {
+        const { runAcquisition } = await import('./acquisition/graph')
+        const { boundedPlan } = await import('./acquisition/plan')
+        const { ChatOpenAI } = await import('@langchain/openai')
+        const { LLM_PROFILES, resolveProfileModel } = await import('@/lib/constants/llm-models')
+        const profile = LLM_PROFILES.acquisition
+        const modelName = resolveProfileModel('acquisition')
+        // gpt-5 chat completions accept a temperature only alongside
+        // reasoning_effort 'none' (same rule as openai-client.ts). json_object
+        // keeps the plan/critique parseable without a structured-output round trip.
+        const model = new ChatOpenAI({
+          model: modelName,
+          temperature: profile.temperature,
+          timeout: profile.timeoutMs,
+          maxRetries: 1,
+          modelKwargs: {
+            reasoning_effort: profile.reasoningEffort ?? 'none',
+            response_format: { type: 'json_object' },
+          },
+        })
+        const agentResult = await runAcquisition(
+          {
+            brand: { id: brand.id, slug: brand.slug, name: brand.name },
+            knownUrls: [...knownUrls, ...discoveredUrls],
+            jobId,
+          },
+          {
+            fetchHtml: (await import('./scraper/fetch-guards')).fetchHtmlWithMetadata,
+            renderProvider,
+            scrapeBrandUrls: (agentUrls, opts) =>
+              scrapeBrandUrls(agentUrls, { ...scrapeOptions, ...opts }),
+          },
+          {
+            model,
+            audit: {
+              target: target ?? brandTarget(brand.id),
+              ...(jobId ? { jobId } : {}),
+              ...(supabase ? { supabase } : {}),
+              modelName,
+            },
+          },
+        )
+
+        agentOutcome = agentResult.agentOutcome
+        agentTrace = {
+          trace: agentResult.decisions.slice(0, 24).map((d) => ({
+            ...d,
+            action: d.action.slice(0, 60),
+            reason: d.reason.slice(0, 160),
+          })),
+          ...(agentResult.budget ? { budget: agentResult.budget } : {}),
+          ...(agentResult.error ? { error: agentResult.error.slice(0, 200) } : {}),
+        }
+        if (
+          (agentResult.agentOutcome === 'planned' || agentResult.agentOutcome === 'recovered') &&
+          agentResult.scrapeResult
+        ) {
+          agentAcquisitionPlan = agentResult.plan ? boundedPlan(agentResult.plan) : undefined
+          agentScrapeData = agentResult.scrapeResult.data as EnrichScrapedData
+        }
+      } catch (err) {
+        const message = err instanceof Error ? err.message : String(err)
+        console.error('  → acquisition agent failed, falling back to legacy path:', message)
+        agentOutcome = 'fallback'
+        agentTrace = { trace: [], error: `threw: ${message.slice(0, 180)}` }
+      }
+    }
+
+    let scrapedFromPages: EnrichScrapedData
+    if (agentScrapeData) {
+      // Agent provided the scrape data — skip the legacy firstPass + second pass.
+      scrapedFromPages = agentScrapeData
+    } else {
+      // Legacy path: direct scrape + discovered links follow-up.
+      const firstPass = urls.length > 0 ? await scrapeBrandUrls(urls, scrapeOptions) : null
+      scrapedFromPages = firstPass
+        ? await scrapeDiscoveredLinks(firstPass.data, urls, scrapeOptions, urlExtracted)
+        : ({} as EnrichScrapedData)
+    }
+
     const { url: resolvedWebsite, viaZeroTokenFallback } = resolveOfficialWebsite(urls, brand.name)
     const derivedWebsite = scrapedFromPages.purchaseWebsite ?? resolvedWebsite
     const hasBrandName = typeof brand.name === 'string' && brand.name.trim().length > 0
@@ -726,6 +842,9 @@ export async function runLinksPhase({
       scrapedFromPages,
       fieldSources,
       unverifiableWebsite,
+      agentAcquisitionPlan,
+      agentOutcome,
+      agentTrace,
     }
   })
 
@@ -733,7 +852,20 @@ export async function runLinksPhase({
   const status = hasPatchValues(result.patch) ? 'succeeded' : 'skipped'
 
   return {
-    phaseResult: buildPhaseResult('links', status, changedFields, durationMs),
+    phaseResult: {
+      ...buildPhaseResult('links', status, changedFields, durationMs),
+      ...(result.agentOutcome
+        ? { agentOutcome: result.agentOutcome as PhaseResult['agentOutcome'] }
+        : {}),
+      ...(result.agentOutcome
+        ? {
+            acquisitionPlan: boundedAgentRecord({
+              ...(result.agentAcquisitionPlan as unknown as Record<string, unknown> | undefined),
+              ...result.agentTrace,
+            }),
+          }
+        : {}),
+    },
     patch: result.patch,
     scrapedBrandName: result.scrapedBrandName,
     officialNameCandidates: result.officialNameCandidates,
@@ -747,6 +879,7 @@ export async function runLinksPhase({
       result.patch,
       result.unverifiableWebsite,
     ),
+    ...(result.agentAcquisitionPlan ? { acquisitionPlan: result.agentAcquisitionPlan } : {}),
   }
     },
     {

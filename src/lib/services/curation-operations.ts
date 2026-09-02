@@ -2560,6 +2560,8 @@ export async function runEnrich(
                   dryRun: config.dryRun,
                   target: { type: targetType, id: brand.id },
                   renderProvider: config.renderProvider,
+                  catalogEntryUrls: linksResult?.acquisitionPlan?.catalog?.entryUrls ?? [],
+                  catalogPriorityProductUrls: linksResult?.acquisitionPlan?.catalog?.priorityProductUrls ?? [],
                 });
                 state.phaseResults.push(brandImageResult.phaseResult);
                 await logCurrentPhase(ctx, brandImageResult.phaseResult);

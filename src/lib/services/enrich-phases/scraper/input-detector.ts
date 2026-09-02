@@ -62,6 +62,7 @@ const LINK_AGGREGATOR_HOSTS = [
   'solo.to',
   'allmylinks.com',
   'msha.ke',
+  'portaly.cc',
 ]
 
 /**

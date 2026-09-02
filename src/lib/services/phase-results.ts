@@ -7,6 +7,18 @@ const PHASE_STATUSES: readonly string[] = [
   "failed",
 ] satisfies readonly PhaseResultStatus[];
 
+const VALID_AGENT_OUTCOMES: readonly string[] = [
+  "planned",
+  "recovered",
+  "fallback",
+  "blocked",
+  "skipped",
+];
+
+function isPlainObject(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
 /**
  * Single reader for `curation_job_targets.phase_results`.
  *
@@ -49,6 +61,9 @@ export function parsePhaseResults(value: Json): PhaseResult[] {
         ...(item.providerFailure === true ? { providerFailure: true } : {}),
         ...(typeof item.catalogZeroReason === "string" ? { catalogZeroReason: item.catalogZeroReason } : {}),
         ...(typeof item.productsProposed === "number" ? { productsProposed: item.productsProposed } : {}),
+        ...(typeof item.agentOutcome === "string" && VALID_AGENT_OUTCOMES.includes(item.agentOutcome) ? { agentOutcome: item.agentOutcome as PhaseResult["agentOutcome"] } : {}),
+        ...(isPlainObject(item.acquisitionPlan) && JSON.stringify(item.acquisitionPlan).length <= 8192 ? { acquisitionPlan: item.acquisitionPlan as Record<string, unknown> } : {}),
+        ...(Array.isArray(item.revokedColumns) ? { revokedColumns: item.revokedColumns.filter((c: unknown): c is string => typeof c === 'string') } : {}),
       },
     ];
   });

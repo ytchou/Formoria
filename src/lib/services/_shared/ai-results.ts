@@ -35,7 +35,7 @@ function textModel(): string {
  */
 const SCHEMA_MISMATCH_CODES = new Set(["23514", "42703"]);
 const PHASE_CHECK_MIGRATION =
-  "supabase/migrations/20260803033000_widen_ai_results_phase_check.sql";
+  "supabase/migrations/20260903000000_widen_ai_results_phase_acquisition.sql";
 const COST_COLUMNS_MIGRATION =
   "supabase/migrations/20260803023000_llm_cost_tracking.sql";
 

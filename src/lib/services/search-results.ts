@@ -12,6 +12,7 @@ export type SearchCallStatus =
   | 'malformed'
   | 'timeout'
   | 'network_error'
+  | 'skipped'
 
 export type SearchAuditContext = {
   target: EnrichmentTarget

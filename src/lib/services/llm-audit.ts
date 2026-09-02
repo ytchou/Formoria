@@ -41,7 +41,7 @@ function truncate(value: string): string {
  * Fire-and-forget Langfuse generation for LLM calls.
  * Must never throw -- all errors are swallowed.
  */
-function emitLangfuseGeneration(
+export function emitLangfuseGeneration(
   context: LlmAuditContext,
   event: ChatAuditEvent,
 ): void {
@@ -71,7 +71,7 @@ function emitLangfuseGeneration(
   }
 }
 
-async function persistAuditEvent(
+export async function persistAuditEvent(
   context: LlmAuditContext,
   event: ChatAuditEvent,
   spanId: string,

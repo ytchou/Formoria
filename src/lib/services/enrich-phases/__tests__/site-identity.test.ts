@@ -637,4 +637,40 @@ describe('site identity quarantine', () => {
     const result = await runSiteIdentityPhase(ctx(), new Map([['brand-1', [input]]]))
     expect(result.applications.has('brand-1')).toBe(true)
   })
+
+  it('site_identity_populates_belief_from_plan_surfaces', async () => {
+    const acquisitionPlan = {
+      surfaces: [
+        { url: 'https://other.example', fetch: 'static' as const, strategy: 'official-site' as const, reason: 'matched brand domain' },
+        { url: 'https://unrelated.example', fetch: 'static' as const, reason: 'some other page' },
+      ],
+      fanOut: [],
+      catalog: { entryUrls: [], priorityProductUrls: [] },
+      socialBios: {},
+      decisions: [],
+    }
+    const linksResultWithPlan: LinksPhaseOutput = {
+      ...linksOutput(),
+      acquisitionPlan,
+    }
+    const input = group({ linksResult: linksResultWithPlan })
+    arbitrate.mockResolvedValue({
+      results: new Map([[siteIdentityKey(brand.slug, input.subjectUrl), { slug: brand.slug, owned: true, confidence: 'high', reason: 'official' }]]),
+      calls: { attempted: 1, providerFailed: 0 },
+    })
+
+    await runSiteIdentityPhase(ctx(), new Map([['brand-1', [input]]]))
+
+    // Verify the item sent to arbitrate had the acquisitionBelief populated
+    expect(arbitrate).toHaveBeenCalledWith(
+      expect.arrayContaining([
+        expect.objectContaining({
+          slug: brand.slug,
+          subjectUrl: 'https://other.example',
+          acquisitionBelief: { class: 'official-site', reason: 'matched brand domain' },
+        }),
+      ]),
+      expect.anything(),
+    )
+  })
 })

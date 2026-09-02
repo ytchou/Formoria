@@ -21,6 +21,10 @@ type BrandImagePhaseOptions = {
   target?: EnrichmentTarget
   renderProvider?: RenderProvider
   discoverCatalog?: typeof defaultDiscoverCatalog
+  /** Entry URLs from the acquisition plan's catalog hints. */
+  catalogEntryUrls?: string[]
+  /** Priority product URLs from the acquisition plan's catalog hints. */
+  catalogPriorityProductUrls?: string[]
 }
 
 type BrandImagePhaseOutput = {
@@ -99,6 +103,8 @@ export async function runBrandImagePhase({
   target,
   renderProvider,
   discoverCatalog: discoverCatalogOverride,
+  catalogEntryUrls,
+  catalogPriorityProductUrls,
 }: BrandImagePhaseOptions): Promise<BrandImagePhaseOutput> {
   if (!phases.includes('images')) {
     return {
@@ -120,6 +126,8 @@ export async function runBrandImagePhase({
       renderProvider,
       target: 20,
       hydrationLimit: 25,
+      entryUrls: catalogEntryUrls,
+      priorityProductUrls: catalogPriorityProductUrls,
     })
   }
 

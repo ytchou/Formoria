@@ -81,6 +81,8 @@ export type DiscoverCatalogOptions = {
   fetcher?: CatalogFetch
   target?: number
   hydrationLimit?: number
+  entryUrls?: string[]
+  priorityProductUrls?: string[]
 }
 
 type RouteCandidate = {
@@ -334,7 +336,7 @@ async function sitemapUrls(
   return { urls, locations: Math.min(locations, MAX_SITEMAP_LOCATIONS) }
 }
 
-function needsRendering(html: string): boolean {
+export function needsRendering(html: string): boolean {
   if (!html.trim()) return true
   const $ = cheerio.load(html)
   const visibleText = $('body').text().replace(/\s+/gu, ' ').trim()
@@ -372,6 +374,7 @@ type HydratedRoute = {
   reachable: boolean
   renderOutcome: CatalogAttemptSummary['renderOutcome']
   renderBlocked: boolean
+  hasSignals: boolean
 }
 
 export async function discoverCatalog(
@@ -383,6 +386,30 @@ export async function discoverCatalog(
       const fetcher = options.fetcher ?? defaultFetch
       const target = options.target ?? 20
       const hydrationLimit = options.hydrationLimit ?? 25
+
+      // Prepend valid entry URLs as extra official sources before the declared ones
+      const sourceHosts = new Set(
+        options.sources.map((s) => {
+          try {
+            return new URL(s.url).hostname.replace(/^www\./i, '').toLowerCase()
+          } catch {
+            return ''
+          }
+        }),
+      )
+      const entrySources: CatalogSource[] = (options.entryUrls ?? [])
+        .filter((u) => {
+          try {
+            return sourceHosts.has(
+              new URL(u).hostname.replace(/^www\./i, '').toLowerCase(),
+            )
+          } catch {
+            return false
+          }
+        })
+        .map((url) => ({ url, channel: 'official' as const }))
+      const effectiveSources = [...entrySources, ...options.sources]
+
       const attempts: CatalogAttemptSummary[] = []
       const evidence = new Map<string, CatalogEvidence>()
       const triples: CatalogProductTriple[] = []
@@ -393,7 +420,7 @@ export async function discoverCatalog(
       let reachableRoutes = 0
       let deadRoutes = 0
 
-      for (const source of options.sources) {
+      for (const source of effectiveSources) {
         if (triples.length >= target || hydrated >= hydrationLimit) break
         const landing = await fetcher(source.url, 'html')
         const platform =
@@ -472,22 +499,47 @@ export async function discoverCatalog(
           })
           const sample = shuffle(candidates).slice(0, 10)
           let foundProduct = false
+          let hitPrefix: string | undefined
+          // Only use hitPrefix filtering for common catalog path prefixes.
+          // Root-level product slugs (e.g. /my-product) would incorrectly
+          // collapse all candidates to a single prefix segment.
+          const CATALOG_PREFIXES = new Set([
+            'products', 'shop', 'collections', 'items', 'store', 'product',
+          ])
           for (const sampleUrl of sample) {
             const page = await fetcher(sampleUrl, 'html')
             if (page.text && hasProductSignals(page.text)) {
               foundProduct = true
+              try {
+                const seg = new URL(sampleUrl).pathname.split('/')[1]
+                if (seg && CATALOG_PREFIXES.has(seg)) hitPrefix = seg
+              } catch { /* noop */ }
               break
             }
           }
           if (foundProduct) {
-            routes = candidates.map((url, i) => ({ url, sourcePosition: i }))
+            const promoted = hitPrefix
+              ? candidates.filter(u => {
+                  try { return new URL(u).pathname.split('/')[1] === hitPrefix } catch { return false }
+                })
+              : candidates
+            routes = promoted.map((url, i) => ({ url, sourcePosition: i }))
             summary.contentSamplingOutcome = 'usable'
           } else {
             summary.contentSamplingOutcome = 'empty'
           }
         }
         summary.rawUrls = routes.length
-        const uniqueRoutes = selectBreadthFirst(routes).filter((route) => {
+        const breadthRoutes = selectBreadthFirst(routes)
+        // Prepend priority product URLs so they hydrate first
+        const priorityRoutes: RouteCandidate[] = (options.priorityProductUrls ?? [])
+          .filter((u) => {
+            const normalized = normalizeProductUrl(u)
+            return normalized && !seen.has(normalized)
+          })
+          .map((url, i) => ({ url, sourcePosition: -(i + 1) }))
+        const mergedRoutes = [...priorityRoutes, ...breadthRoutes]
+        const uniqueRoutes = mergedRoutes.filter((route) => {
           const normalized = normalizeProductUrl(route.url)
           if (!normalized || seen.has(normalized)) return false
           seen.add(normalized)
@@ -513,6 +565,7 @@ export async function discoverCatalog(
               let renderOutcome: CatalogAttemptSummary['renderOutcome'] =
                 'not_requested'
               let renderBlocked = false
+              let finalHtml = page.text ?? ''
               let pageEvidence = page.text
                 ? parseEvidence(page.text, route.url)
                 : { title: null, text: '', imageUrls: [] }
@@ -525,6 +578,7 @@ export async function discoverCatalog(
                     route.url,
                   )
                   reachable = true
+                  finalHtml = rendered.html
                   pageEvidence = parseEvidence(rendered.html, route.url)
                   renderOutcome =
                     pageEvidence.title && pageEvidence.imageUrls.length > 0
@@ -548,6 +602,7 @@ export async function discoverCatalog(
                 reachable,
                 renderOutcome,
                 renderBlocked,
+                hasSignals: hasProductSignals(finalHtml),
               }
             }),
           )
@@ -561,6 +616,16 @@ export async function discoverCatalog(
             }
             const normalized = normalizeProductUrl(route.url)!
             evidence.set(normalized, pageEvidence)
+            // Per-route product signal gate: require product signals OR a known platform product route
+            const platformForGate = platform !== 'generic' ? platform : null
+            if (
+              !result.hasSignals &&
+              !isOwnedProductRoute(route.url, source.url, platformForGate)
+            ) {
+              summary.drops.no_product_signals =
+                (summary.drops.no_product_signals ?? 0) + 1
+              continue
+            }
             const title = pageEvidence.title ?? route.title
             const imageUrl = pageEvidence.imageUrls[0] ?? route.imageUrl
             if (!title || !imageUrl) {

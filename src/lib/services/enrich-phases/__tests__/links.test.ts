@@ -11,10 +11,15 @@ import { emptyResult } from '../scraper/parse/extractors'
 import { mergeScrapedData } from '../scraper/merge'
 
 const scraperMocks = vi.hoisted(() => ({ scrapeBrandUrls: vi.fn() }))
+const acquisitionMocks = vi.hoisted(() => ({ runAcquisition: vi.fn() }))
 
 vi.mock('../scraper', async (importOriginal) => ({
   ...(await importOriginal<typeof import('../scraper')>()),
   scrapeBrandUrls: scraperMocks.scrapeBrandUrls,
+}))
+
+vi.mock('../acquisition/graph', () => ({
+  runAcquisition: acquisitionMocks.runAcquisition,
 }))
 
 // This is what decides a brand's `purchase_website`, which the image-search
@@ -356,6 +361,11 @@ describe('runLinksPhase', () => {
 describe('links quarantine identity rules', () => {
   beforeEach(() => {
     scraperMocks.scrapeBrandUrls.mockReset()
+    // Default: agent returns fallback so quarantine tests exercise the legacy path.
+    acquisitionMocks.runAcquisition.mockResolvedValue({
+      agentOutcome: 'fallback',
+      decisions: [],
+    })
   })
 
   // Mirrors what `scrapeBrandUrls` really returns: its result has already been
@@ -758,6 +768,127 @@ describe('links quarantine identity rules', () => {
       [extractedSocials[0], 'https://www.pinkoi.com/store/from-page', 'https://shopee.tw/from-page'],
       expect.anything(),
     )
+  })
+})
+
+describe('acquisition agent integration', () => {
+  beforeEach(() => {
+    scraperMocks.scrapeBrandUrls.mockReset()
+    acquisitionMocks.runAcquisition.mockReset()
+  })
+
+  const agentBrand: EnrichBrand = {
+    id: 'brand-agent',
+    slug: 'agent-brand',
+    name: 'Agent Brand',
+    social_instagram: null,
+    social_threads: null,
+    social_facebook: null,
+    purchase_website: null,
+    purchase_pinkoi: null,
+    purchase_shopee: null,
+  }
+
+  const agentRun = (overrides: Partial<Parameters<typeof runLinksPhase>[0]> = {}) =>
+    runLinksPhase({
+      brand: agentBrand,
+      phases: ['links'] as EnrichPhase[],
+      discoveredUrls: ['https://agentbrand.com/about'],
+      knownUrls: [],
+      ...overrides,
+    })
+
+  it('links_uses_agent_scrape_result_when_planned', async () => {
+    vi.stubEnv('ACQUISITION_AGENT', 'on')
+
+    const agentScrapeData = {
+      ...emptyResult('https://agentbrand.com'),
+      purchaseWebsite: 'https://agentbrand.com',
+      purchase_website: 'https://agentbrand.com',
+      brandName: 'Agent Brand',
+    }
+    const agentPlan = {
+      surfaces: [{ url: 'https://agentbrand.com', fetch: 'static' as const, reason: 'official site', strategy: 'official-site' as const }],
+      fanOut: [],
+      catalog: { entryUrls: [], priorityProductUrls: [] },
+      socialBios: {},
+      decisions: [],
+    }
+
+    acquisitionMocks.runAcquisition.mockResolvedValue({
+      agentOutcome: 'planned',
+      plan: agentPlan,
+      scrapeResult: { data: agentScrapeData, statuses: [] },
+      decisions: [],
+    })
+
+    const result = await agentRun()
+
+    expect(result.phaseResult.status).toBe('succeeded')
+    expect(result.scrapedData?.purchaseWebsite).toBe('https://agentbrand.com')
+    expect(result.acquisitionPlan).toBeTruthy()
+    expect(result.acquisitionPlan?.surfaces).toHaveLength(1)
+    // Legacy scraper should NOT have been called
+    expect(scraperMocks.scrapeBrandUrls).not.toHaveBeenCalled()
+
+    vi.unstubAllEnvs()
+  })
+
+  it('links_falls_back_to_legacy_path_when_agent_throws', async () => {
+    vi.stubEnv('ACQUISITION_AGENT', 'on')
+
+    acquisitionMocks.runAcquisition.mockRejectedValue(new Error('agent crashed'))
+
+    scraperMocks.scrapeBrandUrls.mockResolvedValue({
+      data: {
+        ...emptyResult('https://agentbrand.com'),
+        purchaseWebsite: 'https://agentbrand.com',
+        purchase_website: 'https://agentbrand.com',
+      },
+      statuses: [],
+    })
+
+    const error = vi.spyOn(console, 'error').mockImplementation(() => {})
+    const result = await agentRun()
+
+    expect(result.phaseResult.status).toBe('succeeded')
+    expect(scraperMocks.scrapeBrandUrls).toHaveBeenCalled()
+    expect(result.acquisitionPlan).toBeUndefined()
+
+    error.mockRestore()
+    vi.unstubAllEnvs()
+  })
+
+  it('links_env_off_skips_agent_entirely', async () => {
+    vi.stubEnv('ACQUISITION_AGENT', 'off')
+
+    scraperMocks.scrapeBrandUrls.mockResolvedValue({
+      data: {
+        ...emptyResult('https://agentbrand.com'),
+        purchaseWebsite: 'https://agentbrand.com',
+        purchase_website: 'https://agentbrand.com',
+      },
+      statuses: [],
+    })
+
+    const result = await agentRun()
+
+    expect(result.phaseResult.status).toBe('succeeded')
+    expect(acquisitionMocks.runAcquisition).not.toHaveBeenCalled()
+    expect(result.acquisitionPlan).toBeUndefined()
+
+    vi.unstubAllEnvs()
+  })
+
+  it('links_phase_not_requested_still_returns_skipped', async () => {
+    const result = await runLinksPhase({
+      brand: agentBrand,
+      phases: ['clean'] as EnrichPhase[],
+      discoveredUrls: [],
+      knownUrls: [],
+    })
+    expect(result.phaseResult.status).toBe('skipped')
+    expect(result.acquisitionPlan).toBeUndefined()
   })
 })
 
