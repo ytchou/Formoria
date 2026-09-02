@@ -163,19 +163,19 @@ describe('products agent graph', () => {
   })
 
   it('graph_repair_fixes_repairable_proposal', async () => {
-    // With no images in pool, image verification fails → proposals are repairable
-    // (URL checks pass, only image/closed-set checks fail → repairable: true).
-    const inputNoImages: ProductsInput = {
+    // Provide imagePool with images that don't match product URLs →
+    // verifyImage fails → repairable (URL checks pass, only image fails).
+    // Repair response returns same proposals (repair "fixes" image ref).
+    const inputMismatchedImages: ProductsInput = {
       ...baseInput,
-      imagePool: [], // No images → verifyImage fails → repairable
+      imagePool: [fakeImage('https://brand.com/other-page')],
     }
     const proposeResponse = validProposalResponse()
-    // Repair response — same proposals, the repair model "fixes" them
     const repairResponse = validProposalResponse()
     const model = scriptedModel([proposeResponse, repairResponse])
     const deps = makeDeps()
 
-    const result = await runProductsAgent(inputNoImages, deps, { model })
+    const result = await runProductsAgent(inputMismatchedImages, deps, { model })
 
     expect(result.agentOutcome).toBe('repaired')
     expect(result.verification.repaired).toBeGreaterThan(0)
