@@ -18,12 +18,17 @@ const DecisionSchema = z.object({
   ms: z.number(),
 }).strict()
 
+/** Fetches the scraper will actually perform: `skip` surfaces are decisions, not fetches. */
+export const MAX_FETCH_TARGETS = 6
+
 /**
- * The agent's structured plan for evidence acquisition. The total fetch target
- * count (surfaces + fanOut) is capped at 6 to stay within the probe budget.
+ * The agent's structured plan for evidence acquisition. The cap applies to
+ * fetches (non-skip surfaces + fanOut), not to listed surfaces — the model is
+ * asked to record a `skip` with its reason for every known URL it rejects, and
+ * a cohort run that counted those against the budget refused 9/10 valid plans.
  */
 export const AcquisitionPlan = z.object({
-  surfaces: z.array(SurfaceSchema).max(6),
+  surfaces: z.array(SurfaceSchema).max(12),
   fanOut: z.array(z.string().url()).max(3),
   catalog: z.object({
     entryUrls: z.array(z.string().url()),
@@ -32,8 +37,9 @@ export const AcquisitionPlan = z.object({
   socialBios: z.record(z.string(), z.enum(['blocked', 'attempted'])),
   decisions: z.array(DecisionSchema),
 }).strict().refine(
-  (plan) => plan.surfaces.length + plan.fanOut.length <= 6,
-  { message: 'Total fetch targets (surfaces + fanOut) must be ≤ 6' },
+  (plan) =>
+    plan.surfaces.filter((s) => s.fetch !== 'skip').length + plan.fanOut.length <= MAX_FETCH_TARGETS,
+  { message: `Total fetch targets (non-skip surfaces + fanOut) must be ≤ ${MAX_FETCH_TARGETS}` },
 )
 
 export type AcquisitionPlanType = z.infer<typeof AcquisitionPlan>

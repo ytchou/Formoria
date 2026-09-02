@@ -45,6 +45,38 @@ describe('AcquisitionPlan', () => {
     expect(okResult.success).toBe(true)
   })
 
+  it('plan_schema_does_not_count_skip_surfaces_as_fetch_targets', () => {
+    // Cohort run 3 (2026-09-02): the model listed all 6 known URLs as surfaces
+    // (3 static, 3 skip-with-reason) plus 1 fanOut and every plan was refused.
+    // Skips are decisions, not fetches — 3 static + 1 fanOut = 4 ≤ 6 must pass.
+    const fetches = Array.from({ length: 3 }, (_, i) => ({
+      url: `https://example.com/${i}`,
+      fetch: 'static' as const,
+      reason: `fetch ${i}`,
+    }))
+    const skips = Array.from({ length: 6 }, (_, i) => ({
+      url: `https://unrelated.example/${i}`,
+      fetch: 'skip' as const,
+      reason: `not this brand ${i}`,
+    }))
+    const result = AcquisitionPlan.safeParse({
+      ...validPlan,
+      surfaces: [...fetches, ...skips],
+      fanOut: ['https://extra.com/about'],
+    })
+    expect(result.success).toBe(true)
+
+    // 6 static + 1 fanOut = 7 real fetches → still refused even with zero skips
+    const tooMany = Array.from({ length: 6 }, (_, i) => ({
+      url: `https://example.com/${i}`,
+      fetch: 'render' as const,
+      reason: `fetch ${i}`,
+    }))
+    expect(
+      AcquisitionPlan.safeParse({ ...validPlan, surfaces: tooMany, fanOut: ['https://extra.com/about'] }).success,
+    ).toBe(false)
+  })
+
   it('plan_schema_is_strict_json_schema_compatible', () => {
     const schema = toStrictJsonSchema(AcquisitionPlan)
     // No `optional` without `nullable` at root
