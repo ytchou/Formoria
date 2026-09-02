@@ -130,6 +130,9 @@ let auditWrites: AuditRecord[] = [];
 
 beforeEach(() => {
   vi.stubEnv("OPENAI_API_KEY", "test-openai-key");
+  // Disable the products agent by default so existing tests exercise the
+  // single-call body without agent overhead. Agent-specific tests override this.
+  vi.stubEnv("PRODUCTS_AGENT", "off");
   vi.stubGlobal(
     "fetch",
     vi.fn().mockResolvedValue(new Response("", { status: 404 })),
@@ -1318,5 +1321,44 @@ describe("rawCount and productsParseError in runProductsPhase", () => {
       .slice(0, 8);
     expect(context.config?.promptHash).toBe(expectedHash);
     expect(chat.mock.calls[0]?.[0]).toMatchObject({ system: effectivePrompt });
+  });
+});
+
+describe("PRODUCTS_AGENT env gate", () => {
+  it("skips agent when PRODUCTS_AGENT=off", async () => {
+    // PRODUCTS_AGENT=off is already set in beforeEach
+    modelReturns([rawProposal()]);
+
+    const result = await runProductsPhase({
+      brand: BRAND,
+      phases: PHASES,
+      scrapedData: SCRAPED,
+      target: { type: "submission", id: SUBMISSION_ID },
+    });
+
+    // Falls through to the existing single-call body
+    expect(result.phaseResult.status).toBe("succeeded");
+    expect(result.proposals).toHaveLength(1);
+    // Agent outcome is NOT set on the single-call path
+    expect(result.phaseResult.agentOutcome).toBeUndefined();
+  });
+
+  it("falls back to single-call body when agent errors", async () => {
+    // Enable the agent — the ChatOpenAI constructor with a test key will cause
+    // runProductsAgent to throw when trying to invoke the model, triggering
+    // the catch block and falling back to the single-call body.
+    vi.stubEnv("PRODUCTS_AGENT", "");
+    modelReturns([rawProposal()]);
+
+    const result = await runProductsPhase({
+      brand: BRAND,
+      phases: PHASES,
+      scrapedData: SCRAPED,
+      target: { type: "submission", id: SUBMISSION_ID },
+    });
+
+    // Should still succeed via the single-call fallback
+    expect(result.phaseResult.status).toBe("succeeded");
+    expect(result.proposals).toHaveLength(1);
   });
 });

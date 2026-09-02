@@ -13,6 +13,8 @@ const VALID_AGENT_OUTCOMES: readonly string[] = [
   "fallback",
   "blocked",
   "skipped",
+  "proposed",
+  "repaired",
 ];
 
 function isPlainObject(value: unknown): value is Record<string, unknown> {
@@ -63,6 +65,7 @@ export function parsePhaseResults(value: Json): PhaseResult[] {
         ...(typeof item.productsProposed === "number" ? { productsProposed: item.productsProposed } : {}),
         ...(typeof item.agentOutcome === "string" && VALID_AGENT_OUTCOMES.includes(item.agentOutcome) ? { agentOutcome: item.agentOutcome as PhaseResult["agentOutcome"] } : {}),
         ...(isPlainObject(item.acquisitionPlan) && JSON.stringify(item.acquisitionPlan).length <= 8192 ? { acquisitionPlan: item.acquisitionPlan as Record<string, unknown> } : {}),
+        ...(isPlainObject(item.productsVerification) ? { productsVerification: item.productsVerification as Record<string, unknown> } : {}),
         ...(Array.isArray(item.revokedColumns) ? { revokedColumns: item.revokedColumns.filter((c: unknown): c is string => typeof c === 'string') } : {}),
       },
     ];
