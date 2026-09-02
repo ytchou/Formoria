@@ -577,6 +577,48 @@ describe("cleanupDeadLinks", () => {
       expect(result.applied).toEqual([]);
       expect(result.skipped[0]?.reason).toBe("recheck_alive:200");
     });
+
+    it("bounds the re-checks at five in flight and keeps row order", async () => {
+      // The route that calls this caps a run at maxDuration = 300, where the
+      // GitHub workflow it replaced had none. A CDN outage flagging dozens of
+      // candidates must not spend the budget one sequential request at a time —
+      // nor open an unbounded fan-out at third-party origins.
+      const rows = Array.from({ length: 12 }, (_, index) =>
+        row({
+          id: `r-${index}`,
+          url: `https://shopee.tw/mu-guang/item-${index}`,
+        }),
+      );
+      const db = createDb(rows);
+
+      let inFlight = 0;
+      let peakInFlight = 0;
+      const observedUrls: string[] = [];
+      const countingFetch = (async (input: RequestInfo | URL) => {
+        inFlight += 1;
+        peakInFlight = Math.max(peakInFlight, inFlight);
+        observedUrls.push(String(input));
+        // Yield twice so overlapping calls actually observe each other.
+        await new Promise((resolve) => setTimeout(resolve, 0));
+        inFlight -= 1;
+        return new Response(null, { status: 404 });
+      }) as unknown as typeof fetch;
+
+      const result = await cleanupDeadLinks({
+        client: db.client,
+        dryRun: true,
+        fetchFn: countingFetch,
+        writeBrand,
+        now: () => NOW,
+      });
+
+      expect(peakInFlight).toBeGreaterThan(1);
+      expect(peakInFlight).toBeLessThanOrEqual(5);
+      expect(new Set(observedUrls).size).toBe(12);
+      expect(result.applied.map((entry) => entry.url)).toEqual(
+        rows.map((stored) => stored.url),
+      );
+    });
   });
 });
 

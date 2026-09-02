@@ -23,7 +23,7 @@ reads it, and `pnpm check:script-registry` (part of `pnpm lint`) fails without i
  */
 ```
 
-Comment leaders vary by file type: `*` in `.ts`, `.mjs` and `.js`; `#` in `.sh`,
+Comment leaders vary by file type: `*` in `.ts`, `.mts`, `.mjs` and `.js`; `#` in `.sh`,
 `.py` and in a directory's `README.md`; `--` in `.sql`. The keys are identical.
 
 `purpose`, `class`, `invoke`, `target`, `safety` and `owner` are required.
@@ -51,7 +51,7 @@ Comment leaders vary by file type: `*` in `.ts`, `.mjs` and `.js`; `#` in `.sh`,
 
 ## What the gate walks
 
-Every top-level `*.ts`, `*.mjs`, `*.js`, `*.sh`, `*.py` and `*.sql` file, plus
+Every top-level `*.ts`, `*.mts`, `*.mjs`, `*.js`, `*.sh`, `*.py` and `*.sql` file, plus
 exactly one entry file per subdirectory. Exempt: `*.test.*`, `__tests__/`, the
 contents of `lib/` and `shared/` (each represented by its own `README.md`), and
 JSON.

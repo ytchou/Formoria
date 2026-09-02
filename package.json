@@ -68,7 +68,7 @@
     "test:e2e:cross-browser": "playwright test --project=cross-browser-chromium --project=cross-browser-firefox --project=cross-browser-webkit --grep @cross-browser e2e/tests/landing-search-cross-browser.spec.ts",
     "test:e2e:deep": "playwright test --project=deep",
     "test:visual": "playwright test --config playwright.visual.config.ts",
-    "test:search:load": "tsx scripts/search-load.mjs",
+    "test:search:load": "tsx scripts/search-load.mts",
     "design:tokens": "node scripts/generate-design-tokens.mjs",
     "check:design-tokens": "node scripts/generate-design-tokens.mjs --check",
     "check:category-redirects": "tsx scripts/generate-category-redirects.ts --check",

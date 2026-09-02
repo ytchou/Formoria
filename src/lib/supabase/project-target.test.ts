@@ -155,10 +155,7 @@ const environmentFor = (ref: string) => ({
 describe("curation worker database target guard", () => {
   it("accepts credentials that match the declared environment", () => {
     expect(
-      assertDatabaseTarget(
-        "staging",
-        environmentFor(STAGING_PROJECT_REF),
-      ),
+      assertDatabaseTarget("staging", environmentFor(STAGING_PROJECT_REF)),
     ).toEqual({
       deploymentEnvironment: "staging",
       projectRef: STAGING_PROJECT_REF,
@@ -176,10 +173,7 @@ describe("curation worker database target guard", () => {
 
   it("refuses a staging worker holding production credentials", () => {
     expect(() =>
-      assertDatabaseTarget(
-        "staging",
-        environmentFor(PRODUCTION_PROJECT_REF),
-      ),
+      assertDatabaseTarget("staging", environmentFor(PRODUCTION_PROJECT_REF)),
     ).toThrow(
       /identifies project xkcayngbttpxyibgzern, but this worker declares staging/,
     );
@@ -189,10 +183,7 @@ describe("curation worker database target guard", () => {
   // production, so staging credentials under it must crash rather than run.
   it("refuses a production-declared worker holding staging credentials", () => {
     expect(() =>
-      assertDatabaseTarget(
-        "production",
-        environmentFor(STAGING_PROJECT_REF),
-      ),
+      assertDatabaseTarget("production", environmentFor(STAGING_PROJECT_REF)),
     ).toThrow(/but this worker declares production/);
   });
 
@@ -219,11 +210,15 @@ describe("curation worker database target guard", () => {
       assertDatabaseTarget("staging", {
         SUPABASE_SERVICE_ROLE_KEY: jwt(STAGING_PROJECT_REF, "service_role"),
       }),
-    ).toThrow(/NEXT_PUBLIC_SUPABASE_URL is required for the curation worker/);
+    ).toThrow(
+      /NEXT_PUBLIC_SUPABASE_URL is required to resolve the Supabase project target/,
+    );
     expect(() =>
       assertDatabaseTarget("staging", {
         NEXT_PUBLIC_SUPABASE_URL: `https://${STAGING_PROJECT_REF}.supabase.co`,
       }),
-    ).toThrow(/SUPABASE_SERVICE_ROLE_KEY is required for the curation worker/);
+    ).toThrow(
+      /SUPABASE_SERVICE_ROLE_KEY is required to resolve the Supabase project target/,
+    );
   });
 });

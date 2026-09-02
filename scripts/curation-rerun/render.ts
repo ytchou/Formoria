@@ -366,18 +366,21 @@ const sortImgs = (imgs: Img[]): Img[] =>
   imgs.slice().sort((l, r) => (l.sort_order ?? 99) - (r.sort_order ?? 99));
 
 async function main(): Promise<void> {
-  loadScriptTarget();
+  // The argv `loadScriptTarget` returns has `--target <x>` already removed;
+  // reading `process.argv` here would let `--after --target production` resolve
+  // `--after` to the literal `"--target"`.
+  const { argv } = loadScriptTarget();
   const cohort = await loadCohort();
   const dir = snapshotDir(cohort);
-  const argAfter = process.argv.indexOf("--after");
-  const argBefore = process.argv.indexOf("--before");
+  const argAfter = argv.indexOf("--after");
+  const argBefore = argv.indexOf("--before");
   const beforeFile = resolve(
     dir,
-    argBefore === -1 ? "before.json" : String(process.argv.at(argBefore + 1)),
+    argBefore === -1 ? "before.json" : String(argv.at(argBefore + 1)),
   );
   const afterFile = resolve(
     dir,
-    argAfter === -1 ? "after.json" : String(process.argv.at(argAfter + 1)),
+    argAfter === -1 ? "after.json" : String(argv.at(argAfter + 1)),
   );
 
   const before = JSON.parse(await readFile(beforeFile, "utf8")) as Snapshot;

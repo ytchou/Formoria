@@ -119,10 +119,11 @@ async function parseBody(req: Request): Promise<RequestBody | NextResponse> {
  * The nightly dead-link cleanup (DEV-1318), scheduled by pg_cron through
  * `cron_http_dispatch`. Replaces `.github/workflows/link-cleanup.yml`.
  *
- * The route only validates, calls the service, and posts the notification the
- * service builds. Two catch scopes on purpose: a Slack webhook that throws is
- * reported and ignored (the cleanup already happened, and the counts are in the
- * response), while a failing cleanup is a 500.
+ * The route only validates, calls the service, logs the run, and posts the
+ * notification the service builds. Two catch scopes on purpose: everything
+ * after the cleanup write — the recent-removal read, the log, the Slack post —
+ * is reported and ignored (the cleanup already happened, and the counts are in
+ * the response), while a failing cleanup is a 500.
  */
 export const POST = withAuditScope(async (req: Request) => {
   if (!isAuthorizedMachineCaller(req)) {
@@ -135,24 +136,49 @@ export const POST = withAuditScope(async (req: Request) => {
 
     const dryRun = body.dry_run ?? false;
     const result = await cleanupDeadLinks({ dryRun });
-    const recent = await listRecentRemovals(RECENT_REMOVAL_WINDOW_HOURS);
 
     let slackSent = false;
     try {
-      slackSent = await postSlackAlert(
-        buildLinkCleanupNotification(result, !dryRun, recent),
+      // Inside this catch on purpose. The cleanup above has already written,
+      // and the recent-removal window is read only to enrich the message, so a
+      // failure here must degrade the notification — never turn a successful
+      // destructive run into a 500 with no record of what it did.
+      const recent = await listRecentRemovals(RECENT_REMOVAL_WINDOW_HOURS);
+      const notification = buildLinkCleanupNotification(
+        result,
+        !dryRun,
+        recent,
       );
-    } catch (slackError) {
-      // `postSlackAlert` throws on a non-2xx webhook response. The cleanup is
-      // already done and reported in the body below, so a failed notification
-      // must not turn a successful run into a 500.
-      Sentry.captureException(slackError, {
-        tags: { scope: "cron", job: "link-cleanup", step: "slack" },
+
+      // The workflow this route replaced printed every applied and skipped
+      // entry to the job log. Slack is the only other place those per-entry
+      // lines exist, so log them BEFORE posting: an unconfigured or failing
+      // webhook must not be the difference between a full record and none.
+      console.info(
+        `[link-cleanup] ${JSON.stringify({
+          event: "link_cleanup_run",
+          dryRun,
+          applied: result.applied.length,
+          scanned: result.scanned,
+          skipped: result.skipped.length,
+          workDone: notification.workDone,
+          details: notification.details,
+        })}`,
+      );
+
+      slackSent = await postSlackAlert(notification);
+    } catch (notifyError) {
+      // `listRecentRemovals` can fail on a read, and `postSlackAlert` throws on
+      // a non-2xx webhook response. The cleanup is already done and reported in
+      // the body below, so neither may turn a successful run into a 500.
+      Sentry.captureException(notifyError, {
+        tags: { scope: "cron", job: "link-cleanup", step: "notify" },
       });
       console.error(
         JSON.stringify({
-          event: "link_cleanup_slack_failed",
-          error: slackError instanceof Error ? slackError.name : "UnknownError",
+          event: "link_cleanup_notify_failed",
+          error:
+            notifyError instanceof Error ? notifyError.name : "UnknownError",
         }),
       );
     }

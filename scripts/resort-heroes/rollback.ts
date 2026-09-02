@@ -27,18 +27,21 @@ function membership(rows: Array<{ id: string }>): string {
 // window is not part of the trade.
 const CONCURRENCY = 4
 
-function manifestArg(): string {
-  const index = process.argv.indexOf('--manifest')
-  const path = process.argv.at(index + 1)
+// Reads the argv `loadScriptTarget` returns, which has `--target <x>` already
+// removed. Reading `process.argv` here would let `--manifest --target production`
+// resolve the manifest path to the literal `"--target"`.
+function manifestArg(argv: readonly string[]): string {
+  const index = argv.indexOf('--manifest')
+  const path = argv.at(index + 1)
   if (index === -1 || !path)
     throw new Error('usage: resort-heroes:rollback --manifest <path>')
   return path
 }
 
 async function main(): Promise<void> {
-  loadScriptTarget()
+  const { argv } = loadScriptTarget()
   const manifest = JSON.parse(
-    await readFile(manifestArg(), 'utf8'),
+    await readFile(manifestArg(argv), 'utf8'),
   ) as RestoreManifest
   const supabase = createServiceClient()
   const refused: string[] = []

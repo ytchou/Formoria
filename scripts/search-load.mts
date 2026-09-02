@@ -11,12 +11,30 @@ import { randomUUID } from 'node:crypto'
 
 // Run under tsx (see the `test:search:load` alias) so this file can share the
 // one target resolver every operator script uses instead of a second env path.
-import { loadScriptTarget } from './shared/target.ts'
+import { loadScriptTarget } from './shared/target'
 
 const DEFAULT_BASE_URL = 'http://localhost:3000'
 const WARMUP_REQUESTS = 10
 
-function readPositiveInteger(name, fallback) {
+/** The seeded brand row this run searches for and deletes again. */
+type Probe = { id: string; slug: string }
+
+/** One row of `/api/search` output, as far as this gate cares. */
+type SearchResult = { id: string; slug: string; name: string; category: string }
+
+/**
+ * One measured request. Latency is always recorded — a failed request still
+ * costs time — and at most one failure field is set.
+ */
+type SearchOutcome = {
+  latencyMs: number
+  statusFailure?: string
+  schemaFailure?: string
+  correctnessFailure?: string
+  missingSeededResult?: string
+}
+
+function readPositiveInteger(name: string, fallback: number): number {
   const raw = process.env[name]
   if (raw === undefined) return fallback
   const value = Number(raw)
@@ -26,12 +44,12 @@ function readPositiveInteger(name, fallback) {
   return value
 }
 
-function percentile(sorted, value) {
+function percentile(sorted: number[], value: number): number {
   const index = Math.max(0, Math.ceil((value / 100) * sorted.length) - 1)
   return sorted[index] ?? 0
 }
 
-function assertAllowedTarget(baseUrl) {
+function assertAllowedTarget(baseUrl: URL): void {
   const isLoopback = isLoopbackTarget(baseUrl)
   if (!isLoopback && process.env.SEARCH_LOAD_ALLOW_REMOTE !== '1') {
     throw new Error(
@@ -40,12 +58,15 @@ function assertAllowedTarget(baseUrl) {
   }
 }
 
-function isLoopbackTarget(baseUrl) {
+function isLoopbackTarget(baseUrl: URL): boolean {
   const hostname = baseUrl.hostname.replace(/^\[|\]$/g, '')
   return hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '::1'
 }
 
-function supabaseHeaders(serviceRoleKey, prefer) {
+function supabaseHeaders(
+  serviceRoleKey: string,
+  prefer?: string,
+): Record<string, string> {
   return {
     apikey: serviceRoleKey,
     Authorization: `Bearer ${serviceRoleKey}`,
@@ -54,7 +75,11 @@ function supabaseHeaders(serviceRoleKey, prefer) {
   }
 }
 
-async function seedProbe(supabaseUrl, serviceRoleKey, token) {
+async function seedProbe(
+  supabaseUrl: string,
+  serviceRoleKey: string,
+  token: string,
+): Promise<Probe> {
   const response = await fetch(`${supabaseUrl}/rest/v1/brands`, {
     method: 'POST',
     headers: supabaseHeaders(serviceRoleKey, 'return=representation'),
@@ -68,14 +93,21 @@ async function seedProbe(supabaseUrl, serviceRoleKey, token) {
       is_demo: false,
     }),
   })
-  const body = await response.json().catch(() => null)
-  if (!response.ok || !Array.isArray(body) || typeof body[0]?.id !== 'string') {
+  const body: unknown = await response.json().catch(() => null)
+  const row = Array.isArray(body)
+    ? (body[0] as { id?: unknown; slug?: unknown } | undefined)
+    : undefined
+  if (!response.ok || typeof row?.id !== 'string' || typeof row.slug !== 'string') {
     throw new Error(`Search load seed failed (${response.status}): ${JSON.stringify(body)}`)
   }
-  return { id: body[0].id, slug: body[0].slug }
+  return { id: row.id, slug: row.slug }
 }
 
-async function cleanupProbe(supabaseUrl, serviceRoleKey, id) {
+async function cleanupProbe(
+  supabaseUrl: string,
+  serviceRoleKey: string,
+  id: string,
+): Promise<void> {
   const response = await fetch(
     `${supabaseUrl}/rest/v1/brands?id=eq.${encodeURIComponent(id)}`,
     {
@@ -88,16 +120,25 @@ async function cleanupProbe(supabaseUrl, serviceRoleKey, id) {
   }
 }
 
-function isSearchResult(value) {
-  return value
-    && typeof value === 'object'
-    && typeof value.id === 'string'
-    && typeof value.slug === 'string'
-    && typeof value.name === 'string'
-    && typeof value.category === 'string'
+function isSearchResult(value: unknown): value is SearchResult {
+  const row = value as Partial<SearchResult> | null
+  return Boolean(
+    row
+    && typeof row === 'object'
+    && typeof row.id === 'string'
+    && typeof row.slug === 'string'
+    && typeof row.name === 'string'
+    && typeof row.category === 'string',
+  )
 }
 
-async function makeSearchRequest(searchUrl, query, expectedSlug, expectEmpty, clientIp) {
+async function makeSearchRequest(
+  searchUrl: URL,
+  query: string,
+  expectedSlug: string,
+  expectEmpty: boolean,
+  clientIp: string | undefined,
+): Promise<SearchOutcome> {
   const url = new URL('/api/search', searchUrl)
   url.searchParams.set('q', query)
   url.searchParams.set('limit', '10')
@@ -112,15 +153,17 @@ async function makeSearchRequest(searchUrl, query, expectedSlug, expectEmpty, cl
       return { latencyMs, statusFailure: `${response.status} ${response.statusText}` }
     }
 
-    const body = await response.json().catch(() => null)
-    if (!body || !Array.isArray(body.results) || !body.results.every(isSearchResult)) {
+    const body: unknown = await response.json().catch(() => null)
+    const rows = (body as { results?: unknown } | null)?.results
+    if (!body || !Array.isArray(rows) || !rows.every(isSearchResult)) {
       return { latencyMs, schemaFailure: JSON.stringify(body) }
     }
+    const results = rows as SearchResult[]
 
-    if (expectEmpty && body.results.length > 0) {
+    if (expectEmpty && results.length > 0) {
       return { latencyMs, correctnessFailure: `expected no results for ${JSON.stringify(query)}` }
     }
-    if (!expectEmpty && !body.results.some((result) => result.slug === expectedSlug)) {
+    if (!expectEmpty && !results.some((result) => result.slug === expectedSlug)) {
       return { latencyMs, missingSeededResult: query }
     }
     return { latencyMs }
@@ -132,7 +175,7 @@ async function makeSearchRequest(searchUrl, query, expectedSlug, expectEmpty, cl
   }
 }
 
-async function run() {
+async function run(): Promise<void> {
   loadScriptTarget()
   const baseUrl = new URL(process.env.SEARCH_LOAD_BASE_URL ?? DEFAULT_BASE_URL)
   assertAllowedTarget(baseUrl)
@@ -151,9 +194,11 @@ async function run() {
   }
 
   const token = `probe${randomUUID().replaceAll('-', '')}`
-  let probe
+  let probe: Probe | undefined
   try {
     probe = await seedProbe(supabaseUrl, serviceRoleKey, token)
+    // Bound to a const so the worker() closure below keeps the narrowing.
+    const seededProbe: Probe = probe
     const missingQuery = `zzq${randomUUID().replaceAll('-', '')}xv`
     const requestCases = [
       { query: token, expectEmpty: false },
@@ -167,7 +212,7 @@ async function run() {
       const result = await makeSearchRequest(
         baseUrl,
         requestCase.query,
-        probe.slug,
+        seededProbe.slug,
         requestCase.expectEmpty,
         useLoopbackClients ? `127.0.1.${index + 1}` : undefined,
       )
@@ -181,11 +226,11 @@ async function run() {
       }
     }
 
-    const results = new Array(totalRequests)
+    const results: SearchOutcome[] = new Array(totalRequests)
     let nextIndex = 0
     const measuredStartedAt = performance.now()
 
-    async function worker() {
+    async function worker(): Promise<void> {
       while (nextIndex < totalRequests) {
         const index = nextIndex
         nextIndex += 1
@@ -193,7 +238,7 @@ async function run() {
         results[index] = await makeSearchRequest(
           baseUrl,
           requestCase.query,
-          probe.slug,
+          seededProbe.slug,
           requestCase.expectEmpty,
           useLoopbackClients ? `127.0.2.${(index % concurrency) + 1}` : undefined,
         )
@@ -205,8 +250,9 @@ async function run() {
     const latencies = results.map((result) => result.latencyMs).sort((a, b) => a - b)
     const statusFailures = results.filter((result) => result.statusFailure)
     const statusFailureCounts = Object.fromEntries(
-      Object.entries(Object.groupBy(statusFailures, (result) => result.statusFailure))
-        .map(([status, failures]) => [status, failures?.length ?? 0]),
+      Object.entries(
+        Object.groupBy(statusFailures, (result) => result.statusFailure ?? 'unknown'),
+      ).map(([status, failures]) => [status, failures?.length ?? 0]),
     )
     const schemaFailures = results.filter((result) => result.schemaFailure)
     const correctnessFailures = results.filter((result) => result.correctnessFailure)

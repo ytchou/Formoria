@@ -26,7 +26,7 @@ function header({
  * invoke: ${invoke}
  * target: ci
  * safety: read-only
- * owner: platform
+ * owner: engineering
  */
 export {};
 `;
@@ -39,28 +39,31 @@ describe("list-scripts", () => {
       root,
       "remove-brand.ts",
       header({
-        purpose: "removes a brand",
+        // A colon and a CJK word inside the purpose: the catalog prints the
+        // value the parser produced, so both have to survive the round trip.
+        purpose:
+          "Removes a brand and every row that belongs to it: images, channels, 品牌 aliases",
         className: "operator",
-        invoke: "pnpm remove-brand",
+        invoke: "pnpm remove-brand -- --slug <slug>",
       }),
     );
     write(
       root,
       "check-thing.mjs",
       header({
-        purpose: "guards a thing",
+        purpose: "Fails the lint chain when a script carries no header",
         className: "ci-gate",
-        invoke: "pnpm check:thing",
+        invoke: "pnpm check:script-registry",
       }),
     );
 
     const output = renderScriptCatalog(root);
 
     expect(output).toContain(
-      "check-thing.mjs — guards a thing (pnpm check:thing · ci · read-only · platform)",
+      "check-thing.mjs — Fails the lint chain when a script carries no header (pnpm check:script-registry · ci · read-only · engineering)",
     );
     expect(output).toContain(
-      "remove-brand.ts — removes a brand (pnpm remove-brand · ci · read-only · platform)",
+      "remove-brand.ts — Removes a brand and every row that belongs to it: images, channels, 品牌 aliases (pnpm remove-brand -- --slug <slug> · ci · read-only · engineering)",
     );
     expect(output.indexOf("ci-gate")).toBeLessThan(output.indexOf("operator"));
   });

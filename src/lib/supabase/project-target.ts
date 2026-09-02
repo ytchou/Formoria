@@ -11,11 +11,25 @@ type SupabaseKeyPayload = {
   role?: unknown;
 };
 
-function required(environment: Environment, name: string): string {
+/**
+ * Read a required environment variable, naming the caller's purpose in the
+ * failure. `context` is not decoration: the same guard is now reached by the
+ * staging E2E harness, the curation worker, and every operator script through
+ * `scripts/shared/target.ts`, and a message that blames one of them misdirects
+ * the other two.
+ */
+function required(
+  environment: Environment,
+  name: string,
+  context: string,
+): string {
   const value = environment[name]?.trim();
-  if (!value) throw new Error(`${name} is required for staging E2E`);
+  if (!value) throw new Error(`${name} is required ${context}`);
   return value;
 }
+
+const STAGING_E2E_CONTEXT = "for staging E2E";
+const DATABASE_TARGET_CONTEXT = "to resolve the Supabase project target";
 
 function parseHttpsUrl(value: string, name: string): URL {
   let parsed: URL;
@@ -111,7 +125,11 @@ export type StagingTarget = {
 export function validateStagingTarget(
   environment: Environment = process.env,
 ): StagingTarget {
-  const declaredEnvironment = required(environment, "FORMORIA_DEPLOYMENT_ENV");
+  const declaredEnvironment = required(
+    environment,
+    "FORMORIA_DEPLOYMENT_ENV",
+    STAGING_E2E_CONTEXT,
+  );
   if (declaredEnvironment.toLowerCase() !== "staging") {
     throw new Error(
       `E2E and staging seed are disabled for ${declaredEnvironment}; FORMORIA_DEPLOYMENT_ENV must be staging`,
@@ -148,10 +166,15 @@ export function validateStagingTarget(
     throw new Error("STAGING_BASE_URL must not include a path");
   }
 
-  const supabaseUrl = required(environment, "NEXT_PUBLIC_SUPABASE_URL");
+  const supabaseUrl = required(
+    environment,
+    "NEXT_PUBLIC_SUPABASE_URL",
+    STAGING_E2E_CONTEXT,
+  );
   const projectRef = required(
     environment,
     "SUPABASE_PROJECT_REF",
+    STAGING_E2E_CONTEXT,
   ).toLowerCase();
   const urlProjectRef = projectRefFromSupabaseUrl(supabaseUrl);
   if (projectRef !== STAGING_PROJECT_REF) {
@@ -166,13 +189,13 @@ export function validateStagingTarget(
   }
 
   validateSupabaseKeyIdentity(
-    required(environment, "NEXT_PUBLIC_SUPABASE_ANON_KEY"),
+    required(environment, "NEXT_PUBLIC_SUPABASE_ANON_KEY", STAGING_E2E_CONTEXT),
     "NEXT_PUBLIC_SUPABASE_ANON_KEY",
     projectRef,
     "anon",
   );
   validateSupabaseKeyIdentity(
-    required(environment, "SUPABASE_SERVICE_ROLE_KEY"),
+    required(environment, "SUPABASE_SERVICE_ROLE_KEY", STAGING_E2E_CONTEXT),
     "SUPABASE_SERVICE_ROLE_KEY",
     projectRef,
     "service_role",
@@ -214,12 +237,6 @@ export type WorkerTarget = {
   projectRef: string;
 };
 
-function requiredForWorker(environment: Environment, name: string): string {
-  const value = environment[name]?.trim();
-  if (!value) throw new Error(`${name} is required for the curation worker`);
-  return value;
-}
-
 /**
  * Assert that the worker's database credentials belong to the environment it
  * declares itself to be, before it can claim or write a single job.
@@ -239,7 +256,7 @@ export function assertDatabaseTarget(
   const expectedRef = EXPECTED_PROJECT_REFS[deploymentEnvironment];
 
   const urlProjectRef = projectRefFromSupabaseUrl(
-    requiredForWorker(environment, "NEXT_PUBLIC_SUPABASE_URL"),
+    required(environment, "NEXT_PUBLIC_SUPABASE_URL", DATABASE_TARGET_CONTEXT),
   );
   if (urlProjectRef !== expectedRef) {
     throw new Error(
@@ -248,7 +265,7 @@ export function assertDatabaseTarget(
   }
 
   validateSupabaseKeyIdentity(
-    requiredForWorker(environment, "SUPABASE_SERVICE_ROLE_KEY"),
+    required(environment, "SUPABASE_SERVICE_ROLE_KEY", DATABASE_TARGET_CONTEXT),
     "SUPABASE_SERVICE_ROLE_KEY",
     expectedRef,
     "service_role",

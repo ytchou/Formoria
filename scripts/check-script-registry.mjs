@@ -21,11 +21,12 @@ import { pathToFileURL } from "node:url";
 
 import {
   HEADER_TEMPLATE,
-  collectScriptEntries,
+  HEADER_TEMPLATE_NOTE,
   walkScriptRoot,
 } from "./lib/script-header.mjs";
 
-const SCRIPT_PATH_REFERENCE = /scripts\/[A-Za-z0-9_@.\-/]+\.(?:ts|mjs|js|sh|py|sql)/g;
+const SCRIPT_PATH_REFERENCE =
+  /scripts\/[A-Za-z0-9_@.\-/]+\.(?:mts|ts|mjs|js|sh|py|sql)/g;
 
 // `pnpm exec`/`pnpm dlx` run a binary, not an alias, so there is nothing to
 // cross-check against package.json.
@@ -138,6 +139,7 @@ export function reportScriptRegistryViolations(violations) {
     console.error("");
     console.error("Header template:");
     console.error(HEADER_TEMPLATE);
+    console.error(HEADER_TEMPLATE_NOTE);
     return 1;
   }
 
@@ -157,9 +159,6 @@ function parseArgv(argv) {
   }
   return options;
 }
-
-// Re-exported so the catalog and tests share one walker.
-export { collectScriptEntries };
 
 if (
   process.argv[1] &&

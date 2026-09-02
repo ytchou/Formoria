@@ -15,13 +15,21 @@ function write(root: string, file: string, source: string) {
   writeFileSync(path, source);
 }
 
+// Realistic values on purpose: the purpose line carries a second colon and a
+// CJK word, which is what the key/value split and the unicode handling have to
+// survive on a real header.
+const PURPOSE =
+  "Removes a brand and every row that belongs to it: images, channels, 品牌 aliases";
+const INVOKE = "pnpm remove-brand -- --slug <slug>";
+const OWNER = "engineering";
+
 function blockHeader({
-  purpose = "does a thing",
+  purpose = PURPOSE,
   className = "operator",
-  invoke = "pnpm do-thing",
+  invoke = INVOKE,
   target = "staging-default",
   safety = "read-only",
-  owner = "platform",
+  owner = OWNER,
 } = {}) {
   return `/**
  * @formoria-script
@@ -38,12 +46,12 @@ export {};
 
 function hashHeader(leader: string) {
   return `${leader} @formoria-script
-${leader} purpose: does a thing
+${leader} purpose: ${PURPOSE}
 ${leader} class: operator
-${leader} invoke: pnpm do-thing
+${leader} invoke: ${INVOKE}
 ${leader} target: staging-default
 ${leader} safety: read-only
-${leader} owner: platform
+${leader} owner: ${OWNER}
 `;
 }
 
@@ -64,12 +72,36 @@ describe("script header parser", () => {
     const header = parseScriptHeader(blockHeader());
 
     expect(header).toEqual({
-      purpose: "does a thing",
+      purpose: PURPOSE,
       class: "operator",
-      invoke: "pnpm do-thing",
+      invoke: INVOKE,
       target: "staging-default",
       safety: "read-only",
-      owner: "platform",
+      owner: OWNER,
+    });
+  });
+
+  it("keeps reading keys past a leaderless continuation line in a block", () => {
+    const header = parseScriptHeader(`/**
+ * @formoria-script
+ * purpose: ${PURPOSE}
+   and everything else that belongs to it.
+ * class: operator
+ * invoke: ${INVOKE}
+ * target: staging-default
+ * safety: read-only
+ * owner: ${OWNER}
+ */
+export {};
+`);
+
+    expect(header).toEqual({
+      purpose: PURPOSE,
+      class: "operator",
+      invoke: INVOKE,
+      target: "staging-default",
+      safety: "read-only",
+      owner: OWNER,
     });
   });
 

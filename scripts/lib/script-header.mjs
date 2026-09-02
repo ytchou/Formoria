@@ -62,12 +62,22 @@ export const HEADER_TEMPLATE = `/**
  * owner: <team or person>
  * prerequisites: optional
  * notes: optional
- */
+ */`;
 
-Use "#" comment leaders in .sh and .py files, "--" in .sql files, and a "#"
+// Printed after the template, never inside it: the template is the block an
+// author copies, and prose pasted along with it would land in the file.
+export const HEADER_TEMPLATE_NOTE = `Use "#" comment leaders in .sh and .py files, "--" in .sql files, and a "#"
 heading block in a directory's README.md.`;
 
-const SCRIPT_EXTENSIONS = new Set([".ts", ".mjs", ".js", ".sh", ".py", ".sql"]);
+const SCRIPT_EXTENSIONS = new Set([
+  ".ts",
+  ".mts",
+  ".mjs",
+  ".js",
+  ".sh",
+  ".py",
+  ".sql",
+]);
 
 // `__tests__` and `*.test.*` are exempt by design (D13); the rest are either
 // generated artifacts, vendored inputs, or evaluation corpora that carry no
@@ -77,10 +87,6 @@ const SKIP_DIRECTORY_NAMES = new Set([
   ".venv",
   "__tests__",
   "backup",
-  "seeds",
-  "eval",
-  "model-ab",
-  "search-eval",
 ]);
 
 // Contents of these directories are exempt: only their README.md counts as the
@@ -88,6 +94,27 @@ const SKIP_DIRECTORY_NAMES = new Set([
 const README_ONLY_DIRECTORY_NAMES = new Set(["lib", "shared"]);
 
 const KEY_VALUE = /^([A-Za-z][A-Za-z0-9_-]*)\s*:\s*(.*)$/;
+
+// Advances slash-star block-comment state across one raw line. A header key may
+// be followed by a continuation line carrying no leader, which is still inside
+// the comment; only the block's closing token leaves it.
+function advanceBlockState(inside, line) {
+  let index = 0;
+  while (index < line.length) {
+    if (inside) {
+      const close = line.indexOf("*/", index);
+      if (close < 0) return true;
+      inside = false;
+      index = close + 2;
+      continue;
+    }
+    const open = line.indexOf("/*", index);
+    if (open < 0) return false;
+    inside = true;
+    index = open + 2;
+  }
+  return inside;
+}
 
 // Strips the comment leader from one line. Returns null when the line is not a
 // comment line or closes the block, which ends the header.
@@ -120,11 +147,33 @@ export function parseScriptHeader(source) {
   const start = lines.findIndex((line) => line.includes(HEADER_MARKER));
   if (start < 0) return null;
 
+  // Whether the marker itself sits inside a `/* ... */` block, which decides
+  // whether a leaderless line below it is a continuation or the end of the
+  // header. `#`, `--` and `//` blocks have no such state: they end at the first
+  // line without a leader.
+  let inBlock = false;
+  for (let index = 0; index <= start; index += 1) {
+    inBlock = advanceBlockState(inBlock, lines[index]);
+  }
+
   const header = {};
   for (let index = start + 1; index < lines.length; index += 1) {
-    const text = stripCommentLeader(lines[index]);
-    if (text === null) break;
+    const line = lines[index];
+    const text = stripCommentLeader(line);
+
+    if (text === null) {
+      // A non-blank leaderless line inside an open block is prose wrapped from
+      // the value above, not the end of the header. It carries no key of its
+      // own, so it is skipped rather than parsed.
+      if (inBlock && line.trim() !== "" && !line.trim().startsWith("*/")) {
+        inBlock = advanceBlockState(inBlock, line);
+        continue;
+      }
+      break;
+    }
     if (text === "") break;
+
+    inBlock = advanceBlockState(inBlock, line);
 
     const match = KEY_VALUE.exec(text);
     if (!match) continue;

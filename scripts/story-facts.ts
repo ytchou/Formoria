@@ -132,9 +132,14 @@ const EVENT_FACT_KEYS = [
 const FAQ_ENTRY_COLUMNS =
   "brand_id, preset_id, position, question_zh, answer_zh, question_en, answer_en, source";
 
-function argValue(flag: string): string | undefined {
-  const index = process.argv.indexOf(flag);
-  return index === -1 ? undefined : process.argv.at(index + 1);
+/**
+ * Reads `--flag <value>` out of the argv `loadScriptTarget` returns, which has
+ * `--target <x>` already removed. Reading `process.argv` here instead would let
+ * `--out --target production` resolve `--out` to the literal `"--target"`.
+ */
+function argValue(argv: readonly string[], flag: string): string | undefined {
+  const index = argv.indexOf(flag);
+  return index === -1 ? undefined : argv.at(index + 1);
 }
 
 function chunk<T>(items: T[], size: number): T[][] {
@@ -475,10 +480,10 @@ type FactSheet = {
 };
 
 async function main(): Promise<void> {
-  loadScriptTarget();
-  const eventSlug = argValue("--event");
-  const brandsArg = argValue("--brands");
-  const outPath = argValue("--out");
+  const { argv } = loadScriptTarget();
+  const eventSlug = argValue(argv, "--event");
+  const brandsArg = argValue(argv, "--brands");
+  const outPath = argValue(argv, "--out");
 
   if (!eventSlug && !brandsArg) {
     throw new Error(

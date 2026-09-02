@@ -177,13 +177,16 @@ async function runViaWorker(
   }
 }
 
-function hasFlag(flag: string): boolean {
-  return process.argv.includes(flag);
+// Both helpers read the argv `loadScriptTarget` returns, which has `--target
+// <x>` already removed. Reading `process.argv` here instead would let
+// `--task --target production` resolve `--task` to the literal `"--target"`.
+function hasFlag(argv: readonly string[], flag: string): boolean {
+  return argv.includes(flag);
 }
 
-function argValue(flag: string): string | undefined {
-  const index = process.argv.indexOf(flag);
-  return index === -1 ? undefined : process.argv.at(index + 1);
+function argValue(argv: readonly string[], flag: string): string | undefined {
+  const index = argv.indexOf(flag);
+  return index === -1 ? undefined : argv.at(index + 1);
 }
 
 /**
@@ -192,12 +195,12 @@ function argValue(flag: string): string | undefined {
  * runs 3 phases where `full` runs 14, so a products-only smoke test does not
  * pay to re-derive names, images and descriptions it is not looking at.
  */
-function targetTask(): CurationTask {
-  if (!hasFlag("--task")) return DEFAULT_TASK;
+function targetTask(argv: readonly string[]): CurationTask {
+  if (!hasFlag(argv, "--task")) return DEFAULT_TASK;
   // Present but valueless (`--task` as the final argument) must not fall back
   // to the default: that silently widens a 3-phase run to all 14, against
   // production, having been asked for the opposite.
-  const raw = argValue("--task");
+  const raw = argValue(argv, "--task");
   const task = CURATION_TASK_ORDER.find((name) => name === raw);
   if (!task)
     throw new Error(
@@ -207,8 +210,8 @@ function targetTask(): CurationTask {
 }
 
 /** `--slugs a,b` re-runs a subset of the cohort; absent means the whole cohort. */
-function targetSlugs(cohort: Cohort): string[] {
-  const raw = argValue("--slugs");
+function targetSlugs(argv: readonly string[], cohort: Cohort): string[] {
+  const raw = argValue(argv, "--slugs");
   if (!raw) return [...cohort.slugs];
   const slugs = raw
     .split(",")
@@ -229,10 +232,10 @@ async function main(): Promise<void> {
     snapshotDir(cohort),
     `refresh-log-${Date.now()}.json`,
   );
-  const dryRun = hasFlag("--dry-run");
-  const viaWorker = hasFlag("--via-worker");
+  const dryRun = hasFlag(argv, "--dry-run");
+  const viaWorker = hasFlag(argv, "--via-worker");
   const localRender = validateLocalRenderFlags(argv);
-  const task = targetTask();
+  const task = targetTask(argv);
   // Recorded alongside the task so a log stays readable after CURATION_TASKS
   // changes shape — the task name alone would not say what actually ran.
   const phases = phasesForTask(task);
@@ -242,7 +245,7 @@ async function main(): Promise<void> {
   // this machine to keep alive. The trade is that step 4 never runs for these
   // jobs: the refresh submissions wait in the admin review queue and are
   // applied from there once the job reaches `completed`.
-  const enqueueOnly = hasFlag("--enqueue-only");
+  const enqueueOnly = hasFlag(argv, "--enqueue-only");
   // Run the job here, in this checkout, but stop before step 4.
   //
   // A check-only run needs exactly this and nothing else offered it:
@@ -252,19 +255,19 @@ async function main(): Promise<void> {
   // curated-product proposals. An absent `keptProductKeys` means "the reviewer
   // never opened the section", whose default is to keep EVERY new proposal. So
   // the unflagged path publishes the machine's first draft to live brands.
-  const noApply = hasFlag("--no-apply");
+  const noApply = hasFlag(argv, "--no-apply");
   if (noApply && enqueueOnly) {
     throw new Error(
       "--no-apply and --enqueue-only are mutually exclusive: --enqueue-only already skips step 4.",
     );
   }
-  if (!dryRun && !hasFlag("--confirm")) {
+  if (!dryRun && !hasFlag(argv, "--confirm")) {
     throw new Error(
       `This rewrites ${cohort.slugs.length} production brands (cohort ${cohort.name}). Re-run with --confirm (or --dry-run to preview).`,
     );
   }
 
-  const slugs = targetSlugs(cohort);
+  const slugs = targetSlugs(argv, cohort);
   console.log(`cohort: ${cohort.name} — ${slugs.length} brand(s)`);
   if (slugs.length !== cohort.slugs.length)
     console.log(`subset: ${slugs.join(", ")}`);
@@ -386,7 +389,7 @@ async function main(): Promise<void> {
   // Chunking bounds that blast radius to the chunk in flight: the rest stay
   // `pending` and are claimed by the drain loop afterwards. Jobs are claimed in
   // created_at order, so chunks run in the order enqueued here.
-  const chunkSize = Number.parseInt(argValue("--chunk-size") ?? "", 10);
+  const chunkSize = Number.parseInt(argValue(argv, "--chunk-size") ?? "", 10);
   const perJob =
     Number.isInteger(chunkSize) && chunkSize > 0
       ? chunkSize
@@ -415,7 +418,7 @@ async function main(): Promise<void> {
         target: "submissions",
         submissionIds: ids,
         task,
-        overwrite: hasFlag("--overwrite"),
+        overwrite: hasFlag(argv, "--overwrite"),
       },
       dryRun: false,
       startedBy: adminEmail,
