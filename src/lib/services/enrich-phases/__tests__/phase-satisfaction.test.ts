@@ -4,7 +4,7 @@ import {
   filterSatisfiedPhases,
   type PhaseHistory,
 } from "../phase-satisfaction";
-import { ENRICH_PHASES, PHASE_DEPENDENCIES, type EnrichPhaseName } from "@/lib/constants/enrich-phases";
+import { DEFERRED_PHASES, ENRICH_PHASES, PHASE_DEPENDENCIES, type EnrichPhaseName } from "@/lib/constants/enrich-phases";
 
 describe("history-based phase satisfaction", () => {
   it("phase_with_no_history_is_unsatisfied", () => {
@@ -89,6 +89,45 @@ describe("history-based phase satisfaction", () => {
     expect(result.skipped).toEqual([
       { phase: "links", reason: "satisfied" },
     ]);
+  });
+
+  it("deferred_phases_are_excluded_by_caller_not_by_satisfaction", () => {
+    // Deferred phases (discover, clean, links, etc.) still exist in
+    // ENRICH_PHASES for historical data. Phase satisfaction does not special-case
+    // them — they are excluded by the caller (phasesForTask / CURATION_TASKS).
+    // Verify that deferred phases with no history report as unsatisfied (the
+    // caller must exclude them, satisfaction never lies about them).
+    for (const phase of DEFERRED_PHASES) {
+      expect(
+        checkPhaseSatisfaction(phase, new Map()),
+        `deferred phase ${phase} with no history should be unsatisfied`,
+      ).toBe("unsatisfied");
+    }
+  });
+
+  it("deferred_phases_with_history_are_satisfied", () => {
+    // A deferred phase that ran historically should still report as satisfied
+    // when it has history (correct for historical queries).
+    const history: PhaseHistory = new Map([
+      ["clean", new Date("2026-08-01T00:00:00Z")],
+      ["discover", new Date("2026-08-01T00:00:00Z")],
+    ]);
+    expect(checkPhaseSatisfaction("clean", history)).toBe("satisfied");
+    expect(checkPhaseSatisfaction("discover", history)).toBe("satisfied");
+  });
+
+  it("filter_excludes_deferred_phases_when_not_in_input", () => {
+    // When the caller (phasesForTask) excludes deferred phases from the input
+    // list, filterSatisfiedPhases never returns them.
+    const history: PhaseHistory = new Map();
+    const activePhases = ENRICH_PHASES.filter(
+      (phase) => !(DEFERRED_PHASES as readonly string[]).includes(phase),
+    );
+    const result = filterSatisfiedPhases(activePhases, history);
+    for (const phase of DEFERRED_PHASES) {
+      expect(result.execute).not.toContain(phase);
+      expect(result.skipped.map((s) => s.phase)).not.toContain(phase);
+    }
   });
 
   it("transitive_staleness_propagates", () => {

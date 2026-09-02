@@ -115,6 +115,7 @@ const PROVIDERS = {
     "persistEnrichmentResults",
     "persistSubmissionEnrichmentResults",
     "rewriteBrandDescription",
+    // Retired phase runners kept for historical audit rows:
     "runBrandImagePhase",
     "runClassifyImagesPhase",
     "runCleanPhase",
@@ -129,6 +130,8 @@ const PROVIDERS = {
     "runSiteIdentityPhase",
     "runStandaloneClassification",
     "runStockistsPhase",
+    // DEV-1644: the acquire phase wrapping the acquisition agent
+    "runAcquirePhase",
   ],
   images: [
     // DEV-1551: an approved brand's images keep their `submissions/` key, which

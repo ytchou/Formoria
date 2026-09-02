@@ -216,8 +216,22 @@ export const LLM_PROFILES = {
     reasoningEffort: "none",
     timeoutMs: 30_000,
   },
+  /** Acquire phase — the top-level phase wrapping the acquisition agent (DEV-1644). */
+  acquire: {
+    model: "text",
+    temperature: 0.1,
+    reasoningEffort: "none",
+    timeoutMs: 30_000,
+  },
   /** Products agent — select/verify/repair product proposals per brand. */
   products_agent: {
+    model: "text",
+    temperature: 0.1,
+    reasoningEffort: "none",
+    timeoutMs: 60_000,
+  },
+  /** Editorial agent — cross-output repair across descriptions/stockists/faq. */
+  editorial: {
     model: "text",
     temperature: 0.1,
     reasoningEffort: "none",
