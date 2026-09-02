@@ -51,6 +51,22 @@ const TABLE_ROWS: ReadonlyArray<readonly [string, string]> = [
     "search_brands(text,integer,boolean,text[],text[],text,text,boolean)",
     "7bcba2c4bd56c0d6ba50988f59e3f80e",
   ],
+  [
+    "curated_products_search_document(text,text,text,text,text)",
+    "0e73cbab77e7b5a5ded43e76f00d05e0",
+  ],
+  [
+    "search_products_semantic(text,extensions.vector,text,integer,text,text[],text[])",
+    "5fe81a42ea076ce54dfb4e84f97be369",
+  ],
+  [
+    "situation_query_bigrams(text)",
+    "40ae8d270a6e49d0a2e3fcf3d74341ea",
+  ],
+  [
+    "situation_search_lexical(text,integer)",
+    "bb27e4ad3e8003ade6a60492e57e7fe1",
+  ],
 ];
 
 const PROSE_SIGNATURE = "brands_track_content_provenance()";
