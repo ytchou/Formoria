@@ -3,6 +3,8 @@ import { describe, expect, it } from "vitest";
 import {
   COPY_ORDER,
   KNOWN_COLUMNS,
+  TABLE_POLICIES,
+  buildProductRemap,
   computeSeoPromoted,
   parseOpenApiColumns,
   parseSelectArgs,
@@ -12,6 +14,8 @@ import {
   planBrandRows,
   planBrandSelection,
   planChildRows,
+  planProductRows,
+  planProductSourceRows,
   planStorageKeys,
   SYNCED_STORAGE_PREFIXES,
   planColumnDrift,
@@ -1056,5 +1060,157 @@ describe("planStorageKeys", () => {
 
     expect(plan.keys).toEqual([]);
     expect(plan.skippedByPrefix).toEqual(["event-exhibitors/e1/x.webp"]);
+  });
+
+  it("derives curated-products/ keys from image_url", () => {
+    const plan = planStorageKeys({
+      curated_products: [
+        { image_url: "/i/curated-products/x/1", visible: true },
+        { image_url: "https://external.example/photo.jpg", visible: true },
+        { image_url: null, visible: true },
+      ],
+    });
+
+    expect(plan.keys).toContain("curated-products/x/1");
+    // External URL and null are skipped — no storage key to derive.
+    expect(plan.keys).toHaveLength(1);
+    expect(plan.skippedByPrefix).toEqual([]);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Curated products sync
+// ---------------------------------------------------------------------------
+
+const PROD_PRODUCT_ID = "pp110000-0000-4000-8000-000000000001";
+const STAGING_PRODUCT_ID = "sp220000-0000-4000-8000-000000000001";
+
+function curatedProductRow(overrides: Row = {}): Row {
+  return {
+    id: PROD_PRODUCT_ID,
+    brand_id: PROD_BRAND_ID,
+    key: "hand-thrown-tea-bowl",
+    name_zh: "手拉坯茶碗",
+    name_en: "Hand-thrown tea bowl",
+    category: "home",
+    subcategory: "ceramics",
+    product_description_zh: "以鶯歌土手拉製成的茶碗。",
+    product_description_en: "A tea bowl hand-thrown from Yingge clay.",
+    material: ["陶"],
+    image_url: "/i/curated-products/kinyo/bowl.webp",
+    image_source_url: "https://kinyo.tw/bowl.jpg",
+    image_width: 800,
+    image_height: 600,
+    official_url: "https://kinyo.tw/products/bowl",
+    made_in_taiwan_confirmed: true,
+    materials_from_taiwan_confirmed: true,
+    mit_registry_id: null,
+    origin_candidate_id: "cand-0001",
+    link_state: "ok",
+    link_checked_at: "2026-08-01T00:00:00Z",
+    source_checked_at: "2026-08-01T00:00:00Z",
+    review_due_at: null,
+    product_position: 1,
+    proposed_by: "curation",
+    visible: true,
+    created_at: "2026-07-01T00:00:00Z",
+    updated_at: "2026-08-01T00:00:00Z",
+    ...overrides,
+  };
+}
+
+function curatedProductSourceRow(overrides: Row = {}): Row {
+  return {
+    id: "src-0001",
+    product_id: PROD_PRODUCT_ID,
+    url: "https://kinyo.tw/about",
+    source_type: "official",
+    claim_zh: "手拉坯製成",
+    claim_en: "Hand-thrown",
+    state: "verified",
+    checked_at: "2026-08-01T00:00:00Z",
+    created_at: "2026-07-01T00:00:00Z",
+    updated_at: "2026-08-01T00:00:00Z",
+    ...overrides,
+  };
+}
+
+describe("planCopyOrder places curated_products after brands and curated_product_sources after curated_products", () => {
+  const order = planCopyOrder();
+  const at = (table: string) => order.indexOf(table as (typeof order)[number]);
+
+  it("curated_products follows brands", () => {
+    expect(at("curated_products")).toBeGreaterThan(at("brands"));
+  });
+
+  it("curated_product_sources follows curated_products", () => {
+    expect(at("curated_product_sources")).toBeGreaterThan(
+      at("curated_products"),
+    );
+  });
+});
+
+describe("planProductRows rewrites brand_id through the brand remap and assigns a fresh product id map", () => {
+  const brandRemap = new Map([[PROD_BRAND_ID, STAGING_BRAND_ID]]);
+
+  it("remaps brand_id, strips id, and nullifies origin_candidate_id", () => {
+    const result = planProductRows([curatedProductRow()], brandRemap);
+    expect(result.rows).toHaveLength(1);
+    expect(result.rows[0].brand_id).toBe(STAGING_BRAND_ID);
+    expect(result.rows[0]).not.toHaveProperty("id");
+    expect(result.rows[0].origin_candidate_id).toBeNull();
+    expect(result.rows[0].key).toBe("hand-thrown-tea-bowl");
+  });
+
+  it("reports unmappable brand_ids", () => {
+    const result = planProductRows(
+      [curatedProductRow({ brand_id: PROD_BRAND_ID_B })],
+      brandRemap,
+    );
+    expect(result.rows).toHaveLength(0);
+    expect(result.unmapped).toEqual([PROD_BRAND_ID_B]);
+  });
+
+  it("builds a product remap from post-upsert staging rows", () => {
+    const prodRows = [curatedProductRow()];
+    planProductRows(prodRows, brandRemap);
+    // Simulate the post-upsert read: staging has a row with the same
+    // (brand_id, key) but a staging-generated id.
+    const stagingProducts = [
+      {
+        id: STAGING_PRODUCT_ID,
+        brand_id: STAGING_BRAND_ID,
+        key: "hand-thrown-tea-bowl",
+      },
+    ];
+    const productRemap = buildProductRemap(
+      prodRows,
+      stagingProducts,
+      brandRemap,
+    );
+    expect(productRemap.get(PROD_PRODUCT_ID)).toBe(STAGING_PRODUCT_ID);
+  });
+
+  it("uses the product remap to rewrite curated_product_sources.product_id", () => {
+    const productRemap = new Map([[PROD_PRODUCT_ID, STAGING_PRODUCT_ID]]);
+    const result = planProductSourceRows(
+      [curatedProductSourceRow()],
+      productRemap,
+    );
+    expect(result.rows).toHaveLength(1);
+    expect(result.rows[0].product_id).toBe(STAGING_PRODUCT_ID);
+    expect(result.rows[0]).not.toHaveProperty("id");
+  });
+});
+
+describe("upsert conflict target for curated_products is (brand_id, key)", () => {
+  it("uses brand_id,key as the conflict target", () => {
+    expect(TABLE_POLICIES.curated_products.onConflict).toBe("brand_id,key");
+  });
+
+  it("uses product_id,url as the conflict target for curated_product_sources", () => {
+    expect(TABLE_POLICIES.curated_product_sources.onConflict).toBe(
+      "product_id,url",
+    );
   });
 });

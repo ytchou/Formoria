@@ -54,9 +54,10 @@
  * The sync is ADDITIVE. There is no delete anywhere in this file, and there
  * are exactly two write calls: `upsertBatch` for rows and the storage upload
  * in `syncStorageObjects` for the bytes those rows point at.
- * `curated_products` is deliberately untouched — production has zero rows, and
- * staging's rows are the real authored supply, not a fixture (DEV-1485 deleted the synthetic one), so any
- * mirroring of that table would destroy the homepage product wall's only data.
+ * `curated_products` and `curated_product_sources` are copied from production
+ * with brand-id remapping: product rows are upserted on `(brand_id, key)` so
+ * staging keeps its own generated UUIDs, and the product-id remap for sources
+ * is built from a post-upsert read of staging.
  *
  * There is no seed ordering to respect any more: `db:seed:staging` no longer
  * writes curated products at all. If the wall's supply ever reaches zero,
@@ -149,6 +150,8 @@ export const COPY_ORDER = [
   "event_brands",
   "brand_slug_redirects",
   "mit_registry",
+  "curated_products",
+  "curated_product_sources",
 ] as const;
 
 export type CopyTable = (typeof COPY_ORDER)[number];
@@ -163,10 +166,10 @@ export function planCopyOrder(): CopyTable[] {
 }
 
 /**
- * `curated_products` is read for its row count only. It is on this list so the
- * post-condition can prove the sync did not touch it, not because it is copied.
+ * Tables whose row count is checked before and after the sync. The additive
+ * post-condition asserts that none of them shrank.
  */
-export const COUNTED_TABLES = [...COPY_ORDER, "curated_products"] as const;
+export const COUNTED_TABLES = [...COPY_ORDER] as const;
 
 /**
  * Authoritative column lists, transcribed from
@@ -370,6 +373,48 @@ export const KNOWN_COLUMNS: Record<CopyTable, readonly string[]> = {
     "normalized_product",
     "normalized_model",
   ],
+  curated_products: [
+    "id",
+    "brand_id",
+    "key",
+    "name_zh",
+    "name_en",
+    "category",
+    "subcategory",
+    "product_description_zh",
+    "product_description_en",
+    "material",
+    "image_url",
+    "image_source_url",
+    "image_width",
+    "image_height",
+    "official_url",
+    "made_in_taiwan_confirmed",
+    "materials_from_taiwan_confirmed",
+    "mit_registry_id",
+    "origin_candidate_id",
+    "link_state",
+    "link_checked_at",
+    "source_checked_at",
+    "review_due_at",
+    "product_position",
+    "proposed_by",
+    "visible",
+    "created_at",
+    "updated_at",
+  ],
+  curated_product_sources: [
+    "id",
+    "product_id",
+    "url",
+    "source_type",
+    "claim_zh",
+    "claim_en",
+    "state",
+    "checked_at",
+    "created_at",
+    "updated_at",
+  ],
 };
 
 /** Retired columns accepted only while production is one release behind. */
@@ -507,6 +552,24 @@ export const TABLE_POLICIES: Record<CopyTable, TablePolicy> = {
     brandIdColumn: null,
     batchSize: 500,
   },
+  // `id` is omitted so staging generates its own uuid on insert and the
+  // (brand_id, key) natural key drives the upsert. `origin_candidate_id`
+  // references the unsynced `curated_product_candidates` table.
+  curated_products: {
+    onConflict: "brand_id,key",
+    omit: ["id"],
+    nullify: ["origin_candidate_id"],
+    brandIdColumn: "brand_id",
+    batchSize: 500,
+  },
+  // `id` omitted; conflict on (product_id, url).
+  curated_product_sources: {
+    onConflict: "product_id,url",
+    omit: ["id"],
+    nullify: [],
+    brandIdColumn: null,
+    batchSize: 500,
+  },
 };
 
 // ---------------------------------------------------------------------------
@@ -547,7 +610,11 @@ export const STORAGE_BUCKET = "brand-images";
  * the corresponding surfaces going through `/i/`; the stage reports what it
  * skipped so the gap is visible rather than inferred.
  */
-export const SYNCED_STORAGE_PREFIXES = ["brands/", "submissions/"] as const;
+export const SYNCED_STORAGE_PREFIXES = [
+  "brands/",
+  "submissions/",
+  "curated-products/",
+] as const;
 
 /** Columns that hold a bucket-relative key, per copied table. */
 const STORAGE_KEY_COLUMNS: Partial<Record<CopyTable, readonly string[]>> = {
@@ -555,6 +622,7 @@ const STORAGE_KEY_COLUMNS: Partial<Record<CopyTable, readonly string[]>> = {
   brand_images: ["storage_path"],
   events: ["hero_image_storage_path"],
   event_exhibitors: ["image_storage_path"],
+  curated_products: ["image_url"],
 };
 
 /**
@@ -587,9 +655,14 @@ function isUnsupportedMimeError(error: unknown): boolean {
 }
 
 function isRenderableImageRow(table: CopyTable, row: Row): boolean {
-  if (table !== "brand_images") return true;
-  const status = row.status;
-  return typeof status !== "string" || status === "active";
+  if (table === "brand_images") {
+    const status = row.status;
+    return typeof status !== "string" || status === "active";
+  }
+  if (table === "curated_products") {
+    return row.visible === true;
+  }
+  return true;
 }
 
 export type StorageKeyPlan = {
@@ -603,9 +676,10 @@ export type StorageKeyPlan = {
  * The bucket keys the copied rows reference.
  *
  * Reads every key-bearing column of every table this sync writes, then
- * partitions on `SYNCED_STORAGE_PREFIXES`. `curated_products` is absent on
- * purpose: this sync does not copy that table (see the header), so copying its
- * objects would seed staging with bytes no synced row points at.
+ * partitions on `SYNCED_STORAGE_PREFIXES`. `curated_products.image_url` stores
+ * a `/i/<storage_path>` proxy URL rather than a bare key, so the leading `/i/`
+ * is stripped before prefix matching. External (absolute) URLs do not start
+ * with `/i/` and are not storage keys, so they are silently ignored.
  */
 export function planStorageKeys(
   rowsByTable: Partial<Record<CopyTable, readonly Row[]>>,
@@ -618,8 +692,16 @@ export function planStorageKeys(
       for (const column of columns ?? []) {
         const value = row[column];
         if (typeof value !== "string") continue;
-        const key = value.trim();
+        let key = value.trim();
         if (key.length === 0) continue;
+        // curated_products.image_url stores `/i/<key>`; strip the proxy prefix
+        // to get the bare storage key. Non-`/i/` absolute URLs (external) are
+        // not storage keys and are skipped entirely.
+        if (key.startsWith("/i/")) {
+          key = key.slice(3);
+        } else if (key.startsWith("http://") || key.startsWith("https://")) {
+          continue;
+        }
         if (SYNCED_STORAGE_PREFIXES.some((prefix) => key.startsWith(prefix)))
           wanted.add(key);
         else skipped.add(key);
@@ -1294,6 +1376,106 @@ export function planSlugRedirects(
   }
 
   return { rows, skippedOldSlugs };
+}
+
+// ---------------------------------------------------------------------------
+// Curated product planners
+// ---------------------------------------------------------------------------
+
+export type ProductRowPlan = {
+  rows: Row[];
+  unmapped: string[];
+};
+
+/**
+ * Prepares curated_products rows for staging. Remaps `brand_id`, strips `id`
+ * (staging generates its own uuid via the `(brand_id, key)` upsert), and
+ * nullifies `origin_candidate_id` (references the unsynced candidates table).
+ */
+export function planProductRows(
+  prodProducts: Row[],
+  brandIdMap: Map<string, string>,
+): ProductRowPlan {
+  const planned: Row[] = [];
+  const unmapped: string[] = [];
+
+  for (const row of prodProducts) {
+    assertKnownColumns("curated_products", row);
+    const sourceBrandId = row.brand_id;
+    const mapped =
+      typeof sourceBrandId === "string" ? brandIdMap.get(sourceBrandId) : undefined;
+    if (!mapped) {
+      unmapped.push(String(sourceBrandId));
+      continue;
+    }
+    const payload = applyPolicy("curated_products", row);
+    payload.brand_id = mapped;
+    planned.push(payload);
+  }
+
+  return { rows: planned, unmapped };
+}
+
+export type ProductSourceRowPlan = {
+  rows: Row[];
+  unmapped: string[];
+};
+
+/**
+ * Prepares curated_product_sources rows for staging. Remaps `product_id`
+ * through the product remap built from post-upsert staging reads.
+ */
+export function planProductSourceRows(
+  prodSources: Row[],
+  productIdMap: Map<string, string>,
+): ProductSourceRowPlan {
+  const planned: Row[] = [];
+  const unmapped: string[] = [];
+
+  for (const row of prodSources) {
+    assertKnownColumns("curated_product_sources", row);
+    const sourceProductId = row.product_id;
+    const mapped =
+      typeof sourceProductId === "string"
+        ? productIdMap.get(sourceProductId)
+        : undefined;
+    if (!mapped) {
+      unmapped.push(String(sourceProductId));
+      continue;
+    }
+    const payload = applyPolicy("curated_product_sources", row);
+    payload.product_id = mapped;
+    planned.push(payload);
+  }
+
+  return { rows: planned, unmapped };
+}
+
+/**
+ * Builds a production→staging product id remap from the post-upsert staging
+ * rows. Keyed on (brand_id, key) because the upsert conflict target is the
+ * same composite, so a staging product's (brand_id, key) pair uniquely
+ * identifies the row that a given production product mapped onto.
+ */
+export function buildProductRemap(
+  prodProducts: Row[],
+  stagingProducts: { id: string; brand_id: string; key: string }[],
+  brandIdMap: Map<string, string>,
+): Map<string, string> {
+  const stagingByNaturalKey = new Map<string, string>();
+  for (const row of stagingProducts) {
+    stagingByNaturalKey.set(`${row.brand_id}\0${row.key}`, row.id);
+  }
+  const remap = new Map<string, string>();
+  for (const row of prodProducts) {
+    const mappedBrandId = brandIdMap.get(String(row.brand_id));
+    if (!mappedBrandId) continue;
+    const stagingId = stagingByNaturalKey.get(
+      `${mappedBrandId}\0${String(row.key)}`,
+    );
+    if (stagingId) remap.set(String(row.id), stagingId);
+  }
+  return remap;
 }
 
 // ---------------------------------------------------------------------------
@@ -2020,6 +2202,8 @@ const DIFF_LOOKUP_COLUMN: Record<CopyTable, string> = {
   event_brands: "brand_id",
   brand_slug_redirects: "old_slug",
   mit_registry: "record_key",
+  curated_products: "brand_id",
+  curated_product_sources: "product_id",
 };
 
 /** Staging rows in scope for a planned batch, for the dry-run diff. */
@@ -2278,6 +2462,27 @@ async function runSync(argv: string[]): Promise<void> {
     ["record_key"],
   );
 
+  const prodProducts = await readByValues<Row>(
+    production.client,
+    "curated_products",
+    "*",
+    "brand_id",
+    prodBrandIds,
+    ["brand_id", "key"],
+  );
+  const prodProductIds = prodProducts.map((row) => String(row.id));
+  const prodProductSources =
+    prodProductIds.length > 0
+      ? await readByValues<Row>(
+          production.client,
+          "curated_product_sources",
+          "*",
+          "product_id",
+          prodProductIds,
+          ["product_id", "url"],
+        )
+      : [];
+
   const copied = new Map<string, number>();
   const planned = new Map<string, number>();
   /** Every planned batch, keyed by table + conflict target. brand_images
@@ -2413,7 +2618,40 @@ async function runSync(argv: string[]): Promise<void> {
     );
   }
 
-  // --- 11. Storage objects -------------------------------------------------
+  // --- 11. Curated products ------------------------------------------------
+  if (wants("curated_products")) {
+    const productPlan = planProductRows(prodProducts, remap.map);
+    assertMapped("curated_products", productPlan.unmapped);
+    await write("curated_products", productPlan.rows);
+  }
+
+  // --- 12. Curated product sources (needs product remap) ------------------
+  if (wants("curated_product_sources")) {
+    // Re-read staging products by (brand_id, key) to build the product remap.
+    // The upsert above generated staging UUIDs; this read recovers them.
+    const stagingBrandIds = [...remap.map.values()];
+    const stagingProducts =
+      stagingBrandIds.length > 0
+        ? await readByValues<{ id: string; brand_id: string; key: string }>(
+            staging.client,
+            "curated_products",
+            "id,brand_id,key",
+            "brand_id",
+            stagingBrandIds,
+            ["brand_id", "key"],
+          )
+        : [];
+    const productRemap = buildProductRemap(
+      prodProducts,
+      stagingProducts,
+      remap.map,
+    );
+    const sourcePlan = planProductSourceRows(prodProductSources, productRemap);
+    assertMapped("curated_product_sources", sourcePlan.unmapped);
+    await write("curated_product_sources", sourcePlan.rows);
+  }
+
+  // --- 13. Storage objects -------------------------------------------------
   // Gated on brand_images: it holds all but a handful of the referenced keys.
   // `brands.hero_image_storage_path` is denormalized from one of its rows.
   let storage: StorageCopyReport | null = null;
@@ -2423,6 +2661,7 @@ async function runSync(argv: string[]): Promise<void> {
       brand_images: prodImages,
       events: prodEvents,
       event_exhibitors: prodExhibitors,
+      curated_products: prodProducts,
     });
     if (keyPlan.skippedByPrefix.length > 0) {
       const prefixes = tally(
