@@ -7,6 +7,11 @@ export type Json =
   | Json[]
 
 export type Database = {
+  // Allows to automatically instantiate createClient with right options
+  // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
+  __InternalSupabase: {
+    PostgrestVersion: "14.5"
+  }
   public: {
     Tables: {
       admin_audit_log: {
@@ -1466,6 +1471,13 @@ export type Database = {
             referencedRelation: "curated_products"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "curated_product_selections_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "product_embedding_documents"
+            referencedColumns: ["product_id"]
+          },
         ]
       }
       curated_product_sources: {
@@ -1513,6 +1525,13 @@ export type Database = {
             referencedRelation: "curated_products"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "curated_product_sources_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "product_embedding_documents"
+            referencedColumns: ["product_id"]
+          },
         ]
       }
       curated_products: {
@@ -1541,6 +1560,7 @@ export type Database = {
           product_position: number | null
           proposed_by: string
           review_due_at: string | null
+          search_vector: unknown
           source_checked_at: string | null
           subcategory: string | null
           updated_at: string
@@ -1571,6 +1591,7 @@ export type Database = {
           product_position?: number | null
           proposed_by?: string
           review_due_at?: string | null
+          search_vector?: unknown
           source_checked_at?: string | null
           subcategory?: string | null
           updated_at?: string
@@ -1601,6 +1622,7 @@ export type Database = {
           product_position?: number | null
           proposed_by?: string
           review_due_at?: string | null
+          search_vector?: unknown
           source_checked_at?: string | null
           subcategory?: string | null
           updated_at?: string
@@ -2687,6 +2709,48 @@ export type Database = {
           },
         ]
       }
+      product_embeddings: {
+        Row: {
+          created_at: string
+          embedding: string
+          model: string
+          product_id: string
+          source_hash: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          embedding: string
+          model: string
+          product_id: string
+          source_hash: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          embedding?: string
+          model?: string
+          product_id?: string
+          source_hash?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "product_embeddings_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: true
+            referencedRelation: "curated_products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "product_embeddings_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: true
+            referencedRelation: "product_embedding_documents"
+            referencedColumns: ["product_id"]
+          },
+        ]
+      }
       product_saves: {
         Row: {
           created_at: string
@@ -2713,6 +2777,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "curated_products"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "product_saves_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "product_embedding_documents"
+            referencedColumns: ["product_id"]
           },
         ]
       }
@@ -2949,6 +3020,23 @@ export type Database = {
             columns: ["job_id"]
             isOneToOne: false
             referencedRelation: "curation_jobs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      product_embedding_documents: {
+        Row: {
+          brand_id: string | null
+          document: string | null
+          product_id: string | null
+          source_hash: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "curated_products_brand_id_fkey"
+            columns: ["brand_id"]
+            isOneToOne: false
+            referencedRelation: "brands"
             referencedColumns: ["id"]
           },
         ]
@@ -3297,6 +3385,16 @@ export type Database = {
           p_workflow_attempt: number
         }
         Returns: boolean
+      }
+      curated_products_search_document: {
+        Args: {
+          p_category: string
+          p_description_zh: string
+          p_name_en: string
+          p_name_zh: string
+          p_subcategory: string
+        }
+        Returns: unknown
       }
       dev1648_aligned_subcategory_labels: {
         Args: { p_existing_labels: string[]; p_slugs: string[] }
@@ -3657,8 +3755,32 @@ export type Database = {
           slug: string
         }[]
       }
+      search_products_semantic: {
+        Args: {
+          filter_category: string
+          filter_materials: string[]
+          filter_subcategories: string[]
+          match_count: number
+          mode: string
+          query_embedding: string
+          query_text: string
+        }
+        Returns: {
+          product_id: string
+          rank_score: number
+          search_source: string
+        }[]
+      }
       show_limit: { Args: never; Returns: number }
       show_trgm: { Args: { "": string }; Returns: string[] }
+      situation_query_bigrams: { Args: { input: string }; Returns: string[] }
+      situation_search_lexical: {
+        Args: { query: string; result_limit: number }
+        Returns: {
+          product_id: string
+          score: number
+        }[]
+      }
       staging_capture_auth_email: { Args: { event: Json }; Returns: Json }
       subcategory_json_to_slugs: { Args: { p_value: Json }; Returns: Json }
       subcategory_label_key: { Args: { p_label: string }; Returns: string }
@@ -3790,12 +3912,12 @@ export type Tables<
   DefaultSchemaTableNameOrOptions extends
     | keyof (DefaultSchema["Tables"] & DefaultSchema["Views"])
     | { schema: keyof DatabaseWithoutInternals },
-  TableName extends DefaultSchemaTableNameOrOptions extends {
+  TableName extends (DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
         DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])
-    : never = never,
+    : never) = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -3819,11 +3941,11 @@ export type TablesInsert<
   DefaultSchemaTableNameOrOptions extends
     | keyof DefaultSchema["Tables"]
     | { schema: keyof DatabaseWithoutInternals },
-  TableName extends DefaultSchemaTableNameOrOptions extends {
+  TableName extends (DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
-    : never = never,
+    : never) = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -3844,11 +3966,11 @@ export type TablesUpdate<
   DefaultSchemaTableNameOrOptions extends
     | keyof DefaultSchema["Tables"]
     | { schema: keyof DatabaseWithoutInternals },
-  TableName extends DefaultSchemaTableNameOrOptions extends {
+  TableName extends (DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
-    : never = never,
+    : never) = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -3869,11 +3991,11 @@ export type Enums<
   DefaultSchemaEnumNameOrOptions extends
     | keyof DefaultSchema["Enums"]
     | { schema: keyof DatabaseWithoutInternals },
-  EnumName extends DefaultSchemaEnumNameOrOptions extends {
+  EnumName extends (DefaultSchemaEnumNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"]
-    : never = never,
+    : never) = never,
 > = DefaultSchemaEnumNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -3886,11 +4008,11 @@ export type CompositeTypes<
   PublicCompositeTypeNameOrOptions extends
     | keyof DefaultSchema["CompositeTypes"]
     | { schema: keyof DatabaseWithoutInternals },
-  CompositeTypeName extends PublicCompositeTypeNameOrOptions extends {
+  CompositeTypeName extends (PublicCompositeTypeNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"]
-    : never = never,
+    : never) = never,
 > = PublicCompositeTypeNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
