@@ -558,9 +558,18 @@ function mergeRecoveryResult(
 ): MultiScrapeResult {
   if (!existing) return recovery
   const mergedStatuses = [...existing.statuses, ...recovery.statuses]
-  // First-pass-wins: only fill fields that are empty/null in existing data
+  // First-pass-wins for scalar fields; concatenate for image arrays so
+  // imagesRecoverNode can discover fresh candidates from the recovery scrape.
+  const IMAGE_ARRAY_KEYS = new Set(['galleryImageUrls', 'imageSources', 'jsonLdImageUrls'])
   const mergedData = { ...recovery.data }
   for (const [key, value] of Object.entries(existing.data)) {
+    if (IMAGE_ARRAY_KEYS.has(key) && Array.isArray(value)) {
+      const recoveryArr = Array.isArray((mergedData as Record<string, unknown>)[key])
+        ? (mergedData as Record<string, unknown>)[key] as unknown[]
+        : [];
+      (mergedData as Record<string, unknown>)[key] = [...value, ...recoveryArr]
+      continue
+    }
     if (value !== null && value !== undefined && value !== '' &&
         !(Array.isArray(value) && value.length === 0)) {
       (mergedData as Record<string, unknown>)[key] = value

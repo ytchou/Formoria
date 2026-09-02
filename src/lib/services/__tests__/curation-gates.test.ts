@@ -171,13 +171,13 @@ describe("Gate C — llmStageFailure", () => {
     const decision = evaluateLlmProviderGate([
       phase("links", "succeeded"),
       phase("descriptions", "failed", { providerFailure: true }),
-      phase("classify_images", "failed", { providerFailure: true }),
+      phase("faq", "failed", { providerFailure: true }),
     ]);
 
     expect(decision?.action).toBe("fail");
     expect(decision?.message).toContain("LLM provider unavailable");
     expect(decision?.message).toContain("descriptions");
-    expect(decision?.message).toContain("classify_images");
+    expect(decision?.message).toContain("faq");
   });
 
   // The regression that matters most: on 2026-08-02 the run went green because
@@ -188,7 +188,7 @@ describe("Gate C — llmStageFailure", () => {
     expect(
       evaluateLlmProviderGate([
         phase("descriptions", "succeeded"),
-        phase("classify_images", "failed", { providerFailure: true }),
+        phase("faq", "failed", { providerFailure: true }),
       ]),
     ).toBeNull();
   });
@@ -207,13 +207,13 @@ describe("Gate C — llmStageFailure", () => {
     expect(
       evaluateLlmProviderGate([
         phase("descriptions", "skipped"),
-        phase("classify_images", "failed", { providerFailure: true }),
+        phase("faq", "failed", { providerFailure: true }),
       ])?.action,
     ).toBe("fail");
     expect(
       evaluateLlmProviderGate([
         phase("descriptions", "skipped"),
-        phase("classify_images", "skipped"),
+        phase("faq", "skipped"),
       ]),
     ).toBeNull();
   });

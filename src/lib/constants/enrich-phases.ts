@@ -169,8 +169,8 @@ export const PHASE_DEPENDENCIES: Record<EnrichPhaseName, readonly EnrichPhaseNam
  * and `classify_images` (DEV-1644 wave-A/B collapse).
  */
 export const DEFERRED_PHASES = [
-  "discover",
   "clean",
+  "discover",
   "links",
   "site_identity",
   "images",

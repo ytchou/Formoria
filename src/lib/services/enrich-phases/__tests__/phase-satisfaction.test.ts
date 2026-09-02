@@ -20,18 +20,21 @@ describe("history-based phase satisfaction", () => {
   });
 
   it("phase_succeeded_deps_older_is_satisfied", () => {
-    // `descriptions` depends on `links`; links older → satisfied
+    // `descriptions` depends on `acquire` (which depends on `detect`);
+    // all deps older → satisfied
     const history: PhaseHistory = new Map([
-      ["links", new Date("2026-08-01T00:00:00Z")],       // T=50
+      ["detect", new Date("2026-07-31T00:00:00Z")],        // T=0
+      ["acquire", new Date("2026-08-01T00:00:00Z")],       // T=50
       ["descriptions", new Date("2026-08-02T00:00:00Z")], // T=100
     ]);
     expect(checkPhaseSatisfaction("descriptions", history)).toBe("satisfied");
   });
 
   it("phase_succeeded_dep_newer_is_unsatisfied", () => {
-    // `descriptions` depends on `links`; links newer → stale
+    // `descriptions` depends on `acquire`; acquire newer → stale
     const history: PhaseHistory = new Map([
-      ["links", new Date("2026-08-02T00:00:00Z")],       // T=100
+      ["detect", new Date("2026-07-30T00:00:00Z")],        // T=0
+      ["acquire", new Date("2026-08-02T00:00:00Z")],       // T=100
       ["descriptions", new Date("2026-08-01T00:00:00Z")], // T=50
     ]);
     expect(checkPhaseSatisfaction("descriptions", history)).toBe("unsatisfied");
@@ -74,20 +77,21 @@ describe("history-based phase satisfaction", () => {
   });
 
   it("filter_returns_correct_execute_and_skipped", () => {
-    // links satisfied, descriptions stale (dep links is newer)
+    // acquire satisfied (detect dep is older), descriptions stale (dep acquire is newer)
     const history: PhaseHistory = new Map([
-      ["links", new Date("2026-08-02T00:00:00Z")],
+      ["detect", new Date("2026-07-31T00:00:00Z")],
+      ["acquire", new Date("2026-08-02T00:00:00Z")],
       ["descriptions", new Date("2026-08-01T00:00:00Z")],
     ]);
 
     const result = filterSatisfiedPhases(
-      ["links", "descriptions", "clean"],
+      ["acquire", "descriptions", "clean"],
       history,
     );
 
     expect(result.execute).toEqual(["descriptions", "clean"]);
     expect(result.skipped).toEqual([
-      { phase: "links", reason: "satisfied" },
+      { phase: "acquire", reason: "satisfied" },
     ]);
   });
 
@@ -131,16 +135,16 @@ describe("history-based phase satisfaction", () => {
   });
 
   it("transitive_staleness_propagates", () => {
-    // discover (dep of detect) ran most recently at T=100
-    // detect (dep of slugs) ran at T=50 — stale because discover is newer
-    // slugs ran at T=25 — stale because detect is newer
+    // detect (dep of acquire) ran most recently at T=100
+    // acquire (dep of descriptions) ran at T=50 — stale because detect is newer
+    // descriptions ran at T=25 — stale because acquire is newer
     const history: PhaseHistory = new Map([
-      ["discover", new Date("2026-08-03T00:00:00Z")], // T=100
-      ["detect", new Date("2026-08-02T00:00:00Z")],   // T=50
-      ["slugs", new Date("2026-08-01T00:00:00Z")],    // T=25
+      ["detect", new Date("2026-08-03T00:00:00Z")],       // T=100
+      ["acquire", new Date("2026-08-02T00:00:00Z")],      // T=50
+      ["descriptions", new Date("2026-08-01T00:00:00Z")], // T=25
     ]);
 
-    expect(checkPhaseSatisfaction("detect", history)).toBe("unsatisfied");
-    expect(checkPhaseSatisfaction("slugs", history)).toBe("unsatisfied");
+    expect(checkPhaseSatisfaction("acquire", history)).toBe("unsatisfied");
+    expect(checkPhaseSatisfaction("descriptions", history)).toBe("unsatisfied");
   });
 });

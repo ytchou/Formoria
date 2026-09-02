@@ -127,8 +127,9 @@ describe("satisfaction-based phase skipping", () => {
 
   it("satisfied_prerequisites_are_skipped", () => {
     const resolved = phasesForTask("visual");
-    // acquire has a history entry (satisfied), other deps do not
+    // detect and acquire have history entries (both satisfied), other deps do not
     const history = makeHistory([
+      ["detect", new Date("2026-07-31T00:00:00Z")],
       ["acquire", new Date("2026-08-01T00:00:00Z")],
     ]);
 
@@ -136,9 +137,11 @@ describe("satisfaction-based phase skipping", () => {
 
     expect(skipped).toEqual(
       expect.arrayContaining([
+        expect.objectContaining({ phase: "detect", reason: "satisfied" }),
         expect.objectContaining({ phase: "acquire", reason: "satisfied" }),
       ]),
     );
+    expect(execute).not.toContain("detect");
     expect(execute).not.toContain("acquire");
     expect(execute).toContain("products");
     expect(execute).toContain("names");

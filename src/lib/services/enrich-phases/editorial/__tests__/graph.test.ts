@@ -105,6 +105,7 @@ function makeDeps(overrides: Partial<EditorialDeps> = {}): EditorialDeps {
 describe('editorial agent graph', () => {
   beforeEach(() => {
     vi.restoreAllMocks()
+    vi.unstubAllEnvs()
   })
 
   it('editorial_happy_path — runs all phases and finalizes with no repair', async () => {
