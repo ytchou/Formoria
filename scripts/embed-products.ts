@@ -84,7 +84,7 @@ async function main(): Promise<void> {
   }
 }
 
-if (process.argv[1]?.endsWith("embed-products.ts")) {
+if (import.meta.url === `file://${process.argv[1]}`) {
   main().catch((error) => {
     console.error(error);
     process.exit(1);
