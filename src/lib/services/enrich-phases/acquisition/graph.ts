@@ -31,6 +31,7 @@ import {
   type ProbeResult,
 } from './budget'
 import type { SearchResult } from './tools'
+import { invokeAudited, type AuditBridgeContext } from './audit-bridge'
 import {
   ACQUISITION_PLAN_SYSTEM_PROMPT,
   ACQUISITION_CRITIQUE_SYSTEM_PROMPT,
@@ -66,8 +67,35 @@ export type AcquisitionDeps = {
 type RunOptions = {
   model?: Runnable
   signal?: AbortSignal
+  /**
+   * When present, every model turn goes through the audit bridge (auditedCall
+   * span + brand_ai_results row + Langfuse generation). Absent in unit tests,
+   * where the scripted model is invoked directly.
+   */
+  audit?: Omit<AuditBridgeContext, 'phase'> & { phase?: string }
   /** Test-only: override the computed budget to force edge-case paths. */
   budgetOverride?: AcquisitionBudget
+}
+
+type ModelResponse = { content: unknown }
+
+async function callModel(
+  model: Runnable,
+  messages: BaseMessage[],
+  options: RunOptions,
+): Promise<ModelResponse> {
+  if (!options.audit) return (await model.invoke(messages)) as ModelResponse
+  return (await invokeAudited(
+    model as unknown as Parameters<typeof invokeAudited>[0],
+    messages,
+    { ...options.audit, phase: options.audit.phase ?? 'acquisition' },
+  )) as ModelResponse
+}
+
+// Models sometimes wrap JSON in a ```json fence even under json_object mode.
+function extractJson(text: string): string {
+  const fenced = /```(?:json)?\s*([\s\S]*?)```/i.exec(text)
+  return (fenced?.[1] ?? text).trim()
 }
 
 // ---------------------------------------------------------------------------
@@ -155,6 +183,7 @@ async function gatherNode(
 async function planNode(
   state: GraphState,
   model: Runnable,
+  options: RunOptions = {},
 ): Promise<GraphState> {
   const start = Date.now()
 
@@ -181,7 +210,7 @@ async function planNode(
     new HumanMessage(userContent),
   ]
 
-  const response = await model.invoke(messages)
+  const response = await callModel(model, messages, options)
   state.budget.used.turns++
 
   // Parse the plan from the model response
@@ -191,7 +220,7 @@ async function planNode(
 
   let parsed: unknown
   try {
-    parsed = JSON.parse(content)
+    parsed = JSON.parse(extractJson(content))
   } catch {
     return {
       ...state,
@@ -267,6 +296,7 @@ async function executeNode(
 async function critiqueNode(
   state: GraphState,
   model: Runnable,
+  options: RunOptions = {},
 ): Promise<GraphState> {
   const start = Date.now()
 
@@ -299,7 +329,7 @@ async function critiqueNode(
     new HumanMessage(userContent),
   ]
 
-  const response = await model.invoke(messages)
+  const response = await callModel(model, messages, options)
   state.budget.used.turns++
 
   const content = typeof response.content === 'string'
@@ -308,7 +338,7 @@ async function critiqueNode(
 
   let verdict: CritiqueVerdict
   try {
-    const parsed = JSON.parse(content)
+    const parsed = JSON.parse(extractJson(content))
     const result = CritiqueVerdictSchema.safeParse(parsed)
     verdict = result.success
       ? result.data
@@ -429,9 +459,9 @@ export async function runAcquisition(
   }
 
   // 2. Plan (with one retry on failure)
-  state = await planNode(state, model)
+  state = await planNode(state, model, options)
   if (!state.plan && state.planAttempts < 2) {
-    state = await planNode(state, model)
+    state = await planNode(state, model, options)
   }
   if (!state.plan) {
     return {
@@ -454,7 +484,7 @@ export async function runAcquisition(
   state = await executeNode(state, deps)
 
   // 4. Critique
-  state = await critiqueNode(state, model)
+  state = await critiqueNode(state, model, options)
 
   // 5. If thin and no recovery yet, recover then re-critique
   if (state.verdict?.verdict === 'thin' && !state.recoveryDone) {
@@ -462,7 +492,7 @@ export async function runAcquisition(
     state.agentOutcome = 'recovered'
 
     // Re-critique after recovery (but don't loop again)
-    state = await critiqueNode(state, model)
+    state = await critiqueNode(state, model, options)
   }
 
   // Finalize

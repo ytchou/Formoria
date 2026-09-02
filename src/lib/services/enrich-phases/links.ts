@@ -705,6 +705,23 @@ export async function runLinksPhase({
       try {
         const { runAcquisition } = await import('./acquisition/graph')
         const { boundedPlan } = await import('./acquisition/plan')
+        const { ChatOpenAI } = await import('@langchain/openai')
+        const { LLM_PROFILES, resolveProfileModel } = await import('@/lib/constants/llm-models')
+        const profile = LLM_PROFILES.acquisition
+        const modelName = resolveProfileModel('acquisition')
+        // gpt-5 chat completions accept a temperature only alongside
+        // reasoning_effort 'none' (same rule as openai-client.ts). json_object
+        // keeps the plan/critique parseable without a structured-output round trip.
+        const model = new ChatOpenAI({
+          model: modelName,
+          temperature: profile.temperature,
+          timeout: profile.timeoutMs,
+          maxRetries: 1,
+          modelKwargs: {
+            reasoning_effort: profile.reasoningEffort ?? 'none',
+            response_format: { type: 'json_object' },
+          },
+        })
         const agentResult = await runAcquisition(
           {
             brand: { id: brand.id, slug: brand.slug, name: brand.name },
@@ -721,6 +738,15 @@ export async function runLinksPhase({
             },
             scrapeBrandUrls: (agentUrls, opts) =>
               scrapeBrandUrls(agentUrls, { ...scrapeOptions, ...opts }),
+          },
+          {
+            model,
+            audit: {
+              target: target ?? brandTarget(brand.id),
+              ...(jobId ? { jobId } : {}),
+              ...(supabase ? { supabase } : {}),
+              modelName,
+            },
           },
         )
 
@@ -797,7 +823,15 @@ export async function runLinksPhase({
   const status = hasPatchValues(result.patch) ? 'succeeded' : 'skipped'
 
   return {
-    phaseResult: buildPhaseResult('links', status, changedFields, durationMs),
+    phaseResult: {
+      ...buildPhaseResult('links', status, changedFields, durationMs),
+      ...(result.agentOutcome
+        ? { agentOutcome: result.agentOutcome as PhaseResult['agentOutcome'] }
+        : {}),
+      ...(result.agentAcquisitionPlan
+        ? { acquisitionPlan: result.agentAcquisitionPlan as unknown as Record<string, unknown> }
+        : {}),
+    },
     patch: result.patch,
     scrapedBrandName: result.scrapedBrandName,
     officialNameCandidates: result.officialNameCandidates,

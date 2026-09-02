@@ -89,93 +89,140 @@ export function renderDecisionTimeline(
 
 // ---------------------------------------------------------------------------
 // Database fetch (not tested — integration only)
+//
+// Join keys: the refresh flow targets submissions, so every per-attempt store
+// is keyed by (job_id, submission_id). `external_call_audit.job_id` is null for
+// spans nested inside a brand's phase, so it is NOT used as the join key here;
+// `brand_search_results` (one row per scrape attempt, `audit_span_id` set) and
+// `brand_ai_results` (one row per model turn) are the authoritative stores.
 // ---------------------------------------------------------------------------
+
+type TargetRow = {
+  target_type: string
+  target_id: string
+  brand_name: string | null
+  brand_slug: string | null
+  status: string
+  phase_results: unknown
+}
+
+type ScrapeRow = {
+  submission_id: string | null
+  brand_id: string | null
+  audit_span_id: string | null
+  provider: string | null
+  endpoint: string | null
+  call_status: string | null
+  http_status: number | null
+  latency_ms: number | null
+  created_at: string
+}
+
+type AiRow = {
+  submission_id: string | null
+  brand_id: string | null
+  audit_span_id: string | null
+  model: string | null
+  latency_ms: number | null
+  usage: Record<string, unknown> | null
+  created_at: string
+}
 
 async function fetchTraces(
   client: ReturnType<typeof createWriteBlockingClient>["client"],
   jobId: string,
 ) {
-  // Phase results from curation_job_targets
   const { data: targets, error: tErr } = await client
     .from("curation_job_targets")
-    .select("brand_id, brand_slug, phase_results")
+    .select("target_type, target_id, brand_name, brand_slug, status, phase_results")
     .eq("job_id", jobId);
-
   if (tErr) throw new Error(`curation_job_targets query failed: ${tErr.message}`);
 
-  // External call audit spans
-  const { data: auditSpans, error: aErr } = await client
-    .from("external_call_audit")
-    .select("*")
+  const { data: scrapes, error: sErr } = await client
+    .from("brand_search_results")
+    .select("submission_id, brand_id, audit_span_id, provider, endpoint, call_status, http_status, latency_ms, created_at")
     .eq("job_id", jobId)
-    .in("provider", ["scraper", "browserless", "http", "openai"]);
+    .in("provider", ["scraper", "browserless", "http"])
+    .limit(1000);
+  if (sErr) throw new Error(`brand_search_results query failed: ${sErr.message}`);
 
-  if (aErr) throw new Error(`external_call_audit query failed: ${aErr.message}`);
-
-  // AI results for acquisition phase
   const { data: aiResults, error: aiErr } = await client
     .from("brand_ai_results")
-    .select("*")
-    .eq("phase", "acquisition");
-
+    .select("submission_id, brand_id, audit_span_id, model, latency_ms, usage, created_at")
+    .eq("job_id", jobId)
+    .eq("phase", "acquisition")
+    .limit(1000);
   if (aiErr) throw new Error(`brand_ai_results query failed: ${aiErr.message}`);
 
-  return { targets: targets ?? [], auditSpans: auditSpans ?? [], aiResults: aiResults ?? [] };
+  return {
+    targets: (targets ?? []) as TargetRow[],
+    scrapes: (scrapes ?? []) as ScrapeRow[],
+    aiResults: (aiResults ?? []) as AiRow[],
+  };
 }
 
-function extractDecisions(
-  phaseResults: Record<string, unknown> | null,
-): DecisionStep[] {
-  if (!phaseResults) return [];
-
-  const links = phaseResults.links as
-    | { plan?: unknown[]; decisions?: unknown[] }
-    | undefined;
-  if (!links) return [];
-
-  const steps: DecisionStep[] = [];
-
-  if (Array.isArray(links.plan)) {
-    for (const entry of links.plan) {
-      const e = entry as Record<string, unknown>;
-      steps.push({
-        ms: (e.ms as number) ?? 0,
-        phase: "plan",
-        action: String(e.action ?? ""),
-        detail: String(e.detail ?? ""),
-      });
-    }
+type LinksPhaseRow = {
+  phase: string
+  status: string
+  agentOutcome?: string
+  acquisitionPlan?: {
+    surfaces?: Array<{ url: string; fetch: string; strategy?: string; reason: string }>
+    fanOut?: string[]
+    decisions?: Array<{ step: string; action: string; reason: string; ms: number }>
   }
-
-  if (Array.isArray(links.decisions)) {
-    for (const entry of links.decisions) {
-      const e = entry as Record<string, unknown>;
-      steps.push({
-        ms: (e.ms as number) ?? 0,
-        phase: "execute",
-        action: String(e.action ?? ""),
-        detail: String(e.detail ?? ""),
-      });
-    }
-  }
-
-  return steps;
 }
 
-function auditToSpans(
-  rows: Array<Record<string, unknown>>,
-  brandId: string,
-): ToolSpan[] {
-  return rows
-    .filter((r) => r.brand_id === brandId)
-    .map((r) => ({
-      spanId: String(r.span_id ?? r.id ?? ""),
-      provider: String(r.provider ?? ""),
-      ms: (r.started_at_ms as number) ?? 0,
-      durationMs: (r.duration_ms as number) ?? 0,
-      status: (r.status as number) ?? 0,
-      detail: String(r.detail ?? r.url ?? ""),
-    }));
+function linksPhase(phaseResults: unknown): LinksPhaseRow | undefined {
+  if (!Array.isArray(phaseResults)) return undefined;
+  return (phaseResults as LinksPhaseRow[]).find((p) => p.phase === "links");
+}
+
+function extractDecisions(links: LinksPhaseRow | undefined): DecisionStep[] {
+  const decisions = links?.acquisitionPlan?.decisions ?? [];
+  return decisions.map((d) => ({
+    ms: d.ms ?? 0,
+    phase: d.step,
+    action: d.action,
+    detail: d.reason,
+  }));
+}
+
+function belongsTo(row: { submission_id: string | null; brand_id: string | null }, target: TargetRow): boolean {
+  return target.target_type === "submission"
+    ? row.submission_id === target.target_id
+    : row.brand_id === target.target_id;
+}
+
+function toSpans(scrapes: ScrapeRow[], ai: AiRow[], target: TargetRow): ToolSpan[] {
+  const mine = [
+    ...scrapes.filter((r) => belongsTo(r, target)).map((r) => ({
+      spanId: r.audit_span_id ?? "",
+      provider: r.provider ?? "scraper",
+      at: Date.parse(r.created_at),
+      durationMs: r.latency_ms ?? 0,
+      status: r.http_status ?? 0,
+      detail: `${r.call_status ?? ""} ${r.endpoint ?? ""}`.trim(),
+    })),
+    ...ai.filter((r) => belongsTo(r, target)).map((r) => ({
+      spanId: r.audit_span_id ?? "",
+      provider: "openai",
+      at: Date.parse(r.created_at),
+      durationMs: r.latency_ms ?? 0,
+      status: 200,
+      detail: `${r.model ?? ""} in=${r.usage?.prompt_tokens ?? "?"} out=${r.usage?.completion_tokens ?? "?"}`,
+    })),
+  ];
+  const t0 = mine.length ? Math.min(...mine.map((s) => s.at)) : 0;
+  return mine.map(({ at, ...s }) => ({ ...s, ms: at - t0 }));
+}
+
+function slugFor(target: TargetRow): string {
+  if (target.brand_slug) return target.brand_slug;
+  const fromName = (target.brand_name ?? "")
+    .toLowerCase()
+    .replace(/[^a-z0-9\u4e00-\u9fff]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+  return fromName || target.target_id;
 }
 
 // ---------------------------------------------------------------------------
@@ -202,35 +249,44 @@ async function main() {
   const { client } = createWriteBlockingClient(supabaseUrl, supabaseKey);
 
   console.log(`[traces] fetching traces for job ${jobId}…`);
-  const { targets, auditSpans, aiResults } = await fetchTraces(client, jobId);
+  const { targets, scrapes, aiResults } = await fetchTraces(client, jobId);
   console.log(
-    `[traces] ${targets.length} targets, ${auditSpans.length} spans, ${aiResults.length} AI results`,
+    `[traces] ${targets.length} targets, ${scrapes.length} scrape attempts, ${aiResults.length} agent turns`,
   );
 
   const outDir = resolve(`docs/dev-1644/traces/${jobId}`);
   await mkdir(outDir, { recursive: true });
 
-  for (const target of targets) {
-    const slug = target.brand_slug as string;
-    const brandId = target.brand_id as string;
-    const phaseResults = target.phase_results as Record<string, unknown> | null;
+  const summary: string[] = [
+    `# Cohort traces — job ${jobId}`,
+    "",
+    "| brand | links | agentOutcome | surfaces | fanOut | scrape attempts | agent turns | tokens in/out | decisions |",
+    "| --- | --- | --- | --- | --- | --- | --- | --- | --- |",
+  ];
 
-    const decisions = extractDecisions(phaseResults);
-    const spans = auditToSpans(auditSpans as Array<Record<string, unknown>>, brandId);
+  for (const target of targets) {
+    const slug = slugFor(target);
+    const links = linksPhase(target.phase_results);
+    const decisions = extractDecisions(links);
+    const spans = toSpans(scrapes, aiResults, target);
+    const turns = aiResults.filter((r) => belongsTo(r, target));
+    const tokIn = turns.reduce((n, r) => n + Number(r.usage?.prompt_tokens ?? 0), 0);
+    const tokOut = turns.reduce((n, r) => n + Number(r.usage?.completion_tokens ?? 0), 0);
 
     const md = renderDecisionTimeline(slug, decisions, spans);
     await writeFile(resolve(outDir, `${slug}.md`), md + "\n");
-
-    // Also write raw JSON for programmatic analysis
-    const json = { slug, brandId, decisions, spans, aiResults: (aiResults as Array<Record<string, unknown>>).filter((r) => r.brand_id === brandId) };
     await writeFile(
       resolve(outDir, `${slug}.json`),
-      JSON.stringify(json, null, 2) + "\n",
+      JSON.stringify({ slug, target, links, decisions, spans }, null, 2) + "\n",
     );
 
+    summary.push(
+      `| ${slug} | ${links?.status ?? "-"} | ${links?.agentOutcome ?? "-"} | ${links?.acquisitionPlan?.surfaces?.length ?? "-"} | ${links?.acquisitionPlan?.fanOut?.length ?? "-"} | ${spans.filter((s) => s.provider !== "openai").length} | ${turns.length} | ${tokIn}/${tokOut} | ${decisions.length} |`,
+    );
     console.log(`[traces] wrote ${slug}`);
   }
 
+  await writeFile(resolve(outDir, "README.md"), summary.join("\n") + "\n");
   console.log(`[traces] done — ${outDir}`);
 }
 

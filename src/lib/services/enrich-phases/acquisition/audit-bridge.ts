@@ -23,13 +23,31 @@ export type AuditBridgeContext = {
   target?: LlmAuditContext['target']
   attempt?: number
   supabase?: LlmAuditContext['supabase']
+  /** Resolved model name recorded on the audit row; defaults to a placeholder. */
+  modelName?: string
   _persistAuditEvent?: typeof persistAuditEvent
   _emitLangfuseGeneration?: typeof emitLangfuseGeneration
 }
 
+/**
+ * Accepts either plain `{ role, content }` messages or LangChain
+ * `BaseMessage` instances (which expose the role via `_getType()`).
+ */
 type LangChainMessage = {
-  role: 'system' | 'user' | 'assistant'
-  content: string
+  role?: 'system' | 'user' | 'assistant'
+  content: unknown
+  _getType?: () => string
+}
+
+function roleOf(message: LangChainMessage): string {
+  if (message.role) return message.role
+  const type = message._getType?.()
+  return type === 'human' ? 'user' : (type ?? 'user')
+}
+
+function textOf(message: LangChainMessage | undefined): string {
+  if (!message) return ''
+  return typeof message.content === 'string' ? message.content : JSON.stringify(message.content ?? '')
 }
 
 type LangChainModel = {
@@ -78,7 +96,7 @@ export async function invokeAudited(
       const usage = response.usage_metadata
       const event: ChatAuditEvent = {
         provider: 'openai',
-        model: 'acquisition-agent',
+        model: ctx.modelName ?? 'acquisition-agent',
         ok: true,
         status: 200,
         data: response.content,
@@ -89,8 +107,8 @@ export async function invokeAudited(
         } : undefined,
         latencyMs,
         request: {
-          system: messages.find((m) => m.role === 'system')?.content ?? '',
-          user: messages.find((m) => m.role === 'user')?.content ?? '',
+          system: textOf(messages.find((m) => roleOf(m) === 'system')),
+          user: textOf(messages.find((m) => roleOf(m) === 'user')),
           imageCount: 0,
         },
       }

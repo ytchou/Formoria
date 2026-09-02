@@ -94,6 +94,24 @@ export function sampleBottomQuartile(
 // Database census (not tested — integration only)
 // ---------------------------------------------------------------------------
 
+// PostgREST returns at most db-max-rows (1000) per request and `.limit()` does
+// not raise that cap, so a whole-table read silently truncates. Page with
+// `.range()` until a short page comes back.
+const PAGE = 1000;
+async function fetchAllRows<T>(
+  build: () => { range: (from: number, to: number) => PromiseLike<{ data: T[] | null; error: { message: string } | null }> },
+  label: string,
+): Promise<T[]> {
+  const rows: T[] = [];
+  for (let from = 0; ; from += PAGE) {
+    const { data, error } = await build().range(from, from + PAGE - 1);
+    if (error) throw new Error(`${label} query failed: ${error.message}`);
+    const page = data ?? [];
+    rows.push(...page);
+    if (page.length < PAGE) return rows;
+  }
+}
+
 async function fetchBrandSignals(
   client: ReturnType<typeof createWriteBlockingClient>["client"],
 ): Promise<BrandSignals[]> {
@@ -107,44 +125,37 @@ async function fetchBrandSignals(
   if (!brands || brands.length === 0) throw new Error("no approved brands found");
 
   // Count approved images per brand
-  const { data: imageCounts, error: imgErr } = await client
-    .from("brand_images")
-    .select("brand_id")
-    .eq("status", "approved");
-
-  if (imgErr) throw new Error(`brand_images query failed: ${imgErr.message}`);
+  const imageCounts = await fetchAllRows<{ brand_id: string }>(
+    () => client.from("brand_images").select("brand_id").eq("status", "approved"),
+    "brand_images",
+  );
 
   const imageCountMap = new Map<string, number>();
-  for (const row of imageCounts ?? []) {
+  for (const row of imageCounts) {
     const id = row.brand_id as string;
     imageCountMap.set(id, (imageCountMap.get(id) ?? 0) + 1);
   }
 
   // Count published curated products per brand
-  const { data: productCounts, error: prodErr } = await client
-    .from("curated_products")
-    .select("brand_id")
-    .eq("published", true);
-
-  if (prodErr)
-    throw new Error(`curated_products query failed: ${prodErr.message}`);
+  const productCounts = await fetchAllRows<{ brand_id: string }>(
+    () => client.from("curated_products").select("brand_id").eq("visible", true),
+    "curated_products",
+  );
 
   const productCountMap = new Map<string, number>();
-  for (const row of productCounts ?? []) {
+  for (const row of productCounts) {
     const id = row.brand_id as string;
     productCountMap.set(id, (productCountMap.get(id) ?? 0) + 1);
   }
 
   // Count brand_channels per brand
-  const { data: channelCounts, error: chanErr } = await client
-    .from("brand_channels")
-    .select("brand_id");
-
-  if (chanErr)
-    throw new Error(`brand_channels query failed: ${chanErr.message}`);
+  const channelCounts = await fetchAllRows<{ brand_id: string }>(
+    () => client.from("brand_channels").select("brand_id"),
+    "brand_channels",
+  );
 
   const channelCountMap = new Map<string, number>();
-  for (const row of channelCounts ?? []) {
+  for (const row of channelCounts) {
     const id = row.brand_id as string;
     channelCountMap.set(id, (channelCountMap.get(id) ?? 0) + 1);
   }
