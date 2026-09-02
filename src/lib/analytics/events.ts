@@ -298,6 +298,19 @@ export const ANALYTICS_EVENTS = {
   BRAND_SEARCH_EXECUTED: "brand_search_executed",
 
   /**
+   * A product search ran (on the `/discover?q=` surface).
+   * @property query_length {number} Character length of the query.
+   * @property result_count {number} Number of product results returned.
+   * @property has_results {boolean} Whether the query returned anything.
+   * @property search_term {string | undefined} The query text, trimmed and capped at 100
+   *   characters. Absent when the query looked like an email address or contained a run
+   *   of 7+ digits.
+   * @property search_source {string} Where the search originated: `discover_page` | `url`.
+   * @property degraded {boolean} Whether the search fell back to lexical-only mode.
+   */
+  PRODUCT_SEARCH_EXECUTED: "product_search_executed",
+
+  /**
    * A search returned zero results. Denominator partner of `brand_search_executed`
    * for the query success rate, and the catalog-gap signal: `search_term` on this event
    * names what the directory failed to stock.
@@ -867,6 +880,13 @@ export interface AnalyticsEventPayloads {
     query_length: number;
     result_count: number;
     has_results: boolean;
+  };
+  [ANALYTICS_EVENTS.PRODUCT_SEARCH_EXECUTED]: {
+    query_length: number;
+    result_count: number;
+    has_results: boolean;
+    search_source: string;
+    degraded: boolean;
   };
   [ANALYTICS_EVENTS.BRAND_SEARCH_EMPTY]: { query_length: number };
   [ANALYTICS_EVENTS.SEARCH_RESULT_CLICKED]: {

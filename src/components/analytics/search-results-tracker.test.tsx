@@ -6,9 +6,11 @@ import { act, render } from '@testing-library/react'
 
 const trackSearchExecuted = vi.fn()
 const trackSearchNoResults = vi.fn()
+const trackProductSearchExecuted = vi.fn()
 vi.mock('@/lib/analytics', () => ({
   trackSearchExecuted: (...args: unknown[]) => trackSearchExecuted(...args),
   trackSearchNoResults: (...args: unknown[]) => trackSearchNoResults(...args),
+  trackProductSearchExecuted: (...args: unknown[]) => trackProductSearchExecuted(...args),
 }))
 
 import {
@@ -28,6 +30,7 @@ describe('SearchResultsTracker', () => {
     vi.useFakeTimers()
     trackSearchExecuted.mockClear()
     trackSearchNoResults.mockClear()
+    trackProductSearchExecuted.mockClear()
     __resetSearchTrackerForTests()
   })
 
@@ -150,5 +153,40 @@ describe('SearchResultsTracker', () => {
     settle()
 
     expect(trackSearchExecuted).toHaveBeenCalledOnce()
+  })
+
+  it('with trackerKind="product" calls trackProductSearchExecuted with searchSource and degraded, not the brand tracker', () => {
+    render(
+      <SearchResultsTracker
+        query="陶瓷杯"
+        resultCount={12}
+        trackerKind="product"
+        searchSource="discover_page"
+        degraded={false}
+      />,
+    )
+    settle()
+
+    expect(trackProductSearchExecuted).toHaveBeenCalledExactlyOnceWith('陶瓷杯', 12, {
+      searchSource: 'discover_page',
+      degraded: false,
+    })
+    expect(trackSearchExecuted).not.toHaveBeenCalled()
+  })
+
+  it('with trackerKind="product" defaults searchSource and degraded when omitted', () => {
+    render(
+      <SearchResultsTracker
+        query="亞麻"
+        resultCount={3}
+        trackerKind="product"
+      />,
+    )
+    settle()
+
+    expect(trackProductSearchExecuted).toHaveBeenCalledExactlyOnceWith('亞麻', 3, {
+      searchSource: 'discover_page',
+      degraded: false,
+    })
   })
 })
