@@ -1,0 +1,7 @@
+{
+  "name": "dev-1644-routing-pilot",
+  "title": "DEV-1644 Routing Pilot",
+  "subtitle": "10 bottom-quartile approved brands (seed: TBD — run select-cohort.ts to populate)",
+  "warning": "Read-only pilot cohort for acquisition agent evaluation",
+  "labels": {}
+}

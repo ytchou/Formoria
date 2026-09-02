@@ -69,7 +69,12 @@ export type LinksPhaseOutput = {
   scrapedImageSources: ScrapedImageSource[]
   jsonLdImageUrls: string[]
   quarantine: Record<string, QuarantineGroup>
+  /** Present when the acquisition agent ran successfully. */
+  acquisitionPlan?: AcquisitionPlanType | null
 }
+
+// Lazy-import type only; the module is loaded dynamically at runtime.
+type AcquisitionPlanType = import('./acquisition/plan').AcquisitionPlanType
 
 type StoredNameSource = {
   source: 'official_website' | 'official_social'
@@ -687,10 +692,67 @@ export async function runLinksPhase({
         }
       },
     }
-    const firstPass = urls.length > 0 ? await scrapeBrandUrls(urls, scrapeOptions) : null
-    const scrapedFromPages: EnrichScrapedData = firstPass
-      ? await scrapeDiscoveredLinks(firstPass.data, urls, scrapeOptions, urlExtracted)
-      : ({} as EnrichScrapedData)
+    // -----------------------------------------------------------------------
+    // Acquisition agent path: when enabled, delegates gather+plan+scrape to the
+    // agent. On success, its scrapeResult replaces firstPass + scrapeDiscoveredLinks.
+    // On failure or fallback outcome, falls through to the legacy path below.
+    // -----------------------------------------------------------------------
+    let agentAcquisitionPlan: AcquisitionPlanType | undefined
+    let agentScrapeData: EnrichScrapedData | null = null
+    let agentOutcome: string | undefined
+
+    if (process.env.ACQUISITION_AGENT !== 'off') {
+      try {
+        const { runAcquisition } = await import('./acquisition/graph')
+        const { boundedPlan } = await import('./acquisition/plan')
+        const agentResult = await runAcquisition(
+          {
+            brand: { id: brand.id, slug: brand.slug, name: brand.name },
+            knownUrls: [...knownUrls, ...discoveredUrls],
+            jobId,
+          },
+          {
+            fetchHtml: (await import('./scraper/fetch-guards')).fetchHtmlWithMetadata,
+            renderProvider,
+            searchBrand: async (query: string) => {
+              const { searchBrandUrls } = await import('./scraper/serper')
+              const urls = await searchBrandUrls(query)
+              return { urls, snippets: [] }
+            },
+            scrapeBrandUrls: (agentUrls, opts) =>
+              scrapeBrandUrls(agentUrls, { ...scrapeOptions, ...opts }),
+          },
+        )
+
+        agentOutcome = agentResult.agentOutcome
+        if (
+          (agentResult.agentOutcome === 'planned' || agentResult.agentOutcome === 'recovered') &&
+          agentResult.scrapeResult
+        ) {
+          agentAcquisitionPlan = agentResult.plan ? boundedPlan(agentResult.plan) : undefined
+          agentScrapeData = agentResult.scrapeResult.data as EnrichScrapedData
+        }
+      } catch (err) {
+        console.error(
+          '  → acquisition agent failed, falling back to legacy path:',
+          err instanceof Error ? err.message : err,
+        )
+        agentOutcome = 'fallback'
+      }
+    }
+
+    let scrapedFromPages: EnrichScrapedData
+    if (agentScrapeData) {
+      // Agent provided the scrape data — skip the legacy firstPass + second pass.
+      scrapedFromPages = agentScrapeData
+    } else {
+      // Legacy path: direct scrape + discovered links follow-up.
+      const firstPass = urls.length > 0 ? await scrapeBrandUrls(urls, scrapeOptions) : null
+      scrapedFromPages = firstPass
+        ? await scrapeDiscoveredLinks(firstPass.data, urls, scrapeOptions, urlExtracted)
+        : ({} as EnrichScrapedData)
+    }
+
     const { url: resolvedWebsite, viaZeroTokenFallback } = resolveOfficialWebsite(urls, brand.name)
     const derivedWebsite = scrapedFromPages.purchaseWebsite ?? resolvedWebsite
     const hasBrandName = typeof brand.name === 'string' && brand.name.trim().length > 0
@@ -726,6 +788,8 @@ export async function runLinksPhase({
       scrapedFromPages,
       fieldSources,
       unverifiableWebsite,
+      agentAcquisitionPlan,
+      agentOutcome,
     }
   })
 
@@ -747,6 +811,7 @@ export async function runLinksPhase({
       result.patch,
       result.unverifiableWebsite,
     ),
+    ...(result.agentAcquisitionPlan ? { acquisitionPlan: result.agentAcquisitionPlan } : {}),
   }
     },
     {
