@@ -1,3 +1,12 @@
+/**
+ * @formoria-script
+ * purpose: Audits and sweeps the brand-images bucket: untracked objects, re-encodes, orphan deletes.
+ * class: operator
+ * invoke: pnpm brand-storage-maintenance
+ * target: staging-default
+ * safety: writes-on-apply
+ * owner: engineering
+ */
 import { randomUUID } from 'node:crypto'
 import { readdir, readFile, rename, stat, writeFile } from 'node:fs/promises'
 import path from 'node:path'

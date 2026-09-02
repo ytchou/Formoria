@@ -1,4 +1,13 @@
 /**
+ * @formoria-script
+ * purpose: Fails CI when a trail MDX document breaks the loader and route frontmatter contract.
+ * class: ci-gate
+ * invoke: node scripts/checks/trail-frontmatter.mjs
+ * target: ci
+ * safety: read-only
+ * owner: engineering
+ */
+/**
  * Guards the contract shared by the trail loader and the trail detail route.
  * The loader intentionally defaults malformed fields so one bad document does
  * not take down the page; this check keeps that graceful degradation visible

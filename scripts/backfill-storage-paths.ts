@@ -1,4 +1,14 @@
 /**
+ * @formoria-script
+ * purpose: Backfills bucket-relative storage_path companions for every image row that has only a public url.
+ * class: operator
+ * invoke: pnpm exec tsx scripts/backfill-storage-paths.ts
+ * target: staging-default
+ * safety: dry-run-default
+ * owner: engineering
+ * notes: pending one-off: 1045 rows on 2026-09-02
+ */
+/**
  * DEV-1551 (task 5) — backfill bucket-relative `storage_path` companions.
  *
  * Every image read is moving behind a same-origin `/i/<bucket-relative-path>`

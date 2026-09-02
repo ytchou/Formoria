@@ -1,4 +1,13 @@
 #!/usr/bin/env node
+/**
+ * @formoria-script
+ * purpose: Prints the script catalog grouped by class from the @formoria-script header blocks.
+ * class: validator
+ * invoke: pnpm scripts:list
+ * target: none
+ * safety: read-only
+ * owner: engineering
+ */
 // Prints the script catalog from the `@formoria-script` header blocks.
 //
 // The headers are the single source of truth: `scripts/README.md` documents the

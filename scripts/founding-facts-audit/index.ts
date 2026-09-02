@@ -1,3 +1,12 @@
+/**
+ * @formoria-script
+ * purpose: Audits brand founding_year facts against stored evidence and applies the accepted corrections.
+ * class: operator
+ * invoke: pnpm founding-facts:audit
+ * target: staging-default
+ * safety: writes-on-apply
+ * owner: engineering
+ */
 import { applyAudit } from "./apply";
 import { runAudit } from "./audit";
 import { renderAudit } from "./render";

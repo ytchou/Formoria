@@ -1,3 +1,12 @@
+/**
+ * @formoria-script
+ * purpose: Sends the daily external-spend digest built from the audit log to Slack.
+ * class: scheduled-automation
+ * invoke: pnpm exec tsx scripts/spend-watch/report.ts
+ * target: ci
+ * safety: read-only
+ * owner: engineering
+ */
 import { pathToFileURL } from "node:url";
 
 import {

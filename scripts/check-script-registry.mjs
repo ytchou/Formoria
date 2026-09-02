@@ -1,4 +1,13 @@
 #!/usr/bin/env node
+/**
+ * @formoria-script
+ * purpose: Fails the lint chain when a script under scripts/ carries no valid @formoria-script header.
+ * class: ci-gate
+ * invoke: pnpm check:script-registry
+ * target: none
+ * safety: read-only
+ * owner: engineering
+ */
 // Lint gate for the `@formoria-script` registry (DEV-1318).
 //
 // Fails when a script under `scripts/` carries no header block, when a header is

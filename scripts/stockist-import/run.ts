@@ -1,3 +1,12 @@
+/**
+ * @formoria-script
+ * purpose: Imports curated stockist CSV datasets into brand_channels for approved brands.
+ * class: operator
+ * invoke: pnpm exec tsx scripts/stockist-import/run.ts
+ * target: staging-default
+ * safety: writes-on-apply
+ * owner: engineering
+ */
 import { readFile, readdir } from 'node:fs/promises'
 import { resolve } from 'node:path'
 import { createServiceClient } from '@/lib/supabase/service'

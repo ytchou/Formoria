@@ -1,4 +1,13 @@
 /**
+ * @formoria-script
+ * purpose: Reports approved-brand counts per category for the SEO keyword map.
+ * class: operator
+ * invoke: pnpm seo:counts
+ * target: staging-default
+ * safety: read-only
+ * owner: engineering
+ */
+/**
  * Reports approved-brand counts for the SEO keyword map.
  *
  * Usage: pnpm seo:counts

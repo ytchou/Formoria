@@ -1,3 +1,12 @@
+/**
+ * @formoria-script
+ * purpose: Syncs the owner-facing PostHog endpoints, insights and dashboard from the query registry.
+ * class: operator
+ * invoke: pnpm posthog:sync
+ * target: staging-default
+ * safety: writes
+ * owner: engineering
+ */
 import {
   listOwnerEndpoints,
   OWNER_ENDPOINTS,

@@ -1,3 +1,12 @@
+/**
+ * @formoria-script
+ * purpose: Load-tests the search endpoint and reports latency percentiles.
+ * class: validator
+ * invoke: pnpm test:search:load
+ * target: staging-default
+ * safety: read-only
+ * owner: engineering
+ */
 import { randomUUID } from 'node:crypto'
 
 // Run under tsx (see the `test:search:load` alias) so this file can share the

@@ -1,5 +1,15 @@
 #!/usr/bin/env node
 /**
+ * @formoria-script
+ * purpose: Generates the DESIGN.md token tables from globals.css so they cannot drift.
+ * class: generator
+ * invoke: pnpm design:tokens
+ * target: none
+ * safety: writes
+ * owner: engineering
+ * notes: pnpm check:design-tokens runs the same file with --check and writes nothing
+ */
+/**
  * D19 — DESIGN.md token tables are generated from globals.css, never hand-written.
  *
  * The v1 design system drifted until it documented button heights, badge radii, a

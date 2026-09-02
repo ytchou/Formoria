@@ -1,4 +1,13 @@
 /**
+ * @formoria-script
+ * purpose: Fills category on pending submissions that have subcategories but no category.
+ * class: operator
+ * invoke: pnpm derive-category
+ * target: staging-default
+ * safety: writes-on-apply
+ * owner: engineering
+ */
+/**
  * Operator script: fill `category` on pending submissions that have
  * subcategories but no category, by voting on the subcategories' ontology categories.
  *

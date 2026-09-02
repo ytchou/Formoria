@@ -1,4 +1,13 @@
 /**
+ * @formoria-script
+ * purpose: Compares live Postgres function fingerprints against the recorded contract baseline.
+ * class: validator
+ * invoke: pnpm exec tsx scripts/verify-contract-fingerprints.ts
+ * target: none
+ * safety: read-only
+ * owner: engineering
+ */
+/**
  * Compares the LIVE Postgres function fingerprints of a Supabase project
  * against the recorded 2026-08-19 contract baseline.
  *

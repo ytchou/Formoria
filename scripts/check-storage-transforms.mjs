@@ -1,4 +1,13 @@
 #!/usr/bin/env node
+/**
+ * @formoria-script
+ * purpose: Fails the build on any use of Supabase Storage's metered image-transformation endpoint.
+ * class: ci-gate
+ * invoke: pnpm check:storage-transforms
+ * target: none
+ * safety: read-only
+ * owner: engineering
+ */
 // CI guard: nothing may reach Supabase Storage's image-transformation endpoint.
 //
 // DEV-1374 (2026-08-07): the single caller that built `/storage/v1/render/image`

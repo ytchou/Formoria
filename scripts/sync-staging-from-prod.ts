@@ -1,4 +1,13 @@
 /**
+ * @formoria-script
+ * purpose: Copies a curated subset of production content into the staging project.
+ * class: operator
+ * invoke: pnpm db:sync:staging
+ * target: none
+ * safety: writes
+ * owner: engineering
+ */
+/**
  * Copies a curated subset of production content into the staging project.
  *
  * Staging is seeded from `supabase/fixtures/staging.sql` with brand rows that

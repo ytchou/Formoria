@@ -9,7 +9,7 @@
     "build": "next build && node scripts/check-brand-prerender-budget.mjs",
     "start": "next start",
     "typecheck": "tsc --noEmit",
-    "lint": "pnpm check:design-tokens && pnpm check:category-redirects && pnpm check:zh-terms && pnpm check:photo-bands && eslint && pnpm check:frontend-tokens && pnpm check:test-boundaries && pnpm check:audited-calls && pnpm check:storage-transforms && pnpm check:test-brand-filter && pnpm check:e2e-timeouts && pnpm check:service-registry && pnpm check:error-boundaries",
+    "lint": "pnpm check:design-tokens && pnpm check:category-redirects && pnpm check:zh-terms && pnpm check:photo-bands && pnpm check:script-registry && eslint && pnpm check:frontend-tokens && pnpm check:test-boundaries && pnpm check:audited-calls && pnpm check:storage-transforms && pnpm check:test-brand-filter && pnpm check:e2e-timeouts && pnpm check:service-registry && pnpm check:error-boundaries",
     "check:favicon": "node scripts/check-favicon-rgba.mjs",
     "test": "vitest run",
     "test:watch": "vitest",
@@ -22,6 +22,8 @@
     "check:storage-transforms": "node scripts/check-storage-transforms.mjs",
     "check:error-boundaries": "node scripts/check-error-boundaries.mjs",
     "check:service-registry": "node scripts/check-service-registry.mjs",
+    "check:script-registry": "node scripts/check-script-registry.mjs",
+    "scripts:list": "node scripts/list-scripts.mjs",
     "check:test-brand-filter": "node scripts/check-test-brand-filter.mjs",
     "check:zh-terms": "tsx scripts/check-zh-terms.ts",
     "check:e2e-timeouts": "node scripts/check-e2e-timeouts.mjs",
@@ -52,7 +54,6 @@
     "reject-skipped": "tsx scripts/reject-skipped-submissions.ts",
     "derive-category": "tsx scripts/derive-missing-category.ts",
     "remove-brand": "tsx scripts/remove-brand.ts",
-    "repair-brand-images": "tsx scripts/repair-brand-images.ts",
     "resort-heroes:preview": "tsx scripts/resort-heroes/preview.ts",
     "resort-heroes:render": "tsx scripts/resort-heroes/render.ts",
     "resort-heroes:apply": "tsx scripts/resort-heroes/apply.ts",
@@ -72,7 +73,6 @@
     "check:design-tokens": "node scripts/generate-design-tokens.mjs --check",
     "check:category-redirects": "tsx scripts/generate-category-redirects.ts --check",
     "langfuse:seed": "tsx scripts/langfuse-seed.ts",
-    "brand-names:backfill": "tsx scripts/name-backfill/run.ts",
     "founding-facts:audit": "tsx scripts/founding-facts-audit/index.ts"
   },
   "dependencies": {

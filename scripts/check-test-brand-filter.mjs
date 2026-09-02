@@ -1,4 +1,13 @@
 /**
+ * @formoria-script
+ * purpose: Fails the build when a public reader of approved brands skips excludeTestBrands().
+ * class: ci-gate
+ * invoke: pnpm check:test-brand-filter
+ * target: none
+ * safety: read-only
+ * owner: engineering
+ */
+/**
  * Guards the public test-brand exclusion.
  *
  * `excludeTestBrands()` is opt-in per call site, and that is exactly how it

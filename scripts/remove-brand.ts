@@ -1,3 +1,12 @@
+/**
+ * @formoria-script
+ * purpose: Removes a brand and every row and storage object that belongs to it.
+ * class: operator
+ * invoke: pnpm remove-brand
+ * target: staging-default
+ * safety: writes-on-apply
+ * owner: engineering
+ */
 import { readFileSync } from 'node:fs'
 import { readFile, writeFile } from 'node:fs/promises'
 import path from 'node:path'

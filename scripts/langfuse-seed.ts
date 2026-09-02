@@ -1,4 +1,13 @@
 /**
+ * @formoria-script
+ * purpose: Seeds Langfuse with the prompt constants from src/lib/prompts.
+ * class: operator
+ * invoke: pnpm langfuse:seed
+ * target: none
+ * safety: writes
+ * owner: engineering
+ */
+/**
  * Seed Langfuse with the 11 prompt constants from src/lib/prompts/*.
  *
  * Vocab blocks (CATEGORY_LIST, SUBCATEGORY_VOCAB_BLOCK, MATERIAL_VOCAB_BLOCK,

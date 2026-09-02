@@ -1,4 +1,13 @@
 /**
+ * @formoria-script
+ * purpose: Read-only fact sheet with provenance for the zh-TW story drafting skill.
+ * class: operator
+ * invoke: pnpm story:facts
+ * target: staging-default
+ * safety: read-only
+ * owner: engineering
+ */
+/**
  * Read-only fact sheet for the zh-TW article-drafting skill.
  *
  * The drafting step is only allowed to assert what appears here, and every fact

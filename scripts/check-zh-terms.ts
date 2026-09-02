@@ -1,4 +1,13 @@
 /**
+ * @formoria-script
+ * purpose: Fails the lint chain when a mainland-Chinese term appears in user-facing repository text.
+ * class: ci-gate
+ * invoke: pnpm check:zh-terms
+ * target: none
+ * safety: read-only
+ * owner: engineering
+ */
+/**
  * zh-TW vocabulary gate for user-facing repository text.
  *
  * Fails the lint chain when a mainland-Chinese term from

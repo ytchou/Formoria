@@ -1,5 +1,15 @@
 #!/usr/bin/env tsx
 /**
+ * @formoria-script
+ * purpose: Seeds synthetic curation_job_targets history for submissions that predate the job-targets system.
+ * class: operator
+ * invoke: pnpm exec tsx scripts/seed-phase-history.ts
+ * target: staging-default
+ * safety: dry-run-default
+ * owner: engineering
+ * notes: pending one-off: 1 row on 2026-09-02
+ */
+/**
  * One-shot idempotent seed script: generates synthetic `curation_job_targets`
  * history for brand submissions that predate the job-targets system.
  *

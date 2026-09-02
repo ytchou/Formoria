@@ -1,4 +1,13 @@
 /**
+ * @formoria-script
+ * purpose: Re-runs the real curation pipeline over pending submissions through a real job.
+ * class: operator
+ * invoke: pnpm rerun-curation
+ * target: staging-default
+ * safety: writes-on-apply
+ * owner: engineering
+ */
+/**
  * Re-runs the real curation pipeline over pending submissions.
  *
  * Single source of truth by construction: this script contains no pipeline

@@ -1,4 +1,13 @@
 /**
+ * @formoria-script
+ * purpose: Approves every submission the review queue calls publishable, without the admin UI.
+ * class: operator
+ * invoke: pnpm approve-ready
+ * target: staging-default
+ * safety: writes-on-apply
+ * owner: engineering
+ */
+/**
  * Operator script: approve every submission the review queue considers publishable —
  * `reviewStage === 'ready'` with an empty `reviewCompleteness.missingFields` —
  * without clicking through /admin/submissions.

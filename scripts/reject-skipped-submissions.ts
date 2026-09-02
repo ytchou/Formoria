@@ -1,4 +1,13 @@
 /**
+ * @formoria-script
+ * purpose: Rejects the pending submissions the detect phase already judged to be non-brands.
+ * class: operator
+ * invoke: pnpm reject-skipped
+ * target: staging-default
+ * safety: writes-on-apply
+ * owner: engineering
+ */
+/**
  * Operator script: reject the pending submissions the curation pipeline already
  * judged to be non-brands.
  *

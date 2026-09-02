@@ -1,4 +1,14 @@
 /**
+ * @formoria-script
+ * purpose: Generates the L2 category redirect block in next.config.ts from the taxonomy baseline diff.
+ * class: generator
+ * invoke: pnpm check:category-redirects
+ * target: none
+ * safety: writes
+ * owner: engineering
+ * notes: the aliased --check form is read-only; a bare run rewrites next.config.ts
+ */
+/**
  * Generates the L2 category redirect block in `next.config.ts`.
  *
  * The DEV-1531 taxonomy transform dissolves two L1s. `crafts` loses twelve L2s

@@ -1,3 +1,12 @@
+/**
+ * @formoria-script
+ * purpose: Cleans stored zh-TW text: localizeToTW formatting plus banned-term vocabulary repair.
+ * class: validator
+ * invoke: pnpm backfill:tw
+ * target: staging-default
+ * safety: writes-on-apply
+ * owner: engineering
+ */
 import { once } from "node:events";
 import { createWriteStream } from "node:fs";
 import { mkdir, readFile } from "node:fs/promises";

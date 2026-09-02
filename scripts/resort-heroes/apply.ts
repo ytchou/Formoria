@@ -1,3 +1,12 @@
+/**
+ * @formoria-script
+ * purpose: Applies a reviewed hero re-sort manifest to brand_images and resyncs the denormalized hero.
+ * class: operator
+ * invoke: pnpm resort-heroes:apply
+ * target: staging-default
+ * safety: writes-on-apply
+ * owner: engineering
+ */
 import { mkdir, open, readFile } from 'node:fs/promises'
 import { dirname, resolve } from 'node:path'
 import { syncHeroDenormalized } from '@/lib/services/brand-images'

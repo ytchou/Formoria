@@ -1,3 +1,12 @@
+/**
+ * @formoria-script
+ * purpose: Drives the self-heal incident state machine for a failed nightly e2e run.
+ * class: scheduled-automation
+ * invoke: pnpm exec tsx scripts/selfheal/incident-cli.ts
+ * target: ci
+ * safety: writes
+ * owner: engineering
+ */
 import { readFile } from "node:fs/promises";
 import { pathToFileURL } from "node:url";
 

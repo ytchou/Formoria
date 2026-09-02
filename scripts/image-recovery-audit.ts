@@ -1,3 +1,12 @@
+/**
+ * @formoria-script
+ * purpose: Audits brand_images and submission_images for recoverable rejected rows and reactivates them.
+ * class: operator
+ * invoke: pnpm image-recovery:audit
+ * target: staging-default
+ * safety: writes-on-apply
+ * owner: engineering
+ */
 import { mkdir, writeFile } from 'node:fs/promises'
 import path from 'node:path'
 import { createServiceClient } from '@/lib/supabase/service'

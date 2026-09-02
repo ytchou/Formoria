@@ -1,5 +1,14 @@
 #!/usr/bin/env node
 /**
+ * @formoria-script
+ * purpose: Fails the build when an e2e spec hard-codes a timeout instead of using a named budget.
+ * class: ci-gate
+ * invoke: pnpm check:e2e-timeouts
+ * target: none
+ * safety: read-only
+ * owner: engineering
+ */
+/**
  * Static guard for E2E wait policies.
  *
  * E2E waits are deliberately boring to audit: numeric timeout values and

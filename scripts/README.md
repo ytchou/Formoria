@@ -49,6 +49,20 @@ Comment leaders vary by file type: `*` in `.ts`, `.mjs` and `.js`; `#` in `.sh`,
 | `shared` | library code imported by other scripts; not run directly |
 | `parked` | kept deliberately, not wired to anything today |
 
+## What the gate walks
+
+Every top-level `*.ts`, `*.mjs`, `*.js`, `*.sh`, `*.py` and `*.sql` file, plus
+exactly one entry file per subdirectory. Exempt: `*.test.*`, `__tests__/`, the
+contents of `lib/` and `shared/` (each represented by its own `README.md`), and
+JSON.
+
+A subdirectory holding nothing but JSON has no script to document and is exempt
+from the one-entry rule — today that is `sync-staging/` (the committed brand
+selection) and `curation-cohorts/` (the cohort definitions).
+
+`hooks/pre-commit` has no file extension, so the gate cannot walk it; the
+directory's entry is `hooks/README.md`.
+
 ## How to add a script
 
 1. Put it in `scripts/`. A multi-file tool gets its own subdirectory with
@@ -85,6 +99,7 @@ Retirement is deletion. The history is the archive.
 | `scripts/backfill-brand-image-alt-zh.test.ts` | DEV-1318 | `scripts-retired/2026-09-02` | 2026-09-02 |
 | `scripts/backfill-brand-images.ts` | DEV-1318 | `scripts-retired/2026-09-02` | 2026-09-02 |
 | `scripts/backfill-faq-entries.ts` | DEV-1318 | `scripts-retired/2026-09-02` | 2026-09-02 |
+| `scripts/backfill-field-state.ts` | DEV-1318 | `scripts-retired/2026-09-02` | 2026-09-02 |
 | `scripts/backfill-subcategory-slugs.ts` | DEV-1318 | `scripts-retired/2026-09-02` | 2026-09-02 |
 | `scripts/cleanup-pending-edits.ts` | DEV-1318 | `scripts-retired/2026-09-02` | 2026-09-02 |
 | `scripts/clear-contaminated-links.ts` | DEV-1318 | `scripts-retired/2026-09-02` | 2026-09-02 |
@@ -98,6 +113,11 @@ Retirement is deletion. The history is the archive.
 | `scripts/seed-expansion-data.ts` | DEV-1318 | `scripts-retired/2026-09-02` | 2026-09-02 |
 | `scripts/seed-expo-exhibitor-content.ts` | DEV-1318 | `scripts-retired/2026-09-02` | 2026-09-02 |
 | `scripts/tmp-recuration-monitor.ts` | DEV-1318 | `scripts-retired/2026-09-02` | 2026-09-02 |
+| `scripts/name-backfill/policy.ts` | DEV-1318 | `scripts-retired/2026-09-02` | 2026-09-02 |
+| `scripts/name-backfill/run.ts` | DEV-1318 | `scripts-retired/2026-09-02` | 2026-09-02 |
+| `scripts/name-backfill/__tests__/policy.test.ts` | DEV-1318 | `scripts-retired/2026-09-02` | 2026-09-02 |
+| `scripts/repair-brand-images.ts` | DEV-1318 | `scripts-retired/2026-09-02` | 2026-09-02 |
+| `scripts/repair-brand-images.test.ts` | DEV-1318 | `scripts-retired/2026-09-02` | 2026-09-02 |
 
 `scripts/slug-reverse-corpus.json` is retired from `scripts/` but not deleted:
 the 2,446-string pre-migration corpus is evidence, and

@@ -1,3 +1,12 @@
+/**
+ * @formoria-script
+ * purpose: Migration, type generation, seeding and verification entry point for a Supabase project.
+ * class: deploy-tool
+ * invoke: pnpm db:migrate
+ * target: none
+ * safety: writes
+ * owner: engineering
+ */
 import { spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import { existsSync, readdirSync, readFileSync, writeFileSync } from "node:fs";

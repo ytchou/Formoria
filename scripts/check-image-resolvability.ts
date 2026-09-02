@@ -1,4 +1,13 @@
 /**
+ * @formoria-script
+ * purpose: Checks that the read proxy can serve every image row the site renders in a project.
+ * class: ci-gate
+ * invoke: pnpm check:image-resolvability
+ * target: ci
+ * safety: read-only
+ * owner: engineering
+ */
+/**
  * DEV-1568 — health check: can the read proxy actually serve every image the
  * site renders?
  *

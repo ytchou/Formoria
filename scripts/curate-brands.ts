@@ -1,3 +1,12 @@
+/**
+ * @formoria-script
+ * purpose: Runs the curation pipeline (detect, enrich, reputation) over brands or submissions from the CLI.
+ * class: operator
+ * invoke: pnpm curate
+ * target: staging-default
+ * safety: writes-on-apply
+ * owner: engineering
+ */
 import { readFile } from 'node:fs/promises'
 import path from 'node:path'
 

@@ -1,4 +1,13 @@
 /**
+ * @formoria-script
+ * purpose: Runs the real three-step brand refresh flow over a cohort of live brands.
+ * class: operator
+ * invoke: pnpm curation:rerun
+ * target: staging-default
+ * safety: writes-on-apply
+ * owner: engineering
+ */
+/**
  * Runs the REAL curation pipeline end-to-end against a cohort of live
  * production brands.
  *

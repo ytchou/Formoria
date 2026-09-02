@@ -1,4 +1,14 @@
 /**
+ * @formoria-script
+ * purpose: Promotes brand_images rows out of the submissions/ storage prefix into brands/.
+ * class: operator
+ * invoke: pnpm exec tsx scripts/promote-submission-images.ts
+ * target: staging-default
+ * safety: dry-run-default
+ * owner: engineering
+ * notes: pending one-off: 13 rows on 2026-09-02
+ */
+/**
  * DEV-1551 — promote existing `brand_images` rows out of `submissions/`.
  *
  * `approve_submission` carries `submission_images.storage_path` into
