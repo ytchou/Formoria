@@ -124,7 +124,8 @@ type AiRow = {
   audit_span_id: string | null
   model: string | null
   latency_ms: number | null
-  usage: Record<string, unknown> | null
+  /** persistAuditEvent stores token usage under raw_response.usage. */
+  raw_response: { usage?: { prompt_tokens?: number; completion_tokens?: number } } | null
   created_at: string
 }
 
@@ -148,7 +149,7 @@ async function fetchTraces(
 
   const { data: aiResults, error: aiErr } = await client
     .from("brand_ai_results")
-    .select("submission_id, brand_id, audit_span_id, model, latency_ms, usage, created_at")
+    .select("submission_id, brand_id, audit_span_id, model, latency_ms, raw_response, created_at")
     .eq("job_id", jobId)
     .eq("phase", "acquisition")
     .limit(1000);
@@ -169,6 +170,10 @@ type LinksPhaseRow = {
     surfaces?: Array<{ url: string; fetch: string; strategy?: string; reason: string }>
     fanOut?: string[]
     decisions?: Array<{ step: string; action: string; reason: string; ms: number }>
+    /** Runtime decision trace from the graph (gather/plan/execute/critique/finalize). */
+    trace?: Array<{ step: string; action: string; reason: string; ms: number }>
+    budget?: { allowed: Record<string, number>; used: Record<string, number> }
+    error?: string
   }
 }
 
@@ -178,7 +183,7 @@ function linksPhase(phaseResults: unknown): LinksPhaseRow | undefined {
 }
 
 function extractDecisions(links: LinksPhaseRow | undefined): DecisionStep[] {
-  const decisions = links?.acquisitionPlan?.decisions ?? [];
+  const decisions = links?.acquisitionPlan?.trace ?? links?.acquisitionPlan?.decisions ?? [];
   return decisions.map((d) => ({
     ms: d.ms ?? 0,
     phase: d.step,
@@ -209,7 +214,7 @@ function toSpans(scrapes: ScrapeRow[], ai: AiRow[], target: TargetRow): ToolSpan
       at: Date.parse(r.created_at),
       durationMs: r.latency_ms ?? 0,
       status: 200,
-      detail: `${r.model ?? ""} in=${r.usage?.prompt_tokens ?? "?"} out=${r.usage?.completion_tokens ?? "?"}`,
+      detail: `${r.model ?? ""} in=${r.raw_response?.usage?.prompt_tokens ?? "?"} out=${r.raw_response?.usage?.completion_tokens ?? "?"}`,
     })),
   ];
   const t0 = mine.length ? Math.min(...mine.map((s) => s.at)) : 0;
@@ -260,8 +265,8 @@ async function main() {
   const summary: string[] = [
     `# Cohort traces — job ${jobId}`,
     "",
-    "| brand | links | agentOutcome | surfaces | fanOut | scrape attempts | agent turns | tokens in/out | decisions |",
-    "| --- | --- | --- | --- | --- | --- | --- | --- | --- |",
+    "| brand | links | agentOutcome | surfaces | fanOut | probes/renders/search/turns used | scrape attempts | agent turns | tokens in/out | trace steps | error |",
+    "| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |",
   ];
 
   for (const target of targets) {
@@ -270,8 +275,8 @@ async function main() {
     const decisions = extractDecisions(links);
     const spans = toSpans(scrapes, aiResults, target);
     const turns = aiResults.filter((r) => belongsTo(r, target));
-    const tokIn = turns.reduce((n, r) => n + Number(r.usage?.prompt_tokens ?? 0), 0);
-    const tokOut = turns.reduce((n, r) => n + Number(r.usage?.completion_tokens ?? 0), 0);
+    const tokIn = turns.reduce((n, r) => n + Number(r.raw_response?.usage?.prompt_tokens ?? 0), 0);
+    const tokOut = turns.reduce((n, r) => n + Number(r.raw_response?.usage?.completion_tokens ?? 0), 0);
 
     const md = renderDecisionTimeline(slug, decisions, spans);
     await writeFile(resolve(outDir, `${slug}.md`), md + "\n");
@@ -280,8 +285,10 @@ async function main() {
       JSON.stringify({ slug, target, links, decisions, spans }, null, 2) + "\n",
     );
 
+    const used = links?.acquisitionPlan?.budget?.used;
+    const usedCell = used ? `${used.probes ?? 0}/${used.renders ?? 0}/${used.search ?? 0}/${used.turns ?? 0}` : "-";
     summary.push(
-      `| ${slug} | ${links?.status ?? "-"} | ${links?.agentOutcome ?? "-"} | ${links?.acquisitionPlan?.surfaces?.length ?? "-"} | ${links?.acquisitionPlan?.fanOut?.length ?? "-"} | ${spans.filter((s) => s.provider !== "openai").length} | ${turns.length} | ${tokIn}/${tokOut} | ${decisions.length} |`,
+      `| ${slug} | ${links?.status ?? "-"} | ${links?.agentOutcome ?? "-"} | ${links?.acquisitionPlan?.surfaces?.length ?? "-"} | ${links?.acquisitionPlan?.fanOut?.length ?? "-"} | ${usedCell} | ${spans.filter((s) => s.provider !== "openai").length} | ${turns.length} | ${tokIn}/${tokOut} | ${decisions.length} | ${links?.acquisitionPlan?.error ?? ""} |`,
     );
     console.log(`[traces] wrote ${slug}`);
   }

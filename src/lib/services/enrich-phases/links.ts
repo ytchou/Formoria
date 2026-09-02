@@ -610,6 +610,27 @@ function buildQuarantine(
   return groups
 }
 
+// `parsePhaseResults` drops any acquisitionPlan over 8 KB outright, so trim the
+// runtime trace (least valuable tail first) rather than lose the whole record.
+const MAX_AGENT_RECORD_BYTES = 7_800
+function boundedAgentRecord(record: Record<string, unknown>): Record<string, unknown> {
+  let current = record
+  const size = (value: unknown): number => JSON.stringify(value).length
+  while (size(current) > MAX_AGENT_RECORD_BYTES && Array.isArray(current.trace) && current.trace.length > 1) {
+    current = { ...current, trace: current.trace.slice(0, -1) }
+  }
+  if (size(current) > MAX_AGENT_RECORD_BYTES && Array.isArray(current.surfaces)) {
+    current = {
+      ...current,
+      surfaces: (current.surfaces as Array<Record<string, unknown>>).map((surface) => ({
+        ...surface,
+        reason: String(surface.reason ?? '').slice(0, 40),
+      })),
+    }
+  }
+  return current
+}
+
 export async function runLinksPhase({
   brand,
   phases,
@@ -700,6 +721,10 @@ export async function runLinksPhase({
     let agentAcquisitionPlan: AcquisitionPlanType | undefined
     let agentScrapeData: EnrichScrapedData | null = null
     let agentOutcome: string | undefined
+    // Persisted alongside the plan so a fallback/blocked brand still carries a
+    // decision timeline and its budget usage; without it the trace only exists
+    // in process memory.
+    let agentTrace: Record<string, unknown> | undefined
 
     if (process.env.ACQUISITION_AGENT !== 'off') {
       try {
@@ -751,6 +776,15 @@ export async function runLinksPhase({
         )
 
         agentOutcome = agentResult.agentOutcome
+        agentTrace = {
+          trace: agentResult.decisions.slice(0, 24).map((d) => ({
+            ...d,
+            action: d.action.slice(0, 60),
+            reason: d.reason.slice(0, 160),
+          })),
+          ...(agentResult.budget ? { budget: agentResult.budget } : {}),
+          ...(agentResult.error ? { error: agentResult.error.slice(0, 200) } : {}),
+        }
         if (
           (agentResult.agentOutcome === 'planned' || agentResult.agentOutcome === 'recovered') &&
           agentResult.scrapeResult
@@ -759,11 +793,10 @@ export async function runLinksPhase({
           agentScrapeData = agentResult.scrapeResult.data as EnrichScrapedData
         }
       } catch (err) {
-        console.error(
-          '  → acquisition agent failed, falling back to legacy path:',
-          err instanceof Error ? err.message : err,
-        )
+        const message = err instanceof Error ? err.message : String(err)
+        console.error('  → acquisition agent failed, falling back to legacy path:', message)
         agentOutcome = 'fallback'
+        agentTrace = { trace: [], error: `threw: ${message.slice(0, 180)}` }
       }
     }
 
@@ -816,6 +849,7 @@ export async function runLinksPhase({
       unverifiableWebsite,
       agentAcquisitionPlan,
       agentOutcome,
+      agentTrace,
     }
   })
 
@@ -828,8 +862,13 @@ export async function runLinksPhase({
       ...(result.agentOutcome
         ? { agentOutcome: result.agentOutcome as PhaseResult['agentOutcome'] }
         : {}),
-      ...(result.agentAcquisitionPlan
-        ? { acquisitionPlan: result.agentAcquisitionPlan as unknown as Record<string, unknown> }
+      ...(result.agentOutcome
+        ? {
+            acquisitionPlan: boundedAgentRecord({
+              ...(result.agentAcquisitionPlan as unknown as Record<string, unknown> | undefined),
+              ...result.agentTrace,
+            }),
+          }
         : {}),
     },
     patch: result.patch,

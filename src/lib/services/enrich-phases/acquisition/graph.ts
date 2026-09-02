@@ -14,11 +14,13 @@ import type { RenderProvider } from '../scraper/render/types'
 import type { MultiScrapeResult, ScrapeBrandUrlsOptions } from '../scraper/index'
 import type { SurfaceDirective } from '../scraper/strategies/types'
 import type { EnrichBrand } from '../types'
+import type { z } from 'zod'
 import {
   AcquisitionPlan,
   CritiqueVerdictSchema,
   planToDirectives,
   boundedPlan,
+  toStrictJsonSchema,
   type AcquisitionPlanType,
   type CritiqueVerdict,
 } from './plan'
@@ -35,6 +37,7 @@ import { invokeAudited, type AuditBridgeContext } from './audit-bridge'
 import {
   ACQUISITION_PLAN_SYSTEM_PROMPT,
   ACQUISITION_CRITIQUE_SYSTEM_PROMPT,
+  ACQUISITION_SCHEMA_TRAILER,
 } from '@/lib/prompts/acquisition'
 
 // ---------------------------------------------------------------------------
@@ -90,6 +93,13 @@ async function callModel(
     messages,
     { ...options.audit, phase: options.audit.phase ?? 'acquisition' },
   )) as ModelResponse
+}
+
+// The prompts say "match the <name> JSON Schema" — this is what makes that
+// sentence true. Without the schema inline the model invents field names
+// (`mode` for `fetch`, extra `estimatedTimeMs`) and strict Zod rejects every plan.
+function withSchema(prompt: string, name: string, schema: z.ZodType): string {
+  return `${prompt}\n\n## ${name} JSON Schema\n\`\`\`json\n${JSON.stringify(toStrictJsonSchema(schema))}\n\`\`\`\n${ACQUISITION_SCHEMA_TRAILER}`
 }
 
 // Models sometimes wrap JSON in a ```json fence even under json_object mode.
@@ -193,9 +203,10 @@ async function planNode(
     return { ...state, agentOutcome: 'fallback', error: 'budget_exhausted_before_plan' }
   }
 
-  const systemPrompt = await fetchLangfusePrompt(
-    'acquisition-plan',
-    ACQUISITION_PLAN_SYSTEM_PROMPT,
+  const systemPrompt = withSchema(
+    await fetchLangfusePrompt('acquisition-plan', ACQUISITION_PLAN_SYSTEM_PROMPT),
+    'AcquisitionPlan',
+    AcquisitionPlan,
   )
 
   const userContent = JSON.stringify({
@@ -310,9 +321,10 @@ async function critiqueNode(
     }
   }
 
-  const systemPrompt = await fetchLangfusePrompt(
-    'acquisition-critique',
-    ACQUISITION_CRITIQUE_SYSTEM_PROMPT,
+  const systemPrompt = withSchema(
+    await fetchLangfusePrompt('acquisition-critique', ACQUISITION_CRITIQUE_SYSTEM_PROMPT),
+    'CritiqueVerdict',
+    CritiqueVerdictSchema,
   )
 
   const userContent = JSON.stringify({

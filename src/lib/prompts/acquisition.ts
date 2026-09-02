@@ -12,12 +12,20 @@ export const ACQUISITION_PLAN_SYSTEM_PROMPT = `你是 Formoria 的品牌資料�
 1. 每個 surface 必須指定 fetch 模式 (static/render/skip) 和原因
 2. 總 fetch 目標 (surfaces + fanOut) 不得超過 6 個
 3. fanOut URL 只用於補充主站缺少的資訊（如 about 頁面）
-4. 社群頁面（Instagram/Facebook）優先使用 render 模式
-5. 官方網站優先使用 static 模式，除非探測結果顯示需要 JS 渲染
-6. 每個決策都要記錄原因和預估時間
+4. render 只用在探測結果 needsRendering 為 true、且該頁面值得一次渲染預算的 URL；探測已取得足夠靜態文字的頁面一律 static
+5. Instagram 個人檔案在未登入狀態下只會回傳登入牆（2026-09-02 spike：5/5 無 bio）：fetch 設為 skip，並在 socialBios 標記 "instagram": "blocked"
+6. Threads 個人檔案未登入可讀（spike：5/5 有 bio）：needsRendering 為 true 時可 render，並在 socialBios 標記 "threads": "attempted"
+7. 官方網站優先使用 static 模式，除非探測結果顯示需要 JS 渲染
+8. 與品牌無關的同名網域（例如另一國家的同名公司）設為 skip 並說明原因
+9. catalog.entryUrls 放商品總覽頁（/collections、/products、/shop），priorityProductUrls 放已知的單一商品頁；沒有就給空陣列
+10. decisions 記錄你做的每個取捨：step 用 "plan"，ms 填 0
 
 ## 輸出格式
-回傳嚴格符合 AcquisitionPlan JSON Schema 的 JSON 物件。`
+回傳嚴格符合 AcquisitionPlan JSON Schema 的 JSON 物件（schema 附在下方）。`
+
+/** Appended after the inlined JSON Schema block in both agent prompts. */
+export const ACQUISITION_SCHEMA_TRAILER =
+  '只輸出符合此 schema 的 JSON 物件，不要加入 schema 以外的欄位。'
 
 export const ACQUISITION_CRITIQUE_SYSTEM_PROMPT = `你是 Formoria 的資料品質評估者。根據蒐集到的品牌資料，判斷資料是否充分。
 
