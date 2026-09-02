@@ -66,6 +66,7 @@ export const SUB_PHASES = [
   "persist",
   "acquisition",
   "product_embeddings",
+  "rerank",
 ] as const;
 
 type SubPhaseName = (typeof SUB_PHASES)[number];

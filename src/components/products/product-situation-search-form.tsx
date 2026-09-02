@@ -1,4 +1,6 @@
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { routes } from "@/lib/routes";
 
 type ProductSituationSearchFormProps = {
@@ -46,12 +48,17 @@ export function ProductSituationSearchForm({
       )}
 
       <div className="flex-1">
-        {/* eslint-disable no-restricted-syntax -- ui-exception: server component cannot use client-side Label/Input */}
-        <label htmlFor="discover-search-q" className="type-metadata text-ink-muted mb-1 block">
+        <Label htmlFor="discover-search-q" className="text-ink-muted mb-1">
           {labels.label}
-        </label>
-        <input id="discover-search-q" type="search" name="q" defaultValue={query ?? ""} placeholder={labels.placeholder} className="h-11 w-full min-w-0 rounded-control border border-rule bg-transparent px-3.5 py-2 font-hei type-body text-ink transition-colors outline-none placeholder:text-ink-muted/50 focus-visible:ring-2 focus-visible:ring-accent" autoComplete="off" />
-        {/* eslint-enable no-restricted-syntax */}
+        </Label>
+        <Input
+          id="discover-search-q"
+          type="search"
+          name="q"
+          defaultValue={query ?? ""}
+          placeholder={labels.placeholder}
+          autoComplete="off"
+        />
       </div>
 
       <Button type="submit" variant="primary" className="shrink-0">
