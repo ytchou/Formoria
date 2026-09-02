@@ -59,6 +59,30 @@ describe('platform registry', () => {
     ).toBe(false)
   })
 
+  describe('owned route accepts collection and locale prefixes', () => {
+    it.each([
+      ['/collections/all/products/mug', 'shopify', true],
+      ['/zh-tw/products/mug', 'shopline', true],
+      ['/products/mug', 'shopify', true],
+      ['/en/collections/summer/products/mug', 'cyberbiz', true],
+      ['/ja/products/mug', 'easystore', true],
+      ['/collections/all', 'shopify', false],
+      ['/collections/all/products/mug', null, true],
+      ['/zh-tw/products/mug', null, true],
+    ] as const)(
+      'isOwnedProductRoute(%s, platform=%s) → %s',
+      (path, platform, expected) => {
+        expect(
+          isOwnedProductRoute(
+            `https://shop.example${path}`,
+            'https://shop.example',
+            platform,
+          ),
+        ).toBe(expected)
+      },
+    )
+  })
+
   describe('isOwnedProductRoute — expanded generic patterns', () => {
     it('accepts /shop/ path as generic product route', () => {
       expect(

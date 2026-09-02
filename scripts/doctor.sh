@@ -155,6 +155,9 @@ check_env() {
     else
       echo "WARN: OPENAI_API_KEY not set (the entire enrichment pipeline will fail — descriptions, reputation, category classification, brand detection, and image classification)"
     fi
+    if ! grep -q "RENDER_API_KEY=." .env.local 2>/dev/null; then
+      echo "WARN: RENDER_API_KEY not set — headless rendering unavailable — JS-only pages skip"
+    fi
     if ! grep -q "INDEXNOW_KEY=." .env.local 2>/dev/null; then
       echo "WARN: INDEXNOW_KEY not set (optional — needed for Bing IndexNow submission)"
     fi

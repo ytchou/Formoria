@@ -8,7 +8,8 @@ type ServiceCategory =
   | "observability"
   | "hosting"
   | "tooling"
-  | "registry";
+  | "registry"
+  | "scraping";
 
 type ServiceCriticality =
   "customer-critical" | "customer-flow" | "back-office" | "dev-tooling";
@@ -642,6 +643,31 @@ export const SERVICE_REGISTRY: readonly ServiceEntry[] = [
     dashboardUrl: "https://cloud.langfuse.com",
     notes:
       "LLM tracing and eval. Free cloud hobby tier (50k observations/month). No-ops when env vars are unset.",
+  },
+  {
+    id: "browserless",
+    name: "Browserless",
+    vendor: "Browserless",
+    category: "scraping",
+    criticality: "back-office",
+    operationalSection: "back-office",
+    operationalKind: "dependency",
+    envVars: ["RENDER_API_KEY"],
+    status: "active",
+    plan: {
+      kind: "subscription",
+      monthlyUsd: 0,
+      asOf: TODAY,
+      sourceUrl: "https://www.browserless.io/pricing",
+    },
+    quota: {
+      metric: "Units",
+      included: 1000,
+      unit: "units / month",
+      overageUsdPerUnit: 0,
+      cycleResetsOnDay: 1,
+    },
+    dashboardUrl: "https://cloud.browserless.io",
   },
 ];
 

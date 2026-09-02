@@ -6,7 +6,8 @@ export type AuditStatus =
   | "failed"
   | "malformed"
   | "timeout"
-  | "network_error";
+  | "network_error"
+  | "skipped";
 
 export type AuditKind = "external" | "service";
 

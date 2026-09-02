@@ -9,15 +9,18 @@ const singlePageStrategy = new SinglePageStrategy()
 
 export function selectStrategy(
   type: InputType,
-  url: string
+  url: string,
+  directive?: { strategy?: InputType },
 ): ScrapeStrategy {
   void url
 
-  if (type === 'social' || type === 'e-commerce') {
+  const effective = directive?.strategy ?? type
+
+  if (effective === 'social' || effective === 'e-commerce') {
     return platformAdapterStrategy
   }
 
-  if (type === 'deep-multi-page') {
+  if (effective === 'deep-multi-page') {
     return crawlStrategy
   }
 

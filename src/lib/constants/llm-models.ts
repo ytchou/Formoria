@@ -209,6 +209,13 @@ export const LLM_PROFILES = {
     reasoningEffort: "none",
     timeoutMs: 60_000,
   },
+  /** Acquisition agent — plans evidence retrieval per brand. */
+  acquisition: {
+    model: "text",
+    temperature: 0.1,
+    reasoningEffort: "none",
+    timeoutMs: 30_000,
+  },
 } as const satisfies Record<string, LlmProfile>;
 
 export type LlmProfileKey = keyof typeof LLM_PROFILES;

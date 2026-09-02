@@ -26,7 +26,12 @@ const target = assertDatabaseTarget(
 
 const { claimCurationDispatchWork, claimNextCurationJob, recoverStaleJobs } =
   await import("@/lib/services/curation-jobs");
-const { runJob, sanitizeJobError } = await import("@/lib/services/job-runner");
+const { runJob: _runJob, sanitizeJobError } = await import("@/lib/services/job-runner");
+const { createRenderProviderFromEnv } = await import("@/lib/services/enrich-phases/scraper/render/from-env");
+
+const renderProvider = createRenderProviderFromEnv();
+const runJob: typeof _runJob = (job, token, opts = {}) =>
+  _runJob(job, token, { renderProvider, ...opts });
 const { runScheduledCuration } = await import("@/lib/services/curation-worker");
 const { reportWorkerFailure } = await import("@/lib/services/job-alerts");
 

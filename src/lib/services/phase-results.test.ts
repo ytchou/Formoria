@@ -109,4 +109,76 @@ describe("parsePhaseResults", () => {
     expect(parsed.at(0)?.changedFields).toEqual(["heroImageUrl"]);
     expect(parsed.at(0)?.durationMs).toBe(0);
   });
+
+  it("preserves agentOutcome and acquisitionPlan through round-trip", () => {
+    const plan = { urls: ["https://example.com"], render: true };
+    const parsed = parsePhaseResults([
+      {
+        phase: "acquisition",
+        status: "succeeded",
+        changedFields: [],
+        durationMs: 200,
+        agentOutcome: "planned",
+        acquisitionPlan: plan,
+      },
+    ] as Json);
+
+    expect(parsed.at(0)?.agentOutcome).toBe("planned");
+    expect(parsed.at(0)?.acquisitionPlan).toEqual(plan);
+
+    // Non-object acquisitionPlan is dropped
+    const parsed2 = parsePhaseResults([
+      {
+        phase: "acquisition",
+        status: "succeeded",
+        changedFields: [],
+        durationMs: 100,
+        agentOutcome: "recovered",
+        acquisitionPlan: "not-an-object",
+      },
+    ] as Json);
+    expect(parsed2.at(0)?.agentOutcome).toBe("recovered");
+    expect(parsed2.at(0)).not.toHaveProperty("acquisitionPlan");
+
+    // Unknown agentOutcome string is dropped
+    const parsed3 = parsePhaseResults([
+      {
+        phase: "acquisition",
+        status: "failed",
+        changedFields: [],
+        durationMs: 50,
+        agentOutcome: "invented",
+      },
+    ] as Json);
+    expect(parsed3.at(0)).not.toHaveProperty("agentOutcome");
+  });
+
+  it("preserves revokedColumns through round-trip filtering non-strings", () => {
+    const parsed = parsePhaseResults([
+      {
+        phase: "acquisition",
+        status: "succeeded",
+        changedFields: [],
+        durationMs: 100,
+        revokedColumns: ["description_zh", 42, null, "blurb_zh"],
+      },
+    ] as Json);
+
+    expect(parsed.at(0)?.revokedColumns).toEqual(["description_zh", "blurb_zh"]);
+  });
+
+  it("drops acquisitionPlan when serialized size exceeds 8KB", () => {
+    const largePlan = { data: "x".repeat(9000) };
+    const parsed = parsePhaseResults([
+      {
+        phase: "acquisition",
+        status: "succeeded",
+        changedFields: [],
+        durationMs: 100,
+        acquisitionPlan: largePlan,
+      },
+    ] as Json);
+
+    expect(parsed.at(0)).not.toHaveProperty("acquisitionPlan");
+  });
 });

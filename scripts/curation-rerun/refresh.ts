@@ -470,10 +470,11 @@ async function main(): Promise<void> {
       throw new Error(
         `could not claim job ${job.id} — another worker may hold it`,
       );
+    const { createRenderProviderFromEnv } = await import("@/lib/services/enrich-phases/scraper/render/from-env");
     summary = await runJob(claimed, workerToken, {
       ...(localRender
         ? { renderProvider: createLocalPlaywrightProvider() }
-        : {}),
+        : { renderProvider: createRenderProviderFromEnv() }),
     });
   }
   console.log(

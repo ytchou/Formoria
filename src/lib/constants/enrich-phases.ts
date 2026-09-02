@@ -64,6 +64,7 @@ export const SUB_PHASES = [
   "classification",
   "image-search",
   "persist",
+  "acquisition",
 ] as const;
 
 type SubPhaseName = (typeof SUB_PHASES)[number];
