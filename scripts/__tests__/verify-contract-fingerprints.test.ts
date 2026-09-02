@@ -139,7 +139,7 @@ describe("verify-contract-fingerprints", () => {
   it("parses_the_baseline_table_into_signature_md5_pairs", () => {
     const rows = baselineRows();
 
-    expect(rows).toHaveLength(12);
+    expect(rows).toHaveLength(TABLE_ROWS.length + 1);
     expect(rows[0]).toEqual({
       signature: "apply_brand_refresh(uuid,uuid)",
       md5: "9331b7c422bd3be07e2e36ef2a216bfa",
@@ -303,7 +303,7 @@ describe("verify-contract-fingerprints", () => {
       }),
     );
 
-    expect(rows).toHaveLength(12);
+    expect(rows).toHaveLength(TABLE_ROWS.length + 1);
     expect(
       rows.filter((row) => row.signature.startsWith("apply_brand_refresh(")),
     ).toHaveLength(1);
