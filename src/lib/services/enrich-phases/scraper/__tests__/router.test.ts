@@ -21,7 +21,8 @@ describe('selectStrategy', () => {
     const strategy = selectStrategy('official-site', 'https://brand.com', {
       strategy: 'social',
     })
-    expect(strategy.type).toBe('social')
+    const socialDirect = selectStrategy('social', 'https://brand.com')
+    expect(strategy).toBe(socialDirect)
   })
 
   it('ignores directive when strategy is undefined', () => {
