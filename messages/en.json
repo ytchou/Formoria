@@ -86,8 +86,18 @@
       "removeFilter": "Remove {label}: {value}",
       "sortNewest": "Newest",
       "sortAlphabetical": "Sort by name",
+      "sortRelevance": "Relevance",
       "resultCount": "{count, plural, one {# product} other {# products}}",
-      "sortLabel": "Sort"
+      "sortLabel": "Sort",
+      "query": "Situation"
+    },
+    "search": {
+      "label": "Search by situation",
+      "placeholder": "e.g. moving in, gifting, camping",
+      "submit": "Search",
+      "resultsHeading": "Products matching \"{query}\"",
+      "count": "{count, plural, one {# result} other {# results}}",
+      "empty": "No products found — try different keywords"
     }
   },
   "brandsJoin": {

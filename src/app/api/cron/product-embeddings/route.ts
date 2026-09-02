@@ -65,7 +65,7 @@ async function parseBody(req: Request): Promise<RequestBody | NextResponse> {
   }
 
   const candidate = body as Record<string, unknown>;
-  const allowedKeys = new Set(["dry_run", "triggered_by"]);
+  const allowedKeys = new Set(["dry_run", "triggered_by", "run_at"]);
   if (Object.keys(candidate).some((key) => !allowedKeys.has(key))) {
     return NextResponse.json({ error: "Invalid request" }, { status: 400 });
   }
@@ -97,7 +97,9 @@ export const POST = withAuditScope(async (req: Request) => {
     const dryRun = body.dry_run ?? false;
     const result = await refreshProductEmbeddings({
       dryRun,
-      jobId: body.triggered_by,
+      // triggered_by from pg_cron is a plain string (e.g. "pg_cron"), not a uuid —
+      // do not pass it as jobId (uuid FK on external_call_audit).
+      jobId: undefined,
     });
 
     return NextResponse.json({
@@ -106,6 +108,7 @@ export const POST = withAuditScope(async (req: Request) => {
       deleted: result.deleted,
       failedBatches: result.failedBatches.length,
       dryRun,
+      triggeredBy: body.triggered_by,
     });
   } catch (err) {
     Sentry.captureException(err, {

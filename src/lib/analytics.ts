@@ -312,6 +312,28 @@ export function trackSearchExecuted(query: string, resultCount: number) {
   });
 }
 
+export function trackProductSearchExecuted(
+  query: string,
+  resultCount: number,
+  options: { searchSource: string; degraded: boolean },
+) {
+  safeGAEvent("event", "search", {
+    query_length: query.length,
+    result_count: resultCount,
+    has_results: resultCount > 0,
+    search_source: options.searchSource,
+    degraded: options.degraded,
+  });
+  capturePostHogEvent(ANALYTICS_EVENTS.PRODUCT_SEARCH_EXECUTED, {
+    query_length: query.length,
+    result_count: resultCount,
+    has_results: resultCount > 0,
+    search_source: options.searchSource,
+    degraded: options.degraded,
+    ...searchTermProperty(query),
+  });
+}
+
 export function trackSearchResultClicked(
   query: string,
   positionInResults: number,

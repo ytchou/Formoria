@@ -74,7 +74,8 @@
     "check:design-tokens": "node scripts/generate-design-tokens.mjs --check",
     "check:category-redirects": "tsx scripts/generate-category-redirects.ts --check",
     "langfuse:seed": "tsx scripts/langfuse-seed.ts",
-    "founding-facts:audit": "tsx scripts/founding-facts-audit/index.ts"
+    "founding-facts:audit": "tsx scripts/founding-facts-audit/index.ts",
+    "search:eval": "tsx scripts/search-eval/retrieval-eval.ts"
   },
   "dependencies": {
     "@base-ui/react": "^1.7.0",

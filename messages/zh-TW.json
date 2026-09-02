@@ -86,8 +86,18 @@
       "removeFilter": "移除 {label}: {value}",
       "sortNewest": "最新",
       "sortAlphabetical": "依名稱排序",
+      "sortRelevance": "相關度",
       "resultCount": "{count} 件商品",
-      "sortLabel": "排序"
+      "sortLabel": "排序",
+      "query": "情境"
+    },
+    "search": {
+      "label": "搜尋情境",
+      "placeholder": "例：搬新家、送禮、露營",
+      "submit": "搜尋",
+      "resultsHeading": "符合「{query}」的商品",
+      "count": "{count} 件",
+      "empty": "找不到符合的商品，試試其他關鍵字"
     }
   },
   "brandsJoin": {
