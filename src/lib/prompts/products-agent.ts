@@ -123,7 +123,7 @@ Return a corrected version of the proposal.
 5. Use only the classification vocabularies provided in the original prompt. Never invent slugs.
 
 ## Output
-Return the corrected JSON object with a top-level "evaluations" key and a top-level "products" key. Repeat the evaluations unchanged; the repair only concerns products. Match the provided JSON Schema exactly.`;
+Return a JSON object with a top-level "products" key only. Do not include evaluations — the repair only concerns products. Match the products array shape from the provided JSON Schema exactly.`;
 
 // ---------------------------------------------------------------------------
 // Schema trailer (appended after inlined JSON Schema in user messages)

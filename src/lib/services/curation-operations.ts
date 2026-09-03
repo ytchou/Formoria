@@ -90,6 +90,7 @@ import {
   fetchPhaseHistory,
   filterSatisfiedPhases,
 } from "./enrich-phases/phase-satisfaction";
+import { MAX_PROBE_URLS } from "./category-classifier";
 import {
   formatBrandComplete,
   formatEnrichError,
@@ -815,12 +816,8 @@ function chunkItems<T>(items: T[], size: number): T[][] {
   return chunks;
 }
 
-/**
- * Known URLs probed per brand before detect. Four is what the detect prompt
- * renders (`probeLines` in `category-classifier.ts`); probing more would pay
- * for evidence no model ever reads.
- */
-const MAX_PROBE_URLS_PER_BRAND = 4;
+// Probe cap imported from the prompt owner — see `probeLines` in category-classifier.ts.
+// Probing more would pay for evidence no model ever reads.
 
 function collectKnownUrls(brand: EnrichBrand): string[] {
   const linkUrls = LINK_FIELDS.map(
@@ -1662,41 +1659,44 @@ export async function runEnrich(
         }
 
         // ---- Probe evidence collection (per-brand, before detect) ----
-        // A free GET on each brand's own known URLs. Kept PER BRAND: the whole
-        // point is that detect judges a brand on its own pages, and a flat list
-        // of the chunk's URLs (F10) could only ever be thrown away.
-        //
-        // One `probeStatic` call for the chunk rather than one per brand — it
-        // already runs four at a time whatever it is handed, so a per-brand call
-        // would serialize the chunk behind each brand's slowest host.
-        const probeUrlsByBrandId = new Map<string, string[]>();
-        const probeUrls: string[] = [];
-        const seenProbeUrls = new Set<string>();
-        for (const brand of chunk) {
-          const urls = collectKnownUrls(brand).slice(
-            0,
-            MAX_PROBE_URLS_PER_BRAND,
-          );
-          if (urls.length === 0) continue;
-          probeUrlsByBrandId.set(brand.id, urls);
-          for (const url of urls) {
-            if (seenProbeUrls.has(url)) continue;
-            seenProbeUrls.add(url);
-            probeUrls.push(url);
-          }
-        }
+        // Skipped for products-only jobs: probes only feed the detect phase.
         const probeEvidenceByBrandId = new Map<string, ProbeEvidence[]>();
-        if (probeUrls.length > 0) {
-          const probes = await probeStatic(probeUrls);
-          const probeByUrl = new Map(
-            probes.map((probe) => [probe.url, probe] as const),
-          );
-          for (const [brandId, urls] of probeUrlsByBrandId) {
-            const evidence = urls
-              .map((url) => probeByUrl.get(url))
-              .filter((probe): probe is ProbeEvidence => probe !== undefined);
-            if (evidence.length > 0) {
-              probeEvidenceByBrandId.set(brandId, evidence);
+        if (hasDetectPhases) {
+          // A free GET on each brand's own known URLs. Kept PER BRAND: the whole
+          // point is that detect judges a brand on its own pages, and a flat list
+          // of the chunk's URLs (F10) could only ever be thrown away.
+          //
+          // One `probeStatic` call for the chunk rather than one per brand — it
+          // already runs four at a time whatever it is handed, so a per-brand call
+          // would serialize the chunk behind each brand's slowest host.
+          const probeUrlsByBrandId = new Map<string, string[]>();
+          const probeUrls: string[] = [];
+          const seenProbeUrls = new Set<string>();
+          for (const brand of chunk) {
+            const urls = collectKnownUrls(brand).slice(
+              0,
+              MAX_PROBE_URLS,
+            );
+            if (urls.length === 0) continue;
+            probeUrlsByBrandId.set(brand.id, urls);
+            for (const url of urls) {
+              if (seenProbeUrls.has(url)) continue;
+              seenProbeUrls.add(url);
+              probeUrls.push(url);
+            }
+          }
+          if (probeUrls.length > 0) {
+            const probes = await probeStatic(probeUrls);
+            const probeByUrl = new Map(
+              probes.map((probe) => [probe.url, probe] as const),
+            );
+            for (const [brandId, urls] of probeUrlsByBrandId) {
+              const evidence = urls
+                .map((url) => probeByUrl.get(url))
+                .filter((probe): probe is ProbeEvidence => probe !== undefined);
+              if (evidence.length > 0) {
+                probeEvidenceByBrandId.set(brandId, evidence);
+              }
             }
           }
         }

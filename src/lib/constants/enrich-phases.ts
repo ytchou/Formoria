@@ -272,8 +272,12 @@ export function phasesForTask(
  */
 const RETIRED_PHASE_ALIASES: Record<string, readonly EnrichPhaseName[]> = {
   links: ["acquire"],
-  images: VISUAL_PHASES,
-  classify_images: VISUAL_PHASES,
+  // The closure walk adds detect → acquire → names via products' dependency
+  // chain. Using phasesForTask rather than the raw VISUAL_PHASES ensures a
+  // stored job requesting `images` or `classify_images` actually runs the full
+  // prerequisite chain, not just the terminal `products` phase alone.
+  images: phasesForTask("visual"),
+  classify_images: phasesForTask("visual"),
 };
 
 /**
@@ -282,10 +286,10 @@ const RETIRED_PHASE_ALIASES: Record<string, readonly EnrichPhaseName[]> = {
  * every unknown string, dedupes, and sorts into ENRICH_PHASES order so
  * downstream `phases.includes(...)` checks and the schedule agree.
  *
- * Never returns a member of DEFERRED_PHASES, and never returns an empty list:
- * an empty phase list is read as "run everything" by several callers, so a
- * scope that normalizes away falls back to the explicit `full` closure instead
- * of the raw ENRICH_PHASES array (which still carries the deferred names).
+ * Never returns a member of DEFERRED_PHASES. Returns `[]` when every input
+ * normalizes away — the fallback-to-full belongs in the caller (`resolvePhases`
+ * in job-runner.ts, `effectiveRequestedPhases` in curation-jobs.ts), which
+ * already handle empty by falling through to the next precedence level.
  */
 export function normalizeRequestedPhases(
   phases: readonly string[],
@@ -303,8 +307,7 @@ export function normalizeRequestedPhases(
     requested.add(phase);
   }
 
-  const normalized = ENRICH_PHASES.filter((phase) => requested.has(phase));
-  return normalized.length > 0 ? normalized : phasesForTask("full");
+  return ENRICH_PHASES.filter((phase) => requested.has(phase));
 }
 
 // ---------------------------------------------------------------------------

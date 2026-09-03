@@ -15,23 +15,14 @@ export interface RenderProviderFromEnvOptions {
 }
 
 /**
- * What this factory returns: a render provider that MAY carry a brand-key
- * setter.
+ * What this factory returns: a render provider that MAY carry budget tracking.
  *
- * `setBrandKey` is optional because only the budgeted (Browserless) path has
- * one — the local Playwright provider is unwrapped and unbudgeted. Callers
- * therefore write `provider.setBrandKey?.(brand.id)`, which is correct on both
- * paths, instead of narrowing by provider.
- *
- * Setting it is not optional in effect: the worker builds ONE provider for its
- * whole life, so a caller that never sets a key leaves every brand sharing the
- * default `'unknown'` and turns the per-brand cap of 3 into a per-process cap
- * of 3 (DEV-1644 F8).
+ * Callers that know the brand should wrap this with `bindBrandKey(provider,
+ * brand.id)` before passing it through the scraping pipeline. Without binding,
+ * every brand shares the default `'unknown'` key and turns the per-brand cap
+ * of 3 into a per-process cap of 3 (DEV-1644 F8).
  */
-export interface RenderProviderWithBudget extends RenderProvider {
-  /** Override the brand key used for per-brand budget tracking. */
-  setBrandKey?(key: string): void
-}
+export type RenderProviderWithBudget = RenderProvider
 
 /**
  * Build a RenderProvider from environment variables.

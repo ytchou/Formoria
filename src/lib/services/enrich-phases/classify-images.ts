@@ -857,7 +857,7 @@ function classifyImagesClient(supabase: unknown): ClassifyImagesClient {
  * widened back to "all": the caller that passes an empty batch means it, and
  * silently classifying the whole brand instead is the expensive direction.
  */
-export async function getUnclassifiedImages(
+async function getUnclassifiedImages(
   supabase: unknown,
   target: EnrichmentTarget,
   onlyImageIds?: readonly string[],
@@ -903,7 +903,7 @@ export async function getActiveImages(
   return data ?? [];
 }
 
-export async function updateImage(
+async function updateImage(
   supabase: unknown,
   target: EnrichmentTarget,
   imageId: string,
@@ -918,7 +918,7 @@ export async function updateImage(
   if (error) throw error;
 }
 
-export async function resetImageTags(
+async function resetImageTags(
   supabase: unknown,
   target: EnrichmentTarget,
 ): Promise<number> {
@@ -1095,7 +1095,7 @@ export type VisionImageLoader = (
   image: BrandImageForClassification,
 ) => Promise<string | null>;
 
-export async function classifyChunk(
+async function classifyChunk(
   client: ClassifyImagesChatClient,
   brandContext: string,
   chunk: BrandImageForClassification[],

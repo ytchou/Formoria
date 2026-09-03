@@ -378,16 +378,14 @@ describe("parseLegacyStepsToPhases", () => {
 describe("normalizeRequestedPhases", () => {
   it("normalize_maps_legacy_and_drops_deferred", () => {
     // `links` is the retired name of `acquire`; `images`/`classify_images`
-    // fold into the visual task's phases, which re-acquire by design.
+    // fold into the full visual closure (detect → acquire → names → products).
     expect(
       normalizeRequestedPhases(["links", "images", "clean", "discover"]),
-    ).toEqual(["acquire", "products"]);
+    ).toEqual(["detect", "acquire", "names", "products"]);
 
-    // Nothing survives, so the caller gets the default scope rather than an
-    // empty phase list (which every runner reads as "run everything" anyway).
-    expect(normalizeRequestedPhases(["site_identity"])).toEqual(
-      phasesForTask("full"),
-    );
+    // Nothing survives → empty list. The caller (resolvePhases, effectiveRequestedPhases)
+    // falls through to the next precedence level, not the normalizer.
+    expect(normalizeRequestedPhases(["site_identity"])).toEqual([]);
 
     // Unknown strings are dropped, not carried through as valid-looking scope.
     expect(normalizeRequestedPhases(["detect", "expansion", "bogus"])).toEqual([
@@ -430,10 +428,7 @@ describe("normalizeRequestedPhases", () => {
         result.filter((phase) => deferred.has(phase)),
         `deferred phase leaked for input [${subset.join(", ")}]`,
       ).toEqual([]);
-      expect(
-        result.length,
-        `empty result for input [${subset.join(", ")}]`,
-      ).toBeGreaterThan(0);
+      // An empty result is valid: the caller owns the fallback-to-full.
       expect(new Set(result).size).toBe(result.length);
       expect(result).toEqual(ENRICH_PHASES.filter((p) => result.includes(p)));
     }

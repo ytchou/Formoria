@@ -322,7 +322,7 @@ describe('products/verify', () => {
       expect(result.failures).toHaveLength(0)
     })
 
-    it('verifyProposal_marks_image_missing_when_the_pool_has_no_match', () => {
+    it('verifyProposal_records_unverified_when_pool_has_no_match', () => {
       const result = verifyProposal(
         { url: 'https://example.com/product', category: 'fashion', material: [] },
         {
@@ -334,9 +334,11 @@ describe('products/verify', () => {
         },
       )
 
-      expect(result.imageStatus).toBe('missing')
-      expect(result.ok).toBe(false)
-      expect(result.repairable).toBe(true)
+      // No match is a warning, not a failure — the proposal proceeds unverified.
+      expect(result.imageStatus).toBe('unverified')
+      expect(result.ok).toBe(true)
+      expect(result.failures).toHaveLength(0)
+      expect(result.warnings.some((w) => w.startsWith('image_unverified'))).toBe(true)
     })
   })
 })

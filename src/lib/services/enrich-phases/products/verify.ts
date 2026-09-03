@@ -203,8 +203,11 @@ export function verifyProposal(
     if (imageResult.ok) {
       imageStatus = 'verified'
     } else {
-      imageStatus = 'missing'
-      failures.push(imageResult.reason ?? 'no image')
+      // Non-empty pool but no match is a warning, not a failure: the proposal
+      // proceeds without an image check, same as when the pool is empty.
+      // `repairable` is set only by URL and closed-set failures.
+      imageStatus = 'unverified'
+      warnings.push(`image_unverified: ${imageResult.reason ?? 'no image match in pool'}`)
     }
   }
 

@@ -223,20 +223,21 @@ describe('products agent graph', () => {
     expect(result.verification.dropped).toBeGreaterThan(0)
   })
 
-  it('graph_repair_fixes_repairable_proposal', async () => {
-    // Images that match no product page → the image check fails while the URL
-    // checks pass, which is exactly the repairable case.
+  it('graph_image_mismatch_is_warning_not_repair', async () => {
+    // After F6: images that match no product page are a warning, not a failure.
+    // The proposal proceeds unverified — no repair turn is burned.
     const inputMismatchedImages: ProductsInput = {
       ...baseInput,
       imagePool: [fakeImage('https://brand.com/other-page')],
     }
-    const model = scriptedModel([validProposalResponse(), validProposalResponse()])
+    const model = scriptedModel([validProposalResponse()])
 
     const result = await runProductsAgent(inputMismatchedImages, makeDeps(), { model })
 
-    expect(result.agentOutcome).toBe('repaired')
-    expect(result.verification.repaired).toBeGreaterThan(0)
-    expect(model.invoke).toHaveBeenCalledTimes(2)
+    expect(result.agentOutcome).toBe('proposed')
+    expect(result.verification.imageUnverified).toBeGreaterThan(0)
+    // Only ONE model call (propose) — no repair turn.
+    expect(model.invoke).toHaveBeenCalledTimes(1)
   })
 
   it('graph_budget_exhausted_at_read_returns_fallback', async () => {

@@ -46,8 +46,9 @@ import {
 } from '../catalog-discovery'
 import { buildCandidatePool, type CandidateImage } from '../candidate-pool'
 import type { ClassifiedImage } from '../classify-images'
-import { rank, type RankableImage } from '../image-ranking'
+import { rank, resolveSourceUrl, type RankableImage } from '../image-ranking'
 import { HERO_TARGET_RATIO } from '@/lib/constants/brand-images'
+import { MAX_IMAGE_POOL_BYTES, compactToBytes } from '../../phase-results'
 import type { EnrichBrand } from '../types'
 import {
   AcquisitionPlan,
@@ -107,8 +108,7 @@ const MIN_KEEPS = 3
 /** A probe below this many characters is not usable evidence (mirrors budgetFor). */
 const THIN_TEXT_LENGTH = 200
 
-/** `PhaseResult.imagePool` is persisted; the same 16 KB ceiling as the plan. */
-const MAX_IMAGE_POOL_BYTES = 16_384
+// MAX_IMAGE_POOL_BYTES imported from phase-results.ts (single source of truth).
 
 /** Audit phase for agent turns — matches `PhaseResult` and `current_phase`. */
 const DEFAULT_AUDIT_PHASE = 'acquire'
@@ -1036,22 +1036,10 @@ async function recoverNode(
 // finalize
 // ---------------------------------------------------------------------------
 
-/** The page an image came from, when the classifier or the candidate knows it. */
-function sourceUrlOf(image: ClassifiedImage, candidates: CandidateImage[]): string | null {
-  const carried = (image as RankableImage).sourceUrl
-  if (carried) return carried
-  const match = candidates.find(
-    (candidate) => candidate.url === image.storage_path || candidate.url === image.id,
-  )
-  return match?.pageUrl ?? null
-}
+// sourceUrlOf is now `resolveSourceUrl` in image-ranking.ts (shared with acquire.ts).
 
 function boundedImagePool(pool: RankableImage[]): RankableImage[] {
-  let bounded = pool
-  while (bounded.length > 0 && JSON.stringify(bounded).length > MAX_IMAGE_POOL_BYTES) {
-    bounded = bounded.slice(0, -1)
-  }
-  return bounded
+  return compactToBytes(pool, MAX_IMAGE_POOL_BYTES)
 }
 
 async function finalizeNode(
@@ -1063,7 +1051,7 @@ async function finalizeNode(
 
   const pool: RankableImage[] = state.classifiedImages.map((image) => ({
     ...image,
-    sourceUrl: sourceUrlOf(image, state.imageCandidates),
+    sourceUrl: resolveSourceUrl(image),
   }))
   const ranked = rank(pool, HERO_TARGET_RATIO) as RankableImage[]
   const hero = ranked[0] ?? null
@@ -1227,7 +1215,7 @@ export async function runAcquisition(
     return outputFrom(state, ctx)
   } catch (error) {
     if (error instanceof GraphRecursionError) {
-      ctx.record('graph', 'stopped', 'recursion_limit', Date.now())
+      ctx.record('graph', 'stopped', 'recursion_limit', ctx.wallClockStart)
       return outputFrom(null, ctx, { agentOutcome: 'fallback', error: 'recursion_limit' })
     }
     const aborted =
@@ -1235,11 +1223,11 @@ export async function runAcquisition(
       ctx.signal?.aborted ||
       (error instanceof Error && (error.name === 'AbortError' || error.name === 'TimeoutError'))
     if (aborted) {
-      ctx.record('graph', 'stopped', 'aborted', Date.now())
+      ctx.record('graph', 'stopped', 'aborted', ctx.wallClockStart)
       return outputFrom(null, ctx, { agentOutcome: 'fallback', error: 'aborted' })
     }
     const message = error instanceof Error ? error.message : String(error)
-    ctx.record('graph', 'threw', message.slice(0, 160), Date.now())
+    ctx.record('graph', 'threw', message.slice(0, 160), ctx.wallClockStart)
     return outputFrom(null, ctx, { agentOutcome: 'fallback', error: `threw: ${message.slice(0, 180)}` })
   }
 }

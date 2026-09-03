@@ -597,7 +597,7 @@ export async function classifyCategoryBatch(
 }
 
 /** At most four probed URLs reach the prompt, at most 160 characters each. */
-const PROBE_LINE_LIMIT = 4;
+export const MAX_PROBE_URLS = 4;
 const PROBE_LINE_CHARS = 160;
 
 /**
@@ -612,7 +612,7 @@ const PROBE_LINE_CHARS = 160;
 function probeLines(probes: DetectBatchItem["probes"]): string[] {
   if (!probes?.length) return [];
 
-  return probes.slice(0, PROBE_LINE_LIMIT).map((probe) => {
+  return probes.slice(0, MAX_PROBE_URLS).map((probe) => {
     const head =
       [probe.title, probe.description]
         .filter((part): part is string => Boolean(part?.trim()))

@@ -31,6 +31,7 @@ import { MAX_SCRAPE_URLS_PER_BRAND, scrapeBrandUrls, type ScrapeBrandUrlsOptions
 import { classifyByDomain, isNonBrandSiteHost } from './scraper/input-detector'
 import { mergeScrapedData } from './scraper/merge'
 import type { PhaseResult } from '@/lib/types/curation'
+import { MAX_IMAGE_POOL_BYTES, compactToBytes } from '../phase-results'
 import { auditedCall } from '@/lib/audit'
 import type { ScrapedBrandData, ScrapedImageSource } from '@/lib/types/scraper'
 import type { EnrichScrapedData } from './types'
@@ -45,7 +46,7 @@ import {
 } from './types'
 import { ONLINE_STORES } from '@/lib/brands/online-stores'
 import type { RenderProvider } from './scraper/render/types'
-import type { RenderProviderWithBudget } from './scraper/render/from-env'
+import { bindBrandKey } from './scraper/render/render-budget'
 import { HERO_TARGET_RATIO } from '@/lib/constants/brand-images'
 import { resolveProfileModel } from '@/lib/constants/llm-models'
 import { createServiceClient } from '@/lib/supabase/service'
@@ -64,7 +65,7 @@ import {
 } from './catalog-discovery'
 import { downloadAndStoreImages as defaultDownloadAndStoreImages } from '../image-download'
 import { buildChannelSources } from './images'
-import { rank, type RankableImage } from './image-ranking'
+import { rank, resolveSourceUrl, type RankableImage } from './image-ranking'
 import {
   batchSearchBrandImages as defaultBatchSearchBrandImages,
   searchBrandUrls as defaultSearchBrandUrls,
@@ -708,9 +709,6 @@ function boundedAgentRecord(record: Record<string, unknown>): Record<string, unk
   return current
 }
 
-/** `PhaseResult.imagePool` is persisted; the same 16 KB ceiling as the plan. */
-const MAX_IMAGE_POOL_BYTES = 16_384
-
 /**
  * The persisted projection of the ranked pool: row id, tag, score, and the page
  * the image came from. Everything else in a `RankableImage` is either
@@ -718,16 +716,13 @@ const MAX_IMAGE_POOL_BYTES = 16_384
  * `phase_results` is a JSON column shared with every other phase.
  */
 function compactImagePool(pool: readonly RankableImage[]): NonNullable<PhaseResult['imagePool']> {
-  let compact = pool.map((image) => ({
+  const projected = pool.map((image) => ({
     id: image.id,
     tag: image.tag,
     score: image.score,
     ...(image.sourceUrl ? { sourceUrl: image.sourceUrl } : {}),
   }))
-  while (compact.length > 0 && JSON.stringify(compact).length > MAX_IMAGE_POOL_BYTES) {
-    compact = compact.slice(0, -1)
-  }
-  return compact
+  return compactToBytes(projected, MAX_IMAGE_POOL_BYTES)
 }
 
 /**
@@ -768,20 +763,17 @@ function candidatesFromScrapedData(scrapedData: EnrichScrapedData): CandidateIma
 }
 
 /**
- * Attach the page each classified image came from. The row's own `source_url`
- * wins; the candidate pool is the fallback for a row written before this run.
+ * Attach the page each classified image came from, using the shared
+ * `resolveSourceUrl` from image-ranking.ts. `sourceUrl` is populated by the
+ * classify dep (which reads `source_url` from the DB row).
  */
 function withSourceUrls(
   classified: readonly ClassifiedImage[],
-  candidates: readonly CandidateImage[],
 ): RankableImage[] {
-  return classified.map((image) => {
-    const carried = (image as RankableImage).sourceUrl
-    const match = candidates.find(
-      (candidate) => candidate.url === image.storage_path || candidate.url === image.id,
-    )
-    return { ...image, sourceUrl: carried ?? match?.pageUrl ?? null }
-  })
+  return classified.map((image) => ({
+    ...image,
+    sourceUrl: resolveSourceUrl(image),
+  }))
 }
 
 /**
@@ -883,13 +875,10 @@ export async function runAcquirePhase({
     return client
   }
 
-  // The worker builds ONE render provider for its whole life, so a brand that
-  // never claims the key leaves every brand sharing the default `'unknown'` and
-  // collapses the per-brand cap of three renders into a per-process cap of
-  // three (DEV-1644 F8). Optional on the local Playwright provider, which is
-  // unbudgeted — hence the `?.` rather than a narrowing by provider.
-  const budgetedRenderProvider = renderProvider as RenderProviderWithBudget | undefined
-  budgetedRenderProvider?.setBrandKey?.(brand.id)
+  // Bind the brand key so per-brand budget tracking uses this brand's id, not
+  // the shared `'unknown'` default (DEV-1644 F8). Returns a new provider so
+  // there is no shared mutable state between brands.
+  const renderForBrand = renderProvider ? bindBrandKey(renderProvider, brand.id) : undefined
 
   /**
    * Audit context for the agent's recovery searches, so each one writes a
@@ -915,7 +904,7 @@ export async function runAcquirePhase({
     const scrapeOptions: ScrapeBrandUrlsOptions = {
       brandName: brand.name,
       confirmedSourceUrls,
-      renderProvider,
+      renderProvider: renderForBrand,
       onAttempt: async ({ url, classification, spanId }) => {
         const auditId = await startSearchAudit({
           target: effectiveTarget,
@@ -973,12 +962,14 @@ export async function runAcquirePhase({
     // in process memory.
     let agentTrace: Record<string, unknown> | undefined
     /**
-     * Row writes the classify seam produced, applied only after the agent
-     * returns. Judging and writing are deliberately separate (DEV-1255): a run
-     * that dies mid-agent writes nothing, and every unwritten row keeps
-     * `tags: null` and is simply re-queued by the next run.
+     * Row writes the classify seam produced. Applied IMMEDIATELY inside the
+     * seam so recovery's `getUnclassifiedImages` does not re-read the same
+     * `tags is null` rows. Image writes happen during the agent run, which is
+     * acceptable because they are verdict writes on rows the agent itself
+     * created.
      */
     const plannedWrites: PlannedImageWrite[] = []
+    let appliedImageWrites = false
     let imagePool: RankableImage[] = []
     let catalogResult: CatalogDiscoveryResult | undefined
     let acquisitionPageUrls: string[] = []
@@ -1004,7 +995,7 @@ export async function runAcquirePhase({
           },
           {
             fetchHtml: (await import('./scraper/fetch-guards')).fetchHtmlWithMetadata,
-            renderProvider,
+            renderProvider: renderForBrand,
             scrapeBrandUrls: (agentUrls, opts) =>
               scrapeBrandUrls(agentUrls, { ...scrapeOptions, ...opts }),
             // A dry run must not touch Storage, the vision model or the image
@@ -1015,20 +1006,24 @@ export async function runAcquirePhase({
               : {
                   downloadAndStoreImages: (candidates: CandidateImage[]) =>
                     downloadImages(candidates, effectiveTarget),
-                  // Judges the rows just stored and returns the verdicts; the
-                  // writes they justify are collected here and applied below.
-                  // Scoping is by `tags is null`, which already excludes
-                  // anything an earlier batch in this same run judged.
+                  // Judges the rows just stored and returns the verdicts.
+                  // Writes are applied IMMEDIATELY so recovery's
+                  // `getUnclassifiedImages` does not re-read the same rows.
                   classifyImages: async () => {
                     const judged = await classifyStored({
                       brand,
                       target: effectiveTarget,
                       ...(jobId ? { jobId } : {}),
-                      // Same client the writes below use: one connection for the
-                      // whole phase rather than one per helper that defaults.
                       supabase: db(),
                     })
                     plannedWrites.push(...judged.writes)
+                    if (plannedWrites.length > 0) {
+                      // Snapshot before clearing: the caller may hold a ref.
+                      const batch = [...plannedWrites]
+                      plannedWrites.length = 0
+                      await applyImageWrites(db(), effectiveTarget, batch)
+                      appliedImageWrites = true
+                    }
                     return judged.classified
                   },
                 }),
@@ -1165,7 +1160,7 @@ export async function runAcquirePhase({
         })
         plannedWrites.push(...judged.writes)
         imagePool = rank(
-          withSourceUrls(judged.classified, candidates),
+          withSourceUrls(judged.classified),
           HERO_TARGET_RATIO,
         ) as RankableImage[]
         acquisitionPageUrls = [
@@ -1196,12 +1191,15 @@ export async function runAcquirePhase({
       urlVerdicts,
     })
 
-    // Writes last, and never on a dry run: the verdicts are worth nothing until
-    // the rows carry them, and the hero order cannot be computed before they do.
+    // Apply any remaining writes (fallback path accumulates here; the agent
+    // path applies inside the classifyImages seam and clears the array).
     if (!dryRun && plannedWrites.length > 0) {
-      const supabaseClient = db()
-      await applyImageWrites(supabaseClient, effectiveTarget, plannedWrites)
-      const hero = await finalizeHero(supabaseClient, effectiveTarget, { mode: 'classify' })
+      await applyImageWrites(db(), effectiveTarget, plannedWrites)
+      appliedImageWrites = true
+    }
+    // Hero order is recomputed from written rows — runs after ALL writes.
+    if (!dryRun && appliedImageWrites) {
+      const hero = await finalizeHero(db(), effectiveTarget, { mode: 'classify' })
       // A brand target denormalizes its hero inside `finalizeHeroOrder`; a
       // submission carries the bucket key forward on its patch instead.
       if (effectiveTarget.type === 'submission' && hero.heroStoragePath) {

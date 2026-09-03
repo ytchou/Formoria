@@ -127,6 +127,17 @@ export function rank(
 }
 
 /**
+ * Resolve the page URL an image came from. The image row's own `source_url`
+ * (populated by the classify dep, which reads it from the DB row) wins.
+ * The candidate-based fallback that previously existed here was dead code:
+ * `candidate.url` is the image's own URL, never the storage path or row id
+ * the classified image carries.
+ */
+export function resolveSourceUrl(image: ClassifiedImage): string | null {
+  return (image as RankableImage).sourceUrl ?? null;
+}
+
+/**
  * Pick the best image for a specific product page.
  *
  * Filters `pool` to images whose `sourceUrl` matches `pageUrl`, ranks by

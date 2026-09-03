@@ -45,6 +45,7 @@ import {
 } from "../_shared/llm-call-outcome";
 import {
   brandTarget,
+  targetImageStorage,
   type EnrichmentTarget,
 } from "../_shared/enrichment-target";
 import { preferPatched } from "./descriptions";
@@ -80,6 +81,7 @@ import { loadRenderedProductTexts } from "./scraper/product-origin-text";
 import { fetchHtmlWithMetadata } from "./scraper/fetch-guards";
 import { resolveProfileModel } from "@/lib/constants/llm-models";
 import type { RenderProviderWithBudget } from "./scraper/render/from-env";
+import { bindBrandKey } from "./scraper/render/render-budget";
 import type { CatalogDiscoveryResult } from "./catalog-discovery";
 import type { CandidateImage } from "./candidate-pool";
 import { rankForProduct, type RankableImage } from "./image-ranking";
@@ -853,6 +855,12 @@ async function publishProposals(
     const selectedUrls = new Set(
       selectionResult.ranked.map((candidate) => candidate.normalizedUrl),
     );
+    // O(1) lookup: one normalizeProductUrl per key, not per proposal.
+    const normalizedToOriginUrl = new Map<string, string>();
+    for (const url of originDecisions.keys()) {
+      const norm = normalizeProductUrl(url);
+      if (norm && !normalizedToOriginUrl.has(norm)) normalizedToOriginUrl.set(norm, url);
+    }
     const published = proposals
       .filter((proposal) => {
         const normalized = normalizeProductUrl(proposal.officialUrl);
@@ -860,9 +868,7 @@ async function publishProposals(
       })
       .map((proposal) => {
         const normalized = normalizeProductUrl(proposal.officialUrl);
-        const candidate = [...originDecisions.keys()].find(
-          (url) => normalizeProductUrl(url) === normalized,
-        );
+        const candidate = normalized ? normalizedToOriginUrl.get(normalized) : undefined;
         if (!candidate) return proposal;
         const auditId = selectionResult.auditIdsByUrl.get(candidate);
         const decision = originDecisions.get(candidate);
@@ -1177,14 +1183,13 @@ export async function runProductsPhase({
     catalogCandidates.map((candidate) => [candidate.url, randomUUID()]),
   );
 
-  // Per-brand render budgeting. The worker builds ONE provider for its whole
-  // life, so a caller that never sets a key leaves every brand sharing the
-  // default and turns a per-brand cap of 3 into a per-process cap of 3 (F8).
-  renderProvider?.setBrandKey?.(brand.id);
+  // Per-brand render budgeting. Bind brand.id so the budget tracker counts
+  // renders against this brand, not the shared 'unknown' default (F8).
+  const renderForBrand = renderProvider ? bindBrandKey(renderProvider, brand.id) : undefined;
 
   const loadOriginTextsFn =
     loadOriginTexts ?? ((urls: readonly string[]) =>
-      loadRenderedProductTexts(urls, renderProvider));
+      loadRenderedProductTexts(urls, renderForBrand));
 
   return auditedCall(
     { provider: "enrich", operation: "runProductsPhase", kind: "service" },
@@ -1218,6 +1223,7 @@ export async function runProductsPhase({
           const storePageImagesFn =
             storePageImages ??
             (async (candidates: CandidateImage[]) => {
+              if (dryRun) return [];
               const { downloadAndStoreImages } = await import("../image-download");
               const handles = await downloadAndStoreImages(
                 [...candidates],
@@ -1236,16 +1242,37 @@ export async function runProductsPhase({
           const classifyPageImagesFn =
             classifyPageImages ??
             (async (handles: string[]) => {
-              const { classifyStoredImages } = await import("./classify-images");
+              if (dryRun) return [];
+              const { classifyStoredImages, applyPlannedImageWrites } = await import("./classify-images");
+              const { createServiceClient: createClient } = await import("@/lib/supabase/service");
+
+              const supabase = createClient();
+
+              // Resolve storage paths to row ids so classifyStoredImages
+              // scopes the vision call to only the images this batch stored.
+              const storage = targetImageStorage(effectiveTarget);
+              const { data: matchedRows } = await (supabase as unknown as {
+                from: (t: string) => { select: (c: string) => { eq: (c: string, v: string) => { in: (c: string, v: string[]) => Promise<{ data: Array<{ id: string }> | null }> } } };
+              }).from(storage.table).select("id").eq(storage.foreignKey, effectiveTarget.id).in("storage_path", handles);
+              const onlyImageIds: string[] = (matchedRows ?? []).map((r) => r.id);
+
               const wanted = new Set(handles);
               const classifyResult = await classifyStoredImages({
                 brand,
                 target: effectiveTarget,
-                dryRun: dryRun === true,
+                dryRun: false,
                 ...(jobId ? { jobId } : {}),
                 ...(pendingPatch ? { pendingPatch } : {}),
                 ctx,
+                onlyImageIds,
+                supabase,
               });
+
+              // Persist vision verdicts so the next run does not re-classify.
+              if (!dryRun && classifyResult.writes.length > 0) {
+                await applyPlannedImageWrites(supabase, effectiveTarget, classifyResult.writes);
+              }
+
               return classifyResult.classified
                 .filter(
                   (image) =>
@@ -1283,7 +1310,7 @@ export async function runProductsPhase({
                 const metadata = await fetchHtmlWithMetadata(url);
                 return { text: metadata.text ?? "", statusCode: metadata.status ?? 0 };
               },
-              ...(renderProvider ? { renderProvider } : {}),
+              ...(renderForBrand ? { renderProvider: renderForBrand } : {}),
               loadOriginTexts: loadOriginTextsFn,
               lookupRegistryProducts:
                 lookupRegistryProducts ?? lookupExactRegistryProducts,

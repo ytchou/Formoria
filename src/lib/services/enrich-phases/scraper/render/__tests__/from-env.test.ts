@@ -60,14 +60,16 @@ describe('createRenderProviderFromEnv', () => {
     expect(provider).toBeUndefined()
   })
 
-  it('exposes setBrandKey on the budgeted provider so a caller can key per brand', async () => {
+  it('budgeted provider works with bindBrandKey', async () => {
     vi.stubEnv('RENDER_API_KEY', 'test-key')
     vi.stubEnv('RENDER_LOCAL', '')
 
     const { createRenderProviderFromEnv } = await import('../from-env')
+    const { bindBrandKey } = await import('../render-budget')
     const provider = createRenderProviderFromEnv()
 
-    expect(typeof provider!.setBrandKey).toBe('function')
+    const bound = bindBrandKey(provider!, 'brand-x')
+    expect(typeof bound.fetchRendered).toBe('function')
   })
 
   it('threads the injected monthly loader into the render budget', async () => {
@@ -105,6 +107,8 @@ describe('createRenderProviderFromEnv', () => {
       loadMonthlyCount: async () => 900,
     })
 
-    expect(provider!.setBrandKey).toBeUndefined()
+    // Local provider has no budget wrapper; bindBrandKey is a no-op passthrough.
+    expect(provider).toBeDefined()
+    expect(typeof provider!.fetchRendered).toBe('function')
   })
 })

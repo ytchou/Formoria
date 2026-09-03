@@ -197,7 +197,7 @@ function isStoredValue(value: unknown): boolean {
   return typeof value === 'string' && value.trim().length > 0
 }
 
-export function revokeFields(
+function revokeFields(
   quarantine: SiteIdentityQuarantine,
   brand: EnrichBrand,
   columns: string[] = quarantine.columns,
@@ -295,7 +295,7 @@ function revokedUrlMatcher(
  * `perSourceText` is left intact — the arbiter has already read it, and it is
  * the evidence backing the verdict being recorded.
  */
-export function revokeText(
+function revokeText(
   quarantine: SiteIdentityQuarantine,
   subjectUrl: string,
   subjectKind: SiteIdentityQuarantine['subjectKind'],
@@ -330,7 +330,7 @@ export function revokeText(
   return revoked
 }
 
-export function filterRevokedImages(
+function filterRevokedImages(
   linksResult: RevokableImagePayload | null | undefined,
   subjectUrl: string,
   subjectKind: SiteIdentityQuarantine['subjectKind'],

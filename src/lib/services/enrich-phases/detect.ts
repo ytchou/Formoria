@@ -3,6 +3,7 @@ import { auditedCall } from "@/lib/audit";
 import {
   classifyCategoryBatch,
   detectBrandsBatch,
+  MAX_PROBE_URLS,
   type BatchClassificationItem,
   type ClassificationResult,
   type DetectBatchItem,
@@ -101,8 +102,7 @@ function buildDetectPatch(
   return patch;
 }
 
-/** Probe lines the prompt renders per brand. Mirrors the cap in the classifier. */
-const MAX_PROBES_PER_BRAND = 4;
+// Probe cap imported from category-classifier.ts (prompt owner).
 
 /**
  * Probe evidence worth prompt tokens: one that read a `<head>`. A timed-out or
@@ -116,7 +116,7 @@ function usableProbes(
 
   const usable = evidence
     .filter((probe) => Boolean(probe.title?.trim() || probe.description?.trim()))
-    .slice(0, MAX_PROBES_PER_BRAND)
+    .slice(0, MAX_PROBE_URLS)
     .map((probe) => ({
       url: probe.url,
       ...(probe.title ? { title: probe.title } : {}),

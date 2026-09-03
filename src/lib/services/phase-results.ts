@@ -22,7 +22,19 @@ function isPlainObject(value: unknown): value is Record<string, unknown> {
 }
 
 /** Serialized ceiling for the persisted image pool — the writer's own cap. */
-const MAX_IMAGE_POOL_BYTES = 16_384;
+export const MAX_IMAGE_POOL_BYTES = 16_384;
+
+/**
+ * Drop trailing entries until the pool fits within `maxBytes`.
+ * Used by acquire and acquisition to cap the persisted image pool.
+ */
+export function compactToBytes<T>(pool: readonly T[], maxBytes: number = MAX_IMAGE_POOL_BYTES): T[] {
+  let result = [...pool];
+  while (result.length > 0 && JSON.stringify(result).length > maxBytes) {
+    result = result.slice(0, -1);
+  }
+  return result;
+}
 
 /**
  * The acquire phase's compact image pool, or `undefined`.

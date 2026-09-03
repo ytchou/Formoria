@@ -220,6 +220,8 @@ export type ProductsRunContext = {
   candidateIds: Map<string, string>
   /** Guards decision #35 to a single batch, whatever the verify node retries. */
   pageImageBatchDone: boolean
+  /** Last graph state observed by a node, for counter recovery after an abort. */
+  lastState: unknown
   wallClockStart: number
   signal: AbortSignal | undefined
   record: (step: string, action: string, reason: string, startedAt: number) => void
@@ -255,6 +257,7 @@ export function createProductsRunContext(
     decisions: [],
     candidateIds,
     pageImageBatchDone: false,
+    lastState: null,
     wallClockStart: Date.now(),
     // The hard deadline is the CEILING; `wallClockExhausted` enforces the
     // computed allowance gracefully, one node boundary at a time.
@@ -356,6 +359,7 @@ async function readNode(
   ctx: ProductsRunContext,
   state: ProductsStateType,
 ): Promise<ProductsUpdate> {
+  ctx.lastState = state
   const start = Date.now()
   const evidence: ProductPageEvidence[] = []
   let exhausted: BudgetExhausted | null = null
@@ -442,6 +446,7 @@ async function proposeNode(
   ctx: ProductsRunContext,
   state: ProductsStateType,
 ): Promise<ProductsUpdate> {
+  ctx.lastState = state
   const start = Date.now()
   const attempts = state.proposeAttempts + 1
 
@@ -617,6 +622,7 @@ async function verifyNode(
   ctx: ProductsRunContext,
   state: ProductsStateType,
 ): Promise<ProductsUpdate> {
+  ctx.lastState = state
   const start = Date.now()
   const evidenceByUrl = new Map(state.evidence.map((page) => [page.url, page]))
 
@@ -742,6 +748,7 @@ async function repairNode(
   ctx: ProductsRunContext,
   state: ProductsStateType,
 ): Promise<ProductsUpdate> {
+  ctx.lastState = state
   const start = Date.now()
 
   const basePrompt = await fetchLangfusePrompt(
@@ -820,6 +827,7 @@ async function repairNode(
 // ---------------------------------------------------------------------------
 
 function finalizeNode(ctx: ProductsRunContext, state: ProductsStateType): ProductsUpdate {
+  ctx.lastState = state
   const start = Date.now()
   ctx.wallClockExhausted() // records the final wall-clock usage
   ctx.record(
@@ -1016,16 +1024,19 @@ export async function runProductsAgent(
     }
     return outputFrom(state, ctx)
   } catch (error) {
+    // Use the last observed state for counter recovery rather than zeroing
+    // everything with EMPTY_VERIFICATION.
+    const recovered = (ctx.lastState ?? null) as ProductsStateType | null
     if (error instanceof BudgetExhausted) {
-      ctx.record('graph', 'stopped', `budget_exhausted: ${error.kind}`, Date.now())
-      return outputFrom(null, ctx, {
+      ctx.record('graph', 'stopped', `budget_exhausted: ${error.kind}`, ctx.wallClockStart)
+      return outputFrom(recovered, ctx, {
         agentOutcome: 'fallback',
         error: `budget_exhausted: ${error.message}`,
       })
     }
     if (error instanceof GraphRecursionError) {
-      ctx.record('graph', 'stopped', 'recursion_limit', Date.now())
-      return outputFrom(null, ctx, { agentOutcome: 'fallback', error: 'recursion_limit' })
+      ctx.record('graph', 'stopped', 'recursion_limit', ctx.wallClockStart)
+      return outputFrom(recovered, ctx, { agentOutcome: 'fallback', error: 'recursion_limit' })
     }
     const aborted =
       options.signal?.aborted ||
@@ -1033,8 +1044,8 @@ export async function runProductsAgent(
       (error instanceof Error &&
         (error.name === 'AbortError' || error.name === 'TimeoutError'))
     if (aborted) {
-      ctx.record('graph', 'stopped', 'aborted', Date.now())
-      return outputFrom(null, ctx, { agentOutcome: 'fallback', error: 'aborted' })
+      ctx.record('graph', 'stopped', 'aborted', ctx.wallClockStart)
+      return outputFrom(recovered, ctx, { agentOutcome: 'fallback', error: 'aborted' })
     }
     throw error
   }
