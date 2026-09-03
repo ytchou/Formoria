@@ -8,7 +8,29 @@ import { DEFERRED_PHASES, ENRICH_PHASES, PHASE_DEPENDENCIES, type EnrichPhaseNam
 
 describe("history-based phase satisfaction", () => {
   it("phase_with_no_history_is_unsatisfied", () => {
-    expect(checkPhaseSatisfaction("links", new Map())).toBe("unsatisfied");
+    expect(checkPhaseSatisfaction("acquire", new Map())).toBe("unsatisfied");
+  });
+
+  it("satisfaction_reads_acquire_history", () => {
+    // The phase records itself as `acquire`, so an `acquire` row satisfies it.
+    // `detect` is its only dependency and shares the row's timestamp, which is
+    // not newer, so the acquisition is not stale.
+    const acquireHistory: PhaseHistory = new Map([
+      ["detect", new Date("2026-09-01T00:00:00Z")],
+      ["acquire", new Date("2026-09-01T00:00:00Z")],
+    ]);
+    expect(checkPhaseSatisfaction("acquire", acquireHistory)).toBe("satisfied");
+
+    // A PR-1-era row recorded the retired name `links`. It must NOT satisfy
+    // `acquire`: the brand is re-acquired, which is the documented behaviour
+    // (the two phases produced different evidence packs).
+    const legacyHistory: PhaseHistory = new Map([
+      ["detect", new Date("2026-09-01T00:00:00Z")],
+      ["links", new Date("2026-09-01T00:00:00Z")],
+    ]);
+    expect(checkPhaseSatisfaction("acquire", legacyHistory)).toBe(
+      "unsatisfied",
+    );
   });
 
   it("phase_succeeded_no_deps_is_satisfied", () => {

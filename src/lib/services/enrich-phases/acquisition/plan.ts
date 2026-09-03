@@ -69,15 +69,6 @@ export const CritiqueVerdictSchema = z.object({
 }).strict()
 
 /**
- * Converts the AcquisitionPlan Zod schema to a strict JSON Schema compatible
- * with OpenAI's structured output. Uses Zod 4's built-in `.toJSONSchema()`,
- * which emits `additionalProperties: false` on `.strict()` objects.
- */
-export function toStrictJsonSchema(schema: z.ZodType): Record<string, unknown> {
-  return schema.toJSONSchema() as Record<string, unknown>
-}
-
-/**
  * Maps a parsed plan's surfaces to the SurfaceDirective type used by
  * `scrapeBrandUrls`. Each surface's fetch mode and optional strategy become
  * a directive keyed by URL.

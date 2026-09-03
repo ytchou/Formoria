@@ -17,7 +17,7 @@ import {
 } from './types'
 import type { EnrichScrapedData } from './types'
 import type { QuarantineGroup, AcquirePhaseOutput } from './acquire'
-import { linkColumnFor } from '../link-enrichment'
+import { linkColumnFor, pageKey } from '../link-enrichment'
 
 export type SiteIdentityQuarantine = QuarantineGroup & {
   patch: EnrichPatch
@@ -75,7 +75,61 @@ function clearedFieldsPatch(clearedFields: string[]): EnrichPatch {
   return clearedFields.length > 0 ? { [CLEARED_FIELDS_KEY]: clearedFields } : {}
 }
 
-function applyRevocation(
+/**
+ * Turn the acquisition agent's critique verdicts into site-identity verdicts,
+ * keyed the way `resolveQuarantine`/`applyRevocation` expect to read them.
+ *
+ * The agent already looks at every page it fetched and says whether the brand
+ * owns it, so re-asking a second model the same question costs a call and adds
+ * a way for the two answers to disagree. This adapter is the whole difference
+ * between the two vocabularies:
+ *
+ *   - the critique names the URL it was SHOWN; the quarantine names the subject
+ *     URL the scrape recorded. `pageKey` is the same normalizer the scrape path
+ *     keys pages by, so scheme, `www.` and a trailing slash cannot split one
+ *     page into two.
+ *   - a verdict matching no quarantine group is dropped. Ownership of a page we
+ *     took no value from decides nothing, and a revocation keyed to a group that
+ *     does not exist would silently do nothing anyway.
+ *
+ * First verdict wins per subject: a repeated URL is the model restating itself,
+ * and letting the later copy overwrite the earlier one would make the outcome
+ * depend on array order.
+ */
+export function verdictsFromCritique(
+  urlVerdicts: ReadonlyArray<{
+    url: string
+    owned: boolean
+    confidence: 'high' | 'medium' | 'low'
+    reason: string
+  }>,
+  brandSlug: string,
+  quarantine: Record<string, QuarantineGroup>,
+): Map<string, SiteIdentityVerdict> {
+  const verdicts = new Map<string, SiteIdentityVerdict>()
+  const subjectByKey = new Map<string, string>()
+  for (const group of Object.values(quarantine)) {
+    const key = pageKey(group.subjectUrl)
+    if (!subjectByKey.has(key)) subjectByKey.set(key, group.subjectUrl)
+  }
+
+  for (const verdict of urlVerdicts) {
+    const subjectUrl = subjectByKey.get(pageKey(verdict.url))
+    if (!subjectUrl) continue
+    const key = siteIdentityKey(brandSlug, subjectUrl)
+    if (verdicts.has(key)) continue
+    verdicts.set(key, {
+      slug: brandSlug,
+      owned: verdict.owned,
+      confidence: verdict.confidence,
+      reason: verdict.reason,
+    })
+  }
+
+  return verdicts
+}
+
+export function applyRevocation(
   brand: EnrichBrand,
   quarantine: SiteIdentityQuarantine,
   reason: string,
@@ -128,7 +182,7 @@ function isStoredValue(value: unknown): boolean {
   return typeof value === 'string' && value.trim().length > 0
 }
 
-function revokeFields(
+export function revokeFields(
   quarantine: SiteIdentityQuarantine,
   brand: EnrichBrand,
   columns: string[] = quarantine.columns,
@@ -226,7 +280,7 @@ function revokedUrlMatcher(
  * `perSourceText` is left intact — the arbiter has already read it, and it is
  * the evidence backing the verdict being recorded.
  */
-function revokeText(
+export function revokeText(
   quarantine: SiteIdentityQuarantine,
   subjectUrl: string,
   subjectKind: SiteIdentityQuarantine['subjectKind'],
@@ -261,7 +315,7 @@ function revokeText(
   return revoked
 }
 
-function filterRevokedImages(
+export function filterRevokedImages(
   linksResult: AcquirePhaseOutput | null | undefined,
   subjectUrl: string,
   subjectKind: SiteIdentityQuarantine['subjectKind'],

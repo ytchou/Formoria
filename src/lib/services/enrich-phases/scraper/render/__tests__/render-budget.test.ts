@@ -59,6 +59,32 @@ describe('withRenderBudget', () => {
     expect(inner.callCount).toBe(3)
   })
 
+  it('per-brand cap is per brand, not per worker process', async () => {
+    const inner = makeMockProvider()
+
+    const { withRenderBudget } = await import('../render-budget')
+    // The worker builds ONE provider for its whole life, so `brandKey` is the
+    // placeholder every brand would otherwise share — the shape that turned a
+    // per-brand cap of 3 into a per-process cap of 3.
+    const budgeted = withRenderBudget(inner, {
+      brandKey: () => 'unknown',
+      perBrand: 3,
+      perJob: 1000,
+      monthly: { threshold: 10000, loadCount: async () => 0 },
+    })
+
+    budgeted.setBrandKey('brand-a')
+    await budgeted.fetchRendered('https://a.com/1')
+    await budgeted.fetchRendered('https://a.com/2')
+    await budgeted.fetchRendered('https://a.com/3')
+
+    budgeted.setBrandKey('brand-b')
+    const result = await budgeted.fetchRendered('https://b.com/1')
+
+    expect(result.html).toContain('b.com')
+    expect(inner.callCount).toBe(4)
+  })
+
   it('monthly gauge refuses at threshold and allows below', async () => {
     const inner = makeMockProvider()
 

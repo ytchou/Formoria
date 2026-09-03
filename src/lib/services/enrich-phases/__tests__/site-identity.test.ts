@@ -1,6 +1,11 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { siteIdentityKey } from '../../site-identity-arbiter'
-import { resolveQuarantine, runSiteIdentityPhase, type SiteIdentityQuarantine } from '../site-identity'
+import {
+  resolveQuarantine,
+  runSiteIdentityPhase,
+  verdictsFromCritique,
+  type SiteIdentityQuarantine,
+} from '../site-identity'
 import { buildPhaseResult } from '../types'
 import type { AcquirePhaseOutput } from '../acquire'
 import { CLEARED_FIELDS_KEY, resolveRefreshEnrichmentPatch } from '../../brand-write-policy'
@@ -677,5 +682,79 @@ describe('site identity quarantine', () => {
     const calledItems = arbitrate.mock.calls[0][0]
     const matchedItem = calledItems.find((i: Record<string, unknown>) => i.subjectUrl === 'https://other.example')
     expect(matchedItem).not.toHaveProperty('acquisitionBelief')
+  })
+})
+
+/**
+ * The agent already judges page ownership inside its critique (`urlVerdicts`),
+ * so the acquire phase does not spend a second LLM call on the site-identity
+ * arbiter. `verdictsFromCritique` is the adapter between the two vocabularies:
+ * critique verdicts are keyed by the URL the model was shown, quarantine groups
+ * by the subject URL the scrape recorded, and those two spellings of one page
+ * differ by scheme, `www.` and a trailing slash more often than not.
+ */
+describe('verdictsFromCritique', () => {
+  const quarantine = {
+    'https://other.example': group(),
+    'https://shop.example/store/abc': group({
+      subjectUrl: 'https://shop.example/store/abc',
+      columns: ['purchase_shopee'],
+    }),
+  }
+
+  it('maps a critique verdict onto the quarantine subject it judges', () => {
+    const verdicts = verdictsFromCritique(
+      [
+        {
+          url: 'https://www.other.example/',
+          owned: false,
+          confidence: 'high',
+          reason: 'the page belongs to a different maker',
+        },
+      ],
+      brand.slug,
+      quarantine,
+    )
+
+    expect(verdicts.size).toBe(1)
+    expect(verdicts.get(siteIdentityKey(brand.slug, 'https://other.example'))).toEqual({
+      slug: brand.slug,
+      owned: false,
+      confidence: 'high',
+      reason: 'the page belongs to a different maker',
+    })
+  })
+
+  it('ignores a verdict about a url no quarantine group holds', () => {
+    const verdicts = verdictsFromCritique(
+      [
+        {
+          url: 'https://unrelated.example/about',
+          owned: false,
+          confidence: 'high',
+          reason: 'not the brand',
+        },
+      ],
+      brand.slug,
+      quarantine,
+    )
+
+    expect(verdicts.size).toBe(0)
+  })
+
+  it('keys each subject separately so one verdict cannot revoke another page', () => {
+    const verdicts = verdictsFromCritique(
+      [
+        { url: 'https://other.example', owned: false, confidence: 'high', reason: 'wrong maker' },
+        { url: 'https://shop.example/store/abc', owned: true, confidence: 'high', reason: 'official store' },
+      ],
+      brand.slug,
+      quarantine,
+    )
+
+    expect(verdicts.get(siteIdentityKey(brand.slug, 'https://other.example'))?.owned).toBe(false)
+    expect(
+      verdicts.get(siteIdentityKey(brand.slug, 'https://shop.example/store/abc'))?.owned,
+    ).toBe(true)
   })
 })

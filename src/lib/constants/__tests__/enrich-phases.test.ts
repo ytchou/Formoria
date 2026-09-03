@@ -16,6 +16,7 @@ import {
   SUB_PHASES,
   TEXT_ENRICH_PHASES,
   isDeferredPhase,
+  normalizeRequestedPhases,
   parseLegacyStepsToPhases,
   phasesForTask,
 } from "../enrich-phases";
@@ -333,10 +334,13 @@ describe("phase dependencies and task vocabulary", () => {
 
 describe("parseLegacyStepsToPhases", () => {
   it("expands a legacy step into phases in ENRICH_PHASES order", () => {
-    expect(parseLegacyStepsToPhases(["image"])).toEqual([
-      "images",
-      "classify_images",
-    ]);
+    // The legacy `image` step used to expand to ["images", "classify_images"].
+    // Both are deferred, so the step now resolves to the visual task's closure
+    // (detect → acquire → names → products) and the result is normalized like
+    // every other requested scope.
+    expect(parseLegacyStepsToPhases(["image"])).toEqual(
+      phasesForTask("visual"),
+    );
   });
 
   it("legacy_step_context_resolves", () => {
@@ -351,12 +355,15 @@ describe("parseLegacyStepsToPhases", () => {
     const result = parseLegacyStepsToPhases(["context", "image", "detail"]);
     expect(result).toBeDefined();
     // context + image + detail covers: detect, slugs, acquire, names,
-    // images, classify_images, descriptions, faq, products, tags, stockists
-    // (some are deferred but still in ENRICH_PHASES for historical parsing)
+    // descriptions, faq, products, tags, stockists. Deferred names never
+    // survive — the step map is normalized before it is returned.
     expect(result).toContain("detect");
     expect(result).toContain("acquire");
     expect(result).toContain("names");
     expect(result).toContain("products");
+    for (const phase of DEFERRED_PHASES) {
+      expect(result).not.toContain(phase);
+    }
   });
 
   it("drops unknown step names", () => {
@@ -365,6 +372,71 @@ describe("parseLegacyStepsToPhases", () => {
 
   it("returns undefined for empty input", () => {
     expect(parseLegacyStepsToPhases([])).toBeUndefined();
+  });
+});
+
+describe("normalizeRequestedPhases", () => {
+  it("normalize_maps_legacy_and_drops_deferred", () => {
+    // `links` is the retired name of `acquire`; `images`/`classify_images`
+    // fold into the visual task's phases, which re-acquire by design.
+    expect(
+      normalizeRequestedPhases(["links", "images", "clean", "discover"]),
+    ).toEqual(["acquire", "products"]);
+
+    // Nothing survives, so the caller gets the default scope rather than an
+    // empty phase list (which every runner reads as "run everything" anyway).
+    expect(normalizeRequestedPhases(["site_identity"])).toEqual(
+      phasesForTask("full"),
+    );
+
+    // Unknown strings are dropped, not carried through as valid-looking scope.
+    expect(normalizeRequestedPhases(["detect", "expansion", "bogus"])).toEqual([
+      "detect",
+    ]);
+
+    // Result order is ENRICH_PHASES order, not input order, and deduped.
+    expect(
+      normalizeRequestedPhases(["products", "detect", "links", "acquire"]),
+    ).toEqual(["detect", "acquire", "products"]);
+  });
+
+  it("normalize_never_returns_deferred", () => {
+    const deferred = new Set<string>(DEFERRED_PHASES);
+    const universe: string[] = [
+      ...ENRICH_PHASES,
+      "expansion",
+      "reputation",
+      "bogus",
+    ];
+
+    const subsets: string[][] = [[]];
+    // Every singleton and every pair drawn from the full universe...
+    for (const [index, phase] of universe.entries()) {
+      subsets.push([phase]);
+      for (const other of universe.slice(index + 1)) {
+        subsets.push([phase, other]);
+      }
+    }
+    // ...plus every subset of the deferred names crossed with three live
+    // phases, which is where a leak would actually come from.
+    const sweep = [...DEFERRED_PHASES, "detect", "acquire", "products"];
+    for (let mask = 0; mask < 1 << sweep.length; mask += 1) {
+      subsets.push(sweep.filter((_, index) => (mask & (1 << index)) !== 0));
+    }
+
+    for (const subset of subsets) {
+      const result = normalizeRequestedPhases(subset);
+      expect(
+        result.filter((phase) => deferred.has(phase)),
+        `deferred phase leaked for input [${subset.join(", ")}]`,
+      ).toEqual([]);
+      expect(
+        result.length,
+        `empty result for input [${subset.join(", ")}]`,
+      ).toBeGreaterThan(0);
+      expect(new Set(result).size).toBe(result.length);
+      expect(result).toEqual(ENRICH_PHASES.filter((p) => result.includes(p)));
+    }
   });
 });
 

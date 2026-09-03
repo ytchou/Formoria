@@ -642,9 +642,12 @@ export async function runAcquirePhase({
   supabase,
   renderProvider,
 }: AcquirePhaseOptions): Promise<AcquirePhaseOutput> {
-  if (!phases.includes('links')) {
+  // A phase gates on its OWN name only (the sibling rule in products.ts and
+  // detect.ts). The retired `links` name is mapped to `acquire` by
+  // `normalizeRequestedPhases` at every runner entry, never here.
+  if (!phases.includes('acquire')) {
     return {
-      phaseResult: buildPhaseResult('links', 'skipped', [], 0, undefined, 'links phase not requested'),
+      phaseResult: buildPhaseResult('acquire', 'skipped', [], 0, undefined, 'acquire phase not requested'),
       patch: {},
       scrapedBrandName: null,
       officialNameCandidates: [],
@@ -684,7 +687,7 @@ export async function runAcquirePhase({
           searchType: 'scrape',
           query: url,
           input: { url, classification },
-          config: { phase: 'links', dryRun },
+          config: { phase: 'acquire', dryRun },
         })
         return {
           finish: async (attempt) => {
@@ -762,6 +765,11 @@ export async function runAcquirePhase({
           {
             model,
             audit: {
+              // `brand_ai_results.phase` for agent turns is the phase that ran
+              // them, matching the `products` convention. The CHECK accepts it
+              // (migration 20260903100400); `acquisition` stays a SUB_PHASE for
+              // the historical rows written before this.
+              phase: 'acquire',
               target: target ?? brandTarget(brand.id),
               ...(jobId ? { jobId } : {}),
               ...(supabase ? { supabase } : {}),
@@ -853,7 +861,7 @@ export async function runAcquirePhase({
 
   return {
     phaseResult: {
-      ...buildPhaseResult('links', status, changedFields, durationMs),
+      ...buildPhaseResult('acquire', status, changedFields, durationMs),
       ...(result.agentOutcome
         ? { agentOutcome: result.agentOutcome as PhaseResult['agentOutcome'] }
         : {}),

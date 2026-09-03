@@ -1,7 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import {
   applyChunkNameCleanup,
-  processEnrichBrand,
   mapWithConcurrency,
   mergeEnrichPatches,
   mergeSubmissionEnrichedData,
@@ -349,50 +348,6 @@ describe("enriched_data.products[] payload contract", () => {
   });
 });
 
-describe("processEnrichBrand", () => {
-  const baseBrand = {
-    id: "1",
-    slug: "mybrand",
-    display_brand_name: "My Brand",
-    social_instagram: null,
-    social_threads: null,
-    social_facebook: null,
-    purchase_pinkoi: null,
-    purchase_shopee: null,
-    website_url: null,
-    description: null,
-    hero_image_url: null,
-    product_images: [],
-  };
-
-  const scrapedData = {
-    social_instagram: "https://www.instagram.com/mybrand/",
-    social_facebook: "https://www.facebook.com/mybrand",
-    description:
-      "A premium handcrafted brand from Taiwan specializing in leather goods",
-    story: "Founded in 2015 by artisans in Tainan",
-  };
-
-  it("enriches brand with social links from scraped data", () => {
-    const result = processEnrichBrand(baseBrand, scrapedData, ["links"]);
-    expect(result.patches.links?.social_instagram).toBe(
-      "https://www.instagram.com/mybrand/",
-    );
-  });
-
-  it("does not write scraped description directly into patch (LLM rewrite path only)", () => {
-    const result = processEnrichBrand(baseBrand, scrapedData, ["descriptions"]);
-    // Scraped text is junk — description is only populated via the LLM rewrite pipeline,
-    // so buildTextEnrichPatch returns empty and the patch key is absent.
-    expect(result.patches.descriptions).toBeUndefined();
-  });
-
-  it("omits description when phase is not requested", () => {
-    const result = processEnrichBrand(baseBrand, scrapedData, ["links"]);
-    expect(result.patches.descriptions).toBeUndefined();
-  });
-});
-
 describe("enrichment write guards", () => {
   it("rejects the retired direct-to-live brand write path", async () => {
     await expect(
@@ -484,44 +439,6 @@ describe("enrichment write guards", () => {
   });
 });
 
-describe("processEnrichBrand with cleanup phases", () => {
-  const baseBrand = {
-    id: "1",
-    slug: "test-brand",
-    display_brand_name: "  ✨ My Brand ✨  ",
-    name: "  ✨ My Brand ✨  ",
-    status: "approved",
-    description: null,
-    category: null,
-    purchase_website: null,
-  };
-
-  it("cleans brand name and returns normalized result", () => {
-    const result = processEnrichBrand(baseBrand, {}, ["clean"]);
-    expect(result.phases).toHaveProperty("clean");
-    expect(result.phases.clean?.changed).toBe(true);
-    expect(result.patches.names?.name).toBe("My Brand");
-    expect(result.patches).not.toHaveProperty("clean");
-    expect(result.patch.name).toBe("My Brand");
-  });
-
-  it("preserves original name when clean phase is not requested", () => {
-    const result = processEnrichBrand(baseBrand, {}, ["discover"]);
-    expect(result.phases).not.toHaveProperty("clean");
-  });
-
-  it("clean phase preserves already-clean names", () => {
-    const cleanBrand = {
-      ...baseBrand,
-      name: "Already Clean",
-      display_brand_name: "Already Clean",
-    };
-    const result = processEnrichBrand(cleanBrand, {}, ["clean"]);
-    expect(result.phases.clean?.changed).toBe(false);
-    expect(result.patch).toEqual({});
-  });
-});
-
 describe("applyChunkNameCleanup", () => {
   const messyBrand = () => ({
     id: "brand-1",
@@ -605,43 +522,6 @@ describe("applyChunkNameCleanup", () => {
 
     expect(phaseResult.changedFields).toEqual([]);
     expect(cleanedName).toBeNull();
-  });
-});
-
-describe("descriptions phase standalone", () => {
-  const baseBrand = {
-    id: "1",
-    slug: "mybrand",
-    display_brand_name: "My Brand",
-    social_instagram: null,
-    social_threads: null,
-    social_facebook: null,
-    purchase_pinkoi: null,
-    purchase_shopee: null,
-    website_url: null,
-    description: null,
-    hero_image_url: null,
-    product_images: [],
-  };
-
-  it("runs descriptions phase without setting category", () => {
-    const result = processEnrichBrand(
-      baseBrand,
-      { snippets: ["A great brand making handmade soap"] },
-      ["descriptions"],
-    );
-    expect(result.phases).toHaveProperty("descriptions");
-    expect(result.patch).not.toHaveProperty("category");
-  });
-
-  it("runs descriptions phase without tags when tags is not in phases", () => {
-    const result = processEnrichBrand(
-      baseBrand,
-      { snippets: ["A great brand making handmade soap"] },
-      ["descriptions"],
-    );
-    expect(result.phases).toHaveProperty("descriptions");
-    expect(result.phases).not.toHaveProperty("tags");
   });
 });
 

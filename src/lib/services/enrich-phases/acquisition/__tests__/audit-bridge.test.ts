@@ -1,71 +1,82 @@
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest'
+import { HumanMessage, SystemMessage } from '@langchain/core/messages'
+import { setAuditWriteSeam, type AuditRecord } from '@/lib/audit/emit'
 
 import { invokeAudited, type AuditBridgeContext } from '../audit-bridge'
+import { callModel } from '../../agents/runtime'
 
-// Mock only the audit envelope (allowed — @/lib/audit is not under @/lib/services/)
-vi.mock('@/lib/audit', () => ({
-  auditedCall: vi.fn().mockImplementation((_spec: unknown, fn: (ctx: { summary: Record<string, unknown> }) => unknown) => fn({ summary: {} })),
-}))
-
-import { auditedCall } from '@/lib/audit'
-
+/**
+ * `audit-bridge` is a re-export shim over `agents/runtime`. It survives because
+ * `products/graph.ts` imports `invokeAudited` by name; the behaviour under it is
+ * the runtime's single `callModel`.
+ */
 describe('audit-bridge', () => {
+  beforeEach(() => {
+    vi.stubEnv('NEXT_PUBLIC_SUPABASE_URL', '')
+    vi.stubEnv('SUPABASE_SERVICE_ROLE_KEY', '')
+    vi.spyOn(console, 'error').mockImplementation(() => {})
+  })
+
+  afterEach(() => {
+    vi.unstubAllEnvs()
+    vi.restoreAllMocks()
+  })
+
+  it('audit_bridge_is_the_runtime_call_model', () => {
+    expect(invokeAudited).toBe(callModel)
+  })
+
   it('audit_bridge_emits_ChatAuditEvent_with_usage_and_span', async () => {
-    const fakeResponse = {
-      content: 'test response',
-      usage_metadata: {
-        input_tokens: 100,
-        output_tokens: 50,
-        total_tokens: 150,
-      },
-    }
+    const records: AuditRecord[] = []
+    setAuditWriteSeam(async (record) => {
+      records.push(record)
+      return null
+    })
 
     const fakeModel = {
-      invoke: vi.fn().mockResolvedValue(fakeResponse),
+      invoke: vi.fn().mockResolvedValue({
+        content: 'test response',
+        usage_metadata: { input_tokens: 100, output_tokens: 50, total_tokens: 150 },
+      }),
     }
 
     const persistSpy = vi.fn().mockResolvedValue(undefined)
     const emitSpy = vi.fn()
 
     const ctx: AuditBridgeContext = {
-      phase: 'acquisition',
+      phase: 'products',
       jobId: 'job-1',
+      target: { type: 'brand', id: 'brand-1' },
       _persistAuditEvent: persistSpy,
       _emitLangfuseGeneration: emitSpy,
     }
 
-    const messages = [
-      { role: 'system' as const, content: 'You are a planner.' },
-      { role: 'user' as const, content: 'Plan the scrape.' },
-    ]
+    await invokeAudited(
+      fakeModel,
+      [new SystemMessage('You are a planner.'), new HumanMessage('Plan the scrape.')],
+      ctx,
+    )
 
-    await invokeAudited(fakeModel, messages, ctx)
+    const terminal = records.find((record) => record.status !== 'started')
+    expect(terminal?.provider).toBe('openai')
+    expect(terminal?.operation).toBe('chat_completions')
+    expect(terminal?.subjectId).toBe('brand-1')
+    expect(terminal?.jobId).toBe('job-1')
+    expect(terminal?.promptTokens).toBe(100)
+    expect(terminal?.completionTokens).toBe(50)
 
-    // auditedCall was called with acquisition spec
-    const mockedAuditedCall = vi.mocked(auditedCall)
-    expect(mockedAuditedCall).toHaveBeenCalledTimes(1)
-    const spec = mockedAuditedCall.mock.calls[0]![0]
-    expect(spec.provider).toBe('openai')
-    expect(spec.operation).toBe('chat_completions')
-    expect(spec.kind).toBe('external')
-    expect(spec.spanId).toBeDefined()
-    expect(typeof spec.spanId).toBe('string')
-
-    // persistAuditEvent was called once with phase 'acquisition'
     expect(persistSpy).toHaveBeenCalledTimes(1)
     const [auditCtx, event, spanId] = persistSpy.mock.calls[0]!
-    expect(auditCtx.phase).toBe('acquisition')
-    expect(spanId).toBe(spec.spanId)
+    // The caller's phase is carried through — the shim adds no default.
+    expect(auditCtx.phase).toBe('products')
+    expect(spanId).toBe(terminal?.spanId)
     expect(event.usage).toEqual({
       prompt_tokens: 100,
       completion_tokens: 50,
       total_tokens: 150,
     })
 
-    // Langfuse generation emitted
     expect(emitSpy).toHaveBeenCalledTimes(1)
-    const [lfCtx, lfEvent] = emitSpy.mock.calls[0]!
-    expect(lfCtx.phase).toBe('acquisition')
-    expect(lfEvent.provider).toBe('openai')
+    expect(emitSpy.mock.calls[0]![1].provider).toBe('openai')
   })
 })

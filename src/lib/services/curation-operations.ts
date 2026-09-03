@@ -9,7 +9,6 @@ import {
   resolveRefreshEnrichmentPatch,
 } from "./brand-write-policy";
 import type { BrandFlatLinkColumns } from "@/lib/types";
-import type { ScrapedBrandData } from "@/lib/types/scraper";
 import {
   ENRICH_LLM_PHASES,
   ENRICH_PHASES,
@@ -23,8 +22,6 @@ import {
   type OnlineStoreColumn,
 } from "@/lib/brands/online-stores";
 import {
-  buildLinkEnrichPatch,
-  buildTextEnrichPatch,
   extractLinksFromUrls,
   hasLinkValue,
   LINK_FIELDS,
@@ -57,7 +54,6 @@ import {
   buildPhaseResult,
   getDisplayBrandName,
   loadCachedSearchResults,
-  runCleanPhase,
   runDescriptionsPhase,
   runFaqPhase,
   runProductsPhase,
@@ -226,27 +222,15 @@ export { mapWithConcurrency };
 
 export { ENRICH_PHASES };
 
-type EnrichPhase =
-  | "clean"
-  | "links"
-  | "names"
-  | "site_identity"
-  | "images"
-  | "descriptions"
-  | "stockists"
-  | "tags";
 /**
  * Every phase `runEnrich` can be asked for. Aliased to the canonical
  * `EnrichPhaseName` rather than spelled out again: this used to be a
- * hand-maintained union (`EnrichPhase | "discover" | "detect" | "slugs" |
- * "reputation"`) and it had already drifted — `classify_images` was missing,
- * and adding `faq` to `ENRICH_PHASES` turned `needsPhase`'s new `faq` clause
- * into a branch TypeScript could prove unreachable. A local copy of a list that
- * lives in the constants module can only drift again, so there is no copy now.
- *
- * The narrower `EnrichPhase` above is left alone: it only constrains
- * `isRequestedPhase`'s argument to the per-brand phases that helper is ever
- * asked about, and widening it would weaken that check rather than fix drift.
+ * hand-maintained union and it had already drifted — `classify_images` was
+ * missing, and adding `faq` to `ENRICH_PHASES` turned `needsPhase`'s new `faq`
+ * clause into a branch TypeScript could prove unreachable. A local copy of a
+ * list that lives in the constants module can only drift again, so there is no
+ * copy now. (A second, narrower copy survived until DEV-1644 and still named
+ * `links`; it went with `processEnrichBrand`, its only consumer.)
  */
 type RunEnrichPhase = EnrichPhaseName;
 
@@ -289,11 +273,6 @@ export function applyChunkNameCleanup(
 
   return cleanups;
 }
-
-type EnrichScrapedData = Partial<ScrapedBrandData> &
-  Partial<BrandFlatLinkColumns> & {
-    snippets?: string[];
-  };
 
 type EnrichImagePatch = Partial<{
   hero_image_url: string | null;
@@ -338,27 +317,12 @@ export function needsPhase(
   return true;
 }
 
-type EnrichCleanPhase = {
-  changed: boolean;
-  original?: string;
-  cleaned?: string;
-};
-
-type EnrichDescriptionsPhase = {
-  changed: boolean;
-};
-
 type EnrichDescriptionPatch = Partial<{
   description: string | null;
   description_en: string | null;
   subcategories: string[] | null;
   city: string | null;
 }>;
-
-type EnrichProcessPhases = {
-  clean?: EnrichCleanPhase;
-  descriptions?: EnrichDescriptionsPhase;
-};
 
 type EnrichPatches = {
   links?: Partial<BrandFlatLinkColumns>;
@@ -381,13 +345,6 @@ type EnrichPatch = Partial<BrandFlatLinkColumns> &
   EnrichDescriptionPatch &
   Partial<Pick<EnrichBrand, "category" | "name">>;
 
-type ProcessEnrichResult = {
-  phases: EnrichProcessPhases;
-  patches: EnrichPatches;
-  patch: EnrichPatch;
-  hasChanges: boolean;
-};
-
 type SubmissionEnrichmentRow = Record<OnlineStoreColumn, string | null> & {
   id: string;
   brand_id: string | null;
@@ -405,10 +362,6 @@ type SubmissionEnrichmentRow = Record<OnlineStoreColumn, string | null> & {
   owner_data: unknown;
   status: string;
 };
-
-function isRequestedPhase(phases: string[], phase: EnrichPhase): boolean {
-  return phases.includes(phase);
-}
 
 function isPlainObject(value: unknown): value is JsonObject {
   return Boolean(value) && typeof value === "object" && !Array.isArray(value);
@@ -619,16 +572,19 @@ function describeProviderFailure(
 
 /**
  * Phases a PRODUCTS-SCOPED run may name, and nothing else: the products phase
- * plus its two hard dependencies. `lib/services/curated-products/backfill.ts`
- * enqueues exactly this set, and the set is repeated here rather than imported
- * because that module reaches `curation-jobs` and `submissions` — importing it
- * from the runner would close a cycle to buy one array.
+ * plus its hard dependency. `curated-products/backfill.ts` enqueues exactly
+ * this set as `CURATED_PRODUCT_BACKFILL_PHASES`, and the set is repeated here
+ * rather than imported because that module reaches `curation-jobs` and
+ * `submissions` — importing it from the runner would close a cycle to buy one
+ * array.
+ *
+ * The two must stay in step. When they drifted (this set still naming the
+ * retired `links`/`site_identity` while the backfill had moved to `acquire`)
+ * every backfill target recorded `skipped`, its refresh submission stayed
+ * pending and un-approvable, and the brand's pending-refresh unique index
+ * (23505) then blocked every future refresh of that brand.
  */
-const PRODUCTS_SCOPED_RUN_PHASES = new Set<string>([
-  "links",
-  "site_identity",
-  "products",
-]);
+const PRODUCTS_SCOPED_RUN_PHASES = new Set<string>(["acquire", "products"]);
 
 export function isProductsScopedRun(phases: readonly string[]): boolean {
   return (
@@ -863,85 +819,6 @@ function collectKnownUrls(brand: EnrichBrand): string[] {
   return uniqueUrls(linkUrls);
 }
 
-function normalizeScrapedData(
-  scrapedData: EnrichScrapedData,
-): EnrichScrapedData {
-  return {
-    ...scrapedData,
-    social_instagram:
-      scrapedData.social_instagram ?? scrapedData.socialInstagram,
-    social_threads: scrapedData.social_threads ?? scrapedData.socialThreads,
-    social_facebook: scrapedData.social_facebook ?? scrapedData.socialFacebook,
-    // Scrapers emit either the snake_case column or the camelCase field; the
-    // column wins. Derived per store rather than restated three times.
-    ...(Object.fromEntries(
-      ONLINE_STORES.map(
-        (channel): [OnlineStoreColumn, string | null | undefined] => [
-          channel.column,
-          scrapedData[channel.column] ?? scrapedData[channel.camel],
-        ],
-      ),
-    ) as Partial<Record<OnlineStoreColumn, string | null>>),
-  };
-}
-
-export function processEnrichBrand(
-  brand: EnrichBrand,
-  scrapedData: EnrichScrapedData,
-  phases: string[],
-): ProcessEnrichResult {
-  const phaseResults: EnrichProcessPhases = {};
-  const patches: EnrichPatches = {};
-  const normalizedScrapedData = normalizeScrapedData(scrapedData);
-
-  if (isRequestedPhase(phases, "clean")) {
-    const nameCleanup = cleanBrandName(brand.name ?? "");
-    phaseResults.clean = nameCleanup.changed
-      ? {
-          changed: true,
-          original: nameCleanup.originalName,
-          cleaned: nameCleanup.cleanedName,
-        }
-      : { changed: false };
-
-    if (nameCleanup.changed) {
-      // This path has no LLM arbiter, so the cleaned value wins by default —
-      // the same order `fallbackName` uses in the names phase (cleaned before
-      // stored, never scraped). It is still written under the `names` key
-      // because that key is the only writer of `name`.
-      patches.names = { name: nameCleanup.cleanedName };
-    }
-  }
-
-  if (isRequestedPhase(phases, "links")) {
-    const links = buildLinkEnrichPatch(
-      brand,
-      normalizedScrapedData,
-      brand.name,
-    );
-    if (hasPatchValues(links)) {
-      patches.links = links;
-    }
-  }
-
-  if (isRequestedPhase(phases, "descriptions")) {
-    const descriptions = buildTextEnrichPatch(brand, normalizedScrapedData);
-    phaseResults.descriptions = { changed: hasPatchValues(descriptions) };
-    if (hasPatchValues(descriptions)) {
-      patches.descriptions = descriptions;
-    }
-  }
-
-  const patch = mergeEnrichPatches(patches);
-
-  return {
-    phases: phaseResults,
-    patches,
-    patch,
-    hasChanges: hasPatchValues(patch),
-  };
-}
-
 export function mergeEnrichPatches(patches: EnrichPatches): EnrichPatch {
   return {
     ...patches.links,
@@ -1035,11 +912,12 @@ function logPhaseResult(
 }
 
 /**
- * The phase labels the per-brand progress log counts through ("[3/7] links").
+ * The phase labels the per-brand progress log counts through ("[3/7] acquire").
  *
- * After the wave collapse, the order is: detect → clean → acquire → names →
+ * After the wave collapse, the order is: detect → acquire → names →
  * descriptions → stockists → faq → tags → products → persist.
- * Discover, site_identity, images, and classify_images are retired.
+ * Clean, discover, links, site_identity, images and classify_images are
+ * retired — `clean` folded into the chunk-level `applyChunkNameCleanup`.
  */
 function buildBrandPhaseOrder(
   phases: RunEnrichPhase[],
@@ -1047,8 +925,7 @@ function buildBrandPhaseOrder(
 ): string[] {
   return [
     hasDetectPhases && "detect",
-    "clean",
-    "links",
+    "acquire",
     "names",
     "descriptions",
     "stockists",
@@ -1550,7 +1427,7 @@ export async function runEnrich(
           phases.includes("detect") || phases.includes("slugs");
         const activeSteps = [
           hasDetectPhases && "detect",
-          phases.includes("links") && "acquire",
+          phases.includes("acquire") && "acquire",
           phases.includes("tags") && !phases.includes("descriptions") && "tags",
           phases.includes("descriptions") &&
             phases.includes("tags") &&
@@ -2114,23 +1991,14 @@ export async function runEnrich(
                 getDisplayBrandName(brand),
               );
 
-              // ---- Clean ----
-              let cleanResult: Awaited<ReturnType<typeof runCleanPhase>> | undefined;
-              if (!satisfiedPhaseSet.has("clean")) {
-                await markCurrentPhase(ctx, "clean");
-                cleanResult = await runCleanPhase(
-                  brand,
-                  phases,
-                  nameCleanups.get(brand.id),
-                );
-                state.phaseResults.push(cleanResult.phaseResult);
-                await logCurrentPhase(ctx, cleanResult.phaseResult);
-              }
+              // `clean` is DEFERRED and no longer scheduled: `applyChunkNameCleanup`
+              // (run once per chunk, above) already normalizes the name and its
+              // result is the `cleaned` name candidate below.
 
               // ---- Acquire (replaces links + images + classify + quarantine) ----
               let acquireResult: Awaited<ReturnType<typeof runAcquirePhase>> | undefined;
-              if (!satisfiedPhaseSet.has("links")) {
-                await markCurrentPhase(ctx, "links");
+              if (!satisfiedPhaseSet.has("acquire")) {
+                await markCurrentPhase(ctx, "acquire");
                 acquireResult = await runAcquirePhase({
                   brand,
                   phases,
@@ -2208,9 +2076,10 @@ export async function runEnrich(
                     getDisplayBrandName(brand),
                 },
               ];
-              const cleanedName =
-                cleanResult?.cleanedName ??
-                nameCleanups.get(brand.id)?.cleanedName;
+              // `applyChunkNameCleanup` only records a brand when the cleanup
+              // actually changed the name, which is exactly the condition the
+              // retired `clean` phase used to emit `cleanedName` under.
+              const cleanedName = nameCleanups.get(brand.id)?.cleanedName;
               if (cleanedName) {
                 candidates.push({
                   source: "cleaned",

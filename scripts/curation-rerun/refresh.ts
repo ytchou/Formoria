@@ -471,10 +471,18 @@ async function main(): Promise<void> {
         `could not claim job ${job.id} — another worker may hold it`,
       );
     const { createRenderProviderFromEnv } = await import("@/lib/services/enrich-phases/scraper/render/from-env");
+    const { loadBrowserlessMonthlyCount } = await import("@/lib/services/enrich-phases/scraper/render/monthly-gauge");
     summary = await runJob(claimed, workerToken, {
       ...(localRender
         ? { renderProvider: createLocalPlaywrightProvider() }
-        : { renderProvider: createRenderProviderFromEnv() }),
+        : {
+            // Same durable gauge the worker uses: this script and the deployed
+            // worker spend the same Browserless monthly allowance, so a rerun
+            // must see the renders the worker already made.
+            renderProvider: createRenderProviderFromEnv({
+              loadMonthlyCount: () => loadBrowserlessMonthlyCount(supabase),
+            }),
+          }),
     });
   }
   console.log(

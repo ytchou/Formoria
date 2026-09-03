@@ -26,7 +26,7 @@ afterEach(() => {
 describe("Gate A — acquire-based provider gate", () => {
   it("gate_a_fires_on_acquire_provider_failure", () => {
     const decision = evaluateProviderGate({
-      acquireResult: phase("links", "failed", { providerFailure: true }),
+      acquireResult: phase("acquire", "failed", { providerFailure: true }),
     });
 
     expect(decision).toEqual({
@@ -37,7 +37,7 @@ describe("Gate A — acquire-based provider gate", () => {
 
   it("gate_a_passes_on_successful_acquire", () => {
     const decision = evaluateProviderGate({
-      acquireResult: phase("links", "succeeded"),
+      acquireResult: phase("acquire", "succeeded"),
     });
 
     expect(decision).toBeNull();
@@ -45,7 +45,7 @@ describe("Gate A — acquire-based provider gate", () => {
 
   it("gate_a_passes_when_acquire_skipped", () => {
     const decision = evaluateProviderGate({
-      acquireResult: phase("links", "skipped"),
+      acquireResult: phase("acquire", "skipped"),
     });
 
     expect(decision).toBeNull();
@@ -53,7 +53,7 @@ describe("Gate A — acquire-based provider gate", () => {
 
   it("gate_a_passes_on_non_provider_failure", () => {
     const decision = evaluateProviderGate({
-      acquireResult: phase("links", "failed", { error: "scrape blew up" }),
+      acquireResult: phase("acquire", "failed", { error: "scrape blew up" }),
     });
 
     expect(decision).toBeNull();
@@ -63,7 +63,7 @@ describe("Gate A — acquire-based provider gate", () => {
     process.env.CURATION_PROVIDER_GATE = "off";
 
     const decision = evaluateProviderGate({
-      acquireResult: phase("links", "failed", { providerFailure: true }),
+      acquireResult: phase("acquire", "failed", { providerFailure: true }),
     });
 
     expect(decision?.action).toBe("warn");
@@ -74,7 +74,7 @@ describe("Gate A — acquire-based provider gate", () => {
 
     expect(
       evaluateProviderGate({
-        acquireResult: phase("links", "failed", { providerFailure: true }),
+        acquireResult: phase("acquire", "failed", { providerFailure: true }),
       })?.action,
     ).toBe("fail");
   });
@@ -169,7 +169,9 @@ describe("Gate C — llmStageFailure", () => {
 
   it("fails the target when every attempted LLM phase failed at the provider", () => {
     const decision = evaluateLlmProviderGate([
-      phase("links", "succeeded"),
+      // `site_identity` is a historical, non-LLM phase name: it is in the
+      // denominator of nothing, so it must not dilute the gate.
+      phase("site_identity", "succeeded"),
       phase("descriptions", "failed", { providerFailure: true }),
       phase("faq", "failed", { providerFailure: true }),
     ]);
@@ -224,7 +226,7 @@ describe("Gate C — llmStageFailure", () => {
     expect(
       evaluateLlmProviderGate([
         phase("discover", "failed", { providerFailure: true }),
-        phase("links", "failed"),
+        phase("site_identity", "failed"),
       ]),
     ).toBeNull();
     expect(llmStageFailure([])).toBeNull();
@@ -234,11 +236,28 @@ describe("Gate C — llmStageFailure", () => {
     // Acquire is an LLM phase; if it's the only one attempted and it failed
     // at the provider, Gate C fires
     const result = evaluateLlmProviderGate([
-      phase("links", "succeeded"), // non-LLM
+      phase("site_identity", "succeeded"), // non-LLM, historical
       phase("descriptions", "failed", { providerFailure: true }),
     ]);
     expect(result?.action).toBe("fail");
     expect(result?.message).toContain("LLM provider unavailable");
+  });
+
+  it("gate_c_counts_acquire_failure", () => {
+    // `acquire` is in ENRICH_LLM_PHASES, so a provider failure recorded under
+    // that name (not the retired `links`) is what Gate C must count. A `links`
+    // row is historical and is ignored — it is not an LLM phase.
+    const result = evaluateLlmProviderGate([
+      phase("acquire", "failed", { providerFailure: true }),
+    ]);
+    expect(result?.action).toBe("fail");
+    expect(result?.message).toContain("acquire");
+
+    expect(
+      evaluateLlmProviderGate([
+        phase("links", "failed", { providerFailure: true }),
+      ]),
+    ).toBeNull();
   });
 
   it("downgrades to a warning when CURATION_PROVIDER_GATE=off", () => {
@@ -382,23 +401,34 @@ describe("hasMaterialPatchValues", () => {
 });
 
 describe("isProductsScopedRun", () => {
+  it("products_scoped_run_matches_backfill_phases", () => {
+    // The literal is repeated rather than imported on purpose: `backfill.ts`
+    // deliberately does not export its phase list, because a test that
+    // imported it could not catch a wrong value. This assertion is the pin —
+    // if the backfill's scope and this set ever diverge again, every backfill
+    // target records `skipped` and the brand's pending-refresh index (23505)
+    // blocks it forever.
+    expect(isProductsScopedRun(["acquire", "products"])).toBe(true);
+  });
+
   it("accepts the backfill's own phase set and nothing wider", () => {
-    expect(isProductsScopedRun(["links", "site_identity", "products"])).toBe(
-      true,
-    );
+    expect(isProductsScopedRun(["acquire", "products"])).toBe(true);
     expect(isProductsScopedRun(["products"])).toBe(true);
+    // The retired names are no longer part of the products scope.
+    expect(isProductsScopedRun(["links", "site_identity", "products"])).toBe(
+      false,
+    );
     // A full run names `products` too. It is not products-scoped.
     expect(
       isProductsScopedRun([
-        "clean",
-        "discover",
-        "links",
-        "site_identity",
+        "detect",
+        "acquire",
+        "names",
         "descriptions",
         "products",
       ]),
     ).toBe(false);
-    expect(isProductsScopedRun(["links", "site_identity"])).toBe(false);
+    expect(isProductsScopedRun(["acquire"])).toBe(false);
     expect(isProductsScopedRun([])).toBe(false);
   });
 });

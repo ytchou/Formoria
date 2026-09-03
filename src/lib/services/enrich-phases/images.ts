@@ -44,7 +44,15 @@ const EMPTY_CATALOG_RESULT: CatalogDiscoveryResult = {
   evidence: new Map(),
 }
 
-function buildChannelSources(brand: EnrichBrand): CatalogSource[] {
+/**
+ * The brand's own purchase channels, as catalog-discovery sources.
+ *
+ * Exported because catalog discovery moves into the acquire phase: the sources
+ * are a property of the brand, not of the retired images phase, and deriving
+ * them a second time there is how the two would drift on the next channel
+ * column.
+ */
+export function buildChannelSources(brand: EnrichBrand): CatalogSource[] {
   const urls = [
     ...new Set(
       [

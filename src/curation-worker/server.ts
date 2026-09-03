@@ -28,8 +28,16 @@ const { claimCurationDispatchWork, claimNextCurationJob, recoverStaleJobs } =
   await import("@/lib/services/curation-jobs");
 const { runJob: _runJob, sanitizeJobError } = await import("@/lib/services/job-runner");
 const { createRenderProviderFromEnv } = await import("@/lib/services/enrich-phases/scraper/render/from-env");
+const { loadBrowserlessMonthlyCount } = await import("@/lib/services/enrich-phases/scraper/render/monthly-gauge");
+const { createServiceClient } = await import("@/lib/supabase/service");
 
-const renderProvider = createRenderProviderFromEnv();
+// One provider for the container's whole life, so the monthly gauge has to come
+// from the durable record (`external_call_audit`) rather than an in-process
+// counter a restart would zero. The loader is called lazily, at most once per
+// provider, which is why the client is built inside it.
+const renderProvider = createRenderProviderFromEnv({
+  loadMonthlyCount: () => loadBrowserlessMonthlyCount(createServiceClient()),
+});
 const runJob: typeof _runJob = (job, token, opts = {}) =>
   _runJob(job, token, { renderProvider, ...opts });
 const { runScheduledCuration } = await import("@/lib/services/curation-worker");

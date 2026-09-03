@@ -34,8 +34,12 @@ function textModel(): string {
  * migration).
  */
 const SCHEMA_MISMATCH_CODES = new Set(["23514", "42703"]);
+// The newest migration widening the CHECK. `20260903000000` rewrote the
+// constraint in full and OMITS `acquire`, so applying that one as the
+// remediation would narrow the constraint and drop the phase this pipeline
+// actually writes.
 const PHASE_CHECK_MIGRATION =
-  "supabase/migrations/20260903000000_widen_ai_results_phase_acquisition.sql";
+  "supabase/migrations/20260903100400_add_acquire_to_phase_check.sql";
 const COST_COLUMNS_MIGRATION =
   "supabase/migrations/20260803023000_llm_cost_tracking.sql";
 

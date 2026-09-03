@@ -317,8 +317,8 @@ function detectBatchProviderFailure() {
   };
 }
 
-// detect + links: enough to exercise the single-loop flow
-const PHASES = ["detect", "links"];
+// detect + acquire: enough to exercise the single-loop flow
+const PHASES = ["detect", "acquire"];
 
 describe("wave collapse — single per-brand loop", () => {
   beforeEach(() => {
@@ -355,7 +355,7 @@ describe("wave collapse — single per-brand loop", () => {
         target: "submissions",
         submissionIds: [target.id],
         dryRun: true,
-        phases: ["detect", "links", "descriptions"],
+        phases: ["detect", "acquire", "descriptions"],
         onProgress: () => {},
       },
       fakeSupabase([target]),
@@ -490,7 +490,7 @@ describe("wave collapse — single per-brand loop", () => {
     mocks.detectBrandsBatch.mockResolvedValue(detectBatch(new Map()));
 
     mocks.runAcquirePhase.mockResolvedValueOnce({
-      phaseResult: { phase: "links", status: "succeeded", changedFields: ["purchase_website"], durationMs: 50 },
+      phaseResult: { phase: "acquire", status: "succeeded", changedFields: ["purchase_website"], durationMs: 50 },
       patch: { purchase_website: "https://pool.example.com" },
       scrapedBrandName: null,
       officialNameCandidates: [],
@@ -513,7 +513,7 @@ describe("wave collapse — single per-brand loop", () => {
         target: "submissions",
         submissionIds: [target.id],
         dryRun: true,
-        phases: ["detect", "links", "products"],
+        phases: ["detect", "acquire", "products"],
         onProgress: () => {},
       },
       fakeSupabase([target]),
@@ -805,7 +805,6 @@ describe("satisfaction skipping", () => {
         { phase: "discover", status: "succeeded", changedFields: [], durationMs: 50 },
         { phase: "detect", status: "succeeded", changedFields: [], durationMs: 50 },
         { phase: "acquire", status: "succeeded", changedFields: [], durationMs: 50 },
-        { phase: "links", status: "succeeded", changedFields: [], durationMs: 50 },
         { phase: "names", status: "succeeded", changedFields: [], durationMs: 50 },
         { phase: "site_identity", status: "succeeded", changedFields: [], durationMs: 50 },
         { phase: "images", status: "succeeded", changedFields: [], durationMs: 50 },
@@ -820,7 +819,7 @@ describe("satisfaction skipping", () => {
         target: "submissions",
         submissionIds: [target.id],
         dryRun: true,
-        phases: ["detect", "links", "products"],
+        phases: ["detect", "acquire", "products"],
         onProgress: () => {},
       },
       fakeSupabase([target], jobTargets),
@@ -853,7 +852,7 @@ describe("satisfaction skipping", () => {
       target_type: "submission",
       target_id: target.id,
       phase_results: [
-        { phase: "links", status: "succeeded", changedFields: [], durationMs: 50 },
+        { phase: "acquire", status: "succeeded", changedFields: [], durationMs: 50 },
         { phase: "site_identity", status: "succeeded", changedFields: [], durationMs: 50 },
         { phase: "products", status: "succeeded", changedFields: [], durationMs: 100 },
       ],
@@ -866,7 +865,7 @@ describe("satisfaction skipping", () => {
         submissionIds: [target.id],
         dryRun: true,
         overwrite: true,
-        phases: ["detect", "links", "products"],
+        phases: ["detect", "acquire", "products"],
         onProgress: () => {},
       },
       fakeSupabase([target], jobTargets),
@@ -883,21 +882,26 @@ describe("satisfaction skipping", () => {
   });
 
   /**
-   * A prior successful `links` run skips the links phase in wave A, so the
-   * scraper is never called.
+   * A prior successful `acquire` run skips the acquire phase in wave A, so the
+   * scraper is never called. `detect` rides the same history row because
+   * `acquire` depends on it — a dependency with no history leaves the phase
+   * unsatisfied no matter what the phase's own row says.
    */
-  it("links_satisfied_via_history_skips_in_wave_a", async () => {
+  it("acquire_satisfied_via_history_skips_in_wave_a", async () => {
     const target = submission({
-      id: "sub-links-satisfied",
-      brand_name: "Links Satisfied Brand",
-      social_instagram: "https://www.instagram.com/linkssatisfied",
+      id: "sub-acquire-satisfied",
+      brand_name: "Acquire Satisfied Brand",
+      social_instagram: "https://www.instagram.com/acquiresatisfied",
     });
     mocks.detectBrandsBatch.mockResolvedValue(detectBatch(new Map()));
 
     const jobTargets = [{
       target_type: "submission",
       target_id: target.id,
-      phase_results: [{ phase: "links", status: "succeeded", changedFields: ["purchase_website"], durationMs: 200 }],
+      phase_results: [
+        { phase: "detect", status: "succeeded", changedFields: [], durationMs: 100 },
+        { phase: "acquire", status: "succeeded", changedFields: ["purchase_website"], durationMs: 200 },
+      ],
       created_at: "2026-08-01T00:00:00Z",
     }];
 
@@ -906,13 +910,13 @@ describe("satisfaction skipping", () => {
         target: "submissions",
         submissionIds: [target.id],
         dryRun: true,
-        phases: ["detect", "links"],
+        phases: ["detect", "acquire"],
         onProgress: () => {},
       },
       fakeSupabase([target], jobTargets),
     );
 
-    // links is satisfied, so scrapeBrandUrls should NOT be called for this brand
+    // acquire is satisfied, so scrapeBrandUrls should NOT be called for this brand
     expect(mocks.scrapeBrandUrls).not.toHaveBeenCalled();
   });
 });
@@ -1012,7 +1016,7 @@ describe("acquisition plan catalog threading", () => {
     // Override runAcquirePhase to return a result with an acquisitionPlan
     mocks.runAcquirePhase.mockResolvedValueOnce({
       phaseResult: {
-        phase: "links",
+        phase: "acquire",
         status: "succeeded",
         changedFields: ["purchase_website"],
         durationMs: 50,
@@ -1042,7 +1046,7 @@ describe("acquisition plan catalog threading", () => {
         target: "submissions",
         submissionIds: [target.id],
         dryRun: true,
-        phases: ["detect", "links", "products"],
+        phases: ["detect", "acquire", "products"],
         onProgress: () => {},
       },
       fakeSupabase([target]),
@@ -1114,7 +1118,7 @@ describe("editorial agent integration", () => {
         target: "submissions",
         submissionIds: [target.id],
         dryRun: true,
-        phases: ["detect", "links", "descriptions", "stockists", "faq"],
+        phases: ["detect", "acquire", "descriptions", "stockists", "faq"],
         onProgress: () => {},
       },
       fakeSupabase([target]),
@@ -1158,7 +1162,7 @@ describe("editorial agent integration", () => {
         target: "submissions",
         submissionIds: [target.id],
         dryRun: true,
-        phases: ["detect", "links", "descriptions", "stockists", "faq"],
+        phases: ["detect", "acquire", "descriptions", "stockists", "faq"],
         onProgress: () => {},
       },
       fakeSupabase([target]),
@@ -1206,7 +1210,7 @@ describe("editorial agent integration", () => {
         target: "submissions",
         submissionIds: [target.id],
         dryRun: true,
-        phases: ["detect", "links", "descriptions", "stockists", "faq"],
+        phases: ["detect", "acquire", "descriptions", "stockists", "faq"],
         onProgress: () => {},
       },
       fakeSupabase([target], jobTargets),
@@ -1253,7 +1257,7 @@ describe("editorial agent integration", () => {
         target: "submissions",
         submissionIds: [target.id],
         dryRun: true,
-        phases: ["detect", "links", "descriptions", "stockists", "faq"],
+        phases: ["detect", "acquire", "descriptions", "stockists", "faq"],
         onProgress: () => {},
       },
       fakeSupabase([target]),

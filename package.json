@@ -81,6 +81,7 @@
     "@base-ui/react": "^1.7.0",
     "@hookform/resolvers": "^5.2.2",
     "@langchain/core": "^1.2.9",
+    "@langchain/langgraph": "^1.4.13",
     "@langchain/openai": "^1.5.11",
     "@libsql/client": "^0.17.4",
     "@react-email/components": "^1.0.12",

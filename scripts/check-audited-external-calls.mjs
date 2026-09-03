@@ -48,9 +48,12 @@ export const ALLOWED_UNAUDITED_FETCH = [
   // openai.chat_completions.
   'src/lib/services/openai-client.ts',
   // Acquisition gather probe: bounded HEAD/GET pings on known URLs to extract
-  // HTML title/description. No LLM, no DB writes, no business effect — auditing
-  // would add noise to the real call record the same way the health probes above
-  // would. The probe results are consumed by the acquisition agent's plan node.
+  // HTML title/description. Two callers — the orchestrator's gather pass
+  // (curation-operations.ts, once per chunk) and the acquisition agent's probe
+  // tool. Its output steers WHICH URLs get scraped; it makes no LLM call and
+  // writes no DB row itself, and the scrape and model calls it steers are each
+  // audited where they happen. Auditing the probes too would add noise to the
+  // real call record the same way the health probes above would.
   'src/lib/services/enrich-phases/gather.ts',
   // OpenAI embeddings HTTP adapter. Wrapped by src/lib/services/embeddings-audit.ts
   // as openai.embeddings.

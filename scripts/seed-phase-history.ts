@@ -57,10 +57,16 @@ type SubmissionRow = {
 // when the history-based satisfaction checker was introduced.
 // ---------------------------------------------------------------------------
 
-/** Phases that had real predicates in the old system. */
+/**
+ * Phases that had real predicates in the old system.
+ *
+ * `links` was renamed to `acquire` and `images` folded into `products`
+ * (DEV-1644). Seeding a deferred name is worse than seeding nothing: the
+ * satisfaction checker only reads names that are still scheduled, so the row
+ * would be dead weight that no run can ever consume.
+ */
 const SEEDABLE_PHASES: readonly EnrichPhaseName[] = [
-  'links',
-  'images',
+  'acquire',
   'products',
   'descriptions',
   'tags',
@@ -86,21 +92,17 @@ function enrichedJson(row: SubmissionRow): Record<string, unknown> {
 function inferPhaseStatus(
   phase: EnrichPhaseName,
   row: SubmissionRow,
-  imageCount: number,
   faqCount: number,
   stockistCountMap: Map<string, number>,
 ): 'succeeded' | null {
   switch (phase) {
-    case 'links':
-      // Old predicate: purchase_website || website
+    case 'acquire':
+      // Old `links` predicate: purchase_website || website
       return isNonEmptyString(row.purchase_website) ||
         isNonEmptyString(row.website_url) ||
         isNonEmptyString(row.brands?.purchase_website)
         ? 'succeeded'
         : null
-
-    case 'images':
-      return imageCount > 0 ? 'succeeded' : null
 
     case 'products':
       return isNonEmptyArray(enrichedJson(row).products) ? 'succeeded' : null
@@ -194,34 +196,13 @@ async function main(): Promise<void> {
 
   console.log(`Found ${uncovered.length} submissions without job-target history`)
 
-  // Step 3: Batch-fetch image counts per brand
+  // Step 3: brand ids for the per-brand count queries below.
+  // The `brand_images` count that used to live here went with the `images`
+  // phase — no seedable phase reads an image count any more.
   const brandIds = [...new Set(uncovered.map((row) => row.brand_id).filter(Boolean))] as string[]
 
-  const imageCountMap = new Map<string, number>()
   // Supabase IN filter has a size limit; chunk it
   const CHUNK_SIZE = 200
-  for (let i = 0; i < brandIds.length; i += CHUNK_SIZE) {
-    const chunk = brandIds.slice(i, i + CHUNK_SIZE)
-    let imgOffset = 0
-    while (true) {
-      const { data, error: imageError } = await supabase
-        .from('brand_images')
-        .select('brand_id')
-        .in('brand_id', chunk)
-        .range(imgOffset, imgOffset + PAGE_SIZE - 1)
-
-      if (imageError) {
-        throw new Error(`Failed to query brand_images: ${imageError.message}`)
-      }
-
-      for (const row of data ?? []) {
-        imageCountMap.set(row.brand_id, (imageCountMap.get(row.brand_id) ?? 0) + 1)
-      }
-
-      if (!data || data.length < PAGE_SIZE) break
-      imgOffset += PAGE_SIZE
-    }
-  }
 
   // Step 4: Batch-fetch FAQ counts per brand
   const faqCountMap = new Map<string, number>()
@@ -293,13 +274,12 @@ async function main(): Promise<void> {
 
   for (const row of uncovered) {
     const brandId = row.brand_id
-    const imageCount = brandId ? (imageCountMap.get(brandId) ?? 0) : 0
     const faqCount = brandId ? (faqCountMap.get(brandId) ?? 0) : 0
 
     const phaseResults: PhaseResult[] = []
 
     for (const phase of SEEDABLE_PHASES) {
-      const status = inferPhaseStatus(phase, row, imageCount, faqCount, stockistCountMap)
+      const status = inferPhaseStatus(phase, row, faqCount, stockistCountMap)
       if (status) {
         phaseResults.push({
           phase,

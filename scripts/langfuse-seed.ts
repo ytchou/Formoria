@@ -8,7 +8,7 @@
  * owner: engineering
  */
 /**
- * Seed Langfuse with the 11 prompt constants from src/lib/prompts/*.
+ * Seed Langfuse with the prompt constants from src/lib/prompts/*.
  *
  * Vocab blocks (CATEGORY_LIST, SUBCATEGORY_VOCAB_BLOCK, MATERIAL_VOCAB_BLOCK,
  * TAIWAN_USAGE_RULES) are replaced with {{mustache}} placeholders so prompts
@@ -32,6 +32,15 @@ import { FAQ_PROMPT_PREAMBLE } from "@/lib/prompts/faq";
 import { IMAGE_CLASSIFY_SYSTEM_PROMPT } from "@/lib/prompts/classify-images";
 import { PRODUCTS_SYSTEM_PROMPT } from "@/lib/prompts/products";
 import { STOCKIST_SYSTEM_PROMPT } from "@/lib/prompts/stockists";
+import {
+  ACQUISITION_PLAN_SYSTEM_PROMPT,
+  ACQUISITION_CRITIQUE_SYSTEM_PROMPT,
+} from "@/lib/prompts/acquisition";
+import {
+  PRODUCTS_PROPOSE_SYSTEM_PROMPT,
+  PRODUCTS_REPAIR_SYSTEM_PROMPT,
+} from "@/lib/prompts/products-agent";
+import { EDITORIAL_REPAIR_SYSTEM_PROMPT } from "@/lib/prompts/editorial-agent";
 import {
   CATEGORY_LIST,
   SUBCATEGORY_VOCAB_BLOCK,
@@ -139,6 +148,18 @@ function buildManifest(): PromptEntry[] {
       variableNames: ["category_list", "subcategory_vocab_block", "material_vocab_block", "taiwan_usage_rules"],
     },
     { name: "stockists", prompt: STOCKIST_SYSTEM_PROMPT, variableNames: [] },
+    // Agent prompts (DEV-1644). Without these the three LangGraph agents are the
+    // only phases Langfuse prompt management does not cover, so a prompt fix has
+    // to ship as a deploy.
+    { name: "acquisition-plan", prompt: ACQUISITION_PLAN_SYSTEM_PROMPT, variableNames: [] },
+    { name: "acquisition-critique", prompt: ACQUISITION_CRITIQUE_SYSTEM_PROMPT, variableNames: [] },
+    {
+      name: "products-propose",
+      prompt: PRODUCTS_PROPOSE_SYSTEM_PROMPT,
+      variableNames: ["category_list", "subcategory_vocab_block", "material_vocab_block"],
+    },
+    { name: "products-repair", prompt: PRODUCTS_REPAIR_SYSTEM_PROMPT, variableNames: [] },
+    { name: "editorial-repair", prompt: EDITORIAL_REPAIR_SYSTEM_PROMPT, variableNames: [] },
   ];
 
   return entries.map(({ name, prompt, variableNames }) => {

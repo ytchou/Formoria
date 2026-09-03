@@ -332,33 +332,79 @@ describe('first-party bilingual name evidence', () => {
 })
 
 describe('runAcquirePhase', () => {
-  it('returns skipped when links is not in requested phases', async () => {
+  it('returns skipped when acquire is not in requested phases', async () => {
     const result = await runAcquirePhase({
       brand,
-      phases: ['clean'] as EnrichPhase[],
+      phases: ['detect'] as EnrichPhase[],
       discoveredUrls: ['https://www.instagram.com/testbrand/'],
       knownUrls: [],
     })
 
     expect(result.phaseResult.status).toBe('skipped')
+    expect(result.phaseResult.phase).toBe('acquire')
     expect(result.patch).toEqual({})
     // The scraped title is a candidate for the names phase, never a patch key.
     expect(result.scrapedBrandName).toBeNull()
     expect(result.scrapedData).toBeNull()
   })
 
-  it('returns empty jsonLdImageUrls when links phase is skipped', async () => {
+  it('returns empty jsonLdImageUrls when the acquire phase is skipped', async () => {
     const result = await runAcquirePhase({
       brand,
-      phases: ['clean'] as EnrichPhase[],
+      phases: ['detect'] as EnrichPhase[],
       discoveredUrls: [],
       knownUrls: [],
     })
     expect(result.jsonLdImageUrls).toEqual([])
   })
+
+  it('acquire_runs_when_phases_contains_acquire', async () => {
+    scraperMocks.scrapeBrandUrls.mockReset()
+    acquisitionMocks.runAcquisition.mockResolvedValue({
+      agentOutcome: 'fallback',
+      decisions: [],
+    })
+    scraperMocks.scrapeBrandUrls.mockResolvedValue({
+      data: {
+        ...emptyResult('https://testbrand.com'),
+        purchaseWebsite: 'https://testbrand.com',
+        purchase_website: 'https://testbrand.com',
+      },
+      statuses: [],
+    })
+
+    const result = await runAcquirePhase({
+      brand,
+      phases: ['acquire'] as EnrichPhase[],
+      discoveredUrls: ['https://testbrand.com/about'],
+      knownUrls: [],
+    })
+
+    expect(result.phaseResult.status).toBe('succeeded')
+    // The phase owns the string `acquire` everywhere it is persisted:
+    // phase_results, satisfaction history, current_phase.
+    expect(result.phaseResult.phase).toBe('acquire')
+  })
+
+  it('acquire_does_not_run_on_the_retired_links_name', async () => {
+    // Normalization happens at the runner entry points, never here: a phase
+    // gates on its own name only (the sibling rule in products.ts/detect.ts).
+    scraperMocks.scrapeBrandUrls.mockReset()
+
+    const result = await runAcquirePhase({
+      brand,
+      phases: ['links'] as EnrichPhase[],
+      discoveredUrls: ['https://testbrand.com/about'],
+      knownUrls: [],
+    })
+
+    expect(result.phaseResult.status).toBe('skipped')
+    expect(result.phaseResult.phase).toBe('acquire')
+    expect(scraperMocks.scrapeBrandUrls).not.toHaveBeenCalled()
+  })
 })
 
-describe('links quarantine identity rules', () => {
+describe('acquire quarantine identity rules', () => {
   beforeEach(() => {
     scraperMocks.scrapeBrandUrls.mockReset()
     // Default: agent returns fallback so quarantine tests exercise the legacy path.
@@ -405,7 +451,7 @@ describe('links quarantine identity rules', () => {
   const run = async (overrides: Partial<Parameters<typeof runAcquirePhase>[0]>) =>
     runAcquirePhase({
       brand,
-      phases: ['links'] as EnrichPhase[],
+      phases: ['acquire'] as EnrichPhase[],
       discoveredUrls: [],
       knownUrls: [],
       ...overrides,
@@ -792,13 +838,13 @@ describe('acquisition agent integration', () => {
   const agentRun = (overrides: Partial<Parameters<typeof runAcquirePhase>[0]> = {}) =>
     runAcquirePhase({
       brand: agentBrand,
-      phases: ['links'] as EnrichPhase[],
+      phases: ['acquire'] as EnrichPhase[],
       discoveredUrls: ['https://agentbrand.com/about'],
       knownUrls: [],
       ...overrides,
     })
 
-  it('links_uses_agent_scrape_result_when_planned', async () => {
+  it('acquire_uses_agent_scrape_result_when_planned', async () => {
     vi.stubEnv('ACQUISITION_AGENT', 'on')
 
     const agentScrapeData = {
@@ -834,7 +880,7 @@ describe('acquisition agent integration', () => {
     vi.unstubAllEnvs()
   })
 
-  it('links_falls_back_to_legacy_path_when_agent_throws', async () => {
+  it('acquire_falls_back_to_legacy_path_when_agent_throws', async () => {
     vi.stubEnv('ACQUISITION_AGENT', 'on')
 
     acquisitionMocks.runAcquisition.mockRejectedValue(new Error('agent crashed'))
@@ -859,7 +905,7 @@ describe('acquisition agent integration', () => {
     vi.unstubAllEnvs()
   })
 
-  it('links_env_off_skips_agent_entirely', async () => {
+  it('acquire_env_off_skips_agent_entirely', async () => {
     vi.stubEnv('ACQUISITION_AGENT', 'off')
 
     scraperMocks.scrapeBrandUrls.mockResolvedValue({
@@ -880,14 +926,15 @@ describe('acquisition agent integration', () => {
     vi.unstubAllEnvs()
   })
 
-  it('links_phase_not_requested_still_returns_skipped', async () => {
+  it('acquire_phase_not_requested_still_returns_skipped', async () => {
     const result = await runAcquirePhase({
       brand: agentBrand,
-      phases: ['clean'] as EnrichPhase[],
+      phases: ['detect'] as EnrichPhase[],
       discoveredUrls: [],
       knownUrls: [],
     })
     expect(result.phaseResult.status).toBe('skipped')
+    expect(result.phaseResult.phase).toBe('acquire')
     expect(result.acquisitionPlan).toBeUndefined()
   })
 })

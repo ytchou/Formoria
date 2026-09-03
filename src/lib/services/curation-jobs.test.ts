@@ -8,7 +8,7 @@ import {
 import {
   CURATION_TASK_ORDER,
   CURATION_TASKS,
-  ENRICH_PHASES,
+  DEFERRED_PHASES,
   phasesForTask,
 } from "@/lib/constants/enrich-phases";
 import {
@@ -65,33 +65,40 @@ describe("task-based phase resolution", () => {
     expect(phases).toContain("detect");
     expect(phases).toContain("acquire");
     expect(phases).toContain("names");
-    // Legacy image step still maps to deferred phases (they exist in ENRICH_PHASES)
-    expect(phases).toContain("images");
-    expect(phases).toContain("classify_images");
+    // The legacy `image` step used to expand to the deferred image phases.
+    // Those have no runner, so it now resolves to the visual task's phases.
+    expect(phases).toContain("products");
+    expect(phases).not.toContain("images");
+    expect(phases).not.toContain("classify_images");
     expect(phases).not.toContain("descriptions");
   });
 
   it("phases_param_remains_an_escape_hatch", () => {
-    // Explicit phases win over everything else.
+    // Explicit phases win over everything else, and the retired `links` name
+    // resolves to the phase that does its work today.
     const params: CurationJobParams = {
       phases: ["links", "products"],
       task: "full",
     };
     const phases = effectiveRequestedPhases(params);
-    expect(phases).toEqual(["links", "products"]);
+    expect(phases).toEqual(["acquire", "products"]);
   });
 
-  it("falls back to all phases when nothing is specified", () => {
+  it("falls back to the full task closure when nothing is specified", () => {
+    // NOT `[...ENRICH_PHASES]`: that array still carries the deferred names,
+    // and scheduling one means scheduling a phase with no runner.
     const params: CurationJobParams = {};
     const phases = effectiveRequestedPhases(params);
-    expect(phases).toEqual([...ENRICH_PHASES]);
+    expect(phases).toEqual(phasesForTask("full"));
+    for (const phase of DEFERRED_PHASES) {
+      expect(phases).not.toContain(phase);
+    }
   });
 
   it("ignores unknown legacy step names and keeps deferred phases from mapping", () => {
     const params: CurationJobParams = { steps: ["unknown_step", "image"] };
     const phases = effectiveRequestedPhases(params);
-    // Legacy image step maps to deferred phases that still exist in ENRICH_PHASES
-    expect(phases).toEqual(["images", "classify_images"]);
+    expect(phases).toEqual(phasesForTask("visual"));
   });
 });
 
