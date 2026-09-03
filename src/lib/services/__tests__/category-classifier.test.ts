@@ -259,6 +259,75 @@ describe("detectBrandsBatch", () => {
     expect(calls).toEqual({ attempted: 1, providerFailed: 1 });
   });
 
+  /**
+   * DEV-1644 F10. `probeStatic` reads each known URL's <head>; before this the
+   * result was collected and dropped, so a live site whose title says what the
+   * brand sells never reached the model. Both prompt sites render it — the
+   * batch one here, the single-brand retry below.
+   */
+  it("probe_evidence_reaches_detect_prompt", async () => {
+    // Persistent, not `Once`: the assertion is on the REQUEST, and an empty
+    // result set is allowed to trigger the per-brand retry without the test
+    // caring which path it took.
+    mockFetch.mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        choices: [{ message: { content: JSON.stringify({ results: [] }) } }],
+      }),
+    });
+
+    await detectBrandsBatch([
+      {
+        ...brands[0],
+        probes: [
+          {
+            url: "https://mybrand.com",
+            title: "My Brand Official Store",
+            description: "Handmade soap made in Taipei",
+            platform: "shopee",
+          },
+        ],
+      },
+    ]);
+
+    const body = JSON.parse(
+      (mockFetch.mock.calls[0][1] as { body: string }).body,
+    ) as { messages: Array<{ role: string; content: string }> };
+    const userMessage = body.messages.find((m) => m.role === "user")?.content;
+
+    expect(userMessage).toContain(
+      "探測：My Brand Official Store — Handmade soap made in Taipei (shopee)",
+    );
+  });
+
+  it("probe_evidence_reaches_the_single_brand_prompt", async () => {
+    // The per-brand retry runs on a content failure, so the batch answer is
+    // junk and the single call carries the same probe line.
+    vi.spyOn(console, "error").mockImplementation(() => undefined);
+    mockFetch.mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        choices: [{ message: { content: "not json at all" } }],
+      }),
+    });
+
+    await detectBrandsBatch([
+      {
+        ...brands[0],
+        probes: [{ url: "https://mybrand.com", title: "My Brand Official Store" }],
+      },
+    ]);
+
+    const singleBody = JSON.parse(
+      (mockFetch.mock.calls[1][1] as { body: string }).body,
+    ) as { messages: Array<{ role: string; content: string }> };
+    const userMessage = singleBody.messages.find(
+      (m) => m.role === "user",
+    )?.content;
+
+    expect(userMessage).toContain("探測：My Brand Official Store");
+  });
+
   it("does not report a provider failure when the model answers with junk", async () => {
     vi.spyOn(console, "error").mockImplementation(() => undefined);
     // Content failure, so the per-brand fallback is still worth paying for:

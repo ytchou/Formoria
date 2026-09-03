@@ -260,6 +260,21 @@ describe("Gate C — llmStageFailure", () => {
     ).toBeNull();
   });
 
+  it("gate_c_counts_acquire", () => {
+    // The shape a real loop-A exit leaves behind: detect skipped by scope,
+    // `names` never reached, and acquire the one LLM phase that was attempted.
+    // Gate C has to fire on that — the target learned nothing, and recording it
+    // `skipped` would hide an outage behind a weak-brand label.
+    const decision = evaluateLlmProviderGate([
+      phase("detect", "skipped"),
+      phase("acquire", "failed", { providerFailure: true }),
+      phase("names", "skipped"),
+    ]);
+
+    expect(decision?.action).toBe("fail");
+    expect(decision?.message).toContain("acquire");
+  });
+
   it("downgrades to a warning when CURATION_PROVIDER_GATE=off", () => {
     process.env.CURATION_PROVIDER_GATE = "off";
 

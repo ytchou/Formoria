@@ -4,7 +4,10 @@ import {
   runStandaloneClassification,
   runDetectPhase,
 } from "../detect";
-import type { BatchClassificationItem } from "../../category-classifier";
+import type {
+  BatchClassificationItem,
+  DetectBatchItem,
+} from "../../category-classifier";
 
 /**
  * The two batch helpers are mocked (rather than spied) because vitest cannot
@@ -104,6 +107,90 @@ describe("runDetectPhase", () => {
 
     expect(result.phaseResult.status).toBe("succeeded");
     expect(result.phaseResult.providerFailure).toBeUndefined();
+  });
+
+  /**
+   * DEV-1644 F10: the orchestrator probed every known URL and threw the answer
+   * away, so detect judged brands on SERP snippets alone. The map is keyed by
+   * TARGET ID, like every other per-brand map handed to a batch phase.
+   */
+  it("probe_evidence_reaches_detect_prompt", async () => {
+    mocks.detectBrandsBatch.mockResolvedValue({
+      results: new Map(),
+      calls: { attempted: 1, providerFailed: 0 },
+    });
+
+    await runDetectPhase(
+      ctx(),
+      new Map(),
+      new Map([
+        [
+          "brand-1",
+          [
+            {
+              url: "https://test.example",
+              title: "Test Brand Official Site",
+              description: "Handmade ceramics from Taipei",
+              platform: "instagram",
+              status: 200,
+            },
+          ],
+        ],
+      ]),
+    );
+
+    const items = mocks.detectBrandsBatch.mock.calls[0][0] as DetectBatchItem[];
+    // `status` is dropped: it steers the probe, it does not describe the brand.
+    expect(items[0].probes).toEqual([
+      {
+        url: "https://test.example",
+        title: "Test Brand Official Site",
+        description: "Handmade ceramics from Taipei",
+        platform: "instagram",
+      },
+    ]);
+  });
+
+  it("probe_evidence_without_head_text_is_dropped", async () => {
+    mocks.detectBrandsBatch.mockResolvedValue({
+      results: new Map(),
+      calls: { attempted: 1, providerFailed: 0 },
+    });
+
+    await runDetectPhase(
+      ctx(),
+      new Map(),
+      // A timed-out probe carries only the url it was asked about. Passing it
+      // on would spend prompt tokens restating the item's own website line.
+      new Map([["brand-1", [{ url: "https://test.example", platform: "instagram" }]]]),
+    );
+
+    const items = mocks.detectBrandsBatch.mock.calls[0][0] as DetectBatchItem[];
+    expect(items[0].probes).toBeUndefined();
+  });
+
+  it("caps probe evidence at four urls per brand", async () => {
+    mocks.detectBrandsBatch.mockResolvedValue({
+      results: new Map(),
+      calls: { attempted: 1, providerFailed: 0 },
+    });
+
+    await runDetectPhase(
+      ctx(),
+      new Map(),
+      new Map([
+        [
+          "brand-1",
+          Array.from({ length: 6 }, (_, index) => ({
+            url: `https://test.example/${index}`,
+            title: `Page ${index}`,
+          })),
+        ],
+      ]),
+    );
+
+    const items = mocks.detectBrandsBatch.mock.calls[0][0] as DetectBatchItem[];
+    expect(items[0].probes).toHaveLength(4);
   });
 });
 

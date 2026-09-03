@@ -291,6 +291,17 @@ export type ClassifiedImage = {
    * provenance, which releases the image to the brand-level pool only.
    */
   sourceUrl?: string | null;
+  /**
+   * The image's OWN url — what a re-download fetches — as distinct from
+   * `sourceUrl`, the page it was found on. `curated_products.image_source_url`
+   * is fetched for bytes by `prepareCuratedProductImage`, so a page URL there
+   * is a dead image.
+   *
+   * Filled at both row-backed construction sites (`classifiedImageFromRow` and
+   * the chunk write plan) from `brand_images.url`. Optional because a caller
+   * holding a freshly ranked candidate may not have persisted it yet.
+   */
+  imageUrl?: string | null;
 };
 
 export const imageClassificationShape = z.object({
@@ -423,7 +434,13 @@ export function isExemptSource(
   return typeof source === "string" && EXEMPT_SOURCES.has(source);
 }
 
-function classifiedImageFromRow(
+/**
+ * A stored row as the ranker sees it. Exported because the orchestrator rebuilds
+ * the products image pool from `getActiveImages` when acquire was satisfied from
+ * history and produced no pool of its own — re-deriving the normalization here
+ * would be a second copy of the legacy-tag rules.
+ */
+export function classifiedImageFromRow(
   row: BrandImageForClassification,
 ): ClassifiedImage | null {
   if (isExemptSource(row.source)) return null;
@@ -448,6 +465,7 @@ function classifiedImageFromRow(
     // rendering answering the same question.
     isLogo: isLogoImageTags(row.tags),
     ...(row.source_url ? { sourceUrl: row.source_url } : {}),
+    ...(row.url ? { imageUrl: row.url } : {}),
     disposition: JUNK_TAGS.has(storedTag) ? "reject" : "keep",
     ...(storedTag === "promo"
       ? { rejectionReasons: ["promo_subject" as const] }
@@ -1262,6 +1280,10 @@ export function planChunkImageWrites(input: {
       // change every existing classification literal these plans are compared
       // against, for a field that says nothing.
       ...(image.source_url ? { sourceUrl: image.source_url } : {}),
+      // The image's own url, so a proposal ranked out of an acquire-built pool
+      // can be fetched for bytes. Without it `rankForProduct(...)?.imageUrl` is
+      // undefined for every image this run classified.
+      ...(image.url ? { imageUrl: image.url } : {}),
     });
 
     const rejected = classification.disposition === "reject";

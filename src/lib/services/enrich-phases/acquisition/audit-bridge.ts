@@ -3,8 +3,10 @@
  *
  * The audited-model-turn implementation moved to the shared agent runtime so
  * every agent gets the same cost, token and attribution handling (DEV-1644 F15).
- * This file stays because `products/graph.ts` imports `invokeAudited` and
- * `AuditBridgeContext` by name; it holds no logic of its own.
+ * The file holds no logic of its own. It stays as the historical import name —
+ * `invokeAudited` / `AuditBridgeContext` — for callers written against the
+ * acquisition agent before the runtime existed; `products/graph.ts` now imports
+ * `callModel` from the runtime directly.
  */
 
 export {

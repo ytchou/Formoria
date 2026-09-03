@@ -4,16 +4,17 @@ import { runEnrich } from "../curation-operations";
 import type { DetectResult } from "../category-classifier";
 
 /**
- * After the wave collapse (Task 8), the enrichment chunk runs as a SINGLE
- * per-brand loop:
+ * The enrichment chunk runs TWO per-brand loops with one batched `names` call
+ * between them:
  *
- *   cached SERP -> detect (batch) -> [per-brand: acquire -> names (batch)
- *     -> descriptions -> stockists -> faq -> products -> persist]
+ *   gather (probe) -> detect (batch)
+ *     -> loop A [per brand: acquire, Gate A, Gate B, name candidates]
+ *     -> names (batch, one call per chunk)
+ *     -> loop B [per brand: names verdict, editorial, products, tags, persist]
  *
- * The old two-wave (A/B) pattern with a batched image search between them is
- * retired. Discover, image-search, site-identity, images, and classify-images
- * are no longer separate phases — their functionality lives inside the acquire
- * agent.
+ * The batched image search that once sat between the old waves is retired, and
+ * so are discover, image-search, site-identity, images and classify-images —
+ * their work lives inside the acquire agent now.
  *
  * Lives in its own file because the module mocks below would otherwise apply to
  * the DB-backed suites in `curation-operations.test.ts`.
@@ -35,6 +36,9 @@ const mocks = vi.hoisted(() => ({
   runSiteIdentityPhase: vi.fn(),
   runImageSearchPhase: vi.fn(),
   runClassifyImagesPhase: vi.fn(),
+  runNamesPhase: vi.fn(),
+  runProductsPhase: vi.fn(),
+  mapWithConcurrency: vi.fn(),
   probeStatic: vi.fn(),
 }));
 
@@ -173,6 +177,41 @@ vi.mock("../enrich-phases/gather", async (importOriginal) => {
   };
 });
 
+vi.mock("../enrich-phases/names", async (importOriginal) => {
+  const original = await importOriginal<typeof import("../enrich-phases/names")>();
+  return {
+    ...original,
+    runNamesPhase: mocks.runNamesPhase.mockImplementation(
+      original.runNamesPhase,
+    ),
+  };
+});
+
+vi.mock("../enrich-phases/products", async (importOriginal) => {
+  const original = await importOriginal<typeof import("../enrich-phases/products")>();
+  return {
+    ...original,
+    runProductsPhase: mocks.runProductsPhase.mockImplementation(
+      original.runProductsPhase,
+    ),
+  };
+});
+
+/**
+ * Spied, not replaced: the two-loop shape is a claim about HOW MANY bounded
+ * maps a chunk runs, and the count is only observable here. The real
+ * implementation stays in place through `mockImplementation`.
+ */
+vi.mock("../_shared/concurrency", async (importOriginal) => {
+  const original = await importOriginal<typeof import("../_shared/concurrency")>();
+  return {
+    ...original,
+    mapWithConcurrency: mocks.mapWithConcurrency.mockImplementation(
+      original.mapWithConcurrency,
+    ),
+  };
+});
+
 type SubmissionRow = {
   id: string;
   brand_name: string;
@@ -209,14 +248,16 @@ function submission(
 }
 
 /**
- * Only two chains are exercised: the submission fetch in `runEnrich`, the
- * phase-history fetch from `curation_job_targets`, and the active-image count
- * in the image-search phase. Both terminate in an awaited thenable, so the
- * builder is a self-returning proxy with a fixed payload.
+ * Three chains are exercised: the submission fetch in `runEnrich`, the
+ * phase-history fetch from `curation_job_targets`, and the active-image read
+ * that rebuilds the products image pool when acquire was satisfied from
+ * history. Each terminates in an awaited thenable, so the builder is a
+ * self-returning proxy with a fixed payload.
  */
 function fakeSupabase(
   submissions: SubmissionRow[],
   jobTargets: Array<{ target_type: string; target_id: string; phase_results: unknown[]; created_at: string }> = [],
+  images: Array<Record<string, unknown>> = [],
 ): SupabaseClient {
   const builder = (rows: unknown[]): Record<string, unknown> => {
     const chain: Record<string, unknown> = {
@@ -242,6 +283,7 @@ function fakeSupabase(
     from: (table: string) => {
       if (table === "brand_submissions") return builder(submissions);
       if (table === "curation_job_targets") return builder(jobTargets);
+      if (table === "submission_images") return builder(images);
       return builder([]);
     },
   } as unknown as SupabaseClient;
@@ -1267,5 +1309,578 @@ describe("editorial agent integration", () => {
     // phases are called directly.
     expect(mocks.runEditorialAgent).toHaveBeenCalledOnce();
     expect(mocks.runDescriptionsPhase).toHaveBeenCalled();
+  });
+});
+
+/**
+ * DEV-1644 Task 5. The chunk runs TWO bounded per-brand maps with one batched
+ * `names` call between them:
+ *
+ *   gather -> detect (batch) -> loop A [acquire, gates] -> names (batch)
+ *     -> loop B [editorial, products, tags, persist]
+ *
+ * Before this, `names` ran inside the single loop with `chunk: [brand]` — one
+ * arbiter call per brand instead of the designed one per twenty (F9) — and the
+ * products call hard-coded `catalogResult: undefined` / `acquisitionPageUrls:
+ * []` with no pool at all (F6).
+ */
+describe("two loops with a batched names call between", () => {
+  const ORIGINAL_KEY = process.env.OPENAI_API_KEY;
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    process.env.OPENAI_API_KEY = "test-stub";
+    mocks.getLatestSearchResults.mockResolvedValue(new Map());
+    mocks.batchSearchBrandImages.mockResolvedValue(new Map());
+    mocks.scrapeBrandUrls.mockResolvedValue(scrapeResult());
+    mocks.detectBrandsBatch.mockResolvedValue(detectBatch(new Map()));
+    // Canned agents by default: this block is about the SHAPE of the chunk, so
+    // every phase answers instantly and each test overrides only what it
+    // asserts on.
+    mocks.runAcquirePhase.mockImplementation(async () => acquireOutput());
+    mocks.runNamesPhase.mockImplementation(async () => namesOutput());
+    mocks.runEditorialAgent.mockImplementation(async () => editorialOutput());
+    mocks.runProductsPhase.mockImplementation(async () => productsOutput());
+  });
+
+  afterEach(() => {
+    if (ORIGINAL_KEY === undefined) delete process.env.OPENAI_API_KEY;
+    else process.env.OPENAI_API_KEY = ORIGINAL_KEY;
+  });
+
+  /** Every field `runEnrich` reads off an `AcquirePhaseOutput`. */
+  function acquireOutput(overrides: Record<string, unknown> = {}) {
+    return {
+      phaseResult: {
+        phase: "acquire",
+        status: "succeeded",
+        changedFields: [],
+        durationMs: 10,
+      },
+      patch: {},
+      scrapedBrandName: null,
+      officialNameCandidates: [],
+      scrapedData: { brandName: null, description: "evidence" },
+      scrapedImageUrls: [],
+      scrapedImageSources: [],
+      jsonLdImageUrls: [],
+      quarantine: {},
+      imagePool: [],
+      acquisitionPageUrls: [],
+      revokedColumns: [],
+      providerFailure: false,
+      ...overrides,
+    };
+  }
+
+  function namesOutput() {
+    return {
+      phaseResult: {
+        phase: "names",
+        status: "skipped",
+        changedFields: [],
+        durationMs: 0,
+      },
+      verdicts: new Map(),
+      providerFailure: false,
+    };
+  }
+
+  function editorialOutput() {
+    return {
+      agentOutcome: "generated",
+      phaseResults: [
+        {
+          phase: "descriptions",
+          status: "succeeded",
+          changedFields: ["description"],
+          durationMs: 10,
+        },
+      ],
+      patch: { description: "A description" },
+      listingVerdict: null,
+      descriptionRewrite: null,
+      brandFacts: null,
+      attempts: [],
+      factsAttempts: [],
+      decisions: [],
+    };
+  }
+
+  function productsOutput() {
+    return {
+      phaseResult: {
+        phase: "products",
+        status: "skipped",
+        changedFields: [],
+        durationMs: 0,
+      },
+      patch: {},
+    };
+  }
+
+  const FULL_PHASES = [
+    "detect",
+    "acquire",
+    "names",
+    "descriptions",
+    "stockists",
+    "faq",
+    "products",
+  ];
+
+  it("two_loops_with_batched_names_between", async () => {
+    const order: string[] = [];
+    const targets = [
+      submission({
+        id: "sub-loop-a",
+        brand_name: "Loop A",
+        social_instagram: "https://www.instagram.com/loopa",
+      }),
+      submission({
+        id: "sub-loop-b",
+        brand_name: "Loop B",
+        social_instagram: "https://www.instagram.com/loopb",
+      }),
+    ];
+
+    mocks.detectBrandsBatch.mockImplementation(async () => {
+      order.push("detect");
+      return detectBatch(new Map());
+    });
+    mocks.runAcquirePhase.mockImplementation(async () => {
+      order.push("acquire");
+      return acquireOutput();
+    });
+    mocks.runNamesPhase.mockImplementation(
+      async (ctx: { chunk: unknown[] }) => {
+        order.push(`names:${ctx.chunk.length}`);
+        return namesOutput();
+      },
+    );
+    mocks.runEditorialAgent.mockImplementation(async () => {
+      order.push("editorial");
+      return editorialOutput();
+    });
+    mocks.runProductsPhase.mockImplementation(async () => {
+      order.push("products");
+      return productsOutput();
+    });
+
+    await runEnrich(
+      {
+        target: "submissions",
+        submissionIds: targets.map((entry) => entry.id),
+        dryRun: true,
+        phases: FULL_PHASES,
+        onProgress: () => {},
+      },
+      fakeSupabase(targets),
+    );
+
+    expect(order.filter((step) => step === "detect")).toHaveLength(1);
+    expect(order.filter((step) => step === "acquire")).toHaveLength(2);
+    // ONE arbiter call for the whole chunk, carrying both brands.
+    expect(order.filter((step) => step === "names:2")).toHaveLength(1);
+    expect(order.filter((step) => step === "editorial")).toHaveLength(2);
+    expect(order.filter((step) => step === "products")).toHaveLength(2);
+
+    const namesIndex = order.indexOf("names:2");
+    expect(order.indexOf("detect")).toBeLessThan(namesIndex);
+    // Every acquire finished before the batch, and no loop-B work started
+    // before it: that is what makes the call batchable at all.
+    expect(order.lastIndexOf("acquire")).toBeLessThan(namesIndex);
+    expect(namesIndex).toBeLessThan(order.indexOf("editorial"));
+    expect(namesIndex).toBeLessThan(order.indexOf("products"));
+
+    expect(mocks.mapWithConcurrency).toHaveBeenCalledTimes(2);
+  });
+
+  it("non_brand_exits_before_acquire", async () => {
+    const rejected = submission({
+      id: "sub-nb",
+      brand_name: "Reseller",
+      social_instagram: "https://www.instagram.com/reseller2",
+    });
+    mocks.detectBrandsBatch.mockResolvedValue(
+      detectBatch(
+        new Map([
+          [
+            `submission-${rejected.id}`,
+            detectResult({
+              slug: `submission-${rejected.id}`,
+              isNonBrand: true,
+              nonBrandReason: "reseller",
+              confidence: "high",
+            }),
+          ],
+        ]),
+      ),
+    );
+
+    const result = await runEnrich(
+      {
+        target: "submissions",
+        submissionIds: [rejected.id],
+        dryRun: true,
+        phases: FULL_PHASES,
+        onProgress: () => {},
+      },
+      fakeSupabase([rejected]),
+    );
+
+    expect(mocks.runAcquirePhase).not.toHaveBeenCalled();
+    expect(mocks.runNamesPhase).not.toHaveBeenCalled();
+    expect(mocks.runEditorialAgent).not.toHaveBeenCalled();
+    expect(mocks.runProductsPhase).not.toHaveBeenCalled();
+    expect(
+      result.brandOutcomes.find(
+        (outcome) => outcome.submissionId === rejected.id,
+      )?.status,
+    ).toBe("skipped");
+  });
+
+  it("loop_a_exit_excludes_brand_from_names_and_loop_b", async () => {
+    const rejected = submission({
+      id: "sub-out",
+      brand_name: "Not A Brand",
+      social_instagram: "https://www.instagram.com/notabrand",
+    });
+    const kept = submission({
+      id: "sub-in",
+      brand_name: "Real Brand",
+      social_instagram: "https://www.instagram.com/realbrand",
+    });
+    mocks.detectBrandsBatch.mockResolvedValue(
+      detectBatch(
+        new Map([
+          [
+            `submission-${rejected.id}`,
+            detectResult({
+              slug: `submission-${rejected.id}`,
+              isNonBrand: true,
+              nonBrandReason: "directory",
+              confidence: "high",
+            }),
+          ],
+          [
+            `submission-${kept.id}`,
+            detectResult({ slug: `submission-${kept.id}` }),
+          ],
+        ]),
+      ),
+    );
+    mocks.runAcquirePhase.mockResolvedValue(acquireOutput());
+    mocks.runNamesPhase.mockResolvedValue(namesOutput());
+    mocks.runEditorialAgent.mockResolvedValue(editorialOutput());
+    mocks.runProductsPhase.mockResolvedValue(productsOutput());
+
+    await runEnrich(
+      {
+        target: "submissions",
+        submissionIds: [rejected.id, kept.id],
+        dryRun: true,
+        phases: FULL_PHASES,
+        onProgress: () => {},
+      },
+      fakeSupabase([rejected, kept]),
+    );
+
+    // The batch is built from the survivors only — a rejected entry must never
+    // cost an arbiter slot, and must never be re-emitted by loop B.
+    expect(mocks.runNamesPhase).toHaveBeenCalledOnce();
+    const namesCtx = mocks.runNamesPhase.mock.calls[0][0] as {
+      chunk: Array<{ id: string }>;
+    };
+    expect(namesCtx.chunk.map((brand) => brand.id)).toEqual([kept.id]);
+    expect(mocks.runEditorialAgent).toHaveBeenCalledOnce();
+    expect(mocks.runProductsPhase).toHaveBeenCalledOnce();
+  });
+
+  it("gate_a_fires_on_acquire_provider_failure", async () => {
+    const target = submission({
+      id: "sub-gate-a",
+      brand_name: "Gate A Brand",
+      social_instagram: "https://www.instagram.com/gatea",
+    });
+    // F5: nothing ever set `providerFailure`, so Gate A could not fire. Acquire
+    // sets it now, and the target must fail rather than record an empty patch.
+    mocks.runAcquirePhase.mockResolvedValue(
+      acquireOutput({
+        phaseResult: {
+          phase: "acquire",
+          status: "failed",
+          changedFields: [],
+          durationMs: 5,
+          providerFailure: true,
+          error: "Serper unavailable",
+        },
+        scrapedData: null,
+        providerFailure: true,
+      }),
+    );
+
+    const result = await runEnrich(
+      {
+        target: "submissions",
+        submissionIds: [target.id],
+        dryRun: true,
+        phases: FULL_PHASES,
+        onProgress: () => {},
+      },
+      fakeSupabase([target]),
+    );
+
+    const outcome = result.brandOutcomes.find(
+      (entry) => entry?.submissionId === target.id,
+    );
+    expect(outcome?.status).toBe("failed");
+    expect(outcome?.error).toContain("provider");
+    expect(mocks.runEditorialAgent).not.toHaveBeenCalled();
+    expect(mocks.runProductsPhase).not.toHaveBeenCalled();
+  });
+
+  it("gate_b_skips_brand_from_loop_b", async () => {
+    // No known URLs at all and an acquire that found nothing: there is no input
+    // any downstream phase could read.
+    const weak = submission({
+      id: "sub-weak",
+      brand_name: "Weak Brand",
+      social_instagram: null,
+      purchase_website: null,
+    });
+    const kept = submission({
+      id: "sub-strong",
+      brand_name: "Strong Brand",
+      social_instagram: "https://www.instagram.com/strongbrand",
+    });
+    mocks.runAcquirePhase.mockImplementation(
+      async (input: { brand: { id: string } }) =>
+        input.brand.id === weak.id
+          ? acquireOutput({ scrapedData: null, scrapedImageUrls: [] })
+          : acquireOutput(),
+    );
+    mocks.runNamesPhase.mockResolvedValue(namesOutput());
+    mocks.runEditorialAgent.mockResolvedValue(editorialOutput());
+    mocks.runProductsPhase.mockResolvedValue(productsOutput());
+
+    const result = await runEnrich(
+      {
+        target: "submissions",
+        submissionIds: [weak.id, kept.id],
+        dryRun: true,
+        phases: FULL_PHASES,
+        onProgress: () => {},
+      },
+      fakeSupabase([weak, kept]),
+    );
+
+    expect(
+      result.brandOutcomes.find((entry) => entry?.submissionId === weak.id)
+        ?.status,
+    ).toBe("skipped");
+    const namesCtx = mocks.runNamesPhase.mock.calls[0][0] as {
+      chunk: Array<{ id: string }>;
+    };
+    expect(namesCtx.chunk.map((brand) => brand.id)).toEqual([kept.id]);
+    expect(mocks.runEditorialAgent).toHaveBeenCalledOnce();
+    expect(mocks.runProductsPhase).toHaveBeenCalledOnce();
+    const productsInput = mocks.runProductsPhase.mock.calls[0][0] as {
+      brand: { id: string };
+    };
+    expect(productsInput.brand.id).toBe(kept.id);
+  });
+
+  it("products_receives_image_pool_catalog_and_priority_urls_from_acquire", async () => {
+    const target = submission({
+      id: "sub-pool",
+      brand_name: "Pool Brand",
+      social_instagram: "https://www.instagram.com/poolbrand2",
+    });
+    const imagePool = [
+      {
+        id: "img-1",
+        tag: "product" as const,
+        score: 9,
+        disposition: "keep" as const,
+        sourceUrl: "https://pool.example.com/products/vase",
+        imageUrl: "https://cdn.example.com/vase.jpg",
+      },
+    ];
+    const catalogResult = {
+      candidates: [],
+      entryUrls: ["https://pool.example.com/shop"],
+      priorityProductUrls: ["https://pool.example.com/products/vase"],
+      rawCount: 0,
+    };
+    mocks.runAcquirePhase.mockResolvedValue(
+      acquireOutput({
+        imagePool,
+        catalogResult,
+        acquisitionPageUrls: ["https://pool.example.com/products/vase"],
+      }),
+    );
+    mocks.runNamesPhase.mockResolvedValue(namesOutput());
+    mocks.runEditorialAgent.mockResolvedValue(editorialOutput());
+    mocks.runProductsPhase.mockResolvedValue(productsOutput());
+
+    await runEnrich(
+      {
+        target: "submissions",
+        submissionIds: [target.id],
+        dryRun: true,
+        phases: FULL_PHASES,
+        onProgress: () => {},
+      },
+      fakeSupabase([target]),
+    );
+
+    const productsInput = mocks.runProductsPhase.mock.calls[0][0] as {
+      imagePool: unknown;
+      catalogResult: unknown;
+      acquisitionPageUrls: unknown;
+    };
+    expect(productsInput.imagePool).toEqual(imagePool);
+    expect(productsInput.catalogResult).toEqual(catalogResult);
+    expect(productsInput.acquisitionPageUrls).toEqual([
+      "https://pool.example.com/products/vase",
+    ]);
+  });
+
+  it("products_pool_from_history_when_acquire_satisfied", async () => {
+    const target = submission({
+      id: "sub-history-pool",
+      brand_name: "History Pool",
+      social_instagram: "https://www.instagram.com/historypool",
+    });
+    const jobTargets = [
+      {
+        target_type: "submission",
+        target_id: target.id,
+        phase_results: [
+          {
+            phase: "detect",
+            status: "succeeded",
+            changedFields: [],
+            durationMs: 10,
+          },
+          {
+            phase: "acquire",
+            status: "succeeded",
+            changedFields: [],
+            durationMs: 10,
+          },
+        ],
+        created_at: "2026-08-01T00:00:00Z",
+      },
+    ];
+    const images = [
+      {
+        id: "img-history",
+        url: "https://cdn.example.com/stored.jpg",
+        source: "scraped",
+        status: "active",
+        tags: ["product"],
+        score: 8,
+        sort_order: 0,
+        storage_path: "brands/history/stored.jpg",
+        source_url: "https://history.example.com/products/mug",
+        width: 1200,
+        height: 900,
+      },
+    ];
+    mocks.runNamesPhase.mockResolvedValue(namesOutput());
+    mocks.runEditorialAgent.mockResolvedValue(editorialOutput());
+    mocks.runProductsPhase.mockResolvedValue(productsOutput());
+
+    await runEnrich(
+      {
+        target: "submissions",
+        submissionIds: [target.id],
+        dryRun: true,
+        phases: FULL_PHASES,
+        onProgress: () => {},
+      },
+      fakeSupabase([target], jobTargets, images),
+    );
+
+    // Acquire was satisfied from history, so it produced no pool. Without the
+    // fallback, product image verification would silently pass on an empty set.
+    expect(mocks.runAcquirePhase).not.toHaveBeenCalled();
+    const productsInput = mocks.runProductsPhase.mock.calls[0][0] as {
+      imagePool: Array<Record<string, unknown>>;
+    };
+    expect(productsInput.imagePool).toHaveLength(1);
+    expect(productsInput.imagePool[0]).toMatchObject({
+      id: "img-history",
+      tag: "product",
+      sourceUrl: "https://history.example.com/products/mug",
+      imageUrl: "https://cdn.example.com/stored.jpg",
+    });
+  });
+
+  it("editorial_deps_are_real_not_stubs", async () => {
+    const target = submission({
+      id: "sub-deps",
+      brand_name: "Deps Brand",
+      social_instagram: "https://www.instagram.com/depsbrand",
+    });
+    mocks.runAcquirePhase.mockResolvedValue(acquireOutput());
+    mocks.runNamesPhase.mockResolvedValue(namesOutput());
+    mocks.runEditorialAgent.mockResolvedValue(editorialOutput());
+    mocks.runProductsPhase.mockResolvedValue(productsOutput());
+
+    await runEnrich(
+      {
+        target: "submissions",
+        submissionIds: [target.id],
+        dryRun: true,
+        phases: FULL_PHASES,
+        onProgress: () => {},
+      },
+      fakeSupabase([target]),
+    );
+
+    const deps = mocks.runEditorialAgent.mock.calls[0][1] as {
+      validateCrossOutput: (
+        patch: Record<string, unknown>,
+        phaseResults: unknown[],
+      ) => Array<{ field: string; reason: string }>;
+      repairCrossOutput: (...args: unknown[]) => Promise<unknown>;
+      requestEvidence?: unknown;
+    };
+
+    // F11: production shipped a validator that always answered with an empty
+    // array, so the graph's validate -> repair edge could never fire. The real
+    // one flags an AI-slop opener and a city outside the closed set.
+    const failures = deps.validateCrossOutput(
+      {
+        description_en:
+          "In a world where design matters, this studio keeps making the same quiet bowls.",
+        city: "kyoto",
+      },
+      [
+        {
+          phase: "descriptions",
+          status: "succeeded",
+          changedFields: [],
+          durationMs: 1,
+        },
+      ],
+    );
+    expect(failures.length).toBeGreaterThan(0);
+    expect(
+      failures.some((failure) => failure.reason.startsWith("ai_artifact:")),
+    ).toBe(true);
+    expect(failures.some((failure) => failure.field === "city")).toBe(true);
+
+    // The other two stubs: the repair took one argument and echoed it straight
+    // back; the real one takes the failures too and answers with the repaired
+    // fields only. `requestEvidence` was never supplied at all. (The repair turn
+    // itself is exercised against a fake model in
+    // `editorial/__tests__/validators.test.ts` — running it here would mean a
+    // live model call.)
+    expect(deps.repairCrossOutput.length).toBe(2);
+    expect(typeof deps.requestEvidence).toBe("function");
   });
 });

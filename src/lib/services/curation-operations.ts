@@ -16,6 +16,7 @@ import {
   type CurationTask,
   type EnrichPhaseName,
 } from "@/lib/constants/enrich-phases";
+import { resolveProfileModel } from "@/lib/constants/llm-models";
 import { normalizeToRootUrl } from "@/lib/url";
 import {
   ONLINE_STORES,
@@ -65,18 +66,21 @@ import {
   type BrandEnrichState,
   type SearchPhaseResult,
   hasPatchValues,
+  getActiveImages,
+  classifiedImageFromRow,
 } from "./enrich-phases";
 import type { NameCandidate } from "./name-arbiter";
 import { isBrandNameProposal } from "@/lib/types/enriched-data";
-import { probeStatic } from "./enrich-phases/gather";
+import { probeStatic, type ProbeEvidence } from "./enrich-phases/gather";
+import type { RankableImage } from "./enrich-phases/image-ranking";
 import type { EnrichmentTarget } from "./_shared/enrichment-target";
 import type { RenderProvider } from "./enrich-phases/scraper/render/types";
 import { deriveCategoryFromSubcategories } from "./subcategories";
 import {
   runEditorialAgent,
   type EditorialInput,
-  type EditorialDeps,
 } from "./enrich-phases/editorial/graph";
+import { buildEditorialDeps } from "./enrich-phases/editorial/validators";
 import type {
   EnrichBrand as EditorialEnrichBrand,
   EnrichPatch as EditorialEnrichPatch,
@@ -811,12 +815,45 @@ function chunkItems<T>(items: T[], size: number): T[][] {
   return chunks;
 }
 
+/**
+ * Known URLs probed per brand before detect. Four is what the detect prompt
+ * renders (`probeLines` in `category-classifier.ts`); probing more would pay
+ * for evidence no model ever reads.
+ */
+const MAX_PROBE_URLS_PER_BRAND = 4;
+
 function collectKnownUrls(brand: EnrichBrand): string[] {
   const linkUrls = LINK_FIELDS.map(
     (field) => brand[linkColumnFor(field)],
   ).filter((url): url is string => hasLinkValue(url));
 
   return uniqueUrls(linkUrls);
+}
+
+/**
+ * The products phase ranks images against each proposal's own page, so it needs
+ * this run's classified pool. Acquire hands over the full in-memory pool when it
+ * runs — but when it was satisfied from history it runs nothing, and the target's
+ * stored active images are the only pool there is.
+ *
+ * Without this fallback a re-run verifies every proposal's image against an
+ * EMPTY pool, and an empty pool passes: the brand keeps whatever image the model
+ * echoed back, unranked and unverified.
+ */
+async function loadImagePoolFromHistory(
+  supabase: SupabaseLike,
+  target: EnrichmentTarget,
+): Promise<RankableImage[]> {
+  try {
+    const rows = await getActiveImages(supabase, target);
+    return rows
+      .map(classifiedImageFromRow)
+      .filter((image): image is RankableImage => image !== null);
+  } catch {
+    // A pool is an input, not a precondition. A failed read leaves products to
+    // record its own `unverified` image flag rather than failing the brand.
+    return [];
+  }
 }
 
 export function mergeEnrichPatches(patches: EnrichPatches): EnrichPatch {
@@ -939,14 +976,19 @@ function buildBrandPhaseOrder(
 type AcquirePhaseResult = Awaited<ReturnType<typeof runAcquirePhase>>;
 
 /**
- * Per-target state carried across the single per-brand loop.
+ * Per-target state carried across the chunk's TWO per-brand loops.
  *
- * After the wave collapse, there is ONE per-brand loop: detect application →
- * clean → acquire → names → descriptions → stockists → faq → products → persist.
+ * Loop A: detect application → acquire → Gate A → Gate B → name candidates.
+ * Then ONE batched `names` call for the whole chunk.
+ * Loop B: names verdict → editorial → products → tags → persist.
+ *
+ * The context is what makes the split possible: everything loop B needs about a
+ * brand (its acquire output, its satisfied phases, its accumulated state) is
+ * held here rather than in a closure that dies with loop A's callback.
  *
  * `completed` is the single source of truth for "this target already recorded a
- * terminal outcome". Batch phases and the per-brand loop read it, so a target
- * that skipped or failed early is never re-emitted and never counted twice.
+ * terminal outcome". The batch phases and loop B read it, so a target that
+ * skipped or failed in loop A is never re-emitted and never counted twice.
  */
 type BrandWaveContext = {
   brand: EnrichBrand;
@@ -1527,14 +1569,14 @@ export async function runEnrich(
             await flushTargetProgress(false);
           });
         };
-        // Populated by wave A, read by the batched image search that runs between
-        // the waves, and resumed by wave B. Keyed by target id — see the
+        // Populated by loop A, read by the batched `names` call that runs between
+        // the loops, and resumed by loop B. Keyed by target id — see the
         // `BrandWaveContext` doc comment for why a name key would be unsafe here.
         const brandContexts = new Map<string, BrandWaveContext>();
         const isBrandCompleted = (brandId: string): boolean =>
           brandContexts.get(brandId)?.completed === true;
-        // Competing `name` proposals collected during wave A, consumed by the
-        // batched names phase that runs between the waves. Keyed by target id for
+        // Competing `name` proposals collected during loop A, consumed by the
+        // batched names phase that runs between the loops. Keyed by target id for
         // the same reason `brandContexts` is: `clean` and `detect` can rewrite a
         // name, so a name key would be a silent miss.
         const nameCandidates = new Map<string, NameCandidateInput>();
@@ -1620,10 +1662,43 @@ export async function runEnrich(
         }
 
         // ---- Probe evidence collection (per-brand, before detect) ----
-        // Gather static probes from known URLs for every brand in the chunk.
-        const allKnownUrls = chunk.flatMap(collectKnownUrls);
-        if (allKnownUrls.length > 0) {
-          await probeStatic(allKnownUrls);
+        // A free GET on each brand's own known URLs. Kept PER BRAND: the whole
+        // point is that detect judges a brand on its own pages, and a flat list
+        // of the chunk's URLs (F10) could only ever be thrown away.
+        //
+        // One `probeStatic` call for the chunk rather than one per brand — it
+        // already runs four at a time whatever it is handed, so a per-brand call
+        // would serialize the chunk behind each brand's slowest host.
+        const probeUrlsByBrandId = new Map<string, string[]>();
+        const probeUrls: string[] = [];
+        const seenProbeUrls = new Set<string>();
+        for (const brand of chunk) {
+          const urls = collectKnownUrls(brand).slice(
+            0,
+            MAX_PROBE_URLS_PER_BRAND,
+          );
+          if (urls.length === 0) continue;
+          probeUrlsByBrandId.set(brand.id, urls);
+          for (const url of urls) {
+            if (seenProbeUrls.has(url)) continue;
+            seenProbeUrls.add(url);
+            probeUrls.push(url);
+          }
+        }
+        const probeEvidenceByBrandId = new Map<string, ProbeEvidence[]>();
+        if (probeUrls.length > 0) {
+          const probes = await probeStatic(probeUrls);
+          const probeByUrl = new Map(
+            probes.map((probe) => [probe.url, probe] as const),
+          );
+          for (const [brandId, urls] of probeUrlsByBrandId) {
+            const evidence = urls
+              .map((url) => probeByUrl.get(url))
+              .filter((probe): probe is ProbeEvidence => probe !== undefined);
+            if (evidence.length > 0) {
+              probeEvidenceByBrandId.set(brandId, evidence);
+            }
+          }
         }
 
         // ---- Detect batch (reads probes + cached SERP) ----
@@ -1631,6 +1706,7 @@ export async function runEnrich(
         const detectPhaseResult = await runDetectPhase(
           batchContext,
           searchResults,
+          probeEvidenceByBrandId,
         );
         const detectResults = detectPhaseResult.detectResults;
         const standaloneClassificationResult =
@@ -1710,8 +1786,8 @@ export async function runEnrich(
         /**
          * Terminal for this target. Marking `completed` here — in the one place
          * every skip, failure and success funnels through — is what guarantees a
-         * brand that exited during wave A is neither re-emitted by the batch phases
-         * that follow nor picked up (and re-counted) by wave B.
+         * brand that exited during loop A is neither re-emitted by the batch phases
+         * that follow nor picked up (and re-counted) by loop B.
          */
         const recordOutcome = async (
           ctx: BrandWaveContext,
@@ -1751,7 +1827,7 @@ export async function runEnrich(
             ),
           );
         };
-        /** Shared catch body for both waves — a Gate A throw lands here. */
+        /** Shared catch body for both loops — a Gate A throw lands here. */
         const failBrand = async (
           ctx: BrandWaveContext,
           err: unknown,
@@ -1816,8 +1892,8 @@ export async function runEnrich(
         };
 
         /**
-         * Gate C and its storage sibling, invoked immediately before EVERY wave-B
-         * exit that would record a non-failed outcome. One end-of-callback check is
+         * Gate C and its storage sibling, invoked immediately before EVERY exit
+         * that would record a non-failed outcome. One end-of-callback check is
          * not enough: a brand can leave through the Gate B skip or the empty-patch
          * skip, and a provider-failed brand recorded `skipped` is invisible to the
          * Resume feature, which picks up `failed` and `cancelled` targets only.
@@ -1846,8 +1922,8 @@ export async function runEnrich(
           throw new Error(decision.message);
         };
 
-        // ---- Single per-brand loop: detect → clean → acquire → names →
-        //      descriptions → stockists → faq → products → persist ----
+        // ---- Loop A: detect application → acquire → Gate A → Gate B →
+        //      name candidates. Ends at the batched `names` call below. ----
         await mapWithConcurrency(
           chunk,
           ENRICH_BRAND_CONCURRENCY,
@@ -1908,7 +1984,6 @@ export async function runEnrich(
             await emitTargetProgress(ctx, "running");
 
             try {
-              const overwrite = ctx.overwrite;
               const satisfiedPhaseSet = ctx.satisfiedPhaseSet;
 
               // ---- Detect application ----
@@ -2100,17 +2175,69 @@ export async function runEnrich(
                 snippets: state.serpSnippets,
               };
               nameCandidates.set(brand.id, brandNameCandidateInput);
+            } catch (err) {
+              await failBrand(ctx, err);
+            }
+          },
+        );
 
-              if (!satisfiedPhaseSet.has("names")) {
+        // ---- Names: ONE arbiter call for the whole chunk -----------------
+        // The second of the two batch points. Between the loops rather than
+        // inside one, because the arbiter is only worth its price when it sees
+        // every brand's candidates at once: called per brand it was 20 requests
+        // per chunk for the work of one (F9).
+        //
+        // Built from the SURVIVORS only. A brand that left in loop A — non-brand,
+        // Gate A, Gate B, or an error — already carries a terminal outcome, and
+        // handing it to the arbiter would pay for a verdict nothing can apply.
+        const survivingContexts = chunk
+          .map((brand) => brandContexts.get(brand.id))
+          .filter(
+            (entry): entry is BrandWaveContext =>
+              entry !== undefined && !entry.completed,
+          );
+        const namesContexts: BrandWaveContext[] = llmBreakerTripped
+          ? []
+          : survivingContexts.filter(
+              (entry) => !entry.satisfiedPhaseSet.has("names"),
+            );
+        let namesResult: Awaited<ReturnType<typeof runNamesPhase>> | undefined;
+        if (namesContexts.length > 0) {
+          const namesChunk = namesContexts.map((entry) => entry.brand);
+          namesResult = await runNamesPhase(
+            {
+              ...batchContext,
+              chunk: namesChunk,
+              chunkBrandNames: namesChunk.map(getDisplayBrandName),
+            },
+            nameCandidates,
+          );
+        }
+
+        // ---- Loop B: names verdict → editorial → products → tags → persist
+        const loopBContexts: BrandWaveContext[] = llmBreakerTripped
+          ? []
+          : survivingContexts;
+        await mapWithConcurrency(
+          loopBContexts,
+          ENRICH_BRAND_CONCURRENCY,
+          async (ctx) => {
+            // Same cooperative abort as loop A: the breaker can trip on a brand
+            // that ran while this one was queued.
+            if (llmBreakerTripped) return;
+
+            const brand = ctx.brand;
+            const state = ctx.state;
+            const overwrite = ctx.overwrite;
+            const satisfiedPhaseSet = ctx.satisfiedPhaseSet;
+            const acquireResult = ctx.acquireResult ?? undefined;
+
+            try {
+              // ---- Names verdict (from the batch above) ------------------
+              if (namesResult && !satisfiedPhaseSet.has("names")) {
                 await markCurrentPhase(ctx, "names");
-                const namesResult = await runNamesPhase(
-                  {
-                    ...batchContext,
-                    chunk: [brand],
-                    chunkBrandNames: [getDisplayBrandName(brand)],
-                  },
-                  new Map([[brand.id, brandNameCandidateInput]]),
-                );
+                const candidates =
+                  nameCandidates.get(brand.id)?.candidates ?? [];
                 const application = phases.includes("names")
                   ? applyNamesResult(
                       namesResult.verdicts.get(brand.id),
@@ -2161,8 +2288,13 @@ export async function runEnrich(
                   explicitPhases: config.explicitPhases ?? [],
                 };
 
-                // Build production deps that delegate to the real phase functions
-                const editorialDeps: EditorialDeps = {
+                // Real validators, one repair turn, and the evidence tool —
+                // `buildEditorialDeps` owns all three. What shipped instead was a
+                // validator that always answered with an empty array and a repair
+                // that echoed its patch back (F11), which left the graph's
+                // validate -> repair edge unreachable and `LLM_PROFILES.editorial`
+                // never resolved.
+                const editorialDeps = buildEditorialDeps({
                   runDescriptions: async (input) => {
                     const result = await runDescriptionsPhase({
                       brand: input.brand,
@@ -2210,9 +2342,16 @@ export async function runEnrich(
                     });
                     return { phaseResult: result.phaseResult, patch: result.patch };
                   },
-                  validateCrossOutput: () => [],
-                  repairCrossOutput: async (patch) => patch,
-                };
+                  brandName: getDisplayBrandName(brand),
+                  audit: {
+                    ...(config.jobId ? { jobId: config.jobId } : {}),
+                    target: { type: targetType, id: brand.id },
+                    modelName: resolveProfileModel("editorial"),
+                  },
+                  // The run's own client, so the evidence tool reads the pack
+                  // this job wrote rather than opening a second connection.
+                  supabase: supabase as unknown as SupabaseClient,
+                });
 
                 const editorialOutput = await runEditorialAgent(editorialInput, editorialDeps);
 
@@ -2458,6 +2597,22 @@ export async function runEnrich(
 
               if (!satisfiedPhaseSet.has("products")) {
                 await markCurrentPhase(ctx, "products");
+                const productsTarget: EnrichmentTarget = {
+                  type: targetType,
+                  id: brand.id,
+                };
+                // Acquire's own pool when it ran this time; the target's stored
+                // active images when it was satisfied from history. Never `[]`
+                // by default — an empty pool passes every image check.
+                //
+                // The history read is skipped when `products` is out of scope:
+                // the phase refuses immediately in that case, so the query would
+                // buy nothing and would run once per brand.
+                const imagePool =
+                  acquireResult?.imagePool ??
+                  (phases.includes("products")
+                    ? await loadImagePoolFromHistory(supabase, productsTarget)
+                    : []);
                 const productsResult = await runProductsPhase({
                   brand,
                   phases,
@@ -2466,12 +2621,14 @@ export async function runEnrich(
                   // pre-run snapshot instead would mine a contaminated website.
                   pendingPatch: state.patches,
                   dryRun: config.dryRun,
-                  target: { type: targetType, id: brand.id },
+                  target: productsTarget,
                   jobId: config.jobId,
-                  // Images/classify are retired; pass empty catalog and
-                  // acquisition URLs until acquire subsumes them fully.
-                  catalogResult: undefined,
-                  acquisitionPageUrls: [],
+                  // Everything acquire learned about where this brand's products
+                  // and images live. Hard-coded empty before (F6), which is why
+                  // the agent never rendered a page it had a reason to render.
+                  imagePool,
+                  catalogResult: acquireResult?.catalogResult,
+                  acquisitionPageUrls: acquireResult?.acquisitionPageUrls ?? [],
                   renderProvider: config.renderProvider,
                 });
                 state.phaseResults.push(productsResult.phaseResult);
