@@ -69,15 +69,23 @@ describe("planCurationResume", () => {
     ]);
   });
 
-  it("never expands an image-only source job into the rest of the pipeline", () => {
+  it("expands an image-only source job into the visual closure, not the text phases", () => {
     const plans = planCurationResume({ steps: ["image"] } as Json, [
       target({ phaseResults: [phase("images", "failed")] }),
     ]);
 
-    // The legacy `image` step used to resolve to the deferred image phases.
-    // It now resolves to the visual task's phases, and the scope still
-    // contains the resume — no text phases are dragged in.
-    expect(plans.at(0)?.params.phases).toEqual(["products"]);
+    // The legacy `image` step used to resolve to the deferred image phases,
+    // which have no runner. It now resolves to the visual task's closure
+    // (`LEGACY_STEP_PHASES.image = phasesForTask("visual")`), because
+    // `products` on its own is the self-insufficient scope of the DEV-1469
+    // bug — it needs detect/acquire/names ahead of it. The closure stops
+    // there: no descriptions, stockists, faq, or tags are dragged in.
+    expect(plans.at(0)?.params.phases).toEqual([
+      "detect",
+      "acquire",
+      "names",
+      "products",
+    ]);
   });
 
   it("falls back to the in-scope LLM phases when nothing looks unfinished", () => {

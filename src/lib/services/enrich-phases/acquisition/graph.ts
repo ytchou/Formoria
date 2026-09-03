@@ -1111,10 +1111,12 @@ async function finalizeNode(
 // Graph assembly
 // ---------------------------------------------------------------------------
 
+// The planning node is `plan_stage`, not `plan`: LangGraph refuses a node whose
+// name equals a state channel, and `plan` is a channel this graph writes.
 export function buildAcquisitionGraph(ctx: RunContext) {
   return new StateGraph(AcquisitionState)
     .addNode('gather', () => gatherNode(ctx))
-    .addNode('plan', () => planNode(ctx))
+    .addNode('plan_stage', () => planNode(ctx))
     .addNode('execute', (state) => executeNode(state, ctx))
     .addNode('images', (state) => imagesNode(state, ctx))
     .addNode('critique', (state) => critiqueNode(state, ctx))
@@ -1122,10 +1124,10 @@ export function buildAcquisitionGraph(ctx: RunContext) {
     .addNode('imagesRecover', (state) => imagesRecoverNode(state, ctx))
     .addNode('finalize', (state) => finalizeNode(state, ctx))
     .addEdge(START, 'gather')
-    .addConditionalEdges('gather', (state): 'plan' | typeof END =>
-      state.agentOutcome === 'fallback' ? END : 'plan',
+    .addConditionalEdges('gather', (state): 'plan_stage' | typeof END =>
+      state.agentOutcome === 'fallback' ? END : 'plan_stage',
     )
-    .addConditionalEdges('plan', (state): 'execute' | typeof END =>
+    .addConditionalEdges('plan_stage', (state): 'execute' | typeof END =>
       state.plan ? 'execute' : END,
     )
     .addEdge('execute', 'images')

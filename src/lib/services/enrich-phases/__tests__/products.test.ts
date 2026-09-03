@@ -103,13 +103,34 @@ function rawProposal(overrides: RawProposal = {}): RawProposal {
   };
 }
 
-function modelReturns(products: RawProposal[]) {
+/**
+ * `evaluations` is what the selection window ranks on: a candidate the model
+ * scored nowhere is invalid-or-missing, is never ranked, and therefore never
+ * published. Most tests here leave it empty because they read the proposal
+ * BEFORE selection (their candidate writer is absent, so persistence reports
+ * and the proposals pass through). A test that injects a working writer must
+ * supply the evaluation too, or it is asserting on an unranked pool.
+ */
+function modelReturns(products: RawProposal[], evaluations: RawProposal[] = []) {
   const chat = vi.fn().mockResolvedValue({
     response: { ok: true },
-    content: JSON.stringify({ evaluations: [], products }),
+    content: JSON.stringify({ evaluations, products }),
   });
   createClient.mockReturnValue({ chat });
   return chat;
+}
+
+/** A single-call evaluation that clears the score and rationale validators. */
+function singleCallEvaluation(url: string): RawProposal {
+  return {
+    candidate_url: url,
+    editorial_score: 85,
+    editorial_rationale: "single identifiable product with durable facts",
+    made_in_taiwan: false,
+    materials_from_taiwan: false,
+    origin_excerpt_ids: [],
+    product_model: null,
+  };
 }
 
 function modelReturnsRawContent(content: string) {
@@ -1648,7 +1669,10 @@ describe("products agent path", () => {
     const agentModel = {
       invoke: vi.fn().mockRejectedValue(new Error("model unavailable")),
     };
-    modelReturns([rawProposal()]);
+    // The single-call body scores its own candidates: without an evaluation the
+    // ranked window is empty and the fallback would publish nothing, which
+    // would prove the fallback ran but not that it still produces proposals.
+    modelReturns([rawProposal()], [singleCallEvaluation(CLAY_PLATE)]);
 
     const result = await runProductsPhase(
       agentPhaseOptions({

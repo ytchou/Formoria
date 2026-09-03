@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
   applyDetectResult,
   runStandaloneClassification,
@@ -58,6 +58,14 @@ function ctx(overrides: Partial<BatchPhaseContext> = {}): BatchPhaseContext {
     ...overrides,
   };
 }
+
+// The probe assertions below read `mock.calls[0]`, which is the first call in
+// the whole FILE unless the recorded calls are cleared between tests. Vitest is
+// not configured with `clearMocks`, so clear them here. `clearAllMocks` drops
+// recorded calls only — the `mockResolvedValue` each test sets survives.
+beforeEach(() => {
+  vi.clearAllMocks();
+});
 
 describe("runDetectPhase", () => {
   it("returns skipped when no detect phases requested", async () => {
