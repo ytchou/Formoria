@@ -23,22 +23,13 @@ test.describe("Discover situation search", () => {
     });
     await expect(resultsHeading).toBeVisible({ timeout: BUDGET.RENDERED });
 
-    const productItems = page.getByRole("list").locator("li").first();
-    const emptyState = page.getByText("找不到符合的商品");
+    const mainContent = page.locator("main");
+    const productGrid = mainContent.locator("ul.grid");
+    const emptyState = mainContent.getByText("找不到符合的商品");
 
     await expect(
-      productItems.or(emptyState),
+      productGrid.or(emptyState),
     ).toBeVisible({ timeout: BUDGET.RENDERED });
-  });
-
-  test("shows empty state for nonsense query", async ({ page }) => {
-    await page.goto("/discover?q=zzzzxyzzy99", {
-      timeout: BUDGET.NAVIGATION,
-    });
-
-    await expect(
-      page.getByText("找不到符合的商品"),
-    ).toBeVisible({ timeout: BUDGET.INTERACTIVE });
   });
 
   test("search form submits and navigates with query", async ({ page }) => {

@@ -166,18 +166,6 @@ export const POST = withAuditScope(async (req: Request) => {
         error: err instanceof Error ? err.name : "UnknownError",
       }),
     );
-    try {
-      await postSlackAlert({
-        agent: "product-embeddings-nightly",
-        status: "failed",
-        date: new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Taipei" }),
-        summary: [
-          `Route error: ${err instanceof Error ? err.message : "unknown"}`,
-        ],
-      });
-    } catch {
-      // Slack failure on an already-failing route — nothing more to do
-    }
     return NextResponse.json(
       { error: "Internal server error" },
       { status: 500 },
