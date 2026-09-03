@@ -113,22 +113,22 @@ export const classifyBatchShape = z.object({
 });
 
 // Wire-format schemas for OpenAI structured output
-export const DETECT_SCHEMA = {
+const DETECT_SCHEMA = {
   name: "detect_single",
   schema: toStrictJsonSchema(detectSingleShape),
 };
 
-export const DETECT_BATCH_SCHEMA = {
+const DETECT_BATCH_SCHEMA = {
   name: "detect_batch",
   schema: toStrictJsonSchema(detectBatchShape),
 };
 
-export const CLASSIFY_SCHEMA = {
+const CLASSIFY_SCHEMA = {
   name: "classify_single",
   schema: toStrictJsonSchema(classifySingleShape),
 };
 
-export const CLASSIFY_BATCH_SCHEMA = {
+const CLASSIFY_BATCH_SCHEMA = {
   name: "classify_batch",
   schema: toStrictJsonSchema(classifyBatchShape),
 };

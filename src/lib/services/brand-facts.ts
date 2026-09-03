@@ -305,7 +305,7 @@ const verificationResultShape = z.object({
   reason: z.string().nullable(),
 });
 
-export const foundingFactsVerifyShape = z.object({
+const foundingFactsVerifyShape = z.object({
   results: z.array(verificationResultShape),
 });
 

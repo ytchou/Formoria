@@ -14,8 +14,6 @@ import * as Sentry from "@sentry/nextjs";
 
 import type { CatalogProduct } from "@/lib/services/curated-products-catalog";
 
-export type { CatalogProduct };
-
 export type SearchMode = "hybrid" | "vector" | "lexical";
 
 export type SearchInput = {
@@ -100,7 +98,7 @@ export function normalizeSituationQuery(raw: string): string {
 // Dependency injection
 // ---------------------------------------------------------------------------
 
-export type EmbedFn = (
+type EmbedFn = (
   text: string,
   ctx: { phase: string; jobId?: string },
 ) => Promise<number[]>;

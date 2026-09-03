@@ -185,7 +185,7 @@ export type ProductsModelResult = {
   products?: unknown;
 };
 
-export type ProductCandidateEvaluation = {
+type ProductCandidateEvaluation = {
   url: string;
   score: number | null;
   rationale: string | null;
@@ -316,7 +316,7 @@ function bareHost(url: URL): string {
   return url.hostname.replace(/^www\./u, "").toLowerCase();
 }
 
-export function validateCandidateEvaluations(
+function validateCandidateEvaluations(
   result: ProductsModelResult,
   candidates: readonly ProductCandidate[],
   excerptsByUrl: ReadonlyMap<string, readonly OriginExcerpt[]>,

@@ -89,15 +89,6 @@ export type OpenAIChatResult = {
   refusal: string | null;
 };
 
-/** @deprecated Use parseAndValidate from _shared/zod-schema instead */
-export function parseJson<T>(content: string): T | null {
-  try {
-    return JSON.parse(content) as T;
-  } catch {
-    return null;
-  }
-}
-
 /**
  * `gpt-5`-family models differ from the chat models in two ways, both hard 400s:
  *

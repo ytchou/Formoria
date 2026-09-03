@@ -86,8 +86,8 @@ export function captureAlert(
   return true;
 }
 
-/** Test seam: forget the lazy-init decision. */
 export function resetSentryAdapterForTests(): void {
-  initAttempted = false;
   missingDsnWarned = false;
+  initAttempted = false;
 }
+

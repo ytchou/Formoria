@@ -33,8 +33,6 @@ const mocks = vi.hoisted(() => ({
   runFaqPhase: vi.fn(),
   runDiscoverPhase: vi.fn(),
   runSiteIdentityPhase: vi.fn(),
-  runImageSearchPhase: vi.fn(),
-  runClassifyImagesPhase: vi.fn(),
   probeStatic: vi.fn(),
 }));
 
@@ -141,26 +139,6 @@ vi.mock("../enrich-phases/site-identity", async (importOriginal) => {
     ...original,
     runSiteIdentityPhase: mocks.runSiteIdentityPhase.mockImplementation(
       original.runSiteIdentityPhase,
-    ),
-  };
-});
-
-vi.mock("../enrich-phases/image-search", async (importOriginal) => {
-  const original = await importOriginal<typeof import("../enrich-phases/image-search")>();
-  return {
-    ...original,
-    runImageSearchPhase: mocks.runImageSearchPhase.mockImplementation(
-      original.runImageSearchPhase,
-    ),
-  };
-});
-
-vi.mock("../enrich-phases/classify-images", async (importOriginal) => {
-  const original = await importOriginal<typeof import("../enrich-phases/classify-images")>();
-  return {
-    ...original,
-    runClassifyImagesPhase: mocks.runClassifyImagesPhase.mockImplementation(
-      original.runClassifyImagesPhase,
     ),
   };
 });
@@ -412,28 +390,6 @@ describe("wave collapse — single per-brand loop", () => {
     expect(mocks.runSiteIdentityPhase).not.toHaveBeenCalled();
   });
 
-  it("image_search_batch_not_called", async () => {
-    const target = submission({
-      id: "sub-no-is",
-      brand_name: "No Image Search",
-      social_instagram: "https://www.instagram.com/nois",
-    });
-    mocks.detectBrandsBatch.mockResolvedValue(detectBatch(new Map()));
-
-    await runEnrich(
-      {
-        target: "submissions",
-        submissionIds: [target.id],
-        dryRun: true,
-        phases: PHASES,
-        onProgress: () => {},
-      },
-      fakeSupabase([target]),
-    );
-
-    expect(mocks.runImageSearchPhase).not.toHaveBeenCalled();
-  });
-
   it("images_phase_not_called", async () => {
     const target = submission({
       id: "sub-no-img",
@@ -454,28 +410,6 @@ describe("wave collapse — single per-brand loop", () => {
     );
 
     expect(mocks.runBrandImagePhase).not.toHaveBeenCalled();
-  });
-
-  it("classify_images_phase_not_called", async () => {
-    const target = submission({
-      id: "sub-no-classify",
-      brand_name: "No Classify",
-      social_instagram: "https://www.instagram.com/noclassify",
-    });
-    mocks.detectBrandsBatch.mockResolvedValue(detectBatch(new Map()));
-
-    await runEnrich(
-      {
-        target: "submissions",
-        submissionIds: [target.id],
-        dryRun: true,
-        phases: PHASES,
-        onProgress: () => {},
-      },
-      fakeSupabase([target]),
-    );
-
-    expect(mocks.runClassifyImagesPhase).not.toHaveBeenCalled();
   });
 
   it("image_pool_threads_to_products — products receives image data from acquire", async () => {
