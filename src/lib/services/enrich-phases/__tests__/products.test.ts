@@ -1665,6 +1665,47 @@ describe("products agent path", () => {
     expect(result.patch).toEqual({});
   });
 
+  // Before this, an agent that fell back left NO trace: the phase result was
+  // indistinguishable from a run where the agent had never been enabled, so a
+  // staging run could not answer "why did the single-call body write this?".
+  it("agent_fallback_reason_is_recorded_in_phase_result_and_summary", async () => {
+    // Evaluates the pool, proposes nothing → the agent exits `no_proposals`.
+    const agentModel = agentModelReading([
+      (evidence) => ({
+        evaluations: [agentEvaluation(CLAY_PLATE, evidence)],
+        products: [],
+      }),
+    ]);
+    // The single-call body still publishes, so the reason is recorded on a
+    // SUCCESSFUL fallback rather than only on a dead run.
+    modelReturns([rawProposal()], [singleCallEvaluation(CLAY_PLATE)]);
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+
+    const result = await runProductsPhase(
+      agentPhaseOptions({
+        agentModel,
+        candidateWriter: {
+          insert: vi.fn().mockResolvedValue({ data: null, error: null }),
+        },
+      }),
+    );
+
+    expect(result.phaseResult.status).toBe("succeeded");
+    expect(result.proposals).toHaveLength(1);
+    expect(result.phaseResult.agentOutcome).toBe("fallback");
+    expect(result.phaseResult.detail).toContain("agent fallback: no_proposals");
+
+    const terminal = auditWrites.findLast(
+      (r) => r.operation === "runProductsPhase",
+    );
+    const summary = terminal!.summary as Record<string, unknown>;
+    expect(summary.agentOutcome).toBe("fallback");
+    expect(summary.agentError).toBe("no_proposals");
+    expect(warn).toHaveBeenCalled();
+
+    warn.mockRestore();
+  });
+
   it("falls back to the single-call body when the agent model throws", async () => {
     const agentModel = {
       invoke: vi.fn().mockRejectedValue(new Error("model unavailable")),
@@ -1684,7 +1725,10 @@ describe("products agent path", () => {
     );
 
     expect(result.phaseResult.status).toBe("succeeded");
-    expect(result.phaseResult.agentOutcome).toBeUndefined();
+    // A throw reports no outcome of its own, so the phase records `fallback` —
+    // the trace has to say the agent ran and lost.
+    expect(result.phaseResult.agentOutcome).toBe("fallback");
+    expect(result.phaseResult.detail).toContain("agent fallback: threw: model unavailable");
     expect(result.proposals).toHaveLength(1);
   });
 });

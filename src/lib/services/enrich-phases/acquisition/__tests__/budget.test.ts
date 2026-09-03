@@ -62,7 +62,8 @@ describe('budget', () => {
     const budget = budgetFor(pack)
     expect(budget.renders).toBe(0)
     expect(budget.search).toBe(0)
-    expect(budget.turns).toBe(2)
+    // plan + critique + the critique that re-reads a recovery.
+    expect(budget.turns).toBe(3)
     expect(budget.wallClockMs).toBe(45_000)
   })
 
@@ -74,7 +75,7 @@ describe('budget', () => {
     const budget = budgetFor(pack)
     expect(budget.renders).toBe(1)
     expect(budget.search).toBe(1)
-    expect(budget.turns).toBe(4)
+    expect(budget.turns).toBe(5)
   })
 
   it('budget_policy_never_exceeds_ceilings', () => {

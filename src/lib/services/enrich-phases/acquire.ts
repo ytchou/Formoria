@@ -731,6 +731,18 @@ function compactImagePool(pool: readonly RankableImage[]): NonNullable<PhaseResu
 }
 
 /**
+ * Text this phase actually read. `brandName` stands in for the page title: it
+ * is what the scraper writes a first-party `<title>` into, and `ScrapedBrandData`
+ * has no separate title field.
+ */
+function hasScrapedText(data: EnrichScrapedData | undefined): boolean {
+  if (!data) return false
+  return [data.description, data.story, data.brandName].some(
+    (value) => typeof value === 'string' && value.trim().length > 0,
+  )
+}
+
+/**
  * Image candidates from a completed scrape — the fallback path's equivalent of
  * the agent's `images` node. Provenance first (`imageSources` carries the page
  * each image came from), plain URLs only when the scraper predates it.
@@ -1217,8 +1229,26 @@ export async function runAcquirePhase({
     }
   })
 
-  const changedFields = Object.keys(result.patch)
-  const status = hasPatchValues(result.patch) ? 'succeeded' : 'skipped'
+  // What this phase PRODUCES is evidence; the patch is only the part of that
+  // evidence which happens to be a brand column. A refresh whose link columns
+  // are already correct leaves an empty patch, and reading that as `skipped`
+  // reported 6/10 brands as skipped on the first staging run while the agent had
+  // planned, scraped text, classified images and discovered a catalog.
+  const catalogTriples = result.catalogResult?.triples.length ?? 0
+  const acquiredEvidence =
+    (result.agentOutcome === 'planned' || result.agentOutcome === 'recovered') &&
+    (result.imagePool.length > 0 ||
+      catalogTriples > 0 ||
+      hasScrapedText(result.scrapedData))
+  const status = hasPatchValues(result.patch) || acquiredEvidence ? 'succeeded' : 'skipped'
+  // `images` and `catalog` are runlog LABELS, not patch keys: nothing reads a
+  // `changedFields` entry as a column to write (`curation-operations` only
+  // aggregates them for the progress event and the outcome log).
+  const changedFields = [
+    ...Object.keys(result.patch),
+    ...(result.imagePool.length > 0 ? ['images'] : []),
+    ...(catalogTriples > 0 ? ['catalog'] : []),
+  ]
 
   return {
     phaseResult: {

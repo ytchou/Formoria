@@ -71,8 +71,11 @@ export function budgetFor(pack: EvidencePack): AcquisitionBudget {
   // Probes = known URLs + 2 fan-out, capped at 8
   const probes = Math.min(urlCount + 2, BUDGET_CEILINGS.probes)
 
-  // Turns = 2 + allowed renders + allowed searches, capped at 6
-  const turns = Math.min(2 + renders + search, BUDGET_CEILINGS.turns)
+  // Turns = 3 + allowed renders + allowed searches, capped at 6. Three model
+  // STAGES always fit: the plan, the critique, and the critique that re-reads a
+  // recovery. At 2 the recovery critique never ran, and any brand whose plan
+  // stage needed its json-mode fallback lost the first critique as well.
+  const turns = Math.min(3 + renders + search, BUDGET_CEILINGS.turns)
 
   // Wall clock: 45s when no render/search; 90s otherwise
   const wallClockMs = (renders === 0 && search === 0) ? 45_000 : 90_000

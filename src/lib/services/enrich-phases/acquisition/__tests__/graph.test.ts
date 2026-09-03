@@ -234,9 +234,10 @@ describe('acquisition graph — plan tool loop', () => {
     expect(fetched).toContain('https://example.com')
     expect(fetched).not.toContain('https://evil.example')
 
-    // gather probe (1) + one allowlisted tool probe (1) + one executed surface (1).
-    // The refused probe costs nothing.
-    expect(result.budget!.used.probes).toBe(3)
+    // gather probe (1) + one allowlisted tool probe (1). The refused probe costs
+    // nothing, and executing the plan spends no probe at all — see
+    // `execute_does_not_spend_probes`.
+    expect(result.budget!.used.probes).toBe(2)
     expect(result.budget!.used.probes).toBeLessThanOrEqual(result.budget!.allowed.probes)
   })
 
@@ -359,6 +360,66 @@ describe('acquisition graph — budget is asserted, not just counted', () => {
     expect(
       searchResult.decisions.some((d) => `${d.action} ${d.reason}`.includes('search_refused')),
     ).toBe(true)
+  })
+
+  // The first staging run scraped ZERO URLs on every brand: gather had spent the
+  // probe allowance, so execute "dropped" every planned surface. Scrapes are
+  // bounded by `MAX_SCRAPE_URLS_PER_BRAND` inside `scrapeBrandUrls`; charging
+  // them a probe as well made the plan unexecutable.
+  it('execute_does_not_spend_probes', async () => {
+    const twoSurfacePlan = {
+      ...VALID_PLAN,
+      surfaces: [
+        { url: 'https://example.com', fetch: 'static', strategy: 'official-site', reason: 'main site' },
+        { url: 'https://example.com/about', fetch: 'static', strategy: 'single-page', reason: 'about page' },
+      ],
+    }
+    const deps = makeDeps()
+
+    const result = await runAcquisition(baseInput, deps, {
+      model: fakeAgentModel({ plan: [[{ name: 'submit_plan', args: twoSurfacePlan }]] }),
+      // gather alone exhausts the probe allowance (one known URL, one probe).
+      budgetOverride: { probes: 1, renders: 0, search: 0, turns: 3, wallClockMs: 45_000 },
+    })
+
+    expect(vi.mocked(deps.scrapeBrandUrls).mock.calls[0]![0]).toEqual([
+      'https://example.com',
+      'https://example.com/about',
+    ])
+    expect(result.budget!.used.probes).toBe(1)
+
+    const execute = result.decisions.find((d) => d.step === 'execute')!
+    expect(execute.action).toBe('scraped 2 URLs')
+    expect(execute.reason).not.toContain('dropped')
+  })
+
+  // The plan STAGE is one turn, however many model calls its tool loop makes.
+  // Charging the single-call fallback a second turn left `turns = 2` with
+  // nothing for the critique, which then skipped as `budget_exhausted`.
+  it('plan_fallback_spends_one_turn_total', async () => {
+    const badPlan = { surfaces: 'not-an-array' }
+    const deps = makeDeps()
+
+    const result = await runAcquisition(baseInput, deps, {
+      model: fakeAgentModel({
+        plan: [
+          [{ name: 'submit_plan', args: badPlan }],
+          [{ name: 'submit_plan', args: badPlan }],
+          VALID_PLAN,
+        ],
+        critique: [SUFFICIENT],
+      }),
+      budgetOverride: { probes: 8, renders: 0, search: 0, turns: 2, wallClockMs: 45_000 },
+    })
+
+    expect(result.agentOutcome).toBe('planned')
+    expect(result.decisions.some((d) => d.action === 'plan_fallback')).toBe(true)
+    // One turn for the whole plan stage, one for the critique.
+    expect(result.budget!.used.turns).toBe(2)
+
+    const critique = result.decisions.find((d) => d.step === 'critique')!
+    expect(critique.action).toBe('sufficient')
+    expect(critique.reason).not.toContain('budget')
   })
 })
 
@@ -673,6 +734,45 @@ describe('acquisition graph — finalize', () => {
       entryUrls: ['https://example.com/products'],
       priorityProductUrls: ['https://example.com/products/item-1'],
     })
+  })
+
+  // The brand's own purchase channels ARE the catalog sources. A plan that
+  // listed no product URL used to skip discovery outright, so the products
+  // phase then reported "no product candidates in the merged pool".
+  it('finalize_discovers_catalog_from_sources_when_plan_lists_none', async () => {
+    const discoverCatalog = vi
+      .fn()
+      .mockResolvedValue({ triples: [], attempts: [], evidence: new Map() })
+    const catalogSources = [{ url: 'https://example.com', channel: 'official' as const }]
+    const deps = makeDeps({ discoverCatalog, catalogSources })
+
+    const result = await runAcquisition(baseInput, deps, {
+      // VALID_PLAN carries an empty catalog: no entryUrls, no priorityProductUrls.
+      model: fakeAgentModel(planOnly),
+    })
+
+    expect(discoverCatalog).toHaveBeenCalledTimes(1)
+    expect(discoverCatalog.mock.calls[0]![0]).toMatchObject({
+      sources: catalogSources,
+      entryUrls: [],
+      priorityProductUrls: [],
+    })
+    expect(result.catalogResult).toBeDefined()
+    expect(result.decisions.find((d) => d.step === 'finalize')!.reason).toContain(
+      'catalog discovered',
+    )
+  })
+
+  it('finalize_records_no_sources_when_nothing_to_discover_from', async () => {
+    const discoverCatalog = vi.fn()
+    const deps = makeDeps({ discoverCatalog, catalogSources: [] })
+
+    const result = await runAcquisition(baseInput, deps, { model: fakeAgentModel(planOnly) })
+
+    expect(discoverCatalog).not.toHaveBeenCalled()
+    expect(result.decisions.find((d) => d.step === 'finalize')!.reason).toContain(
+      'catalog skipped: no sources',
+    )
   })
 
   it('finalize_collects_name_candidates_from_fetched_pages', async () => {

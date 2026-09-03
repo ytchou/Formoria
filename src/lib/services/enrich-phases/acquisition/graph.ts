@@ -16,11 +16,12 @@
  * injected, so the graph is exercised end to end with fakes and no service mock
  * (`scripts/check-test-boundaries.mjs` refuses those).
  *
- * Budget note: `turns` counts model STAGES (one for plan, one per critique). The
- * plan stage's inner tool loop is bounded by `recursionLimit` plus the probes and
- * renders allowances instead, because `budgetFor` sizes `turns` at 2 for a
- * healthy static site — enough for plan + critique, and not enough for a loop.
- * The loop's real call count is reported in the plan decision.
+ * Budget note: `turns` counts model STAGES (one for the whole plan stage, one
+ * per critique) — not model calls. The plan stage's inner tool loop AND its
+ * json-mode fallback are bounded by `recursionLimit` plus the probes and renders
+ * allowances instead, because `budgetFor` sizes `turns` at 3 for a healthy
+ * static site: plan, critique, and the critique that re-reads a recovery. The
+ * loop's real call count is reported in the plan decision.
  */
 
 import {
@@ -540,8 +541,12 @@ async function planNode(ctx: RunContext): Promise<AcquisitionUpdate> {
     }
   }
 
-  // 2. Single-call fallback — today's json-mode plan, tried at most once.
-  if (!ctx.submittedPlan && trySpend(ctx.budget, 'turns')) {
+  // 2. Single-call fallback — today's json-mode plan, tried at most once. It
+  //    spends NO further turn: the plan STAGE is one turn, charged above,
+  //    however many model calls it takes to produce a plan. Charging this call
+  //    a second turn spent the static-site allowance entirely on planning, and
+  //    the critique then skipped as `budget_exhausted` on every such brand.
+  if (!ctx.submittedPlan) {
     const response = await ctx.invokeModel(model, messages)
     ctx.planModelCalls += 1
     const adopted = adoptPlanFromText(ctx, contentText(response))
@@ -586,7 +591,6 @@ async function executeNode(
   const directives = new Map(state.directives)
   const urls: string[] = []
   let downgraded = 0
-  let dropped = 0
 
   for (const surface of state.plan.surfaces) {
     if (surface.fetch === 'skip') continue
@@ -601,10 +605,11 @@ async function executeNode(
       downgraded += 1
     }
 
-    if (!trySpend(ctx.budget, 'probes')) {
-      dropped += 1
-      continue
-    }
+    // Executing the plan does NOT spend `probes`. That allowance sizes the
+    // model's own exploration during planning; `scrapeBrandUrls` bounds this
+    // fetch by `MAX_SCRAPE_URLS_PER_BRAND` on its own. Charging both made the
+    // plan unexecutable whenever gather had used the allowance — the first
+    // staging run scraped zero URLs on every brand for exactly this reason.
     urls.push(surface.url)
   }
 
@@ -617,7 +622,7 @@ async function executeNode(
   ctx.record(
     'execute',
     `scraped ${urls.length} URLs`,
-    `${scrapeResult.statuses.filter((s) => s.ok).length} succeeded, ${downgraded} downgraded, ${dropped} dropped`,
+    `${scrapeResult.statuses.filter((s) => s.ok).length} succeeded, ${downgraded} downgraded`,
     start,
   )
   return { scrapeResult, directives }
@@ -1073,17 +1078,21 @@ async function finalizeNode(
   ]
 
   let catalogResult: CatalogDiscoveryResult | undefined
-  const catalog = state.plan?.catalog
-  if (
-    ctx.deps.discoverCatalog &&
-    catalog &&
-    (catalog.priorityProductUrls.length > 0 || catalog.entryUrls.length > 0)
-  ) {
+  const entryUrls = state.plan?.catalog.entryUrls ?? []
+  const priorityProductUrls = state.plan?.catalog.priorityProductUrls ?? []
+  const catalogSources = ctx.deps.catalogSources ?? []
+  // A plan that lists no product URL is not a brand without a catalog: the
+  // brand's OWN purchase channels are sources in their own right, and gating
+  // discovery on the plan alone left the products phase with an empty pool for
+  // every brand whose plan happened to name only the home page.
+  const hasCatalogInput =
+    entryUrls.length > 0 || priorityProductUrls.length > 0 || catalogSources.length > 0
+  if (ctx.deps.discoverCatalog && hasCatalogInput) {
     try {
       catalogResult = await ctx.deps.discoverCatalog({
-        sources: ctx.deps.catalogSources ?? [],
-        entryUrls: catalog.entryUrls,
-        priorityProductUrls: catalog.priorityProductUrls,
+        sources: catalogSources,
+        entryUrls,
+        priorityProductUrls,
         ...(ctx.deps.renderProvider ? { renderProvider: ctx.deps.renderProvider } : {}),
       })
     } catch {
@@ -1091,10 +1100,16 @@ async function finalizeNode(
     }
   }
 
+  const catalogNote = catalogResult
+    ? 'catalog discovered'
+    : hasCatalogInput
+      ? 'catalog skipped'
+      : 'catalog skipped: no sources'
+
   ctx.record(
     'finalize',
     `${ranked.length} ranked images`,
-    `hero ${hero ? 'picked' : 'none'}, gallery ${gallery.length}, catalog ${catalogResult ? 'discovered' : 'skipped'}`,
+    `hero ${hero ? 'picked' : 'none'}, gallery ${gallery.length}, ${catalogNote}`,
     start,
   )
 

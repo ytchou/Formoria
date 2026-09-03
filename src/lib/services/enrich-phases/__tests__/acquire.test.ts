@@ -889,6 +889,102 @@ describe('acquisition agent integration', () => {
     vi.unstubAllEnvs()
   })
 
+  // A refresh whose link columns are already correct leaves an EMPTY patch. The
+  // first staging run reported `skipped` for 6/10 brands on exactly that, while
+  // the agent had planned, scraped text, classified images and found a catalog.
+  it('acquire_status_succeeded_when_agent_planned_with_images_but_empty_patch', async () => {
+    vi.stubEnv('ACQUISITION_AGENT', 'on')
+
+    const settledBrand: EnrichBrand = {
+      ...agentBrand,
+      purchase_website: 'https://agentbrand.com',
+    }
+    const agentScrapeData = {
+      ...emptyResult('https://agentbrand.com'),
+      purchaseWebsite: 'https://agentbrand.com',
+      purchase_website: 'https://agentbrand.com',
+      description: 'A ceramics studio in Yingge.',
+    }
+
+    acquisitionMocks.runAcquisition.mockResolvedValue({
+      agentOutcome: 'planned',
+      plan: {
+        surfaces: [
+          {
+            url: 'https://agentbrand.com',
+            fetch: 'static' as const,
+            reason: 'official site',
+            strategy: 'official-site' as const,
+          },
+        ],
+        fanOut: [],
+        catalog: { entryUrls: [], priorityProductUrls: [] },
+        socialBios: {},
+        decisions: [],
+      },
+      scrapeResult: { data: agentScrapeData, statuses: [] },
+      imagePool: [
+        { id: 'img-1', tag: 'product', score: 90, sourceUrl: 'https://agentbrand.com' },
+      ],
+      catalogResult: {
+        triples: [
+          {
+            url: 'https://agentbrand.com/products/cup',
+            title: 'Cup',
+            imageUrl: 'https://agentbrand.com/cup.jpg',
+            platform: 'generic' as const,
+            supplier: 'official',
+            sourceUrl: 'https://agentbrand.com',
+            sourcePosition: 0,
+          },
+        ],
+        attempts: [],
+        evidence: new Map(),
+      },
+      decisions: [],
+    })
+
+    const result = await agentRun({ brand: settledBrand })
+
+    // The patch really is empty — the status is about the evidence, not the diff.
+    expect(result.patch).toEqual({})
+    expect(result.phaseResult.status).toBe('succeeded')
+    expect(result.phaseResult.changedFields).toEqual(
+      expect.arrayContaining(['images', 'catalog']),
+    )
+
+    vi.unstubAllEnvs()
+  })
+
+  it('acquire_status_skipped_when_nothing_acquired', async () => {
+    vi.stubEnv('ACQUISITION_AGENT', 'on')
+
+    const settledBrand: EnrichBrand = {
+      ...agentBrand,
+      purchase_website: 'https://agentbrand.com',
+    }
+
+    acquisitionMocks.runAcquisition.mockResolvedValue({
+      agentOutcome: 'fallback',
+      decisions: [],
+    })
+    scraperMocks.scrapeBrandUrls.mockResolvedValue({
+      data: emptyResult('https://agentbrand.com'),
+      statuses: [],
+    })
+
+    const result = await agentRun({
+      brand: settledBrand,
+      discoveredUrls: ['https://agentbrand.com'],
+    })
+
+    expect(result.patch).toEqual({})
+    expect(result.phaseResult.status).toBe('skipped')
+    expect(result.phaseResult.changedFields).toEqual([])
+
+    vi.unstubAllEnvs()
+  })
+
   it('acquire_falls_back_to_legacy_path_when_agent_throws', async () => {
     vi.stubEnv('ACQUISITION_AGENT', 'on')
 

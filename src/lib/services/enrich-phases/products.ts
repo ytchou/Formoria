@@ -1189,6 +1189,13 @@ export async function runProductsPhase({
   return auditedCall(
     { provider: "enrich", operation: "runProductsPhase", kind: "service" },
     async (ctx) => {
+      // Why the single-call body ran, when the agent was enabled and did not
+      // publish. Without it a fallback run is indistinguishable from a run where
+      // the agent was never enabled, and the first staging run could not say why
+      // any brand had fallen back.
+      let agentFallback: { outcome: PhaseResult["agentOutcome"]; reason: string } | null =
+        null;
+
       // --- Products agent gate (DEV-1644) ---
       // When enabled (default), the multi-step agent runs select → read →
       // propose → verify → repair. A THROWN agent falls back to the single-call
@@ -1380,12 +1387,29 @@ export async function runProductsPhase({
             };
           }
           // Agent returned 'fallback' (or blocked for another reason) — fall
-          // through to the single-call body.
+          // through to the single-call body, carrying its reason with it.
+          agentFallback = {
+            outcome: agentOutcome,
+            reason: (agentResult.error ?? "unspecified").slice(0, 160),
+          };
         } catch (error) {
+          const message = error instanceof Error ? error.message : String(error);
           console.error(
             " → products agent failed, falling back to single-call body:",
-            error instanceof Error ? error.message : String(error),
+            message,
           );
+          // A throw leaves no outcome of its own; `fallback` is what the agent
+          // would have reported, and matches the acquire phase's convention.
+          agentFallback = { outcome: "fallback", reason: `threw: ${message}`.slice(0, 160) };
+        }
+        if (agentFallback) {
+          console.warn(
+            `  → products agent ${agentFallback.outcome}, using the single-call body: ${agentFallback.reason}`,
+          );
+          Object.assign(ctx.summary, {
+            agentOutcome: agentFallback.outcome,
+            agentError: agentFallback.reason,
+          });
         }
       }
       let parseError = false;
@@ -1615,6 +1639,12 @@ export async function runProductsPhase({
         catalogAttempts: catalog.attempts,
       });
 
+      // The trace the operator reads: this body ran because the agent did not
+      // publish, and this is what the agent said.
+      const agentNote = agentFallback
+        ? ` (agent ${agentFallback.outcome}: ${agentFallback.reason})`
+        : "";
+
       if (isLlmProviderFailure(result.calls)) {
         return {
           phaseResult: {
@@ -1624,7 +1654,9 @@ export async function runProductsPhase({
               [],
               durationMs,
               "LLM provider failed the products call",
+              agentFallback ? agentNote.trim() : undefined,
             ),
+            ...(agentFallback ? { agentOutcome: agentFallback.outcome } : {}),
             providerFailure: true,
             ...(catalog.zeroReason
               ? { catalogZeroReason: catalog.zeroReason }
@@ -1649,8 +1681,9 @@ export async function runProductsPhase({
             undefined,
             `proposed ${publishedProposals.length}, dropped ${result.dropped}${
               dryRun === true ? " (dry run — nothing written)" : ""
-            }`,
+            }${agentNote}`,
           ),
+          ...(agentFallback ? { agentOutcome: agentFallback.outcome } : {}),
           ...(catalog.zeroReason
             ? { catalogZeroReason: catalog.zeroReason }
             : {}),
