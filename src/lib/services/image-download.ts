@@ -61,24 +61,20 @@ export function isNonImageContentType(contentType: string): boolean {
 // plus a storage upload, and this already runs multiplied by the per-brand
 // enrichment concurrency. Bound the fan-out instead of firing every candidate
 // at once.
-// Exported because the vision loader mirrors it deliberately (classify-images.ts):
-// same work, same multiplier above it, so a copied literal is drift waiting to happen.
-export const IMAGE_DOWNLOAD_CONCURRENCY = 4
+const IMAGE_DOWNLOAD_CONCURRENCY = 4
 
-export const IMAGE_REJECTION_CODES = [
-  'fetch_failed',
-  'non_image',
-  'byte_size',
-  'decode_failed',
-  'short_edge',
-  'aspect_ratio',
-  'low_entropy',
-  'duplicate',
-  'process_failed',
-  'upload_failed',
-  'persist_failed',
-] as const
-export type ImageRejectionCode = (typeof IMAGE_REJECTION_CODES)[number]
+export type ImageRejectionCode =
+  | 'fetch_failed'
+  | 'non_image'
+  | 'byte_size'
+  | 'decode_failed'
+  | 'short_edge'
+  | 'aspect_ratio'
+  | 'low_entropy'
+  | 'duplicate'
+  | 'process_failed'
+  | 'upload_failed'
+  | 'persist_failed'
 
 class ImageRejection extends Error {
   constructor(
@@ -348,7 +344,7 @@ function hammingDistance(a: string, b: string): number {
   return dist
 }
 
-export function isPerceptualDuplicate(
+function isPerceptualDuplicate(
   hash: string,
   knownHashes: readonly string[],
 ): boolean {

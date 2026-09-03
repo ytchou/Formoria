@@ -211,7 +211,7 @@ export function identityThresholdMultiplier(kind: TraversalIdentityKind): number
   return kind === 'ip' ? 20 : 1
 }
 
-export type TraversalWindowCounts = Record<TraversalWindowName, number>
+type TraversalWindowCounts = Record<TraversalWindowName, number>
 
 export interface TraversalSnapshot {
   identity: TraversalIdentity

@@ -8,8 +8,6 @@ import {
   withRetry,
 } from "@/lib/retry";
 
-export { isNonRetryableProviderError } from "@/lib/retry";
-
 const OPENAI_EMBEDDINGS_URL = "https://api.openai.com/v1/embeddings";
 
 type EmbeddingsClientOptions = {

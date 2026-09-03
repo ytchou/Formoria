@@ -1099,7 +1099,7 @@ const PUBLIC_BRAND_DETAIL_COLUMNS = PUBLIC_BRAND_DETAIL_COLUMN_LIST.join(", ");
 const PUBLIC_BRAND_FAQ_CONTEXT_COLUMNS =
   PUBLIC_BRAND_FAQ_CONTEXT_COLUMN_LIST.join(", ");
 
-export const BRAND_SELECT = BRAND_COLUMNS as unknown as "*";
+const BRAND_SELECT = BRAND_COLUMNS as unknown as "*";
 const BRAND_SELECT_WITH_ROMANIZED_NAME =
   `${BRAND_COLUMNS}, romanized_name` as unknown as "*";
 /** Narrow projection for directory/card queries. */
@@ -2299,10 +2299,8 @@ export async function getBrandById(id: string): Promise<Brand> {
 
 /**
  * Our own Storage origin, or any `*.supabase.co` host serving `/storage/`.
- * Exported so callers outside this module validate hero images against the
- * same rule instead of keeping their own copy.
  */
-export function isSupabaseStorageUrl(url: string): boolean {
+function isSupabaseStorageUrl(url: string): boolean {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL?.trim();
   const storagePrefix = supabaseUrl ? `${supabaseUrl}/storage/` : "";
 

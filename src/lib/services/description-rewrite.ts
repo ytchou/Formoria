@@ -46,7 +46,7 @@ export const descriptionShape = z.object({
  * Structured Output schema for the description rewrite call, derived from the
  * Zod shape via `toStrictJsonSchema`.
  */
-export const DESCRIPTION_SCHEMA = {
+const DESCRIPTION_SCHEMA = {
   name: "brand_description",
   schema: toStrictJsonSchema(descriptionShape),
 };

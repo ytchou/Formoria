@@ -56,7 +56,7 @@ export type AcquisitionInput = {
   jobId?: string
 }
 
-export type ImagePoolEntry = {
+type ImagePoolEntry = {
   url: string
   score: number
   tags: string[]

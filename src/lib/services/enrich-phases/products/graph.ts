@@ -58,7 +58,7 @@ export type ProductsOutput = {
   error?: string
 }
 
-export type ProductsVerification = {
+type ProductsVerification = {
   read: number
   proposed: number
   verified: number

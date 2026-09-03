@@ -102,11 +102,9 @@ export {
   searchBrandUrls,
   batchSearchBrandsWithSnippets,
   batchSearchBrandImages,
-  batchCaptureBrandImages,
   parseBrandSearchEntries,
 } from './serper'
 export type {
   QueryTemplate,
   ImageQueryInput,
 } from './types'
-export type { SerperRawImageCandidate } from './serper'

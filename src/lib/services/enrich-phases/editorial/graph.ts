@@ -33,7 +33,7 @@ export type EditorialInput = {
   explicitPhases?: readonly string[]
 }
 
-export type CrossOutputFailure = {
+type CrossOutputFailure = {
   field: string
   reason: string
 }
