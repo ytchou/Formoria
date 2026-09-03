@@ -448,7 +448,8 @@ function parseLegacyStepNames(value: unknown): string[] | undefined {
  */
 export function resolvePhases(params: JobParams): EnrichPhase[] {
   if (params.phases) {
-    return normalizeRequestedPhases(params.phases) as EnrichPhase[];
+    const normalized = normalizeRequestedPhases(params.phases) as EnrichPhase[];
+    return normalized.length > 0 ? normalized : fullPhases();
   }
   if (params.task) {
     return normalizeRequestedPhases(
