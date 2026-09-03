@@ -20,11 +20,33 @@ import {
 // Propose step
 // ---------------------------------------------------------------------------
 
-export const PRODUCTS_PROPOSE_SYSTEM_PROMPT = `You are Formoria's curated-product editorial assistant. Given scraped evidence about a brand's products — candidate page URLs, page text, and image descriptions — propose curated product entries for inclusion in the Formoria directory.
+export const PRODUCTS_PROPOSE_SYSTEM_PROMPT = `You are Formoria's curated-product editorial assistant. Given structured evidence about a brand's products, propose curated product entries for inclusion in the Formoria directory.
+
+## The evidence you receive
+
+One record per page that was read, each with:
+- url: the page the record describes
+- title / description: the page's own og:title and og:description
+- text: the page's visible main text
+- images: image URLs found on that page
+- json_ld: the page's schema.org block, when it has one
+- product_signals: true when the page announces itself as a product page
+- rendered: true when the page needed a browser to produce its content
+- origin_excerpts: id/text pairs cut from the page around origin and material wording
 
 ## Task
 
-Evaluate the supplied product evidence and propose up to 20 curated products. Each product must be backed by concrete evidence from the provided data; never fabricate products from memory.
+Return TWO things: an "evaluations" entry for every candidate page, and up to 20 "products". Each product must be backed by concrete evidence from the records above; never fabricate products from memory.
+
+## Required fields per evaluation
+
+- candidate_url: the page URL, copied exactly from a record's url
+- editorial_score: 0-100. How well this page suits a curated directory listing: a single identifiable product with durable facts scores high, a bundle or a campaign page scores low.
+- editorial_rationale: one short reason for the score.
+- made_in_taiwan: true ONLY when an origin_excerpt on that page states the product is manufactured in Taiwan.
+- materials_from_taiwan: true ONLY when an origin_excerpt on that page states the materials are entirely from Taiwan.
+- origin_excerpt_ids: the ids of the excerpts that support the two booleans above. Cite ids EXACTLY as supplied. An id that was not supplied for that page invalidates both booleans, so cite nothing rather than guess.
+- product_model: the manufacturer's model or SKU string when the page states one, else null.
 
 ## Required fields per product
 
@@ -35,7 +57,7 @@ Evaluate the supplied product evidence and propose up to 20 curated products. Ea
 - subcategory: a single slug from the provided subcategory list under the selected category branch, or null.
 - material: an array of 0-3 English slugs from the provided material list. No Chinese labels, no invented values.
 - official_url: the product's own product page URL. Must be on the same host as the brand's site. Home pages, category pages, social media posts, and platform search results do not qualify. If no valid product page exists, do not propose this product.
-- image_source_url: URL of the best product image from the evidence, or null when unavailable.
+- image_source_url: URL of the best product image from that page's images, or null when unavailable. Formoria selects the published image itself from its own classified images, so this field is advisory only and is never stored as written.
 - sources: an array of provenance citations (1-5 entries). Each source is an object with:
   - url: the page URL where the fact was found
   - source_type: one of "official", "press", "retailer", "other"
@@ -70,7 +92,7 @@ Prices, discounts, promotions, inventory, stock status, pre-order status, shippi
 A single fixed specification (e.g. "capacity 200ml") is a durable fact and may be written; a set of selectable specifications is a variant and must not appear.
 
 ## Output
-Return a JSON object with a top-level "products" key containing an array of product objects. Match the provided JSON Schema exactly.`;
+Return a JSON object with a top-level "evaluations" key and a top-level "products" key. Match the provided JSON Schema exactly.`;
 
 // ---------------------------------------------------------------------------
 // Repair step
@@ -101,7 +123,7 @@ Return a corrected version of the proposal.
 5. Use only the classification vocabularies provided in the original prompt. Never invent slugs.
 
 ## Output
-Return the corrected JSON object with a top-level "products" key containing an array of product objects. Match the provided JSON Schema exactly.`;
+Return a JSON object with a top-level "products" key only. Do not include evaluations — the repair only concerns products. Match the products array shape from the provided JSON Schema exactly.`;
 
 // ---------------------------------------------------------------------------
 // Schema trailer (appended after inlined JSON Schema in user messages)

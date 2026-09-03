@@ -1,20 +1,41 @@
 /**
- * Editorial agent graph. Wraps the per-brand editorial phases (descriptions,
- * stockists, faq) into a unified flow: generate → validate → repair → finalize.
+ * Editorial agent — a LangGraph `StateGraph`.
  *
- * This is a WRAPPER agent — graph nodes call existing phase functions,
- * preserving their multi-step LLM flows. DB writes for stockists and faq
- * happen inside their respective phase functions.
+ * descriptions → [listing gate] → stockists → faq → validate → (repair)? →
+ * finalize
  *
- * All phase runners are injected via `EditorialDeps` so the graph is fully
- * testable with fakes.
+ * This is a WRAPPER agent: the generate nodes call the existing phase functions
+ * so their multi-step LLM flows and their DB writes (stockists rows, FAQ rows)
+ * are untouched. What the graph adds on top is the cross-output pass — one code
+ * validation over the combined patch and, when it finds something, ONE repair
+ * turn. `repair` is reachable only from `validate` and leads straight to
+ * `finalize`, so "at most one repair turn" is a property of the edges rather
+ * than of a counter someone can forget to increment.
+ *
+ * Every dependency is injected through `EditorialDeps`, so the graph is
+ * exercised end to end with fakes and no service mock
+ * (`scripts/check-test-boundaries.mjs` refuses those). The real validators,
+ * repair call and evidence tool live in `./validators.ts`; `buildEditorialDeps`
+ * there is what the orchestrator wires in.
  */
 
+import { Annotation, END, START, StateGraph, GraphRecursionError } from '@langchain/langgraph'
 import type { PhaseResult } from '@/lib/types/curation'
 import type { EnrichmentTarget } from '../../_shared/enrichment-target'
 import type { EnrichBrand, EnrichPatch, EnrichPhase, EnrichScrapedData } from '../types'
 import type { ListingVerdict, BrandFactsResult, BrandFactsAttempt } from '../../brand-facts'
 import type { DescriptionRewriteResult, DescriptionAttempt } from '../../description-rewrite'
+
+// ---------------------------------------------------------------------------
+// Constants
+// ---------------------------------------------------------------------------
+
+/**
+ * Super-step ceiling. The longest path — descriptions → stockists → faq →
+ * validate → repair → finalize — is six steps; the slack backstops a future
+ * node rather than licensing a loop, because no edge leads backwards.
+ */
+export const EDITORIAL_RECURSION_LIMIT = 8
 
 // ---------------------------------------------------------------------------
 // Public types
@@ -33,7 +54,7 @@ export type EditorialInput = {
   explicitPhases?: readonly string[]
 }
 
-type CrossOutputFailure = {
+export type CrossOutputFailure = {
   field: string
   reason: string
 }
@@ -70,6 +91,11 @@ export type EditorialDeps = {
   requestEvidence?: (pageUrl: string, query: string) => Promise<string>
 }
 
+export type EditorialRunOptions = {
+  /** Wall-clock / caller abort. Threaded into `graph.invoke`. */
+  signal?: AbortSignal
+}
+
 export type EditorialOutput = {
   agentOutcome: 'generated' | 'repaired' | 'fallback'
   phaseResults: PhaseResult[]
@@ -83,39 +109,79 @@ export type EditorialOutput = {
   error?: string
 }
 
+type Decision = EditorialOutput['decisions'][number]
+
 // ---------------------------------------------------------------------------
-// Internal state
+// Graph state
 // ---------------------------------------------------------------------------
 
-type GraphState = {
-  input: EditorialInput
-  phaseResults: PhaseResult[]
-  patch: Record<string, unknown>
-  listingVerdict: ListingVerdict | null
-  descriptionRewrite: DescriptionRewriteResult | null
-  brandFacts: BrandFactsResult | null
-  attempts: DescriptionAttempt[]
-  factsAttempts: BrandFactsAttempt[]
-  crossFailures: CrossOutputFailure[]
-  agentOutcome: EditorialOutput['agentOutcome']
-  decisions: EditorialOutput['decisions']
-  error?: string
+/** Last-value channel: a node's update replaces the previous value. */
+function lastValue<T>(initial: () => T) {
+  return Annotation<T>({ reducer: (_left: T, right: T) => right, default: initial })
 }
 
-function emptyState(input: EditorialInput): GraphState {
-  return {
+const EditorialState = Annotation.Root({
+  phaseResults: lastValue<PhaseResult[]>(() => []),
+  patch: lastValue<Record<string, unknown>>(() => ({})),
+  listingVerdict: lastValue<ListingVerdict | null>(() => null),
+  descriptionRewrite: lastValue<DescriptionRewriteResult | null>(() => null),
+  brandFacts: lastValue<BrandFactsResult | null>(() => null),
+  attempts: lastValue<DescriptionAttempt[]>(() => []),
+  factsAttempts: lastValue<BrandFactsAttempt[]>(() => []),
+  crossFailures: lastValue<CrossOutputFailure[]>(() => []),
+  agentOutcome: lastValue<EditorialOutput['agentOutcome']>(() => 'generated'),
+})
+
+type EditorialStateType = typeof EditorialState.State
+
+// ---------------------------------------------------------------------------
+// Run context
+// ---------------------------------------------------------------------------
+
+/**
+ * Mutable per-run state deliberately NOT held in graph channels.
+ *
+ * A throw inside a node unwinds out of `invoke()` with no final state. Without
+ * this ledger the decision trace operators read, and everything the phases had
+ * already produced, would be lost precisely on the runs worth diagnosing —
+ * `lastKnown` is what keeps the fallback output as informative as today's.
+ */
+export type EditorialRunContext = {
+  input: EditorialInput
+  deps: EditorialDeps
+  options: EditorialRunOptions
+  decisions: Decision[]
+  lastKnown: Partial<EditorialStateType>
+  signal: AbortSignal | undefined
+  record: (step: string, action: string, reason: string, startedAt: number) => void
+  commit: (update: Partial<EditorialStateType>) => Partial<EditorialStateType>
+}
+
+export function createEditorialRunContext(
+  input: EditorialInput,
+  deps: EditorialDeps,
+  options: EditorialRunOptions = {},
+): EditorialRunContext {
+  const ctx: EditorialRunContext = {
     input,
-    phaseResults: [],
-    patch: {},
-    listingVerdict: null,
-    descriptionRewrite: null,
-    brandFacts: null,
-    attempts: [],
-    factsAttempts: [],
-    crossFailures: [],
-    agentOutcome: 'generated',
+    deps,
+    options,
     decisions: [],
+    lastKnown: {},
+    signal: options.signal,
+    record(step, action, reason, startedAt) {
+      ctx.decisions.push({ step, action, reason, ms: Date.now() - startedAt })
+    },
+    commit(update) {
+      Object.assign(ctx.lastKnown, update)
+      return update
+    },
   }
+  return ctx
+}
+
+function phaseReason(result: PhaseResult): string {
+  return result.detail ?? result.error ?? 'ok'
 }
 
 // ---------------------------------------------------------------------------
@@ -123,32 +189,25 @@ function emptyState(input: EditorialInput): GraphState {
 // ---------------------------------------------------------------------------
 
 /**
- * Node 1-3: factsNode + foundingNode + listingGateNode are all inside
- * `runDescriptions`, which calls extractBrandFacts, researchFoundingFacts,
- * and checks the listing verdict internally. We delegate to the dep directly.
+ * The facts, founding and listing-gate steps all live inside `runDescriptions`,
+ * which is why this is one node rather than three: splitting them here would
+ * fork the phase's own retry logic.
  */
 async function descriptionsNode(
-  state: GraphState,
-  deps: EditorialDeps,
-): Promise<GraphState> {
+  state: EditorialStateType,
+  ctx: EditorialRunContext,
+): Promise<Partial<EditorialStateType>> {
   const start = Date.now()
 
-  if (!state.input.phases.includes('descriptions')) {
-    return {
-      ...state,
-      decisions: [...state.decisions, {
-        step: 'descriptions',
-        action: 'skipped',
-        reason: 'not in phases',
-        ms: Date.now() - start,
-      }],
-    }
+  if (!ctx.input.phases.includes('descriptions')) {
+    ctx.record('descriptions', 'skipped', 'not in phases', start)
+    return {}
   }
 
-  const result = await deps.runDescriptions(state.input)
+  const result = await ctx.deps.runDescriptions(ctx.input)
+  ctx.record('descriptions', result.phaseResult.status, phaseReason(result.phaseResult), start)
 
-  return {
-    ...state,
+  return ctx.commit({
     phaseResults: [...state.phaseResults, result.phaseResult],
     patch: { ...state.patch, ...result.patch },
     listingVerdict: result.listingVerdict,
@@ -156,233 +215,227 @@ async function descriptionsNode(
     brandFacts: result.brandFacts,
     attempts: result.attempts,
     factsAttempts: result.factsAttempts,
-    decisions: [...state.decisions, {
-      step: 'descriptions',
-      action: result.phaseResult.status,
-      reason: result.phaseResult.detail ?? result.phaseResult.error ?? 'ok',
-      ms: Date.now() - start,
-    }],
-  }
+  })
 }
 
 /**
- * Listing gate: if listing verdict = reject on a submission, early return.
- * Approved brands log only and continue.
+ * Listing gate: a submission the listing check rejected never reaches
+ * publication, so stockists and FAQ would be pure waste. Approved brands log
+ * and continue.
  */
-function shouldStopAtListingGate(state: GraphState): boolean {
+function shouldStopAtListingGate(
+  state: EditorialStateType,
+  ctx: EditorialRunContext,
+): boolean {
   if (state.listingVerdict?.verdict !== 'reject') return false
-  // Submissions are rejected; approved brands continue
-  const isSubmission = state.input.target?.type === 'submission' ||
-    state.input.brand.status == null ||
-    state.input.brand.status === ''
+  const isSubmission =
+    ctx.input.target?.type === 'submission' ||
+    ctx.input.brand.status == null ||
+    ctx.input.brand.status === ''
   return isSubmission
 }
 
-/** Node 5: stockists phase — calls existing runStockistsPhase. */
 async function stockistsNode(
-  state: GraphState,
-  deps: EditorialDeps,
-): Promise<GraphState> {
+  state: EditorialStateType,
+  ctx: EditorialRunContext,
+): Promise<Partial<EditorialStateType>> {
   const start = Date.now()
 
-  if (!state.input.phases.includes('stockists')) {
-    return {
-      ...state,
-      decisions: [...state.decisions, {
-        step: 'stockists',
-        action: 'skipped',
-        reason: 'not in phases',
-        ms: Date.now() - start,
-      }],
-    }
+  if (!ctx.input.phases.includes('stockists')) {
+    ctx.record('stockists', 'skipped', 'not in phases', start)
+    return {}
   }
 
-  const result = await deps.runStockists(state.input)
+  const result = await ctx.deps.runStockists(ctx.input)
+  ctx.record('stockists', result.phaseResult.status, phaseReason(result.phaseResult), start)
 
-  return {
-    ...state,
+  return ctx.commit({
     phaseResults: [...state.phaseResults, result.phaseResult],
     patch: { ...state.patch, ...result.patch },
-    decisions: [...state.decisions, {
-      step: 'stockists',
-      action: result.phaseResult.status,
-      reason: result.phaseResult.detail ?? result.phaseResult.error ?? 'ok',
-      ms: Date.now() - start,
-    }],
-  }
+  })
 }
 
-/** Node 6: faq phase — calls existing runFaqPhase. */
 async function faqNode(
-  state: GraphState,
-  deps: EditorialDeps,
-): Promise<GraphState> {
+  state: EditorialStateType,
+  ctx: EditorialRunContext,
+): Promise<Partial<EditorialStateType>> {
   const start = Date.now()
 
-  if (!state.input.phases.includes('faq')) {
-    return {
-      ...state,
-      decisions: [...state.decisions, {
-        step: 'faq',
-        action: 'skipped',
-        reason: 'not in phases',
-        ms: Date.now() - start,
-      }],
-    }
+  if (!ctx.input.phases.includes('faq')) {
+    ctx.record('faq', 'skipped', 'not in phases', start)
+    return {}
   }
 
-  const result = await deps.runFaq(state.input)
+  const result = await ctx.deps.runFaq(ctx.input)
+  ctx.record('faq', result.phaseResult.status, phaseReason(result.phaseResult), start)
 
-  return {
-    ...state,
+  return ctx.commit({
     phaseResults: [...state.phaseResults, result.phaseResult],
     patch: { ...state.patch, ...result.patch },
-    decisions: [...state.decisions, {
-      step: 'faq',
-      action: result.phaseResult.status,
-      reason: result.phaseResult.detail ?? result.phaseResult.error ?? 'ok',
-      ms: Date.now() - start,
-    }],
-  }
+  })
 }
 
-/** Node 7: cross-output validation on ALL outputs. */
+/** Code validators over the combined patch. No model call happens here. */
 function validateNode(
-  state: GraphState,
-  deps: EditorialDeps,
-): GraphState {
+  state: EditorialStateType,
+  ctx: EditorialRunContext,
+): Partial<EditorialStateType> {
   const start = Date.now()
-  const failures = deps.validateCrossOutput(state.patch, state.phaseResults)
+  const failures = ctx.deps.validateCrossOutput(state.patch, state.phaseResults)
 
-  return {
-    ...state,
-    crossFailures: failures,
-    decisions: [...state.decisions, {
-      step: 'validate',
-      action: failures.length > 0 ? 'failures_found' : 'passed',
-      reason: failures.length > 0
-        ? failures.map((f) => `${f.field}: ${f.reason}`).join('; ')
-        : 'all checks passed',
-      ms: Date.now() - start,
-    }],
-  }
+  ctx.record(
+    'validate',
+    failures.length > 0 ? 'failures_found' : 'passed',
+    failures.length > 0
+      ? failures.map((failure) => `${failure.field}: ${failure.reason}`).join('; ')
+      : 'all checks passed',
+    start,
+  )
+
+  return ctx.commit({ crossFailures: failures })
 }
-
-/** Node 8: one repair LLM call with cross-output failures. Runs at most once. */
-async function repairNode(
-  state: GraphState,
-  deps: EditorialDeps,
-): Promise<GraphState> {
-  const start = Date.now()
-
-  if (state.crossFailures.length === 0) return state
-
-  const repaired = await deps.repairCrossOutput(state.patch, state.crossFailures)
-
-  return {
-    ...state,
-    patch: { ...state.patch, ...repaired },
-    agentOutcome: 'repaired',
-    decisions: [...state.decisions, {
-      step: 'repair',
-      action: `repaired ${Object.keys(repaired).length} field(s)`,
-      reason: state.crossFailures.map((f) => f.field).join(', '),
-      ms: Date.now() - start,
-    }],
-  }
-}
-
-/** Node 9: finalize — build the output. */
-function finalizeNode(state: GraphState): EditorialOutput {
-  return {
-    agentOutcome: state.agentOutcome,
-    phaseResults: state.phaseResults,
-    patch: state.patch,
-    listingVerdict: state.listingVerdict,
-    descriptionRewrite: state.descriptionRewrite,
-    brandFacts: state.brandFacts,
-    attempts: state.attempts,
-    factsAttempts: state.factsAttempts,
-    decisions: state.decisions,
-    error: state.error,
-  }
-}
-
-// ---------------------------------------------------------------------------
-// Graph orchestration
-// ---------------------------------------------------------------------------
 
 /**
- * Runs the editorial agent for a single brand. Linear state machine:
- * descriptions → [listing gate] → stockists → faq → validate → repair → finalize.
+ * The one repair turn. Reached only through the branch out of `validate`, and
+ * its only outgoing edge is `finalize` — the repaired patch is never
+ * re-validated into a second turn.
+ */
+async function repairNode(
+  state: EditorialStateType,
+  ctx: EditorialRunContext,
+): Promise<Partial<EditorialStateType>> {
+  const start = Date.now()
+  const repaired = await ctx.deps.repairCrossOutput(state.patch, state.crossFailures)
+
+  ctx.record(
+    'repair',
+    `repaired ${Object.keys(repaired).length} field(s)`,
+    state.crossFailures.map((failure) => failure.field).join(', '),
+    start,
+  )
+
+  return ctx.commit({
+    patch: { ...state.patch, ...repaired },
+    agentOutcome: 'repaired',
+  })
+}
+
+function finalizeNode(
+  state: EditorialStateType,
+  ctx: EditorialRunContext,
+): Partial<EditorialStateType> {
+  ctx.record('finalize', state.agentOutcome, `${state.phaseResults.length} phase result(s)`, Date.now())
+  return {}
+}
+
+// ---------------------------------------------------------------------------
+// Graph assembly
+// ---------------------------------------------------------------------------
+
+export function buildEditorialGraph(ctx: EditorialRunContext) {
+  return new StateGraph(EditorialState)
+    .addNode('descriptions', (state) => descriptionsNode(state, ctx))
+    .addNode('stockists', (state) => stockistsNode(state, ctx))
+    .addNode('faq', (state) => faqNode(state, ctx))
+    .addNode('validate', (state) => validateNode(state, ctx))
+    .addNode('repair', (state) => repairNode(state, ctx))
+    .addNode('finalize', (state) => finalizeNode(state, ctx))
+    .addEdge(START, 'descriptions')
+    .addConditionalEdges(
+      'descriptions',
+      (state): 'stockists' | 'finalize' => {
+        if (!shouldStopAtListingGate(state, ctx)) return 'stockists'
+        ctx.record('listing_gate', 'rejected', 'submission listing verdict is reject', Date.now())
+        return 'finalize'
+      },
+      ['stockists', 'finalize'],
+    )
+    .addEdge('stockists', 'faq')
+    .addEdge('faq', 'validate')
+    .addConditionalEdges(
+      'validate',
+      (state): 'repair' | 'finalize' =>
+        state.crossFailures.length > 0 ? 'repair' : 'finalize',
+      ['repair', 'finalize'],
+    )
+    .addEdge('repair', 'finalize')
+    .addEdge('finalize', END)
+    .compile()
+}
+
+// ---------------------------------------------------------------------------
+// Entry point
+// ---------------------------------------------------------------------------
+
+function outputFrom(
+  state: Partial<EditorialStateType>,
+  ctx: EditorialRunContext,
+  overrides: Partial<EditorialOutput> = {},
+): EditorialOutput {
+  return {
+    agentOutcome: state.agentOutcome ?? 'generated',
+    phaseResults: state.phaseResults ?? [],
+    patch: state.patch ?? {},
+    listingVerdict: state.listingVerdict ?? null,
+    descriptionRewrite: state.descriptionRewrite ?? null,
+    brandFacts: state.brandFacts ?? null,
+    attempts: state.attempts ?? [],
+    factsAttempts: state.factsAttempts ?? [],
+    decisions: ctx.decisions,
+    ...overrides,
+  }
+}
+
+function fallbackOutput(ctx: EditorialRunContext, error: string): EditorialOutput {
+  return outputFrom(ctx.lastKnown, ctx, { agentOutcome: 'fallback', error })
+}
+
+/**
+ * Runs the editorial agent for a single brand. Never throws: every failure path
+ * resolves to `agentOutcome: 'fallback'` so `curation-operations` drops to the
+ * individual phase calls rather than failing the target.
  *
- * When EDITORIAL_AGENT=off, returns a fallback output so the caller falls
- * through to existing individual phase calls.
+ * `EDITORIAL_AGENT=off` short-circuits before the graph is built — the same
+ * pattern as `ACQUISITION_AGENT` / `PRODUCTS_AGENT`.
  */
 export async function runEditorialAgent(
   input: EditorialInput,
   deps: EditorialDeps,
+  options: EditorialRunOptions = {},
 ): Promise<EditorialOutput> {
-  // Env gate: same pattern as ACQUISITION_AGENT / PRODUCTS_AGENT
+  const ctx = createEditorialRunContext(input, deps, options)
+
   if (process.env.EDITORIAL_AGENT === 'off') {
-    return {
-      agentOutcome: 'fallback',
-      phaseResults: [],
-      patch: {},
-      listingVerdict: null,
-      descriptionRewrite: null,
-      brandFacts: null,
-      attempts: [],
-      factsAttempts: [],
-      decisions: [],
-    }
+    return outputFrom({}, ctx, { agentOutcome: 'fallback' })
+  }
+  if (options.signal?.aborted) {
+    return fallbackOutput(ctx, 'aborted')
   }
 
-  let state = emptyState(input)
-
   try {
-    // 1-3. Descriptions (includes facts, founding, listing gate internally)
-    state = await descriptionsNode(state, deps)
+    const state = (await buildEditorialGraph(ctx).invoke(
+      { agentOutcome: 'generated' },
+      {
+        recursionLimit: EDITORIAL_RECURSION_LIMIT,
+        ...(ctx.signal ? { signal: ctx.signal } : {}),
+      },
+    )) as EditorialStateType
 
-    // 4. Listing gate — reject submissions early
-    if (shouldStopAtListingGate(state)) {
-      state.decisions.push({
-        step: 'listing_gate',
-        action: 'rejected',
-        reason: 'submission listing verdict is reject',
-        ms: 0,
-      })
-      return finalizeNode(state)
+    return outputFrom(state, ctx)
+  } catch (error) {
+    if (error instanceof GraphRecursionError) {
+      ctx.record('graph', 'stopped', 'recursion_limit', Date.now())
+      return fallbackOutput(ctx, 'recursion_limit')
     }
-
-    // 5. Stockists
-    state = await stockistsNode(state, deps)
-
-    // 6. FAQ
-    state = await faqNode(state, deps)
-
-    // 7. Validate cross-output
-    state = validateNode(state, deps)
-
-    // 8. Repair (at most once)
-    if (state.crossFailures.length > 0) {
-      state = await repairNode(state, deps)
+    const aborted =
+      options.signal?.aborted ||
+      (error instanceof Error && (error.name === 'AbortError' || error.name === 'TimeoutError'))
+    if (aborted) {
+      ctx.record('graph', 'stopped', 'aborted', Date.now())
+      return fallbackOutput(ctx, 'aborted')
     }
-
-    // 9. Finalize
-    return finalizeNode(state)
-  } catch (err) {
-    return {
-      agentOutcome: 'fallback',
-      phaseResults: state.phaseResults,
-      patch: state.patch,
-      listingVerdict: state.listingVerdict,
-      descriptionRewrite: state.descriptionRewrite,
-      brandFacts: state.brandFacts,
-      attempts: state.attempts,
-      factsAttempts: state.factsAttempts,
-      decisions: state.decisions,
-      error: err instanceof Error ? err.message : String(err),
-    }
+    const message = error instanceof Error ? error.message : String(error)
+    ctx.record('graph', 'threw', message.slice(0, 160), Date.now())
+    return fallbackOutput(ctx, message)
   }
 }

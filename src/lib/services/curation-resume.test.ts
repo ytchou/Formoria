@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { ENRICH_LLM_PHASES, ENRICH_PHASES } from "@/lib/constants/enrich-phases";
+import { ENRICH_LLM_PHASES, phasesForTask } from "@/lib/constants/enrich-phases";
 import type { Json } from "@/lib/supabase/database.types";
 import {
   planCurationResume,
@@ -54,14 +54,14 @@ describe("planCurationResume", () => {
       }),
     ]);
 
-    // `classify_images` failed outright; everything after it was never reached,
-    // so it has no record at all and is owed too.
+    // `classify_images` failed outright, but it is DEFERRED and therefore not
+    // in the default scope any more, so it drops out of the union rather than
+    // being re-queued as a phase with no runner. Everything after it was never
+    // reached, has no record at all, and is owed.
     expect(plans.at(0)?.params.phases).toEqual([
       "tags",
       "acquire",
       "names",
-      "site_identity",
-      "classify_images",
       "descriptions",
       "stockists",
       "faq",
@@ -69,12 +69,23 @@ describe("planCurationResume", () => {
     ]);
   });
 
-  it("never expands an image-only source job into text phases", () => {
+  it("expands an image-only source job into the visual closure, not the text phases", () => {
     const plans = planCurationResume({ steps: ["image"] } as Json, [
       target({ phaseResults: [phase("images", "failed")] }),
     ]);
 
-    expect(plans.at(0)?.params.phases).toEqual(["images", "classify_images"]);
+    // The legacy `image` step used to resolve to the deferred image phases,
+    // which have no runner. It now resolves to the visual task's closure
+    // (`LEGACY_STEP_PHASES.image = phasesForTask("visual")`), because
+    // `products` on its own is the self-insufficient scope of the DEV-1469
+    // bug — it needs detect/acquire/names ahead of it. The closure stops
+    // there: no descriptions, stockists, faq, or tags are dragged in.
+    expect(plans.at(0)?.params.phases).toEqual([
+      "detect",
+      "acquire",
+      "names",
+      "products",
+    ]);
   });
 
   it("falls back to the in-scope LLM phases when nothing looks unfinished", () => {
@@ -125,8 +136,9 @@ describe("planCurationResume", () => {
     expect(plans.map((plan) => plan.group)).toEqual(["failed", "cancelled"]);
     expect(plans.at(0)?.params.phases).toEqual(["descriptions"]);
     expect(plans.at(0)?.params.submissionIds).toEqual(["sub-failed"]);
-    // Cancelled targets never ran, so they get the source's full scope back.
-    expect(plans.at(1)?.params.phases).toEqual(["discover", "descriptions"]);
+    // Cancelled targets never ran, so they get the source's full scope back —
+    // minus `discover`, which is deferred and has no runner to resume into.
+    expect(plans.at(1)?.params.phases).toEqual(["descriptions"]);
     expect(plans.at(1)?.params.submissionIds).toEqual(["sub-cancelled"]);
   });
 
@@ -154,8 +166,9 @@ describe("planCurationResume", () => {
     ]);
 
     // `expansion` normalizes to `reputation`, but `reputation` is no longer in
-    // ENRICH_PHASES, so effectiveRequestedPhases falls through to the full set.
-    expect(plans.at(0)?.params.phases).toEqual([...ENRICH_PHASES]);
+    // ENRICH_PHASES, so effectiveRequestedPhases falls through to the default
+    // scope — the `full` task closure, which excludes the deferred phases.
+    expect(plans.at(0)?.params.phases).toEqual(phasesForTask("full"));
   });
 
   it("preserves the source job's overwrite flag", () => {

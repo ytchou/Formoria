@@ -1,5 +1,9 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { parseCliArgs } from "../curate-brands";
+import {
+  DEFERRED_PHASES,
+  phasesForTask,
+} from "@/lib/constants/enrich-phases";
 
 describe("parseCliArgs", () => {
   afterEach(() => {
@@ -12,21 +16,26 @@ describe("parseCliArgs", () => {
       "--phases=discover,links,descriptions,stockists",
     ]);
     expect(args.command).toBe("enrich");
+    // `discover` is deferred and dropped; `links` is the retired name of
+    // `acquire`; the result is in ENRICH_PHASES order, not flag order.
     expect(args.config.phases).toEqual([
-      "discover",
-      "links",
+      "acquire",
       "descriptions",
       "stockists",
     ]);
   });
 
-  it("defaults enrich phases to all when not specified", () => {
+  it("defaults enrich phases to the full closure when not specified", () => {
     const args = parseCliArgs(["enrich"]);
     expect(args.command).toBe("enrich");
-    expect(args.config.phases!.length).toBeGreaterThan(0);
+    expect(args.config.phases).toEqual(phasesForTask("full"));
     // Core phases that the pipeline requires
-    expect(args.config.phases).toContain("discover");
+    expect(args.config.phases).toContain("acquire");
     expect(args.config.phases).toContain("descriptions");
+    // Deferred phases have no runner, so the default never names one.
+    for (const phase of DEFERRED_PHASES) {
+      expect(args.config.phases).not.toContain(phase);
+    }
   });
 
   it("rejects old deprecated commands", () => {

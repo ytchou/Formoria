@@ -155,8 +155,13 @@ check_env() {
     else
       echo "WARN: OPENAI_API_KEY not set (the entire enrichment pipeline will fail — descriptions, reputation, category classification, brand detection, and image classification)"
     fi
-    if ! grep -q "RENDER_API_KEY=." .env.local 2>/dev/null; then
+    # RENDER_LOCAL (optional) is the development escape hatch from the missing
+    # key: from-env.ts prefers it over Browserless and it carries no budget.
+    if grep -q '^RENDER_LOCAL=1$' .env.local 2>/dev/null; then
+      echo "OK: RENDER_LOCAL=1 uses local Playwright for development"
+    elif ! grep -q "RENDER_API_KEY=." .env.local 2>/dev/null; then
       echo "WARN: RENDER_API_KEY not set — headless rendering unavailable — JS-only pages skip"
+      echo "      (RENDER_LOCAL=1 uses local Playwright for development)"
     fi
     if ! grep -q "INDEXNOW_KEY=." .env.local 2>/dev/null; then
       echo "WARN: INDEXNOW_KEY not set (optional — needed for Bing IndexNow submission)"
@@ -197,7 +202,10 @@ check_env() {
 # silently drops EVERY audit and cost row. Railway auto-deploys on push to main
 # but Supabase migrations are applied by hand, which makes "code ahead of schema"
 # the normal failure mode rather than an edge case.
-PHASE_CHECK_MIGRATION="supabase/migrations/20260803033000_widen_ai_results_phase_check.sql"
+# Keep in step with PHASE_CHECK_MIGRATION in src/lib/services/_shared/ai-results.ts.
+# `20260903000000` rewrites the constraint in full and omits `acquire`, so it is
+# NOT the remediation to name here.
+PHASE_CHECK_MIGRATION="supabase/migrations/20260903100400_add_acquire_to_phase_check.sql"
 PHASE_CHECK_REMEDIATION="apply ${PHASE_CHECK_MIGRATION} with pnpm db:migrate — otherwise ALL audit and cost rows are dropped"
 
 db_url() {

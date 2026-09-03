@@ -21,6 +21,54 @@ function isPlainObject(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
+/** Serialized ceiling for the persisted image pool — the writer's own cap. */
+export const MAX_IMAGE_POOL_BYTES = 16_384;
+
+/**
+ * Drop trailing entries until the pool fits within `maxBytes`.
+ * Used by acquire and acquisition to cap the persisted image pool.
+ */
+export function compactToBytes<T>(pool: readonly T[], maxBytes: number = MAX_IMAGE_POOL_BYTES): T[] {
+  let result = [...pool];
+  while (result.length > 0 && JSON.stringify(result).length > maxBytes) {
+    result = result.slice(0, -1);
+  }
+  return result;
+}
+
+/**
+ * The acquire phase's compact image pool, or `undefined`.
+ *
+ * Same shape of rule as `acquisitionPlan`: plain objects only, and dropped
+ * whole rather than truncated once it exceeds its ceiling. A row written by an
+ * older deploy carries the retired `{ url, score, tags }` shape; it is rejected
+ * here for lacking `id`, which is exactly what stops the two incompatible pool
+ * shapes (DEV-1644 F25) from both reading back as valid.
+ */
+function parseImagePool(value: unknown): PhaseResult["imagePool"] | undefined {
+  if (!Array.isArray(value)) return undefined;
+  if (JSON.stringify(value).length > MAX_IMAGE_POOL_BYTES) return undefined;
+
+  const entries = value.flatMap((entry) => {
+    if (!isPlainObject(entry)) return [];
+    if (typeof entry.id !== "string") return [];
+    if (typeof entry.tag !== "string") return [];
+    if (typeof entry.score !== "number") return [];
+    return [
+      {
+        id: entry.id,
+        tag: entry.tag,
+        score: entry.score,
+        ...(typeof entry.sourceUrl === "string"
+          ? { sourceUrl: entry.sourceUrl }
+          : {}),
+      },
+    ];
+  });
+
+  return entries.length === value.length ? entries : undefined;
+}
+
 /**
  * Single reader for `curation_job_targets.phase_results`.
  *
@@ -48,6 +96,8 @@ export function parsePhaseResults(value: Json): PhaseResult[] {
       return [];
     if (!PHASE_STATUSES.includes(item.status)) return [];
 
+    const imagePool = parseImagePool(item.imagePool);
+
     return [
       {
         phase: item.phase,
@@ -67,6 +117,7 @@ export function parsePhaseResults(value: Json): PhaseResult[] {
         ...(isPlainObject(item.acquisitionPlan) && JSON.stringify(item.acquisitionPlan).length <= 8192 ? { acquisitionPlan: item.acquisitionPlan as Record<string, unknown> } : {}),
         ...(isPlainObject(item.productsVerification) && JSON.stringify(item.productsVerification).length <= 8192 ? { productsVerification: item.productsVerification as Record<string, unknown> } : {}),
         ...(Array.isArray(item.revokedColumns) ? { revokedColumns: item.revokedColumns.filter((c: unknown): c is string => typeof c === 'string') } : {}),
+        ...(imagePool ? { imagePool } : {}),
       },
     ];
   });

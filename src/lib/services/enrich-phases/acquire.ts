@@ -31,13 +31,72 @@ import { MAX_SCRAPE_URLS_PER_BRAND, scrapeBrandUrls, type ScrapeBrandUrlsOptions
 import { classifyByDomain, isNonBrandSiteHost } from './scraper/input-detector'
 import { mergeScrapedData } from './scraper/merge'
 import type { PhaseResult } from '@/lib/types/curation'
+import { MAX_IMAGE_POOL_BYTES, compactToBytes } from '../phase-results'
 import { auditedCall } from '@/lib/audit'
 import type { ScrapedBrandData, ScrapedImageSource } from '@/lib/types/scraper'
 import type { EnrichScrapedData } from './types'
 import { brandTarget, type EnrichmentTarget } from '../_shared/enrichment-target'
-import { buildPhaseResult, hasPatchValues, timePhase, type EnrichBrand, type EnrichPhase } from './types'
+import {
+  buildPhaseResult,
+  hasPatchValues,
+  timePhase,
+  type EnrichBrand,
+  type EnrichPatch,
+  type EnrichPhase,
+} from './types'
 import { ONLINE_STORES } from '@/lib/brands/online-stores'
 import type { RenderProvider } from './scraper/render/types'
+import { bindBrandKey } from './scraper/render/render-budget'
+import { HERO_TARGET_RATIO } from '@/lib/constants/brand-images'
+import { resolveProfileModel } from '@/lib/constants/llm-models'
+import { createServiceClient } from '@/lib/supabase/service'
+import { createAgentModel as defaultCreateAgentModel } from './agents/runtime'
+import { buildCandidatePool, type CandidateImage } from './candidate-pool'
+import {
+  applyPlannedImageWrites as defaultApplyPlannedImageWrites,
+  classifyStoredImages as defaultClassifyStoredImages,
+  finalizeHeroOrder as defaultFinalizeHeroOrder,
+  type ClassifiedImage,
+  type PlannedImageWrite,
+} from './classify-images'
+import {
+  discoverCatalog as defaultDiscoverCatalog,
+  type CatalogDiscoveryResult,
+} from './catalog-discovery'
+import { downloadAndStoreImages as defaultDownloadAndStoreImages } from '../image-download'
+import { buildChannelSources } from './images'
+import { rank, resolveSourceUrl, type RankableImage } from './image-ranking'
+import {
+  batchSearchBrandImages as defaultBatchSearchBrandImages,
+  searchBrandUrls as defaultSearchBrandUrls,
+} from './scraper/search'
+import type { ImageQueryInput } from './scraper/types'
+import type { SerperAuditOptions } from './scraper/serper'
+import { siteIdentityKey } from '../site-identity-arbiter'
+import {
+  applyRevocation,
+  resolveQuarantine,
+  verdictsFromCritique,
+  type RevokableImagePayload,
+} from './site-identity'
+
+/**
+ * Dependency overrides. Production supplies none of them; the unit tests inject
+ * fakes here rather than mocking the service modules, which
+ * `scripts/check-test-boundaries.mjs` refuses. Same shape as the override
+ * `runBrandImagePhase` already carries for `discoverCatalog`.
+ */
+export type AcquireDeps = {
+  runAcquisition?: typeof import('./acquisition/graph').runAcquisition
+  createAgentModel?: typeof defaultCreateAgentModel
+  downloadAndStoreImages?: typeof defaultDownloadAndStoreImages
+  classifyStoredImages?: typeof defaultClassifyStoredImages
+  applyPlannedImageWrites?: typeof defaultApplyPlannedImageWrites
+  finalizeHeroOrder?: typeof defaultFinalizeHeroOrder
+  discoverCatalog?: typeof defaultDiscoverCatalog
+  searchBrandUrls?: typeof defaultSearchBrandUrls
+  batchSearchBrandImages?: typeof defaultBatchSearchBrandImages
+}
 
 type AcquirePhaseOptions = {
   brand: EnrichBrand
@@ -49,6 +108,7 @@ type AcquirePhaseOptions = {
   jobId?: string
   supabase?: SupabaseClient<Database>
   renderProvider?: RenderProvider
+  deps?: AcquireDeps
 }
 
 export type AcquirePhaseOutput = {
@@ -71,10 +131,28 @@ export type AcquirePhaseOutput = {
   quarantine: Record<string, QuarantineGroup>
   /** Present when the acquisition agent ran successfully. */
   acquisitionPlan?: AcquisitionPlanType | null
+  /**
+   * Every image this run classified, ranked for the 4:3 hero frame. The FULL
+   * verdict per image, in memory only — the products agent ranks it a second
+   * time against each proposal's page. `PhaseResult.imagePool` carries the
+   * compact persisted summary instead.
+   */
+  imagePool: RankableImage[]
+  /** Product pages the agent's catalog discovery found, for the products phase. */
+  catalogResult?: CatalogDiscoveryResult
+  /** Pages that yielded at least one image candidate. */
+  acquisitionPageUrls: string[]
+  /** Columns a high-confidence "not owned" critique verdict struck this run. */
+  revokedColumns: string[]
+  /** A search or render provider threw and no evidence was collected (Gate A). */
+  providerFailure: boolean
 }
 
-// Lazy-import type only; the module is loaded dynamically at runtime.
+// Lazy-import types only; both modules are loaded dynamically at runtime.
 type AcquisitionPlanType = import('./acquisition/plan').AcquisitionPlanType
+type AcquisitionUrlVerdicts = NonNullable<
+  import('./acquisition/graph').AcquisitionOutput['urlVerdicts']
+>
 
 type StoredNameSource = {
   source: 'official_website' | 'official_social'
@@ -631,6 +709,122 @@ function boundedAgentRecord(record: Record<string, unknown>): Record<string, unk
   return current
 }
 
+/**
+ * The persisted projection of the ranked pool: row id, tag, score, and the page
+ * the image came from. Everything else in a `RankableImage` is either
+ * re-derivable from the row or only useful to the run that produced it, and
+ * `phase_results` is a JSON column shared with every other phase.
+ */
+function compactImagePool(pool: readonly RankableImage[]): NonNullable<PhaseResult['imagePool']> {
+  const projected = pool.map((image) => ({
+    id: image.id,
+    tag: image.tag,
+    score: image.score,
+    ...(image.sourceUrl ? { sourceUrl: image.sourceUrl } : {}),
+  }))
+  return compactToBytes(projected, MAX_IMAGE_POOL_BYTES)
+}
+
+/**
+ * Text this phase actually read. `brandName` stands in for the page title: it
+ * is what the scraper writes a first-party `<title>` into, and `ScrapedBrandData`
+ * has no separate title field.
+ */
+function hasScrapedText(data: EnrichScrapedData | undefined): boolean {
+  if (!data) return false
+  return [data.description, data.story, data.brandName].some(
+    (value) => typeof value === 'string' && value.trim().length > 0,
+  )
+}
+
+/**
+ * Image candidates from a completed scrape — the fallback path's equivalent of
+ * the agent's `images` node. Provenance first (`imageSources` carries the page
+ * each image came from), plain URLs only when the scraper predates it.
+ */
+function candidatesFromScrapedData(scrapedData: EnrichScrapedData): CandidateImage[] {
+  const sources = scrapedData.imageSources ?? []
+  const scraped: Array<Omit<CandidateImage, 'source'>> =
+    sources.length > 0
+      ? sources.map((source) => ({
+          url: source.url,
+          method: source.method,
+          pageUrl: source.pageUrl,
+          position: source.position,
+        }))
+      : (scrapedData.galleryImageUrls ?? []).map((url) => ({ url }))
+
+  return buildCandidatePool({
+    scraped,
+    jsonLdImages: scrapedData.jsonLdImageUrls ?? [],
+    // Image search is the agent's recovery step, not part of a plain scrape.
+    googleImages: [],
+  })
+}
+
+/**
+ * Attach the page each classified image came from, using the shared
+ * `resolveSourceUrl` from image-ranking.ts. `sourceUrl` is populated by the
+ * classify dep (which reads `source_url` from the DB row).
+ */
+function withSourceUrls(
+  classified: readonly ClassifiedImage[],
+): RankableImage[] {
+  return classified.map((image) => ({
+    ...image,
+    sourceUrl: resolveSourceUrl(image),
+  }))
+}
+
+/**
+ * Turn the acquisition critique's per-URL ownership verdicts into revocations.
+ *
+ * This is the consumer `urlVerdicts` never had: the agent already judges every
+ * page it fetched, so the quarantine no longer needs a second model to re-ask
+ * the same question. Only `confidence: 'high'` + `owned: false` revokes
+ * (`resolveQuarantine`); everything else — including a subject the critique
+ * never mentioned — is released, which is the safe direction.
+ *
+ * Returns the columns actually struck, for `PhaseResult.revokedColumns`.
+ */
+function applyCritiqueRevocations(input: {
+  brand: EnrichBrand
+  quarantine: Record<string, QuarantineGroup>
+  patch: Record<string, unknown>
+  scrapedData: EnrichScrapedData
+  images: RevokableImagePayload
+  urlVerdicts: AcquisitionUrlVerdicts
+}): string[] {
+  const { brand, quarantine, patch, scrapedData, images, urlVerdicts } = input
+  if (urlVerdicts.length === 0) return []
+
+  const verdicts = verdictsFromCritique(urlVerdicts, brand.slug, quarantine)
+  if (verdicts.size === 0) return []
+
+  const revoked: string[] = []
+  for (const group of Object.values(quarantine)) {
+    const decision = resolveQuarantine(
+      verdicts.get(siteIdentityKey(brand.slug, group.subjectUrl)),
+    )
+    if (!decision.revoked) continue
+    // `patch` and `scrapedData` are the live objects, not copies: `revokeFields`
+    // deletes patch keys and `revokeText` nulls description/story in place.
+    const application = applyRevocation(
+      brand,
+      {
+        ...group,
+        patch: patch as EnrichPatch,
+        scrapedData,
+        linksResult: images,
+      },
+      decision.reason,
+    )
+    revoked.push(...application.phaseResult.changedFields)
+  }
+
+  return [...new Set(revoked)]
+}
+
 export async function runAcquirePhase({
   brand,
   phases,
@@ -641,10 +835,14 @@ export async function runAcquirePhase({
   jobId,
   supabase,
   renderProvider,
+  deps = {},
 }: AcquirePhaseOptions): Promise<AcquirePhaseOutput> {
-  if (!phases.includes('links')) {
+  // A phase gates on its OWN name only (the sibling rule in products.ts and
+  // detect.ts). The retired `links` name is mapped to `acquire` by
+  // `normalizeRequestedPhases` at every runner entry, never here.
+  if (!phases.includes('acquire')) {
     return {
-      phaseResult: buildPhaseResult('links', 'skipped', [], 0, undefined, 'links phase not requested'),
+      phaseResult: buildPhaseResult('acquire', 'skipped', [], 0, undefined, 'acquire phase not requested'),
       patch: {},
       scrapedBrandName: null,
       officialNameCandidates: [],
@@ -653,12 +851,50 @@ export async function runAcquirePhase({
       scrapedImageSources: [],
       jsonLdImageUrls: [],
       quarantine: {},
+      imagePool: [],
+      acquisitionPageUrls: [],
+      revokedColumns: [],
+      providerFailure: false,
     }
   }
 
   return auditedCall(
     { provider: 'enrich', operation: 'runAcquirePhase', kind: 'service' },
     async () => {
+  const effectiveTarget = target ?? brandTarget(brand.id)
+  const downloadImages = deps.downloadAndStoreImages ?? defaultDownloadAndStoreImages
+  const classifyStored = deps.classifyStoredImages ?? defaultClassifyStoredImages
+  const applyImageWrites = deps.applyPlannedImageWrites ?? defaultApplyPlannedImageWrites
+  const finalizeHero = deps.finalizeHeroOrder ?? defaultFinalizeHeroOrder
+
+  // One client for every row this phase writes, built only when there is a row
+  // to write: a dry run and the unit tests never reach it.
+  let client: unknown = supabase
+  const db = (): unknown => {
+    if (client === undefined || client === null) client = createServiceClient()
+    return client
+  }
+
+  // Bind the brand key so per-brand budget tracking uses this brand's id, not
+  // the shared `'unknown'` default (DEV-1644 F8). Returns a new provider so
+  // there is no shared mutable state between brands.
+  const renderForBrand = renderProvider ? bindBrandKey(renderProvider, brand.id) : undefined
+
+  /**
+   * Audit context for the agent's recovery searches, so each one writes a
+   * `brand_search_results` row keyed to this target and job. The `search_type`
+   * (`serp` for `searchBrandUrls`, `image` for `batchSearchBrandImages`) is
+   * decided inside the serper client, which is the only place that knows which
+   * endpoint it called.
+   */
+  const searchAudit = (): SerperAuditOptions => ({
+    target: effectiveTarget,
+    ...(jobId ? { jobId } : {}),
+    ...(supabase ? { supabase } : {}),
+    dryRun,
+    config: { phase: 'acquire' },
+  })
+
   const { result, durationMs } = await timePhase(async () => {
     const urls = prioritizeScrapeUrls(uniqueUrls([...knownUrls, ...discoveredUrls]))
     // These URLs are raw SERP results, so the brand name is the only thing
@@ -668,10 +904,10 @@ export async function runAcquirePhase({
     const scrapeOptions: ScrapeBrandUrlsOptions = {
       brandName: brand.name,
       confirmedSourceUrls,
-      renderProvider,
+      renderProvider: renderForBrand,
       onAttempt: async ({ url, classification, spanId }) => {
         const auditId = await startSearchAudit({
-          target: target ?? brandTarget(brand.id),
+          target: effectiveTarget,
           ...(jobId ? { jobId } : {}),
           supabase,
           // Joins this deep-store row to the scraper.scrape_url span wrapping
@@ -684,7 +920,7 @@ export async function runAcquirePhase({
           searchType: 'scrape',
           query: url,
           input: { url, classification },
-          config: { phase: 'links', dryRun },
+          config: { phase: 'acquire', dryRun },
         })
         return {
           finish: async (attempt) => {
@@ -725,28 +961,32 @@ export async function runAcquirePhase({
     // decision timeline and its budget usage; without it the trace only exists
     // in process memory.
     let agentTrace: Record<string, unknown> | undefined
+    /**
+     * Row writes the classify seam produced. Applied IMMEDIATELY inside the
+     * seam so recovery's `getUnclassifiedImages` does not re-read the same
+     * `tags is null` rows. Image writes happen during the agent run, which is
+     * acceptable because they are verdict writes on rows the agent itself
+     * created.
+     */
+    const plannedWrites: PlannedImageWrite[] = []
+    let appliedImageWrites = false
+    let imagePool: RankableImage[] = []
+    let catalogResult: CatalogDiscoveryResult | undefined
+    let acquisitionPageUrls: string[] = []
+    let urlVerdicts: AcquisitionUrlVerdicts = []
+    let providerFailure = false
 
     if (process.env.ACQUISITION_AGENT !== 'off') {
       try {
-        const { runAcquisition } = await import('./acquisition/graph')
+        const runAcquisition =
+          deps.runAcquisition ?? (await import('./acquisition/graph')).runAcquisition
         const { boundedPlan } = await import('./acquisition/plan')
-        const { ChatOpenAI } = await import('@langchain/openai')
-        const { LLM_PROFILES, resolveProfileModel } = await import('@/lib/constants/llm-models')
-        const profile = LLM_PROFILES.acquisition
         const modelName = resolveProfileModel('acquisition')
-        // gpt-5 chat completions accept a temperature only alongside
-        // reasoning_effort 'none' (same rule as openai-client.ts). json_object
-        // keeps the plan/critique parseable without a structured-output round trip.
-        const model = new ChatOpenAI({
-          model: modelName,
-          temperature: profile.temperature,
-          timeout: profile.timeoutMs,
-          maxRetries: 1,
-          modelKwargs: {
-            reasoning_effort: profile.reasoningEffort ?? 'none',
-            response_format: { type: 'json_object' },
-          },
-        })
+        // Built by the shared runtime, which deliberately omits
+        // `response_format: json_object`: OpenAI refuses a forced JSON reply
+        // alongside tool definitions, and the plan node binds four tools — with
+        // it the model answers the plan step in raw JSON and never calls one.
+        const model = await (deps.createAgentModel ?? defaultCreateAgentModel)('acquisition')
         const agentResult = await runAcquisition(
           {
             brand: { id: brand.id, slug: brand.slug, name: brand.name },
@@ -755,14 +995,79 @@ export async function runAcquirePhase({
           },
           {
             fetchHtml: (await import('./scraper/fetch-guards')).fetchHtmlWithMetadata,
-            renderProvider,
+            renderProvider: renderForBrand,
             scrapeBrandUrls: (agentUrls, opts) =>
               scrapeBrandUrls(agentUrls, { ...scrapeOptions, ...opts }),
+            // A dry run must not touch Storage, the vision model or the image
+            // tables, so the two write-bearing seams are simply absent rather
+            // than guarded inside the graph — there is then nothing to undo.
+            ...(dryRun
+              ? {}
+              : {
+                  downloadAndStoreImages: (candidates: CandidateImage[]) =>
+                    downloadImages(candidates, effectiveTarget),
+                  // Judges the rows just stored and returns the verdicts.
+                  // Writes are applied IMMEDIATELY so recovery's
+                  // `getUnclassifiedImages` does not re-read the same rows.
+                  classifyImages: async () => {
+                    const judged = await classifyStored({
+                      brand,
+                      target: effectiveTarget,
+                      ...(jobId ? { jobId } : {}),
+                      supabase: db(),
+                    })
+                    plannedWrites.push(...judged.writes)
+                    if (plannedWrites.length > 0) {
+                      // Snapshot before clearing: the caller may hold a ref.
+                      const batch = [...plannedWrites]
+                      plannedWrites.length = 0
+                      await applyImageWrites(db(), effectiveTarget, batch)
+                      appliedImageWrites = true
+                    }
+                    return judged.classified
+                  },
+                }),
+            discoverCatalog: deps.discoverCatalog ?? defaultDiscoverCatalog,
+            catalogSources: buildChannelSources(brand),
+            searchBrand: async (query: string) => ({
+              urls: await (deps.searchBrandUrls ?? defaultSearchBrandUrls)(
+                query,
+                undefined,
+                searchAudit(),
+              ),
+              snippets: [],
+            }),
+            searchImages: async ({
+              brandName,
+              websiteHost,
+            }: {
+              brandName: string
+              websiteHost: string | null
+            }) => {
+              // `batchSearchBrandImages` expands an object input through
+              // `buildImageQueryVariants` itself, so the `site:` branch is
+              // reached by handing it the domain rather than a pre-built query.
+              const input: ImageQueryInput = {
+                brandName,
+                categorySlug: brand.category,
+                purchaseWebsite: websiteHost ? `https://${websiteHost}` : null,
+              }
+              const outcomes = await (
+                deps.batchSearchBrandImages ?? defaultBatchSearchBrandImages
+              )([input], 1, undefined, () => searchAudit())
+              return outcomes.get(brandName)?.rows.map((row) => row.url) ?? []
+            },
           },
           {
             model,
+            dryRun,
             audit: {
-              target: target ?? brandTarget(brand.id),
+              // `brand_ai_results.phase` for agent turns is the phase that ran
+              // them, matching the `products` convention. The CHECK accepts it
+              // (migration 20260903100400); `acquisition` stays a SUB_PHASE for
+              // the historical rows written before this.
+              phase: 'acquire',
+              target: effectiveTarget,
               ...(jobId ? { jobId } : {}),
               ...(supabase ? { supabase } : {}),
               modelName,
@@ -780,6 +1085,13 @@ export async function runAcquirePhase({
           ...(agentResult.budget ? { budget: agentResult.budget } : {}),
           ...(agentResult.error ? { error: agentResult.error.slice(0, 200) } : {}),
         }
+        // Read on every outcome, not only the successful ones: Gate A exists
+        // precisely for the run where the provider died and the agent gave up.
+        providerFailure = agentResult.providerFailure === true
+        urlVerdicts = agentResult.urlVerdicts ?? []
+        imagePool = agentResult.imagePool ?? []
+        catalogResult = agentResult.catalogResult
+        acquisitionPageUrls = agentResult.acquisitionPageUrls ?? []
         if (
           (agentResult.agentOutcome === 'planned' || agentResult.agentOutcome === 'recovered') &&
           agentResult.scrapeResult
@@ -831,29 +1143,114 @@ export async function runAcquirePhase({
     const scrapedBrandName = deriveScrapedBrandName(brand, scrapedData)
     const officialNameCandidates = deriveOfficialNameCandidates(brand, scrapedData)
 
+    // Fallback path images. `images` and `classify_images` are deferred phases,
+    // so a brand whose agent fell back would otherwise finish a full run with
+    // no image at all. Same download → judge → write sequence the agent uses,
+    // run over the candidates the legacy scrape produced.
+    if (!dryRun && !agentScrapeData && plannedWrites.length === 0) {
+      const candidates = candidatesFromScrapedData(scrapedData)
+      if (candidates.length > 0) {
+        const supabaseClient = db()
+        await downloadImages(candidates, effectiveTarget)
+        const judged = await classifyStored({
+          brand,
+          target: effectiveTarget,
+          ...(jobId ? { jobId } : {}),
+          supabase: supabaseClient,
+        })
+        plannedWrites.push(...judged.writes)
+        imagePool = rank(
+          withSourceUrls(judged.classified),
+          HERO_TARGET_RATIO,
+        ) as RankableImage[]
+        acquisitionPageUrls = [
+          ...new Set(
+            candidates
+              .map((candidate) => candidate.pageUrl)
+              .filter((url): url is string => typeof url === 'string' && url.length > 0),
+          ),
+        ]
+      }
+    }
+
+    const quarantine = buildQuarantine(scrapedData, fieldSources, patch, unverifiableWebsite)
+    // The arrays a revocation strikes from. Held apart from `scrapedData` so
+    // `filterRevokedImages` mutates exactly what this phase returns.
+    const images: RevokableImagePayload = {
+      scrapedImageUrls: scrapedData.galleryImageUrls ?? [],
+      scrapedImageSources: scrapedData.imageSources ?? [],
+      jsonLdImageUrls: scrapedData.jsonLdImageUrls ?? [],
+      scrapedData,
+    }
+    const revokedColumns = applyCritiqueRevocations({
+      brand,
+      quarantine,
+      patch,
+      scrapedData,
+      images,
+      urlVerdicts,
+    })
+
+    // Apply any remaining writes (fallback path accumulates here; the agent
+    // path applies inside the classifyImages seam and clears the array).
+    if (!dryRun && plannedWrites.length > 0) {
+      await applyImageWrites(db(), effectiveTarget, plannedWrites)
+      appliedImageWrites = true
+    }
+    // Hero order is recomputed from written rows — runs after ALL writes.
+    if (!dryRun && appliedImageWrites) {
+      const hero = await finalizeHero(db(), effectiveTarget, { mode: 'classify' })
+      // A brand target denormalizes its hero inside `finalizeHeroOrder`; a
+      // submission carries the bucket key forward on its patch instead.
+      if (effectiveTarget.type === 'submission' && hero.heroStoragePath) {
+        patch.hero_image_storage_path = hero.heroStoragePath
+      }
+    }
+
     return {
       patch,
       scrapedBrandName,
       officialNameCandidates,
       scrapedData,
-      scrapedImageUrls: scrapedData.galleryImageUrls ?? [],
-      scrapedImageSources: scrapedData.imageSources ?? [],
-      jsonLdImageUrls: scrapedData.jsonLdImageUrls ?? [],
-      scrapedFromPages,
-      fieldSources,
-      unverifiableWebsite,
+      scrapedImageUrls: images.scrapedImageUrls,
+      scrapedImageSources: images.scrapedImageSources,
+      jsonLdImageUrls: images.jsonLdImageUrls,
+      quarantine,
+      revokedColumns,
+      imagePool,
+      catalogResult,
+      acquisitionPageUrls,
+      providerFailure,
       agentAcquisitionPlan,
       agentOutcome,
       agentTrace,
     }
   })
 
-  const changedFields = Object.keys(result.patch)
-  const status = hasPatchValues(result.patch) ? 'succeeded' : 'skipped'
+  // What this phase PRODUCES is evidence; the patch is only the part of that
+  // evidence which happens to be a brand column. A refresh whose link columns
+  // are already correct leaves an empty patch, and reading that as `skipped`
+  // reported 6/10 brands as skipped on the first staging run while the agent had
+  // planned, scraped text, classified images and discovered a catalog.
+  const catalogTriples = result.catalogResult?.triples.length ?? 0
+  const acquiredEvidence =
+    (result.agentOutcome === 'planned' || result.agentOutcome === 'recovered') &&
+    (result.imagePool.length > 0 ||
+      catalogTriples > 0 ||
+      hasScrapedText(result.scrapedData))
+  const status = hasPatchValues(result.patch) || acquiredEvidence ? 'succeeded' : 'skipped'
+  // `images` and `catalog` are runlog LABELS, not patch keys: nothing reads a
+  // `changedFields` entry as a column to write (`curation-operations` only
+  // aggregates them for the progress event and the outcome log).
+  const changedFields = [
+    ...Object.keys(result.patch),
+    ...(result.imagePool.length > 0 ? ['images'] : []),
+    ...(catalogTriples > 0 ? ['catalog'] : []),
+  ]
 
   return {
     phaseResult: {
-      ...buildPhaseResult('links', status, changedFields, durationMs),
+      ...buildPhaseResult('acquire', status, changedFields, durationMs),
       ...(result.agentOutcome
         ? { agentOutcome: result.agentOutcome as PhaseResult['agentOutcome'] }
         : {}),
@@ -865,6 +1262,9 @@ export async function runAcquirePhase({
             }),
           }
         : {}),
+      ...(result.providerFailure ? { providerFailure: true } : {}),
+      ...(result.revokedColumns.length > 0 ? { revokedColumns: result.revokedColumns } : {}),
+      ...(result.imagePool.length > 0 ? { imagePool: compactImagePool(result.imagePool) } : {}),
     },
     patch: result.patch,
     scrapedBrandName: result.scrapedBrandName,
@@ -873,12 +1273,14 @@ export async function runAcquirePhase({
     scrapedImageUrls: result.scrapedImageUrls,
     scrapedImageSources: result.scrapedImageSources,
     jsonLdImageUrls: result.jsonLdImageUrls,
-    quarantine: buildQuarantine(
-      result.scrapedData,
-      result.fieldSources,
-      result.patch,
-      result.unverifiableWebsite,
-    ),
+    // Built inside the phase body, because the revocation reads it: a second
+    // build here would judge a patch the first one had already struck from.
+    quarantine: result.quarantine,
+    imagePool: result.imagePool,
+    ...(result.catalogResult ? { catalogResult: result.catalogResult } : {}),
+    acquisitionPageUrls: result.acquisitionPageUrls,
+    revokedColumns: result.revokedColumns,
+    providerFailure: result.providerFailure,
     ...(result.agentAcquisitionPlan ? { acquisitionPlan: result.agentAcquisitionPlan } : {}),
   }
     },

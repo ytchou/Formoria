@@ -55,8 +55,10 @@ export type EnrichPhaseName = (typeof ENRICH_PHASES)[number];
  *   separate verification calls inside `descriptions` and the one-time audit.
  * - `classification` is the standalone category classifier that backs
  *   `tags` when `descriptions` did not already decide the category.
- * - `image-search` is the batched serper /images call that backs `images`. It
- *   is batched across a whole chunk, so it is not a per-brand phase.
+ * - `image-search` is HISTORICAL ONLY: it was the batched serper /images call
+ *   backing `images`, and `images` is DEFERRED, so nothing writes this string
+ *   any more. The value stays because `brand_ai_results` rows carry it and the
+ *   admin job view and run-log export must keep rendering them.
  */
 export const SUB_PHASES = [
   "facts",
@@ -250,6 +252,65 @@ export function phasesForTask(
 }
 
 // ---------------------------------------------------------------------------
+// Requested-phase normalization — the single owner of the retired vocabulary.
+// ---------------------------------------------------------------------------
+
+/**
+ * Retired phase names mapped onto the phase that does their work today.
+ *
+ * A stored job row, a legacy step list or an operator's `--phases` flag may
+ * still name any of these. Left alone they are silently useless: `links` is
+ * DEFERRED and absent from every task closure, so a job requesting it runs no
+ * acquisition at all — the brand is scraped by nothing and every downstream
+ * phase reads an empty evidence pack (DEV-1644).
+ *
+ * `images`/`classify_images` map to VISUAL_PHASES rather than to `acquire`:
+ * the acquisition agent re-acquires and re-classifies inside the visual task,
+ * so asking for images is asking for that task's terminal phases. The
+ * prerequisite walk stays where it already lives — `phasesForTask` — because
+ * this function normalizes a requested scope, it does not expand one.
+ */
+const RETIRED_PHASE_ALIASES: Record<string, readonly EnrichPhaseName[]> = {
+  links: ["acquire"],
+  // The closure walk adds detect → acquire → names via products' dependency
+  // chain. Using phasesForTask rather than the raw VISUAL_PHASES ensures a
+  // stored job requesting `images` or `classify_images` actually runs the full
+  // prerequisite chain, not just the terminal `products` phase alone.
+  images: phasesForTask("visual"),
+  classify_images: phasesForTask("visual"),
+};
+
+/**
+ * The phase list a runner may execute, derived from whatever a caller asked
+ * for. Maps the retired names above, drops every remaining deferred phase and
+ * every unknown string, dedupes, and sorts into ENRICH_PHASES order so
+ * downstream `phases.includes(...)` checks and the schedule agree.
+ *
+ * Never returns a member of DEFERRED_PHASES. Returns `[]` when every input
+ * normalizes away — the fallback-to-full belongs in the caller (`resolvePhases`
+ * in job-runner.ts, `effectiveRequestedPhases` in curation-jobs.ts), which
+ * already handle empty by falling through to the next precedence level.
+ */
+export function normalizeRequestedPhases(
+  phases: readonly string[],
+): EnrichPhaseName[] {
+  const requested = new Set<string>();
+
+  for (const phase of phases) {
+    const aliased = RETIRED_PHASE_ALIASES[phase];
+    if (aliased) {
+      for (const target of aliased) requested.add(target);
+      continue;
+    }
+    if (!(ENRICH_PHASES as readonly string[]).includes(phase)) continue;
+    if ((DEFERRED_PHASES as readonly string[]).includes(phase)) continue;
+    requested.add(phase);
+  }
+
+  return ENRICH_PHASES.filter((phase) => requested.has(phase));
+}
+
+// ---------------------------------------------------------------------------
 // Legacy step vocabulary — inlined into callers that parse stored job rows.
 // These are NOT exported; callers that need to parse legacy `params.steps`
 // should use `parseLegacyStepsToPhases` below.
@@ -257,7 +318,11 @@ export function phasesForTask(
 
 const LEGACY_STEP_PHASES: Record<string, readonly EnrichPhaseName[]> = {
   context: ["detect", "slugs", "acquire", "names"],
-  image: ["images", "classify_images"],
+  // Was ["images", "classify_images"]; both are deferred and have no runner.
+  // The visual closure (detect → acquire → names → products) is what does
+  // their work today — `products` alone is the self-insufficient scope
+  // backfill.ts documents as the DEV-1469 bug.
+  image: phasesForTask("visual"),
   detail: ["descriptions", "faq", "products", "tags", "stockists"],
 };
 
@@ -278,7 +343,7 @@ export function parseLegacyStepsToPhases(
     }
   }
   if (requested.size === 0) return undefined;
-  return ENRICH_PHASES.filter((phase) => requested.has(phase));
+  return normalizeRequestedPhases([...requested]);
 }
 
 /**

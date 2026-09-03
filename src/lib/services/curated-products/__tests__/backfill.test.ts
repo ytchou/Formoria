@@ -4,6 +4,7 @@ import {
   requestCuratedProductBackfill,
   type CuratedProductBackfillDeps,
 } from "../backfill";
+import { isProductsScopedRun } from "@/lib/services/curation-operations";
 
 const REQUESTER = {
   id: "8a2f2b6c-9d4e-4a1b-8f3c-6b5d2e9a7c10",
@@ -70,6 +71,22 @@ describe("requestCuratedProductBackfill", () => {
     const phases = params?.phases as string[];
     expect(phases).not.toContain("links");
     expect(phases).not.toContain("site_identity");
+  });
+
+  it("products_scoped_run_matches_backfill_phases", async () => {
+    // The runner recognises a products-scoped run by its phase set. When the
+    // two drift, every backfill target records `skipped`, its refresh
+    // submission stays pending, and the brand's pending-refresh unique index
+    // (23505) blocks every future refresh. Asserted from the enqueued params
+    // rather than from an imported constant, so a wrong value is catchable.
+    const injected = deps();
+
+    await requestCuratedProductBackfill([BRAND_A], REQUESTER, injected);
+
+    const params = vi.mocked(injected.enqueueJob).mock.calls[0]?.[0].params as
+      | Record<string, unknown>
+      | undefined;
+    expect(isProductsScopedRun(params?.phases as string[])).toBe(true);
   });
 
   it("rolls the opened refreshes back when the enqueue throws", async () => {

@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import {
   budgetFor,
   assertBudget,
+  allowRenderFor,
   PRODUCTS_BUDGET_CEILINGS,
   type ProductsBudgetState,
 } from '../budget'
@@ -82,5 +83,35 @@ describe('products/budget', () => {
       makeState({ used: { reads: 0, renders: 0, turns: 0, wallClockMs: 120_000 } }),
       'wallClockMs',
     )).toThrow(BudgetExhausted)
+  })
+
+  it('allowRenderFor_grows_a_zero_allowance_up_to_the_ceiling', () => {
+    // The old graph sized `needsRendering` at a hard-coded zero, so the renders
+    // allowance was always 0 and no page was ever rendered. A read that finds a
+    // JS shell must be able to buy its own render.
+    const state = makeState({
+      allowed: { reads: 12, renders: 0, turns: 6, wallClockMs: 120_000 },
+      used: { reads: 0, renders: 0, turns: 0, wallClockMs: 0 },
+    })
+
+    for (let render = 0; render < PRODUCTS_BUDGET_CEILINGS.renders; render += 1) {
+      expect(allowRenderFor(state)).toBe(true)
+      expect(() => assertBudget(state, 'renders')).not.toThrow()
+      state.used.renders += 1
+    }
+
+    expect(state.allowed.renders).toBe(PRODUCTS_BUDGET_CEILINGS.renders)
+    expect(allowRenderFor(state)).toBe(false)
+    expect(state.allowed.renders).toBe(PRODUCTS_BUDGET_CEILINGS.renders)
+  })
+
+  it('allowRenderFor_never_lowers_an_allowance_a_probe_already_set', () => {
+    const state = makeState({
+      allowed: { reads: 12, renders: 3, turns: 6, wallClockMs: 120_000 },
+      used: { reads: 0, renders: 1, turns: 0, wallClockMs: 0 },
+    })
+
+    expect(allowRenderFor(state)).toBe(true)
+    expect(state.allowed.renders).toBe(3)
   })
 })

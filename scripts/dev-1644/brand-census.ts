@@ -1,0 +1,709 @@
+/**
+ * Field-level before/after census of a cohort's brands.
+ *
+ * Registry metadata: class `operator`, target `staging-default`, safety
+ * `read-only`. The marker block itself lives in `scripts/dev-1644/README.md` —
+ * the registry gate allows exactly one header-bearing entry per directory, so a
+ * second one here would fail `pnpm check:script-registry`.
+ *
+ * Run it once before a curation run and once after; `--diff` turns the two
+ * files into the per-brand, per-field table the proof artifact needs. The
+ * client structurally cannot write (`createWriteBlockingClient`) and the target
+ * guard refuses the production project unless it is named twice.
+ *
+ *   pnpm exec tsx --env-file=.env.staging scripts/dev-1644/brand-census.ts \
+ *     --cohort dev-1644-routing-pilot --out docs/dev-1644/census-before.json
+ *   pnpm exec tsx scripts/dev-1644/brand-census.ts --diff before.json after.json
+ */
+import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { dirname, resolve } from "node:path";
+
+import { detectAiArtifacts } from "@/lib/services/enrich-validators";
+import { PRODUCTION_PROJECT_REF } from "@/lib/supabase/project-target";
+
+import { loadCohort } from "../curation-rerun/cohort";
+import { createWriteBlockingClient } from "../lib/readonly-client";
+import { loadScriptTarget } from "../shared/target";
+
+// ---------------------------------------------------------------------------
+// Types — exported for tests
+// ---------------------------------------------------------------------------
+
+export type TextStat = { length: number; aiArtifactHits: number };
+
+export type CensusRow = {
+  slug: string;
+  name: string;
+  purchase_website: string | null;
+  social_instagram: string | null;
+  social_threads: string | null;
+  social_facebook: string | null;
+  description: TextStat;
+  description_en: TextStat;
+  blurb: TextStat;
+  blurb_en: TextStat;
+  active_image_count: number;
+  hero_storage_path: string | null;
+  /** Active images in a gallery slot — `sort_order` 1 through 9; 0 is the hero. */
+  gallery_count: number;
+  stockists_count: number;
+  faq_count: number;
+  visible_products: number;
+  products_link_checked: number;
+  products_mit_confirmed: number;
+  products_with_image: number;
+};
+
+export type CensusFile = {
+  cohort: string;
+  capturedAt: string;
+  rows: CensusRow[];
+};
+
+export type FieldDirection =
+  | "improved"
+  | "regressed"
+  | "unchanged"
+  /** A different value that is neither better nor worse — a swapped link. */
+  | "changed";
+
+export type FieldDiff = {
+  field: string;
+  before: string;
+  after: string;
+  direction: FieldDirection;
+};
+
+/** The first gallery slot; `sort_order` 0 is the hero, not a gallery photo. */
+const FIRST_GALLERY_SLOT = 1;
+/** The last gallery slot — `MAX_BRAND_GALLERY_PHOTOS` in the image constants. */
+const LAST_GALLERY_SLOT = 9;
+
+// ---------------------------------------------------------------------------
+// Target guard
+// ---------------------------------------------------------------------------
+
+/**
+ * Refuses to census production unless BOTH `--target production` and
+ * `--confirm` are present.
+ *
+ * `loadScriptTarget` already proves the credentials belong to the declared
+ * target, so the URL check here is the second, independent half: a production
+ * project reached under any weaker declaration is a mistake, not a shortcut.
+ * Nothing but the public project ref is ever printed.
+ */
+export function assertCensusTarget(input: {
+  supabaseUrl: string;
+  target: string;
+  confirmed: boolean;
+}): void {
+  if (!input.supabaseUrl.includes(PRODUCTION_PROJECT_REF)) return;
+
+  if (input.target !== "production") {
+    throw new Error(
+      `Refusing to run: the resolved Supabase URL names the production project ${PRODUCTION_PROJECT_REF} while --target says ${input.target}`,
+    );
+  }
+  if (!input.confirmed) {
+    throw new Error(
+      `Refusing to run against production project ${PRODUCTION_PROJECT_REF} without --confirm`,
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Per-field statistics
+// ---------------------------------------------------------------------------
+
+export function textStat(
+  value: string | null | undefined,
+  locale: "zh" | "en",
+): TextStat {
+  const text = value ?? "";
+  if (text.length === 0) return { length: 0, aiArtifactHits: 0 };
+  return {
+    length: text.length,
+    aiArtifactHits: detectAiArtifacts(text, locale).length,
+  };
+}
+
+export function countGallery(
+  images: ReadonlyArray<{ sort_order: number }>,
+): number {
+  return images.filter(
+    (image) =>
+      image.sort_order >= FIRST_GALLERY_SLOT &&
+      image.sort_order <= LAST_GALLERY_SLOT,
+  ).length;
+}
+
+export type ProductRow = {
+  visible: boolean;
+  link_state: string | null;
+  link_checked_at: string | null;
+  made_in_taiwan_confirmed: boolean | null;
+  image_url: string | null;
+};
+
+export function summarizeProductRows(rows: ReadonlyArray<ProductRow>): {
+  visible: number;
+  linkChecked: number;
+  mitConfirmed: number;
+  withImage: number;
+} {
+  const visible = rows.filter((row) => row.visible);
+  return {
+    visible: visible.length,
+    linkChecked: visible.filter((row) => row.link_checked_at !== null).length,
+    mitConfirmed: visible.filter((row) => row.made_in_taiwan_confirmed === true)
+      .length,
+    withImage: visible.filter(
+      (row) => typeof row.image_url === "string" && row.image_url.length > 0,
+    ).length,
+  };
+}
+
+export function emptyCensusRow(slug: string): CensusRow {
+  const zero: TextStat = { length: 0, aiArtifactHits: 0 };
+  return {
+    slug,
+    name: "",
+    purchase_website: null,
+    social_instagram: null,
+    social_threads: null,
+    social_facebook: null,
+    description: { ...zero },
+    description_en: { ...zero },
+    blurb: { ...zero },
+    blurb_en: { ...zero },
+    active_image_count: 0,
+    hero_storage_path: null,
+    gallery_count: 0,
+    stockists_count: 0,
+    faq_count: 0,
+    visible_products: 0,
+    products_link_checked: 0,
+    products_mit_confirmed: 0,
+    products_with_image: 0,
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Diff
+// ---------------------------------------------------------------------------
+
+type CountField = {
+  kind: "count";
+  field: string;
+  get: (row: CensusRow) => number;
+  /** `lower` is the AI-artifact case: fewer hits is a better brand page. */
+  better: "higher" | "lower";
+};
+
+type TextField = {
+  kind: "text";
+  field: string;
+  get: (row: CensusRow) => string | null;
+};
+
+type FieldSpec = CountField | TextField;
+
+function textPair(
+  field: keyof Pick<
+    CensusRow,
+    "description" | "description_en" | "blurb" | "blurb_en"
+  >,
+): FieldSpec[] {
+  return [
+    {
+      kind: "count",
+      field: `${field}.length`,
+      get: (row) => row[field].length,
+      better: "higher",
+    },
+    {
+      kind: "count",
+      field: `${field}.ai_artifact_hits`,
+      get: (row) => row[field].aiArtifactHits,
+      better: "lower",
+    },
+  ];
+}
+
+/** Fixed order: the diff is read side by side across runs. */
+const FIELD_SPECS: FieldSpec[] = [
+  { kind: "text", field: "name", get: (row) => row.name },
+  {
+    kind: "text",
+    field: "purchase_website",
+    get: (row) => row.purchase_website,
+  },
+  {
+    kind: "text",
+    field: "social_instagram",
+    get: (row) => row.social_instagram,
+  },
+  { kind: "text", field: "social_threads", get: (row) => row.social_threads },
+  { kind: "text", field: "social_facebook", get: (row) => row.social_facebook },
+  ...textPair("description"),
+  ...textPair("description_en"),
+  ...textPair("blurb"),
+  ...textPair("blurb_en"),
+  {
+    kind: "count",
+    field: "active_image_count",
+    get: (row) => row.active_image_count,
+    better: "higher",
+  },
+  {
+    kind: "text",
+    field: "hero_storage_path",
+    get: (row) => row.hero_storage_path,
+  },
+  {
+    kind: "count",
+    field: "gallery_count",
+    get: (row) => row.gallery_count,
+    better: "higher",
+  },
+  {
+    kind: "count",
+    field: "stockists_count",
+    get: (row) => row.stockists_count,
+    better: "higher",
+  },
+  {
+    kind: "count",
+    field: "faq_count",
+    get: (row) => row.faq_count,
+    better: "higher",
+  },
+  {
+    kind: "count",
+    field: "visible_products",
+    get: (row) => row.visible_products,
+    better: "higher",
+  },
+  {
+    kind: "count",
+    field: "products_link_checked",
+    get: (row) => row.products_link_checked,
+    better: "higher",
+  },
+  {
+    kind: "count",
+    field: "products_mit_confirmed",
+    get: (row) => row.products_mit_confirmed,
+    better: "higher",
+  },
+  {
+    kind: "count",
+    field: "products_with_image",
+    get: (row) => row.products_with_image,
+    better: "higher",
+  },
+];
+
+function displayText(value: string | null): string {
+  return value === null || value === "" ? "-" : value;
+}
+
+function countDirection(
+  before: number,
+  after: number,
+  better: "higher" | "lower",
+): FieldDirection {
+  if (before === after) return "unchanged";
+  const up = after > before;
+  return (better === "higher") === up ? "improved" : "regressed";
+}
+
+/**
+ * A text field only has a direction when one side is empty: filling a blank is
+ * an improvement and clearing it is a regression. A DIFFERENT non-empty value
+ * is reported as `changed` — a swapped website may be a correction or a
+ * hijack, and this script is not the thing that can tell them apart.
+ */
+function textDirection(
+  before: string | null,
+  after: string | null,
+): FieldDirection {
+  const beforeEmpty = before === null || before === "";
+  const afterEmpty = after === null || after === "";
+  if (beforeEmpty && afterEmpty) return "unchanged";
+  if (beforeEmpty) return "improved";
+  if (afterEmpty) return "regressed";
+  return before === after ? "unchanged" : "changed";
+}
+
+export function diffRow(before: CensusRow, after: CensusRow): FieldDiff[] {
+  return FIELD_SPECS.map((spec) => {
+    if (spec.kind === "count") {
+      const b = spec.get(before);
+      const a = spec.get(after);
+      return {
+        field: spec.field,
+        before: String(b),
+        after: String(a),
+        direction: countDirection(b, a, spec.better),
+      };
+    }
+    const b = spec.get(before);
+    const a = spec.get(after);
+    return {
+      field: spec.field,
+      before: displayText(b),
+      after: displayText(a),
+      direction: textDirection(b, a),
+    };
+  });
+}
+
+function cell(value: string): string {
+  return value.replaceAll("|", "\\|").replaceAll("\n", " ");
+}
+
+export function renderCensusDiff(before: CensusFile, after: CensusFile): string {
+  const beforeBySlug = new Map(before.rows.map((row) => [row.slug, row]));
+  const afterBySlug = new Map(after.rows.map((row) => [row.slug, row]));
+  const slugs = [
+    ...new Set([...beforeBySlug.keys(), ...afterBySlug.keys()]),
+  ].sort();
+
+  const totals: Record<FieldDirection, number> = {
+    improved: 0,
+    regressed: 0,
+    changed: 0,
+    unchanged: 0,
+  };
+
+  const lines: string[] = [
+    `# Cohort census diff — ${before.cohort}`,
+    "",
+    `before ${before.capturedAt} → after ${after.capturedAt}`,
+    "",
+  ];
+
+  for (const slug of slugs) {
+    const beforeRow = beforeBySlug.get(slug);
+    const afterRow = afterBySlug.get(slug);
+    lines.push(`## ${slug}`, "");
+
+    if (!beforeRow || !afterRow) {
+      lines.push(
+        `missing from ${beforeRow ? "after" : "before"} — not compared`,
+        "",
+      );
+      continue;
+    }
+
+    lines.push("| field | before | after | change |");
+    lines.push("| --- | --- | --- | --- |");
+    for (const diff of diffRow(beforeRow, afterRow)) {
+      totals[diff.direction] += 1;
+      lines.push(
+        `| ${cell(diff.field)} | ${cell(diff.before)} | ${cell(diff.after)} | ${diff.direction} |`,
+      );
+    }
+    lines.push("");
+  }
+
+  lines.push(
+    `Totals: improved ${totals.improved} / unchanged ${totals.unchanged} / regressed ${totals.regressed} / changed ${totals.changed}`,
+  );
+
+  return lines.join("\n");
+}
+
+// ---------------------------------------------------------------------------
+// Database read (not tested — integration only)
+// ---------------------------------------------------------------------------
+
+type SupabaseLike = ReturnType<typeof createWriteBlockingClient>["client"];
+
+/**
+ * PostgREST caps a response at `max-rows` and reports the cap as an ordinary
+ * short result. Page to exhaustion; a short page ends it.
+ */
+const PAGE = 1000;
+
+async function selectAllPages<T>(
+  run: (
+    from: number,
+    to: number,
+  ) => PromiseLike<{ data: T[] | null; error: { message: string } | null }>,
+  label: string,
+): Promise<T[]> {
+  const all: T[] = [];
+  for (let from = 0; ; from += PAGE) {
+    const { data, error } = await run(from, from + PAGE - 1);
+    if (error) throw new Error(`${label} query failed: ${error.message}`);
+    const page = data ?? [];
+    all.push(...page);
+    if (page.length < PAGE) return all;
+  }
+}
+
+type BrandRecord = {
+  id: string;
+  slug: string;
+  name: string;
+  purchase_website: string | null;
+  social_instagram: string | null;
+  social_threads: string | null;
+  social_facebook: string | null;
+  description: string | null;
+  description_en: string | null;
+  blurb: string | null;
+  blurb_en: string | null;
+  hero_image_storage_path: string | null;
+};
+
+type ImageRecord = {
+  brand_id: string;
+  sort_order: number;
+  storage_path: string | null;
+};
+
+function groupBy<T>(rows: T[], key: (row: T) => string): Map<string, T[]> {
+  const grouped = new Map<string, T[]>();
+  for (const row of rows) {
+    const bucket = grouped.get(key(row));
+    if (bucket) bucket.push(row);
+    else grouped.set(key(row), [row]);
+  }
+  return grouped;
+}
+
+async function fetchCensus(
+  client: SupabaseLike,
+  slugs: string[],
+): Promise<CensusRow[]> {
+  const { data: brands, error } = await client
+    .from("brands")
+    .select(
+      "id, slug, name, purchase_website, social_instagram, social_threads, social_facebook, description, description_en, blurb, blurb_en, hero_image_storage_path",
+    )
+    .in("slug", slugs);
+  if (error) throw new Error(`brands query failed: ${error.message}`);
+
+  const brandRows = (brands ?? []) as BrandRecord[];
+  const ids = brandRows.map((brand) => brand.id);
+  if (ids.length === 0) return [];
+
+  const images = await selectAllPages<ImageRecord>(
+    (from, to) =>
+      client
+        .from("brand_images")
+        .select("brand_id, sort_order, storage_path")
+        .in("brand_id", ids)
+        .eq("status", "active")
+        // Paging needs a TOTAL order or rows shift between pages; `id` is the
+        // only column that is unique per row here.
+        .order("id", { ascending: true })
+        .range(from, to),
+    "brand_images",
+  );
+
+  const channels = await selectAllPages<{
+    brand_id: string;
+    removed_at: string | null;
+  }>(
+    (from, to) =>
+      client
+        .from("brand_channels")
+        .select("brand_id, removed_at")
+        .in("brand_id", ids)
+        .order("id", { ascending: true })
+        .range(from, to),
+    "brand_channels",
+  );
+
+  const faqs = await selectAllPages<{ brand_id: string }>(
+    (from, to) =>
+      client
+        .from("brand_faq_entries")
+        .select("brand_id, preset_id, position")
+        .in("brand_id", ids)
+        .order("brand_id", { ascending: true })
+        .order("preset_id", { ascending: true })
+        .order("position", { ascending: true })
+        .range(from, to),
+    "brand_faq_entries",
+  );
+
+  const products = await selectAllPages<ProductRow & { brand_id: string }>(
+    (from, to) =>
+      client
+        .from("curated_products")
+        .select(
+          "brand_id, visible, link_state, link_checked_at, made_in_taiwan_confirmed, image_url",
+        )
+        .in("brand_id", ids)
+        .order("id", { ascending: true })
+        .range(from, to),
+    "curated_products",
+  );
+
+  const imagesByBrand = groupBy(images, (row) => row.brand_id);
+  const channelsByBrand = groupBy(channels, (row) => row.brand_id);
+  const faqsByBrand = groupBy(faqs, (row) => row.brand_id);
+  const productsByBrand = groupBy(products, (row) => row.brand_id);
+
+  return brandRows.map((brand) => {
+    const brandImages = imagesByBrand.get(brand.id) ?? [];
+    const productTotals = summarizeProductRows(
+      productsByBrand.get(brand.id) ?? [],
+    );
+    // `brand_images` owns the ordering; `brands.hero_image_storage_path` is its
+    // denormalized projection and can lag, so the row is preferred.
+    const heroPath =
+      brandImages.find((image) => image.sort_order === 0)?.storage_path ??
+      brand.hero_image_storage_path;
+
+    return {
+      slug: brand.slug,
+      name: brand.name,
+      purchase_website: brand.purchase_website,
+      social_instagram: brand.social_instagram,
+      social_threads: brand.social_threads,
+      social_facebook: brand.social_facebook,
+      description: textStat(brand.description, "zh"),
+      description_en: textStat(brand.description_en, "en"),
+      blurb: textStat(brand.blurb, "zh"),
+      blurb_en: textStat(brand.blurb_en, "en"),
+      active_image_count: brandImages.length,
+      hero_storage_path: heroPath,
+      gallery_count: countGallery(brandImages),
+      stockists_count: (channelsByBrand.get(brand.id) ?? []).filter(
+        (row) => row.removed_at === null,
+      ).length,
+      faq_count: (faqsByBrand.get(brand.id) ?? []).length,
+      visible_products: productTotals.visible,
+      products_link_checked: productTotals.linkChecked,
+      products_mit_confirmed: productTotals.mitConfirmed,
+      products_with_image: productTotals.withImage,
+    };
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Main
+// ---------------------------------------------------------------------------
+
+function argValue(argv: readonly string[], flag: string): string | undefined {
+  const index = argv.indexOf(flag);
+  return index === -1 ? undefined : argv.at(index + 1);
+}
+
+async function readCensusFile(path: string): Promise<CensusFile> {
+  const parsed = JSON.parse(await readFile(resolve(path), "utf8")) as CensusFile;
+  if (!Array.isArray(parsed.rows)) {
+    throw new Error(`${path} is not a census file (no rows array)`);
+  }
+  return parsed;
+}
+
+async function runDiff(argv: readonly string[]): Promise<void> {
+  const index = argv.indexOf("--diff");
+  const beforePath = argv.at(index + 1);
+  const afterPath = argv.at(index + 2);
+  if (!beforePath || !afterPath) {
+    throw new Error("Usage: --diff <before.json> <after.json>");
+  }
+
+  const [before, after] = await Promise.all([
+    readCensusFile(beforePath),
+    readCensusFile(afterPath),
+  ]);
+  console.log(renderCensusDiff(before, after));
+}
+
+async function runCensus(
+  argv: readonly string[],
+  target: string,
+): Promise<void> {
+  const slugsArg = argValue(argv, "--slugs");
+  const cohortName = argValue(argv, "--cohort");
+  if (!slugsArg && !cohortName) {
+    throw new Error("Usage: --cohort <name> | --slugs a,b,c [--out file.json]");
+  }
+
+  const cohort = cohortName ? await loadCohort() : null;
+  const slugs = cohort
+    ? cohort.slugs
+    : (slugsArg ?? "")
+        .split(",")
+        .map((slug) => slug.trim())
+        .filter((slug) => slug.length > 0);
+  if (slugs.length === 0) throw new Error("no slugs to census");
+
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!supabaseUrl || !supabaseKey) {
+    throw new Error(
+      "Missing NEXT_PUBLIC_SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY in env",
+    );
+  }
+
+  assertCensusTarget({
+    supabaseUrl,
+    target,
+    confirmed: argv.includes("--confirm"),
+  });
+
+  const { client, blocked } = createWriteBlockingClient(
+    supabaseUrl,
+    supabaseKey,
+  );
+
+  console.log(`[census] reading ${slugs.length} brands…`);
+  const rows = await fetchCensus(client, slugs);
+
+  const missing = slugs.filter((slug) => !rows.some((row) => row.slug === slug));
+  if (missing.length > 0) {
+    console.warn(`[census] ${missing.length} slug(s) not found: ${missing.join(", ")}`);
+  }
+
+  const file: CensusFile = {
+    cohort: cohort?.name ?? "adhoc",
+    capturedAt: new Date().toISOString(),
+    rows: rows.sort((a, b) => a.slug.localeCompare(b.slug)),
+  };
+
+  const outPath = argValue(argv, "--out");
+  if (outPath) {
+    const resolved = resolve(outPath);
+    await mkdir(dirname(resolved), { recursive: true });
+    await writeFile(resolved, JSON.stringify(file, null, 2) + "\n");
+    console.log(`[census] wrote ${resolved}`);
+  } else {
+    console.log(JSON.stringify(file, null, 2));
+  }
+
+  if (blocked.length > 0) {
+    console.warn(`[census] ${blocked.length} blocked writes (should be 0):`);
+    for (const write of blocked) {
+      console.warn(`  ${write.table}.${write.method}`);
+    }
+  }
+}
+
+async function main(): Promise<void> {
+  // The diff reads two local files and touches no database, so it must not
+  // demand credentials for a project it never opens.
+  if (process.argv.slice(2).includes("--diff")) {
+    await runDiff(process.argv.slice(2));
+    return;
+  }
+
+  const { argv, target } = loadScriptTarget();
+  await runCensus(argv, target);
+}
+
+if (process.env.VITEST !== "true") {
+  main().catch((err) => {
+    console.error(err);
+    process.exit(1);
+  });
+}

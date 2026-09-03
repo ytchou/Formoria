@@ -15,6 +15,7 @@ import { createServiceClient } from '@/lib/supabase/service'
 import {
   CURATION_TASK_ORDER,
   ENRICH_PHASES,
+  normalizeRequestedPhases,
   phasesForTask,
   type CurationTask,
 } from '@/lib/constants/enrich-phases'
@@ -177,11 +178,13 @@ export function parseCliArgs(argv: string[]): ParsedCliArgs {
 
   if (command === 'enrich') {
     const phases = parseCsvFlag(args, 'phases')
+    // Retired names (`links`) map to the phase that does their work today and
+    // deferred names are dropped, so `--phases=links` scrapes something instead
+    // of nothing. With no flag the scope is the `full` closure, never
+    // `[...ENRICH_PHASES]` — that array still carries the deferred names.
     config.phases = phases
-      ? phases.filter((phase): phase is EnrichPhase => {
-          return ENRICH_PHASES.includes(phase as EnrichPhase)
-        })
-      : [...ENRICH_PHASES]
+      ? (normalizeRequestedPhases(phases) as EnrichPhase[])
+      : (phasesForTask('full') as EnrichPhase[])
 
     // --task is the operator-facing selection; --phases stays for the
     // fine-grained reruns that job history and phase_results are written in.
@@ -486,7 +489,7 @@ async function runCommand({ command, config }: ParsedCliArgs): Promise<Operation
           ...runConfig,
           phases: runConfig.task
             ? phasesForTask(runConfig.task)
-            : runConfig.phases ?? [...ENRICH_PHASES],
+            : runConfig.phases ?? phasesForTask('full'),
           ...(runConfig.task ? { task: runConfig.task } : {}),
           explicitPhases: runConfig.task ? [] : runConfig.phases ?? [],
         },

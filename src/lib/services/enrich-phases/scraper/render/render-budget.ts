@@ -17,10 +17,11 @@ interface RenderBudgetOptions {
   }
 }
 
-/** RenderProvider extended with a mutable brand-key setter for per-brand tracking. */
+/** RenderProvider wrapped with concurrency + budget enforcement. */
 export interface BudgetWrappedProvider extends RenderProvider {
-  /** Override the brand key used for per-brand budget tracking. */
-  setBrandKey(key: string): void
+  /** Fetch with an explicit brand key for per-brand budget tracking. */
+  fetchRendered(url: string, brandKey?: string): Promise<RenderResult>
+  fetchRenderedBatch(urls: readonly string[], brandKey?: string): Promise<Array<RenderResult | null>>
 }
 
 const MAX_CONCURRENCY = 2
@@ -40,7 +41,6 @@ export function withRenderBudget(
 ): BudgetWrappedProvider {
   const brandCounts = new Map<string, number>()
   let jobCount = 0
-  let brandKeyOverride: string | null = null
 
   // Monthly gauge: loaded lazily once, then tracked in-memory.
   let monthlyGauge: number | null = null
@@ -78,11 +78,11 @@ export function withRenderBudget(
     }
   }
 
-  async function guardedFetchRendered(url: string): Promise<RenderResult> {
+  async function guardedFetchRendered(url: string, brandKey?: string): Promise<RenderResult> {
     // Acquire the semaphore FIRST so check-then-increment is serialized.
     await acquire()
     try {
-      const brand = brandKeyOverride ?? opts.brandKey()
+      const brand = brandKey ?? opts.brandKey()
       const brandCount = brandCounts.get(brand) ?? 0
       if (brandCount >= opts.perBrand) {
         throw new RenderBudgetExceeded('brand')
@@ -110,11 +110,11 @@ export function withRenderBudget(
 
   return {
     fetchRendered: guardedFetchRendered,
-    async fetchRenderedBatch(urls: readonly string[]): Promise<Array<RenderResult | null>> {
+    async fetchRenderedBatch(urls: readonly string[], brandKey?: string): Promise<Array<RenderResult | null>> {
       return Promise.all(
         urls.map(async (url) => {
           try {
-            return await guardedFetchRendered(url)
+            return await guardedFetchRendered(url, brandKey)
           } catch (err) {
             if (err instanceof RenderBudgetExceeded) throw err
             return null
@@ -122,8 +122,26 @@ export function withRenderBudget(
         }),
       )
     },
-    setBrandKey(key: string): void {
-      brandKeyOverride = key
-    },
+  }
+}
+
+/**
+ * Bind a brand key into every fetchRendered call. Returns a new RenderProvider
+ * whose calls pass brandKey, so per-brand budget tracking works without a
+ * mutable setBrandKey closure.
+ *
+ * Safe to call on any provider: the extra argument is harmless on a provider
+ * that does not budget-wrap (e.g. local Playwright).
+ */
+export function bindBrandKey(provider: RenderProvider, brandKey: string): RenderProvider {
+  const budgeted = provider as BudgetWrappedProvider
+  return {
+    fetchRendered: (url: string) => budgeted.fetchRendered(url, brandKey),
+    ...(budgeted.fetchRenderedBatch
+      ? {
+          fetchRenderedBatch: (urls: readonly string[]) =>
+            budgeted.fetchRenderedBatch(urls, brandKey),
+        }
+      : {}),
   }
 }

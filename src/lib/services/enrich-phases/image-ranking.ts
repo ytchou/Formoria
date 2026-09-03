@@ -21,6 +21,10 @@ export type { ClassifiedImage };
  * Superset of ClassifiedImage that may carry a source URL for product-level
  * filtering. The `sourceUrl` maps to `brand_images.source_url` — the page the
  * image was scraped from.
+ *
+ * `imageUrl` (the image's own url) lives on `ClassifiedImage` itself: both
+ * row-backed construction sites fill it, so a pool loaded back out of
+ * `brand_images` carries it too.
  */
 export type RankableImage = ClassifiedImage & {
   sourceUrl?: string | null;
@@ -120,6 +124,17 @@ export function rank(
       (left, right) =>
         heroQuality(right, frameAspect) - heroQuality(left, frameAspect),
     );
+}
+
+/**
+ * Resolve the page URL an image came from. The image row's own `source_url`
+ * (populated by the classify dep, which reads it from the DB row) wins.
+ * The candidate-based fallback that previously existed here was dead code:
+ * `candidate.url` is the image's own URL, never the storage path or row id
+ * the classified image carries.
+ */
+export function resolveSourceUrl(image: ClassifiedImage): string | null {
+  return (image as RankableImage).sourceUrl ?? null;
 }
 
 /**

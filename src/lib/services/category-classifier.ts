@@ -49,6 +49,19 @@ export type DetectBatchItem = {
   description: string | null;
   website: string | null;
   snippets?: string[];
+  /**
+   * What a free HTTP GET on the brand's own known URLs found in each `<head>`
+   * (`enrich-phases/gather.ts`). SERP snippets describe what the web says about
+   * the brand; a probe is the brand's own page saying what it is, which is the
+   * cheapest evidence available for the non-brand call and the only one a
+   * search-less brand has. Capped and rendered by `probeLines`.
+   */
+  probes?: Array<{
+    url: string;
+    title?: string;
+    description?: string;
+    platform?: string;
+  }>;
   target?: EnrichmentTarget;
 };
 export type DetectResult = {
@@ -583,6 +596,32 @@ export async function classifyCategoryBatch(
   );
 }
 
+/** At most four probed URLs reach the prompt, at most 160 characters each. */
+export const MAX_PROBE_URLS = 4;
+const PROBE_LINE_CHARS = 160;
+
+/**
+ * One line per probed URL, rendered after the SERP snippets at BOTH detect
+ * prompt sites (the batch call and its single-brand retry) so a brand judged by
+ * the fallback sees the same evidence as one judged in the batch.
+ *
+ * A probe with neither title nor description falls back to its URL: the
+ * orchestrator only forwards probes that carry head text, but a caller passing
+ * a bare one must not render an empty field pair.
+ */
+function probeLines(probes: DetectBatchItem["probes"]): string[] {
+  if (!probes?.length) return [];
+
+  return probes.slice(0, MAX_PROBE_URLS).map((probe) => {
+    const head =
+      [probe.title, probe.description]
+        .filter((part): part is string => Boolean(part?.trim()))
+        .join(" — ") || probe.url;
+    const value = probe.platform ? `${head} (${probe.platform})` : head;
+    return `探測：${value.slice(0, PROBE_LINE_CHARS)}`;
+  });
+}
+
 async function detectBrand(
   brand: DetectBatchItem,
   jobId?: string,
@@ -593,7 +632,10 @@ async function detectBrand(
   const snippetLine = brand.snippets?.length
     ? `\n搜尋摘要：${brand.snippets.slice(0, 10).join("；")}`
     : "";
-  const userContent = `品牌 slug：${brand.slug}\n品牌名稱：${brand.name}\n描述：${brand.description ?? "無"}\n網站：${brand.website ?? "無"}${snippetLine}`;
+  const probeLine = probeLines(brand.probes)
+    .map((line) => `\n${line}`)
+    .join("");
+  const userContent = `品牌 slug：${brand.slug}\n品牌名稱：${brand.name}\n描述：${brand.description ?? "無"}\n網站：${brand.website ?? "無"}${snippetLine}${probeLine}`;
 
   const client = createClassifierClient(
     token,
@@ -655,7 +697,12 @@ async function detectBrandsBatchChunk(
       const snippetStr = brand.snippets?.length
         ? ` / 搜尋摘要：${brand.snippets.slice(0, 10).join("；")}`
         : "";
-      return base + snippetStr;
+      // Indented continuation lines rather than ` / ` fragments: four probes
+      // inline would bury the item's own identity line.
+      const probeStr = probeLines(brand.probes)
+        .map((line) => `\n   ${line}`)
+        .join("");
+      return base + snippetStr + probeStr;
     })
     .join("\n");
   const userContent = `請判斷以下項目是否為實際品牌：\n${list}`;

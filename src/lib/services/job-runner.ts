@@ -9,6 +9,7 @@ import {
 import {
   CURATION_TASKS,
   type CurationTask,
+  normalizeRequestedPhases,
   phasesForTask,
   parseLegacyStepsToPhases,
 } from "@/lib/constants/enrich-phases";
@@ -349,7 +350,10 @@ async function runSubmissionEnrichment(
       target: "submissions",
       submissionIds,
       status: params.status,
-      phases: resolvePhases(params) ?? config.phases ?? [...ENRICH_PHASES],
+      // `resolvePhases` always answers (its own default is the `full` closure),
+      // so there is no fall-through to `config.phases` or to the raw
+      // ENRICH_PHASES array — which would smuggle the deferred names back in.
+      phases: resolvePhases(params),
       explicitPhases: params.phases ?? [],
     },
     operationSupabase(supabase),
@@ -375,35 +379,35 @@ function parseStatus(value: unknown): BrandStatus | undefined {
     : undefined;
 }
 
+/**
+ * `expansion` was renamed to `reputation` (2026-08-03); `reputation` was
+ * removed entirely (2026-08-31). Neither is a phase name any more, so they are
+ * dropped BEFORE normalization rather than mapped: a row naming only these has
+ * no scope at all and must fall through to `task`/`steps`, not escalate.
+ */
 const RETIRED_ENRICH_PHASES = new Set(["expansion", "reputation"]);
 
 /**
- * Drops retired phase names from historical jobs. `expansion` was renamed to
- * `reputation` (2026-08-03); `reputation` removed entirely (2026-08-31).
- * The filter on line 401 already drops unknown names, but normalizing here
- * prevents `expansion` from being carried as a valid-looking but unrecognized
- * string into other code paths.
+ * Reads `params.phases` from a stored job row. Recognized names are normalized
+ * (retired names mapped, deferred names dropped — see
+ * `normalizeRequestedPhases`); a row naming nothing recognizable returns
+ * undefined so the caller falls through to the next precedence level.
  */
-function normalizeLegacyEnrichPhase(phase: string): string {
-  return RETIRED_ENRICH_PHASES.has(phase) ? "" : phase;
-}
-
 function parseEnrichPhases(value: unknown): EnrichPhase[] | undefined {
   if (!Array.isArray(value)) {
     return undefined;
   }
 
-  const phases = value
-    .map((phase) =>
-      typeof phase === "string" ? normalizeLegacyEnrichPhase(phase) : phase,
-    )
-    .filter(
-      (phase): phase is EnrichPhase =>
-        typeof phase === "string" &&
-        (ENRICH_PHASES as readonly string[]).includes(phase),
-    );
+  const named = value.filter(
+    (phase): phase is string =>
+      typeof phase === "string" &&
+      !RETIRED_ENRICH_PHASES.has(phase) &&
+      (ENRICH_PHASES as readonly string[]).includes(phase),
+  );
 
-  return phases.length > 0 ? [...new Set(phases)] : undefined;
+  return named.length > 0
+    ? (normalizeRequestedPhases(named) as EnrichPhase[])
+    : undefined;
 }
 
 /**
@@ -431,16 +435,36 @@ function parseLegacyStepNames(value: unknown): string[] | undefined {
 
 /**
  * Resolve the effective phase list from job params.
- * Precedence: explicit phases > task > legacy steps > all phases.
+ * Precedence: explicit phases > task > legacy steps > the `full` closure.
+ *
+ * Every branch goes through `normalizeRequestedPhases`, so a deferred phase can
+ * never be scheduled no matter which vocabulary the stored row uses. The
+ * no-scope default is `phasesForTask('full')` and NOT `[...ENRICH_PHASES]`:
+ * that array still carries the deferred names, and scheduling one means
+ * scheduling a phase that no longer has a runner.
+ *
+ * Exported for the phase-resolution tests: a deferred name leaking out of here
+ * is invisible until a whole staging run has scraped nothing.
  */
-function resolvePhases(params: JobParams): EnrichPhase[] {
-  if (params.phases) return params.phases;
-  if (params.task) return phasesForTask(params.task) as EnrichPhase[];
+export function resolvePhases(params: JobParams): EnrichPhase[] {
+  if (params.phases) {
+    const normalized = normalizeRequestedPhases(params.phases) as EnrichPhase[];
+    return normalized.length > 0 ? normalized : fullPhases();
+  }
+  if (params.task) {
+    return normalizeRequestedPhases(
+      phasesForTask(params.task),
+    ) as EnrichPhase[];
+  }
   if (params.steps) {
     const fromSteps = parseLegacyStepsToPhases(params.steps);
-    return (fromSteps as EnrichPhase[] | undefined) ?? [...ENRICH_PHASES];
+    return (fromSteps as EnrichPhase[] | undefined) ?? fullPhases();
   }
-  return [...ENRICH_PHASES];
+  return fullPhases();
+}
+
+function fullPhases(): EnrichPhase[] {
+  return phasesForTask("full") as EnrichPhase[];
 }
 
 function progressJson(targets: CurationJobTarget[]): Json {

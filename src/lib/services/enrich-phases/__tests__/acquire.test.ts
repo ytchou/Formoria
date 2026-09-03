@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import {
   deriveOfficialNameCandidates,
   deriveOfficialWebsite,
@@ -7,6 +7,15 @@ import {
   runAcquirePhase,
 } from '../acquire'
 import type { EnrichBrand, EnrichPhase } from '../types'
+import type { EnrichmentTarget } from '../../_shared/enrichment-target'
+import type {
+  ClassifiedImage,
+  ClassifyStoredImagesOptions,
+  ClassifyStoredImagesResult,
+  HeroOrderOutcome,
+  PlannedImageWrite,
+} from '../classify-images'
+import type { BrandImageSearchOutcome } from '../scraper/types'
 import { emptyResult } from '../scraper/parse/extractors'
 import { mergeScrapedData } from '../scraper/merge'
 
@@ -332,33 +341,79 @@ describe('first-party bilingual name evidence', () => {
 })
 
 describe('runAcquirePhase', () => {
-  it('returns skipped when links is not in requested phases', async () => {
+  it('returns skipped when acquire is not in requested phases', async () => {
     const result = await runAcquirePhase({
       brand,
-      phases: ['clean'] as EnrichPhase[],
+      phases: ['detect'] as EnrichPhase[],
       discoveredUrls: ['https://www.instagram.com/testbrand/'],
       knownUrls: [],
     })
 
     expect(result.phaseResult.status).toBe('skipped')
+    expect(result.phaseResult.phase).toBe('acquire')
     expect(result.patch).toEqual({})
     // The scraped title is a candidate for the names phase, never a patch key.
     expect(result.scrapedBrandName).toBeNull()
     expect(result.scrapedData).toBeNull()
   })
 
-  it('returns empty jsonLdImageUrls when links phase is skipped', async () => {
+  it('returns empty jsonLdImageUrls when the acquire phase is skipped', async () => {
     const result = await runAcquirePhase({
       brand,
-      phases: ['clean'] as EnrichPhase[],
+      phases: ['detect'] as EnrichPhase[],
       discoveredUrls: [],
       knownUrls: [],
     })
     expect(result.jsonLdImageUrls).toEqual([])
   })
+
+  it('acquire_runs_when_phases_contains_acquire', async () => {
+    scraperMocks.scrapeBrandUrls.mockReset()
+    acquisitionMocks.runAcquisition.mockResolvedValue({
+      agentOutcome: 'fallback',
+      decisions: [],
+    })
+    scraperMocks.scrapeBrandUrls.mockResolvedValue({
+      data: {
+        ...emptyResult('https://testbrand.com'),
+        purchaseWebsite: 'https://testbrand.com',
+        purchase_website: 'https://testbrand.com',
+      },
+      statuses: [],
+    })
+
+    const result = await runAcquirePhase({
+      brand,
+      phases: ['acquire'] as EnrichPhase[],
+      discoveredUrls: ['https://testbrand.com/about'],
+      knownUrls: [],
+    })
+
+    expect(result.phaseResult.status).toBe('succeeded')
+    // The phase owns the string `acquire` everywhere it is persisted:
+    // phase_results, satisfaction history, current_phase.
+    expect(result.phaseResult.phase).toBe('acquire')
+  })
+
+  it('acquire_does_not_run_on_the_retired_links_name', async () => {
+    // Normalization happens at the runner entry points, never here: a phase
+    // gates on its own name only (the sibling rule in products.ts/detect.ts).
+    scraperMocks.scrapeBrandUrls.mockReset()
+
+    const result = await runAcquirePhase({
+      brand,
+      phases: ['links'] as EnrichPhase[],
+      discoveredUrls: ['https://testbrand.com/about'],
+      knownUrls: [],
+    })
+
+    expect(result.phaseResult.status).toBe('skipped')
+    expect(result.phaseResult.phase).toBe('acquire')
+    expect(scraperMocks.scrapeBrandUrls).not.toHaveBeenCalled()
+  })
 })
 
-describe('links quarantine identity rules', () => {
+describe('acquire quarantine identity rules', () => {
   beforeEach(() => {
     scraperMocks.scrapeBrandUrls.mockReset()
     // Default: agent returns fallback so quarantine tests exercise the legacy path.
@@ -405,7 +460,7 @@ describe('links quarantine identity rules', () => {
   const run = async (overrides: Partial<Parameters<typeof runAcquirePhase>[0]>) =>
     runAcquirePhase({
       brand,
-      phases: ['links'] as EnrichPhase[],
+      phases: ['acquire'] as EnrichPhase[],
       discoveredUrls: [],
       knownUrls: [],
       ...overrides,
@@ -792,13 +847,13 @@ describe('acquisition agent integration', () => {
   const agentRun = (overrides: Partial<Parameters<typeof runAcquirePhase>[0]> = {}) =>
     runAcquirePhase({
       brand: agentBrand,
-      phases: ['links'] as EnrichPhase[],
+      phases: ['acquire'] as EnrichPhase[],
       discoveredUrls: ['https://agentbrand.com/about'],
       knownUrls: [],
       ...overrides,
     })
 
-  it('links_uses_agent_scrape_result_when_planned', async () => {
+  it('acquire_uses_agent_scrape_result_when_planned', async () => {
     vi.stubEnv('ACQUISITION_AGENT', 'on')
 
     const agentScrapeData = {
@@ -834,7 +889,103 @@ describe('acquisition agent integration', () => {
     vi.unstubAllEnvs()
   })
 
-  it('links_falls_back_to_legacy_path_when_agent_throws', async () => {
+  // A refresh whose link columns are already correct leaves an EMPTY patch. The
+  // first staging run reported `skipped` for 6/10 brands on exactly that, while
+  // the agent had planned, scraped text, classified images and found a catalog.
+  it('acquire_status_succeeded_when_agent_planned_with_images_but_empty_patch', async () => {
+    vi.stubEnv('ACQUISITION_AGENT', 'on')
+
+    const settledBrand: EnrichBrand = {
+      ...agentBrand,
+      purchase_website: 'https://agentbrand.com',
+    }
+    const agentScrapeData = {
+      ...emptyResult('https://agentbrand.com'),
+      purchaseWebsite: 'https://agentbrand.com',
+      purchase_website: 'https://agentbrand.com',
+      description: 'A ceramics studio in Yingge.',
+    }
+
+    acquisitionMocks.runAcquisition.mockResolvedValue({
+      agentOutcome: 'planned',
+      plan: {
+        surfaces: [
+          {
+            url: 'https://agentbrand.com',
+            fetch: 'static' as const,
+            reason: 'official site',
+            strategy: 'official-site' as const,
+          },
+        ],
+        fanOut: [],
+        catalog: { entryUrls: [], priorityProductUrls: [] },
+        socialBios: {},
+        decisions: [],
+      },
+      scrapeResult: { data: agentScrapeData, statuses: [] },
+      imagePool: [
+        { id: 'img-1', tag: 'product', score: 90, sourceUrl: 'https://agentbrand.com' },
+      ],
+      catalogResult: {
+        triples: [
+          {
+            url: 'https://agentbrand.com/products/cup',
+            title: 'Cup',
+            imageUrl: 'https://agentbrand.com/cup.jpg',
+            platform: 'generic' as const,
+            supplier: 'official',
+            sourceUrl: 'https://agentbrand.com',
+            sourcePosition: 0,
+          },
+        ],
+        attempts: [],
+        evidence: new Map(),
+      },
+      decisions: [],
+    })
+
+    const result = await agentRun({ brand: settledBrand })
+
+    // The patch really is empty — the status is about the evidence, not the diff.
+    expect(result.patch).toEqual({})
+    expect(result.phaseResult.status).toBe('succeeded')
+    expect(result.phaseResult.changedFields).toEqual(
+      expect.arrayContaining(['images', 'catalog']),
+    )
+
+    vi.unstubAllEnvs()
+  })
+
+  it('acquire_status_skipped_when_nothing_acquired', async () => {
+    vi.stubEnv('ACQUISITION_AGENT', 'on')
+
+    const settledBrand: EnrichBrand = {
+      ...agentBrand,
+      purchase_website: 'https://agentbrand.com',
+    }
+
+    acquisitionMocks.runAcquisition.mockResolvedValue({
+      agentOutcome: 'fallback',
+      decisions: [],
+    })
+    scraperMocks.scrapeBrandUrls.mockResolvedValue({
+      data: emptyResult('https://agentbrand.com'),
+      statuses: [],
+    })
+
+    const result = await agentRun({
+      brand: settledBrand,
+      discoveredUrls: ['https://agentbrand.com'],
+    })
+
+    expect(result.patch).toEqual({})
+    expect(result.phaseResult.status).toBe('skipped')
+    expect(result.phaseResult.changedFields).toEqual([])
+
+    vi.unstubAllEnvs()
+  })
+
+  it('acquire_falls_back_to_legacy_path_when_agent_throws', async () => {
     vi.stubEnv('ACQUISITION_AGENT', 'on')
 
     acquisitionMocks.runAcquisition.mockRejectedValue(new Error('agent crashed'))
@@ -859,7 +1010,7 @@ describe('acquisition agent integration', () => {
     vi.unstubAllEnvs()
   })
 
-  it('links_env_off_skips_agent_entirely', async () => {
+  it('acquire_env_off_skips_agent_entirely', async () => {
     vi.stubEnv('ACQUISITION_AGENT', 'off')
 
     scraperMocks.scrapeBrandUrls.mockResolvedValue({
@@ -880,15 +1031,457 @@ describe('acquisition agent integration', () => {
     vi.unstubAllEnvs()
   })
 
-  it('links_phase_not_requested_still_returns_skipped', async () => {
+  it('acquire_phase_not_requested_still_returns_skipped', async () => {
     const result = await runAcquirePhase({
       brand: agentBrand,
-      phases: ['clean'] as EnrichPhase[],
+      phases: ['detect'] as EnrichPhase[],
       discoveredUrls: [],
       knownUrls: [],
     })
     expect(result.phaseResult.status).toBe('skipped')
+    expect(result.phaseResult.phase).toBe('acquire')
     expect(result.acquisitionPlan).toBeUndefined()
   })
 })
 
+
+
+/**
+ * The acquire fold (DEV-1644 PR 4, task 4).
+ *
+ * Before this, `runAcquirePhase` handed the agent three dependencies, so the
+ * images / catalog / recovery-search nodes never ran in production: no image was
+ * downloaded or classified, no catalog was discovered, the critique's
+ * `urlVerdicts` had no consumer, and `providerFailure` was never set. These
+ * cases pin the wiring — every dependency injected, and the DB writes performed
+ * by the phase after the agent returns.
+ *
+ * Fakes go through the `deps` seam rather than a module mock:
+ * `scripts/check-test-boundaries.mjs` refuses a service or Supabase mock, and a
+ * seam is what lets the write path be asserted without a live client.
+ */
+describe('acquire fold', () => {
+  const FOLD_SITE = 'https://foldbrand.com'
+  const FOLD_PINKOI = 'https://www.pinkoi.com/store/foldbrand'
+  const FOLD_PAGE = `${FOLD_SITE}/products/plate`
+
+  const foldBrand: EnrichBrand = {
+    id: 'brand-fold',
+    slug: 'fold-brand',
+    name: 'Fold Brand',
+    category: 'home',
+    purchase_website: FOLD_SITE,
+    purchase_pinkoi: FOLD_PINKOI,
+    purchase_shopee: null,
+    social_instagram: null,
+    social_threads: null,
+    social_facebook: null,
+  }
+
+  const agentData = (overrides: Record<string, unknown> = {}) => ({
+    ...emptyResult(FOLD_SITE),
+    purchaseWebsite: FOLD_SITE,
+    purchase_website: FOLD_SITE,
+    ...overrides,
+  })
+
+  const classifiedImage = (): ClassifiedImage => ({
+    id: 'image-1',
+    tag: 'product',
+    score: 82,
+    disposition: 'keep',
+    storage_path: 'brands/fold/image-1.jpg',
+    width: 1200,
+    height: 900,
+    sourceUrl: FOLD_PAGE,
+  })
+
+  const plannedWrite: PlannedImageWrite = {
+    id: 'image-1',
+    row: { tags: ['product'], score: 82 },
+  }
+
+  /** A classify seam that records its calls and returns one keep verdict. */
+  const stubClassify = () => {
+    const calls: ClassifyStoredImagesOptions[] = []
+    const fn = async (
+      options: ClassifyStoredImagesOptions,
+    ): Promise<ClassifyStoredImagesResult> => {
+      calls.push(options)
+      return {
+        classified: [classifiedImage()],
+        writes: [plannedWrite],
+        rejectedCount: 0,
+        unjudgedCount: 0,
+        unavailableCount: 0,
+        attemptedBatches: 1,
+        failures: [],
+        candidateCount: 1,
+        skipped: null,
+      }
+    }
+    return { fn, calls }
+  }
+
+  const stubWrites = () =>
+    vi.fn(
+      async (
+        _supabase: unknown,
+        _target: EnrichmentTarget,
+        _writes: readonly PlannedImageWrite[],
+      ): Promise<void> => {},
+    )
+
+  const stubHero = () =>
+    vi.fn(
+      async (
+        _supabase: unknown,
+        _target: EnrichmentTarget,
+        _options: { mode: 'classify' | 'resort' },
+      ): Promise<HeroOrderOutcome> => ({
+        assignments: [],
+        candidateIds: [],
+        demotedIds: [],
+        rejectedIds: [],
+        heroStoragePath: 'brands/fold/image-1.jpg',
+      }),
+    )
+
+  const stubDownload = () =>
+    vi.fn(async (_candidates: unknown[], _target: unknown): Promise<(string | null)[]> => [
+      'brands/fold/image-1.jpg',
+    ])
+
+  // Declares its parameter so the profile key can be asserted; the phase must
+  // ask the shared runtime for the `acquisition` profile, never build a model.
+  const model = vi.fn(async (_profileKey: string) => ({
+    invoke: async () => ({ content: '{}' }),
+  }))
+
+  const foldRun = (overrides: Partial<Parameters<typeof runAcquirePhase>[0]> = {}) =>
+    runAcquirePhase({
+      brand: foldBrand,
+      phases: ['acquire'] as EnrichPhase[],
+      discoveredUrls: [`${FOLD_SITE}/about`],
+      knownUrls: [FOLD_SITE],
+      supabase: {} as never,
+      jobId: 'job-fold',
+      ...overrides,
+      deps: { createAgentModel: model, ...(overrides.deps ?? {}) },
+    })
+
+  const plannedAgent = (output: Record<string, unknown> = {}) =>
+    acquisitionMocks.runAcquisition.mockResolvedValue({
+      agentOutcome: 'planned',
+      scrapeResult: { data: agentData(), statuses: [] },
+      decisions: [],
+      ...output,
+    })
+
+  beforeEach(() => {
+    scraperMocks.scrapeBrandUrls.mockReset()
+    acquisitionMocks.runAcquisition.mockReset()
+    model.mockClear()
+    vi.stubEnv('ACQUISITION_AGENT', 'on')
+  })
+
+  afterEach(() => {
+    vi.unstubAllEnvs()
+  })
+
+  it('acquire_injects_all_agent_deps_in_production_path', async () => {
+    plannedAgent()
+
+    await foldRun()
+
+    const deps = acquisitionMocks.runAcquisition.mock.calls[0][1]
+    for (const name of [
+      'fetchHtml',
+      'scrapeBrandUrls',
+      'downloadAndStoreImages',
+      'classifyImages',
+      'discoverCatalog',
+      'searchBrand',
+      'searchImages',
+    ]) {
+      expect(typeof deps[name], `${name} must be injected`).toBe('function')
+    }
+    expect(deps.catalogSources).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ url: FOLD_SITE, channel: 'official' }),
+        expect.objectContaining({ url: FOLD_PINKOI, channel: 'pinkoi' }),
+      ]),
+    )
+  })
+
+  it('acquire_uses_createAgentModel_acquisition', async () => {
+    plannedAgent()
+
+    await foldRun()
+
+    // The runtime factory is the one that omits `response_format: json_object`,
+    // which OpenAI refuses alongside the plan node's four bound tools.
+    expect(model).toHaveBeenCalledWith('acquisition')
+    expect(acquisitionMocks.runAcquisition.mock.calls[0][2].model).toBeDefined()
+  })
+
+  it('acquire_writes_images_after_agent', async () => {
+    const classify = stubClassify()
+    const applyPlannedImageWrites = stubWrites()
+    const finalizeHeroOrder = stubHero()
+    const downloadAndStoreImages = stubDownload()
+
+    acquisitionMocks.runAcquisition.mockImplementation(async (_input, deps) => {
+      await deps.downloadAndStoreImages(
+        [{ url: `${FOLD_SITE}/img/plate.jpg`, source: 'scrape', pageUrl: FOLD_PAGE }],
+        foldBrand.id,
+      )
+      const pool = await deps.classifyImages(foldBrand.id, false)
+      return {
+        agentOutcome: 'planned',
+        scrapeResult: { data: agentData(), statuses: [] },
+        imagePool: pool,
+        decisions: [],
+      }
+    })
+
+    const result = await foldRun({
+      deps: {
+        classifyStoredImages: classify.fn,
+        applyPlannedImageWrites,
+        finalizeHeroOrder,
+        downloadAndStoreImages,
+      },
+    })
+
+    expect(downloadAndStoreImages).toHaveBeenCalledTimes(1)
+    expect(classify.calls).toHaveLength(1)
+    expect(applyPlannedImageWrites).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({ type: 'brand', id: foldBrand.id }),
+      [plannedWrite],
+    )
+    // A brand target denormalizes its hero inside `finalizeHeroOrder`; what this
+    // phase owns is that the re-rank runs at all, in classify mode.
+    expect(finalizeHeroOrder).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({ type: 'brand', id: foldBrand.id }),
+      { mode: 'classify' },
+    )
+    expect(result.imagePool).toHaveLength(1)
+  })
+
+  it('acquire_dry_run_writes_nothing', async () => {
+    const classify = stubClassify()
+    const applyPlannedImageWrites = stubWrites()
+    const finalizeHeroOrder = stubHero()
+    const downloadAndStoreImages = stubDownload()
+    plannedAgent()
+
+    await foldRun({
+      dryRun: true,
+      deps: {
+        classifyStoredImages: classify.fn,
+        applyPlannedImageWrites,
+        finalizeHeroOrder,
+        downloadAndStoreImages,
+      },
+    })
+
+    // The download and classify seams are not even handed to the agent, so a dry
+    // run cannot store or judge an image however the graph behaves.
+    const deps = acquisitionMocks.runAcquisition.mock.calls[0][1]
+    expect(deps.downloadAndStoreImages).toBeUndefined()
+    expect(deps.classifyImages).toBeUndefined()
+    expect(downloadAndStoreImages).not.toHaveBeenCalled()
+    expect(classify.calls).toHaveLength(0)
+    expect(applyPlannedImageWrites).not.toHaveBeenCalled()
+    expect(finalizeHeroOrder).not.toHaveBeenCalled()
+  })
+
+  const quarantinedRun = (confidence: 'high' | 'medium') => {
+    // A zero-Latin-token name takes `resolveOfficialWebsite`'s fallback, so the
+    // proposed website is unconfirmed — the one quarantine group this phase can
+    // produce for a website subject.
+    acquisitionMocks.runAcquisition.mockResolvedValue({
+      agentOutcome: 'planned',
+      scrapeResult: { data: emptyResult('https://some-shop.tw'), statuses: [] },
+      urlVerdicts: [
+        {
+          url: 'https://some-shop.tw',
+          owned: false,
+          confidence,
+          reason: 'a different company',
+        },
+      ],
+      decisions: [],
+    })
+
+    return foldRun({
+      brand: { ...foldBrand, name: '茶籽堂', purchase_website: null, purchase_pinkoi: null },
+      knownUrls: [],
+      discoveredUrls: ['https://some-shop.tw/about'],
+    })
+  }
+
+  it('acquire_revokes_on_high_confidence_not_owned', async () => {
+    const result = await quarantinedRun('high')
+
+    expect(result.patch.purchase_website).toBeUndefined()
+    expect(result.revokedColumns).toContain('purchase_website')
+    expect(result.phaseResult.revokedColumns).toContain('purchase_website')
+  })
+
+  it('acquire_releases_on_medium_confidence', async () => {
+    const result = await quarantinedRun('medium')
+
+    expect(result.patch.purchase_website).toBe('https://some-shop.tw')
+    expect(result.revokedColumns).toEqual([])
+    expect(result.phaseResult.revokedColumns).toBeUndefined()
+  })
+
+  it('acquire_sets_provider_failure_from_agent', async () => {
+    plannedAgent({ providerFailure: true })
+
+    const result = await foldRun()
+
+    expect(result.providerFailure).toBe(true)
+    expect(result.phaseResult.providerFailure).toBe(true)
+  })
+
+  it('acquire_output_carries_image_pool_catalog_and_page_urls', async () => {
+    plannedAgent({
+      imagePool: [classifiedImage()],
+      catalogResult: {
+        triples: [
+          {
+            url: FOLD_PAGE,
+            title: 'Plate',
+            imageUrl: `${FOLD_SITE}/img/plate.jpg`,
+            platform: 'generic',
+            supplier: 'catalog:generic',
+            sourceUrl: FOLD_SITE,
+            sourcePosition: 0,
+          },
+        ],
+        attempts: [],
+        evidence: new Map(),
+      },
+      acquisitionPageUrls: [FOLD_PAGE],
+    })
+
+    const result = await foldRun()
+
+    expect(result.imagePool).toHaveLength(1)
+    expect(result.imagePool[0]!.sourceUrl).toBe(FOLD_PAGE)
+    expect(result.catalogResult?.triples).toHaveLength(1)
+    expect(result.acquisitionPageUrls).toEqual([FOLD_PAGE])
+    // What is PERSISTED is the compact summary, not the full pool.
+    expect(result.phaseResult.imagePool).toEqual([
+      { id: 'image-1', tag: 'product', score: 82, sourceUrl: FOLD_PAGE },
+    ])
+  })
+
+  it('acquire_search_deps_write_brand_search_results_rows', async () => {
+    // `search_type` is decided inside the serper client — `serp` for
+    // `searchBrandUrls`, `image` for `batchSearchBrandImages` — so what this
+    // phase owns is handing both of them the audit context that keys the
+    // `brand_search_results` row to this target and job.
+    const searchBrandUrls = vi.fn(
+      async (_name: string, _template?: unknown, _audit?: unknown): Promise<string[]> => [
+        'https://found.example',
+      ],
+    )
+    const batchSearchBrandImages = vi.fn(
+      async (
+        _inputs: unknown[],
+        _concurrency?: number,
+        _template?: unknown,
+        _resolver?: unknown,
+      ): Promise<Map<string, BrandImageSearchOutcome>> =>
+        new Map([
+          [
+            'Fold Brand',
+            {
+              rows: [{ url: 'https://found.example/i.jpg', query: 'Fold Brand' }],
+              callStatus: 'succeeded' as const,
+              httpStatus: null,
+              error: null,
+            },
+          ],
+        ]),
+    )
+
+    let searchedUrls: string[] = []
+    let searchedImages: string[] = []
+    acquisitionMocks.runAcquisition.mockImplementation(async (_input, deps) => {
+      searchedUrls = (await deps.searchBrand('Fold Brand')).urls
+      searchedImages = await deps.searchImages({
+        brandName: 'Fold Brand',
+        websiteHost: 'foldbrand.com',
+      })
+      return {
+        agentOutcome: 'planned',
+        scrapeResult: { data: agentData(), statuses: [] },
+        decisions: [],
+      }
+    })
+
+    await foldRun({ deps: { searchBrandUrls, batchSearchBrandImages } })
+
+    expect(searchedUrls).toEqual(['https://found.example'])
+    expect(searchedImages).toEqual(['https://found.example/i.jpg'])
+    expect(searchBrandUrls.mock.calls[0]![2]).toMatchObject({
+      target: { type: 'brand', id: foldBrand.id },
+      jobId: 'job-fold',
+      config: { phase: 'acquire' },
+    })
+    const resolver = batchSearchBrandImages.mock.calls[0]![3] as () => unknown
+    expect(resolver()).toMatchObject({
+      target: { type: 'brand', id: foldBrand.id },
+      jobId: 'job-fold',
+      config: { phase: 'acquire' },
+    })
+  })
+
+  it('acquire_fallback_still_produces_images', async () => {
+    // `images` and `classify_images` are deferred, so the legacy path is now the
+    // only thing standing between a fallback brand and having no image at all.
+    vi.stubEnv('ACQUISITION_AGENT', 'off')
+    const classify = stubClassify()
+    const applyPlannedImageWrites = stubWrites()
+    const finalizeHeroOrder = stubHero()
+    const downloadAndStoreImages = stubDownload()
+
+    scraperMocks.scrapeBrandUrls.mockResolvedValue({
+      data: agentData({
+        galleryImageUrls: [`${FOLD_SITE}/img/plate.jpg`],
+        imageSources: [
+          {
+            url: `${FOLD_SITE}/img/plate.jpg`,
+            method: 'crawl',
+            pageUrl: FOLD_PAGE,
+            position: 0,
+          },
+        ],
+      }),
+      statuses: [],
+    })
+
+    const result = await foldRun({
+      deps: {
+        classifyStoredImages: classify.fn,
+        applyPlannedImageWrites,
+        finalizeHeroOrder,
+        downloadAndStoreImages,
+      },
+    })
+
+    expect(acquisitionMocks.runAcquisition).not.toHaveBeenCalled()
+    expect(downloadAndStoreImages).toHaveBeenCalledTimes(1)
+    expect(applyPlannedImageWrites).toHaveBeenCalledTimes(1)
+    expect(finalizeHeroOrder).toHaveBeenCalledTimes(1)
+    expect(result.imagePool).toHaveLength(1)
+    expect(result.acquisitionPageUrls).toEqual([FOLD_PAGE])
+  })
+})

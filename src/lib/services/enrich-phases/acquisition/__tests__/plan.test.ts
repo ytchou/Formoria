@@ -1,10 +1,11 @@
 import { describe, expect, it } from 'vitest'
 import {
   AcquisitionPlan,
-  toStrictJsonSchema,
   planToDirectives,
   boundedPlan,
 } from '../plan'
+// The single Zod → JSON Schema converter. `plan.ts` used to keep a local copy.
+import { toStrictJsonSchema } from '../../../_shared/zod-schema'
 
 describe('AcquisitionPlan', () => {
   const validPlan = {
