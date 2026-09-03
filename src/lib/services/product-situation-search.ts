@@ -14,8 +14,6 @@ import * as Sentry from "@sentry/nextjs";
 
 import type { CatalogProduct } from "@/lib/services/curated-products-catalog";
 
-export type { CatalogProduct };
-
 export type SearchMode = "hybrid" | "vector" | "lexical";
 
 export type SearchInput = {
@@ -100,7 +98,7 @@ export function normalizeSituationQuery(raw: string): string {
 // Dependency injection
 // ---------------------------------------------------------------------------
 
-export type EmbedFn = (
+type EmbedFn = (
   text: string,
   ctx: { phase: string; jobId?: string },
 ) => Promise<number[]>;
@@ -148,8 +146,11 @@ function defaultDeps(): SearchDeps {
       const result = await auditedClient.embed([text]);
       return result.vectors[0]!;
     },
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- RPC not in generated types until migration apply + db:types
-    rpc: (name, params) => (client.rpc as any)(name, params),
+    rpc: async (name, params) => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- RpcFn uses string keys for the test seam; Supabase .rpc() expects literal function names
+      const { data, error } = await client.rpc(name as "search_products_semantic", params as any);
+      return { data: data as RpcRow[] | null, error };
+    },
     hydrate: async ({ ids }) => {
       const result = await getPublishedCuratedProducts({ ids });
       return result.products;
@@ -160,8 +161,7 @@ function defaultDeps(): SearchDeps {
     },
     now: () => Date.now(),
     readProductEmbedding: async (productId: string) => {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- table not in generated types
-      const { data, error } = await (client as any)
+      const { data, error } = await client
         .from("product_embeddings")
         .select("embedding")
         .eq("product_id", productId)

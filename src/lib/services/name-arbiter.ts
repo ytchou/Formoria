@@ -62,14 +62,14 @@ export type NameVerdict = {
 
 const confidenceShape = z.enum(["high", "medium", "low"]);
 
-export const nameVerdictItemShape = z.object({
+const nameVerdictItemShape = z.object({
   slug: z.string(),
   chosen: z.string(),
   confidence: confidenceShape,
   reason: z.string(),
 });
 
-export const nameArbitrationShape = z.object({
+const nameArbitrationShape = z.object({
   results: z.array(nameVerdictItemShape),
 });
 

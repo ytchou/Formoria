@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { auditedCall, type AuditCallContext } from "@/lib/audit";
-import { IMAGE_CLASSIFY_SYSTEM_PROMPT } from "@/lib/prompts";
+import { IMAGE_CLASSIFY_SYSTEM_PROMPT } from "@/lib/prompts/classify-images";
 import { L1_CATEGORIES } from "@/lib/taxonomy/ontology";
 import {
   BRAND_IMAGE_LOGO_TAG,
@@ -26,8 +26,7 @@ import {
   profileChatParams,
 } from "../llm-audit";
 import { syncHeroDenormalized, type BrandImageRow } from "../brand-images";
-import { loadVisionDataUri } from "../vision-image";
-import { IMAGE_DOWNLOAD_CONCURRENCY } from "../image-download";
+import { visionStorageKey, encodeVisionDownload } from "../vision-image";
 import { mapWithConcurrency } from "../_shared/concurrency";
 import { createServiceClient } from "@/lib/supabase/service";
 import type { PhaseResult } from "@/lib/types/curation";
@@ -65,6 +64,36 @@ import { preferPatched } from "./descriptions";
  * demonstrated, so this stops at ten.
  */
 export const IMAGE_CLASSIFY_BATCH_SIZE = 10;
+
+const IMAGE_DOWNLOAD_CONCURRENCY = 4;
+const BRAND_IMAGES_BUCKET = "brand-images";
+
+async function loadVisionDataUri(image: {
+  storage_path?: string | null;
+  url?: string | null;
+}): Promise<string | null> {
+  const key = visionStorageKey(image);
+  if (!key) return null;
+  return auditedCall(
+    { provider: "images", operation: "loadVisionImage", kind: "service" },
+    async (ctx) => {
+      ctx.summary.key = key;
+      try {
+        const supabase = createServiceClient();
+        const { data, error } = await supabase.storage
+          .from(BRAND_IMAGES_BUCKET)
+          .download(key);
+        ctx.summary.bytes = data?.size ?? null;
+        return await encodeVisionDownload(key, { data, error });
+      } catch (error) {
+        console.error("[vision-image] load failed", { key, error });
+        ctx.summary.error =
+          error instanceof Error ? error.message : String(error);
+        return null;
+      }
+    },
+  );
+}
 
 /**
  * LEGACY. The seven-value vocabulary rows were written with before the

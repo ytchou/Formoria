@@ -20,7 +20,7 @@ export interface ExpectedCronJob {
  * "silently unscheduled" detectable. Keep this in sync with the cron migration.
  *
  * KNOWN BLIND SPOT (DEV-1558, audited 2026-08-22): production runs six
- * pg_cron jobs and this detector can see only these two. The other four —
+ * pg_cron jobs and this detector can see only these. The other four —
  * `purge-external-call-audit`, `purge-admin-audit-log`, `cron-http-retention`,
  * `cron-http-snapshot` — are pure SQL. They never call `net.http_post`, so they
  * write no `cron_http_dispatch` row and produce no `cron_http_log` row, and a
@@ -45,6 +45,10 @@ export const EXPECTED_CRON_JOBS: readonly ExpectedCronJob[] = [
   // its HTTP endpoint is gone, so the job would have 404'd on every run.
   //
   { jobName: "classifier-image-retention-6h", maxAgeHours: 25 }, // daily 03:15 Taipei
+  // daily 21:45 UTC (05:45 Taipei). Reports stale on production until the
+  // migration (20260903100300) is hand-applied — a known false positive that
+  // self-resolves; see CLAUDE.md "Railway migrations".
+  { jobName: "product-embeddings-nightly", maxAgeHours: 25 },
   { jobName: "sync-mit-registry-weekly", maxAgeHours: 192 },
 ] as const;
 

@@ -17,9 +17,9 @@ import { upgradeEcommerceImageUrl } from './scraper/parse/extractors'
 import type { RenderProvider } from './scraper/render/types'
 import { extractRenderedMainText } from './scraper/product-origin-text'
 
-export type CatalogZeroReason = 'no_catalog' | 'render_blocked' | 'route_broken'
+type CatalogZeroReason = 'no_catalog' | 'render_blocked' | 'route_broken'
 
-export type CatalogProductTriple = {
+type CatalogProductTriple = {
   url: string
   title: string
   imageUrl: string
@@ -31,13 +31,13 @@ export type CatalogProductTriple = {
   group?: string
 }
 
-export type CatalogEvidence = {
+type CatalogEvidence = {
   title: string | null
   text: string
   imageUrls: string[]
 }
 
-export type CatalogAttemptSummary = {
+type CatalogAttemptSummary = {
   sourceUrl: string
   platform: PlatformId | 'generic'
   extractor: string
@@ -65,7 +65,7 @@ export type CatalogSource = {
   url: string
   channel: 'official' | 'pinkoi' | 'shopee' | 'myship'
 }
-export type CatalogFetchResult = {
+type CatalogFetchResult = {
   text: string | null
   status: number | null
   error: string | null

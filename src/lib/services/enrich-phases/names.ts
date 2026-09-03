@@ -56,7 +56,7 @@ type NamesApplication = {
   patch: EnrichPatch;
 };
 
-export function normalizeCandidates(
+function normalizeCandidates(
   storedName: string,
   candidates: NameCandidate[],
 ): NameCandidate[] {
@@ -178,7 +178,7 @@ function isAcceptedConfidence(
  * production would ship rather than a re-typed copy of this condition that can
  * silently drift.
  */
-export function resolveArbitratedName(
+function resolveArbitratedName(
   verdict: NameVerdict | undefined,
   normalizedCandidates: NameCandidate[],
   storedName: string,

@@ -57,7 +57,7 @@ type UnknownRecord = Record<string, unknown>;
 
 const confidenceShape = z.enum(["high", "medium", "low"]);
 
-export const siteIdentityVerdictItemShape = z.object({
+const siteIdentityVerdictItemShape = z.object({
   slug: z.string(),
   subjectUrl: z.string(),
   owned: z.boolean(),
@@ -65,7 +65,7 @@ export const siteIdentityVerdictItemShape = z.object({
   reason: z.string(),
 });
 
-export const siteIdentityShape = z.object({
+const siteIdentityShape = z.object({
   results: z.array(siteIdentityVerdictItemShape),
 });
 
@@ -157,7 +157,7 @@ function formatSiteIdentityItem(item: SiteIdentityItem, index: number): string {
   return String(index + 1) + ". [" + item.slug + "] " + fields.join(" / ");
 }
 
-export function buildSiteIdentityUserContent(items: SiteIdentityItem[]): string {
+function buildSiteIdentityUserContent(items: SiteIdentityItem[]): string {
   const list = items
     .map((item, index) => formatSiteIdentityItem(item, index))
     .join("\n");

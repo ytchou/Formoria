@@ -23,7 +23,7 @@ export interface CurationConfig {
   jobId?: string;
 }
 
-export interface CurationPatchEvent {
+interface CurationPatchEvent {
   targetId: string;
   targetType: "submission" | "brand";
   slug: string;

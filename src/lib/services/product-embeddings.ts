@@ -106,10 +106,10 @@ async function defaultReader(limit: number): Promise<ReaderResult> {
   let from = 0;
   while (documents.length < limit) {
     const pageSize = Math.min(PAGE_SIZE, limit - documents.length);
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- table not in generated types until migration apply + db:types
-    const { data, error } = await (supabase as any)
+    const { data, error } = await supabase
       .from("product_embedding_documents")
       .select("product_id, source_hash, document")
+      .returns<DocumentRow[]>()
       .order("product_id")
       .range(from, from + pageSize - 1);
     if (error) throw new Error(error.message);
@@ -122,8 +122,7 @@ async function defaultReader(limit: number): Promise<ReaderResult> {
   const existing: ExistingRow[] = [];
   let existingFrom = 0;
   while (true) {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- table not in generated types until migration apply + db:types
-    const { data: existingPage, error: existingError } = await (supabase as any)
+    const { data: existingPage, error: existingError } = await supabase
       .from("product_embeddings")
       .select("product_id, source_hash")
       .order("product_id")
@@ -143,16 +142,14 @@ async function defaultWriter(input: WriterInput): Promise<void> {
   const supabase = createServiceClient();
 
   if (input.upserts.length > 0) {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- table not in generated types until migration apply + db:types
-    const { error } = await (supabase as any)
+    const { error } = await supabase
       .from("product_embeddings")
       .upsert(input.upserts, { onConflict: "product_id" });
     if (error) throw new Error(error.message);
   }
 
   if (input.deletes.length > 0) {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- table not in generated types until migration apply + db:types
-    const { error } = await (supabase as any)
+    const { error } = await supabase
       .from("product_embeddings")
       .delete()
       .in("product_id", input.deletes);

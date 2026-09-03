@@ -3,7 +3,6 @@
   "entry": [
     "src/app/**/{page,layout,route,template,error,not-found,loading,opengraph-image,twitter-image,icon,apple-icon,global-error,robots,sitemap}.{ts,tsx}",
     "scripts/**/*.{ts,mjs}",
-    "src/curation-worker/server.ts",
     "emails/**/*.{ts,tsx}"
   ],
   "project": [
@@ -18,9 +17,8 @@
     "@react-email/ui",
     "react-simple-maps"
   ],
-  "ignoreBinaries": ["gh", "lsof", "psql", "python3", "tesseract"],
+  "ignoreBinaries": ["gh", "lsof", "psql", "python3"],
   "ignore": [
-    "src/lib/supabase/database.types.ts",
     "scripts/threads-scraper/.venv/**"
   ],
   "ignoreIssues": {

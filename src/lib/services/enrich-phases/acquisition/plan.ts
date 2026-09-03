@@ -19,7 +19,7 @@ const DecisionSchema = z.object({
 }).strict()
 
 /** Fetches the scraper will actually perform: `skip` surfaces are decisions, not fetches. */
-export const MAX_FETCH_TARGETS = 6
+const MAX_FETCH_TARGETS = 6
 
 /**
  * The agent's structured plan for evidence acquisition. The cap applies to
