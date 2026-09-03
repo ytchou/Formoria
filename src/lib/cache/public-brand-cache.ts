@@ -11,7 +11,7 @@ export const PUBLIC_BRAND_DATA_TAG = 'public-brand-data'
  * canonical URL that readers actually request; purging `/zh-TW/...` does not
  * invalidate the prefixless cache entry.
  */
-export function revalidateLocalizedPath(path: string): void {
+function revalidateLocalizedPath(path: string): void {
   for (const locale of routing.locales) {
     revalidatePath(localizePath(path, locale))
   }

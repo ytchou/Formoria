@@ -1,4 +1,3 @@
-import { ChevronRight } from 'lucide-react'
 import type { AppLocale } from '@/i18n/locale-preference'
 import { localizePath } from '@/i18n/locale-preference'
 import { routes } from '@/lib/routes'
@@ -45,35 +44,4 @@ export function buildDirectoryBreadcrumbItems({
   }
 
   return items
-}
-
-export function DirectoryBreadcrumb({
-  ariaLabel,
-  ...input
-}: DirectoryBreadcrumbInput & { ariaLabel: string }) {
-  const items = buildDirectoryBreadcrumbItems(input)
-  if (items.length === 0) return null
-
-  return (
-    <nav aria-label={ariaLabel} className="mb-6">
-      <ol className="flex items-center gap-1.5 type-body-sm">
-        {items.map((item, index) => (
-          <li key={`${item.label}-${index}`} className="flex items-center gap-1.5">
-            {index > 0 ? (
-              <ChevronRight className="size-3.5" aria-hidden="true" />
-            ) : null}
-            {item.current || !item.href ? (
-              <span aria-current={item.current ? 'page' : undefined} className={item.current ? 'font-medium text-ink' : undefined}>
-                {item.label}
-              </span>
-            ) : (
-              <a href={item.href} className="transition-colors hover:text-ink">
-                {item.label}
-              </a>
-            )}
-          </li>
-        ))}
-      </ol>
-    </nav>
-  )
 }

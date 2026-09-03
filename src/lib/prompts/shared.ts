@@ -11,7 +11,7 @@ import {
 // kinds 陶藝・木工・插畫 → `home` (where `wall-art` lives). Keep this in step
 // with `SUBCATEGORY_VOCAB_BLOCK` below and with `HINT_KEYWORD_MAP` in
 // scripts/threads-scraper/finalize.ts.
-export const CATEGORY_EXAMPLES: Record<string, string> = {
+const CATEGORY_EXAMPLES: Record<string, string> = {
   fashion: "服飾、鞋履、上衣、褲子、洋裝等穿戴服裝",
   "bags-accessories": "包袋、皮件、帽子、圍巾、配件、皮革工藝",
   jewelry: "飾品、珠寶、耳環、項鍊、戒指、手鍊、金工",

@@ -9,7 +9,7 @@ import { dateLocale } from '@/i18n/locale-preference'
  * goes through here so the hub and the detail page fail the same way: they drop
  * the date, not the page.
  */
-export function toStoryDate(value: string | null | undefined): Date | null {
+function toStoryDate(value: string | null | undefined): Date | null {
   if (!value) return null
   const date = new Date(value)
   return Number.isNaN(date.getTime()) ? null : date

@@ -45,5 +45,3 @@ export function FilterToken({
   )
 }
 
-/** @deprecated Use `FilterToken` instead. Alias kept for backward compatibility. */
-export { FilterToken as DirectoryFilterToken }
