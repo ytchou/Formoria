@@ -38,6 +38,10 @@ const linksOutput = (): AcquirePhaseOutput => ({
   ],
   jsonLdImageUrls: ['https://other.example/b.jpg'],
   quarantine: {},
+  imagePool: [],
+  acquisitionPageUrls: [],
+  revokedColumns: [],
+  providerFailure: false,
 })
 const ctx = (phases: string[] = ['site_identity']) => ({
   chunk: [brand], chunkBrandNames: ['Han 茶'], phases: phases as never[], dryRun: false,

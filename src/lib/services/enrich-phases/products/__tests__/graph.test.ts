@@ -1,121 +1,160 @@
-import { describe, expect, it, vi } from 'vitest'
-
-// Mock external dependencies — only non-service modules (test-boundaries forbids @/lib/services/ mocks)
-const mocks = vi.hoisted(() => ({
-  auditedCall: vi.fn().mockImplementation((_spec: unknown, fn: (ctx: { summary: Record<string, unknown> }) => unknown) => fn({ summary: {} })),
-  fetchLangfusePrompt: vi.fn().mockImplementation((_name: string, fallback: string) => Promise.resolve(fallback)),
-  resolveProfileModel: vi.fn().mockReturnValue('gpt-test'),
-}))
-
-vi.mock('@/lib/audit', () => ({
-  auditedCall: mocks.auditedCall,
-}))
-
-vi.mock('@/lib/langfuse/prompt', () => ({
-  fetchLangfusePrompt: mocks.fetchLangfusePrompt,
-}))
-
-vi.mock('@/lib/constants/llm-models', () => ({
-  resolveProfileModel: mocks.resolveProfileModel,
-  LLM_PROFILES: { products: { model: 'text', temperature: 0.1, reasoningEffort: 'none', timeoutMs: 30_000 } },
-}))
-
-import { runProductsAgent, type ProductsInput, type ProductsDeps } from '../graph'
+import { beforeAll, describe, expect, it, vi } from 'vitest'
 import { AIMessage, type BaseMessage } from '@langchain/core/messages'
-import { RunnableLambda } from '@langchain/core/runnables'
+import { CompiledStateGraph } from '@langchain/langgraph'
+
+import {
+  buildProductsGraph,
+  createProductsRunContext,
+  runProductsAgent,
+  PRODUCTS_RECURSION_LIMIT,
+  type ProductsDeps,
+  type ProductsInput,
+} from '../graph'
+import { PRODUCTS_BUDGET_CEILINGS } from '../budget'
+
+// The prompt nodes call `fetchLangfusePrompt`, which returns its fallback when
+// no Langfuse client can be built. Blanking the credentials keeps that true even
+// if the shell that runs the suite happens to export them.
+beforeAll(() => {
+  vi.stubEnv('LANGFUSE_PUBLIC_KEY', '')
+  vi.stubEnv('LANGFUSE_SECRET_KEY', '')
+  vi.stubEnv('LANGFUSE_HOST', '')
+})
 
 // ---------------------------------------------------------------------------
-// Helpers
+// Fakes — no `vi.mock` of `@/lib/services/…` (check-test-boundaries.mjs). The
+// model arrives through `options.model`, everything else through `deps`.
 // ---------------------------------------------------------------------------
 
+/** A plain-object chat model, the shape `AgentModel` declares. */
 function scriptedModel(responses: string[]) {
   let index = 0
-  return new RunnableLambda({
-    func: async (_input: BaseMessage[]) => {
-      const content = responses[index++] ?? '{}'
-      return new AIMessage({
-        content,
-        usage_metadata: { input_tokens: 100, output_tokens: 50, total_tokens: 150 },
-      })
-    },
+  const invoke = vi.fn(async (_messages: BaseMessage[]) => {
+    const content = responses[index++] ?? responses.at(-1) ?? '{}'
+    return new AIMessage({
+      content,
+      usage_metadata: { input_tokens: 100, output_tokens: 50, total_tokens: 150 },
+    })
   })
+  return { invoke }
 }
 
-/** A valid model response that `validateProductProposals` will accept. */
-function validProposalResponse(overrides: Partial<{
-  products: unknown[]
-  url: string
-  category: string
-}> = {}): string {
-  const url = overrides.url ?? 'https://brand.com/product-a'
+const PAGE_HTML = (extra = '') =>
+  `<html><head><title>Product page</title>${extra}</head><body><main><p>A ceramic plate made in Taiwan. All materials from Taiwan. Diameter 21cm.</p></main></body></html>`
+
+/** A JS shell: body text under the 20-character floor plus a script tag. */
+const SHELL_HTML = `<html><head><title>Loading</title></head><body><div id="root"></div><script>x</script></body></html>`
+
+function evaluationFor(url: string) {
+  return {
+    candidate_url: url,
+    editorial_score: 85,
+    editorial_rationale: 'single identifiable product with durable facts',
+    made_in_taiwan: false,
+    materials_from_taiwan: false,
+    origin_excerpt_ids: [],
+    product_model: null,
+  }
+}
+
+function productFor(url: string, name: string, overrides: Record<string, unknown> = {}) {
+  return {
+    name_zh: name,
+    name_en: name,
+    category: 'fashion',
+    subcategory: null,
+    material: [],
+    official_url: url,
+    image_source_url: null,
+    product_description_zh: '這是一個測試產品描述，用來驗證提案流程。',
+    sources: [{ url, source_type: 'official', claim_zh: null }],
+    ...overrides,
+  }
+}
+
+const URL_A = 'https://brand.com/product-a'
+const URL_B = 'https://brand.com/product-b'
+const URL_C = 'https://brand.com/product-c'
+
+function validProposalResponse(
+  overrides: { products?: unknown[]; evaluations?: unknown[] } = {},
+): string {
   return JSON.stringify({
+    evaluations: overrides.evaluations ?? [URL_A, URL_B, URL_C].map(evaluationFor),
     products: overrides.products ?? [
-      {
-        name_zh: '測試產品A',
-        name_en: 'Test Product A',
-        category: overrides.category ?? 'fashion',
-        subcategory: null,
-        material: [],
-        official_url: url,
-        image_source_url: null,
-        product_description_zh: '這是一個測試產品描述，用來驗證提案流程。',
-        sources: [{ url, fact: 'test fact' }],
-      },
-      {
-        name_zh: '測試產品B',
-        name_en: 'Test Product B',
-        category: overrides.category ?? 'fashion',
-        subcategory: null,
-        material: [],
-        official_url: 'https://brand.com/product-b',
-        image_source_url: null,
-        product_description_zh: '這是另一個測試產品描述，用來驗證流程。',
-        sources: [{ url: 'https://brand.com/product-b', fact: 'another test fact' }],
-      },
+      productFor(URL_A, 'Test Product A'),
+      productFor(URL_B, 'Test Product B'),
     ],
   })
 }
 
 function makeDeps(overrides: Partial<ProductsDeps> = {}): ProductsDeps {
   return {
-    fetchHtml: vi.fn().mockResolvedValue({ text: '<html><body>Product page content</body></html>', statusCode: 200 }),
+    fetchHtml: vi.fn().mockResolvedValue({ text: PAGE_HTML(), statusCode: 200 }),
     renderProvider: {
-      fetchRendered: vi.fn().mockResolvedValue({ html: '<html><body>Rendered</body></html>', finalUrl: 'https://brand.com', status: 200 }),
+      fetchRendered: vi.fn().mockResolvedValue({
+        html: PAGE_HTML(),
+        finalUrl: 'https://brand.com',
+        status: 200,
+      }),
     },
     ...overrides,
   }
 }
 
 /** Minimal RankableImage that satisfies rankForProduct's sourceUrl match. */
-function fakeImage(sourceUrl: string) {
+function fakeImage(sourceUrl: string, imageUrl?: string) {
   return {
     id: `img-${sourceUrl}`,
     tag: 'product' as const,
     score: 80,
     sourceUrl,
+    ...(imageUrl ? { imageUrl } : {}),
   }
 }
 
 const baseInput: ProductsInput = {
   brand: { id: 'brand-1', slug: 'test-brand', name: 'Test Brand', url: 'https://brand.com' },
   pool: [
-    { url: 'https://brand.com/product-a', normalizedUrl: 'https://brand.com/product-a', title: 'Product A', supplier: 'catalog', urlClass: 'product-detail' as const },
-    { url: 'https://brand.com/product-b', normalizedUrl: 'https://brand.com/product-b', title: 'Product B', supplier: 'catalog', urlClass: 'product-detail' as const },
-    { url: 'https://brand.com/product-c', normalizedUrl: 'https://brand.com/product-c', title: 'Product C', supplier: 'catalog', urlClass: 'product-detail' as const },
+    { url: URL_A, normalizedUrl: URL_A, title: 'Product A', supplier: 'catalog', urlClass: 'product-detail' as const },
+    { url: URL_B, normalizedUrl: URL_B, title: 'Product B', supplier: 'catalog', urlClass: 'product-detail' as const },
+    { url: URL_C, normalizedUrl: URL_C, title: 'Product C', supplier: 'catalog', urlClass: 'product-detail' as const },
   ],
-  imagePool: [
-    fakeImage('https://brand.com/product-a'),
-    fakeImage('https://brand.com/product-b'),
-    fakeImage('https://brand.com/product-c'),
-  ],
+  imagePool: [fakeImage(URL_A), fakeImage(URL_B), fakeImage(URL_C)],
   scrapedData: { description: 'Test brand products' },
 }
 
 // ---------------------------------------------------------------------------
-// Tests
+// Graph shape
 // ---------------------------------------------------------------------------
 
 describe('products agent graph', () => {
+  it('products_graph_is_a_stategraph_with_conditional_repair_edge', () => {
+    expect(PRODUCTS_RECURSION_LIMIT).toBe(12)
+
+    const compiled = buildProductsGraph(
+      createProductsRunContext(baseInput, makeDeps(), {}),
+    )
+    expect(compiled).toBeInstanceOf(CompiledStateGraph)
+
+    const drawn = compiled.getGraph()
+    expect(Object.keys(drawn.nodes)).toEqual(
+      expect.arrayContaining(['select', 'read', 'propose', 'verify', 'repair', 'finalize']),
+    )
+
+    // Repair is reached ONLY through a conditional edge. An unconditional edge
+    // into it would spend a model turn on every run, repairable or not.
+    const intoRepair = drawn.edges.filter((edge) => edge.target === 'repair')
+    expect(intoRepair.length).toBeGreaterThan(0)
+    for (const edge of intoRepair) expect(edge.conditional).toBe(true)
+    expect(intoRepair.some((edge) => edge.source === 'verify')).toBe(true)
+
+    // And repair rejoins the single exit rather than looping.
+    expect(
+      drawn.edges.some((edge) => edge.source === 'repair' && edge.target === 'finalize'),
+    ).toBe(true)
+  })
+
   it('graph_full_happy_path', async () => {
     const model = scriptedModel([validProposalResponse()])
     const deps = makeDeps()
@@ -124,69 +163,85 @@ describe('products agent graph', () => {
 
     expect(result.agentOutcome).toBe('proposed')
     expect(result.proposals.length).toBeGreaterThanOrEqual(1)
-    expect(result.decisions.length).toBeGreaterThan(0)
     expect(result.verification.proposed).toBeGreaterThan(0)
+    expect(result.verification.read).toBe(3)
+    expect(result.decisions.map((d) => d.step)).toEqual(
+      expect.arrayContaining(['select', 'read', 'propose', 'verify', 'finalize']),
+    )
+    for (const decision of result.decisions) expect(typeof decision.ms).toBe('number')
+    // One propose turn only: no repair was needed.
+    expect(model.invoke).toHaveBeenCalledTimes(1)
+  })
+
+  it('graph_read_node_renders_a_js_shell_within_budget', async () => {
+    const fetchHtml = vi.fn(async (url: string) =>
+      url === URL_A
+        ? { text: SHELL_HTML, statusCode: 200 }
+        : { text: PAGE_HTML(), statusCode: 200 },
+    )
+    const fetchRendered = vi
+      .fn()
+      .mockResolvedValue({ html: PAGE_HTML(), finalUrl: URL_A, status: 200 })
+    const deps = makeDeps({ fetchHtml, renderProvider: { fetchRendered } })
+
+    const result = await runProductsAgent(baseInput, deps, {
+      model: scriptedModel([validProposalResponse()]),
+    })
+
+    // Exactly the shell page was rendered, and the ledger says so.
+    expect(fetchRendered).toHaveBeenCalledTimes(1)
+    expect(fetchRendered).toHaveBeenCalledWith(URL_A)
+    expect(result.verification.rendered).toBe(1)
+    expect(result.budget.used.renders).toBe(1)
+    expect(result.budget.allowed.renders).toBeLessThanOrEqual(
+      PRODUCTS_BUDGET_CEILINGS.renders,
+    )
   })
 
   it('graph_propose_parse_failure_retries_once', async () => {
-    const model = scriptedModel([
-      'not valid json {{{{',
-      validProposalResponse(),
-    ])
-    const deps = makeDeps()
+    const model = scriptedModel(['not valid json {{{{', validProposalResponse()])
 
-    const result = await runProductsAgent(baseInput, deps, { model })
+    const result = await runProductsAgent(baseInput, makeDeps(), { model })
 
     expect(result.proposals.length).toBeGreaterThanOrEqual(1)
-    // First call failed, second succeeded
-    const parseFailDecision = result.decisions.find(
-      (d) => d.step === 'propose' && d.action === 'parse_failed',
-    )
-    expect(parseFailDecision).toBeDefined()
+    expect(
+      result.decisions.some((d) => d.step === 'propose' && d.action === 'parse_failed'),
+    ).toBe(true)
+    expect(model.invoke).toHaveBeenCalledTimes(2)
   })
 
   it('graph_verify_drops_off_host_url', async () => {
-    // Use a proposal that passes validateProductProposals (URL is in candidates)
-    // but fails verifySameHost because the brand URL doesn't match.
-    // We set brand.url to a different host so verifySameHost fails.
     const inputWithDiffHost: ProductsInput = {
       ...baseInput,
       brand: { ...baseInput.brand, url: 'https://different-brand.com' },
     }
-    const model = scriptedModel([validProposalResponse()])
-    const deps = makeDeps()
 
-    const result = await runProductsAgent(inputWithDiffHost, deps, { model })
+    const result = await runProductsAgent(inputWithDiffHost, makeDeps(), {
+      model: scriptedModel([validProposalResponse()]),
+    })
 
-    // Proposals with host mismatch are dropped in verify (not repairable)
     expect(result.verification.dropped).toBeGreaterThan(0)
   })
 
   it('graph_repair_fixes_repairable_proposal', async () => {
-    // Provide imagePool with images that don't match product URLs →
-    // verifyImage fails → repairable (URL checks pass, only image fails).
-    // Repair response returns same proposals (repair "fixes" image ref).
+    // Images that match no product page → the image check fails while the URL
+    // checks pass, which is exactly the repairable case.
     const inputMismatchedImages: ProductsInput = {
       ...baseInput,
       imagePool: [fakeImage('https://brand.com/other-page')],
     }
-    const proposeResponse = validProposalResponse()
-    const repairResponse = validProposalResponse()
-    const model = scriptedModel([proposeResponse, repairResponse])
-    const deps = makeDeps()
+    const model = scriptedModel([validProposalResponse(), validProposalResponse()])
 
-    const result = await runProductsAgent(inputMismatchedImages, deps, { model })
+    const result = await runProductsAgent(inputMismatchedImages, makeDeps(), { model })
 
     expect(result.agentOutcome).toBe('repaired')
     expect(result.verification.repaired).toBeGreaterThan(0)
+    expect(model.invoke).toHaveBeenCalledTimes(2)
   })
 
   it('graph_budget_exhausted_at_read_returns_fallback', async () => {
-    const model = scriptedModel([validProposalResponse()])
-    const deps = makeDeps()
-
-    const result = await runProductsAgent(baseInput, deps, {
-      model,
+    const result = await runProductsAgent(baseInput, makeDeps(), {
+      model: scriptedModel([validProposalResponse()]),
       budgetOverride: { reads: 0, renders: 0, turns: 6, wallClockMs: 120_000 },
     })
 
@@ -194,53 +249,207 @@ describe('products agent graph', () => {
     expect(result.error).toContain('budget')
   })
 
-  it('graph_empty_pool_returns_blocked', async () => {
-    const model = scriptedModel([validProposalResponse()])
-    const deps = makeDeps()
-    const emptyInput: ProductsInput = {
-      ...baseInput,
-      pool: [],
-    }
-
-    const result = await runProductsAgent(emptyInput, deps, { model })
+  it('empty_pool_returns_blocked_not_fallback', async () => {
+    const result = await runProductsAgent({ ...baseInput, pool: [] }, makeDeps(), {
+      model: scriptedModel([validProposalResponse()]),
+    })
 
     expect(result.agentOutcome).toBe('blocked')
-    expect(result.error).toContain('empty')
+    expect(result.error).toBe('empty_pool')
   })
 
   it('graph_no_model_returns_blocked', async () => {
-    const deps = makeDeps()
-
-    const result = await runProductsAgent(baseInput, deps, {})
+    const result = await runProductsAgent(baseInput, makeDeps(), {})
 
     expect(result.agentOutcome).toBe('blocked')
     expect(result.error).toContain('no_model')
   })
 
-  it('graph_wall_clock_enforced', async () => {
-    const slowModel = new RunnableLambda({
-      func: async (_input: BaseMessage[]) => {
-        return new AIMessage({
-          content: validProposalResponse(),
-          usage_metadata: { input_tokens: 100, output_tokens: 50, total_tokens: 150 },
-        })
-      },
-    })
+  it('signal_abort_returns_fallback', async () => {
+    const controller = new AbortController()
+    controller.abort()
     const deps = makeDeps()
 
-    // Set wall clock to 1ms → times out almost immediately
     const result = await runProductsAgent(baseInput, deps, {
-      model: slowModel,
+      model: scriptedModel([validProposalResponse()]),
+      signal: controller.signal,
+    })
+
+    expect(result.agentOutcome).toBe('fallback')
+    expect(result.error).toBe('aborted')
+    // Nothing was fetched: the abort is checked before the graph starts.
+    expect(deps.fetchHtml).not.toHaveBeenCalled()
+  })
+
+  it('graph_wall_clock_enforced', async () => {
+    const result = await runProductsAgent(baseInput, makeDeps(), {
+      model: scriptedModel([validProposalResponse()]),
       budgetOverride: { reads: 12, renders: 4, turns: 6, wallClockMs: 1 },
     })
 
-    // With 1ms wall clock, graph should stop early with partial results
-    // The select node runs (pure, fast), but subsequent async nodes trigger
-    // the wall-clock check and the graph finalizes early.
+    // The run stops early and still terminates through `finalize`, so the
+    // decision trace an operator reads is complete rather than truncated.
     expect(result.decisions.length).toBeGreaterThan(0)
-    // Should have fewer steps than a full run (6 nodes)
-    const fullRunSteps = ['select', 'read', 'propose', 'verify', 'repair', 'finalize']
     const stepsRun = result.decisions.map((d) => d.step)
-    expect(stepsRun.length).toBeLessThanOrEqual(fullRunSteps.length)
+    expect(stepsRun).toContain('select')
+    expect(stepsRun).toContain('finalize')
+    expect(stepsRun).not.toContain('repair')
+    expect(stepsRun.length).toBeLessThanOrEqual(6)
+  })
+
+  // -------------------------------------------------------------------------
+  // Origin
+  // -------------------------------------------------------------------------
+
+  it('graph_records_origin_decisions_per_proposal', async () => {
+    // The page text says made in Taiwan AND all materials from Taiwan, and the
+    // model cites the excerpt ids it was given — the two-source consensus.
+    const deps = makeDeps({
+      loadOriginTexts: vi.fn(async (urls: readonly string[]) =>
+        new Map(
+          urls.map((url) => [
+            url,
+            'This plate is made in Taiwan. All materials are sourced in Taiwan.',
+          ]),
+        ),
+      ),
+    })
+
+    // The excerpt ids are derived from the candidate ids the caller supplies,
+    // so the test can predict them exactly.
+    const candidateIdsByUrl = new Map([
+      [URL_A, 'cand-a'],
+      [URL_B, 'cand-b'],
+      [URL_C, 'cand-c'],
+    ])
+    const model = scriptedModel([
+      validProposalResponse({
+        evaluations: [
+          {
+            ...evaluationFor(URL_A),
+            made_in_taiwan: true,
+            materials_from_taiwan: true,
+            origin_excerpt_ids: ['cand-a:origin:1'],
+          },
+          evaluationFor(URL_B),
+          evaluationFor(URL_C),
+        ],
+        products: [productFor(URL_A, 'Test Product A')],
+      }),
+    ])
+
+    const result = await runProductsAgent(
+      { ...baseInput, candidateIdsByUrl },
+      deps,
+      { model },
+    )
+
+    expect(result.originDecisions.get(URL_A)?.mitQualified).toBe(true)
+    expect(result.originDecisions.get(URL_A)?.qualificationMethod).toBe('consensus')
+    expect(result.verification.originQualified).toBe(1)
+  })
+
+  it('graph_refuses_an_uncited_origin_claim', async () => {
+    const deps = makeDeps({
+      loadOriginTexts: vi.fn(async (urls: readonly string[]) =>
+        new Map(
+          urls.map((url) => [
+            url,
+            'This plate is made in Taiwan. All materials are sourced in Taiwan.',
+          ]),
+        ),
+      ),
+    })
+    const model = scriptedModel([
+      validProposalResponse({
+        evaluations: [
+          {
+            ...evaluationFor(URL_A),
+            made_in_taiwan: true,
+            materials_from_taiwan: true,
+            // An id nobody supplied.
+            origin_excerpt_ids: ['invented:origin:9'],
+          },
+        ],
+        products: [productFor(URL_A, 'Test Product A')],
+      }),
+    ])
+
+    const result = await runProductsAgent(baseInput, deps, { model })
+
+    // Deterministic evidence alone is not consensus — the model's half is void.
+    expect(result.originDecisions.get(URL_A)?.mitQualified).toBe(false)
+  })
+
+  // -------------------------------------------------------------------------
+  // Images (decision #35)
+  // -------------------------------------------------------------------------
+
+  it('page_images_outside_pool_get_one_classify_batch', async () => {
+    const PAGE_IMAGE = 'https://brand.com/img/plate-large.jpg'
+    const fetchHtml = vi.fn().mockResolvedValue({
+      text: PAGE_HTML(
+        `<script type="application/ld+json">{"@type":"Product","image":["${PAGE_IMAGE}"]}</script>`,
+      ),
+      statusCode: 200,
+    })
+    const storePageImages = vi.fn().mockResolvedValue(['stored/plate.jpg'])
+    const classifyPageImages = vi.fn().mockResolvedValue([
+      { id: 'img-new', tag: 'product', score: 95, sourceUrl: URL_A, imageUrl: PAGE_IMAGE },
+    ])
+
+    const deps = makeDeps({ fetchHtml, storePageImages, classifyPageImages })
+    const model = scriptedModel([
+      validProposalResponse({ products: [productFor(URL_A, 'Test Product A')] }),
+    ])
+
+    const result = await runProductsAgent(
+      // No acquire pool at all: every proposal's page is unrankable, which is
+      // what orders the batch.
+      { ...baseInput, imagePool: [] },
+      deps,
+      { model },
+    )
+
+    expect(storePageImages).toHaveBeenCalledTimes(1)
+    expect(classifyPageImages).toHaveBeenCalledTimes(1)
+    expect(storePageImages.mock.calls[0]![0]).toEqual([
+      expect.objectContaining({ url: PAGE_IMAGE, pageUrl: URL_A }),
+    ])
+    expect(classifyPageImages).toHaveBeenCalledWith(['stored/plate.jpg'])
+
+    // The pool the caller publishes from carries the classified keep.
+    expect(result.imagePool).toEqual(
+      expect.arrayContaining([expect.objectContaining({ imageUrl: PAGE_IMAGE })]),
+    )
+    expect(result.verification.pageImagesClassified).toBe(1)
+    expect(result.verification.image).toBe('verified')
+  })
+
+  it('page_image_batch_is_skipped_when_the_pool_already_ranks', async () => {
+    const storePageImages = vi.fn()
+    const classifyPageImages = vi.fn()
+    const deps = makeDeps({ storePageImages, classifyPageImages })
+
+    await runProductsAgent(baseInput, deps, {
+      model: scriptedModel([validProposalResponse()]),
+    })
+
+    expect(storePageImages).not.toHaveBeenCalled()
+    expect(classifyPageImages).not.toHaveBeenCalled()
+  })
+
+  it('graph_reports_unverified_image_when_the_pool_is_empty', async () => {
+    // No pool AND no way to build one: the run must not report a passing image
+    // check just because nothing was there to check.
+    const result = await runProductsAgent({ ...baseInput, imagePool: [] }, makeDeps(), {
+      model: scriptedModel([validProposalResponse()]),
+    })
+
+    expect(result.verification.image).toBe('unverified')
+    expect(result.verification.imageUnverified).toBeGreaterThan(0)
+    expect(result.verification.imageVerified).toBe(0)
+    // Unverified is not a drop: the proposals still ship, flagged.
+    expect(result.proposals.length).toBeGreaterThan(0)
   })
 })

@@ -52,8 +52,21 @@ export interface PhaseResult {
   productsProposed?: number;
   agentOutcome?: 'planned' | 'recovered' | 'fallback' | 'blocked' | 'skipped' | 'proposed' | 'repaired';
   acquisitionPlan?: Record<string, unknown>;
-  /** Classified image pool for downstream phases. Capped at 16 KB. */
-  imagePool?: Array<{ url: string; score: number; tags: string[]; pageUrl?: string; storageKey?: string }>;
+  /**
+   * Compact summary of the acquire phase's ranked image pool, in rank order.
+   *
+   * The in-memory pool is `RankableImage[]` — the full classifier verdict per
+   * image — and that is what the products agent consumes inside the same run.
+   * What is PERSISTED is only what a re-run or the admin job view needs to read
+   * back: the row id, the tag, the score, and the page the image came from.
+   * Capped at 16 KB by the writer and again by `parsePhaseResults`.
+   */
+  imagePool?: Array<{
+    id: string;
+    tag: string;
+    score: number;
+    sourceUrl?: string;
+  }>;
   productsVerification?: Record<string, unknown>;
   revokedColumns?: string[];
 }

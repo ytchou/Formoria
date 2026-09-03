@@ -24,6 +24,14 @@ export type { ClassifiedImage };
  */
 export type RankableImage = ClassifiedImage & {
   sourceUrl?: string | null;
+  /**
+   * The image's OWN url — what a re-download fetches — as distinct from
+   * `sourceUrl`, the page it was found on. `curated_products.image_source_url`
+   * is fetched for bytes by `prepareCuratedProductImage`, so a page URL there
+   * is a dead image. Optional because only producers that still hold the
+   * candidate can fill it; a pool loaded back out of `brand_images` cannot.
+   */
+  imageUrl?: string | null;
 };
 
 // ---------------------------------------------------------------------------

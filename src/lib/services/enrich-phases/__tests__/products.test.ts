@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createHash } from "node:crypto";
+import type { BaseMessage } from "@langchain/core/messages";
 import {
   resetAuditEmitterForTests,
   setAuditWriteSeam,
@@ -1043,7 +1044,7 @@ describe("validateProductProposals", () => {
     expect(proposals[0]!.subcategory).toBe("home-fragrance");
   });
 
-  it("clears an image_source_url the brand does not own, and keeps the product", () => {
+  it("never takes an image_source_url from the model, and keeps the product", () => {
     const { proposals, dropped } = validateProductProposals(
       {
         products: [
@@ -1053,8 +1054,11 @@ describe("validateProductProposals", () => {
           rawProposal({
             name_zh: "柴燒品茗杯",
             official_url: `${SITE}/products/tea-cup`,
-            // The brand's own homepage is a legitimate image page, so the gate
-            // is host equality, not the non-root path `official_url` requires.
+            // Even the brand's OWN host is refused now (decision #35). The
+            // model echoing a URL is not evidence that it is an image, that
+            // the brand owns it, or that it depicts this product; the image is
+            // chosen in `publishProposals` from classified images this
+            // pipeline downloaded and ranked for the product's own page.
             image_source_url: `${SITE}/`,
             sources: [
               { url: `${SITE}/products/tea-cup`, source_type: "official" },
@@ -1065,12 +1069,10 @@ describe("validateProductProposals", () => {
       { siteUrl: SITE },
     );
 
-    // The field records where an image came from so usage rights stay
-    // re-checkable; a pin on a host the brand does not own records a permission
-    // the brand cannot give. Clearing it keeps a good product proposal usable.
+    // A missing image is not a reason to lose a good product proposal.
     expect(dropped).toBe(0);
     expect(proposals[0]!.imageSourceUrl).toBeUndefined();
-    expect(proposals[1]!.imageSourceUrl).toBe(`${SITE}/`);
+    expect(proposals[1]!.imageSourceUrl).toBeUndefined();
   });
 
   it("keeps proposal keys unique when the caller raises the cap", () => {
@@ -1382,5 +1384,283 @@ describe("PRODUCTS_AGENT env gate", () => {
     // Type check: imagePool is accepted and typed as RankableImage[]
     expect(options.imagePool).toHaveLength(1);
     expect(options.imagePool![0]!.sourceUrl).toBe("https://example.com/product-1");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Products agent path (DEV-1644)
+//
+// The agent is exercised for real — its LangGraph runs, its verification runs,
+// `publishProposals` runs — with only the chat model and the network replaced.
+// Nothing under `@/lib/services/` is mocked (`check-test-boundaries.mjs`).
+// ---------------------------------------------------------------------------
+
+const CLAY_PLATE = `${SITE}/products/clay-plate`;
+const TEA_CUP = `${SITE}/products/tea-cup`;
+
+/** Origin text that satisfies BOTH deterministic Taiwan patterns. */
+const MIT_TEXT =
+  "This plate is made in Taiwan. All materials are sourced in Taiwan.";
+
+const PRODUCT_HTML = `<html><head><title>Clay Plate</title></head><body><main><p>${MIT_TEXT} Diameter 21cm.</p></main></body></html>`;
+
+/**
+ * Product pages answer with HTML; everything else answers with an empty JSON
+ * body. The "everything else" is the audit insert: `callModel` persists a
+ * `brand_ai_results` row for every agent turn, and that write goes out through
+ * `globalThis.fetch`. Answering it here keeps the write off the network AND
+ * keeps it from failing slowly against an HTML body.
+ */
+function agentFetchStub() {
+  return vi.fn(async (input: RequestInfo | URL) => {
+    const url = typeof input === "string" ? input : input.toString();
+    if (url.startsWith(SITE)) {
+      return new Response(PRODUCT_HTML, {
+        status: 200,
+        headers: { "content-type": "text/html; charset=utf-8" },
+      });
+    }
+    return new Response("[]", {
+      status: 201,
+      headers: { "content-type": "application/json" },
+    });
+  });
+}
+
+type AgentTurn = (evidence: AgentEvidence[]) => Record<string, unknown>;
+type AgentEvidence = {
+  url: string;
+  origin_excerpts?: Array<{ id: string; text: string }>;
+};
+
+/**
+ * A chat model that READS the prompt it is given.
+ *
+ * Origin excerpt ids are minted per run, so a hard-coded citation could never
+ * be valid — and a test that cannot cite is a test that cannot reach the
+ * consensus branch. Echoing the ids back also proves they reached the prompt.
+ */
+function agentModelReading(turns: AgentTurn[]) {
+  let index = 0;
+  const invoke = vi.fn(async (messages: BaseMessage[]) => {
+    const user = messages.find(
+      (message) =>
+        typeof message.content === "string" &&
+        message.content.trimStart().startsWith("{"),
+    );
+    let evidence: AgentEvidence[] = [];
+    try {
+      const parsed = JSON.parse(String(user?.content ?? "{}")) as {
+        evidence?: AgentEvidence[];
+      };
+      evidence = parsed.evidence ?? [];
+    } catch {
+      evidence = [];
+    }
+    const turn = turns[index++] ?? turns.at(-1)!;
+    return {
+      content: JSON.stringify(turn(evidence)),
+      usage_metadata: { input_tokens: 10, output_tokens: 10, total_tokens: 20 },
+    };
+  });
+  return { invoke };
+}
+
+function agentEvaluation(
+  url: string,
+  evidence: AgentEvidence[],
+  origin = false,
+) {
+  const ids =
+    evidence.find((page) => page.url === url)?.origin_excerpts?.map((e) => e.id) ??
+    [];
+  return {
+    candidate_url: url,
+    editorial_score: 85,
+    editorial_rationale: "single identifiable product with durable facts",
+    made_in_taiwan: origin,
+    materials_from_taiwan: origin,
+    origin_excerpt_ids: origin ? ids : [],
+    product_model: null,
+  };
+}
+
+function agentProduct(url: string, overrides: RawProposal = {}): RawProposal {
+  return {
+    ...rawProposal({ official_url: url, image_source_url: url }),
+    sources: [{ url, source_type: "official", claim_zh: "商品頁列出陶土與尺寸" }],
+    ...overrides,
+  };
+}
+
+function agentPhaseOptions(
+  overrides: Partial<Parameters<typeof runProductsPhase>[0]> = {},
+): Parameters<typeof runProductsPhase>[0] {
+  return {
+    brand: BRAND,
+    phases: PHASES,
+    scrapedData: SCRAPED,
+    target: { type: "submission", id: SUBMISSION_ID },
+    // Neither of these may reach the network or the database in a unit test.
+    lookupRegistryProducts: async () => new Map(),
+    loadOriginTexts: async (urls) => new Map(urls.map((url) => [url, MIT_TEXT])),
+    storePageImages: async () => [],
+    classifyPageImages: async () => [],
+    ...overrides,
+  };
+}
+
+describe("products agent path", () => {
+  beforeEach(() => {
+    vi.stubEnv("PRODUCTS_AGENT", "");
+    vi.stubGlobal("fetch", agentFetchStub());
+  });
+
+  it("agent_path_persists_candidate_pool_and_mit_enrichment", async () => {
+    const insert = vi.fn().mockResolvedValue({ data: null, error: null });
+    const agentModel = agentModelReading([
+      (evidence) => ({
+        evaluations: [
+          agentEvaluation(CLAY_PLATE, evidence, true),
+          agentEvaluation(TEA_CUP, evidence),
+        ],
+        products: [agentProduct(CLAY_PLATE)],
+      }),
+    ]);
+
+    const result = await runProductsPhase(
+      agentPhaseOptions({
+        agentModel,
+        candidateWriter: { insert },
+        imagePool: [
+          {
+            id: "img-plate",
+            tag: "product",
+            score: 90,
+            sourceUrl: CLAY_PLATE,
+            imageUrl: `${SITE}/img/plate-large.jpg`,
+          },
+        ],
+      }),
+    );
+
+    expect(result.phaseResult.status).toBe("succeeded");
+    expect(result.phaseResult.agentOutcome).toBe("proposed");
+
+    // 1. The candidate pool was persisted — exactly once, from
+    // `publishProposals`, which is the whole point of extracting it. Before
+    // this, the agent path returned before `persistCandidatePool` ran at all.
+    expect(insert).toHaveBeenCalledTimes(1);
+    expect(insert.mock.calls[0]?.[0]).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          url: CLAY_PLATE,
+          brand_id: BRAND.source_brand_id,
+        }),
+      ]),
+    );
+
+    // 2. Made-in-Taiwan enrichment reached the proposal. Consensus needs BOTH
+    // the deterministic read of the page and the model's cited claim.
+    expect(result.proposals).toHaveLength(1);
+    const proposal = result.proposals[0]!;
+    expect(proposal.madeInTaiwanConfirmed).toBe(true);
+    expect(proposal.materialsFromTaiwanConfirmed).toBe(true);
+    expect(proposal.originCandidateId).toEqual(expect.any(String));
+    expect(result.patch.products).toEqual(result.proposals);
+  });
+
+  it("image_source_comes_from_rank_not_model_echo", async () => {
+    const RANKED_IMAGE = `${SITE}/img/plate-large.jpg`;
+    const agentModel = agentModelReading([
+      (evidence) => ({
+        evaluations: [agentEvaluation(CLAY_PLATE, evidence)],
+        products: [
+          agentProduct(CLAY_PLATE, {
+            // A host the brand does not own, echoed by the model.
+            image_source_url: "https://cdn.evil.example/stolen.jpg",
+          }),
+        ],
+      }),
+    ]);
+
+    const result = await runProductsPhase(
+      agentPhaseOptions({
+        agentModel,
+        candidateWriter: {
+          insert: vi.fn().mockResolvedValue({ data: null, error: null }),
+        },
+        imagePool: [
+          {
+            id: "img-plate",
+            tag: "product",
+            score: 90,
+            sourceUrl: CLAY_PLATE,
+            imageUrl: RANKED_IMAGE,
+          },
+          // A keep from a DIFFERENT page must not win this product's slot.
+          {
+            id: "img-cup",
+            tag: "product",
+            score: 99,
+            sourceUrl: TEA_CUP,
+            imageUrl: `${SITE}/img/cup.jpg`,
+          },
+        ],
+      }),
+    );
+
+    const proposal = result.proposals[0]!;
+    expect(proposal.imageSourceUrl).toBe(RANKED_IMAGE);
+    expect(proposal.imageSourceUrl).not.toContain("evil.example");
+  });
+
+  it("empty_pool_returns_skipped_with_zero_reason", async () => {
+    const agentModel = agentModelReading([() => ({ evaluations: [], products: [] })]);
+
+    const result = await runProductsPhase(
+      agentPhaseOptions({
+        agentModel,
+        // No scraped product pages and no catalog: nothing to propose from.
+        scrapedData: { description: SCRAPED.description, perSourceText: {} },
+        catalogResult: {
+          triples: [],
+          attempts: [],
+          evidence: new Map(),
+          zeroReason: "no_catalog",
+        },
+      }),
+    );
+
+    expect(result.phaseResult.status).toBe("skipped");
+    expect(result.phaseResult.catalogZeroReason).toBe("no_catalog");
+    expect(result.phaseResult.productsProposed).toBe(0);
+    expect(result.proposals).toEqual([]);
+    // FAILS CLOSED: neither the agent nor the single-call body is asked to pick
+    // product pages while being shown none (tweakable #6).
+    expect(agentModel.invoke).not.toHaveBeenCalled();
+    expect(createClient).not.toHaveBeenCalled();
+    // No opinion about the stored list, so the previous run's proposals stand.
+    expect(result.patch).toEqual({});
+  });
+
+  it("falls back to the single-call body when the agent model throws", async () => {
+    const agentModel = {
+      invoke: vi.fn().mockRejectedValue(new Error("model unavailable")),
+    };
+    modelReturns([rawProposal()]);
+
+    const result = await runProductsPhase(
+      agentPhaseOptions({
+        agentModel,
+        candidateWriter: {
+          insert: vi.fn().mockResolvedValue({ data: null, error: null }),
+        },
+      }),
+    );
+
+    expect(result.phaseResult.status).toBe("succeeded");
+    expect(result.phaseResult.agentOutcome).toBeUndefined();
+    expect(result.proposals).toHaveLength(1);
   });
 });

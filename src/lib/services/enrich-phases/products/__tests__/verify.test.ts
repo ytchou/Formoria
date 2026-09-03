@@ -232,6 +232,111 @@ describe('products/verify', () => {
       expect(result.ok).toBe(true)
       expect(result.repairable).toBe(false)
       expect(result.failures).toHaveLength(0)
+      expect(result.imageStatus).toBe('verified')
+    })
+
+    it('products_verify_calls_verifyOrigin', () => {
+      const rankFn = vi.fn().mockReturnValue({ url: 'https://example.com/img.jpg', score: 1 })
+
+      const qualified = verifyProposal(
+        {
+          url: 'https://example.com/product',
+          category: 'fashion',
+          material: [],
+        },
+        {
+          brandUrl: 'https://example.com',
+          imagePool: [{ url: 'https://example.com/img.jpg' }],
+          rankFn,
+          sameHostResult: { ok: true },
+          reachableResult: { ok: true },
+          origin: {
+            deterministic: { madeInTaiwan: true, materialsFromTaiwan: true, excerptIds: ['e1'] },
+            llm: { madeInTaiwan: true, materialsFromTaiwan: true, excerptIds: ['e1'] },
+            registry: { matched: false, recordId: null, reason: 'no_exact_match' },
+          },
+        },
+      )
+
+      expect(qualified.origin).toEqual({ qualified: true, method: 'consensus' })
+      // Origin is enrichment, not a gate: a qualified product is not "more ok".
+      expect(qualified.ok).toBe(true)
+
+      const unqualified = verifyProposal(
+        { url: 'https://example.com/product', category: 'fashion', material: [] },
+        {
+          brandUrl: 'https://example.com',
+          imagePool: [{ url: 'https://example.com/img.jpg' }],
+          rankFn,
+          sameHostResult: { ok: true },
+          reachableResult: { ok: true },
+          origin: {
+            deterministic: { madeInTaiwan: false, materialsFromTaiwan: false, excerptIds: [] },
+            llm: { madeInTaiwan: false, materialsFromTaiwan: false, excerptIds: [] },
+            registry: { matched: false, recordId: null, reason: 'no_exact_match' },
+          },
+        },
+      )
+
+      expect(unqualified.origin?.qualified).toBe(false)
+      // NOT made in Taiwan is still a listable product.
+      expect(unqualified.ok).toBe(true)
+      expect(unqualified.failures).toHaveLength(0)
+    })
+
+    it('verifyProposal_reports_origin_null_when_no_evidence_was_supplied', () => {
+      const result = verifyProposal(
+        { url: 'https://example.com/product', category: 'fashion', material: [] },
+        {
+          brandUrl: 'https://example.com',
+          imagePool: [{ url: 'https://example.com/img.jpg' }],
+          rankFn: vi.fn().mockReturnValue({ score: 1 }),
+          sameHostResult: { ok: true },
+          reachableResult: { ok: true },
+        },
+      )
+
+      // "Not assessed" and "assessed as not Taiwanese" are different answers.
+      expect(result.origin).toBeNull()
+    })
+
+    it('verify_records_unverified_image_when_pool_empty', () => {
+      const rankFn = vi.fn()
+
+      const result = verifyProposal(
+        { url: 'https://example.com/product', category: 'fashion', material: [] },
+        {
+          brandUrl: 'https://example.com',
+          imagePool: [],
+          rankFn,
+          sameHostResult: { ok: true },
+          reachableResult: { ok: true },
+        },
+      )
+
+      // Nothing to rank, so nothing is ranked — but the pass is not silent.
+      expect(rankFn).not.toHaveBeenCalled()
+      expect(result.imageStatus).toBe('unverified')
+      expect(result.warnings.some((w) => w.startsWith('image_unverified'))).toBe(true)
+      expect(result.ok).toBe(true)
+      expect(result.failures).toHaveLength(0)
+    })
+
+    it('verifyProposal_marks_image_missing_when_the_pool_has_no_match', () => {
+      const result = verifyProposal(
+        { url: 'https://example.com/product', category: 'fashion', material: [] },
+        {
+          brandUrl: 'https://example.com',
+          imagePool: [{ url: 'https://example.com/other.jpg' }],
+          rankFn: vi.fn().mockReturnValue(null),
+          sameHostResult: { ok: true },
+          reachableResult: { ok: true },
+        },
+      )
+
+      expect(result.imageStatus).toBe('missing')
+      expect(result.ok).toBe(false)
+      expect(result.repairable).toBe(true)
     })
   })
 })

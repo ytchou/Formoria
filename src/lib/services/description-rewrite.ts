@@ -25,10 +25,17 @@ import { validateLocalizedText, detectAiArtifacts } from "./enrich-validators";
 import { localizeToTW, stripAiToolArtifacts } from "./taiwan-localization";
 import { noLlmCalls, type LlmCallCounts } from "./_shared/llm-call-outcome";
 
-const ZH_DESCRIPTION_BAND = [150, 400] as const;
-const EN_DESCRIPTION_BAND = [300, 700] as const;
-const ZH_BLURB_BAND = [40, 80] as const;
-const EN_BLURB_BAND = [60, 150] as const;
+/**
+ * Length bands for the four copy fields. Exported because the editorial agent's
+ * cross-output validator re-checks the same fields after a description rewrite,
+ * and a second copy of these numbers is a second source of truth: the retry
+ * instruction and the cross-output failure would eventually disagree about what
+ * "too long" means.
+ */
+export const ZH_DESCRIPTION_BAND = [150, 400] as const;
+export const EN_DESCRIPTION_BAND = [300, 700] as const;
+export const ZH_BLURB_BAND = [40, 80] as const;
+export const EN_BLURB_BAND = [60, 150] as const;
 
 /**
  * Zod shape for the description rewrite call. All four text fields are required

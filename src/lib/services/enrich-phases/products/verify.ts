@@ -118,6 +118,13 @@ type ProposalInput = {
   imageUrl?: string | null
 }
 
+/** Inputs `verifyOrigin` needs. All three or none — the decision is a consensus. */
+export type OriginInputs = {
+  deterministic: DeterministicOriginAssessment
+  llm: LlmOriginAssessment
+  registry: RegistryOriginAssessment
+}
+
 type ProposalDeps = {
   brandUrl: string
   imagePool: unknown[]
@@ -126,17 +133,47 @@ type ProposalDeps = {
   sameHostResult: VerifyResult
   /** Pre-computed reachability result (avoids re-fetching). */
   reachableResult: VerifyResult
+  /**
+   * Origin evidence for this proposal's page. Supplied by the graph's read and
+   * registry steps. Absent means "not assessed", which is reported as such —
+   * `origin: null` — and never as "not made in Taiwan".
+   */
+  origin?: OriginInputs
 }
 
 /**
- * Runs all five verification checks. `repairable` is true when only closed-set
- * or image checks failed — the URL checks passed.
+ * `unverified` is the one that matters: it means NOTHING checked the image, not
+ * that the image failed. An empty pool used to skip the check silently, so a
+ * brand whose acquisition produced no images passed image verification for
+ * every proposal (DEV-1644 F6).
+ */
+export type ImageVerificationStatus = 'verified' | 'unverified' | 'missing'
+
+export type ProposalVerification = {
+  ok: boolean
+  repairable: boolean
+  failures: string[]
+  /** Soft signals: recorded on `productsVerification`, never a drop. */
+  warnings: string[]
+  imageStatus: ImageVerificationStatus
+  /** `null` when no origin evidence was supplied for this page. */
+  origin: { qualified: boolean; method: OriginQualificationMethod | null } | null
+}
+
+/**
+ * Runs every verification check. `repairable` is true when only closed-set or
+ * image checks failed — the URL checks passed.
+ *
+ * Origin is assessed but never fails a proposal: a product that is not made in
+ * Taiwan is still a product Formoria may list, so the decision rides out on
+ * `origin` for the caller to stamp onto the proposal (`madeInTaiwanConfirmed`).
  */
 export function verifyProposal(
   proposal: ProposalInput,
   deps: ProposalDeps,
-): { ok: boolean; repairable: boolean; failures: string[] } {
+): ProposalVerification {
   const failures: string[] = []
+  const warnings: string[] = []
   let urlChecksFailed = false
 
   // 1. Same host
@@ -151,14 +188,22 @@ export function verifyProposal(
     urlChecksFailed = true
   }
 
-  // 3. Image — skip when the pool is empty (no images available to rank)
-  if (deps.imagePool.length > 0) {
+  // 3. Image. An empty pool cannot fail the check — there is nothing to rank —
+  // but it must not pass it either, so it is recorded as unverified.
+  let imageStatus: ImageVerificationStatus
+  if (deps.imagePool.length === 0) {
+    imageStatus = 'unverified'
+    warnings.push('image_unverified: no classified images in the pool')
+  } else {
     const imageResult = verifyImage(
       { url: proposal.url },
       deps.imagePool,
       deps.rankFn,
     )
-    if (!imageResult.ok) {
+    if (imageResult.ok) {
+      imageStatus = 'verified'
+    } else {
+      imageStatus = 'missing'
       failures.push(imageResult.reason ?? 'no image')
     }
   }
@@ -173,9 +218,12 @@ export function verifyProposal(
     failures.push(...closedSetResult.failures)
   }
 
+  // 5. Origin — assessed, recorded, never a drop reason.
+  const origin = deps.origin ? verifyOrigin(deps.origin).decision : null
+
   const ok = failures.length === 0
   // Repairable when URL checks passed but closed-set or image failed
   const repairable = !ok && !urlChecksFailed
 
-  return { ok, repairable, failures }
+  return { ok, repairable, failures, warnings, imageStatus, origin }
 }

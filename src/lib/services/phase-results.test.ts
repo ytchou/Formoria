@@ -167,6 +167,51 @@ describe("parsePhaseResults", () => {
     expect(parsed.at(0)?.revokedColumns).toEqual(["description_zh", "blurb_zh"]);
   });
 
+  // The acquire phase's compact image pool is what a re-run and the admin job
+  // view read back — PR 3 typed it on `PhaseResult` but never taught the parser
+  // about it, so every pool was silently dropped on the round trip.
+  it("image_pool_round_trip", () => {
+    const imagePool = [
+      { id: "image-1", tag: "product", score: 82, sourceUrl: "https://brand.example/p" },
+      { id: "image-2", tag: "logo", score: 41 },
+    ];
+    const parsed = parsePhaseResults([
+      {
+        phase: "acquire",
+        status: "succeeded",
+        changedFields: [],
+        durationMs: 100,
+        imagePool,
+      },
+    ] as Json);
+
+    expect(parsed.at(0)?.imagePool).toEqual(imagePool);
+  });
+
+  it("drops imagePool when it is not an array of plain objects", () => {
+    const parsed = parsePhaseResults([
+      { phase: "acquire", status: "succeeded", imagePool: "not-an-array" },
+      { phase: "acquire", status: "succeeded", imagePool: [["id"]] },
+    ] as Json);
+
+    expect(parsed.at(0)).not.toHaveProperty("imagePool");
+    expect(parsed.at(1)).not.toHaveProperty("imagePool");
+  });
+
+  it("drops imagePool when serialized size exceeds 16KB", () => {
+    const parsed = parsePhaseResults([
+      {
+        phase: "acquire",
+        status: "succeeded",
+        changedFields: [],
+        durationMs: 100,
+        imagePool: [{ id: "image-1", tag: "product", score: 82, sourceUrl: "x".repeat(17_000) }],
+      },
+    ] as Json);
+
+    expect(parsed.at(0)).not.toHaveProperty("imagePool");
+  });
+
   it("drops acquisitionPlan when serialized size exceeds 8KB", () => {
     const largePlan = { data: "x".repeat(9000) };
     const parsed = parsePhaseResults([

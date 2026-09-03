@@ -16,8 +16,23 @@ import {
   type EnrichPatch,
 } from './types'
 import type { EnrichScrapedData } from './types'
-import type { QuarantineGroup, AcquirePhaseOutput } from './acquire'
+import type { QuarantineGroup } from './acquire'
 import { linkColumnFor, pageKey } from '../link-enrichment'
+
+/**
+ * The image payload a revocation may strike from.
+ *
+ * Structural rather than `AcquirePhaseOutput` so the acquire phase can revoke
+ * against the arrays it is still assembling, before the output object exists.
+ * `AcquirePhaseOutput` satisfies it, so every existing caller is unchanged —
+ * and the acquire → site-identity import stops needing a value-level cycle.
+ */
+export type RevokableImagePayload = {
+  scrapedImageUrls: string[]
+  scrapedImageSources: ScrapedImageSource[]
+  jsonLdImageUrls: string[]
+  scrapedData?: EnrichScrapedData | null
+}
 
 export type SiteIdentityQuarantine = QuarantineGroup & {
   patch: EnrichPatch
@@ -28,7 +43,7 @@ export type SiteIdentityQuarantine = QuarantineGroup & {
    * text from a page judged not-owned. Do not spread it on the way in.
    */
   scrapedData?: EnrichScrapedData
-  linksResult?: AcquirePhaseOutput | null
+  linksResult?: RevokableImagePayload | null
 }
 
 type SiteIdentityApplication = {
@@ -316,7 +331,7 @@ export function revokeText(
 }
 
 export function filterRevokedImages(
-  linksResult: AcquirePhaseOutput | null | undefined,
+  linksResult: RevokableImagePayload | null | undefined,
   subjectUrl: string,
   subjectKind: SiteIdentityQuarantine['subjectKind'],
 ): void {

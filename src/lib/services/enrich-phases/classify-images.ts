@@ -282,6 +282,15 @@ export type ClassifiedImage = {
    */
   isLogo?: boolean;
   caption?: string | null;
+  /**
+   * `brand_images.source_url` — the page the image was scraped from.
+   *
+   * Carried from the row rather than re-derived downstream: it is what
+   * `rankForProduct` filters a pool by, so a product proposal can only be given
+   * an image that came from its own page. Absent when the row has no
+   * provenance, which releases the image to the brand-level pool only.
+   */
+  sourceUrl?: string | null;
 };
 
 export const imageClassificationShape = z.object({
@@ -438,6 +447,7 @@ function classifiedImageFromRow(
     // present at all. Reading the array here is what keeps ranking and
     // rendering answering the same question.
     isLogo: isLogoImageTags(row.tags),
+    ...(row.source_url ? { sourceUrl: row.source_url } : {}),
     disposition: JUNK_TAGS.has(storedTag) ? "reject" : "keep",
     ...(storedTag === "promo"
       ? { rejectionReasons: ["promo_subject" as const] }
@@ -838,7 +848,7 @@ export async function getUnclassifiedImages(
   let query = classifyImagesClient(supabase)
     .from(storage.table)
     .select(
-      "id, url, source, status, tags, score, sort_order, storage_path, width, height",
+      "id, url, source, status, tags, score, sort_order, storage_path, source_url, width, height",
     )
     .eq(storage.foreignKey, target.id);
 
@@ -865,7 +875,7 @@ export async function getActiveImages(
   const { data, error } = await classifyImagesClient(supabase)
     .from(storage.table)
     .select(
-      "id, url, source, status, tags, score, sort_order, storage_path, width, height",
+      "id, url, source, status, tags, score, sort_order, storage_path, source_url, width, height",
     )
     .eq(storage.foreignKey, target.id)
     .eq("status", "active")
@@ -1248,6 +1258,10 @@ export function planChunkImageWrites(input: {
       ),
       disposition: classification.disposition,
       rejectionReasons: classification.reasons,
+      // Only when the row has one: an always-present `sourceUrl: null` would
+      // change every existing classification literal these plans are compared
+      // against, for a field that says nothing.
+      ...(image.source_url ? { sourceUrl: image.source_url } : {}),
     });
 
     const rejected = classification.disposition === "reject";

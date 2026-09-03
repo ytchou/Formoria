@@ -1,4 +1,5 @@
 import { describe, expect, it, vi, beforeEach } from 'vitest'
+import { CompiledStateGraph } from '@langchain/langgraph'
 
 // ---------------------------------------------------------------------------
 // Mocks — only non-service modules (test-boundaries forbids @/lib/services/)
@@ -13,7 +14,10 @@ vi.mock('@/lib/langfuse/prompt', () => ({
 }))
 
 import {
+  buildEditorialGraph,
+  createEditorialRunContext,
   runEditorialAgent,
+  EDITORIAL_RECURSION_LIMIT,
   type EditorialInput,
   type EditorialDeps,
 } from '../graph'
@@ -108,7 +112,37 @@ describe('editorial agent graph', () => {
     vi.unstubAllEnvs()
   })
 
-  it('editorial_happy_path — runs all phases and finalizes with no repair', async () => {
+  it('editorial_graph_is_a_stategraph_with_conditional_repair_edge', async () => {
+    const ctx = createEditorialRunContext(makeInput(), makeDeps(), {})
+    const compiled = buildEditorialGraph(ctx)
+
+    expect(compiled).toBeInstanceOf(CompiledStateGraph)
+
+    const drawn = await compiled.getGraphAsync({})
+    const nodeIds = Object.values(drawn.nodes).map((node) => node.id)
+    expect(nodeIds).toEqual(
+      expect.arrayContaining([
+        'descriptions',
+        'stockists',
+        'faq',
+        'validate',
+        'repair',
+        'finalize',
+      ]),
+    )
+
+    // `repair` is reachable only from `validate`, and only through a branch —
+    // which is what makes "at most one repair turn" structural, not a counter.
+    const fromValidate = drawn.edges.filter((edge) => edge.source === 'validate')
+    expect(fromValidate.map((edge) => edge.target).sort()).toEqual(['finalize', 'repair'])
+    expect(fromValidate.every((edge) => edge.conditional === true)).toBe(true)
+    expect(drawn.edges.filter((edge) => edge.target === 'repair')).toHaveLength(1)
+
+    // The longest path is six super-steps; the limit backstops it.
+    expect(EDITORIAL_RECURSION_LIMIT).toBeGreaterThanOrEqual(6)
+  })
+
+  it('editorial_no_failures_skips_repair — runs all phases and finalizes as generated', async () => {
     const deps = makeDeps()
     const input = makeInput()
 
@@ -133,7 +167,7 @@ describe('editorial agent graph', () => {
     expect(deps.repairCrossOutput).not.toHaveBeenCalled()
   })
 
-  it('editorial_validation_triggers_repair — cross-output failures trigger repairNode', async () => {
+  it('editorial_repair_edge_fires_on_cross_failures_and_updates_description_patch', async () => {
     const deps = makeDeps({
       validateCrossOutput: vi.fn().mockReturnValue([
         { field: 'description', reason: 'contains AI artifact "as a brand"' },
@@ -149,7 +183,18 @@ describe('editorial agent graph', () => {
 
     expect(output.agentOutcome).toBe('repaired')
     expect(deps.repairCrossOutput).toHaveBeenCalledOnce()
-    expect(output.patch).toHaveProperty('description', 'Repaired without AI artifact')
+
+    // Only the description fields move. `brand_channels` and `brand_faq_entries`
+    // were already upserted inside their own nodes, so re-running them after a
+    // cross repair would diverge the rows from the patch (tweakable #2).
+    expect(output.patch).toEqual({
+      description: 'Repaired without AI artifact',
+      description_en: 'Repaired without AI artifact EN',
+      blurb: 'blurb',
+      blurb_en: 'blurb en',
+    })
+    expect(deps.runStockists).toHaveBeenCalledOnce()
+    expect(deps.runFaq).toHaveBeenCalledOnce()
   })
 
   it('editorial_repair_fixes_issue — repaired output replaces original in finalize', async () => {
@@ -176,29 +221,37 @@ describe('editorial agent graph', () => {
     expect(output.patch).toHaveProperty('description', 'A brand description')
   })
 
-  it('editorial_off_flag_falls_through — EDITORIAL_AGENT=off skips the agent', async () => {
+  it('editorial_off_flag_and_thrown_error_fall_back', async () => {
     vi.stubEnv('EDITORIAL_AGENT', 'off')
 
-    const deps = makeDeps()
-    const input = makeInput()
+    const offDeps = makeDeps()
+    const off = await runEditorialAgent(makeInput(), offDeps)
 
-    const output = await runEditorialAgent(input, deps)
+    expect(off.agentOutcome).toBe('fallback')
+    expect(off.phaseResults).toHaveLength(0)
+    expect(offDeps.runDescriptions).not.toHaveBeenCalled()
 
-    expect(output.agentOutcome).toBe('fallback')
-    expect(output.phaseResults).toHaveLength(0)
-    expect(deps.runDescriptions).not.toHaveBeenCalled()
-  })
+    vi.unstubAllEnvs()
 
-  it('editorial_fallback_on_error — agent error falls back cleanly', async () => {
-    const deps = makeDeps({
+    const threwDeps = makeDeps({
       runDescriptions: vi.fn().mockRejectedValue(new Error('LLM provider down')),
     })
-    const input = makeInput()
+    const threw = await runEditorialAgent(makeInput(), threwDeps)
 
-    const output = await runEditorialAgent(input, deps)
+    expect(threw.agentOutcome).toBe('fallback')
+    expect(threw.error).toContain('LLM provider down')
+  })
+
+  it('editorial_aborted_signal_falls_back_before_any_phase', async () => {
+    const controller = new AbortController()
+    controller.abort()
+
+    const deps = makeDeps()
+    const output = await runEditorialAgent(makeInput(), deps, { signal: controller.signal })
 
     expect(output.agentOutcome).toBe('fallback')
-    expect(output.error).toContain('LLM provider down')
+    expect(output.error).toBe('aborted')
+    expect(deps.runDescriptions).not.toHaveBeenCalled()
   })
 
   it('editorial_request_evidence_tool — returns scraped text chunk', async () => {
