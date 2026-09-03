@@ -45,6 +45,7 @@ export const EXPECTED_CRON_JOBS: readonly ExpectedCronJob[] = [
   // its HTTP endpoint is gone, so the job would have 404'd on every run.
   //
   { jobName: "classifier-image-retention-6h", maxAgeHours: 25 }, // daily 03:15 Taipei
+  { jobName: "product-embeddings-nightly", maxAgeHours: 25 }, // daily 21:45 UTC (05:45 Taipei)
   { jobName: "sync-mit-registry-weekly", maxAgeHours: 192 },
 ] as const;
 

@@ -1,5 +1,7 @@
 import * as Sentry from "@sentry/nextjs";
 import { NextResponse } from "next/server";
+import { postSlackAlert } from "@/lib/adapters/alerting/slack";
+import type { AgentNotification } from "@/lib/adapters/slack/notification";
 import { withAuditScope } from "@/lib/audit/scope";
 import { isAuthorizedMachineCaller } from "@/lib/security/machine-caller";
 import { refreshProductEmbeddings } from "@/lib/services/product-embeddings";
@@ -102,6 +104,49 @@ export const POST = withAuditScope(async (req: Request) => {
       jobId: undefined,
     });
 
+    let slackSent = false;
+    try {
+      const notification: AgentNotification = {
+        agent: "product-embeddings-nightly",
+        status: result.failedBatches.length > 0 ? "needs_attention" : "success",
+        date: new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Taipei" }),
+        summary: [
+          `Stale: ${result.stale}, Embedded: ${result.embedded}, Deleted: ${result.deleted}`,
+          ...(result.failedBatches.length > 0
+            ? [`Failed batches: ${result.failedBatches.length}`]
+            : []),
+          ...(dryRun ? ["(dry run — no writes)"] : []),
+        ],
+      };
+
+      console.info(
+        `[product-embeddings] ${JSON.stringify({
+          event: "product_embeddings_run",
+          dryRun,
+          stale: result.stale,
+          embedded: result.embedded,
+          deleted: result.deleted,
+          failedBatches: result.failedBatches.length,
+          slackStatus: notification.status,
+        })}`,
+      );
+
+      slackSent = await postSlackAlert(notification);
+    } catch (notifyError) {
+      Sentry.captureException(notifyError, {
+        tags: { scope: "cron", job: "product-embeddings", step: "notify" },
+      });
+      console.error(
+        JSON.stringify({
+          event: "product_embeddings_notify_failed",
+          error:
+            notifyError instanceof Error
+              ? notifyError.message
+              : "UnknownError",
+        }),
+      );
+    }
+
     return NextResponse.json({
       stale: result.stale,
       embedded: result.embedded,
@@ -109,6 +154,7 @@ export const POST = withAuditScope(async (req: Request) => {
       failedBatches: result.failedBatches.length,
       dryRun,
       triggeredBy: body.triggered_by,
+      slackSent,
     });
   } catch (err) {
     Sentry.captureException(err, {
@@ -120,6 +166,18 @@ export const POST = withAuditScope(async (req: Request) => {
         error: err instanceof Error ? err.name : "UnknownError",
       }),
     );
+    try {
+      await postSlackAlert({
+        agent: "product-embeddings-nightly",
+        status: "failed",
+        date: new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Taipei" }),
+        summary: [
+          `Route error: ${err instanceof Error ? err.message : "unknown"}`,
+        ],
+      });
+    } catch {
+      // Slack failure on an already-failing route — nothing more to do
+    }
     return NextResponse.json(
       { error: "Internal server error" },
       { status: 500 },
