@@ -30,9 +30,8 @@ function deps(
 
 describe("requestCuratedProductBackfill", () => {
   it("queues the products phase WITH its hard dependencies", async () => {
-    // `runEnrich` expands nothing, so a job naming only `products` runs the
-    // phase against an empty pipeline: no scraped pages to choose from, and no
-    // site-identity verdict on the site being mined.
+    // After DEV-1644 wave-A/B collapse, `acquire` replaces `links` +
+    // `site_identity` as the transitive dependency of `products`.
     const injected = deps();
 
     const result = await requestCuratedProductBackfill(
@@ -46,7 +45,7 @@ describe("requestCuratedProductBackfill", () => {
       expect.objectContaining({
         params: {
           submissionIds: [`submission-for-${BRAND_A}`],
-          phases: ["links", "site_identity", "products"],
+          phases: ["acquire", "products"],
         },
         dryRun: false,
         startedBy: REQUESTER.email,
@@ -58,6 +57,19 @@ describe("requestCuratedProductBackfill", () => {
       | Record<string, unknown>
       | undefined;
     expect(params && "steps" in params).toBe(false);
+  });
+
+  it("does not include retired phases (links, site_identity) in the backfill", async () => {
+    const injected = deps();
+
+    await requestCuratedProductBackfill([BRAND_A], REQUESTER, injected);
+
+    const params = vi.mocked(injected.enqueueJob).mock.calls[0]?.[0].params as
+      | Record<string, unknown>
+      | undefined;
+    const phases = params?.phases as string[];
+    expect(phases).not.toContain("links");
+    expect(phases).not.toContain("site_identity");
   });
 
   it("rolls the opened refreshes back when the enqueue throws", async () => {

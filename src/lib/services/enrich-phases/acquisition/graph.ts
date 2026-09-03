@@ -1,7 +1,6 @@
 /**
- * Acquisition agent graph. Orchestrates the gather → plan → execute → critique
- * → recover → finalize flow as a linear state machine with
- * gather → plan → execute → critique → recover → finalize nodes.
+ * Acquisition agent graph. Orchestrates the gather → plan → execute → images →
+ * critique → recover → imagesRecover → finalize flow as a linear state machine.
  *
  * All external dependencies (fetch, render, search, scrape, model) are injected
  * so the graph is fully testable with fakes.
@@ -14,7 +13,12 @@ import type { FetchMetadata } from '../scraper/fetch-guards'
 import type { RenderProvider } from '../scraper/render/types'
 import type { MultiScrapeResult, ScrapeBrandUrlsOptions } from '../scraper/index'
 import type { SurfaceDirective } from '../scraper/strategies/types'
-import { needsRendering } from '../catalog-discovery'
+import { needsRendering, type CatalogDiscoveryResult } from '../catalog-discovery'
+import type { DiscoverCatalogOptions } from '../catalog-discovery'
+import { buildCandidatePool, type CandidateImage } from '../candidate-pool'
+import type { ClassifiedImage } from '../classify-images'
+import { rank } from '../image-ranking'
+import { HERO_TARGET_RATIO } from '@/lib/constants/brand-images'
 import type { EnrichBrand } from '../types'
 import type { z } from 'zod'
 import {
@@ -52,11 +56,24 @@ export type AcquisitionInput = {
   jobId?: string
 }
 
+export type ImagePoolEntry = {
+  url: string
+  score: number
+  tags: string[]
+  pageUrl?: string
+  storageKey?: string
+}
+
 export type AcquisitionOutput = {
   agentOutcome: 'planned' | 'recovered' | 'fallback' | 'blocked'
   plan?: AcquisitionPlanType
   directives?: Map<string, SurfaceDirective>
   scrapeResult?: MultiScrapeResult
+  classifiedImages?: ClassifiedImage[]
+  /** Ranked image pool for downstream consumers (products agent). Capped at 16 KB. */
+  imagePool?: ImagePoolEntry[]
+  /** Catalog discovery result from priority product URLs in the plan. */
+  catalogResult?: CatalogDiscoveryResult
   budget?: { allowed: AcquisitionBudget; used: AcquisitionBudget }
   decisions: Array<{ step: string; action: string; reason: string; ms: number }>
   error?: string
@@ -67,6 +84,12 @@ export type AcquisitionDeps = {
   renderProvider?: RenderProvider
   searchBrand?: (query: string) => Promise<SearchResult>
   scrapeBrandUrls: (urls: string[], options: ScrapeBrandUrlsOptions) => Promise<MultiScrapeResult>
+  /** Download image candidates to Supabase storage. Returns stored URLs (null for failures). */
+  downloadAndStoreImages?: (candidates: CandidateImage[], brandId: string) => Promise<(string | null)[]>
+  /** Run vision classification on stored images. Returns classified images with scores/tags. */
+  classifyImages?: (brandId: string, dryRun?: boolean) => Promise<ClassifiedImage[]>
+  /** Discover product catalog from brand URLs. Injected so tests can provide a fake. */
+  discoverCatalog?: (options: DiscoverCatalogOptions) => Promise<CatalogDiscoveryResult>
 }
 
 type RunOptions = {
@@ -80,6 +103,8 @@ type RunOptions = {
   audit?: Omit<AuditBridgeContext, 'phase'> & { phase?: string }
   /** Test-only: override the computed budget to force edge-case paths. */
   budgetOverride?: AcquisitionBudget
+  /** When true, skip vision classification (images are still collected as candidates). */
+  dryRun?: boolean
 }
 
 type ModelResponse = { content: unknown }
@@ -122,6 +147,8 @@ type GraphState = {
   planAttempts: number
   directives: Map<string, SurfaceDirective>
   scrapeResult: MultiScrapeResult | null
+  imageCandidates: CandidateImage[]
+  classifiedImages: ClassifiedImage[]
   verdict: CritiqueVerdict | null
   recoveryDone: boolean
   agentOutcome: AcquisitionOutput['agentOutcome']
@@ -317,6 +344,146 @@ async function executeNode(
   }
 }
 
+// ---------------------------------------------------------------------------
+// Image nodes
+// ---------------------------------------------------------------------------
+
+/** Extract image candidates from scrape results into a candidate pool. */
+function collectImageCandidates(scrapeResult: MultiScrapeResult | null): CandidateImage[] {
+  if (!scrapeResult) return []
+
+  const data = scrapeResult.data
+  const scraped: CandidateImage[] = []
+
+  // Use imageSources when available (has pageUrl provenance)
+  const sources = ('imageSources' in data && Array.isArray(data.imageSources))
+    ? (data.imageSources as Array<{ url: string; method: string; pageUrl: string; position: number }>)
+    : []
+
+  if (sources.length > 0) {
+    for (const src of sources) {
+      scraped.push({
+        url: src.url,
+        source: 'scrape',
+        method: src.method,
+        pageUrl: src.pageUrl,
+        position: src.position,
+      })
+    }
+  } else if ('galleryImageUrls' in data && Array.isArray(data.galleryImageUrls)) {
+    for (const url of data.galleryImageUrls as string[]) {
+      scraped.push({ url, source: 'scrape' })
+    }
+  }
+
+  const jsonLdImages = ('jsonLdImageUrls' in data && Array.isArray(data.jsonLdImageUrls))
+    ? (data.jsonLdImageUrls as string[])
+    : []
+
+  return buildCandidatePool({
+    scraped,
+    jsonLdImages,
+    googleImages: [], // google images are not available during acquisition
+  })
+}
+
+async function imagesNode(
+  state: GraphState,
+  deps: AcquisitionDeps,
+  options: RunOptions = {},
+): Promise<GraphState> {
+  const start = Date.now()
+
+  const candidates = collectImageCandidates(state.scrapeResult)
+
+  if (candidates.length === 0) {
+    return {
+      ...state,
+      imageCandidates: [],
+      classifiedImages: [],
+      decisions: [...state.decisions, {
+        step: 'images',
+        action: 'no candidates',
+        reason: 'no images found in scrape results',
+        ms: Date.now() - start,
+      }],
+    }
+  }
+
+  let classifiedImages: ClassifiedImage[] = []
+
+  // Download images to storage
+  if (deps.downloadAndStoreImages) {
+    await deps.downloadAndStoreImages(candidates, state.input.brand.id)
+  }
+
+  // Classify images (vision scoring) — skip in dry-run mode
+  if (deps.classifyImages && !options.dryRun) {
+    classifiedImages = await deps.classifyImages(state.input.brand.id, options.dryRun)
+  }
+
+  return {
+    ...state,
+    imageCandidates: candidates,
+    classifiedImages,
+    decisions: [...state.decisions, {
+      step: 'images',
+      action: `${candidates.length} candidates, ${classifiedImages.length} classified`,
+      reason: options.dryRun ? 'dry-run: classify skipped' : 'download+classify complete',
+      ms: Date.now() - start,
+    }],
+  }
+}
+
+async function imagesRecoverNode(
+  state: GraphState,
+  deps: AcquisitionDeps,
+  options: RunOptions = {},
+): Promise<GraphState> {
+  const start = Date.now()
+
+  // Collect new candidates from recovery scrape
+  const newCandidates = collectImageCandidates(state.scrapeResult)
+
+  // Filter out candidates we already have
+  const existingUrls = new Set(state.imageCandidates.map((c) => c.url))
+  const freshCandidates = newCandidates.filter((c) => !existingUrls.has(c.url))
+
+  if (freshCandidates.length === 0) {
+    return {
+      ...state,
+      decisions: [...state.decisions, {
+        step: 'images_recover',
+        action: 'no new candidates',
+        reason: 'recovery scrape had no new images',
+        ms: Date.now() - start,
+      }],
+    }
+  }
+
+  let newClassified: ClassifiedImage[] = []
+
+  if (deps.downloadAndStoreImages) {
+    await deps.downloadAndStoreImages(freshCandidates, state.input.brand.id)
+  }
+
+  if (deps.classifyImages && !options.dryRun) {
+    newClassified = await deps.classifyImages(state.input.brand.id, options.dryRun)
+  }
+
+  return {
+    ...state,
+    imageCandidates: [...state.imageCandidates, ...freshCandidates],
+    classifiedImages: [...state.classifiedImages, ...newClassified],
+    decisions: [...state.decisions, {
+      step: 'images_recover',
+      action: `${freshCandidates.length} new candidates, ${newClassified.length} classified`,
+      reason: 'recovery images merged',
+      ms: Date.now() - start,
+    }],
+  }
+}
+
 async function critiqueNode(
   state: GraphState,
   model: Runnable,
@@ -391,9 +558,18 @@ function mergeRecoveryResult(
 ): MultiScrapeResult {
   if (!existing) return recovery
   const mergedStatuses = [...existing.statuses, ...recovery.statuses]
-  // First-pass-wins: only fill fields that are empty/null in existing data
+  // First-pass-wins for scalar fields; concatenate for image arrays so
+  // imagesRecoverNode can discover fresh candidates from the recovery scrape.
+  const IMAGE_ARRAY_KEYS = new Set(['galleryImageUrls', 'imageSources', 'jsonLdImageUrls'])
   const mergedData = { ...recovery.data }
   for (const [key, value] of Object.entries(existing.data)) {
+    if (IMAGE_ARRAY_KEYS.has(key) && Array.isArray(value)) {
+      const recoveryArr = Array.isArray((mergedData as Record<string, unknown>)[key])
+        ? (mergedData as Record<string, unknown>)[key] as unknown[]
+        : [];
+      (mergedData as Record<string, unknown>)[key] = [...value, ...recoveryArr]
+      continue
+    }
     if (value !== null && value !== undefined && value !== '' &&
         !(Array.isArray(value) && value.length === 0)) {
       (mergedData as Record<string, unknown>)[key] = value
@@ -486,7 +662,7 @@ async function recoverNode(
  * Runs the acquisition agent for a single brand. This is a linear state machine
  * (not a full LangGraph StateGraph) to keep the implementation simple and testable.
  *
- * Flow: gather → plan → execute → critique → (recover → critique)? → finalize
+ * Flow: gather → plan → execute → images → critique → (recover → imagesRecover → critique)? → finalize
  */
 export async function runAcquisition(
   input: AcquisitionInput,
@@ -515,6 +691,8 @@ export async function runAcquisition(
     planAttempts: 0,
     directives: new Map(),
     scrapeResult: null,
+    imageCandidates: [],
+    classifiedImages: [],
     verdict: null,
     recoveryDone: false,
     agentOutcome: 'planned',
@@ -573,6 +751,11 @@ export async function runAcquisition(
     state = await executeNode(state, deps)
   }
 
+  // 3b. Images — download + classify scraped images
+  if (!wallClockExhausted()) {
+    state = await imagesNode(state, deps, options)
+  }
+
   // 4. Critique
   if (!wallClockExhausted()) {
     state = await critiqueNode(state, model, options)
@@ -593,6 +776,11 @@ export async function runAcquisition(
   // 6. If thin and no recovery yet, recover then re-critique
   if (state.verdict?.verdict === 'thin' && !state.recoveryDone && !wallClockExhausted()) {
     state = await recoverNode(state, deps)
+
+    // Images recover — download + classify new candidates from recovery scrape
+    if (!wallClockExhausted()) {
+      state = await imagesRecoverNode(state, deps, options)
+    }
 
     // Re-critique after recovery (but don't loop again)
     if (!wallClockExhausted()) {
@@ -615,11 +803,59 @@ export async function runAcquisition(
   // Finalize — record final wall-clock usage
   wallClockExhausted()
 
+  // ---------------------------------------------------------------------------
+  // Image ranking: sort classified images by quality for hero (4:3) frame
+  // ---------------------------------------------------------------------------
+  const ranked = state.classifiedImages.length > 0
+    ? rank(state.classifiedImages, HERO_TARGET_RATIO)
+    : []
+
+  // Build imagePool for downstream (products agent): each entry carries url, score,
+  // tags, and optional pageUrl/storageKey. Capped at ~16 KB (same as acquisitionPlan).
+  const MAX_IMAGE_POOL_BYTES = 16_384
+  let imagePool: ImagePoolEntry[] = ranked.map((img) => ({
+    url: img.storage_path ?? img.id,
+    score: img.score,
+    tags: [img.tag, ...(img.disposition ? [img.disposition] : [])],
+    ...(img.storage_path ? { storageKey: img.storage_path } : {}),
+  }))
+  // Trim entries until under the cap
+  while (imagePool.length > 0 && JSON.stringify(imagePool).length > MAX_IMAGE_POOL_BYTES) {
+    imagePool = imagePool.slice(0, -1)
+  }
+
+  // ---------------------------------------------------------------------------
+  // Catalog discovery: run if the plan has priority product URLs
+  // ---------------------------------------------------------------------------
+  let catalogResult: CatalogDiscoveryResult | undefined
+  const catalogUrls = state.plan?.catalog
+  if (
+    deps.discoverCatalog &&
+    catalogUrls &&
+    (catalogUrls.priorityProductUrls.length > 0 || catalogUrls.entryUrls.length > 0)
+  ) {
+    try {
+      const knownSources = state.input.knownUrls
+        .slice(0, 3)
+        .map((url) => ({ url, channel: 'official' as const }))
+      catalogResult = await deps.discoverCatalog({
+        sources: knownSources,
+        entryUrls: catalogUrls.entryUrls,
+        priorityProductUrls: catalogUrls.priorityProductUrls,
+      })
+    } catch {
+      // Catalog discovery is non-critical; swallow and continue
+    }
+  }
+
   return {
     agentOutcome: state.agentOutcome,
     plan: state.plan ?? undefined,
     directives: state.directives.size > 0 ? state.directives : undefined,
     scrapeResult: state.scrapeResult ?? undefined,
+    classifiedImages: state.classifiedImages,
+    imagePool: imagePool.length > 0 ? imagePool : undefined,
+    catalogResult,
     budget: { allowed: state.budget.allowed, used: state.budget.used },
     decisions: state.decisions,
     error: state.error,

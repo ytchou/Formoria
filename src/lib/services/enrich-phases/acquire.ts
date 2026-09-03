@@ -39,7 +39,7 @@ import { buildPhaseResult, hasPatchValues, timePhase, type EnrichBrand, type Enr
 import { ONLINE_STORES } from '@/lib/brands/online-stores'
 import type { RenderProvider } from './scraper/render/types'
 
-type LinksPhaseOptions = {
+type AcquirePhaseOptions = {
   brand: EnrichBrand
   phases: EnrichPhase[]
   discoveredUrls: string[]
@@ -51,7 +51,7 @@ type LinksPhaseOptions = {
   renderProvider?: RenderProvider
 }
 
-export type LinksPhaseOutput = {
+export type AcquirePhaseOutput = {
   phaseResult: PhaseResult
   patch: Record<string, unknown>
   /**
@@ -631,7 +631,7 @@ function boundedAgentRecord(record: Record<string, unknown>): Record<string, unk
   return current
 }
 
-export async function runLinksPhase({
+export async function runAcquirePhase({
   brand,
   phases,
   discoveredUrls,
@@ -641,7 +641,7 @@ export async function runLinksPhase({
   jobId,
   supabase,
   renderProvider,
-}: LinksPhaseOptions): Promise<LinksPhaseOutput> {
+}: AcquirePhaseOptions): Promise<AcquirePhaseOutput> {
   if (!phases.includes('links')) {
     return {
       phaseResult: buildPhaseResult('links', 'skipped', [], 0, undefined, 'links phase not requested'),
@@ -657,7 +657,7 @@ export async function runLinksPhase({
   }
 
   return auditedCall(
-    { provider: 'enrich', operation: 'runLinksPhase', kind: 'service' },
+    { provider: 'enrich', operation: 'runAcquirePhase', kind: 'service' },
     async () => {
   const { result, durationMs } = await timePhase(async () => {
     const urls = prioritizeScrapeUrls(uniqueUrls([...knownUrls, ...discoveredUrls]))

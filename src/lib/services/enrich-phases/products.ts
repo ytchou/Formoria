@@ -79,6 +79,7 @@ import {
 import { loadRenderedProductTexts } from "./scraper/product-origin-text";
 import type { RenderProvider } from "./scraper/render/types";
 import type { CatalogDiscoveryResult } from "./catalog-discovery";
+import type { RankableImage } from "./image-ranking";
 import {
   buildPhaseResult,
   timePhase,
@@ -235,6 +236,8 @@ export type ProductsPhaseOptions = {
   catalogResult?: CatalogDiscoveryResult;
   /** Page URLs from image acquisition candidates. Optional until the orchestrator is updated (Task 5). */
   acquisitionPageUrls?: string[];
+  /** Classified image pool from the acquire phase, for product-level image selection. */
+  imagePool?: RankableImage[];
   renderProvider?: RenderProvider;
 };
 
@@ -714,6 +717,7 @@ export async function runProductsPhase({
   lookupRegistryProducts,
   catalogResult,
   acquisitionPageUrls,
+  imagePool: acquireImagePool,
   renderProvider,
 }: ProductsPhaseOptions): Promise<ProductsPhaseOutput> {
   if (!phases.includes("products"))
@@ -983,7 +987,7 @@ export async function runProductsPhase({
                 url: site.toString(),
               },
               pool: pool.products,
-              imagePool: [],
+              imagePool: acquireImagePool ?? [],
               catalogResult: catalogResult ?? undefined,
               scrapedData: scrapedData ?? undefined,
               priorityProductUrls: acquisitionPageUrls,

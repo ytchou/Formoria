@@ -288,4 +288,17 @@ describe('run-log phase order', () => {
     expect(acquisitionIndex).toBe(linksIndex + 1)
     expect(_test_PHASE_KIND.acquisition).toBe('llm')
   })
+
+  it('includes acquire phase and classifies it as llm', () => {
+    expect(_test_PHASE_ORDER).toContain('acquire')
+    expect(_test_PHASE_KIND.acquire).toBe('llm')
+  })
+
+  it('orders acquire before names', () => {
+    const acquireIndex = _test_PHASE_ORDER.indexOf('acquire')
+    const namesIndex = _test_PHASE_ORDER.indexOf('names')
+    expect(acquireIndex).toBeGreaterThan(-1)
+    expect(namesIndex).toBeGreaterThan(-1)
+    expect(acquireIndex).toBeLessThan(namesIndex)
+  })
 })

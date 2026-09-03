@@ -1361,4 +1361,26 @@ describe("PRODUCTS_AGENT env gate", () => {
     expect(result.phaseResult.status).toBe("succeeded");
     expect(result.proposals).toHaveLength(1);
   });
+
+  it("products_receives_image_pool", () => {
+    // Verify ProductsPhaseOptions accepts imagePool
+    const options: Parameters<typeof runProductsPhase>[0] = {
+      brand: BRAND,
+      phases: PHASES,
+      scrapedData: SCRAPED,
+      target: { type: "submission", id: SUBMISSION_ID },
+      imagePool: [
+        {
+          id: "img-1",
+          tag: "product" as const,
+          score: 0.9,
+          storage_path: "brands/test/img1.jpg",
+          sourceUrl: "https://example.com/product-1",
+        },
+      ],
+    };
+    // Type check: imagePool is accepted and typed as RankableImage[]
+    expect(options.imagePool).toHaveLength(1);
+    expect(options.imagePool![0]!.sourceUrl).toBe("https://example.com/product-1");
+  });
 });

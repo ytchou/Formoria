@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { siteIdentityKey } from '../../site-identity-arbiter'
 import { resolveQuarantine, runSiteIdentityPhase, type SiteIdentityQuarantine } from '../site-identity'
 import { buildPhaseResult } from '../types'
-import type { LinksPhaseOutput } from '../links'
+import type { AcquirePhaseOutput } from '../acquire'
 import { CLEARED_FIELDS_KEY, resolveRefreshEnrichmentPatch } from '../../brand-write-policy'
 
 const arbitrate = vi.hoisted(() => vi.fn())
@@ -21,7 +21,7 @@ const group = (overrides: Partial<SiteIdentityQuarantine> = {}): SiteIdentityQua
   scrapedData: { textSourceUrl: 'https://other.example' },
   ...overrides,
 })
-const linksOutput = (): LinksPhaseOutput => ({
+const linksOutput = (): AcquirePhaseOutput => ({
   phaseResult: buildPhaseResult('links', 'succeeded', [], 0),
   patch: {},
   scrapedBrandName: null,
@@ -638,7 +638,9 @@ describe('site identity quarantine', () => {
     expect(result.applications.has('brand-1')).toBe(true)
   })
 
-  it('site_identity_populates_belief_from_plan_surfaces', async () => {
+  // acquisitionBelief was removed (design D16 — ownership question moved to
+  // acquire critique). Verify the item is sent WITHOUT acquisitionBelief.
+  it('site_identity_sends_item_without_acquisition_belief', async () => {
     const acquisitionPlan = {
       surfaces: [
         { url: 'https://other.example', fetch: 'static' as const, strategy: 'official-site' as const, reason: 'matched brand domain' },
@@ -649,7 +651,7 @@ describe('site identity quarantine', () => {
       socialBios: {},
       decisions: [],
     }
-    const linksResultWithPlan: LinksPhaseOutput = {
+    const linksResultWithPlan: AcquirePhaseOutput = {
       ...linksOutput(),
       acquisitionPlan,
     }
@@ -661,16 +663,19 @@ describe('site identity quarantine', () => {
 
     await runSiteIdentityPhase(ctx(), new Map([['brand-1', [input]]]))
 
-    // Verify the item sent to arbitrate had the acquisitionBelief populated
+    // Verify the item sent to arbitrate does NOT carry acquisitionBelief (D16)
     expect(arbitrate).toHaveBeenCalledWith(
       expect.arrayContaining([
         expect.objectContaining({
           slug: brand.slug,
           subjectUrl: 'https://other.example',
-          acquisitionBelief: { class: 'official-site', reason: 'matched brand domain' },
         }),
       ]),
       expect.anything(),
     )
+    // Confirm acquisitionBelief is absent from the item
+    const calledItems = arbitrate.mock.calls[0][0]
+    const matchedItem = calledItems.find((i: Record<string, unknown>) => i.subjectUrl === 'https://other.example')
+    expect(matchedItem).not.toHaveProperty('acquisitionBelief')
   })
 })

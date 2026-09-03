@@ -1,7 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   arbitrateSiteIdentity,
-  buildSiteIdentityUserContent,
   siteIdentityKey,
   type SiteIdentityItem,
 } from "../site-identity-arbiter";
@@ -255,32 +254,4 @@ describe("arbitrateSiteIdentity", () => {
   });
 });
 
-describe("arbiter_renders_acquisition_belief_line_when_present", () => {
-  it("includes the acquisition belief line when present", () => {
-    const item: SiteIdentityItem = {
-      slug: "test-brand",
-      brandName: "Test Brand",
-      subjectUrl: "https://test.example",
-      subjectKind: "website",
-      pageTitle: "Test Brand Official",
-      acquisitionBelief: { class: "official-site", reason: "matched brand domain" },
-    };
-
-    const content = buildSiteIdentityUserContent([item]);
-    expect(content).toContain("Acquisition agent believed: official-site");
-    expect(content).toContain("matched brand domain");
-  });
-
-  it("omits the acquisition belief line when absent", () => {
-    const item: SiteIdentityItem = {
-      slug: "test-brand",
-      brandName: "Test Brand",
-      subjectUrl: "https://test.example",
-      subjectKind: "website",
-      pageTitle: "Test Brand Official",
-    };
-
-    const content = buildSiteIdentityUserContent([item]);
-    expect(content).not.toContain("Acquisition agent believed");
-  });
-});
+// acquisitionBelief was removed (design D16 — ownership question moved to acquire critique).

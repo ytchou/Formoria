@@ -15,9 +15,13 @@ export const ENRICH_PHASES = [
   "tags",
   "discover",
   "links",
-  // `names` sits between `links` and `images` because that is where it runs: it
-  // needs every candidate the context phases produce, and the image search
-  // builds its query from the name it decides (DEV-1321).
+  // `acquire` replaces `links` in the schedule. It runs the acquisition agent
+  // (Browserless scraper + LLM extraction) to gather website data that `links`
+  // formerly collected via direct fetches (DEV-1644 wave-A/B collapse).
+  "acquire",
+  // `names` sits after `acquire` because it needs every candidate the context
+  // phases produce, and the image search builds its query from the name it
+  // decides (DEV-1321).
   "names",
   "site_identity",
   "images",
@@ -27,12 +31,9 @@ export const ENRICH_PHASES = [
   // FAQ must run after `descriptions` (for `facts`); that is a hard ordering
   // constraint.
   "faq",
-  // Curated-product proposals (DEV-1469). Last, and after `links` /
-  // `site_identity` by hard dependency: it proposes products from the brand's
-  // own site, so it needs the resolved `purchase_website` AND site-identity's
-  // verdict on it — a revoked site must never be mined for products.
-  // The `products ← classify_images` edge was promoted to a real dependency
-  // in DEV-1633 (visual acquisition task merge).
+  // Curated-product proposals (DEV-1469). Last, and after `acquire` by hard
+  // dependency: it proposes products from the brand's own site, so it needs the
+  // resolved `purchase_website` from the acquisition agent.
   "products",
 ] as const;
 
@@ -81,55 +82,44 @@ export const AUDITED_PHASES = [...ENRICH_PHASES, ...SUB_PHASES] as const;
 export type AuditedPhaseName = EnrichPhaseName | SubPhaseName;
 
 /**
- * Phases whose work is a serper.dev call. The main pipeline is one-way
- * SERP -> ENRICHMENT, so these are the phases an admin runs to (re)build the
- * search context that the enrichment stage later consumes.
- *
- * - `discover` -> serper /search
- * - `images` -> serper /images (image-search phase)
+ * Phases whose work is a serper.dev call. Both former members (`discover`,
+ * `images`) are now DEFERRED — the acquisition agent replaces their role.
+ * The array is kept empty so the stage-group structure remains intact.
  */
 export const SERP_PHASES = [
-  "discover",
-  "images",
 ] as const satisfies readonly EnrichPhaseName[];
 
 /**
  * Phases whose work is LLM inference. These consume SERP output (live or
  * replayed from cache) and never call the search provider themselves.
  *
- * - `detect` / `slugs` / `tags` all read one batched OpenAI detect call;
- *   `slugs` is not a local transform because the slug it writes comes from the
- *   model's `slugGenerated` field.
+ * `acquire` runs the acquisition agent (Browserless + LLM) and is classified
+ * as an LLM phase because its core work is LLM-driven extraction.
  */
 export const ENRICH_LLM_PHASES = [
   "detect",
   "slugs",
   "tags",
-  "classify_images",
+  "acquire",
   "descriptions",
   "names",
-  "site_identity",
   "faq",
   "products",
   "stockists",
 ] as const satisfies readonly EnrichPhaseName[];
 
 /**
- * Phases that call neither serper.dev nor an LLM.
- *
- * - `clean` is a pure string transform over the brand name.
- * - `links` fetches brand-owned URLs directly (scraper), so it depends on no
- *   paid provider and belongs to neither stage.
+ * Phases that call neither serper.dev nor an LLM. Both former members (`clean`,
+ * `links`) are now DEFERRED. The array is kept empty so the stage-group
+ * structure remains intact.
  */
 export const LOCAL_PHASES = [
-  "clean",
-  "links",
 ] as const satisfies readonly EnrichPhaseName[];
 
 /**
  * Every stage group, in the order a run executes them. Kept as one array so the
- * exhaustiveness test can assert that each ENRICH_PHASES member is assigned to
- * exactly one stage.
+ * exhaustiveness test can assert that each non-deferred ENRICH_PHASES member is
+ * assigned to exactly one stage.
  */
 export const ENRICH_STAGE_GROUPS = {
   serp: SERP_PHASES,
@@ -142,10 +132,9 @@ export const ENRICH_STAGE_GROUPS = {
  * persisted output it reads. These are *verified* edges — the code actually
  * queries or reads the dependency's output.
  *
- * Ordering-only edges are NOT listed here and do not enter the closure:
- *   - `faq ← descriptions` (reads `facts`)
- *   - `descriptions ← classify_images` (comment-only; `imageAlts` hardcoded [])
- * Those are enforced by ENRICH_PHASES ordering, not by the dependency map.
+ * Deferred phases keep their entries (for the Record type) but have empty
+ * dependency lists — they are never walked by phasesForTask after filtering,
+ * and their former dependants now route through `acquire` instead.
  *
  * WHY the phase names survive: they are persisted in production —
  * `curation_jobs.params`, `curation_jobs.current_phase`,
@@ -156,30 +145,38 @@ export const ENRICH_STAGE_GROUPS = {
  * selection API that expands into phases, never a replacement for them.
  */
 export const PHASE_DEPENDENCIES: Record<EnrichPhaseName, readonly EnrichPhaseName[]> = {
+  // --- Deferred phases (empty deps, never walked) ---
   clean: [],
-  detect: ["discover"],
-  slugs: ["detect"],
-  tags: ["descriptions"],
   discover: [],
   links: [],
-  names: ["discover", "detect", "links"],
-  site_identity: ["links"],
-  images: ["names"],
-  classify_images: ["images"],
-  descriptions: ["links"],
-  stockists: ["links"],
+  site_identity: [],
+  images: [],
+  classify_images: [],
+  // --- Active phases ---
+  detect: [],
+  slugs: ["detect"],
+  tags: ["descriptions"],
+  acquire: ["detect"],
+  names: ["detect", "acquire"],
+  descriptions: ["acquire"],
+  stockists: ["acquire"],
   faq: [],
-  products: ["links", "site_identity", "classify_images"],
+  products: ["acquire", "names"],
 };
 
 /**
- * Phases that still exist but are deliberately not run.
- *
- * Empty as of 2026-08-29: `locations` was retired and replaced by `stockists`
- * (an LLM enrichment phase). The array and `isDeferredPhase` are kept because
- * the runner still consults them, and future deferrals can reuse the mechanism.
+ * Phases that still exist in ENRICH_PHASES (for historical data) but are
+ * deliberately not run. The acquisition agent (`acquire`) replaces the work
+ * formerly done by `discover`, `clean`, `links`, `site_identity`, `images`,
+ * and `classify_images` (DEV-1644 wave-A/B collapse).
  */
 export const DEFERRED_PHASES = [
+  "clean",
+  "discover",
+  "links",
+  "site_identity",
+  "images",
+  "classify_images",
 ] as const satisfies readonly EnrichPhaseName[];
 
 /** True when the phase exists but is deliberately not run. See DEFERRED_PHASES. */
@@ -195,15 +192,17 @@ export function isDeferredPhase(phase: string): boolean {
  * or phases are supplied.
  */
 /**
- * The `visual` task merges the former `image` and `product` tasks (DEV-1633).
+ * The `visual` task was simplified from ["images", "classify_images", "products"]
+ * to ["products"] as part of the wave-A/B collapse (DEV-1644). The closure walk
+ * adds `acquire` and `names` via products' dependency chain.
  * `image` and `product` are kept as hidden aliases so stored job rows with
  * `params.task = "image"` or `"product"` still resolve correctly. They map to
  * the same phases as `visual` and are excluded from `CURATION_TASK_ORDER`.
  */
-const VISUAL_PHASES = ["images", "classify_images", "products"] as const satisfies readonly EnrichPhaseName[];
+const VISUAL_PHASES = ["products"] as const satisfies readonly EnrichPhaseName[];
 
 export const CURATION_TASKS = {
-  identity: ["clean", "detect", "slugs", "discover", "links", "names", "site_identity"],
+  identity: ["detect", "slugs", "acquire", "names"],
   visual: VISUAL_PHASES,
   // Hidden aliases — DB compat for stored params.task values
   image: VISUAL_PHASES,
@@ -257,7 +256,7 @@ export function phasesForTask(
 // ---------------------------------------------------------------------------
 
 const LEGACY_STEP_PHASES: Record<string, readonly EnrichPhaseName[]> = {
-  context: ["discover", "detect", "slugs", "clean", "links", "names", "site_identity"],
+  context: ["detect", "slugs", "acquire", "names"],
   image: ["images", "classify_images"],
   detail: ["descriptions", "faq", "products", "tags", "stockists"],
 };
@@ -282,9 +281,12 @@ export function parseLegacyStepsToPhases(
   return ENRICH_PHASES.filter((phase) => requested.has(phase));
 }
 
+/**
+ * Image-specific enrichment phases. Both members are now DEFERRED — the
+ * acquisition agent handles image-related work. The array is kept empty so
+ * TEXT_ENRICH_PHASES derivation remains correct.
+ */
 export const IMAGE_ENRICH_PHASES = [
-  "images",
-  "classify_images",
 ] as const satisfies readonly EnrichPhaseName[];
 
 export const TEXT_ENRICH_PHASES = ENRICH_PHASES.filter(

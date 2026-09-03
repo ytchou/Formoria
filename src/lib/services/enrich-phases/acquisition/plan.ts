@@ -48,12 +48,24 @@ export type CritiqueVerdict = {
   verdict: 'sufficient' | 'thin' | 'fail'
   reason: string
   recoveryAction?: 'fanout' | 'search' | 'render'
+  urlVerdicts?: Array<{
+    url: string
+    owned: boolean
+    confidence: 'high' | 'medium' | 'low'
+    reason: string
+  }>
 }
 
 export const CritiqueVerdictSchema = z.object({
   verdict: z.enum(['sufficient', 'thin', 'fail']),
   reason: z.string(),
   recoveryAction: z.enum(['fanout', 'search', 'render']).optional(),
+  urlVerdicts: z.array(z.object({
+    url: z.string(),
+    owned: z.boolean(),
+    confidence: z.enum(['high', 'medium', 'low']),
+    reason: z.string(),
+  })).optional(),
 }).strict()
 
 /**

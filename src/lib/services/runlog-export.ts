@@ -30,6 +30,10 @@ const PHASE_ORDER = [
   "clean",
   "links",
   "acquisition",
+  // `acquire` replaces the retired phases (discover, clean, links,
+  // site_identity, images, classify_images) in the schedule (DEV-1644).
+  // Retired entries above are kept for historical run-log rows.
+  "acquire",
   "names",
   "site_identity",
   "images",
@@ -52,6 +56,7 @@ const PHASE_KIND: Record<string, PhaseKind> = {
   clean: "transform",
   links: "scrape",
   acquisition: "llm",
+  acquire: "llm",
   names: "llm",
   site_identity: "llm",
   images: "io",

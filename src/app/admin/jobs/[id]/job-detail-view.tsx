@@ -68,6 +68,8 @@ const phaseDescriptions = {
     "Classifies the category on its own, when descriptions did not decide it.",
   "image-search": "Searches for candidate images before image selection.",
   persist: "Writes the accumulated patch back to the brand record.",
+  acquire:
+    "Runs the full acquisition agent: search, scrape, images, classify, quarantine, rank, hero, catalog.",
   acquisition:
     "Plans and recovers evidence acquisition per brand: which URLs to fetch, whether to render, what to fan out to.",
   product_embeddings:
