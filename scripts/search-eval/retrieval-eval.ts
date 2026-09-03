@@ -176,6 +176,7 @@ async function runArm(
 async function cmdRun(armFilter: ArmName, k: number) {
   const golden = loadGolden();
   const { resolved, missing } = await resolveExpected(golden, defaultLookup());
+  const langfuse = getLangfuse();
 
   if (missing.length > 0) {
     console.warn(`[run] ${missing.length} expected products not found:`);
@@ -189,25 +190,50 @@ async function cmdRun(armFilter: ArmName, k: number) {
 
   for (const arm of armsToRun) {
     console.log(`[run] Running arm: ${arm} (k=${k})…`);
+    const runName = `situation-search-${arm}-${new Date().toISOString().slice(0, 19)}`;
     const perQuery: QueryResult[] = [];
 
     for (const item of golden) {
       const expectedIds = resolved.get(item.id) ?? [];
       const qr = await runArm(arm, item, expectedIds, k);
+      if (langfuse) {
+        const trace = langfuse.trace({
+          name: `eval:${arm}:${item.id}`,
+          input: { query: item.query, arm, k },
+          output: {
+            precisionAtK: qr.precisionAtK,
+            recallAtK: qr.recallAtK,
+            mrr: qr.mrr,
+            retrievedCount: qr.retrieved.length,
+          },
+          metadata: { latencyMs: qr.latencyMs },
+        });
+        await langfuse.createDatasetRunItem({
+          datasetItemId: item.id,
+          runName,
+          traceId: trace.id,
+        });
+      }
       perQuery.push(qr);
     }
 
+    const scorable = perQuery.filter((q) => q.expected.length > 0);
     const armResult: ArmResult = {
       arm,
       metrics: {
-        meanPrecisionAtK: mean(perQuery.map((q) => q.precisionAtK)),
-        meanRecallAtK: mean(perQuery.map((q) => q.recallAtK)),
-        meanMrr: mean(perQuery.map((q) => q.mrr)),
+        meanPrecisionAtK: mean(scorable.map((q) => q.precisionAtK)),
+        meanRecallAtK: mean(scorable.map((q) => q.recallAtK)),
+        meanMrr: mean(scorable.map((q) => q.mrr)),
         p95LatencyMs: p95(perQuery.map((q) => q.latencyMs)),
       },
       perQuery,
     };
     results.push(armResult);
+
+    if (langfuse) {
+      await flushLangfuse();
+      console.log(`[run] Langfuse run: ${runName}`);
+    }
   }
 
   // Write run output
