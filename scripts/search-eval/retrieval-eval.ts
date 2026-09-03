@@ -176,6 +176,8 @@ async function runArm(
 async function cmdRun(armFilter: ArmName, k: number) {
   const golden = loadGolden();
   const { resolved, missing } = await resolveExpected(golden, defaultLookup());
+  const langfuse = getLangfuse();
+  const runName = `situation-search-${new Date().toISOString().slice(0, 19)}`;
 
   if (missing.length > 0) {
     console.warn(`[run] ${missing.length} expected products not found:`);
@@ -194,6 +196,24 @@ async function cmdRun(armFilter: ArmName, k: number) {
     for (const item of golden) {
       const expectedIds = resolved.get(item.id) ?? [];
       const qr = await runArm(arm, item, expectedIds, k);
+      if (langfuse) {
+        const trace = langfuse.trace({
+          name: `eval:${arm}:${item.id}`,
+          input: { query: item.query, arm, k },
+          output: {
+            precisionAtK: qr.precisionAtK,
+            recallAtK: qr.recallAtK,
+            mrr: qr.mrr,
+            retrievedCount: qr.retrieved.length,
+          },
+          metadata: { latencyMs: qr.latencyMs },
+        });
+        langfuse.createDatasetRunItem({
+          datasetItemId: item.id,
+          runName,
+          traceId: trace.id,
+        });
+      }
       perQuery.push(qr);
     }
 
@@ -241,6 +261,11 @@ async function cmdRun(armFilter: ArmName, k: number) {
   }
 
   console.log(`\nVerdict: ${verdict(results)}`);
+
+  if (langfuse) {
+    await flushLangfuse();
+    console.log(`[run] Langfuse run: ${runName}`);
+  }
 }
 
 // ---------------------------------------------------------------------------
