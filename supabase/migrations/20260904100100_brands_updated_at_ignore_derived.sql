@@ -8,13 +8,17 @@
 -- This trigger replaces the shared one on `brands` only. It compares the row
 -- with derived columns stripped; if nothing else changed, `updated_at` is
 -- preserved from the old row.
+--
+-- Excluded: updated_at (the column we control), model_faq_count and
+-- search_vector (trigger-maintained derived), seo_promoted (GENERATED ALWAYS —
+-- reads as NULL in NEW inside a BEFORE trigger, which creates a false diff).
 
 create or replace function public.set_brands_updated_at()
 returns trigger language plpgsql as $$
 begin
-  if (to_jsonb(new) - 'updated_at' - 'model_faq_count' - 'search_vector')
+  if (to_jsonb(new) - 'updated_at' - 'model_faq_count' - 'search_vector' - 'seo_promoted')
      is not distinct from
-     (to_jsonb(old) - 'updated_at' - 'model_faq_count' - 'search_vector')
+     (to_jsonb(old) - 'updated_at' - 'model_faq_count' - 'search_vector' - 'seo_promoted')
   then
     new.updated_at := old.updated_at;
   else
