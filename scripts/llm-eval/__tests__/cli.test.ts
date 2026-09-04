@@ -136,6 +136,48 @@ describe('applyEnvFile', () => {
 // handlePromptPush
 // ---------------------------------------------------------------------------
 
+describe('parseCliArgs — pairwise', () => {
+  it('parses pairwise run --phase descriptions --target production --sample 20 --arm prompt:production --arm prompt:2', () => {
+    expect(
+      parseCliArgs([
+        'pairwise',
+        'run',
+        '--phase',
+        'descriptions',
+        '--target',
+        'production',
+        '--sample',
+        '20',
+        '--arm',
+        'prompt:1',
+        '--arm',
+        'prompt:2',
+      ]),
+    ).toEqual({
+      command: 'pairwise-run',
+      phase: 'descriptions',
+      target: 'production',
+      sample: 20,
+      arms: [
+        { kind: 'prompt', version: 1 },
+        { kind: 'prompt', version: 2 },
+      ],
+      envFile: undefined,
+    })
+  })
+
+  it('parses pairwise report <runName>', () => {
+    expect(parseCliArgs(['pairwise', 'report', 'my-run-2026'])).toEqual({
+      command: 'pairwise-report',
+      runName: 'my-run-2026',
+    })
+  })
+})
+
+// ---------------------------------------------------------------------------
+// handlePromptPush
+// ---------------------------------------------------------------------------
+
 describe('handlePromptPush', () => {
   it('reads the file, calls promptsCreate with labels [] and type text, and prints the new version', async () => {
     const promptFile = join(TMP, 'test-prompt.txt')

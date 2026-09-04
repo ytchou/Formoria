@@ -44,6 +44,15 @@ export type ParsedCommand =
       allowUnreviewed: boolean
     }
   | { command: 'prompt-push'; file: string; name: string }
+  | {
+      command: 'pairwise-run'
+      phase: string
+      target: string
+      sample: number
+      arms: ArmSpec[]
+      envFile?: string
+    }
+  | { command: 'pairwise-report'; runName: string }
 
 export function parseArm(spec: string): ArmSpec {
   const colon = spec.indexOf(':')
@@ -87,6 +96,9 @@ export function parseCliArgs(args: string[]): ParsedCommand {
       'approved-by': { type: 'string' },
       'allow-unreviewed': { type: 'boolean', default: false },
       name: { type: 'string' },
+      phase: { type: 'string' },
+      target: { type: 'string' },
+      sample: { type: 'string' },
     },
   })
 
@@ -144,6 +156,31 @@ export function parseCliArgs(args: string[]): ParsedCommand {
     }
   }
 
+  if (sub === 'pairwise') {
+    const sub2 = positionals[1]
+    if (sub2 === 'run') {
+      if (!values.phase) throw new Error('--phase is required')
+      if (!values.target) throw new Error('--target is required')
+      const sample = values.sample ? Number(values.sample) : 20
+      if (!Number.isFinite(sample) || sample < 1)
+        throw new Error('--sample must be a positive integer')
+      const arms = (values.arm ?? []).map(parseArm)
+      return {
+        command: 'pairwise-run',
+        phase: values.phase,
+        target: values.target,
+        sample,
+        arms,
+        envFile: values['env-file'],
+      }
+    }
+    if (sub2 === 'report') {
+      const runName = positionals[2]
+      if (!runName) throw new Error('run name argument is required')
+      return { command: 'pairwise-report', runName }
+    }
+  }
+
   throw new Error(
     `Unknown command: ${args.join(' ')}\n` +
       'Usage:\n' +
@@ -151,7 +188,9 @@ export function parseCliArgs(args: string[]): ParsedCommand {
       '  llm-eval dataset review enqueue --dataset <name>\n' +
       '  llm-eval dataset review push --dataset <name> --approved-by <user>\n' +
       '  llm-eval run --dataset <name> --arm <spec> [--arm <spec>] [--env-file <path>] [--allow-unreviewed]\n' +
-      '  llm-eval prompt push <file> --name <name>',
+      '  llm-eval prompt push <file> --name <name>\n' +
+      '  llm-eval pairwise run --phase <phase> --target <target> --sample <n> --arm <spec> [--arm <spec>]\n' +
+      '  llm-eval pairwise report <runName>',
   )
 }
 
@@ -400,6 +439,37 @@ async function cmdRun(
   process.exitCode = result.exitCode
 }
 
+async function cmdPairwiseRun(
+  phase: string,
+  _target: string,
+  sample: number,
+  armSpecs: ArmSpec[],
+): Promise<void> {
+  const { findQueueByName } = await import('@/lib/services/eval/langfuse-runs')
+
+  const queueId = await findQueueByName({ name: 'pairwise' })
+  console.log(`Pairwise queue: ${queueId}`)
+  console.log(
+    `Phase: ${phase}, sample: ${sample}, arms: ${armSpecs.map((a) => `${a.kind}:${a.kind === 'prompt' ? a.version : a.model}`).join(', ')}`,
+  )
+  console.log(`Queue found: ${queueId}. Enqueue ${sample} items after running both arms.`)
+  await flushLangfuse()
+}
+
+async function cmdPairwiseReport(runName: string): Promise<void> {
+  const { readFileSync } = await import('node:fs')
+  const { pairwiseReport } = await import('@/lib/services/eval/pairwise')
+  const { listQueueScores } = await import('@/lib/services/eval/langfuse-runs')
+
+  const runJsonPath = `scripts/llm-eval/runs/${runName}.json`
+  const runJson = JSON.parse(readFileSync(runJsonPath, 'utf8'))
+
+  const scores = await listQueueScores({ name: 'preference' })
+  const result = pairwiseReport({ runJson, scores })
+
+  console.log(`Win rate: A=${result.aWins} (${(result.aWinRate * 100).toFixed(1)}%), B=${result.bWins} (${(result.bWinRate * 100).toFixed(1)}%), Tie=${result.ties}, Pending=${result.pending}`)
+}
+
 async function cmdPromptPush(file: string, name: string): Promise<void> {
   await handlePromptPush({ file, name })
   await flushLangfuse()
@@ -437,6 +507,12 @@ async function main() {
       break
     case 'prompt-push':
       await cmdPromptPush(parsed.file, parsed.name)
+      break
+    case 'pairwise-run':
+      await cmdPairwiseRun(parsed.phase, parsed.target, parsed.sample, parsed.arms)
+      break
+    case 'pairwise-report':
+      await cmdPairwiseReport(parsed.runName)
       break
   }
 }
