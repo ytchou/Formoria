@@ -1547,7 +1547,7 @@ describe('acquire fold', () => {
       imagePool: [],
     })
     scraperMocks.scrapeBrandUrls.mockResolvedValue({
-      data: agentData(),
+      data: agentData({ description: 'Fold Brand 手作皮件' }),
       statuses: [],
     })
 

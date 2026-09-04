@@ -277,13 +277,18 @@ function createRunContext(
           ctx.budget.allowed.wallClockMs > 0 ? ctx.budget.allowed.wallClockMs : RESERVED_TAIL_MS,
           RESERVED_TAIL_MS,
         )
-      } else if (nodeKey === 'images') {
-        // Dynamic; use the node allowance table with stored count heuristic
-        allowanceMs = NODE_ALLOWANCE_MS.images(0)
-      } else if (nodeKey in NODE_ALLOWANCE_MS) {
-        allowanceMs = NODE_ALLOWANCE_MS[nodeKey as keyof typeof NODE_ALLOWANCE_MS] as number
       } else {
-        allowanceMs = remaining
+        let rawAllowance: number
+        if (nodeKey === 'images') {
+          // Dynamic; use the node allowance table with stored count heuristic
+          rawAllowance = NODE_ALLOWANCE_MS.images(0)
+        } else if (nodeKey in NODE_ALLOWANCE_MS) {
+          rawAllowance = NODE_ALLOWANCE_MS[nodeKey as keyof typeof NODE_ALLOWANCE_MS] as number
+        } else {
+          rawAllowance = remaining
+        }
+        // Clamp to leave room for the reserved tail, matching nodeSignal()
+        allowanceMs = Math.max(1, Math.min(rawAllowance, remaining - RESERVED_TAIL_MS))
       }
       ctx.decisions.push({
         step,

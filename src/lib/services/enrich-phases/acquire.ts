@@ -1258,7 +1258,7 @@ export async function runAcquirePhase({
   // planned, scraped text, classified images and discovered a catalog.
   const catalogTriples = result.catalogResult?.triples.length ?? 0
   const acquiredEvidence =
-    (result.agentOutcome === 'planned' || result.agentOutcome === 'recovered') &&
+    (result.agentOutcome === 'planned' || result.agentOutcome === 'recovered' || result.agentOutcome === 'fallback') &&
     (result.imagePool.length > 0 ||
       catalogTriples > 0 ||
       hasScrapedText(result.scrapedData))

@@ -299,7 +299,7 @@ describe("runProductsPhase", () => {
       scrapedData: {
         ...SCRAPED,
         perSourceText: {
-          [`${PINKOI}/product/clay-plate`]: {
+          ["https://pinkoi.com/product/clay-plate"]: {
             title: "陶土餐盤",
             description: "陶土手拉坏。",
           },

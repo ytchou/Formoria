@@ -529,7 +529,7 @@ describe('acquisition graph — critique', () => {
     })
     // Override the model's invoke to throw AbortError on critique calls
     let _critiqueCallCount = 0
-    const originalInvoke = critiqueAbortModel.invoke
+    const originalImpl = critiqueAbortModel.invoke.getMockImplementation()!
     critiqueAbortModel.invoke.mockImplementation(async (messages: BaseMessage[], options?: { signal?: AbortSignal }) => {
       const system = String(messages[0]?.content ?? '')
       if (system.includes('CritiqueVerdict')) {
@@ -538,7 +538,7 @@ describe('acquisition graph — critique', () => {
         err.name = 'AbortError'
         throw err
       }
-      return originalInvoke(messages, options)
+      return originalImpl(messages, options)
     })
 
     const deps = makeDeps()
@@ -564,7 +564,7 @@ describe('acquisition graph — critique', () => {
     const model = fakeAgentModel({
       plan: [[{ name: 'submit_plan', args: VALID_PLAN }]],
     })
-    const originalInvoke = model.invoke
+    const originalImpl = model.invoke.getMockImplementation()!
     model.invoke.mockImplementation(async (messages: BaseMessage[], options?: { signal?: AbortSignal }) => {
       const system = String(messages[0]?.content ?? '')
       if (system.includes('CritiqueVerdict')) {
@@ -572,7 +572,7 @@ describe('acquisition graph — critique', () => {
         err.name = 'AbortError'
         throw err
       }
-      return originalInvoke(messages, options)
+      return originalImpl(messages, options)
     })
 
     const deps = makeDeps({

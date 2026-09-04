@@ -87,7 +87,7 @@ describe('unwrapRedirectWrapper', () => {
   it('picks the first http(s) param value when multiple exist', () => {
     const url =
       'https://aff.example/go?a=https%3A%2F%2Ffirst.com&b=https%3A%2F%2Fsecond.com'
-    expect(unwrapRedirectWrapper(url)).toBe('https://first.com')
+    expect(unwrapRedirectWrapper(url)).toBe('https://first.com/')
   })
 })
 

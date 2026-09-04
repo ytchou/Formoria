@@ -2089,13 +2089,13 @@ describe("link expansion, SERP search, and no-purchase-channel gate", () => {
       adopted: [],
       scraped: {},
     });
-    // First call (igOnly): no channel → triggers SERP
-    // Second call after SERP extract: still no channel → gate fires
-    // Third call (hubbed): has channel
+    // Gather block calls hasPurchaseChannel once per brand (line 1735).
+    // The later no-purchase-channel gate (line 2171) also calls it; use
+    // mockReturnValue as the fallback so those calls don't consume the
+    // gather-block values.
     mocks.hasPurchaseChannel
-      .mockReturnValueOnce(false) // igOnly after hub expansion
-      .mockReturnValueOnce(false) // igOnly after SERP extract
-      .mockReturnValueOnce(true); // hubbed after hub expansion
+      .mockReturnValueOnce(false) // igOnly after hub expansion → triggers SERP
+      .mockReturnValue(true); // hubbed after hub expansion → skips SERP; default for gate calls
 
     mocks.searchBrandUrls.mockResolvedValue([
       "https://igonlybrand.com/shop",
