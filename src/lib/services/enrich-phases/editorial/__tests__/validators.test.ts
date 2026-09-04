@@ -11,10 +11,14 @@ const mocks = vi.hoisted(() => ({
   fetchLangfusePrompt: vi
     .fn()
     .mockImplementation((_name: string, fallback: string) => Promise.resolve(fallback)),
+  fetchLangfusePromptWithMeta: vi
+    .fn()
+    .mockImplementation((_name: string, fallback: string) => Promise.resolve({ text: fallback, prompt: { name: _name, version: 1 } })),
 }))
 
 vi.mock('@/lib/langfuse/prompt', () => ({
   fetchLangfusePrompt: mocks.fetchLangfusePrompt,
+  fetchLangfusePromptWithMeta: mocks.fetchLangfusePromptWithMeta,
 }))
 
 import {

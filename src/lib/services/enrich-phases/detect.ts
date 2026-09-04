@@ -25,11 +25,20 @@ import {
 
 const DETECT_PHASES = ["detect", "slugs", "tags"] as const;
 
+/**
+ * Whether the detect result's confidence level makes it eligible for a direct
+ * write (slug, non-brand rejection, name candidate). Exported for the eval
+ * harness phase adapter (DEV-1612).
+ */
+export function isHighConfidenceWrite(result: { confidence: string }): boolean {
+  return result.confidence === "high";
+}
+
 export function shouldSkipForNonBrand(
   detectResult: DetectResult | undefined,
 ): boolean {
   return Boolean(
-    detectResult?.isNonBrand === true && detectResult.confidence === "high",
+    detectResult?.isNonBrand === true && isHighConfidenceWrite(detectResult),
   );
 }
 
@@ -58,7 +67,7 @@ function buildDetectPatch(
   const KEBAB_CASE_RE = /^[a-z0-9]+(-[a-z0-9]+)*$/;
   if (
     phases.includes("slugs") &&
-    detectResult.confidence === "high" &&
+    isHighConfidenceWrite(detectResult) &&
     detectResult.slugGenerated &&
     detectResult.slugGenerated !== brand.slug &&
     KEBAB_CASE_RE.test(detectResult.slugGenerated)
@@ -72,7 +81,7 @@ function buildDetectPatch(
 
   if (
     detectResult.brandName &&
-    detectResult.confidence === "high" &&
+    isHighConfidenceWrite(detectResult) &&
     detectResult.brandName !== brand.name &&
     isValidBrandName(detectResult.brandName, brand.name ?? brand.slug)
   ) {

@@ -6,7 +6,7 @@ import {
   descriptionShape,
 } from "./description-rewrite";
 import { createProfiledOpenAIClient } from "./llm-audit";
-import { fetchLangfusePrompt } from "@/lib/langfuse/prompt";
+import { fetchLangfusePromptWithMeta } from "@/lib/langfuse/prompt";
 
 // Partial mock: the profile helpers (`profileChatParams`,
 // `buildProfiledEnrichmentConfig`) are the real ones, so these tests still
@@ -19,6 +19,9 @@ vi.mock("./llm-audit", async (importOriginal) => ({
 vi.mock("@/lib/langfuse/prompt", () => ({
   fetchLangfusePrompt: vi.fn().mockImplementation(
     (_name: string, fallback: string) => Promise.resolve(fallback),
+  ),
+  fetchLangfusePromptWithMeta: vi.fn().mockImplementation(
+    (_name: string, fallback: string) => Promise.resolve({ text: fallback, prompt: { name: _name, version: 1 } }),
   ),
 }));
 
@@ -266,7 +269,7 @@ describe("DESCRIPTION_SCHEMA", () => {
     }
   });
 
-  it("passes taiwan_usage_rules variable to fetchLangfusePrompt", async () => {
+  it("passes taiwan_usage_rules variable to fetchLangfusePromptWithMeta", async () => {
     const chat = vi.fn().mockResolvedValue({
       response: { ok: true, status: 200 },
       data: {},
@@ -288,7 +291,7 @@ describe("DESCRIPTION_SCHEMA", () => {
       { jobId: "job-1", target: { type: "brand", id: "brand-1" } },
     );
 
-    expect(fetchLangfusePrompt).toHaveBeenCalledWith(
+    expect(fetchLangfusePromptWithMeta).toHaveBeenCalledWith(
       "descriptions",
       expect.any(String),
       expect.objectContaining({

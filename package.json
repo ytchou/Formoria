@@ -74,6 +74,7 @@
     "check:design-tokens": "node scripts/generate-design-tokens.mjs --check",
     "check:category-redirects": "tsx scripts/generate-category-redirects.ts --check",
     "langfuse:seed": "tsx scripts/langfuse-seed.ts",
+    "llm-eval": "tsx scripts/llm-eval/llm-eval.ts",
     "founding-facts:audit": "tsx scripts/founding-facts-audit/index.ts",
     "search:eval": "tsx scripts/search-eval/retrieval-eval.ts"
   },

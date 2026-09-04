@@ -13,7 +13,7 @@ import {
   heroQualityForAspect,
   cropDamagePenaltyForAspect,
 } from "./image-ranking";
-import { fetchLangfusePrompt } from "@/lib/langfuse/prompt";
+import { fetchLangfusePromptWithMeta } from "@/lib/langfuse/prompt";
 import type { OpenAIChatResult } from "../openai-client";
 import {
   parseAndValidate,
@@ -1157,7 +1157,7 @@ async function classifyChunk(
   );
   const ordinals = [...imageByOrdinal.keys()];
 
-  const classifySystemPrompt = await fetchLangfusePrompt("classify-images", IMAGE_CLASSIFY_SYSTEM_PROMPT);
+  const { text: classifySystemPrompt } = await fetchLangfusePromptWithMeta("classify-images", IMAGE_CLASSIFY_SYSTEM_PROMPT);
   const userMessage = `${brandContext}Classify the ${sendable.length} brand images that follow, numbered ${ordinals.join(", ")} in order. Return a JSON object with a "classifications" array holding exactly ${sendable.length} objects, whose "id" values are the image numbers as strings. Do not omit any image.`;
   const chatParams = {
     system: classifySystemPrompt,
@@ -1544,12 +1544,15 @@ export async function classifyStoredImages(
     return skippedClassifyResult("no unclassified images");
   }
 
+  const { prompt: classifyImagesPromptMeta } = await fetchLangfusePromptWithMeta("classify-images", IMAGE_CLASSIFY_SYSTEM_PROMPT);
+
   const client =
     options.client ??
     createProfiledOpenAIClient("classifyImages", {
       target,
       phase: "classify_images",
       ...(jobId ? { jobId } : {}),
+      ...(classifyImagesPromptMeta ? { prompt: classifyImagesPromptMeta } : {}),
       // The model comes from the shared resolver, never a second literal: this
       // object is the stored audit contract, and a drifting copy makes every
       // brand_ai_results row for this phase record a model that never ran.

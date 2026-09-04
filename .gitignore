@@ -168,25 +168,13 @@ data/
 
 public/admin/content/
 
-# Eval scripts (local experimentation)
-scripts/eval/
-
-# model-ab run artifacts (54M+ of cached HTTP bodies and per-model output).
-# The harness itself is committed; its outputs are local evidence, not source.
-scripts/model-ab/runs/
-
-# name-eval run artifacts (DEV-1321 arbiter gate). Same rule as model-ab:
-# the harness is committed, its scored output and LLM audit sink are not.
-scripts/name-eval/runs/
-
-# site-identity-eval run artifacts (DEV-1309 ladder gate + exposure scan). Same
-# rule as model-ab and name-eval: the harness is committed, its scored output,
-# exposure report, and LLM audit sink are not.
-scripts/site-identity-eval/runs/
-
 # search-eval run artifacts and stored baseline (DEV-1413 relevance gate). Same rule
 # again: queries.json is the reviewed fixture and is committed, run output is not.
 scripts/search-eval/runs/
+
+# llm-eval run artifacts (DEV-1612 unified eval harness). Same rule: the harness
+# is committed, its scored output and LLM audit sink are not.
+scripts/llm-eval/runs/
 
 # brand-storage-maintenance local manifests (operational artifacts, never committed)
 scripts/.storage-purge-manifest-*.json

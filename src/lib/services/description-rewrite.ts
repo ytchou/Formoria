@@ -8,7 +8,7 @@ import { DESCRIPTION_SYSTEM_PROMPT } from "@/lib/prompts";
 import { TAIWAN_USAGE_RULES } from "@/lib/prompts/shared";
 import { auditedCall } from "@/lib/audit";
 import { reportBannedTerms } from "@/lib/i18n/banned-terms";
-import { fetchLangfusePrompt } from "@/lib/langfuse/prompt";
+import { fetchLangfusePromptWithMeta } from "@/lib/langfuse/prompt";
 import { z } from "zod";
 import {
   parseAndValidate,
@@ -649,7 +649,7 @@ export async function rewriteBrandDescription(
   // brand whose every call died at the provider may fail its target.
   const calls = noLlmCalls();
 
-  const descriptionSystemPrompt = await fetchLangfusePrompt("descriptions", DESCRIPTION_SYSTEM_PROMPT, {
+  const { text: descriptionSystemPrompt, prompt: descPromptMeta } = await fetchLangfusePromptWithMeta("descriptions", DESCRIPTION_SYSTEM_PROMPT, {
     taiwan_usage_rules: TAIWAN_USAGE_RULES,
   });
   try {
@@ -664,6 +664,7 @@ export async function rewriteBrandDescription(
           phase: "descriptions",
           attempt: attemptIndex + 1,
           config: attemptConfig,
+          ...(descPromptMeta ? { prompt: descPromptMeta } : {}),
         },
         { apiKey: token },
       );

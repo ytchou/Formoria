@@ -6,12 +6,15 @@ import {
   researchFoundingFacts,
 } from "./brand-facts";
 import { L1_CATEGORIES } from "@/lib/taxonomy/ontology";
-import { fetchLangfusePrompt } from "@/lib/langfuse/prompt";
+import { fetchLangfusePromptWithMeta } from "@/lib/langfuse/prompt";
 import { createProfiledOpenAIClient } from "./llm-audit";
 
 vi.mock("@/lib/langfuse/prompt", () => ({
   fetchLangfusePrompt: vi.fn().mockImplementation(
     (_name: string, fallback: string) => Promise.resolve(fallback),
+  ),
+  fetchLangfusePromptWithMeta: vi.fn().mockImplementation(
+    (_name: string, fallback: string) => Promise.resolve({ text: fallback, prompt: { name: _name, version: 1 } }),
   ),
 }));
 
@@ -241,7 +244,7 @@ describe("FACTS_SCHEMA", () => {
     expect(listingKeys).toContain("reasoning");
   });
 
-  it("passes 3 variable keys to fetchLangfusePrompt", async () => {
+  it("passes 3 variable keys to fetchLangfusePromptWithMeta", async () => {
     const chat = vi.fn().mockResolvedValue({
       response: { ok: true, status: 200 },
       data: {},
@@ -264,7 +267,7 @@ describe("FACTS_SCHEMA", () => {
       { summary: {} },
     );
 
-    expect(fetchLangfusePrompt).toHaveBeenCalledWith(
+    expect(fetchLangfusePromptWithMeta).toHaveBeenCalledWith(
       "brand-facts",
       expect.any(String),
       expect.objectContaining({
