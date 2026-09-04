@@ -9,7 +9,7 @@
  *   pnpm exec tsx --env-file=.env.staging scripts/dev-1692/submit-proof-brands.ts --apply
  *   pnpm exec tsx --env-file=.env.staging scripts/dev-1692/submit-proof-brands.ts --apply --out ids.txt
  */
-import { createHash, randomUUID } from "node:crypto";
+import { createHash } from "node:crypto";
 import { readFileSync, writeFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 
