@@ -2,7 +2,7 @@ import { randomUUID } from 'node:crypto'
 
 import type { PhaseAdapter } from './phase-adapters'
 import type { AuditCollector } from './zero-write'
-import { runName as makeRunName } from './langfuse-runs'
+import { runName as makeRunName, traceName as makeTraceName } from './langfuse-runs'
 /**
  * Reused from scripts/search-eval/metrics.ts — no third implementation.
  * Imported with a relative path because no @/ alias covers scripts/.
@@ -70,7 +70,7 @@ type CallModelResult = {
 }
 
 type CallModelFn = (
-  input: { system: string; user: string; phase: string },
+  input: { system: string; user: string; phase: string; prompt?: { name: string; version: number } | null },
   options: { model?: string },
   itemRunId: string,
 ) => Promise<CallModelResult>
@@ -95,6 +95,7 @@ export type ExperimentDeps = {
   assertNoNewAuditRows: (opts: { since: Date }) => Promise<void> | void
   runWithAuditContext: <T>(seed: AuditContextSeed, fn: () => T) => T
   getAuditContext: () => { correlationId: string | null }
+  createTrace?: (params: { name: string; id: string; metadata?: unknown }) => unknown
 }
 
 // ---------------------------------------------------------------------------
@@ -145,6 +146,8 @@ type RunItemsParams = {
   concurrency: number
   collector: AuditCollector
   runWithAuditContext: ExperimentDeps['runWithAuditContext']
+  /** Creates a Langfuse trace per item for generation linking. */
+  createItemTrace?: (itemId: string, itemRunId: string) => unknown
 }
 
 export async function runItems({
@@ -154,6 +157,7 @@ export async function runItems({
   concurrency,
   collector,
   runWithAuditContext,
+  createItemTrace,
 }: RunItemsParams): Promise<ItemResult[]> {
   const limit = createLimiter(concurrency)
 
@@ -165,11 +169,14 @@ export async function runItems({
         let lastError: string | undefined
         let taskResult: { ok: boolean; output: unknown; error?: string } | null = null
 
+        // Create a Langfuse trace for this item so emitLangfuseGeneration can link to it
+        const langfuseTrace = createItemTrace?.(item.id, itemRunId) ?? undefined
+
         // One retry per item on failure (2 total attempts)
         for (let attempt = 0; attempt < 2; attempt++) {
           try {
             taskResult = await runWithAuditContext(
-              { correlationId: itemRunId },
+              { correlationId: itemRunId, ...(langfuseTrace ? { langfuseTrace } : {}) },
               () => task(item, itemRunId),
             )
             if (taskResult.ok) break
@@ -301,6 +308,7 @@ export async function runExperiment({
               system: promptMeta.text,
               user: typeof item.input === 'string' ? item.input : JSON.stringify(item.input),
               phase: adapter.profileKey,
+              prompt: promptMeta.prompt,
             },
             { model: arm.type === 'model' ? arm.value : undefined },
             itemRunId,
@@ -317,8 +325,20 @@ export async function runExperiment({
           }
 
           const unwrapped = adapter.unwrap(parsed.data)
+          if (unwrapped === undefined || unwrapped === null) {
+            return { ok: false, output: null, error: 'Unwrap returned empty (no results)' }
+          }
           return { ok: true, output: unwrapped }
         }
+
+        // Build per-item trace factory for Langfuse generation linking
+        const createItemTrace = deps.createTrace
+          ? (itemId: string, itemRunId: string) =>
+              deps.createTrace!({
+                name: makeTraceName(dataset, arm.name, itemId),
+                id: itemRunId,
+              })
+          : undefined
 
         // Run items
         const itemResults = await runItems({
@@ -328,6 +348,7 @@ export async function runExperiment({
           concurrency,
           collector,
           runWithAuditContext: deps.runWithAuditContext,
+          createItemTrace,
         })
 
         // Aggregate per-arm metrics

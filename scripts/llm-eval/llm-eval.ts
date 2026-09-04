@@ -378,7 +378,7 @@ async function cmdRun(
     '@/lib/services/eval/zero-write'
   )
   const { fetchLangfusePromptWithMeta } = await import('@/lib/langfuse/prompt')
-  const { createProfiledOpenAIClient } = await import(
+  const { createProfiledOpenAIClient, profileChatParams } = await import(
     '@/lib/services/llm-audit'
   )
   const { runWithAuditContext, getAuditContext } = await import(
@@ -389,13 +389,13 @@ async function cmdRun(
   const { dirname } = await import('node:path')
 
   const callModel = async (
-    input: { system: string; user: string; phase: string },
+    input: { system: string; user: string; phase: string; prompt?: { name: string; version: number } | null },
     options: { model?: string },
     _itemRunId: string,
   ) => {
     const openai = createProfiledOpenAIClient(
       adapter.profileKey as Parameters<typeof createProfiledOpenAIClient>[0],
-      { phase: input.phase },
+      { phase: input.phase, ...(input.prompt ? { prompt: input.prompt } : {}) },
       { model: options.model },
     )
     const result = await openai.chat({
@@ -403,8 +403,9 @@ async function cmdRun(
       user: input.user,
       json: true,
       schema: adapter.requestSchema as { name: string; schema: Record<string, unknown> },
+      ...profileChatParams(adapter.profileKey as Parameters<typeof profileChatParams>[0]),
     })
-    return { ok: true, content: result.content ?? '' }
+    return { ok: result.response.ok, content: result.content ?? '' }
   }
 
   const result = await runExperiment({
@@ -415,6 +416,11 @@ async function cmdRun(
     allowUnreviewed,
     deps: {
       callModel,
+      createTrace: (params: { name: string; id: string; metadata?: unknown }) => {
+        const lf = getLangfuse()
+        if (!lf) return null
+        return lf.trace(params)
+      },
       writeFile: (path: string, content: string) => {
         mkdirSync(dirname(path), { recursive: true })
         writeFileSync(path, content)

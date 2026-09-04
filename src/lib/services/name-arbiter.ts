@@ -252,11 +252,11 @@ async function arbitrateBrandName(
   const token = process.env.OPENAI_API_KEY;
   if (!token) return notAttempted();
 
-  const { text: nameArbiterPrompt, prompt: namePromptMeta } = await fetchLangfusePromptWithMeta("name-arbiter", NAME_ARBITER_SYSTEM_PROMPT);
-
-  const client = createNameArbiterClient(token, "names", item.target, jobId, namePromptMeta ?? undefined);
-
   try {
+    const { text: nameArbiterPrompt, prompt: namePromptMeta } = await fetchLangfusePromptWithMeta("name-arbiter", NAME_ARBITER_SYSTEM_PROMPT);
+
+    const client = createNameArbiterClient(token, "names", item.target, jobId, namePromptMeta ?? undefined);
+
     const { response, data, content } = await client.chat({
       system: nameArbiterPrompt,
       user: buildNameArbiterUserContent([item]),
@@ -301,17 +301,17 @@ async function arbitrateBrandNamesChunk(
   const token = process.env.OPENAI_API_KEY;
   if (!token) return notAttempted();
 
-  const { text: nameArbiterBatchPrompt, prompt: nameBatchPromptMeta } = await fetchLangfusePromptWithMeta("name-arbiter", NAME_ARBITER_SYSTEM_PROMPT);
-
-  const client = createNameArbiterClient(
-    token,
-    "namesBatch",
-    items.at(0)?.target,
-    jobId,
-    nameBatchPromptMeta ?? undefined,
-  );
-
   try {
+    const { text: nameArbiterBatchPrompt, prompt: nameBatchPromptMeta } = await fetchLangfusePromptWithMeta("name-arbiter", NAME_ARBITER_SYSTEM_PROMPT);
+
+    const client = createNameArbiterClient(
+      token,
+      "namesBatch",
+      items.at(0)?.target,
+      jobId,
+      nameBatchPromptMeta ?? undefined,
+    );
+
     const { response, data, content } = await client.chat({
       system: nameArbiterBatchPrompt,
       user: buildNameArbiterUserContent(items),

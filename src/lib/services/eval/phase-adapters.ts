@@ -121,7 +121,7 @@ const registry: Record<string, PhaseAdapter> = {
     outputSchema: detectBatchShape,
     requestSchema: makeRequestSchema('detect_batch', detectBatchShape),
     parseOutput: makeParseOutput(detectBatchShape),
-    unwrap: (output) => (output as BatchResult).results[0],
+    unwrap: (output) => (output as BatchResult).results?.[0] ?? undefined,
     expectedOf: (item) => {
       const eo = item.expectedOutput as Record<string, unknown>
       return {
@@ -163,7 +163,7 @@ const registry: Record<string, PhaseAdapter> = {
     outputSchema: classifyBatchShape,
     requestSchema: makeRequestSchema('classify_batch', classifyBatchShape),
     parseOutput: makeParseOutput(classifyBatchShape),
-    unwrap: (output) => (output as BatchResult).results[0],
+    unwrap: (output) => (output as BatchResult).results?.[0] ?? undefined,
     expectedOf: (item) => {
       const eo = item.expectedOutput as Record<string, unknown>
       return {
@@ -204,7 +204,7 @@ const registry: Record<string, PhaseAdapter> = {
     outputSchema: nameArbitrationShape,
     requestSchema: makeRequestSchema('name_arbitration', nameArbitrationShape),
     parseOutput: makeParseOutput(nameArbitrationShape),
-    unwrap: (output) => (output as BatchResult).results[0],
+    unwrap: (output) => (output as BatchResult).results?.[0] ?? undefined,
     expectedOf: (item) => {
       const eo = item.expectedOutput as Record<string, unknown>
       return {
@@ -235,7 +235,7 @@ const registry: Record<string, PhaseAdapter> = {
     outputSchema: siteIdentityShape,
     requestSchema: makeRequestSchema('site_identity', siteIdentityShape),
     parseOutput: makeParseOutput(siteIdentityShape),
-    unwrap: (output) => (output as BatchResult).results[0],
+    unwrap: (output) => (output as BatchResult).results?.[0] ?? undefined,
     expectedOf: (item) => {
       const eo = item.expectedOutput as Record<string, unknown>
       return {

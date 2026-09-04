@@ -432,22 +432,22 @@ async function classifyCategory(
 
   // The 300-token budget and why it is not 100 live with the profile in
   // `@/lib/constants/llm-models`.
-  const { text: classifyPrompt, prompt } = await fetchLangfusePromptWithMeta(
-    "category-classify",
-    CLASSIFY_SYSTEM_PROMPT,
-    { category_list: CATEGORY_LIST },
-  );
-
-  const client = createClassifierClient(
-    token,
-    "classification",
-    "classification",
-    brand.target,
-    jobId,
-    prompt ?? undefined,
-  );
-
   try {
+    const { text: classifyPrompt, prompt } = await fetchLangfusePromptWithMeta(
+      "category-classify",
+      CLASSIFY_SYSTEM_PROMPT,
+      { category_list: CATEGORY_LIST },
+    );
+
+    const client = createClassifierClient(
+      token,
+      "classification",
+      "classification",
+      brand.target,
+      jobId,
+      prompt ?? undefined,
+    );
+
     const { response, data, content } = await client.chat({
       system: classifyPrompt,
       user: userContent,
@@ -502,22 +502,22 @@ async function classifyCategoryBatchChunk(
     .join("\n");
   const userContent = `請將以下品牌分類：\n${list}`;
 
-  const { text: classifyBatchPrompt, prompt: classifyBatchPromptMeta } = await fetchLangfusePromptWithMeta(
-    "category-classify",
-    CLASSIFY_SYSTEM_PROMPT,
-    { category_list: CATEGORY_LIST },
-  );
-
-  const client = createClassifierClient(
-    token,
-    "classification",
-    "classificationBatch",
-    brands.at(0)?.target,
-    jobId,
-    classifyBatchPromptMeta ?? undefined,
-  );
-
   try {
+    const { text: classifyBatchPrompt, prompt: classifyBatchPromptMeta } = await fetchLangfusePromptWithMeta(
+      "category-classify",
+      CLASSIFY_SYSTEM_PROMPT,
+      { category_list: CATEGORY_LIST },
+    );
+
+    const client = createClassifierClient(
+      token,
+      "classification",
+      "classificationBatch",
+      brands.at(0)?.target,
+      jobId,
+      classifyBatchPromptMeta ?? undefined,
+    );
+
     const { response, data, content } = await client.chat({
       system: classifyBatchPrompt,
       user: userContent,
@@ -643,18 +643,18 @@ async function detectBrand(
     .join("");
   const userContent = `品牌 slug：${brand.slug}\n品牌名稱：${brand.name}\n描述：${brand.description ?? "無"}\n網站：${brand.website ?? "無"}${snippetLine}${probeLine}`;
 
-  const { text: detectPrompt, prompt: detectPromptMeta } = await fetchLangfusePromptWithMeta("detect", DETECT_SYSTEM_PROMPT);
-
-  const client = createClassifierClient(
-    token,
-    "detect",
-    "detect",
-    brand.target,
-    jobId,
-    detectPromptMeta ?? undefined,
-  );
-
   try {
+    const { text: detectPrompt, prompt: detectPromptMeta } = await fetchLangfusePromptWithMeta("detect", DETECT_SYSTEM_PROMPT);
+
+    const client = createClassifierClient(
+      token,
+      "detect",
+      "detect",
+      brand.target,
+      jobId,
+      detectPromptMeta ?? undefined,
+    );
+
     const { response, data, content } = await client.chat({
       system: detectPrompt,
       user: userContent,
@@ -715,18 +715,18 @@ async function detectBrandsBatchChunk(
     .join("\n");
   const userContent = `請判斷以下項目是否為實際品牌：\n${list}`;
 
-  const { text: detectBatchPrompt, prompt: detectBatchPromptMeta } = await fetchLangfusePromptWithMeta("detect", DETECT_SYSTEM_PROMPT);
-
-  const client = createClassifierClient(
-    token,
-    "detect",
-    "detectBatch",
-    brands.at(0)?.target,
-    jobId,
-    detectBatchPromptMeta ?? undefined,
-  );
-
   try {
+    const { text: detectBatchPrompt, prompt: detectBatchPromptMeta } = await fetchLangfusePromptWithMeta("detect", DETECT_SYSTEM_PROMPT);
+
+    const client = createClassifierClient(
+      token,
+      "detect",
+      "detectBatch",
+      brands.at(0)?.target,
+      jobId,
+      detectBatchPromptMeta ?? undefined,
+    );
+
     const { response, data, content } = await client.chat({
       system: detectBatchPrompt,
       user: userContent,

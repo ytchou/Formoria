@@ -272,11 +272,11 @@ async function arbitrateSiteIdentityItem(
   const token = process.env.OPENAI_API_KEY;
   if (!token) return notAttempted();
 
-  const { text: siteIdentityPrompt, prompt: sitePromptMeta } = await fetchLangfusePromptWithMeta("site-identity", SITE_IDENTITY_SYSTEM_PROMPT);
-
-  const client = createSiteIdentityClient(token, "siteIdentity", item.target, jobId, sitePromptMeta ?? undefined);
-
   try {
+    const { text: siteIdentityPrompt, prompt: sitePromptMeta } = await fetchLangfusePromptWithMeta("site-identity", SITE_IDENTITY_SYSTEM_PROMPT);
+
+    const client = createSiteIdentityClient(token, "siteIdentity", item.target, jobId, sitePromptMeta ?? undefined);
+
     const { response, data, content } = await client.chat({
       system: siteIdentityPrompt,
       user: buildSiteIdentityUserContent([item]),
@@ -324,17 +324,17 @@ async function arbitrateSiteIdentityChunk(
   const token = process.env.OPENAI_API_KEY;
   if (!token) return notAttempted();
 
-  const { text: siteIdentityBatchPrompt, prompt: siteBatchPromptMeta } = await fetchLangfusePromptWithMeta("site-identity", SITE_IDENTITY_SYSTEM_PROMPT);
-
-  const client = createSiteIdentityClient(
-    token,
-    "siteIdentityBatch",
-    items.at(0)?.target,
-    jobId,
-    siteBatchPromptMeta ?? undefined,
-  );
-
   try {
+    const { text: siteIdentityBatchPrompt, prompt: siteBatchPromptMeta } = await fetchLangfusePromptWithMeta("site-identity", SITE_IDENTITY_SYSTEM_PROMPT);
+
+    const client = createSiteIdentityClient(
+      token,
+      "siteIdentityBatch",
+      items.at(0)?.target,
+      jobId,
+      siteBatchPromptMeta ?? undefined,
+    );
+
     const { response, data, content } = await client.chat({
       system: siteIdentityBatchPrompt,
       user: buildSiteIdentityUserContent(items),
