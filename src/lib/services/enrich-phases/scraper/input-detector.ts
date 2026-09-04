@@ -126,6 +126,23 @@ function hostnameMatches(hostname: string, domain: string): boolean {
 }
 
 /**
+ * True when the URL belongs to a link-in-bio aggregator (Linktree, Portaly,
+ * etc.). Used by the link-expansion module to decide which of a brand's known
+ * URLs are hub pages worth scraping for outbound links.
+ *
+ * The underlying `LINK_AGGREGATOR_HOSTS` array stays module-private — only this
+ * predicate is exported.
+ */
+export function isLinkAggregatorHost(url: string): boolean {
+  try {
+    const hostname = new URL(url).hostname.toLowerCase().replace(/^www\./, '')
+    return LINK_AGGREGATOR_HOSTS.some((domain) => hostnameMatches(hostname, domain))
+  } catch {
+    return false
+  }
+}
+
+/**
  * True when the URL's host is a platform rather than a brand's own site: a
  * social network, a marketplace, a link aggregator, or one of the delivery /
  * directory / publishing platforms in `NON_BRAND_PLATFORM_HOSTS`.

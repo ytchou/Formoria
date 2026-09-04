@@ -67,6 +67,8 @@ type JobParams = {
   steps?: string[];
   overwrite?: boolean;
   status?: BrandStatus;
+  /** Multiplier for the per-brand time budget. >1 grants more time. */
+  budgetScale?: number;
 };
 type OperationWithSummary = CurationOperationResult & {
   enrichmentSummary: EnrichmentSummary;
@@ -242,6 +244,7 @@ async function runOperation(
       persistTargetProgressBatch(supabase, job, workerToken, events),
     jobId: job.id,
     renderProvider: options.renderProvider,
+    budgetScale: params.budgetScale,
   };
   let result: OperationWithSummary;
   const status = params.status;
@@ -300,7 +303,7 @@ function parseOperation(operation: string): ValidOperation {
   throw new Error(`Unsupported operation: ${operation}`);
 }
 
-function parseParams(params: Json | null): JobParams {
+export function parseParams(params: Json | null): JobParams {
   if (!params || typeof params !== "object" || Array.isArray(params)) {
     return {};
   }
@@ -325,6 +328,13 @@ function parseParams(params: Json | null): JobParams {
       ? Math.floor(raw.stopAfter)
       : undefined;
 
+  const budgetScale =
+    typeof raw.budgetScale === "number" &&
+    Number.isFinite(raw.budgetScale) &&
+    raw.budgetScale > 0
+      ? raw.budgetScale
+      : undefined;
+
   return {
     slugs,
     submissionIds,
@@ -335,6 +345,7 @@ function parseParams(params: Json | null): JobParams {
     steps: parseLegacyStepNames(raw.steps),
     overwrite: parseOverwriteParam(raw.overwrite),
     status: parseStatus(raw.status),
+    budgetScale,
   };
 }
 

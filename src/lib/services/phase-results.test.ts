@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { Json } from "@/lib/supabase/database.types";
-import { parsePhaseResults } from "./phase-results";
+import type { PhaseResult } from "@/lib/types/curation";
+import { lastAcquireRecordedBudgetExhausted, parsePhaseResults } from "./phase-results";
 
 describe("parsePhaseResults", () => {
   it("returns an empty list for anything that is not an array", () => {
@@ -304,5 +305,110 @@ describe("parsePhaseResults", () => {
 
       expect(parsed.at(0)?.agentOutcome).toBe(outcome);
     }
+  });
+
+  it("parses_link_expansion_within_cap", () => {
+    const linkExpansion = {
+      hubsFetched: 3,
+      adopted: [
+        { field: "instagram_url", url: "https://instagram.com/brand", source: "hub" },
+        { field: "facebook_url", url: "https://facebook.com/brand", source: "serp" },
+      ],
+      serp: "searched",
+    };
+    const parsed = parsePhaseResults([
+      {
+        phase: "acquire",
+        status: "succeeded",
+        changedFields: ["instagram_url"],
+        durationMs: 450,
+        linkExpansion,
+      },
+    ] as Json);
+
+    expect(parsed.at(0)?.linkExpansion).toEqual(linkExpansion);
+  });
+
+  it("drops_oversized_link_expansion", () => {
+    const linkExpansion = {
+      hubsFetched: 1,
+      adopted: [{ field: "website", url: "x".repeat(9000), source: "hub" }],
+      serp: "none",
+    };
+    const parsed = parsePhaseResults([
+      {
+        phase: "acquire",
+        status: "succeeded",
+        changedFields: ["website"],
+        durationMs: 100,
+        linkExpansion,
+        agentOutcome: "planned",
+      },
+    ] as Json);
+
+    // linkExpansion dropped but other fields preserved
+    expect(parsed.at(0)).not.toHaveProperty("linkExpansion");
+    expect(parsed.at(0)?.agentOutcome).toBe("planned");
+  });
+});
+
+describe("lastAcquireRecordedBudgetExhausted", () => {
+  it("detects_budget_exhausted_in_last_acquire_trace", () => {
+    // Case 1: acquisitionPlan.error === 'aborted'
+    const results1: PhaseResult[] = [
+      {
+        phase: "detect",
+        status: "succeeded",
+        changedFields: [],
+        durationMs: 100,
+      },
+      {
+        phase: "acquire",
+        status: "succeeded",
+        changedFields: [],
+        durationMs: 500,
+        acquisitionPlan: { error: "aborted" },
+      },
+    ];
+    expect(lastAcquireRecordedBudgetExhausted(results1)).toBe(true);
+
+    // Case 2: trace[].reason containing 'budget_exhausted'
+    const results2: PhaseResult[] = [
+      {
+        phase: "acquire",
+        status: "succeeded",
+        changedFields: [],
+        durationMs: 500,
+        acquisitionPlan: {
+          trace: [
+            { step: "render", reason: "budget_exhausted" },
+          ],
+        },
+      },
+    ];
+    expect(lastAcquireRecordedBudgetExhausted(results2)).toBe(true);
+
+    // Case 3: no acquire entry at all → false
+    const results3: PhaseResult[] = [
+      {
+        phase: "detect",
+        status: "succeeded",
+        changedFields: [],
+        durationMs: 100,
+      },
+    ];
+    expect(lastAcquireRecordedBudgetExhausted(results3)).toBe(false);
+
+    // Case 4: acquire entry with no budget signal → false
+    const results4: PhaseResult[] = [
+      {
+        phase: "acquire",
+        status: "succeeded",
+        changedFields: [],
+        durationMs: 500,
+        acquisitionPlan: { urls: ["https://example.com"] },
+      },
+    ];
+    expect(lastAcquireRecordedBudgetExhausted(results4)).toBe(false);
   });
 });

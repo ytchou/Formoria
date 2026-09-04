@@ -73,7 +73,7 @@ describe("planActiveImageOrder", () => {
       { length: MAX_BRAND_ACTIVE_IMAGES + overflow },
       (_, i) => `img-${i}`,
     );
-    const { assignments, demotedIds } = planActiveImageOrder({
+    const { assignments, candidateIds, demotedIds } = planActiveImageOrder({
       activeImages: ids.map((id) => row(id)),
       rankedJudgedIds: ids,
     });
@@ -82,7 +82,43 @@ describe("planActiveImageOrder", () => {
     expect(assignments.map((a) => a.sortOrder)).toEqual(
       Array.from({ length: MAX_BRAND_ACTIVE_IMAGES }, (_, i) => i),
     );
+    // Overflow with no score lands in demotedIds (score undefined < MIN_CANDIDATE_SCORE)
+    expect(candidateIds).toEqual([]);
     expect(demotedIds).toEqual(ids.slice(MAX_BRAND_ACTIVE_IMAGES));
+  });
+
+  it("over_cap_high_score_becomes_candidate", () => {
+    // 12 keeps with scores 90..79 => 10 assignments, 2 candidateIds, 0 demotedIds
+    const count = 12;
+    const ids = Array.from({ length: count }, (_, i) => `img-${i}`);
+    const { assignments, candidateIds, demotedIds } = planActiveImageOrder({
+      activeImages: ids.map((id, i) => row(id, { score: 90 - i })),
+      rankedJudgedIds: ids,
+    });
+
+    expect(assignments).toHaveLength(MAX_BRAND_ACTIVE_IMAGES);
+    // The two overflow images (scores 80 and 79) are both >= 70
+    expect(candidateIds).toHaveLength(2);
+    expect(candidateIds).toEqual(["img-10", "img-11"]);
+    expect(demotedIds).toEqual([]);
+  });
+
+  it("over_cap_low_score_is_rejected_with_reason", () => {
+    // 12 keeps: scores 90..80 for first 11, score 65 for the last one
+    const count = 12;
+    const ids = Array.from({ length: count }, (_, i) => `img-${i}`);
+    const { assignments, candidateIds, demotedIds } = planActiveImageOrder({
+      activeImages: ids.map((id, i) =>
+        row(id, { score: i < 11 ? 90 - i : 65 }),
+      ),
+      rankedJudgedIds: ids,
+    });
+
+    expect(assignments).toHaveLength(MAX_BRAND_ACTIVE_IMAGES);
+    // img-10 has score 80 (>= 70) => candidate
+    expect(candidateIds).toEqual(["img-10"]);
+    // img-11 has score 65 (< 70) => demoted
+    expect(demotedIds).toEqual(["img-11"]);
   });
 
   it("counts human picks against the cap", () => {

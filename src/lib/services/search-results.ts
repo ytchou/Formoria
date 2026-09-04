@@ -59,6 +59,7 @@ export type SearchResultRow = {
   retryAttempt?: number
   rawResponse?: unknown
   latencyMs?: number | null
+  createdAt?: string
 }
 
 function asJson(value: unknown): Json | null {
@@ -138,7 +139,7 @@ export async function getLatestSearchResults(
   const foreignKey = targetType === 'brand' ? 'brand_id' : 'submission_id'
   const { data, error } = await supabase
     .from('brand_search_results')
-    .select(`${foreignKey}, id, search_type, query, urls, snippets, provider, endpoint, input, call_status, http_status, error, attempt, retry_attempt, raw_response, latency_ms`)
+    .select(`${foreignKey}, id, search_type, query, urls, snippets, provider, endpoint, input, call_status, http_status, error, attempt, retry_attempt, raw_response, latency_ms, created_at`)
     .in(foreignKey, targetIds)
     .eq('search_type', searchType)
     .order('created_at', { ascending: false })
@@ -166,7 +167,25 @@ export async function getLatestSearchResults(
       retryAttempt: typeof row.retry_attempt === 'number' ? row.retry_attempt : undefined,
       rawResponse: row.raw_response,
       latencyMs: typeof row.latency_ms === 'number' ? row.latency_ms : null,
+      createdAt: typeof row.created_at === 'string' ? row.created_at : undefined,
     })
   }
   return results
+}
+
+/**
+ * True when a cached search result is recent enough to reuse and actually
+ * carries URLs. A row with zero URLs is never fresh — it represents a search
+ * that found nothing, and replaying it would skip a brand that might have
+ * results now.
+ */
+export function isFreshSearchResult(
+  row: SearchResultRow,
+  maxAgeMs: number,
+  now = Date.now(),
+): boolean {
+  if (!row.createdAt) return false
+  if (row.urls.length === 0) return false
+  const age = now - new Date(row.createdAt).getTime()
+  return age <= maxAgeMs
 }

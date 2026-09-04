@@ -21,6 +21,8 @@ export interface CurationConfig {
    */
   onPatch?: (event: CurationPatchEvent) => void | Promise<void>;
   jobId?: string;
+  /** Multiplier for the per-brand time budget. >1 grants more time. */
+  budgetScale?: number;
 }
 
 interface CurationPatchEvent {
@@ -69,6 +71,13 @@ export interface PhaseResult {
   }>;
   productsVerification?: Record<string, unknown>;
   revokedColumns?: string[];
+  /** Compact summary of the link-expansion sub-step inside acquire. */
+  linkExpansion?: {
+    hubsFetched: number;
+    adopted: Array<{ field: string; url: string; source: 'hub' | 'serp' }>;
+    serp: 'replayed' | 'searched' | 'none';
+    gated?: string;
+  };
 }
 
 export interface BrandOutcome {

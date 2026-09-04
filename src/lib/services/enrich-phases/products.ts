@@ -971,9 +971,9 @@ export async function runProductsPhase({
     ...new Set(
       [
         siteUrl,
-        brand.purchase_pinkoi,
-        brand.purchase_shopee,
-        brand.purchase_myship,
+        preferPatched(pendingPatch, brand.purchase_pinkoi, "purchase_pinkoi"),
+        preferPatched(pendingPatch, brand.purchase_shopee, "purchase_shopee"),
+        preferPatched(pendingPatch, brand.purchase_myship, "purchase_myship"),
       ].filter(
         (value): value is string =>
           typeof value === "string" && value.length > 0,

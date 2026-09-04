@@ -52,6 +52,8 @@ export type CurationJobParams = Record<string, Json | undefined> & {
   overwrite?: boolean;
   status?: string;
   target?: "submissions" | "brands";
+  /** Multiplier for the per-brand time budget. >1 grants more time. */
+  budgetScale?: number;
 };
 
 type CurationJobRow = Database["public"]["Tables"]["curation_jobs"]["Row"];
@@ -953,14 +955,17 @@ function parseJobParams(params: Json | null): CurationJobParams {
  * already carries an explicit, pre-filtered target list, so a stale limit would
  * silently truncate that list instead of capping a broad scan.
  */
-function rerunJobParams(
+export function rerunJobParams(
   params: Json | null,
-  options?: { overwrite?: boolean },
+  options?: { overwrite?: boolean; budgetScale?: number },
 ): CurationJobParams {
   const rerunParams = parseJobParams(params);
   delete rerunParams.stopAfter;
   rerunParams.overwrite =
     parseOverwriteParam(rerunParams.overwrite) || options?.overwrite === true;
+  if (options?.budgetScale !== undefined) {
+    rerunParams.budgetScale = options.budgetScale;
+  }
   return rerunParams;
 }
 

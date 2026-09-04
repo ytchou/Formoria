@@ -3,6 +3,7 @@ import {
   effectiveRequestedPhases,
   isExplicitSubmissionEligible,
   isManualRerunTargetEligible,
+  rerunJobParams,
   type CurationJobParams,
 } from "./curation-jobs";
 import {
@@ -152,6 +153,22 @@ describe("satisfaction-based phase skipping", () => {
     expect(execute).not.toContain("acquire");
     expect(execute).toContain("products");
     expect(execute).toContain("names");
+  });
+});
+
+describe("rerunJobParams budgetScale", () => {
+  it("rerun_params_carry_budget_scale", () => {
+    const source = { slugs: ["alpha"], task: "full" };
+
+    const result = rerunJobParams(source, { budgetScale: 1.5 });
+    expect(result.budgetScale).toBe(1.5);
+
+    // Omitted when undefined
+    const result2 = rerunJobParams(source, {});
+    expect(result2).not.toHaveProperty("budgetScale");
+
+    const result3 = rerunJobParams(source);
+    expect(result3).not.toHaveProperty("budgetScale");
   });
 });
 
