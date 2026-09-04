@@ -602,7 +602,7 @@ async function fetchCensus(
   }>(
     (from, to) =>
       client
-        .from("submissions")
+        .from("brand_submissions")
         .select("id, brand_id, enriched_data")
         .in("brand_id", ids)
         .eq("intent", "refresh")
@@ -869,7 +869,7 @@ async function fetchSubmissionCensus(
   }>(
     (from, to) =>
       client
-        .from("submissions")
+        .from("brand_submissions")
         .select("id, brand_id, enriched_data")
         .in("id", submissionIds)
         .order("id", { ascending: true })

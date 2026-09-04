@@ -9,10 +9,22 @@
  *   pnpm exec tsx --env-file=.env.staging scripts/dev-1692/submit-proof-brands.ts --apply
  *   pnpm exec tsx --env-file=.env.staging scripts/dev-1692/submit-proof-brands.ts --apply --out ids.txt
  */
+import { createHash, randomUUID } from "node:crypto";
 import { readFileSync, writeFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 
 import { submitBrandForReview } from "@/lib/services/submission-pipeline";
+
+function deterministicUuid(key: string): string {
+  const hash = createHash("sha256").update(key).digest("hex");
+  return [
+    hash.slice(0, 8),
+    hash.slice(8, 12),
+    "4" + hash.slice(13, 16),
+    "8" + hash.slice(17, 20),
+    hash.slice(20, 32),
+  ].join("-");
+}
 
 type ProofBrand = {
   slug: string;
@@ -48,7 +60,7 @@ async function main(): Promise<void> {
   const ids: string[] = [];
 
   for (const brand of brands) {
-    const idempotencyKey = `dev-1692:${brand.slug}`;
+    const idempotencyKey = deterministicUuid(`dev-1692:${brand.slug}`);
     console.log(`[submit-proof] submitting ${brand.slug} (${idempotencyKey})…`);
 
     const result = await submitBrandForReview(
