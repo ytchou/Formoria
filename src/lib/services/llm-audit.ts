@@ -22,6 +22,8 @@ export type LlmAuditContext = {
   phase: string;
   attempt?: number;
   config?: unknown;
+  /** Langfuse prompt metadata for linking generations to their prompt version. */
+  prompt?: { name: string; version: number };
   /** Injected Supabase write seam used by tests; omitted to use the service client. */
   supabase?: SupabaseClient<Database>;
 };
@@ -44,6 +46,7 @@ function truncate(value: string): string {
 export function emitLangfuseGeneration(
   context: LlmAuditContext,
   event: ChatAuditEvent,
+  costUsd?: number | null,
 ): void {
   try {
     const trace = getAuditContext().langfuseTrace;
@@ -58,6 +61,13 @@ export function emitLangfuseGeneration(
           promptTokens: event.usage?.prompt_tokens,
           completionTokens: event.usage?.completion_tokens,
         },
+        ...(costUsd != null ? { costDetails: { total: costUsd } } : {}),
+        ...(context.prompt
+          ? {
+              promptName: context.prompt.name,
+              promptVersion: context.prompt.version,
+            }
+          : {}),
         metadata: {
           phase: context.phase,
           ok: event.ok,
@@ -139,18 +149,20 @@ export function createAuditedOpenAIClient(
           const client = createOpenAIClient({
             ...options,
             onChatComplete: async (event) => {
+              let costUsd: number | null = null;
               if (event.usage) {
                 try {
                   const cost = await priceUsage(event.model ?? "", event.usage);
                   ctx.promptTokens = cost.promptTokens;
                   ctx.completionTokens = cost.completionTokens;
                   ctx.costUsd = cost.costUsd;
+                  costUsd = cost.costUsd;
                 } catch {
                   // Price lookup must never prevent the audit row from being written.
                 }
               }
               await persistAuditEvent(context, event, spanId);
-              emitLangfuseGeneration(context, event);
+              emitLangfuseGeneration(context, event, costUsd);
             },
           });
           return client.chat(input);
