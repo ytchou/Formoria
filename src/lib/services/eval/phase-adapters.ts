@@ -327,3 +327,11 @@ export function adapterFor(datasetName: string): PhaseAdapter {
   }
   return adapter
 }
+
+/**
+ * Returns the names of all registered datasets.
+ * Used by the CLI to iterate adapters for validation.
+ */
+export function registeredDatasets(): string[] {
+  return Object.keys(registry)
+}
