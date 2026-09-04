@@ -52,6 +52,27 @@ export type CensusRow = {
   products_link_checked: number;
   products_mit_confirmed: number;
   products_with_image: number;
+  /** Number of products in the pending refresh submission's enriched_data. */
+  pending_products: number;
+  /** Curated product candidates with a final_rank for the pending submission. */
+  pending_candidate_rank_count: number;
+  /** Active images in the pending submission. */
+  pending_active_images: number;
+  /** Candidate images in the pending submission. */
+  pending_candidate_images: number;
+};
+
+/**
+ * A submission-only census row — emitted by `--submission-ids` for submissions
+ * that have no linked brand row.
+ */
+export type SubmissionCensusRow = {
+  submission_id: string;
+  slug: null;
+  pending_products: number;
+  pending_candidate_rank_count: number;
+  pending_active_images: number;
+  pending_candidate_images: number;
 };
 
 export type CensusFile = {
@@ -185,6 +206,10 @@ export function emptyCensusRow(slug: string): CensusRow {
     products_link_checked: 0,
     products_mit_confirmed: 0,
     products_with_image: 0,
+    pending_products: 0,
+    pending_candidate_rank_count: 0,
+    pending_active_images: 0,
+    pending_candidate_images: 0,
   };
 }
 
@@ -300,6 +325,30 @@ const FIELD_SPECS: FieldSpec[] = [
     kind: "count",
     field: "products_with_image",
     get: (row) => row.products_with_image,
+    better: "higher",
+  },
+  {
+    kind: "count",
+    field: "pending_products",
+    get: (row) => row.pending_products,
+    better: "higher",
+  },
+  {
+    kind: "count",
+    field: "pending_candidate_rank_count",
+    get: (row) => row.pending_candidate_rank_count,
+    better: "higher",
+  },
+  {
+    kind: "count",
+    field: "pending_active_images",
+    get: (row) => row.pending_active_images,
+    better: "higher",
+  },
+  {
+    kind: "count",
+    field: "pending_candidate_images",
+    get: (row) => row.pending_candidate_images,
     better: "higher",
   },
 ];
@@ -545,6 +594,70 @@ async function fetchCensus(
     "curated_products",
   );
 
+  // Pending refresh submissions for this cohort's brands
+  const pendingSubmissions = await selectAllPages<{
+    id: string;
+    brand_id: string;
+    enriched_data: { products?: unknown[] } | null;
+  }>(
+    (from, to) =>
+      client
+        .from("submissions")
+        .select("id, brand_id, enriched_data")
+        .in("brand_id", ids)
+        .eq("intent", "refresh")
+        .eq("status", "pending")
+        .order("id", { ascending: true })
+        .range(from, to),
+    "submissions (pending refresh)",
+  );
+
+  const pendingSubmissionIds = pendingSubmissions.map((sub) => sub.id);
+
+  const submissionImages =
+    pendingSubmissionIds.length > 0
+      ? await selectAllPages<{
+          submission_id: string;
+          status: string;
+        }>(
+          (from, to) =>
+            client
+              .from("submission_images")
+              .select("submission_id, status")
+              .in("submission_id", pendingSubmissionIds)
+              .order("id", { ascending: true })
+              .range(from, to),
+          "submission_images",
+        )
+      : [];
+
+  const candidateProducts =
+    pendingSubmissionIds.length > 0
+      ? await selectAllPages<{
+          submission_id: string;
+        }>(
+          (from, to) =>
+            client
+              .from("curated_product_candidates")
+              .select("submission_id")
+              .in("submission_id", pendingSubmissionIds)
+              .not("final_rank", "is", null)
+              .order("id", { ascending: true })
+              .range(from, to),
+          "curated_product_candidates",
+        )
+      : [];
+
+  const submissionsByBrand = groupBy(pendingSubmissions, (row) => row.brand_id);
+  const submissionImagesBySubmission = groupBy(
+    submissionImages,
+    (row) => row.submission_id,
+  );
+  const candidateProductsBySubmission = groupBy(
+    candidateProducts,
+    (row) => row.submission_id,
+  );
+
   const imagesByBrand = groupBy(images, (row) => row.brand_id);
   const channelsByBrand = groupBy(channels, (row) => row.brand_id);
   const faqsByBrand = groupBy(faqs, (row) => row.brand_id);
@@ -583,8 +696,64 @@ async function fetchCensus(
       products_link_checked: productTotals.linkChecked,
       products_mit_confirmed: productTotals.mitConfirmed,
       products_with_image: productTotals.withImage,
+      ...pendingFieldsForBrand(
+        brand.id,
+        submissionsByBrand,
+        submissionImagesBySubmission,
+        candidateProductsBySubmission,
+      ),
     };
   });
+}
+
+/** Aggregate pending submission stats for a single brand. */
+function pendingFieldsForBrand(
+  brandId: string,
+  submissionsByBrand: Map<
+    string,
+    { id: string; enriched_data: { products?: unknown[] } | null }[]
+  >,
+  submissionImagesBySubmission: Map<string, { status: string }[]>,
+  candidateProductsBySubmission: Map<string, unknown[]>,
+): Pick<
+  CensusRow,
+  | "pending_products"
+  | "pending_candidate_rank_count"
+  | "pending_active_images"
+  | "pending_candidate_images"
+> {
+  const subs = submissionsByBrand.get(brandId) ?? [];
+  if (subs.length === 0) {
+    return {
+      pending_products: 0,
+      pending_candidate_rank_count: 0,
+      pending_active_images: 0,
+      pending_candidate_images: 0,
+    };
+  }
+
+  let pendingProducts = 0;
+  let pendingCandidateRankCount = 0;
+  let pendingActiveImages = 0;
+  let pendingCandidateImages = 0;
+
+  for (const sub of subs) {
+    pendingProducts += sub.enriched_data?.products?.length ?? 0;
+    pendingCandidateRankCount +=
+      (candidateProductsBySubmission.get(sub.id) ?? []).length;
+    const imgs = submissionImagesBySubmission.get(sub.id) ?? [];
+    pendingActiveImages += imgs.filter((img) => img.status === "active").length;
+    pendingCandidateImages += imgs.filter(
+      (img) => img.status === "candidate",
+    ).length;
+  }
+
+  return {
+    pending_products: pendingProducts,
+    pending_candidate_rank_count: pendingCandidateRankCount,
+    pending_active_images: pendingActiveImages,
+    pending_candidate_images: pendingCandidateImages,
+  };
 }
 
 // ---------------------------------------------------------------------------
@@ -689,6 +858,144 @@ async function runCensus(
   }
 }
 
+async function fetchSubmissionCensus(
+  client: SupabaseLike,
+  submissionIds: string[],
+): Promise<SubmissionCensusRow[]> {
+  const submissions = await selectAllPages<{
+    id: string;
+    brand_id: string | null;
+    enriched_data: { products?: unknown[] } | null;
+  }>(
+    (from, to) =>
+      client
+        .from("submissions")
+        .select("id, brand_id, enriched_data")
+        .in("id", submissionIds)
+        .order("id", { ascending: true })
+        .range(from, to),
+    "submissions (by id)",
+  );
+
+  const ids = submissions.map((sub) => sub.id);
+  if (ids.length === 0) return [];
+
+  const submissionImages = await selectAllPages<{
+    submission_id: string;
+    status: string;
+  }>(
+    (from, to) =>
+      client
+        .from("submission_images")
+        .select("submission_id, status")
+        .in("submission_id", ids)
+        .order("id", { ascending: true })
+        .range(from, to),
+    "submission_images",
+  );
+
+  const candidateProducts = await selectAllPages<{
+    submission_id: string;
+  }>(
+    (from, to) =>
+      client
+        .from("curated_product_candidates")
+        .select("submission_id")
+        .in("submission_id", ids)
+        .not("final_rank", "is", null)
+        .order("id", { ascending: true })
+        .range(from, to),
+    "curated_product_candidates",
+  );
+
+  const imagesBySubmission = groupBy(
+    submissionImages,
+    (row) => row.submission_id,
+  );
+  const candidatesBySubmission = groupBy(
+    candidateProducts,
+    (row) => row.submission_id,
+  );
+
+  return submissions
+    .filter((sub) => sub.brand_id === null)
+    .map((sub) => {
+      const imgs = imagesBySubmission.get(sub.id) ?? [];
+      return {
+        submission_id: sub.id,
+        slug: null,
+        pending_products: sub.enriched_data?.products?.length ?? 0,
+        pending_candidate_rank_count:
+          (candidatesBySubmission.get(sub.id) ?? []).length,
+        pending_active_images: imgs.filter((img) => img.status === "active")
+          .length,
+        pending_candidate_images: imgs.filter(
+          (img) => img.status === "candidate",
+        ).length,
+      };
+    });
+}
+
+async function runSubmissionCensus(
+  argv: readonly string[],
+  target: string,
+): Promise<void> {
+  const idsArg = argValue(argv, "--submission-ids");
+  if (!idsArg) throw new Error("--submission-ids is required");
+
+  const submissionIds = idsArg
+    .split(",")
+    .map((id) => id.trim())
+    .filter((id) => id.length > 0);
+  if (submissionIds.length === 0) throw new Error("no submission ids to census");
+
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!supabaseUrl || !supabaseKey) {
+    throw new Error(
+      "Missing NEXT_PUBLIC_SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY in env",
+    );
+  }
+
+  assertCensusTarget({
+    supabaseUrl,
+    target,
+    confirmed: argv.includes("--confirm"),
+  });
+
+  const { client, blocked } = createWriteBlockingClient(
+    supabaseUrl,
+    supabaseKey,
+  );
+
+  console.log(
+    `[census] reading ${submissionIds.length} submission(s)…`,
+  );
+  const rows = await fetchSubmissionCensus(client, submissionIds);
+
+  const outPath = argValue(argv, "--out");
+  const output = JSON.stringify(
+    { capturedAt: new Date().toISOString(), rows },
+    null,
+    2,
+  );
+  if (outPath) {
+    const resolved = resolve(outPath);
+    await mkdir(dirname(resolved), { recursive: true });
+    await writeFile(resolved, output + "\n");
+    console.log(`[census] wrote ${resolved}`);
+  } else {
+    console.log(output);
+  }
+
+  if (blocked.length > 0) {
+    console.warn(`[census] ${blocked.length} blocked writes (should be 0):`);
+    for (const write of blocked) {
+      console.warn(`  ${write.table}.${write.method}`);
+    }
+  }
+}
+
 async function main(): Promise<void> {
   // The diff reads two local files and touches no database, so it must not
   // demand credentials for a project it never opens.
@@ -698,6 +1005,12 @@ async function main(): Promise<void> {
   }
 
   const { argv, target } = loadScriptTarget();
+
+  if (argv.includes("--submission-ids")) {
+    await runSubmissionCensus(argv, target);
+    return;
+  }
+
   await runCensus(argv, target);
 }
 

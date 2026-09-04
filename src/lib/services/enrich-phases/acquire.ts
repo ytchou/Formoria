@@ -109,6 +109,10 @@ type AcquirePhaseOptions = {
   supabase?: SupabaseClient<Database>
   renderProvider?: RenderProvider
   deps?: AcquireDeps
+  /** Multiplier for the per-brand time budget. >1 grants more time. */
+  budgetScale?: number
+  /** Link-expansion summary from the pre-acquire step, persisted on the phase result. */
+  linkExpansion?: PhaseResult['linkExpansion']
 }
 
 export type AcquirePhaseOutput = {
@@ -836,6 +840,8 @@ export async function runAcquirePhase({
   supabase,
   renderProvider,
   deps = {},
+  budgetScale,
+  linkExpansion,
 }: AcquirePhaseOptions): Promise<AcquirePhaseOutput> {
   // A phase gates on its OWN name only (the sibling rule in products.ts and
   // detect.ts). The retired `links` name is mapped to `acquire` by
@@ -1061,6 +1067,7 @@ export async function runAcquirePhase({
           {
             model,
             dryRun,
+            ...(budgetScale !== undefined ? { budgetScale } : {}),
             audit: {
               // `brand_ai_results.phase` for agent turns is the phase that ran
               // them, matching the `products` convention. The CHECK accepts it
@@ -1143,11 +1150,28 @@ export async function runAcquirePhase({
     const scrapedBrandName = deriveScrapedBrandName(brand, scrapedData)
     const officialNameCandidates = deriveOfficialNameCandidates(brand, scrapedData)
 
+    // Fallback catalog discovery: when the agent returned no catalog, run
+    // discoverCatalog over the brand's channel sources + entry URLs so a
+    // fallback brand still gets product triples for the products phase.
+    if (!agentScrapeData && !catalogResult && urls.length > 0) {
+      try {
+        const discover = deps.discoverCatalog ?? defaultDiscoverCatalog
+        catalogResult = await discover({
+          sources: buildChannelSources(brand),
+          entryUrls: urls,
+          priorityProductUrls: [],
+          renderProvider: renderForBrand,
+        })
+      } catch {
+        // Errors silently swallowed — catalogResult stays undefined.
+      }
+    }
+
     // Fallback path images. `images` and `classify_images` are deferred phases,
     // so a brand whose agent fell back would otherwise finish a full run with
     // no image at all. Same download → judge → write sequence the agent uses,
     // run over the candidates the legacy scrape produced.
-    if (!dryRun && !agentScrapeData && plannedWrites.length === 0) {
+    if (!dryRun && !agentScrapeData && plannedWrites.length === 0 && imagePool.length === 0) {
       const candidates = candidatesFromScrapedData(scrapedData)
       if (candidates.length > 0) {
         const supabaseClient = db()
@@ -1242,8 +1266,10 @@ export async function runAcquirePhase({
   // `images` and `catalog` are runlog LABELS, not patch keys: nothing reads a
   // `changedFields` entry as a column to write (`curation-operations` only
   // aggregates them for the progress event and the outcome log).
+  const adoptedColumns = linkExpansion?.adopted?.map((a) => a.field) ?? []
   const changedFields = [
     ...Object.keys(result.patch),
+    ...adoptedColumns,
     ...(result.imagePool.length > 0 ? ['images'] : []),
     ...(catalogTriples > 0 ? ['catalog'] : []),
   ]
@@ -1265,6 +1291,7 @@ export async function runAcquirePhase({
       ...(result.providerFailure ? { providerFailure: true } : {}),
       ...(result.revokedColumns.length > 0 ? { revokedColumns: result.revokedColumns } : {}),
       ...(result.imagePool.length > 0 ? { imagePool: compactImagePool(result.imagePool) } : {}),
+      ...(linkExpansion ? { linkExpansion } : {}),
     },
     patch: result.patch,
     scrapedBrandName: result.scrapedBrandName,

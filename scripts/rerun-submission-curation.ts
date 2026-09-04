@@ -41,6 +41,7 @@ import { randomUUID } from "node:crypto";
 
 import { createServiceClient } from "@/lib/supabase/service";
 import {
+  budgetScaleForRerun,
   claimCurationJob,
   enqueueAdminCurationJob,
 } from "@/lib/services/curation-jobs";
@@ -122,13 +123,33 @@ async function main(): Promise<void> {
     return;
   }
 
+  // Load latest phase_results to detect prior budget exhaustion.
+  const selectedIds = selected.map((submission) => submission.id);
+  const { data: priorTargets } = await supabase
+    .from("curation_job_targets")
+    .select("target_id, phase_results")
+    .eq("target_type", "submission")
+    .in("target_id", selectedIds)
+    .order("created_at", { ascending: false });
+
+  const seenTargetIds = new Set<string>();
+  const latestTargets = (priorTargets ?? []).filter((t) => {
+    if (seenTargetIds.has(t.target_id)) return false;
+    seenTargetIds.add(t.target_id);
+    return true;
+  });
+  const budgetScale = budgetScaleForRerun(
+    latestTargets.map((t) => ({ phase_results: t.phase_results })),
+  );
+
   // enqueueAdminCurationJob resolves targets through resolveSubmissionTargets,
   // the same filter the admin surface uses, so anything no longer pending is
   // dropped here rather than by this script.
   const job = await enqueueAdminCurationJob({
     params: {
-      submissionIds: selected.map((submission) => submission.id),
+      submissionIds: selectedIds,
       overwrite: OVERWRITE,
+      ...(budgetScale !== undefined ? { budgetScale } : {}),
     },
     dryRun: false,
     startedBy: "operator-rerun",

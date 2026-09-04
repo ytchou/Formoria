@@ -16,7 +16,7 @@ import {
   JOB_REQUEUE,
   RETRY_ATTEMPTS,
 } from "@/lib/retry";
-import { parsePhaseResults } from "@/lib/services/phase-results";
+import { lastAcquireRecordedBudgetExhausted, parsePhaseResults } from "@/lib/services/phase-results";
 import { imagePathToUrl } from "@/lib/images/image-url";
 import {
   enrichedDataFromDb,
@@ -465,7 +465,8 @@ export async function enqueueManualRerun(
         );
       }
 
-      const params = rerunJobParams(source.params, options);
+      const budgetScale = budgetScaleForRerun(targets);
+      const params = rerunJobParams(source.params, { ...options, budgetScale });
 
       return enqueueCurationJob({
         operation: "enrich",
@@ -942,7 +943,26 @@ function parseJobParams(params: Json | null): CurationJobParams {
     );
     parsed.phases = kept.length > 0 ? normalizeRequestedPhases(kept) : [];
   }
+  // budgetScale is ephemeral — granted per invocation, not inherited across
+  // retries. Automatic retries (which call parseJobParams directly) must never
+  // carry a prior manual-rerun's scale forward.
+  delete parsed.budgetScale;
   return parsed;
+}
+
+/**
+ * Returns 1.5 when any target's last acquire trace recorded budget exhaustion
+ * or abort. Manual reruns grant more time to brands that hit the wall;
+ * automatic retries never call this (they are cost-controlled).
+ */
+export function budgetScaleForRerun(
+  targets: Pick<CurationJobTarget, "phase_results">[],
+): number | undefined {
+  return targets.some((target) =>
+    lastAcquireRecordedBudgetExhausted(parsePhaseResults(target.phase_results)),
+  )
+    ? 1.5
+    : undefined;
 }
 
 /**

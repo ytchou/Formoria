@@ -40,6 +40,12 @@ const mocks = vi.hoisted(() => ({
   runProductsPhase: vi.fn(),
   mapWithConcurrency: vi.fn(),
   probeStatic: vi.fn(),
+  expandLinkHubs: vi.fn(),
+  collectHubUrls: vi.fn(),
+  hasPurchaseChannel: vi.fn(),
+  searchBrandUrls: vi.fn(),
+  insertTriageResult: vi.fn(),
+  fetchHtml: vi.fn(),
 }));
 
 vi.mock("@/lib/langfuse/client", () => ({
@@ -157,6 +163,40 @@ vi.mock("../enrich-phases/gather", async (importOriginal) => {
   };
 });
 
+vi.mock("../enrich-phases/link-expansion", async (importOriginal) => {
+  const original = await importOriginal<typeof import("../enrich-phases/link-expansion")>();
+  return {
+    ...original,
+    expandLinkHubs: mocks.expandLinkHubs,
+    collectHubUrls: mocks.collectHubUrls,
+    hasPurchaseChannel: mocks.hasPurchaseChannel,
+  };
+});
+
+vi.mock("../enrich-phases/scraper/serper", async (importOriginal) => {
+  const original = await importOriginal<typeof import("../enrich-phases/scraper/serper")>();
+  return {
+    ...original,
+    searchBrandUrls: mocks.searchBrandUrls,
+  };
+});
+
+vi.mock("../_shared/ai-results", async (importOriginal) => {
+  const original = await importOriginal<typeof import("../_shared/ai-results")>();
+  return {
+    ...original,
+    insertTriageResult: mocks.insertTriageResult,
+  };
+});
+
+vi.mock("../enrich-phases/scraper/fetch-guards", async (importOriginal) => {
+  const original = await importOriginal<typeof import("../enrich-phases/scraper/fetch-guards")>();
+  return {
+    ...original,
+    fetchHtml: mocks.fetchHtml,
+  };
+});
+
 vi.mock("../enrich-phases/names", async (importOriginal) => {
   const original = await importOriginal<typeof import("../enrich-phases/names")>();
   return {
@@ -218,6 +258,7 @@ function submission(
     purchase_website: null,
     purchase_pinkoi: null,
     purchase_shopee: null,
+    purchase_myship: null,
     other_urls: [],
     enriched_data: null,
     owner_data: null,
@@ -348,6 +389,13 @@ describe("wave collapse — single per-brand loop", () => {
     mocks.getLatestSearchResults.mockResolvedValue(new Map());
     mocks.batchSearchBrandImages.mockResolvedValue(new Map());
     mocks.scrapeBrandUrls.mockResolvedValue(scrapeResult());
+    // Link expansion defaults: no hubs, has purchase channel
+    mocks.collectHubUrls.mockReturnValue([]);
+    mocks.expandLinkHubs.mockResolvedValue({ hubsFetched: 0, adopted: [], scraped: {} });
+    mocks.hasPurchaseChannel.mockReturnValue(true);
+    mocks.searchBrandUrls.mockResolvedValue([]);
+    mocks.insertTriageResult.mockResolvedValue(undefined);
+    mocks.fetchHtml.mockResolvedValue(null);
   });
 
   it("single_loop_runs_acquire_then_descriptions — no wave A/B split", async () => {
@@ -597,6 +645,12 @@ describe("Gate C and the LLM circuit breaker", () => {
     mocks.getLatestSearchResults.mockResolvedValue(new Map());
     mocks.batchSearchBrandImages.mockResolvedValue(new Map());
     mocks.scrapeBrandUrls.mockResolvedValue(scrapeResult());
+    mocks.collectHubUrls.mockReturnValue([]);
+    mocks.expandLinkHubs.mockResolvedValue({ hubsFetched: 0, adopted: [], scraped: {} });
+    mocks.hasPurchaseChannel.mockReturnValue(true);
+    mocks.searchBrandUrls.mockResolvedValue([]);
+    mocks.insertTriageResult.mockResolvedValue(undefined);
+    mocks.fetchHtml.mockResolvedValue(null);
   });
 
   it("fails a target whose every attempted LLM phase died at the provider", async () => {
@@ -758,6 +812,12 @@ describe("satisfaction skipping", () => {
     mocks.getLatestSearchResults.mockResolvedValue(new Map());
     mocks.batchSearchBrandImages.mockResolvedValue(new Map());
     mocks.scrapeBrandUrls.mockResolvedValue(scrapeResult());
+    mocks.collectHubUrls.mockReturnValue([]);
+    mocks.expandLinkHubs.mockResolvedValue({ hubsFetched: 0, adopted: [], scraped: {} });
+    mocks.hasPurchaseChannel.mockReturnValue(true);
+    mocks.searchBrandUrls.mockResolvedValue([]);
+    mocks.insertTriageResult.mockResolvedValue(undefined);
+    mocks.fetchHtml.mockResolvedValue(null);
   });
   afterEach(() => {
     if (ORIGINAL_KEY === undefined) delete process.env.OPENAI_API_KEY;
@@ -1057,6 +1117,12 @@ describe("editorial agent integration", () => {
     mocks.batchSearchBrandImages.mockResolvedValue(new Map());
     mocks.scrapeBrandUrls.mockResolvedValue(scrapeResult());
     mocks.detectBrandsBatch.mockResolvedValue(detectBatch(new Map()));
+    mocks.collectHubUrls.mockReturnValue([]);
+    mocks.expandLinkHubs.mockResolvedValue({ hubsFetched: 0, adopted: [], scraped: {} });
+    mocks.hasPurchaseChannel.mockReturnValue(true);
+    mocks.searchBrandUrls.mockResolvedValue([]);
+    mocks.insertTriageResult.mockResolvedValue(undefined);
+    mocks.fetchHtml.mockResolvedValue(null);
   });
 
   afterEach(() => {
@@ -1270,6 +1336,13 @@ describe("two loops with a batched names call between", () => {
     mocks.batchSearchBrandImages.mockResolvedValue(new Map());
     mocks.scrapeBrandUrls.mockResolvedValue(scrapeResult());
     mocks.detectBrandsBatch.mockResolvedValue(detectBatch(new Map()));
+    // Link expansion defaults: no hubs, has purchase channel
+    mocks.collectHubUrls.mockReturnValue([]);
+    mocks.expandLinkHubs.mockResolvedValue({ hubsFetched: 0, adopted: [], scraped: {} });
+    mocks.hasPurchaseChannel.mockReturnValue(true);
+    mocks.searchBrandUrls.mockResolvedValue([]);
+    mocks.insertTriageResult.mockResolvedValue(undefined);
+    mocks.fetchHtml.mockResolvedValue(null);
     // Canned agents by default: this block is about the SHAPE of the chunk, so
     // every phase answers instantly and each test overrides only what it
     // asserts on.
@@ -1818,5 +1891,465 @@ describe("two loops with a batched names call between", () => {
     // live model call.)
     expect(deps.repairCrossOutput.length).toBe(2);
     expect(typeof deps.requestEvidence).toBe("function");
+  });
+});
+
+/**
+ * DEV-1692. Link-hub expansion, SERP fallback search, and the
+ * no_purchase_channel gate — the pre-acquire sub-step that feeds or gates the
+ * rest of the pipeline.
+ */
+describe("link expansion, SERP search, and no-purchase-channel gate", () => {
+  const ORIGINAL_KEY = process.env.OPENAI_API_KEY;
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    process.env.OPENAI_API_KEY = "test-stub";
+    mocks.getLatestSearchResults.mockResolvedValue(new Map());
+    mocks.batchSearchBrandImages.mockResolvedValue(new Map());
+    mocks.scrapeBrandUrls.mockResolvedValue(scrapeResult());
+    mocks.detectBrandsBatch.mockResolvedValue(detectBatch(new Map()));
+    // Defaults: no hubs, has channel (so the gate does not fire by default)
+    mocks.collectHubUrls.mockReturnValue([]);
+    mocks.expandLinkHubs.mockResolvedValue({ hubsFetched: 0, adopted: [], scraped: {} });
+    mocks.hasPurchaseChannel.mockReturnValue(true);
+    mocks.searchBrandUrls.mockResolvedValue([]);
+    mocks.insertTriageResult.mockResolvedValue(undefined);
+    mocks.fetchHtml.mockResolvedValue(null);
+    mocks.runAcquirePhase.mockImplementation(async () => acquireOutput());
+    mocks.runNamesPhase.mockImplementation(async () => namesOutput());
+    mocks.runEditorialAgent.mockImplementation(async () => editorialOutput());
+    mocks.runProductsPhase.mockImplementation(async () => productsOutput());
+  });
+
+  afterEach(() => {
+    if (ORIGINAL_KEY === undefined) delete process.env.OPENAI_API_KEY;
+    else process.env.OPENAI_API_KEY = ORIGINAL_KEY;
+  });
+
+  /** Every field `runEnrich` reads off an `AcquirePhaseOutput`. */
+  function acquireOutput(overrides: Record<string, unknown> = {}) {
+    return {
+      phaseResult: {
+        phase: "acquire",
+        status: "succeeded",
+        changedFields: [],
+        durationMs: 10,
+      },
+      patch: {},
+      scrapedBrandName: null,
+      officialNameCandidates: [],
+      scrapedData: { brandName: null, description: "evidence" },
+      scrapedImageUrls: [],
+      scrapedImageSources: [],
+      jsonLdImageUrls: [],
+      quarantine: {},
+      imagePool: [],
+      acquisitionPageUrls: [],
+      revokedColumns: [],
+      providerFailure: false,
+      ...overrides,
+    };
+  }
+
+  function namesOutput() {
+    return {
+      phaseResult: {
+        phase: "names",
+        status: "skipped",
+        changedFields: [],
+        durationMs: 0,
+      },
+      verdicts: new Map(),
+      providerFailure: false,
+    };
+  }
+
+  function editorialOutput() {
+    return {
+      agentOutcome: "generated",
+      phaseResults: [
+        {
+          phase: "descriptions",
+          status: "succeeded",
+          changedFields: ["description"],
+          durationMs: 10,
+        },
+      ],
+      patch: { description: "A description" },
+      listingVerdict: null,
+      descriptionRewrite: null,
+      brandFacts: null,
+      attempts: [],
+      factsAttempts: [],
+      decisions: [],
+    };
+  }
+
+  function productsOutput() {
+    return {
+      phaseResult: {
+        phase: "products",
+        status: "skipped",
+        changedFields: [],
+        durationMs: 0,
+      },
+      patch: {},
+    };
+  }
+
+  const FULL_PHASES = [
+    "detect",
+    "acquire",
+    "names",
+    "descriptions",
+    "stockists",
+    "faq",
+    "products",
+  ];
+
+  it("hub_links_adopted_before_detect_and_reach_acquire_known_urls", async () => {
+    const hubHtml = `<html><body>
+      <a href="https://myship.7-11.com.tw/general/detail/GM2505068972611">Myship</a>
+    </body></html>`;
+
+    const target = submission({
+      id: "sub-hub",
+      brand_name: "Hub Brand",
+      website_url: "https://portaly.cc/hubbrand",
+      social_instagram: "https://www.instagram.com/hubbrand",
+    });
+
+    mocks.collectHubUrls.mockReturnValue(["https://portaly.cc/hubbrand"]);
+    mocks.fetchHtml.mockResolvedValue(hubHtml);
+    mocks.expandLinkHubs.mockResolvedValue({
+      hubsFetched: 1,
+      adopted: [
+        {
+          field: "purchaseMyship",
+          value: "https://myship.7-11.com.tw/general/detail/GM2505068972611",
+          source: "hub",
+          hubUrl: "https://portaly.cc/hubbrand",
+        },
+      ],
+      scraped: {
+        purchaseMyship: "https://myship.7-11.com.tw/general/detail/GM2505068972611",
+      },
+    });
+    // After expansion, the brand now has a purchase channel
+    mocks.hasPurchaseChannel.mockReturnValue(true);
+
+    await runEnrich(
+      {
+        target: "submissions",
+        submissionIds: [target.id],
+        dryRun: true,
+        phases: FULL_PHASES,
+        onProgress: () => {},
+      },
+      fakeSupabase([target]),
+    );
+
+    // expandLinkHubs was called
+    expect(mocks.expandLinkHubs).toHaveBeenCalledOnce();
+    // Acquire phase runs and receives the adopted URL in knownUrls
+    expect(mocks.runAcquirePhase).toHaveBeenCalledOnce();
+    const acquireInput = mocks.runAcquirePhase.mock.calls[0][0] as {
+      knownUrls: string[];
+      brand: Record<string, unknown>;
+    };
+    expect(acquireInput.knownUrls).toContain(
+      "https://myship.7-11.com.tw/general/detail/GM2505068972611",
+    );
+    // The brand object has the adopted purchase_myship written on it
+    expect(acquireInput.brand.purchase_myship).toBe(
+      "https://myship.7-11.com.tw/general/detail/GM2505068972611",
+    );
+  });
+
+  it("serp_by_name_runs_only_when_no_channel_after_hub_expansion", async () => {
+    // Brand with only Instagram — no purchase channel after hub expansion
+    const igOnly = submission({
+      id: "sub-ig-only",
+      brand_name: "IG Only Brand",
+      social_instagram: "https://www.instagram.com/igonlybrand",
+    });
+    // Brand with a hub that supplies a channel — no SERP needed
+    const hubbed = submission({
+      id: "sub-hubbed",
+      brand_name: "Hubbed Brand",
+      website_url: "https://portaly.cc/hubbed",
+      social_instagram: "https://www.instagram.com/hubbed",
+      purchase_website: "https://hubbed.example.com",
+    });
+
+    mocks.collectHubUrls.mockReturnValue([]);
+    mocks.expandLinkHubs.mockResolvedValue({
+      hubsFetched: 0,
+      adopted: [],
+      scraped: {},
+    });
+    // First call (igOnly): no channel → triggers SERP
+    // Second call after SERP extract: still no channel → gate fires
+    // Third call (hubbed): has channel
+    mocks.hasPurchaseChannel
+      .mockReturnValueOnce(false) // igOnly after hub expansion
+      .mockReturnValueOnce(false) // igOnly after SERP extract
+      .mockReturnValueOnce(true); // hubbed after hub expansion
+
+    mocks.searchBrandUrls.mockResolvedValue([
+      "https://igonlybrand.com/shop",
+    ]);
+
+    await runEnrich(
+      {
+        target: "submissions",
+        submissionIds: [igOnly.id, hubbed.id],
+        dryRun: true,
+        phases: FULL_PHASES,
+        onProgress: () => {},
+      },
+      fakeSupabase([igOnly, hubbed]),
+    );
+
+    // searchBrandUrls called exactly once, for the IG-only brand
+    expect(mocks.searchBrandUrls).toHaveBeenCalledOnce();
+    expect(mocks.searchBrandUrls).toHaveBeenCalledWith(
+      "IG Only Brand",
+      undefined,
+      expect.objectContaining({
+        target: expect.objectContaining({ type: "submission" }),
+      }),
+    );
+  });
+
+  it("serp_replays_fresh_cached_result", async () => {
+    const target = submission({
+      id: "sub-cached-serp",
+      brand_name: "Cached Brand",
+      social_instagram: "https://www.instagram.com/cachedbrand",
+    });
+
+    mocks.collectHubUrls.mockReturnValue([]);
+    mocks.expandLinkHubs.mockResolvedValue({
+      hubsFetched: 0,
+      adopted: [],
+      scraped: {},
+    });
+    // No channel after hub expansion
+    mocks.hasPurchaseChannel.mockReturnValue(false);
+
+    // Fresh cached SERP (< 3 days old)
+    const freshRow = {
+      brandId: target.id,
+      searchType: "serp" as const,
+      query: "Cached Brand",
+      urls: ["https://cachedbrand.com/shop"],
+      snippets: ["cached snippet"],
+      createdAt: new Date(Date.now() - 1000 * 60 * 60).toISOString(), // 1 hour old
+    };
+    mocks.getLatestSearchResults.mockResolvedValue(
+      new Map([[target.id, freshRow]]),
+    );
+
+    await runEnrich(
+      {
+        target: "submissions",
+        submissionIds: [target.id],
+        dryRun: true,
+        phases: FULL_PHASES,
+        onProgress: () => {},
+      },
+      fakeSupabase([target]),
+    );
+
+    // searchBrandUrls should NOT be called — cached result is fresh
+    expect(mocks.searchBrandUrls).not.toHaveBeenCalled();
+  });
+
+  it("fresh_serp_feeds_detect_snippets", async () => {
+    // When SERP results are returned, they should be available in the detect
+    // phase input via the searchResults map
+    const target = submission({
+      id: "sub-serp-detect",
+      brand_name: "SERP Detect Brand",
+      social_instagram: "https://www.instagram.com/serpdetect",
+    });
+
+    mocks.collectHubUrls.mockReturnValue([]);
+    mocks.expandLinkHubs.mockResolvedValue({
+      hubsFetched: 0,
+      adopted: [],
+      scraped: {},
+    });
+    // No channel → SERP fires
+    mocks.hasPurchaseChannel.mockReturnValue(false);
+
+    mocks.searchBrandUrls.mockResolvedValue([
+      "https://serpdetect.com/shop",
+      "https://serpdetect.com/about",
+    ]);
+
+    const result = await runEnrich(
+      {
+        target: "submissions",
+        submissionIds: [target.id],
+        dryRun: true,
+        phases: FULL_PHASES,
+        onProgress: () => {},
+      },
+      fakeSupabase([target]),
+    );
+
+    // The SERP ran — brand was gated (no purchase channel) but SERP urls
+    // should have been extracted and fed to the acquire phase
+    expect(mocks.searchBrandUrls).toHaveBeenCalledOnce();
+    // The brand should be gated (no purchase channel) so acquire should not run
+    const outcome = result.brandOutcomes.find(
+      (entry) => entry?.submissionId === target.id,
+    );
+    expect(outcome?.status).toBe("skipped");
+  });
+
+  it("no_purchase_channel_gate_writes_triage_row_for_new_submission", async () => {
+    const target = submission({
+      id: "sub-no-channel",
+      brand_name: "No Channel Brand",
+      social_instagram: "https://www.instagram.com/nochannel",
+      intent: "recommend",
+    });
+
+    mocks.collectHubUrls.mockReturnValue([]);
+    mocks.expandLinkHubs.mockResolvedValue({
+      hubsFetched: 0,
+      adopted: [],
+      scraped: {},
+    });
+    mocks.hasPurchaseChannel.mockReturnValue(false);
+
+    const result = await runEnrich(
+      {
+        target: "submissions",
+        submissionIds: [target.id],
+        dryRun: false,
+        phases: FULL_PHASES,
+        onProgress: () => {},
+      },
+      fakeSupabase([target]),
+    );
+
+    // insertTriageResult called with the no_purchase_channel prefix
+    expect(mocks.insertTriageResult).toHaveBeenCalledWith(
+      expect.objectContaining({
+        brandId: target.id,
+        isNonBrand: true,
+        nonBrandReason: expect.stringContaining("no_purchase_channel:"),
+        confidence: "medium",
+      }),
+    );
+
+    const outcome = result.brandOutcomes.find(
+      (entry) => entry?.submissionId === target.id,
+    );
+    expect(outcome?.status).toBe("skipped");
+    expect(outcome?.error).toContain("no_purchase_channel:");
+
+    // Acquire should NOT run
+    expect(mocks.runAcquirePhase).not.toHaveBeenCalled();
+  });
+
+  it("no_purchase_channel_gate_skips_refresh_without_triage_row", async () => {
+    const target = submission({
+      id: "sub-refresh-no-channel",
+      brand_name: "Refresh No Channel",
+      brand_id: "brand-123",
+      intent: "refresh",
+      social_instagram: "https://www.instagram.com/refreshnochannel",
+      base_brand_data: { name: "Refresh No Channel" },
+    });
+
+    mocks.collectHubUrls.mockReturnValue([]);
+    mocks.expandLinkHubs.mockResolvedValue({
+      hubsFetched: 0,
+      adopted: [],
+      scraped: {},
+    });
+    mocks.hasPurchaseChannel.mockReturnValue(false);
+
+    const result = await runEnrich(
+      {
+        target: "submissions",
+        submissionIds: [target.id],
+        dryRun: false,
+        phases: FULL_PHASES,
+        onProgress: () => {},
+      },
+      fakeSupabase([target]),
+    );
+
+    // NO triage insert for refresh intent
+    expect(mocks.insertTriageResult).not.toHaveBeenCalled();
+
+    const outcome = result.brandOutcomes.find(
+      (entry) => entry?.submissionId === target.id,
+    );
+    expect(outcome?.status).toBe("skipped");
+    expect(outcome?.error).toContain("no_purchase_channel:");
+    // Phase result should carry linkExpansion
+    const acquireSkip = outcome?.phaseResults?.find(
+      (pr) => pr.phase === "acquire",
+    );
+    expect(acquireSkip?.status).toBe("skipped");
+    expect(acquireSkip?.linkExpansion).toBeDefined();
+
+    // Acquire should NOT run
+    expect(mocks.runAcquirePhase).not.toHaveBeenCalled();
+  });
+
+  it("no_purchase_channel_gate_never_changes_status", async () => {
+    const target = submission({
+      id: "sub-no-status-change",
+      brand_name: "No Status Change",
+      social_instagram: "https://www.instagram.com/nostatuschange",
+      intent: "recommend",
+      status: "pending",
+    });
+
+    mocks.collectHubUrls.mockReturnValue([]);
+    mocks.expandLinkHubs.mockResolvedValue({
+      hubsFetched: 0,
+      adopted: [],
+      scraped: {},
+    });
+    mocks.hasPurchaseChannel.mockReturnValue(false);
+
+    const supabase = fakeSupabase([target]);
+    const updateCalls: unknown[] = [];
+    const originalFrom = supabase.from.bind(supabase);
+    supabase.from = ((table: string) => {
+      const chain = originalFrom(table);
+      if (table === "brands" || table === "brand_submissions") {
+        const origUpdate = (chain as unknown as Record<string, unknown>).update;
+        (chain as unknown as Record<string, unknown>).update = (...args: unknown[]) => {
+          updateCalls.push({ table, args });
+          return (origUpdate as (...a: unknown[]) => unknown).apply(chain, args);
+        };
+      }
+      return chain;
+    }) as typeof supabase.from;
+
+    await runEnrich(
+      {
+        target: "submissions",
+        submissionIds: [target.id],
+        dryRun: false,
+        phases: FULL_PHASES,
+        onProgress: () => {},
+      },
+      supabase,
+    );
+
+    // No status update calls to brands or brand_submissions
+    expect(updateCalls).toHaveLength(0);
   });
 });

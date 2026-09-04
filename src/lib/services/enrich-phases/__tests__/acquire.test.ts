@@ -372,6 +372,7 @@ describe('runAcquirePhase', () => {
     acquisitionMocks.runAcquisition.mockResolvedValue({
       agentOutcome: 'fallback',
       decisions: [],
+      imagePool: [],
     })
     scraperMocks.scrapeBrandUrls.mockResolvedValue({
       data: {
@@ -420,6 +421,7 @@ describe('acquire quarantine identity rules', () => {
     acquisitionMocks.runAcquisition.mockResolvedValue({
       agentOutcome: 'fallback',
       decisions: [],
+      imagePool: [],
     })
   })
 
@@ -967,6 +969,7 @@ describe('acquisition agent integration', () => {
     acquisitionMocks.runAcquisition.mockResolvedValue({
       agentOutcome: 'fallback',
       decisions: [],
+      imagePool: [],
     })
     scraperMocks.scrapeBrandUrls.mockResolvedValue({
       data: emptyResult('https://agentbrand.com'),
@@ -1007,6 +1010,52 @@ describe('acquisition agent integration', () => {
     expect(result.acquisitionPlan).toBeUndefined()
 
     error.mockRestore()
+    vi.unstubAllEnvs()
+  })
+
+  const agentDataForScale = () => ({
+    ...emptyResult('https://agentbrand.com'),
+    purchaseWebsite: 'https://agentbrand.com',
+    purchase_website: 'https://agentbrand.com',
+  })
+
+  it('budget_scale_is_forwarded_to_run_acquisition', async () => {
+    vi.stubEnv('ACQUISITION_AGENT', 'on')
+    acquisitionMocks.runAcquisition.mockResolvedValue({
+      agentOutcome: 'planned',
+      scrapeResult: { data: agentDataForScale(), statuses: [] },
+      decisions: [],
+    })
+
+    await agentRun({ budgetScale: 1.5 })
+
+    const options = acquisitionMocks.runAcquisition.mock.calls[0][2]
+    expect(options.budgetScale).toBe(1.5)
+
+    vi.unstubAllEnvs()
+  })
+
+  it('link_expansion_is_recorded_on_phase_result', async () => {
+    vi.stubEnv('ACQUISITION_AGENT', 'on')
+    acquisitionMocks.runAcquisition.mockResolvedValue({
+      agentOutcome: 'planned',
+      scrapeResult: { data: agentDataForScale(), statuses: [] },
+      decisions: [],
+    })
+
+    const linkExpansion = {
+      hubsFetched: 2,
+      adopted: [
+        { field: 'social_instagram', url: 'https://instagram.com/brand', source: 'hub' as const },
+      ],
+      serp: 'searched' as const,
+    }
+
+    const result = await agentRun({ linkExpansion })
+
+    expect(result.phaseResult.linkExpansion).toEqual(linkExpansion)
+    expect(result.phaseResult.changedFields).toContain('social_instagram')
+
     vi.unstubAllEnvs()
   })
 
@@ -1442,6 +1491,139 @@ describe('acquire fold', () => {
       jobId: 'job-fold',
       config: { phase: 'acquire' },
     })
+  })
+
+  it('fallback_runs_discover_catalog_from_entry_urls', async () => {
+    const discoverCatalog = vi.fn(async () => ({
+      triples: [
+        {
+          url: `${FOLD_SITE}/products/plate`,
+          title: 'Plate',
+          imageUrl: `${FOLD_SITE}/img/plate.jpg`,
+          platform: 'generic' as const,
+          supplier: 'catalog:generic',
+          sourceUrl: FOLD_SITE,
+          sourcePosition: 0,
+        },
+      ],
+      attempts: [],
+      evidence: new Map(),
+    }))
+
+    acquisitionMocks.runAcquisition.mockResolvedValue({
+      agentOutcome: 'fallback',
+      decisions: [],
+      imagePool: [],
+    })
+    scraperMocks.scrapeBrandUrls.mockResolvedValue({
+      data: agentData(),
+      statuses: [],
+    })
+
+    const result = await foldRun({ deps: { discoverCatalog } })
+
+    expect(discoverCatalog).toHaveBeenCalledTimes(1)
+    const opts = (discoverCatalog.mock.calls[0] as unknown[])[0] as Record<string, unknown>
+    expect(opts.sources).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ url: FOLD_SITE, channel: 'official' }),
+      ]),
+    )
+    expect(opts.entryUrls).toEqual(
+      expect.arrayContaining([`${FOLD_SITE}/about`]),
+    )
+    expect(opts.priorityProductUrls).toEqual([])
+    expect(result.catalogResult?.triples).toHaveLength(1)
+  })
+
+  it('discover_catalog_errors_are_swallowed_on_fallback', async () => {
+    const discoverCatalog = vi.fn(async () => {
+      throw new Error('catalog boom')
+    })
+
+    acquisitionMocks.runAcquisition.mockResolvedValue({
+      agentOutcome: 'fallback',
+      decisions: [],
+      imagePool: [],
+    })
+    scraperMocks.scrapeBrandUrls.mockResolvedValue({
+      data: agentData(),
+      statuses: [],
+    })
+
+    const result = await foldRun({ deps: { discoverCatalog } })
+
+    expect(result.catalogResult).toBeUndefined()
+    expect(result.phaseResult.status).toBe('succeeded')
+  })
+
+  it('fallback_does_not_overwrite_non_empty_agent_image_pool', async () => {
+    const classify = stubClassify()
+    const downloadAndStoreImages = stubDownload()
+
+    acquisitionMocks.runAcquisition.mockResolvedValue({
+      agentOutcome: 'fallback',
+      decisions: [],
+      imagePool: [
+        { id: 'agent-img', tag: 'product', score: 75, sourceUrl: FOLD_SITE },
+      ],
+    })
+    scraperMocks.scrapeBrandUrls.mockResolvedValue({
+      data: agentData({
+        galleryImageUrls: [`${FOLD_SITE}/img/plate.jpg`],
+      }),
+      statuses: [],
+    })
+
+    const result = await foldRun({
+      deps: { classifyStoredImages: classify.fn, downloadAndStoreImages },
+    })
+
+    // The agent already built a pool; the legacy rebuild must not run.
+    expect(downloadAndStoreImages).not.toHaveBeenCalled()
+    expect(classify.calls).toHaveLength(0)
+    expect(result.imagePool).toHaveLength(1)
+    expect(result.imagePool[0]!.id).toBe('agent-img')
+  })
+
+  it('fallback_with_empty_pool_still_rebuilds_pool', async () => {
+    const classify = stubClassify()
+    const applyPlannedImageWrites = stubWrites()
+    const finalizeHeroOrder = stubHero()
+    const downloadAndStoreImages = stubDownload()
+
+    acquisitionMocks.runAcquisition.mockResolvedValue({
+      agentOutcome: 'fallback',
+      decisions: [],
+      imagePool: [],
+    })
+    scraperMocks.scrapeBrandUrls.mockResolvedValue({
+      data: agentData({
+        galleryImageUrls: [`${FOLD_SITE}/img/plate.jpg`],
+        imageSources: [
+          {
+            url: `${FOLD_SITE}/img/plate.jpg`,
+            method: 'crawl',
+            pageUrl: FOLD_PAGE,
+            position: 0,
+          },
+        ],
+      }),
+      statuses: [],
+    })
+
+    const result = await foldRun({
+      deps: {
+        classifyStoredImages: classify.fn,
+        applyPlannedImageWrites,
+        finalizeHeroOrder,
+        downloadAndStoreImages,
+      },
+    })
+
+    expect(downloadAndStoreImages).toHaveBeenCalledTimes(1)
+    expect(classify.calls).toHaveLength(1)
+    expect(result.imagePool).toHaveLength(1)
   })
 
   it('acquire_fallback_still_produces_images', async () => {

@@ -15,6 +15,7 @@ import {
   renderCensusDiff,
   summarizeProductRows,
   textStat,
+  type SubmissionCensusRow,
 } from "../brand-census";
 
 const STAGING_URL = "https://ttkkyvgvcamfoezsetvf.supabase.co";
@@ -230,5 +231,78 @@ describe("renderCensusDiff", () => {
 
     expect(md).toContain("beta");
     expect(md).toContain("missing");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Pending submission fields (DEV-1692)
+// ---------------------------------------------------------------------------
+
+describe("census pending submission fields", () => {
+  it("census_counts_pending_submission_products_and_images — carries pending_* fields from a pending refresh submission", () => {
+    const row = emptyCensusRow("alpha");
+    // New fields should exist and default to zero
+    expect(row.pending_products).toBe(0);
+    expect(row.pending_candidate_rank_count).toBe(0);
+    expect(row.pending_active_images).toBe(0);
+    expect(row.pending_candidate_images).toBe(0);
+  });
+
+  it("census_counts_pending_submission_products_and_images — a row with pending data carries the counts", () => {
+    const row: CensusRow = {
+      ...emptyCensusRow("beta"),
+      pending_products: 5,
+      pending_candidate_rank_count: 3,
+      pending_active_images: 8,
+      pending_candidate_images: 2,
+    };
+    expect(row.pending_products).toBe(5);
+    expect(row.pending_candidate_rank_count).toBe(3);
+    expect(row.pending_active_images).toBe(8);
+    expect(row.pending_candidate_images).toBe(2);
+  });
+
+  it("census_accepts_submission_ids_without_brand_rows — SubmissionCensusRow has slug: null", () => {
+    const row: SubmissionCensusRow = {
+      submission_id: "sub-001",
+      slug: null,
+      pending_products: 4,
+      pending_candidate_rank_count: 2,
+      pending_active_images: 6,
+      pending_candidate_images: 1,
+    };
+    expect(row.slug).toBeNull();
+    expect(row.submission_id).toBe("sub-001");
+    expect(row.pending_products).toBe(4);
+  });
+
+  it("diff_table_includes_pending_fields — the diff includes the pending_* fields", () => {
+    const before = rowWith({
+      pending_products: 0,
+      pending_candidate_rank_count: 0,
+      pending_active_images: 0,
+      pending_candidate_images: 0,
+    });
+    const after = rowWith({
+      pending_products: 5,
+      pending_candidate_rank_count: 3,
+      pending_active_images: 8,
+      pending_candidate_images: 2,
+    });
+    const diffs = diffRow(before, after);
+    const byField = new Map(diffs.map((d) => [d.field, d]));
+
+    expect(byField.has("pending_products")).toBe(true);
+    expect(byField.get("pending_products")?.direction).toBe("improved");
+    expect(byField.get("pending_products")?.after).toBe("5");
+
+    expect(byField.has("pending_candidate_rank_count")).toBe(true);
+    expect(byField.get("pending_candidate_rank_count")?.direction).toBe("improved");
+
+    expect(byField.has("pending_active_images")).toBe(true);
+    expect(byField.get("pending_active_images")?.direction).toBe("improved");
+
+    expect(byField.has("pending_candidate_images")).toBe(true);
+    expect(byField.get("pending_candidate_images")?.direction).toBe("improved");
   });
 });
