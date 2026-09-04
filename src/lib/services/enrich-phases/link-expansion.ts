@@ -10,7 +10,7 @@
  */
 
 import * as cheerio from 'cheerio'
-import { isLinkAggregatorHost } from './scraper/input-detector'
+import { isLinkAggregatorHost, isThirdPartyDirectoryHost } from './scraper/input-detector'
 import {
   extractPurchaseLinks,
   extractSocialLinks,
@@ -72,7 +72,11 @@ const PURCHASE_COLUMNS = [
 export function hasPurchaseChannel(brand: LinkExpansionBrand): boolean {
   return PURCHASE_COLUMNS.some((col) => {
     const v = brand[col]
-    return typeof v === 'string' && v.length > 0
+    if (typeof v !== 'string' || v.length === 0) return false
+    if (col === 'purchase_website') {
+      return !isLinkAggregatorHost(v) && !isThirdPartyDirectoryHost(v)
+    }
+    return true
   })
 }
 
