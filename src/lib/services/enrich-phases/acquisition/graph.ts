@@ -1187,15 +1187,25 @@ async function finalizeNode(
   const hasCatalogInput =
     entryUrls.length > 0 || priorityProductUrls.length > 0 || catalogSources.length > 0
   if (ctx.deps.discoverCatalog && hasCatalogInput) {
+    const catalogSignal = ctx.nodeSignal('finalize')
     try {
-      catalogResult = await ctx.deps.discoverCatalog({
+      const catalogPromise = ctx.deps.discoverCatalog({
         sources: catalogSources,
         entryUrls,
         priorityProductUrls,
         ...(ctx.deps.renderProvider ? { renderProvider: ctx.deps.renderProvider } : {}),
       })
+      catalogResult = catalogSignal
+        ? await Promise.race([
+            catalogPromise,
+            new Promise<never>((_, reject) => {
+              if (catalogSignal.aborted) reject(catalogSignal.reason)
+              else catalogSignal.addEventListener('abort', () => reject(catalogSignal.reason), { once: true })
+            }),
+          ])
+        : await catalogPromise
     } catch {
-      // Catalog discovery is non-critical; swallow and continue.
+      // Catalog discovery is non-critical; swallow timeout and errors.
     }
   }
 

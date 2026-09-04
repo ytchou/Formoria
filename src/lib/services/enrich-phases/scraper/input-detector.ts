@@ -112,6 +112,8 @@ const NON_BRAND_PLATFORM_HOSTS = [
   'ecpay.com.tw',
   'newebpay.com',
   'payuni.com.tw',
+  // Content / entertainment platforms (not purchase channels)
+  'webtoons.com',
   // Publishing platforms and site builders (their own domain, not a brand's)
   'medium.com',
   'pixnet.net',
