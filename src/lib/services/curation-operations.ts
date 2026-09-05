@@ -16,7 +16,6 @@ import {
   type CurationTask,
   type EnrichPhaseName,
 } from "@/lib/constants/enrich-phases";
-import { resolveProfileModel } from "@/lib/constants/llm-models";
 import { normalizeToRootUrl } from "@/lib/url";
 import {
   ONLINE_STORES,
@@ -2913,7 +2912,6 @@ export async function runEnrich(
                   audit: {
                     ...(config.jobId ? { jobId: config.jobId } : {}),
                     target: { type: targetType, id: brand.id },
-                    modelName: resolveProfileModel("editorial"),
                   },
                   // The run's own client, so the evidence tool reads the pack
                   // this job wrote rather than opening a second connection.

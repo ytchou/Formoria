@@ -1201,9 +1201,11 @@ describe('acquire fold', () => {
       'brands/fold/image-1.jpg',
     ])
 
-  // Declares its parameter so the profile key can be asserted; the phase must
-  // ask the shared runtime for the `acquisition` profile, never build a model.
-  const model = vi.fn(async (_profileKey: string) => ({
+  // Declares its parameters so the profile key AND the audit context can be
+  // asserted; the phase must ask the shared runtime for the `acquisition`
+  // profile, never build a model. Audit attribution is fixed here, at
+  // construction — the graph carries no audit context of its own.
+  const model = vi.fn(async (_profileKey: string, _audit?: unknown) => ({
     invoke: async () => ({ content: '{}' }),
   }))
 
@@ -1269,9 +1271,19 @@ describe('acquire fold', () => {
     await foldRun()
 
     // The runtime factory is the one that omits `response_format: json_object`,
-    // which OpenAI refuses alongside the plan node's four bound tools.
-    expect(model).toHaveBeenCalledWith('acquisition')
+    // which the client refuses alongside the plan node's four tool definitions.
+    // The audit context travels with the MODEL, not with the run options: every
+    // turn the graph makes on it writes a row keyed to this phase, job and target.
+    expect(model).toHaveBeenCalledWith(
+      'acquisition',
+      expect.objectContaining({
+        phase: 'acquire',
+        jobId: 'job-fold',
+        target: expect.objectContaining({ id: foldBrand.id }),
+      }),
+    )
     expect(acquisitionMocks.runAcquisition.mock.calls[0][2].model).toBeDefined()
+    expect(acquisitionMocks.runAcquisition.mock.calls[0][2]).not.toHaveProperty('audit')
   })
 
   it('acquire_writes_images_after_agent', async () => {

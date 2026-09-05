@@ -43,9 +43,52 @@ type OpenAIJsonSchema = {
   schema: Record<string, unknown>;
 };
 
+/** An OpenAI wire message. Agent turns send these directly; `{system,user}` is normalized into them. */
+export type ChatMessage =
+  | { role: "system"; content: string }
+  | { role: "user"; content: string | OpenAIChatContentPart[] }
+  | {
+      role: "assistant";
+      content: string | null;
+      tool_calls?: OpenAIToolCall[];
+    }
+  | { role: "tool"; content: string; tool_call_id: string };
+
+/** A function the model may call. Wrapped into `{ type:'function', function }` on the wire. */
+export type ChatToolDefinition = {
+  name: string;
+  description: string;
+  parameters: Record<string, unknown>;
+};
+
+/**
+ * A parsed tool call. `arguments` arrives as a JSON *string* the model wrote, so it
+ * can be malformed: an unparsable payload keeps `args: {}` and hands the raw text to
+ * the caller rather than throwing out of a graph node.
+ */
+export type ChatToolCall = {
+  id: string;
+  name: string;
+  args: Record<string, unknown>;
+  rawArguments?: string;
+};
+
+/** A tool call exactly as it travels on the wire, in both directions. */
+export type OpenAIToolCall = {
+  id: string;
+  type: "function";
+  function: { name: string; arguments: string };
+};
+
 type OpenAIChatInput = {
-  system: string;
-  user: string;
+  system?: string;
+  user?: string;
+  /** A full conversation. Mutually exclusive with `system`+`user`. */
+  messages?: ChatMessage[];
+  /** Function definitions. Cannot be combined with `json`/`schema` — a forced JSON body suppresses tool calls. */
+  tools?: ChatToolDefinition[];
+  /** Caller cancellation, combined with the per-attempt timeout. An abort ends the call without retrying. */
+  signal?: AbortSignal;
   json?: boolean;
   timeoutMs?: number;
   maxTokens?: number;
@@ -72,7 +115,11 @@ type OpenAIChatContentPart =
 
 type OpenAIChatResponse = {
   choices?: Array<{
-    message?: { content?: string; refusal?: string | null };
+    message?: {
+      content?: string | null;
+      refusal?: string | null;
+      tool_calls?: OpenAIToolCall[];
+    };
     finish_reason?: string | null;
   }>;
   usage?: ChatUsage;
@@ -82,12 +129,61 @@ export type OpenAIChatResult = {
   response: Response;
   data: OpenAIChatResponse | null;
   content: string | null;
+  /** Non-null only when the model answered with tool calls. */
+  toolCalls: ChatToolCall[] | null;
   ok: boolean;
   status: number;
   errorBody: unknown;
   finishReason: string | null;
   refusal: string | null;
 };
+
+function parseToolCalls(
+  calls: OpenAIToolCall[] | undefined,
+): ChatToolCall[] | null {
+  if (!calls?.length) return null;
+  return calls.map((call) => {
+    // One guard for both branches: a malformed upstream entry without
+    // `function` degrades to an empty name on either path, never a TypeError.
+    const fn = call.function;
+    const raw = fn?.arguments ?? "";
+    try {
+      const parsed = JSON.parse(raw) as unknown;
+      if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+        return {
+          id: call.id,
+          name: fn?.name ?? "",
+          args: parsed as Record<string, unknown>,
+        };
+      }
+    } catch {
+      // Falls through to the raw-arguments branch below.
+    }
+    return {
+      id: call.id,
+      name: fn?.name ?? "",
+      args: {},
+      rawArguments: raw,
+    };
+  });
+}
+
+/** First text of a role, for the audit row. Image parts are dropped; the count is carried separately. */
+function firstMessageText(messages: ChatMessage[], role: string): string {
+  for (const message of messages) {
+    if (message.role !== role) continue;
+    const { content } = message;
+    if (typeof content === "string") return content;
+    if (Array.isArray(content)) {
+      const text = content.find(
+        (part): part is { type: "text"; text: string } => part.type === "text",
+      );
+      if (text) return text.text;
+    }
+    return "";
+  }
+  return "";
+}
 
 /**
  * `gpt-5`-family models differ from the chat models in two ways, both hard 400s:
@@ -169,24 +265,50 @@ export function createOpenAIClient({
   }
 
   return {
-    async chat({
-      system,
-      user,
-      json = false,
-      timeoutMs = 30_000,
-      maxTokens,
-      temperature,
-      reasoningEffort,
-      images,
-      imageDetail = "low",
-      meta,
-      schema,
-    }: OpenAIChatInput): Promise<OpenAIChatResult> {
+    async chat(input: OpenAIChatInput): Promise<OpenAIChatResult> {
+      const {
+        system,
+        user,
+        messages,
+        tools,
+        json = false,
+        timeoutMs = 30_000,
+        maxTokens,
+        temperature,
+        reasoningEffort,
+        images,
+        imageDetail = "low",
+        meta,
+        schema,
+      } = input;
+
+      const hasLegacyPair = system !== undefined && user !== undefined;
+      // `messages` and `{system,user}` are exclusive, and *either* legacy field
+      // alongside `messages` is refused: `wireMessages` would drop the orphan
+      // silently, so a prompt the caller wrote would never reach the model.
+      const hasLegacyPart = system !== undefined || user !== undefined;
+      if (messages ? hasLegacyPart : !hasLegacyPair) {
+        throw new Error(
+          "openai-client: provide exactly one of messages or system+user",
+        );
+      }
+      // Boolean([]) is true, so an empty conversation would otherwise reach
+      // OpenAI and spend a 400 round-trip plus a failed audit row.
+      if (messages && messages.length === 0) {
+        throw new Error("openai-client: messages must not be empty");
+      }
+      if (tools && (json || schema)) {
+        throw new Error(
+          "openai-client: tools cannot be combined with a forced JSON response_format",
+        );
+      }
+
       // Resolved up front so a missing API key still throws instead of being swallowed as a failed attempt.
       const headers = authHeaders();
+      // Images stay on the legacy branch: a caller sending `messages` builds its own parts.
       const userContent: string | OpenAIChatContentPart[] = images?.length
         ? [
-            { type: "text", text: user },
+            { type: "text", text: user ?? "" },
             ...images.map((image) => ({
               type: "image_url" as const,
               image_url: {
@@ -195,9 +317,59 @@ export function createOpenAIClient({
               },
             })),
           ]
-        : user;
+        : (user ?? "");
+
+      // One wire message array for both input shapes, so `attempt()` has a single request builder.
+      const wireMessages: ChatMessage[] = messages ?? [
+        { role: "system", content: system ?? "" },
+        { role: "user", content: userContent },
+      ];
+
+      /**
+       * Images counted off the wire, not off the input: the legacy `images`
+       * array became `image_url` parts above, and a caller composing `messages`
+       * embeds its own parts. Both audit the same number.
+       */
+      function wireImageCount(): number {
+        let count = 0;
+        for (const message of wireMessages) {
+          const { content } = message;
+          if (!Array.isArray(content)) continue;
+          for (const part of content) {
+            if (part.type === "image_url") count += 1;
+          }
+        }
+        return count;
+      }
+
+      function auditRequest(): ChatAuditEvent["request"] {
+        return {
+          system: firstMessageText(wireMessages, "system"),
+          user: firstMessageText(wireMessages, "user"),
+          imageCount: wireImageCount(),
+        };
+      }
+
+      /**
+       * Legacy `{system,user}` calls keep emitting exactly today's audit event —
+       * the counts are only meaningful for a conversation the caller composed.
+       * Caller `meta` is spread last: its keys are kept, including a collision
+       * with a computed count.
+       */
+      function auditMeta(): { meta?: Record<string, unknown> } {
+        if (!messages) return meta ? { meta } : {};
+        return {
+          meta: {
+            messageCount: wireMessages.length,
+            toolCallCount: tools?.length ?? 0,
+            ...(meta ?? {}),
+          },
+        };
+      }
 
       function responseFormat(useSchema: boolean): Record<string, unknown> {
+        // A forced JSON body and tool calling are mutually exclusive on the wire.
+        if (tools) return {};
         if (useSchema && schema) {
           return {
             response_format: {
@@ -253,10 +425,30 @@ export function createOpenAIClient({
         useSchema: boolean,
         retryAttempt: number,
       ): Promise<OpenAIChatResult> {
+        // An abort that landed during the backoff sleep is only seen by the
+        // classifier after the next attempt ran. Ending it here keeps the
+        // cancelled call from writing one more failed audit row.
+        if (retryAttempt > 0 && input.signal?.aborted) {
+          return {
+            response: networkFailureResponse(),
+            data: null,
+            content: null,
+            toolCalls: null,
+            ok: false,
+            status: 0,
+            errorBody: { error: { message: "aborted" } },
+            finishReason: null,
+            refusal: null,
+          };
+        }
+
         const startedAt = performance.now();
         // Per-attempt deadline. A shared one let a slow first call abort the retry instantly.
         const controller = new AbortController();
         const timeout = setTimeout(() => controller.abort(), timeoutMs);
+        const signal = input.signal
+          ? AbortSignal.any([controller.signal, input.signal])
+          : controller.signal;
 
         try {
           const response = await fetch(OPENAI_API_URL, {
@@ -264,15 +456,24 @@ export function createOpenAIClient({
             headers,
             body: JSON.stringify({
               model,
-              messages: [
-                { role: "system", content: system },
-                { role: "user", content: userContent },
-              ],
+              messages: wireMessages,
+              ...(tools
+                ? {
+                    tools: tools.map((tool) => ({
+                      type: "function" as const,
+                      function: {
+                        name: tool.name,
+                        description: tool.description,
+                        parameters: tool.parameters,
+                      },
+                    })),
+                  }
+                : {}),
               ...tokenBudget(),
               ...samplingAndReasoning(),
               ...responseFormat(useSchema),
             }),
-            signal: controller.signal,
+            signal,
           });
 
           if (!response.ok) {
@@ -287,14 +488,15 @@ export function createOpenAIClient({
               status: response.status,
               data,
               latencyMs: performance.now() - startedAt,
-              request: { system, user, imageCount: images?.length ?? 0 },
+              request: auditRequest(),
               retryAttempt,
-              ...(meta ? { meta } : {}),
+              ...auditMeta(),
             });
             return {
               response,
               data: null,
               content: null,
+              toolCalls: null,
               ok: false,
               status: response.status,
               errorBody: data,
@@ -305,6 +507,9 @@ export function createOpenAIClient({
 
           const data = (await response.json()) as OpenAIChatResponse;
           const content = data.choices?.[0]?.message?.content?.trim() ?? null;
+          const toolCalls = parseToolCalls(
+            data.choices?.[0]?.message?.tool_calls,
+          );
 
           await emitAudit({
             provider: "openai",
@@ -314,15 +519,16 @@ export function createOpenAIClient({
             data,
             ...(data.usage ? { usage: data.usage } : {}),
             latencyMs: performance.now() - startedAt,
-            request: { system, user, imageCount: images?.length ?? 0 },
+            request: auditRequest(),
             retryAttempt,
-            ...(meta ? { meta } : {}),
+            ...auditMeta(),
           });
 
           return {
             response,
             data,
             content,
+            toolCalls,
             ok: true,
             status: response.status,
             errorBody: null,
@@ -339,15 +545,16 @@ export function createOpenAIClient({
             status: 0,
             data: null,
             latencyMs: performance.now() - startedAt,
-            request: { system, user, imageCount: images?.length ?? 0 },
+            request: auditRequest(),
             retryAttempt,
-            ...(meta ? { meta } : {}),
+            ...auditMeta(),
             error: message,
           });
           return {
             response: networkFailureResponse(),
             data: null,
             content: null,
+            toolCalls: null,
             ok: false,
             status: 0,
             errorBody: { error: { message } },
@@ -364,7 +571,12 @@ export function createOpenAIClient({
         useSchema: boolean,
       ): Promise<OpenAIChatResult> {
         return withRetry(IN_PROCESS, (retryAttempt) => attempt(useSchema, retryAttempt), {
-          classify: classifyHttpResponse,
+          // A caller that cancelled is not waiting for a backoff sleep: an aborted
+          // signal ends the ladder on the attempt that saw it.
+          classify: (result) =>
+            input.signal?.aborted
+              ? { retryable: false, reason: "terminal" as const }
+              : classifyHttpResponse(result),
           service: "openai",
         });
       }

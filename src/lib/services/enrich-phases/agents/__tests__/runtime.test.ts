@@ -1,23 +1,39 @@
 import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest'
 import { z } from 'zod'
-import { AIMessage, HumanMessage, SystemMessage } from '@langchain/core/messages'
 import { setAuditWriteSeam, type AuditRecord } from '@/lib/audit/emit'
+import { resolveProfileModel } from '@/lib/constants/llm-models'
+import type { ChatMessage } from '@/lib/services/openai-client'
 
 import {
-  callModel,
+  contentText,
+  createAgentModel,
   extractJson,
   withSchema,
   withSignal,
-  type AgentAuditContext,
 } from '../runtime'
 
 /**
- * The runtime uses the REAL `auditedCall` envelope: the audit write seam is the
- * observation point, so the test proves the row a production run would write
- * rather than the arguments of a mocked envelope. `vi.mock` of `@/lib/services/…`
- * is refused by `scripts/check-test-boundaries.mjs`, so `persistAuditEvent` and
- * `emitLangfuseGeneration` are injected through the context's test seams.
+ * The runtime uses the REAL audited client: `fetch` is the only stub, and the
+ * `brand_ai_results` write is observed through the injected Supabase seam on the
+ * audit context. `vi.mock` of `@/lib/services/…` or `@supabase/…` is refused by
+ * `scripts/check-test-boundaries.mjs`, so nothing internal is mocked.
  */
+type InsertedRow = Record<string, unknown>
+
+function fakeSupabase(inserts: InsertedRow[]) {
+  return {
+    from(table: string) {
+      if (table !== 'brand_ai_results') throw new Error(`Unexpected table ${table}`)
+      return {
+        insert: async (row: InsertedRow) => {
+          inserts.push(row)
+          return { error: null }
+        },
+      }
+    },
+  } as never
+}
+
 function captureAuditRecords(): AuditRecord[] {
   const records: AuditRecord[] = []
   setAuditWriteSeam(async (record) => {
@@ -27,116 +43,217 @@ function captureAuditRecords(): AuditRecord[] {
   return records
 }
 
-function makeAudit(overrides: Partial<AgentAuditContext> = {}): AgentAuditContext {
+function okResponse(body: Record<string, unknown>): Response {
+  return new Response(JSON.stringify(body), { status: 200 })
+}
+
+function chatBody(content: string) {
+  return { choices: [{ message: { content } }] }
+}
+
+type FetchSpy = { mock: { calls: unknown[][] } }
+
+function firstInit(fetchSpy: FetchSpy): RequestInit {
+  return fetchSpy.mock.calls[0]![1] as RequestInit
+}
+
+function requestBody(fetchSpy: FetchSpy): Record<string, unknown> {
+  return JSON.parse(firstInit(fetchSpy).body as string) as Record<string, unknown>
+}
+
+const MESSAGES: ChatMessage[] = [
+  { role: 'system', content: 'You are a planner.' },
+  { role: 'user', content: 'Plan the scrape.' },
+]
+
+const TOOLS = [
+  { name: 'fetch_page', description: 'Fetch a page', parameters: { type: 'object' } },
+]
+
+const TARGET = { type: 'brand' as const, id: '00000000-0000-4000-8000-000000000001' }
+
+function audit(inserts: InsertedRow[]) {
   return {
-    phase: 'acquire',
+    phase: 'products',
     jobId: 'job-1',
-    target: { type: 'brand', id: 'brand-1' },
-    modelName: 'gpt-test',
-    ...overrides,
+    target: TARGET,
+    supabase: fakeSupabase(inserts),
   }
 }
 
-const MESSAGES = [new SystemMessage('You are a planner.'), new HumanMessage('Plan the scrape.')]
-
-describe('agents runtime — callModel', () => {
+describe('agents runtime — createAgentModel', () => {
   beforeEach(() => {
     // Pricing reads `llm_model_prices` through the service client. Blanking the
     // credentials keeps the lookup in its own catch (costUsd null) instead of
     // reaching a real project from a unit test.
     vi.stubEnv('NEXT_PUBLIC_SUPABASE_URL', '')
     vi.stubEnv('SUPABASE_SERVICE_ROLE_KEY', '')
+    vi.stubEnv('OPENAI_MODEL_OVERRIDE', '')
+    vi.stubEnv('OPENAI_API_KEY', 'test-key')
     vi.spyOn(console, 'error').mockImplementation(() => {})
+    captureAuditRecords()
   })
 
   afterEach(() => {
+    setAuditWriteSeam(null)
     vi.unstubAllEnvs()
+    vi.unstubAllGlobals()
     vi.restoreAllMocks()
   })
 
-  it('runtime_callModel_prices_and_attributes_every_turn', async () => {
-    const records = captureAuditRecords()
-    const persist = vi.fn().mockResolvedValue(undefined)
-    const emit = vi.fn()
+  it('createAgentModel_invokes_chat_with_profile_params_and_messages', async () => {
+    const fetchSpy = vi.fn().mockResolvedValue(okResponse(chatBody('{"ok":true}')))
+    vi.stubGlobal('fetch', fetchSpy)
 
-    const model = {
-      invoke: vi.fn().mockResolvedValue(
-        new AIMessage({
-          content: '{"ok":true}',
-          usage_metadata: { input_tokens: 100, output_tokens: 50, total_tokens: 150 },
-        }),
-      ),
-    }
-
-    const response = await callModel(
-      model,
-      MESSAGES,
-      makeAudit({ _persistAuditEvent: persist, _emitLangfuseGeneration: emit }),
-    )
+    const model = await createAgentModel('products_agent', audit([]), { jsonObject: true })
+    const response = await model.invoke(MESSAGES)
 
     expect(response.content).toBe('{"ok":true}')
+    expect(fetchSpy).toHaveBeenCalledTimes(1)
 
-    // The envelope carries tokens, cost and attribution onto the audit row.
-    const terminal = records.find((record) => record.status !== 'started')
-    expect(terminal).toBeDefined()
-    expect(terminal!.status).toBe('succeeded')
-    expect(terminal!.promptTokens).toBe(100)
-    expect(terminal!.completionTokens).toBe(50)
-    expect(terminal).toHaveProperty('costUsd')
-    expect(terminal!.subjectId).toBe('brand-1')
-    expect(terminal!.jobId).toBe('job-1')
-    expect(terminal!.provider).toBe('openai')
-    expect(terminal!.operation).toBe('chat_completions')
-
-    // brand_ai_results row carries the caller's phase — never a default.
-    expect(persist).toHaveBeenCalledTimes(1)
-    const [auditCtx, event, spanId] = persist.mock.calls[0]!
-    expect(auditCtx.phase).toBe('acquire')
-    expect(auditCtx.jobId).toBe('job-1')
-    expect(auditCtx.target).toEqual({ type: 'brand', id: 'brand-1' })
-    expect(event.ok).toBe(true)
-    expect(event.model).toBe('gpt-test')
-    expect(event.usage).toEqual({ prompt_tokens: 100, completion_tokens: 50, total_tokens: 150 })
-    expect(event.request.system).toBe('You are a planner.')
-    expect(event.request.user).toBe('Plan the scrape.')
-    expect(spanId).toBe(terminal!.spanId)
-
-    expect(emit).toHaveBeenCalledTimes(1)
-    expect(emit.mock.calls[0]![0].phase).toBe('acquire')
+    const body = requestBody(fetchSpy)
+    expect(body.model).toBe(resolveProfileModel('products_agent'))
+    expect(body.temperature).toBe(0.1)
+    expect(body.reasoning_effort).toBe('none')
+    expect(body.response_format).toEqual({ type: 'json_object' })
+    expect(body.messages).toEqual(MESSAGES)
+    expect(body.tools).toBeUndefined()
   })
 
-  it('runtime_callModel_persists_a_failed_event_when_the_model_throws', async () => {
+  it('createAgentModel_omits_json_mode_when_tools_are_passed', async () => {
+    const fetchSpy = vi.fn().mockResolvedValue(okResponse(chatBody('plan')))
+    vi.stubGlobal('fetch', fetchSpy)
+
+    const model = await createAgentModel('acquisition', audit([]), { jsonObject: true })
+    await model.invoke(MESSAGES, { tools: TOOLS })
+
+    const body = requestBody(fetchSpy)
+    expect(body.response_format).toBeUndefined()
+    expect(body.tools).toEqual([
+      {
+        type: 'function',
+        function: {
+          name: 'fetch_page',
+          description: 'Fetch a page',
+          parameters: { type: 'object' },
+        },
+      },
+    ])
+  })
+
+  it('createAgentModel_writes_an_audit_row_with_usage_and_cost', async () => {
     const records = captureAuditRecords()
-    const persist = vi.fn().mockResolvedValue(undefined)
-    const emit = vi.fn()
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue(
+        okResponse({
+          ...chatBody('{"ok":true}'),
+          usage: { prompt_tokens: 100, completion_tokens: 25, total_tokens: 125 },
+        }),
+      ),
+    )
 
-    const model = { invoke: vi.fn().mockRejectedValue(new Error('upstream 503')) }
+    const inserts: InsertedRow[] = []
+    const model = await createAgentModel('products_agent', audit(inserts), { jsonObject: true })
+    await model.invoke(MESSAGES)
 
-    await expect(
-      callModel(model, MESSAGES, makeAudit({ _persistAuditEvent: persist, _emitLangfuseGeneration: emit })),
-    ).rejects.toThrow('upstream 503')
+    expect(inserts).toHaveLength(1)
+    const row = inserts[0]!
+    expect(row.phase).toBe('products')
+    expect(row.job_id).toBe('job-1')
+    expect(row.brand_id).toBe(TARGET.id)
+    expect(row.raw_response).toMatchObject({
+      provider: 'openai',
+      ok: true,
+      status: 200,
+      usage: { prompt_tokens: 100, completion_tokens: 25, total_tokens: 125 },
+    })
 
-    // A failed turn still writes its row — the gap F15 records.
-    expect(persist).toHaveBeenCalledTimes(1)
-    const [auditCtx, event] = persist.mock.calls[0]!
-    expect(auditCtx.phase).toBe('acquire')
-    expect(event.ok).toBe(false)
-    expect(event.error).toContain('upstream 503')
-
+    // The row is linked to the envelope's span, so cost and attribution join up.
     const terminal = records.find((record) => record.status !== 'started')
-    expect(terminal?.status).toBe('failed')
-    expect(terminal?.subjectId).toBe('brand-1')
+    expect(terminal?.status).toBe('succeeded')
+    expect(terminal?.subjectId).toBe(TARGET.id)
+    expect(terminal?.jobId).toBe('job-1')
+    expect(row.audit_span_id).toBe(terminal?.spanId)
   })
 
-  it('runtime_callModel_passes_the_abort_signal_to_the_model', async () => {
-    captureAuditRecords()
+  it('createAgentModel_writes_a_failed_row_and_throws_on_http_error', async () => {
+    vi.stubGlobal(
+      'fetch',
+      // A fresh Response per attempt: the client retries a 5xx, and a Response
+      // body can only be consumed once.
+      vi.fn().mockImplementation(
+        async () =>
+          new Response(JSON.stringify({ error: { message: 'server exploded' } }), {
+            status: 500,
+          }),
+      ),
+    )
+
+    const inserts: InsertedRow[] = []
+    const model = await createAgentModel('products_agent', audit(inserts), { jsonObject: true })
+
+    await expect(model.invoke(MESSAGES)).rejects.toThrow(/500/)
+
+    // A failed turn still writes its row — the gap DEV-1644 F15 recorded. The
+    // client retries a 5xx, so every attempt writes one failed row.
+    expect(inserts.length).toBeGreaterThanOrEqual(1)
+    for (const row of inserts) {
+      expect(row.phase).toBe('products')
+      expect(row.raw_response).toMatchObject({ ok: false, status: 500 })
+    }
+  })
+
+  it('createAgentModel_passes_the_signal_through', async () => {
+    const fetchSpy = vi.fn().mockResolvedValue(okResponse(chatBody('ok')))
+    vi.stubGlobal('fetch', fetchSpy)
+
     const controller = new AbortController()
-    const model = { invoke: vi.fn().mockResolvedValue(new AIMessage({ content: 'ok' })) }
+    const model = await createAgentModel('products_agent', audit([]))
+    await model.invoke(MESSAGES, { signal: controller.signal })
 
-    await callModel(model, MESSAGES, makeAudit({ signal: controller.signal }))
+    const init = firstInit(fetchSpy)
+    expect(init.signal).toBeDefined()
+    expect(init.signal!.aborted).toBe(false)
+    controller.abort()
+    expect(init.signal!.aborted).toBe(true)
+  })
 
-    expect(model.invoke).toHaveBeenCalledTimes(1)
-    expect(model.invoke.mock.calls[0]![1]).toMatchObject({ signal: controller.signal })
+  it('createAgentModel_maps_tool_calls_and_usage_to_camelCase', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue(
+        okResponse({
+          choices: [
+            {
+              message: {
+                content: null,
+                tool_calls: [
+                  {
+                    id: 'call_1',
+                    type: 'function',
+                    function: { name: 'fetch_page', arguments: '{"url":"https://a.test"}' },
+                  },
+                ],
+              },
+            },
+          ],
+          usage: { prompt_tokens: 12, completion_tokens: 3, total_tokens: 15 },
+        }),
+      ),
+    )
+
+    const model = await createAgentModel('acquisition', audit([]))
+    const response = await model.invoke(MESSAGES, { tools: TOOLS })
+
+    expect(response.content).toBeNull()
+    expect(response.toolCalls?.[0]).toMatchObject({
+      id: 'call_1',
+      name: 'fetch_page',
+      args: { url: 'https://a.test' },
+    })
+    expect(response.usage?.prompt_tokens).toBe(12)
+    expect(contentText(response)).toBe('')
   })
 })
 

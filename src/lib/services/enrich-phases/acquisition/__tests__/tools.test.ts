@@ -1,11 +1,13 @@
 import { describe, expect, it, vi } from 'vitest'
 import {
   createAcquisitionTools,
+  type AcquisitionTool,
   type AcquisitionToolContext,
   type AcquisitionToolDeps,
 } from '../tools'
+import { toStrictJsonSchema } from '../../../_shared/zod-schema'
 import type { BudgetState } from '../budget'
-import type { AcquisitionPlanType } from '../plan'
+import { AcquisitionPlan, type AcquisitionPlanType } from '../plan'
 
 function makeDeps(overrides: Partial<AcquisitionToolDeps> = {}): AcquisitionToolDeps {
   return {
@@ -41,22 +43,20 @@ function makeContext(overrides: Partial<AcquisitionToolContext> = {}): Acquisiti
   }
 }
 
-/**
- * Tools answer the model with a JSON string; tests read the parsed payload.
- * The invoke signature is narrowed by hand because `StructuredToolInterface`
- * types its input against the tool's own schema generic, which differs per tool.
- */
-type InvokableTool = { name: string; invoke: (args: Record<string, unknown>) => Promise<unknown> }
+/** Tools answer the model with a JSON string; tests read the parsed payload. */
+function toolNamed(tools: AcquisitionTool[], name: string): AcquisitionTool {
+  const found = tools.find((candidate) => candidate.definition.name === name)
+  if (!found) throw new Error(`tool not registered: ${name}`)
+  return found
+}
 
 async function callTool(
-  tools: ReturnType<typeof createAcquisitionTools>,
+  tools: AcquisitionTool[],
   name: string,
-  args: Record<string, unknown>,
+  args: unknown,
 ): Promise<Record<string, unknown>> {
-  const found = (tools as unknown as InvokableTool[]).find((candidate) => candidate.name === name)
-  if (!found) throw new Error(`tool not registered: ${name}`)
-  const raw = await found.invoke(args)
-  return JSON.parse(String(raw)) as Record<string, unknown>
+  const raw = await toolNamed(tools, name).run(args)
+  return JSON.parse(raw) as Record<string, unknown>
 }
 
 const VALID_PLAN = {
@@ -68,16 +68,36 @@ const VALID_PLAN = {
 }
 
 describe('acquisition tools', () => {
-  it('tool_list_is_the_four_model_callable_tools', () => {
+  it('tools_expose_openai_function_definitions', () => {
     const tools = createAcquisitionTools(makeDeps(), makeContext())
-    expect(tools.map((t) => t.name)).toEqual([
+    expect(tools.map((t) => t.definition.name)).toEqual([
       'probe_static',
       'probe_rendered',
       'extract_links',
       'submit_plan',
     ])
     // search_brand is a recover-node step, not a model-callable tool.
-    expect(tools.some((t) => t.name === 'search_brand')).toBe(false)
+    expect(tools.some((t) => t.definition.name === 'search_brand')).toBe(false)
+
+    // The plan's own schema is the tool's argument schema, so a model that
+    // reads the definition writes a payload the plan parser accepts.
+    expect(toolNamed(tools, 'submit_plan').definition.parameters).toEqual(
+      toStrictJsonSchema(AcquisitionPlan),
+    )
+    for (const tool of tools) expect(typeof tool.definition.description).toBe('string')
+  })
+
+  it('url_tools_refuse_invalid_args', async () => {
+    const deps = makeDeps()
+    const tools = createAcquisitionTools(deps, makeContext())
+
+    for (const name of ['probe_static', 'probe_rendered', 'extract_links']) {
+      expect(await callTool(tools, name, {})).toEqual({ error: 'invalid_args' })
+      expect(await callTool(tools, name, 'x')).toEqual({ error: 'invalid_args' })
+    }
+
+    expect(deps.fetchHtml).not.toHaveBeenCalled()
+    expect(deps.renderProvider!.fetchRendered).not.toHaveBeenCalled()
   })
 
   it('tool_refuses_url_outside_provenance_allowlist', async () => {
@@ -167,6 +187,14 @@ describe('acquisition tools', () => {
     expect(accepted).toMatchObject({ accepted: true })
     expect(submitted).toHaveLength(1)
     expect(submitted[0]!.surfaces).toHaveLength(1)
+  })
+
+  it('submit_plan_returns_invalid_plan_for_cross_field_violation', async () => {
+    const submitted: AcquisitionPlanType[] = []
+    const onPlanSubmitted = vi.fn((plan: AcquisitionPlanType) => {
+      submitted.push(plan)
+    })
+    const tools = createAcquisitionTools(makeDeps(), makeContext({ onPlanSubmitted }))
 
     // Seven real fetch targets breaks the plan-level refinement, which JSON
     // Schema cannot express — the tool has to answer the model itself.
@@ -179,8 +207,11 @@ describe('acquisition tools', () => {
       })),
       fanOut: ['https://extra.example/about'],
     }
+
     const refused = await callTool(tools, 'submit_plan', overBudget)
-    expect(refused).toHaveProperty('error')
-    expect(submitted).toHaveLength(1)
+
+    expect(refused).toMatchObject({ error: 'invalid_plan' })
+    expect(onPlanSubmitted).not.toHaveBeenCalled()
+    expect(submitted).toHaveLength(0)
   })
 })

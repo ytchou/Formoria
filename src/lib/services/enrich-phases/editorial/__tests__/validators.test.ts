@@ -1,5 +1,4 @@
 import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest'
-import { FakeListChatModel } from '@langchain/core/utils/testing'
 import { setAuditWriteSeam } from '@/lib/audit/emit'
 import type { PhaseResult } from '@/lib/types/curation'
 
@@ -30,16 +29,17 @@ import {
   EDITORIAL_REPAIR_PROFILE,
 } from '../validators'
 import type { AgentModel } from '../../agents/runtime'
+import type { ChatMessage, ChatToolDefinition } from '@/lib/services/openai-client'
 
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
 
 /**
- * The repair path runs the REAL `auditedCall` envelope from the shared runtime.
- * Mocking internal service modules is refused by the test-boundaries guard,
- * so the audit write is captured through the seam and `persistAuditEvent` /
- * `emitLangfuseGeneration` are injected through the audit context's test hooks.
+ * The audit row for a repair turn is written by the audited client inside
+ * `createAgentModel` (DEV-1700), not by anything in this module — these tests
+ * inject a plain `{ invoke }` fake and assert what the repair sends and keeps.
+ * The seam is still installed so nothing reaches a real emitter.
  */
 function captureAuditWrites(): void {
   setAuditWriteSeam(async () => null)
@@ -55,23 +55,20 @@ const ARTIFACT_EN = 'In a world where design matters, this studio keeps making t
 /** Clean English prose: no slop pattern, high Latin purity. */
 const CLEAN_EN = 'A small Taipei studio making everyday ceramics for narrow kitchens.'
 
-function makeAudit(persist = vi.fn().mockResolvedValue(undefined)) {
-  return {
-    audit: {
-      jobId: 'job-1',
-      target: { type: 'brand' as const, id: 'brand-1' },
-      modelName: 'gpt-test',
-      _persistAuditEvent: persist,
-      _emitLangfuseGeneration: vi.fn(),
-    },
-    persist,
-  }
+const AUDIT = {
+  jobId: 'job-1',
+  target: { type: 'brand' as const, id: '00000000-0000-4000-8000-000000000001' },
 }
 
 function fakeModel(responses: string[]) {
-  const fake = new FakeListChatModel({ responses })
-  const invoke = vi.spyOn(fake, 'invoke')
-  return { model: fake as unknown as AgentModel, invoke }
+  let index = 0
+  const invoke = vi.fn(
+    async (
+      _messages: ChatMessage[],
+      _options?: { signal?: AbortSignal; tools?: ChatToolDefinition[] },
+    ) => ({ content: responses[Math.min(index++, responses.length - 1)] ?? null }),
+  )
+  return { model: { invoke } as AgentModel, invoke }
 }
 
 // ---------------------------------------------------------------------------
@@ -141,8 +138,8 @@ describe('editorial cross-output validators', () => {
   // Repair
   // -------------------------------------------------------------------------
 
-  it('repair_calls_model_once_with_profile_editorial_and_phase_descriptions', async () => {
-    const { audit, persist } = makeAudit()
+  it('repair_sends_system_and_user_as_plain_messages', async () => {
+    const controller = new AbortController()
     const { model, invoke } = fakeModel([
       JSON.stringify({
         description: null,
@@ -157,19 +154,51 @@ describe('editorial cross-output validators', () => {
       failures: [{ field: 'description_en', reason: 'ai_artifact:^in a world where\\b' }],
       evidence: 'Founded in 2014 by two designers.',
       model,
-      audit,
+      signal: controller.signal,
     })
 
     expect(EDITORIAL_REPAIR_PROFILE).toBe('editorial')
     expect(EDITORIAL_REPAIR_AUDIT_PHASE).toBe('descriptions')
     expect(invoke).toHaveBeenCalledTimes(1)
-    expect(persist).toHaveBeenCalledTimes(1)
-    expect(persist.mock.calls[0][0]).toMatchObject({ phase: 'descriptions', jobId: 'job-1' })
+
+    // Plain OpenAI wire messages, not framework message objects.
+    const [messages, options] = invoke.mock.calls[0]!
+    expect(messages).toHaveLength(2)
+    expect(messages[0]!.role).toBe('system')
+    expect(messages[0]!.content).toContain('EditorialRepair JSON Schema')
+    expect(messages[1]!.role).toBe('user')
+    expect(JSON.parse(messages[1]!.content as string)).toMatchObject({
+      fieldsToFix: ['description_en'],
+      evidence: 'Founded in 2014 by two designers.',
+    })
+    expect(options).toEqual({ signal: controller.signal })
+
     expect(repaired).toEqual({ description_en: CLEAN_EN })
   })
 
+  it('repair_failure_returns_empty_patch', async () => {
+    const model = {
+      invoke: vi.fn().mockRejectedValue(new Error('openai 500: server exploded')),
+    } as unknown as AgentModel
+
+    const deps = buildEditorialDeps({
+      runDescriptions: vi.fn(),
+      runStockists: vi.fn(),
+      runFaq: vi.fn(),
+      audit: AUDIT,
+      brandName: 'Test Brand',
+      model,
+      requestEvidence: vi.fn().mockResolvedValue(''),
+    })
+
+    const repaired = await deps.repairCrossOutput({ description_en: ARTIFACT_EN }, [
+      { field: 'description_en', reason: 'ai_artifact:^in a world where\\b' },
+    ])
+
+    expect(repaired).toEqual({})
+  })
+
   it('repair_keeps_original_when_model_output_still_fails', async () => {
-    const { audit } = makeAudit()
     const { model } = fakeModel([
       JSON.stringify({
         description: null,
@@ -183,14 +212,12 @@ describe('editorial cross-output validators', () => {
       patch: { description_en: ARTIFACT_EN },
       failures: [{ field: 'description_en', reason: 'ai_artifact:^in a world where\\b' }],
       model,
-      audit,
     })
 
     expect(repaired).toEqual({})
   })
 
   it('repair_never_touches_stockists_or_faq_fields', async () => {
-    const { audit } = makeAudit()
     const { model } = fakeModel([
       JSON.stringify({
         description: null,
@@ -207,7 +234,6 @@ describe('editorial cross-output validators', () => {
         { field: 'faq_entries[0]', reason: 'faq_preset_not_eligible' },
       ],
       model,
-      audit,
     })
 
     expect(Object.keys(repaired)).toEqual(['description_en'])
@@ -248,7 +274,6 @@ describe('editorial cross-output validators', () => {
   // -------------------------------------------------------------------------
 
   it('buildEditorialDeps_wires_real_validators', async () => {
-    const { audit, persist } = makeAudit()
     const { model, invoke } = fakeModel([
       JSON.stringify({
         description: null,
@@ -263,7 +288,7 @@ describe('editorial cross-output validators', () => {
       runDescriptions: vi.fn(),
       runStockists: vi.fn(),
       runFaq: vi.fn(),
-      audit,
+      audit: AUDIT,
       brandName: 'Test Brand',
       createModel,
       requestEvidence: vi.fn().mockResolvedValue('Founded in 2014.'),
@@ -282,10 +307,41 @@ describe('editorial cross-output validators', () => {
       { field: 'description_en', reason: 'ai_artifact:^in a world where\\b' },
     ])
 
-    expect(createModel).toHaveBeenCalledWith('editorial')
     expect(invoke).toHaveBeenCalledTimes(1)
-    expect(persist.mock.calls[0][0]).toMatchObject({ phase: 'descriptions' })
     expect(repaired).toEqual({ description_en: CLEAN_EN })
     expect(typeof deps.requestEvidence).toBe('function')
+  })
+
+  it('buildEditorialDeps_creates_the_model_with_the_descriptions_phase', async () => {
+    const { model } = fakeModel([
+      JSON.stringify({
+        description: null,
+        description_en: CLEAN_EN,
+        blurb: null,
+        blurb_en: null,
+      }),
+    ])
+    const createModel = vi.fn().mockResolvedValue(model)
+
+    const deps = buildEditorialDeps({
+      runDescriptions: vi.fn(),
+      runStockists: vi.fn(),
+      runFaq: vi.fn(),
+      audit: AUDIT,
+      brandName: 'Test Brand',
+      createModel,
+      requestEvidence: vi.fn().mockResolvedValue(''),
+    })
+
+    await deps.repairCrossOutput({ description_en: ARTIFACT_EN }, [
+      { field: 'description_en', reason: 'ai_artifact:^in a world where\\b' },
+    ])
+
+    // The audit context is bound at construction — the row's phase can no longer
+    // drift from the turn that wrote it.
+    expect(createModel).toHaveBeenCalledWith(EDITORIAL_REPAIR_PROFILE, {
+      ...AUDIT,
+      phase: EDITORIAL_REPAIR_AUDIT_PHASE,
+    })
   })
 })

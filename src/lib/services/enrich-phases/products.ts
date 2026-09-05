@@ -79,7 +79,6 @@ import {
 } from "../mit-registry";
 import { loadRenderedProductTexts } from "./scraper/product-origin-text";
 import { fetchHtmlWithMetadata } from "./scraper/fetch-guards";
-import { resolveProfileModel } from "@/lib/constants/llm-models";
 import type { RenderProviderWithBudget } from "./scraper/render/from-env";
 import { bindBrandKey } from "./scraper/render/render-budget";
 import type { CatalogDiscoveryResult } from "./catalog-discovery";
@@ -1208,9 +1207,20 @@ export async function runProductsPhase({
       if (process.env.PRODUCTS_AGENT !== "off") {
         try {
           const { runProductsAgent } = await import("./products/graph");
-          const modelName = resolveProfileModel("products_agent");
+          // The audit context is bound HERE, at construction, so every turn the
+          // graph takes writes its own `brand_ai_results` row without the graph
+          // knowing anything about the audit envelope (DEV-1700).
           const model =
-            agentModel ?? (await createAgentModel("products_agent", { jsonObject: true }));
+            agentModel ??
+            (await createAgentModel(
+              "products_agent",
+              {
+                phase: "products",
+                target: effectiveTarget,
+                ...(jobId ? { jobId } : {}),
+              },
+              { jsonObject: true },
+            ));
 
           // Decision #35, wired to the same two helpers the acquire phase uses.
           // `downloadAndStoreImages` returns storage paths rather than row ids,
@@ -1317,14 +1327,7 @@ export async function runProductsPhase({
               storePageImages: storePageImagesFn,
               classifyPageImages: classifyPageImagesFn,
             },
-            {
-              model,
-              audit: {
-                target: effectiveTarget,
-                ...(jobId ? { jobId } : {}),
-                modelName,
-              },
-            },
+            { model },
           );
 
           const agentOutcome = agentResult.agentOutcome;
