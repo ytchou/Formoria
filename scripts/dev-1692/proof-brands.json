@@ -7,5 +7,8 @@
   { "slug": "fusoap", "brandName": "膚皂", "instagram": "https://www.instagram.com/fusoap/" },
   { "slug": "fanglin", "brandName": "紡林", "instagram": "https://www.instagram.com/fanglin.tw/" },
   { "slug": "one-wood", "brandName": "一木", "instagram": "https://www.instagram.com/one_wood_tw/" },
-  { "slug": "su-felting", "brandName": "蘇蘇羊毛氈", "instagram": "https://www.instagram.com/su_felting/" }
+  { "slug": "su-felting", "brandName": "蘇蘇羊毛氈", "instagram": "https://www.instagram.com/su_felting/" },
+  { "slug": "threads-proof-1", "brandName": "Threads Proof 1", "socialThreads": "https://www.threads.com/@REPLACE_ME_1", "note": "DEV-1702 placeholder - operator replaces slug/brandName/socialThreads with a production Threads-bearing channel-less brand before the proof run" },
+  { "slug": "threads-proof-2", "brandName": "Threads Proof 2", "socialThreads": "https://www.threads.com/@REPLACE_ME_2", "note": "DEV-1702 placeholder - operator replaces slug/brandName/socialThreads with a production Threads-bearing channel-less brand before the proof run" },
+  { "slug": "threads-proof-3", "brandName": "Threads Proof 3", "socialThreads": "https://www.threads.com/@REPLACE_ME_3", "note": "DEV-1702 placeholder - operator replaces slug/brandName/socialThreads with a production Threads-bearing channel-less brand before the proof run" }
 ]

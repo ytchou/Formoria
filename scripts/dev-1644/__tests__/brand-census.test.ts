@@ -12,6 +12,7 @@ import {
   countGallery,
   diffRow,
   emptyCensusRow,
+  linkSourcesFromPhaseResults,
   renderCensusDiff,
   summarizeProductRows,
   textStat,
@@ -266,6 +267,7 @@ describe("census pending submission fields", () => {
     const row: SubmissionCensusRow = {
       submission_id: "sub-001",
       slug: null,
+      submission_denial_reason: null,
       pending_products: 4,
       pending_candidate_rank_count: 2,
       pending_active_images: 6,
@@ -304,5 +306,113 @@ describe("census pending submission fields", () => {
 
     expect(byField.has("pending_candidate_images")).toBe(true);
     expect(byField.get("pending_candidate_images")?.direction).toBe("improved");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Channel-verdict outcome columns (DEV-1702)
+// ---------------------------------------------------------------------------
+
+describe("census channel-verdict outcome columns", () => {
+  it("census_reports_hidden_reason_and_denial_reason_columns", () => {
+    // The empty row carries the new columns, so a brand that was never touched
+    // by a verdict still lines up column-for-column with one that was.
+    const empty = emptyCensusRow("alpha");
+    expect(empty.status).toBe("approved");
+    expect(empty.hidden_reason).toBeNull();
+    expect(empty.submission_denial_reason).toBeNull();
+    expect(empty.link_sources).toBe("");
+
+    const before: CensusFile = {
+      cohort: "dev-1644-routing-pilot",
+      capturedAt: "2026-09-05T00:00:00Z",
+      rows: [
+        rowWith({ slug: "91art-studio", status: "approved" }),
+        rowWith({ slug: "one-wood" }),
+      ],
+    };
+    const after: CensusFile = {
+      cohort: "dev-1644-routing-pilot",
+      capturedAt: "2026-09-05T02:00:00Z",
+      rows: [
+        rowWith({
+          slug: "91art-studio",
+          status: "hidden",
+          hidden_reason: "no_purchase_channel",
+          link_sources: "threads,serp",
+        }),
+        rowWith({
+          slug: "one-wood",
+          submission_denial_reason: "no_purchase_channel",
+        }),
+      ],
+    };
+
+    const hidden = new Map(
+      diffRow(before.rows[0]!, after.rows[0]!).map((d) => [d.field, d]),
+    );
+    expect(hidden.get("status")?.before).toBe("approved");
+    expect(hidden.get("status")?.after).toBe("hidden");
+    // A brand leaving the directory is never an improvement, whatever the
+    // reason: the diff must call it out, not bury it as "changed".
+    expect(hidden.get("status")?.direction).toBe("regressed");
+    expect(hidden.get("hidden_reason")?.after).toBe("no_purchase_channel");
+    expect(hidden.get("link_sources")?.after).toBe("threads,serp");
+
+    const denied = new Map(
+      diffRow(before.rows[1]!, after.rows[1]!).map((d) => [d.field, d]),
+    );
+    expect(denied.get("submission_denial_reason")?.after).toBe(
+      "no_purchase_channel",
+    );
+
+    const md = renderCensusDiff(before, after);
+    expect(md).toContain("| status | approved | hidden | regressed |");
+    expect(md).toContain("| hidden_reason | - | no_purchase_channel |");
+    expect(md).toContain("| submission_denial_reason | - | no_purchase_channel |");
+    expect(md).toContain("| link_sources | - | threads,serp |");
+  });
+
+  it("links_sources_lists_each_adopted_source_once_in_a_stable_order", () => {
+    expect(
+      linkSourcesFromPhaseResults([
+        {
+          phase: "gather",
+          status: "succeeded",
+          changedFields: [],
+          durationMs: 1,
+        },
+        {
+          phase: "acquire",
+          status: "succeeded",
+          changedFields: [],
+          durationMs: 2,
+          linkExpansion: {
+            hubsFetched: 1,
+            serp: "searched",
+            adopted: [
+              { field: "purchase_website", url: "https://a.example", source: "threads" },
+              { field: "purchase_shopee", url: "https://b.example", source: "threads" },
+              { field: "purchase_pinkoi", url: "https://c.example", source: "hub" },
+            ],
+          },
+        },
+      ]),
+    ).toBe("threads,hub");
+  });
+
+  it("links_sources_is_empty_when_no_acquire_entry_expanded_a_link", () => {
+    expect(linkSourcesFromPhaseResults([])).toBe("");
+    expect(
+      linkSourcesFromPhaseResults([
+        {
+          phase: "acquire",
+          status: "succeeded",
+          changedFields: [],
+          durationMs: 2,
+          linkExpansion: { hubsFetched: 0, serp: "none", adopted: [] },
+        },
+      ]),
+    ).toBe("");
   });
 });
