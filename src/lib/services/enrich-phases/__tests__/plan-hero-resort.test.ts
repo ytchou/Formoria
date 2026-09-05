@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   MAX_BRAND_ACTIVE_IMAGES,
   MAX_BRAND_ACTIVE_SORT_ORDER,
+  MIN_CANDIDATE_SCORE,
 } from "@/lib/constants/brand-images";
 import {
   planHeroResort,
@@ -127,5 +128,39 @@ describe("planHeroResort", () => {
       ),
     ).toBe(true);
     expect(second.demotedIds).toEqual([]);
+  });
+
+  it("classify_mode_routes_overflow_by_min_candidate_score", () => {
+    // Over-capacity in classify mode: 12 active images, scores descending.
+    // The first 10 fit the cap; overflow is split by MIN_CANDIDATE_SCORE.
+    const images = Array.from({ length: 12 }, (_, i) =>
+      row(`img-${i}`, i, { score: 95 - i * 3 }),
+    );
+    const plan = planHeroResort({ activeImages: images, mode: "classify" });
+
+    // Classify mode does not skip on over_capacity (resort mode does).
+    expect(plan.skipReason).toBeNull();
+    expect(plan.assignments).toHaveLength(MAX_BRAND_ACTIVE_IMAGES);
+
+    // img-10 has score 65, img-11 has score 62 — both < MIN_CANDIDATE_SCORE
+    const highOverflow = plan.candidateIds;
+    const lowOverflow = plan.demotedIds;
+    // All overflow with score >= MIN_CANDIDATE_SCORE are candidates.
+    // All overflow with score < MIN_CANDIDATE_SCORE are demoted.
+    for (const id of highOverflow) {
+      const img = images.find((row) => row.id === id)!;
+      expect(img.score).toBeGreaterThanOrEqual(MIN_CANDIDATE_SCORE);
+    }
+    for (const id of lowOverflow) {
+      const img = images.find((row) => row.id === id)!;
+      expect(Number(img.score)).toBeLessThan(MIN_CANDIDATE_SCORE);
+    }
+
+    // Resort mode still refuses over-capacity (existing test at :44).
+    const resortPlan = planHeroResort({
+      activeImages: images,
+      mode: "resort",
+    });
+    expect(resortPlan.skipReason).toBe("over_capacity");
   });
 });

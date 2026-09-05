@@ -16,7 +16,7 @@ import {
   JOB_REQUEUE,
   RETRY_ATTEMPTS,
 } from "@/lib/retry";
-import { parsePhaseResults } from "@/lib/services/phase-results";
+import { lastAcquireRecordedBudgetExhausted, parsePhaseResults } from "@/lib/services/phase-results";
 import { imagePathToUrl } from "@/lib/images/image-url";
 import {
   enrichedDataFromDb,
@@ -52,6 +52,8 @@ export type CurationJobParams = Record<string, Json | undefined> & {
   overwrite?: boolean;
   status?: string;
   target?: "submissions" | "brands";
+  /** Multiplier for the per-brand time budget. >1 grants more time. */
+  budgetScale?: number;
 };
 
 type CurationJobRow = Database["public"]["Tables"]["curation_jobs"]["Row"];
@@ -463,7 +465,8 @@ export async function enqueueManualRerun(
         );
       }
 
-      const params = rerunJobParams(source.params, options);
+      const budgetScale = budgetScaleForRerun(targets);
+      const params = rerunJobParams(source.params, { ...options, budgetScale });
 
       return enqueueCurationJob({
         operation: "enrich",
@@ -940,7 +943,26 @@ function parseJobParams(params: Json | null): CurationJobParams {
     );
     parsed.phases = kept.length > 0 ? normalizeRequestedPhases(kept) : [];
   }
+  // budgetScale is ephemeral — granted per invocation, not inherited across
+  // retries. Automatic retries (which call parseJobParams directly) must never
+  // carry a prior manual-rerun's scale forward.
+  delete parsed.budgetScale;
   return parsed;
+}
+
+/**
+ * Returns 1.5 when any target's last acquire trace recorded budget exhaustion
+ * or abort. Manual reruns grant more time to brands that hit the wall;
+ * automatic retries never call this (they are cost-controlled).
+ */
+export function budgetScaleForRerun(
+  targets: Pick<CurationJobTarget, "phase_results">[],
+): number | undefined {
+  return targets.some((target) =>
+    lastAcquireRecordedBudgetExhausted(parsePhaseResults(target.phase_results)),
+  )
+    ? 1.5
+    : undefined;
 }
 
 /**
@@ -953,14 +975,17 @@ function parseJobParams(params: Json | null): CurationJobParams {
  * already carries an explicit, pre-filtered target list, so a stale limit would
  * silently truncate that list instead of capping a broad scan.
  */
-function rerunJobParams(
+export function rerunJobParams(
   params: Json | null,
-  options?: { overwrite?: boolean },
+  options?: { overwrite?: boolean; budgetScale?: number },
 ): CurationJobParams {
   const rerunParams = parseJobParams(params);
   delete rerunParams.stopAfter;
   rerunParams.overwrite =
     parseOverwriteParam(rerunParams.overwrite) || options?.overwrite === true;
+  if (options?.budgetScale !== undefined) {
+    rerunParams.budgetScale = options.budgetScale;
+  }
   return rerunParams;
 }
 

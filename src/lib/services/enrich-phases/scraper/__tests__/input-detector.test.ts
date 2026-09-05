@@ -2,6 +2,7 @@ import { describe, it, expect, vi, afterEach } from 'vitest'
 import {
   classifyByDomain,
   detectInputType,
+  isLinkAggregatorHost,
   isNonBrandSiteHost,
   isThirdPartyDirectoryHost,
 } from '../input-detector'
@@ -119,6 +120,21 @@ describe('isThirdPartyDirectoryHost', () => {
   it('is false for a brand’s own domain and for a malformed URL', () => {
     expect(isThirdPartyDirectoryHost('https://www.gooddays.tw')).toBe(false)
     expect(isThirdPartyDirectoryHost('gooddays.tw')).toBe(false)
+  })
+})
+
+describe('isLinkAggregatorHost', () => {
+  it('matches portaly and linktree', () => {
+    expect(isLinkAggregatorHost('https://portaly.cc/mybrand')).toBe(true)
+    expect(isLinkAggregatorHost('https://linktr.ee/mybrand')).toBe(true)
+  })
+
+  it('rejects marketplace storefronts', () => {
+    expect(isLinkAggregatorHost('https://pinkoi.com/store/x')).toBe(false)
+  })
+
+  it('returns false for a malformed URL', () => {
+    expect(isLinkAggregatorHost('not-a-url')).toBe(false)
   })
 })
 

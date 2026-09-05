@@ -7,6 +7,7 @@ import {
   type AcquisitionDeps,
   type AcquisitionInput,
 } from '../graph'
+import { RESERVED_TAIL_MS } from '../budget'
 
 // The prompt nodes call `fetchLangfusePrompt`, which returns its fallback when
 // no Langfuse client can be built. Blanking the credentials keeps that true even
@@ -36,7 +37,14 @@ function fakeAgentModel(script: { plan?: ScriptedTurn[]; critique?: Array<Record
   let critiqueIndex = 0
   let callId = 0
 
-  const invoke = vi.fn(async (messages: BaseMessage[]) => {
+  const invoke = vi.fn(async (messages: BaseMessage[], options?: { signal?: AbortSignal }) => {
+    // Check for abort before proceeding (supports critique timeout tests)
+    if (options?.signal?.aborted) {
+      const err = new Error('The operation was aborted')
+      err.name = 'AbortError'
+      throw err
+    }
+
     const system = String(messages[0]?.content ?? '')
     if (system.includes('CritiqueVerdict')) {
       const verdicts = script.critique ?? [{ verdict: 'sufficient', reason: 'enough data' }]
@@ -206,6 +214,27 @@ describe('acquisition graph — LangGraph shape', () => {
     expect(result.agentOutcome).toBe('fallback')
     expect(result.error).toBe('aborted')
     expect(deps.scrapeBrandUrls).not.toHaveBeenCalled()
+  })
+
+  it('run_recovers_last_state_on_recursion_error', async () => {
+    // A model that only probes and never submits — hits the inner recursion
+    // limit and falls to the single-call fallback. The plan fails, but the
+    // graph must still return a result with budget and decision trace intact.
+    const model = fakeAgentModel({
+      plan: [[{ name: 'probe_static', args: { url: 'https://example.com' } }]],
+    })
+    const deps = makeDeps()
+
+    const result = await runAcquisition(baseInput, deps, { model })
+
+    expect(result.agentOutcome).toBe('fallback')
+    // The plan loop recorded the recursion_limit decision
+    expect(
+      result.decisions.some((d) => `${d.action} ${d.reason}`.includes('recursion_limit')),
+    ).toBe(true)
+    // Budget and decisions should be intact
+    expect(result.budget).toBeDefined()
+    expect(result.decisions.length).toBeGreaterThan(0)
   })
 })
 
@@ -490,6 +519,83 @@ describe('acquisition graph — critique', () => {
     expect(result.agentOutcome).toBe('blocked')
     expect(result.error).toContain('brand does not exist')
   })
+
+  it('critique_timeout_is_treated_as_budget_exhausted_not_graph_throw', async () => {
+    // A critique that times out should NOT throw / crash the graph.
+    // Instead, it should be treated like budget_exhausted and resolve gracefully.
+    const critiqueAbortModel = fakeAgentModel({
+      plan: [[{ name: 'submit_plan', args: VALID_PLAN }]],
+      critique: [{ verdict: 'sufficient', reason: 'enough data' }],
+    })
+    // Override the model's invoke to throw AbortError on critique calls
+    let _critiqueCallCount = 0
+    const originalImpl = critiqueAbortModel.invoke.getMockImplementation()!
+    critiqueAbortModel.invoke.mockImplementation(async (messages: BaseMessage[], options?: { signal?: AbortSignal }) => {
+      const system = String(messages[0]?.content ?? '')
+      if (system.includes('CritiqueVerdict')) {
+        _critiqueCallCount++
+        const err = new Error('The operation was aborted')
+        err.name = 'AbortError'
+        throw err
+      }
+      return originalImpl(messages, options)
+    })
+
+    const deps = makeDeps()
+    const result = await runAcquisition(baseInput, deps, { model: critiqueAbortModel })
+
+    // The graph should resolve, not throw
+    expect(result).toBeDefined()
+    expect(result.agentOutcome).not.toBe('blocked')
+    // The critique skipped entry should mention budget_exhausted-style
+    const critiqueDecision = result.decisions.find(
+      (d) => d.step === 'critique' && (d.reason.includes('budget') || d.action.includes('CRITIQUE-TIMEOUT') || d.reason.includes('timeout')),
+    )
+    expect(critiqueDecision).toBeDefined()
+  })
+
+  it('abort_after_images_recovers_last_state_with_image_pool', async () => {
+    const classified = [
+      { id: 'img-1', tag: 'product', score: 0.9, disposition: 'keep', storage_path: 'brands/brand-1/1.jpg', sourceUrl: 'https://example.com', width: 1200, height: 900 },
+      { id: 'img-2', tag: 'hero', score: 0.85, disposition: 'keep', storage_path: 'brands/brand-1/2.jpg', sourceUrl: 'https://example.com', width: 1200, height: 900 },
+    ]
+
+    // The critique call will abort
+    const model = fakeAgentModel({
+      plan: [[{ name: 'submit_plan', args: VALID_PLAN }]],
+    })
+    const originalImpl = model.invoke.getMockImplementation()!
+    model.invoke.mockImplementation(async (messages: BaseMessage[], options?: { signal?: AbortSignal }) => {
+      const system = String(messages[0]?.content ?? '')
+      if (system.includes('CritiqueVerdict')) {
+        const err = new Error('The operation was aborted')
+        err.name = 'AbortError'
+        throw err
+      }
+      return originalImpl(messages, options)
+    })
+
+    const deps = makeDeps({
+      scrapeBrandUrls: vi.fn().mockResolvedValue(scrapeWithImages(['https://cdn.example/1.jpg', 'https://cdn.example/2.jpg'])),
+      downloadAndStoreImages: vi.fn().mockResolvedValue(['https://storage.example/1.jpg']),
+      classifyImages: vi.fn().mockResolvedValue(classified),
+    })
+
+    const result = await runAcquisition(baseInput, deps, { model })
+
+    // Critique timed out but was caught — graph continued to finalize
+    expect(result.agentOutcome).toBe('planned')
+    // Images should be available because the images node ran successfully
+    expect(result.classifiedImages!.length).toBeGreaterThan(0)
+    // The image pool should be populated since finalize ran
+    expect(result.imagePool).toBeDefined()
+    expect(result.imagePool!.length).toBeGreaterThan(0)
+    // The critique decision should show the timeout was handled
+    const critiqueDecision = result.decisions.find(
+      (d) => d.step === 'critique' && d.action.includes('CRITIQUE-TIMEOUT'),
+    )
+    expect(critiqueDecision).toBeDefined()
+  })
 })
 
 // ---------------------------------------------------------------------------
@@ -662,6 +768,38 @@ describe('acquisition graph — images node', () => {
     expect(deps.downloadAndStoreImages).not.toHaveBeenCalled()
     expect(deps.classifyImages).not.toHaveBeenCalled()
   })
+
+  it('images_node_extends_budget_per_stored_batch_under_ceiling', async () => {
+    // 15 images stored → ceil(15/10) = 2 batches → 2 × IMAGE_BATCH_EXTENSION_MS extension
+    const imageUrls = Array.from({ length: 15 }, (_, i) => `https://cdn.example/${i}.jpg`)
+    const classified = imageUrls.map((_, i) => ({
+      id: `img-${i}`,
+      tag: 'product' as const,
+      score: 0.9,
+      disposition: 'keep' as const,
+      storage_path: `brands/brand-1/${i}.jpg`,
+    }))
+
+    const deps = makeDeps({
+      scrapeBrandUrls: vi.fn().mockResolvedValue(scrapeWithImages(imageUrls)),
+      downloadAndStoreImages: vi.fn().mockResolvedValue(
+        imageUrls.map((_, i) => `https://storage.example/${i}.jpg`),
+      ),
+      classifyImages: vi.fn().mockResolvedValue(classified),
+    })
+
+    const result = await runAcquisition(baseInput, deps, {
+      model: fakeAgentModel({
+        plan: [[{ name: 'submit_plan', args: VALID_PLAN }]],
+      }),
+    })
+
+    // The budget should have been extended (exact value depends on timing, but
+    // it should be higher than the base budget for a static 1-probe site)
+    expect(result.budget!.allowed.wallClockMs).toBeGreaterThan(61_500)
+    // But never above the ceiling
+    expect(result.budget!.allowed.wallClockMs).toBeLessThanOrEqual(180_000)
+  })
 })
 
 // ---------------------------------------------------------------------------
@@ -825,5 +963,101 @@ describe('acquisition graph — finalize', () => {
       budgetOverride: { probes: 8, renders: 2, search: 0, turns: 4, wallClockMs: 45_000 },
     })
     expect(recoveredResult.providerFailure).toBe(false)
+  })
+
+  it('finalize_runs_on_own_signal_when_budget_spent', async () => {
+    // Even when wall clock is exhausted before finalize starts, finalize must
+    // still run and produce ranked images + catalog result.
+    const classified = Array.from({ length: 3 }, (_, index) => ({
+      id: `img-${index}`,
+      tag: 'product' as const,
+      score: 1 - index * 0.05,
+      disposition: 'keep' as const,
+      storage_path: `brands/brand-1/${index}.jpg`,
+      sourceUrl: 'https://example.com',
+      width: 1200,
+      height: 900,
+    }))
+
+    const catalogResult = { triples: [], attempts: [], evidence: new Map() }
+    const discoverCatalog = vi.fn().mockResolvedValue(catalogResult)
+    const catalogSources = [{ url: 'https://example.com', channel: 'official' as const }]
+
+    const deps = makeDeps({
+      scrapeBrandUrls: vi.fn().mockResolvedValue(scrapeWithImages(['https://cdn.example/1.jpg'])),
+      downloadAndStoreImages: vi.fn().mockResolvedValue(['https://storage.example/1.jpg']),
+      classifyImages: vi.fn().mockResolvedValue(classified),
+      discoverCatalog,
+      catalogSources,
+    })
+
+    // Use a very short wall clock so it's exhausted by the time finalize runs
+    const result = await runAcquisition(baseInput, deps, {
+      model: fakeAgentModel({
+        plan: [[{ name: 'submit_plan', args: VALID_PLAN }]],
+      }),
+      budgetOverride: { probes: 8, renders: 0, search: 0, turns: 6, wallClockMs: 1 },
+    })
+
+    // Finalize should still have run and ranked images
+    const finalizeDecision = result.decisions.find((d) => d.step === 'finalize')
+    expect(finalizeDecision).toBeDefined()
+    expect(finalizeDecision!.action).toContain('ranked images')
+    // Catalog should have been discovered
+    expect(result.catalogResult).toBeDefined()
+    expect(discoverCatalog).toHaveBeenCalledTimes(1)
+  })
+})
+
+// ---------------------------------------------------------------------------
+// Trace / decision shape
+// ---------------------------------------------------------------------------
+
+describe('acquisition graph — trace entries', () => {
+  it('trace_entries_carry_started_at_allowance_remaining', async () => {
+    const model = fakeAgentModel({ plan: [[{ name: 'submit_plan', args: VALID_PLAN }]] })
+    const result = await runAcquisition(baseInput, makeDeps(), { model })
+
+    // Every decision entry must have the extended trace fields
+    for (const decision of result.decisions) {
+      expect(typeof decision.ms).toBe('number')
+      expect(typeof (decision as Record<string, unknown>).startedAtMs).toBe('number')
+      expect(typeof (decision as Record<string, unknown>).allowanceMs).toBe('number')
+      expect(typeof (decision as Record<string, unknown>).remainingMs).toBe('number')
+      expect((decision as Record<string, unknown>).startedAtMs).toBeGreaterThanOrEqual(0)
+      expect((decision as Record<string, unknown>).allowanceMs).toBeGreaterThanOrEqual(0)
+    }
+  })
+
+  it('node_deadline_never_consumes_reserved_tail', async () => {
+    // Use a tight wall clock to test that node allowances respect the reserved tail
+    const model = fakeAgentModel({ plan: [[{ name: 'submit_plan', args: VALID_PLAN }]] })
+    const result = await runAcquisition(baseInput, makeDeps(), {
+      model,
+      // With a real budget, verify that non-critique/finalize decisions have allowances
+      // that leave room for the reserved tail
+    })
+
+    const nonTailDecisions = result.decisions.filter(
+      (d) => !['critique', 'finalize', 'graph'].includes(d.step),
+    )
+    for (const decision of nonTailDecisions) {
+      const allowance = (decision as Record<string, unknown>).allowanceMs as number
+      const remaining = (decision as Record<string, unknown>).remainingMs as number
+      // The node's allowance should be ≤ remaining − RESERVED_TAIL_MS
+      // (but only when remaining > RESERVED_TAIL_MS — if budget is already consumed, anything goes)
+      if (remaining > RESERVED_TAIL_MS && allowance > 0) {
+        expect(allowance).toBeLessThanOrEqual(remaining - RESERVED_TAIL_MS)
+      }
+    }
+
+    // Critique/finalize allowance should be ≤ RESERVED_TAIL_MS
+    const tailDecisions = result.decisions.filter(
+      (d) => d.step === 'critique' || d.step === 'finalize',
+    )
+    for (const decision of tailDecisions) {
+      const allowance = (decision as Record<string, unknown>).allowanceMs as number
+      expect(allowance).toBeLessThanOrEqual(RESERVED_TAIL_MS)
+    }
   })
 })

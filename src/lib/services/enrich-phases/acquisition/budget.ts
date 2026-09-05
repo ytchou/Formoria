@@ -8,8 +8,40 @@ export const BUDGET_CEILINGS = {
   renders: 3,
   search: 1,
   turns: 6,
-  wallClockMs: 90_000,
+  wallClockMs: 180_000,
 } as const
+
+/** Reserved tail for critique + finalize — must-complete nodes. */
+export const RESERVED_TAIL_MS = 35_000
+
+/** Wall-clock extension per batch of 10 stored images. */
+export const IMAGE_BATCH_EXTENSION_MS = 15_000
+
+/** Base wall clock before per-probe scaling. */
+export const BASE_WALL_CLOCK_MS = 60_000
+
+/** Additional wall clock per probe result. */
+export const PER_PROBE_MS = 1_500
+
+/**
+ * Per-node allowance table (ms). Images depends on stored count, so the table
+ * stores a function for it; every other entry is a flat number.
+ */
+export const NODE_ALLOWANCE_MS = {
+  gather: 10_000,
+  plan: 45_000,
+  execute: 30_000,
+  images: (storedCount: number) => IMAGE_BATCH_EXTENSION_MS * Math.max(1, Math.ceil(storedCount / 10)),
+  critique: 30_000,
+  recover: 30_000,
+  imagesRecover: 20_000,
+  finalize: 30_000,
+} as const
+
+/** Absolute ceiling at the given scale. */
+export function ceilingMs(scale = 1): number {
+  return BUDGET_CEILINGS.wallClockMs * scale
+}
 
 export type AcquisitionBudget = {
   probes: number
@@ -50,7 +82,11 @@ export class BudgetExhausted extends Error {
  * Pure function that computes an acquisition budget from the evidence gathered
  * during the initial probe phase. It can only LOWER ceilings, never exceed them.
  */
-export function budgetFor(pack: EvidencePack): AcquisitionBudget {
+export function budgetFor(
+  pack: EvidencePack,
+  options?: { scale?: number },
+): AcquisitionBudget {
+  const scale = options?.scale ?? 1
   const urlCount = pack.knownUrls.length
 
   // Count URLs that need JS rendering (empty/too-short text or social/aggregator)
@@ -77,8 +113,11 @@ export function budgetFor(pack: EvidencePack): AcquisitionBudget {
   // stage needed its json-mode fallback lost the first critique as well.
   const turns = Math.min(3 + renders + search, BUDGET_CEILINGS.turns)
 
-  // Wall clock: 45s when no render/search; 90s otherwise
-  const wallClockMs = (renders === 0 && search === 0) ? 45_000 : 90_000
+  // Wall clock: 90s when render/search budgeted; otherwise BASE + PER_PROBE × probes
+  const rawWallClockMs = (renders > 0 || search > 0)
+    ? 90_000
+    : BASE_WALL_CLOCK_MS + PER_PROBE_MS * pack.probeResults.length
+  const wallClockMs = Math.min(rawWallClockMs * scale, ceilingMs(scale))
 
   return {
     probes,

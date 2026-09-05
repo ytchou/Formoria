@@ -1,10 +1,13 @@
 import { describe, expect, it } from "vitest";
 import {
+  budgetScaleForRerun,
   effectiveRequestedPhases,
   isExplicitSubmissionEligible,
   isManualRerunTargetEligible,
+  rerunJobParams,
   type CurationJobParams,
 } from "./curation-jobs";
+import type { Json } from "@/lib/supabase/database.types";
 import {
   CURATION_TASK_ORDER,
   CURATION_TASKS,
@@ -152,6 +155,71 @@ describe("satisfaction-based phase skipping", () => {
     expect(execute).not.toContain("acquire");
     expect(execute).toContain("products");
     expect(execute).toContain("names");
+  });
+});
+
+describe("rerunJobParams budgetScale", () => {
+  it("rerun_params_carry_budget_scale", () => {
+    const source = { slugs: ["alpha"], task: "full" };
+
+    const result = rerunJobParams(source, { budgetScale: 1.5 });
+    expect(result.budgetScale).toBe(1.5);
+
+    // Omitted when undefined
+    const result2 = rerunJobParams(source, {});
+    expect(result2).not.toHaveProperty("budgetScale");
+
+    const result3 = rerunJobParams(source);
+    expect(result3).not.toHaveProperty("budgetScale");
+  });
+});
+
+describe("manual rerun budget scale decision", () => {
+  it("manual_rerun_sets_budget_scale_when_last_acquire_was_budget_exhausted", () => {
+    const targets: { phase_results: Json }[] = [
+      {
+        phase_results: [
+          {
+            phase: "acquire",
+            status: "succeeded",
+            changedFields: [],
+            durationMs: 30_000,
+            acquisitionPlan: {
+              trace: [
+                { url: "https://example.com", reason: "budget_exhausted" },
+              ],
+            },
+          },
+        ],
+      },
+    ];
+    expect(budgetScaleForRerun(targets)).toBe(1.5);
+  });
+
+  it("manual_rerun_keeps_scale_one_otherwise", () => {
+    const targets: { phase_results: Json }[] = [
+      {
+        phase_results: [
+          {
+            phase: "acquire",
+            status: "succeeded",
+            changedFields: [],
+            durationMs: 5_000,
+          },
+        ],
+      },
+    ];
+    expect(budgetScaleForRerun(targets)).toBeUndefined();
+  });
+
+  it("automatic_retry_never_sets_budget_scale", () => {
+    // enqueueAutomaticRetry uses parseJobParams, which strips ephemeral
+    // budgetScale. Verify through rerunJobParams: a source job that carried
+    // budgetScale from a prior manual rerun does not leak it into the result
+    // when no budgetScale option is supplied.
+    const source = { task: "full", budgetScale: 1.5 };
+    const result = rerunJobParams(source);
+    expect(result).not.toHaveProperty("budgetScale");
   });
 });
 

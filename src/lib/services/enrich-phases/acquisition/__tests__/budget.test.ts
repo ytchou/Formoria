@@ -4,6 +4,11 @@ import {
   assertBudget,
   BudgetExhausted,
   BUDGET_CEILINGS,
+  RESERVED_TAIL_MS,
+  IMAGE_BATCH_EXTENSION_MS,
+  BASE_WALL_CLOCK_MS,
+  PER_PROBE_MS,
+  ceilingMs,
   type BudgetState,
   type EvidencePack,
 } from '../budget'
@@ -64,7 +69,60 @@ describe('budget', () => {
     expect(budget.search).toBe(0)
     // plan + critique + the critique that re-reads a recovery.
     expect(budget.turns).toBe(3)
-    expect(budget.wallClockMs).toBe(45_000)
+    // BASE_WALL_CLOCK_MS (60_000) + PER_PROBE_MS (1_500) × 1 probe = 61_500
+    expect(budget.wallClockMs).toBe(61_500)
+  })
+
+  it('budget_wall_clock_grows_with_probe_results', () => {
+    // 4 probe results, all static => BASE + 4 × PER_PROBE = 60_000 + 6_000 = 66_000
+    const staticPack: EvidencePack = {
+      knownUrls: ['https://a.com', 'https://b.com', 'https://c.com', 'https://d.com'],
+      probeResults: [
+        { url: 'https://a.com', textLength: 2000, needsRendering: false },
+        { url: 'https://b.com', textLength: 2000, needsRendering: false },
+        { url: 'https://c.com', textLength: 2000, needsRendering: false },
+        { url: 'https://d.com', textLength: 2000, needsRendering: false },
+      ],
+    }
+    expect(budgetFor(staticPack).wallClockMs).toBe(66_000)
+
+    // With renders or search budgeted => 90_000
+    const renderPack: EvidencePack = {
+      knownUrls: ['https://a.com', 'https://b.com', 'https://c.com', 'https://d.com'],
+      probeResults: [
+        { url: 'https://a.com', textLength: 0, needsRendering: true },
+        { url: 'https://b.com', textLength: 2000, needsRendering: false },
+        { url: 'https://c.com', textLength: 2000, needsRendering: false },
+        { url: 'https://d.com', textLength: 2000, needsRendering: false },
+      ],
+    }
+    expect(budgetFor(renderPack).wallClockMs).toBe(90_000)
+  })
+
+  it('budget_scale_applies_to_allowance_and_ceiling', () => {
+    const pack: EvidencePack = {
+      knownUrls: ['https://example.com'],
+      probeResults: [{ url: 'https://example.com', textLength: 2000, needsRendering: false }],
+    }
+    // 1 probe: BASE + PER_PROBE = 61_500, × 1.5 = 92_250
+    const budget = budgetFor(pack, { scale: 1.5 })
+    expect(budget.wallClockMs).toBe(92_250)
+    expect(ceilingMs(1.5)).toBe(270_000)
+  })
+
+  it('budget_never_exceeds_scaled_ceiling', () => {
+    // 200 probe results: BASE + 200 × PER_PROBE = 60_000 + 300_000 = 360_000 > ceiling
+    const pack: EvidencePack = {
+      knownUrls: Array.from({ length: 200 }, (_, i) => `https://url${i}.com`),
+      probeResults: Array.from({ length: 200 }, (_, i) => ({
+        url: `https://url${i}.com`,
+        textLength: 2000,
+        needsRendering: false,
+      })),
+    }
+    const budget = budgetFor(pack)
+    expect(budget.wallClockMs).toBeLessThanOrEqual(ceilingMs(1))
+    expect(ceilingMs(1)).toBe(180_000)
   })
 
   it('budget_policy_instagram_only_gets_render_and_search', () => {
@@ -111,5 +169,13 @@ describe('budget', () => {
       expect(b.turns).toBeLessThanOrEqual(BUDGET_CEILINGS.turns)
       expect(b.wallClockMs).toBeLessThanOrEqual(BUDGET_CEILINGS.wallClockMs)
     }
+  })
+
+  it('exports_expected_constants', () => {
+    expect(RESERVED_TAIL_MS).toBe(35_000)
+    expect(IMAGE_BATCH_EXTENSION_MS).toBe(15_000)
+    expect(BASE_WALL_CLOCK_MS).toBe(60_000)
+    expect(PER_PROBE_MS).toBe(1_500)
+    expect(BUDGET_CEILINGS.wallClockMs).toBe(180_000)
   })
 })

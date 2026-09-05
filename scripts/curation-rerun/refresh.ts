@@ -60,6 +60,7 @@ import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import {
   enqueueAdminCurationJob,
   claimCurationJob,
+  budgetScaleForRerun,
 } from "@/lib/services/curation-jobs";
 import { dispatchCurationJob } from "@/lib/services/curation-dispatch";
 import { runJob } from "@/lib/services/job-runner";
@@ -411,6 +412,26 @@ async function main(): Promise<void> {
     `\n[2/4] enqueueing ${batches.length} curation job(s) — task: ${task} (${phases.join(", ")})` +
       (batches.length > 1 ? ` (chunk size ${perJob})` : ""),
   );
+  // Load latest phase_results to detect prior budget exhaustion.
+  // A submission whose last acquire trace hit the time budget gets
+  // budgetScale: 1.5 so the rerun has room to finish.
+  const { data: priorTargets } = await supabase
+    .from("curation_job_targets")
+    .select("target_id, phase_results")
+    .eq("target_type", "submission")
+    .in("target_id", submissionIds)
+    .order("created_at", { ascending: false });
+
+  const seenTargetIds = new Set<string>();
+  const latestTargets = (priorTargets ?? []).filter((t) => {
+    if (seenTargetIds.has(t.target_id)) return false;
+    seenTargetIds.add(t.target_id);
+    return true;
+  });
+  const cohortBudgetScale = budgetScaleForRerun(
+    latestTargets.map((t) => ({ phase_results: t.phase_results })),
+  );
+
   const jobIds: string[] = [];
   for (const [index, ids] of batches.entries()) {
     const job = await enqueueAdminCurationJob({
@@ -419,6 +440,9 @@ async function main(): Promise<void> {
         submissionIds: ids,
         task,
         overwrite: hasFlag(argv, "--overwrite"),
+        ...(cohortBudgetScale !== undefined
+          ? { budgetScale: cohortBudgetScale }
+          : {}),
       },
       dryRun: false,
       startedBy: adminEmail,

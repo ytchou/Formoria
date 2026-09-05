@@ -40,6 +40,8 @@ export type EnrichBrand = {
   // Set per brand by curation-operations; phases read it to decide whether to
   // regenerate rather than gap-fill.
   overwrite_enrichment?: boolean;
+  website_url?: string | null;
+  intent?: string | null;
 } & Partial<BrandFlatLinkColumns>;
 
 export type SearchPhaseResult = {

@@ -11,7 +11,9 @@ import {
   llmStageFailure,
   storageStageFailure,
 } from "../curation-operations";
+import { hasPurchaseChannel } from "../enrich-phases/link-expansion";
 import type { PhaseResult } from "@/lib/types/curation";
+import type { LinkExpansionBrand } from "../enrich-phases/link-expansion";
 
 /**
  * The pipeline gates are tested as pure decision helpers rather than by
@@ -445,5 +447,68 @@ describe("isProductsScopedRun", () => {
     ).toBe(false);
     expect(isProductsScopedRun(["acquire"])).toBe(false);
     expect(isProductsScopedRun([])).toBe(false);
+  });
+});
+
+/**
+ * DEV-1692. The `hasPurchaseChannel` predicate is a pure function over the four
+ * purchase columns. It MUST work on both a fresh EnrichBrand (DB columns) and a
+ * patched one (link expansion writes adopted fields directly onto the brand).
+ */
+describe("gate_no_purchase_channel_fires_after_non_brand_before_acquire", () => {
+  it("returns false when all four purchase columns are empty", () => {
+    const brand: LinkExpansionBrand = {
+      purchase_website: null,
+      purchase_pinkoi: null,
+      purchase_shopee: null,
+      purchase_myship: null,
+    };
+    expect(hasPurchaseChannel(brand)).toBe(false);
+  });
+
+  it("returns true when any purchase column has a value", () => {
+    expect(
+      hasPurchaseChannel({ purchase_website: "https://example.com" }),
+    ).toBe(true);
+    expect(
+      hasPurchaseChannel({ purchase_pinkoi: "https://pinkoi.com/brand" }),
+    ).toBe(true);
+    expect(
+      hasPurchaseChannel({ purchase_shopee: "https://shopee.tw/brand" }),
+    ).toBe(true);
+    expect(
+      hasPurchaseChannel({
+        purchase_myship: "https://myship.7-11.com.tw/general/detail/GM123",
+      }),
+    ).toBe(true);
+  });
+
+  it("returns false for empty strings", () => {
+    expect(
+      hasPurchaseChannel({
+        purchase_website: "",
+        purchase_pinkoi: "",
+        purchase_shopee: "",
+        purchase_myship: "",
+      }),
+    ).toBe(false);
+  });
+
+  it("works on a patched brand object", () => {
+    // Simulates what happens after link expansion patches purchase_myship
+    const brand: LinkExpansionBrand = {
+      purchase_website: null,
+      purchase_pinkoi: null,
+      purchase_shopee: null,
+      purchase_myship: null,
+    };
+    expect(hasPurchaseChannel(brand)).toBe(false);
+
+    // After patch
+    const patched = {
+      ...brand,
+      purchase_myship: "https://myship.7-11.com.tw/general/detail/GM123",
+    };
+    expect(hasPurchaseChannel(patched)).toBe(true);
   });
 });

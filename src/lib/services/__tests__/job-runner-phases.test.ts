@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { resolvePhases } from "../job-runner";
+import { parseParams, resolvePhases } from "../job-runner";
 import {
   DEFERRED_PHASES,
   phasesForTask,
@@ -52,5 +52,27 @@ describe("resolvePhases", () => {
       "acquire",
       "products",
     ]);
+  });
+});
+
+describe("parseParams budgetScale", () => {
+  it("budget_scale_param_reaches_config", () => {
+    // Valid finite positive number is kept
+    expect(parseParams({ budgetScale: 1.5 }).budgetScale).toBe(1.5);
+
+    // Zero is rejected
+    expect(parseParams({ budgetScale: 0 }).budgetScale).toBeUndefined();
+
+    // Negative is rejected
+    expect(parseParams({ budgetScale: -1 }).budgetScale).toBeUndefined();
+
+    // String is rejected
+    expect(parseParams({ budgetScale: "x" }).budgetScale).toBeUndefined();
+
+    // NaN is rejected (not finite)
+    expect(parseParams({ budgetScale: NaN }).budgetScale).toBeUndefined();
+
+    // Absent is undefined
+    expect(parseParams({}).budgetScale).toBeUndefined();
   });
 });

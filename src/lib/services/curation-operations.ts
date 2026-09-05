@@ -23,11 +23,24 @@ import {
   type OnlineStoreColumn,
 } from "@/lib/brands/online-stores";
 import {
+  buildLinkEnrichPatch,
   extractLinksFromUrls,
   hasLinkValue,
   LINK_FIELDS,
   linkColumnFor,
 } from "./link-enrichment";
+import {
+  collectHubUrls,
+  expandLinkHubs,
+  hasPurchaseChannel,
+} from "./enrich-phases/link-expansion";
+import { fetchHtml } from "./enrich-phases/scraper/fetch-guards";
+import { searchBrandUrls } from "./enrich-phases/scraper/serper";
+import {
+  getLatestSearchResults,
+  isFreshSearchResult,
+  type SearchResultRow,
+} from "./search-results";
 import {
   type ClassificationResult,
   type DetectResult,
@@ -246,6 +259,10 @@ type EnrichBrand = CurationBrand &
     heroImageUrl?: string | null;
     productPhotos?: string[] | null;
     overwrite_enrichment?: boolean;
+    /** Submitted website URL — feeds `collectHubUrls` for link expansion. */
+    website_url?: string | null;
+    /** Submitted intent ('recommend' | 'refresh'). Gates triage row on no-channel. */
+    intent?: string;
   };
 
 /**
@@ -1287,6 +1304,9 @@ export function submissionToEnrichBrand(
       typeof existing.hero_image_url === "string"
         ? existing.hero_image_url
         : (submission.hero_image_url ?? null),
+    website_url: submission.website_url ?? null,
+    other_urls: submission.other_urls,
+    intent: submission.intent,
   };
 }
 
@@ -1635,7 +1655,15 @@ export async function runEnrich(
           ENRICH_LLM_PHASES.some((phase) => requestedPhases.has(phase));
 
         let searchResults = new Map<string, SearchPhaseResult>();
+        // Raw SERP rows keyed by brand ID — used by the gather block to
+        // check freshness before deciding whether to re-search.
+        let rawSearchResultsById = new Map<string, SearchResultRow>();
         if (needsCachedSerp) {
+          rawSearchResultsById = await getLatestSearchResults(
+            chunk.map((brand) => brand.id),
+            'serp',
+            targetType,
+          );
           const cached = await loadCachedSearchResults(
             chunk.map((brand) => brand.id),
             targetType,
@@ -1658,7 +1686,95 @@ export async function runEnrich(
           }
         }
 
-        // ---- Probe evidence collection (per-brand, before detect) ----
+        // ---- Link expansion gather block (per brand, before detect) ----
+        // Hub pages (Linktree, Portaly, etc.) are fetched and their purchase +
+        // social links adopted onto the brand object BEFORE probes and detect.
+        // When no purchase channel is found after expansion, a by-name SERP
+        // search fills the gap or replays a fresh cached result.
+        type GatherExpansionEntry = {
+          patch: Partial<BrandFlatLinkColumns>;
+          serp: 'replayed' | 'searched' | 'none';
+          linkExpansion: NonNullable<PhaseResult['linkExpansion']>;
+        };
+        const linkExpansionByBrandId = new Map<string, GatherExpansionEntry>();
+
+        for (const brand of chunk) {
+          const brandName = getDisplayBrandName(brand);
+          const hubUrls = collectHubUrls(brand);
+
+          // Build confirmed URL set from submitted website_url and other_urls
+          const confirmedHubUrls = new Set<string>();
+          if (brand.website_url) confirmedHubUrls.add(brand.website_url);
+          if (Array.isArray(brand.other_urls)) {
+            for (const entry of brand.other_urls as Array<{ url?: string }>) {
+              if (entry?.url && typeof entry.url === 'string') {
+                confirmedHubUrls.add(entry.url);
+              }
+            }
+          }
+
+          const expansion = await expandLinkHubs({
+            brandName,
+            hubUrls,
+            confirmedHubUrls,
+            fetchHtml,
+          });
+
+          // Build patch from hub-scraped links and adopt onto the brand object
+          const expansionPatch = buildLinkEnrichPatch(
+            brand as BrandFlatLinkColumns,
+            expansion.scraped,
+            brandName,
+          );
+          Object.assign(brand, expansionPatch);
+
+          let serp: 'replayed' | 'searched' | 'none' = 'none';
+
+          // When no purchase channel exists after hub expansion, try a by-name
+          // SERP search: replay a fresh cached result or fire a live search.
+          if (!hasPurchaseChannel(brand)) {
+            const cachedRow = rawSearchResultsById.get(brand.id);
+            if (cachedRow && isFreshSearchResult(cachedRow, 3 * 86_400_000)) {
+              serp = 'replayed';
+              const serpExtracted = extractLinksFromUrls(
+                cachedRow.urls,
+                brandName,
+              );
+              Object.assign(brand, serpExtracted);
+            } else {
+              const serpUrls = await searchBrandUrls(brandName, undefined, {
+                target: { type: targetType, id: brand.id },
+                jobId: config.jobId,
+                config: { phase: 'acquire' as const },
+              });
+              serp = 'searched';
+              const serpExtracted = extractLinksFromUrls(serpUrls, brandName);
+              Object.assign(brand, serpExtracted);
+            }
+          }
+
+          const adopted = expansion.adopted.map((a) => ({
+            field: a.field,
+            url: a.value,
+            source: 'hub' as const,
+          }));
+
+          linkExpansionByBrandId.set(brand.id, {
+            patch: expansionPatch,
+            serp,
+            linkExpansion: {
+              hubsFetched: expansion.hubsFetched,
+              adopted,
+              serp,
+              ...(expansion.gated?.length
+                ? { gated: expansion.gated.join(', ') }
+                : {}),
+            },
+          });
+        }
+
+        // ---- Probe evidence collection (per-brand, AFTER link expansion) ----
+        // Moved after expansion so adopted URLs are included in the probe set.
         // Skipped for products-only jobs: probes only feed the detect phase.
         const probeEvidenceByBrandId = new Map<string, ProbeEvidence[]>();
         if (hasDetectPhases) {
@@ -2047,6 +2163,58 @@ export async function runEnrich(
                 }
               }
 
+              // ---- Link expansion patch + no-purchase-channel gate ----
+              const expansion = linkExpansionByBrandId.get(brand.id);
+              if (expansion) {
+                appendPatch(state, expansion.patch);
+              }
+              if (!hasPurchaseChannel(brand)) {
+                const noChannelDetail = expansion?.serp === 'searched'
+                  ? 'no purchase channel after hub expansion + SERP search'
+                  : expansion?.serp === 'replayed'
+                    ? 'no purchase channel after hub expansion + SERP replay'
+                    : 'no purchase channel after hub expansion';
+                onProgress(
+                  `  [NO-CHANNEL] ${brand.slug}: ${noChannelDetail}`,
+                );
+
+                // New submissions get a triage row; refreshes do not (the brand
+                // already exists). Mirrors the listing_reject path.
+                if (brand.intent !== 'refresh' && !config.dryRun) {
+                  await insertTriageResult({
+                    brandId: brand.id,
+                    target: { type: targetType, id: brand.id },
+                    isNonBrand: true,
+                    nonBrandReason: `no_purchase_channel: ${noChannelDetail}`,
+                    slugGenerated: null,
+                    categorySlug: null,
+                    confidence: 'medium',
+                  });
+                }
+
+                const noChannelError = `no_purchase_channel: ${noChannelDetail}`;
+                state.phaseResults.push({
+                  ...buildPhaseResult('acquire', 'skipped', [], 0, noChannelError),
+                  ...(expansion ? { linkExpansion: expansion.linkExpansion } : {}),
+                });
+                await recordOutcome(ctx, {
+                  slug: brand.slug,
+                  name: getDisplayBrandName(brand),
+                  ...(target === 'submissions'
+                    ? { submissionId: brand.id }
+                    : {}),
+                  status: 'skipped',
+                  changedFields: changedFieldsFromPhaseResults(
+                    state.phaseResults,
+                  ),
+                  phaseResults: state.phaseResults,
+                  error: noChannelError,
+                });
+                result.skipped += 1;
+                finishBrand(ctx);
+                return;
+              }
+
               // Populate SERP-derived data from cached search results
               if (searchResults.size > 0) {
                 const searchResult = searchResults.get(
@@ -2083,6 +2251,8 @@ export async function runEnrich(
                   target: { type: targetType, id: brand.id },
                   jobId: config.jobId,
                   renderProvider: config.renderProvider,
+                  budgetScale: config.budgetScale,
+                  linkExpansion: expansion?.linkExpansion,
                 });
                 ctx.acquireResult = acquireResult;
                 state.phaseResults.push(acquireResult.phaseResult);

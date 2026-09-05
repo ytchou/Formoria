@@ -281,6 +281,38 @@ describe("runProductsPhase", () => {
     expect(user).not.toContain("https://stale.example");
   });
 
+  it("reads_patched_pinkoi_shopee_myship_channels", async () => {
+    // A pending patch with purchase_pinkoi makes the gate pass when the brand
+    // row has no channel.
+    const PINKOI = "https://pinkoi.com/store/island-studio";
+    const _chat = modelReturns([rawProposal()]);
+
+    const result = await runProductsPhase({
+      brand: {
+        ...BRAND,
+        purchase_website: null,
+        purchase_pinkoi: null,
+        purchase_shopee: null,
+        purchase_myship: null,
+      },
+      phases: PHASES,
+      scrapedData: {
+        ...SCRAPED,
+        perSourceText: {
+          ["https://pinkoi.com/product/clay-plate"]: {
+            title: "陶土餐盤",
+            description: "陶土手拉坏。",
+          },
+        },
+      },
+      pendingPatch: { purchase_pinkoi: PINKOI },
+      target: { type: "submission", id: SUBMISSION_ID },
+    });
+
+    // The gate must pass: the patched pinkoi channel provides a purchase URL.
+    expect(result.phaseResult.status).not.toBe("skipped");
+  });
+
   it("does not scrape a site this run revoked", async () => {
     // site-identity strikes a contaminated `purchase_website` by naming it in the
     // patch's `_cleared_fields` sentinel. Reading the pre-run brand snapshot

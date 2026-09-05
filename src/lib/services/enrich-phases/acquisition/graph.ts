@@ -61,7 +61,10 @@ import {
 import {
   budgetFor,
   assertBudget,
-  BUDGET_CEILINGS,
+  RESERVED_TAIL_MS,
+  IMAGE_BATCH_EXTENSION_MS,
+  NODE_ALLOWANCE_MS,
+  ceilingMs,
   type AcquisitionBudget,
   type BudgetKind,
   type BudgetState,
@@ -146,7 +149,15 @@ export type AcquisitionOutput = {
   /** Catalog discovery result from priority product URLs in the plan. */
   catalogResult?: CatalogDiscoveryResult
   budget?: { allowed: AcquisitionBudget; used: AcquisitionBudget }
-  decisions: Array<{ step: string; action: string; reason: string; ms: number }>
+  decisions: Array<{
+    step: string
+    action: string
+    reason: string
+    ms: number
+    startedAtMs: number
+    allowanceMs: number
+    remainingMs: number
+  }>
   error?: string
 }
 
@@ -180,6 +191,8 @@ export type RunOptions = {
   budgetOverride?: AcquisitionBudget
   /** When true, skip vision classification (images are still collected as candidates). */
   dryRun?: boolean
+  /** Scale factor applied to the wall-clock budget and ceiling. Default 1. */
+  budgetScale?: number
 }
 
 type Decision = AcquisitionOutput['decisions'][number]
@@ -201,6 +214,8 @@ type RunContext = {
   deps: AcquisitionDeps
   options: RunOptions
   budget: BudgetState
+  scale: number
+  lastState: AcquisitionStateType | null
   allowlist: ProvenanceAllowlist
   decisions: Decision[]
   probeResults: ProbeResult[]
@@ -211,9 +226,11 @@ type RunContext = {
   providerThrew: boolean
   wallClockStart: number
   signal: AbortSignal | undefined
-  record: (step: string, action: string, reason: string, startedAt: number) => void
+  record: (step: string, action: string, reason: string, startedAt: number, extra?: Record<string, unknown>) => void
+  remainingMs: () => number
   wallClockExhausted: () => boolean
-  invokeModel: (model: AgentModel, messages: BaseMessage[]) => Promise<AgentModelResponse>
+  nodeSignal: (node: string) => AbortSignal | undefined
+  invokeModel: (model: AgentModel, messages: BaseMessage[], nodeSignalOverride?: AbortSignal) => Promise<AgentModelResponse>
 }
 
 function createRunContext(
@@ -222,6 +239,7 @@ function createRunContext(
   options: RunOptions,
 ): RunContext {
   const wallClockStart = Date.now()
+  const scale = options.budgetScale ?? 1
   const ctx: RunContext = {
     input,
     deps,
@@ -230,6 +248,8 @@ function createRunContext(
       allowed: { probes: 0, renders: 0, search: 0, turns: 0, wallClockMs: 0 },
       used: { probes: 0, renders: 0, search: 0, turns: 0, wallClockMs: 0 },
     },
+    scale,
+    lastState: null,
     allowlist: {
       knownUrls: new Set(input.knownUrls),
       discoveredUrls: new Set<string>(),
@@ -243,23 +263,80 @@ function createRunContext(
     providerThrew: false,
     wallClockStart,
     // Until `gather` computes the real allowance, the ceiling is the deadline.
-    signal: withSignal(options.signal, AbortSignal.timeout(BUDGET_CEILINGS.wallClockMs)),
-    record(step, action, reason, startedAt) {
-      ctx.decisions.push({ step, action, reason, ms: Date.now() - startedAt })
+    signal: withSignal(options.signal, AbortSignal.timeout(ceilingMs(scale))),
+    remainingMs() {
+      return Math.max(0, ctx.budget.allowed.wallClockMs - (Date.now() - ctx.wallClockStart))
+    },
+    record(step, action, reason, startedAt, _extra) {
+      const remaining = ctx.remainingMs()
+      const isTailNode = step === 'critique' || step === 'finalize'
+      const nodeKey = step === 'plan_stage' ? 'plan' : step
+      let allowanceMs: number
+      if (isTailNode) {
+        allowanceMs = Math.min(
+          ctx.budget.allowed.wallClockMs > 0 ? ctx.budget.allowed.wallClockMs : RESERVED_TAIL_MS,
+          RESERVED_TAIL_MS,
+        )
+      } else {
+        let rawAllowance: number
+        if (nodeKey === 'images') {
+          // Dynamic; use the node allowance table with stored count heuristic
+          rawAllowance = NODE_ALLOWANCE_MS.images(0)
+        } else if (nodeKey in NODE_ALLOWANCE_MS) {
+          rawAllowance = NODE_ALLOWANCE_MS[nodeKey as keyof typeof NODE_ALLOWANCE_MS] as number
+        } else {
+          rawAllowance = remaining
+        }
+        // Clamp to leave room for the reserved tail, matching nodeSignal()
+        allowanceMs = Math.max(1, Math.min(rawAllowance, remaining - RESERVED_TAIL_MS))
+      }
+      ctx.decisions.push({
+        step,
+        action,
+        reason,
+        ms: Date.now() - startedAt,
+        startedAtMs: startedAt - ctx.wallClockStart,
+        allowanceMs,
+        remainingMs: remaining,
+      })
     },
     wallClockExhausted() {
       ctx.budget.used.wallClockMs = Date.now() - ctx.wallClockStart
       return (
         ctx.budget.allowed.wallClockMs > 0 &&
-        ctx.budget.used.wallClockMs >= ctx.budget.allowed.wallClockMs
+        ctx.remainingMs() <= RESERVED_TAIL_MS
       )
     },
-    async invokeModel(model, messages) {
-      if (!options.audit) return model.invoke(messages, ctx.signal ? { signal: ctx.signal } : undefined)
+    nodeSignal(node: string) {
+      const isTailNode = node === 'critique' || node === 'finalize'
+      const remaining = ctx.remainingMs()
+      let allowance: number
+      if (isTailNode) {
+        allowance = Math.min(
+          ctx.budget.allowed.wallClockMs > 0 ? ctx.budget.allowed.wallClockMs : RESERVED_TAIL_MS,
+          RESERVED_TAIL_MS,
+        )
+      } else {
+        const nodeKey = node === 'plan_stage' ? 'plan' : node
+        let nodeAllowance: number
+        if (nodeKey === 'images') {
+          nodeAllowance = NODE_ALLOWANCE_MS.images(0)
+        } else if (nodeKey in NODE_ALLOWANCE_MS) {
+          nodeAllowance = NODE_ALLOWANCE_MS[nodeKey as keyof typeof NODE_ALLOWANCE_MS] as number
+        } else {
+          nodeAllowance = remaining
+        }
+        allowance = Math.max(1, Math.min(nodeAllowance, remaining - RESERVED_TAIL_MS))
+      }
+      return withSignal(options.signal, AbortSignal.timeout(Math.max(1, allowance)))
+    },
+    async invokeModel(model, messages, nodeSignalOverride) {
+      const sig = nodeSignalOverride ?? ctx.signal
+      if (!options.audit) return model.invoke(messages, sig ? { signal: sig } : undefined)
       return callModel(model, messages, {
         ...options.audit,
         phase: options.audit.phase ?? DEFAULT_AUDIT_PHASE,
-        ...(ctx.signal ? { signal: ctx.signal } : {}),
+        ...(sig ? { signal: sig } : {}),
       })
     },
   }
@@ -344,7 +421,7 @@ async function gatherNode(ctx: RunContext): Promise<AcquisitionUpdate> {
   ctx.probeResults = probeResults
   ctx.budget.allowed = ctx.options.budgetOverride
     ? { ...ctx.options.budgetOverride }
-    : budgetFor(pack)
+    : budgetFor(pack, { scale: ctx.scale })
   ctx.budget.used = {
     probes: probeResults.length,
     renders: 0,
@@ -517,19 +594,20 @@ async function planNode(ctx: RunContext): Promise<AcquisitionUpdate> {
       },
     )
     const boundModel = model.bindTools(tools)
+    const planSignal = ctx.nodeSignal('plan_stage')
     try {
       await buildPlanLoopGraph(ctx, boundModel, tools).invoke(
         { messages },
         {
           recursionLimit: ACQUISITION_RECURSION_LIMIT,
-          ...(ctx.signal ? { signal: ctx.signal } : {}),
+          ...(planSignal ? { signal: planSignal } : {}),
         },
       )
     } catch (error) {
       // An aborted run is over; anything else degrades to the single call below
       // rather than failing the phase. A model that refuses tools alongside a
       // forced JSON response format lands here, and must still produce a plan.
-      if (ctx.signal?.aborted || ctx.options.signal?.aborted) throw error
+      if (ctx.options.signal?.aborted) throw error
       ctx.record(
         'plan',
         'loop_stopped',
@@ -581,6 +659,7 @@ async function executeNode(
   state: AcquisitionStateType,
   ctx: RunContext,
 ): Promise<AcquisitionUpdate> {
+  ctx.lastState = state
   const start = Date.now()
   if (!state.plan) return {}
   if (ctx.wallClockExhausted()) {
@@ -701,6 +780,7 @@ async function imagesNode(
   state: AcquisitionStateType,
   ctx: RunContext,
 ): Promise<AcquisitionUpdate> {
+  ctx.lastState = state
   const start = Date.now()
   if (ctx.wallClockExhausted()) {
     ctx.record('images', 'skipped', 'wall_clock_exhausted', start)
@@ -714,6 +794,17 @@ async function imagesNode(
   }
 
   const classifiedImages = await storeAndClassify(ctx, candidates)
+
+  // Extend the wall-clock budget for stored images, capped at the ceiling.
+  const storedCount = classifiedImages.length
+  if (storedCount > 0) {
+    const extension = IMAGE_BATCH_EXTENSION_MS * Math.ceil(storedCount / 10)
+    ctx.budget.allowed.wallClockMs = Math.min(
+      ceilingMs(ctx.scale),
+      ctx.budget.allowed.wallClockMs + extension,
+    )
+  }
+
   ctx.record(
     'images',
     `${candidates.length} candidates, ${classifiedImages.length} classified`,
@@ -727,6 +818,7 @@ async function imagesRecoverNode(
   state: AcquisitionStateType,
   ctx: RunContext,
 ): Promise<AcquisitionUpdate> {
+  ctx.lastState = state
   const start = Date.now()
   if (ctx.wallClockExhausted()) {
     ctx.record('images_recover', 'skipped', 'wall_clock_exhausted', start)
@@ -785,6 +877,7 @@ async function critiqueNode(
   state: AcquisitionStateType,
   ctx: RunContext,
 ): Promise<AcquisitionUpdate> {
+  ctx.lastState = state
   const start = Date.now()
   const model = ctx.options.model
   if (!model) return { verdict: { verdict: 'sufficient', reason: 'no model' } }
@@ -810,10 +903,26 @@ async function critiqueNode(
     quarantineSubjectUrls: quarantineSubjects(state, ctx),
   })
 
-  const response = await ctx.invokeModel(model, [
-    new SystemMessage(systemPrompt),
-    new HumanMessage(userContent),
-  ])
+  let response: AgentModelResponse
+  try {
+    const critiqueSignal = ctx.nodeSignal('critique')
+    response = await ctx.invokeModel(model, [
+      new SystemMessage(systemPrompt),
+      new HumanMessage(userContent),
+    ], critiqueSignal)
+  } catch (error) {
+    // Critique timeout/abort → treat as budget exhausted, never rethrow.
+    const isAbort =
+      ctx.options.signal?.aborted ||
+      (error instanceof Error && (error.name === 'AbortError' || error.name === 'TimeoutError'))
+    if (isAbort) {
+      ctx.record('critique', '[CRITIQUE-TIMEOUT] skipped', 'budget_exhausted: critique timed out', start)
+      return { verdict: { verdict: 'sufficient', reason: 'budget exhausted, accepting results' } }
+    }
+    // Non-abort errors still degrade gracefully.
+    ctx.record('critique', '[CRITIQUE-TIMEOUT] skipped', `critique_error: ${error instanceof Error ? error.message.slice(0, 100) : 'unknown'}`, start)
+    return { verdict: { verdict: 'sufficient', reason: 'critique error, accepting results' } }
+  }
 
   let verdict: CritiqueVerdict
   try {
@@ -916,6 +1025,7 @@ async function recoverNode(
   state: AcquisitionStateType,
   ctx: RunContext,
 ): Promise<AcquisitionUpdate> {
+  ctx.lastState = state
   const start = Date.now()
   if (!state.plan) return { recoveryDone: true }
 
@@ -1046,8 +1156,9 @@ async function finalizeNode(
   state: AcquisitionStateType,
   ctx: RunContext,
 ): Promise<AcquisitionUpdate> {
+  ctx.lastState = state
   const start = Date.now()
-  ctx.wallClockExhausted() // records the final wall-clock usage
+  ctx.budget.used.wallClockMs = Date.now() - ctx.wallClockStart // records the final wall-clock usage
 
   const pool: RankableImage[] = state.classifiedImages.map((image) => ({
     ...image,
@@ -1076,15 +1187,25 @@ async function finalizeNode(
   const hasCatalogInput =
     entryUrls.length > 0 || priorityProductUrls.length > 0 || catalogSources.length > 0
   if (ctx.deps.discoverCatalog && hasCatalogInput) {
+    const catalogSignal = ctx.nodeSignal('finalize')
     try {
-      catalogResult = await ctx.deps.discoverCatalog({
+      const catalogPromise = ctx.deps.discoverCatalog({
         sources: catalogSources,
         entryUrls,
         priorityProductUrls,
         ...(ctx.deps.renderProvider ? { renderProvider: ctx.deps.renderProvider } : {}),
       })
+      catalogResult = catalogSignal
+        ? await Promise.race([
+            catalogPromise,
+            new Promise<never>((_, reject) => {
+              if (catalogSignal.aborted) reject(catalogSignal.reason)
+              else catalogSignal.addEventListener('abort', () => reject(catalogSignal.reason), { once: true })
+            }),
+          ])
+        : await catalogPromise
     } catch {
-      // Catalog discovery is non-critical; swallow and continue.
+      // Catalog discovery is non-critical; swallow timeout and errors.
     }
   }
 
@@ -1195,6 +1316,7 @@ export async function runAcquisition(
   options: RunOptions = {},
 ): Promise<AcquisitionOutput> {
   const ctx = createRunContext(input, deps, options)
+  const scale = ctx.scale
 
   if (!options.model) {
     return outputFrom(null, ctx, { agentOutcome: 'blocked', error: 'no_model_provided' })
@@ -1203,20 +1325,24 @@ export async function runAcquisition(
     return outputFrom(null, ctx, { agentOutcome: 'fallback', error: 'aborted' })
   }
 
+  // The ceiling signal bounds the entire run; the per-node signals are tighter.
+  const ceilingSignal = withSignal(options.signal, AbortSignal.timeout(ceilingMs(scale)))
+
   try {
     const state = (await buildAcquisitionGraph(ctx).invoke(
       { agentOutcome: 'planned' },
       {
         recursionLimit: ACQUISITION_RECURSION_LIMIT,
-        ...(ctx.signal ? { signal: ctx.signal } : {}),
+        ...(ceilingSignal ? { signal: ceilingSignal } : {}),
       },
     )) as AcquisitionStateType
 
     return outputFrom(state, ctx)
   } catch (error) {
+    const lastOutcome = ctx.lastState ? 'planned' : 'fallback'
     if (error instanceof GraphRecursionError) {
       ctx.record('graph', 'stopped', 'recursion_limit', ctx.wallClockStart)
-      return outputFrom(null, ctx, { agentOutcome: 'fallback', error: 'recursion_limit' })
+      return outputFrom(ctx.lastState, ctx, { agentOutcome: lastOutcome as AcquisitionOutput['agentOutcome'], error: 'recursion_limit' })
     }
     const aborted =
       options.signal?.aborted ||
@@ -1224,10 +1350,10 @@ export async function runAcquisition(
       (error instanceof Error && (error.name === 'AbortError' || error.name === 'TimeoutError'))
     if (aborted) {
       ctx.record('graph', 'stopped', 'aborted', ctx.wallClockStart)
-      return outputFrom(null, ctx, { agentOutcome: 'fallback', error: 'aborted' })
+      return outputFrom(ctx.lastState, ctx, { agentOutcome: lastOutcome as AcquisitionOutput['agentOutcome'], error: 'aborted' })
     }
     const message = error instanceof Error ? error.message : String(error)
     ctx.record('graph', 'threw', message.slice(0, 160), ctx.wallClockStart)
-    return outputFrom(null, ctx, { agentOutcome: 'fallback', error: `threw: ${message.slice(0, 180)}` })
+    return outputFrom(ctx.lastState, ctx, { agentOutcome: lastOutcome as AcquisitionOutput['agentOutcome'], error: `threw: ${message.slice(0, 180)}` })
   }
 }

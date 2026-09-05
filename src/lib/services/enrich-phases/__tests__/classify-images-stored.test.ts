@@ -267,4 +267,63 @@ describe("classifyStoredImages", () => {
     expect(result.unavailableCount).toBe(1);
     expect(result.writes.map((w) => w.id)).toEqual(["img-a"]);
   });
+
+  it("classify_batches_run_two_at_a_time_and_write_in_chunk_order", async () => {
+    // 30 images = 3 chunks of 10. The fake classifier tracks concurrency.
+    const images = Array.from({ length: 30 }, (_, i) => image(`img-${i}`));
+    const supabase = fakeSupabase(images);
+
+    let inflight = 0;
+    let maxInflight = 0;
+    const chunkOrder: number[] = [];
+
+    // A classifier that records concurrency and order
+    const classifierClient = {
+      async chat(input: unknown): Promise<OpenAIChatResult> {
+        inflight += 1;
+        maxInflight = Math.max(maxInflight, inflight);
+        // yield to let another chunk start if allowed by concurrency
+        await new Promise((resolve) => setTimeout(resolve, 10));
+        inflight -= 1;
+
+        // Parse out the image count from the input to determine which chunk
+        const req = input as { user: string; images: string[] };
+        chunkOrder.push(req.images.length);
+
+        // Return a valid classification for every image in the chunk
+        const count = req.images.length;
+        const classifications = Array.from({ length: count }, (_, i) => ({
+          id: String(i + 1),
+          disposition: "keep",
+          tag: "product",
+          reasons: [],
+          score: 82,
+          caption: null,
+        }));
+        return chatResult(JSON.stringify({ classifications }));
+      },
+    };
+
+    const result = await classifyStoredImages({
+      brand,
+      target: brandTarget(brand.id),
+      supabase: supabase.client,
+      client: classifierClient,
+      loadImage: async () => "data:image/webp;base64,AAAA",
+    });
+
+    // At most 2 chunks in flight at a time
+    expect(maxInflight).toBeLessThanOrEqual(2);
+    // All 3 chunks were processed
+    expect(chunkOrder).toHaveLength(3);
+    // planChunkImageWrites results are applied in chunk order
+    expect(result.writes).toHaveLength(30);
+    // First chunk's writes come first
+    expect(result.writes[0]!.id).toBe("img-0");
+    expect(result.writes[10]!.id).toBe("img-10");
+    expect(result.writes[20]!.id).toBe("img-20");
+    // attemptedBatches still counts all 3
+    expect(result.attemptedBatches).toBe(3);
+    expect(result.failures).toEqual([]);
+  });
 });

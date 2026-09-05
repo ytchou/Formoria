@@ -7,6 +7,7 @@ import {
   HERO_TARGET_RATIO,
   isLogoImageTags,
   MAX_BRAND_ACTIVE_IMAGES,
+  MIN_CANDIDATE_SCORE,
 } from "@/lib/constants/brand-images";
 import {
   rank,
@@ -710,6 +711,8 @@ export type ActiveImageForOrdering = {
   source?: string | null;
   sort_order?: number | null;
   tags?: readonly string[] | null;
+  /** Matches BrandImageRow.score: stored as numeric, but legacy rows may carry strings. */
+  score?: number | string | null;
 };
 
 /**
@@ -753,7 +756,17 @@ export function planActiveImageOrder(input: {
   const ranked = [...judged, ...unjudged];
   const capacity = Math.max(0, MAX_ACTIVE_IMAGES - exempt.length);
   const keep = ranked.slice(0, capacity);
-  const demotedIds = ranked.slice(capacity).map((row) => row.id);
+  const overflow = ranked.slice(capacity);
+  const candidateOverflow = overflow.filter(
+    (row) =>
+      row.score != null && scoreValue(row.score) >= MIN_CANDIDATE_SCORE,
+  );
+  const demotedIds = overflow
+    .filter(
+      (row) =>
+        row.score == null || scoreValue(row.score) < MIN_CANDIDATE_SCORE,
+    )
+    .map((row) => row.id);
 
   // Product-first ordering: within the kept set, products lead, then at most
   // one logo. A logo-only brand keeps all its logos — the single-logo cap
@@ -782,8 +795,12 @@ export function planActiveImageOrder(input: {
   }
 
   // Excess logos are still valid candidates, but cannot remain active outside
-  // the database's publishable sort_order window.
-  const candidateIds = logoOverflow.map((row) => row.id);
+  // the database's publishable sort_order window. Over-cap overflow that scored
+  // at or above MIN_CANDIDATE_SCORE is also recoverable rather than rejected.
+  const candidateIds = [
+    ...logoOverflow.map((row) => row.id),
+    ...candidateOverflow.map((row) => row.id),
+  ];
 
   return { assignments, candidateIds, demotedIds };
 }
@@ -1564,14 +1581,6 @@ export async function classifyStoredImages(
       ),
     });
 
-  const classified: ClassifiedImage[] = [];
-  const writes: PlannedImageWrite[] = [];
-  const failures: BatchFailure[] = [];
-  let attemptedBatches = 0;
-  let unjudgedCount = 0;
-  let unavailableCount = 0;
-  let rejectedCount = 0;
-
   const brandContext = buildBrandContext({
     name: brand.name ?? brand.slug,
     categorySlug: brand.category ?? null,
@@ -1588,25 +1597,31 @@ export async function classifyStoredImages(
     ),
   });
 
+  // Chunk first, then classify up to 2 chunks concurrently. Results are
+  // collected in chunk order so a deterministic write sequence survives.
+  const chunks: BrandImageForClassification[][] = [];
   for (let i = 0; i < images.length; i += IMAGE_CLASSIFY_BATCH_SIZE) {
-    const chunk = images.slice(i, i + IMAGE_CLASSIFY_BATCH_SIZE);
-    attemptedBatches += 1;
+    chunks.push(images.slice(i, i + IMAGE_CLASSIFY_BATCH_SIZE));
+  }
+
+  const chunkResults = await mapWithConcurrency(chunks, 2, async (chunk) => {
     const outcome = await classifyChunk(client, brandContext, chunk, loadImage);
-    unavailableCount += new Set(outcome.unavailableIds).size;
+    const chunkUnavailable = new Set(outcome.unavailableIds).size;
 
     if (outcome.failure) {
-      // Leave every remaining row untouched (tags stay null, status stays
-      // active) so the next run retries them instead of destroying them.
-      failures.push(outcome.failure);
       console.error(
         `  [CLASSIFY] Batch of ${chunk.length} images skipped for ${target.type} ${target.id}: ${outcome.failure.reason}`,
       );
-      continue;
+      return {
+        classified: [] as ClassifiedImage[],
+        writes: [] as PlannedImageWrite[],
+        rejectedCount: 0,
+        unjudgedCount: 0,
+        unavailableCount: chunkUnavailable,
+        failure: outcome.failure,
+      };
     }
 
-    // Which rows may be written is decided in one pure place, so the
-    // "unloadable image is never written to" invariant is testable rather
-    // than resting on a `continue` inside an un-mockable loop (DEV-1255).
     const plan = planChunkImageWrites({
       chunk,
       verdictsByImageId: outcome.verdictsByImageId,
@@ -1614,10 +1629,36 @@ export async function classifyStoredImages(
       now: new Date().toISOString(),
       ctx,
     });
-    classified.push(...plan.classifications);
-    writes.push(...plan.writes);
-    rejectedCount += plan.rejectedCount;
-    unjudgedCount += plan.unjudgedCount;
+    return {
+      classified: plan.classifications,
+      writes: plan.writes,
+      rejectedCount: plan.rejectedCount,
+      unjudgedCount: plan.unjudgedCount,
+      unavailableCount: chunkUnavailable,
+      failure: null as BatchFailure | null,
+    };
+  });
+
+  // Merge in chunk order so planChunkImageWrites results are applied in
+  // the same order the images were read.
+  const classified: ClassifiedImage[] = [];
+  const writes: PlannedImageWrite[] = [];
+  const failures: BatchFailure[] = [];
+  const attemptedBatches = chunks.length;
+  let unjudgedCount = 0;
+  let unavailableCount = 0;
+  let rejectedCount = 0;
+
+  for (const result of chunkResults) {
+    unavailableCount += result.unavailableCount;
+    if (result.failure) {
+      failures.push(result.failure);
+      continue;
+    }
+    classified.push(...result.classified);
+    writes.push(...result.writes);
+    rejectedCount += result.rejectedCount;
+    unjudgedCount += result.unjudgedCount;
   }
 
   return {
@@ -1694,7 +1735,11 @@ export async function finalizeHeroOrder(
   }
 
   for (const id of plan.demotedIds) {
-    await updateImage(supabase, target, id, { status: "rejected" });
+    await updateImage(supabase, target, id, {
+      status: "rejected",
+      rejected_at: new Date().toISOString(),
+      rejection_reasons: ["over_cap_low_score"],
+    });
   }
 
   if (target.type === "brand") {

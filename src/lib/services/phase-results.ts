@@ -118,7 +118,37 @@ export function parsePhaseResults(value: Json): PhaseResult[] {
         ...(isPlainObject(item.productsVerification) && JSON.stringify(item.productsVerification).length <= 8192 ? { productsVerification: item.productsVerification as Record<string, unknown> } : {}),
         ...(Array.isArray(item.revokedColumns) ? { revokedColumns: item.revokedColumns.filter((c: unknown): c is string => typeof c === 'string') } : {}),
         ...(imagePool ? { imagePool } : {}),
+        ...(isPlainObject(item.linkExpansion) && JSON.stringify(item.linkExpansion).length <= 8192 ? { linkExpansion: item.linkExpansion as PhaseResult["linkExpansion"] } : {}),
       },
     ];
   });
+}
+
+/**
+ * True when the last acquire entry's `acquisitionPlan` signals that the
+ * per-brand time budget was exhausted — either `error === 'aborted'` or any
+ * `trace[].reason` containing `'budget_exhausted'`.
+ */
+export function lastAcquireRecordedBudgetExhausted(
+  results: PhaseResult[],
+): boolean {
+  const acquireEntries = results.filter((r) => r.phase === "acquire");
+  if (acquireEntries.length === 0) return false;
+
+  const last = acquireEntries[acquireEntries.length - 1];
+  const plan = last.acquisitionPlan;
+  if (!plan) return false;
+
+  if (plan.error === "aborted") return true;
+
+  if (Array.isArray(plan.trace)) {
+    return plan.trace.some(
+      (entry: unknown) =>
+        isPlainObject(entry) &&
+        typeof entry.reason === "string" &&
+        entry.reason.includes("budget_exhausted"),
+    );
+  }
+
+  return false;
 }
