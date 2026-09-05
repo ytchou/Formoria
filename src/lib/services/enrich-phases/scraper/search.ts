@@ -1,5 +1,5 @@
 import { isNonBrandSiteHost } from './input-detector'
-import type { ImageQueryInput, QueryTemplate } from './types'
+import type { BrandSearchEntry, ImageQueryInput, QueryTemplate } from './types'
 
 export const SEARCH_DELAY_MS = 1500
 
@@ -77,6 +77,80 @@ export function buildImageQueryVariants(input: ImageQueryInput): string[] {
   }
 
   return [`"${brandName}" 商品`]
+}
+
+/**
+ * A handle query is quoted so the provider matches the handle as a phrase.
+ * The RAW handle is quoted, dots and underscores included: `"1.wo_of"` is the
+ * string a shop page prints, while the normalized form is only used for
+ * comparing tokens we already hold.
+ */
+export const HANDLE_QUERY = (handle: string): string => `"${handle.trim()}"`
+
+/** Comparison form: alphanumerics only, lowercased. */
+export function normalizeHandle(handle: string): string {
+  return handle.toLowerCase().replace(/[^a-z0-9]+/g, '')
+}
+
+/** A handle is usable when at least one alphanumeric survives normalization. */
+export function isUsableHandle(handle: string): boolean {
+  return normalizeHandle(handle).length >= 1
+}
+
+/**
+ * Below this length a handle is too generic to trust anywhere but a URL. A
+ * three-character handle appears inside ordinary prose and inside unrelated
+ * shop names, so a title or snippet carrying it is not evidence. A URL is
+ * different: the handle owning a host label or a path segment is the shop
+ * identifier itself.
+ */
+export const TITLE_MATCH_MIN_HANDLE_LENGTH = 5
+
+/**
+ * A URL's structural units: hostname labels (split on `.`) and pathname
+ * segments (split on `/`), each normalized AS A WHOLE.
+ *
+ * Splitting on every non-alphanumeric would be wrong here. A handle carrying a
+ * dot or an underscore — `1.wo_of` — normalizes to `1woof`, while splitting the
+ * path segment that spells it produces `1`, `wo`, `of` and the handle would
+ * never match its own shop URL. Normalizing the whole segment keeps the two
+ * sides of the comparison in the same form.
+ */
+function urlTokens(link: string): Set<string> {
+  try {
+    const parsed = new URL(link)
+    const segments = [...parsed.hostname.split('.'), ...parsed.pathname.split('/')]
+    return new Set(segments.map(normalizeHandle).filter(Boolean))
+  } catch {
+    return new Set<string>()
+  }
+}
+
+/** Free text's units: whitespace-delimited words, each normalized as a whole. */
+function textTokens(text: string): Set<string> {
+  return new Set(text.split(/\s+/).map(normalizeHandle).filter(Boolean))
+}
+
+/**
+ * Keep the entries whose URL, title, or snippet carries the handle as a WHOLE
+ * unit — one host label, one path segment, or one word. Substrings never match:
+ * `my1wostuff` is a different shop from `1wo`, and adopting it would attach a
+ * purchase channel to the wrong brand.
+ */
+export function filterEntriesByHandle(
+  entries: BrandSearchEntry[],
+  handle: string,
+): BrandSearchEntry[] {
+  const normalized = normalizeHandle(handle)
+  if (normalized.length === 0) return []
+  const textMatchAllowed = normalized.length >= TITLE_MATCH_MIN_HANDLE_LENGTH
+
+  return entries.filter((entry) => {
+    if (urlTokens(entry.link).has(normalized)) return true
+    if (!textMatchAllowed) return false
+    if (textTokens(entry.title ?? '').has(normalized)) return true
+    return textTokens(entry.snippet ?? '').has(normalized)
+  })
 }
 
 export function stripTrackingParams(url: string): string {

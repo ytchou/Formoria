@@ -18,6 +18,12 @@ export type ProbeEvidence = {
   description?: string
   platform?: string
   status?: number
+  /**
+   * Follower count read off an Instagram profile's og:description. Optional
+   * and best-effort: Instagram serves the number only to some requests, and a
+   * missing count is never evidence that the account is small.
+   */
+  instagramFollowers?: number
 }
 
 // ---------------------------------------------------------------------------
@@ -26,7 +32,9 @@ export type ProbeEvidence = {
 
 const PLATFORM_PATTERNS: Array<{ pattern: RegExp; platform: string }> = [
   { pattern: /instagram\.com/i, platform: 'instagram' },
-  { pattern: /threads\.net/i, platform: 'threads' },
+  // Both hosts: Meta migrated Threads to threads.com, and a threads.net-only
+  // pattern silently left every current profile URL unlabelled.
+  { pattern: /threads\.(?:net|com)/i, platform: 'threads' },
   { pattern: /facebook\.com|fb\.com/i, platform: 'facebook' },
   { pattern: /pinkoi\.com/i, platform: 'pinkoi' },
   { pattern: /shopee\.\w+/i, platform: 'shopee' },
@@ -73,6 +81,34 @@ function extractDescription(html: string): string | undefined {
   return undefined
 }
 
+/**
+ * The follower count inside an Instagram og:description.
+ *
+ * Instagram renders it as `8,014 Followers, 1 Following, 42 Posts - …`, and
+ * abbreviates past a thousand (`1.6K`, `12M`). Regex only, matching the rest of
+ * this module: no DOM parser is loaded here.
+ */
+export function parseInstagramFollowers(
+  description: string | undefined,
+): number | undefined {
+  if (!description) return undefined
+
+  const match = /([\d,.]+)\s*([KM])?\s+Followers/i.exec(description)
+  if (!match) return undefined
+
+  const value = Number(match[1].replace(/,/g, ''))
+  if (!Number.isFinite(value)) return undefined
+
+  const multiplier =
+    match[2]?.toUpperCase() === 'M'
+      ? 1_000_000
+      : match[2]?.toUpperCase() === 'K'
+        ? 1_000
+        : 1
+
+  return Math.round(value * multiplier)
+}
+
 // ---------------------------------------------------------------------------
 // Probe
 // ---------------------------------------------------------------------------
@@ -115,6 +151,11 @@ async function probeSingleUrl(
 
       evidence.title = extractTitle(bounded)
       evidence.description = extractDescription(bounded)
+
+      if (platform === 'instagram') {
+        const followers = parseInstagramFollowers(evidence.description)
+        if (followers !== undefined) evidence.instagramFollowers = followers
+      }
     }
   } catch {
     // Timeout, network error, or abort — return what we have (url + platform)

@@ -1,11 +1,15 @@
 import { describe, expect, it, vi } from 'vitest'
 import {
   collectHubUrls,
+  computeEvidence,
+  deriveThreadsUrl,
   expandLinkHubs,
+  expandThreadsBio,
   hasPurchaseChannel,
   unwrapRedirectWrapper,
   type LinkExpansionBrand,
 } from '../link-expansion'
+import type { FetchMetadata } from '../scraper/fetch-guards'
 
 // ---------------------------------------------------------------------------
 // hasPurchaseChannel
@@ -222,5 +226,282 @@ describe('expandLinkHubs', () => {
 
     expect(result.hubsFetched).toBe(1)
     expect(result.adopted).toEqual([])
+  })
+})
+
+// ---------------------------------------------------------------------------
+// deriveThreadsUrl
+// ---------------------------------------------------------------------------
+describe('deriveThreadsUrl', () => {
+  it('derive_threads_url_from_instagram_profile', () => {
+    expect(deriveThreadsUrl('https://www.instagram.com/1.wo_of/')).toBe(
+      'https://www.threads.com/@1.wo_of',
+    )
+    expect(deriveThreadsUrl('https://instagram.com/coolbrand')).toBe(
+      'https://www.threads.com/@coolbrand',
+    )
+    // A post permalink is not a profile — deriving a handle from it would send
+    // every visitor to one photo's author slot.
+    expect(deriveThreadsUrl('https://www.instagram.com/p/DQeL94sEv9G/')).toBeNull()
+    expect(deriveThreadsUrl('https://www.instagram.com/coolbrand/reel/123/')).toBeNull()
+    expect(deriveThreadsUrl(null)).toBeNull()
+    expect(deriveThreadsUrl(undefined)).toBeNull()
+    expect(deriveThreadsUrl('https://example.com/coolbrand')).toBeNull()
+    // A look-alike host is not Instagram: deriving from it would fetch a
+    // stranger's Threads page.
+    expect(deriveThreadsUrl('https://not-instagram.com/someuser/')).toBeNull()
+  })
+})
+
+// ---------------------------------------------------------------------------
+// expandThreadsBio
+// ---------------------------------------------------------------------------
+
+function meta(over: Partial<FetchMetadata>): FetchMetadata {
+  return { text: null, status: null, latencyMs: 5, error: null, ...over }
+}
+
+function threadsPage(body: string): string {
+  return `<html><head>${body}</head><body></body></html>`
+}
+
+const THREADS_URL = 'https://www.threads.com/@coolbrand'
+
+function runThreadsBio(over: {
+  brandName?: string | null
+  metadata: FetchMetadata
+  fetchHtml?: (url: string) => Promise<string | null>
+}) {
+  return expandThreadsBio({
+    brandName: over.brandName === undefined ? 'coolbrand' : over.brandName,
+    threadsUrl: THREADS_URL,
+    confirmedHubUrls: new Set<string>(),
+    fetchHtmlWithMetadata: vi.fn(async () => over.metadata),
+    fetchHtml: over.fetchHtml ?? vi.fn(async () => null),
+  })
+}
+
+describe('expandThreadsBio', () => {
+  it('threads_rel_me_marketplace_link_adopted_as_purchase_channel', async () => {
+    const html = threadsPage(
+      '<link rel="me" href="https://myship.7-11.com.tw/general/detail/GM123">',
+    )
+
+    const result = await runThreadsBio({
+      metadata: meta({ text: html, status: 200 }),
+    })
+
+    expect(result.threads).toBe('found')
+    expect(result.relMeUrl).toBe('https://myship.7-11.com.tw/general/detail/GM123')
+    expect(result.adopted).toContainEqual(
+      expect.objectContaining({ field: 'purchaseMyship', source: 'threads' }),
+    )
+    expect(result.scraped.purchaseMyship).toBe(
+      'https://myship.7-11.com.tw/general/detail/GM123',
+    )
+  })
+
+  it('threads_rel_me_aggregator_is_expanded_as_confirmed_hub', async () => {
+    const html = threadsPage('<link rel="me" href="https://linktr.ee/x">')
+    const hubHtml = `
+    <html><body>
+      <a href="https://www.pinkoi.com/store/coolbrandstore">Pinkoi</a>
+    </body></html>
+    `
+
+    const result = await expandThreadsBio({
+      brandName: 'coolbrand',
+      threadsUrl: THREADS_URL,
+      confirmedHubUrls: new Set<string>(),
+      fetchHtmlWithMetadata: vi.fn(async () => meta({ text: html, status: 200 })),
+      fetchHtml: vi.fn(async () => hubHtml),
+    })
+
+    expect(result.threads).toBe('found')
+    expect(result.hubUrls).toContain('https://linktr.ee/x')
+    const pinkoi = result.adopted.find((a) => a.field === 'purchasePinkoi')
+    expect(pinkoi).toBeDefined()
+    expect(pinkoi!.source).toBe('threads')
+    expect(result.scraped.purchasePinkoi).toBe(
+      'https://www.pinkoi.com/store/coolbrandstore',
+    )
+  })
+
+  it('threads_page_without_rel_me_is_absent', async () => {
+    const result = await runThreadsBio({
+      metadata: meta({
+        text: threadsPage('<title>coolbrand on Threads</title>'),
+        status: 200,
+      }),
+    })
+
+    expect(result.threads).toBe('absent')
+    expect(result.adopted).toEqual([])
+    expect(result.hubUrls).toEqual([])
+  })
+
+  it('threads_join_landing_is_absent', async () => {
+    const html = threadsPage(
+      '<meta property="og:description" content="Join Threads to share ideas, ask questions, post random thoughts.">' +
+        '<link rel="me" href="https://myship.7-11.com.tw/general/detail/GM999">',
+    )
+
+    const result = await runThreadsBio({
+      metadata: meta({ text: html, status: 200 }),
+    })
+
+    // The landing page belongs to the platform, not the brand: anything it
+    // carries would be adopted for a handle that does not exist.
+    expect(result.threads).toBe('absent')
+    expect(result.adopted).toEqual([])
+  })
+
+  it('threads_fetch_timeout_is_unknown', async () => {
+    const result = await runThreadsBio({
+      metadata: meta({ text: null, status: null, error: 'timeout' }),
+    })
+
+    expect(result.threads).toBe('unknown')
+    expect(result.adopted).toEqual([])
+  })
+
+  it('threads_http_429_is_unknown_and_404_is_absent', async () => {
+    const throttled = await runThreadsBio({
+      metadata: meta({ text: null, status: 429, error: 'http_error' }),
+    })
+    expect(throttled.threads).toBe('unknown')
+
+    const missing = await runThreadsBio({
+      metadata: meta({ text: null, status: 404, error: 'http_error' }),
+    })
+    expect(missing.threads).toBe('absent')
+  })
+
+  it('threads_http_500_is_unknown', async () => {
+    const result = await runThreadsBio({
+      metadata: meta({ text: null, status: 500, error: 'http_error' }),
+    })
+
+    expect(result.threads).toBe('unknown')
+  })
+
+  it('threads_rel_me_social_still_passes_handle_gate', async () => {
+    const html = threadsPage('<link rel="me" href="https://linktr.ee/x">')
+    const hubHtml = `
+    <html><body>
+      <a href="https://www.instagram.com/otherbrand/">IG</a>
+    </body></html>
+    `
+
+    const result = await expandThreadsBio({
+      brandName: 'coolbrand',
+      threadsUrl: THREADS_URL,
+      confirmedHubUrls: new Set<string>(),
+      fetchHtmlWithMetadata: vi.fn(async () => meta({ text: html, status: 200 })),
+      fetchHtml: vi.fn(async () => hubHtml),
+    })
+
+    expect(
+      result.adopted.find((a) => a.field === 'socialInstagram'),
+    ).toBeUndefined()
+    expect(result.scraped.socialInstagram).toBeUndefined()
+  })
+
+  it('a direct social rel=me is gated by the brand-token check', async () => {
+    const html = threadsPage(
+      '<link rel="me" href="https://www.instagram.com/otherbrand/">',
+    )
+
+    const result = await runThreadsBio({
+      metadata: meta({ text: html, status: 200 }),
+    })
+
+    expect(result.adopted).toEqual([])
+    expect(result.threads).toBe('absent')
+  })
+
+  it('a hub fetch failure behind rel=me reads as unknown, never absent', async () => {
+    const html = threadsPage('<link rel="me" href="https://linktr.ee/x">')
+
+    const result = await expandThreadsBio({
+      brandName: 'coolbrand',
+      threadsUrl: THREADS_URL,
+      confirmedHubUrls: new Set<string>(),
+      fetchHtmlWithMetadata: vi.fn(async () => meta({ text: html, status: 200 })),
+      fetchHtml: vi.fn(async () => null),
+    })
+
+    expect(result.threads).toBe('unknown')
+  })
+})
+
+// ---------------------------------------------------------------------------
+// expandLinkHubs fetch-failure counter
+// ---------------------------------------------------------------------------
+describe('expandLinkHubs fetchFailures', () => {
+  it('counts a null fetch as a failure and a served page as none', async () => {
+    const failing = await expandLinkHubs({
+      brandName: 'mybrand',
+      hubUrls: ['https://linktr.ee/mybrand'],
+      confirmedHubUrls: new Set(['https://linktr.ee/mybrand']),
+      fetchHtml: vi.fn(async () => null),
+    })
+    expect(failing.fetchFailures).toBe(1)
+
+    const served = await expandLinkHubs({
+      brandName: 'coolbrand',
+      hubUrls: ['https://linktr.ee/coolbrand'],
+      confirmedHubUrls: new Set(['https://linktr.ee/coolbrand']),
+      fetchHtml: vi.fn(async () => HUB_HTML),
+    })
+    expect(served.fetchFailures).toBe(0)
+  })
+})
+
+// ---------------------------------------------------------------------------
+// computeEvidence
+// ---------------------------------------------------------------------------
+describe('computeEvidence', () => {
+  const answered = {
+    hubs: 'skipped',
+    threads: 'absent',
+    serpName: 'absent',
+    serpHandle: 'absent',
+  } as const
+
+  it('is conclusive when every source answered and no call failed', () => {
+    expect(computeEvidence(answered, ['succeeded'])).toBe('conclusive')
+    expect(computeEvidence(answered, [])).toBe('conclusive')
+  })
+
+  it('is inconclusive when any source is unknown', () => {
+    expect(
+      computeEvidence({ ...answered, threads: 'unknown' }, ['succeeded']),
+    ).toBe('inconclusive')
+  })
+
+  it('is inconclusive when a source is missing entirely', () => {
+    expect(computeEvidence({ hubs: 'skipped', threads: 'absent' }, [])).toBe(
+      'inconclusive',
+    )
+    expect(computeEvidence(undefined, [])).toBe('inconclusive')
+  })
+
+  it('is conclusive when a search call answered with nothing', () => {
+    // `empty` is a live query that ranked nothing — the strongest form of
+    // "there is no shop", not an outage.
+    expect(computeEvidence(answered, ['empty'])).toBe('conclusive')
+    expect(computeEvidence(answered, ['succeeded', 'empty'])).toBe('conclusive')
+  })
+
+  it('is inconclusive when a recorded search call did not succeed', () => {
+    expect(computeEvidence(answered, ['failed'])).toBe('inconclusive')
+    expect(computeEvidence(answered, ['succeeded', 'timeout'])).toBe(
+      'inconclusive',
+    )
+    // A source never consulted records no call status at all.
+    expect(computeEvidence(answered, ['succeeded', null, undefined])).toBe(
+      'conclusive',
+    )
   })
 })

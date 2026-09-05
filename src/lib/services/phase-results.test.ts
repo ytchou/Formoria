@@ -329,6 +329,74 @@ describe("parsePhaseResults", () => {
     expect(parsed.at(0)?.linkExpansion).toEqual(linkExpansion);
   });
 
+  it("parses_link_expansion_sources_evidence_and_followers", () => {
+    const linkExpansion = {
+      hubsFetched: 1,
+      adopted: [
+        {
+          field: "purchaseMyship",
+          url: "https://myship.7-11.com.tw/general/detail/GM123",
+          source: "threads",
+        },
+      ],
+      serp: "none",
+      sources: {
+        hubs: "skipped",
+        threads: "found",
+        serpName: "absent",
+        serpHandle: "skipped",
+      },
+      evidence: "conclusive",
+      instagramFollowers: 8014,
+    };
+    const parsed = parsePhaseResults([
+      {
+        phase: "acquire",
+        status: "succeeded",
+        changedFields: ["purchase_myship"],
+        durationMs: 320,
+        linkExpansion,
+      },
+    ] as Json);
+
+    expect(parsed.at(0)?.linkExpansion).toEqual(linkExpansion);
+    expect(parsed.at(0)?.linkExpansion?.sources?.threads).toBe("found");
+    expect(parsed.at(0)?.linkExpansion?.evidence).toBe("conclusive");
+    expect(parsed.at(0)?.linkExpansion?.instagramFollowers).toBe(8014);
+    expect(parsed.at(0)?.linkExpansion?.adopted.at(0)?.source).toBe("threads");
+  });
+
+  it("link_expansion_without_sources_still_parses", () => {
+    // The DEV-1692 shape. A trace written before DEV-1702 carries no
+    // `sources`, and must keep parsing: a missing key reads as "no evidence
+    // recorded", never as "every source answered absent".
+    const linkExpansion = {
+      hubsFetched: 2,
+      adopted: [
+        {
+          field: "purchasePinkoi",
+          url: "https://www.pinkoi.com/store/mybrand",
+          source: "hub",
+        },
+      ],
+      serp: "replayed",
+      gated: "hub_unconfirmed:linktr.ee",
+    };
+    const parsed = parsePhaseResults([
+      {
+        phase: "acquire",
+        status: "succeeded",
+        changedFields: [],
+        durationMs: 120,
+        linkExpansion,
+      },
+    ] as Json);
+
+    expect(parsed.at(0)?.linkExpansion).toEqual(linkExpansion);
+    expect(parsed.at(0)?.linkExpansion?.sources).toBeUndefined();
+    expect(parsed.at(0)?.linkExpansion?.evidence).toBeUndefined();
+  });
+
   it("drops_oversized_link_expansion", () => {
     const linkExpansion = {
       hubsFetched: 1,

@@ -3,6 +3,8 @@ import { auditedCall } from '@/lib/audit'
 import { batchSearchBrandsWithSnippets, parseBrandSearchEntries } from './scraper/search'
 import { getLatestSearchResults } from '../search-results'
 import { buildSerpConfig } from '@/lib/constants/enrichment-config'
+import type { SupabaseClient } from '@supabase/supabase-js'
+import type { Database } from '@/lib/supabase/database.types'
 import type { EnrichmentTarget } from '../_shared/enrichment-target'
 import {
   buildPhaseResult,
@@ -189,11 +191,20 @@ function summarizeProviderErrors(callFailures: SearchPhaseResult[]): string {
   return summary.slice(0, MAX_PROVIDER_ERROR_LENGTH)
 }
 
+/**
+ * The detect phase reads these snippets, and it reads them as the answer to the
+ * BRAND-NAME query. The acquire phase also writes a handle-anchored row, newer
+ * than the name row in the same run, so an unfiltered "latest row" would hand
+ * detect the handle query's results on the next run. `'name'` is therefore part
+ * of the contract, not a default (rows predating the tag already count as
+ * `'name'`).
+ */
 export async function loadCachedSearchResults(
   targetIds: string[],
-  targetType: EnrichmentTarget['type'] = 'brand'
+  targetType: EnrichmentTarget['type'] = 'brand',
+  client?: SupabaseClient<Database>
 ): Promise<Map<string, SearchPhaseResult>> {
-  const cached = await getLatestSearchResults(targetIds, 'serp', targetType)
+  const cached = await getLatestSearchResults(targetIds, 'serp', targetType, 'name', client)
   const searchResults = new Map<string, SearchPhaseResult>()
 
   for (const [brandId, row] of cached) {

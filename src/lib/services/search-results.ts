@@ -129,17 +129,27 @@ export async function finishSearchAudit(
   }
 }
 
+/**
+ * Latest row per target, newest first. `queryKind` narrows the replay to rows
+ * written by one kind of query: the acquire phase now issues both a brand-name
+ * search and a handle-anchored one, and replaying a fresh name row in place of
+ * a handle row would silently skip the second search forever. Rows predating
+ * the tag carry no `queryKind` and count as `'name'`. Omitting the argument
+ * keeps the original behaviour (latest row of any kind).
+ */
 export async function getLatestSearchResults(
   targetIds: string[],
   searchType: SearchType,
-  targetType: EnrichmentTarget['type'] = 'brand'
+  targetType: EnrichmentTarget['type'] = 'brand',
+  queryKind?: 'name' | 'handle',
+  client?: SupabaseClient<Database>
 ): Promise<Map<string, SearchResultRow>> {
   if (targetIds.length === 0) return new Map()
-  const supabase = createServiceClient()
+  const supabase = client ?? createServiceClient()
   const foreignKey = targetType === 'brand' ? 'brand_id' : 'submission_id'
   const { data, error } = await supabase
     .from('brand_search_results')
-    .select(`${foreignKey}, id, search_type, query, urls, snippets, provider, endpoint, input, call_status, http_status, error, attempt, retry_attempt, raw_response, latency_ms, created_at`)
+    .select(`${foreignKey}, id, search_type, query, urls, snippets, provider, endpoint, input, config, call_status, http_status, error, attempt, retry_attempt, raw_response, latency_ms, created_at`)
     .in(foreignKey, targetIds)
     .eq('search_type', searchType)
     .order('created_at', { ascending: false })
@@ -150,6 +160,10 @@ export async function getLatestSearchResults(
   for (const row of data ?? []) {
     const targetId = (row as Record<string, unknown>)[foreignKey]
     if (typeof targetId !== 'string' || results.has(targetId)) continue
+    if (queryKind) {
+      const rowKind = (row.config as { queryKind?: string } | null)?.queryKind ?? 'name'
+      if (rowKind !== queryKind) continue
+    }
     results.set(targetId, {
       brandId: targetId,
       id: typeof row.id === 'string' ? row.id : undefined,

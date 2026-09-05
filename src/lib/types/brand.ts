@@ -71,6 +71,11 @@ export type Brand = {
     height: number | null;
   } | null;
   status: BrandStatus;
+  /**
+   * Why a hidden brand is hidden (e.g. `no_purchase_channel`). Null on every
+   * approved brand; cleared when a brand is approved or un-hidden.
+   */
+  hiddenReason?: string | null;
   categorySlug?: string | null;
   city: string | null;
   categoryLabel: string | null;

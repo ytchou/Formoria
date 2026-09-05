@@ -118,6 +118,11 @@ export function parsePhaseResults(value: Json): PhaseResult[] {
         ...(isPlainObject(item.productsVerification) && JSON.stringify(item.productsVerification).length <= 8192 ? { productsVerification: item.productsVerification as Record<string, unknown> } : {}),
         ...(Array.isArray(item.revokedColumns) ? { revokedColumns: item.revokedColumns.filter((c: unknown): c is string => typeof c === 'string') } : {}),
         ...(imagePool ? { imagePool } : {}),
+        // Passed through whole under the 8 KB cap, including the DEV-1702
+        // `sources` / `evidence` / `instagramFollowers` fields. A row written
+        // before DEV-1702 carries none of them, and must still parse: a
+        // missing `sources` reads as "no evidence recorded", never as
+        // "every source answered absent".
         ...(isPlainObject(item.linkExpansion) && JSON.stringify(item.linkExpansion).length <= 8192 ? { linkExpansion: item.linkExpansion as PhaseResult["linkExpansion"] } : {}),
       },
     ];

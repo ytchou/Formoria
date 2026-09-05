@@ -687,6 +687,13 @@ export function brandToDomain(row: BrandRowWithJoins): Brand {
     heroImageMetadata: null,
     // status is text in the DB — cast to BrandStatus at the boundary
     status: row.status as Brand["status"],
+    /*
+     * Carried by BRAND_COLUMN_LIST (getBrandById and every full-brand
+     * projection), and deliberately omitted from DIRECTORY_BRAND_COLUMN_LIST
+     * so public card queries ship no extra payload. The `?? null` keeps those
+     * narrow projections well-formed rather than undefined.
+     */
+    hiddenReason: row.hidden_reason ?? null,
     categorySlug: row.category ?? null,
     categoryLabel:
       deriveCategoryLabel(row.category ?? "") ?? row.category ?? null,
@@ -1026,6 +1033,7 @@ export const BRAND_COLUMN_LIST = [
   "reputation_summary",
   "source",
   "is_demo",
+  "hidden_reason",
 ] as const;
 
 /**
@@ -1033,6 +1041,8 @@ export const BRAND_COLUMN_LIST = [
  * directory structured data never render. Every one of them is serialized into
  * the RSC payload once per card, so a 12-card page ships 12 copies for nothing;
  * `draft_data` additionally leaks unpublished editorial content to the client.
+ * `hidden_reason` is moderation state: directory queries only ever return
+ * approved brands, so it is null on every card row.
  * Detail paths keep the full projection — narrow only list/card queries.
  */
 export const DIRECTORY_OMITTED_COLUMNS = [
@@ -1040,9 +1050,10 @@ export const DIRECTORY_OMITTED_COLUMNS = [
   "draft_data",
   "reputation_summary",
   "material",
+  "hidden_reason",
 ] as const;
 
-/** Columns hydrated by directory/card queries: the full list minus the four above. */
+/** Columns hydrated by directory/card queries: the full list minus those above. */
 export const DIRECTORY_BRAND_COLUMN_LIST = BRAND_COLUMN_LIST.filter(
   (column) =>
     !(DIRECTORY_OMITTED_COLUMNS as readonly string[]).includes(column),
@@ -2295,6 +2306,65 @@ export async function getBrandById(id: string): Promise<Brand> {
 
   if (error || !data) throw new NotFoundError("Brand", id, { cause: error });
   return brandToDomainWithImages(supabase, data);
+}
+
+export type HideBrandWithReasonDeps = {
+  getBrandById: (id: string) => Promise<Brand>;
+  updateBrand: (
+    id: string,
+    data: BrandWriteInput,
+    actor: BrandWriteActor,
+  ) => Promise<{ skipped: SkippedBrandField[] }>;
+};
+
+export type HideBrandWithReasonResult = {
+  ok: boolean;
+  changed: boolean;
+  reason?: string;
+  slug: string;
+};
+
+/**
+ * Hides a brand and records WHY, writing only through `updateBrand` so the
+ * field-protection and audit path is the same one every other brand write
+ * takes. An already-hidden brand is left alone: its existing `hidden_reason`
+ * is the first reason it was hidden for, and overwriting it would lose that.
+ *
+ * A `status` entry in `skipped` means field protection refused the write (an
+ * owner-locked status), so the brand is still visible — the caller must treat
+ * that as a failure rather than a hide.
+ *
+ * Collaborators are injectable so the decision logic is testable without a
+ * Supabase client; production callers use the defaults.
+ */
+export async function hideBrandWithReason(
+  brandId: string,
+  reason: string,
+  actor: BrandWriteActor,
+  deps: HideBrandWithReasonDeps = { getBrandById, updateBrand },
+): Promise<HideBrandWithReasonResult> {
+  const brand = await deps.getBrandById(brandId);
+
+  if (brand.status === "hidden") {
+    return { ok: true, changed: false, slug: brand.slug };
+  }
+
+  const result = await deps.updateBrand(
+    brandId,
+    { status: "hidden", hiddenReason: reason },
+    actor,
+  );
+
+  if (result.skipped.some((entry) => entry.field === "status")) {
+    return {
+      ok: false,
+      changed: false,
+      reason: "status_write_skipped",
+      slug: brand.slug,
+    };
+  }
+
+  return { ok: true, changed: true, slug: brand.slug };
 }
 
 /**
