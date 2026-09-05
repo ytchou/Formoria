@@ -2670,6 +2670,108 @@ describe("link expansion, SERP search, and no-purchase-channel gate", () => {
     });
   });
 
+  /**
+   * `onPatch` fires with the fully merged patch immediately before persist, so
+   * it is the only place a dry run can see the VALUES that would be written.
+   * Assigning an adoption onto the in-memory brand is not persistence.
+   */
+  function capturePatches() {
+    const patches: Array<Record<string, unknown>> = [];
+    return {
+      patches,
+      onPatch: (event: { patch: Record<string, unknown> }) => {
+        patches.push(event.patch);
+      },
+    };
+  }
+
+  it("name_serp_adoption_is_persisted_in_expansion_patch", async () => {
+    const PINKOI = "https://www.pinkoi.com/store/1woof";
+    const target = submission({
+      id: "sub-name-serp-persist",
+      brand_name: "1woof Studio",
+      social_instagram: "https://www.instagram.com/1woof",
+    });
+
+    mocks.collectHubUrls.mockReturnValue([]);
+    mocks.expandLinkHubs.mockResolvedValue(emptyHubExpansion());
+    stubSerpCalls({ name: { urls: [PINKOI] } });
+    mocks.hasPurchaseChannel.mockReturnValueOnce(false).mockReturnValue(true);
+
+    const captured = capturePatches();
+    await runEnrich(
+      {
+        target: "submissions",
+        submissionIds: [target.id],
+        dryRun: true,
+        phases: FULL_PHASES,
+        onProgress: () => {},
+        onPatch: captured.onPatch,
+      },
+      fakeSupabase([target]),
+    );
+
+    // The by-name query answered, so the handle credit is never spent.
+    expect(serpCalls("handle")).toHaveLength(0);
+    const acquireInput = mocks.runAcquirePhase.mock.calls[0][0] as {
+      brand: Record<string, unknown>;
+    };
+    expect(acquireInput.brand.purchase_pinkoi).toBe(PINKOI);
+    // ...and the same URL survives into the patch that is written back.
+    expect(captured.patches).toHaveLength(1);
+    expect(captured.patches[0]?.purchase_pinkoi).toBe(PINKOI);
+  });
+
+  it("handle_serp_adoption_is_persisted_in_expansion_patch", async () => {
+    const SHOPEE =
+      "https://shopee.tw/91art.studio-just-ten-i.157651041.19693851041";
+    const target = submission({
+      id: "sub-handle-serp-persist",
+      brand_name: "91art studio",
+      social_instagram: "https://www.instagram.com/91art.studio",
+    });
+
+    mocks.collectHubUrls.mockReturnValue([]);
+    mocks.expandLinkHubs.mockResolvedValue(emptyHubExpansion());
+    stubSerpCalls({
+      name: { urls: ["https://news.example.com/story"] },
+      handle: {
+        urls: [SHOPEE],
+        entries: [{ title: "91art.studio", link: SHOPEE }],
+      },
+    });
+    mocks.hasPurchaseChannel.mockReturnValueOnce(false).mockReturnValue(true);
+
+    const captured = capturePatches();
+    await runEnrich(
+      {
+        target: "submissions",
+        submissionIds: [target.id],
+        dryRun: true,
+        phases: FULL_PHASES,
+        onProgress: () => {},
+        onPatch: captured.onPatch,
+      },
+      fakeSupabase([target]),
+    );
+
+    const acquireInput = mocks.runAcquirePhase.mock.calls[0][0] as {
+      brand: Record<string, unknown>;
+      linkExpansion?: {
+        adopted: Array<{ field: string; url: string; source: string }>;
+      };
+    };
+    expect(acquireInput.linkExpansion?.adopted).toContainEqual({
+      field: "purchaseShopee",
+      url: SHOPEE,
+      source: "serp_handle",
+    });
+    // The 2026-09-06 proof run adopted exactly this store, traced it, and then
+    // wrote a submission that had no `purchase_shopee` at all.
+    expect(captured.patches).toHaveLength(1);
+    expect(captured.patches[0]?.purchase_shopee).toBe(SHOPEE);
+  });
+
   it("handle_serp_skipped_when_no_instagram_handle", async () => {
     const target = submission({
       id: "sub-no-handle",

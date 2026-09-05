@@ -1872,11 +1872,30 @@ export async function runEnrich(
           // gated on this value, and nothing but an adoption can change it.
           let hasChannel = hasPurchaseChannel(brand);
 
+          /**
+           * Merge an adoption into the patch that is actually PERSISTED.
+           * Assigning onto `brand` alone only survives inside this run: the
+           * refresh submission is written from `patch`, so a SERP-found shop
+           * that never reached it was silently dropped (DEV-1702 proof run).
+           * An earlier source owns its column — nothing here displaces a value
+           * already in the patch.
+           */
+          const mergeIntoPatch = (extracted: Partial<BrandFlatLinkColumns>) => {
+            const next: Record<string, unknown> = { ...patch };
+            for (const [column, value] of Object.entries(extracted)) {
+              if (typeof value !== 'string') continue;
+              if (hasLinkValue(next[column] as string | null)) continue;
+              next[column] = value;
+            }
+            patch = next as Partial<BrandFlatLinkColumns>;
+          };
+
           /** Adopt SERP URLs onto the brand and say what that answered. */
           const applySerpUrls = (urls: string[]): SourceOutcome => {
             const extracted = extractLinksFromUrls(urls, brandName);
             if (Object.keys(extracted).length === 0) return 'absent';
             Object.assign(brand, extracted);
+            mergeIntoPatch(extracted);
             hasChannel = hasPurchaseChannel(brand);
             return hasChannel ? 'found' : 'absent';
           };
@@ -2037,6 +2056,7 @@ export async function runEnrich(
                 const extracted = extractLinksFromUrls(platformLinks);
                 if (Object.keys(extracted).length > 0) {
                   Object.assign(brand, extracted);
+                  mergeIntoPatch(extracted);
                   for (const [column, value] of Object.entries(extracted)) {
                     if (typeof value !== 'string') continue;
                     const field = LINK_FIELDS.find(
@@ -2104,6 +2124,9 @@ export async function runEnrich(
                     const existing = (brand as Record<string, unknown>)[column];
                     if (hasLinkValue(existing as string | null)) continue;
                     (brand as Record<string, unknown>)[column] = value;
+                    const adoption: Partial<BrandFlatLinkColumns> = {};
+                    (adoption as Record<string, unknown>)[column] = value;
+                    mergeIntoPatch(adoption);
                     adoptedLinks.push({
                       field: field as LinkField,
                       value,
