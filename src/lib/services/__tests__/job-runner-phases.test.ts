@@ -160,4 +160,59 @@ describe("finalizeSuccessfulJob", () => {
     expect(dryDeps.reportChannelVerdicts).not.toHaveBeenCalled();
     expect(drySummary.noChannelRejected).toBeUndefined();
   });
+
+  /**
+   * The verdict pass runs after every target has already been enriched and
+   * reported. A failure inside it must not cost the job its `completed` row:
+   * that row is the only record of the enrichment, and a `failed` job gets
+   * re-run from the top.
+   */
+  it("verdict_pass_failure_does_not_fail_the_job", async () => {
+    const calls: string[] = [];
+    const wired = deps(calls);
+    wired.applyNoPurchaseChannelVerdicts = vi.fn(async () => {
+      throw new Error("PostgREST timeout");
+    });
+
+    const summary = await finalizeSuccessfulJob(
+      job(),
+      "worker-token",
+      { startedAt: Date.now(), isLeaseLost: () => false },
+      wired,
+    );
+
+    expect(wired.finalizeCurationJob).toHaveBeenCalledWith(
+      "job-1",
+      "worker-token",
+      expect.objectContaining({ status: "completed" }),
+    );
+    expect(calls).toEqual(["markUnreportedTargetsSkipped", "finalizeCurationJob"]);
+    expect(summary.noChannelRejected).toBeUndefined();
+    expect(summary.noChannelHidden).toBeUndefined();
+    expect(wired.reportChannelVerdicts).not.toHaveBeenCalled();
+  });
+
+  /**
+   * The lease check throws BEFORE the pass, never after: a worker that no
+   * longer owns the job must not hide brands and reject submissions another
+   * worker is already re-running.
+   */
+  it("lease_lost_before_verdicts_prevents_every_verdict_write", async () => {
+    const calls: string[] = [];
+    const wired = deps(calls);
+
+    await expect(
+      finalizeSuccessfulJob(
+        job(),
+        "worker-token",
+        { startedAt: Date.now(), isLeaseLost: () => true },
+        wired,
+      ),
+    ).rejects.toThrow("Job lease was lost before completion");
+
+    expect(wired.applyNoPurchaseChannelVerdicts).not.toHaveBeenCalled();
+    expect(wired.finalizeCurationJob).not.toHaveBeenCalled();
+    expect(wired.reportChannelVerdicts).not.toHaveBeenCalled();
+    expect(calls).toEqual(["markUnreportedTargetsSkipped"]);
+  });
 });

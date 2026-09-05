@@ -397,7 +397,7 @@ describe("wave collapse — single per-brand loop", () => {
     mocks.scrapeBrandUrls.mockResolvedValue(scrapeResult());
     // Link expansion defaults: no hubs, has purchase channel
     mocks.collectHubUrls.mockReturnValue([]);
-    mocks.expandLinkHubs.mockResolvedValue({ hubsFetched: 0, adopted: [], scraped: {} });
+    mocks.expandLinkHubs.mockResolvedValue({ hubsFetched: 0, fetchFailures: 0, adopted: [], scraped: {} });
     mocks.hasPurchaseChannel.mockReturnValue(true);
     mocks.searchBrandUrls.mockResolvedValue([]);
     mocks.batchSearchBrandsWithSnippets.mockResolvedValue(new Map());
@@ -667,7 +667,7 @@ describe("Gate C and the LLM circuit breaker", () => {
     mocks.batchSearchBrandImages.mockResolvedValue(new Map());
     mocks.scrapeBrandUrls.mockResolvedValue(scrapeResult());
     mocks.collectHubUrls.mockReturnValue([]);
-    mocks.expandLinkHubs.mockResolvedValue({ hubsFetched: 0, adopted: [], scraped: {} });
+    mocks.expandLinkHubs.mockResolvedValue({ hubsFetched: 0, fetchFailures: 0, adopted: [], scraped: {} });
     mocks.hasPurchaseChannel.mockReturnValue(true);
     mocks.searchBrandUrls.mockResolvedValue([]);
     mocks.batchSearchBrandsWithSnippets.mockResolvedValue(new Map());
@@ -849,7 +849,7 @@ describe("satisfaction skipping", () => {
     mocks.batchSearchBrandImages.mockResolvedValue(new Map());
     mocks.scrapeBrandUrls.mockResolvedValue(scrapeResult());
     mocks.collectHubUrls.mockReturnValue([]);
-    mocks.expandLinkHubs.mockResolvedValue({ hubsFetched: 0, adopted: [], scraped: {} });
+    mocks.expandLinkHubs.mockResolvedValue({ hubsFetched: 0, fetchFailures: 0, adopted: [], scraped: {} });
     mocks.hasPurchaseChannel.mockReturnValue(true);
     mocks.searchBrandUrls.mockResolvedValue([]);
     mocks.batchSearchBrandsWithSnippets.mockResolvedValue(new Map());
@@ -1169,7 +1169,7 @@ describe("editorial agent integration", () => {
     mocks.scrapeBrandUrls.mockResolvedValue(scrapeResult());
     mocks.detectBrandsBatch.mockResolvedValue(detectBatch(new Map()));
     mocks.collectHubUrls.mockReturnValue([]);
-    mocks.expandLinkHubs.mockResolvedValue({ hubsFetched: 0, adopted: [], scraped: {} });
+    mocks.expandLinkHubs.mockResolvedValue({ hubsFetched: 0, fetchFailures: 0, adopted: [], scraped: {} });
     mocks.hasPurchaseChannel.mockReturnValue(true);
     mocks.searchBrandUrls.mockResolvedValue([]);
     mocks.batchSearchBrandsWithSnippets.mockResolvedValue(new Map());
@@ -1404,7 +1404,7 @@ describe("two loops with a batched names call between", () => {
     mocks.detectBrandsBatch.mockResolvedValue(detectBatch(new Map()));
     // Link expansion defaults: no hubs, has purchase channel
     mocks.collectHubUrls.mockReturnValue([]);
-    mocks.expandLinkHubs.mockResolvedValue({ hubsFetched: 0, adopted: [], scraped: {} });
+    mocks.expandLinkHubs.mockResolvedValue({ hubsFetched: 0, fetchFailures: 0, adopted: [], scraped: {} });
     mocks.hasPurchaseChannel.mockReturnValue(true);
     mocks.searchBrandUrls.mockResolvedValue([]);
     mocks.batchSearchBrandsWithSnippets.mockResolvedValue(new Map());
@@ -1993,7 +1993,7 @@ describe("link expansion, SERP search, and no-purchase-channel gate", () => {
     mocks.detectBrandsBatch.mockResolvedValue(detectBatch(new Map()));
     // Defaults: no hubs, has channel (so the gate does not fire by default)
     mocks.collectHubUrls.mockReturnValue([]);
-    mocks.expandLinkHubs.mockResolvedValue({ hubsFetched: 0, adopted: [], scraped: {} });
+    mocks.expandLinkHubs.mockResolvedValue({ hubsFetched: 0, fetchFailures: 0, adopted: [], scraped: {} });
     mocks.hasPurchaseChannel.mockReturnValue(true);
     mocks.searchBrandUrls.mockResolvedValue([]);
     mocks.batchSearchBrandsWithSnippets.mockResolvedValue(new Map());

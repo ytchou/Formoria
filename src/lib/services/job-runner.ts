@@ -223,6 +223,14 @@ const defaultFinalizeDeps: JobFinalizeDeps = {
  * Verdicts are skipped on a dry run (a dry run must never write), on a
  * non-enrich operation, and when the lease is already lost — a worker that no
  * longer owns the job must not reject submissions another worker is re-running.
+ * The lease check therefore throws BEFORE the pass, never after: a throw that
+ * follows committed hides and rejects would skip both the job row and the
+ * Slack summary, leaving destructive writes with no audit trail.
+ *
+ * The verdict pass is also failure-isolated. It runs after every target has
+ * already been enriched and reported, so a PostgREST error inside it must not
+ * turn a finished job into a `failed` one that the scheduler then re-runs
+ * from the top.
  */
 export async function finalizeSuccessfulJob(
   job: CurationJob,
@@ -232,12 +240,25 @@ export async function finalizeSuccessfulJob(
 ): Promise<EnrichmentSummary> {
   await deps.markUnreportedTargetsSkipped(job.id, workerToken);
 
+  if (context.isLeaseLost()) {
+    throw new Error("Job lease was lost before completion");
+  }
+
   let verdict: ChannelVerdictResult | null = null;
   if (!job.dry_run && job.operation === "enrich" && !context.isLeaseLost()) {
-    verdict = await deps.applyNoPurchaseChannelVerdicts({
-      jobId: job.id,
-      onProgress: logEnrichmentProgress,
-    });
+    try {
+      verdict = await deps.applyNoPurchaseChannelVerdicts({
+        jobId: job.id,
+        onProgress: logEnrichmentProgress,
+      });
+    } catch (error) {
+      verdict = null;
+      logEnrichmentProgress(
+        `[NO-CHANNEL-VERDICT] pass failed: ${
+          error instanceof Error ? error.message : String(error)
+        }`,
+      );
+    }
   }
 
   const targets = await deps.listCurationJobTargets(job.id);
@@ -252,10 +273,6 @@ export async function finalizeSuccessfulJob(
         }
       : {}),
   };
-
-  if (context.isLeaseLost()) {
-    throw new Error("Job lease was lost before completion");
-  }
 
   const completed = await deps.finalizeCurationJob(job.id, workerToken, {
     status: "completed",

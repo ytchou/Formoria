@@ -53,7 +53,7 @@ import {
   isUsableHandle,
 } from "./enrich-phases/scraper/search";
 import type { BrandSearchEntry } from "./enrich-phases/scraper/types";
-import { INSTAGRAM_PROFILE_RE } from "./enrich-phases/scraper/parse/extractors";
+import { extractInstagramHandle } from "./enrich-phases/scraper/parse/extractors";
 import {
   getLatestSearchResults,
   isFreshSearchResult,
@@ -287,15 +287,13 @@ type HandleSearchResult = ReturnType<
  *
  * Only a profile yields a handle — the first segment of a post permalink is
  * `p` or `reel`, and searching for `"p"` would burn a Serper credit on noise.
- * `INSTAGRAM_PROFILE_RE` owns that reserved-path list, so it is reused rather
- * than restated here.
+ * `extractInstagramHandle` owns the host anchor and the reserved-path list, so
+ * this stays a name for the same answer rather than a second copy of it.
  */
 export function instagramHandleFromUrl(
   url: string | null | undefined,
 ): string | null {
-  if (typeof url !== "string" || url.length === 0) return null;
-  if (!INSTAGRAM_PROFILE_RE.test(url)) return null;
-  return /instagram\.com\/([^/?#]+)\/?$/i.exec(url)?.[1] ?? null;
+  return extractInstagramHandle(url);
 }
 
 const UNCONSULTED_SOURCES: ChannelSources = {

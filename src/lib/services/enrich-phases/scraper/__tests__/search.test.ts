@@ -160,4 +160,21 @@ describe('handle-anchored search helpers', () => {
       'https://shopee.tw/listing',
     ])
   })
+
+  it('filter_entries_by_handle_matches_separator_handles', () => {
+    const entries: BrandSearchEntry[] = [
+      { title: 'Shop page', link: 'https://shopee.tw/shop/1.wo_of' },
+      { title: 'Instagram profile', link: 'https://www.instagram.com/1.wo_of/' },
+      { title: '1.wo_of handmade goods', link: 'https://example.com/pages/studio' },
+      { title: 'Other store', link: 'https://shopee.tw/shop/1woofx' },
+    ]
+
+    const kept = filterEntriesByHandle(entries, '1.wo_of')
+
+    expect(kept.map((entry) => entry.link)).toEqual([
+      'https://shopee.tw/shop/1.wo_of',
+      'https://www.instagram.com/1.wo_of/',
+      'https://example.com/pages/studio',
+    ])
+  })
 })

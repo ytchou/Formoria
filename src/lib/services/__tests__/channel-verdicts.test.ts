@@ -195,6 +195,45 @@ describe("selectVerdictTargets", () => {
     expect(targets.map((target) => target.submissionId)).toEqual(["sub-good"]);
   });
 
+  /**
+   * A submission deleted between the two SELECTs and a submission that is
+   * simply no longer pending both drop out — but only the first is an anomaly,
+   * and it is the one that has to leave a trace.
+   */
+  it("missing_submission_warns_while_non_pending_stays_silent", async () => {
+    const warnings: string[] = [];
+    const supabase = fakeSupabase({
+      curation_job_targets: [
+        targetRow({
+          id: "t-gone",
+          target_id: "sub-gone",
+          brand_slug: "brand-gone",
+        }),
+        targetRow({
+          id: "t-rejected",
+          target_id: "sub-rejected",
+          brand_slug: "brand-rejected",
+        }),
+      ],
+      brand_submissions: [
+        submissionRow({ id: "sub-rejected", status: "rejected" }),
+      ],
+    });
+
+    const targets = await selectVerdictTargets({
+      jobId: "job-1",
+      errorPrefix: NO_PURCHASE_CHANNEL_PREFIX,
+      requireConclusive: true,
+      client: supabase,
+      onWarn: (message) => warnings.push(message),
+    });
+
+    expect(targets).toEqual([]);
+    expect(warnings).toEqual([
+      "[NO-CHANNEL-VERDICT] submission sub-gone not found for target brand-gone",
+    ]);
+  });
+
   it("conclusive_is_recomputed_from_sources_not_stored_flag", async () => {
     const linkExpansion = conclusiveTrace({
       sources: { ...CONCLUSIVE_SOURCES, threads: "unknown" },
@@ -322,6 +361,47 @@ describe("applyNoPurchaseChannelVerdicts", () => {
     expect(result.targets).toEqual([
       { slug: "brand-a", action: "skipped", reason: "status_write_skipped" },
     ]);
+  });
+
+  /**
+   * The hide has already committed when the reject throws. Counting the target
+   * as merely skipped would hide a brand with no count, no revalidation and no
+   * line in the Slack summary — a silent delisting.
+   */
+  it("hide_recorded_when_reject_fails_after_hide", async () => {
+    const progress: string[] = [];
+    const requestPublicBrandRevalidation = vi.fn(async () => ({ ok: true }));
+
+    const result = await applyNoPurchaseChannelVerdicts({
+      jobId: "job-1",
+      onProgress: (message) => progress.push(message),
+      reportOnly: false,
+      deps: deps({
+        selectVerdictTargets: vi.fn(async () => [
+          verdictTarget({ intent: "refresh", brandId: "brand-uuid" }),
+        ]),
+        rejectSubmission: vi.fn(async () => {
+          throw new Error("P0002: submission is not pending");
+        }),
+        requestPublicBrandRevalidation,
+      }),
+    });
+
+    expect(result.noChannelHidden).toBe(1);
+    expect(result.verdictSkipped).toBe(1);
+    expect(result.hideFailed).toBe(0);
+    expect(requestPublicBrandRevalidation).toHaveBeenCalledWith(["brand-a"]);
+    expect(result.targets).toEqual([
+      {
+        slug: "brand-a",
+        action: "hidden",
+        reason: "reject failed after hide: P0002: submission is not pending",
+      },
+    ]);
+    expect(progress).toContain("[NO-CHANNEL-HIDE] brand-a");
+    expect(progress).toContain(
+      "[NO-CHANNEL-VERDICT] reject failed after hide brand-a: P0002: submission is not pending",
+    );
   });
 
   it("reject_error_is_isolated_per_target", async () => {

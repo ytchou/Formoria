@@ -3,6 +3,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { requestPublicBrandRevalidation } from "@/lib/cache/revalidate-client";
 import { CURATION_AGENT_REVIEWER_ID } from "@/lib/constants/curation";
 import { hideBrandWithReason } from "@/lib/services/brands";
+import { EVIDENCE_SOURCE_KEYS } from "@/lib/services/enrich-phases/link-expansion";
 import { parsePhaseResults } from "@/lib/services/phase-results";
 import { rejectSubmission } from "@/lib/services/submissions";
 import type { Database } from "@/lib/supabase/database.types";
@@ -42,8 +43,6 @@ export const NO_PURCHASE_CHANNEL_PREFIX = "no_purchase_channel:";
 
 const NO_PURCHASE_CHANNEL_REASON: DenialReason = "no_purchase_channel";
 
-const SOURCE_KEYS = ["hubs", "threads", "serpName", "serpHandle"] as const;
-
 const SUBMISSION_CHUNK = 200;
 
 const TARGET_PAGE_SIZE = 1_000;
@@ -66,6 +65,8 @@ export type SelectVerdictTargetsInput = {
   errorPrefix: string;
   requireConclusive: boolean;
   client?: SupabaseClient<Database>;
+  /** Where a dropped-target warning goes. Defaults to `console.warn`. */
+  onWarn?: (message: string) => void;
 };
 
 export type ChannelVerdictAction =
@@ -122,6 +123,10 @@ const defaultDeps: ChannelVerdictDeps = {
  * A missing `sources` object means the trace predates the evidence enum, which
  * reads as inconclusive — a pipeline that cannot say what it checked may not
  * delist a brand.
+ *
+ * The key list is imported from the writer (`computeEvidence`) rather than
+ * copied: a fifth source added there must never leave the finalizer judging
+ * conclusiveness on four.
  */
 export function isConclusive(
   linkExpansion: PhaseResult["linkExpansion"] | undefined,
@@ -129,7 +134,7 @@ export function isConclusive(
   const sources = linkExpansion?.sources;
   if (!sources) return false;
 
-  return SOURCE_KEYS.every((key) => {
+  return EVIDENCE_SOURCE_KEYS.every((key) => {
     const outcome = sources[key];
     return typeof outcome === "string" && outcome !== "unknown";
   });
@@ -167,8 +172,10 @@ export async function selectVerdictTargets({
   errorPrefix,
   requireConclusive,
   client,
+  onWarn,
 }: SelectVerdictTargetsInput): Promise<VerdictTarget[]> {
   const supabase = client ?? createServiceClient();
+  const warn = onWarn ?? ((message: string) => console.warn(message));
 
   // Paged explicitly: PostgREST caps a single response at `db-max-rows`, and
   // the script path (no job id) reads every skipped target ever written.
@@ -245,7 +252,20 @@ export async function selectVerdictTargets({
 
   return candidates.flatMap(({ row, submissionId, gateError }) => {
     const submission = submissions.get(submissionId);
-    if (!submission || submission.status !== "pending") return [];
+    // A row that is no longer pending is an ordinary, expected drop. A row
+    // that is GONE means the submission was deleted between the two SELECTs —
+    // same outcome, but it deserves an audit trail.
+    if (!submission) {
+      const targetSlug =
+        typeof row.brand_slug === "string" && row.brand_slug
+          ? row.brand_slug
+          : String(row.brand_name ?? submissionId);
+      warn(
+        `[NO-CHANNEL-VERDICT] submission ${submissionId} not found for target ${targetSlug}`,
+      );
+      return [];
+    }
+    if (submission.status !== "pending") return [];
 
     const brandName =
       typeof submission.brand_name === "string"
@@ -285,7 +305,10 @@ function errorText(error: unknown): string {
  * continues, because one submission that changed state under the job must not
  * cost the rest of the cohort its verdict. A refresh whose hide failed is left
  * pending on purpose — rejecting the refresh of a brand that is still public
- * would strand the brand with no channel and no open review.
+ * would strand the brand with no channel and no open review. The mirror case,
+ * a hide that committed before its reject threw, still counts as a hide and
+ * still revalidates: the delisting happened, and only the refresh is left for
+ * a human.
  */
 export async function applyNoPurchaseChannelVerdicts({
   jobId,
@@ -355,17 +378,34 @@ export async function applyNoPurchaseChannelVerdicts({
           continue;
         }
 
-        await deps.rejectSubmission(
-          target.submissionId,
-          CURATION_AGENT_REVIEWER_ID,
-          NO_PURCHASE_CHANNEL_REASON,
-          note,
-        );
-
+        // The hide has COMMITTED. Record it before the reject is attempted:
+        // if the reject throws, the outer catch would otherwise count the
+        // target as merely skipped, leaving a brand hidden with no count, no
+        // revalidation, and no line in the Slack summary.
         result.noChannelHidden += 1;
         hiddenSlugs.push(hide.slug || target.slug);
-        result.targets.push({ slug: target.slug, action: "hidden" });
         report(`[NO-CHANNEL-HIDE] ${target.slug}`);
+
+        try {
+          await deps.rejectSubmission(
+            target.submissionId,
+            CURATION_AGENT_REVIEWER_ID,
+            NO_PURCHASE_CHANNEL_REASON,
+            note,
+          );
+          result.targets.push({ slug: target.slug, action: "hidden" });
+        } catch (error) {
+          // The brand IS hidden; only its refresh stays pending for a human.
+          result.verdictSkipped += 1;
+          result.targets.push({
+            slug: target.slug,
+            action: "hidden",
+            reason: `reject failed after hide: ${errorText(error)}`,
+          });
+          report(
+            `[NO-CHANNEL-VERDICT] reject failed after hide ${target.slug}: ${errorText(error)}`,
+          );
+        }
         continue;
       }
 

@@ -8,6 +8,7 @@ import {
 } from "@/lib/services/curation-operations";
 import type { EnrichmentSummary } from "@/lib/services/enrichment-logger";
 import { routes } from "@/lib/routes";
+import { getSiteUrl } from "@/lib/site-url";
 
 /**
  * Curation job alerting.
@@ -203,9 +204,9 @@ const VERDICT_ACTION_LABELS: Record<string, string> = {
 };
 
 function jobLink(jobId: string): string {
-  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL?.trim().replace(/\/$/, "");
-  const path = routes.admin.job(jobId);
-  return siteUrl ? `${siteUrl}${path}` : path;
+  // `getSiteUrl` is the one place the site origin is resolved; a bare relative
+  // path here renders as an unclickable link in Slack.
+  return `${getSiteUrl()}${routes.admin.job(jobId)}`;
 }
 
 export async function reportChannelVerdicts(

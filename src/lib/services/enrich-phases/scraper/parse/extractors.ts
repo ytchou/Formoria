@@ -154,13 +154,23 @@ export function unique(values: string[]): string[] {
  * `lib/services/link-enrichment.ts`, which classifies URLs arriving from search
  * rather than from a scraped page. The two modules stay separate, but they must
  * not disagree about what counts as a profile.
+ *
+ * The host is ANCHORED: it must open the URL (optionally behind subdomain
+ * labels) or sit behind a dot. Without that anchor `not-instagram.com/someuser`
+ * read as an Instagram profile, which spends a paid handle search and derives a
+ * Threads URL for a stranger.
  */
+const HOST_ANCHOR = '(?:^(?:https?:)?\\/\\/(?:[a-z0-9-]+\\.)*|\\.)'
+
 function socialProfilePattern(
   hostPattern: string,
   { handlePrefix = '', reservedPaths = [] }: { handlePrefix?: string; reservedPaths?: string[] } = {}
 ): RegExp {
   const reserved = reservedPaths.length > 0 ? `(?!(?:${reservedPaths.join('|')})(?:[/?#]|$))` : ''
-  return new RegExp(`${hostPattern}\\/${handlePrefix}${reserved}[^/?#]+\\/?$`, 'i')
+  return new RegExp(
+    `${HOST_ANCHOR}${hostPattern}\\/${handlePrefix}${reserved}[^/?#]+\\/?$`,
+    'i'
+  )
 }
 
 export const INSTAGRAM_PROFILE_RE = socialProfilePattern('instagram\\.com', {
@@ -176,6 +186,23 @@ const THREADS_PROFILE_RE = socialProfilePattern('threads\\.(?:net|com)', { handl
 const FACEBOOK_PROFILE_RE = socialProfilePattern('facebook\\.com', {
   reservedPaths: ['docs', 'share', 'sharer', 'help', 'policies', 'terms', 'privacy', 'login'],
 })
+
+const INSTAGRAM_HANDLE_RE = /instagram\.com\/([^/?#]+)\/?$/i
+
+/**
+ * The handle an Instagram PROFILE url carries, or null.
+ *
+ * Only a profile yields a handle: a post permalink's first path segment is `p`
+ * or `reel`, and treating that as a handle would search for, and link to, the
+ * wrong thing. `INSTAGRAM_PROFILE_RE` owns both the host anchor and the
+ * reserved-path list, so every caller inherits the same answer — this is the
+ * one implementation.
+ */
+export function extractInstagramHandle(url: string | null | undefined): string | null {
+  if (typeof url !== 'string' || url.length === 0) return null
+  if (!INSTAGRAM_PROFILE_RE.test(url)) return null
+  return INSTAGRAM_HANDLE_RE.exec(url)?.[1] ?? null
+}
 
 export function extractSocialLinks($: cheerio.CheerioAPI) {
   let instagram: string | null = null

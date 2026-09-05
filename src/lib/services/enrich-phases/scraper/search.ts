@@ -106,23 +106,36 @@ export function isUsableHandle(handle: string): boolean {
  */
 export const TITLE_MATCH_MIN_HANDLE_LENGTH = 5
 
-function tokenize(text: string): Set<string> {
-  return new Set(text.toLowerCase().split(/[^a-z0-9]+/).filter(Boolean))
-}
-
+/**
+ * A URL's structural units: hostname labels (split on `.`) and pathname
+ * segments (split on `/`), each normalized AS A WHOLE.
+ *
+ * Splitting on every non-alphanumeric would be wrong here. A handle carrying a
+ * dot or an underscore — `1.wo_of` — normalizes to `1woof`, while splitting the
+ * path segment that spells it produces `1`, `wo`, `of` and the handle would
+ * never match its own shop URL. Normalizing the whole segment keeps the two
+ * sides of the comparison in the same form.
+ */
 function urlTokens(link: string): Set<string> {
   try {
     const parsed = new URL(link)
-    return tokenize(`${parsed.hostname} ${parsed.pathname}`)
+    const segments = [...parsed.hostname.split('.'), ...parsed.pathname.split('/')]
+    return new Set(segments.map(normalizeHandle).filter(Boolean))
   } catch {
     return new Set<string>()
   }
 }
 
+/** Free text's units: whitespace-delimited words, each normalized as a whole. */
+function textTokens(text: string): Set<string> {
+  return new Set(text.split(/\s+/).map(normalizeHandle).filter(Boolean))
+}
+
 /**
  * Keep the entries whose URL, title, or snippet carries the handle as a WHOLE
- * token. Substrings never match: `my1wostuff` is a different shop from `1wo`,
- * and adopting it would attach a purchase channel to the wrong brand.
+ * unit — one host label, one path segment, or one word. Substrings never match:
+ * `my1wostuff` is a different shop from `1wo`, and adopting it would attach a
+ * purchase channel to the wrong brand.
  */
 export function filterEntriesByHandle(
   entries: BrandSearchEntry[],
@@ -135,8 +148,8 @@ export function filterEntriesByHandle(
   return entries.filter((entry) => {
     if (urlTokens(entry.link).has(normalized)) return true
     if (!textMatchAllowed) return false
-    if (tokenize(entry.title ?? '').has(normalized)) return true
-    return tokenize(entry.snippet ?? '').has(normalized)
+    if (textTokens(entry.title ?? '').has(normalized)) return true
+    return textTokens(entry.snippet ?? '').has(normalized)
   })
 }
 

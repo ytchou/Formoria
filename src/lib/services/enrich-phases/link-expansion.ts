@@ -12,9 +12,9 @@
 import * as cheerio from 'cheerio'
 import { isLinkAggregatorHost, isThirdPartyDirectoryHost } from './scraper/input-detector'
 import {
+  extractInstagramHandle,
   extractPurchaseLinks,
   extractSocialLinks,
-  INSTAGRAM_PROFILE_RE,
 } from './scraper/parse/extractors'
 import {
   brandNameTokens,
@@ -332,10 +332,7 @@ export async function expandLinkHubs(
 export function deriveThreadsUrl(
   instagramUrl: string | null | undefined,
 ): string | null {
-  if (typeof instagramUrl !== 'string' || instagramUrl.length === 0) return null
-  if (!INSTAGRAM_PROFILE_RE.test(instagramUrl)) return null
-
-  const handle = /instagram\.com\/([^/?#]+)\/?$/i.exec(instagramUrl)?.[1]
+  const handle = extractInstagramHandle(instagramUrl)
   if (!handle) return null
 
   return `https://www.threads.com/@${handle}`
@@ -474,7 +471,7 @@ export async function expandThreadsBio(
 // Evidence
 // ---------------------------------------------------------------------------
 
-const EVIDENCE_SOURCE_KEYS = [
+export const EVIDENCE_SOURCE_KEYS = [
   'hubs',
   'threads',
   'serpName',

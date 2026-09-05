@@ -247,6 +247,9 @@ describe('deriveThreadsUrl', () => {
     expect(deriveThreadsUrl(null)).toBeNull()
     expect(deriveThreadsUrl(undefined)).toBeNull()
     expect(deriveThreadsUrl('https://example.com/coolbrand')).toBeNull()
+    // A look-alike host is not Instagram: deriving from it would fetch a
+    // stranger's Threads page.
+    expect(deriveThreadsUrl('https://not-instagram.com/someuser/')).toBeNull()
   })
 })
 

@@ -6,6 +6,7 @@ import {
   isFreshSearchResult,
   type SearchResultRow,
 } from '../search-results'
+import { loadCachedSearchResults } from '../enrich-phases/discover'
 
 function makeRow(overrides: Partial<SearchResultRow> = {}): SearchResultRow {
   return {
@@ -133,5 +134,19 @@ describe('getLatestSearchResults', () => {
     )
     expect(anyKind.get('brand-1')?.id).toBe('row-handle')
     expect(anyKind.get('brand-2')?.id).toBe('row-legacy')
+  })
+
+  // The detect phase classifies a brand from these snippets, so they must come
+  // from the brand-name query even though the handle row is newer.
+  it('load_cached_search_results_reads_the_name_row_not_the_newer_handle_row', async () => {
+    const cached = await loadCachedSearchResults(
+      ['brand-1', 'brand-2'],
+      'brand',
+      fakeSupabase(rows),
+    )
+
+    expect(cached.get('brand-1')?.auditResultId).toBe('row-name')
+    expect(cached.get('brand-1')?.urls).toEqual(['https://example.com/'])
+    expect(cached.get('brand-2')?.auditResultId).toBe('row-legacy')
   })
 })
