@@ -133,6 +133,70 @@ describe("audited LLM clients", () => {
     });
   });
 
+  // Agent turns go through the same hook: a tool-call response must land in
+  // brand_ai_results with its tool_calls payload, not an empty content row.
+  it("audited_client_writes_a_row_for_a_tool_turn", async () => {
+    const toolCalls = [
+      {
+        id: "call_1",
+        type: "function",
+        function: { name: "fetch_url", arguments: '{"url":"https://a.tw"}' },
+      },
+    ];
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(
+        new Response(
+          JSON.stringify({
+            choices: [
+              {
+                message: { content: null, tool_calls: toolCalls },
+                finish_reason: "tool_calls",
+              },
+            ],
+          }),
+          { status: 200 },
+        ),
+      ),
+    );
+
+    const inserts: InsertedRow[] = [];
+    const client = createAuditedOpenAIClient(
+      {
+        target,
+        phase: "acquire",
+        supabase: fakeSupabase(inserts),
+      },
+      { apiKey: "k" },
+    );
+
+    const result = await client.chat({
+      messages: [
+        { role: "system", content: "you plan" },
+        { role: "user", content: "find the shop" },
+      ],
+      tools: [
+        {
+          name: "fetch_url",
+          description: "Fetch a page",
+          parameters: { type: "object", properties: {} },
+        },
+      ],
+    });
+
+    expect(result.toolCalls).toEqual([
+      { id: "call_1", name: "fetch_url", args: { url: "https://a.tw" } },
+    ]);
+    expect(inserts).toHaveLength(1);
+    expect(inserts[0]?.input).toMatchObject({
+      system: "you plan",
+      user: "find the shop",
+      meta: { messageCount: 2, toolCallCount: 1 },
+    });
+    expect(inserts[0]?.raw_response).toMatchObject({
+      response: { choices: [{ message: { tool_calls: toolCalls } }] },
+    });
+  });
 });
 
 describe("Langfuse generation integration", () => {

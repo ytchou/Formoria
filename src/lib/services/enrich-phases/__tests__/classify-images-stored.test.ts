@@ -89,6 +89,7 @@ function chatResult(content: string): OpenAIChatResult {
     errorBody: null,
     finishReason: "stop",
     refusal: null,
+    toolCalls: null,
   };
 }
 
