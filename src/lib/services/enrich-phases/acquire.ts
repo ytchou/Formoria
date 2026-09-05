@@ -48,7 +48,6 @@ import { ONLINE_STORES } from '@/lib/brands/online-stores'
 import type { RenderProvider } from './scraper/render/types'
 import { bindBrandKey } from './scraper/render/render-budget'
 import { HERO_TARGET_RATIO } from '@/lib/constants/brand-images'
-import { resolveProfileModel } from '@/lib/constants/llm-models'
 import { createServiceClient } from '@/lib/supabase/service'
 import { createAgentModel as defaultCreateAgentModel } from './agents/runtime'
 import { buildCandidatePool, type CandidateImage } from './candidate-pool'
@@ -987,12 +986,23 @@ export async function runAcquirePhase({
         const runAcquisition =
           deps.runAcquisition ?? (await import('./acquisition/graph')).runAcquisition
         const { boundedPlan } = await import('./acquisition/plan')
-        const modelName = resolveProfileModel('acquisition')
         // Built by the shared runtime, which deliberately omits
-        // `response_format: json_object`: OpenAI refuses a forced JSON reply
-        // alongside tool definitions, and the plan node binds four tools — with
+        // `response_format: json_object`: the client refuses a forced JSON reply
+        // alongside tool definitions, and the plan node offers four tools — with
         // it the model answers the plan step in raw JSON and never calls one.
-        const model = await (deps.createAgentModel ?? defaultCreateAgentModel)('acquisition')
+        //
+        // Audit attribution is fixed HERE, at construction: every turn the graph
+        // runs on this model writes its `brand_ai_results` row against this
+        // phase, target and job. `brand_ai_results.phase` for agent turns is the
+        // phase that ran them, matching the `products` convention. The CHECK
+        // accepts it (migration 20260903100400); `acquisition` stays a SUB_PHASE
+        // for the historical rows written before this.
+        const model = await (deps.createAgentModel ?? defaultCreateAgentModel)('acquisition', {
+          phase: 'acquire',
+          target: effectiveTarget,
+          ...(jobId ? { jobId } : {}),
+          ...(supabase ? { supabase } : {}),
+        })
         const agentResult = await runAcquisition(
           {
             brand: { id: brand.id, slug: brand.slug, name: brand.name },
@@ -1068,17 +1078,6 @@ export async function runAcquirePhase({
             model,
             dryRun,
             ...(budgetScale !== undefined ? { budgetScale } : {}),
-            audit: {
-              // `brand_ai_results.phase` for agent turns is the phase that ran
-              // them, matching the `products` convention. The CHECK accepts it
-              // (migration 20260903100400); `acquisition` stays a SUB_PHASE for
-              // the historical rows written before this.
-              phase: 'acquire',
-              target: effectiveTarget,
-              ...(jobId ? { jobId } : {}),
-              ...(supabase ? { supabase } : {}),
-              modelName,
-            },
           },
         )
 

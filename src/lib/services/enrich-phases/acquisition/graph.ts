@@ -4,10 +4,12 @@
  * gather → plan → execute → images → critique → (recover → imagesRecover →
  * critique)? → finalize
  *
- * The plan step is a bounded tool loop of its own: the model is bound to
- * `probe_static`, `probe_rendered`, `extract_links` and `submit_plan`, and runs
- * against a compiled sub-graph so the loop's `recursionLimit` bounds the
- * conversation without eating the outer graph's step allowance. A loop that hits
+ * The plan step is a bounded tool loop of its own: the model is offered
+ * `probe_static`, `probe_rendered`, `extract_links` and `submit_plan` as plain
+ * OpenAI function definitions, and runs against a compiled sub-graph so the
+ * loop's `recursionLimit` bounds the conversation without eating the outer
+ * graph's step allowance. The loop's `tools` node executes the calls itself, one
+ * at a time, and appends a `tool` message per call. A loop that hits
  * the limit, or two rejected `submit_plan` payloads, drops to `planFallback` —
  * one json-mode call — and a failure there is `agentOutcome: 'fallback'`, never a
  * thrown phase.
@@ -24,15 +26,8 @@
  * loop's real call count is reported in the plan decision.
  */
 
-import {
-  AIMessage,
-  HumanMessage,
-  SystemMessage,
-  type BaseMessage,
-} from '@langchain/core/messages'
 import { Annotation, END, START, StateGraph, GraphRecursionError } from '@langchain/langgraph'
-import { ToolNode } from '@langchain/langgraph/prebuilt'
-import type { StructuredToolInterface } from '@langchain/core/tools'
+import type { ChatMessage, ChatToolDefinition } from '@/lib/services/openai-client'
 import { fetchLangfusePrompt } from '@/lib/langfuse/prompt'
 import type { FetchMetadata } from '../scraper/fetch-guards'
 import type { RenderProvider } from '../scraper/render/types'
@@ -71,14 +66,17 @@ import {
   type EvidencePack,
   type ProbeResult,
 } from './budget'
-import { createAcquisitionTools, type ProvenanceAllowlist, type SearchResult } from './tools'
 import {
-  callModel,
+  createAcquisitionTools,
+  type AcquisitionTool,
+  type ProvenanceAllowlist,
+  type SearchResult,
+} from './tools'
+import {
   contentText,
   extractJson,
   withSchema,
   withSignal,
-  type AgentAuditContext,
   type AgentModel,
   type AgentModelResponse,
 } from '../agents/runtime'
@@ -112,9 +110,6 @@ const MIN_KEEPS = 3
 const THIN_TEXT_LENGTH = 200
 
 // MAX_IMAGE_POOL_BYTES imported from phase-results.ts (single source of truth).
-
-/** Audit phase for agent turns — matches `PhaseResult` and `current_phase`. */
-const DEFAULT_AUDIT_PHASE = 'acquire'
 
 // ---------------------------------------------------------------------------
 // Public types
@@ -179,14 +174,14 @@ export type AcquisitionDeps = {
 }
 
 export type RunOptions = {
+  /**
+   * The model the graph runs its turns on. Audit attribution is fixed when the
+   * model is CONSTRUCTED (`createAgentModel(profile, auditContext)`), so the
+   * graph carries no audit context of its own — a turn is audited because of
+   * the model it was made with, not because of an option this graph forwards.
+   */
   model?: AgentModel
   signal?: AbortSignal
-  /**
-   * When present, every model turn goes through the shared runtime's audited
-   * call (auditedCall span + brand_ai_results row + Langfuse generation).
-   * Absent in unit tests, where the scripted model is invoked directly.
-   */
-  audit?: Omit<AgentAuditContext, 'phase'> & { phase?: string }
   /** Test-only: override the computed budget to force edge-case paths. */
   budgetOverride?: AcquisitionBudget
   /** When true, skip vision classification (images are still collected as candidates). */
@@ -204,8 +199,8 @@ type Decision = AcquisitionOutput['decisions'][number]
 /**
  * Mutable per-run state that is deliberately NOT in the graph channels.
  *
- * Two things need it. Tools run inside a `ToolNode` and cannot read graph state,
- * but they must spend the same budget the nodes report. And a `GraphRecursionError`
+ * Two things need it. Tools run inside the `tools` node and cannot read graph
+ * state, but they must spend the same budget the nodes report. And a `GraphRecursionError`
  * or an abort unwinds out of `invoke()` with no final state, which would throw
  * away the decision trace that operators read — the ledger survives the throw.
  */
@@ -230,7 +225,12 @@ type RunContext = {
   remainingMs: () => number
   wallClockExhausted: () => boolean
   nodeSignal: (node: string) => AbortSignal | undefined
-  invokeModel: (model: AgentModel, messages: BaseMessage[], nodeSignalOverride?: AbortSignal) => Promise<AgentModelResponse>
+  invokeModel: (
+    model: AgentModel,
+    messages: ChatMessage[],
+    nodeSignalOverride?: AbortSignal,
+    tools?: ChatToolDefinition[],
+  ) => Promise<AgentModelResponse>
 }
 
 function createRunContext(
@@ -330,13 +330,11 @@ function createRunContext(
       }
       return withSignal(options.signal, AbortSignal.timeout(Math.max(1, allowance)))
     },
-    async invokeModel(model, messages, nodeSignalOverride) {
+    async invokeModel(model, messages, nodeSignalOverride, tools) {
       const sig = nodeSignalOverride ?? ctx.signal
-      if (!options.audit) return model.invoke(messages, sig ? { signal: sig } : undefined)
-      return callModel(model, messages, {
-        ...options.audit,
-        phase: options.audit.phase ?? DEFAULT_AUDIT_PHASE,
+      return model.invoke(messages, {
         ...(sig ? { signal: sig } : {}),
+        ...(tools ? { tools } : {}),
       })
     },
   }
@@ -456,39 +454,53 @@ async function gatherNode(ctx: RunContext): Promise<AcquisitionUpdate> {
 // ---------------------------------------------------------------------------
 
 const PlanLoopState = Annotation.Root({
-  messages: Annotation<BaseMessage[]>({
-    reducer: (left: BaseMessage[], right: BaseMessage[]) => left.concat(right),
+  messages: Annotation<ChatMessage[]>({
+    reducer: (left: ChatMessage[], right: ChatMessage[]) => left.concat(right),
     default: () => [],
   }),
 })
 
-/**
- * An assistant message, or null. Written by hand rather than with LangChain's
- * `isAIMessage`, which calls `_getType()` unguarded and therefore throws on the
- * plain object a hand-rolled fake model returns.
- */
-function asAIMessage(value: unknown): AIMessage | null {
-  const candidate = value as { _getType?: () => string } | null | undefined
-  if (typeof candidate?._getType !== 'function') return null
-  return candidate._getType() === 'ai' ? (value as AIMessage) : null
+/** An OpenAI wire tool call, as it appears on an assistant message. */
+type WireToolCall = { id: string; type: 'function'; function: { name: string; arguments: string } }
+
+type AssistantMessage = Extract<ChatMessage, { role: 'assistant' }>
+
+/** The most recent assistant turn, or null when the loop has not produced one. */
+function lastAssistant(messages: ChatMessage[]): AssistantMessage | null {
+  for (let index = messages.length - 1; index >= 0; index -= 1) {
+    const message = messages[index]
+    if (message?.role === 'assistant') return message
+  }
+  return null
 }
 
-function toAIMessage(response: AgentModelResponse): BaseMessage {
-  const existing = asAIMessage(response)
-  if (existing) return existing
-  return new AIMessage({
-    content: contentText(response),
-    ...(response.tool_calls
+/** The tool calls of an assistant turn, as a plain array. */
+function toolCallsOf(message: AssistantMessage | null): WireToolCall[] {
+  return (message?.tool_calls ?? []) as WireToolCall[]
+}
+
+/** The model's own text, ignoring a tool-call-only turn's null content. */
+function assistantText(message: AssistantMessage | null): string {
+  const content = message?.content
+  return typeof content === 'string' ? content : ''
+}
+
+/** A model response as the assistant message the next turn will read back. */
+function toAssistantMessage(response: AgentModelResponse): AssistantMessage {
+  const calls = response.toolCalls ?? []
+  return {
+    role: 'assistant',
+    content: typeof response.content === 'string' ? response.content : null,
+    ...(calls.length > 0
       ? {
-          tool_calls: response.tool_calls.map((call, index) => ({
-            name: call.name,
-            args: call.args,
-            id: call.id ?? `call-${index}`,
-            type: 'tool_call' as const,
+          tool_calls: calls.map((call, index) => ({
+            id: call.id || `call-${index}`,
+            type: 'function' as const,
+            function: { name: call.name, arguments: JSON.stringify(call.args ?? {}) },
           })),
         }
       : {}),
-  })
+  }
 }
 
 /** Adopts a plan the model wrote as JSON instead of calling `submit_plan`. */
@@ -504,36 +516,64 @@ function adoptPlanFromText(ctx: RunContext, text: string): boolean {
   }
 }
 
-function buildPlanLoopGraph(
-  ctx: RunContext,
-  boundModel: AgentModel,
-  tools: StructuredToolInterface[],
-) {
+/** The arguments the model wrote, or `{}` when it wrote something unparsable. */
+function parseToolArguments(raw: string): unknown {
+  try {
+    return JSON.parse(raw)
+  } catch {
+    // The tool refuses `{}` with `invalid_args`, which is a turn the model can
+    // read — better than a parser exception unwinding the sub-graph.
+    return {}
+  }
+}
+
+function buildPlanLoopGraph(ctx: RunContext, model: AgentModel, tools: AcquisitionTool[]) {
+  const definitions = tools.map((tool) => tool.definition)
+
   return new StateGraph(PlanLoopState)
     .addNode('model', async (state) => {
-      const response = await ctx.invokeModel(boundModel, state.messages)
+      const response = await ctx.invokeModel(model, state.messages, undefined, definitions)
       ctx.planModelCalls += 1
-      return { messages: [toAIMessage(response)] }
+      return { messages: [toAssistantMessage(response)] }
     })
-    .addNode('tools', new ToolNode(tools))
+    // Sequential on purpose: every tool spends from one shared budget, so two
+    // calls running concurrently could both pass `assertBudget` for the last
+    // remaining probe.
+    .addNode('tools', async (state) => {
+      const messages: ChatMessage[] = []
+      for (const call of toolCallsOf(lastAssistant(state.messages))) {
+        const tool = tools.find((candidate) => candidate.definition.name === call.function.name)
+        let content: string
+        if (!tool) {
+          // The call id already says which call this answers, so the name is
+          // not repeated into the payload.
+          content = JSON.stringify({ error: 'unknown_tool' })
+        } else {
+          try {
+            content = await tool.run(parseToolArguments(call.function.arguments))
+          } catch (error) {
+            content = JSON.stringify({
+              error: error instanceof Error ? error.message.slice(0, 200) : 'tool_failed',
+            })
+          }
+        }
+        messages.push({ role: 'tool', tool_call_id: call.id, content })
+      }
+      return { messages }
+    })
     .addEdge(START, 'model')
     .addConditionalEdges('model', (state): 'tools' | typeof END => {
       if (ctx.submittedPlan) return END
-      const last = state.messages.at(-1)
-      const toolCalls = asAIMessage(last)?.tool_calls
-      if (toolCalls && toolCalls.length > 0) return 'tools'
+      const last = lastAssistant(state.messages)
+      if (toolCallsOf(last).length > 0) return 'tools'
       // The model answered with a plan instead of calling the tool. Take it.
-      adoptPlanFromText(ctx, last ? contentText({ content: last.content }) : '')
+      adoptPlanFromText(ctx, assistantText(last))
       return END
     })
     .addConditionalEdges('tools', (state): 'model' | typeof END => {
       if (ctx.submittedPlan) return END
-      const lastAi = [...state.messages]
-        .reverse()
-        .map((message) => asAIMessage(message))
-        .find((message): message is AIMessage => message !== null)
-      const attemptedSubmit = (lastAi?.tool_calls ?? []).some(
-        (call) => call.name === 'submit_plan',
+      const attemptedSubmit = toolCallsOf(lastAssistant(state.messages)).some(
+        (call) => call.function.name === 'submit_plan',
       )
       // A submit that produced no plan is a bad payload, whether the tool schema
       // or the plan's own cross-field rule refused it.
@@ -572,51 +612,48 @@ async function planNode(ctx: RunContext): Promise<AcquisitionUpdate> {
   }
 
   const systemPrompt = await planPrompt()
-  const messages: BaseMessage[] = [
-    new SystemMessage(systemPrompt),
-    new HumanMessage(planUserContent(ctx)),
+  const messages: ChatMessage[] = [
+    { role: 'system', content: systemPrompt },
+    { role: 'user', content: planUserContent(ctx) },
   ]
 
-  // 1. Tool loop — only when the model can carry tools.
-  if (model.bindTools) {
-    const tools = createAcquisitionTools(
-      { fetchHtml: ctx.deps.fetchHtml, ...(ctx.deps.renderProvider ? { renderProvider: ctx.deps.renderProvider } : {}) },
+  // 1. Tool loop. The model may also answer with a plan in plain text on any
+  //    turn; the loop adopts that rather than insisting on `submit_plan`.
+  const tools = createAcquisitionTools(
+    { fetchHtml: ctx.deps.fetchHtml, ...(ctx.deps.renderProvider ? { renderProvider: ctx.deps.renderProvider } : {}) },
+    {
+      allowlist: ctx.allowlist,
+      budget: ctx.budget,
+      onProviderError: () => {
+        ctx.providerThrew = true
+      },
+      onPageTitle: (url, title) => ctx.pageTitles.set(url, title),
+      onPlanSubmitted: (plan) => {
+        ctx.submittedPlan = plan
+      },
+    },
+  )
+  const planSignal = ctx.nodeSignal('plan_stage')
+  try {
+    await buildPlanLoopGraph(ctx, model, tools).invoke(
+      { messages },
       {
-        allowlist: ctx.allowlist,
-        budget: ctx.budget,
-        onProviderError: () => {
-          ctx.providerThrew = true
-        },
-        onPageTitle: (url, title) => ctx.pageTitles.set(url, title),
-        onPlanSubmitted: (plan) => {
-          ctx.submittedPlan = plan
-        },
+        recursionLimit: ACQUISITION_RECURSION_LIMIT,
+        ...(planSignal ? { signal: planSignal } : {}),
       },
     )
-    const boundModel = model.bindTools(tools)
-    const planSignal = ctx.nodeSignal('plan_stage')
-    try {
-      await buildPlanLoopGraph(ctx, boundModel, tools).invoke(
-        { messages },
-        {
-          recursionLimit: ACQUISITION_RECURSION_LIMIT,
-          ...(planSignal ? { signal: planSignal } : {}),
-        },
-      )
-    } catch (error) {
-      // An aborted run is over; anything else degrades to the single call below
-      // rather than failing the phase. A model that refuses tools alongside a
-      // forced JSON response format lands here, and must still produce a plan.
-      if (ctx.options.signal?.aborted) throw error
-      ctx.record(
-        'plan',
-        'loop_stopped',
-        error instanceof GraphRecursionError
-          ? 'recursion_limit'
-          : `loop_failed: ${error instanceof Error ? error.message.slice(0, 120) : 'unknown'}`,
-        start,
-      )
-    }
+  } catch (error) {
+    // An aborted run is over; anything else degrades to the single call below
+    // rather than failing the phase.
+    if (ctx.options.signal?.aborted) throw error
+    ctx.record(
+      'plan',
+      'loop_stopped',
+      error instanceof GraphRecursionError
+        ? 'recursion_limit'
+        : `loop_failed: ${error instanceof Error ? error.message.slice(0, 120) : 'unknown'}`,
+      start,
+    )
   }
 
   // 2. Single-call fallback — today's json-mode plan, tried at most once. It
@@ -906,10 +943,15 @@ async function critiqueNode(
   let response: AgentModelResponse
   try {
     const critiqueSignal = ctx.nodeSignal('critique')
-    response = await ctx.invokeModel(model, [
-      new SystemMessage(systemPrompt),
-      new HumanMessage(userContent),
-    ], critiqueSignal)
+    // No tools: the critique answers with a verdict, never a function call.
+    response = await ctx.invokeModel(
+      model,
+      [
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: userContent },
+      ],
+      critiqueSignal,
+    )
   } catch (error) {
     // Critique timeout/abort → treat as budget exhausted, never rethrow.
     const isAbort =

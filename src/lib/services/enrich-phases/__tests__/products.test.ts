@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createHash } from "node:crypto";
-import type { BaseMessage } from "@langchain/core/messages";
+import type { ChatMessage } from "@/lib/services/openai-client";
 import {
   resetAuditEmitterForTests,
   setAuditWriteSeam,
@@ -1402,8 +1402,8 @@ describe("PRODUCTS_AGENT env gate", () => {
   });
 
   it("falls back to single-call body when agent errors", async () => {
-    // Enable the agent — the ChatOpenAI constructor with a test key will cause
-    // runProductsAgent to throw when trying to invoke the model, triggering
+    // Enable the agent. `modelReturns` answers without a top-level `ok`, so the
+    // agent model treats the turn as a provider failure and throws, triggering
     // the catch block and falling back to the single-call body.
     vi.stubEnv("PRODUCTS_AGENT", "");
     modelReturns([rawProposal()]);
@@ -1462,10 +1462,10 @@ const PRODUCT_HTML = `<html><head><title>Clay Plate</title></head><body><main><p
 
 /**
  * Product pages answer with HTML; everything else answers with an empty JSON
- * body. The "everything else" is the audit insert: `callModel` persists a
- * `brand_ai_results` row for every agent turn, and that write goes out through
- * `globalThis.fetch`. Answering it here keeps the write off the network AND
- * keeps it from failing slowly against an HTML body.
+ * body. The "everything else" is the audit insert: the agent model persists a
+ * `brand_ai_results` row for every turn it takes, and that write goes out
+ * through `globalThis.fetch`. Answering it here keeps the write off the network
+ * AND keeps it from failing slowly against an HTML body.
  */
 function agentFetchStub() {
   return vi.fn(async (input: RequestInfo | URL) => {
@@ -1498,28 +1498,31 @@ type AgentEvidence = {
  */
 function agentModelReading(turns: AgentTurn[]) {
   let index = 0;
-  const invoke = vi.fn(async (messages: BaseMessage[]) => {
-    const user = messages.find(
-      (message) =>
-        typeof message.content === "string" &&
-        message.content.trimStart().startsWith("{"),
-    );
-    let evidence: AgentEvidence[] = [];
-    try {
-      const parsed = JSON.parse(String(user?.content ?? "{}")) as {
-        evidence?: AgentEvidence[];
-      };
-      evidence = parsed.evidence ?? [];
-    } catch {
-      evidence = [];
-    }
+  const invoke = vi.fn(async (messages: ChatMessage[]) => {
     const turn = turns[index++] ?? turns.at(-1)!;
     return {
-      content: JSON.stringify(turn(evidence)),
-      usage_metadata: { input_tokens: 10, output_tokens: 10, total_tokens: 20 },
+      content: JSON.stringify(turn(evidenceFromMessages(messages))),
+      usage: { prompt_tokens: 10, completion_tokens: 10, total_tokens: 20 },
     };
   });
   return { invoke };
+}
+
+/** The evidence block the graph put in the user turn, or `[]` if unparsable. */
+function evidenceFromMessages(messages: ChatMessage[]): AgentEvidence[] {
+  const user = messages.find(
+    (message) =>
+      typeof message.content === "string" &&
+      message.content.trimStart().startsWith("{"),
+  );
+  try {
+    const parsed = JSON.parse(String(user?.content ?? "{}")) as {
+      evidence?: AgentEvidence[];
+    };
+    return parsed.evidence ?? [];
+  } catch {
+    return [];
+  }
 }
 
 function agentEvaluation(
@@ -1765,5 +1768,66 @@ describe("products agent path", () => {
     expect(result.phaseResult.agentOutcome).toBe("fallback");
     expect(result.phaseResult.detail).toContain("agent fallback: threw: model unavailable");
     expect(result.proposals).toHaveLength(1);
+  });
+
+  // DEV-1700. With no injected model the phase builds its own, and the audit
+  // context is bound THERE — at construction — not passed down into the graph
+  // and re-attached per turn. If this regresses, every agent turn writes a
+  // `brand_ai_results` row with no phase, target, or job on it.
+  it("products_phase_creates_the_agent_model_with_the_products_phase_audit", async () => {
+    const chat = vi.fn(
+      async (input: { messages?: ChatMessage[]; json?: boolean }) => {
+        const evidence = evidenceFromMessages(input.messages ?? []);
+        return {
+          ok: true,
+          status: 200,
+          toolCalls: null,
+          content: JSON.stringify({
+            evaluations: [
+              agentEvaluation(CLAY_PLATE, evidence, true),
+              agentEvaluation(TEA_CUP, evidence),
+            ],
+            products: [agentProduct(CLAY_PLATE)],
+          }),
+          data: {
+            usage: {
+              prompt_tokens: 10,
+              completion_tokens: 10,
+              total_tokens: 20,
+            },
+          },
+        };
+      },
+    );
+    createClient.mockReturnValue({ chat });
+
+    // No `agentModel` override: this is the production wiring under test.
+    const result = await runProductsPhase(
+      agentPhaseOptions({
+        jobId: "job-77",
+        candidateWriter: {
+          insert: vi.fn().mockResolvedValue({ data: null, error: null }),
+        },
+      }),
+    );
+
+    expect(result.phaseResult.agentOutcome).toBe("proposed");
+
+    const [profileKey, auditContext] = createClient.mock.calls[0]!;
+    expect(profileKey).toBe("products_agent");
+    expect(auditContext).toMatchObject({
+      phase: "products",
+      target: { type: "submission", id: SUBMISSION_ID },
+      jobId: "job-77",
+    });
+
+    // `jsonObject: true` reaches the wire as a forced JSON body, and the turn
+    // is plain `{ role, content }` messages rather than a `system`/`user` pair.
+    const request = chat.mock.calls[0]![0];
+    expect(request).toMatchObject({ json: true });
+    expect(request.messages?.map((message) => message.role)).toEqual([
+      "system",
+      "user",
+    ]);
   });
 });

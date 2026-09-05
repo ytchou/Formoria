@@ -22,7 +22,6 @@
  *    description rewrite can break.
  */
 
-import { HumanMessage, SystemMessage } from '@langchain/core/messages'
 import { z } from 'zod'
 import { fetchLangfusePrompt } from '@/lib/langfuse/prompt'
 import { EDITORIAL_REPAIR_SYSTEM_PROMPT } from '@/lib/prompts/editorial-agent'
@@ -30,6 +29,8 @@ import { CITY_SLUGS } from '@/lib/constants/taiwan-cities'
 import { FAQ_PRESETS } from '@/lib/brands/faq-presets'
 import type { PhaseResult } from '@/lib/types/curation'
 import type { LlmProfileKey } from '@/lib/constants/llm-models'
+import type { LlmAuditContext } from '@/lib/services/llm-audit'
+import type { ChatMessage } from '@/lib/services/openai-client'
 import { detectAiArtifacts, validateLocalizedText } from '../../enrich-validators'
 import {
   EN_BLURB_BAND,
@@ -42,12 +43,10 @@ import { parseAndValidate } from '../../_shared/zod-schema'
 import { brandTarget, type EnrichmentTarget } from '../../_shared/enrichment-target'
 import { loadPersistedScrapeStructure } from '../descriptions'
 import {
-  callModel,
   contentText,
   createAgentModel,
   extractJson,
   withSchema,
-  type AgentAuditContext,
   type AgentModel,
 } from '../agents/runtime'
 import type { CrossOutputFailure, EditorialDeps } from './graph'
@@ -213,7 +212,6 @@ export type EditorialRepairParams = {
   /** Bounded excerpt of persisted scrape text, from `createRequestEvidence`. */
   evidence?: string
   model: AgentModel
-  audit: Omit<AgentAuditContext, 'phase'>
   signal?: AbortSignal
   validation?: EditorialValidationContext
 }
@@ -229,7 +227,7 @@ export type EditorialRepairParams = {
 export async function repairEditorialCrossOutput(
   params: EditorialRepairParams,
 ): Promise<Record<string, unknown>> {
-  const { patch, failures, evidence, model, audit, signal } = params
+  const { patch, failures, evidence, model, signal } = params
   const validation = params.validation ?? {}
 
   const targets = [
@@ -251,11 +249,12 @@ export async function repairEditorialCrossOutput(
     ...(evidence ? { evidence } : {}),
   })
 
-  const response = await callModel(model, [new SystemMessage(system), new HumanMessage(user)], {
-    ...audit,
-    phase: EDITORIAL_REPAIR_AUDIT_PHASE,
-    ...(signal ? { signal } : {}),
-  })
+  const messages: ChatMessage[] = [
+    { role: 'system', content: system },
+    { role: 'user', content: user },
+  ]
+
+  const response = await model.invoke(messages, signal ? { signal } : undefined)
 
   // The prompt asks for all four keys (strict mode needs a full `required`), but
   // parsing accepts a subset: a model that answers only the field it fixed has
@@ -371,11 +370,11 @@ export type BuildEditorialDepsParams = {
   runStockists: EditorialDeps['runStockists']
   runFaq: EditorialDeps['runFaq']
   /** Attribution for the repair turn. `phase` is forced to `'descriptions'`. */
-  audit: Omit<AgentAuditContext, 'phase'>
+  audit: Omit<LlmAuditContext, 'phase'>
   brandName?: string | null
   /** Pre-built model. Absent, one is created from `LLM_PROFILES.editorial`. */
   model?: AgentModel
-  createModel?: (profile: LlmProfileKey) => Promise<AgentModel>
+  createModel?: (profile: LlmProfileKey, audit: LlmAuditContext) => Promise<AgentModel>
   supabase?: RequestEvidenceParams['supabase']
   signal?: AbortSignal
   /** Override for tests; otherwise built from the audit target. */
@@ -402,7 +401,10 @@ export function buildEditorialDeps(params: BuildEditorialDepsParams): EditorialD
   const resolveModel = (): Promise<AgentModel> => {
     modelPromise ??= params.model
       ? Promise.resolve(params.model)
-      : createModel(EDITORIAL_REPAIR_PROFILE)
+      : createModel(EDITORIAL_REPAIR_PROFILE, {
+          ...params.audit,
+          phase: EDITORIAL_REPAIR_AUDIT_PHASE,
+        })
     return modelPromise
   }
 
@@ -423,14 +425,14 @@ export function buildEditorialDeps(params: BuildEditorialDepsParams): EditorialD
           failures,
           ...(evidence ? { evidence } : {}),
           model: await resolveModel(),
-          audit: params.audit,
           ...(params.signal ? { signal: params.signal } : {}),
           validation,
         })
       } catch {
         // A failed repair leaves the generated copy in place. The turn's own
-        // audit row (written by `callModel` on failure too) carries the reason;
-        // throwing here would drop the whole editorial output to `fallback`.
+        // audit row — written by the audited client on failure too — carries the
+        // reason; throwing here would drop the whole editorial output to
+        // `fallback`.
         return {}
       }
     },

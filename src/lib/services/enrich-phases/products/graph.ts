@@ -6,10 +6,14 @@
  * What this replaces (DEV-1644 F6, F13, F15, F24): a hand-rolled sequential
  * machine whose read node stored raw HTML and could never render, whose verify
  * step never called `verifyOrigin`, whose image check passed silently on an
- * empty pool, and which carried its own copy of `callModel` / `extractJson` /
+ * empty pool, and which carried its own copy of the model turn / `extractJson` /
  * `withSchema`. Every one of those is now the shared thing: the runtime owns the
- * audited turn, `read-page.ts` owns the evidence, and `verify.ts` owns the
+ * audited model, `read-page.ts` owns the evidence, and `verify.ts` owns the
  * verdict — including origin.
+ *
+ * The audit envelope is NOT this file's business (DEV-1700): the model handed in
+ * through `options.model` was built by `createAgentModel` with its phase audit
+ * context already bound, so every turn writes its own `brand_ai_results` row.
  *
  * The repair edge is conditional: it fires only when verification left
  * REPAIRABLE failures (closed-set or image, with the URL checks passing) and a
@@ -26,7 +30,6 @@
  * single-call body.
  */
 
-import { HumanMessage, SystemMessage, type BaseMessage } from '@langchain/core/messages'
 import { Annotation, END, START, StateGraph, GraphRecursionError } from '@langchain/langgraph'
 import { randomUUID } from 'node:crypto'
 
@@ -72,15 +75,14 @@ import {
 } from './budget'
 import { BudgetExhausted } from '../acquisition/budget'
 import {
-  callModel,
   contentText,
   extractJson,
   withSchema,
   withSignal,
-  type AgentAuditContext,
   type AgentModel,
   type AgentModelResponse,
 } from '../agents/runtime'
+import type { ChatMessage } from '@/lib/services/openai-client'
 import { readProductPage, type ProductPageEvidence } from './read-page'
 import {
   PRODUCTS_PROPOSE_SYSTEM_PROMPT,
@@ -107,9 +109,6 @@ const MAX_PROPOSE_ATTEMPTS = 2
 
 /** Images pulled off one product page for the decision-#35 classify batch. */
 const MAX_PAGE_IMAGES_PER_PRODUCT = 6
-
-/** Audit phase for agent turns — matches `PhaseResult` and `current_phase`. */
-const DEFAULT_AUDIT_PHASE = 'products'
 
 // ---------------------------------------------------------------------------
 // Public types
@@ -193,7 +192,6 @@ export type ProductsDeps = {
 type RunOptions = {
   model?: AgentModel
   signal?: AbortSignal
-  audit?: Omit<AgentAuditContext, 'phase'> & { phase?: string }
   budgetOverride?: ProductsBudget
 }
 
@@ -226,7 +224,7 @@ export type ProductsRunContext = {
   signal: AbortSignal | undefined
   record: (step: string, action: string, reason: string, startedAt: number) => void
   wallClockExhausted: () => boolean
-  invokeModel: (messages: BaseMessage[]) => Promise<AgentModelResponse>
+  invokeModel: (messages: ChatMessage[]) => Promise<AgentModelResponse>
 }
 
 /**
@@ -275,16 +273,14 @@ export function createProductsRunContext(
         ctx.budget.used.wallClockMs >= ctx.budget.allowed.wallClockMs
       )
     },
+    // Every turn — propose and repair alike — goes through the one model the
+    // caller built. Its audit context is bound at construction, so there is
+    // nothing left to wrap here.
     async invokeModel(messages) {
-      const model = options.model!
-      if (!options.audit) {
-        return model.invoke(messages, ctx.signal ? { signal: ctx.signal } : undefined)
-      }
-      return callModel(model, messages, {
-        ...options.audit,
-        phase: options.audit.phase ?? DEFAULT_AUDIT_PHASE,
-        ...(ctx.signal ? { signal: ctx.signal } : {}),
-      })
+      return options.model!.invoke(
+        messages,
+        ctx.signal ? { signal: ctx.signal } : undefined,
+      )
     },
   }
   return ctx
@@ -478,9 +474,9 @@ async function proposeNode(
     scrapedData: ctx.input.scrapedData,
   })
 
-  const messages: BaseMessage[] = [
-    new SystemMessage(systemPrompt),
-    new HumanMessage(userContent),
+  const messages: ChatMessage[] = [
+    { role: 'system', content: systemPrompt },
+    { role: 'user', content: userContent },
   ]
 
   const response = await ctx.invokeModel(messages)
@@ -778,9 +774,9 @@ async function repairNode(
     })),
   })
 
-  const messages: BaseMessage[] = [
-    new SystemMessage(systemPrompt),
-    new HumanMessage(userContent),
+  const messages: ChatMessage[] = [
+    { role: 'system', content: systemPrompt },
+    { role: 'user', content: userContent },
   ]
 
   const response = await ctx.invokeModel(messages)

@@ -1,6 +1,7 @@
 import { beforeAll, describe, expect, it, vi } from 'vitest'
-import { AIMessage, type BaseMessage } from '@langchain/core/messages'
 import { CompiledStateGraph } from '@langchain/langgraph'
+
+import type { ChatMessage } from '@/lib/services/openai-client'
 
 import {
   buildProductsGraph,
@@ -26,16 +27,22 @@ beforeAll(() => {
 // model arrives through `options.model`, everything else through `deps`.
 // ---------------------------------------------------------------------------
 
-/** A plain-object chat model, the shape `AgentModel` declares. */
+/**
+ * A plain-object chat model, the shape `AgentModel` declares: plain `ChatMessage`
+ * objects in, `{ content, usage }` out. No provider SDK message class is
+ * involved on either side (DEV-1700).
+ */
 function scriptedModel(responses: string[]) {
   let index = 0
-  const invoke = vi.fn(async (_messages: BaseMessage[]) => {
-    const content = responses[index++] ?? responses.at(-1) ?? '{}'
-    return new AIMessage({
-      content,
-      usage_metadata: { input_tokens: 100, output_tokens: 50, total_tokens: 150 },
-    })
-  })
+  const invoke = vi.fn(
+    async (_messages: ChatMessage[], _options?: { signal?: AbortSignal }) => {
+      const content = responses[index++] ?? responses.at(-1) ?? '{}'
+      return {
+        content,
+        usage: { prompt_tokens: 100, completion_tokens: 50, total_tokens: 150 },
+      }
+    },
+  )
   return { invoke }
 }
 
@@ -171,6 +178,68 @@ describe('products agent graph', () => {
     for (const decision of result.decisions) expect(typeof decision.ms).toBe('number')
     // One propose turn only: no repair was needed.
     expect(model.invoke).toHaveBeenCalledTimes(1)
+  })
+
+  // DEV-1700. The propose turn is two plain wire messages and an options object,
+  // not `SystemMessage`/`HumanMessage` instances: nothing in this graph may
+  // depend on a provider SDK's message classes any more.
+  it('propose_sends_system_and_user_as_plain_messages', async () => {
+    const model = scriptedModel([validProposalResponse()])
+
+    await runProductsAgent(baseInput, makeDeps(), { model })
+
+    expect(model.invoke).toHaveBeenCalledTimes(1)
+    const [messages, options] = model.invoke.mock.calls[0]!
+    expect(messages).toHaveLength(2)
+    expect(messages[0]).toEqual({ role: 'system', content: expect.any(String) })
+    expect(messages[1]).toEqual({ role: 'user', content: expect.any(String) })
+    for (const message of messages) {
+      expect(Object.getPrototypeOf(message)).toBe(Object.prototype)
+    }
+
+    // The wall-clock deadline reaches the provider, so an abort cancels the
+    // in-flight request rather than only the node that follows it.
+    expect(options?.signal).toBeInstanceOf(AbortSignal)
+
+    // The user turn carries the evidence the model is asked to propose from.
+    const user = JSON.parse(String(messages[1]!.content)) as {
+      brand?: { slug?: string }
+      evidence?: unknown[]
+    }
+    expect(user.brand?.slug).toBe('test-brand')
+    expect(user.evidence?.length).toBeGreaterThan(0)
+  })
+
+  // The repair turn is not a second model: `invokeModel` is the one seam every
+  // turn goes through, and it always reaches `options.model`. Asserted on the
+  // run context because a repairable verdict (closed-set) cannot be reached
+  // through the graph — validation normalizes those fields before verify sees
+  // them — so the graph itself can never spend a repair turn in a unit test.
+  it('repair_turn_reuses_the_same_model', async () => {
+    const model = scriptedModel(['{"products":[]}', '{"products":[]}'])
+    const ctx = createProductsRunContext(baseInput, makeDeps(), { model })
+
+    const first = await ctx.invokeModel([
+      { role: 'system', content: 'propose' },
+      { role: 'user', content: '{}' },
+    ])
+    const second = await ctx.invokeModel([
+      { role: 'system', content: 'repair' },
+      { role: 'user', content: '{}' },
+    ])
+
+    expect(model.invoke).toHaveBeenCalledTimes(2)
+    expect(first.content).toBe('{"products":[]}')
+    expect(second.content).toBe('{"products":[]}')
+    expect(second.usage).toEqual({
+      prompt_tokens: 100,
+      completion_tokens: 50,
+      total_tokens: 150,
+    })
+    expect(model.invoke.mock.calls[1]![0][0]).toEqual({
+      role: 'system',
+      content: 'repair',
+    })
   })
 
   it('graph_read_node_renders_a_js_shell_within_budget', async () => {

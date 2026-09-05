@@ -1,6 +1,6 @@
 import { beforeAll, describe, expect, it, vi } from 'vitest'
-import { AIMessage, type BaseMessage } from '@langchain/core/messages'
 
+import type { ChatMessage, ChatToolDefinition } from '@/lib/services/openai-client'
 import {
   runAcquisition,
   ACQUISITION_RECURSION_LIMIT,
@@ -27,17 +27,35 @@ type ScriptedToolCall = { name: string; args: Record<string, unknown> }
 /** One scripted model turn: tool calls, a JSON payload, or raw text. */
 type ScriptedTurn = ScriptedToolCall[] | Record<string, unknown> | string
 
+type InvokeOptions = { signal?: AbortSignal; tools?: ChatToolDefinition[] }
+
+const USAGE = { prompt_tokens: 10, completion_tokens: 10, total_tokens: 20 }
+
+const systemOf = (messages: ChatMessage[]) => String(messages[0]?.content ?? '')
+const isCritique = (messages: ChatMessage[]) => systemOf(messages).includes('CritiqueVerdict')
+
+/** Tool messages carried by one recorded `invoke` call, in order. */
+function toolMessagesOf(messages: ChatMessage[]) {
+  return messages.filter(
+    (message): message is Extract<ChatMessage, { role: 'tool' }> => message.role === 'tool',
+  )
+}
+
 /**
  * A tool-calling fake. Routes on the system prompt so a test scripts the plan
  * turns and the critique verdicts independently — the graph calls one model for
  * both and the ordering between them depends on the path taken.
+ *
+ * Responses are plain objects in the shared `AgentModelResponse` shape: the
+ * graph speaks the OpenAI wire vocabulary directly, so there is no framework
+ * message class to construct.
  */
 function fakeAgentModel(script: { plan?: ScriptedTurn[]; critique?: Array<Record<string, unknown>> }) {
   let planIndex = 0
   let critiqueIndex = 0
   let callId = 0
 
-  const invoke = vi.fn(async (messages: BaseMessage[], options?: { signal?: AbortSignal }) => {
+  const invoke = vi.fn(async (messages: ChatMessage[], options?: InvokeOptions) => {
     // Check for abort before proceeding (supports critique timeout tests)
     if (options?.signal?.aborted) {
       const err = new Error('The operation was aborted')
@@ -45,15 +63,11 @@ function fakeAgentModel(script: { plan?: ScriptedTurn[]; critique?: Array<Record
       throw err
     }
 
-    const system = String(messages[0]?.content ?? '')
-    if (system.includes('CritiqueVerdict')) {
+    if (isCritique(messages)) {
       const verdicts = script.critique ?? [{ verdict: 'sufficient', reason: 'enough data' }]
       const verdict = verdicts[critiqueIndex] ?? verdicts.at(-1)!
       critiqueIndex++
-      return new AIMessage({
-        content: JSON.stringify(verdict),
-        usage_metadata: { input_tokens: 10, output_tokens: 10, total_tokens: 20 },
-      })
+      return { content: JSON.stringify(verdict), usage: USAGE }
     }
 
     const turns = script.plan ?? []
@@ -61,32 +75,28 @@ function fakeAgentModel(script: { plan?: ScriptedTurn[]; critique?: Array<Record
     planIndex++
 
     if (Array.isArray(turn)) {
-      return new AIMessage({
-        content: '',
-        tool_calls: turn.map((call) => {
+      return {
+        content: null,
+        toolCalls: turn.map((call) => {
           callId += 1
-          return { name: call.name, args: call.args, id: `call-${callId}`, type: 'tool_call' as const }
+          return { id: `call-${callId}`, name: call.name, args: call.args }
         }),
-        usage_metadata: { input_tokens: 10, output_tokens: 10, total_tokens: 20 },
-      })
+        usage: USAGE,
+      }
     }
 
-    return new AIMessage({
+    return {
       content: typeof turn === 'string' ? turn : JSON.stringify(turn),
-      usage_metadata: { input_tokens: 10, output_tokens: 10, total_tokens: 20 },
-    })
+      usage: USAGE,
+    }
   })
 
-  // `bindTools` hands back a fresh object over the SAME invoke mock rather than
-  // `model` itself: a self-referential literal has no inferable type, and the
-  // shared mock keeps the script index and the call counts in one place.
-  return { invoke, bindTools: vi.fn(() => ({ invoke })) }
+  return { invoke }
 }
 
-/** A model with no `bindTools` — exercises the single-call plan fallback. */
-function fallbackOnlyModel(script: { plan?: ScriptedTurn[]; critique?: Array<Record<string, unknown>> }) {
-  const { invoke } = fakeAgentModel(script)
-  return { invoke }
+/** The recorded plan-loop turns, in order — the critique shares one mock. */
+function planCalls(model: ReturnType<typeof fakeAgentModel>) {
+  return model.invoke.mock.calls.filter(([messages]) => !isCritique(messages))
 }
 
 const RICH_BODY = 'Taiwanese ceramics studio. '.repeat(20)
@@ -176,7 +186,6 @@ describe('acquisition graph — LangGraph shape', () => {
     expect(result.directives).toBeDefined()
     expect(result.scrapeResult).toBeDefined()
     expect(deps.scrapeBrandUrls).toHaveBeenCalledTimes(1)
-    expect(model.bindTools).toHaveBeenCalled()
     // Every node leaves a trace entry with its own elapsed time.
     expect(result.decisions.map((d) => d.step)).toEqual(
       expect.arrayContaining(['gather', 'plan', 'execute', 'critique', 'finalize']),
@@ -247,7 +256,6 @@ describe('acquisition graph — plan tool loop', () => {
     const model = fakeAgentModel({
       plan: [
         [{ name: 'probe_static', args: { url: 'https://example.com' } }],
-        [{ name: 'probe_static', args: { url: 'https://evil.example' } }],
         [{ name: 'submit_plan', args: VALID_PLAN }],
       ],
     })
@@ -258,16 +266,81 @@ describe('acquisition graph — plan tool loop', () => {
     expect(result.agentOutcome).toBe('planned')
     expect(result.plan?.surfaces).toHaveLength(1)
 
-    // The allowlisted probe ran; the unknown host never reached the fetcher.
+    // gather probes the one known URL; the tool probe is the second fetch.
     const fetched = vi.mocked(deps.fetchHtml).mock.calls.map(([url]) => url)
-    expect(fetched).toContain('https://example.com')
-    expect(fetched).not.toContain('https://evil.example')
+    expect(fetched).toEqual(['https://example.com', 'https://example.com'])
 
-    // gather probe (1) + one allowlisted tool probe (1). The refused probe costs
-    // nothing, and executing the plan spends no probe at all — see
-    // `execute_does_not_spend_probes`.
+    const calls = planCalls(model)
+    expect(calls).toHaveLength(2)
+
+    // The second turn reads the first turn's result back as a `tool` message
+    // keyed to the call it answers — that linkage IS the loop. `call-1` is the
+    // id the fake minted for the first scripted tool call.
+    const observed = toolMessagesOf(calls[1]![0])
+    expect(observed).toHaveLength(1)
+    expect(observed[0]).toMatchObject({ role: 'tool', tool_call_id: 'call-1' })
+    expect(JSON.parse(observed[0]!.content)).toHaveProperty('title')
+
+    // gather probe (1) + one allowlisted tool probe (1). Executing the plan
+    // spends no probe at all — see `execute_does_not_spend_probes`.
     expect(result.budget!.used.probes).toBe(2)
     expect(result.budget!.used.probes).toBeLessThanOrEqual(result.budget!.allowed.probes)
+  })
+
+  it('plan_tool_loop_refuses_a_url_outside_the_allowlist', async () => {
+    const model = fakeAgentModel({
+      plan: [
+        [{ name: 'probe_static', args: { url: 'https://evil.example' } }],
+        [{ name: 'submit_plan', args: VALID_PLAN }],
+      ],
+    })
+    const deps = makeDeps()
+
+    const result = await runAcquisition(baseInput, deps, { model })
+
+    const fetched = vi.mocked(deps.fetchHtml).mock.calls.map(([url]) => url)
+    expect(fetched).not.toContain('https://evil.example')
+    // The refused probe costs nothing: only gather's probe was spent.
+    expect(result.budget!.used.probes).toBe(1)
+  })
+
+  it('tools_node_answers_unknown_tool_with_error_json', async () => {
+    const model = fakeAgentModel({
+      plan: [
+        [{ name: 'nope', args: { url: 'https://example.com' } }],
+        [{ name: 'submit_plan', args: VALID_PLAN }],
+      ],
+    })
+
+    const result = await runAcquisition(baseInput, makeDeps(), { model })
+
+    const calls = planCalls(model)
+    const observed = toolMessagesOf(calls[1]![0])
+    expect(observed).toHaveLength(1)
+    expect(JSON.parse(observed[0]!.content)).toEqual({ error: 'unknown_tool' })
+    // An unknown tool is a turn the model can learn from, not a dead loop.
+    expect(result.agentOutcome).toBe('planned')
+    expect(result.plan).toBeDefined()
+  })
+
+  it('invokeModel_passes_tools_and_signal_to_the_model', async () => {
+    const model = fakeAgentModel({ plan: [[{ name: 'submit_plan', args: VALID_PLAN }]] })
+
+    await runAcquisition(baseInput, makeDeps(), { model })
+
+    const [, planOptions] = planCalls(model)[0]!
+    expect(planOptions?.tools?.map((tool) => tool.name)).toEqual([
+      'probe_static',
+      'probe_rendered',
+      'extract_links',
+      'submit_plan',
+    ])
+    expect(planOptions?.signal).toBeInstanceOf(AbortSignal)
+
+    // The critique answers with a verdict, never a function call.
+    const critique = model.invoke.mock.calls.find(([messages]) => isCritique(messages))!
+    expect(critique[1]).not.toHaveProperty('tools')
+    expect(critique[1]?.signal).toBeInstanceOf(AbortSignal)
   })
 
   it('plan_loop_falls_back_to_single_call_after_two_bad_submits', async () => {
@@ -306,14 +379,19 @@ describe('acquisition graph — plan tool loop', () => {
     expect(deps.scrapeBrandUrls).not.toHaveBeenCalled()
   })
 
-  it('plan_falls_back_to_a_single_call_when_the_model_cannot_bind_tools', async () => {
-    const model = fallbackOnlyModel({ plan: [VALID_PLAN] })
+  // Every model now carries tools, so "no tool call" is no longer a capability
+  // gap — it is the model answering the plan step in prose. The loop adopts it
+  // on the spot rather than spending a second call on the json-mode fallback.
+  it('plan_text_answer_on_first_turn_is_adopted_by_the_loop', async () => {
+    const model = fakeAgentModel({ plan: [VALID_PLAN] })
     const deps = makeDeps()
 
     const result = await runAcquisition(baseInput, deps, { model })
 
     expect(result.agentOutcome).toBe('planned')
     expect(result.plan).toBeDefined()
+    expect(planCalls(model)).toHaveLength(1)
+    expect(result.decisions.some((d) => d.action === 'plan_fallback')).toBe(false)
   })
 
   it('graph_budget_exhausted_before_plan_is_fallback', async () => {
@@ -530,9 +608,8 @@ describe('acquisition graph — critique', () => {
     // Override the model's invoke to throw AbortError on critique calls
     let _critiqueCallCount = 0
     const originalImpl = critiqueAbortModel.invoke.getMockImplementation()!
-    critiqueAbortModel.invoke.mockImplementation(async (messages: BaseMessage[], options?: { signal?: AbortSignal }) => {
-      const system = String(messages[0]?.content ?? '')
-      if (system.includes('CritiqueVerdict')) {
+    critiqueAbortModel.invoke.mockImplementation(async (messages: ChatMessage[], options?: InvokeOptions) => {
+      if (isCritique(messages)) {
         _critiqueCallCount++
         const err = new Error('The operation was aborted')
         err.name = 'AbortError'
@@ -565,9 +642,8 @@ describe('acquisition graph — critique', () => {
       plan: [[{ name: 'submit_plan', args: VALID_PLAN }]],
     })
     const originalImpl = model.invoke.getMockImplementation()!
-    model.invoke.mockImplementation(async (messages: BaseMessage[], options?: { signal?: AbortSignal }) => {
-      const system = String(messages[0]?.content ?? '')
-      if (system.includes('CritiqueVerdict')) {
+    model.invoke.mockImplementation(async (messages: ChatMessage[], options?: InvokeOptions) => {
+      if (isCritique(messages)) {
         const err = new Error('The operation was aborted')
         err.name = 'AbortError'
         throw err

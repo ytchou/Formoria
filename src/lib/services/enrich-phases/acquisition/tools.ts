@@ -1,11 +1,14 @@
 /**
- * Acquisition agent tools — LangChain `tool()` definitions bound to the plan
- * node's model and executed by a LangGraph `ToolNode`.
+ * Acquisition agent tools — plain OpenAI function definitions paired with the
+ * function that executes them. The plan sub-graph's `tools` node dispatches on
+ * `definition.name` and appends whatever `run` returns as a `tool` message, so
+ * nothing here depends on a framework's tool abstraction.
  *
- * Every tool enforces two things before it does any work: the provenance
- * allowlist (a URL the agent was never given is not fetchable) and the budget
- * for its own kind. Both refusals are returned to the model as `{ error }` so a
- * refused call is a turn the model can learn from, not a crashed graph.
+ * Every `run` returns a JSON string and never throws: a tool that threw would
+ * unwind the sub-graph, and a refusal the model can read is worth more than a
+ * crashed loop. Each one enforces three things before it does any work — the
+ * argument shape, the provenance allowlist (a URL the agent was never given is
+ * not fetchable) and the budget for its own kind.
  *
  * `search_brand` is deliberately NOT here. Search is a recover-node step the
  * critique requests through `recoveryAction`, so the one-shot latch and the
@@ -15,8 +18,7 @@
 
 import * as cheerio from 'cheerio'
 import { z } from 'zod'
-import { tool, type StructuredToolInterface } from '@langchain/core/tools'
-import type { JSONSchema } from '@langchain/core/utils/json_schema'
+import type { ChatToolDefinition } from '@/lib/services/openai-client'
 import type { FetchMetadata } from '../scraper/fetch-guards'
 import type { RenderProvider } from '../scraper/render/types'
 import { needsRendering } from '../catalog-discovery'
@@ -25,6 +27,16 @@ import { assertBudget, type BudgetKind, type BudgetState } from './budget'
 import { AcquisitionPlan, boundedPlan, type AcquisitionPlanType } from './plan'
 
 const MAX_SUMMARY_BYTES = 1536 // 1.5 KB
+
+/**
+ * One model-callable tool: the definition the model reads, and the executor the
+ * `tools` node calls with whatever arguments the model wrote. `run` validates
+ * its own input because a model's `arguments` string is untrusted text.
+ */
+export type AcquisitionTool = {
+  definition: ChatToolDefinition
+  run(args: unknown): Promise<string>
+}
 
 export type SearchResult = {
   urls: string[]
@@ -128,6 +140,8 @@ const urlArg = z.object({
   url: z.string().describe('An absolute URL that is already in the provenance allowlist.'),
 })
 
+const URL_PARAMETERS = toStrictJsonSchema(urlArg)
+
 /**
  * The four model-callable tools, bound to injected dependencies and a shared
  * provenance allowlist. The allowlist grows as `extract_links` discovers URLs.
@@ -135,9 +149,18 @@ const urlArg = z.object({
 export function createAcquisitionTools(
   deps: AcquisitionToolDeps,
   ctx: AcquisitionToolContext,
-): StructuredToolInterface[] {
-  const probeStatic = tool(
-    async ({ url }: { url: string }) => {
+): AcquisitionTool[] {
+  const probeStatic: AcquisitionTool = {
+    definition: {
+      name: 'probe_static',
+      description:
+        'Fetches a URL statically and returns a bounded summary (title, text length, scripts, links). The URL must be in the provenance allowlist.',
+      parameters: URL_PARAMETERS,
+    },
+    async run(args) {
+      const parsed = urlArg.safeParse(args)
+      if (!parsed.success) return JSON.stringify({ error: 'invalid_args' })
+      const { url } = parsed.data
       if (!isInAllowlist(url, ctx.allowlist)) return JSON.stringify({ error: 'not_in_allowlist' })
       const refusal = spend(ctx.budget, 'probes')
       if (refusal) return JSON.stringify(refusal)
@@ -153,16 +176,19 @@ export function createAcquisitionTools(
         return JSON.stringify({ error: err instanceof Error ? err.message : 'fetch_failed' })
       }
     },
-    {
-      name: 'probe_static',
-      description:
-        'Fetches a URL statically and returns a bounded summary (title, text length, scripts, links). The URL must be in the provenance allowlist.',
-      schema: urlArg,
-    },
-  )
+  }
 
-  const probeRendered = tool(
-    async ({ url }: { url: string }) => {
+  const probeRendered: AcquisitionTool = {
+    definition: {
+      name: 'probe_rendered',
+      description:
+        'Renders a URL with a headless browser and returns a bounded summary. Costs one render from the budget. The URL must be in the provenance allowlist.',
+      parameters: URL_PARAMETERS,
+    },
+    async run(args) {
+      const parsed = urlArg.safeParse(args)
+      if (!parsed.success) return JSON.stringify({ error: 'invalid_args' })
+      const { url } = parsed.data
       if (!isInAllowlist(url, ctx.allowlist)) return JSON.stringify({ error: 'not_in_allowlist' })
       if (!deps.renderProvider) return JSON.stringify({ error: 'no_render_provider' })
       const refusal = spend(ctx.budget, 'renders')
@@ -178,16 +204,19 @@ export function createAcquisitionTools(
         return JSON.stringify({ error: message })
       }
     },
-    {
-      name: 'probe_rendered',
-      description:
-        'Renders a URL with a headless browser and returns a bounded summary. Costs one render from the budget. The URL must be in the provenance allowlist.',
-      schema: urlArg,
-    },
-  )
+  }
 
-  const extractLinks = tool(
-    async ({ url }: { url: string }) => {
+  const extractLinks: AcquisitionTool = {
+    definition: {
+      name: 'extract_links',
+      description:
+        'Extracts navigation and content links from a page. Discovered links become probeable (they join the provenance allowlist).',
+      parameters: URL_PARAMETERS,
+    },
+    async run(args) {
+      const parsed = urlArg.safeParse(args)
+      if (!parsed.success) return JSON.stringify({ error: 'invalid_args' })
+      const { url } = parsed.data
       if (!isInAllowlist(url, ctx.allowlist)) return JSON.stringify({ error: 'not_in_allowlist' })
       const refusal = spend(ctx.budget, 'probes')
       if (refusal) return JSON.stringify(refusal)
@@ -218,30 +247,23 @@ export function createAcquisitionTools(
         })
       }
     },
-    {
-      name: 'extract_links',
-      description:
-        'Extracts navigation and content links from a page. Discovered links become probeable (they join the provenance allowlist).',
-      schema: urlArg,
-    },
-  )
+  }
 
   /**
-   * The plan's own schema is the tool's argument schema, passed as JSON Schema
-   * rather than Zod: the plan carries a cross-field refinement (total fetch
-   * targets ≤ 6) that JSON Schema cannot express. Under a Zod schema LangChain
-   * would run that refinement itself and throw, so the model would get a parser
-   * exception instead of the tool's own message — and the plan node could not
-   * tell a rejected payload from a crashed tool.
-   *
-   * The cast is the seam between two JSON-Schema types: our converter returns a
-   * plain record, LangChain wants its structural `JSONSchema` union. Both
-   * describe the same draft-7 document.
+   * The plan's own schema is the tool's argument schema. The plan additionally
+   * carries a cross-field refinement (total fetch targets ≤ 6) that JSON Schema
+   * cannot express, so `run` parses with Zod and answers a violation with
+   * `invalid_plan` — the model gets a message it can act on, and the plan node
+   * can tell a rejected payload from a crashed tool.
    */
-  const submitPlanSchema = toStrictJsonSchema(AcquisitionPlan) as unknown as JSONSchema
-
-  const submitPlan = tool(
-    async (args: unknown) => {
+  const submitPlan: AcquisitionTool = {
+    definition: {
+      name: 'submit_plan',
+      description:
+        'Submits the final acquisition plan. Call this exactly once, after any probing, to end the planning step.',
+      parameters: toStrictJsonSchema(AcquisitionPlan),
+    },
+    async run(args) {
       const result = AcquisitionPlan.safeParse(args)
       if (!result.success) {
         return JSON.stringify({
@@ -249,21 +271,22 @@ export function createAcquisitionTools(
           reason: result.error.message.slice(0, 400),
         })
       }
-      const plan = boundedPlan(result.data)
-      ctx.onPlanSubmitted?.(plan)
-      return JSON.stringify({
-        accepted: true,
-        surfaces: plan.surfaces.length,
-        fanOut: plan.fanOut.length,
-      })
+      try {
+        const plan = boundedPlan(result.data)
+        ctx.onPlanSubmitted?.(plan)
+        return JSON.stringify({
+          accepted: true,
+          surfaces: plan.surfaces.length,
+          fanOut: plan.fanOut.length,
+        })
+      } catch (err) {
+        return JSON.stringify({
+          error: 'invalid_plan',
+          reason: err instanceof Error ? err.message.slice(0, 400) : 'plan_rejected',
+        })
+      }
     },
-    {
-      name: 'submit_plan',
-      description:
-        'Submits the final acquisition plan. Call this exactly once, after any probing, to end the planning step.',
-      schema: submitPlanSchema,
-    },
-  )
+  }
 
-  return [probeStatic, probeRendered, extractLinks, submitPlan] as unknown as StructuredToolInterface[]
+  return [probeStatic, probeRendered, extractLinks, submitPlan]
 }
