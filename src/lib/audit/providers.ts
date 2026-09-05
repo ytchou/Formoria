@@ -91,6 +91,7 @@ const PROVIDERS = {
     "markCurationJobDispatched",
     "recordCurationDispatchFailure",
     "recoverStaleJobs",
+    "reportChannelVerdicts",
     "reportCircuitBreakerTrip",
     "reportJobFailure",
     "reportProviderFailures",

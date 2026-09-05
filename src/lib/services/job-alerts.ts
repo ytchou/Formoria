@@ -7,6 +7,7 @@ import {
   isProviderFailureMessage,
 } from "@/lib/services/curation-operations";
 import type { EnrichmentSummary } from "@/lib/services/enrichment-logger";
+import { routes } from "@/lib/routes";
 
 /**
  * Curation job alerting.
@@ -166,6 +167,101 @@ export async function reportProviderFailures(
             failed: summary.failed,
             succeeded: summary.success,
             skipped: summary.skipped,
+          },
+        },
+      );
+    },
+  );
+}
+
+/**
+ * One message per job, never one per verdict.
+ *
+ * The finalizer can reject a submission or hide an approved brand without any
+ * human in the loop, so every acted-on slug has to be enumerated somewhere a
+ * person reads by default — but a per-verdict post would bury a 30-brand
+ * cohort's other alerts. A job that acted on nothing posts nothing.
+ *
+ * `reportOnly` (the `CHANNEL_VERDICTS=off` rollout position) still posts, so
+ * the dry pass is reviewable, and labels itself so nobody reads it as a
+ * delisting that already happened.
+ */
+export type ChannelVerdictReport = {
+  noChannelRejected: number;
+  noChannelHidden: number;
+  verdictSkipped?: number;
+  hideFailed?: number;
+  reportOnly: boolean;
+  targets: ReadonlyArray<{ slug: string; action: string; reason?: string }>;
+};
+
+const VERDICT_ACTION_LABELS: Record<string, string> = {
+  rejected: "rejected",
+  hidden: "hidden",
+  would_reject: "would be rejected",
+  would_hide: "would be hidden",
+};
+
+function jobLink(jobId: string): string {
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL?.trim().replace(/\/$/, "");
+  const path = routes.admin.job(jobId);
+  return siteUrl ? `${siteUrl}${path}` : path;
+}
+
+export async function reportChannelVerdicts(
+  job: AlertJob,
+  verdict: ChannelVerdictReport,
+): Promise<void> {
+  const acted = verdict.targets.filter(
+    (target) => target.action in VERDICT_ACTION_LABELS,
+  );
+  if (acted.length === 0) return;
+
+  return auditedCall(
+    { provider: "curation", operation: "reportChannelVerdicts", kind: "service" },
+    async () => {
+      const prefix = verdict.reportOnly ? "report-only: " : "";
+      const rejected = verdict.reportOnly
+        ? acted.filter((target) => target.action === "would_reject").length
+        : verdict.noChannelRejected;
+      const hidden = verdict.reportOnly
+        ? acted.filter((target) => target.action === "would_hide").length
+        : verdict.noChannelHidden;
+
+      await dispatchAlert(
+        {
+          agent: ALERT_AGENT,
+          status: "needs_attention",
+          summary: [
+            `• ${prefix}${rejected} submission(s) rejected and ${hidden} brand(s) hidden for having no purchase channel`,
+            ...(verdict.hideFailed
+              ? [`• ${verdict.hideFailed} hide(s) failed — those refreshes stay pending`]
+              : []),
+            ...(verdict.verdictSkipped
+              ? [`• ${verdict.verdictSkipped} verdict(s) errored and were skipped`]
+              : []),
+          ],
+          details: [
+            ...jobDetails(job),
+            `• Job page: ${jobLink(job.id)}`,
+            ...acted.map(
+              (target) =>
+                `• ${target.slug}: ${VERDICT_ACTION_LABELS[target.action]}`,
+            ),
+          ],
+          managerAction: verdict.reportOnly
+            ? "Report-only pass: nothing was written. Review the listed brands, then remove CHANNEL_VERDICTS=off to let the finalizer act"
+            : "Open the job page and spot-check the listed brands. A wrong hide is undone with Unhide; a wrong rejection with Reopen",
+        },
+        {
+          message: `${prefix}Curation job ${job.id}: ${rejected} rejected, ${hidden} hidden for no purchase channel`,
+          context: {
+            jobId: job.id,
+            noChannelRejected: rejected,
+            noChannelHidden: hidden,
+            hideFailed: verdict.hideFailed ?? 0,
+            verdictSkipped: verdict.verdictSkipped ?? 0,
+            reportOnly: String(verdict.reportOnly),
           },
         },
       );

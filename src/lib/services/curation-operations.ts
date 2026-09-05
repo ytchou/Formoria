@@ -31,11 +31,29 @@ import {
 } from "./link-enrichment";
 import {
   collectHubUrls,
+  computeEvidence,
+  deriveThreadsUrl,
   expandLinkHubs,
+  expandThreadsBio,
   hasPurchaseChannel,
+  type AdoptedLink,
+  type ChannelSources,
 } from "./enrich-phases/link-expansion";
-import { fetchHtml } from "./enrich-phases/scraper/fetch-guards";
-import { searchBrandUrls } from "./enrich-phases/scraper/serper";
+import {
+  fetchHtml,
+  fetchHtmlWithMetadata,
+} from "./enrich-phases/scraper/fetch-guards";
+import {
+  batchSearchBrandsWithSnippets,
+  searchBrandUrls,
+} from "./enrich-phases/scraper/serper";
+import {
+  filterEntriesByHandle,
+  HANDLE_QUERY,
+  isUsableHandle,
+} from "./enrich-phases/scraper/search";
+import type { BrandSearchEntry } from "./enrich-phases/scraper/types";
+import { INSTAGRAM_PROFILE_RE } from "./enrich-phases/scraper/parse/extractors";
 import {
   getLatestSearchResults,
   isFreshSearchResult,
@@ -59,6 +77,7 @@ import type {
   CurationTargetProgressEvent,
   OperationResult,
   PhaseResult,
+  SourceOutcome,
 } from "@/lib/types/curation";
 import {
   applyDetectResult,
@@ -239,6 +258,74 @@ function delay(ms: number): Promise<void> {
 export { mapWithConcurrency };
 
 export { ENRICH_PHASES };
+
+/**
+ * How many brands expand their links at once inside one chunk.
+ *
+ * Every unit is network-bound and nothing else: hub fetches, one Threads
+ * fetch, and at most two Serper calls. It is deliberately wider than
+ * `ENRICH_BRAND_CONCURRENCY` (which carries LLM and image work per unit) and
+ * deliberately narrower than the chunk, so a slow host stalls three brands
+ * rather than twenty.
+ */
+const LINK_EXPANSION_CONCURRENCY = 4;
+
+/** Replayed search rows stay usable for three days. */
+const SEARCH_REPLAY_MAX_AGE_MS = 3 * 86_400_000;
+
+/**
+ * One brand's slot in a `batchSearchBrandsWithSnippets` map. Derived from the
+ * function rather than restated: the result shape is not exported, and a local
+ * copy of it could disagree with the provider adapter without anyone noticing.
+ */
+type HandleSearchResult = ReturnType<
+  Awaited<ReturnType<typeof batchSearchBrandsWithSnippets>>["get"]
+>;
+
+/**
+ * The handle an Instagram PROFILE url carries, or null.
+ *
+ * Only a profile yields a handle — the first segment of a post permalink is
+ * `p` or `reel`, and searching for `"p"` would burn a Serper credit on noise.
+ * `INSTAGRAM_PROFILE_RE` owns that reserved-path list, so it is reused rather
+ * than restated here.
+ */
+export function instagramHandleFromUrl(
+  url: string | null | undefined,
+): string | null {
+  if (typeof url !== "string" || url.length === 0) return null;
+  if (!INSTAGRAM_PROFILE_RE.test(url)) return null;
+  return /instagram\.com\/([^/?#]+)\/?$/i.exec(url)?.[1] ?? null;
+}
+
+const UNCONSULTED_SOURCES: ChannelSources = {
+  hubs: "skipped",
+  threads: "skipped",
+  serpName: "skipped",
+  serpHandle: "skipped",
+};
+
+/**
+ * The one line a human (and the verdict finalizer's reader) sees for a brand
+ * with no purchase channel. Every source is named with its own outcome, so
+ * "we looked and there is nothing" is never confused with "we could not look".
+ */
+export function buildNoChannelDetail(
+  sources: ChannelSources | undefined,
+  evidence: "conclusive" | "inconclusive",
+  instagramFollowers?: number,
+): string {
+  const s = sources ?? UNCONSULTED_SOURCES;
+  const followers =
+    typeof instagramFollowers === "number"
+      ? ` instagram_followers=${instagramFollowers}`
+      : "";
+  return (
+    `no purchase channel after hubs=${s.hubs} threads=${s.threads}` +
+    ` serp_name=${s.serpName} serp_handle=${s.serpHandle}` +
+    ` evidence=${evidence}${followers}`
+  );
+}
 
 /**
  * Every phase `runEnrich` can be asked for. Aliased to the canonical
@@ -1658,11 +1745,22 @@ export async function runEnrich(
         // Raw SERP rows keyed by brand ID — used by the gather block to
         // check freshness before deciding whether to re-search.
         let rawSearchResultsById = new Map<string, SearchResultRow>();
+        // The handle-anchored search replays from its OWN kind of row. Without
+        // the split a fresh name row would stand in for a handle row that was
+        // never written, and the second search would be skipped forever.
+        let rawHandleSearchResultsById = new Map<string, SearchResultRow>();
         if (needsCachedSerp) {
           rawSearchResultsById = await getLatestSearchResults(
             chunk.map((brand) => brand.id),
             'serp',
             targetType,
+            'name',
+          );
+          rawHandleSearchResultsById = await getLatestSearchResults(
+            chunk.map((brand) => brand.id),
+            'serp',
+            targetType,
+            'handle',
           );
           const cached = await loadCachedSearchResults(
             chunk.map((brand) => brand.id),
@@ -1687,18 +1785,24 @@ export async function runEnrich(
         }
 
         // ---- Link expansion gather block (per brand, before detect) ----
-        // Hub pages (Linktree, Portaly, etc.) are fetched and their purchase +
-        // social links adopted onto the brand object BEFORE probes and detect.
-        // When no purchase channel is found after expansion, a by-name SERP
-        // search fills the gap or replays a fresh cached result.
+        // Four deterministic sources are consulted IN COST ORDER, each one only
+        // when the cheaper ones left the brand without a purchase channel: hub
+        // pages (free fetches), the Threads bio (one free fetch), a by-name
+        // SERP (one credit), and a handle-anchored SERP (one credit). Every
+        // step records its own outcome, because the verdict finalizer may act
+        // only on a brand where every source ANSWERED — an outage has to read
+        // as `unknown`, never as "this brand has no shop".
         type GatherExpansionEntry = {
           patch: Partial<BrandFlatLinkColumns>;
           serp: 'replayed' | 'searched' | 'none';
+          sources: ChannelSources;
+          /** Statuses of the search calls actually made, replay included. */
+          serpCallStatuses: Array<string | null | undefined>;
           linkExpansion: NonNullable<PhaseResult['linkExpansion']>;
         };
         const linkExpansionByBrandId = new Map<string, GatherExpansionEntry>();
 
-        for (const brand of chunk) {
+        await mapWithConcurrency(chunk, LINK_EXPANSION_CONCURRENCY, async (brand) => {
           const brandName = getDisplayBrandName(brand);
           const hubUrls = collectHubUrls(brand);
 
@@ -1721,57 +1825,210 @@ export async function runEnrich(
           });
 
           // Build patch from hub-scraped links and adopt onto the brand object
-          const expansionPatch = buildLinkEnrichPatch(
+          let patch = buildLinkEnrichPatch(
             brand as BrandFlatLinkColumns,
             expansion.scraped,
             brandName,
           );
-          Object.assign(brand, expansionPatch);
+          Object.assign(brand, patch);
 
+          const adoptedLinks: AdoptedLink[] = [...expansion.adopted];
+          const gatedTags = [...(expansion.gated ?? [])];
+          const serpCallStatuses: Array<string | null | undefined> = [];
+          const sources: ChannelSources = {
+            hubs:
+              hubUrls.length === 0
+                ? 'skipped'
+                : expansion.adopted.length > 0
+                  ? 'found'
+                  : (expansion.fetchFailures ?? 0) > 0
+                    ? 'unknown'
+                    : 'absent',
+            threads: 'skipped',
+            serpName: 'skipped',
+            serpHandle: 'skipped',
+          };
           let serp: 'replayed' | 'searched' | 'none' = 'none';
 
-          // When no purchase channel exists after hub expansion, try a by-name
-          // SERP search: replay a fresh cached result or fire a live search.
-          if (!hasPurchaseChannel(brand)) {
-            const cachedRow = rawSearchResultsById.get(brand.id);
-            if (cachedRow && isFreshSearchResult(cachedRow, 3 * 86_400_000)) {
-              serp = 'replayed';
-              const serpExtracted = extractLinksFromUrls(
-                cachedRow.urls,
+          // Re-read only after a step adopted something: every step below is
+          // gated on this value, and nothing but an adoption can change it.
+          let hasChannel = hasPurchaseChannel(brand);
+
+          /** Adopt SERP URLs onto the brand and say what that answered. */
+          const applySerpUrls = (urls: string[]): SourceOutcome => {
+            const extracted = extractLinksFromUrls(urls, brandName);
+            if (Object.keys(extracted).length === 0) return 'absent';
+            Object.assign(brand, extracted);
+            hasChannel = hasPurchaseChannel(brand);
+            return hasChannel ? 'found' : 'absent';
+          };
+
+          // ---- Threads bio: one fetch of the brand's own profile ----
+          if (!hasChannel) {
+            const threadsUrl =
+              brand.social_threads ?? deriveThreadsUrl(brand.social_instagram);
+            if (threadsUrl) {
+              const bio = await expandThreadsBio({
                 brandName,
-              );
-              Object.assign(brand, serpExtracted);
-            } else {
-              const serpUrls = await searchBrandUrls(brandName, undefined, {
-                target: { type: targetType, id: brand.id },
-                jobId: config.jobId,
-                config: { phase: 'acquire' as const },
+                threadsUrl,
+                confirmedHubUrls,
+                fetchHtmlWithMetadata,
+                fetchHtml,
               });
-              serp = 'searched';
-              const serpExtracted = extractLinksFromUrls(serpUrls, brandName);
-              Object.assign(brand, serpExtracted);
+              sources.threads = bio.threads;
+              adoptedLinks.push(...bio.adopted);
+              if (bio.gated?.length) gatedTags.push(...bio.gated);
+              if (bio.adopted.length > 0) {
+                const threadsPatch = buildLinkEnrichPatch(
+                  brand as BrandFlatLinkColumns,
+                  bio.scraped,
+                  brandName,
+                );
+                Object.assign(brand, threadsPatch);
+                patch = { ...patch, ...threadsPatch };
+                hasChannel = hasPurchaseChannel(brand);
+              }
             }
           }
 
-          const adopted = expansion.adopted.map((a) => ({
-            field: a.field,
-            url: a.value,
-            source: 'hub' as const,
+          // ---- By-name SERP: replay a fresh cached row, or search live ----
+          if (!hasChannel) {
+            const cachedRow = rawSearchResultsById.get(brand.id);
+            if (
+              cachedRow &&
+              isFreshSearchResult(cachedRow, SEARCH_REPLAY_MAX_AGE_MS)
+            ) {
+              serp = 'replayed';
+              serpCallStatuses.push(cachedRow.callStatus);
+              sources.serpName = applySerpUrls(cachedRow.urls);
+            } else {
+              serp = 'searched';
+              let serpUrls: string[] | null = null;
+              try {
+                serpUrls = await searchBrandUrls(brandName, undefined, {
+                  target: { type: targetType, id: brand.id },
+                  jobId: config.jobId,
+                  config: { phase: 'acquire' as const },
+                });
+              } catch (error) {
+                onProgress(`  [SERP-FAIL] ${brand.slug}: ${errorMessage(error)}`);
+              }
+              // `searchBrandUrls` reports a dead call exactly the way it
+              // reports an empty answer — an empty array — so zero URLs has to
+              // read as `unknown`. Over-reporting `unknown` costs a brand its
+              // verdict; under-reporting it would hide a brand on an outage.
+              sources.serpName =
+                serpUrls === null || serpUrls.length === 0
+                  ? 'unknown'
+                  : applySerpUrls(serpUrls);
+            }
+          }
+
+          // ---- Handle-anchored SERP: the last credit, spent only after the
+          //      brand's own name found nothing. A Taiwanese shop page
+          //      routinely prints the brand's Instagram handle, never its
+          //      name, so this is the query the name query cannot be. ----
+          if (!hasChannel) {
+            const handle = instagramHandleFromUrl(brand.social_instagram);
+            if (!handle || !isUsableHandle(handle)) {
+              sources.serpHandle = 'skipped';
+            } else {
+              let entries: BrandSearchEntry[] | null = null;
+              const cachedHandleRow = rawHandleSearchResultsById.get(brand.id);
+              if (
+                cachedHandleRow &&
+                isFreshSearchResult(cachedHandleRow, SEARCH_REPLAY_MAX_AGE_MS)
+              ) {
+                serpCallStatuses.push(cachedHandleRow.callStatus);
+                // A stored row keeps URLs and snippets, not entries. The URL
+                // branch of the handle filter is the strict one anyway, so a
+                // replay answers narrower than a live call, never wider.
+                entries = cachedHandleRow.urls.map((link) => ({
+                  title: '',
+                  link,
+                }));
+              } else {
+                let handleResult: HandleSearchResult = undefined;
+                try {
+                  const results = await batchSearchBrandsWithSnippets(
+                    [brandName],
+                    () => HANDLE_QUERY(handle),
+                    1,
+                    () => ({
+                      target: { type: targetType, id: brand.id },
+                      jobId: config.jobId,
+                      config: {
+                        phase: 'acquire' as const,
+                        queryKind: 'handle' as const,
+                      },
+                    }),
+                  );
+                  handleResult = results.get(brandName);
+                } catch (error) {
+                  onProgress(`  [SERP-FAIL] ${brand.slug}: ${errorMessage(error)}`);
+                }
+                serpCallStatuses.push(handleResult?.callStatus);
+                if (
+                  !handleResult ||
+                  (handleResult.callStatus !== undefined &&
+                    handleResult.callStatus !== 'succeeded')
+                ) {
+                  sources.serpHandle = 'unknown';
+                } else {
+                  entries = handleResult.entries ?? [];
+                }
+              }
+
+              if (entries) {
+                const matched = filterEntriesByHandle(entries, handle);
+                const extracted = extractLinksFromUrls(
+                  matched.map((entry) => entry.link),
+                  brandName,
+                );
+                if (Object.keys(extracted).length === 0) {
+                  sources.serpHandle = 'absent';
+                } else {
+                  Object.assign(brand, extracted);
+                  hasChannel = hasPurchaseChannel(brand);
+                  sources.serpHandle = hasChannel ? 'found' : 'absent';
+                  for (const [column, value] of Object.entries(extracted)) {
+                    if (typeof value !== 'string') continue;
+                    const field = LINK_FIELDS.find(
+                      (candidate) => linkColumnFor(candidate) === column,
+                    );
+                    if (!field) continue;
+                    adoptedLinks.push({
+                      field,
+                      value,
+                      source: 'serp_handle',
+                      hubUrl: value,
+                    });
+                  }
+                }
+              }
+            }
+          }
+
+          const adopted = adoptedLinks.map((link) => ({
+            field: link.field,
+            url: link.value,
+            source: link.source,
           }));
 
           linkExpansionByBrandId.set(brand.id, {
-            patch: expansionPatch,
+            patch,
             serp,
+            sources,
+            serpCallStatuses,
             linkExpansion: {
               hubsFetched: expansion.hubsFetched,
               adopted,
               serp,
-              ...(expansion.gated?.length
-                ? { gated: expansion.gated.join(', ') }
-                : {}),
+              sources,
+              ...(gatedTags.length ? { gated: gatedTags.join(', ') } : {}),
             },
           });
-        }
+        });
 
         // ---- Probe evidence collection (per-brand, AFTER link expansion) ----
         // Moved after expansion so adopted URLs are included in the probe set.
@@ -2169,11 +2426,24 @@ export async function runEnrich(
                 appendPatch(state, expansion.patch);
               }
               if (!hasPurchaseChannel(brand)) {
-                const noChannelDetail = expansion?.serp === 'searched'
-                  ? 'no purchase channel after hub expansion + SERP search'
-                  : expansion?.serp === 'replayed'
-                    ? 'no purchase channel after hub expansion + SERP replay'
-                    : 'no purchase channel after hub expansion';
+                // The verdict finalizer reads this back off the trace, so the
+                // per-source outcomes and the evidence verdict travel WITH the
+                // skip rather than being recomputed later from a summary that
+                // no longer knows which source failed.
+                const evidence = computeEvidence(
+                  expansion?.sources,
+                  expansion?.serpCallStatuses ?? [],
+                );
+                const instagramFollowers = probeEvidenceByBrandId
+                  .get(brand.id)
+                  ?.find(
+                    (probe) => typeof probe.instagramFollowers === 'number',
+                  )?.instagramFollowers;
+                const noChannelDetail = buildNoChannelDetail(
+                  expansion?.sources,
+                  evidence,
+                  instagramFollowers,
+                );
                 onProgress(
                   `  [NO-CHANNEL] ${brand.slug}: ${noChannelDetail}`,
                 );
@@ -2195,7 +2465,17 @@ export async function runEnrich(
                 const noChannelError = `no_purchase_channel: ${noChannelDetail}`;
                 state.phaseResults.push({
                   ...buildPhaseResult('acquire', 'skipped', [], 0, noChannelError),
-                  ...(expansion ? { linkExpansion: expansion.linkExpansion } : {}),
+                  ...(expansion
+                    ? {
+                        linkExpansion: {
+                          ...expansion.linkExpansion,
+                          evidence,
+                          ...(instagramFollowers !== undefined
+                            ? { instagramFollowers }
+                            : {}),
+                        },
+                      }
+                    : {}),
                 });
                 await recordOutcome(ctx, {
                   slug: brand.slug,

@@ -120,6 +120,13 @@ export function JobDetailView({
 }) {
   const t = useTranslations("admin.jobs");
   const { job, targets, parent, children } = detail;
+  // The finalizer writes its verdict counts into the job result alongside the
+  // enrichment summary. Absent on every job that ran before DEV-1702, and on
+  // dry runs, which is why both fall back to 0 rather than rendering blank.
+  const jobResult = (job.result ?? {}) as {
+    noChannelRejected?: number;
+    noChannelHidden?: number;
+  };
   const visibleTargets =
     selectedStatus === "all"
       ? targets
@@ -250,6 +257,14 @@ export function JobDetailView({
         <DataCard label="Skipped" value={job.skipped_count} />
         <DataCard label="Failed" value={job.failed_count} />
         <DataCard label="Cancelled" value={job.cancelled_count ?? 0} />
+        <DataCard
+          label="No-channel rejected"
+          value={jobResult.noChannelRejected ?? 0}
+        />
+        <DataCard
+          label="No-channel hidden"
+          value={jobResult.noChannelHidden ?? 0}
+        />
       </div>
 
       <SurfaceCard padding="lg">

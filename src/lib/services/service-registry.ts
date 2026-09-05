@@ -469,7 +469,17 @@ export const SERVICE_REGISTRY: readonly ServiceEntry[] = [
     criticality: "back-office",
     operationalSection: "agents",
     operationalKind: "worker",
-    envVars: ["CURATION_WORKER_CONTROL_TOKEN", "RAILWAY_GIT_COMMIT_SHA"],
+    // `FORMORIA_RAILWAY_URL` + `ORIGIN_SECRET` are what the worker needs to ask
+    // the running site to revalidate the pages a worker-side hide changed.
+    // `CHANNEL_VERDICTS=off` is the rollout switch that keeps the automatic
+    // no-purchase-channel verdicts report-only.
+    envVars: [
+      "CURATION_WORKER_CONTROL_TOKEN",
+      "RAILWAY_GIT_COMMIT_SHA",
+      "FORMORIA_RAILWAY_URL",
+      "ORIGIN_SECRET",
+      "CHANNEL_VERDICTS",
+    ],
     status: "active",
     plan: {
       kind: "usage",

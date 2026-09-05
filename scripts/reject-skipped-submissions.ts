@@ -46,6 +46,10 @@ import {
 } from "@/lib/services/submissions";
 import { createServiceClient } from "@/lib/supabase/service";
 import { loadScriptTarget } from "./shared/target";
+import {
+  loadNotABrandCandidates,
+  NOT_A_BRAND_PREFIX,
+} from "./shared/reject-skipped-selection";
 
 const APPLY = process.argv.includes("--apply");
 const ONLY = (
@@ -63,9 +67,6 @@ const INTENT =
     .find((arg) => arg.startsWith("--intent="))
     ?.slice("--intent=".length)
     .trim() ?? "";
-
-/** The detect phase's verdict prefix; anything else skipped is a different problem. */
-const NOT_A_BRAND_PREFIX = "Detection classified this entry as not a brand";
 
 /** Same resolution as approve-ready-submissions.ts: first entry of ADMIN_EMAILS. */
 async function resolveReviewerId(email: string): Promise<string> {
@@ -85,69 +86,6 @@ async function resolveReviewerId(email: string): Promise<string> {
   throw new Error(`Admin user not found: ${email}`);
 }
 
-type Candidate = {
-  id: string;
-  brandName: string;
-  intent: string;
-  verdict: string;
-};
-
-/**
- * Pending submissions whose most recent curation target was skipped by detection.
- * Only the newest target per submission counts — an older skip that a later run
- * superseded is not a verdict on the current state.
- */
-async function loadCandidates(): Promise<Candidate[]> {
-  const supabase = createServiceClient();
-
-  const { data: pending, error } = await supabase
-    .from("brand_submissions")
-    .select("id, brand_name, intent")
-    .eq("status", "pending");
-  if (error) throw error;
-  const rows = pending ?? [];
-  if (rows.length === 0) return [];
-
-  const latestBySubmission = new Map<
-    string,
-    { status: string; error: string | null }
-  >();
-  const ids = rows.map((row) => row.id as string);
-  for (let index = 0; index < ids.length; index += 200) {
-    const chunk = ids.slice(index, index + 200);
-    const { data: targets, error: targetError } = await supabase
-      .from("curation_job_targets")
-      .select("target_id, status, error, created_at, id")
-      .eq("target_type", "submission")
-      .in("target_id", chunk)
-      .order("created_at", { ascending: false })
-      .order("id", { ascending: false });
-    if (targetError) throw targetError;
-    for (const target of targets ?? []) {
-      const key = target.target_id as string;
-      if (latestBySubmission.has(key)) continue;
-      latestBySubmission.set(key, {
-        status: String(target.status),
-        error: (target.error as string | null) ?? null,
-      });
-    }
-  }
-
-  return rows.flatMap((row) => {
-    const latest = latestBySubmission.get(row.id as string);
-    if (latest?.status !== "skipped") return [];
-    if (!latest.error?.startsWith(NOT_A_BRAND_PREFIX)) return [];
-    return [
-      {
-        id: row.id as string,
-        brandName: row.brand_name as string,
-        intent: String(row.intent),
-        verdict: latest.error,
-      },
-    ];
-  });
-}
-
 async function main(): Promise<void> {
   loadScriptTarget();
   const adminEmail = process.env.ADMIN_EMAILS?.split(",")
@@ -156,7 +94,7 @@ async function main(): Promise<void> {
   if (!adminEmail)
     throw new Error("ADMIN_EMAILS must contain an admin account");
 
-  const all = await loadCandidates();
+  const all = await loadNotABrandCandidates();
   const selected = all.filter(
     (row) => ONLY.length === 0 || ONLY.includes(row.id),
   );
