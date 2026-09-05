@@ -2921,6 +2921,89 @@ describe("link expansion, SERP search, and no-purchase-channel gate", () => {
     expect(acquireInput.linkExpansion?.sources?.serpHandle).toBe("found");
   });
 
+  it("handle_serp_replay_matches_on_title_from_raw_response", async () => {
+    // The store slug is not a whole URL segment match for the handle, so the
+    // only evidence is the result TITLE. A replay that kept URLs alone read
+    // `absent` here 21 minutes after the live run adopted the same store.
+    const SHOPEE =
+      "https://shopee.tw/91art.studio-just-ten-i.157651041.19693851041";
+    const target = submission({
+      id: "sub-handle-replay-title",
+      brand_name: "91art studio",
+      social_instagram: "https://www.instagram.com/91art.studio",
+    });
+
+    mocks.collectHubUrls.mockReturnValue([]);
+    mocks.expandLinkHubs.mockResolvedValue(emptyHubExpansion());
+    stubSerpCalls({ name: { urls: ["https://news.example.com/story"] } });
+    mocks.getLatestSearchResults.mockImplementation(
+      async (
+        _ids: string[],
+        _searchType: string,
+        _targetType: string,
+        queryKind?: string,
+      ) =>
+        queryKind === "handle"
+          ? new Map([
+              [
+                target.id,
+                {
+                  brandId: target.id,
+                  searchType: "serp" as const,
+                  query: '"91art.studio"',
+                  urls: [SHOPEE],
+                  snippets: [],
+                  callStatus: "succeeded" as const,
+                  createdAt: new Date(Date.now() - 600_000).toISOString(),
+                  rawResponse: {
+                    organic: [
+                      {
+                        title: "91art.studio - Art Toys",
+                        link: SHOPEE,
+                        snippet: "Shop profile",
+                        position: 1,
+                      },
+                    ],
+                  },
+                },
+              ],
+            ])
+          : new Map(),
+    );
+    mocks.hasPurchaseChannel.mockReturnValueOnce(false).mockReturnValue(true);
+
+    const captured = capturePatches();
+    await runEnrich(
+      {
+        target: "submissions",
+        submissionIds: [target.id],
+        dryRun: true,
+        phases: FULL_PHASES,
+        onProgress: () => {},
+        onPatch: captured.onPatch,
+      },
+      fakeSupabase([target]),
+    );
+
+    // The replay spends no credit...
+    expect(serpCalls("handle")).toHaveLength(0);
+    // ...and still answers exactly like the live call did.
+    const acquireInput = mocks.runAcquirePhase.mock.calls[0][0] as {
+      linkExpansion?: {
+        sources?: Record<string, string>;
+        adopted: Array<{ field: string; url: string; source: string }>;
+      };
+    };
+    expect(acquireInput.linkExpansion?.sources?.serpHandle).toBe("found");
+    expect(acquireInput.linkExpansion?.adopted).toContainEqual({
+      field: "purchaseShopee",
+      url: SHOPEE,
+      source: "serp_handle",
+    });
+    expect(captured.patches).toHaveLength(1);
+    expect(captured.patches[0]?.purchase_shopee).toBe(SHOPEE);
+  });
+
   it("gate_marks_inconclusive_when_threads_unknown", async () => {
     const target = submission({
       id: "sub-threads-unknown",

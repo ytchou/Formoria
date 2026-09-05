@@ -45,7 +45,10 @@ import {
   fetchHtml,
   fetchHtmlWithMetadata,
 } from "./enrich-phases/scraper/fetch-guards";
-import { batchSearchBrandsWithSnippets } from "./enrich-phases/scraper/serper";
+import {
+  batchSearchBrandsWithSnippets,
+  parseBrandSearchEntries,
+} from "./enrich-phases/scraper/serper";
 import {
   filterEntriesByHandle,
   HANDLE_QUERY,
@@ -1993,13 +1996,22 @@ export async function runEnrich(
                 isFreshSearchResult(cachedHandleRow, SEARCH_REPLAY_MAX_AGE_MS)
               ) {
                 serpCallStatuses.push(cachedHandleRow.callStatus);
-                // A stored row keeps URLs and snippets, not entries. The URL
-                // branch of the handle filter is the strict one anyway, so a
-                // replay answers narrower than a live call, never wider.
-                entries = cachedHandleRow.urls.map((link) => ({
-                  title: '',
-                  link,
-                }));
+                // The stored row keeps the provider's own payload, so a replay
+                // rebuilds the same title/snippet-bearing entries the live call
+                // returned and the handle filter answers identically. Only a
+                // legacy row without a raw payload falls back to the URL-only
+                // shape, which can match on URL segments alone — narrower than
+                // a live call, never wider.
+                const replayed = parseBrandSearchEntries(
+                  cachedHandleRow.rawResponse,
+                );
+                entries =
+                  replayed.length > 0
+                    ? replayed
+                    : cachedHandleRow.urls.map((link) => ({
+                        title: '',
+                        link,
+                      }));
               } else {
                 let handleResult: SerpResult = undefined;
                 try {
