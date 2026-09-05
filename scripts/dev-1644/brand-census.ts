@@ -19,7 +19,10 @@ import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
 
 import { detectAiArtifacts } from "@/lib/services/enrich-validators";
+import { parsePhaseResults } from "@/lib/services/phase-results";
 import { PRODUCTION_PROJECT_REF } from "@/lib/supabase/project-target";
+import type { Json } from "@/lib/supabase/database.types";
+import type { PhaseResult } from "@/lib/types/curation";
 
 import { loadCohort } from "../curation-rerun/cohort";
 import { createWriteBlockingClient } from "../lib/readonly-client";
@@ -34,6 +37,24 @@ export type TextStat = { length: number; aiArtifactHits: number };
 export type CensusRow = {
   slug: string;
   name: string;
+  /** `brands.status` — the census exists to catch `approved` leaving. */
+  status: string;
+  /**
+   * `brands.hidden_reason` — why a hidden brand is hidden. Null on every
+   * approved brand, so a value here is always the reason for the last hide.
+   */
+  hidden_reason: string | null;
+  /**
+   * `brand_submissions.denial_reason` of the brand's most recently reviewed
+   * denied submission. Null when no submission for this brand was denied.
+   */
+  submission_denial_reason: string | null;
+  /**
+   * Distinct `linkExpansion.adopted[].source` values of the latest curation
+   * target's acquire phase, comma joined in first-adopted order. Empty string
+   * when the last run adopted no link.
+   */
+  link_sources: string;
   purchase_website: string | null;
   social_instagram: string | null;
   social_threads: string | null;
@@ -69,6 +90,8 @@ export type CensusRow = {
 export type SubmissionCensusRow = {
   submission_id: string;
   slug: null;
+  /** `brand_submissions.denial_reason`; null while the submission is pending. */
+  submission_denial_reason: string | null;
   pending_products: number;
   pending_candidate_rank_count: number;
   pending_active_images: number;
@@ -189,6 +212,10 @@ export function emptyCensusRow(slug: string): CensusRow {
   return {
     slug,
     name: "",
+    status: "approved",
+    hidden_reason: null,
+    submission_denial_reason: null,
+    link_sources: "",
     purchase_website: null,
     social_instagram: null,
     social_threads: null,
@@ -229,6 +256,12 @@ type TextField = {
   kind: "text";
   field: string;
   get: (row: CensusRow) => string | null;
+  /**
+   * Overrides the empty-in / empty-out reading of `textDirection`. Only
+   * `status` needs it: both sides are always non-empty, and a brand leaving
+   * the directory has a direction that "changed" would hide.
+   */
+  directionOf?: (before: string | null, after: string | null) => FieldDirection;
 };
 
 type FieldSpec = CountField | TextField;
@@ -258,6 +291,19 @@ function textPair(
 /** Fixed order: the diff is read side by side across runs. */
 const FIELD_SPECS: FieldSpec[] = [
   { kind: "text", field: "name", get: (row) => row.name },
+  {
+    kind: "text",
+    field: "status",
+    get: (row) => row.status,
+    directionOf: statusDirection,
+  },
+  { kind: "text", field: "hidden_reason", get: (row) => row.hidden_reason },
+  {
+    kind: "text",
+    field: "submission_denial_reason",
+    get: (row) => row.submission_denial_reason,
+  },
+  { kind: "text", field: "link_sources", get: (row) => row.link_sources },
   {
     kind: "text",
     field: "purchase_website",
@@ -385,6 +431,37 @@ function textDirection(
   return before === after ? "unchanged" : "changed";
 }
 
+/**
+ * `approved -> hidden` is a regression and `hidden -> approved` an improvement,
+ * whatever hid the brand. A channel verdict that delists a brand is the outcome
+ * the proof run is looking for, so it must never read as a neutral "changed".
+ */
+export function statusDirection(
+  before: string | null,
+  after: string | null,
+): FieldDirection {
+  if (before === after) return "unchanged";
+  if (before === "approved" && after === "hidden") return "regressed";
+  if (before === "hidden" && after === "approved") return "improved";
+  return "changed";
+}
+
+/**
+ * Which deterministic sources fed the brand's adopted links on its LAST
+ * curation run — `hub`, `threads`, `serp`, `serp_handle`. Distinct, in
+ * first-adopted order, comma joined; empty when nothing was adopted.
+ *
+ * Reads the last `acquire` entry only. An earlier attempt's expansion is not
+ * what the current column values came from.
+ */
+export function linkSourcesFromPhaseResults(
+  results: ReadonlyArray<PhaseResult>,
+): string {
+  const acquire = results.filter((result) => result.phase === "acquire").at(-1);
+  const adopted = acquire?.linkExpansion?.adopted ?? [];
+  return [...new Set(adopted.map((entry) => entry.source))].join(",");
+}
+
 export function diffRow(before: CensusRow, after: CensusRow): FieldDiff[] {
   return FIELD_SPECS.map((spec) => {
     if (spec.kind === "count") {
@@ -403,7 +480,7 @@ export function diffRow(before: CensusRow, after: CensusRow): FieldDiff[] {
       field: spec.field,
       before: displayText(b),
       after: displayText(a),
-      direction: textDirection(b, a),
+      direction: (spec.directionOf ?? textDirection)(b, a),
     };
   });
 }
@@ -497,6 +574,8 @@ type BrandRecord = {
   id: string;
   slug: string;
   name: string;
+  status: string;
+  hidden_reason: string | null;
   purchase_website: string | null;
   social_instagram: string | null;
   social_threads: string | null;
@@ -531,7 +610,7 @@ async function fetchCensus(
   const { data: brands, error } = await client
     .from("brands")
     .select(
-      "id, slug, name, purchase_website, social_instagram, social_threads, social_facebook, description, description_en, blurb, blurb_en, hero_image_storage_path",
+      "id, slug, name, status, hidden_reason, purchase_website, social_instagram, social_threads, social_facebook, description, description_en, blurb, blurb_en, hero_image_storage_path",
     )
     .in("slug", slugs);
   if (error) throw new Error(`brands query failed: ${error.message}`);
@@ -648,6 +727,67 @@ async function fetchCensus(
         )
       : [];
 
+  // Denied submissions, any intent — the channel verdict denies a submission
+  // instead of hiding a brand when there is no brand row yet.
+  const deniedSubmissions = await selectAllPages<{
+    brand_id: string;
+    denial_reason: string | null;
+    reviewed_at: string | null;
+    submitted_at: string | null;
+  }>(
+    (from, to) =>
+      client
+        .from("brand_submissions")
+        .select("brand_id, denial_reason, reviewed_at, submitted_at")
+        .in("brand_id", ids)
+        .not("denial_reason", "is", null)
+        .order("id", { ascending: true })
+        .range(from, to),
+    "submissions (denied)",
+  );
+
+  const denialReasonByBrand = new Map<
+    string,
+    { reason: string | null; at: string }
+  >();
+  for (const row of deniedSubmissions) {
+    const at = row.reviewed_at ?? row.submitted_at ?? "";
+    const seen = denialReasonByBrand.get(row.brand_id);
+    if (!seen || at >= seen.at) {
+      denialReasonByBrand.set(row.brand_id, { reason: row.denial_reason, at });
+    }
+  }
+
+  // Latest curation target per slug — the acquire phase of that run is what
+  // produced the link columns above.
+  const curationTargets = await selectAllPages<{
+    brand_slug: string | null;
+    created_at: string;
+    phase_results: Json;
+  }>(
+    (from, to) =>
+      client
+        .from("curation_job_targets")
+        .select("brand_slug, created_at, phase_results")
+        .in("brand_slug", slugs)
+        .order("id", { ascending: true })
+        .range(from, to),
+    "curation_job_targets",
+  );
+
+  const linkSourcesBySlug = new Map<string, { sources: string; at: string }>();
+  for (const target of curationTargets) {
+    if (!target.brand_slug) continue;
+    const seen = linkSourcesBySlug.get(target.brand_slug);
+    if (seen && target.created_at < seen.at) continue;
+    linkSourcesBySlug.set(target.brand_slug, {
+      sources: linkSourcesFromPhaseResults(
+        parsePhaseResults(target.phase_results),
+      ),
+      at: target.created_at,
+    });
+  }
+
   const submissionsByBrand = groupBy(pendingSubmissions, (row) => row.brand_id);
   const submissionImagesBySubmission = groupBy(
     submissionImages,
@@ -677,6 +817,11 @@ async function fetchCensus(
     return {
       slug: brand.slug,
       name: brand.name,
+      status: brand.status,
+      hidden_reason: brand.hidden_reason,
+      submission_denial_reason:
+        denialReasonByBrand.get(brand.id)?.reason ?? null,
+      link_sources: linkSourcesBySlug.get(brand.slug)?.sources ?? "",
       purchase_website: brand.purchase_website,
       social_instagram: brand.social_instagram,
       social_threads: brand.social_threads,
@@ -865,12 +1010,13 @@ async function fetchSubmissionCensus(
   const submissions = await selectAllPages<{
     id: string;
     brand_id: string | null;
+    denial_reason: string | null;
     enriched_data: { products?: unknown[] } | null;
   }>(
     (from, to) =>
       client
         .from("brand_submissions")
-        .select("id, brand_id, enriched_data")
+        .select("id, brand_id, denial_reason, enriched_data")
         .in("id", submissionIds)
         .order("id", { ascending: true })
         .range(from, to),
@@ -924,6 +1070,7 @@ async function fetchSubmissionCensus(
       return {
         submission_id: sub.id,
         slug: null,
+        submission_denial_reason: sub.denial_reason,
         pending_products: sub.enriched_data?.products?.length ?? 0,
         pending_candidate_rank_count:
           (candidatesBySubmission.get(sub.id) ?? []).length,

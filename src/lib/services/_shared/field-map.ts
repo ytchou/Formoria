@@ -82,12 +82,14 @@ const BRAND_FIELD_MAP = [
   ["contactEmail", "contact_email"],
   ["city", "city"],
   ["otherUrls", "other_urls"],
+  ["hiddenReason", "hidden_reason"],
 ] as const satisfies FieldMap<
   {
     romanizedName?: string | null;
     contactEmail?: string | null;
     city?: string | null;
     otherUrls?: unknown;
+    hiddenReason?: string | null;
     subcategories?: string[] | null;
   },
   BrandInsertRow
@@ -153,6 +155,7 @@ export function toBrandRow(
     city?: string | null;
     otherUrls?: unknown;
     contactEmail?: string | null;
+    hiddenReason?: string | null;
     subcategories?: string[] | null;
     subcategoriesEn?: string[] | null;
     blurb?: string | null;

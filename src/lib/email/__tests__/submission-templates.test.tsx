@@ -113,6 +113,30 @@ describe("buildRejectionEmail", () => {
     expect(email.html).toContain("Please clarify factory location");
   });
 
+  it("rejection_email_renders_no_purchase_channel_copy", async () => {
+    const en = await buildRejectionEmail({
+      submitterEmail: "test@example.com",
+      brandName: "Test Brand",
+      denialReason: "no_purchase_channel",
+      reviewerNotes: null,
+      locale: "en",
+    });
+
+    expect(en.html).toContain("No Purchase Channel Found");
+    expect(en.html).toContain("online store or marketplace");
+
+    const zh = await buildRejectionEmail({
+      submitterEmail: "test@example.com",
+      brandName: "Test Brand",
+      denialReason: "no_purchase_channel",
+      reviewerNotes: null,
+      locale: "zh-TW",
+    });
+
+    expect(zh.html).toContain("找不到購買管道");
+    expect(zh.html).toContain("線上商店或平台");
+  });
+
   it("renders zh-TW guidance for zh-TW locale", async () => {
     const email = await buildRejectionEmail({
       submitterEmail: "test@example.com",

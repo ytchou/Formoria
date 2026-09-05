@@ -36,6 +36,21 @@ interface CurationPatchEvent {
 
 export type PhaseResultStatus = "succeeded" | "skipped" | "failed";
 
+/**
+ * Per-source answer of one channel-discovery step.
+ *
+ * `absent` is a POSITIVE finding — the source answered and carried no purchase
+ * channel. Every fetch failure (timeout, 5xx, a 4xx that is not 404, an
+ * oversized body, a network error) must map to `unknown` instead, because a
+ * verdict that treats an outage as `absent` turns a bad afternoon into a
+ * delisting wave. `skipped` means the source was never consulted.
+ *
+ * Lives in the types layer, not in `enrich-phases/link-expansion.ts`, so the
+ * trace type and the producing service can both reference it without a
+ * services -> types -> services cycle.
+ */
+export type SourceOutcome = "found" | "absent" | "unknown" | "skipped";
+
 export interface PhaseResult {
   phase: string;
   status: PhaseResultStatus;
@@ -74,9 +89,27 @@ export interface PhaseResult {
   /** Compact summary of the link-expansion sub-step inside acquire. */
   linkExpansion?: {
     hubsFetched: number;
-    adopted: Array<{ field: string; url: string; source: 'hub' | 'serp' }>;
+    adopted: Array<{
+      field: string;
+      url: string;
+      source: 'hub' | 'threads' | 'serp' | 'serp_handle';
+    }>;
     serp: 'replayed' | 'searched' | 'none';
     gated?: string;
+    /**
+     * What each deterministic channel source answered. Absent on traces
+     * written before DEV-1702 — a missing `sources` is not evidence of
+     * anything, so the finalizer must read it as inconclusive.
+     */
+    sources?: {
+      hubs: SourceOutcome;
+      threads: SourceOutcome;
+      serpName: SourceOutcome;
+      serpHandle: SourceOutcome;
+    };
+    /** `conclusive` only when every source answered and none was `unknown`. */
+    evidence?: 'conclusive' | 'inconclusive';
+    instagramFollowers?: number;
   };
 }
 

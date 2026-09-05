@@ -159,10 +159,10 @@ describe('getBrandsBySlugs', () => {
 
   it('requests the narrow directory projection, not the full brand row', async () => {
     // Story pages render many editorial cards, and every column in the
-    // projection is serialized into the RSC payload once per card. The four
-    // `DIRECTORY_OMITTED_COLUMNS` are large jsonb blobs the card never renders
-    // — and `draft_data` is unpublished editorial content that must not reach
-    // the client at all. Asserted here rather than left to a reviewer's grep,
+    // projection is serialized into the RSC payload once per card. The
+    // `DIRECTORY_OMITTED_COLUMNS` are jsonb blobs and moderation state the
+    // card never renders — and `draft_data` is unpublished editorial content
+    // that must not reach the client at all. Asserted here rather than left to a reviewer's grep,
     // so widening the projection fails a test instead of passing review.
     await lookup(['molasses'])
 

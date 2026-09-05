@@ -1,10 +1,12 @@
 import { afterEach, describe, expect, it } from "vitest";
 import {
+  buildNoChannelDetail,
   evaluateLlmProviderGate,
   evaluateProviderGate,
   evaluateStorageGate,
   hasMaterialPatchValues,
   hasNoEnrichmentInputs,
+  instagramHandleFromUrl,
   isLlmProviderFailureMessage,
   isProductsScopedRun,
   isProviderFailureMessage,
@@ -510,5 +512,69 @@ describe("gate_no_purchase_channel_fires_after_non_brand_before_acquire", () => 
       purchase_myship: "https://myship.7-11.com.tw/general/detail/GM123",
     };
     expect(hasPurchaseChannel(patched)).toBe(true);
+  });
+});
+
+/**
+ * DEV-1702. The skip line a channel-less brand carries is the only record the
+ * verdict finalizer, and any human reading the job log, has of WHY the brand
+ * was skipped — so every source is named with its own answer, and the evidence
+ * verdict is spelled out rather than inferred from the absence of a channel.
+ */
+describe("no-purchase-channel detail text", () => {
+  it("no_channel_detail_lists_every_source", () => {
+    expect(
+      buildNoChannelDetail(
+        {
+          hubs: "skipped",
+          threads: "absent",
+          serpName: "absent",
+          serpHandle: "absent",
+        },
+        "conclusive",
+      ),
+    ).toBe(
+      "no purchase channel after hubs=skipped threads=absent" +
+        " serp_name=absent serp_handle=absent evidence=conclusive",
+    );
+  });
+
+  it("no_channel_detail_appends_followers", () => {
+    const detail = buildNoChannelDetail(
+      {
+        hubs: "absent",
+        threads: "unknown",
+        serpName: "absent",
+        serpHandle: "skipped",
+      },
+      "inconclusive",
+      8014,
+    );
+
+    expect(detail).toContain("threads=unknown");
+    expect(detail).toContain("evidence=inconclusive");
+    expect(detail).toContain("instagram_followers=8014");
+  });
+
+  it("no_channel_detail_reads_a_missing_sources_object_as_unconsulted", () => {
+    // A pre-DEV-1702 trace, or a brand whose expansion entry went missing:
+    // nothing was consulted, so nothing may be claimed about it.
+    expect(buildNoChannelDetail(undefined, "inconclusive")).toBe(
+      "no purchase channel after hubs=skipped threads=skipped" +
+        " serp_name=skipped serp_handle=skipped evidence=inconclusive",
+    );
+  });
+});
+
+describe("instagramHandleFromUrl", () => {
+  it("reads the handle off a profile url and refuses a post permalink", () => {
+    expect(instagramHandleFromUrl("https://www.instagram.com/1.wo_of/")).toBe(
+      "1.wo_of",
+    );
+    expect(instagramHandleFromUrl("https://www.instagram.com/p/Cabc123/")).toBe(
+      null,
+    );
+    expect(instagramHandleFromUrl(null)).toBe(null);
+    expect(instagramHandleFromUrl("")).toBe(null);
   });
 });

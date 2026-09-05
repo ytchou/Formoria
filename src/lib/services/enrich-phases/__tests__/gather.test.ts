@@ -16,7 +16,7 @@ vi.mock('@/lib/url', () => ({
   }),
 }))
 
-import { probeStatic } from '../gather'
+import { parseInstagramFollowers, probeStatic } from '../gather'
 
 function htmlResponse(title: string, description: string): string {
   return `<!DOCTYPE html>
@@ -147,5 +147,63 @@ describe('probeStatic', () => {
     const results = await probeStatic(['https://example.com'])
     expect(results[0].title).toBe('OG Title')
     expect(results[0].description).toBe('OG Description')
+  })
+})
+
+describe('parseInstagramFollowers', () => {
+  it('parse_instagram_followers_handles_comma_k_and_m_formats', () => {
+    expect(parseInstagramFollowers('8,014 Followers, 1 Following')).toBe(8014)
+    expect(parseInstagramFollowers('1.6K Followers')).toBe(1600)
+    expect(parseInstagramFollowers('12M Followers')).toBe(12_000_000)
+    expect(parseInstagramFollowers('0 Followers')).toBe(0)
+    expect(parseInstagramFollowers('See Instagram photos')).toBeUndefined()
+    expect(parseInstagramFollowers(undefined)).toBeUndefined()
+  })
+})
+
+describe('probeStatic instagram followers', () => {
+  beforeEach(() => {
+    mockFetch.mockReset()
+  })
+
+  it('probe_static_sets_instagram_followers_from_og_description', async () => {
+    const description =
+      '8,014 Followers, 1 Following, 42 Posts - See Instagram photos and videos'
+    mockFetch.mockResolvedValue(
+      new Response(
+        `<html><head><meta property="og:description" content="${description}"></head><body></body></html>`,
+        { status: 200, headers: { 'content-type': 'text/html' } },
+      ),
+    )
+
+    const results = await probeStatic(['https://www.instagram.com/mybrand'])
+    expect(results[0].instagramFollowers).toBe(8014)
+  })
+
+  it('probe_static_leaves_followers_unset_for_a_non_instagram_url', async () => {
+    mockFetch.mockResolvedValue(
+      new Response(
+        '<html><head><meta name="description" content="8,014 Followers"></head><body></body></html>',
+        { status: 200, headers: { 'content-type': 'text/html' } },
+      ),
+    )
+
+    const results = await probeStatic(['https://mybrand.com'])
+    expect(results[0].instagramFollowers).toBeUndefined()
+  })
+
+  it('probe_static_detects_threads_com_platform', async () => {
+    mockFetch.mockResolvedValue(
+      new Response(htmlResponse('Threads Page', 'Threads bio'), {
+        status: 200,
+        headers: { 'content-type': 'text/html' },
+      }),
+    )
+
+    const results = await probeStatic(['https://www.threads.com/@x'])
+    expect(results[0].platform).toBe('threads')
+
+    const legacy = await probeStatic(['https://www.threads.net/@x'])
+    expect(legacy[0].platform).toBe('threads')
   })
 })

@@ -2290,6 +2290,7 @@
         "duplicate": "Duplicate Submission",
         "policy_violation": "Policy Violation",
         "admin_reject": "Admin Rejected",
+        "no_purchase_channel": "No Purchase Channel Found",
         "other": "Other"
       },
       "title": "Brand Submissions",

@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { toBrandRow, toSubmissionRow } from "@/lib/services/_shared/field-map";
+import { brandToDomain } from "@/lib/services/brands";
 
 const brandInput = {
   name: "森之好物",
@@ -79,6 +80,30 @@ describe("field-map", () => {
       subcategories_en: ["Handmade", "Home"],
       is_demo: true,
     });
+  });
+
+  it("to_brand_row_maps_hidden_reason_both_ways", () => {
+    expect(
+      toBrandRow({ hiddenReason: "no_purchase_channel" }),
+    ).toMatchObject({ hidden_reason: "no_purchase_channel" });
+
+    const domain = brandToDomain({
+      id: "brand-1",
+      name: "Test",
+      slug: "test",
+      status: "approved",
+      hidden_reason: null,
+    } as unknown as Parameters<typeof brandToDomain>[0]);
+    expect(domain.hiddenReason).toBeNull();
+
+    const hidden = brandToDomain({
+      id: "brand-1",
+      name: "Test",
+      slug: "test",
+      status: "hidden",
+      hidden_reason: "no_purchase_channel",
+    } as unknown as Parameters<typeof brandToDomain>[0]);
+    expect(hidden.hiddenReason).toBe("no_purchase_channel");
   });
 
   it("submissions mapper shares the social/purchase block with brands", () => {

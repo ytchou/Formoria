@@ -44,6 +44,9 @@ const mocks = vi.hoisted(() => ({
   collectHubUrls: vi.fn(),
   hasPurchaseChannel: vi.fn(),
   searchBrandUrls: vi.fn(),
+  batchSearchBrandsWithSnippets: vi.fn(),
+  expandThreadsBio: vi.fn(),
+  fetchHtmlWithMetadata: vi.fn(),
   insertTriageResult: vi.fn(),
   fetchHtml: vi.fn(),
 }));
@@ -168,6 +171,7 @@ vi.mock("../enrich-phases/link-expansion", async (importOriginal) => {
   return {
     ...original,
     expandLinkHubs: mocks.expandLinkHubs,
+    expandThreadsBio: mocks.expandThreadsBio,
     collectHubUrls: mocks.collectHubUrls,
     hasPurchaseChannel: mocks.hasPurchaseChannel,
   };
@@ -178,6 +182,7 @@ vi.mock("../enrich-phases/scraper/serper", async (importOriginal) => {
   return {
     ...original,
     searchBrandUrls: mocks.searchBrandUrls,
+    batchSearchBrandsWithSnippets: mocks.batchSearchBrandsWithSnippets,
   };
 });
 
@@ -194,6 +199,7 @@ vi.mock("../enrich-phases/scraper/fetch-guards", async (importOriginal) => {
   return {
     ...original,
     fetchHtml: mocks.fetchHtml,
+    fetchHtmlWithMetadata: mocks.fetchHtmlWithMetadata,
   };
 });
 
@@ -380,6 +386,51 @@ function detectBatchProviderFailure() {
   };
 }
 
+/** One brand's slot in a `batchSearchBrandsWithSnippets` map. */
+type SerpStub = {
+  urls?: string[];
+  snippets?: string[];
+  entries?: Array<{ title: string; link: string; snippet?: string }>;
+  callStatus?: string;
+};
+
+/**
+ * The by-name query and the handle-anchored query are the SAME provider call,
+ * and only the query builder tells them apart: the name query passes
+ * `undefined` so the provider falls back to its own DEFAULT_QUERY, the handle
+ * query passes a builder that quotes the raw handle.
+ *
+ * A kind left unstubbed resolves a map with no row for the brand — the shape
+ * an unreachable provider produces, which the caller must read as `unknown`.
+ */
+function stubSerpCalls(stubs: { name?: SerpStub; handle?: SerpStub }) {
+  mocks.batchSearchBrandsWithSnippets.mockImplementation(
+    async (names: string[], queryTemplate?: unknown) => {
+      const stub = queryTemplate === undefined ? stubs.name : stubs.handle;
+      const results = new Map<string, unknown>();
+      if (!stub) return results;
+      for (const name of names) {
+        results.set(name, {
+          urls: [],
+          snippets: [],
+          entries: [],
+          callStatus: "succeeded",
+          ...stub,
+        });
+      }
+      return results;
+    },
+  );
+}
+
+/** The recorded provider calls of one kind, in invocation order. */
+function serpCalls(kind: "name" | "handle") {
+  return mocks.batchSearchBrandsWithSnippets.mock.calls.filter(
+    (call: unknown[]) =>
+      kind === "name" ? call[1] === undefined : call[1] !== undefined,
+  );
+}
+
 // detect + acquire: enough to exercise the single-loop flow
 const PHASES = ["detect", "acquire"];
 
@@ -391,9 +442,24 @@ describe("wave collapse — single per-brand loop", () => {
     mocks.scrapeBrandUrls.mockResolvedValue(scrapeResult());
     // Link expansion defaults: no hubs, has purchase channel
     mocks.collectHubUrls.mockReturnValue([]);
-    mocks.expandLinkHubs.mockResolvedValue({ hubsFetched: 0, adopted: [], scraped: {} });
+    mocks.expandLinkHubs.mockResolvedValue({ hubsFetched: 0, fetchFailures: 0, adopted: [], scraped: {} });
     mocks.hasPurchaseChannel.mockReturnValue(true);
     mocks.searchBrandUrls.mockResolvedValue([]);
+    mocks.batchSearchBrandsWithSnippets.mockResolvedValue(new Map());
+    // Every channel-less brand reaches the Threads step, so the default has to
+    // be a real ThreadsBioResult, not `undefined`.
+    mocks.expandThreadsBio.mockResolvedValue({
+      threads: "absent",
+      hubUrls: [],
+      adopted: [],
+      scraped: {},
+    });
+    mocks.fetchHtmlWithMetadata.mockResolvedValue({
+      text: null,
+      status: null,
+      latencyMs: 0,
+      error: "not stubbed",
+    });
     mocks.insertTriageResult.mockResolvedValue(undefined);
     mocks.fetchHtml.mockResolvedValue(null);
   });
@@ -646,9 +712,24 @@ describe("Gate C and the LLM circuit breaker", () => {
     mocks.batchSearchBrandImages.mockResolvedValue(new Map());
     mocks.scrapeBrandUrls.mockResolvedValue(scrapeResult());
     mocks.collectHubUrls.mockReturnValue([]);
-    mocks.expandLinkHubs.mockResolvedValue({ hubsFetched: 0, adopted: [], scraped: {} });
+    mocks.expandLinkHubs.mockResolvedValue({ hubsFetched: 0, fetchFailures: 0, adopted: [], scraped: {} });
     mocks.hasPurchaseChannel.mockReturnValue(true);
     mocks.searchBrandUrls.mockResolvedValue([]);
+    mocks.batchSearchBrandsWithSnippets.mockResolvedValue(new Map());
+    // Every channel-less brand reaches the Threads step, so the default has to
+    // be a real ThreadsBioResult, not `undefined`.
+    mocks.expandThreadsBio.mockResolvedValue({
+      threads: "absent",
+      hubUrls: [],
+      adopted: [],
+      scraped: {},
+    });
+    mocks.fetchHtmlWithMetadata.mockResolvedValue({
+      text: null,
+      status: null,
+      latencyMs: 0,
+      error: "not stubbed",
+    });
     mocks.insertTriageResult.mockResolvedValue(undefined);
     mocks.fetchHtml.mockResolvedValue(null);
   });
@@ -813,9 +894,24 @@ describe("satisfaction skipping", () => {
     mocks.batchSearchBrandImages.mockResolvedValue(new Map());
     mocks.scrapeBrandUrls.mockResolvedValue(scrapeResult());
     mocks.collectHubUrls.mockReturnValue([]);
-    mocks.expandLinkHubs.mockResolvedValue({ hubsFetched: 0, adopted: [], scraped: {} });
+    mocks.expandLinkHubs.mockResolvedValue({ hubsFetched: 0, fetchFailures: 0, adopted: [], scraped: {} });
     mocks.hasPurchaseChannel.mockReturnValue(true);
     mocks.searchBrandUrls.mockResolvedValue([]);
+    mocks.batchSearchBrandsWithSnippets.mockResolvedValue(new Map());
+    // Every channel-less brand reaches the Threads step, so the default has to
+    // be a real ThreadsBioResult, not `undefined`.
+    mocks.expandThreadsBio.mockResolvedValue({
+      threads: "absent",
+      hubUrls: [],
+      adopted: [],
+      scraped: {},
+    });
+    mocks.fetchHtmlWithMetadata.mockResolvedValue({
+      text: null,
+      status: null,
+      latencyMs: 0,
+      error: "not stubbed",
+    });
     mocks.insertTriageResult.mockResolvedValue(undefined);
     mocks.fetchHtml.mockResolvedValue(null);
   });
@@ -1118,9 +1214,24 @@ describe("editorial agent integration", () => {
     mocks.scrapeBrandUrls.mockResolvedValue(scrapeResult());
     mocks.detectBrandsBatch.mockResolvedValue(detectBatch(new Map()));
     mocks.collectHubUrls.mockReturnValue([]);
-    mocks.expandLinkHubs.mockResolvedValue({ hubsFetched: 0, adopted: [], scraped: {} });
+    mocks.expandLinkHubs.mockResolvedValue({ hubsFetched: 0, fetchFailures: 0, adopted: [], scraped: {} });
     mocks.hasPurchaseChannel.mockReturnValue(true);
     mocks.searchBrandUrls.mockResolvedValue([]);
+    mocks.batchSearchBrandsWithSnippets.mockResolvedValue(new Map());
+    // Every channel-less brand reaches the Threads step, so the default has to
+    // be a real ThreadsBioResult, not `undefined`.
+    mocks.expandThreadsBio.mockResolvedValue({
+      threads: "absent",
+      hubUrls: [],
+      adopted: [],
+      scraped: {},
+    });
+    mocks.fetchHtmlWithMetadata.mockResolvedValue({
+      text: null,
+      status: null,
+      latencyMs: 0,
+      error: "not stubbed",
+    });
     mocks.insertTriageResult.mockResolvedValue(undefined);
     mocks.fetchHtml.mockResolvedValue(null);
   });
@@ -1338,9 +1449,24 @@ describe("two loops with a batched names call between", () => {
     mocks.detectBrandsBatch.mockResolvedValue(detectBatch(new Map()));
     // Link expansion defaults: no hubs, has purchase channel
     mocks.collectHubUrls.mockReturnValue([]);
-    mocks.expandLinkHubs.mockResolvedValue({ hubsFetched: 0, adopted: [], scraped: {} });
+    mocks.expandLinkHubs.mockResolvedValue({ hubsFetched: 0, fetchFailures: 0, adopted: [], scraped: {} });
     mocks.hasPurchaseChannel.mockReturnValue(true);
     mocks.searchBrandUrls.mockResolvedValue([]);
+    mocks.batchSearchBrandsWithSnippets.mockResolvedValue(new Map());
+    // Every channel-less brand reaches the Threads step, so the default has to
+    // be a real ThreadsBioResult, not `undefined`.
+    mocks.expandThreadsBio.mockResolvedValue({
+      threads: "absent",
+      hubUrls: [],
+      adopted: [],
+      scraped: {},
+    });
+    mocks.fetchHtmlWithMetadata.mockResolvedValue({
+      text: null,
+      status: null,
+      latencyMs: 0,
+      error: "not stubbed",
+    });
     mocks.insertTriageResult.mockResolvedValue(undefined);
     mocks.fetchHtml.mockResolvedValue(null);
     // Canned agents by default: this block is about the SHAPE of the chunk, so
@@ -1502,7 +1628,8 @@ describe("two loops with a batched names call between", () => {
     expect(namesIndex).toBeLessThan(order.indexOf("editorial"));
     expect(namesIndex).toBeLessThan(order.indexOf("products"));
 
-    expect(mocks.mapWithConcurrency).toHaveBeenCalledTimes(2);
+    // Three bounded maps per chunk: link expansion (gather), loop A, loop B.
+    expect(mocks.mapWithConcurrency).toHaveBeenCalledTimes(3);
   });
 
   it("non_brand_exits_before_acquire", async () => {
@@ -1911,9 +2038,24 @@ describe("link expansion, SERP search, and no-purchase-channel gate", () => {
     mocks.detectBrandsBatch.mockResolvedValue(detectBatch(new Map()));
     // Defaults: no hubs, has channel (so the gate does not fire by default)
     mocks.collectHubUrls.mockReturnValue([]);
-    mocks.expandLinkHubs.mockResolvedValue({ hubsFetched: 0, adopted: [], scraped: {} });
+    mocks.expandLinkHubs.mockResolvedValue({ hubsFetched: 0, fetchFailures: 0, adopted: [], scraped: {} });
     mocks.hasPurchaseChannel.mockReturnValue(true);
     mocks.searchBrandUrls.mockResolvedValue([]);
+    mocks.batchSearchBrandsWithSnippets.mockResolvedValue(new Map());
+    // Every channel-less brand reaches the Threads step, so the default has to
+    // be a real ThreadsBioResult, not `undefined`.
+    mocks.expandThreadsBio.mockResolvedValue({
+      threads: "absent",
+      hubUrls: [],
+      adopted: [],
+      scraped: {},
+    });
+    mocks.fetchHtmlWithMetadata.mockResolvedValue({
+      text: null,
+      status: null,
+      latencyMs: 0,
+      error: "not stubbed",
+    });
     mocks.insertTriageResult.mockResolvedValue(undefined);
     mocks.fetchHtml.mockResolvedValue(null);
     mocks.runAcquirePhase.mockImplementation(async () => acquireOutput());
@@ -2097,9 +2239,7 @@ describe("link expansion, SERP search, and no-purchase-channel gate", () => {
       .mockReturnValueOnce(false) // igOnly after hub expansion → triggers SERP
       .mockReturnValue(true); // hubbed after hub expansion → skips SERP; default for gate calls
 
-    mocks.searchBrandUrls.mockResolvedValue([
-      "https://igonlybrand.com/shop",
-    ]);
+    stubSerpCalls({ name: { urls: ["https://igonlybrand.com/shop"] } });
 
     await runEnrich(
       {
@@ -2112,15 +2252,14 @@ describe("link expansion, SERP search, and no-purchase-channel gate", () => {
       fakeSupabase([igOnly, hubbed]),
     );
 
-    // searchBrandUrls called exactly once, for the IG-only brand
-    expect(mocks.searchBrandUrls).toHaveBeenCalledOnce();
-    expect(mocks.searchBrandUrls).toHaveBeenCalledWith(
-      "IG Only Brand",
-      undefined,
-      expect.objectContaining({
-        target: expect.objectContaining({ type: "submission" }),
-      }),
-    );
+    // The name query ran exactly once, for the IG-only brand.
+    const nameCalls = serpCalls("name");
+    expect(nameCalls).toHaveLength(1);
+    expect(nameCalls[0][0]).toEqual(["IG Only Brand"]);
+    expect(nameCalls[0][3]("IG Only Brand")).toMatchObject({
+      target: expect.objectContaining({ type: "submission" }),
+      config: { phase: "acquire" },
+    });
   });
 
   it("serp_replays_fresh_cached_result", async () => {
@@ -2163,8 +2302,8 @@ describe("link expansion, SERP search, and no-purchase-channel gate", () => {
       fakeSupabase([target]),
     );
 
-    // searchBrandUrls should NOT be called — cached result is fresh
-    expect(mocks.searchBrandUrls).not.toHaveBeenCalled();
+    // The name query should NOT run — the cached result is fresh
+    expect(serpCalls("name")).toHaveLength(0);
   });
 
   it("fresh_serp_feeds_detect_snippets", async () => {
@@ -2185,10 +2324,11 @@ describe("link expansion, SERP search, and no-purchase-channel gate", () => {
     // No channel → SERP fires
     mocks.hasPurchaseChannel.mockReturnValue(false);
 
-    mocks.searchBrandUrls.mockResolvedValue([
-      "https://serpdetect.com/shop",
-      "https://serpdetect.com/about",
-    ]);
+    stubSerpCalls({
+      name: {
+        urls: ["https://serpdetect.com/shop", "https://serpdetect.com/about"],
+      },
+    });
 
     const result = await runEnrich(
       {
@@ -2203,7 +2343,7 @@ describe("link expansion, SERP search, and no-purchase-channel gate", () => {
 
     // The SERP ran — brand was gated (no purchase channel) but SERP urls
     // should have been extracted and fed to the acquire phase
-    expect(mocks.searchBrandUrls).toHaveBeenCalledOnce();
+    expect(serpCalls("name")).toHaveLength(1);
     // The brand should be gated (no purchase channel) so acquire should not run
     const outcome = result.brandOutcomes.find(
       (entry) => entry?.submissionId === target.id,
@@ -2253,6 +2393,9 @@ describe("link expansion, SERP search, and no-purchase-channel gate", () => {
     );
     expect(outcome?.status).toBe("skipped");
     expect(outcome?.error).toContain("no_purchase_channel:");
+    // Every source is named in the reason, and nothing may be acted on: the
+    // stub searches answered `unknown`, so the evidence is inconclusive.
+    expect(outcome?.error).toContain("evidence=inconclusive");
 
     // Acquire should NOT run
     expect(mocks.runAcquirePhase).not.toHaveBeenCalled();
@@ -2301,6 +2444,16 @@ describe("link expansion, SERP search, and no-purchase-channel gate", () => {
     );
     expect(acquireSkip?.status).toBe("skipped");
     expect(acquireSkip?.linkExpansion).toBeDefined();
+    expect(acquireSkip?.linkExpansion?.sources).toEqual({
+      hubs: "skipped",
+      threads: "absent",
+      // Neither stub search returned a row for this brand — the shape an
+      // unreachable provider produces, so neither may be read as "there is no
+      // shop".
+      serpName: "unknown",
+      serpHandle: "unknown",
+    });
+    expect(acquireSkip?.linkExpansion?.evidence).toBe("inconclusive");
 
     // Acquire should NOT run
     expect(mocks.runAcquirePhase).not.toHaveBeenCalled();
@@ -2351,5 +2504,932 @@ describe("link expansion, SERP search, and no-purchase-channel gate", () => {
 
     // No status update calls to brands or brand_submissions
     expect(updateCalls).toHaveLength(0);
+  });
+
+  // ---- DEV-1702: Threads bio, handle-anchored SERP, evidence enum ----
+
+  const MYSHIP_URL = "https://myship.7-11.com.tw/general/detail/GM1702";
+
+  /** The shape `expandLinkHubs` resolves when a brand has no hub at all. */
+  function emptyHubExpansion() {
+    return { hubsFetched: 0, fetchFailures: 0, adopted: [], scraped: {} };
+  }
+
+  it("threads_rel_me_adopts_channel_before_detect_and_skips_serp", async () => {
+    const target = submission({
+      id: "sub-threads-relme",
+      brand_name: "Threads Brand",
+      social_threads: "https://www.threads.com/@threadsbrand",
+    });
+
+    mocks.collectHubUrls.mockReturnValue([]);
+    mocks.expandLinkHubs.mockResolvedValue(emptyHubExpansion());
+    mocks.expandThreadsBio.mockResolvedValue({
+      threads: "found",
+      relMeUrl: MYSHIP_URL,
+      hubUrls: [],
+      adopted: [
+        {
+          field: "purchaseMyship",
+          value: MYSHIP_URL,
+          source: "threads",
+          hubUrl: "https://www.threads.com/@threadsbrand",
+        },
+      ],
+      scraped: { purchaseMyship: MYSHIP_URL },
+    });
+    // No channel after hubs; the Threads adoption supplies one.
+    mocks.hasPurchaseChannel.mockReturnValueOnce(false).mockReturnValue(true);
+
+    await runEnrich(
+      {
+        target: "submissions",
+        submissionIds: [target.id],
+        dryRun: true,
+        phases: FULL_PHASES,
+        onProgress: () => {},
+      },
+      fakeSupabase([target]),
+    );
+
+    expect(mocks.expandThreadsBio).toHaveBeenCalledOnce();
+    // A free fetch answered, so neither Serper credit is spent.
+    expect(mocks.batchSearchBrandsWithSnippets).not.toHaveBeenCalled();
+
+    expect(mocks.runAcquirePhase).toHaveBeenCalledOnce();
+    const acquireInput = mocks.runAcquirePhase.mock.calls[0][0] as {
+      brand: Record<string, unknown>;
+      linkExpansion?: {
+        sources?: Record<string, string>;
+        adopted: Array<{ field: string; url: string; source: string }>;
+      };
+    };
+    expect(acquireInput.brand.purchase_myship).toBe(MYSHIP_URL);
+    expect(acquireInput.linkExpansion?.sources?.threads).toBe("found");
+    expect(acquireInput.linkExpansion?.adopted).toContainEqual({
+      field: "purchaseMyship",
+      url: MYSHIP_URL,
+      source: "threads",
+    });
+  });
+
+  it("derived_threads_url_used_when_only_instagram_is_stored", async () => {
+    const target = submission({
+      id: "sub-threads-derived",
+      brand_name: "Derived Brand",
+      social_instagram: "https://www.instagram.com/1.wo_of/",
+    });
+
+    mocks.collectHubUrls.mockReturnValue([]);
+    mocks.expandLinkHubs.mockResolvedValue(emptyHubExpansion());
+    mocks.hasPurchaseChannel.mockReturnValue(false);
+
+    await runEnrich(
+      {
+        target: "submissions",
+        submissionIds: [target.id],
+        dryRun: true,
+        phases: FULL_PHASES,
+        onProgress: () => {},
+      },
+      fakeSupabase([target]),
+    );
+
+    expect(mocks.expandThreadsBio).toHaveBeenCalledOnce();
+    expect(mocks.expandThreadsBio.mock.calls[0][0]).toMatchObject({
+      threadsUrl: "https://www.threads.com/@1.wo_of",
+    });
+  });
+
+  it("handle_serp_runs_only_after_name_serp_finds_nothing", async () => {
+    const target = submission({
+      id: "sub-handle-serp",
+      brand_name: "1woof Studio",
+      social_instagram: "https://www.instagram.com/1woof",
+    });
+
+    mocks.collectHubUrls.mockReturnValue([]);
+    mocks.expandLinkHubs.mockResolvedValue(emptyHubExpansion());
+    // The name query ranks a news page: no channel, so the handle query fires.
+    stubSerpCalls({
+      name: { urls: ["https://news.example.com/story"] },
+      handle: {
+        urls: ["https://www.pinkoi.com/store/1woof"],
+        entries: [
+          { title: "1woof shop", link: "https://www.pinkoi.com/store/1woof" },
+        ],
+      },
+    });
+    mocks.hasPurchaseChannel.mockReturnValueOnce(false).mockReturnValue(true);
+
+    await runEnrich(
+      {
+        target: "submissions",
+        submissionIds: [target.id],
+        dryRun: true,
+        phases: FULL_PHASES,
+        onProgress: () => {},
+      },
+      fakeSupabase([target]),
+    );
+
+    // One credit each, and the name query ran FIRST: the handle query is
+    // spent only on a brand its own name could not answer for.
+    expect(mocks.batchSearchBrandsWithSnippets).toHaveBeenCalledTimes(2);
+    expect(mocks.batchSearchBrandsWithSnippets.mock.calls[0][1]).toBeUndefined();
+    expect(serpCalls("name")).toHaveLength(1);
+    expect(serpCalls("handle")).toHaveLength(1);
+
+    const [names, queryTemplate, concurrency, auditResolver] =
+      serpCalls("handle")[0] as [
+        string[],
+        (name: string) => string,
+        number,
+        (name: string) => { config: Record<string, unknown> },
+      ];
+    expect(names).toEqual(["1woof Studio"]);
+    // The RAW handle, quoted — not the brand name.
+    expect(queryTemplate("1woof Studio")).toBe('"1woof"');
+    expect(concurrency).toBe(1);
+    expect(auditResolver("1woof Studio").config).toMatchObject({
+      phase: "acquire",
+      queryKind: "handle",
+    });
+
+    const acquireInput = mocks.runAcquirePhase.mock.calls[0][0] as {
+      linkExpansion?: {
+        sources?: Record<string, string>;
+        adopted: Array<{ field: string; url: string; source: string }>;
+      };
+    };
+    expect(acquireInput.linkExpansion?.sources?.serpHandle).toBe("found");
+    expect(acquireInput.linkExpansion?.adopted).toContainEqual({
+      field: "purchasePinkoi",
+      url: "https://www.pinkoi.com/store/1woof",
+      source: "serp_handle",
+    });
+  });
+
+  it("handle_serp_skipped_when_no_instagram_handle", async () => {
+    const target = submission({
+      id: "sub-no-handle",
+      brand_name: "No Handle Brand",
+      website_url: "https://nohandle.example.com",
+    });
+
+    mocks.collectHubUrls.mockReturnValue([]);
+    mocks.expandLinkHubs.mockResolvedValue(emptyHubExpansion());
+    mocks.hasPurchaseChannel.mockReturnValue(false);
+
+    const result = await runEnrich(
+      {
+        target: "submissions",
+        submissionIds: [target.id],
+        dryRun: true,
+        phases: FULL_PHASES,
+        onProgress: () => {},
+      },
+      fakeSupabase([target]),
+    );
+
+    // The name query still runs; the handle credit is never spent.
+    expect(serpCalls("handle")).toHaveLength(0);
+
+    const outcome = result.brandOutcomes.find(
+      (entry) => entry?.submissionId === target.id,
+    );
+    const acquireSkip = outcome?.phaseResults?.find(
+      (phaseResult) => phaseResult.phase === "acquire",
+    );
+    expect(acquireSkip?.linkExpansion?.sources?.serpHandle).toBe("skipped");
+    expect(acquireSkip?.linkExpansion?.sources?.threads).toBe("skipped");
+  });
+
+  it("handle_serp_short_handle_adopts_only_url_matches", async () => {
+    const target = submission({
+      id: "sub-short-handle",
+      brand_name: "1wo Handmade",
+      social_instagram: "https://www.instagram.com/1wo",
+    });
+
+    mocks.collectHubUrls.mockReturnValue([]);
+    mocks.expandLinkHubs.mockResolvedValue(emptyHubExpansion());
+    stubSerpCalls({
+      name: { urls: ["https://news.example.com/story"] },
+      handle: {
+        urls: [
+          "https://www.pinkoi.com/store/abc",
+          "https://www.pinkoi.com/store/1wo",
+        ],
+        entries: [
+          // Title names the handle, URL does not: below five characters a
+          // title match is not evidence.
+          {
+            title: "1wo handmade goods",
+            link: "https://www.pinkoi.com/store/abc",
+          },
+          { title: "Shop", link: "https://www.pinkoi.com/store/1wo" },
+        ],
+      },
+    });
+    mocks.hasPurchaseChannel.mockReturnValueOnce(false).mockReturnValue(true);
+
+    await runEnrich(
+      {
+        target: "submissions",
+        submissionIds: [target.id],
+        dryRun: true,
+        phases: FULL_PHASES,
+        onProgress: () => {},
+      },
+      fakeSupabase([target]),
+    );
+
+    const acquireInput = mocks.runAcquirePhase.mock.calls[0][0] as {
+      linkExpansion?: {
+        adopted: Array<{ field: string; url: string; source: string }>;
+      };
+    };
+    const serpHandleAdoptions =
+      acquireInput.linkExpansion?.adopted.filter(
+        (entry) => entry.source === "serp_handle",
+      ) ?? [];
+    expect(serpHandleAdoptions).toEqual([
+      {
+        field: "purchasePinkoi",
+        url: "https://www.pinkoi.com/store/1wo",
+        source: "serp_handle",
+      },
+    ]);
+  });
+
+  it("handle_serp_replays_fresh_row_of_its_own_kind", async () => {
+    const target = submission({
+      id: "sub-handle-replay",
+      brand_name: "1woof Studio",
+      social_instagram: "https://www.instagram.com/1woof",
+    });
+
+    mocks.collectHubUrls.mockReturnValue([]);
+    mocks.expandLinkHubs.mockResolvedValue(emptyHubExpansion());
+    stubSerpCalls({ name: { urls: ["https://news.example.com/story"] } });
+    // Only the handle-kind read returns a row: a fresh NAME row must never
+    // stand in for a handle row that was never written.
+    mocks.getLatestSearchResults.mockImplementation(
+      async (
+        _ids: string[],
+        _searchType: string,
+        _targetType: string,
+        queryKind?: string,
+      ) =>
+        queryKind === "handle"
+          ? new Map([
+              [
+                target.id,
+                {
+                  brandId: target.id,
+                  searchType: "serp" as const,
+                  query: '"1woof"',
+                  urls: ["https://www.pinkoi.com/store/1woof"],
+                  snippets: [],
+                  callStatus: "succeeded" as const,
+                  createdAt: new Date(Date.now() - 3_600_000).toISOString(),
+                },
+              ],
+            ])
+          : new Map(),
+    );
+    mocks.hasPurchaseChannel.mockReturnValueOnce(false).mockReturnValue(true);
+
+    await runEnrich(
+      {
+        target: "submissions",
+        submissionIds: [target.id],
+        dryRun: true,
+        phases: FULL_PHASES,
+        onProgress: () => {},
+      },
+      fakeSupabase([target]),
+    );
+
+    expect(serpCalls("handle")).toHaveLength(0);
+    const acquireInput = mocks.runAcquirePhase.mock.calls[0][0] as {
+      linkExpansion?: { sources?: Record<string, string> };
+    };
+    expect(acquireInput.linkExpansion?.sources?.serpHandle).toBe("found");
+  });
+
+  it("gate_marks_inconclusive_when_threads_unknown", async () => {
+    const target = submission({
+      id: "sub-threads-unknown",
+      brand_name: "Outage Brand",
+      social_instagram: "https://www.instagram.com/outagebrand",
+      intent: "refresh",
+      brand_id: "brand-outage",
+      base_brand_data: { name: "Outage Brand" },
+    });
+
+    mocks.collectHubUrls.mockReturnValue([]);
+    mocks.expandLinkHubs.mockResolvedValue(emptyHubExpansion());
+    mocks.expandThreadsBio.mockResolvedValue({
+      threads: "unknown",
+      hubUrls: [],
+      adopted: [],
+      scraped: {},
+    });
+    stubSerpCalls({
+      name: { urls: ["https://news.example.com/story"] },
+      handle: {},
+    });
+    mocks.hasPurchaseChannel.mockReturnValue(false);
+
+    const lines: string[] = [];
+    const result = await runEnrich(
+      {
+        target: "submissions",
+        submissionIds: [target.id],
+        dryRun: true,
+        phases: FULL_PHASES,
+        onProgress: (line: string) => lines.push(line),
+      },
+      fakeSupabase([target]),
+    );
+
+    const outcome = result.brandOutcomes.find(
+      (entry) => entry?.submissionId === target.id,
+    );
+    const acquireSkip = outcome?.phaseResults?.find(
+      (phaseResult) => phaseResult.phase === "acquire",
+    );
+    expect(acquireSkip?.linkExpansion?.sources?.threads).toBe("unknown");
+    expect(acquireSkip?.linkExpansion?.evidence).toBe("inconclusive");
+    expect(
+      lines.some(
+        (line) =>
+          line.includes("[NO-CHANNEL]") && line.includes("evidence=inconclusive"),
+      ),
+    ).toBe(true);
+  });
+
+  it("gate_marks_inconclusive_when_serp_call_failed", async () => {
+    const target = submission({
+      id: "sub-serp-failed",
+      brand_name: "Failed Search Brand",
+      social_instagram: "https://www.instagram.com/failedsearch",
+      intent: "refresh",
+      brand_id: "brand-failed-search",
+      base_brand_data: { name: "Failed Search Brand" },
+    });
+
+    mocks.collectHubUrls.mockReturnValue([]);
+    mocks.expandLinkHubs.mockResolvedValue(emptyHubExpansion());
+    // The stored name row carries URLs, so it replays — but the call it
+    // records did not succeed, and that alone forbids a verdict.
+    mocks.getLatestSearchResults.mockImplementation(
+      async (
+        _ids: string[],
+        _searchType: string,
+        _targetType: string,
+        queryKind?: string,
+      ) =>
+        queryKind === "handle"
+          ? new Map()
+          : new Map([
+              [
+                target.id,
+                {
+                  brandId: target.id,
+                  searchType: "serp" as const,
+                  query: "Failed Search Brand",
+                  urls: ["https://news.example.com/story"],
+                  snippets: [],
+                  callStatus: "failed" as const,
+                  createdAt: new Date(Date.now() - 3_600_000).toISOString(),
+                },
+              ],
+            ]),
+    );
+    stubSerpCalls({ handle: {} });
+    mocks.hasPurchaseChannel.mockReturnValue(false);
+
+    const result = await runEnrich(
+      {
+        target: "submissions",
+        submissionIds: [target.id],
+        dryRun: true,
+        phases: FULL_PHASES,
+        onProgress: () => {},
+      },
+      fakeSupabase([target]),
+    );
+
+    const outcome = result.brandOutcomes.find(
+      (entry) => entry?.submissionId === target.id,
+    );
+    const acquireSkip = outcome?.phaseResults?.find(
+      (phaseResult) => phaseResult.phase === "acquire",
+    );
+    expect(acquireSkip?.linkExpansion?.evidence).toBe("inconclusive");
+  });
+
+  it("gate_marks_conclusive_when_all_sources_answered", async () => {
+    const target = submission({
+      id: "sub-conclusive",
+      brand_name: "Conclusive Brand",
+      social_instagram: "https://www.instagram.com/conclusivebrand",
+      intent: "refresh",
+      brand_id: "brand-conclusive",
+      base_brand_data: { name: "Conclusive Brand" },
+    });
+
+    // No hubs at all, a Threads profile that carries no rel=me link, a name
+    // SERP that ranked something irrelevant, and a handle query that matched
+    // nothing: four answers, no failures.
+    mocks.collectHubUrls.mockReturnValue([]);
+    mocks.expandLinkHubs.mockResolvedValue(emptyHubExpansion());
+    mocks.expandThreadsBio.mockResolvedValue({
+      threads: "absent",
+      hubUrls: [],
+      adopted: [],
+      scraped: {},
+    });
+    stubSerpCalls({
+      name: { urls: ["https://news.example.com/story"] },
+      handle: {},
+    });
+    mocks.hasPurchaseChannel.mockReturnValue(false);
+
+    const lines: string[] = [];
+    const result = await runEnrich(
+      {
+        target: "submissions",
+        submissionIds: [target.id],
+        dryRun: true,
+        phases: FULL_PHASES,
+        onProgress: (line: string) => lines.push(line),
+      },
+      fakeSupabase([target]),
+    );
+
+    const outcome = result.brandOutcomes.find(
+      (entry) => entry?.submissionId === target.id,
+    );
+    const acquireSkip = outcome?.phaseResults?.find(
+      (phaseResult) => phaseResult.phase === "acquire",
+    );
+    expect(acquireSkip?.linkExpansion?.sources).toEqual({
+      hubs: "skipped",
+      threads: "absent",
+      serpName: "absent",
+      serpHandle: "absent",
+    });
+    expect(acquireSkip?.linkExpansion?.evidence).toBe("conclusive");
+
+    const gateLine = lines.find((line) => line.includes("[NO-CHANNEL]"));
+    expect(gateLine).toContain(
+      "threads=absent serp_name=absent serp_handle=absent",
+    );
+    expect(gateLine).toContain("evidence=conclusive");
+  });
+
+  it("gate_detail_carries_instagram_followers", async () => {
+    const target = submission({
+      id: "sub-followers",
+      brand_name: "Followers Brand",
+      social_instagram: "https://www.instagram.com/followersbrand",
+      intent: "refresh",
+      brand_id: "brand-followers",
+      base_brand_data: { name: "Followers Brand" },
+    });
+
+    mocks.collectHubUrls.mockReturnValue([]);
+    mocks.expandLinkHubs.mockResolvedValue(emptyHubExpansion());
+    mocks.hasPurchaseChannel.mockReturnValue(false);
+    mocks.probeStatic.mockResolvedValue([
+      {
+        url: "https://www.instagram.com/followersbrand",
+        status: 200,
+        platform: "instagram",
+        instagramFollowers: 8014,
+      },
+    ]);
+
+    const lines: string[] = [];
+    const result = await runEnrich(
+      {
+        target: "submissions",
+        submissionIds: [target.id],
+        dryRun: true,
+        phases: FULL_PHASES,
+        onProgress: (line: string) => lines.push(line),
+      },
+      fakeSupabase([target]),
+    );
+
+    const gateLine = lines.find((line) => line.includes("[NO-CHANNEL]"));
+    expect(gateLine).toContain("instagram_followers=8014");
+
+    const outcome = result.brandOutcomes.find(
+      (entry) => entry?.submissionId === target.id,
+    );
+    const acquireSkip = outcome?.phaseResults?.find(
+      (phaseResult) => phaseResult.phase === "acquire",
+    );
+    expect(acquireSkip?.linkExpansion?.instagramFollowers).toBe(8014);
+  });
+
+  it("handle_serp_adopts_store_whose_handle_differs_from_brand_name", async () => {
+    // The handle is not built from the brand name, so a brand-NAME gate on the
+    // handle query's own results rejects the shop it was spent to find.
+    const target = submission({
+      id: "sub-handle-unlike-name",
+      brand_name: "Bonnie Lu",
+      social_instagram: "https://www.instagram.com/bl_workshop",
+    });
+
+    mocks.collectHubUrls.mockReturnValue([]);
+    mocks.expandLinkHubs.mockResolvedValue(emptyHubExpansion());
+    stubSerpCalls({
+      name: { urls: ["https://news.example.com/story"] },
+      handle: {
+        urls: ["https://www.pinkoi.com/store/bl_workshop"],
+        entries: [
+          { title: "Shop", link: "https://www.pinkoi.com/store/bl_workshop" },
+        ],
+      },
+    });
+    mocks.hasPurchaseChannel.mockReturnValueOnce(false).mockReturnValue(true);
+
+    await runEnrich(
+      {
+        target: "submissions",
+        submissionIds: [target.id],
+        dryRun: true,
+        phases: FULL_PHASES,
+        onProgress: () => {},
+      },
+      fakeSupabase([target]),
+    );
+
+    const acquireInput = mocks.runAcquirePhase.mock.calls[0][0] as {
+      brand: Record<string, unknown>;
+      linkExpansion?: {
+        sources?: Record<string, string>;
+        adopted: Array<{ field: string; url: string; source: string }>;
+      };
+    };
+    expect(acquireInput.brand.purchase_pinkoi).toBe(
+      "https://www.pinkoi.com/store/bl_workshop",
+    );
+    expect(acquireInput.linkExpansion?.adopted).toContainEqual({
+      field: "purchasePinkoi",
+      url: "https://www.pinkoi.com/store/bl_workshop",
+      source: "serp_handle",
+    });
+    expect(acquireInput.linkExpansion?.sources?.serpHandle).toBe("found");
+  });
+
+  it("handle_serp_expands_matched_link_hub_as_confirmed", async () => {
+    const HUB = "https://linktr.ee/1.wo_of";
+    const PINKOI = "https://www.pinkoi.com/store/1woof";
+    const target = submission({
+      id: "sub-handle-hub",
+      brand_name: "1woof Studio",
+      social_instagram: "https://www.instagram.com/1.wo_of",
+    });
+
+    mocks.collectHubUrls.mockReturnValue([]);
+    mocks.expandLinkHubs
+      .mockResolvedValueOnce(emptyHubExpansion())
+      .mockResolvedValueOnce({
+        hubsFetched: 1,
+        fetchFailures: 0,
+        adopted: [
+          {
+            field: "purchasePinkoi",
+            value: PINKOI,
+            source: "hub",
+            hubUrl: HUB,
+          },
+        ],
+        scraped: { purchasePinkoi: PINKOI },
+      });
+    stubSerpCalls({
+      name: { urls: ["https://news.example.com/story"] },
+      handle: {
+        urls: [HUB],
+        entries: [{ title: "1woof links", link: HUB }],
+      },
+    });
+    mocks.hasPurchaseChannel.mockReturnValueOnce(false).mockReturnValue(true);
+
+    await runEnrich(
+      {
+        target: "submissions",
+        submissionIds: [target.id],
+        dryRun: true,
+        phases: FULL_PHASES,
+        onProgress: () => {},
+      },
+      fakeSupabase([target]),
+    );
+
+    // The hub carries the brand's own handle, so it is expanded as CONFIRMED.
+    expect(mocks.expandLinkHubs).toHaveBeenCalledTimes(2);
+    const hubCall = mocks.expandLinkHubs.mock.calls[1][0] as {
+      hubUrls: string[];
+      confirmedHubUrls: Set<string>;
+    };
+    expect(hubCall.hubUrls).toEqual([HUB]);
+    expect([...hubCall.confirmedHubUrls]).toContain(HUB);
+
+    const acquireInput = mocks.runAcquirePhase.mock.calls[0][0] as {
+      linkExpansion?: {
+        hubsFetched?: number;
+        sources?: Record<string, string>;
+        adopted: Array<{ field: string; url: string; source: string }>;
+      };
+    };
+    expect(acquireInput.linkExpansion?.adopted).toContainEqual({
+      field: "purchasePinkoi",
+      url: PINKOI,
+      source: "serp_handle",
+    });
+    expect(acquireInput.linkExpansion?.sources?.serpHandle).toBe("found");
+    // The trace counts every hub page the brand cost us, this one included.
+    expect(acquireInput.linkExpansion?.hubsFetched).toBe(1);
+  });
+
+  it("handle_serp_hub_fetch_failure_is_unknown", async () => {
+    const HUB = "https://linktr.ee/1.wo_of";
+    const target = submission({
+      id: "sub-handle-hub-dead",
+      brand_name: "1woof Studio",
+      social_instagram: "https://www.instagram.com/1.wo_of",
+      intent: "refresh",
+      brand_id: "brand-handle-hub-dead",
+      base_brand_data: { name: "1woof Studio" },
+    });
+
+    mocks.collectHubUrls.mockReturnValue([]);
+    mocks.expandLinkHubs
+      .mockResolvedValueOnce(emptyHubExpansion())
+      .mockResolvedValueOnce({
+        hubsFetched: 1,
+        fetchFailures: 1,
+        adopted: [],
+        scraped: {},
+      });
+    stubSerpCalls({
+      name: { urls: ["https://news.example.com/story"] },
+      handle: {
+        urls: [HUB],
+        entries: [{ title: "1woof links", link: HUB }],
+      },
+    });
+    mocks.hasPurchaseChannel.mockReturnValue(false);
+
+    const result = await runEnrich(
+      {
+        target: "submissions",
+        submissionIds: [target.id],
+        dryRun: true,
+        phases: FULL_PHASES,
+        onProgress: () => {},
+      },
+      fakeSupabase([target]),
+    );
+
+    const outcome = result.brandOutcomes.find(
+      (entry) => entry?.submissionId === target.id,
+    );
+    const acquireSkip = outcome?.phaseResults?.find(
+      (phaseResult) => phaseResult.phase === "acquire",
+    );
+    // The hub the handle query found never loaded. Adopting nothing off a page
+    // that never rendered is not a finding about the brand.
+    expect(acquireSkip?.linkExpansion?.sources?.serpHandle).toBe("unknown");
+    expect(acquireSkip?.linkExpansion?.evidence).toBe("inconclusive");
+  });
+
+  it("handle_serp_adopts_own_domain_root_via_classify", async () => {
+    const OWN = "https://1woof.com/";
+    const target = submission({
+      id: "sub-handle-own-domain",
+      brand_name: "1woof Studio",
+      social_instagram: "https://www.instagram.com/1.wo_of",
+    });
+
+    mocks.collectHubUrls.mockReturnValue([]);
+    mocks.expandLinkHubs.mockResolvedValue(emptyHubExpansion());
+    stubSerpCalls({
+      name: { urls: ["https://news.example.com/story"] },
+      handle: {
+        urls: [OWN],
+        entries: [{ title: "1woof", link: OWN }],
+      },
+    });
+    mocks.hasPurchaseChannel.mockReturnValueOnce(false).mockReturnValue(true);
+
+    await runEnrich(
+      {
+        target: "submissions",
+        submissionIds: [target.id],
+        dryRun: true,
+        phases: FULL_PHASES,
+        onProgress: () => {},
+      },
+      fakeSupabase([target]),
+    );
+
+    // The host label IS the handle, so the brand's own site is adopted the way
+    // a human-submitted URL is. No platform pattern could have recognised it.
+    const acquireInput = mocks.runAcquirePhase.mock.calls[0][0] as {
+      brand: Record<string, unknown>;
+      linkExpansion?: {
+        sources?: Record<string, string>;
+        adopted: Array<{ field: string; url: string; source: string }>;
+      };
+    };
+    expect(acquireInput.brand.purchase_website).toBe(OWN);
+    expect(acquireInput.linkExpansion?.adopted).toContainEqual({
+      field: "purchaseWebsite",
+      url: OWN,
+      source: "serp_handle",
+    });
+    expect(acquireInput.linkExpansion?.sources?.serpHandle).toBe("found");
+  });
+
+  it("handle_serp_empty_result_is_absent", async () => {
+    const target = submission({
+      id: "sub-handle-empty",
+      brand_name: "Empty Handle Brand",
+      social_instagram: "https://www.instagram.com/emptyhandle",
+      intent: "refresh",
+      brand_id: "brand-handle-empty",
+      base_brand_data: { name: "Empty Handle Brand" },
+    });
+
+    mocks.collectHubUrls.mockReturnValue([]);
+    mocks.expandLinkHubs.mockResolvedValue(emptyHubExpansion());
+    // The name query ranked only unrelated pages; the handle query ranked
+    // nothing at all. Both are ANSWERS, so the brand is conclusively gated.
+    stubSerpCalls({
+      name: { urls: ["https://news.example.com/story"] },
+      handle: { urls: [], entries: [], callStatus: "empty" },
+    });
+    mocks.hasPurchaseChannel.mockReturnValue(false);
+
+    const result = await runEnrich(
+      {
+        target: "submissions",
+        submissionIds: [target.id],
+        dryRun: true,
+        phases: FULL_PHASES,
+        onProgress: () => {},
+      },
+      fakeSupabase([target]),
+    );
+
+    const outcome = result.brandOutcomes.find(
+      (entry) => entry?.submissionId === target.id,
+    );
+    const acquireSkip = outcome?.phaseResults?.find(
+      (phaseResult) => phaseResult.phase === "acquire",
+    );
+    expect(serpCalls("handle")).toHaveLength(1);
+    expect(acquireSkip?.linkExpansion?.sources?.serpHandle).toBe("absent");
+    expect(acquireSkip?.linkExpansion?.evidence).toBe("conclusive");
+  });
+
+  it("name_serp_empty_result_is_absent", async () => {
+    const target = submission({
+      id: "sub-name-empty",
+      brand_name: "Empty Search Brand",
+      social_instagram: "https://www.instagram.com/emptysearch",
+      intent: "refresh",
+      brand_id: "brand-name-empty",
+      base_brand_data: { name: "Empty Search Brand" },
+    });
+
+    mocks.collectHubUrls.mockReturnValue([]);
+    mocks.expandLinkHubs.mockResolvedValue(emptyHubExpansion());
+    // A live query that ranked nothing is an ANSWER, not an outage.
+    stubSerpCalls({
+      name: { urls: [], callStatus: "empty" },
+      handle: {},
+    });
+    mocks.hasPurchaseChannel.mockReturnValue(false);
+
+    const result = await runEnrich(
+      {
+        target: "submissions",
+        submissionIds: [target.id],
+        dryRun: true,
+        phases: FULL_PHASES,
+        onProgress: () => {},
+      },
+      fakeSupabase([target]),
+    );
+
+    const outcome = result.brandOutcomes.find(
+      (entry) => entry?.submissionId === target.id,
+    );
+    const acquireSkip = outcome?.phaseResults?.find(
+      (phaseResult) => phaseResult.phase === "acquire",
+    );
+    expect(acquireSkip?.linkExpansion?.sources?.serpName).toBe("absent");
+    expect(acquireSkip?.linkExpansion?.evidence).toBe("conclusive");
+  });
+
+  it("name_serp_failed_call_is_unknown", async () => {
+    const target = submission({
+      id: "sub-name-failed",
+      brand_name: "Dead Search Brand",
+      social_instagram: "https://www.instagram.com/deadsearch",
+      intent: "refresh",
+      brand_id: "brand-name-failed",
+      base_brand_data: { name: "Dead Search Brand" },
+    });
+
+    mocks.collectHubUrls.mockReturnValue([]);
+    mocks.expandLinkHubs.mockResolvedValue(emptyHubExpansion());
+    stubSerpCalls({
+      name: { urls: ["https://news.example.com/story"], callStatus: "failed" },
+      handle: {},
+    });
+    mocks.hasPurchaseChannel.mockReturnValue(false);
+
+    const result = await runEnrich(
+      {
+        target: "submissions",
+        submissionIds: [target.id],
+        dryRun: true,
+        phases: FULL_PHASES,
+        onProgress: () => {},
+      },
+      fakeSupabase([target]),
+    );
+
+    const outcome = result.brandOutcomes.find(
+      (entry) => entry?.submissionId === target.id,
+    );
+    const acquireSkip = outcome?.phaseResults?.find(
+      (phaseResult) => phaseResult.phase === "acquire",
+    );
+    // A dead call says nothing about the brand, whatever it returned.
+    expect(acquireSkip?.linkExpansion?.sources?.serpName).toBe("unknown");
+    expect(acquireSkip?.linkExpansion?.evidence).toBe("inconclusive");
+  });
+
+  it("expansion_runs_with_concurrency_four", async () => {
+    const targets = Array.from({ length: 8 }, (_, index) =>
+      submission({
+        id: `sub-conc-${index}`,
+        brand_name: `Concurrent Brand ${index}`,
+        social_instagram: `https://www.instagram.com/concurrent${index}`,
+      }),
+    );
+
+    let inFlight = 0;
+    let maxInFlight = 0;
+    const releases: Array<() => void> = [];
+
+    mocks.collectHubUrls.mockReturnValue([]);
+    mocks.hasPurchaseChannel.mockReturnValue(true);
+    mocks.expandLinkHubs.mockImplementation(async () => {
+      inFlight += 1;
+      maxInFlight = Math.max(maxInFlight, inFlight);
+      await new Promise<void>((resolve) => {
+        releases.push(resolve);
+      });
+      inFlight -= 1;
+      return emptyHubExpansion();
+    });
+
+    let settled = false;
+    const run = runEnrich(
+      {
+        target: "submissions",
+        submissionIds: targets.map((entry) => entry.id),
+        dryRun: true,
+        phases: FULL_PHASES,
+        onProgress: () => {},
+      },
+      fakeSupabase(targets),
+    ).finally(() => {
+      settled = true;
+    });
+
+    // Let the map fill its slots, then release whatever queued up. With a
+    // bound of four, four is the most that can ever be waiting at once.
+    for (let tick = 0; tick < 200 && !settled; tick += 1) {
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      while (releases.length > 0) releases.shift()!();
+    }
+    await run;
+
+    expect(mocks.expandLinkHubs).toHaveBeenCalledTimes(8);
+    expect(maxInFlight).toBe(4);
   });
 });

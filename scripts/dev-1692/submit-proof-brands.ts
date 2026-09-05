@@ -31,7 +31,29 @@ type ProofBrand = {
   brandName: string;
   websiteUrl?: string;
   instagram?: string;
+  /** Alias of `instagram`; both spellings exist in the fixture. */
+  socialInstagram?: string;
+  /** Threads profile URL — the DEV-1702 Threads bio expansion needs one. */
+  socialThreads?: string;
+  /** Free-text marker for entries an operator must fill in before a run. */
+  note?: string;
 };
+
+/**
+ * Only the links the submission columns own. An entry with neither an
+ * Instagram nor a Threads URL sends no `socialLinks` at all, which is what the
+ * pipeline expects for a website-only brand.
+ */
+function socialLinksFor(
+  brand: ProofBrand,
+): { instagram?: string; threads?: string } | undefined {
+  const instagram = brand.instagram ?? brand.socialInstagram;
+  const links = {
+    ...(instagram ? { instagram } : {}),
+    ...(brand.socialThreads ? { threads: brand.socialThreads } : {}),
+  };
+  return Object.keys(links).length > 0 ? links : undefined;
+}
 
 const APPLY = process.argv.includes("--apply");
 
@@ -69,9 +91,7 @@ async function main(): Promise<void> {
         brandName: brand.brandName,
         websiteUrl: brand.websiteUrl,
         submitterEmail: SUBMITTER_EMAIL,
-        socialLinks: brand.instagram
-          ? { instagram: brand.instagram }
-          : undefined,
+        socialLinks: socialLinksFor(brand),
       },
       { useServiceRole: true },
     );
