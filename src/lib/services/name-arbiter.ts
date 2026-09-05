@@ -1,5 +1,5 @@
 import { NAME_ARBITER_SYSTEM_PROMPT } from "@/lib/prompts";
-import { fetchLangfusePrompt } from "@/lib/langfuse/prompt";
+import { fetchLangfusePromptWithMeta } from "@/lib/langfuse/prompt";
 import { auditedCall } from "@/lib/audit";
 import {
   LLM_BATCH_CHUNK_SIZE,
@@ -69,7 +69,7 @@ const nameVerdictItemShape = z.object({
   reason: z.string(),
 });
 
-const nameArbitrationShape = z.object({
+export const nameArbitrationShape = z.object({
   results: z.array(nameVerdictItemShape),
 });
 
@@ -98,6 +98,7 @@ function createNameArbiterClient(
   profileKey: NameArbiterProfileKey,
   target: EnrichmentTarget | undefined,
   jobId?: string,
+  prompt?: { name: string; version: number },
 ) {
   const config = buildProfiledEnrichmentConfig(
     "names",
@@ -111,6 +112,7 @@ function createNameArbiterClient(
       target,
       phase: "names",
       ...(jobId ? { jobId } : {}),
+      ...(prompt ? { prompt } : {}),
       config,
     },
     { apiKey },
@@ -250,10 +252,11 @@ async function arbitrateBrandName(
   const token = process.env.OPENAI_API_KEY;
   if (!token) return notAttempted();
 
-  const client = createNameArbiterClient(token, "names", item.target, jobId);
-
   try {
-    const nameArbiterPrompt = await fetchLangfusePrompt("name-arbiter", NAME_ARBITER_SYSTEM_PROMPT);
+    const { text: nameArbiterPrompt, prompt: namePromptMeta } = await fetchLangfusePromptWithMeta("name-arbiter", NAME_ARBITER_SYSTEM_PROMPT);
+
+    const client = createNameArbiterClient(token, "names", item.target, jobId, namePromptMeta ?? undefined);
+
     const { response, data, content } = await client.chat({
       system: nameArbiterPrompt,
       user: buildNameArbiterUserContent([item]),
@@ -298,15 +301,17 @@ async function arbitrateBrandNamesChunk(
   const token = process.env.OPENAI_API_KEY;
   if (!token) return notAttempted();
 
-  const client = createNameArbiterClient(
-    token,
-    "namesBatch",
-    items.at(0)?.target,
-    jobId,
-  );
-
   try {
-    const nameArbiterBatchPrompt = await fetchLangfusePrompt("name-arbiter", NAME_ARBITER_SYSTEM_PROMPT);
+    const { text: nameArbiterBatchPrompt, prompt: nameBatchPromptMeta } = await fetchLangfusePromptWithMeta("name-arbiter", NAME_ARBITER_SYSTEM_PROMPT);
+
+    const client = createNameArbiterClient(
+      token,
+      "namesBatch",
+      items.at(0)?.target,
+      jobId,
+      nameBatchPromptMeta ?? undefined,
+    );
+
     const { response, data, content } = await client.chat({
       system: nameArbiterBatchPrompt,
       user: buildNameArbiterUserContent(items),

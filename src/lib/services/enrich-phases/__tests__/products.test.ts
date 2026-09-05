@@ -41,7 +41,10 @@ vi.mock("../../llm-audit", async (importOriginal) => ({
 const fetchLangfusePrompt = vi.hoisted(() =>
   vi.fn((_name: string, fallback: string) => Promise.resolve(fallback)),
 );
-vi.mock("@/lib/langfuse/prompt", () => ({ fetchLangfusePrompt }));
+const fetchLangfusePromptWithMeta = vi.hoisted(() =>
+  vi.fn((_name: string, fallback: string) => Promise.resolve({ text: fallback, prompt: { name: _name, version: 1 } })),
+);
+vi.mock("@/lib/langfuse/prompt", () => ({ fetchLangfusePrompt, fetchLangfusePromptWithMeta }));
 
 const SITE = "https://island-studio.example";
 const SUBMISSION_ID = "3f7c1c4e-0b2a-4a9d-9a5a-2c8e1d4b6f01";
@@ -1342,7 +1345,7 @@ describe("rawCount and productsParseError in runProductsPhase", () => {
       target: { type: "submission", id: SUBMISSION_ID },
     });
 
-    expect(fetchLangfusePrompt).toHaveBeenCalledWith(
+    expect(fetchLangfusePromptWithMeta).toHaveBeenCalledWith(
       "products",
       expect.any(String),
       expect.objectContaining({
@@ -1357,7 +1360,7 @@ describe("rawCount and productsParseError in runProductsPhase", () => {
   it("hashes the effective Langfuse prompt recorded with the request", async () => {
     // Catches constructing audit configuration from the fallback before Langfuse resolves.
     const effectivePrompt = "Effective products prompt with scalar subcategory";
-    fetchLangfusePrompt.mockResolvedValueOnce(effectivePrompt);
+    fetchLangfusePromptWithMeta.mockResolvedValueOnce({ text: effectivePrompt, prompt: { name: "products", version: 1 } });
     const chat = modelReturns([rawProposal()]);
 
     await runProductsPhase({

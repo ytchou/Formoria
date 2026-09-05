@@ -2,7 +2,7 @@ import { z } from "zod";
 import type { Brand } from "@/lib/types";
 import { FAQ_PROMPT_PREAMBLE } from "@/lib/prompts";
 import { TAIWAN_USAGE_RULES } from "@/lib/prompts/shared";
-import { fetchLangfusePrompt } from "@/lib/langfuse/prompt";
+import { fetchLangfusePromptWithMeta } from "@/lib/langfuse/prompt";
 import {
   CUSTOM_QUESTION_CEILING,
   buildFaqPromptHash,
@@ -560,7 +560,7 @@ export async function runFaqPhase({
       schema: toStrictJsonSchema(faqZodSchema),
     };
     const localSystemPrompt = buildFaqSystemPrompt(authorable, ctx);
-    const langfusePreamble = await fetchLangfusePrompt("faq-preamble", FAQ_PROMPT_PREAMBLE, {
+    const { text: langfusePreamble, prompt: faqPromptMeta } = await fetchLangfusePromptWithMeta("faq-preamble", FAQ_PROMPT_PREAMBLE, {
       taiwan_usage_rules: TAIWAN_USAGE_RULES,
     });
     const systemPrompt = localSystemPrompt.replace(FAQ_PROMPT_PREAMBLE, langfusePreamble);
@@ -612,7 +612,7 @@ export async function runFaqPhase({
       async (retryInstruction, attempt) => {
         const client = createProfiledOpenAIClient(
           "faq",
-          { jobId, target: auditTarget, phase: "faq", attempt, config },
+          { jobId, target: auditTarget, phase: "faq", attempt, config, ...(faqPromptMeta ? { prompt: faqPromptMeta } : {}) },
           { apiKey: token },
         );
         const response = await client.chat({

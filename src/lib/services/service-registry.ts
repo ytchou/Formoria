@@ -106,6 +106,7 @@ export const NON_SERVICE_ENV: Readonly<Record<string, string>> = {
   PR_URL: "CI notification metadata, not a provider service.",
   RAILWAY_LOGS_URL: "Internal log-query target, not a provider credential.",
   SEARCH_LOAD_BASE_URL: "Load-test target URL, not a provider service.",
+  LANGFUSE_PROMPT_VERSIONS: "Eval prompt version pinning, not a provider service.",
 };
 
 const TODAY = "2026-08-10";

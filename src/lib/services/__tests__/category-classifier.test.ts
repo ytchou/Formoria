@@ -11,6 +11,14 @@ import {
 } from "../category-classifier";
 import { L1_CATEGORIES } from "@/lib/taxonomy/ontology";
 
+const promptMeta = { name: "detect", version: 2 };
+vi.mock("@/lib/langfuse/prompt", () => ({
+  fetchLangfusePrompt: vi.fn((_n: string, fb: string) => Promise.resolve(fb)),
+  fetchLangfusePromptWithMeta: vi.fn((_n: string, fb: string) =>
+    Promise.resolve({ text: fb, prompt: promptMeta }),
+  ),
+}));
+
 const mockFetch = vi.fn();
 void (null as DetectResult | null);
 
@@ -492,6 +500,26 @@ describe("structured output schemas", () => {
     ]);
     expect(results.size).toBe(1);
     expect(results.get("test-brand")!.categorySlug).toBe("home");
+
+    vi.unstubAllGlobals();
+    vi.unstubAllEnvs();
+  });
+
+  it("audit context carries prompt meta from fetchLangfusePromptWithMeta", async () => {
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({
+        choices: [{ message: { content: JSON.stringify({ results: [{ slug: "test-brand", reasoning: "test", isNonBrand: false, nonBrandReason: null, brand_name: "Test", slug_generated: "test-brand", confidence: "high" }] }) } }],
+      }),
+    });
+    vi.stubGlobal("fetch", mockFetch);
+    vi.stubEnv("OPENAI_API_KEY", "test-key");
+
+    await detectBrandsBatch([{ slug: "test-brand", name: "Test", description: null, website: null }]);
+
+    const _body = JSON.parse(mockFetch.mock.calls[0][1].body);
+    const { fetchLangfusePromptWithMeta } = await import("@/lib/langfuse/prompt");
+    expect(fetchLangfusePromptWithMeta).toHaveBeenCalled();
 
     vi.unstubAllGlobals();
     vi.unstubAllEnvs();

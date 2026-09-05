@@ -1,3 +1,7 @@
+import type { ZodType } from 'zod'
+
+import { reportBannedTerms } from '@/lib/i18n/banned-terms'
+
 const CJK_ALL_REGEX = /[\u4E00-\u9FFF\u3400-\u4DBF\u3000-\u303F\uFF01-\uFF60\uFE30-\uFE4F]/u
 const LATIN_REGEX = /[A-Za-z]/u
 const JUNK_IMAGE_TAGS = new Set(['promo', 'text_banner', 'irrelevant'])
@@ -47,4 +51,76 @@ export function classificationPrecision(
   }).length
 
   return correct / labeled.length
+}
+
+// ---------------------------------------------------------------------------
+// Scorer type
+// ---------------------------------------------------------------------------
+
+export type Scorer<TOut, TExp> = (output: TOut, expected: TExp) => number
+
+// ---------------------------------------------------------------------------
+// Decision & confidence scorers
+// ---------------------------------------------------------------------------
+
+const VALID_BANDS = new Set(['high', 'medium', 'low'])
+
+export function decisionAgreement(output: unknown, expected: unknown): number {
+  if (output === undefined) return 0
+  return output === expected ? 1 : 0
+}
+
+export function confidenceBandAgreement(
+  output: string | undefined,
+  expected: string,
+): number {
+  if (output === undefined || !VALID_BANDS.has(output) || !VALID_BANDS.has(expected)) return 0
+  return output === expected ? 1 : 0
+}
+
+// ---------------------------------------------------------------------------
+// Category scorer
+// ---------------------------------------------------------------------------
+
+export function categoryAgreement(
+  output: { category: string; subcategory?: string | null },
+  expected: { category: string; subcategory?: string | null },
+): number {
+  if (output.category !== expected.category) return 0
+  // null subcategory on both sides counts as full match
+  if ((output.subcategory ?? null) === (expected.subcategory ?? null)) return 1
+  return 0.5
+}
+
+// ---------------------------------------------------------------------------
+// Write-eligible scorer (rule-injected)
+// ---------------------------------------------------------------------------
+
+export function writeEligibleAgreement(
+  output: unknown,
+  expected: { writeEligible: boolean },
+  rule: (output: unknown) => boolean,
+): number {
+  return rule(output) === expected.writeEligible ? 1 : 0
+}
+
+// ---------------------------------------------------------------------------
+// Schema compliance scorer
+// ---------------------------------------------------------------------------
+
+export function schemaCompliance(output: unknown, schema: ZodType): number {
+  const result = schema.safeParse(output)
+  return result.success ? 1 : 0
+}
+
+// ---------------------------------------------------------------------------
+// Banned-term scorer
+// ---------------------------------------------------------------------------
+
+export function bannedTermScore(fields: Record<string, string>): number {
+  const tuples = Object.entries(fields).map(
+    ([field, value]) => [field, value] as const,
+  )
+  const hits = reportBannedTerms({ summary: {} }, tuples)
+  return hits.length === 0 ? 1 : 0
 }

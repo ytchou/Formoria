@@ -5,6 +5,14 @@ import {
   type SiteIdentityItem,
 } from "../site-identity-arbiter";
 
+const promptMeta = { name: "site-identity", version: 2 };
+vi.mock("@/lib/langfuse/prompt", () => ({
+  fetchLangfusePrompt: vi.fn((_n: string, fb: string) => Promise.resolve(fb)),
+  fetchLangfusePromptWithMeta: vi.fn((_n: string, fb: string) =>
+    Promise.resolve({ text: fb, prompt: promptMeta }),
+  ),
+}));
+
 const mockFetch = vi.fn();
 
 describe("arbitrateSiteIdentity", () => {
@@ -251,6 +259,20 @@ describe("arbitrateSiteIdentity", () => {
       outcome.results.get(siteIdentityKey(items[1].slug, items[1].subjectUrl))
         ?.owned,
     ).toBe(false);
+  });
+  it("audit context carries prompt meta from fetchLangfusePromptWithMeta", async () => {
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({
+        choices: [{ message: { content: JSON.stringify({ results: [{ slug: "xiao-zhu-dessert", subjectUrl: "https://xiao-zhu.example", owned: true, confidence: "high", reason: "test" }, { slug: "unigaze", subjectUrl: "https://example.com/unigaze", owned: false, confidence: "high", reason: "test" }] }) } }],
+      }),
+      headers: new Headers(),
+    });
+
+    await arbitrateSiteIdentity(items);
+
+    const { fetchLangfusePromptWithMeta } = await import("@/lib/langfuse/prompt");
+    expect(fetchLangfusePromptWithMeta).toHaveBeenCalledWith("site-identity", expect.any(String));
   });
 });
 

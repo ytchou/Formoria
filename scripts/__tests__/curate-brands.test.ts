@@ -48,5 +48,6 @@ describe("parseCliArgs", () => {
     expect(() => parseCliArgs(["enrich-descriptions"])).toThrow(
       /unknown command/i,
     );
+    expect(() => parseCliArgs(["eval"])).toThrow(/unknown command/i);
   });
 });

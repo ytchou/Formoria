@@ -33,7 +33,7 @@ import {
   createProfiledOpenAIClient,
   profileChatParams,
 } from "../llm-audit";
-import { fetchLangfusePrompt } from "@/lib/langfuse/prompt";
+import { fetchLangfusePromptWithMeta } from "@/lib/langfuse/prompt";
 import {
   parseAndValidate,
   toStrictJsonSchema,
@@ -1494,7 +1494,7 @@ export async function runProductsPhase({
             listingLines,
             originLines,
           );
-          const productsSystemPrompt = await fetchLangfusePrompt(
+          const { text: productsSystemPrompt, prompt: productsPromptMeta } = await fetchLangfusePromptWithMeta(
             "products",
             PRODUCTS_SYSTEM_PROMPT,
             {
@@ -1518,6 +1518,7 @@ export async function runProductsPhase({
               phase: "products",
               attempt: 1,
               config,
+              ...(productsPromptMeta ? { prompt: productsPromptMeta } : {}),
             },
             { apiKey: token },
           );

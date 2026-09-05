@@ -8,7 +8,7 @@ import {
   SUBCATEGORY_VOCAB_BLOCK,
   MATERIAL_VOCAB_BLOCK,
 } from "@/lib/prompts/shared";
-import { fetchLangfusePrompt } from "@/lib/langfuse/prompt";
+import { fetchLangfusePromptWithMeta } from "@/lib/langfuse/prompt";
 import { z } from "zod";
 import {
   parseAndValidate,
@@ -520,7 +520,7 @@ export async function extractBrandFacts(
   // Counted across both attempts: a first call the model answered and a second
   // that hit a spent account is not an outage.
   const calls = noLlmCalls();
-  const factsSystemPrompt = await fetchLangfusePrompt(
+  const { text: factsSystemPrompt, prompt: factsPromptMeta } = await fetchLangfusePromptWithMeta(
     "brand-facts",
     FACTS_SYSTEM_PROMPT,
     {
@@ -542,6 +542,7 @@ export async function extractBrandFacts(
           phase: "facts",
           attempt: attemptIndex + 1,
           config: attemptConfig,
+          ...(factsPromptMeta ? { prompt: factsPromptMeta } : {}),
         },
         { apiKey: token },
       );

@@ -31,7 +31,10 @@ import {
 const fetchLangfusePrompt = vi.hoisted(() =>
   vi.fn((_name: string, fallback: string) => Promise.resolve(fallback)),
 );
-vi.mock("@/lib/langfuse/prompt", () => ({ fetchLangfusePrompt }));
+const fetchLangfusePromptWithMeta = vi.hoisted(() =>
+  vi.fn((_name: string, fallback: string) => Promise.resolve({ text: fallback, prompt: { name: _name, version: 1 } })),
+);
+vi.mock("@/lib/langfuse/prompt", () => ({ fetchLangfusePrompt, fetchLangfusePromptWithMeta }));
 
 /**
  * Service dependencies mocked via relative path to reach the
@@ -685,7 +688,7 @@ describe("runFaqPhase langfuse variables", () => {
       serpSnippets: [],
     });
 
-    expect(fetchLangfusePrompt).toHaveBeenCalledWith(
+    expect(fetchLangfusePromptWithMeta).toHaveBeenCalledWith(
       "faq-preamble",
       expect.any(String),
       expect.objectContaining({ taiwan_usage_rules: TAIWAN_USAGE_RULES }),
