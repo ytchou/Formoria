@@ -73,7 +73,8 @@ export type ChatToolCall = {
   rawArguments?: string;
 };
 
-type OpenAIToolCall = {
+/** A tool call exactly as it travels on the wire, in both directions. */
+export type OpenAIToolCall = {
   id: string;
   type: "function";
   function: { name: string; arguments: string };
@@ -142,13 +143,16 @@ function parseToolCalls(
 ): ChatToolCall[] | null {
   if (!calls?.length) return null;
   return calls.map((call) => {
-    const raw = call.function?.arguments ?? "";
+    // One guard for both branches: a malformed upstream entry without
+    // `function` degrades to an empty name on either path, never a TypeError.
+    const fn = call.function;
+    const raw = fn?.arguments ?? "";
     try {
       const parsed = JSON.parse(raw) as unknown;
       if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
         return {
           id: call.id,
-          name: call.function.name,
+          name: fn?.name ?? "",
           args: parsed as Record<string, unknown>,
         };
       }
@@ -157,7 +161,7 @@ function parseToolCalls(
     }
     return {
       id: call.id,
-      name: call.function?.name ?? "",
+      name: fn?.name ?? "",
       args: {},
       rawArguments: raw,
     };
@@ -279,10 +283,19 @@ export function createOpenAIClient({
       } = input;
 
       const hasLegacyPair = system !== undefined && user !== undefined;
-      if (Boolean(messages) === hasLegacyPair) {
+      // `messages` and `{system,user}` are exclusive, and *either* legacy field
+      // alongside `messages` is refused: `wireMessages` would drop the orphan
+      // silently, so a prompt the caller wrote would never reach the model.
+      const hasLegacyPart = system !== undefined || user !== undefined;
+      if (messages ? hasLegacyPart : !hasLegacyPair) {
         throw new Error(
           "openai-client: provide exactly one of messages or system+user",
         );
+      }
+      // Boolean([]) is true, so an empty conversation would otherwise reach
+      // OpenAI and spend a 400 round-trip plus a failed audit row.
+      if (messages && messages.length === 0) {
+        throw new Error("openai-client: messages must not be empty");
       }
       if (tools && (json || schema)) {
         throw new Error(
@@ -312,25 +325,44 @@ export function createOpenAIClient({
         { role: "user", content: userContent },
       ];
 
+      /**
+       * Images counted off the wire, not off the input: the legacy `images`
+       * array became `image_url` parts above, and a caller composing `messages`
+       * embeds its own parts. Both audit the same number.
+       */
+      function wireImageCount(): number {
+        let count = 0;
+        for (const message of wireMessages) {
+          const { content } = message;
+          if (!Array.isArray(content)) continue;
+          for (const part of content) {
+            if (part.type === "image_url") count += 1;
+          }
+        }
+        return count;
+      }
+
       function auditRequest(): ChatAuditEvent["request"] {
         return {
           system: firstMessageText(wireMessages, "system"),
           user: firstMessageText(wireMessages, "user"),
-          imageCount: images?.length ?? 0,
+          imageCount: wireImageCount(),
         };
       }
 
       /**
        * Legacy `{system,user}` calls keep emitting exactly today's audit event —
        * the counts are only meaningful for a conversation the caller composed.
+       * Caller `meta` is spread last: its keys are kept, including a collision
+       * with a computed count.
        */
       function auditMeta(): { meta?: Record<string, unknown> } {
         if (!messages) return meta ? { meta } : {};
         return {
           meta: {
-            ...(meta ?? {}),
             messageCount: wireMessages.length,
             toolCallCount: tools?.length ?? 0,
+            ...(meta ?? {}),
           },
         };
       }
@@ -393,6 +425,23 @@ export function createOpenAIClient({
         useSchema: boolean,
         retryAttempt: number,
       ): Promise<OpenAIChatResult> {
+        // An abort that landed during the backoff sleep is only seen by the
+        // classifier after the next attempt ran. Ending it here keeps the
+        // cancelled call from writing one more failed audit row.
+        if (retryAttempt > 0 && input.signal?.aborted) {
+          return {
+            response: networkFailureResponse(),
+            data: null,
+            content: null,
+            toolCalls: null,
+            ok: false,
+            status: 0,
+            errorBody: { error: { message: "aborted" } },
+            finishReason: null,
+            refusal: null,
+          };
+        }
+
         const startedAt = performance.now();
         // Per-attempt deadline. A shared one let a slow first call abort the retry instantly.
         const controller = new AbortController();

@@ -11,8 +11,8 @@
  * graph's step allowance. The loop's `tools` node executes the calls itself, one
  * at a time, and appends a `tool` message per call. A loop that hits
  * the limit, or two rejected `submit_plan` payloads, drops to `planFallback` —
- * one json-mode call — and a failure there is `agentOutcome: 'fallback'`, never a
- * thrown phase.
+ * one free-text call whose JSON is extracted from the answer — and a failure
+ * there is `agentOutcome: 'fallback'`, never a thrown phase.
  *
  * All external dependencies (fetch, render, search, scrape, classify, model) are
  * injected, so the graph is exercised end to end with fakes and no service mock
@@ -20,14 +20,14 @@
  *
  * Budget note: `turns` counts model STAGES (one for the whole plan stage, one
  * per critique) — not model calls. The plan stage's inner tool loop AND its
- * json-mode fallback are bounded by `recursionLimit` plus the probes and renders
+ * single-call fallback are bounded by `recursionLimit` plus the probes and renders
  * allowances instead, because `budgetFor` sizes `turns` at 3 for a healthy
  * static site: plan, critique, and the critique that re-reads a recovery. The
  * loop's real call count is reported in the plan decision.
  */
 
 import { Annotation, END, START, StateGraph, GraphRecursionError } from '@langchain/langgraph'
-import type { ChatMessage, ChatToolDefinition } from '@/lib/services/openai-client'
+import type { ChatMessage, ChatToolDefinition, OpenAIToolCall } from '@/lib/services/openai-client'
 import { fetchLangfusePrompt } from '@/lib/langfuse/prompt'
 import type { FetchMetadata } from '../scraper/fetch-guards'
 import type { RenderProvider } from '../scraper/render/types'
@@ -460,9 +460,6 @@ const PlanLoopState = Annotation.Root({
   }),
 })
 
-/** An OpenAI wire tool call, as it appears on an assistant message. */
-type WireToolCall = { id: string; type: 'function'; function: { name: string; arguments: string } }
-
 type AssistantMessage = Extract<ChatMessage, { role: 'assistant' }>
 
 /** The most recent assistant turn, or null when the loop has not produced one. */
@@ -475,8 +472,8 @@ function lastAssistant(messages: ChatMessage[]): AssistantMessage | null {
 }
 
 /** The tool calls of an assistant turn, as a plain array. */
-function toolCallsOf(message: AssistantMessage | null): WireToolCall[] {
-  return (message?.tool_calls ?? []) as WireToolCall[]
+function toolCallsOf(message: AssistantMessage | null): OpenAIToolCall[] {
+  return message?.tool_calls ?? []
 }
 
 /** The model's own text, ignoring a tool-call-only turn's null content. */
@@ -485,7 +482,13 @@ function assistantText(message: AssistantMessage | null): string {
   return typeof content === 'string' ? content : ''
 }
 
-/** A model response as the assistant message the next turn will read back. */
+/**
+ * A model response as the assistant message the next turn will read back.
+ *
+ * `rawArguments` wins when the model's JSON was malformed: replaying what it
+ * actually wrote is what lets it see its own mistake and correct it. Replaying
+ * the parsed `{}` instead showed the model a call it never made.
+ */
 function toAssistantMessage(response: AgentModelResponse): AssistantMessage {
   const calls = response.toolCalls ?? []
   return {
@@ -496,7 +499,10 @@ function toAssistantMessage(response: AgentModelResponse): AssistantMessage {
           tool_calls: calls.map((call, index) => ({
             id: call.id || `call-${index}`,
             type: 'function' as const,
-            function: { name: call.name, arguments: JSON.stringify(call.args ?? {}) },
+            function: {
+              name: call.name,
+              arguments: call.rawArguments ?? JSON.stringify(call.args ?? {}),
+            },
           })),
         }
       : {}),
@@ -516,23 +522,35 @@ function adoptPlanFromText(ctx: RunContext, text: string): boolean {
   }
 }
 
-/** The arguments the model wrote, or `{}` when it wrote something unparsable. */
+/**
+ * The arguments the model wrote, or `{}` when it wrote something unparsable.
+ *
+ * The wire carries `rawArguments` verbatim for a malformed call, so this parse
+ * is the one that fails on the model's own text. The tool then refuses `{}`
+ * with `invalid_args`, which is a turn the model can read — better than a
+ * parser exception unwinding the sub-graph.
+ */
 function parseToolArguments(raw: string): unknown {
   try {
     return JSON.parse(raw)
   } catch {
-    // The tool refuses `{}` with `invalid_args`, which is a turn the model can
-    // read — better than a parser exception unwinding the sub-graph.
     return {}
   }
 }
 
-function buildPlanLoopGraph(ctx: RunContext, model: AgentModel, tools: AcquisitionTool[]) {
+function buildPlanLoopGraph(
+  ctx: RunContext,
+  model: AgentModel,
+  tools: AcquisitionTool[],
+  // The plan STAGE deadline. Without it each loop call ran on the run-level
+  // signal, so one call could finish a whole model+tools cycle past the stage.
+  planSignal?: AbortSignal,
+) {
   const definitions = tools.map((tool) => tool.definition)
 
   return new StateGraph(PlanLoopState)
     .addNode('model', async (state) => {
-      const response = await ctx.invokeModel(model, state.messages, undefined, definitions)
+      const response = await ctx.invokeModel(model, state.messages, planSignal, definitions)
       ctx.planModelCalls += 1
       return { messages: [toAssistantMessage(response)] }
     })
@@ -635,7 +653,7 @@ async function planNode(ctx: RunContext): Promise<AcquisitionUpdate> {
   )
   const planSignal = ctx.nodeSignal('plan_stage')
   try {
-    await buildPlanLoopGraph(ctx, model, tools).invoke(
+    await buildPlanLoopGraph(ctx, model, tools, planSignal).invoke(
       { messages },
       {
         recursionLimit: ACQUISITION_RECURSION_LIMIT,
@@ -656,7 +674,10 @@ async function planNode(ctx: RunContext): Promise<AcquisitionUpdate> {
     )
   }
 
-  // 2. Single-call fallback — today's json-mode plan, tried at most once. It
+  // 2. Single-call fallback — one free-text call, parsed with `extractJson`
+  //    and adopted by `adoptPlanFromText`, tried at most once. Json mode is NOT
+  //    enabled on the acquisition model: the client refuses a forced JSON
+  //    response_format alongside tools (see acquire.ts, model construction). It
   //    spends NO further turn: the plan STAGE is one turn, charged above,
   //    however many model calls it takes to produce a plan. Charging this call
   //    a second turn spent the static-site allowance entirely on planning, and
@@ -941,8 +962,8 @@ async function critiqueNode(
   })
 
   let response: AgentModelResponse
+  const critiqueSignal = ctx.nodeSignal('critique')
   try {
-    const critiqueSignal = ctx.nodeSignal('critique')
     // No tools: the critique answers with a verdict, never a function call.
     response = await ctx.invokeModel(
       model,
@@ -954,8 +975,15 @@ async function critiqueNode(
     )
   } catch (error) {
     // Critique timeout/abort → treat as budget exhausted, never rethrow.
+    //
+    // The SIGNAL decides, not the error name: an abort no longer reaches here as
+    // an AbortError. `chat()` maps one to `{ok:false,status:0}` and the agent
+    // model rethrows that as a plain Error, so a name check read every node
+    // timeout as `critique_error`. The name check stays for a model that does
+    // propagate the original abort.
     const isAbort =
       ctx.options.signal?.aborted ||
+      critiqueSignal?.aborted ||
       (error instanceof Error && (error.name === 'AbortError' || error.name === 'TimeoutError'))
     if (isAbort) {
       ctx.record('critique', '[CRITIQUE-TIMEOUT] skipped', 'budget_exhausted: critique timed out', start)

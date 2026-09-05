@@ -711,6 +711,131 @@ describe("createOpenAIClient", () => {
       expect(fetchSpy).not.toHaveBeenCalled();
     });
 
+    it("chat_rejects_an_empty_messages_array", async () => {
+      const fetchSpy = vi
+        .spyOn(globalThis, "fetch")
+        .mockResolvedValue(okResponse());
+      const client = createOpenAIClient({ apiKey: "k" });
+
+      await expect(client.chat({ messages: [] })).rejects.toThrow(
+        /messages must not be empty/,
+      );
+      expect(fetchSpy).not.toHaveBeenCalled();
+    });
+
+    it("chat_rejects_messages_combined_with_a_legacy_prompt_field", async () => {
+      const fetchSpy = vi
+        .spyOn(globalThis, "fetch")
+        .mockResolvedValue(okResponse());
+      const client = createOpenAIClient({ apiKey: "k" });
+
+      // Either orphan alone would be dropped silently by `wireMessages`.
+      await expect(
+        client.chat({ messages: conversation, system: "be terse" }),
+      ).rejects.toThrow(/messages or system/);
+      await expect(
+        client.chat({ messages: conversation, user: "find the shop" }),
+      ).rejects.toThrow(/messages or system/);
+      expect(fetchSpy).not.toHaveBeenCalled();
+    });
+
+    it("chat_audits_image_parts_from_either_input_shape", async () => {
+      // A fresh Response per call: a body may only be read once.
+      vi.spyOn(globalThis, "fetch").mockImplementation(() =>
+        Promise.resolve(okResponse()),
+      );
+      const events: ChatAuditEvent[] = [];
+      const client = createOpenAIClient({
+        apiKey: "k",
+        onChatComplete: (event) => {
+          events.push(event);
+        },
+      });
+
+      await client.chat({
+        messages: [
+          { role: "system", content: "look" },
+          {
+            role: "user",
+            content: [
+              { type: "text", text: "these two" },
+              {
+                type: "image_url",
+                image_url: { url: "https://cdn.tw/1.jpg", detail: "low" },
+              },
+              {
+                type: "image_url",
+                image_url: { url: "https://cdn.tw/2.jpg", detail: "low" },
+              },
+            ],
+          },
+        ],
+      });
+      expect(events[0]?.request).toEqual({
+        system: "look",
+        user: "these two",
+        imageCount: 2,
+      });
+
+      // The legacy `images` array counts exactly as it did before.
+      await client.chat({
+        system: "s",
+        user: "u",
+        images: ["https://cdn.tw/1.jpg", "https://cdn.tw/2.jpg"],
+      });
+      expect(events[1]?.request).toEqual({
+        system: "s",
+        user: "u",
+        imageCount: 2,
+      });
+    });
+
+    it("chat_audit_meta_keeps_caller_supplied_count_keys", async () => {
+      vi.spyOn(globalThis, "fetch").mockResolvedValue(okResponse());
+      const events: ChatAuditEvent[] = [];
+      const client = createOpenAIClient({
+        apiKey: "k",
+        onChatComplete: (event) => {
+          events.push(event);
+        },
+      });
+
+      await client.chat({
+        messages: conversation,
+        meta: { messageCount: 99 },
+      });
+
+      expect(events[0]?.meta).toEqual({ messageCount: 99, toolCallCount: 0 });
+    });
+
+    it("chat_stops_before_the_next_attempt_when_the_caller_aborts_during_the_backoff", async () => {
+      const controller = new AbortController();
+      const fetchSpy = vi.spyOn(globalThis, "fetch").mockImplementation(() => {
+        // The abort lands while the retry ladder is sleeping, so the
+        // classifier saw a retryable 503 before it could see the abort.
+        setTimeout(() => controller.abort(), 10);
+        return Promise.resolve(new Response(null, { status: 503 }));
+      });
+      vi.spyOn(console, "warn").mockImplementation(() => undefined);
+      vi.spyOn(console, "error").mockImplementation(() => undefined);
+      const events: ChatAuditEvent[] = [];
+      const client = createOpenAIClient({
+        apiKey: "k",
+        onChatComplete: (event) => {
+          events.push(event);
+        },
+      });
+
+      const result = await withFakeTimers(() =>
+        client.chat({ messages: conversation, signal: controller.signal }),
+      );
+
+      expect(fetchSpy).toHaveBeenCalledTimes(1);
+      expect(events).toHaveLength(1);
+      expect(result.ok).toBe(false);
+      expect(result.status).toBe(0);
+    });
+
     it("chat_parses_tool_calls_into_toolCalls", async () => {
       vi.spyOn(globalThis, "fetch").mockResolvedValue(
         toolCallResponse('{"url":"https://a.tw"}'),

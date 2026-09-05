@@ -304,6 +304,46 @@ describe('acquisition graph — plan tool loop', () => {
     expect(result.budget!.used.probes).toBe(1)
   })
 
+  it('malformed_tool_arguments_are_replayed_verbatim_and_refused', async () => {
+    // The model wrote unparsable JSON. The wire must carry exactly that text
+    // back to it — replaying the parsed `{}` showed it a call it never made —
+    // and the tool refuses the empty payload with `invalid_args`.
+    let planTurn = 0
+    const model = {
+      invoke: vi.fn(async (messages: ChatMessage[], _options?: InvokeOptions) => {
+        if (isCritique(messages)) return { content: JSON.stringify(SUFFICIENT), usage: USAGE }
+        planTurn += 1
+        if (planTurn === 1) {
+          return {
+            content: null,
+            toolCalls: [
+              { id: 'call-1', name: 'probe_static', args: {}, rawArguments: '{not json' },
+            ],
+            usage: USAGE,
+          }
+        }
+        return { content: JSON.stringify(VALID_PLAN), usage: USAGE }
+      }),
+    }
+
+    const result = await runAcquisition(baseInput, makeDeps(), { model })
+
+    const secondTurn = model.invoke.mock.calls.filter(([messages]) => !isCritique(messages))[1]![0]
+    const assistant = secondTurn.find((message) => message.role === 'assistant')
+    expect(assistant).toMatchObject({
+      role: 'assistant',
+      tool_calls: [
+        { id: 'call-1', type: 'function', function: { name: 'probe_static', arguments: '{not json' } },
+      ],
+    })
+
+    const observed = toolMessagesOf(secondTurn)
+    expect(observed).toHaveLength(1)
+    expect(JSON.parse(observed[0]!.content)).toEqual({ error: 'invalid_args' })
+    // A refusal is a turn the model can recover from, not a thrown sub-graph.
+    expect(result.agentOutcome).toBe('planned')
+  })
+
   it('tools_node_answers_unknown_tool_with_error_json', async () => {
     const model = fakeAgentModel({
       plan: [
@@ -630,6 +670,42 @@ describe('acquisition graph — critique', () => {
     )
     expect(critiqueDecision).toBeDefined()
   })
+
+  it(
+    'critique_node_deadline_records_budget_exhausted_not_critique_error',
+    async () => {
+      // The node deadline no longer reaches the catch as an AbortError: chat()
+      // maps an abort to `{ok:false,status:0}` and the agent model rethrows a
+      // plain Error. The signal is what says "we ran out of time".
+      const model = fakeAgentModel({ plan: [VALID_PLAN] })
+      const original = model.invoke.getMockImplementation()!
+      model.invoke.mockImplementation(async (messages: ChatMessage[], options?: InvokeOptions) => {
+        if (!isCritique(messages)) return original(messages, options)
+        await new Promise<void>((resolve) => {
+          const signal = options?.signal
+          if (!signal || signal.aborted) return resolve()
+          signal.addEventListener('abort', () => resolve(), { once: true })
+        })
+        throw new Error('openai 0: The operation was aborted')
+      })
+
+      // The critique's node signal is min(wallClockMs, RESERVED_TAIL_MS), so a
+      // short wall clock is what makes the node deadline observable here.
+      const result = await runAcquisition(baseInput, makeDeps(), {
+        model,
+        budgetOverride: { probes: 1, renders: 0, search: 0, turns: 3, wallClockMs: 2_000 },
+      })
+
+      const critique = result.decisions.find((decision) => decision.step === 'critique')!
+      // The action proves the call was made and timed out, not that the turn
+      // budget ran out before the node ever called the model.
+      expect(critique.action).toContain('CRITIQUE-TIMEOUT')
+      expect(critique.reason).toContain('budget_exhausted')
+      expect(critique.reason).not.toContain('critique_error')
+      expect(result.agentOutcome).not.toBe('blocked')
+    },
+    20_000,
+  )
 
   it('abort_after_images_recovers_last_state_with_image_pool', async () => {
     const classified = [
