@@ -1,5 +1,9 @@
 import { describe, it, expect } from "vitest";
-import { hideBrandWithReason } from "@/lib/services/brands";
+import {
+  BRAND_COLUMN_LIST,
+  DIRECTORY_BRAND_COLUMN_LIST,
+  hideBrandWithReason,
+} from "@/lib/services/brands";
 import type { Brand } from "@/lib/types";
 import type { BrandWriteInput } from "@/lib/services/brands";
 import type {
@@ -107,5 +111,15 @@ describe("hideBrandWithReason", () => {
     expect(result.ok).toBe(false);
     expect(result.changed).toBe(false);
     expect(result.reason).toBe("status_write_skipped");
+  });
+});
+
+describe("hidden_reason projection", () => {
+  it("get_brand_by_id_projection_selects_hidden_reason", () => {
+    // brandToDomain coerces a missing column to null, so a hidden brand read
+    // through a projection without this column reports hiddenReason: null and
+    // the domain object lies about why it left the directory.
+    expect([...BRAND_COLUMN_LIST]).toContain("hidden_reason");
+    expect(DIRECTORY_BRAND_COLUMN_LIST).not.toContain("hidden_reason");
   });
 });

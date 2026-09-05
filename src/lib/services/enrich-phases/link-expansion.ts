@@ -483,8 +483,13 @@ export const EVIDENCE_SOURCE_KEYS = [
  *
  * `conclusive` requires all four sources to have recorded an answer, none of
  * them `unknown`, and every search call that was actually made to have
- * succeeded. Anything short of that is `inconclusive` — the pipeline may then
+ * ANSWERED. Anything short of that is `inconclusive` — the pipeline may then
  * skip the brand, but it may never reject or hide one.
+ *
+ * A call that answered is `succeeded` OR `empty`: `empty` is a live query the
+ * provider ran and ranked nothing for, which is the finding "the web knows of
+ * no shop", not an outage. Treating it as a failure made every brand whose
+ * name the web does not index permanently unjudgeable.
  */
 export function computeEvidence(
   sources: Partial<ChannelSources> | undefined,
@@ -499,7 +504,7 @@ export function computeEvidence(
 
   for (const status of serpCallStatuses) {
     if (status == null) continue
-    if (status !== 'succeeded') return 'inconclusive'
+    if (status !== 'succeeded' && status !== 'empty') return 'inconclusive'
   }
 
   return 'conclusive'

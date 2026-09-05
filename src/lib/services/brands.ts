@@ -688,10 +688,10 @@ export function brandToDomain(row: BrandRowWithJoins): Brand {
     // status is text in the DB — cast to BrandStatus at the boundary
     status: row.status as Brand["status"],
     /*
-     * Only hydrated by projections that select `hidden_reason`. It is not in
-     * BRAND_COLUMN_LIST (adding a column there is a payload change on every
-     * card query), so most reads see null. Ceiling: add the column to the
-     * projection when a surface needs to display the reason.
+     * Carried by BRAND_COLUMN_LIST (getBrandById and every full-brand
+     * projection), and deliberately omitted from DIRECTORY_BRAND_COLUMN_LIST
+     * so public card queries ship no extra payload. The `?? null` keeps those
+     * narrow projections well-formed rather than undefined.
      */
     hiddenReason: row.hidden_reason ?? null,
     categorySlug: row.category ?? null,
@@ -1033,6 +1033,7 @@ export const BRAND_COLUMN_LIST = [
   "reputation_summary",
   "source",
   "is_demo",
+  "hidden_reason",
 ] as const;
 
 /**
@@ -1040,6 +1041,8 @@ export const BRAND_COLUMN_LIST = [
  * directory structured data never render. Every one of them is serialized into
  * the RSC payload once per card, so a 12-card page ships 12 copies for nothing;
  * `draft_data` additionally leaks unpublished editorial content to the client.
+ * `hidden_reason` is moderation state: directory queries only ever return
+ * approved brands, so it is null on every card row.
  * Detail paths keep the full projection — narrow only list/card queries.
  */
 export const DIRECTORY_OMITTED_COLUMNS = [
@@ -1047,9 +1050,10 @@ export const DIRECTORY_OMITTED_COLUMNS = [
   "draft_data",
   "reputation_summary",
   "material",
+  "hidden_reason",
 ] as const;
 
-/** Columns hydrated by directory/card queries: the full list minus the four above. */
+/** Columns hydrated by directory/card queries: the full list minus those above. */
 export const DIRECTORY_BRAND_COLUMN_LIST = BRAND_COLUMN_LIST.filter(
   (column) =>
     !(DIRECTORY_OMITTED_COLUMNS as readonly string[]).includes(column),

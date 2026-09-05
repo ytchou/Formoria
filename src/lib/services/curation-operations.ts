@@ -24,10 +24,12 @@ import {
 } from "@/lib/brands/online-stores";
 import {
   buildLinkEnrichPatch,
+  classifySubmittedUrl,
   extractLinksFromUrls,
   hasLinkValue,
   LINK_FIELDS,
   linkColumnFor,
+  type LinkField,
 } from "./link-enrichment";
 import {
   collectHubUrls,
@@ -43,15 +45,14 @@ import {
   fetchHtml,
   fetchHtmlWithMetadata,
 } from "./enrich-phases/scraper/fetch-guards";
-import {
-  batchSearchBrandsWithSnippets,
-  searchBrandUrls,
-} from "./enrich-phases/scraper/serper";
+import { batchSearchBrandsWithSnippets } from "./enrich-phases/scraper/serper";
 import {
   filterEntriesByHandle,
   HANDLE_QUERY,
   isUsableHandle,
+  normalizeHandle,
 } from "./enrich-phases/scraper/search";
+import { isLinkAggregatorHost } from "./enrich-phases/scraper/input-detector";
 import type { BrandSearchEntry } from "./enrich-phases/scraper/types";
 import { extractInstagramHandle } from "./enrich-phases/scraper/parse/extractors";
 import {
@@ -278,7 +279,7 @@ const SEARCH_REPLAY_MAX_AGE_MS = 3 * 86_400_000;
  * function rather than restated: the result shape is not exported, and a local
  * copy of it could disagree with the provider adapter without anyone noticing.
  */
-type HandleSearchResult = ReturnType<
+type SerpResult = ReturnType<
   Awaited<ReturnType<typeof batchSearchBrandsWithSnippets>>["get"]
 >;
 
@@ -294,6 +295,22 @@ export function instagramHandleFromUrl(
   url: string | null | undefined,
 ): string | null {
   return extractInstagramHandle(url);
+}
+
+/**
+ * A URL's first hostname label in `normalizeHandle`'s comparison form —
+ * `https://1woof.com/` becomes `1woof`. Both sides of a handle comparison have
+ * to be normalized as WHOLE units: a handle spelled `1.wo_of` would never
+ * match its own site otherwise.
+ */
+function registrableLabel(url: string): string | null {
+  try {
+    const host = new URL(url).hostname.toLowerCase().replace(/^www\./, "");
+    const label = host.split(".")[0] ?? "";
+    return label.length > 0 ? normalizeHandle(label) : null;
+  } catch {
+    return null;
+  }
 }
 
 const UNCONSULTED_SOURCES: ChannelSources = {
@@ -1832,6 +1849,9 @@ export async function runEnrich(
 
           const adoptedLinks: AdoptedLink[] = [...expansion.adopted];
           const gatedTags = [...(expansion.gated ?? [])];
+          // Mutable: the handle SERP may find hubs of its own, and the trace
+          // has to count every hub page this brand cost us.
+          let hubsFetched = expansion.hubsFetched;
           const serpCallStatuses: Array<string | null | undefined> = [];
           const sources: ChannelSources = {
             hubs:
@@ -1901,24 +1921,40 @@ export async function runEnrich(
               sources.serpName = applySerpUrls(cachedRow.urls);
             } else {
               serp = 'searched';
-              let serpUrls: string[] | null = null;
+              // `searchBrandUrls` flattens the provider's call status away and
+              // reports a dead call exactly the way it reports an empty answer
+              // — an empty array — so every empty name query had to read as
+              // `unknown`, and no brand could ever be judged on its name query.
+              // The batch call carries the status through.
+              let nameResult: SerpResult = undefined;
               try {
-                serpUrls = await searchBrandUrls(brandName, undefined, {
-                  target: { type: targetType, id: brand.id },
-                  jobId: config.jobId,
-                  config: { phase: 'acquire' as const },
-                });
+                const results = await batchSearchBrandsWithSnippets(
+                  [brandName],
+                  undefined,
+                  1,
+                  () => ({
+                    target: { type: targetType, id: brand.id },
+                    jobId: config.jobId,
+                    config: { phase: 'acquire' as const },
+                  }),
+                );
+                nameResult = results.get(brandName);
               } catch (error) {
                 onProgress(`  [SERP-FAIL] ${brand.slug}: ${errorMessage(error)}`);
               }
-              // `searchBrandUrls` reports a dead call exactly the way it
-              // reports an empty answer — an empty array — so zero URLs has to
-              // read as `unknown`. Over-reporting `unknown` costs a brand its
-              // verdict; under-reporting it would hide a brand on an outage.
+              serpCallStatuses.push(nameResult?.callStatus);
+              const nameStatus = nameResult?.callStatus;
+              // Only a call that ANSWERED may say "there is no shop":
+              // `empty` is a live query that ranked nothing, `succeeded` one
+              // that ranked something. Everything else is an outage.
+              // `malformed` stays `unknown` here even though
+              // `isProviderFailure` excludes it — an unparseable body is not
+              // evidence of an empty web.
               sources.serpName =
-                serpUrls === null || serpUrls.length === 0
-                  ? 'unknown'
-                  : applySerpUrls(serpUrls);
+                nameResult &&
+                (nameStatus === 'succeeded' || nameStatus === 'empty')
+                  ? applySerpUrls(nameResult.urls)
+                  : 'unknown';
             }
           }
 
@@ -1946,7 +1982,7 @@ export async function runEnrich(
                   link,
                 }));
               } else {
-                let handleResult: HandleSearchResult = undefined;
+                let handleResult: SerpResult = undefined;
                 try {
                   const results = await batchSearchBrandsWithSnippets(
                     [brandName],
@@ -1966,10 +2002,15 @@ export async function runEnrich(
                   onProgress(`  [SERP-FAIL] ${brand.slug}: ${errorMessage(error)}`);
                 }
                 serpCallStatuses.push(handleResult?.callStatus);
+                // Same rule as the by-name query: `succeeded` and `empty` are
+                // definitive answers from the provider; every other status
+                // (including `malformed`) is an outage and reads `unknown`.
+                const handleStatus = handleResult?.callStatus;
                 if (
                   !handleResult ||
-                  (handleResult.callStatus !== undefined &&
-                    handleResult.callStatus !== 'succeeded')
+                  (handleStatus !== undefined &&
+                    handleStatus !== 'succeeded' &&
+                    handleStatus !== 'empty')
                 ) {
                   sources.serpHandle = 'unknown';
                 } else {
@@ -1978,17 +2019,24 @@ export async function runEnrich(
               }
 
               if (entries) {
-                const matched = filterEntriesByHandle(entries, handle);
-                const extracted = extractLinksFromUrls(
-                  matched.map((entry) => entry.link),
-                  brandName,
+                const matchedLinks = filterEntriesByHandle(entries, handle).map(
+                  (entry) => entry.link,
                 );
-                if (Object.keys(extracted).length === 0) {
-                  sources.serpHandle = 'absent';
-                } else {
+                const hubLinks = matchedLinks.filter(isLinkAggregatorHost);
+                const platformLinks = matchedLinks.filter(
+                  (link) => !isLinkAggregatorHost(link),
+                );
+                const adoptedBefore = adoptedLinks.length;
+                let handleFetchFailures = 0;
+
+                // No brand-NAME gate here. `filterEntriesByHandle` already
+                // matched every one of these links on the brand's own
+                // Instagram handle by whole-segment equality, and THAT is the
+                // identity check — re-gating on name tokens rejects the shop
+                // of every brand whose handle does not spell its name.
+                const extracted = extractLinksFromUrls(platformLinks);
+                if (Object.keys(extracted).length > 0) {
                   Object.assign(brand, extracted);
-                  hasChannel = hasPurchaseChannel(brand);
-                  sources.serpHandle = hasChannel ? 'found' : 'absent';
                   for (const [column, value] of Object.entries(extracted)) {
                     if (typeof value !== 'string') continue;
                     const field = LINK_FIELDS.find(
@@ -2003,6 +2051,77 @@ export async function runEnrich(
                     });
                   }
                 }
+
+                // A matched link aggregator is the brand's own hub — it
+                // carries the brand's handle — so it is expanded on the same
+                // terms as a hub the brand submitted, and confirmed.
+                if (hubLinks.length > 0) {
+                  const handleHubs = await expandLinkHubs({
+                    brandName,
+                    hubUrls: hubLinks,
+                    confirmedHubUrls: new Set([
+                      ...confirmedHubUrls,
+                      ...hubLinks,
+                    ]),
+                    fetchHtml,
+                  });
+                  hubsFetched += handleHubs.hubsFetched;
+                  handleFetchFailures += handleHubs.fetchFailures ?? 0;
+                  if (handleHubs.gated?.length) {
+                    gatedTags.push(...handleHubs.gated);
+                  }
+                  if (handleHubs.adopted.length > 0) {
+                    const hubPatch = buildLinkEnrichPatch(
+                      brand as BrandFlatLinkColumns,
+                      handleHubs.scraped,
+                      brandName,
+                    );
+                    Object.assign(brand, hubPatch);
+                    patch = { ...patch, ...hubPatch };
+                    for (const link of handleHubs.adopted) {
+                      adoptedLinks.push({ ...link, source: 'serp_handle' });
+                    }
+                  }
+                }
+
+                // A matched link on the brand's OWN domain — the host label is
+                // the handle itself. No platform pattern can recognise it, so
+                // it is classified the way a human-submitted URL is. Nothing
+                // weaker than host-label equality may reach this branch.
+                const normalizedHandle = normalizeHandle(handle);
+                for (const link of platformLinks) {
+                  if (Object.values(extracted).includes(link)) continue;
+                  const hostLabel = registrableLabel(link);
+                  if (hostLabel === null || hostLabel !== normalizedHandle) {
+                    continue;
+                  }
+                  for (const [field, value] of Object.entries(
+                    classifySubmittedUrl(link),
+                  )) {
+                    if (typeof value !== 'string') continue;
+                    if (!field.startsWith('purchase')) continue;
+                    const column = linkColumnFor(field as LinkField);
+                    const existing = (brand as Record<string, unknown>)[column];
+                    if (hasLinkValue(existing as string | null)) continue;
+                    (brand as Record<string, unknown>)[column] = value;
+                    adoptedLinks.push({
+                      field: field as LinkField,
+                      value,
+                      source: 'serp_handle',
+                      hubUrl: link,
+                    });
+                  }
+                }
+
+                hasChannel = hasPurchaseChannel(brand);
+                sources.serpHandle = hasChannel
+                  ? 'found'
+                  : adoptedLinks.length === adoptedBefore &&
+                      handleFetchFailures > 0
+                    ? // Nothing adopted because a hub page never loaded: that
+                      // is not the same finding as a hub with no shop on it.
+                      'unknown'
+                    : 'absent';
               }
             }
           }
@@ -2019,7 +2138,7 @@ export async function runEnrich(
             sources,
             serpCallStatuses,
             linkExpansion: {
-              hubsFetched: expansion.hubsFetched,
+              hubsFetched,
               adopted,
               serp,
               sources,

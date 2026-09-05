@@ -487,6 +487,13 @@ describe('computeEvidence', () => {
     expect(computeEvidence(undefined, [])).toBe('inconclusive')
   })
 
+  it('is conclusive when a search call answered with nothing', () => {
+    // `empty` is a live query that ranked nothing — the strongest form of
+    // "there is no shop", not an outage.
+    expect(computeEvidence(answered, ['empty'])).toBe('conclusive')
+    expect(computeEvidence(answered, ['succeeded', 'empty'])).toBe('conclusive')
+  })
+
   it('is inconclusive when a recorded search call did not succeed', () => {
     expect(computeEvidence(answered, ['failed'])).toBe('inconclusive')
     expect(computeEvidence(answered, ['succeeded', 'timeout'])).toBe(
