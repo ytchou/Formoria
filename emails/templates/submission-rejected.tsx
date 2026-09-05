@@ -60,6 +60,10 @@ const DENIAL_GUIDANCE: Record<DenialReason, { en: string; zh: string }> = {
     en: "This submission was not approved after admin review.",
     zh: "此提交經管理員審核後未通過。",
   },
+  no_purchase_channel: {
+    en: "We could not find an online store or marketplace where this brand's products can be bought. Add the brand's shop, Pinkoi, Shopee, or MyShip link and resubmit.",
+    zh: "我們找不到可以購買此品牌產品的線上商店或平台。請補上品牌官網商店、Pinkoi、蝦皮或賣貨便連結後重新提交。",
+  },
   other: {
     en: "Please see the reviewer notes below for details.",
     zh: "請參閱下方審核意見以了解詳細資訊。",
@@ -86,6 +90,10 @@ const DENIAL_REASON_LABELS: Record<DenialReason, { en: string; zh: string }> = {
   admin_reject: {
     en: "Admin Rejected",
     zh: "管理員拒絕",
+  },
+  no_purchase_channel: {
+    en: "No Purchase Channel Found",
+    zh: "找不到購買管道",
   },
   other: {
     en: "Other",

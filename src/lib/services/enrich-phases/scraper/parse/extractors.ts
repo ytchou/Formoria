@@ -163,7 +163,7 @@ function socialProfilePattern(
   return new RegExp(`${hostPattern}\\/${handlePrefix}${reserved}[^/?#]+\\/?$`, 'i')
 }
 
-const INSTAGRAM_PROFILE_RE = socialProfilePattern('instagram\\.com', {
+export const INSTAGRAM_PROFILE_RE = socialProfilePattern('instagram\\.com', {
   reservedPaths: ['p', 'reel', 'reels', 'stories', 'explore', 'tv', 'share'],
 })
 

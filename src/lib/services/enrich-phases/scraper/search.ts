@@ -1,5 +1,5 @@
 import { isNonBrandSiteHost } from './input-detector'
-import type { ImageQueryInput, QueryTemplate } from './types'
+import type { BrandSearchEntry, ImageQueryInput, QueryTemplate } from './types'
 
 export const SEARCH_DELAY_MS = 1500
 
@@ -77,6 +77,67 @@ export function buildImageQueryVariants(input: ImageQueryInput): string[] {
   }
 
   return [`"${brandName}" 商品`]
+}
+
+/**
+ * A handle query is quoted so the provider matches the handle as a phrase.
+ * The RAW handle is quoted, dots and underscores included: `"1.wo_of"` is the
+ * string a shop page prints, while the normalized form is only used for
+ * comparing tokens we already hold.
+ */
+export const HANDLE_QUERY = (handle: string): string => `"${handle.trim()}"`
+
+/** Comparison form: alphanumerics only, lowercased. */
+export function normalizeHandle(handle: string): string {
+  return handle.toLowerCase().replace(/[^a-z0-9]+/g, '')
+}
+
+/** A handle is usable when at least one alphanumeric survives normalization. */
+export function isUsableHandle(handle: string): boolean {
+  return normalizeHandle(handle).length >= 1
+}
+
+/**
+ * Below this length a handle is too generic to trust anywhere but a URL. A
+ * three-character handle appears inside ordinary prose and inside unrelated
+ * shop names, so a title or snippet carrying it is not evidence. A URL is
+ * different: the handle owning a host label or a path segment is the shop
+ * identifier itself.
+ */
+export const TITLE_MATCH_MIN_HANDLE_LENGTH = 5
+
+function tokenize(text: string): Set<string> {
+  return new Set(text.toLowerCase().split(/[^a-z0-9]+/).filter(Boolean))
+}
+
+function urlTokens(link: string): Set<string> {
+  try {
+    const parsed = new URL(link)
+    return tokenize(`${parsed.hostname} ${parsed.pathname}`)
+  } catch {
+    return new Set<string>()
+  }
+}
+
+/**
+ * Keep the entries whose URL, title, or snippet carries the handle as a WHOLE
+ * token. Substrings never match: `my1wostuff` is a different shop from `1wo`,
+ * and adopting it would attach a purchase channel to the wrong brand.
+ */
+export function filterEntriesByHandle(
+  entries: BrandSearchEntry[],
+  handle: string,
+): BrandSearchEntry[] {
+  const normalized = normalizeHandle(handle)
+  if (normalized.length === 0) return []
+  const textMatchAllowed = normalized.length >= TITLE_MATCH_MIN_HANDLE_LENGTH
+
+  return entries.filter((entry) => {
+    if (urlTokens(entry.link).has(normalized)) return true
+    if (!textMatchAllowed) return false
+    if (tokenize(entry.title ?? '').has(normalized)) return true
+    return tokenize(entry.snippet ?? '').has(normalized)
+  })
 }
 
 export function stripTrackingParams(url: string): string {
