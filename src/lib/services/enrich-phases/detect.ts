@@ -92,7 +92,7 @@ function buildDetectPatch(
     // may only be derived from a name detect is confident enough to have
     // proposed.
     //
-    // DETECT_SYSTEM_PROMPT tells the model to return a null slug rather than
+    // The detect prompt tells the model to return a null slug rather than
     // transliterate a Han name, and the model obeys — this fallback then did the
     // exact thing the prompt forbids, because `generateSlug` Wade-Giles
     // romanises Han characters (`yuan-hsing-tung-fang-cha-yin-pur-sweets` on a

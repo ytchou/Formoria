@@ -1,7 +1,8 @@
 import { describe, expect, it } from "vitest";
 import zhMessages from "../../../../../messages/zh-TW.json";
 import type { Brand } from "@/lib/types";
-import { FAQ_PROMPT_PREAMBLE } from "@/lib/prompts";
+import snapshot from "@/lib/prompts/langfuse-snapshot.json";
+import { TAIWAN_USAGE_RULES } from "@/lib/prompts/shared";
 import {
   FAQ_PRESETS,
   buildFaqSystemPrompt,
@@ -121,6 +122,21 @@ function assertPresetShape(preset: FaqPreset): void {
   ).toBe(true);
   expect(Array.isArray(preset.validators)).toBe(true);
 }
+
+/**
+ * Compiled snapshot preamble — replaces the deleted `FAQ_PROMPT_PREAMBLE`
+ * constant. Uses the same mustache compilation as the runtime.
+ */
+function compiledFaqPreamble(): string {
+  const entry = snapshot.prompts["faq-preamble"];
+  const raw = entry.text.join("\n");
+  return raw.replace(/\{\{(\w+)\}\}/g, (_match, key: string) => {
+    if (key === "taiwan_usage_rules") return TAIWAN_USAGE_RULES;
+    return `{{${key}}}`;
+  });
+}
+
+const FAQ_PREAMBLE = compiledFaqPreamble();
 
 function presetById(id: string): FaqPreset {
   const found = FAQ_PRESETS.find((candidate) => candidate.id === id);
@@ -288,10 +304,10 @@ describe("FAQ preset catalog", () => {
   });
 
   it("the shared preamble states the commerce prohibition once for all presets", () => {
-    expect(FAQ_PROMPT_PREAMBLE).toContain("NT$");
-    expect(FAQ_PROMPT_PREAMBLE).toContain("Forbidden commerce information");
-    expect(FAQ_PROMPT_PREAMBLE).toContain("inventory");
-    expect(FAQ_PROMPT_PREAMBLE).toContain("delivery");
+    expect(FAQ_PREAMBLE).toContain("NT$");
+    expect(FAQ_PREAMBLE).toContain("Forbidden commerce information");
+    expect(FAQ_PREAMBLE).toContain("inventory");
+    expect(FAQ_PREAMBLE).toContain("delivery");
   });
 
   it("assembled prompt contains only eligible fragments", () => {
@@ -299,9 +315,9 @@ describe("FAQ preset catalog", () => {
       brand: makeBrand({ reputationSummary: null }),
     });
     const eligible = eligibleFaqPresets(context);
-    const prompt = buildFaqSystemPrompt(FAQ_PROMPT_PREAMBLE, eligible, context);
+    const prompt = buildFaqSystemPrompt(FAQ_PREAMBLE, eligible, context);
 
-    expect(prompt).toContain(FAQ_PROMPT_PREAMBLE);
+    expect(prompt).toContain(FAQ_PREAMBLE);
     for (const preset of FAQ_PRESETS) {
       const fragment = preset.promptFragment?.(context);
       if (fragment === undefined) continue;
