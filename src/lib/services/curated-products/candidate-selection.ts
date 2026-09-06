@@ -14,6 +14,7 @@
  */
 
 import { randomUUID } from "node:crypto";
+import { CUTOFF_WINDOW } from "@/lib/constants/curated-products";
 import { createServiceClient } from "@/lib/supabase/service";
 import type { ProductCandidate } from "../enrich-phases/product-candidates";
 import type {
@@ -277,21 +278,6 @@ async function rankCandidates(
   }));
 }
 
-export async function rankAndSelect(
-  candidates: ProductCandidate[],
-  ranker: LlmRanker,
-  maxProducts: number,
-): Promise<RankedCandidate[]> {
-  const evaluated = await rankCandidates(candidates, ranker);
-  const bestScore = evaluated[0]?.llmScore;
-  if (bestScore === undefined) return [];
-  const cutoff = bestScore - 15;
-  return evaluated
-    .filter((candidate) => candidate.llmScore >= cutoff)
-    .slice(0, maxProducts)
-    .map((candidate, index) => ({ ...candidate, finalRank: index + 1 }));
-}
-
 // ---------------------------------------------------------------------------
 // Persistence
 // ---------------------------------------------------------------------------
@@ -396,7 +382,7 @@ export async function persistCandidatePool(options: {
   // Step 2: Rank
   const allRanked = await rankCandidates(passed, ranker);
   const bestScore = allRanked[0]?.llmScore ?? null;
-  const cutoff = bestScore === null ? null : bestScore - 15;
+  const cutoff = bestScore === null ? null : bestScore - CUTOFF_WINDOW;
   const finalists =
     cutoff === null
       ? []

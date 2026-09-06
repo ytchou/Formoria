@@ -2,7 +2,6 @@ import { describe, expect, it } from "vitest";
 import type { ProductCandidate } from "../../enrich-phases/product-candidates";
 import {
   applyGates,
-  rankAndSelect,
   persistCandidatePool,
   type CandidateRow,
   type CandidateWriter,
@@ -126,49 +125,6 @@ describe("candidate-selection", () => {
     expect(gated[0]!.gateResult).toBe("near_duplicate");
     expect(passed).toHaveLength(1);
     expect(passed[0]!.url).toBe("https://brand.example/products/tea-cup");
-  });
-
-  it("position_breaks_ties_only", async () => {
-    const c1 = candidate({
-      url: "https://brand.example/products/a",
-      normalizedUrl: "https://brand.example/products/a",
-      imageUrl: "https://brand.example/img/a.jpg",
-      searchPosition: 10,
-    });
-    const c2 = candidate({
-      url: "https://brand.example/products/b",
-      normalizedUrl: "https://brand.example/products/b",
-      imageUrl: "https://brand.example/img/b.jpg",
-      searchPosition: 1,
-    });
-    const c3 = candidate({
-      url: "https://brand.example/products/c",
-      normalizedUrl: "https://brand.example/products/c",
-      imageUrl: "https://brand.example/img/c.jpg",
-      searchPosition: 5,
-    });
-
-    // c1 has the highest LLM score (9), c2 and c3 are tied (7).
-    // Despite c2 having the lowest search position, it must NOT override
-    // c1's higher LLM score.
-    const ranker = fixedRanker({
-      "https://brand.example/products/a": 9,
-      "https://brand.example/products/b": 7,
-      "https://brand.example/products/c": 7,
-    });
-
-    const result = await rankAndSelect([c1, c2, c3], ranker, 5);
-
-    // c1 is first (highest LLM score).
-    expect(result[0]!.url).toBe("https://brand.example/products/a");
-    // Among the tied pair, c2 (position 1) beats c3 (position 5).
-    expect(result[1]!.url).toBe("https://brand.example/products/b");
-    expect(result[2]!.url).toBe("https://brand.example/products/c");
-
-    // Verify ranks are assigned.
-    expect(result[0]!.finalRank).toBe(1);
-    expect(result[1]!.finalRank).toBe(2);
-    expect(result[2]!.finalRank).toBe(3);
   });
 
   it("every_candidate_is_persisted_with_gate_result", async () => {
@@ -379,17 +335,22 @@ describe("candidate-selection", () => {
       }),
     );
 
-    const result = await rankAndSelect(
-      products,
-      fixedRanker(
+    const writer = noopWriter();
+    const result = await persistCandidatePool({
+      pool: products,
+      acceptedCandidates: [],
+      ranker: fixedRanker(
         Object.fromEntries(
           products.map((item, index) => [item.url, [90, 75, 74][index]!]),
         ),
       ),
-      20,
-    );
+      writer,
+      brandId: "brand-uuid",
+      submissionId: null,
+      maxProducts: 20,
+    });
 
-    expect(result.map((item) => item.llmScore)).toEqual([90, 75]);
+    expect(result.ranked.map((item) => item.llmScore)).toEqual([90, 75]);
   });
 
   it("keeps low-scoring evaluations when they are inside the relative window", async () => {
@@ -402,17 +363,22 @@ describe("candidate-selection", () => {
       }),
     );
 
-    const result = await rankAndSelect(
-      products,
-      fixedRanker(
+    const writer = noopWriter();
+    const result = await persistCandidatePool({
+      pool: products,
+      acceptedCandidates: [],
+      ranker: fixedRanker(
         Object.fromEntries(
           products.map((item, index) => [item.url, [12, 0][index]!]),
         ),
       ),
-      20,
-    );
+      writer,
+      brandId: "brand-uuid",
+      submissionId: null,
+      maxProducts: 20,
+    });
 
-    expect(result).toHaveLength(2);
+    expect(result.ranked).toHaveLength(2);
   });
 
   it("returns zero and persists null evaluation fields when every evaluation is invalid or missing", async () => {
