@@ -27,7 +27,7 @@ export async function releaseRenderProvider(
 ): Promise<void> {
   if (!handle.owned) return;
   try {
-    await (handle.provider as RenderProvider & { close?(): Promise<void> }).close?.();
+    await handle.provider.close?.();
   } catch (error) {
     console.error(
       "[curation-worker] render provider close failed:",

@@ -633,7 +633,7 @@ async function fetchTraces(
   const { count: renderSpans, error: rErr } = await client
     .from("external_call_audit")
     .select("id", { count: "exact", head: true })
-    .eq("provider", "playwright")
+    .in("provider", ["browserless", "playwright"])
     .eq("job_id", jobId);
   if (rErr) throw new Error(`external_call_audit query failed: ${rErr.message}`);
 
@@ -723,7 +723,7 @@ async function main() {
     jobId,
   );
   console.log(
-    `[traces] ${targets.length} targets, ${scrapes.length} search rows, ${aiResults.length} agent turns, ${renderSpans} playwright spans carrying the job id`,
+    `[traces] ${targets.length} targets, ${scrapes.length} search rows, ${aiResults.length} agent turns, ${renderSpans} render spans carrying the job id`,
   );
 
   const outDir = resolve(`docs/dev-1644/traces/${jobId}`);
@@ -765,7 +765,7 @@ async function main() {
   const summary = [
     renderSummaryTable(jobId, rows),
     "",
-    `Playwright spans carrying this job id: ${renderSpans}. Per-brand renders`,
+    `Render spans carrying this job id: ${renderSpans}. Per-brand renders`,
     "come from the acquisition budget ledger and the products verification",
     "record, because a render span carries neither job nor subject id.",
   ].join("\n");

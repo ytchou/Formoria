@@ -242,12 +242,28 @@ function toChunkBucket(bucket: string): string {
 }
 
 /**
- * Largest-remainder proportional allocation with a minimum of 1 per slot.
- * Deterministic for the same input sizes and total.
+ * Largest-remainder proportional allocation.
+ *
+ * When `total >= sizes.length`, every slot gets at least 1.
+ * When `total < sizes.length`, only the largest `total` buckets get 1 and
+ * the rest get 0 — the invariant `sum(allocations) === total` always holds.
  */
 function allocateProportional(sizes: number[], total: number): number[] {
   const grandTotal = sizes.reduce((s, n) => s + n, 0);
   if (grandTotal === 0) return sizes.map(() => 0);
+
+  // When more buckets than slots, give 1 to the `total` largest buckets
+  if (sizes.length > total) {
+    const indices = sizes
+      .map((s, i) => ({ s, i }))
+      .sort((a, b) => b.s - a.s)
+      .map((e) => e.i);
+    const allocations = sizes.map(() => 0);
+    for (let k = 0; k < total; k++) {
+      allocations[indices[k]] = 1;
+    }
+    return allocations;
+  }
 
   // Direct proportional targets, floor each with a minimum of 1
   const exact = sizes.map((s) => (total * s) / grandTotal);
@@ -266,7 +282,7 @@ function allocateProportional(sizes: number[], total: number): number[] {
       sum++;
     }
   } else if (sum > total) {
-    // Reduce from largest over-allocations (allocations > 1)
+    // Reduce from largest over-allocations
     const indices = allocations
       .map((_, i) => i)
       .filter((i) => allocations[i] > 1)
@@ -677,6 +693,9 @@ async function runZeroCoverage(
     );
     targets.push(...rows);
   }
+
+  // Sort globally by created_at desc so first-seen-per-brand is the newest
+  targets.sort((a, b) => Date.parse(b.created_at) - Date.parse(a.created_at));
 
   // Map brand → latest target phase results (first row per brand wins)
   const brandPhaseResults = new Map<string, PhaseResult[]>();

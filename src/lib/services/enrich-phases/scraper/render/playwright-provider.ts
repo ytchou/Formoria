@@ -1,4 +1,5 @@
 import { auditedCall } from '@/lib/audit'
+import { isPrivateUrl } from '@/lib/services/enrich-phases/scraper/fetch-guards'
 import type { Browser } from '@playwright/test'
 import type { RenderProvider, RenderResult } from './types'
 
@@ -8,6 +9,7 @@ async function fetchPage(
   browser: Browser,
   url: string,
 ): Promise<RenderResult> {
+  if (isPrivateUrl(url)) throw new Error('Refusing to render private URL')
   return auditedCall(
     { provider: 'playwright', operation: 'fetch_rendered', kind: 'external' },
     async (ctx) => {
@@ -43,10 +45,15 @@ export function createPlaywrightProvider(
 
   function getBrowser(): Promise<Browser> {
     if (launching) {
+      const currentLaunching = launching
       // Check if the resolved browser is still connected.
-      return launching.then((browser) => {
+      return currentLaunching.then((browser) => {
         if (browser.isConnected()) return browser
-        // Disconnected — relaunch.
+        // Another caller already started a new launch — use it.
+        if (launching !== currentLaunching) return launching!
+        // Disconnected — relaunch. Synchronous null+assign so no
+        // microtask can interleave between the two assignments.
+        launching = null
         launching = launch().catch((e) => {
           launching = null
           throw e

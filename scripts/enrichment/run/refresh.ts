@@ -662,13 +662,16 @@ async function main(): Promise<void> {
   if (unapplied.length > 0) {
     for (const entry of unapplied) {
       const note = rejectionNote(job.id, entry.detail);
-      const { error: rejectErr } = await supabase
+      const { data: rejectData, error: rejectErr } = await supabase
         .from("brand_submissions")
         .update({ status: "rejected", reviewer_notes: note })
         .eq("id", entry.submissionId)
-        .eq("status", "pending");
+        .eq("status", "pending")
+        .select("id");
       if (rejectErr) {
         console.error(`  ${entry.slug.padEnd(18)} REJECT FAILED — ${rejectErr.message}`);
+      } else if (!rejectData || rejectData.length === 0) {
+        console.warn(`  ${entry.slug.padEnd(18)} REJECT SKIPPED — status already changed`);
       } else {
         rejected.push({ slug: entry.slug, submissionId: entry.submissionId, reason: entry.detail });
       }

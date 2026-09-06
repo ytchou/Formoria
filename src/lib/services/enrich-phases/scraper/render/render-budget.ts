@@ -40,22 +40,22 @@ export function withRenderBudget(
 
   // Simple semaphore
   let running = 0
-  const waiting: Array<() => void> = []
+  const waiting: Array<{ resolve: () => void; reject: (err: Error) => void }> = []
 
   function acquire(): Promise<void> {
     if (running < MAX_CONCURRENCY) {
       running++
       return Promise.resolve()
     }
-    return new Promise<void>((resolve) => {
-      waiting.push(resolve)
+    return new Promise<void>((resolve, reject) => {
+      waiting.push({ resolve, reject })
     })
   }
 
   function release(): void {
     const next = waiting.shift()
     if (next) {
-      next()
+      next.resolve()
     } else {
       running--
     }
@@ -92,14 +92,18 @@ export function withRenderBudget(
         urls.map(async (url) => {
           try {
             return await guardedFetchRendered(url, brandKey)
-          } catch (err) {
-            if (err instanceof RenderBudgetExceeded) throw err
+          } catch {
             return null
           }
         }),
       )
     },
     async close(): Promise<void> {
+      // Reject queued waiters so they don't hang
+      const closedErr = new Error('Render provider closed')
+      while (waiting.length > 0) {
+        waiting.shift()!.reject(closedErr)
+      }
       return inner.close?.() ?? Promise.resolve()
     },
   }
