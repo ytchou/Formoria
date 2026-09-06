@@ -983,7 +983,7 @@ describe('acquisition agent integration', () => {
 
     await agentRun()
 
-    // The agent runs without checking any env var — no ACQUISITION_AGENT guard.
+    // The agent runs without checking any env var — no dedicated agent guard.
     expect(acquisitionMocks.runAcquisition).toHaveBeenCalledTimes(1)
   })
 

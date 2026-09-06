@@ -681,11 +681,12 @@ export async function downloadAndStoreImages(
 export async function downloadAndGateImages(
   candidates: DownloadImageCandidate[],
   target: EnrichmentTarget,
+  supabaseOverride?: ReturnType<typeof createServiceClient>,
 ): Promise<GatedImage[]> {
   if (candidates.length === 0) return []
 
   const dedupedCandidates = deduplicateCandidates(candidates)
-  const supabase = createServiceClient()
+  const supabase = supabaseOverride ?? createServiceClient()
   const existingBySource = await loadExistingCandidates(
     supabase,
     target,

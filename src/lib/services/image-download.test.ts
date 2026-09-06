@@ -140,6 +140,26 @@ function mockFetchForUrls(mapping: Record<string, Buffer>): void {
   })
 }
 
+/**
+ * Minimal Supabase stub satisfying `loadExistingCandidates` and
+ * `loadPerceptualHashGuard` — both chain `.from().select().eq()…` and expect
+ * `{ data: [] }`. The stub is injected via the new optional third parameter
+ * so we never touch the real `createServiceClient` (which requires env vars).
+ */
+function fakeSupabaseForGate(): never {
+  const emptyResult = { data: [] }
+  const terminal = {
+    ...emptyResult,
+    eq: () => terminal,
+    in: () => terminal,
+    not: () => terminal,
+  }
+  const chain = {
+    select: () => terminal,
+  }
+  return { from: () => chain } as never
+}
+
 describe('downloadAndGateImages', () => {
   it('returns buffers with all required metadata fields', async () => {
     const png = await validTestPng()
@@ -149,6 +169,7 @@ describe('downloadAndGateImages', () => {
     const results = await downloadAndGateImages(
       [{ url, source: 'google_image' }],
       { type: 'brand', id: 'brand-1' },
+      fakeSupabaseForGate(),
     )
 
     expect(results.length).toBe(1)
@@ -179,6 +200,7 @@ describe('downloadAndGateImages', () => {
     const results = await downloadAndGateImages(
       [{ url, source: 'google_image' }],
       { type: 'brand', id: 'brand-2' },
+      fakeSupabaseForGate(),
     )
 
     // Gate rejects should produce an empty result array
@@ -189,8 +211,8 @@ describe('downloadAndGateImages', () => {
     // This test asserts the function's structural property: it downloads and
     // gates but never uploads. We verify by checking that the result is a
     // GatedImage with a buffer (not a storage path), and that no upload call
-    // was made to Supabase. Since downloadAndGateImages internally creates a
-    // service client only for reading existing rows, and never calls
+    // was made to Supabase. Since downloadAndGateImages receives a stub client
+    // only for reading existing rows, and never calls
     // supabase.storage.from(...).upload, we verify the contract through the
     // return type — a buffer, not a storage key.
     const png = await validTestPng()
@@ -200,6 +222,7 @@ describe('downloadAndGateImages', () => {
     const results = await downloadAndGateImages(
       [{ url, source: 'google_image' }],
       { type: 'brand', id: 'brand-3' },
+      fakeSupabaseForGate(),
     )
 
     // The function returns GatedImage[] with buffers, not storage paths

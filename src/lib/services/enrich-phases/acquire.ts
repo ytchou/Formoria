@@ -827,7 +827,7 @@ export async function runAcquirePhase({
             ? {}
             : {
                 downloadAndGateImages: (candidates: CandidateImage[]) =>
-                  downloadAndGateFn(candidates, effectiveTarget),
+                  downloadAndGateFn(candidates, effectiveTarget, db() as never),
                 classifyImageBuffers: (gated: GatedImage[]) =>
                   classifyBuffersFn(gated, {
                     brandContext: brand.name ?? brand.slug,
