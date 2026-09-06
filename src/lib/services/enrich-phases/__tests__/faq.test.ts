@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { DESCRIPTION_SYSTEM_PROMPT } from "@/lib/prompts";
 import {
   ENRICH_PHASES,
@@ -62,9 +62,11 @@ vi.mock("../descriptions", async (importOriginal) => ({
   loadPersistedScrapeText,
 }));
 const getBrandFaqEntries = vi.hoisted(() => vi.fn());
+const upsertBrandFaqEntries = vi.hoisted(() => vi.fn());
 vi.mock("../../brand-faq", async (importOriginal) => ({
   ...(await importOriginal<typeof import("../../brand-faq")>()),
   getBrandFaqEntries,
+  upsertBrandFaqEntries,
 }));
 const getStockistsForBrand = vi.hoisted(() => vi.fn());
 vi.mock("../../stockists", async (importOriginal) => ({
@@ -666,7 +668,6 @@ describe("DESCRIPTION_SYSTEM_PROMPT", () => {
 describe("runFaqPhase langfuse variables", () => {
   it("faq_variables_passed", async () => {
     vi.stubEnv("OPENAI_API_KEY", "test-key");
-    getBrandById.mockResolvedValue({ ...BRAND, categorySlug: "home" });
     getCategoryPeerStats.mockResolvedValue(null);
     loadPersistedScrapeText.mockResolvedValue({
       snippets: [],
@@ -682,10 +683,14 @@ describe("runFaqPhase langfuse variables", () => {
     });
 
     await runFaqPhase({
-      brand: BRAND as unknown as EnrichBrand,
+      brand: {
+        ...(BRAND as unknown as EnrichBrand),
+        source_brand_id: BRAND.id,
+      },
       phases: ["faq"] as EnrichPhase[],
       scrapedData: null,
       serpSnippets: [],
+      target: { type: "submission", id: "sub-1" },
     });
 
     expect(fetchLangfusePromptWithMeta).toHaveBeenCalledWith(
@@ -695,5 +700,222 @@ describe("runFaqPhase langfuse variables", () => {
     );
 
     vi.unstubAllEnvs();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// runFaqPhase submission-only contract
+// ---------------------------------------------------------------------------
+
+const ENRICH_BRAND: EnrichBrand = {
+  id: "sub-1",
+  slug: "island-studio",
+  name: "小島工坊",
+  category: "home",
+  city: "臺南",
+  source_brand_id: BRAND.id,
+  description: "以天然材料製作日用品。",
+  description_en: "Everyday goods made with natural materials.",
+  subcategories: [],
+  subcategories_en: [],
+};
+
+describe("runFaqPhase submission-only contract", () => {
+  beforeEach(() => {
+    vi.stubEnv("OPENAI_API_KEY", "test-key");
+  });
+  afterEach(() => {
+    vi.unstubAllEnvs();
+    vi.restoreAllMocks();
+  });
+
+  it("refuses_non_submission_targets", async () => {
+    const output = await runFaqPhase({
+      brand: ENRICH_BRAND,
+      phases: ["faq"] as EnrichPhase[],
+      scrapedData: null,
+      serpSnippets: [],
+      target: { type: "brand", id: BRAND.id },
+    });
+
+    expect(output.phaseResult.status).toBe("skipped");
+    expect(output.phaseResult.detail).toContain("submission");
+    expect(createClient).not.toHaveBeenCalled();
+  });
+
+  it("returns_faq_patch_without_writing", async () => {
+    getCategoryPeerStats.mockResolvedValue(null);
+    loadPersistedScrapeText.mockResolvedValue({
+      snippets: [],
+      siteContent: null,
+    });
+    getBrandFaqEntries.mockResolvedValue([]);
+    getStockistsForBrand.mockResolvedValue({ confirmed: [], possible: [] });
+
+    const accepted = [modelEntry("custom")];
+    createClient.mockReturnValue({
+      chat: vi.fn().mockResolvedValue({
+        response: { ok: true },
+        content: JSON.stringify({ entries: accepted }),
+      }),
+    });
+
+    const output = await runFaqPhase({
+      brand: ENRICH_BRAND,
+      phases: ["faq"] as EnrichPhase[],
+      scrapedData: null,
+      serpSnippets: [],
+      target: { type: "submission", id: "sub-1" },
+    });
+
+    expect(output.phaseResult.status).toBe("succeeded");
+    expect(output.phaseResult.changedFields).toContain("faq");
+    const faqPatch = (output.patch as Record<string, unknown>).faq as {
+      entries: unknown[];
+      explicit: boolean;
+    };
+    expect(faqPatch).toBeDefined();
+    expect(faqPatch.entries.length).toBeGreaterThan(0);
+    expect(faqPatch.explicit).toBe(false);
+    expect(upsertBrandFaqEntries).not.toHaveBeenCalled();
+    expect(getBrandById).not.toHaveBeenCalled();
+  });
+
+  it("omits_faq_key_when_nothing_accepted", async () => {
+    getCategoryPeerStats.mockResolvedValue(null);
+    loadPersistedScrapeText.mockResolvedValue({
+      snippets: [],
+      siteContent: null,
+    });
+    getBrandFaqEntries.mockResolvedValue([]);
+    getStockistsForBrand.mockResolvedValue({ confirmed: [], possible: [] });
+
+    createClient.mockReturnValue({
+      chat: vi.fn().mockResolvedValue({
+        response: { ok: true },
+        content: JSON.stringify({ entries: [] }),
+      }),
+    });
+
+    const output = await runFaqPhase({
+      brand: ENRICH_BRAND,
+      phases: ["faq"] as EnrichPhase[],
+      scrapedData: null,
+      serpSnippets: [],
+      target: { type: "submission", id: "sub-1" },
+    });
+
+    expect(output.patch).toEqual({});
+  });
+
+  it("new_submission_authors_without_source_brand", async () => {
+    const newBrand: EnrichBrand = {
+      ...ENRICH_BRAND,
+      source_brand_id: undefined,
+    };
+    getCategoryPeerStats.mockResolvedValue(null);
+    loadPersistedScrapeText.mockResolvedValue({
+      snippets: [],
+      siteContent: null,
+    });
+    createClient.mockReturnValue({
+      chat: vi.fn().mockResolvedValue({
+        response: { ok: true },
+        content: JSON.stringify({ entries: [modelEntry("custom")] }),
+      }),
+    });
+
+    const output = await runFaqPhase({
+      brand: newBrand,
+      phases: ["faq"] as EnrichPhase[],
+      scrapedData: null,
+      serpSnippets: [],
+      target: { type: "submission", id: "sub-1" },
+    });
+
+    expect(createClient).toHaveBeenCalled();
+    expect(getBrandFaqEntries).not.toHaveBeenCalled();
+    expect(getStockistsForBrand).not.toHaveBeenCalled();
+    expect(output.phaseResult.status).toBe("succeeded");
+  });
+
+  it("refresh_short_circuit_still_reads_live_rows", async () => {
+    const ctx = context({}, null);
+    const presets = authorable(ctx);
+    // Return complete coverage for every authorable preset
+    const completeRows = presets.flatMap((preset) =>
+      preset.id === "custom"
+        ? Array.from({ length: CUSTOM_QUESTION_CEILING }, (_, index) => ({
+            presetId: "custom",
+            position: index,
+            questionZh: "問題",
+            answerZh: "回答",
+            questionEn: "Question",
+            answerEn: "Answer",
+            source: "model" as const,
+          }))
+        : [
+            {
+              presetId: preset.id,
+              position: 0,
+              questionZh: "問題",
+              answerZh: "回答",
+              questionEn: "Question",
+              answerEn: "Answer",
+              source: "model" as const,
+            },
+          ],
+    );
+    getCategoryPeerStats.mockResolvedValue(null);
+    loadPersistedScrapeText.mockResolvedValue({
+      snippets: [],
+      siteContent: null,
+    });
+    getBrandFaqEntries.mockResolvedValue(completeRows);
+    getStockistsForBrand.mockResolvedValue({ confirmed: [], possible: [] });
+
+    const output = await runFaqPhase({
+      brand: ENRICH_BRAND,
+      phases: ["faq"] as EnrichPhase[],
+      scrapedData: null,
+      serpSnippets: [],
+      target: { type: "submission", id: "sub-1" },
+    });
+
+    expect(output.phaseResult.status).toBe("skipped");
+    expect(output.phaseResult.detail).toContain("complete stored entry");
+    expect(createClient).not.toHaveBeenCalled();
+  });
+
+  it("explicit_flag_reflects_overwrite_or_explicit_phase", async () => {
+    getCategoryPeerStats.mockResolvedValue(null);
+    loadPersistedScrapeText.mockResolvedValue({
+      snippets: [],
+      siteContent: null,
+    });
+    getBrandFaqEntries.mockResolvedValue([]);
+    getStockistsForBrand.mockResolvedValue({ confirmed: [], possible: [] });
+
+    createClient.mockReturnValue({
+      chat: vi.fn().mockResolvedValue({
+        response: { ok: true },
+        content: JSON.stringify({ entries: [modelEntry("custom")] }),
+      }),
+    });
+
+    const output = await runFaqPhase({
+      brand: ENRICH_BRAND,
+      phases: ["faq"] as EnrichPhase[],
+      scrapedData: null,
+      serpSnippets: [],
+      target: { type: "submission", id: "sub-1" },
+      overwrite: true,
+    });
+
+    const faqPatch = (output.patch as Record<string, unknown>).faq as {
+      entries: unknown[];
+      explicit: boolean;
+    };
+    expect(faqPatch.explicit).toBe(true);
   });
 });

@@ -14,11 +14,10 @@ import {
 } from "@/lib/brands/faq-presets";
 import { getBrandSubcategoryLabels } from "@/lib/brands/category-label";
 import { CITY_NAMES_ZH } from "@/lib/constants/taiwan-cities";
+import { categoryLabelZh } from "@/lib/taxonomy/ontology";
 import { getCategoryPeerStats } from "../brand-peer-stats";
-import { getBrandById } from "../brands";
 import {
   getBrandFaqEntries,
-  upsertBrandFaqEntries,
   type BrandFaqEntryInput,
   type BrandFaqEntryRow,
   type FaqSupabase,
@@ -28,6 +27,7 @@ import {
   type DescriptionEvidence,
 } from "../description-rewrite";
 import { getStockistsForBrand } from "../stockists";
+import { createServiceClient } from "@/lib/supabase/service";
 import { loadPersistedScrapeText } from "./descriptions";
 import {
   buildProfiledEnrichmentConfig,
@@ -40,13 +40,11 @@ import {
   formatRetryInstruction,
 } from "../_shared/zod-schema";
 import { isLlmProviderFailure, noLlmCalls } from "../_shared/llm-call-outcome";
-import {
-  brandTarget,
-  type EnrichmentTarget,
-} from "../_shared/enrichment-target";
+import type { EnrichmentTarget } from "../_shared/enrichment-target";
 import type { PhaseResult } from "@/lib/types/curation";
 import {
   buildPhaseResult,
+  getDisplayBrandName,
   timePhase,
   type EnrichBrand,
   type EnrichPhase,
@@ -161,13 +159,27 @@ export function localizedCityLabel(
   return CITY_LABELS[city] ?? city;
 }
 
-function toBrandContext(
-  brand: Brand,
+function submissionFaqContext(
+  brand: EnrichBrand,
   peerStats: FaqBrandContext["peerStats"],
   stockistCount = 0,
 ): FaqBrandContext {
   return {
-    brand: { ...brand, stockistCount },
+    brand: {
+      name: getDisplayBrandName(brand),
+      categorySlug: brand.category ?? null,
+      categoryLabel: categoryLabelZh(brand.category),
+      city: brand.city ?? null,
+      subcategories: brand.subcategories ?? [],
+      subcategoriesEn: brand.subcategories_en ?? [],
+      foundingYear: brand.founding_year ?? null,
+      reputationSummary: null,
+      purchaseWebsite: brand.purchase_website ?? brand.purchaseWebsite ?? null,
+      purchasePinkoi: brand.purchase_pinkoi ?? null,
+      purchaseShopee: brand.purchase_shopee ?? null,
+      purchaseMyship: brand.purchase_myship ?? null,
+      stockistCount,
+    },
     cityLabel: localizedCityLabel(brand.city),
     peerStats,
   };
@@ -491,16 +503,12 @@ export async function runFaqPhase({
   explicitPhases,
 }: FaqPhaseOptions): Promise<FaqPhaseOutput> {
   if (!phases.includes("faq")) return skipped("faq phase not requested");
-  // A submission's id has no `brands` row, so `getBrandById` and the FK on
-  // `brand_faq_entries` need the real brand id. Refresh submissions carry it
-  // as `source_brand_id`; new submissions have no brand yet and skip FAQ.
-  const faqBrandId = brand.source_brand_id ?? (target?.type !== "submission" ? brand.id : null);
-  if (!faqBrandId)
-    return skipped("faq phase requires a brand_id");
+  if (target?.type !== "submission")
+    return skipped("faq phase runs only for submission targets");
   const token = process.env.OPENAI_API_KEY;
   if (!token) return skipped("OPENAI_API_KEY is not configured");
 
-  const auditTarget = target ?? brandTarget(faqBrandId);
+  const auditTarget = target; // guaranteed non-null by the submission guard
   // `overwrite` was declared, passed by the caller, and then dropped on the
   // floor: re-authoring must honour the caller's explicit request as well as an
   // explicitly requested `faq` phase.
@@ -508,19 +516,34 @@ export async function runFaqPhase({
     overwrite === true || explicitPhases?.includes("faq") === true;
 
   const { result, durationMs } = await timePhase<FaqRunOutcome>(async () => {
-    // `getBrandById` and the persisted scrape have no data dependency on each
-    // other, so they run together; peer stats need the brand's category.
-    const [brandRecord, persistedScrape, stockists] = await Promise.all([
-      getBrandById(faqBrandId),
+    // Compute stockist count: refresh submissions query live stockists;
+    // new submissions (no source_brand_id) default to 0.
+    let stockistCount = 0;
+    const fetches: Promise<unknown>[] = [
       loadPersistedScrapeText(auditTarget),
-      getStockistsForBrand(faqBrandId),
-    ]);
+    ];
+    if (brand.source_brand_id) {
+      fetches.push(getStockistsForBrand(brand.source_brand_id));
+    }
+    const fetchResults = await Promise.all(fetches);
+    const persistedScrape = fetchResults[0] as {
+      snippets: string[];
+      siteContent: string | null;
+    };
+    if (brand.source_brand_id && fetchResults[1]) {
+      const stockists = fetchResults[1] as {
+        confirmed: unknown[];
+        possible: unknown[];
+      };
+      stockistCount = stockists.confirmed.length + stockists.possible.length;
+    }
+
     const peerStats = await getCategoryPeerStats(
-      brandRecord.categorySlug,
-      brandRecord.id,
+      brand.category ?? null,
+      brand.source_brand_id ?? brand.id,
       supabase,
     );
-    const ctx = toBrandContext(brandRecord, peerStats, stockists.confirmed.length + stockists.possible.length);
+    const ctx = submissionFaqContext(brand, peerStats, stockistCount);
     // A preset with a null `promptFragment` is never model-authored. It is
     // excluded from both the prompt and the accepted set.
     // `authorable` is the preset's own answer to "does the model have enough
@@ -541,9 +564,10 @@ export async function runFaqPhase({
       };
 
     // One cheap read stands in for the LLM call a fill-gaps run would have
-    // thrown away anyway.
-    if (!explicitFaqPhase) {
-      const stored = await getBrandFaqEntries(faqBrandId, supabase);
+    // thrown away anyway. Only applies to refresh submissions (with a real
+    // brand id whose rows can be checked).
+    if (!explicitFaqPhase && brand.source_brand_id) {
+      const stored = await getBrandFaqEntries(brand.source_brand_id, supabase);
       if (faqCoverageIsComplete(authorable, stored))
         return {
           entries: [],
@@ -574,30 +598,49 @@ export async function runFaqPhase({
       [siteContentValue(brand), persistedScrape.siteContent]
         .filter(Boolean)
         .join("\n\n") || null;
-    const imageAlts = brandRecord.imageAlts
-      .map((img) => img.altZh)
-      .filter((alt): alt is string => alt != null && alt.trim() !== "");
+
+    // Read alt text from submission images (same pattern as descriptions.ts)
+    let imageAlts: string[] = [];
+    try {
+      const { data: submissionImages } = await (
+        supabase ?? (createServiceClient() as unknown as FaqSupabase)
+      )
+        .from("submission_images")
+        .select("alt_zh")
+        .eq("submission_id", brand.id)
+        .eq("status", "active");
+      imageAlts = (submissionImages ?? [])
+        .map((img: { alt_zh: string | null }) => img.alt_zh)
+        .filter(
+          (alt: string | null): alt is string =>
+            alt != null && alt.trim() !== "",
+        );
+    } catch {
+      // Non-fatal: image alts are supplementary evidence
+    }
+
     const evidence: DescriptionEvidence = {
       links: {
-        purchaseWebsite: brandRecord.purchaseWebsite,
-        socialInstagram: brandRecord.socialInstagram,
-        socialThreads: brandRecord.socialThreads,
-        socialFacebook: brandRecord.socialFacebook,
-        purchasePinkoi: brandRecord.purchasePinkoi,
-        purchaseShopee: brandRecord.purchaseShopee,
-        purchaseMyship: brandRecord.purchaseMyship,
+        purchaseWebsite: brand.purchase_website ?? brand.purchaseWebsite ?? null,
+        socialInstagram: brand.social_instagram ?? null,
+        socialThreads: brand.social_threads ?? null,
+        socialFacebook: brand.social_facebook ?? null,
+        purchasePinkoi: brand.purchase_pinkoi ?? null,
+        purchaseShopee: brand.purchase_shopee ?? null,
+        purchaseMyship: brand.purchase_myship ?? null,
       },
-      productCategoryZh: brandRecord.categoryLabel,
+      productCategoryZh: categoryLabelZh(brand.category),
       imageAlts,
     };
+    const displayName = getDisplayBrandName(brand);
     const content = buildEnrichmentUserContent(
-      brandRecord.name,
-      brandRecord.description,
+      displayName,
+      brand.description ?? null,
       snippets,
       siteContent,
       evidence,
     );
-    const userContent = `${content.userContent}\n\n${contextFacts(ctx, brandRecord, stockists)}`;
+    const userContent = `${content.userContent}\n\n${contextFacts(ctx)}`;
     const config = buildProfiledEnrichmentConfig("faq", systemPrompt, "faq", {
       ...FAQ_PROMPT_PARAMS,
       promptHash,
@@ -627,13 +670,6 @@ export async function runFaqPhase({
 
     if (isLlmProviderFailure(calls))
       return { entries: [], dropped, calls, failed: true };
-    // A dry run still reports what it accepted; it just never writes it.
-    if (accepted.length > 0 && dryRun !== true) {
-      await upsertBrandFaqEntries(faqBrandId, accepted, {
-        explicitFaqPhase,
-        client: supabase,
-      });
-    }
     return { entries: accepted, dropped, calls, failed: false };
   });
 
@@ -676,6 +712,9 @@ export async function runFaqPhase({
         dryRun === true ? " (dry run — nothing written)" : ""
       }`,
     ),
-    patch: {},
+    patch:
+      result.entries.length > 0
+        ? { faq: { entries: result.entries, explicit: explicitFaqPhase } }
+        : {},
   };
 }
