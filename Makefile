@@ -1,4 +1,4 @@
-.PHONY: doctor seed eval
+.PHONY: doctor seed
 
 PNPM ?= corepack pnpm
 
@@ -10,5 +10,3 @@ seed: ## Seed taxonomy and sample brands
 	npx supabase db query --linked --file supabase/seed.sql
 	@echo "Done."
 
-eval: ## Run enrichment golden-set evaluation
-	$(PNPM) curate eval
