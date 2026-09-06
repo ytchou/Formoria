@@ -231,7 +231,7 @@ describe("snapshot coverage", () => {
     // Search for each snapshot name as a string literal in src/ .ts files
     for (const name of snapshotNames) {
       const result = execSync(
-        `grep -rn '"${name}"' "${srcDir}/src/" --include="*.ts" || true`,
+        `grep -rn "['\\"']${name}['\\"']" "${srcDir}/src/" --include="*.ts" || true`,
         { encoding: "utf-8" },
       ).trim();
       expect(

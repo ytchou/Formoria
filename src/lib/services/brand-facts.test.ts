@@ -290,6 +290,7 @@ describe("founding_facts_calls_fetch_by_name_and_records_prompt", () => {
   ];
 
   it("both founding-facts and founding-facts-verify are fetched by name and audit contexts carry prompt", async () => {
+    vi.mocked(createProfiledOpenAIClient).mockClear();
     const extractionChat = vi.fn().mockResolvedValue({
       response: { ok: true, status: 200 },
       data: {},

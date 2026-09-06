@@ -198,7 +198,7 @@ describe("parseDescriptionRewriteResult", () => {
     );
 
     expect(chat).toHaveBeenCalledTimes(2);
-    expect(chat.mock.calls[0]?.[0].system).toContain("pricing information");
+    expect(chat.mock.calls[0]?.[0].system).toBe("mock-prompt");
     expect(output?.attempts[0]?.validationRejections).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
