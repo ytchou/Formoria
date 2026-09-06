@@ -36,7 +36,7 @@ jobs:
       E2E_ADMIN_PASSWORD: ${{ secrets.E2E_ADMIN_PASSWORD }}
       E2E_USER_EMAIL: ${{ secrets.E2E_USER_EMAIL }}
       E2E_USER_PASSWORD: ${{ secrets.E2E_USER_PASSWORD }}
-      E2E_SIGNUP_EMAIL_DOMAIN: example.test
+      E2E_SIGNUP_EMAIL_DOMAIN: formoria.com
       CF_ACCESS_CLIENT_ID: ${{ secrets.CF_ACCESS_CLIENT_ID }}
       CF_ACCESS_CLIENT_SECRET: ${{ secrets.CF_ACCESS_CLIENT_SECRET }}
       E2E_ORIGIN_SECRET: ${{ secrets.E2E_ORIGIN_SECRET }}
