@@ -446,20 +446,153 @@ async function cmdRun(
 }
 
 async function cmdPairwiseRun(
-  phase: string,
+  _phase: string,
   _target: string,
   sample: number,
   armSpecs: ArmSpec[],
 ): Promise<void> {
-  const { findQueueByName } = await import('@/lib/services/eval/langfuse-runs')
+  const { writeFileSync, mkdirSync } = await import('node:fs')
+  const { createServiceClient } = await import('@/lib/supabase/service')
+  const { stratifiedSample, blind } = await import(
+    '@/lib/services/eval/pairwise'
+  )
+  const { findQueueByName, enqueueTrace } = await import(
+    '@/lib/services/eval/langfuse-runs'
+  )
+  const { rewriteBrandDescription } = await import(
+    '@/lib/services/description-rewrite'
+  )
+  const { loadPersistedScrapeText, buildDescriptionEvidence } = await import(
+    '@/lib/services/enrich-phases/descriptions'
+  )
+
+  if (armSpecs.length !== 2) {
+    console.error('Pairwise run requires exactly 2 arms')
+    process.exitCode = 1
+    return
+  }
 
   const queueId = await findQueueByName({ name: 'pairwise' })
   console.log(`Pairwise queue: ${queueId}`)
-  console.log(
-    `Phase: ${phase}, sample: ${sample}, arms: ${armSpecs.map((a) => `${a.kind}:${a.kind === 'prompt' ? a.version : a.model}`).join(', ')}`,
+
+  const supabase = createServiceClient()
+  const { data: allBrands } = await supabase
+    .from('brands')
+    .select('id, name, category, slug, description, purchase_website, social_instagram, social_threads, social_facebook, purchase_pinkoi')
+    .eq('status', 'approved')
+
+  if (!allBrands || allBrands.length === 0) {
+    console.error('No approved brands found')
+    process.exitCode = 1
+    return
+  }
+
+  const sampled = stratifiedSample({ brands: allBrands, n: sample })
+  console.log(`Sampled ${sampled.length} brands across ${new Set(sampled.map(b => b.category)).size} categories`)
+
+  const armOutputs = new Map<string, Map<string, unknown>>()
+  const armLabels: string[] = []
+
+  for (const arm of armSpecs) {
+    const label =
+      arm.kind === 'prompt'
+        ? `prompt-v${arm.version}`
+        : arm.model
+    armLabels.push(label)
+    const outputs = new Map<string, unknown>()
+
+    const savedVersions = process.env.LANGFUSE_PROMPT_VERSIONS
+    const savedModel = process.env.OPENAI_MODEL_OVERRIDE
+    try {
+      if (arm.kind === 'prompt') {
+        process.env.LANGFUSE_PROMPT_VERSIONS = `descriptions:${arm.version}`
+      } else {
+        process.env.OPENAI_MODEL_OVERRIDE = arm.model
+      }
+
+      console.log(`\nRunning arm "${label}" on ${sampled.length} brands...`)
+      for (const brand of sampled) {
+        try {
+          const scrapeText = await loadPersistedScrapeText(brand.id)
+          const evidence = buildDescriptionEvidence(
+            brand as Parameters<typeof buildDescriptionEvidence>[0],
+            undefined,
+            [],
+          )
+          const result = await rewriteBrandDescription(
+            brand.name,
+            brand.description,
+            scrapeText.snippets,
+            scrapeText.siteContent,
+            { jobId: undefined, target: undefined },
+            evidence,
+          )
+          outputs.set(brand.id, result)
+          process.stdout.write('.')
+        } catch (err) {
+          console.error(`\nFailed for ${brand.slug}:`, (err as Error).message)
+          outputs.set(brand.id, null)
+        }
+      }
+      console.log(` done (${outputs.size} brands)`)
+    } finally {
+      if (savedVersions !== undefined) process.env.LANGFUSE_PROMPT_VERSIONS = savedVersions
+      else delete process.env.LANGFUSE_PROMPT_VERSIONS
+      if (savedModel !== undefined) process.env.OPENAI_MODEL_OVERRIDE = savedModel
+      else delete process.env.OPENAI_MODEL_OVERRIDE
+    }
+
+    armOutputs.set(label, outputs)
+  }
+
+  const client = getLangfuse()
+  if (!client) {
+    console.error('Langfuse not configured')
+    process.exitCode = 1
+    return
+  }
+
+  const mappings: Record<string, { left: 'a' | 'b'; right: 'a' | 'b' }> = {}
+  const traceIds: string[] = []
+  const [armA, armB] = armLabels
+
+  console.log('\nBlinding and enqueueing traces...')
+  for (const brand of sampled) {
+    const outputA = armOutputs.get(armA)?.get(brand.id)
+    const outputB = armOutputs.get(armB)?.get(brand.id)
+
+    if (!outputA || !outputB) {
+      console.log(`Skipping ${brand.slug} — missing output from one arm`)
+      continue
+    }
+
+    const blinded = blind(outputA, outputB)
+    const trace = client.trace({
+      name: `pairwise:descriptions:${brand.slug}`,
+      input: { left: blinded.left, right: blinded.right, brandName: brand.name },
+      metadata: { brandId: brand.id, brandSlug: brand.slug, armA, armB },
+    })
+
+    mappings[trace.id] = blinded.mapping
+    traceIds.push(trace.id)
+    await enqueueTrace({ queueId, traceId: trace.id })
+  }
+
+  const iso = new Date().toISOString().slice(0, 19).replace(/[T:]/g, '-')
+  const runName = `pairwise-descriptions-${iso}`
+  const runJsonPath = `scripts/llm-eval/runs/${runName}.json`
+  mkdirSync('scripts/llm-eval/runs', { recursive: true })
+  writeFileSync(
+    runJsonPath,
+    JSON.stringify({ dataset: 'pairwise-descriptions', mappings, traceIds, armA, armB }, null, 2),
   )
-  console.log(`Queue found: ${queueId}. Enqueue ${sample} items after running both arms.`)
+
   await flushLangfuse()
+
+  console.log(`\n${traceIds.length} items enqueued to pairwise queue`)
+  console.log(`Run JSON: ${runJsonPath}`)
+  console.log(`Arms: A=${armA}, B=${armB}`)
+  console.log('Vote in Langfuse, then run: pnpm llm-eval pairwise report ' + runName)
 }
 
 async function cmdPairwiseReport(runName: string): Promise<void> {
