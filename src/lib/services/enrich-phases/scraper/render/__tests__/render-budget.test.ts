@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import type { RenderProvider, RenderResult } from '../types'
 
-function makeMockProvider(delay = 0): RenderProvider & { readonly inFlight: number; readonly maxInFlight: number; readonly callCount: number } {
+function makeMockProvider(delay = 0): RenderProvider & { readonly inFlight: number; readonly maxInFlight: number; readonly callCount: number; close?(): Promise<void> } {
   const tracker = { inFlight: 0, maxInFlight: 0, callCount: 0 }
   return {
     get inFlight() { return tracker.inFlight },
@@ -27,7 +27,6 @@ describe('withRenderBudget', () => {
       brandKey: () => 'brand-a',
       perBrand: 100,
       perJob: 1000,
-      monthly: { threshold: 10000, loadCount: async () => 0 },
     })
 
     const promises = Array.from({ length: 5 }, (_, i) =>
@@ -47,7 +46,6 @@ describe('withRenderBudget', () => {
       brandKey: () => 'brand-x',
       perBrand: 3,
       perJob: 1000,
-      monthly: { threshold: 10000, loadCount: async () => 0 },
     })
 
     await budgeted.fetchRendered('https://a.com/1')
@@ -63,14 +61,10 @@ describe('withRenderBudget', () => {
     const inner = makeMockProvider()
 
     const { withRenderBudget, bindBrandKey } = await import('../render-budget')
-    // The worker builds ONE provider for its whole life, so `brandKey` is the
-    // placeholder every brand would otherwise share — the shape that turned a
-    // per-brand cap of 3 into a per-process cap of 3.
     const budgeted = withRenderBudget(inner, {
       brandKey: () => 'unknown',
       perBrand: 3,
       perJob: 1000,
-      monthly: { threshold: 10000, loadCount: async () => 0 },
     })
 
     const forBrandA = bindBrandKey(budgeted, 'brand-a')
@@ -85,30 +79,66 @@ describe('withRenderBudget', () => {
     expect(inner.callCount).toBe(4)
   })
 
-  it('monthly gauge refuses at threshold and allows below', async () => {
+  it('per_job_cap_refuses_the_151st_render', async () => {
     const inner = makeMockProvider()
 
     const { withRenderBudget, RenderBudgetExceeded } = await import('../render-budget')
-
-    // At 900 (= threshold) → refuse
-    const budgetedHigh = withRenderBudget(inner, {
-      brandKey: () => 'brand-y',
-      perBrand: 100,
-      perJob: 1000,
-      monthly: { threshold: 900, loadCount: async () => 900 },
+    const budgeted = withRenderBudget(inner, {
+      brandKey: () => 'unknown',
+      perBrand: 1000, // high enough to never hit
+      perJob: 150,
     })
-    await expect(budgetedHigh.fetchRendered('https://b.com')).rejects.toThrow(RenderBudgetExceeded)
 
-    // At 899 (< threshold) → allow and increment
-    const innerOk = makeMockProvider()
-    const budgetedOk = withRenderBudget(innerOk, {
-      brandKey: () => 'brand-z',
-      perBrand: 100,
-      perJob: 1000,
-      monthly: { threshold: 900, loadCount: async () => 899 },
+    // 150 renders across many brand keys succeed
+    for (let i = 0; i < 150; i++) {
+      await budgeted.fetchRendered(`https://example.com/${i}`, `brand-${i}`)
+    }
+    expect(inner.callCount).toBe(150)
+
+    // The 151st throws
+    const err = await budgeted.fetchRendered('https://example.com/151', 'brand-151').catch((e) => e)
+    expect(err).toBeInstanceOf(RenderBudgetExceeded)
+    expect((err as InstanceType<typeof RenderBudgetExceeded>).scope).toBe('job')
+    expect(inner.callCount).toBe(150)
+  })
+
+  it('close_passes_through_to_inner', async () => {
+    let closeCalled = 0
+    const innerWithClose: RenderProvider = {
+      async fetchRendered(url: string): Promise<RenderResult> {
+        return { html: `<html>${url}</html>`, finalUrl: url, status: 200 }
+      },
+      async close() {
+        closeCalled++
+      },
+    }
+
+    const { withRenderBudget } = await import('../render-budget')
+    const wrapped = withRenderBudget(innerWithClose, {
+      brandKey: () => 'x',
+      perBrand: 10,
+      perJob: 100,
     })
-    const result = await budgetedOk.fetchRendered('https://c.com')
-    expect(result.html).toContain('c.com')
-    expect(innerOk.callCount).toBe(1)
+
+    await wrapped.close()
+    expect(closeCalled).toBe(1)
+  })
+
+  it('close resolves when inner has no close', async () => {
+    const innerNoClose: RenderProvider = {
+      async fetchRendered(url: string): Promise<RenderResult> {
+        return { html: `<html>${url}</html>`, finalUrl: url, status: 200 }
+      },
+    }
+
+    const { withRenderBudget } = await import('../render-budget')
+    const wrapped = withRenderBudget(innerNoClose, {
+      brandKey: () => 'x',
+      perBrand: 10,
+      perJob: 100,
+    })
+
+    // Should not throw
+    await expect(wrapped.close()).resolves.toBeUndefined()
   })
 })

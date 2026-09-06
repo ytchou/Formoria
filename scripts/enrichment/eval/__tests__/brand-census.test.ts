@@ -8,7 +8,6 @@ import { describe, expect, it } from "vitest";
 import {
   type CensusFile,
   type CensusRow,
-  assertCensusTarget,
   countGallery,
   diffRow,
   emptyCensusRow,
@@ -18,6 +17,7 @@ import {
   textStat,
   type SubmissionCensusRow,
 } from "../brand-census";
+import { assertCensusTarget } from "../production-guard";
 
 const STAGING_URL = "https://ttkkyvgvcamfoezsetvf.supabase.co";
 const PRODUCTION_URL = "https://xkcayngbttpxyibgzern.supabase.co";

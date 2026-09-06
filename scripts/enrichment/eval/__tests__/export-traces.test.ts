@@ -71,7 +71,7 @@ describe("renderDecisionTimeline", () => {
       },
       {
         spanId: "sp-2",
-        provider: "browserless",
+        provider: "playwright",
         ms: 400,
         durationMs: 1200,
         status: 200,
@@ -95,7 +95,7 @@ describe("renderDecisionTimeline", () => {
     // Span rows include provider and duration
     expect(md).toContain("openai");
     expect(md).toContain("320ms");
-    expect(md).toContain("browserless");
+    expect(md).toContain("playwright");
     expect(md).toContain("1200ms");
   });
 

@@ -1,7 +1,7 @@
 import type { RenderProvider, RenderResult } from './types'
 
 export class RenderBudgetExceeded extends Error {
-  constructor(public readonly scope: 'brand' | 'job' | 'monthly') {
+  constructor(public readonly scope: 'brand' | 'job') {
     super(`Render budget exceeded (${scope})`)
     this.name = 'RenderBudgetExceeded'
   }
@@ -11,10 +11,6 @@ interface RenderBudgetOptions {
   brandKey: () => string
   perBrand: number
   perJob: number
-  monthly: {
-    threshold: number
-    loadCount: () => Promise<number>
-  }
 }
 
 /** RenderProvider wrapped with concurrency + budget enforcement. */
@@ -22,6 +18,7 @@ export interface BudgetWrappedProvider extends RenderProvider {
   /** Fetch with an explicit brand key for per-brand budget tracking. */
   fetchRendered(url: string, brandKey?: string): Promise<RenderResult>
   fetchRenderedBatch(urls: readonly string[], brandKey?: string): Promise<Array<RenderResult | null>>
+  close(): Promise<void>
 }
 
 const MAX_CONCURRENCY = 2
@@ -33,7 +30,6 @@ const MAX_CONCURRENCY = 2
  *   cannot race past a budget cap.
  * - Per-brand cap prevents a single brand from consuming the entire budget.
  * - Per-job cap prevents a single job from consuming the entire budget.
- * - Monthly gauge loaded once and incremented locally; refuses at threshold.
  */
 export function withRenderBudget(
   inner: RenderProvider,
@@ -41,19 +37,6 @@ export function withRenderBudget(
 ): BudgetWrappedProvider {
   const brandCounts = new Map<string, number>()
   let jobCount = 0
-
-  // Monthly gauge: loaded lazily once, then tracked in-memory.
-  let monthlyGauge: number | null = null
-  let monthlyLoading: Promise<number> | null = null
-
-  async function getMonthlyGauge(): Promise<number> {
-    if (monthlyGauge !== null) return monthlyGauge
-    if (!monthlyLoading) {
-      monthlyLoading = opts.monthly.loadCount()
-    }
-    monthlyGauge = await monthlyLoading
-    return monthlyGauge
-  }
 
   // Simple semaphore
   let running = 0
@@ -92,16 +75,10 @@ export function withRenderBudget(
         throw new RenderBudgetExceeded('job')
       }
 
-      const gauge = await getMonthlyGauge()
-      if (gauge >= opts.monthly.threshold) {
-        throw new RenderBudgetExceeded('monthly')
-      }
-
       const result = await inner.fetchRendered(url)
       // Increment counters on success
       brandCounts.set(brand, brandCount + 1)
       jobCount++
-      monthlyGauge = (monthlyGauge ?? gauge) + 1
       return result
     } finally {
       release()
@@ -121,6 +98,9 @@ export function withRenderBudget(
           }
         }),
       )
+    },
+    async close(): Promise<void> {
+      return inner.close?.() ?? Promise.resolve()
     },
   }
 }

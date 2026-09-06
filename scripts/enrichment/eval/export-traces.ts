@@ -457,7 +457,7 @@ export function buildBrandTraceRow(input: {
     completionTokens: totals.completionTokens,
     costUsd: totals.costUsd,
     unpricedTurns: totals.unpricedTurns,
-    // Browserless spans carry no job or subject id, so per-brand renders come
+    // Render spans carry no job or subject id, so per-brand renders come
     // from the two places that DO record them per brand: the acquisition
     // agent's budget ledger and the products agent's verification record.
     renders:
@@ -633,7 +633,7 @@ async function fetchTraces(
   const { count: renderSpans, error: rErr } = await client
     .from("external_call_audit")
     .select("id", { count: "exact", head: true })
-    .eq("provider", "browserless")
+    .eq("provider", "playwright")
     .eq("job_id", jobId);
   if (rErr) throw new Error(`external_call_audit query failed: ${rErr.message}`);
 
@@ -723,7 +723,7 @@ async function main() {
     jobId,
   );
   console.log(
-    `[traces] ${targets.length} targets, ${scrapes.length} search rows, ${aiResults.length} agent turns, ${renderSpans} browserless spans carrying the job id`,
+    `[traces] ${targets.length} targets, ${scrapes.length} search rows, ${aiResults.length} agent turns, ${renderSpans} playwright spans carrying the job id`,
   );
 
   const outDir = resolve(`docs/dev-1644/traces/${jobId}`);
@@ -765,7 +765,7 @@ async function main() {
   const summary = [
     renderSummaryTable(jobId, rows),
     "",
-    `Browserless spans carrying this job id: ${renderSpans}. Per-brand renders`,
+    `Playwright spans carrying this job id: ${renderSpans}. Per-brand renders`,
     "come from the acquisition budget ledger and the products verification",
     "record, because a render span carries neither job nor subject id.",
   ].join("\n");

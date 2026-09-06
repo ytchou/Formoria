@@ -48,7 +48,6 @@
  *   pnpm exec tsx scripts/enrichment/run/refresh.ts --cohort batch1-never-curated --confirm --via-worker
  *   pnpm exec tsx scripts/enrichment/run/refresh.ts --task product --confirm
  *   pnpm exec tsx scripts/enrichment/run/refresh.ts --task product --no-apply --confirm
- *   pnpm exec tsx scripts/enrichment/run/refresh.ts --task product --local-render --no-apply --confirm
  *
  * Staging is the default; pass --target production to run against production.
  */
@@ -64,7 +63,6 @@ import {
 } from "@/lib/services/curation-jobs";
 import { dispatchCurationJob } from "@/lib/services/curation-dispatch";
 import { runJob } from "@/lib/services/job-runner";
-import { createLocalPlaywrightProvider } from "@/lib/services/enrich-phases/scraper/render/local-playwright-provider";
 import {
   requestBrandRefreshesBySlugs,
   applyBrandRefresh,
@@ -77,7 +75,6 @@ import {
   type CurationTask,
 } from "@/lib/constants/enrich-phases";
 import { loadCohort, snapshotDir, type Cohort } from "./cohort";
-import { validateLocalRenderFlags } from "./refresh-options";
 import { loadScriptTarget } from "../../shared/target";
 
 /**
@@ -235,7 +232,6 @@ async function main(): Promise<void> {
   );
   const dryRun = hasFlag(argv, "--dry-run");
   const viaWorker = hasFlag(argv, "--via-worker");
-  const localRender = validateLocalRenderFlags(argv);
   const task = targetTask(argv);
   // Recorded alongside the task so a log stays readable after CURATION_TASKS
   // changes shape — the task name alone would not say what actually ran.
@@ -535,20 +531,7 @@ async function main(): Promise<void> {
       throw new Error(
         `could not claim job ${job.id} — another worker may hold it`,
       );
-    const { createRenderProviderFromEnv } = await import("@/lib/services/enrich-phases/scraper/render/from-env");
-    const { loadBrowserlessMonthlyCount } = await import("@/lib/services/enrich-phases/scraper/render/monthly-gauge");
-    summary = await runJob(claimed, workerToken, {
-      ...(localRender
-        ? { renderProvider: createLocalPlaywrightProvider() }
-        : {
-            // Same durable gauge the worker uses: this script and the deployed
-            // worker spend the same Browserless monthly allowance, so a rerun
-            // must see the renders the worker already made.
-            renderProvider: createRenderProviderFromEnv({
-              loadMonthlyCount: () => loadBrowserlessMonthlyCount(supabase),
-            }),
-          }),
-    });
+    summary = await runJob(claimed, workerToken);
   }
   console.log(
     `\njob done — success ${summary.success}, failed ${summary.failed}, skipped ${summary.skipped}`,

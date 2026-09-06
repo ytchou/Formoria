@@ -40,7 +40,7 @@ import {
  * `site_identity` as the transitive dependency: the acquisition agent gathers
  * website data and resolves the purchase website that `products` needs.
  *
- * - `acquire`  — runs the acquisition agent (Browserless scraper + LLM
+ * - `acquire`  — runs the acquisition agent (Playwright scraper + LLM
  *                extraction) to produce scraped data and site identity.
  * - `products` — the phase itself.
  */

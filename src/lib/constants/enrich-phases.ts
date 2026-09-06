@@ -16,7 +16,7 @@ export const ENRICH_PHASES = [
   "discover",
   "links",
   // `acquire` replaces `links` in the schedule. It runs the acquisition agent
-  // (Browserless scraper + LLM extraction) to gather website data that `links`
+  // (Playwright scraper + LLM extraction) to gather website data that `links`
   // formerly collected via direct fetches (DEV-1644 wave-A/B collapse).
   "acquire",
   // `names` sits after `acquire` because it needs every candidate the context
@@ -95,7 +95,7 @@ export const SERP_PHASES = [
  * Phases whose work is LLM inference. These consume SERP output (live or
  * replayed from cache) and never call the search provider themselves.
  *
- * `acquire` runs the acquisition agent (Browserless + LLM) and is classified
+ * `acquire` runs the acquisition agent (Playwright + LLM) and is classified
  * as an LLM phase because its core work is LLM-driven extraction.
  */
 export const ENRICH_LLM_PHASES = [

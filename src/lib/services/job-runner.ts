@@ -53,6 +53,11 @@ import { renderRunLogHtml } from "@/lib/runlog";
 import { uploadRunLogSnapshot } from "@/lib/services/runlog-storage";
 import { auditedCall } from "@/lib/audit";
 import type { RenderProvider } from "@/lib/services/enrich-phases/scraper/render/types";
+import { createRenderProvider } from "@/lib/services/enrich-phases/scraper/render/provider";
+import {
+  resolveRenderProvider,
+  releaseRenderProvider,
+} from "@/lib/services/render-provider-ownership";
 
 export { sanitizeJobError } from "@/lib/services/job-errors";
 
@@ -113,6 +118,10 @@ export async function runJob(
   return auditedCall(
     { provider: "curation", operation: "runJob", kind: "service" },
     async () => {
+  const renderHandle = resolveRenderProvider(
+    options,
+    () => createRenderProvider(),
+  );
   const startedAt = Date.now();
   let heartbeatInFlight = false;
   let leaseLost = false;
@@ -130,7 +139,9 @@ export async function runJob(
   heartbeat.unref();
 
   try {
-    await runOperation(createServiceClient(), job, workerToken, options);
+    await runOperation(createServiceClient(), job, workerToken, {
+      renderProvider: renderHandle.provider,
+    });
     return await finalizeSuccessfulJob(job, workerToken, {
       startedAt,
       isLeaseLost: () => leaseLost,
@@ -171,6 +182,7 @@ export async function runJob(
     return failedJobSummary(job, message, Date.now() - startedAt, breakerTripped);
   } finally {
     clearInterval(heartbeat);
+    await releaseRenderProvider(renderHandle);
     await flushLangfuse();
   }
     },
