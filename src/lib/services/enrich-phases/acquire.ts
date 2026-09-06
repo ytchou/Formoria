@@ -27,9 +27,8 @@ import {
 } from '../brand-cleanup'
 import type { NameCandidate } from '../name-arbiter'
 import { finishSearchAudit, startSearchAudit } from '../search-results'
-import { MAX_SCRAPE_URLS_PER_BRAND, scrapeBrandUrls, type ScrapeBrandUrlsOptions } from './scraper'
+import { scrapeBrandUrls, type ScrapeBrandUrlsOptions } from './scraper'
 import { classifyByDomain, isNonBrandSiteHost } from './scraper/input-detector'
-import { mergeScrapedData } from './scraper/merge'
 import type { PhaseResult } from '@/lib/types/curation'
 import { MAX_IMAGE_POOL_BYTES, compactToBytes } from '../phase-results'
 import { auditedCall } from '@/lib/audit'
@@ -44,18 +43,15 @@ import {
   type EnrichPatch,
   type EnrichPhase,
 } from './types'
-import { ONLINE_STORES } from '@/lib/brands/online-stores'
 import type { RenderProvider } from './scraper/render/types'
 import { bindBrandKey } from './scraper/render/render-budget'
-import { HERO_TARGET_RATIO } from '@/lib/constants/brand-images'
 import { createServiceClient } from '@/lib/supabase/service'
 import { createAgentModel as defaultCreateAgentModel } from './agents/runtime'
-import { buildCandidatePool, type CandidateImage } from './candidate-pool'
+import { type CandidateImage } from './candidate-pool'
 import {
   applyPlannedImageWrites as defaultApplyPlannedImageWrites,
   classifyStoredImages as defaultClassifyStoredImages,
   finalizeHeroOrder as defaultFinalizeHeroOrder,
-  type ClassifiedImage,
   type PlannedImageWrite,
 } from './classify-images'
 import {
@@ -64,7 +60,7 @@ import {
 } from './catalog-discovery'
 import { downloadAndStoreImages as defaultDownloadAndStoreImages } from '../image-download'
 import { buildChannelSources } from './images'
-import { rank, resolveSourceUrl, type RankableImage } from './image-ranking'
+import { type RankableImage } from './image-ranking'
 import {
   batchSearchBrandImages as defaultBatchSearchBrandImages,
   searchBrandUrls as defaultSearchBrandUrls,
@@ -196,38 +192,6 @@ function uniqueUrls(urls: string[]): string[] {
   }
 
   return unique
-}
-
-/**
- * Round-robins official / social / marketplace so every kind is represented
- * before any kind repeats. Each kind runs a different adapter and yields a
- * different set of images, so within a fixed URL budget breadth beats depth:
- * the old order (one official, then *all* social, then marketplace) meant a
- * brand with two social profiles exhausted the budget before its Pinkoi or
- * Shopee page — the two pages the richest adapters read — was ever fetched.
- */
-function prioritizeScrapeUrls(urls: string[]): string[] {
-  const official: string[] = []
-  const social: string[] = []
-  const marketplace: string[] = []
-  for (const url of urls) {
-    const classification = classifyByDomain(url)
-    if (classification === null) official.push(url)
-    else if (classification === 'social') social.push(url)
-    else marketplace.push(url)
-  }
-
-  const buckets = [official, social, marketplace]
-  const deepest = Math.max(...buckets.map((bucket) => bucket.length))
-  const ordered: string[] = []
-  for (let index = 0; index < deepest; index += 1) {
-    for (const bucket of buckets) {
-      const url = bucket.at(index)
-      if (url) ordered.push(url)
-    }
-  }
-
-  return ordered
 }
 
 /**
@@ -424,117 +388,6 @@ export function deriveOfficialNameCandidates(
   }
 
   return candidates
-}
-
-/**
- * Bound on the follow-up scrape. Small on purpose: the point is to reach the
- * one or two profiles the official site just revealed, not to crawl outward.
- * This is the base tier: zero-token brands can add up to
- * MAX_ZERO_TOKEN_SOCIAL_URLS extras. The combined two-tier budget must stay
- * within MAX_SCRAPE_URLS_PER_BRAND or scrapeBrandUrls truncates silently.
- */
-const MAX_SECOND_PASS_URLS = 3
-
-/**
- * Extra social candidates for Han-only names, capped by
- * MAX_SCRAPE_URLS_PER_BRAND. Raise that budget if recall proves insufficient,
- * together with the guard below.
- */
-const MAX_ZERO_TOKEN_SOCIAL_URLS = 2
-
-const MAX_SECOND_PASS_CANDIDATES = MAX_SECOND_PASS_URLS + MAX_ZERO_TOKEN_SOCIAL_URLS
-if (MAX_SECOND_PASS_CANDIDATES > MAX_SCRAPE_URLS_PER_BRAND) {
-  throw new Error(
-    `second-pass budget ${MAX_SECOND_PASS_CANDIDATES} exceeds MAX_SCRAPE_URLS_PER_BRAND ${MAX_SCRAPE_URLS_PER_BRAND}; scrapeBrandUrls would silently drop candidates`,
-  )
-}
-
-/**
- * ORDER INVARIANT — `purchaseWebsite` must stay ahead of every marketplace
- * store except the two below. The candidate list is truncated at
- * MAX_SECOND_PASS_URLS, so a store slotted before the website silently
- * pushes the brand's own site — the highest-quality evidence source — out of
- * the pass entirely on exactly the sparse-link brands this pass exists for.
- * A newly added store therefore lands in POST_WEBSITE_ONLINE_STORES by
- * default; only these two predate the website because they always have.
- * The budget is two-tier: MAX_SECOND_PASS_URLS base candidates plus up to
- * MAX_ZERO_TOKEN_SOCIAL_URLS extras for a zero-token brand. Their combined
- * total must stay within MAX_SCRAPE_URLS_PER_BRAND or scrapeBrandUrls truncates silently.
- */
-const PRE_WEBSITE_ONLINE_STORE_KEYS: readonly string[] = ['pinkoi', 'shopee']
-
-const PRE_WEBSITE_ONLINE_STORES = ONLINE_STORES.filter((channel) =>
-  PRE_WEBSITE_ONLINE_STORE_KEYS.includes(channel.key),
-)
-
-const POST_WEBSITE_ONLINE_STORES = ONLINE_STORES.filter(
-  (channel) =>
-    channel.key !== 'website' && !PRE_WEBSITE_ONLINE_STORE_KEYS.includes(channel.key),
-)
-
-/**
- * Scraping the official site is *how* we learn a brand's Instagram, Facebook,
- * Pinkoi, Shopee, and MyShip URLs — but the first pass fixed its URL set before those
- * existed, so those links were written to the row and then scraped for the
- * first time only on the *next* enrichment run. That cost a whole cycle before
- * the free, higher-quality platform-adapter images were reachable, and 119 of
- * 599 approved brands have Instagram as their only URL.
- *
- * Exactly one extra pass, never recursive: this is a plain function that issues
- * a single `scrapeBrandUrls` call and returns, so a URL discovered by the
- * second pass waits for the next run rather than expanding the frontier here.
- * The audit callback is the same one the first pass uses, so these fetches land
- * in the trail identically.
- */
-async function scrapeDiscoveredLinks(
-  firstPassData: ScrapedBrandData,
-  firstPassUrls: string[],
-  options: ScrapeBrandUrlsOptions,
-  urlExtracted: ReturnType<typeof extractLinksFromUrls>,
-): Promise<ScrapedBrandData> {
-  const alreadyScraped = new Set(
-    firstPassUrls.slice(0, MAX_SCRAPE_URLS_PER_BRAND).map(pageKey),
-  )
-  const candidates = uniqueUrls(
-    [
-      firstPassData.socialInstagram,
-      firstPassData.socialFacebook,
-      ...PRE_WEBSITE_ONLINE_STORES.map((channel) => firstPassData[channel.camel]),
-      firstPassData.purchaseWebsite,
-      ...POST_WEBSITE_ONLINE_STORES.map((channel) => firstPassData[channel.camel]),
-    ].filter(hasLinkValue),
-  )
-    .filter((url) => !alreadyScraped.has(pageKey(url)))
-    .slice(0, MAX_SECOND_PASS_URLS)
-
-  // Deduped against the base candidates BEFORE the slice: these two slots exist
-  // to buy NEW evidence, so a URL already queued must not consume one.
-  const candidateKeys = new Set(candidates.map(pageKey))
-  const zeroTokenSocials =
-    brandNameTokens(options.brandName).length === 0
-      ? uniqueUrls(
-          [
-            urlExtracted.social_instagram,
-            urlExtracted.social_threads,
-            urlExtracted.social_facebook,
-          ].filter(hasLinkValue),
-        )
-          .filter((url) => !alreadyScraped.has(pageKey(url)) && !candidateKeys.has(pageKey(url)))
-          .slice(0, MAX_ZERO_TOKEN_SOCIAL_URLS)
-      : []
-
-  candidates.push(...zeroTokenSocials)
-
-  if (candidates.length === 0) return firstPassData
-
-  const secondPass = await scrapeBrandUrls(candidates, options)
-  // Merged through the same helper the first pass uses, with the first pass at
-  // the highest precedence: a follow-up profile may fill gaps but must never
-  // overwrite what the brand's own site already told us.
-  return mergeScrapedData([
-    { type: 'official-site', data: firstPassData },
-    { type: 'social', data: secondPass.data },
-  ])
 }
 
 /**
@@ -740,45 +593,6 @@ function hasScrapedText(data: EnrichScrapedData | undefined): boolean {
 }
 
 /**
- * Image candidates from a completed scrape — the fallback path's equivalent of
- * the agent's `images` node. Provenance first (`imageSources` carries the page
- * each image came from), plain URLs only when the scraper predates it.
- */
-function candidatesFromScrapedData(scrapedData: EnrichScrapedData): CandidateImage[] {
-  const sources = scrapedData.imageSources ?? []
-  const scraped: Array<Omit<CandidateImage, 'source'>> =
-    sources.length > 0
-      ? sources.map((source) => ({
-          url: source.url,
-          method: source.method,
-          pageUrl: source.pageUrl,
-          position: source.position,
-        }))
-      : (scrapedData.galleryImageUrls ?? []).map((url) => ({ url }))
-
-  return buildCandidatePool({
-    scraped,
-    jsonLdImages: scrapedData.jsonLdImageUrls ?? [],
-    // Image search is the agent's recovery step, not part of a plain scrape.
-    googleImages: [],
-  })
-}
-
-/**
- * Attach the page each classified image came from, using the shared
- * `resolveSourceUrl` from image-ranking.ts. `sourceUrl` is populated by the
- * classify dep (which reads `source_url` from the DB row).
- */
-function withSourceUrls(
-  classified: readonly ClassifiedImage[],
-): RankableImage[] {
-  return classified.map((image) => ({
-    ...image,
-    sourceUrl: resolveSourceUrl(image),
-  }))
-}
-
-/**
  * Turn the acquisition critique's per-URL ownership verdicts into revocations.
  *
  * This is the consumer `urlVerdicts` never had: the agent already judges every
@@ -900,7 +714,7 @@ export async function runAcquirePhase({
   })
 
   const { result, durationMs } = await timePhase(async () => {
-    const urls = prioritizeScrapeUrls(uniqueUrls([...knownUrls, ...discoveredUrls]))
+    const urls = uniqueUrls([...knownUrls, ...discoveredUrls])
     // These URLs are raw SERP results, so the brand name is the only thing
     // separating this brand's accounts from a same-ranking stranger's.
     const urlExtracted = extractLinksFromUrls(discoveredUrls, brand.name)
@@ -954,16 +768,15 @@ export async function runAcquirePhase({
       },
     }
     // -----------------------------------------------------------------------
-    // Acquisition agent path: when enabled, delegates gather+plan+scrape to the
-    // agent. On success, its scrapeResult replaces firstPass + scrapeDiscoveredLinks.
-    // On failure or fallback outcome, falls through to the legacy path below.
+    // Acquisition agent: always runs. On success, its scrapeResult populates
+    // scrapedFromPages. On throw, outcome is 'blocked' and scrapedFromPages = {}.
     // -----------------------------------------------------------------------
     let agentAcquisitionPlan: AcquisitionPlanType | undefined
     let agentScrapeData: EnrichScrapedData | null = null
     let agentOutcome: string | undefined
-    // Persisted alongside the plan so a fallback/blocked brand still carries a
-    // decision timeline and its budget usage; without it the trace only exists
-    // in process memory.
+    // Persisted alongside the plan so a blocked brand still carries a decision
+    // timeline and its budget usage; without it the trace only exists in
+    // process memory.
     let agentTrace: Record<string, unknown> | undefined
     /**
      * Row writes the classify seam produced. Applied IMMEDIATELY inside the
@@ -980,149 +793,137 @@ export async function runAcquirePhase({
     let urlVerdicts: AcquisitionUrlVerdicts = []
     let providerFailure = false
 
-    if (process.env.ACQUISITION_AGENT !== 'off') {
-      try {
-        const runAcquisition =
-          deps.runAcquisition ?? (await import('./acquisition/graph')).runAcquisition
-        const { boundedPlan } = await import('./acquisition/plan')
-        // Built by the shared runtime, which deliberately omits
-        // `response_format: json_object`: the client refuses a forced JSON reply
-        // alongside tool definitions, and the plan node offers four tools — with
-        // it the model answers the plan step in raw JSON and never calls one.
-        //
-        // Audit attribution is fixed HERE, at construction: every turn the graph
-        // runs on this model writes its `brand_ai_results` row against this
-        // phase, target and job. `brand_ai_results.phase` for agent turns is the
-        // phase that ran them, matching the `products` convention. The CHECK
-        // accepts it (migration 20260903100400); `acquisition` stays a SUB_PHASE
-        // for the historical rows written before this.
-        const model = await (deps.createAgentModel ?? defaultCreateAgentModel)('acquisition', {
-          phase: 'acquire',
-          target: effectiveTarget,
-          ...(jobId ? { jobId } : {}),
-          ...(supabase ? { supabase } : {}),
-        })
-        const agentResult = await runAcquisition(
-          {
-            brand: { id: brand.id, slug: brand.slug, name: brand.name },
-            knownUrls: [...knownUrls, ...discoveredUrls],
-            jobId,
-          },
-          {
-            fetchHtml: (await import('./scraper/fetch-guards')).fetchHtmlWithMetadata,
-            renderProvider: renderForBrand,
-            scrapeBrandUrls: (agentUrls, opts) =>
-              scrapeBrandUrls(agentUrls, { ...scrapeOptions, ...opts }),
-            // A dry run must not touch Storage, the vision model or the image
-            // tables, so the two write-bearing seams are simply absent rather
-            // than guarded inside the graph — there is then nothing to undo.
-            ...(dryRun
-              ? {}
-              : {
-                  downloadAndStoreImages: (candidates: CandidateImage[]) =>
-                    downloadImages(candidates, effectiveTarget),
-                  // Judges the rows just stored and returns the verdicts.
-                  // Writes are applied IMMEDIATELY so recovery's
-                  // `getUnclassifiedImages` does not re-read the same rows.
-                  classifyImages: async () => {
-                    const judged = await classifyStored({
-                      brand,
-                      target: effectiveTarget,
-                      ...(jobId ? { jobId } : {}),
-                      supabase: db(),
-                    })
-                    plannedWrites.push(...judged.writes)
-                    if (plannedWrites.length > 0) {
-                      // Snapshot before clearing: the caller may hold a ref.
-                      const batch = [...plannedWrites]
-                      plannedWrites.length = 0
-                      await applyImageWrites(db(), effectiveTarget, batch)
-                      appliedImageWrites = true
-                    }
-                    return judged.classified
-                  },
-                }),
-            discoverCatalog: deps.discoverCatalog ?? defaultDiscoverCatalog,
-            catalogSources: buildChannelSources(brand),
-            searchBrand: async (query: string) => ({
-              urls: await (deps.searchBrandUrls ?? defaultSearchBrandUrls)(
-                query,
-                undefined,
-                searchAudit(),
-              ),
-              snippets: [],
-            }),
-            searchImages: async ({
+    try {
+      const runAcquisition =
+        deps.runAcquisition ?? (await import('./acquisition/graph')).runAcquisition
+      const { boundedPlan } = await import('./acquisition/plan')
+      // Built by the shared runtime, which deliberately omits
+      // `response_format: json_object`: the client refuses a forced JSON reply
+      // alongside tool definitions, and the plan node offers four tools — with
+      // it the model answers the plan step in raw JSON and never calls one.
+      //
+      // Audit attribution is fixed HERE, at construction: every turn the graph
+      // runs on this model writes its `brand_ai_results` row against this
+      // phase, target and job. `brand_ai_results.phase` for agent turns is the
+      // phase that ran them, matching the `products` convention. The CHECK
+      // accepts it (migration 20260903100400); `acquisition` stays a SUB_PHASE
+      // for the historical rows written before this.
+      const model = await (deps.createAgentModel ?? defaultCreateAgentModel)('acquisition', {
+        phase: 'acquire',
+        target: effectiveTarget,
+        ...(jobId ? { jobId } : {}),
+        ...(supabase ? { supabase } : {}),
+      })
+      const agentResult = await runAcquisition(
+        {
+          brand: { id: brand.id, slug: brand.slug, name: brand.name },
+          knownUrls: [...knownUrls, ...discoveredUrls],
+          jobId,
+        },
+        {
+          fetchHtml: (await import('./scraper/fetch-guards')).fetchHtmlWithMetadata,
+          renderProvider: renderForBrand,
+          scrapeBrandUrls: (agentUrls, opts) =>
+            scrapeBrandUrls(agentUrls, { ...scrapeOptions, ...opts }),
+          // A dry run must not touch Storage, the vision model or the image
+          // tables, so the two write-bearing seams are simply absent rather
+          // than guarded inside the graph — there is then nothing to undo.
+          ...(dryRun
+            ? {}
+            : {
+                downloadAndStoreImages: (candidates: CandidateImage[]) =>
+                  downloadImages(candidates, effectiveTarget),
+                // Judges the rows just stored and returns the verdicts.
+                // Writes are applied IMMEDIATELY so recovery's
+                // `getUnclassifiedImages` does not re-read the same rows.
+                classifyImages: async () => {
+                  const judged = await classifyStored({
+                    brand,
+                    target: effectiveTarget,
+                    ...(jobId ? { jobId } : {}),
+                    supabase: db(),
+                  })
+                  plannedWrites.push(...judged.writes)
+                  if (plannedWrites.length > 0) {
+                    // Snapshot before clearing: the caller may hold a ref.
+                    const batch = [...plannedWrites]
+                    plannedWrites.length = 0
+                    await applyImageWrites(db(), effectiveTarget, batch)
+                    appliedImageWrites = true
+                  }
+                  return judged.classified
+                },
+              }),
+          discoverCatalog: deps.discoverCatalog ?? defaultDiscoverCatalog,
+          catalogSources: buildChannelSources(brand),
+          searchBrand: async (query: string) => ({
+            urls: await (deps.searchBrandUrls ?? defaultSearchBrandUrls)(
+              query,
+              undefined,
+              searchAudit(),
+            ),
+            snippets: [],
+          }),
+          searchImages: async ({
+            brandName,
+            websiteHost,
+          }: {
+            brandName: string
+            websiteHost: string | null
+          }) => {
+            // `batchSearchBrandImages` expands an object input through
+            // `buildImageQueryVariants` itself, so the `site:` branch is
+            // reached by handing it the domain rather than a pre-built query.
+            const input: ImageQueryInput = {
               brandName,
-              websiteHost,
-            }: {
-              brandName: string
-              websiteHost: string | null
-            }) => {
-              // `batchSearchBrandImages` expands an object input through
-              // `buildImageQueryVariants` itself, so the `site:` branch is
-              // reached by handing it the domain rather than a pre-built query.
-              const input: ImageQueryInput = {
-                brandName,
-                categorySlug: brand.category,
-                purchaseWebsite: websiteHost ? `https://${websiteHost}` : null,
-              }
-              const outcomes = await (
-                deps.batchSearchBrandImages ?? defaultBatchSearchBrandImages
-              )([input], 1, undefined, () => searchAudit())
-              return outcomes.get(brandName)?.rows.map((row) => row.url) ?? []
-            },
+              categorySlug: brand.category,
+              purchaseWebsite: websiteHost ? `https://${websiteHost}` : null,
+            }
+            const outcomes = await (
+              deps.batchSearchBrandImages ?? defaultBatchSearchBrandImages
+            )([input], 1, undefined, () => searchAudit())
+            return outcomes.get(brandName)?.rows.map((row) => row.url) ?? []
           },
-          {
-            model,
-            dryRun,
-            ...(budgetScale !== undefined ? { budgetScale } : {}),
-          },
-        )
+        },
+        {
+          model,
+          dryRun,
+          ...(budgetScale !== undefined ? { budgetScale } : {}),
+        },
+      )
 
-        agentOutcome = agentResult.agentOutcome
-        agentTrace = {
-          trace: agentResult.decisions.slice(0, 24).map((d) => ({
-            ...d,
-            action: d.action.slice(0, 60),
-            reason: d.reason.slice(0, 160),
-          })),
-          ...(agentResult.budget ? { budget: agentResult.budget } : {}),
-          ...(agentResult.error ? { error: agentResult.error.slice(0, 200) } : {}),
-        }
-        // Read on every outcome, not only the successful ones: Gate A exists
-        // precisely for the run where the provider died and the agent gave up.
-        providerFailure = agentResult.providerFailure === true
-        urlVerdicts = agentResult.urlVerdicts ?? []
-        imagePool = agentResult.imagePool ?? []
-        catalogResult = agentResult.catalogResult
-        acquisitionPageUrls = agentResult.acquisitionPageUrls ?? []
-        if (
-          (agentResult.agentOutcome === 'planned' || agentResult.agentOutcome === 'recovered') &&
-          agentResult.scrapeResult
-        ) {
-          agentAcquisitionPlan = agentResult.plan ? boundedPlan(agentResult.plan) : undefined
-          agentScrapeData = agentResult.scrapeResult.data as EnrichScrapedData
-        }
-      } catch (err) {
-        const message = err instanceof Error ? err.message : String(err)
-        console.error('  → acquisition agent failed, falling back to legacy path:', message)
-        agentOutcome = 'fallback'
-        agentTrace = { trace: [], error: `threw: ${message.slice(0, 180)}` }
+      agentOutcome = agentResult.agentOutcome
+      agentTrace = {
+        trace: agentResult.decisions.slice(0, 24).map((d) => ({
+          ...d,
+          action: d.action.slice(0, 60),
+          reason: d.reason.slice(0, 160),
+        })),
+        ...(agentResult.budget ? { budget: agentResult.budget } : {}),
+        ...(agentResult.error ? { error: agentResult.error.slice(0, 200) } : {}),
       }
+      // Read on every outcome, not only the successful ones: Gate A exists
+      // precisely for the run where the provider died and the agent gave up.
+      providerFailure = agentResult.providerFailure === true
+      urlVerdicts = agentResult.urlVerdicts ?? []
+      imagePool = agentResult.imagePool ?? []
+      catalogResult = agentResult.catalogResult
+      acquisitionPageUrls = agentResult.acquisitionPageUrls ?? []
+      if (
+        (agentResult.agentOutcome === 'planned' || agentResult.agentOutcome === 'recovered') &&
+        agentResult.scrapeResult
+      ) {
+        agentAcquisitionPlan = agentResult.plan ? boundedPlan(agentResult.plan) : undefined
+        agentScrapeData = agentResult.scrapeResult.data as EnrichScrapedData
+      }
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err)
+      console.error('  → acquisition agent blocked:', message)
+      agentOutcome = 'blocked'
+      agentTrace = { trace: [], error: `threw: ${message.slice(0, 180)}` }
     }
 
-    let scrapedFromPages: EnrichScrapedData
-    if (agentScrapeData) {
-      // Agent provided the scrape data — skip the legacy firstPass + second pass.
-      scrapedFromPages = agentScrapeData
-    } else {
-      // Legacy path: direct scrape + discovered links follow-up.
-      const firstPass = urls.length > 0 ? await scrapeBrandUrls(urls, scrapeOptions) : null
-      scrapedFromPages = firstPass
-        ? await scrapeDiscoveredLinks(firstPass.data, urls, scrapeOptions, urlExtracted)
-        : ({} as EnrichScrapedData)
-    }
+    const scrapedFromPages: EnrichScrapedData = agentScrapeData ?? ({} as EnrichScrapedData)
 
     const { url: resolvedWebsite, viaZeroTokenFallback } = resolveOfficialWebsite(urls, brand.name)
     const derivedWebsite = scrapedFromPages.purchaseWebsite ?? resolvedWebsite
@@ -1165,36 +966,6 @@ export async function runAcquirePhase({
       }
     }
 
-    // Fallback path images. `images` and `classify_images` are deferred phases,
-    // so a brand whose agent fell back would otherwise finish a full run with
-    // no image at all. Same download → judge → write sequence the agent uses,
-    // run over the candidates the legacy scrape produced.
-    if (!dryRun && !agentScrapeData && plannedWrites.length === 0 && imagePool.length === 0) {
-      const candidates = candidatesFromScrapedData(scrapedData)
-      if (candidates.length > 0) {
-        const supabaseClient = db()
-        await downloadImages(candidates, effectiveTarget)
-        const judged = await classifyStored({
-          brand,
-          target: effectiveTarget,
-          ...(jobId ? { jobId } : {}),
-          supabase: supabaseClient,
-        })
-        plannedWrites.push(...judged.writes)
-        imagePool = rank(
-          withSourceUrls(judged.classified),
-          HERO_TARGET_RATIO,
-        ) as RankableImage[]
-        acquisitionPageUrls = [
-          ...new Set(
-            candidates
-              .map((candidate) => candidate.pageUrl)
-              .filter((url): url is string => typeof url === 'string' && url.length > 0),
-          ),
-        ]
-      }
-    }
-
     const quarantine = buildQuarantine(scrapedData, fieldSources, patch, unverifiableWebsite)
     // The arrays a revocation strikes from. Held apart from `scrapedData` so
     // `filterRevokedImages` mutates exactly what this phase returns.
@@ -1213,12 +984,6 @@ export async function runAcquirePhase({
       urlVerdicts,
     })
 
-    // Apply any remaining writes (fallback path accumulates here; the agent
-    // path applies inside the classifyImages seam and clears the array).
-    if (!dryRun && plannedWrites.length > 0) {
-      await applyImageWrites(db(), effectiveTarget, plannedWrites)
-      appliedImageWrites = true
-    }
     // Hero order is recomputed from written rows — runs after ALL writes.
     if (!dryRun && appliedImageWrites) {
       const hero = await finalizeHero(db(), effectiveTarget, { mode: 'classify' })
@@ -1256,7 +1021,7 @@ export async function runAcquirePhase({
   // planned, scraped text, classified images and discovered a catalog.
   const catalogTriples = result.catalogResult?.triples.length ?? 0
   const acquiredEvidence =
-    (result.agentOutcome === 'planned' || result.agentOutcome === 'recovered' || result.agentOutcome === 'fallback') &&
+    (result.agentOutcome === 'planned' || result.agentOutcome === 'recovered') &&
     (result.imagePool.length > 0 ||
       catalogTriples > 0 ||
       hasScrapedText(result.scrapedData))

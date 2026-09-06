@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import {
   deriveOfficialNameCandidates,
   deriveOfficialWebsite,
@@ -370,17 +370,16 @@ describe('runAcquirePhase', () => {
   it('acquire_runs_when_phases_contains_acquire', async () => {
     scraperMocks.scrapeBrandUrls.mockReset()
     acquisitionMocks.runAcquisition.mockResolvedValue({
-      agentOutcome: 'fallback',
-      decisions: [],
-      imagePool: [],
-    })
-    scraperMocks.scrapeBrandUrls.mockResolvedValue({
-      data: {
-        ...emptyResult('https://testbrand.com'),
-        purchaseWebsite: 'https://testbrand.com',
-        purchase_website: 'https://testbrand.com',
+      agentOutcome: 'planned',
+      scrapeResult: {
+        data: {
+          ...emptyResult('https://testbrand.com'),
+          purchaseWebsite: 'https://testbrand.com',
+          purchase_website: 'https://testbrand.com',
+        },
+        statuses: [],
       },
-      statuses: [],
+      decisions: [],
     })
 
     const result = await runAcquirePhase({
@@ -417,12 +416,7 @@ describe('runAcquirePhase', () => {
 describe('acquire quarantine identity rules', () => {
   beforeEach(() => {
     scraperMocks.scrapeBrandUrls.mockReset()
-    // Default: agent returns fallback so quarantine tests exercise the legacy path.
-    acquisitionMocks.runAcquisition.mockResolvedValue({
-      agentOutcome: 'fallback',
-      decisions: [],
-      imagePool: [],
-    })
+    acquisitionMocks.runAcquisition.mockReset()
   })
 
   // Mirrors what `scrapeBrandUrls` really returns: its result has already been
@@ -459,6 +453,19 @@ describe('acquire quarantine identity rules', () => {
     }
   }
 
+  /** Mock the agent to return planned with the given scrape data. */
+  const mockAgent = (
+    sourceUrl: string,
+    data: Partial<ReturnType<typeof emptyResult>>,
+    options?: { withoutPerSourceText?: boolean },
+  ) => {
+    acquisitionMocks.runAcquisition.mockResolvedValue({
+      agentOutcome: 'planned',
+      scrapeResult: scrape(sourceUrl, data, options),
+      decisions: [],
+    })
+  }
+
   const run = async (overrides: Partial<Parameters<typeof runAcquirePhase>[0]>) =>
     runAcquirePhase({
       brand,
@@ -469,11 +476,9 @@ describe('acquire quarantine identity rules', () => {
     })
 
   it('a known-url source page is confirmed', () => {
-    scraperMocks.scrapeBrandUrls.mockResolvedValue(
-      scrape('https://dtbbag.com/about', {
-        socialFacebook: 'https://www.facebook.com/stranger',
-      }),
-    )
+    mockAgent('https://dtbbag.com/about', {
+      socialFacebook: 'https://www.facebook.com/stranger',
+    })
 
     return run({ knownUrls: ['https://dtbbag.com/about'] }).then((result) => {
       expect(result.patch.social_facebook).toBe('https://www.facebook.com/stranger')
@@ -487,11 +492,9 @@ describe('acquire quarantine identity rules', () => {
     // reject legitimate store links. That makes it the field where the ladder's
     // own source-page rule is the only thing standing between a stranger's page
     // and the column, which is exactly what this case must cover.
-    scraperMocks.scrapeBrandUrls.mockResolvedValue(
-      scrape('https://stranger.example/page', {
-        purchasePinkoi: 'https://www.pinkoi.com/store/other-company',
-      }),
-    )
+    mockAgent('https://stranger.example/page', {
+      purchasePinkoi: 'https://www.pinkoi.com/store/other-company',
+    })
 
     return run({
       brand: { ...brand, name: 'Han Brand' },
@@ -509,11 +512,9 @@ describe('acquire quarantine identity rules', () => {
     // The handle gate drops a stranger's social before it reaches the patch. It
     // must NOT then be escalated: a verdict about a page this run took no value
     // from could otherwise clear the brand's stored handle via `_cleared_fields`.
-    scraperMocks.scrapeBrandUrls.mockResolvedValue(
-      scrape('https://stranger.example/page', {
-        socialFacebook: 'https://www.facebook.com/other-company',
-      }),
-    )
+    mockAgent('https://stranger.example/page', {
+      socialFacebook: 'https://www.facebook.com/other-company',
+    })
 
     return run({
       brand: { ...brand, name: 'Han Brand' },
@@ -525,11 +526,9 @@ describe('acquire quarantine identity rules', () => {
   })
 
   it('a SERP source page passing the predicate does not quarantine', () => {
-    scraperMocks.scrapeBrandUrls.mockResolvedValue(
-      scrape('https://han.example/page', {
-        socialFacebook: 'https://www.facebook.com/han-brand',
-      }),
-    )
+    mockAgent('https://han.example/page', {
+      socialFacebook: 'https://www.facebook.com/han-brand',
+    })
 
     return run({
       brand: { ...brand, name: 'Han Brand' },
@@ -538,7 +537,7 @@ describe('acquire quarantine identity rules', () => {
   })
 
   it('an unconfirmed candidate website is quarantined', () => {
-    scraperMocks.scrapeBrandUrls.mockResolvedValue(scrape('https://some-shop.tw', {}))
+    mockAgent('https://some-shop.tw', {})
 
     return run({
       brand: { ...brand, name: '茶籽堂' },
@@ -559,7 +558,7 @@ describe('acquire quarantine identity rules', () => {
     // ones `linkIdentifiesBrand` then confirms. So the cohort boundary shows up
     // here as "no group", and the flag itself is covered by the
     // `resolveOfficialWebsite provenance` unit tests above.
-    scraperMocks.scrapeBrandUrls.mockResolvedValue(scrape('https://adela-shop.tw/about', {}))
+    mockAgent('https://adela-shop.tw/about', {})
     const result = await run({
       brand: { ...brand, name: 'ADELA' },
       discoveredUrls: ['https://adela-shop.tw/about'],
@@ -574,7 +573,7 @@ describe('acquire quarantine identity rules', () => {
     // fallback hands it the SERP's first non-platform host, and revoking that
     // would delete a proposal no rule ever examined. Quarantine still applies —
     // the value is unconfirmed — but the deletion must not be armed.
-    scraperMocks.scrapeBrandUrls.mockResolvedValue(scrape('https://some-shop.tw/about', {}))
+    mockAgent('https://some-shop.tw/about', {})
 
     const result = await run({
       brand: { ...brand, name: undefined },
@@ -585,21 +584,26 @@ describe('acquire quarantine identity rules', () => {
     expect(result.quarantine['https://some-shop.tw']?.unverifiable).toBeFalsy()
   })
 
-  it("second-pass links inherit their source's quarantine", async () => {
-    // Carried on `purchasePinkoi` rather than a social: DEV-1332's handle gate
-    // would drop a stranger's social handle before the patch, leaving nothing to
-    // inherit and making the case untestable on that field.
-    scraperMocks.scrapeBrandUrls
-      .mockResolvedValueOnce(
-        scrape('https://brand.example', {
+  it('a link whose provenance points to a non-confirmed page is quarantined', async () => {
+    // The agent scraped two pages: brand.example found an Instagram link, and
+    // that Instagram page found a Pinkoi link. The Pinkoi link's provenance
+    // points to the stranger's Instagram page, which is not confirmed.
+    acquisitionMocks.runAcquisition.mockResolvedValue({
+      agentOutcome: 'planned',
+      scrapeResult: {
+        data: {
+          ...emptyResult('https://brand.example'),
           socialInstagram: 'https://www.instagram.com/stranger',
-        }),
-      )
-      .mockResolvedValueOnce(
-        scrape('https://www.instagram.com/stranger', {
           purchasePinkoi: 'https://www.pinkoi.com/store/stranger',
-        }),
-      )
+          linkProvenance: {
+            socialInstagram: { sourceUrl: 'https://brand.example' },
+            purchasePinkoi: { sourceUrl: 'https://www.instagram.com/stranger' },
+          },
+        },
+        statuses: [],
+      },
+      decisions: [],
+    })
 
     const result = await run({
       brand: { ...brand, name: 'Han Brand' },
@@ -613,11 +617,9 @@ describe('acquire quarantine identity rules', () => {
   })
 
   it('quarantine covers purchase_myship', () => {
-    scraperMocks.scrapeBrandUrls.mockResolvedValue(
-      scrape('https://stranger.example/page', {
-        purchaseMyship: 'https://myship.example/order/123',
-      }),
-    )
+    mockAgent('https://stranger.example/page', {
+      purchaseMyship: 'https://myship.example/order/123',
+    })
 
     return run({
       brand: { ...brand, name: 'Han Brand' },
@@ -628,30 +630,42 @@ describe('acquire quarantine identity rules', () => {
     })
   })
 
-  it('second-pass re-merge preserves provenance and emits evidence', async () => {
-    scraperMocks.scrapeBrandUrls
-      .mockResolvedValueOnce(
-        scrape('https://brand.example', {
+  it('provenance survives and quarantine carries evidence', async () => {
+    // The agent merged data from two pages: a stranger's Instagram page supplied
+    // both text and a Pinkoi link. Provenance maps and per-source text must
+    // survive into the quarantine evidence.
+    acquisitionMocks.runAcquisition.mockResolvedValue({
+      agentOutcome: 'planned',
+      scrapeResult: {
+        data: {
+          ...emptyResult('https://brand.example'),
           socialInstagram: 'https://www.instagram.com/stranger',
-        }),
-      )
-      .mockResolvedValueOnce(
-        scrape('https://www.instagram.com/stranger', {
-          brandName: 'Stranger Brand',
-          description: 'Description from the stranger page',
           purchasePinkoi: 'https://www.pinkoi.com/store/stranger',
-        }),
-      )
+          description: 'Description from the stranger page',
+          linkProvenance: {
+            socialInstagram: { sourceUrl: 'https://brand.example' },
+            purchasePinkoi: { sourceUrl: 'https://www.instagram.com/stranger' },
+          },
+          textProvenance: {
+            description: { sourceUrl: 'https://www.instagram.com/stranger' },
+          },
+          perSourceText: {
+            'https://www.instagram.com/stranger': {
+              title: 'Stranger Brand',
+              description: 'Description from the stranger page',
+            },
+          },
+        },
+        statuses: [],
+      },
+      decisions: [],
+    })
 
     const result = await run({
       brand: { ...brand, name: 'Han Brand' },
       discoveredUrls: ['https://brand.example'],
     })
 
-    // The guard this case exists for: before DEV-1309's re-merge fix, the
-    // second pass rebuilt the merge from scratch and dropped both provenance
-    // maps, so every quarantine got empty evidence and the site_identity phase
-    // skipped every group — the feature was inert while the suite stayed green.
     expect(result.scrapedData?.linkProvenance?.purchasePinkoi?.sourceUrl).toBe(
       'https://www.instagram.com/stranger',
     )
@@ -665,19 +679,34 @@ describe('acquire quarantine identity rules', () => {
   })
 
   it('uses per-source text evidence when the winning text came from another page', async () => {
-    scraperMocks.scrapeBrandUrls
-      .mockResolvedValueOnce(
-        scrape('https://brand.example', {
+    // The winning description came from brand.example (first-wins merge), but
+    // the stranger's Instagram page has its own per-source text. The quarantine
+    // evidence for the Instagram page must use its own description.
+    acquisitionMocks.runAcquisition.mockResolvedValue({
+      agentOutcome: 'planned',
+      scrapeResult: {
+        data: {
+          ...emptyResult('https://brand.example'),
           description: 'Official description',
-          socialInstagram: 'https://www.instagram.com/stranger',
-        }),
-      )
-      .mockResolvedValueOnce(
-        scrape('https://www.instagram.com/stranger/', {
-          description: 'Stranger description',
+          socialInstagram: 'https://www.instagram.com/stranger/',
           purchasePinkoi: 'https://www.pinkoi.com/store/stranger',
-        }),
-      )
+          linkProvenance: {
+            socialInstagram: { sourceUrl: 'https://brand.example' },
+            purchasePinkoi: { sourceUrl: 'https://www.instagram.com/stranger/' },
+          },
+          textProvenance: {
+            description: { sourceUrl: 'https://brand.example' },
+          },
+          perSourceText: {
+            'https://www.instagram.com/stranger/': {
+              description: 'Stranger description',
+            },
+          },
+        },
+        statuses: [],
+      },
+      decisions: [],
+    })
 
     const result = await run({
       brand: { ...brand, name: 'Han Brand' },
@@ -698,13 +727,11 @@ describe('acquire quarantine identity rules', () => {
   // arbiter released it unjudged. A website subject owns its whole domain, so
   // the lookup matches on host.
   it('uses deep-page evidence for an origin website subject', async () => {
-    scraperMocks.scrapeBrandUrls.mockResolvedValue(
-      scrape('https://mumu.com.tw/pages/about', {
-        brandName: 'Mumu',
-        description: 'Mumu description',
-        story: 'Mumu story',
-      }),
-    )
+    mockAgent('https://mumu.com.tw/pages/about', {
+      brandName: 'Mumu',
+      description: 'Mumu description',
+      story: 'Mumu story',
+    })
 
     const result = await run({
       brand: { ...brand, name: '純漢品牌' },
@@ -721,76 +748,17 @@ describe('acquire quarantine identity rules', () => {
     })
   })
 
-  const secondPassKnownUrls = [
-    'https://www.instagram.com/known-one',
-    'https://www.instagram.com/known-two',
-    'https://www.instagram.com/known-three',
-    'https://www.instagram.com/known-four',
-    'https://www.instagram.com/known-five',
-    'https://www.instagram.com/known-six',
-  ]
-  const secondPassExtractedSocials = [
-    'https://www.instagram.com/from-page',
-    'https://www.threads.com/@from-serp',
-    'https://www.facebook.com/from-serp',
-  ]
-
-  const configureSecondPassMocks = () => {
-    scraperMocks.scrapeBrandUrls
-      .mockResolvedValueOnce(
-        scrape(secondPassKnownUrls[0], {
-          socialInstagram: secondPassExtractedSocials[0],
-          purchasePinkoi: 'https://www.pinkoi.com/store/from-page',
-          purchaseShopee: 'https://shopee.tw/from-page',
-        }),
-      )
-      .mockResolvedValueOnce(scrape(secondPassExtractedSocials[0], {}))
-  }
-
-  it('adds at most two new extracted socials after the three normal second-pass URLs', async () => {
-    const knownUrls = secondPassKnownUrls
-    const extractedSocials = secondPassExtractedSocials
-
-    configureSecondPassMocks()
-
-    // `known-one` leads the discovered list so it becomes the extracted
-    // instagram candidate while also sitting in the first pass's six URLs —
-    // the exact overlap the zero-token branch's `alreadyScraped` filter exists
-    // to drop. Without it, the concession would re-scrape a page this run
-    // already paid for.
-    await run({
-      brand: { ...brand, name: '純漢品牌' },
-      knownUrls,
-      discoveredUrls: [knownUrls[0], ...extractedSocials],
-    })
-
-    expect(scraperMocks.scrapeBrandUrls).toHaveBeenNthCalledWith(
-      2,
-      [
-        extractedSocials[0],
-        'https://www.pinkoi.com/store/from-page',
-        'https://shopee.tw/from-page',
-        extractedSocials[1],
-        extractedSocials[2],
-      ],
-      expect.anything(),
-    )
-    expect(scraperMocks.scrapeBrandUrls.mock.calls[1][0]).not.toContain(knownUrls[0])
-  })
-
   // Scraped data from before the per-source map exists in flight and in any
   // stored payload, so `textProvenance` has to keep working on its own.
   it('falls back to textProvenance when perSourceText is absent', async () => {
-    scraperMocks.scrapeBrandUrls.mockResolvedValue(
-      scrape(
-        'https://stranger.example/page',
-        {
-          brandName: 'Stranger Brand',
-          description: 'Description from the stranger page',
-          purchasePinkoi: 'https://www.pinkoi.com/store/other-company',
-        },
-        { withoutPerSourceText: true },
-      ),
+    mockAgent(
+      'https://stranger.example/page',
+      {
+        brandName: 'Stranger Brand',
+        description: 'Description from the stranger page',
+        purchasePinkoi: 'https://www.pinkoi.com/store/other-company',
+      },
+      { withoutPerSourceText: true },
     )
 
     const result = await run({
@@ -805,27 +773,6 @@ describe('acquire quarantine identity rules', () => {
     })
   })
 
-  // The extra social candidates are a zero-token-only concession: a brand whose
-  // name carries Latin tokens already has a discriminator, so its second pass
-  // must stay on the plain MAX_SECOND_PASS_URLS budget.
-  it('leaves the second pass unchanged for a brand with Latin tokens', async () => {
-    const knownUrls = secondPassKnownUrls
-    const extractedSocials = secondPassExtractedSocials
-
-    configureSecondPassMocks()
-
-    await run({
-      brand: { ...brand, name: 'Han Brand' },
-      knownUrls,
-      discoveredUrls: extractedSocials,
-    })
-
-    expect(scraperMocks.scrapeBrandUrls).toHaveBeenNthCalledWith(
-      2,
-      [extractedSocials[0], 'https://www.pinkoi.com/store/from-page', 'https://shopee.tw/from-page'],
-      expect.anything(),
-    )
-  })
 })
 
 describe('acquisition agent integration', () => {
@@ -856,8 +803,6 @@ describe('acquisition agent integration', () => {
     })
 
   it('acquire_uses_agent_scrape_result_when_planned', async () => {
-    vi.stubEnv('ACQUISITION_AGENT', 'on')
-
     const agentScrapeData = {
       ...emptyResult('https://agentbrand.com'),
       purchaseWebsite: 'https://agentbrand.com',
@@ -887,16 +832,12 @@ describe('acquisition agent integration', () => {
     expect(result.acquisitionPlan?.surfaces).toHaveLength(1)
     // Legacy scraper should NOT have been called
     expect(scraperMocks.scrapeBrandUrls).not.toHaveBeenCalled()
-
-    vi.unstubAllEnvs()
   })
 
   // A refresh whose link columns are already correct leaves an EMPTY patch. The
   // first staging run reported `skipped` for 6/10 brands on exactly that, while
   // the agent had planned, scraped text, classified images and found a catalog.
   it('acquire_status_succeeded_when_agent_planned_with_images_but_empty_patch', async () => {
-    vi.stubEnv('ACQUISITION_AGENT', 'on')
-
     const settledBrand: EnrichBrand = {
       ...agentBrand,
       purchase_website: 'https://agentbrand.com',
@@ -954,26 +895,18 @@ describe('acquisition agent integration', () => {
     expect(result.phaseResult.changedFields).toEqual(
       expect.arrayContaining(['images', 'catalog']),
     )
-
-    vi.unstubAllEnvs()
   })
 
   it('acquire_status_skipped_when_nothing_acquired', async () => {
-    vi.stubEnv('ACQUISITION_AGENT', 'on')
-
     const settledBrand: EnrichBrand = {
       ...agentBrand,
       purchase_website: 'https://agentbrand.com',
     }
 
     acquisitionMocks.runAcquisition.mockResolvedValue({
-      agentOutcome: 'fallback',
+      agentOutcome: 'planned',
       decisions: [],
       imagePool: [],
-    })
-    scraperMocks.scrapeBrandUrls.mockResolvedValue({
-      data: emptyResult('https://agentbrand.com'),
-      statuses: [],
     })
 
     const result = await agentRun({
@@ -984,33 +917,23 @@ describe('acquisition agent integration', () => {
     expect(result.patch).toEqual({})
     expect(result.phaseResult.status).toBe('skipped')
     expect(result.phaseResult.changedFields).toEqual([])
-
-    vi.unstubAllEnvs()
   })
 
-  it('acquire_falls_back_to_legacy_path_when_agent_throws', async () => {
-    vi.stubEnv('ACQUISITION_AGENT', 'on')
-
+  it('test_agent_throw_produces_blocked_not_fallback', async () => {
     acquisitionMocks.runAcquisition.mockRejectedValue(new Error('agent crashed'))
-
-    scraperMocks.scrapeBrandUrls.mockResolvedValue({
-      data: {
-        ...emptyResult('https://agentbrand.com'),
-        purchaseWebsite: 'https://agentbrand.com',
-        purchase_website: 'https://agentbrand.com',
-      },
-      statuses: [],
-    })
 
     const error = vi.spyOn(console, 'error').mockImplementation(() => {})
     const result = await agentRun()
 
-    expect(result.phaseResult.status).toBe('succeeded')
-    expect(scraperMocks.scrapeBrandUrls).toHaveBeenCalled()
+    expect(result.phaseResult.agentOutcome).toBe('blocked')
+    expect(result.phaseResult.acquisitionPlan).toMatchObject({
+      error: expect.stringContaining('agent crashed'),
+    })
+    // Legacy scraper must NOT run — the agent is the only path.
+    expect(scraperMocks.scrapeBrandUrls).not.toHaveBeenCalled()
     expect(result.acquisitionPlan).toBeUndefined()
 
     error.mockRestore()
-    vi.unstubAllEnvs()
   })
 
   const agentDataForScale = () => ({
@@ -1020,7 +943,6 @@ describe('acquisition agent integration', () => {
   })
 
   it('budget_scale_is_forwarded_to_run_acquisition', async () => {
-    vi.stubEnv('ACQUISITION_AGENT', 'on')
     acquisitionMocks.runAcquisition.mockResolvedValue({
       agentOutcome: 'planned',
       scrapeResult: { data: agentDataForScale(), statuses: [] },
@@ -1031,12 +953,9 @@ describe('acquisition agent integration', () => {
 
     const options = acquisitionMocks.runAcquisition.mock.calls[0][2]
     expect(options.budgetScale).toBe(1.5)
-
-    vi.unstubAllEnvs()
   })
 
   it('link_expansion_is_recorded_on_phase_result', async () => {
-    vi.stubEnv('ACQUISITION_AGENT', 'on')
     acquisitionMocks.runAcquisition.mockResolvedValue({
       agentOutcome: 'planned',
       scrapeResult: { data: agentDataForScale(), statuses: [] },
@@ -1055,29 +974,33 @@ describe('acquisition agent integration', () => {
 
     expect(result.phaseResult.linkExpansion).toEqual(linkExpansion)
     expect(result.phaseResult.changedFields).toContain('social_instagram')
-
-    vi.unstubAllEnvs()
   })
 
-  it('acquire_env_off_skips_agent_entirely', async () => {
-    vi.stubEnv('ACQUISITION_AGENT', 'off')
+  it('test_agent_runs_unconditionally', async () => {
+    acquisitionMocks.runAcquisition.mockResolvedValue({
+      agentOutcome: 'planned',
+      scrapeResult: { data: agentDataForScale(), statuses: [] },
+      decisions: [],
+    })
 
-    scraperMocks.scrapeBrandUrls.mockResolvedValue({
-      data: {
-        ...emptyResult('https://agentbrand.com'),
-        purchaseWebsite: 'https://agentbrand.com',
-        purchase_website: 'https://agentbrand.com',
-      },
-      statuses: [],
+    await agentRun()
+
+    // The agent runs without checking any env var — no ACQUISITION_AGENT guard.
+    expect(acquisitionMocks.runAcquisition).toHaveBeenCalledTimes(1)
+  })
+
+  it('test_no_legacy_scrape_when_agent_has_no_data', async () => {
+    acquisitionMocks.runAcquisition.mockResolvedValue({
+      agentOutcome: 'planned',
+      decisions: [],
+      imagePool: [],
     })
 
     const result = await agentRun()
 
-    expect(result.phaseResult.status).toBe('succeeded')
-    expect(acquisitionMocks.runAcquisition).not.toHaveBeenCalled()
-    expect(result.acquisitionPlan).toBeUndefined()
-
-    vi.unstubAllEnvs()
+    // The legacy scraper must not run — scrapedFromPages falls back to {}.
+    expect(scraperMocks.scrapeBrandUrls).not.toHaveBeenCalled()
+    expect(result.scrapedBrandName).toBeNull()
   })
 
   it('acquire_phase_not_requested_still_returns_skipped', async () => {
@@ -1092,8 +1015,6 @@ describe('acquisition agent integration', () => {
     expect(result.acquisitionPlan).toBeUndefined()
   })
 })
-
-
 
 /**
  * The acquire fold (DEV-1644 PR 4, task 4).
@@ -1233,11 +1154,6 @@ describe('acquire fold', () => {
     scraperMocks.scrapeBrandUrls.mockReset()
     acquisitionMocks.runAcquisition.mockReset()
     model.mockClear()
-    vi.stubEnv('ACQUISITION_AGENT', 'on')
-  })
-
-  afterEach(() => {
-    vi.unstubAllEnvs()
   })
 
   it('acquire_injects_all_agent_deps_in_production_path', async () => {
@@ -1505,7 +1421,7 @@ describe('acquire fold', () => {
     })
   })
 
-  it('fallback_runs_discover_catalog_from_entry_urls', async () => {
+  it('catalog_discovery_runs_when_agent_returned_no_catalog', async () => {
     const discoverCatalog = vi.fn(async () => ({
       triples: [
         {
@@ -1522,14 +1438,12 @@ describe('acquire fold', () => {
       evidence: new Map(),
     }))
 
+    // Agent returned no scrapeResult and no catalogResult — the fallback
+    // catalog discovery runs from entry URLs.
     acquisitionMocks.runAcquisition.mockResolvedValue({
-      agentOutcome: 'fallback',
+      agentOutcome: 'planned',
       decisions: [],
       imagePool: [],
-    })
-    scraperMocks.scrapeBrandUrls.mockResolvedValue({
-      data: agentData(),
-      statuses: [],
     })
 
     const result = await foldRun({ deps: { discoverCatalog } })
@@ -1548,134 +1462,24 @@ describe('acquire fold', () => {
     expect(result.catalogResult?.triples).toHaveLength(1)
   })
 
-  it('discover_catalog_errors_are_swallowed_on_fallback', async () => {
+  it('discover_catalog_errors_are_swallowed', async () => {
     const discoverCatalog = vi.fn(async () => {
       throw new Error('catalog boom')
     })
 
+    // Agent returned no scrapeResult and no catalog — fallback catalog
+    // discovery runs but throws; the error is swallowed.
     acquisitionMocks.runAcquisition.mockResolvedValue({
-      agentOutcome: 'fallback',
+      agentOutcome: 'planned',
       decisions: [],
       imagePool: [],
-    })
-    scraperMocks.scrapeBrandUrls.mockResolvedValue({
-      data: agentData({ description: 'Fold Brand 手作皮件' }),
-      statuses: [],
     })
 
     const result = await foldRun({ deps: { discoverCatalog } })
 
     expect(result.catalogResult).toBeUndefined()
-    expect(result.phaseResult.status).toBe('succeeded')
+    // No data from agent and no catalog → skipped.
+    expect(result.phaseResult.status).toBe('skipped')
   })
 
-  it('fallback_does_not_overwrite_non_empty_agent_image_pool', async () => {
-    const classify = stubClassify()
-    const downloadAndStoreImages = stubDownload()
-
-    acquisitionMocks.runAcquisition.mockResolvedValue({
-      agentOutcome: 'fallback',
-      decisions: [],
-      imagePool: [
-        { id: 'agent-img', tag: 'product', score: 75, sourceUrl: FOLD_SITE },
-      ],
-    })
-    scraperMocks.scrapeBrandUrls.mockResolvedValue({
-      data: agentData({
-        galleryImageUrls: [`${FOLD_SITE}/img/plate.jpg`],
-      }),
-      statuses: [],
-    })
-
-    const result = await foldRun({
-      deps: { classifyStoredImages: classify.fn, downloadAndStoreImages },
-    })
-
-    // The agent already built a pool; the legacy rebuild must not run.
-    expect(downloadAndStoreImages).not.toHaveBeenCalled()
-    expect(classify.calls).toHaveLength(0)
-    expect(result.imagePool).toHaveLength(1)
-    expect(result.imagePool[0]!.id).toBe('agent-img')
-  })
-
-  it('fallback_with_empty_pool_still_rebuilds_pool', async () => {
-    const classify = stubClassify()
-    const applyPlannedImageWrites = stubWrites()
-    const finalizeHeroOrder = stubHero()
-    const downloadAndStoreImages = stubDownload()
-
-    acquisitionMocks.runAcquisition.mockResolvedValue({
-      agentOutcome: 'fallback',
-      decisions: [],
-      imagePool: [],
-    })
-    scraperMocks.scrapeBrandUrls.mockResolvedValue({
-      data: agentData({
-        galleryImageUrls: [`${FOLD_SITE}/img/plate.jpg`],
-        imageSources: [
-          {
-            url: `${FOLD_SITE}/img/plate.jpg`,
-            method: 'crawl',
-            pageUrl: FOLD_PAGE,
-            position: 0,
-          },
-        ],
-      }),
-      statuses: [],
-    })
-
-    const result = await foldRun({
-      deps: {
-        classifyStoredImages: classify.fn,
-        applyPlannedImageWrites,
-        finalizeHeroOrder,
-        downloadAndStoreImages,
-      },
-    })
-
-    expect(downloadAndStoreImages).toHaveBeenCalledTimes(1)
-    expect(classify.calls).toHaveLength(1)
-    expect(result.imagePool).toHaveLength(1)
-  })
-
-  it('acquire_fallback_still_produces_images', async () => {
-    // `images` and `classify_images` are deferred, so the legacy path is now the
-    // only thing standing between a fallback brand and having no image at all.
-    vi.stubEnv('ACQUISITION_AGENT', 'off')
-    const classify = stubClassify()
-    const applyPlannedImageWrites = stubWrites()
-    const finalizeHeroOrder = stubHero()
-    const downloadAndStoreImages = stubDownload()
-
-    scraperMocks.scrapeBrandUrls.mockResolvedValue({
-      data: agentData({
-        galleryImageUrls: [`${FOLD_SITE}/img/plate.jpg`],
-        imageSources: [
-          {
-            url: `${FOLD_SITE}/img/plate.jpg`,
-            method: 'crawl',
-            pageUrl: FOLD_PAGE,
-            position: 0,
-          },
-        ],
-      }),
-      statuses: [],
-    })
-
-    const result = await foldRun({
-      deps: {
-        classifyStoredImages: classify.fn,
-        applyPlannedImageWrites,
-        finalizeHeroOrder,
-        downloadAndStoreImages,
-      },
-    })
-
-    expect(acquisitionMocks.runAcquisition).not.toHaveBeenCalled()
-    expect(downloadAndStoreImages).toHaveBeenCalledTimes(1)
-    expect(applyPlannedImageWrites).toHaveBeenCalledTimes(1)
-    expect(finalizeHeroOrder).toHaveBeenCalledTimes(1)
-    expect(result.imagePool).toHaveLength(1)
-    expect(result.acquisitionPageUrls).toEqual([FOLD_PAGE])
-  })
 })

@@ -99,6 +99,41 @@ export type ProductionImageGateResult = {
   processed: Awaited<ReturnType<typeof processImage>>
 }
 
+// ---------------------------------------------------------------------------
+// Store-only-keeps types: buffers held in memory until classification
+// ---------------------------------------------------------------------------
+
+export type ImageProviderMetadata = Record<string, string | number>
+
+/**
+ * An image that passed production gates and is held in memory as a buffer.
+ * The buffer and metadata survive classification; only kept images are later
+ * persisted via `storeKeptImages`.
+ */
+export type GatedImage = {
+  buffer: Buffer
+  contentType: string
+  width: number
+  height: number
+  dominantColor: string
+  phash: string
+  entropy: number
+  sharpness: number
+  source: string
+  sourceUrl: string
+  provider: ImageProviderMetadata
+}
+
+/**
+ * What `storeKeptImages` returns — the persisted identity of each image so
+ * callers can build the `imagePool`.
+ */
+export type StoredImageRecord = {
+  id: string
+  storage_path: string
+  source_url: string
+}
+
 type DownloadImageCandidate = string | CandidateImage
 
 function normalizeCandidate(candidate: DownloadImageCandidate): {
@@ -624,4 +659,194 @@ export async function downloadAndStoreImages(
       })
     },
   )
+}
+
+// ---------------------------------------------------------------------------
+// Store-only-keeps: download and gate without persisting
+// ---------------------------------------------------------------------------
+
+/**
+ * Downloads each candidate, applies production image gates and perceptual
+ * dedup, and returns `GatedImage[]` — processed buffers held in memory.
+ *
+ * Mirrors the download loop of `downloadAndStoreImages` through
+ * `applyProductionImageGates` and `computeDHash`, but does NOT upload to
+ * Supabase Storage or insert DB rows. The caller is expected to classify
+ * these buffers first and only persist the ones that survive classification
+ * via `storeKeptImages`.
+ *
+ * Cache branch: already-stored candidates (status active or has storage_path)
+ * are skipped. Previously-rejected source URLs are also skipped.
+ */
+export async function downloadAndGateImages(
+  candidates: DownloadImageCandidate[],
+  target: EnrichmentTarget,
+): Promise<GatedImage[]> {
+  if (candidates.length === 0) return []
+
+  const dedupedCandidates = deduplicateCandidates(candidates)
+  const supabase = createServiceClient()
+  const existingBySource = await loadExistingCandidates(
+    supabase,
+    target,
+    dedupedCandidates,
+  )
+  const phashGuard = await loadPerceptualHashGuard(supabase, target)
+
+  const results = await mapWithConcurrency(
+    dedupedCandidates,
+    IMAGE_DOWNLOAD_CONCURRENCY,
+    async (candidate): Promise<GatedImage | null> => {
+      const { url, source, sourceUrl } = normalizeCandidate(candidate)
+      const existing = existingBySource.get(sourceUrl)
+      if (existing?.status === 'rejected') return null
+      if (
+        existing &&
+        (existing.status === 'active' || existing.storage_path)
+      ) {
+        return null
+      }
+
+      const controller = new AbortController()
+      const timeoutId = setTimeout(
+        () => controller.abort(),
+        IMAGE_FETCH_TIMEOUT_MS,
+      )
+
+      try {
+        const response = await fetch(url, { signal: controller.signal })
+        clearTimeout(timeoutId)
+
+        if (!response.ok) {
+          throw new ImageRejection(
+            'fetch_failed',
+            `Failed to fetch image: ${response.status}`,
+          )
+        }
+
+        const contentType = response.headers.get('content-type') ?? ''
+        const buffer = Buffer.from(await response.arrayBuffer())
+        const gate = await applyProductionImageGates(buffer, contentType)
+        const { entropy, sharpness, phash, processed } = gate
+
+        if (!phashGuard.claim(phash)) {
+          throw new ImageRejection(
+            'duplicate',
+            'Perceptual duplicate detected',
+          )
+        }
+
+        const dominantColor = dominantColorToHex(gate.dominant)
+
+        return {
+          buffer: processed.buffer,
+          contentType: processed.contentType,
+          width: processed.width,
+          height: processed.height,
+          dominantColor,
+          phash,
+          entropy: entropy ?? 0,
+          sharpness: sharpness ?? 0,
+          source,
+          sourceUrl,
+          provider: buildImageProviderMetadata(candidate, url),
+        }
+      } catch (err) {
+        clearTimeout(timeoutId)
+        console.warn(`Failed to download image ${url}:`, err)
+        return null
+      }
+    },
+  )
+
+  return results.filter((r): r is GatedImage => r !== null)
+}
+
+// ---------------------------------------------------------------------------
+// Store-only-keeps: persist classified keeps
+// ---------------------------------------------------------------------------
+
+/**
+ * Uploads kept image buffers to the `brand-images` bucket and inserts DB
+ * rows with `status: 'active'` and pre-filled classification columns.
+ *
+ * Returns `StoredImageRecord[]` so callers can build the `imagePool` and
+ * track persisted IDs.
+ */
+export async function storeKeptImages(
+  kept: Array<
+    GatedImage & { tag?: string; score?: number; caption?: string | null }
+  >,
+  target: EnrichmentTarget,
+  supabase: ReturnType<typeof createServiceClient>,
+): Promise<StoredImageRecord[]> {
+  if (kept.length === 0) return []
+
+  const storage = targetImageStorage(target)
+  const records: StoredImageRecord[] = []
+
+  for (const image of kept) {
+    const ext = 'webp'
+    const filename = `${storage.prefix}/${target.id}/${crypto.randomUUID()}.${ext}`
+
+    const { error: uploadError } = await uploadWithRetry(
+      () =>
+        supabase.storage.from('brand-images').upload(filename, image.buffer, {
+          contentType: image.contentType,
+          cacheControl: '31536000',
+        }),
+      { idempotent: false },
+    )
+
+    if (uploadError) {
+      console.error(
+        `[storeKeptImages] upload failed for ${image.sourceUrl}:`,
+        uploadError,
+      )
+      continue
+    }
+
+    const { data, error: insertError } = (await supabase
+      .from(storage.table)
+      .insert({
+        [storage.foreignKey]: target.id,
+        source: image.source,
+        source_url: image.sourceUrl,
+        storage_path: filename,
+        status: 'active',
+        provider_metadata: image.provider,
+        width: image.width,
+        height: image.height,
+        dominant_color: image.dominantColor,
+        phash: image.phash,
+        sharpness: image.sharpness,
+        entropy: image.entropy,
+        // Pre-filled classification columns from the buffer-based classify pass
+        tags: image.tag ? [image.tag] : null,
+        score: image.score ?? null,
+        alt_zh: image.caption ?? null,
+      } as never)
+      .select('id')) as { data: Array<{ id: string }> | null; error: unknown }
+
+    if (insertError) {
+      // Clean up uploaded object on insert failure
+      await uploadWithRetry(() =>
+        supabase.storage.from('brand-images').remove([filename]),
+      )
+      console.error(
+        `[storeKeptImages] insert failed for ${image.sourceUrl}:`,
+        insertError,
+      )
+      continue
+    }
+
+    const id = data?.[0]?.id ?? ''
+    records.push({
+      id,
+      storage_path: filename,
+      source_url: image.sourceUrl,
+    })
+  }
+
+  return records
 }

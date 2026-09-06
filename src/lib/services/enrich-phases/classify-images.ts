@@ -27,7 +27,8 @@ import {
   profileChatParams,
 } from "../llm-audit";
 import { syncHeroDenormalized, type BrandImageRow } from "../brand-images";
-import { visionStorageKey, encodeVisionDownload } from "../vision-image";
+import { visionStorageKey, encodeVisionDownload, visionDataUri } from "../vision-image";
+import type { GatedImage } from "../image-download";
 import { mapWithConcurrency } from "../_shared/concurrency";
 import { createServiceClient } from "@/lib/supabase/service";
 import {
@@ -1740,4 +1741,169 @@ export async function finalizeHeroOrder(
     rejectedIds,
     heroStoragePath: finalActiveImages.at(0)?.storage_path ?? null,
   };
+}
+
+// ---------------------------------------------------------------------------
+// Buffer-based classification — no storage reads
+// ---------------------------------------------------------------------------
+
+/**
+ * A `GatedImage` that has been classified. Carries the buffer and the
+ * verdict together so the caller can filter keeps and pass to
+ * `storeKeptImages`.
+ */
+export type ClassifiedImageWithBuffer = GatedImage & {
+  disposition: "keep" | "reject";
+  tag: string;
+  score: number;
+  caption: string;
+};
+
+export type ClassifyImageBuffersOptions = {
+  brandContext: string;
+  client?: ClassifyImagesChatClient;
+};
+
+/**
+ * Classifies in-memory image buffers without reading from or writing to
+ * storage. Modeled on `classifyStoredImages` but:
+ *   - Skips the DB read (images are already in memory as `GatedImage[]`).
+ *   - Builds vision data URIs from held buffers via `visionDataUri(buffer)`
+ *     instead of downloading from Supabase Storage via `loadVisionDataUri`.
+ *   - Reuses the same batching (10 per call) and scoring logic.
+ *
+ * Returns `ClassifiedImageWithBuffer[]` — every image with its verdict.
+ */
+export async function classifyImageBuffers(
+  gatedImages: GatedImage[],
+  options: ClassifyImageBuffersOptions,
+): Promise<ClassifiedImageWithBuffer[]> {
+  if (gatedImages.length === 0) return [];
+
+  const { brandContext } = options;
+
+  const { text: classifySystemPrompt } = await fetchLangfusePromptWithMeta(
+    "classify-images",
+    IMAGE_CLASSIFY_SYSTEM_PROMPT,
+  );
+
+  const client =
+    options.client ??
+    createProfiledOpenAIClient("classifyImages", {
+      target: { type: "brand", id: "buffer-classify" },
+      phase: "classify_images",
+      config: buildProfiledEnrichmentConfig(
+        "classify_images",
+        IMAGE_CLASSIFY_SYSTEM_PROMPT,
+        "classifyImages",
+        {
+          batchSize: IMAGE_CLASSIFY_BATCH_SIZE,
+          detail: CLASSIFY_IMAGE_DETAIL,
+        },
+      ),
+    });
+
+  // Build base64 data URIs from held buffers
+  const dataUris = await mapWithConcurrency(
+    gatedImages,
+    IMAGE_DOWNLOAD_CONCURRENCY,
+    async (image) => {
+      try {
+        return await visionDataUri(image.buffer);
+      } catch {
+        return null;
+      }
+    },
+  );
+
+  // Pair images with their data URIs, filtering out failures
+  type IndexedImage = { index: number; image: GatedImage; dataUri: string };
+  const sendable: IndexedImage[] = [];
+  for (let i = 0; i < gatedImages.length; i++) {
+    const uri = dataUris[i];
+    if (uri) sendable.push({ index: i, image: gatedImages[i], dataUri: uri });
+  }
+
+  if (sendable.length === 0) return [];
+
+  // Chunk into batches of IMAGE_CLASSIFY_BATCH_SIZE
+  const results: ClassifiedImageWithBuffer[] = [];
+
+  for (
+    let chunkStart = 0;
+    chunkStart < sendable.length;
+    chunkStart += IMAGE_CLASSIFY_BATCH_SIZE
+  ) {
+    const chunk = sendable.slice(
+      chunkStart,
+      chunkStart + IMAGE_CLASSIFY_BATCH_SIZE,
+    );
+
+    const ordinals = chunk.map((_, i) => String(i + 1));
+    const userMessage = `${brandContext}Classify the ${chunk.length} brand images that follow, numbered ${ordinals.join(", ")} in order. Return a JSON object with a "classifications" array holding exactly ${chunk.length} objects, whose "id" values are the image numbers as strings. Do not omit any image.`;
+
+    const chatParams = {
+      system: classifySystemPrompt,
+      user: userMessage,
+      images: chunk.map((s) => s.dataUri),
+      imageDetail: CLASSIFY_IMAGE_DETAIL,
+      json: true,
+      schema: IMAGE_CLASSIFICATION_SCHEMA,
+      ...profileChatParams("classifyImages", {
+        maxTokens: 350 * chunk.length,
+        timeoutMs: 120_000,
+      }),
+      meta: {
+        imageIds: chunk.map((_, i) => String(i + 1)),
+        imageUrls: chunk.map((s) => s.image.sourceUrl),
+      },
+    };
+
+    const response = await client.chat(chatParams);
+    const failure = failureReason(response);
+    if (failure) {
+      console.error(
+        `[classifyImageBuffers] batch failed: ${failure.reason}`,
+      );
+      continue;
+    }
+
+    let effectiveContent = response.content ?? "";
+
+    // 1-retry on validation failure
+    const validationCheck = parseAndValidate(
+      effectiveContent,
+      imageClassificationShape,
+    );
+    if (!validationCheck.success) {
+      const retryInstruction = validationCheck.issues
+        ? formatRetryInstruction(validationCheck.issues)
+        : validationCheck.error;
+      const retryResponse = await client.chat({
+        ...chatParams,
+        user: `${userMessage}\n\n${retryInstruction}`,
+      });
+      if (!failureReason(retryResponse) && retryResponse.content) {
+        effectiveContent = retryResponse.content;
+      }
+    }
+
+    const parsed = parseClassificationBatch(effectiveContent);
+
+    for (let i = 0; i < chunk.length; i++) {
+      const ordinal = String(i + 1);
+      const verdict = parsed.get(ordinal);
+      if (!verdict) continue;
+
+      results.push({
+        ...chunk[i].image,
+        disposition: verdict.disposition,
+        tag: verdict.tag ?? "irrelevant",
+        score: verdict.score,
+        caption: verdict.caption ?? "",
+      });
+    }
+  }
+
+  return results;
 }
