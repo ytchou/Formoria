@@ -35,6 +35,11 @@ import { randomUUID } from 'node:crypto'
 
 import { fetchLangfusePrompt, fetchLangfusePromptWithMeta } from '@/lib/langfuse/prompt'
 import { renderEditorialBands } from '@/lib/constants/curated-products'
+import {
+  CATEGORY_LIST,
+  SUBCATEGORY_VOCAB_BLOCK,
+  MATERIAL_VOCAB_BLOCK,
+} from '@/lib/prompts/shared'
 import type { CuratedProductProposal } from '@/lib/types/enriched-data'
 import type { RenderProvider } from '../scraper/render/types'
 import type { ProductCandidate } from '../product-candidates'
@@ -483,7 +488,12 @@ async function proposeNode(
   const { text: compiledPrompt, prompt: meta } = await fetchLangfusePromptWithMeta(
     'products-propose',
     PRODUCTS_PROPOSE_SYSTEM_PROMPT,
-    { editorial_bands: renderEditorialBands() },
+    {
+      category_list: CATEGORY_LIST,
+      subcategory_vocab_block: SUBCATEGORY_VOCAB_BLOCK,
+      material_vocab_block: MATERIAL_VOCAB_BLOCK,
+      editorial_bands: renderEditorialBands(),
+    },
   )
   ctx.record(
     'propose',

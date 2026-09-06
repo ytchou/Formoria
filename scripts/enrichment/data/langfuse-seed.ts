@@ -24,7 +24,11 @@ import { createHash } from "node:crypto";
 import { Langfuse } from "langfuse";
 
 import { DETECT_SYSTEM_PROMPT, CLASSIFY_SYSTEM_PROMPT } from "@/lib/prompts/detect";
-import { FACTS_SYSTEM_PROMPT } from "@/lib/prompts/facts";
+import {
+  FACTS_SYSTEM_PROMPT,
+  FOUNDING_FACTS_SYSTEM_PROMPT,
+  FOUNDING_FACTS_VERIFY_SYSTEM_PROMPT,
+} from "@/lib/prompts/facts";
 import { NAME_ARBITER_SYSTEM_PROMPT } from "@/lib/prompts/names";
 import { SITE_IDENTITY_SYSTEM_PROMPT } from "@/lib/prompts/site-identity";
 import { DESCRIPTION_SYSTEM_PROMPT } from "@/lib/prompts/descriptions";
@@ -160,6 +164,8 @@ function buildManifest(): PromptEntry[] {
     },
     { name: "products-repair", prompt: PRODUCTS_REPAIR_SYSTEM_PROMPT, variableNames: [] },
     { name: "editorial-repair", prompt: EDITORIAL_REPAIR_SYSTEM_PROMPT, variableNames: [] },
+    { name: "founding-facts", prompt: FOUNDING_FACTS_SYSTEM_PROMPT, variableNames: [] },
+    { name: "founding-facts-verify", prompt: FOUNDING_FACTS_VERIFY_SYSTEM_PROMPT, variableNames: [] },
   ];
 
   return entries.map(({ name, prompt, variableNames }) => {

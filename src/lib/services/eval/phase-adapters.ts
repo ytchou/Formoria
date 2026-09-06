@@ -8,6 +8,8 @@ import {
   SITE_IDENTITY_SYSTEM_PROMPT,
   DESCRIPTION_SYSTEM_PROMPT,
   CATEGORY_LIST,
+  SUBCATEGORY_VOCAB_BLOCK,
+  MATERIAL_VOCAB_BLOCK,
   TAIWAN_USAGE_RULES,
 } from '@/lib/prompts'
 import { detectBatchShape, classifyBatchShape } from '@/lib/services/category-classifier'
@@ -299,7 +301,12 @@ const registry: Record<string, PhaseAdapter> = {
   'products-agent-ranking-golden': {
     promptName: 'products-propose',
     fallbackPrompt: PRODUCTS_PROPOSE_SYSTEM_PROMPT,
-    variables: { editorial_bands: renderEditorialBands() },
+    variables: {
+      category_list: CATEGORY_LIST,
+      subcategory_vocab_block: SUBCATEGORY_VOCAB_BLOCK,
+      material_vocab_block: MATERIAL_VOCAB_BLOCK,
+      editorial_bands: renderEditorialBands(),
+    },
     profileKey: 'products_agent',
     outputSchema: PRODUCTS_PROPOSAL_SHAPE,
     requestSchema: makeRequestSchema('products_proposal', PRODUCTS_PROPOSAL_SHAPE),

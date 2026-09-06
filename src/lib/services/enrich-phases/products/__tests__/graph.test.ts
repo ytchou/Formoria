@@ -14,6 +14,28 @@ import {
 } from '../graph'
 import { PRODUCTS_BUDGET_CEILINGS } from '../budget'
 
+// Wrap `fetchLangfusePromptWithMeta` so tests can inspect the variables dict
+// passed by graph nodes. The boundary checker forbids mocking `@/lib/services/`
+// and `@/lib/supabase/` — `@/lib/langfuse/` is allowed.
+const promptWithMetaCalls: Array<[string, string, Record<string, string> | undefined]> = []
+vi.mock('@/lib/langfuse/prompt', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/lib/langfuse/prompt')>()
+  return {
+    ...actual,
+    fetchLangfusePromptWithMeta: vi.fn(
+      async (name: string, fallback: string, variables?: Record<string, string>) => {
+        promptWithMetaCalls.push([name, fallback, variables])
+        return actual.fetchLangfusePromptWithMeta(name, fallback, variables)
+      },
+    ),
+    fetchLangfusePrompt: vi.fn(
+      async (name: string, fallback: string, variables?: Record<string, string>) => {
+        return actual.fetchLangfusePrompt(name, fallback, variables)
+      },
+    ),
+  }
+})
+
 // The prompt nodes call `fetchLangfusePrompt`, which returns its fallback when
 // no Langfuse client can be built. Blanking the credentials keeps that true even
 // if the shell that runs the suite happens to export them.
@@ -557,6 +579,22 @@ describe('products agent graph', () => {
 
     // The raw Langfuse placeholder must have been compiled away.
     expect(systemContent).not.toContain('{{editorial_bands}}')
+  })
+
+  it('proposeNode_passes_all_four_declared_variables', async () => {
+    // Clear captured calls from any prior test, then run the graph.
+    promptWithMetaCalls.length = 0
+    const model = scriptedModel([validProposalResponse()])
+
+    await runProductsAgent(baseInput, makeDeps(), { model })
+
+    const proposeCall = promptWithMetaCalls.find((c) => c[0] === 'products-propose')
+    expect(proposeCall).toBeDefined()
+    const variables = proposeCall![2]
+    expect(variables).toBeDefined()
+    expect(Object.keys(variables!).sort()).toEqual(
+      ['category_list', 'editorial_bands', 'material_vocab_block', 'subcategory_vocab_block'],
+    )
   })
 
   it('propose_system_prompt_carries_the_golden_listwise_anchor_id', async () => {

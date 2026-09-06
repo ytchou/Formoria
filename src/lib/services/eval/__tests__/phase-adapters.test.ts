@@ -148,6 +148,14 @@ describe('phase-adapters registry', () => {
     )
   })
 
+  it('products_propose_adapter_declares_four_variables', () => {
+    const adapter = adapterFor('products-agent-ranking-golden')
+    expect(adapter.variables).toBeDefined()
+    expect(Object.keys(adapter.variables!).sort()).toEqual(
+      ['category_list', 'editorial_bands', 'material_vocab_block', 'subcategory_vocab_block'],
+    )
+  })
+
   it('descriptions adapter is pairwise-only', () => {
     const adapter = adapterFor('descriptions')
     expect(adapter.mode).toBe('pairwise')
