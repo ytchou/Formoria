@@ -77,6 +77,7 @@ import { BudgetExhausted } from '../acquisition/budget'
 import {
   contentText,
   extractJson,
+  withNodeSpan,
   withSchema,
   withSignal,
   type AgentModel,
@@ -856,12 +857,12 @@ function turnsRemain(ctx: ProductsRunContext): boolean {
  */
 export function buildProductsGraph(ctx: ProductsRunContext) {
   return new StateGraph(ProductsState)
-    .addNode('select', () => selectNode(ctx))
-    .addNode('read', (state) => readNode(ctx, state))
-    .addNode('propose', (state) => proposeNode(ctx, state))
-    .addNode('verify', (state) => verifyNode(ctx, state))
-    .addNode('repair', (state) => repairNode(ctx, state))
-    .addNode('finalize', (state) => finalizeNode(ctx, state))
+    .addNode('select', () => withNodeSpan('products/select', () => selectNode(ctx)))
+    .addNode('read', (state) => withNodeSpan('products/read', () => readNode(ctx, state)))
+    .addNode('propose', (state) => withNodeSpan('products/propose', () => proposeNode(ctx, state)))
+    .addNode('verify', (state) => withNodeSpan('products/verify', () => verifyNode(ctx, state)))
+    .addNode('repair', (state) => withNodeSpan('products/repair', () => repairNode(ctx, state)))
+    .addNode('finalize', (state) => withNodeSpan('products/finalize', () => finalizeNode(ctx, state)))
     .addEdge(START, 'select')
     .addConditionalEdges(
       'select',
