@@ -58,7 +58,7 @@ function isAllowedImageContentType(header: string | null): boolean {
  * Reads the body with a hard byte ceiling, streaming rather than buffering.
  *
  * Exported because the dimension backfill
- * (`scripts/curated-products/backfill-image-dimensions.ts`) reads stored objects
+ * (`scripts/enrichment/products/curated-products/backfill-image-dimensions.ts`) reads stored objects
  * too and must not grow a second capped-read implementation that drifts from
  * this one.
  *

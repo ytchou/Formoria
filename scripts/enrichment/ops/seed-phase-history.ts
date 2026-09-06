@@ -3,7 +3,7 @@
  * @formoria-script
  * purpose: Seeds synthetic curation_job_targets history for submissions that predate the job-targets system.
  * class: operator
- * invoke: pnpm exec tsx scripts/seed-phase-history.ts
+ * invoke: pnpm exec tsx scripts/enrichment/ops/seed-phase-history.ts
  * target: staging-default
  * safety: dry-run-default
  * owner: engineering

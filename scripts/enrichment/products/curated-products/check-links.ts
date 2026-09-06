@@ -2,7 +2,7 @@
  * @formoria-script
  * purpose: Reports curated-product link health and review-due rows, and retires dead links on --apply.
  * class: operator
- * invoke: pnpm exec tsx scripts/curated-products/check-links.ts
+ * invoke: pnpm exec tsx scripts/enrichment/products/curated-products/check-links.ts
  * target: staging-default
  * safety: writes-on-apply
  * owner: engineering

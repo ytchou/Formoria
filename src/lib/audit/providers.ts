@@ -23,7 +23,7 @@ const PROVIDERS = {
     "fetch_xml",
     "fetch_text",
     "download_and_store_images",
-    // Curated-product link health probe (scripts/curated-products/check-links.ts):
+    // Curated-product link health probe (scripts/enrichment/products/curated-products/check-links.ts):
     // a HEAD/GET reachability check whose verdict can flip a published product's
     // call-to-action, so the request and its outcome are replayable.
     "check_link",

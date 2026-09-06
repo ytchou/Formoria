@@ -2,7 +2,7 @@
  * @formoria-script
  * purpose: Promotes brand_images rows out of the submissions/ storage prefix into brands/.
  * class: operator
- * invoke: pnpm exec tsx scripts/promote-submission-images.ts
+ * invoke: pnpm exec tsx scripts/enrichment/images/promote-submission-images.ts
  * target: staging-default
  * safety: dry-run-default
  * owner: engineering

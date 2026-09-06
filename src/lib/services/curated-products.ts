@@ -1464,7 +1464,7 @@ export type AdminCuratedProduct = {
 
 /**
  * Ceiling: one unpaged page of the review queue. Raise it to a `.range()` loop
- * (see `fetchAllRows` in scripts/curated-products/shared.ts) when the curated
+ * (see `fetchAllRows` in scripts/enrichment/products/curated-products/shared.ts) when the curated
  * catalog approaches this — the queue is client-filtered, so a truncated read
  * would hide rows with no visible symptom.
  */
