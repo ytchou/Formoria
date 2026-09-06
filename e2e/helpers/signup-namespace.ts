@@ -19,11 +19,11 @@ export const AUTH_TEST_EMAIL_PREFIXES = [
   'public-boundary-',
 ] as const;
 
-// Supabase's public signUp endpoint rejects .local addresses (400 invalid);
-// override per-environment if the project's email validator changes. The
-// staging Send Email Hook captures these messages before delivery, so the
-// default reserved domain cannot accidentally receive external mail.
-export const SIGNUP_TEST_EMAIL_DOMAIN = process.env.E2E_SIGNUP_EMAIL_DOMAIN ?? 'example.test';
+// Supabase's public signUp endpoint rejects reserved TLDs (.local, .test);
+// formoria.com has a Cloudflare catch-all → Drop, so signup emails are
+// accepted and discarded. The staging Send Email Hook also captures these
+// messages before delivery.
+export const SIGNUP_TEST_EMAIL_DOMAIN = process.env.E2E_SIGNUP_EMAIL_DOMAIN ?? 'formoria.com';
 
 export function signupTestEmail(purpose: string, workerIndex: number): string {
   return `${SIGNUP_TEST_EMAIL_PREFIX}${purpose}-${Date.now()}-${workerIndex}@${SIGNUP_TEST_EMAIL_DOMAIN}`;
