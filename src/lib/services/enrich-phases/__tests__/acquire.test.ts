@@ -10,11 +10,9 @@ import type { EnrichBrand, EnrichPhase } from '../types'
 import type { EnrichmentTarget } from '../../_shared/enrichment-target'
 import type {
   ClassifiedImage,
-  ClassifyStoredImagesOptions,
-  ClassifyStoredImagesResult,
   HeroOrderOutcome,
-  PlannedImageWrite,
 } from '../classify-images'
+import type { GatedImage, StoredImageRecord } from '../../image-download'
 import type { BrandImageSearchOutcome } from '../scraper/types'
 import { emptyResult } from '../scraper/parse/extractors'
 import { mergeScrapedData } from '../scraper/merge'
@@ -1060,47 +1058,58 @@ describe('acquire fold', () => {
     tag: 'product',
     score: 82,
     disposition: 'keep',
-    storage_path: 'brands/fold/image-1.jpg',
+    storage_path: 'brands/fold/image-1.webp',
     width: 1200,
     height: 900,
     sourceUrl: FOLD_PAGE,
   })
 
-  const plannedWrite: PlannedImageWrite = {
-    id: 'image-1',
-    row: { tags: ['product'], score: 82 },
-  }
+  const fakeGatedImage = (): GatedImage => ({
+    buffer: Buffer.from('fake'),
+    contentType: 'image/webp',
+    width: 1200,
+    height: 900,
+    dominantColor: '#FFFFFF',
+    phash: 'ph-fold',
+    entropy: 7.0,
+    sharpness: 50,
+    source: 'scrape',
+    sourceUrl: `${FOLD_SITE}/img/plate.jpg`,
+    provider: {} as GatedImage['provider'],
+  })
 
-  /** A classify seam that records its calls and returns one keep verdict. */
-  const stubClassify = () => {
-    const calls: ClassifyStoredImagesOptions[] = []
-    const fn = async (
-      options: ClassifyStoredImagesOptions,
-    ): Promise<ClassifyStoredImagesResult> => {
-      calls.push(options)
-      return {
-        classified: [classifiedImage()],
-        writes: [plannedWrite],
-        rejectedCount: 0,
-        unjudgedCount: 0,
-        unavailableCount: 0,
-        attemptedBatches: 1,
-        failures: [],
-        candidateCount: 1,
-        skipped: null,
-      }
-    }
+  const fakeClassifiedKeep = () => ({
+    ...fakeGatedImage(),
+    disposition: 'keep' as const,
+    tag: 'product',
+    score: 82,
+    caption: 'A product image',
+  })
+
+  const fakeStoredRecord = (): StoredImageRecord => ({
+    id: 'image-1',
+    storage_path: 'brands/fold/image-1.webp',
+    source_url: `${FOLD_SITE}/img/plate.jpg`,
+  })
+
+  const stubDownloadAndGate = () =>
+    vi.fn(async (_candidates: unknown[], _target: unknown): Promise<GatedImage[]> => [
+      fakeGatedImage(),
+    ])
+
+  const stubClassifyBuffers = () => {
+    const calls: unknown[][] = []
+    const fn = vi.fn(async (gated: unknown[], _options?: unknown) => {
+      calls.push(gated)
+      return [fakeClassifiedKeep()]
+    })
     return { fn, calls }
   }
 
-  const stubWrites = () =>
-    vi.fn(
-      async (
-        _supabase: unknown,
-        _target: EnrichmentTarget,
-        _writes: readonly PlannedImageWrite[],
-      ): Promise<void> => {},
-    )
+  const stubStoreKept = () =>
+    vi.fn(async (_kept: unknown[], _target: unknown, _supabase?: unknown): Promise<StoredImageRecord[]> => [
+      fakeStoredRecord(),
+    ])
 
   const stubHero = () =>
     vi.fn(
@@ -1113,14 +1122,9 @@ describe('acquire fold', () => {
         candidateIds: [],
         demotedIds: [],
         rejectedIds: [],
-        heroStoragePath: 'brands/fold/image-1.jpg',
+        heroStoragePath: 'brands/fold/image-1.webp',
       }),
     )
-
-  const stubDownload = () =>
-    vi.fn(async (_candidates: unknown[], _target: unknown): Promise<(string | null)[]> => [
-      'brands/fold/image-1.jpg',
-    ])
 
   // Declares its parameters so the profile key AND the audit context can be
   // asserted; the phase must ask the shared runtime for the `acquisition`
@@ -1165,8 +1169,9 @@ describe('acquire fold', () => {
     for (const name of [
       'fetchHtml',
       'scrapeBrandUrls',
-      'downloadAndStoreImages',
-      'classifyImages',
+      'downloadAndGateImages',
+      'classifyImageBuffers',
+      'storeKeptImages',
       'discoverCatalog',
       'searchBrand',
       'searchImages',
@@ -1203,41 +1208,44 @@ describe('acquire fold', () => {
   })
 
   it('acquire_writes_images_after_agent', async () => {
-    const classify = stubClassify()
-    const applyPlannedImageWrites = stubWrites()
+    const classifyBuffers = stubClassifyBuffers()
     const finalizeHeroOrder = stubHero()
-    const downloadAndStoreImages = stubDownload()
+    const downloadAndGateImages = stubDownloadAndGate()
+    const storeKeptImages = stubStoreKept()
 
     acquisitionMocks.runAcquisition.mockImplementation(async (_input, deps) => {
-      await deps.downloadAndStoreImages(
-        [{ url: `${FOLD_SITE}/img/plate.jpg`, source: 'scrape', pageUrl: FOLD_PAGE }],
-        foldBrand.id,
-      )
-      const pool = await deps.classifyImages(foldBrand.id, false)
+      const gated = await deps.downloadAndGateImages([
+        { url: `${FOLD_SITE}/img/plate.jpg`, source: 'scrape', pageUrl: FOLD_PAGE },
+      ])
+      const classified = await deps.classifyImageBuffers(gated)
+      const keeps = classified.filter((img: { disposition: string }) => img.disposition === 'keep')
+      const stored = await deps.storeKeptImages(keeps)
       return {
         agentOutcome: 'planned',
         scrapeResult: { data: agentData(), statuses: [] },
-        imagePool: pool,
+        imagePool: stored.map((r: { id: string; storage_path: string; source_url: string }) => ({
+          id: r.id,
+          tag: 'product',
+          score: 82,
+          storage_path: r.storage_path,
+          sourceUrl: r.source_url,
+        })),
         decisions: [],
       }
     })
 
     const result = await foldRun({
       deps: {
-        classifyStoredImages: classify.fn,
-        applyPlannedImageWrites,
+        classifyImageBuffers: classifyBuffers.fn,
         finalizeHeroOrder,
-        downloadAndStoreImages,
+        downloadAndGateImages,
+        storeKeptImages,
       },
     })
 
-    expect(downloadAndStoreImages).toHaveBeenCalledTimes(1)
-    expect(classify.calls).toHaveLength(1)
-    expect(applyPlannedImageWrites).toHaveBeenCalledWith(
-      expect.anything(),
-      expect.objectContaining({ type: 'brand', id: foldBrand.id }),
-      [plannedWrite],
-    )
+    expect(downloadAndGateImages).toHaveBeenCalledTimes(1)
+    expect(classifyBuffers.calls).toHaveLength(1)
+    expect(storeKeptImages).toHaveBeenCalledTimes(1)
     // A brand target denormalizes its hero inside `finalizeHeroOrder`; what this
     // phase owns is that the re-rank runs at all, in classify mode.
     expect(finalizeHeroOrder).toHaveBeenCalledWith(
@@ -1249,30 +1257,31 @@ describe('acquire fold', () => {
   })
 
   it('acquire_dry_run_writes_nothing', async () => {
-    const classify = stubClassify()
-    const applyPlannedImageWrites = stubWrites()
+    const classifyBuffers = stubClassifyBuffers()
     const finalizeHeroOrder = stubHero()
-    const downloadAndStoreImages = stubDownload()
+    const downloadAndGateImages = stubDownloadAndGate()
+    const storeKeptImages = stubStoreKept()
     plannedAgent()
 
     await foldRun({
       dryRun: true,
       deps: {
-        classifyStoredImages: classify.fn,
-        applyPlannedImageWrites,
+        classifyImageBuffers: classifyBuffers.fn,
         finalizeHeroOrder,
-        downloadAndStoreImages,
+        downloadAndGateImages,
+        storeKeptImages,
       },
     })
 
-    // The download and classify seams are not even handed to the agent, so a dry
+    // The buffer pipeline seams are not even handed to the agent, so a dry
     // run cannot store or judge an image however the graph behaves.
     const deps = acquisitionMocks.runAcquisition.mock.calls[0][1]
-    expect(deps.downloadAndStoreImages).toBeUndefined()
-    expect(deps.classifyImages).toBeUndefined()
-    expect(downloadAndStoreImages).not.toHaveBeenCalled()
-    expect(classify.calls).toHaveLength(0)
-    expect(applyPlannedImageWrites).not.toHaveBeenCalled()
+    expect(deps.downloadAndGateImages).toBeUndefined()
+    expect(deps.classifyImageBuffers).toBeUndefined()
+    expect(deps.storeKeptImages).toBeUndefined()
+    expect(downloadAndGateImages).not.toHaveBeenCalled()
+    expect(classifyBuffers.calls).toHaveLength(0)
+    expect(storeKeptImages).not.toHaveBeenCalled()
     expect(finalizeHeroOrder).not.toHaveBeenCalled()
   })
 

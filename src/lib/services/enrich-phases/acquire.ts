@@ -49,16 +49,19 @@ import { createServiceClient } from '@/lib/supabase/service'
 import { createAgentModel as defaultCreateAgentModel } from './agents/runtime'
 import { type CandidateImage } from './candidate-pool'
 import {
-  applyPlannedImageWrites as defaultApplyPlannedImageWrites,
-  classifyStoredImages as defaultClassifyStoredImages,
+  classifyImageBuffers as defaultClassifyImageBuffers,
   finalizeHeroOrder as defaultFinalizeHeroOrder,
-  type PlannedImageWrite,
+  type ClassifiedImageWithBuffer,
 } from './classify-images'
 import {
   discoverCatalog as defaultDiscoverCatalog,
   type CatalogDiscoveryResult,
 } from './catalog-discovery'
-import { downloadAndStoreImages as defaultDownloadAndStoreImages } from '../image-download'
+import {
+  downloadAndGateImages as defaultDownloadAndGateImages,
+  storeKeptImages as defaultStoreKeptImages,
+  type GatedImage,
+} from '../image-download'
 import { buildChannelSources } from './images'
 import { type RankableImage } from './image-ranking'
 import {
@@ -83,9 +86,9 @@ import {
 type AcquireDeps = {
   runAcquisition?: typeof import('./acquisition/graph').runAcquisition
   createAgentModel?: typeof defaultCreateAgentModel
-  downloadAndStoreImages?: typeof defaultDownloadAndStoreImages
-  classifyStoredImages?: typeof defaultClassifyStoredImages
-  applyPlannedImageWrites?: typeof defaultApplyPlannedImageWrites
+  downloadAndGateImages?: typeof defaultDownloadAndGateImages
+  classifyImageBuffers?: typeof defaultClassifyImageBuffers
+  storeKeptImages?: typeof defaultStoreKeptImages
   finalizeHeroOrder?: typeof defaultFinalizeHeroOrder
   discoverCatalog?: typeof defaultDiscoverCatalog
   searchBrandUrls?: typeof defaultSearchBrandUrls
@@ -680,9 +683,9 @@ export async function runAcquirePhase({
     { provider: 'enrich', operation: 'runAcquirePhase', kind: 'service' },
     async () => {
   const effectiveTarget = target ?? brandTarget(brand.id)
-  const downloadImages = deps.downloadAndStoreImages ?? defaultDownloadAndStoreImages
-  const classifyStored = deps.classifyStoredImages ?? defaultClassifyStoredImages
-  const applyImageWrites = deps.applyPlannedImageWrites ?? defaultApplyPlannedImageWrites
+  const downloadAndGateFn = deps.downloadAndGateImages ?? defaultDownloadAndGateImages
+  const classifyBuffersFn = deps.classifyImageBuffers ?? defaultClassifyImageBuffers
+  const storeKeptFn = deps.storeKeptImages ?? defaultStoreKeptImages
   const finalizeHero = deps.finalizeHeroOrder ?? defaultFinalizeHeroOrder
 
   // One client for every row this phase writes, built only when there is a row
@@ -778,14 +781,6 @@ export async function runAcquirePhase({
     // timeline and its budget usage; without it the trace only exists in
     // process memory.
     let agentTrace: Record<string, unknown> | undefined
-    /**
-     * Row writes the classify seam produced. Applied IMMEDIATELY inside the
-     * seam so recovery's `getUnclassifiedImages` does not re-read the same
-     * `tags is null` rows. Image writes happen during the agent run, which is
-     * acceptable because they are verdict writes on rows the agent itself
-     * created.
-     */
-    const plannedWrites: PlannedImageWrite[] = []
     let appliedImageWrites = false
     let imagePool: RankableImage[] = []
     let catalogResult: CatalogDiscoveryResult | undefined
@@ -826,32 +821,21 @@ export async function runAcquirePhase({
           scrapeBrandUrls: (agentUrls, opts) =>
             scrapeBrandUrls(agentUrls, { ...scrapeOptions, ...opts }),
           // A dry run must not touch Storage, the vision model or the image
-          // tables, so the two write-bearing seams are simply absent rather
+          // tables, so the three write-bearing seams are simply absent rather
           // than guarded inside the graph — there is then nothing to undo.
           ...(dryRun
             ? {}
             : {
-                downloadAndStoreImages: (candidates: CandidateImage[]) =>
-                  downloadImages(candidates, effectiveTarget),
-                // Judges the rows just stored and returns the verdicts.
-                // Writes are applied IMMEDIATELY so recovery's
-                // `getUnclassifiedImages` does not re-read the same rows.
-                classifyImages: async () => {
-                  const judged = await classifyStored({
-                    brand,
-                    target: effectiveTarget,
-                    ...(jobId ? { jobId } : {}),
-                    supabase: db(),
-                  })
-                  plannedWrites.push(...judged.writes)
-                  if (plannedWrites.length > 0) {
-                    // Snapshot before clearing: the caller may hold a ref.
-                    const batch = [...plannedWrites]
-                    plannedWrites.length = 0
-                    await applyImageWrites(db(), effectiveTarget, batch)
-                    appliedImageWrites = true
-                  }
-                  return judged.classified
+                downloadAndGateImages: (candidates: CandidateImage[]) =>
+                  downloadAndGateFn(candidates, effectiveTarget),
+                classifyImageBuffers: (gated: GatedImage[]) =>
+                  classifyBuffersFn(gated, {
+                    brandContext: brand.name ?? brand.slug,
+                  }),
+                storeKeptImages: async (kept: ClassifiedImageWithBuffer[]) => {
+                  const records = await storeKeptFn(kept, effectiveTarget, db() as never)
+                  if (records.length > 0) appliedImageWrites = true
+                  return records
                 },
               }),
           discoverCatalog: deps.discoverCatalog ?? defaultDiscoverCatalog,
