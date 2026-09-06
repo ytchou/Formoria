@@ -4,6 +4,11 @@ import type { PersistedScrapeText } from '@/lib/services/enrich-phases/descripti
 import type { DescriptionEvidence } from '@/lib/services/description-rewrite'
 import type { DescriptionRewriteOutput } from '@/lib/services/description-rewrite'
 import type { EnrichBrand } from '@/lib/services/enrich-phases/types'
+import {
+  pairByOfficialUrl,
+  driftRate,
+  type ProductsReplayOutput,
+} from './products-calibration'
 
 // ---------------------------------------------------------------------------
 // Types
@@ -206,6 +211,79 @@ export async function buildDescriptionTask({
     { jobId: undefined, target: undefined },
     evidence,
   )
+}
+
+// ---------------------------------------------------------------------------
+// buildProductPairs
+// ---------------------------------------------------------------------------
+
+export type ProductPairInput = {
+  brand: string
+  name_zh: string
+  evidenceTitle: string | null
+}
+
+export type ProductPairOutput = {
+  left: unknown
+  right: unknown
+}
+
+export type ProductDrift = {
+  pools: number
+  paired: number
+  onlyA: number
+  onlyB: number
+  rate: number
+}
+
+export type ProductPairResult = {
+  pairs: Array<{ input: ProductPairInput; output: ProductPairOutput }>
+  mappings: Array<BlindMapping>
+  drift: ProductDrift
+}
+
+export function buildProductPairs(
+  outputA: ProductsReplayOutput,
+  outputB: ProductsReplayOutput,
+  brand: { slug: string; name: string },
+  evidenceByUrl: Map<string, { title: string | null }>,
+): ProductPairResult {
+  const pairResult = pairByOfficialUrl(outputA.proposals, outputB.proposals)
+
+  const pairs: ProductPairResult['pairs'] = []
+  const mappings: BlindMapping[] = []
+
+  for (const matched of pairResult.paired) {
+    const blinded = blind(matched.a, matched.b)
+    const evidenceTitle = evidenceByUrl.get(matched.normalizedUrl)?.title ?? null
+
+    pairs.push({
+      input: {
+        brand: brand.name,
+        name_zh: matched.a.nameZh,
+        evidenceTitle,
+      },
+      output: {
+        left: blinded.left,
+        right: blinded.right,
+      },
+    })
+    mappings.push(blinded.mapping)
+  }
+
+  const drift: ProductDrift = {
+    pools: outputA.proposals.length + outputB.proposals.length,
+    paired: pairResult.paired.length,
+    onlyA: pairResult.onlyA.length,
+    onlyB: pairResult.onlyB.length,
+    rate: driftRate(
+      pairResult.paired.length,
+      pairResult.onlyA.length,
+      pairResult.onlyB.length,
+    ),
+  }
+
+  return { pairs, mappings, drift }
 }
 
 // ---------------------------------------------------------------------------

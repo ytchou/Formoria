@@ -4,6 +4,7 @@ import {
   blind,
   unblind,
   buildDescriptionTask,
+  buildProductPairs,
   pairwiseReport,
   type PairwiseBrand,
 } from '../pairwise'
@@ -255,6 +256,84 @@ describe('guardrail scorers run on both arms', () => {
     // Both arms have scores
     expect(Object.keys(scoresA)).toHaveLength(2)
     expect(Object.keys(scoresB)).toHaveLength(2)
+  })
+})
+
+// ---------------------------------------------------------------------------
+// buildProductPairs
+// ---------------------------------------------------------------------------
+
+describe('buildProductPairs', () => {
+  it('returns blinded pairs with product name and evidence title and drift counts', () => {
+    const proposalA = {
+      key: 'prod-a',
+      nameZh: 'Product A ZH',
+      nameEn: 'Product A EN',
+      category: 'food',
+      subcategory: null,
+      material: [],
+      officialUrl: 'https://example.com/product-a',
+      productDescriptionZh: 'Description A',
+      sources: [],
+    }
+    const proposalB = {
+      key: 'prod-a',
+      nameZh: 'Product A ZH alt',
+      nameEn: 'Product A EN alt',
+      category: 'food',
+      subcategory: null,
+      material: [],
+      officialUrl: 'https://example.com/product-a',
+      productDescriptionZh: 'Description B',
+      sources: [],
+    }
+    const proposalOnlyA = {
+      key: 'prod-only-a',
+      nameZh: 'Only A',
+      category: 'fashion',
+      subcategory: null,
+      material: [],
+      officialUrl: 'https://example.com/only-a',
+      productDescriptionZh: 'Only A desc',
+      sources: [],
+    }
+
+    const outputA = {
+      evaluations: {},
+      selected: [],
+      proposals: [proposalA, proposalOnlyA],
+      agentOutcome: 'proposed',
+    }
+    const outputB = {
+      evaluations: {},
+      selected: [],
+      proposals: [proposalB],
+      agentOutcome: 'proposed',
+    }
+
+    const brand = { slug: 'test-brand', name: 'TestBrand' }
+    const evidenceByUrl = new Map([
+      ['https://example.com/product-a', { title: 'Product A Page' }],
+    ])
+
+    const result = buildProductPairs(outputA, outputB, brand, evidenceByUrl)
+
+    // Paired items — mapping is absent from the pair payload
+    expect(result.pairs).toHaveLength(1)
+    const pair = result.pairs[0]!
+    expect(pair.input.brand).toBe('TestBrand')
+    expect(pair.input.name_zh).toBe('Product A ZH')
+    expect(pair.input.evidenceTitle).toBe('Product A Page')
+    expect(pair.output.left).toBeDefined()
+    expect(pair.output.right).toBeDefined()
+    // mapping NOT in the pair payload
+    expect((pair as Record<string, unknown>).mapping).toBeUndefined()
+
+    // Drift counts
+    expect(result.drift.paired).toBe(1)
+    expect(result.drift.onlyA).toBe(1)
+    expect(result.drift.onlyB).toBe(0)
+    expect(result.drift.rate).toBeGreaterThan(0)
   })
 })
 

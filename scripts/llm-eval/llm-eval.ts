@@ -36,6 +36,8 @@ export type ParsedCommand =
   | { command: 'dataset-validate'; allowUnreviewed: boolean }
   | { command: 'dataset-review-enqueue'; dataset: string }
   | { command: 'dataset-review-push'; dataset: string; approvedBy: string }
+  | { command: 'dataset-record'; dataset: string; brand: string; urls?: string[] }
+  | { command: 'dataset-prelabel'; dataset: string; item: string; file: string }
   | {
       command: 'run'
       dataset: string
@@ -51,6 +53,7 @@ export type ParsedCommand =
       sample: number
       arms: ArmSpec[]
       envFile?: string
+      noEnqueue: boolean
     }
   | { command: 'pairwise-report'; runName: string }
 
@@ -99,6 +102,11 @@ export function parseCliArgs(args: string[]): ParsedCommand {
       phase: { type: 'string' },
       target: { type: 'string' },
       sample: { type: 'string' },
+      brand: { type: 'string' },
+      urls: { type: 'string' },
+      item: { type: 'string' },
+      file: { type: 'string' },
+      'no-enqueue': { type: 'boolean', default: false },
     },
   })
 
@@ -110,6 +118,27 @@ export function parseCliArgs(args: string[]): ParsedCommand {
       return {
         command: 'dataset-validate',
         allowUnreviewed: values['allow-unreviewed'] ?? false,
+      }
+    }
+    if (sub2 === 'record') {
+      if (!values.dataset) throw new Error('--dataset is required')
+      if (!values.brand) throw new Error('--brand is required')
+      return {
+        command: 'dataset-record',
+        dataset: values.dataset,
+        brand: values.brand,
+        urls: values.urls ? values.urls.split(',') : undefined,
+      }
+    }
+    if (sub2 === 'prelabel') {
+      if (!values.dataset) throw new Error('--dataset is required')
+      if (!values.item) throw new Error('--item is required')
+      if (!values.file) throw new Error('--file is required')
+      return {
+        command: 'dataset-prelabel',
+        dataset: values.dataset,
+        item: values.item,
+        file: values.file,
       }
     }
     if (sub2 === 'review') {
@@ -171,6 +200,7 @@ export function parseCliArgs(args: string[]): ParsedCommand {
         sample,
         arms,
         envFile: values['env-file'],
+        noEnqueue: values['no-enqueue'] ?? false,
       }
     }
     if (sub2 === 'report') {
@@ -184,11 +214,13 @@ export function parseCliArgs(args: string[]): ParsedCommand {
     `Unknown command: ${args.join(' ')}\n` +
       'Usage:\n' +
       '  llm-eval dataset validate [--allow-unreviewed]\n' +
+      '  llm-eval dataset record --dataset <name> --brand <slug> [--urls url1,url2,...]\n' +
+      '  llm-eval dataset prelabel --dataset <name> --item <id> --file <json-path>\n' +
       '  llm-eval dataset review enqueue --dataset <name>\n' +
       '  llm-eval dataset review push --dataset <name> --approved-by <user>\n' +
       '  llm-eval run --dataset <name> --arm <spec> [--arm <spec>] [--env-file <path>] [--allow-unreviewed]\n' +
       '  llm-eval prompt push <file> --name <name>\n' +
-      '  llm-eval pairwise run --phase <phase> --target <target> --sample <n> --arm <spec> [--arm <spec>]\n' +
+      '  llm-eval pairwise run --phase <phase> [--target <target>] [--sample <n>] --arm <spec> --arm <spec> [--no-enqueue]\n' +
       '  llm-eval pairwise report <runName>',
   )
 }
@@ -455,12 +487,148 @@ async function cmdRun(
   process.exitCode = result.exitCode
 }
 
+async function cmdDatasetRecord(
+  dataset: string,
+  brandSlug: string,
+  urls?: string[],
+): Promise<void> {
+  const { writeFileSync, mkdirSync } = await import('node:fs')
+  const { createServiceClient } = await import('@/lib/supabase/service')
+  const { setAuditWriteSeam } = await import('@/lib/audit/emit')
+  const { assertNoNewAuditRows } = await import('@/lib/services/eval/zero-write')
+  const { toReadPageFetch, buildPoolFromRows, recordPool } = await import(
+    '@/lib/services/eval/products-record'
+  )
+  const { fetchHtmlWithMetadata } = await import(
+    '@/lib/services/enrich-phases/scraper/fetch-guards'
+  )
+  const { readProductPage } = await import(
+    '@/lib/services/enrich-phases/products/read-page'
+  )
+  const { randomUUID } = await import('node:crypto')
+
+  const client = getLangfuse()
+  if (!client) {
+    console.error('[record] Langfuse not configured')
+    process.exitCode = 1
+    return
+  }
+
+  // Install zero-write seam before any reads
+  const since = new Date()
+  setAuditWriteSeam(async () => null)
+
+  const supabase = createServiceClient()
+
+  // Look up the brand
+  const { data: brand, error: brandError } = await supabase
+    .from('brands')
+    .select('id, slug, name, purchase_website')
+    .eq('slug', brandSlug)
+    .single()
+
+  if (brandError || !brand) {
+    console.error(`[record] Brand "${brandSlug}" not found: ${brandError?.message ?? 'no data'}`)
+    process.exitCode = 1
+    return
+  }
+
+  // Load candidates from the latest job
+  const { data: rows, error: rowsError } = await supabase
+    .from('curated_product_candidates')
+    .select('curation_job_id, url, title, image_url, supplier, url_class, search_position, created_at')
+    .eq('brand_id', brand.id)
+    .order('created_at', { ascending: false })
+
+  if (rowsError || !rows || rows.length === 0) {
+    console.error(`[record] No candidates for brand "${brandSlug}": ${rowsError?.message ?? 'empty'}`)
+    process.exitCode = 1
+    return
+  }
+
+  const pool = buildPoolFromRows(rows)
+  console.log(`[record] Pool: ${pool.length} candidates from latest job`)
+
+  const readPage = async (url: string) => {
+    const fetchResult = await fetchHtmlWithMetadata(url)
+    const { text, statusCode } = toReadPageFetch(fetchResult)
+    return readProductPage(url, {
+      fetchHtml: async () => ({ text, statusCode }),
+      budget: {
+        allowed: { reads: 12, renders: 0, turns: 0, wallClockMs: 60000 },
+        used: { reads: 0, renders: 0, turns: 0, wallClockMs: 0 },
+      },
+    })
+  }
+
+  const body = await recordPool({
+    brand: {
+      id: brand.id,
+      slug: brand.slug,
+      name: brand.name,
+      url: brand.purchase_website ?? undefined,
+    },
+    pool,
+    priorityUrls: [],
+    urlsOverride: urls,
+    readPage,
+    candidateIdFactory: () => randomUUID(),
+  })
+
+  // Write to Langfuse
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  await client.createDatasetItem({ datasetName: dataset, ...body } as any)
+  await flushLangfuse()
+
+  // Assert zero writes
+  await assertNoNewAuditRows({ since })
+
+  // Dump run JSON
+  const runJsonPath = `scripts/llm-eval/runs/record-${brandSlug}.json`
+  mkdirSync('scripts/llm-eval/runs', { recursive: true })
+  writeFileSync(runJsonPath, JSON.stringify(body, null, 2))
+
+  console.log(`[record] Item "${body.id}" written to dataset "${dataset}"`)
+  console.log(`[record] Run JSON: ${runJsonPath}`)
+}
+
+async function cmdDatasetPrelabel(
+  dataset: string,
+  itemId: string,
+  filePath: string,
+): Promise<void> {
+  const { readFileSync } = await import('node:fs')
+  const { prelabelItem } = await import('@/lib/services/eval/golden-review')
+
+  const expectedOutput = JSON.parse(readFileSync(filePath, 'utf8'))
+
+  await prelabelItem({
+    dataset,
+    itemId,
+    expectedOutput,
+    prelabel: {
+      author: 'cli',
+      method: 'file-import',
+      status: 'prelabeled',
+    },
+    boundaryTags: [],
+  })
+
+  await flushLangfuse()
+  console.log(`[prelabel] Item "${itemId}" prelabeled in dataset "${dataset}"`)
+}
+
 async function cmdPairwiseRun(
-  _phase: string,
+  phase: string,
   _target: string,
   sample: number,
   armSpecs: ArmSpec[],
+  noEnqueue: boolean = false,
 ): Promise<void> {
+  if (phase === 'products') {
+    return cmdPairwiseRunProducts(armSpecs, noEnqueue)
+  }
+
   const { writeFileSync, mkdirSync } = await import('node:fs')
   const { createServiceClient } = await import('@/lib/supabase/service')
   const { stratifiedSample, blind } = await import(
@@ -482,8 +650,11 @@ async function cmdPairwiseRun(
     return
   }
 
-  const queueId = await findQueueByName({ name: 'pairwise' })
-  console.log(`Pairwise queue: ${queueId}`)
+  let queueId: string | undefined
+  if (!noEnqueue) {
+    queueId = await findQueueByName({ name: 'pairwise' })
+    console.log(`Pairwise queue: ${queueId}`)
+  }
 
   const supabase = createServiceClient()
   const { data: allBrands } = await supabase
@@ -585,12 +756,14 @@ async function cmdPairwiseRun(
 
     mappings[trace.id] = blinded.mapping
     traceIds.push(trace.id)
-    await enqueueTrace({ queueId, traceId: trace.id })
+    if (!noEnqueue && queueId) {
+      await enqueueTrace({ queueId, traceId: trace.id })
+    }
   }
 
   const iso = new Date().toISOString().slice(0, 19).replace(/[T:]/g, '-')
-  const runName = `pairwise-descriptions-${iso}`
-  const runJsonPath = `scripts/llm-eval/runs/${runName}.json`
+  const runFileName = `pairwise-descriptions-${iso}`
+  const runJsonPath = `scripts/llm-eval/runs/${runFileName}.json`
   mkdirSync('scripts/llm-eval/runs', { recursive: true })
   writeFileSync(
     runJsonPath,
@@ -599,10 +772,223 @@ async function cmdPairwiseRun(
 
   await flushLangfuse()
 
-  console.log(`\n${traceIds.length} items enqueued to pairwise queue`)
+  console.log(`\n${traceIds.length} items ${noEnqueue ? 'traced' : 'enqueued'} to pairwise queue`)
   console.log(`Run JSON: ${runJsonPath}`)
   console.log(`Arms: A=${armA}, B=${armB}`)
-  console.log('Vote in Langfuse, then run: pnpm llm-eval pairwise report ' + runName)
+  console.log('Vote in Langfuse, then run: pnpm llm-eval pairwise report ' + runFileName)
+}
+
+async function cmdPairwiseRunProducts(
+  armSpecs: ArmSpec[],
+  noEnqueue: boolean,
+): Promise<void> {
+  const { writeFileSync, mkdirSync } = await import('node:fs')
+  const { buildProductPairs } = await import('@/lib/services/eval/pairwise')
+  const { productsTask } = await import('@/lib/services/eval/products-replay')
+  const { createAgentModel } = await import(
+    '@/lib/services/enrich-phases/agents/runtime'
+  )
+  const { runProductsAgent } = await import(
+    '@/lib/services/enrich-phases/products/graph'
+  )
+  const { findQueueByName, enqueueTrace } = await import(
+    '@/lib/services/eval/langfuse-runs'
+  )
+  const { installSeams, assertNoNewAuditRows } = await import(
+    '@/lib/services/eval/zero-write'
+  )
+  if (armSpecs.length !== 2) {
+    console.error('Pairwise run requires exactly 2 arms')
+    process.exitCode = 1
+    return
+  }
+
+  const client = getLangfuse()
+  if (!client) {
+    console.error('Langfuse not configured')
+    process.exitCode = 1
+    return
+  }
+
+  let queueId: string | undefined
+  if (!noEnqueue) {
+    queueId = await findQueueByName({ name: 'pairwise' })
+    console.log(`Pairwise queue: ${queueId}`)
+  }
+
+  // Load ACTIVE+reviewed items from the products dataset
+  const datasetName = 'products-agent-ranking-golden'
+  const { items: rawItems } = await client.getDataset(datasetName)
+  const items = rawItems.filter((i) => {
+    if (i.status !== 'ACTIVE') return false
+    return isReviewed(i)
+  })
+
+  if (items.length === 0) {
+    console.error('No ACTIVE+reviewed items found in products dataset')
+    process.exitCode = 1
+    return
+  }
+
+  console.log(`[products] ${items.length} ACTIVE+reviewed items loaded`)
+
+  const since = new Date()
+  const { restore } = installSeams({
+    sinkPath: 'scripts/llm-eval/runs/pairwise-products-eval-sink.jsonl',
+  })
+
+  const task = productsTask({ createAgentModel, runProductsAgent })
+  const armLabels = armSpecs.map((arm) =>
+    arm.kind === 'prompt' ? `prompt-v${arm.version}` : arm.model,
+  )
+  const [armA, armB] = armLabels
+
+  type ProductsReplayOutputShape = {
+    evaluations: Record<string, { score: number | null; searchPosition: number | null }>
+    selected: string[]
+    proposals: Array<{ officialUrl: string; nameZh: string; [k: string]: unknown }>
+    agentOutcome: string
+  }
+
+  const mappings: Record<string, { left: 'a' | 'b'; right: 'a' | 'b' }> = {}
+  const traceIds: string[] = []
+  const driftAgg = { pools: 0, paired: 0, onlyA: 0, onlyB: 0 }
+
+  for (const item of items) {
+    const input = item.input as { brand?: { slug?: string; name?: string }; evidence?: Record<string, { title: string | null }> }
+    const slug = input.brand?.slug ?? 'unknown'
+
+    console.log(`\nProcessing ${slug}...`)
+
+    // Run arm A
+    const savedVersionsA = process.env.LANGFUSE_PROMPT_VERSIONS
+    const savedModelA = process.env.OPENAI_MODEL_OVERRIDE
+    let outputA: ProductsReplayOutputShape | null = null
+    try {
+      const armSpecA = armSpecs[0]!
+      if (armSpecA.kind === 'prompt') {
+        process.env.LANGFUSE_PROMPT_VERSIONS = `products-propose:${armSpecA.version}`
+      } else {
+        process.env.OPENAI_MODEL_OVERRIDE = armSpecA.model
+      }
+      const resultA = await task(
+        { id: item.id, input: item.input, expectedOutput: item.expectedOutput, humanApproval: {} },
+        { name: armLabels[0]!, type: armSpecA.kind, value: armSpecA.kind === 'prompt' ? `products-propose:${armSpecA.version}` : armSpecA.model },
+        { itemRunId: `pairwise-a-${item.id}` },
+      )
+      if (resultA.ok) outputA = resultA.output as ProductsReplayOutputShape
+      else console.error(`  Arm A failed: ${resultA.error}`)
+    } finally {
+      if (savedVersionsA !== undefined) process.env.LANGFUSE_PROMPT_VERSIONS = savedVersionsA
+      else delete process.env.LANGFUSE_PROMPT_VERSIONS
+      if (savedModelA !== undefined) process.env.OPENAI_MODEL_OVERRIDE = savedModelA
+      else delete process.env.OPENAI_MODEL_OVERRIDE
+    }
+
+    // Run arm B
+    const savedVersionsB = process.env.LANGFUSE_PROMPT_VERSIONS
+    const savedModelB = process.env.OPENAI_MODEL_OVERRIDE
+    let outputB: ProductsReplayOutputShape | null = null
+    try {
+      const armSpecB = armSpecs[1]!
+      if (armSpecB.kind === 'prompt') {
+        process.env.LANGFUSE_PROMPT_VERSIONS = `products-propose:${armSpecB.version}`
+      } else {
+        process.env.OPENAI_MODEL_OVERRIDE = armSpecB.model
+      }
+      const resultB = await task(
+        { id: item.id, input: item.input, expectedOutput: item.expectedOutput, humanApproval: {} },
+        { name: armLabels[1]!, type: armSpecB.kind, value: armSpecB.kind === 'prompt' ? `products-propose:${armSpecB.version}` : armSpecB.model },
+        { itemRunId: `pairwise-b-${item.id}` },
+      )
+      if (resultB.ok) outputB = resultB.output as ProductsReplayOutputShape
+      else console.error(`  Arm B failed: ${resultB.error}`)
+    } finally {
+      if (savedVersionsB !== undefined) process.env.LANGFUSE_PROMPT_VERSIONS = savedVersionsB
+      else delete process.env.LANGFUSE_PROMPT_VERSIONS
+      if (savedModelB !== undefined) process.env.OPENAI_MODEL_OVERRIDE = savedModelB
+      else delete process.env.OPENAI_MODEL_OVERRIDE
+    }
+
+    if (!outputA || !outputB) {
+      console.log(`  Skipping ${slug} — missing output from one arm`)
+      continue
+    }
+
+    const evidenceByUrl = new Map(
+      Object.entries(input.evidence ?? {}).map(([url, ev]) => [url, { title: ev.title }]),
+    )
+
+    const pairResult = buildProductPairs(
+      outputA as Parameters<typeof buildProductPairs>[0],
+      outputB as Parameters<typeof buildProductPairs>[1],
+      { slug, name: input.brand?.name ?? slug },
+      evidenceByUrl,
+    )
+
+    driftAgg.pools += pairResult.drift.pools
+    driftAgg.paired += pairResult.drift.paired
+    driftAgg.onlyA += pairResult.drift.onlyA
+    driftAgg.onlyB += pairResult.drift.onlyB
+
+    // Enqueue each pair as a trace
+    for (let n = 0; n < pairResult.pairs.length; n++) {
+      const pair = pairResult.pairs[n]!
+      const mapping = pairResult.mappings[n]!
+
+      const trace = client.trace({
+        name: `pairwise:products:${slug}:${n}`,
+        input: pair.input,
+        output: pair.output,
+        metadata: { brandSlug: slug, armA, armB },
+      })
+
+      mappings[trace.id] = mapping
+      traceIds.push(trace.id)
+
+      if (!noEnqueue && queueId) {
+        await enqueueTrace({ queueId, traceId: trace.id })
+      }
+    }
+
+    console.log(`  ${pairResult.pairs.length} pairs, drift: ${pairResult.drift.rate.toFixed(2)}`)
+  }
+
+  restore()
+  await assertNoNewAuditRows({ since })
+
+  const totalItems = driftAgg.paired + driftAgg.onlyA + driftAgg.onlyB
+  const driftOutput = {
+    pools: driftAgg.pools,
+    paired: driftAgg.paired,
+    onlyA: driftAgg.onlyA,
+    onlyB: driftAgg.onlyB,
+    rate: totalItems > 0 ? (driftAgg.onlyA + driftAgg.onlyB) / totalItems : 0,
+  }
+
+  const iso = new Date().toISOString().slice(0, 19).replace(/[T:]/g, '-')
+  const runFileName = `pairwise-products-${iso}`
+  const runJsonPath = `scripts/llm-eval/runs/${runFileName}.json`
+  mkdirSync('scripts/llm-eval/runs', { recursive: true })
+  writeFileSync(
+    runJsonPath,
+    JSON.stringify({
+      dataset: 'pairwise-products',
+      mappings,
+      traceIds,
+      armA,
+      armB,
+      drift: driftOutput,
+    }, null, 2),
+  )
+
+  await flushLangfuse()
+
+  console.log(`\n${traceIds.length} pairs ${noEnqueue ? 'traced' : 'enqueued'}`)
+  console.log(`Drift: paired=${driftOutput.paired} onlyA=${driftOutput.onlyA} onlyB=${driftOutput.onlyB} rate=${driftOutput.rate.toFixed(2)}`)
+  console.log(`Run JSON: ${runJsonPath}`)
+  console.log(`Arms: A=${armA}, B=${armB}`)
+  console.log('Vote in Langfuse, then run: pnpm llm-eval pairwise report ' + runFileName)
 }
 
 async function cmdPairwiseReport(runName: string): Promise<void> {
@@ -617,6 +1003,12 @@ async function cmdPairwiseReport(runName: string): Promise<void> {
   const result = pairwiseReport({ runJson, scores })
 
   console.log(`Win rate: A=${result.aWins} (${(result.aWinRate * 100).toFixed(1)}%), B=${result.bWins} (${(result.bWinRate * 100).toFixed(1)}%), Tie=${result.ties}, Pending=${result.pending}`)
+
+  // Print drift if present in run JSON
+  if (runJson.drift) {
+    const d = runJson.drift as { paired: number; onlyA: number; onlyB: number; rate: number }
+    console.log(`Drift: paired=${d.paired} onlyA=${d.onlyA} onlyB=${d.onlyB} rate=${(d.rate * 100).toFixed(1)}%`)
+  }
 }
 
 async function cmdPromptPush(file: string, name: string): Promise<void> {
@@ -645,6 +1037,12 @@ async function main() {
     case 'dataset-validate':
       await cmdDatasetValidate(parsed.allowUnreviewed)
       break
+    case 'dataset-record':
+      await cmdDatasetRecord(parsed.dataset, parsed.brand, parsed.urls)
+      break
+    case 'dataset-prelabel':
+      await cmdDatasetPrelabel(parsed.dataset, parsed.item, parsed.file)
+      break
     case 'dataset-review-enqueue':
       await cmdDatasetReviewEnqueue(parsed.dataset)
       break
@@ -658,7 +1056,7 @@ async function main() {
       await cmdPromptPush(parsed.file, parsed.name)
       break
     case 'pairwise-run':
-      await cmdPairwiseRun(parsed.phase, parsed.target, parsed.sample, parsed.arms)
+      await cmdPairwiseRun(parsed.phase, parsed.target, parsed.sample, parsed.arms, parsed.noEnqueue)
       break
     case 'pairwise-report':
       await cmdPairwiseReport(parsed.runName)
