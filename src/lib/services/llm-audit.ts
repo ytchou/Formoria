@@ -7,6 +7,7 @@ import type { EnrichmentTarget } from "./_shared/enrichment-target";
 import { createOpenAIClient } from "./openai-client";
 import { priceUsage } from "./llm-pricing";
 import { buildEnrichmentConfig } from "@/lib/constants/enrichment-config";
+import type { PromptMeta } from "@/lib/langfuse/prompt";
 import {
   LLM_PROFILES,
   resolveProfileModel,
@@ -23,7 +24,7 @@ export type LlmAuditContext = {
   attempt?: number;
   config?: unknown;
   /** Langfuse prompt metadata for linking generations to their prompt version. */
-  prompt?: { name: string; version: number };
+  prompt?: PromptMeta["prompt"];
   /** Injected Supabase write seam used by tests; omitted to use the service client. */
   supabase?: SupabaseClient<Database>;
 };
@@ -111,7 +112,14 @@ async function persistAuditEvent(
       ...(event.retryAttempt !== undefined
         ? { retryAttempt: event.retryAttempt }
         : {}),
-      ...(context.config !== undefined ? { config: context.config } : {}),
+      ...(context.config !== undefined
+        ? {
+            config: {
+              ...(context.config as object),
+              ...(context.prompt ? { prompt: context.prompt } : {}),
+            },
+          }
+        : {}),
       latencyMs: event.latencyMs,
       auditSpanId: spanId,
       ...(context.supabase ? { supabase: context.supabase } : {}),
@@ -228,13 +236,11 @@ export function profileChatParams(
  */
 export function buildProfiledEnrichmentConfig(
   phase: string,
-  systemPrompt: string,
   profileKey: LlmProfileKey,
   extraParams: Record<string, unknown> = {},
 ) {
-  return buildEnrichmentConfig(phase, systemPrompt, {
-    model: resolveProfileModel(profileKey),
-    ...profileChatParams(profileKey),
+  return buildEnrichmentConfig(phase, {
+    profile: profileKey,
     ...extraParams,
   });
 }

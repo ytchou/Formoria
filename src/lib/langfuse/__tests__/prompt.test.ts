@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import snapshot from "@/lib/prompts/langfuse-snapshot.json";
 
 // Stable mock reference that persists across resetModules
 const mockGetLangfuse = vi.fn();
@@ -21,11 +22,161 @@ describe("langfuse/prompt", () => {
     return import("../prompt");
   }
 
-  it("fetches_prompt_from_langfuse", async () => {
+  it("snapshotPrompt_joins_lines_and_returns_version", async () => {
+    const { snapshotPrompt } = await loadModule();
+    const result = snapshotPrompt("detect");
+
+    expect(result.text).toBe(snapshot.prompts.detect.text.join("\n"));
+    expect(result.version).toBe(snapshot.prompts.detect.version);
+
+    // Unknown name throws naming it
+    expect(() => snapshotPrompt("nonexistent" as never)).toThrow("nonexistent");
+  });
+
+  it("no_client_returns_snapshot_source_with_compiled_variables", async () => {
+    mockGetLangfuse.mockReturnValue(null);
+
+    const { fetchLangfusePromptWithMeta } = await loadModule();
+    const result = await fetchLangfusePromptWithMeta("faq-preamble", {
+      taiwan_usage_rules: "TEST_RULES",
+    });
+
+    expect(result.prompt).toEqual({
+      name: "faq-preamble",
+      version: snapshot.prompts["faq-preamble"].version,
+      source: "snapshot",
+    });
+    expect(result.text).toContain("TEST_RULES");
+    expect(result.text).not.toContain("{{taiwan_usage_rules}}");
+  });
+
+  it("sdk_fallback_returns_snapshot_source", async () => {
+    const snap = snapshot.prompts.detect;
+    const snapshotText = snap.text.join("\n");
+
     const mockPromptClient = {
-      prompt: "remote-text",
+      prompt: snapshotText,
       compile: vi.fn(),
-      name: "my-prompt",
+      name: "detect",
+      version: 0,
+      isFallback: true,
+    };
+    const mockClient = {
+      getPrompt: vi.fn().mockResolvedValue(mockPromptClient),
+    };
+    mockGetLangfuse.mockReturnValue(mockClient);
+
+    const { fetchLangfusePromptWithMeta } = await loadModule();
+    const result = await fetchLangfusePromptWithMeta("detect");
+
+    expect(result.prompt).toEqual({
+      name: "detect",
+      version: snap.version,
+      source: "snapshot",
+    });
+  });
+
+  it("langfuse_hit_returns_langfuse_source_and_version", async () => {
+    const snap = snapshot.prompts.detect;
+    const snapshotText = snap.text.join("\n");
+
+    const mockPromptClient = {
+      prompt: snapshotText,
+      compile: vi.fn(),
+      name: "detect",
+      version: 9,
+      isFallback: false,
+    };
+    const mockClient = {
+      getPrompt: vi.fn().mockResolvedValue(mockPromptClient),
+    };
+    mockGetLangfuse.mockReturnValue(mockClient);
+
+    const warnSpy = vi.spyOn(console, "warn");
+
+    const { fetchLangfusePromptWithMeta } = await loadModule();
+    const result = await fetchLangfusePromptWithMeta("detect");
+
+    expect(result.prompt).toEqual({
+      name: "detect",
+      version: 9,
+      source: "langfuse",
+    });
+    // No drift warning because text matches snapshot
+    const driftWarnings = warnSpy.mock.calls.filter(
+      (args) =>
+        typeof args[0] === "string" && args[0].includes("[langfuse] prompt"),
+    );
+    expect(driftWarnings).toHaveLength(0);
+
+    warnSpy.mockRestore();
+  });
+
+  it("drift_warns_once_per_name", async () => {
+    const mockPromptClient = {
+      prompt: "different-remote-text",
+      compile: vi.fn(),
+      name: "detect",
+      version: 9,
+      isFallback: false,
+    };
+    const mockClient = {
+      getPrompt: vi.fn().mockResolvedValue(mockPromptClient),
+    };
+    mockGetLangfuse.mockReturnValue(mockClient);
+
+    const warnSpy = vi.spyOn(console, "warn");
+
+    const { fetchLangfusePromptWithMeta } = await loadModule();
+
+    // First fetch — warns
+    await fetchLangfusePromptWithMeta("detect");
+    let driftWarnings = warnSpy.mock.calls.filter(
+      (args) =>
+        typeof args[0] === "string" && args[0].includes("[langfuse] prompt"),
+    );
+    expect(driftWarnings).toHaveLength(1);
+    expect(driftWarnings[0]![0]).toContain("v9");
+    expect(driftWarnings[0]![0]).toContain(
+      `v${snapshot.prompts.detect.version}`,
+    );
+    expect(driftWarnings[0]![0]).toContain("prompt pull");
+
+    // Second fetch of same name — no new warning
+    await fetchLangfusePromptWithMeta("detect");
+    driftWarnings = warnSpy.mock.calls.filter(
+      (args) =>
+        typeof args[0] === "string" && args[0].includes("[langfuse] prompt"),
+    );
+    expect(driftWarnings).toHaveLength(1);
+
+    // Different name — warns again
+    const mockPromptClient2 = {
+      prompt: "another-different-text",
+      compile: vi.fn(),
+      name: "category-classify",
+      version: 5,
+      isFallback: false,
+    };
+    mockClient.getPrompt.mockResolvedValue(mockPromptClient2);
+    await fetchLangfusePromptWithMeta("category-classify");
+    driftWarnings = warnSpy.mock.calls.filter(
+      (args) =>
+        typeof args[0] === "string" && args[0].includes("[langfuse] prompt"),
+    );
+    expect(driftWarnings).toHaveLength(2);
+
+    warnSpy.mockRestore();
+  });
+
+  it("pinned_version_routes_without_label", async () => {
+    const snap = snapshot.prompts.detect;
+    const snapshotText = snap.text.join("\n");
+
+    const mockPromptClient = {
+      prompt: "pinned-text",
+      compile: vi.fn(),
+      name: "detect",
       version: 3,
       isFallback: false,
     };
@@ -34,90 +185,34 @@ describe("langfuse/prompt", () => {
     };
     mockGetLangfuse.mockReturnValue(mockClient);
 
-    const { fetchLangfusePrompt } = await loadModule();
-    const result = await fetchLangfusePrompt("my-prompt", "local-fallback");
+    vi.stubEnv("LANGFUSE_PROMPT_VERSIONS", "detect:3");
 
-    expect(result).toBe("remote-text");
-    expect(mockClient.getPrompt).toHaveBeenCalledWith("my-prompt", undefined, {
-      fallback: "local-fallback",
-      label: "production",
+    const { fetchLangfusePrompt } = await loadModule();
+    await fetchLangfusePrompt("detect");
+
+    expect(mockClient.getPrompt).toHaveBeenCalledWith("detect", 3, {
+      fallback: snapshotText,
     });
   });
 
-  it("compiles_variables_when_provided", async () => {
-    const mockPromptClient = {
-      prompt: "Hello {{name}}, welcome to {{place}}",
-      compile: vi.fn().mockReturnValue("Hello Alice, welcome to Wonderland"),
-      name: "greeting",
-      version: 1,
-      isFallback: false,
-    };
-    const mockClient = {
-      getPrompt: vi.fn().mockResolvedValue(mockPromptClient),
-    };
-    mockGetLangfuse.mockReturnValue(mockClient);
-
-    const { fetchLangfusePrompt } = await loadModule();
-    const result = await fetchLangfusePrompt("greeting", "fallback", {
-      name: "Alice",
-      place: "Wonderland",
-    });
-
-    expect(result).toBe("Hello Alice, welcome to Wonderland");
-    expect(mockPromptClient.compile).toHaveBeenCalledWith({
-      name: "Alice",
-      place: "Wonderland",
-    });
-  });
-
-  it("asserts_missing_variables", async () => {
-    const mockPromptClient = {
-      prompt: "Hello {{name}}, welcome to {{place}}",
-      compile: vi.fn(),
-      name: "greeting",
-      version: 1,
-      isFallback: false,
-    };
-    const mockClient = {
-      getPrompt: vi.fn().mockResolvedValue(mockPromptClient),
-    };
-    mockGetLangfuse.mockReturnValue(mockClient);
+  it("missing_variable_still_throws_outside_try_catch", async () => {
+    mockGetLangfuse.mockReturnValue(null);
 
     const { fetchLangfusePrompt } = await loadModule();
 
     await expect(
-      fetchLangfusePrompt("greeting", "fallback", { name: "Alice" }),
-    ).rejects.toThrow("place");
+      fetchLangfusePrompt("faq-preamble", {}),
+    ).rejects.toThrow("taiwan_usage_rules");
   });
 
-  it("returns_fallback_when_no_client", async () => {
+  it("fetchLangfusePrompt_returns_text_only", async () => {
     mockGetLangfuse.mockReturnValue(null);
 
     const { fetchLangfusePrompt } = await loadModule();
-    const result = await fetchLangfusePrompt("missing", "local-fallback");
+    const result = await fetchLangfusePrompt("detect");
 
-    expect(result).toBe("local-fallback");
-  });
-
-  it("returns_fallback_on_sdk_error", async () => {
-    const fallbackPromptClient = {
-      prompt: "safe-fallback",
-      compile: vi.fn(),
-      name: "broken",
-      version: 0,
-      isFallback: true,
-    };
-    const mockClient = {
-      // SDK's built-in fallback: when getPrompt is configured with a fallback
-      // and the fetch fails, the SDK returns a TextPromptClient with the fallback text
-      getPrompt: vi.fn().mockResolvedValue(fallbackPromptClient),
-    };
-    mockGetLangfuse.mockReturnValue(mockClient);
-
-    const { fetchLangfusePrompt } = await loadModule();
-    const result = await fetchLangfusePrompt("broken", "safe-fallback");
-
-    expect(result).toBe("safe-fallback");
+    expect(typeof result).toBe("string");
+    expect(result).toBe(snapshot.prompts.detect.text.join("\n"));
   });
 
   // --- parsePromptVersionPins ---
@@ -151,134 +246,5 @@ describe("langfuse/prompt", () => {
         }),
       ).toThrow("bad:abc");
     });
-  });
-
-  // --- pinned prompt version ---
-
-  it("pinned name calls getPrompt(name, version, {fallback}) with no label", async () => {
-    const mockPromptClient = {
-      prompt: "pinned-text",
-      compile: vi.fn(),
-      name: "detect",
-      version: 2,
-      isFallback: false,
-    };
-    const mockClient = {
-      getPrompt: vi.fn().mockResolvedValue(mockPromptClient),
-    };
-    mockGetLangfuse.mockReturnValue(mockClient);
-
-    vi.stubEnv("LANGFUSE_PROMPT_VERSIONS", "detect:2,descriptions:7");
-
-    const { fetchLangfusePrompt } = await loadModule();
-    await fetchLangfusePrompt("detect", "local-fallback");
-
-    expect(mockClient.getPrompt).toHaveBeenCalledWith("detect", 2, {
-      fallback: "local-fallback",
-    });
-  });
-
-  it("unpinned name still requests label production", async () => {
-    const mockPromptClient = {
-      prompt: "unpinned-text",
-      compile: vi.fn(),
-      name: "other",
-      version: 5,
-      isFallback: false,
-    };
-    const mockClient = {
-      getPrompt: vi.fn().mockResolvedValue(mockPromptClient),
-    };
-    mockGetLangfuse.mockReturnValue(mockClient);
-
-    vi.stubEnv("LANGFUSE_PROMPT_VERSIONS", "detect:2");
-
-    const { fetchLangfusePrompt } = await loadModule();
-    await fetchLangfusePrompt("other", "local-fallback");
-
-    expect(mockClient.getPrompt).toHaveBeenCalledWith("other", undefined, {
-      fallback: "local-fallback",
-      label: "production",
-    });
-  });
-
-  // --- fetchLangfusePromptWithMeta ---
-
-  it("fetchLangfusePromptWithMeta returns {text, prompt:{name,version}}", async () => {
-    const mockPromptClient = {
-      prompt: "remote-text",
-      compile: vi.fn(),
-      name: "detect",
-      version: 3,
-      isFallback: false,
-    };
-    const mockClient = {
-      getPrompt: vi.fn().mockResolvedValue(mockPromptClient),
-    };
-    mockGetLangfuse.mockReturnValue(mockClient);
-
-    const { fetchLangfusePromptWithMeta } = await loadModule();
-    const result = await fetchLangfusePromptWithMeta(
-      "detect",
-      "local-fallback",
-    );
-
-    expect(result).toEqual({
-      text: "remote-text",
-      prompt: { name: "detect", version: 3 },
-    });
-  });
-
-  it("fetchLangfusePromptWithMeta returns prompt null on fallback (no client)", async () => {
-    mockGetLangfuse.mockReturnValue(null);
-
-    const { fetchLangfusePromptWithMeta } = await loadModule();
-    const result = await fetchLangfusePromptWithMeta(
-      "missing",
-      "local-fallback",
-    );
-
-    expect(result).toEqual({
-      text: "local-fallback",
-      prompt: null,
-    });
-  });
-
-  it("fetchLangfusePromptWithMeta returns prompt null when fetch throws", async () => {
-    const mockClient = {
-      getPrompt: vi.fn().mockRejectedValue(new Error("network error")),
-    };
-    mockGetLangfuse.mockReturnValue(mockClient);
-
-    const { fetchLangfusePromptWithMeta } = await loadModule();
-    const result = await fetchLangfusePromptWithMeta(
-      "broken",
-      "local-fallback",
-    );
-
-    expect(result).toEqual({
-      text: "local-fallback",
-      prompt: null,
-    });
-  });
-
-  it("fetchLangfusePrompt still returns a string", async () => {
-    const mockPromptClient = {
-      prompt: "remote-text",
-      compile: vi.fn(),
-      name: "detect",
-      version: 3,
-      isFallback: false,
-    };
-    const mockClient = {
-      getPrompt: vi.fn().mockResolvedValue(mockPromptClient),
-    };
-    mockGetLangfuse.mockReturnValue(mockClient);
-
-    const { fetchLangfusePrompt } = await loadModule();
-    const result = await fetchLangfusePrompt("detect", "local-fallback");
-
-    expect(typeof result).toBe("string");
-    expect(result).toBe("remote-text");
   });
 });

@@ -1,16 +1,9 @@
-import { createHash } from 'node:crypto'
+const ENRICHMENT_CONFIG_VERSION = 'v2.4'
 
-const ENRICHMENT_CONFIG_VERSION = 'v2.3'
-
-function shortHash(text: string): string {
-  return createHash('sha256').update(text).digest('hex').slice(0, 8)
-}
-
-export function buildEnrichmentConfig(phase: string, systemPrompt: string, params: Record<string, unknown>) {
+export function buildEnrichmentConfig(phase: string, params: Record<string, unknown>) {
   return {
     version: ENRICHMENT_CONFIG_VERSION,
     phase,
-    promptHash: shortHash(systemPrompt),
     params,
   }
 }
