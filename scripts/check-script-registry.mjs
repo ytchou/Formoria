@@ -84,6 +84,18 @@ export function collectScriptRegistryViolations({
     if (directory.exempt) continue;
 
     const documented = directory.entries.filter((entry) => entry.header);
+
+    if (directory.group) {
+      if (documented.length === 0) {
+        violations.push({
+          file: `${directory.name}/`,
+          message:
+            "no file carries an @formoria-script header block; at least one entry file is required",
+        });
+      }
+      continue;
+    }
+
     if (documented.length === 1) continue;
 
     violations.push({

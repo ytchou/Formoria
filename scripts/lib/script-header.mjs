@@ -93,6 +93,10 @@ const SKIP_DIRECTORY_NAMES = new Set([
 // directory's single entry.
 const README_ONLY_DIRECTORY_NAMES = new Set(["lib", "shared"]);
 
+// Group directories whose immediate children are treated as independent
+// directories for the one-entry rule. The parent itself is exempt.
+const GROUP_DIRECTORY_NAMES = new Set(["enrichment"]);
+
 const KEY_VALUE = /^([A-Za-z][A-Za-z0-9_-]*)\s*:\s*(.*)$/;
 
 // Advances slash-star block-comment state across one raw line. A header key may
@@ -291,6 +295,31 @@ export function walkScriptRoot(root) {
   for (const entry of readdirSync(root, { withFileTypes: true })) {
     if (entry.isDirectory()) {
       if (isSkippedDirectory(entry.name)) continue;
+
+      if (GROUP_DIRECTORY_NAMES.has(entry.name)) {
+        const groupPath = join(root, entry.name);
+        for (const child of readdirSync(groupPath, { withFileTypes: true })) {
+          if (!child.isDirectory() || isSkippedDirectory(child.name)) continue;
+
+          const dirName = join(entry.name, child.name);
+          const readmeOnly = README_ONLY_DIRECTORY_NAMES.has(child.name);
+          const files = [];
+          walkDirectory(root, dirName, readmeOnly, files);
+
+          const directoryEntries = files
+            .filter((file) => file.candidate)
+            .map((file) => readEntry(root, dirName, file));
+
+          entries.push(...directoryEntries);
+          directories.push({
+            name: dirName,
+            exempt: !files.some((file) => file.counted),
+            group: true,
+            entries: directoryEntries,
+          });
+        }
+        continue;
+      }
 
       const readmeOnly = README_ONLY_DIRECTORY_NAMES.has(entry.name);
       const files = [];
