@@ -14,6 +14,7 @@
 
 import { pathToFileURL } from "node:url";
 import { createServiceClient } from "@/lib/supabase/service";
+import { loadScriptTarget } from "../shared/target";
 
 export type RedirectRow = {
   old_slug: string;
@@ -149,6 +150,7 @@ async function fetchAll<T>(
 }
 
 async function main(): Promise<void> {
+  loadScriptTarget();
   try {
     const [redirects, brands] = await Promise.all([
       fetchAll<RedirectRow>("brand_slug_redirects", "old_slug, new_slug"),

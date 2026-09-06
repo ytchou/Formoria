@@ -211,29 +211,6 @@ export function trackBrandCardClicked(
   }
 }
 
-/**
- * An exhibitor's own site, opened from the event exhibitor list.
- *
- * Deliberately not `trackExternalLinkClicked`: that one is keyed on a brand slug and
- * gates the PostHog call on `brandId`, so it would silently drop every exhibitor we
- * do not list — the majority of a hall.
- */
-export function trackExhibitorSiteClicked(
-  sourceKey: string,
-  eventSlug: string,
-  booth: string | null,
-  brandSlug: string | null,
-) {
-  const properties = {
-    source_key: sourceKey,
-    event_slug: eventSlug,
-    booth,
-    brand_slug: brandSlug,
-  };
-  safeGAEvent("event", "exhibitor_site_clicked", properties);
-  capturePostHogEvent(ANALYTICS_EVENTS.EXHIBITOR_SITE_CLICKED, properties);
-}
-
 export type ExternalLinkSurface =
   | "detail_page"
   | "card"
@@ -308,6 +285,28 @@ export function trackSearchExecuted(query: string, resultCount: number) {
     query_length: query.length,
     result_count: resultCount,
     has_results: resultCount > 0,
+    ...searchTermProperty(query),
+  });
+}
+
+export function trackProductSearchExecuted(
+  query: string,
+  resultCount: number,
+  options: { searchSource: string; degraded: boolean },
+) {
+  safeGAEvent("event", "search", {
+    query_length: query.length,
+    result_count: resultCount,
+    has_results: resultCount > 0,
+    search_source: options.searchSource,
+    degraded: options.degraded,
+  });
+  capturePostHogEvent(ANALYTICS_EVENTS.PRODUCT_SEARCH_EXECUTED, {
+    query_length: query.length,
+    result_count: resultCount,
+    has_results: resultCount > 0,
+    search_source: options.searchSource,
+    degraded: options.degraded,
     ...searchTermProperty(query),
   });
 }
@@ -611,18 +610,6 @@ export function trackSubcategoryFilterApplied(
     subcategory,
     parent_category: parentCategory,
     result_count: Math.trunc(resultCount),
-  });
-}
-
-export function trackFilterCleared(
-  clearType: string,
-  filterType?: string,
-  filterValue?: string,
-) {
-  capturePostHogEvent(ANALYTICS_EVENTS.FILTER_CLEARED, {
-    clear_type: clearType,
-    filter_type: filterType,
-    filter_value: filterValue,
   });
 }
 

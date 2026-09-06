@@ -1,3 +1,12 @@
+/**
+ * @formoria-script
+ * purpose: Renders and sends the nightly e2e Slack digest for each phase of the run.
+ * class: scheduled-automation
+ * invoke: pnpm exec tsx scripts/notifications/e2e-slack.ts
+ * target: ci
+ * safety: writes
+ * owner: engineering
+ */
 import { readFile } from "node:fs/promises";
 import { pathToFileURL } from "node:url";
 

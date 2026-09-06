@@ -1,0 +1,1316 @@
+import { beforeAll, describe, expect, it, vi } from 'vitest'
+
+import type { ChatMessage, ChatToolDefinition } from '@/lib/services/openai-client'
+import {
+  runAcquisition,
+  ACQUISITION_RECURSION_LIMIT,
+  type AcquisitionDeps,
+  type AcquisitionInput,
+} from '../graph'
+import { RESERVED_TAIL_MS } from '../budget'
+
+// The prompt nodes call `fetchLangfusePrompt`, which returns its fallback when
+// no Langfuse client can be built. Blanking the credentials keeps that true even
+// if the shell that runs the suite happens to export them.
+beforeAll(() => {
+  vi.stubEnv('LANGFUSE_PUBLIC_KEY', '')
+  vi.stubEnv('LANGFUSE_SECRET_KEY', '')
+  vi.stubEnv('LANGFUSE_HOST', '')
+})
+
+// ---------------------------------------------------------------------------
+// Fakes — no `vi.mock` of `@/lib/services/…` (check-test-boundaries.mjs) and no
+// mocked model class: the graph takes its model through `options.model`.
+// ---------------------------------------------------------------------------
+
+type ScriptedToolCall = { name: string; args: Record<string, unknown> }
+/** One scripted model turn: tool calls, a JSON payload, or raw text. */
+type ScriptedTurn = ScriptedToolCall[] | Record<string, unknown> | string
+
+type InvokeOptions = { signal?: AbortSignal; tools?: ChatToolDefinition[] }
+
+const USAGE = { prompt_tokens: 10, completion_tokens: 10, total_tokens: 20 }
+
+const systemOf = (messages: ChatMessage[]) => String(messages[0]?.content ?? '')
+const isCritique = (messages: ChatMessage[]) => systemOf(messages).includes('CritiqueVerdict')
+
+/** Tool messages carried by one recorded `invoke` call, in order. */
+function toolMessagesOf(messages: ChatMessage[]) {
+  return messages.filter(
+    (message): message is Extract<ChatMessage, { role: 'tool' }> => message.role === 'tool',
+  )
+}
+
+/**
+ * A tool-calling fake. Routes on the system prompt so a test scripts the plan
+ * turns and the critique verdicts independently — the graph calls one model for
+ * both and the ordering between them depends on the path taken.
+ *
+ * Responses are plain objects in the shared `AgentModelResponse` shape: the
+ * graph speaks the OpenAI wire vocabulary directly, so there is no framework
+ * message class to construct.
+ */
+function fakeAgentModel(script: { plan?: ScriptedTurn[]; critique?: Array<Record<string, unknown>> }) {
+  let planIndex = 0
+  let critiqueIndex = 0
+  let callId = 0
+
+  const invoke = vi.fn(async (messages: ChatMessage[], options?: InvokeOptions) => {
+    // Check for abort before proceeding (supports critique timeout tests)
+    if (options?.signal?.aborted) {
+      const err = new Error('The operation was aborted')
+      err.name = 'AbortError'
+      throw err
+    }
+
+    if (isCritique(messages)) {
+      const verdicts = script.critique ?? [{ verdict: 'sufficient', reason: 'enough data' }]
+      const verdict = verdicts[critiqueIndex] ?? verdicts.at(-1)!
+      critiqueIndex++
+      return { content: JSON.stringify(verdict), usage: USAGE }
+    }
+
+    const turns = script.plan ?? []
+    const turn = turns[planIndex] ?? turns.at(-1) ?? ''
+    planIndex++
+
+    if (Array.isArray(turn)) {
+      return {
+        content: null,
+        toolCalls: turn.map((call) => {
+          callId += 1
+          return { id: `call-${callId}`, name: call.name, args: call.args }
+        }),
+        usage: USAGE,
+      }
+    }
+
+    return {
+      content: typeof turn === 'string' ? turn : JSON.stringify(turn),
+      usage: USAGE,
+    }
+  })
+
+  return { invoke }
+}
+
+/** The recorded plan-loop turns, in order — the critique shares one mock. */
+function planCalls(model: ReturnType<typeof fakeAgentModel>) {
+  return model.invoke.mock.calls.filter(([messages]) => !isCritique(messages))
+}
+
+const RICH_BODY = 'Taiwanese ceramics studio. '.repeat(20)
+const richHtml = (title = 'Test Brand Official') =>
+  `<html><head><title>${title}</title></head><body>${RICH_BODY}</body></html>`
+
+function makeDeps(overrides: Partial<AcquisitionDeps> = {}): AcquisitionDeps {
+  return {
+    fetchHtml: vi.fn().mockResolvedValue({ text: richHtml(), status: 200, latencyMs: 50, error: null }),
+    renderProvider: {
+      fetchRendered: vi.fn().mockResolvedValue({
+        html: richHtml('Rendered Brand'),
+        finalUrl: 'https://example.com',
+        status: 200,
+      }),
+    },
+    scrapeBrandUrls: vi.fn().mockResolvedValue({
+      data: { name: 'Test Brand', description: 'A test brand' },
+      statuses: [
+        {
+          url: 'https://example.com',
+          ok: true,
+          classification: 'official-site',
+          httpStatus: 200,
+          latencyMs: 100,
+          error: null,
+        },
+      ],
+    }),
+    ...overrides,
+  }
+}
+
+const VALID_PLAN = {
+  surfaces: [
+    { url: 'https://example.com', fetch: 'static', strategy: 'official-site', reason: 'main site' },
+  ],
+  fanOut: [],
+  catalog: { entryUrls: [], priorityProductUrls: [] },
+  socialBios: {},
+  decisions: [{ step: 'plan', action: 'chose static', reason: 'main site', ms: 10 }],
+}
+
+const SUFFICIENT = { verdict: 'sufficient', reason: 'enough data' }
+
+const baseInput: AcquisitionInput = {
+  brand: { id: 'brand-1', slug: 'test-brand', name: 'Test Brand' },
+  knownUrls: ['https://example.com'],
+  jobId: 'job-1',
+}
+
+function scrapeWithImages(urls: string[], pageUrl = 'https://example.com') {
+  return {
+    data: {
+      name: 'Test Brand',
+      description: 'A test brand',
+      galleryImageUrls: urls,
+      imageSources: urls.map((url, position) => ({ url, method: 'crawl', pageUrl, position })),
+      jsonLdImageUrls: [],
+    },
+    statuses: [
+      {
+        url: pageUrl,
+        ok: true,
+        classification: 'official-site',
+        httpStatus: 200,
+        latencyMs: 100,
+        error: null,
+      },
+    ],
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Buffer pipeline fakes — downloadAndGateImages, classifyImageBuffers, storeKeptImages
+// ---------------------------------------------------------------------------
+
+function fakeGatedImage(sourceUrl: string) {
+  return {
+    buffer: Buffer.from('fake-image-data'),
+    contentType: 'image/webp',
+    width: 1200,
+    height: 900,
+    dominantColor: '#FFFFFF',
+    phash: `ph-${sourceUrl.slice(-8)}`,
+    entropy: 7.0,
+    sharpness: 50,
+    source: 'scrape',
+    sourceUrl,
+    provider: {},
+  }
+}
+
+function fakeClassifiedKeep(sourceUrl: string, tag = 'product', score = 0.9) {
+  return {
+    ...fakeGatedImage(sourceUrl),
+    disposition: 'keep' as const,
+    tag,
+    score,
+    caption: `A ${tag} image`,
+  }
+}
+
+function fakeClassifiedReject(sourceUrl: string) {
+  return {
+    ...fakeGatedImage(sourceUrl),
+    disposition: 'reject' as const,
+    tag: 'irrelevant',
+    score: 0.1,
+    caption: 'Rejected',
+  }
+}
+
+function fakeStoredRecord(id: string, sourceUrl: string) {
+  return {
+    id,
+    storage_path: `brands/brand-1/${id}.webp`,
+    source_url: sourceUrl,
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Graph shape
+// ---------------------------------------------------------------------------
+
+describe('acquisition graph — LangGraph shape', () => {
+  it('graph_scripted_model_produces_plan_execute_critique_finalize', async () => {
+    const model = fakeAgentModel({ plan: [[{ name: 'submit_plan', args: VALID_PLAN }]] })
+    const deps = makeDeps()
+
+    const result = await runAcquisition(baseInput, deps, { model })
+
+    expect(result.agentOutcome).toBe('planned')
+    expect(result.plan).toBeDefined()
+    expect(result.directives).toBeDefined()
+    expect(result.scrapeResult).toBeDefined()
+    expect(deps.scrapeBrandUrls).toHaveBeenCalledTimes(1)
+    // Every node leaves a trace entry with its own elapsed time.
+    expect(result.decisions.map((d) => d.step)).toEqual(
+      expect.arrayContaining(['gather', 'plan', 'execute', 'critique', 'finalize']),
+    )
+    for (const decision of result.decisions) expect(typeof decision.ms).toBe('number')
+  })
+
+  it('acquisition_graph_is_a_stategraph_with_recursion_limit', async () => {
+    expect(ACQUISITION_RECURSION_LIMIT).toBe(12)
+
+    // A model that only ever probes and never submits must terminate.
+    const model = fakeAgentModel({
+      plan: [[{ name: 'probe_static', args: { url: 'https://example.com' } }]],
+    })
+    const deps = makeDeps()
+
+    const result = await runAcquisition(baseInput, deps, { model })
+
+    expect(result.agentOutcome).toBe('fallback')
+    expect(deps.scrapeBrandUrls).not.toHaveBeenCalled()
+    expect(
+      result.decisions.some((d) => `${d.action} ${d.reason}`.includes('recursion_limit')),
+    ).toBe(true)
+  })
+
+  it('signal_abort_stops_graph', async () => {
+    const controller = new AbortController()
+    controller.abort()
+
+    const model = fakeAgentModel({ plan: [[{ name: 'submit_plan', args: VALID_PLAN }]] })
+    const deps = makeDeps()
+
+    const result = await runAcquisition(baseInput, deps, { model, signal: controller.signal })
+
+    expect(result.agentOutcome).toBe('fallback')
+    expect(result.error).toBe('aborted')
+    expect(deps.scrapeBrandUrls).not.toHaveBeenCalled()
+  })
+
+  it('run_recovers_last_state_on_recursion_error', async () => {
+    // A model that only probes and never submits — hits the inner recursion
+    // limit and falls to the single-call fallback. The plan fails, but the
+    // graph must still return a result with budget and decision trace intact.
+    const model = fakeAgentModel({
+      plan: [[{ name: 'probe_static', args: { url: 'https://example.com' } }]],
+    })
+    const deps = makeDeps()
+
+    const result = await runAcquisition(baseInput, deps, { model })
+
+    expect(result.agentOutcome).toBe('fallback')
+    // The plan loop recorded the recursion_limit decision
+    expect(
+      result.decisions.some((d) => `${d.action} ${d.reason}`.includes('recursion_limit')),
+    ).toBe(true)
+    // Budget and decisions should be intact
+    expect(result.budget).toBeDefined()
+    expect(result.decisions.length).toBeGreaterThan(0)
+  })
+})
+
+// ---------------------------------------------------------------------------
+// Plan node — bounded tool loop
+// ---------------------------------------------------------------------------
+
+describe('acquisition graph — plan tool loop', () => {
+  it('plan_tool_loop_probes_then_submits', async () => {
+    const model = fakeAgentModel({
+      plan: [
+        [{ name: 'probe_static', args: { url: 'https://example.com' } }],
+        [{ name: 'submit_plan', args: VALID_PLAN }],
+      ],
+    })
+    const deps = makeDeps()
+
+    const result = await runAcquisition(baseInput, deps, { model })
+
+    expect(result.agentOutcome).toBe('planned')
+    expect(result.plan?.surfaces).toHaveLength(1)
+
+    // gather probes the one known URL; the tool probe is the second fetch.
+    const fetched = vi.mocked(deps.fetchHtml).mock.calls.map(([url]) => url)
+    expect(fetched).toEqual(['https://example.com', 'https://example.com'])
+
+    const calls = planCalls(model)
+    expect(calls).toHaveLength(2)
+
+    // The second turn reads the first turn's result back as a `tool` message
+    // keyed to the call it answers — that linkage IS the loop. `call-1` is the
+    // id the fake minted for the first scripted tool call.
+    const observed = toolMessagesOf(calls[1]![0])
+    expect(observed).toHaveLength(1)
+    expect(observed[0]).toMatchObject({ role: 'tool', tool_call_id: 'call-1' })
+    expect(JSON.parse(observed[0]!.content)).toHaveProperty('title')
+
+    // gather probe (1) + one allowlisted tool probe (1). Executing the plan
+    // spends no probe at all — see `execute_does_not_spend_probes`.
+    expect(result.budget!.used.probes).toBe(2)
+    expect(result.budget!.used.probes).toBeLessThanOrEqual(result.budget!.allowed.probes)
+  })
+
+  it('plan_tool_loop_refuses_a_url_outside_the_allowlist', async () => {
+    const model = fakeAgentModel({
+      plan: [
+        [{ name: 'probe_static', args: { url: 'https://evil.example' } }],
+        [{ name: 'submit_plan', args: VALID_PLAN }],
+      ],
+    })
+    const deps = makeDeps()
+
+    const result = await runAcquisition(baseInput, deps, { model })
+
+    const fetched = vi.mocked(deps.fetchHtml).mock.calls.map(([url]) => url)
+    expect(fetched).not.toContain('https://evil.example')
+    // The refused probe costs nothing: only gather's probe was spent.
+    expect(result.budget!.used.probes).toBe(1)
+  })
+
+  it('malformed_tool_arguments_are_replayed_verbatim_and_refused', async () => {
+    // The model wrote unparsable JSON. The wire must carry exactly that text
+    // back to it — replaying the parsed `{}` showed it a call it never made —
+    // and the tool refuses the empty payload with `invalid_args`.
+    let planTurn = 0
+    const model = {
+      invoke: vi.fn(async (messages: ChatMessage[], _options?: InvokeOptions) => {
+        if (isCritique(messages)) return { content: JSON.stringify(SUFFICIENT), usage: USAGE }
+        planTurn += 1
+        if (planTurn === 1) {
+          return {
+            content: null,
+            toolCalls: [
+              { id: 'call-1', name: 'probe_static', args: {}, rawArguments: '{not json' },
+            ],
+            usage: USAGE,
+          }
+        }
+        return { content: JSON.stringify(VALID_PLAN), usage: USAGE }
+      }),
+    }
+
+    const result = await runAcquisition(baseInput, makeDeps(), { model })
+
+    const secondTurn = model.invoke.mock.calls.filter(([messages]) => !isCritique(messages))[1]![0]
+    const assistant = secondTurn.find((message) => message.role === 'assistant')
+    expect(assistant).toMatchObject({
+      role: 'assistant',
+      tool_calls: [
+        { id: 'call-1', type: 'function', function: { name: 'probe_static', arguments: '{not json' } },
+      ],
+    })
+
+    const observed = toolMessagesOf(secondTurn)
+    expect(observed).toHaveLength(1)
+    expect(JSON.parse(observed[0]!.content)).toEqual({ error: 'invalid_args' })
+    // A refusal is a turn the model can recover from, not a thrown sub-graph.
+    expect(result.agentOutcome).toBe('planned')
+  })
+
+  it('tools_node_answers_unknown_tool_with_error_json', async () => {
+    const model = fakeAgentModel({
+      plan: [
+        [{ name: 'nope', args: { url: 'https://example.com' } }],
+        [{ name: 'submit_plan', args: VALID_PLAN }],
+      ],
+    })
+
+    const result = await runAcquisition(baseInput, makeDeps(), { model })
+
+    const calls = planCalls(model)
+    const observed = toolMessagesOf(calls[1]![0])
+    expect(observed).toHaveLength(1)
+    expect(JSON.parse(observed[0]!.content)).toEqual({ error: 'unknown_tool' })
+    // An unknown tool is a turn the model can learn from, not a dead loop.
+    expect(result.agentOutcome).toBe('planned')
+    expect(result.plan).toBeDefined()
+  })
+
+  it('invokeModel_passes_tools_and_signal_to_the_model', async () => {
+    const model = fakeAgentModel({ plan: [[{ name: 'submit_plan', args: VALID_PLAN }]] })
+
+    await runAcquisition(baseInput, makeDeps(), { model })
+
+    const [, planOptions] = planCalls(model)[0]!
+    expect(planOptions?.tools?.map((tool) => tool.name)).toEqual([
+      'probe_static',
+      'probe_rendered',
+      'extract_links',
+      'submit_plan',
+    ])
+    expect(planOptions?.signal).toBeInstanceOf(AbortSignal)
+
+    // The critique answers with a verdict, never a function call.
+    const critique = model.invoke.mock.calls.find(([messages]) => isCritique(messages))!
+    expect(critique[1]).not.toHaveProperty('tools')
+    expect(critique[1]?.signal).toBeInstanceOf(AbortSignal)
+  })
+
+  it('plan_loop_falls_back_to_single_call_after_two_bad_submits', async () => {
+    const badPlan = { surfaces: 'not-an-array' }
+    const model = fakeAgentModel({
+      plan: [
+        [{ name: 'submit_plan', args: badPlan }],
+        [{ name: 'submit_plan', args: badPlan }],
+        // The loop gives up; the single json-mode call still returns a good plan.
+        VALID_PLAN,
+      ],
+    })
+    const deps = makeDeps()
+
+    const result = await runAcquisition(baseInput, deps, { model })
+
+    expect(result.agentOutcome).toBe('planned')
+    expect(result.plan).toBeDefined()
+    expect(result.decisions.some((d) => d.action === 'plan_fallback')).toBe(true)
+  })
+
+  it('plan_loop_fallback_that_also_fails_is_agent_fallback', async () => {
+    const badPlan = { surfaces: 'not-an-array' }
+    const model = fakeAgentModel({
+      plan: [
+        [{ name: 'submit_plan', args: badPlan }],
+        [{ name: 'submit_plan', args: badPlan }],
+        { notAValidField: true },
+      ],
+    })
+    const deps = makeDeps()
+
+    const result = await runAcquisition(baseInput, deps, { model })
+
+    expect(result.agentOutcome).toBe('fallback')
+    expect(deps.scrapeBrandUrls).not.toHaveBeenCalled()
+  })
+
+  // Every model now carries tools, so "no tool call" is no longer a capability
+  // gap — it is the model answering the plan step in prose. The loop adopts it
+  // on the spot rather than spending a second call on the json-mode fallback.
+  it('plan_text_answer_on_first_turn_is_adopted_by_the_loop', async () => {
+    const model = fakeAgentModel({ plan: [VALID_PLAN] })
+    const deps = makeDeps()
+
+    const result = await runAcquisition(baseInput, deps, { model })
+
+    expect(result.agentOutcome).toBe('planned')
+    expect(result.plan).toBeDefined()
+    expect(planCalls(model)).toHaveLength(1)
+    expect(result.decisions.some((d) => d.action === 'plan_fallback')).toBe(false)
+  })
+
+  it('graph_budget_exhausted_before_plan_is_fallback', async () => {
+    const deps = makeDeps()
+    const result = await runAcquisition(baseInput, deps, {
+      model: fakeAgentModel({ plan: [[{ name: 'submit_plan', args: VALID_PLAN }]] }),
+      budgetOverride: { probes: 0, renders: 0, search: 0, turns: 0, wallClockMs: 0 },
+    })
+
+    expect(result.agentOutcome).toBe('fallback')
+    expect(deps.scrapeBrandUrls).not.toHaveBeenCalled()
+  })
+
+  it('budget_allowance_and_usage_are_recorded', async () => {
+    const model = fakeAgentModel({ plan: [[{ name: 'submit_plan', args: VALID_PLAN }]] })
+    const result = await runAcquisition(baseInput, makeDeps(), { model })
+
+    expect(result.budget).toBeDefined()
+    expect(result.budget!.allowed.probes).toBeGreaterThan(0)
+    expect(result.budget!.used.turns).toBeGreaterThan(0)
+  })
+})
+
+// ---------------------------------------------------------------------------
+// Budget enforcement through the graph
+// ---------------------------------------------------------------------------
+
+describe('acquisition graph — budget is asserted, not just counted', () => {
+  it('budget_probes_renders_search_are_asserted', async () => {
+    // probes: the tool refuses once the allowance is spent.
+    const probeModel = fakeAgentModel({
+      plan: [
+        [{ name: 'probe_static', args: { url: 'https://example.com' } }],
+        [{ name: 'probe_static', args: { url: 'https://example.com' } }],
+        [{ name: 'probe_static', args: { url: 'https://example.com' } }],
+        [{ name: 'submit_plan', args: VALID_PLAN }],
+      ],
+    })
+    const probeDeps = makeDeps()
+    const probeResult = await runAcquisition(baseInput, probeDeps, {
+      model: probeModel,
+      budgetOverride: { probes: 2, renders: 0, search: 0, turns: 4, wallClockMs: 45_000 },
+    })
+    // gather spent one probe, so exactly one tool probe fits inside the cap.
+    expect(vi.mocked(probeDeps.fetchHtml)).toHaveBeenCalledTimes(2)
+    expect(probeResult.budget!.used.probes).toBeLessThanOrEqual(2)
+
+    // renders: the render provider is never called past the allowance.
+    const renderModel = fakeAgentModel({
+      plan: [
+        [{ name: 'probe_rendered', args: { url: 'https://example.com' } }],
+        [{ name: 'probe_rendered', args: { url: 'https://example.com' } }],
+        [{ name: 'submit_plan', args: VALID_PLAN }],
+      ],
+    })
+    const renderDeps = makeDeps()
+    await runAcquisition(baseInput, renderDeps, {
+      model: renderModel,
+      budgetOverride: { probes: 8, renders: 1, search: 0, turns: 4, wallClockMs: 45_000 },
+    })
+    expect(vi.mocked(renderDeps.renderProvider!.fetchRendered)).toHaveBeenCalledTimes(1)
+
+    // search: a zero search allowance refuses the recovery search outright.
+    const searchDeps = makeDeps({ searchBrand: vi.fn().mockResolvedValue({ urls: [], snippets: [] }) })
+    const searchResult = await runAcquisition({ ...baseInput, knownUrls: [] }, searchDeps, {
+      model: fakeAgentModel({
+        plan: [[{ name: 'submit_plan', args: VALID_PLAN }]],
+        critique: [{ verdict: 'thin', reason: 'nothing', recoveryAction: 'search' }, SUFFICIENT],
+      }),
+      budgetOverride: { probes: 8, renders: 0, search: 0, turns: 6, wallClockMs: 90_000 },
+    })
+    expect(searchDeps.searchBrand).not.toHaveBeenCalled()
+    expect(
+      searchResult.decisions.some((d) => `${d.action} ${d.reason}`.includes('search_refused')),
+    ).toBe(true)
+  })
+
+  // The first staging run scraped ZERO URLs on every brand: gather had spent the
+  // probe allowance, so execute "dropped" every planned surface. Scrapes are
+  // bounded by `MAX_SCRAPE_URLS_PER_BRAND` inside `scrapeBrandUrls`; charging
+  // them a probe as well made the plan unexecutable.
+  it('execute_does_not_spend_probes', async () => {
+    const twoSurfacePlan = {
+      ...VALID_PLAN,
+      surfaces: [
+        { url: 'https://example.com', fetch: 'static', strategy: 'official-site', reason: 'main site' },
+        { url: 'https://example.com/about', fetch: 'static', strategy: 'single-page', reason: 'about page' },
+      ],
+    }
+    const deps = makeDeps()
+
+    const result = await runAcquisition(baseInput, deps, {
+      model: fakeAgentModel({ plan: [[{ name: 'submit_plan', args: twoSurfacePlan }]] }),
+      // gather alone exhausts the probe allowance (one known URL, one probe).
+      budgetOverride: { probes: 1, renders: 0, search: 0, turns: 3, wallClockMs: 45_000 },
+    })
+
+    expect(vi.mocked(deps.scrapeBrandUrls).mock.calls[0]![0]).toEqual([
+      'https://example.com',
+      'https://example.com/about',
+    ])
+    expect(result.budget!.used.probes).toBe(1)
+
+    const execute = result.decisions.find((d) => d.step === 'execute')!
+    expect(execute.action).toBe('scraped 2 URLs')
+    expect(execute.reason).not.toContain('dropped')
+  })
+
+  // The plan STAGE is one turn, however many model calls its tool loop makes.
+  // Charging the single-call fallback a second turn left `turns = 2` with
+  // nothing for the critique, which then skipped as `budget_exhausted`.
+  it('plan_fallback_spends_one_turn_total', async () => {
+    const badPlan = { surfaces: 'not-an-array' }
+    const deps = makeDeps()
+
+    const result = await runAcquisition(baseInput, deps, {
+      model: fakeAgentModel({
+        plan: [
+          [{ name: 'submit_plan', args: badPlan }],
+          [{ name: 'submit_plan', args: badPlan }],
+          VALID_PLAN,
+        ],
+        critique: [SUFFICIENT],
+      }),
+      budgetOverride: { probes: 8, renders: 0, search: 0, turns: 2, wallClockMs: 45_000 },
+    })
+
+    expect(result.agentOutcome).toBe('planned')
+    expect(result.decisions.some((d) => d.action === 'plan_fallback')).toBe(true)
+    // One turn for the whole plan stage, one for the critique.
+    expect(result.budget!.used.turns).toBe(2)
+
+    const critique = result.decisions.find((d) => d.step === 'critique')!
+    expect(critique.action).toBe('sufficient')
+    expect(critique.reason).not.toContain('budget')
+  })
+})
+
+// ---------------------------------------------------------------------------
+// Critique
+// ---------------------------------------------------------------------------
+
+describe('acquisition graph — critique', () => {
+  it('critique_parses_url_verdicts_and_finalize_exposes_them', async () => {
+    const model = fakeAgentModel({
+      plan: [[{ name: 'submit_plan', args: VALID_PLAN }]],
+      critique: [
+        {
+          verdict: 'sufficient',
+          reason: 'ownership checked',
+          urlVerdicts: [
+            { url: 'https://example.com', owned: true, confidence: 'high', reason: 'first-party site' },
+            { url: 'https://retailer.example', owned: false, confidence: 'high', reason: 'marketplace listing' },
+          ],
+        },
+      ],
+    })
+
+    const result = await runAcquisition(baseInput, makeDeps(), { model })
+
+    expect(result.urlVerdicts).toHaveLength(2)
+    expect(result.urlVerdicts![1]).toMatchObject({
+      url: 'https://retailer.example',
+      owned: false,
+      confidence: 'high',
+    })
+  })
+
+  it('graph_thin_verdict_runs_recovery_exactly_once', async () => {
+    const planWithFanOut = { ...VALID_PLAN, fanOut: ['https://extra.example/about'] }
+    const deps = makeDeps()
+    const result = await runAcquisition(baseInput, deps, {
+      model: fakeAgentModel({
+        plan: [[{ name: 'submit_plan', args: planWithFanOut }]],
+        critique: [{ verdict: 'thin', reason: 'not enough', recoveryAction: 'fanout' }, SUFFICIENT],
+      }),
+    })
+
+    expect(result.agentOutcome).toBe('recovered')
+    expect(deps.scrapeBrandUrls).toHaveBeenCalledTimes(2)
+
+    // A second thin verdict does not loop again.
+    const deps2 = makeDeps()
+    const result2 = await runAcquisition(baseInput, deps2, {
+      model: fakeAgentModel({
+        plan: [[{ name: 'submit_plan', args: planWithFanOut }]],
+        critique: [{ verdict: 'thin', reason: 'still thin', recoveryAction: 'fanout' }],
+      }),
+    })
+    expect(result2.agentOutcome).toBe('recovered')
+    expect(deps2.scrapeBrandUrls).toHaveBeenCalledTimes(2)
+  })
+
+  it('critique_fail_verdict_blocks', async () => {
+    const deps = makeDeps()
+    const result = await runAcquisition(baseInput, deps, {
+      model: fakeAgentModel({
+        plan: [[{ name: 'submit_plan', args: VALID_PLAN }]],
+        critique: [{ verdict: 'fail', reason: 'brand does not exist' }],
+      }),
+    })
+
+    expect(result.agentOutcome).toBe('blocked')
+    expect(result.error).toContain('brand does not exist')
+  })
+
+  it('critique_timeout_is_treated_as_budget_exhausted_not_graph_throw', async () => {
+    // A critique that times out should NOT throw / crash the graph.
+    // Instead, it should be treated like budget_exhausted and resolve gracefully.
+    const critiqueAbortModel = fakeAgentModel({
+      plan: [[{ name: 'submit_plan', args: VALID_PLAN }]],
+      critique: [{ verdict: 'sufficient', reason: 'enough data' }],
+    })
+    // Override the model's invoke to throw AbortError on critique calls
+    let _critiqueCallCount = 0
+    const originalImpl = critiqueAbortModel.invoke.getMockImplementation()!
+    critiqueAbortModel.invoke.mockImplementation(async (messages: ChatMessage[], options?: InvokeOptions) => {
+      if (isCritique(messages)) {
+        _critiqueCallCount++
+        const err = new Error('The operation was aborted')
+        err.name = 'AbortError'
+        throw err
+      }
+      return originalImpl(messages, options)
+    })
+
+    const deps = makeDeps()
+    const result = await runAcquisition(baseInput, deps, { model: critiqueAbortModel })
+
+    // The graph should resolve, not throw
+    expect(result).toBeDefined()
+    expect(result.agentOutcome).not.toBe('blocked')
+    // The critique skipped entry should mention budget_exhausted-style
+    const critiqueDecision = result.decisions.find(
+      (d) => d.step === 'critique' && (d.reason.includes('budget') || d.action.includes('CRITIQUE-TIMEOUT') || d.reason.includes('timeout')),
+    )
+    expect(critiqueDecision).toBeDefined()
+  })
+
+  it(
+    'critique_node_deadline_records_budget_exhausted_not_critique_error',
+    async () => {
+      // The node deadline no longer reaches the catch as an AbortError: chat()
+      // maps an abort to `{ok:false,status:0}` and the agent model rethrows a
+      // plain Error. The signal is what says "we ran out of time".
+      const model = fakeAgentModel({ plan: [VALID_PLAN] })
+      const original = model.invoke.getMockImplementation()!
+      model.invoke.mockImplementation(async (messages: ChatMessage[], options?: InvokeOptions) => {
+        if (!isCritique(messages)) return original(messages, options)
+        await new Promise<void>((resolve) => {
+          const signal = options?.signal
+          if (!signal || signal.aborted) return resolve()
+          signal.addEventListener('abort', () => resolve(), { once: true })
+        })
+        throw new Error('openai 0: The operation was aborted')
+      })
+
+      // The critique's node signal is min(wallClockMs, RESERVED_TAIL_MS), so a
+      // short wall clock is what makes the node deadline observable here.
+      const result = await runAcquisition(baseInput, makeDeps(), {
+        model,
+        budgetOverride: { probes: 1, renders: 0, search: 0, turns: 3, wallClockMs: 2_000 },
+      })
+
+      const critique = result.decisions.find((decision) => decision.step === 'critique')!
+      // The action proves the call was made and timed out, not that the turn
+      // budget ran out before the node ever called the model.
+      expect(critique.action).toContain('CRITIQUE-TIMEOUT')
+      expect(critique.reason).toContain('budget_exhausted')
+      expect(critique.reason).not.toContain('critique_error')
+      expect(result.agentOutcome).not.toBe('blocked')
+    },
+    20_000,
+  )
+
+  it('abort_after_images_recovers_last_state_with_image_pool', async () => {
+    const imageUrls = ['https://cdn.example/1.jpg', 'https://cdn.example/2.jpg']
+
+    // The critique call will abort
+    const model = fakeAgentModel({
+      plan: [[{ name: 'submit_plan', args: VALID_PLAN }]],
+    })
+    const originalImpl = model.invoke.getMockImplementation()!
+    model.invoke.mockImplementation(async (messages: ChatMessage[], options?: InvokeOptions) => {
+      if (isCritique(messages)) {
+        const err = new Error('The operation was aborted')
+        err.name = 'AbortError'
+        throw err
+      }
+      return originalImpl(messages, options)
+    })
+
+    const deps = makeDeps({
+      scrapeBrandUrls: vi.fn().mockResolvedValue(scrapeWithImages(imageUrls)),
+      downloadAndGateImages: vi.fn().mockResolvedValue(imageUrls.map(fakeGatedImage)),
+      classifyImageBuffers: vi.fn().mockResolvedValue(imageUrls.map((u) => fakeClassifiedKeep(u))),
+      storeKeptImages: vi.fn().mockResolvedValue(
+        imageUrls.map((u, i) => fakeStoredRecord(`img-${i + 1}`, u)),
+      ),
+    })
+
+    const result = await runAcquisition(baseInput, deps, { model })
+
+    // Critique timed out but was caught — graph continued to finalize
+    expect(result.agentOutcome).toBe('planned')
+    // Images should be available because the images node ran successfully
+    expect(result.classifiedImages!.length).toBeGreaterThan(0)
+    // The image pool should be populated since finalize ran
+    expect(result.imagePool).toBeDefined()
+    expect(result.imagePool!.length).toBeGreaterThan(0)
+    // The critique decision should show the timeout was handled
+    const critiqueDecision = result.decisions.find(
+      (d) => d.step === 'critique' && d.action.includes('CRITIQUE-TIMEOUT'),
+    )
+    expect(critiqueDecision).toBeDefined()
+  })
+})
+
+// ---------------------------------------------------------------------------
+// Recovery
+// ---------------------------------------------------------------------------
+
+describe('acquisition graph — recovery', () => {
+  it('recover_runs_search_brand_when_thin_and_no_known_urls', async () => {
+    const searchBrand = vi.fn().mockResolvedValue({
+      urls: ['https://found.example'],
+      snippets: ['brand info'],
+    })
+    const deps = makeDeps({ searchBrand })
+
+    const result = await runAcquisition({ ...baseInput, knownUrls: [] }, deps, {
+      model: fakeAgentModel({
+        plan: [[{ name: 'submit_plan', args: { ...VALID_PLAN, surfaces: [], fanOut: [] } }]],
+        critique: [{ verdict: 'thin', reason: 'nothing found', recoveryAction: 'search' }, SUFFICIENT],
+      }),
+    })
+
+    expect(searchBrand).toHaveBeenCalledTimes(1)
+    expect(searchBrand).toHaveBeenCalledWith('Test Brand')
+    expect(result.budget!.used.search).toBe(1)
+  })
+
+  it('recover_refuses_search_when_known_urls_are_rich', async () => {
+    const searchBrand = vi.fn().mockResolvedValue({ urls: [], snippets: [] })
+    const deps = makeDeps({ searchBrand })
+
+    const result = await runAcquisition(baseInput, deps, {
+      model: fakeAgentModel({
+        plan: [[{ name: 'submit_plan', args: VALID_PLAN }]],
+        critique: [{ verdict: 'thin', reason: 'want more', recoveryAction: 'search' }, SUFFICIENT],
+      }),
+    })
+
+    expect(searchBrand).not.toHaveBeenCalled()
+    expect(
+      result.decisions.some((d) => `${d.action} ${d.reason}`.includes('search_refused')),
+    ).toBe(true)
+  })
+
+  it('recover_runs_search_images_when_keeps_thin_and_records_name_used', async () => {
+    const searchImages = vi.fn().mockResolvedValue([
+      'https://cdn.example/found-1.jpg',
+      'https://cdn.example/found-2.jpg',
+    ])
+
+    const deps = makeDeps({
+      scrapeBrandUrls: vi.fn().mockResolvedValue(scrapeWithImages(['https://cdn.example/a.jpg'])),
+      downloadAndGateImages: vi.fn()
+        .mockResolvedValueOnce([fakeGatedImage('https://cdn.example/a.jpg')])
+        .mockResolvedValueOnce([fakeGatedImage('https://cdn.example/found-1.jpg')]),
+      classifyImageBuffers: vi.fn()
+        .mockResolvedValueOnce([fakeClassifiedKeep('https://cdn.example/a.jpg')])
+        .mockResolvedValueOnce([fakeClassifiedKeep('https://cdn.example/found-1.jpg', 'product', 0.7)]),
+      storeKeptImages: vi.fn()
+        .mockResolvedValueOnce([fakeStoredRecord('img-1', 'https://cdn.example/a.jpg')])
+        .mockResolvedValueOnce([fakeStoredRecord('img-2', 'https://cdn.example/found-1.jpg')]),
+      searchImages,
+    })
+
+    const result = await runAcquisition(baseInput, deps, {
+      model: fakeAgentModel({
+        plan: [[{ name: 'submit_plan', args: { ...VALID_PLAN, fanOut: ['https://extra.example'] } }]],
+        critique: [{ verdict: 'thin', reason: 'few images', recoveryAction: 'fanout' }, SUFFICIENT],
+      }),
+    })
+
+    expect(searchImages).toHaveBeenCalledTimes(1)
+    expect(searchImages).toHaveBeenCalledWith({
+      brandName: 'Test Brand Official',
+      websiteHost: 'example.com',
+    })
+    // Decision #38: the name the image search actually used is on the record.
+    const searchDecision = result.decisions.find((d) => d.action.includes('search_images'))
+    expect(searchDecision).toBeDefined()
+    expect(searchDecision!.reason).toContain('Test Brand Official')
+  })
+
+  it('images_recover_classifies_only_new_ids', async () => {
+    let scrapeCall = 0
+    const deps = makeDeps({
+      scrapeBrandUrls: vi.fn().mockImplementation(async () => {
+        scrapeCall += 1
+        return scrapeCall === 1
+          ? scrapeWithImages(['https://cdn.example/a.jpg'])
+          : scrapeWithImages(['https://cdn.example/b.jpg'], 'https://extra.example')
+      }),
+      downloadAndGateImages: vi.fn()
+        .mockResolvedValueOnce([fakeGatedImage('https://cdn.example/a.jpg')])
+        .mockResolvedValueOnce([fakeGatedImage('https://cdn.example/b.jpg')]),
+      classifyImageBuffers: vi.fn()
+        .mockResolvedValueOnce([fakeClassifiedKeep('https://cdn.example/a.jpg')])
+        .mockResolvedValueOnce([fakeClassifiedKeep('https://cdn.example/b.jpg')]),
+      storeKeptImages: vi.fn()
+        .mockResolvedValueOnce([fakeStoredRecord('img-1', 'https://cdn.example/a.jpg')])
+        .mockResolvedValueOnce([fakeStoredRecord('img-2', 'https://cdn.example/b.jpg')]),
+    })
+
+    const result = await runAcquisition(baseInput, deps, {
+      model: fakeAgentModel({
+        plan: [[{ name: 'submit_plan', args: { ...VALID_PLAN, fanOut: ['https://extra.example'] } }]],
+        critique: [{ verdict: 'thin', reason: 'need more', recoveryAction: 'fanout' }, SUFFICIENT],
+      }),
+    })
+
+    expect(result.agentOutcome).toBe('recovered')
+    const ids = result.classifiedImages!.map((image) => image.id)
+    expect(ids).toEqual(['img-1', 'img-2'])
+    expect(new Set(ids).size).toBe(ids.length)
+  })
+})
+
+// ---------------------------------------------------------------------------
+// Images
+// ---------------------------------------------------------------------------
+
+describe('acquisition graph — images node', () => {
+  const planOnly = { plan: [[{ name: 'submit_plan', args: VALID_PLAN }] as ScriptedToolCall[]] }
+
+  it('images_node_classifies_scraped_images', async () => {
+    const imageUrls = ['https://cdn.example/1.jpg', 'https://cdn.example/2.jpg']
+    const deps = makeDeps({
+      scrapeBrandUrls: vi.fn().mockResolvedValue(scrapeWithImages(imageUrls)),
+      downloadAndGateImages: vi.fn().mockResolvedValue(imageUrls.map(fakeGatedImage)),
+      classifyImageBuffers: vi.fn().mockResolvedValue(imageUrls.map((u) => fakeClassifiedKeep(u))),
+      storeKeptImages: vi.fn().mockResolvedValue(
+        imageUrls.map((u, i) => fakeStoredRecord(`img-${i + 1}`, u)),
+      ),
+    })
+
+    const result = await runAcquisition(baseInput, deps, { model: fakeAgentModel(planOnly) })
+
+    expect(result.classifiedImages).toHaveLength(2)
+    expect(deps.downloadAndGateImages).toHaveBeenCalledTimes(1)
+    expect(deps.classifyImageBuffers).toHaveBeenCalledTimes(1)
+    expect(deps.storeKeptImages).toHaveBeenCalledTimes(1)
+  })
+
+  it('images_node_skips_when_dry_run', async () => {
+    const deps = makeDeps({
+      scrapeBrandUrls: vi.fn().mockResolvedValue(scrapeWithImages(['https://cdn.example/1.jpg'])),
+      downloadAndGateImages: vi.fn().mockResolvedValue([fakeGatedImage('https://cdn.example/1.jpg')]),
+      classifyImageBuffers: vi.fn(),
+      storeKeptImages: vi.fn(),
+    })
+
+    const result = await runAcquisition(baseInput, deps, {
+      model: fakeAgentModel(planOnly),
+      dryRun: true,
+    })
+
+    expect(result.agentOutcome).toBe('planned')
+    // downloadAndGateImages still runs (no persistence), but classify and store are skipped
+    expect(deps.classifyImageBuffers).not.toHaveBeenCalled()
+    expect(deps.storeKeptImages).not.toHaveBeenCalled()
+  })
+
+  it('images_node_empty_when_no_images', async () => {
+    const deps = makeDeps({
+      downloadAndGateImages: vi.fn(),
+      classifyImageBuffers: vi.fn(),
+      storeKeptImages: vi.fn(),
+    })
+
+    const result = await runAcquisition(baseInput, deps, { model: fakeAgentModel(planOnly) })
+
+    expect(result.classifiedImages).toEqual([])
+    expect(deps.downloadAndGateImages).not.toHaveBeenCalled()
+    expect(deps.classifyImageBuffers).not.toHaveBeenCalled()
+    expect(deps.storeKeptImages).not.toHaveBeenCalled()
+  })
+
+  it('images_node_extends_budget_per_stored_batch_under_ceiling', async () => {
+    // 15 images stored → ceil(15/10) = 2 batches → 2 × IMAGE_BATCH_EXTENSION_MS extension
+    const imageUrls = Array.from({ length: 15 }, (_, i) => `https://cdn.example/${i}.jpg`)
+
+    const deps = makeDeps({
+      scrapeBrandUrls: vi.fn().mockResolvedValue(scrapeWithImages(imageUrls)),
+      downloadAndGateImages: vi.fn().mockResolvedValue(imageUrls.map(fakeGatedImage)),
+      classifyImageBuffers: vi.fn().mockResolvedValue(
+        imageUrls.map((u) => fakeClassifiedKeep(u)),
+      ),
+      storeKeptImages: vi.fn().mockResolvedValue(
+        imageUrls.map((u, i) => fakeStoredRecord(`img-${i}`, u)),
+      ),
+    })
+
+    const result = await runAcquisition(baseInput, deps, {
+      model: fakeAgentModel({
+        plan: [[{ name: 'submit_plan', args: VALID_PLAN }]],
+      }),
+    })
+
+    // The budget should have been extended (exact value depends on timing, but
+    // it should be higher than the base budget for a static 1-probe site)
+    expect(result.budget!.allowed.wallClockMs).toBeGreaterThan(61_500)
+    // But never above the ceiling
+    expect(result.budget!.allowed.wallClockMs).toBeLessThanOrEqual(180_000)
+  })
+
+  it('acquire_pipeline_downloads_classifies_stores_in_sequence', async () => {
+    const callOrder: string[] = []
+    const imageUrl = 'https://cdn.example/seq.jpg'
+
+    const deps = makeDeps({
+      scrapeBrandUrls: vi.fn().mockResolvedValue(scrapeWithImages([imageUrl])),
+      downloadAndGateImages: vi.fn().mockImplementation(async () => {
+        callOrder.push('gate')
+        return [fakeGatedImage(imageUrl)]
+      }),
+      classifyImageBuffers: vi.fn().mockImplementation(async () => {
+        callOrder.push('classify')
+        return [fakeClassifiedKeep(imageUrl)]
+      }),
+      storeKeptImages: vi.fn().mockImplementation(async () => {
+        callOrder.push('store')
+        return [fakeStoredRecord('img-seq', imageUrl)]
+      }),
+    })
+
+    const result = await runAcquisition(baseInput, deps, { model: fakeAgentModel(planOnly) })
+
+    expect(callOrder).toEqual(['gate', 'classify', 'store'])
+    expect(result.classifiedImages).toHaveLength(1)
+    expect(result.classifiedImages![0]).toMatchObject({
+      id: 'img-seq',
+      tag: 'product',
+      score: 0.9,
+    })
+  })
+
+  it('rejected_images_never_reach_storage', async () => {
+    const keepUrl = 'https://cdn.example/keep.jpg'
+    const rejectUrl = 'https://cdn.example/reject.jpg'
+
+    const deps = makeDeps({
+      scrapeBrandUrls: vi.fn().mockResolvedValue(
+        scrapeWithImages([keepUrl, rejectUrl]),
+      ),
+      downloadAndGateImages: vi.fn().mockResolvedValue([
+        fakeGatedImage(keepUrl),
+        fakeGatedImage(rejectUrl),
+      ]),
+      classifyImageBuffers: vi.fn().mockResolvedValue([
+        fakeClassifiedKeep(keepUrl),
+        fakeClassifiedReject(rejectUrl),
+      ]),
+      storeKeptImages: vi.fn().mockResolvedValue([
+        fakeStoredRecord('img-kept', keepUrl),
+      ]),
+    })
+
+    const result = await runAcquisition(baseInput, deps, { model: fakeAgentModel(planOnly) })
+
+    // storeKeptImages receives only the keep, not the reject
+    const storeCall = vi.mocked(deps.storeKeptImages!).mock.calls[0]![0]
+    expect(storeCall).toHaveLength(1)
+    expect(storeCall[0]).toMatchObject({ disposition: 'keep', sourceUrl: keepUrl })
+
+    // Only the kept image appears in classifiedImages (rejects have no stored ID)
+    expect(result.classifiedImages).toHaveLength(1)
+    expect(result.classifiedImages![0]!.id).toBe('img-kept')
+  })
+})
+
+// ---------------------------------------------------------------------------
+// Finalize
+// ---------------------------------------------------------------------------
+
+describe('acquisition graph — finalize', () => {
+  const planOnly = { plan: [[{ name: 'submit_plan', args: VALID_PLAN }] as ScriptedToolCall[]] }
+
+  it('finalize_picks_hero_and_next_nine_gallery_from_rank', async () => {
+    const imageUrls = Array.from({ length: 12 }, (_, i) => `https://cdn.example/${i}.jpg`)
+
+    const deps = makeDeps({
+      scrapeBrandUrls: vi.fn().mockResolvedValue(scrapeWithImages(imageUrls)),
+      downloadAndGateImages: vi.fn().mockResolvedValue(imageUrls.map(fakeGatedImage)),
+      classifyImageBuffers: vi.fn().mockResolvedValue(
+        imageUrls.map((u, i) => fakeClassifiedKeep(u, 'product', 1 - i * 0.05)),
+      ),
+      storeKeptImages: vi.fn().mockResolvedValue(
+        imageUrls.map((u, i) => fakeStoredRecord(`img-${i}`, u)),
+      ),
+    })
+
+    const result = await runAcquisition(baseInput, deps, { model: fakeAgentModel(planOnly) })
+
+    expect(result.hero).toBeDefined()
+    expect(result.hero!.id).toBe('img-0')
+    // The next nine, in rank order — no per-page or logo cap.
+    expect(result.gallery).toHaveLength(9)
+    expect(result.gallery!.map((image) => image.id)).toEqual([
+      'img-1', 'img-2', 'img-3', 'img-4', 'img-5', 'img-6', 'img-7', 'img-8', 'img-9',
+    ])
+    expect(result.imagePool![0]).toMatchObject({
+      id: 'img-0',
+      tag: 'product',
+      score: expect.any(Number),
+      disposition: 'keep',
+    })
+    // Pages that yielded images are reported for the products agent.
+    expect(result.acquisitionPageUrls).toContain('https://example.com')
+  })
+
+  it('finalize_discovers_catalog', async () => {
+    const catalogResult = { triples: [], attempts: [], evidence: new Map() }
+    const discoverCatalog = vi.fn().mockResolvedValue(catalogResult)
+    const catalogSources = [{ url: 'https://example.com', channel: 'official' as const }]
+    const deps = makeDeps({ discoverCatalog, catalogSources })
+
+    const planWithCatalog = {
+      ...VALID_PLAN,
+      catalog: {
+        entryUrls: ['https://example.com/products'],
+        priorityProductUrls: ['https://example.com/products/item-1'],
+      },
+    }
+
+    const result = await runAcquisition(baseInput, deps, {
+      model: fakeAgentModel({ plan: [[{ name: 'submit_plan', args: planWithCatalog }]] }),
+    })
+
+    expect(result.catalogResult).toBeDefined()
+    expect(discoverCatalog).toHaveBeenCalledTimes(1)
+    expect(discoverCatalog.mock.calls[0]![0]).toMatchObject({
+      sources: catalogSources,
+      entryUrls: ['https://example.com/products'],
+      priorityProductUrls: ['https://example.com/products/item-1'],
+    })
+  })
+
+  // The brand's own purchase channels ARE the catalog sources. A plan that
+  // listed no product URL used to skip discovery outright, so the products
+  // phase then reported "no product candidates in the merged pool".
+  it('finalize_discovers_catalog_from_sources_when_plan_lists_none', async () => {
+    const discoverCatalog = vi
+      .fn()
+      .mockResolvedValue({ triples: [], attempts: [], evidence: new Map() })
+    const catalogSources = [{ url: 'https://example.com', channel: 'official' as const }]
+    const deps = makeDeps({ discoverCatalog, catalogSources })
+
+    const result = await runAcquisition(baseInput, deps, {
+      // VALID_PLAN carries an empty catalog: no entryUrls, no priorityProductUrls.
+      model: fakeAgentModel(planOnly),
+    })
+
+    expect(discoverCatalog).toHaveBeenCalledTimes(1)
+    expect(discoverCatalog.mock.calls[0]![0]).toMatchObject({
+      sources: catalogSources,
+      entryUrls: [],
+      priorityProductUrls: [],
+    })
+    expect(result.catalogResult).toBeDefined()
+    expect(result.decisions.find((d) => d.step === 'finalize')!.reason).toContain(
+      'catalog discovered',
+    )
+  })
+
+  it('finalize_records_no_sources_when_nothing_to_discover_from', async () => {
+    const discoverCatalog = vi.fn()
+    const deps = makeDeps({ discoverCatalog, catalogSources: [] })
+
+    const result = await runAcquisition(baseInput, deps, { model: fakeAgentModel(planOnly) })
+
+    expect(discoverCatalog).not.toHaveBeenCalled()
+    expect(result.decisions.find((d) => d.step === 'finalize')!.reason).toContain(
+      'catalog skipped: no sources',
+    )
+  })
+
+  it('finalize_collects_name_candidates_from_fetched_pages', async () => {
+    const result = await runAcquisition(baseInput, makeDeps(), {
+      model: fakeAgentModel(planOnly),
+    })
+
+    expect(result.nameCandidates).toContain('Test Brand Official')
+  })
+
+  it('finalize_sets_provider_failure_only_when_provider_threw_and_evidence_empty', async () => {
+    const failedScrape = {
+      data: {},
+      statuses: [
+        {
+          url: 'https://example.com',
+          ok: false,
+          classification: 'official-site' as const,
+          httpStatus: 503,
+          latencyMs: 10,
+          error: 'render failed',
+        },
+      ],
+    }
+    const brokenRender = {
+      fetchRendered: vi.fn().mockRejectedValue(new Error('browserless 429')),
+    }
+
+    const failing = makeDeps({ renderProvider: brokenRender, scrapeBrandUrls: vi.fn().mockResolvedValue(failedScrape) })
+    const failingResult = await runAcquisition(baseInput, failing, {
+      model: fakeAgentModel({
+        plan: [
+          [{ name: 'probe_rendered', args: { url: 'https://example.com' } }],
+          [{ name: 'submit_plan', args: VALID_PLAN }],
+        ],
+      }),
+      budgetOverride: { probes: 8, renders: 2, search: 0, turns: 4, wallClockMs: 45_000 },
+    })
+    expect(failingResult.providerFailure).toBe(true)
+
+    // Same provider throw, but the scrape produced evidence → not a provider failure.
+    const recovered = makeDeps({ renderProvider: { fetchRendered: vi.fn().mockRejectedValue(new Error('browserless 429')) } })
+    const recoveredResult = await runAcquisition(baseInput, recovered, {
+      model: fakeAgentModel({
+        plan: [
+          [{ name: 'probe_rendered', args: { url: 'https://example.com' } }],
+          [{ name: 'submit_plan', args: VALID_PLAN }],
+        ],
+      }),
+      budgetOverride: { probes: 8, renders: 2, search: 0, turns: 4, wallClockMs: 45_000 },
+    })
+    expect(recoveredResult.providerFailure).toBe(false)
+  })
+
+  it('finalize_runs_on_own_signal_when_budget_spent', async () => {
+    // Even when wall clock is exhausted before finalize starts, finalize must
+    // still run and produce ranked images + catalog result.
+    const imageUrls = Array.from({ length: 3 }, (_, i) => `https://cdn.example/${i}.jpg`)
+
+    const catalogResult = { triples: [], attempts: [], evidence: new Map() }
+    const discoverCatalog = vi.fn().mockResolvedValue(catalogResult)
+    const catalogSources = [{ url: 'https://example.com', channel: 'official' as const }]
+
+    const deps = makeDeps({
+      scrapeBrandUrls: vi.fn().mockResolvedValue(scrapeWithImages(imageUrls)),
+      downloadAndGateImages: vi.fn().mockResolvedValue(imageUrls.map(fakeGatedImage)),
+      classifyImageBuffers: vi.fn().mockResolvedValue(
+        imageUrls.map((u, i) => fakeClassifiedKeep(u, 'product', 1 - i * 0.05)),
+      ),
+      storeKeptImages: vi.fn().mockResolvedValue(
+        imageUrls.map((u, i) => fakeStoredRecord(`img-${i}`, u)),
+      ),
+      discoverCatalog,
+      catalogSources,
+    })
+
+    // Use a very short wall clock so it's exhausted by the time finalize runs
+    const result = await runAcquisition(baseInput, deps, {
+      model: fakeAgentModel({
+        plan: [[{ name: 'submit_plan', args: VALID_PLAN }]],
+      }),
+      budgetOverride: { probes: 8, renders: 0, search: 0, turns: 6, wallClockMs: 1 },
+    })
+
+    // Finalize should still have run and ranked images
+    const finalizeDecision = result.decisions.find((d) => d.step === 'finalize')
+    expect(finalizeDecision).toBeDefined()
+    expect(finalizeDecision!.action).toContain('ranked images')
+    // Catalog should have been discovered
+    expect(result.catalogResult).toBeDefined()
+    expect(discoverCatalog).toHaveBeenCalledTimes(1)
+  })
+})
+
+// ---------------------------------------------------------------------------
+// Trace / decision shape
+// ---------------------------------------------------------------------------
+
+describe('acquisition graph — trace entries', () => {
+  it('trace_entries_carry_started_at_allowance_remaining', async () => {
+    const model = fakeAgentModel({ plan: [[{ name: 'submit_plan', args: VALID_PLAN }]] })
+    const result = await runAcquisition(baseInput, makeDeps(), { model })
+
+    // Every decision entry must have the extended trace fields
+    for (const decision of result.decisions) {
+      expect(typeof decision.ms).toBe('number')
+      expect(typeof (decision as Record<string, unknown>).startedAtMs).toBe('number')
+      expect(typeof (decision as Record<string, unknown>).allowanceMs).toBe('number')
+      expect(typeof (decision as Record<string, unknown>).remainingMs).toBe('number')
+      expect((decision as Record<string, unknown>).startedAtMs).toBeGreaterThanOrEqual(0)
+      expect((decision as Record<string, unknown>).allowanceMs).toBeGreaterThanOrEqual(0)
+    }
+  })
+
+  it('node_deadline_never_consumes_reserved_tail', async () => {
+    // Use a tight wall clock to test that node allowances respect the reserved tail
+    const model = fakeAgentModel({ plan: [[{ name: 'submit_plan', args: VALID_PLAN }]] })
+    const result = await runAcquisition(baseInput, makeDeps(), {
+      model,
+      // With a real budget, verify that non-critique/finalize decisions have allowances
+      // that leave room for the reserved tail
+    })
+
+    const nonTailDecisions = result.decisions.filter(
+      (d) => !['critique', 'finalize', 'graph'].includes(d.step),
+    )
+    for (const decision of nonTailDecisions) {
+      const allowance = (decision as Record<string, unknown>).allowanceMs as number
+      const remaining = (decision as Record<string, unknown>).remainingMs as number
+      // The node's allowance should be ≤ remaining − RESERVED_TAIL_MS
+      // (but only when remaining > RESERVED_TAIL_MS — if budget is already consumed, anything goes)
+      if (remaining > RESERVED_TAIL_MS && allowance > 0) {
+        expect(allowance).toBeLessThanOrEqual(remaining - RESERVED_TAIL_MS)
+      }
+    }
+
+    // Critique/finalize allowance should be ≤ RESERVED_TAIL_MS
+    const tailDecisions = result.decisions.filter(
+      (d) => d.step === 'critique' || d.step === 'finalize',
+    )
+    for (const decision of tailDecisions) {
+      const allowance = (decision as Record<string, unknown>).allowanceMs as number
+      expect(allowance).toBeLessThanOrEqual(RESERVED_TAIL_MS)
+    }
+  })
+})

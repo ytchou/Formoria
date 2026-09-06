@@ -7,7 +7,7 @@ import {
   profileChatParams,
 } from "../llm-audit";
 import { STOCKIST_SYSTEM_PROMPT } from "@/lib/prompts/stockists";
-import { fetchLangfusePrompt } from "@/lib/langfuse/prompt";
+import { fetchLangfusePromptWithMeta } from "@/lib/langfuse/prompt";
 import {
   parseAndValidate,
   toStrictJsonSchema,
@@ -256,7 +256,7 @@ export async function runStockistsPhase({
           ? filteredEvidence.slice(0, 12_000)
           : filteredEvidence;
 
-        const systemPrompt = await fetchLangfusePrompt("stockists", STOCKIST_SYSTEM_PROMPT);
+        const { text: systemPrompt, prompt: stockistsPromptMeta } = await fetchLangfusePromptWithMeta("stockists", STOCKIST_SYSTEM_PROMPT);
         const config = buildProfiledEnrichmentConfig(
           "stockists",
           systemPrompt,
@@ -272,6 +272,7 @@ export async function runStockistsPhase({
             phase: "stockists",
             attempt: 1,
             config,
+            ...(stockistsPromptMeta ? { prompt: stockistsPromptMeta } : {}),
           },
           { apiKey: token },
         );

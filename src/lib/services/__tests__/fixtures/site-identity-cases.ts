@@ -29,7 +29,7 @@ import {
  * A false reject in the `accept` arm is the merge-blocking failure — it silently
  * empties `purchase_website` with no error and no log.
  */
-export type SiteIdentityOutcome = 'revoke' | 'keep'
+type SiteIdentityOutcome = 'revoke' | 'keep'
 
 export type SiteIdentityEvalCase = {
   id: string

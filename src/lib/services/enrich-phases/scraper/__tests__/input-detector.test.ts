@@ -2,6 +2,7 @@ import { describe, it, expect, vi, afterEach } from 'vitest'
 import {
   classifyByDomain,
   detectInputType,
+  isLinkAggregatorHost,
   isNonBrandSiteHost,
   isThirdPartyDirectoryHost,
 } from '../input-detector'
@@ -37,6 +38,7 @@ describe('classifyByDomain', () => {
   it('leaves link aggregators unclassified', () => {
     expect(classifyByDomain('https://linktr.ee/brand')).toBeNull()
     expect(classifyByDomain('https://bio.site/brand')).toBeNull()
+    expect(classifyByDomain('https://portaly.cc/handle')).toBeNull()
   })
 
   // Same reason: the delivery/directory hosts are an adoption guard only. Putting
@@ -56,6 +58,7 @@ describe('isNonBrandSiteHost', () => {
     'https://myship.7-11.com.tw/general/detail/GM123456',
     'https://linktr.ee/brand',
     'https://bio.site/brand',
+    'https://portaly.cc/handle',
   ])('is true for the platform URL %s', (url) => {
     expect(isNonBrandSiteHost(url)).toBe(true)
   })
@@ -117,6 +120,21 @@ describe('isThirdPartyDirectoryHost', () => {
   it('is false for a brand’s own domain and for a malformed URL', () => {
     expect(isThirdPartyDirectoryHost('https://www.gooddays.tw')).toBe(false)
     expect(isThirdPartyDirectoryHost('gooddays.tw')).toBe(false)
+  })
+})
+
+describe('isLinkAggregatorHost', () => {
+  it('matches portaly and linktree', () => {
+    expect(isLinkAggregatorHost('https://portaly.cc/mybrand')).toBe(true)
+    expect(isLinkAggregatorHost('https://linktr.ee/mybrand')).toBe(true)
+  })
+
+  it('rejects marketplace storefronts', () => {
+    expect(isLinkAggregatorHost('https://pinkoi.com/store/x')).toBe(false)
+  })
+
+  it('returns false for a malformed URL', () => {
+    expect(isLinkAggregatorHost('not-a-url')).toBe(false)
   })
 })
 

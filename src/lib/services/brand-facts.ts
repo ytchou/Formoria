@@ -8,7 +8,7 @@ import {
   SUBCATEGORY_VOCAB_BLOCK,
   MATERIAL_VOCAB_BLOCK,
 } from "@/lib/prompts/shared";
-import { fetchLangfusePrompt } from "@/lib/langfuse/prompt";
+import { fetchLangfusePromptWithMeta } from "@/lib/langfuse/prompt";
 import { z } from "zod";
 import {
   parseAndValidate,
@@ -128,7 +128,7 @@ const factsParseShape = z.object({
  * Structured Output schema for the facts extraction call, derived from the Zod
  * shape via `toStrictJsonSchema`.
  */
-export const FACTS_SCHEMA = {
+const FACTS_SCHEMA = {
   name: "brand_facts",
   schema: toStrictJsonSchema(factsShape),
 };
@@ -290,11 +290,11 @@ const foundingClaimShape = z.object({
   ]),
 });
 
-export const foundingFactsShape = z.object({
+const foundingFactsShape = z.object({
   claims: z.array(foundingClaimShape),
 });
 
-export const FOUNDING_FACTS_SCHEMA = {
+const FOUNDING_FACTS_SCHEMA = {
   name: "founding_fact_claims",
   schema: toStrictJsonSchema(foundingFactsShape),
 };
@@ -305,11 +305,11 @@ const verificationResultShape = z.object({
   reason: z.string().nullable(),
 });
 
-export const foundingFactsVerifyShape = z.object({
+const foundingFactsVerifyShape = z.object({
   results: z.array(verificationResultShape),
 });
 
-export const FOUNDING_FACTS_VERIFY_SCHEMA = {
+const FOUNDING_FACTS_VERIFY_SCHEMA = {
   name: "founding_fact_verification",
   schema: toStrictJsonSchema(foundingFactsVerifyShape),
 };
@@ -520,7 +520,7 @@ export async function extractBrandFacts(
   // Counted across both attempts: a first call the model answered and a second
   // that hit a spent account is not an outage.
   const calls = noLlmCalls();
-  const factsSystemPrompt = await fetchLangfusePrompt(
+  const { text: factsSystemPrompt, prompt: factsPromptMeta } = await fetchLangfusePromptWithMeta(
     "brand-facts",
     FACTS_SYSTEM_PROMPT,
     {
@@ -542,6 +542,7 @@ export async function extractBrandFacts(
           phase: "facts",
           attempt: attemptIndex + 1,
           config: attemptConfig,
+          ...(factsPromptMeta ? { prompt: factsPromptMeta } : {}),
         },
         { apiKey: token },
       );

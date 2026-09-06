@@ -1,3 +1,12 @@
+/**
+ * @formoria-script
+ * purpose: Fails CI when the Playwright report contains a skip that the expected-skips manifest does not allow.
+ * class: ci-gate
+ * invoke: pnpm check:e2e-report
+ * target: ci
+ * safety: read-only
+ * owner: engineering
+ */
 import { readFile, writeFile } from 'node:fs/promises';
 import { pathToFileURL } from 'node:url';
 

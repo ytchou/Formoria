@@ -1,4 +1,13 @@
 /**
+ * @formoria-script
+ * purpose: Fails the lint chain when a mainland-Chinese term appears in user-facing repository text.
+ * class: ci-gate
+ * invoke: pnpm check:zh-terms
+ * target: none
+ * safety: read-only
+ * owner: engineering
+ */
+/**
  * zh-TW vocabulary gate for user-facing repository text.
  *
  * Fails the lint chain when a mainland-Chinese term from
@@ -161,7 +170,7 @@ export const EXCLUDED_SOURCE_FILES = new Map([
     "LLM field labels and source examples",
   ],
   [
-    "lib/services/enrich-phases/links.ts",
+    "lib/services/enrich-phases/acquire.ts",
     "LLM field labels and source examples",
   ],
   ["lib/services/enrich-phases/classify-images.ts", "LLM user message"],

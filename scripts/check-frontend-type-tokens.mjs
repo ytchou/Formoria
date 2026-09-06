@@ -1,4 +1,13 @@
 #!/usr/bin/env node
+/**
+ * @formoria-script
+ * purpose: Fails the build on raw type or colour values in frontend code instead of design tokens.
+ * class: ci-gate
+ * invoke: pnpm check:frontend-tokens
+ * target: none
+ * safety: read-only
+ * owner: engineering
+ */
 import { existsSync, readFileSync, readdirSync } from "node:fs";
 import { join, relative } from "node:path";
 import { pathToFileURL } from "node:url";

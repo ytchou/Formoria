@@ -247,8 +247,12 @@ describe('audit registry names every audited stockist operation', () => {
     // Matched by PATTERN, not against the three retired literals: the registry
     // covers every audited provider, so a channel-named survivor anywhere in it
     // is a dead hook whether or not it was one of the names this task moved.
+    // The retired stockist names all ended in Channel / Channels / ChannelStatus
+    // (submitChannel, upsertEnrichedChannels, setOwnerChannelStatus); the pattern
+    // keys on that suffix so purchase-channel operations such as
+    // reportChannelVerdicts (DEV-1702) are not mistaken for stockist survivors.
     expect(
-      [...registryStrings].filter((name) => /channel/i.test(name)),
+      [...registryStrings].filter((name) => /Channels?(Status)?$/.test(name)),
     ).toEqual([])
   })
 })

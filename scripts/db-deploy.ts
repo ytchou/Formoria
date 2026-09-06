@@ -1,3 +1,12 @@
+/**
+ * @formoria-script
+ * purpose: Migration, type generation, seeding and verification entry point for a Supabase project.
+ * class: deploy-tool
+ * invoke: pnpm db:migrate
+ * target: none
+ * safety: writes
+ * owner: engineering
+ */
 import { spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import { existsSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
@@ -7,7 +16,7 @@ import {
   PRODUCTION_PROJECT_REF,
   STAGING_PROJECT_REF,
   validateStagingTarget,
-} from "./staging-target";
+} from "@/lib/supabase/project-target";
 
 type DeploymentEnvironment = "production" | "staging";
 
@@ -32,7 +41,7 @@ const MIGRATIONS = resolve(ROOT, "supabase/migrations");
 const EXPECTED_STORAGE_BUCKETS =
   "brand-images:false,claim-proofs:false,image-eval:false,run-logs:false";
 const EXPECTED_EXTENSIONS =
-  "pg_cron:pg_catalog,pg_net:public,pg_stat_statements:extensions,pg_trgm:public,pgcrypto:extensions,plpgsql:pg_catalog,supabase_vault:vault,uuid-ossp:extensions";
+  "pg_cron:pg_catalog,pg_net:public,pg_stat_statements:extensions,pg_trgm:public,pgcrypto:extensions,plpgsql:pg_catalog,supabase_vault:vault,uuid-ossp:extensions,vector:extensions";
 const CHECKSUM_MANIFEST = resolve(ROOT, "supabase/migration-checksums.json");
 
 // ---------------------------------------------------------------------------

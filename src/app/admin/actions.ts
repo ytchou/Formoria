@@ -222,7 +222,10 @@ async function approveSubmissionForAdmin(
     // just accepted has publishable data by definition. Hiding stays a separate
     // admin action, so this never fights a deliberate re-hide.
     if (brand.status === 'hidden') {
-      await updateBrand(refresh.brandId, { status: 'approved' })
+      await updateBrand(refresh.brandId, {
+        status: 'approved',
+        hiddenReason: null,
+      })
     }
     await materializeProposedProducts(submissionId, refresh.brandId)
     // The third hidden -> approved path, and the exact inverse of
@@ -637,7 +640,7 @@ async function notifySubmissionRejected(
 /**
  * The single item workflow behind both the per-row and the bulk rejection
  * action, so single and bulk behavior cannot drift.
- * `scripts/reject-skipped-submissions.ts` mirrors this by comment, not by
+ * `scripts/enrichment/ops/reject-skipped-submissions.ts` mirrors this by comment, not by
  * import — it deliberately omits the notification email.
  */
 async function rejectSubmissionForAdmin(
@@ -955,7 +958,10 @@ export async function unhideBrandAction(
       // the same trails, which is the identical staleness in the other
       // direction, and the placement rows are unchanged by the status write.
       const trailSlugs = await brandTrailSlugsForRevalidation(brandId)
-      const brand = await updateBrand(brandId, { status: 'approved' })
+      const brand = await updateBrand(brandId, {
+        status: 'approved',
+        hiddenReason: null,
+      })
 
       revalidatePath(routes.admin.brands())
       revalidatePath(routes.admin.index())

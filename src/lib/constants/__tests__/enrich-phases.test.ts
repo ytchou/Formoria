@@ -16,33 +16,40 @@ import {
   SUB_PHASES,
   TEXT_ENRICH_PHASES,
   isDeferredPhase,
+  normalizeRequestedPhases,
   parseLegacyStepsToPhases,
   phasesForTask,
 } from "../enrich-phases";
 
 describe("scoped enrich phase sets", () => {
-  it("registry exhaustiveness", () => {
+  it("registry exhaustiveness — every non-deferred phase assigned to exactly one stage", () => {
     const assigned = new Set<string>([
       ...SERP_PHASES,
       ...ENRICH_LLM_PHASES,
       ...LOCAL_PHASES,
-    ])
-    expect(assigned.size).toBe(ENRICH_PHASES.length)
-    expect(assigned).toEqual(new Set(ENRICH_PHASES))
-  })
+    ]);
+    const nonDeferred = ENRICH_PHASES.filter(
+      (phase) => !(DEFERRED_PHASES as readonly string[]).includes(phase),
+    );
+    expect(assigned.size).toBe(nonDeferred.length);
+    expect(assigned).toEqual(new Set(nonDeferred));
+  });
 
-  it("phase order places site_identity before image-search", () => {
-    expect(ENRICH_PHASES.indexOf('site_identity')).toBeLessThan(ENRICH_PHASES.indexOf('images'))
-  })
+  it("acquire_in_enrich_phases", () => {
+    expect(ENRICH_PHASES).toContain("acquire");
+  });
 
-  it("products_runs_after_links_and_site_identity", () => {
-    // The phase proposes products from the brand's own site, so it needs the
-    // links phase's resolved `purchase_website` AND site-identity's verdict on
-    // it — reading a revoked site would send it at a stranger's shop.
+  it("acquire_is_placed_after_links_in_enrich_phases_order", () => {
+    const linksIdx = ENRICH_PHASES.indexOf("links");
+    const acquireIdx = ENRICH_PHASES.indexOf("acquire");
+    expect(acquireIdx).toBeGreaterThan(linksIdx);
+  });
+
+  it("products_runs_after_acquire", () => {
     const products = ENRICH_PHASES.indexOf("products");
-    expect(products).toBeGreaterThan(ENRICH_PHASES.indexOf("links"));
-    expect(products).toBeGreaterThan(ENRICH_PHASES.indexOf("site_identity"));
-  })
+    const acquire = ENRICH_PHASES.indexOf("acquire");
+    expect(products).toBeGreaterThan(acquire);
+  });
 
   it("only contains phases that exist in ENRICH_PHASES", () => {
     const all = ENRICH_PHASES as readonly string[];
@@ -59,12 +66,6 @@ describe("scoped enrich phase sets", () => {
     expect([...IMAGE_ENRICH_PHASES, ...TEXT_ENRICH_PHASES].sort()).toEqual(
       [...ENRICH_PHASES].sort(),
     );
-  });
-
-  it("routes discover into the text set and not the image set", () => {
-    expect(TEXT_ENRICH_PHASES).toContain("discover");
-    expect(TEXT_ENRICH_PHASES).not.toContain("images");
-    expect(TEXT_ENRICH_PHASES).not.toContain("classify_images");
   });
 });
 
@@ -164,6 +165,23 @@ describe("deferred phases", () => {
     }
     expect(isDeferredPhase("not-a-phase")).toBe(false);
   });
+
+  it("deferred_phases_includes_retired", () => {
+    const retired = [
+      "discover",
+      "clean",
+      "links",
+      "site_identity",
+      "images",
+      "classify_images",
+    ];
+    for (const phase of retired) {
+      expect(
+        isDeferredPhase(phase),
+        `${phase} should be deferred`,
+      ).toBe(true);
+    }
+  });
 });
 
 describe("phase dependencies and task vocabulary", () => {
@@ -196,6 +214,10 @@ describe("phase dependencies and task vocabulary", () => {
     }
   });
 
+  it("phase_dependencies_acquire", () => {
+    expect(PHASE_DEPENDENCIES.acquire).toEqual(["detect"]);
+  });
+
   it("every_phase_belongs_to_a_task_or_is_deferred", () => {
     const assigned = new Set<string>(
       Object.values(CURATION_TASKS).flatMap((phases) => [...phases]),
@@ -209,19 +231,46 @@ describe("phase dependencies and task vocabulary", () => {
     ).toEqual([...DEFERRED_PHASES]);
   });
 
-  it("visual_task_resolves_all_three_phases", () => {
+  it("visual_task_closure", () => {
     const closure = phasesForTask("visual");
-    // Must include images, classify_images, products and their transitive deps
-    expect(closure).toContain("images");
-    expect(closure).toContain("classify_images");
-    expect(closure).toContain("products");
-    expect(closure).toContain("links");
-    expect(closure).toContain("site_identity");
-    expect(closure).toContain("names");
+    expect(closure).toEqual(
+      expect.arrayContaining(["detect", "acquire", "names", "products"]),
+    );
+    expect(closure).toHaveLength(4);
+    // Must exclude deferred phases
+    expect(closure).not.toContain("images");
+    expect(closure).not.toContain("classify_images");
+    expect(closure).not.toContain("links");
+    expect(closure).not.toContain("site_identity");
     // Must exclude unrelated phases
     expect(closure).not.toContain("descriptions");
-    expect(closure).not.toContain("reputation");
     expect(closure).not.toContain("faq");
+  });
+
+  it("identity_task_closure", () => {
+    const closure = phasesForTask("identity");
+    expect(closure).toContain("acquire");
+    expect(closure).toContain("detect");
+    expect(closure).toContain("slugs");
+    expect(closure).toContain("names");
+    // Must exclude deferred phases
+    expect(closure).not.toContain("discover");
+    expect(closure).not.toContain("clean");
+    expect(closure).not.toContain("links");
+    expect(closure).not.toContain("site_identity");
+  });
+
+  it("editorial_task_closure", () => {
+    const closure = phasesForTask("editorial");
+    expect(closure).toContain("acquire");
+    expect(closure).toContain("detect");
+    expect(closure).toContain("descriptions");
+    expect(closure).toContain("faq");
+    expect(closure).toContain("tags");
+    expect(closure).toContain("stockists");
+    // Must exclude deferred phases
+    expect(closure).not.toContain("links");
+    expect(closure).not.toContain("site_identity");
   });
 
   it("hidden_alias_image_resolves_full_visual_phases", () => {
@@ -236,16 +285,12 @@ describe("phase dependencies and task vocabulary", () => {
     expect(product).toEqual(visual);
   });
 
-  it("products_closure_includes_classify_images", () => {
-    // products depends on classify_images via PHASE_DEPENDENCIES
-    const closure = phasesForTask("visual");
-    expect(closure).toContain("classify_images");
-    // Verify the dependency chain: products <- classify_images <- images <- names <- ...
-    expect(PHASE_DEPENDENCIES.products).toContain("classify_images");
-  });
-
-  it("task_full_covers_every_non_deferred_phase", () => {
+  it("full_task_excludes_deferred", () => {
     const closure = phasesForTask("full");
+    for (const phase of DEFERRED_PHASES) {
+      expect(closure).not.toContain(phase);
+    }
+    // Should include all non-deferred phases
     const expected = (ENRICH_PHASES as readonly string[]).filter(
       (phase) => !(DEFERRED_PHASES as readonly string[]).includes(phase),
     );
@@ -264,12 +309,6 @@ describe("phase dependencies and task vocabulary", () => {
         ).toBeGreaterThan(indices[i - 1]!);
       }
     }
-  });
-
-  it("products_dependency_on_classify_images_is_a_real_edge", () => {
-    // products now depends on classify_images (promoted from comment-only edge
-    // as part of the visual acquisition task merge, DEV-1633)
-    expect(PHASE_DEPENDENCIES.products).toContain("classify_images");
   });
 
   it("task_order_contains_visual_not_image_or_product", () => {
@@ -295,19 +334,36 @@ describe("phase dependencies and task vocabulary", () => {
 
 describe("parseLegacyStepsToPhases", () => {
   it("expands a legacy step into phases in ENRICH_PHASES order", () => {
-    expect(parseLegacyStepsToPhases(["image"])).toEqual([
-      "images",
-      "classify_images",
-    ]);
+    // The legacy `image` step used to expand to ["images", "classify_images"].
+    // Both are deferred, so the step now resolves to the visual task's closure
+    // (detect → acquire → names → products) and the result is normalized like
+    // every other requested scope.
+    expect(parseLegacyStepsToPhases(["image"])).toEqual(
+      phasesForTask("visual"),
+    );
   });
 
-  it("expands all legacy steps to every non-deferred phase", () => {
-    const expected = (ENRICH_PHASES as readonly string[]).filter(
-      (phase) => !(DEFERRED_PHASES as readonly string[]).includes(phase),
-    );
-    expect(
-      parseLegacyStepsToPhases(["context", "image", "detail"]),
-    ).toEqual(expected);
+  it("legacy_step_context_resolves", () => {
+    const result = parseLegacyStepsToPhases(["context"]);
+    expect(result).toContain("acquire");
+    expect(result).toContain("detect");
+    expect(result).toContain("slugs");
+    expect(result).toContain("names");
+  });
+
+  it("expands all legacy steps covering all mapped phases", () => {
+    const result = parseLegacyStepsToPhases(["context", "image", "detail"]);
+    expect(result).toBeDefined();
+    // context + image + detail covers: detect, slugs, acquire, names,
+    // descriptions, faq, products, tags, stockists. Deferred names never
+    // survive — the step map is normalized before it is returned.
+    expect(result).toContain("detect");
+    expect(result).toContain("acquire");
+    expect(result).toContain("names");
+    expect(result).toContain("products");
+    for (const phase of DEFERRED_PHASES) {
+      expect(result).not.toContain(phase);
+    }
   });
 
   it("drops unknown step names", () => {
@@ -319,20 +375,83 @@ describe("parseLegacyStepsToPhases", () => {
   });
 });
 
+describe("normalizeRequestedPhases", () => {
+  it("normalize_maps_legacy_and_drops_deferred", () => {
+    // `links` is the retired name of `acquire`; `images`/`classify_images`
+    // fold into the full visual closure (detect → acquire → names → products).
+    expect(
+      normalizeRequestedPhases(["links", "images", "clean", "discover"]),
+    ).toEqual(["detect", "acquire", "names", "products"]);
+
+    // Nothing survives → empty list. The caller (resolvePhases, effectiveRequestedPhases)
+    // falls through to the next precedence level, not the normalizer.
+    expect(normalizeRequestedPhases(["site_identity"])).toEqual([]);
+
+    // Unknown strings are dropped, not carried through as valid-looking scope.
+    expect(normalizeRequestedPhases(["detect", "expansion", "bogus"])).toEqual([
+      "detect",
+    ]);
+
+    // Result order is ENRICH_PHASES order, not input order, and deduped.
+    expect(
+      normalizeRequestedPhases(["products", "detect", "links", "acquire"]),
+    ).toEqual(["detect", "acquire", "products"]);
+  });
+
+  it("normalize_never_returns_deferred", () => {
+    const deferred = new Set<string>(DEFERRED_PHASES);
+    const universe: string[] = [
+      ...ENRICH_PHASES,
+      "expansion",
+      "reputation",
+      "bogus",
+    ];
+
+    const subsets: string[][] = [[]];
+    // Every singleton and every pair drawn from the full universe...
+    for (const [index, phase] of universe.entries()) {
+      subsets.push([phase]);
+      for (const other of universe.slice(index + 1)) {
+        subsets.push([phase, other]);
+      }
+    }
+    // ...plus every subset of the deferred names crossed with three live
+    // phases, which is where a leak would actually come from.
+    const sweep = [...DEFERRED_PHASES, "detect", "acquire", "products"];
+    for (let mask = 0; mask < 1 << sweep.length; mask += 1) {
+      subsets.push(sweep.filter((_, index) => (mask & (1 << index)) !== 0));
+    }
+
+    for (const subset of subsets) {
+      const result = normalizeRequestedPhases(subset);
+      expect(
+        result.filter((phase) => deferred.has(phase)),
+        `deferred phase leaked for input [${subset.join(", ")}]`,
+      ).toEqual([]);
+      // An empty result is valid: the caller owns the fallback-to-full.
+      expect(new Set(result).size).toBe(result.length);
+      expect(result).toEqual(ENRICH_PHASES.filter((p) => result.includes(p)));
+    }
+  });
+});
+
 describe("SERP vs enrichment stage groups", () => {
   const groups = Object.entries(ENRICH_STAGE_GROUPS) as [
     string,
     readonly string[],
   ][];
 
-  it("assigns every ENRICH_PHASES member to a stage", () => {
+  it("stage_groups_exhaustive — every non-deferred phase assigned to exactly one stage", () => {
     const assigned = new Set<string>(groups.flatMap(([, phases]) => phases));
-    const unassigned = (ENRICH_PHASES as readonly string[]).filter(
+    const nonDeferred = (ENRICH_PHASES as readonly string[]).filter(
+      (phase) => !(DEFERRED_PHASES as readonly string[]).includes(phase),
+    );
+    const unassigned = nonDeferred.filter(
       (phase) => !assigned.has(phase),
     );
     expect(
       unassigned,
-      `phases with no stage assignment: ${unassigned.join(", ") || "(none)"} — add each to SERP_PHASES, ENRICH_LLM_PHASES, or LOCAL_PHASES`,
+      `non-deferred phases with no stage assignment: ${unassigned.join(", ") || "(none)"} — add each to SERP_PHASES, ENRICH_LLM_PHASES, or LOCAL_PHASES`,
     ).toEqual([]);
   });
 
@@ -387,21 +506,17 @@ describe("SERP vs enrichment stage groups", () => {
     }
   });
 
-  it("routes both serper-backed search phases into the SERP stage", () => {
-    expect(SERP_PHASES).toContain("discover");
-    expect(SERP_PHASES).toContain("images");
+  it("acquire is in the LLM stage", () => {
+    expect(ENRICH_LLM_PHASES).toContain("acquire");
   });
 
-  it("keeps search provider phases out of the LLM stage", () => {
-    expect(ENRICH_LLM_PHASES).not.toContain("discover");
-    expect(ENRICH_LLM_PHASES).not.toContain("images");
-    expect(ENRICH_LLM_PHASES).toContain("classify_images");
-    expect(ENRICH_LLM_PHASES).toContain("descriptions");
-  });
-
-  it("keeps LLM and serper phases out of the local stage", () => {
-    expect(LOCAL_PHASES).toContain("clean");
-    expect(LOCAL_PHASES).not.toContain("descriptions");
-    expect(LOCAL_PHASES).not.toContain("discover");
+  it("deferred phases are not in any stage group", () => {
+    const assigned = new Set<string>(groups.flatMap(([, phases]) => phases));
+    for (const phase of DEFERRED_PHASES) {
+      expect(
+        assigned.has(phase),
+        `deferred phase ${phase} is assigned to a stage group`,
+      ).toBe(false);
+    }
   });
 });

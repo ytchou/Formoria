@@ -9,14 +9,20 @@ import {
 import {
   CURATION_TASKS,
   type CurationTask,
+  normalizeRequestedPhases,
   phasesForTask,
   parseLegacyStepsToPhases,
 } from "@/lib/constants/enrich-phases";
 import {
+  reportChannelVerdicts,
   reportCircuitBreakerTrip,
   reportJobFailure,
   reportProviderFailures,
 } from "@/lib/services/job-alerts";
+import {
+  applyNoPurchaseChannelVerdicts,
+  type ChannelVerdictResult,
+} from "@/lib/services/channel-verdicts";
 import {
   logEnrichmentProgress,
   type EnrichmentSummary,
@@ -66,6 +72,8 @@ type JobParams = {
   steps?: string[];
   overwrite?: boolean;
   status?: BrandStatus;
+  /** Multiplier for the per-brand time budget. >1 grants more time. */
+  budgetScale?: number;
 };
 type OperationWithSummary = CurationOperationResult & {
   enrichmentSummary: EnrichmentSummary;
@@ -123,35 +131,10 @@ export async function runJob(
 
   try {
     await runOperation(createServiceClient(), job, workerToken, options);
-    await markUnreportedTargetsSkipped(job.id, workerToken);
-    const targets = await listCurationJobTargets(job.id);
-    const summary = summaryFromTargets(targets, Date.now() - startedAt);
-    if (leaseLost) {
-      throw new Error("Job lease was lost before completion");
-    }
-
-    const completed = await finalizeCurationJob(job.id, workerToken, {
-      status: "completed",
-      completed_at: new Date().toISOString(),
-      progress: progressJson(targets),
-      result: summary as unknown as Json,
-      target_total: targets.length,
-      succeeded_count: summary.success,
-      skipped_count: summary.skipped,
-      failed_count: summary.failed,
-      job_error: null,
+    return await finalizeSuccessfulJob(job, workerToken, {
+      startedAt,
+      isLeaseLost: () => leaseLost,
     });
-
-    if (!completed) {
-      throw new Error("Job lease was lost before completion");
-    }
-
-    await archiveRunLog(job.id);
-    // A search-provider outage never throws — it finalizes right here, as a
-    // `completed` job carrying failed targets. This is the only reachable alert
-    // path for it; the catch below only sees process-level crashes.
-    await reportProviderFailures(job, summary);
-    return summary;
   } catch (error) {
     const message = sanitizeJobError(error);
     // The LLM circuit breaker fired. `runEnrich` only throws this after the
@@ -192,6 +175,128 @@ export async function runJob(
   }
     },
   );
+}
+
+/**
+ * Collaborators of the success branch, injectable so the finalize ORDER is
+ * testable without a Supabase client. Order is the contract: verdicts must run
+ * after every target has reported (`markUnreportedTargetsSkipped`) and before
+ * the job is finalized, or a job could be marked complete while its automatic
+ * rejections were still in flight.
+ */
+export type JobFinalizeDeps = {
+  markUnreportedTargetsSkipped: (
+    jobId: string,
+    workerToken: string,
+  ) => Promise<void>;
+  applyNoPurchaseChannelVerdicts: (input: {
+    jobId: string;
+    onProgress?: (message: string) => void;
+  }) => Promise<ChannelVerdictResult>;
+  listCurationJobTargets: (jobId: string) => Promise<CurationJobTarget[]>;
+  finalizeCurationJob: typeof finalizeCurationJob;
+  archiveRunLog: (jobId: string) => Promise<void>;
+  reportProviderFailures: (
+    job: CurationJob,
+    summary: EnrichmentSummary,
+  ) => Promise<void>;
+  reportChannelVerdicts: (
+    job: CurationJob,
+    verdict: ChannelVerdictResult,
+  ) => Promise<void>;
+};
+
+const defaultFinalizeDeps: JobFinalizeDeps = {
+  markUnreportedTargetsSkipped,
+  applyNoPurchaseChannelVerdicts,
+  listCurationJobTargets,
+  finalizeCurationJob,
+  archiveRunLog,
+  reportProviderFailures,
+  reportChannelVerdicts,
+};
+
+/**
+ * The success tail of `runJob`: mark the stragglers skipped, apply the
+ * automatic channel verdicts, summarize, finalize, alert.
+ *
+ * Verdicts are skipped on a dry run (a dry run must never write), on a
+ * non-enrich operation, and when the lease is already lost — a worker that no
+ * longer owns the job must not reject submissions another worker is re-running.
+ * The lease check therefore throws BEFORE the pass, never after: a throw that
+ * follows committed hides and rejects would skip both the job row and the
+ * Slack summary, leaving destructive writes with no audit trail.
+ *
+ * The verdict pass is also failure-isolated. It runs after every target has
+ * already been enriched and reported, so a PostgREST error inside it must not
+ * turn a finished job into a `failed` one that the scheduler then re-runs
+ * from the top.
+ */
+export async function finalizeSuccessfulJob(
+  job: CurationJob,
+  workerToken: string,
+  context: { startedAt: number; isLeaseLost: () => boolean },
+  deps: JobFinalizeDeps = defaultFinalizeDeps,
+): Promise<EnrichmentSummary> {
+  await deps.markUnreportedTargetsSkipped(job.id, workerToken);
+
+  if (context.isLeaseLost()) {
+    throw new Error("Job lease was lost before completion");
+  }
+
+  let verdict: ChannelVerdictResult | null = null;
+  if (!job.dry_run && job.operation === "enrich" && !context.isLeaseLost()) {
+    try {
+      verdict = await deps.applyNoPurchaseChannelVerdicts({
+        jobId: job.id,
+        onProgress: logEnrichmentProgress,
+      });
+    } catch (error) {
+      verdict = null;
+      logEnrichmentProgress(
+        `[NO-CHANNEL-VERDICT] pass failed: ${
+          error instanceof Error ? error.message : String(error)
+        }`,
+      );
+    }
+  }
+
+  const targets = await deps.listCurationJobTargets(job.id);
+  const summary: EnrichmentSummary = {
+    ...summaryFromTargets(targets, Date.now() - context.startedAt),
+    ...(verdict
+      ? {
+          noChannelRejected: verdict.noChannelRejected,
+          noChannelHidden: verdict.noChannelHidden,
+          verdictSkipped: verdict.verdictSkipped,
+          hideFailed: verdict.hideFailed,
+        }
+      : {}),
+  };
+
+  const completed = await deps.finalizeCurationJob(job.id, workerToken, {
+    status: "completed",
+    completed_at: new Date().toISOString(),
+    progress: progressJson(targets),
+    result: summary as unknown as Json,
+    target_total: targets.length,
+    succeeded_count: summary.success,
+    skipped_count: summary.skipped,
+    failed_count: summary.failed,
+    job_error: null,
+  });
+
+  if (!completed) {
+    throw new Error("Job lease was lost before completion");
+  }
+
+  await deps.archiveRunLog(job.id);
+  // A search-provider outage never throws — it finalizes right here, as a
+  // `completed` job carrying failed targets. This is the only reachable alert
+  // path for it; the caller's catch only sees process-level crashes.
+  await deps.reportProviderFailures(job, summary);
+  if (verdict) await deps.reportChannelVerdicts(job, verdict);
+  return summary;
 }
 
 async function archiveRunLog(jobId: string): Promise<void> {
@@ -241,6 +346,7 @@ async function runOperation(
       persistTargetProgressBatch(supabase, job, workerToken, events),
     jobId: job.id,
     renderProvider: options.renderProvider,
+    budgetScale: params.budgetScale,
   };
   let result: OperationWithSummary;
   const status = params.status;
@@ -299,7 +405,7 @@ function parseOperation(operation: string): ValidOperation {
   throw new Error(`Unsupported operation: ${operation}`);
 }
 
-function parseParams(params: Json | null): JobParams {
+export function parseParams(params: Json | null): JobParams {
   if (!params || typeof params !== "object" || Array.isArray(params)) {
     return {};
   }
@@ -324,6 +430,13 @@ function parseParams(params: Json | null): JobParams {
       ? Math.floor(raw.stopAfter)
       : undefined;
 
+  const budgetScale =
+    typeof raw.budgetScale === "number" &&
+    Number.isFinite(raw.budgetScale) &&
+    raw.budgetScale > 0
+      ? raw.budgetScale
+      : undefined;
+
   return {
     slugs,
     submissionIds,
@@ -334,6 +447,7 @@ function parseParams(params: Json | null): JobParams {
     steps: parseLegacyStepNames(raw.steps),
     overwrite: parseOverwriteParam(raw.overwrite),
     status: parseStatus(raw.status),
+    budgetScale,
   };
 }
 
@@ -349,7 +463,10 @@ async function runSubmissionEnrichment(
       target: "submissions",
       submissionIds,
       status: params.status,
-      phases: resolvePhases(params) ?? config.phases ?? [...ENRICH_PHASES],
+      // `resolvePhases` always answers (its own default is the `full` closure),
+      // so there is no fall-through to `config.phases` or to the raw
+      // ENRICH_PHASES array — which would smuggle the deferred names back in.
+      phases: resolvePhases(params),
       explicitPhases: params.phases ?? [],
     },
     operationSupabase(supabase),
@@ -375,35 +492,35 @@ function parseStatus(value: unknown): BrandStatus | undefined {
     : undefined;
 }
 
+/**
+ * `expansion` was renamed to `reputation` (2026-08-03); `reputation` was
+ * removed entirely (2026-08-31). Neither is a phase name any more, so they are
+ * dropped BEFORE normalization rather than mapped: a row naming only these has
+ * no scope at all and must fall through to `task`/`steps`, not escalate.
+ */
 const RETIRED_ENRICH_PHASES = new Set(["expansion", "reputation"]);
 
 /**
- * Drops retired phase names from historical jobs. `expansion` was renamed to
- * `reputation` (2026-08-03); `reputation` removed entirely (2026-08-31).
- * The filter on line 401 already drops unknown names, but normalizing here
- * prevents `expansion` from being carried as a valid-looking but unrecognized
- * string into other code paths.
+ * Reads `params.phases` from a stored job row. Recognized names are normalized
+ * (retired names mapped, deferred names dropped — see
+ * `normalizeRequestedPhases`); a row naming nothing recognizable returns
+ * undefined so the caller falls through to the next precedence level.
  */
-function normalizeLegacyEnrichPhase(phase: string): string {
-  return RETIRED_ENRICH_PHASES.has(phase) ? "" : phase;
-}
-
 function parseEnrichPhases(value: unknown): EnrichPhase[] | undefined {
   if (!Array.isArray(value)) {
     return undefined;
   }
 
-  const phases = value
-    .map((phase) =>
-      typeof phase === "string" ? normalizeLegacyEnrichPhase(phase) : phase,
-    )
-    .filter(
-      (phase): phase is EnrichPhase =>
-        typeof phase === "string" &&
-        (ENRICH_PHASES as readonly string[]).includes(phase),
-    );
+  const named = value.filter(
+    (phase): phase is string =>
+      typeof phase === "string" &&
+      !RETIRED_ENRICH_PHASES.has(phase) &&
+      (ENRICH_PHASES as readonly string[]).includes(phase),
+  );
 
-  return phases.length > 0 ? [...new Set(phases)] : undefined;
+  return named.length > 0
+    ? (normalizeRequestedPhases(named) as EnrichPhase[])
+    : undefined;
 }
 
 /**
@@ -431,16 +548,36 @@ function parseLegacyStepNames(value: unknown): string[] | undefined {
 
 /**
  * Resolve the effective phase list from job params.
- * Precedence: explicit phases > task > legacy steps > all phases.
+ * Precedence: explicit phases > task > legacy steps > the `full` closure.
+ *
+ * Every branch goes through `normalizeRequestedPhases`, so a deferred phase can
+ * never be scheduled no matter which vocabulary the stored row uses. The
+ * no-scope default is `phasesForTask('full')` and NOT `[...ENRICH_PHASES]`:
+ * that array still carries the deferred names, and scheduling one means
+ * scheduling a phase that no longer has a runner.
+ *
+ * Exported for the phase-resolution tests: a deferred name leaking out of here
+ * is invisible until a whole staging run has scraped nothing.
  */
-function resolvePhases(params: JobParams): EnrichPhase[] {
-  if (params.phases) return params.phases;
-  if (params.task) return phasesForTask(params.task) as EnrichPhase[];
+export function resolvePhases(params: JobParams): EnrichPhase[] {
+  if (params.phases) {
+    const normalized = normalizeRequestedPhases(params.phases) as EnrichPhase[];
+    return normalized.length > 0 ? normalized : fullPhases();
+  }
+  if (params.task) {
+    return normalizeRequestedPhases(
+      phasesForTask(params.task),
+    ) as EnrichPhase[];
+  }
   if (params.steps) {
     const fromSteps = parseLegacyStepsToPhases(params.steps);
-    return (fromSteps as EnrichPhase[] | undefined) ?? [...ENRICH_PHASES];
+    return (fromSteps as EnrichPhase[] | undefined) ?? fullPhases();
   }
-  return [...ENRICH_PHASES];
+  return fullPhases();
+}
+
+function fullPhases(): EnrichPhase[] {
+  return phasesForTask("full") as EnrichPhase[];
 }
 
 function progressJson(targets: CurationJobTarget[]): Json {

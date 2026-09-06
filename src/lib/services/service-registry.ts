@@ -8,7 +8,8 @@ type ServiceCategory =
   | "observability"
   | "hosting"
   | "tooling"
-  | "registry";
+  | "registry"
+  | "scraping";
 
 type ServiceCriticality =
   "customer-critical" | "customer-flow" | "back-office" | "dev-tooling";
@@ -105,6 +106,7 @@ export const NON_SERVICE_ENV: Readonly<Record<string, string>> = {
   PR_URL: "CI notification metadata, not a provider service.",
   RAILWAY_LOGS_URL: "Internal log-query target, not a provider credential.",
   SEARCH_LOAD_BASE_URL: "Load-test target URL, not a provider service.",
+  LANGFUSE_PROMPT_VERSIONS: "Eval prompt version pinning, not a provider service.",
 };
 
 const TODAY = "2026-08-10";
@@ -187,7 +189,8 @@ export const SERVICE_REGISTRY: readonly ServiceEntry[] = [
     probe: "executive-health",
     dashboardUrl: "https://platform.openai.com/usage",
     blindSpots: [
-      "Eval spend bypasses persistence through CURATION_EVAL_SINK at _shared/ai-results.ts:130-140; model-A/B installs setAuditWriteSeam at scripts/model-ab/run.ts:63.",
+      "Eval spend bypasses persistence through CURATION_EVAL_SINK at _shared/ai-results.ts:130-140; an eval harness must also install setAuditWriteSeam or its spend goes unrecorded.",
+      "Embeddings share the llm-tokens meter and write no brand_ai_results row; spend is tracked only through external_call_audit.",
     ],
   },
   {
@@ -466,7 +469,17 @@ export const SERVICE_REGISTRY: readonly ServiceEntry[] = [
     criticality: "back-office",
     operationalSection: "agents",
     operationalKind: "worker",
-    envVars: ["CURATION_WORKER_CONTROL_TOKEN", "RAILWAY_GIT_COMMIT_SHA"],
+    // `FORMORIA_RAILWAY_URL` + `ORIGIN_SECRET` are what the worker needs to ask
+    // the running site to revalidate the pages a worker-side hide changed.
+    // `CHANNEL_VERDICTS=off` is the rollout switch that keeps the automatic
+    // no-purchase-channel verdicts report-only.
+    envVars: [
+      "CURATION_WORKER_CONTROL_TOKEN",
+      "RAILWAY_GIT_COMMIT_SHA",
+      "FORMORIA_RAILWAY_URL",
+      "ORIGIN_SECRET",
+      "CHANNEL_VERDICTS",
+    ],
     status: "active",
     plan: {
       kind: "usage",
@@ -642,6 +655,31 @@ export const SERVICE_REGISTRY: readonly ServiceEntry[] = [
     dashboardUrl: "https://cloud.langfuse.com",
     notes:
       "LLM tracing and eval. Free cloud hobby tier (50k observations/month). No-ops when env vars are unset.",
+  },
+  {
+    id: "browserless",
+    name: "Browserless",
+    vendor: "Browserless",
+    category: "scraping",
+    criticality: "back-office",
+    operationalSection: "back-office",
+    operationalKind: "dependency",
+    envVars: ["RENDER_API_KEY"],
+    status: "active",
+    plan: {
+      kind: "subscription",
+      monthlyUsd: 0,
+      asOf: TODAY,
+      sourceUrl: "https://www.browserless.io/pricing",
+    },
+    quota: {
+      metric: "Units",
+      included: 1000,
+      unit: "units / month",
+      overageUsdPerUnit: 0,
+      cycleResetsOnDay: 1,
+    },
+    dashboardUrl: "https://cloud.browserless.io",
   },
 ];
 

@@ -150,7 +150,7 @@ export const ONLINE_STORES = [
   },
   // Discovery is passive URL-pattern classification only; no per-brand SERP
   // probe runs. If passive yield is too low, upgrade behind a gate with a
-  // site:myship.7-11.com.tw Serper probe in enrich-phases/links.ts.
+  // site:myship.7-11.com.tw Serper probe in enrich-phases/acquire.ts.
   {
     key: 'myship',
     camel: 'purchaseMyship',

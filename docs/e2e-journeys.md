@@ -20,6 +20,7 @@ The canonical browser suite targets the isolated staging Supabase project. Deep 
 | Critical claim smoke | claim routes and admin review | `e2e/tests/claim-smoke.spec.ts` | deep (`@smoke`) | community-brand claim and approval |
 | Owned-brand editing | `/dashboard/brands/[slug]/edit` | `e2e/tests/dashboard-brand-owned-edit.spec.ts` | deep | wizard, draft persistence, uploads, governed fields |
 | Dashboard quick actions | `/dashboard` | _uncovered_ | — | The four primary owner actions. `e2e/tests/dashboard-welcome-card.spec.ts` was removed on 2026-08-21 as low-value fixture-heavy coverage; nothing replaced it, so the journey is unowned at every layer. |
+| Discover situation search | `/discover?q=` | `e2e/tests/discover-situation-search.spec.ts` | deep | search form, results/empty state, noindex, relevance sort, degraded fallback |
 | Directory filtering and search | `/brands`, `/categories/*` | `e2e/tests/directory.spec.ts` | deep | L1 filters, autocomplete, taxonomy landing, empty states |
 | Directory material facet | `/brands?material=` | `e2e/tests/directory-material.spec.ts` | deep | narrowing, chip clearing, facet survives a category click, unknown term emits no chip and no ItemList |
 | Localized taxonomy copy | zh-TW and `/en` brand/directory surfaces | `e2e/tests/i18n-en.spec.ts` | deep | server-rendered and hydrated locale separation, final L1/L2 labels |

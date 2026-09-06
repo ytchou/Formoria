@@ -22,6 +22,7 @@ import {
   trackStoryCardClicked,
   trackExternalLinkClicked,
   trackSearchExecuted,
+  trackProductSearchExecuted,
   trackSearchResultClicked,
   trackSearchNoResults,
   trackSearchSuggestionSelect,
@@ -319,6 +320,28 @@ describe('analytics', () => {
 
 
 
+
+  it('trackProductSearchExecuted captures product_search_executed with search_source and degraded and the capped search_term', () => {
+    trackProductSearchExecuted('ceramic mug', 5, { searchSource: 'discover_page', degraded: false })
+
+    expect(mockPostHogCapture).toHaveBeenCalledWith(ANALYTICS_EVENTS.PRODUCT_SEARCH_EXECUTED, {
+      query_length: 11,
+      result_count: 5,
+      has_results: true,
+      search_source: 'discover_page',
+      degraded: false,
+      search_term: 'ceramic mug',
+    })
+  })
+
+  it('trackProductSearchExecuted drops search_term for email-like queries', () => {
+    trackProductSearchExecuted('person@example.com', 0, { searchSource: 'url', degraded: true })
+
+    const payload = mockPostHogCapture.mock.calls[0]?.[1] as Record<string, unknown>
+    expect(payload).not.toHaveProperty('search_term')
+    expect(payload.search_source).toBe('url')
+    expect(payload.degraded).toBe(true)
+  })
 
   it('trackNotFoundCategoryClicked fires PostHog event', () => {
     trackNotFoundCategoryClicked('fashion', 0)

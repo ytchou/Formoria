@@ -1,4 +1,13 @@
 /**
+ * @formoria-script
+ * purpose: Compares live Postgres function fingerprints against the recorded contract baseline.
+ * class: validator
+ * invoke: pnpm exec tsx scripts/verify-contract-fingerprints.ts
+ * target: none
+ * safety: read-only
+ * owner: engineering
+ */
+/**
  * Compares the LIVE Postgres function fingerprints of a Supabase project
  * against the recorded 2026-08-19 contract baseline.
  *
@@ -52,6 +61,10 @@ export const CONTRACT_FUNCTION_NAMES = [
   "search_brand_page",
   "search_brands",
   "brands_track_content_provenance",
+  "curated_products_search_document",
+  "search_products_semantic",
+  "situation_query_bigrams",
+  "situation_search_lexical",
 ] as const;
 
 export type FingerprintRow = {

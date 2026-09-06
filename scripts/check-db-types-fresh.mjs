@@ -1,4 +1,13 @@
 #!/usr/bin/env node
+/**
+ * @formoria-script
+ * purpose: Fails CI when the committed Supabase types drift from the linked database.
+ * class: ci-gate
+ * invoke: pnpm check:db-types
+ * target: ci
+ * safety: read-only
+ * owner: engineering
+ */
 // CI guard: committed Supabase types must match the linked database.
 //
 // Local runs and CI jobs without Supabase credentials are intentionally skipped.

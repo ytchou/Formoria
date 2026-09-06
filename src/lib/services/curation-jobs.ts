@@ -5,6 +5,7 @@ import {
   CURATION_TASKS,
   ENRICH_LLM_PHASES,
   ENRICH_PHASES,
+  normalizeRequestedPhases,
   parseLegacyStepsToPhases,
   phasesForTask,
   type CurationTask,
@@ -15,7 +16,7 @@ import {
   JOB_REQUEUE,
   RETRY_ATTEMPTS,
 } from "@/lib/retry";
-import { parsePhaseResults } from "@/lib/services/phase-results";
+import { lastAcquireRecordedBudgetExhausted, parsePhaseResults } from "@/lib/services/phase-results";
 import { imagePathToUrl } from "@/lib/images/image-url";
 import {
   enrichedDataFromDb,
@@ -51,6 +52,8 @@ export type CurationJobParams = Record<string, Json | undefined> & {
   overwrite?: boolean;
   status?: string;
   target?: "submissions" | "brands";
+  /** Multiplier for the per-brand time budget. >1 grants more time. */
+  budgetScale?: number;
 };
 
 type CurationJobRow = Database["public"]["Tables"]["curation_jobs"]["Row"];
@@ -462,7 +465,8 @@ export async function enqueueManualRerun(
         );
       }
 
-      const params = rerunJobParams(source.params, options);
+      const budgetScale = budgetScaleForRerun(targets);
+      const params = rerunJobParams(source.params, { ...options, budgetScale });
 
       return enqueueCurationJob({
         operation: "enrich",
@@ -925,16 +929,40 @@ const RETIRED_PHASE_NAMES = new Set(["expansion", "reputation"]);
  * reputation phase itself was removed on 2026-08-31. Both are filtered out
  * so a historical job rerun doesn't silently escalate to full enrichment
  * (empty phases array falls through to "run everything").
+ *
+ * What survives the filter is then normalized, so a rerun of a PR-1-era job
+ * that named `links` re-runs `acquire` instead of scheduling a phase that no
+ * longer has a runner.
  */
 function parseJobParams(params: Json | null): CurationJobParams {
   if (!params || typeof params !== "object" || Array.isArray(params)) return {};
   const parsed = { ...params } as CurationJobParams;
   if (Array.isArray(parsed.phases)) {
-    parsed.phases = parsed.phases.filter(
+    const kept = parsed.phases.filter(
       (phase) => !RETIRED_PHASE_NAMES.has(phase),
     );
+    parsed.phases = kept.length > 0 ? normalizeRequestedPhases(kept) : [];
   }
+  // budgetScale is ephemeral — granted per invocation, not inherited across
+  // retries. Automatic retries (which call parseJobParams directly) must never
+  // carry a prior manual-rerun's scale forward.
+  delete parsed.budgetScale;
   return parsed;
+}
+
+/**
+ * Returns 1.5 when any target's last acquire trace recorded budget exhaustion
+ * or abort. Manual reruns grant more time to brands that hit the wall;
+ * automatic retries never call this (they are cost-controlled).
+ */
+export function budgetScaleForRerun(
+  targets: Pick<CurationJobTarget, "phase_results">[],
+): number | undefined {
+  return targets.some((target) =>
+    lastAcquireRecordedBudgetExhausted(parsePhaseResults(target.phase_results)),
+  )
+    ? 1.5
+    : undefined;
 }
 
 /**
@@ -947,14 +975,17 @@ function parseJobParams(params: Json | null): CurationJobParams {
  * already carries an explicit, pre-filtered target list, so a stale limit would
  * silently truncate that list instead of capping a broad scan.
  */
-function rerunJobParams(
+export function rerunJobParams(
   params: Json | null,
-  options?: { overwrite?: boolean },
+  options?: { overwrite?: boolean; budgetScale?: number },
 ): CurationJobParams {
   const rerunParams = parseJobParams(params);
   delete rerunParams.stopAfter;
   rerunParams.overwrite =
     parseOverwriteParam(rerunParams.overwrite) || options?.overwrite === true;
+  if (options?.budgetScale !== undefined) {
+    rerunParams.budgetScale = options.budgetScale;
+  }
   return rerunParams;
 }
 
@@ -997,20 +1028,26 @@ function normalizeLegacyPhaseName(phase: string): string | null {
  * The phase scope a stored job actually ran.
  *
  * Resolution precedence mirrors the runner: explicit phases > task > legacy
- * steps > all phases. A job enqueued from the admin UI carries `task`; legacy
- * jobs may carry `steps` or `phases`. Absent all three, the runner defaults to
- * all of `ENRICH_PHASES`.
+ * steps > the `full` closure. A job enqueued from the admin UI carries `task`;
+ * legacy jobs may carry `steps` or `phases`.
+ *
+ * Every branch is normalized, so the result never contains a deferred phase.
+ * Absent all three the answer is `phasesForTask('full')` and NOT
+ * `[...ENRICH_PHASES]` — the raw array still carries the deferred names, and a
+ * resume scope computed from it would owe phases that can never be run.
  */
 export function effectiveRequestedPhases(
   params: CurationJobParams,
 ): EnrichPhaseName[] {
   // Explicit phases take precedence
-  const phases = Array.isArray(params.phases)
-    ? new Set(params.phases.map(normalizeLegacyPhaseName).filter(Boolean))
-    : null;
-  if (phases && phases.size > 0) {
-    const known = ENRICH_PHASES.filter((phase) => phases.has(phase));
-    if (known.length > 0) return known;
+  if (Array.isArray(params.phases)) {
+    const named = params.phases.filter(
+      (phase): phase is string =>
+        typeof phase === "string" &&
+        !RETIRED_PHASE_NAMES.has(phase) &&
+        (ENRICH_PHASES as readonly string[]).includes(phase),
+    );
+    if (named.length > 0) return normalizeRequestedPhases(named);
   }
 
   // Task-based resolution
@@ -1018,7 +1055,7 @@ export function effectiveRequestedPhases(
     typeof params.task === "string" &&
     params.task in CURATION_TASKS
   ) {
-    return phasesForTask(params.task as CurationTask);
+    return normalizeRequestedPhases(phasesForTask(params.task as CurationTask));
   }
 
   // Legacy step parsing
@@ -1027,7 +1064,7 @@ export function effectiveRequestedPhases(
     if (fromSteps) return fromSteps;
   }
 
-  return [...ENRICH_PHASES];
+  return phasesForTask("full");
 }
 
 /**

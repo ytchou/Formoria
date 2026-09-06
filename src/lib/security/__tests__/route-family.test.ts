@@ -207,6 +207,28 @@ describe("non-public surfaces are outside the enumeration ladder", () => {
   });
 });
 
+describe("product search on /discover", () => {
+  it("classifies /discover?q=… as directory:search with a product-search resource id", () => {
+    const result = classifyRoute("/discover", "q=ceramic+mug");
+    expect(result.family).toBe("directory:search");
+    expect(result.resourceId).toBe("product-search:ceramic mug");
+  });
+
+  it("keeps /discover and /discover?category=home as public:global-content", () => {
+    expect(routeFamily("/discover")).toBe("public:global-content");
+    expect(routeFamily("/discover", "category=home")).toBe(
+      "public:global-content",
+    );
+  });
+
+  it("locale-prefixed /en/discover?q=… classifies the same", () => {
+    const plain = classifyRoute("/discover", "q=tea");
+    const localed = classifyRoute("/en/discover", "q=tea");
+    expect(localed.family).toBe("directory:search");
+    expect(localed.resourceId).toBe(plain.resourceId);
+  });
+});
+
 describe("visitor identity eligibility", () => {
   it("never mints on an image request", () => {
     expect(shouldMintVisitorIdentity("/i/brands/abc/hero.webp")).toBe(false);

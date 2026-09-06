@@ -1,14 +1,17 @@
 import { describe, expect, it } from "vitest";
 import {
+  budgetScaleForRerun,
   effectiveRequestedPhases,
   isExplicitSubmissionEligible,
   isManualRerunTargetEligible,
+  rerunJobParams,
   type CurationJobParams,
 } from "./curation-jobs";
+import type { Json } from "@/lib/supabase/database.types";
 import {
   CURATION_TASK_ORDER,
   CURATION_TASKS,
-  ENRICH_PHASES,
+  DEFERRED_PHASES,
   phasesForTask,
 } from "@/lib/constants/enrich-phases";
 import {
@@ -41,13 +44,16 @@ describe("task-based phase resolution", () => {
   it("task_param_resolves_to_phase_closure", () => {
     const params: CurationJobParams = { task: "visual" };
     const phases = effectiveRequestedPhases(params);
-    // visual's closure: images, classify_images, products and their transitive deps
-    expect(phases).toContain("links");
-    expect(phases).toContain("site_identity");
-    expect(phases).toContain("products");
-    expect(phases).toContain("images");
-    expect(phases).toContain("classify_images");
+    // visual's closure: products and its transitive deps (acquire, names, detect)
+    expect(phases).toContain("detect");
+    expect(phases).toContain("acquire");
     expect(phases).toContain("names");
+    expect(phases).toContain("products");
+    // Deferred phases must not appear in the closure
+    expect(phases).not.toContain("links");
+    expect(phases).not.toContain("site_identity");
+    expect(phases).not.toContain("images");
+    expect(phases).not.toContain("classify_images");
     // Must exclude unrelated phases
     expect(phases).not.toContain("descriptions");
     expect(phases).not.toContain("reputation");
@@ -59,34 +65,43 @@ describe("task-based phase resolution", () => {
     // must still resolve to phases without throwing.
     const params: CurationJobParams = { steps: ["context", "image"] };
     const phases = effectiveRequestedPhases(params);
-    expect(phases).toContain("discover");
     expect(phases).toContain("detect");
-    expect(phases).toContain("links");
-    expect(phases).toContain("images");
-    expect(phases).toContain("classify_images");
+    expect(phases).toContain("acquire");
+    expect(phases).toContain("names");
+    // The legacy `image` step used to expand to the deferred image phases.
+    // Those have no runner, so it now resolves to the visual task's phases.
+    expect(phases).toContain("products");
+    expect(phases).not.toContain("images");
+    expect(phases).not.toContain("classify_images");
     expect(phases).not.toContain("descriptions");
   });
 
   it("phases_param_remains_an_escape_hatch", () => {
-    // Explicit phases win over everything else.
+    // Explicit phases win over everything else, and the retired `links` name
+    // resolves to the phase that does its work today.
     const params: CurationJobParams = {
       phases: ["links", "products"],
       task: "full",
     };
     const phases = effectiveRequestedPhases(params);
-    expect(phases).toEqual(["links", "products"]);
+    expect(phases).toEqual(["acquire", "products"]);
   });
 
-  it("falls back to all phases when nothing is specified", () => {
+  it("falls back to the full task closure when nothing is specified", () => {
+    // NOT `[...ENRICH_PHASES]`: that array still carries the deferred names,
+    // and scheduling one means scheduling a phase with no runner.
     const params: CurationJobParams = {};
     const phases = effectiveRequestedPhases(params);
-    expect(phases).toEqual([...ENRICH_PHASES]);
+    expect(phases).toEqual(phasesForTask("full"));
+    for (const phase of DEFERRED_PHASES) {
+      expect(phases).not.toContain(phase);
+    }
   });
 
-  it("ignores unknown legacy step names", () => {
+  it("ignores unknown legacy step names and keeps deferred phases from mapping", () => {
     const params: CurationJobParams = { steps: ["unknown_step", "image"] };
     const phases = effectiveRequestedPhases(params);
-    expect(phases).toEqual(["images", "classify_images"]);
+    expect(phases).toEqual(phasesForTask("visual"));
   });
 });
 
@@ -122,22 +137,89 @@ describe("satisfaction-based phase skipping", () => {
 
   it("satisfied_prerequisites_are_skipped", () => {
     const resolved = phasesForTask("visual");
-    // links has a history entry (satisfied), other deps do not
+    // detect and acquire have history entries (both satisfied), other deps do not
     const history = makeHistory([
-      ["links", new Date("2026-08-01T00:00:00Z")],
+      ["detect", new Date("2026-07-31T00:00:00Z")],
+      ["acquire", new Date("2026-08-01T00:00:00Z")],
     ]);
 
     const { execute, skipped } = filterSatisfiedPhases(resolved, history);
 
     expect(skipped).toEqual(
       expect.arrayContaining([
-        expect.objectContaining({ phase: "links", reason: "satisfied" }),
+        expect.objectContaining({ phase: "detect", reason: "satisfied" }),
+        expect.objectContaining({ phase: "acquire", reason: "satisfied" }),
       ]),
     );
-    expect(execute).not.toContain("links");
+    expect(execute).not.toContain("detect");
+    expect(execute).not.toContain("acquire");
     expect(execute).toContain("products");
-    expect(execute).toContain("site_identity");
-    expect(execute).toContain("images");
+    expect(execute).toContain("names");
+  });
+});
+
+describe("rerunJobParams budgetScale", () => {
+  it("rerun_params_carry_budget_scale", () => {
+    const source = { slugs: ["alpha"], task: "full" };
+
+    const result = rerunJobParams(source, { budgetScale: 1.5 });
+    expect(result.budgetScale).toBe(1.5);
+
+    // Omitted when undefined
+    const result2 = rerunJobParams(source, {});
+    expect(result2).not.toHaveProperty("budgetScale");
+
+    const result3 = rerunJobParams(source);
+    expect(result3).not.toHaveProperty("budgetScale");
+  });
+});
+
+describe("manual rerun budget scale decision", () => {
+  it("manual_rerun_sets_budget_scale_when_last_acquire_was_budget_exhausted", () => {
+    const targets: { phase_results: Json }[] = [
+      {
+        phase_results: [
+          {
+            phase: "acquire",
+            status: "succeeded",
+            changedFields: [],
+            durationMs: 30_000,
+            acquisitionPlan: {
+              trace: [
+                { url: "https://example.com", reason: "budget_exhausted" },
+              ],
+            },
+          },
+        ],
+      },
+    ];
+    expect(budgetScaleForRerun(targets)).toBe(1.5);
+  });
+
+  it("manual_rerun_keeps_scale_one_otherwise", () => {
+    const targets: { phase_results: Json }[] = [
+      {
+        phase_results: [
+          {
+            phase: "acquire",
+            status: "succeeded",
+            changedFields: [],
+            durationMs: 5_000,
+          },
+        ],
+      },
+    ];
+    expect(budgetScaleForRerun(targets)).toBeUndefined();
+  });
+
+  it("automatic_retry_never_sets_budget_scale", () => {
+    // enqueueAutomaticRetry uses parseJobParams, which strips ephemeral
+    // budgetScale. Verify through rerunJobParams: a source job that carried
+    // budgetScale from a prior manual rerun does not leak it into the result
+    // when no budgetScale option is supplied.
+    const source = { task: "full", budgetScale: 1.5 };
+    const result = rerunJobParams(source);
+    expect(result).not.toHaveProperty("budgetScale");
   });
 });
 

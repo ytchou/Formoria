@@ -212,7 +212,7 @@ export async function createCuratedProductAction(
  * `context` parameter carrying `brandId`, `previousImageUrl`, and `published`
  * handed the caller three things it must not have: the storage prefix an upload
  * is filed under (which `scripts/remove-brand.ts` and
- * `scripts/brand-storage-maintenance.ts` derive their reference sets from), a
+ * `scripts/enrichment/images/brand-storage-maintenance.ts` derive their reference sets from), a
  * delete primitive over any object beneath `curated-products/**`, and the flag
  * that decides whether a public page is revalidated. All three are facts about
  * the stored row, so all three are read from it here.

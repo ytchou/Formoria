@@ -70,6 +70,7 @@ const COLUMN_FIXTURE: Record<string, unknown> = {
   // `true` on purpose: brandToDomain falls back to `false`, so a `false`
   // fixture could not distinguish "column present" from "column dropped".
   is_demo: true,
+  hidden_reason: "no_products_found",
 };
 
 function buildRow(columns: readonly string[]): BrandRowWithJoins {
@@ -89,6 +90,7 @@ const FIELDS_OMITTED_ON_DIRECTORY_PATHS = [
   "siteContent",
   "reputationSummary",
   "material",
+  "hiddenReason",
 ];
 
 /**
@@ -126,11 +128,17 @@ describe("brand column projections", () => {
       "draft_data",
       "reputation_summary",
       "material",
+      "hidden_reason",
     ]);
   });
 
   it("never ships draft_data to directory consumers", () => {
     expect(DIRECTORY_BRAND_COLUMN_LIST).not.toContain("draft_data");
+  });
+
+  it("hydrates hidden_reason on detail paths but not on directory cards", () => {
+    expect([...BRAND_COLUMN_LIST]).toContain("hidden_reason");
+    expect(DIRECTORY_BRAND_COLUMN_LIST).not.toContain("hidden_reason");
   });
 
   it("keeps purchase channels in the directory projection", () => {

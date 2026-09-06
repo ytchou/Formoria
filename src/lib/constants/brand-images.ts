@@ -38,6 +38,11 @@ export const MAX_BRAND_IMAGE_SELECTION = 24
 // exactly the brands most likely to be re-edited.
 export const DRAFT_PARK_SORT_ORDER = MAX_BRAND_IMAGE_SELECTION
 
+// Over-cap images scoring at or above this threshold become candidates rather
+// than rejected. Derived from the staging p10 of active-image scores (73);
+// rounded down to a clean boundary so the gate is legible in audit logs.
+export const MIN_CANDIDATE_SCORE = 70
+
 // Aspect ratio ranking scores crop damage against.
 //
 // IT NO LONGER MATCHES THE RENDER BOX, AND THAT IS A KNOWN, DELIBERATE GAP.

@@ -3,12 +3,14 @@ import { auditedCall } from "@/lib/audit";
 import {
   classifyCategoryBatch,
   detectBrandsBatch,
+  MAX_PROBE_URLS,
   type BatchClassificationItem,
   type ClassificationResult,
   type DetectBatchItem,
   type DetectResult,
 } from "../category-classifier";
 import { isLlmProviderFailure } from "../_shared/llm-call-outcome";
+import type { ProbeEvidence } from "./gather";
 import { generateSlug } from "../brands";
 import { isValidBrandName } from "../brand-cleanup";
 import {
@@ -23,11 +25,20 @@ import {
 
 const DETECT_PHASES = ["detect", "slugs", "tags"] as const;
 
+/**
+ * Whether the detect result's confidence level makes it eligible for a direct
+ * write (slug, non-brand rejection, name candidate). Exported for the eval
+ * harness phase adapter (DEV-1612).
+ */
+export function isHighConfidenceWrite(result: { confidence: string }): boolean {
+  return result.confidence === "high";
+}
+
 export function shouldSkipForNonBrand(
   detectResult: DetectResult | undefined,
 ): boolean {
   return Boolean(
-    detectResult?.isNonBrand === true && detectResult.confidence === "high",
+    detectResult?.isNonBrand === true && isHighConfidenceWrite(detectResult),
   );
 }
 
@@ -56,7 +67,7 @@ function buildDetectPatch(
   const KEBAB_CASE_RE = /^[a-z0-9]+(-[a-z0-9]+)*$/;
   if (
     phases.includes("slugs") &&
-    detectResult.confidence === "high" &&
+    isHighConfidenceWrite(detectResult) &&
     detectResult.slugGenerated &&
     detectResult.slugGenerated !== brand.slug &&
     KEBAB_CASE_RE.test(detectResult.slugGenerated)
@@ -70,7 +81,7 @@ function buildDetectPatch(
 
   if (
     detectResult.brandName &&
-    detectResult.confidence === "high" &&
+    isHighConfidenceWrite(detectResult) &&
     detectResult.brandName !== brand.name &&
     isValidBrandName(detectResult.brandName, brand.name ?? brand.slug)
   ) {
@@ -100,9 +111,40 @@ function buildDetectPatch(
   return patch;
 }
 
+// Probe cap imported from category-classifier.ts (prompt owner).
+
+/**
+ * Probe evidence worth prompt tokens: one that read a `<head>`. A timed-out or
+ * blocked probe carries only the url it was asked about, which the item's own
+ * `website` line already says.
+ */
+function usableProbes(
+  evidence: readonly ProbeEvidence[] | undefined,
+): DetectBatchItem["probes"] {
+  if (!evidence?.length) return undefined;
+
+  const usable = evidence
+    .filter((probe) => Boolean(probe.title?.trim() || probe.description?.trim()))
+    .slice(0, MAX_PROBE_URLS)
+    .map((probe) => ({
+      url: probe.url,
+      ...(probe.title ? { title: probe.title } : {}),
+      ...(probe.description ? { description: probe.description } : {}),
+      ...(probe.platform ? { platform: probe.platform } : {}),
+    }));
+
+  return usable.length > 0 ? usable : undefined;
+}
+
 export async function runDetectPhase(
   ctx: BatchPhaseContext,
   searchResults: Map<string, SearchPhaseResult>,
+  /**
+   * Static probes of each brand's own known URLs, keyed by TARGET ID — the same
+   * key rule every other per-brand map in the chunk follows, because `clean` and
+   * `detect` can both rewrite a name and a name key would be a silent miss.
+   */
+  probeEvidence?: Map<string, readonly ProbeEvidence[]>,
 ): Promise<{
   phaseResult: PhaseResult;
   detectResults: Map<string, DetectResult>;
@@ -139,14 +181,18 @@ export async function runDetectPhase(
     { provider: "enrich", operation: "runDetectPhase", kind: "service" },
     async () => {
   const { result, durationMs } = await timePhase(async () => {
-    const detectItems: DetectBatchItem[] = ctx.chunk.map((brand, index) => ({
-      slug: brand.slug,
-      name: ctx.chunkBrandNames[index],
-      description: brand.description ?? null,
-      website: brand.purchase_website ?? null,
-      snippets: searchResults.get(ctx.chunkBrandNames[index])?.snippets ?? [],
-      target: { type: ctx.targetType ?? "brand", id: brand.id },
-    }));
+    const detectItems: DetectBatchItem[] = ctx.chunk.map((brand, index) => {
+      const probes = usableProbes(probeEvidence?.get(brand.id));
+      return {
+        slug: brand.slug,
+        name: ctx.chunkBrandNames[index],
+        description: brand.description ?? null,
+        website: brand.purchase_website ?? null,
+        snippets: searchResults.get(ctx.chunkBrandNames[index])?.snippets ?? [],
+        ...(probes ? { probes } : {}),
+        target: { type: ctx.targetType ?? "brand", id: brand.id },
+      };
+    });
     const outcome = await detectBrandsBatch(detectItems, ctx.jobId);
     const detectResults = outcome.results;
     const nonBrandCount = [...detectResults.values()].filter(

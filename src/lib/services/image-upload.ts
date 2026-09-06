@@ -51,7 +51,8 @@ export type PrivateUploadFileInput = Omit<UploadImageInput, 'bucket'> & {
 /**
  * DELETE-path key derivation for the BRAND-IMAGE flows: `brands/` only. Its
  * consumers (`deleteBrandImages`, `releaseBrandImageUrls`, the `storage_path`
- * written by `syncOwnerUploadedImages`, `scripts/repair-brand-images.ts`) remove
+ * written by `syncOwnerUploadedImages`; `scripts/repair-brand-images.ts` was a
+ * consumer until it was retired in DEV-1318) remove
  * every object they resolve, so anything it fails to recognise is merely left
  * alone — a safe failure.
  *

@@ -70,7 +70,7 @@ type SerperImageResponse = {
  * these fields before any quality filter or lookaside resolution runs so a
  * golden corpus can explain both accepted and discarded candidates.
  */
-export type SerperRawImageCandidate = {
+type SerperRawImageCandidate = {
   imageUrl: string
   title: string
   link?: string
@@ -83,17 +83,6 @@ export type SerperRawImageCandidate = {
   thumbnailWidth?: number
   thumbnailHeight?: number
   googleUrl?: string
-}
-
-export type SerperRawImageSearchOutcome = {
-  query: string
-  candidates: SerperRawImageCandidate[]
-  rawResponse: unknown
-  latencyMs: number
-  callStatus: SearchCallStatus
-  httpStatus: number | null
-  error: string | null
-  auditResultId?: string
 }
 
 type SerperCallResult<T> = {
@@ -646,72 +635,6 @@ async function searchBrandImagesForQuery(
     }
   }
   return { rows: [...rows.values()], call }
-}
-
-async function captureBrandImagesForQuery(
-  query: string,
-  options?: SerperAuditOptions,
-): Promise<SerperRawImageSearchOutcome> {
-  const call = await callSerperJson(
-    SERPER_IMAGE_ENDPOINT,
-    'image',
-    query,
-    buildImageSearchBody(query, { siteScoped: isSiteScopedQuery(query) }),
-    isSerperImageResponse,
-    (value) => ({
-      urls: parseSerperImageCandidates(value).map((candidate) => candidate.imageUrl),
-      snippets: parseSerperImageCandidates(value)
-        .map((candidate) => candidate.title)
-        .filter(Boolean),
-    }),
-    options,
-  )
-
-  return {
-    query,
-    candidates: call.data ? parseSerperImageCandidates(call.data) : [],
-    rawResponse: call.fullResponse,
-    latencyMs: call.latencyMs,
-    callStatus: call.callStatus,
-    httpStatus: call.httpStatus,
-    error: call.error,
-    ...(call.auditResultId ? { auditResultId: call.auditResultId } : {}),
-  }
-}
-
-/**
- * Captures one unfiltered Serper image response per input. This is intended
- * for reproducible evaluation corpora; production enrichment should continue
- * using batchSearchBrandImages, which applies its bounded lookaside and
- * dimension filters.
- */
-export async function batchCaptureBrandImages(
-  brandInputs: ImageSearchBrandInput[],
-  concurrency = 5,
-  queryTemplate: QueryTemplate = DEFAULT_QUERY,
-  auditResolver?: AuditResolver<ImageSearchBrandInput>,
-): Promise<Map<string, SerperRawImageSearchOutcome>> {
-  const results = new Map<string, SerperRawImageSearchOutcome>()
-  if (brandInputs.length === 0) return results
-
-  const workerCount = Math.max(1, Math.min(concurrency, brandInputs.length))
-  let nextIndex = 0
-  async function worker(): Promise<void> {
-    while (nextIndex < brandInputs.length) {
-      const index = nextIndex
-      nextIndex += 1
-      const input = brandInputs[index]
-      const brandName = typeof input === 'string' ? input : input.brandName
-      const query = typeof input === 'string'
-        ? queryTemplate(brandName)
-        : buildImageQueryVariants(input)[0] ?? queryTemplate(brandName)
-      const options = resolveAuditOptions(auditResolver, input)
-      results.set(brandName, await captureBrandImagesForQuery(query, options))
-    }
-  }
-
-  await Promise.all(Array.from({ length: workerCount }, () => worker()))
-  return results
 }
 
 function emptyImageOutcome(): BrandImageSearchOutcome {

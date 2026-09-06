@@ -55,7 +55,7 @@ const ALLOWLIST = [
   "lib/services/enrich-phases/discover.ts",
   "lib/services/enrich-phases/image-search.ts",
   // Curation name arbitration uses Chinese source examples and LLM field labels, not UI copy.
-  "lib/services/enrich-phases/links.ts",
+  "lib/services/enrich-phases/acquire.ts",
   "lib/services/enrich-phases/names.ts",
   "lib/services/name-arbiter.ts",
   // Taxonomy ontology: nameZh is structural data (bilingual label in data layer, not UI copy).

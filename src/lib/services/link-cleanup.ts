@@ -1,3 +1,4 @@
+import type { AgentNotification } from "@/lib/adapters/slack/notification";
 import { auditedCall } from "@/lib/audit";
 import { describeError } from "@/lib/errors";
 import { createServiceClient } from "@/lib/supabase/service";
@@ -6,6 +7,7 @@ import {
   type LinkColumn,
   type LinkField,
 } from "@/lib/types/link-fields";
+import { mapWithConcurrency } from "./_shared/concurrency";
 import type { BrandWriteActor, SkippedBrandField } from "./brand-write-policy";
 import { updateBrand, type BrandWriteInput } from "./brands";
 import { checkUrl, type LinkFailureReason } from "./link-health";
@@ -34,6 +36,17 @@ export const AUTO_NULL_STATUS_CODES: ReadonlySet<number> = new Set([404, 410]);
 const AUTO_NULL_FAILURE_REASONS: ReadonlySet<LinkFailureReason> = new Set([
   "dns",
 ]);
+
+/**
+ * How many candidate URLs are re-checked against the live network at once.
+ *
+ * The re-checks are the only unbounded wait in a run, and the caller is now an
+ * API route with `maxDuration = 300` where the old GitHub workflow had no cap:
+ * a CDN outage that flags 50+ candidates would otherwise time out the run
+ * sequentially at up to two requests each. Five is deliberately small — these
+ * are third-party origins, and politeness outranks throughput here.
+ */
+const RECHECK_CONCURRENCY = 5;
 
 type LinkCleanupApplied = {
   brandId: string;
@@ -319,13 +332,21 @@ export async function cleanupDeadLinks(
       const applied: LinkCleanupApplied[] = [];
       const skipped: LinkCleanupSkipped[] = [];
 
-      for (const row of rows) {
-        const base = {
-          brandId: row.brand_id,
-          field: row.field,
-          url: row.url,
-        };
+      /**
+       * Classification is pure and cheap, so it runs for every row up front —
+       * that is what lets the network re-checks below be batched. The write
+       * loop afterwards still walks `rows` in order, so `applied` and `skipped`
+       * keep the candidate query's ordering.
+       */
+      type RowPlan =
+        | { kind: "skip"; reason: string }
+        | {
+            kind: "recheck";
+            patch: BrandWriteInput;
+            expectedReason: "dns" | "http";
+          };
 
+      const plans: RowPlan[] = rows.map((row) => {
         // Defence in depth behind the `.or()` filter above: if the query is
         // ever loosened, a transient failure must still not be auto-nulled.
         const statusCode = row.last_status_code;
@@ -338,25 +359,61 @@ export async function cleanupDeadLinks(
           statusCode !== null &&
           AUTO_NULL_STATUS_CODES.has(statusCode);
         if (!isDnsFailure && !isHttpFailure) {
-          skipped.push({ ...base, reason: "status_not_auto_nullable" });
-          continue;
+          return { kind: "skip", reason: "status_not_auto_nullable" };
         }
 
         const patch = buildNullPatch(row.field);
-        if (!patch) {
-          skipped.push({ ...base, reason: "unsupported_field" });
+        if (!patch) return { kind: "skip", reason: "unsupported_field" };
+
+        return {
+          kind: "recheck",
+          patch,
+          expectedReason: isDnsFailure ? "dns" : "http",
+        };
+      });
+
+      // Confirm against the live network before trusting the stored verdict.
+      // This runs in dry-run too: a dry run whose job is to preview
+      // destruction is worthless if it previews a different decision than the
+      // real one would make.
+      const recheckIndexes = plans.flatMap((plan, index) =>
+        plan.kind === "recheck" ? [index] : [],
+      );
+      const confirmationList = await mapWithConcurrency(
+        recheckIndexes,
+        RECHECK_CONCURRENCY,
+        (rowIndex) => {
+          const plan = plans[rowIndex] as Extract<RowPlan, { kind: "recheck" }>;
+          return confirmStillDead(
+            rows[rowIndex]!.url,
+            fetchFn,
+            plan.expectedReason,
+          );
+        },
+      );
+      const confirmations = new Map(
+        recheckIndexes.map((index, position) => [
+          index,
+          confirmationList[position]!,
+        ]),
+      );
+
+      for (const [index, row] of rows.entries()) {
+        const base = {
+          brandId: row.brand_id,
+          field: row.field,
+          url: row.url,
+        };
+        const statusCode = row.last_status_code;
+
+        const plan = plans[index]!;
+        if (plan.kind === "skip") {
+          skipped.push({ ...base, reason: plan.reason });
           continue;
         }
+        const patch = plan.patch;
 
-        // Confirm against the live network before trusting the stored verdict.
-        // This runs in dry-run too: a dry run whose job is to preview
-        // destruction is worthless if it previews a different decision than the
-        // real one would make.
-        const confirmation = await confirmStillDead(
-          row.url,
-          fetchFn,
-          isDnsFailure ? "dns" : "http",
-        );
+        const confirmation = confirmations.get(index)!;
         if (!confirmation.dead) {
           skipped.push({
             ...base,
@@ -414,4 +471,82 @@ export async function cleanupDeadLinks(
     },
     { summary: { dryRun: options.dryRun === true } },
   );
+}
+
+const TAIPEI_TIME_ZONE = "Asia/Taipei";
+
+function taipeiDate(now: Date = new Date()): string {
+  return new Intl.DateTimeFormat("en-CA", {
+    day: "2-digit",
+    month: "2-digit",
+    timeZone: TAIPEI_TIME_ZONE,
+    year: "numeric",
+  }).format(now);
+}
+
+/**
+ * Report-only categories, and where each one is tracked. Carried in the Slack
+ * message so a reader sees the whole picture: what changed, and what was left
+ * alone on purpose. Without this the notification reads as "9 links removed"
+ * and silently implies the queue is empty.
+ */
+const REPORT_ONLY_TICKETS = [
+  "DEV-1439 — 405/402 are classified broken rather than blocked, inflating the queue",
+] as const;
+
+function removalEvidence(statusCode: number | null): string {
+  return statusCode === null ? "DNS failure" : `HTTP ${statusCode}`;
+}
+
+/**
+ * The nightly Slack message for a cleanup run.
+ *
+ * Pure by construction: it takes the run's own result plus the recent-removal
+ * window and returns the notification, so the cron route only has to post it.
+ * The adapter is imported as a TYPE only — a service must not reach an adapter
+ * at runtime (RULES file-ownership table).
+ */
+export function buildLinkCleanupNotification(
+  result: LinkCleanupResult,
+  applied: boolean,
+  recent: readonly LinkCleanupRecentRemoval[],
+): AgentNotification {
+  const summary = [
+    applied
+      ? `Removed ${result.applied.length} dead brand ${result.applied.length === 1 ? "link" : "links"} (HTTP 404/410 or sustained DNS failures).`
+      : `Dry run: ${result.applied.length} dead ${result.applied.length === 1 ? "link" : "links"} would be removed (HTTP 404/410 or sustained DNS failures).`,
+    `Scanned ${result.scanned} flagged ${result.scanned === 1 ? "row" : "rows"}; ${result.skipped.length} skipped.`,
+  ];
+
+  const workDone =
+    result.applied.length > 0
+      ? result.applied.map(
+          (entry) =>
+            `${entry.brandName ?? entry.brandId} · ${entry.field} · ${removalEvidence(entry.statusCode)} · ${entry.url}`,
+        )
+      : // Nothing to do this run is the steady state, and an empty message reads
+        // as "no dead links" when the truth may be "removed an hour ago".
+        recent.map(
+          (entry) =>
+            `earlier today: ${entry.brandName ?? "(unknown brand)"} · ${entry.field} · ${entry.url}`,
+        );
+
+  const details = [
+    ...result.skipped.map(
+      (entry) => `skipped ${entry.field} (${entry.reason}) · ${entry.url}`,
+    ),
+    ...REPORT_ONLY_TICKETS.map((ticket) => `report-only: ${ticket}`),
+  ];
+
+  return {
+    agent: "Link Cleanup",
+    date: taipeiDate(),
+    details,
+    // A skip is not a failure — an owner-authored link is protected by policy
+    // and staying out of it is the correct outcome. But it is the one thing a
+    // reader has to act on, so it lifts the status above plain success.
+    status: result.skipped.length > 0 ? "needs_attention" : "success",
+    summary,
+    workDone,
+  };
 }

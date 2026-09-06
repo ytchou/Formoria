@@ -2,6 +2,14 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { LLM_BATCH_CHUNK_SIZE } from "@/lib/constants/llm-models";
 import { arbitrateBrandNames, type NameArbiterItem } from "../name-arbiter";
 
+const promptMeta = { name: "name-arbiter", version: 2 };
+vi.mock("@/lib/langfuse/prompt", () => ({
+  fetchLangfusePrompt: vi.fn((_n: string, fb: string) => Promise.resolve(fb)),
+  fetchLangfusePromptWithMeta: vi.fn((_n: string, fb: string) =>
+    Promise.resolve({ text: fb, prompt: promptMeta }),
+  ),
+}));
+
 const mockFetch = vi.fn();
 
 describe("arbitrateBrandNames", () => {
@@ -348,5 +356,20 @@ describe("arbitrateBrandNames", () => {
     expect(mockFetch).toHaveBeenCalledTimes(1);
     expect(outcome.results.size).toBe(0);
     expect(outcome.calls).toEqual({ attempted: 1, providerFailed: 1 });
+  });
+
+  it("audit context carries prompt meta from fetchLangfusePromptWithMeta", async () => {
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({
+        choices: [{ message: { content: JSON.stringify({ results: [{ slug: "xiao-zhu-dessert", chosen: "小朱甜點", confidence: "high", reason: "test" }, { slug: "unigaze", chosen: "UNIGAZE", confidence: "high", reason: "test" }] }) } }],
+      }),
+      headers: new Headers(),
+    });
+
+    await arbitrateBrandNames(items);
+
+    const { fetchLangfusePromptWithMeta } = await import("@/lib/langfuse/prompt");
+    expect(fetchLangfusePromptWithMeta).toHaveBeenCalledWith("name-arbiter", expect.any(String));
   });
 });

@@ -22,7 +22,7 @@ describe("Supabase User-Agent attribution", () => {
     expect(
       buildSupabaseUserAgent({
         nodeEnv: "production",
-        argv: ["node", "/app/scripts/curation-worker-server.ts", "build"],
+        argv: ["node", "/app/scripts/curate-brands.ts", "build"],
       }),
     ).toBe("FormoriaSupabase/1.0 (script)");
 
@@ -46,5 +46,25 @@ describe("Supabase User-Agent attribution", () => {
         argv: ["node", "/app/server.js"],
       }),
     ).toBe("FormoriaSupabase/1.0 (runtime)");
+  });
+
+  // The worker moved out of scripts/ (DEV-1318); its traffic gets its own
+  // label so operator scripts and the long-running worker stay separable.
+  it("labels a curation-worker path as worker traffic", () => {
+    expect(
+      buildSupabaseUserAgent({
+        nodeEnv: "production",
+        argv: ["node", "/app/src/curation-worker/server.ts"],
+      }),
+    ).toBe("FormoriaSupabase/1.0 (worker)");
+  });
+
+  it("still labels a scripts path as script traffic", () => {
+    expect(
+      buildSupabaseUserAgent({
+        nodeEnv: "production",
+        argv: ["node", "/app/scripts/curate-brands.ts"],
+      }),
+    ).toBe("FormoriaSupabase/1.0 (script)");
   });
 });

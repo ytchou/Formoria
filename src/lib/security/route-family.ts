@@ -180,6 +180,13 @@ export function classifyRoute(
     return { family: 'directory:search', resourceId: `search:${term ?? ''}` }
   }
 
+  if (head === 'discover' && segments.length === 1 && hasSearchTerm(params)) {
+    const term = SEARCH_PARAM_KEYS.map((key) => params.get(key)?.trim() ?? '').find(
+      (value) => value !== '',
+    )
+    return { family: 'directory:search', resourceId: `product-search:${term ?? ''}` }
+  }
+
   if (head === 'brands') {
     if (segments.length === 1) {
       if (hasSearchTerm(params)) {

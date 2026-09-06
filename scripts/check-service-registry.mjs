@@ -1,4 +1,13 @@
 #!/usr/bin/env node
+/**
+ * @formoria-script
+ * purpose: Fails the build when a credential env var is used without being declared in the registry.
+ * class: ci-gate
+ * invoke: pnpm check:service-registry
+ * target: none
+ * safety: read-only
+ * owner: engineering
+ */
 import { existsSync, readFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";

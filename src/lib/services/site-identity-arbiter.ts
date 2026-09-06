@@ -1,5 +1,5 @@
 import { SITE_IDENTITY_LABELS, SITE_IDENTITY_SYSTEM_PROMPT } from "@/lib/prompts";
-import { fetchLangfusePrompt } from "@/lib/langfuse/prompt";
+import { fetchLangfusePromptWithMeta } from "@/lib/langfuse/prompt";
 import { auditedCall } from "@/lib/audit";
 import {
   LLM_BATCH_CHUNK_SIZE,
@@ -57,7 +57,7 @@ type UnknownRecord = Record<string, unknown>;
 
 const confidenceShape = z.enum(["high", "medium", "low"]);
 
-export const siteIdentityVerdictItemShape = z.object({
+const siteIdentityVerdictItemShape = z.object({
   slug: z.string(),
   subjectUrl: z.string(),
   owned: z.boolean(),
@@ -95,6 +95,7 @@ function createSiteIdentityClient(
   profileKey: SiteIdentityProfileKey,
   target: EnrichmentTarget | undefined,
   jobId?: string,
+  prompt?: { name: string; version: number },
 ) {
   const config = buildProfiledEnrichmentConfig(
     "site_identity",
@@ -103,7 +104,7 @@ function createSiteIdentityClient(
   );
   return createProfiledOpenAIClient(
     profileKey,
-    { target, phase: "site_identity", ...(jobId ? { jobId } : {}), config },
+    { target, phase: "site_identity", ...(jobId ? { jobId } : {}), ...(prompt ? { prompt } : {}), config },
     { apiKey },
   );
 }
@@ -114,7 +115,7 @@ const SITE_IDENTITY_ITEM_TEXT_BUDGET = 1800;
 // Bounds recovery calls per chunk; raise only after provider-cost telemetry confirms it is safe.
 const SITE_IDENTITY_MAX_FANOUT_PER_CHUNK = 8;
 
-// Deliberately tighter than boundedScrapeSnippets' 4000 in enrich-phases/links.ts:
+// Deliberately tighter than boundedScrapeSnippets' 4000 in enrich-phases/acquire.ts:
 // a 20-item batch at 4000 crowds the profile's maxTokens.
 function boundSiteIdentityText(value: string | undefined): string | undefined {
   if (!value) return undefined;
@@ -271,10 +272,11 @@ async function arbitrateSiteIdentityItem(
   const token = process.env.OPENAI_API_KEY;
   if (!token) return notAttempted();
 
-  const client = createSiteIdentityClient(token, "siteIdentity", item.target, jobId);
-
   try {
-    const siteIdentityPrompt = await fetchLangfusePrompt("site-identity", SITE_IDENTITY_SYSTEM_PROMPT);
+    const { text: siteIdentityPrompt, prompt: sitePromptMeta } = await fetchLangfusePromptWithMeta("site-identity", SITE_IDENTITY_SYSTEM_PROMPT);
+
+    const client = createSiteIdentityClient(token, "siteIdentity", item.target, jobId, sitePromptMeta ?? undefined);
+
     const { response, data, content } = await client.chat({
       system: siteIdentityPrompt,
       user: buildSiteIdentityUserContent([item]),
@@ -322,15 +324,17 @@ async function arbitrateSiteIdentityChunk(
   const token = process.env.OPENAI_API_KEY;
   if (!token) return notAttempted();
 
-  const client = createSiteIdentityClient(
-    token,
-    "siteIdentityBatch",
-    items.at(0)?.target,
-    jobId,
-  );
-
   try {
-    const siteIdentityBatchPrompt = await fetchLangfusePrompt("site-identity", SITE_IDENTITY_SYSTEM_PROMPT);
+    const { text: siteIdentityBatchPrompt, prompt: siteBatchPromptMeta } = await fetchLangfusePromptWithMeta("site-identity", SITE_IDENTITY_SYSTEM_PROMPT);
+
+    const client = createSiteIdentityClient(
+      token,
+      "siteIdentityBatch",
+      items.at(0)?.target,
+      jobId,
+      siteBatchPromptMeta ?? undefined,
+    );
+
     const { response, data, content } = await client.chat({
       system: siteIdentityBatchPrompt,
       user: buildSiteIdentityUserContent(items),

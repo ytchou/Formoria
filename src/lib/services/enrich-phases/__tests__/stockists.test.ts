@@ -1,8 +1,15 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import {
   validateStockistCandidates,
   filterStockistEvidence,
 } from "../stockists";
+
+vi.mock("@/lib/langfuse/prompt", () => ({
+  fetchLangfusePrompt: vi.fn((_n: string, fb: string) => Promise.resolve(fb)),
+  fetchLangfusePromptWithMeta: vi.fn((_n: string, fb: string) =>
+    Promise.resolve({ text: fb, prompt: { name: _n, version: 1 } }),
+  ),
+}));
 import { MAX_ACTIVE_STOCKISTS_PER_BRAND } from "../../stockists";
 
 describe("validateStockistCandidates", () => {

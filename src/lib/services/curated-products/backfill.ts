@@ -34,36 +34,18 @@ import {
  * THE PRODUCTS PHASE IS NOT SELF-SUFFICIENT, and `runEnrich` expands nothing —
  * it takes `phases` verbatim, and every phase gates itself on
  * `phases.includes(...)`. `['products']` alone therefore ran the phase against
- * an empty pipeline: `runLinksPhase` returns `scrapedData: null` when `links` is
- * absent, so the products prompt carried no candidate-page list and the model
- * was asked to pick product pages while being shown none — and `isProductPageUrl`
- * only checks host equality plus a non-root path, so an invented URL passed
- * validation and stood as its own citation.
+ * an empty pipeline.
  *
- * The set below is the transitive closure of the products phase's real inputs,
- * read off the pipeline rather than guessed:
+ * After DEV-1644 wave-A/B collapse, `acquire` replaces `links` +
+ * `site_identity` as the transitive dependency: the acquisition agent gathers
+ * website data and resolves the purchase website that `products` needs.
  *
- * - `links`         — produces `state.scrapedData` (the candidate pages and the
- *                     scraped image pages) AND the quarantine records
- *                     `site_identity` consumes. Hard dependency of both.
- * - `site_identity` — arbitrates the resolved `purchase_website`; its revocation
- *                     is applied to the pending patch that `runProductsPhase`
- *                     reads through, which is what stops a revoked site being
- *                     mined for products (`constants/enrich-phases.ts`).
- * - `products`      — the phase itself.
- *
- * Nothing else is a prerequisite, and each exclusion was checked:
- * `applyChunkNameCleanup` runs unconditionally, so `clean` is not needed for a
- * usable brand name; `links` scrapes `collectKnownUrls(brand)` — the brand's own
- * link columns, which an existing brand already has — so `discover` (a paid
- * serper call) is not needed to give it URLs; and the products phase draws
- * candidates from the merged pool (scraped pages + stored `brand_images`
- * provenance), so `images` / `classify_images` are not needed as a
- * prerequisite — the stored pool is already populated by prior image runs.
+ * - `acquire`  — runs the acquisition agent (Browserless scraper + LLM
+ *                extraction) to produce scraped data and site identity.
+ * - `products` — the phase itself.
  */
 const CURATED_PRODUCT_BACKFILL_PHASES = [
-  "links",
-  "site_identity",
+  "acquire",
   "products",
 ] as const satisfies readonly EnrichPhaseName[];
 

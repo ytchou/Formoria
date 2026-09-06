@@ -42,7 +42,7 @@ const RULES: readonly PlatformRule[] = [
     id: 'shopline',
     hosts: ['shoplineapp.com', 'shopline.tw'],
     fingerprints: [/shopline(?:app|img)?\.com/i, /Shopline\.theme/i],
-    productRoute: /^\/products\/[^/]+/i,
+    productRoute: /^(?:\/[a-z]{2}(?:-[a-z]{2,4})?)?(?:\/collections\/[^/]+)?\/products\/[^/]+/i,
   },
   {
     id: '91app',
@@ -60,19 +60,19 @@ const RULES: readonly PlatformRule[] = [
     id: 'cyberbiz',
     hosts: ['cyberbiz.co'],
     fingerprints: [/cyberbiz(?:\.co)?/i],
-    productRoute: /^\/products\/[^/]+/i,
+    productRoute: /^(?:\/[a-z]{2}(?:-[a-z]{2,4})?)?(?:\/collections\/[^/]+)?\/products\/[^/]+/i,
   },
   {
     id: 'shopify',
     hosts: ['myshopify.com'],
     fingerprints: [/cdn\.shopify\.com/i, /Shopify\.theme/i],
-    productRoute: /^\/products\/[^/]+/i,
+    productRoute: /^(?:\/[a-z]{2}(?:-[a-z]{2,4})?)?(?:\/collections\/[^/]+)?\/products\/[^/]+/i,
   },
   {
     id: 'easystore',
     hosts: ['easy.co'],
     fingerprints: [/easystore/i],
-    productRoute: /^\/products\/[^/]+/i,
+    productRoute: /^(?:\/[a-z]{2}(?:-[a-z]{2,4})?)?(?:\/collections\/[^/]+)?\/products\/[^/]+/i,
   },
   {
     id: 'meepshop',
@@ -138,7 +138,7 @@ export function isOwnedProductRoute(
     source.hostname.replace(/^www\./i, '').toLowerCase()
   if (!sameHost) return false
   if (!platform)
-    return /^\/(?:products?|items?|goods|shop|store|catalog|detail|product-page)\/[^/]+/i.test(candidate.pathname)
+    return /^(?:\/[a-z]{2}(?:-[a-z]{2,4})?)?(?:\/collections\/[^/]+)?\/(?:products?|items?|goods|shop|store|catalog|detail|product-page)\/[^/]+/i.test(candidate.pathname)
 
   const rule = RULES.find((entry) => entry.id === platform)
   return (

@@ -1,4 +1,12 @@
 #!/usr/bin/env bash
+# @formoria-script
+# purpose: Regenerates the subset OFL TTFs vendored into src/assets/fonts for the OG image routes.
+# class: generator
+# invoke: bash scripts/fonts/subset-fonts.sh
+# target: none
+# safety: writes
+# owner: engineering
+
 #
 # subset-fonts.sh — ONE-TIME font vendoring step (DEV-712)
 #

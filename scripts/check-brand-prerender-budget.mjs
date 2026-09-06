@@ -1,3 +1,12 @@
+/**
+ * @formoria-script
+ * purpose: Fails the build when the brand detail route prerenders more pages than its budget.
+ * class: ci-gate
+ * invoke: node scripts/check-brand-prerender-budget.mjs
+ * target: ci
+ * safety: read-only
+ * owner: engineering
+ */
 import { readFileSync } from "node:fs";
 import { pathToFileURL } from "node:url";
 import { resolve } from "node:path";

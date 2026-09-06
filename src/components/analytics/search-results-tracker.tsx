@@ -2,7 +2,7 @@
 
 import { useEffect, useRef } from 'react'
 
-import { trackSearchExecuted, trackSearchNoResults } from '@/lib/analytics'
+import { trackSearchExecuted, trackSearchNoResults, trackProductSearchExecuted } from '@/lib/analytics'
 
 /**
  * How long a query must stay put before it counts as a search.
@@ -43,6 +43,12 @@ interface SearchResultsTrackerProps {
   query: string
   /** Total matches from `search_brand_page`, not the page slice and not the typeahead. */
   resultCount: number
+  /** Which tracker to use. Defaults to `"brand"` for the existing `/brands?search=` surface. */
+  trackerKind?: 'brand' | 'product'
+  /** Where the search originated. Only used when `trackerKind` is `"product"`. */
+  searchSource?: string
+  /** Whether the search fell back to lexical-only mode. Only used when `trackerKind` is `"product"`. */
+  degraded?: boolean
 }
 
 /**
@@ -59,7 +65,7 @@ interface SearchResultsTrackerProps {
  */
 const FLUSH_MIN_AGE_MS = 50
 
-export function SearchResultsTracker({ query, resultCount }: SearchResultsTrackerProps) {
+export function SearchResultsTracker({ query, resultCount, trackerKind = 'brand', searchSource, degraded }: SearchResultsTrackerProps) {
   const pendingRef = useRef<(() => void) | null>(null)
   const pendingSinceRef = useRef(0)
 
@@ -74,8 +80,15 @@ export function SearchResultsTracker({ query, resultCount }: SearchResultsTracke
     const emit = () => {
       if (lastEmittedKey === key) return
       lastEmittedKey = key
-      trackSearchExecuted(trimmed, resultCount)
-      if (resultCount === 0) {
+      if (trackerKind === 'product') {
+        trackProductSearchExecuted(trimmed, resultCount, {
+          searchSource: searchSource ?? 'discover_page',
+          degraded: degraded ?? false,
+        })
+      } else {
+        trackSearchExecuted(trimmed, resultCount)
+      }
+      if (resultCount === 0 && trackerKind !== 'product') {
         trackSearchNoResults(trimmed)
       }
     }
@@ -91,7 +104,7 @@ export function SearchResultsTracker({ query, resultCount }: SearchResultsTracke
     // because the next run overwrites it — and survives unmount, where the flush
     // below claims it.
     return () => clearTimeout(timer)
-  }, [query, resultCount])
+  }, [query, resultCount, trackerKind, searchSource, degraded])
 
   useEffect(
     () => () => {

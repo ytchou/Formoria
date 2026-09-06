@@ -29,6 +29,11 @@ const PHASE_ORDER = [
   "detect",
   "clean",
   "links",
+  "acquisition",
+  // `acquire` replaces the retired phases (discover, clean, links,
+  // site_identity, images, classify_images) in the schedule (DEV-1644).
+  // Retired entries above are kept for historical run-log rows.
+  "acquire",
   "names",
   "site_identity",
   "images",
@@ -50,6 +55,8 @@ const PHASE_KIND: Record<string, PhaseKind> = {
   detect: "llm",
   clean: "transform",
   links: "scrape",
+  acquisition: "llm",
+  acquire: "llm",
   names: "llm",
   site_identity: "llm",
   images: "io",
@@ -699,3 +706,8 @@ export async function exportJobRunLog(
     ...(gaps.length > 0 ? { gaps } : {}),
   };
 }
+
+/** @internal test-only export */
+export const _test_PHASE_ORDER = PHASE_ORDER as readonly string[];
+/** @internal test-only export */
+export const _test_PHASE_KIND = PHASE_KIND;

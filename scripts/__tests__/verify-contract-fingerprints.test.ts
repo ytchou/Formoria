@@ -51,6 +51,22 @@ const TABLE_ROWS: ReadonlyArray<readonly [string, string]> = [
     "search_brands(text,integer,boolean,text[],text[],text,text,boolean)",
     "7bcba2c4bd56c0d6ba50988f59e3f80e",
   ],
+  [
+    "curated_products_search_document(text,text,text,text,text)",
+    "0e73cbab77e7b5a5ded43e76f00d05e0",
+  ],
+  [
+    "search_products_semantic(text,extensions.vector,text,integer,text,text[],text[])",
+    "5fe81a42ea076ce54dfb4e84f97be369",
+  ],
+  [
+    "situation_query_bigrams(text)",
+    "40ae8d270a6e49d0a2e3fcf3d74341ea",
+  ],
+  [
+    "situation_search_lexical(text,integer)",
+    "bb27e4ad3e8003ade6a60492e57e7fe1",
+  ],
 ];
 
 const PROSE_SIGNATURE = "brands_track_content_provenance()";
@@ -123,7 +139,7 @@ describe("verify-contract-fingerprints", () => {
   it("parses_the_baseline_table_into_signature_md5_pairs", () => {
     const rows = baselineRows();
 
-    expect(rows).toHaveLength(12);
+    expect(rows).toHaveLength(TABLE_ROWS.length + 1);
     expect(rows[0]).toEqual({
       signature: "apply_brand_refresh(uuid,uuid)",
       md5: "9331b7c422bd3be07e2e36ef2a216bfa",
@@ -287,7 +303,7 @@ describe("verify-contract-fingerprints", () => {
       }),
     );
 
-    expect(rows).toHaveLength(12);
+    expect(rows).toHaveLength(TABLE_ROWS.length + 1);
     expect(
       rows.filter((row) => row.signature.startsWith("apply_brand_refresh(")),
     ).toHaveLength(1);

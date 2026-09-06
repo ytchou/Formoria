@@ -58,7 +58,7 @@ function isDnsResolutionError(error: unknown) {
   );
 }
 
-export async function suggestCleanName(name: string) {
+async function suggestCleanName(name: string) {
   return runWithAuditContext({}, async () => {
     if (!name || name.length > 200) {
       return { suggestion: null, changed: false, patterns: [] as string[] };

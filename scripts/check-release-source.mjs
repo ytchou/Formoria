@@ -1,3 +1,12 @@
+/**
+ * @formoria-script
+ * purpose: Fails a production merge whose head branch is not the configured release source.
+ * class: ci-gate
+ * invoke: node scripts/check-release-source.mjs
+ * target: ci
+ * safety: read-only
+ * owner: engineering
+ */
 import { readFileSync } from "node:fs";
 
 const POLICY_PATH = ".github/release-flow.json";

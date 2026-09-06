@@ -3,7 +3,7 @@ import {
   DETECT_SYSTEM_PROMPT,
   CATEGORY_LIST,
 } from "@/lib/prompts";
-import { fetchLangfusePrompt } from "@/lib/langfuse/prompt";
+import { fetchLangfusePromptWithMeta } from "@/lib/langfuse/prompt";
 import { auditedCall } from "@/lib/audit";
 import {
   createProfiledOpenAIClient,
@@ -49,6 +49,19 @@ export type DetectBatchItem = {
   description: string | null;
   website: string | null;
   snippets?: string[];
+  /**
+   * What a free HTTP GET on the brand's own known URLs found in each `<head>`
+   * (`enrich-phases/gather.ts`). SERP snippets describe what the web says about
+   * the brand; a probe is the brand's own page saying what it is, which is the
+   * cheapest evidence available for the non-brand call and the only one a
+   * search-less brand has. Capped and rendered by `probeLines`.
+   */
+  probes?: Array<{
+    url: string;
+    title?: string;
+    description?: string;
+    platform?: string;
+  }>;
   target?: EnrichmentTarget;
 };
 export type DetectResult = {
@@ -113,22 +126,22 @@ export const classifyBatchShape = z.object({
 });
 
 // Wire-format schemas for OpenAI structured output
-export const DETECT_SCHEMA = {
+const DETECT_SCHEMA = {
   name: "detect_single",
   schema: toStrictJsonSchema(detectSingleShape),
 };
 
-export const DETECT_BATCH_SCHEMA = {
+const DETECT_BATCH_SCHEMA = {
   name: "detect_batch",
   schema: toStrictJsonSchema(detectBatchShape),
 };
 
-export const CLASSIFY_SCHEMA = {
+const CLASSIFY_SCHEMA = {
   name: "classify_single",
   schema: toStrictJsonSchema(classifySingleShape),
 };
 
-export const CLASSIFY_BATCH_SCHEMA = {
+const CLASSIFY_BATCH_SCHEMA = {
   name: "classify_batch",
   schema: toStrictJsonSchema(classifyBatchShape),
 };
@@ -158,6 +171,7 @@ function createClassifierClient(
   profileKey: LlmProfileKey,
   target: EnrichmentTarget | undefined,
   jobId?: string,
+  prompt?: { name: string; version: number },
 ) {
   return createProfiledOpenAIClient(
     profileKey,
@@ -165,6 +179,7 @@ function createClassifierClient(
       target,
       phase,
       ...(jobId ? { jobId } : {}),
+      ...(prompt ? { prompt } : {}),
     },
     { apiKey },
   );
@@ -415,22 +430,24 @@ async function classifyCategory(
 
   const userContent = `品牌名稱：${brand.name}\n描述：${brand.description ?? "無"}`;
 
-  const client = createClassifierClient(
-    token,
-    "classification",
-    "classification",
-    brand.target,
-    jobId,
-  );
-
+  // The 300-token budget and why it is not 100 live with the profile in
+  // `@/lib/constants/llm-models`.
   try {
-    // The 300-token budget and why it is not 100 live with the profile in
-    // `@/lib/constants/llm-models`.
-    const classifyPrompt = await fetchLangfusePrompt(
+    const { text: classifyPrompt, prompt } = await fetchLangfusePromptWithMeta(
       "category-classify",
       CLASSIFY_SYSTEM_PROMPT,
       { category_list: CATEGORY_LIST },
     );
+
+    const client = createClassifierClient(
+      token,
+      "classification",
+      "classification",
+      brand.target,
+      jobId,
+      prompt ?? undefined,
+    );
+
     const { response, data, content } = await client.chat({
       system: classifyPrompt,
       user: userContent,
@@ -485,20 +502,22 @@ async function classifyCategoryBatchChunk(
     .join("\n");
   const userContent = `請將以下品牌分類：\n${list}`;
 
-  const client = createClassifierClient(
-    token,
-    "classification",
-    "classificationBatch",
-    brands.at(0)?.target,
-    jobId,
-  );
-
   try {
-    const classifyBatchPrompt = await fetchLangfusePrompt(
+    const { text: classifyBatchPrompt, prompt: classifyBatchPromptMeta } = await fetchLangfusePromptWithMeta(
       "category-classify",
       CLASSIFY_SYSTEM_PROMPT,
       { category_list: CATEGORY_LIST },
     );
+
+    const client = createClassifierClient(
+      token,
+      "classification",
+      "classificationBatch",
+      brands.at(0)?.target,
+      jobId,
+      classifyBatchPromptMeta ?? undefined,
+    );
+
     const { response, data, content } = await client.chat({
       system: classifyBatchPrompt,
       user: userContent,
@@ -583,6 +602,32 @@ export async function classifyCategoryBatch(
   );
 }
 
+/** At most four probed URLs reach the prompt, at most 160 characters each. */
+export const MAX_PROBE_URLS = 4;
+const PROBE_LINE_CHARS = 160;
+
+/**
+ * One line per probed URL, rendered after the SERP snippets at BOTH detect
+ * prompt sites (the batch call and its single-brand retry) so a brand judged by
+ * the fallback sees the same evidence as one judged in the batch.
+ *
+ * A probe with neither title nor description falls back to its URL: the
+ * orchestrator only forwards probes that carry head text, but a caller passing
+ * a bare one must not render an empty field pair.
+ */
+function probeLines(probes: DetectBatchItem["probes"]): string[] {
+  if (!probes?.length) return [];
+
+  return probes.slice(0, MAX_PROBE_URLS).map((probe) => {
+    const head =
+      [probe.title, probe.description]
+        .filter((part): part is string => Boolean(part?.trim()))
+        .join(" — ") || probe.url;
+    const value = probe.platform ? `${head} (${probe.platform})` : head;
+    return `探測：${value.slice(0, PROBE_LINE_CHARS)}`;
+  });
+}
+
 async function detectBrand(
   brand: DetectBatchItem,
   jobId?: string,
@@ -593,18 +638,23 @@ async function detectBrand(
   const snippetLine = brand.snippets?.length
     ? `\n搜尋摘要：${brand.snippets.slice(0, 10).join("；")}`
     : "";
-  const userContent = `品牌 slug：${brand.slug}\n品牌名稱：${brand.name}\n描述：${brand.description ?? "無"}\n網站：${brand.website ?? "無"}${snippetLine}`;
-
-  const client = createClassifierClient(
-    token,
-    "detect",
-    "detect",
-    brand.target,
-    jobId,
-  );
+  const probeLine = probeLines(brand.probes)
+    .map((line) => `\n${line}`)
+    .join("");
+  const userContent = `品牌 slug：${brand.slug}\n品牌名稱：${brand.name}\n描述：${brand.description ?? "無"}\n網站：${brand.website ?? "無"}${snippetLine}${probeLine}`;
 
   try {
-    const detectPrompt = await fetchLangfusePrompt("detect", DETECT_SYSTEM_PROMPT);
+    const { text: detectPrompt, prompt: detectPromptMeta } = await fetchLangfusePromptWithMeta("detect", DETECT_SYSTEM_PROMPT);
+
+    const client = createClassifierClient(
+      token,
+      "detect",
+      "detect",
+      brand.target,
+      jobId,
+      detectPromptMeta ?? undefined,
+    );
+
     const { response, data, content } = await client.chat({
       system: detectPrompt,
       user: userContent,
@@ -655,21 +705,28 @@ async function detectBrandsBatchChunk(
       const snippetStr = brand.snippets?.length
         ? ` / 搜尋摘要：${brand.snippets.slice(0, 10).join("；")}`
         : "";
-      return base + snippetStr;
+      // Indented continuation lines rather than ` / ` fragments: four probes
+      // inline would bury the item's own identity line.
+      const probeStr = probeLines(brand.probes)
+        .map((line) => `\n   ${line}`)
+        .join("");
+      return base + snippetStr + probeStr;
     })
     .join("\n");
   const userContent = `請判斷以下項目是否為實際品牌：\n${list}`;
 
-  const client = createClassifierClient(
-    token,
-    "detect",
-    "detectBatch",
-    brands.at(0)?.target,
-    jobId,
-  );
-
   try {
-    const detectBatchPrompt = await fetchLangfusePrompt("detect", DETECT_SYSTEM_PROMPT);
+    const { text: detectBatchPrompt, prompt: detectBatchPromptMeta } = await fetchLangfusePromptWithMeta("detect", DETECT_SYSTEM_PROMPT);
+
+    const client = createClassifierClient(
+      token,
+      "detect",
+      "detectBatch",
+      brands.at(0)?.target,
+      jobId,
+      detectBatchPromptMeta ?? undefined,
+    );
+
     const { response, data, content } = await client.chat({
       system: detectBatchPrompt,
       user: userContent,

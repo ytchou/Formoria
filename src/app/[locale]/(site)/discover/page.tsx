@@ -22,13 +22,20 @@ import {
   getProductFacetCounts,
   type CatalogProduct,
 } from "@/lib/services/curated-products-catalog";
-import { routes } from "@/lib/routes";
+import { searchProductsBySituation } from "@/lib/services/product-situation-search";
 import {
   isVisibleCategory,
   subcategoryBySlug,
   subcategoryLabel,
   MATERIALS,
 } from "@/lib/taxonomy/ontology";
+import {
+  parseDiscoverQuery,
+  discoverMetadataFor,
+  type DiscoverSort,
+} from "@/lib/products/discover-search-params";
+import { ProductSituationSearchForm } from "@/components/products/product-situation-search-form";
+import { SearchResultsTracker } from "@/components/analytics/search-results-tracker";
 
 type PageProps = {
   params: Promise<{ locale: string }>;
@@ -45,14 +52,15 @@ function firstParam(value: string | string[] | undefined): string | null {
 }
 
 function resolveDiscoverTaxonomy(
-  query: Record<string, string | string[] | undefined>,
+  rawParams: Record<string, string | string[] | undefined>,
 ): {
   category: string | null;
   subcategories: string[];
   materials: string[];
-  sort: "newest" | "alphabetical";
+  sort: DiscoverSort;
+  query: string | null;
 } {
-  const category = firstParam(query.category);
+  const category = firstParam(rawParams.category);
 
   // Invalid category → 404
   if (category && !isVisibleCategory(category)) {
@@ -60,7 +68,7 @@ function resolveDiscoverTaxonomy(
   }
 
   // Parse multi-select subcategories, silently drop invalid ones
-  const rawSubs = parseCommaParam(query.sub);
+  const rawSubs = parseCommaParam(rawParams.sub);
   const subcategories = category
     ? rawSubs.filter((slug) => {
         const node = subcategoryBySlug(slug);
@@ -70,16 +78,14 @@ function resolveDiscoverTaxonomy(
 
   // Parse materials, validate against closed vocabulary
   const validMaterialSlugs: ReadonlySet<string> = new Set(MATERIALS.map((m) => m.slug));
-  const materials = parseCommaParam(query.material).filter((slug) =>
+  const materials = parseCommaParam(rawParams.material).filter((slug) =>
     validMaterialSlugs.has(slug),
   );
 
-  // Parse sort
-  const sortParam = firstParam(query.sort);
-  const sort: "newest" | "alphabetical" =
-    sortParam === "alphabetical" ? "alphabetical" : "newest";
+  // Parse query + sort together (sort default depends on query presence)
+  const { query, sort } = parseDiscoverQuery(rawParams);
 
-  return { category, subcategories, materials, sort };
+  return { category, subcategories, materials, sort, query };
 }
 
 export async function generateMetadata({
@@ -88,14 +94,13 @@ export async function generateMetadata({
 }: PageProps): Promise<Metadata> {
   const { locale } = await params;
   setRequestLocale(locale);
-  const query = await searchParams;
-  const { category } = resolveDiscoverTaxonomy(query);
+  const rawParams = await searchParams;
+  const { category, query } = resolveDiscoverTaxonomy(rawParams);
   const t = await getTranslations({ locale, namespace: "products" });
-  const discoverPath = routes.discover({
-    category: category || undefined,
-  });
+
+  const { robots, canonicalPath } = discoverMetadataFor({ query, category });
   const { canonical, languages } = buildAlternates(
-    discoverPath,
+    canonicalPath,
     locale as "zh-TW" | "en",
   );
 
@@ -103,6 +108,7 @@ export async function generateMetadata({
     title: t("metaTitle"),
     description: t("metaDescription"),
     alternates: { canonical, languages },
+    ...(robots ? { robots } : {}),
   };
 }
 
@@ -112,17 +118,21 @@ export default async function DiscoverPage({
 }: PageProps) {
   const { locale } = await params;
   setRequestLocale(locale);
-  const query = await searchParams;
-  const { category, subcategories, materials, sort } =
-    resolveDiscoverTaxonomy(query);
+  const rawParams = await searchParams;
+  const { category, subcategories, materials, sort, query: searchQuery } =
+    resolveDiscoverTaxonomy(rawParams);
   const t = await getTranslations({ locale, namespace: "products" });
   const commonT = await getTranslations({ locale, namespace: "common" });
-  const pageParam = firstParam(query.page);
+  const pageParam = firstParam(rawParams.page);
   const page = pageParam ? Math.max(1, parseInt(pageParam, 10) || 1) : 1;
+
+  const isSearchMode = searchQuery !== null;
 
   // Parallel fetch: products + facet counts
   let products: CatalogProduct[] = [];
   let totalCount = 0;
+  let searchSource: string | undefined;
+  let degraded = false;
   let facets: {
     subcategoryCounts: { slug: string; count: number }[];
     materialCounts: { slug: string; count: number }[];
@@ -131,20 +141,43 @@ export default async function DiscoverPage({
     materialCounts: [],
   };
   try {
-    const [productResult, facetResult] = await Promise.all([
-      getPublishedCuratedProducts({
-        category,
-        subcategories: subcategories.length > 0 ? subcategories : undefined,
-        materials: materials.length > 0 ? materials : undefined,
-        sort,
-        page,
-        pageSize: PAGE_SIZE,
-      }),
-      getProductFacetCounts(category),
-    ]);
-    products = productResult.products;
-    totalCount = productResult.totalCount;
-    facets = facetResult;
+    if (isSearchMode) {
+      const [searchResult, facetResult] = await Promise.all([
+        searchProductsBySituation({
+          query: searchQuery,
+          locale: locale as "zh-TW" | "en",
+          sort,
+          category,
+          subcategories: subcategories.length > 0 ? subcategories : undefined,
+          materials: materials.length > 0 ? materials : undefined,
+          page,
+          pageSize: PAGE_SIZE,
+        }),
+        getProductFacetCounts(category),
+      ]);
+      products = searchResult.products;
+      totalCount = searchResult.totalCount;
+      searchSource = searchResult.searchSource;
+      degraded = searchResult.degraded;
+      facets = facetResult;
+    } else {
+      // In catalog mode, sort is never "relevance" (parseDiscoverQuery guarantees this)
+      const catalogSort = sort as "newest" | "alphabetical";
+      const [productResult, facetResult] = await Promise.all([
+        getPublishedCuratedProducts({
+          category,
+          subcategories: subcategories.length > 0 ? subcategories : undefined,
+          materials: materials.length > 0 ? materials : undefined,
+          sort: catalogSort,
+          page,
+          pageSize: PAGE_SIZE,
+        }),
+        getProductFacetCounts(category),
+      ]);
+      products = productResult.products;
+      totalCount = productResult.totalCount;
+      facets = facetResult;
+    }
   } catch (err) {
     captureReadFailure("discover.catalog")(err);
   }
@@ -218,6 +251,32 @@ export default async function DiscoverPage({
           <p className="type-body">{t("subheading")}</p>
         </header>
 
+        {/* Situation search form */}
+        <ProductSituationSearchForm
+          locale={locale}
+          query={searchQuery}
+          category={category}
+          subcategories={subcategories}
+          materials={materials}
+          labels={{
+            label: t("search.label"),
+            placeholder: t("search.placeholder"),
+            submit: t("search.submit"),
+          }}
+        />
+
+        {/* Search results heading */}
+        {isSearchMode && (
+          <div className="space-y-1">
+            <h2 className="type-section">
+              {t("search.resultsHeading", { query: searchQuery })}
+            </h2>
+            <p className="type-metadata text-ink-muted">
+              {t("search.count", { count: totalCount })}
+            </p>
+          </div>
+        )}
+
         {/* Mobile drawer trigger */}
         <div className="lg:hidden">
           <ProductFilterDrawer
@@ -252,22 +311,44 @@ export default async function DiscoverPage({
             {/* Toolbar: result count + sort */}
             {totalCount > 0 && (
               <div className="mb-4 flex items-center justify-between gap-4">
-                <p className="type-metadata text-ink-muted">
-                  {t("resultCount", { count: totalCount })}
-                </p>
-                <ProductSortSelect currentSort={sort} />
+                {!isSearchMode && (
+                  <p className="type-metadata text-ink-muted">
+                    {t("resultCount", { count: totalCount })}
+                  </p>
+                )}
+                {isSearchMode && <span />}
+                <ProductSortSelect
+                  currentSort={sort}
+                  showRelevance={isSearchMode}
+                />
               </div>
             )}
 
             {/* Active filter chips */}
-            {activeFilters.length > 0 && (
+            {(activeFilters.length > 0 || isSearchMode) && (
               <div className="mb-4">
-                <ProductActiveFilters activeFilters={activeFilters} />
+                <ProductActiveFilters
+                  activeFilters={activeFilters}
+                  query={searchQuery}
+                />
               </div>
             )}
 
+            {isSearchMode && (
+              <SearchResultsTracker
+                trackerKind="product"
+                query={searchQuery}
+                resultCount={totalCount}
+                searchSource={searchSource}
+                degraded={degraded}
+              />
+            )}
+
             {products.length === 0 ? (
-              <EmptyState icon={<PackageOpen />} title={t("emptyState")} />
+              <EmptyState
+                icon={<PackageOpen />}
+                title={isSearchMode ? t("search.empty") : t("emptyState")}
+              />
             ) : (
               <>
                 <ProductGrid products={products} locale={locale} />

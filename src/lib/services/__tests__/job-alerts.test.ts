@@ -5,9 +5,11 @@ import { resetAuditEmitterForTests, setAuditWriteSeam, type AuditRecord } from '
 import type { EnrichmentSummary } from '../enrichment-logger'
 import {
   hasProviderFailures,
+  reportChannelVerdicts,
   reportCircuitBreakerTrip,
   reportJobFailure,
   reportProviderFailures,
+  type ChannelVerdictReport,
 } from '../job-alerts'
 
 vi.mock('@/lib/adapters/alerting/sentry', () => ({
@@ -183,6 +185,67 @@ describe('reportCircuitBreakerTrip', () => {
     const notification = vi.mocked(postSlackAlert).mock.calls[0]?.[0]
     expect(notification?.managerAction).toContain('OpenAI')
     expect(notification?.managerAction).not.toContain('worker logs')
+  })
+})
+
+describe('reportChannelVerdicts', () => {
+  function verdict(overrides: Partial<ChannelVerdictReport> = {}): ChannelVerdictReport {
+    return {
+      noChannelRejected: 3,
+      noChannelHidden: 2,
+      verdictSkipped: 0,
+      hideFailed: 0,
+      reportOnly: false,
+      targets: [
+        { slug: 'brand-a', action: 'rejected' },
+        { slug: 'brand-b', action: 'rejected' },
+        { slug: 'brand-c', action: 'rejected' },
+        { slug: 'brand-d', action: 'hidden' },
+        { slug: 'brand-e', action: 'hidden' },
+      ],
+      ...overrides,
+    }
+  }
+
+  it('report_channel_verdicts_posts_one_summary_per_job', async () => {
+    await reportChannelVerdicts(job, verdict())
+
+    expect(postSlackAlert).toHaveBeenCalledTimes(1)
+    const notification = vi.mocked(postSlackAlert).mock.calls[0]?.[0]
+    const text = JSON.stringify(notification)
+    for (const slug of ['brand-a', 'brand-b', 'brand-c', 'brand-d', 'brand-e']) {
+      expect(text).toContain(slug)
+    }
+    expect(text).toContain('rejected')
+    expect(text).toContain('hidden')
+    expect(text).toContain('/admin/jobs/job-1')
+    expect(text).not.toContain('report-only')
+
+    await reportChannelVerdicts(
+      job,
+      verdict({ noChannelRejected: 0, noChannelHidden: 0, verdictSkipped: 1, targets: [
+        { slug: 'brand-f', action: 'skipped', reason: 'boom' },
+      ] }),
+    )
+    expect(postSlackAlert).toHaveBeenCalledTimes(1)
+
+    await reportChannelVerdicts(
+      job,
+      verdict({
+        noChannelRejected: 0,
+        noChannelHidden: 0,
+        reportOnly: true,
+        targets: [
+          { slug: 'brand-a', action: 'would_reject' },
+          { slug: 'brand-d', action: 'would_hide' },
+        ],
+      }),
+    )
+    expect(postSlackAlert).toHaveBeenCalledTimes(2)
+    const reportOnlyText = JSON.stringify(vi.mocked(postSlackAlert).mock.calls[1]?.[0])
+    expect(reportOnlyText).toContain('report-only')
+    expect(reportOnlyText).toContain('brand-a')
+    expect(reportOnlyText).toContain('brand-d')
   })
 })
 

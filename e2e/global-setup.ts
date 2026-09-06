@@ -7,7 +7,7 @@ import { chromium, expect, type Browser } from "@playwright/test";
 import { createClient } from "@supabase/supabase-js";
 import { cleanupTestData } from "./helpers/cleanup";
 import { writeAuthStorageState } from "./helpers/auth-session";
-import { validateStagingTarget } from "../scripts/staging-target";
+import { validateStagingTarget } from "../src/lib/supabase/project-target";
 
 const LOCAL_HOSTNAMES = new Set(["localhost", "127.0.0.1", "::1", "[::1]"]);
 

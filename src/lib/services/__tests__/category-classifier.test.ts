@@ -11,6 +11,14 @@ import {
 } from "../category-classifier";
 import { L1_CATEGORIES } from "@/lib/taxonomy/ontology";
 
+const promptMeta = { name: "detect", version: 2 };
+vi.mock("@/lib/langfuse/prompt", () => ({
+  fetchLangfusePrompt: vi.fn((_n: string, fb: string) => Promise.resolve(fb)),
+  fetchLangfusePromptWithMeta: vi.fn((_n: string, fb: string) =>
+    Promise.resolve({ text: fb, prompt: promptMeta }),
+  ),
+}));
+
 const mockFetch = vi.fn();
 void (null as DetectResult | null);
 
@@ -259,6 +267,75 @@ describe("detectBrandsBatch", () => {
     expect(calls).toEqual({ attempted: 1, providerFailed: 1 });
   });
 
+  /**
+   * DEV-1644 F10. `probeStatic` reads each known URL's <head>; before this the
+   * result was collected and dropped, so a live site whose title says what the
+   * brand sells never reached the model. Both prompt sites render it — the
+   * batch one here, the single-brand retry below.
+   */
+  it("probe_evidence_reaches_detect_prompt", async () => {
+    // Persistent, not `Once`: the assertion is on the REQUEST, and an empty
+    // result set is allowed to trigger the per-brand retry without the test
+    // caring which path it took.
+    mockFetch.mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        choices: [{ message: { content: JSON.stringify({ results: [] }) } }],
+      }),
+    });
+
+    await detectBrandsBatch([
+      {
+        ...brands[0],
+        probes: [
+          {
+            url: "https://mybrand.com",
+            title: "My Brand Official Store",
+            description: "Handmade soap made in Taipei",
+            platform: "shopee",
+          },
+        ],
+      },
+    ]);
+
+    const body = JSON.parse(
+      (mockFetch.mock.calls[0][1] as { body: string }).body,
+    ) as { messages: Array<{ role: string; content: string }> };
+    const userMessage = body.messages.find((m) => m.role === "user")?.content;
+
+    expect(userMessage).toContain(
+      "探測：My Brand Official Store — Handmade soap made in Taipei (shopee)",
+    );
+  });
+
+  it("probe_evidence_reaches_the_single_brand_prompt", async () => {
+    // The per-brand retry runs on a content failure, so the batch answer is
+    // junk and the single call carries the same probe line.
+    vi.spyOn(console, "error").mockImplementation(() => undefined);
+    mockFetch.mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        choices: [{ message: { content: "not json at all" } }],
+      }),
+    });
+
+    await detectBrandsBatch([
+      {
+        ...brands[0],
+        probes: [{ url: "https://mybrand.com", title: "My Brand Official Store" }],
+      },
+    ]);
+
+    const singleBody = JSON.parse(
+      (mockFetch.mock.calls[1][1] as { body: string }).body,
+    ) as { messages: Array<{ role: string; content: string }> };
+    const userMessage = singleBody.messages.find(
+      (m) => m.role === "user",
+    )?.content;
+
+    expect(userMessage).toContain("探測：My Brand Official Store");
+  });
+
   it("does not report a provider failure when the model answers with junk", async () => {
     vi.spyOn(console, "error").mockImplementation(() => undefined);
     // Content failure, so the per-brand fallback is still worth paying for:
@@ -423,6 +500,26 @@ describe("structured output schemas", () => {
     ]);
     expect(results.size).toBe(1);
     expect(results.get("test-brand")!.categorySlug).toBe("home");
+
+    vi.unstubAllGlobals();
+    vi.unstubAllEnvs();
+  });
+
+  it("audit context carries prompt meta from fetchLangfusePromptWithMeta", async () => {
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({
+        choices: [{ message: { content: JSON.stringify({ results: [{ slug: "test-brand", reasoning: "test", isNonBrand: false, nonBrandReason: null, brand_name: "Test", slug_generated: "test-brand", confidence: "high" }] }) } }],
+      }),
+    });
+    vi.stubGlobal("fetch", mockFetch);
+    vi.stubEnv("OPENAI_API_KEY", "test-key");
+
+    await detectBrandsBatch([{ slug: "test-brand", name: "Test", description: null, website: null }]);
+
+    const _body = JSON.parse(mockFetch.mock.calls[0][1].body);
+    const { fetchLangfusePromptWithMeta } = await import("@/lib/langfuse/prompt");
+    expect(fetchLangfusePromptWithMeta).toHaveBeenCalled();
 
     vi.unstubAllGlobals();
     vi.unstubAllEnvs();

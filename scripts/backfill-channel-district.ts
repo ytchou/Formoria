@@ -1,13 +1,25 @@
+/**
+ * @formoria-script
+ * purpose: Derives brand_channels.district from each stockist address and region label.
+ * class: operator
+ * invoke: pnpm exec tsx scripts/backfill-channel-district.ts
+ * target: staging-default
+ * safety: dry-run-default
+ * owner: engineering
+ * notes: pending one-off: 1191 rows on 2026-09-02
+ */
 import { citySlugFromName } from "@/lib/constants/taiwan-cities";
 import { matchDistrict } from "@/lib/brands/district";
 import {
   listStockistDistrictBackfillRows,
   updateStockistDistricts,
 } from "@/lib/services/stockists";
+import { loadScriptTarget } from "./shared/target";
 
 const APPLY = process.argv.includes("--apply");
 
 async function main() {
+  loadScriptTarget();
   const rows = await listStockistDistrictBackfillRows();
   const updates: Array<{ id: string; district: string | null }> = [];
   const summaries = new Map<string, { matched: number; unmatched: string[] }>();

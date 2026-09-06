@@ -58,7 +58,7 @@ export async function postSlackAlert(
   );
 }
 
-/** Test seam: forget the one-shot missing-webhook warning. */
 export function resetSlackAdapterForTests(): void {
   missingWebhookWarned = false;
 }
+

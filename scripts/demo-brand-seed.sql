@@ -1,3 +1,11 @@
+-- @formoria-script
+-- purpose: Seeds a fully-rendered demo brand for exercising the owner claim and dashboard flows.
+-- class: operator
+-- invoke: supabase db query --db-url "$SUPABASE_DB_URL" --file scripts/demo-brand-seed.sql
+-- target: none
+-- safety: writes
+-- owner: engineering
+
 -- ============================================================
 -- Formoria — Demo / test brand SEED
 -- ------------------------------------------------------------

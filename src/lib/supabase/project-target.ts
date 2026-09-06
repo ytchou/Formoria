@@ -1,0 +1,275 @@
+export const PRODUCTION_PROJECT_REF = "xkcayngbttpxyibgzern";
+export const STAGING_PROJECT_REF = "ttkkyvgvcamfoezsetvf";
+const STAGING_HOSTNAME = "staging.formoria.com";
+
+type Environment = Record<string, string | undefined>;
+
+type SupabaseKeyRole = "anon" | "service_role";
+
+type SupabaseKeyPayload = {
+  ref?: unknown;
+  role?: unknown;
+};
+
+/**
+ * Read a required environment variable, naming the caller's purpose in the
+ * failure. `context` is not decoration: the same guard is now reached by the
+ * staging E2E harness, the curation worker, and every operator script through
+ * `scripts/shared/target.ts`, and a message that blames one of them misdirects
+ * the other two.
+ */
+function required(
+  environment: Environment,
+  name: string,
+  context: string,
+): string {
+  const value = environment[name]?.trim();
+  if (!value) throw new Error(`${name} is required ${context}`);
+  return value;
+}
+
+const STAGING_E2E_CONTEXT = "for staging E2E";
+const DATABASE_TARGET_CONTEXT = "to resolve the Supabase project target";
+
+function parseHttpsUrl(value: string, name: string): URL {
+  let parsed: URL;
+  try {
+    parsed = new URL(value);
+  } catch {
+    throw new Error(`${name} must be a valid URL`);
+  }
+  if (parsed.protocol !== "https:") {
+    throw new Error(`${name} must use https://`);
+  }
+  if (parsed.username || parsed.password || parsed.search || parsed.hash) {
+    throw new Error(`${name} must not contain credentials or query parameters`);
+  }
+  return parsed;
+}
+
+/**
+ * The installed Supabase client accepts both legacy JWT keys and the newer
+ * publishable/secret key strings. Only the JWT form exposes a project ref and
+ * role locally, so environment guards reject every other form instead of
+ * guessing at an authoritative identity source.
+ */
+export function validateSupabaseKeyIdentity(
+  value: string,
+  name: string,
+  expectedRef: string,
+  expectedRole: SupabaseKeyRole,
+): SupabaseKeyPayload {
+  const parts = value.trim().split(".");
+  if (
+    parts.length !== 3 ||
+    parts.some((part) => !part || !/^[A-Za-z0-9_-]+$/.test(part))
+  ) {
+    throw new Error(
+      `${name} must be a Supabase JWT with a verifiable project ref; publishable/secret key formats are rejected`,
+    );
+  }
+
+  let payload: SupabaseKeyPayload;
+  try {
+    const decoded = JSON.parse(
+      Buffer.from(parts[1], "base64url").toString("utf8"),
+    ) as unknown;
+    if (!decoded || typeof decoded !== "object")
+      throw new Error("not an object");
+    payload = decoded as SupabaseKeyPayload;
+  } catch {
+    throw new Error(`${name} contains an invalid Supabase JWT payload`);
+  }
+
+  if (payload.ref !== expectedRef) {
+    throw new Error(
+      `${name} identifies project ${String(payload.ref ?? "missing")}, not staging project ${expectedRef}`,
+    );
+  }
+  if (payload.role !== expectedRole) {
+    throw new Error(
+      `${name} has role ${String(payload.role ?? "missing")}, expected ${expectedRole}`,
+    );
+  }
+  return payload;
+}
+
+export function projectRefFromSupabaseUrl(value: string): string {
+  const parsed = parseHttpsUrl(value, "NEXT_PUBLIC_SUPABASE_URL");
+  if (parsed.pathname !== "/" || parsed.port) {
+    throw new Error(
+      "NEXT_PUBLIC_SUPABASE_URL must be the canonical hosted project URL",
+    );
+  }
+  const match = parsed.hostname.match(/^([a-z0-9]{20})\.supabase\.co$/i);
+  if (!match) {
+    throw new Error(
+      "NEXT_PUBLIC_SUPABASE_URL must identify a hosted Supabase project",
+    );
+  }
+  return match[1].toLowerCase();
+}
+
+export type StagingTarget = {
+  appUrl: string;
+  appHostname: string;
+  projectRef: string;
+  supabaseUrl: string;
+};
+
+/**
+ * Validate the complete E2E identity tuple before any browser or database
+ * mutation. A staging environment name by itself is not evidence: a copied
+ * production URL or Supabase project must fail closed.
+ */
+export function validateStagingTarget(
+  environment: Environment = process.env,
+): StagingTarget {
+  const declaredEnvironment = required(
+    environment,
+    "FORMORIA_DEPLOYMENT_ENV",
+    STAGING_E2E_CONTEXT,
+  );
+  if (declaredEnvironment.toLowerCase() !== "staging") {
+    throw new Error(
+      `E2E and staging seed are disabled for ${declaredEnvironment}; FORMORIA_DEPLOYMENT_ENV must be staging`,
+    );
+  }
+
+  const appValue = environment.STAGING_BASE_URL ?? environment.BASE_URL;
+  if (!appValue?.trim()) {
+    throw new Error("STAGING_BASE_URL is required for staging E2E");
+  }
+  const appUrl = parseHttpsUrl(appValue.trim(), "STAGING_BASE_URL");
+  for (const name of [
+    "BASE_URL",
+    "PLAYWRIGHT_BASE_URL",
+    "NEXT_PUBLIC_SITE_URL",
+    "FORMORIA_RUNTIME_URL",
+  ]) {
+    const declaredOrigin = environment[name]?.trim();
+    if (
+      declaredOrigin &&
+      parseHttpsUrl(declaredOrigin, name).toString() !== appUrl.toString()
+    ) {
+      throw new Error(
+        `${name} and STAGING_BASE_URL must identify the same staging origin`,
+      );
+    }
+  }
+  if (appUrl.hostname.toLowerCase() !== STAGING_HOSTNAME) {
+    throw new Error(
+      `STAGING_BASE_URL must use ${STAGING_HOSTNAME}, not ${appUrl.hostname}`,
+    );
+  }
+  if (appUrl.pathname !== "/") {
+    throw new Error("STAGING_BASE_URL must not include a path");
+  }
+
+  const supabaseUrl = required(
+    environment,
+    "NEXT_PUBLIC_SUPABASE_URL",
+    STAGING_E2E_CONTEXT,
+  );
+  const projectRef = required(
+    environment,
+    "SUPABASE_PROJECT_REF",
+    STAGING_E2E_CONTEXT,
+  ).toLowerCase();
+  const urlProjectRef = projectRefFromSupabaseUrl(supabaseUrl);
+  if (projectRef !== STAGING_PROJECT_REF) {
+    throw new Error(
+      `SUPABASE_PROJECT_REF must be ${STAGING_PROJECT_REF} for staging`,
+    );
+  }
+  if (urlProjectRef !== projectRef) {
+    throw new Error(
+      `NEXT_PUBLIC_SUPABASE_URL identifies project ${urlProjectRef}, not SUPABASE_PROJECT_REF ${projectRef}`,
+    );
+  }
+
+  validateSupabaseKeyIdentity(
+    required(environment, "NEXT_PUBLIC_SUPABASE_ANON_KEY", STAGING_E2E_CONTEXT),
+    "NEXT_PUBLIC_SUPABASE_ANON_KEY",
+    projectRef,
+    "anon",
+  );
+  validateSupabaseKeyIdentity(
+    required(environment, "SUPABASE_SERVICE_ROLE_KEY", STAGING_E2E_CONTEXT),
+    "SUPABASE_SERVICE_ROLE_KEY",
+    projectRef,
+    "service_role",
+  );
+
+  return {
+    appUrl: appUrl.toString().replace(/\/$/, ""),
+    appHostname: appUrl.hostname.toLowerCase(),
+    projectRef,
+    supabaseUrl: new URL(supabaseUrl).toString().replace(/\/$/, ""),
+  };
+}
+
+export function assertStagingRevision(
+  expectedSha: string,
+  observedRevision: string | null | undefined,
+): void {
+  const expected = expectedSha.trim().toLowerCase();
+  const observed = observedRevision?.trim().toLowerCase();
+  if (!/^[0-9a-f]{40}$/.test(expected)) {
+    throw new Error("Expected staging revision must be a 40-character Git SHA");
+  }
+  if (observed !== expected) {
+    throw new Error(
+      `Staging revision mismatch: expected ${expected}, observed ${observed ?? "missing"}`,
+    );
+  }
+}
+
+export type WorkerDeploymentEnvironment = "production" | "staging";
+
+const EXPECTED_PROJECT_REFS: Record<WorkerDeploymentEnvironment, string> = {
+  production: PRODUCTION_PROJECT_REF,
+  staging: STAGING_PROJECT_REF,
+};
+
+export type WorkerTarget = {
+  deploymentEnvironment: WorkerDeploymentEnvironment;
+  projectRef: string;
+};
+
+/**
+ * Assert that the worker's database credentials belong to the environment it
+ * declares itself to be, before it can claim or write a single job.
+ *
+ * The declaration side is fail-open by design: an unset FORMORIA_DEPLOYMENT_ENV
+ * resolves to production. That is safe only while something independent proves
+ * which database is actually attached, which is what this does — the connection
+ * URL and the service-role JWT must both name the declared project. A staging
+ * worker holding production credentials, or a production worker whose
+ * environment variable was never set but whose key points at staging, fails to
+ * boot rather than enriching the wrong database.
+ */
+export function assertDatabaseTarget(
+  deploymentEnvironment: WorkerDeploymentEnvironment,
+  environment: Environment = process.env,
+): WorkerTarget {
+  const expectedRef = EXPECTED_PROJECT_REFS[deploymentEnvironment];
+
+  const urlProjectRef = projectRefFromSupabaseUrl(
+    required(environment, "NEXT_PUBLIC_SUPABASE_URL", DATABASE_TARGET_CONTEXT),
+  );
+  if (urlProjectRef !== expectedRef) {
+    throw new Error(
+      `NEXT_PUBLIC_SUPABASE_URL identifies project ${urlProjectRef}, but this worker declares ${deploymentEnvironment} (${expectedRef})`,
+    );
+  }
+
+  validateSupabaseKeyIdentity(
+    required(environment, "SUPABASE_SERVICE_ROLE_KEY", DATABASE_TARGET_CONTEXT),
+    "SUPABASE_SERVICE_ROLE_KEY",
+    expectedRef,
+    "service_role",
+  );
+
+  return { deploymentEnvironment, projectRef: expectedRef };
+}

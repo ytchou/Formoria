@@ -1,9 +1,19 @@
+/**
+ * @formoria-script
+ * purpose: Syncs the owner-facing PostHog endpoints, insights and dashboard from the query registry.
+ * class: operator
+ * invoke: pnpm posthog:sync
+ * target: staging-default
+ * safety: writes
+ * owner: engineering
+ */
 import {
   listOwnerEndpoints,
   OWNER_ENDPOINTS,
   SITE_DASHBOARD_NAME,
   type OwnerEndpointDef,
 } from '@/lib/analytics/posthog-queries'
+import { loadScriptTarget } from './shared/target'
 
 type EndpointPayload = {
   name: string
@@ -315,6 +325,7 @@ async function syncDashboard(
 }
 
 async function main(): Promise<void> {
+  loadScriptTarget()
   const client = createPostHogClient()
   const failures: string[] = []
 

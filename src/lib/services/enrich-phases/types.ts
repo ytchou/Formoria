@@ -11,7 +11,10 @@ import type { ScrapedBrandData } from "@/lib/types/scraper";
 import type { EnrichmentTarget } from "../_shared/enrichment-target";
 import type { SearchCallStatus } from "../search-results";
 import type { BrandSearchEntry } from "./scraper/types";
-import type { BrandNameProposal } from "@/lib/types/enriched-data";
+import type {
+  BrandNameProposal,
+  SubmissionFaqPatch,
+} from "@/lib/types/enriched-data";
 
 export type EnrichPhase = (typeof ENRICH_PHASES)[number];
 
@@ -40,6 +43,8 @@ export type EnrichBrand = {
   // Set per brand by curation-operations; phases read it to decide whether to
   // regenerate rather than gap-fill.
   overwrite_enrichment?: boolean;
+  website_url?: string | null;
+  intent?: string | null;
 } & Partial<BrandFlatLinkColumns>;
 
 export type SearchPhaseResult = {
@@ -107,6 +112,8 @@ export type EnrichPatch = Partial<BrandFlatLinkColumns> &
     _cleared_fields: string[];
     /** Internal refresh-only proposal; never a brand column. */
     _name_proposal: BrandNameProposal;
+    /** FAQ entries proposed by the enrichment run; materialized at apply time. */
+    faq: SubmissionFaqPatch;
   }>;
 
 export type BatchPhaseContext = {

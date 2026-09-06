@@ -18,7 +18,11 @@
 export const LLM_MODELS = {
   text: "gpt-5.6-luna",
   vision: "gpt-5.6-luna",
+  text_mini: "gpt-4o-mini",
 } as const;
+
+export const EMBEDDING_MODEL = "text-embedding-3-small";
+export const EMBEDDING_BATCH_SIZE = 100;
 
 export type LlmModelKey = keyof typeof LLM_MODELS;
 
@@ -208,6 +212,40 @@ export const LLM_PROFILES = {
     temperature: 0.1,
     reasoningEffort: "none",
     timeoutMs: 60_000,
+  },
+  /** Acquisition agent — plans evidence retrieval per brand. */
+  acquisition: {
+    model: "text",
+    temperature: 0.1,
+    reasoningEffort: "none",
+    timeoutMs: 30_000,
+  },
+  /** Acquire phase — the top-level phase wrapping the acquisition agent (DEV-1644). */
+  acquire: {
+    model: "text",
+    temperature: 0.1,
+    reasoningEffort: "none",
+    timeoutMs: 30_000,
+  },
+  /** Products agent — select/verify/repair product proposals per brand. */
+  products_agent: {
+    model: "text",
+    temperature: 0.1,
+    reasoningEffort: "none",
+    timeoutMs: 60_000,
+  },
+  /** Editorial agent — cross-output repair across descriptions/stockists/faq. */
+  editorial: {
+    model: "text",
+    temperature: 0.1,
+    reasoningEffort: "none",
+    timeoutMs: 60_000,
+  },
+  /** Rerank candidates against a query for retrieval. */
+  rerank: {
+    model: "text",
+    temperature: 0,
+    maxTokens: 400,
   },
 } as const satisfies Record<string, LlmProfile>;
 

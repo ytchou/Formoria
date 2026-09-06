@@ -527,6 +527,7 @@ describe("failureReason", () => {
       errorBody: null,
       finishReason: "stop",
       refusal: null,
+      toolCalls: null,
       ...overrides,
     };
   }

@@ -1,4 +1,13 @@
 /**
+ * @formoria-script
+ * purpose: Fails the build when copy over a PhotoBand photograph falls below its contrast floor.
+ * class: ci-gate
+ * invoke: pnpm check:photo-bands
+ * target: none
+ * safety: read-only
+ * owner: engineering
+ */
+/**
  * CONTRAST GATE FOR PHOTOGRAPHIC BANDS.
  *
  * A `PhotoBand` puts copy on top of a photograph behind a scrim. Whether that

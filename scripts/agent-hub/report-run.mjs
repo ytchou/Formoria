@@ -1,3 +1,12 @@
+/**
+ * @formoria-script
+ * purpose: Reports a scheduled agent run envelope to the agent hub.
+ * class: scheduled-automation
+ * invoke: node scripts/agent-hub/report-run.mjs
+ * target: ci
+ * safety: writes
+ * owner: engineering
+ */
 import { readFile } from "node:fs/promises";
 import { pathToFileURL } from "node:url";
 

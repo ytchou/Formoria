@@ -128,6 +128,9 @@ export type CatalogQueryOptions = {
   sort?: "newest" | "alphabetical";
   page?: number;
   pageSize?: number;
+  /** When set, fetch exactly these product ids and return them in this order.
+   *  Ignores page, pageSize, and sort. Max 48. */
+  ids?: string[];
 };
 
 type CatalogFilterQuery = {
@@ -152,11 +155,67 @@ export async function getPublishedCuratedProducts(
     sort = "newest",
     page = 1,
     pageSize = DEFAULT_PAGE_SIZE,
+    ids,
   } = options;
   const supabase: Pick<SupabaseClient, "from"> =
     client ??
     (createServiceClient() as unknown as Pick<SupabaseClient, "from">);
 
+  // ---- ids mode: single fetch, caller-order, no pagination ----
+  if (ids && ids.length > 0) {
+    const IDS_MAX = 48;
+    const readByIds = async (
+      legacy: boolean,
+    ): Promise<CatalogProductRow[]> => {
+      const query = supabase
+        .from("curated_products")
+        .select(catalogSelect(legacy))
+        .in("id", ids)
+        .eq("visible", true)
+        .not("official_url", "is", null)
+        .not("source_checked_at", "is", null)
+        .eq("curated_product_sources.state", "active")
+        .eq("brands.status", "approved");
+      const filtered = excludeTestBrands(
+        query as unknown as CatalogFilterQuery,
+        "brands.name",
+      ) as unknown as typeof query;
+      const { data, error } = await filtered
+        .order("id", { ascending: true })
+        .range(0, IDS_MAX - 1);
+      if (error) throw error;
+      return (data ?? []) as unknown as CatalogProductRow[];
+    };
+
+    let rawRows: CatalogProductRow[];
+    try {
+      rawRows = await readByIds(false);
+    } catch (error) {
+      const code = (error as { code?: string }).code;
+      const message = (error as { message?: string }).message ?? "";
+      if (
+        (code !== "42703" && code !== "PGRST204") ||
+        !/\bsubcategory\b/u.test(message)
+      ) {
+        throw error;
+      }
+      rawRows = await readByIds(true);
+    }
+
+    const products = rawRows
+      .filter((row) => canonicalCatalogSubcategory(row) !== null)
+      .map(transformCatalogRow);
+
+    // Reorder to match the caller's ids order
+    const orderMap = new Map(ids.map((id, i) => [id, i]));
+    products.sort(
+      (a, b) => (orderMap.get(a.id) ?? ids.length) - (orderMap.get(b.id) ?? ids.length),
+    );
+
+    return { products, totalCount: products.length };
+  }
+
+  // ---- standard catalog mode ----
   const readAll = async (legacy: boolean): Promise<CatalogProductRow[]> => {
     const rows: CatalogProductRow[] = [];
     for (let range = 0; range < CATALOG_MAX_RANGES; range += 1) {

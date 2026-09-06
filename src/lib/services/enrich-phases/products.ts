@@ -33,7 +33,7 @@ import {
   createProfiledOpenAIClient,
   profileChatParams,
 } from "../llm-audit";
-import { fetchLangfusePrompt } from "@/lib/langfuse/prompt";
+import { fetchLangfusePromptWithMeta } from "@/lib/langfuse/prompt";
 import {
   parseAndValidate,
   toStrictJsonSchema,
@@ -45,6 +45,7 @@ import {
 } from "../_shared/llm-call-outcome";
 import {
   brandTarget,
+  targetImageStorage,
   type EnrichmentTarget,
 } from "../_shared/enrichment-target";
 import { preferPatched } from "./descriptions";
@@ -77,8 +78,13 @@ import {
   type ExactRegistryLookupResult,
 } from "../mit-registry";
 import { loadRenderedProductTexts } from "./scraper/product-origin-text";
-import type { RenderProvider } from "./scraper/render/types";
+import { fetchHtmlWithMetadata } from "./scraper/fetch-guards";
+import type { RenderProviderWithBudget } from "./scraper/render/from-env";
+import { bindBrandKey } from "./scraper/render/render-budget";
 import type { CatalogDiscoveryResult } from "./catalog-discovery";
+import type { CandidateImage } from "./candidate-pool";
+import { rankForProduct, type RankableImage } from "./image-ranking";
+import { createAgentModel, type AgentModel } from "./agents/runtime";
 import {
   buildPhaseResult,
   timePhase,
@@ -170,6 +176,18 @@ const PRODUCTS_SCHEMA = {
 };
 
 /**
+ * The same reply contract, exported for the agent graph.
+ *
+ * ONE shape, not two. The agent's propose step used to carry a private schema
+ * with no `evaluations` key, which meant it had no editorial score to rank the
+ * candidate pool with and no citation-guarded `made_in_taiwan` to feed the
+ * origin consensus — so `verifyOrigin` had nothing to decide on. Sharing the
+ * shape also shares `validateCandidateEvaluations`, which is what refuses an
+ * invented excerpt id.
+ */
+export const PRODUCTS_PROPOSAL_SHAPE = productsShape;
+
+/**
  * Lenient parse shape for `parseAndValidate`: validates only the top-level
  * structure so that individual product/evaluation failures are caught downstream
  * by `validateProductProposals` rather than rejecting the entire response.
@@ -235,7 +253,20 @@ export type ProductsPhaseOptions = {
   catalogResult?: CatalogDiscoveryResult;
   /** Page URLs from image acquisition candidates. Optional until the orchestrator is updated (Task 5). */
   acquisitionPageUrls?: string[];
-  renderProvider?: RenderProvider;
+  /** Classified image pool from the acquire phase, for product-level image selection. */
+  imagePool?: RankableImage[];
+  renderProvider?: RenderProviderWithBudget;
+  /**
+   * Chat model for the agent path. Injected only by tests; production builds
+   * one from the `products_agent` profile through the shared agent runtime.
+   */
+  agentModel?: AgentModel;
+  /** Stores product-page images for decision #35. Injected for testing. */
+  storePageImages?: (
+    candidates: CandidateImage[],
+  ) => Promise<(string | null)[]>;
+  /** Classifies exactly the images decision #35 just stored. Injected for testing. */
+  classifyPageImages?: (handles: string[]) => Promise<RankableImage[]>;
 };
 
 /**
@@ -595,18 +626,14 @@ export function validateProductProposals(
     }
 
     const nameEn = trimmedString(raw.name_en);
-    // Use the candidate's known image when available. When there are no
-    // candidates (no catalog), fall back to the model's value if it's on
-    // the brand's own host.
-    const modelImageSource = httpUrl(raw.image_source_url);
-    const imageSourceUrl =
-      ownedCandidate?.imageUrl ??
-      (candidateByUrl.size === 0 &&
-      modelImageSource &&
-      site &&
-      bareHost(modelImageSource) === bareHost(site)
-        ? modelImageSource.toString()
-        : null);
+    // THE MODEL'S `image_source_url` IS NEVER USED (decision #35). The field
+    // stays in the schema — removing it would make the model improvise a home
+    // for the value — but the only image a proposal may carry is one this
+    // pipeline saw: the candidate's own thumbnail here, upgraded in
+    // `publishProposals` to a classified keep from the product's own page when
+    // the image pool has one. The model echoing a URL is not evidence that the
+    // URL is an image, that the brand owns it, or that it depicts this product.
+    const imageSourceUrl = ownedCandidate?.imageUrl ?? null;
 
     const key = proposalKey(nameZh, nameEn, takenKeys, max);
     const proposal: CuratedProductProposal = {
@@ -700,6 +727,198 @@ type ProductsRunOutcome = {
   candidateIdsByUrl: Map<string, string>;
 };
 
+type PublishProposalsOptions = {
+  proposals: CuratedProductProposal[];
+  /** Every candidate seen this run, gated or not — the provenance trail. */
+  catalogCandidates: ProductCandidate[];
+  evaluations: ReadonlyMap<string, ProductCandidateEvaluation>;
+  originDecisions: ReadonlyMap<string, CandidateOriginDecision>;
+  candidateIdsByUrl: ReadonlyMap<string, string>;
+  ownedHosts: string[];
+  brandId: string;
+  submissionId: string | null;
+  jobId: string | null;
+  collapsedCount: number;
+  candidateWriter?: CandidateWriter;
+  candidateRanker?: LlmRanker;
+  /**
+   * Classified images to pick each product's own image from. Empty on a run
+   * with no acquire pool, which downgrades the image to `unverified` rather
+   * than inventing one.
+   */
+  imagePool: readonly RankableImage[];
+  summary: Record<string, unknown>;
+};
+
+/**
+ * Turns verified proposals into the list the moderator sees.
+ *
+ * THE ONLY CALLER OF `persistCandidatePool`, and the only place a proposal
+ * gains `madeInTaiwanConfirmed` / `originCandidateId`. It was previously inline
+ * in the single-call body, so the agent path returned early and shipped
+ * proposals with no candidate provenance rows and no Made-in-Taiwan
+ * confirmation at all (DEV-1644 F6). Both paths call this now.
+ *
+ * Three things happen here, in this order because each depends on the last:
+ *   1. every candidate is persisted, which is what mints the audit ids;
+ *   2. proposals outside the ranked selection window are dropped;
+ *   3. the survivors are stamped with origin qualification and a product image.
+ *
+ * A persistence failure is reported on the summary and never fails the phase —
+ * the proposals are still good, they just lose their provenance rows.
+ */
+async function publishProposals(
+  options: PublishProposalsOptions,
+): Promise<CuratedProductProposal[]> {
+  const {
+    proposals,
+    catalogCandidates,
+    evaluations,
+    originDecisions,
+    candidateIdsByUrl,
+    ownedHosts,
+    brandId,
+    submissionId,
+    jobId,
+    collapsedCount,
+    imagePool,
+    summary,
+  } = options;
+
+  /**
+   * Decision #35: the product image is a classified keep from the product's OWN
+   * page. `rankForProduct` filters the pool by the page each image was found on,
+   * so a hit is proof this pipeline saw the image on this product's page. The
+   * candidate thumbnail off a listing grid is the fallback and is recorded as
+   * `unverified`; the model's `image_source_url` is never a source at all.
+   */
+  const withImage = (
+    proposal: CuratedProductProposal,
+  ): { proposal: CuratedProductProposal; status: "verified" | "unverified" | "missing" } => {
+    const ranked =
+      imagePool.length > 0
+        ? rankForProduct(imagePool, proposal.officialUrl)
+        : null;
+    const rankedUrl = ranked?.imageUrl ?? null;
+    if (rankedUrl) {
+      return { proposal: { ...proposal, imageSourceUrl: rankedUrl }, status: "verified" };
+    }
+    return {
+      proposal,
+      status: proposal.imageSourceUrl ? "unverified" : "missing",
+    };
+  };
+
+  const stampImages = (
+    list: CuratedProductProposal[],
+  ): CuratedProductProposal[] => {
+    const counts = { verified: 0, unverified: 0, missing: 0 };
+    const stamped = list.map((proposal) => {
+      const result = withImage(proposal);
+      counts[result.status] += 1;
+      return result.proposal;
+    });
+    Object.assign(summary, { productImageStatus: counts });
+    return stamped;
+  };
+
+  try {
+    const ranker: LlmRanker =
+      options.candidateRanker ??
+      (async (candidates) =>
+        candidates.map((candidate) => ({
+          url: candidate.url,
+          score: evaluations.get(candidate.url)?.score ?? null,
+          rationale: evaluations.get(candidate.url)?.rationale ?? null,
+        })));
+
+    const writer = options.candidateWriter ?? createDefaultCandidateWriter();
+
+    // Persists EVERY candidate — including off-host and duplicates — so the
+    // full provenance trail is recorded for run-over-run visibility. The
+    // deduped, host-filtered pool is only for the LLM prompt.
+    const selectionResult = await persistCandidatePool({
+      pool: catalogCandidates,
+      acceptedCandidates: [],
+      ranker,
+      writer,
+      brandId,
+      submissionId,
+      jobId,
+      maxProducts: MAX_PROPOSALS,
+      originDecisions,
+      candidateIdsByUrl,
+      officialHost: ownedHosts,
+    });
+
+    const selectedUrls = new Set(
+      selectionResult.ranked.map((candidate) => candidate.normalizedUrl),
+    );
+    // O(1) lookup: one normalizeProductUrl per key, not per proposal.
+    const normalizedToOriginUrl = new Map<string, string>();
+    for (const url of originDecisions.keys()) {
+      const norm = normalizeProductUrl(url);
+      if (norm && !normalizedToOriginUrl.has(norm)) normalizedToOriginUrl.set(norm, url);
+    }
+    const published = proposals
+      .filter((proposal) => {
+        const normalized = normalizeProductUrl(proposal.officialUrl);
+        return normalized !== null && selectedUrls.has(normalized);
+      })
+      .map((proposal) => {
+        const normalized = normalizeProductUrl(proposal.officialUrl);
+        const candidate = normalized ? normalizedToOriginUrl.get(normalized) : undefined;
+        if (!candidate) return proposal;
+        const auditId = selectionResult.auditIdsByUrl.get(candidate);
+        const decision = originDecisions.get(candidate);
+        if (!auditId || !decision?.mitQualified) return proposal;
+        return {
+          ...proposal,
+          madeInTaiwanConfirmed: true,
+          materialsFromTaiwanConfirmed:
+            decision.qualificationMethod === "consensus",
+          mitRegistryId:
+            decision.qualificationMethod === "registry" &&
+            typeof decision.registry.recordId === "number"
+              ? decision.registry.recordId
+              : null,
+          originCandidateId: auditId,
+        };
+      });
+
+    if (selectionResult.persistError) {
+      Object.assign(summary, {
+        candidatePersistError: selectionResult.persistError,
+      });
+    }
+    Object.assign(summary, {
+      candidatesCollapsed: collapsedCount,
+      candidatesGated: selectionResult.gated.length,
+      candidateBestScore: selectionResult.bestScore,
+      candidateCutoff: selectionResult.cutoff,
+      candidatesEvaluated: selectionResult.evaluatedCount,
+      candidatesInvalidOrMissing: selectionResult.invalidOrMissingCount,
+      candidatesBelowWindow: selectionResult.belowWindowCount,
+      candidatesSelected: selectionResult.ranked.length,
+      proposalYield:
+        catalogCandidates.length - selectionResult.gated.length > 0
+          ? published.length /
+            (catalogCandidates.length - selectionResult.gated.length)
+          : 0,
+    });
+
+    return stampImages(published);
+  } catch (err) {
+    // The writer or ranker threw (e.g. service client missing in tests, or the
+    // table does not exist yet). Report and continue — persistence must never
+    // fail the phase, and the proposals themselves are unaffected.
+    Object.assign(summary, {
+      candidatePersistError: err instanceof Error ? err.message : String(err),
+    });
+    return stampImages(proposals);
+  }
+}
+
 export async function runProductsPhase({
   brand,
   phases,
@@ -714,16 +933,20 @@ export async function runProductsPhase({
   lookupRegistryProducts,
   catalogResult,
   acquisitionPageUrls,
+  imagePool: acquireImagePool,
   renderProvider,
+  agentModel,
+  storePageImages,
+  classifyPageImages,
 }: ProductsPhaseOptions): Promise<ProductsPhaseOutput> {
   if (!phases.includes("products"))
     return skipped("products phase not requested");
 
   const effectiveTarget = target ?? brandTarget(brand.id);
-  // Submission targets only, the same shape as `runFaqPhase`'s refusal to touch
-  // `brand_faq_entries` for a submission id — and for the mirror-image reason.
-  // A proposal is not a row: it rides `enriched_data.products[]` until a
-  // moderator ticks the keepers, so its only destination is a submission's blob.
+  // Submission targets only. Both products and FAQ now store proposals on the
+  // submission blob (`enriched_data.products[]` / `enriched_data.faq`) and
+  // materialize them at apply/approve time — `runFaqPhase` returns a
+  // `patch.faq` for the same reason this phase returns `patch.products`.
   // A brand-target patch is applied column by column to `brands`, which has no
   // `products` column, so carrying proposals there would fail the whole update
   // with a 42703 and take every other phase's field down with it. `runEnrich`
@@ -747,9 +970,9 @@ export async function runProductsPhase({
     ...new Set(
       [
         siteUrl,
-        brand.purchase_pinkoi,
-        brand.purchase_shopee,
-        brand.purchase_myship,
+        preferPatched(pendingPatch, brand.purchase_pinkoi, "purchase_pinkoi"),
+        preferPatched(pendingPatch, brand.purchase_shopee, "purchase_shopee"),
+        preferPatched(pendingPatch, brand.purchase_myship, "purchase_myship"),
       ].filter(
         (value): value is string =>
           typeof value === "string" && value.length > 0,
@@ -951,9 +1174,274 @@ export async function runProductsPhase({
       proposals: [],
     };
 
+  // ONE set of candidate ids for the whole run. Origin excerpt ids, the MIT
+  // registry lookup keys and the persisted `curated_product_candidates` rows all
+  // key off these, so minting them twice would make a model's excerpt citation
+  // unresolvable against the row it was supposed to justify.
+  const candidateIdsByUrl = new Map(
+    catalogCandidates.map((candidate) => [candidate.url, randomUUID()]),
+  );
+
+  // Per-brand render budgeting. Bind brand.id so the budget tracker counts
+  // renders against this brand, not the shared 'unknown' default (F8).
+  const renderForBrand = renderProvider ? bindBrandKey(renderProvider, brand.id) : undefined;
+
+  const loadOriginTextsFn =
+    loadOriginTexts ?? ((urls: readonly string[]) =>
+      loadRenderedProductTexts(urls, renderForBrand));
+
   return auditedCall(
     { provider: "enrich", operation: "runProductsPhase", kind: "service" },
     async (ctx) => {
+      // Why the single-call body ran, when the agent was enabled and did not
+      // publish. Without it a fallback run is indistinguishable from a run where
+      // the agent was never enabled, and the first staging run could not say why
+      // any brand had fallen back.
+      let agentFallback: { outcome: PhaseResult["agentOutcome"]; reason: string } | null =
+        null;
+
+      // --- Products agent gate (DEV-1644) ---
+      // When enabled (default), the multi-step agent runs select → read →
+      // propose → verify → repair. A THROWN agent falls back to the single-call
+      // body; a `blocked` agent does not (see below).
+      if (process.env.PRODUCTS_AGENT !== "off") {
+        try {
+          const { runProductsAgent } = await import("./products/graph");
+          // The audit context is bound HERE, at construction, so every turn the
+          // graph takes writes its own `brand_ai_results` row without the graph
+          // knowing anything about the audit envelope (DEV-1700).
+          const model =
+            agentModel ??
+            (await createAgentModel(
+              "products_agent",
+              {
+                phase: "products",
+                target: effectiveTarget,
+                ...(jobId ? { jobId } : {}),
+              },
+              { jsonObject: true },
+            ));
+
+          // Decision #35, wired to the same two helpers the acquire phase uses.
+          // `downloadAndStoreImages` returns storage paths rather than row ids,
+          // so the classify call is scoped by filtering its output on those
+          // paths — `onlyImageIds` would need ids this helper never returns.
+          const pageImageOrigins = new Map<
+            string,
+            { pageUrl: string; imageUrl: string }
+          >();
+          const storePageImagesFn =
+            storePageImages ??
+            (async (candidates: CandidateImage[]) => {
+              if (dryRun) return [];
+              const { downloadAndStoreImages } = await import("../image-download");
+              const handles = await downloadAndStoreImages(
+                [...candidates],
+                effectiveTarget,
+              );
+              handles.forEach((handle, index) => {
+                const candidate = candidates[index];
+                if (!handle || !candidate) return;
+                pageImageOrigins.set(handle, {
+                  pageUrl: candidate.pageUrl ?? "",
+                  imageUrl: candidate.url,
+                });
+              });
+              return handles;
+            });
+          const classifyPageImagesFn =
+            classifyPageImages ??
+            (async (handles: string[]) => {
+              if (dryRun) return [];
+              const { classifyStoredImages, applyPlannedImageWrites } = await import("./classify-images");
+              const { createServiceClient: createClient } = await import("@/lib/supabase/service");
+
+              const supabase = createClient();
+
+              // Resolve storage paths to row ids so classifyStoredImages
+              // scopes the vision call to only the images this batch stored.
+              const storage = targetImageStorage(effectiveTarget);
+              const { data: matchedRows } = await (supabase as unknown as {
+                from: (t: string) => { select: (c: string) => { eq: (c: string, v: string) => { in: (c: string, v: string[]) => Promise<{ data: Array<{ id: string }> | null }> } } };
+              }).from(storage.table).select("id").eq(storage.foreignKey, effectiveTarget.id).in("storage_path", handles);
+              const onlyImageIds: string[] = (matchedRows ?? []).map((r) => r.id);
+
+              const wanted = new Set(handles);
+              const classifyResult = await classifyStoredImages({
+                brand,
+                target: effectiveTarget,
+                dryRun: false,
+                ...(jobId ? { jobId } : {}),
+                ...(pendingPatch ? { pendingPatch } : {}),
+                ctx,
+                onlyImageIds,
+                supabase,
+              });
+
+              // Persist vision verdicts so the next run does not re-classify.
+              if (!dryRun && classifyResult.writes.length > 0) {
+                await applyPlannedImageWrites(supabase, effectiveTarget, classifyResult.writes);
+              }
+
+              return classifyResult.classified
+                .filter(
+                  (image) =>
+                    typeof image.storage_path === "string" &&
+                    wanted.has(image.storage_path),
+                )
+                .map((image) => {
+                  const origin = pageImageOrigins.get(image.storage_path!);
+                  return {
+                    ...image,
+                    sourceUrl: origin?.pageUrl ?? null,
+                    imageUrl: origin?.imageUrl ?? null,
+                  };
+                });
+            });
+
+          const agentResult = await runProductsAgent(
+            {
+              brand: {
+                id: brand.id,
+                slug: brand.slug,
+                name: brand.name ?? brand.slug,
+                url: site.toString(),
+              },
+              pool: pool.products,
+              imagePool: acquireImagePool ?? [],
+              catalogResult: catalogResult ?? undefined,
+              scrapedData: scrapedData ?? undefined,
+              priorityProductUrls: acquisitionPageUrls,
+              candidateIdsByUrl,
+            },
+            {
+              // The scraper's guarded, audited fetch — never a raw `fetch`.
+              fetchHtml: async (url: string) => {
+                const metadata = await fetchHtmlWithMetadata(url);
+                return { text: metadata.text ?? "", statusCode: metadata.status ?? 0 };
+              },
+              ...(renderForBrand ? { renderProvider: renderForBrand } : {}),
+              loadOriginTexts: loadOriginTextsFn,
+              lookupRegistryProducts:
+                lookupRegistryProducts ?? lookupExactRegistryProducts,
+              storePageImages: storePageImagesFn,
+              classifyPageImages: classifyPageImagesFn,
+            },
+            { model },
+          );
+
+          const agentOutcome = agentResult.agentOutcome;
+
+          // FAILS CLOSED, deliberately (tweakable #6). `empty_pool` means the
+          // agent was handed no candidates; re-running the single-call body
+          // would ask a model to pick product pages while showing it none,
+          // which is the exact failure `pages.length === 0` refuses above.
+          if (agentOutcome === "blocked" && agentResult.error === "empty_pool") {
+            Object.assign(ctx.summary, {
+              agentOutcome,
+              productsProposed: 0,
+              catalogZeroReason: catalog.zeroReason ?? null,
+            });
+            return {
+              phaseResult: {
+                ...buildPhaseResult(
+                  "products",
+                  "skipped",
+                  [],
+                  0,
+                  undefined,
+                  "products agent blocked: empty candidate pool",
+                ),
+                agentOutcome,
+                ...(catalog.zeroReason
+                  ? { catalogZeroReason: catalog.zeroReason }
+                  : {}),
+                productsProposed: 0,
+              },
+              patch: {},
+              proposals: [],
+            };
+          }
+
+          if (agentOutcome !== "blocked" && agentOutcome !== "fallback") {
+            const published = await publishProposals({
+              proposals: agentResult.proposals,
+              catalogCandidates,
+              evaluations: agentResult.evaluations,
+              originDecisions: agentResult.originDecisions,
+              candidateIdsByUrl,
+              ownedHosts: [...ownedHosts],
+              brandId: brand.source_brand_id ?? brand.id,
+              submissionId:
+                effectiveTarget.type === "submission" ? effectiveTarget.id : null,
+              jobId: jobId ?? null,
+              collapsedCount,
+              // The pool the agent verified against, INCLUDING anything its
+              // decision-#35 batch added.
+              imagePool: agentResult.imagePool,
+              summary: ctx.summary,
+              ...(candidateWriter ? { candidateWriter } : {}),
+              ...(candidateRanker ? { candidateRanker } : {}),
+            });
+
+            const productsVerification =
+              agentResult.verification as unknown as Record<string, unknown>;
+            Object.assign(ctx.summary, {
+              agentOutcome,
+              productsVerification,
+              agentBudget: agentResult.budget,
+              productsProposed: published.length,
+              catalogZeroReason: catalog.zeroReason ?? null,
+            });
+            return {
+              phaseResult: {
+                ...buildPhaseResult(
+                  "products",
+                  "succeeded",
+                  published.length > 0 ? ["products"] : [],
+                  0,
+                  undefined,
+                  `agent ${agentOutcome}: proposed ${published.length}`,
+                ),
+                agentOutcome,
+                productsVerification,
+                ...(catalog.zeroReason
+                  ? { catalogZeroReason: catalog.zeroReason }
+                  : {}),
+                productsProposed: published.length,
+              },
+              patch: {
+                products: published,
+              },
+              proposals: published,
+            };
+          }
+          // Agent returned 'fallback' (or blocked for another reason) — fall
+          // through to the single-call body, carrying its reason with it.
+          agentFallback = {
+            outcome: agentOutcome,
+            reason: (agentResult.error ?? "unspecified").slice(0, 160),
+          };
+        } catch (error) {
+          const message = error instanceof Error ? error.message : String(error);
+          console.error(
+            " → products agent failed, falling back to single-call body:",
+            message,
+          );
+          // A throw leaves no outcome of its own; `fallback` is what the agent
+          // would have reported, and matches the acquire phase's convention.
+          agentFallback = { outcome: "fallback", reason: `threw: ${message}`.slice(0, 160) };
+        }
+        if (agentFallback) {
+          console.warn(
+            `  → products agent ${agentFallback.outcome}, using the single-call body: ${agentFallback.reason}`,
+          );
+          Object.assign(ctx.summary, {
+            agentOutcome: agentFallback.outcome,
+            agentError: agentFallback.reason,
+          });
+        }
+      }
       let parseError = false;
       const { result, durationMs } = await timePhase<ProductsRunOutcome>(
         async () => {
@@ -962,9 +1450,6 @@ export async function runProductsPhase({
             evaluationPool,
             [],
             [...ownedHosts],
-          );
-          const candidateIdsByUrl = new Map(
-            evaluationPool.map((candidate) => [candidate.url, randomUUID()]),
           );
           let renderedTexts = new Map<string, string>();
           try {
@@ -981,10 +1466,7 @@ export async function runProductsPhase({
                 return cached ? [[candidate.url, cached] as const] : [];
               }),
             );
-            const loaded = await (
-              loadOriginTexts ??
-              ((urls) => loadRenderedProductTexts(urls, renderProvider))
-            )(missingEvidenceUrls);
+            const loaded = await loadOriginTextsFn(missingEvidenceUrls);
             for (const [url, text] of loaded) renderedTexts.set(url, text);
           } catch {
             // Rendering is evidence collection, not publication. A renderer
@@ -1015,7 +1497,7 @@ export async function runProductsPhase({
             listingLines,
             originLines,
           );
-          const productsSystemPrompt = await fetchLangfusePrompt(
+          const { text: productsSystemPrompt, prompt: productsPromptMeta } = await fetchLangfusePromptWithMeta(
             "products",
             PRODUCTS_SYSTEM_PROMPT,
             {
@@ -1039,6 +1521,7 @@ export async function runProductsPhase({
               phase: "products",
               attempt: 1,
               config,
+              ...(productsPromptMeta ? { prompt: productsPromptMeta } : {}),
             },
             { apiKey: token },
           );
@@ -1156,105 +1639,26 @@ export async function runProductsPhase({
         },
       );
 
-      let publishedProposals = result.proposals;
-
       // --- Candidate pool persistence (DEV-1610) ---
       // Runs inside the existing audited call; no new audit operation.
-      // Persists EVERY candidate (gated-out + ranked) for run-over-run
-      // visibility. A write failure is reported but never fails the phase.
-      // The default writer appends to `curated_product_candidates`; if the
-      // migration is not yet applied, the insert reports an error and the
-      // phase continues — designed degradation, not a bug.
-      try {
-        const ranker: LlmRanker =
-          candidateRanker ??
-          (async (candidates) =>
-            candidates.map((c) => ({
-              url: c.url,
-              score: result.evaluations.get(c.url)?.score ?? null,
-              rationale: result.evaluations.get(c.url)?.rationale ?? null,
-            })));
-
-        const writer = candidateWriter ?? createDefaultCandidateWriter();
-
-        // Persists EVERY candidate — including off-host and duplicates — so
-        // the full provenance trail is recorded for run-over-run visibility.
-        // The deduped, host-filtered pool is only for the LLM prompt.
-        const selectionResult = await persistCandidatePool({
-          pool: catalogCandidates,
-          acceptedCandidates: [],
-          ranker,
-          writer,
-          brandId: brand.source_brand_id ?? brand.id,
-          submissionId:
-            effectiveTarget.type === "submission" ? effectiveTarget.id : null,
-          jobId: jobId ?? null,
-          maxProducts: MAX_PROPOSALS,
-          originDecisions: result.originDecisions,
-          candidateIdsByUrl: result.candidateIdsByUrl,
-          officialHost: [...ownedHosts],
-        });
-
-        const selectedUrls = new Set(
-          selectionResult.ranked.map((candidate) => candidate.normalizedUrl),
-        );
-        publishedProposals = result.proposals
-          .filter((proposal) => {
-            const normalized = normalizeProductUrl(proposal.officialUrl);
-            return normalized !== null && selectedUrls.has(normalized);
-          })
-          .map((proposal) => {
-            const normalized = normalizeProductUrl(proposal.officialUrl);
-            const candidate = [...result.originDecisions.keys()].find(
-              (url) => normalizeProductUrl(url) === normalized,
-            );
-            if (!candidate) return proposal;
-            const auditId = selectionResult.auditIdsByUrl.get(candidate);
-            const decision = result.originDecisions.get(candidate);
-            if (!auditId || !decision?.mitQualified) return proposal;
-            return {
-              ...proposal,
-              madeInTaiwanConfirmed: true,
-              materialsFromTaiwanConfirmed:
-                decision.qualificationMethod === "consensus",
-              mitRegistryId:
-                decision.qualificationMethod === "registry" &&
-                typeof decision.registry.recordId === "number"
-                  ? decision.registry.recordId
-                  : null,
-              originCandidateId: auditId,
-            };
-          });
-
-        if (selectionResult.persistError) {
-          Object.assign(ctx.summary, {
-            candidatePersistError: selectionResult.persistError,
-          });
-        }
-        Object.assign(ctx.summary, {
-          candidatesCollapsed: collapsedCount,
-          candidatesGated: selectionResult.gated.length,
-          candidateBestScore: selectionResult.bestScore,
-          candidateCutoff: selectionResult.cutoff,
-          candidatesEvaluated: selectionResult.evaluatedCount,
-          candidatesInvalidOrMissing: selectionResult.invalidOrMissingCount,
-          candidatesBelowWindow: selectionResult.belowWindowCount,
-          candidatesSelected: selectionResult.ranked.length,
-          proposalYield:
-            catalogCandidates.length - selectionResult.gated.length > 0
-              ? publishedProposals.length /
-                (catalogCandidates.length - selectionResult.gated.length)
-              : 0,
-        });
-      } catch (err) {
-        // The writer or ranker threw (e.g. service client missing in tests,
-        // or the table does not exist yet). Report and continue — persistence
-        // must never fail the phase.
-        Object.assign(ctx.summary, {
-          candidatePersistError:
-            err instanceof Error ? err.message : String(err),
-        });
-      }
+      // `publishProposals` is shared with the agent path above.
+      const publishedProposals = await publishProposals({
+        proposals: result.proposals,
+        catalogCandidates,
+        evaluations: result.evaluations,
+        originDecisions: result.originDecisions,
+        candidateIdsByUrl: result.candidateIdsByUrl,
+        ownedHosts: [...ownedHosts],
+        brandId: brand.source_brand_id ?? brand.id,
+        submissionId:
+          effectiveTarget.type === "submission" ? effectiveTarget.id : null,
+        jobId: jobId ?? null,
+        collapsedCount,
+        imagePool: acquireImagePool ?? [],
+        summary: ctx.summary,
+        ...(candidateWriter ? { candidateWriter } : {}),
+        ...(candidateRanker ? { candidateRanker } : {}),
+      });
 
       Object.assign(ctx.summary, {
         productsFromModel: result.rawCount,
@@ -1266,6 +1670,12 @@ export async function runProductsPhase({
         catalogAttempts: catalog.attempts,
       });
 
+      // The trace the operator reads: this body ran because the agent did not
+      // publish, and this is what the agent said.
+      const agentNote = agentFallback
+        ? ` (agent ${agentFallback.outcome}: ${agentFallback.reason})`
+        : "";
+
       if (isLlmProviderFailure(result.calls)) {
         return {
           phaseResult: {
@@ -1275,7 +1685,9 @@ export async function runProductsPhase({
               [],
               durationMs,
               "LLM provider failed the products call",
+              agentFallback ? agentNote.trim() : undefined,
             ),
+            ...(agentFallback ? { agentOutcome: agentFallback.outcome } : {}),
             providerFailure: true,
             ...(catalog.zeroReason
               ? { catalogZeroReason: catalog.zeroReason }
@@ -1300,8 +1712,9 @@ export async function runProductsPhase({
             undefined,
             `proposed ${publishedProposals.length}, dropped ${result.dropped}${
               dryRun === true ? " (dry run — nothing written)" : ""
-            }`,
+            }${agentNote}`,
           ),
+          ...(agentFallback ? { agentOutcome: agentFallback.outcome } : {}),
           ...(catalog.zeroReason
             ? { catalogZeroReason: catalog.zeroReason }
             : {}),

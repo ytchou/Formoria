@@ -1,9 +1,7 @@
 import { createHash } from "node:crypto";
 import { CITY_SLUGS, type CitySlug } from "@/lib/constants/taiwan-cities";
 
-export const FOUNDING_FACT_FIELDS = ["city", "founding_year"] as const;
-
-export type FoundingFactField = (typeof FOUNDING_FACT_FIELDS)[number];
+export type FoundingFactField = "city" | "founding_year";
 export type FoundingFactValue = CitySlug | number;
 export type FoundingFactSourceType =
   "first-party" | "independent" | "search-snippet";
@@ -16,7 +14,7 @@ export type FoundingLocationContext =
   | "current"
   | "unclear";
 
-export type FoundingFactVerification = {
+type FoundingFactVerification = {
   passed: boolean;
   reason: string | null;
 };
@@ -35,7 +33,7 @@ export type FoundingFactClaim = {
   locationContext: FoundingLocationContext;
 };
 
-export type FoundingFactConfidence = "high" | "medium" | "none";
+type FoundingFactConfidence = "high" | "medium" | "none";
 
 export type EvaluatedFoundingFact = {
   field: FoundingFactField;

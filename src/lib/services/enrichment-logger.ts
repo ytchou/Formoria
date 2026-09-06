@@ -21,6 +21,18 @@ export type EnrichmentSummary = {
    * is how a one-job outage becomes an all-day one.
    */
   breakerTripped?: boolean
+  /**
+   * Verdicts the finalizer applied to targets the acquire gate skipped for
+   * having no purchase channel (DEV-1702). Absent on a dry run, on a
+   * non-enrich operation, and on every summary written before the finalizer
+   * existed — which is why all four are optional rather than defaulted to 0.
+   */
+  noChannelRejected?: number
+  noChannelHidden?: number
+  /** Targets whose verdict threw and was isolated; the run continued. */
+  verdictSkipped?: number
+  /** Refreshes left pending because the brand could not be hidden. */
+  hideFailed?: number
 }
 
 export type BrandPhaseProgress = {

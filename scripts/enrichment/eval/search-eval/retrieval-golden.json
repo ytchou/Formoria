@@ -1,0 +1,171 @@
+[
+  {
+    "id": "tea-gift-for-friend",
+    "query": "送給喜歡泡茶的朋友",
+    "expected": [
+      { "brandSlug": "goodglas", "productKey": "chang-yu-shuang-jen-hsiang-po-li-hu-pei-tsu" },
+      { "brandSlug": "hmm", "productKey": "mugr-tao-tzu-pei" }
+    ]
+  },
+  {
+    "id": "natural-skincare-sensitive",
+    "query": "敏感肌膚適合的天然保養品",
+    "category": "beauty",
+    "expected": [
+      { "brandSlug": "xiadisha", "productKey": "wai-mi-ti-fu-huo-jou-min-shuang" },
+      { "brandSlug": "z-z-research", "productKey": "chih-hsiao-shou-hu-hsiu-fu-ju-yeh" }
+    ]
+  },
+  {
+    "id": "housewarming-candle",
+    "query": "朋友搬新家想送香氛蠟燭",
+    "category": "home",
+    "expected": [
+      { "brandSlug": "miher", "productKey": "shou-kung-shui-ni-pen-hsiang-fen-la-chu" },
+      { "brandSlug": "no-30", "productKey": "jih-ho-hsiang-fen-li-ho" }
+    ]
+  },
+  {
+    "id": "chaze-tea-scoop",
+    "query": "想找一支好看的茶則",
+    "expected": []
+  },
+  {
+    "id": "woodfired-ceramics",
+    "query": "柴燒陶杯送給喜歡喝咖啡的人",
+    "expected": [
+      { "brandSlug": "hmm", "productKey": "mugr-tao-tzu-pei" },
+      { "brandSlug": "hmm", "productKey": "patio-tao-tzu-lu-pei" }
+    ]
+  },
+  {
+    "id": "indigo-dye-bag",
+    "query": "藍染的手作包包",
+    "category": "bags",
+    "expected": [
+      { "brandSlug": "mogu", "productKey": "lan-jan-to-te-pao" }
+    ]
+  },
+  {
+    "id": "hinoki-home-decor",
+    "query": "檜木做的居家小物",
+    "category": "home",
+    "expected": [
+      { "brandSlug": "feelgood-toothbrush", "productKey": "chu-lei-tiao-kuo-hsiang-pien" },
+      { "brandSlug": "moriii", "productKey": "hua-ying-hsiao-teng" }
+    ]
+  },
+  {
+    "id": "minimal-leather-wallet",
+    "query": "極簡風格的皮革短夾",
+    "category": "fashion",
+    "expected": [
+      { "brandSlug": "reneeworks", "productKey": "u-hsing-la-lien-tuan-chia-rn004" },
+      { "brandSlug": "yamamoto-leather", "productKey": "chiang-hsi-lieh-mi-ni-kou-chin-tuan-chia" }
+    ]
+  },
+  {
+    "id": "wedding-gold-jewelry",
+    "query": "結婚週年紀念送太太的金飾",
+    "category": "jewelry",
+    "expected": [
+      { "brandSlug": "febbi", "productKey": "ching-tien-chen-chu-tien-o-erh-huan" },
+      { "brandSlug": "in-the-mountains", "productKey": "yueh-kuang-shih-hsiang-lien" }
+    ]
+  },
+  {
+    "id": "fountain-pen-daily",
+    "query": "適合日常書寫的鋼筆",
+    "category": "stationery",
+    "expected": [
+      { "brandSlug": "wenwenworks", "productKey": "ti-she-chin-erh-ho-yi-kang-pi-kang-chu-pi-li-ho" },
+      { "brandSlug": "wenwenworks", "productKey": "yuan-yu-chou-kung-yi-erh-ho-yi-kang-pi-kang-chu-pi-li-ho" }
+    ]
+  },
+  {
+    "id": "summer-sun-protection",
+    "query": "夏天戶外活動用的防曬",
+    "category": "beauty",
+    "expected": [
+      { "brandSlug": "purifycare", "productKey": "eco-in-sheng-tai-yu-shan-fang-shai-ju" },
+      { "brandSlug": "jan-dan", "productKey": "shui-kan-fang-shai-ju" }
+    ]
+  },
+  {
+    "id": "birthday-earrings",
+    "query": "送女朋友生日禮物想找耳環",
+    "category": "jewelry",
+    "expected": [
+      { "brandSlug": "febbi", "productKey": "hsiu-chiu-hua-chui-chui-erh-huan" },
+      { "brandSlug": "shiye", "productKey": "yin-hsing-chen-chu-tsuan-shih-chun-yin-erh-huan" }
+    ]
+  },
+  {
+    "id": "linen-home-textile",
+    "query": "亞麻材質的居家布品",
+    "category": "home",
+    "expected": []
+  },
+  {
+    "id": "laptop-canvas-bag",
+    "query": "放得下筆電的帆布包",
+    "category": "bags",
+    "expected": [
+      { "brandSlug": "dydash", "productKey": "14-tsun-mi-ko-pao" },
+      { "brandSlug": "dydash", "productKey": "16-tsun-mi-ko-pao" },
+      { "brandSlug": "entadar", "productKey": "chao-ho-hsin-tien-nao-ta-pao" }
+    ]
+  },
+  {
+    "id": "botanical-fragrance",
+    "query": "想找植物調的香水",
+    "category": "beauty",
+    "expected": [
+      { "brandSlug": "yuyu", "productKey": "pao-wu-lin-chien-shan-yun-tan-hsiang-ching" },
+      { "brandSlug": "pang", "productKey": "lan-yu-mu-tan-hsiang-ching" }
+    ]
+  },
+  {
+    "id": "ceramic-incense-holder",
+    "query": "陶瓷的線香座",
+    "category": "home",
+    "expected": [
+      { "brandSlug": "laoshan-collector", "productKey": "tao-tu-hsien-hsiang-tso-leaf-01" },
+      { "brandSlug": "no-30", "productKey": "lien-yi-hsien-hsiang-tso" }
+    ]
+  },
+  {
+    "id": "travel-notebook-set",
+    "query": "旅行用的手帳組合",
+    "category": "stationery",
+    "expected": [
+      { "brandSlug": "mr-eggplants", "productKey": "summer-breeze-chi-ssu-shou-chang" }
+    ]
+  },
+  {
+    "id": "handmade-silver-ring",
+    "query": "手工純銀戒指",
+    "category": "jewelry",
+    "expected": [
+      { "brandSlug": "shiye", "productKey": "kuang-mang-chun-yin-chieh-chih" },
+      { "brandSlug": "shiye", "productKey": "yun-shih-1-hao-chun-yin-chieh-chih" }
+    ]
+  },
+  {
+    "id": "kids-birthday-gift",
+    "query": "小朋友的生日禮物",
+    "expected": [
+      { "brandSlug": "simply-made", "productKey": "sheng-li-fei-yen-1-hao-pien-hsing-mu-chih-chi-mu-ium-11" },
+      { "brandSlug": "hakkei", "productKey": "ping-chi-lin-chiu-pu-ou-hfmic26-0722" }
+    ]
+  },
+  {
+    "id": "office-desk-organizer",
+    "query": "辦公桌上的收納小物",
+    "category": "stationery",
+    "expected": [
+      { "brandSlug": "i-eat-acrylic", "productKey": "ya-ko-li-cho-shang-san-tseng-tou-ming-wen-chu-chia-shou-na-chia" },
+      { "brandSlug": "hmm", "productKey": "rule-one-to-kung-neng-pi-chih" }
+    ]
+  }
+]

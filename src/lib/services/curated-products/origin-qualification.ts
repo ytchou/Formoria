@@ -1,6 +1,6 @@
 export const MIT_REGISTRY_SYNC_MAX_AGE_HOURS = 192;
-export const MAX_ORIGIN_EXCERPTS = 4;
-export const MAX_ORIGIN_EXCERPT_LENGTH = 320;
+const MAX_ORIGIN_EXCERPTS = 4;
+const MAX_ORIGIN_EXCERPT_LENGTH = 320;
 
 export type OriginExcerpt = {
   id: string;

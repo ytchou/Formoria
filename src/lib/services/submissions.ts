@@ -53,6 +53,7 @@ import { slugifyRomanizedName } from "@/lib/brands/slug";
 import { L1_CATEGORIES } from "@/lib/taxonomy/ontology";
 import { upsertEnrichedStockists } from "./stockists";
 import { promoteApprovedBrandImages } from "./promote-submission-images";
+import { materializeSubmissionFaq } from "./brand-faq";
 import { normalizeCommunityWebsite } from "./community-submissions";
 import {
   ONLINE_STORE_CAMEL_FIELDS,
@@ -101,10 +102,6 @@ type SubmissionRowWithCategoryNote = Omit<
 };
 type SubmissionImageRow =
   Database["public"]["Tables"]["submission_images"]["Row"];
-type OwnerRecipientRow = Pick<
-  Database["public"]["Tables"]["brand_submissions"]["Row"],
-  "id" | "brand_id" | "submitter_email" | "submitted_at"
->;
 type BrandImageReviewRow = Pick<
   Database["public"]["Tables"]["brand_images"]["Row"],
   | "id"
@@ -267,7 +264,6 @@ type BrandInsert = Database["public"]["Tables"]["brands"]["Insert"] & {
 const GENERATED_GUEST_EMAIL_DOMAIN = "guest.formoria.invalid";
 const ADMIN_REVIEW_SUBMISSIONS_PAGE_SIZE = 1_000;
 const CURATION_TARGET_HISTORY_PAGE_SIZE = 1_000;
-const OWNER_RECIPIENTS_PAGE_SIZE = 1_000;
 const SUPABASE_IN_FILTER_CHUNK_SIZE = 200;
 export const MAX_DROPPABLE_SUBMISSIONS = 100;
 const APPROVAL_RPC_ERROR_MESSAGES = new Set([
@@ -1388,60 +1384,6 @@ export async function createSubmission(
   );
 }
 
-export type ApprovedOwnerSubmissionRecipient = {
-  submitterEmail: string;
-};
-
-export async function getApprovedOwnerSubmissionRecipients(
-  brandIds: string[],
-): Promise<Map<string, ApprovedOwnerSubmissionRecipient>> {
-  const uniqueBrandIds = [...new Set(brandIds.filter(Boolean))];
-  if (uniqueBrandIds.length === 0) return new Map();
-
-  const supabase = createServiceClient();
-  const chunks = chunkValues(uniqueBrandIds, SUPABASE_IN_FILTER_CHUNK_SIZE);
-  const results = await Promise.all(
-    chunks.map(async (chunk) => {
-      // A brand can accumulate any number of approved owner submissions, so an
-      // unpaged read can stop at PostgREST's row cap and silently lose whole
-      // brands. brand_id leads the sort so page boundaries are deterministic;
-      // submitted_at stays descending so the first row seen per brand is still
-      // the newest one, which is what the dedupe below keeps.
-      const chunkRows: OwnerRecipientRow[] = [];
-      for (let page = 0; ; page += 1) {
-        const { data, error } = await supabase
-          .from("brand_submissions")
-          .select("id, brand_id, submitter_email, submitted_at")
-          .in("brand_id", chunk)
-          .eq("status", "approved")
-          .eq("is_brand_owner", true)
-          .order("brand_id", { ascending: true })
-          .order("submitted_at", { ascending: false, nullsFirst: false })
-          .order("id", { ascending: true })
-          .range(
-            page * OWNER_RECIPIENTS_PAGE_SIZE,
-            (page + 1) * OWNER_RECIPIENTS_PAGE_SIZE - 1,
-          );
-        if (error) throw error;
-
-        const pageRows = (data ?? []) as OwnerRecipientRow[];
-        chunkRows.push(...pageRows);
-        if (pageRows.length < OWNER_RECIPIENTS_PAGE_SIZE) break;
-      }
-      return chunkRows;
-    }),
-  );
-
-  const recipients = new Map<string, ApprovedOwnerSubmissionRecipient>();
-  for (const submission of results.flat()) {
-    if (!submission.brand_id || recipients.has(submission.brand_id)) continue;
-    recipients.set(submission.brand_id, {
-      submitterEmail: submission.submitter_email,
-    });
-  }
-
-  return recipients;
-}
 
 const ADMIN_REVIEW_SUBMISSIONS_SELECT = `
   id,
@@ -2089,6 +2031,15 @@ export async function applyBrandRefresh(
 
       await promoteApprovedBrandImages(submission.brand_id);
 
+      try {
+        await materializeSubmissionFaq(submissionId, submission.brand_id);
+      } catch (err) {
+        console.error(
+          "[applyBrandRefresh] materializeSubmissionFaq failed:",
+          { submissionId, error: err },
+        );
+      }
+
       return { brandId: submission.brand_id, cleanupFailed };
     },
   );
@@ -2462,7 +2413,7 @@ export async function approveSubmission(
       // the moment it becomes public. `promoteApprovedBrandImages` never throws and
       // never deletes: approval must not fail because a copy failed, since a brand
       // with unservable images is recoverable (re-run
-      // `scripts/promote-submission-images.ts`) and a failed approval is not.
+      // `scripts/enrichment/images/promote-submission-images.ts`) and a failed approval is not.
       await promoteApprovedBrandImages(approval.brand_id);
 
       // The maps producer is gone, but pending submissions can still carry legacy
@@ -2487,9 +2438,14 @@ export async function approveSubmission(
         }
       }
 
-      // No FAQ write here on purpose: `brand_faq_entries` is written only by the
-      // `faq` enrichment phase, behind the preset validators. An approved brand
-      // renders the template floors until that phase runs against it.
+      try {
+        await materializeSubmissionFaq(submission.id, approval.brand_id);
+      } catch (err) {
+        console.error(
+          "[approveSubmission] materializeSubmissionFaq failed:",
+          { submissionId: submission.id, error: err },
+        );
+      }
 
       return {
         brandId: approval.brand_id,

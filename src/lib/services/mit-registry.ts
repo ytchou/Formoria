@@ -4,15 +4,12 @@ import { auditedCall } from "@/lib/audit";
 import { createServiceClient } from "@/lib/supabase/service";
 import {
   classifyRegistryRecord,
-  isRegistryRecordActive,
   MIT_REGISTRY_SYNC_MAX_AGE_HOURS,
   normalizeRegistryValue,
   selectExactRegistryMatch,
   type RegistryOriginAssessment,
   type RegistryOriginRecord,
 } from "@/lib/services/curated-products/origin-qualification";
-
-export { MIT_REGISTRY_SYNC_MAX_AGE_HOURS };
 
 export type MitRegistryRecord = {
   record_key: string;
@@ -38,7 +35,7 @@ type MitRegistrySyncRow = { synced_at: string | null };
 const MIT_ZIP_URL = "https://keid.nat.gov.tw/mittw/Files/Download/productlist.zip";
 const MANIFEST_FILENAME = "manifest.csv";
 const BATCH_SIZE = 1_000;
-export const MIN_SWEEP_COVERAGE_RATIO = 0.8;
+const MIN_SWEEP_COVERAGE_RATIO = 0.8;
 
 function parseCsvLine(line: string): string[] {
   const fields: string[] = [];
@@ -396,9 +393,3 @@ export async function syncMitRegistry(): Promise<{
   };
 }
 
-export function registryRecordQualifies(
-  record: RegistryOriginRecord | null,
-  now: Date = new Date(),
-): boolean {
-  return record !== null && isRegistryRecordActive(record, now);
-}

@@ -42,7 +42,7 @@
 /** Copy alignment, or `decorative` for a band with no overlaid copy. */
 export type ScrimVariant = "left" | "center" | "flat" | "dark" | "decorative";
 
-export type ScrimColorToken = "--ground" | "--surface-dark";
+type ScrimColorToken = "--ground" | "--surface-dark";
 
 type ScrimStop = {
   /** Horizontal position across the band, 0 = left edge, 1 = right edge. */

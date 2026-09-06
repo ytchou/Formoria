@@ -12,6 +12,7 @@ import {
   upgradeEcommerceImageUrl,
   largestSrcsetUrl,
   extractScopedProductImages,
+  extractInstagramHandle,
 } from '../parse/extractors'
 
 describe('filterHeroImage', () => {
@@ -75,6 +76,33 @@ describe('extractSocialLinks', () => {
         '<a href="https://developers.facebook.com/docs">devs</a>'
     )
     expect(extractSocialLinks($).socialFacebook).toBeNull()
+  })
+
+  it('social_profile_host_is_anchored', () => {
+    const lookalike = cheerio.load('<a href="https://not-instagram.com/someuser/">ig</a>')
+    expect(extractSocialLinks(lookalike).socialInstagram).toBeNull()
+
+    const bare = cheerio.load('<a href="https://instagram.com/brand/">ig</a>')
+    expect(extractSocialLinks(bare).socialInstagram).toBe('https://instagram.com/brand/')
+
+    const www = cheerio.load('<a href="https://www.instagram.com/brand/">ig</a>')
+    expect(extractSocialLinks(www).socialInstagram).toBe('https://www.instagram.com/brand/')
+  })
+})
+
+describe('extractInstagramHandle', () => {
+  it('extract_instagram_handle_reads_profiles_only', () => {
+    expect(extractInstagramHandle('https://www.instagram.com/1.wo_of/')).toBe('1.wo_of')
+    expect(extractInstagramHandle('https://instagram.com/coolbrand')).toBe('coolbrand')
+    expect(extractInstagramHandle('https://www.instagram.com/p/Cabc123/')).toBeNull()
+    expect(extractInstagramHandle('https://www.instagram.com/')).toBeNull()
+    expect(extractInstagramHandle(null)).toBeNull()
+    expect(extractInstagramHandle('')).toBeNull()
+  })
+
+  it('extract_instagram_handle_rejects_lookalike_hosts', () => {
+    expect(extractInstagramHandle('https://not-instagram.com/someuser/')).toBeNull()
+    expect(extractInstagramHandle('https://myinstagram.com/someuser')).toBeNull()
   })
 })
 

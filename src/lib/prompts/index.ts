@@ -1,8 +1,6 @@
 export {
-  CATEGORY_EXAMPLES,
   CATEGORY_LIST,
   SUBCATEGORY_VOCAB_BLOCK,
-  MATERIAL_VOCAB_BLOCK,
   TAIWAN_USAGE_RULES,
 } from "./shared";
 export { DETECT_SYSTEM_PROMPT, CLASSIFY_SYSTEM_PROMPT } from "./detect";
@@ -24,5 +22,4 @@ export {
   faqCategoryPositionPrompt,
   faqWhereToBuyPrompt,
 } from "./faq";
-export { IMAGE_CLASSIFY_SYSTEM_PROMPT } from "./classify-images";
 export { PRODUCTS_SYSTEM_PROMPT, PRODUCTS_LABELS } from "./products";

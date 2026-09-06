@@ -1,4 +1,13 @@
 #!/usr/bin/env node
+/**
+ * @formoria-script
+ * purpose: Fails the build when an external call in src escapes the audit envelope.
+ * class: ci-gate
+ * invoke: pnpm check:audited-calls
+ * target: none
+ * safety: read-only
+ * owner: engineering
+ */
 // CI guard: external calls in src must stay inside the audit envelope.
 //
 // This guard scans src/**/*.{ts,tsx}. The scripts/ directory is excluded because
@@ -38,6 +47,17 @@ export const ALLOWED_UNAUDITED_FETCH = [
   // OpenAI HTTP adapter. Wrapped by src/lib/services/llm-audit.ts as
   // openai.chat_completions.
   'src/lib/services/openai-client.ts',
+  // Acquisition gather probe: bounded HEAD/GET pings on known URLs to extract
+  // HTML title/description. Two callers — the orchestrator's gather pass
+  // (curation-operations.ts, once per chunk) and the acquisition agent's probe
+  // tool. Its output steers WHICH URLs get scraped; it makes no LLM call and
+  // writes no DB row itself, and the scrape and model calls it steers are each
+  // audited where they happen. Auditing the probes too would add noise to the
+  // real call record the same way the health probes above would.
+  'src/lib/services/enrich-phases/gather.ts',
+  // OpenAI embeddings HTTP adapter. Wrapped by src/lib/services/embeddings-audit.ts
+  // as openai.embeddings.
+  'src/lib/services/openai-embeddings-client.ts',
   // Edge-runtime breaker telemetry to PostHog ingest. Same structural bar as the
   // 'use client' rule above, one layer out: the envelope reaches src/lib/audit/emit.ts,
   // which imports the Node Sentry SDK, and this module is loaded by the proxy in the

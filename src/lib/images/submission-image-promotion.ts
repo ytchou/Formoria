@@ -38,7 +38,7 @@ type PromotionEntry = {
   targetKey: string
 }
 
-export type PromotionSkipReason =
+type PromotionSkipReason =
   /** Already carries a `brands/` key — the post-promotion steady state. */
   | 'already-promoted'
   /** No key to move; nothing this job can do. */

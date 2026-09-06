@@ -8,11 +8,11 @@ import { mergeScrapedData } from './merge'
 import { emptyResult } from './parse/extractors'
 import type { RenderProvider } from './render/types'
 import { selectStrategy } from './router'
-import type { InputType } from './strategies/types'
+import type { InputType, SurfaceDirective } from './strategies/types'
 import { identifyPlatform } from './platforms'
 
 export type ScrapeAttemptFinish = {
-  callStatus: 'succeeded' | 'empty' | 'failed' | 'malformed' | 'timeout' | 'network_error'
+  callStatus: 'succeeded' | 'empty' | 'failed' | 'malformed' | 'timeout' | 'network_error' | 'skipped'
   httpStatus?: number | null
   error?: string | null
   latencyMs?: number | null
@@ -27,6 +27,7 @@ export type ScrapeBrandUrlsOptions = {
   brandName?: string | null
   confirmedSourceUrls?: ReadonlySet<string>
   renderProvider?: RenderProvider
+  directives?: ReadonlyMap<string, SurfaceDirective>
   onAttempt?: (input: { url: string; classification: InputType; spanId: string }) => Promise<ScrapeAttemptHandle | undefined>
 }
 
@@ -115,8 +116,10 @@ export async function scrapeBrandUrls(
   options: ScrapeBrandUrlsOptions = {},
 ): Promise<MultiScrapeResult> {
   const render = options.renderProvider
+  const directives = options.directives
   const results = await Promise.all(
     urls.slice(0, MAX_SCRAPE_URLS_PER_BRAND).map(async (url) => {
+      const directive = directives?.get(url)
       const initialType = classifyByDomain(url) ?? 'official-site'
       const spanId = randomUUID()
       const audit = await options.onAttempt?.({
@@ -130,6 +133,31 @@ export async function scrapeBrandUrls(
         auditFinished = true
         await audit?.finish(result)
       }
+
+      // Directive: skip — record and move on without any network call.
+      if (directive?.fetch === 'skip') {
+        await finishAudit({
+          callStatus: 'skipped',
+          httpStatus: null,
+          error: null,
+          latencyMs: 0,
+          extracted: boundedExtractedData(emptyResult(url)),
+        })
+        return {
+          type: initialType,
+          data: emptyResult(url),
+          status: {
+            url,
+            ok: false,
+            classification: initialType,
+            httpStatus: null,
+            latencyMs: 0,
+            error: null,
+          },
+          callStatus: 'skipped' as const,
+        }
+      }
+
       const result = await auditedCall(
         {
           provider: 'scraper',
@@ -143,17 +171,51 @@ export async function scrapeBrandUrls(
           const startedAt = Date.now()
 
           try {
-            // Pre-fetch HTML once for URLs that aren't known social/ecommerce domains.
-            // This avoids consuming the same Response body twice (detectInputType +
-            // strategy.scrape both call fetchHtml otherwise).
-            const prefetched = classifyByDomain(url) === null ? await fetchHtmlWithMetadata(url) : null
-            const prefetchedHtml = prefetched?.text ?? null
-            httpStatus = prefetched?.status ?? null
-            error = prefetched?.error ?? null
+            let prefetchedHtml: string | null = null
+
+            // Directive: render — use the render provider to fetch the page,
+            // bypassing the static prefetch entirely.
+            if (directive?.fetch === 'render' && render) {
+              try {
+                const renderResult = await render.fetchRendered(url)
+                prefetchedHtml = renderResult.html
+                httpStatus = renderResult.status
+              } catch (renderErr) {
+                const message = renderErr instanceof Error ? renderErr.message.slice(0, 1_000) : String(renderErr).slice(0, 1_000)
+                await finishAudit({
+                  callStatus: 'failed',
+                  httpStatus: null,
+                  error: message,
+                  latencyMs: Date.now() - startedAt,
+                  extracted: boundedExtractedData(emptyResult(url)),
+                })
+                return {
+                  type: initialType,
+                  data: emptyResult(url),
+                  status: {
+                    url,
+                    ok: false,
+                    classification: initialType,
+                    httpStatus: null,
+                    latencyMs: Date.now() - startedAt,
+                    error: message,
+                  },
+                  callStatus: 'failed' as const,
+                }
+              }
+            } else {
+              // Default static prefetch for URLs that aren't known social/ecommerce domains.
+              // This avoids consuming the same Response body twice (detectInputType +
+              // strategy.scrape both call fetchHtml otherwise).
+              const prefetched = classifyByDomain(url) === null ? await fetchHtmlWithMetadata(url) : null
+              prefetchedHtml = prefetched?.text ?? null
+              httpStatus = prefetched?.status ?? null
+              error = prefetched?.error ?? null
+            }
 
             const type = await detectInputType(url, prefetchedHtml)
-            const strategy = selectStrategy(type, url)
-            let rendered = false
+            const strategy = selectStrategy(type, url, directive)
+            let rendered = directive?.fetch === 'render'
             const trackedRender: RenderProvider | undefined = render ? {
               fetchRendered: async (renderUrl) => {
                 rendered = true
@@ -162,7 +224,12 @@ export async function scrapeBrandUrls(
                 return result
               },
               ...(render.fetchRenderedBatch
-                ? { fetchRenderedBatch: render.fetchRenderedBatch.bind(render) }
+                ? {
+                    fetchRenderedBatch: async (renderUrls: readonly string[]) => {
+                      rendered = true
+                      return render.fetchRenderedBatch!(renderUrls)
+                    },
+                  }
                 : {}),
             } : undefined
             const data = withoutThirdPartyLinks(

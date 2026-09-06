@@ -1,6 +1,6 @@
 const PROVIDERS = {
   serper: ["search", "images", "maps"],
-  openai: ["chat_completions"],
+  openai: ["chat_completions", "embeddings"],
   resend: ["send_email"],
   upstash: ["get_database", "get_stats"],
   sentry: ["get_error_events"],
@@ -8,17 +8,22 @@ const PROVIDERS = {
   turnstile: ["siteverify"],
   slack: ["post_slack_alert"],
   posthog: ["run_query"],
+  browserless: ["fetch_rendered"],
   playwright: ["fetch_rendered"],
   "mit-registry": ["lookup_exact_products", "sync_registry"],
   scraper: ["scrape_url"],
   catalog: ["discover_catalog"],
+  // Reads OF the audit trail that gate spending. `countRenderSpans` is the
+  // Browserless monthly gauge: it counts this month's succeeded render spans so
+  // the render budget can refuse before the free plan's 1,000 is exhausted.
+  supabase: ["countRenderSpans"],
   http: [
     "fetch_html",
     "fetch_html_with_metadata",
     "fetch_xml",
     "fetch_text",
     "download_and_store_images",
-    // Curated-product link health probe (scripts/curated-products/check-links.ts):
+    // Curated-product link health probe (scripts/enrichment/products/curated-products/check-links.ts):
     // a HEAD/GET reachability check whose verdict can flip a published product's
     // call-to-action, so the request and its outcome are replayable.
     "check_link",
@@ -45,6 +50,7 @@ const PROVIDERS = {
     "updateProfile",
     "updateProfileAdmin",
     "updateReportStatus",
+    "materializeSubmissionFaq",
     "upsertBrandFaqEntries",
     "upsertEnrichedStockists",
   ],
@@ -86,6 +92,7 @@ const PROVIDERS = {
     "markCurationJobDispatched",
     "recordCurationDispatchFailure",
     "recoverStaleJobs",
+    "reportChannelVerdicts",
     "reportCircuitBreakerTrip",
     "reportJobFailure",
     "reportProviderFailures",
@@ -114,6 +121,7 @@ const PROVIDERS = {
     "persistEnrichmentResults",
     "persistSubmissionEnrichmentResults",
     "rewriteBrandDescription",
+    // Retired phase runners kept for historical audit rows:
     "runBrandImagePhase",
     "runClassifyImagesPhase",
     "runCleanPhase",
@@ -122,12 +130,16 @@ const PROVIDERS = {
     "runDiscoverPhase",
     "runEnrich",
     "runImageSearchPhase",
+    // `links` was renamed to `acquire` (DEV-1644). The old runner name is kept
+    // so audit rows written before the rename stay registered.
     "runLinksPhase",
     "runNamesPhase",
     "runProductsPhase",
     "runSiteIdentityPhase",
     "runStandaloneClassification",
     "runStockistsPhase",
+    // DEV-1644: the acquire phase wrapping the acquisition agent
+    "runAcquirePhase",
   ],
   images: [
     // DEV-1551: an approved brand's images keep their `submissions/` key, which
@@ -139,6 +151,7 @@ const PROVIDERS = {
     "statBrandImageObject",
     "deleteBrandImages",
     "deleteStoredImagePaths",
+    "downloadAndGateImages",
     "downloadAndStoreImages",
     "insertBrandImage",
     "loadVisionImage",

@@ -9,7 +9,6 @@ import {
   resolveRefreshEnrichmentPatch,
 } from "./brand-write-policy";
 import type { BrandFlatLinkColumns } from "@/lib/types";
-import type { ScrapedBrandData } from "@/lib/types/scraper";
 import {
   ENRICH_LLM_PHASES,
   ENRICH_PHASES,
@@ -24,19 +23,51 @@ import {
 } from "@/lib/brands/online-stores";
 import {
   buildLinkEnrichPatch,
-  buildTextEnrichPatch,
+  classifySubmittedUrl,
   extractLinksFromUrls,
   hasLinkValue,
   LINK_FIELDS,
   linkColumnFor,
+  type LinkField,
 } from "./link-enrichment";
+import {
+  collectHubUrls,
+  computeEvidence,
+  deriveThreadsUrl,
+  expandLinkHubs,
+  expandThreadsBio,
+  hasPurchaseChannel,
+  type AdoptedLink,
+  type ChannelSources,
+} from "./enrich-phases/link-expansion";
+import {
+  fetchHtml,
+  fetchHtmlWithMetadata,
+} from "./enrich-phases/scraper/fetch-guards";
+import {
+  batchSearchBrandsWithSnippets,
+  parseBrandSearchEntries,
+} from "./enrich-phases/scraper/serper";
+import {
+  filterEntriesByHandle,
+  HANDLE_QUERY,
+  isUsableHandle,
+  normalizeHandle,
+} from "./enrich-phases/scraper/search";
+import { isLinkAggregatorHost } from "./enrich-phases/scraper/input-detector";
+import type { BrandSearchEntry } from "./enrich-phases/scraper/types";
+import { extractInstagramHandle } from "./enrich-phases/scraper/parse/extractors";
+import {
+  getLatestSearchResults,
+  isFreshSearchResult,
+  type SearchResultRow,
+} from "./search-results";
 import {
   type ClassificationResult,
   type DetectResult,
 } from "./category-classifier";
 import type { DescriptionAttempt } from "./description-rewrite";
 import type { BrandFactsAttempt } from "./brand-facts";
-import { SEARCH_DELAY_MS } from "./enrich-phases/scraper/search";
 import {
   insertTriageResult,
   insertClassificationResult,
@@ -49,47 +80,52 @@ import type {
   CurationTargetProgressEvent,
   OperationResult,
   PhaseResult,
+  SourceOutcome,
 } from "@/lib/types/curation";
 import {
   applyDetectResult,
   applyNamesResult,
   runNamesPhase,
-  runSiteIdentityPhase,
-  type SiteIdentityQuarantine,
   type NameCandidateInput,
   buildPhaseResult,
   getDisplayBrandName,
   loadCachedSearchResults,
-  runBrandImagePhase,
-  runCleanPhase,
   runDescriptionsPhase,
-  runDiscoverPhase,
   runFaqPhase,
   runProductsPhase,
   runStockistsPhase,
-  runClassifyImagesPhase,
   STORAGE_FAILURE_PREFIX,
-  runImageSearchPhase,
-  runLinksPhase,
+  runAcquirePhase,
   runStandaloneClassification,
   runDetectPhase,
   type BrandEnrichState,
   type SearchPhaseResult,
   hasPatchValues,
-  isProviderFailure,
+  getActiveImages,
+  classifiedImageFromRow,
 } from "./enrich-phases";
 import type { NameCandidate } from "./name-arbiter";
 import { isBrandNameProposal } from "@/lib/types/enriched-data";
-import type { BrandImageSearchOutcome } from "./enrich-phases/scraper/types";
-import type { CatalogDiscoveryResult } from "./enrich-phases/catalog-discovery";
-import { buildCandidatePool } from "./enrich-phases/candidate-pool";
+import { probeStatic, type ProbeEvidence } from "./enrich-phases/gather";
+import type { RankableImage } from "./enrich-phases/image-ranking";
 import type { EnrichmentTarget } from "./_shared/enrichment-target";
 import type { RenderProvider } from "./enrich-phases/scraper/render/types";
 import { deriveCategoryFromSubcategories } from "./subcategories";
 import {
+  runEditorialAgent,
+  type EditorialInput,
+} from "./enrich-phases/editorial/graph";
+import { buildEditorialDeps } from "./enrich-phases/editorial/validators";
+import type {
+  EnrichBrand as EditorialEnrichBrand,
+  EnrichPatch as EditorialEnrichPatch,
+  EnrichPhase as EditorialEnrichPhase,
+} from "./enrich-phases/types";
+import {
   fetchPhaseHistory,
   filterSatisfiedPhases,
 } from "./enrich-phases/phase-satisfaction";
+import { MAX_PROBE_URLS } from "./category-classifier";
 import {
   formatBrandComplete,
   formatEnrichError,
@@ -226,27 +262,97 @@ export { mapWithConcurrency };
 
 export { ENRICH_PHASES };
 
-type EnrichPhase =
-  | "clean"
-  | "links"
-  | "names"
-  | "site_identity"
-  | "images"
-  | "descriptions"
-  | "stockists"
-  | "tags";
+/**
+ * How many brands expand their links at once inside one chunk.
+ *
+ * Every unit is network-bound and nothing else: hub fetches, one Threads
+ * fetch, and at most two Serper calls. It is deliberately wider than
+ * `ENRICH_BRAND_CONCURRENCY` (which carries LLM and image work per unit) and
+ * deliberately narrower than the chunk, so a slow host stalls three brands
+ * rather than twenty.
+ */
+const LINK_EXPANSION_CONCURRENCY = 4;
+
+/** Replayed search rows stay usable for three days. */
+const SEARCH_REPLAY_MAX_AGE_MS = 3 * 86_400_000;
+
+/**
+ * One brand's slot in a `batchSearchBrandsWithSnippets` map. Derived from the
+ * function rather than restated: the result shape is not exported, and a local
+ * copy of it could disagree with the provider adapter without anyone noticing.
+ */
+type SerpResult = ReturnType<
+  Awaited<ReturnType<typeof batchSearchBrandsWithSnippets>>["get"]
+>;
+
+/**
+ * The handle an Instagram PROFILE url carries, or null.
+ *
+ * Only a profile yields a handle — the first segment of a post permalink is
+ * `p` or `reel`, and searching for `"p"` would burn a Serper credit on noise.
+ * `extractInstagramHandle` owns the host anchor and the reserved-path list, so
+ * this stays a name for the same answer rather than a second copy of it.
+ */
+export function instagramHandleFromUrl(
+  url: string | null | undefined,
+): string | null {
+  return extractInstagramHandle(url);
+}
+
+/**
+ * A URL's first hostname label in `normalizeHandle`'s comparison form —
+ * `https://1woof.com/` becomes `1woof`. Both sides of a handle comparison have
+ * to be normalized as WHOLE units: a handle spelled `1.wo_of` would never
+ * match its own site otherwise.
+ */
+function registrableLabel(url: string): string | null {
+  try {
+    const host = new URL(url).hostname.toLowerCase().replace(/^www\./, "");
+    const label = host.split(".")[0] ?? "";
+    return label.length > 0 ? normalizeHandle(label) : null;
+  } catch {
+    return null;
+  }
+}
+
+const UNCONSULTED_SOURCES: ChannelSources = {
+  hubs: "skipped",
+  threads: "skipped",
+  serpName: "skipped",
+  serpHandle: "skipped",
+};
+
+/**
+ * The one line a human (and the verdict finalizer's reader) sees for a brand
+ * with no purchase channel. Every source is named with its own outcome, so
+ * "we looked and there is nothing" is never confused with "we could not look".
+ */
+export function buildNoChannelDetail(
+  sources: ChannelSources | undefined,
+  evidence: "conclusive" | "inconclusive",
+  instagramFollowers?: number,
+): string {
+  const s = sources ?? UNCONSULTED_SOURCES;
+  const followers =
+    typeof instagramFollowers === "number"
+      ? ` instagram_followers=${instagramFollowers}`
+      : "";
+  return (
+    `no purchase channel after hubs=${s.hubs} threads=${s.threads}` +
+    ` serp_name=${s.serpName} serp_handle=${s.serpHandle}` +
+    ` evidence=${evidence}${followers}`
+  );
+}
+
 /**
  * Every phase `runEnrich` can be asked for. Aliased to the canonical
  * `EnrichPhaseName` rather than spelled out again: this used to be a
- * hand-maintained union (`EnrichPhase | "discover" | "detect" | "slugs" |
- * "reputation"`) and it had already drifted — `classify_images` was missing,
- * and adding `faq` to `ENRICH_PHASES` turned `needsPhase`'s new `faq` clause
- * into a branch TypeScript could prove unreachable. A local copy of a list that
- * lives in the constants module can only drift again, so there is no copy now.
- *
- * The narrower `EnrichPhase` above is left alone: it only constrains
- * `isRequestedPhase`'s argument to the per-brand phases that helper is ever
- * asked about, and widening it would weaken that check rather than fix drift.
+ * hand-maintained union and it had already drifted — `classify_images` was
+ * missing, and adding `faq` to `ENRICH_PHASES` turned `needsPhase`'s new `faq`
+ * clause into a branch TypeScript could prove unreachable. A local copy of a
+ * list that lives in the constants module can only drift again, so there is no
+ * copy now. (A second, narrower copy survived until DEV-1644 and still named
+ * `links`; it went with `processEnrichBrand`, its only consumer.)
  */
 type RunEnrichPhase = EnrichPhaseName;
 
@@ -257,6 +363,10 @@ type EnrichBrand = CurationBrand &
     heroImageUrl?: string | null;
     productPhotos?: string[] | null;
     overwrite_enrichment?: boolean;
+    /** Submitted website URL — feeds `collectHubUrls` for link expansion. */
+    website_url?: string | null;
+    /** Submitted intent ('recommend' | 'refresh'). Gates triage row on no-channel. */
+    intent?: string;
   };
 
 /**
@@ -289,11 +399,6 @@ export function applyChunkNameCleanup(
 
   return cleanups;
 }
-
-type EnrichScrapedData = Partial<ScrapedBrandData> &
-  Partial<BrandFlatLinkColumns> & {
-    snippets?: string[];
-  };
 
 type EnrichImagePatch = Partial<{
   hero_image_url: string | null;
@@ -338,27 +443,12 @@ export function needsPhase(
   return true;
 }
 
-type EnrichCleanPhase = {
-  changed: boolean;
-  original?: string;
-  cleaned?: string;
-};
-
-type EnrichDescriptionsPhase = {
-  changed: boolean;
-};
-
 type EnrichDescriptionPatch = Partial<{
   description: string | null;
   description_en: string | null;
   subcategories: string[] | null;
   city: string | null;
 }>;
-
-type EnrichProcessPhases = {
-  clean?: EnrichCleanPhase;
-  descriptions?: EnrichDescriptionsPhase;
-};
 
 type EnrichPatches = {
   links?: Partial<BrandFlatLinkColumns>;
@@ -381,13 +471,6 @@ type EnrichPatch = Partial<BrandFlatLinkColumns> &
   EnrichDescriptionPatch &
   Partial<Pick<EnrichBrand, "category" | "name">>;
 
-type ProcessEnrichResult = {
-  phases: EnrichProcessPhases;
-  patches: EnrichPatches;
-  patch: EnrichPatch;
-  hasChanges: boolean;
-};
-
 type SubmissionEnrichmentRow = Record<OnlineStoreColumn, string | null> & {
   id: string;
   brand_id: string | null;
@@ -405,10 +488,6 @@ type SubmissionEnrichmentRow = Record<OnlineStoreColumn, string | null> & {
   owner_data: unknown;
   status: string;
 };
-
-function isRequestedPhase(phases: string[], phase: EnrichPhase): boolean {
-  return phases.includes(phase);
-}
 
 function isPlainObject(value: unknown): value is JsonObject {
   return Boolean(value) && typeof value === "object" && !Array.isArray(value);
@@ -466,6 +545,8 @@ export function seedEnrichedDataFromOwnerData(
 const REPLACE_NOT_UNION_KEYS = new Set<string>([
   "channels",
   "products",
+  // A rerun replaces the whole FAQ proposal rather than appending entries.
+  "faq",
   "subcategories",
   "subcategories_en",
   CLEARED_FIELDS_KEY,
@@ -619,16 +700,19 @@ function describeProviderFailure(
 
 /**
  * Phases a PRODUCTS-SCOPED run may name, and nothing else: the products phase
- * plus its two hard dependencies. `lib/services/curated-products/backfill.ts`
- * enqueues exactly this set, and the set is repeated here rather than imported
- * because that module reaches `curation-jobs` and `submissions` — importing it
- * from the runner would close a cycle to buy one array.
+ * plus its hard dependency. `curated-products/backfill.ts` enqueues exactly
+ * this set as `CURATED_PRODUCT_BACKFILL_PHASES`, and the set is repeated here
+ * rather than imported because that module reaches `curation-jobs` and
+ * `submissions` — importing it from the runner would close a cycle to buy one
+ * array.
+ *
+ * The two must stay in step. When they drifted (this set still naming the
+ * retired `links`/`site_identity` while the backfill had moved to `acquire`)
+ * every backfill target recorded `skipped`, its refresh submission stayed
+ * pending and un-approvable, and the brand's pending-refresh unique index
+ * (23505) then blocked every future refresh of that brand.
  */
-const PRODUCTS_SCOPED_RUN_PHASES = new Set<string>([
-  "links",
-  "site_identity",
-  "products",
-]);
+const PRODUCTS_SCOPED_RUN_PHASES = new Set<string>(["acquire", "products"]);
 
 export function isProductsScopedRun(phases: readonly string[]): boolean {
   return (
@@ -667,43 +751,6 @@ export function hasMaterialPatchValues(
   );
 }
 
-/**
- * Gate A: the SERP stage for this brand failed at the provider, so any absence
- * of results says nothing about the brand. Returns the failure message to throw
- * with, or `null` when the stage is healthy.
- *
- * A `fromCache` search result is a replayed `brand_search_results` row whose
- * `callStatus` was copied verbatim from a past run — a failure recorded during
- * an outage that ended days ago must never fail a live run, so cached results
- * are ignored entirely.
- */
-export function serpStageFailure(input: {
-  searchResult?: SearchPhaseResult;
-  imageOutcome?: BrandImageSearchOutcome;
-}): string | null {
-  const { searchResult, imageOutcome } = input;
-
-  if (
-    searchResult &&
-    searchResult.fromCache !== true &&
-    isProviderFailure(searchResult.callStatus)
-  ) {
-    return describeProviderFailure("SERP", {
-      error: searchResult.error,
-      httpStatus: searchResult.httpStatus,
-    });
-  }
-
-  if (imageOutcome && isProviderFailure(imageOutcome.callStatus)) {
-    return describeProviderFailure("image search", {
-      error: imageOutcome.error,
-      httpStatus: imageOutcome.httpStatus,
-    });
-  }
-
-  return null;
-}
-
 export type ProviderGateDecision = {
   /** `warn` when the kill switch is off — log and continue instead of failing. */
   action: "fail" | "warn";
@@ -711,18 +758,27 @@ export type ProviderGateDecision = {
 };
 
 /**
- * Gate A with its kill switch applied. `CURATION_PROVIDER_GATE=off` downgrades a
- * hard fail to a logged warning so the gate can be disabled without a deploy;
- * unset (the default) keeps the gate active.
+ * Gate A: acquire failed at the provider, so any absence of results says
+ * nothing about the brand. Returns the gate decision, or `null` when healthy.
+ *
+ * After the wave collapse, Gate A reads the acquire PhaseResult instead of
+ * individual SERP and image-search outcomes.
  */
 export function evaluateProviderGate(input: {
-  searchResult?: SearchPhaseResult;
-  imageOutcome?: BrandImageSearchOutcome;
+  acquireResult?: PhaseResult;
 }): ProviderGateDecision | null {
-  const message = serpStageFailure(input);
-  if (!message) {
+  const { acquireResult } = input;
+  if (
+    !acquireResult ||
+    acquireResult.status !== "failed" ||
+    acquireResult.providerFailure !== true
+  ) {
     return null;
   }
+
+  const message = describeProviderFailure("acquire", {
+    error: acquireResult.error,
+  });
 
   return {
     action: process.env.CURATION_PROVIDER_GATE === "off" ? "warn" : "fail",
@@ -845,24 +901,32 @@ export function evaluateStorageGate(
 }
 
 /**
- * Gate B: nothing downstream can consume. URLs feed scraping and link phases,
- * images feed classification, and SERP snippets feed the description phase —
- * so a brand with snippets but zero URLs still has usable LLM
- * input and must NOT be treated as empty.
+ * Gate B: nothing downstream can consume. After the wave collapse, acquire is
+ * the primary evidence source. If acquire ran and produced evidence (scrapedData
+ * or images), there are inputs. If acquire was satisfied-skipped, fall back to
+ * the knownUrls check.
  */
 export function hasNoEnrichmentInputs(input: {
   knownUrls: string[];
-  discoveredUrls: string[];
-  urlExtracted: object;
-  imageSearchUrls: string[];
-  serpSnippets: string[];
+  acquireResult?: {
+    scrapedData?: unknown;
+    scrapedImageUrls?: string[];
+  };
 }): boolean {
-  return (
-    uniqueUrls([...input.knownUrls, ...input.discoveredUrls]).length === 0 &&
-    !hasPatchValues(input.urlExtracted) &&
-    input.imageSearchUrls.length === 0 &&
-    input.serpSnippets.length === 0
-  );
+  const { acquireResult } = input;
+
+  // If acquire ran and produced evidence, there are inputs
+  if (acquireResult) {
+    if (acquireResult.scrapedData != null) return false;
+    if (
+      acquireResult.scrapedImageUrls &&
+      acquireResult.scrapedImageUrls.length > 0
+    )
+      return false;
+  }
+
+  // Fall back to known URLs
+  return uniqueUrls(input.knownUrls).length === 0;
 }
 
 function chunkItems<T>(items: T[], size: number): T[][] {
@@ -875,6 +939,9 @@ function chunkItems<T>(items: T[], size: number): T[][] {
   return chunks;
 }
 
+// Probe cap imported from the prompt owner — see `probeLines` in category-classifier.ts.
+// Probing more would pay for evidence no model ever reads.
+
 function collectKnownUrls(brand: EnrichBrand): string[] {
   const linkUrls = LINK_FIELDS.map(
     (field) => brand[linkColumnFor(field)],
@@ -883,83 +950,30 @@ function collectKnownUrls(brand: EnrichBrand): string[] {
   return uniqueUrls(linkUrls);
 }
 
-function normalizeScrapedData(
-  scrapedData: EnrichScrapedData,
-): EnrichScrapedData {
-  return {
-    ...scrapedData,
-    social_instagram:
-      scrapedData.social_instagram ?? scrapedData.socialInstagram,
-    social_threads: scrapedData.social_threads ?? scrapedData.socialThreads,
-    social_facebook: scrapedData.social_facebook ?? scrapedData.socialFacebook,
-    // Scrapers emit either the snake_case column or the camelCase field; the
-    // column wins. Derived per store rather than restated three times.
-    ...(Object.fromEntries(
-      ONLINE_STORES.map(
-        (channel): [OnlineStoreColumn, string | null | undefined] => [
-          channel.column,
-          scrapedData[channel.column] ?? scrapedData[channel.camel],
-        ],
-      ),
-    ) as Partial<Record<OnlineStoreColumn, string | null>>),
-  };
-}
-
-export function processEnrichBrand(
-  brand: EnrichBrand,
-  scrapedData: EnrichScrapedData,
-  phases: string[],
-): ProcessEnrichResult {
-  const phaseResults: EnrichProcessPhases = {};
-  const patches: EnrichPatches = {};
-  const normalizedScrapedData = normalizeScrapedData(scrapedData);
-
-  if (isRequestedPhase(phases, "clean")) {
-    const nameCleanup = cleanBrandName(brand.name ?? "");
-    phaseResults.clean = nameCleanup.changed
-      ? {
-          changed: true,
-          original: nameCleanup.originalName,
-          cleaned: nameCleanup.cleanedName,
-        }
-      : { changed: false };
-
-    if (nameCleanup.changed) {
-      // This path has no LLM arbiter, so the cleaned value wins by default —
-      // the same order `fallbackName` uses in the names phase (cleaned before
-      // stored, never scraped). It is still written under the `names` key
-      // because that key is the only writer of `name`.
-      patches.names = { name: nameCleanup.cleanedName };
-    }
+/**
+ * The products phase ranks images against each proposal's own page, so it needs
+ * this run's classified pool. Acquire hands over the full in-memory pool when it
+ * runs — but when it was satisfied from history it runs nothing, and the target's
+ * stored active images are the only pool there is.
+ *
+ * Without this fallback a re-run verifies every proposal's image against an
+ * EMPTY pool, and an empty pool passes: the brand keeps whatever image the model
+ * echoed back, unranked and unverified.
+ */
+async function loadImagePoolFromHistory(
+  supabase: SupabaseLike,
+  target: EnrichmentTarget,
+): Promise<RankableImage[]> {
+  try {
+    const rows = await getActiveImages(supabase, target);
+    return rows
+      .map(classifiedImageFromRow)
+      .filter((image): image is RankableImage => image !== null);
+  } catch {
+    // A pool is an input, not a precondition. A failed read leaves products to
+    // record its own `unverified` image flag rather than failing the brand.
+    return [];
   }
-
-  if (isRequestedPhase(phases, "links")) {
-    const links = buildLinkEnrichPatch(
-      brand,
-      normalizedScrapedData,
-      brand.name,
-    );
-    if (hasPatchValues(links)) {
-      patches.links = links;
-    }
-  }
-
-  if (isRequestedPhase(phases, "descriptions")) {
-    const descriptions = buildTextEnrichPatch(brand, normalizedScrapedData);
-    phaseResults.descriptions = { changed: hasPatchValues(descriptions) };
-    if (hasPatchValues(descriptions)) {
-      patches.descriptions = descriptions;
-    }
-  }
-
-  const patch = mergeEnrichPatches(patches);
-
-  return {
-    phases: phaseResults,
-    patches,
-    patch,
-    hasChanges: hasPatchValues(patch),
-  };
 }
 
 export function mergeEnrichPatches(patches: EnrichPatches): EnrichPatch {
@@ -1055,11 +1069,12 @@ function logPhaseResult(
 }
 
 /**
- * The phase labels the per-brand progress log counts through ("[3/7] links").
+ * The phase labels the per-brand progress log counts through ("[3/7] acquire").
  *
- * Deferred phases are filtered out rather than removed from the literal list:
- * the order is the one the pipeline would run, and un-deferring a phase should
- * restore its position without anyone having to remember this function.
+ * After the wave collapse, the order is: detect → acquire → names →
+ * descriptions → stockists → faq → tags → products → persist.
+ * Clean, discover, links, site_identity, images and classify_images are
+ * retired — `clean` folded into the chunk-level `applyChunkNameCleanup`.
  */
 function buildBrandPhaseOrder(
   phases: RunEnrichPhase[],
@@ -1067,11 +1082,8 @@ function buildBrandPhaseOrder(
 ): string[] {
   return [
     hasDetectPhases && "detect",
-    "clean",
-    "links",
+    "acquire",
     "names",
-    "site_identity",
-    "images",
     "descriptions",
     "stockists",
     "faq",
@@ -1081,21 +1093,22 @@ function buildBrandPhaseOrder(
     .filter((phase) => !isDeferredPhase(phase));
 }
 
-type LinksPhaseResult = Awaited<ReturnType<typeof runLinksPhase>>;
+type AcquirePhaseResult = Awaited<ReturnType<typeof runAcquirePhase>>;
 
 /**
- * Per-target state carried across the two per-brand waves that the batched
- * image search now sits between.
+ * Per-target state carried across the chunk's TWO per-brand loops.
  *
- * Wave A runs detect application -> clean -> links. The batched serper image
- * call then runs with the websites and names those phases produced. Wave B
- * resumes from this object for the images, description, location, faq,
- * tag and persist phases.
+ * Loop A: detect application → acquire → Gate A → Gate B → name candidates.
+ * Then ONE batched `names` call for the whole chunk.
+ * Loop B: names verdict → editorial → products → tags → persist.
+ *
+ * The context is what makes the split possible: everything loop B needs about a
+ * brand (its acquire output, its satisfied phases, its accumulated state) is
+ * held here rather than in a closure that dies with loop A's callback.
  *
  * `completed` is the single source of truth for "this target already recorded a
- * terminal outcome in wave A". Both the batch phases between the waves and wave
- * B itself read it, so a target that skipped or failed early is never
- * re-emitted, never re-processed, and never counted twice.
+ * terminal outcome". The batch phases and loop B read it, so a target that
+ * skipped or failed in loop A is never re-emitted and never counted twice.
  */
 type BrandWaveContext = {
   brand: EnrichBrand;
@@ -1107,8 +1120,8 @@ type BrandWaveContext = {
   overwrite: boolean;
   state: BrandEnrichState;
   detectResult: DetectResult | undefined;
-  /** Wave A's links output; wave B feeds it into the candidate image pool. */
-  linksResult: LinksPhaseResult | null;
+  /** Acquire phase output, threaded to products and Gate A/B. */
+  acquireResult: AcquirePhaseResult | null;
   urlExtracted: Partial<BrandFlatLinkColumns>;
   currentPhase: string | undefined;
   completed: boolean;
@@ -1397,6 +1410,9 @@ export function submissionToEnrichBrand(
       typeof existing.hero_image_url === "string"
         ? existing.hero_image_url
         : (submission.hero_image_url ?? null),
+    website_url: submission.website_url ?? null,
+    other_urls: submission.other_urls,
+    intent: submission.intent,
   };
 }
 
@@ -1490,10 +1506,7 @@ export async function runEnrich(
           "Brand-target enrichment is retired; create a refresh submission instead",
         );
       }
-      const enrichDelayMs = phases.includes("discover")
-        ? SEARCH_DELAY_MS
-        : SCRAPE_DELAY_MS;
-      const includesDiscover = phases.includes("discover");
+      const enrichDelayMs = SCRAPE_DELAY_MS;
       let weakBrandCount = 0;
       let allBrands: EnrichBrand[] = [];
 
@@ -1578,9 +1591,8 @@ export async function runEnrich(
         const hasDetectPhases =
           phases.includes("detect") || phases.includes("slugs");
         const activeSteps = [
-          phases.includes("discover") && "SERP",
-          phases.includes("images") && "images",
           hasDetectPhases && "detect",
+          phases.includes("acquire") && "acquire",
           phases.includes("tags") && !phases.includes("descriptions") && "tags",
           phases.includes("descriptions") &&
             phases.includes("tags") &&
@@ -1680,14 +1692,14 @@ export async function runEnrich(
             await flushTargetProgress(false);
           });
         };
-        // Populated by wave A, read by the batched image search that runs between
-        // the waves, and resumed by wave B. Keyed by target id — see the
+        // Populated by loop A, read by the batched `names` call that runs between
+        // the loops, and resumed by loop B. Keyed by target id — see the
         // `BrandWaveContext` doc comment for why a name key would be unsafe here.
         const brandContexts = new Map<string, BrandWaveContext>();
         const isBrandCompleted = (brandId: string): boolean =>
           brandContexts.get(brandId)?.completed === true;
-        // Competing `name` proposals collected during wave A, consumed by the
-        // batched names phase that runs between the waves. Keyed by target id for
+        // Competing `name` proposals collected during loop A, consumed by the
+        // batched names phase that runs between the loops. Keyed by target id for
         // the same reason `brandContexts` is: `clean` and `detect` can rewrite a
         // name, so a name key would be a silent miss.
         const nameCandidates = new Map<string, NameCandidateInput>();
@@ -1710,7 +1722,7 @@ export async function runEnrich(
               })),
           );
         };
-        const recordBatchPhase = async (
+        const _recordBatchPhase = async (
           phaseResult: PhaseResult,
           changedField: string,
           hasTargetResult: (brand: EnrichBrand) => boolean,
@@ -1740,35 +1752,35 @@ export async function runEnrich(
           await emitBatchPhaseProgress(phaseResult.phase);
         };
 
-        if (phases.includes("discover"))
-          await emitBatchPhaseProgress("discover");
-        const discoverResult = await runDiscoverPhase(batchContext);
-        let searchResults = discoverResult.searchResults;
-        const searchError = discoverResult.searchError;
-        if (phases.includes("discover")) {
-          await recordBatchPhase(
-            discoverResult.phaseResult,
-            "serp_search_results",
-            (brand) => {
-              const result = searchResults.get(getDisplayBrandName(brand));
-              return Boolean(
-                result &&
-                (result.urls.length > 0 || result.snippets.length > 0),
-              );
-            },
-          );
-        }
-
-        // An enrichment-only run (no `discover`) still needs SERP context, so replay
-        // the stored results for any run that includes at least one LLM phase.
-        // Replayed rows are marked `fromCache` so a historical provider failure is
-        // never mistaken for a live one.
+        // ---- Cached SERP loading (replays stored search results) ----
+        // An enrichment run needs SERP context for detect and LLM phases,
+        // so replay the stored results. Replayed rows are marked `fromCache`
+        // so a historical provider failure is never mistaken for a live one.
         const requestedPhases = new Set<string>(phases);
         const needsCachedSerp =
-          !requestedPhases.has("discover") &&
           ENRICH_LLM_PHASES.some((phase) => requestedPhases.has(phase));
 
+        let searchResults = new Map<string, SearchPhaseResult>();
+        // Raw SERP rows keyed by brand ID — used by the gather block to
+        // check freshness before deciding whether to re-search.
+        let rawSearchResultsById = new Map<string, SearchResultRow>();
+        // The handle-anchored search replays from its OWN kind of row. Without
+        // the split a fresh name row would stand in for a handle row that was
+        // never written, and the second search would be skipped forever.
+        let rawHandleSearchResultsById = new Map<string, SearchResultRow>();
         if (needsCachedSerp) {
+          rawSearchResultsById = await getLatestSearchResults(
+            chunk.map((brand) => brand.id),
+            'serp',
+            targetType,
+            'name',
+          );
+          rawHandleSearchResultsById = await getLatestSearchResults(
+            chunk.map((brand) => brand.id),
+            'serp',
+            targetType,
+            'handle',
+          );
           const cached = await loadCachedSearchResults(
             chunk.map((brand) => brand.id),
             targetType,
@@ -1791,14 +1803,436 @@ export async function runEnrich(
           }
         }
 
-        // Detect (and the standalone classification that shares its batch slot) now
-        // runs BEFORE the image search. Image search is a paid serper call per
-        // brand, and detect is what rejects non-brands — running detect first stops
-        // credits being spent on entries the very next step throws away.
+        // ---- Link expansion gather block (per brand, before detect) ----
+        // Four deterministic sources are consulted IN COST ORDER, each one only
+        // when the cheaper ones left the brand without a purchase channel: hub
+        // pages (free fetches), the Threads bio (one free fetch), a by-name
+        // SERP (one credit), and a handle-anchored SERP (one credit). Every
+        // step records its own outcome, because the verdict finalizer may act
+        // only on a brand where every source ANSWERED — an outage has to read
+        // as `unknown`, never as "this brand has no shop".
+        type GatherExpansionEntry = {
+          patch: Partial<BrandFlatLinkColumns>;
+          serp: 'replayed' | 'searched' | 'none';
+          sources: ChannelSources;
+          /** Statuses of the search calls actually made, replay included. */
+          serpCallStatuses: Array<string | null | undefined>;
+          linkExpansion: NonNullable<PhaseResult['linkExpansion']>;
+        };
+        const linkExpansionByBrandId = new Map<string, GatherExpansionEntry>();
+
+        await mapWithConcurrency(chunk, LINK_EXPANSION_CONCURRENCY, async (brand) => {
+          const brandName = getDisplayBrandName(brand);
+          const hubUrls = collectHubUrls(brand);
+
+          // Build confirmed URL set from submitted website_url and other_urls
+          const confirmedHubUrls = new Set<string>();
+          if (brand.website_url) confirmedHubUrls.add(brand.website_url);
+          if (Array.isArray(brand.other_urls)) {
+            for (const entry of brand.other_urls as Array<{ url?: string }>) {
+              if (entry?.url && typeof entry.url === 'string') {
+                confirmedHubUrls.add(entry.url);
+              }
+            }
+          }
+
+          const expansion = await expandLinkHubs({
+            brandName,
+            hubUrls,
+            confirmedHubUrls,
+            fetchHtml,
+          });
+
+          // Build patch from hub-scraped links and adopt onto the brand object
+          let patch = buildLinkEnrichPatch(
+            brand as BrandFlatLinkColumns,
+            expansion.scraped,
+            brandName,
+          );
+          Object.assign(brand, patch);
+
+          const adoptedLinks: AdoptedLink[] = [...expansion.adopted];
+          const gatedTags = [...(expansion.gated ?? [])];
+          // Mutable: the handle SERP may find hubs of its own, and the trace
+          // has to count every hub page this brand cost us.
+          let hubsFetched = expansion.hubsFetched;
+          const serpCallStatuses: Array<string | null | undefined> = [];
+          const sources: ChannelSources = {
+            hubs:
+              hubUrls.length === 0
+                ? 'skipped'
+                : expansion.adopted.length > 0
+                  ? 'found'
+                  : (expansion.fetchFailures ?? 0) > 0
+                    ? 'unknown'
+                    : 'absent',
+            threads: 'skipped',
+            serpName: 'skipped',
+            serpHandle: 'skipped',
+          };
+          let serp: 'replayed' | 'searched' | 'none' = 'none';
+
+          // Re-read only after a step adopted something: every step below is
+          // gated on this value, and nothing but an adoption can change it.
+          let hasChannel = hasPurchaseChannel(brand);
+
+          /**
+           * Merge an adoption into the patch that is actually PERSISTED.
+           * Assigning onto `brand` alone only survives inside this run: the
+           * refresh submission is written from `patch`, so a SERP-found shop
+           * that never reached it was silently dropped (DEV-1702 proof run).
+           * An earlier source owns its column — nothing here displaces a value
+           * already in the patch.
+           */
+          const mergeIntoPatch = (extracted: Partial<BrandFlatLinkColumns>) => {
+            const next: Record<string, unknown> = { ...patch };
+            for (const [column, value] of Object.entries(extracted)) {
+              if (typeof value !== 'string') continue;
+              if (hasLinkValue(next[column] as string | null)) continue;
+              next[column] = value;
+            }
+            patch = next as Partial<BrandFlatLinkColumns>;
+          };
+
+          /** Adopt SERP URLs onto the brand and say what that answered. */
+          const applySerpUrls = (urls: string[]): SourceOutcome => {
+            const extracted = extractLinksFromUrls(urls, brandName);
+            if (Object.keys(extracted).length === 0) return 'absent';
+            Object.assign(brand, extracted);
+            mergeIntoPatch(extracted);
+            hasChannel = hasPurchaseChannel(brand);
+            return hasChannel ? 'found' : 'absent';
+          };
+
+          // ---- Threads bio: one fetch of the brand's own profile ----
+          if (!hasChannel) {
+            const threadsUrl =
+              brand.social_threads ?? deriveThreadsUrl(brand.social_instagram);
+            if (threadsUrl) {
+              const bio = await expandThreadsBio({
+                brandName,
+                threadsUrl,
+                confirmedHubUrls,
+                fetchHtmlWithMetadata,
+                fetchHtml,
+              });
+              sources.threads = bio.threads;
+              adoptedLinks.push(...bio.adopted);
+              if (bio.gated?.length) gatedTags.push(...bio.gated);
+              if (bio.adopted.length > 0) {
+                const threadsPatch = buildLinkEnrichPatch(
+                  brand as BrandFlatLinkColumns,
+                  bio.scraped,
+                  brandName,
+                );
+                Object.assign(brand, threadsPatch);
+                patch = { ...patch, ...threadsPatch };
+                hasChannel = hasPurchaseChannel(brand);
+              }
+            }
+          }
+
+          // ---- By-name SERP: replay a fresh cached row, or search live ----
+          if (!hasChannel) {
+            const cachedRow = rawSearchResultsById.get(brand.id);
+            if (
+              cachedRow &&
+              isFreshSearchResult(cachedRow, SEARCH_REPLAY_MAX_AGE_MS)
+            ) {
+              serp = 'replayed';
+              serpCallStatuses.push(cachedRow.callStatus);
+              sources.serpName = applySerpUrls(cachedRow.urls);
+            } else {
+              serp = 'searched';
+              // `searchBrandUrls` flattens the provider's call status away and
+              // reports a dead call exactly the way it reports an empty answer
+              // — an empty array — so every empty name query had to read as
+              // `unknown`, and no brand could ever be judged on its name query.
+              // The batch call carries the status through.
+              let nameResult: SerpResult = undefined;
+              try {
+                const results = await batchSearchBrandsWithSnippets(
+                  [brandName],
+                  undefined,
+                  1,
+                  () => ({
+                    target: { type: targetType, id: brand.id },
+                    jobId: config.jobId,
+                    config: { phase: 'acquire' as const },
+                  }),
+                );
+                nameResult = results.get(brandName);
+              } catch (error) {
+                onProgress(`  [SERP-FAIL] ${brand.slug}: ${errorMessage(error)}`);
+              }
+              serpCallStatuses.push(nameResult?.callStatus);
+              const nameStatus = nameResult?.callStatus;
+              // Only a call that ANSWERED may say "there is no shop":
+              // `empty` is a live query that ranked nothing, `succeeded` one
+              // that ranked something. Everything else is an outage.
+              // `malformed` stays `unknown` here even though
+              // `isProviderFailure` excludes it — an unparseable body is not
+              // evidence of an empty web.
+              sources.serpName =
+                nameResult &&
+                (nameStatus === 'succeeded' || nameStatus === 'empty')
+                  ? applySerpUrls(nameResult.urls)
+                  : 'unknown';
+            }
+          }
+
+          // ---- Handle-anchored SERP: the last credit, spent only after the
+          //      brand's own name found nothing. A Taiwanese shop page
+          //      routinely prints the brand's Instagram handle, never its
+          //      name, so this is the query the name query cannot be. ----
+          if (!hasChannel) {
+            const handle = instagramHandleFromUrl(brand.social_instagram);
+            if (!handle || !isUsableHandle(handle)) {
+              sources.serpHandle = 'skipped';
+            } else {
+              let entries: BrandSearchEntry[] | null = null;
+              const cachedHandleRow = rawHandleSearchResultsById.get(brand.id);
+              if (
+                cachedHandleRow &&
+                isFreshSearchResult(cachedHandleRow, SEARCH_REPLAY_MAX_AGE_MS)
+              ) {
+                serpCallStatuses.push(cachedHandleRow.callStatus);
+                // The stored row keeps the provider's own payload, so a replay
+                // rebuilds the same title/snippet-bearing entries the live call
+                // returned and the handle filter answers identically. Only a
+                // legacy row without a raw payload falls back to the URL-only
+                // shape, which can match on URL segments alone — narrower than
+                // a live call, never wider.
+                const replayed = parseBrandSearchEntries(
+                  cachedHandleRow.rawResponse,
+                );
+                entries =
+                  replayed.length > 0
+                    ? replayed
+                    : cachedHandleRow.urls.map((link) => ({
+                        title: '',
+                        link,
+                      }));
+              } else {
+                let handleResult: SerpResult = undefined;
+                try {
+                  const results = await batchSearchBrandsWithSnippets(
+                    [brandName],
+                    () => HANDLE_QUERY(handle),
+                    1,
+                    () => ({
+                      target: { type: targetType, id: brand.id },
+                      jobId: config.jobId,
+                      config: {
+                        phase: 'acquire' as const,
+                        queryKind: 'handle' as const,
+                      },
+                    }),
+                  );
+                  handleResult = results.get(brandName);
+                } catch (error) {
+                  onProgress(`  [SERP-FAIL] ${brand.slug}: ${errorMessage(error)}`);
+                }
+                serpCallStatuses.push(handleResult?.callStatus);
+                // Same rule as the by-name query: `succeeded` and `empty` are
+                // definitive answers from the provider; every other status
+                // (including `malformed`) is an outage and reads `unknown`.
+                const handleStatus = handleResult?.callStatus;
+                if (
+                  !handleResult ||
+                  (handleStatus !== undefined &&
+                    handleStatus !== 'succeeded' &&
+                    handleStatus !== 'empty')
+                ) {
+                  sources.serpHandle = 'unknown';
+                } else {
+                  entries = handleResult.entries ?? [];
+                }
+              }
+
+              if (entries) {
+                const matchedLinks = filterEntriesByHandle(entries, handle).map(
+                  (entry) => entry.link,
+                );
+                const hubLinks = matchedLinks.filter(isLinkAggregatorHost);
+                const platformLinks = matchedLinks.filter(
+                  (link) => !isLinkAggregatorHost(link),
+                );
+                const adoptedBefore = adoptedLinks.length;
+                let handleFetchFailures = 0;
+
+                // No brand-NAME gate here. `filterEntriesByHandle` already
+                // matched every one of these links on the brand's own
+                // Instagram handle by whole-segment equality, and THAT is the
+                // identity check — re-gating on name tokens rejects the shop
+                // of every brand whose handle does not spell its name.
+                const extracted = extractLinksFromUrls(platformLinks);
+                if (Object.keys(extracted).length > 0) {
+                  Object.assign(brand, extracted);
+                  mergeIntoPatch(extracted);
+                  for (const [column, value] of Object.entries(extracted)) {
+                    if (typeof value !== 'string') continue;
+                    const field = LINK_FIELDS.find(
+                      (candidate) => linkColumnFor(candidate) === column,
+                    );
+                    if (!field) continue;
+                    adoptedLinks.push({
+                      field,
+                      value,
+                      source: 'serp_handle',
+                      hubUrl: value,
+                    });
+                  }
+                }
+
+                // A matched link aggregator is the brand's own hub — it
+                // carries the brand's handle — so it is expanded on the same
+                // terms as a hub the brand submitted, and confirmed.
+                if (hubLinks.length > 0) {
+                  const handleHubs = await expandLinkHubs({
+                    brandName,
+                    hubUrls: hubLinks,
+                    confirmedHubUrls: new Set([
+                      ...confirmedHubUrls,
+                      ...hubLinks,
+                    ]),
+                    fetchHtml,
+                  });
+                  hubsFetched += handleHubs.hubsFetched;
+                  handleFetchFailures += handleHubs.fetchFailures ?? 0;
+                  if (handleHubs.gated?.length) {
+                    gatedTags.push(...handleHubs.gated);
+                  }
+                  if (handleHubs.adopted.length > 0) {
+                    const hubPatch = buildLinkEnrichPatch(
+                      brand as BrandFlatLinkColumns,
+                      handleHubs.scraped,
+                      brandName,
+                    );
+                    Object.assign(brand, hubPatch);
+                    patch = { ...patch, ...hubPatch };
+                    for (const link of handleHubs.adopted) {
+                      adoptedLinks.push({ ...link, source: 'serp_handle' });
+                    }
+                  }
+                }
+
+                // A matched link on the brand's OWN domain — the host label is
+                // the handle itself. No platform pattern can recognise it, so
+                // it is classified the way a human-submitted URL is. Nothing
+                // weaker than host-label equality may reach this branch.
+                const normalizedHandle = normalizeHandle(handle);
+                for (const link of platformLinks) {
+                  if (Object.values(extracted).includes(link)) continue;
+                  const hostLabel = registrableLabel(link);
+                  if (hostLabel === null || hostLabel !== normalizedHandle) {
+                    continue;
+                  }
+                  for (const [field, value] of Object.entries(
+                    classifySubmittedUrl(link),
+                  )) {
+                    if (typeof value !== 'string') continue;
+                    if (!field.startsWith('purchase')) continue;
+                    const column = linkColumnFor(field as LinkField);
+                    const existing = (brand as Record<string, unknown>)[column];
+                    if (hasLinkValue(existing as string | null)) continue;
+                    (brand as Record<string, unknown>)[column] = value;
+                    const adoption: Partial<BrandFlatLinkColumns> = {};
+                    (adoption as Record<string, unknown>)[column] = value;
+                    mergeIntoPatch(adoption);
+                    adoptedLinks.push({
+                      field: field as LinkField,
+                      value,
+                      source: 'serp_handle',
+                      hubUrl: link,
+                    });
+                  }
+                }
+
+                hasChannel = hasPurchaseChannel(brand);
+                sources.serpHandle = hasChannel
+                  ? 'found'
+                  : adoptedLinks.length === adoptedBefore &&
+                      handleFetchFailures > 0
+                    ? // Nothing adopted because a hub page never loaded: that
+                      // is not the same finding as a hub with no shop on it.
+                      'unknown'
+                    : 'absent';
+              }
+            }
+          }
+
+          const adopted = adoptedLinks.map((link) => ({
+            field: link.field,
+            url: link.value,
+            source: link.source,
+          }));
+
+          linkExpansionByBrandId.set(brand.id, {
+            patch,
+            serp,
+            sources,
+            serpCallStatuses,
+            linkExpansion: {
+              hubsFetched,
+              adopted,
+              serp,
+              sources,
+              ...(gatedTags.length ? { gated: gatedTags.join(', ') } : {}),
+            },
+          });
+        });
+
+        // ---- Probe evidence collection (per-brand, AFTER link expansion) ----
+        // Moved after expansion so adopted URLs are included in the probe set.
+        // Skipped for products-only jobs: probes only feed the detect phase.
+        const probeEvidenceByBrandId = new Map<string, ProbeEvidence[]>();
+        if (hasDetectPhases) {
+          // A free GET on each brand's own known URLs. Kept PER BRAND: the whole
+          // point is that detect judges a brand on its own pages, and a flat list
+          // of the chunk's URLs (F10) could only ever be thrown away.
+          //
+          // One `probeStatic` call for the chunk rather than one per brand — it
+          // already runs four at a time whatever it is handed, so a per-brand call
+          // would serialize the chunk behind each brand's slowest host.
+          const probeUrlsByBrandId = new Map<string, string[]>();
+          const probeUrls: string[] = [];
+          const seenProbeUrls = new Set<string>();
+          for (const brand of chunk) {
+            const urls = collectKnownUrls(brand).slice(
+              0,
+              MAX_PROBE_URLS,
+            );
+            if (urls.length === 0) continue;
+            probeUrlsByBrandId.set(brand.id, urls);
+            for (const url of urls) {
+              if (seenProbeUrls.has(url)) continue;
+              seenProbeUrls.add(url);
+              probeUrls.push(url);
+            }
+          }
+          if (probeUrls.length > 0) {
+            const probes = await probeStatic(probeUrls);
+            const probeByUrl = new Map(
+              probes.map((probe) => [probe.url, probe] as const),
+            );
+            for (const [brandId, urls] of probeUrlsByBrandId) {
+              const evidence = urls
+                .map((url) => probeByUrl.get(url))
+                .filter((probe): probe is ProbeEvidence => probe !== undefined);
+              if (evidence.length > 0) {
+                probeEvidenceByBrandId.set(brandId, evidence);
+              }
+            }
+          }
+        }
+
+        // ---- Detect batch (reads probes + cached SERP) ----
         if (hasDetectPhases) await emitBatchPhaseProgress("detect");
         const detectPhaseResult = await runDetectPhase(
           batchContext,
           searchResults,
+          probeEvidenceByBrandId,
         );
         const detectResults = detectPhaseResult.detectResults;
         const standaloneClassificationResult =
@@ -1878,8 +2312,8 @@ export async function runEnrich(
         /**
          * Terminal for this target. Marking `completed` here — in the one place
          * every skip, failure and success funnels through — is what guarantees a
-         * brand that exited during wave A is neither re-emitted by the batch phases
-         * that follow nor picked up (and re-counted) by wave B.
+         * brand that exited during loop A is neither re-emitted by the batch phases
+         * that follow nor picked up (and re-counted) by loop B.
          */
         const recordOutcome = async (
           ctx: BrandWaveContext,
@@ -1919,7 +2353,7 @@ export async function runEnrich(
             ),
           );
         };
-        /** Shared catch body for both waves — a Gate A throw lands here. */
+        /** Shared catch body for both loops — a Gate A throw lands here. */
         const failBrand = async (
           ctx: BrandWaveContext,
           err: unknown,
@@ -1984,8 +2418,8 @@ export async function runEnrich(
         };
 
         /**
-         * Gate C and its storage sibling, invoked immediately before EVERY wave-B
-         * exit that would record a non-failed outcome. One end-of-callback check is
+         * Gate C and its storage sibling, invoked immediately before EVERY exit
+         * that would record a non-failed outcome. One end-of-callback check is
          * not enough: a brand can leave through the Gate B skip or the empty-patch
          * skip, and a provider-failed brand recorded `skipped` is invisible to the
          * Resume feature, which picks up `failed` and `cancelled` targets only.
@@ -2014,14 +2448,18 @@ export async function runEnrich(
           throw new Error(decision.message);
         };
 
-        // ---- Wave A: detect application -> clean -> links -------------------
-        // Everything the image query needs (the brand's own domain, the corrected
-        // name) is produced here, so it has to complete before the batched serper
-        // call below.
+        // ---- Loop A: detect application → acquire → Gate A → Gate B →
+        //      name candidates. Ends at the batched `names` call below. ----
         await mapWithConcurrency(
           chunk,
           ENRICH_BRAND_CONCURRENCY,
           async (brand, brandOffset) => {
+            // Cooperative abort: the breaker tripped while earlier targets in this
+            // chunk were running. Return WITHOUT recording anything — the target
+            // stays `pending`/`running` so `runJob` can sweep it to `cancelled`,
+            // which is what makes it eligible for Resume later.
+            if (llmBreakerTripped) return;
+
             result.processed += 1;
             const brandIndex = chunkStartIndex + brandOffset + 1;
             const ctx: BrandWaveContext = {
@@ -2040,7 +2478,7 @@ export async function runEnrich(
                 scrapedData: {},
               },
               detectResult: detectResults.get(brand.slug),
-              linksResult: null,
+              acquireResult: null,
               urlExtracted: {},
               currentPhase: undefined,
               completed: false,
@@ -2050,9 +2488,6 @@ export async function runEnrich(
             const state = ctx.state;
 
             // ---- Satisfaction check (history-based) --------------------------
-            // Fetch phase-success history and pre-compute which phases can be
-            // skipped. This runs once per target in wave A so the guards below
-            // and in wave B can read `ctx.satisfiedPhaseSet` synchronously.
             const history = await fetchPhaseHistory(
               supabase as unknown as SupabaseClient,
               'submission',
@@ -2075,8 +2510,11 @@ export async function runEnrich(
             await emitTargetProgress(ctx, "running");
 
             try {
+              const satisfiedPhaseSet = ctx.satisfiedPhaseSet;
+
+              // ---- Detect application ----
               let detectApplication: ReturnType<typeof applyDetectResult> | undefined;
-              if (!ctx.satisfiedPhaseSet.has("detect")) {
+              if (!satisfiedPhaseSet.has("detect")) {
                 detectApplication = applyDetectResult(
                   ctx.detectResult,
                   brand,
@@ -2135,16 +2573,86 @@ export async function runEnrich(
                 }
               }
 
-              if (searchError) {
-                throw new Error(searchError);
+              // ---- Link expansion patch + no-purchase-channel gate ----
+              const expansion = linkExpansionByBrandId.get(brand.id);
+              if (expansion) {
+                appendPatch(state, expansion.patch);
+              }
+              if (!hasPurchaseChannel(brand)) {
+                // The verdict finalizer reads this back off the trace, so the
+                // per-source outcomes and the evidence verdict travel WITH the
+                // skip rather than being recomputed later from a summary that
+                // no longer knows which source failed.
+                const evidence = computeEvidence(
+                  expansion?.sources,
+                  expansion?.serpCallStatuses ?? [],
+                );
+                const instagramFollowers = probeEvidenceByBrandId
+                  .get(brand.id)
+                  ?.find(
+                    (probe) => typeof probe.instagramFollowers === 'number',
+                  )?.instagramFollowers;
+                const noChannelDetail = buildNoChannelDetail(
+                  expansion?.sources,
+                  evidence,
+                  instagramFollowers,
+                );
+                onProgress(
+                  `  [NO-CHANNEL] ${brand.slug}: ${noChannelDetail}`,
+                );
+
+                // New submissions get a triage row; refreshes do not (the brand
+                // already exists). Mirrors the listing_reject path.
+                if (brand.intent !== 'refresh' && !config.dryRun) {
+                  await insertTriageResult({
+                    brandId: brand.id,
+                    target: { type: targetType, id: brand.id },
+                    isNonBrand: true,
+                    nonBrandReason: `no_purchase_channel: ${noChannelDetail}`,
+                    slugGenerated: null,
+                    categorySlug: null,
+                    confidence: 'medium',
+                  });
+                }
+
+                const noChannelError = `no_purchase_channel: ${noChannelDetail}`;
+                state.phaseResults.push({
+                  ...buildPhaseResult('acquire', 'skipped', [], 0, noChannelError),
+                  ...(expansion
+                    ? {
+                        linkExpansion: {
+                          ...expansion.linkExpansion,
+                          evidence,
+                          ...(instagramFollowers !== undefined
+                            ? { instagramFollowers }
+                            : {}),
+                        },
+                      }
+                    : {}),
+                });
+                await recordOutcome(ctx, {
+                  slug: brand.slug,
+                  name: getDisplayBrandName(brand),
+                  ...(target === 'submissions'
+                    ? { submissionId: brand.id }
+                    : {}),
+                  status: 'skipped',
+                  changedFields: changedFieldsFromPhaseResults(
+                    state.phaseResults,
+                  ),
+                  phaseResults: state.phaseResults,
+                  error: noChannelError,
+                });
+                result.skipped += 1;
+                finishBrand(ctx);
+                return;
               }
 
-              if (phases.includes("discover") || searchResults.size > 0) {
+              // Populate SERP-derived data from cached search results
+              if (searchResults.size > 0) {
                 const searchResult = searchResults.get(
                   getDisplayBrandName(brand),
                 ) ?? { urls: [], snippets: [] };
-                // Always populate discoveredUrls from (cached) search results
-                // so downstream phases see them even when discover is satisfied.
                 state.discoveredUrls = uniqueUrls(
                   searchResult.urls.filter(
                     (url) => !state.knownUrls.includes(url),
@@ -2154,30 +2662,20 @@ export async function runEnrich(
                 state.serpEntries = searchResult.entries ?? [];
               }
 
-              // Same SERP-derived path the links phase gates: without the brand
-              // name these are just "first URL matching a platform shape", which is
-              // how One Wood acquired facebook.com/threebrothersboards.
               ctx.urlExtracted = extractLinksFromUrls(
                 state.discoveredUrls,
                 getDisplayBrandName(brand),
               );
 
-              let cleanResult: Awaited<ReturnType<typeof runCleanPhase>> | undefined;
-              if (!ctx.satisfiedPhaseSet.has("clean")) {
-                await markCurrentPhase(ctx, "clean");
-                cleanResult = await runCleanPhase(
-                  brand,
-                  phases,
-                  nameCleanups.get(brand.id),
-                );
-                state.phaseResults.push(cleanResult.phaseResult);
-                await logCurrentPhase(ctx, cleanResult.phaseResult);
-              }
+              // `clean` is DEFERRED and no longer scheduled: `applyChunkNameCleanup`
+              // (run once per chunk, above) already normalizes the name and its
+              // result is the `cleaned` name candidate below.
 
-              let linksResult: Awaited<ReturnType<typeof runLinksPhase>> | undefined;
-              if (!ctx.satisfiedPhaseSet.has("links")) {
-                await markCurrentPhase(ctx, "links");
-                linksResult = await runLinksPhase({
+              // ---- Acquire (replaces links + images + classify + quarantine) ----
+              let acquireResult: Awaited<ReturnType<typeof runAcquirePhase>> | undefined;
+              if (!satisfiedPhaseSet.has("acquire")) {
+                await markCurrentPhase(ctx, "acquire");
+                acquireResult = await runAcquirePhase({
                   brand,
                   phases,
                   discoveredUrls: state.discoveredUrls,
@@ -2186,267 +2684,22 @@ export async function runEnrich(
                   target: { type: targetType, id: brand.id },
                   jobId: config.jobId,
                   renderProvider: config.renderProvider,
+                  budgetScale: config.budgetScale,
+                  linkExpansion: expansion?.linkExpansion,
                 });
-                ctx.linksResult = linksResult;
-                state.phaseResults.push(linksResult.phaseResult);
-                await logCurrentPhase(ctx, linksResult.phaseResult);
-                state.scrapedData = linksResult.scrapedData ?? {};
-                appendPatch(state, linksResult.patch);
+                ctx.acquireResult = acquireResult;
+                state.phaseResults.push(acquireResult.phaseResult);
+                await logCurrentPhase(ctx, acquireResult.phaseResult);
+                state.scrapedData = acquireResult.scrapedData ?? {};
+                appendPatch(state, acquireResult.patch);
               }
 
-              // DEV-1321: every proposer that used to write `name` contributes a
-              // CANDIDATE here instead. `stored` is the value the DATABASE holds —
-              // `applyChunkNameCleanup` already mutated `brand.name` to the cleaned
-              // form in memory, so the row's own value only survives in
-              // `nameCleanups`.
-              const candidates: NameCandidate[] = [
-                {
-                  source: "stored",
-                  value:
-                    nameCleanups.get(brand.id)?.originalName ??
-                    getDisplayBrandName(brand),
-                },
-              ];
-              const cleanedName =
-                cleanResult?.cleanedName ??
-                nameCleanups.get(brand.id)?.cleanedName;
-              if (cleanedName) {
-                candidates.push({
-                  source: "cleaned",
-                  value: cleanedName,
-                });
-              }
-              if (detectApplication?.brandName) {
-                candidates.push({
-                  source: "detected",
-                  value: detectApplication.brandName,
-                });
-              }
-              if (linksResult?.officialNameCandidates.length) {
-                candidates.push(...linksResult.officialNameCandidates);
-              }
-              nameCandidates.set(brand.id, {
-                candidates,
-                snippets: state.serpSnippets,
-              });
-            } catch (err) {
-              await failBrand(ctx, err);
-            }
-          },
-        );
-
-        // ---- Batched name arbitration and image search (between the waves) ----
-        // Both calls stay outside the per-brand loops: names arbitrates the complete
-        // candidate set first, then image search can use the accepted name.
-        const pendingBrands = chunk.filter(
-          (brand) => !isBrandCompleted(brand.id),
-        );
-
-        // ---- Batched name arbitration (between the waves) -------------------
-        // Exactly ONE batched LLM call for the whole chunk, and it sits HERE for two
-        // reasons. Upstream: every proposer that can suggest a name — detect's model
-        // name, the regex cleaner, and the scraped page title — has finished by the
-        // end of wave A, so this is the first point at which the arbiter can see the
-        // full candidate set. Downstream: the batched image search below builds its
-        // query from the name in the pending patch, so the arbitrated name has to be
-        // in that patch before the `site:` query fires, or the run searches under a
-        // name we are about to overwrite.
-        //
-        // SINGLE-WRITER INVARIANT (DEV-1321): from here on, `names` is the ONLY
-        // phase in the pipeline that emits `patch.name`. `detect`, `clean` and
-        // `links` each used to write it and clobbered each other by accident of
-        // ordering — that is how the live row `小朱甜點` became `首頁 - 小朱甜點`.
-        // Do not reintroduce a `name` key in any other phase's patch; the same
-        // invariant is spelled out on `EnrichPatches.names` for the other
-        // precedence path.
-        if (phases.includes("names")) await emitBatchPhaseProgress("names");
-        const namesPhaseResult = await runNamesPhase(
-          {
-            ...batchContext,
-            chunk: pendingBrands,
-            chunkBrandNames: pendingBrands.map(getDisplayBrandName),
-          },
-          nameCandidates,
-        );
-        for (const brand of pendingBrands) {
-          const ctx = brandContexts.get(brand.id);
-          if (!ctx || ctx.completed || ctx.satisfiedPhaseSet.has("names")) continue;
-          await markCurrentPhase(ctx, "names");
-          // Runs even on a provider failure: with no verdict the application falls
-          // back to the `cleaned` candidate, so a dead provider still persists the
-          // regex cleanup instead of leaving the dirty row.
-          const application = phases.includes("names")
-            ? applyNamesResult(
-                // Keyed by target id, not display name — clean/detect can rewrite a
-                // name, and this phase runs after both.
-                namesPhaseResult.verdicts.get(brand.id),
-                brand,
-                nameCandidates.get(brand.id)?.candidates ?? [],
-              )
-            : { phaseResult: namesPhaseResult.phaseResult, patch: {} };
-          // Same grafting rule detect uses: when the whole batch died at the
-          // provider, the per-brand entry carries that signal rather than
-          // reporting a clean fallback as success.
-          const namesEntry = namesPhaseResult.providerFailure
-            ? { ...namesPhaseResult.phaseResult, changedFields: [] }
-            : application.phaseResult;
-          ctx.state.phaseResults.push(namesEntry);
-          await logCurrentPhase(ctx, namesEntry);
-          appendPatch(ctx.state, application.patch);
-        }
-
-        const quarantinesByBrandId = new Map<
-          string,
-          SiteIdentityQuarantine[]
-        >();
-        for (const brand of pendingBrands) {
-          const ctx = brandContexts.get(brand.id);
-          if (!ctx || ctx.completed || !ctx.linksResult) continue;
-          const quarantines = Object.values(ctx.linksResult.quarantine).map(
-            (quarantine) => ({
-              ...quarantine,
-              patch: { ...ctx.state.patches },
-              scrapedData: ctx.state.scrapedData,
-              linksResult: ctx.linksResult,
-            }),
-          );
-          if (quarantines.length > 0)
-            quarantinesByBrandId.set(brand.id, quarantines);
-        }
-        if (phases.includes("site_identity"))
-          await emitBatchPhaseProgress("site_identity");
-        // The outer span owns the mutable summary: auditedCall snapshots options at
-        // open, so site-identity telemetry must be attached inside this callback.
-        const siteIdentityPhaseResult = await auditedCall(
-          {
-            provider: "enrich",
-            operation: "runSiteIdentityPhase",
-            kind: "service",
-          },
-          async (auditCtx) =>
-            runSiteIdentityPhase(
-              {
-                ...batchContext,
-                chunk: pendingBrands,
-                chunkBrandNames: pendingBrands.map(getDisplayBrandName),
-                summary: auditCtx.summary,
-              },
-              quarantinesByBrandId,
-            ),
-          {
-            jobId: config.jobId ?? null,
-            classify: (result) =>
-              result.phaseResult.status === "succeeded" ? "succeeded" : "empty",
-          },
-        );
-        for (const brand of pendingBrands) {
-          const ctx = brandContexts.get(brand.id);
-          if (!ctx || ctx.completed || ctx.satisfiedPhaseSet.has("site_identity")) continue;
-          await markCurrentPhase(ctx, "site_identity");
-          const application = siteIdentityPhaseResult.applications.get(
-            brand.id,
-          );
-          const phaseResult =
-            application?.phaseResult ??
-            buildPhaseResult(
-              "site_identity",
-              "skipped",
-              [],
-              0,
-              undefined,
-              "no escalations for this brand",
-            );
-          ctx.state.phaseResults.push(phaseResult);
-          await logCurrentPhase(ctx, phaseResult);
-          if (application) {
-            // Revoked columns are named in `changedFields`; `appendPatch` is an
-            // Object.assign and cannot express deletion, so drop them first. The
-            // application patch then re-adds `_cleared_fields` after the deletion.
-            for (const column of application.phaseResult.changedFields) {
-              delete (ctx.state.patches as Record<string, unknown>)[column];
-            }
-            appendPatch(ctx.state, application.patch);
-          }
-        }
-
-        // `BrandEnrichState["patches"]` deliberately, not the local `EnrichPatch`:
-        // this is the phase-layer patch shape the image search reads.
-        const pendingPatches = new Map<string, BrandEnrichState["patches"]>();
-        for (const brand of pendingBrands) {
-          const ctx = brandContexts.get(brand.id);
-          if (ctx) pendingPatches.set(brand.id, ctx.state.patches);
-        }
-        if (phases.includes("images"))
-          await emitBatchPhaseProgress("image-search");
-        const imageSearchResult = await runImageSearchPhase(
-          {
-            ...batchContext,
-            chunk: pendingBrands,
-            chunkBrandNames: pendingBrands.map(getDisplayBrandName),
-          },
-          searchResults,
-          pendingPatches,
-        );
-        // Both maps are keyed by target id, not by display name — `clean`/`detect`
-        // can rewrite a name and this phase now runs after them.
-        const imageSearchResults = imageSearchResult.imageSearchResults;
-        // Per-brand provider call outcomes; Gate A consumes these to hard-fail a
-        // target whose image search never actually reached the provider.
-        const imageSearchOutcomes = imageSearchResult.imageSearchOutcomes;
-        if (phases.includes("images")) {
-          await recordBatchPhase(
-            imageSearchResult.phaseResult,
-            "image_search_results",
-            (brand) => (imageSearchResults.get(brand.id)?.length ?? 0) > 0,
-          );
-        }
-
-        // ---- Wave B: images -> descriptions -> ... -> persist ---
-        await mapWithConcurrency(
-          pendingBrands,
-          ENRICH_BRAND_CONCURRENCY,
-          async (brand) => {
-            // Cooperative abort: the breaker tripped while earlier targets in this
-            // chunk were running. Return WITHOUT recording anything — the target
-            // stays `pending`/`running` so `runJob` can sweep it to `cancelled`,
-            // which is what makes it eligible for Resume later.
-            if (llmBreakerTripped) return;
-
-            const ctx = brandContexts.get(brand.id);
-            // A brand with no context never entered wave A, and one already marked
-            // completed recorded its outcome there — neither may be processed (or
-            // counted) again here.
-            if (!ctx || ctx.completed) return;
-            const state = ctx.state;
-            const overwrite = ctx.overwrite;
-
-            try {
-              // Satisfaction was already computed in wave A and stored on the
-              // context — wave B reads it synchronously.
-              const satisfiedPhaseSet = ctx.satisfiedPhaseSet;
-
-              let imageSearchUrls: string[] = [];
-              if (
-                phases.includes("images") &&
-                !satisfiedPhaseSet.has("images")
-              ) {
-                imageSearchUrls = imageSearchResults.get(brand.id) ?? [];
-                onProgress(
-                  `  [IMAGE-SEARCH] ${imageSearchUrls.length} images found`,
-                );
-              }
-
-              // Gate A — the pipeline is one-way SERP -> ENRICHMENT: a provider
-              // failure means there is no input, so hard-fail the target instead of
-              // burning LLM tokens on nothing. The per-brand catch below turns this
-              // throw into a recorded FAILED target carrying the provider message.
+              // Gate A — acquire provider failure means no input for downstream
               const providerGate = evaluateProviderGate({
-                searchResult: searchResults.get(getDisplayBrandName(brand)),
-                imageOutcome: imageSearchOutcomes.get(brand.id),
+                acquireResult: acquireResult?.phaseResult,
               });
               if (providerGate) {
                 if (providerGate.action === "warn") {
-                  // Kill switch (CURATION_PROVIDER_GATE=off) is engaged.
                   onProgress(
                     `  [PROVIDER-GATE OFF] ${brand.slug}: ${providerGate.message}`,
                   );
@@ -2455,36 +2708,24 @@ export async function runEnrich(
                 }
               }
 
-              // Gate B — nothing downstream can consume, so skip before any LLM
-              // phase runs. Snippets count as usable input for descriptions, so
-              // this only fires when every input is empty.
-              //
-              // It sits in wave B rather than wave A because `imageSearchUrls` is
-              // one of its inputs and only exists once the batched search above has
-              // run. Clean and links having already run costs nothing: a target
-              // that trips this gate has no URLs at all, so the links phase had an
-              // empty URL set and issued no fetches.
+              // Gate B — nothing downstream can consume
               if (
                 hasNoEnrichmentInputs({
                   knownUrls: state.knownUrls,
-                  discoveredUrls: state.discoveredUrls,
-                  urlExtracted: ctx.urlExtracted,
-                  imageSearchUrls,
-                  serpSnippets: state.serpSnippets,
+                  acquireResult: acquireResult
+                    ? {
+                        scrapedData: acquireResult.scrapedData,
+                        scrapedImageUrls: acquireResult.scrapedImageUrls,
+                      }
+                    : undefined,
                 })
               ) {
-                // Gate C before the skip is recorded: the batch detect phase runs
-                // pre-wave-B, so a brand can arrive here already carrying a
-                // provider-failed LLM phase and would otherwise be filed as
-                // "legitimately empty".
                 enforcePostPhaseGates(ctx);
 
-                if (includesDiscover && state.discoveredUrls.length <= 1) {
-                  weakBrandCount += 1;
-                  onProgress(
-                    `  [WEAK-BRAND] ${brand.slug}: no useful data found (${state.discoveredUrls.length} search results, nothing to scrape)`,
-                  );
-                }
+                weakBrandCount += 1;
+                onProgress(
+                  `  [WEAK-BRAND] ${brand.slug}: no useful data found`,
+                );
                 await recordOutcome(ctx, {
                   slug: brand.slug,
                   name: getDisplayBrandName(brand),
@@ -2497,248 +2738,483 @@ export async function runEnrich(
                   ),
                   phaseResults: state.phaseResults,
                   error:
-                    "No usable enrichment inputs: no known or discovered URLs, no extractable links, no image results, and no search snippets",
+                    "No usable enrichment inputs: acquire found no evidence and no known URLs",
                 });
                 result.skipped += 1;
                 finishBrand(ctx);
                 return;
               }
 
-              const linksResult = ctx.linksResult;
-              // Catalog and acquisition outputs from the images phase, passed
-              // downstream to the products phase (DEV-1633).
-              let imageCatalogResult: CatalogDiscoveryResult = {
-                triples: [],
-                attempts: [],
-                evidence: new Map(),
+              // ---- Names phase (per-brand) ----
+              const candidates: NameCandidate[] = [
+                {
+                  source: "stored",
+                  value:
+                    nameCleanups.get(brand.id)?.originalName ??
+                    getDisplayBrandName(brand),
+                },
+              ];
+              // `applyChunkNameCleanup` only records a brand when the cleanup
+              // actually changed the name, which is exactly the condition the
+              // retired `clean` phase used to emit `cleanedName` under.
+              const cleanedName = nameCleanups.get(brand.id)?.cleanedName;
+              if (cleanedName) {
+                candidates.push({
+                  source: "cleaned",
+                  value: cleanedName,
+                });
+              }
+              if (detectApplication?.brandName) {
+                candidates.push({
+                  source: "detected",
+                  value: detectApplication.brandName,
+                });
+              }
+              if (acquireResult?.officialNameCandidates.length) {
+                candidates.push(...acquireResult.officialNameCandidates);
+              }
+              const brandNameCandidateInput: NameCandidateInput = {
+                candidates,
+                snippets: state.serpSnippets,
               };
-              let imageAcquisitionPageUrls: string[] = [];
+              nameCandidates.set(brand.id, brandNameCandidateInput);
+            } catch (err) {
+              await failBrand(ctx, err);
+            }
+          },
+        );
 
-              if (!satisfiedPhaseSet.has("images")) {
-                const candidateImages = buildCandidatePool({
-                  // Prefer the provenance-carrying list; fall back to bare URLs so a
-                  // scraper result predating `imageSources` still contributes.
-                  scraped:
-                    linksResult && linksResult.scrapedImageSources.length > 0
-                      ? linksResult.scrapedImageSources.map((image) => ({
-                          url: image.url,
-                          method: image.method,
-                          pageUrl: image.pageUrl,
-                          position: image.position,
-                        }))
-                      : (linksResult?.scrapedImageUrls ?? []),
-                  jsonLdImages: linksResult?.jsonLdImageUrls ?? [],
-                  googleImages: (
-                    imageSearchOutcomes.get(brand.id)?.rows ?? imageSearchUrls
-                  ).map((row) =>
-                    typeof row === "string"
-                      ? row
-                      : {
-                          url: row.url,
-                          sourceUrl: row.sourceUrl ?? row.url,
-                          pageUrl: row.pageUrl,
-                          previewUrl: row.previewUrl,
-                          title: row.title,
-                          providerSource: row.source,
-                          domain: row.domain,
-                          position: row.position,
-                          query: row.query,
-                          auditResultId: row.auditResultId,
-                          imageWidth: row.imageWidth,
-                          imageHeight: row.imageHeight,
-                          thumbnailWidth: row.thumbnailWidth,
-                          thumbnailHeight: row.thumbnailHeight,
-                        },
-                  ),
-                });
-                await markCurrentPhase(ctx, "images");
-                const brandImageResult = await runBrandImagePhase({
-                  brand,
-                  phases,
-                  imageSearchUrls,
-                  candidateImages,
-                  dryRun: config.dryRun,
-                  target: { type: targetType, id: brand.id },
-                  renderProvider: config.renderProvider,
-                });
-                state.phaseResults.push(brandImageResult.phaseResult);
-                await logCurrentPhase(ctx, brandImageResult.phaseResult);
-                appendPatch(state, brandImageResult.patch);
-                imageCatalogResult = brandImageResult.catalogResult;
-                imageAcquisitionPageUrls = brandImageResult.acquisitionPageUrls;
+        // ---- Names: ONE arbiter call for the whole chunk -----------------
+        // The second of the two batch points. Between the loops rather than
+        // inside one, because the arbiter is only worth its price when it sees
+        // every brand's candidates at once: called per brand it was 20 requests
+        // per chunk for the work of one (F9).
+        //
+        // Built from the SURVIVORS only. A brand that left in loop A — non-brand,
+        // Gate A, Gate B, or an error — already carries a terminal outcome, and
+        // handing it to the arbiter would pay for a verdict nothing can apply.
+        const survivingContexts = chunk
+          .map((brand) => brandContexts.get(brand.id))
+          .filter(
+            (entry): entry is BrandWaveContext =>
+              entry !== undefined && !entry.completed,
+          );
+        const namesContexts: BrandWaveContext[] = llmBreakerTripped
+          ? []
+          : survivingContexts.filter(
+              (entry) => !entry.satisfiedPhaseSet.has("names"),
+            );
+        let namesResult: Awaited<ReturnType<typeof runNamesPhase>> | undefined;
+        if (namesContexts.length > 0) {
+          const namesChunk = namesContexts.map((entry) => entry.brand);
+          namesResult = await runNamesPhase(
+            {
+              ...batchContext,
+              chunk: namesChunk,
+              chunkBrandNames: namesChunk.map(getDisplayBrandName),
+            },
+            nameCandidates,
+          );
+        }
+
+        // ---- Loop B: names verdict → editorial → products → tags → persist
+        const loopBContexts: BrandWaveContext[] = llmBreakerTripped
+          ? []
+          : survivingContexts;
+        await mapWithConcurrency(
+          loopBContexts,
+          ENRICH_BRAND_CONCURRENCY,
+          async (ctx) => {
+            // Same cooperative abort as loop A: the breaker can trip on a brand
+            // that ran while this one was queued.
+            if (llmBreakerTripped) return;
+
+            const brand = ctx.brand;
+            const state = ctx.state;
+            const overwrite = ctx.overwrite;
+            const satisfiedPhaseSet = ctx.satisfiedPhaseSet;
+            const acquireResult = ctx.acquireResult ?? undefined;
+
+            try {
+              // ---- Names verdict (from the batch above) ------------------
+              if (namesResult && !satisfiedPhaseSet.has("names")) {
+                await markCurrentPhase(ctx, "names");
+                const candidates =
+                  nameCandidates.get(brand.id)?.candidates ?? [];
+                const application = phases.includes("names")
+                  ? applyNamesResult(
+                      namesResult.verdicts.get(brand.id),
+                      brand,
+                      candidates,
+                    )
+                  : { phaseResult: namesResult.phaseResult, patch: {} };
+                const namesEntry = namesResult.providerFailure
+                  ? { ...namesResult.phaseResult, changedFields: [] }
+                  : application.phaseResult;
+                state.phaseResults.push(namesEntry);
+                await logCurrentPhase(ctx, namesEntry);
+                appendPatch(state, application.patch);
               }
 
-              if (!satisfiedPhaseSet.has("classify_images")) {
-                await markCurrentPhase(ctx, "classify-images");
-                const classifyImagesResult = await runClassifyImagesPhase({
-                  brand,
-                  phases,
-                  dryRun: config.dryRun,
-                  overwrite,
-                  target: { type: targetType, id: brand.id },
-                  jobId: config.jobId,
-                  pendingPatch: state.patches,
-                });
-                state.phaseResults.push(classifyImagesResult.phaseResult);
-                await logCurrentPhase(ctx, classifyImagesResult.phaseResult);
-                appendPatch(state, classifyImagesResult.patch);
-              }
-
+              // ---- Editorial agent (descriptions + stockists + faq) --------
+              // When at least one editorial sub-phase is unsatisfied, run the
+              // editorial agent which wraps all three phases with cross-output
+              // validation and repair. When EDITORIAL_AGENT=off the agent
+              // returns a fallback and we fall through to the individual calls.
+              //
               // Track whether descriptions ran so downstream listing-verdict and
               // ai-result attachment logic can reference its output safely.
               let descriptionsResult:
                 | Awaited<ReturnType<typeof runDescriptionsPhase>>
                 | undefined;
-              if (!satisfiedPhaseSet.has("descriptions")) {
-                await markCurrentPhase(ctx, "descriptions");
-                descriptionsResult = await runDescriptionsPhase({
-                  brand,
-                  phases,
+
+              const editorialUnsatisfied =
+                !satisfiedPhaseSet.has("descriptions") ||
+                !satisfiedPhaseSet.has("stockists") ||
+                !satisfiedPhaseSet.has("faq");
+
+              if (editorialUnsatisfied) {
+                // Filter out satisfied phases so the editorial agent skips them
+                const editorialPhases = (phases as EditorialEnrichPhase[]).filter(
+                  (p) => !satisfiedPhaseSet.has(p),
+                );
+                const editorialInput: EditorialInput = {
+                  brand: brand as EditorialEnrichBrand,
+                  phases: editorialPhases,
+                  scrapedData: state.scrapedData,
                   serpSnippets: state.serpSnippets,
                   overwrite,
                   dryRun: config.dryRun,
                   target: { type: targetType, id: brand.id },
                   jobId: config.jobId,
-                  pendingPatch: state.patches,
+                  pendingPatch: state.patches as EditorialEnrichPatch,
+                  explicitPhases: config.explicitPhases ?? [],
+                };
+
+                // Real validators, one repair turn, and the evidence tool —
+                // `buildEditorialDeps` owns all three. What shipped instead was a
+                // validator that always answered with an empty array and a repair
+                // that echoed its patch back (F11), which left the graph's
+                // validate -> repair edge unreachable and `LLM_PROFILES.editorial`
+                // never resolved.
+                const editorialDeps = buildEditorialDeps({
+                  runDescriptions: async (input) => {
+                    const result = await runDescriptionsPhase({
+                      brand: input.brand,
+                      phases: input.phases,
+                      serpSnippets: input.serpSnippets,
+                      overwrite: input.overwrite,
+                      dryRun: input.dryRun,
+                      target: input.target,
+                      jobId: input.jobId,
+                      pendingPatch: input.pendingPatch,
+                    });
+                    return {
+                      phaseResult: result.phaseResult,
+                      patch: result.patch,
+                      descriptionRewrite: result.descriptionRewrite,
+                      brandFacts: result.brandFacts,
+                      attempts: result.attempts,
+                      factsAttempts: result.factsAttempts,
+                      listingVerdict: result.listingVerdict,
+                    };
+                  },
+                  runStockists: async (input) => {
+                    const result = await runStockistsPhase({
+                      brand: input.brand,
+                      phases: input.phases,
+                      scrapedData: input.scrapedData ?? undefined,
+                      overwrite: input.overwrite,
+                      dryRun: input.dryRun,
+                      target: input.target,
+                      jobId: input.jobId,
+                    });
+                    return { phaseResult: result.phaseResult, patch: result.patch };
+                  },
+                  runFaq: async (input) => {
+                    const result = await runFaqPhase({
+                      brand: input.brand,
+                      phases: input.phases,
+                      serpSnippets: input.serpSnippets,
+                      scrapedData: input.scrapedData ?? null,
+                      overwrite: input.overwrite,
+                      dryRun: input.dryRun,
+                      target: input.target,
+                      jobId: input.jobId,
+                      explicitPhases: input.explicitPhases ?? [],
+                    });
+                    return { phaseResult: result.phaseResult, patch: result.patch };
+                  },
+                  brandName: getDisplayBrandName(brand),
+                  audit: {
+                    ...(config.jobId ? { jobId: config.jobId } : {}),
+                    target: { type: targetType, id: brand.id },
+                  },
+                  // The run's own client, so the evidence tool reads the pack
+                  // this job wrote rather than opening a second connection.
+                  supabase: supabase as unknown as SupabaseClient,
                 });
-                // The descriptions phase now assigns the category explicitly, from
-                // site content and image alt text. That value wins: the tag-vote
-                // derivation below is a fallback for when the model returned null.
-                const effectiveCategory =
-                  typeof descriptionsResult.patch.category === "string"
-                    ? descriptionsResult.patch.category
-                    : typeof state.patches.category === "string"
-                      ? state.patches.category
-                      : brand.category;
-                const effectiveSubcategories = Array.isArray(
-                  descriptionsResult.patch.subcategories,
-                )
-                  ? descriptionsResult.patch.subcategories.filter(
-                      (tag): tag is string => typeof tag === "string",
-                    )
-                  : (brand.subcategories ?? []);
-                if (
-                  descriptionsResult.phaseResult.status === "succeeded" &&
-                  !effectiveCategory
-                ) {
-                  const derivedCategory = deriveCategoryFromSubcategories(
-                    effectiveSubcategories,
-                  );
-                  if (derivedCategory) {
-                    descriptionsResult.patch.category = derivedCategory;
-                    descriptionsResult.phaseResult.changedFields = [
-                      ...new Set([
-                        ...descriptionsResult.phaseResult.changedFields,
-                        "category",
-                      ]),
-                    ];
-                    onProgress(
-                      `  [CATEGORY] ${brand.slug}: derived ${derivedCategory} from subcategories`,
-                    );
+
+                const editorialOutput = await runEditorialAgent(editorialInput, editorialDeps);
+
+                if (editorialOutput.agentOutcome !== "fallback") {
+                  // Agent ran — apply its results
+                  for (const pr of editorialOutput.phaseResults) {
+                    state.phaseResults.push(pr);
+                    await logCurrentPhase(ctx, pr);
                   }
-                }
-                // Stage-2 listing gate. Absent or `list` verdicts are a no-op, so a model
-                // that never emitted the field behaves exactly as before. Read from the
-                // typed handoff, never from the patch: the verdict is a control value
-                // and would otherwise be persisted into `enriched_data`.
-                const listingVerdict = descriptionsResult.listingVerdict;
-                const listingReason =
-                  listingVerdict?.reason ??
-                  "Listing check rejected this brand (no reason given)";
-                if (listingVerdict?.verdict === "reject") {
-                  onProgress(
-                    `  [NOT-LISTABLE] ${brand.slug}: ${listingReason} (taiwan_connection=${listingVerdict.taiwanConnection ?? "unknown"}, own_products=${listingVerdict.hasOwnProducts ?? "unknown"}, purchase_channel=${listingVerdict.hasPurchaseChannel ?? "unknown"})`,
+                  appendPatch(state, editorialOutput.patch);
+
+                  // Extract descriptions-specific output for downstream logic
+                  const descriptionsPhaseResult = editorialOutput.phaseResults.find(
+                    (pr) => pr.phase === "descriptions",
                   );
-                  // Annotated before the phase is logged so the emitted progress event and
-                  // the recorded outcome carry the same detail string.
-                  descriptionsResult.phaseResult.detail = [
-                    descriptionsResult.phaseResult.detail,
-                    `listing verdict: reject — ${listingReason}`,
-                  ]
-                    .filter(Boolean)
-                    .join("; ");
-                }
+                  if (descriptionsPhaseResult) {
+                    descriptionsResult = {
+                      phaseResult: descriptionsPhaseResult,
+                      patch: editorialOutput.patch,
+                      descriptionRewrite: editorialOutput.descriptionRewrite,
+                      brandFacts: editorialOutput.brandFacts,
+                      attempts: editorialOutput.attempts,
+                      factsAttempts: editorialOutput.factsAttempts,
+                      listingVerdict: editorialOutput.listingVerdict,
+                    };
+                  }
 
-                state.phaseResults.push(descriptionsResult.phaseResult);
-                await logCurrentPhase(ctx, descriptionsResult.phaseResult);
-                appendPatch(state, descriptionsResult.patch);
-
-                if (listingVerdict?.verdict === "reject") {
-                  if (target === "submissions") {
-                    // A submission is not yet published, so this is a real gate: mirror the
-                    // detect non-brand path exactly — triage row, then a skipped outcome.
-                    if (!config.dryRun) {
-                      await insertTriageResult({
-                        brandId: brand.id,
-                        target: { type: targetType, id: brand.id },
-                        isNonBrand: true,
-                        nonBrandReason: `listing_reject: ${listingReason}`,
-                        slugGenerated: null,
-                        categorySlug: effectiveCategory ?? null,
-                        confidence: "medium",
-                      });
+                  // Category derivation from subcategories (same logic as before)
+                  if (descriptionsResult) {
+                    const effectiveCategory =
+                      typeof descriptionsResult.patch.category === "string"
+                        ? descriptionsResult.patch.category
+                        : typeof state.patches.category === "string"
+                          ? state.patches.category
+                          : brand.category;
+                    const effectiveSubcategories = Array.isArray(
+                      descriptionsResult.patch.subcategories,
+                    )
+                      ? descriptionsResult.patch.subcategories.filter(
+                          (tag): tag is string => typeof tag === "string",
+                        )
+                      : (brand.subcategories ?? []);
+                    if (
+                      descriptionsResult.phaseResult.status === "succeeded" &&
+                      !effectiveCategory
+                    ) {
+                      const derivedCategory = deriveCategoryFromSubcategories(
+                        effectiveSubcategories,
+                      );
+                      if (derivedCategory) {
+                        appendPatch(state, { category: derivedCategory });
+                        // Mutate the phase result in-place so the outcome carries
+                        // the derived category field
+                        descriptionsResult.phaseResult.changedFields = [
+                          ...new Set([
+                            ...descriptionsResult.phaseResult.changedFields,
+                            "category",
+                          ]),
+                        ];
+                        onProgress(
+                          `  [CATEGORY] ${brand.slug}: derived ${derivedCategory} from subcategories`,
+                        );
+                      }
                     }
 
-                    await recordOutcome(ctx, {
-                      slug: brand.slug,
-                      name: getDisplayBrandName(brand),
-                      submissionId: brand.id,
-                      status: "skipped",
-                      changedFields: changedFieldsFromPhaseResults(
-                        state.phaseResults,
-                      ),
-                      phaseResults: state.phaseResults,
-                      error: `Listing check rejected this submission: ${listingReason}`,
-                    });
-                    result.skipped += 1;
-                    finishBrand(ctx);
-                    return;
+                    // Stage-2 listing gate
+                    const listingVerdict = descriptionsResult.listingVerdict;
+                    const listingReason =
+                      listingVerdict?.reason ??
+                      "Listing check rejected this brand (no reason given)";
+                    if (listingVerdict?.verdict === "reject") {
+                      onProgress(
+                        `  [NOT-LISTABLE] ${brand.slug}: ${listingReason} (taiwan_connection=${listingVerdict.taiwanConnection ?? "unknown"}, own_products=${listingVerdict.hasOwnProducts ?? "unknown"}, purchase_channel=${listingVerdict.hasPurchaseChannel ?? "unknown"})`,
+                      );
+
+                      if (target === "submissions") {
+                        if (!config.dryRun) {
+                          await insertTriageResult({
+                            brandId: brand.id,
+                            target: { type: targetType, id: brand.id },
+                            isNonBrand: true,
+                            nonBrandReason: `listing_reject: ${listingReason}`,
+                            slugGenerated: null,
+                            categorySlug:
+                              (typeof descriptionsResult.patch.category === "string"
+                                ? descriptionsResult.patch.category
+                                : brand.category) ?? null,
+                            confidence: "medium",
+                          });
+                        }
+
+                        await recordOutcome(ctx, {
+                          slug: brand.slug,
+                          name: getDisplayBrandName(brand),
+                          submissionId: brand.id,
+                          status: "skipped",
+                          changedFields: changedFieldsFromPhaseResults(
+                            state.phaseResults,
+                          ),
+                          phaseResults: state.phaseResults,
+                          error: `Listing check rejected this submission: ${listingReason}`,
+                        });
+                        result.skipped += 1;
+                        finishBrand(ctx);
+                        return;
+                      }
+                    }
                   }
-                  // An approved brand is already public: record only — the onProgress log
-                  // and the phase detail above are the whole action. Nothing is
-                  // unpublished or hidden, brands.status is untouched, and the run
-                  // continues to the remaining phases. insertTriageResult is deliberately
-                  // NOT called here: its row shape is the detect-phase triage schema, and
-                  // widening it would be a schema change.
+                } else {
+                  // Fallback: EDITORIAL_AGENT=off or agent error — run individual phases
+                  if (!satisfiedPhaseSet.has("descriptions")) {
+                    await markCurrentPhase(ctx, "descriptions");
+                    descriptionsResult = await runDescriptionsPhase({
+                      brand,
+                      phases,
+                      serpSnippets: state.serpSnippets,
+                      overwrite,
+                      dryRun: config.dryRun,
+                      target: { type: targetType, id: brand.id },
+                      jobId: config.jobId,
+                      pendingPatch: state.patches,
+                    });
+                    const effectiveCategory =
+                      typeof descriptionsResult.patch.category === "string"
+                        ? descriptionsResult.patch.category
+                        : typeof state.patches.category === "string"
+                          ? state.patches.category
+                          : brand.category;
+                    const effectiveSubcategories = Array.isArray(
+                      descriptionsResult.patch.subcategories,
+                    )
+                      ? descriptionsResult.patch.subcategories.filter(
+                          (tag): tag is string => typeof tag === "string",
+                        )
+                      : (brand.subcategories ?? []);
+                    if (
+                      descriptionsResult.phaseResult.status === "succeeded" &&
+                      !effectiveCategory
+                    ) {
+                      const derivedCategory = deriveCategoryFromSubcategories(
+                        effectiveSubcategories,
+                      );
+                      if (derivedCategory) {
+                        descriptionsResult.patch.category = derivedCategory;
+                        descriptionsResult.phaseResult.changedFields = [
+                          ...new Set([
+                            ...descriptionsResult.phaseResult.changedFields,
+                            "category",
+                          ]),
+                        ];
+                        onProgress(
+                          `  [CATEGORY] ${brand.slug}: derived ${derivedCategory} from subcategories`,
+                        );
+                      }
+                    }
+                    const listingVerdict = descriptionsResult.listingVerdict;
+                    const listingReason =
+                      listingVerdict?.reason ??
+                      "Listing check rejected this brand (no reason given)";
+                    if (listingVerdict?.verdict === "reject") {
+                      onProgress(
+                        `  [NOT-LISTABLE] ${brand.slug}: ${listingReason} (taiwan_connection=${listingVerdict.taiwanConnection ?? "unknown"}, own_products=${listingVerdict.hasOwnProducts ?? "unknown"}, purchase_channel=${listingVerdict.hasPurchaseChannel ?? "unknown"})`,
+                      );
+                      descriptionsResult.phaseResult.detail = [
+                        descriptionsResult.phaseResult.detail,
+                        `listing verdict: reject — ${listingReason}`,
+                      ]
+                        .filter(Boolean)
+                        .join("; ");
+                    }
+
+                    state.phaseResults.push(descriptionsResult.phaseResult);
+                    await logCurrentPhase(ctx, descriptionsResult.phaseResult);
+                    appendPatch(state, descriptionsResult.patch);
+
+                    if (listingVerdict?.verdict === "reject") {
+                      if (target === "submissions") {
+                        if (!config.dryRun) {
+                          await insertTriageResult({
+                            brandId: brand.id,
+                            target: { type: targetType, id: brand.id },
+                            isNonBrand: true,
+                            nonBrandReason: `listing_reject: ${listingReason}`,
+                            slugGenerated: null,
+                            categorySlug: effectiveCategory ?? null,
+                            confidence: "medium",
+                          });
+                        }
+
+                        await recordOutcome(ctx, {
+                          slug: brand.slug,
+                          name: getDisplayBrandName(brand),
+                          submissionId: brand.id,
+                          status: "skipped",
+                          changedFields: changedFieldsFromPhaseResults(
+                            state.phaseResults,
+                          ),
+                          phaseResults: state.phaseResults,
+                          error: `Listing check rejected this submission: ${listingReason}`,
+                        });
+                        result.skipped += 1;
+                        finishBrand(ctx);
+                        return;
+                      }
+                    }
+                  }
+
+                  if (!satisfiedPhaseSet.has("stockists")) {
+                    await markCurrentPhase(ctx, "stockists");
+                    const stockistsResult = await runStockistsPhase({
+                      brand,
+                      phases,
+                      scrapedData: state.scrapedData,
+                      overwrite,
+                      dryRun: config.dryRun,
+                      target: { type: targetType, id: brand.id },
+                      jobId: config.jobId,
+                    });
+                    state.phaseResults.push(stockistsResult.phaseResult);
+                    await logCurrentPhase(ctx, stockistsResult.phaseResult);
+                    appendPatch(state, stockistsResult.patch);
+                  }
+
+                  if (!satisfiedPhaseSet.has("faq")) {
+                    await markCurrentPhase(ctx, "faq");
+                    const faqResult = await runFaqPhase({
+                      brand,
+                      phases,
+                      serpSnippets: state.serpSnippets,
+                      scrapedData: state.scrapedData,
+                      overwrite,
+                      dryRun: config.dryRun,
+                      target: { type: targetType, id: brand.id },
+                      jobId: config.jobId,
+                      explicitPhases: config.explicitPhases ?? [],
+                    });
+                    state.phaseResults.push(faqResult.phaseResult);
+                    await logCurrentPhase(ctx, faqResult.phaseResult);
+                    appendPatch(state, faqResult.patch);
+                  }
                 }
-              }
-
-              if (!satisfiedPhaseSet.has("stockists")) {
-                await markCurrentPhase(ctx, "stockists");
-                const stockistsResult = await runStockistsPhase({
-                  brand,
-                  phases,
-                  scrapedData: state.scrapedData,
-                  overwrite,
-                  dryRun: config.dryRun,
-                  target: { type: targetType, id: brand.id },
-                  jobId: config.jobId,
-                });
-                state.phaseResults.push(stockistsResult.phaseResult);
-                await logCurrentPhase(ctx, stockistsResult.phaseResult);
-                appendPatch(state, stockistsResult.patch);
-              }
-
-              if (!satisfiedPhaseSet.has("faq")) {
-                await markCurrentPhase(ctx, "faq");
-                const faqResult = await runFaqPhase({
-                  brand,
-                  phases,
-                  serpSnippets: state.serpSnippets,
-                  scrapedData: state.scrapedData,
-                  overwrite,
-                  dryRun: config.dryRun,
-                  target: { type: targetType, id: brand.id },
-                  jobId: config.jobId,
-                  explicitPhases: config.explicitPhases ?? [],
-                });
-                state.phaseResults.push(faqResult.phaseResult);
-                await logCurrentPhase(ctx, faqResult.phaseResult);
-                appendPatch(state, faqResult.patch);
               }
 
               if (!satisfiedPhaseSet.has("products")) {
                 await markCurrentPhase(ctx, "products");
+                const productsTarget: EnrichmentTarget = {
+                  type: targetType,
+                  id: brand.id,
+                };
+                // Acquire's own pool when it ran this time; the target's stored
+                // active images when it was satisfied from history. Never `[]`
+                // by default — an empty pool passes every image check.
+                //
+                // The history read is skipped when `products` is out of scope:
+                // the phase refuses immediately in that case, so the query would
+                // buy nothing and would run once per brand.
+                const imagePool =
+                  acquireResult?.imagePool ??
+                  (phases.includes("products")
+                    ? await loadImagePoolFromHistory(supabase, productsTarget)
+                    : []);
                 const productsResult = await runProductsPhase({
                   brand,
                   phases,
@@ -2747,10 +3223,14 @@ export async function runEnrich(
                   // pre-run snapshot instead would mine a contaminated website.
                   pendingPatch: state.patches,
                   dryRun: config.dryRun,
-                  target: { type: targetType, id: brand.id },
+                  target: productsTarget,
                   jobId: config.jobId,
-                  catalogResult: imageCatalogResult,
-                  acquisitionPageUrls: imageAcquisitionPageUrls,
+                  // Everything acquire learned about where this brand's products
+                  // and images live. Hard-coded empty before (F6), which is why
+                  // the agent never rendered a page it had a reason to render.
+                  imagePool,
+                  catalogResult: acquireResult?.catalogResult,
+                  acquisitionPageUrls: acquireResult?.acquisitionPageUrls ?? [],
                   renderProvider: config.renderProvider,
                 });
                 state.phaseResults.push(productsResult.phaseResult);
@@ -2819,11 +3299,6 @@ export async function runEnrich(
               }
 
               const patch = state.patches;
-              if (includesDiscover) {
-                onProgress(
-                  `  [DISCOVER] ${state.discoveredUrls.length} new URLs found`,
-                );
-              }
               const patchKeys = Object.keys(patch);
               if (patchKeys.length > 0) {
                 for (const key of patchKeys) {
@@ -2848,10 +3323,10 @@ export async function runEnrich(
                 // 2026-08-02 incident, so it has to be checked before the skip.
                 enforcePostPhaseGates(ctx);
 
-                if (includesDiscover && state.discoveredUrls.length <= 1) {
+                if (state.discoveredUrls.length <= 1) {
                   weakBrandCount += 1;
                   onProgress(
-                    `  [WEAK-BRAND] ${brand.slug}: no useful data found (${state.discoveredUrls.length} search results, no enrichment changes)`,
+                    `  [WEAK-BRAND] ${brand.slug}: no useful data found (no enrichment changes)`,
                   );
                 }
                 if (!config.dryRun && descriptionsResult) {

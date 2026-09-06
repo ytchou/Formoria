@@ -8,7 +8,7 @@ import { DESCRIPTION_SYSTEM_PROMPT } from "@/lib/prompts";
 import { TAIWAN_USAGE_RULES } from "@/lib/prompts/shared";
 import { auditedCall } from "@/lib/audit";
 import { reportBannedTerms } from "@/lib/i18n/banned-terms";
-import { fetchLangfusePrompt } from "@/lib/langfuse/prompt";
+import { fetchLangfusePromptWithMeta } from "@/lib/langfuse/prompt";
 import { z } from "zod";
 import {
   parseAndValidate,
@@ -25,10 +25,17 @@ import { validateLocalizedText, detectAiArtifacts } from "./enrich-validators";
 import { localizeToTW, stripAiToolArtifacts } from "./taiwan-localization";
 import { noLlmCalls, type LlmCallCounts } from "./_shared/llm-call-outcome";
 
-const ZH_DESCRIPTION_BAND = [150, 400] as const;
-const EN_DESCRIPTION_BAND = [300, 700] as const;
-const ZH_BLURB_BAND = [40, 80] as const;
-const EN_BLURB_BAND = [60, 150] as const;
+/**
+ * Length bands for the four copy fields. Exported because the editorial agent's
+ * cross-output validator re-checks the same fields after a description rewrite,
+ * and a second copy of these numbers is a second source of truth: the retry
+ * instruction and the cross-output failure would eventually disagree about what
+ * "too long" means.
+ */
+export const ZH_DESCRIPTION_BAND = [150, 400] as const;
+export const EN_DESCRIPTION_BAND = [300, 700] as const;
+export const ZH_BLURB_BAND = [40, 80] as const;
+export const EN_BLURB_BAND = [60, 150] as const;
 
 /**
  * Zod shape for the description rewrite call. All four text fields are required
@@ -46,7 +53,7 @@ export const descriptionShape = z.object({
  * Structured Output schema for the description rewrite call, derived from the
  * Zod shape via `toStrictJsonSchema`.
  */
-export const DESCRIPTION_SCHEMA = {
+const DESCRIPTION_SCHEMA = {
   name: "brand_description",
   schema: toStrictJsonSchema(descriptionShape),
 };
@@ -642,7 +649,7 @@ export async function rewriteBrandDescription(
   // brand whose every call died at the provider may fail its target.
   const calls = noLlmCalls();
 
-  const descriptionSystemPrompt = await fetchLangfusePrompt("descriptions", DESCRIPTION_SYSTEM_PROMPT, {
+  const { text: descriptionSystemPrompt, prompt: descPromptMeta } = await fetchLangfusePromptWithMeta("descriptions", DESCRIPTION_SYSTEM_PROMPT, {
     taiwan_usage_rules: TAIWAN_USAGE_RULES,
   });
   try {
@@ -657,6 +664,7 @@ export async function rewriteBrandDescription(
           phase: "descriptions",
           attempt: attemptIndex + 1,
           config: attemptConfig,
+          ...(descPromptMeta ? { prompt: descPromptMeta } : {}),
         },
         { apiKey: token },
       );

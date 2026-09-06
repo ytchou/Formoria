@@ -56,7 +56,7 @@ type NamesApplication = {
   patch: EnrichPatch;
 };
 
-export function normalizeCandidates(
+function normalizeCandidates(
   storedName: string,
   candidates: NameCandidate[],
 ): NameCandidate[] {
@@ -174,11 +174,11 @@ function isAcceptedConfidence(
  * The production acceptance rule for one verdict: take the model's answer only
  * when it is confident *and* the rename guard passes, otherwise fall back.
  *
- * Extracted so the DEV-1321 offline evaluation
- * (`scripts/name-eval/run.ts`) can score the exact bytes production would ship
- * rather than a re-typed copy of this condition that can silently drift.
+ * Extracted so the DEV-1321 offline evaluation can score the exact bytes
+ * production would ship rather than a re-typed copy of this condition that can
+ * silently drift.
  */
-export function resolveArbitratedName(
+function resolveArbitratedName(
   verdict: NameVerdict | undefined,
   normalizedCandidates: NameCandidate[],
   storedName: string,

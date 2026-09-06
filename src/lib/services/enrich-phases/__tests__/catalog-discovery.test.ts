@@ -12,6 +12,7 @@ const productHtml = (
   image = `https://cdn.example/${name}.jpg`,
 ) => `
   <main><h1>${name}</h1><p>Made in Taiwan.</p></main>
+  <meta property="og:type" content="product">
   <meta property="og:image" content="${image}">
 `
 
@@ -52,7 +53,7 @@ describe('catalog discovery', () => {
       fetchRendered: vi.fn(async (url) => ({
         html: url.endsWith('/products/cup')
           ? productHtml('Rendered cup')
-          : '<a href="/products/cup">Cup</a>',
+          : '<a href="/products/cup">Cup</a><meta property="og:type" content="product">',
         finalUrl: url,
         status: 200,
       })),
@@ -210,6 +211,145 @@ describe('catalog discovery', () => {
     })
     expect(result.triples).toHaveLength(1)
     expect(result.zeroReason).toBeUndefined()
+  })
+})
+
+describe('per-route product signal gate', () => {
+  const sitemapXml = (urls: string[]) =>
+    `<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">${urls.map((u) => `<url><loc>${u}</loc></url>`).join('')}</urlset>`
+
+  it('hydrated page without product signals is dropped', async () => {
+    // Content sampling: mug has signals (triggers promotion) but no image → drops as no_image
+    // cup has og:title + og:image but NO signals → drops as no_product_signals
+    const fetcher = fetcherFor({
+      'https://brand.com': '<main>Welcome</main>',
+      'https://brand.com/sitemap.xml': sitemapXml([
+        'https://brand.com/widget/mug',
+        'https://brand.com/widget/cup',
+      ]),
+      'https://brand.com/widget/mug':
+        '<html><head><script type="application/ld+json">{"@type":"Product","name":"Mug"}</script></head><body><h1>Mug</h1></body></html>',
+      'https://brand.com/widget/cup':
+        '<html><head><meta property="og:title" content="Cup"><meta property="og:image" content="https://cdn.example/cup.jpg"></head><body><h1>Cup</h1></body></html>',
+    })
+    const result = await discoverCatalog({
+      sources: [{ url: 'https://brand.com', channel: 'official' }],
+      fetcher,
+    })
+    expect(result.triples).toHaveLength(0)
+    expect(result.attempts[0]?.drops.no_product_signals).toBe(1)
+  })
+
+  it('hydrated page with platform route needs no signals', async () => {
+    // shopline /products/x with title+image but no JSON-LD → triple kept
+    const fetcher = fetcherFor({
+      'https://store.example':
+        '<html><body><script>Shopline.theme={}</script><a href="/products/mug">Mug</a></body></html>',
+      'https://store.example/products/mug':
+        '<html><head><meta property="og:title" content="Ceramic Mug"><meta property="og:image" content="https://cdn.example/mug.jpg"></head><body><h1>Ceramic Mug</h1></body></html>',
+    })
+    const result = await discoverCatalog({
+      sources: [{ url: 'https://store.example', channel: 'official' }],
+      fetcher,
+    })
+    expect(result.triples).toHaveLength(1)
+    expect(result.triples[0]?.title).toBe('Ceramic Mug')
+    expect(result.attempts[0]?.drops.no_product_signals).toBeUndefined()
+  })
+})
+
+describe('sampling prefix clustering', () => {
+  const sitemapXml = (urls: string[]) =>
+    `<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">${urls.map((u) => `<url><loc>${u}</loc></url>`).join('')}</urlset>`
+
+  const signalPage =
+    '<html><head><script type="application/ld+json">{"@type":"Product","name":"P"}</script><meta property="og:image" content="https://cdn.example/p.jpg"></head><body><h1>P</h1></body></html>'
+
+  it('sampling hit promotes only matching prefix', async () => {
+    const fetcher = fetcherFor({
+      'https://brand.com': '<main>Welcome</main>',
+      'https://brand.com/sitemap.xml': sitemapXml([
+        'https://brand.com/shop/a',
+        'https://brand.com/shop/b',
+        'https://brand.com/gallery/c',
+        'https://brand.com/team/d',
+      ]),
+      'https://brand.com/shop/a': signalPage,
+      'https://brand.com/shop/b': signalPage,
+      'https://brand.com/gallery/c':
+        '<html><body><p>Gallery</p></body></html>',
+      'https://brand.com/team/d': '<html><body><p>Team</p></body></html>',
+    })
+    const result = await discoverCatalog({
+      sources: [{ url: 'https://brand.com', channel: 'official' }],
+      fetcher,
+    })
+    const urls = result.triples.map((t) => t.url)
+    expect(urls).toContain('https://brand.com/shop/a')
+    expect(urls).toContain('https://brand.com/shop/b')
+    expect(urls).not.toContain('https://brand.com/gallery/c')
+    expect(urls).not.toContain('https://brand.com/team/d')
+  })
+})
+
+describe('entryUrls and priorityProductUrls', () => {
+  it('entry URLs become official sources first', async () => {
+    const fetcher = fetcherFor({
+      'https://brand.tw/collections/all':
+        '<html><body><a href="/products/cup">Cup</a></body></html>',
+      'https://brand.tw': '<html><body><a href="/products/mug">Mug</a></body></html>',
+      'https://brand.tw/products/cup': productHtml('Cup'),
+      'https://brand.tw/products/mug': productHtml('Mug'),
+    })
+    const result = await discoverCatalog({
+      sources: [{ url: 'https://brand.tw', channel: 'official' }],
+      fetcher,
+      entryUrls: [
+        'https://brand.tw/collections/all',
+        'https://other.com/collections/all',
+      ],
+    })
+    // Same-host entry URL was used; cup from /collections/all should appear
+    expect(result.triples.some((t) => t.title === 'Cup')).toBe(true)
+    // Different-host entry URL was ignored
+    expect(fetcher).not.toHaveBeenCalledWith(
+      'https://other.com/collections/all',
+      'html',
+    )
+    // The entry URL's source comes first — its landing was fetched before root
+    const callUrls = (fetcher as ReturnType<typeof vi.fn>).mock.calls
+      .filter((args: unknown[]) => args[1] === 'html')
+      .map((args: unknown[]) => args[0] as string)
+    const entryIdx = callUrls.indexOf('https://brand.tw/collections/all')
+    const rootIdx = callUrls.indexOf('https://brand.tw')
+    expect(entryIdx).toBeLessThan(rootIdx)
+  })
+
+  it('priority product URLs hydrate first', async () => {
+    const links = Array.from(
+      { length: 30 },
+      (_, i) => `<a href="/products/p${i}">P${i}</a>`,
+    ).join('')
+    const pages: Record<string, string> = { 'https://shop.example': links }
+    for (let i = 0; i < 30; i++)
+      pages[`https://shop.example/products/p${i}`] = productHtml(`P${i}`)
+    // 3 priority URLs (also in the listing)
+    const priorityUrls = [
+      'https://shop.example/products/p25',
+      'https://shop.example/products/p26',
+      'https://shop.example/products/p27',
+    ]
+    const fetcher = fetcherFor(pages)
+    const result = await discoverCatalog({
+      sources: [{ url: 'https://shop.example', channel: 'official' }],
+      fetcher,
+      priorityProductUrls: priorityUrls,
+    })
+    // Priority URLs should appear in the first 5 hydrated (HYDRATION_CONCURRENCY)
+    const firstBatchUrls = result.triples.slice(0, 5).map((t) => t.url)
+    for (const url of priorityUrls) {
+      expect(firstBatchUrls).toContain(url)
+    }
   })
 })
 

@@ -15,6 +15,7 @@ export type DenialReason =
   | 'duplicate'
   | 'policy_violation'
   | 'admin_reject'
+  | 'no_purchase_channel'
   | 'other'
 
 export const SOURCE_ATTRIBUTION_VALUES = [
@@ -31,6 +32,7 @@ export const DENIAL_REASONS = [
   'duplicate',
   'policy_violation',
   'admin_reject',
+  'no_purchase_channel',
   'other',
 ] as const satisfies readonly DenialReason[]
 

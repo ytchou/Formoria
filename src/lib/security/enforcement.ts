@@ -77,7 +77,7 @@ export const ENFORCEMENT_REASONS = {
   NOT_A_CRAWLER: 'not_a_crawler',
 } as const
 
-export type EnforcementReason =
+type EnforcementReason =
   (typeof ENFORCEMENT_REASONS)[keyof typeof ENFORCEMENT_REASONS]
 
 export type EnforcementMode = 'observe' | 'enforce'
@@ -185,7 +185,7 @@ export function getEnforcementThresholds(): EnforcementThresholds {
   }
 }
 
-export interface TierObservation {
+interface TierObservation {
   kind: TraversalIdentityKind
   distinctResources: number
   logicalViews: number
@@ -329,7 +329,7 @@ export function decideEnforcement(input: DecideEnforcementInput): EnforcementDec
   }
 }
 
-export type CrawlerExemptionReason =
+type CrawlerExemptionReason =
   | typeof ENFORCEMENT_REASONS.CRAWLER_VERIFIED
   | typeof ENFORCEMENT_REASONS.CRAWLER_TRUSTED_UNVERIFIED
   | typeof ENFORCEMENT_REASONS.CRAWLER_UA_UNVERIFIED
@@ -340,7 +340,7 @@ export interface CrawlerExemptionDecision {
   reason: CrawlerExemptionReason
 }
 
-export interface CrawlerSignals {
+interface CrawlerSignals {
   /** The User-Agent matches an entry in `crawler-registry.ts`. */
   claimsCrawler: boolean
   /** Cloudflare stamped the verified-bot header on this request. */

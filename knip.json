@@ -17,9 +17,8 @@
     "@react-email/ui",
     "react-simple-maps"
   ],
-  "ignoreBinaries": ["gh", "lsof", "psql", "python3", "tesseract"],
+  "ignoreBinaries": ["gh", "lsof", "psql", "python3"],
   "ignore": [
-    "src/lib/supabase/database.types.ts",
     "scripts/threads-scraper/.venv/**"
   ],
   "ignoreIssues": {

@@ -15,7 +15,23 @@ import {
   sameMaterialSet,
   type CorrectionSupabase,
 } from "../brand-corrections";
-import { PRE_MIGRATION_CORPUS } from "../../../../scripts/rehearse-slug-reverse";
+
+/**
+ * The 2,446 stored subcategory strings as they existed before the DEV-1525 slug
+ * migration, brand-keyed. It lived in `scripts/rehearse-slug-reverse.ts` until
+ * that rehearsal script was retired (DEV-1318, tag
+ * `scripts-retired/2026-09-02`); the data outlives the script because this file
+ * asserts the backfill's production-sized counts against a committed corpus
+ * rather than a live query.
+ */
+type PreMigrationCorpus = Record<string, string[]>;
+
+const PRE_MIGRATION_CORPUS = JSON.parse(
+  readFileSync(
+    new URL("./fixtures/slug-reverse-corpus.json", import.meta.url),
+    "utf8",
+  ),
+) as PreMigrationCorpus;
 
 /**
  * DEV-1510 Task 10 made `material` the SECOND array-valued correctable field,

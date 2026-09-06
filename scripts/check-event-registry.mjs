@@ -1,4 +1,13 @@
 #!/usr/bin/env node
+/**
+ * @formoria-script
+ * purpose: Fails CI when an analytics event name is a bare literal instead of a registry constant.
+ * class: ci-gate
+ * invoke: node scripts/check-event-registry.mjs
+ * target: ci
+ * safety: read-only
+ * owner: engineering
+ */
 // CI guard: analytics event names may only come from the registry.
 //
 // PostHog cannot rename an event and cannot selectively delete one, so every

@@ -1,5 +1,14 @@
 #!/usr/bin/env node
 /**
+ * @formoria-script
+ * purpose: Ranks nightly e2e tests by flake history from the results-history artifacts.
+ * class: validator
+ * invoke: node scripts/flake-report.mjs
+ * target: none
+ * safety: read-only
+ * owner: engineering
+ */
+/**
  * Per-test flake history for the nightly e2e suite.
  *
  * Downloads the `playwright-results-history` artifact from the last N nightly

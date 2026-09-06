@@ -1,7 +1,12 @@
 import { createClient as createSupabaseClient } from "@supabase/supabase-js";
 
 type SupabaseTrafficContext =
-  "build" | "runtime" | "development" | "test" | "script";
+  | "build"
+  | "runtime"
+  | "development"
+  | "test"
+  | "script"
+  | "worker";
 
 export type SupabaseUserAgentOptions = {
   nodeEnv?: string;
@@ -11,6 +16,7 @@ export type SupabaseUserAgentOptions = {
 };
 
 const SCRIPT_PATH_PATTERN = /(?:^|[\\/])scripts(?:[\\/]|$)/;
+const WORKER_PATH_PATTERN = /(?:^|[\\/])curation-worker(?:[\\/]|$)/;
 
 /**
  * Classifies the owner of a server-side Supabase request without inspecting
@@ -24,6 +30,9 @@ function getSupabaseTrafficContext({
 }: SupabaseUserAgentOptions): SupabaseTrafficContext {
   if (nextPhase === "phase-production-build") return "build";
   if (nodeEnv === "test") return "test";
+  if (argv.some((argument) => WORKER_PATH_PATTERN.test(argument))) {
+    return "worker";
+  }
   if (argv.some((argument) => SCRIPT_PATH_PATTERN.test(argument))) {
     return "script";
   }

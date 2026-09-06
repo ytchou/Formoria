@@ -1,3 +1,12 @@
+/**
+ * @formoria-script
+ * purpose: Fails the build when a route or action catch block reports nothing to Sentry.
+ * class: ci-gate
+ * invoke: pnpm check:error-boundaries
+ * target: none
+ * safety: read-only
+ * owner: engineering
+ */
 import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
 import { extname, join, relative } from "node:path";
 

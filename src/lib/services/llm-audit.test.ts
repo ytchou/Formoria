@@ -5,7 +5,11 @@ import {
   setAuditWriteSeam,
   type AuditRecord,
 } from "@/lib/audit";
-import { createAuditedOpenAIClient } from "./llm-audit";
+import {
+  createAuditedOpenAIClient,
+  emitLangfuseGeneration,
+  type LlmAuditContext,
+} from "./llm-audit";
 import { brandTarget } from "./_shared/enrichment-target";
 
 vi.mock("./llm-pricing", () => ({
@@ -129,6 +133,70 @@ describe("audited LLM clients", () => {
     });
   });
 
+  // Agent turns go through the same hook: a tool-call response must land in
+  // brand_ai_results with its tool_calls payload, not an empty content row.
+  it("audited_client_writes_a_row_for_a_tool_turn", async () => {
+    const toolCalls = [
+      {
+        id: "call_1",
+        type: "function",
+        function: { name: "fetch_url", arguments: '{"url":"https://a.tw"}' },
+      },
+    ];
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(
+        new Response(
+          JSON.stringify({
+            choices: [
+              {
+                message: { content: null, tool_calls: toolCalls },
+                finish_reason: "tool_calls",
+              },
+            ],
+          }),
+          { status: 200 },
+        ),
+      ),
+    );
+
+    const inserts: InsertedRow[] = [];
+    const client = createAuditedOpenAIClient(
+      {
+        target,
+        phase: "acquire",
+        supabase: fakeSupabase(inserts),
+      },
+      { apiKey: "k" },
+    );
+
+    const result = await client.chat({
+      messages: [
+        { role: "system", content: "you plan" },
+        { role: "user", content: "find the shop" },
+      ],
+      tools: [
+        {
+          name: "fetch_url",
+          description: "Fetch a page",
+          parameters: { type: "object", properties: {} },
+        },
+      ],
+    });
+
+    expect(result.toolCalls).toEqual([
+      { id: "call_1", name: "fetch_url", args: { url: "https://a.tw" } },
+    ]);
+    expect(inserts).toHaveLength(1);
+    expect(inserts[0]?.input).toMatchObject({
+      system: "you plan",
+      user: "find the shop",
+      meta: { messageCount: 2, toolCallCount: 1 },
+    });
+    expect(inserts[0]?.raw_response).toMatchObject({
+      response: { choices: [{ message: { tool_calls: toolCalls } }] },
+    });
+  });
 });
 
 describe("Langfuse generation integration", () => {
@@ -171,6 +239,7 @@ describe("Langfuse generation integration", () => {
           promptTokens: 100,
           completionTokens: 25,
         }),
+        costDetails: { total: 0.005 },
         metadata: expect.objectContaining({
           phase: "descriptions",
           ok: true,
@@ -214,5 +283,68 @@ describe("Langfuse generation integration", () => {
 
     // The call completed successfully despite Langfuse throwing
     expect(result).toMatchObject({ ok: true });
+  });
+});
+
+describe("emitLangfuseGeneration — prompt and cost fields", () => {
+  const baseEvent = {
+    provider: "openai" as const,
+    model: "gpt-4o",
+    ok: true,
+    status: 200,
+    data: "answer",
+    latencyMs: 42,
+    request: { system: "sys", user: "usr", imageCount: 0 },
+    usage: { prompt_tokens: 100, completion_tokens: 25 },
+  };
+
+  it("forwards promptName and promptVersion when context.prompt is set", async () => {
+    const mockGeneration = vi.fn();
+    const langfuseTrace = { generation: mockGeneration };
+
+    await runWithAuditContext({ langfuseTrace }, () => {
+      const ctx: LlmAuditContext = {
+        phase: "detect",
+        prompt: { name: "detect-prompt", version: 3 },
+      };
+      emitLangfuseGeneration(ctx, baseEvent);
+      return Promise.resolve();
+    });
+
+    expect(mockGeneration).toHaveBeenCalledOnce();
+    const body = mockGeneration.mock.calls[0]![0];
+    expect(body.promptName).toBe("detect-prompt");
+    expect(body.promptVersion).toBe(3);
+  });
+
+  it("omits prompt fields when context.prompt is absent", async () => {
+    const mockGeneration = vi.fn();
+    const langfuseTrace = { generation: mockGeneration };
+
+    await runWithAuditContext({ langfuseTrace }, () => {
+      const ctx: LlmAuditContext = { phase: "detect" };
+      emitLangfuseGeneration(ctx, baseEvent);
+      return Promise.resolve();
+    });
+
+    expect(mockGeneration).toHaveBeenCalledOnce();
+    const body = mockGeneration.mock.calls[0]![0];
+    expect(body).not.toHaveProperty("promptName");
+    expect(body).not.toHaveProperty("promptVersion");
+  });
+
+  it("includes costUsd when supplied", async () => {
+    const mockGeneration = vi.fn();
+    const langfuseTrace = { generation: mockGeneration };
+
+    await runWithAuditContext({ langfuseTrace }, () => {
+      const ctx: LlmAuditContext = { phase: "detect" };
+      emitLangfuseGeneration(ctx, baseEvent, 0.0123);
+      return Promise.resolve();
+    });
+
+    expect(mockGeneration).toHaveBeenCalledOnce();
+    const body = mockGeneration.mock.calls[0]![0];
+    expect(body.costDetails).toEqual({ total: 0.0123 });
   });
 });
