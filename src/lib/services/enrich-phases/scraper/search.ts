@@ -104,7 +104,7 @@ export function isUsableHandle(handle: string): boolean {
  * different: the handle owning a host label or a path segment is the shop
  * identifier itself.
  */
-export const TITLE_MATCH_MIN_HANDLE_LENGTH = 5
+const TITLE_MATCH_MIN_HANDLE_LENGTH = 5
 
 /**
  * A URL's structural units: hostname labels (split on `.`) and pathname

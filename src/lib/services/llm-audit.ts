@@ -81,7 +81,7 @@ export function emitLangfuseGeneration(
   }
 }
 
-export async function persistAuditEvent(
+async function persistAuditEvent(
   context: LlmAuditContext,
   event: ChatAuditEvent,
   spanId: string,

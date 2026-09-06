@@ -26,8 +26,6 @@ import type { FetchMetadata } from './scraper/fetch-guards'
 import type { SourceOutcome } from '@/lib/types/curation'
 import type { LinkField } from '@/lib/types/link-fields'
 
-export type { SourceOutcome }
-
 // ---------------------------------------------------------------------------
 // Types
 // ---------------------------------------------------------------------------

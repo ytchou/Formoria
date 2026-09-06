@@ -26,7 +26,6 @@ const mocks = vi.hoisted(() => ({
   scrapeBrandUrls: vi.fn(),
   getLatestSearchResults: vi.fn(),
   getLangfuse: vi.fn(),
-  runBrandImagePhase: vi.fn(),
   runAcquirePhase: vi.fn(),
   runEditorialAgent: vi.fn(),
   runDescriptionsPhase: vi.fn(),
@@ -35,7 +34,6 @@ const mocks = vi.hoisted(() => ({
   runDiscoverPhase: vi.fn(),
   runSiteIdentityPhase: vi.fn(),
   runImageSearchPhase: vi.fn(),
-  runClassifyImagesPhase: vi.fn(),
   runNamesPhase: vi.fn(),
   runProductsPhase: vi.fn(),
   mapWithConcurrency: vi.fn(),
@@ -77,16 +75,6 @@ vi.mock("../search-results", async (importOriginal) => ({
   startSearchAudit: vi.fn(async () => "audit-1"),
   finishSearchAudit: vi.fn(async () => undefined),
 }));
-
-vi.mock("../enrich-phases/images", async (importOriginal) => {
-  const original = await importOriginal<typeof import("../enrich-phases/images")>();
-  return {
-    ...original,
-    runBrandImagePhase: mocks.runBrandImagePhase.mockImplementation(
-      original.runBrandImagePhase,
-    ),
-  };
-});
 
 vi.mock("../enrich-phases/acquire", async (importOriginal) => {
   const original = await importOriginal<typeof import("../enrich-phases/acquire")>();
@@ -567,7 +555,6 @@ describe("wave collapse — single per-brand loop", () => {
       fakeSupabase([target]),
     );
 
-    expect(mocks.runBrandImagePhase).not.toHaveBeenCalled();
   });
 
   it("image_pool_threads_to_products — products receives image data from acquire", async () => {
@@ -1189,8 +1176,6 @@ describe("acquisition plan catalog threading", () => {
     // Acquire runs and its catalog plan is available for products.
     // The images/classify phases are retired — products gets catalog from acquire directly.
     expect(mocks.runAcquirePhase).toHaveBeenCalledOnce();
-    // runBrandImagePhase should NOT be called
-    expect(mocks.runBrandImagePhase).not.toHaveBeenCalled();
 
     if (ORIGINAL_KEY === undefined) delete process.env.OPENAI_API_KEY;
     else process.env.OPENAI_API_KEY = ORIGINAL_KEY;

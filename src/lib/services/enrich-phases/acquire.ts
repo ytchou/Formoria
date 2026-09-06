@@ -82,10 +82,9 @@ import {
 /**
  * Dependency overrides. Production supplies none of them; the unit tests inject
  * fakes here rather than mocking the service modules, which
- * `scripts/check-test-boundaries.mjs` refuses. Same shape as the override
- * `runBrandImagePhase` already carries for `discoverCatalog`.
+ * `scripts/check-test-boundaries.mjs` refuses.
  */
-export type AcquireDeps = {
+type AcquireDeps = {
   runAcquisition?: typeof import('./acquisition/graph').runAcquisition
   createAgentModel?: typeof defaultCreateAgentModel
   downloadAndStoreImages?: typeof defaultDownloadAndStoreImages
