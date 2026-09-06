@@ -75,6 +75,7 @@ import {
   type CurationTask,
 } from "@/lib/constants/enrich-phases";
 import { loadCohort, snapshotDir, type Cohort } from "./cohort";
+import { unappliedSubmissions, rejectionNote } from "./refresh-unapplied";
 import { loadScriptTarget } from "../../shared/target";
 
 /**
@@ -650,6 +651,31 @@ async function main(): Promise<void> {
     }
   }
 
+  // Reject unapplied refresh submissions so they don't linger as pending
+  const requestedMap = new Map(
+    requested
+      .filter((r): r is typeof r & { submissionId: string } => r.submissionId !== null)
+      .map((r) => [r.slug, r.submissionId]),
+  );
+  const unapplied = unappliedSubmissions(requestedMap, applied);
+  const rejected: Array<{ slug: string; submissionId: string; reason: string }> = [];
+  if (unapplied.length > 0) {
+    for (const entry of unapplied) {
+      const note = rejectionNote(job.id, entry.detail);
+      const { error: rejectErr } = await supabase
+        .from("brand_submissions")
+        .update({ status: "rejected", reviewer_notes: note })
+        .eq("id", entry.submissionId)
+        .eq("status", "pending");
+      if (rejectErr) {
+        console.error(`  ${entry.slug.padEnd(18)} REJECT FAILED — ${rejectErr.message}`);
+      } else {
+        rejected.push({ slug: entry.slug, submissionId: entry.submissionId, reason: entry.detail });
+      }
+    }
+    console.log(`rejected ${unapplied.length} unapplied refresh submission(s)`);
+  }
+
   await mkdir(dirname(logPath), { recursive: true });
   await writeFile(
     logPath,
@@ -670,6 +696,7 @@ async function main(): Promise<void> {
           errors: enrich.errors,
         },
         applied,
+        ...(rejected.length > 0 ? { rejected } : {}),
       },
       null,
       2,
