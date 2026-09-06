@@ -92,8 +92,6 @@ import {
 import type { ChatMessage } from '@/lib/services/openai-client'
 import { readProductPage, type ProductPageEvidence, type ReadPageDeps } from './read-page'
 import {
-  PRODUCTS_PROPOSE_SYSTEM_PROMPT,
-  PRODUCTS_REPAIR_SYSTEM_PROMPT,
   PRODUCTS_SCHEMA_TRAILER,
 } from '@/lib/prompts/products-agent'
 
@@ -487,7 +485,6 @@ async function proposeNode(
 
   const { text: compiledPrompt, prompt: meta } = await fetchLangfusePromptWithMeta(
     'products-propose',
-    PRODUCTS_PROPOSE_SYSTEM_PROMPT,
     {
       category_list: CATEGORY_LIST,
       subcategory_vocab_block: SUBCATEGORY_VOCAB_BLOCK,
@@ -498,7 +495,7 @@ async function proposeNode(
   ctx.record(
     'propose',
     'prompt resolved',
-    `prompt=${meta ? `${meta.name}@${meta.version}` : 'fallback'}`,
+    `prompt=${meta.name}@${meta.version} source=${meta.source}`,
     start,
   )
   const systemPrompt = withSchema(
@@ -789,7 +786,6 @@ async function repairNode(
 
   const basePrompt = await fetchLangfusePrompt(
     'products-repair',
-    PRODUCTS_REPAIR_SYSTEM_PROMPT,
   )
   const systemPrompt = withSchema(
     basePrompt,

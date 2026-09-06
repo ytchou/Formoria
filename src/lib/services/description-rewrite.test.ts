@@ -18,10 +18,10 @@ vi.mock("./llm-audit", async (importOriginal) => ({
 
 vi.mock("@/lib/langfuse/prompt", () => ({
   fetchLangfusePrompt: vi.fn().mockImplementation(
-    (_name: string, fallback: string) => Promise.resolve(fallback),
+    (_name: string) => Promise.resolve("mock-prompt"),
   ),
   fetchLangfusePromptWithMeta: vi.fn().mockImplementation(
-    (_name: string, fallback: string) => Promise.resolve({ text: fallback, prompt: { name: _name, version: 1 } }),
+    (_name: string) => Promise.resolve({ text: "mock-prompt", prompt: { name: _name, version: 1, source: "langfuse" } }),
   ),
 }));
 
@@ -293,7 +293,6 @@ describe("DESCRIPTION_SCHEMA", () => {
 
     expect(fetchLangfusePromptWithMeta).toHaveBeenCalledWith(
       "descriptions",
-      expect.any(String),
       expect.objectContaining({
         taiwan_usage_rules: expect.any(String),
       }),

@@ -1,4 +1,3 @@
-import { NAME_ARBITER_SYSTEM_PROMPT } from "@/lib/prompts";
 import { fetchLangfusePromptWithMeta } from "@/lib/langfuse/prompt";
 import { auditedCall } from "@/lib/audit";
 import {
@@ -98,11 +97,10 @@ function createNameArbiterClient(
   profileKey: NameArbiterProfileKey,
   target: EnrichmentTarget | undefined,
   jobId?: string,
-  prompt?: { name: string; version: number },
+  prompt?: { name: string; version: number; source: "langfuse" | "snapshot" },
 ) {
   const config = buildProfiledEnrichmentConfig(
     "names",
-    NAME_ARBITER_SYSTEM_PROMPT,
     profileKey,
   );
 
@@ -253,9 +251,9 @@ async function arbitrateBrandName(
   if (!token) return notAttempted();
 
   try {
-    const { text: nameArbiterPrompt, prompt: namePromptMeta } = await fetchLangfusePromptWithMeta("name-arbiter", NAME_ARBITER_SYSTEM_PROMPT);
+    const { text: nameArbiterPrompt, prompt: namePromptMeta } = await fetchLangfusePromptWithMeta("name-arbiter");
 
-    const client = createNameArbiterClient(token, "names", item.target, jobId, namePromptMeta ?? undefined);
+    const client = createNameArbiterClient(token, "names", item.target, jobId, namePromptMeta);
 
     const { response, data, content } = await client.chat({
       system: nameArbiterPrompt,
@@ -302,14 +300,14 @@ async function arbitrateBrandNamesChunk(
   if (!token) return notAttempted();
 
   try {
-    const { text: nameArbiterBatchPrompt, prompt: nameBatchPromptMeta } = await fetchLangfusePromptWithMeta("name-arbiter", NAME_ARBITER_SYSTEM_PROMPT);
+    const { text: nameArbiterBatchPrompt, prompt: nameBatchPromptMeta } = await fetchLangfusePromptWithMeta("name-arbiter");
 
     const client = createNameArbiterClient(
       token,
       "namesBatch",
       items.at(0)?.target,
       jobId,
-      nameBatchPromptMeta ?? undefined,
+      nameBatchPromptMeta,
     );
 
     const { response, data, content } = await client.chat({

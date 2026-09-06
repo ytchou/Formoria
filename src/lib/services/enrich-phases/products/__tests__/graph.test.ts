@@ -17,20 +17,20 @@ import { PRODUCTS_BUDGET_CEILINGS } from '../budget'
 // Wrap `fetchLangfusePromptWithMeta` so tests can inspect the variables dict
 // passed by graph nodes. The boundary checker forbids mocking `@/lib/services/`
 // and `@/lib/supabase/` — `@/lib/langfuse/` is allowed.
-const promptWithMetaCalls: Array<[string, string, Record<string, string> | undefined]> = []
+const promptWithMetaCalls: Array<[string, Record<string, string> | undefined]> = []
 vi.mock('@/lib/langfuse/prompt', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@/lib/langfuse/prompt')>()
   return {
     ...actual,
     fetchLangfusePromptWithMeta: vi.fn(
-      async (name: string, fallback: string, variables?: Record<string, string>) => {
-        promptWithMetaCalls.push([name, fallback, variables])
-        return actual.fetchLangfusePromptWithMeta(name, fallback, variables)
+      async (name: string, variables?: Record<string, string>) => {
+        promptWithMetaCalls.push([name, variables])
+        return actual.fetchLangfusePromptWithMeta(name as import('@/lib/langfuse/prompt').PromptName, variables)
       },
     ),
     fetchLangfusePrompt: vi.fn(
-      async (name: string, fallback: string, variables?: Record<string, string>) => {
-        return actual.fetchLangfusePrompt(name, fallback, variables)
+      async (name: string, variables?: Record<string, string>) => {
+        return actual.fetchLangfusePrompt(name as import('@/lib/langfuse/prompt').PromptName, variables)
       },
     ),
   }
@@ -561,7 +561,7 @@ describe('products agent graph', () => {
       (d) => d.step === 'propose' && d.action === 'prompt resolved',
     )
     expect(proposeDecision).toBeDefined()
-    expect(proposeDecision!.reason).toContain('prompt=fallback')
+    expect(proposeDecision!.reason).toMatch(/prompt=products-propose@\d+ source=(langfuse|snapshot)/)
   })
 
   it('propose_system_prompt_contains_the_rendered_rubric_and_no_unrendered_placeholder', async () => {
@@ -590,7 +590,7 @@ describe('products agent graph', () => {
 
     const proposeCall = promptWithMetaCalls.find((c) => c[0] === 'products-propose')
     expect(proposeCall).toBeDefined()
-    const variables = proposeCall![2]
+    const variables = proposeCall![1]
     expect(variables).toBeDefined()
     expect(Object.keys(variables!).sort()).toEqual(
       ['category_list', 'editorial_bands', 'material_vocab_block', 'subcategory_vocab_block'],

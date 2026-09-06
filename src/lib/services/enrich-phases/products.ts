@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { z } from "zod";
 import { auditedCall } from "@/lib/audit";
-import { PRODUCTS_LABELS, PRODUCTS_SYSTEM_PROMPT } from "@/lib/prompts";
+import { PRODUCTS_LABELS } from "@/lib/prompts";
 import {
   CATEGORY_LIST,
   SUBCATEGORY_VOCAB_BLOCK,
@@ -1499,7 +1499,6 @@ export async function runProductsPhase({
           );
           const { text: productsSystemPrompt, prompt: productsPromptMeta } = await fetchLangfusePromptWithMeta(
             "products",
-            PRODUCTS_SYSTEM_PROMPT,
             {
               category_list: CATEGORY_LIST,
               subcategory_vocab_block: SUBCATEGORY_VOCAB_BLOCK,
@@ -1509,7 +1508,6 @@ export async function runProductsPhase({
           );
           const config = buildProfiledEnrichmentConfig(
             "products",
-            productsSystemPrompt,
             "products",
             { maxProposals: MAX_PROPOSALS },
           );
@@ -1521,7 +1519,7 @@ export async function runProductsPhase({
               phase: "products",
               attempt: 1,
               config,
-              ...(productsPromptMeta ? { prompt: productsPromptMeta } : {}),
+              prompt: productsPromptMeta,
             },
             { apiKey: token },
           );

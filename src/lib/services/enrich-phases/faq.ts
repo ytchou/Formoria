@@ -1,10 +1,8 @@
 import { z } from "zod";
-import { FAQ_PROMPT_PREAMBLE } from "@/lib/prompts";
 import { TAIWAN_USAGE_RULES } from "@/lib/prompts/shared";
 import { fetchLangfusePromptWithMeta } from "@/lib/langfuse/prompt";
 import {
   CUSTOM_QUESTION_CEILING,
-  buildFaqPromptHash,
   buildFaqSystemPrompt,
   composeValidators,
   eligibleFaqPresets,
@@ -566,12 +564,10 @@ export async function runFaqPhase({
       name: "faq_entries",
       schema: toStrictJsonSchema(faqZodSchema),
     };
-    const localSystemPrompt = buildFaqSystemPrompt(authorable, ctx);
-    const { text: langfusePreamble, prompt: faqPromptMeta } = await fetchLangfusePromptWithMeta("faq-preamble", FAQ_PROMPT_PREAMBLE, {
+    const { text: preamble, prompt: faqPromptMeta } = await fetchLangfusePromptWithMeta("faq-preamble", {
       taiwan_usage_rules: TAIWAN_USAGE_RULES,
     });
-    const systemPrompt = localSystemPrompt.replace(FAQ_PROMPT_PREAMBLE, langfusePreamble);
-    const promptHash = buildFaqPromptHash(authorable);
+    const systemPrompt = buildFaqSystemPrompt(preamble, authorable, ctx);
     const snippets = [
       ...serpSnippets,
       ...(scrapedData?.snippets ?? []),
@@ -624,9 +620,8 @@ export async function runFaqPhase({
       evidence,
     );
     const userContent = `${content.userContent}\n\n${contextFacts(ctx)}`;
-    const config = buildProfiledEnrichmentConfig("faq", systemPrompt, "faq", {
+    const config = buildProfiledEnrichmentConfig("faq", "faq", {
       ...FAQ_PROMPT_PARAMS,
-      promptHash,
     });
     const {
       entries: accepted,
@@ -638,7 +633,7 @@ export async function runFaqPhase({
       async (retryInstruction, attempt) => {
         const client = createProfiledOpenAIClient(
           "faq",
-          { jobId, target: auditTarget, phase: "faq", attempt, config, ...(faqPromptMeta ? { prompt: faqPromptMeta } : {}) },
+          { jobId, target: auditTarget, phase: "faq", attempt, config, prompt: faqPromptMeta },
           { apiKey: token },
         );
         const response = await client.chat({

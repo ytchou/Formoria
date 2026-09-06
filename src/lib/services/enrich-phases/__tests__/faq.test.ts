@@ -29,10 +29,10 @@ import {
  * `@/lib/supabase/*`, not the Langfuse adapter.
  */
 const fetchLangfusePrompt = vi.hoisted(() =>
-  vi.fn((_name: string, fallback: string) => Promise.resolve(fallback)),
+  vi.fn((_name: string) => Promise.resolve("mock-prompt")),
 );
 const fetchLangfusePromptWithMeta = vi.hoisted(() =>
-  vi.fn((_name: string, fallback: string) => Promise.resolve({ text: fallback, prompt: { name: _name, version: 1 } })),
+  vi.fn((_name: string) => Promise.resolve({ text: "mock-prompt", prompt: { name: _name, version: 1, source: "langfuse" } })),
 );
 vi.mock("@/lib/langfuse/prompt", () => ({ fetchLangfusePrompt, fetchLangfusePromptWithMeta }));
 
@@ -669,7 +669,6 @@ describe("runFaqPhase langfuse variables", () => {
 
     expect(fetchLangfusePromptWithMeta).toHaveBeenCalledWith(
       "faq-preamble",
-      expect.any(String),
       expect.objectContaining({ taiwan_usage_rules: TAIWAN_USAGE_RULES }),
     );
 

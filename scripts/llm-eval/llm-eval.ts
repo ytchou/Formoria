@@ -28,6 +28,7 @@ import {
   driftRate,
 } from '@/lib/services/eval/products-calibration'
 import type { SnapshotFile, PromptApi } from '@/lib/services/eval/prompt-sync'
+import type { PromptName } from '@/lib/langfuse/prompt'
 
 // ---------------------------------------------------------------------------
 // Arg parsing
@@ -605,7 +606,7 @@ async function cmdRun(
   const { dirname } = await import('node:path')
 
   const callModel = async (
-    input: { system: string; user: string; phase: string; prompt?: { name: string; version: number } | null },
+    input: { system: string; user: string; phase: string; prompt?: { name: string; version: number; source: 'langfuse' | 'snapshot' } | null },
     options: { model?: string },
     _itemRunId: string,
   ) => {
@@ -643,7 +644,8 @@ async function cmdRun(
       },
       now: () => new Date(),
       flushLangfuse,
-      fetchPrompt: fetchLangfusePromptWithMeta,
+      fetchPrompt: (name: string, variables?: Record<string, string>) =>
+        fetchLangfusePromptWithMeta(name as PromptName, variables),
       installSeams,
       assertNoNewAuditRows,
       runWithAuditContext,

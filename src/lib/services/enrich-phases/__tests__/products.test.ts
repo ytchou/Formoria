@@ -1,5 +1,4 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { createHash } from "node:crypto";
 import type { ChatMessage } from "@/lib/services/openai-client";
 import {
   resetAuditEmitterForTests,
@@ -39,10 +38,10 @@ vi.mock("../../llm-audit", async (importOriginal) => ({
 }));
 
 const fetchLangfusePrompt = vi.hoisted(() =>
-  vi.fn((_name: string, fallback: string) => Promise.resolve(fallback)),
+  vi.fn((_name: string) => Promise.resolve("mock-prompt")),
 );
 const fetchLangfusePromptWithMeta = vi.hoisted(() =>
-  vi.fn((_name: string, fallback: string) => Promise.resolve({ text: fallback, prompt: { name: _name, version: 1 } })),
+  vi.fn((_name: string) => Promise.resolve({ text: "mock-prompt", prompt: { name: _name, version: 1, source: "langfuse" } })),
 );
 vi.mock("@/lib/langfuse/prompt", () => ({ fetchLangfusePrompt, fetchLangfusePromptWithMeta }));
 
@@ -1347,7 +1346,6 @@ describe("rawCount and productsParseError in runProductsPhase", () => {
 
     expect(fetchLangfusePromptWithMeta).toHaveBeenCalledWith(
       "products",
-      expect.any(String),
       expect.objectContaining({
         category_list: CATEGORY_LIST,
         subcategory_vocab_block: SUBCATEGORY_VOCAB_BLOCK,
@@ -1357,11 +1355,11 @@ describe("rawCount and productsParseError in runProductsPhase", () => {
     );
   });
 
-  it("hashes the effective Langfuse prompt recorded with the request", async () => {
-    // Catches constructing audit configuration from the fallback before Langfuse resolves.
-    const effectivePrompt = "Effective products prompt with scalar subcategory";
-    fetchLangfusePromptWithMeta.mockResolvedValueOnce({ text: effectivePrompt, prompt: { name: "products", version: 1 } });
-    const chat = modelReturns([rawProposal()]);
+  it("records_config_prompt_from_langfuse_meta", async () => {
+    // The audit context `prompt` must equal the mocked meta and `config` must have no `promptHash`.
+    const mockedMeta = { name: "products", version: 3, source: "langfuse" as const };
+    fetchLangfusePromptWithMeta.mockResolvedValueOnce({ text: "effective prompt", prompt: mockedMeta });
+    modelReturns([rawProposal()]);
 
     await runProductsPhase({
       brand: BRAND,
@@ -1371,14 +1369,11 @@ describe("rawCount and productsParseError in runProductsPhase", () => {
     });
 
     const context = createClient.mock.calls.at(-1)?.[1] as {
-      config?: { promptHash?: string };
+      prompt?: { name: string; version: number; source: string };
+      config?: Record<string, unknown>;
     };
-    const expectedHash = createHash("sha256")
-      .update(effectivePrompt)
-      .digest("hex")
-      .slice(0, 8);
-    expect(context.config?.promptHash).toBe(expectedHash);
-    expect(chat.mock.calls[0]?.[0]).toMatchObject({ system: effectivePrompt });
+    expect(context.prompt).toEqual(mockedMeta);
+    expect(context.config).not.toHaveProperty("promptHash");
   });
 });
 

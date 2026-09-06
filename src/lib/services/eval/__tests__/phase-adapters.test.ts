@@ -17,7 +17,6 @@ describe('phase-adapters registry', () => {
       const adapter = adapterFor(name)
       expect(adapter).toBeDefined()
       expect(adapter.promptName).toEqual(expect.any(String))
-      expect(adapter.fallbackPrompt).toEqual(expect.any(String))
       expect(adapter.profileKey).toEqual(expect.any(String))
       expect(adapter.outputSchema).toBeDefined()
       expect(adapter.requestSchema).toEqual({
@@ -167,6 +166,17 @@ describe('phase-adapters registry', () => {
     // no decision-level scorers
     expect(scorerNames).not.toContain('categoryAgreement')
     expect(scorerNames).not.toContain('decisionAgreement')
+  })
+
+  it('adapters_have_no_fallbackPrompt', () => {
+    const allNames = [
+      ...GOLDEN_DATASET_NAMES,
+      'descriptions',
+    ]
+    for (const name of allNames) {
+      const adapter = adapterFor(name)
+      expect(adapter).not.toHaveProperty('fallbackPrompt')
+    }
   })
 })
 
