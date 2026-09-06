@@ -92,7 +92,7 @@ export function bandConfusion(
  *   (matching production `rankCandidates`). When false, tied scores yield 0.5
  *   per pair (indeterminate).
  */
-function pairwiseConcordance(
+export function pairwiseConcordance(
   output: ProductsReplayOutput,
   expected: ProductsExpected,
   useTieBreak: boolean,
@@ -112,6 +112,8 @@ function pairwiseConcordance(
 
       // Skip pairs where either side has no output evaluation
       if (!evalI || !evalJ) continue
+      // Skip pairs where either score is null — avoids coercing null to -1
+      if (evalI.score === null || evalJ.score === null) continue
 
       total++
 

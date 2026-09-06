@@ -2,7 +2,7 @@ import type { ZodType } from 'zod'
 
 import { reportBannedTerms } from '@/lib/i18n/banned-terms'
 import { bandOf } from '@/lib/constants/curated-products'
-import { jaccard, type ProductsReplayOutput, type ProductsExpected } from './products-calibration'
+import { jaccard, pairwiseConcordance, type ProductsReplayOutput, type ProductsExpected } from './products-calibration'
 
 const CJK_ALL_REGEX = /[\u4E00-\u9FFF\u3400-\u4DBF\u3000-\u303F\uFF01-\uFF60\uFE30-\uFE4F]/u
 const LATIN_REGEX = /[A-Za-z]/u
@@ -153,46 +153,14 @@ export function bandAgreement(
  * Output ordering: score DESC, searchPosition ASC — matching production
  * `rankCandidates`. Concordant pairs / total pairs; ties resolved by
  * searchPosition count as concordant.
+ *
+ * Delegates to pairwiseConcordance (with tie-break enabled).
  */
 export function withinPoolOrderingAgreement(
   output: ProductsReplayOutput,
   expected: ProductsExpected,
 ): number {
-  const ranked = expected.decisions.filter((d) => d.relativeRank !== undefined)
-  if (ranked.length < 2) return 1
-
-  let concordant = 0
-  let total = 0
-
-  for (let i = 0; i < ranked.length; i++) {
-    for (let j = i + 1; j < ranked.length; j++) {
-      const di = ranked[i]!
-      const dj = ranked[j]!
-      const evalI = output.evaluations[di.candidateUrl]
-      const evalJ = output.evaluations[dj.candidateUrl]
-
-      if (!evalI || !evalJ) continue
-      total++
-
-      const expectedSign = Math.sign(di.relativeRank! - dj.relativeRank!)
-
-      const scoreI = evalI.score ?? -1
-      const scoreJ = evalJ.score ?? -1
-      const scoreDiff = scoreJ - scoreI
-
-      if (scoreDiff !== 0) {
-        if (Math.sign(scoreDiff) === expectedSign) concordant++
-      } else {
-        // Tied scores — break by searchPosition ASC
-        const posI = evalI.searchPosition ?? Number.MAX_SAFE_INTEGER
-        const posJ = evalJ.searchPosition ?? Number.MAX_SAFE_INTEGER
-        const posDiff = posI - posJ
-        if (posDiff === 0 || Math.sign(posDiff) === expectedSign) concordant++
-      }
-    }
-  }
-
-  return total === 0 ? 1 : concordant / total
+  return pairwiseConcordance(output, expected, true)
 }
 
 /**

@@ -464,7 +464,7 @@ describe('prelabelItem', () => {
 
     await prelabelItem(
       {
-        dataset: 'products-editorial-score-golden',
+        dataset: 'products-agent-ranking-golden',
         itemId: 'item-1',
         expectedOutput: {
           decisions: [
@@ -514,7 +514,7 @@ describe('prelabelItem', () => {
     await expect(
       prelabelItem(
         {
-          dataset: 'products-editorial-score-golden',
+          dataset: 'products-agent-ranking-golden',
           itemId: 'item-1',
           expectedOutput: {
             decisions: [

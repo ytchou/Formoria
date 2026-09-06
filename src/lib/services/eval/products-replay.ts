@@ -10,7 +10,6 @@
 import type { ProductPageEvidence, ReadPageDeps } from '../enrich-phases/products/read-page'
 import type { ProductsInput, ProductsOutput, ProductsDeps } from '../enrich-phases/products/graph'
 import type { ProductCandidate } from '../enrich-phases/product-candidates'
-import { normalizeProductUrl } from '../enrich-phases/product-candidates'
 import { PRODUCTS_BUDGET_CEILINGS } from '../enrich-phases/products/budget'
 import { parsePromptVersionPins } from '@/lib/langfuse/prompt'
 import type { AgentModel } from '../enrich-phases/agents/runtime'
@@ -213,7 +212,7 @@ export function productsTask(taskDeps: ProductsTaskDeps) {
       }
     }
 
-    const selected = graphOutput.proposals.map((p) => normalizeProductUrl(p.officialUrl) ?? p.officialUrl)
+    const selected = graphOutput.proposals.map((p) => p.officialUrl)
 
     const output = {
       evaluations: evaluationsRecord,

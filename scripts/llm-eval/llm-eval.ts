@@ -23,6 +23,10 @@ import {
 } from '@/lib/services/eval/phase-adapters'
 import { enqueueDataset, applyVerdicts } from '@/lib/services/eval/golden-review'
 import { runExperiment, type ExperimentArm } from '@/lib/services/eval/run-experiment'
+import {
+  type ProductsReplayOutput,
+  driftRate,
+} from '@/lib/services/eval/products-calibration'
 
 // ---------------------------------------------------------------------------
 // Arg parsing
@@ -626,7 +630,7 @@ async function cmdPairwiseRun(
   noEnqueue: boolean = false,
 ): Promise<void> {
   if (phase === 'products') {
-    return cmdPairwiseRunProducts(armSpecs, noEnqueue)
+    return cmdPairwiseRunProducts(armSpecs, noEnqueue, sample)
   }
 
   const { writeFileSync, mkdirSync } = await import('node:fs')
@@ -781,6 +785,7 @@ async function cmdPairwiseRun(
 async function cmdPairwiseRunProducts(
   armSpecs: ArmSpec[],
   noEnqueue: boolean,
+  sample: number = 0,
 ): Promise<void> {
   const { writeFileSync, mkdirSync } = await import('node:fs')
   const { buildProductPairs } = await import('@/lib/services/eval/pairwise')
@@ -830,7 +835,8 @@ async function cmdPairwiseRunProducts(
     return
   }
 
-  console.log(`[products] ${items.length} ACTIVE+reviewed items loaded`)
+  const selectedItems = sample > 0 ? items.slice(0, sample) : items
+  console.log(`[products] ${selectedItems.length} ACTIVE+reviewed items loaded${sample > 0 ? ` (sampled from ${items.length})` : ''}`)
 
   const since = new Date()
   const { restore } = installSeams({
@@ -843,72 +849,50 @@ async function cmdPairwiseRunProducts(
   )
   const [armA, armB] = armLabels
 
-  type ProductsReplayOutputShape = {
-    evaluations: Record<string, { score: number | null; searchPosition: number | null }>
-    selected: string[]
-    proposals: Array<{ officialUrl: string; nameZh: string; [k: string]: unknown }>
-    agentOutcome: string
+  async function runArmTask(
+    armSpec: ArmSpec,
+    item: { id: string; input: unknown; expectedOutput: unknown },
+    taskFn: typeof task,
+    armLabel: string,
+    armSuffix: string,
+  ): Promise<ProductsReplayOutput | null> {
+    const savedVersions = process.env.LANGFUSE_PROMPT_VERSIONS
+    const savedModel = process.env.OPENAI_MODEL_OVERRIDE
+    try {
+      if (armSpec.kind === 'prompt') {
+        process.env.LANGFUSE_PROMPT_VERSIONS = `products-propose:${armSpec.version}`
+      } else {
+        process.env.OPENAI_MODEL_OVERRIDE = armSpec.model
+      }
+      const result = await taskFn(
+        { id: item.id, input: item.input, expectedOutput: item.expectedOutput, humanApproval: {} },
+        { name: armLabel, type: armSpec.kind, value: armSpec.kind === 'prompt' ? `products-propose:${armSpec.version}` : armSpec.model },
+        { itemRunId: `pairwise-${armSuffix}-${item.id}` },
+      )
+      if (result.ok) return result.output as ProductsReplayOutput
+      console.error(`  Arm ${armSuffix.toUpperCase()} failed: ${result.error}`)
+      return null
+    } finally {
+      if (savedVersions !== undefined) process.env.LANGFUSE_PROMPT_VERSIONS = savedVersions
+      else delete process.env.LANGFUSE_PROMPT_VERSIONS
+      if (savedModel !== undefined) process.env.OPENAI_MODEL_OVERRIDE = savedModel
+      else delete process.env.OPENAI_MODEL_OVERRIDE
+    }
   }
 
   const mappings: Record<string, { left: 'a' | 'b'; right: 'a' | 'b' }> = {}
   const traceIds: string[] = []
   const driftAgg = { pools: 0, paired: 0, onlyA: 0, onlyB: 0 }
 
-  for (const item of items) {
+  for (const item of selectedItems) {
     const input = item.input as { brand?: { slug?: string; name?: string }; evidence?: Record<string, { title: string | null }> }
     const slug = input.brand?.slug ?? 'unknown'
 
     console.log(`\nProcessing ${slug}...`)
 
-    // Run arm A
-    const savedVersionsA = process.env.LANGFUSE_PROMPT_VERSIONS
-    const savedModelA = process.env.OPENAI_MODEL_OVERRIDE
-    let outputA: ProductsReplayOutputShape | null = null
-    try {
-      const armSpecA = armSpecs[0]!
-      if (armSpecA.kind === 'prompt') {
-        process.env.LANGFUSE_PROMPT_VERSIONS = `products-propose:${armSpecA.version}`
-      } else {
-        process.env.OPENAI_MODEL_OVERRIDE = armSpecA.model
-      }
-      const resultA = await task(
-        { id: item.id, input: item.input, expectedOutput: item.expectedOutput, humanApproval: {} },
-        { name: armLabels[0]!, type: armSpecA.kind, value: armSpecA.kind === 'prompt' ? `products-propose:${armSpecA.version}` : armSpecA.model },
-        { itemRunId: `pairwise-a-${item.id}` },
-      )
-      if (resultA.ok) outputA = resultA.output as ProductsReplayOutputShape
-      else console.error(`  Arm A failed: ${resultA.error}`)
-    } finally {
-      if (savedVersionsA !== undefined) process.env.LANGFUSE_PROMPT_VERSIONS = savedVersionsA
-      else delete process.env.LANGFUSE_PROMPT_VERSIONS
-      if (savedModelA !== undefined) process.env.OPENAI_MODEL_OVERRIDE = savedModelA
-      else delete process.env.OPENAI_MODEL_OVERRIDE
-    }
-
-    // Run arm B
-    const savedVersionsB = process.env.LANGFUSE_PROMPT_VERSIONS
-    const savedModelB = process.env.OPENAI_MODEL_OVERRIDE
-    let outputB: ProductsReplayOutputShape | null = null
-    try {
-      const armSpecB = armSpecs[1]!
-      if (armSpecB.kind === 'prompt') {
-        process.env.LANGFUSE_PROMPT_VERSIONS = `products-propose:${armSpecB.version}`
-      } else {
-        process.env.OPENAI_MODEL_OVERRIDE = armSpecB.model
-      }
-      const resultB = await task(
-        { id: item.id, input: item.input, expectedOutput: item.expectedOutput, humanApproval: {} },
-        { name: armLabels[1]!, type: armSpecB.kind, value: armSpecB.kind === 'prompt' ? `products-propose:${armSpecB.version}` : armSpecB.model },
-        { itemRunId: `pairwise-b-${item.id}` },
-      )
-      if (resultB.ok) outputB = resultB.output as ProductsReplayOutputShape
-      else console.error(`  Arm B failed: ${resultB.error}`)
-    } finally {
-      if (savedVersionsB !== undefined) process.env.LANGFUSE_PROMPT_VERSIONS = savedVersionsB
-      else delete process.env.LANGFUSE_PROMPT_VERSIONS
-      if (savedModelB !== undefined) process.env.OPENAI_MODEL_OVERRIDE = savedModelB
-      else delete process.env.OPENAI_MODEL_OVERRIDE
-    }
+    const experimentItem = { id: item.id, input: item.input ?? {}, expectedOutput: item.expectedOutput ?? {} }
+    const outputA = await runArmTask(armSpecs[0]!, experimentItem, task, armLabels[0]!, 'a')
+    const outputB = await runArmTask(armSpecs[1]!, experimentItem, task, armLabels[1]!, 'b')
 
     if (!outputA || !outputB) {
       console.log(`  Skipping ${slug} — missing output from one arm`)
@@ -957,13 +941,12 @@ async function cmdPairwiseRunProducts(
   restore()
   await assertNoNewAuditRows({ since })
 
-  const totalItems = driftAgg.paired + driftAgg.onlyA + driftAgg.onlyB
   const driftOutput = {
     pools: driftAgg.pools,
     paired: driftAgg.paired,
     onlyA: driftAgg.onlyA,
     onlyB: driftAgg.onlyB,
-    rate: totalItems > 0 ? (driftAgg.onlyA + driftAgg.onlyB) / totalItems : 0,
+    rate: driftRate(driftAgg.paired, driftAgg.onlyA, driftAgg.onlyB),
   }
 
   const iso = new Date().toISOString().slice(0, 19).replace(/[T:]/g, '-')

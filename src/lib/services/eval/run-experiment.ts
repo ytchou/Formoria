@@ -381,7 +381,9 @@ export async function runExperiment({
         const latencies = itemResults.map((r) => r.latencyMs)
 
         // Derive promptMeta for the arm from the first item that has one
-        const armPromptMeta = itemResults.find((r) => r.promptMeta !== undefined)?.promptMeta
+        // Prefer non-fallback promptMeta; fall back to any defined value
+        const armPromptMeta = itemResults.find((r) => r.promptMeta !== undefined && r.promptMeta !== 'fallback')?.promptMeta
+          ?? itemResults.find((r) => r.promptMeta !== undefined)?.promptMeta
 
         armResults.push({
           arm: arm.name,
