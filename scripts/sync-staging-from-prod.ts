@@ -410,7 +410,6 @@ export const KNOWN_COLUMNS: Record<CopyTable, readonly string[]> = {
     "url",
     "source_type",
     "claim_zh",
-    "claim_en",
     "state",
     "checked_at",
     "created_at",
