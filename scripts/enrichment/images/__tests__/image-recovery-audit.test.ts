@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { planPendingRecovery, type PendingImageRow } from './image-recovery-audit'
+import { planPendingRecovery, type PendingImageRow } from '../image-recovery-audit'
 
 function row(overrides: Partial<PendingImageRow> = {}): PendingImageRow {
   return {
