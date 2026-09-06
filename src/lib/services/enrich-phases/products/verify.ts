@@ -119,7 +119,7 @@ type ProposalInput = {
 }
 
 /** Inputs `verifyOrigin` needs. All three or none — the decision is a consensus. */
-export type OriginInputs = {
+type OriginInputs = {
   deterministic: DeterministicOriginAssessment
   llm: LlmOriginAssessment
   registry: RegistryOriginAssessment

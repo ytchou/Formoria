@@ -173,7 +173,7 @@ function socialProfilePattern(
   )
 }
 
-export const INSTAGRAM_PROFILE_RE = socialProfilePattern('instagram\\.com', {
+const INSTAGRAM_PROFILE_RE = socialProfilePattern('instagram\\.com', {
   reservedPaths: ['p', 'reel', 'reels', 'stories', 'explore', 'tv', 'share'],
 })
 

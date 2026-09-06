@@ -114,7 +114,7 @@ export async function createAgentModel(
 // ---------------------------------------------------------------------------
 
 /** Appended after an inlined JSON Schema block in every agent prompt. */
-export const SCHEMA_TRAILER =
+const SCHEMA_TRAILER =
   'Output only a JSON object that matches this schema. Do not add fields the schema does not define.'
 
 /**

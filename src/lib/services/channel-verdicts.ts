@@ -69,14 +69,14 @@ export type SelectVerdictTargetsInput = {
   onWarn?: (message: string) => void;
 };
 
-export type ChannelVerdictAction =
+type ChannelVerdictAction =
   | "rejected"
   | "hidden"
   | "would_reject"
   | "would_hide"
   | "skipped";
 
-export type ChannelVerdictTargetOutcome = {
+type ChannelVerdictTargetOutcome = {
   slug: string;
   action: ChannelVerdictAction;
   reason?: string;

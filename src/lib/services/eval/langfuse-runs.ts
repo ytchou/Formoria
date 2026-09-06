@@ -48,32 +48,6 @@ export async function writeItemScores({
 }
 
 // ---------------------------------------------------------------------------
-// Dataset item linking
-// ---------------------------------------------------------------------------
-
-type LinkableItem = {
-  link: (trace: unknown, runName: string, opts?: { metadata?: unknown }) => void
-}
-
-/**
- * Links a dataset item to its trace and run.
- */
-export function linkItem({
-  item,
-  trace,
-  runName: rn,
-  metadata,
-}: {
-  item: LinkableItem
-  trace: unknown
-  runName: string
-  metadata?: unknown
-  linkFn?: never
-}): void {
-  item.link(trace, rn, metadata !== undefined ? { metadata } : undefined)
-}
-
-// ---------------------------------------------------------------------------
 // Annotation queue helpers
 // ---------------------------------------------------------------------------
 

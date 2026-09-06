@@ -30,17 +30,12 @@ import { syncHeroDenormalized, type BrandImageRow } from "../brand-images";
 import { visionStorageKey, encodeVisionDownload } from "../vision-image";
 import { mapWithConcurrency } from "../_shared/concurrency";
 import { createServiceClient } from "@/lib/supabase/service";
-import type { PhaseResult } from "@/lib/types/curation";
 import {
-  brandTarget,
   targetImageStorage,
   type EnrichmentTarget,
 } from "../_shared/enrichment-target";
 import {
-  buildPhaseResult,
-  timePhase,
   type EnrichBrand,
-  type EnrichPhase,
 } from "./types";
 import type { EnrichPatch } from "./types";
 import { preferPatched } from "./descriptions";
@@ -352,20 +347,6 @@ export const IMAGE_CLASSIFICATION_SCHEMA = {
   schema: toStrictJsonSchema(imageClassificationShape),
 };
 
-type ClassifyImagesPhaseOptions = {
-  brand: EnrichBrand;
-  phases: EnrichPhase[];
-  dryRun?: boolean;
-  overwrite?: boolean;
-  target?: EnrichmentTarget;
-  jobId?: string;
-  pendingPatch?: EnrichPatch;
-};
-
-type ClassifyImagesPhaseOutput = {
-  phaseResult: PhaseResult;
-  patch: Record<string, unknown>;
-};
 
 export type BrandImageForClassification = BrandImageRow & {
   id: string;
@@ -1054,7 +1035,7 @@ export function failureReason(response: OpenAIChatResult): BatchFailure | null {
   return null;
 }
 
-export type ChunkOutcome = {
+type ChunkOutcome = {
   /** Verdicts keyed by brand_images.id, only for images the model actually judged. */
   verdictsByImageId: Map<string, ParsedImageClassification>;
   /** Non-null when the whole batch must be abandoned without touching any row. */
@@ -1131,13 +1112,13 @@ export function partitionLoadedImages(
  * than widening to a hand-written signature keeps the input and output types
  * pinned to the real client — a drift in either is a build failure here.
  */
-export type ClassifyImagesChatClient = Pick<
+type ClassifyImagesChatClient = Pick<
   ReturnType<typeof createProfiledOpenAIClient>,
   "chat"
 >;
 
 /** The bytes-loading seam. Production is `loadVisionDataUri`; tests inject. */
-export type VisionImageLoader = (
+type VisionImageLoader = (
   image: BrandImageForClassification,
 ) => Promise<string | null>;
 
@@ -1759,214 +1740,4 @@ export async function finalizeHeroOrder(
     rejectedIds,
     heroStoragePath: finalActiveImages.at(0)?.storage_path ?? null,
   };
-}
-
-export async function runClassifyImagesPhase({
-  brand,
-  phases,
-  dryRun = false,
-  overwrite = false,
-  target: requestedTarget,
-  jobId,
-  pendingPatch,
-}: ClassifyImagesPhaseOptions): Promise<ClassifyImagesPhaseOutput> {
-  if (!phases.includes("classify_images")) {
-    return {
-      phaseResult: buildPhaseResult(
-        "classify_images",
-        "skipped",
-        [],
-        0,
-        undefined,
-        "classify_images phase not requested",
-      ),
-      patch: {},
-    };
-  }
-
-  if (dryRun) {
-    return {
-      phaseResult: buildPhaseResult(
-        "classify_images",
-        "skipped",
-        [],
-        0,
-        undefined,
-        "dry run",
-      ),
-      patch: {},
-    };
-  }
-
-  return auditedCall(
-    {
-      provider: "enrich",
-      operation: "runClassifyImagesPhase",
-      kind: "service",
-    },
-    async (ctx) => {
-      const target = requestedTarget ?? brandTarget(brand.id);
-      const supabase = createServiceClient();
-
-      // Judge first, write second. The two halves are separate functions so the
-      // acquisition agent can reuse the judging one without the writes; the
-      // phase is the caller that wants both.
-      const { result, durationMs } = await timePhase(async () => {
-        const judged = await classifyStoredImages({
-          brand,
-          target,
-          overwrite,
-          jobId,
-          pendingPatch,
-          supabase,
-          ctx,
-        });
-        if (judged.skipped) return { judged, hero: null };
-
-        await applyPlannedImageWrites(supabase, target, judged.writes);
-        const hero = await finalizeHeroOrder(supabase, target, {
-          mode: "classify",
-        });
-        return { judged, hero };
-      });
-
-      const { judged, hero } = result;
-      if (judged.skipped || !hero) {
-        return {
-          phaseResult: buildPhaseResult(
-            "classify_images",
-            "skipped",
-            [],
-            0,
-            undefined,
-            judged.skipped ?? "no unclassified images",
-          ),
-          patch: {},
-        };
-      }
-
-      const classifiedCount = judged.classified.length;
-      const classifierKept = judged.classified.filter(
-        (classification) => classification.disposition === "keep",
-      ).length;
-      // Rejections come from two places: the model's own verdicts, and the
-      // ranking's overflow past the active-image window.
-      const rejectedCount = judged.rejectedCount + hero.rejectedIds.length;
-
-      const changedFields =
-        classifiedCount > 0
-          ? [target.type === "brand" ? "brand_images" : "submission_images"]
-          : [];
-      Object.assign(ctx.summary, {
-        gatePassingImages: judged.candidateCount,
-        classifierKept,
-        classifierKeep:
-          judged.candidateCount > 0
-            ? classifierKept / judged.candidateCount
-            : 0,
-      });
-      const patch =
-        target.type === "submission" && classifiedCount > 0
-          ? // DEV-1551: the bucket key, not a URL. `submissionToDomain` derives
-            // the `/i/` form from it.
-            { hero_image_storage_path: hero.heroStoragePath }
-          : {};
-
-      const detail = [
-        `${classifiedCount} classified`,
-        `${rejectedCount} rejected`,
-        ...(judged.unjudgedCount > 0
-          ? [`${judged.unjudgedCount} left unjudged`]
-          : []),
-        ...(judged.unavailableCount > 0
-          ? [`${judged.unavailableCount} unavailable`]
-          : []),
-        ...(judged.failures.length > 0
-          ? [
-              `${judged.failures.length} batch(es) skipped: ${judged.failures
-                .map((failure) => failure.reason)
-                .join("; ")}`,
-            ]
-          : []),
-      ].join(", ");
-
-      // Nothing was judged: every batch we attempted died. `succeeded` with zero
-      // classifications is what an admin then approved 103 times on 2026-08-02, so
-      // the target has to fail — but only when the whole phase died. A run where one
-      // batch was refused and another classified fine stays `succeeded`.
-      const allBatchesFailed =
-        judged.attemptedBatches > 0 &&
-        judged.failures.length === judged.attemptedBatches;
-
-      const allBatchesProviderFailed =
-        allBatchesFailed &&
-        judged.failures.every((failure) => failure.kind === "provider");
-
-      // Same outcome, different culprit, and the difference is expensive: only
-      // `providerFailure` feeds Gate C and the LLM circuit breaker, whose trip
-      // cancels every unstarted target in the job and pages for an OpenAI outage. A
-      // batch set that includes one of OUR storage failures is not evidence about
-      // OpenAI, so it fails the target under its own name instead. Mixed with a
-      // `content` failure it stays out of both branches, as before — the model
-      // answered for at least one batch, so the phase is not wholly untrusted.
-      const allBatchesStorageFailed =
-        allBatchesFailed &&
-        !allBatchesProviderFailed &&
-        judged.failures.every(
-          (failure) =>
-            failure.kind === "storage" || failure.kind === "provider",
-        );
-
-      if (allBatchesStorageFailed) {
-        return {
-          phaseResult: buildPhaseResult(
-            "classify_images",
-            "failed",
-            [],
-            durationMs,
-            `${STORAGE_FAILURE_PREFIX} — could not read the images for any of ${judged.attemptedBatches} batch(es) out of Storage`,
-            detail,
-          ),
-          patch: {},
-        };
-      }
-
-      if (allBatchesProviderFailed) {
-        return {
-          phaseResult: {
-            ...buildPhaseResult(
-              "classify_images",
-              "failed",
-              [],
-              durationMs,
-              `LLM provider failed all ${judged.attemptedBatches} image batch(es)`,
-              detail,
-            ),
-            providerFailure: true,
-          },
-          patch: {},
-        };
-      }
-
-      return {
-        phaseResult: buildPhaseResult(
-          "classify_images",
-          "succeeded",
-          changedFields,
-          durationMs,
-          undefined,
-          detail,
-        ),
-        patch,
-      };
-    },
-    {
-      classify: (result) =>
-        result.phaseResult.status === "failed"
-          ? "failed"
-          : result.phaseResult.status === "skipped"
-            ? "empty"
-            : "succeeded",
-    },
-  );
 }
