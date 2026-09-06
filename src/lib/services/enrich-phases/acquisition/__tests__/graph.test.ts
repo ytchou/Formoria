@@ -171,6 +171,54 @@ function scrapeWithImages(urls: string[], pageUrl = 'https://example.com') {
 }
 
 // ---------------------------------------------------------------------------
+// Buffer pipeline fakes — downloadAndGateImages, classifyImageBuffers, storeKeptImages
+// ---------------------------------------------------------------------------
+
+function fakeGatedImage(sourceUrl: string) {
+  return {
+    buffer: Buffer.from('fake-image-data'),
+    contentType: 'image/webp',
+    width: 1200,
+    height: 900,
+    dominantColor: '#FFFFFF',
+    phash: `ph-${sourceUrl.slice(-8)}`,
+    entropy: 7.0,
+    sharpness: 50,
+    source: 'scrape',
+    sourceUrl,
+    provider: {},
+  }
+}
+
+function fakeClassifiedKeep(sourceUrl: string, tag = 'product', score = 0.9) {
+  return {
+    ...fakeGatedImage(sourceUrl),
+    disposition: 'keep' as const,
+    tag,
+    score,
+    caption: `A ${tag} image`,
+  }
+}
+
+function fakeClassifiedReject(sourceUrl: string) {
+  return {
+    ...fakeGatedImage(sourceUrl),
+    disposition: 'reject' as const,
+    tag: 'irrelevant',
+    score: 0.1,
+    caption: 'Rejected',
+  }
+}
+
+function fakeStoredRecord(id: string, sourceUrl: string) {
+  return {
+    id,
+    storage_path: `brands/brand-1/${id}.webp`,
+    source_url: sourceUrl,
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Graph shape
 // ---------------------------------------------------------------------------
 
@@ -708,10 +756,7 @@ describe('acquisition graph — critique', () => {
   )
 
   it('abort_after_images_recovers_last_state_with_image_pool', async () => {
-    const classified = [
-      { id: 'img-1', tag: 'product', score: 0.9, disposition: 'keep', storage_path: 'brands/brand-1/1.jpg', sourceUrl: 'https://example.com', width: 1200, height: 900 },
-      { id: 'img-2', tag: 'hero', score: 0.85, disposition: 'keep', storage_path: 'brands/brand-1/2.jpg', sourceUrl: 'https://example.com', width: 1200, height: 900 },
-    ]
+    const imageUrls = ['https://cdn.example/1.jpg', 'https://cdn.example/2.jpg']
 
     // The critique call will abort
     const model = fakeAgentModel({
@@ -728,9 +773,12 @@ describe('acquisition graph — critique', () => {
     })
 
     const deps = makeDeps({
-      scrapeBrandUrls: vi.fn().mockResolvedValue(scrapeWithImages(['https://cdn.example/1.jpg', 'https://cdn.example/2.jpg'])),
-      downloadAndStoreImages: vi.fn().mockResolvedValue(['https://storage.example/1.jpg']),
-      classifyImages: vi.fn().mockResolvedValue(classified),
+      scrapeBrandUrls: vi.fn().mockResolvedValue(scrapeWithImages(imageUrls)),
+      downloadAndGateImages: vi.fn().mockResolvedValue(imageUrls.map(fakeGatedImage)),
+      classifyImageBuffers: vi.fn().mockResolvedValue(imageUrls.map((u) => fakeClassifiedKeep(u))),
+      storeKeptImages: vi.fn().mockResolvedValue(
+        imageUrls.map((u, i) => fakeStoredRecord(`img-${i + 1}`, u)),
+      ),
     })
 
     const result = await runAcquisition(baseInput, deps, { model })
@@ -796,19 +844,18 @@ describe('acquisition graph — recovery', () => {
       'https://cdn.example/found-1.jpg',
       'https://cdn.example/found-2.jpg',
     ])
-    const downloadAndStoreImages = vi.fn().mockResolvedValue(['https://storage.example/found-1.jpg'])
-    const classifyImages = vi
-      .fn()
-      .mockResolvedValueOnce([{ id: 'img-1', tag: 'product', score: 0.9, disposition: 'keep' }])
-      .mockResolvedValue([
-        { id: 'img-1', tag: 'product', score: 0.9, disposition: 'keep' },
-        { id: 'img-2', tag: 'product', score: 0.7, disposition: 'keep' },
-      ])
 
     const deps = makeDeps({
       scrapeBrandUrls: vi.fn().mockResolvedValue(scrapeWithImages(['https://cdn.example/a.jpg'])),
-      downloadAndStoreImages,
-      classifyImages,
+      downloadAndGateImages: vi.fn()
+        .mockResolvedValueOnce([fakeGatedImage('https://cdn.example/a.jpg')])
+        .mockResolvedValueOnce([fakeGatedImage('https://cdn.example/found-1.jpg')]),
+      classifyImageBuffers: vi.fn()
+        .mockResolvedValueOnce([fakeClassifiedKeep('https://cdn.example/a.jpg')])
+        .mockResolvedValueOnce([fakeClassifiedKeep('https://cdn.example/found-1.jpg', 'product', 0.7)]),
+      storeKeptImages: vi.fn()
+        .mockResolvedValueOnce([fakeStoredRecord('img-1', 'https://cdn.example/a.jpg')])
+        .mockResolvedValueOnce([fakeStoredRecord('img-2', 'https://cdn.example/found-1.jpg')]),
       searchImages,
     })
 
@@ -831,15 +878,6 @@ describe('acquisition graph — recovery', () => {
   })
 
   it('images_recover_classifies_only_new_ids', async () => {
-    const classifyImages = vi
-      .fn()
-      .mockResolvedValueOnce([{ id: 'img-1', tag: 'product', score: 0.9 }])
-      // The brand-scoped classifier returns the first batch again alongside the new row.
-      .mockResolvedValueOnce([
-        { id: 'img-1', tag: 'product', score: 0.9 },
-        { id: 'img-2', tag: 'hero', score: 0.8 },
-      ])
-
     let scrapeCall = 0
     const deps = makeDeps({
       scrapeBrandUrls: vi.fn().mockImplementation(async () => {
@@ -848,8 +886,15 @@ describe('acquisition graph — recovery', () => {
           ? scrapeWithImages(['https://cdn.example/a.jpg'])
           : scrapeWithImages(['https://cdn.example/b.jpg'], 'https://extra.example')
       }),
-      downloadAndStoreImages: vi.fn().mockResolvedValue(['https://storage.example/a.jpg']),
-      classifyImages,
+      downloadAndGateImages: vi.fn()
+        .mockResolvedValueOnce([fakeGatedImage('https://cdn.example/a.jpg')])
+        .mockResolvedValueOnce([fakeGatedImage('https://cdn.example/b.jpg')]),
+      classifyImageBuffers: vi.fn()
+        .mockResolvedValueOnce([fakeClassifiedKeep('https://cdn.example/a.jpg')])
+        .mockResolvedValueOnce([fakeClassifiedKeep('https://cdn.example/b.jpg')]),
+      storeKeptImages: vi.fn()
+        .mockResolvedValueOnce([fakeStoredRecord('img-1', 'https://cdn.example/a.jpg')])
+        .mockResolvedValueOnce([fakeStoredRecord('img-2', 'https://cdn.example/b.jpg')]),
     })
 
     const result = await runAcquisition(baseInput, deps, {
@@ -874,29 +919,30 @@ describe('acquisition graph — images node', () => {
   const planOnly = { plan: [[{ name: 'submit_plan', args: VALID_PLAN }] as ScriptedToolCall[]] }
 
   it('images_node_classifies_scraped_images', async () => {
+    const imageUrls = ['https://cdn.example/1.jpg', 'https://cdn.example/2.jpg']
     const deps = makeDeps({
-      scrapeBrandUrls: vi
-        .fn()
-        .mockResolvedValue(scrapeWithImages(['https://cdn.example/1.jpg', 'https://cdn.example/2.jpg'])),
-      downloadAndStoreImages: vi.fn().mockResolvedValue(['https://storage.example/1.jpg']),
-      classifyImages: vi.fn().mockResolvedValue([
-        { id: 'img-1', tag: 'product', score: 0.9, storage_path: 'brands/brand-1/1.jpg' },
-        { id: 'img-2', tag: 'hero', score: 0.85, storage_path: 'brands/brand-1/2.jpg' },
-      ]),
+      scrapeBrandUrls: vi.fn().mockResolvedValue(scrapeWithImages(imageUrls)),
+      downloadAndGateImages: vi.fn().mockResolvedValue(imageUrls.map(fakeGatedImage)),
+      classifyImageBuffers: vi.fn().mockResolvedValue(imageUrls.map((u) => fakeClassifiedKeep(u))),
+      storeKeptImages: vi.fn().mockResolvedValue(
+        imageUrls.map((u, i) => fakeStoredRecord(`img-${i + 1}`, u)),
+      ),
     })
 
     const result = await runAcquisition(baseInput, deps, { model: fakeAgentModel(planOnly) })
 
     expect(result.classifiedImages).toHaveLength(2)
-    expect(deps.downloadAndStoreImages).toHaveBeenCalledTimes(1)
-    expect(deps.classifyImages).toHaveBeenCalledTimes(1)
+    expect(deps.downloadAndGateImages).toHaveBeenCalledTimes(1)
+    expect(deps.classifyImageBuffers).toHaveBeenCalledTimes(1)
+    expect(deps.storeKeptImages).toHaveBeenCalledTimes(1)
   })
 
   it('images_node_skips_when_dry_run', async () => {
     const deps = makeDeps({
       scrapeBrandUrls: vi.fn().mockResolvedValue(scrapeWithImages(['https://cdn.example/1.jpg'])),
-      downloadAndStoreImages: vi.fn().mockResolvedValue([]),
-      classifyImages: vi.fn().mockResolvedValue([]),
+      downloadAndGateImages: vi.fn().mockResolvedValue([fakeGatedImage('https://cdn.example/1.jpg')]),
+      classifyImageBuffers: vi.fn(),
+      storeKeptImages: vi.fn(),
     })
 
     const result = await runAcquisition(baseInput, deps, {
@@ -905,39 +951,39 @@ describe('acquisition graph — images node', () => {
     })
 
     expect(result.agentOutcome).toBe('planned')
-    expect(deps.classifyImages).not.toHaveBeenCalled()
+    // downloadAndGateImages still runs (no persistence), but classify and store are skipped
+    expect(deps.classifyImageBuffers).not.toHaveBeenCalled()
+    expect(deps.storeKeptImages).not.toHaveBeenCalled()
   })
 
   it('images_node_empty_when_no_images', async () => {
     const deps = makeDeps({
-      downloadAndStoreImages: vi.fn(),
-      classifyImages: vi.fn(),
+      downloadAndGateImages: vi.fn(),
+      classifyImageBuffers: vi.fn(),
+      storeKeptImages: vi.fn(),
     })
 
     const result = await runAcquisition(baseInput, deps, { model: fakeAgentModel(planOnly) })
 
     expect(result.classifiedImages).toEqual([])
-    expect(deps.downloadAndStoreImages).not.toHaveBeenCalled()
-    expect(deps.classifyImages).not.toHaveBeenCalled()
+    expect(deps.downloadAndGateImages).not.toHaveBeenCalled()
+    expect(deps.classifyImageBuffers).not.toHaveBeenCalled()
+    expect(deps.storeKeptImages).not.toHaveBeenCalled()
   })
 
   it('images_node_extends_budget_per_stored_batch_under_ceiling', async () => {
     // 15 images stored → ceil(15/10) = 2 batches → 2 × IMAGE_BATCH_EXTENSION_MS extension
     const imageUrls = Array.from({ length: 15 }, (_, i) => `https://cdn.example/${i}.jpg`)
-    const classified = imageUrls.map((_, i) => ({
-      id: `img-${i}`,
-      tag: 'product' as const,
-      score: 0.9,
-      disposition: 'keep' as const,
-      storage_path: `brands/brand-1/${i}.jpg`,
-    }))
 
     const deps = makeDeps({
       scrapeBrandUrls: vi.fn().mockResolvedValue(scrapeWithImages(imageUrls)),
-      downloadAndStoreImages: vi.fn().mockResolvedValue(
-        imageUrls.map((_, i) => `https://storage.example/${i}.jpg`),
+      downloadAndGateImages: vi.fn().mockResolvedValue(imageUrls.map(fakeGatedImage)),
+      classifyImageBuffers: vi.fn().mockResolvedValue(
+        imageUrls.map((u) => fakeClassifiedKeep(u)),
       ),
-      classifyImages: vi.fn().mockResolvedValue(classified),
+      storeKeptImages: vi.fn().mockResolvedValue(
+        imageUrls.map((u, i) => fakeStoredRecord(`img-${i}`, u)),
+      ),
     })
 
     const result = await runAcquisition(baseInput, deps, {
@@ -952,6 +998,70 @@ describe('acquisition graph — images node', () => {
     // But never above the ceiling
     expect(result.budget!.allowed.wallClockMs).toBeLessThanOrEqual(180_000)
   })
+
+  it('acquire_pipeline_downloads_classifies_stores_in_sequence', async () => {
+    const callOrder: string[] = []
+    const imageUrl = 'https://cdn.example/seq.jpg'
+
+    const deps = makeDeps({
+      scrapeBrandUrls: vi.fn().mockResolvedValue(scrapeWithImages([imageUrl])),
+      downloadAndGateImages: vi.fn().mockImplementation(async () => {
+        callOrder.push('gate')
+        return [fakeGatedImage(imageUrl)]
+      }),
+      classifyImageBuffers: vi.fn().mockImplementation(async () => {
+        callOrder.push('classify')
+        return [fakeClassifiedKeep(imageUrl)]
+      }),
+      storeKeptImages: vi.fn().mockImplementation(async () => {
+        callOrder.push('store')
+        return [fakeStoredRecord('img-seq', imageUrl)]
+      }),
+    })
+
+    const result = await runAcquisition(baseInput, deps, { model: fakeAgentModel(planOnly) })
+
+    expect(callOrder).toEqual(['gate', 'classify', 'store'])
+    expect(result.classifiedImages).toHaveLength(1)
+    expect(result.classifiedImages![0]).toMatchObject({
+      id: 'img-seq',
+      tag: 'product',
+      score: 0.9,
+    })
+  })
+
+  it('rejected_images_never_reach_storage', async () => {
+    const keepUrl = 'https://cdn.example/keep.jpg'
+    const rejectUrl = 'https://cdn.example/reject.jpg'
+
+    const deps = makeDeps({
+      scrapeBrandUrls: vi.fn().mockResolvedValue(
+        scrapeWithImages([keepUrl, rejectUrl]),
+      ),
+      downloadAndGateImages: vi.fn().mockResolvedValue([
+        fakeGatedImage(keepUrl),
+        fakeGatedImage(rejectUrl),
+      ]),
+      classifyImageBuffers: vi.fn().mockResolvedValue([
+        fakeClassifiedKeep(keepUrl),
+        fakeClassifiedReject(rejectUrl),
+      ]),
+      storeKeptImages: vi.fn().mockResolvedValue([
+        fakeStoredRecord('img-kept', keepUrl),
+      ]),
+    })
+
+    const result = await runAcquisition(baseInput, deps, { model: fakeAgentModel(planOnly) })
+
+    // storeKeptImages receives only the keep, not the reject
+    const storeCall = vi.mocked(deps.storeKeptImages!).mock.calls[0]![0]
+    expect(storeCall).toHaveLength(1)
+    expect(storeCall[0]).toMatchObject({ disposition: 'keep', sourceUrl: keepUrl })
+
+    // Only the kept image appears in classifiedImages (rejects have no stored ID)
+    expect(result.classifiedImages).toHaveLength(1)
+    expect(result.classifiedImages![0]!.id).toBe('img-kept')
+  })
 })
 
 // ---------------------------------------------------------------------------
@@ -962,21 +1072,17 @@ describe('acquisition graph — finalize', () => {
   const planOnly = { plan: [[{ name: 'submit_plan', args: VALID_PLAN }] as ScriptedToolCall[]] }
 
   it('finalize_picks_hero_and_next_nine_gallery_from_rank', async () => {
-    const classified = Array.from({ length: 12 }, (_, index) => ({
-      id: `img-${index}`,
-      tag: 'product' as const,
-      score: 1 - index * 0.05,
-      disposition: 'keep' as const,
-      storage_path: `brands/brand-1/${index}.jpg`,
-      sourceUrl: 'https://example.com',
-      width: 1200,
-      height: 900,
-    }))
+    const imageUrls = Array.from({ length: 12 }, (_, i) => `https://cdn.example/${i}.jpg`)
 
     const deps = makeDeps({
-      scrapeBrandUrls: vi.fn().mockResolvedValue(scrapeWithImages(['https://cdn.example/1.jpg'])),
-      downloadAndStoreImages: vi.fn().mockResolvedValue(['https://storage.example/1.jpg']),
-      classifyImages: vi.fn().mockResolvedValue(classified),
+      scrapeBrandUrls: vi.fn().mockResolvedValue(scrapeWithImages(imageUrls)),
+      downloadAndGateImages: vi.fn().mockResolvedValue(imageUrls.map(fakeGatedImage)),
+      classifyImageBuffers: vi.fn().mockResolvedValue(
+        imageUrls.map((u, i) => fakeClassifiedKeep(u, 'product', 1 - i * 0.05)),
+      ),
+      storeKeptImages: vi.fn().mockResolvedValue(
+        imageUrls.map((u, i) => fakeStoredRecord(`img-${i}`, u)),
+      ),
     })
 
     const result = await runAcquisition(baseInput, deps, { model: fakeAgentModel(planOnly) })
@@ -993,7 +1099,6 @@ describe('acquisition graph — finalize', () => {
       tag: 'product',
       score: expect.any(Number),
       disposition: 'keep',
-      sourceUrl: 'https://example.com',
     })
     // Pages that yielded images are reported for the products agent.
     expect(result.acquisitionPageUrls).toContain('https://example.com')
@@ -1120,25 +1225,21 @@ describe('acquisition graph — finalize', () => {
   it('finalize_runs_on_own_signal_when_budget_spent', async () => {
     // Even when wall clock is exhausted before finalize starts, finalize must
     // still run and produce ranked images + catalog result.
-    const classified = Array.from({ length: 3 }, (_, index) => ({
-      id: `img-${index}`,
-      tag: 'product' as const,
-      score: 1 - index * 0.05,
-      disposition: 'keep' as const,
-      storage_path: `brands/brand-1/${index}.jpg`,
-      sourceUrl: 'https://example.com',
-      width: 1200,
-      height: 900,
-    }))
+    const imageUrls = Array.from({ length: 3 }, (_, i) => `https://cdn.example/${i}.jpg`)
 
     const catalogResult = { triples: [], attempts: [], evidence: new Map() }
     const discoverCatalog = vi.fn().mockResolvedValue(catalogResult)
     const catalogSources = [{ url: 'https://example.com', channel: 'official' as const }]
 
     const deps = makeDeps({
-      scrapeBrandUrls: vi.fn().mockResolvedValue(scrapeWithImages(['https://cdn.example/1.jpg'])),
-      downloadAndStoreImages: vi.fn().mockResolvedValue(['https://storage.example/1.jpg']),
-      classifyImages: vi.fn().mockResolvedValue(classified),
+      scrapeBrandUrls: vi.fn().mockResolvedValue(scrapeWithImages(imageUrls)),
+      downloadAndGateImages: vi.fn().mockResolvedValue(imageUrls.map(fakeGatedImage)),
+      classifyImageBuffers: vi.fn().mockResolvedValue(
+        imageUrls.map((u, i) => fakeClassifiedKeep(u, 'product', 1 - i * 0.05)),
+      ),
+      storeKeptImages: vi.fn().mockResolvedValue(
+        imageUrls.map((u, i) => fakeStoredRecord(`img-${i}`, u)),
+      ),
       discoverCatalog,
       catalogSources,
     })

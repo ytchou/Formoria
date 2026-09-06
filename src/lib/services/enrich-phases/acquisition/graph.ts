@@ -40,7 +40,8 @@ import {
   type DiscoverCatalogOptions,
 } from '../catalog-discovery'
 import { buildCandidatePool, type CandidateImage } from '../candidate-pool'
-import type { ClassifiedImage } from '../classify-images'
+import type { ClassifiedImage, ClassifiedImageWithBuffer } from '../classify-images'
+import type { GatedImage, StoredImageRecord } from '../../image-download'
 import { rank, resolveSourceUrl, type RankableImage } from '../image-ranking'
 import { HERO_TARGET_RATIO } from '@/lib/constants/brand-images'
 import { MAX_IMAGE_POOL_BYTES, compactToBytes } from '../../phase-results'
@@ -163,10 +164,12 @@ export type AcquisitionDeps = {
   /** Image search for a brand whose own pages yielded too few usable images. */
   searchImages?: (input: { brandName: string; websiteHost: string | null }) => Promise<string[]>
   scrapeBrandUrls: (urls: string[], options: ScrapeBrandUrlsOptions) => Promise<MultiScrapeResult>
-  /** Download image candidates to Supabase storage. Returns stored URLs (null for failures). */
-  downloadAndStoreImages?: (candidates: CandidateImage[], brandId: string) => Promise<(string | null)[]>
-  /** Run vision classification on stored images. Returns classified images with scores/tags. */
-  classifyImages?: (brandId: string, dryRun?: boolean) => Promise<ClassifiedImage[]>
+  /** Download candidates, apply production gates and dedup. Returns in-memory buffers. */
+  downloadAndGateImages?: (candidates: CandidateImage[]) => Promise<GatedImage[]>
+  /** Classify in-memory image buffers via vision. Returns every image with a keep/reject verdict. */
+  classifyImageBuffers?: (gatedImages: GatedImage[]) => Promise<ClassifiedImageWithBuffer[]>
+  /** Persist only the kept (classified) images to storage + DB. */
+  storeKeptImages?: (kept: ClassifiedImageWithBuffer[]) => Promise<StoredImageRecord[]>
   /** Discover product catalog from brand URLs. Injected so tests can provide a fake. */
   discoverCatalog?: (options: DiscoverCatalogOptions) => Promise<CatalogDiscoveryResult>
   /** Channel sources (official site, marketplaces) handed to catalog discovery. */
@@ -825,13 +828,45 @@ async function storeAndClassify(
   ctx: RunContext,
   candidates: CandidateImage[],
 ): Promise<ClassifiedImage[]> {
-  if (ctx.deps.downloadAndStoreImages) {
-    await ctx.deps.downloadAndStoreImages(candidates, ctx.input.brand.id)
-  }
-  if (ctx.deps.classifyImages && !ctx.options.dryRun) {
-    return ctx.deps.classifyImages(ctx.input.brand.id, ctx.options.dryRun)
-  }
-  return []
+  // Step 1: Download and apply production gates (no persistence yet)
+  if (!ctx.deps.downloadAndGateImages) return []
+  const gated = await ctx.deps.downloadAndGateImages(candidates)
+  if (gated.length === 0) return []
+
+  // Step 2: Classify buffers via vision (skipped in dry run)
+  if (!ctx.deps.classifyImageBuffers || ctx.options.dryRun) return []
+  const classified = await ctx.deps.classifyImageBuffers(gated)
+
+  // Step 3: Only keeps proceed to storage
+  const keeps = classified.filter((img) => img.disposition === 'keep')
+  if (keeps.length === 0 || !ctx.deps.storeKeptImages) return []
+
+  // Step 4: Persist kept images (with pre-filled classification columns)
+  const stored = await ctx.deps.storeKeptImages(keeps)
+
+  // Step 5: Join stored records with classification data → ClassifiedImage[]
+  const recordBySourceUrl = new Map(stored.map((r) => [r.source_url, r]))
+  return keeps
+    .filter((img) => recordBySourceUrl.has(img.sourceUrl))
+    .map((img) => {
+      const record = recordBySourceUrl.get(img.sourceUrl)!
+      // `resolvedFetchUrl` is the image's own download URL — the same value
+      // `classifiedImageFromRow` reads from `brand_images.url`. Carried here
+      // from the GatedImage's provider metadata so products.ts can filter by it.
+      const fetchUrl = img.provider?.resolvedFetchUrl
+      return {
+        id: record.id,
+        tag: img.tag as ClassifiedImage['tag'],
+        score: img.score,
+        storage_path: record.storage_path,
+        disposition: img.disposition,
+        width: img.width,
+        height: img.height,
+        sourceUrl: img.sourceUrl,
+        caption: img.caption,
+        ...(typeof fetchUrl === 'string' ? { imageUrl: fetchUrl } : {}),
+      }
+    })
 }
 
 async function imagesNode(

@@ -166,11 +166,6 @@ check_env() {
     if ! grep -q "INDEXNOW_KEY=." .env.local 2>/dev/null; then
       echo "WARN: INDEXNOW_KEY not set (optional — needed for Bing IndexNow submission)"
     fi
-    # ACQUISITION_AGENT (optional): "off" disables the acquisition agent.
-    # Used by the `acquire` phase (DEV-1644) and the legacy `links` phase.
-    if grep -q '^ACQUISITION_AGENT=off$' .env.local 2>/dev/null; then
-      echo "WARN: ACQUISITION_AGENT=off — the acquisition agent is disabled in the acquire phase"
-    fi
     # PRODUCTS_AGENT (optional): "off" disables the products agent
     if grep -q '^PRODUCTS_AGENT=off$' .env.local 2>/dev/null; then
       echo "WARN: PRODUCTS_AGENT=off — the products agent is disabled in the products phase"

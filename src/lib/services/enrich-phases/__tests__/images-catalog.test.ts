@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { EnrichBrand, EnrichPhase } from "../types";
 import { runAcquirePhase } from "../acquire";
 import { emptyResult } from "../scraper/parse/extractors";
@@ -82,15 +82,10 @@ const run = (
 beforeEach(() => {
   scraperMocks.scrapeBrandUrls.mockReset();
   acquisitionMocks.runAcquisition.mockReset();
-  vi.stubEnv("ACQUISITION_AGENT", "on");
   vi.stubGlobal(
     "fetch",
     vi.fn().mockResolvedValue(new Response("", { status: 404 })),
   );
-});
-
-afterEach(() => {
-  vi.unstubAllEnvs();
 });
 
 describe("acquire phase catalog-discovery threading", () => {

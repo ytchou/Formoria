@@ -18,6 +18,7 @@
 export const LLM_MODELS = {
   text: "gpt-5.6-luna",
   vision: "gpt-5.6-luna",
+  text_mini: "gpt-4o-mini",
 } as const;
 
 export const EMBEDDING_MODEL = "text-embedding-3-small";
