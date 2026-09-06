@@ -12,8 +12,10 @@ import { beforeEach, describe, expect, it } from "vitest";
  */
 import {
   getBrandFaqEntries,
+  materializeSubmissionFaq,
   upsertBrandFaqEntries,
   type BrandFaqEntryInput,
+  type FaqSupabase,
 } from "../brand-faq";
 
 const BRAND_ID = "6b2f1c4e-8d3a-4f21-9b57-0c9e1a7d4e88";
@@ -58,13 +60,49 @@ let deleteCalls: Array<{
   gte: Array<[string, number]>;
 }> = [];
 
+/** Configurable submission blob for the brand_submissions double. */
+let submissionEnrichedData: Record<string, unknown> | null = null;
+let submissionError: Error | null = null;
+
 /**
  * Minimal Supabase double that actually stores rows, so the upsert's conflict
  * resolution is exercised rather than assumed.
+ *
+ * Also handles `brand_submissions` for `materializeSubmissionFaq` tests: the
+ * `.select("enriched_data").eq("id", …).single()` path returns the configured
+ * `submissionEnrichedData`.
  */
 function createClientDouble() {
   return {
     from(tableName: string) {
+      if (tableName === "brand_submissions") {
+        const eqFilters: Array<[string, unknown]> = [];
+        return {
+          select(_columns: string) {
+            return this;
+          },
+          eq(column: string, value: unknown) {
+            eqFilters.push([column, value]);
+            return this;
+          },
+          single() {
+            if (submissionError) {
+              return Promise.resolve({ data: null, error: submissionError });
+            }
+            if (submissionEnrichedData === null) {
+              return Promise.resolve({
+                data: null,
+                error: { message: "Row not found", code: "PGRST116" },
+              });
+            }
+            return Promise.resolve({
+              data: { enriched_data: submissionEnrichedData },
+              error: null,
+            });
+          },
+        };
+      }
+
       if (tableName !== "brand_faq_entries") {
         throw new Error(`unexpected table: ${tableName}`);
       }
@@ -177,6 +215,8 @@ beforeEach(() => {
   selectCalls = 0;
   upsertCalls = [];
   deleteCalls = [];
+  submissionEnrichedData = null;
+  submissionError = null;
 });
 
 function customEntry(position: number, text: string): BrandFaqEntryInput {
@@ -411,5 +451,145 @@ describe("getBrandFaqEntries", () => {
       source: "human",
     });
     expect(selectCalls).toBe(1);
+  });
+});
+
+const SUBMISSION_ID = "a1b2c3d4-e5f6-7890-abcd-ef1234567890";
+
+describe("materializeSubmissionFaq", () => {
+  it("materializes_entries_from_the_submission_blob", async () => {
+    submissionEnrichedData = {
+      faq: {
+        entries: [
+          {
+            presetId: "main-products",
+            position: 0,
+            questionZh: "Q",
+            answerZh: "A",
+          },
+        ],
+        explicit: false,
+      },
+    };
+
+    const result = await materializeSubmissionFaq(SUBMISSION_ID, BRAND_ID, {
+      client: client(),
+    });
+
+    expect(result).toEqual({ entries: 1, explicit: false });
+    expect(stored("main-products")).toBeDefined();
+    expect(stored("main-products")?.source).toBe("model");
+  });
+
+  it("forwards_explicit_to_the_upsert", async () => {
+    // Seed an existing model row.
+    table.push(
+      row({
+        preset_id: "main-products",
+        question_zh: "old Q",
+        answer_zh: "old A",
+      }),
+    );
+
+    submissionEnrichedData = {
+      faq: {
+        entries: [
+          {
+            presetId: "main-products",
+            position: 0,
+            questionZh: "new Q",
+            answerZh: "new A",
+          },
+        ],
+        explicit: true,
+      },
+    };
+
+    const result = await materializeSubmissionFaq(SUBMISSION_ID, BRAND_ID, {
+      client: client(),
+    });
+
+    expect(result).toEqual({ entries: 1, explicit: true });
+    expect(stored("main-products")?.answer_zh).toBe("new A");
+  });
+
+  it("noop_when_blob_missing", async () => {
+    // No faq key on enriched_data
+    submissionEnrichedData = { description: "brand description" };
+    const result = await materializeSubmissionFaq(SUBMISSION_ID, BRAND_ID, {
+      client: client(),
+    });
+    expect(result).toBeNull();
+    expect(upsertCalls).toHaveLength(0);
+
+    // Submission row not found at all
+    submissionEnrichedData = null;
+    const result2 = await materializeSubmissionFaq(SUBMISSION_ID, BRAND_ID, {
+      client: client(),
+    });
+    expect(result2).toBeNull();
+    expect(upsertCalls).toHaveLength(0);
+  });
+
+  it("skips_malformed_blob", async () => {
+    submissionEnrichedData = { faq: "not-valid" };
+    const result = await materializeSubmissionFaq(SUBMISSION_ID, BRAND_ID, {
+      client: client(),
+    });
+    expect(result).toBeNull();
+    expect(upsertCalls).toHaveLength(0);
+  });
+
+  it("propagates_upsert_failure", async () => {
+    submissionEnrichedData = {
+      faq: {
+        entries: [
+          {
+            presetId: "main-products",
+            position: 0,
+            questionZh: "Q",
+            answerZh: "A",
+          },
+        ],
+        explicit: false,
+      },
+    };
+
+    // Create a failing client: reads succeed, but the upsert on
+    // brand_faq_entries rejects.
+    const failingClient = {
+      from(tableName: string) {
+        if (tableName === "brand_submissions") {
+          return createClientDouble().from(tableName);
+        }
+        // brand_faq_entries: select succeeds (returns empty), upsert rejects
+        const eqFilters: Array<[string, unknown]> = [];
+        return {
+          select() {
+            return this;
+          },
+          eq(column: string, value: unknown) {
+            eqFilters.push([column, value]);
+            return this;
+          },
+          upsert(): Promise<{ error: { message: string } }> {
+            return Promise.resolve({
+              error: { message: "upsert failed" },
+            });
+          },
+          then(
+            resolve: (result: { data: EntryRow[] | null; error: null }) => unknown,
+          ) {
+            return Promise.resolve(resolve({ data: [], error: null }));
+          },
+        };
+      },
+    };
+
+    await expect(
+      materializeSubmissionFaq(SUBMISSION_ID, BRAND_ID, {
+        client: failingClient as unknown as FaqSupabase,
+      }),
+    ).rejects.toMatchObject({ message: "upsert failed" });
   });
 });

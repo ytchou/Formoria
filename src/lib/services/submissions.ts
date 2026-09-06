@@ -53,6 +53,7 @@ import { slugifyRomanizedName } from "@/lib/brands/slug";
 import { L1_CATEGORIES } from "@/lib/taxonomy/ontology";
 import { upsertEnrichedStockists } from "./stockists";
 import { promoteApprovedBrandImages } from "./promote-submission-images";
+import { materializeSubmissionFaq } from "./brand-faq";
 import { normalizeCommunityWebsite } from "./community-submissions";
 import {
   ONLINE_STORE_CAMEL_FIELDS,
@@ -2030,6 +2031,15 @@ export async function applyBrandRefresh(
 
       await promoteApprovedBrandImages(submission.brand_id);
 
+      try {
+        await materializeSubmissionFaq(submissionId, submission.brand_id);
+      } catch (err) {
+        console.error(
+          "[applyBrandRefresh] materializeSubmissionFaq failed:",
+          { submissionId, error: err },
+        );
+      }
+
       return { brandId: submission.brand_id, cleanupFailed };
     },
   );
@@ -2428,9 +2438,14 @@ export async function approveSubmission(
         }
       }
 
-      // No FAQ write here on purpose: `brand_faq_entries` is written only by the
-      // `faq` enrichment phase, behind the preset validators. An approved brand
-      // renders the template floors until that phase runs against it.
+      try {
+        await materializeSubmissionFaq(submission.id, approval.brand_id);
+      } catch (err) {
+        console.error(
+          "[approveSubmission] materializeSubmissionFaq failed:",
+          { submissionId: submission.id, error: err },
+        );
+      }
 
       return {
         brandId: approval.brand_id,

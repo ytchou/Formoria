@@ -10,6 +10,7 @@ import {
 import type { Database } from "@/lib/supabase/database.types";
 import { auditedCall, type AuditCallContext } from "@/lib/audit";
 import { reportBannedTerms } from "@/lib/i18n/banned-terms";
+import { parseSubmissionFaqPatch } from "@/lib/types/enriched-data";
 
 export type TFn = (key: string, params?: Record<string, unknown>) => string;
 
@@ -387,4 +388,66 @@ async function pruneOrphanedCustomEntries(
     .eq("source", "model")
     .gte("position", cutoff);
   if (error) throw error;
+}
+
+/**
+ * Reads `enriched_data.faq` from a submission row, validates it, and
+ * materializes the entries into `brand_faq_entries` via `upsertBrandFaqEntries`.
+ *
+ * Called at apply/approve time — the 20 s approval timeout forbids an LLM call,
+ * so the blob must already be populated by the enrichment pipeline.
+ */
+export async function materializeSubmissionFaq(
+  submissionId: string,
+  brandId: string,
+  options: { client?: FaqSupabase } = {},
+): Promise<{ entries: number; explicit: boolean } | null> {
+  return auditedCall(
+    {
+      provider: "brands",
+      operation: "materializeSubmissionFaq",
+      kind: "service",
+    },
+    async () => {
+      const supabase = faqClient(options.client);
+      const { data, error } = await supabase
+        .from("brand_submissions")
+        .select("enriched_data")
+        .eq("id", submissionId)
+        .single();
+
+      if (error || !data) {
+        console.warn(
+          `materializeSubmissionFaq: submission ${submissionId} not found`,
+        );
+        return null;
+      }
+
+      const enrichedData = (data as { enriched_data?: Record<string, unknown> })
+        .enriched_data;
+      const patch = parseSubmissionFaqPatch(enrichedData?.faq);
+      if (!patch) {
+        console.warn(
+          `materializeSubmissionFaq: no valid faq patch on submission ${submissionId}`,
+        );
+        return null;
+      }
+
+      const entries: BrandFaqEntryInput[] = patch.entries.map((entry) => ({
+        presetId: entry.presetId,
+        position: entry.position,
+        questionZh: entry.questionZh,
+        answerZh: entry.answerZh,
+        questionEn: entry.questionEn,
+        answerEn: entry.answerEn,
+      }));
+
+      await upsertBrandFaqEntries(brandId, entries, {
+        explicitFaqPhase: patch.explicit,
+        client: options.client,
+      });
+
+      return { entries: entries.length, explicit: patch.explicit };
+    },
+  );
 }

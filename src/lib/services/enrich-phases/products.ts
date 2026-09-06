@@ -943,10 +943,10 @@ export async function runProductsPhase({
     return skipped("products phase not requested");
 
   const effectiveTarget = target ?? brandTarget(brand.id);
-  // Submission targets only, the same shape as `runFaqPhase`'s refusal to touch
-  // `brand_faq_entries` for a submission id — and for the mirror-image reason.
-  // A proposal is not a row: it rides `enriched_data.products[]` until a
-  // moderator ticks the keepers, so its only destination is a submission's blob.
+  // Submission targets only. Both products and FAQ now store proposals on the
+  // submission blob (`enriched_data.products[]` / `enriched_data.faq`) and
+  // materialize them at apply/approve time — `runFaqPhase` returns a
+  // `patch.faq` for the same reason this phase returns `patch.products`.
   // A brand-target patch is applied column by column to `brands`, which has no
   // `products` column, so carrying proposals there would fail the whole update
   // with a 42703 and take every other phase's field down with it. `runEnrich`
