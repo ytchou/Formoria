@@ -178,6 +178,7 @@ describe('pullSnapshot', () => {
 
   it('--add includes a new name', async () => {
     const api = makeApi({
+      descriptions: { version: 2, prompt: 'desc', labels: ['production'] },
       'faq-custom': { version: 1, prompt: 'custom faq', labels: ['production'] },
     })
 
