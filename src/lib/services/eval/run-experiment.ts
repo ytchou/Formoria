@@ -18,7 +18,7 @@ export type ExperimentItem = {
   input: unknown
   expectedOutput: unknown
   humanApproval: {
-    reviewedVia?: string
+    reviewedVia?: { queueId: string; scoreId: string } | string | undefined
     at?: string
   }
 }
@@ -29,13 +29,16 @@ export type ExperimentArm = {
   value: string
 }
 
-type ItemResult = {
+export type ItemResult = {
   itemId: string
   ok: boolean
   scores: Record<string, number>
   error?: string
   costUsd: number
   latencyMs: number
+  output?: unknown
+  expected?: unknown
+  promptMeta?: { name: string; version: number } | 'fallback'
 }
 
 type ArmSummary = {
@@ -44,10 +47,11 @@ type ArmSummary = {
   p95LatencyMs: number
 }
 
-type ArmResult = {
+export type ArmResult = {
   arm: string
   items: ItemResult[]
   summary: ArmSummary
+  promptMeta?: { name: string; version: number } | 'fallback'
 }
 
 type ExperimentSummary = {
@@ -141,6 +145,7 @@ type RunItemsParams = {
     ok: boolean
     output: unknown
     error?: string
+    promptMeta?: { name: string; version: number } | 'fallback'
   }>
   adapter: PhaseAdapter
   concurrency: number
@@ -167,7 +172,7 @@ export async function runItems({
         const itemRunId = randomUUID()
 
         let lastError: string | undefined
-        let taskResult: { ok: boolean; output: unknown; error?: string } | null = null
+        let taskResult: { ok: boolean; output: unknown; error?: string; promptMeta?: { name: string; version: number } | 'fallback' } | null = null
 
         // Create a Langfuse trace for this item so emitLangfuseGeneration can link to it
         const langfuseTrace = createItemTrace?.(item.id, itemRunId) ?? undefined
@@ -212,6 +217,9 @@ export async function runItems({
             scores,
             costUsd: totalCost,
             latencyMs: totalLatency,
+            output: taskResult.output,
+            expected,
+            ...(taskResult.promptMeta !== undefined ? { promptMeta: taskResult.promptMeta } : {}),
           }
         }
 
@@ -228,6 +236,7 @@ export async function runItems({
           error: lastError,
           costUsd: totalCost,
           latencyMs: totalLatency,
+          ...(taskResult?.promptMeta !== undefined ? { promptMeta: taskResult.promptMeta } : {}),
         }
       }),
     ),
@@ -299,10 +308,10 @@ export async function runExperiment({
         )
 
         // Define the task for each item
-        const task = async (
+        const defaultTask = async (
           item: ExperimentItem,
           itemRunId: string,
-        ): Promise<{ ok: boolean; output: unknown; error?: string }> => {
+        ): Promise<{ ok: boolean; output: unknown; error?: string; promptMeta?: { name: string; version: number } | 'fallback' }> => {
           const result = await deps.callModel(
             {
               system: promptMeta.text,
@@ -331,12 +340,22 @@ export async function runExperiment({
           return { ok: true, output: unwrapped }
         }
 
+        // Use adapter.task when present, otherwise fall back to default callModel path
+        const task = adapter.task
+          ? (item: ExperimentItem, itemRunId: string) =>
+              adapter.task!(item, arm, { itemRunId, model: arm.type === 'model' ? arm.value : undefined })
+          : defaultTask
+
         // Build per-item trace factory for Langfuse generation linking
         const createItemTrace = deps.createTrace
           ? (itemId: string, itemRunId: string) =>
               deps.createTrace!({
                 name: makeTraceName(dataset, arm.name, itemId),
                 id: itemRunId,
+                metadata: {
+                  arm: arm.name,
+                  promptVersions: process.env.LANGFUSE_PROMPT_VERSIONS ?? null,
+                },
               })
           : undefined
 
@@ -361,6 +380,9 @@ export async function runExperiment({
         const costs = itemResults.map((r) => r.costUsd)
         const latencies = itemResults.map((r) => r.latencyMs)
 
+        // Derive promptMeta for the arm from the first item that has one
+        const armPromptMeta = itemResults.find((r) => r.promptMeta !== undefined)?.promptMeta
+
         armResults.push({
           arm: arm.name,
           items: itemResults,
@@ -369,6 +391,7 @@ export async function runExperiment({
             costPerItem: costs.length > 0 ? mean(costs) : 0,
             p95LatencyMs: p95(latencies),
           },
+          ...(armPromptMeta !== undefined ? { promptMeta: armPromptMeta } : {}),
         })
       } finally {
         // Restore per-arm environment
@@ -403,18 +426,49 @@ export async function runExperiment({
     }
 
     // Build markdown table
-    const markdown = buildMarkdownTable(armResults, adapter)
+    let markdown = buildMarkdownTable(armResults, adapter)
+
+    // Append summarize output if the adapter provides one
+    if (adapter.summarize) {
+      const summarizeOutput = adapter.summarize(armResults)
+      if (summarizeOutput) {
+        markdown += '\n\n' + summarizeOutput
+      }
+    }
 
     // Write run JSON
     const rn = makeRunName(dataset, arms.map((a) => a.name).join('+'), iso)
     const runData = {
       dataset,
-      arms: arms.map((a) => ({ name: a.name, type: a.type, value: a.value })),
+      arms: arms.map((a) => ({
+        name: a.name,
+        type: a.type,
+        value: a.value,
+        ...(armResults.find((ar) => ar.arm === a.name)?.promptMeta !== undefined
+          ? { promptMeta: armResults.find((ar) => ar.arm === a.name)!.promptMeta }
+          : {}),
+      })),
       items: armResults.flatMap((ar) =>
-        ar.items.map((ir) => ({
-          arm: ar.arm,
-          ...ir,
-        })),
+        ar.items.map((ir) => {
+          // Reduce output to {evaluations, selected, agentOutcome} for JSON
+          const reducedOutput = ir.output && typeof ir.output === 'object'
+            ? {
+                evaluations: (ir.output as Record<string, unknown>).evaluations,
+                selected: (ir.output as Record<string, unknown>).selected,
+                agentOutcome: (ir.output as Record<string, unknown>).agentOutcome,
+              }
+            : undefined
+          return {
+            arm: ar.arm,
+            itemId: ir.itemId,
+            ok: ir.ok,
+            scores: ir.scores,
+            ...(ir.error ? { error: ir.error } : {}),
+            costUsd: ir.costUsd,
+            latencyMs: ir.latencyMs,
+            ...(reducedOutput ? { output: reducedOutput } : {}),
+          }
+        }),
       ),
       scores: armResults.map((ar) => ({
         arm: ar.arm,

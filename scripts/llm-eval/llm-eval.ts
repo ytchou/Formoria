@@ -270,6 +270,16 @@ function extractEnvFile(args: readonly string[]): string | undefined {
 }
 
 // ---------------------------------------------------------------------------
+// isReviewed — requires humanApproval.reviewedVia (queue-based review)
+// ---------------------------------------------------------------------------
+
+export function isReviewed(item: { metadata?: unknown }): boolean {
+  const meta = item.metadata as Record<string, unknown> | undefined
+  const ha = meta?.humanApproval as Record<string, unknown> | undefined
+  return ha?.reviewedVia != null
+}
+
+// ---------------------------------------------------------------------------
 // Subcommand handlers
 // ---------------------------------------------------------------------------
 
@@ -294,11 +304,7 @@ async function cmdDatasetValidate(allowUnreviewed: boolean): Promise<void> {
     const { items } = await client.getDataset(name)
     const active = items.filter((i) => i.status === 'ACTIVE')
     const archived = items.filter((i) => i.status === 'ARCHIVED')
-    const reviewed = active.filter(
-      (i) =>
-        (i.metadata as Record<string, unknown> | undefined)?.humanApproval !==
-        undefined,
-    )
+    const reviewed = active.filter((i) => isReviewed(i))
     const unreviewed = active.length - reviewed.length
 
     if (unreviewed > 0) hasUnreviewed = true
@@ -317,7 +323,12 @@ async function cmdDatasetValidate(allowUnreviewed: boolean): Promise<void> {
 }
 
 async function cmdDatasetReviewEnqueue(dataset: string): Promise<void> {
-  const result = await enqueueDataset({ dataset, queueName: 'golden-review' })
+  const adapter = adapterFor(dataset)
+  const result = await enqueueDataset({
+    dataset,
+    queueName: 'golden-review',
+    reviewView: adapter.reviewView,
+  })
   console.log(`[enqueue] ${result.enqueued} items enqueued to queue "${result.queueName}"`)
   await flushLangfuse()
 }
@@ -357,7 +368,7 @@ async function cmdRun(
       input: i.input,
       expectedOutput: i.expectedOutput,
       humanApproval: (i.metadata as Record<string, unknown>)?.humanApproval as {
-        reviewedVia?: string
+        reviewedVia?: { queueId: string; scoreId: string } | string | undefined
         at?: string
       } ?? {},
     }))

@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
 import { z } from 'zod'
-import { enqueueDataset, applyVerdicts } from '../golden-review'
+import { enqueueDataset, applyVerdicts, prelabelItem } from '../golden-review'
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -84,6 +84,77 @@ describe('enqueueDataset', () => {
       queueId: 'queue-abc',
       traceId: 'trace-2',
     })
+  })
+
+  it('includes ARCHIVED items with humanApproval.status pending and excludes rejected/bare archived', async () => {
+    const traceFn = vi
+      .fn()
+      .mockReturnValueOnce({ id: 'trace-1' })
+      .mockReturnValueOnce({ id: 'trace-2' })
+    const enqueueFn = vi.fn().mockResolvedValue(undefined)
+
+    const items = [
+      makeItem({ id: 'active-1' }),
+      makeItem({
+        id: 'archived-pending',
+        status: 'ARCHIVED',
+        metadata: { humanApproval: { status: 'pending' } },
+      }),
+      makeItem({
+        id: 'archived-rejected',
+        status: 'ARCHIVED',
+        metadata: { humanApproval: { status: 'rejected' } },
+      }),
+      makeItem({
+        id: 'archived-bare',
+        status: 'ARCHIVED',
+      }),
+    ]
+
+    const result = await enqueueDataset({
+      dataset: 'detect-confidence-golden',
+      queueName: 'golden-review',
+      deps: {
+        getDataset: vi.fn().mockResolvedValue({ items }),
+        trace: traceFn,
+        findQueueByName: vi.fn().mockResolvedValue('queue-abc'),
+        enqueueTrace: enqueueFn,
+      },
+    })
+
+    expect(result.enqueued).toBe(2)
+    const tracedIds = traceFn.mock.calls.map(
+      (c) => (c[0] as { metadata: { itemId: string } }).metadata.itemId,
+    )
+    expect(tracedIds).toEqual(['active-1', 'archived-pending'])
+  })
+
+  it('uses reviewView for the trace input when provided', async () => {
+    const traceFn = vi.fn().mockReturnValue({ id: 'trace-1' })
+    const enqueueFn = vi.fn().mockResolvedValue(undefined)
+
+    const items = [
+      makeItem({
+        id: 'item-1',
+        input: { brand: 'test', pool: [{ url: 'https://a.com' }] },
+      }),
+    ]
+
+    const result = await enqueueDataset({
+      dataset: 'test-dataset',
+      queueName: 'golden-review',
+      reviewView: (_item) => ({ projected: true }),
+      deps: {
+        getDataset: vi.fn().mockResolvedValue({ items }),
+        trace: traceFn,
+        findQueueByName: vi.fn().mockResolvedValue('queue-abc'),
+        enqueueTrace: enqueueFn,
+      },
+    })
+
+    expect(result.enqueued).toBe(1)
+    const traceInput = (traceFn.mock.calls[0]![0] as { input: unknown }).input
+    expect(traceInput).toEqual({ projected: true })
   })
 })
 
@@ -303,5 +374,164 @@ describe('applyVerdicts', () => {
       edited: 0,
       pending: 2,
     })
+  })
+
+  it('sets status ACTIVE on approve and on edit', async () => {
+    const createDatasetItem = vi.fn().mockResolvedValue({})
+
+    await applyVerdicts({
+      dataset: 'detect-confidence-golden',
+      queueName: 'golden-review',
+      approvedBy: 'patrick',
+      deps: baseDeps({
+        listScores: vi.fn().mockResolvedValue([
+          {
+            id: 'score-a',
+            name: 'golden_verdict',
+            value: 1,
+            traceId: 'trace-1',
+            queueId: 'q-1',
+          },
+          {
+            id: 'score-e',
+            name: 'golden_verdict',
+            value: 0.5,
+            traceId: 'trace-2',
+            queueId: 'q-1',
+            comment: '{"confidence":"medium"}',
+          },
+        ]),
+        getTrace: vi.fn().mockImplementation((traceId: string) => {
+          const map: Record<string, string> = {
+            'trace-1': 'item-1',
+            'trace-2': 'item-2',
+          }
+          return Promise.resolve({ metadata: { itemId: map[traceId] } })
+        }),
+        createDatasetItem,
+      }),
+    })
+
+    expect(createDatasetItem).toHaveBeenCalledTimes(2)
+
+    // Approve body carries status ACTIVE
+    const approveBody = createDatasetItem.mock.calls[0]![0] as Record<
+      string,
+      unknown
+    >
+    expect(approveBody.status).toBe('ACTIVE')
+
+    // Edit body carries status ACTIVE
+    const editBody = createDatasetItem.mock.calls[1]![0] as Record<
+      string,
+      unknown
+    >
+    expect(editBody.status).toBe('ACTIVE')
+  })
+})
+
+// ---------------------------------------------------------------------------
+// prelabelItem
+// ---------------------------------------------------------------------------
+
+describe('prelabelItem', () => {
+  const productsSchema = z.object({
+    decisions: z.array(
+      z.object({
+        candidateUrl: z.string(),
+        selected: z.boolean(),
+        approvedBand: z.string().optional(),
+        relativeRank: z.number().optional(),
+      }),
+    ),
+  })
+
+  it('upserts expectedOutput + prelabel + boundaryTags on the stable id, keeps ARCHIVED + pending, rejects absent candidateUrl', async () => {
+    const existingItem = {
+      id: 'item-1',
+      status: 'ARCHIVED',
+      input: {
+        pool: [
+          { url: 'https://shop.com/a', title: 'A' },
+          { url: 'https://shop.com/b', title: 'B' },
+        ],
+      },
+      expectedOutput: null,
+      metadata: { someExisting: true },
+    }
+
+    const createDatasetItem = vi.fn().mockResolvedValue({})
+
+    await prelabelItem(
+      {
+        dataset: 'products-editorial-score-golden',
+        itemId: 'item-1',
+        expectedOutput: {
+          decisions: [
+            { candidateUrl: 'https://shop.com/a', selected: true },
+          ],
+        },
+        prelabel: {
+          author: 'system',
+          method: 'readPage',
+          status: 'draft',
+          rationale: 'auto',
+        },
+        boundaryTags: ['niche'],
+      },
+      {
+        getDataset: vi.fn().mockResolvedValue({ items: [existingItem] }),
+        createDatasetItem,
+        adapterFor: vi.fn().mockReturnValue({ expectedSchema: productsSchema }),
+      },
+    )
+
+    expect(createDatasetItem).toHaveBeenCalledTimes(1)
+    const body = createDatasetItem.mock.calls[0]![0] as Record<
+      string,
+      unknown
+    >
+
+    expect(body.id).toBe('item-1')
+    expect(body.status).toBe('ARCHIVED')
+    expect(body.expectedOutput).toEqual({
+      decisions: [{ candidateUrl: 'https://shop.com/a', selected: true }],
+    })
+
+    const meta = body.metadata as Record<string, unknown>
+    expect(meta.prelabel).toEqual({
+      author: 'system',
+      method: 'readPage',
+      status: 'draft',
+      rationale: 'auto',
+    })
+    expect(meta.boundaryTags).toEqual(['niche'])
+    expect(meta.humanApproval).toEqual({ status: 'pending' })
+    // Preserves existing metadata
+    expect(meta.someExisting).toBe(true)
+
+    // --- Part 2: rejects absent candidateUrl ---
+    await expect(
+      prelabelItem(
+        {
+          dataset: 'products-editorial-score-golden',
+          itemId: 'item-1',
+          expectedOutput: {
+            decisions: [
+              { candidateUrl: 'https://shop.com/MISSING', selected: false },
+            ],
+          },
+          prelabel: { author: 'system', method: 'readPage', status: 'draft' },
+          boundaryTags: [],
+        },
+        {
+          getDataset: vi.fn().mockResolvedValue({ items: [existingItem] }),
+          createDatasetItem: vi.fn().mockResolvedValue({}),
+          adapterFor: vi
+            .fn()
+            .mockReturnValue({ expectedSchema: productsSchema }),
+        },
+      ),
+    ).rejects.toThrow(/MISSING/)
   })
 })

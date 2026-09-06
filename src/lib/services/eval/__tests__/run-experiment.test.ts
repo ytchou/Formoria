@@ -502,6 +502,218 @@ describe('runExperiment', () => {
     expect(parsed).toHaveProperty('items')
     expect(parsed).toHaveProperty('scores')
   })
+
+  it('uses adapter.task instead of callModel when present', async () => {
+    const callModel = vi.fn()
+    const customTask = vi.fn().mockResolvedValue({
+      ok: true,
+      output: { answer: 42 },
+    })
+
+    const adapter = makeAdapter({
+      task: customTask,
+    })
+
+    const result = await runExperiment({
+      dataset: 'test-golden',
+      arms: [makeArm()],
+      adapter,
+      items: [makeItem()],
+      deps: {
+        callModel,
+        writeFile: vi.fn(),
+        now: () => new Date('2026-09-04'),
+        flushLangfuse: vi.fn(),
+        fetchPrompt: vi.fn().mockResolvedValue({ text: 'prompt', prompt: null }),
+        installSeams: () => ({ collector: makeCollector(), restore: vi.fn() }),
+        assertNoNewAuditRows: vi.fn(),
+        runWithAuditContext: <T>(_seed: unknown, fn: () => T): T => fn(),
+        getAuditContext: () => ({ correlationId: null }),
+      },
+    })
+
+    // callModel should never have been invoked
+    expect(callModel).not.toHaveBeenCalled()
+
+    // customTask should have been called with the right shape
+    expect(customTask).toHaveBeenCalledTimes(1)
+    const [item, arm, ctx] = customTask.mock.calls[0]!
+    expect(item.id).toBe('item-1')
+    expect(arm.name).toBe('gpt-5.6')
+    expect(ctx).toHaveProperty('itemRunId')
+    expect(ctx.model).toBe('gpt-5.6-luna')
+
+    // Result should be successful
+    expect(result.summary.succeeded).toBe(1)
+  })
+
+  it('item results retain output and expected for summarize', async () => {
+    const customTask = vi.fn().mockResolvedValue({
+      ok: true,
+      output: { evaluations: {}, selected: [] },
+    })
+
+    const summarize = vi.fn().mockReturnValue('## Summary')
+
+    const adapter = makeAdapter({
+      task: customTask,
+      summarize,
+    })
+
+    const result = await runExperiment({
+      dataset: 'test-golden',
+      arms: [makeArm()],
+      adapter,
+      items: [makeItem()],
+      deps: {
+        callModel: vi.fn(),
+        writeFile: vi.fn(),
+        now: () => new Date('2026-09-04'),
+        flushLangfuse: vi.fn(),
+        fetchPrompt: vi.fn().mockResolvedValue({ text: 'prompt', prompt: null }),
+        installSeams: () => ({ collector: makeCollector(), restore: vi.fn() }),
+        assertNoNewAuditRows: vi.fn(),
+        runWithAuditContext: <T>(_seed: unknown, fn: () => T): T => fn(),
+        getAuditContext: () => ({ correlationId: null }),
+      },
+    })
+
+    // summarize was called with ArmResult[] that carries output/expected per item
+    expect(summarize).toHaveBeenCalledTimes(1)
+    const armResults = summarize.mock.calls[0]![0]
+    expect(armResults).toBeInstanceOf(Array)
+    const firstItem = armResults[0].items[0]
+    expect(firstItem).toHaveProperty('output')
+    expect(firstItem).toHaveProperty('expected')
+
+    // Markdown includes the summarize output
+    expect(result.markdown).toContain('## Summary')
+  })
+
+  it('writes arm and promptVersions into createTrace metadata', async () => {
+    const createTrace = vi.fn().mockReturnValue({})
+
+    const callModel = vi.fn().mockResolvedValue({
+      ok: true,
+      content: JSON.stringify({ isNonBrand: false }),
+    })
+
+    await runExperiment({
+      dataset: 'test-golden',
+      arms: [makeArm({ name: 'arm-v1' })],
+      adapter: makeAdapter(),
+      items: [makeItem()],
+      deps: {
+        callModel,
+        writeFile: vi.fn(),
+        now: () => new Date('2026-09-04'),
+        flushLangfuse: vi.fn(),
+        fetchPrompt: vi.fn().mockResolvedValue({ text: 'prompt', prompt: null }),
+        installSeams: () => ({ collector: makeCollector(), restore: vi.fn() }),
+        assertNoNewAuditRows: vi.fn(),
+        runWithAuditContext: <T>(_seed: unknown, fn: () => T): T => fn(),
+        getAuditContext: () => ({ correlationId: null }),
+        createTrace,
+      },
+    })
+
+    expect(createTrace).toHaveBeenCalled()
+    const traceCall = createTrace.mock.calls[0]![0]
+    expect(traceCall.metadata).toHaveProperty('arm', 'arm-v1')
+    expect(traceCall.metadata).toHaveProperty('promptVersions')
+  })
+
+  it('reviewedVia object is accepted by the approval gate', async () => {
+    const callModel = vi.fn().mockResolvedValue({
+      ok: true,
+      content: JSON.stringify({ isNonBrand: false }),
+    })
+
+    // Item with object-typed reviewedVia should pass the gate
+    const itemWithObject = makeItem({
+      humanApproval: { reviewedVia: { queueId: 'q-1', scoreId: 's-1' } as never, at: '2026-09-04' },
+    })
+
+    const result = await runExperiment({
+      dataset: 'test-golden',
+      arms: [makeArm()],
+      adapter: makeAdapter(),
+      items: [itemWithObject],
+      deps: {
+        callModel,
+        writeFile: vi.fn(),
+        now: () => new Date('2026-09-04'),
+        flushLangfuse: vi.fn(),
+        fetchPrompt: vi.fn().mockResolvedValue({ text: 'prompt', prompt: null }),
+        installSeams: () => ({ collector: makeCollector(), restore: vi.fn() }),
+        assertNoNewAuditRows: vi.fn(),
+        runWithAuditContext: <T>(_seed: unknown, fn: () => T): T => fn(),
+        getAuditContext: () => ({ correlationId: null }),
+      },
+    })
+
+    expect(result.summary.succeeded).toBe(1)
+
+    // Item with undefined reviewedVia should be refused
+    const itemWithUndefined = makeItem({
+      humanApproval: {},
+    })
+
+    await expect(
+      runExperiment({
+        dataset: 'test-golden',
+        arms: [makeArm()],
+        adapter: makeAdapter(),
+        items: [itemWithUndefined],
+        deps: {
+          callModel,
+          writeFile: vi.fn(),
+          now: () => new Date('2026-09-04'),
+          flushLangfuse: vi.fn(),
+          fetchPrompt: vi.fn().mockResolvedValue({ text: 'prompt', prompt: null }),
+          installSeams: () => ({ collector: makeCollector(), restore: vi.fn() }),
+          assertNoNewAuditRows: vi.fn(),
+          runWithAuditContext: <T>(_seed: unknown, fn: () => T): T => fn(),
+          getAuditContext: () => ({ correlationId: null }),
+        },
+      }),
+    ).rejects.toThrow(/reviewedVia/)
+  })
+
+  it('run JSON carries promptMeta per arm', async () => {
+    const writeFile = vi.fn()
+    const customTask = vi.fn().mockResolvedValue({
+      ok: true,
+      output: { answer: 42 },
+      promptMeta: { name: 'products-propose', version: 3 },
+    })
+
+    const adapter = makeAdapter({
+      task: customTask,
+    })
+
+    await runExperiment({
+      dataset: 'test-golden',
+      arms: [makeArm()],
+      adapter,
+      items: [makeItem()],
+      deps: {
+        callModel: vi.fn(),
+        writeFile,
+        now: () => new Date('2026-09-04T12:00:00.000Z'),
+        flushLangfuse: vi.fn(),
+        fetchPrompt: vi.fn().mockResolvedValue({ text: 'prompt', prompt: null }),
+        installSeams: () => ({ collector: makeCollector(), restore: vi.fn() }),
+        assertNoNewAuditRows: vi.fn(),
+        runWithAuditContext: <T>(_seed: unknown, fn: () => T): T => fn(),
+        getAuditContext: () => ({ correlationId: null }),
+      },
+    })
+
+    expect(writeFile).toHaveBeenCalledTimes(1)
+    const parsed = JSON.parse(writeFile.mock.calls[0]![1] as string)
+    expect(parsed.arms[0]).toHaveProperty('promptMeta')
+  })
 })
 
 describe('runItems export', () => {

@@ -70,10 +70,13 @@ function verdictFromValue(value: number): Verdict {
 export async function enqueueDataset({
   dataset,
   queueName,
+  reviewView,
   deps,
 }: {
   dataset: string
   queueName: string
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  reviewView?: (item: any) => unknown
   deps?: EnqueueDeps
 }): Promise<{ enqueued: number; queueName: string }> {
   const getDatasetFn =
@@ -101,12 +104,20 @@ export async function enqueueDataset({
   const { items } = await getDatasetFn(dataset)
   const queueId = await findQueueFn(queueName)
 
-  const activeItems = items.filter((item) => item.status === 'ACTIVE')
+  const eligible = items.filter((item) => {
+    if (item.status === 'ACTIVE') return true
+    if (item.status === 'ARCHIVED') {
+      const meta = item.metadata as Record<string, unknown> | undefined
+      const ha = meta?.humanApproval as Record<string, unknown> | undefined
+      return ha?.status === 'pending'
+    }
+    return false
+  })
 
-  for (const item of activeItems) {
+  for (const item of eligible) {
     const trace = traceFn({
       name: `golden-review:${dataset}:${item.id}`,
-      input: item.input,
+      input: reviewView ? reviewView(item) : item.input,
       metadata: { datasetName: dataset, itemId: item.id },
       output: { expectedOutput: item.expectedOutput },
     })
@@ -114,7 +125,7 @@ export async function enqueueDataset({
     await enqueueFn({ queueId, traceId: trace.id })
   }
 
-  return { enqueued: activeItems.length, queueName }
+  return { enqueued: eligible.length, queueName }
 }
 
 // ---------------------------------------------------------------------------
@@ -231,6 +242,7 @@ export async function applyVerdicts({
         body: {
           datasetName: dataset,
           id: itemId,
+          status: 'ACTIVE',
           input: item.input,
           expectedOutput: item.expectedOutput,
           metadata: {
@@ -293,6 +305,7 @@ export async function applyVerdicts({
         body: {
           datasetName: dataset,
           id: itemId,
+          status: 'ACTIVE',
           input: item.input,
           expectedOutput: mergedExpected,
           metadata: {
@@ -331,4 +344,117 @@ export async function applyVerdicts({
   }
 
   return { processed: writes.length, pending, summary }
+}
+
+// ---------------------------------------------------------------------------
+// prelabelItem
+// ---------------------------------------------------------------------------
+
+export type PrelabelDeps = {
+  getDataset: (name: string) => Promise<{ items: DatasetItemLike[] }>
+  createDatasetItem: (body: Record<string, unknown>) => Promise<unknown>
+  adapterFor: (name: string) => { expectedSchema: ZodObject<ZodRawShape> }
+}
+
+export async function prelabelItem(
+  {
+    dataset,
+    itemId,
+    expectedOutput,
+    prelabel,
+    boundaryTags,
+  }: {
+    dataset: string
+    itemId: string
+    expectedOutput: unknown
+    prelabel: {
+      author: string
+      method: string
+      status: string
+      rationale?: string
+    }
+    boundaryTags: string[]
+  },
+  deps?: PrelabelDeps,
+): Promise<void> {
+  const getDatasetFn =
+    deps?.getDataset ??
+    (async (name: string) => {
+      const client = getLangfuse()
+      if (!client) throw new Error('Langfuse client not available')
+      return client.getDataset(name)
+    })
+
+  const createDatasetItemFn =
+    deps?.createDatasetItem ??
+    (async (body: Record<string, unknown>) => {
+      const client = getLangfuse()
+      if (!client) throw new Error('Langfuse client not available')
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      return client.createDatasetItem(body as any)
+    })
+
+  const adapterForFn =
+    deps?.adapterFor ??
+    ((name: string) =>
+      defaultAdapterFor(name) as unknown as {
+        expectedSchema: ZodObject<ZodRawShape>
+      })
+
+  // 1. Look up the existing item
+  const { items } = await getDatasetFn(dataset)
+  const item = items.find((i) => i.id === itemId)
+  if (!item) {
+    throw new Error(`Item ${itemId} not found in dataset ${dataset}`)
+  }
+
+  // 2. Validate expectedOutput against the adapter's schema
+  const adapter = adapterForFn(dataset)
+  const validation = adapter.expectedSchema.safeParse(expectedOutput)
+  if (!validation.success) {
+    throw new Error(
+      `expectedOutput does not match schema: ${validation.error.message}`,
+    )
+  }
+
+  // 3. Validate every candidateUrl exists in the item's input pool
+  const poolUrls = new Set(
+    (
+      (item.input as Record<string, unknown>)?.pool as
+        | Array<{ url: string }>
+        | undefined
+    )?.map((p) => p.url) ?? [],
+  )
+  const decisions = (
+    expectedOutput as {
+      decisions?: Array<{ candidateUrl: string }>
+    }
+  )?.decisions
+  if (decisions) {
+    for (const d of decisions) {
+      if (!poolUrls.has(d.candidateUrl)) {
+        throw new Error(
+          `candidateUrl "${d.candidateUrl}" not found in item input pool`,
+        )
+      }
+    }
+  }
+
+  // 4. Upsert the item — keep ARCHIVED + humanApproval.status pending
+  const existingMeta =
+    (item.metadata as Record<string, unknown> | null) ?? {}
+
+  await createDatasetItemFn({
+    datasetName: dataset,
+    id: itemId,
+    input: item.input,
+    expectedOutput,
+    status: 'ARCHIVED',
+    metadata: {
+      ...existingMeta,
+      prelabel,
+      boundaryTags,
+      humanApproval: { status: 'pending' },
+    },
+  })
 }

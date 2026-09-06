@@ -8,6 +8,7 @@ import {
   parseArm,
   applyEnvFile,
   handlePromptPush,
+  isReviewed,
 } from '../llm-eval'
 
 // ---------------------------------------------------------------------------
@@ -205,5 +206,38 @@ describe('handlePromptPush', () => {
     })
 
     expect(logs.join('\n')).toContain('detect v3')
+  })
+})
+
+// ---------------------------------------------------------------------------
+// isReviewed
+// ---------------------------------------------------------------------------
+
+describe('isReviewed', () => {
+  it('requires humanApproval.reviewedVia', () => {
+    // Bulk-approved: has humanApproval but no reviewedVia → unreviewed
+    expect(
+      isReviewed({
+        metadata: { humanApproval: { status: 'approved' } },
+      }),
+    ).toBe(false)
+
+    // Human-reviewed via queue: has reviewedVia → reviewed
+    expect(
+      isReviewed({
+        metadata: {
+          humanApproval: {
+            status: 'approved',
+            reviewedVia: { queueId: 'q-1', scoreId: 's-1' },
+          },
+        },
+      }),
+    ).toBe(true)
+
+    // No humanApproval at all → unreviewed
+    expect(isReviewed({ metadata: {} })).toBe(false)
+
+    // No metadata → unreviewed
+    expect(isReviewed({})).toBe(false)
   })
 })
