@@ -5,8 +5,8 @@
  * there is no `enriched_data` indirection — every value on both sides is read
  * straight off the column the site renders from.
  *
- *   pnpm exec tsx scripts/curation-rerun/render.ts
- *   pnpm exec tsx scripts/curation-rerun/render.ts --cohort batch1-never-curated
+ *   pnpm exec tsx scripts/enrichment/run/render.ts
+ *   pnpm exec tsx scripts/enrichment/run/render.ts --cohort batch1-never-curated
  *
  * Staging is the default; pass --target production to run against production.
  */

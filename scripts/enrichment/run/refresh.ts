@@ -40,15 +40,15 @@
  * difference is which copy of it, and whose machine has to stay awake.
  *
  * THIS MUTATES PRODUCTION. Take
- * `scripts/curation-rerun/snapshot.ts --out before.json` first; that file is
+ * `scripts/enrichment/run/snapshot.ts --out before.json` first; that file is
  * the rollback copy.
  *
- *   pnpm exec tsx scripts/curation-rerun/refresh.ts --dry-run
- *   pnpm exec tsx scripts/curation-rerun/refresh.ts --confirm
- *   pnpm exec tsx scripts/curation-rerun/refresh.ts --cohort batch1-never-curated --confirm --via-worker
- *   pnpm exec tsx scripts/curation-rerun/refresh.ts --task product --confirm
- *   pnpm exec tsx scripts/curation-rerun/refresh.ts --task product --no-apply --confirm
- *   pnpm exec tsx scripts/curation-rerun/refresh.ts --task product --local-render --no-apply --confirm
+ *   pnpm exec tsx scripts/enrichment/run/refresh.ts --dry-run
+ *   pnpm exec tsx scripts/enrichment/run/refresh.ts --confirm
+ *   pnpm exec tsx scripts/enrichment/run/refresh.ts --cohort batch1-never-curated --confirm --via-worker
+ *   pnpm exec tsx scripts/enrichment/run/refresh.ts --task product --confirm
+ *   pnpm exec tsx scripts/enrichment/run/refresh.ts --task product --no-apply --confirm
+ *   pnpm exec tsx scripts/enrichment/run/refresh.ts --task product --local-render --no-apply --confirm
  *
  * Staging is the default; pass --target production to run against production.
  */

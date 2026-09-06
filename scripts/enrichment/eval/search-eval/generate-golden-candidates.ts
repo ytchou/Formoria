@@ -2,7 +2,7 @@
  * Query the curated product catalog and print candidate brand/product
  * pairs for the golden set.
  *
- * Usage: pnpm exec tsx scripts/search-eval/generate-golden-candidates.ts --target staging
+ * Usage: pnpm exec tsx scripts/enrichment/eval/search-eval/generate-golden-candidates.ts --target staging
  */
 import { loadScriptTarget } from "../../../shared/target";
 import { getPublishedCuratedProducts } from "@/lib/services/curated-products-catalog";

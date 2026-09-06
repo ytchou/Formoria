@@ -4,7 +4,7 @@ import type { PhaseAdapter } from './phase-adapters'
 import type { AuditCollector } from './zero-write'
 import { runName as makeRunName, traceName as makeTraceName } from './langfuse-runs'
 /**
- * Reused from scripts/search-eval/metrics.ts — no third implementation.
+ * Reused from scripts/enrichment/eval/search-eval/metrics.ts — no third implementation.
  * Imported with a relative path because no @/ alias covers scripts/.
  */
 import { p95, mean } from '../../../../scripts/enrichment/eval/search-eval/metrics'

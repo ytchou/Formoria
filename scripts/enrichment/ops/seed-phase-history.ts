@@ -18,8 +18,8 @@
  * backfill, every pre-existing brand would be re-enriched on its next run.
  *
  * Usage:
- *   pnpm exec tsx scripts/seed-phase-history.ts
- *   pnpm exec tsx scripts/seed-phase-history.ts --dry-run
+ *   pnpm exec tsx scripts/enrichment/ops/seed-phase-history.ts
+ *   pnpm exec tsx scripts/enrichment/ops/seed-phase-history.ts --dry-run
  */
 
 import { createServiceClient } from '@/lib/supabase/service'

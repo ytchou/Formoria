@@ -18,14 +18,16 @@ export const REPO_ROOT = resolve(
   dirname(fileURLToPath(import.meta.url)),
   '..',
   '..',
+  '..',
+  '..',
 )
 export const PREVIEW_PATH = resolve(
   REPO_ROOT,
-  'scripts/resort-heroes/preview.json',
+  'scripts/enrichment/images/resort-heroes/preview.json',
 )
 export const COMPLETED_PATH = resolve(
   REPO_ROOT,
-  'scripts/resort-heroes/completed.jsonl',
+  'scripts/enrichment/images/resort-heroes/completed.jsonl',
 )
 // Restore manifests live beside the review artifact, outside the repo: they are
 // the only rollback path for ~844 mutated brands, and inside the repo they were

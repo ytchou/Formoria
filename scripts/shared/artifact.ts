@@ -1,8 +1,8 @@
 /**
  * Shared artifact helpers for operator scripts that render a local review page.
  *
- * Hoisted from scripts/curation-rerun/render.ts and
- * scripts/resort-heroes/render.ts, which carried byte-identical copies of the
+ * Hoisted from scripts/enrichment/run/render.ts and
+ * scripts/enrichment/images/resort-heroes/render.ts, which carried byte-identical copies of the
  * artifact root, the stamped filename builder, and the HTML escaper. The
  * module deliberately depends on nothing but `node:` builtins, so importing it
  * does not couple two otherwise-independent operator scripts to each other.

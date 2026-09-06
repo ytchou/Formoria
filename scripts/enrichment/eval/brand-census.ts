@@ -2,7 +2,7 @@
  * Field-level before/after census of a cohort's brands.
  *
  * Registry metadata: class `operator`, target `staging-default`, safety
- * `read-only`. The marker block itself lives in `scripts/dev-1644/README.md` —
+ * `read-only`. The marker block itself lives in `scripts/enrichment/README.md` —
  * the registry gate allows exactly one header-bearing entry per directory, so a
  * second one here would fail `pnpm check:script-registry`.
  *
@@ -11,9 +11,9 @@
  * client structurally cannot write (`createWriteBlockingClient`) and the target
  * guard refuses the production project unless it is named twice.
  *
- *   pnpm exec tsx --env-file=.env.staging scripts/dev-1644/brand-census.ts \
+ *   pnpm exec tsx --env-file=.env.staging scripts/enrichment/eval/brand-census.ts \
  *     --cohort dev-1644-routing-pilot --out docs/dev-1644/census-before.json
- *   pnpm exec tsx scripts/dev-1644/brand-census.ts --diff before.json after.json
+ *   pnpm exec tsx scripts/enrichment/eval/brand-census.ts --diff before.json after.json
  */
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { dirname, resolve } from "node:path";

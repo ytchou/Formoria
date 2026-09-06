@@ -1180,7 +1180,7 @@ async function classifyChunk(
     meta: {
       imageIds: sendable.map(({ image }) => image.id),
       // INVARIANT: canonical brand_images.url, never the data URIs we actually
-      // sent. `scripts/curate-brands.ts` zips this by index against the
+      // sent. `scripts/enrichment/run/curate-brands.ts` zips this by index against the
       // classifications to key golden-set labels by URL, and base64 here would
       // also dump megabytes into every audit row.
       imageUrls: sendable.map(({ image }) => image.url),

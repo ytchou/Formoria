@@ -22,10 +22,10 @@ import {
 /**
  * Curated-product link health and review-due report (DEV-1404).
  *
- *   pnpm exec tsx --env-file=.env.local scripts/curated-products/check-links.ts
- *   pnpm exec tsx --env-file=.env.local scripts/curated-products/check-links.ts --apply
- *   pnpm exec tsx --env-file=.env.local scripts/curated-products/check-links.ts --brand=hanchor
- *   pnpm exec tsx --env-file=.env.local scripts/curated-products/check-links.ts --review-only
+ *   pnpm exec tsx --env-file=.env.local scripts/enrichment/products/curated-products/check-links.ts
+ *   pnpm exec tsx --env-file=.env.local scripts/enrichment/products/curated-products/check-links.ts --apply
+ *   pnpm exec tsx --env-file=.env.local scripts/enrichment/products/curated-products/check-links.ts --brand=hanchor
+ *   pnpm exec tsx --env-file=.env.local scripts/enrichment/products/curated-products/check-links.ts --review-only
  *
  * TWO REPORTS, ONE RUN:
  *   1. link health — does each `official_url` still resolve;

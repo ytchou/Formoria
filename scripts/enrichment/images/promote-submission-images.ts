@@ -20,17 +20,17 @@
  * `brand-images` bucket is private. `promoteApprovedBrandImages` fixes every
  * FUTURE approval; this script fixes the rows that already exist.
  *
- * Audit-by-default, like `scripts/backfill-storage-paths.ts`:
+ * Audit-by-default, like `scripts/enrichment/images/backfill-storage-paths.ts`:
  *
- *   pnpm tsx scripts/promote-submission-images.ts             # audit, no writes
- *   pnpm tsx scripts/promote-submission-images.ts audit
- *   pnpm tsx scripts/promote-submission-images.ts promote --live
+ *   pnpm tsx scripts/enrichment/images/promote-submission-images.ts             # audit, no writes
+ *   pnpm tsx scripts/enrichment/images/promote-submission-images.ts audit
+ *   pnpm tsx scripts/enrichment/images/promote-submission-images.ts promote --live
  *
  * `promote` without `--live` is still a dry run.
  *
  * The source object is NEVER deleted. A promotion that removed the source
  * before the row update landed would be unrecoverable;
- * `scripts/brand-storage-maintenance.ts` can sweep the duplicates later, once
+ * `scripts/enrichment/images/brand-storage-maintenance.ts` can sweep the duplicates later, once
  * promotion is proven. Ceiling: the bucket carries one extra object per
  * promoted image until that sweep runs.
  *

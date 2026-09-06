@@ -17,11 +17,11 @@
  * had a path column and needed filling where null; three hero columns were
  * added by `20260822100000_add_hero_image_storage_path.sql` and start empty.
  *
- * Audit-by-default, like `scripts/brand-storage-maintenance.ts`:
+ * Audit-by-default, like `scripts/enrichment/images/brand-storage-maintenance.ts`:
  *
- *   pnpm tsx scripts/backfill-storage-paths.ts            # audit, no writes
- *   pnpm tsx scripts/backfill-storage-paths.ts audit
- *   pnpm tsx scripts/backfill-storage-paths.ts backfill --live
+ *   pnpm tsx scripts/enrichment/images/backfill-storage-paths.ts            # audit, no writes
+ *   pnpm tsx scripts/enrichment/images/backfill-storage-paths.ts audit
+ *   pnpm tsx scripts/enrichment/images/backfill-storage-paths.ts backfill --live
  *
  * `backfill` without `--live` is still a dry run.
  *

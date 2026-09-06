@@ -164,7 +164,7 @@ async function main(): Promise<void> {
         ? "Missing objects: run `pnpm db:sync:staging`, which copies the bytes."
         : "",
       report.counts["private-prefix"] > 0
-        ? "Deny-listed keys: run `pnpm tsx scripts/promote-submission-images.ts promote --live`."
+        ? "Deny-listed keys: run `pnpm tsx scripts/enrichment/images/promote-submission-images.ts promote --live`."
         : "",
     ]
       .filter(Boolean)

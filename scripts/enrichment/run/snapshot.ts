@@ -11,8 +11,8 @@
  * refresh rewrites those as well and restoring only `brands` would leave the
  * brand pointing at images that no longer exist.
  *
- *   pnpm exec tsx scripts/curation-rerun/snapshot.ts --out before.json
- *   pnpm exec tsx scripts/curation-rerun/snapshot.ts --cohort batch1-never-curated --out before.json
+ *   pnpm exec tsx scripts/enrichment/run/snapshot.ts --out before.json
+ *   pnpm exec tsx scripts/enrichment/run/snapshot.ts --cohort batch1-never-curated --out before.json
  *
  * Staging is the default; pass --target production to run against production.
  */
