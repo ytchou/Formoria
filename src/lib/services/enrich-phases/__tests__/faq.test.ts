@@ -722,11 +722,11 @@ const ENRICH_BRAND: EnrichBrand = {
 
 describe("runFaqPhase submission-only contract", () => {
   beforeEach(() => {
+    vi.clearAllMocks();
     vi.stubEnv("OPENAI_API_KEY", "test-key");
   });
   afterEach(() => {
     vi.unstubAllEnvs();
-    vi.restoreAllMocks();
   });
 
   it("refuses_non_submission_targets", async () => {
