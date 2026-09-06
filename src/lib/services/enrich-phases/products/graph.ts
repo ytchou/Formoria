@@ -33,7 +33,8 @@
 import { Annotation, END, START, StateGraph, GraphRecursionError } from '@langchain/langgraph'
 import { randomUUID } from 'node:crypto'
 
-import { fetchLangfusePrompt } from '@/lib/langfuse/prompt'
+import { fetchLangfusePrompt, fetchLangfusePromptWithMeta } from '@/lib/langfuse/prompt'
+import { renderEditorialBands } from '@/lib/constants/curated-products'
 import type { CuratedProductProposal } from '@/lib/types/enriched-data'
 import type { RenderProvider } from '../scraper/render/types'
 import type { ProductCandidate } from '../product-candidates'
@@ -84,7 +85,7 @@ import {
   type AgentModelResponse,
 } from '../agents/runtime'
 import type { ChatMessage } from '@/lib/services/openai-client'
-import { readProductPage, type ProductPageEvidence } from './read-page'
+import { readProductPage, type ProductPageEvidence, type ReadPageDeps } from './read-page'
 import {
   PRODUCTS_PROPOSE_SYSTEM_PROMPT,
   PRODUCTS_REPAIR_SYSTEM_PROMPT,
@@ -188,6 +189,12 @@ export type ProductsDeps = {
    * per-product classification loop.
    */
   classifyPageImages?: (handles: string[]) => Promise<RankableImage[]>
+  /**
+   * Optional override for the page reader. When present, `readNode` calls this
+   * instead of `readProductPage` — used by eval replay to inject pre-recorded
+   * evidence without hitting the network.
+   */
+  readPage?: (url: string, deps: ReadPageDeps) => Promise<ProductPageEvidence>
 }
 
 type RunOptions = {
@@ -322,19 +329,33 @@ type ProductsUpdate = Partial<ProductsStateType>
 // select
 // ---------------------------------------------------------------------------
 
-/** Pure: picks up to 12 candidates, prioritizing `priorityProductUrls`. */
-function selectNode(ctx: ProductsRunContext): ProductsUpdate {
-  const start = Date.now()
-  const pool = ctx.input.pool
-  const priority = new Set(ctx.input.priorityProductUrls ?? [])
-
+/**
+ * Pure ordering: priority urls first (in pool order), then the remaining pool,
+ * capped at `MAX_SELECT` (12). Exported so eval replay can call it without
+ * constructing a run context.
+ */
+export function selectCandidates(
+  pool: ProductCandidate[],
+  priorityUrls: string[] = [],
+): ProductCandidate[] {
+  const priority = new Set(priorityUrls)
   const prioritized = pool.filter((candidate) => priority.has(candidate.url))
   const rest = pool.filter((candidate) => !priority.has(candidate.url))
-  const selectedUrls = [...prioritized, ...rest].slice(0, MAX_SELECT).map((c) => c.url)
+  return [...prioritized, ...rest].slice(0, MAX_SELECT)
+}
+
+/** Picks up to 12 candidates, prioritizing `priorityProductUrls`. */
+function selectNode(ctx: ProductsRunContext): ProductsUpdate {
+  const start = Date.now()
+  const selected = selectCandidates(ctx.input.pool, ctx.input.priorityProductUrls)
+  const selectedUrls = selected.map((c) => c.url)
+  const prioritized = (ctx.input.priorityProductUrls ?? []).filter((u) =>
+    selectedUrls.includes(u),
+  )
 
   ctx.record(
     'select',
-    `selected ${selectedUrls.length} of ${pool.length} candidates`,
+    `selected ${selectedUrls.length} of ${ctx.input.pool.length} candidates`,
     `${prioritized.length} prioritized`,
     start,
   )
@@ -373,13 +394,14 @@ async function readNode(
       break
     }
 
-    const page = await readProductPage(url, {
+    const readPageDeps: ReadPageDeps = {
       fetchHtml: ctx.deps.fetchHtml ?? DEAD_FETCH,
       ...(ctx.deps.renderProvider ? { renderProvider: ctx.deps.renderProvider } : {}),
       budget: ctx.budget,
       ...(ctx.deps.loadOriginTexts ? { loadOriginTexts: ctx.deps.loadOriginTexts } : {}),
       candidateId: ctx.candidateIds.get(url) ?? url,
-    })
+    }
+    const page = await (ctx.deps.readPage ?? readProductPage)(url, readPageDeps)
     ctx.budget.used.reads += 1
     evidence.push(page)
 
@@ -458,12 +480,19 @@ async function proposeNode(
     }
   }
 
-  const basePrompt = await fetchLangfusePrompt(
+  const { text: compiledPrompt, prompt: meta } = await fetchLangfusePromptWithMeta(
     'products-propose',
     PRODUCTS_PROPOSE_SYSTEM_PROMPT,
+    { editorial_bands: renderEditorialBands() },
+  )
+  ctx.record(
+    'propose',
+    'prompt resolved',
+    `prompt=${meta ? `${meta.name}@${meta.version}` : 'fallback'}`,
+    start,
   )
   const systemPrompt = withSchema(
-    basePrompt,
+    compiledPrompt,
     'Curated Product Proposals',
     PRODUCTS_PROPOSAL_SHAPE,
     PRODUCTS_SCHEMA_TRAILER,
