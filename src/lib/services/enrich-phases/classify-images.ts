@@ -216,7 +216,7 @@ export const PORTRAIT_QUALITY_PRIOR = 6;
  * Images a human picked. The classifier must never retag, reorder away, or
  * delete these.
  *
- * The hero re-sort scripts under `scripts/resort-heroes/` need the identical
+ * The hero re-sort scripts under `scripts/enrichment/images/resort-heroes/` need the identical
  * rule; they get it through the exported `isExemptSource` function rather
  * than this constant, so a hand-copied `['owner', 'admin']` literal never
  * has to diverge and reorder somebody's hand-picked hero.
@@ -1180,7 +1180,7 @@ async function classifyChunk(
     meta: {
       imageIds: sendable.map(({ image }) => image.id),
       // INVARIANT: canonical brand_images.url, never the data URIs we actually
-      // sent. `scripts/curate-brands.ts` zips this by index against the
+      // sent. `scripts/enrichment/run/curate-brands.ts` zips this by index against the
       // classifications to key golden-set labels by URL, and base64 here would
       // also dump megabytes into every audit row.
       imageUrls: sendable.map(({ image }) => image.url),

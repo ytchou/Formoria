@@ -640,7 +640,7 @@ async function notifySubmissionRejected(
 /**
  * The single item workflow behind both the per-row and the bulk rejection
  * action, so single and bulk behavior cannot drift.
- * `scripts/reject-skipped-submissions.ts` mirrors this by comment, not by
+ * `scripts/enrichment/ops/reject-skipped-submissions.ts` mirrors this by comment, not by
  * import — it deliberately omits the notification email.
  */
 async function rejectSubmissionForAdmin(

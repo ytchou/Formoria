@@ -21,7 +21,7 @@ import { imagePathToUrl } from "@/lib/images/image-url";
  *   curated-products/<brand-id>/<product-id>/<sha256(image_source_url)>.webp
  *
  * `scripts/remove-brand.ts` and `STORAGE_KEY_PREFIXES` / `buildReferenceSet` in
- * `scripts/brand-storage-maintenance.ts` both derive references from exactly
+ * `scripts/enrichment/images/brand-storage-maintenance.ts` both derive references from exactly
  * this shape. Deviate and the maintenance sweep classifies these objects as
  * untracked and purges them after the soak window — and its
  * `expectedUntracked` tolerance is tight enough that a burst of abandoned
@@ -58,7 +58,7 @@ function isAllowedImageContentType(header: string | null): boolean {
  * Reads the body with a hard byte ceiling, streaming rather than buffering.
  *
  * Exported because the dimension backfill
- * (`scripts/curated-products/backfill-image-dimensions.ts`) reads stored objects
+ * (`scripts/enrichment/products/curated-products/backfill-image-dimensions.ts`) reads stored objects
  * too and must not grow a second capped-read implementation that drifts from
  * this one.
  *

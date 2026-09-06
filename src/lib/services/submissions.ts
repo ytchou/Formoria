@@ -2403,7 +2403,7 @@ export async function approveSubmission(
       // the moment it becomes public. `promoteApprovedBrandImages` never throws and
       // never deletes: approval must not fail because a copy failed, since a brand
       // with unservable images is recoverable (re-run
-      // `scripts/promote-submission-images.ts`) and a failed approval is not.
+      // `scripts/enrichment/images/promote-submission-images.ts`) and a failed approval is not.
       await promoteApprovedBrandImages(approval.brand_id);
 
       // The maps producer is gone, but pending submissions can still carry legacy

@@ -41,7 +41,7 @@ export type CuratedProductPrefill = {
 
 /**
  * The narrowest fetch shape this service needs. Declared for the same reason as
- * `LinkStateWriter` in `scripts/curated-products/check-links.ts`: the unit test
+ * `LinkStateWriter` in `scripts/enrichment/products/curated-products/check-links.ts`: the unit test
  * hands in a fixture-backed double instead of mocking the module, which
  * `scripts/check-test-boundaries.mjs` forbids outright for `@/lib/services/`.
  */
