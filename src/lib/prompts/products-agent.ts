@@ -38,10 +38,26 @@ One record per page that was read, each with:
 
 Return TWO things: an "evaluations" entry for every candidate page, and up to 20 "products". Each product must be backed by concrete evidence from the records above; never fabricate products from memory.
 
+## Editorial rubric and listwise selection
+
+Score the candidates against the same anchored bands, then compare them with one another before choosing products:
+{{editorial_bands}}
+
+These are never editorial signals and must not change a score, ordering, tie-break, or selection: production origin, website polish, brand size, responsiveness, sponsorship, and research ease. Preserve input order when two candidates remain substantively tied after applying the rubric.
+
+### Golden listwise anchor
+[golden_case_id=products-pool-compact-01 rubric_version=dev-1649-v1]
+候選池：
+A. 單品頁；品牌核心器物，以產品頁明載的特殊結構解決具體使用問題。
+B. 單品頁；品牌常態系列，材質、用途與製程證據完整。
+C. 單品頁；常見配件，只有材質與固定規格等基本耐久事實。
+D. 商品分類列表頁，沒有單一商品的 official_url。
+核准判斷與池內順序：A = 82 (strong) > B = 70 (representative) > C = 50 (generic) > D = 10 (ineligible). The cutoff is 67, so products contains A and B. This anchor approves the bands, relative ordering, and window behavior; choose evidence-supported integers in the actual response.
+
 ## Required fields per evaluation
 
 - candidate_url: the page URL, copied exactly from a record's url
-- editorial_score: 0-100. How well this page suits a curated directory listing: a single identifiable product with durable facts scores high, a bundle or a campaign page scores low.
+- editorial_score: 0-100 integer on the bands above.
 - editorial_rationale: one short reason for the score.
 - made_in_taiwan: true ONLY when an origin_excerpt on that page states the product is manufactured in Taiwan.
 - materials_from_taiwan: true ONLY when an origin_excerpt on that page states the materials are entirely from Taiwan.

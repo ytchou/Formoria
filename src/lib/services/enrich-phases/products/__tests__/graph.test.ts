@@ -7,6 +7,7 @@ import {
   buildProductsGraph,
   createProductsRunContext,
   runProductsAgent,
+  selectCandidates,
   PRODUCTS_RECURSION_LIMIT,
   type ProductsDeps,
   type ProductsInput,
@@ -521,5 +522,162 @@ describe('products agent graph', () => {
     expect(result.verification.imageVerified).toBe(0)
     // Unverified is not a drop: the proposals still ship, flagged.
     expect(result.proposals.length).toBeGreaterThan(0)
+  })
+
+  // -------------------------------------------------------------------------
+  // Prompt resolution (DEV-1695)
+  // -------------------------------------------------------------------------
+
+  it('proposeNode_records_the_resolved_prompt_in_the_decision_trace', async () => {
+    // Langfuse creds are blanked in beforeAll, so fetchLangfusePromptWithMeta
+    // returns the fallback. The decision trace must contain the prompt source.
+    const result = await runProductsAgent(baseInput, makeDeps(), {
+      model: scriptedModel([validProposalResponse()]),
+    })
+
+    const proposeDecision = result.decisions.find(
+      (d) => d.step === 'propose' && d.action === 'prompt resolved',
+    )
+    expect(proposeDecision).toBeDefined()
+    expect(proposeDecision!.reason).toContain('prompt=fallback')
+  })
+
+  it('propose_system_prompt_contains_the_rendered_rubric_and_no_unrendered_placeholder', async () => {
+    const model = scriptedModel([validProposalResponse()])
+
+    await runProductsAgent(baseInput, makeDeps(), { model })
+
+    // The system message is the first argument of the first model.invoke call.
+    const [messages] = model.invoke.mock.calls[0]!
+    const systemContent = String(messages[0]!.content)
+
+    // Rendered editorial bands are present (spot-check two band boundaries).
+    expect(systemContent).toContain('0-39')
+    expect(systemContent).toContain('90-100')
+
+    // The raw Langfuse placeholder must have been compiled away.
+    expect(systemContent).not.toContain('{{editorial_bands}}')
+  })
+
+  it('propose_system_prompt_carries_the_golden_listwise_anchor_id', async () => {
+    const model = scriptedModel([validProposalResponse()])
+
+    await runProductsAgent(baseInput, makeDeps(), { model })
+
+    const [messages] = model.invoke.mock.calls[0]!
+    const systemContent = String(messages[0]!.content)
+
+    expect(systemContent).toContain('golden_case_id=products-pool-compact-01')
+  })
+
+  // -------------------------------------------------------------------------
+  // selectCandidates (pure)
+  // -------------------------------------------------------------------------
+
+  it('selectCandidates puts priority urls first then pool order, capped at 12', () => {
+    // 15 candidates, 2 of which are priority. Output must be priority-first,
+    // pool order preserved within each group, and capped at MAX_SELECT (12).
+    const pool = Array.from({ length: 15 }, (_, i) => ({
+      url: `https://brand.com/p-${i}`,
+      normalizedUrl: `https://brand.com/p-${i}`,
+      title: `Product ${i}`,
+      supplier: 'catalog' as const,
+      urlClass: 'product-detail' as const,
+    }))
+    const priorityUrls = [pool[7]!.url, pool[3]!.url]
+
+    const selected = selectCandidates(pool, priorityUrls)
+
+    expect(selected).toHaveLength(12)
+    // Priority urls come first, in the order they appear in the pool (not the
+    // order they appear in priorityUrls).
+    expect(selected[0]!.url).toBe('https://brand.com/p-3')
+    expect(selected[1]!.url).toBe('https://brand.com/p-7')
+    // The rest follow pool order, skipping the two already included.
+    expect(selected[2]!.url).toBe('https://brand.com/p-0')
+    expect(selected[11]!.url).toBe('https://brand.com/p-11')
+  })
+
+  // -------------------------------------------------------------------------
+  // readNode — deps.readPage override
+  // -------------------------------------------------------------------------
+
+  it('readNode uses deps.readPage when present and never calls fetchHtml', async () => {
+    const fakeEvidence = {
+      url: URL_A,
+      title: 'Injected',
+      description: null,
+      mainText: 'injected text',
+      images: [],
+      jsonLd: null,
+      productSignals: true,
+      originExcerpts: [],
+      rendered: false,
+      statusCode: 200,
+    }
+    const readPage = vi.fn().mockResolvedValue(fakeEvidence)
+    const fetchHtml = vi.fn().mockResolvedValue({ text: PAGE_HTML(), statusCode: 200 })
+
+    const deps = makeDeps({ fetchHtml, readPage })
+    const input: ProductsInput = {
+      ...baseInput,
+      pool: [baseInput.pool[0]!],
+      imagePool: [fakeImage(URL_A)],
+    }
+    const model = scriptedModel([
+      validProposalResponse({
+        evaluations: [evaluationFor(URL_A)],
+        products: [productFor(URL_A, 'Test Product A')],
+      }),
+    ])
+
+    const result = await runProductsAgent(input, deps, { model })
+
+    // The dep was called instead of fetchHtml.
+    expect(readPage).toHaveBeenCalledTimes(1)
+    expect(fetchHtml).not.toHaveBeenCalled()
+    // Budget still tracks the read.
+    expect(result.budget.used.reads).toBe(1)
+    expect(result.verification.read).toBe(1)
+  })
+
+  // -------------------------------------------------------------------------
+  // readPage evidence with 404 makes the proposal unreachable
+  // -------------------------------------------------------------------------
+
+  it('readPage evidence with statusCode 404 makes the proposal unreachable', async () => {
+    const fakeEvidence = {
+      url: URL_A,
+      title: null,
+      description: null,
+      mainText: '',
+      images: [],
+      jsonLd: null,
+      productSignals: false,
+      originExcerpts: [],
+      rendered: false,
+      statusCode: 404,
+    }
+    const readPage = vi.fn().mockResolvedValue(fakeEvidence)
+    const deps = makeDeps({ readPage })
+    const input: ProductsInput = {
+      ...baseInput,
+      pool: [baseInput.pool[0]!],
+      imagePool: [fakeImage(URL_A)],
+    }
+    const model = scriptedModel([
+      validProposalResponse({
+        evaluations: [evaluationFor(URL_A)],
+        products: [productFor(URL_A, 'Test Product A')],
+      }),
+    ])
+
+    const result = await runProductsAgent(input, deps, { model })
+
+    // The 404 evidence causes the proposal to be dropped as unreachable.
+    expect(result.verification.dropped).toBeGreaterThan(0)
+    expect(Object.keys(result.verification.dropReasons)).toEqual(
+      expect.arrayContaining([expect.stringMatching(/reachable|HTTP/i)]),
+    )
   })
 })

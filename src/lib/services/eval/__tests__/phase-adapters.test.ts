@@ -8,7 +8,7 @@ const GOLDEN_DATASET_NAMES = [
   'category-confidence-golden',
   'name-arbiter-confidence-golden',
   'site-identity-confidence-golden',
-  'products-editorial-score-golden',
+  'products-agent-ranking-golden',
 ] as const
 
 describe('phase-adapters registry', () => {
@@ -35,10 +35,20 @@ describe('phase-adapters registry', () => {
     expect(desc).toBeDefined()
     expect(desc.promptName).toEqual(expect.any(String))
     expect(desc.mode).toBe('pairwise')
+  })
 
-    // products-editorial-score-golden has review-only mode
-    const products = adapterFor('products-editorial-score-golden')
-    expect(products.mode).toBe('review-only')
+  it('products adapter is scored with three scorers and a task', () => {
+    const adapter = adapterFor('products-agent-ranking-golden')
+    expect(adapter.mode).toBe('scored')
+
+    const scorerNames = adapter.scorers.map((s) => s.name)
+    expect(scorerNames).toContain('bandAgreement')
+    expect(scorerNames).toContain('withinPoolOrderingAgreement')
+    expect(scorerNames).toContain('selectionAgreement')
+    expect(scorerNames).toHaveLength(3)
+
+    expect(typeof adapter.task).toBe('function')
+    expect(typeof adapter.summarize).toBe('function')
   })
 
   it('requestSchema is the strict JSON-schema wrapper the OpenAI client expects', () => {

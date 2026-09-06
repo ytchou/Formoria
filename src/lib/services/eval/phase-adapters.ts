@@ -17,6 +17,9 @@ import { resolveQuarantine } from '@/lib/services/enrich-phases/site-identity'
 import { descriptionShape } from '@/lib/services/description-rewrite'
 import { isHighConfidenceWrite } from '@/lib/services/enrich-phases/detect'
 import { toStrictJsonSchema } from '@/lib/services/_shared/zod-schema'
+import { PRODUCTS_PROPOSE_SYSTEM_PROMPT } from '@/lib/prompts/products-agent'
+import { renderEditorialBands } from '@/lib/constants/curated-products'
+import { PRODUCTS_PROPOSAL_SHAPE } from '@/lib/services/enrich-phases/products'
 import {
   categoryAgreement,
   confidenceBandAgreement,
@@ -24,7 +27,23 @@ import {
   decisionAgreement,
   schemaCompliance,
   bannedTermScore,
+  bandAgreement,
+  withinPoolOrderingAgreement,
+  selectionAgreement,
 } from './scorers'
+import {
+  productsExpectedSchema,
+  summarizeCalibration,
+  bandConfusion,
+  tieBreakAblation,
+  windowSweep,
+  type ProductsReplayOutput,
+  type ProductsExpected,
+} from './products-calibration'
+import { productsTask } from './products-replay'
+import { createAgentModel } from '../enrich-phases/agents/runtime'
+import { runProductsAgent } from '../enrich-phases/products/graph'
+import type { ArmResult, ExperimentItem, ExperimentArm } from './run-experiment'
 
 // ---------------------------------------------------------------------------
 // PhaseAdapter type
@@ -42,7 +61,15 @@ export interface PhaseAdapter {
   expectedOf: (item: { expectedOutput: unknown }) => unknown
   expectedSchema: ZodType
   scorers: Array<{ name: string; fn: (output: unknown, expected: unknown) => number }>
-  mode: 'scored' | 'pairwise' | 'review-only'
+  mode: 'scored' | 'pairwise'
+  task?: (item: ExperimentItem, arm: ExperimentArm, ctx: { itemRunId: string; model?: string }) => Promise<{
+    ok: boolean
+    output: unknown
+    error?: string
+    promptMeta?: { name: string; version: number } | 'fallback'
+  }>
+  summarize?: (results: ArmResult[]) => string
+  reviewView?: (item: ExperimentItem) => unknown
 }
 
 // ---------------------------------------------------------------------------
@@ -96,15 +123,6 @@ const siteIdentityExpectedSchema = z.object({
   owned: z.boolean(),
   confidence: z.string(),
   writeEligible: z.boolean().optional(),
-})
-
-const productsExpectedSchema = z.object({
-  decisions: z.array(z.object({
-    candidateUrl: z.string(),
-    selected: z.boolean(),
-    approvedBand: z.string().optional(),
-    relativeRank: z.number().optional(),
-  })),
 })
 
 // ---------------------------------------------------------------------------
@@ -278,18 +296,41 @@ const registry: Record<string, PhaseAdapter> = {
     mode: 'scored',
   },
 
-  'products-editorial-score-golden': {
-    promptName: 'products',
-    fallbackPrompt: '',
-    profileKey: 'products',
-    outputSchema: productsExpectedSchema,
-    requestSchema: makeRequestSchema('products_editorial', productsExpectedSchema),
-    parseOutput: makeParseOutput(productsExpectedSchema),
+  'products-agent-ranking-golden': {
+    promptName: 'products-propose',
+    fallbackPrompt: PRODUCTS_PROPOSE_SYSTEM_PROMPT,
+    variables: { editorial_bands: renderEditorialBands() },
+    profileKey: 'products_agent',
+    outputSchema: PRODUCTS_PROPOSAL_SHAPE,
+    requestSchema: makeRequestSchema('products_proposal', PRODUCTS_PROPOSAL_SHAPE),
+    parseOutput: makeParseOutput(PRODUCTS_PROPOSAL_SHAPE),
     unwrap: (output) => output,
     expectedOf: (item) => item.expectedOutput,
     expectedSchema: productsExpectedSchema,
-    scorers: [],
-    mode: 'review-only',
+    scorers: [
+      { name: 'bandAgreement', fn: (o, e) => bandAgreement(o as ProductsReplayOutput, e as ProductsExpected) },
+      { name: 'withinPoolOrderingAgreement', fn: (o, e) => withinPoolOrderingAgreement(o as ProductsReplayOutput, e as ProductsExpected) },
+      { name: 'selectionAgreement', fn: (o, e) => selectionAgreement(o as ProductsReplayOutput, e as ProductsExpected) },
+    ],
+    mode: 'scored',
+    task: productsTask({ createAgentModel, runProductsAgent }),
+    summarize: (results: ArmResult[]) => {
+      // Aggregate output/expected across all items across all arms
+      const sections: string[] = []
+      for (const armResult of results) {
+        for (const item of armResult.items) {
+          if (!item.ok || !item.output || !item.expected) continue
+          const output = item.output as ProductsReplayOutput
+          const expected = item.expected as ProductsExpected
+          sections.push(summarizeCalibration({
+            confusion: bandConfusion(output, expected),
+            tieBreak: tieBreakAblation(output, expected),
+            windowSweep: windowSweep(output, expected),
+          }))
+        }
+      }
+      return sections.join('\n\n---\n\n')
+    },
   },
 
   descriptions: {

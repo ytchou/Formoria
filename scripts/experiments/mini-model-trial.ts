@@ -107,7 +107,7 @@ async function main() {
       input: i.input,
       expectedOutput: i.expectedOutput,
       humanApproval: (i.metadata as Record<string, unknown>)?.humanApproval as {
-        reviewedVia?: string
+        reviewedVia?: { queueId: string; scoreId: string } | string | undefined
         at?: string
       } ?? {},
     }))

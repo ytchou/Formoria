@@ -8,6 +8,7 @@ import {
   parseArm,
   applyEnvFile,
   handlePromptPush,
+  isReviewed,
 } from '../llm-eval'
 
 // ---------------------------------------------------------------------------
@@ -163,6 +164,7 @@ describe('parseCliArgs — pairwise', () => {
         { kind: 'prompt', version: 2 },
       ],
       envFile: undefined,
+      noEnqueue: false,
     })
   })
 
@@ -170,6 +172,120 @@ describe('parseCliArgs — pairwise', () => {
     expect(parseCliArgs(['pairwise', 'report', 'my-run-2026'])).toEqual({
       command: 'pairwise-report',
       runName: 'my-run-2026',
+    })
+  })
+})
+
+// ---------------------------------------------------------------------------
+// dataset record / prelabel
+// ---------------------------------------------------------------------------
+
+describe('parseCliArgs — dataset record / prelabel', () => {
+  it('parses dataset record --dataset --brand --target production --urls a,b', () => {
+    expect(
+      parseCliArgs([
+        'dataset',
+        'record',
+        '--dataset',
+        'products-agent-ranking-golden',
+        '--brand',
+        'test-brand',
+        '--urls',
+        'https://a.com,https://b.com',
+      ]),
+    ).toEqual({
+      command: 'dataset-record',
+      dataset: 'products-agent-ranking-golden',
+      brand: 'test-brand',
+      urls: ['https://a.com', 'https://b.com'],
+    })
+  })
+
+  it('parses dataset record without --urls', () => {
+    expect(
+      parseCliArgs([
+        'dataset',
+        'record',
+        '--dataset',
+        'products-agent-ranking-golden',
+        '--brand',
+        'my-brand',
+      ]),
+    ).toEqual({
+      command: 'dataset-record',
+      dataset: 'products-agent-ranking-golden',
+      brand: 'my-brand',
+      urls: undefined,
+    })
+  })
+
+  it('parses dataset prelabel --dataset --item --file', () => {
+    expect(
+      parseCliArgs([
+        'dataset',
+        'prelabel',
+        '--dataset',
+        'products-agent-ranking-golden',
+        '--item',
+        'item-123',
+        '--file',
+        '/tmp/expected.json',
+      ]),
+    ).toEqual({
+      command: 'dataset-prelabel',
+      dataset: 'products-agent-ranking-golden',
+      item: 'item-123',
+      file: '/tmp/expected.json',
+    })
+  })
+})
+
+// ---------------------------------------------------------------------------
+// pairwise run products / --no-enqueue
+// ---------------------------------------------------------------------------
+
+describe('parseCliArgs — pairwise run products / --no-enqueue', () => {
+  it('pairwise run --phase products --arm prompt:2 --arm prompt:3', () => {
+    expect(
+      parseCliArgs([
+        'pairwise',
+        'run',
+        '--phase',
+        'products',
+        '--arm',
+        'prompt:2',
+        '--arm',
+        'prompt:3',
+      ]),
+    ).toEqual({
+      command: 'pairwise-run',
+      phase: 'products',
+      target: 'staging',
+      sample: 20,
+      arms: [
+        { kind: 'prompt', version: 2 },
+        { kind: 'prompt', version: 3 },
+      ],
+      envFile: undefined,
+      noEnqueue: false,
+    })
+  })
+
+  it('pairwise run accepts --no-enqueue', () => {
+    const parsed = parseCliArgs([
+      'pairwise',
+      'run',
+      '--phase',
+      'descriptions',
+      '--arm',
+      'prompt:1',
+      '--arm',
+      'prompt:2',
+      '--no-enqueue',
+    ])
+    expect(parsed).toMatchObject({
+      command: 'pairwise-run',
+      noEnqueue: true,
     })
   })
 })
@@ -205,5 +321,38 @@ describe('handlePromptPush', () => {
     })
 
     expect(logs.join('\n')).toContain('detect v3')
+  })
+})
+
+// ---------------------------------------------------------------------------
+// isReviewed
+// ---------------------------------------------------------------------------
+
+describe('isReviewed', () => {
+  it('requires humanApproval.reviewedVia', () => {
+    // Bulk-approved: has humanApproval but no reviewedVia → unreviewed
+    expect(
+      isReviewed({
+        metadata: { humanApproval: { status: 'approved' } },
+      }),
+    ).toBe(false)
+
+    // Human-reviewed via queue: has reviewedVia → reviewed
+    expect(
+      isReviewed({
+        metadata: {
+          humanApproval: {
+            status: 'approved',
+            reviewedVia: { queueId: 'q-1', scoreId: 's-1' },
+          },
+        },
+      }),
+    ).toBe(true)
+
+    // No humanApproval at all → unreviewed
+    expect(isReviewed({ metadata: {} })).toBe(false)
+
+    // No metadata → unreviewed
+    expect(isReviewed({})).toBe(false)
   })
 })
