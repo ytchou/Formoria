@@ -131,7 +131,7 @@ export type ProductsInput = {
   candidateIdsByUrl?: ReadonlyMap<string, string>
 }
 
-export type ProductsVerification = {
+type ProductsVerification = {
   read: number
   /** Pages whose body came from the render provider. */
   rendered: number
