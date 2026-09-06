@@ -1,14 +1,14 @@
 [
-  { "slug": "yueatgreen", "brandName": "饗綠", "websiteUrl": "https://portaly.cc/yueatgreen" },
-  { "slug": "phenshyshy", "brandName": "盆栽嬌", "websiteUrl": "https://portaly.cc/phenshyshy" },
-  { "slug": "chien-mo-tien-tien", "brandName": "謙墨甜甜", "websiteUrl": "https://portaly.cc/qianmo_dessert" },
-  { "slug": "hooru-horuru", "brandName": "HOORU", "websiteUrl": "https://portaly.cc/HOORU.HORURU" },
-  { "slug": "kuo-jewellery", "brandName": "Kuo Jewellery", "instagram": "https://www.instagram.com/kuo_jewellery/" },
-  { "slug": "fusoap", "brandName": "膚皂", "instagram": "https://www.instagram.com/fusoap/" },
-  { "slug": "fanglin", "brandName": "紡林", "instagram": "https://www.instagram.com/fanglin.tw/" },
-  { "slug": "one-wood", "brandName": "一木", "instagram": "https://www.instagram.com/one_wood_tw/" },
-  { "slug": "su-felting", "brandName": "蘇蘇羊毛氈", "instagram": "https://www.instagram.com/su_felting/" },
-  { "slug": "threads-proof-1", "brandName": "Threads Proof 1", "socialThreads": "https://www.threads.com/@REPLACE_ME_1", "note": "DEV-1702 placeholder - operator replaces slug/brandName/socialThreads with a production Threads-bearing channel-less brand before the proof run" },
-  { "slug": "threads-proof-2", "brandName": "Threads Proof 2", "socialThreads": "https://www.threads.com/@REPLACE_ME_2", "note": "DEV-1702 placeholder - operator replaces slug/brandName/socialThreads with a production Threads-bearing channel-less brand before the proof run" },
-  { "slug": "threads-proof-3", "brandName": "Threads Proof 3", "socialThreads": "https://www.threads.com/@REPLACE_ME_3", "note": "DEV-1702 placeholder - operator replaces slug/brandName/socialThreads with a production Threads-bearing channel-less brand before the proof run" }
+  {"slug": "yueatgreen", "brandName": "饗綠", "websiteUrl": "https://portaly.cc/yueatgreen"},
+  {"slug": "phenshyshy", "brandName": "盆栽嬌", "websiteUrl": "https://portaly.cc/phenshyshy"},
+  {"slug": "chien-mo-tien-tien", "brandName": "謙墨甜甜", "websiteUrl": "https://portaly.cc/qianmo_dessert"},
+  {"slug": "hooru-horuru", "brandName": "HOORU", "websiteUrl": "https://portaly.cc/HOORU.HORURU"},
+  {"slug": "kuo-jewellery", "brandName": "Kuo Jewellery", "instagram": "https://www.instagram.com/kuo_jewellery/"},
+  {"slug": "fusoap", "brandName": "膚皂", "instagram": "https://www.instagram.com/fusoap/"},
+  {"slug": "fanglin", "brandName": "紡林", "instagram": "https://www.instagram.com/fanglin.tw/"},
+  {"slug": "one-wood", "brandName": "一木", "instagram": "https://www.instagram.com/one_wood_tw/"},
+  {"slug": "su-felting", "brandName": "蘇蘇羊毛氈", "instagram": "https://www.instagram.com/su_felting/"},
+  {"slug": "todayforhan", "brandName": "阿翰 TodayForHan", "instagram": "https://www.instagram.com/todayfor_han/", "socialThreads": "https://www.threads.com/@todayfor_han"},
+  {"slug": "jieni-gleam", "brandName": "JieNi Gleam", "instagram": "https://www.instagram.com/jieni.gleam_handmade/", "socialThreads": "https://www.threads.com/@jieni.gleam_handmade"},
+  {"slug": "coconut-pie", "brandName": "椰子派 Coconut Pie", "instagram": "https://www.instagram.com/coconutpie_taiwan/", "socialThreads": "https://www.threads.com/@coconutpie_taiwan"}
 ]
