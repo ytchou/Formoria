@@ -348,6 +348,33 @@ describe("enriched_data.products[] payload contract", () => {
   });
 });
 
+/**
+ * A rerun replaces the whole FAQ proposal rather than unioning entries — the
+ * same reasoning as `products`: object arrays inside the blob cannot be unioned
+ * by identity, so a rerun would otherwise append its list to the stored one.
+ */
+describe("enriched_data.faq merge contract", () => {
+  it("faq_replaced_not_unioned_on_rerun", () => {
+    const base = {
+      faq: {
+        entries: [{ presetId: "main-products", position: 0, questionZh: "Q1", answerZh: "A1" }],
+        explicit: false,
+      },
+    };
+    const patch = {
+      faq: {
+        entries: [{ presetId: "where-to-buy", position: 0, questionZh: "Q2", answerZh: "A2" }],
+        explicit: true,
+      },
+    };
+
+    const merged = mergeSubmissionEnrichedData(base, patch);
+
+    expect(merged.faq).toEqual(patch.faq);
+    expect((merged.faq as { entries: unknown[] }).entries).toHaveLength(1);
+  });
+});
+
 describe("enrichment write guards", () => {
   it("rejects the retired direct-to-live brand write path", async () => {
     await expect(

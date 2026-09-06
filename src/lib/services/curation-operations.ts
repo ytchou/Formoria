@@ -545,6 +545,8 @@ export function seedEnrichedDataFromOwnerData(
 const REPLACE_NOT_UNION_KEYS = new Set<string>([
   "channels",
   "products",
+  // A rerun replaces the whole FAQ proposal rather than appending entries.
+  "faq",
   "subcategories",
   "subcategories_en",
   CLEARED_FIELDS_KEY,

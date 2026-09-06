@@ -1,6 +1,7 @@
 import type { Json } from "@/lib/supabase/database.types";
 import type { OtherUrl } from "@/lib/types/brand";
 import { subcategoryBySlug } from "@/lib/taxonomy/ontology";
+import { FAQ_PRESETS } from "@/lib/brands/faq-presets";
 
 /**
  * One provenance citation on a proposed product. Mirrors
@@ -72,10 +73,23 @@ export type BrandNameProposal = {
   evidence: BrandNameEvidence[];
 };
 
+export type SubmissionFaqEntry = {
+  presetId: string;
+  position?: number;
+  questionZh?: string | null;
+  answerZh?: string | null;
+  questionEn?: string | null;
+  answerEn?: string | null;
+};
+
+export type SubmissionFaqPatch = {
+  entries: SubmissionFaqEntry[];
+  explicit: boolean;
+};
+
 /**
- * FAQ deliberately has no field here. The dedicated `faq` phase writes
- * `brand_faq_entries` directly, behind the preset validators; carrying a copy
- * on this blob would be a second, unvalidated write door into the same table.
+ * The enriched_data.faq blob is the only door into brand_faq_entries; the
+ * materializer reads it at apply/approve time and writes the rows then.
  */
 export type EnrichedData = {
   description?: string;
@@ -107,6 +121,8 @@ export type EnrichedData = {
   name?: string;
   /** Refresh-only proposal; never part of the automatic review baseline. */
   nameProposal?: BrandNameProposal;
+  /** FAQ entries proposed by enrichment; materialized at apply/approve time. */
+  faq?: SubmissionFaqPatch;
 };
 
 export function isBrandNameProposal(value: unknown): value is BrandNameProposal {
@@ -138,6 +154,66 @@ export function isBrandNameProposal(value: unknown): value is BrandNameProposal 
       evidence.observedName.trim() !== ""
     );
   });
+}
+
+const FAQ_PRESET_IDS = new Set(FAQ_PRESETS.map((preset) => preset.id));
+
+export function parseSubmissionFaqPatch(
+  value: unknown,
+): SubmissionFaqPatch | null {
+  if (typeof value !== "object" || value === null || Array.isArray(value)) {
+    return null;
+  }
+  const obj = value as Record<string, unknown>;
+  if (!Array.isArray(obj.entries)) {
+    return null;
+  }
+  const entries: SubmissionFaqEntry[] = [];
+  for (const raw of obj.entries) {
+    if (typeof raw !== "object" || raw === null || Array.isArray(raw)) continue;
+    const entry = raw as Record<string, unknown>;
+    if (typeof entry.presetId !== "string" || !FAQ_PRESET_IDS.has(entry.presetId)) {
+      continue;
+    }
+    const position =
+      typeof entry.position === "number" ? entry.position : 0;
+    if (!Number.isInteger(position) || position < 0) continue;
+    const questionZh =
+      typeof entry.questionZh === "string"
+        ? entry.questionZh
+        : entry.questionZh === null
+          ? null
+          : undefined;
+    const answerZh =
+      typeof entry.answerZh === "string"
+        ? entry.answerZh
+        : entry.answerZh === null
+          ? null
+          : undefined;
+    const questionEn =
+      typeof entry.questionEn === "string"
+        ? entry.questionEn
+        : entry.questionEn === null
+          ? null
+          : undefined;
+    const answerEn =
+      typeof entry.answerEn === "string"
+        ? entry.answerEn
+        : entry.answerEn === null
+          ? null
+          : undefined;
+    const parsed: SubmissionFaqEntry = { presetId: entry.presetId, position };
+    if (questionZh !== undefined) parsed.questionZh = questionZh;
+    if (answerZh !== undefined) parsed.answerZh = answerZh;
+    if (questionEn !== undefined) parsed.questionEn = questionEn;
+    if (answerEn !== undefined) parsed.answerEn = answerEn;
+    entries.push(parsed);
+  }
+  if (entries.length === 0) return null;
+  return {
+    entries,
+    explicit: typeof obj.explicit === "boolean" ? obj.explicit : false,
+  };
 }
 
 function adaptProductProposal(value: unknown): CuratedProductProposal | null {
@@ -282,6 +358,12 @@ export function enrichedDataFromDb(
           ),
         }
       : {}),
+    ...(json.faq !== undefined
+      ? (() => {
+          const parsed = parseSubmissionFaqPatch(json.faq);
+          return parsed ? { faq: parsed } : {};
+        })()
+      : {}),
   };
 }
 
@@ -322,5 +404,6 @@ export function enrichedDataToDb(data: EnrichedData): Record<string, unknown> {
     result.purchase_myship = data.purchaseMyship;
   if (data.otherUrls !== undefined) result.other_urls = data.otherUrls;
   if (data.products !== undefined) result.products = data.products;
+  if (data.faq !== undefined) result.faq = data.faq;
   return result;
 }

@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { enrichedDataFromDb, enrichedDataToDb } from "../enriched-data";
+import {
+  enrichedDataFromDb,
+  enrichedDataToDb,
+  parseSubmissionFaqPatch,
+} from "../enriched-data";
 
 describe("enrichedDataFromDb", () => {
   it("maps subcategories to subcategories", () => {
@@ -167,5 +171,56 @@ describe("enrichedDataToDb", () => {
     expect(
       (result.products as Record<string, unknown>[])[0],
     ).not.toHaveProperty("subcategories");
+  });
+});
+
+describe("enriched_data.faq blob contract", () => {
+  it("faq_round_trips_through_db_adapters", () => {
+    const faqBlob = {
+      entries: [
+        {
+          presetId: "main-products",
+          position: 0,
+          questionZh: "Q",
+          answerZh: "A",
+          questionEn: "Q-en",
+          answerEn: "A-en",
+        },
+      ],
+      explicit: true,
+    };
+
+    const domain = enrichedDataFromDb({ faq: faqBlob });
+
+    expect(domain.faq).toEqual(faqBlob);
+    expect(enrichedDataToDb(domain)).toEqual({ faq: faqBlob });
+  });
+
+  it("faq_malformed_blob_is_dropped_on_read", () => {
+    expect(enrichedDataFromDb({ faq: "not-an-object" })).not.toHaveProperty(
+      "faq",
+    );
+    expect(enrichedDataFromDb({ faq: [1, 2] })).not.toHaveProperty("faq");
+    expect(enrichedDataFromDb({ faq: { entries: "x" } })).not.toHaveProperty(
+      "faq",
+    );
+  });
+});
+
+describe("parseSubmissionFaqPatch", () => {
+  it("rejects_unknown_preset_and_bad_position", () => {
+    const result = parseSubmissionFaqPatch({
+      entries: [
+        { presetId: "main-products", position: 0, questionZh: "Q", answerZh: "A" },
+        { presetId: "nonexistent-preset", position: 0, questionZh: "Q2", answerZh: "A2" },
+        { presetId: "where-to-buy", position: -1, questionZh: "Q3", answerZh: "A3" },
+        { presetId: "custom", position: 1.5, questionZh: "Q4", answerZh: "A4" },
+      ],
+    });
+
+    expect(result).not.toBeNull();
+    expect(result!.entries).toHaveLength(1);
+    expect(result!.entries[0]!.presetId).toBe("main-products");
+    expect(result!.explicit).toBe(false);
   });
 });
