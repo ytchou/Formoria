@@ -127,11 +127,11 @@ const PEER_STATS: NonNullable<FaqBrandContext["peerStats"]> = {
 };
 
 function context(
-  overrides: Partial<Brand> = {},
+  overrides: Partial<Brand> & { stockistCount?: number } = {},
   peerStats: FaqBrandContext["peerStats"] = null,
 ): FaqBrandContext {
-  const brand = { ...BRAND, ...overrides } as Brand;
-  return { brand, cityLabel: localizedCityLabel(brand.city), peerStats };
+  const brand = { ...BRAND, ...overrides } as Brand & { stockistCount?: number };
+  return { brand: brand as FaqBrandContext["brand"], cityLabel: localizedCityLabel(brand.city), peerStats };
 }
 
 /** The model-authorable eligible set, exactly as the phase computes it. */
@@ -614,45 +614,19 @@ describe("contextFacts", () => {
     expect(contextFacts(context())).toContain("產品標籤=無");
   });
 
-  it("includes material line", () => {
-    const brandWithMaterial = {
-      ...BRAND,
-      material: ["leather", "wood"],
-    } as Brand;
-    const facts = contextFacts(context(), brandWithMaterial);
+  it("includes material line from context", () => {
+    const facts = contextFacts(context({ material: ["leather", "wood"] }));
     expect(facts).toContain("材料=leather、wood");
   });
 
-  it("includes English description", () => {
-    const brandWithDesc = {
-      ...BRAND,
-      descriptionEn: "A design brand",
-    } as Brand;
-    const facts = contextFacts(context(), brandWithDesc);
-    expect(facts).toContain("英文描述=A design brand");
+  it("includes stockist count from context", () => {
+    const facts = contextFacts(context({ stockistCount: 5 }));
+    expect(facts).toContain("通路據點=5處");
   });
 
-  it("includes blurb", () => {
-    const brandWithBlurb = {
-      ...BRAND,
-      blurb: "生活品牌",
-    } as Brand;
-    const facts = contextFacts(context(), brandWithBlurb);
-    expect(facts).toContain("品牌定位=生活品牌");
-  });
-
-  it("includes stockist summary", () => {
-    const facts = contextFacts(context(), BRAND, {
-      confirmed: [1, 2],
-      possible: [3],
-    });
-    expect(facts).toContain("通路據點=確認2處、可能1處");
-  });
-
-  it("says 無 when no material, blurb, or stockists", () => {
+  it("says 無 when no material or stockists", () => {
     const facts = contextFacts(context());
     expect(facts).toContain("材料=無");
-    expect(facts).toContain("品牌定位=無");
     expect(facts).toContain("通路據點=無");
   });
 });

@@ -1,5 +1,4 @@
 import { z } from "zod";
-import type { Brand } from "@/lib/types";
 import { FAQ_PROMPT_PREAMBLE } from "@/lib/prompts";
 import { TAIWAN_USAGE_RULES } from "@/lib/prompts/shared";
 import { fetchLangfusePromptWithMeta } from "@/lib/langfuse/prompt";
@@ -240,21 +239,15 @@ function siteContentValue(brand: EnrichBrand): string | null {
  * puts Latin tokens in front of the model, which degrades the answer it writes
  * without failing anything. The tags are resolved to their zh labels here.
  */
-export function contextFacts(
-  ctx: FaqBrandContext,
-  brandRecord?: Brand,
-  stockists?: { confirmed: unknown[]; possible: unknown[] },
-): string {
+export function contextFacts(ctx: FaqBrandContext): string {
   const brand = ctx.brand;
   const tags = getBrandSubcategoryLabels(brand, "zh-TW");
   return [
     `結構化品牌事實：產品類型=${brand.categorySlug ?? "無"}；產品標籤=${tags.join("、") || "無"}；成立年份=${brand.foundingYear ?? "無"}；城市=${ctx.cityLabel ?? brand.city ?? "無"}`,
     `聲譽摘要：${brand.reputationSummary?.text ?? brand.reputationSummary?.textEn ?? "無"}`,
     `同類品牌比較資料：${ctx.peerStats ? JSON.stringify(ctx.peerStats) : "無"}`,
-    `材料=${brandRecord?.material?.length ? brandRecord.material.join("、") : "無"}`,
-    `英文描述=${brandRecord?.descriptionEn ?? "無"}`,
-    `品牌定位=${brandRecord?.blurb ?? "無"}`,
-    `通路據點=${stockists ? `確認${stockists.confirmed.length}處、可能${stockists.possible.length}處` : "無"}`,
+    `材料=${brand.material?.length ? brand.material.join("、") : "無"}`,
+    `通路據點=${brand.stockistCount != null && brand.stockistCount > 0 ? `${brand.stockistCount}處` : "無"}`,
   ].join("\n");
 }
 
@@ -518,25 +511,15 @@ export async function runFaqPhase({
   const { result, durationMs } = await timePhase<FaqRunOutcome>(async () => {
     // Compute stockist count: refresh submissions query live stockists;
     // new submissions (no source_brand_id) default to 0.
-    let stockistCount = 0;
-    const fetches: Promise<unknown>[] = [
+    const [persistedScrape, stockistsResult] = await Promise.all([
       loadPersistedScrapeText(auditTarget),
-    ];
-    if (brand.source_brand_id) {
-      fetches.push(getStockistsForBrand(brand.source_brand_id));
-    }
-    const fetchResults = await Promise.all(fetches);
-    const persistedScrape = fetchResults[0] as {
-      snippets: string[];
-      siteContent: string | null;
-    };
-    if (brand.source_brand_id && fetchResults[1]) {
-      const stockists = fetchResults[1] as {
-        confirmed: unknown[];
-        possible: unknown[];
-      };
-      stockistCount = stockists.confirmed.length + stockists.possible.length;
-    }
+      brand.source_brand_id
+        ? getStockistsForBrand(brand.source_brand_id)
+        : Promise.resolve(null),
+    ]);
+    const stockistCount = stockistsResult
+      ? stockistsResult.confirmed.length + stockistsResult.possible.length
+      : 0;
 
     const peerStats = await getCategoryPeerStats(
       brand.category ?? null,
@@ -615,8 +598,8 @@ export async function runFaqPhase({
           (alt: string | null): alt is string =>
             alt != null && alt.trim() !== "",
         );
-    } catch {
-      // Non-fatal: image alts are supplementary evidence
+    } catch (err) {
+      console.warn("[runFaqPhase] submission_images query failed:", { submissionId: brand.id, error: err });
     }
 
     const evidence: DescriptionEvidence = {
