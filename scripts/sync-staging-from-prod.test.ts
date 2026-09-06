@@ -1126,7 +1126,6 @@ function curatedProductSourceRow(overrides: Row = {}): Row {
     url: "https://kinyo.tw/about",
     source_type: "official",
     claim_zh: "手拉坯製成",
-    claim_en: "Hand-thrown",
     state: "verified",
     checked_at: "2026-08-01T00:00:00Z",
     created_at: "2026-07-01T00:00:00Z",
