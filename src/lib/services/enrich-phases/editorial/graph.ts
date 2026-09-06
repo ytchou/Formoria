@@ -25,6 +25,7 @@ import type { EnrichmentTarget } from '../../_shared/enrichment-target'
 import type { EnrichBrand, EnrichPatch, EnrichPhase, EnrichScrapedData } from '../types'
 import type { ListingVerdict, BrandFactsResult, BrandFactsAttempt } from '../../brand-facts'
 import type { DescriptionRewriteResult, DescriptionAttempt } from '../../description-rewrite'
+import { withNodeSpan } from '../agents/runtime'
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -334,12 +335,12 @@ function finalizeNode(
 
 export function buildEditorialGraph(ctx: EditorialRunContext) {
   return new StateGraph(EditorialState)
-    .addNode('descriptions', (state) => descriptionsNode(state, ctx))
-    .addNode('stockists', (state) => stockistsNode(state, ctx))
-    .addNode('faq', (state) => faqNode(state, ctx))
-    .addNode('validate', (state) => validateNode(state, ctx))
-    .addNode('repair', (state) => repairNode(state, ctx))
-    .addNode('finalize', (state) => finalizeNode(state, ctx))
+    .addNode('descriptions', (state) => withNodeSpan('editorial/descriptions', () => descriptionsNode(state, ctx)))
+    .addNode('stockists', (state) => withNodeSpan('editorial/stockists', () => stockistsNode(state, ctx)))
+    .addNode('faq', (state) => withNodeSpan('editorial/faq', () => faqNode(state, ctx)))
+    .addNode('validate', (state) => withNodeSpan('editorial/validate', () => validateNode(state, ctx)))
+    .addNode('repair', (state) => withNodeSpan('editorial/repair', () => repairNode(state, ctx)))
+    .addNode('finalize', (state) => withNodeSpan('editorial/finalize', () => finalizeNode(state, ctx)))
     .addEdge(START, 'descriptions')
     .addConditionalEdges(
       'descriptions',

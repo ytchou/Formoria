@@ -158,6 +158,9 @@ supabase/.branches/
 # Scraper
 scripts/threads-scraper/
 
+# Curation rerun snapshots (local debug artifacts from enrichment runs)
+scripts/curation-rerun/
+
 # seed data (local-only)
 scripts/seeds/
 

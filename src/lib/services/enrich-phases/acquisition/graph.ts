@@ -76,6 +76,7 @@ import {
 import {
   contentText,
   extractJson,
+  withNodeSpan,
   withSchema,
   withSignal,
   type AgentModel,
@@ -571,7 +572,10 @@ function buildPlanLoopGraph(
           content = JSON.stringify({ error: 'unknown_tool' })
         } else {
           try {
-            content = await tool.run(parseToolArguments(call.function.arguments))
+            content = await withNodeSpan(
+              `tool/${call.function.name}`,
+              () => tool.run(parseToolArguments(call.function.arguments)),
+            )
           } catch (error) {
             content = JSON.stringify({
               error: error instanceof Error ? error.message.slice(0, 200) : 'tool_failed',
@@ -1344,14 +1348,14 @@ async function finalizeNode(
 // name equals a state channel, and `plan` is a channel this graph writes.
 export function buildAcquisitionGraph(ctx: RunContext) {
   return new StateGraph(AcquisitionState)
-    .addNode('gather', () => gatherNode(ctx))
-    .addNode('plan_stage', () => planNode(ctx))
-    .addNode('execute', (state) => executeNode(state, ctx))
-    .addNode('images', (state) => imagesNode(state, ctx))
-    .addNode('critique', (state) => critiqueNode(state, ctx))
-    .addNode('recover', (state) => recoverNode(state, ctx))
-    .addNode('imagesRecover', (state) => imagesRecoverNode(state, ctx))
-    .addNode('finalize', (state) => finalizeNode(state, ctx))
+    .addNode('gather', () => withNodeSpan('acquisition/gather', () => gatherNode(ctx)))
+    .addNode('plan_stage', () => withNodeSpan('acquisition/plan', () => planNode(ctx)))
+    .addNode('execute', (state) => withNodeSpan('acquisition/execute', () => executeNode(state, ctx)))
+    .addNode('images', (state) => withNodeSpan('acquisition/images', () => imagesNode(state, ctx)))
+    .addNode('critique', (state) => withNodeSpan('acquisition/critique', () => critiqueNode(state, ctx)))
+    .addNode('recover', (state) => withNodeSpan('acquisition/recover', () => recoverNode(state, ctx)))
+    .addNode('imagesRecover', (state) => withNodeSpan('acquisition/imagesRecover', () => imagesRecoverNode(state, ctx)))
+    .addNode('finalize', (state) => withNodeSpan('acquisition/finalize', () => finalizeNode(state, ctx)))
     .addEdge(START, 'gather')
     .addConditionalEdges('gather', (state): 'plan_stage' | typeof END =>
       state.agentOutcome === 'fallback' ? END : 'plan_stage',

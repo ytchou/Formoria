@@ -160,7 +160,6 @@ export function parseCliArgs(args: string[]): ParsedCommand {
     const sub2 = positionals[1]
     if (sub2 === 'run') {
       if (!values.phase) throw new Error('--phase is required')
-      if (!values.target) throw new Error('--target is required')
       const sample = values.sample ? Number(values.sample) : 20
       if (!Number.isFinite(sample) || sample < 1)
         throw new Error('--sample must be a positive integer')
@@ -168,7 +167,7 @@ export function parseCliArgs(args: string[]): ParsedCommand {
       return {
         command: 'pairwise-run',
         phase: values.phase,
-        target: values.target,
+        target: values.target ?? 'staging',
         sample,
         arms,
         envFile: values['env-file'],

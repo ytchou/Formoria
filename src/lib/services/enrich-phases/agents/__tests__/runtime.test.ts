@@ -8,9 +8,11 @@ import {
   contentText,
   createAgentModel,
   extractJson,
+  withNodeSpan,
   withSchema,
   withSignal,
 } from '../runtime'
+import { getAuditContext, runWithAuditContext } from '@/lib/audit'
 
 /**
  * The runtime uses the REAL audited client: `fetch` is the only stub, and the
@@ -287,5 +289,76 @@ describe('agents runtime — helpers', () => {
     expect(combined!.aborted).toBe(false)
     other.abort()
     expect(combined!.aborted).toBe(true)
+  })
+})
+
+describe('agents runtime — withNodeSpan', () => {
+  it('creates_a_child_span_and_ends_it_after_fn', async () => {
+    const childSpan = { end: vi.fn(), span: vi.fn(), generation: vi.fn() }
+    const mockSpan = vi.fn().mockReturnValue(childSpan)
+    const langfuseTrace = { span: mockSpan, generation: vi.fn() }
+
+    const result = await runWithAuditContext({ langfuseTrace }, () =>
+      withNodeSpan('acquisition/gather', async () => {
+        return 'done'
+      }),
+    )
+
+    expect(result).toBe('done')
+    expect(mockSpan).toHaveBeenCalledOnce()
+    expect(mockSpan).toHaveBeenCalledWith({ name: 'acquisition/gather' })
+    expect(childSpan.end).toHaveBeenCalledOnce()
+  })
+
+  it('nests_langfuseTrace_so_inner_code_sees_the_child_span', async () => {
+    const childSpan = { end: vi.fn(), span: vi.fn(), generation: vi.fn() }
+    const mockSpan = vi.fn().mockReturnValue(childSpan)
+    const langfuseTrace = { span: mockSpan, generation: vi.fn() }
+
+    let innerTrace: unknown = null
+    await runWithAuditContext({ langfuseTrace }, () =>
+      withNodeSpan('products/select', async () => {
+        innerTrace = getAuditContext().langfuseTrace
+      }),
+    )
+
+    expect(innerTrace).toBe(childSpan)
+  })
+
+  it('no-ops_when_no_langfuseTrace_in_context', async () => {
+    const result = await runWithAuditContext({ correlationId: 'test' }, () =>
+      withNodeSpan('acquisition/gather', async () => 'no-trace'),
+    )
+
+    expect(result).toBe('no-trace')
+  })
+
+  it('ends_span_even_when_fn_throws', async () => {
+    const childSpan = { end: vi.fn(), span: vi.fn() }
+    const langfuseTrace = { span: vi.fn().mockReturnValue(childSpan) }
+
+    await expect(
+      runWithAuditContext({ langfuseTrace }, () =>
+        withNodeSpan('editorial/faq', async () => {
+          throw new Error('boom')
+        }),
+      ),
+    ).rejects.toThrow('boom')
+
+    expect(childSpan.end).toHaveBeenCalledOnce()
+  })
+
+  it('swallows_span_creation_errors', async () => {
+    const langfuseTrace = {
+      span: vi.fn().mockImplementation(() => {
+        throw new Error('Langfuse down')
+      }),
+    }
+
+    const result = await runWithAuditContext({ langfuseTrace }, () =>
+      withNodeSpan('acquisition/plan', async () => 'ok'),
+    )
+
+    expect(result).toBe('ok')
   })
 })
