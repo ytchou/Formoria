@@ -400,6 +400,26 @@ describe("persistAuditEvent — config.prompt merge", () => {
     });
   });
 
+  it("writes prompt without config", async () => {
+    const inserts: Record<string, unknown>[] = [];
+    const client = createAuditedOpenAIClient(
+      {
+        target,
+        phase: "detect",
+        prompt: { name: "detect", version: 3, source: "langfuse" as const },
+        supabase: fakeSupabase(inserts),
+      },
+      { apiKey: "k" },
+    );
+
+    await client.chat({ system: "s", user: "u" });
+
+    expect(inserts).toHaveLength(1);
+    expect(inserts[0]!.config).toEqual({
+      prompt: { name: "detect", version: 3, source: "langfuse" },
+    });
+  });
+
   it("leaves config untouched when context.prompt is absent", async () => {
     const inserts: Record<string, unknown>[] = [];
     const config = buildEnrichmentConfig("detect", { model: "gpt-4o" });

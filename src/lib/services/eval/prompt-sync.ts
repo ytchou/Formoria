@@ -36,13 +36,12 @@ export type PromptApi = {
 // ---------------------------------------------------------------------------
 
 /** Same regex as `src/lib/langfuse/prompt.ts` — no spaces inside delimiters. */
-const PLACEHOLDER_RE = /\{\{(\w+)\}\}/g
+const PLACEHOLDER_RE = /\{\{(\w+)\}\}/
 
 /** Extract unique `{{key}}` placeholder names from a template string. */
 export function placeholderSet(text: string): Set<string> {
   const keys = new Set<string>()
-  let m: RegExpExecArray | null
-  while ((m = PLACEHOLDER_RE.exec(text)) !== null) {
+  for (const m of text.matchAll(new RegExp(PLACEHOLDER_RE, 'g'))) {
     keys.add(m[1]!)
   }
   return keys
@@ -130,6 +129,8 @@ type PullOptions = {
 type DriftEntry = { name: string; snapshotVersion: number; remoteVersion: number }
 type PlaceholderDriftEntry = { name: string; added: string[]; removed: string[] }
 
+type FetchError = { name: string; error: string }
+
 type PullResult = {
   ok: boolean
   snapshot?: SnapshotFile
@@ -137,6 +138,7 @@ type PullResult = {
   unknownRemote?: string[]
   rejected?: string[]
   placeholderDrift?: PlaceholderDriftEntry[]
+  fetchErrors?: FetchError[]
 }
 
 export async function pullSnapshot(opts: PullOptions): Promise<PullResult> {
@@ -166,6 +168,7 @@ export async function pullSnapshot(opts: PullOptions): Promise<PullResult> {
   const placeholderDrift: PlaceholderDriftEntry[] = []
 
   const newPrompts: Record<string, { version: number; text: string[] }> = {}
+  const fetchErrors: FetchError[] = []
 
   for (const name of namesToPull) {
     try {
@@ -194,9 +197,14 @@ export async function pullSnapshot(opts: PullOptions): Promise<PullResult> {
       }
 
       newPrompts[name] = { version: remote.version, text: remoteLines }
-    } catch {
+    } catch (err) {
       if (add.includes(name)) {
         rejected.push(name)
+      } else {
+        fetchErrors.push({
+          name,
+          error: err instanceof Error ? err.message : String(err),
+        })
       }
     }
   }
@@ -207,6 +215,10 @@ export async function pullSnapshot(opts: PullOptions): Promise<PullResult> {
 
   if (placeholderDrift.length > 0) {
     return { ok: false, placeholderDrift }
+  }
+
+  if (fetchErrors.length > 0) {
+    return { ok: false, fetchErrors }
   }
 
   // Check mode: report version drift without writing
@@ -314,6 +326,8 @@ type PromoteResult = {
   ok: boolean
   error?: string
   snapshot?: SnapshotFile
+  /** True when the production label was applied but the post-promote pull failed. */
+  labelApplied?: boolean
 }
 
 export async function promotePrompt(opts: PromoteOptions): Promise<PromoteResult> {
@@ -352,6 +366,15 @@ export async function promotePrompt(opts: PromoteOptions): Promise<PromoteResult
     knownNames,
     remoteNames: knownNames,
   })
+
+  if (!pullResult.ok) {
+    return {
+      ok: false,
+      labelApplied: true,
+      error: 'Post-promote pull failed',
+      snapshot: pullResult.snapshot,
+    }
+  }
 
   return {
     ok: true,

@@ -254,6 +254,39 @@ describe('pullSnapshot', () => {
     expect(result.placeholderDrift![0]!.name).toBe('descriptions')
   })
 
+  it('reports fetch errors for known prompts', async () => {
+    const api: PromptApi = {
+      promptsGet: vi.fn(async ({ promptName }: { promptName: string }) => {
+        if (promptName === 'detect') {
+          throw new Error('Network timeout')
+        }
+        return { version: 5, prompt: 'desc prompt', labels: ['production'] }
+      }),
+      promptsCreate: vi.fn(),
+      promptVersionUpdate: vi.fn(),
+    }
+
+    const existingSnapshot: SnapshotFile = {
+      prompts: {
+        descriptions: { version: 1, text: ['old desc'] },
+        detect: { version: 1, text: ['old detect'] },
+      },
+    }
+
+    const result = await pullSnapshot({
+      api,
+      snapshot: existingSnapshot,
+      knownNames: ['descriptions', 'detect'],
+      remoteNames: ['descriptions', 'detect'],
+    })
+
+    expect(result.ok).toBe(false)
+    expect(result.fetchErrors).toBeDefined()
+    expect(result.fetchErrors).toHaveLength(1)
+    expect(result.fetchErrors![0]!.name).toBe('detect')
+    expect(result.fetchErrors![0]!.error).toContain('Network timeout')
+  })
+
   it('allows placeholder change with allowVariableChange', async () => {
     const api = makeApi({
       descriptions: { version: 5, prompt: 'hello {{foo}} world', labels: ['production'] },
@@ -404,6 +437,51 @@ describe('promotePrompt', () => {
     })
 
     expect(result.ok).toBe(true)
+    expect(api.promptVersionUpdate).toHaveBeenCalledWith('detect', 4, {
+      newLabels: ['production'],
+    })
+  })
+
+  it('returns not ok when post-promote pull fails', async () => {
+    const snapshot: SnapshotFile = {
+      prompts: {
+        detect: { version: 3, text: ['hello {{x}} world'] },
+        descriptions: { version: 2, text: ['desc text'] },
+      },
+    }
+
+    // API: version 4 of detect has same placeholders — parity passes.
+    // But descriptions throws on re-fetch (simulating pull failure).
+    const api: PromptApi = {
+      promptsGet: vi.fn(async ({ promptName, version, label }: { promptName: string; version?: number; label?: string }) => {
+        if (promptName === 'detect') {
+          if (version === 4) {
+            return { version: 4, prompt: 'updated {{x}} content', labels: [] }
+          }
+          if (label === 'production') {
+            return { version: 4, prompt: 'updated {{x}} content', labels: ['production'] }
+          }
+        }
+        if (promptName === 'descriptions') {
+          throw new Error('Langfuse API unavailable')
+        }
+        throw new Error(`Not found: ${promptName}`)
+      }),
+      promptsCreate: vi.fn(),
+      promptVersionUpdate: vi.fn(async () => ({})),
+    }
+
+    const result = await promotePrompt({
+      api,
+      name: 'detect',
+      version: 4,
+      snapshot,
+      knownNames: ['detect', 'descriptions'],
+    })
+
+    expect(result.ok).toBe(false)
+    expect(result.labelApplied).toBe(true)
+    // The label WAS applied before the pull failed
     expect(api.promptVersionUpdate).toHaveBeenCalledWith('detect', 4, {
       newLabels: ['production'],
     })

@@ -112,14 +112,15 @@ async function persistAuditEvent(
       ...(event.retryAttempt !== undefined
         ? { retryAttempt: event.retryAttempt }
         : {}),
-      ...(context.config !== undefined
-        ? {
-            config: {
-              ...(context.config as object),
-              ...(context.prompt ? { prompt: context.prompt } : {}),
-            },
-          }
-        : {}),
+      ...(() => {
+        const configWithPrompt = {
+          ...(context.config ? (context.config as object) : {}),
+          ...(context.prompt ? { prompt: context.prompt } : {}),
+        };
+        return Object.keys(configWithPrompt).length > 0
+          ? { config: configWithPrompt }
+          : {};
+      })(),
       latencyMs: event.latencyMs,
       auditSpanId: spanId,
       ...(context.supabase ? { supabase: context.supabase } : {}),
