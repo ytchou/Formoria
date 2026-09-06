@@ -685,82 +685,130 @@ export async function downloadAndGateImages(
 ): Promise<GatedImage[]> {
   if (candidates.length === 0) return []
 
-  const dedupedCandidates = deduplicateCandidates(candidates)
-  const supabase = supabaseOverride ?? createServiceClient()
-  const existingBySource = await loadExistingCandidates(
-    supabase,
-    target,
-    dedupedCandidates,
-  )
-  const phashGuard = await loadPerceptualHashGuard(supabase, target)
-
-  const results = await mapWithConcurrency(
-    dedupedCandidates,
-    IMAGE_DOWNLOAD_CONCURRENCY,
-    async (candidate): Promise<GatedImage | null> => {
-      const { url, source, sourceUrl } = normalizeCandidate(candidate)
-      const existing = existingBySource.get(sourceUrl)
-      if (existing?.status === 'rejected') return null
-      if (
-        existing &&
-        (existing.status === 'active' || existing.storage_path)
-      ) {
-        return null
+  return auditedCall(
+    {
+      provider: 'images',
+      operation: 'downloadAndGateImages',
+      kind: 'service',
+    },
+    async (ctx) => {
+      let cached = 0
+      let previouslyRejected = 0
+      let gated = 0
+      const rejectionCounts: Record<string, Record<string, number>> = {}
+      const reject = (
+        candidate: DownloadImageCandidate,
+        code: ImageRejectionCode,
+      ) => {
+        const method =
+          typeof candidate === 'string'
+            ? 'google_image'
+            : (candidate.method ?? candidate.source)
+        const counts = rejectionCounts[method] ?? {}
+        counts[code] = (counts[code] ?? 0) + 1
+        rejectionCounts[method] = counts
       }
 
-      const controller = new AbortController()
-      const timeoutId = setTimeout(
-        () => controller.abort(),
-        IMAGE_FETCH_TIMEOUT_MS,
+      const dedupedCandidates = deduplicateCandidates(candidates)
+      const supabase = supabaseOverride ?? createServiceClient()
+      const existingBySource = await loadExistingCandidates(
+        supabase,
+        target,
+        dedupedCandidates,
+      )
+      const phashGuard = await loadPerceptualHashGuard(supabase, target)
+
+      Object.assign(ctx.summary, {
+        attempted: candidates.length,
+        deduplicated: candidates.length - dedupedCandidates.length,
+        unique: dedupedCandidates.length,
+      })
+
+      const results = await mapWithConcurrency(
+        dedupedCandidates,
+        IMAGE_DOWNLOAD_CONCURRENCY,
+        async (candidate): Promise<GatedImage | null> => {
+          const { url, source, sourceUrl } = normalizeCandidate(candidate)
+          const existing = existingBySource.get(sourceUrl)
+          if (existing?.status === 'rejected') {
+            previouslyRejected += 1
+            return null
+          }
+          if (
+            existing &&
+            (existing.status === 'active' || existing.storage_path)
+          ) {
+            cached += 1
+            return null
+          }
+
+          const controller = new AbortController()
+          const timeoutId = setTimeout(
+            () => controller.abort(),
+            IMAGE_FETCH_TIMEOUT_MS,
+          )
+
+          try {
+            const response = await fetch(url, { signal: controller.signal })
+            clearTimeout(timeoutId)
+
+            if (!response.ok) {
+              throw new ImageRejection(
+                'fetch_failed',
+                `Failed to fetch image: ${response.status}`,
+              )
+            }
+
+            const contentType = response.headers.get('content-type') ?? ''
+            const buffer = Buffer.from(await response.arrayBuffer())
+            const gate = await applyProductionImageGates(buffer, contentType)
+            const { entropy, sharpness, phash, processed } = gate
+
+            if (!phashGuard.claim(phash)) {
+              throw new ImageRejection(
+                'duplicate',
+                'Perceptual duplicate detected',
+              )
+            }
+
+            const dominantColor = dominantColorToHex(gate.dominant)
+            gated += 1
+
+            return {
+              buffer: processed.buffer,
+              contentType: processed.contentType,
+              width: processed.width,
+              height: processed.height,
+              dominantColor,
+              phash,
+              entropy: entropy ?? 0,
+              sharpness: sharpness ?? 0,
+              source,
+              sourceUrl,
+              provider: buildImageProviderMetadata(candidate, url),
+            }
+          } catch (err) {
+            clearTimeout(timeoutId)
+            reject(
+              candidate,
+              err instanceof ImageRejection ? err.code : 'fetch_failed',
+            )
+            console.warn(`Failed to download image ${url}:`, err)
+            return null
+          }
+        },
+      ).finally(() =>
+        Object.assign(ctx.summary, {
+          cached,
+          gated,
+          previouslyRejected,
+          rejectionCounts,
+        }),
       )
 
-      try {
-        const response = await fetch(url, { signal: controller.signal })
-        clearTimeout(timeoutId)
-
-        if (!response.ok) {
-          throw new ImageRejection(
-            'fetch_failed',
-            `Failed to fetch image: ${response.status}`,
-          )
-        }
-
-        const contentType = response.headers.get('content-type') ?? ''
-        const buffer = Buffer.from(await response.arrayBuffer())
-        const gate = await applyProductionImageGates(buffer, contentType)
-        const { entropy, sharpness, phash, processed } = gate
-
-        if (!phashGuard.claim(phash)) {
-          throw new ImageRejection(
-            'duplicate',
-            'Perceptual duplicate detected',
-          )
-        }
-
-        const dominantColor = dominantColorToHex(gate.dominant)
-
-        return {
-          buffer: processed.buffer,
-          contentType: processed.contentType,
-          width: processed.width,
-          height: processed.height,
-          dominantColor,
-          phash,
-          entropy: entropy ?? 0,
-          sharpness: sharpness ?? 0,
-          source,
-          sourceUrl,
-          provider: buildImageProviderMetadata(candidate, url),
-        }
-      } catch (err) {
-        clearTimeout(timeoutId)
-        console.warn(`Failed to download image ${url}:`, err)
-        return null
-      }
+      return results.filter((r): r is GatedImage => r !== null)
     },
   )
-
-  return results.filter((r): r is GatedImage => r !== null)
 }
 
 // ---------------------------------------------------------------------------
@@ -784,70 +832,104 @@ export async function storeKeptImages(
   if (kept.length === 0) return []
 
   const storage = targetImageStorage(target)
-  const records: StoredImageRecord[] = []
 
-  for (const image of kept) {
-    const ext = 'webp'
-    const filename = `${storage.prefix}/${target.id}/${crypto.randomUUID()}.${ext}`
+  const results = await mapWithConcurrency(
+    kept,
+    IMAGE_DOWNLOAD_CONCURRENCY,
+    async (image): Promise<StoredImageRecord | null> => {
+      const ext = 'webp'
+      const filename = `${storage.prefix}/${target.id}/${crypto.randomUUID()}.${ext}`
 
-    const { error: uploadError } = await uploadWithRetry(
-      () =>
-        supabase.storage.from('brand-images').upload(filename, image.buffer, {
-          contentType: image.contentType,
-          cacheControl: '31536000',
-        }),
-      { idempotent: false },
-    )
-
-    if (uploadError) {
-      console.error(
-        `[storeKeptImages] upload failed for ${image.sourceUrl}:`,
-        uploadError,
+      const { error: uploadError } = await uploadWithRetry(
+        () =>
+          supabase.storage.from('brand-images').upload(filename, image.buffer, {
+            contentType: image.contentType,
+            cacheControl: '31536000',
+          }),
+        { idempotent: false },
       )
-      continue
-    }
 
-    const { data, error: insertError } = (await supabase
-      .from(storage.table)
-      .insert({
-        [storage.foreignKey]: target.id,
-        source: image.source,
-        source_url: image.sourceUrl,
+      if (uploadError) {
+        console.error(
+          `[storeKeptImages] upload failed for ${image.sourceUrl}:`,
+          uploadError,
+        )
+        return null
+      }
+
+      const { data, error: insertError } = (await supabase
+        .from(storage.table)
+        .insert({
+          [storage.foreignKey]: target.id,
+          source: image.source,
+          source_url: image.sourceUrl,
+          storage_path: filename,
+          status: 'active',
+          provider_metadata: image.provider,
+          width: image.width,
+          height: image.height,
+          dominant_color: image.dominantColor,
+          phash: image.phash,
+          sharpness: image.sharpness,
+          entropy: image.entropy,
+          // Pre-filled classification columns from the buffer-based classify pass
+          tags: image.tag ? [image.tag] : null,
+          score: image.score ?? null,
+          alt_zh: image.caption ?? null,
+        } as never)
+        .select('id')) as { data: Array<{ id: string }> | null; error: unknown }
+
+      if (insertError) {
+        const errorCode = (insertError as { code?: string }).code
+        if (errorCode === '23505') {
+          // Unique violation — row already exists for this source_url; query it
+          const { data: existing } = (await supabase
+            .from(storage.table)
+            .select('id, storage_path, source_url')
+            .eq(storage.foreignKey, target.id)
+            .eq('source_url', image.sourceUrl)
+            .limit(1)) as {
+            data: Array<{ id: string; storage_path: string; source_url: string }> | null
+          }
+          // Clean up the duplicate upload
+          await uploadWithRetry(() =>
+            supabase.storage.from('brand-images').remove([filename]),
+          )
+          const existingRow = existing?.[0]
+          if (existingRow) {
+            return {
+              id: existingRow.id,
+              storage_path: existingRow.storage_path,
+              source_url: existingRow.source_url,
+            }
+          }
+          return null
+        }
+        // Clean up uploaded object on insert failure
+        await uploadWithRetry(() =>
+          supabase.storage.from('brand-images').remove([filename]),
+        )
+        console.error(
+          `[storeKeptImages] insert failed for ${image.sourceUrl}:`,
+          insertError,
+        )
+        return null
+      }
+
+      const insertedId = data?.[0]?.id
+      if (!insertedId) {
+        console.warn(
+          `[storeKeptImages] insert returned no id for ${image.sourceUrl}, skipping`,
+        )
+        return null
+      }
+      return {
+        id: insertedId,
         storage_path: filename,
-        status: 'active',
-        provider_metadata: image.provider,
-        width: image.width,
-        height: image.height,
-        dominant_color: image.dominantColor,
-        phash: image.phash,
-        sharpness: image.sharpness,
-        entropy: image.entropy,
-        // Pre-filled classification columns from the buffer-based classify pass
-        tags: image.tag ? [image.tag] : null,
-        score: image.score ?? null,
-        alt_zh: image.caption ?? null,
-      } as never)
-      .select('id')) as { data: Array<{ id: string }> | null; error: unknown }
+        source_url: image.sourceUrl,
+      }
+    },
+  )
 
-    if (insertError) {
-      // Clean up uploaded object on insert failure
-      await uploadWithRetry(() =>
-        supabase.storage.from('brand-images').remove([filename]),
-      )
-      console.error(
-        `[storeKeptImages] insert failed for ${image.sourceUrl}:`,
-        insertError,
-      )
-      continue
-    }
-
-    const id = data?.[0]?.id ?? ''
-    records.push({
-      id,
-      storage_path: filename,
-      source_url: image.sourceUrl,
-    })
-  }
-
-  return records
+  return results.filter((r): r is StoredImageRecord => r !== null)
 }

@@ -150,6 +150,7 @@ const PROVIDERS = {
     "statBrandImageObject",
     "deleteBrandImages",
     "deleteStoredImagePaths",
+    "downloadAndGateImages",
     "downloadAndStoreImages",
     "insertBrandImage",
     "loadVisionImage",

@@ -1762,6 +1762,10 @@ export type ClassifiedImageWithBuffer = GatedImage & {
 export type ClassifyImageBuffersOptions = {
   brandContext: string;
   client?: ClassifyImagesChatClient;
+  /** Real enrichment target — used for audit trail when no client is provided. */
+  target?: import('../_shared/enrichment-target').EnrichmentTarget;
+  /** Job ID — forwarded to the profiled client for audit correlation. */
+  jobId?: string;
 };
 
 /**
@@ -1790,8 +1794,9 @@ export async function classifyImageBuffers(
   const client =
     options.client ??
     createProfiledOpenAIClient("classifyImages", {
-      target: { type: "brand", id: "buffer-classify" },
+      target: options.target ?? { type: "brand", id: "buffer-classify" },
       phase: "classify_images",
+      ...(options.jobId ? { jobId: options.jobId } : {}),
       config: buildProfiledEnrichmentConfig(
         "classify_images",
         IMAGE_CLASSIFY_SYSTEM_PROMPT,
@@ -1810,7 +1815,11 @@ export async function classifyImageBuffers(
     async (image) => {
       try {
         return await visionDataUri(image.buffer);
-      } catch {
+      } catch (err) {
+        console.warn(
+          `[classifyImageBuffers] visionDataUri failed for ${image.sourceUrl}:`,
+          err,
+        );
         return null;
       }
     },
@@ -1828,6 +1837,7 @@ export async function classifyImageBuffers(
 
   // Chunk into batches of IMAGE_CLASSIFY_BATCH_SIZE
   const results: ClassifiedImageWithBuffer[] = [];
+  let unjudgedCount = 0;
 
   for (
     let chunkStart = 0;
@@ -1893,7 +1903,13 @@ export async function classifyImageBuffers(
     for (let i = 0; i < chunk.length; i++) {
       const ordinal = String(i + 1);
       const verdict = parsed.get(ordinal);
-      if (!verdict) continue;
+      if (!verdict) {
+        console.warn(
+          `[classifyImageBuffers] model omitted image ${ordinal} (${chunk[i].image.sourceUrl})`,
+        );
+        unjudgedCount += 1;
+        continue;
+      }
 
       results.push({
         ...chunk[i].image,
@@ -1903,6 +1919,12 @@ export async function classifyImageBuffers(
         caption: verdict.caption ?? "",
       });
     }
+  }
+
+  if (unjudgedCount > 0) {
+    console.warn(
+      `[classifyImageBuffers] ${unjudgedCount} image(s) omitted by model across all batches`,
+    );
   }
 
   return results;

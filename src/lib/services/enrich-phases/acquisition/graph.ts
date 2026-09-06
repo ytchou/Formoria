@@ -850,6 +850,10 @@ async function storeAndClassify(
     .filter((img) => recordBySourceUrl.has(img.sourceUrl))
     .map((img) => {
       const record = recordBySourceUrl.get(img.sourceUrl)!
+      // `resolvedFetchUrl` is the image's own download URL — the same value
+      // `classifiedImageFromRow` reads from `brand_images.url`. Carried here
+      // from the GatedImage's provider metadata so products.ts can filter by it.
+      const fetchUrl = img.provider?.resolvedFetchUrl
       return {
         id: record.id,
         tag: img.tag as ClassifiedImage['tag'],
@@ -860,6 +864,7 @@ async function storeAndClassify(
         height: img.height,
         sourceUrl: img.sourceUrl,
         caption: img.caption,
+        ...(typeof fetchUrl === 'string' ? { imageUrl: fetchUrl } : {}),
       }
     })
 }

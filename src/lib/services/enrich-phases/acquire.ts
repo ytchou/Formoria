@@ -49,6 +49,7 @@ import { createServiceClient } from '@/lib/supabase/service'
 import { createAgentModel as defaultCreateAgentModel } from './agents/runtime'
 import { type CandidateImage } from './candidate-pool'
 import {
+  buildBrandContext,
   classifyImageBuffers as defaultClassifyImageBuffers,
   finalizeHeroOrder as defaultFinalizeHeroOrder,
   type ClassifiedImageWithBuffer,
@@ -772,7 +773,8 @@ export async function runAcquirePhase({
     }
     // -----------------------------------------------------------------------
     // Acquisition agent: always runs. On success, its scrapeResult populates
-    // scrapedFromPages. On throw, outcome is 'blocked' and scrapedFromPages = {}.
+    // scrapedFromPages. On throw, outcome is 'blocked' or 'fallback' and
+    // scrapedFromPages = {}.
     // -----------------------------------------------------------------------
     let agentAcquisitionPlan: AcquisitionPlanType | undefined
     let agentScrapeData: EnrichScrapedData | null = null
@@ -830,7 +832,15 @@ export async function runAcquirePhase({
                   downloadAndGateFn(candidates, effectiveTarget, db() as never),
                 classifyImageBuffers: (gated: GatedImage[]) =>
                   classifyBuffersFn(gated, {
-                    brandContext: brand.name ?? brand.slug,
+                    brandContext: buildBrandContext({
+                      name: brand.name ?? brand.slug,
+                      categorySlug: brand.category ?? null,
+                      website: brand.purchase_website ?? null,
+                      pinkoi: brand.purchase_pinkoi ?? null,
+                      instagram: brand.social_instagram ?? null,
+                    }),
+                    target: effectiveTarget,
+                    jobId,
                   }),
                 storeKeptImages: async (kept: ClassifiedImageWithBuffer[]) => {
                   const records = await storeKeptFn(kept, effectiveTarget, db() as never)
@@ -1005,7 +1015,7 @@ export async function runAcquirePhase({
   // planned, scraped text, classified images and discovered a catalog.
   const catalogTriples = result.catalogResult?.triples.length ?? 0
   const acquiredEvidence =
-    (result.agentOutcome === 'planned' || result.agentOutcome === 'recovered') &&
+    (result.agentOutcome === 'planned' || result.agentOutcome === 'recovered' || result.agentOutcome === 'fallback') &&
     (result.imagePool.length > 0 ||
       catalogTriples > 0 ||
       hasScrapedText(result.scrapedData))

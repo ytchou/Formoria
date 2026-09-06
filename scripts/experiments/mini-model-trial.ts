@@ -18,6 +18,7 @@ import { loadScriptTarget } from '../shared/target'
 
 // @/ imports — available after loadScriptTarget() sets up env
 import { getLangfuse, flushLangfuse } from '@/lib/langfuse/client'
+import { LLM_MODELS } from '@/lib/constants/llm-models'
 import { adapterFor } from '@/lib/services/eval/phase-adapters'
 import { runExperiment, type ExperimentArm } from '@/lib/services/eval/run-experiment'
 
@@ -31,7 +32,7 @@ const PILOT_COHORT_PATH = join(
 )
 
 const BASELINE_MODEL = 'gpt-5.6-luna'
-const MINI_MODEL = 'gpt-4o-mini'
+const MINI_MODEL = LLM_MODELS.text_mini
 
 const ARMS: ExperimentArm[] = [
   { name: 'baseline', type: 'model', value: BASELINE_MODEL },
@@ -72,6 +73,7 @@ async function main() {
     options: {
       dataset: { type: 'string', default: 'detect-confidence-golden' },
       'allow-unreviewed': { type: 'boolean', default: false },
+      'env-file': { type: 'string' },
     },
   })
 
