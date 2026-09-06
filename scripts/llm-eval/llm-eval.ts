@@ -318,7 +318,7 @@ async function cmdDatasetValidate(allowUnreviewed: boolean): Promise<void> {
 }
 
 async function cmdDatasetReviewEnqueue(dataset: string): Promise<void> {
-  const result = await enqueueDataset({ dataset, queueName: dataset })
+  const result = await enqueueDataset({ dataset, queueName: 'golden-review' })
   console.log(`[enqueue] ${result.enqueued} items enqueued to queue "${result.queueName}"`)
   await flushLangfuse()
 }
@@ -327,7 +327,7 @@ async function cmdDatasetReviewPush(
   dataset: string,
   approvedBy: string,
 ): Promise<void> {
-  const result = await applyVerdicts({ dataset, queueName: dataset, approvedBy })
+  const result = await applyVerdicts({ dataset, queueName: 'golden-review', approvedBy })
   console.log(
     `[push] processed=${result.processed} pending=${result.pending} ` +
       `(approved=${result.summary.approved} edited=${result.summary.edited} rejected=${result.summary.rejected})`,
