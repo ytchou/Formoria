@@ -165,14 +165,14 @@ describe('acquisition tools', () => {
 
   it('probe_rendered_reports_a_provider_throw_without_crashing_the_loop', async () => {
     const deps = makeDeps({
-      renderProvider: { fetchRendered: vi.fn().mockRejectedValue(new Error('browserless 429')) },
+      renderProvider: { fetchRendered: vi.fn().mockRejectedValue(new Error('render 429')) },
     })
     const onProviderError = vi.fn()
     const tools = createAcquisitionTools(deps, makeContext({ onProviderError }))
 
     const result = await callTool(tools, 'probe_rendered', { url: 'https://example.com' })
 
-    expect(result.error).toContain('browserless 429')
+    expect(result.error).toContain('render 429')
     expect(onProviderError).toHaveBeenCalledTimes(1)
   })
 

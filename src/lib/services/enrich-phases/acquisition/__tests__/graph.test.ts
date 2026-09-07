@@ -1193,7 +1193,7 @@ describe('acquisition graph — finalize', () => {
       ],
     }
     const brokenRender = {
-      fetchRendered: vi.fn().mockRejectedValue(new Error('browserless 429')),
+      fetchRendered: vi.fn().mockRejectedValue(new Error('render 429')),
     }
 
     const failing = makeDeps({ renderProvider: brokenRender, scrapeBrandUrls: vi.fn().mockResolvedValue(failedScrape) })
@@ -1209,7 +1209,7 @@ describe('acquisition graph — finalize', () => {
     expect(failingResult.providerFailure).toBe(true)
 
     // Same provider throw, but the scrape produced evidence → not a provider failure.
-    const recovered = makeDeps({ renderProvider: { fetchRendered: vi.fn().mockRejectedValue(new Error('browserless 429')) } })
+    const recovered = makeDeps({ renderProvider: { fetchRendered: vi.fn().mockRejectedValue(new Error('render 429')) } })
     const recoveredResult = await runAcquisition(baseInput, recovered, {
       model: fakeAgentModel({
         plan: [

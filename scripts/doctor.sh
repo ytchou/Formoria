@@ -155,13 +155,10 @@ check_env() {
     else
       echo "WARN: OPENAI_API_KEY not set (the entire enrichment pipeline will fail — descriptions, reputation, category classification, brand detection, and image classification)"
     fi
-    # RENDER_LOCAL (optional) is the development escape hatch from the missing
-    # key: from-env.ts prefers it over Browserless and it carries no budget.
-    if grep -q '^RENDER_LOCAL=1$' .env.local 2>/dev/null; then
-      echo "OK: RENDER_LOCAL=1 uses local Playwright for development"
-    elif ! grep -q "RENDER_API_KEY=." .env.local 2>/dev/null; then
-      echo "WARN: RENDER_API_KEY not set — headless rendering unavailable — JS-only pages skip"
-      echo "      (RENDER_LOCAL=1 uses local Playwright for development)"
+    if pnpm exec node -e "const {chromium}=require('@playwright/test');process.exit(require('fs').existsSync(chromium.executablePath())?0:1)" 2>/dev/null; then
+      echo "OK: Playwright Chromium installed"
+    else
+      echo "WARN: Playwright Chromium missing — run: pnpm exec playwright install chromium (JS-only pages will fail to render)"
     fi
     if ! grep -q "INDEXNOW_KEY=." .env.local 2>/dev/null; then
       echo "WARN: INDEXNOW_KEY not set (optional — needed for Bing IndexNow submission)"

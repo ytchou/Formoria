@@ -79,7 +79,7 @@ import {
 } from "../mit-registry";
 import { loadRenderedProductTexts } from "./scraper/product-origin-text";
 import { fetchHtmlWithMetadata } from "./scraper/fetch-guards";
-import type { RenderProviderWithBudget } from "./scraper/render/from-env";
+import type { RenderProvider } from "./scraper/render/types";
 import { bindBrandKey } from "./scraper/render/render-budget";
 import type { CatalogDiscoveryResult } from "./catalog-discovery";
 import type { CandidateImage } from "./candidate-pool";
@@ -255,7 +255,7 @@ export type ProductsPhaseOptions = {
   acquisitionPageUrls?: string[];
   /** Classified image pool from the acquire phase, for product-level image selection. */
   imagePool?: RankableImage[];
-  renderProvider?: RenderProviderWithBudget;
+  renderProvider?: RenderProvider;
   /**
    * Chat model for the agent path. Injected only by tests; production builds
    * one from the `products_agent` profile through the shared agent runtime.

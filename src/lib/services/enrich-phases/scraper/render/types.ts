@@ -6,4 +6,5 @@ export interface RenderResult {
 export interface RenderProvider {
   fetchRendered(url: string): Promise<RenderResult>
   fetchRenderedBatch?(urls: readonly string[]): Promise<Array<RenderResult | null>>
+  close?(): Promise<void>
 }

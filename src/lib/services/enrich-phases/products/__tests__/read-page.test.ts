@@ -110,7 +110,7 @@ describe('readProductPage', () => {
 
   it('read_page_survives_a_render_failure', async () => {
     const deps = makeDeps(SHELL_HTML)
-    deps.renderProvider.fetchRendered.mockRejectedValue(new Error('browserless 429'))
+    deps.renderProvider.fetchRendered.mockRejectedValue(new Error('render 429'))
 
     const evidence = await readProductPage(PAGE_URL, deps)
 

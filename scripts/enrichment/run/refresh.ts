@@ -48,7 +48,6 @@
  *   pnpm exec tsx scripts/enrichment/run/refresh.ts --cohort batch1-never-curated --confirm --via-worker
  *   pnpm exec tsx scripts/enrichment/run/refresh.ts --task product --confirm
  *   pnpm exec tsx scripts/enrichment/run/refresh.ts --task product --no-apply --confirm
- *   pnpm exec tsx scripts/enrichment/run/refresh.ts --task product --local-render --no-apply --confirm
  *
  * Staging is the default; pass --target production to run against production.
  */
@@ -64,7 +63,6 @@ import {
 } from "@/lib/services/curation-jobs";
 import { dispatchCurationJob } from "@/lib/services/curation-dispatch";
 import { runJob } from "@/lib/services/job-runner";
-import { createLocalPlaywrightProvider } from "@/lib/services/enrich-phases/scraper/render/local-playwright-provider";
 import {
   requestBrandRefreshesBySlugs,
   applyBrandRefresh,
@@ -77,7 +75,7 @@ import {
   type CurationTask,
 } from "@/lib/constants/enrich-phases";
 import { loadCohort, snapshotDir, type Cohort } from "./cohort";
-import { validateLocalRenderFlags } from "./refresh-options";
+import { unappliedSubmissions, rejectionNote } from "./refresh-unapplied";
 import { loadScriptTarget } from "../../shared/target";
 
 /**
@@ -235,7 +233,6 @@ async function main(): Promise<void> {
   );
   const dryRun = hasFlag(argv, "--dry-run");
   const viaWorker = hasFlag(argv, "--via-worker");
-  const localRender = validateLocalRenderFlags(argv);
   const task = targetTask(argv);
   // Recorded alongside the task so a log stays readable after CURATION_TASKS
   // changes shape — the task name alone would not say what actually ran.
@@ -535,20 +532,7 @@ async function main(): Promise<void> {
       throw new Error(
         `could not claim job ${job.id} — another worker may hold it`,
       );
-    const { createRenderProviderFromEnv } = await import("@/lib/services/enrich-phases/scraper/render/from-env");
-    const { loadBrowserlessMonthlyCount } = await import("@/lib/services/enrich-phases/scraper/render/monthly-gauge");
-    summary = await runJob(claimed, workerToken, {
-      ...(localRender
-        ? { renderProvider: createLocalPlaywrightProvider() }
-        : {
-            // Same durable gauge the worker uses: this script and the deployed
-            // worker spend the same Browserless monthly allowance, so a rerun
-            // must see the renders the worker already made.
-            renderProvider: createRenderProviderFromEnv({
-              loadMonthlyCount: () => loadBrowserlessMonthlyCount(supabase),
-            }),
-          }),
-    });
+    summary = await runJob(claimed, workerToken);
   }
   console.log(
     `\njob done — success ${summary.success}, failed ${summary.failed}, skipped ${summary.skipped}`,
@@ -667,6 +651,34 @@ async function main(): Promise<void> {
     }
   }
 
+  // Reject unapplied refresh submissions so they don't linger as pending
+  const requestedMap = new Map(
+    requested
+      .filter((r): r is typeof r & { submissionId: string } => r.submissionId !== null)
+      .map((r) => [r.slug, r.submissionId]),
+  );
+  const unapplied = unappliedSubmissions(requestedMap, applied);
+  const rejected: Array<{ slug: string; submissionId: string; reason: string }> = [];
+  if (unapplied.length > 0) {
+    for (const entry of unapplied) {
+      const note = rejectionNote(job.id, entry.detail);
+      const { data: rejectData, error: rejectErr } = await supabase
+        .from("brand_submissions")
+        .update({ status: "rejected", reviewer_notes: note })
+        .eq("id", entry.submissionId)
+        .eq("status", "pending")
+        .select("id");
+      if (rejectErr) {
+        console.error(`  ${entry.slug.padEnd(18)} REJECT FAILED — ${rejectErr.message}`);
+      } else if (!rejectData || rejectData.length === 0) {
+        console.warn(`  ${entry.slug.padEnd(18)} REJECT SKIPPED — status already changed`);
+      } else {
+        rejected.push({ slug: entry.slug, submissionId: entry.submissionId, reason: entry.detail });
+      }
+    }
+    console.log(`rejected ${unapplied.length} unapplied refresh submission(s)`);
+  }
+
   await mkdir(dirname(logPath), { recursive: true });
   await writeFile(
     logPath,
@@ -687,6 +699,7 @@ async function main(): Promise<void> {
           errors: enrich.errors,
         },
         applied,
+        ...(rejected.length > 0 ? { rejected } : {}),
       },
       null,
       2,
