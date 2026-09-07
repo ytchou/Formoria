@@ -125,6 +125,15 @@ function errorText(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
 }
 
+function alertDate(now: Date = new Date()): string {
+  return new Intl.DateTimeFormat("en-CA", {
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    timeZone: "Asia/Taipei",
+  }).format(now);
+}
+
 /**
  * Called from the SUCCESS branch of the job runner, where a provider outage
  * actually lands (the job finalizes as `completed` with failed targets).
@@ -149,13 +158,14 @@ export async function reportProviderFailures(
       await dispatchAlert(
         {
           agent: ALERT_AGENT,
+          date: alertDate(),
           status: "failed",
           summary: [
             `• ${providerFailed} provider failure(s) across ${summary.failed} failed target(s)`,
             `• LLM: ${breakdown.llm} · search: ${breakdown.search}`,
             `• ${summary.success} succeeded · ${summary.skipped} skipped`,
           ],
-          details: [...jobDetails(job), ...samples],
+          details: [...jobDetails(job), `• Job page: ${jobLink(job.id)}`, ...samples],
           managerAction: providerAction(breakdown),
         },
         {
@@ -232,6 +242,7 @@ export async function reportChannelVerdicts(
       await dispatchAlert(
         {
           agent: ALERT_AGENT,
+          date: alertDate(),
           status: "needs_attention",
           summary: [
             `• ${prefix}${rejected} submission(s) rejected and ${hidden} brand(s) hidden for having no purchase channel`,
@@ -288,6 +299,7 @@ export async function reportCircuitBreakerTrip(
       await dispatchAlert(
         {
           agent: ALERT_AGENT,
+          date: alertDate(),
           status: "failed",
           summary: [
             `• LLM circuit breaker tripped — the run was aborted, not completed`,
@@ -295,6 +307,7 @@ export async function reportCircuitBreakerTrip(
           ],
           details: [
             ...jobDetails(job),
+            `• Job page: ${jobLink(job.id)}`,
             "• Remaining targets were cancelled, not attempted",
           ],
           managerAction:
@@ -325,9 +338,10 @@ export async function reportJobFailure(
       await dispatchAlert(
         {
           agent: ALERT_AGENT,
+          date: alertDate(),
           status: "failed",
           summary: [`• ${errorText(error)}`],
-          details: jobDetails(job),
+          details: [...jobDetails(job), `• Job page: ${jobLink(job.id)}`],
           managerAction: "Inspect the worker logs and rerun the job once fixed",
         },
         {
@@ -356,6 +370,7 @@ export async function reportWorkerFailure(
       await dispatchAlert(
         {
           agent: ALERT_AGENT,
+          date: alertDate(),
           status: "failed",
           summary: [`• ${errorText(error)}`],
           details: [`• Source: ${context}`],

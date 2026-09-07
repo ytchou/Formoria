@@ -1,6 +1,4 @@
 import {
-  CLASSIFY_SYSTEM_PROMPT,
-  DETECT_SYSTEM_PROMPT,
   CATEGORY_LIST,
 } from "@/lib/prompts";
 import { fetchLangfusePromptWithMeta } from "@/lib/langfuse/prompt";
@@ -171,7 +169,7 @@ function createClassifierClient(
   profileKey: LlmProfileKey,
   target: EnrichmentTarget | undefined,
   jobId?: string,
-  prompt?: { name: string; version: number },
+  prompt?: { name: string; version: number; source: "langfuse" | "snapshot" },
 ) {
   return createProfiledOpenAIClient(
     profileKey,
@@ -435,7 +433,6 @@ async function classifyCategory(
   try {
     const { text: classifyPrompt, prompt } = await fetchLangfusePromptWithMeta(
       "category-classify",
-      CLASSIFY_SYSTEM_PROMPT,
       { category_list: CATEGORY_LIST },
     );
 
@@ -445,7 +442,7 @@ async function classifyCategory(
       "classification",
       brand.target,
       jobId,
-      prompt ?? undefined,
+      prompt,
     );
 
     const { response, data, content } = await client.chat({
@@ -505,7 +502,6 @@ async function classifyCategoryBatchChunk(
   try {
     const { text: classifyBatchPrompt, prompt: classifyBatchPromptMeta } = await fetchLangfusePromptWithMeta(
       "category-classify",
-      CLASSIFY_SYSTEM_PROMPT,
       { category_list: CATEGORY_LIST },
     );
 
@@ -515,7 +511,7 @@ async function classifyCategoryBatchChunk(
       "classificationBatch",
       brands.at(0)?.target,
       jobId,
-      classifyBatchPromptMeta ?? undefined,
+      classifyBatchPromptMeta,
     );
 
     const { response, data, content } = await client.chat({
@@ -644,7 +640,7 @@ async function detectBrand(
   const userContent = `品牌 slug：${brand.slug}\n品牌名稱：${brand.name}\n描述：${brand.description ?? "無"}\n網站：${brand.website ?? "無"}${snippetLine}${probeLine}`;
 
   try {
-    const { text: detectPrompt, prompt: detectPromptMeta } = await fetchLangfusePromptWithMeta("detect", DETECT_SYSTEM_PROMPT);
+    const { text: detectPrompt, prompt: detectPromptMeta } = await fetchLangfusePromptWithMeta("detect");
 
     const client = createClassifierClient(
       token,
@@ -652,7 +648,7 @@ async function detectBrand(
       "detect",
       brand.target,
       jobId,
-      detectPromptMeta ?? undefined,
+      detectPromptMeta,
     );
 
     const { response, data, content } = await client.chat({
@@ -716,7 +712,7 @@ async function detectBrandsBatchChunk(
   const userContent = `請判斷以下項目是否為實際品牌：\n${list}`;
 
   try {
-    const { text: detectBatchPrompt, prompt: detectBatchPromptMeta } = await fetchLangfusePromptWithMeta("detect", DETECT_SYSTEM_PROMPT);
+    const { text: detectBatchPrompt, prompt: detectBatchPromptMeta } = await fetchLangfusePromptWithMeta("detect");
 
     const client = createClassifierClient(
       token,
@@ -724,7 +720,7 @@ async function detectBrandsBatchChunk(
       "detectBatch",
       brands.at(0)?.target,
       jobId,
-      detectBatchPromptMeta ?? undefined,
+      detectBatchPromptMeta,
     );
 
     const { response, data, content } = await client.chat({

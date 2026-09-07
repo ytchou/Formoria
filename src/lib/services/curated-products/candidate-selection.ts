@@ -36,7 +36,7 @@ export type GatedCandidate = {
 };
 
 /** A ranked candidate with LLM score and final rank. */
-export type RankedCandidate = {
+type RankedCandidate = {
   url: string;
   normalizedUrl: string;
   title?: string;

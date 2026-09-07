@@ -2,12 +2,9 @@ import type { ZodType } from 'zod'
 import { z } from 'zod'
 
 import {
-  DETECT_SYSTEM_PROMPT,
-  CLASSIFY_SYSTEM_PROMPT,
-  NAME_ARBITER_SYSTEM_PROMPT,
-  SITE_IDENTITY_SYSTEM_PROMPT,
-  DESCRIPTION_SYSTEM_PROMPT,
   CATEGORY_LIST,
+  SUBCATEGORY_VOCAB_BLOCK,
+  MATERIAL_VOCAB_BLOCK,
   TAIWAN_USAGE_RULES,
 } from '@/lib/prompts'
 import { detectBatchShape, classifyBatchShape } from '@/lib/services/category-classifier'
@@ -17,7 +14,6 @@ import { resolveQuarantine } from '@/lib/services/enrich-phases/site-identity'
 import { descriptionShape } from '@/lib/services/description-rewrite'
 import { isHighConfidenceWrite } from '@/lib/services/enrich-phases/detect'
 import { toStrictJsonSchema } from '@/lib/services/_shared/zod-schema'
-import { PRODUCTS_PROPOSE_SYSTEM_PROMPT } from '@/lib/prompts/products-agent'
 import { renderEditorialBands } from '@/lib/constants/curated-products'
 import { PRODUCTS_PROPOSAL_SHAPE } from '@/lib/services/enrich-phases/products'
 import {
@@ -51,7 +47,6 @@ import type { ArmResult, ExperimentItem, ExperimentArm } from './run-experiment'
 
 export interface PhaseAdapter {
   promptName: string
-  fallbackPrompt: string
   variables?: Record<string, string>
   profileKey: string
   outputSchema: ZodType
@@ -66,7 +61,7 @@ export interface PhaseAdapter {
     ok: boolean
     output: unknown
     error?: string
-    promptMeta?: { name: string; version: number } | 'fallback'
+    promptMeta?: { name: string; version: number; source: 'langfuse' | 'snapshot' }
   }>
   summarize?: (results: ArmResult[]) => string
   reviewView?: (item: ExperimentItem) => unknown
@@ -134,7 +129,6 @@ type BatchResult = { results: unknown[] }
 const registry: Record<string, PhaseAdapter> = {
   'detect-confidence-golden': {
     promptName: 'detect',
-    fallbackPrompt: DETECT_SYSTEM_PROMPT,
     profileKey: 'detectBatch',
     outputSchema: detectBatchShape,
     requestSchema: makeRequestSchema('detect_batch', detectBatchShape),
@@ -175,7 +169,6 @@ const registry: Record<string, PhaseAdapter> = {
 
   'category-confidence-golden': {
     promptName: 'category-classify',
-    fallbackPrompt: CLASSIFY_SYSTEM_PROMPT,
     variables: { category_list: CATEGORY_LIST },
     profileKey: 'classificationBatch',
     outputSchema: classifyBatchShape,
@@ -217,7 +210,6 @@ const registry: Record<string, PhaseAdapter> = {
 
   'name-arbiter-confidence-golden': {
     promptName: 'name-arbiter',
-    fallbackPrompt: NAME_ARBITER_SYSTEM_PROMPT,
     profileKey: 'namesBatch',
     outputSchema: nameArbitrationShape,
     requestSchema: makeRequestSchema('name_arbitration', nameArbitrationShape),
@@ -248,7 +240,6 @@ const registry: Record<string, PhaseAdapter> = {
 
   'site-identity-confidence-golden': {
     promptName: 'site-identity',
-    fallbackPrompt: SITE_IDENTITY_SYSTEM_PROMPT,
     profileKey: 'siteIdentityBatch',
     outputSchema: siteIdentityShape,
     requestSchema: makeRequestSchema('site_identity', siteIdentityShape),
@@ -298,8 +289,12 @@ const registry: Record<string, PhaseAdapter> = {
 
   'products-agent-ranking-golden': {
     promptName: 'products-propose',
-    fallbackPrompt: PRODUCTS_PROPOSE_SYSTEM_PROMPT,
-    variables: { editorial_bands: renderEditorialBands() },
+    variables: {
+      category_list: CATEGORY_LIST,
+      subcategory_vocab_block: SUBCATEGORY_VOCAB_BLOCK,
+      material_vocab_block: MATERIAL_VOCAB_BLOCK,
+      editorial_bands: renderEditorialBands(),
+    },
     profileKey: 'products_agent',
     outputSchema: PRODUCTS_PROPOSAL_SHAPE,
     requestSchema: makeRequestSchema('products_proposal', PRODUCTS_PROPOSAL_SHAPE),
@@ -335,7 +330,6 @@ const registry: Record<string, PhaseAdapter> = {
 
   descriptions: {
     promptName: 'descriptions',
-    fallbackPrompt: DESCRIPTION_SYSTEM_PROMPT,
     variables: { taiwan_usage_rules: TAIWAN_USAGE_RULES },
     profileKey: 'descriptions',
     outputSchema: descriptionShape,

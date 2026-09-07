@@ -118,6 +118,7 @@ async function main() {
     '@/lib/services/eval/zero-write'
   )
   const { fetchLangfusePromptWithMeta } = await import('@/lib/langfuse/prompt')
+  type PromptName = import('@/lib/langfuse/prompt').PromptName
   const { createProfiledOpenAIClient, profileChatParams } = await import(
     '@/lib/services/llm-audit'
   )
@@ -128,7 +129,7 @@ async function main() {
   const { dirname } = await import('node:path')
 
   const callModel = async (
-    input: { system: string; user: string; phase: string; prompt?: { name: string; version: number } | null },
+    input: { system: string; user: string; phase: string; prompt?: { name: string; version: number; source: 'langfuse' | 'snapshot' } | null },
     options: { model?: string },
     _itemRunId: string,
   ) => {
@@ -166,7 +167,8 @@ async function main() {
       },
       now: () => new Date(),
       flushLangfuse,
-      fetchPrompt: fetchLangfusePromptWithMeta,
+      fetchPrompt: (name: string, variables?: Record<string, string>) =>
+        fetchLangfusePromptWithMeta(name as PromptName, variables),
       installSeams,
       assertNoNewAuditRows,
       runWithAuditContext,

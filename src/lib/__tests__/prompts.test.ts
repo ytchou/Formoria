@@ -1,70 +1,81 @@
+import { execSync } from "node:child_process";
+import * as path from "node:path";
 import { describe, expect, it } from "vitest";
+import snapshot from "@/lib/prompts/langfuse-snapshot.json";
 import {
-  CLASSIFY_SYSTEM_PROMPT,
-  DETECT_SYSTEM_PROMPT,
-  NAME_ARBITER_SYSTEM_PROMPT,
-  PRODUCTS_SYSTEM_PROMPT,
-  SITE_IDENTITY_SYSTEM_PROMPT,
-} from "@/lib/prompts";
+  CATEGORY_LIST,
+  SUBCATEGORY_VOCAB_BLOCK,
+  MATERIAL_VOCAB_BLOCK,
+  TAIWAN_USAGE_RULES,
+} from "@/lib/prompts/shared";
 import { L1_CATEGORIES, MATERIALS } from "@/lib/taxonomy/ontology";
+import { renderEditorialBands } from "@/lib/constants/curated-products";
 
-/**
- * The curated-product proposal prompt (DEV-1469).
- *
- * Every closed vocabulary the prompt carries is interpolated from
- * `@/lib/taxonomy/ontology`, so these assertions are written against the
- * ontology rather than against a copy of its values: a taxonomy change that
- * left a hand-typed list behind in the prompt has to fail here, which is the
- * whole point of the file.
- *
- * The shared `- slug: gloss` line shape is the one `FACTS_SYSTEM_PROMPT` uses
- * for its closed lists, so a single scan finds both blocks and can assert the
- * union is exactly the two ratified vocabularies — no thirteenth material, no
- * invented L1 category.
- */
-const SLUG_LINE = /^- ([a-z][a-z0-9-]*): /gmu;
+// ---------------------------------------------------------------------------
+// Test-local helpers — mirrors the `compileVariables` logic in prompt.ts
+// without exporting it (spec says: a 5-line local helper is acceptable).
+// ---------------------------------------------------------------------------
 
-function listedSlugs(): string[] {
-  return [...PRODUCTS_SYSTEM_PROMPT.matchAll(SLUG_LINE)].map(
-    (match) => match[1]!,
-  );
+const VARIABLE_SOURCES: Record<string, string> = {
+  category_list: CATEGORY_LIST,
+  subcategory_vocab_block: SUBCATEGORY_VOCAB_BLOCK,
+  material_vocab_block: MATERIAL_VOCAB_BLOCK,
+  taiwan_usage_rules: TAIWAN_USAGE_RULES,
+  editorial_bands: renderEditorialBands(),
+};
+
+function compiledSnapshotPrompt(name: string): string {
+  const entry = snapshot.prompts[name as keyof typeof snapshot.prompts];
+  if (!entry) throw new Error(`Unknown snapshot prompt: "${name}"`);
+  const raw = entry.text.join("\n");
+  return raw.replace(/\{\{(\w+)\}\}/g, (_match, key: string) => {
+    return key in VARIABLE_SOURCES ? VARIABLE_SOURCES[key] : `{{${key}}}`;
+  });
 }
+
+// ---------------------------------------------------------------------------
+// Slug-line scanning — the shared `- slug: gloss` line shape used by prompts
+// ---------------------------------------------------------------------------
+
+const SLUG_LINE = /^- ([a-z][a-z0-9-]*): /gmu;
 
 const CATEGORY_SLUGS: string[] = L1_CATEGORIES.map((category) => category.slug);
 const MATERIAL_SLUGS: string[] = MATERIALS.map((material) => material.slug);
 
-describe("PRODUCTS_SYSTEM_PROMPT", () => {
+function listedSlugs(text: string): string[] {
+  return [...text.matchAll(SLUG_LINE)].map((match) => match[1]!);
+}
+
+// ---------------------------------------------------------------------------
+// Products prompt tests — re-targeted to compiledSnapshotPrompt("products")
+// ---------------------------------------------------------------------------
+
+describe("products snapshot prompt", () => {
+  const PRODUCTS = compiledSnapshotPrompt("products");
+
   it("products_prompt_lists_only_ontology_categories", () => {
-    const listed = listedSlugs();
+    const listed = listedSlugs(PRODUCTS);
 
     for (const slug of CATEGORY_SLUGS) expect(listed).toContain(slug);
-    // No slug-shaped line the ontology cannot account for: a hand-typed extra
-    // category (or a stale one left behind by a rename) shows up right here.
     const known = new Set([...CATEGORY_SLUGS, ...MATERIAL_SLUGS]);
     expect(listed.filter((slug) => !known.has(slug))).toEqual([]);
-    // Listed once each, so a copy-paste of the block cannot pass the checks above.
     expect(listed.filter((slug) => CATEGORY_SLUGS.includes(slug))).toHaveLength(
       CATEGORY_SLUGS.length,
     );
-    expect(PRODUCTS_SYSTEM_PROMPT).toContain(
+    expect(PRODUCTS).toContain(
       "category (single select, use only the following slugs)",
     );
   });
 
   it("products_prompt_lists_the_twelve_materials", () => {
-    const listed = listedSlugs();
+    const listed = listedSlugs(PRODUCTS);
 
     expect(MATERIAL_SLUGS).toHaveLength(12);
-    // Slug AND Chinese gloss: the model reads a Chinese product page, so it has
-    // to be able to recognise 陶瓷 and still answer `ceramic`.
     for (const material of MATERIALS) {
-      expect(PRODUCTS_SYSTEM_PROMPT).toContain(
+      expect(PRODUCTS).toContain(
         `- ${material.slug}: ${material.nameZh}`,
       );
     }
-    // Exactly the two vocabularies and nothing else — this is the assertion that
-    // fails on a thirteenth material added to the prompt but not to MATERIALS
-    // (whose CHECK constraint would 23514 the write).
     expect(new Set(listed)).toEqual(
       new Set([...CATEGORY_SLUGS, ...MATERIAL_SLUGS]),
     );
@@ -77,15 +88,10 @@ describe("PRODUCTS_SYSTEM_PROMPT", () => {
     ]) {
       expect(listed).not.toContain(absent);
     }
-    // Slug-only, because `createCuratedProduct`'s material normalisation is
-    // slug-only and silently DROPS a Chinese label.
-    expect(PRODUCTS_SYSTEM_PROMPT).toContain("no Chinese, no invented values");
+    expect(PRODUCTS).toContain("no Chinese, no invented values");
   });
 
   it("products_prompt_forbids_commerce_facts", () => {
-    // Formoria never stores a fact a transaction or an inventory event can
-    // change. The prohibition is named field by field so the model cannot read
-    // an omission as permission.
     for (const forbidden of [
       "Prices",
       "Discounts",
@@ -96,65 +102,54 @@ describe("PRODUCTS_SYSTEM_PROMPT", () => {
       "shipping",
       "pre-order",
     ]) {
-      expect(PRODUCTS_SYSTEM_PROMPT.toLowerCase()).toContain(
-        forbidden.toLowerCase(),
-      );
+      expect(PRODUCTS.toLowerCase()).toContain(forbidden.toLowerCase());
     }
-    expect(PRODUCTS_SYSTEM_PROMPT).toContain(
+    expect(PRODUCTS).toContain(
       "The following facts must never be written in any field, even if the source page clearly states them",
     );
-    // The self-check list repeats it, because the prohibition that is only stated
-    // once is the one a long prompt loses.
-    expect(PRODUCTS_SYSTEM_PROMPT).toMatch(
+    expect(PRODUCTS).toMatch(
       /- \[ \] Are all fields completely free of prices, discounts, inventory, supply status, shipping costs, variants, or offers\?/,
     );
   });
 
   it("products_prompt_forbids_novel_values", () => {
-    expect(PRODUCTS_SYSTEM_PROMPT).toMatch(/return null/);
-    expect(PRODUCTS_SYSTEM_PROMPT).toContain("do not guess");
-    expect(PRODUCTS_SYSTEM_PROMPT).toContain("do not invent slugs");
-    expect(PRODUCTS_SYSTEM_PROMPT).toContain(
+    expect(PRODUCTS).toMatch(/return null/);
+    expect(PRODUCTS).toContain("do not guess");
+    expect(PRODUCTS).toContain("do not invent slugs");
+    expect(PRODUCTS).toContain(
       "All three lists are closed: values outside these lists must never be output",
     );
-    expect(PRODUCTS_SYSTEM_PROMPT).toMatch(
+    expect(PRODUCTS).toMatch(
       /- \[ \] Have fields with no matching value been returned as null or \[\] rather than invented slugs or guessed values\?/,
     );
   });
 
   it("products_prompt_wraps_the_output_in_an_object", () => {
-    // `response_format: {type: "json_object"}` makes a top-level array an illegal
-    // reply — asking for one returned an empty object on every call of the
-    // DEV-1321 eval. See NAME_ARBITRATION_SCHEMA in name-arbiter.ts.
-    expect(PRODUCTS_SYSTEM_PROMPT).toContain(
+    expect(PRODUCTS).toContain(
       "When no products qualify, still return two empty arrays",
     );
-    expect(PRODUCTS_SYSTEM_PROMPT).toContain(
-      "never make the top level an array",
-    );
-    expect(PRODUCTS_SYSTEM_PROMPT).not.toMatch(/^\[\{/m);
+    expect(PRODUCTS).toContain("never make the top level an array");
+    expect(PRODUCTS).not.toMatch(/^\[\{/m);
   });
 
   it("products_prompt_uses_the_twenty_item_score_window_and_demands_a_source", () => {
-    expect(PRODUCTS_SYSTEM_PROMPT).toContain("up to 20 products");
-    expect(PRODUCTS_SYSTEM_PROMPT).toContain("best valid score minus 15");
-    expect(PRODUCTS_SYSTEM_PROMPT).toContain("Never pad");
-    expect(PRODUCTS_SYSTEM_PROMPT).toContain(
+    expect(PRODUCTS).toContain("up to 20 products");
+    expect(PRODUCTS).toContain("best valid score minus 15");
+    expect(PRODUCTS).toContain("Never pad");
+    expect(PRODUCTS).toContain(
       "do not output products without sources",
     );
-    // The one editorial text field carries durable facts only: DEV-1496 abolished
-    // the per-product selection reason, so the prompt must not ask for one back.
-    expect(PRODUCTS_SYSTEM_PROMPT).toContain(
+    expect(PRODUCTS).toContain(
       "Do not write editorial selection reasons",
     );
-    expect(PRODUCTS_SYSTEM_PROMPT).toContain(
+    expect(PRODUCTS).toContain(
       "official_url must be this specific product's own product page",
     );
   });
 
   it("anchors listwise selection to the approved editorial bands", () => {
     for (const band of ["0-39", "40-59", "60-74", "75-89", "90-100"]) {
-      expect(PRODUCTS_SYSTEM_PROMPT).toContain(band);
+      expect(PRODUCTS).toContain(band);
     }
     for (const nonSignal of [
       "production origin",
@@ -164,23 +159,27 @@ describe("PRODUCTS_SYSTEM_PROMPT", () => {
       "sponsorship",
       "research ease",
     ]) {
-      expect(PRODUCTS_SYSTEM_PROMPT).toContain(nonSignal);
+      expect(PRODUCTS).toContain(nonSignal);
     }
-    expect(PRODUCTS_SYSTEM_PROMPT).toContain("listwise");
-    expect(PRODUCTS_SYSTEM_PROMPT).toContain(
+    expect(PRODUCTS).toContain("listwise");
+    expect(PRODUCTS).toContain(
       "Every supplied candidate must have an evaluation",
     );
-    expect(PRODUCTS_SYSTEM_PROMPT).not.toMatch(/[≥>]\s*70/);
-    expect(PRODUCTS_SYSTEM_PROMPT).toContain(
+    expect(PRODUCTS).not.toMatch(/[≥>]\s*70/);
+    expect(PRODUCTS).toContain(
       "golden_case_id=products-pool-compact-01 rubric_version=dev-1649-v1",
     );
   });
 });
 
+// ---------------------------------------------------------------------------
+// Confidence prompt rubric anchors — re-targeted to snapshots
+// ---------------------------------------------------------------------------
+
 describe("confidence prompt rubric anchors", () => {
   const prompts = [
     {
-      prompt: DETECT_SYSTEM_PROMPT,
+      name: "detect",
       ids: [
         "detect-high-curated-shop",
         "detect-medium-own-line-ambiguity",
@@ -188,7 +187,7 @@ describe("confidence prompt rubric anchors", () => {
       ],
     },
     {
-      prompt: CLASSIFY_SYSTEM_PROMPT,
+      name: "category-classify",
       ids: [
         "category-high-handmade-soap",
         "category-medium-tea-fragrance",
@@ -196,18 +195,19 @@ describe("confidence prompt rubric anchors", () => {
       ],
     },
     {
-      prompt: NAME_ARBITER_SYSTEM_PROMPT,
+      name: "name-arbiter",
       ids: ["name-high-unigaze", "name-medium-aromase", "name-low-trista"],
     },
     {
-      prompt: SITE_IDENTITY_SYSTEM_PROMPT,
+      name: "site-identity",
       ids: ["site-high-smore", "site-medium-jaibei", "site-low-1koshijimi"],
     },
   ];
 
   it.each(prompts)(
-    "includes one versioned high, medium, and low anchor",
-    ({ prompt, ids }) => {
+    "includes one versioned high, medium, and low anchor ($name)",
+    ({ name, ids }) => {
+      const prompt = compiledSnapshotPrompt(name);
       for (const id of ids) {
         expect(prompt).toContain(
           `golden_case_id=${id} rubric_version=dev-1649-v1`,
@@ -218,4 +218,48 @@ describe("confidence prompt rubric anchors", () => {
       }
     },
   );
+});
+
+// ---------------------------------------------------------------------------
+// Snapshot coverage invariants
+// ---------------------------------------------------------------------------
+
+describe("snapshot coverage", () => {
+  it("every_snapshot_name_has_a_call_site", () => {
+    const snapshotNames = Object.keys(snapshot.prompts);
+    const srcDir = path.resolve(__dirname, "../../..");
+    // Search for each snapshot name as a string literal in src/ .ts files
+    for (const name of snapshotNames) {
+      const result = execSync(
+        `grep -rn "['\\"']${name}['\\"']" "${srcDir}/src/" --include="*.ts" || true`,
+        { encoding: "utf-8" },
+      ).trim();
+      expect(
+        result.length > 0,
+        `Snapshot prompt "${name}" has no call site in src/`,
+      ).toBe(true);
+    }
+  });
+
+  it("snapshot_text_contains_no_inlined_vocab_blocks", () => {
+    const vocabLiterals = [
+      CATEGORY_LIST,
+      MATERIAL_VOCAB_BLOCK,
+      SUBCATEGORY_VOCAB_BLOCK,
+      TAIWAN_USAGE_RULES,
+    ];
+
+    for (const [name, entry] of Object.entries(snapshot.prompts)) {
+      const raw = (entry as { text: string[] }).text.join("\n");
+      for (const vocab of vocabLiterals) {
+        // Only check entries long enough that they could reasonably contain
+        // a full vocab block (short substrings would false-positive).
+        if (vocab.length < 50) continue;
+        expect(
+          raw.includes(vocab),
+          `Snapshot "${name}" contains an inlined vocab block that should be a mustache variable`,
+        ).toBe(false);
+      }
+    }
+  });
 });

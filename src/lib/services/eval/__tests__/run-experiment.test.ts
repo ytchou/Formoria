@@ -29,7 +29,6 @@ function makeUnreviewedItem(id = 'unreviewed-1'): ExperimentItem {
 function makeAdapter(overrides: Partial<PhaseAdapter> = {}): PhaseAdapter {
   return {
     promptName: 'detect',
-    fallbackPrompt: 'You are a brand detector.',
     profileKey: 'detectBatch',
     outputSchema: { safeParse: () => ({ success: true }) } as never,
     requestSchema: { name: 'detect', schema: {} },
@@ -101,7 +100,7 @@ describe('runExperiment', () => {
           writeFile: vi.fn(),
           now: () => new Date('2026-09-04'),
           flushLangfuse: vi.fn(),
-          fetchPrompt: vi.fn().mockResolvedValue({ text: 'prompt', prompt: null }),
+          fetchPrompt: vi.fn().mockResolvedValue({ text: 'prompt', prompt: { name: 'detect', version: 1, source: 'langfuse' } }),
           installSeams: () => ({ collector: makeCollector(), restore: vi.fn() }),
           assertNoNewAuditRows: vi.fn(),
           runWithAuditContext: <T>(_seed: unknown, fn: () => T): T => fn(),
@@ -128,7 +127,7 @@ describe('runExperiment', () => {
         writeFile: vi.fn(),
         now: () => new Date('2026-09-04'),
         flushLangfuse: vi.fn(),
-        fetchPrompt: vi.fn().mockResolvedValue({ text: 'prompt', prompt: null }),
+        fetchPrompt: vi.fn().mockResolvedValue({ text: 'prompt', prompt: { name: 'detect', version: 1, source: 'langfuse' } }),
         installSeams: () => ({ collector: makeCollector(), restore: vi.fn() }),
         assertNoNewAuditRows: vi.fn(),
         runWithAuditContext: <T>(_seed: unknown, fn: () => T): T => fn(),
@@ -169,7 +168,7 @@ describe('runExperiment', () => {
         writeFile: vi.fn(),
         now: () => new Date('2026-09-04'),
         flushLangfuse: vi.fn(),
-        fetchPrompt: vi.fn().mockResolvedValue({ text: 'prompt', prompt: null }),
+        fetchPrompt: vi.fn().mockResolvedValue({ text: 'prompt', prompt: { name: 'detect', version: 1, source: 'langfuse' } }),
         installSeams: () => ({ collector: makeCollector(), restore: vi.fn() }),
         assertNoNewAuditRows: vi.fn(),
         runWithAuditContext: <T>(_seed: unknown, fn: () => T): T => fn(),
@@ -200,7 +199,7 @@ describe('runExperiment', () => {
         writeFile: vi.fn(),
         now: () => new Date('2026-09-04'),
         flushLangfuse: vi.fn(),
-        fetchPrompt: vi.fn().mockResolvedValue({ text: 'prompt', prompt: null }),
+        fetchPrompt: vi.fn().mockResolvedValue({ text: 'prompt', prompt: { name: 'detect', version: 1, source: 'langfuse' } }),
         installSeams: () => ({ collector: makeCollector(), restore: vi.fn() }),
         assertNoNewAuditRows: vi.fn(),
         runWithAuditContext: <T>(_seed: unknown, fn: () => T): T => fn(),
@@ -227,7 +226,7 @@ describe('runExperiment', () => {
         writeFile: vi.fn(),
         now: () => new Date('2026-09-04'),
         flushLangfuse: vi.fn(),
-        fetchPrompt: vi.fn().mockResolvedValue({ text: 'prompt', prompt: null }),
+        fetchPrompt: vi.fn().mockResolvedValue({ text: 'prompt', prompt: { name: 'detect', version: 1, source: 'langfuse' } }),
         installSeams: () => ({ collector: makeCollector(), restore: vi.fn() }),
         assertNoNewAuditRows: vi.fn(),
         runWithAuditContext: <T>(_seed: unknown, fn: () => T): T => fn(),
@@ -272,7 +271,7 @@ describe('runExperiment', () => {
         writeFile: vi.fn(),
         now: () => new Date('2026-09-04'),
         flushLangfuse: vi.fn(),
-        fetchPrompt: vi.fn().mockResolvedValue({ text: 'prompt', prompt: null }),
+        fetchPrompt: vi.fn().mockResolvedValue({ text: 'prompt', prompt: { name: 'detect', version: 1, source: 'langfuse' } }),
         installSeams: () => ({ collector: makeCollector(), restore: vi.fn() }),
         assertNoNewAuditRows: vi.fn(),
         runWithAuditContext: <T>(_seed: unknown, fn: () => T): T => fn(),
@@ -312,7 +311,7 @@ describe('runExperiment', () => {
         writeFile: vi.fn(),
         now: () => new Date('2026-09-04'),
         flushLangfuse: vi.fn(),
-        fetchPrompt: vi.fn().mockResolvedValue({ text: 'prompt', prompt: null }),
+        fetchPrompt: vi.fn().mockResolvedValue({ text: 'prompt', prompt: { name: 'detect', version: 1, source: 'langfuse' } }),
         installSeams: () => ({ collector: makeCollector(), restore: vi.fn() }),
         assertNoNewAuditRows: vi.fn(),
         runWithAuditContext: <T>(_seed: unknown, fn: () => T): T => fn(),
@@ -353,7 +352,7 @@ describe('runExperiment', () => {
         writeFile: vi.fn(),
         now: () => new Date('2026-09-04'),
         flushLangfuse: vi.fn(),
-        fetchPrompt: vi.fn().mockResolvedValue({ text: 'prompt', prompt: null }),
+        fetchPrompt: vi.fn().mockResolvedValue({ text: 'prompt', prompt: { name: 'detect', version: 1, source: 'langfuse' } }),
         installSeams: () => ({ collector, restore: vi.fn() }),
         assertNoNewAuditRows: vi.fn(),
         runWithAuditContext: mockRunWithAuditContext,
@@ -403,7 +402,7 @@ describe('runExperiment', () => {
         writeFile: vi.fn(),
         now: () => new Date('2026-09-04'),
         flushLangfuse: vi.fn(),
-        fetchPrompt: vi.fn().mockResolvedValue({ text: 'prompt', prompt: null }),
+        fetchPrompt: vi.fn().mockResolvedValue({ text: 'prompt', prompt: { name: 'detect', version: 1, source: 'langfuse' } }),
         installSeams: () => ({ collector: makeCollector(), restore: vi.fn() }),
         assertNoNewAuditRows: vi.fn(),
         runWithAuditContext: <T>(_seed: unknown, fn: () => T): T => fn(),
@@ -450,7 +449,7 @@ describe('runExperiment', () => {
         writeFile: vi.fn(),
         now: () => new Date('2026-09-04'),
         flushLangfuse: vi.fn(),
-        fetchPrompt: vi.fn().mockResolvedValue({ text: 'prompt', prompt: null }),
+        fetchPrompt: vi.fn().mockResolvedValue({ text: 'prompt', prompt: { name: 'detect', version: 1, source: 'langfuse' } }),
         installSeams: () => ({ collector, restore: vi.fn() }),
         assertNoNewAuditRows: vi.fn(),
         runWithAuditContext: <T>(_seed: unknown, fn: () => T): T => fn(),
@@ -484,7 +483,7 @@ describe('runExperiment', () => {
         writeFile,
         now: () => new Date('2026-09-04T12:00:00.000Z'),
         flushLangfuse: vi.fn(),
-        fetchPrompt: vi.fn().mockResolvedValue({ text: 'prompt', prompt: null }),
+        fetchPrompt: vi.fn().mockResolvedValue({ text: 'prompt', prompt: { name: 'detect', version: 1, source: 'langfuse' } }),
         installSeams: () => ({ collector: makeCollector(), restore: vi.fn() }),
         assertNoNewAuditRows: vi.fn(),
         runWithAuditContext: <T>(_seed: unknown, fn: () => T): T => fn(),
@@ -524,7 +523,7 @@ describe('runExperiment', () => {
         writeFile: vi.fn(),
         now: () => new Date('2026-09-04'),
         flushLangfuse: vi.fn(),
-        fetchPrompt: vi.fn().mockResolvedValue({ text: 'prompt', prompt: null }),
+        fetchPrompt: vi.fn().mockResolvedValue({ text: 'prompt', prompt: { name: 'detect', version: 1, source: 'langfuse' } }),
         installSeams: () => ({ collector: makeCollector(), restore: vi.fn() }),
         assertNoNewAuditRows: vi.fn(),
         runWithAuditContext: <T>(_seed: unknown, fn: () => T): T => fn(),
@@ -570,7 +569,7 @@ describe('runExperiment', () => {
         writeFile: vi.fn(),
         now: () => new Date('2026-09-04'),
         flushLangfuse: vi.fn(),
-        fetchPrompt: vi.fn().mockResolvedValue({ text: 'prompt', prompt: null }),
+        fetchPrompt: vi.fn().mockResolvedValue({ text: 'prompt', prompt: { name: 'detect', version: 1, source: 'langfuse' } }),
         installSeams: () => ({ collector: makeCollector(), restore: vi.fn() }),
         assertNoNewAuditRows: vi.fn(),
         runWithAuditContext: <T>(_seed: unknown, fn: () => T): T => fn(),
@@ -608,7 +607,7 @@ describe('runExperiment', () => {
         writeFile: vi.fn(),
         now: () => new Date('2026-09-04'),
         flushLangfuse: vi.fn(),
-        fetchPrompt: vi.fn().mockResolvedValue({ text: 'prompt', prompt: null }),
+        fetchPrompt: vi.fn().mockResolvedValue({ text: 'prompt', prompt: { name: 'detect', version: 1, source: 'langfuse' } }),
         installSeams: () => ({ collector: makeCollector(), restore: vi.fn() }),
         assertNoNewAuditRows: vi.fn(),
         runWithAuditContext: <T>(_seed: unknown, fn: () => T): T => fn(),
@@ -644,7 +643,7 @@ describe('runExperiment', () => {
         writeFile: vi.fn(),
         now: () => new Date('2026-09-04'),
         flushLangfuse: vi.fn(),
-        fetchPrompt: vi.fn().mockResolvedValue({ text: 'prompt', prompt: null }),
+        fetchPrompt: vi.fn().mockResolvedValue({ text: 'prompt', prompt: { name: 'detect', version: 1, source: 'langfuse' } }),
         installSeams: () => ({ collector: makeCollector(), restore: vi.fn() }),
         assertNoNewAuditRows: vi.fn(),
         runWithAuditContext: <T>(_seed: unknown, fn: () => T): T => fn(),
@@ -670,7 +669,7 @@ describe('runExperiment', () => {
           writeFile: vi.fn(),
           now: () => new Date('2026-09-04'),
           flushLangfuse: vi.fn(),
-          fetchPrompt: vi.fn().mockResolvedValue({ text: 'prompt', prompt: null }),
+          fetchPrompt: vi.fn().mockResolvedValue({ text: 'prompt', prompt: { name: 'detect', version: 1, source: 'langfuse' } }),
           installSeams: () => ({ collector: makeCollector(), restore: vi.fn() }),
           assertNoNewAuditRows: vi.fn(),
           runWithAuditContext: <T>(_seed: unknown, fn: () => T): T => fn(),
@@ -678,6 +677,70 @@ describe('runExperiment', () => {
         },
       }),
     ).rejects.toThrow(/reviewedVia/)
+  })
+
+  it('prompt_arm_refuses_snapshot_source_when_pinned', async () => {
+    const result = await runExperiment({
+      dataset: 'test-golden',
+      arms: [{ name: 'prompt-v3', type: 'prompt', value: 'detect:3' }],
+      adapter: makeAdapter(),
+      items: [makeItem()],
+      deps: {
+        callModel: vi.fn(),
+        writeFile: vi.fn(),
+        now: () => new Date('2026-09-04'),
+        flushLangfuse: vi.fn(),
+        fetchPrompt: vi.fn().mockResolvedValue({
+          text: 'prompt text',
+          prompt: { name: 'detect', version: 1, source: 'snapshot' },
+        }),
+        installSeams: () => ({ collector: makeCollector(), restore: vi.fn() }),
+        assertNoNewAuditRows: vi.fn(),
+        runWithAuditContext: <T>(_seed: unknown, fn: () => T): T => fn(),
+        getAuditContext: () => ({ correlationId: null }),
+      },
+    })
+
+    const itemResult = result.armResults[0]!.items[0]!
+    expect(itemResult.ok).toBe(false)
+    expect(itemResult.error).toMatch(/pin/)
+    expect(result.summary.failed).toBe(1)
+  })
+
+  it('prompt_arm_accepts_langfuse_source', async () => {
+    const callModel = vi.fn().mockResolvedValue({
+      ok: true,
+      content: JSON.stringify({ isNonBrand: false, confidence: 'high' }),
+    })
+
+    const result = await runExperiment({
+      dataset: 'test-golden',
+      arms: [{ name: 'prompt-v3', type: 'prompt', value: 'detect:3' }],
+      adapter: makeAdapter(),
+      items: [makeItem()],
+      deps: {
+        callModel,
+        writeFile: vi.fn(),
+        now: () => new Date('2026-09-04'),
+        flushLangfuse: vi.fn(),
+        fetchPrompt: vi.fn().mockResolvedValue({
+          text: 'prompt text',
+          prompt: { name: 'detect', version: 3, source: 'langfuse' },
+        }),
+        installSeams: () => ({ collector: makeCollector(), restore: vi.fn() }),
+        assertNoNewAuditRows: vi.fn(),
+        runWithAuditContext: <T>(_seed: unknown, fn: () => T): T => fn(),
+        getAuditContext: () => ({ correlationId: null }),
+      },
+    })
+
+    expect(result.armResults[0]!.items[0]!.ok).toBe(true)
+    // arm-level promptMeta carries the version from langfuse
+    expect(result.armResults[0]!.promptMeta).toEqual({
+      name: 'detect',
+      version: 3,
+      source: 'langfuse',
+    })
   })
 
   it('run JSON carries promptMeta per arm', async () => {
@@ -702,7 +765,7 @@ describe('runExperiment', () => {
         writeFile,
         now: () => new Date('2026-09-04T12:00:00.000Z'),
         flushLangfuse: vi.fn(),
-        fetchPrompt: vi.fn().mockResolvedValue({ text: 'prompt', prompt: null }),
+        fetchPrompt: vi.fn().mockResolvedValue({ text: 'prompt', prompt: { name: 'detect', version: 1, source: 'langfuse' } }),
         installSeams: () => ({ collector: makeCollector(), restore: vi.fn() }),
         assertNoNewAuditRows: vi.fn(),
         runWithAuditContext: <T>(_seed: unknown, fn: () => T): T => fn(),

@@ -20,11 +20,11 @@ import { dirname, resolve } from "node:path";
 
 import { detectAiArtifacts } from "@/lib/services/enrich-validators";
 import { parsePhaseResults } from "@/lib/services/phase-results";
-import { PRODUCTION_PROJECT_REF } from "@/lib/supabase/project-target";
 import type { Json } from "@/lib/supabase/database.types";
 import type { PhaseResult } from "@/lib/types/curation";
 
 import { loadCohort } from "../run/cohort";
+import { assertCensusTarget } from "./production-guard";
 import { createWriteBlockingClient } from "../../lib/readonly-client";
 import { loadScriptTarget } from "../../shared/target";
 
@@ -124,36 +124,11 @@ const FIRST_GALLERY_SLOT = 1;
 const LAST_GALLERY_SLOT = 9;
 
 // ---------------------------------------------------------------------------
-// Target guard
+// Target guard — extracted to ./production-guard.ts to avoid the CLI
+// entrypoint that brand-census.ts runs on non-Vitest import.
 // ---------------------------------------------------------------------------
 
-/**
- * Refuses to census production unless BOTH `--target production` and
- * `--confirm` are present.
- *
- * `loadScriptTarget` already proves the credentials belong to the declared
- * target, so the URL check here is the second, independent half: a production
- * project reached under any weaker declaration is a mistake, not a shortcut.
- * Nothing but the public project ref is ever printed.
- */
-export function assertCensusTarget(input: {
-  supabaseUrl: string;
-  target: string;
-  confirmed: boolean;
-}): void {
-  if (!input.supabaseUrl.includes(PRODUCTION_PROJECT_REF)) return;
-
-  if (input.target !== "production") {
-    throw new Error(
-      `Refusing to run: the resolved Supabase URL names the production project ${PRODUCTION_PROJECT_REF} while --target says ${input.target}`,
-    );
-  }
-  if (!input.confirmed) {
-    throw new Error(
-      `Refusing to run against production project ${PRODUCTION_PROJECT_REF} without --confirm`,
-    );
-  }
-}
+export { assertCensusTarget };
 
 // ---------------------------------------------------------------------------
 // Per-field statistics

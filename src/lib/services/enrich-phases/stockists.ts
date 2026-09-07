@@ -6,7 +6,6 @@ import {
   createProfiledOpenAIClient,
   profileChatParams,
 } from "../llm-audit";
-import { STOCKIST_SYSTEM_PROMPT } from "@/lib/prompts/stockists";
 import { fetchLangfusePromptWithMeta } from "@/lib/langfuse/prompt";
 import {
   parseAndValidate,
@@ -256,12 +255,10 @@ export async function runStockistsPhase({
           ? filteredEvidence.slice(0, 12_000)
           : filteredEvidence;
 
-        const { text: systemPrompt, prompt: stockistsPromptMeta } = await fetchLangfusePromptWithMeta("stockists", STOCKIST_SYSTEM_PROMPT);
+        const { text: systemPrompt, prompt: stockistsPromptMeta } = await fetchLangfusePromptWithMeta("stockists");
         const config = buildProfiledEnrichmentConfig(
           "stockists",
-          systemPrompt,
           "stockists",
-          {},
         );
         const token = process.env.OPENAI_API_KEY;
         const client = createProfiledOpenAIClient(
@@ -272,7 +269,7 @@ export async function runStockistsPhase({
             phase: "stockists",
             attempt: 1,
             config,
-            ...(stockistsPromptMeta ? { prompt: stockistsPromptMeta } : {}),
+            prompt: stockistsPromptMeta,
           },
           { apiKey: token },
         );

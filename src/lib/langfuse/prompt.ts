@@ -1,4 +1,34 @@
 import { getLangfuse } from "./client";
+import snapshot from "@/lib/prompts/langfuse-snapshot.json";
+
+export type PromptName = keyof typeof snapshot.prompts;
+
+export type PromptMeta = {
+  text: string;
+  prompt: { name: string; version: number; source: "langfuse" | "snapshot" };
+};
+
+/**
+ * Returns the snapshot text (lines joined with `\n`) and version for a named
+ * prompt. Throws if the name is not present in the snapshot.
+ */
+export function snapshotPrompt(
+  name: PromptName,
+): { text: string; version: number } {
+  const entry = snapshot.prompts[name];
+  if (!entry) {
+    throw new Error(`Unknown prompt name: "${String(name)}"`);
+  }
+  return { text: entry.text.join("\n"), version: entry.version };
+}
+
+// Module-level set for drift warn-once semantics, keyed by prompt name.
+const driftWarned = new Set<string>();
+
+/** Resets the drift warning set. Exported for tests only. */
+export function resetDriftWarningsForTests(): void {
+  driftWarned.clear();
+}
 
 /**
  * Compiles `{{key}}` placeholders in a template string by replacing each
@@ -51,18 +81,16 @@ function assertAllVariablesPresent(
   }
 }
 
-export type PromptMeta = {
-  text: string;
-  prompt: { name: string; version: number } | null;
-};
-
 /**
  * Parses `LANGFUSE_PROMPT_VERSIONS` env var into a name-to-version map.
  * Format: `"name:version,name:version"`. Blank/unset returns `{}`.
  * A malformed pair (non-numeric version) throws naming the pair.
  */
 export function parsePromptVersionPins(
-  env: Record<string, string | undefined> = process.env as Record<string, string | undefined>,
+  env: Record<string, string | undefined> = process.env as Record<
+    string,
+    string | undefined
+  >,
 ): Record<string, number> {
   const raw = env.LANGFUSE_PROMPT_VERSIONS;
   if (!raw) return {};
@@ -88,27 +116,37 @@ export function parsePromptVersionPins(
 
 /**
  * Fetches a named prompt from Langfuse with metadata about which prompt
- * version was used. Returns `{ text, prompt }` where `prompt` is
- * `{ name, version }` when a real Langfuse prompt was fetched, or `null`
- * when the client is absent or the fetch threw (fallback case).
+ * version was used. The snapshot provides the fallback text and the baseline
+ * version for drift detection.
+ *
+ * `assertAllVariablesPresent` runs OUTSIDE the SDK try/catch so a missing
+ * variable surfaces as a hard error (DEV-1641 rule).
  */
 export async function fetchLangfusePromptWithMeta(
-  name: string,
-  fallback: string,
+  name: PromptName,
   variables?: Record<string, string>,
 ): Promise<PromptMeta> {
+  const snap = snapshotPrompt(name);
+  const snapshotText = snap.text;
+
   const client = getLangfuse();
   if (!client) {
     if (variables) {
-      assertAllVariablesPresent(fallback, variables);
-      return { text: compileVariables(fallback, variables), prompt: null };
+      assertAllVariablesPresent(snapshotText, variables);
+      return {
+        text: compileVariables(snapshotText, variables),
+        prompt: { name, version: snap.version, source: "snapshot" },
+      };
     }
-    return { text: fallback, prompt: null };
+    return {
+      text: snapshotText,
+      prompt: { name, version: snap.version, source: "snapshot" },
+    };
   }
 
   let rawTemplate: string;
   let sdkCompile: ((vars: Record<string, string>) => unknown) | null = null;
-  let promptMeta: { name: string; version: number } | null = null;
+  let promptInfo: PromptMeta["prompt"];
 
   try {
     // Read version pins per call so env changes take effect without restart
@@ -117,9 +155,11 @@ export async function fetchLangfusePromptWithMeta(
 
     const promptClient =
       pinnedVersion !== undefined
-        ? await client.getPrompt(name, pinnedVersion, { fallback })
+        ? await client.getPrompt(name, pinnedVersion, {
+            fallback: snapshotText,
+          })
         : await client.getPrompt(name, undefined, {
-            fallback,
+            fallback: snapshotText,
             label: "production",
           });
 
@@ -127,15 +167,30 @@ export async function fetchLangfusePromptWithMeta(
       console.warn(
         `Langfuse prompt "${name}" is not a text prompt (got ${typeof promptClient.prompt}), using fallback`,
       );
-      rawTemplate = fallback;
+      rawTemplate = snapshotText;
+      promptInfo = { name, version: snap.version, source: "snapshot" };
     } else {
       rawTemplate = promptClient.prompt;
       sdkCompile = (vars) => promptClient.compile(vars);
-      if (!promptClient.isFallback) {
-        promptMeta = {
+      if (promptClient.isFallback) {
+        promptInfo = { name, version: snap.version, source: "snapshot" };
+      } else {
+        promptInfo = {
           name: promptClient.name,
           version: promptClient.version,
+          source: "langfuse",
         };
+        // Drift check: warn once per name when remote text differs from snapshot
+        if (
+          typeof promptClient.prompt === "string" &&
+          promptClient.prompt !== snapshotText &&
+          !driftWarned.has(name)
+        ) {
+          driftWarned.add(name);
+          console.warn(
+            `[langfuse] prompt "${name}": production v${promptClient.version} differs from snapshot v${snap.version}; run pnpm llm-eval prompt pull`,
+          );
+        }
       }
     }
   } catch (error) {
@@ -143,7 +198,8 @@ export async function fetchLangfusePromptWithMeta(
       `Failed to fetch Langfuse prompt "${name}", using fallback:`,
       error,
     );
-    rawTemplate = fallback;
+    rawTemplate = snapshotText;
+    promptInfo = { name, version: snap.version, source: "snapshot" };
   }
 
   if (variables) {
@@ -151,23 +207,18 @@ export async function fetchLangfusePromptWithMeta(
     const text = sdkCompile
       ? (sdkCompile(variables) as string)
       : compileVariables(rawTemplate, variables);
-    return { text, prompt: promptMeta };
+    return { text, prompt: promptInfo };
   }
 
-  return { text: rawTemplate, prompt: promptMeta };
+  return { text: rawTemplate, prompt: promptInfo };
 }
 
 /**
- * Fetches a named prompt from Langfuse using the SDK's built-in caching and
- * fallback mechanism. Optionally compiles template variables.
- *
- * When `variables` is provided, every `{{placeholder}}` in the prompt must
- * have a matching key — missing keys throw before compilation.
+ * Fetches a named prompt from Langfuse. Returns the compiled text only.
  */
 export async function fetchLangfusePrompt(
-  name: string,
-  fallback: string,
+  name: PromptName,
   variables?: Record<string, string>,
 ): Promise<string> {
-  return (await fetchLangfusePromptWithMeta(name, fallback, variables)).text;
+  return (await fetchLangfusePromptWithMeta(name, variables)).text;
 }

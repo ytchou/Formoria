@@ -217,18 +217,18 @@ export async function buildDescriptionTask({
 // buildProductPairs
 // ---------------------------------------------------------------------------
 
-export type ProductPairInput = {
+type ProductPairInput = {
   brand: string
   name_zh: string
   evidenceTitle: string | null
 }
 
-export type ProductPairOutput = {
+type ProductPairOutput = {
   left: unknown
   right: unknown
 }
 
-export type ProductDrift = {
+type ProductDrift = {
   pools: number
   paired: number
   onlyA: number

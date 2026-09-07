@@ -1,4 +1,4 @@
-import { SITE_IDENTITY_LABELS, SITE_IDENTITY_SYSTEM_PROMPT } from "@/lib/prompts";
+import { SITE_IDENTITY_LABELS } from "@/lib/prompts";
 import { fetchLangfusePromptWithMeta } from "@/lib/langfuse/prompt";
 import { auditedCall } from "@/lib/audit";
 import {
@@ -95,11 +95,10 @@ function createSiteIdentityClient(
   profileKey: SiteIdentityProfileKey,
   target: EnrichmentTarget | undefined,
   jobId?: string,
-  prompt?: { name: string; version: number },
+  prompt?: { name: string; version: number; source: "langfuse" | "snapshot" },
 ) {
   const config = buildProfiledEnrichmentConfig(
     "site_identity",
-    SITE_IDENTITY_SYSTEM_PROMPT,
     profileKey,
   );
   return createProfiledOpenAIClient(
@@ -273,9 +272,9 @@ async function arbitrateSiteIdentityItem(
   if (!token) return notAttempted();
 
   try {
-    const { text: siteIdentityPrompt, prompt: sitePromptMeta } = await fetchLangfusePromptWithMeta("site-identity", SITE_IDENTITY_SYSTEM_PROMPT);
+    const { text: siteIdentityPrompt, prompt: sitePromptMeta } = await fetchLangfusePromptWithMeta("site-identity");
 
-    const client = createSiteIdentityClient(token, "siteIdentity", item.target, jobId, sitePromptMeta ?? undefined);
+    const client = createSiteIdentityClient(token, "siteIdentity", item.target, jobId, sitePromptMeta);
 
     const { response, data, content } = await client.chat({
       system: siteIdentityPrompt,
@@ -325,14 +324,14 @@ async function arbitrateSiteIdentityChunk(
   if (!token) return notAttempted();
 
   try {
-    const { text: siteIdentityBatchPrompt, prompt: siteBatchPromptMeta } = await fetchLangfusePromptWithMeta("site-identity", SITE_IDENTITY_SYSTEM_PROMPT);
+    const { text: siteIdentityBatchPrompt, prompt: siteBatchPromptMeta } = await fetchLangfusePromptWithMeta("site-identity");
 
     const client = createSiteIdentityClient(
       token,
       "siteIdentityBatch",
       items.at(0)?.target,
       jobId,
-      siteBatchPromptMeta ?? undefined,
+      siteBatchPromptMeta,
     );
 
     const { response, data, content } = await client.chat({

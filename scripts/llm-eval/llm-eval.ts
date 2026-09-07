@@ -6,9 +6,9 @@
  * target: staging-default
  * safety: writes-on-apply
  * owner: engineering
- * notes: Writes to Langfuse (dataset items, scores, annotation queue items). Zero production DB writes enforced by assertNoNewAuditRows.
+ * notes: Writes to Langfuse (dataset items, scores, annotation queue items, prompt versions on push, labels on promote, repo snapshot on pull). Zero production DB writes enforced by assertNoNewAuditRows.
  */
-import { readFileSync } from 'node:fs'
+import { readFileSync, writeFileSync } from 'node:fs'
 import { parseArgs as nodeParseArgs } from 'node:util'
 
 import { config as dotenvConfig } from 'dotenv'
@@ -27,6 +27,8 @@ import {
   type ProductsReplayOutput,
   driftRate,
 } from '@/lib/services/eval/products-calibration'
+import type { SnapshotFile, PromptApi } from '@/lib/services/eval/prompt-sync'
+import type { PromptName } from '@/lib/langfuse/prompt'
 
 // ---------------------------------------------------------------------------
 // Arg parsing
@@ -49,7 +51,9 @@ export type ParsedCommand =
       envFile?: string
       allowUnreviewed: boolean
     }
-  | { command: 'prompt-push'; file: string; name: string }
+  | { command: 'prompt-push'; name: string; file?: string; label?: string; allowVariableChange: boolean }
+  | { command: 'prompt-pull'; add: string[]; check: boolean; allowVariableChange: boolean }
+  | { command: 'prompt-promote'; name: string; version: number }
   | {
       command: 'pairwise-run'
       phase: string
@@ -111,6 +115,10 @@ export function parseCliArgs(args: string[]): ParsedCommand {
       item: { type: 'string' },
       file: { type: 'string' },
       'no-enqueue': { type: 'boolean', default: false },
+      add: { type: 'string', multiple: true },
+      check: { type: 'boolean', default: false },
+      label: { type: 'string' },
+      'allow-variable-change': { type: 'boolean', default: false },
     },
   })
 
@@ -182,10 +190,38 @@ export function parseCliArgs(args: string[]): ParsedCommand {
   if (sub === 'prompt') {
     const sub2 = positionals[1]
     if (sub2 === 'push') {
-      const file = positionals[2]
-      if (!file) throw new Error('file argument is required')
-      if (!values.name) throw new Error('--name is required')
-      return { command: 'prompt-push', file, name: values.name }
+      const name = positionals[2]
+      if (!name) throw new Error('name argument is required')
+      const label = values.label
+      if (label !== undefined && label !== 'production') {
+        throw new Error('--label must be "production" if specified')
+      }
+      return {
+        command: 'prompt-push',
+        name,
+        file: values.file,
+        label,
+        allowVariableChange: values['allow-variable-change'] ?? false,
+      }
+    }
+    if (sub2 === 'pull') {
+      return {
+        command: 'prompt-pull',
+        add: values.add ?? [],
+        check: values.check ?? false,
+        allowVariableChange: values['allow-variable-change'] ?? false,
+      }
+    }
+    if (sub2 === 'promote') {
+      const name = positionals[2]
+      if (!name) throw new Error('name argument is required')
+      const versionStr = positionals[3]
+      if (!versionStr) throw new Error('version argument is required')
+      const version = Number(versionStr)
+      if (!Number.isInteger(version) || version < 1) {
+        throw new Error('version must be a positive integer')
+      }
+      return { command: 'prompt-promote', name, version }
     }
   }
 
@@ -223,7 +259,9 @@ export function parseCliArgs(args: string[]): ParsedCommand {
       '  llm-eval dataset review enqueue --dataset <name>\n' +
       '  llm-eval dataset review push --dataset <name> --approved-by <user>\n' +
       '  llm-eval run --dataset <name> --arm <spec> [--arm <spec>] [--env-file <path>] [--allow-unreviewed]\n' +
-      '  llm-eval prompt push <file> --name <name>\n' +
+      '  llm-eval prompt push <name> [--file <path>] [--label production] [--allow-variable-change]\n' +
+      '  llm-eval prompt pull [--add <name>]... [--check] [--allow-variable-change]\n' +
+      '  llm-eval prompt promote <name> <version>\n' +
       '  llm-eval pairwise run --phase <phase> [--target <target>] [--sample <n>] --arm <spec> --arm <spec> [--no-enqueue]\n' +
       '  llm-eval pairwise report <runName>',
   )
@@ -249,47 +287,180 @@ export function applyEnvFile(
 }
 
 // ---------------------------------------------------------------------------
-// Prompt push handler
+// Prompt snapshot path
 // ---------------------------------------------------------------------------
 
-type PromptPushDeps = {
-  promptsCreate: (body: {
-    name: string
-    prompt: string
-    type: string
-    labels: string[]
-  }) => Promise<{ name: string; version: number }>
+export const LANGFUSE_SNAPSHOT_PATH = 'src/lib/prompts/langfuse-snapshot.json'
+
+// ---------------------------------------------------------------------------
+// Prompt handlers
+// ---------------------------------------------------------------------------
+
+type PromptHandlerDeps = {
+  api: PromptApi
   log: (msg: string) => void
+  readFile: (path: string) => string
+  writeFile: (path: string, content: string) => void
+}
+
+function defaultApi(): PromptApi {
+  const client = getLangfuse()
+  if (!client) throw new Error('Langfuse not configured')
+  return client.api as unknown as PromptApi
 }
 
 export async function handlePromptPush({
-  file,
   name,
+  file,
+  label,
   deps,
 }: {
-  file: string
   name: string
-  deps?: Partial<PromptPushDeps>
+  file?: string
+  label?: string
+  deps?: Partial<PromptHandlerDeps>
 }): Promise<void> {
-  const text = readFileSync(file, 'utf8')
+  const { pushPrompt } = await import(
+    '@/lib/services/eval/prompt-sync'
+  )
 
-  const createFn =
-    deps?.promptsCreate ??
-    (async (body: {
-      name: string
-      prompt: string
-      type: string
-      labels: string[]
-    }) => {
-      const client = getLangfuse()
-      if (!client) throw new Error('Langfuse not configured')
-      return client.api.promptsCreate(body as Parameters<typeof client.api.promptsCreate>[0])
-    })
-
+  const api = deps?.api ?? defaultApi()
   const logFn = deps?.log ?? console.log
+  const readFileFn = deps?.readFile ?? ((p: string) => readFileSync(p, 'utf8'))
 
-  const result = await createFn({ name, prompt: text, type: 'text', labels: [] })
-  logFn(`${result.name} v${result.version}`)
+  let text: string | undefined
+  let snapshot: SnapshotFile | undefined
+
+  if (file) {
+    text = readFileFn(file)
+  } else {
+    const raw = readFileFn(LANGFUSE_SNAPSHOT_PATH)
+    snapshot = JSON.parse(raw) as SnapshotFile
+  }
+
+  const result = await pushPrompt({ api, name, text, snapshot, label })
+
+  if (result.skipped) {
+    logFn(`${name} unchanged, skipped`)
+  } else {
+    logFn(`${name} v${result.version}`)
+  }
+}
+
+export async function handlePromptPull({
+  add,
+  check,
+  allowVariableChange,
+  deps,
+}: {
+  add: string[]
+  check: boolean
+  allowVariableChange: boolean
+  deps?: Partial<PromptHandlerDeps>
+}): Promise<number> {
+  const { pullSnapshot } = await import(
+    '@/lib/services/eval/prompt-sync'
+  )
+
+  const api = deps?.api ?? defaultApi()
+  const logFn = deps?.log ?? console.log
+  const readFileFn = deps?.readFile ?? ((p: string) => readFileSync(p, 'utf8'))
+  const writeFileFn =
+    deps?.writeFile ?? ((p: string, c: string) => writeFileSync(p, c))
+
+  const raw = readFileFn(LANGFUSE_SNAPSHOT_PATH)
+  const snapshot = JSON.parse(raw) as SnapshotFile
+  const knownNames = Object.keys(snapshot.prompts)
+
+  // For now, remoteNames = knownNames + add (CLI does not list all remote prompts)
+  const remoteNames = [...knownNames, ...add]
+
+  const result = await pullSnapshot({
+    api,
+    snapshot,
+    knownNames,
+    remoteNames,
+    add,
+    check,
+    allowVariableChange,
+    warn: (msg: string) => logFn(`[warn] ${msg}`),
+  })
+
+  if (!result.ok) {
+    if (result.drift) {
+      for (const d of result.drift) {
+        logFn(`drift: ${d.name} snapshot=v${d.snapshotVersion} remote=v${d.remoteVersion}`)
+      }
+    }
+    if (result.rejected) {
+      for (const name of result.rejected) {
+        logFn(`rejected: ${name} (no production label)`)
+      }
+    }
+    if (result.placeholderDrift) {
+      for (const d of result.placeholderDrift) {
+        logFn(`placeholder drift: ${d.name} +${d.added.join(',')} -${d.removed.join(',')}`)
+      }
+    }
+    return 1
+  }
+
+  if (result.snapshot && !check) {
+    writeFileFn(
+      LANGFUSE_SNAPSHOT_PATH,
+      JSON.stringify(result.snapshot, null, 2) + '\n',
+    )
+    logFn('Snapshot updated')
+  }
+
+  return 0
+}
+
+export async function handlePromptPromote({
+  name,
+  version,
+  deps,
+}: {
+  name: string
+  version: number
+  deps?: Partial<PromptHandlerDeps>
+}): Promise<number> {
+  const { promotePrompt } = await import(
+    '@/lib/services/eval/prompt-sync'
+  )
+
+  const api = deps?.api ?? defaultApi()
+  const logFn = deps?.log ?? console.log
+  const readFileFn = deps?.readFile ?? ((p: string) => readFileSync(p, 'utf8'))
+  const writeFileFn =
+    deps?.writeFile ?? ((p: string, c: string) => writeFileSync(p, c))
+
+  const raw = readFileFn(LANGFUSE_SNAPSHOT_PATH)
+  const snapshot = JSON.parse(raw) as SnapshotFile
+  const knownNames = Object.keys(snapshot.prompts)
+
+  const result = await promotePrompt({
+    api,
+    name,
+    version,
+    snapshot,
+    knownNames,
+  })
+
+  if (!result.ok) {
+    logFn(`promote failed: ${result.error}`)
+    return 1
+  }
+
+  if (result.snapshot) {
+    writeFileFn(
+      LANGFUSE_SNAPSHOT_PATH,
+      JSON.stringify(result.snapshot, null, 2) + '\n',
+    )
+    logFn(`${name} v${version} promoted to production, snapshot updated`)
+  }
+
+  return 0
 }
 
 // ---------------------------------------------------------------------------
@@ -435,7 +606,7 @@ async function cmdRun(
   const { dirname } = await import('node:path')
 
   const callModel = async (
-    input: { system: string; user: string; phase: string; prompt?: { name: string; version: number } | null },
+    input: { system: string; user: string; phase: string; prompt?: { name: string; version: number; source: 'langfuse' | 'snapshot' } | null },
     options: { model?: string },
     _itemRunId: string,
   ) => {
@@ -473,7 +644,8 @@ async function cmdRun(
       },
       now: () => new Date(),
       flushLangfuse,
-      fetchPrompt: fetchLangfusePromptWithMeta,
+      fetchPrompt: (name: string, variables?: Record<string, string>) =>
+        fetchLangfusePromptWithMeta(name as PromptName, variables),
       installSeams,
       assertNoNewAuditRows,
       runWithAuditContext,
@@ -994,9 +1166,21 @@ async function cmdPairwiseReport(runName: string): Promise<void> {
   }
 }
 
-async function cmdPromptPush(file: string, name: string): Promise<void> {
-  await handlePromptPush({ file, name })
+async function cmdPromptPush(name: string, file?: string, label?: string): Promise<void> {
+  await handlePromptPush({ name, file, label })
   await flushLangfuse()
+}
+
+async function cmdPromptPull(add: string[], check: boolean, allowVariableChange: boolean): Promise<void> {
+  const exitCode = await handlePromptPull({ add, check, allowVariableChange })
+  await flushLangfuse()
+  process.exitCode = exitCode
+}
+
+async function cmdPromptPromote(name: string, version: number): Promise<void> {
+  const exitCode = await handlePromptPromote({ name, version })
+  await flushLangfuse()
+  process.exitCode = exitCode
 }
 
 // ---------------------------------------------------------------------------
@@ -1036,7 +1220,13 @@ async function main() {
       await cmdRun(parsed.dataset, parsed.arms, parsed.allowUnreviewed)
       break
     case 'prompt-push':
-      await cmdPromptPush(parsed.file, parsed.name)
+      await cmdPromptPush(parsed.name, parsed.file, parsed.label)
+      break
+    case 'prompt-pull':
+      await cmdPromptPull(parsed.add, parsed.check, parsed.allowVariableChange)
+      break
+    case 'prompt-promote':
+      await cmdPromptPromote(parsed.name, parsed.version)
       break
     case 'pairwise-run':
       await cmdPairwiseRun(parsed.phase, parsed.target, parsed.sample, parsed.arms, parsed.noEnqueue)

@@ -82,11 +82,6 @@ import {
   type AgentModel,
   type AgentModelResponse,
 } from '../agents/runtime'
-import {
-  ACQUISITION_PLAN_SYSTEM_PROMPT,
-  ACQUISITION_CRITIQUE_SYSTEM_PROMPT,
-} from '@/lib/prompts/acquisition'
-
 // ---------------------------------------------------------------------------
 // Constants
 // ---------------------------------------------------------------------------
@@ -611,7 +606,7 @@ function buildPlanLoopGraph(
 
 async function planPrompt(): Promise<string> {
   return withSchema(
-    await fetchLangfusePrompt('acquisition-plan', ACQUISITION_PLAN_SYSTEM_PROMPT),
+    await fetchLangfusePrompt('acquisition-plan'),
     'AcquisitionPlan',
     AcquisitionPlan,
   )
@@ -986,7 +981,7 @@ async function critiqueNode(
   }
 
   const systemPrompt = withSchema(
-    await fetchLangfusePrompt('acquisition-critique', ACQUISITION_CRITIQUE_SYSTEM_PROMPT),
+    await fetchLangfusePrompt('acquisition-critique'),
     'CritiqueVerdict',
     CritiqueVerdictSchema,
   )

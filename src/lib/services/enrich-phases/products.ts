@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { z } from "zod";
 import { auditedCall } from "@/lib/audit";
-import { PRODUCTS_LABELS, PRODUCTS_SYSTEM_PROMPT } from "@/lib/prompts";
+import { PRODUCTS_LABELS } from "@/lib/prompts";
 import {
   CATEGORY_LIST,
   SUBCATEGORY_VOCAB_BLOCK,
@@ -79,7 +79,7 @@ import {
 } from "../mit-registry";
 import { loadRenderedProductTexts } from "./scraper/product-origin-text";
 import { fetchHtmlWithMetadata } from "./scraper/fetch-guards";
-import type { RenderProviderWithBudget } from "./scraper/render/from-env";
+import type { RenderProvider } from "./scraper/render/types";
 import { bindBrandKey } from "./scraper/render/render-budget";
 import type { CatalogDiscoveryResult } from "./catalog-discovery";
 import type { CandidateImage } from "./candidate-pool";
@@ -255,7 +255,7 @@ export type ProductsPhaseOptions = {
   acquisitionPageUrls?: string[];
   /** Classified image pool from the acquire phase, for product-level image selection. */
   imagePool?: RankableImage[];
-  renderProvider?: RenderProviderWithBudget;
+  renderProvider?: RenderProvider;
   /**
    * Chat model for the agent path. Injected only by tests; production builds
    * one from the `products_agent` profile through the shared agent runtime.
@@ -1499,7 +1499,6 @@ export async function runProductsPhase({
           );
           const { text: productsSystemPrompt, prompt: productsPromptMeta } = await fetchLangfusePromptWithMeta(
             "products",
-            PRODUCTS_SYSTEM_PROMPT,
             {
               category_list: CATEGORY_LIST,
               subcategory_vocab_block: SUBCATEGORY_VOCAB_BLOCK,
@@ -1509,7 +1508,6 @@ export async function runProductsPhase({
           );
           const config = buildProfiledEnrichmentConfig(
             "products",
-            productsSystemPrompt,
             "products",
             { maxProposals: MAX_PROPOSALS },
           );
@@ -1521,7 +1519,7 @@ export async function runProductsPhase({
               phase: "products",
               attempt: 1,
               config,
-              ...(productsPromptMeta ? { prompt: productsPromptMeta } : {}),
+              prompt: productsPromptMeta,
             },
             { apiKey: token },
           );

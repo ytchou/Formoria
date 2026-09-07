@@ -11,11 +11,11 @@ import {
 } from "../category-classifier";
 import { L1_CATEGORIES } from "@/lib/taxonomy/ontology";
 
-const promptMeta = { name: "detect", version: 2 };
+const promptMeta = { name: "detect", version: 2, source: "langfuse" as const };
 vi.mock("@/lib/langfuse/prompt", () => ({
-  fetchLangfusePrompt: vi.fn((_n: string, fb: string) => Promise.resolve(fb)),
-  fetchLangfusePromptWithMeta: vi.fn((_n: string, fb: string) =>
-    Promise.resolve({ text: fb, prompt: promptMeta }),
+  fetchLangfusePrompt: vi.fn((_n: string) => Promise.resolve("mock-prompt")),
+  fetchLangfusePromptWithMeta: vi.fn((_n: string) =>
+    Promise.resolve({ text: "mock-prompt", prompt: promptMeta }),
   ),
 }));
 

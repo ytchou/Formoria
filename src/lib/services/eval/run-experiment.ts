@@ -1,5 +1,6 @@
 import { randomUUID } from 'node:crypto'
 
+import type { PromptMeta } from '@/lib/langfuse/prompt'
 import type { PhaseAdapter } from './phase-adapters'
 import type { AuditCollector } from './zero-write'
 import { runName as makeRunName, traceName as makeTraceName } from './langfuse-runs'
@@ -38,7 +39,7 @@ export type ItemResult = {
   latencyMs: number
   output?: unknown
   expected?: unknown
-  promptMeta?: { name: string; version: number } | 'fallback'
+  promptMeta?: PromptMeta['prompt']
 }
 
 type ArmSummary = {
@@ -51,7 +52,7 @@ export type ArmResult = {
   arm: string
   items: ItemResult[]
   summary: ArmSummary
-  promptMeta?: { name: string; version: number } | 'fallback'
+  promptMeta?: PromptMeta['prompt']
 }
 
 type ExperimentSummary = {
@@ -74,7 +75,7 @@ type CallModelResult = {
 }
 
 type CallModelFn = (
-  input: { system: string; user: string; phase: string; prompt?: { name: string; version: number } | null },
+  input: { system: string; user: string; phase: string; prompt?: { name: string; version: number; source: 'langfuse' | 'snapshot' } | null },
   options: { model?: string },
   itemRunId: string,
 ) => Promise<CallModelResult>
@@ -83,9 +84,8 @@ type WriteFileFn = (path: string, content: string) => void
 
 type FetchPromptFn = (
   name: string,
-  fallback: string,
   variables?: Record<string, string>,
-) => Promise<{ text: string; prompt: { name: string; version: number } | null }>
+) => Promise<PromptMeta>
 
 type AuditContextSeed = { correlationId: string; langfuseTrace?: unknown }
 
@@ -145,7 +145,7 @@ type RunItemsParams = {
     ok: boolean
     output: unknown
     error?: string
-    promptMeta?: { name: string; version: number } | 'fallback'
+    promptMeta?: PromptMeta['prompt']
   }>
   adapter: PhaseAdapter
   concurrency: number
@@ -172,7 +172,7 @@ export async function runItems({
         const itemRunId = randomUUID()
 
         let lastError: string | undefined
-        let taskResult: { ok: boolean; output: unknown; error?: string; promptMeta?: { name: string; version: number } | 'fallback' } | null = null
+        let taskResult: { ok: boolean; output: unknown; error?: string; promptMeta?: PromptMeta['prompt'] } | null = null
 
         // Create a Langfuse trace for this item so emitLangfuseGeneration can link to it
         const langfuseTrace = createItemTrace?.(item.id, itemRunId) ?? undefined
@@ -301,43 +301,70 @@ export async function runExperiment({
         }
 
         // Fetch system prompt
-        const promptMeta = await deps.fetchPrompt(
+        const promptResult = await deps.fetchPrompt(
           adapter.promptName,
-          adapter.fallbackPrompt,
           adapter.variables,
         )
+
+        // Pin check: a prompt arm requires Langfuse as the source —
+        // the snapshot fallback ignores version pins.
+        if (arm.type === 'prompt' && promptResult.prompt.source !== 'langfuse') {
+          const zeroScores: Record<string, number> = {}
+          for (const scorer of adapter.scorers) {
+            zeroScores[scorer.name] = 0
+          }
+          armResults.push({
+            arm: arm.name,
+            items: items.map((item) => ({
+              itemId: item.id,
+              ok: false,
+              scores: { ...zeroScores },
+              error: `prompt pin ${arm.value} resolved from ${promptResult.prompt.source}, not langfuse`,
+              costUsd: 0,
+              latencyMs: 0,
+              promptMeta: promptResult.prompt,
+            })),
+            summary: {
+              scorerMeans: zeroScores,
+              costPerItem: 0,
+              p95LatencyMs: 0,
+            },
+            promptMeta: promptResult.prompt,
+          })
+          continue
+        }
 
         // Define the task for each item
         const defaultTask = async (
           item: ExperimentItem,
           itemRunId: string,
-        ): Promise<{ ok: boolean; output: unknown; error?: string; promptMeta?: { name: string; version: number } | 'fallback' }> => {
+        ): Promise<{ ok: boolean; output: unknown; error?: string; promptMeta?: PromptMeta['prompt'] }> => {
           const result = await deps.callModel(
             {
-              system: promptMeta.text,
+              system: promptResult.text,
               user: typeof item.input === 'string' ? item.input : JSON.stringify(item.input),
               phase: adapter.profileKey,
-              prompt: promptMeta.prompt,
+              prompt: promptResult.prompt,
             },
             { model: arm.type === 'model' ? arm.value : undefined },
             itemRunId,
           )
 
           if (!result.ok) {
-            return { ok: false, output: null, error: 'Model call failed' }
+            return { ok: false, output: null, error: 'Model call failed', promptMeta: promptResult.prompt }
           }
 
           // Parse through adapter.parseOutput before unwrap
           const parsed = adapter.parseOutput(result.content)
           if (!parsed.ok) {
-            return { ok: false, output: null, error: 'Output parsing failed' }
+            return { ok: false, output: null, error: 'Output parsing failed', promptMeta: promptResult.prompt }
           }
 
           const unwrapped = adapter.unwrap(parsed.data)
           if (unwrapped === undefined || unwrapped === null) {
-            return { ok: false, output: null, error: 'Unwrap returned empty (no results)' }
+            return { ok: false, output: null, error: 'Unwrap returned empty (no results)', promptMeta: promptResult.prompt }
           }
-          return { ok: true, output: unwrapped }
+          return { ok: true, output: unwrapped, promptMeta: promptResult.prompt }
         }
 
         // Use adapter.task when present, otherwise fall back to default callModel path
@@ -381,9 +408,7 @@ export async function runExperiment({
         const latencies = itemResults.map((r) => r.latencyMs)
 
         // Derive promptMeta for the arm from the first item that has one
-        // Prefer non-fallback promptMeta; fall back to any defined value
-        const armPromptMeta = itemResults.find((r) => r.promptMeta !== undefined && r.promptMeta !== 'fallback')?.promptMeta
-          ?? itemResults.find((r) => r.promptMeta !== undefined)?.promptMeta
+        const armPromptMeta = itemResults.find((r) => r.promptMeta !== undefined)?.promptMeta
 
         armResults.push({
           arm: arm.name,

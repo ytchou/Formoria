@@ -103,7 +103,7 @@ export type ProductionImageGateResult = {
 // Store-only-keeps types: buffers held in memory until classification
 // ---------------------------------------------------------------------------
 
-export type ImageProviderMetadata = Record<string, string | number>
+type ImageProviderMetadata = Record<string, string | number>
 
 /**
  * An image that passed production gates and is held in memory as a buffer.

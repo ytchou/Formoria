@@ -303,7 +303,7 @@ describe("applyDetectResult", () => {
     },
   );
 
-  // DETECT_SYSTEM_PROMPT tells the model to return a null slug rather than
+  // The detect prompt tells the model to return a null slug rather than
   // transliterate a Han name. The model obeys; the generateSlug fallback then
   // Wade-Giles romanised it anyway (`yuan-hsing-tung-fang-cha-yin-pur-sweets`).
   it("leaves the slug untouched for a Han name with no model slug", () => {

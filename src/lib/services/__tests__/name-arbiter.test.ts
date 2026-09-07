@@ -2,11 +2,11 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { LLM_BATCH_CHUNK_SIZE } from "@/lib/constants/llm-models";
 import { arbitrateBrandNames, type NameArbiterItem } from "../name-arbiter";
 
-const promptMeta = { name: "name-arbiter", version: 2 };
+const promptMeta = { name: "name-arbiter", version: 2, source: "langfuse" as const };
 vi.mock("@/lib/langfuse/prompt", () => ({
-  fetchLangfusePrompt: vi.fn((_n: string, fb: string) => Promise.resolve(fb)),
-  fetchLangfusePromptWithMeta: vi.fn((_n: string, fb: string) =>
-    Promise.resolve({ text: fb, prompt: promptMeta }),
+  fetchLangfusePrompt: vi.fn((_n: string) => Promise.resolve("mock-prompt")),
+  fetchLangfusePromptWithMeta: vi.fn((_n: string) =>
+    Promise.resolve({ text: "mock-prompt", prompt: promptMeta }),
   ),
 }));
 
@@ -370,6 +370,6 @@ describe("arbitrateBrandNames", () => {
     await arbitrateBrandNames(items);
 
     const { fetchLangfusePromptWithMeta } = await import("@/lib/langfuse/prompt");
-    expect(fetchLangfusePromptWithMeta).toHaveBeenCalledWith("name-arbiter", expect.any(String));
+    expect(fetchLangfusePromptWithMeta).toHaveBeenCalledWith("name-arbiter");
   });
 });

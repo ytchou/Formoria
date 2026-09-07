@@ -1478,7 +1478,6 @@ export type Database = {
       curated_product_sources: {
         Row: {
           checked_at: string | null
-          claim_en: string | null
           claim_zh: string | null
           created_at: string
           id: string
@@ -1490,7 +1489,6 @@ export type Database = {
         }
         Insert: {
           checked_at?: string | null
-          claim_en?: string | null
           claim_zh?: string | null
           created_at?: string
           id?: string
@@ -1502,7 +1500,6 @@ export type Database = {
         }
         Update: {
           checked_at?: string | null
-          claim_en?: string | null
           claim_zh?: string | null
           created_at?: string
           id?: string
@@ -2493,7 +2490,6 @@ export type Database = {
           flag_reason: string
           flagged_content: string
           id: string
-          previous_content: string | null
           reviewed_at: string | null
           reviewed_by: string | null
           reviewer_notes: string | null
@@ -2507,7 +2503,6 @@ export type Database = {
           flag_reason: string
           flagged_content: string
           id?: string
-          previous_content?: string | null
           reviewed_at?: string | null
           reviewed_by?: string | null
           reviewer_notes?: string | null
@@ -2521,7 +2516,6 @@ export type Database = {
           flag_reason?: string
           flagged_content?: string
           id?: string
-          previous_content?: string | null
           reviewed_at?: string | null
           reviewed_by?: string | null
           reviewer_notes?: string | null
@@ -2650,53 +2644,6 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "ownership_revocations_brand_id_fkey"
-            columns: ["brand_id"]
-            isOneToOne: false
-            referencedRelation: "brands"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      pending_brand_edits: {
-        Row: {
-          brand_id: string
-          created_at: string
-          id: string
-          proposed_data: Json
-          reviewed_at: string | null
-          reviewed_by: string | null
-          reviewer_notes: string | null
-          status: string
-          submitted_by: string
-          updated_at: string
-        }
-        Insert: {
-          brand_id: string
-          created_at?: string
-          id?: string
-          proposed_data: Json
-          reviewed_at?: string | null
-          reviewed_by?: string | null
-          reviewer_notes?: string | null
-          status?: string
-          submitted_by: string
-          updated_at?: string
-        }
-        Update: {
-          brand_id?: string
-          created_at?: string
-          id?: string
-          proposed_data?: Json
-          reviewed_at?: string | null
-          reviewed_by?: string | null
-          reviewer_notes?: string | null
-          status?: string
-          submitted_by?: string
-          updated_at?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "pending_brand_edits_brand_id_fkey"
             columns: ["brand_id"]
             isOneToOne: false
             referencedRelation: "brands"
@@ -4021,4 +3968,3 @@ export const Constants = {
     Enums: {},
   },
 } as const
-

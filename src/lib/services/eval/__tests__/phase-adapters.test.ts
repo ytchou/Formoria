@@ -17,7 +17,6 @@ describe('phase-adapters registry', () => {
       const adapter = adapterFor(name)
       expect(adapter).toBeDefined()
       expect(adapter.promptName).toEqual(expect.any(String))
-      expect(adapter.fallbackPrompt).toEqual(expect.any(String))
       expect(adapter.profileKey).toEqual(expect.any(String))
       expect(adapter.outputSchema).toBeDefined()
       expect(adapter.requestSchema).toEqual({
@@ -148,6 +147,14 @@ describe('phase-adapters registry', () => {
     )
   })
 
+  it('products_propose_adapter_declares_four_variables', () => {
+    const adapter = adapterFor('products-agent-ranking-golden')
+    expect(adapter.variables).toBeDefined()
+    expect(Object.keys(adapter.variables!).sort()).toEqual(
+      ['category_list', 'editorial_bands', 'material_vocab_block', 'subcategory_vocab_block'],
+    )
+  })
+
   it('descriptions adapter is pairwise-only', () => {
     const adapter = adapterFor('descriptions')
     expect(adapter.mode).toBe('pairwise')
@@ -159,6 +166,17 @@ describe('phase-adapters registry', () => {
     // no decision-level scorers
     expect(scorerNames).not.toContain('categoryAgreement')
     expect(scorerNames).not.toContain('decisionAgreement')
+  })
+
+  it('adapters_have_no_fallbackPrompt', () => {
+    const allNames = [
+      ...GOLDEN_DATASET_NAMES,
+      'descriptions',
+    ]
+    for (const name of allNames) {
+      const adapter = adapterFor(name)
+      expect(adapter).not.toHaveProperty('fallbackPrompt')
+    }
   })
 })
 

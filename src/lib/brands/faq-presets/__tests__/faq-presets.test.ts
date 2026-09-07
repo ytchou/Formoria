@@ -1,17 +1,14 @@
-import { createHash } from "node:crypto";
 import { describe, expect, it } from "vitest";
 import zhMessages from "../../../../../messages/zh-TW.json";
 import type { Brand } from "@/lib/types";
-import { TAIWAN_USAGE_RULES } from "@/lib/prompts";
+import snapshot from "@/lib/prompts/langfuse-snapshot.json";
+import { TAIWAN_USAGE_RULES } from "@/lib/prompts/shared";
 import {
   FAQ_PRESETS,
-  FAQ_PROMPT_PREAMBLE,
-  buildFaqPromptHash,
   buildFaqSystemPrompt,
   eligibleFaqPresets,
 } from "../index";
 import type { FaqBrandContext, FaqPreset, FaqValidatorContext } from "../types";
-import { CUSTOM_QUESTION_CEILING } from "../types";
 import {
   noCommerceClaims,
   notDuplicateOf,
@@ -125,6 +122,21 @@ function assertPresetShape(preset: FaqPreset): void {
   ).toBe(true);
   expect(Array.isArray(preset.validators)).toBe(true);
 }
+
+/**
+ * Compiled snapshot preamble — replaces the deleted `FAQ_PROMPT_PREAMBLE`
+ * constant. Uses the same mustache compilation as the runtime.
+ */
+function compiledFaqPreamble(): string {
+  const entry = snapshot.prompts["faq-preamble"];
+  const raw = entry.text.join("\n");
+  return raw.replace(/\{\{(\w+)\}\}/g, (_match, key: string) => {
+    if (key === "taiwan_usage_rules") return TAIWAN_USAGE_RULES;
+    return `{{${key}}}`;
+  });
+}
+
+const FAQ_PREAMBLE = compiledFaqPreamble();
 
 function presetById(id: string): FaqPreset {
   const found = FAQ_PRESETS.find((candidate) => candidate.id === id);
@@ -292,10 +304,10 @@ describe("FAQ preset catalog", () => {
   });
 
   it("the shared preamble states the commerce prohibition once for all presets", () => {
-    expect(FAQ_PROMPT_PREAMBLE).toContain("NT$");
-    expect(FAQ_PROMPT_PREAMBLE).toContain("Forbidden commerce information");
-    expect(FAQ_PROMPT_PREAMBLE).toContain("inventory");
-    expect(FAQ_PROMPT_PREAMBLE).toContain("delivery");
+    expect(FAQ_PREAMBLE).toContain("NT$");
+    expect(FAQ_PREAMBLE).toContain("Forbidden commerce information");
+    expect(FAQ_PREAMBLE).toContain("inventory");
+    expect(FAQ_PREAMBLE).toContain("delivery");
   });
 
   it("assembled prompt contains only eligible fragments", () => {
@@ -303,11 +315,9 @@ describe("FAQ preset catalog", () => {
       brand: makeBrand({ reputationSummary: null }),
     });
     const eligible = eligibleFaqPresets(context);
-    const prompt = buildFaqSystemPrompt(eligible, context);
+    const prompt = buildFaqSystemPrompt(FAQ_PREAMBLE, eligible, context);
 
-    expect(prompt).toContain(FAQ_PROMPT_PREAMBLE);
-    // The Taiwan-usage rules are reused from the description prompt, not a fork.
-    expect(prompt).toContain(TAIWAN_USAGE_RULES);
+    expect(prompt).toContain(FAQ_PREAMBLE);
     for (const preset of FAQ_PRESETS) {
       const fragment = preset.promptFragment?.(context);
       if (fragment === undefined) continue;
@@ -319,43 +329,23 @@ describe("FAQ preset catalog", () => {
     }
   });
 
-  it("promptHash is stable across brands with the same eligible set", () => {
-    const first = makeContext({
-      brand: makeBrand({ id: "first", name: "First Harbor" }),
+  it("buildFaqSystemPrompt_uses_injected_preamble_first", () => {
+    const context = makeContext({
+      brand: makeBrand({ reputationSummary: null }),
     });
-    const second = makeContext({
-      brand: makeBrand({ id: "second", name: "Second Harbor" }),
-    });
-    const firstEligible = eligibleFaqPresets(first);
-    const secondEligible = eligibleFaqPresets(second);
+    const eligible = eligibleFaqPresets(context);
+    const preamble = "INJECTED PREAMBLE TEXT FOR TESTING";
+    const prompt = buildFaqSystemPrompt(preamble, eligible, context);
 
-    expect(firstEligible.map((preset) => preset.id)).toEqual(
-      secondEligible.map((preset) => preset.id),
-    );
-    expect(buildFaqPromptHash(firstEligible)).toBe(
-      buildFaqPromptHash(secondEligible),
-    );
-    // The hash is over the preamble plus the sorted ids of the presets that
-    // actually contribute a fragment — never the rendered, brand-specific
-    // string, which differs between these two brands.
-    expect(buildFaqSystemPrompt(firstEligible, first)).not.toBe(
-      buildFaqSystemPrompt(secondEligible, second),
-    );
-    expect(buildFaqPromptHash(firstEligible)).toBe(
-      createHash("sha256")
-        .update(
-          [
-            FAQ_PROMPT_PREAMBLE,
-            `Custom questions: at most ${CUSTOM_QUESTION_CEILING}; zero is valid.`,
-            ...firstEligible
-              .filter((preset) => preset.promptFragment !== null)
-              .map((preset) => preset.id)
-              .sort(),
-          ].join("\n"),
-        )
-        .digest("hex")
-        .slice(0, 12),
-    );
+    // The assembled prompt must start with the injected preamble
+    expect(prompt.startsWith(preamble)).toBe(true);
+    // Fragments from eligible presets still appear
+    for (const preset of eligible) {
+      const fragment = preset.promptFragment?.(context);
+      if (fragment) {
+        expect(prompt).toContain(fragment);
+      }
+    }
   });
 
   it("noCommerceClaims rejects an NT$ answer", () => {

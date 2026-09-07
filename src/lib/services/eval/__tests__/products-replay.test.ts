@@ -95,7 +95,7 @@ describe('productsTask', () => {
       proposals: [{ officialUrl: 'https://test.com/p1', nameZh: '測試', nameEn: 'Test', category: 'beauty', productDescriptionZh: '描述', sources: [] }] as never,
       verification: {} as never,
       decisions: [
-        { step: 'propose', action: 'prompt resolved', reason: 'prompt=products-propose@3', ms: 10 },
+        { step: 'propose', action: 'prompt resolved', reason: 'prompt=products-propose@3 source=langfuse', ms: 10 },
       ],
       originDecisions: new Map(),
       evaluations: new Map([
@@ -127,10 +127,10 @@ describe('productsTask', () => {
     const result = await task(item as never, { name: 'arm-1', type: 'model' as const, value: 'gpt-5.6' }, { itemRunId: 'run-1', model: 'gpt-5.6' })
 
     expect(result.ok).toBe(true)
-    expect(result.promptMeta).toEqual({ name: 'products-propose', version: 3 })
+    expect(result.promptMeta).toEqual({ name: 'products-propose', version: 3, source: 'langfuse' })
   })
 
-  it('returns ok:false when LANGFUSE_PROMPT_VERSIONS pins products-propose and the graph resolved to fallback', async () => {
+  it('returns ok:false when LANGFUSE_PROMPT_VERSIONS pins products-propose and the graph resolved from snapshot', async () => {
     const { productsTask } = await import('../products-replay')
 
     const fakeRunProductsAgent = vi.fn<() => Promise<ProductsOutput>>().mockResolvedValue({
@@ -138,7 +138,7 @@ describe('productsTask', () => {
       proposals: [{ officialUrl: 'https://test.com/p1', nameZh: '測試', nameEn: 'Test', category: 'beauty', productDescriptionZh: '描述', sources: [] }] as never,
       verification: {} as never,
       decisions: [
-        { step: 'propose', action: 'prompt resolved', reason: 'prompt=fallback', ms: 10 },
+        { step: 'propose', action: 'prompt resolved', reason: 'prompt=products-propose@1 source=snapshot', ms: 10 },
       ],
       originDecisions: new Map(),
       evaluations: new Map([['https://test.com/p1', { score: 80, searchPosition: 1 }]]) as never,
@@ -172,7 +172,61 @@ describe('productsTask', () => {
 
       const result = await task(item as never, { name: 'arm-1', type: 'model' as const, value: 'gpt-5.6' }, { itemRunId: 'run-1' })
       expect(result.ok).toBe(false)
-      expect(result.error).toContain('pinned prompt fell back')
+      expect(result.error).toMatch(/pin/)
+    } finally {
+      if (prev !== undefined) {
+        process.env.LANGFUSE_PROMPT_VERSIONS = prev
+      } else {
+        delete process.env.LANGFUSE_PROMPT_VERSIONS
+      }
+    }
+  })
+
+  it('parsePromptMeta_reads_source', async () => {
+    const { productsTask } = await import('../products-replay')
+
+    const fakeRunProductsAgent = vi.fn<() => Promise<ProductsOutput>>().mockResolvedValue({
+      agentOutcome: 'proposed',
+      proposals: [{ officialUrl: 'https://test.com/p1', nameZh: '測試', nameEn: 'Test', category: 'beauty', productDescriptionZh: '描述', sources: [] }] as never,
+      verification: {} as never,
+      decisions: [
+        { step: 'propose', action: 'prompt resolved', reason: 'prompt=products-propose@4 source=snapshot', ms: 10 },
+      ],
+      originDecisions: new Map(),
+      evaluations: new Map([['https://test.com/p1', { score: 80, searchPosition: 1 }]]) as never,
+      imagePool: [],
+      budget: { allowed: { reads: 12, renders: 0, turns: 6, wallClockMs: 120000 }, used: { reads: 1, renders: 0, turns: 1, wallClockMs: 5000 } },
+    })
+    const fakeCreateAgentModel = vi.fn().mockResolvedValue({ invoke: vi.fn() })
+
+    const task = productsTask({
+      createAgentModel: fakeCreateAgentModel,
+      runProductsAgent: fakeRunProductsAgent,
+    })
+
+    const prev = process.env.LANGFUSE_PROMPT_VERSIONS
+    process.env.LANGFUSE_PROMPT_VERSIONS = 'products-propose:4'
+
+    try {
+      const item = {
+        id: 'item-1',
+        input: {
+          brand: { id: 'b1', slug: 'test', name: 'Test' },
+          pool: [{ url: 'https://test.com/p1', normalizedUrl: 'https://test.com/p1', supplier: 'search', urlClass: 'product-detail' }],
+          candidateIdsByUrl: { 'https://test.com/p1': 'cid-1' },
+          priorityProductUrls: ['https://test.com/p1'],
+          evidence: { 'https://test.com/p1': makeEvidence('https://test.com/p1') },
+        },
+        expectedOutput: { decisions: [] },
+        humanApproval: { reviewedVia: 'langfuse-queue' },
+      }
+
+      const result = await task(item as never, { name: 'arm-1', type: 'model' as const, value: 'gpt-5.6' }, { itemRunId: 'run-1' })
+
+      // parsePromptMeta correctly reads the source field
+      expect(result.promptMeta).toEqual({ name: 'products-propose', version: 4, source: 'snapshot' })
+      // Replay refuses pinned prompt with snapshot source
+      expect(result.ok).toBe(false)
     } finally {
       if (prev !== undefined) {
         process.env.LANGFUSE_PROMPT_VERSIONS = prev
@@ -197,7 +251,7 @@ describe('productsTask', () => {
       ] as never,
       verification: {} as never,
       decisions: [
-        { step: 'propose', action: 'prompt resolved', reason: 'prompt=products-propose@2', ms: 10 },
+        { step: 'propose', action: 'prompt resolved', reason: 'prompt=products-propose@2 source=langfuse', ms: 10 },
       ],
       originDecisions: new Map(),
       evaluations: fakeEvaluations as never,
@@ -257,7 +311,7 @@ describe('productsTask', () => {
       proposals: [],
       verification: {} as never,
       decisions: [
-        { step: 'propose', action: 'prompt resolved', reason: 'prompt=products-propose@1', ms: 10 },
+        { step: 'propose', action: 'prompt resolved', reason: 'prompt=products-propose@1 source=langfuse', ms: 10 },
       ],
       originDecisions: new Map(),
       evaluations: new Map() as never,

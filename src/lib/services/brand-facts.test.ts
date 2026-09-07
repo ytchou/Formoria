@@ -11,10 +11,10 @@ import { createProfiledOpenAIClient } from "./llm-audit";
 
 vi.mock("@/lib/langfuse/prompt", () => ({
   fetchLangfusePrompt: vi.fn().mockImplementation(
-    (_name: string, fallback: string) => Promise.resolve(fallback),
+    (_name: string) => Promise.resolve("mock-prompt"),
   ),
   fetchLangfusePromptWithMeta: vi.fn().mockImplementation(
-    (_name: string, fallback: string) => Promise.resolve({ text: fallback, prompt: { name: _name, version: 1 } }),
+    (_name: string) => Promise.resolve({ text: "mock-prompt", prompt: { name: _name, version: 1, source: "langfuse" } }),
   ),
 }));
 
@@ -269,13 +269,68 @@ describe("FACTS_SCHEMA", () => {
 
     expect(fetchLangfusePromptWithMeta).toHaveBeenCalledWith(
       "brand-facts",
-      expect.any(String),
       expect.objectContaining({
         category_list: expect.any(String),
         subcategory_vocab_block: expect.any(String),
         material_vocab_block: expect.any(String),
       }),
     );
+  });
+});
+
+describe("founding_facts_calls_fetch_by_name_and_records_prompt", () => {
+  const sources = [
+    {
+      url: "https://harbor-form.tw/about",
+      text: "Harbor Form was founded in Taipei in 2019.",
+      sourceType: "first-party" as const,
+      reputable: true,
+      fetched: true,
+    },
+  ];
+
+  it("both founding-facts and founding-facts-verify are fetched by name and audit contexts carry prompt", async () => {
+    vi.mocked(createProfiledOpenAIClient).mockClear();
+    const extractionChat = vi.fn().mockResolvedValue({
+      response: { ok: true, status: 200 },
+      data: {},
+      content: JSON.stringify({
+        claims: [{
+          field: "founding_year",
+          value: 2019,
+          cited_url: "https://harbor-form.tw/about",
+          exact_excerpt: "founded in 2019",
+          location_context: "founding",
+        }],
+      }),
+    });
+    const verifyChat = vi.fn().mockResolvedValue({
+      response: { ok: true, status: 200 },
+      data: {},
+      content: JSON.stringify({
+        results: [{ claim_index: 0, passed: true, reason: null }],
+      }),
+    });
+    vi.mocked(createProfiledOpenAIClient)
+      .mockReturnValueOnce({ chat: extractionChat } as never)
+      .mockReturnValueOnce({ chat: verifyChat } as never);
+    vi.stubEnv("OPENAI_API_KEY", "test-key");
+
+    await researchFoundingFacts(
+      "Harbor Form",
+      sources,
+      { jobId: "job-1", target: { type: "brand", id: "brand-1" } },
+    );
+
+    // Both calls fetch by name only (no fallback arg)
+    expect(fetchLangfusePromptWithMeta).toHaveBeenCalledWith("founding-facts");
+    expect(fetchLangfusePromptWithMeta).toHaveBeenCalledWith("founding-facts-verify");
+
+    // Both audit contexts carry the prompt meta
+    const extractionContext = vi.mocked(createProfiledOpenAIClient).mock.calls[0]?.[1];
+    const verifyContext = vi.mocked(createProfiledOpenAIClient).mock.calls[1]?.[1];
+    expect(extractionContext?.prompt).toEqual(expect.objectContaining({ name: "founding-facts", source: "langfuse" }));
+    expect(verifyContext?.prompt).toEqual(expect.objectContaining({ name: "founding-facts-verify", source: "langfuse" }));
   });
 });
 

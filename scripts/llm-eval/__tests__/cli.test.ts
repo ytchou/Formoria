@@ -8,8 +8,12 @@ import {
   parseArm,
   applyEnvFile,
   handlePromptPush,
+  handlePromptPull,
+  handlePromptPromote,
   isReviewed,
+  LANGFUSE_SNAPSHOT_PATH,
 } from '../llm-eval'
+import type { PromptApi, SnapshotFile } from '@/lib/services/eval/prompt-sync'
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -77,19 +81,15 @@ describe('parseCliArgs', () => {
       allowUnreviewed: false,
     })
 
-    // prompt push
+    // prompt push (positional is the name now)
     expect(
-      parseCliArgs([
-        'prompt',
-        'push',
-        '/path/to/prompt.txt',
-        '--name',
-        'detect',
-      ]),
+      parseCliArgs(['prompt', 'push', 'descriptions']),
     ).toEqual({
       command: 'prompt-push',
-      file: '/path/to/prompt.txt',
-      name: 'detect',
+      name: 'descriptions',
+      file: undefined,
+      label: undefined,
+      allowVariableChange: false,
     })
   })
 })
@@ -291,36 +291,249 @@ describe('parseCliArgs — pairwise run products / --no-enqueue', () => {
 })
 
 // ---------------------------------------------------------------------------
+// prompt push / pull / promote — parseCliArgs
+// ---------------------------------------------------------------------------
+
+describe('parseCliArgs — prompt push', () => {
+  it('parses prompt push name with optional file, label, and allow flag', () => {
+    expect(
+      parseCliArgs([
+        'prompt', 'push', 'descriptions',
+        '--file', 'd.md',
+        '--label', 'production',
+        '--allow-variable-change',
+      ]),
+    ).toEqual({
+      command: 'prompt-push',
+      name: 'descriptions',
+      file: 'd.md',
+      label: 'production',
+      allowVariableChange: true,
+    })
+
+    // Minimal: just the name
+    expect(parseCliArgs(['prompt', 'push', 'descriptions'])).toEqual({
+      command: 'prompt-push',
+      name: 'descriptions',
+      file: undefined,
+      label: undefined,
+      allowVariableChange: false,
+    })
+
+    // --label other than 'production' throws
+    expect(() =>
+      parseCliArgs(['prompt', 'push', 'detect', '--label', 'staging']),
+    ).toThrow()
+  })
+})
+
+describe('parseCliArgs — prompt pull', () => {
+  it('parses prompt pull flags', () => {
+    expect(
+      parseCliArgs([
+        'prompt', 'pull',
+        '--add', 'faq-custom',
+        '--add', 'faq-where-to-buy',
+        '--check',
+      ]),
+    ).toEqual({
+      command: 'prompt-pull',
+      add: ['faq-custom', 'faq-where-to-buy'],
+      check: true,
+      allowVariableChange: false,
+    })
+  })
+})
+
+describe('parseCliArgs — prompt promote', () => {
+  it('parses prompt promote positional version', () => {
+    expect(
+      parseCliArgs(['prompt', 'promote', 'detect', '4']),
+    ).toEqual({
+      command: 'prompt-promote',
+      name: 'detect',
+      version: 4,
+    })
+  })
+
+  it('throws on non-integer version', () => {
+    expect(() =>
+      parseCliArgs(['prompt', 'promote', 'detect', 'abc']),
+    ).toThrow()
+  })
+})
+
+// ---------------------------------------------------------------------------
 // handlePromptPush
 // ---------------------------------------------------------------------------
 
 describe('handlePromptPush', () => {
-  it('reads the file, calls promptsCreate with labels [] and type text, and prints the new version', async () => {
-    const promptFile = join(TMP, 'test-prompt.txt')
-    writeFileSync(promptFile, 'You are a brand detector.')
-
-    const promptsCreate = vi
-      .fn()
-      .mockResolvedValue({ name: 'detect', version: 3 })
-    const logs: string[] = []
-
-    await handlePromptPush({
-      file: promptFile,
-      name: 'detect',
-      deps: {
-        promptsCreate,
-        log: (msg: string) => logs.push(msg),
+  it('reads snapshot by default and file when given', async () => {
+    const snapshot: SnapshotFile = {
+      prompts: {
+        detect: { version: 2, text: ['snapshot text'] },
       },
-    })
+    }
 
-    expect(promptsCreate).toHaveBeenCalledWith({
-      name: 'detect',
-      prompt: 'You are a brand detector.',
-      type: 'text',
-      labels: [],
-    })
+    const api: PromptApi = {
+      promptsGet: vi.fn(async () => ({
+        version: 1,
+        prompt: 'old text',
+        labels: ['latest'],
+      })),
+      promptsCreate: vi.fn(async () => ({ name: 'detect', version: 3 })),
+      promptVersionUpdate: vi.fn(),
+    }
 
+    const logs: string[] = []
+    const deps = {
+      api,
+      log: (msg: string) => logs.push(msg),
+      readFile: vi.fn((path: string) => {
+        if (path === LANGFUSE_SNAPSHOT_PATH) {
+          return JSON.stringify(snapshot)
+        }
+        return 'file contents here'
+      }),
+      writeFile: vi.fn(),
+    }
+
+    // Without --file: uses snapshot entry text
+    await handlePromptPush({ name: 'detect', deps })
+    expect(api.promptsCreate).toHaveBeenCalledWith(
+      expect.objectContaining({ prompt: 'snapshot text' }),
+    )
     expect(logs.join('\n')).toContain('detect v3')
+
+    // With --file: uses file contents
+    vi.mocked(api.promptsCreate).mockClear()
+    logs.length = 0
+    vi.mocked(api.promptsGet).mockResolvedValue({
+      version: 3,
+      prompt: 'file contents here',
+      labels: ['latest'],
+    })
+
+    await handlePromptPush({ name: 'detect', file: 'd.md', deps })
+    expect(logs.join('\n')).toContain('unchanged, skipped')
+  })
+})
+
+// ---------------------------------------------------------------------------
+// handlePromptPull
+// ---------------------------------------------------------------------------
+
+describe('handlePromptPull', () => {
+  it('writes snapshot file and exit code', async () => {
+    const snapshot: SnapshotFile = {
+      prompts: {
+        descriptions: { version: 1, text: ['old'] },
+        detect: { version: 1, text: ['old detect'] },
+      },
+    }
+
+    const api: PromptApi = {
+      promptsGet: vi.fn(async ({ promptName }) => ({
+        version: promptName === 'descriptions' ? 5 : 3,
+        prompt: `${promptName} text`,
+        labels: ['production'],
+      })),
+      promptsCreate: vi.fn(),
+      promptVersionUpdate: vi.fn(),
+    }
+
+    const logs: string[] = []
+    let writtenPath = ''
+    let writtenContent = ''
+    const deps = {
+      api,
+      log: (msg: string) => logs.push(msg),
+      readFile: (_path: string) => JSON.stringify(snapshot),
+      writeFile: (path: string, content: string) => {
+        writtenPath = path
+        writtenContent = content
+      },
+    }
+
+    const exitCode = await handlePromptPull({
+      add: [],
+      check: false,
+      allowVariableChange: false,
+      deps,
+    })
+
+    expect(exitCode).toBe(0)
+    expect(writtenPath).toBe(LANGFUSE_SNAPSHOT_PATH)
+    // 2-space indent + trailing newline
+    expect(writtenContent).toMatch(/^\{[\s\S]*\}\n$/)
+    const parsed = JSON.parse(writtenContent)
+    expect(parsed.prompts.descriptions.version).toBe(5)
+
+    // --check with drift returns exit code 1 without writing
+    const checkDeps = {
+      ...deps,
+      writeFile: vi.fn(),
+    }
+    const checkExitCode = await handlePromptPull({
+      add: [],
+      check: true,
+      allowVariableChange: false,
+      deps: checkDeps,
+    })
+    expect(checkExitCode).toBe(1)
+    expect(checkDeps.writeFile).not.toHaveBeenCalled()
+  })
+})
+
+// ---------------------------------------------------------------------------
+// handlePromptPromote
+// ---------------------------------------------------------------------------
+
+describe('handlePromptPromote', () => {
+  it('calls sync then pull', async () => {
+    const snapshot: SnapshotFile = {
+      prompts: {
+        detect: { version: 3, text: ['hello {{x}} world'] },
+      },
+    }
+
+    const api: PromptApi = {
+      promptsGet: vi.fn(async ({ version }) => {
+        // version fetch for parity check
+        if (version === 4) {
+          return { version: 4, prompt: 'updated {{x}} content', labels: [] }
+        }
+        // production fetch for pull
+        return { version: 4, prompt: 'updated {{x}} content', labels: ['production'] }
+      }),
+      promptsCreate: vi.fn(),
+      promptVersionUpdate: vi.fn(async () => ({})),
+    }
+
+    const logs: string[] = []
+    let writtenContent = ''
+    const deps = {
+      api,
+      log: (msg: string) => logs.push(msg),
+      readFile: (_path: string) => JSON.stringify(snapshot),
+      writeFile: (_path: string, content: string) => {
+        writtenContent = content
+      },
+    }
+
+    const exitCode = await handlePromptPromote({
+      name: 'detect',
+      version: 4,
+      deps,
+    })
+
+    expect(exitCode).toBe(0)
+    expect(api.promptVersionUpdate).toHaveBeenCalledWith('detect', 4, {
+      newLabels: ['production'],
+    })
+    // Snapshot was written with the pulled version
+    const parsed = JSON.parse(writtenContent)
+    expect(parsed.prompts.detect.version).toBe(4)
   })
 })
 
