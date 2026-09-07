@@ -107,7 +107,7 @@
     "next-intl": "^4.13.7",
     "next-mdx-remote": "^6.0.0",
     "pinyin-pro": "^3.29.3",
-    "posthog-js": "^1.409.5",
+    "posthog-js": "^1.427.2",
     "posthog-node": "^5.46.0",
     "react": "19.2.7",
     "react-dom": "19.2.7",
