@@ -176,7 +176,7 @@ export function detectAiArtifacts(text: string, locale: LanguageLocale): string[
 // Product description validators
 // ---------------------------------------------------------------------------
 
-export const PRODUCT_DESCRIPTION_FORBIDDEN_TERMS: readonly string[] = [
+const PRODUCT_DESCRIPTION_FORBIDDEN_TERMS: readonly string[] = [
   '值得',
   '必買',
   '療癒',
