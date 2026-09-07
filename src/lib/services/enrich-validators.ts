@@ -201,6 +201,12 @@ export const PRODUCT_DESCRIPTION_FORBIDDEN_TERMS: readonly string[] = [
   '規格選擇',
 ]
 
+export const PRICING_OVERLAP_TERMS: ReadonlySet<string> = new Set(
+  PRODUCT_DESCRIPTION_FORBIDDEN_TERMS.filter((t) =>
+    ['價格', '售價', '特價', '折扣'].includes(t),
+  ),
+)
+
 export function findForbiddenProductTerms(text: string): string[] {
   const hits: string[] = []
   for (const term of PRODUCT_DESCRIPTION_FORBIDDEN_TERMS) {

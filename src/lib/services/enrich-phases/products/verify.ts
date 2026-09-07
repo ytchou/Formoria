@@ -15,7 +15,7 @@ import {
   type RegistryOriginAssessment,
   type OriginQualificationMethod,
 } from '@/lib/services/curated-products/origin-qualification'
-import { restatesProductName, findForbiddenProductTerms, containsPricingInformation } from '@/lib/services/enrich-validators'
+import { restatesProductName, findForbiddenProductTerms, containsPricingInformation, PRICING_OVERLAP_TERMS } from '@/lib/services/enrich-validators'
 
 const L1_SLUGS = new Set<string>(L1_CATEGORIES.map((c) => c.slug))
 
@@ -120,8 +120,7 @@ export function verifyDescription(input: { nameZh: string; productDescriptionZh:
   for (const term of forbiddenHits) {
     failures.push(`description_forbidden_term:${term}: remove the term and replace it with the concrete fact behind it`)
   }
-  const PRICING_TERMS = ['價格', '售價', '特價', '折扣']
-  const hasPricingForbiddenTerm = forbiddenHits.some(t => PRICING_TERMS.includes(t))
+  const hasPricingForbiddenTerm = forbiddenHits.some(t => PRICING_OVERLAP_TERMS.has(t))
   if (!hasPricingForbiddenTerm && containsPricingInformation(input.productDescriptionZh, 'zh')) {
     failures.push('description_pricing: remove prices, discounts, or inventory')
   }
