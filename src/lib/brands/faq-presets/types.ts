@@ -1,5 +1,6 @@
 import type { CategoryPeerStats } from "@/lib/services/brand-peer-stats";
 import type { PublicBrandFaqContext } from "@/lib/brands/contracts";
+import type { PromptName } from "@/lib/langfuse/prompt";
 
 export type EvidenceKey =
   | "categorySlug"
@@ -45,6 +46,18 @@ type FaqRender = {
   templateFloor: (ctx: FaqBrandContext, t: FaqTFn, locale: string) => string;
 };
 
+/**
+ * Model-authoring instruction for this preset. The wording lives in
+ * Langfuse (snapshot fallback in `langfuse-snapshot.json`), so a preset only
+ * names the prompt and supplies its `{{variables}}`; a wording change follows
+ * the push → evaluate → promote flow like every other prompt and needs no
+ * deploy. Values are strings because Langfuse templates are text-only.
+ */
+export type FaqPromptFragment = {
+  prompt: PromptName;
+  variables: (ctx: FaqBrandContext) => Record<string, string>;
+};
+
 export type FaqPreset = {
   id: string;
   /**
@@ -67,7 +80,8 @@ export type FaqPreset = {
   requiredEvidence: readonly EvidenceKey[];
   /** `null` for prompt-only presets, which never render a floor. */
   render: FaqRender | null;
-  promptFragment: ((ctx: FaqBrandContext) => string) | null;
+  /** `null` for presets whose copy is code-derived, never model-authored. */
+  promptFragment: FaqPromptFragment | null;
   validators: readonly FaqValidator[];
 };
 

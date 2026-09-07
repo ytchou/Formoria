@@ -73,7 +73,6 @@ const ONLINE_STORE_PROMPT_LABELS: Record<OnlineStoreKey, string> = {
 export type DescriptionRewriteResult = {
   description_zh: string | null;
   description_en: string | null;
-  description: string | null;
   blurb_zh: string | null;
   blurb_en: string | null;
   validationRejections: Array<{
@@ -207,7 +206,6 @@ export type DescriptionRewriteOutput = {
 const EMPTY_DESCRIPTION_RESULT: DescriptionRewriteResult = {
   description_zh: null,
   description_en: null,
-  description: null,
   blurb_zh: null,
   blurb_en: null,
   validationRejections: [],
@@ -241,7 +239,6 @@ export function parseDescriptionRewriteResult(
   return {
     description_zh: descriptionZh,
     description_en: descriptionEn,
-    description: descriptionZh,
     blurb_zh: blurbZh,
     blurb_en: blurbEn,
     validationRejections: [],
@@ -439,7 +436,6 @@ function validateDescriptionFields(
     ...parsed,
     description_zh: descriptionZh,
     description_en: descriptionEn,
-    description: descriptionZh,
     blurb_zh: blurbZh,
     blurb_en: blurbEn,
     validationRejections,
@@ -762,7 +758,6 @@ export async function rewriteBrandDescription(
         ...validated,
         description_zh: acceptedDescriptionZh,
         description_en: acceptedDescriptionEn,
-        description: acceptedDescriptionZh,
         blurb_zh: acceptedBlurbZh,
         blurb_en: acceptedBlurbEn,
         validationRejections: allValidationRejections,
