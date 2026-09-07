@@ -1,5 +1,3 @@
-import { createHash } from "node:crypto";
-import { FAQ_PROMPT_PREAMBLE } from "@/lib/prompts";
 import categoryPosition from "./category-position";
 import custom from "./custom";
 import mainProducts from "./main-products";
@@ -56,8 +54,6 @@ export function eligibleFaqPresets(ctx: FaqBrandContext): FaqPreset[] {
   return FAQ_PRESETS.filter((preset) => isFaqPresetAuthorable(preset, ctx));
 }
 
-export { FAQ_PROMPT_PREAMBLE } from "@/lib/prompts";
-
 const FAQ_CUSTOM_LIMIT_PROMPT = `Custom questions: at most ${CUSTOM_QUESTION_CEILING}; zero is valid.`;
 
 function orderedContributors(presets: readonly FaqPreset[]): FaqPreset[] {
@@ -69,6 +65,7 @@ function orderedContributors(presets: readonly FaqPreset[]): FaqPreset[] {
 }
 
 export function buildFaqSystemPrompt(
+  preamble: string,
   presets: readonly FaqPreset[],
   ctx: FaqBrandContext,
 ): string {
@@ -77,25 +74,9 @@ export function buildFaqSystemPrompt(
     .map((preset) => preset.promptFragment?.(ctx) ?? "")
     .filter(Boolean);
 
-  return [FAQ_PROMPT_PREAMBLE, FAQ_CUSTOM_LIMIT_PROMPT, ...fragments].join(
+  return [preamble, FAQ_CUSTOM_LIMIT_PROMPT, ...fragments].join(
     "\n\n",
   );
-}
-
-export function buildFaqPromptHash(presets: readonly FaqPreset[]): string {
-  const fragmentIds = presets
-    .filter((preset) => preset.promptFragment !== null)
-    .map((preset) => preset.id)
-    .sort();
-
-  // Hash the stable preamble and contributing preset IDs, never the rendered
-  // brand-specific prompt, so equivalent eligible sets share one prompt version.
-  return createHash("sha256")
-    .update(
-      [FAQ_PROMPT_PREAMBLE, FAQ_CUSTOM_LIMIT_PROMPT, ...fragmentIds].join("\n"),
-    )
-    .digest("hex")
-    .slice(0, 12);
 }
 
 export * from "./types";

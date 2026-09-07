@@ -24,7 +24,6 @@
 
 import { z } from 'zod'
 import { fetchLangfusePrompt } from '@/lib/langfuse/prompt'
-import { EDITORIAL_REPAIR_SYSTEM_PROMPT } from '@/lib/prompts/editorial-agent'
 import { CITY_SLUGS } from '@/lib/constants/taiwan-cities'
 import { FAQ_PRESETS } from '@/lib/brands/faq-presets'
 import type { PhaseResult } from '@/lib/types/curation'
@@ -236,7 +235,7 @@ export async function repairEditorialCrossOutput(
   if (targets.length === 0) return {}
 
   const system = withSchema(
-    await fetchLangfusePrompt('editorial-repair', EDITORIAL_REPAIR_SYSTEM_PROMPT),
+    await fetchLangfusePrompt('editorial-repair'),
     'EditorialRepair',
     EditorialRepairSchema,
   )

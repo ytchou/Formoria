@@ -4,7 +4,6 @@ import {
   type OnlineStoreCamelField,
   type OnlineStoreKey,
 } from "@/lib/brands/online-stores";
-import { DESCRIPTION_SYSTEM_PROMPT } from "@/lib/prompts";
 import { TAIWAN_USAGE_RULES } from "@/lib/prompts/shared";
 import { auditedCall } from "@/lib/audit";
 import { reportBannedTerms } from "@/lib/i18n/banned-terms";
@@ -612,7 +611,6 @@ export async function rewriteBrandDescription(
   };
   const attemptConfig = buildProfiledEnrichmentConfig(
     "descriptions",
-    DESCRIPTION_SYSTEM_PROMPT,
     "descriptions",
     DESCRIPTION_PROMPT_PARAMS,
   );
@@ -649,7 +647,7 @@ export async function rewriteBrandDescription(
   // brand whose every call died at the provider may fail its target.
   const calls = noLlmCalls();
 
-  const { text: descriptionSystemPrompt, prompt: descPromptMeta } = await fetchLangfusePromptWithMeta("descriptions", DESCRIPTION_SYSTEM_PROMPT, {
+  const { text: descriptionSystemPrompt, prompt: descPromptMeta } = await fetchLangfusePromptWithMeta("descriptions", {
     taiwan_usage_rules: TAIWAN_USAGE_RULES,
   });
   try {
@@ -664,7 +662,7 @@ export async function rewriteBrandDescription(
           phase: "descriptions",
           attempt: attemptIndex + 1,
           config: attemptConfig,
-          ...(descPromptMeta ? { prompt: descPromptMeta } : {}),
+          prompt: descPromptMeta,
         },
         { apiKey: token },
       );

@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { DESCRIPTION_SYSTEM_PROMPT } from "@/lib/prompts";
+import snapshot from "@/lib/prompts/langfuse-snapshot.json";
+import { TAIWAN_USAGE_RULES } from "@/lib/prompts/shared";
 import {
   ENRICH_PHASES,
   ENRICH_STAGE_GROUPS,
@@ -10,7 +11,6 @@ import {
 } from "@/lib/brands/faq-presets";
 import type { FaqBrandContext } from "@/lib/brands/faq-presets";
 import type { Brand } from "@/lib/types";
-import { TAIWAN_USAGE_RULES } from "@/lib/prompts/shared";
 import type { BrandFaqEntryRow } from "../../brand-faq";
 import type { EnrichBrand, EnrichPhase } from "../types";
 import {
@@ -29,10 +29,10 @@ import {
  * `@/lib/supabase/*`, not the Langfuse adapter.
  */
 const fetchLangfusePrompt = vi.hoisted(() =>
-  vi.fn((_name: string, fallback: string) => Promise.resolve(fallback)),
+  vi.fn((_name: string) => Promise.resolve("mock-prompt")),
 );
 const fetchLangfusePromptWithMeta = vi.hoisted(() =>
-  vi.fn((_name: string, fallback: string) => Promise.resolve({ text: fallback, prompt: { name: _name, version: 1 } })),
+  vi.fn((_name: string) => Promise.resolve({ text: "mock-prompt", prompt: { name: _name, version: 1, source: "langfuse" } })),
 );
 vi.mock("@/lib/langfuse/prompt", () => ({ fetchLangfusePrompt, fetchLangfusePromptWithMeta }));
 
@@ -631,11 +631,21 @@ describe("contextFacts", () => {
   });
 });
 
-describe("DESCRIPTION_SYSTEM_PROMPT", () => {
-  it("description prompt retains its channel and pricing prohibitions", () => {
-    expect(DESCRIPTION_SYSTEM_PROMPT).toContain("Purchase channels and distribution");
-    expect(DESCRIPTION_SYSTEM_PROMPT).toContain("pricing information is never written in these four fields");
-    expect(DESCRIPTION_SYSTEM_PROMPT.toLowerCase()).not.toContain("faq");
+describe("descriptions snapshot prompt", () => {
+  function compiledDescriptionsPrompt(): string {
+    const entry = snapshot.prompts["descriptions"];
+    const raw = entry.text.join("\n");
+    return raw.replace(/\{\{(\w+)\}\}/g, (_match, key: string) => {
+      if (key === "taiwan_usage_rules") return TAIWAN_USAGE_RULES;
+      return `{{${key}}}`;
+    });
+  }
+
+  it("descriptions_prompt_retains_channel_and_pricing_prohibitions", () => {
+    const DESCRIPTIONS = compiledDescriptionsPrompt();
+    expect(DESCRIPTIONS).toContain("Purchase channels and distribution");
+    expect(DESCRIPTIONS).toContain("pricing information is never written in these four fields");
+    expect(DESCRIPTIONS.toLowerCase()).not.toContain("faq");
   });
 });
 
@@ -669,7 +679,6 @@ describe("runFaqPhase langfuse variables", () => {
 
     expect(fetchLangfusePromptWithMeta).toHaveBeenCalledWith(
       "faq-preamble",
-      expect.any(String),
       expect.objectContaining({ taiwan_usage_rules: TAIWAN_USAGE_RULES }),
     );
 

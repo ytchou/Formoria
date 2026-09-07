@@ -1,9 +1,4 @@
 import {
-  FACTS_SYSTEM_PROMPT,
-  FOUNDING_FACTS_SYSTEM_PROMPT,
-  FOUNDING_FACTS_VERIFY_SYSTEM_PROMPT,
-} from "@/lib/prompts";
-import {
   CATEGORY_LIST,
   SUBCATEGORY_VOCAB_BLOCK,
   MATERIAL_VOCAB_BLOCK,
@@ -407,17 +402,17 @@ export async function researchFoundingFacts(
     ...source,
     text: source.text.slice(0, 8_000),
   }));
+  const { text: foundingFactsPrompt, prompt: foundingFactsPromptMeta } = await fetchLangfusePromptWithMeta("founding-facts");
   const extractionConfig = buildProfiledEnrichmentConfig(
     "founding_facts",
-    FOUNDING_FACTS_SYSTEM_PROMPT,
     "foundingFacts",
   );
   const extraction = await createProfiledOpenAIClient(
     "foundingFacts",
-    { ...audit, phase: "founding_facts", config: extractionConfig },
+    { ...audit, phase: "founding_facts", config: extractionConfig, prompt: foundingFactsPromptMeta },
     { apiKey: token },
   ).chat({
-    system: FOUNDING_FACTS_SYSTEM_PROMPT,
+    system: foundingFactsPrompt,
     user: JSON.stringify({ brandName, sources: boundedSources }),
     json: true,
     schema: FOUNDING_FACTS_SCHEMA,
@@ -433,17 +428,17 @@ export async function researchFoundingFacts(
   const proposed = parseFoundingClaims(extraction.content, boundedSources);
   if (proposed.length === 0) return emptyFoundingResearch(calls);
 
+  const { text: foundingFactsVerifyPrompt, prompt: foundingFactsVerifyPromptMeta } = await fetchLangfusePromptWithMeta("founding-facts-verify");
   const verificationConfig = buildProfiledEnrichmentConfig(
     "founding_facts_verify",
-    FOUNDING_FACTS_VERIFY_SYSTEM_PROMPT,
     "foundingFactsVerify",
   );
   const verification = await createProfiledOpenAIClient(
     "foundingFactsVerify",
-    { ...audit, phase: "founding_facts_verify", config: verificationConfig },
+    { ...audit, phase: "founding_facts_verify", config: verificationConfig, prompt: foundingFactsVerifyPromptMeta },
     { apiKey: token },
   ).chat({
-    system: FOUNDING_FACTS_VERIFY_SYSTEM_PROMPT,
+    system: foundingFactsVerifyPrompt,
     user: JSON.stringify({
       brandName,
       sources: boundedSources,
@@ -512,7 +507,6 @@ export async function extractBrandFacts(
   const attemptInput: BrandFactsAttemptInput = { brandName, userContent };
   const attemptConfig = buildProfiledEnrichmentConfig(
     "facts",
-    FACTS_SYSTEM_PROMPT,
     "facts",
     FACTS_PROMPT_PARAMS,
   );
@@ -522,7 +516,6 @@ export async function extractBrandFacts(
   const calls = noLlmCalls();
   const { text: factsSystemPrompt, prompt: factsPromptMeta } = await fetchLangfusePromptWithMeta(
     "brand-facts",
-    FACTS_SYSTEM_PROMPT,
     {
       category_list: CATEGORY_LIST,
       subcategory_vocab_block: SUBCATEGORY_VOCAB_BLOCK,
@@ -542,7 +535,7 @@ export async function extractBrandFacts(
           phase: "facts",
           attempt: attemptIndex + 1,
           config: attemptConfig,
-          ...(factsPromptMeta ? { prompt: factsPromptMeta } : {}),
+          prompt: factsPromptMeta,
         },
         { apiKey: token },
       );

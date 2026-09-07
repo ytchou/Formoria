@@ -11,6 +11,7 @@ import {
   type LlmAuditContext,
 } from "./llm-audit";
 import { brandTarget } from "./_shared/enrichment-target";
+import { buildEnrichmentConfig } from "@/lib/constants/enrichment-config";
 
 vi.mock("./llm-pricing", () => ({
   priceUsage: vi.fn().mockResolvedValue({
@@ -298,23 +299,41 @@ describe("emitLangfuseGeneration — prompt and cost fields", () => {
     usage: { prompt_tokens: 100, completion_tokens: 25 },
   };
 
-  it("forwards promptName and promptVersion when context.prompt is set", async () => {
+  it("forwards promptName and promptVersion regardless of source", async () => {
+    // Test with source: 'langfuse'
     const mockGeneration = vi.fn();
     const langfuseTrace = { generation: mockGeneration };
 
     await runWithAuditContext({ langfuseTrace }, () => {
       const ctx: LlmAuditContext = {
         phase: "detect",
-        prompt: { name: "detect-prompt", version: 3 },
+        prompt: { name: "detect-prompt", version: 3, source: "langfuse" },
       };
       emitLangfuseGeneration(ctx, baseEvent);
       return Promise.resolve();
     });
 
     expect(mockGeneration).toHaveBeenCalledOnce();
-    const body = mockGeneration.mock.calls[0]![0];
+    let body = mockGeneration.mock.calls[0]![0];
     expect(body.promptName).toBe("detect-prompt");
     expect(body.promptVersion).toBe(3);
+
+    // Test with source: 'snapshot'
+    mockGeneration.mockClear();
+
+    await runWithAuditContext({ langfuseTrace }, () => {
+      const ctx: LlmAuditContext = {
+        phase: "detect",
+        prompt: { name: "detect-prompt", version: 5, source: "snapshot" },
+      };
+      emitLangfuseGeneration(ctx, baseEvent);
+      return Promise.resolve();
+    });
+
+    expect(mockGeneration).toHaveBeenCalledOnce();
+    body = mockGeneration.mock.calls[0]![0];
+    expect(body.promptName).toBe("detect-prompt");
+    expect(body.promptVersion).toBe(5);
   });
 
   it("omits prompt fields when context.prompt is absent", async () => {
@@ -346,5 +365,78 @@ describe("emitLangfuseGeneration — prompt and cost fields", () => {
     expect(mockGeneration).toHaveBeenCalledOnce();
     const body = mockGeneration.mock.calls[0]![0];
     expect(body.costDetails).toEqual({ total: 0.0123 });
+  });
+});
+
+describe("buildEnrichmentConfig", () => {
+  it("has no promptHash and version v2.4", () => {
+    const config = buildEnrichmentConfig("detect", { model: "gpt-4o" });
+    expect(Object.keys(config).sort()).toEqual(["params", "phase", "version"]);
+    expect(config.version).toBe("v2.4");
+  });
+});
+
+describe("persistAuditEvent — config.prompt merge", () => {
+  it("writes config.prompt when context has both config and prompt", async () => {
+    const inserts: Record<string, unknown>[] = [];
+    const config = buildEnrichmentConfig("detect", { model: "gpt-4o" });
+    const client = createAuditedOpenAIClient(
+      {
+        target,
+        phase: "detect",
+        config,
+        prompt: { name: "detect", version: 3, source: "langfuse" as const },
+        supabase: fakeSupabase(inserts),
+      },
+      { apiKey: "k" },
+    );
+
+    await client.chat({ system: "s", user: "u" });
+
+    expect(inserts).toHaveLength(1);
+    expect(inserts[0]!.config).toEqual({
+      ...config,
+      prompt: { name: "detect", version: 3, source: "langfuse" },
+    });
+  });
+
+  it("writes prompt without config", async () => {
+    const inserts: Record<string, unknown>[] = [];
+    const client = createAuditedOpenAIClient(
+      {
+        target,
+        phase: "detect",
+        prompt: { name: "detect", version: 3, source: "langfuse" as const },
+        supabase: fakeSupabase(inserts),
+      },
+      { apiKey: "k" },
+    );
+
+    await client.chat({ system: "s", user: "u" });
+
+    expect(inserts).toHaveLength(1);
+    expect(inserts[0]!.config).toEqual({
+      prompt: { name: "detect", version: 3, source: "langfuse" },
+    });
+  });
+
+  it("leaves config untouched when context.prompt is absent", async () => {
+    const inserts: Record<string, unknown>[] = [];
+    const config = buildEnrichmentConfig("detect", { model: "gpt-4o" });
+    const client = createAuditedOpenAIClient(
+      {
+        target,
+        phase: "detect",
+        config,
+        supabase: fakeSupabase(inserts),
+      },
+      { apiKey: "k" },
+    );
+
+    await client.chat({ system: "s", user: "u" });
+
+    expect(inserts).toHaveLength(1);
+    expect(inserts[0]!.config).toEqual(config);
+    expect(inserts[0]!.config).not.toHaveProperty("prompt");
   });
 });

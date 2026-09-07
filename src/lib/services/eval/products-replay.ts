@@ -43,7 +43,7 @@ type TaskResult = {
   ok: boolean
   output: unknown
   error?: string
-  promptMeta?: { name: string; version: number } | 'fallback'
+  promptMeta?: { name: string; version: number; source: 'langfuse' | 'snapshot' }
 }
 
 // ---------------------------------------------------------------------------
@@ -107,15 +107,16 @@ export const deadFetch = async (_url: string): Promise<{ text: string; statusCod
 
 function parsePromptMeta(
   decisions: ProductsOutput['decisions'],
-): { name: string; version: number } | 'fallback' | undefined {
+): { name: string; version: number; source: 'langfuse' | 'snapshot' } | undefined {
   for (const decision of decisions) {
     if (decision.step !== 'propose' || decision.action !== 'prompt resolved') continue
-    const match = decision.reason.match(/prompt=(.+?)@(\d+)/)
+    const match = decision.reason.match(/prompt=(.+?)@(\d+)\s+source=(\w+)/)
     if (match) {
-      return { name: match[1]!, version: Number(match[2]!) }
-    }
-    if (decision.reason.includes('prompt=fallback')) {
-      return 'fallback'
+      return {
+        name: match[1]!,
+        version: Number(match[2]!),
+        source: match[3] as 'langfuse' | 'snapshot',
+      }
     }
   }
   return undefined
@@ -178,13 +179,14 @@ export function productsTask(taskDeps: ProductsTaskDeps) {
 
     const promptMeta = parsePromptMeta(graphOutput.decisions)
 
-    // Check pinned prompt fallback
+    // Check pinned prompt source — a pin is meaningless if the SDK
+    // couldn't reach Langfuse and fell back to the snapshot.
     const pins = parsePromptVersionPins()
-    if (pins['products-propose'] !== undefined && promptMeta === 'fallback') {
+    if (pins['products-propose'] !== undefined && promptMeta?.source !== 'langfuse') {
       return {
         ok: false,
         output: null,
-        error: 'pinned prompt fell back',
+        error: `prompt pin products-propose:${pins['products-propose']} resolved from ${promptMeta?.source ?? 'unknown'}, not langfuse`,
         promptMeta,
       }
     }

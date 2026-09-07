@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { auditedCall, type AuditCallContext } from "@/lib/audit";
-import { IMAGE_CLASSIFY_SYSTEM_PROMPT } from "@/lib/prompts/classify-images";
+
 import { L1_CATEGORIES } from "@/lib/taxonomy/ontology";
 import {
   BRAND_IMAGE_LOGO_TAG,
@@ -1156,7 +1156,7 @@ async function classifyChunk(
   );
   const ordinals = [...imageByOrdinal.keys()];
 
-  const { text: classifySystemPrompt } = await fetchLangfusePromptWithMeta("classify-images", IMAGE_CLASSIFY_SYSTEM_PROMPT);
+  const { text: classifySystemPrompt } = await fetchLangfusePromptWithMeta("classify-images");
   const userMessage = `${brandContext}Classify the ${sendable.length} brand images that follow, numbered ${ordinals.join(", ")} in order. Return a JSON object with a "classifications" array holding exactly ${sendable.length} objects, whose "id" values are the image numbers as strings. Do not omit any image.`;
   const chatParams = {
     system: classifySystemPrompt,
@@ -1543,7 +1543,7 @@ export async function classifyStoredImages(
     return skippedClassifyResult("no unclassified images");
   }
 
-  const { prompt: classifyImagesPromptMeta } = await fetchLangfusePromptWithMeta("classify-images", IMAGE_CLASSIFY_SYSTEM_PROMPT);
+  const { prompt: classifyImagesPromptMeta } = await fetchLangfusePromptWithMeta("classify-images");
 
   const client =
     options.client ??
@@ -1551,13 +1551,12 @@ export async function classifyStoredImages(
       target,
       phase: "classify_images",
       ...(jobId ? { jobId } : {}),
-      ...(classifyImagesPromptMeta ? { prompt: classifyImagesPromptMeta } : {}),
+      prompt: classifyImagesPromptMeta,
       // The model comes from the shared resolver, never a second literal: this
       // object is the stored audit contract, and a drifting copy makes every
       // brand_ai_results row for this phase record a model that never ran.
       config: buildProfiledEnrichmentConfig(
         "classify_images",
-        IMAGE_CLASSIFY_SYSTEM_PROMPT,
         "classifyImages",
         {
           batchSize: IMAGE_CLASSIFY_BATCH_SIZE,
@@ -1786,9 +1785,8 @@ export async function classifyImageBuffers(
 
   const { brandContext } = options;
 
-  const { text: classifySystemPrompt } = await fetchLangfusePromptWithMeta(
+  const { text: classifySystemPrompt, prompt: bufferClassifyPromptMeta } = await fetchLangfusePromptWithMeta(
     "classify-images",
-    IMAGE_CLASSIFY_SYSTEM_PROMPT,
   );
 
   const client =
@@ -1797,9 +1795,9 @@ export async function classifyImageBuffers(
       target: options.target ?? { type: "brand", id: "buffer-classify" },
       phase: "classify_images",
       ...(options.jobId ? { jobId: options.jobId } : {}),
+      prompt: bufferClassifyPromptMeta,
       config: buildProfiledEnrichmentConfig(
         "classify_images",
-        IMAGE_CLASSIFY_SYSTEM_PROMPT,
         "classifyImages",
         {
           batchSize: IMAGE_CLASSIFY_BATCH_SIZE,
