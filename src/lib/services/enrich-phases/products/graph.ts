@@ -848,6 +848,8 @@ async function repairNode(
 
   // Re-verify the checks the repair was allowed to touch. A repair that
   // "fixes" a proposal into a different host is not a repair.
+  // Cache description results to avoid calling verifyDescription twice.
+  const reVerifyDescCache = new Map<string, string[]>()
   const reVerified = validation.proposals.filter((proposal) => {
     const closedSet = verifyClosedSets({
       category: proposal.category,
@@ -858,19 +860,32 @@ async function repairNode(
       nameZh: proposal.nameZh,
       productDescriptionZh: proposal.productDescriptionZh,
     })
+    reVerifyDescCache.set(proposal.officialUrl, descFailures)
     return closedSet.ok && verifySameHost(proposal.officialUrl, brandUrl).ok && descFailures.length === 0
   })
 
-  const descDropReasons: Record<string, number> = {}
+  const reVerifyDropReasons: Record<string, number> = {}
   for (const proposal of validation.proposals) {
     if (reVerified.includes(proposal)) continue
-    const descFailures = verifyDescription({
+    const closedSet = verifyClosedSets({
+      category: proposal.category,
+      subcategory: proposal.subcategory ?? undefined,
+      material: proposal.material,
+    })
+    for (const f of closedSet.failures) {
+      const key = f.split(':')[0] ?? f
+      reVerifyDropReasons[key] = (reVerifyDropReasons[key] ?? 0) + 1
+    }
+    if (!verifySameHost(proposal.officialUrl, brandUrl).ok) {
+      reVerifyDropReasons['host_mismatch'] = (reVerifyDropReasons['host_mismatch'] ?? 0) + 1
+    }
+    const descFailures = reVerifyDescCache.get(proposal.officialUrl) ?? verifyDescription({
       nameZh: proposal.nameZh,
       productDescriptionZh: proposal.productDescriptionZh,
     })
     for (const f of descFailures) {
       const key = f.split(':')[0] ?? f
-      descDropReasons[key] = (descDropReasons[key] ?? 0) + 1
+      reVerifyDropReasons[key] = (reVerifyDropReasons[key] ?? 0) + 1
     }
   }
 
@@ -881,10 +896,15 @@ async function repairNode(
     start,
   )
 
+  const mergedDropReasons = { ...state.dropReasons }
+  for (const [key, count] of Object.entries(reVerifyDropReasons)) {
+    mergedDropReasons[key] = (mergedDropReasons[key] ?? 0) + count
+  }
+
   return {
     repaired: reVerified,
     dropped: state.dropped + (state.repairable.length - reVerified.length),
-    dropReasons: { ...state.dropReasons, ...descDropReasons },
+    dropReasons: mergedDropReasons,
     ...(reVerified.length > 0 ? { agentOutcome: 'repaired' as const } : {}),
   }
 }

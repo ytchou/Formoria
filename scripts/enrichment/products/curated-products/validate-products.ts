@@ -3,7 +3,7 @@ import * as fs from "node:fs";
 import { createServiceClient } from "@/lib/supabase/service";
 import { subcategoryBySlug } from "@/lib/taxonomy/ontology";
 
-import { PRODUCT_DESCRIPTION_FORBIDDEN_TERMS as FORBIDDEN_TERMS } from "@/lib/services/enrich-validators";
+import { findForbiddenProductTerms } from "@/lib/services/enrich-validators";
 import { fetchAllRows, parseBrandOption, parseCsvPath } from "./shared";
 
 /**
@@ -224,15 +224,14 @@ export async function validateProducts(
   for (const p of products) {
     if (!p.product_description_zh) continue;
     const slug = resolveBrandSlug(p);
-    for (const term of FORBIDDEN_TERMS) {
-      if (p.product_description_zh.includes(term)) {
-        forbiddenTerms.push({
-          productId: p.id,
-          key: p.key,
-          brandSlug: slug,
-          term,
-        });
-      }
+    const hits = findForbiddenProductTerms(p.product_description_zh);
+    for (const term of hits) {
+      forbiddenTerms.push({
+        productId: p.id,
+        key: p.key,
+        brandSlug: slug,
+        term,
+      });
     }
   }
 

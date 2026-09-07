@@ -393,7 +393,7 @@ describe('products/verify', () => {
       expect(result.failures.some(f => f.includes('description_forbidden_term:值得'))).toBe(true)
     })
 
-    it('verifyProposal flags description_pricing', () => {
+    it('verifyProposal flags description_forbidden_term for pricing overlap terms instead of description_pricing', () => {
       const result = verifyProposal(
         {
           url: 'https://example.com/product',
@@ -401,6 +401,30 @@ describe('products/verify', () => {
           material: [],
           nameZh: '皮革托特包',
           productDescriptionZh: '義大利植鞣牛皮，售價 NT$1,200',
+        },
+        {
+          brandUrl: 'https://example.com',
+          imagePool: [{ url: 'https://example.com/img.jpg' }],
+          rankFn: vi.fn().mockReturnValue({ score: 1 }),
+          sameHostResult: { ok: true },
+          reachableResult: { ok: true },
+        },
+      )
+      expect(result.ok).toBe(false)
+      expect(result.repairable).toBe(true)
+      // 售價 is caught by forbidden terms; description_pricing is suppressed to avoid double-counting
+      expect(result.failures.some(f => f.includes('description_forbidden_term:售價'))).toBe(true)
+      expect(result.failures.some(f => f.startsWith('description_pricing:'))).toBe(false)
+    })
+
+    it('verifyProposal flags description_pricing when pricing pattern has no forbidden term overlap', () => {
+      const result = verifyProposal(
+        {
+          url: 'https://example.com/product',
+          category: 'fashion',
+          material: [],
+          nameZh: '皮革托特包',
+          productDescriptionZh: '義大利植鞣牛皮，NT$1,200 含運',
         },
         {
           brandUrl: 'https://example.com',

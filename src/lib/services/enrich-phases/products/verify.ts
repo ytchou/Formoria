@@ -116,10 +116,13 @@ export function verifyDescription(input: { nameZh: string; productDescriptionZh:
   if (restatesProductName(input.nameZh, input.productDescriptionZh)) {
     failures.push('description_name_echo: product_description_zh restates name_zh; rewrite the opening clause so it leads with a differentiating fact')
   }
-  for (const term of findForbiddenProductTerms(input.productDescriptionZh)) {
+  const forbiddenHits = findForbiddenProductTerms(input.productDescriptionZh)
+  for (const term of forbiddenHits) {
     failures.push(`description_forbidden_term:${term}: remove the term and replace it with the concrete fact behind it`)
   }
-  if (containsPricingInformation(input.productDescriptionZh, 'zh')) {
+  const PRICING_TERMS = ['價格', '售價', '特價', '折扣']
+  const hasPricingForbiddenTerm = forbiddenHits.some(t => PRICING_TERMS.includes(t))
+  if (!hasPricingForbiddenTerm && containsPricingInformation(input.productDescriptionZh, 'zh')) {
     failures.push('description_pricing: remove prices, discounts, or inventory')
   }
   return failures
@@ -182,8 +185,8 @@ export type ProposalVerification = {
 }
 
 /**
- * Runs every verification check. `repairable` is true when only closed-set or
- * image checks failed — the URL checks passed.
+ * Runs every verification check. `repairable` is true when the URL checks
+ * passed but other checks (closed-set, description) failed.
  *
  * Origin is assessed but never fails a proposal: a product that is not made in
  * Taiwan is still a product Formoria may list, so the decision rides out on
@@ -242,7 +245,7 @@ export function verifyProposal(
     failures.push(...closedSetResult.failures)
   }
 
-  // 6. Description
+  // 5. Description
   const descriptionFailures = verifyDescription({
     nameZh: proposal.nameZh,
     productDescriptionZh: proposal.productDescriptionZh,
@@ -251,7 +254,7 @@ export function verifyProposal(
     failures.push(...descriptionFailures)
   }
 
-  // 5. Origin — assessed, recorded, never a drop reason.
+  // 6. Origin — assessed, recorded, never a drop reason.
   const origin = deps.origin ? verifyOrigin(deps.origin).decision : null
 
   const ok = failures.length === 0
