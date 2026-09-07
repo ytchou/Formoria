@@ -3,6 +3,7 @@ import * as fs from "node:fs";
 import { createServiceClient } from "@/lib/supabase/service";
 import { subcategoryBySlug } from "@/lib/taxonomy/ontology";
 
+import { PRODUCT_DESCRIPTION_FORBIDDEN_TERMS as FORBIDDEN_TERMS } from "@/lib/services/enrich-validators";
 import { fetchAllRows, parseBrandOption, parseCsvPath } from "./shared";
 
 /**
@@ -86,35 +87,6 @@ export type ValidateResult = {
   csvComparison: CsvComparison | null;
   exitCode: number;
 };
-
-// ---------------------------------------------------------------------------
-// Forbidden terms
-// ---------------------------------------------------------------------------
-
-const FORBIDDEN_TERMS = [
-  "值得",
-  "必買",
-  "療癒",
-  "質感絕佳",
-  "獨特",
-  "讓你",
-  "適合喜歡",
-  "你會發現",
-  "高品質",
-  "精心設計",
-  "用心製作",
-  "價格",
-  "售價",
-  "特價",
-  "折扣",
-  "庫存",
-  "現貨",
-  "缺貨",
-  "運費",
-  "到貨",
-  "出貨",
-  "規格選擇",
-] as const;
 
 // ---------------------------------------------------------------------------
 // URL normalization

@@ -37,6 +37,8 @@ function makeProductRow(
     created_at: "2026-08-29T12:00:00.000Z",
     image_url: `https://example.com/${id}.jpg`,
     official_url: `https://example.com/${id}`,
+    product_description_zh: `商品${id}描述`,
+    product_description_en: null,
     brands: makeBrandRow("brand-a"),
     ...overrides,
   };

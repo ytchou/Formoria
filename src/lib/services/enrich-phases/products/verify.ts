@@ -15,6 +15,7 @@ import {
   type RegistryOriginAssessment,
   type OriginQualificationMethod,
 } from '@/lib/services/curated-products/origin-qualification'
+import { restatesProductName, findForbiddenProductTerms, containsPricingInformation } from '@/lib/services/enrich-validators'
 
 const L1_SLUGS = new Set<string>(L1_CATEGORIES.map((c) => c.slug))
 
@@ -107,6 +108,24 @@ export function verifyClosedSets(proposal: {
 }
 
 // ---------------------------------------------------------------------------
+// Description
+// ---------------------------------------------------------------------------
+
+export function verifyDescription(input: { nameZh: string; productDescriptionZh: string }): string[] {
+  const failures: string[] = []
+  if (restatesProductName(input.nameZh, input.productDescriptionZh)) {
+    failures.push('description_name_echo: product_description_zh restates name_zh; rewrite the opening clause so it leads with a differentiating fact')
+  }
+  for (const term of findForbiddenProductTerms(input.productDescriptionZh)) {
+    failures.push(`description_forbidden_term:${term}: remove the term and replace it with the concrete fact behind it`)
+  }
+  if (containsPricingInformation(input.productDescriptionZh, 'zh')) {
+    failures.push('description_pricing: remove prices, discounts, or inventory')
+  }
+  return failures
+}
+
+// ---------------------------------------------------------------------------
 // Composite
 // ---------------------------------------------------------------------------
 
@@ -116,6 +135,8 @@ type ProposalInput = {
   subcategory?: string
   material?: string[]
   imageUrl?: string | null
+  nameZh: string
+  productDescriptionZh: string
 }
 
 /** Inputs `verifyOrigin` needs. All three or none — the decision is a consensus. */
@@ -219,6 +240,15 @@ export function verifyProposal(
   })
   if (!closedSetResult.ok) {
     failures.push(...closedSetResult.failures)
+  }
+
+  // 6. Description
+  const descriptionFailures = verifyDescription({
+    nameZh: proposal.nameZh,
+    productDescriptionZh: proposal.productDescriptionZh,
+  })
+  if (descriptionFailures.length > 0) {
+    failures.push(...descriptionFailures)
   }
 
   // 5. Origin — assessed, recorded, never a drop reason.

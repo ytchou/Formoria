@@ -70,6 +70,7 @@ import {
   verifyReachable,
   verifyProposal,
   verifyClosedSets,
+  verifyDescription,
   type ImageVerificationStatus,
 } from './verify'
 import {
@@ -717,6 +718,8 @@ async function verifyNode(
         category: proposal.category,
         subcategory: proposal.subcategory ?? undefined,
         material: proposal.material,
+        nameZh: proposal.nameZh,
+        productDescriptionZh: proposal.productDescriptionZh,
       },
       {
         brandUrl,
@@ -752,12 +755,26 @@ async function verifyNode(
     }
   }
 
+  const dropReasonStr = Object.entries(dropReasons)
+    .map(([key, count]) => `${key}:${count}`)
+    .join(', ') || 'all passed'
+  const repairableStr = repairable.length > 0
+    ? '; repairable=' + repairable
+        .flatMap(({ failures }) => failures)
+        .map((f) => f.split(':')[0])
+        .filter((v, i, a) => a.indexOf(v) === i)
+        .map((code) => {
+          const count = repairable.filter(({ failures }) =>
+            failures.some((f) => f.split(':')[0] === code)
+          ).length
+          return `${code}:${count}`
+        })
+        .join(',')
+    : ''
   ctx.record(
     'verify',
     `${verified.length} verified, ${repairable.length} repairable, ${dropped} dropped`,
-    Object.entries(dropReasons)
-      .map(([key, count]) => `${key}:${count}`)
-      .join(', ') || 'all passed',
+    dropReasonStr + repairableStr,
     start,
   )
 
@@ -837,8 +854,25 @@ async function repairNode(
       subcategory: proposal.subcategory ?? undefined,
       material: proposal.material,
     })
-    return closedSet.ok && verifySameHost(proposal.officialUrl, brandUrl).ok
+    const descFailures = verifyDescription({
+      nameZh: proposal.nameZh,
+      productDescriptionZh: proposal.productDescriptionZh,
+    })
+    return closedSet.ok && verifySameHost(proposal.officialUrl, brandUrl).ok && descFailures.length === 0
   })
+
+  const descDropReasons: Record<string, number> = {}
+  for (const proposal of validation.proposals) {
+    if (reVerified.includes(proposal)) continue
+    const descFailures = verifyDescription({
+      nameZh: proposal.nameZh,
+      productDescriptionZh: proposal.productDescriptionZh,
+    })
+    for (const f of descFailures) {
+      const key = f.split(':')[0] ?? f
+      descDropReasons[key] = (descDropReasons[key] ?? 0) + 1
+    }
+  }
 
   ctx.record(
     'repair',
@@ -850,6 +884,7 @@ async function repairNode(
   return {
     repaired: reVerified,
     dropped: state.dropped + (state.repairable.length - reVerified.length),
+    dropReasons: { ...state.dropReasons, ...descDropReasons },
     ...(reVerified.length > 0 ? { agentOutcome: 'repaired' as const } : {}),
   }
 }

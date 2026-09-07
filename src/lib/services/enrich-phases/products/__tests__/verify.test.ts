@@ -173,6 +173,8 @@ describe('products/verify', () => {
           subcategory: undefined,
           material: [],
           imageUrl: 'https://example.com/img.jpg',
+          nameZh: 'Test Product',
+          productDescriptionZh: '這是一個測試產品描述，用來驗證提案流程。',
         },
         {
           brandUrl: 'https://example.com',
@@ -197,6 +199,8 @@ describe('products/verify', () => {
           subcategory: undefined,
           material: [],
           imageUrl: 'https://example.com/img.jpg',
+          nameZh: 'Test Product',
+          productDescriptionZh: '這是一個測試產品描述，用來驗證提案流程。',
         },
         {
           brandUrl: 'https://example.com',
@@ -220,6 +224,8 @@ describe('products/verify', () => {
           subcategory: 'tops-and-tshirts',
           material: ['textile'],
           imageUrl: 'https://example.com/img.jpg',
+          nameZh: 'Test Product',
+          productDescriptionZh: '這是一個測試產品描述，用來驗證提案流程。',
         },
         {
           brandUrl: 'https://example.com',
@@ -243,6 +249,8 @@ describe('products/verify', () => {
           url: 'https://example.com/product',
           category: 'fashion',
           material: [],
+          nameZh: 'Test Product',
+          productDescriptionZh: '這是一個測試產品描述，用來驗證提案流程。',
         },
         {
           brandUrl: 'https://example.com',
@@ -263,7 +271,7 @@ describe('products/verify', () => {
       expect(qualified.ok).toBe(true)
 
       const unqualified = verifyProposal(
-        { url: 'https://example.com/product', category: 'fashion', material: [] },
+        { url: 'https://example.com/product', category: 'fashion', material: [], nameZh: 'Test Product', productDescriptionZh: '這是一個測試產品描述，用來驗證提案流程。' },
         {
           brandUrl: 'https://example.com',
           imagePool: [{ url: 'https://example.com/img.jpg' }],
@@ -286,7 +294,7 @@ describe('products/verify', () => {
 
     it('verifyProposal_reports_origin_null_when_no_evidence_was_supplied', () => {
       const result = verifyProposal(
-        { url: 'https://example.com/product', category: 'fashion', material: [] },
+        { url: 'https://example.com/product', category: 'fashion', material: [], nameZh: 'Test Product', productDescriptionZh: '這是一個測試產品描述，用來驗證提案流程。' },
         {
           brandUrl: 'https://example.com',
           imagePool: [{ url: 'https://example.com/img.jpg' }],
@@ -304,7 +312,7 @@ describe('products/verify', () => {
       const rankFn = vi.fn()
 
       const result = verifyProposal(
-        { url: 'https://example.com/product', category: 'fashion', material: [] },
+        { url: 'https://example.com/product', category: 'fashion', material: [], nameZh: 'Test Product', productDescriptionZh: '這是一個測試產品描述，用來驗證提案流程。' },
         {
           brandUrl: 'https://example.com',
           imagePool: [],
@@ -324,7 +332,7 @@ describe('products/verify', () => {
 
     it('verifyProposal_records_unverified_when_pool_has_no_match', () => {
       const result = verifyProposal(
-        { url: 'https://example.com/product', category: 'fashion', material: [] },
+        { url: 'https://example.com/product', category: 'fashion', material: [], nameZh: 'Test Product', productDescriptionZh: '這是一個測試產品描述，用來驗證提案流程。' },
         {
           brandUrl: 'https://example.com',
           imagePool: [{ url: 'https://example.com/other.jpg' }],
@@ -339,6 +347,115 @@ describe('products/verify', () => {
       expect(result.ok).toBe(true)
       expect(result.failures).toHaveLength(0)
       expect(result.warnings.some((w) => w.startsWith('image_unverified'))).toBe(true)
+    })
+
+    it('verifyProposal flags description_name_echo as repairable', () => {
+      const result = verifyProposal(
+        {
+          url: 'https://example.com/product',
+          category: 'fashion',
+          material: [],
+          nameZh: '手工皮革包',
+          productDescriptionZh: '手工皮革包採用義大利植鞣牛皮製作',
+        },
+        {
+          brandUrl: 'https://example.com',
+          imagePool: [{ url: 'https://example.com/img.jpg' }],
+          rankFn: vi.fn().mockReturnValue({ score: 1 }),
+          sameHostResult: { ok: true },
+          reachableResult: { ok: true },
+        },
+      )
+      expect(result.ok).toBe(false)
+      expect(result.repairable).toBe(true)
+      expect(result.failures.some(f => f.startsWith('description_name_echo:'))).toBe(true)
+    })
+
+    it('verifyProposal flags description_forbidden_term with the term as detail', () => {
+      const result = verifyProposal(
+        {
+          url: 'https://example.com/product',
+          category: 'fashion',
+          material: [],
+          nameZh: '皮革托特包',
+          productDescriptionZh: '值得收藏的義大利植鞣牛皮托特包',
+        },
+        {
+          brandUrl: 'https://example.com',
+          imagePool: [{ url: 'https://example.com/img.jpg' }],
+          rankFn: vi.fn().mockReturnValue({ score: 1 }),
+          sameHostResult: { ok: true },
+          reachableResult: { ok: true },
+        },
+      )
+      expect(result.ok).toBe(false)
+      expect(result.repairable).toBe(true)
+      expect(result.failures.some(f => f.includes('description_forbidden_term:值得'))).toBe(true)
+    })
+
+    it('verifyProposal flags description_pricing', () => {
+      const result = verifyProposal(
+        {
+          url: 'https://example.com/product',
+          category: 'fashion',
+          material: [],
+          nameZh: '皮革托特包',
+          productDescriptionZh: '義大利植鞣牛皮，售價 NT$1,200',
+        },
+        {
+          brandUrl: 'https://example.com',
+          imagePool: [{ url: 'https://example.com/img.jpg' }],
+          rankFn: vi.fn().mockReturnValue({ score: 1 }),
+          sameHostResult: { ok: true },
+          reachableResult: { ok: true },
+        },
+      )
+      expect(result.ok).toBe(false)
+      expect(result.repairable).toBe(true)
+      expect(result.failures.some(f => f.startsWith('description_pricing:'))).toBe(true)
+    })
+
+    it('verifyProposal passes a factual description that does not echo the name', () => {
+      const result = verifyProposal(
+        {
+          url: 'https://example.com/product',
+          category: 'fashion',
+          subcategory: 'tops-and-tshirts',
+          material: ['textile'],
+          nameZh: '手工皮革包',
+          productDescriptionZh: '義大利植鞣牛皮手染鞋面與鞋墊',
+        },
+        {
+          brandUrl: 'https://example.com',
+          imagePool: [{ url: 'https://example.com/img.jpg' }],
+          rankFn: vi.fn().mockReturnValue({ score: 1 }),
+          sameHostResult: { ok: true },
+          reachableResult: { ok: true },
+        },
+      )
+      expect(result.ok).toBe(true)
+      expect(result.failures.filter(f => f.startsWith('description_'))).toHaveLength(0)
+    })
+
+    it('description failures never set repairable when a URL check failed', () => {
+      const result = verifyProposal(
+        {
+          url: 'https://other.com/product',
+          category: 'fashion',
+          material: [],
+          nameZh: '手工皮革包',
+          productDescriptionZh: '手工皮革包採用義大利植鞣牛皮製作',
+        },
+        {
+          brandUrl: 'https://example.com',
+          imagePool: [{ url: 'https://example.com/img.jpg' }],
+          rankFn: vi.fn().mockReturnValue({ score: 1 }),
+          sameHostResult: { ok: false, reason: 'host mismatch' },
+          reachableResult: { ok: true },
+        },
+      )
+      expect(result.ok).toBe(false)
+      expect(result.repairable).toBe(false)
     })
   })
 })

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { detectAiArtifacts, validateLocalizedText } from './enrich-validators'
+import { detectAiArtifacts, validateLocalizedText, findForbiddenProductTerms, restatesProductName, containsPricingInformation } from './enrich-validators'
 
 describe('validateLocalizedText', () => {
   it('accepts pure zh within band', () => {
@@ -130,5 +130,38 @@ describe('detectAiArtifacts — expanded ZH patterns', () => {
     expect(detectAiArtifacts('XX為台灣知名品牌', 'zh').length).toBeGreaterThan(0)
     expect(detectAiArtifacts('In a world where brands compete', 'en').length).toBeGreaterThan(0)
     expect(detectAiArtifacts('This brand seamlessly combines', 'en').length).toBeGreaterThan(0)
+  })
+})
+
+describe('findForbiddenProductTerms', () => {
+  it('returns every hit in order', () => {
+    expect(findForbiddenProductTerms('這個值得推薦的產品有現貨')).toEqual(['值得', '現貨'])
+  })
+  it('returns [] on a clean factual description', () => {
+    expect(findForbiddenProductTerms('義大利植鞣牛皮手染鞋面，容量 500ml')).toEqual([])
+  })
+})
+
+describe('restatesProductName', () => {
+  it('detects name echo with trailing model token stripped', () => {
+    expect(restatesProductName('拼布牙口剪 709B-55PH', '拼布牙口剪，高硬度碳鋼刀刃')).toBe(true)
+  })
+  it('returns false when description does not start with name', () => {
+    expect(restatesProductName('胡桃木筷', '整塊胡桃木削切而成的木筷')).toBe(false)
+  })
+  it('returns false for a one-char name', () => {
+    expect(restatesProductName('茶', '茶葉來自阿里山')).toBe(false)
+  })
+})
+
+describe('containsPricingInformation (moved from description-rewrite)', () => {
+  it('detects zh prices', () => {
+    expect(containsPricingInformation('售價 NT$1,200', 'zh')).toBe(true)
+  })
+  it('detects en prices', () => {
+    expect(containsPricingInformation('priced at $30', 'en')).toBe(true)
+  })
+  it('returns false for non-pricing amounts', () => {
+    expect(containsPricingInformation('容量 500ml', 'zh')).toBe(false)
   })
 })
