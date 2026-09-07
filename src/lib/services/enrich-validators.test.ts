@@ -23,6 +23,18 @@ describe('validateLocalizedText', () => {
     expect(validateLocalizedText(text, 'zh', [150, 400]).reasons).toContain('language_purity')
   })
 
+  it('exempts the brand name from the purity ratio, not only the run check', () => {
+    // DEV-1704: a 40-80 字 blurb naming "Snowbell Handmade Candle Cake" is
+    // 26 Latin letters against ~42 CJK characters, so the ratio alone fell
+    // under the 0.70 zh threshold even though the prose is Chinese.
+    const text =
+      'Snowbell Handmade Candle Cake 在台北手作香氛蠟燭，將杯子蛋糕、巴斯克蛋糕與花卉化成立體作品，並製作乾燥花禮與手繪擴香石。'
+    expect(
+      validateLocalizedText(text, 'zh', [40, 80], 'Snowbell Handmade Candle Cake').reasons,
+    ).not.toContain('language_purity')
+    expect(validateLocalizedText(text, 'zh', [40, 80]).reasons).toContain('language_purity')
+  })
+
   it('does not let the brand-name exemption whitelist unrelated English prose', () => {
     const text = `Seal F Bikini sells many different products worldwide ${'好'.repeat(200)}`
     expect(validateLocalizedText(text, 'zh', [150, 400], 'Seal F Bikini').reasons).toContain(

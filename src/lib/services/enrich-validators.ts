@@ -29,17 +29,22 @@ function escapeForRegex(value: string): string {
   return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
 }
 
-function hasLongLatinRun(text: string, exemptPhrase?: string | null): boolean {
-  let scanned = text.replace(QUOTED_SPAN_REGEX, ' ')
-
-  // A brand cannot be described without being named, and a name like
-  // "Seal F Bikini" or "Hsin Jin Rain Boots" is itself a long Latin run. Removing
-  // the brand's own name keeps the run check aimed at English prose that leaked
-  // into Chinese text, which is what it exists to catch.
+/**
+ * A brand cannot be described without being named, and a name like
+ * "Seal F Bikini" or "Hsin Jin Rain Boots" is itself a long Latin run. Removing
+ * the brand's own name keeps both purity checks aimed at English prose that
+ * leaked into Chinese text, which is what they exist to catch. The ratio check
+ * needs it as much as the run check: in a 40-80 字 blurb, "Snowbell Handmade
+ * Candle Cake" alone is enough Latin to sink the CJK ratio under 0.70 (DEV-1704).
+ */
+function stripExemptPhrase(text: string, exemptPhrase?: string | null): string {
   const phrase = exemptPhrase?.trim()
-  if (phrase) {
-    scanned = scanned.replace(new RegExp(escapeForRegex(phrase), 'giu'), ' ')
-  }
+  if (!phrase) return text
+  return text.replace(new RegExp(escapeForRegex(phrase), 'giu'), ' ')
+}
+
+function hasLongLatinRun(text: string): boolean {
+  const scanned = text.replace(QUOTED_SPAN_REGEX, ' ')
 
   const tokens = scanned
     .split(/[^\p{L}'&.-]+/u)
@@ -66,12 +71,14 @@ function failsLanguagePurity(
   locale: LanguageLocale,
   exemptPhrase?: string | null
 ): boolean {
-  if (languagePurity(text, locale) < LANGUAGE_PURITY_THRESHOLD[locale]) {
+  const scanned = stripExemptPhrase(text, exemptPhrase)
+
+  if (languagePurity(scanned, locale) < LANGUAGE_PURITY_THRESHOLD[locale]) {
     return true
   }
 
   if (locale === 'zh') {
-    return hasLongLatinRun(text, exemptPhrase)
+    return hasLongLatinRun(scanned)
   }
 
   return false

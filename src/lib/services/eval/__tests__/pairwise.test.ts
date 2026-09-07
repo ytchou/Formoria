@@ -168,7 +168,6 @@ describe('buildDescriptionTask', () => {
       result: {
         description_zh: '中文描述',
         description_en: 'English description',
-        description: '中文描述',
         blurb_zh: '短描述',
         blurb_en: 'Short desc',
         validationRejections: [],
