@@ -73,7 +73,7 @@ export type BrandNameProposal = {
   evidence: BrandNameEvidence[];
 };
 
-export type SubmissionFaqEntry = {
+type SubmissionFaqEntry = {
   presetId: string;
   position?: number;
   questionZh?: string | null;

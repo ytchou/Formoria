@@ -60,7 +60,7 @@ import { preferPatched } from "./descriptions";
  * overhead; going higher trades into the contamination the twenty-image batch
  * demonstrated, so this stops at ten.
  */
-export const IMAGE_CLASSIFY_BATCH_SIZE = 10;
+const IMAGE_CLASSIFY_BATCH_SIZE = 10;
 
 const IMAGE_DOWNLOAD_CONCURRENCY = 4;
 const BRAND_IMAGES_BUCKET = "brand-images";
@@ -330,7 +330,7 @@ export type ClassifiedImage = {
   imageUrl?: string | null;
 };
 
-export const imageClassificationShape = z.object({
+const imageClassificationShape = z.object({
   classifications: z.array(
     z.object({
       id: z.string(),
@@ -343,7 +343,7 @@ export const imageClassificationShape = z.object({
   ),
 });
 
-export const IMAGE_CLASSIFICATION_SCHEMA = {
+const IMAGE_CLASSIFICATION_SCHEMA = {
   name: "image_classifications",
   schema: toStrictJsonSchema(imageClassificationShape),
 };
