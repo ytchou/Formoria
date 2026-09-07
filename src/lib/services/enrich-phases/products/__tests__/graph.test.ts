@@ -683,6 +683,78 @@ describe('products agent graph', () => {
   // readPage evidence with 404 makes the proposal unreachable
   // -------------------------------------------------------------------------
 
+  it('repairs a name-echo description and publishes the product', async () => {
+    const nameEchoResponse = validProposalResponse({
+      products: [
+        productFor(URL_A, 'Test Product A', {
+          product_description_zh: 'Test Product A 是一個很棒的產品',
+        }),
+        productFor(URL_B, 'Test Product B'),
+      ],
+    })
+    const repairedResponse = JSON.stringify({
+      products: [
+        productFor(URL_A, 'Test Product A', {
+          product_description_zh: '義大利植鞣牛皮手染鞋面與鞋墊',
+        }),
+      ],
+    })
+    const model = scriptedModel([nameEchoResponse, repairedResponse])
+
+    const result = await runProductsAgent(baseInput, makeDeps(), { model })
+
+    expect(model.invoke).toHaveBeenCalledTimes(2) // propose + repair
+    expect(result.proposals.some(p => p.nameZh === 'Test Product A')).toBe(true)
+    expect(result.verification.dropped).toBe(0)
+  })
+
+  it('verify decision names repairable description codes', async () => {
+    const nameEchoResponse = validProposalResponse({
+      products: [
+        productFor(URL_A, 'Test Product A', {
+          product_description_zh: 'Test Product A 是一個很棒的產品',
+        }),
+      ],
+    })
+    const repairedResponse = JSON.stringify({
+      products: [
+        productFor(URL_A, 'Test Product A', {
+          product_description_zh: '義大利植鞣牛皮手染鞋面與鞋墊',
+        }),
+      ],
+    })
+    const model = scriptedModel([nameEchoResponse, repairedResponse])
+
+    const result = await runProductsAgent(baseInput, makeDeps(), { model })
+
+    const verifyDecision = result.decisions.find(d => d.step === 'verify')
+    expect(verifyDecision?.reason).toContain('description_name_echo')
+  })
+
+  it('drops a proposal whose repair returns the same name-echo description', async () => {
+    const nameEchoResponse = validProposalResponse({
+      products: [
+        productFor(URL_A, 'Test Product A', {
+          product_description_zh: 'Test Product A 是一個很棒的產品',
+        }),
+      ],
+    })
+    // Repair returns the SAME echoing description
+    const stillEchoResponse = JSON.stringify({
+      products: [
+        productFor(URL_A, 'Test Product A', {
+          product_description_zh: 'Test Product A 仍然重複了名字',
+        }),
+      ],
+    })
+    const model = scriptedModel([nameEchoResponse, stillEchoResponse])
+
+    const result = await runProductsAgent(baseInput, makeDeps(), { model })
+
+    expect(result.proposals.some(p => p.nameZh === 'Test Product A')).toBe(false)
+    expect(result.verification.dropped).toBeGreaterThan(0)
+  })
+
   it('readPage evidence with statusCode 404 makes the proposal unreachable', async () => {
     const fakeEvidence = {
       url: URL_A,

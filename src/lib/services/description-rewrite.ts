@@ -20,7 +20,7 @@ import {
   profileChatParams,
   type LlmAuditContext,
 } from "./llm-audit";
-import { validateLocalizedText, detectAiArtifacts } from "./enrich-validators";
+import { validateLocalizedText, detectAiArtifacts, containsPricingInformation } from "./enrich-validators";
 import { localizeToTW, stripAiToolArtifacts } from "./taiwan-localization";
 import { noLlmCalls, type LlmCallCounts } from "./_shared/llm-call-outcome";
 
@@ -440,44 +440,6 @@ function validateDescriptionFields(
     blurb_en: blurbEn,
     validationRejections,
   };
-}
-
-function containsPricingInformation(
-  value: string,
-  locale: "zh" | "en",
-): boolean {
-  const sentences = value.split(locale === "zh" ? /[。！？]/u : /[.!?]+\s+/u);
-  return sentences.some((sentence) => {
-    if (locale === "zh") {
-      if (
-        /(?:價格|價位|價錢|售價|定價|加價|平價|中價|高價|低價|千元即可入手|不再昂貴|折扣|優惠|促銷|特價|買一送一|滿額)/u.test(
-          sentence,
-        )
-      ) {
-        return true;
-      }
-      const hasMoney = /(?:NT[$.]?|TWD|新台幣|台幣)\s*[\d,]+|[\d,]+\s*元/u.test(
-        sentence,
-      );
-      const isNonPricingAmount =
-        /(?:保險|理賠|集資|募資|銷售額|業績|佳績)/u.test(sentence);
-      return hasMoney && !isNonPricingAmount;
-    }
-
-    if (
-      /\b(?:prices?|priced|pricing|affordable|budget(?:-friendly)?|discount(?:ed|s)?|promotion(?:al|s)?)\b|\b(?:on sale|sale price)\b/iu.test(
-        sentence,
-      )
-    ) {
-      return true;
-    }
-    const hasMoney = /(?:NT\$|TWD|US\$|\$)\s*[\d,]+/iu.test(sentence);
-    const isNonPricingAmount =
-      /\b(?:insurance|insured|coverage|crowdfunding|fundraising|raised|sales|revenue)\b/iu.test(
-        sentence,
-      );
-    return hasMoney && !isNonPricingAmount;
-  });
 }
 
 const RETRY_FIELD_BANDS = {

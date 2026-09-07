@@ -171,3 +171,94 @@ export function detectAiArtifacts(text: string, locale: LanguageLocale): string[
     .filter((re) => re.test(text))
     .map((re) => `ai_artifact:${re.source}`)
 }
+
+// ---------------------------------------------------------------------------
+// Product description validators
+// ---------------------------------------------------------------------------
+
+export const PRODUCT_DESCRIPTION_FORBIDDEN_TERMS: readonly string[] = [
+  '值得',
+  '必買',
+  '療癒',
+  '質感絕佳',
+  '獨特',
+  '讓你',
+  '適合喜歡',
+  '你會發現',
+  '高品質',
+  '精心設計',
+  '用心製作',
+  '價格',
+  '售價',
+  '特價',
+  '折扣',
+  '庫存',
+  '現貨',
+  '缺貨',
+  '運費',
+  '到貨',
+  '出貨',
+  '規格選擇',
+]
+
+export const PRICING_OVERLAP_TERMS: ReadonlySet<string> = new Set(
+  PRODUCT_DESCRIPTION_FORBIDDEN_TERMS.filter((t) =>
+    ['價格', '售價', '特價', '折扣'].includes(t),
+  ),
+)
+
+export function findForbiddenProductTerms(text: string): string[] {
+  const hits: string[] = []
+  for (const term of PRODUCT_DESCRIPTION_FORBIDDEN_TERMS) {
+    if (text.includes(term)) {
+      hits.push(term)
+    }
+  }
+  return hits
+}
+
+export function restatesProductName(nameZh: string, description: string): boolean {
+  const trimmedName = nameZh.trim()
+  const trimmedDesc = description.trim()
+  const prefix = trimmedName.replace(/\s+[A-Za-z0-9-]+$/, '')
+  if (prefix.length < 2) return false
+  return trimmedDesc.startsWith(prefix)
+}
+
+export function containsPricingInformation(
+  value: string,
+  locale: 'zh' | 'en',
+): boolean {
+  const sentences = value.split(locale === 'zh' ? /[。！？]/u : /[.!?]+\s+/u)
+  return sentences.some((sentence) => {
+    if (locale === 'zh') {
+      if (
+        /(?:價格|價位|價錢|售價|定價|加價|平價|中價|高價|低價|千元即可入手|不再昂貴|折扣|優惠|促銷|特價|買一送一|滿額)/u.test(
+          sentence,
+        )
+      ) {
+        return true
+      }
+      const hasMoney = /(?:NT[$.]?|TWD|新台幣|台幣)\s*[\d,]+|[\d,]+\s*元/u.test(
+        sentence,
+      )
+      const isNonPricingAmount =
+        /(?:保險|理賠|集資|募資|銷售額|業績|佳績)/u.test(sentence)
+      return hasMoney && !isNonPricingAmount
+    }
+
+    if (
+      /\b(?:prices?|priced|pricing|affordable|budget(?:-friendly)?|discount(?:ed|s)?|promotion(?:al|s)?)\b|\b(?:on sale|sale price)\b/iu.test(
+        sentence,
+      )
+    ) {
+      return true
+    }
+    const hasMoney = /(?:NT\$|TWD|US\$|\$)\s*[\d,]+/iu.test(sentence)
+    const isNonPricingAmount =
+      /\b(?:insurance|insured|coverage|crowdfunding|fundraising|raised|sales|revenue)\b/iu.test(
+        sentence,
+      )
+    return hasMoney && !isNonPricingAmount
+  })
+}
