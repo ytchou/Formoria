@@ -727,7 +727,7 @@ async function cmdDatasetRecord(
   // Load candidates from the latest job
   const { data: rows, error: rowsError } = await supabase
     .from('curated_product_candidates')
-    .select('curation_job_id, url, title, image_url, supplier, url_class, search_position, created_at')
+    .select('job_id, url, title, image_url, supplier, url_class, search_position, created_at')
     .eq('brand_id', brand.id)
     .order('created_at', { ascending: false })
 
