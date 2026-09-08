@@ -3231,6 +3231,11 @@ export async function runEnrich(
                   imagePool,
                   catalogResult: acquireResult?.catalogResult,
                   acquisitionPageUrls: acquireResult?.acquisitionPageUrls ?? [],
+                  // The plan's own product URLs are a supplier of last resort:
+                  // they survive a catalog crawl that ran out of time.
+                  priorityProductUrls:
+                    acquireResult?.acquisitionPlan?.catalog
+                      .priorityProductUrls ?? [],
                   renderProvider: config.renderProvider,
                 });
                 state.phaseResults.push(productsResult.phaseResult);

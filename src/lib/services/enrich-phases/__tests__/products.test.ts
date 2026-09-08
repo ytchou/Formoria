@@ -914,6 +914,52 @@ describe("runProductsPhase", () => {
     const user = chat.mock.calls[0]![0].user as string;
     expect(user).toContain(`${SITE}/products/clay-plate`);
   });
+
+  // DEV-1712: natub's acquisition plan named three real product pages, but they
+  // were passed only into `discoverCatalog`. When that crawl was truncated the
+  // pool was empty even though the plan already knew where the products were.
+  it("products_phase_seeds_pool_from_plan_priority_urls", async () => {
+    const NATUB = "https://natub.co";
+    const priorityProductUrls = [
+      `${NATUB}/producto/home-spa/`,
+      `${NATUB}/producto/garden-serenity/`,
+      `${NATUB}/producto/shampoo-bar/`,
+    ];
+    const chat = modelReturns([]);
+
+    const result = await runProductsPhase({
+      brand: { ...BRAND, purchase_website: NATUB },
+      phases: PHASES,
+      // No scraped pages, no catalog, no acquisition pages: the plan is the
+      // only supplier left.
+      scrapedData: { ...SCRAPED, perSourceText: {}, imageSources: [] },
+      target: { type: "submission", id: SUBMISSION_ID },
+      priorityProductUrls,
+    });
+
+    expect(result.phaseResult.detail ?? "").not.toContain(
+      "no product candidates",
+    );
+    expect(chat).toHaveBeenCalled();
+    const user = chat.mock.calls[0]![0].user as string;
+    for (const url of priorityProductUrls) expect(user).toContain(url);
+  });
+
+  it("products_phase_drops_off_host_plan_priority_urls", async () => {
+    const chat = modelReturns([]);
+
+    const result = await runProductsPhase({
+      brand: BRAND,
+      phases: PHASES,
+      scrapedData: { ...SCRAPED, perSourceText: {}, imageSources: [] },
+      target: { type: "submission", id: SUBMISSION_ID },
+      priorityProductUrls: ["https://other-seller.example/products/knockoff"],
+    });
+
+    expect(result.phaseResult.status).toBe("skipped");
+    expect(result.phaseResult.detail).toContain("no product candidates");
+    expect(chat).not.toHaveBeenCalled();
+  });
 });
 
 describe("validateProductProposals", () => {

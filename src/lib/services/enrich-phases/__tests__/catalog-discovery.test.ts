@@ -353,6 +353,65 @@ describe('entryUrls and priorityProductUrls', () => {
   })
 })
 
+// DEV-1712: the caller used to abort the whole crawl at a fixed 35 s tail and
+// discard everything, so six of ten brands reached the products phase with an
+// empty pool. Discovery now owns the deadline and keeps what it already found.
+describe('deadline', () => {
+  it('resolves with the triples found so far and flags deadlineHit', async () => {
+    let clock = 1_000_000
+    const nowSpy = vi.spyOn(Date, 'now').mockImplementation(() => clock)
+    try {
+      const pages: Record<string, string> = {
+        'https://one.example': '<a href="/products/cup">Cup</a>',
+        'https://one.example/products/cup': productHtml('Cup'),
+        'https://two.example': '<a href="/products/mug">Mug</a>',
+        'https://two.example/products/mug': productHtml('Mug'),
+      }
+      // Every fetch costs 5 s of the crawl's own clock.
+      const fetcher: CatalogFetch = vi.fn(async (url) => {
+        clock += 5_000
+        return {
+          text: pages[url] ?? null,
+          status: pages[url] ? 200 : 404,
+          error: pages[url] ? null : 'HTTP 404',
+        }
+      })
+      const result = await discoverCatalog({
+        sources: [
+          { url: 'https://one.example', channel: 'official' },
+          { url: 'https://two.example', channel: 'official' },
+        ],
+        fetcher,
+        // Enough for the first source's landing + sitemap probe + one product
+        // page, not enough for the second source.
+        deadlineAtMs: clock + 22_000,
+      })
+      expect(result.deadlineHit).toBe(true)
+      expect(result.triples).toHaveLength(1)
+      expect(result.triples[0]).toMatchObject({ title: 'Cup' })
+      expect(fetcher).not.toHaveBeenCalledWith(
+        'https://two.example/products/mug',
+        'html',
+      )
+    } finally {
+      nowSpy.mockRestore()
+    }
+  })
+
+  it('reports deadlineHit false when the crawl completes', async () => {
+    const result = await discoverCatalog({
+      sources: [{ url: 'https://shop.example', channel: 'official' }],
+      fetcher: fetcherFor({
+        'https://shop.example': '<a href="/products/cup">Cup</a>',
+        'https://shop.example/products/cup': productHtml('Ceramic cup'),
+      }),
+      deadlineAtMs: Date.now() + 60_000,
+    })
+    expect(result.deadlineHit).toBe(false)
+    expect(result.triples).toHaveLength(1)
+  })
+})
+
 describe('hasProductSignals', () => {
   it('detects JSON-LD Product', () => {
     const html =

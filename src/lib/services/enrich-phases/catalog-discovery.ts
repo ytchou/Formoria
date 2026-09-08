@@ -59,6 +59,8 @@ export type CatalogDiscoveryResult = {
   attempts: CatalogAttemptSummary[]
   evidence: Map<string, CatalogEvidence>
   zeroReason?: CatalogZeroReason
+  /** True when `deadlineAtMs` closed the crawl before it ran out of routes. */
+  deadlineHit?: boolean
 }
 
 export type CatalogSource = {
@@ -83,6 +85,13 @@ export type DiscoverCatalogOptions = {
   hydrationLimit?: number
   entryUrls?: string[]
   priorityProductUrls?: string[]
+  /**
+   * Wall-clock instant (epoch ms) after which the crawl stops advancing. It is
+   * a soft deadline: discovery finishes the batch it is in, then returns the
+   * triples it already has with `deadlineHit: true`. Never an abort — the
+   * caller aborting this crawl is what produced six empty pools (DEV-1712).
+   */
+  deadlineAtMs?: number
 }
 
 type RouteCandidate = {
@@ -193,6 +202,24 @@ export function extractCatalogRoutes(
     })
   })
   return routes
+}
+
+/** True when the path is a utility or listing page, never a product detail. */
+function isSkippedPath(url: string): boolean {
+  try {
+    return SKIP_PATTERN.test(new URL(url).pathname)
+  } catch {
+    return true
+  }
+}
+
+/**
+ * Drops utility and listing routes from EVERY route source. `SKIP_PATTERN` used
+ * to guard the sitemap content-sampling fallback alone, so `/product/category/…`
+ * pages reached the model as product detail through the other two (DEV-1712).
+ */
+function keepProductRoutes(routes: RouteCandidate[]): RouteCandidate[] {
+  return routes.filter((route) => !isSkippedPath(route.url))
 }
 
 function selectBreadthFirst(routes: RouteCandidate[]): RouteCandidate[] {
@@ -414,6 +441,16 @@ export async function discoverCatalog(
       const evidence = new Map<string, CatalogEvidence>()
       const triples: CatalogProductTriple[] = []
       const seen = new Set<string>()
+      let deadlineHit = false
+      const pastDeadline = (): boolean => {
+        if (deadlineHit) return true
+        if (
+          options.deadlineAtMs !== undefined &&
+          Date.now() >= options.deadlineAtMs
+        )
+          deadlineHit = true
+        return deadlineHit
+      }
       let hydrated = 0
       let potentiallyUsefulUnrendered = false
       let reachableSurfaces = 0
@@ -422,6 +459,7 @@ export async function discoverCatalog(
 
       for (const source of effectiveSources) {
         if (triples.length >= target || hydrated >= hydrationLimit) break
+        if (pastDeadline()) break
         const landing = await fetcher(source.url, 'html')
         const platform =
           identifyPlatform(source.url, landing.text ?? '') ?? 'generic'
@@ -444,10 +482,17 @@ export async function discoverCatalog(
         attempts.push(summary)
         if (landing.text) reachableSurfaces += 1
         let listingHtml = landing.text ?? ''
-        let routes = extractCatalogRoutes(
-          listingHtml,
-          source.url,
-          platform === 'generic' ? null : platform,
+        // The landing page's own title. Any candidate that reports it back is
+        // showing a site-wide `<title>`, not product evidence (DEV-1712).
+        const landingTitle = landing.text
+          ? parseEvidence(landing.text, source.url).title
+          : null
+        let routes = keepProductRoutes(
+          extractCatalogRoutes(
+            listingHtml,
+            source.url,
+            platform === 'generic' ? null : platform,
+          ),
         )
         const sourceIsProduct = isOwnedProductRoute(
           source.url,
@@ -462,15 +507,17 @@ export async function discoverCatalog(
             ? await sitemapUrls(source.url, fetcher)
             : { urls: [], locations: 0 }
         summary.sitemapLocations = sitemap.locations
-        const sitemapRoutes: RouteCandidate[] = sitemap.urls
-          .map((url, sourcePosition) => ({ url, sourcePosition }))
-          .filter((route) =>
-            isOwnedProductRoute(
-              route.url,
-              source.url,
-              platform === 'generic' ? null : platform,
+        const sitemapRoutes: RouteCandidate[] = keepProductRoutes(
+          sitemap.urls
+            .map((url, sourcePosition) => ({ url, sourcePosition }))
+            .filter((route) =>
+              isOwnedProductRoute(
+                route.url,
+                source.url,
+                platform === 'generic' ? null : platform,
+              ),
             ),
-          )
+        )
         routes = [...routes, ...sitemapRoutes]
         summary.staticOutcome = routes.length > 0 ? 'usable' : summary.staticOutcome
         if (routes.length === 0 && options.renderProvider) {
@@ -479,10 +526,12 @@ export async function discoverCatalog(
               source.url,
             )
             listingHtml = rendered.html
-            routes = extractCatalogRoutes(
-              listingHtml,
-              source.url,
-              platform === 'generic' ? null : platform,
+            routes = keepProductRoutes(
+              extractCatalogRoutes(
+                listingHtml,
+                source.url,
+                platform === 'generic' ? null : platform,
+              ),
             )
             summary.renderOutcome = routes.length > 0 ? 'usable' : 'empty'
           } catch {
@@ -494,9 +543,7 @@ export async function discoverCatalog(
           if (needsRendering(listingHtml)) potentiallyUsefulUnrendered = true
         }
         if (platform === 'generic' && routes.length === 0 && sitemap.urls.length > 0) {
-          const candidates = sitemap.urls.filter(u => {
-            try { return !SKIP_PATTERN.test(new URL(u).pathname) } catch { return false }
-          })
+          const candidates = sitemap.urls.filter((u) => !isSkippedPath(u))
           const sample = shuffle(candidates).slice(0, 10)
           let foundProduct = false
           let hitPrefix: string | undefined
@@ -507,6 +554,7 @@ export async function discoverCatalog(
             'products', 'shop', 'collections', 'items', 'store', 'product',
           ])
           for (const sampleUrl of sample) {
+            if (pastDeadline()) break
             const page = await fetcher(sampleUrl, 'html')
             if (page.text && hasProductSignals(page.text)) {
               foundProduct = true
@@ -549,6 +597,7 @@ export async function discoverCatalog(
         const selected = uniqueRoutes.slice(0, hydrationLimit - hydrated)
         let offset = 0
         while (offset < selected.length && triples.length < target) {
+          if (pastDeadline()) break
           const remainingTarget = target - triples.length
           const batch = selected.slice(
             offset,
@@ -633,6 +682,15 @@ export async function discoverCatalog(
               summary.drops[reason] = (summary.drops[reason] ?? 0) + 1
               continue
             }
+            // The landing page's title on a candidate page means no per-page
+            // title was extracted at all. Twenty simbalion listing pages all
+            // carried the site-wide `<title>` and all were rejected by the
+            // model. The source page itself is exempt: when it IS the product,
+            // its own title is legitimate.
+            if (route.url !== source.url && title === landingTitle) {
+              summary.drops.site_title = (summary.drops.site_title ?? 0) + 1
+              continue
+            }
             triples.push({
               url: route.url,
               title,
@@ -666,6 +724,7 @@ export async function discoverCatalog(
         triples: triples.length,
         hydrated,
         zeroReason,
+        deadlineHit,
         catalogCompleteness:
           ownedDetailUrls > 0 ? triples.length / ownedDetailUrls : 0,
         attempts,
@@ -674,6 +733,7 @@ export async function discoverCatalog(
         triples,
         attempts,
         evidence,
+        deadlineHit,
         ...(zeroReason ? { zeroReason } : {}),
       }
     },

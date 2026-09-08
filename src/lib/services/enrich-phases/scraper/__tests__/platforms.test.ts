@@ -180,5 +180,25 @@ describe('platform registry', () => {
         ),
       ).toBe(true)
     })
+
+    // DEV-1712: `/product/category/A` used to bind `[^/]+` to the literal
+    // segment `category`, so simbalion's 20 listing pages were enumerated as
+    // product detail and every one was rejected by the model.
+    it.each([
+      ['/product/category/A', false],
+      ['/products/categories/pens', false],
+      ['/shop/c/12', false],
+      ['/store/collection/summer', false],
+      ['/product/BP34', true],
+      ['/product/category-b-pens', true],
+    ] as const)('generic route %s → %s', (path, expected) => {
+      expect(
+        isOwnedProductRoute(
+          `https://www.simbalion.com.tw${path}`,
+          'https://www.simbalion.com.tw',
+          null,
+        ),
+      ).toBe(expected)
+    })
   })
 })

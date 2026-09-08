@@ -36,7 +36,33 @@ export const NODE_ALLOWANCE_MS = {
   recover: 30_000,
   imagesRecover: 20_000,
   finalize: 30_000,
+  catalog: 60_000,
 } as const
+
+/**
+ * Floor for catalog discovery. A window shorter than this cannot fetch a
+ * landing page and hydrate one product page, so it buys nothing.
+ */
+export const MIN_CATALOG_MS = 10_000
+
+/**
+ * Catalog discovery's window, measured against the run's REMAINING wall clock
+ * rather than the flat tail it used to share with `critique`. Discovery keeps
+ * whatever it found when the window closes, so a short window costs triples,
+ * never the whole result.
+ *
+ * Shortcut: on a run already at its ceiling the floor overruns `ceilingMs(scale)`
+ * by up to MIN_CATALOG_MS, plus the hung-fetch backstop grace in finalizeNode
+ * (CATALOG_BACKSTOP_GRACE_MS) — ~25 s worst case. Upgrade path: let the
+ * products phase resume discovery instead of stretching the acquire run.
+ */
+export function catalogAllowanceMs(elapsedMs: number, scale = 1): number {
+  const remaining = ceilingMs(scale) - elapsedMs
+  return Math.max(
+    MIN_CATALOG_MS,
+    Math.min(NODE_ALLOWANCE_MS.catalog * scale, remaining),
+  )
+}
 
 /** Absolute ceiling at the given scale. */
 export function ceilingMs(scale = 1): number {

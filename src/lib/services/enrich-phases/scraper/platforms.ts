@@ -137,8 +137,11 @@ export function isOwnedProductRoute(
     candidate.hostname.replace(/^www\./i, '').toLowerCase() ===
     source.hostname.replace(/^www\./i, '').toLowerCase()
   if (!sameHost) return false
+  // The trailing segment must not itself be a listing pivot: `/product/category/A`
+  // is a category page, and binding `[^/]+` to the literal `category` enumerated
+  // 20 of simbalion's listing pages as product detail (DEV-1712).
   if (!platform)
-    return /^(?:\/[a-z]{2}(?:-[a-z]{2,4})?)?(?:\/collections\/[^/]+)?\/(?:products?|items?|goods|shop|store|catalog|detail|product-page)\/[^/]+/i.test(candidate.pathname)
+    return /^(?:\/[a-z]{2}(?:-[a-z]{2,4})?)?(?:\/collections\/[^/]+)?\/(?:products?|items?|goods|shop|store|catalog|detail|product-page)\/(?!(?:category|categories|c|collection)(?:\/|$))[^/]+/i.test(candidate.pathname)
 
   const rule = RULES.find((entry) => entry.id === platform)
   return (

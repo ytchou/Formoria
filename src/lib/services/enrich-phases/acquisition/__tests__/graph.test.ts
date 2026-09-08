@@ -1158,6 +1158,59 @@ describe('acquisition graph — finalize', () => {
     )
   })
 
+  // DEV-1712: a truncated crawl is a partial pool, not a failure. The caller
+  // used to race discovery against a flat 35 s tail and swallow the abort, so
+  // every triple already found was thrown away with the timeout.
+  it('finalize_keeps_truncated_catalog_result', async () => {
+    const catalogResult = {
+      triples: [
+        {
+          url: 'https://example.com/products/item-1',
+          title: 'Item 1',
+          imageUrl: 'https://cdn.example.com/item-1.jpg',
+          platform: 'generic' as const,
+          supplier: 'catalog:generic',
+          sourceUrl: 'https://example.com',
+          sourcePosition: 0,
+        },
+      ],
+      attempts: [],
+      evidence: new Map(),
+      deadlineHit: true,
+    }
+    const discoverCatalog = vi.fn().mockResolvedValue(catalogResult)
+    const catalogSources = [{ url: 'https://example.com', channel: 'official' as const }]
+    const deps = makeDeps({ discoverCatalog, catalogSources })
+
+    const result = await runAcquisition(baseInput, deps, {
+      model: fakeAgentModel(planOnly),
+    })
+
+    expect(result.catalogResult!.triples).toHaveLength(1)
+    // Discovery owns its deadline now — the caller passes one in.
+    expect(discoverCatalog.mock.calls[0]![0]!.deadlineAtMs).toBeGreaterThan(
+      Date.now(),
+    )
+    const reason = result.decisions.find((d) => d.step === 'finalize')!.reason
+    expect(reason).toContain('catalog truncated')
+    expect(reason).toContain('1 triples')
+  })
+
+  it('finalize_records_catalog_failure_reason', async () => {
+    const discoverCatalog = vi.fn().mockRejectedValue(new Error('boom'))
+    const catalogSources = [{ url: 'https://example.com', channel: 'official' as const }]
+    const deps = makeDeps({ discoverCatalog, catalogSources })
+
+    const result = await runAcquisition(baseInput, deps, {
+      model: fakeAgentModel(planOnly),
+    })
+
+    expect(result.catalogResult).toBeUndefined()
+    expect(result.decisions.find((d) => d.step === 'finalize')!.reason).toContain(
+      'catalog skipped: boom',
+    )
+  })
+
   it('finalize_records_no_sources_when_nothing_to_discover_from', async () => {
     const discoverCatalog = vi.fn()
     const deps = makeDeps({ discoverCatalog, catalogSources: [] })

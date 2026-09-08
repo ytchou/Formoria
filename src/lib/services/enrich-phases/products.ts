@@ -253,6 +253,12 @@ export type ProductsPhaseOptions = {
   catalogResult?: CatalogDiscoveryResult;
   /** Page URLs from image acquisition candidates. Optional until the orchestrator is updated (Task 5). */
   acquisitionPageUrls?: string[];
+  /**
+   * Product pages the acquisition plan named. A fourth supplier, because these
+   * used to reach `discoverCatalog` only: a truncated crawl left the pool empty
+   * for brands whose plan already knew where the products were (DEV-1712).
+   */
+  priorityProductUrls?: string[];
   /** Classified image pool from the acquire phase, for product-level image selection. */
   imagePool?: RankableImage[];
   renderProvider?: RenderProvider;
@@ -933,6 +939,7 @@ export async function runProductsPhase({
   lookupRegistryProducts,
   catalogResult,
   acquisitionPageUrls,
+  priorityProductUrls,
   imagePool: acquireImagePool,
   renderProvider,
   agentModel,
@@ -1079,8 +1086,31 @@ export async function runProductsPhase({
       searchPosition: index,
     }),
   );
+  // Plan candidates (DEV-1712): the acquisition plan named these as product
+  // detail pages, so they carry `product-detail` the way catalog triples do
+  // rather than being re-derived. `classifyProductUrl` reads a fixed English
+  // segment vocabulary and drops localized paths such as natub's `/producto/…`,
+  // which is exactly the shape this supplier exists to rescue.
+  const planCandidates: ProductCandidate[] = [];
+  for (const [index, url] of (priorityProductUrls ?? [])
+    .filter(isOwnedCandidate)
+    .entries()) {
+    const normalizedUrl = normalizeProductUrl(url);
+    if (!normalizedUrl) continue;
+    planCandidates.push({
+      url,
+      normalizedUrl,
+      title: undefined,
+      supplier: "plan",
+      urlClass: "product-detail",
+      imageUrl: undefined,
+      searchPosition: index,
+    });
+  }
+
   const catalogCandidates = [
     ...enumeratedCandidates,
+    ...planCandidates,
     ...acquisitionCandidates,
     ...scrapedCandidates,
   ]
@@ -1104,6 +1134,7 @@ export async function runProductsPhase({
   const { kept: dedupedCandidates, collapsedCount } = dedupeNearDuplicates(
     [
       ...enumeratedCandidates,
+      ...planCandidates,
       ...acquisitionCandidates,
       ...scrapedCandidates,
     ].filter((candidate) => catalogUrls.has(candidate.url)),
