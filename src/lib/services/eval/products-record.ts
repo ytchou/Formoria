@@ -93,7 +93,7 @@ type RecordedItemBody = {
   id: string
   input: unknown
   expectedOutput: { decisions: never[] }
-  status: 'ARCHIVED'
+  status: 'ACTIVE'
   metadata: {
     source: {
       target: string | undefined
@@ -169,7 +169,7 @@ export async function recordPool(params: RecordPoolParams): Promise<RecordedItem
       evidence,
     },
     expectedOutput: { decisions: [] },
-    status: 'ARCHIVED',
+    status: 'ACTIVE',
     metadata: {
       source: {
         target,

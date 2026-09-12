@@ -147,7 +147,7 @@ describe('recordPool', () => {
     expect(readPage).toHaveBeenCalledTimes(2)
 
     // Body shape
-    expect(result.status).toBe('ARCHIVED')
+    expect(result.status).toBe('ACTIVE')
     expect(result.id).toBe('products-agent:test-brand')
 
     // Input shape

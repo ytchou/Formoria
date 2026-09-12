@@ -620,20 +620,21 @@ describe('isAdmittedProductsItem', () => {
     expect(isAdmittedProductsItem(item, true)).toBe(true)
   })
 
-  it('admits pending archived items only when allowUnreviewed is true', () => {
+  it('admits ACTIVE unreviewed items only when allowUnreviewed is true', () => {
     const item = {
-      status: 'ARCHIVED',
+      status: 'ACTIVE',
       metadata: { humanApproval: { status: 'pending' } },
     }
     expect(isAdmittedProductsItem(item, false)).toBe(false)
     expect(isAdmittedProductsItem(item, true)).toBe(true)
   })
 
-  it('rejects ARCHIVED items without pending approval even when allowUnreviewed', () => {
+  it('rejects non-ACTIVE items even when allowUnreviewed', () => {
     const item = {
       status: 'ARCHIVED',
-      metadata: { humanApproval: { status: 'approved', reviewedVia: 'manual' } },
+      metadata: { humanApproval: { status: 'pending' } },
     }
+    expect(isAdmittedProductsItem(item, false)).toBe(false)
     expect(isAdmittedProductsItem(item, true)).toBe(false)
   })
 })

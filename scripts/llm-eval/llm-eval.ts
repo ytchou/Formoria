@@ -493,11 +493,7 @@ export function isAdmittedProductsItem(
   allowUnreviewed: boolean,
 ): boolean {
   if (item.status === 'ACTIVE' && isReviewed(item)) return true
-  if (allowUnreviewed && item.status === 'ARCHIVED') {
-    const approval = (item.metadata as Record<string, unknown> | undefined)
-      ?.humanApproval as { status?: string } | undefined
-    if (approval?.status === 'pending') return true
-  }
+  if (allowUnreviewed && item.status === 'ACTIVE' && !isReviewed(item)) return true
   return false
 }
 
