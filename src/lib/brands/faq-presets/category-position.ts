@@ -1,5 +1,4 @@
 import { hasValue, type FaqPreset } from "./types";
-import { faqCategoryPositionPrompt } from "@/lib/prompts";
 import { noCommerceClaims, noKeywordStuffing } from "./validators";
 
 const categoryPosition: FaqPreset = {
@@ -11,15 +10,13 @@ const categoryPosition: FaqPreset = {
     hasValue(ctx.brand.categorySlug) && (ctx.peerStats?.peerCount ?? 0) > 0,
   requiredEvidence: ["categorySlug", "peerStats"],
   render: null,
-  promptFragment: (ctx) => {
-    const stats = ctx.peerStats;
-    if (!stats) return "";
-
-    return faqCategoryPositionPrompt({
-      brandName: ctx.brand.name,
-      categorySlug: ctx.brand.categorySlug ?? "",
-      peerCount: stats.peerCount,
-    });
+  promptFragment: {
+    prompt: "faq-category-position",
+    variables: (ctx) => ({
+      brand_name: ctx.brand.name,
+      category_slug: ctx.brand.categorySlug ?? "",
+      peer_count: String(ctx.peerStats?.peerCount ?? 0),
+    }),
   },
   // `groundedIn(requiredEvidence)` is derived once in the registry (index.ts),
   // so the declared evidence contract and the enforced one cannot diverge.

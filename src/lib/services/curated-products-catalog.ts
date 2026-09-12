@@ -23,6 +23,8 @@ export type CatalogProduct = {
   officialUrl: string | null;
   brandSlug: string;
   brandName: string;
+  productDescriptionZh: string;
+  productDescriptionEn: string | null;
   brand: BrandVisitLinkFields & { slug: string };
 };
 
@@ -51,6 +53,8 @@ export type CatalogProductRow = {
   created_at: string;
   image_url: string | null;
   official_url: string | null;
+  product_description_zh: string;
+  product_description_en?: string | null;
   brands: CatalogBrandRow | null;
 };
 
@@ -93,6 +97,8 @@ export function transformCatalogRow(row: CatalogProductRow): CatalogProduct {
     officialUrl: row.official_url ?? null,
     brandSlug: brand.slug,
     brandName: brand.name,
+    productDescriptionZh: row.product_description_zh,
+    productDescriptionEn: row.product_description_en ?? null,
     brand: {
       slug: brand.slug,
       purchaseWebsite: brand.purchase_website ?? null,
@@ -112,7 +118,7 @@ export function transformCatalogRow(row: CatalogProductRow): CatalogProduct {
 
 const catalogSelect = (legacy: boolean) => `
   id, key, name_zh, name_en, category, ${legacy ? "subcategories" : "subcategory"}, created_at,
-  image_url, official_url, material,
+  image_url, official_url, material, product_description_zh, product_description_en,
   curated_product_sources!inner(id),
   brands!inner(slug, name, status, purchase_website, purchase_pinkoi, purchase_shopee, purchase_myship, social_instagram, social_threads, social_facebook)
 `;

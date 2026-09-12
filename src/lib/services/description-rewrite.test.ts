@@ -30,7 +30,7 @@ describe("parseDescriptionRewriteResult", () => {
     const result = parseDescriptionRewriteResult(
       "抱歉，我無法解析，但這裡有超過二十個字元的原始輸出內容",
     );
-    expect(result.description).toBeNull();
+    expect(result.description_zh).toBeNull();
   });
 
   it("sanitizes input artifacts and localizes accepted zh fields", async () => {

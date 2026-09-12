@@ -1,6 +1,9 @@
 import { z } from "zod";
 import { TAIWAN_USAGE_RULES } from "@/lib/prompts/shared";
-import { fetchLangfusePromptWithMeta } from "@/lib/langfuse/prompt";
+import {
+  fetchLangfusePrompt,
+  fetchLangfusePromptWithMeta,
+} from "@/lib/langfuse/prompt";
 import {
   CUSTOM_QUESTION_CEILING,
   buildFaqSystemPrompt,
@@ -567,7 +570,12 @@ export async function runFaqPhase({
     const { text: preamble, prompt: faqPromptMeta } = await fetchLangfusePromptWithMeta("faq-preamble", {
       taiwan_usage_rules: TAIWAN_USAGE_RULES,
     });
-    const systemPrompt = buildFaqSystemPrompt(preamble, authorable, ctx);
+    const systemPrompt = await buildFaqSystemPrompt(
+      preamble,
+      authorable,
+      ctx,
+      fetchLangfusePrompt,
+    );
     const snippets = [
       ...serpSnippets,
       ...(scrapedData?.snippets ?? []),
