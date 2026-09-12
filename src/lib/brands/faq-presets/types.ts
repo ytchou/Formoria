@@ -53,7 +53,7 @@ type FaqRender = {
  * the push → evaluate → promote flow like every other prompt and needs no
  * deploy. Values are strings because Langfuse templates are text-only.
  */
-export type FaqPromptFragment = {
+type FaqPromptFragment = {
   prompt: PromptName;
   variables: (ctx: FaqBrandContext) => Record<string, string>;
 };
