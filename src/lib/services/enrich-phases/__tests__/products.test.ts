@@ -392,6 +392,7 @@ describe("runProductsPhase", () => {
       scrapedData: SCRAPED,
       target: { type: "submission", id: SUBMISSION_ID },
       catalogResult: {
+        deadlineHit: false,
         triples: catalogTriples,
         attempts: [],
         evidence: new Map(),
@@ -518,6 +519,7 @@ describe("runProductsPhase", () => {
       scrapedData: { ...SCRAPED, perSourceText: {} },
       target: { type: "submission", id: SUBMISSION_ID },
       catalogResult: {
+        deadlineHit: false,
         triples: [
           {
             url: `${SITE}/products/clay-plate`,
@@ -572,6 +574,7 @@ describe("runProductsPhase", () => {
       target: { type: "submission", id: SUBMISSION_ID },
       acquisitionPageUrls: [`${SITE}/collections/chairs`],
       catalogResult: {
+        deadlineHit: false,
         triples: [
           {
             url: `${SITE}/products/clay-plate`,
@@ -613,6 +616,7 @@ describe("runProductsPhase", () => {
       scrapedData: { ...SCRAPED, perSourceText: {}, imageSources: [] },
       target: { type: "submission", id: SUBMISSION_ID },
       catalogResult: {
+        deadlineHit: false,
         triples: [
           {
             url: `${SITE}/products/clay-plate?variant=blue`,
@@ -664,6 +668,7 @@ describe("runProductsPhase", () => {
         `${SITE}/products/clay-plate`,
       ],
       catalogResult: {
+        deadlineHit: false,
         triples: [
           {
             url: `${SITE}/products/clay-plate`,
@@ -771,6 +776,7 @@ describe("runProductsPhase", () => {
       acquisitionPageUrls: [otherSellerUrl],
       loadOriginTexts,
       catalogResult: {
+        deadlineHit: false,
         triples: [
           {
             url: ownedUrl,
@@ -788,6 +794,7 @@ describe("runProductsPhase", () => {
             ownedUrl,
             {
               title: "Owned item",
+              titleSource: "h1" as const,
               text: "Made by Island Studio in Taiwan.",
               imageUrls: ["https://cdn01.pinkoi.com/product/owned.jpg"],
             },
@@ -839,6 +846,7 @@ describe("runProductsPhase", () => {
       scrapedData: SCRAPED,
       target: { type: "submission", id: SUBMISSION_ID },
       catalogResult: {
+        deadlineHit: false,
         triples: [
           {
             url: `${SITE}/products/clay-plate`,
@@ -856,6 +864,7 @@ describe("runProductsPhase", () => {
             `${SITE}/products/clay-plate`,
             {
               title: "catalog plate",
+              titleSource: "h1" as const,
               text: "A ceramic plate from catalog.",
               imageUrls: [`${SITE}/img/plate.jpg`],
             },
@@ -913,6 +922,113 @@ describe("runProductsPhase", () => {
     expect(result.phaseResult.status).toBe("succeeded");
     const user = chat.mock.calls[0]![0].user as string;
     expect(user).toContain(`${SITE}/products/clay-plate`);
+  });
+
+  /**
+   * The guarded fetch the phase verifies plan URLs through. Mocked at the
+   * phase boundary — the URLs listed here answer 200, everything else 404.
+   */
+  const fetcherServing = (urls: readonly string[]) =>
+    vi.fn(async (url: string) =>
+      urls.includes(url)
+        ? { text: "<title>Plan page</title>", statusCode: 200 }
+        : { text: "", statusCode: 404 },
+    );
+
+  // DEV-1712: natub's acquisition plan named three real product pages, but they
+  // were passed only into `discoverCatalog`. When that crawl was truncated the
+  // pool was empty even though the plan already knew where the products were.
+  it("products_phase_seeds_pool_from_plan_priority_urls", async () => {
+    const NATUB = "https://natub.co";
+    const priorityProductUrls = [
+      `${NATUB}/producto/home-spa/`,
+      `${NATUB}/producto/garden-serenity/`,
+      `${NATUB}/producto/shampoo-bar/`,
+    ];
+    const chat = modelReturns([]);
+
+    const result = await runProductsPhase({
+      brand: { ...BRAND, purchase_website: NATUB },
+      phases: PHASES,
+      // No scraped pages, no catalog, no acquisition pages: the plan is the
+      // only supplier left.
+      scrapedData: { ...SCRAPED, perSourceText: {}, imageSources: [] },
+      target: { type: "submission", id: SUBMISSION_ID },
+      priorityProductUrls,
+      fetchHtml: fetcherServing(priorityProductUrls),
+    });
+
+    expect(result.phaseResult.detail ?? "").not.toContain(
+      "no product candidates",
+    );
+    expect(chat).toHaveBeenCalled();
+    const user = chat.mock.calls[0]![0].user as string;
+    for (const url of priorityProductUrls) expect(user).toContain(url);
+  });
+
+  it("products_phase_drops_off_host_plan_priority_urls", async () => {
+    const chat = modelReturns([]);
+
+    const result = await runProductsPhase({
+      brand: BRAND,
+      phases: PHASES,
+      scrapedData: { ...SCRAPED, perSourceText: {}, imageSources: [] },
+      target: { type: "submission", id: SUBMISSION_ID },
+      priorityProductUrls: ["https://other-seller.example/products/knockoff"],
+      fetchHtml: fetcherServing([
+        "https://other-seller.example/products/knockoff",
+      ]),
+    });
+
+    expect(result.phaseResult.status).toBe("skipped");
+    expect(result.phaseResult.detail).toContain("no product candidates");
+    expect(chat).not.toHaveBeenCalled();
+  });
+
+  // A plan URL is the one supplier carrying no evidence that its page exists,
+  // and on the non-agent path nothing else fetches it.
+  it("products_phase_drops_unreachable_plan_priority_urls", async () => {
+    const live = `${SITE}/producto/live-one`;
+    const dead = `${SITE}/producto/invented`;
+    const chat = modelReturns([]);
+    const fetchHtml = fetcherServing([live]);
+
+    const result = await runProductsPhase({
+      brand: BRAND,
+      phases: PHASES,
+      scrapedData: { ...SCRAPED, perSourceText: {}, imageSources: [] },
+      target: { type: "submission", id: SUBMISSION_ID },
+      priorityProductUrls: [live, dead],
+      fetchHtml,
+    });
+
+    expect(fetchHtml).toHaveBeenCalledWith(dead);
+    expect(result.phaseResult.detail ?? "").not.toContain(
+      "no product candidates",
+    );
+    const user = chat.mock.calls[0]![0].user as string;
+    expect(user).toContain(live);
+    expect(user).not.toContain(dead);
+  });
+
+  it("products_phase_drops_listing_shaped_plan_priority_urls", async () => {
+    const chat = modelReturns([]);
+    const fetchHtml = fetcherServing([`${SITE}/collections/all`]);
+
+    const result = await runProductsPhase({
+      brand: BRAND,
+      phases: PHASES,
+      scrapedData: { ...SCRAPED, perSourceText: {}, imageSources: [] },
+      target: { type: "submission", id: SUBMISSION_ID },
+      priorityProductUrls: [`${SITE}/collections/all`],
+      fetchHtml,
+    });
+
+    // Never even fetched: a listing page is dropped before verification.
+    expect(fetchHtml).not.toHaveBeenCalled();
+    expect(result.phaseResult.status).toBe("skipped");
+    expect(result.phaseResult.detail).toContain("no product candidates");
+    expect(chat).not.toHaveBeenCalled();
   });
 });
 
@@ -1271,6 +1387,7 @@ describe("rawCount and productsParseError in runProductsPhase", () => {
       scrapedData: { ...SCRAPED, perSourceText: {} },
       target: { type: "submission", id: SUBMISSION_ID },
       catalogResult: {
+        deadlineHit: false,
         triples: [],
         attempts: [],
         evidence: new Map(),
@@ -1311,6 +1428,7 @@ describe("rawCount and productsParseError in runProductsPhase", () => {
       scrapedData: SCRAPED,
       target: { type: "submission", id: SUBMISSION_ID },
       catalogResult: {
+        deadlineHit: false,
         triples: [
           {
             url: `${SITE}/products/clay-plate`,
@@ -1678,6 +1796,7 @@ describe("products agent path", () => {
         // No scraped product pages and no catalog: nothing to propose from.
         scrapedData: { description: SCRAPED.description, perSourceText: {} },
         catalogResult: {
+          deadlineHit: false,
           triples: [],
           attempts: [],
           evidence: new Map(),
