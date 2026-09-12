@@ -6,6 +6,7 @@ import { surfaceCardStyles } from "@/components/ui/card";
 import { BrandImageFallback } from "@/components/brands/brand-image-fallback";
 import { safeImageSrc } from "@/lib/images/allowed-image-hosts";
 import { routes } from "@/lib/routes";
+import { NO_SNIPPET } from "@/lib/seo/snippet";
 import type { CatalogProduct } from "@/lib/services/curated-products-catalog";
 import { subcategoryBySlug, subcategoryLabel } from "@/lib/taxonomy/ontology";
 import { SaveButton } from "@/components/ui/save-button";
@@ -18,6 +19,9 @@ type ProductCardProps = {
 export function ProductCard({ product, locale }: ProductCardProps) {
   const isEnglish = locale === "en";
   const name = (isEnglish ? product.nameEn : product.nameZh) ?? product.nameZh;
+  const description = isEnglish
+    ? (product.productDescriptionEn ?? product.productDescriptionZh)
+    : product.productDescriptionZh;
   const imageSrc = safeImageSrc(product.imageUrl);
   const subcategory = subcategoryBySlug(product.subcategory);
   const subcategoryName = subcategory
@@ -70,6 +74,12 @@ export function ProductCard({ product, locale }: ProductCardProps) {
           <Typography as="p" variant="metadata">
             {product.brandName}
           </Typography>
+          <p
+            {...NO_SNIPPET}
+            className="min-h-[2.625rem] type-body-sm text-ink-soft line-clamp-2"
+          >
+            {description}
+          </p>
           <Badge variant="declared" className="mt-auto self-start">
             {subcategoryName}
           </Badge>

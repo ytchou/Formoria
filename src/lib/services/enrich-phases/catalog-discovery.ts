@@ -1,6 +1,6 @@
 import * as cheerio from 'cheerio'
 import { auditedCall } from '@/lib/audit'
-import { normalizeProductUrl } from './product-candidates'
+import { LISTING_SEGMENTS, normalizeProductUrl } from './product-candidates'
 import { shuffle } from '@/lib/utils'
 import {
   fetchHtmlWithMetadata,
@@ -17,7 +17,11 @@ import { upgradeEcommerceImageUrl } from './scraper/parse/extractors'
 import type { RenderProvider } from './scraper/render/types'
 import { extractRenderedMainText } from './scraper/product-origin-text'
 
-type CatalogZeroReason = 'no_catalog' | 'render_blocked' | 'route_broken'
+type CatalogZeroReason =
+  | 'no_catalog'
+  | 'render_blocked'
+  | 'route_broken'
+  | 'truncated'
 
 type CatalogProductTriple = {
   url: string
@@ -33,6 +37,11 @@ type CatalogProductTriple = {
 
 type CatalogEvidence = {
   title: string | null
+  /**
+   * Where `title` came from. Only `'title'` is suspect: a raw `<title>` is the
+   * one source a site-wide template can serve identically on every page.
+   */
+  titleSource: 'jsonld' | 'og' | 'h1' | 'title' | null
   text: string
   imageUrls: string[]
 }
@@ -59,6 +68,8 @@ export type CatalogDiscoveryResult = {
   attempts: CatalogAttemptSummary[]
   evidence: Map<string, CatalogEvidence>
   zeroReason?: CatalogZeroReason
+  /** True when `deadlineAtMs` closed the crawl before it ran out of routes. */
+  deadlineHit: boolean
 }
 
 export type CatalogSource = {
@@ -83,6 +94,13 @@ export type DiscoverCatalogOptions = {
   hydrationLimit?: number
   entryUrls?: string[]
   priorityProductUrls?: string[]
+  /**
+   * Wall-clock instant (epoch ms) after which the crawl stops advancing. It is
+   * a soft deadline: discovery finishes the batch it is in, then returns the
+   * triples it already has with `deadlineHit: true`. Never an abort — the
+   * caller aborting this crawl is what produced six empty pools (DEV-1712).
+   */
+  deadlineAtMs?: number
 }
 
 type RouteCandidate = {
@@ -103,7 +121,20 @@ const MAX_SITEMAP_DOCUMENTS = 20
 const MAX_SITEMAP_LOCATIONS = 2_000
 const MAX_SITEMAP_DEPTH = 2
 const HYDRATION_CONCURRENCY = 5
-const SKIP_PATTERN = /\/(about|contact|privacy|terms|faq|blog|news|pages|category|tag|author|cart|checkout)(\/|$)/i
+/** Utility pages that are never product detail, wherever they appear. */
+const UTILITY_SKIP_PATTERN =
+  /\/(about|contact|privacy|terms|faq|blog|news|pages|tag|author|cart|checkout)(\/|$)/i
+/**
+ * A listing word as the path TAIL (optionally followed by the one segment that
+ * names the category): `/product/category/A` is a listing, while
+ * `/product/category/pens/BP34` is a product nested under one. Built from the
+ * same `LISTING_SEGMENTS` vocabulary `isOwnedProductRoute` uses, so a route
+ * cannot be a product under one rule and a listing under the other (DEV-1712).
+ */
+const LISTING_TAIL_PATTERN = new RegExp(
+  `/(?:${LISTING_SEGMENTS.join('|')})(?:/[^/]+)?/?$`,
+  'i',
+)
 
 const SPECIALIZED_ROUTE_SELECTORS: Partial<Record<PlatformId, string>> = {
   shopline:
@@ -195,6 +226,18 @@ export function extractCatalogRoutes(
   return routes
 }
 
+/** True when the path is a utility or listing page, never a product detail. */
+function isSkippedPath(url: string): boolean {
+  try {
+    const { pathname } = new URL(url)
+    return (
+      UTILITY_SKIP_PATTERN.test(pathname) || LISTING_TAIL_PATTERN.test(pathname)
+    )
+  } catch {
+    return true
+  }
+}
+
 function selectBreadthFirst(routes: RouteCandidate[]): RouteCandidate[] {
   const featured = routes.filter((route) => route.featured)
   const rest = routes.filter((route) => !route.featured)
@@ -273,30 +316,56 @@ function parseEvidence(html: string, pageUrl: string): CatalogEvidence {
         .filter((url): url is string => Boolean(url)),
     ),
   ]
-  const title =
-    [
-      productJson?.name,
-      $('meta[property="og:title"]').attr('content'),
-      $('h1').first().text(),
-      $('title').text(),
-    ]
-      .find(
-        (value): value is string =>
-          typeof value === 'string' && value.trim().length > 0,
-      )
-      ?.replace(/\s+/gu, ' ')
-      .trim() ?? null
+  const titleCandidates: Array<{
+    source: NonNullable<CatalogEvidence['titleSource']>
+    value: string
+  }> = [
+    {
+      source: 'jsonld',
+      value: typeof productJson?.name === 'string' ? productJson.name : '',
+    },
+    {
+      source: 'og',
+      value: $('meta[property="og:title"]').attr('content') ?? '',
+    },
+    { source: 'h1', value: $('h1').first().text() },
+    { source: 'title', value: $('title').text() },
+  ]
+  const titled = titleCandidates.find(
+    (candidate) => candidate.value.trim().length > 0,
+  )
   return {
-    title,
+    title: titled ? titled.value.replace(/\s+/gu, ' ').trim() : null,
+    titleSource: titled ? titled.source : null,
     text: extractRenderedMainText(html).slice(0, 8_000),
     imageUrls,
   }
 }
 
+/**
+ * The landing page's own titles, read WITHOUT the JSON-LD walk and 8 KB main-text
+ * extraction `parseEvidence` runs — this is one string comparison's worth of
+ * evidence, and the full parse ran once per source inside the deadline window.
+ */
+function extractLandingTitles(html: string): Set<string> {
+  const $ = cheerio.load(html)
+  return new Set(
+    [$('title').text(), $('meta[property="og:title"]').attr('content')]
+      .map((value) =>
+        typeof value === 'string' ? value.replace(/\s+/gu, ' ').trim() : '',
+      )
+      .filter((value) => value.length > 0),
+  )
+}
+
 async function sitemapUrls(
   sourceUrl: string,
   fetcher: CatalogFetch,
+  pastDeadline: () => boolean,
 ): Promise<{ urls: string[]; locations: number }> {
+  // The robots fetch is the first of up to MAX_SITEMAP_DOCUMENTS + 1 sequential
+  // fetches, so the deadline is read before it, not only at the walk's head.
+  if (pastDeadline()) return { urls: [], locations: 0 }
   const origin = new URL(sourceUrl).origin
   const robots = await fetcher(`${origin}/robots.txt`, 'text')
   const seeds = [
@@ -314,6 +383,10 @@ async function sitemapUrls(
     visited.size < MAX_SITEMAP_DOCUMENTS &&
     locations < MAX_SITEMAP_LOCATIONS
   ) {
+    // A sitemap index can queue up to MAX_SITEMAP_DOCUMENTS sequential fetches.
+    // Walking them past the deadline is what left the caller's backstop to fire
+    // and discard the triples already collected (DEV-1712).
+    if (pastDeadline()) break
     const next = queue.shift()!
     if (visited.has(next.url)) continue
     visited.add(next.url)
@@ -414,6 +487,16 @@ export async function discoverCatalog(
       const evidence = new Map<string, CatalogEvidence>()
       const triples: CatalogProductTriple[] = []
       const seen = new Set<string>()
+      let deadlineHit = false
+      const pastDeadline = (): boolean => {
+        if (deadlineHit) return true
+        if (
+          options.deadlineAtMs !== undefined &&
+          Date.now() >= options.deadlineAtMs
+        )
+          deadlineHit = true
+        return deadlineHit
+      }
       let hydrated = 0
       let potentiallyUsefulUnrendered = false
       let reachableSurfaces = 0
@@ -422,6 +505,7 @@ export async function discoverCatalog(
 
       for (const source of effectiveSources) {
         if (triples.length >= target || hydrated >= hydrationLimit) break
+        if (pastDeadline()) break
         const landing = await fetcher(source.url, 'html')
         const platform =
           identifyPlatform(source.url, landing.text ?? '') ?? 'generic'
@@ -444,6 +528,12 @@ export async function discoverCatalog(
         attempts.push(summary)
         if (landing.text) reachableSurfaces += 1
         let listingHtml = landing.text ?? ''
+        // The landing page's own titles. A candidate whose title fell through
+        // to `<title>` and reports one of these back is showing a site-wide
+        // template, not product evidence (DEV-1712).
+        const landingTitles = landing.text
+          ? extractLandingTitles(landing.text)
+          : new Set<string>()
         let routes = extractCatalogRoutes(
           listingHtml,
           source.url,
@@ -459,7 +549,7 @@ export async function discoverCatalog(
         }
         const sitemap =
           source.channel === 'official'
-            ? await sitemapUrls(source.url, fetcher)
+            ? await sitemapUrls(source.url, fetcher, pastDeadline)
             : { urls: [], locations: 0 }
         summary.sitemapLocations = sitemap.locations
         const sitemapRoutes: RouteCandidate[] = sitemap.urls
@@ -473,7 +563,7 @@ export async function discoverCatalog(
           )
         routes = [...routes, ...sitemapRoutes]
         summary.staticOutcome = routes.length > 0 ? 'usable' : summary.staticOutcome
-        if (routes.length === 0 && options.renderProvider) {
+        if (routes.length === 0 && options.renderProvider && !pastDeadline()) {
           try {
             const rendered = await options.renderProvider.fetchRendered(
               source.url,
@@ -494,9 +584,7 @@ export async function discoverCatalog(
           if (needsRendering(listingHtml)) potentiallyUsefulUnrendered = true
         }
         if (platform === 'generic' && routes.length === 0 && sitemap.urls.length > 0) {
-          const candidates = sitemap.urls.filter(u => {
-            try { return !SKIP_PATTERN.test(new URL(u).pathname) } catch { return false }
-          })
+          const candidates = sitemap.urls.filter((u) => !isSkippedPath(u))
           const sample = shuffle(candidates).slice(0, 10)
           let foundProduct = false
           let hitPrefix: string | undefined
@@ -507,6 +595,7 @@ export async function discoverCatalog(
             'products', 'shop', 'collections', 'items', 'store', 'product',
           ])
           for (const sampleUrl of sample) {
+            if (pastDeadline()) break
             const page = await fetcher(sampleUrl, 'html')
             if (page.text && hasProductSignals(page.text)) {
               foundProduct = true
@@ -532,16 +621,20 @@ export async function discoverCatalog(
         summary.rawUrls = routes.length
         const breadthRoutes = selectBreadthFirst(routes)
         // Prepend priority product URLs so they hydrate first
-        const priorityRoutes: RouteCandidate[] = (options.priorityProductUrls ?? [])
-          .filter((u) => {
-            const normalized = normalizeProductUrl(u)
-            return normalized && !seen.has(normalized)
-          })
-          .map((url, i) => ({ url, sourcePosition: -(i + 1) }))
+        const priorityRoutes: RouteCandidate[] = (
+          options.priorityProductUrls ?? []
+        ).map((url, i) => ({ url, sourcePosition: -(i + 1) }))
         const mergedRoutes = [...priorityRoutes, ...breadthRoutes]
+        const normalizedSource = normalizeProductUrl(source.url)
+        // ONE skip gate for every route source. Wrapping three of the five
+        // left the unshifted source route and the plan's priority URLs to
+        // hydrate listing pages unchecked (DEV-1712).
         const uniqueRoutes = mergedRoutes.filter((route) => {
           const normalized = normalizeProductUrl(route.url)
           if (!normalized || seen.has(normalized)) return false
+          const isSourceProductPage =
+            sourceIsProduct && normalized === normalizedSource
+          if (!isSourceProductPage && isSkippedPath(route.url)) return false
           seen.add(normalized)
           return true
         })
@@ -549,6 +642,7 @@ export async function discoverCatalog(
         const selected = uniqueRoutes.slice(0, hydrationLimit - hydrated)
         let offset = 0
         while (offset < selected.length && triples.length < target) {
+          if (pastDeadline()) break
           const remainingTarget = target - triples.length
           const batch = selected.slice(
             offset,
@@ -556,56 +650,64 @@ export async function discoverCatalog(
           )
           offset += batch.length
           summary.selected += batch.length
-          hydrated += batch.length
-          summary.hydrated += batch.length
-          const hydratedRoutes = await Promise.all(
-            batch.map(async (route): Promise<HydratedRoute> => {
-              const page = await fetcher(route.url, 'html')
-              let reachable = Boolean(page.text)
-              let renderOutcome: CatalogAttemptSummary['renderOutcome'] =
-                'not_requested'
-              let renderBlocked = false
-              let finalHtml = page.text ?? ''
-              let pageEvidence = page.text
-                ? parseEvidence(page.text, route.url)
-                : { title: null, text: '', imageUrls: [] }
-              if (
-                (!pageEvidence.title || pageEvidence.imageUrls.length === 0) &&
-                options.renderProvider
-              ) {
-                try {
-                  const rendered = await options.renderProvider.fetchRendered(
-                    route.url,
-                  )
-                  reachable = true
-                  finalHtml = rendered.html
-                  pageEvidence = parseEvidence(rendered.html, route.url)
-                  renderOutcome =
-                    pageEvidence.title && pageEvidence.imageUrls.length > 0
-                      ? 'usable'
-                      : 'empty'
-                } catch {
-                  renderOutcome = 'failed'
+          const hydratedRoutes = (
+            await Promise.all(
+              batch.map(async (route): Promise<HydratedRoute | null> => {
+                // Checked per route, not per batch: one guarded fetch is long
+                // enough on its own to outlive the window.
+                if (pastDeadline()) return null
+                const page = await fetcher(route.url, 'html')
+                let reachable = Boolean(page.text)
+                let renderOutcome: CatalogAttemptSummary['renderOutcome'] =
+                  'not_requested'
+                let renderBlocked = false
+                let finalHtml = page.text ?? ''
+                let pageEvidence = page.text
+                  ? parseEvidence(page.text, route.url)
+                  : { title: null, titleSource: null, text: '', imageUrls: [] }
+                if (
+                  (!pageEvidence.title || pageEvidence.imageUrls.length === 0) &&
+                  options.renderProvider &&
+                  !pastDeadline()
+                ) {
+                  try {
+                    const rendered = await options.renderProvider.fetchRendered(
+                      route.url,
+                    )
+                    reachable = true
+                    finalHtml = rendered.html
+                    pageEvidence = parseEvidence(rendered.html, route.url)
+                    renderOutcome =
+                      pageEvidence.title && pageEvidence.imageUrls.length > 0
+                        ? 'usable'
+                        : 'empty'
+                  } catch {
+                    renderOutcome = 'failed'
+                    renderBlocked = true
+                  }
+                } else if (
+                  (!pageEvidence.title || pageEvidence.imageUrls.length === 0) &&
+                  !options.renderProvider &&
+                  needsRendering(page.text ?? '')
+                ) {
+                  renderOutcome = 'unavailable'
                   renderBlocked = true
                 }
-              } else if (
-                (!pageEvidence.title || pageEvidence.imageUrls.length === 0) &&
-                !options.renderProvider &&
-                needsRendering(page.text ?? '')
-              ) {
-                renderOutcome = 'unavailable'
-                renderBlocked = true
-              }
-              return {
-                route,
-                evidence: pageEvidence,
-                reachable,
-                renderOutcome,
-                renderBlocked,
-                hasSignals: hasProductSignals(finalHtml),
-              }
-            }),
-          )
+                return {
+                  route,
+                  evidence: pageEvidence,
+                  reachable,
+                  renderOutcome,
+                  renderBlocked,
+                  hasSignals: hasProductSignals(finalHtml),
+                }
+              }),
+            )
+          ).filter((result): result is HydratedRoute => result !== null)
+          // Counted from what actually ran: routes the deadline skipped were
+          // never fetched, so they are not hydration spend.
+          hydrated += hydratedRoutes.length
+          summary.hydrated += hydratedRoutes.length
           for (const result of hydratedRoutes) {
             const { route, evidence: pageEvidence } = result
             if (result.reachable) reachableRoutes += 1
@@ -626,10 +728,29 @@ export async function discoverCatalog(
                 (summary.drops.no_product_signals ?? 0) + 1
               continue
             }
-            const title = pageEvidence.title ?? route.title
+            // A candidate whose title fell through to `<title>` AND matches the
+            // landing page's own carries no per-page title at all: twenty
+            // simbalion listing pages served one site-wide `<title>` and all
+            // were rejected by the model. Anchor text is the fallback — the
+            // triple is dropped only when that is missing too, because one
+            // global `<title>` used to cost the brand its whole catalog. The
+            // source page is exempt when it IS the product (compared
+            // normalized, so a trailing-slash variant cannot defeat it).
+            const isSiteTitle =
+              pageEvidence.titleSource === 'title' &&
+              pageEvidence.title !== null &&
+              landingTitles.has(pageEvidence.title) &&
+              normalizeProductUrl(route.url) !== normalizedSource
+            const title = isSiteTitle
+              ? route.title
+              : (pageEvidence.title ?? route.title)
             const imageUrl = pageEvidence.imageUrls[0] ?? route.imageUrl
             if (!title || !imageUrl) {
-              const reason = !title ? 'no_title' : 'no_image'
+              const reason = !title
+                ? isSiteTitle
+                  ? 'site_title'
+                  : 'no_title'
+                : 'no_image'
               summary.drops[reason] = (summary.drops[reason] ?? 0) + 1
               continue
             }
@@ -649,15 +770,20 @@ export async function discoverCatalog(
           }
         }
       }
+      // `truncated` heads the ladder: a crawl the deadline cut short has not
+      // proven anything about the brand, and the other members are persisted as
+      // permanent verdicts by the coverage census.
       const zeroReason: CatalogZeroReason | undefined =
         triples.length > 0
           ? undefined
-          : reachableSurfaces === 0 ||
-              (hydrated > 0 && deadRoutes === hydrated && reachableRoutes === 0)
-            ? 'route_broken'
-            : potentiallyUsefulUnrendered
-              ? 'render_blocked'
-              : 'no_catalog'
+          : deadlineHit
+            ? 'truncated'
+            : reachableSurfaces === 0 ||
+                (hydrated > 0 && deadRoutes === hydrated && reachableRoutes === 0)
+              ? 'route_broken'
+              : potentiallyUsefulUnrendered
+                ? 'render_blocked'
+                : 'no_catalog'
       const ownedDetailUrls = attempts.reduce(
         (sum, attempt) => sum + attempt.ownedDetailUrls,
         0,
@@ -666,6 +792,7 @@ export async function discoverCatalog(
         triples: triples.length,
         hydrated,
         zeroReason,
+        deadlineHit,
         catalogCompleteness:
           ownedDetailUrls > 0 ? triples.length / ownedDetailUrls : 0,
         attempts,
@@ -674,6 +801,7 @@ export async function discoverCatalog(
         triples,
         attempts,
         evidence,
+        deadlineHit,
         ...(zeroReason ? { zeroReason } : {}),
       }
     },

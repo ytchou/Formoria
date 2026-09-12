@@ -103,7 +103,32 @@ export function normalizeProductUrl(raw: string): string | null {
 /** Segments that indicate a listing page (no further slug). */
 const LISTING_BARE_SEGMENTS = new Set(['products', 'shop', 'store', 'catalog'])
 
-/** Segments that indicate a listing page when followed by a sub-path. */
+/**
+ * The ONE listing-segment vocabulary. A path whose tail is one of these words
+ * (optionally followed by the single segment that names the category) is a
+ * listing page, wherever the word sits: `/product/category/A` and `/shop/c/12`
+ * are category pages, while `/product/category/pens/BP34` and
+ * `/shop/c/12/ceramic-mug` are products nested under one.
+ *
+ * Read by `isOwnedProductRoute` (scraper/platforms.ts) and `isSkippedPath`
+ * (catalog-discovery.ts). Three copies of this list had already drifted apart
+ * when DEV-1712 landed; add words here, nowhere else. Longest alternatives are
+ * listed first so the regexes built from it prefer the specific word.
+ */
+export const LISTING_SEGMENTS = [
+  'categories',
+  'category',
+  'collections',
+  'collection',
+  'c',
+] as const
+
+/**
+ * Segments that indicate a listing page when they lead the path. Narrower than
+ * `LISTING_SEGMENTS` on purpose: this rule is not tail-anchored, so admitting
+ * `c` or `category` here would reclassify the nested product `/c/12/mug` as a
+ * listing. Widen it only with a corpus check over real candidate URLs.
+ */
 const LISTING_PARENT_SEGMENTS = new Set(['collections', 'categories'])
 
 /** Segments that indicate a product detail page when followed by a slug. */

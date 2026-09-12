@@ -62,6 +62,7 @@ export type ParsedCommand =
       arms: ArmSpec[]
       envFile?: string
       noEnqueue: boolean
+      allowUnreviewed: boolean
     }
   | { command: 'pairwise-report'; runName: string }
 
@@ -241,6 +242,7 @@ export function parseCliArgs(args: string[]): ParsedCommand {
         arms,
         envFile: values['env-file'],
         noEnqueue: values['no-enqueue'] ?? false,
+        allowUnreviewed: values['allow-unreviewed'] ?? false,
       }
     }
     if (sub2 === 'report') {
@@ -262,7 +264,7 @@ export function parseCliArgs(args: string[]): ParsedCommand {
       '  llm-eval prompt push <name> [--file <path>] [--label production] [--allow-variable-change]\n' +
       '  llm-eval prompt pull [--add <name>]... [--check] [--allow-variable-change]\n' +
       '  llm-eval prompt promote <name> <version>\n' +
-      '  llm-eval pairwise run --phase <phase> [--target <target>] [--sample <n>] --arm <spec> --arm <spec> [--no-enqueue]\n' +
+      '  llm-eval pairwise run --phase <phase> [--target <target>] [--sample <n>] --arm <spec> --arm <spec> [--no-enqueue] [--allow-unreviewed]\n' +
       '  llm-eval pairwise report <runName>',
   )
 }
@@ -484,6 +486,19 @@ export function isReviewed(item: { metadata?: unknown }): boolean {
   const meta = item.metadata as Record<string, unknown> | undefined
   const ha = meta?.humanApproval as Record<string, unknown> | undefined
   return ha?.reviewedVia != null
+}
+
+export function isAdmittedProductsItem(
+  item: { status: string; metadata?: unknown },
+  allowUnreviewed: boolean,
+): boolean {
+  if (item.status === 'ACTIVE' && isReviewed(item)) return true
+  if (allowUnreviewed && item.status === 'ARCHIVED') {
+    const approval = (item.metadata as Record<string, unknown> | undefined)
+      ?.humanApproval as { status?: string } | undefined
+    if (approval?.status === 'pending') return true
+  }
+  return false
 }
 
 // ---------------------------------------------------------------------------
@@ -712,7 +727,7 @@ async function cmdDatasetRecord(
   // Load candidates from the latest job
   const { data: rows, error: rowsError } = await supabase
     .from('curated_product_candidates')
-    .select('curation_job_id, url, title, image_url, supplier, url_class, search_position, created_at')
+    .select('job_id, url, title, image_url, supplier, url_class, search_position, created_at')
     .eq('brand_id', brand.id)
     .order('created_at', { ascending: false })
 
@@ -750,6 +765,13 @@ async function cmdDatasetRecord(
     readPage,
     candidateIdFactory: () => randomUUID(),
   })
+
+  // Ensure dataset exists (create on first use)
+  try {
+    await client.getDataset(dataset)
+  } catch {
+    await client.createDataset({ name: dataset, description: 'DEV-1707 frozen product pools' })
+  }
 
   // Write to Langfuse
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -800,9 +822,10 @@ async function cmdPairwiseRun(
   sample: number,
   armSpecs: ArmSpec[],
   noEnqueue: boolean = false,
+  allowUnreviewed: boolean = false,
 ): Promise<void> {
   if (phase === 'products') {
-    return cmdPairwiseRunProducts(armSpecs, noEnqueue, sample)
+    return cmdPairwiseRunProducts(armSpecs, noEnqueue, sample, allowUnreviewed)
   }
 
   const { writeFileSync, mkdirSync } = await import('node:fs')
@@ -958,6 +981,7 @@ async function cmdPairwiseRunProducts(
   armSpecs: ArmSpec[],
   noEnqueue: boolean,
   sample: number = 0,
+  allowUnreviewed: boolean = false,
 ): Promise<void> {
   const { writeFileSync, mkdirSync } = await import('node:fs')
   const { buildProductPairs } = await import('@/lib/services/eval/pairwise')
@@ -993,13 +1017,10 @@ async function cmdPairwiseRunProducts(
     console.log(`Pairwise queue: ${queueId}`)
   }
 
-  // Load ACTIVE+reviewed items from the products dataset
+  // Load items from the products dataset (optionally including pending unreviewed)
   const datasetName = 'products-agent-ranking-golden'
   const { items: rawItems } = await client.getDataset(datasetName)
-  const items = rawItems.filter((i) => {
-    if (i.status !== 'ACTIVE') return false
-    return isReviewed(i)
-  })
+  const items = rawItems.filter((i) => isAdmittedProductsItem(i, allowUnreviewed))
 
   if (items.length === 0) {
     console.error('No ACTIVE+reviewed items found in products dataset')
@@ -1134,6 +1155,7 @@ async function cmdPairwiseRunProducts(
       armA,
       armB,
       drift: driftOutput,
+      provisional: allowUnreviewed,
     }, null, 2),
   )
 
@@ -1163,6 +1185,11 @@ async function cmdPairwiseReport(runName: string): Promise<void> {
   if (runJson.drift) {
     const d = runJson.drift as { paired: number; onlyA: number; onlyB: number; rate: number }
     console.log(`Drift: paired=${d.paired} onlyA=${d.onlyA} onlyB=${d.onlyB} rate=${(d.rate * 100).toFixed(1)}%`)
+  }
+
+  if (runJson.provisional) {
+    console.log('(provisional — unreviewed items included)')
+    console.log('(selection drift includes the new description verify checks on both arms — not comparable to the DEV-1695 split rule)')
   }
 }
 
@@ -1229,7 +1256,7 @@ async function main() {
       await cmdPromptPromote(parsed.name, parsed.version)
       break
     case 'pairwise-run':
-      await cmdPairwiseRun(parsed.phase, parsed.target, parsed.sample, parsed.arms, parsed.noEnqueue)
+      await cmdPairwiseRun(parsed.phase, parsed.target, parsed.sample, parsed.arms, parsed.noEnqueue, parsed.allowUnreviewed)
       break
     case 'pairwise-report':
       await cmdPairwiseReport(parsed.runName)

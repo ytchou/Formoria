@@ -33,7 +33,7 @@ export function toReadPageFetch(r: {
 // ---------------------------------------------------------------------------
 
 type CandidateRow = {
-  curation_job_id: string
+  job_id: string
   url: string
   title: string | null
   image_url: string | null
@@ -45,23 +45,23 @@ type CandidateRow = {
 
 /**
  * Maps `curated_product_candidates` DB rows to `ProductCandidate[]`,
- * filtering to only the latest `curation_job_id`.
+ * filtering to only the latest `job_id`.
  */
 export function buildPoolFromRows(rows: CandidateRow[]): ProductCandidate[] {
   if (rows.length === 0) return []
 
   // Find the latest job id by created_at
-  let latestJobId = rows[0]!.curation_job_id
+  let latestJobId = rows[0]!.job_id
   let latestDate = rows[0]!.created_at
   for (const row of rows) {
     if (row.created_at > latestDate) {
       latestDate = row.created_at
-      latestJobId = row.curation_job_id
+      latestJobId = row.job_id
     }
   }
 
   return rows
-    .filter((r) => r.curation_job_id === latestJobId)
+    .filter((r) => r.job_id === latestJobId)
     .map((r) => ({
       url: r.url,
       normalizedUrl: normalizeProductUrl(r.url) ?? r.url,
