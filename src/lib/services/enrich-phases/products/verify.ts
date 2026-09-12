@@ -25,12 +25,25 @@ type VerifyResult = { ok: boolean; reason?: string }
 // Individual checks
 // ---------------------------------------------------------------------------
 
-/** URL hostname match between product and brand. */
-export function verifySameHost(productUrl: string, brandUrl: string): VerifyResult {
+/**
+ * URL hostname match between product and brand.
+ *
+ * `ownedHosts` are the bare (`www.`-stripped) hosts of every purchase channel
+ * the brand lists — its own site plus a Pinkoi / Shopee / myship store — the
+ * same set the products phase gates candidates with. A product page on one of
+ * them is on the brand's own channel (DEV-1715); any other host still fails
+ * closed, so a proposal can never point at a stranger's shop.
+ */
+export function verifySameHost(
+  productUrl: string,
+  brandUrl: string,
+  ownedHosts: readonly string[] = [],
+): VerifyResult {
   try {
     const productHost = new URL(productUrl).hostname
     const brandHost = new URL(brandUrl).hostname
     if (productHost === brandHost) return { ok: true }
+    if (ownedHosts.includes(productHost.replace(/^www\./u, ''))) return { ok: true }
     return { ok: false, reason: `host mismatch: ${productHost} vs ${brandHost}` }
   } catch {
     return { ok: false, reason: 'invalid URL' }

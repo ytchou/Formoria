@@ -421,14 +421,20 @@ export function validateCandidateEvaluations(
 /**
  * A product page is a non-root path on the brand's own host.
  *
- * KNOWN CEILING (deliberate): the host comparison is exact after stripping
- * `www.`, so a brand whose shop sits on a different host from its
- * `purchase_website` — a `shop.` subdomain, or a hosted-store platform domain —
- * has its proposals dropped rather than published against the wrong link. That
- * fails closed: a moderator sees zero proposals instead of a product pointing at
- * a stranger's shop. Upgrade path if that costs real coverage: compare the
- * registrable domain, or accept the hosts the links phase resolved as
- * brand-owned (which is the set site-identity has already arbitrated).
+ * This is the EMPTY-POOL fallback only. With a candidate pool, a proposal must
+ * be one of the pool's candidates, and marketplace candidates enter the pool
+ * only from the brand's own store catalog; the verify node then accepts any of
+ * the brand's channel hosts (`verifySameHost`, DEV-1715).
+ *
+ * KNOWN CEILING (deliberate): here the host comparison stays exact after
+ * stripping `www.`, so with no pool a proposal on a `shop.` subdomain or a
+ * marketplace host is dropped rather than published against the wrong link.
+ * An empty pool carries no evidence that a `pinkoi.com/product/…` page belongs
+ * to THIS brand's store — the URL has no store slug — so widening this to the
+ * channel hosts would let a hallucinated or stranger-store page through with
+ * only reachability to catch it. Upgrade path if that costs real coverage:
+ * prove store ownership from the fetched page (store name/slug in the
+ * evidence) before accepting a marketplace host here.
  */
 function isProductPageUrl(candidate: URL, site: URL): boolean {
   if (bareHost(candidate) !== bareHost(site)) return false;
@@ -1443,6 +1449,7 @@ export async function runProductsPhase({
                 slug: brand.slug,
                 name: brand.name ?? brand.slug,
                 url: site.toString(),
+                ownedHosts: [...ownedHosts],
               },
               pool: pool.products,
               imagePool: acquireImagePool ?? [],

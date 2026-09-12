@@ -315,6 +315,22 @@ describe('products agent graph', () => {
     expect(result.verification.dropped).toBeGreaterThan(0)
   })
 
+  it('graph_verify_accepts_off_host_url_on_owned_channel', async () => {
+    // DEV-1715: the same off-host proposal passes when that host is one of the
+    // brand's own channels (a Pinkoi store it lists as purchase_pinkoi).
+    const inputWithOwnedChannel: ProductsInput = {
+      ...baseInput,
+      brand: { ...baseInput.brand, url: 'https://different-brand.com', ownedHosts: ['brand.com'] },
+    }
+
+    const result = await runProductsAgent(inputWithOwnedChannel, makeDeps(), {
+      model: scriptedModel([validProposalResponse()]),
+    })
+
+    expect(result.verification.dropped).toBe(0)
+    expect(result.proposals.length).toBeGreaterThanOrEqual(1)
+  })
+
   it('graph_image_mismatch_is_warning_not_repair', async () => {
     // After F6: images that match no product page are a warning, not a failure.
     // The proposal proceeds unverified — no repair turn is burned.
