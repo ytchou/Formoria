@@ -12,6 +12,22 @@ import {
 // ---------------------------------------------------------------------------
 
 describe('normalizeProductUrl', () => {
+  it('normalize_strips_pinkoi_per_render_tracking_so_keys_are_stable', () => {
+    // Pinkoi store pages stamp every product link with a per-render
+    // `koi2_t_data` blob (REFERRER_VIEW_ID is a timestamp) plus `ref_*`
+    // params. Two renders of the same product must normalize to one key, and
+    // the clean URL a model returns as official_url must equal that key.
+    const renderA =
+      'https://www.pinkoi.com/product/9vz3LHsB?koi2_t_data=%7B%22REFERRER_VIEW_ID%22%3A%221789191323798%22%7D&ref_created=1789191323&ref_entity=shop&ref_posn=1&ref_sec=shop_featured_item'
+    const renderB =
+      'https://www.pinkoi.com/product/9vz3LHsB?koi2_t_data=%7B%22REFERRER_VIEW_ID%22%3A%221789199999999%22%7D&ref_created=1789199999&ref_posn=4&ref_sec=shop_list_item'
+    const clean = 'https://www.pinkoi.com/product/9vz3LHsB'
+
+    expect(normalizeProductUrl(renderA)).toBe('https://pinkoi.com/product/9vz3LHsB')
+    expect(normalizeProductUrl(renderB)).toBe(normalizeProductUrl(renderA))
+    expect(normalizeProductUrl(clean)).toBe(normalizeProductUrl(renderA))
+  })
+
   it('normalize_strips_tracking_and_keeps_product_params', () => {
     const raw =
       'https://Example.COM/products/cirrus-chair?product_id=249&sid=abc&goods_no=77&srsltid=x&utm_source=fb&fbclid=y&gclid=z&variant=blue'
