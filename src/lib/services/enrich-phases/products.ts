@@ -1394,6 +1394,11 @@ export async function runProductsPhase({
                 ctx,
                 onlyImageIds,
                 supabase,
+                // A page image is product evidence, not a gallery image: only
+                // finalizeHeroOrder (acquire) may mint an active sort_order,
+                // and promoting these left duplicate sort_order 0 rows that
+                // fail apply_brand_refresh's publishable-core guard (DEV-1714).
+                keepStatus: "candidate",
               });
 
               // Persist vision verdicts so the next run does not re-classify.

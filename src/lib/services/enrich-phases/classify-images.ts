@@ -1270,7 +1270,18 @@ export function planChunkImageWrites(input: {
    * parsed verdicts, and those three are written nowhere.
    */
   ctx: AuditCallContext;
+  /**
+   * The status a KEPT image is written with. Defaults to `"active"` for the
+   * acquire and standalone classify paths, which follow their writes with
+   * `finalizeHeroOrder` and so are the only ones allowed to mint an active
+   * `sort_order`. The products agent's page images pass `"candidate"`: they are
+   * evidence for ranking one product's photo, not gallery images, and promoting
+   * them left extra active rows at the column default `sort_order` 0, which
+   * breaks `apply_brand_refresh`'s publishable-core guard (DEV-1714).
+   */
+  keepStatus?: "active" | "candidate";
 }): ChunkWritePlan {
+  const keepStatus = input.keepStatus ?? "active";
   const unavailable = new Set(input.unavailableIds);
   const writes: ChunkImageWrite[] = [];
   const classifications: ClassifiedImage[] = [];
@@ -1321,7 +1332,7 @@ export function planChunkImageWrites(input: {
       row: {
         tags: rejected ? null : [classification.tag as KeptImageTag],
         score: classification.score,
-        status: rejected ? "rejected" : "active",
+        status: rejected ? "rejected" : keepStatus,
         rejection_reasons: rejected ? classification.reasons : null,
         rejected_at: rejected ? input.now : null,
         alt_zh: classification.caption ?? null,
@@ -1450,6 +1461,8 @@ export type ClassifyStoredImagesOptions = {
   client?: ClassifyImagesChatClient;
   /** Defaults to `loadVisionDataUri`. */
   loadImage?: VisionImageLoader;
+  /** Forwarded to `planChunkImageWrites`. See it for why this defaults to active. */
+  keepStatus?: "active" | "candidate";
   /**
    * The enclosing audit span, forwarded to `planChunkImageWrites`. A caller
    * outside an audited phase gets a throwaway rather than being forced to
@@ -1521,6 +1534,7 @@ export async function classifyStoredImages(
     pendingPatch,
     loadImage = loadVisionDataUri,
     ctx = { summary: {} },
+    keepStatus = "active",
   } = options;
 
   // Ahead of every read: a dry run must not touch Storage, the model, or the
@@ -1612,6 +1626,7 @@ export async function classifyStoredImages(
       unavailableIds: outcome.unavailableIds,
       now: new Date().toISOString(),
       ctx,
+      keepStatus,
     });
     return {
       classified: plan.classifications,

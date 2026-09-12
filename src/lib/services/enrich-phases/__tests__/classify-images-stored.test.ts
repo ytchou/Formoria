@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
   classifyStoredImages,
+  parseClassificationBatch,
+  planChunkImageWrites,
   type BrandImageForClassification,
 } from "../classify-images";
 import { brandTarget } from "../../_shared/enrichment-target";
@@ -326,5 +328,102 @@ describe("classifyStoredImages", () => {
     // attemptedBatches still counts all 3
     expect(result.attemptedBatches).toBe(3);
     expect(result.failures).toEqual([]);
+  });
+});
+
+/**
+ * DEV-1714. Page images stored by the products agent are inserted as
+ * `candidate` (they are evidence for ranking one product's photo, not gallery
+ * images), but the shared `planChunkImageWrites` promoted every keep to
+ * `active` and assigned no `sort_order`. On a refresh the submission already
+ * holds the 10 snapshot rows at `sort_order` 0-9, so each promoted page image
+ * became an extra active row at the column default 0 — breaking
+ * `apply_brand_refresh`'s publishable-core guard (active count 1-10, unique
+ * identity, unique `sort_order` in 0-9) and failing the whole apply.
+ *
+ * `keepStatus` is the one decision that caused it: the status a keep is written
+ * with. Only `finalizeHeroOrder`, which the acquire path runs, may mint an
+ * active `sort_order`.
+ */
+describe("planChunkImageWrites keepStatus", () => {
+  /** A real verdict, built through the parser the phase actually uses. */
+  function verdict(disposition: "keep" | "reject") {
+    const parsed = parseClassificationBatch(
+      JSON.stringify({
+        classifications: [
+          disposition === "keep"
+            ? { id: "1", disposition: "keep", tag: "product", reasons: [], score: 88 }
+            : {
+                id: "1",
+                disposition: "reject",
+                tag: null,
+                reasons: ["wrong_brand"],
+                score: 12,
+              },
+        ],
+      }),
+    );
+    return parsed.get("1")!;
+  }
+
+  const now = "2026-09-12T00:00:00.000Z";
+
+  function plan(keepStatus?: "active" | "candidate") {
+    return planChunkImageWrites({
+      chunk: [image("keep"), image("reject")],
+      verdictsByImageId: new Map([
+        ["keep", verdict("keep")],
+        ["reject", verdict("reject")],
+      ]),
+      unavailableIds: [],
+      now,
+      ctx: { summary: {} },
+      ...(keepStatus ? { keepStatus } : {}),
+    });
+  }
+
+  it("writes a kept page image as candidate, and still rejects on a reject verdict", () => {
+    expect(plan("candidate").writes).toEqual([
+      {
+        id: "keep",
+        row: {
+          tags: ["product"],
+          score: 88,
+          status: "candidate",
+          rejection_reasons: null,
+          rejected_at: null,
+          alt_zh: null,
+        },
+      },
+      {
+        id: "reject",
+        row: {
+          tags: null,
+          score: 12,
+          status: "rejected",
+          rejection_reasons: ["wrong_brand"],
+          rejected_at: now,
+          alt_zh: null,
+        },
+      },
+    ]);
+  });
+
+  it("never plans a sort_order, whichever status a keep is written with", () => {
+    // The guard the bug tripped is about `sort_order`, and this function has no
+    // business inventing one: an unset column takes the default 0, which is the
+    // value the snapshot's first row already holds.
+    for (const written of [plan(), plan("candidate")]) {
+      for (const write of written.writes) {
+        expect(write.row).not.toHaveProperty("sort_order");
+      }
+    }
+  });
+
+  it("defaults to active, so the acquire path is byte-identical", () => {
+    // Acquire follows its writes with `finalizeHeroOrder`, which re-ranks every
+    // active row to a unique `sort_order`. Changing this default would move the
+    // bug rather than fix it.
+    expect(plan().writes[0]?.row).toHaveProperty("status", "active");
   });
 });
