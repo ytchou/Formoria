@@ -29,10 +29,15 @@ const STRIP_PARAMS = new Set([
   'fbclid',
   'gclid',
   'variant',
+  // Pinkoi stamps every store-page product link with a per-render blob whose
+  // REFERRER_VIEW_ID is a timestamp. Left in, the candidate key differs on
+  // every render and can never equal the clean URL a model returns as
+  // official_url (DEV-1712 field check: 28 of 30 proposals dropped).
+  'koi2_t_data',
 ])
 
 /** Prefix-matched params to strip. */
-const STRIP_PREFIXES = ['utm_']
+const STRIP_PREFIXES = ['utm_', 'ref_']
 
 function shouldStripParam(key: string): boolean {
   if (STRIP_PARAMS.has(key)) return true
@@ -43,7 +48,8 @@ function shouldStripParam(key: string): boolean {
  * Normalizes a product URL for deduplication.
  *
  * - Lowercases the host (but preserves path case)
- * - Strips tracking params (`srsltid`, `utm_*`, `fbclid`, `gclid`, `variant`)
+ * - Strips tracking params (`srsltid`, `utm_*`, `ref_*`, `fbclid`, `gclid`,
+ *   `variant`, Pinkoi's `koi2_t_data`)
  * - Keeps product-identity params (`product_id`, `sid`, `goods_no`)
  * - Strips trailing slash
  * - Returns `null` on unparseable input (never throws)
