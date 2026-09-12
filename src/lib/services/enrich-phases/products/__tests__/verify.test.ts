@@ -32,6 +32,29 @@ describe('products/verify', () => {
       const result = verifySameHost('not-a-url', 'https://example.com')
       expect(result.ok).toBe(false)
     })
+
+    // DEV-1715: a store on a marketplace the brand lists as its own channel
+    // (purchase_pinkoi, purchase_myship) is the brand's channel too. The set
+    // is the one the products phase already gates candidates with, so a
+    // proposal can only reach here on a host site-identity arbitrated.
+    it('verifySameHost_passes_host_in_owned_channels', () => {
+      const result = verifySameHost(
+        'https://www.pinkoi.com/product/abc123',
+        'https://vividia.com.tw',
+        ['pinkoi.com'],
+      )
+      expect(result.ok).toBe(true)
+    })
+
+    it('verifySameHost_fails_host_outside_owned_channels', () => {
+      const result = verifySameHost(
+        'https://shopee.tw/product/abc123',
+        'https://vividia.com.tw',
+        ['pinkoi.com'],
+      )
+      expect(result.ok).toBe(false)
+      expect(result.reason).toContain('host mismatch')
+    })
   })
 
   describe('verifyReachable', () => {
