@@ -55,7 +55,9 @@ import {
   mergeCandidatePool,
   normalizeProductUrl,
   type ProductCandidate,
+  type UrlClass,
 } from "./product-candidates";
+import { mapWithConcurrency } from "../_shared/concurrency";
 import {
   applyGates,
   createDefaultCandidateWriter,
@@ -259,6 +261,13 @@ export type ProductsPhaseOptions = {
    * for brands whose plan already knew where the products were (DEV-1712).
    */
   priorityProductUrls?: string[];
+  /**
+   * The scraper's guarded HTML fetch. Verifies plan URLs before they seed the
+   * pool and is the agent's page reader. Injected only by tests.
+   */
+  fetchHtml?: (
+    url: string,
+  ) => Promise<{ text: string; statusCode: number }>;
   /** Classified image pool from the acquire phase, for product-level image selection. */
   imagePool?: RankableImage[];
   renderProvider?: RenderProvider;
@@ -940,6 +949,7 @@ export async function runProductsPhase({
   catalogResult,
   acquisitionPageUrls,
   priorityProductUrls,
+  fetchHtml,
   imagePool: acquireImagePool,
   renderProvider,
   agentModel,
@@ -997,6 +1007,7 @@ export async function runProductsPhase({
     triples: [],
     attempts: [],
     evidence: new Map(),
+    deadlineHit: false,
   };
 
   // --- Build the merged candidate pool ---
@@ -1052,24 +1063,35 @@ export async function runProductsPhase({
     });
   }
 
-  // Acquisition candidates from the images phase (DEV-1633): page URLs
-  // discovered during image acquisition that may contain product pages.
-  const acquisitionCandidates: ProductCandidate[] = [];
-  for (const [index, url] of (acquisitionPageUrls ?? [])
-    .filter(isOwnedCandidate)
-    .entries()) {
-    const normalizedUrl = normalizeProductUrl(url);
-    if (!normalizedUrl) continue;
-    acquisitionCandidates.push({
-      url,
-      normalizedUrl,
-      title: undefined,
-      supplier: "acquisition",
-      urlClass: classifyProductUrl(url),
-      imageUrl: undefined,
-      searchPosition: index,
-    });
-  }
+  /**
+   * One builder for every URL-only supplier. `classify` returning `null` drops
+   * the URL outright — used by the plan supplier, whose listing pages must not
+   * become listing candidates either.
+   */
+  const toCandidates = (
+    urls: readonly string[],
+    supplier: string,
+    classify: (url: string) => UrlClass | null,
+    titleByUrl?: Map<string, string>,
+  ): ProductCandidate[] => {
+    const candidates: ProductCandidate[] = [];
+    for (const url of urls.filter(isOwnedCandidate)) {
+      const normalizedUrl = normalizeProductUrl(url);
+      if (!normalizedUrl) continue;
+      const urlClass = classify(url);
+      if (urlClass === null) continue;
+      candidates.push({
+        url,
+        normalizedUrl,
+        title: titleByUrl?.get(url),
+        supplier,
+        urlClass,
+        imageUrl: undefined,
+        searchPosition: candidates.length,
+      });
+    }
+    return candidates;
+  };
 
   // Dedupe near-duplicates AFTER merging all suppliers. Enumerated candidates are
   // placed first so they win ties: a catalog candidate carries imageUrl and
@@ -1087,33 +1109,91 @@ export async function runProductsPhase({
     }),
   );
   // Plan candidates (DEV-1712): the acquisition plan named these as product
-  // detail pages, so they carry `product-detail` the way catalog triples do
-  // rather than being re-derived. `classifyProductUrl` reads a fixed English
-  // segment vocabulary and drops localized paths such as natub's `/producto/…`,
-  // which is exactly the shape this supplier exists to rescue.
-  const planCandidates: ProductCandidate[] = [];
-  for (const [index, url] of (priorityProductUrls ?? [])
-    .filter(isOwnedCandidate)
-    .entries()) {
-    const normalizedUrl = normalizeProductUrl(url);
-    if (!normalizedUrl) continue;
-    planCandidates.push({
-      url,
-      normalizedUrl,
-      title: undefined,
-      supplier: "plan",
-      urlClass: "product-detail",
-      imageUrl: undefined,
-      searchPosition: index,
+  // detail pages, so anything `classifyProductUrl` does not call a listing is
+  // accepted as detail — a fixed English segment vocabulary would drop
+  // localized paths such as natub's `/producto/…`, the exact shape this
+  // supplier exists to rescue. A listing IS dropped: nothing downstream
+  // re-classifies, so a model-emitted category page would reach the prompt.
+  //
+  // Unlike every other supplier these URLs carry no evidence that the page
+  // exists, and on the non-agent path nothing else ever fetches them. So each
+  // survivor is verified with ONE guarded GET and kept only on 2xx — the pool
+  // must never be satisfied by a fabricated URL.
+  const fetchHtmlFn =
+    fetchHtml ??
+    (async (url: string) => {
+      const metadata = await fetchHtmlWithMetadata(url);
+      return { text: metadata.text ?? "", statusCode: metadata.status ?? 0 };
     });
-  }
+  const planUrlsProposed = (priorityProductUrls ?? []).filter(
+    (url) => isOwnedCandidate(url) && classifyProductUrl(url) !== "listing",
+  );
+  const planTitles = new Map<string, string>();
+  // Bounded fan-out toward one host, sized like the catalog crawl's hydration
+  // batch. Raise it only with the same politeness argument.
+  const PLAN_URL_VERIFY_CONCURRENCY = 5;
+  const planUrlsReachable = (
+    await mapWithConcurrency(
+      planUrlsProposed,
+      PLAN_URL_VERIFY_CONCURRENCY,
+      async (url) => {
+        try {
+          const { text, statusCode } = await fetchHtmlFn(url);
+          if (statusCode < 200 || statusCode > 299) return null;
+          // Cheapest possible title read — a full parse buys nothing here,
+          // since the catalog evidence map is the real title source.
+          const title = /<title[^>]*>([^<]*)<\/title>/i
+            .exec(text)?.[1]
+            ?.replace(/\s+/gu, " ")
+            .trim();
+          if (title) planTitles.set(url, title);
+          return url;
+        } catch {
+          return null;
+        }
+      },
+    )
+  ).filter((url): url is string => url !== null);
+  const planUrlsDropped = planUrlsProposed.length - planUrlsReachable.length;
+  const planCandidates = toCandidates(
+    // Already enumerated by the catalog crawl: without this the same page takes
+    // two slots at the MAX_CANDIDATE_PAGES cut.
+    planUrlsReachable.filter((url) => {
+      const normalized = normalizeProductUrl(url);
+      return normalized !== null && !catalogOwnedUrls.has(normalized);
+    }),
+    "plan",
+    () => "product-detail",
+    planTitles,
+  );
 
-  const catalogCandidates = [
-    ...enumeratedCandidates,
-    ...planCandidates,
-    ...acquisitionCandidates,
-    ...scrapedCandidates,
-  ]
+  // Acquisition candidates from the images phase (DEV-1633): page URLs
+  // discovered during image acquisition that may contain product pages.
+  const acquisitionCandidates = toCandidates(
+    acquisitionPageUrls ?? [],
+    "acquisition",
+    classifyProductUrl,
+  );
+
+  // The supplier ladder, made explicit: catalog triples (title + image), then
+  // the plan's named product pages, then acquisition pages, then scraped ones.
+  // `searchPosition` is the only sort key the cut reads, so each block is
+  // offset past the last instead of every supplier restarting at 0 — plan URLs
+  // restarting at 0 pushed titled, imaged triples out of MAX_CANDIDATE_PAGES.
+  let ladderPosition = 0;
+  const allCandidates: ProductCandidate[] = [
+    enumeratedCandidates,
+    planCandidates,
+    acquisitionCandidates,
+    scrapedCandidates,
+  ].flatMap((block) =>
+    block.map((candidate) => ({
+      ...candidate,
+      searchPosition: ladderPosition++,
+    })),
+  );
+
+  const catalogCandidates = [...allCandidates]
     .sort((left, right) => {
       const leftHost = httpUrl(left.url);
       const rightHost = httpUrl(right.url);
@@ -1132,12 +1212,7 @@ export async function runProductsPhase({
     catalogCandidates.map((candidate) => candidate.url),
   );
   const { kept: dedupedCandidates, collapsedCount } = dedupeNearDuplicates(
-    [
-      ...enumeratedCandidates,
-      ...planCandidates,
-      ...acquisitionCandidates,
-      ...scrapedCandidates,
-    ].filter((candidate) => catalogUrls.has(candidate.url)),
+    allCandidates.filter((candidate) => catalogUrls.has(candidate.url)),
   );
   const pool = mergeCandidatePool(dedupedCandidates);
 
@@ -1194,7 +1269,11 @@ export async function runProductsPhase({
           [],
           0,
           undefined,
-          "no product candidates in the merged pool (scraped + stored)",
+          `no product candidates in the merged pool (scraped + stored)${
+            planUrlsDropped > 0
+              ? `; ${planUrlsDropped} plan URL(s) dropped as unreachable`
+              : ""
+          }`,
         ),
         ...(catalog.zeroReason
           ? { catalogZeroReason: catalog.zeroReason }
@@ -1224,6 +1303,14 @@ export async function runProductsPhase({
   return auditedCall(
     { provider: "enrich", operation: "runProductsPhase", kind: "service" },
     async (ctx) => {
+      // How many of the plan's URLs failed verification. Recorded on every run,
+      // including the ones that succeed: a plan that names dead pages is a
+      // signal about the acquisition agent, not only about this brand.
+      Object.assign(ctx.summary, {
+        planUrlsProposed: planUrlsProposed.length,
+        planUrlsDropped,
+      });
+
       // Why the single-call body ran, when the agent was enabled and did not
       // publish. Without it a fallback run is indistinguishable from a run where
       // the agent was never enabled, and the first staging run could not say why
@@ -1342,15 +1429,21 @@ export async function runProductsPhase({
               imagePool: acquireImagePool ?? [],
               catalogResult: catalogResult ?? undefined,
               scrapedData: scrapedData ?? undefined,
-              priorityProductUrls: acquisitionPageUrls,
+              // Plan URLs first: they are the supplier that survives a
+              // truncated catalog crawl, and the agent's 12-select used to cut
+              // them because only the acquisition pages were forwarded.
+              priorityProductUrls: [
+                ...new Set([
+                  ...planCandidates.map((candidate) => candidate.url),
+                  ...(acquisitionPageUrls ?? []),
+                ]),
+              ],
               candidateIdsByUrl,
             },
             {
               // The scraper's guarded, audited fetch — never a raw `fetch`.
-              fetchHtml: async (url: string) => {
-                const metadata = await fetchHtmlWithMetadata(url);
-                return { text: metadata.text ?? "", statusCode: metadata.status ?? 0 };
-              },
+              // The same one plan-URL verification uses.
+              fetchHtml: fetchHtmlFn,
               ...(renderForBrand ? { renderProvider: renderForBrand } : {}),
               loadOriginTexts: loadOriginTextsFn,
               lookupRegistryProducts:

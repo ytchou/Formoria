@@ -40,6 +40,7 @@ const linksOutput = (): AcquirePhaseOutput => ({
   quarantine: {},
   imagePool: [],
   acquisitionPageUrls: [],
+  priorityProductUrls: [],
   revokedColumns: [],
   providerFailure: false,
 })

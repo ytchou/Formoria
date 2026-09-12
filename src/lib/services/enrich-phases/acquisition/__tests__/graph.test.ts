@@ -1196,6 +1196,82 @@ describe('acquisition graph — finalize', () => {
     expect(reason).toContain('1 triples')
   })
 
+  // The deadline is only worth passing if the callee can honour it and the
+  // caller keeps what comes back. This mock spends the whole window before
+  // answering, exactly as a slow crawl does.
+  it('finalize_keeps_triples_from_a_mock_that_spends_the_whole_deadline', async () => {
+    let clock = 1_000_000
+    const nowSpy = vi.spyOn(Date, 'now').mockImplementation(() => clock)
+    try {
+      const discoverCatalog = vi.fn(
+        async (options: { deadlineAtMs?: number }) => {
+          // Crawl until the caller's deadline, then return the partial pool.
+          while (options.deadlineAtMs && clock < options.deadlineAtMs) {
+            clock += 5_000
+          }
+          return {
+            triples: [
+              {
+                url: 'https://example.com/products/item-1',
+                title: 'Item 1',
+                imageUrl: 'https://cdn.example.com/item-1.jpg',
+                platform: 'generic' as const,
+                supplier: 'catalog:generic',
+                sourceUrl: 'https://example.com',
+                sourcePosition: 0,
+              },
+            ],
+            attempts: [],
+            evidence: new Map(),
+            deadlineHit: true,
+          }
+        },
+      )
+      const catalogSources = [{ url: 'https://example.com', channel: 'official' as const }]
+      const deps = makeDeps({ discoverCatalog, catalogSources })
+
+      const result = await runAcquisition(baseInput, deps, {
+        model: fakeAgentModel(planOnly),
+      })
+
+      const deadlineAtMs = discoverCatalog.mock.calls[0]![0]!.deadlineAtMs!
+      expect(clock).toBeGreaterThanOrEqual(deadlineAtMs)
+      expect(result.catalogResult!.triples).toHaveLength(1)
+      const finalize = result.decisions.find((d) => d.step === 'finalize')!
+      expect(finalize.reason).toContain('catalog truncated')
+      // The recorded allowance covers the catalog window, so a healthy run no
+      // longer logs ms far above its own allowance.
+      expect(finalize.allowanceMs).toBeGreaterThanOrEqual(finalize.ms)
+    } finally {
+      nowSpy.mockRestore()
+    }
+  })
+
+  // The backstop's other job: a crawl that never settles must not hold finalize
+  // open. Driven through the caller's signal because the timeout half of the
+  // composed signal is 75 s of real wall clock — `AbortSignal.timeout` is not
+  // faked by vitest's fake timers, so it cannot be advanced.
+  it('finalize_abandons_a_catalog_crawl_that_never_settles', async () => {
+    const controller = new AbortController()
+    const discoverCatalog = vi.fn(() => {
+      controller.abort(new Error('job cancelled'))
+      return new Promise<never>(() => {})
+    })
+    const catalogSources = [{ url: 'https://example.com', channel: 'official' as const }]
+    const deps = makeDeps({ discoverCatalog, catalogSources })
+
+    const result = await runAcquisition(baseInput, deps, {
+      model: fakeAgentModel(planOnly),
+      signal: controller.signal,
+    })
+
+    expect(discoverCatalog).toHaveBeenCalledTimes(1)
+    expect(result.catalogResult).toBeUndefined()
+    expect(result.decisions.find((d) => d.step === 'finalize')!.reason).toContain(
+      'catalog skipped',
+    )
+  })
+
   it('finalize_records_catalog_failure_reason', async () => {
     const discoverCatalog = vi.fn().mockRejectedValue(new Error('boom'))
     const catalogSources = [{ url: 'https://example.com', channel: 'official' as const }]

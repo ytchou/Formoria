@@ -191,6 +191,10 @@ describe('platform registry', () => {
       ['/store/collection/summer', false],
       ['/product/BP34', true],
       ['/product/category-b-pens', true],
+      // A listing word with a product BELOW it is still a product page —
+      // rejecting on the segment alone deleted every nested product URL.
+      ['/shop/c/12/ceramic-mug', true],
+      ['/product/category/pens/BP34', true],
     ] as const)('generic route %s → %s', (path, expected) => {
       expect(
         isOwnedProductRoute(

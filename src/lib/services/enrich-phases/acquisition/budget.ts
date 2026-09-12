@@ -36,14 +36,28 @@ export const NODE_ALLOWANCE_MS = {
   recover: 30_000,
   imagesRecover: 20_000,
   finalize: 30_000,
-  catalog: 60_000,
 } as const
+
+/**
+ * Catalog discovery's window. It is NOT a member of NODE_ALLOWANCE_MS: catalog
+ * is a block inside `finalize`, not a graph node, and `nodeKey in
+ * NODE_ALLOWANCE_MS` must keep resolving node names only.
+ */
+export const CATALOG_ALLOWANCE_MS = 60_000
+
+/**
+ * Grace past the catalog deadline before the hung-fetch backstop fires.
+ * Discovery reads its deadline at every loop head and before each guarded fetch
+ * and render, so the worst region it cannot interrupt is one fetch
+ * (FETCH_TIMEOUT_MS, 10 s) or one render. The grace covers that and no more.
+ */
+export const CATALOG_BACKSTOP_GRACE_MS = 15_000
 
 /**
  * Floor for catalog discovery. A window shorter than this cannot fetch a
  * landing page and hydrate one product page, so it buys nothing.
  */
-export const MIN_CATALOG_MS = 10_000
+const MIN_CATALOG_MS = 10_000
 
 /**
  * Catalog discovery's window, measured against the run's REMAINING wall clock
@@ -51,17 +65,19 @@ export const MIN_CATALOG_MS = 10_000
  * whatever it found when the window closes, so a short window costs triples,
  * never the whole result.
  *
- * Shortcut: on a run already at its ceiling the floor overruns `ceilingMs(scale)`
- * by up to MIN_CATALOG_MS, plus the hung-fetch backstop grace in finalizeNode
- * (CATALOG_BACKSTOP_GRACE_MS) — ~25 s worst case. Upgrade path: let the
- * products phase resume discovery instead of stretching the acquire run.
+ * The ceiling is absolute: the window stops short of `ceilingMs(scale)` by the
+ * hung-fetch grace, so the backstop can still fire inside the ceiling signal
+ * that guards the whole run. Overrunning it aborts `graph.invoke` and discards
+ * the ENTIRE finalize update — hero, gallery and image pool with it.
+ *
+ * Returns 0 when what is left cannot buy a landing page plus one product page;
+ * the caller then skips discovery outright rather than crawling for a result
+ * it cannot finish.
  */
 export function catalogAllowanceMs(elapsedMs: number, scale = 1): number {
-  const remaining = ceilingMs(scale) - elapsedMs
-  return Math.max(
-    MIN_CATALOG_MS,
-    Math.min(NODE_ALLOWANCE_MS.catalog * scale, remaining),
-  )
+  const remaining = ceilingMs(scale) - CATALOG_BACKSTOP_GRACE_MS - elapsedMs
+  if (remaining < MIN_CATALOG_MS) return 0
+  return Math.min(CATALOG_ALLOWANCE_MS, remaining)
 }
 
 /** Absolute ceiling at the given scale. */

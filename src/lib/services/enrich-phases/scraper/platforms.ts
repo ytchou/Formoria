@@ -1,3 +1,5 @@
+import { LISTING_SEGMENTS } from '../product-candidates'
+
 export type PlatformId =
   | 'shopline'
   | '91app'
@@ -94,6 +96,21 @@ const RULES: readonly PlatformRule[] = [
   },
 ]
 
+/**
+ * Generic (platform-unknown) product-detail route.
+ *
+ * The negative lookahead rejects a listing TAIL only: `/product/category/A` and
+ * `/shop/c/12` name a category, while `/product/category/pens/BP34` and
+ * `/shop/c/12/ceramic-mug` are products nested under one. Binding `[^/]+` to a
+ * bare `category` enumerated 20 of simbalion's listing pages as product detail,
+ * and rejecting on the segment alone deleted every nested product URL
+ * (DEV-1712). The vocabulary is shared with `isSkippedPath`.
+ */
+const GENERIC_PRODUCT_ROUTE = new RegExp(
+  `^(?:/[a-z]{2}(?:-[a-z]{2,4})?)?(?:/collections/[^/]+)?/(?:products?|items?|goods|shop|store|catalog|detail|product-page)/(?!(?:${LISTING_SEGMENTS.join('|')})(?:/[^/]+)?/?$)[^/]+`,
+  'i',
+)
+
 function hostMatches(hostname: string, expected: string): boolean {
   return hostname === expected || hostname.endsWith(`.${expected}`)
 }
@@ -137,11 +154,7 @@ export function isOwnedProductRoute(
     candidate.hostname.replace(/^www\./i, '').toLowerCase() ===
     source.hostname.replace(/^www\./i, '').toLowerCase()
   if (!sameHost) return false
-  // The trailing segment must not itself be a listing pivot: `/product/category/A`
-  // is a category page, and binding `[^/]+` to the literal `category` enumerated
-  // 20 of simbalion's listing pages as product detail (DEV-1712).
-  if (!platform)
-    return /^(?:\/[a-z]{2}(?:-[a-z]{2,4})?)?(?:\/collections\/[^/]+)?\/(?:products?|items?|goods|shop|store|catalog|detail|product-page)\/(?!(?:category|categories|c|collection)(?:\/|$))[^/]+/i.test(candidate.pathname)
+  if (!platform) return GENERIC_PRODUCT_ROUTE.test(candidate.pathname)
 
   const rule = RULES.find((entry) => entry.id === platform)
   return (

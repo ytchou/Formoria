@@ -60,6 +60,7 @@ import {
   RESERVED_TAIL_MS,
   IMAGE_BATCH_EXTENSION_MS,
   NODE_ALLOWANCE_MS,
+  CATALOG_BACKSTOP_GRACE_MS,
   catalogAllowanceMs,
   ceilingMs,
   type AcquisitionBudget,
@@ -100,9 +101,6 @@ const MAX_BAD_SUBMITS = 2
 
 /** Gallery slots after the hero. */
 const MAX_GALLERY = 9
-
-/** Grace past the catalog deadline before the hung-fetch backstop fires. */
-const CATALOG_BACKSTOP_GRACE_MS = 15_000
 
 /** Fewer classified keeps than this after recovery is "thin" for image search. */
 const MIN_KEEPS = 3
@@ -270,7 +268,7 @@ function createRunContext(
     remainingMs() {
       return Math.max(0, ctx.budget.allowed.wallClockMs - (Date.now() - ctx.wallClockStart))
     },
-    record(step, action, reason, startedAt, _extra) {
+    record(step, action, reason, startedAt, extra) {
       const remaining = ctx.remainingMs()
       const isTailNode = step === 'critique' || step === 'finalize'
       const nodeKey = step === 'plan_stage' ? 'plan' : step
@@ -292,6 +290,12 @@ function createRunContext(
         }
         // Clamp to leave room for the reserved tail, matching nodeSignal()
         allowanceMs = Math.max(1, Math.min(rawAllowance, remaining - RESERVED_TAIL_MS))
+      }
+      // `finalize` carries the catalog block, which runs on its own window on
+      // top of the reserved tail. Without this the trace printed ms >> allowance
+      // on every healthy catalog run.
+      if (typeof extra?.extraAllowanceMs === 'number') {
+        allowanceMs += extra.extraAllowanceMs
       }
       ctx.decisions.push({
         step,
@@ -1266,7 +1270,6 @@ async function finalizeNode(
 ): Promise<AcquisitionUpdate> {
   ctx.lastState = state
   const start = Date.now()
-  ctx.budget.used.wallClockMs = Date.now() - ctx.wallClockStart // records the final wall-clock usage
 
   const pool: RankableImage[] = state.classifiedImages.map((image) => ({
     ...image,
@@ -1295,57 +1298,91 @@ async function finalizeNode(
   const hasCatalogInput =
     entryUrls.length > 0 || priorityProductUrls.length > 0 || catalogSources.length > 0
   let catalogError: string | undefined
+  let catalogSkip: string | undefined
   let catalogMs = 0
+  let catalogAllowance = 0
   if (ctx.deps.discoverCatalog && hasCatalogInput) {
     const catalogStart = Date.now()
     // Discovery owns its own deadline and returns what it found when the window
     // closes. Racing it against the 35 s tail instead discarded every triple of
     // a slow crawl, and six of ten brands reached products with an empty pool
-    // (DEV-1712).
-    const allowanceMs = catalogAllowanceMs(
+    // (DEV-1712). The window stops short of the run ceiling: overrunning it
+    // aborts the whole graph and loses hero and gallery with the catalog.
+    catalogAllowance = catalogAllowanceMs(
       catalogStart - ctx.wallClockStart,
       ctx.scale,
     )
-    // Backstop only: a fetch that never settles is not something the callee's
-    // between-batch deadline check can see. It costs the partial result, so the
-    // grace is generous. Upgrade path: give the catalog fetcher a per-request
-    // timeout and drop the race.
-    const backstop = AbortSignal.timeout(allowanceMs + CATALOG_BACKSTOP_GRACE_MS)
-    try {
-      catalogResult = await Promise.race([
-        ctx.deps.discoverCatalog({
-          sources: catalogSources,
-          entryUrls,
-          priorityProductUrls,
-          deadlineAtMs: catalogStart + allowanceMs,
-          ...(ctx.deps.renderProvider ? { renderProvider: ctx.deps.renderProvider } : {}),
-        }),
-        new Promise<never>((_, reject) => {
-          backstop.addEventListener('abort', () => reject(backstop.reason), {
-            once: true,
-          })
-        }),
-      ])
-    } catch (error) {
-      catalogError =
-        error instanceof Error ? error.message.slice(0, 120) : 'catalog failed'
+    if (catalogAllowance === 0) {
+      catalogSkip = 'no wall clock left'
+    } else {
+      // Backstop only: a fetch that never settles is not something the callee's
+      // deadline checks can see. Those checks now sit at every loop head and
+      // before each guarded fetch and render, so the worst region the callee
+      // cannot interrupt is one guarded fetch bounded by FETCH_TIMEOUT_MS
+      // (10 s) or one render —
+      // CATALOG_BACKSTOP_GRACE_MS covers that. Upgrade path: give the catalog
+      // fetcher a per-request timeout and drop the race. Composed with the
+      // caller's signal so an aborted job stops crawling immediately instead of
+      // running out the window.
+      const timeout = AbortSignal.timeout(
+        catalogAllowance + CATALOG_BACKSTOP_GRACE_MS,
+      )
+      const backstop = withSignal(ctx.options.signal, timeout) ?? timeout
+      let onAbort: (() => void) | undefined
+      try {
+        catalogResult = await Promise.race([
+          ctx.deps.discoverCatalog({
+            sources: catalogSources,
+            entryUrls,
+            priorityProductUrls,
+            deadlineAtMs: catalogStart + catalogAllowance,
+            ...(ctx.deps.renderProvider ? { renderProvider: ctx.deps.renderProvider } : {}),
+          }),
+          new Promise<never>((_, reject) => {
+            if (backstop.aborted) {
+              reject(backstop.reason)
+              return
+            }
+            onAbort = () => reject(backstop.reason)
+            backstop.addEventListener('abort', onAbort, { once: true })
+          }),
+        ])
+      } catch (error) {
+        catalogError =
+          error instanceof Error ? error.message.slice(0, 120) : 'catalog failed'
+      } finally {
+        // Discovery usually wins the race; without this the listener (and the
+        // closure behind it) outlives finalize by the whole window.
+        if (onAbort) backstop.removeEventListener('abort', onAbort)
+      }
+      catalogMs = Date.now() - catalogStart
     }
-    catalogMs = Date.now() - catalogStart
+  } else if (hasCatalogInput) {
+    catalogSkip = 'no discoverCatalog dependency'
   }
+
+  // Recorded after the catalog block: written before it, the reported usage
+  // omitted every millisecond discovery spent.
+  ctx.budget.used.wallClockMs = Date.now() - ctx.wallClockStart
 
   // The outcome is recorded, not swallowed: the silent catch is why a 35 s
   // abort took a database dig to find.
   const catalogNote = catalogResult
     ? `catalog ${catalogResult.deadlineHit ? 'truncated' : 'discovered'}, ${catalogResult.triples.length} triples in ${catalogMs} ms`
-    : hasCatalogInput
-      ? `catalog skipped: ${catalogError ?? 'no result'} after ${catalogMs} ms`
-      : 'catalog skipped: no sources'
+    : catalogSkip
+      ? `catalog skipped: ${catalogSkip}`
+      : hasCatalogInput
+        ? `catalog skipped: ${catalogError ?? 'no result'} after ${catalogMs} ms`
+        : 'catalog skipped: no sources'
 
   ctx.record(
     'finalize',
     `${ranked.length} ranked images`,
     `hero ${hero ? 'picked' : 'none'}, gallery ${gallery.length}, ${catalogNote}`,
     start,
+    catalogAllowance > 0
+      ? { extraAllowanceMs: catalogAllowance + CATALOG_BACKSTOP_GRACE_MS }
+      : {},
   )
 
   return {
