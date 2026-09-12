@@ -5,11 +5,4 @@ export {
   TAIWAN_USAGE_RULES,
 } from "./shared";
 export { SITE_IDENTITY_LABELS } from "./site-identity";
-export {
-  faqCustomPrompt,
-  faqMainProductsPrompt,
-  faqCategoryPositionPrompt,
-  faqWhereToBuyPrompt,
-} from "./faq";
 export { PRODUCTS_LABELS } from "./products";
-export { PRODUCTS_SCHEMA_TRAILER } from "./products-agent";

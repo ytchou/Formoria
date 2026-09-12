@@ -7,7 +7,9 @@ import {
   FAQ_PRESETS,
   buildFaqSystemPrompt,
   eligibleFaqPresets,
+  type FaqFragmentResolver,
 } from "../index";
+import type { PromptName } from "@/lib/langfuse/prompt";
 import type { FaqBrandContext, FaqPreset, FaqValidatorContext } from "../types";
 import {
   noCommerceClaims,
@@ -118,25 +120,43 @@ function assertPresetShape(preset: FaqPreset): void {
   }
   expect(
     preset.promptFragment === null ||
-      typeof preset.promptFragment === "function",
+      typeof preset.promptFragment.variables === "function",
   ).toBe(true);
   expect(Array.isArray(preset.validators)).toBe(true);
 }
 
 /**
- * Compiled snapshot preamble — replaces the deleted `FAQ_PROMPT_PREAMBLE`
- * constant. Uses the same mustache compilation as the runtime.
+ * Compiles a snapshot prompt with the same mustache rule as the runtime.
+ * Stands in for `fetchLangfusePrompt` so the suite reads the committed
+ * text rather than a network mock.
  */
-function compiledFaqPreamble(): string {
-  const entry = snapshot.prompts["faq-preamble"];
-  const raw = entry.text.join("\n");
-  return raw.replace(/\{\{(\w+)\}\}/g, (_match, key: string) => {
-    if (key === "taiwan_usage_rules") return TAIWAN_USAGE_RULES;
-    return `{{${key}}}`;
-  });
+function compileSnapshotPrompt(
+  name: PromptName,
+  variables: Record<string, string>,
+): string {
+  const raw = snapshot.prompts[name].text.join("\n");
+  return raw.replace(/\{\{(\w+)\}\}/g, (_match, key: string) =>
+    key in variables ? variables[key] : `{{${key}}}`,
+  );
 }
 
-const FAQ_PREAMBLE = compiledFaqPreamble();
+const resolveFromSnapshot: FaqFragmentResolver = async (name, variables) =>
+  compileSnapshotPrompt(name, variables);
+
+const FAQ_PREAMBLE = compileSnapshotPrompt("faq-preamble", {
+  taiwan_usage_rules: TAIWAN_USAGE_RULES,
+});
+
+function fragmentText(
+  preset: FaqPreset,
+  ctx: FaqBrandContext,
+): string | undefined {
+  if (!preset.promptFragment) return undefined;
+  return compileSnapshotPrompt(
+    preset.promptFragment.prompt,
+    preset.promptFragment.variables(ctx),
+  );
+}
 
 function presetById(id: string): FaqPreset {
   const found = FAQ_PRESETS.find((candidate) => candidate.id === id);
@@ -310,16 +330,21 @@ describe("FAQ preset catalog", () => {
     expect(FAQ_PREAMBLE).toContain("delivery");
   });
 
-  it("assembled prompt contains only eligible fragments", () => {
+  it("assembled prompt contains only eligible fragments", async () => {
     const context = makeContext({
       brand: makeBrand({ reputationSummary: null }),
     });
     const eligible = eligibleFaqPresets(context);
-    const prompt = buildFaqSystemPrompt(FAQ_PREAMBLE, eligible, context);
+    const prompt = await buildFaqSystemPrompt(
+      FAQ_PREAMBLE,
+      eligible,
+      context,
+      resolveFromSnapshot,
+    );
 
     expect(prompt).toContain(FAQ_PREAMBLE);
     for (const preset of FAQ_PRESETS) {
-      const fragment = preset.promptFragment?.(context);
+      const fragment = fragmentText(preset, context);
       if (fragment === undefined) continue;
       if (eligible.includes(preset)) {
         expect(prompt).toContain(fragment);
@@ -327,21 +352,48 @@ describe("FAQ preset catalog", () => {
         expect(prompt).not.toContain(fragment);
       }
     }
+
+    // The variables really landed in the text: a template that shipped with
+    // an uncompiled `{{brand_name}}` would still pass every check above.
+    expect(prompt).toContain('"Harbor Form"');
+    expect(prompt).toContain("up to 3 most useful custom questions");
   });
 
-  it("buildFaqSystemPrompt_uses_injected_preamble_first", () => {
+  it("every fragment supplies exactly the placeholders its snapshot prompt declares", () => {
+    const ctx = makeContext();
+    for (const preset of FAQ_PRESETS) {
+      if (!preset.promptFragment) continue;
+      const declared = new Set(
+        [
+          ...snapshot.prompts[preset.promptFragment.prompt].text
+            .join("\n")
+            .matchAll(/\{\{(\w+)\}\}/g),
+        ].map((m) => m[1]),
+      );
+      expect(new Set(Object.keys(preset.promptFragment.variables(ctx)))).toEqual(
+        declared,
+      );
+    }
+  });
+
+  it("buildFaqSystemPrompt_uses_injected_preamble_first", async () => {
     const context = makeContext({
       brand: makeBrand({ reputationSummary: null }),
     });
     const eligible = eligibleFaqPresets(context);
     const preamble = "INJECTED PREAMBLE TEXT FOR TESTING";
-    const prompt = buildFaqSystemPrompt(preamble, eligible, context);
+    const prompt = await buildFaqSystemPrompt(
+      preamble,
+      eligible,
+      context,
+      resolveFromSnapshot,
+    );
 
     // The assembled prompt must start with the injected preamble
     expect(prompt.startsWith(preamble)).toBe(true);
     // Fragments from eligible presets still appear
     for (const preset of eligible) {
-      const fragment = preset.promptFragment?.(context);
+      const fragment = fragmentText(preset, context);
       if (fragment) {
         expect(prompt).toContain(fragment);
       }
@@ -420,7 +472,7 @@ describe("FAQ preset catalog", () => {
 
   it("category-position prompt contains no founding-city clusters", () => {
     const ctx = makeContext();
-    const prompt = presetById("category-position").promptFragment?.(ctx) ?? "";
+    const prompt = fragmentText(presetById("category-position"), ctx) ?? "";
 
     expect(prompt).not.toContain("Taipei");
     expect(prompt).not.toMatch(/city|geographic distribution/iu);
