@@ -1371,7 +1371,13 @@ export async function runProductsPhase({
             classifyPageImages ??
             (async (handles: string[]) => {
               if (dryRun) return [];
-              const { classifyStoredImages, applyPlannedImageWrites } = await import("./classify-images");
+              const {
+                classifyStoredImages,
+                applyPlannedImageWrites,
+                getActiveImages,
+                finalizeHeroOrder,
+                keepStatusForPageImages,
+              } = await import("./classify-images");
               const { createServiceClient: createClient } = await import("@/lib/supabase/service");
 
               const supabase = createClient();
@@ -1384,6 +1390,12 @@ export async function runProductsPhase({
               }).from(storage.table).select("id").eq(storage.foreignKey, effectiveTarget.id).in("storage_path", handles);
               const onlyImageIds: string[] = (matchedRows ?? []).map((r) => r.id);
 
+              // Page images stay candidate unless this target has no gallery
+              // at all; see keepStatusForPageImages (DEV-1714).
+              const keepStatus = keepStatusForPageImages(
+                (await getActiveImages(supabase, effectiveTarget)).length,
+              );
+
               const wanted = new Set(handles);
               const classifyResult = await classifyStoredImages({
                 brand,
@@ -1394,16 +1406,18 @@ export async function runProductsPhase({
                 ctx,
                 onlyImageIds,
                 supabase,
-                // A page image is product evidence, not a gallery image: only
-                // finalizeHeroOrder (acquire) may mint an active sort_order,
-                // and promoting these left duplicate sort_order 0 rows that
-                // fail apply_brand_refresh's publishable-core guard (DEV-1714).
-                keepStatus: "candidate",
+                keepStatus,
               });
 
               // Persist vision verdicts so the next run does not re-classify.
               if (!dryRun && classifyResult.writes.length > 0) {
                 await applyPlannedImageWrites(supabase, effectiveTarget, classifyResult.writes);
+                // Active rows need a unique sort_order before apply. Apply
+                // reads submission_images directly, so a submission's patch
+                // hero is not forwarded here the way acquire does.
+                if (keepStatus === "active") {
+                  await finalizeHeroOrder(supabase, effectiveTarget, { mode: "classify" });
+                }
               }
 
               return classifyResult.classified
