@@ -77,8 +77,8 @@ importers:
         specifier: ^4.0.3
         version: 4.0.3
       jose:
-        specifier: ^6.2.4
-        version: 6.2.4
+        specifier: ^6.2.11
+        version: 6.2.11
       langfuse:
         specifier: ^3.38.20
         version: 3.38.20
@@ -4624,11 +4624,8 @@ packages:
     resolution: {integrity: sha512-AC/7JofJvZGrrneWNaEnJeOLUx+JlGt7tNa0wZiRPT4MY1wmfKjt2+6O2p2uz2+skll8OZZmJMNqeke7kKbNgQ==}
     hasBin: true
 
-  jose@6.2.10:
-    resolution: {integrity: sha512-iiW7J9qRFlGxvCOIBDBDxFePQSn7ZMAnrYGhrrOo6siO/MIqwfyilLR27pkfDgUk+raLuzADS8A3S/KLBisc0g==}
-
-  jose@6.2.4:
-    resolution: {integrity: sha512-N8acGzVsQy6M/fjFcxtysNc4Q379TcM5dM/qKkNtsHFji88yANnXTr7BLeP75iPnFwBfQzM/jg2BZ9+HZrHCZA==}
+  jose@6.2.11:
+    resolution: {integrity: sha512-A5NPn7g8EAzGU3IzRs+Yiq8K5n3ypYS75M5+KKiVHdUexfpWK1kP4ZMq7QnTGDoMj6TJ1dtcEJjW60yZDXS4hg==}
 
   js-base64@3.9.2:
     resolution: {integrity: sha512-6zayE8QlUdiweYI6cETD/XBSqFcoCUlufn/29PJR99r82x1yDnIprRca0YvAYpAW+ez0GuQkVBC6xG5QkD7OjA==}
@@ -7660,7 +7657,7 @@ snapshots:
       express: 5.2.1
       express-rate-limit: 8.6.2(express@5.2.1)
       hono: 4.13.2
-      jose: 6.2.10
+      jose: 6.2.11
       json-schema-typed: 8.0.2
       pkce-challenge: 5.0.1
       raw-body: 3.0.2
@@ -11053,9 +11050,7 @@ snapshots:
 
   jiti@2.7.0: {}
 
-  jose@6.2.10: {}
-
-  jose@6.2.4: {}
+  jose@6.2.11: {}
 
   js-base64@3.9.2: {}
 
@@ -12968,7 +12963,7 @@ snapshots:
   supabase@2.116.0:
     dependencies:
       eciesjs: 0.5.0
-      jose: 6.2.10
+      jose: 6.2.11
     optionalDependencies:
       '@supabase/cli-darwin-arm64': 2.116.0
       '@supabase/cli-darwin-x64': 2.116.0
