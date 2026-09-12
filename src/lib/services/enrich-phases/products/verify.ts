@@ -15,6 +15,7 @@ import {
   type RegistryOriginAssessment,
   type OriginQualificationMethod,
 } from '@/lib/services/curated-products/origin-qualification'
+import { restatesProductName, findForbiddenProductTerms, containsPricingInformation, PRICING_OVERLAP_TERMS } from '@/lib/services/enrich-validators'
 
 const L1_SLUGS = new Set<string>(L1_CATEGORIES.map((c) => c.slug))
 
@@ -107,6 +108,26 @@ export function verifyClosedSets(proposal: {
 }
 
 // ---------------------------------------------------------------------------
+// Description
+// ---------------------------------------------------------------------------
+
+export function verifyDescription(input: { nameZh: string; productDescriptionZh: string }): string[] {
+  const failures: string[] = []
+  if (restatesProductName(input.nameZh, input.productDescriptionZh)) {
+    failures.push('description_name_echo: product_description_zh restates name_zh; rewrite the opening clause so it leads with a differentiating fact')
+  }
+  const forbiddenHits = findForbiddenProductTerms(input.productDescriptionZh)
+  for (const term of forbiddenHits) {
+    failures.push(`description_forbidden_term:${term}: remove the term and replace it with the concrete fact behind it`)
+  }
+  const hasPricingForbiddenTerm = forbiddenHits.some(t => PRICING_OVERLAP_TERMS.has(t))
+  if (!hasPricingForbiddenTerm && containsPricingInformation(input.productDescriptionZh, 'zh')) {
+    failures.push('description_pricing: remove prices, discounts, or inventory')
+  }
+  return failures
+}
+
+// ---------------------------------------------------------------------------
 // Composite
 // ---------------------------------------------------------------------------
 
@@ -116,6 +137,8 @@ type ProposalInput = {
   subcategory?: string
   material?: string[]
   imageUrl?: string | null
+  nameZh: string
+  productDescriptionZh: string
 }
 
 /** Inputs `verifyOrigin` needs. All three or none — the decision is a consensus. */
@@ -161,8 +184,8 @@ export type ProposalVerification = {
 }
 
 /**
- * Runs every verification check. `repairable` is true when only closed-set or
- * image checks failed — the URL checks passed.
+ * Runs every verification check. `repairable` is true when the URL checks
+ * passed but other checks (closed-set, description) failed.
  *
  * Origin is assessed but never fails a proposal: a product that is not made in
  * Taiwan is still a product Formoria may list, so the decision rides out on
@@ -221,7 +244,16 @@ export function verifyProposal(
     failures.push(...closedSetResult.failures)
   }
 
-  // 5. Origin — assessed, recorded, never a drop reason.
+  // 5. Description
+  const descriptionFailures = verifyDescription({
+    nameZh: proposal.nameZh,
+    productDescriptionZh: proposal.productDescriptionZh,
+  })
+  if (descriptionFailures.length > 0) {
+    failures.push(...descriptionFailures)
+  }
+
+  // 6. Origin — assessed, recorded, never a drop reason.
   const origin = deps.origin ? verifyOrigin(deps.origin).decision : null
 
   const ok = failures.length === 0

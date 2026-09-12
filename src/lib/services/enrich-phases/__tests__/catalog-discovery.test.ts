@@ -351,6 +351,179 @@ describe('entryUrls and priorityProductUrls', () => {
       expect(firstBatchUrls).toContain(url)
     }
   })
+
+  it('drops a priority URL that names a listing page', async () => {
+    const fetcher = fetcherFor({
+      'https://shop.example': '<a href="/products/cup">Cup</a>',
+      'https://shop.example/products/cup': productHtml('Cup'),
+      'https://shop.example/product/category/pens': productHtml('Pens'),
+    })
+    const result = await discoverCatalog({
+      sources: [{ url: 'https://shop.example', channel: 'official' }],
+      fetcher,
+      priorityProductUrls: ['https://shop.example/product/category/pens'],
+    })
+    expect(result.triples.map((t) => t.url)).toEqual([
+      'https://shop.example/products/cup',
+    ])
+    expect(fetcher).not.toHaveBeenCalledWith(
+      'https://shop.example/product/category/pens',
+      'html',
+    )
+  })
+})
+
+// DEV-1712: one site-wide `<title>` on every product page used to discard the
+// whole triple, so a brand with real anchor text and images reported no_catalog.
+describe('site-wide title fallback', () => {
+  const templated = (image: string) => `
+    <title>Brand — 台灣製</title>
+    <main><p>Made in Taiwan.</p></main>
+    <meta property="og:type" content="product">
+    <meta property="og:image" content="${image}">
+  `
+
+  it('falls back to the anchor title when the page serves the landing title', async () => {
+    const result = await discoverCatalog({
+      sources: [{ url: 'https://shop.example', channel: 'official' }],
+      fetcher: fetcherFor({
+        'https://shop.example':
+          '<title>Brand — 台灣製</title><a href="/products/cup">Ceramic cup</a>',
+        'https://shop.example/products/cup': templated(
+          'https://cdn.example/cup.jpg',
+        ),
+      }),
+    })
+    expect(result.triples).toHaveLength(1)
+    expect(result.triples[0]?.title).toBe('Ceramic cup')
+  })
+
+  it('drops the triple as site_title when the anchor carries no title either', async () => {
+    const result = await discoverCatalog({
+      sources: [{ url: 'https://shop.example', channel: 'official' }],
+      fetcher: fetcherFor({
+        'https://shop.example':
+          '<title>Brand — 台灣製</title><a href="/products/cup"><img src="/cup.png"></a>',
+        'https://shop.example/products/cup': templated(
+          'https://cdn.example/cup.jpg',
+        ),
+      }),
+    })
+    expect(result.triples).toHaveLength(0)
+    expect(result.attempts[0]?.drops.site_title).toBe(1)
+  })
+
+  it('keeps a per-page h1 title that happens to repeat the landing title', async () => {
+    // The title did NOT fall through to `<title>` — an `h1` is per-page
+    // evidence even when the template repeats it.
+    const result = await discoverCatalog({
+      sources: [{ url: 'https://shop.example', channel: 'official' }],
+      fetcher: fetcherFor({
+        'https://shop.example':
+          '<title>Ceramic cup</title><a href="/products/cup">Cup</a>',
+        'https://shop.example/products/cup': productHtml('Ceramic cup'),
+      }),
+    })
+    expect(result.triples[0]?.title).toBe('Ceramic cup')
+  })
+})
+
+// DEV-1712: the caller used to abort the whole crawl at a fixed 35 s tail and
+// discard everything, so six of ten brands reached the products phase with an
+// empty pool. Discovery now owns the deadline and keeps what it already found.
+describe('deadline', () => {
+  it('resolves with the triples found so far and flags deadlineHit', async () => {
+    let clock = 1_000_000
+    const nowSpy = vi.spyOn(Date, 'now').mockImplementation(() => clock)
+    try {
+      const pages: Record<string, string> = {
+        'https://one.example': '<a href="/products/cup">Cup</a>',
+        'https://one.example/products/cup': productHtml('Cup'),
+        'https://two.example': '<a href="/products/mug">Mug</a>',
+        'https://two.example/products/mug': productHtml('Mug'),
+      }
+      // Every fetch costs 5 s of the crawl's own clock.
+      const fetcher: CatalogFetch = vi.fn(async (url) => {
+        clock += 5_000
+        return {
+          text: pages[url] ?? null,
+          status: pages[url] ? 200 : 404,
+          error: pages[url] ? null : 'HTTP 404',
+        }
+      })
+      const result = await discoverCatalog({
+        sources: [
+          { url: 'https://one.example', channel: 'official' },
+          { url: 'https://two.example', channel: 'official' },
+        ],
+        fetcher,
+        // Enough for the first source's landing + sitemap probe + one product
+        // page, not enough for the second source.
+        deadlineAtMs: clock + 22_000,
+      })
+      expect(result.deadlineHit).toBe(true)
+      expect(result.triples).toHaveLength(1)
+      expect(result.triples[0]).toMatchObject({ title: 'Cup' })
+      expect(fetcher).not.toHaveBeenCalledWith(
+        'https://two.example/products/mug',
+        'html',
+      )
+    } finally {
+      nowSpy.mockRestore()
+    }
+  })
+
+  // A crawl the deadline cut short has proven nothing about the brand. Filing
+  // it as `no_catalog` persists that non-answer as the permanent verdict the
+  // coverage census reads.
+  it('reports truncated, not no_catalog, when it ran out of time with nothing', async () => {
+    let clock = 1_000_000
+    const nowSpy = vi.spyOn(Date, 'now').mockImplementation(() => clock)
+    try {
+      const pages: Record<string, string> = {
+        'https://slow.example': '<a href="/products/cup">Cup</a>',
+        'https://slow.example/products/cup': productHtml('Cup'),
+      }
+      const fetcher: CatalogFetch = vi.fn(async (url) => {
+        clock += 5_000
+        return {
+          text: pages[url] ?? null,
+          status: pages[url] ? 200 : 404,
+          error: pages[url] ? null : 'HTTP 404',
+        }
+      })
+      const result = await discoverCatalog({
+        sources: [{ url: 'https://slow.example', channel: 'official' }],
+        fetcher,
+        // Only the landing fetch fits.
+        deadlineAtMs: clock + 3_000,
+      })
+      expect(result.triples).toHaveLength(0)
+      expect(result.deadlineHit).toBe(true)
+      expect(result.zeroReason).toBe('truncated')
+      // The sitemap walk is up to 20 sequential fetches of its own; it must
+      // read the same deadline the loops above it do.
+      expect(fetcher).not.toHaveBeenCalledWith(
+        'https://slow.example/robots.txt',
+        'text',
+      )
+    } finally {
+      nowSpy.mockRestore()
+    }
+  })
+
+  it('reports deadlineHit false when the crawl completes', async () => {
+    const result = await discoverCatalog({
+      sources: [{ url: 'https://shop.example', channel: 'official' }],
+      fetcher: fetcherFor({
+        'https://shop.example': '<a href="/products/cup">Cup</a>',
+        'https://shop.example/products/cup': productHtml('Ceramic cup'),
+      }),
+      deadlineAtMs: Date.now() + 60_000,
+    })
+    expect(result.deadlineHit).toBe(false)
+    expect(result.triples).toHaveLength(1)
+  })
 })
 
 describe('hasProductSignals', () => {

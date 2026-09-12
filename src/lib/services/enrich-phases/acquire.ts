@@ -58,6 +58,7 @@ import {
   discoverCatalog as defaultDiscoverCatalog,
   type CatalogDiscoveryResult,
 } from './catalog-discovery'
+import { CATALOG_ALLOWANCE_MS } from './acquisition/budget'
 import {
   downloadAndGateImages as defaultDownloadAndGateImages,
   storeKeptImages as defaultStoreKeptImages,
@@ -144,6 +145,12 @@ export type AcquirePhaseOutput = {
   catalogResult?: CatalogDiscoveryResult
   /** Pages that yielded at least one image candidate. */
   acquisitionPageUrls: string[]
+  /**
+   * Product pages the acquisition plan named. Flat, beside its two siblings:
+   * the orchestrator reading it out of `acquisitionPlan.catalog` leaked the
+   * plan's shape and would throw the day the plan is read from a stored record.
+   */
+  priorityProductUrls: string[]
   /** Columns a high-confidence "not owned" critique verdict struck this run. */
   revokedColumns: string[]
   /** A search or render provider threw and no evidence was collected (Gate A). */
@@ -675,6 +682,7 @@ export async function runAcquirePhase({
       quarantine: {},
       imagePool: [],
       acquisitionPageUrls: [],
+      priorityProductUrls: [],
       revokedColumns: [],
       providerFailure: false,
     }
@@ -953,6 +961,10 @@ export async function runAcquirePhase({
           sources: buildChannelSources(brand),
           entryUrls: urls,
           priorityProductUrls: [],
+          // The fallback path has no agent budget behind it, so nothing else
+          // bounds this crawl. Without a deadline it walked sitemaps for
+          // minutes per brand (DEV-1712).
+          deadlineAtMs: Date.now() + CATALOG_ALLOWANCE_MS,
           renderProvider: renderForBrand,
         })
       } catch {
@@ -1001,6 +1013,7 @@ export async function runAcquirePhase({
       imagePool,
       catalogResult,
       acquisitionPageUrls,
+      priorityProductUrls: agentAcquisitionPlan?.catalog.priorityProductUrls ?? [],
       providerFailure,
       agentAcquisitionPlan,
       agentOutcome,
@@ -1063,6 +1076,7 @@ export async function runAcquirePhase({
     imagePool: result.imagePool,
     ...(result.catalogResult ? { catalogResult: result.catalogResult } : {}),
     acquisitionPageUrls: result.acquisitionPageUrls,
+    priorityProductUrls: result.priorityProductUrls,
     revokedColumns: result.revokedColumns,
     providerFailure: result.providerFailure,
     ...(result.agentAcquisitionPlan ? { acquisitionPlan: result.agentAcquisitionPlan } : {}),

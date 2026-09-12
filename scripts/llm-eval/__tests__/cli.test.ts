@@ -11,6 +11,7 @@ import {
   handlePromptPull,
   handlePromptPromote,
   isReviewed,
+  isAdmittedProductsItem,
   LANGFUSE_SNAPSHOT_PATH,
 } from '../llm-eval'
 import type { PromptApi, SnapshotFile } from '@/lib/services/eval/prompt-sync'
@@ -165,6 +166,7 @@ describe('parseCliArgs — pairwise', () => {
       ],
       envFile: undefined,
       noEnqueue: false,
+      allowUnreviewed: false,
     })
   })
 
@@ -268,6 +270,7 @@ describe('parseCliArgs — pairwise run products / --no-enqueue', () => {
       ],
       envFile: undefined,
       noEnqueue: false,
+      allowUnreviewed: false,
     })
   })
 
@@ -567,5 +570,70 @@ describe('isReviewed', () => {
 
     // No metadata → unreviewed
     expect(isReviewed({})).toBe(false)
+  })
+})
+
+// ---------------------------------------------------------------------------
+// parseCliArgs — pairwise --allow-unreviewed
+// ---------------------------------------------------------------------------
+
+describe('parseCliArgs — pairwise --allow-unreviewed', () => {
+  it('pairwise run parses --allow-unreviewed', () => {
+    const result = parseCliArgs([
+      'pairwise', 'run',
+      '--phase', 'products',
+      '--arm', 'prompt:1',
+      '--arm', 'prompt:2',
+      '--allow-unreviewed',
+    ])
+    expect(result).toMatchObject({
+      command: 'pairwise-run',
+      allowUnreviewed: true,
+    })
+  })
+
+  it('pairwise run defaults allowUnreviewed to false', () => {
+    const result = parseCliArgs([
+      'pairwise', 'run',
+      '--phase', 'products',
+      '--arm', 'prompt:1',
+      '--arm', 'prompt:2',
+    ])
+    expect(result).toMatchObject({
+      command: 'pairwise-run',
+      allowUnreviewed: false,
+    })
+  })
+})
+
+// ---------------------------------------------------------------------------
+// isAdmittedProductsItem
+// ---------------------------------------------------------------------------
+
+describe('isAdmittedProductsItem', () => {
+  it('admits ACTIVE reviewed items regardless of allowUnreviewed', () => {
+    const item = {
+      status: 'ACTIVE',
+      metadata: { humanApproval: { status: 'approved', reviewedVia: 'manual' } },
+    }
+    expect(isAdmittedProductsItem(item, false)).toBe(true)
+    expect(isAdmittedProductsItem(item, true)).toBe(true)
+  })
+
+  it('admits pending archived items only when allowUnreviewed is true', () => {
+    const item = {
+      status: 'ARCHIVED',
+      metadata: { humanApproval: { status: 'pending' } },
+    }
+    expect(isAdmittedProductsItem(item, false)).toBe(false)
+    expect(isAdmittedProductsItem(item, true)).toBe(true)
+  })
+
+  it('rejects ARCHIVED items without pending approval even when allowUnreviewed', () => {
+    const item = {
+      status: 'ARCHIVED',
+      metadata: { humanApproval: { status: 'approved', reviewedVia: 'manual' } },
+    }
+    expect(isAdmittedProductsItem(item, true)).toBe(false)
   })
 })
