@@ -6,4 +6,3 @@ export {
 } from "./shared";
 export { SITE_IDENTITY_LABELS } from "./site-identity";
 export { PRODUCTS_LABELS } from "./products";
-export { PRODUCTS_SCHEMA_TRAILER } from "./products-agent";
