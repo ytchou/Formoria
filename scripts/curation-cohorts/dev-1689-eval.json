@@ -80,9 +80,9 @@
     },
     "bugrelu": {
       "group": "opt10",
-      "tags": ["own_site"],
+      "tags": ["own_site", "js_render"],
       "expected": "success_products",
-      "evidence": "Own site with product pages: https://www.bugrelu.com; render fix landed in #1073"
+      "evidence": "Own site (JS-rendered SPA): https://www.bugrelu.com; render_required in-process (no Playwright). Unfixable for eval — DEV-1718."
     },
     "taiwan-dye": {
       "group": "opt10",
@@ -134,9 +134,9 @@
     },
     "lid-shoes": {
       "group": "opt20",
-      "tags": ["own_site"],
-      "expected": "success_products",
-      "evidence": "Own site with product pages: https://lidshoes.com"
+      "tags": ["own_site", "no_catalog"],
+      "expected": "correct_zero",
+      "evidence": "Showcase/gallery site — /shop/ has static images only, no individual product URLs. Site says '歡迎蒞臨門市親自試穿' (visit store to try on). Custom orders via /customshoes/."
     },
     "7th-island": {
       "group": "opt20",
