@@ -15,6 +15,9 @@ import type {
   CuratedProductProposal,
   CuratedProductProposalSource,
 } from "@/lib/types/enriched-data";
+import type { ProductPageEvidence } from "@/lib/services/enrich-phases/products/read-page";
+import type { PromptMeta } from "@/lib/langfuse/prompt";
+import { mapWithConcurrency } from "@/lib/services/_shared/concurrency";
 import { diffCuratedProductProposals } from "./proposal-diff";
 
 /**
@@ -161,6 +164,305 @@ type MaterializeCuratedProductsOptions = {
   /** Injected in tests; production uses the module's own service client. */
   client?: CuratedProductSupabase;
 };
+
+// ---------------------------------------------------------------------------
+// rewriteGeneratedDescriptions — DEV-1709
+// ---------------------------------------------------------------------------
+
+export type RewriteDescriptionsDeps = {
+  fetchGeneratedProducts: (brandSlug?: string) => Promise<GeneratedProductRow[]>;
+  readPage: (url: string) => Promise<ProductPageEvidence>;
+  fetchPrompt: () => Promise<{
+    text: string;
+    prompt: PromptMeta["prompt"];
+  }>;
+  callLlm: (system: string, user: string) => Promise<{ text: string }>;
+  verifyDescription: (input: {
+    nameZh: string;
+    productDescriptionZh: string;
+  }) => string[];
+  updateProduct: (
+    id: string,
+    input: { productDescriptionZh: string },
+  ) => Promise<void>;
+};
+
+export type GeneratedProductRow = {
+  id: string;
+  nameZh: string;
+  officialUrl: string | null;
+  category: string;
+  subcategory: string | null;
+  productDescriptionZh: string;
+  brandSlug: string;
+  brandName: string;
+};
+
+export type RewriteDescriptionsOptions = {
+  apply: boolean;
+  brandSlug?: string;
+};
+
+type SkippedProduct = {
+  id: string;
+  nameZh: string;
+  brandSlug: string;
+  reason: string;
+};
+
+type FailedProduct = {
+  id: string;
+  nameZh: string;
+  brandSlug: string;
+  error: string;
+};
+
+type DescriptionDiff = {
+  id: string;
+  nameZh: string;
+  brandSlug: string;
+  old: string;
+  new: string;
+};
+
+export type RewriteDescriptionsResult = {
+  total: number;
+  rewritten: number;
+  skipped: SkippedProduct[];
+  failed: FailedProduct[];
+  diffs: DescriptionDiff[];
+};
+
+/**
+ * Extracts a JSON body from an LLM response, stripping optional markdown fences.
+ * Local helper — the `agents/runtime.ts` copy has heavy graph deps we don't want.
+ */
+function extractJsonFromResponse(text: string): string {
+  const fenced = /```(?:json)?\s*([\s\S]*?)```/i.exec(text);
+  return (fenced?.[1] ?? text).trim();
+}
+
+/**
+ * Rewrites generated product descriptions by reading each product's official
+ * page and asking an LLM to produce a better description from real evidence.
+ *
+ * Called from `batch-populate.ts --rewrite-descriptions`. Every external call
+ * arrives through `deps` so the function is testable without Supabase, OpenAI,
+ * or Langfuse.
+ */
+export async function rewriteGeneratedDescriptions(
+  deps: RewriteDescriptionsDeps,
+  options: RewriteDescriptionsOptions,
+): Promise<RewriteDescriptionsResult> {
+  const products = await deps.fetchGeneratedProducts(options.brandSlug);
+
+  const skipped: SkippedProduct[] = [];
+  const failed: FailedProduct[] = [];
+  const diffs: DescriptionDiff[] = [];
+
+  if (products.length === 0) {
+    return { total: 0, rewritten: 0, skipped, failed, diffs };
+  }
+
+  // Fetch prompt once
+  const { text: promptText } = await deps.fetchPrompt();
+
+  // Group by brand
+  const byBrand = new Map<string, GeneratedProductRow[]>();
+  for (const p of products) {
+    const list = byBrand.get(p.brandSlug) ?? [];
+    list.push(p);
+    byBrand.set(p.brandSlug, list);
+  }
+
+  // Process brands sequentially
+  for (const [brandSlug, brandProducts] of byBrand) {
+    // Filter products without official URL
+    const withUrl: GeneratedProductRow[] = [];
+    for (const p of brandProducts) {
+      if (!p.officialUrl) {
+        skipped.push({
+          id: p.id,
+          nameZh: p.nameZh,
+          brandSlug: p.brandSlug,
+          reason: "no_official_url",
+        });
+      } else {
+        withUrl.push(p);
+      }
+    }
+
+    if (withUrl.length === 0) continue;
+
+    // Read pages with bounded concurrency
+    const pageResults = await mapWithConcurrency(withUrl, 5, async (p) => {
+      try {
+        const evidence = await deps.readPage(p.officialUrl!);
+        return { product: p, evidence, error: null };
+      } catch (err) {
+        return {
+          product: p,
+          evidence: null,
+          error: err instanceof Error ? err.message : String(err),
+        };
+      }
+    });
+
+    // Filter out page-read failures
+    const readable: Array<{
+      product: GeneratedProductRow;
+      evidence: ProductPageEvidence;
+    }> = [];
+    for (const r of pageResults) {
+      if (r.evidence === null || (!r.evidence.mainText.trim() && r.evidence.statusCode !== 200)) {
+        skipped.push({
+          id: r.product.id,
+          nameZh: r.product.nameZh,
+          brandSlug: r.product.brandSlug,
+          reason: "page_read_failed",
+        });
+      } else {
+        readable.push({
+          product: r.product,
+          evidence: r.evidence,
+        });
+      }
+    }
+
+    if (readable.length === 0) continue;
+
+    // Build user content
+    const userParts = [`品牌名稱：${readable[0]!.product.brandName}`];
+    for (const { product, evidence } of readable) {
+      userParts.push(
+        [
+          `---`,
+          `產品名稱：${product.nameZh}`,
+          `分類：${product.category}${product.subcategory ? ` / ${product.subcategory}` : ""}`,
+          `官方連結：${product.officialUrl}`,
+          `頁面標題：${evidence.title ?? ""}`,
+          `頁面描述：${evidence.description ?? ""}`,
+          `頁面內文：${evidence.mainText}`,
+          `現有描述（參考）：${product.productDescriptionZh}`,
+        ].join("\n"),
+      );
+    }
+    const userContent = userParts.join("\n\n");
+
+    // Call LLM
+    let llmResults: Array<{
+      nameZh: string;
+      productDescriptionZh: string;
+    }>;
+    try {
+      const response = await deps.callLlm(promptText, userContent);
+      const raw = extractJsonFromResponse(response.text);
+      llmResults = JSON.parse(raw) as Array<{
+        nameZh: string;
+        productDescriptionZh: string;
+      }>;
+    } catch (err) {
+      // LLM or parse failure: all products in this brand batch fail
+      for (const { product } of readable) {
+        failed.push({
+          id: product.id,
+          nameZh: product.nameZh,
+          brandSlug: product.brandSlug,
+          error: `llm_error: ${err instanceof Error ? err.message : String(err)}`,
+        });
+      }
+      continue;
+    }
+
+    // Guard: LLM may return a non-array JSON value
+    if (!Array.isArray(llmResults)) {
+      for (const { product } of readable) {
+        failed.push({
+          id: product.id,
+          nameZh: product.nameZh,
+          brandSlug: product.brandSlug,
+          error: "llm_error: response is not a JSON array",
+        });
+      }
+      continue;
+    }
+
+    // Match by nameZh
+    const descByName = new Map(
+      llmResults.map((r) => [r.nameZh, r.productDescriptionZh]),
+    );
+
+    for (const { product } of readable) {
+      const newDesc = descByName.get(product.nameZh);
+      if (newDesc === undefined) {
+        skipped.push({
+          id: product.id,
+          nameZh: product.nameZh,
+          brandSlug: product.brandSlug,
+          reason: "llm_omitted",
+        });
+        continue;
+      }
+      if (!newDesc || typeof newDesc !== "string") {
+        skipped.push({
+          id: product.id,
+          nameZh: product.nameZh,
+          brandSlug: product.brandSlug,
+          reason: "llm_invalid_description",
+        });
+        continue;
+      }
+
+      // Verify
+      const failures = deps.verifyDescription({
+        nameZh: product.nameZh,
+        productDescriptionZh: newDesc,
+      });
+      if (failures.length > 0) {
+        skipped.push({
+          id: product.id,
+          nameZh: product.nameZh,
+          brandSlug: product.brandSlug,
+          reason: `verify_failed:${failures.join(",")}`,
+        });
+        continue;
+      }
+
+      // Write if apply
+      if (options.apply) {
+        try {
+          await deps.updateProduct(product.id, {
+            productDescriptionZh: newDesc,
+          });
+        } catch (err) {
+          failed.push({
+            id: product.id,
+            nameZh: product.nameZh,
+            brandSlug: product.brandSlug,
+            error: err instanceof Error ? err.message : String(err),
+          });
+          continue;
+        }
+      }
+
+      diffs.push({
+        id: product.id,
+        nameZh: product.nameZh,
+        brandSlug,
+        old: product.productDescriptionZh,
+        new: newDesc,
+      });
+    }
+  }
+
+  return {
+    total: products.length,
+    rewritten: diffs.length,
+    skipped,
+    failed,
+    diffs,
+  };
+}
 
 export async function materializeSubmissionCuratedProducts(
   submissionId: string,

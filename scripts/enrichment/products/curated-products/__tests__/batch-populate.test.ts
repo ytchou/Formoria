@@ -158,3 +158,23 @@ describe("batchPopulate", () => {
     ).rejects.toThrow(/purchase_website.*brand-b/i);
   });
 });
+
+// ---------------------------------------------------------------------------
+// parseRewriteOption (DEV-1709)
+// ---------------------------------------------------------------------------
+
+import { parseRewriteOption } from "../shared";
+
+describe("parseRewriteOption", () => {
+  it("returns true when --rewrite-descriptions is present", () => {
+    expect(parseRewriteOption(["--rewrite-descriptions"])).toBe(true);
+    expect(parseRewriteOption(["--apply", "--rewrite-descriptions"])).toBe(
+      true,
+    );
+  });
+
+  it("returns false when --rewrite-descriptions is absent", () => {
+    expect(parseRewriteOption([])).toBe(false);
+    expect(parseRewriteOption(["--apply", "--slugs", "brand-a"])).toBe(false);
+  });
+});
