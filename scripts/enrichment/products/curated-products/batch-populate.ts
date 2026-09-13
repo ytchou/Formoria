@@ -221,9 +221,8 @@ async function main(): Promise<void> {
       "@/lib/services/enrich-phases/scraper/fetch-guards"
     );
     const { getLangfuse } = await import("@/lib/langfuse/client");
-    const { auditedCall } = await import("@/lib/audit");
-    const { createOpenAIClient } = await import(
-      "@/lib/services/openai-client"
+    const { createProfiledOpenAIClient } = await import(
+      "@/lib/services/llm-audit"
     );
     const { verifyDescription } = await import(
       "@/lib/services/enrich-phases/products/verify"
@@ -231,6 +230,8 @@ async function main(): Promise<void> {
     const { updateCuratedProduct } = await import(
       "@/lib/services/curated-products"
     );
+
+    let cachedPromptMeta: { name: string; version: number; source: "langfuse" } | null = null;
 
     const deps: Parameters<typeof rewriteGeneratedDescriptions>[0] = {
       fetchGeneratedProducts: async (slug) => {
@@ -283,13 +284,13 @@ async function main(): Promise<void> {
       fetchPrompt: async () => {
         // products-describe is a Langfuse-only prompt (not in the local snapshot).
         // fetchLangfusePromptWithMeta requires a snapshot entry; fetch directly instead.
-        const client = getLangfuse();
-        if (!client) {
+        const langfuseClient = getLangfuse();
+        if (!langfuseClient) {
           throw new Error(
             "Langfuse client not configured — products-describe prompt requires LANGFUSE_SECRET_KEY",
           );
         }
-        const promptClient = await client.getPrompt(
+        const promptClient = await langfuseClient.getPrompt(
           "products-describe",
           undefined,
           { label: "production" },
@@ -297,42 +298,29 @@ async function main(): Promise<void> {
         if (typeof promptClient.prompt !== "string") {
           throw new Error("products-describe prompt is not a text prompt");
         }
+        // Cache prompt meta for callLlm's audit context
+        cachedPromptMeta = {
+          name: promptClient.name,
+          version: promptClient.version,
+          source: "langfuse" as const,
+        };
         return {
           text: promptClient.prompt,
-          prompt: {
-            name: promptClient.name,
-            version: promptClient.version,
-            source: "langfuse" as const,
-          },
+          prompt: cachedPromptMeta,
         };
       },
       callLlm: async (system, user) => {
-        return auditedCall(
-          {
-            provider: "openai",
-            operation: "chat_completions",
-            kind: "external",
-          },
-          async (ctx) => {
-            const client = createOpenAIClient({ model: "gpt-4.1-mini" });
-            const result = await client.chat({
-              system,
-              user,
-              temperature: 0.3,
-              timeoutMs: 90_000,
-            });
-            if (!result.ok) {
-              throw new Error(
-                `LLM call failed: ${result.status} ${result.finishReason ?? "unknown"}`,
-              );
-            }
-            ctx.promptTokens =
-              result.data?.usage?.prompt_tokens ?? null;
-            ctx.completionTokens =
-              result.data?.usage?.completion_tokens ?? null;
-            return { text: result.content ?? "" };
-          },
-        );
+        const llmClient = createProfiledOpenAIClient("productDescriptions", {
+          phase: "product_descriptions",
+          prompt: cachedPromptMeta ?? undefined,
+        });
+        const result = await llmClient.chat({ system, user });
+        if (!result.ok) {
+          throw new Error(
+            `LLM call failed: ${result.status} ${result.finishReason ?? "unknown"}`,
+          );
+        }
+        return { text: result.content ?? "" };
       },
       verifyDescription,
       updateProduct: async (id, input) => {
@@ -341,6 +329,9 @@ async function main(): Promise<void> {
     };
 
     if (!apply) {
+      console.log(
+        "Note: dry-run reads pages and calls the LLM to preview results. Use --brand <slug> to limit scope.",
+      );
       const { setAuditWriteSeam } = await import("@/lib/audit/emit");
       setAuditWriteSeam(async () => null);
     }

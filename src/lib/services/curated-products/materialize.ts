@@ -294,8 +294,29 @@ export async function rewriteGeneratedDescriptions(
 
     if (withUrl.length === 0) continue;
 
+    // Warn on duplicate nameZh within a brand — the Map lookup would silently
+    // assign the same description to both products
+    const seenNames = new Map<string, string>();
+    const deduped: GeneratedProductRow[] = [];
+    for (const p of withUrl) {
+      const existing = seenNames.get(p.nameZh);
+      if (existing) {
+        skipped.push({
+          id: p.id,
+          nameZh: p.nameZh,
+          brandSlug: p.brandSlug,
+          reason: `duplicate_name_zh:${existing}`,
+        });
+      } else {
+        seenNames.set(p.nameZh, p.id);
+        deduped.push(p);
+      }
+    }
+
+    if (deduped.length === 0) continue;
+
     // Read pages with bounded concurrency
-    const pageResults = await mapWithConcurrency(withUrl, 5, async (p) => {
+    const pageResults = await mapWithConcurrency(deduped, 5, async (p) => {
       try {
         const evidence = await deps.readPage(p.officialUrl!);
         return { product: p, evidence, error: null };
