@@ -802,6 +802,38 @@ describe("rewriteGeneratedDescriptions", () => {
       ]),
     );
   });
+
+  it("skips duplicate nameZh within a brand", async () => {
+    const product1 = generatedProduct({
+      id: "p1",
+      nameZh: "柴燒手感馬克杯",
+      brandSlug: "taoqi",
+    });
+    const product2 = generatedProduct({
+      id: "p2",
+      nameZh: "柴燒手感馬克杯",
+      brandSlug: "taoqi",
+    });
+    const { deps } = makeRewriteDeps({
+      fetchGeneratedProducts: async () => [product1, product2],
+      callLlm: async () => ({
+        text: JSON.stringify([
+          { nameZh: "柴燒手感馬克杯", productDescriptionZh: "新描述" },
+        ]),
+      }),
+    });
+
+    const result = await rewriteGeneratedDescriptions(deps, { apply: false });
+
+    expect(result.skipped).toEqual([
+      expect.objectContaining({
+        id: "p2",
+        reason: expect.stringContaining("duplicate_name_zh"),
+      }),
+    ]);
+    expect(result.diffs).toHaveLength(1);
+    expect(result.diffs[0]?.id).toBe("p1");
+  });
 });
 
 /** A one-row read client for the public homepage projection. */
