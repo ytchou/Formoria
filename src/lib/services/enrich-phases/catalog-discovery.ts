@@ -61,6 +61,9 @@ type CatalogAttemptSummary = {
   usable: number
   drops: Record<string, number>
   contentSamplingOutcome?: 'not_triggered' | 'usable' | 'empty'
+  listingsExpanded?: number
+  followThroughHydrated?: number
+  followThroughUsable?: number
 }
 
 export type CatalogDiscoveryResult = {
@@ -101,6 +104,7 @@ export type DiscoverCatalogOptions = {
    * caller aborting this crawl is what produced six empty pools (DEV-1712).
    */
   deadlineAtMs?: number
+  followThroughBudget?: number
 }
 
 type RouteCandidate = {
@@ -121,6 +125,8 @@ const MAX_SITEMAP_DOCUMENTS = 20
 const MAX_SITEMAP_LOCATIONS = 2_000
 const MAX_SITEMAP_DEPTH = 2
 const HYDRATION_CONCURRENCY = 5
+const FOLLOW_THROUGH_BUDGET = 15
+const LISTING_LINK_THRESHOLD = 3
 /** Utility pages that are never product detail, wherever they appear. */
 const UTILITY_SKIP_PATTERN =
   /\/(about|contact|privacy|terms|faq|blog|news|pages|tag|author|cart|checkout)(\/|$)/i
@@ -238,6 +244,35 @@ function isSkippedPath(url: string): boolean {
   }
 }
 
+// @visibleForTesting
+export function isListingPatternUrl(url: string): boolean {
+  try {
+    const segments = new URL(url).pathname.split('/').filter(Boolean)
+    return segments.some((seg) =>
+      (LISTING_SEGMENTS as readonly string[]).includes(seg.toLowerCase()),
+    )
+  } catch {
+    return false
+  }
+}
+
+// @visibleForTesting
+export function extractSubLinks(
+  html: string,
+  pageUrl: string,
+  platform: PlatformId | 'generic',
+  seen: Set<string>,
+): RouteCandidate[] {
+  const platformForExtraction = platform !== 'generic' ? platform : null
+  const rawRoutes = extractCatalogRoutes(html, pageUrl, platformForExtraction)
+  return rawRoutes.filter((route) => {
+    const normalized = normalizeProductUrl(route.url)
+    if (!normalized || seen.has(normalized)) return false
+    if (isSkippedPath(route.url)) return false
+    return true
+  })
+}
+
 function selectBreadthFirst(routes: RouteCandidate[]): RouteCandidate[] {
   const featured = routes.filter((route) => route.featured)
   const rest = routes.filter((route) => !route.featured)
@@ -247,20 +282,27 @@ function selectBreadthFirst(routes: RouteCandidate[]): RouteCandidate[] {
     if (!route.group) ungrouped.push(route)
     else grouped.set(route.group, [...(grouped.get(route.group) ?? []), route])
   }
-  if (grouped.size === 0) return [...featured, ...ungrouped]
-  const roundRobin: RouteCandidate[] = []
-  for (let index = 0; ; index += 1) {
-    let added = false
-    for (const routesInGroup of grouped.values()) {
-      const route = routesInGroup[index]
-      if (route) {
-        roundRobin.push(route)
-        added = true
+  let ordered: RouteCandidate[]
+  if (grouped.size === 0) {
+    ordered = [...featured, ...ungrouped]
+  } else {
+    const roundRobin: RouteCandidate[] = []
+    for (let index = 0; ; index += 1) {
+      let added = false
+      for (const routesInGroup of grouped.values()) {
+        const route = routesInGroup[index]
+        if (route) {
+          roundRobin.push(route)
+          added = true
+        }
       }
+      if (!added) break
     }
-    if (!added) break
+    ordered = [...featured, ...roundRobin, ...ungrouped]
   }
-  return [...featured, ...roundRobin, ...ungrouped]
+  const nonListing = ordered.filter((r) => !isListingPatternUrl(r.url))
+  const listing = ordered.filter((r) => isListingPatternUrl(r.url))
+  return [...nonListing, ...listing]
 }
 
 function parseEvidence(html: string, pageUrl: string): CatalogEvidence {
@@ -448,6 +490,7 @@ type HydratedRoute = {
   renderOutcome: CatalogAttemptSummary['renderOutcome']
   renderBlocked: boolean
   hasSignals: boolean
+  finalHtml: string
 }
 
 export async function discoverCatalog(
@@ -639,6 +682,7 @@ export async function discoverCatalog(
           return true
         })
         summary.ownedDetailUrls = uniqueRoutes.length
+        const followThroughCandidates: RouteCandidate[] = []
         const selected = uniqueRoutes.slice(0, hydrationLimit - hydrated)
         let offset = 0
         while (offset < selected.length && triples.length < target) {
@@ -700,6 +744,7 @@ export async function discoverCatalog(
                   renderOutcome,
                   renderBlocked,
                   hasSignals: hasProductSignals(finalHtml),
+                  finalHtml,
                 }
               }),
             )
@@ -718,15 +763,34 @@ export async function discoverCatalog(
             }
             const normalized = normalizeProductUrl(route.url)!
             evidence.set(normalized, pageEvidence)
-            // Per-route product signal gate: require product signals OR a known platform product route
             const platformForGate = platform !== 'generic' ? platform : null
-            if (
-              !result.hasSignals &&
-              !isOwnedProductRoute(route.url, source.url, platformForGate)
-            ) {
-              summary.drops.no_product_signals =
-                (summary.drops.no_product_signals ?? 0) + 1
-              continue
+            if (!result.hasSignals) {
+              const subLinks = extractSubLinks(
+                result.finalHtml,
+                route.url,
+                platform,
+                seen,
+              )
+              if (subLinks.length >= LISTING_LINK_THRESHOLD) {
+                for (const sl of subLinks) {
+                  followThroughCandidates.push({
+                    ...sl,
+                    group: route.title ?? route.group,
+                  })
+                }
+                summary.listingsExpanded =
+                  (summary.listingsExpanded ?? 0) + 1
+                summary.drops.listing_expanded =
+                  (summary.drops.listing_expanded ?? 0) + 1
+                continue
+              }
+              if (
+                !isOwnedProductRoute(route.url, source.url, platformForGate)
+              ) {
+                summary.drops.no_product_signals =
+                  (summary.drops.no_product_signals ?? 0) + 1
+                continue
+              }
             }
             // A candidate whose title fell through to `<title>` AND matches the
             // landing page's own carries no per-page title at all: twenty
@@ -767,6 +831,160 @@ export async function discoverCatalog(
             })
             summary.completeTriples += 1
             summary.usable += 1
+          }
+        }
+        // --- Follow-through: hydrate sub-links from listing pages (depth cap = 2) ---
+        const ftBudget = options.followThroughBudget ?? FOLLOW_THROUGH_BUDGET
+        if (
+          triples.length < target &&
+          followThroughCandidates.length > 0 &&
+          !pastDeadline()
+        ) {
+          const ftSelected = selectBreadthFirst(followThroughCandidates)
+          const ftUnique = ftSelected.filter((route) => {
+            const normalized = normalizeProductUrl(route.url)
+            if (!normalized || seen.has(normalized)) return false
+            if (isSkippedPath(route.url)) return false
+            seen.add(normalized)
+            return true
+          })
+          const ftSliced = ftUnique.slice(0, ftBudget)
+          summary.ownedDetailUrls += ftSliced.length
+
+          let ftOffset = 0
+          while (ftOffset < ftSliced.length && triples.length < target) {
+            if (pastDeadline()) break
+            const remainingTarget = target - triples.length
+            const ftBatch = ftSliced.slice(
+              ftOffset,
+              ftOffset + Math.min(HYDRATION_CONCURRENCY, remainingTarget),
+            )
+            ftOffset += ftBatch.length
+
+            const ftHydrated = (
+              await Promise.all(
+                ftBatch.map(async (route): Promise<HydratedRoute | null> => {
+                  if (pastDeadline()) return null
+                  const page = await fetcher(route.url, 'html')
+                  let reachable = Boolean(page.text)
+                  let renderOutcome: CatalogAttemptSummary['renderOutcome'] =
+                    'not_requested'
+                  let renderBlocked = false
+                  let finalHtml = page.text ?? ''
+                  let pageEvidence = page.text
+                    ? parseEvidence(page.text, route.url)
+                    : {
+                        title: null,
+                        titleSource: null as CatalogEvidence['titleSource'],
+                        text: '',
+                        imageUrls: [] as string[],
+                      }
+                  if (
+                    (!pageEvidence.title ||
+                      pageEvidence.imageUrls.length === 0) &&
+                    options.renderProvider &&
+                    !pastDeadline()
+                  ) {
+                    try {
+                      const rendered =
+                        await options.renderProvider.fetchRendered(route.url)
+                      reachable = true
+                      finalHtml = rendered.html
+                      pageEvidence = parseEvidence(rendered.html, route.url)
+                      renderOutcome =
+                        pageEvidence.title && pageEvidence.imageUrls.length > 0
+                          ? 'usable'
+                          : 'empty'
+                    } catch {
+                      renderOutcome = 'failed'
+                      renderBlocked = true
+                    }
+                  } else if (
+                    (!pageEvidence.title ||
+                      pageEvidence.imageUrls.length === 0) &&
+                    !options.renderProvider &&
+                    needsRendering(page.text ?? '')
+                  ) {
+                    renderOutcome = 'unavailable'
+                    renderBlocked = true
+                  }
+                  return {
+                    route,
+                    evidence: pageEvidence,
+                    reachable,
+                    renderOutcome,
+                    renderBlocked,
+                    hasSignals: hasProductSignals(finalHtml),
+                    finalHtml,
+                  }
+                }),
+              )
+            ).filter((result): result is HydratedRoute => result !== null)
+
+            summary.followThroughHydrated =
+              (summary.followThroughHydrated ?? 0) + ftHydrated.length
+
+            for (const result of ftHydrated) {
+              const { route, evidence: pageEvidence } = result
+              if (result.reachable) reachableRoutes += 1
+              else deadRoutes += 1
+              if (result.renderBlocked) potentiallyUsefulUnrendered = true
+              if (result.renderOutcome !== 'not_requested') {
+                summary.renderOutcome = result.renderOutcome
+              }
+              const normalized = normalizeProductUrl(route.url)!
+              evidence.set(normalized, pageEvidence)
+
+              const ftPlatformForGate =
+                platform !== 'generic' ? platform : null
+              if (
+                !result.hasSignals &&
+                !isOwnedProductRoute(
+                  route.url,
+                  source.url,
+                  ftPlatformForGate,
+                )
+              ) {
+                summary.drops.no_product_signals =
+                  (summary.drops.no_product_signals ?? 0) + 1
+                continue
+              }
+
+              const isSiteTitle =
+                pageEvidence.titleSource === 'title' &&
+                pageEvidence.title !== null &&
+                landingTitles.has(pageEvidence.title) &&
+                normalizeProductUrl(route.url) !== normalizedSource
+              const title = isSiteTitle
+                ? route.title
+                : (pageEvidence.title ?? route.title)
+              const imageUrl = pageEvidence.imageUrls[0] ?? route.imageUrl
+              if (!title || !imageUrl) {
+                const reason = !title
+                  ? isSiteTitle
+                    ? 'site_title'
+                    : 'no_title'
+                  : 'no_image'
+                summary.drops[reason] = (summary.drops[reason] ?? 0) + 1
+                continue
+              }
+
+              triples.push({
+                url: route.url,
+                title,
+                imageUrl,
+                platform,
+                supplier: `catalog:${platform}`,
+                sourceUrl: source.url,
+                sourcePosition: route.sourcePosition,
+                ...(route.featured ? { featured: true } : {}),
+                ...(route.group ? { group: route.group } : {}),
+              })
+              summary.completeTriples += 1
+              summary.usable += 1
+              summary.followThroughUsable =
+                (summary.followThroughUsable ?? 0) + 1
+            }
           }
         }
       }
