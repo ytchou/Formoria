@@ -1,0 +1,81 @@
+{
+  "name": "dev-1689-holdout",
+  "title": "DEV-1689 — product-discovery eval suite, 10 holdout brands",
+  "subtitle": "Holdout set. Expected labels set before the holdout run, never edited after the tag. 7/10 already have products — this measures overfit on the 30, not population-tail difficulty.",
+  "warning": "HOLDOUT — do not run subsets against this cohort. One run only, after the optimization gate passes. Apply run preceded by snapshot.",
+  "holdout": true,
+  "labels": {
+    "umu": "有木 UMU",
+    "i-eat-acrylic": "我吃壓克力 I Eat Acrylic",
+    "hutch-asap": "HUTCH ASAP",
+    "major-pleasure": "Major Pleasure 女子鞋研究室",
+    "padki": "PADKI",
+    "loginheart": "Loginheart",
+    "lumirona": "LUMIRONA",
+    "hmm": "HMM",
+    "bon-bon-stickers": "邦妮插畫 Bon Bon Stickers",
+    "todayforhan": "阿翰 TodayForHan"
+  },
+  "eval": {
+    "umu": {
+      "group": "holdout",
+      "tags": ["own_site", "existing_products"],
+      "expected": null,
+      "evidence": null
+    },
+    "i-eat-acrylic": {
+      "group": "holdout",
+      "tags": ["own_site", "existing_products"],
+      "expected": null,
+      "evidence": null
+    },
+    "hutch-asap": {
+      "group": "holdout",
+      "tags": ["own_site", "existing_products"],
+      "expected": null,
+      "evidence": null
+    },
+    "major-pleasure": {
+      "group": "holdout",
+      "tags": ["own_site", "pinkoi", "multi_channel"],
+      "expected": null,
+      "evidence": null
+    },
+    "padki": {
+      "group": "holdout",
+      "tags": ["own_site", "existing_products"],
+      "expected": null,
+      "evidence": null
+    },
+    "loginheart": {
+      "group": "holdout",
+      "tags": ["own_site", "shopee", "pinkoi", "multi_channel", "existing_products"],
+      "expected": null,
+      "evidence": null
+    },
+    "lumirona": {
+      "group": "holdout",
+      "tags": ["shopee", "myship", "single_listing", "marketplace_only"],
+      "expected": null,
+      "evidence": null
+    },
+    "hmm": {
+      "group": "holdout",
+      "tags": ["own_site", "pinkoi", "multi_channel", "existing_products"],
+      "expected": null,
+      "evidence": null
+    },
+    "bon-bon-stickers": {
+      "group": "holdout",
+      "tags": ["own_site", "pinkoi", "multi_channel", "existing_products"],
+      "expected": null,
+      "evidence": null
+    },
+    "todayforhan": {
+      "group": "holdout",
+      "tags": [],
+      "expected": null,
+      "evidence": null
+    }
+  }
+}
