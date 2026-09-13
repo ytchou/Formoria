@@ -702,6 +702,72 @@ describe("rewriteGeneratedDescriptions", () => {
     ]);
   });
 
+  it("marks all brand products as failed when LLM returns non-array JSON", async () => {
+    const product = generatedProduct();
+    const { deps } = makeRewriteDeps({
+      fetchGeneratedProducts: async () => [product],
+      callLlm: async () => ({
+        text: JSON.stringify({
+          products: [
+            { nameZh: product.nameZh, productDescriptionZh: "desc" },
+          ],
+        }),
+      }),
+    });
+
+    const result = await rewriteGeneratedDescriptions(deps, {
+      apply: false,
+    });
+
+    expect(result.failed).toEqual([
+      expect.objectContaining({
+        id: "product-1",
+        error: expect.stringContaining("not a JSON array"),
+      }),
+    ]);
+    expect(result.diffs).toHaveLength(0);
+  });
+
+  it("skips products with null or empty LLM description", async () => {
+    const product1 = generatedProduct({
+      id: "p1",
+      nameZh: "杯A",
+      brandSlug: "taoqi",
+    });
+    const product2 = generatedProduct({
+      id: "p2",
+      nameZh: "杯B",
+      brandSlug: "taoqi",
+    });
+    const { deps } = makeRewriteDeps({
+      fetchGeneratedProducts: async () => [product1, product2],
+      callLlm: async () => ({
+        text: JSON.stringify([
+          { nameZh: "杯A", productDescriptionZh: null },
+          { nameZh: "杯B", productDescriptionZh: "" },
+        ]),
+      }),
+    });
+
+    const result = await rewriteGeneratedDescriptions(deps, {
+      apply: false,
+    });
+
+    expect(result.skipped).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          id: "p1",
+          reason: "llm_invalid_description",
+        }),
+        expect.objectContaining({
+          id: "p2",
+          reason: "llm_invalid_description",
+        }),
+      ]),
+    );
+    expect(result.diffs).toHaveLength(0);
+  });
+
   it("matches LLM output to products by nameZh", async () => {
     const product1 = generatedProduct({
       id: "p1",

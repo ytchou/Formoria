@@ -314,7 +314,7 @@ export async function rewriteGeneratedDescriptions(
       evidence: ProductPageEvidence;
     }> = [];
     for (const r of pageResults) {
-      if (r.evidence === null) {
+      if (r.evidence === null || (!r.evidence.mainText.trim() && r.evidence.statusCode !== 200)) {
         skipped.push({
           id: r.product.id,
           nameZh: r.product.nameZh,
@@ -374,6 +374,19 @@ export async function rewriteGeneratedDescriptions(
       continue;
     }
 
+    // Guard: LLM may return a non-array JSON value
+    if (!Array.isArray(llmResults)) {
+      for (const { product } of readable) {
+        failed.push({
+          id: product.id,
+          nameZh: product.nameZh,
+          brandSlug: product.brandSlug,
+          error: "llm_error: response is not a JSON array",
+        });
+      }
+      continue;
+    }
+
     // Match by nameZh
     const descByName = new Map(
       llmResults.map((r) => [r.nameZh, r.productDescriptionZh]),
@@ -387,6 +400,15 @@ export async function rewriteGeneratedDescriptions(
           nameZh: product.nameZh,
           brandSlug: product.brandSlug,
           reason: "llm_omitted",
+        });
+        continue;
+      }
+      if (!newDesc || typeof newDesc !== "string") {
+        skipped.push({
+          id: product.id,
+          nameZh: product.nameZh,
+          brandSlug: product.brandSlug,
+          reason: "llm_invalid_description",
         });
         continue;
       }

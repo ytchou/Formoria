@@ -160,146 +160,21 @@ describe("batchPopulate", () => {
 });
 
 // ---------------------------------------------------------------------------
-// rewrite-descriptions mode (DEV-1709)
+// parseRewriteOption (DEV-1709)
 // ---------------------------------------------------------------------------
 
-import {
-  rewriteGeneratedDescriptions,
-  type RewriteDescriptionsDeps,
-  type GeneratedProductRow,
-} from "@/lib/services/curated-products/materialize";
+import { parseRewriteOption } from "../shared";
 
-function makeRewriteDeps(overrides: Partial<RewriteDescriptionsDeps> = {}): {
-  deps: RewriteDescriptionsDeps;
-  calls: {
-    fetchGeneratedProducts: Array<string | undefined>;
-    updateProduct: Array<{
-      id: string;
-      input: { productDescriptionZh: string };
-    }>;
-  };
-} {
-  const calls = {
-    fetchGeneratedProducts: [] as Array<string | undefined>,
-    updateProduct: [] as Array<{
-      id: string;
-      input: { productDescriptionZh: string };
-    }>,
-  };
-  const deps: RewriteDescriptionsDeps = {
-    fetchGeneratedProducts:
-      overrides.fetchGeneratedProducts ??
-      (async (slug) => {
-        calls.fetchGeneratedProducts.push(slug);
-        return [];
-      }),
-    readPage:
-      overrides.readPage ??
-      (async (url) => ({
-        url,
-        title: "Test",
-        description: "Test",
-        mainText: "Test content",
-        images: [],
-        jsonLd: null,
-        productSignals: true,
-        originExcerpts: [],
-        rendered: false,
-        statusCode: 200,
-      })),
-    fetchPrompt:
-      overrides.fetchPrompt ??
-      (async () => ({
-        text: "Describe products",
-        prompt: {
-          name: "products-describe",
-          version: 1,
-          source: "snapshot" as const,
-        },
-      })),
-    callLlm: overrides.callLlm ?? (async () => ({ text: "[]" })),
-    verifyDescription: overrides.verifyDescription ?? (() => []),
-    updateProduct:
-      overrides.updateProduct ??
-      (async (id, inp) => {
-        calls.updateProduct.push({ id, input: inp });
-      }),
-  };
-  return { deps, calls };
-}
-
-function rewriteProduct(
-  overrides: Partial<GeneratedProductRow> = {},
-): GeneratedProductRow {
-  return {
-    id: "product-1",
-    nameZh: "柴燒手感馬克杯",
-    officialUrl: "https://taoqi.com.tw/products/wood-fired-mug",
-    category: "home",
-    subcategory: "tableware",
-    productDescriptionZh: "南投柴燒窯場燒製的馬克杯。",
-    brandSlug: "taoqi",
-    brandName: "陶器工作室",
-    ...overrides,
-  };
-}
-
-describe("rewrite-descriptions mode", () => {
-  it("passes brandSlug to fetchGeneratedProducts and skips updateProduct on dry-run", async () => {
-    const product = rewriteProduct();
-    const { deps, calls } = makeRewriteDeps({
-      fetchGeneratedProducts: async (slug) => {
-        calls.fetchGeneratedProducts.push(slug);
-        return [product];
-      },
-      callLlm: async () => ({
-        text: JSON.stringify([
-          {
-            nameZh: product.nameZh,
-            productDescriptionZh: "新描述",
-          },
-        ]),
-      }),
-    });
-
-    const result = await rewriteGeneratedDescriptions(deps, {
-      apply: false,
-      brandSlug: "taoqi",
-    });
-
-    expect(calls.fetchGeneratedProducts).toEqual(["taoqi"]);
-    expect(calls.updateProduct).toEqual([]);
-    expect(result.rewritten).toBe(1);
+describe("parseRewriteOption", () => {
+  it("returns true when --rewrite-descriptions is present", () => {
+    expect(parseRewriteOption(["--rewrite-descriptions"])).toBe(true);
+    expect(parseRewriteOption(["--apply", "--rewrite-descriptions"])).toBe(
+      true,
+    );
   });
 
-  it("returns correct summary counts from result", async () => {
-    const p1 = rewriteProduct({ id: "p1", nameZh: "產品一" });
-    const p2 = rewriteProduct({
-      id: "p2",
-      nameZh: "產品二",
-      officialUrl: null,
-    });
-    const p3 = rewriteProduct({ id: "p3", nameZh: "產品三" });
-    const { deps } = makeRewriteDeps({
-      fetchGeneratedProducts: async () => [p1, p2, p3],
-      callLlm: async () => ({
-        text: JSON.stringify([
-          { nameZh: "產品一", productDescriptionZh: "新描述一" },
-          { nameZh: "產品三", productDescriptionZh: "新描述三" },
-        ]),
-      }),
-    });
-
-    const result = await rewriteGeneratedDescriptions(deps, {
-      apply: true,
-    });
-
-    expect(result.total).toBe(3);
-    expect(result.rewritten).toBe(2);
-    // p2 skipped because officialUrl is null
-    expect(result.skipped).toEqual([
-      expect.objectContaining({ id: "p2", reason: "no_official_url" }),
-    ]);
-    expect(result.failed).toHaveLength(0);
+  it("returns false when --rewrite-descriptions is absent", () => {
+    expect(parseRewriteOption([])).toBe(false);
+    expect(parseRewriteOption(["--apply", "--slugs", "brand-a"])).toBe(false);
   });
 });

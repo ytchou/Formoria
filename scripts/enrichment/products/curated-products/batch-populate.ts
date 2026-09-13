@@ -220,9 +220,7 @@ async function main(): Promise<void> {
     const { fetchHtmlWithMetadata } = await import(
       "@/lib/services/enrich-phases/scraper/fetch-guards"
     );
-    const { fetchLangfusePromptWithMeta } = await import(
-      "@/lib/langfuse/prompt"
-    );
+    const { getLangfuse } = await import("@/lib/langfuse/client");
     const { auditedCall } = await import("@/lib/audit");
     const { createOpenAIClient } = await import(
       "@/lib/services/openai-client"
@@ -282,10 +280,32 @@ async function main(): Promise<void> {
           },
         });
       },
-      fetchPrompt: async () =>
-        // The prompt will be created in Langfuse before first use. Cast until
-        // it is added to langfuse-snapshot.json (DEV-1709 follow-up).
-        fetchLangfusePromptWithMeta("products-describe" as Parameters<typeof fetchLangfusePromptWithMeta>[0]),
+      fetchPrompt: async () => {
+        // products-describe is a Langfuse-only prompt (not in the local snapshot).
+        // fetchLangfusePromptWithMeta requires a snapshot entry; fetch directly instead.
+        const client = getLangfuse();
+        if (!client) {
+          throw new Error(
+            "Langfuse client not configured — products-describe prompt requires LANGFUSE_SECRET_KEY",
+          );
+        }
+        const promptClient = await client.getPrompt(
+          "products-describe",
+          undefined,
+          { label: "production" },
+        );
+        if (typeof promptClient.prompt !== "string") {
+          throw new Error("products-describe prompt is not a text prompt");
+        }
+        return {
+          text: promptClient.prompt,
+          prompt: {
+            name: promptClient.name,
+            version: promptClient.version,
+            source: "langfuse" as const,
+          },
+        };
+      },
       callLlm: async (system, user) => {
         return auditedCall(
           {
