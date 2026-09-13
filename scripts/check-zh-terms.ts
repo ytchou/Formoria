@@ -178,6 +178,10 @@ export const EXCLUDED_SOURCE_FILES = new Map([
     "lib/services/enrich-phases/faq.ts",
     "LLM prompt fragments and repair instructions",
   ],
+  [
+    "lib/services/curated-products/materialize.ts",
+    "LLM user-message template for product description rewrite",
+  ],
   // --- Scraper and search keyword lists. Chinese query strings sent to search
   // engines and crawlers, matched against third-party pages, never displayed.
   [

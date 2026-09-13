@@ -1,0 +1,220 @@
+{
+  "name": "dev-1689-eval",
+  "title": "DEV-1689 — product-discovery eval suite, 30 optimization brands",
+  "subtitle": "Labeled expected outcomes. Apply runs preceded by snapshot; --overwrite --reject-stale always forwarded.",
+  "warning": "This cohort writes to production on apply. Every apply run must be preceded by snapshot.ts. Rollback is manual from the before-<runId>.json snapshot.",
+  "labels": {
+    "agape": "AGAPE 雅家倍",
+    "unigaze": "UNIGAZE 慢火金工創作室",
+    "natub": "Natub 自然原橋",
+    "koper": "KOPER",
+    "vividia-jewelry-design": "VIVIDIA Jewelry Design 薇媞亞",
+    "lion-pencil": "雄獅文具 Lion Pencil",
+    "jieni-gleam": "JieNi Gleam",
+    "bugrelu": "不歸鹿 BUGRELU",
+    "taiwan-dye": "台灣染 TAIWAN DYE",
+    "miin": "MIIN",
+    "anta-pottery": "安達窯 Anta Pottery",
+    "facesun": "FaceSun 玻璃工藝管",
+    "mr-casa": "Mr.Casa 傢燈先生",
+    "goodglas": "好玻 GOODGLAS",
+    "keizu": "Keizu 凱茲好鞋",
+    "snug": "sNug",
+    "lid-shoes": "劉一刀手工鞋 LID Shoes",
+    "7th-island": "7th Island",
+    "southgate": "Southgate 南登機口",
+    "feelgood-toothbrush": "元氣竹牙刷 Feelgood Toothbrush",
+    "heme-cosmetics": "heme Cosmetics",
+    "yiiloon-mask": "奕綸口罩 YIILOON MASK",
+    "studio-smoll": "思謀研器 Studio Smoll",
+    "memedo": "密密制作 Memedo",
+    "trista-handmade": "Trista Smile Girl 微笑女孩",
+    "wild-type": "WILD TYPE",
+    "oursglass": "倆個 Glass 玻璃工作室 Oursglass",
+    "brainholesky": "新夭 BrainHoleSky",
+    "singezih": "新格子 SINGEZIH",
+    "yarn-ball": "針線球 Yarn Ball"
+  },
+  "eval": {
+    "agape": {
+      "group": "opt10",
+      "tags": ["pinkoi", "shopee", "marketplace_only"],
+      "expected": "success_products",
+      "evidence": "Pinkoi store active with multiple product listings: https://www.pinkoi.com/store/agape2025"
+    },
+    "unigaze": {
+      "group": "opt10",
+      "tags": ["pinkoi", "marketplace_only"],
+      "expected": "success_products",
+      "evidence": "Pinkoi store active with product listings: https://www.pinkoi.com/store/unigaze"
+    },
+    "natub": {
+      "group": "opt10",
+      "tags": ["own_site", "pinkoi", "multi_channel", "existing_products"],
+      "expected": "success_products",
+      "evidence": "Own site with product pages (404 on some), Pinkoi active: https://www.pinkoi.com/store/natub-tw; provisional — confirm after baseline"
+    },
+    "koper": {
+      "group": "opt10",
+      "tags": ["own_site", "pinkoi", "multi_channel", "existing_products"],
+      "expected": "success_products",
+      "evidence": "Own site with product catalog: https://koperoutdoor.com; field-check confirmed 4 live products after PR #1073"
+    },
+    "vividia-jewelry-design": {
+      "group": "opt10",
+      "tags": ["own_site", "pinkoi", "multi_channel"],
+      "expected": "success_products",
+      "evidence": "Own site with product pages: https://vividia.com.tw; render + host-mismatch fixes landed in #1073/#1075"
+    },
+    "lion-pencil": {
+      "group": "opt10",
+      "tags": ["own_site", "shopee", "multi_channel"],
+      "expected": "success_products",
+      "evidence": "33 detail pages on simbalion.com.tw; DEV-1716 category follow-through should reach them"
+    },
+    "jieni-gleam": {
+      "group": "opt10",
+      "tags": ["myship", "single_listing", "marketplace_only"],
+      "expected": "correct_zero",
+      "evidence": "Single myship listing, no product catalog: https://myship.7-11.com.tw/general/detail/GM2410255815171"
+    },
+    "bugrelu": {
+      "group": "opt10",
+      "tags": ["own_site"],
+      "expected": "success_products",
+      "evidence": "Own site with product pages: https://www.bugrelu.com; render fix landed in #1073"
+    },
+    "taiwan-dye": {
+      "group": "opt10",
+      "tags": ["own_site", "no_catalog"],
+      "expected": "correct_zero",
+      "evidence": "Brochure site with no product catalog, only brand story: https://taiwandye.com"
+    },
+    "miin": {
+      "group": "opt10",
+      "tags": ["bad_source_url"],
+      "expected": "data_defect",
+      "evidence": "purchase_website points to miinojibwe.org (wrong brand, Ojibwe cultural org, not the cosmetics brand)"
+    },
+    "anta-pottery": {
+      "group": "opt20",
+      "tags": ["own_site", "shopee", "pinkoi", "multi_channel"],
+      "expected": "success_products",
+      "evidence": "Own site with product catalog: https://www.anta.com.tw; multiple product categories visible"
+    },
+    "facesun": {
+      "group": "opt20",
+      "tags": ["own_site", "shopee", "pinkoi", "myship", "multi_channel", "existing_products"],
+      "expected": "success_products",
+      "evidence": "Own site with products: https://www.facesun.co; 1 existing curated product"
+    },
+    "mr-casa": {
+      "group": "opt20",
+      "tags": ["pinkoi", "marketplace_only"],
+      "expected": "success_products",
+      "evidence": "Pinkoi store active with product listings: https://www.pinkoi.com/store/mrcasa"
+    },
+    "goodglas": {
+      "group": "opt20",
+      "tags": ["own_site", "shopee", "multi_channel", "existing_products"],
+      "expected": "success_products",
+      "evidence": "Own site with product catalog: https://www.goodglas.com; 8 existing curated products"
+    },
+    "keizu": {
+      "group": "opt20",
+      "tags": ["own_site", "shopee", "pinkoi", "multi_channel", "existing_products"],
+      "expected": "success_products",
+      "evidence": "Own site with product pages: https://keizu.com.tw; 2 existing curated products"
+    },
+    "snug": {
+      "group": "opt20",
+      "tags": ["subdomain", "existing_products"],
+      "expected": "success_products",
+      "evidence": "Hosted storefront subdomain: https://shop.snug.com.tw; 7 existing curated products"
+    },
+    "lid-shoes": {
+      "group": "opt20",
+      "tags": ["own_site"],
+      "expected": "success_products",
+      "evidence": "Own site with product pages: https://lidshoes.com"
+    },
+    "7th-island": {
+      "group": "opt20",
+      "tags": ["pinkoi", "marketplace_only"],
+      "expected": "success_products",
+      "evidence": "Pinkoi store active: https://en.pinkoi.com/store/7thisland"
+    },
+    "southgate": {
+      "group": "opt20",
+      "tags": ["own_site", "shopee", "pinkoi", "multi_channel", "existing_products"],
+      "expected": "success_products",
+      "evidence": "Own site with products: https://southgate.tw; 5 existing curated products"
+    },
+    "feelgood-toothbrush": {
+      "group": "opt20",
+      "tags": ["deep_category_path", "existing_products"],
+      "expected": "success_products",
+      "evidence": "Category page on bamboobrush.com.tw: https://www.bamboobrush.com.tw/categories/feelgoodtoothbrush; 4 existing curated products"
+    },
+    "heme-cosmetics": {
+      "group": "opt20",
+      "tags": ["own_site", "shopee", "pinkoi", "multi_channel"],
+      "expected": "success_products",
+      "evidence": "Own site with product catalog: https://www.hemecosmetics.com.tw"
+    },
+    "yiiloon-mask": {
+      "group": "opt20",
+      "tags": ["pinkoi", "marketplace_only"],
+      "expected": "success_products",
+      "evidence": "Pinkoi store on hk.pinkoi.com: https://hk.pinkoi.com/store/yiiloonmask"
+    },
+    "studio-smoll": {
+      "group": "opt20",
+      "tags": ["locale_path", "existing_products"],
+      "expected": "success_products",
+      "evidence": "Own site with /tw locale path: https://www.studiosmoll.com/tw; 7 existing curated products"
+    },
+    "memedo": {
+      "group": "opt20",
+      "tags": ["pinkoi", "marketplace_only"],
+      "expected": "success_products",
+      "evidence": "Pinkoi store active: https://www.pinkoi.com/store/memedo"
+    },
+    "trista-handmade": {
+      "group": "opt20",
+      "tags": ["deep_category_path", "pinkoi", "multi_channel", "existing_products"],
+      "expected": "success_products",
+      "evidence": "Own site with deep path: https://www.tristahandmade.com/home; 5 existing curated products"
+    },
+    "wild-type": {
+      "group": "opt20",
+      "tags": ["hosted_storefront", "existing_products"],
+      "expected": "success_products",
+      "evidence": "Hosted storefront on easy.co: https://wildtype.easy.co; 9 existing curated products"
+    },
+    "oursglass": {
+      "group": "opt20",
+      "tags": ["hosted_storefront", "pinkoi", "multi_channel", "existing_products"],
+      "expected": "success_products",
+      "evidence": "Hosted storefront on waca.ec: https://oursglass.waca.ec; 9 existing curated products"
+    },
+    "brainholesky": {
+      "group": "opt20",
+      "tags": ["hosted_storefront", "js_render", "shopee", "pinkoi", "multi_channel"],
+      "expected": "success_products",
+      "evidence": "Hosted storefront on oen.tw (JS-rendered SPA): https://brainholesky.oen.tw; also on Pinkoi and Shopee"
+    },
+    "singezih": {
+      "group": "opt20",
+      "tags": ["hosted_storefront", "pinkoi", "multi_channel"],
+      "expected": "success_products",
+      "evidence": "Hosted storefront on shopstore.tw: https://singezih.shopstore.tw; also on Pinkoi"
+    },
+    "yarn-ball": {
+      "group": "opt20",
+      "tags": ["deep_category_path", "pinkoi", "multi_channel"],
+      "expected": "success_products",
+      "evidence": "Deep category path on aiyabungu.com: https://www.aiyabungu.com/categories/yarnball-針線球; also on Pinkoi"
+    }
+  }
+}

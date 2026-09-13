@@ -46,6 +46,7 @@
     "curation:worker": "tsx src/curation-worker/server.ts",
     "curation:snapshot": "tsx scripts/enrichment/run/snapshot.ts",
     "curation:rerun": "tsx scripts/enrichment/run/refresh.ts",
+    "curation:eval": "tsx scripts/enrichment/eval/suite.ts",
     "curation:render": "tsx scripts/enrichment/run/render.ts",
     "backfill:tw": "tsx scripts/backfill-tw-localization.ts",
     "brand-storage-maintenance": "tsx scripts/enrichment/images/brand-storage-maintenance.ts",
