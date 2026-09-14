@@ -77,7 +77,9 @@
     "check:category-redirects": "tsx scripts/generate-category-redirects.ts --check",
     "llm-eval": "tsx scripts/llm-eval/llm-eval.ts",
     "founding-facts:audit": "tsx scripts/enrichment/data/founding-facts-audit/index.ts",
-    "search:eval": "tsx scripts/enrichment/eval/search-eval/retrieval-eval.ts"
+    "search:eval": "tsx scripts/enrichment/eval/search-eval/retrieval-eval.ts",
+    "distill:export": "tsx scripts/distillation/export-training-data.ts",
+    "distill:eval": "tsx scripts/distillation/eval-compare.ts"
   },
   "dependencies": {
     "@base-ui/react": "^1.7.0",

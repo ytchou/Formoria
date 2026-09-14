@@ -179,6 +179,9 @@ scripts/search-eval/runs/
 # is committed, its scored output and LLM audit sink are not.
 scripts/llm-eval/runs/
 
+# distillation experiment run artifacts (DEV-1681)
+scripts/distillation/runs/
+
 # brand-storage-maintenance local manifests (operational artifacts, never committed)
 scripts/.storage-purge-manifest-*.json
 scripts/.reencode-originals-*.json
