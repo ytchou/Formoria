@@ -47,6 +47,7 @@ const EMPTY_CATALOG: CatalogDiscoveryResult = {
   triples: [],
   attempts: [],
   evidence: new Map(),
+  deadlineHit: false,
 };
 
 const model = vi.fn(async () => ({ invoke: async () => ({ content: "{}" }) }));
@@ -166,11 +167,13 @@ describe("acquire phase catalog-discovery threading", () => {
           `${SITE}/products/plate`,
           {
             title: "Plate",
+            titleSource: "h1" as const,
             text: "A ceramic plate.",
             imageUrls: [`${SITE}/img/plate.jpg`],
           },
         ],
       ]),
+      deadlineHit: false,
     };
     acquisitionMocks.runAcquisition.mockResolvedValue({
       agentOutcome: "planned",

@@ -9,6 +9,9 @@ import {
   BASE_WALL_CLOCK_MS,
   PER_PROBE_MS,
   ceilingMs,
+  catalogAllowanceMs,
+  CATALOG_ALLOWANCE_MS,
+  CATALOG_BACKSTOP_GRACE_MS,
   type BudgetState,
   type EvidencePack,
 } from '../budget'
@@ -177,5 +180,52 @@ describe('budget', () => {
     expect(BASE_WALL_CLOCK_MS).toBe(60_000)
     expect(PER_PROBE_MS).toBe(1_500)
     expect(BUDGET_CEILINGS.wallClockMs).toBe(180_000)
+  })
+})
+
+// DEV-1712: the catalog window is measured against the run ceiling, and the
+// ceiling is absolute — a finalize that outruns it aborts `graph.invoke`, which
+// discards the ENTIRE update (hero, gallery, image pool and catalog alike).
+describe('catalogAllowanceMs', () => {
+  it('grants_the_full_catalog_window_on_a_fresh_run', () => {
+    expect(catalogAllowanceMs(10_000)).toBe(CATALOG_ALLOWANCE_MS)
+  })
+
+  it('reserves_the_backstop_grace_inside_the_ceiling', () => {
+    // 140 s elapsed leaves 40 s to the ceiling; the grace claims 15 s of it.
+    expect(catalogAllowanceMs(140_000)).toBe(
+      ceilingMs() - CATALOG_BACKSTOP_GRACE_MS - 140_000,
+    )
+    expect(catalogAllowanceMs(140_000)).toBeLessThan(CATALOG_ALLOWANCE_MS)
+  })
+
+  it('returns_zero_past_the_ceiling', () => {
+    expect(catalogAllowanceMs(ceilingMs())).toBe(0)
+    expect(catalogAllowanceMs(ceilingMs() + 30_000)).toBe(0)
+  })
+
+  it('returns_zero_below_the_floor_rather_than_a_window_that_buys_nothing', () => {
+    // 160 s elapsed leaves 5 s after the grace — under the 10 s floor, which
+    // cannot fetch a landing page and hydrate one product page.
+    expect(catalogAllowanceMs(160_000)).toBe(0)
+    // 155 s leaves exactly the floor.
+    expect(catalogAllowanceMs(155_000)).toBe(10_000)
+  })
+
+  it('scales_the_ceiling_it_measures_against', () => {
+    expect(catalogAllowanceMs(10_000, 2)).toBe(CATALOG_ALLOWANCE_MS)
+    // Half ceiling is 90 s: 40 s elapsed leaves 35 s after the grace.
+    expect(catalogAllowanceMs(40_000, 0.5)).toBe(35_000)
+    expect(catalogAllowanceMs(80_000, 0.5)).toBe(0)
+  })
+
+  it('never_reaches_the_ceiling_even_with_the_backstop_spent', () => {
+    for (const elapsed of [0, 30_000, 90_000, 150_000, 154_000]) {
+      const allowance = catalogAllowanceMs(elapsed)
+      if (allowance === 0) continue
+      expect(elapsed + allowance + CATALOG_BACKSTOP_GRACE_MS).toBeLessThanOrEqual(
+        ceilingMs(),
+      )
+    }
   })
 })

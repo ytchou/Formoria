@@ -1243,6 +1243,20 @@ export type ChunkWritePlan = {
   unjudgedCount: number;
 };
 
+export type KeepStatus = "active" | "candidate";
+
+/**
+ * The status the products agent's page images are kept with. They are
+ * evidence for ranking one product's photo, not gallery images, so they stay
+ * candidate — unless the target has no active image at all, in which case the
+ * page batch is the gallery's only supply and must satisfy the >=1-active
+ * floor of `apply_brand_refresh` / `approve_submission`. The caller then runs
+ * `finalizeHeroOrder` so those actives get a unique `sort_order` (DEV-1714).
+ */
+export function keepStatusForPageImages(activeImageCount: number): KeepStatus {
+  return activeImageCount === 0 ? "active" : "candidate";
+}
+
 /**
  * Turn one chunk's outcome into the exact set of row writes it may perform.
  *
@@ -1270,7 +1284,17 @@ export function planChunkImageWrites(input: {
    * parsed verdicts, and those three are written nowhere.
    */
   ctx: AuditCallContext;
+  /**
+   * The status a KEPT image is written with, REQUIRED: classification tags a
+   * row, it never decides on its own whether the row joins the gallery. Only a
+   * caller that follows its writes with `finalizeHeroOrder` may pass
+   * `"active"`, because only that pass assigns the unique `sort_order` that
+   * `apply_brand_refresh`'s publishable-core guard demands; everything else
+   * passes `"candidate"` (DEV-1714).
+   */
+  keepStatus: KeepStatus;
 }): ChunkWritePlan {
+  const { keepStatus } = input;
   const unavailable = new Set(input.unavailableIds);
   const writes: ChunkImageWrite[] = [];
   const classifications: ClassifiedImage[] = [];
@@ -1321,7 +1345,7 @@ export function planChunkImageWrites(input: {
       row: {
         tags: rejected ? null : [classification.tag as KeptImageTag],
         score: classification.score,
-        status: rejected ? "rejected" : "active",
+        status: rejected ? "rejected" : keepStatus,
         rejection_reasons: rejected ? classification.reasons : null,
         rejected_at: rejected ? input.now : null,
         alt_zh: classification.caption ?? null,
@@ -1450,6 +1474,8 @@ export type ClassifyStoredImagesOptions = {
   client?: ClassifyImagesChatClient;
   /** Defaults to `loadVisionDataUri`. */
   loadImage?: VisionImageLoader;
+  /** Forwarded to `planChunkImageWrites`, REQUIRED — see it. */
+  keepStatus: KeepStatus;
   /**
    * The enclosing audit span, forwarded to `planChunkImageWrites`. A caller
    * outside an audited phase gets a throwaway rather than being forced to
@@ -1521,6 +1547,7 @@ export async function classifyStoredImages(
     pendingPatch,
     loadImage = loadVisionDataUri,
     ctx = { summary: {} },
+    keepStatus,
   } = options;
 
   // Ahead of every read: a dry run must not touch Storage, the model, or the
@@ -1612,6 +1639,7 @@ export async function classifyStoredImages(
       unavailableIds: outcome.unavailableIds,
       now: new Date().toISOString(),
       ctx,
+      keepStatus,
     });
     return {
       classified: plan.classifications,

@@ -1,4 +1,4 @@
-import { captureAlert } from "@/lib/adapters/alerting/sentry";
+import { captureAlert, type AlertLevel } from "@/lib/adapters/alerting/sentry";
 import { postSlackAlert } from "@/lib/adapters/alerting/slack";
 import { auditedCall } from "@/lib/audit";
 import type { AgentNotification } from "@/lib/adapters/slack/notification";
@@ -102,11 +102,12 @@ async function dispatchAlert(
     message: string;
     context: Record<string, string | number>;
     error?: unknown;
+    level?: AlertLevel;
   },
 ): Promise<void> {
   try {
     captureAlert(sentry.message, {
-      level: "error",
+      level: sentry.level ?? "error",
       context: sentry.context,
       ...(sentry.error !== undefined ? { error: sentry.error } : {}),
     });
@@ -275,6 +276,10 @@ export async function reportChannelVerdicts(
             verdictSkipped: verdict.verdictSkipped ?? 0,
             reportOnly: String(verdict.reportOnly),
           },
+          // Routine finalizer output, not a failure — a job that acted on
+          // brands still completed normally. `warning` keeps it out of
+          // error-rate alerting while remaining visible in Sentry.
+          level: "warning",
         },
       );
     },

@@ -20,7 +20,14 @@ import {
   type CuratedProductBackfillResult,
 } from "@/lib/services/curated-products/backfill";
 
-import { parseApplyOption, parseCsvPath, parseSlugsOption } from "./shared";
+import {
+  parseApplyOption,
+  parseBrandOption,
+  parseCsvPath,
+  parseRewriteOption,
+  parseSlugsOption,
+  fetchAllRows,
+} from "./shared";
 
 // ---------------------------------------------------------------------------
 // Injectable deps
@@ -193,6 +200,171 @@ function readSlugsFromCsv(csvPath: string): string[] {
 async function main(): Promise<void> {
   const argv = process.argv.slice(2);
   const apply = parseApplyOption(argv);
+
+  // --rewrite-descriptions mode (DEV-1709)
+  if (parseRewriteOption(argv)) {
+    const { loadScriptTarget } = await import("../../../shared/target");
+    loadScriptTarget();
+
+    const brandSlug = parseBrandOption(argv) ?? undefined;
+
+    const materializeMod = await import(
+      "@/lib/services/curated-products/materialize"
+    );
+    const { rewriteGeneratedDescriptions } = materializeMod;
+
+    const { createServiceClient } = await import("@/lib/supabase/service");
+    const { readProductPage } = await import(
+      "@/lib/services/enrich-phases/products/read-page"
+    );
+    const { fetchHtmlWithMetadata } = await import(
+      "@/lib/services/enrich-phases/scraper/fetch-guards"
+    );
+    const { getLangfuse } = await import("@/lib/langfuse/client");
+    const { createProfiledOpenAIClient } = await import(
+      "@/lib/services/llm-audit"
+    );
+    const { verifyDescription } = await import(
+      "@/lib/services/enrich-phases/products/verify"
+    );
+    const { updateCuratedProduct } = await import(
+      "@/lib/services/curated-products"
+    );
+
+    let cachedPromptMeta: { name: string; version: number; source: "langfuse" } | null = null;
+
+    const deps: Parameters<typeof rewriteGeneratedDescriptions>[0] = {
+      fetchGeneratedProducts: async (slug) => {
+        const supabase = createServiceClient();
+        return fetchAllRows("curated_products (generated)", (from, to) => {
+          let query = supabase
+            .from("curated_products")
+            .select(
+              "id, name_zh, official_url, category, subcategory, product_description_zh, brands!inner(slug, name)",
+            )
+            .eq("proposed_by", "generated")
+            .order("brand_id")
+            .order("name_zh")
+            .range(from, to);
+          if (slug) {
+            query = query.eq("brands.slug", slug);
+          }
+          return query;
+        }).then((rows) =>
+          (rows as Array<Record<string, unknown>>).map((row) => {
+            const brand = row.brands as { slug: string; name: string };
+            return {
+              id: row.id as string,
+              nameZh: row.name_zh as string,
+              officialUrl: (row.official_url as string) ?? null,
+              category: row.category as string,
+              subcategory: (row.subcategory as string) ?? null,
+              productDescriptionZh: row.product_description_zh as string,
+              brandSlug: brand.slug,
+              brandName: brand.name,
+            };
+          }),
+        );
+      },
+      readPage: async (url) => {
+        return readProductPage(url, {
+          fetchHtml: async (u) => {
+            const result = await fetchHtmlWithMetadata(u);
+            return {
+              text: result.text ?? "",
+              statusCode: result.status ?? 0,
+            };
+          },
+          budget: {
+            allowed: { reads: 1000, renders: 0, turns: 0, wallClockMs: 0 },
+            used: { reads: 0, renders: 0, turns: 0, wallClockMs: 0 },
+          },
+        });
+      },
+      fetchPrompt: async () => {
+        // products-describe is a Langfuse-only prompt (not in the local snapshot).
+        // fetchLangfusePromptWithMeta requires a snapshot entry; fetch directly instead.
+        const langfuseClient = getLangfuse();
+        if (!langfuseClient) {
+          throw new Error(
+            "Langfuse client not configured — products-describe prompt requires LANGFUSE_SECRET_KEY",
+          );
+        }
+        const promptClient = await langfuseClient.getPrompt(
+          "products-describe",
+          undefined,
+          { label: "production" },
+        );
+        if (typeof promptClient.prompt !== "string") {
+          throw new Error("products-describe prompt is not a text prompt");
+        }
+        // Cache prompt meta for callLlm's audit context
+        cachedPromptMeta = {
+          name: promptClient.name,
+          version: promptClient.version,
+          source: "langfuse" as const,
+        };
+        return {
+          text: promptClient.prompt,
+          prompt: cachedPromptMeta,
+        };
+      },
+      callLlm: async (system, user) => {
+        const llmClient = createProfiledOpenAIClient("productDescriptions", {
+          phase: "product_descriptions",
+          prompt: cachedPromptMeta ?? undefined,
+        });
+        const result = await llmClient.chat({ system, user });
+        if (!result.ok) {
+          throw new Error(
+            `LLM call failed: ${result.status} ${result.finishReason ?? "unknown"}`,
+          );
+        }
+        return { text: result.content ?? "" };
+      },
+      verifyDescription,
+      updateProduct: async (id, input) => {
+        await updateCuratedProduct(id, input);
+      },
+    };
+
+    if (!apply) {
+      console.log(
+        "Note: dry-run reads pages and calls the LLM to preview results. Use --brand <slug> to limit scope.",
+      );
+      const { setAuditWriteSeam } = await import("@/lib/audit/emit");
+      setAuditWriteSeam(async () => null);
+    }
+    const since = new Date();
+
+    const result = await rewriteGeneratedDescriptions(deps, {
+      apply,
+      brandSlug,
+    });
+
+    if (!apply) {
+      console.log(JSON.stringify(result.diffs, null, 2));
+      console.log(
+        `\nDry-run complete. Total: ${result.total}, Would rewrite: ${result.rewritten}, Skipped: ${result.skipped.length}, Failed: ${result.failed.length}`,
+      );
+      const { assertNoNewAuditRows } = await import(
+        "@/lib/services/eval/zero-write"
+      );
+      await assertNoNewAuditRows({ since });
+    } else {
+      console.log(
+        `Rewritten: ${result.rewritten}/${result.total}, Skipped: ${result.skipped.length}, Failed: ${result.failed.length}`,
+      );
+      console.log(
+        "Run pnpm embeddings:backfill --apply to refresh vector embeddings.",
+      );
+    }
+
+    if (result.failed.length > 0) {
+      process.exitCode = 1;
+    }
+    return;
+  }
 
   const csvPath = parseCsvPath(argv);
   const slugsArg = parseSlugsOption(argv);

@@ -70,6 +70,7 @@ import {
   verifyReachable,
   verifyProposal,
   verifyClosedSets,
+  verifyDescription,
   type ImageVerificationStatus,
 } from './verify'
 import {
@@ -120,7 +121,14 @@ const MAX_PAGE_IMAGES_PER_PRODUCT = 6
 // ---------------------------------------------------------------------------
 
 export type ProductsInput = {
-  brand: { id: string; slug: string; name: string; url?: string }
+  brand: {
+    id: string
+    slug: string
+    name: string
+    url?: string
+    /** Bare hosts of every channel the brand lists; see `verifySameHost`. */
+    ownedHosts?: readonly string[]
+  }
   pool: ProductCandidate[]
   imagePool: RankableImage[]
   catalogResult?: unknown
@@ -464,6 +472,10 @@ function brandUrlOf(ctx: ProductsRunContext): string {
   return ctx.input.brand.url ?? `https://${ctx.input.brand.slug}.com`
 }
 
+function ownedHostsOf(ctx: ProductsRunContext): readonly string[] {
+  return ctx.input.brand.ownedHosts ?? []
+}
+
 async function proposeNode(
   ctx: ProductsRunContext,
   state: ProductsStateType,
@@ -693,7 +705,7 @@ async function verifyNode(
 
   for (const proposal of state.proposals) {
     const page = evidenceByUrl.get(proposal.officialUrl)
-    const sameHostResult = verifySameHost(proposal.officialUrl, brandUrl)
+    const sameHostResult = verifySameHost(proposal.officialUrl, brandUrl, ownedHostsOf(ctx))
     const reachableResult = page
       ? page.statusCode >= 200 && page.statusCode < 400
         ? { ok: true }
@@ -717,6 +729,8 @@ async function verifyNode(
         category: proposal.category,
         subcategory: proposal.subcategory ?? undefined,
         material: proposal.material,
+        nameZh: proposal.nameZh,
+        productDescriptionZh: proposal.productDescriptionZh,
       },
       {
         brandUrl,
@@ -752,12 +766,26 @@ async function verifyNode(
     }
   }
 
+  const dropReasonStr = Object.entries(dropReasons)
+    .map(([key, count]) => `${key}:${count}`)
+    .join(', ') || 'all passed'
+  const repairableStr = repairable.length > 0
+    ? '; repairable=' + repairable
+        .flatMap(({ failures }) => failures)
+        .map((f) => f.split(':')[0])
+        .filter((v, i, a) => a.indexOf(v) === i)
+        .map((code) => {
+          const count = repairable.filter(({ failures }) =>
+            failures.some((f) => f.split(':')[0] === code)
+          ).length
+          return `${code}:${count}`
+        })
+        .join(',')
+    : ''
   ctx.record(
     'verify',
     `${verified.length} verified, ${repairable.length} repairable, ${dropped} dropped`,
-    Object.entries(dropReasons)
-      .map(([key, count]) => `${key}:${count}`)
-      .join(', ') || 'all passed',
+    dropReasonStr + repairableStr,
     start,
   )
 
@@ -831,14 +859,46 @@ async function repairNode(
 
   // Re-verify the checks the repair was allowed to touch. A repair that
   // "fixes" a proposal into a different host is not a repair.
+  // Cache description results to avoid calling verifyDescription twice.
+  const reVerifyDescCache = new Map<string, string[]>()
   const reVerified = validation.proposals.filter((proposal) => {
     const closedSet = verifyClosedSets({
       category: proposal.category,
       subcategory: proposal.subcategory ?? undefined,
       material: proposal.material,
     })
-    return closedSet.ok && verifySameHost(proposal.officialUrl, brandUrl).ok
+    const descFailures = verifyDescription({
+      nameZh: proposal.nameZh,
+      productDescriptionZh: proposal.productDescriptionZh,
+    })
+    reVerifyDescCache.set(proposal.officialUrl, descFailures)
+    return closedSet.ok && verifySameHost(proposal.officialUrl, brandUrl, ownedHostsOf(ctx)).ok && descFailures.length === 0
   })
+
+  const reVerifyDropReasons: Record<string, number> = {}
+  for (const proposal of validation.proposals) {
+    if (reVerified.includes(proposal)) continue
+    const closedSet = verifyClosedSets({
+      category: proposal.category,
+      subcategory: proposal.subcategory ?? undefined,
+      material: proposal.material,
+    })
+    for (const f of closedSet.failures) {
+      const key = f.split(':')[0] ?? f
+      reVerifyDropReasons[key] = (reVerifyDropReasons[key] ?? 0) + 1
+    }
+    if (!verifySameHost(proposal.officialUrl, brandUrl, ownedHostsOf(ctx)).ok) {
+      reVerifyDropReasons['host_mismatch'] = (reVerifyDropReasons['host_mismatch'] ?? 0) + 1
+    }
+    const descFailures = reVerifyDescCache.get(proposal.officialUrl) ?? verifyDescription({
+      nameZh: proposal.nameZh,
+      productDescriptionZh: proposal.productDescriptionZh,
+    })
+    for (const f of descFailures) {
+      const key = f.split(':')[0] ?? f
+      reVerifyDropReasons[key] = (reVerifyDropReasons[key] ?? 0) + 1
+    }
+  }
 
   ctx.record(
     'repair',
@@ -847,9 +907,15 @@ async function repairNode(
     start,
   )
 
+  const mergedDropReasons = { ...state.dropReasons }
+  for (const [key, count] of Object.entries(reVerifyDropReasons)) {
+    mergedDropReasons[key] = (mergedDropReasons[key] ?? 0) + count
+  }
+
   return {
     repaired: reVerified,
     dropped: state.dropped + (state.repairable.length - reVerified.length),
+    dropReasons: mergedDropReasons,
     ...(reVerified.length > 0 ? { agentOutcome: 'repaired' as const } : {}),
   }
 }

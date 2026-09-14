@@ -12,7 +12,6 @@ import {
   pureLanguage,
   withinLengthBand,
 } from "./validators";
-import { faqWhereToBuyPrompt } from "@/lib/prompts";
 
 function channelList(ctx: FaqBrandContext, t: FaqTFn): string {
   const channels: string[] = [];
@@ -54,7 +53,10 @@ const whereToBuy: FaqPreset = {
       });
     },
   },
-  promptFragment: (ctx) => faqWhereToBuyPrompt(ctx.brand.name),
+  promptFragment: {
+    prompt: "faq-where-to-buy",
+    variables: (ctx) => ({ brand_name: ctx.brand.name }),
+  },
   // `groundedIn(requiredEvidence)` is derived in the registry (index.ts).
   validators: [
     pureLanguage(),

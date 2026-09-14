@@ -25,6 +25,8 @@ type CatalogProduct = {
   officialUrl: string | null;
   brandSlug: string;
   brandName: string;
+  productDescriptionZh: string;
+  productDescriptionEn: string | null;
   brand: { slug: string; purchaseWebsite: string | null; purchasePinkoi: string | null; purchaseShopee: string | null; purchaseMyship: string | null; socialInstagram: string | null; socialThreads: string | null; socialFacebook: string | null };
 };
 
@@ -42,6 +44,8 @@ function product(id: string, name: string, createdAt = "2026-01-01"): CatalogPro
     officialUrl: null,
     brandSlug: "test-brand",
     brandName: "Test Brand",
+    productDescriptionZh: "測試產品描述",
+    productDescriptionEn: null,
     brand: { slug: "test-brand", purchaseWebsite: null, purchasePinkoi: null, purchaseShopee: null, purchaseMyship: null, socialInstagram: null, socialThreads: null, socialFacebook: null },
   };
 }

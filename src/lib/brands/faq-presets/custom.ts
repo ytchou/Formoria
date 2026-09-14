@@ -6,15 +6,19 @@ import {
   withinLengthBand,
 } from "./validators";
 import { CUSTOM_QUESTION_CEILING, type FaqPreset } from "./types";
-import { faqCustomPrompt } from "@/lib/prompts";
 
 const custom: FaqPreset = {
   id: "custom",
   eligible: () => true,
   requiredEvidence: [],
   render: null,
-  promptFragment: (ctx) =>
-    faqCustomPrompt(ctx.brand.name, CUSTOM_QUESTION_CEILING),
+  promptFragment: {
+    prompt: "faq-custom",
+    variables: (ctx) => ({
+      brand_name: ctx.brand.name,
+      ceiling: String(CUSTOM_QUESTION_CEILING),
+    }),
+  },
   validators: [
     pureLanguage(),
     withinLengthBand(),

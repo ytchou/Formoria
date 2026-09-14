@@ -37,7 +37,7 @@ describe('buildPoolFromRows', () => {
     const rows = [
       // Latest job
       {
-        curation_job_id: 'job-2',
+        job_id: 'job-2',
         url: 'https://example.com/product-a',
         title: 'Product A',
         image_url: 'https://example.com/a.jpg',
@@ -47,7 +47,7 @@ describe('buildPoolFromRows', () => {
         created_at: '2026-09-01',
       },
       {
-        curation_job_id: 'job-2',
+        job_id: 'job-2',
         url: 'https://example.com/product-b?utm_source=fb',
         title: 'Product B',
         image_url: null,
@@ -58,7 +58,7 @@ describe('buildPoolFromRows', () => {
       },
       // Older job — should be filtered out
       {
-        curation_job_id: 'job-1',
+        job_id: 'job-1',
         url: 'https://example.com/old-product',
         title: 'Old Product',
         image_url: null,
@@ -147,7 +147,7 @@ describe('recordPool', () => {
     expect(readPage).toHaveBeenCalledTimes(2)
 
     // Body shape
-    expect(result.status).toBe('ARCHIVED')
+    expect(result.status).toBe('ACTIVE')
     expect(result.id).toBe('products-agent:test-brand')
 
     // Input shape

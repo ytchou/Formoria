@@ -1445,6 +1445,7 @@ describe('acquire fold', () => {
       ],
       attempts: [],
       evidence: new Map(),
+      deadlineHit: false,
     }))
 
     // Agent returned no scrapeResult and no catalogResult — the fallback

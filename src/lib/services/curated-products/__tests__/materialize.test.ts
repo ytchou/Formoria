@@ -504,6 +504,338 @@ describe("materializeSubmissionCuratedProducts", () => {
   });
 });
 
+// ---------------------------------------------------------------------------
+// rewriteGeneratedDescriptions (DEV-1709)
+// ---------------------------------------------------------------------------
+
+import {
+  rewriteGeneratedDescriptions,
+  type RewriteDescriptionsDeps,
+  type GeneratedProductRow,
+} from "../materialize";
+
+function makeRewriteDeps(overrides: Partial<RewriteDescriptionsDeps> = {}): {
+  deps: RewriteDescriptionsDeps;
+  calls: {
+    updateProduct: Array<{
+      id: string;
+      input: { productDescriptionZh: string };
+    }>;
+  };
+} {
+  const calls = {
+    updateProduct: [] as Array<{
+      id: string;
+      input: { productDescriptionZh: string };
+    }>,
+  };
+  const deps: RewriteDescriptionsDeps = {
+    fetchGeneratedProducts:
+      overrides.fetchGeneratedProducts ?? (async () => []),
+    readPage:
+      overrides.readPage ??
+      (async (url) => ({
+        url,
+        title: "Test Product",
+        description: "A test product",
+        mainText: "Product details here",
+        images: [],
+        jsonLd: null,
+        productSignals: true,
+        originExcerpts: [],
+        rendered: false,
+        statusCode: 200,
+      })),
+    fetchPrompt:
+      overrides.fetchPrompt ??
+      (async () => ({
+        text: "Generate descriptions",
+        prompt: {
+          name: "products-describe",
+          version: 1,
+          source: "snapshot" as const,
+        },
+      })),
+    callLlm: overrides.callLlm ?? (async () => ({ text: "[]" })),
+    verifyDescription: overrides.verifyDescription ?? (() => []),
+    updateProduct:
+      overrides.updateProduct ??
+      (async (id, input) => {
+        calls.updateProduct.push({ id, input });
+      }),
+  };
+  return { deps, calls };
+}
+
+function generatedProduct(
+  overrides: Partial<GeneratedProductRow> = {},
+): GeneratedProductRow {
+  return {
+    id: "product-1",
+    nameZh: "柴燒手感馬克杯",
+    officialUrl: "https://taoqi.com.tw/products/wood-fired-mug",
+    category: "home",
+    subcategory: "tableware",
+    productDescriptionZh: "南投柴燒窯場燒製的馬克杯。",
+    brandSlug: "taoqi",
+    brandName: "陶器工作室",
+    ...overrides,
+  };
+}
+
+describe("rewriteGeneratedDescriptions", () => {
+  it("rewrites generated products on apply", async () => {
+    const product = generatedProduct();
+    const newDesc = "窯變釉色柴燒馬克杯，南投窯場手作燒製。";
+    const { deps, calls } = makeRewriteDeps({
+      fetchGeneratedProducts: async () => [product],
+      callLlm: async () => ({
+        text: JSON.stringify([
+          { nameZh: product.nameZh, productDescriptionZh: newDesc },
+        ]),
+      }),
+    });
+
+    const result = await rewriteGeneratedDescriptions(deps, {
+      apply: true,
+    });
+
+    expect(calls.updateProduct).toEqual([
+      { id: "product-1", input: { productDescriptionZh: newDesc } },
+    ]);
+    expect(result.rewritten).toBe(1);
+    expect(result.diffs).toHaveLength(1);
+    expect(result.diffs[0]).toMatchObject({
+      id: "product-1",
+      old: product.productDescriptionZh,
+      new: newDesc,
+    });
+  });
+
+  it("produces diffs without writing in dry-run", async () => {
+    const product = generatedProduct();
+    const newDesc = "窯變釉色柴燒馬克杯，南投窯場手作燒製。";
+    const { deps, calls } = makeRewriteDeps({
+      fetchGeneratedProducts: async () => [product],
+      callLlm: async () => ({
+        text: JSON.stringify([
+          { nameZh: product.nameZh, productDescriptionZh: newDesc },
+        ]),
+      }),
+    });
+
+    const result = await rewriteGeneratedDescriptions(deps, {
+      apply: false,
+    });
+
+    expect(calls.updateProduct).toEqual([]);
+    expect(result.diffs).toHaveLength(1);
+    expect(result.diffs[0]).toMatchObject({
+      old: product.productDescriptionZh,
+      new: newDesc,
+    });
+  });
+
+  it("skips products whose page read fails", async () => {
+    const product = generatedProduct();
+    const { deps } = makeRewriteDeps({
+      fetchGeneratedProducts: async () => [product],
+      readPage: async () => {
+        throw new Error("connection refused");
+      },
+    });
+
+    const result = await rewriteGeneratedDescriptions(deps, {
+      apply: false,
+    });
+
+    expect(result.skipped).toEqual([
+      expect.objectContaining({
+        id: "product-1",
+        reason: "page_read_failed",
+      }),
+    ]);
+    expect(result.diffs).toHaveLength(0);
+  });
+
+  it("skips products failing verify checks", async () => {
+    const product = generatedProduct();
+    const newDesc = "某某某";
+    const { deps } = makeRewriteDeps({
+      fetchGeneratedProducts: async () => [product],
+      callLlm: async () => ({
+        text: JSON.stringify([
+          { nameZh: product.nameZh, productDescriptionZh: newDesc },
+        ]),
+      }),
+      verifyDescription: () => ["restates_name", "too_short"],
+    });
+
+    const result = await rewriteGeneratedDescriptions(deps, {
+      apply: false,
+    });
+
+    expect(result.skipped).toEqual([
+      expect.objectContaining({
+        id: "product-1",
+        reason: "verify_failed:restates_name,too_short",
+      }),
+    ]);
+    expect(result.diffs).toHaveLength(0);
+  });
+
+  it("skips products with no official_url", async () => {
+    const product = generatedProduct({ officialUrl: null });
+    const { deps } = makeRewriteDeps({
+      fetchGeneratedProducts: async () => [product],
+    });
+
+    const result = await rewriteGeneratedDescriptions(deps, {
+      apply: false,
+    });
+
+    expect(result.skipped).toEqual([
+      expect.objectContaining({
+        id: "product-1",
+        reason: "no_official_url",
+      }),
+    ]);
+  });
+
+  it("marks all brand products as failed when LLM returns non-array JSON", async () => {
+    const product = generatedProduct();
+    const { deps } = makeRewriteDeps({
+      fetchGeneratedProducts: async () => [product],
+      callLlm: async () => ({
+        text: JSON.stringify({
+          products: [
+            { nameZh: product.nameZh, productDescriptionZh: "desc" },
+          ],
+        }),
+      }),
+    });
+
+    const result = await rewriteGeneratedDescriptions(deps, {
+      apply: false,
+    });
+
+    expect(result.failed).toEqual([
+      expect.objectContaining({
+        id: "product-1",
+        error: expect.stringContaining("not a JSON array"),
+      }),
+    ]);
+    expect(result.diffs).toHaveLength(0);
+  });
+
+  it("skips products with null or empty LLM description", async () => {
+    const product1 = generatedProduct({
+      id: "p1",
+      nameZh: "杯A",
+      brandSlug: "taoqi",
+    });
+    const product2 = generatedProduct({
+      id: "p2",
+      nameZh: "杯B",
+      brandSlug: "taoqi",
+    });
+    const { deps } = makeRewriteDeps({
+      fetchGeneratedProducts: async () => [product1, product2],
+      callLlm: async () => ({
+        text: JSON.stringify([
+          { nameZh: "杯A", productDescriptionZh: null },
+          { nameZh: "杯B", productDescriptionZh: "" },
+        ]),
+      }),
+    });
+
+    const result = await rewriteGeneratedDescriptions(deps, {
+      apply: false,
+    });
+
+    expect(result.skipped).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          id: "p1",
+          reason: "llm_invalid_description",
+        }),
+        expect.objectContaining({
+          id: "p2",
+          reason: "llm_invalid_description",
+        }),
+      ]),
+    );
+    expect(result.diffs).toHaveLength(0);
+  });
+
+  it("matches LLM output to products by nameZh", async () => {
+    const product1 = generatedProduct({
+      id: "p1",
+      nameZh: "柴燒手感馬克杯",
+      brandSlug: "taoqi",
+    });
+    const product2 = generatedProduct({
+      id: "p2",
+      nameZh: "手工陶盤",
+      brandSlug: "taoqi",
+    });
+    const { deps, calls } = makeRewriteDeps({
+      fetchGeneratedProducts: async () => [product1, product2],
+      callLlm: async () => ({
+        // Return in reverse order to verify matching by name, not position
+        text: JSON.stringify([
+          { nameZh: "手工陶盤", productDescriptionZh: "盤子描述" },
+          { nameZh: "柴燒手感馬克杯", productDescriptionZh: "杯子描述" },
+        ]),
+      }),
+    });
+
+    const result = await rewriteGeneratedDescriptions(deps, {
+      apply: true,
+    });
+
+    expect(result.rewritten).toBe(2);
+    expect(calls.updateProduct).toEqual(
+      expect.arrayContaining([
+        { id: "p1", input: { productDescriptionZh: "杯子描述" } },
+        { id: "p2", input: { productDescriptionZh: "盤子描述" } },
+      ]),
+    );
+  });
+
+  it("skips duplicate nameZh within a brand", async () => {
+    const product1 = generatedProduct({
+      id: "p1",
+      nameZh: "柴燒手感馬克杯",
+      brandSlug: "taoqi",
+    });
+    const product2 = generatedProduct({
+      id: "p2",
+      nameZh: "柴燒手感馬克杯",
+      brandSlug: "taoqi",
+    });
+    const { deps } = makeRewriteDeps({
+      fetchGeneratedProducts: async () => [product1, product2],
+      callLlm: async () => ({
+        text: JSON.stringify([
+          { nameZh: "柴燒手感馬克杯", productDescriptionZh: "新描述" },
+        ]),
+      }),
+    });
+
+    const result = await rewriteGeneratedDescriptions(deps, { apply: false });
+
+    expect(result.skipped).toEqual([
+      expect.objectContaining({
+        id: "p2",
+        reason: expect.stringContaining("duplicate_name_zh"),
+      }),
+    ]);
+    expect(result.diffs).toHaveLength(1);
+    expect(result.diffs[0]?.id).toBe("p1");
+  });
+});
+
 /** A one-row read client for the public homepage projection. */
 function readRowClient(row: Record<string, unknown>): CuratedProductSupabase {
   const chain = {

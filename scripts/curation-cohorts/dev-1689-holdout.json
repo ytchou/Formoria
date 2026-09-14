@@ -1,0 +1,81 @@
+{
+  "name": "dev-1689-holdout",
+  "title": "DEV-1689 — product-discovery eval suite, 10 holdout brands",
+  "subtitle": "Holdout set. Expected labels set before the holdout run, never edited after the tag. 7/10 already have products — this measures overfit on the 30, not population-tail difficulty.",
+  "warning": "HOLDOUT — do not run subsets against this cohort. One run only, after the optimization gate passes. Apply run preceded by snapshot.",
+  "holdout": true,
+  "labels": {
+    "umu": "有木 UMU",
+    "i-eat-acrylic": "我吃壓克力 I Eat Acrylic",
+    "hutch-asap": "HUTCH ASAP",
+    "major-pleasure": "Major Pleasure 女子鞋研究室",
+    "padki": "PADKI",
+    "loginheart": "Loginheart",
+    "lumirona": "LUMIRONA",
+    "hmm": "HMM",
+    "bon-bon-stickers": "邦妮插畫 Bon Bon Stickers",
+    "todayforhan": "阿翰 TodayForHan"
+  },
+  "eval": {
+    "umu": {
+      "group": "holdout",
+      "tags": ["own_site", "existing_products"],
+      "expected": "success_products",
+      "evidence": "Own site with /products/ detail pages: https://www.umu.com.tw/products/pericopsis-elata-dining-table-working-table-wood-desk-p0630601a12vb"
+    },
+    "i-eat-acrylic": {
+      "group": "holdout",
+      "tags": ["own_site", "existing_products"],
+      "expected": "success_products",
+      "evidence": "Own site with /products/ detail pages: https://www.eat-akuriru.com/products/拍立得｜閃卡壓克力保護架"
+    },
+    "hutch-asap": {
+      "group": "holdout",
+      "tags": ["own_site", "existing_products"],
+      "expected": "success_products",
+      "evidence": "Own site with /products/ detail pages: https://hutch-asap.com/products/everyday-6-panel-cap-still-journey"
+    },
+    "major-pleasure": {
+      "group": "holdout",
+      "tags": ["own_site", "pinkoi", "multi_channel"],
+      "expected": "success_products",
+      "evidence": "Own site with product.php detail pages: https://www.majorpleasure.com/product.php?action=detail&pid=M006bk"
+    },
+    "padki": {
+      "group": "holdout",
+      "tags": ["own_site", "existing_products"],
+      "expected": "success_products",
+      "evidence": "Own site with /item/ detail pages: https://padki.tw/item/004"
+    },
+    "loginheart": {
+      "group": "holdout",
+      "tags": ["own_site", "shopee", "pinkoi", "multi_channel", "existing_products"],
+      "expected": "success_products",
+      "evidence": "Own site with /shop/ detail pages: https://loginheart.com/shop/payfunbagmini-brown/"
+    },
+    "lumirona": {
+      "group": "holdout",
+      "tags": ["shopee", "myship", "single_listing", "marketplace_only"],
+      "expected": "correct_zero",
+      "evidence": "Marketplace-only with single product listing URLs (shopee + myship), no store page or catalog"
+    },
+    "hmm": {
+      "group": "holdout",
+      "tags": ["own_site", "pinkoi", "multi_channel", "existing_products"],
+      "expected": "success_products",
+      "evidence": "Own site with /products/ detail pages: https://hmmproject.com/products/pocket-ruler"
+    },
+    "bon-bon-stickers": {
+      "group": "holdout",
+      "tags": ["own_site", "pinkoi", "multi_channel", "existing_products"],
+      "expected": "success_products",
+      "evidence": "Own site with /collections/*/products/ detail pages: https://www.bonbonstickers.tw/collections/筆記本/products/bon-bon-note-活頁夾-a6"
+    },
+    "todayforhan": {
+      "group": "holdout",
+      "tags": [],
+      "expected": "correct_zero",
+      "evidence": "No website, no marketplace links, no channels"
+    }
+  }
+}

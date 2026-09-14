@@ -6,6 +6,7 @@ import {
   PORTRAIT_QUALITY_PRIOR,
   applyClassifications,
   buildBrandContext,
+  keepStatusForPageImages,
   failureReason,
   parseClassificationBatch,
   partitionLoadedImages,
@@ -696,6 +697,7 @@ describe("planChunkImageWrites", () => {
       unavailableIds: ["unloadable"],
       now,
       ctx: { summary: {} },
+      keepStatus: "active",
     });
 
     expect(plan.writes.map((write) => write.id)).toEqual(["loaded"]);
@@ -711,6 +713,7 @@ describe("planChunkImageWrites", () => {
       unavailableIds: [],
       now,
       ctx: { summary: {} },
+      keepStatus: "active",
     });
 
     expect(plan.writes).toEqual([]);
@@ -730,6 +733,7 @@ describe("planChunkImageWrites", () => {
       unavailableIds: [],
       now,
       ctx: { summary: {} },
+      keepStatus: "active",
     });
 
     expect(plan.rejectedCount).toBe(1);
@@ -768,9 +772,41 @@ describe("planChunkImageWrites", () => {
       unavailableIds: [],
       now,
       ctx: { summary: {} },
+      keepStatus: "active",
     });
 
     expect(plan.writes[0]?.row).toHaveProperty("alt_zh", "陶瓷馬克杯，霧面灰釉");
+  });
+
+  it("writes a keep with the caller's keepStatus, and never invents a sort_order", () => {
+    // DEV-1714: the products agent's page images are evidence for ranking one
+    // product's photo, not gallery images. Promoting them left extra active
+    // rows at the column default sort_order 0, which apply_brand_refresh's
+    // publishable-core guard (<=10 active, unique sort_order) rejects.
+    const plan = planChunkImageWrites({
+      chunk: [image("keep")],
+      verdictsByImageId: new Map([["keep", verdict("keep")]]),
+      unavailableIds: [],
+      now,
+      ctx: { summary: {} },
+      keepStatus: "candidate",
+    });
+
+    expect(plan.writes[0]?.row).toHaveProperty("status", "candidate");
+    expect(plan.writes[0]?.row).not.toHaveProperty("sort_order");
+  });
+});
+
+describe("keepStatusForPageImages", () => {
+  it("keeps page images out of the gallery while the target has one", () => {
+    expect(keepStatusForPageImages(1)).toBe("candidate");
+    expect(keepStatusForPageImages(10)).toBe("candidate");
+  });
+
+  it("supplies the gallery when the target has no active image at all", () => {
+    // Otherwise apply_brand_refresh / approve_submission reject on the
+    // >=1-active floor; the caller follows with finalizeHeroOrder.
+    expect(keepStatusForPageImages(0)).toBe("active");
   });
 });
 

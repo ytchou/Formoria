@@ -38,6 +38,8 @@ const baseRow = {
   created_at: "2026-08-29T12:00:00.000Z",
   image_url: "https://example.com/image.jpg",
   official_url: "https://example.com/product",
+  product_description_zh: "手工硼玻璃杯身搭配可拆矽膠圈",
+  product_description_en: null,
   brands: {
     slug: "test-brand",
     name: "Test Brand",
@@ -68,6 +70,8 @@ describe("transformCatalogRow", () => {
       officialUrl: "https://example.com/product",
       brandSlug: "test-brand",
       brandName: "Test Brand",
+      productDescriptionZh: "手工硼玻璃杯身搭配可拆矽膠圈",
+      productDescriptionEn: null,
       brand: {
         slug: "test-brand",
         purchaseWebsite: "https://example.com",
@@ -120,6 +124,23 @@ describe("transformCatalogRow", () => {
       "Catalog product prod-1 is missing its brand",
     );
   });
+
+  it("maps product_description_zh and product_description_en", () => {
+    const row = {
+      ...baseRow,
+      product_description_en: "Hand-blown borosilicate glass with silicone ring",
+    };
+    const result = transformCatalogRow(row);
+    expect(result.productDescriptionZh).toBe("手工硼玻璃杯身搭配可拆矽膠圈");
+    expect(result.productDescriptionEn).toBe(
+      "Hand-blown borosilicate glass with silicone ring",
+    );
+  });
+
+  it("maps product_description_en as null when absent", () => {
+    const result = transformCatalogRow(baseRow);
+    expect(result.productDescriptionEn).toBeNull();
+  });
 });
 
 describe("interleaveCatalogProducts", () => {
@@ -141,6 +162,8 @@ describe("interleaveCatalogProducts", () => {
     officialUrl: `https://example.com/${id}`,
     brandSlug,
     brandName: brandSlug,
+    productDescriptionZh: "測試產品描述",
+    productDescriptionEn: null,
     brand: {
       slug: brandSlug,
       purchaseWebsite: null,

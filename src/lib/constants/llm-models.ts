@@ -241,6 +241,13 @@ export const LLM_PROFILES = {
     reasoningEffort: "none",
     timeoutMs: 60_000,
   },
+  /** Batch product description rewrite from page evidence (DEV-1709). */
+  productDescriptions: {
+    model: "text_mini",
+    temperature: 0.3,
+    reasoningEffort: "none",
+    timeoutMs: 90_000,
+  },
   /** Rerank candidates against a query for retrieval. */
   rerank: {
     model: "text",

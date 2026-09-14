@@ -162,6 +162,7 @@ describe("classifyStoredImages", () => {
     const result = await classifyStoredImages({
       brand,
       target: brandTarget(brand.id),
+      keepStatus: "active",
       supabase: supabase.client,
       client: chat.client,
       loadImage: async () => "data:image/webp;base64,AAAA",
@@ -197,6 +198,7 @@ describe("classifyStoredImages", () => {
     const result = await classifyStoredImages({
       brand,
       target: brandTarget(brand.id),
+      keepStatus: "active",
       supabase: supabase.client,
       client: chat.client,
       dryRun: true,
@@ -221,6 +223,7 @@ describe("classifyStoredImages", () => {
     await classifyStoredImages({
       brand,
       target: brandTarget(brand.id),
+      keepStatus: "active",
       supabase: supabase.client,
       client: chat.client,
       onlyImageIds: ["img-a"],
@@ -242,6 +245,7 @@ describe("classifyStoredImages", () => {
     const result = await classifyStoredImages({
       brand,
       target: brandTarget(brand.id),
+      keepStatus: "active",
       supabase: supabase.client,
       client: chat.client,
       loadImage: async () => "data:image/webp;base64,AAAA",
@@ -259,6 +263,7 @@ describe("classifyStoredImages", () => {
     const result = await classifyStoredImages({
       brand,
       target: brandTarget(brand.id),
+      keepStatus: "active",
       supabase: supabase.client,
       client: chat.client,
       loadImage: async (candidate) =>
@@ -308,6 +313,7 @@ describe("classifyStoredImages", () => {
     const result = await classifyStoredImages({
       brand,
       target: brandTarget(brand.id),
+      keepStatus: "active",
       supabase: supabase.client,
       client: classifierClient,
       loadImage: async () => "data:image/webp;base64,AAAA",
@@ -328,3 +334,4 @@ describe("classifyStoredImages", () => {
     expect(result.failures).toEqual([]);
   });
 });
+

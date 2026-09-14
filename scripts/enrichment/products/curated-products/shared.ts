@@ -19,6 +19,11 @@ export function parseApplyOption(argv: readonly string[]): boolean {
   return argv.includes('--apply')
 }
 
+/** `--rewrite-descriptions` mode for the batch-populate script. */
+export function parseRewriteOption(argv: readonly string[]): boolean {
+  return argv.includes('--rewrite-descriptions')
+}
+
 /**
  * `--csv=<path>` or `--csv <path>`. Returns null when absent, throws on empty.
  */

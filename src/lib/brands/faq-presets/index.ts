@@ -9,6 +9,7 @@ import {
   type FaqPreset,
 } from "./types";
 import { groundedIn, notGeneric } from "./validators";
+import type { PromptName } from "@/lib/langfuse/prompt";
 
 /**
  * `requiredEvidence` was previously documentation that nothing read, with each
@@ -64,17 +65,33 @@ function orderedContributors(presets: readonly FaqPreset[]): FaqPreset[] {
   });
 }
 
-export function buildFaqSystemPrompt(
+/** Resolves one fragment's text; production passes `fetchLangfusePrompt`. */
+export type FaqFragmentResolver = (
+  prompt: PromptName,
+  variables: Record<string, string>,
+) => Promise<string>;
+
+/**
+ * The fragment fetch is injected rather than imported: this registry is
+ * reachable from a client component through `types/enriched-data`, so the
+ * Langfuse client cannot live here, and the injection also lets the preset
+ * suite assemble a real prompt from the snapshot without a network mock.
+ */
+export async function buildFaqSystemPrompt(
   preamble: string,
   presets: readonly FaqPreset[],
   ctx: FaqBrandContext,
-): string {
-  const fragments = orderedContributors(presets)
-    .filter((preset) => preset.promptFragment !== null)
-    .map((preset) => preset.promptFragment?.(ctx) ?? "")
-    .filter(Boolean);
+  resolve: FaqFragmentResolver,
+): Promise<string> {
+  const fragments = await Promise.all(
+    orderedContributors(presets)
+      .flatMap((preset) =>
+        preset.promptFragment ? [preset.promptFragment] : [],
+      )
+      .map((fragment) => resolve(fragment.prompt, fragment.variables(ctx))),
+  );
 
-  return [preamble, FAQ_CUSTOM_LIMIT_PROMPT, ...fragments].join(
+  return [preamble, FAQ_CUSTOM_LIMIT_PROMPT, ...fragments.filter(Boolean)].join(
     "\n\n",
   );
 }
