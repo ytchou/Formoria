@@ -23,6 +23,8 @@ import {
   type CatalogProduct,
 } from "@/lib/services/curated-products-catalog";
 import { searchProductsBySituation } from "@/lib/services/product-situation-search";
+import { shouldAttemptIntentParse } from "@/lib/services/query-intent-parse";
+import { createClient } from "@/lib/supabase/server";
 import {
   isMaterialApplicable,
   isVisibleCategory,
@@ -129,11 +131,25 @@ export default async function DiscoverPage({
 
   const isSearchMode = searchQuery !== null;
 
+  // Intent parse gate: only for CJK-rich queries from authenticated users
+  let enableIntentParse = false;
+  if (searchQuery && shouldAttemptIntentParse(searchQuery)) {
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    enableIntentParse = !!user;
+  }
+
   // Parallel fetch: products + facet counts
   let products: CatalogProduct[] = [];
   let totalCount = 0;
   let searchSource: string | undefined;
   let degraded = false;
+  let intentParsed: 'skipped' | 'ok' | 'failed' = 'skipped';
+  let intentCategory: string | null = null;
+  let intentSubcategory: string | null = null;
+  let intentMaterials: string[] = [];
+  let intentCacheHit = false;
+  let intentLatencyMs = 0;
   let facets: {
     subcategoryCounts: { slug: string; count: number }[];
     materialCounts: { slug: string; count: number }[];
@@ -153,6 +169,7 @@ export default async function DiscoverPage({
           materials: materials.length > 0 ? materials : undefined,
           page,
           pageSize: PAGE_SIZE,
+          enableIntentParse,
         }),
         getProductFacetCounts(category),
       ]);
@@ -160,6 +177,12 @@ export default async function DiscoverPage({
       totalCount = searchResult.totalCount;
       searchSource = searchResult.searchSource;
       degraded = searchResult.degraded;
+      intentParsed = searchResult.intentParsed;
+      intentCategory = searchResult.intentCategory;
+      intentSubcategory = searchResult.intentSubcategory;
+      intentMaterials = searchResult.intentMaterials;
+      intentCacheHit = searchResult.intentCacheHit;
+      intentLatencyMs = searchResult.intentLatencyMs;
       facets = facetResult;
     } else {
       // In catalog mode, sort is never "relevance" (parseDiscoverQuery guarantees this)
@@ -344,6 +367,12 @@ export default async function DiscoverPage({
                 resultCount={totalCount}
                 searchSource={searchSource}
                 degraded={degraded}
+                intentParsed={intentParsed}
+                intentCategory={intentCategory}
+                intentSubcategory={intentSubcategory}
+                intentMaterials={intentMaterials}
+                intentCacheHit={intentCacheHit}
+                intentLatencyMs={intentLatencyMs}
               />
             )}
 
