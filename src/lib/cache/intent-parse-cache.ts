@@ -1,27 +1,39 @@
 import { createHash } from "node:crypto";
-import { L1_CATEGORIES, MATERIALS } from "@/lib/taxonomy/ontology";
+import { L1_CATEGORIES, L2_SUBCATEGORIES, MATERIALS } from "@/lib/taxonomy/ontology";
 
 const TTL_SECONDS = 604800; // 7 days
 
 /**
- * Taxonomy hash: first 8 hex chars of SHA-256 over the sorted L1 + material
- * slugs. Busts the cache when the taxonomy vocabulary changes.
+ * Taxonomy hash: first 8 hex chars of SHA-256 over the sorted L1 + L2 +
+ * material slugs. Busts the cache when the taxonomy vocabulary changes.
  */
 const TAXONOMY_HASH = (() => {
   const payload = [
     ...L1_CATEGORIES.map((c) => c.slug),
+    ...L2_SUBCATEGORIES.map((s) => s.slug),
     ...MATERIALS.map((m) => m.slug),
-  ].join(",");
+  ]
+    .sort()
+    .join(",");
   return createHash("sha256").update(payload).digest("hex").slice(0, 8);
 })();
 
 /**
- * Regex stripping CJK punctuation, fullwidth forms, and common Latin
- * punctuation before hashing, so surface-level punctuation differences
- * (trailing "？" vs none) collapse to the same cache key.
+ * Regex stripping CJK punctuation, fullwidth punctuation (NOT fullwidth
+ * alphanumerics), and common Latin punctuation before hashing, so
+ * surface-level punctuation differences (trailing "？" vs none) collapse to
+ * the same cache key.
+ *
+ * Ranges:
+ *   U+3000-U+303F  CJK Symbols and Punctuation (includes 。、「」『』【】etc.)
+ *   U+FF01-U+FF0F  Fullwidth punctuation (！＂＃…／)
+ *   U+FF1A-U+FF20  Fullwidth punctuation (：；…＠)
+ *   U+FF3B-U+FF40  Fullwidth brackets (［＼…｀)
+ *   U+FF5B-U+FF65  Fullwidth braces / halfwidth CJK punct (｛｜…･)
+ *   U+FE30-U+FE4F  CJK Compatibility Forms (︰…﹏)
  */
 const STRIP_RE =
-  /[　-〿＀-￯。？！，、；：「」『』【】〔〕〈〉《》〝〞\s.,;:!?"'()\[\]{}]/g;
+  /[　-〿！-／：-＠［-｀｛-･︰-﹏\s.,;:!?"'()\[\]{}]/g;
 
 function normalizeForKey(query: string): string {
   return query.replace(STRIP_RE, "").toLowerCase();

@@ -54,7 +54,6 @@ describe("parseQueryIntent", () => {
     category: "outdoor",
     subcategory: "hiking-and-camping-gear",
     materials: [],
-    semantic_query: "杯子",
   };
 
   it("extracts category from a well-formed LLM response", async () => {
@@ -71,7 +70,6 @@ describe("parseQueryIntent", () => {
 
     expect(result).not.toBeNull();
     expect(result!.parsed.category).toBe("outdoor");
-    expect(result!.parsed.semantic_query).toBe("杯子");
     expect(result!.cacheHit).toBe(false);
   });
 
@@ -82,7 +80,6 @@ describe("parseQueryIntent", () => {
         category: "nonexistent-category",
         subcategory: null,
         materials: [],
-        semantic_query: "test",
       }),
     });
     const cache = mockCache();
@@ -103,7 +100,6 @@ describe("parseQueryIntent", () => {
         category: "outdoor",
         subcategory: "earrings",
         materials: [],
-        semantic_query: "camping stuff",
       }),
     });
     const cache = mockCache();
@@ -178,5 +174,70 @@ describe("parseQueryIntent", () => {
       "露營要帶什麼杯子呢",
       expect.any(String),
     );
+  });
+
+  it("nulls out nonexistent subcategory when category is null (F3)", async () => {
+    const chat = mockChat({
+      ok: true,
+      content: JSON.stringify({
+        category: null,
+        subcategory: "invented-slug-that-does-not-exist",
+        materials: [],
+      }),
+    });
+    const cache = mockCache();
+
+    const result = await parseQueryIntent("想找一些特別的東西送人", {
+      client: chat,
+      cache,
+    });
+
+    expect(result).not.toBeNull();
+    expect(result!.parsed.subcategory).toBeNull();
+  });
+
+  it("validates subcategory on cache hit (F4)", async () => {
+    // Simulate a stale cache entry with a subcategory that doesn't match category
+    const staleEntry = JSON.stringify({
+      category: "outdoor",
+      subcategory: "earrings", // belongs to jewelry, not outdoor
+      materials: [],
+    });
+    const store = new Map<string, string>();
+    store.set("露營要帶什麼東西好", staleEntry);
+    const cache = mockCache(store);
+    const chat = mockChat({ ok: true, content: "should not be called" });
+
+    const result = await parseQueryIntent("露營要帶什麼東西好", {
+      client: chat,
+      cache,
+    });
+
+    expect(result).not.toBeNull();
+    expect(result!.cacheHit).toBe(true);
+    expect(result!.parsed.subcategory).toBeNull();
+    expect(chat.chat).not.toHaveBeenCalled();
+  });
+
+  it("validates nonexistent subcategory on cache hit (F4+F3)", async () => {
+    // Simulate a stale cache entry with a subcategory that doesn't exist at all
+    const staleEntry = JSON.stringify({
+      category: null,
+      subcategory: "bogus-slug",
+      materials: [],
+    });
+    const store = new Map<string, string>();
+    store.set("想找一些特別的禮物", staleEntry);
+    const cache = mockCache(store);
+    const chat = mockChat({ ok: true, content: "should not be called" });
+
+    const result = await parseQueryIntent("想找一些特別的禮物", {
+      client: chat,
+      cache,
+    });
+
+    expect(result).not.toBeNull();
+    expect(result!.cacheHit).toBe(true);
+    expect(result!.parsed.subcategory).toBeNull();
   });
 });

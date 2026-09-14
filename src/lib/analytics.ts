@@ -295,7 +295,7 @@ export function trackProductSearchExecuted(
   options: {
     searchSource: string;
     degraded: boolean;
-    intentParsed?: boolean;
+    intentParsed?: 'skipped' | 'ok' | 'failed';
     intentCategory?: string | null;
     intentSubcategory?: string | null;
     intentMaterials?: string[];

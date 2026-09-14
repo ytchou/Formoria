@@ -392,11 +392,11 @@ describe("findSimilarProducts", () => {
 // ---------------------------------------------------------------------------
 
 describe("searchProductsBySituation — intent parse", () => {
+  // Uses real visible taxonomy values: "home" is a visible L1, "tea-and-coffee-ware" is an L2 under "home"
   const mockParsedResult = {
-    category: "food" as const,
-    subcategory: "tea",
+    category: "home" as const,
+    subcategory: "tea-and-coffee-ware",
     materials: ["ceramic"],
-    semantic_query: "送禮推薦",
   };
 
   const mockOutcome = {
@@ -443,8 +443,8 @@ describe("searchProductsBySituation — intent parse", () => {
 
     const rpcArgs = (deps.rpc as ReturnType<typeof vi.fn>).mock.calls[0];
     expect(rpcArgs[1]).toMatchObject({
-      filter_category: "food",
-      filter_subcategories: ["tea"],
+      filter_category: "home",
+      filter_subcategories: ["tea-and-coffee-ware"],
       filter_materials: ["ceramic"],
     });
   });
@@ -514,9 +514,9 @@ describe("searchProductsBySituation — intent parse", () => {
       deps,
     );
 
-    expect(result.intentParsed).toBe(true);
-    expect(result.intentCategory).toBe("food");
-    expect(result.intentSubcategory).toBe("tea");
+    expect(result.intentParsed).toBe("ok");
+    expect(result.intentCategory).toBe("home");
+    expect(result.intentSubcategory).toBe("tea-and-coffee-ware");
     expect(result.intentMaterials).toEqual(["ceramic"]);
     expect(result.intentCacheHit).toBe(false);
     expect(result.intentLatencyMs).toBeGreaterThan(0);
@@ -538,7 +538,7 @@ describe("searchProductsBySituation — intent parse", () => {
     );
 
     const rpcArgs = (deps.rpc as ReturnType<typeof vi.fn>).mock.calls[0];
-    expect(rpcArgs[1].filter_subcategories).toEqual(["tea"]);
+    expect(rpcArgs[1].filter_subcategories).toEqual(["tea-and-coffee-ware"]);
   });
 
   it("sends null materials when empty", async () => {
@@ -577,10 +577,119 @@ describe("searchProductsBySituation — intent parse", () => {
       await vi.advanceTimersByTimeAsync(2000);
       const result = await resultPromise;
 
-      expect(result.intentParsed).toBe(false);
+      expect(result.intentParsed).toBe("failed");
       expect(deps.parseIntent).toHaveBeenCalledTimes(1);
     } finally {
       vi.useRealTimers();
     }
+  });
+
+  // F2: LLM category bypasses isVisibleCategory
+  it("nullifies LLM category when it fails isVisibleCategory", async () => {
+    const parseIntent = vi.fn().mockResolvedValue({
+      parsed: {
+        category: "food-drink", // deferred category — not visible
+        subcategory: "tea",
+        materials: ["ceramic"],
+      },
+      cacheHit: false,
+    });
+    const deps = createDeps({
+      parseIntent,
+      rpc: vi.fn().mockResolvedValue({ data: [], error: null }),
+    });
+
+    await searchProductsBySituation(
+      { query: "送禮推薦", locale: "zh-TW", enableIntentParse: true },
+      deps,
+    );
+
+    const rpcArgs = (deps.rpc as ReturnType<typeof vi.fn>).mock.calls[0];
+    expect(rpcArgs[1]).toMatchObject({
+      filter_category: null, // hidden category dropped
+      filter_subcategories: null, // subcategory also dropped (category was hidden)
+    });
+  });
+
+  // F5: subcategory validated against LLM not user category
+  it("drops LLM subcategory when user category differs from LLM category", async () => {
+    const parseIntent = vi.fn().mockResolvedValue({
+      parsed: {
+        category: "home",
+        subcategory: "tea-and-coffee-ware",
+        materials: [],
+      },
+      cacheHit: false,
+    });
+    const deps = createDeps({
+      parseIntent,
+      rpc: vi.fn().mockResolvedValue({ data: [], error: null }),
+    });
+
+    await searchProductsBySituation(
+      {
+        query: "送禮推薦",
+        locale: "zh-TW",
+        enableIntentParse: true,
+        category: "beauty", // different from LLM's "home"
+      },
+      deps,
+    );
+
+    const rpcArgs = (deps.rpc as ReturnType<typeof vi.fn>).mock.calls[0];
+    expect(rpcArgs[1]).toMatchObject({
+      filter_category: "beauty", // user's category wins
+      filter_subcategories: null, // LLM subcategory dropped (incompatible with user category)
+    });
+  });
+
+  // F9: parseIntent rejection fails closed → should fail open
+  it("fails open when parseIntent rejects", async () => {
+    const parseIntent = vi.fn().mockRejectedValue(new Error("LLM down"));
+    const deps = createDeps({
+      parseIntent,
+      rpc: vi.fn().mockResolvedValue({
+        data: [rpcRow("p1", 0.9)],
+        error: null,
+      }),
+      hydrate: vi.fn().mockResolvedValue([product("p1", "Product A")]),
+    });
+
+    const result = await searchProductsBySituation(
+      { query: "送禮推薦", locale: "zh-TW", enableIntentParse: true },
+      deps,
+    );
+
+    expect(result.products).toHaveLength(1);
+    expect(result.intentParsed).toBe("failed");
+  });
+
+  // F11: intentParsed string enum states
+  it("reports intentParsed as 'skipped' when intent parse is disabled", async () => {
+    const deps = createDeps({
+      rpc: vi.fn().mockResolvedValue({ data: [], error: null }),
+    });
+
+    const result = await searchProductsBySituation(
+      { query: "送禮推薦", locale: "zh-TW" },
+      deps,
+    );
+
+    expect(result.intentParsed).toBe("skipped");
+  });
+
+  it("reports intentParsed as 'failed' when intent parse returns null", async () => {
+    const parseIntent = vi.fn().mockResolvedValue(null);
+    const deps = createDeps({
+      parseIntent,
+      rpc: vi.fn().mockResolvedValue({ data: [], error: null }),
+    });
+
+    const result = await searchProductsBySituation(
+      { query: "送禮推薦", locale: "zh-TW", enableIntentParse: true },
+      deps,
+    );
+
+    expect(result.intentParsed).toBe("failed");
   });
 });

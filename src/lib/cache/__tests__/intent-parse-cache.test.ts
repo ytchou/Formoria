@@ -71,10 +71,27 @@ describe("intent-parse-cache", () => {
     it("set then get round-trips a JSON string", async () => {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any -- mock Redis
       const cache = createIntentParseCache({ redis: mockRedis as any });
-      const json = JSON.stringify({ category: "outdoor", semantic_query: "杯子" });
+      const json = JSON.stringify({ category: "outdoor", materials: [] });
       await cache.set("露營杯子", json);
       const result = await cache.get("露營杯子");
       expect(result).toBe(json);
+    });
+  });
+
+  describe("cacheKey — fullwidth handling (F8)", () => {
+    it("does not strip fullwidth alphanumerics", () => {
+      // Ａ = U+FF21 (fullwidth A), ０ = U+FF10 (fullwidth 0)
+      // These should be preserved, producing different keys than empty input
+      const withFullwidthAlpha = cacheKey("Ａ杯子");
+      const withoutAlpha = cacheKey("杯子");
+      expect(withFullwidthAlpha).not.toBe(withoutAlpha);
+    });
+
+    it("still strips fullwidth punctuation", () => {
+      // ？ = U+FF1F (fullwidth ?), should be stripped
+      const withFullwidthPunct = cacheKey("杯子？");
+      const withoutPunct = cacheKey("杯子");
+      expect(withFullwidthPunct).toBe(withoutPunct);
     });
   });
 });

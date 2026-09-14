@@ -8,6 +8,7 @@ import {
 import { EMBEDDING_MODEL } from "@/lib/constants/llm-models";
 import * as Sentry from "@sentry/nextjs";
 import { parseQueryIntent, type IntentParseOutcome } from "./query-intent-parse";
+import { isVisibleCategory } from "@/lib/taxonomy/ontology";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -37,7 +38,7 @@ export type SearchResult = {
   searchSource: SearchMode;
   degraded: boolean;
   query: string;
-  intentParsed: boolean;
+  intentParsed: 'skipped' | 'ok' | 'failed';
   intentCategory: string | null;
   intentSubcategory: string | null;
   intentMaterials: string[];
@@ -128,7 +129,7 @@ export type SearchDeps = {
   /** Read the stored embedding for a product. Used by findSimilarProducts. */
   readProductEmbedding?: (productId: string) => Promise<number[] | null>;
   /** LLM-based intent extraction for structured filter discovery. */
-  parseIntent?: (query: string, signal?: AbortSignal) => Promise<IntentParseOutcome>;
+  parseIntent?: (query: string) => Promise<IntentParseOutcome>;
 };
 
 const DEGRADE_COOLDOWN_MS = 5 * 60 * 1000; // 5 minutes
@@ -203,10 +204,20 @@ export async function searchProductsBySituation(
   const intentStart = deps.now();
   const shouldParse = input.enableIntentParse && deps.parseIntent;
 
+  let intentLatencyMs = 0;
+  let timeoutId: ReturnType<typeof setTimeout> | undefined;
   const intentParsePromise: Promise<IntentParseOutcome> = shouldParse
     ? Promise.race([
-        deps.parseIntent!(normalized),
-        new Promise<null>((resolve) => setTimeout(() => resolve(null), 2000)),
+        deps.parseIntent!(normalized).catch(() => null).then((result) => {
+          intentLatencyMs = deps.now() - intentStart;
+          return result;
+        }),
+        new Promise<null>((resolve) => {
+          timeoutId = setTimeout(() => {
+            intentLatencyMs = 2000;
+            resolve(null);
+          }, 2000);
+        }),
       ])
     : Promise.resolve(null);
 
@@ -253,12 +264,12 @@ export async function searchProductsBySituation(
     doEmbed(),
   ]);
 
-  const intentLatencyMs = shouldParse ? deps.now() - intentStart : 0;
+  if (timeoutId) clearTimeout(timeoutId);
   const { embedding, degraded, effectiveMode } = embedResult;
 
   // --- Intent metadata (populated on both returns) ---
   const intentMeta = {
-    intentParsed: intentOutcome !== null,
+    intentParsed: !shouldParse ? 'skipped' as const : intentOutcome !== null ? 'ok' as const : 'failed' as const,
     intentCategory: intentOutcome?.parsed?.category ?? null,
     intentSubcategory: intentOutcome?.parsed?.subcategory ?? null,
     intentMaterials: intentOutcome?.parsed?.materials ?? [],
@@ -269,16 +280,24 @@ export async function searchProductsBySituation(
   // --- Merge filters: user-selected wins over LLM-extracted ---
   const parsed = intentOutcome?.parsed ?? null;
 
+  // F2: Filter LLM category through visibility check (hidden/deferred categories dropped)
+  const parsedCategory = parsed?.category && isVisibleCategory(parsed.category) ? parsed.category : null;
+
+  // F5: Only use LLM subcategory when compatible with the resolved category
+  const resolvedCategory = input.category ?? parsedCategory ?? null;
+  const parsedSubcategory = parsed?.subcategory ?? null;
+  const useSubcategory = parsedSubcategory && resolvedCategory && parsed?.category === resolvedCategory;
+
   const rpcParams: Record<string, unknown> = {
     query_text: normalized,
     query_embedding: embedding,
     mode: effectiveMode,
     match_count: pageSize * page + pageSize, // fetch enough for pagination
-    filter_category: input.category ?? parsed?.category ?? null,
+    filter_category: input.category ?? parsedCategory ?? null,
     filter_subcategories: input.subcategories?.length
       ? input.subcategories
-      : parsed?.subcategory
-        ? [parsed.subcategory]
+      : useSubcategory
+        ? [parsedSubcategory]
         : null,
     filter_materials: input.materials?.length
       ? input.materials

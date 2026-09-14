@@ -49,8 +49,8 @@ interface SearchResultsTrackerProps {
   searchSource?: string
   /** Whether the search fell back to lexical-only mode. Only used when `trackerKind` is `"product"`. */
   degraded?: boolean
-  /** Whether intent parsing ran for this query. */
-  intentParsed?: boolean
+  /** Intent parse state: skipped (not attempted), ok (succeeded), or failed (timeout/error). */
+  intentParsed?: 'skipped' | 'ok' | 'failed'
   /** Resolved top-level category from intent parsing. */
   intentCategory?: string | null
   /** Resolved subcategory from intent parsing. */

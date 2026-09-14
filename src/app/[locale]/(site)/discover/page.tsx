@@ -143,7 +143,7 @@ export default async function DiscoverPage({
   let totalCount = 0;
   let searchSource: string | undefined;
   let degraded = false;
-  let intentParsed = false;
+  let intentParsed: 'skipped' | 'ok' | 'failed' = 'skipped';
   let intentCategory: string | null = null;
   let intentSubcategory: string | null = null;
   let intentMaterials: string[] = [];

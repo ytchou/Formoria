@@ -307,7 +307,7 @@ export const ANALYTICS_EVENTS = {
    *   of 7+ digits.
    * @property search_source {string} Where the search originated: `discover_page` | `url`.
    * @property degraded {boolean} Whether the search fell back to lexical-only mode.
-   * @property intent_parsed {boolean | undefined} Whether intent parsing ran for this query.
+   * @property intent_parsed {'skipped' | 'ok' | 'failed' | undefined} Intent parse state: skipped (not attempted), ok (succeeded), or failed (timeout/error).
    * @property intent_category {string | null | undefined} Resolved top-level category.
    * @property intent_subcategory {string | null | undefined} Resolved subcategory.
    * @property intent_materials {string[] | undefined} Material terms extracted.
@@ -893,7 +893,7 @@ export interface AnalyticsEventPayloads {
     has_results: boolean;
     search_source: string;
     degraded: boolean;
-    intent_parsed?: boolean;
+    intent_parsed?: 'skipped' | 'ok' | 'failed';
     intent_category?: string | null;
     intent_subcategory?: string | null;
     intent_materials?: string[];

@@ -212,7 +212,7 @@ describe('SearchResultsTracker', () => {
         trackerKind="product"
         searchSource="url"
         degraded={false}
-        intentParsed={true}
+        intentParsed="ok"
         intentCategory="home"
         intentSubcategory="mug"
         intentMaterials={['ceramic']}
@@ -225,7 +225,7 @@ describe('SearchResultsTracker', () => {
     expect(trackProductSearchExecuted).toHaveBeenCalledExactlyOnceWith('陶瓷杯', 8, {
       searchSource: 'url',
       degraded: false,
-      intentParsed: true,
+      intentParsed: 'ok',
       intentCategory: 'home',
       intentSubcategory: 'mug',
       intentMaterials: ['ceramic'],

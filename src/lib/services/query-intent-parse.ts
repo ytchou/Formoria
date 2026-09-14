@@ -2,8 +2,8 @@
  * LLM-based query intent extraction for /discover?q= search.
  *
  * Parses a free-text situation query into structured filters (category,
- * subcategory, materials) plus a residual semantic_query. Uses the closed
- * taxonomy from ontology.ts as the extraction vocabulary.
+ * subcategory, materials). Uses the closed taxonomy from ontology.ts as the
+ * extraction vocabulary.
  */
 
 import { z } from "zod";
@@ -11,10 +11,14 @@ import { createProfiledOpenAIClient, profileChatParams } from "./llm-audit";
 import { parseAndValidate, toStrictJsonSchema } from "./_shared/zod-schema";
 import {
   L1_CATEGORIES,
-  L2_SUBCATEGORIES,
   MATERIALS,
   subcategoryBySlug,
 } from "@/lib/taxonomy/ontology";
+import {
+  CATEGORY_LIST,
+  SUBCATEGORY_VOCAB_BLOCK,
+  MATERIAL_VOCAB_BLOCK,
+} from "@/lib/prompts/shared";
 import type { IntentParseCache } from "@/lib/cache/intent-parse-cache";
 import { getDefaultIntentParseCache } from "@/lib/cache/intent-parse-cache";
 
@@ -39,7 +43,6 @@ const intentParseShape = z.object({
   materials: z.array(
     z.enum(MATERIAL_SLUGS as unknown as [string, ...string[]]),
   ),
-  semantic_query: z.string(),
 });
 
 const INTENT_PARSE_JSON_SCHEMA = {
@@ -75,42 +78,48 @@ type ChatFn = {
 // ---------------------------------------------------------------------------
 
 function buildSystemPrompt(): string {
-  const categoryLines = L1_CATEGORIES.map(
-    (c) => `- ${c.slug} (${c.nameZh})`,
-  ).join("\n");
-
-  // Group L2 subcategories under their parent L1
-  const subcatByParent = new Map<string, string[]>();
-  for (const sub of L2_SUBCATEGORIES) {
-    const list = subcatByParent.get(sub.category) ?? [];
-    list.push(`${sub.slug} (${sub.nameZh})`);
-    subcatByParent.set(sub.category, list);
-  }
-  const subcategoryLines = L1_CATEGORIES.map((c) => {
-    const children = subcatByParent.get(c.slug) ?? [];
-    return `## ${c.slug}\n${children.map((s) => `  - ${s}`).join("\n")}`;
-  }).join("\n");
-
-  const materialLines = MATERIALS.map(
-    (m) => `- ${m.slug} (${m.nameZh})`,
-  ).join("\n");
-
   return [
     "Extract structured filters from the user's query using ONLY the closed taxonomy below.",
-    "When unsure about a filter, leave it null. Put everything not mapped to a filter into semantic_query.",
+    "When unsure about a filter, leave it null.",
     "",
     "## L1 Categories",
-    categoryLines,
+    CATEGORY_LIST,
     "",
-    "## L2 Subcategories (grouped by parent L1)",
-    subcategoryLines,
+    "## L2 Subcategories (grouped by parent L1, with aliases)",
+    SUBCATEGORY_VOCAB_BLOCK,
     "",
     "## Materials",
-    materialLines,
+    MATERIAL_VOCAB_BLOCK,
   ].join("\n");
 }
 
 const SYSTEM_PROMPT = buildSystemPrompt();
+
+// ---------------------------------------------------------------------------
+// Subcategory validation — shared between cache-hit and post-LLM paths
+// ---------------------------------------------------------------------------
+
+/**
+ * Validates the subcategory against the closed taxonomy:
+ * (a) The subcategory slug must exist in L2_SUBCATEGORIES.
+ * (b) When both category and subcategory are present, the subcategory must
+ *     belong to that category.
+ * Returns a new object with subcategory nulled out if invalid.
+ */
+function validateSubcategory(data: IntentParseResult): IntentParseResult {
+  if (!data.subcategory) return data;
+
+  const sub = subcategoryBySlug(data.subcategory);
+  if (!sub) {
+    // Subcategory slug doesn't exist at all
+    return { ...data, subcategory: null };
+  }
+  if (data.category && sub.category !== data.category) {
+    // Subcategory exists but belongs to a different L1
+    return { ...data, subcategory: null };
+  }
+  return data;
+}
 
 // ---------------------------------------------------------------------------
 // Gate
@@ -150,7 +159,7 @@ export async function parseQueryIntent(
     if (cached !== null) {
       const parsed = parseAndValidate(cached, intentParseShape);
       if (parsed.success) {
-        return { parsed: parsed.data, cacheHit: true };
+        return { parsed: validateSubcategory(parsed.data), cacheHit: true };
       }
       // Stale/corrupt cache entry — fall through to LLM
     }
@@ -188,14 +197,8 @@ export async function parseQueryIntent(
       return null;
     }
 
-    // 3. Validate subcategory belongs to category
-    const data = { ...parsed.data };
-    if (data.subcategory && data.category) {
-      const sub = subcategoryBySlug(data.subcategory);
-      if (!sub || sub.category !== data.category) {
-        data.subcategory = null;
-      }
-    }
+    // 3. Validate subcategory against closed taxonomy
+    const data = validateSubcategory(parsed.data);
 
     // 4. Cache on success
     try {

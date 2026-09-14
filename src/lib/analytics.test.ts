@@ -347,7 +347,7 @@ describe('analytics', () => {
     trackProductSearchExecuted('ceramic mug', 5, {
       searchSource: 'discover_page',
       degraded: false,
-      intentParsed: true,
+      intentParsed: 'ok',
       intentCategory: 'home',
       intentSubcategory: 'mug',
       intentMaterials: ['ceramic'],
@@ -362,7 +362,7 @@ describe('analytics', () => {
       search_source: 'discover_page',
       degraded: false,
       search_term: 'ceramic mug',
-      intent_parsed: true,
+      intent_parsed: 'ok',
       intent_category: 'home',
       intent_subcategory: 'mug',
       intent_materials: ['ceramic'],
