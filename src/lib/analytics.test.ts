@@ -343,6 +343,50 @@ describe('analytics', () => {
     expect(payload.degraded).toBe(true)
   })
 
+  it('trackProductSearchExecuted includes intent fields when passed', () => {
+    trackProductSearchExecuted('ceramic mug', 5, {
+      searchSource: 'discover_page',
+      degraded: false,
+      intentParsed: true,
+      intentCategory: 'home',
+      intentSubcategory: 'mug',
+      intentMaterials: ['ceramic'],
+      intentCacheHit: false,
+      intentLatencyMs: 42,
+    })
+
+    expect(mockPostHogCapture).toHaveBeenCalledWith(ANALYTICS_EVENTS.PRODUCT_SEARCH_EXECUTED, {
+      query_length: 11,
+      result_count: 5,
+      has_results: true,
+      search_source: 'discover_page',
+      degraded: false,
+      search_term: 'ceramic mug',
+      intent_parsed: true,
+      intent_category: 'home',
+      intent_subcategory: 'mug',
+      intent_materials: ['ceramic'],
+      intent_cache_hit: false,
+      intent_latency_ms: 42,
+    })
+  })
+
+  it('trackProductSearchExecuted omits intent fields when not provided', () => {
+    trackProductSearchExecuted('linen bag', 3, { searchSource: 'discover_page', degraded: false })
+
+    const payload = mockPostHogCapture.mock.calls[0]?.[1] as Record<string, unknown>
+    expect(payload).not.toHaveProperty('intent_parsed')
+    expect(payload).not.toHaveProperty('intent_category')
+    expect(payload).not.toHaveProperty('intent_subcategory')
+    expect(payload).not.toHaveProperty('intent_materials')
+    expect(payload).not.toHaveProperty('intent_cache_hit')
+    expect(payload).not.toHaveProperty('intent_latency_ms')
+    // Core fields still present
+    expect(payload.query_length).toBe(9)
+    expect(payload.result_count).toBe(3)
+    expect(payload.search_source).toBe('discover_page')
+  })
+
   it('trackNotFoundCategoryClicked fires PostHog event', () => {
     trackNotFoundCategoryClicked('fashion', 0)
 
