@@ -42,7 +42,7 @@ pnpm distill:eval
 # Single arm for iterative testing:
 pnpm distill:eval -- --arm luna
 pnpm distill:eval -- --arm foundation
-pnpm distill:eval -- --arm finetuned
+pnpm distill:eval -- --arm fineTuned   # also accepts: finetuned
 ```
 
 Produces `scripts/distillation/runs/eval-results.json` with per-arm accuracy, per-category breakdown, parse failure counts, and latency percentiles.

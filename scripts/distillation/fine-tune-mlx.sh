@@ -49,9 +49,12 @@ python -m mlx_lm.fuse \
   --save-path "$FUSED_PATH"
 
 # --------------------------------------------------------------------------
-# 5. Convert to GGUF for Ollama
+# 5. Convert to GGUF (MANUAL — depends on local llama.cpp setup)
 # --------------------------------------------------------------------------
-echo "=== Step 5: Convert to GGUF ==="
+echo "=== Step 5: Convert to GGUF (manual) ==="
+echo ""
+echo "This step requires manual execution. Choose one:"
+echo ""
 echo "Option A — via mlx_lm (if supported):"
 echo "  python -m mlx_lm.convert --mlx-path $FUSED_PATH --upload-repo <user>/qwen3-1.7b-formoria --quantize q4_k_m"
 echo ""
@@ -59,20 +62,27 @@ echo "Option B — via llama.cpp:"
 echo "  git clone https://github.com/ggerganov/llama.cpp && cd llama.cpp"
 echo "  python convert_hf_to_gguf.py ../$FUSED_PATH --outtype q4_k_m --outfile ../runs/qwen3-1.7b-formoria.gguf"
 echo ""
-echo "Proceeding with Option B assumption..."
+echo "After conversion, proceed with Step 6 below."
 
 # --------------------------------------------------------------------------
-# 6. Import into Ollama
+# 6. Import into Ollama (run manually after GGUF conversion)
 # --------------------------------------------------------------------------
+GGUF_PATH="runs/qwen3-1.7b-formoria.gguf"
+if [ ! -f "$GGUF_PATH" ]; then
+  echo "=== Step 6: Skipped — $GGUF_PATH not found. Run Step 5 first. ==="
+  exit 0
+fi
+
 echo "=== Step 6: Create Ollama model ==="
 
-cat > runs/Modelfile <<'MODELFILE'
-FROM ./runs/qwen3-1.7b-formoria.gguf
+# The Modelfile sits next to the GGUF so FROM uses a relative path.
+# No SYSTEM block — callers must supply the category-classify system prompt
+# that matches training (the Langfuse category-classify prompt).
+cat > runs/Modelfile <<MODELFILE
+FROM ./$( basename "$GGUF_PATH" )
 
 PARAMETER temperature 0
 PARAMETER num_ctx 4096
-
-SYSTEM """You are a brand classification assistant. Given a brand name and description, classify the brand into the correct category with reasoning and confidence."""
 MODELFILE
 
 ollama create "$OLLAMA_MODEL" -f runs/Modelfile

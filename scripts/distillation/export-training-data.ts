@@ -10,6 +10,7 @@
 import { mkdir, writeFile } from "node:fs/promises";
 import { resolve } from "node:path";
 
+import { CATEGORY_LIST } from "@/lib/prompts";
 import { L1_CATEGORIES } from "@/lib/taxonomy/ontology";
 
 import { createWriteBlockingClient } from "../lib/readonly-client";
@@ -46,6 +47,60 @@ const VALID_L1_SLUGS: Set<string> = new Set(L1_CATEGORIES.map((c) => c.slug));
 
 const RUNS_DIR = resolve(import.meta.dirname, "runs");
 
+const PAGE = 1000;
+
+// ---------------------------------------------------------------------------
+// Paginated fetch — PostgREST max_rows silently truncates without .range()
+// ---------------------------------------------------------------------------
+
+async function selectAllPages<T>(
+  run: (
+    from: number,
+    to: number,
+  ) => PromiseLike<{ data: T[] | null; error: { message: string } | null }>,
+  label: string,
+): Promise<T[]> {
+  const all: T[] = [];
+  for (let from = 0; ; from += PAGE) {
+    const { data, error } = await run(from, from + PAGE - 1);
+    if (error) throw new Error(`${label} query failed: ${error.message}`);
+    const page = data ?? [];
+    all.push(...page);
+    if (page.length < PAGE) return all;
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Seeded PRNG — simple mulberry32 from a string hash
+// ---------------------------------------------------------------------------
+
+function hashSeed(s: string): number {
+  let h = 0;
+  for (let i = 0; i < s.length; i++) {
+    h = Math.imul(31, h) + s.charCodeAt(i);
+    h |= 0;
+  }
+  return h >>> 0;
+}
+
+function mulberry32(seed: number): () => number {
+  let s = seed | 0;
+  return () => {
+    s = (s + 0x6d2b79f5) | 0;
+    let t = Math.imul(s ^ (s >>> 15), 1 | s);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+function fisherYatesShuffle<T>(arr: T[], seed: number): void {
+  const rng = mulberry32(seed);
+  for (let i = arr.length - 1; i > 0; i--) {
+    const j = Math.floor(rng() * (i + 1));
+    [arr[i], arr[j]] = [arr[j], arr[i]];
+  }
+}
+
 // ---------------------------------------------------------------------------
 // Load system prompt
 // ---------------------------------------------------------------------------
@@ -62,7 +117,9 @@ async function loadSystemPrompt(): Promise<string> {
   };
   const prompt = snapshot.prompts["category-classify"];
   if (!prompt) throw new Error("category-classify prompt not found in snapshot");
-  return prompt.text.join("\n");
+  const joined = prompt.text.join("\n");
+  // Substitute {{category_list}} the same way production does via Langfuse variables
+  return joined.replace("{{category_list}}", CATEGORY_LIST);
 }
 
 // ---------------------------------------------------------------------------
@@ -83,38 +140,53 @@ async function main() {
 
   const { client } = createWriteBlockingClient(supabaseUrl, supabaseKey);
 
-  // Fetch classification results with raw_response
+  // Fetch classification results with raw_response (paginated)
   console.log("[export] fetching classification results…");
-  const { data: aiRows, error: aiErr } = await client
-    .from("brand_ai_results")
-    .select("brand_slug, raw_response, model")
-    .eq("phase", "classification")
-    .not("raw_response", "is", null);
+  const aiRows = await selectAllPages<{
+    brand_id: string;
+    raw_response: unknown;
+    model: string;
+  }>(
+    (from, to) =>
+      client
+        .from("brand_ai_results")
+        .select("brand_id, raw_response, model")
+        .eq("phase", "classification")
+        .not("raw_response", "is", null)
+        .order("created_at", { ascending: true })
+        .range(from, to),
+    "brand_ai_results",
+  );
 
-  if (aiErr) throw new Error(`brand_ai_results query failed: ${aiErr.message}`);
-  if (!aiRows || aiRows.length === 0) {
+  if (aiRows.length === 0) {
     console.log("[export] no classification rows found");
     return;
   }
 
   console.log(`[export] found ${aiRows.length} classification result rows`);
 
-  // Fetch brand names/descriptions for user content reconstruction
-  const slugs = [...new Set(aiRows.map((r) => r.brand_slug))];
-  console.log(`[export] fetching ${slugs.length} brands…`);
+  // Fetch brand names/descriptions keyed by id
+  const brandIds = [...new Set(aiRows.map((r) => r.brand_id))];
+  console.log(`[export] fetching ${brandIds.length} brands…`);
 
-  // Supabase .in() has a limit, batch if needed
-  const brandMap = new Map<string, { name: string; description: string | null }>();
+  const brandMap = new Map<
+    string,
+    { slug: string; name: string; description: string | null }
+  >();
   const BATCH_SIZE = 500;
-  for (let i = 0; i < slugs.length; i += BATCH_SIZE) {
-    const batch = slugs.slice(i, i + BATCH_SIZE);
+  for (let i = 0; i < brandIds.length; i += BATCH_SIZE) {
+    const batch = brandIds.slice(i, i + BATCH_SIZE);
     const { data: brands, error: bErr } = await client
       .from("brands")
-      .select("slug, name, description")
-      .in("slug", batch);
+      .select("id, slug, name, description")
+      .in("id", batch);
     if (bErr) throw new Error(`brands query failed: ${bErr.message}`);
     for (const b of brands ?? []) {
-      brandMap.set(b.slug, { name: b.name, description: b.description });
+      brandMap.set(b.id, {
+        slug: b.slug,
+        name: b.name,
+        description: b.description,
+      });
     }
   }
 
@@ -132,7 +204,7 @@ async function main() {
   let parseFailures = 0;
 
   for (const row of aiRows) {
-    const brand = brandMap.get(row.brand_slug);
+    const brand = brandMap.get(row.brand_id);
     if (!brand) {
       parseFailures++;
       continue;
@@ -159,7 +231,7 @@ async function main() {
       Array.isArray((parsed as { results: unknown }).results)
     ) {
       for (const entry of (parsed as { results: ClassifyEntry[] }).results) {
-        if (entry.slug === row.brand_slug) {
+        if (entry.slug === brand.slug) {
           entries.push(entry);
         }
       }
@@ -175,7 +247,8 @@ async function main() {
         continue;
       }
 
-      const userContent = `品牌名稱：${brand.name}\n描述：${brand.description ?? ""}`;
+      // Match production behavior: "無" when description is null
+      const userContent = `品牌名稱：${brand.name}\n描述：${brand.description ?? "無"}`;
       const assistantContent = JSON.stringify({
         reasoning: entry.reasoning,
         category: entry.category,
@@ -183,7 +256,7 @@ async function main() {
       });
 
       allEntries.push({
-        slug: row.brand_slug,
+        slug: brand.slug,
         userContent,
         assistantContent,
         category: entry.category,
@@ -195,9 +268,19 @@ async function main() {
     `[export] parsed ${allEntries.length} valid entries (${parseFailures} failures)`,
   );
 
-  // Stratified 80/20 split by category
-  const byCategory = new Map<string, typeof allEntries>();
+  // Dedup: keep only the latest entry per brand slug (last in array = latest)
+  const dedupMap = new Map<string, (typeof allEntries)[number]>();
   for (const entry of allEntries) {
+    dedupMap.set(entry.slug, entry);
+  }
+  const dedupedEntries = [...dedupMap.values()];
+  console.log(
+    `[export] deduped to ${dedupedEntries.length} entries (from ${allEntries.length})`,
+  );
+
+  // Stratified 80/20 split by category
+  const byCategory = new Map<string, typeof dedupedEntries>();
+  for (const entry of dedupedEntries) {
     const bucket = byCategory.get(entry.category) ?? [];
     bucket.push(entry);
     byCategory.set(entry.category, bucket);
@@ -207,8 +290,9 @@ async function main() {
   const evalSet: TrainingMessage[] = [];
 
   for (const [category, entries] of byCategory) {
-    // Shuffle for randomness
-    const shuffled = [...entries].sort(() => Math.random() - 0.5);
+    // Seeded Fisher-Yates shuffle for reproducibility
+    const shuffled = [...entries];
+    fisherYatesShuffle(shuffled, hashSeed("formoria-distill-" + category));
     const splitIndex = Math.max(1, Math.floor(shuffled.length * 0.8));
 
     for (let i = 0; i < shuffled.length; i++) {
@@ -234,7 +318,8 @@ async function main() {
 
   // Stats
   const stats = {
-    totalEntries: allEntries.length,
+    totalRawEntries: allEntries.length,
+    dedupedEntries: dedupedEntries.length,
     parseFailures,
     trainCount: trainSet.length,
     evalCount: evalSet.length,
@@ -257,22 +342,24 @@ async function main() {
 
   const trainPath = resolve(RUNS_DIR, "train.jsonl");
   const evalPath = resolve(RUNS_DIR, "eval.jsonl");
+  const validPath = resolve(RUNS_DIR, "valid.jsonl"); // mlx_lm.lora expects valid.jsonl
   const statsPath = resolve(RUNS_DIR, "export-stats.json");
+
+  const evalContent =
+    evalSet.map((m) => JSON.stringify(m)).join("\n") + "\n";
 
   await writeFile(
     trainPath,
     trainSet.map((m) => JSON.stringify(m)).join("\n") + "\n",
     "utf8",
   );
-  await writeFile(
-    evalPath,
-    evalSet.map((m) => JSON.stringify(m)).join("\n") + "\n",
-    "utf8",
-  );
+  await writeFile(evalPath, evalContent, "utf8");
+  await writeFile(validPath, evalContent, "utf8"); // copy for mlx_lm.lora
   await writeFile(statsPath, JSON.stringify(stats, null, 2) + "\n", "utf8");
 
   console.log(`[export] wrote ${trainPath}`);
   console.log(`[export] wrote ${evalPath}`);
+  console.log(`[export] wrote ${validPath} (mlx_lm.lora alias)`);
   console.log(`[export] wrote ${statsPath}`);
 }
 

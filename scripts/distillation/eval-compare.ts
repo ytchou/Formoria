@@ -10,6 +10,8 @@ import {
   confidenceBandAgreement,
 } from "@/lib/services/eval/scorers";
 
+import { loadScriptTarget } from "../shared/target";
+
 // ---------------------------------------------------------------------------
 // CLI helpers
 // ---------------------------------------------------------------------------
@@ -24,6 +26,19 @@ function argValue(argv: string[], flag: string): string | undefined {
 // ---------------------------------------------------------------------------
 
 type ArmName = "luna" | "foundation" | "fineTuned";
+
+const VALID_ARM_NAMES: ReadonlySet<string> = new Set([
+  "luna",
+  "foundation",
+  "fineTuned",
+  "finetuned",
+]);
+
+/** Normalize CLI input to canonical ArmName. Accepts both `finetuned` and `fineTuned`. */
+function normalizeArm(raw: string): ArmName {
+  if (raw === "finetuned") return "fineTuned";
+  return raw as ArmName;
+}
 
 type ClassifyOutput = {
   reasoning: string;
@@ -96,13 +111,19 @@ async function loadSystemPrompt(): Promise<string> {
     import.meta.dirname,
     "../../src/lib/prompts/langfuse-snapshot.json",
   );
-  const raw = await readFile(snapshotPath, "utf8");
-  const snapshot = JSON.parse(raw) as {
+  const fileContent = await readFile(snapshotPath, "utf8");
+  const snapshot = JSON.parse(fileContent) as {
     prompts: Record<string, { text: string[] }>;
   };
   const prompt = snapshot.prompts["category-classify"];
   if (!prompt) throw new Error("category-classify prompt not found in snapshot");
-  return prompt.text.join("\n");
+  const joined = prompt.text.join("\n");
+
+  // Substitute {{category_list}} with actual L1 categories
+  const categoryList = L1_CATEGORIES.map(
+    (c) => `- ${c.slug}: ${c.name} (${c.nameZh})`,
+  ).join("\n");
+  return joined.replace(/\{\{category_list\}\}/g, categoryList);
 }
 
 // ---------------------------------------------------------------------------
@@ -125,8 +146,18 @@ async function callOpenAI(
     };
   }
 
+  // Experiment script — basic console audit. Production code should use the audit adapter.
+  const model = "gpt-5.6-luna";
   const start = Date.now();
   try {
+    const payload = {
+      model,
+      messages: [
+        { role: "system", content: systemPrompt },
+        { role: "user", content: userContent },
+      ],
+      response_format: { type: "json_object" },
+    };
     const response = await fetch(
       "https://api.openai.com/v1/chat/completions",
       {
@@ -135,20 +166,16 @@ async function callOpenAI(
           "Content-Type": "application/json",
           Authorization: `Bearer ${apiKey}`,
         },
-        body: JSON.stringify({
-          model: "gpt-5.6-luna",
-          messages: [
-            { role: "system", content: systemPrompt },
-            { role: "user", content: userContent },
-          ],
-          response_format: { type: "json_object" },
-        }),
+        body: JSON.stringify(payload),
       },
     );
     const latencyMs = Date.now() - start;
 
     if (!response.ok) {
       const text = await response.text();
+      console.log(
+        `[audit] OpenAI ${model} status=${response.status} latency=${latencyMs}ms error=${text.slice(0, 120)}`,
+      );
       return {
         category: null,
         confidence: null,
@@ -163,14 +190,21 @@ async function callOpenAI(
       choices: Array<{ message: { content: string } }>;
     };
     const content = data.choices[0]?.message?.content ?? "";
+    console.log(
+      `[audit] OpenAI ${model} status=${response.status} latency=${latencyMs}ms responseLen=${content.length}`,
+    );
     return parseArmResponse(content, latencyMs);
   } catch (err) {
+    const latencyMs = Date.now() - start;
+    console.log(
+      `[audit] OpenAI ${model} status=ERROR latency=${latencyMs}ms error=${String(err).slice(0, 120)}`,
+    );
     return {
       category: null,
       confidence: null,
       reasoning: null,
       parseSuccess: false,
-      latencyMs: Date.now() - start,
+      latencyMs,
       error: String(err),
     };
   }
@@ -183,21 +217,21 @@ async function callOllama(
 ): Promise<ArmResult> {
   const start = Date.now();
   try {
-    const response = await fetch(
-      "http://localhost:11434/v1/chat/completions",
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          model,
-          messages: [
-            { role: "system", content: systemPrompt },
-            { role: "user", content: userContent },
-          ],
-          format: OLLAMA_JSON_SCHEMA,
-        }),
-      },
-    );
+    // Use Ollama's native /api/chat endpoint for better structured output support.
+    // The `format` field is native to this endpoint (not the OpenAI-compat /v1/chat/completions).
+    const response = await fetch("http://localhost:11434/api/chat", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        model,
+        messages: [
+          { role: "system", content: systemPrompt },
+          { role: "user", content: userContent },
+        ],
+        format: OLLAMA_JSON_SCHEMA,
+        stream: false,
+      }),
+    });
     const latencyMs = Date.now() - start;
 
     if (!response.ok) {
@@ -213,9 +247,9 @@ async function callOllama(
     }
 
     const data = (await response.json()) as {
-      choices: Array<{ message: { content: string } }>;
+      message: { content: string };
     };
-    const content = data.choices[0]?.message?.content ?? "";
+    const content = data.message?.content ?? "";
     return parseArmResponse(content, latencyMs);
   } catch (err) {
     const message = String(err);
@@ -316,8 +350,18 @@ function latencyStats(values: number[]): {
 // ---------------------------------------------------------------------------
 
 async function main() {
-  const argv = process.argv.slice(2);
-  const armFilter = argValue(argv, "--arm") as ArmName | undefined;
+  // Load env targeting (matches export-training-data.ts)
+  const { argv } = loadScriptTarget();
+
+  const rawArm = argValue(argv, "--arm");
+  if (rawArm !== undefined && !VALID_ARM_NAMES.has(rawArm)) {
+    console.error(
+      `[eval] invalid --arm "${rawArm}". Valid values: luna, foundation, fineTuned (or finetuned)`,
+    );
+    process.exit(1);
+  }
+  const armFilter: ArmName | undefined =
+    rawArm !== undefined ? normalizeArm(rawArm) : undefined;
 
   const activeArms: ArmName[] = armFilter
     ? [armFilter]
@@ -332,6 +376,11 @@ async function main() {
     console.error(
       `[eval] eval.jsonl not found at ${evalPath}. Run pnpm distill:export first.`,
     );
+    process.exit(1);
+  }
+
+  if (!evalRaw.trim()) {
+    console.error("eval.jsonl is empty. Run pnpm distill:export first.");
     process.exit(1);
   }
 
@@ -365,7 +414,15 @@ async function main() {
     const assistantMsg = msg.messages.find((m) => m.role === "assistant");
     if (!userMsg || !assistantMsg) continue;
 
-    const expected = JSON.parse(assistantMsg.content) as ClassifyOutput;
+    let expected: ClassifyOutput;
+    try {
+      expected = JSON.parse(assistantMsg.content) as ClassifyOutput;
+    } catch {
+      console.warn(
+        `[eval] skipping sample ${i}: failed to parse expected output`,
+      );
+      continue;
+    }
     // Extract slug from user content: "品牌名稱：X\n描述：Y"
     const slugMatch = userMsg.content.match(/品牌名稱：(.+?)(?:\n|$)/);
     const slug = slugMatch?.[1] ?? `sample-${i}`;
