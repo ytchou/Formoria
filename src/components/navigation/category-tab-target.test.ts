@@ -94,30 +94,6 @@ describe('category tab targets', () => {
     })
   })
 
-  it('category_tab_navigation_preserves_material', () => {
-    // The material axis is orthogonal to the taxonomy, so a category or
-    // The material axis is orthogonal to the taxonomy, so all axes share
-    // the same `/brands?...` query surface now.
-    expect(
-      buildCategoryTabTarget({
-        pathname: '/brands',
-        searchParams: 'category=fashion&material=wood',
-        slug: 'fashion',
-        subSlug: 'dresses',
-        locale: 'zh-TW',
-      }).routerPath,
-    ).toBe('/brands?category=fashion&material=wood&sub=dresses')
-
-    expect(
-      buildCategoryTabTarget({
-        pathname: '/brands',
-        searchParams: 'material=wood',
-        slug: 'fashion',
-        locale: 'zh-TW',
-      }).routerPath,
-    ).toBe('/brands?material=wood&category=fashion')
-  })
-
   it('keeps a cross-L1 subcategory in the query rather than dropping it', () => {
     // `backpacks` belongs to `bags-accessories`, not `fashion`, but the pair is
     // a live filter since the brand query stopped conjoining the L1.

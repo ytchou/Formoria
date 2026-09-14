@@ -44,7 +44,6 @@ import {
 import {
   L1_CATEGORIES,
   isVisibleCategory,
-  materialBySlug,
   subcategoryBySlug,
 } from "@/lib/taxonomy/ontology";
 import { BRAND_SORT_CONFIG } from "@/lib/pagination";
@@ -259,12 +258,12 @@ function isCacheableFacetList(
  * with the unknown term dropped. It only refuses to spend an edge key on a URL
  * a bot can mint an unbounded number of.
  *
- * The taxonomy checks reuse `L1_CATEGORIES` / `subcategoryBySlug` /
- * `materialBySlug`, which this file already imports for the path half of the
- * predicate. `parseDirectoryViewFilters` stays out of the edge bundle on
- * purpose (see `@/lib/seo/directory-query-keys`), so the two enum vocabularies
- * it holds inline are restated above. Ceiling: they must be changed together;
- * a drift only over-restricts caching, it cannot change a rendering.
+ * The taxonomy checks reuse `L1_CATEGORIES` / `subcategoryBySlug`, which this
+ * file already imports for the path half of the predicate.
+ * `parseDirectoryViewFilters` stays out of the edge bundle on purpose (see
+ * `@/lib/seo/directory-query-keys`), so the two enum vocabularies it holds
+ * inline are restated above. Ceiling: they must be changed together; a drift
+ * only over-restricts caching, it cannot change a rendering.
  */
 function isCacheableQueryValue(key: string, raw: string): boolean {
   switch (key) {
@@ -282,11 +281,6 @@ function isCacheableQueryValue(key: string, raw: string): boolean {
       return isCacheableFacetList(
         raw,
         (value) => subcategoryBySlug(value) !== null,
-      );
-    case "material":
-      return isCacheableFacetList(
-        raw,
-        (value) => materialBySlug(value) !== null,
       );
     default:
       return false;
