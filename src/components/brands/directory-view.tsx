@@ -2,7 +2,6 @@ import { Suspense } from "react";
 import { getTranslations } from "next-intl/server";
 import {
   directoryBrandCategoryFilter,
-  getMaterialCounts,
   getPublicBrandCards,
   getRandomBrands,
   getSubcategorySummary,
@@ -12,8 +11,6 @@ import {
   L2_SUBCATEGORIES,
   L1_CATEGORIES,
   VISIBLE_L1_CATEGORIES,
-  MATERIALS,
-  materialBySlug,
   resolveDirectorySubcategorySlugs,
 } from "@/lib/taxonomy/ontology";
 import {
@@ -123,15 +120,13 @@ export async function DirectoryView({
     : t("heading");
   const search = filters.search ?? "";
   const shouldLoadTaxonomySummary = Boolean(singleValidCategory) && !search;
-  const materials = filters.materials ?? [];
 
-  const [{ brands, totalCount }, taxonomySummary, materialCounts, editorialLinks] =
+  const [{ brands, totalCount }, taxonomySummary, editorialLinks] =
     await Promise.all([
       getPublicBrandCards({
         search: search || undefined,
         category: brandCategoryFilter,
         subcategoryTags: activeSubSlugs,
-        materials: materials.length > 0 ? materials : undefined,
         sort,
         page,
       }),
@@ -141,8 +136,6 @@ export async function DirectoryView({
             counts: new Map<string, number>(),
             latestUpdatedAt: null,
           }),
-      // Same single cache entry as the L2 counts, so this costs no extra query.
-      getMaterialCounts(),
       isCategoryRoute && singleValidCategory
         ? getCategoryEditorialLinks(
             singleValidCategory,
@@ -165,16 +158,6 @@ export async function DirectoryView({
     label: safeLocale === "zh-TW" ? subcategory.nameZh : subcategory.nameEn,
     count: subcategory.count,
   }));
-  // Four material slugs are in the closed vocabulary with no brands behind them.
-  // A rail entry that can only ever return an empty page is worse than no entry,
-  // so the zero-count slugs are dropped here exactly as the L2 rail drops its own.
-  // The label comes off the ontology, not a message catalogue: `?material=` and
-  // `brands.material` both carry the slug, and the zh/en pair travels with it.
-  const materialOptions = MATERIALS.map((material) => ({
-    value: material.slug,
-    label: safeLocale === "zh-TW" ? material.nameZh : material.nameEn,
-    count: materialCounts.get(material.slug) ?? 0,
-  })).filter((option) => option.count > 0);
 
   const totalPages = Math.ceil(totalCount / DEFAULT_PAGE_SIZE);
   const clampedPage = totalCount > 0 && page > totalPages ? totalPages : page;
@@ -184,7 +167,6 @@ export async function DirectoryView({
       search: search || undefined,
       category: brandCategoryFilter,
       subcategoryTags: activeSubSlugs,
-      materials: materials.length > 0 ? materials : undefined,
       sort,
       page: clampedPage,
     });
@@ -203,7 +185,6 @@ export async function DirectoryView({
     categorySlugs: validCategoryFilter,
     subcategorySlugs: activeSubSlugs,
     search,
-    materials,
     sort,
   });
   const { directoryPath, normalizedParams } = urlState;
@@ -269,30 +250,6 @@ export async function DirectoryView({
       }),
     });
   }
-  for (const material of materials) {
-    // `materials` carries slugs `parseDirectoryViewFilters` already gated
-    // against `VALID_MATERIALS`, so the guard below is unreachable. It is the
-    // same `continue` the category loop above uses rather than a second shape
-    // for the same situation.
-    const entry = materialBySlug(material);
-    if (!entry) continue;
-    const value = safeLocale === "zh-TW" ? entry.nameZh : entry.nameEn;
-    const remainingMaterials = materials.filter((item) => item !== material);
-    activeFilters.push({
-      id: `material-${material}`,
-      label: t("filters.activeMaterial"),
-      value,
-      removeHref: updateDirectoryUrl(directoryPath, normalizedParams, {
-        material:
-          remainingMaterials.length > 0 ? remainingMaterials.join(",") : null,
-      }),
-      removeLabel: t("filters.removeFilter", {
-        label: t("filters.activeMaterial"),
-        value,
-      }),
-    });
-  }
-
   let recommendedBrands: PublicBrandCard[] = [];
   let recommendationsHref = directoryPath;
   if (totalCount === 0 && !isCategoryRoute) {
@@ -331,7 +288,6 @@ export async function DirectoryView({
       indexable,
       categorySlugs: validCategoryFilter,
       search,
-      materials,
       page,
     })
   ) {
@@ -392,8 +348,6 @@ export async function DirectoryView({
     allLabel: commonT("all"),
     subcategoryOptions,
     activeSubSlugs,
-    materialOptions,
-    activeMaterials: materials,
     totalCount,
   };
 

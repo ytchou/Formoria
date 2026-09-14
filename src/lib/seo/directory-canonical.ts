@@ -18,7 +18,6 @@ export type DirectoryCanonicalFacets = {
   search?: unknown;
   category?: unknown;
   sub?: unknown;
-  material?: unknown;
   sort?: unknown;
 };
 
@@ -45,7 +44,6 @@ function appendDirectoryQuery(
     ["search", facets?.search],
     ["category", facets?.category],
     ["sub", facets?.sub],
-    ["material", facets?.material],
     ["sort", facets?.sort],
   ];
   for (const [key, value] of recognizedFacets) {
