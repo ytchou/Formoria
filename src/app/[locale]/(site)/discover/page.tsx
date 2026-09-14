@@ -24,6 +24,7 @@ import {
 } from "@/lib/services/curated-products-catalog";
 import { searchProductsBySituation } from "@/lib/services/product-situation-search";
 import {
+  isMaterialApplicable,
   isVisibleCategory,
   subcategoryBySlug,
   subcategoryLabel,
@@ -95,10 +96,10 @@ export async function generateMetadata({
   const { locale } = await params;
   setRequestLocale(locale);
   const rawParams = await searchParams;
-  const { category, query } = resolveDiscoverTaxonomy(rawParams);
+  const { category, query, materials } = resolveDiscoverTaxonomy(rawParams);
   const t = await getTranslations({ locale, namespace: "products" });
 
-  const { robots, canonicalPath } = discoverMetadataFor({ query, category });
+  const { robots, canonicalPath } = discoverMetadataFor({ query, category, materials });
   const { canonical, languages } = buildAlternates(
     canonicalPath,
     locale as "zh-TW" | "en",
@@ -199,21 +200,23 @@ export default async function DiscoverPage({
         })
     : [];
 
-  // Build material options (filter count > 0)
-  const materialOptions = facets.materialCounts
-    .filter((fc) => fc.count > 0)
-    .map((fc) => {
-      const mat = MATERIALS.find((m) => m.slug === fc.slug);
-      return {
-        value: fc.slug,
-        label: mat
-          ? locale === "zh-TW"
-            ? mat.nameZh
-            : mat.nameEn
-          : fc.slug,
-        count: fc.count,
-      };
-    });
+  // Build material options (filter count > 0, only for applicable L1s)
+  const materialOptions = isMaterialApplicable(category)
+    ? facets.materialCounts
+        .filter((fc) => fc.count > 0)
+        .map((fc) => {
+          const mat = MATERIALS.find((m) => m.slug === fc.slug);
+          return {
+            value: fc.slug,
+            label: mat
+              ? locale === "zh-TW"
+                ? mat.nameZh
+                : mat.nameEn
+              : fc.slug,
+            count: fc.count,
+          };
+        })
+    : [];
 
   // Build active filters for chips
   const activeFilters: {

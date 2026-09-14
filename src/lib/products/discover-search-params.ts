@@ -60,22 +60,55 @@ type MetadataHints = {
 };
 
 /**
- * Metadata decisions that depend on query presence.
+ * Material slugs with ≥15 products across applicable L1 categories, counted
+ * on 2026-09-14. Below-threshold pages get noindex to avoid thin-content
+ * indexation. Update when product counts shift materially.
+ */
+export const QUALIFYING_MATERIAL_SLUGS: ReadonlySet<string> = new Set([
+  'ceramic',
+  'wood',
+  'textile',
+  'glass',
+  'metal',
+  'wool',
+  'leather',
+  'paper',
+  'stone',
+]);
+
+/**
+ * Metadata decisions that depend on query and filter presence.
  *
- * - `robots`: `{ index: false, follow: true }` when `q` is present (search
- *   results pages should not be indexed); `null` otherwise (use default).
- * - `canonicalPath`: the `/discover` path with category but never `q`.
+ * - `robots`: `{ index: false, follow: true }` when `q` is present, when a
+ *   below-threshold material is active, or when multiple materials are
+ *   selected; `null` otherwise (use default).
+ * - `canonicalPath`: the `/discover` path with category and a single
+ *   qualifying material, but never `q`.
  */
 export function discoverMetadataFor(opts: {
   query: string | null;
   category: string | null;
+  materials?: string[];
 }): MetadataHints {
+  const mats = opts.materials ?? [];
+  const singleQualifying =
+    mats.length === 1 && QUALIFYING_MATERIAL_SLUGS.has(mats[0]!)
+      ? mats[0]!
+      : null;
+
   const canonicalPath = routes.discover({
     category: opts.category || undefined,
+    ...(singleQualifying ? { material: singleQualifying } : {}),
   });
 
+  const hasSubThresholdMaterial = mats.some(
+    (m) => !QUALIFYING_MATERIAL_SLUGS.has(m),
+  );
+  const shouldNoindex =
+    !!opts.query || hasSubThresholdMaterial || mats.length > 1;
+
   return {
-    robots: opts.query ? { index: false, follow: true } : null,
+    robots: shouldNoindex ? { index: false, follow: true } : null,
     canonicalPath,
   };
 }
