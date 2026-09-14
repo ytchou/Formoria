@@ -7,6 +7,7 @@ import {
 } from "@/lib/cache/query-embedding-cache";
 import { EMBEDDING_MODEL } from "@/lib/constants/llm-models";
 import * as Sentry from "@sentry/nextjs";
+import { parseQueryIntent, type IntentParseOutcome } from "./query-intent-parse";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -27,6 +28,7 @@ export type SearchInput = {
   materials?: string[];
   sort?: "relevance" | "newest" | "alphabetical";
   audit?: { jobId?: string; phase?: string };
+  enableIntentParse?: boolean;
 };
 
 export type SearchResult = {
@@ -35,6 +37,12 @@ export type SearchResult = {
   searchSource: SearchMode;
   degraded: boolean;
   query: string;
+  intentParsed: boolean;
+  intentCategory: string | null;
+  intentSubcategory: string | null;
+  intentMaterials: string[];
+  intentCacheHit: boolean;
+  intentLatencyMs: number;
 };
 
 export type SimilarResult = {
@@ -119,6 +127,8 @@ export type SearchDeps = {
   now: () => number;
   /** Read the stored embedding for a product. Used by findSimilarProducts. */
   readProductEmbedding?: (productId: string) => Promise<number[] | null>;
+  /** LLM-based intent extraction for structured filter discovery. */
+  parseIntent?: (query: string, signal?: AbortSignal) => Promise<IntentParseOutcome>;
 };
 
 const DEGRADE_COOLDOWN_MS = 5 * 60 * 1000; // 5 minutes
@@ -171,6 +181,7 @@ function defaultDeps(): SearchDeps {
         ? JSON.parse(data.embedding)
         : data.embedding;
     },
+    parseIntent: (query) => parseQueryIntent(query),
   };
 }
 
@@ -188,47 +199,92 @@ export async function searchProductsBySituation(
   const pageSize = input.pageSize ?? 20;
   const sort = input.sort ?? "relevance";
 
-  // --- Embed (with cache + fallback) ---
-  let embedding: number[] | null = null;
-  let degraded = false;
-  let effectiveMode: SearchMode = mode;
+  // --- Parallel: intent parse + embed ---
+  const intentStart = deps.now();
+  const shouldParse = input.enableIntentParse && deps.parseIntent;
 
-  if (mode !== "lexical") {
-    // Try cache
-    const cached = await deps.cache.get(normalized, EMBEDDING_MODEL);
-    if (cached) {
-      embedding = cached;
-    } else {
-      try {
-        const ctx: { phase: string; jobId?: string } = {
-          phase: input.audit?.phase ?? "situation_search",
-          ...(input.audit?.jobId ? { jobId: input.audit.jobId } : {}),
-        };
-        embedding = await deps.embed(normalized, ctx);
-        await deps.cache.set(normalized, EMBEDDING_MODEL, embedding);
-      } catch (err) {
-        degraded = true;
-        effectiveMode = "lexical";
-        embedding = null;
+  const intentParsePromise: Promise<IntentParseOutcome> = shouldParse
+    ? Promise.race([
+        deps.parseIntent!(normalized),
+        new Promise<null>((resolve) => setTimeout(() => resolve(null), 2000)),
+      ])
+    : Promise.resolve(null);
 
-        const now = deps.now();
-        if (now - lastDegradationReportAt >= DEGRADE_COOLDOWN_MS) {
-          lastDegradationReportAt = now;
-          deps.report(err);
+  async function doEmbed(): Promise<{
+    embedding: number[] | null;
+    degraded: boolean;
+    effectiveMode: SearchMode;
+  }> {
+    let embedding: number[] | null = null;
+    let degraded = false;
+    let effectiveMode: SearchMode = mode;
+
+    if (mode !== "lexical") {
+      const cached = await deps.cache.get(normalized, EMBEDDING_MODEL);
+      if (cached) {
+        embedding = cached;
+      } else {
+        try {
+          const ctx: { phase: string; jobId?: string } = {
+            phase: input.audit?.phase ?? "situation_search",
+            ...(input.audit?.jobId ? { jobId: input.audit.jobId } : {}),
+          };
+          embedding = await deps.embed(normalized, ctx);
+          await deps.cache.set(normalized, EMBEDDING_MODEL, embedding);
+        } catch (err) {
+          degraded = true;
+          effectiveMode = "lexical";
+          embedding = null;
+
+          const now = deps.now();
+          if (now - lastDegradationReportAt >= DEGRADE_COOLDOWN_MS) {
+            lastDegradationReportAt = now;
+            deps.report(err);
+          }
         }
       }
     }
+
+    return { embedding, degraded, effectiveMode };
   }
 
-  // --- RPC ---
+  const [intentOutcome, embedResult] = await Promise.all([
+    intentParsePromise,
+    doEmbed(),
+  ]);
+
+  const intentLatencyMs = shouldParse ? deps.now() - intentStart : 0;
+  const { embedding, degraded, effectiveMode } = embedResult;
+
+  // --- Intent metadata (populated on both returns) ---
+  const intentMeta = {
+    intentParsed: intentOutcome !== null,
+    intentCategory: intentOutcome?.parsed?.category ?? null,
+    intentSubcategory: intentOutcome?.parsed?.subcategory ?? null,
+    intentMaterials: intentOutcome?.parsed?.materials ?? [],
+    intentCacheHit: intentOutcome?.cacheHit ?? false,
+    intentLatencyMs,
+  };
+
+  // --- Merge filters: user-selected wins over LLM-extracted ---
+  const parsed = intentOutcome?.parsed ?? null;
+
   const rpcParams: Record<string, unknown> = {
     query_text: normalized,
     query_embedding: embedding,
     mode: effectiveMode,
     match_count: pageSize * page + pageSize, // fetch enough for pagination
-    filter_category: input.category ?? null,
-    filter_subcategories: input.subcategories ?? null,
-    filter_materials: input.materials ?? null,
+    filter_category: input.category ?? parsed?.category ?? null,
+    filter_subcategories: input.subcategories?.length
+      ? input.subcategories
+      : parsed?.subcategory
+        ? [parsed.subcategory]
+        : null,
+    filter_materials: input.materials?.length
+      ? input.materials
+      : parsed?.materials?.length
+        ? parsed.materials
+        : null,
   };
 
   const { data: rpcRows, error: rpcError } = await deps.rpc(
@@ -251,6 +307,7 @@ export async function searchProductsBySituation(
       searchSource: effectiveMode,
       degraded,
       query: normalized,
+      ...intentMeta,
     };
   }
 
@@ -285,6 +342,7 @@ export async function searchProductsBySituation(
     searchSource,
     degraded,
     query: normalized,
+    ...intentMeta,
   };
 }
 

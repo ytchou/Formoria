@@ -386,3 +386,201 @@ describe("findSimilarProducts", () => {
     expect(deps.rpc).not.toHaveBeenCalled();
   });
 });
+
+// ---------------------------------------------------------------------------
+// 3. searchProductsBySituation — intent parse integration
+// ---------------------------------------------------------------------------
+
+describe("searchProductsBySituation — intent parse", () => {
+  const mockParsedResult = {
+    category: "food" as const,
+    subcategory: "tea",
+    materials: ["ceramic"],
+    semantic_query: "送禮推薦",
+  };
+
+  const mockOutcome = {
+    parsed: mockParsedResult,
+    cacheHit: false,
+  };
+
+  it("runs intent parse in parallel when enabled", async () => {
+    const parseIntent = vi.fn().mockResolvedValue(mockOutcome);
+    const deps = createDeps({ parseIntent });
+
+    await searchProductsBySituation(
+      { query: "送禮推薦", locale: "zh-TW", enableIntentParse: true },
+      deps,
+    );
+
+    expect(parseIntent).toHaveBeenCalledWith("送禮推薦");
+    expect(deps.embed).toHaveBeenCalledTimes(1);
+  });
+
+  it("skips intent parse when disabled", async () => {
+    const parseIntent = vi.fn().mockResolvedValue(mockOutcome);
+    const deps = createDeps({ parseIntent });
+
+    await searchProductsBySituation(
+      { query: "送禮推薦", locale: "zh-TW" },
+      deps,
+    );
+
+    expect(parseIntent).not.toHaveBeenCalled();
+  });
+
+  it("merges LLM filters into RPC params", async () => {
+    const parseIntent = vi.fn().mockResolvedValue(mockOutcome);
+    const deps = createDeps({
+      parseIntent,
+      rpc: vi.fn().mockResolvedValue({ data: [], error: null }),
+    });
+
+    await searchProductsBySituation(
+      { query: "送禮推薦", locale: "zh-TW", enableIntentParse: true },
+      deps,
+    );
+
+    const rpcArgs = (deps.rpc as ReturnType<typeof vi.fn>).mock.calls[0];
+    expect(rpcArgs[1]).toMatchObject({
+      filter_category: "food",
+      filter_subcategories: ["tea"],
+      filter_materials: ["ceramic"],
+    });
+  });
+
+  it("user filters override LLM", async () => {
+    const parseIntent = vi.fn().mockResolvedValue(mockOutcome);
+    const deps = createDeps({
+      parseIntent,
+      rpc: vi.fn().mockResolvedValue({ data: [], error: null }),
+    });
+
+    await searchProductsBySituation(
+      {
+        query: "送禮推薦",
+        locale: "zh-TW",
+        enableIntentParse: true,
+        category: "lifestyle",
+        subcategories: ["outdoor"],
+        materials: ["wood"],
+      },
+      deps,
+    );
+
+    const rpcArgs = (deps.rpc as ReturnType<typeof vi.fn>).mock.calls[0];
+    expect(rpcArgs[1]).toMatchObject({
+      filter_category: "lifestyle",
+      filter_subcategories: ["outdoor"],
+      filter_materials: ["wood"],
+    });
+  });
+
+  it("falls back on intent parse null", async () => {
+    const parseIntent = vi.fn().mockResolvedValue(null);
+    const deps = createDeps({
+      parseIntent,
+      rpc: vi.fn().mockResolvedValue({ data: [], error: null }),
+    });
+
+    await searchProductsBySituation(
+      { query: "送禮推薦", locale: "zh-TW", enableIntentParse: true },
+      deps,
+    );
+
+    const rpcArgs = (deps.rpc as ReturnType<typeof vi.fn>).mock.calls[0];
+    expect(rpcArgs[1]).toMatchObject({
+      filter_category: null,
+      filter_subcategories: null,
+      filter_materials: null,
+    });
+  });
+
+  it("result includes intent metadata", async () => {
+    let time = 1000;
+    const parseIntent = vi.fn().mockResolvedValue(mockOutcome);
+    const deps = createDeps({
+      parseIntent,
+      rpc: vi.fn().mockResolvedValue({ data: [], error: null }),
+      now: vi.fn(() => {
+        const t = time;
+        time += 25;
+        return t;
+      }),
+    });
+
+    const result = await searchProductsBySituation(
+      { query: "送禮推薦", locale: "zh-TW", enableIntentParse: true },
+      deps,
+    );
+
+    expect(result.intentParsed).toBe(true);
+    expect(result.intentCategory).toBe("food");
+    expect(result.intentSubcategory).toBe("tea");
+    expect(result.intentMaterials).toEqual(["ceramic"]);
+    expect(result.intentCacheHit).toBe(false);
+    expect(result.intentLatencyMs).toBeGreaterThan(0);
+  });
+
+  it("converts subcategory to array for RPC", async () => {
+    const parseIntent = vi.fn().mockResolvedValue({
+      parsed: { ...mockParsedResult, materials: [] },
+      cacheHit: false,
+    });
+    const deps = createDeps({
+      parseIntent,
+      rpc: vi.fn().mockResolvedValue({ data: [], error: null }),
+    });
+
+    await searchProductsBySituation(
+      { query: "送禮推薦", locale: "zh-TW", enableIntentParse: true },
+      deps,
+    );
+
+    const rpcArgs = (deps.rpc as ReturnType<typeof vi.fn>).mock.calls[0];
+    expect(rpcArgs[1].filter_subcategories).toEqual(["tea"]);
+  });
+
+  it("sends null materials when empty", async () => {
+    const parseIntent = vi.fn().mockResolvedValue({
+      parsed: { ...mockParsedResult, materials: [] },
+      cacheHit: false,
+    });
+    const deps = createDeps({
+      parseIntent,
+      rpc: vi.fn().mockResolvedValue({ data: [], error: null }),
+    });
+
+    await searchProductsBySituation(
+      { query: "送禮推薦", locale: "zh-TW", enableIntentParse: true },
+      deps,
+    );
+
+    const rpcArgs = (deps.rpc as ReturnType<typeof vi.fn>).mock.calls[0];
+    expect(rpcArgs[1].filter_materials).toBeNull();
+  });
+
+  it("respects 2s outer deadline", async () => {
+    vi.useFakeTimers();
+    try {
+      const deps = createDeps({
+        parseIntent: vi.fn().mockReturnValue(new Promise(() => {})), // never resolves
+        rpc: vi.fn().mockResolvedValue({ data: [], error: null }),
+        now: vi.fn().mockReturnValue(1000),
+      });
+
+      const resultPromise = searchProductsBySituation(
+        { query: "test query", locale: "zh-TW", enableIntentParse: true },
+        deps,
+      );
+
+      await vi.advanceTimersByTimeAsync(2000);
+      const result = await resultPromise;
+
+      expect(result.intentParsed).toBe(false);
+      expect(deps.parseIntent).toHaveBeenCalledTimes(1);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+});
