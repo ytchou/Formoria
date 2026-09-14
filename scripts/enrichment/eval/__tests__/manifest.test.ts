@@ -39,7 +39,7 @@ describe("loadEvalManifest — dev-1689-eval", () => {
 // ---------------------------------------------------------------------------
 
 describe("loadEvalManifest — dev-1689-holdout", () => {
-  it("loads 10 slugs, all holdout group, all expected null, holdout:true", async () => {
+  it("loads 10 slugs, all holdout group, all expected set post-reveal, holdout:true", async () => {
     const manifest = await loadEvalManifest("dev-1689-holdout");
 
     expect(manifest.slugs).toHaveLength(10);
@@ -48,7 +48,7 @@ describe("loadEvalManifest — dev-1689-holdout", () => {
     for (const slug of manifest.slugs) {
       const entry = manifest.eval[slug];
       expect(entry.group).toBe("holdout");
-      expect(entry.expected).toBeNull();
+      expect(["success_products", "correct_zero"]).toContain(entry.expected);
     }
   });
 });
