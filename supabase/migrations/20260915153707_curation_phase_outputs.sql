@@ -45,4 +45,4 @@ on conflict (job_id, target_type, target_id, phase) do nothing;
 -- Widen brand_search_results search_type CHECK to include 'catalog' (decision 1).
 alter table public.brand_search_results drop constraint brand_search_results_search_type_check;
 alter table public.brand_search_results add constraint brand_search_results_search_type_check
-  check (search_type in ('serp', 'image', 'scrape', 'catalog'));
+  check (search_type in ('serp', 'image', 'maps', 'scrape', 'catalog'));

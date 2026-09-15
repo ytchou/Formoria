@@ -2210,14 +2210,11 @@ export async function runEnrich(
            * fires on first use so a tags-only retry with detect satisfied still
            * classifies (DEV-1611). The result is cached for subsequent brands.
            */
-          let _standaloneClassificationResult:
-            Awaited<ReturnType<typeof runStandaloneClassification>> | undefined;
-          const getStandaloneClassification = async () => {
-            if (!_standaloneClassificationResult) {
-              _standaloneClassificationResult =
-                await runStandaloneClassification(batchContext);
-            }
-            return _standaloneClassificationResult;
+          let _classificationPromise:
+            ReturnType<typeof runStandaloneClassification> | undefined;
+          const getStandaloneClassification = () => {
+            _classificationPromise ??= runStandaloneClassification(batchContext);
+            return _classificationPromise;
           };
           /**
            * Detect and tags are BATCH-level phases that run before wave B, so their

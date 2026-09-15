@@ -231,23 +231,25 @@ export function createSupabasePhaseOutputStore(): PhaseOutputStore {
     reader: {
       latestPerPhase: async (target) => {
         const supabase = createServiceClient()
-        const { data } = await supabase
+        const { data, error } = await supabase
           .from('curation_phase_outputs')
           .select('*')
           .eq('target_id', target.id)
           .eq('target_type', target.type)
           .order('created_at', { ascending: false })
+        if (error) throw error
         return (data ?? []) as PhaseOutputRow[]
       },
       unpersisted: async (target) => {
         const supabase = createServiceClient()
-        const { data } = await supabase
+        const { data, error } = await supabase
           .from('curation_phase_outputs')
           .select('*, curation_jobs!inner(dry_run)')
           .eq('target_id', target.id)
           .eq('target_type', target.type)
           .is('persisted_at', null)
           .eq('curation_jobs.dry_run', false)
+        if (error) throw error
         return (data ?? []) as PhaseOutputRow[]
       },
     },
@@ -255,7 +257,7 @@ export function createSupabasePhaseOutputStore(): PhaseOutputStore {
       upsert: async (entries) => {
         if (entries.length === 0) return
         const supabase = createServiceClient()
-        await supabase
+        const { error } = await supabase
           .from('curation_phase_outputs')
           .upsert(
             entries.map((e) => ({
@@ -268,14 +270,16 @@ export function createSupabasePhaseOutputStore(): PhaseOutputStore {
             })),
             { onConflict: 'job_id,target_id,target_type,phase' },
           )
+        if (error) throw error
       },
       markPersisted: async (ids) => {
         if (ids.length === 0) return
         const supabase = createServiceClient()
-        await supabase
+        const { error } = await supabase
           .from('curation_phase_outputs')
           .update({ persisted_at: new Date().toISOString() })
           .in('id', ids)
+        if (error) throw error
       },
     },
   }
