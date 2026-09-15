@@ -23,7 +23,6 @@ export const DIRECTORY_SEARCH_QUERY_KEY = "search";
 export const DIRECTORY_QUERY_KEYS = [
   "category",
   "sub",
-  "material",
   "sort",
   "page",
   DIRECTORY_SEARCH_QUERY_KEY,

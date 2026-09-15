@@ -712,7 +712,6 @@ export function brandToDomain(row: BrandRowWithJoins): Brand {
     subcategoriesEn: Array.isArray(row.subcategories_en)
       ? row.subcategories_en
       : [],
-    material: Array.isArray(row.material) ? row.material : [],
     reputationSummary: normalizeReputationSummary(row.reputation_summary),
     siteContent: row.site_content ?? null,
     submittedAt: row.submitted_at ?? "",
@@ -977,7 +976,7 @@ function brandFieldStateTable(client: unknown): BrandFieldStateTable {
  * `ApplyBrandPatchArgs` in place of the generated signature. One cast, in one
  * place, so the argument object itself stays type-checked at every call site.
  */
-export function brandPatchRpc(client: unknown): BrandPatchRpcClient {
+function brandPatchRpc(client: unknown): BrandPatchRpcClient {
   return client as BrandPatchRpcClient;
 }
 
@@ -1029,7 +1028,6 @@ export const BRAND_COLUMN_LIST = [
   "founding_year",
   "subcategories",
   "subcategories_en",
-  "material",
   "reputation_summary",
   "source",
   "is_demo",
@@ -1049,7 +1047,6 @@ export const DIRECTORY_OMITTED_COLUMNS = [
   "site_content",
   "draft_data",
   "reputation_summary",
-  "material",
   "hidden_reason",
 ] as const;
 
@@ -1520,8 +1517,6 @@ export async function getBrands(
   const subcategoryTags = filters?.subcategoryTags?.length
     ? filters.subcategoryTags
     : null;
-  const materials = filters?.materials?.length ? filters.materials : null;
-
   // Card surfaces need the hero's `brand_images` metadata to render the logo
   // carve-out; the admin table does not. `includeDetailColumns` is admin-only
   // (see `getBrandsSelect`), and that caller runs unbounded over the full
@@ -1559,11 +1554,6 @@ export async function getBrands(
         search_query: trimmed,
         filter_categories: filters.category?.length ? filters.category : null,
         filter_subcategories: subcategoryTags,
-        // Applied inside the RPC, not on the builder below: with a text query
-        // active this branch never reaches the query builder, so a material
-        // filter added only there would be silently dropped the moment a user
-        // types — the same defect class as the `?sub=` no-op (DEV-1510).
-        filter_materials: materials,
         filter_verification: null,
         page_offset: offset,
         sort_mode:
@@ -1591,7 +1581,6 @@ export async function getBrands(
           search_query: trimmed,
           filter_categories: filters.category?.length ? filters.category : null,
           filter_subcategories: subcategoryTags,
-          filter_materials: materials,
           filter_verification: null,
           page_offset: 0,
           sort_mode:
@@ -1655,10 +1644,6 @@ export async function getBrands(
   if (subcategoryTags) {
     query = query.overlaps("subcategories", subcategoryTags);
   }
-  if (materials) {
-    query = query.overlaps("material", materials);
-  }
-
   // Sorting
   const sortKey = filters?.sort ?? "random";
   if (sortKey !== "random") {
@@ -1705,7 +1690,7 @@ export async function getBrands(
 
 /** Public directory boundary: only card fields are returned to the caller. */
 export async function getPublicBrandCards(
-  filters?: Pick<BrandFilters, "category" | "materials" | "search" | "sort"> & {
+  filters?: Pick<BrandFilters, "category" | "search" | "sort"> & {
     page?: number;
     subcategoryTags?: string[];
   },
@@ -1731,12 +1716,11 @@ export type SubcategorySummary = {
 export type SubcategorySummaryRow = {
   category: string | null;
   subcategories: string[];
-  material: string[];
   updatedAt: string;
 };
 
 /**
- * Every approved brand, as the taxonomy and material rails need them.
+ * Every approved brand, as the taxonomy rails need them.
  *
  * The counts are a whole-corpus aggregate, so this read wants every row. That is
  * affordable once an hour and not once a request:
@@ -1779,7 +1763,7 @@ const getCachedSubcategoryRows = unstable_cache(
         const { data, error } = await excludeTestBrands(
           supabase
             .from("brands")
-            .select("category, subcategories, material, updated_at")
+            .select("category, subcategories, updated_at")
             .eq("status", "approved")
             .limit(1000),
         );
@@ -1791,7 +1775,6 @@ const getCachedSubcategoryRows = unstable_cache(
           subcategories: Array.isArray(row.subcategories)
             ? row.subcategories
             : [],
-          material: Array.isArray(row.material) ? row.material : [],
           updatedAt: row.updated_at,
         }));
       },
@@ -1801,14 +1784,10 @@ const getCachedSubcategoryRows = unstable_cache(
   // taxonomy values verbatim, so a migration that respells them leaves a warm
   // entry serving spellings the reader can no longer resolve for a full hour —
   // silently, since a Map lookup that misses every key reads as "no options"
-  // rather than as an error. `v2` was DEV-1525, which moved `material` from
-  // zh-TW labels to slugs; `v3` is DEV-1507, which retired the `crafts` L1 and
-  // re-filed its L2s. Nothing else invalidates that respelling —
-  // `revalidatePublicBrands` returns early on an empty slug list, a SQL
-  // migration calls no TypeScript at all, and taxonomy pages are not in its
-  // path list — so without this bump the subcategory and material rails render
-  // empty for an hour. Bump it again on the next respelling.
-  ["subcategory-summary-rows-v3"],
+  // rather than as an error. `v2` was DEV-1525; `v3` is DEV-1507, which
+  // retired the `crafts` L1 and re-filed its L2s; `v4` is DEV-1724, which
+  // dropped `material` from the payload. Bump it again on the next respelling.
+  ["subcategory-summary-rows-v4"],
   { revalidate: 3600, tags: [PUBLIC_BRAND_DATA_TAG] },
 );
 
@@ -1875,28 +1854,6 @@ export function summarizeSubcategoryRows(
   return { counts, latestUpdatedAt };
 }
 
-/**
- * Material counts over the whole approved corpus, keyed by the material slug.
- *
- * Deliberately NOT scoped to the selected L1. Material is an orthogonal axis —
- * a `home` brand and a `jewelry` brand are both `ceramic` — and re-introducing a
- * category conjunct here would recreate exactly the class of silent drop this
- * ticket removes. Four of the twelve slugs (`paper` `stone` `rattan` `lacquer`)
- * have no brands at all; the rail renders a slug only when its count is above
- * zero.
- */
-function summarizeMaterialCounts(
-  rows: readonly SubcategorySummaryRow[],
-): Map<string, number> {
-  const counts = new Map<string, number>();
-  for (const brand of rows) {
-    for (const material of new Set(brand.material)) {
-      counts.set(material, (counts.get(material) ?? 0) + 1);
-    }
-  }
-  return counts;
-}
-
 export async function getSubcategorySummary(
   categorySlug: string,
   subcategorySlug?: string,
@@ -1906,11 +1863,6 @@ export async function getSubcategorySummary(
     categorySlug,
     subcategorySlug,
   );
-}
-
-/** Material facet counts, from the same single cache entry as the L2 counts. */
-export async function getMaterialCounts(): Promise<Map<string, number>> {
-  return summarizeMaterialCounts(await getCachedSubcategoryRows());
 }
 
 const BRANDS_PER_CATEGORY = 3;

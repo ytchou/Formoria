@@ -1191,6 +1191,24 @@ describe("validateProductProposals", () => {
     expect(proposals[0]!.key).not.toMatch(/-\d+$/u);
   });
 
+  it("clears material for a non-applicable category", () => {
+    const { proposals } = validateProductProposals(
+      { products: [rawProposal({ category: "beauty", material: ["ceramic"], subcategory: null })] },
+      { siteUrl: SITE },
+    );
+
+    expect(proposals[0]!.material).toEqual([]);
+  });
+
+  it("keeps material for an applicable category", () => {
+    const { proposals } = validateProductProposals(
+      { products: [rawProposal({ category: "home", material: ["ceramic"] })] },
+      { siteUrl: SITE },
+    );
+
+    expect(proposals[0]!.material).toEqual(["ceramic"]);
+  });
+
   it("resolves a material slug whatever case the model returned", () => {
     const { proposals } = validateProductProposals(
       { products: [rawProposal({ material: ["Ceramic", " WOOD ", "陶瓷"] })] },

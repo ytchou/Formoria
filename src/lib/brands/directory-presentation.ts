@@ -34,16 +34,6 @@ export function directoryCategoryChipSlugs(
  * `indexable` is the robots decision `resolveDirectorySeo` already took for
  * this exact request — one source of truth, read rather than re-derived.
  *
- * The two used to be derived independently and disagreed on invalid input:
- * this predicate read the PARSED filters, where the closed vocabulary has
- * already dropped an unknown term, so `?material=xyz` arrived here as an empty
- * `materials` array and read as the unfiltered directory — while
- * `resolveDirectorySeo` reads the RAW query and marks that same URL
- * `noindex, follow`. The junk URL therefore shipped an `ItemList` of every
- * approved brand while telling crawlers not to index the page it described
- * (DEV-1524). Adding a second facet list here is what caused it; reading the
- * indexation decision itself is what cannot drift from it.
- *
  * The parsed checks below are kept because they are STRICTER than
  * indexability, not a second opinion on it: page 2 is indexable and still must
  * not republish the directory-wide list.
@@ -53,14 +43,12 @@ export function shouldEmitDirectoryItemList(input: {
   indexable: boolean;
   categorySlugs: readonly string[];
   search: string;
-  materials: readonly string[];
   page: number;
 }): boolean {
   return (
     input.indexable &&
     input.categorySlugs.length === 0 &&
     !input.search &&
-    input.materials.length === 0 &&
     input.page === 1
   );
 }
@@ -76,7 +64,6 @@ export type DirectoryUrlStateInput = {
   /** Resolved L2 slugs. */
   subcategorySlugs: readonly string[];
   search: string;
-  materials: readonly string[];
   sort: BrandSortOption;
 };
 
@@ -106,8 +93,6 @@ export function buildDirectoryUrlState(
   if (input.subcategorySlugs.length > 0) {
     normalizedParams.set("sub", input.subcategorySlugs.join(","));
   }
-  if (input.materials.length > 0)
-    normalizedParams.set("material", input.materials.join(","));
   if (input.sort !== "random") normalizedParams.set("sort", input.sort);
 
   const facetParams = new URLSearchParams(normalizedParams);

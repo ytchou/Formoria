@@ -10,6 +10,7 @@ import {
 } from "@/lib/prompts/shared";
 import {
   categoryLabelZh,
+  isMaterialApplicable,
   L1_CATEGORIES,
   materialBySlug,
   matchSubcategory,
@@ -663,7 +664,7 @@ export function validateProductProposals(
       ...(nameEn ? { nameEn } : {}),
       category,
       subcategory: resolveSubcategory(raw.subcategory, category),
-      material: resolveMaterials(raw.material),
+      material: isMaterialApplicable(category) ? resolveMaterials(raw.material) : [],
       officialUrl: officialUrl.toString(),
       ...(imageSourceUrl ? { imageSourceUrl } : {}),
       productDescriptionZh,

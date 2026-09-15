@@ -99,7 +99,6 @@ const listingShape = z.object({
 export const factsShape = z.object({
   category: z.enum(l1Slugs).nullable(),
   subcategories: z.array(z.string()),
-  material: z.array(z.string()),
   city: z.string().nullable(),
   founding_year: z.number().nullable(),
   listing: listingShape,
@@ -107,13 +106,12 @@ export const factsShape = z.object({
 
 /**
  * Lenient parse shape: tolerates absent or malformed optional fields so one bad
- * field (listing, category, material) never voids the entire extraction. The
+ * field (listing, category) never voids the entire extraction. The
  * strict `factsShape` stays for the OpenAI Structured Outputs JSON schema.
  */
 const factsParseShape = z.object({
   category: z.unknown().optional(),
   subcategories: z.array(z.string()).optional(),
-  material: z.unknown().optional(),
   city: z.unknown().optional(),
   founding_year: z.unknown().optional(),
   listing: z.unknown().optional(),

@@ -118,6 +118,15 @@ jobs:
             fi
             sleep 10
           done
+      - name: Preflight — auth email hook grant
+        run: |
+          set -euo pipefail
+          result="$(psql "$SUPABASE_DB_URL" -Aqt \
+            -c "select has_table_privilege('supabase_auth_admin','public.staging_auth_email_captures','INSERT');")"
+          if [[ "$result" != "t" ]]; then
+            echo "::error::supabase_auth_admin cannot INSERT into staging_auth_email_captures — auth hook will fail. Run the grant migration."
+            exit 1
+          fi
       - run: pnpm exec playwright install --with-deps chromium
       - name: Run complete deep and mobile suite against deployed staging
         env:
@@ -126,6 +135,26 @@ jobs:
           pnpm exec playwright test
           --project=deep
           --reporter=html,json
+      - name: Fail if signup spec was skipped
+        if: always()
+        run: |
+          set -euo pipefail
+          report="playwright-results.json"
+          if [[ ! -f "$report" ]]; then
+            echo "::warning::No JSON report found — cannot verify signup spec status"
+            exit 0
+          fi
+          # Find auth-signup spec results. A skipped signup test must never
+          # satisfy the release gate — it masks a total signup outage as green.
+          skipped="$(jq -r '
+            [.suites[]?.suites[]?.specs[]?
+             | select(.file | test("auth-signup\\.spec"))
+             | select(.tests[]?.status == "skipped")]
+            | length' "$report" 2>/dev/null || echo "0")"
+          if [[ "$skipped" -gt 0 ]]; then
+            echo "::error::auth-signup spec was skipped ($skipped test(s)). A release gate must not pass on a skip."
+            exit 1
+          fi
       - name: Upload release-gate report
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
