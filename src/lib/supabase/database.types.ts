@@ -1810,6 +1810,50 @@ export type Database = {
           },
         ]
       }
+      curation_phase_outputs: {
+        Row: {
+          created_at: string
+          id: string
+          job_id: string
+          output: Json | null
+          persisted_at: string | null
+          phase: string
+          status: string
+          target_id: string
+          target_type: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          job_id: string
+          output?: Json | null
+          persisted_at?: string | null
+          phase: string
+          status: string
+          target_id: string
+          target_type: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          job_id?: string
+          output?: Json | null
+          persisted_at?: string | null
+          phase?: string
+          status?: string
+          target_id?: string
+          target_type?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "curation_phase_outputs_job_id_fkey"
+            columns: ["job_id"]
+            isOneToOne: false
+            referencedRelation: "curation_jobs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       email_sends: {
         Row: {
           id: string
