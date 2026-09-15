@@ -160,7 +160,6 @@ export type PhaseOutputSlots = {
   >;
   categoryDerivation: Partial<Pick<EnrichPatch, "category">>;
   products: Partial<Pick<EnrichPatch, "products">>;
-  tags: Partial<Pick<EnrichPatch, "category">>;
 };
 
 export type PhaseOutputRegistry = {
@@ -178,7 +177,6 @@ export const MERGE_ORDER: readonly (keyof PhaseOutputSlots)[] = [
   "editorial",
   "categoryDerivation",
   "products",
-  "tags",
 ] as const;
 
 /** Runtime key set derived from link-fields registry + the social/other columns. */
@@ -227,10 +225,6 @@ const CATEGORY_DERIVATION_KEYS = [
 const PRODUCTS_KEYS = [
   "products",
 ] as const satisfies readonly (keyof PhaseOutputSlots["products"] & string)[];
-const TAGS_KEYS = [
-  "category",
-] as const satisfies readonly (keyof PhaseOutputSlots["tags"] & string)[];
-
 export const SLOT_ALLOWED_KEYS: Record<
   keyof PhaseOutputSlots,
   ReadonlySet<string>
@@ -242,7 +236,6 @@ export const SLOT_ALLOWED_KEYS: Record<
   editorial: new Set<string>(EDITORIAL_KEYS),
   categoryDerivation: new Set<string>(CATEGORY_DERIVATION_KEYS),
   products: new Set<string>(PRODUCTS_KEYS),
-  tags: new Set<string>(TAGS_KEYS),
 };
 
 /**

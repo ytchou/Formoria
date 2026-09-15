@@ -1,11 +1,8 @@
 import type { PhaseResult } from "@/lib/types/curation";
 import { auditedCall } from "@/lib/audit";
 import {
-  classifyCategoryBatch,
   detectBrandsBatch,
   MAX_PROBE_URLS,
-  type BatchClassificationItem,
-  type ClassificationResult,
   type DetectBatchItem,
   type DetectResult,
 } from "../category-classifier";
@@ -15,7 +12,6 @@ import { generateSlug } from "../brands";
 import { isValidBrandName } from "../brand-cleanup";
 import {
   buildPhaseResult,
-  getDisplayBrandName,
   timePhase,
   type BatchPhaseContext,
   type EnrichBrand,
@@ -23,7 +19,7 @@ import {
   type SearchPhaseResult,
 } from "./types";
 
-const DETECT_PHASES = ["detect", "slugs", "tags"] as const;
+const DETECT_PHASES = ["detect", "slugs"] as const;
 
 /**
  * Whether the detect result's confidence level makes it eligible for a direct
@@ -236,94 +232,6 @@ export async function runDetectPhase(
       durationMs,
     ),
     detectResults: result.detectResults,
-  };
-    },
-    {
-      classify: (result) =>
-        result.phaseResult.status === "failed" ? "failed" : "succeeded",
-    },
-  );
-}
-
-export async function runStandaloneClassification(
-  ctx: BatchPhaseContext,
-): Promise<{
-  phaseResult: PhaseResult;
-  batchClassifications: Map<string, ClassificationResult>;
-}> {
-  const shouldRun =
-    ctx.phases.includes("tags") &&
-    !ctx.phases.includes("descriptions") &&
-    !ctx.phases.includes("detect") &&
-    ctx.chunk.length > 0;
-
-  if (!shouldRun) {
-    return {
-      phaseResult: buildPhaseResult(
-        "tags",
-        "skipped",
-        [],
-        0,
-        undefined,
-        "standalone classification not required",
-      ),
-      batchClassifications: new Map(),
-    };
-  }
-
-  return auditedCall(
-    { provider: "enrich", operation: "runStandaloneClassification", kind: "service" },
-    async () => {
-  const { result, durationMs } = await timePhase(async () => {
-    const classifyItems: BatchClassificationItem[] = ctx.chunk.map((brand) => ({
-      slug: brand.slug,
-      name: getDisplayBrandName(brand),
-      description: brand.description ?? null,
-      target: { type: ctx.targetType ?? "brand", id: brand.id },
-    }));
-    const outcome = await classifyCategoryBatch(classifyItems, ctx.jobId);
-
-    return outcome;
-  });
-
-  const batchClassifications = new Map(
-    [...result.results].filter(
-      ([, classification]) => classification.confidence === "high",
-    ),
-  );
-  ctx.onProgress?.(
-    `  [TAGS] OK — ${batchClassifications.size} accepted, ${result.results.size - batchClassifications.size} withheld`,
-  );
-
-  // Same rule as detect: an empty classification map from a dead account is not
-  // "no category applies", it is "we never asked".
-  if (isLlmProviderFailure(result.calls)) {
-    ctx.onProgress?.(
-      `  [TAGS] FAILED — every one of ${result.calls.attempted} call(s) failed at the provider`,
-    );
-    return {
-      phaseResult: {
-        ...buildPhaseResult(
-          "tags",
-          "failed",
-          [],
-          durationMs,
-          `LLM provider failed all ${result.calls.attempted} classification call(s)`,
-        ),
-        providerFailure: true,
-      },
-      batchClassifications,
-    };
-  }
-
-  return {
-    phaseResult: buildPhaseResult(
-      "tags",
-      "succeeded",
-      batchClassifications.size > 0 ? ["category"] : [],
-      durationMs,
-    ),
-    batchClassifications,
   };
     },
     {

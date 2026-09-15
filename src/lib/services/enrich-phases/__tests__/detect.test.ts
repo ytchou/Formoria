@@ -1,11 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
   applyDetectResult,
-  runStandaloneClassification,
   runDetectPhase,
 } from "../detect";
 import type {
-  BatchClassificationItem,
   DetectBatchItem,
 } from "../../category-classifier";
 
@@ -16,16 +14,12 @@ import type {
  */
 const mocks = vi.hoisted(() => ({
   detectBrandsBatch: vi.fn(),
-  classifyCategoryBatch: vi.fn(),
 }));
 
 vi.mock("../../category-classifier", async (importOriginal) => ({
   ...(await importOriginal<typeof import("../../category-classifier")>()),
   detectBrandsBatch: mocks.detectBrandsBatch,
-  classifyCategoryBatch: mocks.classifyCategoryBatch,
 }));
-
-void (null as BatchClassificationItem | null);
 import type { BatchPhaseContext, EnrichBrand, EnrichPhase } from "../types";
 import type { DetectResult } from "../../category-classifier";
 
@@ -71,18 +65,6 @@ describe("runDetectPhase", () => {
   it("returns skipped when no detect phases requested", async () => {
     const result = await runDetectPhase(
       ctx({ phases: ["links"] as EnrichPhase[] }),
-      new Map(),
-    );
-
-    expect(result.phaseResult.status).toBe("skipped");
-    expect(result.detectResults.size).toBe(0);
-  });
-
-  // `tags` belongs to the DETAIL step and detect no longer produces a category,
-  // so a tags-only run must not pay for a detect LLM call.
-  it("does not trigger detect for a tags-only run", async () => {
-    const result = await runDetectPhase(
-      ctx({ phases: ["tags"] as EnrichPhase[] }),
       new Map(),
     );
 
@@ -202,70 +184,6 @@ describe("runDetectPhase", () => {
   });
 });
 
-describe("runStandaloneClassification", () => {
-  it("skips standalone classification when tags phase is not requested", async () => {
-    const result = await runStandaloneClassification(
-      ctx({ phases: ["descriptions"] as EnrichPhase[] }),
-    );
-
-    expect(result.phaseResult.status).toBe("skipped");
-    expect(result.batchClassifications.size).toBe(0);
-  });
-
-  it("fails the phase when every classification call died at the provider", async () => {
-    mocks.classifyCategoryBatch.mockResolvedValue({
-      results: new Map(),
-      calls: { attempted: 1, providerFailed: 1 },
-    });
-
-    const result = await runStandaloneClassification(
-      ctx({ phases: ["tags"] as EnrichPhase[] }),
-    );
-
-    expect(result.phaseResult.status).toBe("failed");
-    expect(result.phaseResult.providerFailure).toBe(true);
-  });
-
-  it("keeps only high-confidence categories available for the write path", async () => {
-    const brands: EnrichBrand[] = [
-      {
-        ...brand,
-        id: "brand-inblooom",
-        slug: "inblooom",
-        name: "印花樂 inBlooom",
-      },
-      { ...brand, id: "brand-yuyu", slug: "yuyu-tea", name: "郁郁 YùYù" },
-      { ...brand, id: "brand-kajitsu", slug: "kajitsu", name: "菓實日" },
-    ];
-    const onProgress = vi.fn();
-    mocks.classifyCategoryBatch.mockResolvedValue({
-      results: new Map([
-        ["inblooom", { categorySlug: "home", confidence: "high" }],
-        ["yuyu-tea", { categorySlug: "food-drink", confidence: "medium" }],
-        ["kajitsu", { categorySlug: "food-drink", confidence: "low" }],
-      ]),
-      calls: { attempted: 1, providerFailed: 0 },
-    });
-
-    const result = await runStandaloneClassification(
-      ctx({
-        chunk: brands,
-        chunkBrandNames: brands.map((item) => item.name ?? item.slug),
-        phases: ["tags"] as EnrichPhase[],
-        onProgress,
-      }),
-    );
-
-    expect([...result.batchClassifications]).toEqual([
-      ["inblooom", { categorySlug: "home", confidence: "high" }],
-    ]);
-    expect(result.phaseResult.changedFields).toEqual(["category"]);
-    expect(onProgress).toHaveBeenCalledWith(
-      "  [TAGS] OK — 1 accepted, 2 withheld",
-    );
-  });
-});
-
 describe("applyDetectResult", () => {
   it("returns non-brand skip result for high-confidence non-brands", () => {
     const result = applyDetectResult(
@@ -330,15 +248,4 @@ describe("applyDetectResult", () => {
     expect(result.brandName).toBe("ADELA Studio");
   });
 
-  it("never writes category, even when tags is requested", () => {
-    // The category moved to the descriptions phase, which sees the brand's own
-    // site text and its classified image alt text. Detect sees SERP snippets.
-    const result = applyDetectResult(
-      { ...brandDetect, categorySlug: "beauty" },
-      brand,
-      ["detect", "slugs", "tags"] as EnrichPhase[],
-    );
-
-    expect(result.patch).not.toHaveProperty("category");
-  });
 });
