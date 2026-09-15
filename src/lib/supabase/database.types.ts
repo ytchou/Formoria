@@ -2580,6 +2580,69 @@ export type Database = {
         }
         Relationships: []
       }
+      ops_agent_requests: {
+        Row: {
+          card_ts: string | null
+          channel_id: string
+          correlation_id: string | null
+          cost_usd: number
+          created_at: string
+          expires_at: string | null
+          id: string
+          model_calls: number
+          operator_email: string | null
+          proposal: Json | null
+          result: Json | null
+          slack_event_id: string | null
+          slack_user_id: string
+          status: string
+          text: string
+          thread_ts: string
+          tool_calls: Json
+          updated_at: string
+        }
+        Insert: {
+          card_ts?: string | null
+          channel_id: string
+          correlation_id?: string | null
+          cost_usd?: number
+          created_at?: string
+          expires_at?: string | null
+          id?: string
+          model_calls?: number
+          operator_email?: string | null
+          proposal?: Json | null
+          result?: Json | null
+          slack_event_id?: string | null
+          slack_user_id: string
+          status: string
+          text: string
+          thread_ts: string
+          tool_calls?: Json
+          updated_at?: string
+        }
+        Update: {
+          card_ts?: string | null
+          channel_id?: string
+          correlation_id?: string | null
+          cost_usd?: number
+          created_at?: string
+          expires_at?: string | null
+          id?: string
+          model_calls?: number
+          operator_email?: string | null
+          proposal?: Json | null
+          result?: Json | null
+          slack_event_id?: string | null
+          slack_user_id?: string
+          status?: string
+          text?: string
+          thread_ts?: string
+          tool_calls?: Json
+          updated_at?: string
+        }
+        Relationships: []
+      }
       owner_email_preferences: {
         Row: {
           consent_source: string | null
@@ -3430,6 +3493,7 @@ export type Database = {
         Args: { p_job_id: string; p_worker_token: string }
         Returns: boolean
       }
+      ops_agent_readonly_query: { Args: { p_sql: string }; Returns: Json }
       persist_curation_job_target_progress: {
         Args: {
           p_current_phase?: string

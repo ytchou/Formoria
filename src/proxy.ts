@@ -140,6 +140,8 @@ export const ORIGIN_GUARD_EXEMPT_PATHS = [
   // requires NODE_ENV=production. Do not remove: `/i/` stays in the matcher for
   // the rate limiter's sake, which is what makes this exemption necessary.
   { pathname: "/i/", match: "prefix" },
+  // Slack cannot carry the edge header; signature verification is the auth
+  { pathname: "/api/slack/", match: "prefix" },
 ] as const satisfies ReadonlyArray<{
   pathname: string;
   match: "prefix" | "exact";
