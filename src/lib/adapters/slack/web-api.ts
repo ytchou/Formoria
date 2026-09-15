@@ -92,10 +92,6 @@ export async function resolveChannelName(channelId: string): Promise<string | nu
   }
 }
 
-export function resetChannelNameCacheForTests(): void {
-  channelNameCache.clear();
-}
-
 export async function updateMessage(
   params: UpdateMessageParams,
 ): Promise<SlackUpdateOk | SlackError> {

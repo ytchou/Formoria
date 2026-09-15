@@ -16,9 +16,9 @@ import type { PhaseOutput } from './phase-outputs'
 // ---------------------------------------------------------------------------
 
 /** chunk = barrier (run once for the whole chunk); brand = per-context fan-out */
-export type BlockScope = 'chunk' | 'brand'
+type BlockScope = 'chunk' | 'brand'
 
-export type BlockExit = {
+type BlockExit = {
   status: 'skipped' | 'failed'
   phaseResult: PhaseResult
   error?: Error

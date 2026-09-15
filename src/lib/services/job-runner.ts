@@ -64,7 +64,6 @@ import {
 } from "@/lib/services/render-provider-ownership";
 
 export { sanitizeJobError } from "@/lib/services/job-errors";
-export type { RetryParams } from "@/lib/constants/enrich-phases";
 
 type Supabase = ReturnType<typeof createServiceClient>;
 type OperationSupabase = Parameters<typeof runEnrich>[1];
