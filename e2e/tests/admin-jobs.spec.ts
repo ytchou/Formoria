@@ -6,6 +6,27 @@ import { BUDGET, POLL } from '../budgets';
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AnySupabaseClient = SupabaseClient<any, any, any>;
 
+/**
+ * Extract a job ID from a URL pathname, throwing if not found. Lives outside the
+ * test body so `playwright/no-conditional-in-test` does not flag the guard.
+ */
+function extractJobId(pathname: string, excludeId?: string): string {
+  const match = /^\/admin\/jobs\/([^/]+)$/.exec(pathname);
+  const id = match?.[1];
+  if (!id) throw new Error(`Unable to extract job ID from URL: ${pathname}`);
+  if (excludeId && id === excludeId) throw new Error(`Expected a new job ID, got same as parent: ${id}`);
+  return id;
+}
+
+/**
+ * Assert a Supabase query succeeded, throwing on error. Lives outside the
+ * test body so `playwright/no-conditional-in-test` does not flag the guard.
+ */
+function assertQueryOk<T>(result: { data: T; error: { message: string } | null }, label: string): T {
+  if (result.error) throw new Error(`${label} failed: ${result.error.message}`);
+  return result.data;
+}
+
 test.describe('Admin curation jobs deep', () => {
   test.beforeEach(() => {
     const adminEmail = process.env.E2E_ADMIN_EMAIL;
@@ -291,7 +312,7 @@ test.describe('Admin curation jobs deep', () => {
 
   test('admin sees one job log and cancels active work', async ({ adminPage }) => {
     test.setTimeout(BUDGET.TEST.ADMIN);
-    if (!cancellableJobId) test.skip();
+    test.skip(!cancellableJobId, 'cancellable job was not seeded');
     await adminPage.goto('/admin/jobs');
     const row = adminPage.locator('tbody tr').filter({ has: adminPage.locator(`a[href="/admin/jobs/${cancellableJobId}"]`) });
     await expect(row).toBeVisible({ timeout: BUDGET.NAVIGATION });
@@ -361,10 +382,7 @@ test.describe('Admin curation jobs deep', () => {
       .toMatch(new RegExp(`^/admin/jobs/(?!${parentJobId}$)[^/]+$`));
 
     const childPath = new URL(adminPage.url()).pathname;
-    const childMatch = /^\/admin\/jobs\/([^/]+)$/.exec(childPath);
-    const rerunId = childMatch?.[1];
-    if (!rerunId) throw new Error(`Unable to identify rerun job from URL: ${childPath}`);
-    childJobId = rerunId;
+    childJobId = extractJobId(childPath);
     expect(childJobId).not.toBe(parentJobId);
 
     const childTargetRow = adminPage.locator('tbody tr').filter({ hasText: brandName });
@@ -421,10 +439,7 @@ test.describe('Admin curation jobs deep', () => {
       .toMatch(new RegExp(`^/admin/jobs/(?!${retryJobId}$)[^/]+$`));
 
     const retryPath = new URL(adminPage.url()).pathname;
-    const retryMatch = /^\/admin\/jobs\/([^/]+)$/.exec(retryPath);
-    const retryId = retryMatch?.[1];
-    if (!retryId) throw new Error(`Unable to identify retry job from URL: ${retryPath}`);
-    retryChildJobId = retryId;
+    retryChildJobId = extractJobId(retryPath);
     expect(retryChildJobId).not.toBe(retryJobId);
 
     // Verify trigger label, lineage, and DB params
@@ -440,12 +455,14 @@ test.describe('Admin curation jobs deep', () => {
     }).toPass(POLL.DB);
 
     // Verify the stored retry params in the database
-    const { data: retryJob, error: retryJobError } = await supabase
-      .from('curation_jobs')
-      .select('params')
-      .eq('id', retryChildJobId)
-      .single();
-    if (retryJobError) throw new Error(`retry job lookup failed: ${retryJobError.message}`);
+    const retryJob = assertQueryOk(
+      await supabase
+        .from('curation_jobs')
+        .select('params')
+        .eq('id', retryChildJobId)
+        .single(),
+      'retry job lookup',
+    );
     const params = retryJob.params as { retry?: { block: string; mode: string; subPhase?: string } };
     expect(params.retry).toEqual({ block: 'editorial', mode: 'only', subPhase: 'faq' });
   });

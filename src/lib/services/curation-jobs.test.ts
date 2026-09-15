@@ -19,6 +19,7 @@ import {
   type PhaseHistory,
 } from "./enrich-phases/phase-satisfaction";
 import type { EnrichPhaseName } from "@/lib/constants/enrich-phases";
+import { jobTriggerLabel } from "@/app/admin/jobs/job-display";
 
 describe("explicit submission enrichment eligibility", () => {
   it("allows an admin to queue a selected pending refresh submission", () => {
@@ -257,9 +258,6 @@ describe("explicitPhases provenance", () => {
 
 describe("trigger label derives from retry params", () => {
   it("trigger_label_derives_from_retry_params", () => {
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
-    const { jobTriggerLabel } = require("@/app/admin/jobs/job-display");
-
     // Block-level retry labels
     expect(
       jobTriggerLabel("manual_rerun", {

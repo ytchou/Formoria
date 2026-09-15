@@ -3,6 +3,7 @@ import { ENRICH_LLM_PHASES, phasesForTask } from "@/lib/constants/enrich-phases"
 import type { Json } from "@/lib/supabase/database.types";
 import {
   planCurationResume,
+  rerunJobParams,
   type CurationJobTarget,
   type CurationTargetStatus,
 } from "./curation-jobs";
@@ -208,8 +209,6 @@ describe("planCurationResume", () => {
 
 describe("rerunJobParams preserves retry", () => {
   it("rerun_params_keep_retry", () => {
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
-    const { rerunJobParams } = require("./curation-jobs");
     const result = rerunJobParams({
       retry: { block: "detect", mode: "only" },
       task: "full",

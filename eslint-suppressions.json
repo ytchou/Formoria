@@ -23,14 +23,6 @@
       "count": 1
     }
   },
-  "e2e/tests/admin-jobs.spec.ts": {
-    "playwright/no-conditional-in-test": {
-      "count": 2
-    },
-    "playwright/no-skipped-test": {
-      "count": 1
-    }
-  },
   "e2e/tests/admin-reports.spec.ts": {
     "playwright/no-conditional-expect": {
       "count": 4

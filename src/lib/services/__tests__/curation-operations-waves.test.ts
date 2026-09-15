@@ -2,7 +2,6 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { runEnrich } from "../curation-operations";
 import type { DetectResult } from "../category-classifier";
-import type { PhaseOutputStore } from "../enrich-blocks/phase-outputs";
 
 /**
  * The enrichment chunk runs blocks in BLOCK_ORDER via the DAG runner:
@@ -231,6 +230,17 @@ vi.mock("../_shared/concurrency", async (importOriginal) => {
     mapWithConcurrency: mocks.mapWithConcurrency.mockImplementation(
       original.mapWithConcurrency,
     ),
+  };
+});
+
+vi.mock("../enrich-blocks/phase-outputs", async (importOriginal) => {
+  const original = await importOriginal<typeof import("../enrich-blocks/phase-outputs")>();
+  return {
+    ...original,
+    createSupabasePhaseOutputStore: mocks.createSupabasePhaseOutputStore.mockReturnValue({
+      reader: { latestPerPhase: async () => [], unpersisted: async () => [] },
+      writer: { upsert: async () => {}, markPersisted: async () => {} },
+    }),
   };
 });
 

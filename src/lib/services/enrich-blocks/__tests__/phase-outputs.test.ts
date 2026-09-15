@@ -93,7 +93,7 @@ describe('carry_is_bounded_by_construction_and_warns_over_64kb', () => {
 
     assertCarryBounded(oversized, logger)
     expect(warn).toHaveBeenCalledTimes(1)
-    expect(warn.mock.calls[0][0]).toMatch(/64/)
+    expect(warn.mock.calls[0][0]).toMatch(/65536/)
     // The carry is NOT truncated — we never modify it
     expect(oversized.catalog.triples).toHaveLength(1000)
   })
@@ -184,17 +184,18 @@ describe('acquire_carry_holds_triples_not_evidence', () => {
 
 describe('latest_per_phase_picks_newest_succeeded_row_across_jobs', () => {
   it('picks the newest succeeded row per phase across jobs', async () => {
+    // Rows are ordered newest-first, matching the Supabase query contract.
     const rows: PhaseOutputRow[] = [
       {
-        id: 'row-1',
-        job_id: 'job-old',
+        id: 'row-3',
+        job_id: 'job-new',
         target_id: 'brand-1',
         target_type: 'brand',
         phase: 'acquire',
-        status: 'succeeded',
-        output: { patch: { name: 'old' } },
+        status: 'failed',
+        output: null,
         persisted_at: null,
-        created_at: '2026-01-01T00:00:00Z',
+        created_at: '2026-01-03T00:00:00Z',
       },
       {
         id: 'row-2',
@@ -208,15 +209,15 @@ describe('latest_per_phase_picks_newest_succeeded_row_across_jobs', () => {
         created_at: '2026-01-02T00:00:00Z',
       },
       {
-        id: 'row-3',
-        job_id: 'job-new',
+        id: 'row-1',
+        job_id: 'job-old',
         target_id: 'brand-1',
         target_type: 'brand',
         phase: 'acquire',
-        status: 'failed',
-        output: null,
+        status: 'succeeded',
+        output: { patch: { name: 'old' } },
         persisted_at: null,
-        created_at: '2026-01-03T00:00:00Z',
+        created_at: '2026-01-01T00:00:00Z',
       },
       {
         id: 'row-4',

@@ -17,7 +17,6 @@ import {
   phaseOrderForBlocks,
   BLOCK_NAMES,
   BLOCK_ORDER,
-  type BlockName,
 } from "@/lib/constants/enrich-phases";
 import { buildBlockRegistry } from "./enrich-blocks/registry";
 import type { BlockContext, BlockRunResult } from "./enrich-blocks/registry";
@@ -2433,11 +2432,6 @@ export async function runEnrich(
           // block registry + `runBlocks`. Each block's `run` closure captures
           // the chunk-scoped shared state above. The runner walks BLOCK_ORDER,
           // alternating between chunk-scope barriers and brand-scope fan-out.
-          //
-          // `runBlocksPerBrand` is the per-brand callback shared by all
-          // brand-scope blocks. It reads `currentBlock` to dispatch into the
-          // right section of the original loop body.
-          let currentBlock: BlockName = "gather";
 
           /**
            * Per-brand body: initialisation, detect → acquire → names → editorial
@@ -2849,7 +2843,7 @@ export async function runEnrich(
           // support.
           const store = createSupabasePhaseOutputStore();
           const blockChunk: BlockContext[] = survivingContexts
-            .filter((ctx) => !llmBreakerTripped)
+            .filter(() => !llmBreakerTripped)
             .map((ctx) => ({
               brandId: ctx.brand.id,
               targetId: ctx.brand.id,
