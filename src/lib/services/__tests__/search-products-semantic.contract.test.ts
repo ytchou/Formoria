@@ -10,8 +10,8 @@ import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 
 const MIGRATION_FILE = "20260903100200_situation_search.sql";
-const POOL_MIGRATION_FILE = "20260915120000_situation_search_pool_100.sql";
-const POOL_REVERSE_FILE = "20260915120000_revert_situation_search_pool.sql";
+const POOL_MIGRATION_FILE = "20260915140000_situation_search_pool_100.sql";
+const POOL_REVERSE_FILE = "20260915140000_revert_situation_search_pool.sql";
 
 function migrationText(): string {
   return readFileSync(
@@ -83,6 +83,7 @@ describe("situation_search migration contract", () => {
     const sql = poolReverseText();
     expect(sql).toContain("least(greatest(match_count, 1), 48)");
     expect(sql).toContain("limit 50");
+    expect(sql).toContain("situation_search_lexical(query_text, 50)");
     expect(sql).toContain(
       "drop trigger if exists taxonomy_terms_retouch_product_search_vector_trigger",
     );

@@ -119,6 +119,8 @@ begin
 end;
 $function$;
 
+drop trigger if exists taxonomy_terms_retouch_product_search_vector_trigger on public.taxonomy_terms;
+
 create trigger taxonomy_terms_retouch_product_search_vector_trigger
   after update of name_zh on public.taxonomy_terms
   for each row
