@@ -128,6 +128,21 @@ describe("getPublishedCuratedProducts with ids option", () => {
     expect(result.totalCount).toBe(0);
   });
 
+  it("ids mode reads up to 100 rows", async () => {
+    const rows = [makeProductRow("aaa")];
+    const { client, calls } = createFakeClient(rows);
+
+    await getPublishedCuratedProducts(
+      { ids: ["aaa"] },
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- mock client
+      client as any,
+    );
+
+    const rangeCall = calls.find((c) => c.method === "range");
+    expect(rangeCall).toBeDefined();
+    expect(rangeCall!.args).toEqual([0, 99]);
+  });
+
   it("ignores page and sort — returns all ids regardless", async () => {
     const rows = [
       makeProductRow("aaa"),

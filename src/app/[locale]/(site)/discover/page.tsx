@@ -150,6 +150,8 @@ export default async function DiscoverPage({
   let intentMaterials: string[] = [];
   let intentCacheHit = false;
   let intentLatencyMs = 0;
+  let rpcLatencyMs = 0;
+  let embedLatencyMs = 0;
   let facets: {
     subcategoryCounts: { slug: string; count: number }[];
     materialCounts: { slug: string; count: number }[];
@@ -183,6 +185,8 @@ export default async function DiscoverPage({
       intentMaterials = searchResult.intentMaterials;
       intentCacheHit = searchResult.intentCacheHit;
       intentLatencyMs = searchResult.intentLatencyMs;
+      rpcLatencyMs = searchResult.rpcLatencyMs;
+      embedLatencyMs = searchResult.embedLatencyMs;
       facets = facetResult;
     } else {
       // In catalog mode, sort is never "relevance" (parseDiscoverQuery guarantees this)
@@ -373,6 +377,8 @@ export default async function DiscoverPage({
                 intentMaterials={intentMaterials}
                 intentCacheHit={intentCacheHit}
                 intentLatencyMs={intentLatencyMs}
+                rpcLatencyMs={rpcLatencyMs}
+                embedLatencyMs={embedLatencyMs}
               />
             )}
 

@@ -381,10 +381,39 @@ describe('analytics', () => {
     expect(payload).not.toHaveProperty('intent_materials')
     expect(payload).not.toHaveProperty('intent_cache_hit')
     expect(payload).not.toHaveProperty('intent_latency_ms')
+    expect(payload).not.toHaveProperty('rpc_latency_ms')
+    expect(payload).not.toHaveProperty('embed_latency_ms')
     // Core fields still present
     expect(payload.query_length).toBe(9)
     expect(payload.result_count).toBe(3)
     expect(payload.search_source).toBe('discover_page')
+  })
+
+  it('trackProductSearchExecuted captures rpc_latency_ms and embed_latency_ms when provided', () => {
+    trackProductSearchExecuted('ceramic mug', 5, {
+      searchSource: 'discover_page',
+      degraded: false,
+      rpcLatencyMs: 41,
+      embedLatencyMs: 120,
+    })
+
+    const phPayload = mockPostHogCapture.mock.calls[0]?.[1] as Record<string, unknown>
+    expect(phPayload.rpc_latency_ms).toBe(41)
+    expect(phPayload.embed_latency_ms).toBe(120)
+
+    // GA payload does NOT include latency keys
+    const gaPayload = mockSendGAEvent.mock.calls[0]?.[2] as Record<string, unknown> | undefined
+    expect(gaPayload).toBeDefined()
+    expect(gaPayload).not.toHaveProperty('rpc_latency_ms')
+    expect(gaPayload).not.toHaveProperty('embed_latency_ms')
+  })
+
+  it('trackProductSearchExecuted omits latency keys when undefined', () => {
+    trackProductSearchExecuted('linen bag', 3, { searchSource: 'discover_page', degraded: false })
+
+    const payload = mockPostHogCapture.mock.calls[0]?.[1] as Record<string, unknown>
+    expect('rpc_latency_ms' in payload).toBe(false)
+    expect('embed_latency_ms' in payload).toBe(false)
   })
 
   it('trackNotFoundCategoryClicked fires PostHog event', () => {

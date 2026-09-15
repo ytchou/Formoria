@@ -10,10 +10,32 @@ import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 
 const MIGRATION_FILE = "20260903100200_situation_search.sql";
+const POOL_MIGRATION_FILE = "20260915140000_situation_search_pool_100.sql";
+const POOL_REVERSE_FILE = "20260915140000_revert_situation_search_pool.sql";
 
 function migrationText(): string {
   return readFileSync(
     join(process.cwd(), "supabase", "migrations", MIGRATION_FILE),
+    "utf8",
+  );
+}
+
+function poolMigrationText(): string {
+  return readFileSync(
+    join(process.cwd(), "supabase", "migrations", POOL_MIGRATION_FILE),
+    "utf8",
+  );
+}
+
+function poolReverseText(): string {
+  return readFileSync(
+    join(
+      process.cwd(),
+      "supabase",
+      "migrations",
+      "reverse",
+      POOL_REVERSE_FILE,
+    ),
     "utf8",
   );
 }
@@ -26,10 +48,45 @@ describe("situation_search migration contract", () => {
     );
   });
 
-  it("RPC bounds match_count to 48 and rejects unknown modes", () => {
-    const sql = migrationText();
-    expect(sql).toContain("least(greatest(match_count, 1), 48)");
+  it("RPC bounds match_count to 100 and rejects unknown modes", () => {
+    const sql = poolMigrationText();
+    expect(sql).toContain("least(greatest(match_count, 1), 100)");
+    expect(sql).toContain("limit 100");
+    expect(sql).toContain("situation_search_lexical(query_text, 100)");
     expect(sql).toContain("mode not in ('vector','lexical','hybrid')");
+  });
+
+  it("pool migration keeps the RPC signature", () => {
+    const sql = poolMigrationText();
+    expect(sql).toContain(
+      "search_products_semantic(query_text text, query_embedding extensions.vector, mode text, match_count integer, filter_category text, filter_subcategories text[], filter_materials text[])",
+    );
+  });
+
+  it("taxonomy rename trigger is column-scoped, change-gated, and service-role only", () => {
+    const sql = poolMigrationText();
+    expect(sql).toContain(
+      "after update of name_zh on public.taxonomy_terms",
+    );
+    expect(sql).toContain(
+      "when (old.name_zh is distinct from new.name_zh)",
+    );
+    expect(sql).toContain(
+      "revoke all on function public.taxonomy_terms_retouch_product_search_vector",
+    );
+    const grantPattern =
+      /grant execute[^;]*taxonomy_terms_retouch_product_search_vector[^;]*to[^;]*postgres,\s*service_role/i;
+    expect(sql).toMatch(grantPattern);
+  });
+
+  it("reverse migration restores the 48 clamp and drops the trigger", () => {
+    const sql = poolReverseText();
+    expect(sql).toContain("least(greatest(match_count, 1), 48)");
+    expect(sql).toContain("limit 50");
+    expect(sql).toContain("situation_search_lexical(query_text, 50)");
+    expect(sql).toContain(
+      "drop trigger if exists taxonomy_terms_retouch_product_search_vector_trigger",
+    );
   });
 
   it("all three functions revoke anon and authenticated by name and grant service_role", () => {

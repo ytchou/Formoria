@@ -898,7 +898,12 @@ export interface AnalyticsEventPayloads {
     intent_subcategory?: string | null;
     intent_materials?: string[];
     intent_cache_hit?: boolean;
+    /** Wall-clock ms spent on intent parsing. */
     intent_latency_ms?: number;
+    /** Wall-clock ms for the search RPC round-trip (ms). */
+    rpc_latency_ms?: number;
+    /** Wall-clock ms for embedding generation, including cache lookup. 0 in lexical mode (ms). */
+    embed_latency_ms?: number;
   };
   [ANALYTICS_EVENTS.BRAND_SEARCH_EMPTY]: { query_length: number };
   [ANALYTICS_EVENTS.SEARCH_RESULT_CLICKED]: {
