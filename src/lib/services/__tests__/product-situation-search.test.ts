@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import {
   searchProductsBySituation,
   findSimilarProducts,
+  findSimilarProductsForTrail,
   normalizeSituationQuery,
   SituationQueryError,
   _resetDegradationCooldown,
@@ -30,7 +31,7 @@ type CatalogProduct = {
   brand: { slug: string; purchaseWebsite: string | null; purchasePinkoi: string | null; purchaseShopee: string | null; purchaseMyship: string | null; socialInstagram: string | null; socialThreads: string | null; socialFacebook: string | null };
 };
 
-function product(id: string, name: string, createdAt = "2026-01-01"): CatalogProduct {
+function product(id: string, name: string, overrides: Partial<CatalogProduct> = {}): CatalogProduct {
   return {
     id,
     nameZh: name,
@@ -39,7 +40,7 @@ function product(id: string, name: string, createdAt = "2026-01-01"): CatalogPro
     category: "home",
     subcategory: "tea",
     material: [],
-    createdAt,
+    createdAt: "2026-01-01",
     imageUrl: null,
     officialUrl: null,
     brandSlug: "test-brand",
@@ -47,6 +48,7 @@ function product(id: string, name: string, createdAt = "2026-01-01"): CatalogPro
     productDescriptionZh: "測試產品描述",
     productDescriptionEn: null,
     brand: { slug: "test-brand", purchaseWebsite: null, purchasePinkoi: null, purchaseShopee: null, purchaseMyship: null, socialInstagram: null, socialThreads: null, socialFacebook: null },
+    ...overrides,
   };
 }
 
@@ -278,9 +280,9 @@ describe("searchProductsBySituation", () => {
 
   // 7. sort newest/alphabetical re-sorts; relevance keeps RPC order
   it("sort newest/alphabetical re-sorts the hydrated set; relevance keeps RPC order", async () => {
-    const p1 = product("p1", "Banana", "2026-03-01");
-    const p2 = product("p2", "Apple", "2026-01-01");
-    const p3 = product("p3", "Cherry", "2026-02-01");
+    const p1 = product("p1", "Banana", { createdAt: "2026-03-01" });
+    const p2 = product("p2", "Apple", { createdAt: "2026-01-01" });
+    const p3 = product("p3", "Cherry", { createdAt: "2026-02-01" });
 
     const baseDeps = (_sort: "relevance" | "newest" | "alphabetical") =>
       createDeps({
@@ -691,5 +693,122 @@ describe("searchProductsBySituation — intent parse", () => {
     );
 
     expect(result.intentParsed).toBe("failed");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// 5. findSimilarProductsForTrail
+// ---------------------------------------------------------------------------
+
+describe("findSimilarProductsForTrail", () => {
+  it("returns empty array for empty input", async () => {
+    const deps = createDeps();
+    const result = await findSimilarProductsForTrail([], 6, deps);
+    expect(result).toEqual([]);
+    expect(deps.rpc).not.toHaveBeenCalled();
+  });
+
+  it("excludes trail products from results", async () => {
+    const trailProduct = product("trail-1", "Trail Tea Set");
+    const similar1 = product("sim-1", "Similar Cup");
+    const similar2 = product("sim-2", "Similar Pot");
+    const similar3 = product("sim-3", "Similar Plate");
+
+    const deps = createDeps({
+      readProductEmbedding: vi.fn().mockResolvedValue(EMBEDDING),
+      rpc: vi.fn().mockResolvedValue({
+        data: [
+          rpcRow("trail-1", 0.95), // trail product — must be excluded
+          rpcRow("sim-1", 0.9),
+          rpcRow("sim-2", 0.85),
+          rpcRow("sim-3", 0.8),
+        ],
+        error: null,
+      }),
+      hydrate: vi.fn().mockResolvedValue([trailProduct, similar1, similar2, similar3]),
+    });
+
+    const result = await findSimilarProductsForTrail(["trail-1"], 6, deps);
+    expect(result.map((p) => p.id)).not.toContain("trail-1");
+    expect(result.length).toBeGreaterThanOrEqual(1);
+  });
+
+  it("caps at 1 product per brand", async () => {
+    const brandA1 = product("a1", "Brand A Item 1", { brandSlug: "brand-a" });
+    const brandA2 = product("a2", "Brand A Item 2", { brandSlug: "brand-a" });
+    const brandB1 = product("b1", "Brand B Item 1", { brandSlug: "brand-b" });
+
+    const deps = createDeps({
+      readProductEmbedding: vi.fn().mockResolvedValue(EMBEDDING),
+      rpc: vi.fn().mockResolvedValue({
+        data: [rpcRow("a1", 0.9), rpcRow("a2", 0.85), rpcRow("b1", 0.8)],
+        error: null,
+      }),
+      hydrate: vi.fn().mockResolvedValue([brandA1, brandA2, brandB1]),
+    });
+
+    const result = await findSimilarProductsForTrail(["trail-x"], 6, deps);
+    const slugCounts = new Map<string, number>();
+    for (const p of result) {
+      slugCounts.set(p.brandSlug, (slugCounts.get(p.brandSlug) ?? 0) + 1);
+    }
+    for (const count of slugCounts.values()) {
+      expect(count).toBeLessThanOrEqual(1);
+    }
+  });
+
+  it("round-robin interleaves across trail products", async () => {
+    const simA = product("sim-a", "From A", { brandSlug: "brand-a" });
+    const simB = product("sim-b", "From B", { brandSlug: "brand-b" });
+    const simC = product("sim-c", "From C", { brandSlug: "brand-c" });
+    const simD = product("sim-d", "From D", { brandSlug: "brand-d" });
+
+    let callCount = 0;
+    const deps = createDeps({
+      readProductEmbedding: vi.fn().mockResolvedValue(EMBEDDING),
+      rpc: vi.fn().mockImplementation(() => {
+        callCount++;
+        if (callCount === 1) {
+          return Promise.resolve({ data: [rpcRow("sim-a", 0.9), rpcRow("sim-c", 0.8)], error: null });
+        }
+        return Promise.resolve({ data: [rpcRow("sim-b", 0.9), rpcRow("sim-d", 0.8)], error: null });
+      }),
+      hydrate: vi.fn().mockImplementation(({ ids }: { ids: string[] }) => {
+        const all = [simA, simB, simC, simD];
+        return Promise.resolve(all.filter((p) => ids.includes(p.id)));
+      }),
+    });
+
+    const result = await findSimilarProductsForTrail(["t1", "t2"], 4, deps);
+    // Round-robin: first round picks sim-a (from t1) then sim-b (from t2)
+    // Second round picks sim-c (from t1) then sim-d (from t2)
+    expect(result.map((p) => p.id)).toEqual(["sim-a", "sim-b", "sim-c", "sim-d"]);
+  });
+
+  it("respects limit", async () => {
+    const products = Array.from({ length: 10 }, (_, i) =>
+      product(`s${i}`, `Similar ${i}`, { brandSlug: `brand-${i}` }),
+    );
+
+    const deps = createDeps({
+      readProductEmbedding: vi.fn().mockResolvedValue(EMBEDDING),
+      rpc: vi.fn().mockResolvedValue({
+        data: products.map((p, i) => rpcRow(p.id, 0.9 - i * 0.01)),
+        error: null,
+      }),
+      hydrate: vi.fn().mockResolvedValue(products),
+    });
+
+    const result = await findSimilarProductsForTrail(["trail-x"], 3, deps);
+    expect(result.length).toBeLessThanOrEqual(3);
+  });
+
+  it("returns empty when all products have no embeddings", async () => {
+    const deps = createDeps({
+      readProductEmbedding: vi.fn().mockResolvedValue(null),
+    });
+
+    const result = await findSimilarProductsForTrail(["t1", "t2", "t3"], 6, deps);
+    expect(result).toEqual([]);
   });
 });

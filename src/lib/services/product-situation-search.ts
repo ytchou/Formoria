@@ -408,3 +408,47 @@ export async function findSimilarProducts(
 
   return { products: ordered };
 }
+
+// ---------------------------------------------------------------------------
+// findSimilarProductsForTrail
+// ---------------------------------------------------------------------------
+
+const DEFAULT_TRAIL_SIMILAR_LIMIT = 6;
+const PER_PRODUCT_FETCH_LIMIT = 5;
+const MAX_PER_BRAND = 1;
+
+export async function findSimilarProductsForTrail(
+  productIds: string[],
+  limit = DEFAULT_TRAIL_SIMILAR_LIMIT,
+  deps: SearchDeps = defaultDeps(),
+): Promise<CatalogProduct[]> {
+  if (productIds.length === 0) return [];
+
+  const trailSet = new Set(productIds);
+  const results = await Promise.all(
+    productIds.map((id) => findSimilarProducts(id, PER_PRODUCT_FETCH_LIMIT, deps)),
+  );
+
+  const seen = new Set<string>();
+  const brandCount = new Map<string, number>();
+  const merged: CatalogProduct[] = [];
+
+  for (let round = 0; merged.length < limit; round++) {
+    let added = false;
+    for (const result of results) {
+      if (round >= result.products.length) continue;
+      const p = result.products[round];
+      if (trailSet.has(p.id) || seen.has(p.id)) continue;
+      const hits = brandCount.get(p.brandSlug) ?? 0;
+      if (hits >= MAX_PER_BRAND) continue;
+      seen.add(p.id);
+      brandCount.set(p.brandSlug, hits + 1);
+      merged.push(p);
+      added = true;
+      if (merged.length >= limit) break;
+    }
+    if (!added) break;
+  }
+
+  return merged;
+}
