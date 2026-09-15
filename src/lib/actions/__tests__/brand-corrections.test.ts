@@ -7,13 +7,6 @@ import {
 import { correctionInputSchema } from "../brand-corrections-core";
 
 /**
- * The action's zod gate decides which corrections are reachable at all, and it
- * used to be a second, hand-maintained copy of the correctable field set built
- * with an `as unknown as` tuple assertion — so TypeScript could not report a
- * member the tuple forgot. `material` shipped in the type, the service, the RPC
- * and the DB CHECK while the schema still rejected it, and the only caller
- * could never submit one.
- *
  * The gate now reads `CORRECTION_FIELDS`, the service's own runtime vocabulary.
  * These assertions drive off that same list rather than re-listing the fields,
  * so they keep holding as fields are added and fail the moment the gate is
@@ -21,7 +14,7 @@ import { correctionInputSchema } from "../brand-corrections-core";
  */
 
 const BRAND_ID = "11111111-2222-4333-8444-555555555555";
-const ARRAY_VALUED_FIELDS = ["subcategories", "material"] as const;
+const ARRAY_VALUED_FIELDS = ["subcategories"] as const;
 
 /**
  * A payload shaped for the field, so a rejection can only come from the field
@@ -42,19 +35,9 @@ function accepts(field: string): boolean {
 }
 
 describe("correctionInputSchema field gate", () => {
-  it("accepts the material delta the shipped gate used to reject", () => {
-    const parsed = correctionInputSchema.safeParse({
-      brandId: BRAND_ID,
-      field: "material",
-      proposedValue: { add: ["ceramic"], remove: ["wood"] },
-    });
-
-    expect(parsed.success).toBe(true);
-    expect(parsed.success && parsed.data.field).toBe("material");
-    expect(parsed.success && parsed.data.proposedValue).toEqual({
-      add: ["ceramic"],
-      remove: ["wood"],
-    });
+  it("rejects material — removed from brand domain (DEV-1724)", () => {
+    expect(isCorrectionField("material")).toBe(false);
+    expect(accepts("material")).toBe(false);
   });
 
   it("accepts every field the service can correct", () => {
@@ -86,8 +69,8 @@ describe("correctionInputSchema field gate", () => {
     expect(
       correctionInputSchema.safeParse({
         brandId: BRAND_ID,
-        field: "material",
-        proposedValue: ["ceramic"],
+        field: "subcategories",
+        proposedValue: ["tableware"],
       }).success,
     ).toBe(false);
   });
@@ -96,8 +79,8 @@ describe("correctionInputSchema field gate", () => {
     expect(
       correctionInputSchema.safeParse({
         brandId: "not-a-uuid",
-        field: "material",
-        proposedValue: { add: ["ceramic"], remove: [] },
+        field: "subcategories",
+        proposedValue: { add: ["tableware"], remove: [] },
       }).success,
     ).toBe(false);
   });

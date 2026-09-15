@@ -4,10 +4,8 @@
  *
  * One list, read by both predicates that answer "is this directory URL
  * refined?" — indexability (`lib/seo/directory-indexation.ts`) and route shape
- * (`components/navigation/category-tab-target.ts`). They were two hand-kept
- * arrays until `material` reached one and not the other, and a subcategory
- * chip then routed to a bare `/categories/<l1>/<l2>` that silently dropped the
- * material filter. Adding a facet now means adding it here, once.
+ * (`components/navigation/category-tab-target.ts`). Adding a facet means
+ * adding it here, once.
  */
 export const DIRECTORY_REFINEMENT_KEYS = ["search", "material"] as const;
 
@@ -43,10 +41,6 @@ export function updateDirectoryUrl(
   }
 
   // `sub` is scoped to a single L1, so any change to `category` invalidates it.
-  // `material` is deliberately NOT dropped here: it is an orthogonal axis —
-  // a material means the same thing under every category — so clearing it would
-  // discard a filter the user never touched.
-  //
   // The exception is a patch that sets `sub` itself: the subcategory chips move
   // category and sub together through `buildCategoryTabTarget`, and deleting
   // the value the same call just set would make them dead links.
@@ -68,8 +62,8 @@ export function clearDirectoryFilters(
 ): string {
   return updateDirectoryUrl(pathname, searchParams, {
     ...(options.includeSearch ? { search: null } : {}),
+    material: null,
     category: null,
     sub: null,
-    material: null,
   });
 }

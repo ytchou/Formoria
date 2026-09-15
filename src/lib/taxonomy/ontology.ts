@@ -362,6 +362,24 @@ export const MATERIALS = [
   { slug: 'lacquer', nameZh: '漆', nameEn: 'Lacquer' },
 ] as const satisfies readonly Material[]
 
+/**
+ * L1 categories where material is a meaningful product attribute. Beauty
+ * material is the container/tool, not the product; food-drink has 0 products;
+ * tech has 1. The remaining deferred categories (outdoor, fitness, kids, pets)
+ * are excluded until supply evidence exists.
+ */
+export const MATERIAL_APPLICABLE_CATEGORIES: ReadonlySet<string> = new Set([
+  'home',
+  'fashion',
+  'bags-accessories',
+  'jewelry',
+  'stationery',
+])
+
+export function isMaterialApplicable(category: string | null): boolean {
+  return category === null || MATERIAL_APPLICABLE_CATEGORIES.has(category)
+}
+
 let _materialSlugMap: Map<string, Material> | null = null
 
 function _getMaterialSlugMap(): Map<string, Material> {

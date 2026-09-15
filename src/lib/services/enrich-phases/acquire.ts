@@ -42,6 +42,7 @@ import {
   type EnrichBrand,
   type EnrichPatch,
   type EnrichPhase,
+  type PhaseOutputSlots,
 } from './types'
 import type { RenderProvider } from './scraper/render/types'
 import { bindBrandKey } from './scraper/render/render-budget'
@@ -95,6 +96,8 @@ type AcquireDeps = {
   discoverCatalog?: typeof defaultDiscoverCatalog
   searchBrandUrls?: typeof defaultSearchBrandUrls
   batchSearchBrandImages?: typeof defaultBatchSearchBrandImages
+  startSearchAudit?: typeof startSearchAudit
+  finishSearchAudit?: typeof finishSearchAudit
 }
 
 type AcquirePhaseOptions = {
@@ -116,7 +119,7 @@ type AcquirePhaseOptions = {
 
 export type AcquirePhaseOutput = {
   phaseResult: PhaseResult
-  patch: Record<string, unknown>
+  patch: PhaseOutputSlots['acquire']
   /**
    * The brand's own page title, cleaned. Emitted as the `scraped` candidate for
    * the DEV-1321 names phase rather than written to `name` here — a raw page
@@ -942,7 +945,7 @@ export async function runAcquirePhase({
     // `buildLinkEnrichPatch` is typed to link columns only, and that is now the
     // whole patch: the scraped name leaves this phase as a CANDIDATE, never as a
     // patch key, because `names` is the single writer of `name` (DEV-1321).
-    const patch: Record<string, unknown> = buildLinkEnrichPatch(
+    const patch: PhaseOutputSlots['acquire'] = buildLinkEnrichPatch(
       brand,
       scrapedData,
       brand.name,
@@ -969,6 +972,45 @@ export async function runAcquirePhase({
         })
       } catch {
         // Errors silently swallowed — catalogResult stays undefined.
+      }
+    }
+
+    // -----------------------------------------------------------------------
+    // Persist catalog evidence as `search_type='catalog'` rows, one per crawled
+    // page. Mirrors the scrape audit pattern at lines 739-781.
+    // -----------------------------------------------------------------------
+    const startAudit = deps.startSearchAudit ?? startSearchAudit
+    const finishAudit = deps.finishSearchAudit ?? finishSearchAudit
+    if (catalogResult && !dryRun) {
+      for (const [url, evidence] of catalogResult.evidence) {
+        try {
+          const auditId = await startAudit({
+            target: effectiveTarget,
+            ...(jobId ? { jobId } : {}),
+            supabase,
+            provider: 'catalog',
+            endpoint: url,
+            searchType: 'catalog',
+            query: url,
+            input: { url },
+            config: { phase: 'acquire', dryRun },
+          })
+          await finishAudit(auditId, {
+            callStatus: 'succeeded',
+            rawResponse: {
+              url,
+              title: evidence.title,
+              titleSource: evidence.titleSource,
+              text: evidence.text,
+              imageUrls: evidence.imageUrls,
+            },
+            urls: [url],
+            snippets: [evidence.text.slice(0, 4_000)],
+            supabase,
+          })
+        } catch {
+          // Catalog audit writes are best-effort; never block the phase.
+        }
       }
     }
 

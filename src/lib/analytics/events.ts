@@ -307,6 +307,12 @@ export const ANALYTICS_EVENTS = {
    *   of 7+ digits.
    * @property search_source {string} Where the search originated: `discover_page` | `url`.
    * @property degraded {boolean} Whether the search fell back to lexical-only mode.
+   * @property intent_parsed {'skipped' | 'ok' | 'failed' | undefined} Intent parse state: skipped (not attempted), ok (succeeded), or failed (timeout/error).
+   * @property intent_category {string | null | undefined} Resolved top-level category.
+   * @property intent_subcategory {string | null | undefined} Resolved subcategory.
+   * @property intent_materials {string[] | undefined} Material terms extracted.
+   * @property intent_cache_hit {boolean | undefined} Whether the intent result came from cache.
+   * @property intent_latency_ms {number | undefined} Wall-clock ms spent on intent parsing.
    */
   PRODUCT_SEARCH_EXECUTED: "product_search_executed",
 
@@ -887,6 +893,17 @@ export interface AnalyticsEventPayloads {
     has_results: boolean;
     search_source: string;
     degraded: boolean;
+    intent_parsed?: 'skipped' | 'ok' | 'failed';
+    intent_category?: string | null;
+    intent_subcategory?: string | null;
+    intent_materials?: string[];
+    intent_cache_hit?: boolean;
+    /** Wall-clock ms spent on intent parsing. */
+    intent_latency_ms?: number;
+    /** Wall-clock ms for the search RPC round-trip (ms). */
+    rpc_latency_ms?: number;
+    /** Wall-clock ms for embedding generation, including cache lookup. 0 in lexical mode (ms). */
+    embed_latency_ms?: number;
   };
   [ANALYTICS_EVENTS.BRAND_SEARCH_EMPTY]: { query_length: number };
   [ANALYTICS_EVENTS.SEARCH_RESULT_CLICKED]: {

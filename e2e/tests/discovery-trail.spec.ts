@@ -117,6 +117,21 @@ test.describe("Discovery trail deep", () => {
     ).toBeVisible({ timeout: BUDGET.SERVER_RENDER });
   });
 
+  test("explore-more section renders when similar products exist", async ({
+    request,
+  }) => {
+    const response = await request.get(TRAIL_URL);
+    test.skip(response.status() === 503, "PREVIEW_MODE active");
+
+    expect(response.status()).toBe(200);
+    const $ = load(await response.text());
+    const exploreSection = $('section[aria-label="探索更多"]');
+    // Embeddings may not exist in the test environment — skip rather than fail.
+    test.skip(exploreSection.length === 0, "no similar products (embeddings missing)");
+    expect(exploreSection.find("h2").text()).toBe("探索更多");
+    expect(exploreSection.find("li").length).toBeGreaterThanOrEqual(3);
+  });
+
   test("hub lists the published trail", async ({ anonPage }) => {
     const response = await anonPage.goto("/style");
     test.skip(response?.status() === 503, "PREVIEW_MODE active");

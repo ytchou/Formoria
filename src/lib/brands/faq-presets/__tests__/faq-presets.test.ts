@@ -76,7 +76,6 @@ function makeBrand(overrides: Partial<Brand> = {}): Brand {
     contactEmail: null,
     subcategories: ["餐具", "茶具"],
     subcategoriesEn: ["tableware", "tea ware"],
-    material: [],
     siteContent: null,
     submittedAt: "2026-01-01T00:00:00.000Z",
     approvedAt: "2026-01-02T00:00:00.000Z",
@@ -197,7 +196,6 @@ describe("FAQ preset catalog", () => {
         purchaseMyship: null,
         foundingYear: null,
         city: null,
-        material: [],
       }),
       cityLabel: null,
     });
@@ -487,9 +485,9 @@ describe("FAQ preset catalog", () => {
 
   it("notGeneric rejects answer with only brand name", () => {
     const ctx = makeValidatorContext("en", []);
-    // foundingYear=2021, city="taipei", purchaseWebsite, material → 4 signals
+    // foundingYear=2021, city="taipei", purchaseWebsite → 3 signals
     ctx.brand = makeContext({
-      brand: makeBrand({ material: ["leather"], categoryLabel: "bags" }),
+      brand: makeBrand({ categoryLabel: "bags" }),
     });
     const answer = "Harbor Form is a bags brand.";
     expect(notGeneric()(answer, ctx).ok).toBe(false);
@@ -498,7 +496,7 @@ describe("FAQ preset catalog", () => {
   it("notGeneric accepts answer with specific claims", () => {
     const ctx = makeValidatorContext("en", []);
     ctx.brand = makeContext({
-      brand: makeBrand({ material: ["leather"], categoryLabel: "bags" }),
+      brand: makeBrand({ categoryLabel: "bags" }),
     });
     const answer =
       "Harbor Form was founded in 2021 and uses leather as its primary material for handcrafted tableware.";
@@ -507,12 +505,11 @@ describe("FAQ preset catalog", () => {
 
   it("notGeneric skips when evidence signals < 3", () => {
     const ctx = makeValidatorContext("en", []);
-    // foundingYear: null, material: [], purchaseWebsite: null → only city has
+    // foundingYear: null, purchaseWebsite: null → only city has
     // value = 1 signal, well under the threshold of 3.
     ctx.brand = makeContext({
       brand: makeBrand({
         foundingYear: null,
-        material: [],
         purchaseWebsite: null,
       }),
     });
@@ -527,7 +524,7 @@ describe("FAQ preset catalog", () => {
     const ctx: FaqValidatorContext = {
       locale: "en",
       brand: makeContext({
-        brand: makeBrand({ material: ["leather"], categoryLabel: "bags" }),
+        brand: makeBrand({ categoryLabel: "bags" }),
       }),
       siblings: [],
     };

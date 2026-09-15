@@ -1,0 +1,217 @@
+import { describe, expect, it, vi, beforeEach } from "vitest";
+
+vi.mock("@/lib/audit", () => ({
+  auditedCall: vi
+    .fn()
+    .mockImplementation(
+      (_spec: unknown, fn: (ctx: { summary: Record<string, unknown> }) => unknown) =>
+        fn({ summary: {} }),
+    ),
+}));
+
+import { createOpsTools, type OpsTool, type OpsToolDeps, type OpsToolContext } from "../tools";
+
+function makeDeps(overrides: Partial<OpsToolDeps> = {}): OpsToolDeps {
+  return {
+    systemStatus: vi.fn().mockResolvedValue({ healthRuns: [], fixQueue: [], jobs: [] }),
+    brandContext: vi.fn().mockResolvedValue({ searchResults: [] }),
+    jobDetail: vi.fn().mockResolvedValue({ id: "job-1" }),
+    runReadonlyQuery: vi.fn().mockResolvedValue([]),
+    queryPosthog: vi.fn().mockResolvedValue({ results: [] }),
+    listErrors: vi.fn().mockResolvedValue([]),
+    ...overrides,
+  };
+}
+
+function makeCtx(overrides: Partial<OpsToolContext> = {}): OpsToolContext {
+  return {
+    onProposed: vi.fn(),
+    validateProposal: vi.fn().mockResolvedValue({ ok: true }),
+    ...overrides,
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Test 1: every_tool_has_strict_schema_and_returns_json_string
+// ---------------------------------------------------------------------------
+
+describe("every tool has strict schema and returns JSON string on bad args", () => {
+  it("all tools have definition.parameters and return invalid_args on bad input", async () => {
+    const tools = createOpsTools(makeDeps(), makeCtx());
+
+    expect(tools.length).toBe(7);
+
+    for (const tool of tools) {
+      expect(tool.definition.parameters).toBeDefined();
+      expect(tool.definition.name).toBeTruthy();
+      expect(tool.definition.description).toBeTruthy();
+
+      // Call with bad args — should resolve (never reject) to JSON with error
+      const result = await tool.run({});
+      expect(typeof result).toBe("string");
+
+      // propose_action with empty {} has a different error shape
+      if (tool.definition.name !== "system_status" && tool.definition.name !== "list_errors") {
+        const parsed = JSON.parse(result);
+        expect(parsed.error).toBeDefined();
+      }
+    }
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Test 2: query_db_refuses_non_select_before_rpc
+// ---------------------------------------------------------------------------
+
+describe("query_db", () => {
+  let tools: OpsTool[];
+  let deps: OpsToolDeps;
+
+  beforeEach(() => {
+    deps = makeDeps();
+    tools = createOpsTools(deps, makeCtx());
+  });
+
+  function queryDbTool(): OpsTool {
+    return tools.find((t) => t.definition.name === "query_db")!;
+  }
+
+  it("refuses non-select before calling RPC", async () => {
+    const result = await queryDbTool().run({ sql: "delete from brands" });
+    const parsed = JSON.parse(result);
+    expect(parsed.error).toBe("not_readonly");
+    expect(deps.runReadonlyQuery).not.toHaveBeenCalled();
+  });
+
+  // ---------------------------------------------------------------------------
+  // Test 3: query_db_caps_output
+  // ---------------------------------------------------------------------------
+
+  it("caps output to 1536 bytes with truncated flag", async () => {
+    // Generate a large result
+    const longRows = Array.from({ length: 200 }, (_, i) => ({
+      id: i,
+      data: "x".repeat(100),
+    }));
+    deps.runReadonlyQuery = vi.fn().mockResolvedValue(longRows);
+    const tools2 = createOpsTools(deps, makeCtx());
+    const tool = tools2.find((t) => t.definition.name === "query_db")!;
+
+    const result = await tool.run({ sql: "select * from brands" });
+    expect(result.length).toBeLessThanOrEqual(1536);
+
+    const parsed = JSON.parse(result);
+    expect(parsed.data.truncated).toBe(true);
+    expect(parsed.data.rowCount).toBe(200);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Test 4: query_posthog_passes_hogql_and_caps
+// ---------------------------------------------------------------------------
+
+describe("query_posthog", () => {
+  it("passes hogql and caps output", async () => {
+    const deps = makeDeps({
+      queryPosthog: vi.fn().mockResolvedValue({
+        results: Array.from({ length: 100 }, (_, i) => ({ i, data: "y".repeat(50) })),
+      }),
+    });
+    const tools = createOpsTools(deps, makeCtx());
+    const tool = tools.find((t) => t.definition.name === "query_posthog")!;
+
+    const result = await tool.run({ hogql: "select count() from events" });
+    expect(deps.queryPosthog).toHaveBeenCalledWith("select count() from events");
+    expect(result.length).toBeLessThanOrEqual(1536);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Test 5: list_errors_clamps_hours
+// ---------------------------------------------------------------------------
+
+describe("list_errors", () => {
+  it("clamps hours to 1..168", async () => {
+    const deps = makeDeps();
+    const tools = createOpsTools(deps, makeCtx());
+    const tool = tools.find((t) => t.definition.name === "list_errors")!;
+
+    await tool.run({ hours: 0 });
+    expect(deps.listErrors).toHaveBeenCalledWith(1);
+
+    vi.clearAllMocks();
+
+    await tool.run({ hours: 999 });
+    expect(deps.listErrors).toHaveBeenCalledWith(168);
+
+    vi.clearAllMocks();
+
+    await tool.run({ hours: 48 });
+    expect(deps.listErrors).toHaveBeenCalledWith(48);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Test 6: system_status_runs_reads_in_parallel_with_partial_result
+// ---------------------------------------------------------------------------
+
+describe("system_status tool", () => {
+  it("one reader rejecting yields partial result with that key as error", async () => {
+    const deps = makeDeps({
+      systemStatus: vi.fn().mockResolvedValue({
+        healthRuns: [{ id: "run-1" }],
+        fixQueue: { error: "db error" },
+        jobs: [{ id: "job-1" }],
+      }),
+    });
+    const tools = createOpsTools(deps, makeCtx());
+    const tool = tools.find((t) => t.definition.name === "system_status")!;
+
+    const result = await tool.run({});
+    const parsed = JSON.parse(result);
+    expect(parsed.data.healthRuns).toBeDefined();
+    expect(parsed.data.fixQueue).toEqual({ error: "db error" });
+    expect(parsed.data.jobs).toBeDefined();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Test 8: propose_action_success_calls_on_proposed
+// ---------------------------------------------------------------------------
+
+describe("propose_action", () => {
+  it("valid action invokes onProposed and returns ok", async () => {
+    const onProposed = vi.fn();
+    const validateProposal = vi.fn().mockResolvedValue({ ok: true });
+    const tools = createOpsTools(makeDeps(), { onProposed, validateProposal });
+    const tool = tools.find((t) => t.definition.name === "propose_action")!;
+
+    const result = await tool.run({
+      kind: "refresh_brand",
+      slug: "test-brand",
+    });
+    const parsed = JSON.parse(result);
+    expect(parsed.ok).toBe(true);
+    expect(onProposed).toHaveBeenCalledOnce();
+    expect(onProposed).toHaveBeenCalledWith(
+      expect.objectContaining({ kind: "refresh_brand", slug: "test-brand" }),
+    );
+  });
+
+  it("invalid proposal returns error without calling onProposed", async () => {
+    const onProposed = vi.fn();
+    const validateProposal = vi
+      .fn()
+      .mockResolvedValue({ ok: false, error: "unknown_brand" });
+    const tools = createOpsTools(makeDeps(), { onProposed, validateProposal });
+    const tool = tools.find((t) => t.definition.name === "propose_action")!;
+
+    const result = await tool.run({
+      kind: "refresh_brand",
+      slug: "no-brand",
+    });
+    const parsed = JSON.parse(result);
+    expect(parsed.error).toBe("unknown_brand");
+    expect(onProposed).not.toHaveBeenCalled();
+  });
+});

@@ -135,7 +135,7 @@ export type CatalogQueryOptions = {
   page?: number;
   pageSize?: number;
   /** When set, fetch exactly these product ids and return them in this order.
-   *  Ignores page, pageSize, and sort. Max 48. */
+   *  Ignores page, pageSize, and sort. Max 100. */
   ids?: string[];
 };
 
@@ -169,7 +169,7 @@ export async function getPublishedCuratedProducts(
 
   // ---- ids mode: single fetch, caller-order, no pagination ----
   if (ids && ids.length > 0) {
-    const IDS_MAX = 48;
+    const IDS_MAX = 100;
     const readByIds = async (
       legacy: boolean,
     ): Promise<CatalogProductRow[]> => {

@@ -98,9 +98,9 @@ describe('reportProviderFailures', () => {
           },
           {
             slug: 'brand-b',
-            phase: 'tags',
+            phase: 'descriptions',
             error:
-              'LLM provider unavailable — every attempted LLM phase failed at the provider: tags',
+              'LLM provider unavailable — every attempted LLM phase failed at the provider: descriptions',
           },
         ],
       }),
@@ -133,8 +133,8 @@ describe('reportProviderFailures', () => {
           },
           {
             slug: 'brand-b',
-            phase: 'tags',
-            error: 'LLM provider unavailable — every attempted LLM phase failed at the provider: tags',
+            phase: 'descriptions',
+            error: 'LLM provider unavailable — every attempted LLM phase failed at the provider: descriptions',
           },
         ],
       }),

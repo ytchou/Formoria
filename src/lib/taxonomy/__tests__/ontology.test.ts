@@ -4,11 +4,13 @@ import {
   EVICTED_LABELS,
   L1_CATEGORIES,
   L2_SUBCATEGORIES,
+  MATERIAL_APPLICABLE_CATEGORIES,
   MATERIALS,
   OUT_OF_FRAME_LABELS,
   VISIBLE_L1_CATEGORIES,
   isCompositeSubcategory,
   isKnownSubcategoryTerm,
+  isMaterialApplicable,
   isVisibleCategory,
   matchSubcategory,
   materialBySlug,
@@ -96,6 +98,31 @@ describe('categoryTint', () => {
 
   it('returns the same fallback for unknown slug', () => {
     expect(categoryTint('nonexistent')).toBe(categoryTint(null))
+  })
+})
+
+describe('material applicability', () => {
+  it('MATERIAL_APPLICABLE_CATEGORIES is a subset of L1 slugs', () => {
+    const allSlugs: Set<string> = new Set(L1_CATEGORIES.map(c => c.slug))
+    for (const slug of MATERIAL_APPLICABLE_CATEGORIES) {
+      expect(allSlugs.has(slug), `${slug} is not an L1 slug`).toBe(true)
+    }
+  })
+
+  it('isMaterialApplicable returns true for null (all-category view)', () => {
+    expect(isMaterialApplicable(null)).toBe(true)
+  })
+
+  it('isMaterialApplicable returns true for applicable categories', () => {
+    expect(isMaterialApplicable('home')).toBe(true)
+    expect(isMaterialApplicable('fashion')).toBe(true)
+    expect(isMaterialApplicable('jewelry')).toBe(true)
+  })
+
+  it('isMaterialApplicable returns false for non-applicable categories', () => {
+    expect(isMaterialApplicable('beauty')).toBe(false)
+    expect(isMaterialApplicable('food-drink')).toBe(false)
+    expect(isMaterialApplicable('tech')).toBe(false)
   })
 })
 

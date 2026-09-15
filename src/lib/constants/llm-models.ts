@@ -254,6 +254,20 @@ export const LLM_PROFILES = {
     temperature: 0,
     maxTokens: 400,
   },
+  /** Lightweight query intent extraction for /discover?q= search. */
+  intentParse: {
+    model: "text_mini",
+    maxTokens: 200,
+    temperature: 0,
+    timeoutMs: 2000,
+  },
+  /** Ops agent read-loop reasoning + proposal generation. */
+  opsAgent: {
+    model: "text",
+    maxTokens: 1200,
+    temperature: 0,
+    timeoutMs: 45000,
+  },
 } as const satisfies Record<string, LlmProfile>;
 
 export type LlmProfileKey = keyof typeof LLM_PROFILES;

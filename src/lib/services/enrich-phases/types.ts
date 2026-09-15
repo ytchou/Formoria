@@ -13,8 +13,10 @@ import type { SearchCallStatus } from "../search-results";
 import type { BrandSearchEntry } from "./scraper/types";
 import type {
   BrandNameProposal,
+  CuratedProductProposal,
   SubmissionFaqPatch,
 } from "@/lib/types/enriched-data";
+import { LINK_FIELD_TO_COLUMN } from "@/lib/types/link-fields";
 
 export type EnrichPhase = (typeof ENRICH_PHASES)[number];
 
@@ -114,7 +116,169 @@ export type EnrichPatch = Partial<BrandFlatLinkColumns> &
     _name_proposal: BrandNameProposal;
     /** FAQ entries proposed by the enrichment run; materialized at apply time. */
     faq: SubmissionFaqPatch;
+    /** Storage path for the hero image, written by acquire for submission targets. */
+    hero_image_storage_path: string | null;
+    /** Curated product proposals, written by the products phase. */
+    products: CuratedProductProposal[];
   }>;
+
+// ---------------------------------------------------------------------------
+// Phase output registry — typed slots, merge order, deposit/build helpers
+// ---------------------------------------------------------------------------
+
+/**
+ * Each phase writes into a narrowly-typed slot so the patch cannot carry keys
+ * the phase has no authority to set. The mapped type is the *shape* of each
+ * slot; actual runtime validation is done by `depositPhaseOutput`.
+ */
+export type PhaseOutputSlots = {
+  detect: Partial<Pick<EnrichPatch, "slug">>;
+  linkExpansion: Partial<BrandFlatLinkColumns>;
+  acquire: Partial<BrandFlatLinkColumns> &
+    Partial<
+      Pick<
+        EnrichPatch,
+        "hero_image_url" | "hero_image_storage_path" | "_cleared_fields"
+      >
+    >;
+  names: Partial<Pick<EnrichPatch, "name" | "_name_proposal">>;
+  editorial: Partial<
+    Pick<
+      EnrichPatch,
+      | "description"
+      | "description_en"
+      | "city"
+      | "blurb"
+      | "blurb_en"
+      | "subcategories"
+      | "subcategories_en"
+      | "category"
+      | "founding_year"
+      | "_cleared_fields"
+      | "faq"
+    >
+  >;
+  categoryDerivation: Partial<Pick<EnrichPatch, "category">>;
+  products: Partial<Pick<EnrichPatch, "products">>;
+};
+
+export type PhaseOutputRegistry = {
+  [K in keyof PhaseOutputSlots]?: PhaseOutputSlots[K];
+};
+
+// Order matters: names MUST follow linkExpansion and acquire — both may
+// produce `name`, and the DEV-1321 incident was caused by the two precedence
+// mechanisms disagreeing on merge order.
+export const MERGE_ORDER: readonly (keyof PhaseOutputSlots)[] = [
+  "detect",
+  "linkExpansion",
+  "acquire",
+  "names",
+  "editorial",
+  "categoryDerivation",
+  "products",
+] as const;
+
+/** Runtime key set derived from link-fields registry + the social/other columns. */
+const BRAND_FLAT_LINK_KEYS: ReadonlySet<string> = new Set([
+  ...Object.values(LINK_FIELD_TO_COLUMN),
+  "other_urls",
+]);
+
+// Each typed-keys array uses `satisfies` so tsc rejects any string that
+// isn't a key of the corresponding slot type. linkExpansion and acquire
+// incorporate BRAND_FLAT_LINK_KEYS (runtime-derived) so their link columns
+// are validated structurally via BrandFlatLinkColumns, not per-string.
+const DETECT_KEYS = [
+  "slug",
+] as const satisfies readonly (keyof PhaseOutputSlots["detect"] & string)[];
+const NAMES_KEYS = [
+  "name",
+  "_name_proposal",
+] as const satisfies readonly (keyof PhaseOutputSlots["names"] & string)[];
+const EDITORIAL_KEYS = [
+  "description",
+  "description_en",
+  "city",
+  "blurb",
+  "blurb_en",
+  "subcategories",
+  "subcategories_en",
+  "category",
+  "founding_year",
+  "_cleared_fields",
+  "faq",
+] as const satisfies readonly (keyof PhaseOutputSlots["editorial"] & string)[];
+const ACQUIRE_EXTRA_KEYS = [
+  "hero_image_url",
+  "hero_image_storage_path",
+  "_cleared_fields",
+] as const satisfies readonly (Exclude<
+  keyof PhaseOutputSlots["acquire"],
+  keyof BrandFlatLinkColumns
+> &
+  string)[];
+const CATEGORY_DERIVATION_KEYS = [
+  "category",
+] as const satisfies readonly (keyof PhaseOutputSlots["categoryDerivation"] &
+  string)[];
+const PRODUCTS_KEYS = [
+  "products",
+] as const satisfies readonly (keyof PhaseOutputSlots["products"] & string)[];
+export const SLOT_ALLOWED_KEYS: Record<
+  keyof PhaseOutputSlots,
+  ReadonlySet<string>
+> = {
+  detect: new Set<string>(DETECT_KEYS),
+  linkExpansion: BRAND_FLAT_LINK_KEYS,
+  acquire: new Set([...BRAND_FLAT_LINK_KEYS, ...ACQUIRE_EXTRA_KEYS]),
+  names: new Set<string>(NAMES_KEYS),
+  editorial: new Set<string>(EDITORIAL_KEYS),
+  categoryDerivation: new Set<string>(CATEGORY_DERIVATION_KEYS),
+  products: new Set<string>(PRODUCTS_KEYS),
+};
+
+/**
+ * Write a phase's output into the registry. Throws if the slot was already
+ * populated (double-write) or if the output carries keys outside the slot's
+ * allowed set (structural-typing bypass guard).
+ */
+export function depositPhaseOutput<P extends keyof PhaseOutputSlots>(
+  state: { outputs: PhaseOutputRegistry },
+  phase: P,
+  output: PhaseOutputSlots[P],
+): void {
+  if (state.outputs[phase] !== undefined) {
+    throw new Error(
+      `Phase "${phase}" already deposited output — double-write is not allowed`,
+    );
+  }
+
+  const allowed = SLOT_ALLOWED_KEYS[phase];
+  const excess = Object.keys(output).filter((k) => !allowed.has(k));
+  if (excess.length > 0) {
+    throw new Error(
+      `Phase "${phase}" output contains disallowed keys: ${excess.join(", ")}`,
+    );
+  }
+
+  state.outputs[phase] = output;
+}
+
+/**
+ * Merge all populated slots in `MERGE_ORDER` into a single `EnrichPatch`.
+ * Later phases overwrite earlier ones for overlapping keys.
+ */
+export function buildPendingPatch(registry: PhaseOutputRegistry): EnrichPatch {
+  const result: EnrichPatch = {};
+  for (const phase of MERGE_ORDER) {
+    const slot = registry[phase];
+    if (slot !== undefined) {
+      Object.assign(result, slot);
+    }
+  }
+  return result;
+}
 
 export type BatchPhaseContext = {
   chunk: EnrichBrand[];
@@ -130,7 +294,7 @@ export type BatchPhaseContext = {
 };
 
 export type BrandEnrichState = {
-  patches: EnrichPatch;
+  outputs: PhaseOutputRegistry;
   phaseResults: PhaseResult[];
   knownUrls: string[];
   discoveredUrls: string[];

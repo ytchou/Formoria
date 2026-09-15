@@ -91,7 +91,6 @@ export type Brand = {
   contactEmail: string | null;
   subcategories: string[];
   subcategoriesEn: string[];
-  material: string[];
   /** Raw `brands.site_content` jsonb, passed through unshaped. */
   siteContent: unknown | null;
   submittedAt: string;
@@ -104,12 +103,6 @@ export type Brand = {
 export type BrandFilters = {
   status?: BrandStatus;
   category?: string[];
-  /**
-   * `brands.material` slugs, from the closed 12-slug vocabulary (`MATERIALS`).
-   * An orthogonal axis to `category`: both the browse query and the search RPC
-   * apply it, or `?material=` breaks the moment a user types (DEV-1510).
-   */
-  materials?: string[];
   search?: string;
   sort?: BrandSortOption;
   limit?: number;

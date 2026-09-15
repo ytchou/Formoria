@@ -10,6 +10,7 @@ import {
 } from "@/lib/prompts/shared";
 import {
   categoryLabelZh,
+  isMaterialApplicable,
   L1_CATEGORIES,
   materialBySlug,
   matchSubcategory,
@@ -94,6 +95,7 @@ import {
   type EnrichPatch,
   type EnrichPhase,
   type EnrichScrapedData,
+  type PhaseOutputSlots,
 } from "./types";
 
 /**
@@ -284,22 +286,9 @@ export type ProductsPhaseOptions = {
   classifyPageImages?: (handles: string[]) => Promise<RankableImage[]>;
 };
 
-/**
- * `products` is not a `brands` column, which is exactly why the phase refuses to
- * run for a brand target — see the gate in `runProductsPhase`. It reaches
- * `enriched_data.products[]` through `mergeSubmissionEnrichedData`, whose
- * replace-not-union branch keeps a rerun from appending to the stored list.
- *
- * Module-private on purpose: `ProductsPhaseOutput.patch` is the only reference,
- * and an exported alias nobody imports is dead public surface.
- */
-type ProductsPhasePatch = EnrichPatch & {
-  products?: CuratedProductProposal[];
-};
-
 export type ProductsPhaseOutput = {
   phaseResult: PhaseResult;
-  patch: ProductsPhasePatch;
+  patch: PhaseOutputSlots['products'];
   proposals: CuratedProductProposal[];
 };
 
@@ -663,7 +652,7 @@ export function validateProductProposals(
       ...(nameEn ? { nameEn } : {}),
       category,
       subcategory: resolveSubcategory(raw.subcategory, category),
-      material: resolveMaterials(raw.material),
+      material: isMaterialApplicable(category) ? resolveMaterials(raw.material) : [],
       officialUrl: officialUrl.toString(),
       ...(imageSourceUrl ? { imageSourceUrl } : {}),
       productDescriptionZh,

@@ -3,6 +3,10 @@ import { fileURLToPath } from "node:url";
 import { describe, it, expect } from "vitest";
 import {
   AUDITED_PHASES,
+  BLOCK_DEPENDENCIES,
+  BLOCK_NAMES,
+  BLOCK_OF_PHASE,
+  BLOCK_ORDER,
   CURATION_TASKS,
   CURATION_TASK_ORDER,
   DEFERRED_PHASES,
@@ -18,8 +22,11 @@ import {
   isDeferredPhase,
   normalizeRequestedPhases,
   parseLegacyStepsToPhases,
+  phaseOrderForBlocks,
   phasesForTask,
+  phasesOfBlocks,
 } from "../enrich-phases";
+import type { BlockName } from "../enrich-phases";
 
 describe("scoped enrich phase sets", () => {
   it("registry exhaustiveness — every non-deferred phase assigned to exactly one stage", () => {
@@ -174,6 +181,7 @@ describe("deferred phases", () => {
       "site_identity",
       "images",
       "classify_images",
+      "tags",
     ];
     for (const phase of retired) {
       expect(
@@ -266,7 +274,7 @@ describe("phase dependencies and task vocabulary", () => {
     expect(closure).toContain("detect");
     expect(closure).toContain("descriptions");
     expect(closure).toContain("faq");
-    expect(closure).toContain("tags");
+    expect(closure).not.toContain("tags");
     expect(closure).toContain("stockists");
     // Must exclude deferred phases
     expect(closure).not.toContain("links");
@@ -518,5 +526,88 @@ describe("SERP vs enrichment stage groups", () => {
         `deferred phase ${phase} is assigned to a stage group`,
       ).toBe(false);
     }
+  });
+});
+
+describe("block vocabulary", () => {
+  it("every_non_deferred_phase_maps_to_exactly_one_block", () => {
+    const nonDeferred = ENRICH_PHASES.filter(
+      (p) => !(DEFERRED_PHASES as readonly string[]).includes(p),
+    );
+    const mapped = Object.keys(BLOCK_OF_PHASE);
+    expect(new Set(mapped)).toEqual(new Set(nonDeferred));
+    for (const block of Object.values(BLOCK_OF_PHASE)) {
+      expect(
+        (BLOCK_NAMES as readonly string[]).includes(block),
+        `${block} is not a BLOCK_NAMES member`,
+      ).toBe(true);
+    }
+  });
+
+  it("block_dependencies_derive_from_phase_dependencies", () => {
+    for (const [phase, deps] of Object.entries(PHASE_DEPENDENCIES)) {
+      if (isDeferredPhase(phase)) continue;
+      const fromBlock =
+        BLOCK_OF_PHASE[phase as keyof typeof BLOCK_OF_PHASE];
+      for (const dep of deps) {
+        if (isDeferredPhase(dep)) continue;
+        const toBlock =
+          BLOCK_OF_PHASE[dep as keyof typeof BLOCK_OF_PHASE];
+        if (toBlock === fromBlock) continue;
+        expect(
+          BLOCK_DEPENDENCIES[fromBlock],
+          `BLOCK_DEPENDENCIES[${fromBlock}] should contain ${toBlock} (from phase edge ${phase} -> ${dep})`,
+        ).toContain(toBlock);
+      }
+    }
+    // No self-edges
+    for (const [block, deps] of Object.entries(BLOCK_DEPENDENCIES)) {
+      expect(deps, `${block} has a self-edge`).not.toContain(block);
+    }
+  });
+
+  it("block_order_is_topological_with_enrich_phases_tiebreak", () => {
+    expect(BLOCK_ORDER).toEqual([
+      "gather",
+      "detect",
+      "acquire",
+      "names",
+      "editorial",
+      "products",
+      "persist",
+    ]);
+    // Every dependency precedes its dependant
+    for (const [block, deps] of Object.entries(BLOCK_DEPENDENCIES) as [
+      BlockName,
+      readonly BlockName[],
+    ][]) {
+      const blockIdx = BLOCK_ORDER.indexOf(block);
+      for (const dep of deps) {
+        expect(
+          BLOCK_ORDER.indexOf(dep),
+          `${dep} should precede ${block} in BLOCK_ORDER`,
+        ).toBeLessThan(blockIdx);
+      }
+    }
+  });
+
+  it("phase_order_for_logs_derives_from_block_order", () => {
+    expect(phaseOrderForBlocks(BLOCK_ORDER)).toEqual([
+      "detect",
+      "acquire",
+      "names",
+      "descriptions",
+      "stockists",
+      "faq",
+      "products",
+    ]);
+  });
+
+  it("phases_of_blocks_is_the_selectable_expansion", () => {
+    expect(phasesOfBlocks(["detect"])).toEqual(["detect", "slugs"]);
+    const allNonDeferred = ENRICH_PHASES.filter(
+      (p) => !(DEFERRED_PHASES as readonly string[]).includes(p),
+    );
+    expect(phasesOfBlocks(BLOCK_ORDER)).toEqual(allNonDeferred);
   });
 });

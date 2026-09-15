@@ -292,7 +292,18 @@ export function trackSearchExecuted(query: string, resultCount: number) {
 export function trackProductSearchExecuted(
   query: string,
   resultCount: number,
-  options: { searchSource: string; degraded: boolean },
+  options: {
+    searchSource: string;
+    degraded: boolean;
+    intentParsed?: 'skipped' | 'ok' | 'failed';
+    intentCategory?: string | null;
+    intentSubcategory?: string | null;
+    intentMaterials?: string[];
+    intentCacheHit?: boolean;
+    intentLatencyMs?: number;
+    rpcLatencyMs?: number;
+    embedLatencyMs?: number;
+  },
 ) {
   safeGAEvent("event", "search", {
     query_length: query.length,
@@ -301,6 +312,27 @@ export function trackProductSearchExecuted(
     search_source: options.searchSource,
     degraded: options.degraded,
   });
+
+  // Intent and latency fields are conditionally spread: absent keys are a real
+  // state in PostHog (never captured), not "captured as undefined".
+  const intentProps: Record<string, unknown> = {};
+  if (options.intentParsed !== undefined)
+    intentProps.intent_parsed = options.intentParsed;
+  if (options.intentCategory !== undefined)
+    intentProps.intent_category = options.intentCategory;
+  if (options.intentSubcategory !== undefined)
+    intentProps.intent_subcategory = options.intentSubcategory;
+  if (options.intentMaterials !== undefined)
+    intentProps.intent_materials = options.intentMaterials;
+  if (options.intentCacheHit !== undefined)
+    intentProps.intent_cache_hit = options.intentCacheHit;
+  if (options.intentLatencyMs !== undefined)
+    intentProps.intent_latency_ms = options.intentLatencyMs;
+  if (options.rpcLatencyMs !== undefined)
+    intentProps.rpc_latency_ms = options.rpcLatencyMs;
+  if (options.embedLatencyMs !== undefined)
+    intentProps.embed_latency_ms = options.embedLatencyMs;
+
   capturePostHogEvent(ANALYTICS_EVENTS.PRODUCT_SEARCH_EXECUTED, {
     query_length: query.length,
     result_count: resultCount,
@@ -308,6 +340,7 @@ export function trackProductSearchExecuted(
     search_source: options.searchSource,
     degraded: options.degraded,
     ...searchTermProperty(query),
+    ...intentProps,
   });
 }
 

@@ -78,18 +78,7 @@ test.describe("Public routing regressions deep", () => {
       // taxonomy transform retired them. Generated into next.config.ts by
       // `pnpm exec tsx scripts/generate-category-redirects.ts --write`.
       //
-      // The ten crafts L2s with no successor exit to the directory root.
-      ["/categories/crafts/ceramics", "/brands"],
-      ["/categories/crafts/woodcraft", "/brands"],
-      ["/categories/crafts/metalwork", "/brands"],
-      ["/categories/crafts/bamboo-craft", "/brands"],
-      ["/categories/crafts/glass-art", "/brands"],
-      ["/categories/crafts/natural-dyeing", "/brands"],
-      ["/categories/crafts/leather-craft", "/brands"],
-      ["/categories/crafts/embroidery", "/brands"],
-      ["/categories/crafts/needle-felting", "/brands"],
-      ["/categories/crafts/weaving-and-crochet", "/brands"],
-      // Two crafts L2s were relocated rather than dissolved.
+      // DEV-1724 removed the ten crafts L2 → /brands redirects (material now lives on curated_products only). Two relocated L2s kept theirs:
       [
         "/categories/crafts/illustration-and-art",
         "/discover?category=home&sub=wall-art",

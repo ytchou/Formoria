@@ -3,6 +3,7 @@ import { ENRICH_LLM_PHASES, phasesForTask } from "@/lib/constants/enrich-phases"
 import type { Json } from "@/lib/supabase/database.types";
 import {
   planCurationResume,
+  rerunJobParams,
   type CurationJobTarget,
   type CurationTargetStatus,
 } from "./curation-jobs";
@@ -59,7 +60,6 @@ describe("planCurationResume", () => {
     // being re-queued as a phase with no runner. Everything after it was never
     // reached, has no record at all, and is owed.
     expect(plans.at(0)?.params.phases).toEqual([
-      "tags",
       "acquire",
       "names",
       "descriptions",
@@ -95,7 +95,6 @@ describe("planCurationResume", () => {
       "clean",
       "detect",
       "slugs",
-      "tags",
       "discover",
       "links",
       "acquire",
@@ -180,5 +179,40 @@ describe("planCurationResume", () => {
     expect(() => planCurationResume(null, [])).toThrow(
       /no failed or cancelled targets/i,
     );
+  });
+
+  it("resume_params_drop_retry", () => {
+    // A retry job that fails should drop the retry scope when resumed,
+    // so the resume computes its own phase scope from phase_results.
+    const plans = planCurationResume(
+      {
+        retry: { block: "products", mode: "only" },
+        phases: ["products"],
+      } as Json,
+      [
+        target({
+          targetId: "sub-a",
+          status: "failed",
+          phaseResults: [phase("products", "failed")],
+        }),
+      ],
+    );
+
+    // The retry field must be dropped from the resumed params
+    expect(plans.at(0)?.params.retry).toBeUndefined();
+    // The phase scope is computed from the failed phases, not from the retry
+    expect(plans.at(0)?.params.phases).toEqual(["products"]);
+  });
+});
+
+describe("rerunJobParams preserves retry", () => {
+  it("rerun_params_keep_retry", () => {
+    const result = rerunJobParams({
+      retry: { block: "detect", mode: "only" },
+      task: "full",
+    });
+    // rerunJobParams preserves the retry scope (a rerun behaves like the run
+    // it repeats)
+    expect(result.retry).toEqual({ block: "detect", mode: "only" });
   });
 });

@@ -7,6 +7,8 @@ import {
 } from "@/lib/cache/query-embedding-cache";
 import { EMBEDDING_MODEL } from "@/lib/constants/llm-models";
 import * as Sentry from "@sentry/nextjs";
+import { parseQueryIntent, type IntentParseOutcome } from "./query-intent-parse";
+import { isVisibleCategory } from "@/lib/taxonomy/ontology";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -27,6 +29,7 @@ export type SearchInput = {
   materials?: string[];
   sort?: "relevance" | "newest" | "alphabetical";
   audit?: { jobId?: string; phase?: string };
+  enableIntentParse?: boolean;
 };
 
 export type SearchResult = {
@@ -35,6 +38,14 @@ export type SearchResult = {
   searchSource: SearchMode;
   degraded: boolean;
   query: string;
+  intentParsed: 'skipped' | 'ok' | 'failed';
+  intentCategory: string | null;
+  intentSubcategory: string | null;
+  intentMaterials: string[];
+  intentCacheHit: boolean;
+  intentLatencyMs: number;
+  rpcLatencyMs: number;
+  embedLatencyMs: number;
 };
 
 export type SimilarResult = {
@@ -119,6 +130,8 @@ export type SearchDeps = {
   now: () => number;
   /** Read the stored embedding for a product. Used by findSimilarProducts. */
   readProductEmbedding?: (productId: string) => Promise<number[] | null>;
+  /** LLM-based intent extraction for structured filter discovery. */
+  parseIntent?: (query: string) => Promise<IntentParseOutcome>;
 };
 
 const DEGRADE_COOLDOWN_MS = 5 * 60 * 1000; // 5 minutes
@@ -171,12 +184,23 @@ function defaultDeps(): SearchDeps {
         ? JSON.parse(data.embedding)
         : data.embedding;
     },
+    parseIntent: (query) => parseQueryIntent(query),
   };
 }
 
 // ---------------------------------------------------------------------------
 // searchProductsBySituation
 // ---------------------------------------------------------------------------
+
+/**
+ * Fixed pool size sent to the RPC as `match_count`. Mirrors
+ * `least(greatest(match_count,1),100)` in
+ * `20260915140000_situation_search_pool_100.sql`.
+ *
+ * Ceiling is the hydrate payload — slice ids before hydrating for `relevance`
+ * sort if p95 moves.
+ */
+export const CANDIDATE_POOL = 100;
 
 export async function searchProductsBySituation(
   input: SearchInput,
@@ -188,53 +212,122 @@ export async function searchProductsBySituation(
   const pageSize = input.pageSize ?? 20;
   const sort = input.sort ?? "relevance";
 
-  // --- Embed (with cache + fallback) ---
-  let embedding: number[] | null = null;
-  let degraded = false;
-  let effectiveMode: SearchMode = mode;
+  // --- Parallel: intent parse + embed ---
+  const intentStart = deps.now();
+  const shouldParse = input.enableIntentParse && deps.parseIntent;
 
-  if (mode !== "lexical") {
-    // Try cache
-    const cached = await deps.cache.get(normalized, EMBEDDING_MODEL);
-    if (cached) {
-      embedding = cached;
-    } else {
-      try {
-        const ctx: { phase: string; jobId?: string } = {
-          phase: input.audit?.phase ?? "situation_search",
-          ...(input.audit?.jobId ? { jobId: input.audit.jobId } : {}),
-        };
-        embedding = await deps.embed(normalized, ctx);
-        await deps.cache.set(normalized, EMBEDDING_MODEL, embedding);
-      } catch (err) {
-        degraded = true;
-        effectiveMode = "lexical";
-        embedding = null;
+  let intentLatencyMs = 0;
+  let timeoutId: ReturnType<typeof setTimeout> | undefined;
+  const intentParsePromise: Promise<IntentParseOutcome> = shouldParse
+    ? Promise.race([
+        deps.parseIntent!(normalized).catch(() => null).then((result) => {
+          intentLatencyMs = deps.now() - intentStart;
+          return result;
+        }),
+        new Promise<null>((resolve) => {
+          timeoutId = setTimeout(() => {
+            intentLatencyMs = 2000;
+            resolve(null);
+          }, 2000);
+        }),
+      ])
+    : Promise.resolve(null);
 
-        const now = deps.now();
-        if (now - lastDegradationReportAt >= DEGRADE_COOLDOWN_MS) {
-          lastDegradationReportAt = now;
-          deps.report(err);
+  async function doEmbed(): Promise<{
+    embedding: number[] | null;
+    degraded: boolean;
+    effectiveMode: SearchMode;
+    embedLatencyMs: number;
+  }> {
+    let embedding: number[] | null = null;
+    let degraded = false;
+    let effectiveMode: SearchMode = mode;
+
+    if (mode !== "lexical") {
+      const t0 = deps.now();
+      const cached = await deps.cache.get(normalized, EMBEDDING_MODEL);
+      if (cached) {
+        embedding = cached;
+      } else {
+        try {
+          const ctx: { phase: string; jobId?: string } = {
+            phase: input.audit?.phase ?? "situation_search",
+            ...(input.audit?.jobId ? { jobId: input.audit.jobId } : {}),
+          };
+          embedding = await deps.embed(normalized, ctx);
+          await deps.cache.set(normalized, EMBEDDING_MODEL, embedding);
+        } catch (err) {
+          degraded = true;
+          effectiveMode = "lexical";
+          embedding = null;
+
+          const now = deps.now();
+          if (now - lastDegradationReportAt >= DEGRADE_COOLDOWN_MS) {
+            lastDegradationReportAt = now;
+            deps.report(err);
+          }
         }
       }
+      const embedLatencyMs = deps.now() - t0;
+      return { embedding, degraded, effectiveMode, embedLatencyMs };
     }
+
+    return { embedding, degraded, effectiveMode, embedLatencyMs: 0 };
   }
 
-  // --- RPC ---
+  const [intentOutcome, embedResult] = await Promise.all([
+    intentParsePromise,
+    doEmbed(),
+  ]);
+
+  if (timeoutId) clearTimeout(timeoutId);
+  const { embedding, degraded, effectiveMode, embedLatencyMs } = embedResult;
+
+  // --- Intent metadata (populated on both returns) ---
+  const intentMeta = {
+    intentParsed: !shouldParse ? 'skipped' as const : intentOutcome !== null ? 'ok' as const : 'failed' as const,
+    intentCategory: intentOutcome?.parsed?.category ?? null,
+    intentSubcategory: intentOutcome?.parsed?.subcategory ?? null,
+    intentMaterials: intentOutcome?.parsed?.materials ?? [],
+    intentCacheHit: intentOutcome?.cacheHit ?? false,
+    intentLatencyMs,
+  };
+
+  // --- Merge filters: user-selected wins over LLM-extracted ---
+  const parsed = intentOutcome?.parsed ?? null;
+
+  // F2: Filter LLM category through visibility check (hidden/deferred categories dropped)
+  const parsedCategory = parsed?.category && isVisibleCategory(parsed.category) ? parsed.category : null;
+
+  // F5: Only use LLM subcategory when compatible with the resolved category
+  const resolvedCategory = input.category ?? parsedCategory ?? null;
+  const parsedSubcategory = parsed?.subcategory ?? null;
+  const useSubcategory = parsedSubcategory && resolvedCategory && parsed?.category === resolvedCategory;
+
   const rpcParams: Record<string, unknown> = {
     query_text: normalized,
     query_embedding: embedding,
     mode: effectiveMode,
-    match_count: pageSize * page + pageSize, // fetch enough for pagination
-    filter_category: input.category ?? null,
-    filter_subcategories: input.subcategories ?? null,
-    filter_materials: input.materials ?? null,
+    match_count: CANDIDATE_POOL,
+    filter_category: input.category ?? parsedCategory ?? null,
+    filter_subcategories: input.subcategories?.length
+      ? input.subcategories
+      : useSubcategory
+        ? [parsedSubcategory]
+        : null,
+    filter_materials: input.materials?.length
+      ? input.materials
+      : parsed?.materials?.length
+        ? parsed.materials
+        : null,
   };
 
+  const rpcStart = deps.now();
   const { data: rpcRows, error: rpcError } = await deps.rpc(
     "search_products_semantic",
     rpcParams,
   );
+  const rpcLatencyMs = deps.now() - rpcStart;
 
   if (rpcError) {
     throw rpcError;
@@ -242,7 +335,6 @@ export async function searchProductsBySituation(
 
   const rows = rpcRows ?? [];
   const orderedIds = rows.map((r) => r.product_id);
-  const searchSource = (rows[0]?.search_source as SearchMode) ?? effectiveMode;
 
   if (orderedIds.length === 0) {
     return {
@@ -251,6 +343,9 @@ export async function searchProductsBySituation(
       searchSource: effectiveMode,
       degraded,
       query: normalized,
+      rpcLatencyMs,
+      embedLatencyMs,
+      ...intentMeta,
     };
   }
 
@@ -282,9 +377,12 @@ export async function searchProductsBySituation(
   return {
     products: paged,
     totalCount,
-    searchSource,
+    searchSource: effectiveMode,
     degraded,
     query: normalized,
+    rpcLatencyMs,
+    embedLatencyMs,
+    ...intentMeta,
   };
 }
 
@@ -330,4 +428,48 @@ export async function findSimilarProducts(
     .filter((p): p is CatalogProduct => p != null);
 
   return { products: ordered };
+}
+
+// ---------------------------------------------------------------------------
+// findSimilarProductsForTrail
+// ---------------------------------------------------------------------------
+
+const DEFAULT_TRAIL_SIMILAR_LIMIT = 6;
+const PER_PRODUCT_FETCH_LIMIT = 5;
+const MAX_PER_BRAND = 1;
+
+export async function findSimilarProductsForTrail(
+  productIds: string[],
+  limit = DEFAULT_TRAIL_SIMILAR_LIMIT,
+  deps: SearchDeps = defaultDeps(),
+): Promise<CatalogProduct[]> {
+  if (productIds.length === 0) return [];
+
+  const trailSet = new Set(productIds);
+  const results = await Promise.all(
+    productIds.map((id) => findSimilarProducts(id, PER_PRODUCT_FETCH_LIMIT, deps)),
+  );
+
+  const seen = new Set<string>();
+  const brandCount = new Map<string, number>();
+  const merged: CatalogProduct[] = [];
+
+  for (let round = 0; merged.length < limit; round++) {
+    let added = false;
+    for (const result of results) {
+      if (round >= result.products.length) continue;
+      const p = result.products[round];
+      if (trailSet.has(p.id) || seen.has(p.id)) continue;
+      const hits = brandCount.get(p.brandSlug) ?? 0;
+      if (hits >= MAX_PER_BRAND) continue;
+      seen.add(p.id);
+      brandCount.set(p.brandSlug, hits + 1);
+      merged.push(p);
+      added = true;
+      if (merged.length >= limit) break;
+    }
+    if (!added) break;
+  }
+
+  return merged;
 }

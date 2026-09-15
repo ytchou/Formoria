@@ -1044,7 +1044,6 @@ export type Database = {
           hidden_reason: string | null
           id: string
           is_demo: boolean
-          material: string[]
           model_faq_count: number
           name: string
           onboarding_dismissed_at: string | null
@@ -1088,7 +1087,6 @@ export type Database = {
           hidden_reason?: string | null
           id?: string
           is_demo?: boolean
-          material?: string[]
           model_faq_count?: number
           name: string
           onboarding_dismissed_at?: string | null
@@ -1132,7 +1130,6 @@ export type Database = {
           hidden_reason?: string | null
           id?: string
           is_demo?: boolean
-          material?: string[]
           model_faq_count?: number
           name?: string
           onboarding_dismissed_at?: string | null
@@ -1807,6 +1804,50 @@ export type Database = {
           {
             foreignKeyName: "curation_jobs_parent_job_id_fkey"
             columns: ["parent_job_id"]
+            isOneToOne: false
+            referencedRelation: "curation_jobs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      curation_phase_outputs: {
+        Row: {
+          created_at: string
+          id: string
+          job_id: string
+          output: Json | null
+          persisted_at: string | null
+          phase: string
+          status: string
+          target_id: string
+          target_type: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          job_id: string
+          output?: Json | null
+          persisted_at?: string | null
+          phase: string
+          status: string
+          target_id: string
+          target_type: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          job_id?: string
+          output?: Json | null
+          persisted_at?: string | null
+          phase?: string
+          status?: string
+          target_id?: string
+          target_type?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "curation_phase_outputs_job_id_fkey"
+            columns: ["job_id"]
             isOneToOne: false
             referencedRelation: "curation_jobs"
             referencedColumns: ["id"]
@@ -2580,6 +2621,69 @@ export type Database = {
           subscribed_at?: string
           unsubscribe_token?: string
           unsubscribed_at?: string | null
+        }
+        Relationships: []
+      }
+      ops_agent_requests: {
+        Row: {
+          card_ts: string | null
+          channel_id: string
+          correlation_id: string | null
+          cost_usd: number
+          created_at: string
+          expires_at: string | null
+          id: string
+          model_calls: number
+          operator_email: string | null
+          proposal: Json | null
+          result: Json | null
+          slack_event_id: string | null
+          slack_user_id: string
+          status: string
+          text: string
+          thread_ts: string
+          tool_calls: Json
+          updated_at: string
+        }
+        Insert: {
+          card_ts?: string | null
+          channel_id: string
+          correlation_id?: string | null
+          cost_usd?: number
+          created_at?: string
+          expires_at?: string | null
+          id?: string
+          model_calls?: number
+          operator_email?: string | null
+          proposal?: Json | null
+          result?: Json | null
+          slack_event_id?: string | null
+          slack_user_id: string
+          status: string
+          text: string
+          thread_ts: string
+          tool_calls?: Json
+          updated_at?: string
+        }
+        Update: {
+          card_ts?: string | null
+          channel_id?: string
+          correlation_id?: string | null
+          cost_usd?: number
+          created_at?: string
+          expires_at?: string | null
+          id?: string
+          model_calls?: number
+          operator_email?: string | null
+          proposal?: Json | null
+          result?: Json | null
+          slack_event_id?: string | null
+          slack_user_id?: string
+          status?: string
+          text?: string
+          thread_ts?: string
+          tool_calls?: Json
+          updated_at?: string
         }
         Relationships: []
       }
@@ -3433,6 +3537,7 @@ export type Database = {
         Args: { p_job_id: string; p_worker_token: string }
         Returns: boolean
       }
+      ops_agent_readonly_query: { Args: { p_sql: string }; Returns: Json }
       persist_curation_job_target_progress: {
         Args: {
           p_current_phase?: string
@@ -3661,7 +3766,6 @@ export type Database = {
       search_brand_page: {
         Args: {
           filter_categories?: string[]
-          filter_materials?: string[]
           filter_subcategories?: string[]
           filter_verification?: string
           page_offset?: number
@@ -3678,7 +3782,6 @@ export type Database = {
       search_brands: {
         Args: {
           filter_categories?: string[]
-          filter_materials?: string[]
           filter_status?: string
           filter_subcategories?: string[]
           filter_verification?: string

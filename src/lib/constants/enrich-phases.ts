@@ -101,7 +101,6 @@ export const SERP_PHASES = [
 export const ENRICH_LLM_PHASES = [
   "detect",
   "slugs",
-  "tags",
   "acquire",
   "descriptions",
   "names",
@@ -154,10 +153,10 @@ export const PHASE_DEPENDENCIES: Record<EnrichPhaseName, readonly EnrichPhaseNam
   site_identity: [],
   images: [],
   classify_images: [],
+  tags: [],
   // --- Active phases ---
   detect: [],
   slugs: ["detect"],
-  tags: ["descriptions"],
   acquire: ["detect"],
   names: ["detect", "acquire"],
   descriptions: ["acquire"],
@@ -174,6 +173,7 @@ export const PHASE_DEPENDENCIES: Record<EnrichPhaseName, readonly EnrichPhaseNam
  */
 export const DEFERRED_PHASES = [
   "clean",
+  "tags",
   "discover",
   "links",
   "site_identity",
@@ -209,7 +209,7 @@ export const CURATION_TASKS = {
   // Hidden aliases — DB compat for stored params.task values
   image: VISUAL_PHASES,
   product: VISUAL_PHASES,
-  editorial: ["descriptions", "faq", "tags", "stockists"],
+  editorial: ["descriptions", "faq", "stockists"],
   full: ENRICH_PHASES.filter(
     (phase) => !(DEFERRED_PHASES as readonly string[]).includes(phase),
   ),
@@ -323,7 +323,7 @@ const LEGACY_STEP_PHASES: Record<string, readonly EnrichPhaseName[]> = {
   // their work today — `products` alone is the self-insufficient scope
   // backfill.ts documents as the DEV-1469 bug.
   image: phasesForTask("visual"),
-  detail: ["descriptions", "faq", "products", "tags", "stockists"],
+  detail: ["descriptions", "faq", "products", "stockists"],
 };
 
 /**
@@ -357,3 +357,216 @@ export const IMAGE_ENRICH_PHASES = [
 export const TEXT_ENRICH_PHASES = ENRICH_PHASES.filter(
   (phase) => !(IMAGE_ENRICH_PHASES as readonly string[]).includes(phase),
 );
+
+// ---------------------------------------------------------------------------
+// Block vocabulary — coarser grouping for the DAG runner (DEV-1611)
+// ---------------------------------------------------------------------------
+
+/** Block names in execution order (the tiebreak source for topological sort). */
+export const BLOCK_NAMES = [
+  "gather",
+  "detect",
+  "acquire",
+  "names",
+  "editorial",
+  "products",
+  "persist",
+] as const;
+
+export type BlockName = (typeof BLOCK_NAMES)[number];
+
+/** Map each non-deferred phase to its owning block. */
+export const BLOCK_OF_PHASE: Record<
+  Exclude<EnrichPhaseName, (typeof DEFERRED_PHASES)[number]>,
+  BlockName
+> = {
+  detect: "detect",
+  slugs: "detect",
+  acquire: "acquire",
+  names: "names",
+  descriptions: "editorial",
+  stockists: "editorial",
+  faq: "editorial",
+  products: "products",
+};
+
+/**
+ * Block-level dependency edges derived from PHASE_DEPENDENCIES.
+ * For each phase edge a -> b (non-deferred), maps through BLOCK_OF_PHASE and
+ * drops same-block edges. `gather` has no deps; `persist` depends on every
+ * brand block.
+ */
+export const BLOCK_DEPENDENCIES: Record<BlockName, readonly BlockName[]> =
+  (() => {
+    const deps = new Map<BlockName, Set<BlockName>>();
+    for (const block of BLOCK_NAMES) deps.set(block, new Set());
+
+    for (const [phase, phaseDeps] of Object.entries(PHASE_DEPENDENCIES)) {
+      if (isDeferredPhase(phase)) continue;
+      const fromBlock =
+        BLOCK_OF_PHASE[
+          phase as Exclude<EnrichPhaseName, (typeof DEFERRED_PHASES)[number]>
+        ];
+      for (const dep of phaseDeps) {
+        if (isDeferredPhase(dep)) continue;
+        const toBlock =
+          BLOCK_OF_PHASE[
+            dep as Exclude<EnrichPhaseName, (typeof DEFERRED_PHASES)[number]>
+          ];
+        if (toBlock !== fromBlock) deps.get(fromBlock)!.add(toBlock);
+      }
+    }
+
+    // persist depends on every brand block
+    const brandBlocks: BlockName[] = [
+      "detect",
+      "acquire",
+      "names",
+      "editorial",
+      "products",
+    ];
+    for (const b of brandBlocks) deps.get("persist")!.add(b);
+
+    return Object.fromEntries(
+      BLOCK_NAMES.map((b) => [b, [...deps.get(b)!]] as const),
+    ) as Record<BlockName, readonly BlockName[]>;
+  })();
+
+/**
+ * Topological order of blocks (Kahn's algorithm, BLOCK_NAMES index as
+ * tiebreak). Expected: gather, detect, acquire, names, editorial, products,
+ * tags, persist.
+ */
+export const BLOCK_ORDER: BlockName[] = (() => {
+  const inDeg = new Map<BlockName, number>();
+  const adj = new Map<BlockName, BlockName[]>();
+  for (const b of BLOCK_NAMES) {
+    inDeg.set(b, 0);
+    adj.set(b, []);
+  }
+  for (const [block, deps] of Object.entries(BLOCK_DEPENDENCIES) as [
+    BlockName,
+    readonly BlockName[],
+  ][]) {
+    inDeg.set(block, deps.length);
+    for (const dep of deps) {
+      adj.get(dep)!.push(block);
+    }
+  }
+
+  const order: BlockName[] = [];
+  const queue: BlockName[] = BLOCK_NAMES.filter((b) => inDeg.get(b) === 0);
+
+  while (queue.length > 0) {
+    // Sort by BLOCK_NAMES index for deterministic tiebreak
+    queue.sort(
+      (a, b) => BLOCK_NAMES.indexOf(a) - BLOCK_NAMES.indexOf(b),
+    );
+    const current = queue.shift()!;
+    order.push(current);
+    for (const next of adj.get(current)!) {
+      const newDeg = inDeg.get(next)! - 1;
+      inDeg.set(next, newDeg);
+      if (newDeg === 0) queue.push(next);
+    }
+  }
+
+  return order;
+})();
+
+/**
+ * Map from MERGE_ORDER slot names (PhaseOutputSlots keys in types.ts) to block
+ * names. Used by the merge-order projection test to verify MERGE_ORDER respects
+ * BLOCK_ORDER.
+ */
+export const SLOT_BLOCK: Record<string, BlockName> = {
+  detect: "detect",
+  linkExpansion: "gather",
+  acquire: "acquire",
+  names: "names",
+  editorial: "editorial",
+  categoryDerivation: "editorial",
+  products: "products",
+};
+
+/**
+ * Known exceptions where MERGE_ORDER does not follow BLOCK_ORDER:
+ * `detect` (block: detect) appears before `linkExpansion` (block: gather) —
+ * both are wave-A slots whose keys never collide (slug vs link columns).
+ */
+export const MERGE_ORDER_EXCEPTIONS: ReadonlyArray<{
+  slot: string;
+  precedesSlot: string;
+  reason: string;
+}> = [
+  {
+    slot: "detect",
+    precedesSlot: "linkExpansion",
+    reason:
+      "wave-A slots whose keys never collide (slug vs link columns)",
+  },
+];
+
+/**
+ * Selectable expansion: every owned phase for the given blocks, in
+ * ENRICH_PHASES order. Includes `slugs` (owned by detect).
+ */
+export function phasesOfBlocks(
+  blocks: readonly BlockName[],
+): EnrichPhaseName[] {
+  const blockSet = new Set<BlockName>(blocks);
+  return ENRICH_PHASES.filter((phase) => {
+    if ((DEFERRED_PHASES as readonly string[]).includes(phase)) return false;
+    return blockSet.has(
+      BLOCK_OF_PHASE[
+        phase as Exclude<EnrichPhaseName, (typeof DEFERRED_PHASES)[number]>
+      ],
+    );
+  });
+}
+
+/**
+ * Log labels: same as phasesOfBlocks minus `slugs` (slugs is applied inside
+ * detect and never logged separately).
+ */
+export function phaseOrderForBlocks(
+  blocks: readonly BlockName[],
+): EnrichPhaseName[] {
+  return phasesOfBlocks(blocks).filter((p) => p !== "slugs");
+}
+
+/**
+ * Parsed retry scope passed from the admin UI or stored in job params.
+ * `block` identifies the DAG block to rerun; `mode` controls whether its
+ * upstream dependencies are included. `subPhase` narrows the editorial
+ * block to a single phase (descriptions, stockists, or faq).
+ */
+export type RetryParams = {
+  block: BlockName;
+  mode: "only" | "with_upstream";
+  subPhase?: "descriptions" | "stockists" | "faq";
+};
+
+/**
+ * Compute the phases to force for a retry request.
+ * - `only`: phasesOfBlocks([block]), or [subPhase] when subPhase present.
+ * - `with_upstream`: transitive closure over BLOCK_DEPENDENCIES then
+ *   phasesOfBlocks of the closure.
+ */
+export function forcePhasesForRetry(retry: RetryParams): EnrichPhaseName[] {
+  if (retry.mode === "only") {
+    if (retry.subPhase) return [retry.subPhase as EnrichPhaseName];
+    return phasesOfBlocks([retry.block]);
+  }
+  // with_upstream: transitive closure over BLOCK_DEPENDENCIES
+  const closure = new Set<BlockName>();
+  function walk(block: BlockName): void {
+    if (closure.has(block)) return;
+    closure.add(block);
+    for (const dep of BLOCK_DEPENDENCIES[block]) {
+      walk(dep);
+    }
+  }
+  walk(retry.block);
+  return phasesOfBlocks([...closure]);
+}

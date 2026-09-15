@@ -66,7 +66,6 @@ export type PublicBrandFaqContext = {
   subcategoriesEn: string[];
   foundingYear: number | null;
   reputationSummary?: ReputationSummary | null;
-  material?: string[];
   purchaseWebsite?: string | null;
   purchasePinkoi?: string | null;
   purchaseShopee?: string | null;

@@ -38,7 +38,16 @@ export function formatJobDuration(
   return `${Math.floor(seconds / 3600)}hr ${Math.floor((seconds % 3600) / 60)}min`;
 }
 
-export function jobTriggerLabel(trigger: CurationJob["trigger"]): string {
+export function jobTriggerLabel(
+  trigger: CurationJob["trigger"],
+  params?: { retry?: { block: string; mode: string; subPhase?: string } },
+): string {
+  if (params?.retry) {
+    const { retry } = params;
+    const label = retry.subPhase ?? retry.block;
+    const modeLabel = retry.mode.replace(/_/g, " ");
+    return `Retry ${label} (${modeLabel})`;
+  }
   return {
     admin: "Admin",
     cron: "Scheduled",

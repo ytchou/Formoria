@@ -14,20 +14,12 @@ type SubcategoryOption = {
   count: number;
 };
 
-type MaterialOption = {
-  value: string;
-  label: string;
-  count: number;
-};
-
 export type BrandFilterSidebarProps = {
   locale: string;
   activeCategory: string | null;
   allLabel: string;
   subcategoryOptions?: SubcategoryOption[];
   activeSubSlugs?: string[];
-  materialOptions?: MaterialOption[];
-  activeMaterials?: string[];
   totalCount: number;
 };
 
@@ -45,7 +37,7 @@ export function BrandFilterSidebar(props: BrandFilterSidebarProps) {
       labels={{
         title: t("title"),
         subcategory: t("subcategory"),
-        material: t("material"),
+        material: "",
       }}
       onCategorySelect={trackCategoryFilterApplied}
       onSubcategoryToggle={trackSubcategoryFilterApplied}
@@ -63,7 +55,7 @@ export function BrandFilterDrawer(props: BrandFilterSidebarProps) {
       labels={{
         title: t("title"),
         subcategory: t("subcategory"),
-        material: t("material"),
+        material: "",
       }}
       triggerLabel={t("trigger")}
       showResultsLabel={t("showResults", { count: props.totalCount })}

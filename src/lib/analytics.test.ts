@@ -343,6 +343,79 @@ describe('analytics', () => {
     expect(payload.degraded).toBe(true)
   })
 
+  it('trackProductSearchExecuted includes intent fields when passed', () => {
+    trackProductSearchExecuted('ceramic mug', 5, {
+      searchSource: 'discover_page',
+      degraded: false,
+      intentParsed: 'ok',
+      intentCategory: 'home',
+      intentSubcategory: 'mug',
+      intentMaterials: ['ceramic'],
+      intentCacheHit: false,
+      intentLatencyMs: 42,
+    })
+
+    expect(mockPostHogCapture).toHaveBeenCalledWith(ANALYTICS_EVENTS.PRODUCT_SEARCH_EXECUTED, {
+      query_length: 11,
+      result_count: 5,
+      has_results: true,
+      search_source: 'discover_page',
+      degraded: false,
+      search_term: 'ceramic mug',
+      intent_parsed: 'ok',
+      intent_category: 'home',
+      intent_subcategory: 'mug',
+      intent_materials: ['ceramic'],
+      intent_cache_hit: false,
+      intent_latency_ms: 42,
+    })
+  })
+
+  it('trackProductSearchExecuted omits intent fields when not provided', () => {
+    trackProductSearchExecuted('linen bag', 3, { searchSource: 'discover_page', degraded: false })
+
+    const payload = mockPostHogCapture.mock.calls[0]?.[1] as Record<string, unknown>
+    expect(payload).not.toHaveProperty('intent_parsed')
+    expect(payload).not.toHaveProperty('intent_category')
+    expect(payload).not.toHaveProperty('intent_subcategory')
+    expect(payload).not.toHaveProperty('intent_materials')
+    expect(payload).not.toHaveProperty('intent_cache_hit')
+    expect(payload).not.toHaveProperty('intent_latency_ms')
+    expect(payload).not.toHaveProperty('rpc_latency_ms')
+    expect(payload).not.toHaveProperty('embed_latency_ms')
+    // Core fields still present
+    expect(payload.query_length).toBe(9)
+    expect(payload.result_count).toBe(3)
+    expect(payload.search_source).toBe('discover_page')
+  })
+
+  it('trackProductSearchExecuted captures rpc_latency_ms and embed_latency_ms when provided', () => {
+    trackProductSearchExecuted('ceramic mug', 5, {
+      searchSource: 'discover_page',
+      degraded: false,
+      rpcLatencyMs: 41,
+      embedLatencyMs: 120,
+    })
+
+    const phPayload = mockPostHogCapture.mock.calls[0]?.[1] as Record<string, unknown>
+    expect(phPayload.rpc_latency_ms).toBe(41)
+    expect(phPayload.embed_latency_ms).toBe(120)
+
+    // GA payload does NOT include latency keys
+    const gaPayload = mockSendGAEvent.mock.calls[0]?.[2] as Record<string, unknown> | undefined
+    expect(gaPayload).toBeDefined()
+    expect(gaPayload).not.toHaveProperty('rpc_latency_ms')
+    expect(gaPayload).not.toHaveProperty('embed_latency_ms')
+  })
+
+  it('trackProductSearchExecuted omits latency keys when undefined', () => {
+    trackProductSearchExecuted('linen bag', 3, { searchSource: 'discover_page', degraded: false })
+
+    const payload = mockPostHogCapture.mock.calls[0]?.[1] as Record<string, unknown>
+    expect('rpc_latency_ms' in payload).toBe(false)
+    expect('embed_latency_ms' in payload).toBe(false)
+  })
+
   it('trackNotFoundCategoryClicked fires PostHog event', () => {
     trackNotFoundCategoryClicked('fashion', 0)
 

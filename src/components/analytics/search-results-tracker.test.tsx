@@ -203,4 +203,56 @@ describe('SearchResultsTracker', () => {
       degraded: false,
     })
   })
+
+  it('with trackerKind="product" passes intent props to trackProductSearchExecuted', () => {
+    render(
+      <SearchResultsTracker
+        query="陶瓷杯"
+        resultCount={8}
+        trackerKind="product"
+        searchSource="url"
+        degraded={false}
+        intentParsed="ok"
+        intentCategory="home"
+        intentSubcategory="mug"
+        intentMaterials={['ceramic']}
+        intentCacheHit={true}
+        intentLatencyMs={15}
+      />,
+    )
+    settle()
+
+    expect(trackProductSearchExecuted).toHaveBeenCalledExactlyOnceWith('陶瓷杯', 8, {
+      searchSource: 'url',
+      degraded: false,
+      intentParsed: 'ok',
+      intentCategory: 'home',
+      intentSubcategory: 'mug',
+      intentMaterials: ['ceramic'],
+      intentCacheHit: true,
+      intentLatencyMs: 15,
+    })
+  })
+
+  it('product tracker forwards rpcLatencyMs and embedLatencyMs', () => {
+    render(
+      <SearchResultsTracker
+        query="陶瓷杯"
+        resultCount={8}
+        trackerKind="product"
+        searchSource="discover_page"
+        degraded={false}
+        rpcLatencyMs={41}
+        embedLatencyMs={120}
+      />,
+    )
+    settle()
+
+    expect(trackProductSearchExecuted).toHaveBeenCalledExactlyOnceWith('陶瓷杯', 8, {
+      searchSource: 'discover_page',
+      degraded: false,
+      rpcLatencyMs: 41,
+      embedLatencyMs: 120,
+    })
+  })
 })

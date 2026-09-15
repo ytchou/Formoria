@@ -66,7 +66,8 @@
     "relatedStories": "Continue reading",
     "relatedTrails": "More styles",
     "derivedStories": "Related stories",
-    "derivedStoriesAriaLabel": "Related stories"
+    "derivedStoriesAriaLabel": "Related stories",
+    "exploreMore": "Explore More"
   },
   "products": {
     "metaTitle": "Products — Formoria",
@@ -219,7 +220,6 @@
       "trigger": "Filters",
       "all": "All",
       "category": "Category",
-      "material": "Material",
       "brandStatus": "Brand status",
       "appliedHint": "Select × on a tag to remove that filter.",
       "currentConditions": "Active filters",
@@ -229,7 +229,6 @@
       "activeSearch": "Search",
       "activeCategory": "Category",
       "activeSubcategory": "Subcategory",
-      "activeMaterial": "Material",
       "activeStatus": "Brand status",
       "removeFilter": "Remove {label}: {value}",
       "clearAll": "Clear all",
@@ -2757,7 +2756,10 @@
         "runLog": "Run Log",
         "downloadHtml": "Download HTML",
         "snapshot": "Snapshot",
-        "viewDetails": "View details"
+        "viewDetails": "View details",
+        "retryPhase": "Retry",
+        "retryOnly": "This step only",
+        "retryWithUpstream": "With upstream steps"
       },
       "status": {
         "dispatchFailed": "Dispatch failed",

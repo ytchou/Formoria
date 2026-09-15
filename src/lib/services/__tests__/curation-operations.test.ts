@@ -2,7 +2,6 @@ import { describe, expect, it, vi } from "vitest";
 import {
   applyChunkNameCleanup,
   mapWithConcurrency,
-  mergeEnrichPatches,
   mergeSubmissionEnrichedData,
   persistEnrichmentResults,
   routeSubmissionNamePatch,
@@ -559,23 +558,6 @@ describe("CurationConfig status filter", () => {
 
     const approved: CurationConfig = { dryRun: false, status: "approved" };
     expect(approved).toHaveProperty("status", "approved");
-  });
-});
-
-describe("mergeEnrichPatches", () => {
-  it("merges link and description patches into single update", () => {
-    const patches = {
-      links: { social_instagram: "https://www.instagram.com/mybrand/" },
-      descriptions: { description: "A new description for the brand" },
-    };
-    const merged = mergeEnrichPatches(patches);
-    expect(merged.social_instagram).toBe("https://www.instagram.com/mybrand/");
-    expect(merged.description).toBe("A new description for the brand");
-  });
-
-  it("returns empty object when no patches", () => {
-    const merged = mergeEnrichPatches({});
-    expect(Object.keys(merged)).toHaveLength(0);
   });
 });
 

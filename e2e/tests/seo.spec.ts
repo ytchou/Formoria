@@ -409,8 +409,6 @@ test.describe("SEO deep", () => {
   });
 
   // The only POSITIVE proof that the directory publishes structured data.
-  // `directory-material.spec.ts` asserts an ItemList block is ABSENT for an
-  // unknown material, which goes MORE green if ItemList disappears entirely.
   test("/brands (unfiltered) emits ItemList JSON-LD with itemListElement", async ({
     page,
   }) => {

@@ -392,6 +392,18 @@ check_health_vars() {
   fi
 }
 
+# ── Ops agent (warn-only) ────────────────────────────────────────────────────
+check_ops_agent_vars() {
+  if [ ! -f ".env.local" ]; then
+    return
+  fi
+  for var in SLACK_BOT_TOKEN SLACK_SIGNING_SECRET OPS_AGENT OPS_AGENT_OPERATORS OPS_AGENT_DAILY_CAP OPS_AGENT_GITHUB_TOKEN; do
+    if [ -z "${!var:-}" ] && ! grep -q "^${var}=." .env.local 2>/dev/null; then
+      echo "WARN: ${var} not set (optional — needed for the ops agent)"
+    fi
+  done
+}
+
 # ── Run checks ───────────────────────────────────────────────────────────────
 check_node
 check_pnpm
@@ -400,6 +412,7 @@ check_env
 check_ai_results_phase
 check_e2e "$@"
 check_health_vars "$@"
+check_ops_agent_vars
 
 echo ""
 if [ $ERRORS -eq 0 ]; then

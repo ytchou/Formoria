@@ -5,6 +5,7 @@ import {
   discoverMetadataFor,
   hrefWithoutQuery,
   sortOptionsFor,
+  QUALIFYING_MATERIAL_SLUGS,
 } from "../discover-search-params";
 
 describe("parseDiscoverQuery", () => {
@@ -59,6 +60,57 @@ describe("discoverMetadataFor", () => {
     });
     expect(noQWithCategory.robots).toBeNull();
     expect(noQWithCategory.canonicalPath).toBe("/discover?category=home");
+  });
+
+  it("includes a single qualifying material in the canonical", () => {
+    const result = discoverMetadataFor({
+      query: null,
+      category: null,
+      materials: ["ceramic"],
+    });
+    expect(result.canonicalPath).toContain("material=ceramic");
+    expect(result.robots).toBeNull();
+  });
+
+  it("includes material alongside category in the canonical", () => {
+    const result = discoverMetadataFor({
+      query: null,
+      category: "home",
+      materials: ["wood"],
+    });
+    expect(result.canonicalPath).toContain("category=home");
+    expect(result.canonicalPath).toContain("material=wood");
+    expect(result.robots).toBeNull();
+  });
+
+  it("sets noindex for a below-threshold material", () => {
+    const result = discoverMetadataFor({
+      query: null,
+      category: null,
+      materials: ["bamboo"],
+    });
+    expect(result.robots).toEqual({ index: false, follow: true });
+    expect(result.canonicalPath).not.toContain("material=");
+  });
+
+  it("sets noindex for multiple materials (combinatorial)", () => {
+    const result = discoverMetadataFor({
+      query: null,
+      category: null,
+      materials: ["ceramic", "wood"],
+    });
+    expect(result.robots).toEqual({ index: false, follow: true });
+    expect(result.canonicalPath).not.toContain("material=");
+  });
+
+  it("QUALIFYING_MATERIAL_SLUGS contains the expected 9 slugs", () => {
+    expect(QUALIFYING_MATERIAL_SLUGS.size).toBe(9);
+    for (const slug of ["ceramic", "wood", "textile", "glass", "metal", "wool", "leather", "paper", "stone"]) {
+      expect(QUALIFYING_MATERIAL_SLUGS.has(slug)).toBe(true);
+    }
+    expect(QUALIFYING_MATERIAL_SLUGS.has("bamboo")).toBe(false);
+    expect(QUALIFYING_MATERIAL_SLUGS.has("rattan")).toBe(false);
+    expect(QUALIFYING_MATERIAL_SLUGS.has("lacquer")).toBe(false);
   });
 });
 

@@ -11,7 +11,7 @@ import { CORRECTION_FIELDS } from "@/lib/services/brand-corrections";
  *
  * `z.enum` is fed the service's own vocabulary rather than a second hand-kept
  * tuple. The tuple it replaces was built with an `as unknown as` assertion, so
- * TypeScript could not report the member it forgot: `material` shipped in the
+ * TypeScript could not report the member it forgot: a field could ship in the
  * type, the service, the RPC and the DB CHECK while this gate still rejected
  * it, making the whole path unreachable from its only caller.
  */

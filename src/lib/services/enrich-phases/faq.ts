@@ -247,7 +247,6 @@ export function contextFacts(ctx: FaqBrandContext): string {
     `結構化品牌事實：產品類型=${brand.categorySlug ?? "無"}；產品標籤=${tags.join("、") || "無"}；成立年份=${brand.foundingYear ?? "無"}；城市=${ctx.cityLabel ?? brand.city ?? "無"}`,
     `聲譽摘要：${brand.reputationSummary?.text ?? brand.reputationSummary?.textEn ?? "無"}`,
     `同類品牌比較資料：${ctx.peerStats ? JSON.stringify(ctx.peerStats) : "無"}`,
-    `材料=${brand.material?.length ? brand.material.join("、") : "無"}`,
     `通路據點=${brand.stockistCount != null && brand.stockistCount > 0 ? `${brand.stockistCount}處` : "無"}`,
   ].join("\n");
 }
