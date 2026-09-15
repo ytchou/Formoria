@@ -2,7 +2,6 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { createEventsHandler, type EventsRouteDeps } from "./route";
 
 const TEST_SECRET = "test_signing_secret";
-const TEST_CHANNEL = "C_OPS";
 const TEST_OPERATORS = "U_OP1:op@formoria.com";
 
 function makeDeps(overrides: Partial<EventsRouteDeps> = {}): EventsRouteDeps {
@@ -23,7 +22,6 @@ function makeDeps(overrides: Partial<EventsRouteDeps> = {}): EventsRouteDeps {
       SLACK_SIGNING_SECRET: TEST_SECRET,
       OPS_AGENT: "on",
       OPS_AGENT_OPERATORS: TEST_OPERATORS,
-      OPS_AGENT_CHANNEL_ID: TEST_CHANNEL,
       OPS_AGENT_DAILY_CAP: "50",
     },
     ...overrides,
@@ -37,7 +35,7 @@ function makeEventBody(overrides: Record<string, unknown> = {}) {
     event: {
       type: "app_mention",
       user: "U_OP1",
-      channel: TEST_CHANNEL,
+      channel: "C_OPS",
       ts: "1234.5678",
       text: "<@U0BOT> health status?",
       ...overrides,
@@ -92,7 +90,7 @@ describe("/api/slack/events", () => {
     const nonMention = JSON.stringify({
       type: "event_callback",
       event_id: "evt-2",
-      event: { type: "message", user: "U_OP1", channel: TEST_CHANNEL, ts: "1234.5679" },
+      event: { type: "message", user: "U_OP1", channel: "C_OPS", ts: "1234.5679" },
     });
     const res2 = await handler(post(nonMention));
     expect(res2.status).toBe(200);

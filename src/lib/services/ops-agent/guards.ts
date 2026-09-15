@@ -42,39 +42,31 @@ export function parseOperators(envValue: string): OperatorMap {
 export type GuardEnv = {
   OPS_AGENT?: string;
   OPS_AGENT_OPERATORS?: string;
-  OPS_AGENT_CHANNEL_ID?: string;
 };
 
 export type GuardInput = {
   env: GuardEnv;
   slackUserId: string;
-  channelId: string;
 };
 
 export type GuardResult =
   | { ok: true; operatorEmail: string }
-  | { ok: false; reason: "off" | "not_operator" | "wrong_channel" };
+  | { ok: false; reason: "off" | "not_operator" };
 
 /**
- * Checks kill switch, operator allowlist, and channel.
- * Returns `{ok: true, operatorEmail}` when all guards pass.
+ * Checks kill switch and operator allowlist.
+ * The bot responds in any channel the operator mentions it from —
+ * the operator allowlist is the access control.
  */
 export function evaluateGuards(input: GuardInput): GuardResult {
-  // Kill switch: OPS_AGENT must be explicitly "on"
   if (input.env.OPS_AGENT !== "on") {
     return { ok: false, reason: "off" };
   }
 
-  // Operator allowlist
   const operators = parseOperators(input.env.OPS_AGENT_OPERATORS ?? "");
   const operatorEmail = operators.get(input.slackUserId);
   if (!operatorEmail) {
     return { ok: false, reason: "not_operator" };
-  }
-
-  // Channel check
-  if (input.channelId !== input.env.OPS_AGENT_CHANNEL_ID) {
-    return { ok: false, reason: "wrong_channel" };
   }
 
   return { ok: true, operatorEmail };

@@ -85,10 +85,8 @@ export function createEventsHandler(deps: EventsRouteDeps = defaultDeps) {
       env: {
         OPS_AGENT: deps.env.OPS_AGENT,
         OPS_AGENT_OPERATORS: deps.env.OPS_AGENT_OPERATORS,
-        OPS_AGENT_CHANNEL_ID: deps.env.OPS_AGENT_CHANNEL_ID,
       },
       slackUserId,
-      channelId,
     });
 
     if (!guardResult.ok) {
