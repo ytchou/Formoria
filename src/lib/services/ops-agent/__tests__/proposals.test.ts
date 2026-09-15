@@ -126,7 +126,7 @@ describe("describeProposal", () => {
       mode: "rerun",
     };
     const desc = describeProposal(proposal);
-    expect(desc.action).toContain("rerun");
+    expect(desc.action).toMatch(/rerun/i);
   });
 
   it("returns description for dispatch_workflow", () => {

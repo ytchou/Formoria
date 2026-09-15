@@ -41,7 +41,7 @@ function makeDeps(
     transitionRequest: vi.fn().mockResolvedValue(makeRow()),
     executeProposal: vi.fn().mockResolvedValue({ ok: true, result: { jobId: "j-1" } }),
     describeProposal: vi.fn().mockReturnValue({ action: "Refresh brand", steps: "…", why: "…", cost: "…" }),
-    scheduleAfter: vi.fn((fn: () => Promise<void>) => { fn(); }),
+    scheduleAfter: vi.fn(async (fn: () => Promise<void>) => { await fn(); }),
     env: { SLACK_SIGNING_SECRET: TEST_SECRET },
     ...overrides,
   };

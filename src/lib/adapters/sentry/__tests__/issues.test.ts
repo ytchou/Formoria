@@ -75,7 +75,7 @@ describe("listIssues", () => {
   it("list_issues_clamps_window", async () => {
     const fetchMock = vi
       .spyOn(globalThis, "fetch")
-      .mockResolvedValue(Response.json([]));
+      .mockImplementation(() => Promise.resolve(Response.json([])));
 
     // Below minimum: clamp to 1
     await listIssues(0);
