@@ -25,6 +25,12 @@ test.describe('Admin curation jobs deep', () => {
   let targetId: string;
   let phaseError: string;
 
+  let retryJobId: string;
+  let retryTargetId: string;
+  let retryBrandName: string;
+  let retryBrandSlug: string;
+  let retryChildJobId: string | undefined;
+
   test.beforeAll(async () => {
     supabase = createClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -139,23 +145,114 @@ test.describe('Admin curation jobs deep', () => {
     if (jobError) {
       throw new Error(`curation job completion seed failed: ${jobError.message}`);
     }
+
+    // --- Seed a second completed job for the retry-phase test ---
+    const retrySuffix = `${Date.now()}-${randomUUID().slice(0, 8)}`;
+    retryBrandName = `[E2E-TEST] Retry phase ${retrySuffix}`;
+    retryBrandSlug = `e2e-retry-phase-${retrySuffix}`;
+    retryTargetId = randomUUID();
+
+    const { error: retrySubmissionError } = await supabase
+      .from('brand_submissions')
+      .insert({
+        id: retryTargetId,
+        brand_name: retryBrandName,
+        submitter_email: 'e2e-retry-phase@test.example',
+        status: 'pending',
+        intent: 'recommend',
+      });
+    if (retrySubmissionError) {
+      throw new Error(`retry submission seed failed: ${retrySubmissionError.message}`);
+    }
+
+    const { data: retryId, error: retryEnqueueError } = await supabase.rpc('enqueue_curation_job', {
+      p_operation: 'enrich',
+      p_params: { target: 'submissions', submissionIds: [retryTargetId] },
+      p_dry_run: false,
+      p_started_by: 'e2e-retry-phase',
+      p_trigger: 'admin',
+      p_parent_job_id: null,
+      p_attempt: 1,
+      p_scheduled_for: null,
+      p_run_after: '2099-01-01T00:00:00.000Z',
+      p_dedupe_key: `e2e-retry-phase:${randomUUID()}`,
+      p_targets: [
+        {
+          target_type: 'submission',
+          target_id: retryTargetId,
+          brand_name: retryBrandName,
+          brand_slug: retryBrandSlug,
+        },
+      ],
+    });
+    if (retryEnqueueError || !retryId) {
+      throw new Error(`retry job seed failed: ${retryEnqueueError?.message ?? 'missing job id'}`);
+    }
+    retryJobId = retryId;
+
+    const retryCompletedAt = new Date().toISOString();
+    const retryStartedAt = new Date(Date.now() - 2_000).toISOString();
+    const { error: retryTargetError } = await supabase
+      .from('curation_job_targets')
+      .update({
+        status: 'failed',
+        current_phase: 'faq',
+        phase_results: [
+          { phase: 'descriptions', status: 'succeeded', changedFields: ['description'], durationMs: 800 },
+          { phase: 'faq', status: 'failed', changedFields: [], durationMs: 1200, error: 'FAQ generation timed out' },
+        ],
+        changed_fields: ['description'],
+        error: 'FAQ generation timed out',
+        started_at: retryStartedAt,
+        completed_at: retryCompletedAt,
+        duration_ms: 2000,
+      })
+      .eq('job_id', retryJobId)
+      .eq('target_id', retryTargetId);
+    if (retryTargetError) {
+      throw new Error(`retry target seed failed: ${retryTargetError.message}`);
+    }
+
+    const { error: retryJobError } = await supabase
+      .from('curation_jobs')
+      .update({
+        status: 'completed',
+        started_at: retryStartedAt,
+        completed_at: retryCompletedAt,
+        target_total: 1,
+        succeeded_count: 0,
+        skipped_count: 0,
+        failed_count: 1,
+        result: { success: 0, skipped: 0, failed: 1 },
+      })
+      .eq('id', retryJobId);
+    if (retryJobError) {
+      throw new Error(`retry job completion seed failed: ${retryJobError.message}`);
+    }
   });
 
   test.afterAll(async () => {
     if (!supabase || !parentJobId) return;
 
-    const { data: childJobs, error: childLookupError } = await supabase
-      .from('curation_jobs')
-      .select('id')
-      .eq('parent_job_id', parentJobId);
-    if (childLookupError) {
-      throw new Error(`[e2e-cleanup] child job lookup failed: ${childLookupError.message}`);
+    // Collect all child jobs from both parent and retry parent
+    const parentIds = [parentJobId, retryJobId].filter(Boolean);
+    const allChildJobs: { id: string }[] = [];
+    for (const pid of parentIds) {
+      const { data, error } = await supabase
+        .from('curation_jobs')
+        .select('id')
+        .eq('parent_job_id', pid);
+      if (error) {
+        throw new Error(`[e2e-cleanup] child job lookup failed: ${error.message}`);
+      }
+      allChildJobs.push(...(data ?? []));
     }
 
     const childIds = Array.from(
       new Set([
-        ...(childJobs ?? []).map((job: { id: string }) => job.id),
+        ...allChildJobs.map((job: { id: string }) => job.id),
         ...(childJobId ? [childJobId] : []),
+        ...(retryChildJobId ? [retryChildJobId] : []),
       ]),
     );
     if (cancellableJobId) childIds.push(cancellableJobId);
@@ -169,21 +266,25 @@ test.describe('Admin curation jobs deep', () => {
       }
     }
 
-    const { error: parentDeleteError } = await supabase
-      .from('curation_jobs')
-      .delete()
-      .eq('id', parentJobId);
-    if (parentDeleteError) {
-      throw new Error(`[e2e-cleanup] parent job deletion failed: ${parentDeleteError.message}`);
+    // Delete parent jobs
+    for (const pid of parentIds) {
+      const { error } = await supabase
+        .from('curation_jobs')
+        .delete()
+        .eq('id', pid);
+      if (error) {
+        throw new Error(`[e2e-cleanup] parent job deletion failed: ${error.message}`);
+      }
     }
 
-    if (targetId) {
-      const { error: submissionDeleteError } = await supabase
+    // Delete submissions
+    for (const sid of [targetId, retryTargetId].filter(Boolean)) {
+      const { error } = await supabase
         .from('brand_submissions')
         .delete()
-        .eq('id', targetId);
-      if (submissionDeleteError) {
-        throw new Error(`[e2e-cleanup] brand submission deletion failed: ${submissionDeleteError.message}`);
+        .eq('id', sid);
+      if (error) {
+        throw new Error(`[e2e-cleanup] brand submission deletion failed: ${error.message}`);
       }
     }
   });
@@ -284,5 +385,68 @@ test.describe('Admin curation jobs deep', () => {
     await expect(childDetailsToggle).toHaveCount(1);
     await childDetailsToggle.click();
     await expect(childTargetRow.locator('details')).toContainText(brandSlug);
+  });
+
+  test('retries one phase for one target from the phase log', async ({ adminPage }) => {
+    test.setTimeout(BUDGET.TEST.ADMIN);
+    await adminPage.goto(`/admin/jobs/${retryJobId}`);
+    await expect(adminPage.getByRole('heading', { name: 'Job Detail' })).toBeVisible({ timeout: BUDGET.NAVIGATION });
+
+    const targetRow = adminPage.locator('tbody tr').filter({ hasText: retryBrandName });
+    await expect(targetRow).toBeVisible();
+
+    const detailsToggle = targetRow.getByText('View details', { exact: true });
+    await detailsToggle.click();
+    const details = targetRow.locator('details');
+    await expect(details).toHaveAttribute('open', '');
+
+    // Find the faq phase row and click Retry
+    const faqPhaseItem = details.locator('li').filter({ hasText: 'faq' });
+    await expect(faqPhaseItem).toBeVisible();
+    const retryButton = faqPhaseItem.getByRole('button', { name: 'Retry' });
+    await expect(retryButton).toBeVisible();
+    await retryButton.click();
+
+    // Choose "This step only" from the dropdown menu
+    const retryOnlyItem = adminPage.getByRole('menuitem', { name: 'This step only' });
+    await expect(retryOnlyItem).toBeVisible({ timeout: BUDGET.INTERACTIVE });
+    await retryOnlyItem.click();
+
+    // Wait for navigation to the child retry job
+    await expect
+      .poll(
+        () => new URL(adminPage.url()).pathname,
+        POLL.NAVIGATION,
+      )
+      .toMatch(new RegExp(`^/admin/jobs/(?!${retryJobId}$)[^/]+$`));
+
+    const retryPath = new URL(adminPage.url()).pathname;
+    const retryMatch = /^\/admin\/jobs\/([^/]+)$/.exec(retryPath);
+    const retryId = retryMatch?.[1];
+    if (!retryId) throw new Error(`Unable to identify retry job from URL: ${retryPath}`);
+    retryChildJobId = retryId;
+    expect(retryChildJobId).not.toBe(retryJobId);
+
+    // Verify trigger label, lineage, and DB params
+    await expect(async () => {
+      await adminPage.reload({});
+      const triggerField = adminPage.getByText('Trigger', { exact: true }).locator('..');
+      await expect(triggerField).toContainText('Retry faq (only)');
+      const lineageLink = adminPage.getByRole('link', {
+        name: 'Previous job (attempt 1)',
+        exact: true,
+      });
+      await expect(lineageLink).toHaveAttribute('href', `/admin/jobs/${retryJobId}`);
+    }).toPass(POLL.DB);
+
+    // Verify the stored retry params in the database
+    const { data: retryJob, error: retryJobError } = await supabase
+      .from('curation_jobs')
+      .select('params')
+      .eq('id', retryChildJobId)
+      .single();
+    if (retryJobError) throw new Error(`retry job lookup failed: ${retryJobError.message}`);
+    const params = retryJob.params as { retry?: { block: string; mode: string; subPhase?: string } };
+    expect(params.retry).toEqual({ block: 'editorial', mode: 'only', subPhase: 'faq' });
   });
 });

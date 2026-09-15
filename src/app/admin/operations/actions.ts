@@ -6,6 +6,7 @@ import { requireAdminAction } from "@/lib/auth/require-admin";
 import {
   cancelCurationJob,
   enqueueAdminCurationJob,
+  enqueueBlockRetry,
   enqueueCurationResume,
   enqueueManualRerun,
   getCurationJob,
@@ -18,6 +19,7 @@ import {
   type CurationJobDetail,
   type CurationJobParams,
 } from "@/lib/services/curation-jobs";
+import type { RetryParams } from "@/lib/constants/enrich-phases";
 import {
   dispatchCurationJob,
   sanitizeDispatchError,
@@ -180,6 +182,36 @@ export async function resumeCurationJobAction(
       );
     } catch (error) {
       console.error("[admin:resumeCurationJobAction]", error);
+      return {
+        error:
+          error instanceof Error ? error.message : "An unexpected error occurred",
+      };
+    }
+  });
+}
+
+export async function retryPhaseAction(
+  jobId: string,
+  targetId: string,
+  retry: RetryParams,
+): Promise<QueuedJobResult | { error: string }> {
+  return runWithAuditContext({}, async () => {
+    try {
+      const auth = await requireAdminAction();
+      if ("error" in auth) return auth;
+
+      const job = await enqueueBlockRetry(
+        jobId,
+        targetId,
+        retry,
+        auth.user.email ?? auth.user.id,
+      );
+      revalidatePath(routes.admin.jobs());
+      revalidatePath(routes.admin.job(jobId));
+
+      return dispatchQueuedJob(job.id, "Retry job created.");
+    } catch (error) {
+      console.error("[admin:retryPhaseAction]", error);
       return {
         error:
           error instanceof Error ? error.message : "An unexpected error occurred",
