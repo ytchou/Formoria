@@ -125,6 +125,7 @@ describe("/api/slack/interactions", () => {
 
   it("confirm transitions then schedules execution", async () => {
     const res = await handler(post(makePayload("ops_confirm")));
+    await new Promise((r) => setTimeout(r, 0));
     expect(res.status).toBe(200);
     expect(deps.transitionRequest).toHaveBeenCalledWith(
       "req-1",
