@@ -168,7 +168,6 @@ export function notGeneric(): FaqValidator {
     const brand = ctx.brand.brand;
     // Count evidence signals available
     const signals = [
-      (brand.material?.length ?? 0) > 0,
       brand.foundingYear != null,
       (brand.city?.trim().length ?? 0) > 0,
       (brand.purchaseWebsite?.trim().length ?? 0) > 0,
@@ -208,14 +207,11 @@ export function notGeneric(): FaqValidator {
       );
     }
 
-    // Check for brand-specific tokens: years, material slugs, named products,
+    // Check for brand-specific tokens: years, named products,
     // URLs, channel names, place names
     const hasYear = /\b(?:19|20)\d{2}\b/.test(stripped);
-    const hasMaterial = (brand.material ?? []).some((m) =>
-      stripped.toLowerCase().includes(m.toLowerCase()),
-    );
     const hasUrl = /https?:\/\//.test(stripped);
-    const hasSpecificClaim = hasYear || hasMaterial || hasUrl;
+    const hasSpecificClaim = hasYear || hasUrl;
 
     // Also check: after stripping, are there enough substantive tokens?
     const substantiveTokens = tokens(stripped);

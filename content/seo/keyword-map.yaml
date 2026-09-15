@@ -2360,6 +2360,175 @@ clusters:
   indexability: index
   locale: zh-TW
   notes: The first Discovery Trail pilot. Its URL owns the small-space reading-corner cluster while the editorial slate and governance evidence are being completed.
+# ---------------------------------------------------------------------------
+# Product material clusters (DEV-1726)
+# ---------------------------------------------------------------------------
+# 9 qualifying materials with ≥15 products in applicable L1 categories
+# (home, fashion, bags-accessories, jewelry, stationery), counted 2026-09-14.
+# brand_count is 0 because these are product filter pages, not brand directory
+# pages; the qualifying threshold is a product count (≥15).
+- id: material-ceramic
+  primary_keyword: 台灣陶瓷
+  secondary_keywords:
+  - 台灣陶瓷品牌
+  search_intent: commercial
+  page_type: directory
+  target_url: /discover?material=ceramic
+  target_status: live
+  brand_count: 0
+  data_quality: thin
+  intent_fit: 2
+  differentiation: 2
+  priority: P3
+  eligibility: launch
+  composite: none
+  content_requirement: Product grid filtered by material with canonical including the material parameter.
+  indexability: index
+  locale: zh-TW
+- id: material-wood
+  primary_keyword: 台灣木製品
+  secondary_keywords:
+  - 台灣木作品牌
+  search_intent: commercial
+  page_type: directory
+  target_url: /discover?material=wood
+  target_status: live
+  brand_count: 0
+  data_quality: thin
+  intent_fit: 2
+  differentiation: 2
+  priority: P3
+  eligibility: launch
+  composite: none
+  content_requirement: Product grid filtered by material with canonical including the material parameter.
+  indexability: index
+  locale: zh-TW
+- id: material-textile
+  primary_keyword: 台灣織品
+  secondary_keywords:
+  - 台灣布製品
+  search_intent: commercial
+  page_type: directory
+  target_url: /discover?material=textile
+  target_status: live
+  brand_count: 0
+  data_quality: thin
+  intent_fit: 2
+  differentiation: 2
+  priority: P3
+  eligibility: launch
+  composite: none
+  content_requirement: Product grid filtered by material with canonical including the material parameter.
+  indexability: index
+  locale: zh-TW
+- id: material-glass
+  primary_keyword: 台灣玻璃
+  secondary_keywords:
+  - 台灣玻璃品牌
+  search_intent: commercial
+  page_type: directory
+  target_url: /discover?material=glass
+  target_status: live
+  brand_count: 0
+  data_quality: thin
+  intent_fit: 2
+  differentiation: 2
+  priority: P3
+  eligibility: launch
+  composite: none
+  content_requirement: Product grid filtered by material with canonical including the material parameter.
+  indexability: index
+  locale: zh-TW
+- id: material-metal
+  primary_keyword: 台灣金屬
+  secondary_keywords:
+  - 台灣金屬品牌
+  search_intent: commercial
+  page_type: directory
+  target_url: /discover?material=metal
+  target_status: live
+  brand_count: 0
+  data_quality: thin
+  intent_fit: 2
+  differentiation: 2
+  priority: P3
+  eligibility: launch
+  composite: none
+  content_requirement: Product grid filtered by material with canonical including the material parameter.
+  indexability: index
+  locale: zh-TW
+- id: material-wool
+  primary_keyword: 台灣羊毛
+  secondary_keywords:
+  - 台灣羊毛品牌
+  search_intent: commercial
+  page_type: directory
+  target_url: /discover?material=wool
+  target_status: live
+  brand_count: 0
+  data_quality: thin
+  intent_fit: 2
+  differentiation: 2
+  priority: P3
+  eligibility: launch
+  composite: none
+  content_requirement: Product grid filtered by material with canonical including the material parameter.
+  indexability: index
+  locale: zh-TW
+- id: material-leather
+  primary_keyword: 台灣皮革
+  secondary_keywords:
+  - 台灣皮革品牌
+  search_intent: commercial
+  page_type: directory
+  target_url: /discover?material=leather
+  target_status: live
+  brand_count: 0
+  data_quality: thin
+  intent_fit: 2
+  differentiation: 2
+  priority: P3
+  eligibility: launch
+  composite: none
+  content_requirement: Product grid filtered by material with canonical including the material parameter.
+  indexability: index
+  locale: zh-TW
+- id: material-paper
+  primary_keyword: 台灣紙品
+  secondary_keywords:
+  - 台灣紙製品
+  search_intent: commercial
+  page_type: directory
+  target_url: /discover?material=paper
+  target_status: live
+  brand_count: 0
+  data_quality: thin
+  intent_fit: 2
+  differentiation: 2
+  priority: P3
+  eligibility: launch
+  composite: none
+  content_requirement: Product grid filtered by material with canonical including the material parameter.
+  indexability: index
+  locale: zh-TW
+- id: material-stone
+  primary_keyword: 台灣石材
+  secondary_keywords:
+  - 台灣石製品
+  search_intent: commercial
+  page_type: directory
+  target_url: /discover?material=stone
+  target_status: live
+  brand_count: 0
+  data_quality: thin
+  intent_fit: 2
+  differentiation: 2
+  priority: P3
+  eligibility: launch
+  composite: none
+  content_requirement: Product grid filtered by material with canonical including the material parameter.
+  indexability: index
+  locale: zh-TW
 unmapped_backlog:
 - slug: hair-care
   brand_count: 14

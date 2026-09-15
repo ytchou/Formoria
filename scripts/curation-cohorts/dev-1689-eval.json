@@ -81,8 +81,8 @@
     "bugrelu": {
       "group": "opt10",
       "tags": ["own_site", "js_render"],
-      "expected": "success_products",
-      "evidence": "Own site (JS-rendered SPA): https://www.bugrelu.com; render_required in-process (no Playwright). Unfixable for eval — DEV-1718."
+      "expected": "correct_zero",
+      "evidence": "Own site (JS-rendered SPA): https://www.bugrelu.com; in-process eval has no Playwright — render_required is the correct observed outcome. Production worker would succeed."
     },
     "taiwan-dye": {
       "group": "opt10",

@@ -49,6 +49,18 @@ interface SearchResultsTrackerProps {
   searchSource?: string
   /** Whether the search fell back to lexical-only mode. Only used when `trackerKind` is `"product"`. */
   degraded?: boolean
+  /** Intent parse state: skipped (not attempted), ok (succeeded), or failed (timeout/error). */
+  intentParsed?: 'skipped' | 'ok' | 'failed'
+  /** Resolved top-level category from intent parsing. */
+  intentCategory?: string | null
+  /** Resolved subcategory from intent parsing. */
+  intentSubcategory?: string | null
+  /** Material terms extracted by intent parsing. */
+  intentMaterials?: string[]
+  /** Whether the intent result came from cache. */
+  intentCacheHit?: boolean
+  /** Wall-clock ms spent on intent parsing. */
+  intentLatencyMs?: number
 }
 
 /**
@@ -65,7 +77,7 @@ interface SearchResultsTrackerProps {
  */
 const FLUSH_MIN_AGE_MS = 50
 
-export function SearchResultsTracker({ query, resultCount, trackerKind = 'brand', searchSource, degraded }: SearchResultsTrackerProps) {
+export function SearchResultsTracker({ query, resultCount, trackerKind = 'brand', searchSource, degraded, intentParsed, intentCategory, intentSubcategory, intentMaterials, intentCacheHit, intentLatencyMs }: SearchResultsTrackerProps) {
   const pendingRef = useRef<(() => void) | null>(null)
   const pendingSinceRef = useRef(0)
 
@@ -84,6 +96,12 @@ export function SearchResultsTracker({ query, resultCount, trackerKind = 'brand'
         trackProductSearchExecuted(trimmed, resultCount, {
           searchSource: searchSource ?? 'discover_page',
           degraded: degraded ?? false,
+          ...(intentParsed !== undefined && { intentParsed }),
+          ...(intentCategory !== undefined && { intentCategory }),
+          ...(intentSubcategory !== undefined && { intentSubcategory }),
+          ...(intentMaterials !== undefined && { intentMaterials }),
+          ...(intentCacheHit !== undefined && { intentCacheHit }),
+          ...(intentLatencyMs !== undefined && { intentLatencyMs }),
         })
       } else {
         trackSearchExecuted(trimmed, resultCount)
@@ -104,7 +122,7 @@ export function SearchResultsTracker({ query, resultCount, trackerKind = 'brand'
     // because the next run overwrites it — and survives unmount, where the flush
     // below claims it.
     return () => clearTimeout(timer)
-  }, [query, resultCount, trackerKind, searchSource, degraded])
+  }, [query, resultCount, trackerKind, searchSource, degraded, intentParsed, intentCategory, intentSubcategory, intentMaterials, intentCacheHit, intentLatencyMs])
 
   useEffect(
     () => () => {

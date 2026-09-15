@@ -39,7 +39,6 @@ function urlState(overrides: Partial<DirectoryUrlStateInput> = {}) {
     categorySlugs: [],
     subcategorySlugs: [],
     search: "",
-    materials: [],
     sort: "random",
     ...overrides,
   });
@@ -85,21 +84,6 @@ describe("directoryTaxonomyHref", () => {
     );
   });
 
-  it("material_chip_survives_removing_a_taxonomy_chip", () => {
-    const state = urlState({
-      category: BAGS,
-      subcategory: BACKPACKS,
-      categorySlugs: [BAGS.slug],
-      subcategorySlugs: [BACKPACKS.slug],
-      materials: ["ceramic"],
-    });
-
-    expect(state.normalizedParams.get("material")).toBe("ceramic");
-    expect(directoryTaxonomyHref(state, [BAGS.slug], [])).toBe(
-      "/brands?material=ceramic&category=bags-accessories",
-    );
-  });
-
   it("removes the category chip to the unfiltered directory on an L1 route", () => {
     const home = categoryFixture("home");
     const state = urlState({ category: home, categorySlugs: [home.slug] });
@@ -128,12 +112,10 @@ describe("buildDirectoryUrlState", () => {
   it("carries every orthogonal facet, and omits the defaults", () => {
     const state = urlState({
       search: "tote",
-      materials: ["ceramic"],
       sort: "newest",
     });
 
     expect(state.normalizedParams.get("search")).toBe("tote");
-    expect(state.normalizedParams.get("material")).toBe("ceramic");
     expect(state.normalizedParams.get("sort")).toBe("newest");
     expect(urlState().normalizedParams.toString()).toBe("");
   });
@@ -144,7 +126,6 @@ describe("shouldEmitDirectoryItemList", () => {
     indexable: true,
     categorySlugs: [] as string[],
     search: "",
-    materials: [] as string[],
     page: 1,
   };
 
@@ -152,22 +133,7 @@ describe("shouldEmitDirectoryItemList", () => {
     expect(shouldEmitDirectoryItemList(unfiltered)).toBe(true);
   });
 
-  it("suppresses the directory ItemList once a material narrows the page", () => {
-    // Every other facet already suppressed it. A `?material=` page is
-    // `index:false` with a self-canonical, so an ItemList naming the whole
-    // directory would describe a page Google is told not to index.
-    expect(
-      shouldEmitDirectoryItemList({ ...unfiltered, materials: ["ceramic"] }),
-    ).toBe(false);
-  });
-
   it("never emits it on a page the SEO matrix marked noindex", () => {
-    // The invalid-term case, which is where the two decisions used to diverge.
-    // On `?material=xyz` the closed vocabulary drops the unknown term, so every
-    // PARSED field below is the unfiltered directory — while
-    // `resolveDirectorySeo` reads the RAW query and returns `noindex, follow`.
-    // The ItemList of all approved brands shipped anyway, describing a page
-    // crawlers were told to skip (DEV-1524).
     expect(
       shouldEmitDirectoryItemList({ ...unfiltered, indexable: false }),
     ).toBe(false);
