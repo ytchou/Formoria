@@ -7,8 +7,12 @@ import {
   type OperationResult as CurationOperationResult,
 } from "@/lib/services/curation-operations";
 import {
+  BLOCK_NAMES,
   CURATION_TASKS,
+  type BlockName,
   type CurationTask,
+  type RetryParams,
+  forcePhasesForRetry,
   normalizeRequestedPhases,
   phasesForTask,
   parseLegacyStepsToPhases,
@@ -60,6 +64,7 @@ import {
 } from "@/lib/services/render-provider-ownership";
 
 export { sanitizeJobError } from "@/lib/services/job-errors";
+export type { RetryParams } from "@/lib/constants/enrich-phases";
 
 type Supabase = ReturnType<typeof createServiceClient>;
 type OperationSupabase = Parameters<typeof runEnrich>[1];
@@ -79,6 +84,8 @@ type JobParams = {
   status?: BrandStatus;
   /** Multiplier for the per-brand time budget. >1 grants more time. */
   budgetScale?: number;
+  /** Block-level retry scope from the admin UI (DEV-1611). */
+  retry?: RetryParams;
 };
 type OperationWithSummary = CurationOperationResult & {
   enrichmentSummary: EnrichmentSummary;
@@ -417,6 +424,48 @@ function parseOperation(operation: string): ValidOperation {
   throw new Error(`Unsupported operation: ${operation}`);
 }
 
+// ---------------------------------------------------------------------------
+// Retry param validation (DEV-1611)
+// ---------------------------------------------------------------------------
+
+const RETRYABLE_BLOCKS = new Set(
+  BLOCK_NAMES.filter((b) => b !== "gather" && b !== "persist"),
+);
+const RETRY_MODES = new Set(["only", "with_upstream"]);
+const EDITORIAL_SUB_PHASES = new Set(["descriptions", "stockists", "faq"]);
+
+/**
+ * Hand-rolled validation for the `retry` param. Returns `undefined` for any
+ * shape that does not match `RetryParams`.
+ */
+function parseRetryParam(value: unknown): RetryParams | undefined {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return undefined;
+  }
+  const obj = value as Record<string, unknown>;
+
+  const block = typeof obj.block === "string" ? obj.block : "";
+  if (!(RETRYABLE_BLOCKS as Set<string>).has(block)) return undefined;
+
+  const mode = typeof obj.mode === "string" ? obj.mode : "";
+  if (!RETRY_MODES.has(mode)) return undefined;
+
+  const subPhase =
+    typeof obj.subPhase === "string" ? obj.subPhase : undefined;
+  if (subPhase !== undefined) {
+    if (block !== "editorial") return undefined;
+    if (!EDITORIAL_SUB_PHASES.has(subPhase)) return undefined;
+  }
+
+  return {
+    block: block as BlockName,
+    mode: mode as "only" | "with_upstream",
+    ...(subPhase
+      ? { subPhase: subPhase as RetryParams["subPhase"] }
+      : {}),
+  };
+}
+
 export function parseParams(params: Json | null): JobParams {
   if (!params || typeof params !== "object" || Array.isArray(params)) {
     return {};
@@ -460,6 +509,7 @@ export function parseParams(params: Json | null): JobParams {
     overwrite: parseOverwriteParam(raw.overwrite),
     status: parseStatus(raw.status),
     budgetScale,
+    retry: parseRetryParam(raw.retry),
   };
 }
 
@@ -572,6 +622,9 @@ function parseLegacyStepNames(value: unknown): string[] | undefined {
  * is invisible until a whole staging run has scraped nothing.
  */
 export function resolvePhases(params: JobParams): EnrichPhase[] {
+  if (params.retry) {
+    return forcePhasesForRetry(params.retry) as EnrichPhase[];
+  }
   if (params.phases) {
     const normalized = normalizeRequestedPhases(params.phases) as EnrichPhase[];
     return normalized.length > 0 ? normalized : fullPhases();

@@ -8,7 +8,9 @@ import {
 import type { CurationJob } from "@/lib/services/curation-jobs";
 import {
   DEFERRED_PHASES,
+  forcePhasesForRetry,
   phasesForTask,
+  phasesOfBlocks,
 } from "@/lib/constants/enrich-phases";
 
 /**
@@ -214,5 +216,119 @@ describe("finalizeSuccessfulJob", () => {
     expect(wired.finalizeCurationJob).not.toHaveBeenCalled();
     expect(wired.reportChannelVerdicts).not.toHaveBeenCalled();
     expect(calls).toEqual(["markUnreportedTargetsSkipped"]);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Retry params parsing (parseRetryParam consumed by parseParams)
+// ---------------------------------------------------------------------------
+
+describe("parseParams retry", () => {
+  it("parse_params_accepts_retry_and_rejects_unknown_block", () => {
+    // Valid retry round-trips
+    const valid = parseParams({
+      retry: { block: "products", mode: "only" },
+    });
+    expect(valid.retry).toEqual({ block: "products", mode: "only" });
+
+    // subPhase accepted for editorial block
+    const withSub = parseParams({
+      retry: { block: "editorial", mode: "only", subPhase: "faq" },
+    });
+    expect(withSub.retry).toEqual({
+      block: "editorial",
+      mode: "only",
+      subPhase: "faq",
+    });
+
+    // Unknown block → dropped
+    expect(parseParams({ retry: { block: "bogus", mode: "only" } }).retry).toBeUndefined();
+
+    // gather/persist are not retryable → dropped
+    expect(parseParams({ retry: { block: "gather", mode: "only" } }).retry).toBeUndefined();
+    expect(parseParams({ retry: { block: "persist", mode: "only" } }).retry).toBeUndefined();
+
+    // Unknown mode → dropped
+    expect(
+      parseParams({ retry: { block: "detect", mode: "restart" } }).retry,
+    ).toBeUndefined();
+
+    // subPhase on a non-editorial block → dropped
+    expect(
+      parseParams({ retry: { block: "products", mode: "only", subPhase: "faq" } }).retry,
+    ).toBeUndefined();
+
+    // Not an object → dropped
+    expect(parseParams({ retry: "detect" }).retry).toBeUndefined();
+    expect(parseParams({ retry: null }).retry).toBeUndefined();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// forcePhasesForRetry (defined in enrich-phases.ts, exercised through parseParams)
+// ---------------------------------------------------------------------------
+
+describe("forcePhasesForRetry", () => {
+  it("force_set_only_is_the_blocks_phases", () => {
+    // products block's phases
+    expect(forcePhasesForRetry({ block: "products", mode: "only" })).toEqual(
+      phasesOfBlocks(["products"]),
+    );
+
+    // editorial with subPhase narrows to the single subPhase
+    expect(
+      forcePhasesForRetry({ block: "editorial", mode: "only", subPhase: "faq" }),
+    ).toEqual(["faq"]);
+  });
+
+  it("force_set_with_upstream_is_the_closure", () => {
+    // products depends on acquire and names; those depend on detect
+    const phases = forcePhasesForRetry({
+      block: "products",
+      mode: "with_upstream",
+    });
+    expect(phases).toContain("detect");
+    expect(phases).toContain("acquire");
+    expect(phases).toContain("names");
+    expect(phases).toContain("products");
+    // Should NOT contain unrelated blocks
+    expect(phases).not.toContain("descriptions");
+    expect(phases).not.toContain("faq");
+    expect(phases).not.toContain("tags");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// resolvePhases with retry set
+// ---------------------------------------------------------------------------
+
+describe("resolvePhases with retry", () => {
+  it("retry_feeds_force_set_as_resolved_phases", () => {
+    const phases = resolvePhases({
+      retry: { block: "products", mode: "only" },
+    });
+    expect(phases).toEqual(phasesOfBlocks(["products"]));
+  });
+
+  it("retry_with_upstream_resolves_to_closure", () => {
+    const phases = resolvePhases({
+      retry: { block: "editorial", mode: "with_upstream" },
+    });
+    // Editorial depends on acquire which depends on detect
+    expect(phases).toContain("detect");
+    expect(phases).toContain("acquire");
+    expect(phases).toContain("descriptions");
+    expect(phases).toContain("stockists");
+    expect(phases).toContain("faq");
+  });
+
+  it("retry_overrides_explicit_phases_and_task", () => {
+    // Even when phases and task are set, retry wins
+    const phases = resolvePhases({
+      phases: ["detect"],
+      task: "full",
+      retry: { block: "tags", mode: "only" },
+    });
+    expect(phases).toEqual(phasesOfBlocks(["tags"]));
   });
 });

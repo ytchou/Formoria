@@ -14,6 +14,7 @@ import {
 } from "@/components/ui/table";
 import {
   AUDITED_PHASES,
+  BLOCK_OF_PHASE,
   type AuditedPhaseName,
 } from "@/lib/constants/enrich-phases";
 import type {
@@ -33,6 +34,7 @@ import {
   targetStatusLabel,
 } from "../job-display";
 import { RerunJobButton } from "./rerun-job-button";
+import { RetryPhaseMenu } from "./retry-phase-menu";
 import { DispatchJobButton } from "../dispatch-job-button";
 import { CancelJobButton } from "../cancel-job-button";
 import { ResumeJobButton } from "../resume-job-button";
@@ -270,7 +272,7 @@ export function JobDetailView({
       <SurfaceCard padding="lg">
         <h2 className="type-tool-heading">{t("detail.executionInfo")}</h2>
         <dl className="mt-5 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
-          <InfoField label="Trigger" value={jobTriggerLabel(job.trigger)} />
+          <InfoField label="Trigger" value={jobTriggerLabel(job.trigger, (job.params ?? undefined) as Parameters<typeof jobTriggerLabel>[1])} />
           <InfoField label="Attempt" value={job.attempt} />
           <InfoField
             label="Scheduled"
@@ -421,7 +423,11 @@ export function JobDetailView({
                     </TableCell>
                     <TableCell>{formatTargetDuration(target)}</TableCell>
                     <TableCell>
-                      <TargetDetail target={target} />
+                      <TargetDetail
+                        target={target}
+                        jobId={job.id}
+                        jobActive={active}
+                      />
                     </TableCell>
                   </TableRow>
                 ))}
@@ -475,9 +481,20 @@ function LineageLink({ id, label }: { id: string; label: string }) {
   );
 }
 
-function TargetDetail({ target }: { target: CurationJobTarget }) {
+function TargetDetail({
+  target,
+  jobId,
+  jobActive,
+}: {
+  target: CurationJobTarget;
+  jobId: string;
+  jobActive: boolean;
+}) {
   const t = useTranslations("admin.jobs");
   const phases = parsePhaseResults(target.phase_results);
+  const canRetry =
+    target.target_type === "submission" &&
+    !jobActive;
 
   return (
     <details className="group min-w-72">
@@ -516,21 +533,31 @@ function TargetDetail({ target }: { target: CurationJobTarget }) {
                 >
                   <div className="flex flex-wrap items-center justify-between gap-2">
                     <span className="font-medium">{phase.phase}</span>
-                    <Badge
-                      variant={
-                        phase.status === "failed"
-                          ? "destructive"
-                          : phase.status === "succeeded"
-                            ? "verified"
-                            : "outline"
-                      }
-                    >
-                      {targetStatusLabel(
-                        phase.status === "succeeded"
-                          ? "succeeded"
-                          : phase.status,
-                      )}
-                    </Badge>
+                    <div className="flex items-center gap-2">
+                      <Badge
+                        variant={
+                          phase.status === "failed"
+                            ? "destructive"
+                            : phase.status === "succeeded"
+                              ? "verified"
+                              : "outline"
+                        }
+                      >
+                        {targetStatusLabel(
+                          phase.status === "succeeded"
+                            ? "succeeded"
+                            : phase.status,
+                        )}
+                      </Badge>
+                      {canRetry &&
+                        (phase.phase in BLOCK_OF_PHASE) ? (
+                          <RetryPhaseMenu
+                            jobId={jobId}
+                            targetId={target.target_id}
+                            phase={phase.phase}
+                          />
+                        ) : null}
+                    </div>
                   </div>
                   <p className="mt-1 type-body-sm">
                     {formatMilliseconds(phase.durationMs)}

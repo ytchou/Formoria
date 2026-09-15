@@ -267,6 +267,7 @@ export async function loadPersistedScrapeText(
 export async function loadPersistedScrapeStructure(
   targetOrBrandId: EnrichmentTarget | string,
   injectedClient?: ReturnType<typeof createServiceClient>,
+  searchType: 'scrape' | 'catalog' = 'scrape',
 ): Promise<
   Record<
     string,
@@ -283,7 +284,7 @@ export async function loadPersistedScrapeStructure(
     .from("brand_search_results")
     .select("urls, raw_response, call_status")
     .eq(foreignKey, target.id)
-    .eq("search_type", "scrape")
+    .eq("search_type", searchType)
     .order("created_at", { ascending: false })
     .limit(20);
 

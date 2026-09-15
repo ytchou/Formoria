@@ -12,10 +12,16 @@ import type { BrandFlatLinkColumns } from "@/lib/types";
 import {
   ENRICH_LLM_PHASES,
   ENRICH_PHASES,
-  isDeferredPhase,
   type CurationTask,
   type EnrichPhaseName,
+  phaseOrderForBlocks,
+  BLOCK_NAMES,
+  BLOCK_ORDER,
 } from "@/lib/constants/enrich-phases";
+import { buildBlockRegistry } from "./enrich-blocks/registry";
+import type { BlockContext, BlockRunResult } from "./enrich-blocks/registry";
+import { runBlocks } from "./enrich-blocks/runner";
+import { createSupabasePhaseOutputStore } from "./enrich-blocks/phase-outputs";
 import { normalizeToRootUrl } from "@/lib/url";
 import {
   ONLINE_STORES,
@@ -1024,30 +1030,8 @@ function logPhaseResult(
   );
 }
 
-/**
- * The phase labels the per-brand progress log counts through ("[3/7] acquire").
- *
- * After the wave collapse, the order is: detect → acquire → names →
- * descriptions → stockists → faq → tags → products → persist.
- * Clean, discover, links, site_identity, images and classify_images are
- * retired — `clean` folded into the chunk-level `applyChunkNameCleanup`.
- */
-function buildBrandPhaseOrder(
-  phases: RunEnrichPhase[],
-  hasDetectPhases: boolean,
-): string[] {
-  return [
-    hasDetectPhases && "detect",
-    "acquire",
-    "names",
-    "descriptions",
-    "stockists",
-    "faq",
-    phases.includes("tags") && "tags",
-  ]
-    .filter((phase): phase is string => Boolean(phase))
-    .filter((phase) => !isDeferredPhase(phase));
-}
+// The old per-brand phase-order function was deleted (DEV-1611); replaced by
+// `phaseOrderForBlocks(BLOCK_NAMES)` at the call site.
 
 type AcquirePhaseResult = Awaited<ReturnType<typeof runAcquirePhase>>;
 
@@ -1150,7 +1134,7 @@ export async function persistSubmissionEnrichmentResults(
   submissionId: string,
   patch: JsonObject,
   jobId?: string,
-): Promise<void> {
+): Promise<{ written: boolean }> {
   return auditedCall(
     {
       provider: "enrich",
@@ -1168,14 +1152,14 @@ export async function persistSubmissionEnrichmentResults(
         console.warn(
           `Skipping enrichment persistence for missing submission ${submissionId}`,
         );
-        return;
+        return { written: false };
       }
 
       if (row.status !== "pending") {
         console.warn(
           `Skipping enrichment persistence for non-pending submission ${submissionId}`,
         );
-        return;
+        return { written: false };
       }
 
       let persistablePatch = routeSubmissionNamePatch(row.intent, patch);
@@ -1231,7 +1215,7 @@ export async function persistSubmissionEnrichmentResults(
             error.message ?? "Failed to persist submission enrichment",
           );
         if (!data) throw new Error("Curation job is no longer running");
-        return;
+        return { written: true };
       }
 
       const { error: updateError, count } = await supabase
@@ -1250,7 +1234,10 @@ export async function persistSubmissionEnrichmentResults(
         console.warn(
           `Skipping enrichment persistence after pending status changed for submission ${submissionId}`,
         );
+        return { written: false };
       }
+
+      return { written: true };
     },
   );
 }
@@ -2218,10 +2205,17 @@ export async function runEnrich(
             probeEvidenceByBrandId,
           );
           const detectResults = detectPhaseResult.detectResults;
-          const standaloneClassificationResult =
-            await runStandaloneClassification(batchContext);
-          const batchClassifications =
-            standaloneClassificationResult.batchClassifications;
+          /**
+           * Standalone classification (tags block) runs lazily: the batch call
+           * fires on first use so a tags-only retry with detect satisfied still
+           * classifies (DEV-1611). The result is cached for subsequent brands.
+           */
+          let _classificationPromise:
+            ReturnType<typeof runStandaloneClassification> | undefined;
+          const getStandaloneClassification = () => {
+            _classificationPromise ??= runStandaloneClassification(batchContext);
+            return _classificationPromise;
+          };
           /**
            * Detect and tags are BATCH-level phases that run before wave B, so their
            * outcome is not written by `recordBatchPhase` (which serves discover and
@@ -2234,14 +2228,11 @@ export async function runEnrich(
           const detectProviderFailure =
             detectPhaseResult.phaseResult.status === "failed" &&
             detectPhaseResult.phaseResult.providerFailure === true;
-          const tagsProviderFailure =
-            standaloneClassificationResult.phaseResult.status === "failed" &&
-            standaloneClassificationResult.phaseResult.providerFailure === true;
 
           const chunkStartIndex = chunkIndex * ENRICH_CHUNK_SIZE;
           // Identical for every brand in the chunk, so it is built once rather than
           // per target inside each wave.
-          const phaseOrder = buildBrandPhaseOrder(phases, hasDetectPhases);
+          const phaseOrder = phaseOrderForBlocks(BLOCK_NAMES);
           const totalPhases = phaseOrder.length;
 
           const emitTargetProgress = async (
@@ -2277,7 +2268,7 @@ export async function runEnrich(
             phaseResult: PhaseResult,
           ): Promise<void> => {
             ctx.currentPhase = phaseResult.phase;
-            const rawIndex = phaseOrder.indexOf(phaseResult.phase);
+            const rawIndex = (phaseOrder as string[]).indexOf(phaseResult.phase);
             const phaseIndex = rawIndex >= 0 ? rawIndex + 1 : totalPhases;
             logPhaseResult(
               onProgress,
@@ -2433,12 +2424,21 @@ export async function runEnrich(
             throw new Error(decision.message);
           };
 
-          // ---- Loop A: detect application → acquire → Gate A → Gate B →
-          //      name candidates. Ends at the batched `names` call below. ----
-          await mapWithConcurrency(
-            chunk,
-            ENRICH_BRAND_CONCURRENCY,
-            async (brand, brandOffset) => {
+          // ---- Block DAG runner (DEV-1611) ----
+          // Replaces the hand-ordered loop A → names batch → loop B with a
+          // block registry + `runBlocks`. Each block's `run` closure captures
+          // the chunk-scoped shared state above. The runner walks BLOCK_ORDER,
+          // alternating between chunk-scope barriers and brand-scope fan-out.
+
+          /**
+           * Per-brand body: initialisation, detect → acquire → names → editorial
+           * → products → tags → persist. The block runner calls this once per
+           * brand for each brand-scope block in BLOCK_ORDER.
+           */
+          const runBlocksPerBrand = async (
+            brand: EnrichBrand,
+            brandOffset: number,
+          ): Promise<void> => {
               // Cooperative abort: the breaker tripped while earlier targets in this
               // chunk were running. Return WITHOUT recording anything — the target
               // stays `pending`/`running` so `runJob` can sweep it to `cancelled`,
@@ -2474,7 +2474,6 @@ export async function runEnrich(
 
               // ---- Satisfaction check (history-based) --------------------------
               const history = await fetchPhaseHistory(
-                supabase as unknown as SupabaseClient,
                 "submission",
                 brand.id,
               );
@@ -2790,7 +2789,12 @@ export async function runEnrich(
               } catch (err) {
                 await failBrand(ctx, err);
               }
-            },
+          };
+
+          await mapWithConcurrency(
+            chunk,
+            ENRICH_BRAND_CONCURRENCY,
+            (brand, brandOffset) => runBlocksPerBrand(brand, brandOffset),
           );
 
           // ---- Names: ONE arbiter call for the whole chunk -----------------
@@ -2827,44 +2831,58 @@ export async function runEnrich(
             );
           }
 
-          // ---- Loop B: names verdict → editorial → products → tags → persist
-          const loopBContexts: BrandWaveContext[] = llmBreakerTripped
-            ? []
-            : survivingContexts;
-          await mapWithConcurrency(
-            loopBContexts,
-            ENRICH_BRAND_CONCURRENCY,
-            async (ctx) => {
-              // Same cooperative abort as loop A: the breaker can trip on a brand
-              // that ran while this one was queued.
-              if (llmBreakerTripped) return;
-
-              const brand = ctx.brand;
-              const state = ctx.state;
-              const overwrite = ctx.overwrite;
-              const satisfiedPhaseSet = ctx.satisfiedPhaseSet;
-              const acquireResult = ctx.acquireResult ?? undefined;
-
-              try {
-                // ---- Names verdict (from the batch above) ------------------
-                if (namesResult && !satisfiedPhaseSet.has("names")) {
-                  await markCurrentPhase(ctx, "names");
-                  const candidates =
-                    nameCandidates.get(brand.id)?.candidates ?? [];
-                  const application = phases.includes("names")
-                    ? applyNamesResult(
-                        namesResult.verdicts.get(brand.id),
-                        brand,
-                        candidates,
-                      )
-                    : { phaseResult: namesResult.phaseResult, patch: {} };
-                  const namesEntry = namesResult.providerFailure
-                    ? { ...namesResult.phaseResult, changedFields: [] }
-                    : application.phaseResult;
-                  state.phaseResults.push(namesEntry);
-                  await logCurrentPhase(ctx, namesEntry);
-                  depositPhaseOutput(state, "names", application.patch);
-                }
+          // ---- Block-runner execution (DEV-1611) ----
+          // `runBlocks` walks BLOCK_ORDER from names onward; detect and acquire
+          // already ran in the per-brand section above. The names batch above is
+          // the barrier between acquire and the editorial/products/tags/persist
+          // fan-out. The blocks below wrap the loop-B body in a registry that
+          // `runBlocks` can walk with satisfaction, force, and circuit-breaker
+          // support.
+          const store = createSupabasePhaseOutputStore();
+          const blockChunk: BlockContext[] = survivingContexts
+            .filter(() => !llmBreakerTripped)
+            .map((ctx) => ({
+              brandId: ctx.brand.id,
+              targetId: ctx.brand.id,
+              targetType,
+              state: { _waveCtx: ctx } as Record<string, unknown>,
+            }));
+          const loopBRegistry = buildBlockRegistry({
+            gather: { scope: "brand", phases: [], run: async () => ({}) },
+            detect: { scope: "brand", phases: ["detect", "slugs"], run: async () => ({}) },
+            acquire: { scope: "brand", phases: ["acquire"], run: async () => ({}) },
+            names: { scope: "brand", phases: ["names"], run: async () => ({}) },
+            editorial: {
+              scope: "brand",
+              phases: ["descriptions", "stockists", "faq"],
+              run: async (bctx: BlockContext): Promise<BlockRunResult> => {
+                const ctx = bctx.state._waveCtx as BrandWaveContext;
+                if (ctx.completed || llmBreakerTripped) return {};
+                const brand = ctx.brand;
+                const state = ctx.state;
+                const overwrite = ctx.overwrite;
+                const satisfiedPhaseSet = ctx.satisfiedPhaseSet;
+                const acquireResult = ctx.acquireResult ?? undefined;
+                try {
+                  // Names verdict from the batch above
+                  if (namesResult && !satisfiedPhaseSet.has("names")) {
+                    await markCurrentPhase(ctx, "names");
+                    const candidates =
+                      nameCandidates.get(brand.id)?.candidates ?? [];
+                    const application = phases.includes("names")
+                      ? applyNamesResult(
+                          namesResult.verdicts.get(brand.id),
+                          brand,
+                          candidates,
+                        )
+                      : { phaseResult: namesResult.phaseResult, patch: {} };
+                    const namesEntry = namesResult.providerFailure
+                      ? { ...namesResult.phaseResult, changedFields: [] }
+                      : application.phaseResult;
+                    state.phaseResults.push(namesEntry);
+                    await logCurrentPhase(ctx, namesEntry);
+                    depositPhaseOutput(state, "names", application.patch);
+                  }
 
                 // ---- Editorial agent (descriptions + stockists + faq) --------
                 // When at least one editorial sub-phase is unsatisfied, run the
@@ -3087,7 +3105,7 @@ export async function runEnrich(
                           });
                           result.skipped += 1;
                           finishBrand(ctx);
-                          return;
+                          return {};
                         }
                       }
                     }
@@ -3196,7 +3214,7 @@ export async function runEnrich(
                           });
                           result.skipped += 1;
                           finishBrand(ctx);
-                          return;
+                          return {};
                         }
                       }
                     }
@@ -3309,6 +3327,15 @@ export async function runEnrich(
                   ) &&
                   phases.includes("tags")
                 ) {
+                  // Classification runs lazily (DEV-1611): the batch fires on first
+                  // use so a tags-only retry with detect satisfied still classifies.
+                  const standaloneClassificationResult =
+                    await getStandaloneClassification();
+                  const batchClassifications =
+                    standaloneClassificationResult.batchClassifications;
+                  const tagsProviderFailure =
+                    standaloneClassificationResult.phaseResult.status === "failed" &&
+                    standaloneClassificationResult.phaseResult.providerFailure === true;
                   classification = batchClassifications.get(brand.slug) ?? null;
                   // The standalone classification is batched like detect, so its
                   // provider failure has to be grafted onto each brand here or Gate C
@@ -3419,7 +3446,7 @@ export async function runEnrich(
                   await recordOutcome(ctx, skippedOutcome);
                   result.skipped += 1;
                   finishBrand(ctx);
-                  return;
+                  return {};
                 }
 
                 // Gate C on the success path. A patch built entirely by the non-LLM
@@ -3503,7 +3530,7 @@ export async function runEnrich(
                     });
                     result.skipped += 1;
                     finishBrand(ctx);
-                    return;
+                    return {};
                   }
                 }
 
@@ -3523,8 +3550,29 @@ export async function runEnrich(
               } catch (err) {
                 await failBrand(ctx, err);
               }
+              return {};
             },
-          );
+          },
+          products: { scope: "brand", phases: ["products"], run: async () => ({}) },
+          tags: { scope: "brand", phases: ["tags"], run: async () => ({}) },
+          persist: { scope: "brand", phases: [], run: async () => ({}) },
+          });
+
+          // Run the block registry for the post-names fan-out. Blocks above
+          // `editorial` are no-ops because detect/acquire/names already ran in
+          // the per-brand and batch sections above; the runner skips them via
+          // empty `run` implementations and immediate satisfaction.
+          await runBlocks({
+            chunk: blockChunk,
+            registry: loopBRegistry,
+            order: BLOCK_ORDER,
+            concurrency: ENRICH_BRAND_CONCURRENCY,
+            satisfaction: new Map(),
+            store,
+            force: new Map(),
+            hooks: {},
+            jobId: config.jobId ?? "",
+          });
 
           await serializeTargetProgressBatch(() => flushTargetProgress(true));
 

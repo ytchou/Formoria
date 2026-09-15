@@ -19,6 +19,7 @@ import {
   type PhaseHistory,
 } from "./enrich-phases/phase-satisfaction";
 import type { EnrichPhaseName } from "@/lib/constants/enrich-phases";
+import { jobTriggerLabel } from "@/app/admin/jobs/job-display";
 
 describe("explicit submission enrichment eligibility", () => {
   it("allows an admin to queue a selected pending refresh submission", () => {
@@ -248,5 +249,45 @@ describe("explicitPhases provenance", () => {
 
     const explicitPhases = params.phases ?? [];
     expect(explicitPhases).toContain("faq");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Trigger label with retry params
+// ---------------------------------------------------------------------------
+
+describe("trigger label derives from retry params", () => {
+  it("trigger_label_derives_from_retry_params", () => {
+    // Block-level retry labels
+    expect(
+      jobTriggerLabel("manual_rerun", {
+        retry: { block: "products", mode: "only" },
+      }),
+    ).toBe("Retry products (only)");
+
+    expect(
+      jobTriggerLabel("manual_rerun", {
+        retry: { block: "detect", mode: "with_upstream" },
+      }),
+    ).toBe("Retry detect (with upstream)");
+
+    // subPhase label
+    expect(
+      jobTriggerLabel("manual_rerun", {
+        retry: { block: "editorial", mode: "only", subPhase: "faq" },
+      }),
+    ).toBe("Retry faq (only)");
+
+    expect(
+      jobTriggerLabel("manual_rerun", {
+        retry: { block: "editorial", mode: "with_upstream", subPhase: "descriptions" },
+      }),
+    ).toBe("Retry descriptions (with upstream)");
+
+    // Without retry — existing labels unchanged
+    expect(jobTriggerLabel("admin")).toBe("Admin");
+    expect(jobTriggerLabel("cron")).toBe("Scheduled");
+    expect(jobTriggerLabel("automatic_retry")).toBe("Auto retry");
+    expect(jobTriggerLabel("manual_rerun")).toBe("Manual rerun");
   });
 });

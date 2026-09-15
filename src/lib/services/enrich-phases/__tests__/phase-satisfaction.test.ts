@@ -1,12 +1,118 @@
 import { describe, it, expect } from "vitest";
 import {
   checkPhaseSatisfaction,
+  fetchPhaseHistory,
   filterSatisfiedPhases,
   type PhaseHistory,
 } from "../phase-satisfaction";
 import { DEFERRED_PHASES, ENRICH_PHASES, PHASE_DEPENDENCIES, type EnrichPhaseName } from "@/lib/constants/enrich-phases";
+import type { PhaseOutputStore, PhaseOutputRow } from "@/lib/services/enrich-blocks/phase-outputs";
+
+// ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
+
+function fakeRow(overrides: Partial<PhaseOutputRow> & Pick<PhaseOutputRow, "phase" | "created_at">): PhaseOutputRow {
+  return {
+    id: "row-1",
+    job_id: "job-1",
+    target_id: "brand-1",
+    target_type: "brand",
+    status: "succeeded",
+    output: null,
+    persisted_at: null,
+    ...overrides,
+  };
+}
+
+function fakeStore(rows: PhaseOutputRow[]): PhaseOutputStore {
+  return {
+    reader: {
+      latestPerPhase: async () => rows,
+      unpersisted: async () => [],
+    },
+    writer: {
+      upsert: async () => {},
+      markPersisted: async () => {},
+    },
+  };
+}
+
+function failingStore(error: Error): PhaseOutputStore {
+  return {
+    reader: {
+      latestPerPhase: async () => { throw error; },
+      unpersisted: async () => [],
+    },
+    writer: {
+      upsert: async () => {},
+      markPersisted: async () => {},
+    },
+  };
+}
+
+// ---------------------------------------------------------------------------
+// fetchPhaseHistory (backed by phase-outputs store)
+// ---------------------------------------------------------------------------
+
+describe("fetchPhaseHistory (phase-outputs store)", () => {
+  it("history_comes_from_phase_outputs_latest_succeeded", async () => {
+    const store = fakeStore([
+      // Two rows for detect — newest first; only the first should win
+      fakeRow({ phase: "detect", created_at: "2026-09-02T00:00:00Z", id: "r1" }),
+      fakeRow({ phase: "detect", created_at: "2026-09-01T00:00:00Z", id: "r2" }),
+      // One succeeded acquire row
+      fakeRow({ phase: "acquire", created_at: "2026-09-03T00:00:00Z", id: "r3" }),
+      // A failed row should be excluded
+      fakeRow({ phase: "descriptions", created_at: "2026-09-04T00:00:00Z", status: "failed", id: "r4" }),
+      // An unknown phase should be excluded
+      fakeRow({ phase: "nonexistent_phase", created_at: "2026-09-04T00:00:00Z", id: "r5" }),
+    ]);
+
+    const history = await fetchPhaseHistory("brand", "brand-1", store);
+
+    expect(history.size).toBe(2);
+    expect(history.get("detect")).toEqual(new Date("2026-09-02T00:00:00Z"));
+    expect(history.get("acquire")).toEqual(new Date("2026-09-03T00:00:00Z"));
+    expect(history.has("descriptions")).toBe(false);
+    expect(history.has("nonexistent_phase" as EnrichPhaseName)).toBe(false);
+  });
+
+  it("query_error_throws", async () => {
+    const store = failingStore(new Error("db connection failed"));
+
+    await expect(
+      fetchPhaseHistory("brand", "brand-1", store),
+    ).rejects.toThrow("db connection failed");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// history-based phase satisfaction (unchanged logic)
+// ---------------------------------------------------------------------------
 
 describe("history-based phase satisfaction", () => {
+  it("dependency_recency_rule_unchanged", () => {
+    // Satisfied: descriptions ran after acquire and detect
+    const satisfiedHistory: PhaseHistory = new Map([
+      ["detect", new Date("2026-07-31T00:00:00Z")],
+      ["acquire", new Date("2026-08-01T00:00:00Z")],
+      ["descriptions", new Date("2026-08-02T00:00:00Z")],
+    ]);
+    expect(checkPhaseSatisfaction("descriptions", satisfiedHistory)).toBe("satisfied");
+
+    // Unsatisfied: acquire ran after descriptions (dep newer)
+    const staleHistory: PhaseHistory = new Map([
+      ["detect", new Date("2026-07-30T00:00:00Z")],
+      ["acquire", new Date("2026-08-02T00:00:00Z")],
+      ["descriptions", new Date("2026-08-01T00:00:00Z")],
+    ]);
+    expect(checkPhaseSatisfaction("descriptions", staleHistory)).toBe("unsatisfied");
+
+    // Force overrides to unsatisfied
+    expect(checkPhaseSatisfaction("descriptions", satisfiedHistory, true)).toBe("unsatisfied");
+  });
+
   it("phase_with_no_history_is_unsatisfied", () => {
     expect(checkPhaseSatisfaction("acquire", new Map())).toBe("unsatisfied");
   });

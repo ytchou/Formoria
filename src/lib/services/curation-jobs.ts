@@ -10,6 +10,7 @@ import {
   phasesForTask,
   type CurationTask,
   type EnrichPhaseName,
+  type RetryParams,
 } from "@/lib/constants/enrich-phases";
 import {
   computeBackoffDelay,
@@ -54,6 +55,8 @@ export type CurationJobParams = Record<string, Json | undefined> & {
   target?: "submissions" | "brands";
   /** Multiplier for the per-brand time budget. >1 grants more time. */
   budgetScale?: number;
+  /** Block-level retry scope from the admin UI (DEV-1611). */
+  retry?: RetryParams;
 };
 
 type CurationJobRow = Database["public"]["Tables"]["curation_jobs"]["Row"];
@@ -1142,6 +1145,7 @@ function resumeJobParams(
   delete params.task;
   delete params.stopAfter;
   delete params.slugs;
+  delete params.retry;
 
   params.target = "submissions";
   params.submissionIds = targets.map((target) => target.target_id);
@@ -1268,6 +1272,50 @@ export async function enqueueCurationResume(
       }
 
       return jobs;
+    },
+  );
+}
+
+/**
+ * Enqueues a block-level retry for a single target from a completed or failed
+ * job. Mirrors `enqueueCurationResume` structurally but scopes to one target
+ * and carries the `retry` param so the runner knows which block to re-execute.
+ *
+ * Only pending submissions are eligible — a target whose submission was already
+ * approved has nothing left to enrich.
+ */
+export async function enqueueBlockRetry(
+  sourceJobId: string,
+  targetId: string,
+  retry: RetryParams,
+  startedBy: string,
+): Promise<CurationJob> {
+  return auditedCall(
+    { provider: "curation", operation: "enqueueBlockRetry", kind: "service" },
+    async () => {
+      const source = await getCurationJob(sourceJobId);
+      const allTargets = await listCurationJobTargets(source.id);
+      const target = allTargets.find((t) => t.target_id === targetId);
+      if (!target) {
+        throw new Error(`Target ${targetId} not found in job ${sourceJobId}`);
+      }
+
+      const pendingIds = await filterPendingSubmissionIds([targetId]);
+      if (!pendingIds.has(targetId)) {
+        throw new Error(
+          "Submission is no longer pending — cannot retry a non-pending submission",
+        );
+      }
+
+      return enqueueCurationJob({
+        operation: "enrich",
+        params: { ...parseJobParams(source.params), retry },
+        dryRun: source.dry_run,
+        startedBy,
+        trigger: "manual_rerun",
+        targets: [targetToEnqueueInput(target)],
+        parentJobId: source.id,
+      });
     },
   );
 }

@@ -2756,7 +2756,10 @@
         "runLog": "Run Log",
         "downloadHtml": "Download HTML",
         "snapshot": "Snapshot",
-        "viewDetails": "View details"
+        "viewDetails": "View details",
+        "retryPhase": "Retry",
+        "retryOnly": "This step only",
+        "retryWithUpstream": "With upstream steps"
       },
       "status": {
         "dispatchFailed": "Dispatch failed",
