@@ -123,6 +123,8 @@ next-env.d.ts
 !.github/selfheal/*.md
 # health-agent.yml reads these three at runtime (repair/review/sentry-classifier).
 !.github/health-agent/*.md
+# ops-fix.yml reads fix.md at runtime (Claude Code constraint file).
+!.github/ops-agent/*.md
 !.github/PULL_REQUEST_TEMPLATE.md
 # SEO measurement artifacts are shipped content, not internal strategy docs.
 !content/seo/**/*.md
