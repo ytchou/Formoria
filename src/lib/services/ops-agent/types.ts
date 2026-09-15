@@ -15,25 +15,6 @@ export type OpsRequestStatus =
   | "refused"
   | "failed";
 
-/**
- * Legal status transitions.
- *
- * received        -> running, refused
- * running         -> answered, awaiting_confirm, refused, failed
- * awaiting_confirm -> executed, cancelled, expired, running (re-enter)
- */
-export const LEGAL_TRANSITIONS: Record<OpsRequestStatus, readonly OpsRequestStatus[]> = {
-  received: ["running", "refused"],
-  running: ["answered", "awaiting_confirm", "refused", "failed"],
-  awaiting_confirm: ["executed", "cancelled", "expired", "running"],
-  answered: [],
-  executed: [],
-  cancelled: [],
-  expired: [],
-  refused: [],
-  failed: [],
-};
-
 // ---------------------------------------------------------------------------
 // Row
 // ---------------------------------------------------------------------------

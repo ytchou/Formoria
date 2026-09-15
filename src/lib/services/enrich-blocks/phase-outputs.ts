@@ -50,18 +50,18 @@ export type AcquireCarry = {
   scrapedImageSources: ScrapedImageSource[]
 }
 
-export type DetectCarry = {
+type DetectCarry = {
   brandName: string
   isBrand: boolean
   category: string
 }
 
-export type NamesCarry = {
+type NamesCarry = {
   candidates: NameCandidate[]
   verdict: string
 }
 
-export type PhaseCarry = AcquireCarry | DetectCarry | NamesCarry
+type PhaseCarry = AcquireCarry | DetectCarry | NamesCarry
 
 export type PhaseOutput = {
   patch: Partial<EnrichPatch>

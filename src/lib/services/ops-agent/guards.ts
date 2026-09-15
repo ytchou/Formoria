@@ -29,7 +29,7 @@ export function parseOperators(envValue: string): OperatorMap {
   return map;
 }
 
-export type GuardEnv = {
+type GuardEnv = {
   OPS_AGENT?: string;
   OPS_AGENT_OPERATORS?: string;
 };

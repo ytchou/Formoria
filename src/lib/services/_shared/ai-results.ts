@@ -345,28 +345,3 @@ export async function updateFactsAuditResult(input: {
       updateError.message,
     );
 }
-
-export type AiClassificationInput = {
-  brandId: string;
-  target?: EnrichmentTarget;
-  categorySlug: string;
-  confidence: "high" | "medium" | "low";
-};
-
-export async function insertClassificationResult(
-  input: AiClassificationInput,
-): Promise<void> {
-  const supabase = createServiceClient();
-  const { error } = await supabase.from("brand_ai_results").insert({
-    ...targetForeignKey(input.target ?? brandTarget(input.brandId)),
-    phase: "classification",
-    category: input.categorySlug,
-    confidence: input.confidence,
-    model: textModel(),
-  } as never);
-  if (error)
-    console.error(
-      `  [AI-RESULTS] insertClassificationResult failed:`,
-      error.message,
-    );
-}
