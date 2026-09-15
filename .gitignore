@@ -123,6 +123,8 @@ next-env.d.ts
 !.github/selfheal/*.md
 # health-agent.yml reads these three at runtime (repair/review/sentry-classifier).
 !.github/health-agent/*.md
+# ops-fix.yml reads fix.md at runtime (Claude Code constraint file).
+!.github/ops-agent/*.md
 !.github/PULL_REQUEST_TEMPLATE.md
 # SEO measurement artifacts are shipped content, not internal strategy docs.
 !content/seo/**/*.md
@@ -171,9 +173,9 @@ data/
 
 public/admin/content/
 
-# search-eval run artifacts and stored baseline (DEV-1413 relevance gate). Same rule
-# again: queries.json is the reviewed fixture and is committed, run output is not.
-scripts/search-eval/runs/
+# search-eval run artifacts (DEV-1680 situation search). The golden set is the
+# reviewed fixture and is committed; run output is not.
+scripts/enrichment/eval/search-eval/runs/
 
 # llm-eval run artifacts (DEV-1612 unified eval harness). Same rule: the harness
 # is committed, its scored output and LLM audit sink are not.

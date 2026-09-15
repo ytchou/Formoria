@@ -10,7 +10,14 @@ import { getPublishedCuratedProducts } from "@/lib/services/curated-products-cat
 async function main(): Promise<void> {
   loadScriptTarget();
 
-  const { products } = await getPublishedCuratedProducts({ pageSize: 2000 });
+  const { products, totalCount } = await getPublishedCuratedProducts({
+    pageSize: Number.MAX_SAFE_INTEGER,
+  });
+  if (products.length !== totalCount) {
+    throw new Error(
+      `catalog read truncated: got ${products.length} of ${totalCount}`,
+    );
+  }
 
   // Group by category, then by brand
   const byCategory = new Map<

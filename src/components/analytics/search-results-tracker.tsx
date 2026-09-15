@@ -61,6 +61,10 @@ interface SearchResultsTrackerProps {
   intentCacheHit?: boolean
   /** Wall-clock ms spent on intent parsing. */
   intentLatencyMs?: number
+  /** Wall-clock ms for the search RPC round-trip (ms). */
+  rpcLatencyMs?: number
+  /** Wall-clock ms for embedding generation, including cache lookup. 0 in lexical mode (ms). */
+  embedLatencyMs?: number
 }
 
 /**
@@ -77,7 +81,7 @@ interface SearchResultsTrackerProps {
  */
 const FLUSH_MIN_AGE_MS = 50
 
-export function SearchResultsTracker({ query, resultCount, trackerKind = 'brand', searchSource, degraded, intentParsed, intentCategory, intentSubcategory, intentMaterials, intentCacheHit, intentLatencyMs }: SearchResultsTrackerProps) {
+export function SearchResultsTracker({ query, resultCount, trackerKind = 'brand', searchSource, degraded, intentParsed, intentCategory, intentSubcategory, intentMaterials, intentCacheHit, intentLatencyMs, rpcLatencyMs, embedLatencyMs }: SearchResultsTrackerProps) {
   const pendingRef = useRef<(() => void) | null>(null)
   const pendingSinceRef = useRef(0)
 
@@ -102,6 +106,8 @@ export function SearchResultsTracker({ query, resultCount, trackerKind = 'brand'
           ...(intentMaterials !== undefined && { intentMaterials }),
           ...(intentCacheHit !== undefined && { intentCacheHit }),
           ...(intentLatencyMs !== undefined && { intentLatencyMs }),
+          ...(rpcLatencyMs !== undefined && { rpcLatencyMs }),
+          ...(embedLatencyMs !== undefined && { embedLatencyMs }),
         })
       } else {
         trackSearchExecuted(trimmed, resultCount)
@@ -122,7 +128,7 @@ export function SearchResultsTracker({ query, resultCount, trackerKind = 'brand'
     // because the next run overwrites it — and survives unmount, where the flush
     // below claims it.
     return () => clearTimeout(timer)
-  }, [query, resultCount, trackerKind, searchSource, degraded, intentParsed, intentCategory, intentSubcategory, intentMaterials, intentCacheHit, intentLatencyMs])
+  }, [query, resultCount, trackerKind, searchSource, degraded, intentParsed, intentCategory, intentSubcategory, intentMaterials, intentCacheHit, intentLatencyMs, rpcLatencyMs, embedLatencyMs])
 
   useEffect(
     () => () => {

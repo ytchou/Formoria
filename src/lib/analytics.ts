@@ -301,6 +301,8 @@ export function trackProductSearchExecuted(
     intentMaterials?: string[];
     intentCacheHit?: boolean;
     intentLatencyMs?: number;
+    rpcLatencyMs?: number;
+    embedLatencyMs?: number;
   },
 ) {
   safeGAEvent("event", "search", {
@@ -311,8 +313,8 @@ export function trackProductSearchExecuted(
     degraded: options.degraded,
   });
 
-  // Intent fields are conditionally spread: absent keys are a real state in
-  // PostHog (never captured), not "captured as undefined".
+  // Intent and latency fields are conditionally spread: absent keys are a real
+  // state in PostHog (never captured), not "captured as undefined".
   const intentProps: Record<string, unknown> = {};
   if (options.intentParsed !== undefined)
     intentProps.intent_parsed = options.intentParsed;
@@ -326,6 +328,10 @@ export function trackProductSearchExecuted(
     intentProps.intent_cache_hit = options.intentCacheHit;
   if (options.intentLatencyMs !== undefined)
     intentProps.intent_latency_ms = options.intentLatencyMs;
+  if (options.rpcLatencyMs !== undefined)
+    intentProps.rpc_latency_ms = options.rpcLatencyMs;
+  if (options.embedLatencyMs !== undefined)
+    intentProps.embed_latency_ms = options.embedLatencyMs;
 
   capturePostHogEvent(ANALYTICS_EVENTS.PRODUCT_SEARCH_EXECUTED, {
     query_length: query.length,
