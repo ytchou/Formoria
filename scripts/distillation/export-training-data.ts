@@ -1,6 +1,6 @@
 /**
  * @formoria-script
- * purpose: Export classification training data from brand_ai_results for distillation.
+ * purpose: Export product classification training data (L1 category + L2 subcategory) for distillation.
  * class: operator
  * invoke: pnpm distill:export
  * target: staging-default
@@ -10,8 +10,7 @@
 import { mkdir, writeFile } from "node:fs/promises";
 import { resolve } from "node:path";
 
-import { CATEGORY_LIST } from "@/lib/prompts";
-import { L1_CATEGORIES } from "@/lib/taxonomy/ontology";
+import { L1_CATEGORIES, L2_SUBCATEGORIES } from "@/lib/taxonomy/ontology";
 
 import { createWriteBlockingClient } from "../lib/readonly-client";
 import { loadScriptTarget } from "../shared/target";
@@ -32,11 +31,13 @@ type TrainingMessage = {
   messages: Array<{ role: "system" | "user" | "assistant"; content: string }>;
 };
 
-type ClassifyEntry = {
-  slug: string;
-  reasoning: string;
+type ProductRow = {
+  id: string;
+  name_zh: string;
+  product_description_zh: string | null;
   category: string;
-  confidence: string;
+  subcategory: string | null;
+  brand_id: string;
 };
 
 // ---------------------------------------------------------------------------
@@ -44,13 +45,38 @@ type ClassifyEntry = {
 // ---------------------------------------------------------------------------
 
 const VALID_L1_SLUGS: Set<string> = new Set(L1_CATEGORIES.map((c) => c.slug));
+const VALID_L2_SLUGS: Set<string> = new Set(
+  L2_SUBCATEGORIES.map((s) => s.slug),
+);
 
 const RUNS_DIR = resolve(import.meta.dirname, "runs");
-
 const PAGE = 1000;
 
 // ---------------------------------------------------------------------------
-// Paginated fetch — PostgREST max_rows silently truncates without .range()
+// Build system prompt with L1 + L2 taxonomy
+// ---------------------------------------------------------------------------
+
+function buildSystemPrompt(): string {
+  // Compact format: L1(L2,L2,...) to keep the prompt under ~600 tokens
+  const taxonomyLines = L1_CATEGORIES.map((c) => {
+    const subs = L2_SUBCATEGORIES.filter((s) => s.category === c.slug)
+      .map((s) => s.slug)
+      .join(",");
+    return `${c.slug}(${c.nameZh}): ${subs}`;
+  })
+    .filter((line) => !line.endsWith(": "))
+    .join("\n");
+
+  return `產品分類助手。根據產品名稱與描述，回覆 JSON：{"category":"<L1>","subcategory":"<L2>","confidence":"high|medium|low"}
+
+分類體系（L1→L2）：
+${taxonomyLines}
+
+規則：subcategory 必須屬於該 category。直接回覆 JSON。`;
+}
+
+// ---------------------------------------------------------------------------
+// Paginated fetch
 // ---------------------------------------------------------------------------
 
 async function selectAllPages<T>(
@@ -71,7 +97,7 @@ async function selectAllPages<T>(
 }
 
 // ---------------------------------------------------------------------------
-// Seeded PRNG — simple mulberry32 from a string hash
+// Seeded PRNG
 // ---------------------------------------------------------------------------
 
 function hashSeed(s: string): number {
@@ -102,27 +128,6 @@ function fisherYatesShuffle<T>(arr: T[], seed: number): void {
 }
 
 // ---------------------------------------------------------------------------
-// Load system prompt
-// ---------------------------------------------------------------------------
-
-async function loadSystemPrompt(): Promise<string> {
-  const snapshotPath = resolve(
-    import.meta.dirname,
-    "../../src/lib/prompts/langfuse-snapshot.json",
-  );
-  const { readFile } = await import("node:fs/promises");
-  const raw = await readFile(snapshotPath, "utf8");
-  const snapshot = JSON.parse(raw) as {
-    prompts: Record<string, { text: string[] }>;
-  };
-  const prompt = snapshot.prompts["category-classify"];
-  if (!prompt) throw new Error("category-classify prompt not found in snapshot");
-  const joined = prompt.text.join("\n");
-  // Substitute {{category_list}} the same way production does via Langfuse variables
-  return joined.replace("{{category_list}}", CATEGORY_LIST);
-}
-
-// ---------------------------------------------------------------------------
 // Main
 // ---------------------------------------------------------------------------
 
@@ -140,147 +145,70 @@ async function main() {
 
   const { client } = createWriteBlockingClient(supabaseUrl, supabaseKey);
 
-  // Fetch classification results with raw_response (paginated)
-  console.log("[export] fetching classification results…");
-  const aiRows = await selectAllPages<{
-    brand_id: string;
-    raw_response: unknown;
-    model: string;
-  }>(
+  console.log("[export] fetching curated products…");
+  const products = await selectAllPages<ProductRow>(
     (from, to) =>
       client
-        .from("brand_ai_results")
-        .select("brand_id, raw_response, model")
-        .eq("phase", "classification")
-        .not("raw_response", "is", null)
+        .from("curated_products")
+        .select("id, name_zh, product_description_zh, category, subcategory, brand_id")
+        .not("category", "is", null)
+        .not("subcategory", "is", null)
         .order("created_at", { ascending: true })
         .range(from, to),
-    "brand_ai_results",
+    "curated_products",
   );
 
-  if (aiRows.length === 0) {
-    console.log("[export] no classification rows found");
+  if (products.length === 0) {
+    console.log("[export] no products with category + subcategory found");
     return;
   }
 
-  console.log(`[export] found ${aiRows.length} classification result rows`);
+  console.log(`[export] found ${products.length} products`);
 
-  // Fetch brand names/descriptions keyed by id
-  const brandIds = [...new Set(aiRows.map((r) => r.brand_id))];
-  console.log(`[export] fetching ${brandIds.length} brands…`);
+  const systemPrompt = buildSystemPrompt();
 
-  const brandMap = new Map<
-    string,
-    { slug: string; name: string; description: string | null }
-  >();
-  const BATCH_SIZE = 500;
-  for (let i = 0; i < brandIds.length; i += BATCH_SIZE) {
-    const batch = brandIds.slice(i, i + BATCH_SIZE);
-    const { data: brands, error: bErr } = await client
-      .from("brands")
-      .select("id, slug, name, description")
-      .in("id", batch);
-    if (bErr) throw new Error(`brands query failed: ${bErr.message}`);
-    for (const b of brands ?? []) {
-      brandMap.set(b.id, {
-        slug: b.slug,
-        name: b.name,
-        description: b.description,
-      });
-    }
-  }
-
-  // Load system prompt
-  const systemPrompt = await loadSystemPrompt();
-
-  // Parse all entries
-  const allEntries: Array<{
-    slug: string;
+  let skipped = 0;
+  const entries: Array<{
+    id: string;
     userContent: string;
     assistantContent: string;
     category: string;
+    subcategory: string;
   }> = [];
 
-  let parseFailures = 0;
-
-  for (const row of aiRows) {
-    const brand = brandMap.get(row.brand_id);
-    if (!brand) {
-      parseFailures++;
+  for (const p of products) {
+    if (!VALID_L1_SLUGS.has(p.category)) {
+      skipped++;
+      continue;
+    }
+    if (!p.subcategory || !VALID_L2_SLUGS.has(p.subcategory)) {
+      skipped++;
       continue;
     }
 
-    let rawResponse: unknown;
-    try {
-      rawResponse =
-        typeof row.raw_response === "string"
-          ? JSON.parse(row.raw_response)
-          : row.raw_response;
-    } catch {
-      parseFailures++;
-      continue;
-    }
+    const userContent = `產品名稱：${p.name_zh}\n描述：${p.product_description_zh ?? "無"}`;
+    const assistantContent = JSON.stringify({
+      category: p.category,
+      subcategory: p.subcategory,
+      confidence: "high",
+    });
 
-    const entries: ClassifyEntry[] = [];
-    const parsed = rawResponse as Record<string, unknown>;
-
-    // Batch shape: { results: [...] }
-    if (
-      parsed &&
-      "results" in parsed &&
-      Array.isArray((parsed as { results: unknown }).results)
-    ) {
-      for (const entry of (parsed as { results: ClassifyEntry[] }).results) {
-        if (entry.slug === brand.slug) {
-          entries.push(entry);
-        }
-      }
-    }
-    // Single-brand shape: { reasoning, category, confidence }
-    else if (parsed && "category" in parsed && "reasoning" in parsed) {
-      entries.push(parsed as unknown as ClassifyEntry);
-    }
-
-    for (const entry of entries) {
-      if (!entry.category || !VALID_L1_SLUGS.has(entry.category)) {
-        parseFailures++;
-        continue;
-      }
-
-      // Match production behavior: "無" when description is null
-      const userContent = `品牌名稱：${brand.name}\n描述：${brand.description ?? "無"}`;
-      const assistantContent = JSON.stringify({
-        reasoning: entry.reasoning,
-        category: entry.category,
-        confidence: entry.confidence,
-      });
-
-      allEntries.push({
-        slug: brand.slug,
-        userContent,
-        assistantContent,
-        category: entry.category,
-      });
-    }
+    entries.push({
+      id: p.id,
+      userContent,
+      assistantContent,
+      category: p.category,
+      subcategory: p.subcategory,
+    });
   }
 
   console.log(
-    `[export] parsed ${allEntries.length} valid entries (${parseFailures} failures)`,
+    `[export] ${entries.length} valid entries (${skipped} skipped)`,
   );
 
-  // Dedup: keep only the latest entry per brand slug (last in array = latest)
-  const dedupMap = new Map<string, (typeof allEntries)[number]>();
-  for (const entry of allEntries) {
-    dedupMap.set(entry.slug, entry);
-  }
-  const dedupedEntries = [...dedupMap.values()];
-  console.log(
-    `[export] deduped to ${dedupedEntries.length} entries (from ${allEntries.length})`,
-  );
-
-  // Stratified 80/20 split by category
-  const byCategory = new Map<string, typeof dedupedEntries>();
-  for (const entry of dedupedEntries) {
+  // Stratified 80/20 split by L1 category
+  const byCategory = new Map<string, typeof entries>();
+  for (const entry of entries) {
     const bucket = byCategory.get(entry.category) ?? [];
     bucket.push(entry);
     byCategory.set(entry.category, bucket);
@@ -289,10 +217,9 @@ async function main() {
   const trainSet: TrainingMessage[] = [];
   const evalSet: TrainingMessage[] = [];
 
-  for (const [category, entries] of byCategory) {
-    // Seeded Fisher-Yates shuffle for reproducibility
-    const shuffled = [...entries];
-    fisherYatesShuffle(shuffled, hashSeed("formoria-distill-" + category));
+  for (const [category, catEntries] of byCategory) {
+    const shuffled = [...catEntries];
+    fisherYatesShuffle(shuffled, hashSeed("formoria-product-distill-" + category));
     const splitIndex = Math.max(1, Math.floor(shuffled.length * 0.8));
 
     for (let i = 0; i < shuffled.length; i++) {
@@ -311,25 +238,29 @@ async function main() {
       }
     }
 
+    // Count distinct L2s in this category
+    const l2s = new Set(catEntries.map((e) => e.subcategory));
     console.log(
-      `  ${category}: ${entries.length} total → ${Math.min(splitIndex, shuffled.length)} train / ${Math.max(0, shuffled.length - splitIndex)} eval`,
+      `  ${category}: ${catEntries.length} products (${l2s.size} L2s) → ${Math.min(splitIndex, shuffled.length)} train / ${Math.max(0, shuffled.length - splitIndex)} eval`,
     );
   }
 
-  // Stats
   const stats = {
-    totalRawEntries: allEntries.length,
-    dedupedEntries: dedupedEntries.length,
-    parseFailures,
+    totalProducts: products.length,
+    validEntries: entries.length,
+    skipped,
     trainCount: trainSet.length,
     evalCount: evalSet.length,
+    l1Categories: byCategory.size,
+    l2Subcategories: new Set(entries.map((e) => e.subcategory)).size,
     categoryBreakdown: Object.fromEntries(
-      [...byCategory.entries()].map(([cat, entries]) => [cat, entries.length]),
+      [...byCategory.entries()].map(([cat, e]) => [cat, e.length]),
     ),
     exportedAt: new Date().toISOString(),
   };
 
   console.log(`\n[export] train: ${trainSet.length}, eval: ${evalSet.length}`);
+  console.log(`[export] L1: ${stats.l1Categories} categories, L2: ${stats.l2Subcategories} subcategories`);
 
   if (dryRun) {
     console.log("\n[export] --dry-run: stats only, no files written");
@@ -337,16 +268,14 @@ async function main() {
     return;
   }
 
-  // Write output files
   await mkdir(RUNS_DIR, { recursive: true });
 
   const trainPath = resolve(RUNS_DIR, "train.jsonl");
   const evalPath = resolve(RUNS_DIR, "eval.jsonl");
-  const validPath = resolve(RUNS_DIR, "valid.jsonl"); // mlx_lm.lora expects valid.jsonl
+  const validPath = resolve(RUNS_DIR, "valid.jsonl");
   const statsPath = resolve(RUNS_DIR, "export-stats.json");
 
-  const evalContent =
-    evalSet.map((m) => JSON.stringify(m)).join("\n") + "\n";
+  const evalContent = evalSet.map((m) => JSON.stringify(m)).join("\n") + "\n";
 
   await writeFile(
     trainPath,
@@ -354,7 +283,7 @@ async function main() {
     "utf8",
   );
   await writeFile(evalPath, evalContent, "utf8");
-  await writeFile(validPath, evalContent, "utf8"); // copy for mlx_lm.lora
+  await writeFile(validPath, evalContent, "utf8");
   await writeFile(statsPath, JSON.stringify(stats, null, 2) + "\n", "utf8");
 
   console.log(`[export] wrote ${trainPath}`);

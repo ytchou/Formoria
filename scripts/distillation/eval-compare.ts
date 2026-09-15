@@ -1,14 +1,11 @@
-/** 3-way eval comparison — luna vs Qwen3 foundation vs Qwen3 fine-tuned. */
+/** 3-way eval comparison — luna vs Qwen3-0.6B foundation vs Qwen3-0.6B fine-tuned.
+ * Scores both L1 (category) and L2 (subcategory) accuracy. */
 import { readFile, mkdir, writeFile } from "node:fs/promises";
 import { resolve } from "node:path";
 
 import { z } from "zod";
 
-import { L1_CATEGORIES } from "@/lib/taxonomy/ontology";
-import {
-  categoryAgreement,
-  confidenceBandAgreement,
-} from "@/lib/services/eval/scorers";
+import { L1_CATEGORIES, L2_SUBCATEGORIES } from "@/lib/taxonomy/ontology";
 
 import { loadScriptTarget } from "../shared/target";
 
@@ -34,15 +31,14 @@ const VALID_ARM_NAMES: ReadonlySet<string> = new Set([
   "finetuned",
 ]);
 
-/** Normalize CLI input to canonical ArmName. Accepts both `finetuned` and `fineTuned`. */
 function normalizeArm(raw: string): ArmName {
   if (raw === "finetuned") return "fineTuned";
   return raw as ArmName;
 }
 
 type ClassifyOutput = {
-  reasoning: string;
   category: string;
+  subcategory: string;
   confidence: string;
 };
 
@@ -52,15 +48,15 @@ type EvalMessage = {
 
 type ArmResult = {
   category: string | null;
+  subcategory: string | null;
   confidence: string | null;
-  reasoning: string | null;
   parseSuccess: boolean;
   latencyMs: number;
   error: string | null;
 };
 
-type BrandResult = {
-  slug: string;
+type ProductResult = {
+  name: string;
   expected: ClassifyOutput;
   luna: ArmResult | null;
   foundation: ArmResult | null;
@@ -74,57 +70,24 @@ type BrandResult = {
 
 const RUNS_DIR = resolve(import.meta.dirname, "runs");
 
+const L1_SLUGS = L1_CATEGORIES.map((c) => c.slug) as [string, ...string[]];
+const L2_SLUGS = L2_SUBCATEGORIES.map((s) => s.slug) as [string, ...string[]];
+
 const classifyShape = z.object({
-  reasoning: z.string(),
-  category: z.enum(
-    L1_CATEGORIES.map((c) => c.slug) as [string, ...string[]],
-  ),
+  category: z.enum(L1_SLUGS),
+  subcategory: z.enum(L2_SLUGS),
   confidence: z.enum(["high", "medium", "low"]),
 });
-
-// ---------------------------------------------------------------------------
-// JSON Schema for Ollama structured output
-// ---------------------------------------------------------------------------
 
 const OLLAMA_JSON_SCHEMA = {
   type: "object" as const,
   properties: {
-    reasoning: { type: "string" as const },
-    category: {
-      type: "string" as const,
-      enum: L1_CATEGORIES.map((c) => c.slug),
-    },
-    confidence: {
-      type: "string" as const,
-      enum: ["high", "medium", "low"],
-    },
+    category: { type: "string" as const, enum: L1_SLUGS },
+    subcategory: { type: "string" as const, enum: L2_SLUGS },
+    confidence: { type: "string" as const, enum: ["high", "medium", "low"] },
   },
-  required: ["reasoning", "category", "confidence"] as const,
+  required: ["category", "subcategory", "confidence"] as const,
 };
-
-// ---------------------------------------------------------------------------
-// Load system prompt
-// ---------------------------------------------------------------------------
-
-async function loadSystemPrompt(): Promise<string> {
-  const snapshotPath = resolve(
-    import.meta.dirname,
-    "../../src/lib/prompts/langfuse-snapshot.json",
-  );
-  const fileContent = await readFile(snapshotPath, "utf8");
-  const snapshot = JSON.parse(fileContent) as {
-    prompts: Record<string, { text: string[] }>;
-  };
-  const prompt = snapshot.prompts["category-classify"];
-  if (!prompt) throw new Error("category-classify prompt not found in snapshot");
-  const joined = prompt.text.join("\n");
-
-  // Substitute {{category_list}} with actual L1 categories
-  const categoryList = L1_CATEGORIES.map(
-    (c) => `- ${c.slug}: ${c.name} (${c.nameZh})`,
-  ).join("\n");
-  return joined.replace(/\{\{category_list\}\}/g, categoryList);
-}
 
 // ---------------------------------------------------------------------------
 // API call helpers
@@ -138,26 +101,17 @@ async function callOpenAI(
   if (!apiKey) {
     return {
       category: null,
+      subcategory: null,
       confidence: null,
-      reasoning: null,
       parseSuccess: false,
       latencyMs: 0,
       error: "OPENAI_API_KEY not set",
     };
   }
 
-  // Experiment script — basic console audit. Production code should use the audit adapter.
   const model = "gpt-5.6-luna";
   const start = Date.now();
   try {
-    const payload = {
-      model,
-      messages: [
-        { role: "system", content: systemPrompt },
-        { role: "user", content: userContent },
-      ],
-      response_format: { type: "json_object" },
-    };
     const response = await fetch(
       "https://api.openai.com/v1/chat/completions",
       {
@@ -166,7 +120,14 @@ async function callOpenAI(
           "Content-Type": "application/json",
           Authorization: `Bearer ${apiKey}`,
         },
-        body: JSON.stringify(payload),
+        body: JSON.stringify({
+          model,
+          messages: [
+            { role: "system", content: systemPrompt },
+            { role: "user", content: userContent },
+          ],
+          response_format: { type: "json_object" },
+        }),
       },
     );
     const latencyMs = Date.now() - start;
@@ -178,8 +139,8 @@ async function callOpenAI(
       );
       return {
         category: null,
+        subcategory: null,
         confidence: null,
-        reasoning: null,
         parseSuccess: false,
         latencyMs,
         error: `OpenAI ${response.status}: ${text.slice(0, 200)}`,
@@ -196,13 +157,10 @@ async function callOpenAI(
     return parseArmResponse(content, latencyMs);
   } catch (err) {
     const latencyMs = Date.now() - start;
-    console.log(
-      `[audit] OpenAI ${model} status=ERROR latency=${latencyMs}ms error=${String(err).slice(0, 120)}`,
-    );
     return {
       category: null,
+      subcategory: null,
       confidence: null,
-      reasoning: null,
       parseSuccess: false,
       latencyMs,
       error: String(err),
@@ -214,12 +172,11 @@ async function callOllama(
   systemPrompt: string,
   userContent: string,
   model: string,
+  port = 11434,
 ): Promise<ArmResult> {
   const start = Date.now();
   try {
-    // Use Ollama's native /api/chat endpoint for better structured output support.
-    // The `format` field is native to this endpoint (not the OpenAI-compat /v1/chat/completions).
-    const response = await fetch("http://localhost:11434/api/chat", {
+    const response = await fetch(`http://localhost:${port}/api/chat`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -238,8 +195,8 @@ async function callOllama(
       const text = await response.text();
       return {
         category: null,
+        subcategory: null,
         confidence: null,
-        reasoning: null,
         parseSuccess: false,
         latencyMs,
         error: `Ollama ${response.status}: ${text.slice(0, 200)}`,
@@ -257,8 +214,8 @@ async function callOllama(
       message.includes("ECONNREFUSED") || message.includes("fetch failed");
     return {
       category: null,
+      subcategory: null,
       confidence: null,
-      reasoning: null,
       parseSuccess: false,
       latencyMs: Date.now() - start,
       error: isConnectionError
@@ -275,8 +232,8 @@ function parseArmResponse(content: string, latencyMs: number): ArmResult {
     if (result.success) {
       return {
         category: result.data.category,
+        subcategory: result.data.subcategory,
         confidence: result.data.confidence,
-        reasoning: result.data.reasoning,
         parseSuccess: true,
         latencyMs,
         error: null,
@@ -284,17 +241,17 @@ function parseArmResponse(content: string, latencyMs: number): ArmResult {
     }
     return {
       category: parsed.category ?? null,
+      subcategory: parsed.subcategory ?? null,
       confidence: parsed.confidence ?? null,
-      reasoning: parsed.reasoning ?? null,
       parseSuccess: false,
       latencyMs,
-      error: `Schema validation failed`,
+      error: "Schema validation failed",
     };
   } catch {
     return {
       category: null,
+      subcategory: null,
       confidence: null,
-      reasoning: null,
       parseSuccess: false,
       latencyMs,
       error: "JSON parse failed",
@@ -303,7 +260,7 @@ function parseArmResponse(content: string, latencyMs: number): ArmResult {
 }
 
 // ---------------------------------------------------------------------------
-// Scoring
+// Scoring — L1, L2, and combined
 // ---------------------------------------------------------------------------
 
 function scoreArm(
@@ -311,19 +268,15 @@ function scoreArm(
   expected: ClassifyOutput,
 ): Record<string, number> {
   if (!armResult || !armResult.parseSuccess) {
-    return { categoryAgreement: 0, confidenceAgreement: 0, exactMatch: 0 };
+    return { l1Match: 0, l2Match: 0, bothMatch: 0 };
   }
 
+  const l1 = armResult.category === expected.category ? 1 : 0;
+  const l2 = armResult.subcategory === expected.subcategory ? 1 : 0;
   return {
-    categoryAgreement: categoryAgreement(
-      { category: armResult.category ?? "" },
-      { category: expected.category },
-    ),
-    confidenceAgreement: confidenceBandAgreement(
-      armResult.confidence ?? undefined,
-      expected.confidence,
-    ),
-    exactMatch: armResult.category === expected.category ? 1 : 0,
+    l1Match: l1,
+    l2Match: l2,
+    bothMatch: l1 && l2 ? 1 : 0,
   };
 }
 
@@ -331,11 +284,7 @@ function scoreArm(
 // Latency stats
 // ---------------------------------------------------------------------------
 
-function latencyStats(values: number[]): {
-  p50: number;
-  p95: number;
-  max: number;
-} {
+function latencyStats(values: number[]) {
   if (values.length === 0) return { p50: 0, p95: 0, max: 0 };
   const sorted = [...values].sort((a, b) => a - b);
   return {
@@ -350,31 +299,28 @@ function latencyStats(values: number[]): {
 // ---------------------------------------------------------------------------
 
 async function main() {
-  // Load env targeting (matches export-training-data.ts)
   const { argv } = loadScriptTarget();
 
   const rawArm = argValue(argv, "--arm");
   if (rawArm !== undefined && !VALID_ARM_NAMES.has(rawArm)) {
     console.error(
-      `[eval] invalid --arm "${rawArm}". Valid values: luna, foundation, fineTuned (or finetuned)`,
+      `[eval] invalid --arm "${rawArm}". Valid: luna, foundation, fineTuned`,
     );
     process.exit(1);
   }
   const armFilter: ArmName | undefined =
     rawArm !== undefined ? normalizeArm(rawArm) : undefined;
-
   const activeArms: ArmName[] = armFilter
     ? [armFilter]
     : ["luna", "foundation", "fineTuned"];
 
-  // Load eval dataset
   const evalPath = resolve(RUNS_DIR, "eval.jsonl");
   let evalRaw: string;
   try {
     evalRaw = await readFile(evalPath, "utf8");
   } catch {
     console.error(
-      `[eval] eval.jsonl not found at ${evalPath}. Run pnpm distill:export first.`,
+      `[eval] eval.jsonl not found. Run pnpm distill:export first.`,
     );
     process.exit(1);
   }
@@ -392,11 +338,11 @@ async function main() {
   console.log(`[eval] loaded ${evalMessages.length} eval samples`);
   console.log(`[eval] active arms: ${activeArms.join(", ")}`);
 
-  // Load system prompt
-  const systemPrompt = await loadSystemPrompt();
+  // Use the system prompt from the training data (first eval row)
+  const systemPrompt =
+    evalMessages[0].messages.find((m) => m.role === "system")?.content ?? "";
 
-  // Run evaluation
-  const results: BrandResult[] = [];
+  const results: ProductResult[] = [];
   const armLatencies: Record<ArmName, number[]> = {
     luna: [],
     foundation: [],
@@ -418,21 +364,19 @@ async function main() {
     try {
       expected = JSON.parse(assistantMsg.content) as ClassifyOutput;
     } catch {
-      console.warn(
-        `[eval] skipping sample ${i}: failed to parse expected output`,
-      );
+      console.warn(`[eval] skipping sample ${i}: bad expected output`);
       continue;
     }
-    // Extract slug from user content: "品牌名稱：X\n描述：Y"
-    const slugMatch = userMsg.content.match(/品牌名稱：(.+?)(?:\n|$)/);
-    const slug = slugMatch?.[1] ?? `sample-${i}`;
+
+    const nameMatch = userMsg.content.match(/產品名稱：(.+?)(?:\n|$)/);
+    const name = nameMatch?.[1] ?? `sample-${i}`;
 
     console.log(
-      `[eval] ${i + 1}/${evalMessages.length}: ${slug} (expected: ${expected.category})`,
+      `[eval] ${i + 1}/${evalMessages.length}: ${name} (expected: ${expected.category}/${expected.subcategory})`,
     );
 
-    const brandResult: BrandResult = {
-      slug,
+    const productResult: ProductResult = {
+      name,
       expected,
       luna: null,
       foundation: null,
@@ -440,147 +384,112 @@ async function main() {
       scores: {},
     };
 
-    // Run each active arm
     if (activeArms.includes("luna")) {
-      brandResult.luna = await callOpenAI(systemPrompt, userMsg.content);
-      armLatencies.luna.push(brandResult.luna.latencyMs);
-      if (!brandResult.luna.parseSuccess) armParseFailures.luna++;
-      brandResult.scores.luna = scoreArm(brandResult.luna, expected);
+      productResult.luna = await callOpenAI(systemPrompt, userMsg.content);
+      armLatencies.luna.push(productResult.luna.latencyMs);
+      if (!productResult.luna.parseSuccess) armParseFailures.luna++;
+      productResult.scores.luna = scoreArm(productResult.luna, expected);
     }
 
     if (activeArms.includes("foundation")) {
-      brandResult.foundation = await callOllama(
+      // Foundation served via mlx-serve.py on port 11435 (same as fine-tuned, swap model between runs)
+      productResult.foundation = await callOllama(
         systemPrompt,
         userMsg.content,
-        "qwen3:1.7b",
+        "qwen3-0.6b",
+        11435,
       );
-      armLatencies.foundation.push(brandResult.foundation.latencyMs);
-      if (!brandResult.foundation.parseSuccess) armParseFailures.foundation++;
-      brandResult.scores.foundation = scoreArm(
-        brandResult.foundation,
+      armLatencies.foundation.push(productResult.foundation.latencyMs);
+      if (!productResult.foundation.parseSuccess)
+        armParseFailures.foundation++;
+      productResult.scores.foundation = scoreArm(
+        productResult.foundation,
         expected,
       );
     }
 
     if (activeArms.includes("fineTuned")) {
-      brandResult.fineTuned = await callOllama(
+      productResult.fineTuned = await callOllama(
         systemPrompt,
         userMsg.content,
         "formoria-classifier",
+        11435,
       );
-      armLatencies.fineTuned.push(brandResult.fineTuned.latencyMs);
-      if (!brandResult.fineTuned.parseSuccess) armParseFailures.fineTuned++;
-      brandResult.scores.fineTuned = scoreArm(
-        brandResult.fineTuned,
+      armLatencies.fineTuned.push(productResult.fineTuned.latencyMs);
+      if (!productResult.fineTuned.parseSuccess)
+        armParseFailures.fineTuned++;
+      productResult.scores.fineTuned = scoreArm(
+        productResult.fineTuned,
         expected,
       );
     }
 
-    results.push(brandResult);
+    results.push(productResult);
   }
 
-  // Compute aggregates
-  const aggregate: Record<
-    string,
-    {
-      accuracy: number;
-      categoryAgreement: number;
-      confidenceAgreement: number;
-      parseFailures: number;
-      total: number;
-      latency: { p50: number; p95: number; max: number };
-    }
-  > = {};
-
+  // Aggregates
+  const aggregate: Record<string, Record<string, unknown>> = {};
   for (const arm of activeArms) {
-    const armScores = results
+    const scores = results
       .map((r) => r.scores[arm])
       .filter((s): s is Record<string, number> => s !== undefined);
-
-    const total = armScores.length;
-    const accuracy =
-      total > 0
-        ? armScores.reduce((sum, s) => sum + s.exactMatch, 0) / total
-        : 0;
-    const catAg =
-      total > 0
-        ? armScores.reduce((sum, s) => sum + s.categoryAgreement, 0) / total
-        : 0;
-    const confAg =
-      total > 0
-        ? armScores.reduce((sum, s) => sum + s.confidenceAgreement, 0) / total
-        : 0;
+    const total = scores.length;
+    const l1Acc =
+      total > 0 ? scores.reduce((s, x) => s + x.l1Match, 0) / total : 0;
+    const l2Acc =
+      total > 0 ? scores.reduce((s, x) => s + x.l2Match, 0) / total : 0;
+    const bothAcc =
+      total > 0 ? scores.reduce((s, x) => s + x.bothMatch, 0) / total : 0;
 
     aggregate[arm] = {
-      accuracy: Math.round(accuracy * 1000) / 1000,
-      categoryAgreement: Math.round(catAg * 1000) / 1000,
-      confidenceAgreement: Math.round(confAg * 1000) / 1000,
+      l1Accuracy: Math.round(l1Acc * 1000) / 1000,
+      l2Accuracy: Math.round(l2Acc * 1000) / 1000,
+      bothAccuracy: Math.round(bothAcc * 1000) / 1000,
       parseFailures: armParseFailures[arm],
       total,
       latency: latencyStats(armLatencies[arm]),
     };
   }
 
-  // Per-category breakdown
-  const categoryBreakdown: Record<
+  // Per-L1-category breakdown
+  const l1Breakdown: Record<
     string,
     Record<string, { correct: number; total: number; accuracy: number }>
   > = {};
-
   for (const arm of activeArms) {
-    categoryBreakdown[arm] = {};
+    l1Breakdown[arm] = {};
     for (const result of results) {
       const cat = result.expected.category;
-      if (!categoryBreakdown[arm][cat]) {
-        categoryBreakdown[arm][cat] = { correct: 0, total: 0, accuracy: 0 };
-      }
-      categoryBreakdown[arm][cat].total++;
-      const armScore = result.scores[arm];
-      if (armScore?.exactMatch === 1) {
-        categoryBreakdown[arm][cat].correct++;
-      }
+      if (!l1Breakdown[arm][cat])
+        l1Breakdown[arm][cat] = { correct: 0, total: 0, accuracy: 0 };
+      l1Breakdown[arm][cat].total++;
+      if (result.scores[arm]?.l1Match === 1)
+        l1Breakdown[arm][cat].correct++;
     }
-    for (const cat of Object.keys(categoryBreakdown[arm])) {
-      const entry = categoryBreakdown[arm][cat];
-      entry.accuracy =
-        entry.total > 0
-          ? Math.round((entry.correct / entry.total) * 1000) / 1000
-          : 0;
+    for (const cat of Object.keys(l1Breakdown[arm])) {
+      const e = l1Breakdown[arm][cat];
+      e.accuracy = e.total > 0 ? Math.round((e.correct / e.total) * 1000) / 1000 : 0;
     }
   }
-
-  // Summary table for article
-  const summaryTable = activeArms.map((arm) => ({
-    arm,
-    accuracy: aggregate[arm]?.accuracy ?? 0,
-    categoryAgreement: aggregate[arm]?.categoryAgreement ?? 0,
-    confidenceAgreement: aggregate[arm]?.confidenceAgreement ?? 0,
-    parseFailures: armParseFailures[arm],
-    p50Ms: aggregate[arm]?.latency.p50 ?? 0,
-    p95Ms: aggregate[arm]?.latency.p95 ?? 0,
-  }));
 
   const output = {
     evalCount: evalMessages.length,
     activeArms,
     aggregate,
-    categoryBreakdown,
-    summaryTable,
+    l1Breakdown,
     results,
     exportedAt: new Date().toISOString(),
   };
 
-  // Print summary
   console.log("\n--- Summary ---");
   for (const arm of activeArms) {
-    const a = aggregate[arm];
-    if (!a) continue;
+    const a = aggregate[arm] as Record<string, unknown>;
+    const lat = a.latency as { p50: number; p95: number };
     console.log(
-      `  ${arm}: accuracy=${a.accuracy} catAg=${a.categoryAgreement} confAg=${a.confidenceAgreement} parseFail=${a.parseFailures} p50=${a.latency.p50}ms p95=${a.latency.p95}ms`,
+      `  ${arm}: L1=${a.l1Accuracy} L2=${a.l2Accuracy} both=${a.bothAccuracy} parseFail=${a.parseFailures} p50=${lat.p50}ms p95=${lat.p95}ms`,
     );
   }
 
-  // Write results
   await mkdir(RUNS_DIR, { recursive: true });
   const outputPath = resolve(RUNS_DIR, "eval-results.json");
   await writeFile(outputPath, JSON.stringify(output, null, 2) + "\n", "utf8");

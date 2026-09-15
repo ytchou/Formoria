@@ -181,6 +181,7 @@ scripts/llm-eval/runs/
 
 # distillation experiment run artifacts (DEV-1681)
 scripts/distillation/runs/
+scripts/distillation/models/
 
 # brand-storage-maintenance local manifests (operational artifacts, never committed)
 scripts/.storage-purge-manifest-*.json
