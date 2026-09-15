@@ -36,6 +36,10 @@ import {
 import { TrailContent } from "./trail-content";
 import { routes } from "@/lib/routes";
 import { getTrailRelatedContent } from "@/lib/services/editorial-links";
+import { findSimilarProductsForTrail } from "@/lib/services/product-situation-search";
+import { ProductCard } from "@/components/products/product-card";
+import { SavedProductsProvider } from "@/hooks/use-saved-products";
+import { Grid } from "@/components/ui/grid";
 
 type PageProps = {
   params: Promise<{ locale: string; slug: string }>;
@@ -227,6 +231,12 @@ export default async function StyleTrailPage({ params }: PageProps) {
   if (!trail) notFound();
   if (products === null) await markRenderDegraded("style.trail.products");
   const safeProducts = products ?? [];
+  const similarProducts =
+    safeProducts.length > 0
+      ? await findSimilarProductsForTrail(
+          safeProducts.map((p) => p.id),
+        ).catch(() => [])
+      : [];
 
   const entry = trail.entry;
   const frontmatter = entry.frontmatter;
@@ -346,6 +356,25 @@ export default async function StyleTrailPage({ params }: PageProps) {
               sections={frontmatter.sections}
             />
           </div>
+          {similarProducts.length >= 3 && (
+            <SavedProductsProvider>
+              <section
+                aria-label={t("exploreMore")}
+                className="mt-section"
+              >
+                <h2 className="type-card-title">{t("exploreMore")}</h2>
+                <Grid cols="thirds" as="ul" className="mt-6">
+                  {similarProducts.map((product) => (
+                    <ProductCard
+                      key={product.id}
+                      product={product}
+                      locale={safeLocale}
+                    />
+                  ))}
+                </Grid>
+              </section>
+            </SavedProductsProvider>
+          )}
           {(frontmatter.relatedStories.length > 0 ||
             frontmatter.relatedTrails.length > 0) && (
             <div className="mt-section space-y-8">

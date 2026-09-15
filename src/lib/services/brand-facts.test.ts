@@ -251,7 +251,6 @@ describe("FACTS_SCHEMA", () => {
       content: JSON.stringify({
         category: "home",
         subcategories: [],
-        material: [],
         city: null,
         founding_year: null,
         listing: { reasoning: "test", verdict: "list", reason: "", taiwan_connection: "created", has_own_products: true, has_purchase_channel: true },

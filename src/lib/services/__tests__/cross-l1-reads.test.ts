@@ -36,14 +36,12 @@ import {
 const CROSS_L1_BRAND: SubcategorySummaryRow = {
   category: 'fashion',
   subcategories: ['backpacks'],
-  material: [],
   updatedAt: '2026-08-18T00:00:00.000Z',
 }
 
 const NATIVE_BRAND: SubcategorySummaryRow = {
   category: 'bags-accessories',
   subcategories: ['backpacks', 'tote-bags'],
-  material: ['leather'],
   updatedAt: '2026-08-17T00:00:00.000Z',
 }
 
