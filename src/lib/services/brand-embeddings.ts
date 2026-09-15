@@ -19,6 +19,7 @@ type CentroidUpsertRow = {
   embedding: string;
   model: string;
   source_hash: string;
+  product_count: number;
 };
 
 type WriterInput = {
@@ -219,6 +220,7 @@ export async function refreshBrandCentroids(
       embedding: JSON.stringify(centroid),
       model: EMBEDDING_MODEL,
       source_hash: hash,
+      product_count: group.embeddings.length,
     });
   }
 
