@@ -1,0 +1,8 @@
+[
+  {
+    "id": "bc-eval-001",
+    "brandSlug": "PLACEHOLDER",
+    "category": "PLACEHOLDER",
+    "note": "Replace with actual brand slugs stratified by L1 category from production. Each entry needs a real brandSlug (from brands.slug) and its L1 category (from brands.category). Target 100 entries covering all active L1 categories proportionally. Populate by running a SQL query against production: SELECT slug, category FROM brands WHERE status = 'approved' ORDER BY category, random() and sampling ~100 rows stratified by category."
+  }
+]

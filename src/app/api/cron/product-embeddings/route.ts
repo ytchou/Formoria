@@ -4,6 +4,7 @@ import { postSlackAlert } from "@/lib/adapters/alerting/slack";
 import type { AgentNotification } from "@/lib/adapters/slack/notification";
 import { withAuditScope } from "@/lib/audit/scope";
 import { isAuthorizedMachineCaller } from "@/lib/security/machine-caller";
+import { refreshBrandCentroids } from "@/lib/services/brand-embeddings";
 import { refreshProductEmbeddings } from "@/lib/services/product-embeddings";
 
 export const runtime = "nodejs";
@@ -104,6 +105,11 @@ export const POST = withAuditScope(async (req: Request) => {
       jobId: undefined,
     });
 
+    let centroidResult = { updated: 0, deleted: 0, skipped: 0 };
+    if (result.failedBatches.length === 0 && !dryRun) {
+      centroidResult = await refreshBrandCentroids();
+    }
+
     let slackSent = false;
     try {
       const notification: AgentNotification = {
@@ -115,6 +121,7 @@ export const POST = withAuditScope(async (req: Request) => {
           ...(result.failedBatches.length > 0
             ? [`Failed batches: ${result.failedBatches.length}`]
             : []),
+          `Centroids: ${centroidResult.updated} updated, ${centroidResult.deleted} deleted, ${centroidResult.skipped} skipped`,
           ...(dryRun ? ["(dry run — no writes)"] : []),
         ],
       };
@@ -153,6 +160,9 @@ export const POST = withAuditScope(async (req: Request) => {
       deleted: result.deleted,
       failedBatches: result.failedBatches.length,
       dryRun,
+      centroidsUpdated: centroidResult.updated,
+      centroidsDeleted: centroidResult.deleted,
+      centroidsSkipped: centroidResult.skipped,
       triggeredBy: body.triggered_by,
       slackSent,
     });
