@@ -118,8 +118,11 @@ import {
 import { buildEditorialDeps } from "./enrich-phases/editorial/validators";
 import type {
   EnrichBrand as EditorialEnrichBrand,
-  EnrichPatch as EditorialEnrichPatch,
   EnrichPhase as EditorialEnrichPhase,
+} from "./enrich-phases/types";
+import {
+  depositPhaseOutput,
+  buildPendingPatch,
 } from "./enrich-phases/types";
 import {
   fetchPhaseHistory,
@@ -400,10 +403,6 @@ export function applyChunkNameCleanup(
   return cleanups;
 }
 
-type EnrichImagePatch = Partial<{
-  hero_image_url: string | null;
-}>;
-
 function isEmptyField(value: unknown): boolean {
   if (value == null) return true;
   if (typeof value === "string") return value.trim().length === 0;
@@ -442,34 +441,6 @@ export function needsPhase(
 
   return true;
 }
-
-type EnrichDescriptionPatch = Partial<{
-  description: string | null;
-  description_en: string | null;
-  subcategories: string[] | null;
-  city: string | null;
-}>;
-
-type EnrichPatches = {
-  links?: Partial<BrandFlatLinkColumns>;
-  /**
-   * The single writer of `name` (DEV-1321). `clean` used to own this key and
-   * LOST the `mergeEnrichPatches` spread to `links`, while at runtime
-   * `appendPatch` let the last phase to run win instead — the two precedence
-   * mechanisms disagreed about the same column, and `首頁 - 小朱甜點` is what
-   * that disagreement wrote to a live row. Only one phase can produce a `name`
-   * at all now, so the two paths cannot diverge.
-   */
-  names?: Partial<Pick<CurationBrand, "name">>;
-  images?: EnrichImagePatch;
-  descriptions?: EnrichDescriptionPatch;
-  tags?: Partial<Pick<CurationBrand, "category">>;
-};
-
-type EnrichPatch = Partial<BrandFlatLinkColumns> &
-  EnrichImagePatch &
-  EnrichDescriptionPatch &
-  Partial<Pick<EnrichBrand, "category" | "name">>;
 
 type SubmissionEnrichmentRow = Record<OnlineStoreColumn, string | null> & {
   id: string;
@@ -976,19 +947,6 @@ async function loadImagePoolFromHistory(
   }
 }
 
-export function mergeEnrichPatches(patches: EnrichPatches): EnrichPatch {
-  return {
-    ...patches.links,
-    // `names` after `links` mirrors the runtime `appendPatch` order exactly: the
-    // batched names phase runs immediately after the links wave. Keep the two in
-    // step — them drifting apart is the DEV-1321 bug.
-    ...patches.names,
-    ...patches.images,
-    ...patches.descriptions,
-    ...patches.tags,
-  };
-}
-
 function changedFieldsFromPhaseResults(phaseResults: PhaseResult[]): string[] {
   return [
     ...new Set(
@@ -1187,13 +1145,6 @@ function finishEnrichResult(
     ...result,
     enrichmentSummary,
   };
-}
-
-function appendPatch(
-  state: BrandEnrichState,
-  patch: Record<string, unknown>,
-): void {
-  Object.assign(state.patches, patch);
 }
 
 export async function persistSubmissionEnrichmentResults(
@@ -2469,7 +2420,7 @@ export async function runEnrich(
               brandStartedAt: Date.now(),
               overwrite: brand.overwrite_enrichment === true,
               state: {
-                patches: {},
+                outputs: {},
                 phaseResults: [...(batchPhaseResults.get(brand.id) ?? [])],
                 knownUrls: collectKnownUrls(brand),
                 discoveredUrls: [],
@@ -2531,7 +2482,7 @@ export async function runEnrich(
                   state.phaseResults.push(detectEntry);
                   await logCurrentPhase(ctx, detectEntry);
                 }
-                appendPatch(state, detectApplication.patch);
+                depositPhaseOutput(state, 'detect', detectApplication.patch);
 
                 if (detectApplication.isNonBrand) {
                   const detectResult = ctx.detectResult;
@@ -2576,7 +2527,7 @@ export async function runEnrich(
               // ---- Link expansion patch + no-purchase-channel gate ----
               const expansion = linkExpansionByBrandId.get(brand.id);
               if (expansion) {
-                appendPatch(state, expansion.patch);
+                depositPhaseOutput(state, 'linkExpansion', expansion.patch);
               }
               if (!hasPurchaseChannel(brand)) {
                 // The verdict finalizer reads this back off the trace, so the
@@ -2691,7 +2642,7 @@ export async function runEnrich(
                 state.phaseResults.push(acquireResult.phaseResult);
                 await logCurrentPhase(ctx, acquireResult.phaseResult);
                 state.scrapedData = acquireResult.scrapedData ?? {};
-                appendPatch(state, acquireResult.patch);
+                depositPhaseOutput(state, 'acquire', acquireResult.patch);
               }
 
               // Gate A — acquire provider failure means no input for downstream
@@ -2853,7 +2804,7 @@ export async function runEnrich(
                   : application.phaseResult;
                 state.phaseResults.push(namesEntry);
                 await logCurrentPhase(ctx, namesEntry);
-                appendPatch(state, application.patch);
+                depositPhaseOutput(state, 'names', application.patch);
               }
 
               // ---- Editorial agent (descriptions + stockists + faq) --------
@@ -2887,7 +2838,7 @@ export async function runEnrich(
                   dryRun: config.dryRun,
                   target: { type: targetType, id: brand.id },
                   jobId: config.jobId,
-                  pendingPatch: state.patches as EditorialEnrichPatch,
+                  pendingPatch: buildPendingPatch(state.outputs),
                   explicitPhases: config.explicitPhases ?? [],
                 };
 
@@ -2963,7 +2914,7 @@ export async function runEnrich(
                     state.phaseResults.push(pr);
                     await logCurrentPhase(ctx, pr);
                   }
-                  appendPatch(state, editorialOutput.patch);
+                  depositPhaseOutput(state, 'editorial', editorialOutput.patch);
 
                   // Extract descriptions-specific output for downstream logic
                   const descriptionsPhaseResult = editorialOutput.phaseResults.find(
@@ -2983,11 +2934,12 @@ export async function runEnrich(
 
                   // Category derivation from subcategories (same logic as before)
                   if (descriptionsResult) {
+                    const pendingCategory = buildPendingPatch(state.outputs).category;
                     const effectiveCategory =
                       typeof descriptionsResult.patch.category === "string"
                         ? descriptionsResult.patch.category
-                        : typeof state.patches.category === "string"
-                          ? state.patches.category
+                        : typeof pendingCategory === "string"
+                          ? pendingCategory
                           : brand.category;
                     const effectiveSubcategories = Array.isArray(
                       descriptionsResult.patch.subcategories,
@@ -3004,7 +2956,7 @@ export async function runEnrich(
                         effectiveSubcategories,
                       );
                       if (derivedCategory) {
-                        appendPatch(state, { category: derivedCategory });
+                        depositPhaseOutput(state, 'categoryDerivation', { category: derivedCategory });
                         // Mutate the phase result in-place so the outcome carries
                         // the derived category field
                         descriptionsResult.phaseResult.changedFields = [
@@ -3063,9 +3015,13 @@ export async function runEnrich(
                     }
                   }
                 } else {
-                  // Fallback: EDITORIAL_AGENT=off or agent error — run individual phases
+                  // Fallback: EDITORIAL_AGENT=off or agent error — run individual phases.
+                  // Collect all sub-phase patches and deposit once into the editorial slot.
+                  const editorialFallbackPatch: Record<string, unknown> = {};
+
                   if (!satisfiedPhaseSet.has("descriptions")) {
                     await markCurrentPhase(ctx, "descriptions");
+                    const pending = buildPendingPatch(state.outputs);
                     descriptionsResult = await runDescriptionsPhase({
                       brand,
                       phases,
@@ -3074,13 +3030,13 @@ export async function runEnrich(
                       dryRun: config.dryRun,
                       target: { type: targetType, id: brand.id },
                       jobId: config.jobId,
-                      pendingPatch: state.patches,
+                      pendingPatch: pending,
                     });
                     const effectiveCategory =
                       typeof descriptionsResult.patch.category === "string"
                         ? descriptionsResult.patch.category
-                        : typeof state.patches.category === "string"
-                          ? state.patches.category
+                        : typeof pending.category === "string"
+                          ? pending.category
                           : brand.category;
                     const effectiveSubcategories = Array.isArray(
                       descriptionsResult.patch.subcategories,
@@ -3127,10 +3083,14 @@ export async function runEnrich(
 
                     state.phaseResults.push(descriptionsResult.phaseResult);
                     await logCurrentPhase(ctx, descriptionsResult.phaseResult);
-                    appendPatch(state, descriptionsResult.patch);
+                    Object.assign(editorialFallbackPatch, descriptionsResult.patch);
 
                     if (listingVerdict?.verdict === "reject") {
                       if (target === "submissions") {
+                        // Deposit what we have before the early return so
+                        // downstream reads via buildPendingPatch stay consistent.
+                        depositPhaseOutput(state, 'editorial', editorialFallbackPatch);
+
                         if (!config.dryRun) {
                           await insertTriageResult({
                             brandId: brand.id,
@@ -3174,7 +3134,7 @@ export async function runEnrich(
                     });
                     state.phaseResults.push(stockistsResult.phaseResult);
                     await logCurrentPhase(ctx, stockistsResult.phaseResult);
-                    appendPatch(state, stockistsResult.patch);
+                    Object.assign(editorialFallbackPatch, stockistsResult.patch);
                   }
 
                   if (!satisfiedPhaseSet.has("faq")) {
@@ -3192,7 +3152,12 @@ export async function runEnrich(
                     });
                     state.phaseResults.push(faqResult.phaseResult);
                     await logCurrentPhase(ctx, faqResult.phaseResult);
-                    appendPatch(state, faqResult.patch);
+                    Object.assign(editorialFallbackPatch, faqResult.patch);
+                  }
+
+                  // Deposit once for the entire editorial slot
+                  if (Object.keys(editorialFallbackPatch).length > 0) {
+                    depositPhaseOutput(state, 'editorial', editorialFallbackPatch);
                   }
                 }
               }
@@ -3221,7 +3186,7 @@ export async function runEnrich(
                   scrapedData: state.scrapedData,
                   // The site the earlier phases resolved — or REVOKED. Reading the
                   // pre-run snapshot instead would mine a contaminated website.
-                  pendingPatch: state.patches,
+                  pendingPatch: buildPendingPatch(state.outputs),
                   dryRun: config.dryRun,
                   target: productsTarget,
                   jobId: config.jobId,
@@ -3243,7 +3208,7 @@ export async function runEnrich(
                 // `mergeSubmissionEnrichedData` replaces rather than unions. No target
                 // type is added and no row is written here: materialization is the
                 // moderator's approval.
-                appendPatch(state, productsResult.patch);
+                depositPhaseOutput(state, 'products', productsResult.patch);
               }
 
               let classification: ClassificationResult | null = null;
@@ -3275,7 +3240,7 @@ export async function runEnrich(
                 const tagStartedAt = Date.now();
                 hasCompletedTagClassification = true;
                 if (classification.categorySlug !== brand.category) {
-                  appendPatch(state, { category: classification.categorySlug });
+                  depositPhaseOutput(state, 'tags', { category: classification.categorySlug });
                   const tagPhaseResult = buildPhaseResult(
                     "tags",
                     "succeeded",
@@ -3302,7 +3267,7 @@ export async function runEnrich(
                 }
               }
 
-              const patch = state.patches;
+              const patch = buildPendingPatch(state.outputs);
               const patchKeys = Object.keys(patch);
               if (patchKeys.length > 0) {
                 for (const key of patchKeys) {

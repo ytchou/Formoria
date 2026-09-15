@@ -13,8 +13,10 @@ import type { SearchCallStatus } from "../search-results";
 import type { BrandSearchEntry } from "./scraper/types";
 import type {
   BrandNameProposal,
+  CuratedProductProposal,
   SubmissionFaqPatch,
 } from "@/lib/types/enriched-data";
+import { LINK_FIELD_TO_COLUMN } from "@/lib/types/link-fields";
 
 export type EnrichPhase = (typeof ENRICH_PHASES)[number];
 
@@ -114,7 +116,143 @@ export type EnrichPatch = Partial<BrandFlatLinkColumns> &
     _name_proposal: BrandNameProposal;
     /** FAQ entries proposed by the enrichment run; materialized at apply time. */
     faq: SubmissionFaqPatch;
+    /** Storage path for the hero image, written by acquire for submission targets. */
+    hero_image_storage_path: string | null;
+    /** Curated product proposals, written by the products phase. */
+    products: CuratedProductProposal[];
   }>;
+
+// ---------------------------------------------------------------------------
+// Phase output registry — typed slots, merge order, deposit/build helpers
+// ---------------------------------------------------------------------------
+
+/**
+ * Each phase writes into a narrowly-typed slot so the patch cannot carry keys
+ * the phase has no authority to set. The mapped type is the *shape* of each
+ * slot; actual runtime validation is done by `depositPhaseOutput`.
+ */
+export type PhaseOutputSlots = {
+  detect: Partial<Pick<EnrichPatch, "slug">>;
+  linkExpansion: Partial<BrandFlatLinkColumns>;
+  acquire: Partial<BrandFlatLinkColumns> &
+    Partial<
+      Pick<EnrichPatch, "hero_image_url" | "hero_image_storage_path" | "_cleared_fields">
+    >;
+  names: Partial<Pick<EnrichPatch, "name" | "_name_proposal">>;
+  editorial: Partial<
+    Pick<
+      EnrichPatch,
+      | "description"
+      | "description_en"
+      | "city"
+      | "blurb"
+      | "blurb_en"
+      | "subcategories"
+      | "subcategories_en"
+      | "category"
+      | "founding_year"
+      | "_cleared_fields"
+      | "faq"
+    >
+  >;
+  categoryDerivation: Partial<Pick<EnrichPatch, "category">>;
+  products: Partial<Pick<EnrichPatch, "products">>;
+  tags: Partial<Pick<EnrichPatch, "category">>;
+};
+
+export type PhaseOutputRegistry = {
+  [K in keyof PhaseOutputSlots]?: PhaseOutputSlots[K];
+};
+
+export const MERGE_ORDER: readonly (keyof PhaseOutputSlots)[] = [
+  "detect",
+  "linkExpansion",
+  "acquire",
+  "names",
+  "editorial",
+  "categoryDerivation",
+  "products",
+  "tags",
+] as const;
+
+/** Runtime key set derived from link-fields registry + the social/other columns. */
+const BRAND_FLAT_LINK_KEYS: ReadonlySet<string> = new Set([
+  ...Object.values(LINK_FIELD_TO_COLUMN),
+  "other_urls",
+]);
+
+export const SLOT_ALLOWED_KEYS: Record<
+  keyof PhaseOutputSlots,
+  ReadonlySet<string>
+> = {
+  detect: new Set(["slug"]),
+  linkExpansion: BRAND_FLAT_LINK_KEYS,
+  acquire: new Set([
+    ...BRAND_FLAT_LINK_KEYS,
+    "hero_image_url",
+    "hero_image_storage_path",
+    "_cleared_fields",
+  ]),
+  names: new Set(["name", "_name_proposal"]),
+  editorial: new Set([
+    "description",
+    "description_en",
+    "city",
+    "blurb",
+    "blurb_en",
+    "subcategories",
+    "subcategories_en",
+    "category",
+    "founding_year",
+    "_cleared_fields",
+    "faq",
+  ]),
+  categoryDerivation: new Set(["category"]),
+  products: new Set(["products"]),
+  tags: new Set(["category"]),
+};
+
+/**
+ * Write a phase's output into the registry. Throws if the slot was already
+ * populated (double-write) or if the output carries keys outside the slot's
+ * allowed set (structural-typing bypass guard).
+ */
+export function depositPhaseOutput<P extends keyof PhaseOutputSlots>(
+  state: { outputs: PhaseOutputRegistry },
+  phase: P,
+  output: PhaseOutputSlots[P],
+): void {
+  if (state.outputs[phase] !== undefined) {
+    throw new Error(
+      `Phase "${phase}" already deposited output — double-write is not allowed`,
+    );
+  }
+
+  const allowed = SLOT_ALLOWED_KEYS[phase];
+  const excess = Object.keys(output).filter((k) => !allowed.has(k));
+  if (excess.length > 0) {
+    throw new Error(
+      `Phase "${phase}" output contains disallowed keys: ${excess.join(", ")}`,
+    );
+  }
+
+  state.outputs[phase] = output;
+}
+
+/**
+ * Merge all populated slots in `MERGE_ORDER` into a single `EnrichPatch`.
+ * Later phases overwrite earlier ones for overlapping keys.
+ */
+export function buildPendingPatch(registry: PhaseOutputRegistry): EnrichPatch {
+  const result: EnrichPatch = {};
+  for (const phase of MERGE_ORDER) {
+    const slot = registry[phase];
+    if (slot !== undefined) {
+      Object.assign(result, slot);
+    }
+  }
+  return result;
+}
 
 export type BatchPhaseContext = {
   chunk: EnrichBrand[];
@@ -130,7 +268,7 @@ export type BatchPhaseContext = {
 };
 
 export type BrandEnrichState = {
-  patches: EnrichPatch;
+  outputs: PhaseOutputRegistry;
   phaseResults: PhaseResult[];
   knownUrls: string[];
   discoveredUrls: string[];
