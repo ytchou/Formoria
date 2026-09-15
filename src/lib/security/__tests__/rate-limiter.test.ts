@@ -204,6 +204,29 @@ describe('machine cron route availability', () => {
   })
 })
 
+describe('Slack route rate-limit exemption', () => {
+  afterEach(() => {
+    setRateLimitStoreForTests(null)
+  })
+
+  it('returns null for /api/slack/events without touching the store', async () => {
+    const storeTouched = vi.fn()
+    setRateLimitStoreForTests({
+      check() {
+        storeTouched()
+        return { allowed: true, remaining: 99, resetAt: Date.now() + 60_000 }
+      },
+    })
+
+    const slackRequest = new NextRequest('https://formoria.com/api/slack/events', {
+      headers: { 'x-forwarded-for': '198.51.100.83' },
+    })
+
+    await expect(checkRateLimit(slackRequest)).resolves.toBeNull()
+    expect(storeTouched).not.toHaveBeenCalled()
+  })
+})
+
 /**
  * Production outage 2026-08-13: the Upstash account hit its 500k-command plan
  * quota, `rateLimiter.check` rejected, and the rejection escaped `proxy()` — so
