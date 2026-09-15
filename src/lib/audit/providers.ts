@@ -78,6 +78,7 @@ const PROVIDERS = {
     "dispatchCurationJob",
     "enqueueAdminCurationJob",
     "enqueueAutomaticRetry",
+    "enqueueBlockRetry",
     "enqueueCurationResume",
     "enqueueManualRerun",
     "enqueueScheduledSubmissionJob",

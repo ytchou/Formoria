@@ -1,56 +1,47 @@
-import type { SupabaseClient } from "@supabase/supabase-js";
-import { parsePhaseResults } from "@/lib/services/phase-results";
 import {
   ENRICH_PHASES,
   PHASE_DEPENDENCIES,
   type EnrichPhaseName,
 } from "@/lib/constants/enrich-phases";
+import {
+  latestPhaseOutputs,
+  createSupabasePhaseOutputStore,
+  type PhaseOutputStore,
+} from "@/lib/services/enrich-blocks/phase-outputs";
+import type { EnrichmentTarget } from "@/lib/services/_shared/enrichment-target";
 
 /**
  * Map from phase name to the most recent time it succeeded, derived from
- * `curation_job_targets.phase_results` history rows.
+ * `curation_phase_outputs` rows via the phase-outputs store.
  */
 export type PhaseHistory = Map<EnrichPhaseName, Date>;
 
 /**
  * Fetches the phase-success history for a single target from
- * `curation_job_targets`. For each phase that ever succeeded, the map holds
+ * `curation_phase_outputs`. For each phase that ever succeeded, the map holds
  * the most recent success timestamp.
+ *
+ * Accepts an optional `store` for testing; defaults to the Supabase
+ * implementation.
  */
 export async function fetchPhaseHistory(
-  supabase: SupabaseClient,
   targetType: string,
   targetId: string,
+  store?: PhaseOutputStore,
 ): Promise<PhaseHistory> {
-  const { data, error } = await supabase
-    .from("curation_job_targets")
-    .select("phase_results, created_at")
-    .eq("target_type", targetType)
-    .eq("target_id", targetId)
-    .order("created_at", { ascending: false })
-    .limit(100);
+  const resolvedStore = store ?? createSupabasePhaseOutputStore();
+  const target: EnrichmentTarget = {
+    type: targetType as EnrichmentTarget["type"],
+    id: targetId,
+  };
 
-  if (error) throw error;
+  const outputs = await latestPhaseOutputs(resolvedStore, target);
 
   const history: PhaseHistory = new Map();
-
-  for (const row of data ?? []) {
-    if (!row.phase_results) continue;
-    const results = parsePhaseResults(row.phase_results);
-
-    for (const result of results) {
-      if (result.status !== "succeeded") continue;
-
-      const rawPhase = result.phase;
-
-      if (!(ENRICH_PHASES as readonly string[]).includes(rawPhase)) continue;
-      const phase = rawPhase as EnrichPhaseName;
-
-      // First wins = most recent, because rows are ordered DESC.
-      if (!history.has(phase)) {
-        history.set(phase, new Date(row.created_at));
-      }
-    }
+  for (const [rawPhase, row] of outputs) {
+    if (!(ENRICH_PHASES as readonly string[]).includes(rawPhase)) continue;
+    const phase = rawPhase as EnrichPhaseName;
+    history.set(phase, new Date(row.created_at));
   }
 
   return history;

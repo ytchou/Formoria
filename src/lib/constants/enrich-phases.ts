@@ -540,16 +540,24 @@ export function phaseOrderForBlocks(
 }
 
 /**
+ * Parsed retry scope passed from the admin UI or stored in job params.
+ * `block` identifies the DAG block to rerun; `mode` controls whether its
+ * upstream dependencies are included. `subPhase` narrows the editorial
+ * block to a single phase (descriptions, stockists, or faq).
+ */
+export type RetryParams = {
+  block: BlockName;
+  mode: "only" | "with_upstream";
+  subPhase?: "descriptions" | "stockists" | "faq";
+};
+
+/**
  * Compute the phases to force for a retry request.
  * - `only`: phasesOfBlocks([block]), or [subPhase] when subPhase present.
  * - `with_upstream`: transitive closure over BLOCK_DEPENDENCIES then
  *   phasesOfBlocks of the closure.
  */
-export function forcePhasesForRetry(retry: {
-  block: BlockName;
-  mode: "only" | "with_upstream";
-  subPhase?: string;
-}): EnrichPhaseName[] {
+export function forcePhasesForRetry(retry: RetryParams): EnrichPhaseName[] {
   if (retry.mode === "only") {
     if (retry.subPhase) return [retry.subPhase as EnrichPhaseName];
     return phasesOfBlocks([retry.block]);

@@ -2474,7 +2474,6 @@ export async function runEnrich(
 
               // ---- Satisfaction check (history-based) --------------------------
               const history = await fetchPhaseHistory(
-                supabase as unknown as SupabaseClient,
                 "submission",
                 brand.id,
               );
