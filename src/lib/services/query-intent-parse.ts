@@ -26,7 +26,7 @@ import { getDefaultIntentParseCache } from "@/lib/cache/intent-parse-cache";
 // Constants
 // ---------------------------------------------------------------------------
 
-export const INTENT_PARSE_MIN_CJK = 6;
+const INTENT_PARSE_MIN_CJK = 6;
 
 const L1_SLUGS = L1_CATEGORIES.map((c) => c.slug);
 const MATERIAL_SLUGS = MATERIALS.map((m) => m.slug);
@@ -126,11 +126,10 @@ function validateSubcategory(data: IntentParseResult): IntentParseResult {
 // ---------------------------------------------------------------------------
 
 /**
- * CJK Unicode ranges for counting "meaningful" characters.
- * Matches CJK Unified Ideographs, Extension A, and common CJK ranges.
+ * Matches Han-script characters for counting "meaningful" query length, the
+ * same `\p{Script=Han}` approach `generateSlug` in brands.ts uses.
  */
-const CJK_RE =
-  /[一-鿿㐀-䶿豈-﫿]/g;
+const CJK_RE = /\p{Script=Han}/gu;
 
 export function shouldAttemptIntentParse(query: string): boolean {
   if (!query) return false;
