@@ -65,6 +65,37 @@ export async function postMessage(
   );
 }
 
+const channelNameCache = new Map<string, string | null>();
+
+export async function resolveChannelName(channelId: string): Promise<string | null> {
+  const cached = channelNameCache.get(channelId);
+  if (cached !== undefined) return cached;
+
+  const token = getToken();
+  try {
+    const response = await fetch(
+      `https://slack.com/api/conversations.info?channel=${encodeURIComponent(channelId)}`,
+      {
+        headers: { Authorization: `Bearer ${token}` },
+        signal: AbortSignal.timeout(TIMEOUT_MS),
+      },
+    );
+    const data = (await response.json()) as {
+      ok: boolean;
+      channel?: { name?: string };
+    };
+    const name = data.ok ? (data.channel?.name ?? null) : null;
+    channelNameCache.set(channelId, name);
+    return name;
+  } catch {
+    return null;
+  }
+}
+
+export function resetChannelNameCacheForTests(): void {
+  channelNameCache.clear();
+}
+
 export async function updateMessage(
   params: UpdateMessageParams,
 ): Promise<SlackUpdateOk | SlackError> {

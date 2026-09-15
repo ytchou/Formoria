@@ -1,13 +1,7 @@
 import type { OperatorMap } from "./types";
 
-// ---------------------------------------------------------------------------
-// Operator parsing
-// ---------------------------------------------------------------------------
+const CHANNEL_PREFIX = "formoria-";
 
-/**
- * Parses `"U1:a@x.com,U2:b@x.com"` into a Map<slackUserId, operatorEmail>.
- * Malformed entries (missing colon, empty parts) are dropped with a console warning.
- */
 export function parseOperators(envValue: string): OperatorMap {
   const map: OperatorMap = new Map();
   if (!envValue.trim()) return map;
@@ -35,10 +29,6 @@ export function parseOperators(envValue: string): OperatorMap {
   return map;
 }
 
-// ---------------------------------------------------------------------------
-// Guard evaluation
-// ---------------------------------------------------------------------------
-
 export type GuardEnv = {
   OPS_AGENT?: string;
   OPS_AGENT_OPERATORS?: string;
@@ -47,16 +37,16 @@ export type GuardEnv = {
 export type GuardInput = {
   env: GuardEnv;
   slackUserId: string;
+  channelName: string | null;
 };
 
 export type GuardResult =
   | { ok: true; operatorEmail: string }
-  | { ok: false; reason: "off" | "not_operator" };
+  | { ok: false; reason: "off" | "not_operator" | "wrong_channel" };
 
 /**
- * Checks kill switch and operator allowlist.
- * The bot responds in any channel the operator mentions it from —
- * the operator allowlist is the access control.
+ * Checks kill switch, operator allowlist, and channel prefix.
+ * The bot only responds in channels whose name starts with "formoria-".
  */
 export function evaluateGuards(input: GuardInput): GuardResult {
   if (input.env.OPS_AGENT !== "on") {
@@ -69,32 +59,24 @@ export function evaluateGuards(input: GuardInput): GuardResult {
     return { ok: false, reason: "not_operator" };
   }
 
+  if (!input.channelName || !input.channelName.startsWith(CHANNEL_PREFIX)) {
+    return { ok: false, reason: "wrong_channel" };
+  }
+
   return { ok: true, operatorEmail };
 }
 
-// ---------------------------------------------------------------------------
-// SQL guard
-// ---------------------------------------------------------------------------
-
-/**
- * Returns true only if `sql` is a single SELECT statement under the length cap.
- * Rejects multi-statement (`;`), non-SELECT, and oversized queries.
- */
 export function isReadonlySelect(sql: string): boolean {
   if (sql.length > 4000) return false;
 
-  // Strip SQL comments before checking
   const stripped = sql
-    .replace(/--[^\n]*/g, "")   // line comments
-    .replace(/\/\*[\s\S]*?\*\//g, ""); // block comments
+    .replace(/--[^\n]*/g, "")
+    .replace(/\/\*[\s\S]*?\*\//g, "");
 
-  // Must start with SELECT (case-insensitive)
   if (!/^\s*select\b/i.test(stripped)) return false;
 
-  // No semicolons in the stripped content (prevents multi-statement).
-  // Known limitation: this rejects semicolons inside SQL string literals
-  // (e.g. WHERE col = 'a;b'). This is acceptable as defense-in-depth;
-  // the DB function ops_agent_readonly_query enforces the real constraint.
+  // Known limitation: rejects semicolons inside SQL string literals.
+  // The DB function ops_agent_readonly_query enforces the real constraint.
   if (stripped.includes(";")) return false;
 
   return true;

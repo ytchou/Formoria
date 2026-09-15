@@ -8,6 +8,7 @@ function makeDeps(overrides: Partial<EventsRouteDeps> = {}): EventsRouteDeps {
   return {
     verifySignature: vi.fn().mockReturnValue(true),
     postMessage: vi.fn().mockResolvedValue({ ok: true, ts: "msg.1" }),
+    resolveChannelName: vi.fn().mockResolvedValue("formoria-ops"),
     evaluateGuards: vi.fn().mockReturnValue({ ok: true, operatorEmail: "op@formoria.com" }),
     createRequest: vi.fn().mockResolvedValue({
       duplicate: false,

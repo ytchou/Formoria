@@ -1,7 +1,7 @@
 import { after, NextResponse } from "next/server";
 import { withAuditScope } from "@/lib/audit/scope";
 import { verifySlackSignature } from "@/lib/adapters/slack/signature";
-import { postMessage } from "@/lib/adapters/slack/web-api";
+import { postMessage, resolveChannelName } from "@/lib/adapters/slack/web-api";
 import { evaluateGuards } from "@/lib/services/ops-agent/guards";
 import {
   createRequest,
@@ -17,6 +17,7 @@ const BOT_HANDLE_RE = /^<@[A-Z0-9]+>\s*/;
 export type EventsRouteDeps = {
   verifySignature: typeof verifySlackSignature;
   postMessage: typeof postMessage;
+  resolveChannelName: typeof resolveChannelName;
   evaluateGuards: typeof evaluateGuards;
   createRequest: typeof createRequest;
   admitRequest: typeof admitRequest;
@@ -27,6 +28,7 @@ export type EventsRouteDeps = {
 const defaultDeps: EventsRouteDeps = {
   verifySignature: verifySlackSignature,
   postMessage,
+  resolveChannelName,
   evaluateGuards,
   createRequest,
   admitRequest,
@@ -81,12 +83,15 @@ export function createEventsHandler(deps: EventsRouteDeps = defaultDeps) {
     const threadTs = (event.thread_ts as string) ?? (event.ts as string);
     const text = rawText.replace(BOT_HANDLE_RE, "").trim();
 
+    const channelName = await deps.resolveChannelName(channelId);
+
     const guardResult = deps.evaluateGuards({
       env: {
         OPS_AGENT: deps.env.OPS_AGENT,
         OPS_AGENT_OPERATORS: deps.env.OPS_AGENT_OPERATORS,
       },
       slackUserId,
+      channelName,
     });
 
     if (!guardResult.ok) {
@@ -96,6 +101,10 @@ export function createEventsHandler(deps: EventsRouteDeps = defaultDeps) {
           threadTs,
           text: "The ops agent is currently off.",
         });
+        return NextResponse.json({});
+      }
+
+      if (guardResult.reason === "wrong_channel") {
         return NextResponse.json({});
       }
 
@@ -139,14 +148,12 @@ export function createEventsHandler(deps: EventsRouteDeps = defaultDeps) {
       return NextResponse.json({});
     }
 
-    // Duplicate event (idempotent Slack retry): ack without scheduling a run
     if ("duplicate" in admitResult) {
       return NextResponse.json({});
     }
 
     const row = admitResult.row;
     if (!row) {
-      // Defensive guard: should not happen with valid AdmitResult
       return NextResponse.json({});
     }
 

@@ -41,6 +41,7 @@ describe("evaluateGuards", () => {
     const result = evaluateGuards({
       env: { ...baseEnv, OPS_AGENT: "off" },
       slackUserId: "U1",
+      channelName: "formoria-ops",
     });
     expect(result).toEqual({ ok: false, reason: "off" });
   });
@@ -49,6 +50,7 @@ describe("evaluateGuards", () => {
     const result = evaluateGuards({
       env: { OPS_AGENT_OPERATORS: "U1:a@x.com" },
       slackUserId: "U1",
+      channelName: "formoria-ops",
     });
     expect(result).toEqual({ ok: false, reason: "off" });
   });
@@ -57,24 +59,47 @@ describe("evaluateGuards", () => {
     const result = evaluateGuards({
       env: baseEnv,
       slackUserId: "U_UNKNOWN",
+      channelName: "formoria-ops",
     });
     expect(result).toEqual({ ok: false, reason: "not_operator" });
   });
 
-  it("returns operatorEmail for a known user", () => {
+  it("allows formoria-prefixed channels", () => {
     const result = evaluateGuards({
       env: baseEnv,
       slackUserId: "U1",
+      channelName: "formoria-ops",
     });
     expect(result).toEqual({ ok: true, operatorEmail: "a@x.com" });
   });
 
-  it("allows any channel — operator allowlist is the access control", () => {
+  it("allows any formoria- channel name", () => {
+    for (const name of ["formoria-agent-alerts", "formoria-dev", "formoria-test"]) {
+      const result = evaluateGuards({
+        env: baseEnv,
+        slackUserId: "U2",
+        channelName: name,
+      });
+      expect(result).toEqual({ ok: true, operatorEmail: "b@x.com" });
+    }
+  });
+
+  it("refuses channels not starting with formoria-", () => {
     const result = evaluateGuards({
       env: baseEnv,
-      slackUserId: "U2",
+      slackUserId: "U1",
+      channelName: "general",
     });
-    expect(result).toEqual({ ok: true, operatorEmail: "b@x.com" });
+    expect(result).toEqual({ ok: false, reason: "wrong_channel" });
+  });
+
+  it("refuses when channel name is null (resolution failed)", () => {
+    const result = evaluateGuards({
+      env: baseEnv,
+      slackUserId: "U1",
+      channelName: null,
+    });
+    expect(result).toEqual({ ok: false, reason: "wrong_channel" });
   });
 });
 
