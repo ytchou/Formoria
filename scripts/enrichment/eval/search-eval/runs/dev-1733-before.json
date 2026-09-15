@@ -1,0 +1,1735 @@
+{
+  "timestamp": "2026-09-15T11:58:32.934Z",
+  "k": 5,
+  "arms": [
+    "category",
+    "lexical",
+    "vector",
+    "hybrid",
+    "rerank"
+  ],
+  "results": [
+    {
+      "arm": "category",
+      "metrics": {
+        "meanPrecisionAtK": 0.022222222222222223,
+        "meanRecallAtK": 0.05555555555555555,
+        "meanMrr": 0.037037037037037035,
+        "p95LatencyMs": 232.61012500000106
+      },
+      "perQuery": [
+        {
+          "queryId": "tea-gift-for-friend",
+          "retrieved": [],
+          "expected": [
+            "f8c1b05b-ba16-4882-9ebd-24923d3892dd",
+            "25f3ea7d-7229-48ec-b75c-40c66e1a0416"
+          ],
+          "precisionAtK": 0,
+          "recallAtK": 0,
+          "mrr": 0,
+          "latencyMs": 0.00808299999994233
+        },
+        {
+          "queryId": "natural-skincare-sensitive",
+          "retrieved": [
+            "c1404dfa-6722-4d2f-bfab-385da18e3033",
+            "5523388a-b355-4b9c-a146-ba276469c6e5",
+            "23cb82e7-8d46-41ef-b59a-75b3df1d7f50",
+            "dc8cc671-12f1-4a5e-a873-0e06a5cf0eb1",
+            "995f16f0-481b-40ef-b520-52b6374f88dd"
+          ],
+          "expected": [
+            "1dc21cb2-295f-4cd3-bfa3-0c4d7241e770",
+            "02cfbf3d-e3aa-4ca3-83e9-27e0383fe378"
+          ],
+          "precisionAtK": 0,
+          "recallAtK": 0,
+          "mrr": 0,
+          "latencyMs": 195.8871250000002
+        },
+        {
+          "queryId": "housewarming-candle",
+          "retrieved": [
+            "cd09342b-51b7-4d87-bd39-c6532b3b0faa",
+            "9b0a4db9-bfc6-4220-8532-c8332c09e7c6",
+            "c0817d3f-6e3b-48e3-918b-d33ef24b61f3",
+            "1641c04e-c474-4b9f-a45c-a1f53f250628",
+            "e93e2ebf-af50-4694-aed8-c85e28073c1e"
+          ],
+          "expected": [
+            "9f7f67be-c2d0-4ed2-951b-7d9d26f9615d",
+            "dbd1afc7-198c-401f-bdf7-212ec46c8fda"
+          ],
+          "precisionAtK": 0,
+          "recallAtK": 0,
+          "mrr": 0,
+          "latencyMs": 223.2662909999999
+        },
+        {
+          "queryId": "chaze-tea-scoop",
+          "retrieved": [],
+          "expected": [],
+          "precisionAtK": 0,
+          "recallAtK": 0,
+          "mrr": 0,
+          "latencyMs": 0.0005420000002231973
+        },
+        {
+          "queryId": "woodfired-ceramics",
+          "retrieved": [],
+          "expected": [
+            "25f3ea7d-7229-48ec-b75c-40c66e1a0416",
+            "ef6f367a-90b2-41fd-a35f-60650a327c3a"
+          ],
+          "precisionAtK": 0,
+          "recallAtK": 0,
+          "mrr": 0,
+          "latencyMs": 0.0003329999999550637
+        },
+        {
+          "queryId": "indigo-dye-bag",
+          "retrieved": [],
+          "expected": [
+            "0a518959-bb94-469c-bddf-b99a1652feca"
+          ],
+          "precisionAtK": 0,
+          "recallAtK": 0,
+          "mrr": 0,
+          "latencyMs": 126.964833
+        },
+        {
+          "queryId": "hinoki-home-decor",
+          "retrieved": [
+            "cd09342b-51b7-4d87-bd39-c6532b3b0faa",
+            "9b0a4db9-bfc6-4220-8532-c8332c09e7c6",
+            "c0817d3f-6e3b-48e3-918b-d33ef24b61f3",
+            "1641c04e-c474-4b9f-a45c-a1f53f250628",
+            "e93e2ebf-af50-4694-aed8-c85e28073c1e"
+          ],
+          "expected": [
+            "8a195cc1-dec1-4ac0-8e20-2cd6b5386500",
+            "fcb0c01b-0e91-40d2-8cb8-7d8bbe53d6d9"
+          ],
+          "precisionAtK": 0,
+          "recallAtK": 0,
+          "mrr": 0,
+          "latencyMs": 238.01133300000038
+        },
+        {
+          "queryId": "minimal-leather-wallet",
+          "retrieved": [
+            "154cd76f-6df9-4340-a24c-e9166fdc0bb8",
+            "0202092e-d296-4338-8146-81b7a59053c4",
+            "3a3ee443-14c5-4836-acdb-d7161e1c8b24",
+            "0d764f7b-f35e-4c7a-8e04-579a98cb8b86",
+            "61490c5c-9a9e-4739-9ae0-749e972db4a3"
+          ],
+          "expected": [
+            "69e4999c-36e9-42b8-9f7c-c5f91caf5e6f",
+            "a9bfbd42-f4c3-4d73-aa0c-baf903be02e3"
+          ],
+          "precisionAtK": 0,
+          "recallAtK": 0,
+          "mrr": 0,
+          "latencyMs": 182.81658300000072
+        },
+        {
+          "queryId": "wedding-gold-jewelry",
+          "retrieved": [
+            "214b4265-6138-4f2b-83f9-c489b6f35577",
+            "b6a43aaa-e5a0-4cc5-b6b3-b0c169fc07bb",
+            "750892d6-a0f0-4158-bf49-79b5d164eede",
+            "e0da4633-3bdf-40cf-b7c8-ce5e69d2cfbc",
+            "aa965a1a-375b-458d-bb1d-c9a9653697a3"
+          ],
+          "expected": [
+            "cad5425c-5d11-414a-b468-3fcee152d7e5",
+            "7819eb92-c721-47b1-8840-cbb44e64612f"
+          ],
+          "precisionAtK": 0,
+          "recallAtK": 0,
+          "mrr": 0,
+          "latencyMs": 153.87545800000044
+        },
+        {
+          "queryId": "fountain-pen-daily",
+          "retrieved": [
+            "2c65e2b3-d0b0-4c42-8504-da4f9ad38a8c",
+            "070883ff-d3e2-43d5-85fa-2399fd28f597",
+            "2443ea6a-bc5f-48c3-bdd5-cd7e6d76a08f",
+            "69352a53-5679-407f-a4ae-2c4db2381194",
+            "5617d7b2-5959-4509-87f1-b660055e3c03"
+          ],
+          "expected": [
+            "2443ea6a-bc5f-48c3-bdd5-cd7e6d76a08f",
+            "af146651-1e22-49eb-9854-328eec96a62d"
+          ],
+          "precisionAtK": 0.2,
+          "recallAtK": 0.5,
+          "mrr": 0.3333333333333333,
+          "latencyMs": 169.9297919999999
+        },
+        {
+          "queryId": "summer-sun-protection",
+          "retrieved": [
+            "c1404dfa-6722-4d2f-bfab-385da18e3033",
+            "5523388a-b355-4b9c-a146-ba276469c6e5",
+            "23cb82e7-8d46-41ef-b59a-75b3df1d7f50",
+            "dc8cc671-12f1-4a5e-a873-0e06a5cf0eb1",
+            "995f16f0-481b-40ef-b520-52b6374f88dd"
+          ],
+          "expected": [
+            "5535f73c-40f9-4e4f-ad0f-6cd2d6b6ca10",
+            "88271ca8-02b6-4dba-8d85-146598b89cf7"
+          ],
+          "precisionAtK": 0,
+          "recallAtK": 0,
+          "mrr": 0,
+          "latencyMs": 183.77933399999984
+        },
+        {
+          "queryId": "birthday-earrings",
+          "retrieved": [
+            "214b4265-6138-4f2b-83f9-c489b6f35577",
+            "b6a43aaa-e5a0-4cc5-b6b3-b0c169fc07bb",
+            "750892d6-a0f0-4158-bf49-79b5d164eede",
+            "e0da4633-3bdf-40cf-b7c8-ce5e69d2cfbc",
+            "aa965a1a-375b-458d-bb1d-c9a9653697a3"
+          ],
+          "expected": [
+            "246b2fde-2b8c-4b77-b5cc-ccdc9ddc58ce",
+            "9b5c3519-7fca-4ae3-b323-caa2d04e4f7f"
+          ],
+          "precisionAtK": 0,
+          "recallAtK": 0,
+          "mrr": 0,
+          "latencyMs": 144.23912500000006
+        },
+        {
+          "queryId": "linen-home-textile",
+          "retrieved": [
+            "cd09342b-51b7-4d87-bd39-c6532b3b0faa",
+            "9b0a4db9-bfc6-4220-8532-c8332c09e7c6",
+            "c0817d3f-6e3b-48e3-918b-d33ef24b61f3",
+            "1641c04e-c474-4b9f-a45c-a1f53f250628",
+            "e93e2ebf-af50-4694-aed8-c85e28073c1e"
+          ],
+          "expected": [],
+          "precisionAtK": 0,
+          "recallAtK": 0,
+          "mrr": 0,
+          "latencyMs": 225.66320799999994
+        },
+        {
+          "queryId": "laptop-canvas-bag",
+          "retrieved": [],
+          "expected": [
+            "bea88718-64fe-46b1-99c7-1f28832847c5",
+            "9c69945c-67db-416c-8fb2-40430f5879d5",
+            "06da4068-05ae-4db1-a2e3-30ad8c1340aa"
+          ],
+          "precisionAtK": 0,
+          "recallAtK": 0,
+          "mrr": 0,
+          "latencyMs": 110.20783300000039
+        },
+        {
+          "queryId": "botanical-fragrance",
+          "retrieved": [
+            "c1404dfa-6722-4d2f-bfab-385da18e3033",
+            "5523388a-b355-4b9c-a146-ba276469c6e5",
+            "23cb82e7-8d46-41ef-b59a-75b3df1d7f50",
+            "dc8cc671-12f1-4a5e-a873-0e06a5cf0eb1",
+            "995f16f0-481b-40ef-b520-52b6374f88dd"
+          ],
+          "expected": [
+            "9e3464ad-741a-4da7-a690-0086cab851de",
+            "35a31266-ebcd-427f-abc3-84b68e144aff"
+          ],
+          "precisionAtK": 0,
+          "recallAtK": 0,
+          "mrr": 0,
+          "latencyMs": 232.61012500000106
+        },
+        {
+          "queryId": "ceramic-incense-holder",
+          "retrieved": [
+            "cd09342b-51b7-4d87-bd39-c6532b3b0faa",
+            "9b0a4db9-bfc6-4220-8532-c8332c09e7c6",
+            "c0817d3f-6e3b-48e3-918b-d33ef24b61f3",
+            "1641c04e-c474-4b9f-a45c-a1f53f250628",
+            "e93e2ebf-af50-4694-aed8-c85e28073c1e"
+          ],
+          "expected": [
+            "f38b57c8-b3cf-4e3f-b683-aebf80ac1f72",
+            "92bb5b07-df1b-4ce4-887f-a3b41585f3cb"
+          ],
+          "precisionAtK": 0,
+          "recallAtK": 0,
+          "mrr": 0,
+          "latencyMs": 202.3082919999997
+        },
+        {
+          "queryId": "travel-notebook-set",
+          "retrieved": [
+            "2c65e2b3-d0b0-4c42-8504-da4f9ad38a8c",
+            "070883ff-d3e2-43d5-85fa-2399fd28f597",
+            "2443ea6a-bc5f-48c3-bdd5-cd7e6d76a08f",
+            "69352a53-5679-407f-a4ae-2c4db2381194",
+            "5617d7b2-5959-4509-87f1-b660055e3c03"
+          ],
+          "expected": [
+            "a2e5c6d6-bb1d-4aae-a506-a471d9f0e175"
+          ],
+          "precisionAtK": 0,
+          "recallAtK": 0,
+          "mrr": 0,
+          "latencyMs": 131.75387500000033
+        },
+        {
+          "queryId": "handmade-silver-ring",
+          "retrieved": [
+            "214b4265-6138-4f2b-83f9-c489b6f35577",
+            "b6a43aaa-e5a0-4cc5-b6b3-b0c169fc07bb",
+            "750892d6-a0f0-4158-bf49-79b5d164eede",
+            "e0da4633-3bdf-40cf-b7c8-ce5e69d2cfbc",
+            "aa965a1a-375b-458d-bb1d-c9a9653697a3"
+          ],
+          "expected": [
+            "750892d6-a0f0-4158-bf49-79b5d164eede",
+            "553bde93-5139-4dcf-a8de-e2ef154464bb"
+          ],
+          "precisionAtK": 0.2,
+          "recallAtK": 0.5,
+          "mrr": 0.3333333333333333,
+          "latencyMs": 150.56025000000045
+        },
+        {
+          "queryId": "kids-birthday-gift",
+          "retrieved": [],
+          "expected": [
+            "968c1194-8cbe-4035-842a-00db5bed199e",
+            "055cfe70-47fa-4c6d-967b-ec2fbdbe3af0"
+          ],
+          "precisionAtK": 0,
+          "recallAtK": 0,
+          "mrr": 0,
+          "latencyMs": 0.0035420000003796304
+        },
+        {
+          "queryId": "office-desk-organizer",
+          "retrieved": [
+            "2c65e2b3-d0b0-4c42-8504-da4f9ad38a8c",
+            "070883ff-d3e2-43d5-85fa-2399fd28f597",
+            "2443ea6a-bc5f-48c3-bdd5-cd7e6d76a08f",
+            "69352a53-5679-407f-a4ae-2c4db2381194",
+            "5617d7b2-5959-4509-87f1-b660055e3c03"
+          ],
+          "expected": [
+            "59fdd190-7ec0-4c8c-8f91-86b5072dfb13",
+            "249c36d7-c69e-4d4c-8199-586975a0212a"
+          ],
+          "precisionAtK": 0,
+          "recallAtK": 0,
+          "mrr": 0,
+          "latencyMs": 168.42791599999873
+        }
+      ]
+    },
+    {
+      "arm": "lexical",
+      "metrics": {
+        "meanPrecisionAtK": 0.1111111111111111,
+        "meanRecallAtK": 0.3055555555555556,
+        "meanMrr": 0.23148148148148145,
+        "p95LatencyMs": 415.7208750000009
+      },
+      "perQuery": [
+        {
+          "queryId": "tea-gift-for-friend",
+          "retrieved": [
+            "09557513-ca38-42f8-af6a-cb9ffb33eb98",
+            "ab02f90e-e7eb-437b-8ccc-7631e08b9bd6"
+          ],
+          "expected": [
+            "f8c1b05b-ba16-4882-9ebd-24923d3892dd",
+            "25f3ea7d-7229-48ec-b75c-40c66e1a0416"
+          ],
+          "precisionAtK": 0,
+          "recallAtK": 0,
+          "mrr": 0,
+          "latencyMs": 501.54733300000044
+        },
+        {
+          "queryId": "natural-skincare-sensitive",
+          "retrieved": [
+            "5535f73c-40f9-4e4f-ad0f-6cd2d6b6ca10",
+            "e00292e6-c774-48fd-942c-0bcb20f4d653",
+            "9205cdc6-708c-4306-b829-239b22fe8ce5",
+            "f0ecf3df-f8a9-4861-b8e7-27996e798af6",
+            "59de61ae-7824-4172-ae97-d642d7305495"
+          ],
+          "expected": [
+            "1dc21cb2-295f-4cd3-bfa3-0c4d7241e770",
+            "02cfbf3d-e3aa-4ca3-83e9-27e0383fe378"
+          ],
+          "precisionAtK": 0,
+          "recallAtK": 0,
+          "mrr": 0,
+          "latencyMs": 407.3330420000002
+        },
+        {
+          "queryId": "housewarming-candle",
+          "retrieved": [
+            "9f7f67be-c2d0-4ed2-951b-7d9d26f9615d",
+            "9c85b311-98b9-44a3-8b17-e081be360d8c",
+            "56301fa9-743f-4af8-af78-204374b04447",
+            "b57ff9a0-dae8-45dd-8cbc-814cc577a0cc",
+            "15680a1c-a328-4742-b49a-4202de166255"
+          ],
+          "expected": [
+            "9f7f67be-c2d0-4ed2-951b-7d9d26f9615d",
+            "dbd1afc7-198c-401f-bdf7-212ec46c8fda"
+          ],
+          "precisionAtK": 0.2,
+          "recallAtK": 0.5,
+          "mrr": 1,
+          "latencyMs": 364.64008300000023
+        },
+        {
+          "queryId": "chaze-tea-scoop",
+          "retrieved": [
+            "ce89917c-dd72-43b3-8926-9966e62c4578"
+          ],
+          "expected": [],
+          "precisionAtK": 0,
+          "recallAtK": 0,
+          "mrr": 0,
+          "latencyMs": 309.2017080000005
+        },
+        {
+          "queryId": "woodfired-ceramics",
+          "retrieved": [
+            "c10e4b0e-05de-42e7-b438-a68f8883b4c7",
+            "09557513-ca38-42f8-af6a-cb9ffb33eb98",
+            "29a22d18-08d4-4914-8eb9-ab3a3b37a26a",
+            "f8c1b05b-ba16-4882-9ebd-24923d3892dd",
+            "70ecb037-2c2a-45ab-aeef-bf473e52e59d"
+          ],
+          "expected": [
+            "25f3ea7d-7229-48ec-b75c-40c66e1a0416",
+            "ef6f367a-90b2-41fd-a35f-60650a327c3a"
+          ],
+          "precisionAtK": 0,
+          "recallAtK": 0,
+          "mrr": 0,
+          "latencyMs": 318.13395800000035
+        },
+        {
+          "queryId": "indigo-dye-bag",
+          "retrieved": [],
+          "expected": [
+            "0a518959-bb94-469c-bddf-b99a1652feca"
+          ],
+          "precisionAtK": 0,
+          "recallAtK": 0,
+          "mrr": 0,
+          "latencyMs": 106.59741699999904
+        },
+        {
+          "queryId": "hinoki-home-decor",
+          "retrieved": [
+            "59fdd190-7ec0-4c8c-8f91-86b5072dfb13",
+            "c0817d3f-6e3b-48e3-918b-d33ef24b61f3",
+            "0eb2147b-ae1a-4ce3-950c-772385e4c08b",
+            "45fe7931-9c3a-468d-b3e9-6414d3d0ce12",
+            "e1a034cd-1590-476f-b2cc-4b6c9aeee743"
+          ],
+          "expected": [
+            "8a195cc1-dec1-4ac0-8e20-2cd6b5386500",
+            "fcb0c01b-0e91-40d2-8cb8-7d8bbe53d6d9"
+          ],
+          "precisionAtK": 0,
+          "recallAtK": 0,
+          "mrr": 0,
+          "latencyMs": 415.7208750000009
+        },
+        {
+          "queryId": "minimal-leather-wallet",
+          "retrieved": [
+            "40647372-fbda-4951-a921-2f6e874f7b6f",
+            "cb139606-c663-40c2-a232-d3101b4f4e5a",
+            "7fc1d99d-cd6e-4385-9a40-e5b7e1a92be5",
+            "838de87b-08da-41fa-a9b8-d78579157a08",
+            "265a4939-2d69-44ce-8dc2-b542bb5db9fa"
+          ],
+          "expected": [
+            "69e4999c-36e9-42b8-9f7c-c5f91caf5e6f",
+            "a9bfbd42-f4c3-4d73-aa0c-baf903be02e3"
+          ],
+          "precisionAtK": 0,
+          "recallAtK": 0,
+          "mrr": 0,
+          "latencyMs": 291.1603749999995
+        },
+        {
+          "queryId": "wedding-gold-jewelry",
+          "retrieved": [
+            "09557513-ca38-42f8-af6a-cb9ffb33eb98"
+          ],
+          "expected": [
+            "cad5425c-5d11-414a-b468-3fcee152d7e5",
+            "7819eb92-c721-47b1-8840-cbb44e64612f"
+          ],
+          "precisionAtK": 0,
+          "recallAtK": 0,
+          "mrr": 0,
+          "latencyMs": 262.96516599999995
+        },
+        {
+          "queryId": "fountain-pen-daily",
+          "retrieved": [
+            "070883ff-d3e2-43d5-85fa-2399fd28f597",
+            "ad8f302e-16ba-479e-b76f-fed0a992205e",
+            "af146651-1e22-49eb-9854-328eec96a62d",
+            "bd951e41-d4e2-413b-b513-c9d5d611fb96",
+            "2443ea6a-bc5f-48c3-bdd5-cd7e6d76a08f"
+          ],
+          "expected": [
+            "2443ea6a-bc5f-48c3-bdd5-cd7e6d76a08f",
+            "af146651-1e22-49eb-9854-328eec96a62d"
+          ],
+          "precisionAtK": 0.4,
+          "recallAtK": 1,
+          "mrr": 0.3333333333333333,
+          "latencyMs": 291.7055419999997
+        },
+        {
+          "queryId": "summer-sun-protection",
+          "retrieved": [
+            "3ff8e6e0-3155-4a40-acde-04f11236531f",
+            "6bd99ad8-ddfb-4587-a19b-62eec684446c",
+            "5535f73c-40f9-4e4f-ad0f-6cd2d6b6ca10",
+            "029fbde5-f8a7-4dd8-aa5d-c9c36b63bb6f",
+            "696e535a-b13f-4f23-9a92-82a378e9be51"
+          ],
+          "expected": [
+            "5535f73c-40f9-4e4f-ad0f-6cd2d6b6ca10",
+            "88271ca8-02b6-4dba-8d85-146598b89cf7"
+          ],
+          "precisionAtK": 0.2,
+          "recallAtK": 0.5,
+          "mrr": 0.3333333333333333,
+          "latencyMs": 258.1075000000019
+        },
+        {
+          "queryId": "birthday-earrings",
+          "retrieved": [
+            "9a2924f0-1497-4fce-b7d9-bdc7e2cd13e5",
+            "57263ac9-688b-413e-a7d3-c7d70f6fb16f",
+            "cad5425c-5d11-414a-b468-3fcee152d7e5",
+            "3d492ce7-6048-4d64-bf94-784b906db038",
+            "056844e3-06bf-4a43-8a9f-3be566a5e520"
+          ],
+          "expected": [
+            "246b2fde-2b8c-4b77-b5cc-ccdc9ddc58ce",
+            "9b5c3519-7fca-4ae3-b323-caa2d04e4f7f"
+          ],
+          "precisionAtK": 0,
+          "recallAtK": 0,
+          "mrr": 0,
+          "latencyMs": 323.6434999999983
+        },
+        {
+          "queryId": "linen-home-textile",
+          "retrieved": [
+            "c82b80a2-894d-47d7-8eff-d4b50f4e2500",
+            "bed16e77-c749-420b-b087-f4e03130e378",
+            "e93e2ebf-af50-4694-aed8-c85e28073c1e",
+            "04256701-98d4-48c2-aea4-51ea8c46e9df",
+            "8a195cc1-dec1-4ac0-8e20-2cd6b5386500"
+          ],
+          "expected": [],
+          "precisionAtK": 0,
+          "recallAtK": 0,
+          "mrr": 0,
+          "latencyMs": 355.96037499999875
+        },
+        {
+          "queryId": "laptop-canvas-bag",
+          "retrieved": [],
+          "expected": [
+            "bea88718-64fe-46b1-99c7-1f28832847c5",
+            "9c69945c-67db-416c-8fb2-40430f5879d5",
+            "06da4068-05ae-4db1-a2e3-30ad8c1340aa"
+          ],
+          "precisionAtK": 0,
+          "recallAtK": 0,
+          "mrr": 0,
+          "latencyMs": 122.5816670000022
+        },
+        {
+          "queryId": "botanical-fragrance",
+          "retrieved": [
+            "b76da2cc-79c5-46b5-98f4-355a41b68991",
+            "9e3464ad-741a-4da7-a690-0086cab851de",
+            "cb4a51fa-dee2-45f0-8b69-028334c1bffe",
+            "c574444f-6cd2-4121-aa47-77c1be597eab",
+            "1a1d4475-9fc6-4457-a2b1-f2f7f363f89f"
+          ],
+          "expected": [
+            "9e3464ad-741a-4da7-a690-0086cab851de",
+            "35a31266-ebcd-427f-abc3-84b68e144aff"
+          ],
+          "precisionAtK": 0.2,
+          "recallAtK": 0.5,
+          "mrr": 0.5,
+          "latencyMs": 337.0285409999997
+        },
+        {
+          "queryId": "ceramic-incense-holder",
+          "retrieved": [
+            "f38b57c8-b3cf-4e3f-b683-aebf80ac1f72",
+            "92bb5b07-df1b-4ce4-887f-a3b41585f3cb",
+            "f686ec13-379f-40fb-9bd8-ecc95fb9029d",
+            "9c85b311-98b9-44a3-8b17-e081be360d8c",
+            "4ec2a45a-1020-40ee-9620-f857b12b7a8c"
+          ],
+          "expected": [
+            "f38b57c8-b3cf-4e3f-b683-aebf80ac1f72",
+            "92bb5b07-df1b-4ce4-887f-a3b41585f3cb"
+          ],
+          "precisionAtK": 0.4,
+          "recallAtK": 1,
+          "mrr": 1,
+          "latencyMs": 307.4338330000028
+        },
+        {
+          "queryId": "travel-notebook-set",
+          "retrieved": [
+            "9bbf45f5-e6fc-44ae-9dc6-0547ddee71ce",
+            "a2e5c6d6-bb1d-4aae-a506-a471d9f0e175",
+            "d77b2f64-e92e-45c4-a53e-7f223440b1d8",
+            "267aa625-0fd0-40bb-97ce-1456de1c2b51",
+            "09ef9585-50b9-449b-830f-3d0aac730521"
+          ],
+          "expected": [
+            "a2e5c6d6-bb1d-4aae-a506-a471d9f0e175"
+          ],
+          "precisionAtK": 0.2,
+          "recallAtK": 1,
+          "mrr": 0.5,
+          "latencyMs": 291.29125000000204
+        },
+        {
+          "queryId": "handmade-silver-ring",
+          "retrieved": [
+            "aa965a1a-375b-458d-bb1d-c9a9653697a3",
+            "553bde93-5139-4dcf-a8de-e2ef154464bb",
+            "750892d6-a0f0-4158-bf49-79b5d164eede",
+            "9e8ab761-787b-4a17-bf3b-675f80e049a3",
+            "6e4c173d-cbf7-41e5-a20b-5d13e3df2745"
+          ],
+          "expected": [
+            "750892d6-a0f0-4158-bf49-79b5d164eede",
+            "553bde93-5139-4dcf-a8de-e2ef154464bb"
+          ],
+          "precisionAtK": 0.4,
+          "recallAtK": 1,
+          "mrr": 0.5,
+          "latencyMs": 277.7022500000021
+        },
+        {
+          "queryId": "kids-birthday-gift",
+          "retrieved": [
+            "e8b96a34-cafd-4de8-ba2a-6bbdb515dae2",
+            "1696a83a-eb2c-486c-94c7-73fea759e533"
+          ],
+          "expected": [
+            "968c1194-8cbe-4035-842a-00db5bed199e",
+            "055cfe70-47fa-4c6d-967b-ec2fbdbe3af0"
+          ],
+          "precisionAtK": 0,
+          "recallAtK": 0,
+          "mrr": 0,
+          "latencyMs": 308.49445900000137
+        },
+        {
+          "queryId": "office-desk-organizer",
+          "retrieved": [
+            "d77b2f64-e92e-45c4-a53e-7f223440b1d8",
+            "5617d7b2-5959-4509-87f1-b660055e3c03",
+            "99442895-6782-4804-adc9-1557d19c7010"
+          ],
+          "expected": [
+            "59fdd190-7ec0-4c8c-8f91-86b5072dfb13",
+            "249c36d7-c69e-4d4c-8199-586975a0212a"
+          ],
+          "precisionAtK": 0,
+          "recallAtK": 0,
+          "mrr": 0,
+          "latencyMs": 359.9022499999992
+        }
+      ]
+    },
+    {
+      "arm": "vector",
+      "metrics": {
+        "meanPrecisionAtK": 0.15555555555555556,
+        "meanRecallAtK": 0.4166666666666667,
+        "meanMrr": 0.33981481481481485,
+        "p95LatencyMs": 1199.236125000003
+      },
+      "perQuery": [
+        {
+          "queryId": "tea-gift-for-friend",
+          "retrieved": [
+            "1f2cbb3c-971e-4fb5-9826-f8525cba6905",
+            "29a22d18-08d4-4914-8eb9-ab3a3b37a26a",
+            "25f3ea7d-7229-48ec-b75c-40c66e1a0416",
+            "ef6f367a-90b2-41fd-a35f-60650a327c3a",
+            "0804a7d3-90b4-490e-bfd4-e91c012c4c0e"
+          ],
+          "expected": [
+            "f8c1b05b-ba16-4882-9ebd-24923d3892dd",
+            "25f3ea7d-7229-48ec-b75c-40c66e1a0416"
+          ],
+          "precisionAtK": 0.2,
+          "recallAtK": 0.5,
+          "mrr": 0.3333333333333333,
+          "latencyMs": 1927.387749999998
+        },
+        {
+          "queryId": "natural-skincare-sensitive",
+          "retrieved": [
+            "5535f73c-40f9-4e4f-ad0f-6cd2d6b6ca10",
+            "f55105e5-c026-4d02-a54d-dbaf853dbf0f",
+            "029fbde5-f8a7-4dd8-aa5d-c9c36b63bb6f",
+            "d21d0d8d-2683-4095-b91d-a31af48b4aea",
+            "02cfbf3d-e3aa-4ca3-83e9-27e0383fe378"
+          ],
+          "expected": [
+            "1dc21cb2-295f-4cd3-bfa3-0c4d7241e770",
+            "02cfbf3d-e3aa-4ca3-83e9-27e0383fe378"
+          ],
+          "precisionAtK": 0.2,
+          "recallAtK": 0.5,
+          "mrr": 0.2,
+          "latencyMs": 1130.526334000002
+        },
+        {
+          "queryId": "housewarming-candle",
+          "retrieved": [
+            "9f7f67be-c2d0-4ed2-951b-7d9d26f9615d",
+            "c0817d3f-6e3b-48e3-918b-d33ef24b61f3",
+            "5245f686-6d5a-4385-825b-d6cd19a9494c",
+            "15680a1c-a328-4742-b49a-4202de166255",
+            "7c5cba00-a148-4183-8cd7-e64a3ebb4577"
+          ],
+          "expected": [
+            "9f7f67be-c2d0-4ed2-951b-7d9d26f9615d",
+            "dbd1afc7-198c-401f-bdf7-212ec46c8fda"
+          ],
+          "precisionAtK": 0.2,
+          "recallAtK": 0.5,
+          "mrr": 1,
+          "latencyMs": 1085.0617920000004
+        },
+        {
+          "queryId": "chaze-tea-scoop",
+          "retrieved": [
+            "59b1cb6d-935f-46fc-b5b8-3a3c62d9448e",
+            "ab02f90e-e7eb-437b-8ccc-7631e08b9bd6",
+            "8102a706-d011-4064-88c3-0c38eeafaacd",
+            "ef6f367a-90b2-41fd-a35f-60650a327c3a",
+            "9e3464ad-741a-4da7-a690-0086cab851de"
+          ],
+          "expected": [],
+          "precisionAtK": 0,
+          "recallAtK": 0,
+          "mrr": 0,
+          "latencyMs": 1080.3893749999988
+        },
+        {
+          "queryId": "woodfired-ceramics",
+          "retrieved": [
+            "ef6f367a-90b2-41fd-a35f-60650a327c3a",
+            "25f3ea7d-7229-48ec-b75c-40c66e1a0416",
+            "62a38dc2-ba63-43a6-afbc-e3eb62bed7c9",
+            "32f79db0-4531-44e8-b19a-7bf18bca8417",
+            "fec18f52-71ab-4b9b-aac7-60e0918200fd"
+          ],
+          "expected": [
+            "25f3ea7d-7229-48ec-b75c-40c66e1a0416",
+            "ef6f367a-90b2-41fd-a35f-60650a327c3a"
+          ],
+          "precisionAtK": 0.4,
+          "recallAtK": 1,
+          "mrr": 1,
+          "latencyMs": 1163.7564170000005
+        },
+        {
+          "queryId": "indigo-dye-bag",
+          "retrieved": [],
+          "expected": [
+            "0a518959-bb94-469c-bddf-b99a1652feca"
+          ],
+          "precisionAtK": 0,
+          "recallAtK": 0,
+          "mrr": 0,
+          "latencyMs": 1091.4568749999999
+        },
+        {
+          "queryId": "hinoki-home-decor",
+          "retrieved": [
+            "11918573-5e61-4ec7-a1d5-3cd2e96d4399",
+            "d56357ab-192f-461d-a891-710a0adae153",
+            "01dc3625-5112-494a-8306-36c91c978a4b",
+            "baf97e7f-16b0-43df-ad55-94a9bd90ec8b",
+            "fe50f0c9-2b04-4119-ae07-5ddd5e0a3def"
+          ],
+          "expected": [
+            "8a195cc1-dec1-4ac0-8e20-2cd6b5386500",
+            "fcb0c01b-0e91-40d2-8cb8-7d8bbe53d6d9"
+          ],
+          "precisionAtK": 0,
+          "recallAtK": 0,
+          "mrr": 0,
+          "latencyMs": 1043.5924169999998
+        },
+        {
+          "queryId": "minimal-leather-wallet",
+          "retrieved": [
+            "f9322d75-79a8-4365-b8d8-a4660c04bc9a",
+            "40647372-fbda-4951-a921-2f6e874f7b6f",
+            "0fdb6fb7-1951-49d8-9e32-8f7bca8f31d3",
+            "a6d2e11e-5880-4ed4-9e7c-dfbf078cd5e7",
+            "320a047a-4afe-4b74-b236-b38ba0554dee"
+          ],
+          "expected": [
+            "69e4999c-36e9-42b8-9f7c-c5f91caf5e6f",
+            "a9bfbd42-f4c3-4d73-aa0c-baf903be02e3"
+          ],
+          "precisionAtK": 0,
+          "recallAtK": 0,
+          "mrr": 0,
+          "latencyMs": 1199.236125000003
+        },
+        {
+          "queryId": "wedding-gold-jewelry",
+          "retrieved": [
+            "5996efaa-3f1d-48f5-86c8-885ed0bce74d",
+            "666d98df-ec8f-49e9-ab9a-948350375a08",
+            "09557513-ca38-42f8-af6a-cb9ffb33eb98",
+            "1eb8bd0d-b014-45de-b509-b6030262d4af",
+            "6e4c173d-cbf7-41e5-a20b-5d13e3df2745"
+          ],
+          "expected": [
+            "cad5425c-5d11-414a-b468-3fcee152d7e5",
+            "7819eb92-c721-47b1-8840-cbb44e64612f"
+          ],
+          "precisionAtK": 0,
+          "recallAtK": 0,
+          "mrr": 0,
+          "latencyMs": 1077.7567090000011
+        },
+        {
+          "queryId": "fountain-pen-daily",
+          "retrieved": [
+            "249c36d7-c69e-4d4c-8199-586975a0212a",
+            "070883ff-d3e2-43d5-85fa-2399fd28f597",
+            "af146651-1e22-49eb-9854-328eec96a62d",
+            "2443ea6a-bc5f-48c3-bdd5-cd7e6d76a08f",
+            "267aa625-0fd0-40bb-97ce-1456de1c2b51"
+          ],
+          "expected": [
+            "2443ea6a-bc5f-48c3-bdd5-cd7e6d76a08f",
+            "af146651-1e22-49eb-9854-328eec96a62d"
+          ],
+          "precisionAtK": 0.4,
+          "recallAtK": 1,
+          "mrr": 0.3333333333333333,
+          "latencyMs": 1025.1634159999958
+        },
+        {
+          "queryId": "summer-sun-protection",
+          "retrieved": [
+            "5535f73c-40f9-4e4f-ad0f-6cd2d6b6ca10",
+            "696e535a-b13f-4f23-9a92-82a378e9be51",
+            "029fbde5-f8a7-4dd8-aa5d-c9c36b63bb6f",
+            "88271ca8-02b6-4dba-8d85-146598b89cf7",
+            "cc825157-4278-40a9-9b00-4119f080dfc3"
+          ],
+          "expected": [
+            "5535f73c-40f9-4e4f-ad0f-6cd2d6b6ca10",
+            "88271ca8-02b6-4dba-8d85-146598b89cf7"
+          ],
+          "precisionAtK": 0.4,
+          "recallAtK": 1,
+          "mrr": 1,
+          "latencyMs": 1022.7186659999934
+        },
+        {
+          "queryId": "birthday-earrings",
+          "retrieved": [
+            "afba76dc-852e-4e65-887c-88dbbe3847b6",
+            "cad5425c-5d11-414a-b468-3fcee152d7e5",
+            "57263ac9-688b-413e-a7d3-c7d70f6fb16f",
+            "53c03c21-5a29-45a7-bb5e-f345eeaca88a",
+            "e0da4633-3bdf-40cf-b7c8-ce5e69d2cfbc"
+          ],
+          "expected": [
+            "246b2fde-2b8c-4b77-b5cc-ccdc9ddc58ce",
+            "9b5c3519-7fca-4ae3-b323-caa2d04e4f7f"
+          ],
+          "precisionAtK": 0,
+          "recallAtK": 0,
+          "mrr": 0,
+          "latencyMs": 952.1158329999962
+        },
+        {
+          "queryId": "linen-home-textile",
+          "retrieved": [
+            "ea4c28df-e604-4561-ac16-861f593ec4f7",
+            "ccfc1ccf-2015-4124-88af-f0ef920930e2",
+            "cdb6435f-74a3-4586-be74-c0f4893aef5f",
+            "b915216a-f288-4018-9eda-55ec021935a1",
+            "f32d0e51-3a34-4c8c-a642-6b98810c1aa8"
+          ],
+          "expected": [],
+          "precisionAtK": 0,
+          "recallAtK": 0,
+          "mrr": 0,
+          "latencyMs": 1015.7867909999986
+        },
+        {
+          "queryId": "laptop-canvas-bag",
+          "retrieved": [],
+          "expected": [
+            "bea88718-64fe-46b1-99c7-1f28832847c5",
+            "9c69945c-67db-416c-8fb2-40430f5879d5",
+            "06da4068-05ae-4db1-a2e3-30ad8c1340aa"
+          ],
+          "precisionAtK": 0,
+          "recallAtK": 0,
+          "mrr": 0,
+          "latencyMs": 963.7300000000032
+        },
+        {
+          "queryId": "botanical-fragrance",
+          "retrieved": [
+            "c0a63629-5e42-496f-810f-189e4ba50e3e",
+            "0b8a8f81-fecc-4855-a44b-b3fe187e2808",
+            "b6bfbe35-1cb0-4fb6-9f65-ccb39c5c87c9",
+            "0b99c4a6-da9e-4123-b5b0-4829d348a8a8",
+            "a548a281-7aad-4c43-ae4f-e1e3e390dd4d"
+          ],
+          "expected": [
+            "9e3464ad-741a-4da7-a690-0086cab851de",
+            "35a31266-ebcd-427f-abc3-84b68e144aff"
+          ],
+          "precisionAtK": 0,
+          "recallAtK": 0,
+          "mrr": 0,
+          "latencyMs": 1058.181709000004
+        },
+        {
+          "queryId": "ceramic-incense-holder",
+          "retrieved": [
+            "f38b57c8-b3cf-4e3f-b683-aebf80ac1f72",
+            "9c85b311-98b9-44a3-8b17-e081be360d8c",
+            "92bb5b07-df1b-4ce4-887f-a3b41585f3cb",
+            "5e35b317-433c-4c58-8f73-232845acf323",
+            "4ec2a45a-1020-40ee-9620-f857b12b7a8c"
+          ],
+          "expected": [
+            "f38b57c8-b3cf-4e3f-b683-aebf80ac1f72",
+            "92bb5b07-df1b-4ce4-887f-a3b41585f3cb"
+          ],
+          "precisionAtK": 0.4,
+          "recallAtK": 1,
+          "mrr": 1,
+          "latencyMs": 1164.5604170000006
+        },
+        {
+          "queryId": "travel-notebook-set",
+          "retrieved": [
+            "d77b2f64-e92e-45c4-a53e-7f223440b1d8",
+            "105ee1ec-b156-4a1a-871e-5ca220cd54de",
+            "5c41c9c2-55fc-4230-9265-47e28189ba85",
+            "a2e5c6d6-bb1d-4aae-a506-a471d9f0e175",
+            "f8abe2a4-d511-4462-aeeb-b5515e9d95ea"
+          ],
+          "expected": [
+            "a2e5c6d6-bb1d-4aae-a506-a471d9f0e175"
+          ],
+          "precisionAtK": 0.2,
+          "recallAtK": 1,
+          "mrr": 0.25,
+          "latencyMs": 1098.3687910000008
+        },
+        {
+          "queryId": "handmade-silver-ring",
+          "retrieved": [
+            "553bde93-5139-4dcf-a8de-e2ef154464bb",
+            "750892d6-a0f0-4158-bf49-79b5d164eede",
+            "9e8ab761-787b-4a17-bf3b-675f80e049a3",
+            "666d98df-ec8f-49e9-ab9a-948350375a08",
+            "5996efaa-3f1d-48f5-86c8-885ed0bce74d"
+          ],
+          "expected": [
+            "750892d6-a0f0-4158-bf49-79b5d164eede",
+            "553bde93-5139-4dcf-a8de-e2ef154464bb"
+          ],
+          "precisionAtK": 0.4,
+          "recallAtK": 1,
+          "mrr": 1,
+          "latencyMs": 1063.323457999999
+        },
+        {
+          "queryId": "kids-birthday-gift",
+          "retrieved": [
+            "27bc1540-c39b-4c90-969b-dd4f21297be4",
+            "0804a7d3-90b4-490e-bfd4-e91c012c4c0e",
+            "1a6509af-4e35-45ec-ab7c-dd1b7f38c62f",
+            "3aea5d61-d91c-46dd-a5e5-0d287fa563a9",
+            "d92c90dc-239d-4a05-9bfb-a4bc29834add"
+          ],
+          "expected": [
+            "968c1194-8cbe-4035-842a-00db5bed199e",
+            "055cfe70-47fa-4c6d-967b-ec2fbdbe3af0"
+          ],
+          "precisionAtK": 0,
+          "recallAtK": 0,
+          "mrr": 0,
+          "latencyMs": 1086.2678749999977
+        },
+        {
+          "queryId": "office-desk-organizer",
+          "retrieved": [
+            "d77b2f64-e92e-45c4-a53e-7f223440b1d8",
+            "0104d6cd-525b-41e6-a6b7-cec4cb07394d",
+            "87855b00-dfa7-4413-8d8b-562e42f57fe5",
+            "ad8f302e-16ba-479e-b76f-fed0a992205e",
+            "d5fe93f7-eebc-416e-9192-c37d45b28217"
+          ],
+          "expected": [
+            "59fdd190-7ec0-4c8c-8f91-86b5072dfb13",
+            "249c36d7-c69e-4d4c-8199-586975a0212a"
+          ],
+          "precisionAtK": 0,
+          "recallAtK": 0,
+          "mrr": 0,
+          "latencyMs": 1049.5041249999995
+        }
+      ]
+    },
+    {
+      "arm": "hybrid",
+      "metrics": {
+        "meanPrecisionAtK": 0.16666666666666666,
+        "meanRecallAtK": 0.4444444444444444,
+        "meanMrr": 0.37407407407407406,
+        "p95LatencyMs": 1266.3340410000092
+      },
+      "perQuery": [
+        {
+          "queryId": "tea-gift-for-friend",
+          "retrieved": [
+            "ab02f90e-e7eb-437b-8ccc-7631e08b9bd6",
+            "1f2cbb3c-971e-4fb5-9826-f8525cba6905",
+            "09557513-ca38-42f8-af6a-cb9ffb33eb98",
+            "29a22d18-08d4-4914-8eb9-ab3a3b37a26a",
+            "25f3ea7d-7229-48ec-b75c-40c66e1a0416"
+          ],
+          "expected": [
+            "f8c1b05b-ba16-4882-9ebd-24923d3892dd",
+            "25f3ea7d-7229-48ec-b75c-40c66e1a0416"
+          ],
+          "precisionAtK": 0.2,
+          "recallAtK": 0.5,
+          "mrr": 0.2,
+          "latencyMs": 1095.4684169999964
+        },
+        {
+          "queryId": "natural-skincare-sensitive",
+          "retrieved": [
+            "5535f73c-40f9-4e4f-ad0f-6cd2d6b6ca10",
+            "9205cdc6-708c-4306-b829-239b22fe8ce5",
+            "f0ecf3df-f8a9-4861-b8e7-27996e798af6",
+            "f55105e5-c026-4d02-a54d-dbaf853dbf0f",
+            "d21d0d8d-2683-4095-b91d-a31af48b4aea"
+          ],
+          "expected": [
+            "1dc21cb2-295f-4cd3-bfa3-0c4d7241e770",
+            "02cfbf3d-e3aa-4ca3-83e9-27e0383fe378"
+          ],
+          "precisionAtK": 0,
+          "recallAtK": 0,
+          "mrr": 0,
+          "latencyMs": 952.1377500000017
+        },
+        {
+          "queryId": "housewarming-candle",
+          "retrieved": [
+            "9f7f67be-c2d0-4ed2-951b-7d9d26f9615d",
+            "15680a1c-a328-4742-b49a-4202de166255",
+            "9c85b311-98b9-44a3-8b17-e081be360d8c",
+            "dbd1afc7-198c-401f-bdf7-212ec46c8fda",
+            "c0817d3f-6e3b-48e3-918b-d33ef24b61f3"
+          ],
+          "expected": [
+            "9f7f67be-c2d0-4ed2-951b-7d9d26f9615d",
+            "dbd1afc7-198c-401f-bdf7-212ec46c8fda"
+          ],
+          "precisionAtK": 0.4,
+          "recallAtK": 1,
+          "mrr": 1,
+          "latencyMs": 993.1763340000034
+        },
+        {
+          "queryId": "chaze-tea-scoop",
+          "retrieved": [
+            "59b1cb6d-935f-46fc-b5b8-3a3c62d9448e",
+            "ce89917c-dd72-43b3-8926-9966e62c4578",
+            "ab02f90e-e7eb-437b-8ccc-7631e08b9bd6",
+            "8102a706-d011-4064-88c3-0c38eeafaacd",
+            "ef6f367a-90b2-41fd-a35f-60650a327c3a"
+          ],
+          "expected": [],
+          "precisionAtK": 0,
+          "recallAtK": 0,
+          "mrr": 0,
+          "latencyMs": 1100.5069589999985
+        },
+        {
+          "queryId": "woodfired-ceramics",
+          "retrieved": [
+            "ef6f367a-90b2-41fd-a35f-60650a327c3a",
+            "c10e4b0e-05de-42e7-b438-a68f8883b4c7",
+            "29a22d18-08d4-4914-8eb9-ab3a3b37a26a",
+            "62a38dc2-ba63-43a6-afbc-e3eb62bed7c9",
+            "f8c1b05b-ba16-4882-9ebd-24923d3892dd"
+          ],
+          "expected": [
+            "25f3ea7d-7229-48ec-b75c-40c66e1a0416",
+            "ef6f367a-90b2-41fd-a35f-60650a327c3a"
+          ],
+          "precisionAtK": 0.2,
+          "recallAtK": 0.5,
+          "mrr": 1,
+          "latencyMs": 1124.492416000001
+        },
+        {
+          "queryId": "indigo-dye-bag",
+          "retrieved": [],
+          "expected": [
+            "0a518959-bb94-469c-bddf-b99a1652feca"
+          ],
+          "precisionAtK": 0,
+          "recallAtK": 0,
+          "mrr": 0,
+          "latencyMs": 880.1343750000015
+        },
+        {
+          "queryId": "hinoki-home-decor",
+          "retrieved": [
+            "0eb2147b-ae1a-4ce3-950c-772385e4c08b",
+            "0d7146c5-4350-4661-b712-4a5965c1d94b",
+            "e1a034cd-1590-476f-b2cc-4b6c9aeee743",
+            "1f47fd0f-c566-4bd4-8742-c724130e6965",
+            "3485eb48-b203-43e3-b6bd-937982ce7e3c"
+          ],
+          "expected": [
+            "8a195cc1-dec1-4ac0-8e20-2cd6b5386500",
+            "fcb0c01b-0e91-40d2-8cb8-7d8bbe53d6d9"
+          ],
+          "precisionAtK": 0,
+          "recallAtK": 0,
+          "mrr": 0,
+          "latencyMs": 1089.8303339999984
+        },
+        {
+          "queryId": "minimal-leather-wallet",
+          "retrieved": [
+            "40647372-fbda-4951-a921-2f6e874f7b6f",
+            "f9322d75-79a8-4365-b8d8-a4660c04bc9a",
+            "320a047a-4afe-4b74-b236-b38ba0554dee",
+            "265a4939-2d69-44ce-8dc2-b542bb5db9fa",
+            "308a72c2-0252-45ec-80d5-2a01830beaa8"
+          ],
+          "expected": [
+            "69e4999c-36e9-42b8-9f7c-c5f91caf5e6f",
+            "a9bfbd42-f4c3-4d73-aa0c-baf903be02e3"
+          ],
+          "precisionAtK": 0,
+          "recallAtK": 0,
+          "mrr": 0,
+          "latencyMs": 951.9446249999964
+        },
+        {
+          "queryId": "wedding-gold-jewelry",
+          "retrieved": [
+            "09557513-ca38-42f8-af6a-cb9ffb33eb98",
+            "5996efaa-3f1d-48f5-86c8-885ed0bce74d",
+            "666d98df-ec8f-49e9-ab9a-948350375a08",
+            "1eb8bd0d-b014-45de-b509-b6030262d4af",
+            "6e4c173d-cbf7-41e5-a20b-5d13e3df2745"
+          ],
+          "expected": [
+            "cad5425c-5d11-414a-b468-3fcee152d7e5",
+            "7819eb92-c721-47b1-8840-cbb44e64612f"
+          ],
+          "precisionAtK": 0,
+          "recallAtK": 0,
+          "mrr": 0,
+          "latencyMs": 898.9863750000004
+        },
+        {
+          "queryId": "fountain-pen-daily",
+          "retrieved": [
+            "070883ff-d3e2-43d5-85fa-2399fd28f597",
+            "af146651-1e22-49eb-9854-328eec96a62d",
+            "2443ea6a-bc5f-48c3-bdd5-cd7e6d76a08f",
+            "bd951e41-d4e2-413b-b513-c9d5d611fb96",
+            "a2e5c6d6-bb1d-4aae-a506-a471d9f0e175"
+          ],
+          "expected": [
+            "2443ea6a-bc5f-48c3-bdd5-cd7e6d76a08f",
+            "af146651-1e22-49eb-9854-328eec96a62d"
+          ],
+          "precisionAtK": 0.4,
+          "recallAtK": 1,
+          "mrr": 0.5,
+          "latencyMs": 1042.3829579999947
+        },
+        {
+          "queryId": "summer-sun-protection",
+          "retrieved": [
+            "5535f73c-40f9-4e4f-ad0f-6cd2d6b6ca10",
+            "3ff8e6e0-3155-4a40-acde-04f11236531f",
+            "696e535a-b13f-4f23-9a92-82a378e9be51",
+            "029fbde5-f8a7-4dd8-aa5d-c9c36b63bb6f",
+            "88271ca8-02b6-4dba-8d85-146598b89cf7"
+          ],
+          "expected": [
+            "5535f73c-40f9-4e4f-ad0f-6cd2d6b6ca10",
+            "88271ca8-02b6-4dba-8d85-146598b89cf7"
+          ],
+          "precisionAtK": 0.4,
+          "recallAtK": 1,
+          "mrr": 1,
+          "latencyMs": 1149.6780419999996
+        },
+        {
+          "queryId": "birthday-earrings",
+          "retrieved": [
+            "57263ac9-688b-413e-a7d3-c7d70f6fb16f",
+            "cad5425c-5d11-414a-b468-3fcee152d7e5",
+            "9a2924f0-1497-4fce-b7d9-bdc7e2cd13e5",
+            "afba76dc-852e-4e65-887c-88dbbe3847b6",
+            "246b2fde-2b8c-4b77-b5cc-ccdc9ddc58ce"
+          ],
+          "expected": [
+            "246b2fde-2b8c-4b77-b5cc-ccdc9ddc58ce",
+            "9b5c3519-7fca-4ae3-b323-caa2d04e4f7f"
+          ],
+          "precisionAtK": 0.2,
+          "recallAtK": 0.5,
+          "mrr": 0.2,
+          "latencyMs": 1061.047458999994
+        },
+        {
+          "queryId": "linen-home-textile",
+          "retrieved": [
+            "055cfe70-47fa-4c6d-967b-ec2fbdbe3af0",
+            "ea4c28df-e604-4561-ac16-861f593ec4f7",
+            "ebcc5533-f18b-4af0-a4e2-aa91df9089d1",
+            "b4a3f036-7b98-417c-bfaa-98a6c5d68a14",
+            "f32d0e51-3a34-4c8c-a642-6b98810c1aa8"
+          ],
+          "expected": [],
+          "precisionAtK": 0,
+          "recallAtK": 0,
+          "mrr": 0,
+          "latencyMs": 1235.914499999999
+        },
+        {
+          "queryId": "laptop-canvas-bag",
+          "retrieved": [],
+          "expected": [
+            "bea88718-64fe-46b1-99c7-1f28832847c5",
+            "9c69945c-67db-416c-8fb2-40430f5879d5",
+            "06da4068-05ae-4db1-a2e3-30ad8c1340aa"
+          ],
+          "precisionAtK": 0,
+          "recallAtK": 0,
+          "mrr": 0,
+          "latencyMs": 828.6961670000019
+        },
+        {
+          "queryId": "botanical-fragrance",
+          "retrieved": [
+            "a548a281-7aad-4c43-ae4f-e1e3e390dd4d",
+            "aad3c7ce-fc01-43fa-b208-d9bed42f04dc",
+            "9e3464ad-741a-4da7-a690-0086cab851de",
+            "b76da2cc-79c5-46b5-98f4-355a41b68991",
+            "951f62f9-8b3a-432c-8516-90d1f253c930"
+          ],
+          "expected": [
+            "9e3464ad-741a-4da7-a690-0086cab851de",
+            "35a31266-ebcd-427f-abc3-84b68e144aff"
+          ],
+          "precisionAtK": 0.2,
+          "recallAtK": 0.5,
+          "mrr": 0.3333333333333333,
+          "latencyMs": 1266.3340410000092
+        },
+        {
+          "queryId": "ceramic-incense-holder",
+          "retrieved": [
+            "f38b57c8-b3cf-4e3f-b683-aebf80ac1f72",
+            "92bb5b07-df1b-4ce4-887f-a3b41585f3cb",
+            "9c85b311-98b9-44a3-8b17-e081be360d8c",
+            "4ec2a45a-1020-40ee-9620-f857b12b7a8c",
+            "f686ec13-379f-40fb-9bd8-ecc95fb9029d"
+          ],
+          "expected": [
+            "f38b57c8-b3cf-4e3f-b683-aebf80ac1f72",
+            "92bb5b07-df1b-4ce4-887f-a3b41585f3cb"
+          ],
+          "precisionAtK": 0.4,
+          "recallAtK": 1,
+          "mrr": 1,
+          "latencyMs": 1004.5263330000016
+        },
+        {
+          "queryId": "travel-notebook-set",
+          "retrieved": [
+            "d77b2f64-e92e-45c4-a53e-7f223440b1d8",
+            "a2e5c6d6-bb1d-4aae-a506-a471d9f0e175",
+            "267aa625-0fd0-40bb-97ce-1456de1c2b51",
+            "09ef9585-50b9-449b-830f-3d0aac730521",
+            "25d53685-8310-4b82-9b47-aaa1f67d8681"
+          ],
+          "expected": [
+            "a2e5c6d6-bb1d-4aae-a506-a471d9f0e175"
+          ],
+          "precisionAtK": 0.2,
+          "recallAtK": 1,
+          "mrr": 0.5,
+          "latencyMs": 1276.5004590000026
+        },
+        {
+          "queryId": "handmade-silver-ring",
+          "retrieved": [
+            "553bde93-5139-4dcf-a8de-e2ef154464bb",
+            "750892d6-a0f0-4158-bf49-79b5d164eede",
+            "9e8ab761-787b-4a17-bf3b-675f80e049a3",
+            "1eb8bd0d-b014-45de-b509-b6030262d4af",
+            "aa965a1a-375b-458d-bb1d-c9a9653697a3"
+          ],
+          "expected": [
+            "750892d6-a0f0-4158-bf49-79b5d164eede",
+            "553bde93-5139-4dcf-a8de-e2ef154464bb"
+          ],
+          "precisionAtK": 0.4,
+          "recallAtK": 1,
+          "mrr": 1,
+          "latencyMs": 1017.7917090000119
+        },
+        {
+          "queryId": "kids-birthday-gift",
+          "retrieved": [
+            "e8b96a34-cafd-4de8-ba2a-6bbdb515dae2",
+            "27bc1540-c39b-4c90-969b-dd4f21297be4",
+            "0804a7d3-90b4-490e-bfd4-e91c012c4c0e",
+            "1696a83a-eb2c-486c-94c7-73fea759e533",
+            "1a6509af-4e35-45ec-ab7c-dd1b7f38c62f"
+          ],
+          "expected": [
+            "968c1194-8cbe-4035-842a-00db5bed199e",
+            "055cfe70-47fa-4c6d-967b-ec2fbdbe3af0"
+          ],
+          "precisionAtK": 0,
+          "recallAtK": 0,
+          "mrr": 0,
+          "latencyMs": 1126.66808399999
+        },
+        {
+          "queryId": "office-desk-organizer",
+          "retrieved": [
+            "d77b2f64-e92e-45c4-a53e-7f223440b1d8",
+            "99442895-6782-4804-adc9-1557d19c7010",
+            "5617d7b2-5959-4509-87f1-b660055e3c03",
+            "0104d6cd-525b-41e6-a6b7-cec4cb07394d",
+            "87855b00-dfa7-4413-8d8b-562e42f57fe5"
+          ],
+          "expected": [
+            "59fdd190-7ec0-4c8c-8f91-86b5072dfb13",
+            "249c36d7-c69e-4d4c-8199-586975a0212a"
+          ],
+          "precisionAtK": 0,
+          "recallAtK": 0,
+          "mrr": 0,
+          "latencyMs": 1018.1687919999968
+        }
+      ]
+    },
+    {
+      "arm": "rerank",
+      "metrics": {
+        "meanPrecisionAtK": 0.23333333333333334,
+        "meanRecallAtK": 0.6111111111111112,
+        "meanMrr": 0.5851851851851851,
+        "p95LatencyMs": 4523.466209000006
+      },
+      "perQuery": [
+        {
+          "queryId": "tea-gift-for-friend",
+          "retrieved": [
+            "f8c1b05b-ba16-4882-9ebd-24923d3892dd",
+            "ef6f367a-90b2-41fd-a35f-60650a327c3a",
+            "25f3ea7d-7229-48ec-b75c-40c66e1a0416",
+            "1f2cbb3c-971e-4fb5-9826-f8525cba6905",
+            "04256701-98d4-48c2-aea4-51ea8c46e9df"
+          ],
+          "expected": [
+            "f8c1b05b-ba16-4882-9ebd-24923d3892dd",
+            "25f3ea7d-7229-48ec-b75c-40c66e1a0416"
+          ],
+          "precisionAtK": 0.4,
+          "recallAtK": 1,
+          "mrr": 1,
+          "latencyMs": 4427.919709000009
+        },
+        {
+          "queryId": "natural-skincare-sensitive",
+          "retrieved": [
+            "1dc21cb2-295f-4cd3-bfa3-0c4d7241e770",
+            "02cfbf3d-e3aa-4ca3-83e9-27e0383fe378",
+            "9205cdc6-708c-4306-b829-239b22fe8ce5",
+            "f0ecf3df-f8a9-4861-b8e7-27996e798af6",
+            "d21d0d8d-2683-4095-b91d-a31af48b4aea"
+          ],
+          "expected": [
+            "1dc21cb2-295f-4cd3-bfa3-0c4d7241e770",
+            "02cfbf3d-e3aa-4ca3-83e9-27e0383fe378"
+          ],
+          "precisionAtK": 0.4,
+          "recallAtK": 1,
+          "mrr": 1,
+          "latencyMs": 4239.436249999999
+        },
+        {
+          "queryId": "housewarming-candle",
+          "retrieved": [
+            "9f7f67be-c2d0-4ed2-951b-7d9d26f9615d",
+            "15680a1c-a328-4742-b49a-4202de166255",
+            "9c85b311-98b9-44a3-8b17-e081be360d8c",
+            "dbd1afc7-198c-401f-bdf7-212ec46c8fda",
+            "c0817d3f-6e3b-48e3-918b-d33ef24b61f3"
+          ],
+          "expected": [
+            "9f7f67be-c2d0-4ed2-951b-7d9d26f9615d",
+            "dbd1afc7-198c-401f-bdf7-212ec46c8fda"
+          ],
+          "precisionAtK": 0.4,
+          "recallAtK": 1,
+          "mrr": 1,
+          "latencyMs": 4437.080875
+        },
+        {
+          "queryId": "chaze-tea-scoop",
+          "retrieved": [
+            "ef6f367a-90b2-41fd-a35f-60650a327c3a",
+            "59b1cb6d-935f-46fc-b5b8-3a3c62d9448e",
+            "ce89917c-dd72-43b3-8926-9966e62c4578",
+            "ab02f90e-e7eb-437b-8ccc-7631e08b9bd6",
+            "8102a706-d011-4064-88c3-0c38eeafaacd"
+          ],
+          "expected": [],
+          "precisionAtK": 0,
+          "recallAtK": 0,
+          "mrr": 0,
+          "latencyMs": 2761.3465419999993
+        },
+        {
+          "queryId": "woodfired-ceramics",
+          "retrieved": [
+            "25f3ea7d-7229-48ec-b75c-40c66e1a0416",
+            "f8c1b05b-ba16-4882-9ebd-24923d3892dd",
+            "c10e4b0e-05de-42e7-b438-a68f8883b4c7",
+            "ef6f367a-90b2-41fd-a35f-60650a327c3a",
+            "29a22d18-08d4-4914-8eb9-ab3a3b37a26a"
+          ],
+          "expected": [
+            "25f3ea7d-7229-48ec-b75c-40c66e1a0416",
+            "ef6f367a-90b2-41fd-a35f-60650a327c3a"
+          ],
+          "precisionAtK": 0.4,
+          "recallAtK": 1,
+          "mrr": 1,
+          "latencyMs": 3425.3545840000006
+        },
+        {
+          "queryId": "indigo-dye-bag",
+          "retrieved": [],
+          "expected": [
+            "0a518959-bb94-469c-bddf-b99a1652feca"
+          ],
+          "precisionAtK": 0,
+          "recallAtK": 0,
+          "mrr": 0,
+          "latencyMs": 910.4088750000083
+        },
+        {
+          "queryId": "hinoki-home-decor",
+          "retrieved": [
+            "0d7146c5-4350-4661-b712-4a5965c1d94b",
+            "e1a034cd-1590-476f-b2cc-4b6c9aeee743",
+            "1f47fd0f-c566-4bd4-8742-c724130e6965",
+            "0eb2147b-ae1a-4ce3-950c-772385e4c08b",
+            "45fe7931-9c3a-468d-b3e9-6414d3d0ce12"
+          ],
+          "expected": [
+            "8a195cc1-dec1-4ac0-8e20-2cd6b5386500",
+            "fcb0c01b-0e91-40d2-8cb8-7d8bbe53d6d9"
+          ],
+          "precisionAtK": 0,
+          "recallAtK": 0,
+          "mrr": 0,
+          "latencyMs": 3446.520374999993
+        },
+        {
+          "queryId": "minimal-leather-wallet",
+          "retrieved": [
+            "40647372-fbda-4951-a921-2f6e874f7b6f",
+            "f9322d75-79a8-4365-b8d8-a4660c04bc9a",
+            "320a047a-4afe-4b74-b236-b38ba0554dee",
+            "265a4939-2d69-44ce-8dc2-b542bb5db9fa",
+            "308a72c2-0252-45ec-80d5-2a01830beaa8"
+          ],
+          "expected": [
+            "69e4999c-36e9-42b8-9f7c-c5f91caf5e6f",
+            "a9bfbd42-f4c3-4d73-aa0c-baf903be02e3"
+          ],
+          "precisionAtK": 0,
+          "recallAtK": 0,
+          "mrr": 0,
+          "latencyMs": 2433.2515409999905
+        },
+        {
+          "queryId": "wedding-gold-jewelry",
+          "retrieved": [
+            "09557513-ca38-42f8-af6a-cb9ffb33eb98",
+            "5996efaa-3f1d-48f5-86c8-885ed0bce74d",
+            "666d98df-ec8f-49e9-ab9a-948350375a08",
+            "1eb8bd0d-b014-45de-b509-b6030262d4af",
+            "6e4c173d-cbf7-41e5-a20b-5d13e3df2745"
+          ],
+          "expected": [
+            "cad5425c-5d11-414a-b468-3fcee152d7e5",
+            "7819eb92-c721-47b1-8840-cbb44e64612f"
+          ],
+          "precisionAtK": 0,
+          "recallAtK": 0,
+          "mrr": 0,
+          "latencyMs": 4865.320291999989
+        },
+        {
+          "queryId": "fountain-pen-daily",
+          "retrieved": [
+            "af146651-1e22-49eb-9854-328eec96a62d",
+            "2443ea6a-bc5f-48c3-bdd5-cd7e6d76a08f",
+            "070883ff-d3e2-43d5-85fa-2399fd28f597",
+            "bd951e41-d4e2-413b-b513-c9d5d611fb96",
+            "a2e5c6d6-bb1d-4aae-a506-a471d9f0e175"
+          ],
+          "expected": [
+            "2443ea6a-bc5f-48c3-bdd5-cd7e6d76a08f",
+            "af146651-1e22-49eb-9854-328eec96a62d"
+          ],
+          "precisionAtK": 0.4,
+          "recallAtK": 1,
+          "mrr": 1,
+          "latencyMs": 2906.046332999991
+        },
+        {
+          "queryId": "summer-sun-protection",
+          "retrieved": [
+            "5535f73c-40f9-4e4f-ad0f-6cd2d6b6ca10",
+            "696e535a-b13f-4f23-9a92-82a378e9be51",
+            "029fbde5-f8a7-4dd8-aa5d-c9c36b63bb6f",
+            "88271ca8-02b6-4dba-8d85-146598b89cf7",
+            "f55105e5-c026-4d02-a54d-dbaf853dbf0f"
+          ],
+          "expected": [
+            "5535f73c-40f9-4e4f-ad0f-6cd2d6b6ca10",
+            "88271ca8-02b6-4dba-8d85-146598b89cf7"
+          ],
+          "precisionAtK": 0.4,
+          "recallAtK": 1,
+          "mrr": 1,
+          "latencyMs": 2948.3985410000023
+        },
+        {
+          "queryId": "birthday-earrings",
+          "retrieved": [
+            "57263ac9-688b-413e-a7d3-c7d70f6fb16f",
+            "cad5425c-5d11-414a-b468-3fcee152d7e5",
+            "9a2924f0-1497-4fce-b7d9-bdc7e2cd13e5",
+            "afba76dc-852e-4e65-887c-88dbbe3847b6",
+            "246b2fde-2b8c-4b77-b5cc-ccdc9ddc58ce"
+          ],
+          "expected": [
+            "246b2fde-2b8c-4b77-b5cc-ccdc9ddc58ce",
+            "9b5c3519-7fca-4ae3-b323-caa2d04e4f7f"
+          ],
+          "precisionAtK": 0.2,
+          "recallAtK": 0.5,
+          "mrr": 0.2,
+          "latencyMs": 4523.466209000006
+        },
+        {
+          "queryId": "linen-home-textile",
+          "retrieved": [
+            "055cfe70-47fa-4c6d-967b-ec2fbdbe3af0",
+            "ea4c28df-e604-4561-ac16-861f593ec4f7",
+            "ebcc5533-f18b-4af0-a4e2-aa91df9089d1",
+            "b4a3f036-7b98-417c-bfaa-98a6c5d68a14",
+            "f32d0e51-3a34-4c8c-a642-6b98810c1aa8"
+          ],
+          "expected": [],
+          "precisionAtK": 0,
+          "recallAtK": 0,
+          "mrr": 0,
+          "latencyMs": 2567.300749999995
+        },
+        {
+          "queryId": "laptop-canvas-bag",
+          "retrieved": [],
+          "expected": [
+            "bea88718-64fe-46b1-99c7-1f28832847c5",
+            "9c69945c-67db-416c-8fb2-40430f5879d5",
+            "06da4068-05ae-4db1-a2e3-30ad8c1340aa"
+          ],
+          "precisionAtK": 0,
+          "recallAtK": 0,
+          "mrr": 0,
+          "latencyMs": 695.4683339999901
+        },
+        {
+          "queryId": "botanical-fragrance",
+          "retrieved": [
+            "9e3464ad-741a-4da7-a690-0086cab851de",
+            "35a31266-ebcd-427f-abc3-84b68e144aff",
+            "c574444f-6cd2-4121-aa47-77c1be597eab",
+            "cb4a51fa-dee2-45f0-8b69-028334c1bffe",
+            "1a1d4475-9fc6-4457-a2b1-f2f7f363f89f"
+          ],
+          "expected": [
+            "9e3464ad-741a-4da7-a690-0086cab851de",
+            "35a31266-ebcd-427f-abc3-84b68e144aff"
+          ],
+          "precisionAtK": 0.4,
+          "recallAtK": 1,
+          "mrr": 1,
+          "latencyMs": 3969.871499999994
+        },
+        {
+          "queryId": "ceramic-incense-holder",
+          "retrieved": [
+            "f38b57c8-b3cf-4e3f-b683-aebf80ac1f72",
+            "92bb5b07-df1b-4ce4-887f-a3b41585f3cb",
+            "9c85b311-98b9-44a3-8b17-e081be360d8c",
+            "4ec2a45a-1020-40ee-9620-f857b12b7a8c",
+            "5e35b317-433c-4c58-8f73-232845acf323"
+          ],
+          "expected": [
+            "f38b57c8-b3cf-4e3f-b683-aebf80ac1f72",
+            "92bb5b07-df1b-4ce4-887f-a3b41585f3cb"
+          ],
+          "precisionAtK": 0.4,
+          "recallAtK": 1,
+          "mrr": 1,
+          "latencyMs": 2979.208042000013
+        },
+        {
+          "queryId": "travel-notebook-set",
+          "retrieved": [
+            "a2e5c6d6-bb1d-4aae-a506-a471d9f0e175",
+            "267aa625-0fd0-40bb-97ce-1456de1c2b51",
+            "d77b2f64-e92e-45c4-a53e-7f223440b1d8",
+            "25d53685-8310-4b82-9b47-aaa1f67d8681",
+            "5c41c9c2-55fc-4230-9265-47e28189ba85"
+          ],
+          "expected": [
+            "a2e5c6d6-bb1d-4aae-a506-a471d9f0e175"
+          ],
+          "precisionAtK": 0.2,
+          "recallAtK": 1,
+          "mrr": 1,
+          "latencyMs": 3319.727333000017
+        },
+        {
+          "queryId": "handmade-silver-ring",
+          "retrieved": [
+            "553bde93-5139-4dcf-a8de-e2ef154464bb",
+            "750892d6-a0f0-4158-bf49-79b5d164eede",
+            "666d98df-ec8f-49e9-ab9a-948350375a08",
+            "97727598-5946-49f2-bebe-fd0ef33c6b74",
+            "aa965a1a-375b-458d-bb1d-c9a9653697a3"
+          ],
+          "expected": [
+            "750892d6-a0f0-4158-bf49-79b5d164eede",
+            "553bde93-5139-4dcf-a8de-e2ef154464bb"
+          ],
+          "precisionAtK": 0.4,
+          "recallAtK": 1,
+          "mrr": 1,
+          "latencyMs": 3803.156916000007
+        },
+        {
+          "queryId": "kids-birthday-gift",
+          "retrieved": [
+            "27bc1540-c39b-4c90-969b-dd4f21297be4",
+            "c0817d3f-6e3b-48e3-918b-d33ef24b61f3",
+            "01dc3625-5112-494a-8306-36c91c978a4b",
+            "d56357ab-192f-461d-a891-710a0adae153",
+            "11918573-5e61-4ec7-a1d5-3cd2e96d4399"
+          ],
+          "expected": [
+            "968c1194-8cbe-4035-842a-00db5bed199e",
+            "055cfe70-47fa-4c6d-967b-ec2fbdbe3af0"
+          ],
+          "precisionAtK": 0,
+          "recallAtK": 0,
+          "mrr": 0,
+          "latencyMs": 4094.0379589999793
+        },
+        {
+          "queryId": "office-desk-organizer",
+          "retrieved": [
+            "5617d7b2-5959-4509-87f1-b660055e3c03",
+            "d77b2f64-e92e-45c4-a53e-7f223440b1d8",
+            "249c36d7-c69e-4d4c-8199-586975a0212a",
+            "87855b00-dfa7-4413-8d8b-562e42f57fe5",
+            "bd951e41-d4e2-413b-b513-c9d5d611fb96"
+          ],
+          "expected": [
+            "59fdd190-7ec0-4c8c-8f91-86b5072dfb13",
+            "249c36d7-c69e-4d4c-8199-586975a0212a"
+          ],
+          "precisionAtK": 0.2,
+          "recallAtK": 0.5,
+          "mrr": 0.3333333333333333,
+          "latencyMs": 3934.370082999987
+        }
+      ]
+    }
+  ],
+  "verdict": "no-lift",
+  "missing": []
+}
