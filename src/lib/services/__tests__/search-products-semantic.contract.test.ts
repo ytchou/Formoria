@@ -10,8 +10,8 @@ import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 
 const MIGRATION_FILE = "20260903100200_situation_search.sql";
-const POOL_MIGRATION_FILE = "20260915120000_situation_search_pool_100.sql";
-const POOL_REVERSE_FILE = "20260915120000_revert_situation_search_pool.sql";
+const POOL_MIGRATION_FILE = "20260915140000_situation_search_pool_100.sql";
+const POOL_REVERSE_FILE = "20260915140000_revert_situation_search_pool.sql";
 
 function migrationText(): string {
   return readFileSync(

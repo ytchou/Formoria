@@ -195,7 +195,7 @@ function defaultDeps(): SearchDeps {
 /**
  * Fixed pool size sent to the RPC as `match_count`. Mirrors
  * `least(greatest(match_count,1),100)` in
- * `20260915120000_situation_search_pool_100.sql`.
+ * `20260915140000_situation_search_pool_100.sql`.
  *
  * Ceiling is the hydrate payload — slice ids before hydrating for `relevance`
  * sort if p95 moves.
