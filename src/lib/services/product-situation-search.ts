@@ -44,6 +44,8 @@ export type SearchResult = {
   intentMaterials: string[];
   intentCacheHit: boolean;
   intentLatencyMs: number;
+  rpcLatencyMs: number;
+  embedLatencyMs: number;
 };
 
 export type SimilarResult = {
@@ -190,6 +192,16 @@ function defaultDeps(): SearchDeps {
 // searchProductsBySituation
 // ---------------------------------------------------------------------------
 
+/**
+ * Fixed pool size sent to the RPC as `match_count`. Mirrors
+ * `least(greatest(match_count,1),100)` in
+ * `20260915120000_situation_search_pool_100.sql`.
+ *
+ * Ceiling is the hydrate payload — slice ids before hydrating for `relevance`
+ * sort if p95 moves.
+ */
+export const CANDIDATE_POOL = 100;
+
 export async function searchProductsBySituation(
   input: SearchInput,
   deps: SearchDeps = defaultDeps(),
@@ -225,12 +237,14 @@ export async function searchProductsBySituation(
     embedding: number[] | null;
     degraded: boolean;
     effectiveMode: SearchMode;
+    embedLatencyMs: number;
   }> {
     let embedding: number[] | null = null;
     let degraded = false;
     let effectiveMode: SearchMode = mode;
 
     if (mode !== "lexical") {
+      const t0 = deps.now();
       const cached = await deps.cache.get(normalized, EMBEDDING_MODEL);
       if (cached) {
         embedding = cached;
@@ -254,9 +268,11 @@ export async function searchProductsBySituation(
           }
         }
       }
+      const embedLatencyMs = deps.now() - t0;
+      return { embedding, degraded, effectiveMode, embedLatencyMs };
     }
 
-    return { embedding, degraded, effectiveMode };
+    return { embedding, degraded, effectiveMode, embedLatencyMs: 0 };
   }
 
   const [intentOutcome, embedResult] = await Promise.all([
@@ -265,7 +281,7 @@ export async function searchProductsBySituation(
   ]);
 
   if (timeoutId) clearTimeout(timeoutId);
-  const { embedding, degraded, effectiveMode } = embedResult;
+  const { embedding, degraded, effectiveMode, embedLatencyMs } = embedResult;
 
   // --- Intent metadata (populated on both returns) ---
   const intentMeta = {
@@ -292,7 +308,7 @@ export async function searchProductsBySituation(
     query_text: normalized,
     query_embedding: embedding,
     mode: effectiveMode,
-    match_count: pageSize * page + pageSize, // fetch enough for pagination
+    match_count: CANDIDATE_POOL,
     filter_category: input.category ?? parsedCategory ?? null,
     filter_subcategories: input.subcategories?.length
       ? input.subcategories
@@ -306,10 +322,12 @@ export async function searchProductsBySituation(
         : null,
   };
 
+  const rpcStart = deps.now();
   const { data: rpcRows, error: rpcError } = await deps.rpc(
     "search_products_semantic",
     rpcParams,
   );
+  const rpcLatencyMs = deps.now() - rpcStart;
 
   if (rpcError) {
     throw rpcError;
@@ -317,7 +335,6 @@ export async function searchProductsBySituation(
 
   const rows = rpcRows ?? [];
   const orderedIds = rows.map((r) => r.product_id);
-  const searchSource = (rows[0]?.search_source as SearchMode) ?? effectiveMode;
 
   if (orderedIds.length === 0) {
     return {
@@ -326,6 +343,8 @@ export async function searchProductsBySituation(
       searchSource: effectiveMode,
       degraded,
       query: normalized,
+      rpcLatencyMs,
+      embedLatencyMs,
       ...intentMeta,
     };
   }
@@ -358,9 +377,11 @@ export async function searchProductsBySituation(
   return {
     products: paged,
     totalCount,
-    searchSource,
+    searchSource: effectiveMode,
     degraded,
     query: normalized,
+    rpcLatencyMs,
+    embedLatencyMs,
     ...intentMeta,
   };
 }
