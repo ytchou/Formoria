@@ -764,6 +764,12 @@ export async function checkRateLimit(request: NextRequest): Promise<NextResponse
   // exhaustion from disabling scheduled operations before authentication runs.
   if (normalizedPathname.startsWith('/api/cron/')) return null
 
+  // Slack handlers authenticate via HMAC signature, not cookies or tokens.
+  // The shared external limiter would reject machine callers that carry no
+  // rate-limit identity, and a Redis outage would silently disable the ops
+  // agent before signature verification runs — same class of issue as /api/cron/.
+  if (normalizedPathname.startsWith('/api/slack/')) return null
+
   // The health endpoint must never be the thing that is down. It matched the
   // `/api/` rule, so on 2026-08-13 a dead store 500ed it for every caller --
   // including Railway's health check, which then blocked the very redeploy that

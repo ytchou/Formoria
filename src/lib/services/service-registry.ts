@@ -548,6 +548,7 @@ export const SERVICE_REGISTRY: readonly ServiceEntry[] = [
       "HEALTH_AGENT_GITHUB_APP_ID",
       "HEALTH_AGENT_GITHUB_APP_PRIVATE_KEY",
       "HEALTH_AGENT_GITHUB_APP_INSTALLATION_ID",
+      "OPS_AGENT_GITHUB_TOKEN",
     ],
     status: "active",
     plan: {
@@ -655,6 +656,24 @@ export const SERVICE_REGISTRY: readonly ServiceEntry[] = [
     dashboardUrl: "https://cloud.langfuse.com",
     notes:
       "LLM tracing and eval. Free cloud hobby tier (50k observations/month). No-ops when env vars are unset.",
+  },
+  {
+    id: "slack-ops",
+    name: "Slack (Ops Agent)",
+    vendor: "Slack",
+    category: "tooling",
+    criticality: "back-office",
+    operationalSection: "agents",
+    operationalKind: "dependency",
+    envVars: ["SLACK_BOT_TOKEN", "SLACK_SIGNING_SECRET"],
+    status: "active",
+    plan: {
+      kind: "free",
+      monthlyUsd: 0,
+      asOf: TODAY,
+      sourceUrl: "https://api.slack.com/pricing",
+    },
+    dashboardUrl: "https://api.slack.com/apps",
   },
 ];
 
