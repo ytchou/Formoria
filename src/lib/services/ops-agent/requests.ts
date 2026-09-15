@@ -98,6 +98,7 @@ async function countToday(
     .from("ops_agent_requests")
     .select("id", { count: "exact", head: true } as unknown as undefined)
     .eq("channel_id", channelId)
+    .neq("status", "refused")
     .gte("created_at", dayStartUtc)
     .lt("created_at", dayEndUtc);
 
@@ -107,6 +108,7 @@ async function countToday(
 
 export type AdmitResult =
   | { ok: true; row: OpsRequestRow }
+  | { ok: true; duplicate: true }
   | { ok: false; reason: "daily_cap" };
 
 export async function admitRequest(
@@ -121,7 +123,7 @@ export async function admitRequest(
 
       const created = await createRequest(input, supabase);
       if (created.duplicate) {
-        return { ok: true, row: undefined as unknown as OpsRequestRow };
+        return { ok: true, duplicate: true as const };
       }
 
       const row = created.row;

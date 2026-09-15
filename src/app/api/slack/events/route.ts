@@ -11,7 +11,7 @@ import { runOpsAgent } from "@/lib/services/ops-agent/run";
 
 export const runtime = "nodejs";
 
-const DEFAULT_DAILY_CAP = 20;
+const DEFAULT_DAILY_CAP = 50;
 const BOT_HANDLE_RE = /^<@[A-Z0-9]+>\s*/;
 
 export type EventsRouteDeps = {
@@ -41,6 +41,10 @@ export function createEventsHandler(deps: EventsRouteDeps = defaultDeps) {
     const timestamp = request.headers.get("x-slack-request-timestamp") ?? "";
     const signature = request.headers.get("x-slack-signature") ?? "";
     const secret = deps.env.SLACK_SIGNING_SECRET ?? "";
+
+    if (!secret) {
+      return NextResponse.json({ error: "Signing secret not configured" }, { status: 401 });
+    }
 
     if (!deps.verifySignature({ rawBody, timestamp, signature, secret })) {
       return NextResponse.json({ error: "Invalid signature" }, { status: 401 });
@@ -137,8 +141,14 @@ export function createEventsHandler(deps: EventsRouteDeps = defaultDeps) {
       return NextResponse.json({});
     }
 
+    // Duplicate event (idempotent Slack retry): ack without scheduling a run
+    if ("duplicate" in admitResult) {
+      return NextResponse.json({});
+    }
+
     const row = admitResult.row;
     if (!row) {
+      // Defensive guard: should not happen with valid AdmitResult
       return NextResponse.json({});
     }
 

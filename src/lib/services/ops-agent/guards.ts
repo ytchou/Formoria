@@ -99,7 +99,10 @@ export function isReadonlySelect(sql: string): boolean {
   // Must start with SELECT (case-insensitive)
   if (!/^\s*select\b/i.test(stripped)) return false;
 
-  // No semicolons in the stripped content (prevents multi-statement)
+  // No semicolons in the stripped content (prevents multi-statement).
+  // Known limitation: this rejects semicolons inside SQL string literals
+  // (e.g. WHERE col = 'a;b'). This is acceptable as defense-in-depth;
+  // the DB function ops_agent_readonly_query enforces the real constraint.
   if (stripped.includes(";")) return false;
 
   return true;

@@ -59,11 +59,15 @@ jobs:
             Read .github/ops-agent/fix.md for constraints.
             Instruction: ${{ inputs.instruction }}
       - name: Create draft PR
+        id: create-pr
         env:
           GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          INSTRUCTION: ${{ inputs.instruction }}
+          REQUEST_ID: ${{ inputs.request_id }}
+          DEV_BASE: ${{ steps.release-flow.outputs.development_base }}
         run: |
           set -euo pipefail
-          branch="ops-agent/${{ inputs.request_id }}"
+          branch="ops-agent/${REQUEST_ID}"
           git config user.name "formoria-ops-agent[bot]"
           git config user.email "formoria-ops-agent[bot]@users.noreply.github.com"
           original_origin="$(git remote get-url origin)"
@@ -75,39 +79,43 @@ jobs:
             echo "No changes produced" >&2
             exit 0
           fi
-          git commit -m "fix(ops-agent): ${{ inputs.instruction }}"
+          git commit -m "fix(ops-agent): ${INSTRUCTION}"
           git push origin "$branch"
           gh label create ops-agent --color "1d76db" --description "PR from ops agent code fix" --force
           pr_url="$(gh pr create \
-            --title "fix(ops-agent): ${{ inputs.instruction }}" \
+            --title "fix(ops-agent): ${INSTRUCTION}" \
             --body "$(cat <<BODY
           ## Ops Agent Code Fix
 
-          **Request ID:** \`${{ inputs.request_id }}\`
+          **Request ID:** \`${REQUEST_ID}\`
           **Instruction:**
           \`\`\`
-          ${{ inputs.instruction }}
+          ${INSTRUCTION}
           \`\`\`
 
           > Draft PR created by the Formoria ops agent. Review before merging.
           BODY
           )" \
             --draft \
-            --base "${{ steps.release-flow.outputs.development_base }}" \
+            --base "${DEV_BASE}" \
             --head "$branch" \
             --label ops-agent)"
           echo "PR created: $pr_url"
+          echo "pr_url=$pr_url" >> "$GITHUB_OUTPUT"
       - name: Notify Slack
         if: always()
         env:
           SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
+          PR_URL: ${{ steps.create-pr.outputs.pr_url }}
+          CHANNEL: ${{ inputs.channel }}
+          THREAD_TS: ${{ inputs.thread_ts }}
         run: |
-          if [ -n "${pr_url:-}" ]; then
-            text="Draft PR created: $pr_url"
+          if [ -n "${PR_URL}" ]; then
+            text="Draft PR created: ${PR_URL}"
           else
             text="Code fix completed with no changes, or failed. Check the Actions run."
           fi
           curl -s -X POST https://slack.com/api/chat.postMessage \
             -H "Authorization: Bearer $SLACK_BOT_TOKEN" \
             -H "Content-Type: application/json" \
-            -d "{\"channel\":\"${{ inputs.channel }}\",\"thread_ts\":\"${{ inputs.thread_ts }}\",\"text\":\"$text\"}"
+            -d "{\"channel\":\"${CHANNEL}\",\"thread_ts\":\"${THREAD_TS}\",\"text\":\"$text\"}"

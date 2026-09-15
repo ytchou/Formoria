@@ -1,35 +1,15 @@
 import { auditedCall } from "@/lib/audit";
+import type { OpsProposal } from "./proposals";
 
-// ---------------------------------------------------------------------------
-// Proposal types
-// ---------------------------------------------------------------------------
-
-export type RefreshBrandProposal = {
-  kind: "refresh_brand";
-  slug: string;
-};
-
-export type RerunJobProposal = {
-  kind: "rerun_job";
-  jobId: string;
-  mode: "rerun" | "resume";
-};
-
-export type DispatchWorkflowProposal = {
-  kind: "dispatch_workflow";
-  workflow: string;
-};
-
-export type CodeFixProposal = {
-  kind: "code_fix";
-  instruction: string;
-};
-
-export type Proposal =
-  | RefreshBrandProposal
-  | RerunJobProposal
-  | DispatchWorkflowProposal
-  | CodeFixProposal;
+// Accept OpsProposal or compatible shapes. The `mode` field on
+// dispatch_workflow is enforced by the proposal Zod schema but not
+// read by any execute function, so we keep it optional here for
+// backward compatibility with callers that omit it.
+type ExecutableProposal =
+  | Extract<OpsProposal, { kind: "refresh_brand" }>
+  | Extract<OpsProposal, { kind: "rerun_job" }>
+  | { kind: "dispatch_workflow"; workflow: string; mode?: string }
+  | Extract<OpsProposal, { kind: "code_fix" }>;
 
 // ---------------------------------------------------------------------------
 // Context & Dependencies
@@ -80,7 +60,7 @@ export type ExecuteResult =
 // ---------------------------------------------------------------------------
 
 async function executeRefreshBrand(
-  proposal: RefreshBrandProposal,
+  proposal: Extract<OpsProposal, { kind: "refresh_brand" }>,
   ctx: ExecuteContext,
   deps: ExecuteDeps,
 ): Promise<ExecuteResult> {
@@ -119,7 +99,7 @@ async function executeRefreshBrand(
 // ---------------------------------------------------------------------------
 
 async function executeRerunJob(
-  proposal: RerunJobProposal,
+  proposal: Extract<OpsProposal, { kind: "rerun_job" }>,
   ctx: ExecuteContext,
   deps: ExecuteDeps,
 ): Promise<ExecuteResult> {
@@ -155,7 +135,7 @@ const ALLOWED_WORKFLOWS: Record<string, Record<string, string>> = {
 };
 
 async function executeDispatchWorkflow(
-  proposal: DispatchWorkflowProposal,
+  proposal: Extract<ExecutableProposal, { kind: "dispatch_workflow" }>,
   _ctx: ExecuteContext,
   deps: ExecuteDeps,
 ): Promise<ExecuteResult> {
@@ -173,7 +153,7 @@ async function executeDispatchWorkflow(
 // ---------------------------------------------------------------------------
 
 async function executeCodeFix(
-  proposal: CodeFixProposal,
+  proposal: Extract<OpsProposal, { kind: "code_fix" }>,
   ctx: ExecuteContext,
   deps: ExecuteDeps,
 ): Promise<ExecuteResult> {
@@ -191,7 +171,7 @@ async function executeCodeFix(
 // ---------------------------------------------------------------------------
 
 export async function executeProposal(
-  proposal: Proposal,
+  proposal: ExecutableProposal,
   ctx: ExecuteContext,
   deps: ExecuteDeps,
 ): Promise<ExecuteResult> {

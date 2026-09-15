@@ -85,6 +85,7 @@ export async function runGraph(
   model: AgentModel,
   tools: OpsTool[],
   systemPrompt: string,
+  userMessage?: string,
   signal?: AbortSignal,
 ): Promise<GraphResult> {
   const toolMap = new Map(tools.map((t) => [t.definition.name, t]));
@@ -267,6 +268,9 @@ export async function runGraph(
     const initialMessages: ChatMessage[] = [
       { role: "system", content: systemPrompt },
     ];
+    if (userMessage) {
+      initialMessages.push({ role: "user", content: userMessage });
+    }
 
     finalState = await graph.invoke(
       { messages: initialMessages },

@@ -11,9 +11,20 @@ import {
   type AgentModel,
 } from "@/lib/services/enrich-phases/agents/runtime";
 import type { LlmAuditContext } from "@/lib/services/llm-audit";
+import { postMessage as slackPostMessage } from "@/lib/adapters/slack/web-api";
+import { renderProposalCard as slackRenderProposalCard } from "@/lib/adapters/slack/blocks";
+import { listIssues as defaultListIssues } from "@/lib/adapters/sentry/issues";
+import { getBrandBySlug, searchBrandsAutocomplete } from "@/lib/services/brands";
+import { listCurationJobs, getCurationJobDetail } from "@/lib/services/curation-jobs";
 import { runGraph as defaultRunGraph, type GraphResult } from "./graph";
 import { createOpsTools, type OpsTool, type OpsToolDeps, type OpsToolContext } from "./tools";
 import { describeProposal, validateProposal } from "./proposals";
+import {
+  systemStatus as defaultSystemStatus,
+  brandContext as defaultBrandContext,
+  jobDetail as defaultJobDetail,
+  runReadonlyQuery as defaultRunReadonlyQuery,
+} from "./readers";
 import {
   expireStale as defaultExpireStale,
   getRequest as defaultGetRequest,
@@ -50,6 +61,7 @@ export type RunOpsAgentDeps = {
     model: AgentModel,
     tools: OpsTool[],
     systemPrompt: string,
+    userMessage?: string,
     signal?: AbortSignal,
   ) => Promise<GraphResult>;
   toolDeps?: Partial<OpsToolDeps>;
@@ -66,8 +78,6 @@ export async function runOpsAgent(
   const getReq = deps.getRequest ?? defaultGetRequest;
   const transition = deps.transitionRequest ?? defaultTransitionRequest;
   const expire = deps.expireStale ?? defaultExpireStale;
-  const postMsg = deps.postMessage ?? (async () => undefined);
-  const renderCard = deps.renderProposalCard ?? (() => []);
   const buildTools = deps.createOpsTools ?? createOpsTools;
   const buildModel = deps.createAgentModel ?? defaultCreateAgentModel;
   const invokeGraph = deps.runGraph ?? defaultRunGraph;
@@ -81,8 +91,40 @@ export async function runOpsAgent(
     return { kind: "failed", modelCalls: 0, toolLog: [] };
   }
 
+  // Wire defaults that need request context (channel, userId, etc.)
+  const postMsg =
+    deps.postMessage ??
+    (async (threadTs: string, text: string) => {
+      const res = await slackPostMessage({
+        channel: request.channelId,
+        threadTs,
+        text,
+      });
+      return res.ok ? res.ts : undefined;
+    });
+
+  const renderCard =
+    deps.renderProposalCard ??
+    ((desc) =>
+      slackRenderProposalCard({
+        requestId: request.id,
+        operatorSlackId: request.slackUserId,
+        proposal: desc.action,
+        rationale: desc.why,
+        expiresAt: new Date(Date.now() + 10 * 60_000).toISOString(),
+      }));
+
   // 3. Transition received → running
-  await transition(request.id, ["received"], "running");
+  try {
+    await transition(request.id, ["received"], "running");
+  } catch (err) {
+    console.error("[ops-agent] transition received→running failed:", err);
+    await postMsg(
+      request.threadTs,
+      "Failed to start processing your request. It may already be in progress.",
+    ).catch(() => {});
+    return { kind: "failed", modelCalls: 0, toolLog: [] };
+  }
 
   // 4. Fetch prompt
   // The string literal 'ops-agent-system' is the call site for the prompts test
@@ -97,20 +139,34 @@ export async function runOpsAgent(
 
   // 6. Build tools
   const toolDeps: OpsToolDeps = {
-    systemStatus: async () => ({}),
-    brandContext: async () => ({}),
-    jobDetail: async () => ({}),
-    runReadonlyQuery: async () => [],
-    queryPosthog: async () => ({}),
-    listErrors: async () => [],
-    ...deps.toolDeps,
+    systemStatus:
+      deps.toolDeps?.systemStatus ??
+      (() => defaultSystemStatus({ listCurationJobs })),
+    brandContext:
+      deps.toolDeps?.brandContext ??
+      ((query) =>
+        defaultBrandContext(query, {
+          searchBrandsAutocomplete,
+          getBrandBySlug,
+        })),
+    jobDetail:
+      deps.toolDeps?.jobDetail ??
+      ((jobId) => defaultJobDetail(jobId, { getCurationJobDetail })),
+    runReadonlyQuery:
+      deps.toolDeps?.runReadonlyQuery ?? defaultRunReadonlyQuery,
+    // PostHog adapter not yet implemented — stub returns an error so the
+    // model receives a clear signal instead of silently empty data.
+    queryPosthog:
+      deps.toolDeps?.queryPosthog ??
+      (async () => ({ error: "PostHog query adapter not yet implemented" })),
+    listErrors: deps.toolDeps?.listErrors ?? defaultListIssues,
   };
 
   const toolCtx: OpsToolContext = {
     // onProposed is a no-op at this layer; the graph captures the proposal
     // in its own closed-over state and returns it as `kind: "proposal"`.
     onProposed: () => {},
-    validateProposal: (proposal) => validateProposal(proposal, {}),
+    validateProposal: (proposal) => validateProposal(proposal, { getBrandBySlug }),
   };
 
   const tools = buildTools(toolDeps, toolCtx);
@@ -120,7 +176,7 @@ export async function runOpsAgent(
   let result: GraphResult;
 
   try {
-    result = await invokeGraph(model, tools, systemPrompt, abortSignal);
+    result = await invokeGraph(model, tools, systemPrompt, request.text, abortSignal);
   } catch {
     result = { kind: "failed", modelCalls: 0, toolLog: [] };
   }

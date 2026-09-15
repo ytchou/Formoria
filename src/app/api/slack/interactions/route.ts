@@ -14,8 +14,25 @@ import {
 } from "@/lib/services/ops-agent/execute";
 import { describeProposal } from "@/lib/services/ops-agent/proposals";
 import type { OpsProposal } from "@/lib/services/ops-agent/proposals";
+import { requestBrandRefreshesBySlugs } from "@/lib/services/submissions";
+import {
+  enqueueAdminCurationJob,
+  enqueueManualRerun,
+  enqueueCurationResume,
+} from "@/lib/services/curation-jobs";
+import { dispatchCurationJob } from "@/lib/services/curation-dispatch";
+import { dispatchWorkflow } from "@/lib/adapters/github/actions-api";
 
 export const runtime = "nodejs";
+
+const defaultExecuteDeps: ExecuteDeps = {
+  requestBrandRefreshesBySlugs,
+  enqueueAdminCurationJob,
+  dispatchCurationJob,
+  enqueueManualRerun,
+  enqueueCurationResume,
+  dispatchWorkflow,
+};
 
 export type InteractionsRouteDeps = {
   verifySignature: typeof verifySlackSignature;
@@ -25,6 +42,7 @@ export type InteractionsRouteDeps = {
   transitionRequest: typeof transitionRequest;
   executeProposal: typeof executeProposal;
   describeProposal: typeof describeProposal;
+  executeDeps?: ExecuteDeps;
   scheduleAfter: (fn: () => Promise<void>) => void;
   env: Record<string, string | undefined>;
 };
@@ -37,6 +55,7 @@ const defaultDeps: InteractionsRouteDeps = {
   transitionRequest,
   executeProposal,
   describeProposal,
+  executeDeps: defaultExecuteDeps,
   scheduleAfter: (fn) => after(fn),
   env: process.env as Record<string, string | undefined>,
 };
@@ -50,6 +69,10 @@ export function createInteractionsHandler(
     const timestamp = request.headers.get("x-slack-request-timestamp") ?? "";
     const signature = request.headers.get("x-slack-signature") ?? "";
     const secret = deps.env.SLACK_SIGNING_SECRET ?? "";
+
+    if (!secret) {
+      return NextResponse.json({ error: "Signing secret not configured" }, { status: 401 });
+    }
 
     if (!deps.verifySignature({ rawBody, timestamp, signature, secret })) {
       return NextResponse.json({ error: "Invalid signature" }, { status: 401 });
@@ -178,13 +201,13 @@ export function createInteractionsHandler(
           channel: row.channelId,
           threadTs: row.threadTs,
         };
-        const executeDeps = {} as ExecuteDeps;
+        const resolvedExecuteDeps = deps.executeDeps ?? defaultExecuteDeps;
 
         try {
           const execResult = await deps.executeProposal(
             proposal,
             ctx,
-            executeDeps,
+            resolvedExecuteDeps,
           );
 
           if (execResult.ok) {
