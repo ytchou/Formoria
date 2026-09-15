@@ -136,7 +136,10 @@ export type PhaseOutputSlots = {
   linkExpansion: Partial<BrandFlatLinkColumns>;
   acquire: Partial<BrandFlatLinkColumns> &
     Partial<
-      Pick<EnrichPatch, "hero_image_url" | "hero_image_storage_path" | "_cleared_fields">
+      Pick<
+        EnrichPatch,
+        "hero_image_url" | "hero_image_storage_path" | "_cleared_fields"
+      >
     >;
   names: Partial<Pick<EnrichPatch, "name" | "_name_proposal">>;
   editorial: Partial<
@@ -164,6 +167,9 @@ export type PhaseOutputRegistry = {
   [K in keyof PhaseOutputSlots]?: PhaseOutputSlots[K];
 };
 
+// Order matters: names MUST follow linkExpansion and acquire — both may
+// produce `name`, and the DEV-1321 incident was caused by the two precedence
+// mechanisms disagreeing on merge order.
 export const MERGE_ORDER: readonly (keyof PhaseOutputSlots)[] = [
   "detect",
   "linkExpansion",

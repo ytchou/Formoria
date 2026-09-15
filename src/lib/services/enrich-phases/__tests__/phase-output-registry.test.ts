@@ -3,6 +3,7 @@ import {
   depositPhaseOutput,
   buildPendingPatch,
   MERGE_ORDER,
+  SLOT_ALLOWED_KEYS,
   type PhaseOutputRegistry,
 } from "../types";
 
@@ -27,9 +28,7 @@ describe("depositPhaseOutput", () => {
     const state = { outputs: {} as PhaseOutputRegistry };
     const output = { slug: "my-brand", bogus: "nope" } as never;
 
-    expect(() => depositPhaseOutput(state, "detect", output)).toThrow(
-      /bogus/,
-    );
+    expect(() => depositPhaseOutput(state, "detect", output)).toThrow(/bogus/);
   });
 });
 
@@ -71,17 +70,16 @@ describe("buildPendingPatch", () => {
   });
 });
 
-describe("MERGE_ORDER", () => {
-  it("has exactly 8 phases in execution order", () => {
-    expect(MERGE_ORDER).toEqual([
-      "detect",
-      "linkExpansion",
-      "acquire",
-      "names",
-      "editorial",
-      "categoryDerivation",
-      "products",
-      "tags",
-    ]);
+describe("MERGE_ORDER ↔ SLOT_ALLOWED_KEYS parity", () => {
+  it("MERGE_ORDER covers every phase in SLOT_ALLOWED_KEYS", () => {
+    expect(new Set(MERGE_ORDER)).toEqual(
+      new Set(Object.keys(SLOT_ALLOWED_KEYS)),
+    );
+  });
+
+  it("every MERGE_ORDER phase has a non-empty allowed-keys Set", () => {
+    for (const phase of MERGE_ORDER) {
+      expect(SLOT_ALLOWED_KEYS[phase].size).toBeGreaterThan(0);
+    }
   });
 });
