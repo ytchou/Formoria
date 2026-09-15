@@ -238,12 +238,12 @@ async function getProductDescriptions(brandId: string): Promise<string[]> {
   const supabase = createServiceClient();
   const { data, error } = await supabase
     .from("curated_products")
-    .select("product_description")
+    .select("product_description_zh")
     .eq("brand_id", brandId)
-    .not("product_description", "is", null);
+    .not("product_description_zh", "is", null);
   if (error) throw new Error(`curated_products read: ${error.message}`);
   return (data ?? [])
-    .map((row) => row.product_description as string)
+    .map((row) => row.product_description_zh as string)
     .filter(Boolean);
 }
 
@@ -437,7 +437,11 @@ async function cmdRun(k: number) {
     // --- Random arm ---
     const categoryBrands = (approvedByCategory.get(item.category) ?? [])
       .filter((b) => b.slug !== item.brandSlug);
-    const shuffled = [...categoryBrands].sort(() => Math.random() - 0.5);
+    const shuffled = [...categoryBrands];
+    for (let i = shuffled.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [shuffled[i], shuffled[j]] = [shuffled[j]!, shuffled[i]!];
+    }
     const randomCandidates = shuffled.slice(0, k);
 
     for (const candInfo of randomCandidates) {

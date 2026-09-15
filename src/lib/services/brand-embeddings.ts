@@ -46,6 +46,7 @@ type RefreshResult = {
 
 /** Element-wise mean using Float64Array to avoid precision drift. */
 export function computeCentroid(embeddings: number[][]): number[] {
+  if (embeddings.length === 0) return [];
   const dim = embeddings[0]!.length;
   const acc = new Float64Array(dim);
   for (const emb of embeddings) {

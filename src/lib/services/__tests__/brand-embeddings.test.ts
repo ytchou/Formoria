@@ -18,7 +18,13 @@ import { getRelatedBrands, getBrandsBySlugs } from "../brands";
 import type { Brand } from "@/lib/types/brand";
 
 type WriterInput = {
-  upserts: { brand_id: string; embedding: string; model: string; source_hash: string }[];
+  upserts: {
+    brand_id: string;
+    embedding: string;
+    model: string;
+    source_hash: string;
+    product_count: number;
+  }[];
   deletes: string[];
 };
 
@@ -100,12 +106,12 @@ describe("refreshBrandCentroids", () => {
     });
 
     expect(result.updated).toBe(1);
-    const row = writtenRows[0] as { embedding: string };
+    const row = writtenRows[0] as { embedding: string; product_count: number };
     const written = JSON.parse(row.embedding) as number[];
-    // Single product centroid equals the product's own embedding
     expect(written[0]).toBe(1);
     expect(written[1]).toBe(2);
     expect(written[2]).toBe(3);
+    expect(row.product_count).toBe(1);
   });
 
   it("computes centroid as element-wise mean of multiple products", async () => {
