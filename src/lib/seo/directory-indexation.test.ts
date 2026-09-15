@@ -68,39 +68,6 @@ describe("resolveDirectorySeo", () => {
     },
   );
 
-  it("material_makes_a_page_noindex", () => {
-    // `DirectoryFacets` carries a `[key: string]: unknown` index signature, so a
-    // `material` key type-checks whether or not `hasFacet` counts it. Omitting
-    // it from `hasFacet` compiles clean and leaves every `?material=` page
-    // INDEXABLE — one filtered permutation per term, all near-duplicates of the
-    // unfiltered directory. Nothing else in the type system would catch that,
-    // which is why this case exists.
-    const result = resolveDirectorySeo(
-      state({ categorySlug: "home", facets: { material: ["ceramic"] } }),
-    );
-
-    expect(result.robots).toEqual({ index: false, follow: true });
-    // Self-canonical, with the facet retained: a noindex page must not point at
-    // a different URL.
-    expect(result.canonical).toBe(`${base}/brands?category=home&material=ceramic`);
-    expect(result.languages?.en).toBe(
-      `${base}/en/brands?category=home&material=ceramic`,
-    );
-
-    // And on the bare directory, where there is no taxonomy to fall back to.
-    const bare = resolveDirectorySeo(
-      state({ facets: { material: "ceramic,wood" } }),
-    );
-    expect(bare.robots).toEqual({ index: false, follow: true });
-    expect(bare.canonical).toBe(`${base}/brands?material=ceramic%2Cwood`);
-
-    // The control: no material, no noindex. Without it a bug that flips every
-    // page to noindex would pass the assertions above.
-    expect(
-      resolveDirectorySeo(state({ categorySlug: "home" })).robots,
-    ).toBeUndefined();
-  });
-
   it("treats a sub without a valid category as a noindex self-canonical", () => {
     const result = resolveDirectorySeo(
       state({ subcategorySlug: "furniture", facets: {} }),
@@ -139,16 +106,16 @@ describe("resolveDirectorySeo", () => {
       state({
         categorySlug: "home",
         page: 2,
-        facets: { material: ["ceramic"], sort: "name" },
+        facets: { search: "椅子", sort: "name" },
       }),
     );
 
     expect(result.robots).toEqual({ index: false, follow: true });
     expect(result.canonical).toBe(
-      `${base}/brands?category=home&material=ceramic&sort=name&page=2`,
+      `${base}/brands?search=%E6%A4%85%E5%AD%90&category=home&sort=name&page=2`,
     );
     expect(result.languages?.en).toBe(
-      `${base}/en/brands?category=home&material=ceramic&sort=name&page=2`,
+      `${base}/en/brands?search=%E6%A4%85%E5%AD%90&category=home&sort=name&page=2`,
     );
   });
 

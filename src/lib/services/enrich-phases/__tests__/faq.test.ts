@@ -109,7 +109,6 @@ const BRAND: Brand = {
   contactEmail: null,
   subcategories: [],
   subcategoriesEn: [],
-  material: [],
   siteContent: null,
   submittedAt: "2026-01-01T00:00:00.000Z",
   approvedAt: null,
@@ -614,19 +613,13 @@ describe("contextFacts", () => {
     expect(contextFacts(context())).toContain("產品標籤=無");
   });
 
-  it("includes material line from context", () => {
-    const facts = contextFacts(context({ material: ["leather", "wood"] }));
-    expect(facts).toContain("材料=leather、wood");
-  });
-
   it("includes stockist count from context", () => {
     const facts = contextFacts(context({ stockistCount: 5 }));
     expect(facts).toContain("通路據點=5處");
   });
 
-  it("says 無 when no material or stockists", () => {
+  it("says 無 when no stockists", () => {
     const facts = contextFacts(context());
-    expect(facts).toContain("材料=無");
     expect(facts).toContain("通路據點=無");
   });
 });
