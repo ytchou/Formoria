@@ -1044,7 +1044,6 @@ export type Database = {
           hidden_reason: string | null
           id: string
           is_demo: boolean
-          material: string[]
           model_faq_count: number
           name: string
           onboarding_dismissed_at: string | null
@@ -1088,7 +1087,6 @@ export type Database = {
           hidden_reason?: string | null
           id?: string
           is_demo?: boolean
-          material?: string[]
           model_faq_count?: number
           name: string
           onboarding_dismissed_at?: string | null
@@ -1132,7 +1130,6 @@ export type Database = {
           hidden_reason?: string | null
           id?: string
           is_demo?: boolean
-          material?: string[]
           model_faq_count?: number
           name?: string
           onboarding_dismissed_at?: string | null
@@ -3661,7 +3658,6 @@ export type Database = {
       search_brand_page: {
         Args: {
           filter_categories?: string[]
-          filter_materials?: string[]
           filter_subcategories?: string[]
           filter_verification?: string
           page_offset?: number
@@ -3678,7 +3674,6 @@ export type Database = {
       search_brands: {
         Args: {
           filter_categories?: string[]
-          filter_materials?: string[]
           filter_status?: string
           filter_subcategories?: string[]
           filter_verification?: string

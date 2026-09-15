@@ -149,7 +149,7 @@ describe("list resource ids fold only resource-defining params", () => {
 
     expect(filtered).not.toBe(base);
     expect(paged).not.toBe(filtered);
-    for (const key of ["sub", "material", "sort"]) {
+    for (const key of ["sub", "sort"]) {
       expect(classifyRoute("/brands", `${key}=x`).resourceId).not.toBe(base);
     }
   });

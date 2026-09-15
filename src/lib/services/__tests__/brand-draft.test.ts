@@ -33,7 +33,6 @@ const liveBrand: Brand = {
   siteContent: null,
   subcategories: [],
   subcategoriesEn: [],
-  material: [],
   descriptionEn: null,
   blurb: null,
   blurbEn: null,
