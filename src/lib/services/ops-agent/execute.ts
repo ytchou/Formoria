@@ -28,7 +28,7 @@ export type ExecuteDeps = {
     requesterEmail: string,
   ) => Promise<Array<{ slug: string; submissionId: string | null; error: string | null }>>;
   enqueueAdminCurationJob: (input: {
-    params: { target: string; submissionIds: string[] };
+    params: { target: "submissions" | "brands"; submissionIds: string[] };
     dryRun: boolean;
     startedBy: string;
   }) => Promise<{ id: string }>;

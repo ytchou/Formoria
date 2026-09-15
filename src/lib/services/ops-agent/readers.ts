@@ -17,7 +17,7 @@ type SupabaseClient = ReturnType<typeof createServiceClient>;
 
 export type SystemStatusDeps = {
   client?: SupabaseClient;
-  listCurationJobs: (options: { limit: number }) => Promise<{ items: unknown[] }>;
+  listCurationJobs: (options: { limit: number }) => Promise<{ jobs: unknown[] }>;
 };
 
 export type SystemStatusResult = {
@@ -90,7 +90,7 @@ export async function systemStatus(
           }),
         deps
           .listCurationJobs({ limit: 5 })
-          .then((page) => page.items)
+          .then((page) => page.jobs)
           .catch((err: Error) => ({ error: err.message })),
       ]);
 

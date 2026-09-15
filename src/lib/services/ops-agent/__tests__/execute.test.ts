@@ -83,9 +83,9 @@ describe("refresh_brand kind", () => {
     expect(deps.dispatchCurationJob).toHaveBeenCalledWith("job-1");
 
     // Verify ordering: request before enqueue before dispatch
-    const requestOrder = deps.requestBrandRefreshesBySlugs.mock.invocationCallOrder[0];
-    const enqueueOrder = deps.enqueueAdminCurationJob.mock.invocationCallOrder[0];
-    const dispatchOrder = deps.dispatchCurationJob.mock.invocationCallOrder[0];
+    const requestOrder = vi.mocked(deps.requestBrandRefreshesBySlugs).mock.invocationCallOrder[0];
+    const enqueueOrder = vi.mocked(deps.enqueueAdminCurationJob).mock.invocationCallOrder[0];
+    const dispatchOrder = vi.mocked(deps.dispatchCurationJob).mock.invocationCallOrder[0];
     expect(requestOrder).toBeLessThan(enqueueOrder);
     expect(enqueueOrder).toBeLessThan(dispatchOrder);
   });
