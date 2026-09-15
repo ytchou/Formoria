@@ -976,7 +976,7 @@ function brandFieldStateTable(client: unknown): BrandFieldStateTable {
  * `ApplyBrandPatchArgs` in place of the generated signature. One cast, in one
  * place, so the argument object itself stays type-checked at every call site.
  */
-export function brandPatchRpc(client: unknown): BrandPatchRpcClient {
+function brandPatchRpc(client: unknown): BrandPatchRpcClient {
   return client as BrandPatchRpcClient;
 }
 
