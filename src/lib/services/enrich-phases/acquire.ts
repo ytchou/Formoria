@@ -96,6 +96,8 @@ type AcquireDeps = {
   discoverCatalog?: typeof defaultDiscoverCatalog
   searchBrandUrls?: typeof defaultSearchBrandUrls
   batchSearchBrandImages?: typeof defaultBatchSearchBrandImages
+  startSearchAudit?: typeof startSearchAudit
+  finishSearchAudit?: typeof finishSearchAudit
 }
 
 type AcquirePhaseOptions = {
@@ -970,6 +972,45 @@ export async function runAcquirePhase({
         })
       } catch {
         // Errors silently swallowed — catalogResult stays undefined.
+      }
+    }
+
+    // -----------------------------------------------------------------------
+    // Persist catalog evidence as `search_type='catalog'` rows, one per crawled
+    // page. Mirrors the scrape audit pattern at lines 739-781.
+    // -----------------------------------------------------------------------
+    const startAudit = deps.startSearchAudit ?? startSearchAudit
+    const finishAudit = deps.finishSearchAudit ?? finishSearchAudit
+    if (catalogResult && !dryRun) {
+      for (const [url, evidence] of catalogResult.evidence) {
+        try {
+          const auditId = await startAudit({
+            target: effectiveTarget,
+            ...(jobId ? { jobId } : {}),
+            supabase,
+            provider: 'catalog',
+            endpoint: url,
+            searchType: 'catalog',
+            query: url,
+            input: { url },
+            config: { phase: 'acquire', dryRun },
+          })
+          await finishAudit(auditId, {
+            callStatus: 'succeeded',
+            rawResponse: {
+              url,
+              title: evidence.title,
+              titleSource: evidence.titleSource,
+              text: evidence.text,
+              imageUrls: evidence.imageUrls,
+            },
+            urls: [url],
+            snippets: [evidence.text.slice(0, 4_000)],
+            supabase,
+          })
+        } catch {
+          // Catalog audit writes are best-effort; never block the phase.
+        }
       }
     }
 

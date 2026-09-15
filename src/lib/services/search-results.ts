@@ -3,7 +3,7 @@ import type { Database, Json } from '@/lib/supabase/database.types'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { targetForeignKey, type EnrichmentTarget } from './_shared/enrichment-target'
 
-export type SearchType = 'serp' | 'image' | 'maps' | 'scrape'
+export type SearchType = 'serp' | 'image' | 'maps' | 'scrape' | 'catalog'
 export type SearchCallStatus =
   | 'started'
   | 'succeeded'

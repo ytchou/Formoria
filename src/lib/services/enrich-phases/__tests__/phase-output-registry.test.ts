@@ -6,6 +6,11 @@ import {
   SLOT_ALLOWED_KEYS,
   type PhaseOutputRegistry,
 } from "../types";
+import {
+  BLOCK_ORDER,
+  MERGE_ORDER_EXCEPTIONS,
+  SLOT_BLOCK,
+} from "@/lib/constants/enrich-phases";
 
 describe("depositPhaseOutput", () => {
   it("writes to the named slot", () => {
@@ -80,6 +85,33 @@ describe("MERGE_ORDER ↔ SLOT_ALLOWED_KEYS parity", () => {
   it("every MERGE_ORDER phase has a non-empty allowed-keys Set", () => {
     for (const phase of MERGE_ORDER) {
       expect(SLOT_ALLOWED_KEYS[phase].size).toBeGreaterThan(0);
+    }
+  });
+});
+
+describe("MERGE_ORDER -> BLOCK_ORDER projection", () => {
+  it("merge_order_projects_onto_block_order", () => {
+    const blockIndices = MERGE_ORDER.map((slot) => {
+      const block = SLOT_BLOCK[slot];
+      expect(block, `SLOT_BLOCK missing key ${slot}`).toBeDefined();
+      return { slot, block, index: BLOCK_ORDER.indexOf(block) };
+    });
+
+    // Build exception lookup: (preceding slot, following slot) pairs
+    const exceptionPairs = new Set(
+      MERGE_ORDER_EXCEPTIONS.map((e) => `${e.slot}|${e.precedesSlot}`),
+    );
+
+    for (let i = 1; i < blockIndices.length; i++) {
+      const prev = blockIndices[i - 1]!;
+      const curr = blockIndices[i]!;
+      if (curr.index < prev.index) {
+        const pairKey = `${prev.slot}|${curr.slot}`;
+        expect(
+          exceptionPairs.has(pairKey),
+          `${prev.slot} (${prev.block}, idx ${prev.index}) -> ${curr.slot} (${curr.block}, idx ${curr.index}) is not non-decreasing and not a declared exception`,
+        ).toBe(true);
+      }
     }
   });
 });

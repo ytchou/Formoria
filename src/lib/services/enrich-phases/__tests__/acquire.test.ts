@@ -1492,4 +1492,118 @@ describe('acquire fold', () => {
     expect(result.phaseResult.status).toBe('skipped')
   })
 
+  it('catalog_pages_persist_as_catalog_rows', async () => {
+    const startAudit = vi.fn(async () => 'audit-catalog-1')
+    const finishAudit = vi.fn(async () => {})
+
+    const evidence = new Map([
+      [
+        `${FOLD_SITE}/products/plate`,
+        {
+          title: 'Plate',
+          titleSource: 'og' as const,
+          text: 'A nice plate.',
+          imageUrls: [`${FOLD_SITE}/img/plate.jpg`],
+        },
+      ],
+      [
+        `${FOLD_SITE}/products/bowl`,
+        {
+          title: 'Bowl',
+          titleSource: 'h1' as const,
+          text: 'A nice bowl.',
+          imageUrls: [],
+        },
+      ],
+    ])
+
+    acquisitionMocks.runAcquisition.mockResolvedValue({
+      agentOutcome: 'planned',
+      scrapeResult: { data: agentData(), statuses: [] },
+      decisions: [],
+      catalogResult: {
+        triples: [
+          {
+            url: `${FOLD_SITE}/products/plate`,
+            title: 'Plate',
+            imageUrl: `${FOLD_SITE}/img/plate.jpg`,
+            platform: 'generic' as const,
+            supplier: 'catalog:generic',
+            sourceUrl: FOLD_SITE,
+            sourcePosition: 0,
+          },
+        ],
+        attempts: [],
+        evidence,
+        deadlineHit: false,
+      },
+    })
+
+    await foldRun({
+      deps: { startSearchAudit: startAudit, finishSearchAudit: finishAudit },
+    })
+
+    // One start+finish pair per evidence entry
+    expect(startAudit).toHaveBeenCalledTimes(2)
+    expect(finishAudit).toHaveBeenCalledTimes(2)
+
+    // Verify the first call shape
+    expect((startAudit.mock.calls[0] as unknown[])[0]).toMatchObject({
+      provider: 'catalog',
+      searchType: 'catalog',
+      endpoint: `${FOLD_SITE}/products/plate`,
+      query: `${FOLD_SITE}/products/plate`,
+    })
+    const finishArgs = finishAudit.mock.calls[0] as unknown[]
+    expect(finishArgs[1]).toMatchObject({
+      callStatus: 'succeeded',
+      rawResponse: {
+        url: `${FOLD_SITE}/products/plate`,
+        title: 'Plate',
+        titleSource: 'og',
+        text: 'A nice plate.',
+        imageUrls: [`${FOLD_SITE}/img/plate.jpg`],
+      },
+      urls: [`${FOLD_SITE}/products/plate`],
+    })
+    // Snippets are truncated text
+    expect((finishArgs[1] as { snippets: string[] }).snippets[0]).toBe('A nice plate.')
+  })
+
+  it('catalog_audit_skipped_on_dry_run', async () => {
+    const startAudit = vi.fn(async () => 'audit-catalog-1')
+    const finishAudit = vi.fn(async () => {})
+
+    acquisitionMocks.runAcquisition.mockResolvedValue({
+      agentOutcome: 'planned',
+      scrapeResult: { data: agentData(), statuses: [] },
+      decisions: [],
+      catalogResult: {
+        triples: [],
+        attempts: [],
+        evidence: new Map([
+          [
+            `${FOLD_SITE}/products/plate`,
+            {
+              title: 'Plate',
+              titleSource: 'og' as const,
+              text: 'A nice plate.',
+              imageUrls: [],
+            },
+          ],
+        ]),
+        deadlineHit: false,
+      },
+    })
+
+    await foldRun({
+      dryRun: true,
+      deps: { startSearchAudit: startAudit, finishSearchAudit: finishAudit },
+    })
+
+    // Dry run must not write catalog audit rows
+    expect(startAudit).not.toHaveBeenCalled()
+    expect(finishAudit).not.toHaveBeenCalled()
+  })
+
 })
