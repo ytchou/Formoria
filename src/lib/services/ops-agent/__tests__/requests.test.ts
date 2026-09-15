@@ -144,7 +144,9 @@ describe("admitRequest", () => {
     const countInner: Record<string, unknown> = {};
     countInner.lt = vi.fn().mockResolvedValue({ count: 51, error: null });
     countInner.gte = vi.fn().mockReturnValue(countInner);
-    countChain.eq = vi.fn().mockReturnValue(countInner);
+    const countNeqLayer: Record<string, unknown> = {};
+    countNeqLayer.neq = vi.fn().mockReturnValue(countInner);
+    countChain.eq = vi.fn().mockReturnValue(countNeqLayer);
     const countOuter: Record<string, unknown> = {};
     countOuter.select = vi.fn().mockReturnValue(countChain);
 
@@ -180,7 +182,9 @@ describe("admitRequest", () => {
     const countInner: Record<string, unknown> = {};
     countInner.lt = vi.fn().mockResolvedValue({ count: 50, error: null });
     countInner.gte = vi.fn().mockReturnValue(countInner);
-    countChain.eq = vi.fn().mockReturnValue(countInner);
+    const countNeqLayer2: Record<string, unknown> = {};
+    countNeqLayer2.neq = vi.fn().mockReturnValue(countInner);
+    countChain.eq = vi.fn().mockReturnValue(countNeqLayer2);
     const countOuter: Record<string, unknown> = {};
     countOuter.select = vi.fn().mockReturnValue(countChain);
 
