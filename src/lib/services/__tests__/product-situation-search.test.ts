@@ -415,10 +415,8 @@ describe("searchProductsBySituation", () => {
       deps,
     );
 
-    expect(result.embedLatencyMs).toBeGreaterThanOrEqual(0);
-    expect(result.rpcLatencyMs).toBeGreaterThanOrEqual(0);
-    expect(typeof result.embedLatencyMs).toBe("number");
-    expect(typeof result.rpcLatencyMs).toBe("number");
+    expect(result.embedLatencyMs).toBe(40);
+    expect(result.rpcLatencyMs).toBe(60);
   });
 
   // 12. embed latency is 0 in lexical mode

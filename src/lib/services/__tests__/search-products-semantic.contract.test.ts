@@ -83,6 +83,7 @@ describe("situation_search migration contract", () => {
     const sql = poolReverseText();
     expect(sql).toContain("least(greatest(match_count, 1), 48)");
     expect(sql).toContain("limit 50");
+    expect(sql).toContain("situation_search_lexical(query_text, 50)");
     expect(sql).toContain(
       "drop trigger if exists taxonomy_terms_retouch_product_search_vector_trigger",
     );
