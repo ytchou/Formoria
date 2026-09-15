@@ -43,15 +43,14 @@ describe("buildPendingPatch", () => {
       linkExpansion: { social_instagram: "https://instagram.com/old" },
       acquire: { social_instagram: "https://instagram.com/new" },
       editorial: { category: "food" },
-      tags: { category: "lifestyle" },
     };
 
     const patch = buildPendingPatch(registry);
 
     // acquire comes after linkExpansion, so its value wins
     expect(patch.social_instagram).toBe("https://instagram.com/new");
-    // tags comes after editorial, so its category wins
-    expect(patch.category).toBe("lifestyle");
+    // editorial sets category
+    expect(patch.category).toBe("food");
   });
 
   it("skips empty slots", () => {

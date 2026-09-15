@@ -113,13 +113,6 @@ function buildTestRegistry(
       calls,
       overrides?.products,
     ),
-    tags: fakeBlock(
-      'tags',
-      'brand',
-      ['tags'] as const,
-      calls,
-      overrides?.tags,
-    ),
     persist: fakeBlock('persist', 'brand', [], calls, overrides?.persist),
   }
 }
@@ -155,7 +148,6 @@ describe('runBlocks', () => {
     expect(countBy('names')).toBe(1)
     expect(countBy('editorial')).toBe(3)
     expect(countBy('products')).toBe(3)
-    expect(countBy('tags')).toBe(3)
     expect(countBy('persist')).toBe(3)
 
     // Every call of block N finishes before block N+1 starts
@@ -168,8 +160,7 @@ describe('runBlocks', () => {
     expect(last('acquire')).toBeLessThan(first('names'))
     expect(last('names')).toBeLessThan(first('editorial'))
     expect(last('editorial')).toBeLessThan(first('products'))
-    expect(last('products')).toBeLessThan(first('tags'))
-    expect(last('tags')).toBeLessThan(first('persist'))
+    expect(last('products')).toBeLessThan(first('persist'))
   })
 
   it('brand scope blocks respect concurrency', async () => {
@@ -503,7 +494,7 @@ describe('runBlocks', () => {
 
     // No blocks after acquire ran
     const postAcquire = calls.filter((c) =>
-      ['names', 'editorial', 'products', 'tags', 'persist'].includes(c.block),
+      ['names', 'editorial', 'products', 'persist'].includes(c.block),
     )
     expect(postAcquire).toHaveLength(0)
   })

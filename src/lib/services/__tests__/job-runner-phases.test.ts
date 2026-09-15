@@ -294,7 +294,6 @@ describe("forcePhasesForRetry", () => {
     // Should NOT contain unrelated blocks
     expect(phases).not.toContain("descriptions");
     expect(phases).not.toContain("faq");
-    expect(phases).not.toContain("tags");
   });
 });
 
@@ -327,8 +326,8 @@ describe("resolvePhases with retry", () => {
     const phases = resolvePhases({
       phases: ["detect"],
       task: "full",
-      retry: { block: "tags", mode: "only" },
+      retry: { block: "editorial", mode: "only" },
     });
-    expect(phases).toEqual(phasesOfBlocks(["tags"]));
+    expect(phases).toEqual(phasesOfBlocks(["editorial"]));
   });
 });

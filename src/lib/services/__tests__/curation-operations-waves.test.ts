@@ -6,7 +6,7 @@ import type { DetectResult } from "../category-classifier";
 /**
  * The enrichment chunk runs blocks in BLOCK_ORDER via the DAG runner:
  *
- *   gather → detect → acquire → names (batch) → editorial → products → tags → persist
+ *   gather → detect → acquire → names (batch) → editorial → products → persist
  *
  * Chunk-scope blocks (gather, detect, names) run once as barriers;
  * brand-scope blocks fan out with ENRICH_BRAND_CONCURRENCY.
@@ -31,7 +31,6 @@ const mocks = vi.hoisted(() => ({
   runImageSearchPhase: vi.fn(),
   runNamesPhase: vi.fn(),
   runProductsPhase: vi.fn(),
-  runStandaloneClassification: vi.fn(),
   mapWithConcurrency: vi.fn(),
   probeStatic: vi.fn(),
   expandLinkHubs: vi.fn(),
@@ -209,16 +208,6 @@ vi.mock("../enrich-phases/products", async (importOriginal) => {
   };
 });
 
-vi.mock("../enrich-phases", async (importOriginal) => {
-  const original = await importOriginal<typeof import("../enrich-phases")>();
-  return {
-    ...original,
-    runStandaloneClassification: mocks.runStandaloneClassification.mockImplementation(
-      original.runStandaloneClassification,
-    ),
-  };
-});
-
 /**
  * Spied, not replaced: the concurrency utility is still used by the gather
  * block internally; the spy lets tests observe without replacing behavior.
@@ -382,20 +371,6 @@ function detectBatchProviderFailure() {
   };
 }
 
-function classificationBatch(
-  results: Map<string, { categorySlug: string; confidence: string }> = new Map(),
-) {
-  return {
-    batchClassifications: results,
-    phaseResult: {
-      phase: "tags",
-      status: results.size > 0 ? "succeeded" : "skipped",
-      changedFields: [],
-      durationMs: 0,
-    },
-  };
-}
-
 type SerpStub = {
   urls?: string[];
   snippets?: string[];
@@ -511,7 +486,6 @@ const FULL_PHASES = [
   "stockists",
   "faq",
   "products",
-  "tags",
 ];
 
 /** Empty editorial output — no sub-phase results, no patch. */
@@ -594,7 +568,6 @@ function defaultBeforeEach() {
   });
   mocks.insertTriageResult.mockResolvedValue(undefined);
   mocks.fetchHtml.mockResolvedValue(null);
-  mocks.runStandaloneClassification.mockResolvedValue(classificationBatch());
 }
 
 // ---------------------------------------------------------------------------
@@ -1603,7 +1576,6 @@ describe("two loops with a batched names call between", () => {
     mocks.runNamesPhase.mockResolvedValue(namesOutput());
     mocks.runEditorialAgent.mockResolvedValue(editorialOutput());
     mocks.runProductsPhase.mockResolvedValue(productsOutput());
-    mocks.runStandaloneClassification.mockResolvedValue(classificationBatch());
 
     const result = await runEnrich(
       {
@@ -1626,58 +1598,6 @@ describe("two loops with a batched names call between", () => {
     expect(phases).toContain("acquire");
   });
 
-  it("tags_only_retry_with_detect_satisfied_still_classifies", async () => {
-    const target = submission({
-      id: "sub-tags-retry",
-      brand_name: "Tags Retry Brand",
-      social_instagram: "https://www.instagram.com/tagsretry",
-    });
-    // Detect and acquire satisfied from history
-    const jobTargets = [
-      {
-        target_type: "submission",
-        target_id: target.id,
-        phase_results: [
-          { phase: "detect", status: "succeeded", changedFields: [], durationMs: 10 },
-          { phase: "acquire", status: "succeeded", changedFields: [], durationMs: 10 },
-          { phase: "descriptions", status: "succeeded", changedFields: [], durationMs: 10 },
-        ],
-        created_at: "2026-08-01T00:00:00Z",
-      },
-    ];
-    // Classification returns a result
-    mocks.runStandaloneClassification.mockResolvedValue(
-      classificationBatch(
-        new Map([
-          [
-            `submission-${target.id}`,
-            { categorySlug: "beauty", confidence: "high" },
-          ],
-        ]),
-      ),
-    );
-
-    const result = await runEnrich(
-      {
-        target: "submissions",
-        submissionIds: [target.id],
-        dryRun: true,
-        phases: ["tags"],
-        onProgress: () => {},
-      },
-      fakeSupabase([target], jobTargets),
-    );
-
-    // Standalone classification STILL runs even though detect is satisfied
-    expect(mocks.runStandaloneClassification).toHaveBeenCalledOnce();
-    const outcome = result.brandOutcomes.find(
-      (entry) => entry?.submissionId === target.id,
-    );
-    const tagsPhase = outcome?.phaseResults?.find(
-      (pr) => pr.phase === "tags",
-    );
-    expect(tagsPhase?.status).toBe("succeeded");
-  });
 });
 
 describe("link expansion, SERP search, and no-purchase-channel gate", () => {

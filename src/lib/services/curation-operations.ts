@@ -69,14 +69,12 @@ import {
   type SearchResultRow,
 } from "./search-results";
 import {
-  type ClassificationResult,
   type DetectResult,
 } from "./category-classifier";
 import type { DescriptionAttempt } from "./description-rewrite";
 import type { BrandFactsAttempt } from "./brand-facts";
 import {
   insertTriageResult,
-  insertClassificationResult,
   updateDescriptionAuditResult,
   updateFactsAuditResult,
 } from "./_shared/ai-results";
@@ -102,7 +100,6 @@ import {
   runStockistsPhase,
   STORAGE_FAILURE_PREFIX,
   runAcquirePhase,
-  runStandaloneClassification,
   runDetectPhase,
   type BrandEnrichState,
   type SearchPhaseResult,
@@ -1040,7 +1037,7 @@ type AcquirePhaseResult = Awaited<ReturnType<typeof runAcquirePhase>>;
  *
  * Loop A: detect application → acquire → Gate A → Gate B → name candidates.
  * Then ONE batched `names` call for the whole chunk.
- * Loop B: names verdict → editorial → products → tags → persist.
+ * Loop B: names verdict → editorial → products → persist.
  *
  * The context is what makes the split possible: everything loop B needs about a
  * brand (its acquire output, its satisfied phases, its accumulated state) is
@@ -1523,24 +1520,12 @@ export async function runEnrich(
           }
 
           const chunk = brandChunks[chunkIndex];
-          // No "tags" here: the category moved to the descriptions phase, so a tags
-          // run no longer implies a detect call. Mirrors `hasDetectPhases` in
-          // `enrich-phases/detect.ts` — the two must agree or this banner announces a
-          // detect step that never runs.
           const hasDetectPhases =
             phases.includes("detect") || phases.includes("slugs");
           const activeSteps = [
             hasDetectPhases && "detect",
             phases.includes("acquire") && "acquire",
-            phases.includes("tags") &&
-              !phases.includes("descriptions") &&
-              "tags",
-            phases.includes("descriptions") &&
-              phases.includes("tags") &&
-              "descriptions+tags",
-            phases.includes("descriptions") &&
-              !phases.includes("tags") &&
-              "descriptions",
+            phases.includes("descriptions") && "descriptions",
             phases.includes("stockists") && "stockists",
           ].filter(Boolean);
           onProgress(
@@ -1665,35 +1650,7 @@ export async function runEnrich(
                 })),
             );
           };
-          const _recordBatchPhase = async (
-            phaseResult: PhaseResult,
-            changedField: string,
-            hasTargetResult: (brand: EnrichBrand) => boolean,
-          ): Promise<void> => {
-            for (const brand of chunk) {
-              if (isBrandCompleted(brand.id)) continue;
-              const targetPhaseResult = {
-                ...phaseResult,
-                changedFields:
-                  hasTargetResult(brand) && !config.dryRun
-                    ? phaseResult.changedFields.filter(
-                        (field) => field === changedField,
-                      )
-                    : [],
-              };
-              batchPhaseResults.set(brand.id, [
-                ...(batchPhaseResults.get(brand.id) ?? []),
-                targetPhaseResult,
-              ]);
-              // A brand context snapshots `batchPhaseResults` when it is created, so a
-              // batch phase running after wave A (image search) has to be appended to
-              // the live per-brand state as well or it never reaches the outcome.
-              brandContexts
-                .get(brand.id)
-                ?.state.phaseResults.push(targetPhaseResult);
-            }
-            await emitBatchPhaseProgress(phaseResult.phase);
-          };
+
 
           // ---- Cached SERP loading (replays stored search results) ----
           // An enrichment run needs SERP context for detect and LLM phases,
@@ -2206,21 +2163,10 @@ export async function runEnrich(
           );
           const detectResults = detectPhaseResult.detectResults;
           /**
-           * Standalone classification (tags block) runs lazily: the batch call
-           * fires on first use so a tags-only retry with detect satisfied still
-           * classifies (DEV-1611). The result is cached for subsequent brands.
-           */
-          let _classificationPromise:
-            ReturnType<typeof runStandaloneClassification> | undefined;
-          const getStandaloneClassification = () => {
-            _classificationPromise ??= runStandaloneClassification(batchContext);
-            return _classificationPromise;
-          };
-          /**
-           * Detect and tags are BATCH-level phases that run before wave B, so their
+           * Detect is a BATCH-level phase that runs before wave B, so its
            * outcome is not written by `recordBatchPhase` (which serves discover and
            * image search only). When the batch died at the provider, the signal is
-           * grafted onto each brand's own detect/tags entry at the point the batch
+           * grafted onto each brand's own detect entry at the point the batch
            * result is applied — one entry per brand, replacing rather than duplicating
            * the `applyDetectResult` entry, so `phase_results` keeps exactly one
            * `detect` row per target.
@@ -2432,7 +2378,7 @@ export async function runEnrich(
 
           /**
            * Per-brand body: initialisation, detect → acquire → names → editorial
-           * → products → tags → persist. The block runner calls this once per
+           * → products → persist. The block runner calls this once per
            * brand for each brand-scope block in BLOCK_ORDER.
            */
           const runBlocksPerBrand = async (
@@ -2834,7 +2780,7 @@ export async function runEnrich(
           // ---- Block-runner execution (DEV-1611) ----
           // `runBlocks` walks BLOCK_ORDER from names onward; detect and acquire
           // already ran in the per-brand section above. The names batch above is
-          // the barrier between acquire and the editorial/products/tags/persist
+          // the barrier between acquire and the editorial/products/persist
           // fan-out. The blocks below wrap the loop-B body in a registry that
           // `runBlocks` can walk with satisfaction, force, and circuit-breaker
           // support.
@@ -3317,73 +3263,6 @@ export async function runEnrich(
                   depositPhaseOutput(state, "products", productsResult.patch);
                 }
 
-                let classification: ClassificationResult | null = null;
-                let hasCompletedTagClassification = false;
-                if (
-                  !satisfiedPhaseSet.has("tags") &&
-                  !(
-                    phases.includes("descriptions") &&
-                    state.serpSnippets.length > 0
-                  ) &&
-                  phases.includes("tags")
-                ) {
-                  // Classification runs lazily (DEV-1611): the batch fires on first
-                  // use so a tags-only retry with detect satisfied still classifies.
-                  const standaloneClassificationResult =
-                    await getStandaloneClassification();
-                  const batchClassifications =
-                    standaloneClassificationResult.batchClassifications;
-                  const tagsProviderFailure =
-                    standaloneClassificationResult.phaseResult.status === "failed" &&
-                    standaloneClassificationResult.phaseResult.providerFailure === true;
-                  classification = batchClassifications.get(brand.slug) ?? null;
-                  // The standalone classification is batched like detect, so its
-                  // provider failure has to be grafted onto each brand here or Gate C
-                  // would see a tags-only run as having attempted no LLM phase at all.
-                  if (!classification && tagsProviderFailure) {
-                    const tagsEntry: PhaseResult = {
-                      ...standaloneClassificationResult.phaseResult,
-                      changedFields: [],
-                    };
-                    state.phaseResults.push(tagsEntry);
-                    await logCurrentPhase(ctx, tagsEntry);
-                  }
-                }
-
-                if (classification) {
-                  await markCurrentPhase(ctx, "tags");
-                  const tagStartedAt = Date.now();
-                  hasCompletedTagClassification = true;
-                  if (classification.categorySlug !== brand.category) {
-                    depositPhaseOutput(state, "tags", {
-                      category: classification.categorySlug,
-                    });
-                    const tagPhaseResult = buildPhaseResult(
-                      "tags",
-                      "succeeded",
-                      ["category"],
-                      Date.now() - tagStartedAt,
-                    );
-                    state.phaseResults.push(tagPhaseResult);
-                    await logCurrentPhase(ctx, tagPhaseResult);
-                    onProgress(
-                      `  [CATEGORY] ${brand.slug}: ${brand.category ?? "null"} → ${classification.categorySlug} (${classification.confidence})`,
-                    );
-                  } else {
-                    const tagPhaseResult = buildPhaseResult(
-                      "tags",
-                      "succeeded",
-                      [],
-                      Date.now() - tagStartedAt,
-                    );
-                    state.phaseResults.push(tagPhaseResult);
-                    await logCurrentPhase(ctx, tagPhaseResult);
-                    onProgress(
-                      `  [CATEGORY] ${brand.slug}: ${brand.category ?? "null"} (unchanged)`,
-                    );
-                  }
-                }
-
                 const patch = buildPendingPatch(state.outputs);
                 const patchKeys = Object.keys(patch);
                 if (patchKeys.length > 0) {
@@ -3400,8 +3279,7 @@ export async function runEnrich(
                 if (
                   !hasMaterialPatchValues(patch, {
                     productsScopedRun: isProductsScopedRun(phases),
-                  }) &&
-                  !hasCompletedTagClassification
+                  })
                 ) {
                   // Gate C: "every LLM phase died at the provider" and "every LLM
                   // phase ran and found nothing new" produce the identical empty
@@ -3493,14 +3371,6 @@ export async function runEnrich(
                       );
                     }
                   }
-                  if (classification) {
-                    await insertClassificationResult({
-                      brandId: brand.id,
-                      target: { type: targetType, id: brand.id },
-                      categorySlug: classification.categorySlug,
-                      confidence: classification.confidence,
-                    });
-                  }
                   await markCurrentPhase(ctx, "persist");
                   try {
                     await persistSubmissionEnrichmentResults(
@@ -3554,7 +3424,6 @@ export async function runEnrich(
             },
           },
           products: { scope: "brand", phases: ["products"], run: async () => ({}) },
-          tags: { scope: "brand", phases: ["tags"], run: async () => ({}) },
           persist: { scope: "brand", phases: [], run: async () => ({}) },
           });
 

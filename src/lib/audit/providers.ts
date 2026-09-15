@@ -133,7 +133,6 @@ const PROVIDERS = {
     "runNamesPhase",
     "runProductsPhase",
     "runSiteIdentityPhase",
-    "runStandaloneClassification",
     "runStockistsPhase",
     // DEV-1644: the acquire phase wrapping the acquisition agent
     "runAcquirePhase",

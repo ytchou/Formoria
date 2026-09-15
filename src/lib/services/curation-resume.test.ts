@@ -60,7 +60,6 @@ describe("planCurationResume", () => {
     // being re-queued as a phase with no runner. Everything after it was never
     // reached, has no record at all, and is owed.
     expect(plans.at(0)?.params.phases).toEqual([
-      "tags",
       "acquire",
       "names",
       "descriptions",
@@ -96,7 +95,6 @@ describe("planCurationResume", () => {
       "clean",
       "detect",
       "slugs",
-      "tags",
       "discover",
       "links",
       "acquire",

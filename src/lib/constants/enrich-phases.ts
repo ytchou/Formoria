@@ -101,7 +101,6 @@ export const SERP_PHASES = [
 export const ENRICH_LLM_PHASES = [
   "detect",
   "slugs",
-  "tags",
   "acquire",
   "descriptions",
   "names",
@@ -154,10 +153,10 @@ export const PHASE_DEPENDENCIES: Record<EnrichPhaseName, readonly EnrichPhaseNam
   site_identity: [],
   images: [],
   classify_images: [],
+  tags: [],
   // --- Active phases ---
   detect: [],
   slugs: ["detect"],
-  tags: ["descriptions"],
   acquire: ["detect"],
   names: ["detect", "acquire"],
   descriptions: ["acquire"],
@@ -174,6 +173,7 @@ export const PHASE_DEPENDENCIES: Record<EnrichPhaseName, readonly EnrichPhaseNam
  */
 export const DEFERRED_PHASES = [
   "clean",
+  "tags",
   "discover",
   "links",
   "site_identity",
@@ -209,7 +209,7 @@ export const CURATION_TASKS = {
   // Hidden aliases — DB compat for stored params.task values
   image: VISUAL_PHASES,
   product: VISUAL_PHASES,
-  editorial: ["descriptions", "faq", "tags", "stockists"],
+  editorial: ["descriptions", "faq", "stockists"],
   full: ENRICH_PHASES.filter(
     (phase) => !(DEFERRED_PHASES as readonly string[]).includes(phase),
   ),
@@ -323,7 +323,7 @@ const LEGACY_STEP_PHASES: Record<string, readonly EnrichPhaseName[]> = {
   // their work today — `products` alone is the self-insufficient scope
   // backfill.ts documents as the DEV-1469 bug.
   image: phasesForTask("visual"),
-  detail: ["descriptions", "faq", "products", "tags", "stockists"],
+  detail: ["descriptions", "faq", "products", "stockists"],
 };
 
 /**
@@ -370,7 +370,6 @@ export const BLOCK_NAMES = [
   "names",
   "editorial",
   "products",
-  "tags",
   "persist",
 ] as const;
 
@@ -389,7 +388,6 @@ export const BLOCK_OF_PHASE: Record<
   stockists: "editorial",
   faq: "editorial",
   products: "products",
-  tags: "tags",
 };
 
 /**
@@ -426,7 +424,6 @@ export const BLOCK_DEPENDENCIES: Record<BlockName, readonly BlockName[]> =
       "names",
       "editorial",
       "products",
-      "tags",
     ];
     for (const b of brandBlocks) deps.get("persist")!.add(b);
 
@@ -490,7 +487,6 @@ export const SLOT_BLOCK: Record<string, BlockName> = {
   editorial: "editorial",
   categoryDerivation: "editorial",
   products: "products",
-  tags: "tags",
 };
 
 /**

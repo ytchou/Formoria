@@ -181,6 +181,7 @@ describe("deferred phases", () => {
       "site_identity",
       "images",
       "classify_images",
+      "tags",
     ];
     for (const phase of retired) {
       expect(
@@ -273,7 +274,7 @@ describe("phase dependencies and task vocabulary", () => {
     expect(closure).toContain("detect");
     expect(closure).toContain("descriptions");
     expect(closure).toContain("faq");
-    expect(closure).toContain("tags");
+    expect(closure).not.toContain("tags");
     expect(closure).toContain("stockists");
     // Must exclude deferred phases
     expect(closure).not.toContain("links");
@@ -573,7 +574,6 @@ describe("block vocabulary", () => {
       "names",
       "editorial",
       "products",
-      "tags",
       "persist",
     ]);
     // Every dependency precedes its dependant
@@ -594,7 +594,6 @@ describe("block vocabulary", () => {
   it("phase_order_for_logs_derives_from_block_order", () => {
     expect(phaseOrderForBlocks(BLOCK_ORDER)).toEqual([
       "detect",
-      "tags",
       "acquire",
       "names",
       "descriptions",
