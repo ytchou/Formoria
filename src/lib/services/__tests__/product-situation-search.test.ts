@@ -6,6 +6,7 @@ import {
   normalizeSituationQuery,
   SituationQueryError,
   _resetDegradationCooldown,
+  CANDIDATE_POOL,
   type SearchDeps,
 } from "../product-situation-search";
 
@@ -334,6 +335,105 @@ describe("searchProductsBySituation", () => {
 
     expect(result.products.map((p) => p.id)).toEqual(["p2", "p3"]);
     expect(result.totalCount).toBe(5);
+  });
+
+  // 9. CANDIDATE_POOL constant is the sole match_count source
+  it("sends CANDIDATE_POOL as match_count regardless of page", async () => {
+    const deps1 = createDeps({
+      rpc: vi.fn().mockResolvedValue({ data: [], error: null }),
+    });
+    const deps2 = createDeps({
+      rpc: vi.fn().mockResolvedValue({ data: [], error: null }),
+    });
+
+    await searchProductsBySituation(
+      { query: "test query", locale: "zh-TW", page: 1, pageSize: 12 },
+      deps1,
+    );
+    await searchProductsBySituation(
+      { query: "test query", locale: "zh-TW", page: 3, pageSize: 12 },
+      deps2,
+    );
+
+    const rpcArgs1 = (deps1.rpc as ReturnType<typeof vi.fn>).mock.calls[0];
+    const rpcArgs2 = (deps2.rpc as ReturnType<typeof vi.fn>).mock.calls[0];
+    expect(rpcArgs1[1].match_count).toBe(100);
+    expect(rpcArgs2[1].match_count).toBe(100);
+    expect(CANDIDATE_POOL).toBe(100);
+  });
+
+  // 10. searchSource is derived from effectiveMode, not top row's search_source
+  it("reports the mode that ran, not the top row's arm", async () => {
+    const deps = createDeps({
+      rpc: vi.fn().mockResolvedValue({
+        data: [
+          rpcRow("p1", 0.9, "vector"),
+          rpcRow("p2", 0.7, "both"),
+        ],
+        error: null,
+      }),
+      hydrate: vi.fn().mockResolvedValue([
+        product("p1", "Product A"),
+        product("p2", "Product B"),
+      ]),
+    });
+
+    const result = await searchProductsBySituation(
+      { query: "test query", locale: "zh-TW", mode: "hybrid" },
+      deps,
+    );
+    expect(result.searchSource).toBe("hybrid");
+
+    // vector mode with vector rows
+    const deps2 = createDeps({
+      rpc: vi.fn().mockResolvedValue({
+        data: [rpcRow("p1", 0.9, "vector")],
+        error: null,
+      }),
+      hydrate: vi.fn().mockResolvedValue([product("p1", "Product A")]),
+    });
+
+    const result2 = await searchProductsBySituation(
+      { query: "test query", locale: "zh-TW", mode: "vector" },
+      deps2,
+    );
+    expect(result2.searchSource).toBe("vector");
+  });
+
+  // 11. rpc and embed latency tracked from deps.now
+  it("records rpc and embed latency from deps.now", async () => {
+    const times = [0, 0, 40, 40, 100, 130];
+    let callIndex = 0;
+    const deps = createDeps({
+      cache: { get: vi.fn().mockResolvedValue(null), set: vi.fn().mockResolvedValue(undefined) },
+      rpc: vi.fn().mockResolvedValue({ data: [], error: null }),
+      now: vi.fn(() => times[callIndex++] ?? 130),
+    });
+
+    const result = await searchProductsBySituation(
+      { query: "test query", locale: "zh-TW" },
+      deps,
+    );
+
+    expect(result.embedLatencyMs).toBeGreaterThanOrEqual(0);
+    expect(result.rpcLatencyMs).toBeGreaterThanOrEqual(0);
+    expect(typeof result.embedLatencyMs).toBe("number");
+    expect(typeof result.rpcLatencyMs).toBe("number");
+  });
+
+  // 12. embed latency is 0 in lexical mode
+  it("embed latency is 0 in lexical mode", async () => {
+    const deps = createDeps({
+      rpc: vi.fn().mockResolvedValue({ data: [], error: null }),
+    });
+
+    const result = await searchProductsBySituation(
+      { query: "test query", locale: "zh-TW", mode: "lexical" },
+      deps,
+    );
+
+    expect(deps.embed).not.toHaveBeenCalled();
+    expect(result.embedLatencyMs).toBe(0);
   });
 });
 

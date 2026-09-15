@@ -171,9 +171,9 @@ data/
 
 public/admin/content/
 
-# search-eval run artifacts and stored baseline (DEV-1413 relevance gate). Same rule
-# again: queries.json is the reviewed fixture and is committed, run output is not.
-scripts/search-eval/runs/
+# search-eval run artifacts (DEV-1680 situation search). The golden set is the
+# reviewed fixture and is committed; run output is not.
+scripts/enrichment/eval/search-eval/runs/
 
 # llm-eval run artifacts (DEV-1612 unified eval harness). Same rule: the harness
 # is committed, its scored output and LLM audit sink are not.

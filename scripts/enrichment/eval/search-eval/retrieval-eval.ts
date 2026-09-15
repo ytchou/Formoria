@@ -61,7 +61,14 @@ const ARMS: ArmName[] = [
  */
 function defaultLookup() {
   return async (_slugs: string[]) => {
-    const { products } = await getPublishedCuratedProducts({ pageSize: 1000 });
+    const { products, totalCount } = await getPublishedCuratedProducts({
+      pageSize: Number.MAX_SAFE_INTEGER,
+    });
+    if (products.length !== totalCount) {
+      throw new Error(
+        `catalog read truncated: got ${products.length} of ${totalCount}`,
+      );
+    }
     const map = new Map<
       string,
       { id: string; key: string; brandSlug: string }
