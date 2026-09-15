@@ -134,6 +134,13 @@ describe("origin guard exempt paths", () => {
     expect(isOriginGuardExempt("/api/admin/brands")).toBe(false);
     expect(isOriginGuardExempt("/")).toBe(false);
   });
+
+  it("exempts /api/slack/ by prefix — Slack cannot carry the edge header; signature verification is the auth", () => {
+    expect(isOriginGuardExempt("/api/slack/events")).toBe(true);
+    expect(isOriginGuardExempt("/api/slack/interactions")).toBe(true);
+    // Must not match a path that merely starts with the same letters.
+    expect(isOriginGuardExempt("/api/slackish")).toBe(false);
+  });
 });
 
 describe("a request arriving at the origin in production", () => {
