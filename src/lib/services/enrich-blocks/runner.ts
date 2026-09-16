@@ -230,23 +230,58 @@ async function applyResult(
   result: BlockRunResult,
   env: BlockEnv,
 ): Promise<void> {
-  if (result.output && block.phases.length > 0) {
+  if (result.output && block.phases.length !== 1) {
+    throw new Error(
+      `Block ${blockName} must attribute outputs to individual phases`,
+    )
+  }
+  const singlePhase = block.phases.at(0)
+  const outputs =
+    result.phaseOutputs ??
+    (result.output && singlePhase
+      ? [
+          {
+            phaseResult: {
+              phase: singlePhase,
+              status: result.exit?.status ?? 'succeeded',
+              changedFields: Object.keys(result.output.patch),
+              durationMs: 0,
+            } satisfies PhaseResult,
+            output: result.output,
+          },
+        ]
+      : [])
+  const reported = new Set<string>()
+  for (const entry of outputs) {
+    if (
+      !block.phases.some((phase) => phase === entry.phaseResult.phase) ||
+      reported.has(entry.phaseResult.phase)
+    ) {
+      throw new Error(
+        `Block ${blockName} returned an unowned or duplicate phase`,
+      )
+    }
+    reported.add(entry.phaseResult.phase)
+  }
+  if (outputs.length && env.jobId) {
     await recordPhaseOutputs(env.store, {
       jobId: env.jobId,
       target: {
         id: ctx.targetId,
         type: ctx.targetType as 'brand' | 'submission',
       },
-      entries: block.phases.map((phase) => ({
-        phase,
-        status: result.exit ? result.exit.status : 'succeeded',
-        output: result.output!,
+      entries: outputs.map((entry) => ({
+        phase: entry.phaseResult.phase,
+        status: entry.phaseResult.status,
+        output: entry.output,
       })),
     })
   }
-
-  if (result.output?.carry) {
-    ctx.state[blockName] = result.output.carry
+  for (const entry of outputs) {
+    if (entry.phaseResult.status === 'succeeded' && entry.output.carry) {
+      ctx.state[blockName] = entry.output.carry
+    }
+    env.hooks.onPhaseResult?.(ctx, entry.phaseResult.phase, entry.phaseResult)
   }
 
   if (result.exit) {
@@ -266,15 +301,6 @@ async function applyResult(
       env.hooks.onPhaseResult?.(ctx, exit.phaseResult.phase, exit.phaseResult)
       return
     }
-  }
-
-  for (const phase of block.phases) {
-    env.hooks.onPhaseResult?.(ctx, phase, {
-      phase,
-      status: 'succeeded',
-      changedFields: Object.keys(result.output?.patch ?? {}),
-      durationMs: 0,
-    })
   }
 }
 

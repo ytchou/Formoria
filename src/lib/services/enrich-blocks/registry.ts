@@ -22,7 +22,9 @@ type BlockExit = {
 }
 
 export type BlockRunResult = {
+  /** A single-phase block may return its output directly. */
   output?: PhaseOutput
+  phaseOutputs?: Array<{ phaseResult: PhaseResult; output: PhaseOutput }>
   exit?: BlockExit
 }
 

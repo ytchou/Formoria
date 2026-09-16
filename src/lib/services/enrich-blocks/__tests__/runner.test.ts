@@ -31,7 +31,17 @@ function fakeBlock(
 ): Block {
   const defaultRun: BrandBlock['run'] = async (ctx) => {
     calls.push({ block: name, brandId: ctx.brandId })
-    return { output: { patch: {} } }
+    return {
+      phaseOutputs: phases.map((phase) => ({
+        phaseResult: {
+          phase,
+          status: 'succeeded' as const,
+          changedFields: [],
+          durationMs: 0,
+        },
+        output: { patch: {} },
+      })),
+    }
   }
   const conditions = {
     phases,
@@ -48,7 +58,20 @@ function fakeBlock(
           brandId: contexts.map((ctx) => ctx.brandId).join(','),
         })
         return new Map(
-          contexts.map((ctx) => [ctx.targetId, { output: { patch: {} } }]),
+          contexts.map((ctx) => [
+            ctx.targetId,
+            {
+              phaseOutputs: phases.map((phase) => ({
+                phaseResult: {
+                  phase,
+                  status: 'succeeded' as const,
+                  changedFields: [],
+                  durationMs: 0,
+                },
+                output: { patch: {} },
+              })),
+            },
+          ]),
         )
       },
     }
@@ -136,6 +159,49 @@ function buildTestRegistry(
 // ---------------------------------------------------------------------------
 
 describe('runBlocks', () => {
+  // Catches a FAQ result marking unexecuted editorial siblings successful.
+  it('checkpoints only the phases a block actually produced', async () => {
+    const store = fakeStore()
+    const registry = buildTestRegistry([])
+    registry.editorial = {
+      scope: 'brand',
+      phases: ['descriptions', 'stockists', 'faq'],
+      async run() {
+        return {
+          phaseOutputs: [
+            {
+              phaseResult: {
+                phase: 'faq',
+                status: 'succeeded',
+                changedFields: ['faq'],
+                durationMs: 12,
+              },
+              output: { patch: { faq: { entries: [], explicit: true } } },
+            },
+          ],
+        }
+      },
+    }
+    await runBlocks({
+      chunk: [makeCtx('林木工坊')],
+      registry,
+      order: ['editorial'],
+      concurrency: 1,
+      ...emptyMaps(),
+      store,
+      hooks: {},
+      jobId: 'faq-recovery',
+    })
+    expect(
+      store.upserted.map((row) => ({ phase: row.phase, output: row.output })),
+    ).toEqual([
+      {
+        phase: 'faq',
+        output: { patch: { faq: { entries: [], explicit: true } } },
+      },
+    ])
+  })
+
   // Catches batch output from one target being checkpointed against its siblings.
   it('checkpoints each target-specific batch result against its own target', async () => {
     const store = fakeStore()
