@@ -726,7 +726,7 @@ function verify(target: DeploymentTarget, includeSchemaDiff: boolean): void {
 
   if (includeSchemaDiff) {
     const generatedTypes = supabase(
-      ["gen", "types", "typescript", "--db-url", target.databaseUrl],
+      ["gen", "types", "typescript", "--project-id", target.projectRef],
       true,
     );
     if (generatedTypes.trim() !== readFileSync(DATABASE_TYPES, "utf8").trim()) {
@@ -799,7 +799,7 @@ async function main(): Promise<void> {
       return;
     case "types": {
       const generatedTypes = supabase(
-        ["gen", "types", "typescript", "--db-url", target.databaseUrl],
+        ["gen", "types", "typescript", "--project-id", target.projectRef],
         true,
       );
       writeFileSync(DATABASE_TYPES, `${generatedTypes.trim()}\n`);
