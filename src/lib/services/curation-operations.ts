@@ -125,10 +125,7 @@ import type {
   PhaseOutputSlots,
 } from "./enrich-phases/types";
 import { depositPhaseOutput, buildPendingPatch } from "./enrich-phases/types";
-import {
-  fetchPhaseHistory,
-  filterSatisfiedPhases,
-} from "./enrich-phases/phase-satisfaction";
+import type { TargetPlan } from "./enrich-blocks/plan";
 import { MAX_PROBE_URLS } from "./category-classifier";
 import {
   formatBrandComplete,
@@ -1064,7 +1061,6 @@ type BrandWaveContext = {
   urlExtracted: Partial<BrandFlatLinkColumns>;
   currentPhase: string | undefined;
   completed: boolean;
-  satisfiedPhaseSet: Set<EnrichPhaseName>;
 };
 
 export function createEnrichmentSummary(
@@ -1406,6 +1402,7 @@ export async function runEnrich(
      * non-forcing path is the default.
      */
     explicitPhases?: readonly string[];
+    targetPlans?: Record<string, TargetPlan>;
     renderProvider?: RenderProvider;
   },
   supabase: SupabaseLike,
@@ -1491,6 +1488,9 @@ export async function runEnrich(
           }),
         );
 
+        if (config.targetPlans && allBrands.some((brand) => !Object.hasOwn(config.targetPlans!, brand.id))) {
+          throw new Error("Recovery plan is missing an execution target");
+        }
         const totalBrands = allBrands.length;
         for (const line of formatJobStart(totalBrands)) {
           onProgress(line);
@@ -1942,6 +1942,7 @@ export async function runEnrich(
            * → products → persist. The block runner calls this once per
            * brand for each brand-scope block in BLOCK_ORDER.
            */
+          const store = createSupabasePhaseOutputStore();
           const initializeContext = async (
             brand: EnrichBrand,
             brandOffset: number,
@@ -1974,41 +1975,8 @@ export async function runEnrich(
               urlExtracted: {},
               currentPhase: undefined,
               completed: false,
-              satisfiedPhaseSet: new Set(),
             };
             brandContexts.set(brand.id, ctx);
-            const state = ctx.state;
-
-            // ---- Satisfaction check (history-based) --------------------------
-            const history = await fetchPhaseHistory("submission", brand.id);
-            const { skipped: satisfiedSkips } = filterSatisfiedPhases(
-              phases as EnrichPhaseName[],
-              history,
-              ctx.overwrite,
-            );
-            ctx.satisfiedPhaseSet = new Set(satisfiedSkips.map((s) => s.phase));
-            for (const skip of satisfiedSkips) {
-              state.phaseResults.push(
-                buildPhaseResult(
-                  skip.phase,
-                  "skipped",
-                  [],
-                  0,
-                  undefined,
-                  "phase output already satisfied",
-                ),
-              );
-              await logCurrentPhase(
-                ctx,
-                state.phaseResults[state.phaseResults.length - 1],
-              );
-            }
-            if (satisfiedSkips.length > 0) {
-              onProgress(
-                `  [SATISFACTION] ${brand.slug}: skipped ${satisfiedSkips.map((s) => s.phase).join(", ")} (already satisfied)`,
-              );
-            }
-
             await emitTargetProgress(ctx, "running");
           };
           await mapWithConcurrency(
@@ -2023,19 +1991,24 @@ export async function runEnrich(
               (entry): entry is BrandWaveContext =>
                 entry !== undefined && !entry.completed,
             );
-          const store = createSupabasePhaseOutputStore();
           const blockChunk: BlockContext[] = survivingContexts
             .filter(() => !llmBreakerTripped)
             .map((ctx) => ({
               brandId: ctx.brand.id,
               targetId: ctx.brand.id,
               targetType,
+              plan: config.targetPlans?.[ctx.brand.id] ?? {
+                selected: phases,
+                forced: ctx.overwrite ? phases : [],
+                explicit: (config.explicitPhases ?? []).filter((phase) => phases.includes(phase as RunEnrichPhase)) as RunEnrichPhase[],
+              },
               state: { _waveCtx: ctx } as Record<string, unknown>,
             }));
           const blockRegistry = buildBlockRegistry({
             gather: {
               scope: "chunk",
               phases: [],
+              requiredBy: ["detect", "slugs", "acquire"],
               runBatch: async (contexts) => {
                 const chunk = contexts.map(
                   (entry) => (entry.state._waveCtx as BrandWaveContext).brand,
@@ -2456,21 +2429,14 @@ export async function runEnrich(
             detect: {
               scope: "chunk",
               phases: ["detect", "slugs"],
-              precondition: (bctx) => {
-                const ctx = bctx.state._waveCtx as BrandWaveContext;
-                return (
-                  hasDetectPhases &&
-                  !ctx.completed &&
-                  !llmBreakerTripped &&
-                  !ctx.satisfiedPhaseSet.has("detect")
-                );
-              },
               runBatch: async (contexts) => {
                 const chunk = contexts.map(
                   (entry) => (entry.state._waveCtx as BrandWaveContext).brand,
                 );
+                const phases = [...new Set(contexts.flatMap((ctx) => ctx.executePhases ?? []))];
                 const batchContext = {
                   ...baseBatchContext,
+                  phases,
                   chunk,
                   chunkBrandNames: chunk.map(getDisplayBrandName),
                 };
@@ -2549,13 +2515,13 @@ export async function runEnrich(
                       const ctx = bctx.state._waveCtx as BrandWaveContext;
                       const brand = ctx.brand;
                       const state = ctx.state;
-                      const satisfiedPhaseSet = ctx.satisfiedPhaseSet;
+                      const phases = bctx.executePhases ?? [];
                       ctx.detectResult = detectResults.get(brand.slug);
                       try {
                         // ---- Detect application ----
                         let detectApplication:
                           ReturnType<typeof applyDetectResult> | undefined;
-                        if (!satisfiedPhaseSet.has("detect")) {
+                        if (phases.includes("detect") || phases.includes("slugs")) {
                           detectApplication = applyDetectResult(
                             ctx.detectResult,
                             brand,
@@ -2636,10 +2602,9 @@ export async function runEnrich(
               phases: ["acquire"],
               run: async (bctx): Promise<BlockRunResult> => {
                 const ctx = bctx.state._waveCtx as BrandWaveContext;
-                if (ctx.completed || llmBreakerTripped) return {};
                 const brand = ctx.brand;
                 const state = ctx.state;
-                const satisfiedPhaseSet = ctx.satisfiedPhaseSet;
+                const phases = bctx.executePhases ?? [];
                 try {
                   // ---- Link expansion patch + no-purchase-channel gate ----
                   const expansion = linkExpansionByBrandId.get(brand.id);
@@ -2748,7 +2713,7 @@ export async function runEnrich(
                   // ---- Acquire (replaces links + images + classify + quarantine) ----
                   let acquireResult:
                     Awaited<ReturnType<typeof runAcquirePhase>> | undefined;
-                  if (!satisfiedPhaseSet.has("acquire")) {
+                  if (phases.includes("acquire")) {
                     await markCurrentPhase(ctx, "acquire");
                     acquireResult = await runAcquirePhase({
                       brand,
@@ -2820,6 +2785,20 @@ export async function runEnrich(
                     return {};
                   }
 
+                } catch (err) {
+                  await failBrand(ctx, err);
+                }
+                return {};
+              },
+            },
+            names: {
+              scope: "chunk",
+              phases: ["names"],
+              runBatch: async (contexts) => {
+                for (const bctx of contexts) {
+                  const ctx = bctx.state._waveCtx as BrandWaveContext;
+                  const brand = ctx.brand;
+                  const state = ctx.state;
                   // ---- Names phase (per-brand) ----
                   const candidates: NameCandidate[] = [
                     {
@@ -2845,33 +2824,15 @@ export async function runEnrich(
                       value: ctx.detectedName,
                     });
                   }
-                  if (acquireResult?.officialNameCandidates.length) {
-                    candidates.push(...acquireResult.officialNameCandidates);
+                  if (ctx.acquireResult?.officialNameCandidates.length) {
+                    candidates.push(...ctx.acquireResult.officialNameCandidates);
                   }
                   const brandNameCandidateInput: NameCandidateInput = {
                     candidates,
                     snippets: state.serpSnippets,
                   };
                   nameCandidates.set(brand.id, brandNameCandidateInput);
-                } catch (err) {
-                  await failBrand(ctx, err);
                 }
-                return {};
-              },
-            },
-            names: {
-              scope: "chunk",
-              phases: ["names"],
-              precondition: (bctx) => {
-                const ctx = bctx.state._waveCtx as BrandWaveContext;
-                return (
-                  phases.includes("names") &&
-                  !ctx.completed &&
-                  !llmBreakerTripped &&
-                  !ctx.satisfiedPhaseSet.has("names")
-                );
-              },
-              runBatch: async (contexts) => {
                 const namesChunk = contexts.map(
                   (entry) => (entry.state._waveCtx as BrandWaveContext).brand,
                 );
@@ -2916,11 +2877,10 @@ export async function runEnrich(
               phases: ["descriptions", "stockists", "faq"],
               run: async (bctx: BlockContext): Promise<BlockRunResult> => {
                 const ctx = bctx.state._waveCtx as BrandWaveContext;
-                if (ctx.completed || llmBreakerTripped) return {};
                 const brand = ctx.brand;
                 const state = ctx.state;
                 const overwrite = ctx.overwrite;
-                const satisfiedPhaseSet = ctx.satisfiedPhaseSet;
+                const phases = bctx.executePhases ?? [];
                 try {
                   // ---- Editorial agent (descriptions + stockists + faq) --------
                   // When at least one editorial sub-phase is unsatisfied, run the
@@ -2935,15 +2895,15 @@ export async function runEnrich(
                     | undefined;
 
                   const editorialUnsatisfied =
-                    !satisfiedPhaseSet.has("descriptions") ||
-                    !satisfiedPhaseSet.has("stockists") ||
-                    !satisfiedPhaseSet.has("faq");
+                    phases.includes("descriptions") ||
+                    phases.includes("stockists") ||
+                    phases.includes("faq");
 
                   if (editorialUnsatisfied) {
                     // Filter out satisfied phases so the editorial agent skips them
                     const editorialPhases = (
                       phases as EditorialEnrichPhase[]
-                    ).filter((p) => !satisfiedPhaseSet.has(p));
+                    );
                     const editorialInput: EditorialInput = {
                       brand: brand as EditorialEnrichBrand,
                       phases: editorialPhases,
@@ -2954,7 +2914,7 @@ export async function runEnrich(
                       target: { type: targetType, id: brand.id },
                       jobId: config.jobId,
                       pendingPatch: buildPendingPatch(state.outputs),
-                      explicitPhases: config.explicitPhases ?? [],
+                      explicitPhases: bctx.plan?.explicit ?? config.explicitPhases ?? [],
                     };
 
                     // Real validators, one repair turn, and the evidence tool —
@@ -3158,7 +3118,7 @@ export async function runEnrich(
                       const editorialFallbackPatch: PhaseOutputSlots["editorial"] =
                         {};
 
-                      if (!satisfiedPhaseSet.has("descriptions")) {
+                      if (phases.includes("descriptions")) {
                         await markCurrentPhase(ctx, "descriptions");
                         const pending = buildPendingPatch(state.outputs);
                         descriptionsResult = await runDescriptionsPhase({
@@ -3265,7 +3225,7 @@ export async function runEnrich(
                         }
                       }
 
-                      if (!satisfiedPhaseSet.has("stockists")) {
+                      if (phases.includes("stockists")) {
                         await markCurrentPhase(ctx, "stockists");
                         const stockistsResult = await runStockistsPhase({
                           brand,
@@ -3284,7 +3244,7 @@ export async function runEnrich(
                         );
                       }
 
-                      if (!satisfiedPhaseSet.has("faq")) {
+                      if (phases.includes("faq")) {
                         await markCurrentPhase(ctx, "faq");
                         const faqResult = await runFaqPhase({
                           brand,
@@ -3295,7 +3255,7 @@ export async function runEnrich(
                           dryRun: config.dryRun,
                           target: { type: targetType, id: brand.id },
                           jobId: config.jobId,
-                          explicitPhases: config.explicitPhases ?? [],
+                          explicitPhases: bctx.plan?.explicit ?? config.explicitPhases ?? [],
                         });
                         state.phaseResults.push(faqResult.phaseResult);
                         await logCurrentPhase(ctx, faqResult.phaseResult);
@@ -3325,13 +3285,12 @@ export async function runEnrich(
               phases: ["products"],
               run: async (bctx: BlockContext): Promise<BlockRunResult> => {
                 const ctx = bctx.state._waveCtx as BrandWaveContext;
-                if (ctx.completed || llmBreakerTripped) return {};
                 const brand = ctx.brand;
                 const state = ctx.state;
-                const satisfiedPhaseSet = ctx.satisfiedPhaseSet;
+                const phases = bctx.executePhases ?? [];
                 const acquireResult = ctx.acquireResult ?? undefined;
                 try {
-                  if (!satisfiedPhaseSet.has("products")) {
+                  if (phases.includes("products")) {
                     await markCurrentPhase(ctx, "products");
                     const productsTarget: EnrichmentTarget = {
                       type: targetType,
@@ -3394,9 +3353,9 @@ export async function runEnrich(
               phases: [],
               run: async (bctx: BlockContext): Promise<BlockRunResult> => {
                 const ctx = bctx.state._waveCtx as BrandWaveContext;
-                if (ctx.completed || llmBreakerTripped) return {};
                 const brand = ctx.brand;
                 const state = ctx.state;
+                const phases = bctx.plan?.selected ?? config.phases;
                 const descriptionsResult = ctx.descriptionsResult;
                 try {
                   const patch = buildPendingPatch(state.outputs);
@@ -3570,7 +3529,13 @@ export async function runEnrich(
             satisfaction: new Map(),
             store,
             force: new Map(),
-            hooks: {},
+            hooks: {
+              isTargetTerminated: (bctx) => (bctx.state._waveCtx as BrandWaveContext).completed || llmBreakerTripped,
+              onPhaseResult: (bctx, _phase, entry) => {
+                const ctx = bctx.state._waveCtx as BrandWaveContext;
+                ctx.state.phaseResults.push(entry);
+              },
+            },
             jobId: config.jobId ?? "",
           });
 

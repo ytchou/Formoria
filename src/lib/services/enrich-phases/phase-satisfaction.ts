@@ -7,6 +7,8 @@ import {
   latestPhaseOutputs,
   createSupabasePhaseOutputStore,
   type PhaseOutputStore,
+  type PhaseOutputRow,
+  isUsablePhaseOutput,
 } from "@/lib/services/enrich-blocks/phase-outputs";
 import type { EnrichmentTarget } from "@/lib/services/_shared/enrichment-target";
 
@@ -37,13 +39,20 @@ export async function fetchPhaseHistory(
 
   const outputs = await latestPhaseOutputs(resolvedStore, target);
 
-  const history: PhaseHistory = new Map();
-  for (const [rawPhase, row] of outputs) {
-    if (!(ENRICH_PHASES as readonly string[]).includes(rawPhase)) continue;
-    const phase = rawPhase as EnrichPhaseName;
-    history.set(phase, new Date(row.created_at));
-  }
+  return phaseHistoryFromOutputs([...outputs.values()]);
+}
 
+export function phaseHistoryFromOutputs(rows: readonly PhaseOutputRow[]): PhaseHistory {
+  const history: PhaseHistory = new Map();
+  for (const row of rows) {
+    if (row.status !== "succeeded" || !isUsablePhaseOutput(row.output) ||
+      !(ENRICH_PHASES as readonly string[]).includes(row.phase)) continue;
+    const phase = row.phase as EnrichPhaseName;
+    const timestamp = new Date(row.created_at);
+    if (!Number.isFinite(timestamp.getTime())) continue;
+    const previous = history.get(phase);
+    if (!previous || timestamp > previous) history.set(phase, timestamp);
+  }
   return history;
 }
 

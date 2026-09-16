@@ -68,6 +68,12 @@ export type PhaseOutput = {
   carry?: PhaseCarry
 }
 
+export function isUsablePhaseOutput(value: unknown): value is PhaseOutput {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return false
+  const patch = (value as Record<string, unknown>).patch
+  return patch !== null && typeof patch === 'object' && !Array.isArray(patch)
+}
+
 // ---------------------------------------------------------------------------
 // Carry builder — acquire
 // ---------------------------------------------------------------------------
@@ -126,6 +132,7 @@ export function assertCarryBounded(
 
 export type PhaseOutputStore = {
   reader: {
+    forTargets: (targets: readonly EnrichmentTarget[]) => Promise<PhaseOutputRow[]>
     /**
      * Return rows for the target ordered newest-first. The consumer filters
      * by status and picks the latest per phase.
@@ -140,8 +147,6 @@ export type PhaseOutputStore = {
   writer: {
     /** Upsert rows on the unique (job_id, target_id, target_type, phase) key. */
     upsert: (entries: PhaseOutputRow[]) => Promise<void>
-    /** Set `persisted_at = now()` for the given ids. */
-    markPersisted: (ids: string[]) => Promise<void>
   }
 }
 
@@ -190,7 +195,7 @@ export async function latestPhaseOutputs(
   const rows = await store.reader.latestPerPhase(target)
   const result = new Map<string, PhaseOutputRow>()
   for (const row of rows) {
-    if (row.status !== 'succeeded') continue
+    if (row.status !== 'succeeded' || !isUsablePhaseOutput(row.output)) continue
     // Rows come newest-first; first hit per phase wins.
     if (!result.has(row.phase)) {
       result.set(row.phase, row)
@@ -209,49 +214,46 @@ export async function listUnpersistedOutputs(
   return store.reader.unpersisted(target)
 }
 
-/**
- * Stamp the given rows as persisted.
- */
-export async function markPersisted(
-  store: PhaseOutputStore,
-  ids: string[],
-): Promise<void> {
-  if (ids.length === 0) return
-  await store.writer.markPersisted(ids)
-}
-
 // ---------------------------------------------------------------------------
 // Default Supabase implementation
 // ---------------------------------------------------------------------------
 
 import { createServiceClient } from '@/lib/supabase/service'
+import { mapWithConcurrency } from '../_shared/concurrency'
 
 export function createSupabasePhaseOutputStore(): PhaseOutputStore {
+  const forTargets: PhaseOutputStore['reader']['forTargets'] = async (targets) => {
+    const supabase = createServiceClient()
+    const batches: Array<{ type: EnrichmentTarget['type']; ids: string[] }> = []
+    for (const type of ['submission', 'brand'] as const) {
+      const ids = [...new Set(targets.filter((target) => target.type === type).map((target) => target.id))]
+      for (let offset = 0; offset < ids.length; offset += 200) {
+        batches.push({ type, ids: ids.slice(offset, offset + 200) })
+      }
+    }
+    const rows = await mapWithConcurrency(batches, 3, async ({ type, ids }) => {
+      const result: PhaseOutputRow[] = []
+      // Page each batch so Supabase's row cap cannot silently omit older phases.
+      for (let offset = 0; ; offset += 1000) {
+        const { data, error } = await supabase.from('curation_phase_outputs')
+          .select('*, curation_jobs!inner(dry_run)')
+          .in('target_id', ids).eq('target_type', type)
+          .eq('curation_jobs.dry_run', false)
+          .order('created_at', { ascending: false }).order('id', { ascending: false })
+          .range(offset, offset + 999)
+        if (error) throw error
+        result.push(...(data ?? []) as PhaseOutputRow[])
+        if (!data || data.length < 1000) return result
+      }
+    })
+    return rows.flat()
+  }
   return {
     reader: {
-      latestPerPhase: async (target) => {
-        const supabase = createServiceClient()
-        const { data, error } = await supabase
-          .from('curation_phase_outputs')
-          .select('*')
-          .eq('target_id', target.id)
-          .eq('target_type', target.type)
-          .order('created_at', { ascending: false })
-        if (error) throw error
-        return (data ?? []) as PhaseOutputRow[]
-      },
-      unpersisted: async (target) => {
-        const supabase = createServiceClient()
-        const { data, error } = await supabase
-          .from('curation_phase_outputs')
-          .select('*, curation_jobs!inner(dry_run)')
-          .eq('target_id', target.id)
-          .eq('target_type', target.type)
-          .is('persisted_at', null)
-          .eq('curation_jobs.dry_run', false)
-        if (error) throw error
-        return (data ?? []) as PhaseOutputRow[]
-      },
+      forTargets,
+      latestPerPhase: (target) => forTargets([target]),
+      unpersisted: async (target) => (await forTargets([target]))
+        .filter((row) => row.persisted_at === null && row.status === 'succeeded' && isUsablePhaseOutput(row.output)),
     },
     writer: {
       upsert: async (entries) => {
@@ -272,15 +274,7 @@ export function createSupabasePhaseOutputStore(): PhaseOutputStore {
           )
         if (error) throw error
       },
-      markPersisted: async (ids) => {
-        if (ids.length === 0) return
-        const supabase = createServiceClient()
-        const { error } = await supabase
-          .from('curation_phase_outputs')
-          .update({ persisted_at: new Date().toISOString() })
-          .in('id', ids)
-        if (error) throw error
-      },
+
     },
   }
 }

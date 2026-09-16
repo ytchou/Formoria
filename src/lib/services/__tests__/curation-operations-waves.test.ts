@@ -227,8 +227,8 @@ vi.mock("../enrich-blocks/phase-outputs", async (importOriginal) => {
   return {
     ...original,
     createSupabasePhaseOutputStore: mocks.createSupabasePhaseOutputStore.mockReturnValue({
-      reader: { latestPerPhase: async () => [], unpersisted: async () => [] },
-      writer: { upsert: async () => {}, markPersisted: async () => {} },
+      reader: { forTargets: async () => [], latestPerPhase: async () => [], unpersisted: async () => [] },
+      writer: { upsert: async () => {} },
     }),
   };
 });
@@ -515,21 +515,16 @@ function emptyEditorialOutput() {
 function mockSatisfiedPhases(phases: string[]) {
   mocks.createSupabasePhaseOutputStore.mockReturnValue({
     reader: {
-      latestPerPhase: async () =>
+      forTargets: async (targets: Array<{ id: string; type: string }>) => targets.flatMap((target) =>
         phases.map((phase) => ({
-          id: `out-${phase}`,
-          job_id: "job-prev",
-          target_id: "",
-          target_type: "submission",
-          phase,
-          status: "succeeded",
-          output: null,
-          persisted_at: null,
-          created_at: "2026-08-01T00:00:00Z",
-        })),
+          id: `out-${target.id}-${phase}`, job_id: "job-prev", target_id: target.id,
+          target_type: target.type, phase, status: "succeeded", output: { patch: {} },
+          persisted_at: "2026-08-01T00:00:00Z", created_at: "2026-08-01T00:00:00Z",
+        }))),
+      latestPerPhase: async () => [],
       unpersisted: async () => [],
     },
-    writer: { upsert: async () => {}, markPersisted: async () => {} },
+    writer: { upsert: async () => {} },
   });
 }
 
@@ -538,8 +533,8 @@ function defaultBeforeEach() {
   // Reset the phase-output store to empty (clearAllMocks does not reset
   // return values set by mockReturnValue).
   mocks.createSupabasePhaseOutputStore.mockReturnValue({
-    reader: { latestPerPhase: async () => [], unpersisted: async () => [] },
-    writer: { upsert: async () => {}, markPersisted: async () => {} },
+    reader: { forTargets: async () => [], latestPerPhase: async () => [], unpersisted: async () => [] },
+    writer: { upsert: async () => {} },
   });
   mocks.getLatestSearchResults.mockResolvedValue(new Map());
   mocks.batchSearchBrandImages.mockResolvedValue(new Map());

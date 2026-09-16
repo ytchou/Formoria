@@ -4,10 +4,12 @@
  * Blocks are injected via the registry — no phase runner imports allowed.
  */
 
-import type { BlockName } from '@/lib/constants/enrich-phases'
+import type { BlockName, EnrichPhaseName } from '@/lib/constants/enrich-phases'
 import { mapWithConcurrency } from '../_shared/concurrency'
-import { recordPhaseOutputs, latestPhaseOutputs } from './phase-outputs'
-import type { PhaseOutputStore, PhaseOutput } from './phase-outputs'
+import { recordPhaseOutputs, isUsablePhaseOutput, type PhaseOutputRow } from './phase-outputs'
+import { checkPhaseSatisfaction, phaseHistoryFromOutputs } from '../enrich-phases/phase-satisfaction'
+import { validateRecoveryPlan } from './plan'
+import type { PhaseOutputStore } from './phase-outputs'
 import type { PhaseResult } from '@/lib/types/curation'
 import type {
   BatchBlock,
@@ -27,6 +29,8 @@ export type RunBlocksHooks = {
   emitBatchPhaseProgress?: (phase: string) => void
   markCurrentPhase?: (ctx: BlockContext, phase: string) => void
   logCurrentPhase?: (phase: string) => void
+  isTargetTerminated?: (ctx: BlockContext) => boolean
+  onHydrate?: (ctx: BlockContext, phase: EnrichPhaseName, row: PhaseOutputRow) => void | Promise<void>
   loadImagePool?: (ctx: BlockContext) => Promise<unknown>
   onPhaseResult?: (
     ctx: BlockContext,
@@ -55,6 +59,7 @@ type BlockEnv = {
   hooks: RunBlocksHooks
   jobId: string
   exited: Set<string>
+  savedOutputs: Map<string, Map<string, PhaseOutputRow>>
 }
 
 export async function runBlocks(config: RunBlocksConfig): Promise<void> {
@@ -70,11 +75,27 @@ export async function runBlocks(config: RunBlocksConfig): Promise<void> {
     jobId,
   } = config
   const exited = new Set<string>()
-  const env: BlockEnv = { satisfaction, store, force, hooks, jobId, exited }
+  for (const ctx of chunk) {
+    if (ctx.plan) validateRecoveryPlan({ version: 1, action: { kind: 'resume' }, targets: { [ctx.targetId]: ctx.plan } })
+  }
+  const savedOutputs = new Map<string, Map<string, PhaseOutputRow>>()
+  const rows = await store.reader.forTargets(chunk.map((ctx) => ({ id: ctx.targetId, type: ctx.targetType as 'submission' | 'brand' })))
+  for (const ctx of chunk) {
+    const targetRows = rows.filter((row) => row.target_id === ctx.targetId && row.target_type === ctx.targetType)
+    if (!satisfaction.has(ctx.targetId)) satisfaction.set(ctx.targetId, phaseHistoryFromOutputs(targetRows))
+    const latest = new Map<string, PhaseOutputRow>()
+    for (const row of targetRows) {
+      if (row.status !== 'succeeded' || !isUsablePhaseOutput(row.output)) continue
+      const previous = latest.get(row.phase)
+      if (!previous || row.created_at > previous.created_at) latest.set(row.phase, row)
+    }
+    savedOutputs.set(ctx.targetId, latest)
+  }
+  const env: BlockEnv = { satisfaction, store, force, hooks, jobId, exited, savedOutputs }
 
   for (const blockName of order) {
     const block = registry[blockName]
-    const remaining = chunk.filter((ctx) => !exited.has(ctx.targetId))
+    const remaining = chunk.filter((ctx) => !exited.has(ctx.targetId) && !hooks.isTargetTerminated?.(ctx))
 
     if (block.scope === 'chunk') {
       await runChunkBlock(blockName, block, remaining, env)
@@ -158,67 +179,29 @@ async function shouldSkip(
   ctx: BlockContext,
   env: BlockEnv,
 ): Promise<boolean> {
-  if (block.precondition) {
-    const ok = await block.precondition(ctx)
-    if (!ok) {
-      pushSkippedResults(block, ctx, env.hooks)
-      return true
+  if (env.hooks.isTargetTerminated?.(ctx)) return true
+  if (block.precondition && !await block.precondition(ctx)) return true
+  const selected = ctx.plan
+    ? block.phases.filter((phase) => ctx.plan!.selected.includes(phase))
+    : [...block.phases]
+  const history = env.satisfaction.get(ctx.targetId) ?? new Map()
+  const needsExecution = (phase: EnrichPhaseName) => checkPhaseSatisfaction(
+    phase, history as Map<EnrichPhaseName, Date>,
+    ctx.plan?.forced.includes(phase) || env.force.get(ctx.targetId)?.has(phase),
+  ) === 'unsatisfied'
+  if (block.requiredBy && !block.requiredBy.some((phase) =>
+    (!ctx.plan || ctx.plan.selected.includes(phase)) && needsExecution(phase),
+  )) return true
+  ctx.executePhases = selected.filter(needsExecution)
+  for (const phase of selected.filter((phase) => !ctx.executePhases!.includes(phase))) {
+    const row = env.savedOutputs.get(ctx.targetId)?.get(phase)
+    if (row && isUsablePhaseOutput(row.output)) {
+      if (row.output.carry) ctx.state[blockName] = row.output.carry
+      await env.hooks.onHydrate?.(ctx, phase, row)
     }
+    pushSkippedResults([phase], ctx, env.hooks)
   }
-
-  if (
-    block.phases.length > 0 &&
-    isSatisfied(block, ctx, env.satisfaction, env.force)
-  ) {
-    await hydrateCarry(blockName, block, ctx, env.store)
-    pushSkippedResults(block, ctx, env.hooks)
-    return true
-  }
-
-  return false
-}
-
-function isSatisfied(
-  block: Block,
-  ctx: BlockContext,
-  satisfaction: Map<string, Map<string, Date>>,
-  force: Map<string, Set<string>>,
-): boolean {
-  const targetSat = satisfaction.get(ctx.targetId)
-  if (!targetSat) return false
-
-  const allSatisfied = block.phases.every((phase) => targetSat.has(phase))
-  if (!allSatisfied) return false
-  const targetForce = force.get(ctx.targetId)
-  if (targetForce && block.phases.some((phase) => targetForce.has(phase))) {
-    return false
-  }
-
-  return true
-}
-
-// Carry hydration from store (satisfaction-skip path)
-
-async function hydrateCarry(
-  blockName: BlockName,
-  block: Block,
-  ctx: BlockContext,
-  store: PhaseOutputStore,
-): Promise<void> {
-  const outputs = await latestPhaseOutputs(store, {
-    id: ctx.targetId,
-    type: ctx.targetType as 'brand' | 'submission',
-  })
-
-  for (const phase of block.phases) {
-    const row = outputs.get(phase)
-    if (!row?.output) continue
-    const parsed = row.output as unknown as PhaseOutput
-    if (parsed?.carry) {
-      ctx.state[blockName] = parsed.carry
-      break
-    }
-  }
+  return block.phases.length > 0 && ctx.executePhases.length === 0
 }
 
 // Post-run: record outputs, check postcondition, emit results
@@ -235,7 +218,7 @@ async function applyResult(
       `Block ${blockName} must attribute outputs to individual phases`,
     )
   }
-  const singlePhase = block.phases.at(0)
+  const singlePhase = ctx.executePhases?.at(0) ?? block.phases.at(0)
   const outputs =
     result.phaseOutputs ??
     (result.output && singlePhase
@@ -254,7 +237,7 @@ async function applyResult(
   const reported = new Set<string>()
   for (const entry of outputs) {
     if (
-      !block.phases.some((phase) => phase === entry.phaseResult.phase) ||
+      !(ctx.executePhases ?? block.phases).some((phase) => phase === entry.phaseResult.phase) ||
       reported.has(entry.phaseResult.phase)
     ) {
       throw new Error(
@@ -305,14 +288,15 @@ async function applyResult(
 }
 
 function pushSkippedResults(
-  block: Block,
+  phases: readonly EnrichPhaseName[],
   ctx: BlockContext,
   hooks: RunBlocksHooks,
 ): void {
-  for (const phase of block.phases) {
+  for (const phase of phases) {
     hooks.onPhaseResult?.(ctx, phase, {
       phase,
       status: 'skipped',
+      detail: 'phase output already satisfied',
       changedFields: [],
       durationMs: 0,
     })

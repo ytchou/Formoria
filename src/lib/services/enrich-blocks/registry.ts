@@ -10,6 +10,7 @@
 import type { BlockName, EnrichPhaseName } from '@/lib/constants/enrich-phases'
 import type { PhaseResult } from '@/lib/types/curation'
 import type { PhaseOutput } from './phase-outputs'
+import type { TargetPlan } from './plan'
 
 // ---------------------------------------------------------------------------
 // Core types
@@ -32,12 +33,15 @@ export type BlockContext = {
   brandId: string
   targetId: string
   targetType: string
+  plan?: TargetPlan
+  executePhases?: EnrichPhaseName[]
   /** Shared mutable state for this target across all blocks. */
   state: Record<string, unknown>
 }
 
 type BlockConditions = {
   phases: readonly EnrichPhaseName[]
+  requiredBy?: readonly EnrichPhaseName[]
   precondition?: (ctx: BlockContext) => boolean | Promise<boolean>
   postcondition?: (
     ctx: BlockContext,

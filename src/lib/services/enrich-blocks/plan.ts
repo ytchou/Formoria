@@ -124,6 +124,7 @@ function legacyRetry(value: unknown): RetryParams {
   const retry = object(value);
   if (
     !(BLOCK_ORDER as readonly unknown[]).includes(retry.block) ||
+    retry.block === "gather" || retry.block === "persist" ||
     (retry.mode !== "only" && retry.mode !== "with_upstream") ||
     (retry.subPhase !== undefined &&
       (retry.block !== "editorial" ||
@@ -135,6 +136,11 @@ function legacyRetry(value: unknown): RetryParams {
     throw new Error("Invalid recovery retry: no executable phases");
   }
   return selected;
+}
+
+export function parseRecoveryRetry(value: unknown): RecoveryPlan | RetryParams {
+  const retry = object(value);
+  return Object.hasOwn(retry, "version") ? validateRecoveryPlan(retry) : legacyRetry(retry);
 }
 
 export function validateRecoveryPlan(value: unknown): RecoveryPlan {
@@ -181,9 +187,9 @@ export function readTargetPlan(
 ): TargetPlan {
   const params = paramsValue == null ? {} : object(paramsValue);
   if (Object.hasOwn(params, "retry")) {
-    const retry = object(params.retry);
-    if (Object.hasOwn(retry, "version")) {
-      const plan = validateRecoveryPlan(retry);
+    const retry = parseRecoveryRetry(params.retry);
+    if ("version" in retry) {
+      const plan = retry;
       const target = Object.hasOwn(plan.targets, targetId)
         ? plan.targets[targetId]
         : undefined;
@@ -191,12 +197,12 @@ export function readTargetPlan(
         throw new Error(`Recovery plan is missing target ${targetId}`);
       return target;
     }
-    const selected = forcePhasesForRetry(legacyRetry(retry));
+    const selected = forcePhasesForRetry(retry);
     return { selected, forced: [...selected], explicit: [...selected] };
   }
   let selected: EnrichPhaseName[];
   let explicit: EnrichPhaseName[] = [];
-  if (Object.hasOwn(params, "phases")) {
+  if (params.phases !== undefined) {
     if (
       !Array.isArray(params.phases) ||
       params.phases.some((p) => typeof p !== "string")

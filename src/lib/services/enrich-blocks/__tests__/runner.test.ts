@@ -32,7 +32,7 @@ function fakeBlock(
   const defaultRun: BrandBlock['run'] = async (ctx) => {
     calls.push({ block: name, brandId: ctx.brandId })
     return {
-      phaseOutputs: phases.map((phase) => ({
+      phaseOutputs: (ctx.executePhases ?? phases).map((phase) => ({
         phaseResult: {
           phase,
           status: 'succeeded' as const,
@@ -61,7 +61,7 @@ function fakeBlock(
           contexts.map((ctx) => [
             ctx.targetId,
             {
-              phaseOutputs: phases.map((phase) => ({
+              phaseOutputs: (ctx.executePhases ?? phases).map((phase) => ({
                 phaseResult: {
                   phase,
                   status: 'succeeded' as const,
@@ -86,6 +86,7 @@ function fakeStore(
   return {
     upserted,
     reader: {
+      forTargets: readerOverrides?.forTargets ?? (async (targets) => (await Promise.all(targets.map((target) => readerOverrides?.latestPerPhase?.(target) ?? []))).flat()),
       latestPerPhase:
         readerOverrides?.latestPerPhase ?? vi.fn().mockResolvedValue([]),
       unpersisted:
@@ -97,7 +98,6 @@ function fakeStore(
         .mockImplementation(async (rows: Record<string, unknown>[]) => {
           upserted.push(...rows)
         }),
-      markPersisted: vi.fn().mockResolvedValue(undefined),
     },
   }
 }
@@ -159,6 +159,20 @@ function buildTestRegistry(
 // ---------------------------------------------------------------------------
 
 describe('runBlocks', () => {
+  // Catches a job-wide phase union escaping either target's authorized scope.
+  it('executes independent scopes for two targets in the same job', async () => {
+    const store = fakeStore()
+    const faq = makeCtx('林木工坊')
+    faq.plan = { selected: ['faq'], forced: ['faq'], explicit: ['faq'] }
+    const products = makeCtx('María García')
+    products.plan = { selected: ['products'], forced: ['products'], explicit: [] }
+    await runBlocks({ chunk: [faq, products], registry: buildTestRegistry([]),
+      order: BLOCK_ORDER, concurrency: 2, ...emptyMaps(), store, hooks: {}, jobId: 'mixed-recovery' })
+    expect(store.upserted.map((row) => [row.target_id, row.phase])).toEqual([
+      ['target-林木工坊', 'faq'], ['target-María García', 'products'],
+    ])
+  })
+
   // Catches a FAQ result marking unexecuted editorial siblings successful.
   it('checkpoints only the phases a block actually produced', async () => {
     const store = fakeStore()
@@ -430,7 +444,7 @@ describe('runBlocks', () => {
 
     // Brand 'a' has acquire already satisfied
     const satisfaction = new Map<string, Map<string, Date>>()
-    satisfaction.set('target-a', new Map([['acquire', new Date()]]))
+    satisfaction.set('target-a', new Map([['detect', new Date(0)], ['acquire', new Date()]]))
 
     const carryData = { key: 'hydrated' }
     const store = fakeStore({
@@ -505,8 +519,8 @@ describe('runBlocks', () => {
 
     // Both brands have acquire satisfied
     const satisfaction = new Map<string, Map<string, Date>>()
-    satisfaction.set('target-a', new Map([['acquire', new Date()]]))
-    satisfaction.set('target-b', new Map([['acquire', new Date()]]))
+    satisfaction.set('target-a', new Map([['detect', new Date(0)], ['acquire', new Date()]]))
+    satisfaction.set('target-b', new Map([['detect', new Date(0)], ['acquire', new Date()]]))
 
     // Force acquire for brand 'a' only
     const force = new Map<string, Set<string>>()

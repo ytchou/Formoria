@@ -4,7 +4,6 @@ import {
   toAcquireCarry,
   latestPhaseOutputs,
   listUnpersistedOutputs,
-  markPersisted,
   type PhaseOutputStore,
   type PhaseOutputRow,
 } from '../phase-outputs'
@@ -183,6 +182,20 @@ describe('acquire_carry_holds_triples_not_evidence', () => {
 // ---------------------------------------------------------------------------
 
 describe('latest_per_phase_picks_newest_succeeded_row_across_jobs', () => {
+  // Catches historical success rows without saved output suppressing necessary work.
+  it('ignores successful history that has no usable checkpoint payload', async () => {
+    const row: PhaseOutputRow = {
+      id: 'checkpoint-maria', job_id: 'curation-maria', target_id: 'submission-maria',
+      target_type: 'submission', phase: 'faq', status: 'succeeded', output: null,
+      persisted_at: null, created_at: '2026-09-16T00:00:00Z',
+    }
+    const store: PhaseOutputStore = {
+      reader: { forTargets: async () => [row], latestPerPhase: async () => [row], unpersisted: async () => [] },
+      writer: { upsert: async () => {} },
+    }
+    expect(await latestPhaseOutputs(store, { type: 'submission', id: row.target_id })).toEqual(new Map())
+  })
+
   it('picks the newest succeeded row per phase across jobs', async () => {
     // Rows are ordered newest-first, matching the Supabase query contract.
     const rows: PhaseOutputRow[] = [
@@ -234,12 +247,12 @@ describe('latest_per_phase_picks_newest_succeeded_row_across_jobs', () => {
 
     const store: PhaseOutputStore = {
       reader: {
+        forTargets: async () => [],
         latestPerPhase: async () => rows,
         unpersisted: async () => [],
       },
       writer: {
         upsert: vi.fn(),
-        markPersisted: vi.fn(),
       },
     }
 
@@ -275,40 +288,16 @@ describe('unpersisted_rows_exclude_dry_run_jobs', () => {
 
     const store: PhaseOutputStore = {
       reader: {
+        forTargets: async () => [],
         latestPerPhase: vi.fn(),
         unpersisted: async () => nonDryRunRows,
       },
       writer: {
         upsert: vi.fn(),
-        markPersisted: vi.fn(),
       },
     }
 
     const result = await listUnpersistedOutputs(store, { type: 'brand', id: 'brand-1' })
     expect(result).toEqual(nonDryRunRows)
-  })
-})
-
-// ---------------------------------------------------------------------------
-// markPersisted
-// ---------------------------------------------------------------------------
-
-describe('mark_persisted_stamps_only_given_ids', () => {
-  it('the writer receives exactly the ids passed', async () => {
-    const mockMarkPersisted = vi.fn()
-    const store: PhaseOutputStore = {
-      reader: {
-        latestPerPhase: vi.fn(),
-        unpersisted: vi.fn(),
-      },
-      writer: {
-        upsert: vi.fn(),
-        markPersisted: mockMarkPersisted,
-      },
-    }
-
-    await markPersisted(store, ['id-1', 'id-3', 'id-5'])
-    expect(mockMarkPersisted).toHaveBeenCalledTimes(1)
-    expect(mockMarkPersisted).toHaveBeenCalledWith(['id-1', 'id-3', 'id-5'])
   })
 })
