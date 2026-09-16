@@ -795,6 +795,25 @@ describe("searchProductsBySituation — intent parse", () => {
 });
 
 // ---------------------------------------------------------------------------
+// searchId
+// ---------------------------------------------------------------------------
+
+describe("searchProductsBySituation — searchId", () => {
+  it("returns a searchId matching UUID pattern", async () => {
+    const deps = createDeps({
+      rpc: vi.fn().mockResolvedValue({ data: [], error: null }),
+    });
+
+    const result = await searchProductsBySituation(
+      { query: "送禮推薦", locale: "zh-TW" },
+      deps,
+    );
+
+    expect(result.searchId).toMatch(/^[0-9a-f]{8}-/);
+  });
+});
+
+// ---------------------------------------------------------------------------
 // 5. findSimilarProductsForTrail
 // ---------------------------------------------------------------------------
 
