@@ -64,10 +64,10 @@ export function createRetrievalAdapter(deps: RetrievalAdapterDeps): PhaseAdapter
       arm: ExperimentArm,
       _ctx: { itemRunId: string; model?: string },
     ) => {
-      const input = item.input as { query: string }
+      const input = item.input as { query: string; locale: 'zh-TW' | 'en' }
       const result = await deps.search({
         query: input.query,
-        locale: 'zh-TW',
+        locale: input.locale,
         mode: arm.value as SearchMode,
         pageSize: 100,
       })

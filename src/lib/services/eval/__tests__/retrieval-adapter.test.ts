@@ -16,7 +16,7 @@ function makeDeps(overrides: Partial<RetrievalAdapterDeps> = {}): RetrievalAdapt
 function makeItem(overrides: Partial<ExperimentItem> = {}): ExperimentItem {
   return {
     id: 'q-1',
-    input: { query: '送禮推薦' },
+    input: { query: '送禮推薦', locale: 'zh-TW' },
     expectedOutput: [
       { key: 'product-a', grade: 3 },
       { key: 'product-b', grade: 2 },
@@ -58,6 +58,24 @@ describe('createRetrievalAdapter', () => {
     })
     expect(result.ok).toBe(true)
     expect(result.output).toEqual(['product-a', 'product-b'])
+  })
+
+  it('uses the evaluation item locale for English retrieval', async () => {
+    const searchMock = vi.fn().mockResolvedValue({ products: [] })
+    const adapter = createRetrievalAdapter({ search: searchMock })
+
+    await adapter.task!(
+      makeItem({ input: { query: 'a gift for a tea lover', locale: 'en' } }),
+      makeArm({ value: 'vector' }),
+      { itemRunId: 'run-en' },
+    )
+
+    expect(searchMock).toHaveBeenCalledWith({
+      query: 'a gift for a tea lover',
+      locale: 'en',
+      mode: 'vector',
+      pageSize: 100,
+    })
   })
 
   it('expectedOf returns graded items', () => {

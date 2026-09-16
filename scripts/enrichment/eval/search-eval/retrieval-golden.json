@@ -2,6 +2,7 @@
   {
     "id": "tea-gift-for-friend",
     "query": "送給喜歡泡茶的朋友",
+    "locale": "zh-TW",
     "expected": [
       { "brandSlug": "goodglas", "productKey": "chang-yu-shuang-jen-hsiang-po-li-hu-pei-tsu" },
       { "brandSlug": "hmm", "productKey": "mugr-tao-tzu-pei" }
@@ -10,6 +11,7 @@
   {
     "id": "natural-skincare-sensitive",
     "query": "敏感肌膚適合的天然保養品",
+    "locale": "zh-TW",
     "category": "beauty",
     "expected": [
       { "brandSlug": "xiadisha", "productKey": "wai-mi-ti-fu-huo-jou-min-shuang" },
@@ -19,6 +21,7 @@
   {
     "id": "housewarming-candle",
     "query": "朋友搬新家想送香氛蠟燭",
+    "locale": "zh-TW",
     "category": "home",
     "expected": [
       { "brandSlug": "miher", "productKey": "shou-kung-shui-ni-pen-hsiang-fen-la-chu" },
@@ -28,11 +31,13 @@
   {
     "id": "chaze-tea-scoop",
     "query": "想找一支好看的茶則",
+    "locale": "zh-TW",
     "expected": []
   },
   {
     "id": "woodfired-ceramics",
     "query": "柴燒陶杯送給喜歡喝咖啡的人",
+    "locale": "zh-TW",
     "expected": [
       { "brandSlug": "hmm", "productKey": "mugr-tao-tzu-pei" },
       { "brandSlug": "hmm", "productKey": "patio-tao-tzu-lu-pei" }
@@ -41,7 +46,8 @@
   {
     "id": "indigo-dye-bag",
     "query": "藍染的手作包包",
-    "category": "bags",
+    "locale": "zh-TW",
+    "category": "bags-accessories",
     "expected": [
       { "brandSlug": "mogu", "productKey": "lan-jan-to-te-pao" }
     ]
@@ -49,6 +55,7 @@
   {
     "id": "hinoki-home-decor",
     "query": "檜木做的居家小物",
+    "locale": "zh-TW",
     "category": "home",
     "expected": [
       { "brandSlug": "feelgood-toothbrush", "productKey": "chu-lei-tiao-kuo-hsiang-pien" },
@@ -58,6 +65,7 @@
   {
     "id": "minimal-leather-wallet",
     "query": "極簡風格的皮革短夾",
+    "locale": "zh-TW",
     "category": "fashion",
     "expected": [
       { "brandSlug": "reneeworks", "productKey": "u-hsing-la-lien-tuan-chia-rn004" },
@@ -67,6 +75,7 @@
   {
     "id": "wedding-gold-jewelry",
     "query": "結婚週年紀念送太太的金飾",
+    "locale": "zh-TW",
     "category": "jewelry",
     "expected": [
       { "brandSlug": "febbi", "productKey": "ching-tien-chen-chu-tien-o-erh-huan" },
@@ -76,6 +85,7 @@
   {
     "id": "fountain-pen-daily",
     "query": "適合日常書寫的鋼筆",
+    "locale": "zh-TW",
     "category": "stationery",
     "expected": [
       { "brandSlug": "wenwenworks", "productKey": "ti-she-chin-erh-ho-yi-kang-pi-kang-chu-pi-li-ho" },
@@ -85,6 +95,7 @@
   {
     "id": "summer-sun-protection",
     "query": "夏天戶外活動用的防曬",
+    "locale": "zh-TW",
     "category": "beauty",
     "expected": [
       { "brandSlug": "purifycare", "productKey": "eco-in-sheng-tai-yu-shan-fang-shai-ju" },
@@ -94,6 +105,7 @@
   {
     "id": "birthday-earrings",
     "query": "送女朋友生日禮物想找耳環",
+    "locale": "zh-TW",
     "category": "jewelry",
     "expected": [
       { "brandSlug": "febbi", "productKey": "hsiu-chiu-hua-chui-chui-erh-huan" },
@@ -103,13 +115,15 @@
   {
     "id": "linen-home-textile",
     "query": "亞麻材質的居家布品",
+    "locale": "zh-TW",
     "category": "home",
     "expected": []
   },
   {
     "id": "laptop-canvas-bag",
     "query": "放得下筆電的帆布包",
-    "category": "bags",
+    "locale": "zh-TW",
+    "category": "bags-accessories",
     "expected": [
       { "brandSlug": "dydash", "productKey": "14-tsun-mi-ko-pao" },
       { "brandSlug": "dydash", "productKey": "16-tsun-mi-ko-pao" },
@@ -119,6 +133,7 @@
   {
     "id": "botanical-fragrance",
     "query": "想找植物調的香水",
+    "locale": "zh-TW",
     "category": "beauty",
     "expected": [
       { "brandSlug": "yuyu", "productKey": "pao-wu-lin-chien-shan-yun-tan-hsiang-ching" },
@@ -128,6 +143,7 @@
   {
     "id": "ceramic-incense-holder",
     "query": "陶瓷的線香座",
+    "locale": "zh-TW",
     "category": "home",
     "expected": [
       { "brandSlug": "laoshan-collector", "productKey": "tao-tu-hsien-hsiang-tso-leaf-01" },
@@ -137,6 +153,7 @@
   {
     "id": "travel-notebook-set",
     "query": "旅行用的手帳組合",
+    "locale": "zh-TW",
     "category": "stationery",
     "expected": [
       { "brandSlug": "mr-eggplants", "productKey": "summer-breeze-chi-ssu-shou-chang" }
@@ -145,6 +162,7 @@
   {
     "id": "handmade-silver-ring",
     "query": "手工純銀戒指",
+    "locale": "zh-TW",
     "category": "jewelry",
     "expected": [
       { "brandSlug": "shiye", "productKey": "kuang-mang-chun-yin-chieh-chih" },
@@ -154,6 +172,7 @@
   {
     "id": "kids-birthday-gift",
     "query": "小朋友的生日禮物",
+    "locale": "zh-TW",
     "expected": [
       { "brandSlug": "simply-made", "productKey": "sheng-li-fei-yen-1-hao-pien-hsing-mu-chih-chi-mu-ium-11" },
       { "brandSlug": "hakkei", "productKey": "ping-chi-lin-chiu-pu-ou-hfmic26-0722" }
@@ -162,10 +181,119 @@
   {
     "id": "office-desk-organizer",
     "query": "辦公桌上的收納小物",
+    "locale": "zh-TW",
     "category": "stationery",
     "expected": [
       { "brandSlug": "i-eat-acrylic", "productKey": "ya-ko-li-cho-shang-san-tseng-tou-ming-wen-chu-chia-shou-na-chia" },
       { "brandSlug": "hmm", "productKey": "rule-one-to-kung-neng-pi-chih" }
+    ]
+  },
+  {
+    "id": "en-leather-phone-strap",
+    "query": "leather phone strap for traveling",
+    "locale": "en",
+    "category": "bags-accessories",
+    "expected": [
+      { "brandSlug": "journey-of-sole", "productKey": "pi-ko-shou-chi-kua-sheng" }
+    ]
+  },
+  {
+    "id": "en-peelable-nail-polish",
+    "query": "water-based peelable nail polish",
+    "locale": "en",
+    "category": "beauty",
+    "expected": [
+      { "brandSlug": "petit-petit", "productKey": "wei-tien-nai-huang-shui-hsing-chih-chia-yu-0609" }
+    ]
+  },
+  {
+    "id": "en-indigo-summer-top",
+    "query": "breathable indigo-dyed summer top",
+    "locale": "en",
+    "category": "fashion",
+    "expected": [
+      { "brandSlug": "mogu", "productKey": "lan-jan-chiao-cha-shang-yi" }
+    ]
+  },
+  {
+    "id": "en-muscle-recovery",
+    "query": "post-workout muscle recovery",
+    "locale": "en",
+    "category": "fitness",
+    "expected": [
+      { "brandSlug": "lisscode", "productKey": "an-mo-chiang-gymtube" }
+    ]
+  },
+  {
+    "id": "en-astaxanthin-lutein",
+    "query": "astaxanthin with lutein",
+    "locale": "en",
+    "category": "food-drink",
+    "expected": [
+      { "brandSlug": "lemnaasta", "productKey": "hsia-hung-su-shuang-yu-li-juan-chiao-nang" }
+    ]
+  },
+  {
+    "id": "en-sand-cooling-bedding",
+    "query": "sand-colored cooling bedding",
+    "locale": "en",
+    "category": "home",
+    "expected": [
+      { "brandSlug": "haokuanxi", "productKey": "fang-sung-sha-tsung-tien-ssu-chuang-pao-pei-tao-chen-tao-tsu" }
+    ]
+  },
+  {
+    "id": "en-pink-sapphire-ring",
+    "query": "pink sapphire anniversary ring",
+    "locale": "en",
+    "category": "jewelry",
+    "expected": [
+      { "brandSlug": "petit-madam", "productKey": "fen-hung-lan-pao-shih-kuang-huan-chieh" }
+    ]
+  },
+  {
+    "id": "en-transforming-airplane-puzzle",
+    "query": "wooden transforming airplane puzzle",
+    "locale": "en",
+    "category": "kids",
+    "expected": [
+      { "brandSlug": "simply-made", "productKey": "sheng-li-fei-yen-1-hao-pien-hsing-mu-chih-chi-mu-ium-11" }
+    ]
+  },
+  {
+    "id": "en-biodegradable-bb-pellets",
+    "query": "biodegradable BB pellets",
+    "locale": "en",
+    "category": "outdoor",
+    "expected": [
+      { "brandSlug": "sh-taiwan", "productKey": "sheng-wu-ko-fen-chieh-bb-tan" }
+    ]
+  },
+  {
+    "id": "en-taiwan-catnip-toy",
+    "query": "Taiwan-inspired catnip toy",
+    "locale": "en",
+    "category": "pets",
+    "expected": [
+      { "brandSlug": "littdlework", "productKey": "tai-wan-miao-tsai-mao-tsao-wa-wa-ash9jvhd" }
+    ]
+  },
+  {
+    "id": "en-glossy-pet-tape",
+    "query": "glossy PET journaling tape",
+    "locale": "en",
+    "category": "stationery",
+    "expected": [
+      { "brandSlug": "b-610-asteroid-b-610", "productKey": "man-pu-jih-ho-liang-mien-pet-chiao-tai" }
+    ]
+  },
+  {
+    "id": "en-nfc-fridge-magnet",
+    "query": "NFC wooden fridge magnet",
+    "locale": "en",
+    "category": "tech",
+    "expected": [
+      { "brandSlug": "singezih", "productKey": "nfc-kan-ying-mu-chih-ping-hsiang-tieh" }
     ]
   }
 ]
