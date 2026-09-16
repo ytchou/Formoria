@@ -284,6 +284,7 @@ export function bootstrapCI(
 ): { lo: number; hi: number; mean: number } {
   if (values.length === 0) return { lo: 0, hi: 0, mean: 0 }
   const m = mean(values)
+  if (nBoot < 2) return { lo: m, hi: m, mean: m }
   const means = Array.from({ length: nBoot }, () => {
     let sum = 0
     for (let i = 0; i < values.length; i++) {

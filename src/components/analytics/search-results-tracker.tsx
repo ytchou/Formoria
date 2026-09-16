@@ -120,7 +120,7 @@ export function SearchResultsTracker({ query, resultCount, trackerKind = 'brand'
       if (resultCount === 0 && trackerKind !== 'product') {
         trackSearchNoResults(trimmed)
       }
-      if (searchId && productKeys) {
+      if (trackerKind === 'product' && searchId && productKeys) {
         trackProductSearchResultsViewed({
           searchId,
           productKeys,
