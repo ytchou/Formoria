@@ -44,13 +44,13 @@ const imgSrcHosts = ALLOWED_IMAGE_HOSTS.map(
   (hostname) => `https://${hostname}`,
 ).join(" ");
 /*
- * SIGNED submission URLs only (DEV-1551). `ALLOWED_IMAGE_HOSTS` is empty since
- * the `brand-images` bucket went private and every published image is served
- * from `/i/` on this origin — but admin review still renders pre-moderation
- * imagery from a short-lived signed Supabase URL in a plain `<img>`, and CSP
- * would block it without this. It is deliberately NOT in `ALLOWED_IMAGE_HOSTS`:
- * that list governs `safeImageSrc` and `next/image`, and re-adding it there
- * would let a public page hotlink the storage host again.
+ * SIGNED submission URLs (DEV-1551), and any Supabase project host CSP must
+ * still admit when `NEXT_PUBLIC_SUPABASE_URL` is unset at build time. Admin
+ * review renders pre-moderation imagery from a short-lived signed Supabase URL
+ * in a plain `<img>`, and CSP would block it without this. It stays a wildcard
+ * here and stays OUT of `ALLOWED_IMAGE_HOSTS`, which is host-exact: that list
+ * governs `safeImageSrc` and `next/image`, where a wildcard would let a public
+ * page hotlink any project's storage host.
  */
 const signedStorageImgSrcHosts = "https://*.supabase.co";
 const mapTileImgSrcHosts = "https://*.tile.openstreetmap.org";
@@ -89,11 +89,15 @@ const nextConfig: NextConfig = {
   },
   images: {
     /*
-     * EMPTY since DEV-1551 task 11. `ALLOWED_IMAGE_HOSTS` has no entries: the
-     * `brand-images` bucket is private and every image we own is served from
-     * `/i/` on this origin, which `next/image` optimises without a remote
-     * pattern. Kept as a map over the constant rather than a literal `[]` so
-     * the two lists cannot drift apart.
+     * The configured Supabase project's storage host, since DEV-1744 task 3:
+     * the `brand-images` bucket is public again and published images
+     * (`brands/`, `curated-products/`, `event-exhibitors/`) are addressed by
+     * their public storage URL, so the optimizer needs a remote pattern for
+     * them. `submissions/` still comes from `/i/` on this origin, which
+     * `next/image` optimises without one.
+     *
+     * A map over `ALLOWED_IMAGE_HOSTS`, never a literal, so this list and the
+     * one `safeImageSrc` enforces cannot drift apart.
      */
     remotePatterns: ALLOWED_IMAGE_HOSTS.map((hostname) => ({
       protocol: "https" as const,

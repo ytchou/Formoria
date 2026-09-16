@@ -6,16 +6,52 @@ import {
 } from '@/lib/images/image-url'
 
 const SITE_URL = 'https://formoria.test'
+const SUPABASE_URL = 'https://xkcayngbttpxyibgzern.supabase.co'
+const PUBLIC_PREFIX = `${SUPABASE_URL}/storage/v1/object/public/brand-images/`
 
 describe('imagePathToUrl', () => {
-  it('builds a relative /i/ path', () => {
+  beforeEach(() => {
+    vi.stubEnv('NEXT_PUBLIC_SUPABASE_URL', SUPABASE_URL)
+  })
+
+  afterEach(() => {
+    vi.unstubAllEnvs()
+  })
+
+  it('returns a public storage URL for a brands/ key', () => {
     expect(
       imagePathToUrl('brands/11111111-2222-3333-4444-555555555555/x.webp'),
-    ).toBe('/i/brands/11111111-2222-3333-4444-555555555555/x.webp')
+    ).toBe(`${PUBLIC_PREFIX}brands/11111111-2222-3333-4444-555555555555/x.webp`)
+  })
+
+  it('returns a public storage URL for curated-products/ and event-exhibitors/ keys', () => {
+    expect(imagePathToUrl('curated-products/a/b/c.webp')).toBe(
+      `${PUBLIC_PREFIX}curated-products/a/b/c.webp`,
+    )
+    expect(imagePathToUrl('event-exhibitors/2026-expo/booth-a1.webp')).toBe(
+      `${PUBLIC_PREFIX}event-exhibitors/2026-expo/booth-a1.webp`,
+    )
+  })
+
+  it('still returns an /i/ URL for a submissions/ key', () => {
+    // Pre-moderation content stays behind the proxy's deny-list even with a
+    // public bucket: this is the one prefix the flip must not expose.
+    expect(imagePathToUrl('submissions/abc/x.webp')).toBe(
+      '/i/submissions/abc/x.webp',
+    )
+  })
+
+  it('falls back to the /i/ path when the project URL is unset', () => {
+    // A blank origin would build `/storage/v1/object/public/...`, a same-origin
+    // path that 404s while looking plausible in a snapshot.
+    vi.stubEnv('NEXT_PUBLIC_SUPABASE_URL', '')
+    expect(imagePathToUrl('brands/a/x.webp')).toBe('/i/brands/a/x.webp')
   })
 
   it('trims surrounding whitespace', () => {
-    expect(imagePathToUrl('  brands/a/x.webp  ')).toBe('/i/brands/a/x.webp')
+    expect(imagePathToUrl('  brands/a/x.webp  ')).toBe(
+      `${PUBLIC_PREFIX}brands/a/x.webp`,
+    )
   })
 
   it('returns null for a blank path', () => {
@@ -43,8 +79,11 @@ describe('absoluteImageUrl', () => {
   })
 
   it('prefixes the site URL', () => {
-    expect(absoluteImageUrl(imagePathToUrl('brands/a/x.webp'))).toBe(
-      `${SITE_URL}/i/brands/a/x.webp`,
+    // A `submissions/` key, because that is the prefix `imagePathToUrl` still
+    // renders as a relative proxy path after the DEV-1744 bucket flip — a
+    // `brands/` key now comes back already absolute.
+    expect(absoluteImageUrl(imagePathToUrl('submissions/a/x.webp'))).toBe(
+      `${SITE_URL}/i/submissions/a/x.webp`,
     )
   })
 
@@ -80,9 +119,6 @@ describe('absoluteImageUrl', () => {
 })
 
 describe('storagePathFromImageUrl', () => {
-  const SUPABASE_URL = 'https://xkcayngbttpxyibgzern.supabase.co'
-  const PUBLIC_PREFIX = `${SUPABASE_URL}/storage/v1/object/public/brand-images/`
-
   beforeEach(() => {
     vi.stubEnv('NEXT_PUBLIC_SUPABASE_URL', SUPABASE_URL)
   })

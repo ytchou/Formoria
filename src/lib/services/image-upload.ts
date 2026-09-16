@@ -6,7 +6,10 @@ import {
   storageKeyFromBrandImagesPublicUrl,
   storagePathFromImageUrl,
 } from '@/lib/images/image-url'
-import { BRAND_IMAGES_KEY_PREFIX } from '@/lib/images/storage-keys'
+import {
+  BRAND_IMAGES_KEY_PREFIX,
+  CURATED_PRODUCT_IMAGES_KEY_PREFIX,
+} from '@/lib/images/storage-keys'
 
 /**
  * Public upload route allowlist. A private bucket belongs here ONLY if a signed-in
@@ -25,8 +28,10 @@ const BRAND_IMAGES_BUCKET = ALLOWED_UPLOAD_BUCKETS[0]
 const BRAND_IMAGES_PUBLIC_SEGMENT = BRAND_IMAGES_PUBLIC_URL_SEGMENT
 const SUBMISSION_IMAGES_KEY_PREFIX = 'submissions/'
 // Curated product images (DEV-1404): `curated-products/<brand>/<product>/<hash>.webp`
-// in the same `brand-images` bucket.
-export const CURATED_PRODUCT_IMAGES_KEY_PREFIX = 'curated-products/'
+// in the same `brand-images` bucket. Defined in `lib/images/storage-keys.ts`
+// since DEV-1744 (the URL builder needs it too) and re-exported here so the
+// existing importers keep their import path.
+export { CURATED_PRODUCT_IMAGES_KEY_PREFIX }
 const DELETABLE_IMAGE_KEY_PREFIXES = [BRAND_IMAGES_KEY_PREFIX] as const
 
 interface UploadImageInput {

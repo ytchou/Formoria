@@ -1,13 +1,15 @@
 import { getSiteUrl } from '@/lib/site-url'
-import { isBrandOwnedStoragePath } from './storage-keys'
+import { isBrandOwnedStoragePath, isPublicStorageKey } from './storage-keys'
 
 /**
- * Bucket key -> renderable URL (DEV-1551, task 9).
+ * Bucket key -> renderable URL (DEV-1551, task 9; DEV-1744, task 3).
  *
- * Every image we own is addressed by its bucket-relative `storage_path` and
- * served through the same-origin `/i/` proxy (`src/lib/images/image-proxy.ts`).
- * The storage host never appears in a page, so the `brand-images` bucket can be
- * private.
+ * Every image we own is addressed by its bucket-relative `storage_path`.
+ * Published imagery (`brands/`, `curated-products/`, `event-exhibitors/`) is
+ * addressed by its Supabase public storage URL, so those bytes never cross the
+ * Railway origin — the egress this ticket exists to remove. Everything else,
+ * `submissions/` above all, still goes through the same-origin `/i/` proxy
+ * (`src/lib/images/image-proxy.ts`), which serves it with the service-role key.
  *
  * RELATIVE IS THE DEFAULT. A relative `src` is what the browser, `next/image`
  * and `metadataBase` all want, and it survives a domain change. Only the
@@ -17,8 +19,32 @@ import { isBrandOwnedStoragePath } from './storage-keys'
 
 export const IMAGE_PROXY_PATH_PREFIX = '/i/'
 
+const BRAND_IMAGES_BUCKET = 'brand-images'
+
 /**
- * `brands/<uuid>/x.webp` -> `/i/brands/<uuid>/x.webp`.
+ * The public-object segment of a Supabase storage URL for the `brand-images`
+ * bucket: `<project>/storage/v1/object/public/brand-images/<key>`.
+ *
+ * It lives here, in `lib/images`, because this is the ONE seam that turns a
+ * bucket key into a public storage URL and back. `lib/services/image-upload.ts`
+ * imports it rather than the reverse — services already depend on this module
+ * (`storagePathFromImageUrl`), and the dependency only runs that way.
+ */
+export const BRAND_IMAGES_PUBLIC_URL_SEGMENT = `/storage/v1/object/public/${BRAND_IMAGES_BUCKET}/`
+
+/**
+ * `brands/<uuid>/x.webp` -> `<project>/storage/v1/object/public/brand-images/brands/<uuid>/x.webp`,
+ * `submissions/<id>/x.webp` -> `/i/submissions/<id>/x.webp`.
+ *
+ * The branch is DEV-1744's whole fix: a published image is fetched straight
+ * from Supabase's storage CDN, and only the prefixes that must stay behind a
+ * server-side gate keep paying Railway egress. `PUBLIC_IMAGE_KEY_PREFIXES` is
+ * an allow-list on purpose — an unclassified prefix falls through to `/i/`,
+ * which is the expensive answer but never the leaking one.
+ *
+ * It falls back to `/i/` when `NEXT_PUBLIC_SUPABASE_URL` is unset too: a blank
+ * origin would yield a same-origin `/storage/v1/...` path that 404s while
+ * looking plausible in a snapshot.
  *
  * Returns null for a blank path and for anything that already looks like a URL
  * or an absolute path: those are not bucket keys, and prefixing one would
@@ -30,6 +56,14 @@ export function imagePathToUrl(
   const key = storagePath?.trim()
   if (!key) return null
   if (key.startsWith('/') || key.includes('://')) return null
+
+  if (isPublicStorageKey(key)) {
+    const projectUrl = process.env.NEXT_PUBLIC_SUPABASE_URL?.trim()
+    if (projectUrl) {
+      return `${projectUrl}${BRAND_IMAGES_PUBLIC_URL_SEGMENT}${key}`
+    }
+  }
+
   return `${IMAGE_PROXY_PATH_PREFIX}${key}`
 }
 
@@ -53,19 +87,6 @@ export function absoluteImageUrl(url: string | null | undefined): string | null 
   if (URI_SCHEME_PATTERN.test(value) || value.startsWith('//')) return value
   return `${getSiteUrl()}${value.startsWith('/') ? value : `/${value}`}`
 }
-
-const BRAND_IMAGES_BUCKET = 'brand-images'
-
-/**
- * The public-object segment of a Supabase storage URL for the `brand-images`
- * bucket: `<project>/storage/v1/object/public/brand-images/<key>`.
- *
- * It lives here, in `lib/images`, because this is the ONE seam that turns a
- * public storage URL back into a bucket key. `lib/services/image-upload.ts`
- * imports it rather than the reverse — services already depend on this module
- * (`storagePathFromImageUrl`), and the dependency only runs that way.
- */
-export const BRAND_IMAGES_PUBLIC_URL_SEGMENT = `/storage/v1/object/public/${BRAND_IMAGES_BUCKET}/`
 
 /**
  * `<project>/storage/v1/object/public/brand-images/<key>` -> `<key>`, with NO

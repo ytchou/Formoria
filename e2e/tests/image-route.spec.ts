@@ -4,15 +4,19 @@ import { randomUUID } from "node:crypto";
 import { getServiceClient } from "../helpers/seed";
 import {
   e2eBrandImageKey,
+  e2ePublicImageUrl,
   e2eProxyImageUrl,
   e2eSubmissionImageKey,
 } from "../helpers/image-refs";
 
 /**
- * DEV-1551 task 18: the `/i/[...path]` image proxy contract.
+ * DEV-1551 task 18, amended by DEV-1744 task 3: the `/i/[...path]` image proxy
+ * contract.
  *
- * The `brand-images` bucket is private, so every public image is served by this
- * route with the service-role key. What the route must guarantee:
+ * Published imagery now comes straight from the public `brand-images` bucket,
+ * so this route is no longer on the hot path for it — but it is still the only
+ * server-side gate in front of everything the URL builder does NOT publish, and
+ * every guarantee below still has to hold. What the route must guarantee:
  *
  *   - a public prefix is served, with immutable caching
  *   - `submissions/` is refused, because that is pre-moderation content only an
@@ -101,6 +105,31 @@ test.describe("image proxy /i/", () => {
     const response = await request.get(e2eProxyImageUrl(key));
 
     expect(response.status()).toBe(404);
+  });
+
+  test("a submissions/-keyed object's public storage URL does not resolve", async ({
+    request,
+  }) => {
+    // DEV-1744's precondition, asserted at the bucket rather than at `/i/`.
+    // Once `brand-images` is public, the proxy's deny-list protects nothing on
+    // its own: anyone can address an object directly. Pre-moderation content
+    // must therefore not BE in the public bucket under a reachable key.
+    //
+    // NOTE for whoever applies the bucket-flip migration: `executePromotions`
+    // copies `submissions/<id>/x` to `brands/<id>/x` and deliberately leaves
+    // the source object in place, so a zero `submissions/` count in
+    // `brand_images` does NOT imply zero `submissions/` OBJECTS. This test is
+    // the thing that catches that gap — if it fails, the source objects need a
+    // cleanup pass (or their own private bucket) before the flip ships.
+    const key = e2eSubmissionImageKey(randomUUID(), `${randomUUID()}.webp`);
+    await seedObject(key);
+
+    const response = await request.get(e2ePublicImageUrl(key));
+
+    expect(
+      [400, 403, 404],
+      `public storage URL must not serve pre-moderation content (got ${response.status()})`,
+    ).toContain(response.status());
   });
 
   test("404s a traversal attempt out of a public prefix", async ({
