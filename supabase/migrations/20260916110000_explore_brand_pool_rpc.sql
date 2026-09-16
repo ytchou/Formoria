@@ -30,7 +30,10 @@ as $$
       b.category,
       row_number() over (
         partition by b.category
-        order by md5(b.id::text || seed)
+        -- coalesce: `||` propagates NULL, so a NULL seed would make md5() NULL
+        -- for every row and leave row_number() ordering planner-dependent. An
+        -- empty seed is still deterministic, just not rotated.
+        order by md5(b.id::text || coalesce(seed, ''))
       ) as rn
     from public.brands b
     where b.status = 'approved'
@@ -45,7 +48,10 @@ as $$
     ranked.slug as brand_slug,
     ranked.category
   from ranked
-  where ranked.rn <= per_category;
+  where ranked.rn <= per_category
+  -- Without this the selected rows come back in whatever order the plan
+  -- yields; the CTE only fixes *which* rows are chosen, not their order.
+  order by ranked.category, ranked.rn;
 $$;
 
 revoke all on function public.get_explore_brand_pool(text[], int, text)

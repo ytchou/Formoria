@@ -65,8 +65,12 @@ describe("get_explore_brand_pool migration contract", () => {
     const sql = migrationText();
     expect(sql).toContain("row_number() over (");
     expect(sql).toContain("partition by b.category");
-    expect(sql).toContain("order by md5(b.id::text || seed)");
+    expect(sql).toContain("order by md5(b.id::text || coalesce(seed, ''))");
     expect(sql).toContain("where ranked.rn <= per_category");
+  });
+
+  it("returns rows in a deterministic order, not the plan's order", () => {
+    expect(migrationText()).toContain("order by ranked.category, ranked.rn");
   });
 
   it("returns identifiers only — no brand content columns", () => {

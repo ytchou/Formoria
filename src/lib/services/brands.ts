@@ -1867,11 +1867,11 @@ export async function getSubcategorySummary(
 
 const BRANDS_PER_CATEGORY = 3;
 
-type ExploreBrandPoolRow = {
-  brand_id: string;
-  brand_slug: string;
-  category: string;
-};
+// Derived from the generated RPC signature rather than hand-written, so a
+// column rename in `get_explore_brand_pool` fails typecheck here instead of
+// being masked by a cast.
+type ExploreBrandPoolRow =
+  Database["public"]["Functions"]["get_explore_brand_pool"]["Returns"][number];
 
 type ExploreRpcParams = {
   categorySlugs: string[];
@@ -1901,7 +1901,7 @@ async function defaultExploreRpcCaller(
     seed: params.seed,
   });
   if (error) throw error;
-  return (data ?? []) as ExploreBrandPoolRow[];
+  return data ?? [];
 }
 
 /**
@@ -1955,9 +1955,9 @@ async function fetchExploreBrandPool(
   ]);
 
   // The rail reads as one block per category, which is what the JS selection
-  // this replaced produced. The RPC carries no ORDER BY across partitions, so
-  // the category grouping is re-imposed here, in `VISIBLE_L1_CATEGORIES` order,
-  // stable within a category so the RPC's own sample order survives.
+  // this replaced produced. The RPC orders by category alphabetically, so the
+  // rail's `VISIBLE_L1_CATEGORIES` order is re-imposed here; the sort is
+  // stable, so the RPC's within-category `rn` order survives.
   const categoryRank = new Map<string, number>(
     categorySlugs.map((slug, index) => [slug, index]),
   );
@@ -1967,7 +1967,19 @@ async function fetchExploreBrandPool(
       (categoryRank.get(right.category) ?? categorySlugs.length),
   );
 
-  const slugs = ordered.map((row) => row.brand_slug);
+  // Defense in depth, and a no-op while the RPC's `rn <= per_category` filter
+  // holds. `approve_submission` and `apply_brand_refresh` are precedent for SQL
+  // functions patched in place with no source file; if this one loses its
+  // window filter the same way, the rail must not silently become ~795 cards.
+  const perCategoryCount = new Map<string, number>();
+  const capped = ordered.filter((row) => {
+    const seen = perCategoryCount.get(row.category) ?? 0;
+    if (seen >= BRANDS_PER_CATEGORY) return false;
+    perCategoryCount.set(row.category, seen + 1);
+    return true;
+  });
+
+  const slugs = capped.map((row) => row.brand_slug);
   const bySlug = await loadBrands(slugs);
   const rankBySlug = new Map(slugs.map((slug, index) => [slug, index]));
 
@@ -1976,7 +1988,10 @@ async function fetchExploreBrandPool(
     .filter((brand): brand is Brand => brand !== undefined)
     .sort(
       (left, right) =>
-        (rankBySlug.get(left.slug) ?? 0) - (rankBySlug.get(right.slug) ?? 0),
+        // An unmatched slug (e.g. hydrated through a slug redirect) sorts to
+        // the end of the rail, never to the front of the first category.
+        (rankBySlug.get(left.slug) ?? Number.MAX_SAFE_INTEGER) -
+        (rankBySlug.get(right.slug) ?? Number.MAX_SAFE_INTEGER),
     );
 
   return { brands, totalCount };
@@ -2007,9 +2022,17 @@ export async function getExploreBrands(
   totalCount: number;
 }> {
   // Injected deps bypass `unstable_cache`: a test fixture must not be able to
-  // warm the entry the homepage then serves.
-  const injected = deps.rpcCaller ?? deps.countReader ?? deps.brandLoader;
-  return injected ? fetchExploreBrandPool(deps) : getCachedExploreBrandPool();
+  // warm the entry the homepage then serves. Injection is all-or-nothing —
+  // a partial fixture would silently fall back to real Supabase for the rest.
+  const required = ["rpcCaller", "countReader", "brandLoader"] as const;
+  const missing = required.filter((key) => !deps[key]);
+  if (missing.length === required.length) return getCachedExploreBrandPool();
+  if (missing.length > 0) {
+    throw new Error(
+      `ExploreBrandPoolDeps requires all three deps when injecting any — missing: ${missing.join(", ")}`,
+    );
+  }
+  return fetchExploreBrandPool(deps);
 }
 
 export async function searchBrandsAutocomplete(
