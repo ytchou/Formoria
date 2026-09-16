@@ -28,7 +28,6 @@ import {
   driftRate,
 } from '@/lib/services/eval/products-calibration'
 import type { SnapshotFile, PromptApi } from '@/lib/services/eval/prompt-sync'
-import type { PromptName } from '@/lib/langfuse/prompt'
 
 // ---------------------------------------------------------------------------
 // Arg parsing
@@ -602,39 +601,10 @@ async function cmdRun(
     return { name: spec.model, type: 'model' as const, value: spec.model }
   })
 
-  const { installSeams, assertNoNewAuditRows } = await import(
-    '@/lib/services/eval/zero-write'
+  const { createScriptExperimentDeps } = await import(
+    '@/lib/services/eval/script-experiment-deps'
   )
-  const { fetchLangfusePromptWithMeta } = await import('@/lib/langfuse/prompt')
-  const { createProfiledOpenAIClient, profileChatParams } = await import(
-    '@/lib/services/llm-audit'
-  )
-  const { runWithAuditContext, getAuditContext } = await import(
-    '@/lib/audit/context'
-  )
-
-  const { writeFileSync, mkdirSync } = await import('node:fs')
-  const { dirname } = await import('node:path')
-
-  const callModel = async (
-    input: { system: string; user: string; phase: string; prompt?: { name: string; version: number; source: 'langfuse' | 'snapshot' } | null },
-    options: { model?: string },
-    _itemRunId: string,
-  ) => {
-    const openai = createProfiledOpenAIClient(
-      adapter.profileKey as Parameters<typeof createProfiledOpenAIClient>[0],
-      { phase: input.phase, ...(input.prompt ? { prompt: input.prompt } : {}) },
-      { model: options.model },
-    )
-    const result = await openai.chat({
-      system: input.system,
-      user: input.user,
-      json: true,
-      schema: adapter.requestSchema as { name: string; schema: Record<string, unknown> },
-      ...profileChatParams(adapter.profileKey as Parameters<typeof profileChatParams>[0]),
-    })
-    return { ok: result.response.ok, content: result.content ?? '' }
-  }
+  const deps = await createScriptExperimentDeps({ adapter, profileKey: adapter.profileKey })
 
   const result = await runExperiment({
     dataset,
@@ -642,26 +612,7 @@ async function cmdRun(
     adapter,
     items,
     allowUnreviewed,
-    deps: {
-      callModel,
-      createTrace: (params: { name: string; id: string; metadata?: unknown }) => {
-        const lf = getLangfuse()
-        if (!lf) return null
-        return lf.trace(params)
-      },
-      writeFile: (path: string, content: string) => {
-        mkdirSync(dirname(path), { recursive: true })
-        writeFileSync(path, content)
-      },
-      now: () => new Date(),
-      flushLangfuse,
-      fetchPrompt: (name: string, variables?: Record<string, string>) =>
-        fetchLangfusePromptWithMeta(name as PromptName, variables),
-      installSeams,
-      assertNoNewAuditRows,
-      runWithAuditContext,
-      getAuditContext,
-    },
+    deps,
   })
 
   console.log(result.markdown)

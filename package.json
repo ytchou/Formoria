@@ -80,7 +80,9 @@
     "search:eval": "tsx scripts/enrichment/eval/search-eval/retrieval-eval.ts",
     "brand-centroid:eval": "tsx scripts/search-eval/brand-centroid-eval.ts",
     "distill:export": "tsx scripts/distillation/export-training-data.ts",
-    "distill:eval": "tsx scripts/distillation/eval-compare.ts"
+    "distill:eval": "tsx scripts/distillation/eval-compare.ts",
+    "ltr:train": "uv run --project scripts/ltr python scripts/ltr/train.py",
+    "ltr:test": "uv run --directory scripts/ltr pytest"
   },
   "dependencies": {
     "@base-ui/react": "^1.7.0",
@@ -110,6 +112,7 @@
     "next": "16.3.3",
     "next-intl": "^4.13.7",
     "next-mdx-remote": "^6.0.0",
+    "onnxruntime-node": "1.30.0",
     "pinyin-pro": "^3.29.3",
     "posthog-js": "^1.427.2",
     "posthog-node": "^5.46.0",

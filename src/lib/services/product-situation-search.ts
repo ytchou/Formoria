@@ -57,6 +57,10 @@ type RpcRow = {
   product_id: string;
   rank_score: number;
   search_source: string;
+  vector_rank: number | null;
+  lexical_rank: number | null;
+  cosine_sim: number | null;
+  lexical_score: number | null;
 };
 
 // ---------------------------------------------------------------------------

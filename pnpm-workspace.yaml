@@ -11,5 +11,6 @@ allowBuilds:
   core-js: true
   esbuild: true
   msw: true
+  onnxruntime-node: false
   sharp: false
   unrs-resolver: false
