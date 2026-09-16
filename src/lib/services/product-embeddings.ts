@@ -142,18 +142,26 @@ async function defaultWriter(input: WriterInput): Promise<void> {
   const supabase = createServiceClient();
 
   if (input.upserts.length > 0) {
-    const { error } = await supabase
-      .from("product_embeddings")
-      .upsert(input.upserts, { onConflict: "product_id" });
-    if (error) throw new Error(error.message);
+    await Promise.all(
+      chunkInputs(input.upserts).map(async (rows) => {
+        const { error } = await supabase
+          .from("product_embeddings")
+          .upsert(rows, { onConflict: "product_id" });
+        if (error) throw new Error(error.message);
+      }),
+    );
   }
 
   if (input.deletes.length > 0) {
-    const { error } = await supabase
-      .from("product_embeddings")
-      .delete()
-      .in("product_id", input.deletes);
-    if (error) throw new Error(error.message);
+    await Promise.all(
+      chunkInputs(input.deletes).map(async (productIds) => {
+        const { error } = await supabase
+          .from("product_embeddings")
+          .delete()
+          .in("product_id", productIds);
+        if (error) throw new Error(error.message);
+      }),
+    );
   }
 }
 

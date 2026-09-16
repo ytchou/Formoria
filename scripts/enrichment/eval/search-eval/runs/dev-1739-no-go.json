@@ -1,0 +1,59 @@
+{
+  "schemaVersion": 1,
+  "ticket": "DEV-1739",
+  "stagingProject": "ttkkyvgvcamfoezsetvf",
+  "decision": "no-go",
+  "candidate": {
+    "documentChange": "nullif(btrim(p.name_en), '') after p.name_zh",
+    "eligibleProducts": 1390,
+    "changedProductEmbeddings": 1193,
+    "changedBrandCentroids": 226,
+    "unchangedBrandCentroids": 26,
+    "failedProductBatches": 0,
+    "blindPoolCandidates": 1048
+  },
+  "corpusHealth": {
+    "baselineSynchronized": true,
+    "candidateSynchronized": true,
+    "missingProductEmbeddings": 0,
+    "staleProductEmbeddings": 0,
+    "orphanProductEmbeddings": 0,
+    "missingBrandCentroids": 0,
+    "staleBrandCentroids": 0,
+    "orphanBrandCentroids": 0
+  },
+  "overlap": {
+    "productMean": 4.511510791366907,
+    "productRetentionRateAtLeast3Of5": 0.9964028776978417,
+    "productAnchorsBelowFloor": 5,
+    "relatedBrandMean": 1.4880952380952381,
+    "relatedBrandRetentionRateAtLeast2Of4": 0.44841269841269843,
+    "relatedBrandAnchorsBelowFloor": 139,
+    "changedTrails": 1,
+    "changedTrailOverlap": {
+      "small-space-reading-corner": 5
+    },
+    "publishedTrailsWithoutStagingPlacements": 4,
+    "passed": false
+  },
+  "grading": {
+    "status": "not-run",
+    "reason": "The fail-closed shared-consumer overlap gate already failed; no corpus migration may ship."
+  },
+  "restoration": {
+    "baselineViewRestored": true,
+    "changedProductEmbeddingsRestored": 1193,
+    "changedBrandCentroidsRestored": 226,
+    "dryRunStaleProducts": 0,
+    "healthMatchesBaseline": true,
+    "productMeanOverlapWithBaseline": 4.988489208633093,
+    "productRetentionRateAtLeast3Of5": 1,
+    "relatedBrandArraysChanged": 1,
+    "trailArraysChanged": 0,
+    "note": "Equivalent result sets were restored, but some rank order changed after regenerating vectors."
+  },
+  "release": {
+    "nameEnMigrationCreated": false,
+    "productionRolloutAllowed": false
+  }
+}
