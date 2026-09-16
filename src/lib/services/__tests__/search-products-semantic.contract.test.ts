@@ -12,6 +12,8 @@ import { describe, expect, it } from "vitest";
 const MIGRATION_FILE = "20260903100200_situation_search.sql";
 const POOL_MIGRATION_FILE = "20260915140000_situation_search_pool_100.sql";
 const POOL_REVERSE_FILE = "20260915140000_revert_situation_search_pool.sql";
+const AMBIGUITY_FIX_FILE =
+  "20260916103000_fix_situation_search_product_id_ambiguity.sql";
 const LTR_MIGRATION_FILE = "20260916120000_situation_search_ltr_columns.sql";
 const LTR_REVERSE_FILE = "20260916120000_revert_situation_search_ltr_columns.sql";
 
@@ -38,6 +40,13 @@ function poolReverseText(): string {
       "reverse",
       POOL_REVERSE_FILE,
     ),
+    "utf8",
+  );
+}
+
+function ambiguityFixText(): string {
+  return readFileSync(
+    join(process.cwd(), "supabase", "migrations", AMBIGUITY_FIX_FILE),
     "utf8",
   );
 }
@@ -83,6 +92,14 @@ describe("situation_search migration contract", () => {
     expect(sql).toContain(
       "search_products_semantic(query_text text, query_embedding extensions.vector, mode text, match_count integer, filter_category text, filter_subcategories text[], filter_materials text[])",
     );
+  });
+
+  it("qualifies the eligible product id inside the PL/pgSQL return query", () => {
+    const sql = ambiguityFixText();
+    expect(sql).toContain(
+      "select eligible_product.product_id from eligible eligible_product",
+    );
+    expect(sql).not.toContain("select product_id from eligible)");
   });
 
   it("taxonomy rename trigger is column-scoped, change-gated, and service-role only", () => {

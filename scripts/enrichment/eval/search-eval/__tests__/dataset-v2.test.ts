@@ -4,7 +4,7 @@ import { join } from 'node:path'
 import { describe, expect, it, afterEach } from 'vitest'
 
 import { loadDatasetV2, toExperimentItems, type DatasetV2Item } from '../dataset-v2'
-import { writeReport } from '../retrieval-eval'
+import { writeReport } from '../report'
 import type { ExperimentResult, ArmResult } from '@/lib/services/eval/run-experiment'
 
 // ---------------------------------------------------------------------------

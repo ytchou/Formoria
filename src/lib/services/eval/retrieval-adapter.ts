@@ -87,7 +87,8 @@ export function createRetrievalAdapter(deps: RetrievalAdapterDeps): PhaseAdapter
       arm: ExperimentArm,
       _ctx: { itemRunId: string; model?: string },
     ) => {
-      const input = item.input as { query: string; category?: string }
+      const input = item.input as { query: string; locale?: 'zh-TW' | 'en'; category?: string }
+      const locale = input.locale ?? 'zh-TW'
 
       // Parse arm value
       const ltrMatch = arm.value.match(/^ltr:(.+)$/)
@@ -115,7 +116,7 @@ export function createRetrievalAdapter(deps: RetrievalAdapterDeps): PhaseAdapter
       if (arm.value === 'rerank') {
         const result = await deps.search({
           query: input.query,
-          locale: 'zh-TW',
+          locale,
           mode: 'hybrid',
           pageSize: 20,
           category: input.category ?? null,
@@ -145,7 +146,7 @@ export function createRetrievalAdapter(deps: RetrievalAdapterDeps): PhaseAdapter
       const mode = arm.value as SearchMode
       const result = await deps.search({
         query: input.query,
-        locale: 'zh-TW',
+        locale,
         mode,
         pageSize: 100,
         category: input.category ?? null,
