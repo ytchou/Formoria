@@ -8,10 +8,10 @@
  * separately metered line item, and `scripts/check-storage-transforms.mjs`
  * fails the lint chain on it).
  *
- * Everything here is pure except `serveProxiedImage`, whose only side effect is
- * the injected `download` call — the route owns constructing the real storage
- * client, this module owns the allow-list, the traversal rejection and the
- * response headers.
+ * Everything here is pure except `serveProxiedImage`, whose only side effects
+ * are the injected `download` and `info` calls — the route owns constructing
+ * the real storage client, this module owns the allow-list, the traversal
+ * rejection, the conditional-GET handling and the response headers.
  */
 
 export const PROXIED_IMAGE_BUCKET = "brand-images" as const;
@@ -48,6 +48,123 @@ export type ProxiedImageDownload = (key: string) => Promise<{
   data: Blob | null;
   error: unknown;
 }>;
+
+/**
+ * The subset of Supabase's object-info payload this module reads. Both casings
+ * are accepted because the storage client camelizes (`lastModified`) while the
+ * raw REST payload and older rows use `last_modified`/`updated_at`.
+ */
+export type ProxiedImageObjectInfo = {
+  etag?: string | null;
+  version?: string | null;
+  size?: number | null;
+  lastModified?: string | null;
+  last_modified?: string | null;
+  updated_at?: string | null;
+};
+
+/**
+ * Metadata seam, mirroring `download`'s shape. Separate from `download`
+ * because `StorageFileApi.download` resolves to `{ data: Blob, error }` and
+ * exposes no response headers at all — there is no etag or last-modified to
+ * harvest from the byte fetch, so conditional support needs its own call.
+ *
+ * It is a second round trip, but only ever a metadata-sized one, and it runs
+ * BEFORE the download: a matching `If-None-Match` skips the object fetch
+ * entirely, which is the byte transfer this whole ticket exists to remove.
+ */
+export type ProxiedImageInfo = (key: string) => Promise<{
+  data: ProxiedImageObjectInfo | null;
+  error: unknown;
+}>;
+
+export type ServeProxiedImageOptions = {
+  /** Raw `If-None-Match` request header, or null when absent. */
+  ifNoneMatch?: string | null;
+  /**
+   * Omitted (in tests and any caller that does not care) means no ETag is
+   * emitted and no conditional handling happens — the pre-DEV-1744 behaviour.
+   */
+  info?: ProxiedImageInfo;
+};
+
+/** Strips a weak-validator prefix and surrounding quotes for comparison. */
+function normalizeValidator(value: string): string {
+  const unweighted = value.trim().replace(/^W\//i, "");
+  return unweighted.replace(/^"([\s\S]*)"$/, "$1");
+}
+
+/**
+ * Builds the ETag this route serves, or null when the object carries nothing
+ * stable to build one from. Pure — the caller owns fetching the metadata.
+ *
+ * Preference order is strongest-first: the storage etag, then the object
+ * version, then size + last-modified. The fallback shares
+ * `statBrandImageObject`'s ceiling (size-only identity cannot tell two
+ * equal-sized objects apart) but pairs it with a timestamp, so a re-upload at
+ * the same size still invalidates.
+ */
+export function deriveProxiedImageETag(
+  info: ProxiedImageObjectInfo | null,
+): string | null {
+  if (!info) return null;
+
+  const etag = info.etag?.trim();
+  if (etag) return `"${normalizeValidator(etag)}"`;
+
+  const version = info.version?.trim();
+  if (version) return `"${normalizeValidator(version)}"`;
+
+  const modified = info.lastModified ?? info.last_modified ?? info.updated_at;
+  const modifiedAt = modified ? Date.parse(modified) : Number.NaN;
+  if (
+    typeof info.size === "number" &&
+    Number.isFinite(info.size) &&
+    Number.isFinite(modifiedAt)
+  ) {
+    return `"${info.size}-${modifiedAt}"`;
+  }
+
+  return null;
+}
+
+/**
+ * RFC 9110 §13.1.2: `*` matches any current representation, the list is
+ * comma-separated, and the comparison is weak (`W/` is ignored).
+ */
+export function ifNoneMatchSatisfied(
+  ifNoneMatch: string | null | undefined,
+  etag: string | null,
+): boolean {
+  if (!ifNoneMatch || !etag) return false;
+
+  const wanted = normalizeValidator(etag);
+  return ifNoneMatch
+    .split(",")
+    .map((candidate) => candidate.trim())
+    .filter((candidate) => candidate.length > 0)
+    .some(
+      (candidate) =>
+        candidate === "*" || normalizeValidator(candidate) === wanted,
+    );
+}
+
+/**
+ * Never throws and never 404s on its own: metadata is an optimisation, so a
+ * failing or absent info call degrades to "no ETag", not to a failed request.
+ */
+async function readProxiedImageETag(
+  key: string,
+  info: ProxiedImageInfo,
+): Promise<string | null> {
+  try {
+    const { data, error } = await info(key);
+    if (error || !data) return null;
+    return deriveProxiedImageETag(data);
+  } catch {
+    return null;
+  }
+}
 
 /**
  * Percent-decoding is applied until the value stops changing, so `%252e%252e`
@@ -112,22 +229,44 @@ export function resolveProxiedImageKey(
   return key;
 }
 
-function proxiedImageHeaders(contentType: string | null): Headers {
-  return new Headers({
+function proxiedImageHeaders(
+  contentType: string | null,
+  etag: string | null,
+): Headers {
+  const headers = new Headers({
     "content-type": contentType?.trim() || FALLBACK_CONTENT_TYPE,
     "cache-control": PROXIED_IMAGE_CACHE_CONTROL,
     // The content type is whatever the object was stored with; refusing to
     // sniff keeps a mislabelled object from being interpreted as markup.
     "x-content-type-options": "nosniff",
   });
+  if (etag) headers.set("etag", etag);
+  return headers;
+}
+
+/** 304 carries no body, so it carries no content type either. */
+function notModifiedHeaders(etag: string): Headers {
+  return new Headers({
+    "cache-control": PROXIED_IMAGE_CACHE_CONTROL,
+    etag,
+  });
 }
 
 export async function serveProxiedImage(
   segments: readonly string[] | undefined,
   download: ProxiedImageDownload,
+  options: ServeProxiedImageOptions = {},
 ): Promise<Response> {
   const key = resolveProxiedImageKey(segments);
   if (!key) return new Response(null, { status: 404 });
+
+  const etag = options.info
+    ? await readProxiedImageETag(key, options.info)
+    : null;
+
+  if (etag && ifNoneMatchSatisfied(options.ifNoneMatch, etag)) {
+    return new Response(null, { status: 304, headers: notModifiedHeaders(etag) });
+  }
 
   let data: Blob | null = null;
   let error: unknown = null;
@@ -143,6 +282,6 @@ export async function serveProxiedImage(
 
   return new Response(data, {
     status: 200,
-    headers: proxiedImageHeaders(data.type),
+    headers: proxiedImageHeaders(data.type, etag),
   });
 }

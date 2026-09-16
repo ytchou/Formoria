@@ -12,6 +12,8 @@ import {
   resolveProxiedImageKey,
   serveProxiedImage,
   type ProxiedImageDownload,
+  type ProxiedImageInfo,
+  type ProxiedImageObjectInfo,
 } from "@/lib/images/image-proxy";
 
 function storageWith(objects: Record<string, string>): {
@@ -28,6 +30,22 @@ function storageWith(objects: Record<string, string>): {
     return { data: new Blob(["fake-bytes"], { type: contentType }), error: null };
   };
   return { download, requested };
+}
+
+function infoWith(metadata: Record<string, ProxiedImageObjectInfo>): {
+  info: ProxiedImageInfo;
+  inspected: string[];
+} {
+  const inspected: string[] = [];
+  const info: ProxiedImageInfo = async (key) => {
+    inspected.push(key);
+    const record = metadata[key];
+    if (!record) {
+      return { data: null, error: { message: "Object not found" } };
+    }
+    return { data: record, error: null };
+  };
+  return { info, inspected };
 }
 
 const BRAND_KEY = "brands/2f1c9a4e-0000-4000-8000-000000000001/hero.webp";
@@ -139,6 +157,105 @@ describe("GET /i/[...path]", () => {
 
     expect(typeof route.GET).toBe("function");
     expect(route.runtime).toBe("nodejs");
+  });
+
+  it("returns an ETag header on a normal 200", async () => {
+    const { download } = storageWith({ [BRAND_KEY]: "image/webp" });
+    const { info } = infoWith({
+      [BRAND_KEY]: { etag: "abc123", size: 10, lastModified: "2026-09-01T00:00:00Z" },
+    });
+
+    const first = await serveProxiedImage(BRAND_KEY.split("/"), download, {
+      info,
+    });
+    const second = await serveProxiedImage(BRAND_KEY.split("/"), download, {
+      info,
+    });
+
+    expect(first.status).toBe(200);
+    expect(first.headers.get("etag")).toBe('"abc123"');
+    // Stable across calls for the same object — otherwise every revalidation
+    // would miss and transfer the full body again.
+    expect(second.headers.get("etag")).toBe(first.headers.get("etag"));
+    await expect(first.text()).resolves.toBe("fake-bytes");
+  });
+
+  it("returns 304 with no body when If-None-Match matches", async () => {
+    const { download, requested } = storageWith({ [BRAND_KEY]: "image/webp" });
+    const { info } = infoWith({ [BRAND_KEY]: { etag: "abc123" } });
+
+    const response = await serveProxiedImage(BRAND_KEY.split("/"), download, {
+      ifNoneMatch: '"abc123"',
+      info,
+    });
+
+    expect(response.status).toBe(304);
+    await expect(response.text()).resolves.toBe("");
+    // The point of the whole feature: a matching revalidation must not pull
+    // the object bytes out of storage either.
+    expect(requested).toEqual([]);
+    expect(response.headers.get("etag")).toBe('"abc123"');
+  });
+
+  it("returns 200 with full body when If-None-Match does not match", async () => {
+    const { download, requested } = storageWith({ [BRAND_KEY]: "image/webp" });
+    const { info } = infoWith({ [BRAND_KEY]: { etag: "abc123" } });
+
+    const response = await serveProxiedImage(BRAND_KEY.split("/"), download, {
+      ifNoneMatch: '"stale-etag"',
+      info,
+    });
+
+    expect(response.status).toBe(200);
+    expect(response.headers.get("content-type")).toBe("image/webp");
+    expect(response.headers.get("etag")).toBe('"abc123"');
+    await expect(response.text()).resolves.toBe("fake-bytes");
+    expect(requested).toEqual([BRAND_KEY]);
+  });
+
+  it("serves normally when object metadata is unavailable", async () => {
+    // A monitoring/caching nicety must never become a new 404 source: if the
+    // info call fails, the request degrades to an unconditional 200.
+    const { download } = storageWith({ [BRAND_KEY]: "image/webp" });
+    const info: ProxiedImageInfo = async () => {
+      throw new Error("info exploded");
+    };
+
+    const response = await serveProxiedImage(BRAND_KEY.split("/"), download, {
+      ifNoneMatch: '"abc123"',
+      info,
+    });
+
+    expect(response.status).toBe(200);
+    expect(response.headers.get("etag")).toBeNull();
+  });
+
+  it("matches a weak validator and the wildcard", async () => {
+    const { download } = storageWith({ [BRAND_KEY]: "image/webp" });
+    const { info } = infoWith({ [BRAND_KEY]: { etag: '"abc123"' } });
+
+    for (const header of ['W/"abc123"', "*", '"other", "abc123"']) {
+      const response = await serveProxiedImage(BRAND_KEY.split("/"), download, {
+        ifNoneMatch: header,
+        info,
+      });
+      expect(response.status, header).toBe(304);
+    }
+  });
+
+  it("derives an ETag from size and last-modified when no etag is returned", async () => {
+    const { download } = storageWith({ [BRAND_KEY]: "image/webp" });
+    const { info } = infoWith({
+      [BRAND_KEY]: { size: 4_096, lastModified: "2026-09-01T00:00:00.000Z" },
+    });
+
+    const response = await serveProxiedImage(BRAND_KEY.split("/"), download, {
+      info,
+    });
+
+    expect(response.headers.get("etag")).toBe(
+      `"4096-${Date.parse("2026-09-01T00:00:00.000Z")}"`,
+    );
   });
 
   it("serves a prefix no allow-list ever knew about", async () => {

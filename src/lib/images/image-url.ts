@@ -1,4 +1,5 @@
 import { getSiteUrl } from '@/lib/site-url'
+import { isBrandOwnedStoragePath } from './storage-keys'
 
 /**
  * Bucket key -> renderable URL (DEV-1551, task 9).
@@ -53,20 +54,79 @@ export function absoluteImageUrl(url: string | null | undefined): string | null 
   return `${getSiteUrl()}${value.startsWith('/') ? value : `/${value}`}`
 }
 
+const BRAND_IMAGES_BUCKET = 'brand-images'
+
+/**
+ * The public-object segment of a Supabase storage URL for the `brand-images`
+ * bucket: `<project>/storage/v1/object/public/brand-images/<key>`.
+ *
+ * It lives here, in `lib/images`, because this is the ONE seam that turns a
+ * public storage URL back into a bucket key. `lib/services/image-upload.ts`
+ * imports it rather than the reverse — services already depend on this module
+ * (`storagePathFromImageUrl`), and the dependency only runs that way.
+ */
+export const BRAND_IMAGES_PUBLIC_URL_SEGMENT = `/storage/v1/object/public/${BRAND_IMAGES_BUCKET}/`
+
+/**
+ * `<project>/storage/v1/object/public/brand-images/<key>` -> `<key>`, with NO
+ * key-prefix gate: each caller states its own scope, because they disagree on
+ * purpose (delete paths fail closed, read paths fail open — see the DEV-1374
+ * note on `storageKeyFromPublicUrlForRead`).
+ *
+ * Host-exact. A URL naming another project is a different bucket as far as a
+ * write path is concerned, and matching it would let a restored-from-elsewhere
+ * row drive a deletion here. The `…ForRead` twin in `image-upload.ts` matches
+ * on the segment alone precisely because it must not fail closed.
+ *
+ * Returns null when `NEXT_PUBLIC_SUPABASE_URL` is unset, so a bare
+ * `/storage/v1/object/public/brand-images/…` path cannot resolve against an
+ * empty origin.
+ */
+export function storageKeyFromBrandImagesPublicUrl(
+  url: string | null | undefined,
+): string | null {
+  const value = url?.trim()
+  if (!value) return null
+
+  const projectUrl = process.env.NEXT_PUBLIC_SUPABASE_URL ?? ''
+  if (!projectUrl) return null
+
+  const prefix = `${projectUrl}${BRAND_IMAGES_PUBLIC_URL_SEGMENT}`
+  if (!value.startsWith(prefix)) return null
+
+  const key = value.slice(prefix.length)
+  if (!key || key.includes('..')) return null
+  return key
+}
+
 /**
  * The inverse of {@link imagePathToUrl}, for the write paths that still have to
  * find a row by the identifier the UI handed back (image removal in the owner
  * dashboard, for one).
  *
- * Only the `/i/` form is recognised. A legacy public storage URL is NOT decoded
- * here: `storageKeyFromPublicUrl` in `image-upload.ts` owns that, and it is
- * deliberately scoped to the delete-safe prefixes.
+ * Two forms are recognised: the `/i/` proxy path DEV-1551 writes, and — for the
+ * rows written before that flip, and for whatever the bucket serves directly
+ * once it is public again (DEV-1744) — the public storage URL. Recognising both
+ * here is what keeps the fix at ONE seam: all five write-path callers go
+ * through this function, so none of them needs a second branch of its own.
+ *
+ * The public branch stays scoped to `brands/`. `rejectBrandImages` deletes
+ * every key this resolves, so a `curated-products/` or `submissions/` object
+ * reaching it would be removed while its own row still points at it — the
+ * DEV-1374 asymmetry. A signed URL is not decoded here either: its key sits
+ * behind an `/object/sign/` segment and a token, and no write path needs it.
  */
 export function storagePathFromImageUrl(
   url: string | null | undefined,
 ): string | null {
   const value = url?.trim()
-  if (!value || !value.startsWith(IMAGE_PROXY_PATH_PREFIX)) return null
-  const key = value.slice(IMAGE_PROXY_PATH_PREFIX.length)
-  return key.length > 0 ? key : null
+  if (!value) return null
+
+  if (value.startsWith(IMAGE_PROXY_PATH_PREFIX)) {
+    const key = value.slice(IMAGE_PROXY_PATH_PREFIX.length)
+    return key.length > 0 ? key : null
+  }
+
+  const publicKey = storageKeyFromBrandImagesPublicUrl(value)
+  return publicKey && isBrandOwnedStoragePath(publicKey) ? publicKey : null
 }

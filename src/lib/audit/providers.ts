@@ -4,7 +4,11 @@ const PROVIDERS = {
   resend: ["send_email"],
   upstash: ["get_database", "get_stats"],
   sentry: ["get_error_events", "list_issues"],
-  cloudflare: ["origin_probe"],
+  // DEV-1744: `zone_egress_by_day` is the Cloudflare zone-analytics GraphQL
+  // read behind image-egress anomaly monitoring. It is the only meter for
+  // bytes leaving the edge, so a reading that disagrees with a billing
+  // surprise has to be replayable.
+  cloudflare: ["origin_probe", "zone_egress_by_day"],
   turnstile: ["siteverify"],
   slack: ["post_slack_alert", "post_message", "update_message"],
   posthog: ["run_query"],

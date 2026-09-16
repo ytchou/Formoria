@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import {
   absoluteImageUrl,
   imagePathToUrl,
@@ -80,6 +80,17 @@ describe('absoluteImageUrl', () => {
 })
 
 describe('storagePathFromImageUrl', () => {
+  const SUPABASE_URL = 'https://xkcayngbttpxyibgzern.supabase.co'
+  const PUBLIC_PREFIX = `${SUPABASE_URL}/storage/v1/object/public/brand-images/`
+
+  beforeEach(() => {
+    vi.stubEnv('NEXT_PUBLIC_SUPABASE_URL', SUPABASE_URL)
+  })
+
+  afterEach(() => {
+    vi.unstubAllEnvs()
+  })
+
   it('round-trips imagePathToUrl', () => {
     const path = 'brands/a/x.webp'
     expect(storagePathFromImageUrl(imagePathToUrl(path))).toBe(path)
@@ -89,5 +100,47 @@ describe('storagePathFromImageUrl', () => {
     expect(storagePathFromImageUrl('https://cdn.example/x.webp')).toBeNull()
     expect(storagePathFromImageUrl('/images/logo.png')).toBeNull()
     expect(storagePathFromImageUrl('/i/')).toBeNull()
+  })
+
+  it('recognizes a public Supabase storage URL for a brands/ key', () => {
+    expect(storagePathFromImageUrl(`${PUBLIC_PREFIX}brands/x/y.webp`)).toBe(
+      'brands/x/y.webp',
+    )
+  })
+
+  it('still returns null for a signed URL', () => {
+    // Signed URLs are out of scope on purpose: the key would have to be read
+    // past a `/object/sign/` segment and a token query string, and every caller
+    // of this function is a WRITE path — one of them deletes what it resolves.
+    expect(
+      storagePathFromImageUrl(
+        `${SUPABASE_URL}/storage/v1/object/sign/brand-images/brands/x/y.webp?token=eyJhbGciOiJIUzI1NiJ9.fake.signature`,
+      ),
+    ).toBeNull()
+  })
+
+  it('returns null for a public URL outside brands/', () => {
+    // The delete-path asymmetry (DEV-1374): `rejectBrandImages` deletes every
+    // key this resolves, so a curated or submission object must not come back.
+    expect(
+      storagePathFromImageUrl(`${PUBLIC_PREFIX}curated-products/a/b/c.webp`),
+    ).toBeNull()
+    expect(
+      storagePathFromImageUrl(`${PUBLIC_PREFIX}submissions/a/x.webp`),
+    ).toBeNull()
+  })
+
+  it('returns null for a public URL on a foreign origin', () => {
+    expect(
+      storagePathFromImageUrl(
+        'https://cdn.example.test/storage/v1/object/public/brand-images/brands/x/y.webp',
+      ),
+    ).toBeNull()
+  })
+
+  it('round-trips both URL forms', () => {
+    const path = 'brands/a/x.webp'
+    expect(storagePathFromImageUrl(imagePathToUrl(path))).toBe(path)
+    expect(storagePathFromImageUrl(`${PUBLIC_PREFIX}${path}`)).toBe(path)
   })
 })
