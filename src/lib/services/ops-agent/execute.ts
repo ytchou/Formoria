@@ -1,4 +1,5 @@
 import { auditedCall } from "@/lib/audit";
+import type { CurationRecoveryInput, CurationRecoveryCounts } from "../curation-jobs";
 import type { OpsProposal } from "./proposals";
 
 // Accept OpsProposal or compatible shapes. The `mode` field on
@@ -33,14 +34,7 @@ export type ExecuteDeps = {
     startedBy: string;
   }) => Promise<{ id: string }>;
   dispatchCurationJob: (jobId: string) => Promise<unknown>;
-  enqueueManualRerun: (
-    sourceJobId: string,
-    startedBy: string,
-  ) => Promise<{ id: string }>;
-  enqueueCurationResume: (
-    sourceJobId: string,
-    startedBy: string,
-  ) => Promise<Array<{ id: string }>>;
+  enqueueCurationRecovery: (input: CurationRecoveryInput) => Promise<{ job: { id: string }; counts: CurationRecoveryCounts }>;
   dispatchWorkflow: (
     workflowFile: string,
     inputs: Record<string, string>,
@@ -103,25 +97,15 @@ async function executeRerunJob(
   ctx: ExecuteContext,
   deps: ExecuteDeps,
 ): Promise<ExecuteResult> {
-  if (proposal.mode === "rerun") {
-    const job = await deps.enqueueManualRerun(proposal.jobId, ctx.operatorEmail);
-    await deps.dispatchCurationJob(job.id);
-    return {
-      ok: true,
-      result: { jobId: job.id, adminUrl: `/admin/jobs/${job.id}` },
-    };
-  }
-
-  // resume
-  const jobs = await deps.enqueueCurationResume(proposal.jobId, ctx.operatorEmail);
-  const firstJob = jobs[0];
-  if (!firstJob) {
-    return { ok: false, error: "No targets were eligible to resume" };
-  }
-  await deps.dispatchCurationJob(firstJob.id);
+  const { job, counts } = await deps.enqueueCurationRecovery({
+    sourceJobId: proposal.jobId,
+    startedBy: ctx.operatorEmail,
+    action: { kind: proposal.mode },
+  });
+  await deps.dispatchCurationJob(job.id);
   return {
     ok: true,
-    result: { jobId: firstJob.id, adminUrl: `/admin/jobs/${firstJob.id}` },
+    result: { jobId: job.id, adminUrl: `/admin/jobs/${job.id}`, counts },
   };
 }
 

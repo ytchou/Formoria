@@ -30,8 +30,7 @@ function makeDeps(overrides: Partial<Parameters<typeof executeProposal>[2]> = {}
     requestBrandRefreshesBySlugs: vi.fn(),
     enqueueAdminCurationJob: vi.fn(),
     dispatchCurationJob: vi.fn(),
-    enqueueManualRerun: vi.fn(),
-    enqueueCurationResume: vi.fn(),
+    enqueueCurationRecovery: vi.fn(),
     dispatchWorkflow: vi.fn(),
     ...overrides,
   };
@@ -120,9 +119,9 @@ describe("refresh_brand with outcome error", () => {
 // ---------------------------------------------------------------------------
 
 describe("rerun_job kind", () => {
-  it("rerun mode calls enqueueManualRerun then dispatch", async () => {
+  it("rerun returns the recovery child and target counts", async () => {
     const deps = makeDeps({
-      enqueueManualRerun: vi.fn().mockResolvedValue({ id: "job-rerun-1" }),
+      enqueueCurationRecovery: vi.fn().mockResolvedValue({ job: { id: "job-rerun-1" }, counts: { total: 2, failed: 1, cancelled: 1 } }),
       dispatchCurationJob: vi.fn().mockResolvedValue({ accepted: true, status: "accepted" }),
     });
 
@@ -134,17 +133,15 @@ describe("rerun_job kind", () => {
 
     expect(result).toEqual({
       ok: true,
-      result: { jobId: "job-rerun-1", adminUrl: "/admin/jobs/job-rerun-1" },
+      result: { jobId: "job-rerun-1", adminUrl: "/admin/jobs/job-rerun-1", counts: { total: 2, failed: 1, cancelled: 1 } },
     });
-    expect(deps.enqueueManualRerun).toHaveBeenCalledWith("job-orig-1", "ops@formoria.com");
+    expect(deps.enqueueCurationRecovery).toHaveBeenCalledWith({ sourceJobId: "job-orig-1", startedBy: "ops@formoria.com", action: { kind: "rerun" } });
     expect(deps.dispatchCurationJob).toHaveBeenCalledWith("job-rerun-1");
   });
 
-  it("resume mode calls enqueueCurationResume then dispatch", async () => {
+  it("resume returns one recovery child and target counts", async () => {
     const deps = makeDeps({
-      enqueueCurationResume: vi.fn().mockResolvedValue([
-        { id: "job-resume-1", resumeGroup: "failed", resumeTargetCount: 3 },
-      ]),
+      enqueueCurationRecovery: vi.fn().mockResolvedValue({ job: { id: "job-resume-1" }, counts: { total: 3, failed: 2, cancelled: 1 } }),
       dispatchCurationJob: vi.fn().mockResolvedValue({ accepted: true, status: "accepted" }),
     });
 
@@ -156,9 +153,9 @@ describe("rerun_job kind", () => {
 
     expect(result).toEqual({
       ok: true,
-      result: { jobId: "job-resume-1", adminUrl: "/admin/jobs/job-resume-1" },
+      result: { jobId: "job-resume-1", adminUrl: "/admin/jobs/job-resume-1", counts: { total: 3, failed: 2, cancelled: 1 } },
     });
-    expect(deps.enqueueCurationResume).toHaveBeenCalledWith("job-orig-2", "ops@formoria.com");
+    expect(deps.enqueueCurationRecovery).toHaveBeenCalledWith({ sourceJobId: "job-orig-2", startedBy: "ops@formoria.com", action: { kind: "resume" } });
     expect(deps.dispatchCurationJob).toHaveBeenCalledWith("job-resume-1");
   });
 });
