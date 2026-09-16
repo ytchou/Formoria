@@ -188,6 +188,9 @@ scripts/llm-eval/runs/
 scripts/distillation/runs/
 scripts/distillation/models/
 
+# LTR training venv (DEV-1736)
+scripts/ltr/.venv/
+
 # search-eval run artifacts (DEV-1732, new path)
 scripts/search-eval/runs/
 
