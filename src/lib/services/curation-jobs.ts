@@ -520,6 +520,7 @@ export async function enqueueCurationRecovery({
               })),
             )
           : [];
+      const sourcePlans = new Map(targets.map((target) => [target.target_id, readTargetPlan(source.params, target.target_id)]));
       const retry = buildRecoveryPlan(
         source.params,
         metadata,
@@ -536,6 +537,7 @@ export async function enqueueCurationRecovery({
                 !isUsablePhaseCheckpoint(row)
               )
                 return false;
+              if (row.job_id !== source.id && sourcePlans.get(target.target_id)?.forced.includes(row.phase as EnrichPhaseName)) return false;
               if (row.phase !== "acquire") return true;
               const carry = isUsablePhaseOutput(row.output)
                 ? row.output.carry

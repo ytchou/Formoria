@@ -183,10 +183,19 @@ export async function hydrateAcquireInputs(
 
 /** Restore new checkpoints without per-target history queries. */
 export function restoreAcquireCheckpoint(carry: AcquireCarry): AcquirePhaseOutput | undefined {
-  if (!carry.result || !Array.isArray(carry.catalogEvidence)) return undefined
+  if (!carry || typeof carry !== 'object' || !carry.result || !carry.catalog || (carry.catalogEvidence !== null && !Array.isArray(carry.catalogEvidence))) return undefined
+  const result = carry.result
+  if (result.phaseResult?.phase !== 'acquire' || result.phaseResult.status !== 'succeeded' ||
+    !Array.isArray(result.officialNameCandidates) || !Array.isArray(result.imagePool) ||
+    !Array.isArray(result.acquisitionPageUrls) || !Array.isArray(result.priorityProductUrls) ||
+    (result.scrapedData !== null && (typeof result.scrapedData !== 'object' || Array.isArray(result.scrapedData))) ||
+    !Array.isArray(carry.catalog.triples) || !Array.isArray(carry.catalog.attempts) ||
+    typeof carry.catalog.deadlineHit !== 'boolean' ||
+    carry.catalogEvidence?.some((entry) => !Array.isArray(entry) || entry.length !== 2 || typeof entry[0] !== 'string' || !entry[1] || typeof entry[1] !== 'object')
+  ) return undefined
   return {
     ...carry.result,
-    catalogResult: {
+    catalogResult: carry.catalogEvidence === null ? undefined : {
       ...carry.catalog,
       evidence: new Map(carry.catalogEvidence),
     },

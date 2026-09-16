@@ -44,6 +44,7 @@ export type BlockContext = {
 type BlockConditions = {
   phases: readonly EnrichPhaseName[]
   requiredBy?: readonly EnrichPhaseName[]
+  inputError?: (ctx: BlockContext) => string | undefined
   precondition?: (ctx: BlockContext) => boolean | Promise<boolean>
   postcondition?: (
     ctx: BlockContext,

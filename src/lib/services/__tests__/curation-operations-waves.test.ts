@@ -1,6 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { runEnrich } from "../curation-operations";
+import { toAcquireCarry } from "../enrich-blocks/phase-outputs";
+import type { AcquirePhaseOutput } from "../enrich-phases/acquire";
 import type { DetectResult } from "../category-classifier";
 
 /**
@@ -406,7 +408,7 @@ function serpCalls(kind: "name" | "handle") {
 }
 
 /** Every field `runEnrich` reads off an `AcquirePhaseOutput`. */
-function acquireOutput(overrides: Record<string, unknown> = {}) {
+function acquireOutput(overrides: Record<string, unknown> = {}): AcquirePhaseOutput {
   return {
     phaseResult: {
       phase: "acquire",
@@ -424,6 +426,7 @@ function acquireOutput(overrides: Record<string, unknown> = {}) {
     quarantine: {},
     imagePool: [],
     acquisitionPageUrls: [],
+    priorityProductUrls: [],
     revokedColumns: [],
     providerFailure: false,
     ...overrides,
@@ -520,7 +523,7 @@ function mockSatisfiedPhases(phases: string[]) {
       forTargets: async (targets: Array<{ id: string; type: string }>) => targets.flatMap((target) =>
         phases.map((phase) => ({
           id: `out-${target.id}-${phase}`, job_id: "job-prev", target_id: target.id,
-          target_type: target.type, phase, status: "succeeded", output: { patch: {} },
+          target_type: target.type, phase, status: "succeeded", output: { patch: {}, ...(phase === "acquire" ? { carry: toAcquireCarry(acquireOutput()) } : {}) },
           persisted_at: "2026-08-01T00:00:00Z", created_at: "2026-08-01T00:00:00Z",
         }))),
       latestPerPhase: async () => [],
@@ -1496,16 +1499,17 @@ describe("two loops with a batched names call between", () => {
       },
     ];
     const catalogResult = {
-      candidates: [],
-      entryUrls: ["https://pool.example.com/shop"],
-      priorityProductUrls: ["https://pool.example.com/products/vase"],
-      rawCount: 0,
+      triples: [],
+      attempts: [],
+      evidence: new Map(),
+      deadlineHit: false,
     };
     mocks.runAcquirePhase.mockResolvedValue(
       acquireOutput({
         imagePool,
         catalogResult,
         acquisitionPageUrls: ["https://pool.example.com/products/vase"],
+        priorityProductUrls: ["https://pool.example.com/products/vase"],
       }),
     );
     mocks.runNamesPhase.mockResolvedValue(namesOutput());
@@ -1522,7 +1526,6 @@ describe("two loops with a batched names call between", () => {
       },
       fakeSupabase([target]),
     );
-
     const productsInput = mocks.runProductsPhase.mock.calls[0][0] as {
       imagePool: unknown;
       catalogResult: unknown;

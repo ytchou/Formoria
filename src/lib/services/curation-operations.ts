@@ -2006,6 +2006,14 @@ export async function runEnrich(
               },
               state: { _waveCtx: ctx } as Record<string, unknown>,
             }));
+          const missingAcquireInputs = (bctx: BlockContext): string | undefined => {
+            const ctx = bctx.state._waveCtx as BrandWaveContext;
+            if (ctx.acquireResult || !(bctx.executePhases ?? []).some((phase) =>
+              ["names", "descriptions", "stockists", "products"].includes(phase),
+            )) return undefined;
+            return "Saved acquisition inputs are unavailable. Retry with upstream steps.";
+          };
+
           const blockRegistry = buildBlockRegistry({
             gather: {
               scope: "chunk",
@@ -2808,6 +2816,7 @@ export async function runEnrich(
               },
             },
             names: {
+              inputError: missingAcquireInputs,
               scope: "chunk",
               phases: ["names"],
               runBatch: async (contexts) => {
@@ -2890,6 +2899,7 @@ export async function runEnrich(
               },
             },
             editorial: {
+              inputError: missingAcquireInputs,
               scope: "brand",
               phases: ["descriptions", "stockists", "faq"],
               run: async (bctx: BlockContext): Promise<BlockRunResult> => {
@@ -3305,6 +3315,7 @@ export async function runEnrich(
               },
             },
             products: {
+              inputError: missingAcquireInputs,
               scope: "brand",
               phases: ["products"],
               run: async (bctx: BlockContext): Promise<BlockRunResult> => {
@@ -3566,6 +3577,7 @@ export async function runEnrich(
             store,
             force: new Map(),
             hooks: {
+              onTargetFailure: (bctx, error) => failBrand(bctx.state._waveCtx as BrandWaveContext, error),
               onHydrate: (bctx, phase, row) => {
                 if (!isUsablePhaseOutput(row.output)) return;
                 const ctx = bctx.state._waveCtx as BrandWaveContext;

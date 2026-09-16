@@ -30,6 +30,7 @@ export type RunBlocksHooks = {
   markCurrentPhase?: (ctx: BlockContext, phase: string) => void
   logCurrentPhase?: (phase: string) => void
   isTargetTerminated?: (ctx: BlockContext) => boolean
+  onTargetFailure?: (ctx: BlockContext, error: Error) => void | Promise<void>
   onHydrate?: (ctx: BlockContext, phase: EnrichPhaseName, row: PhaseOutputRow) => void | Promise<void>
   loadImagePool?: (ctx: BlockContext) => Promise<unknown>
   onPhaseResult?: (
@@ -219,7 +220,17 @@ async function shouldSkip(
     }
     pushSkippedResults([phase], ctx, env.hooks)
   }
-  return block.phases.length > 0 && ctx.executePhases.length === 0
+  if (block.phases.length > 0 && ctx.executePhases.length === 0) return true
+  const inputError = block.inputError?.(ctx)
+  if (!inputError) return false
+  env.exited.add(ctx.targetId)
+  for (const phase of ctx.executePhases) {
+    env.hooks.onPhaseResult?.(ctx, phase, {
+      phase, status: 'failed', changedFields: [], durationMs: 0, error: inputError,
+    })
+  }
+  await env.hooks.onTargetFailure?.(ctx, new Error(inputError))
+  return true
 }
 
 // Post-run: record outputs, check postcondition, emit results

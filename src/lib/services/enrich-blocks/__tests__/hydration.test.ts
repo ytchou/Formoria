@@ -258,4 +258,14 @@ it('a resumed target retains its acquired page evidence after checkpoint seriali
   }
   const restored = restoreAcquireCheckpoint(JSON.parse(JSON.stringify(toAcquireCarry(acquired))))
   expect(restored).toEqual(acquired)
+  const withoutCatalog = { ...acquired, catalogResult: undefined }
+  expect(restoreAcquireCheckpoint(JSON.parse(JSON.stringify(toAcquireCarry(withoutCatalog))))).toEqual(withoutCatalog)
+})
+
+it('rejects a checkpoint missing the acquisition inputs needed by downstream phases', () => {
+  const incomplete = {
+    catalog: { triples: [], attempts: [], deadlineHit: false },
+    catalogEvidence: [], result: { phaseResult: { phase: 'acquire', status: 'succeeded' } },
+  }
+  expect(restoreAcquireCheckpoint(JSON.parse(JSON.stringify(incomplete)))).toBeUndefined()
 })

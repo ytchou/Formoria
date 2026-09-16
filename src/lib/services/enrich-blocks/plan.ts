@@ -56,8 +56,9 @@ export function buildRecoveryPlan(
     if (target.status !== "failed") {
       throw new Error("Resume requires failed or cancelled targets");
     }
+    const failed = new Set(target.results.filter((result) => result.status === "failed").map((result) => result.phase));
     const reusable = new Set(
-      target.reusablePhases.filter((phase) => source.selected.includes(phase)),
+      target.reusablePhases.filter((phase) => source.selected.includes(phase) && !failed.has(phase)),
     );
     if (reusable.size) {
       return [

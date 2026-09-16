@@ -46,6 +46,7 @@ function fakeBlock(
   const conditions = {
     phases,
     precondition: overrides?.precondition,
+    inputError: overrides?.inputError,
     postcondition: overrides?.postcondition,
   }
   if (scope === 'chunk') {
@@ -660,4 +661,21 @@ it('a checkpointed recovery merges only its source scope without repeating provi
   expect([...ctx.checkpoints!.values()].map((row) => row.id)).toEqual(['source-description-checkpoint'])
   expect(store.upserted).toEqual([])
   expect(calls.filter((call) => call.block !== 'gather' && call.block !== 'persist')).toEqual([])
+})
+
+it('a phase-only retry fails with upstream guidance before provider work when saved inputs are absent', async () => {
+  const ctx = makeCtx('tea-studio')
+  ctx.plan = { selected: ['products'], forced: ['products'], explicit: ['products'] }
+  const calls: CallRecord[] = []
+  const results: Array<{ phase: string; status: string; error?: string }> = []
+  const store = fakeStore()
+  await runBlocks({
+    chunk: [ctx], registry: buildTestRegistry(calls, {
+      products: { inputError: () => 'Saved acquisition inputs are unavailable. Retry with upstream steps.' },
+    }), order: BLOCK_ORDER, concurrency: 1, ...emptyMaps(), store,
+    hooks: { onPhaseResult: (_ctx, _phase, result) => { results.push(result) } }, jobId: 'products-recovery',
+  })
+  expect(results).toEqual([{ phase: 'products', status: 'failed', changedFields: [], durationMs: 0, error: 'Saved acquisition inputs are unavailable. Retry with upstream steps.' }])
+  expect(store.upserted).toEqual([])
+  expect(calls.filter((call) => call.block !== 'gather')).toEqual([])
 })

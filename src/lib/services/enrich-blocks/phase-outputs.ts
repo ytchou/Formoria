@@ -41,7 +41,7 @@ type CatalogZeroReason = CatalogDiscoveryResult['zeroReason']
 
 export type AcquireCarry = {
   result?: Omit<AcquirePhaseOutput, 'catalogResult'>
-  catalogEvidence?: Array<[string, CatalogDiscoveryResult['evidence'] extends Map<string, infer Evidence> ? Evidence : never]>
+  catalogEvidence?: Array<[string, CatalogDiscoveryResult['evidence'] extends Map<string, infer Evidence> ? Evidence : never]> | null
   catalog: {
     triples: CatalogProductTriple[]
     attempts: CatalogAttemptSummary[]
@@ -74,7 +74,8 @@ export type PhaseOutput = {
 
 export function isUsablePhaseOutput(value: unknown): value is PhaseOutput {
   if (!value || typeof value !== 'object' || Array.isArray(value)) return false
-  const patch = (value as Record<string, unknown>).patch
+  const { patch, carry } = value as Record<string, unknown>
+  if (carry !== undefined && (!carry || typeof carry !== 'object' || Array.isArray(carry))) return false
   return patch !== null && typeof patch === 'object' && !Array.isArray(patch)
 }
 
@@ -138,7 +139,7 @@ export function toAcquireCarry(result: AcquirePhaseOutput | {
     ? (({ catalogResult: _catalog, ...saved }) => saved)(result)
     : undefined
   return {
-    ...(savedResult ? { result: savedResult, catalogEvidence: [...(cat?.evidence ?? [])] } : {}),
+    ...(savedResult ? { result: savedResult, catalogEvidence: cat ? [...cat.evidence] : null } : {}),
     catalog: {
       triples: cat?.triples ?? [],
       attempts: cat?.attempts ?? [],
