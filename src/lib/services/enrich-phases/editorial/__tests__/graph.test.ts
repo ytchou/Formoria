@@ -195,6 +195,12 @@ describe('editorial agent graph', () => {
       blurb: 'blurb',
       blurb_en: 'blurb en',
     })
+    // A repair must belong only to the descriptions checkpoint, never its siblings.
+    expect(output.phaseOutputs.map((entry) => ({ phase: entry.phaseResult.phase, patch: entry.patch }))).toEqual([
+      { phase: 'descriptions', patch: output.patch },
+      { phase: 'stockists', patch: {} },
+      { phase: 'faq', patch: {} },
+    ])
     expect(deps.runStockists).toHaveBeenCalledOnce()
     expect(deps.runFaq).toHaveBeenCalledOnce()
   })

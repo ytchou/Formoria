@@ -272,7 +272,7 @@ export function JobDetailView({
       <SurfaceCard padding="lg">
         <h2 className="type-tool-heading">{t("detail.executionInfo")}</h2>
         <dl className="mt-5 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
-          <InfoField label="Trigger" value={jobTriggerLabel(job.trigger, (job.params ?? undefined) as Parameters<typeof jobTriggerLabel>[1])} />
+          <InfoField label="Trigger" value={jobTriggerLabel(job.trigger, job.params)} />
           <InfoField label="Attempt" value={job.attempt} />
           <InfoField
             label="Scheduled"
@@ -330,7 +330,7 @@ export function JobDetailView({
               <LineageLink
                 key={child.id}
                 id={child.id}
-                label={`${jobTriggerLabel(child.trigger)} (attempt ${child.attempt})`}
+                label={`${jobTriggerLabel(child.trigger, child.params)} (attempt ${child.attempt})`}
               />
             ))}
           </div>

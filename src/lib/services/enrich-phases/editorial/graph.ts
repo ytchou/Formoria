@@ -100,6 +100,7 @@ export type EditorialRunOptions = {
 export type EditorialOutput = {
   agentOutcome: 'generated' | 'repaired' | 'fallback'
   phaseResults: PhaseResult[]
+  phaseOutputs: Array<{ phaseResult: PhaseResult; patch: Record<string, unknown> }>
   patch: Record<string, unknown>
   listingVerdict: ListingVerdict | null
   descriptionRewrite: DescriptionRewriteResult | null
@@ -123,6 +124,7 @@ function lastValue<T>(initial: () => T) {
 
 const EditorialState = Annotation.Root({
   phaseResults: lastValue<PhaseResult[]>(() => []),
+  phaseOutputs: lastValue<EditorialOutput['phaseOutputs']>(() => []),
   patch: lastValue<Record<string, unknown>>(() => ({})),
   listingVerdict: lastValue<ListingVerdict | null>(() => null),
   descriptionRewrite: lastValue<DescriptionRewriteResult | null>(() => null),
@@ -210,6 +212,7 @@ async function descriptionsNode(
 
   return ctx.commit({
     phaseResults: [...state.phaseResults, result.phaseResult],
+    phaseOutputs: [...state.phaseOutputs, { phaseResult: result.phaseResult, patch: result.patch }],
     patch: { ...state.patch, ...result.patch },
     listingVerdict: result.listingVerdict,
     descriptionRewrite: result.descriptionRewrite,
@@ -252,6 +255,7 @@ async function stockistsNode(
 
   return ctx.commit({
     phaseResults: [...state.phaseResults, result.phaseResult],
+    phaseOutputs: [...state.phaseOutputs, { phaseResult: result.phaseResult, patch: result.patch }],
     patch: { ...state.patch, ...result.patch },
   })
 }
@@ -272,6 +276,7 @@ async function faqNode(
 
   return ctx.commit({
     phaseResults: [...state.phaseResults, result.phaseResult],
+    phaseOutputs: [...state.phaseOutputs, { phaseResult: result.phaseResult, patch: result.patch }],
     patch: { ...state.patch, ...result.patch },
   })
 }
@@ -317,6 +322,10 @@ async function repairNode(
 
   return ctx.commit({
     patch: { ...state.patch, ...repaired },
+    // The repair adapter only returns description copy fields.
+    phaseOutputs: state.phaseOutputs.map((entry) => entry.phaseResult.phase === 'descriptions'
+      ? { ...entry, patch: { ...entry.patch, ...repaired } }
+      : entry),
     agentOutcome: 'repaired',
   })
 }
@@ -376,6 +385,7 @@ function outputFrom(
   return {
     agentOutcome: state.agentOutcome ?? 'generated',
     phaseResults: state.phaseResults ?? [],
+    phaseOutputs: state.phaseOutputs ?? [],
     patch: state.patch ?? {},
     listingVerdict: state.listingVerdict ?? null,
     descriptionRewrite: state.descriptionRewrite ?? null,

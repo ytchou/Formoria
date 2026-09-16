@@ -1,3 +1,4 @@
+import { parseRecoveryRetry } from "@/lib/services/enrich-blocks/plan";
 import { useTranslations } from "next-intl";
 import { Badge } from "@/components/ui/badge";
 import type {
@@ -40,13 +41,21 @@ export function formatJobDuration(
 
 export function jobTriggerLabel(
   trigger: CurationJob["trigger"],
-  params?: { retry?: { block: string; mode: string; subPhase?: string } },
+  params?: unknown,
 ): string {
-  if (params?.retry) {
-    const { retry } = params;
-    const label = retry.subPhase ?? retry.block;
-    const modeLabel = retry.mode.replace(/_/g, " ");
-    return `Retry ${label} (${modeLabel})`;
+  if (trigger === "manual_rerun" && params && typeof params === "object" && "retry" in params) {
+    try {
+      const retry = parseRecoveryRetry(params.retry);
+      if ("version" in retry) {
+        if (retry.action.kind === "phase") {
+          return `Retry ${retry.action.subPhase ?? retry.action.block} (${retry.action.mode.replace(/_/g, " ")})`;
+        }
+        return retry.action.kind === "rerun" ? "Rerun" : "Resume";
+      }
+      return `Retry ${retry.subPhase ?? retry.block} (${retry.mode.replace(/_/g, " ")})`;
+    } catch {
+      // Historical malformed parameters retain the trigger's honest fallback.
+    }
   }
   return {
     admin: "Admin",

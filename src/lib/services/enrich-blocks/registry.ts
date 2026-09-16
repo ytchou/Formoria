@@ -9,14 +9,12 @@
 
 import type { BlockName, EnrichPhaseName } from '@/lib/constants/enrich-phases'
 import type { PhaseResult } from '@/lib/types/curation'
-import type { PhaseOutput } from './phase-outputs'
+import type { PhaseOutput, PhaseOutputRow } from './phase-outputs'
+import type { TargetPlan } from './plan'
 
 // ---------------------------------------------------------------------------
 // Core types
 // ---------------------------------------------------------------------------
-
-/** chunk = barrier (run once for the whole chunk); brand = per-context fan-out */
-type BlockScope = 'chunk' | 'brand'
 
 type BlockExit = {
   status: 'skipped' | 'failed'
@@ -25,7 +23,9 @@ type BlockExit = {
 }
 
 export type BlockRunResult = {
+  /** A single-phase block may return its output directly. */
   output?: PhaseOutput
+  phaseOutputs?: Array<{ phaseResult: PhaseResult; output: PhaseOutput }>
   exit?: BlockExit
 }
 
@@ -33,20 +33,36 @@ export type BlockContext = {
   brandId: string
   targetId: string
   targetType: string
+  plan?: TargetPlan
+  executePhases?: EnrichPhaseName[]
+  checkpoints?: Map<string, PhaseOutputRow>
+  phaseOutputs?: Map<string, PhaseOutput>
   /** Shared mutable state for this target across all blocks. */
   state: Record<string, unknown>
 }
 
-export type Block = {
-  scope: BlockScope
+type BlockConditions = {
   phases: readonly EnrichPhaseName[]
-  run: (ctx: BlockContext) => Promise<BlockRunResult>
+  requiredBy?: readonly EnrichPhaseName[]
+  inputError?: (ctx: BlockContext) => string | undefined
   precondition?: (ctx: BlockContext) => boolean | Promise<boolean>
   postcondition?: (
     ctx: BlockContext,
     result: BlockRunResult,
   ) => BlockExit | undefined
 }
+
+export type BrandBlock = BlockConditions & {
+  scope: 'brand'
+  run: (ctx: BlockContext) => Promise<BlockRunResult>
+}
+
+export type BatchBlock = BlockConditions & {
+  scope: 'chunk'
+  runBatch: (contexts: BlockContext[]) => Promise<Map<string, BlockRunResult>>
+}
+
+export type Block = BrandBlock | BatchBlock
 
 export type BlockRegistry = Record<BlockName, Block>
 

@@ -49,6 +49,9 @@ export const BUDGET = {
   /** Browser warm-up before the suite starts; cold dev bundles can compile slowly. */
   WARMUP: 120_000,
 
+  /** Guarded database fixture command, including connection and transaction timeouts. */
+  DB_FIXTURE: 30_000,
+
   /** Whole-test budgets, passed to test.setTimeout. */
   TEST: {
     /** A read-only journey across one to three public routes. */

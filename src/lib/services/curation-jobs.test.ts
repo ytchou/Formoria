@@ -284,6 +284,13 @@ describe("trigger label derives from retry params", () => {
       }),
     ).toBe("Retry descriptions (with upstream)");
 
+    expect(jobTriggerLabel("automatic_retry", { retry: { block: "products", mode: "only" } })).toBe("Auto retry");
+    const targets = { "ceramic-studio-submission": { selected: ["faq"], forced: ["faq"], explicit: ["faq"] } };
+    expect(jobTriggerLabel("manual_rerun", { retry: { version: 1, action: { kind: "rerun" }, targets } })).toBe("Rerun");
+    expect(jobTriggerLabel("manual_rerun", { retry: { version: 1, action: { kind: "resume" }, targets } })).toBe("Resume");
+    expect(jobTriggerLabel("automatic_retry", { retry: { version: 1, action: { kind: "resume" }, targets } })).toBe("Auto retry");
+    expect(jobTriggerLabel("manual_rerun", { retry: { version: 1, targets } })).toBe("Manual rerun");
+
     // Without retry — existing labels unchanged
     expect(jobTriggerLabel("admin")).toBe("Admin");
     expect(jobTriggerLabel("cron")).toBe("Scheduled");

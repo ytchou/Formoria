@@ -1,6 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { runEnrich } from "../curation-operations";
+import { toAcquireCarry } from "../enrich-blocks/phase-outputs";
+import type { AcquirePhaseOutput } from "../enrich-phases/acquire";
 import type { DetectResult } from "../category-classifier";
 
 /**
@@ -227,8 +229,8 @@ vi.mock("../enrich-blocks/phase-outputs", async (importOriginal) => {
   return {
     ...original,
     createSupabasePhaseOutputStore: mocks.createSupabasePhaseOutputStore.mockReturnValue({
-      reader: { latestPerPhase: async () => [], unpersisted: async () => [] },
-      writer: { upsert: async () => {}, markPersisted: async () => {} },
+      reader: { forTargets: async () => [], latestPerPhase: async () => [], unpersisted: async () => [] },
+      writer: { upsert: async () => [] },
     }),
   };
 });
@@ -406,7 +408,7 @@ function serpCalls(kind: "name" | "handle") {
 }
 
 /** Every field `runEnrich` reads off an `AcquirePhaseOutput`. */
-function acquireOutput(overrides: Record<string, unknown> = {}) {
+function acquireOutput(overrides: Record<string, unknown> = {}): AcquirePhaseOutput {
   return {
     phaseResult: {
       phase: "acquire",
@@ -424,6 +426,7 @@ function acquireOutput(overrides: Record<string, unknown> = {}) {
     quarantine: {},
     imagePool: [],
     acquisitionPageUrls: [],
+    priorityProductUrls: [],
     revokedColumns: [],
     providerFailure: false,
     ...overrides,
@@ -454,6 +457,7 @@ function editorialOutput() {
         durationMs: 10,
       },
     ],
+    phaseOutputs: [{ phaseResult: { phase: "descriptions", status: "succeeded", changedFields: ["description"], durationMs: 10 }, patch: { description: "A description" } }],
     patch: { description: "A description" },
     listingVerdict: null,
     descriptionRewrite: null,
@@ -492,6 +496,7 @@ const FULL_PHASES = [
 function emptyEditorialOutput() {
   return {
     agentOutcome: "generated" as const,
+    phaseOutputs: [],
     phaseResults: [] as Array<{
       phase: string;
       status: string;
@@ -515,21 +520,16 @@ function emptyEditorialOutput() {
 function mockSatisfiedPhases(phases: string[]) {
   mocks.createSupabasePhaseOutputStore.mockReturnValue({
     reader: {
-      latestPerPhase: async () =>
+      forTargets: async (targets: Array<{ id: string; type: string }>) => targets.flatMap((target) =>
         phases.map((phase) => ({
-          id: `out-${phase}`,
-          job_id: "job-prev",
-          target_id: "",
-          target_type: "submission",
-          phase,
-          status: "succeeded",
-          output: null,
-          persisted_at: null,
-          created_at: "2026-08-01T00:00:00Z",
-        })),
+          id: `out-${target.id}-${phase}`, job_id: "job-prev", target_id: target.id,
+          target_type: target.type, phase, status: "succeeded", output: { patch: {}, ...(phase === "acquire" ? { carry: toAcquireCarry(acquireOutput()) } : {}) },
+          persisted_at: "2026-08-01T00:00:00Z", created_at: "2026-08-01T00:00:00Z",
+        }))),
+      latestPerPhase: async () => [],
       unpersisted: async () => [],
     },
-    writer: { upsert: async () => {}, markPersisted: async () => {} },
+    writer: { upsert: async () => [] },
   });
 }
 
@@ -538,8 +538,8 @@ function defaultBeforeEach() {
   // Reset the phase-output store to empty (clearAllMocks does not reset
   // return values set by mockReturnValue).
   mocks.createSupabasePhaseOutputStore.mockReturnValue({
-    reader: { latestPerPhase: async () => [], unpersisted: async () => [] },
-    writer: { upsert: async () => {}, markPersisted: async () => {} },
+    reader: { forTargets: async () => [], latestPerPhase: async () => [], unpersisted: async () => [] },
+    writer: { upsert: async () => [] },
   });
   mocks.getLatestSearchResults.mockResolvedValue(new Map());
   mocks.batchSearchBrandImages.mockResolvedValue(new Map());
@@ -595,6 +595,7 @@ describe("wave collapse — single per-brand loop", () => {
           durationMs: 100,
         },
       ],
+      phaseOutputs: [{ phaseResult: { phase: "descriptions", status: "succeeded", changedFields: ["description"], durationMs: 100 }, patch: { description: "A test description" } }],
       patch: { description: "A test description" },
       listingVerdict: null,
       descriptionRewrite: null,
@@ -1174,6 +1175,7 @@ describe("editorial agent integration", () => {
         { phase: "stockists", status: "skipped", changedFields: [], durationMs: 10 },
         { phase: "faq", status: "succeeded", changedFields: [], durationMs: 50 },
       ],
+      phaseOutputs: [{ phaseResult: { phase: "descriptions", status: "succeeded", changedFields: ["description"], durationMs: 100 }, patch: { description: "A test description" } }],
       patch: { description: "A test description" },
       listingVerdict: null,
       descriptionRewrite: null,
@@ -1245,6 +1247,7 @@ describe("editorial agent integration", () => {
     // relying on the original implementation reading EDITORIAL_AGENT=off.
     mocks.runEditorialAgent.mockResolvedValueOnce({
       agentOutcome: "fallback",
+      phaseOutputs: [],
       phaseResults: [],
       patch: {},
       listingVerdict: null,
@@ -1433,6 +1436,44 @@ describe("two loops with a batched names call between", () => {
     expect(mocks.runProductsPhase).toHaveBeenCalledOnce();
   });
 
+  it("mixed recovery targets report only their selected batch phases", async () => {
+    const detectTarget = submission({
+      id: "sub-detect-scope",
+      brand_name: "Detect Scope Studio",
+      social_instagram: "https://www.instagram.com/detectscope",
+    });
+    const faqTarget = submission({
+      id: "sub-faq-scope",
+      brand_name: "FAQ Scope Studio",
+      social_instagram: "https://www.instagram.com/faqscope",
+    });
+    mocks.runEditorialAgent.mockResolvedValue({
+      ...editorialOutput(),
+      phaseResults: [{ phase: "faq", status: "succeeded", changedFields: ["faq"], durationMs: 10 }],
+      phaseOutputs: [{ phaseResult: { phase: "faq", status: "succeeded", changedFields: ["faq"], durationMs: 10 }, patch: { faq: [] } }],
+      patch: { faq: [] },
+    });
+    const progress: Array<{ targetId: string; currentPhase?: string | null }> = [];
+
+    await runEnrich(
+      {
+        target: "submissions",
+        submissionIds: [detectTarget.id, faqTarget.id],
+        dryRun: true,
+        phases: ["detect", "faq"],
+        targetPlans: {
+          [detectTarget.id]: { selected: ["detect"], forced: ["detect"], explicit: [] },
+          [faqTarget.id]: { selected: ["faq"], forced: ["faq"], explicit: ["faq"] },
+        },
+        onProgress: () => {},
+        onTargetProgressBatch: async (events) => { progress.push(...events); },
+      },
+      fakeSupabase([detectTarget, faqTarget]),
+    );
+
+    expect(progress.filter((event) => event.targetId === faqTarget.id).map((event) => event.currentPhase)).not.toContain("detect");
+  });
+
   it("gate_b_weak_brand_skips", async () => {
     const weak = submission({
       id: "sub-weak",
@@ -1496,16 +1537,17 @@ describe("two loops with a batched names call between", () => {
       },
     ];
     const catalogResult = {
-      candidates: [],
-      entryUrls: ["https://pool.example.com/shop"],
-      priorityProductUrls: ["https://pool.example.com/products/vase"],
-      rawCount: 0,
+      triples: [],
+      attempts: [],
+      evidence: new Map(),
+      deadlineHit: false,
     };
     mocks.runAcquirePhase.mockResolvedValue(
       acquireOutput({
         imagePool,
         catalogResult,
         acquisitionPageUrls: ["https://pool.example.com/products/vase"],
+        priorityProductUrls: ["https://pool.example.com/products/vase"],
       }),
     );
     mocks.runNamesPhase.mockResolvedValue(namesOutput());
@@ -1522,7 +1564,6 @@ describe("two loops with a batched names call between", () => {
       },
       fakeSupabase([target]),
     );
-
     const productsInput = mocks.runProductsPhase.mock.calls[0][0] as {
       imagePool: unknown;
       catalogResult: unknown;

@@ -1,218 +1,94 @@
 import { describe, expect, it } from "vitest";
-import { ENRICH_LLM_PHASES, phasesForTask } from "@/lib/constants/enrich-phases";
-import type { Json } from "@/lib/supabase/database.types";
 import {
-  planCurationResume,
-  rerunJobParams,
-  type CurationJobTarget,
-  type CurationTargetStatus,
-} from "./curation-jobs";
+  ENRICH_PHASES,
+  ENRICH_LLM_PHASES,
+  phasesForTask,
+} from "@/lib/constants/enrich-phases";
+import { buildRecoveryPlan } from "./enrich-blocks/plan";
+import { recoveryJobParams } from "./curation-jobs";
 
-function target(
-  overrides: {
-    targetId?: string;
-    status?: CurationTargetStatus;
-    phaseResults?: Json;
-  } = {},
-): CurationJobTarget {
-  return {
-    id: `row-${overrides.targetId ?? "a"}`,
-    job_id: "job-1",
-    target_id: overrides.targetId ?? "sub-a",
-    target_type: "submission",
-    status: overrides.status ?? "failed",
-    brand_name: "Test Brand",
-    brand_slug: null,
-    changed_fields: [],
-    phase_results: overrides.phaseResults ?? [],
-    current_phase: null,
-    error: null,
-    duration_ms: null,
-    started_at: null,
-    completed_at: null,
-    created_at: "2026-08-02T12:00:00.000Z",
-  };
-}
+const target = {
+  id: "ceramic-studio-submission",
+  status: "failed",
+  results: [],
+  reusablePhases: [],
+};
 
-function phase(name: string, status: "succeeded" | "skipped" | "failed") {
-  return { phase: name, status, changedFields: [], durationMs: 1 };
-}
-
-describe("planCurationResume", () => {
-  it("unions explicitly failed phases with phases that were never recorded", () => {
-    const plans = planCurationResume(null, [
-      target({
-        targetId: "sub-a",
-        phaseResults: [
-          phase("clean", "succeeded"),
-          phase("detect", "succeeded"),
-          phase("slugs", "succeeded"),
-          phase("discover", "succeeded"),
-          phase("links", "succeeded"),
-          phase("images", "succeeded"),
-          phase("classify_images", "failed"),
-        ],
-      }),
+describe("historical recovery compatibility", () => {
+  it("keeps an image-step recovery within the visual task scope", () => {
+    const plan = buildRecoveryPlan({ steps: ["image"] }, { kind: "resume" }, [
+      target,
     ]);
-
-    // `classify_images` failed outright, but it is DEFERRED and therefore not
-    // in the default scope any more, so it drops out of the union rather than
-    // being re-queued as a phase with no runner. Everything after it was never
-    // reached, has no record at all, and is owed.
-    expect(plans.at(0)?.params.phases).toEqual([
-      "acquire",
-      "names",
-      "descriptions",
-      "stockists",
-      "faq",
-      "products",
-    ]);
+    expect(plan.targets[target.id]?.selected).toEqual(phasesForTask("visual"));
   });
 
-  it("expands an image-only source job into the visual closure, not the text phases", () => {
-    const plans = planCurationResume({ steps: ["image"] } as Json, [
-      target({ phaseResults: [phase("images", "failed")] }),
-    ]);
-
-    // The legacy `image` step used to resolve to the deferred image phases,
-    // which have no runner. It now resolves to the visual task's closure
-    // (`LEGACY_STEP_PHASES.image = phasesForTask("visual")`), because
-    // `products` on its own is the self-insufficient scope of the DEV-1469
-    // bug — it needs detect/acquire/names ahead of it. The closure stops
-    // there: no descriptions, stockists, faq, or tags are dragged in.
-    expect(plans.at(0)?.params.phases).toEqual([
-      "detect",
-      "acquire",
-      "names",
-      "products",
-    ]);
-  });
-
-  it("falls back to the in-scope LLM phases when nothing looks unfinished", () => {
-    // The 2026-08-02 records: every LLM phase wrote `succeeded` while OpenAI was
-    // returning insufficient_quota, so the union is empty.
-    const allGreen = [
-      "clean",
-      "detect",
-      "slugs",
-      "discover",
-      "links",
-      "acquire",
-      "names",
-      "site_identity",
-      "images",
-      "classify_images",
-      "descriptions",
-      "stockists",
-      "faq",
-      "products",
-    ].map((name) => phase(name, "succeeded"));
-
-    const plans = planCurationResume(null, [
-      target({ phaseResults: allGreen }),
-    ]);
-
-    expect(plans.at(0)?.params.phases).toEqual([...ENRICH_LLM_PHASES]);
-    expect(plans.at(0)?.params.phases).not.toContain("discover");
-  });
-
-  it("splits failed and cancelled targets into two jobs with different phases", () => {
-    const plans = planCurationResume(
-      { phases: ["discover", "descriptions"] } as Json,
-      [
-        target({
-          targetId: "sub-failed",
-          status: "failed",
-          phaseResults: [
-            phase("discover", "succeeded"),
-            phase("descriptions", "failed"),
-          ],
-        }),
-        target({ targetId: "sub-cancelled", status: "cancelled" }),
-      ],
-    );
-
-    expect(plans.map((plan) => plan.group)).toEqual(["failed", "cancelled"]);
-    expect(plans.at(0)?.params.phases).toEqual(["descriptions"]);
-    expect(plans.at(0)?.params.submissionIds).toEqual(["sub-failed"]);
-    // Cancelled targets never ran, so they get the source's full scope back —
-    // minus `discover`, which is deferred and has no runner to resume into.
-    expect(plans.at(1)?.params.phases).toEqual(["descriptions"]);
-    expect(plans.at(1)?.params.submissionIds).toEqual(["sub-cancelled"]);
-  });
-
-  it("drops `steps` and `task` from every enqueued job because they beat phases at run time", () => {
-    const plans = planCurationResume(
-      { steps: ["context", "detail"], task: "full", stopAfter: 5 } as Json,
-      [
-        target({ targetId: "sub-failed", status: "failed" }),
-        target({ targetId: "sub-cancelled", status: "cancelled" }),
-      ],
-    );
-
-    expect(plans).toHaveLength(2);
-    for (const plan of plans) {
-      expect(plan.params.steps).toBeUndefined();
-      expect(plan.params.task).toBeUndefined();
-      expect(plan.params.stopAfter).toBeUndefined();
-      expect(plan.params.target).toBe("submissions");
-    }
-  });
-
-  it("normalizes the legacy `expansion` phase name (now removed) into the full-scope fallback", () => {
-    const plans = planCurationResume({ phases: ["expansion"] } as Json, [
-      target({ phaseResults: [phase("expansion", "succeeded")] }),
-    ]);
-
-    // `expansion` normalizes to `reputation`, but `reputation` is no longer in
-    // ENRICH_PHASES, so effectiveRequestedPhases falls through to the default
-    // scope — the `full` task closure, which excludes the deferred phases.
-    expect(plans.at(0)?.params.phases).toEqual(phasesForTask("full"));
-  });
-
-  it("preserves the source job's overwrite flag", () => {
-    const plans = planCurationResume({ overwrite: true } as Json, [target()]);
-    expect(plans.at(0)?.params.overwrite).toBe(true);
-  });
-
-  it("throws when no target is eligible", () => {
-    expect(() => planCurationResume(null, [])).toThrow(
-      /no failed or cancelled targets/i,
-    );
-  });
-
-  it("resume_params_drop_retry", () => {
-    // A retry job that fails should drop the retry scope when resumed,
-    // so the resume computes its own phase scope from phase_results.
-    const plans = planCurationResume(
+  it("repeats in-scope LLM phases when old records report every phase succeeded", () => {
+    const plan = buildRecoveryPlan(null, { kind: "resume" }, [
       {
-        retry: { block: "products", mode: "only" },
-        phases: ["products"],
-      } as Json,
-      [
-        target({
-          targetId: "sub-a",
-          status: "failed",
-          phaseResults: [phase("products", "failed")],
-        }),
-      ],
+        ...target,
+        results: ENRICH_PHASES.map((phase) => ({ phase, status: "succeeded" })),
+      },
+    ]);
+    expect(plan.targets[target.id]?.selected).toEqual(
+      ENRICH_PHASES.filter((phase) =>
+        (ENRICH_LLM_PHASES as readonly string[]).includes(phase),
+      ),
     );
+  });
 
-    // The retry field must be dropped from the resumed params
-    expect(plans.at(0)?.params.retry).toBeUndefined();
-    // The phase scope is computed from the failed phases, not from the retry
-    expect(plans.at(0)?.params.phases).toEqual(["products"]);
+  it("refuses to expand a retired-only job into full enrichment", () => {
+    expect(() =>
+      buildRecoveryPlan({ phases: ["expansion"] }, { kind: "resume" }, [
+        target,
+      ]),
+    ).toThrow();
   });
 });
 
-describe("rerunJobParams preserves retry", () => {
-  it("rerun_params_keep_retry", () => {
-    const result = rerunJobParams({
-      retry: { block: "detect", mode: "only" },
+describe("stored recovery parameters", () => {
+  it("stores one mixed-target plan without inherited selectors truncating its targets", () => {
+    const source = {
       task: "full",
+      steps: ["context"],
+      phases: ["faq"],
+      stopAfter: 1,
+      slugs: ["ceramic-studio"],
+      overwrite: true,
+      budgetScale: 1.5,
+    };
+    const plan = buildRecoveryPlan(source, { kind: "resume" }, [
+      target,
+      { ...target, id: "tea-studio-submission", status: "cancelled" },
+    ]);
+    const params = recoveryJobParams(source, plan);
+    expect(params).toEqual({
+      target: "submissions",
+      submissionIds: [target.id, "tea-studio-submission"],
+      overwrite: true,
+      retry: plan,
     });
-    // rerunJobParams preserves the retry scope (a rerun behaves like the run
-    // it repeats)
-    expect(result.retry).toEqual({ block: "detect", mode: "only" });
+    expect(source.stopAfter).toBe(1);
+  });
+
+  it("does not turn a forced FAQ retry into blanket overwrite", () => {
+    const plan = buildRecoveryPlan(
+      {},
+      { kind: "phase", block: "editorial", mode: "only", subPhase: "faq" },
+      [target],
+    );
+    const params = recoveryJobParams({}, plan);
+    expect(params.overwrite).toBe(false);
+    expect(params.retry).toEqual({
+      version: 1,
+      action: {
+        kind: "phase",
+        block: "editorial",
+        mode: "only",
+        subPhase: "faq",
+      },
+      targets: {
+        [target.id]: { selected: ["faq"], forced: ["faq"], explicit: ["faq"] },
+      },
+    });
   });
 });

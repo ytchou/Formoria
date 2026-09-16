@@ -23,7 +23,7 @@ import {
 } from "./_shared/brand-image-batch";
 import { isNonImageHost } from "@/lib/images/allowed-image-hosts";
 import { storageKeyFromPublicUrlForRead } from "./image-upload";
-import { RESERVED_ROUTES } from "@/proxy";
+import { RESERVED_ROUTES } from "@/lib/routes";
 import {
   DEFERRED_CATEGORY_SLUGS,
   deriveCategoryLabel,

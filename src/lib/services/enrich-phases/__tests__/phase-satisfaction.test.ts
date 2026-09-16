@@ -19,7 +19,7 @@ function fakeRow(overrides: Partial<PhaseOutputRow> & Pick<PhaseOutputRow, "phas
     target_id: "brand-1",
     target_type: "brand",
     status: "succeeded",
-    output: null,
+    output: { patch: {} },
     persisted_at: null,
     ...overrides,
   };
@@ -28,12 +28,12 @@ function fakeRow(overrides: Partial<PhaseOutputRow> & Pick<PhaseOutputRow, "phas
 function fakeStore(rows: PhaseOutputRow[]): PhaseOutputStore {
   return {
     reader: {
+      forTargets: async () => rows,
       latestPerPhase: async () => rows,
       unpersisted: async () => [],
     },
     writer: {
-      upsert: async () => {},
-      markPersisted: async () => {},
+      upsert: async () => [],
     },
   };
 }
@@ -41,12 +41,12 @@ function fakeStore(rows: PhaseOutputRow[]): PhaseOutputStore {
 function failingStore(error: Error): PhaseOutputStore {
   return {
     reader: {
+      forTargets: async () => { throw error; },
       latestPerPhase: async () => { throw error; },
       unpersisted: async () => [],
     },
     writer: {
-      upsert: async () => {},
-      markPersisted: async () => {},
+      upsert: async () => [],
     },
   };
 }
