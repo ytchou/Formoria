@@ -2,6 +2,11 @@ import * as Sentry from "@sentry/nextjs";
 import { NextResponse } from "next/server";
 import { postSlackAlert } from "@/lib/adapters/alerting/slack";
 import { withAuditScope } from "@/lib/audit/scope";
+import {
+  parseCronBody,
+  validBoundedString,
+  validString,
+} from "@/lib/http/cron-body";
 import { isAuthorizedMachineCaller } from "@/lib/security/machine-caller";
 import {
   buildEgressAnomalyNotification,
@@ -21,80 +26,20 @@ import {
 export const runtime = "nodejs";
 export const maxDuration = 300;
 
-const MAX_BODY_BYTES = 4_096;
-const SAFE_IDENTITY = /^[A-Za-z0-9][A-Za-z0-9._:@/-]*$/;
-
 type RequestBody = {
   always_notify?: boolean;
   triggered_by?: string;
   run_at?: string;
 };
 
-function validString(value: unknown, maxLength: number): value is string {
-  return (
-    typeof value === "string" &&
-    value.length > 0 &&
-    value.length <= maxLength &&
-    SAFE_IDENTITY.test(value)
-  );
-}
-
 /**
- * `run_at` is bounded and typed but NOT matched against `SAFE_IDENTITY`: the
- * pg_cron job sends `now()::text`, which carries a space and a `+` offset.
- * Rejecting it is what silently killed the pg_cron link-health job
- * (`supabase/migrations/20260807120000_cron_http_dispatch_capture.sql`).
+ * Media type, size cap and object shape come from `@/lib/http/cron-body`; the
+ * allow-list and the per-key rules below are this job's own contract.
  */
-function validBoundedString(
-  value: unknown,
-  maxLength: number,
-): value is string {
-  return (
-    typeof value === "string" && value.length > 0 && value.length <= maxLength
-  );
-}
-
 async function parseBody(req: Request): Promise<RequestBody | NextResponse> {
-  const contentType = req.headers
-    .get("content-type")
-    ?.split(";", 1)[0]
-    ?.trim()
-    .toLowerCase();
-  if (contentType !== "application/json") {
-    return NextResponse.json(
-      { error: "Unsupported media type" },
-      { status: 415 },
-    );
-  }
+  const candidate = await parseCronBody(req);
+  if (candidate instanceof NextResponse) return candidate;
 
-  const declaredLength = Number(req.headers.get("content-length"));
-  if (Number.isFinite(declaredLength) && declaredLength > MAX_BODY_BYTES) {
-    return NextResponse.json(
-      { error: "Request body too large" },
-      { status: 413 },
-    );
-  }
-
-  const text = await req.text();
-  if (new TextEncoder().encode(text).byteLength > MAX_BODY_BYTES) {
-    return NextResponse.json(
-      { error: "Request body too large" },
-      { status: 413 },
-    );
-  }
-
-  let body: unknown;
-  try {
-    body = JSON.parse(text);
-  } catch {
-    return NextResponse.json({ error: "Invalid request" }, { status: 400 });
-  }
-
-  if (!body || typeof body !== "object" || Array.isArray(body)) {
-    return NextResponse.json({ error: "Invalid request" }, { status: 400 });
-  }
-
-  const candidate = body as Record<string, unknown>;
   const allowedKeys = new Set(["always_notify", "triggered_by", "run_at"]);
   if (Object.keys(candidate).some((key) => !allowedKeys.has(key))) {
     return NextResponse.json({ error: "Invalid request" }, { status: 400 });

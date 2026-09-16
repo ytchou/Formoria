@@ -29,6 +29,18 @@ describe('isAllowedImageHost', () => {
     expect(ALLOWED_IMAGE_HOSTS).toEqual([])
   })
 
+  it('is empty for a blank or unparseable project URL', async () => {
+    // The condition the build assertion in `next.config.ts` refuses: an empty
+    // list bakes no host into `images.remotePatterns`, so every public storage
+    // URL is rejected by `next/image` at runtime. Pinned here because the
+    // assertion itself lives in a config file no unit test can load twice.
+    expect((await importWithProjectUrl('')).ALLOWED_IMAGE_HOSTS).toEqual([])
+    expect((await importWithProjectUrl('   ')).ALLOWED_IMAGE_HOSTS).toEqual([])
+    expect((await importWithProjectUrl('project.supabase.co')).ALLOWED_IMAGE_HOSTS).toEqual(
+      [],
+    )
+  })
+
   it('allows the configured project storage host (DEV-1744)', async () => {
     // The `brand-images` bucket is public again and `imagePathToUrl` addresses
     // published objects by their public storage URL, so `next/image` and

@@ -40,6 +40,33 @@ const RETIRED_CATEGORY_SLUGS: ReadonlyArray<
   ["clothing", "fashion"],
 ];
 
+/*
+ * `images.remotePatterns` and the CSP `img-src` list below are baked at BUILD
+ * time from `ALLOWED_IMAGE_HOSTS`, which `src/lib/images/allowed-image-hosts.ts`
+ * derives from `NEXT_PUBLIC_SUPABASE_URL` once at module load. Since DEV-1744
+ * task 3 published imagery is addressed by its public Supabase storage URL, so
+ * an empty list means `next/image` rejects and CSP blocks every brand image at
+ * runtime — site-wide breakage with nothing logged anywhere. A build that cannot
+ * name the storage host must fail here instead of shipping that.
+ *
+ * Gated on production because this file is also imported by
+ * `src/app/admin/__tests__/next-config-redirects.test.ts` under vitest, which
+ * deliberately runs with no project URL (the empty case is pinned in
+ * `src/lib/images/__tests__/allowed-image-hosts.test.ts`), and because `next dev`
+ * without Supabase is a legitimate local state. `next build` and `next start`
+ * both run with NODE_ENV=production, which is where a missing host actually
+ * ships.
+ */
+if (process.env.NODE_ENV === "production" && ALLOWED_IMAGE_HOSTS.length === 0) {
+  throw new Error(
+    "NEXT_PUBLIC_SUPABASE_URL is unset or unparseable in this build " +
+      "environment, so ALLOWED_IMAGE_HOSTS (src/lib/images/allowed-image-hosts.ts) " +
+      "is empty and images.remotePatterns would bake in no Supabase storage " +
+      "host. Every published image would fail to render. Set " +
+      "NEXT_PUBLIC_SUPABASE_URL to the same project the runtime uses.",
+  );
+}
+
 const imgSrcHosts = ALLOWED_IMAGE_HOSTS.map(
   (hostname) => `https://${hostname}`,
 ).join(" ");

@@ -52,7 +52,19 @@ export type ProxiedImageDownload = (key: string) => Promise<{
 /**
  * The subset of Supabase's object-info payload this module reads. Both casings
  * are accepted because the storage client camelizes (`lastModified`) while the
- * raw REST payload and older rows use `last_modified`/`updated_at`.
+ * raw REST payload and older rows use `last_modified`/`updated_at`
+ * (`FileObjectV2` in `@supabase/storage-js`, where `updated_at` is the
+ * deprecated predecessor of `last_modified`).
+ *
+ * The snake_case members are a DELIBERATE, scoped exception to the repo's
+ * "TypeScript types are camelCase" convention (CLAUDE.md, Data Conventions).
+ * That rule governs internal data models, which are transformed at the service
+ * boundary; this type is not one. It describes an EXTERNAL SDK response at the
+ * point it is read, and `info` is an injectable seam — a caller wiring the raw
+ * REST payload instead of the camelizing client is exactly the case the second
+ * casing covers. Renaming these fields would silently stop matching the payload
+ * rather than fail to compile. Nothing downstream sees this shape:
+ * `deriveProxiedImageETag` collapses it to a single string.
  */
 export type ProxiedImageObjectInfo = {
   etag?: string | null;
@@ -88,10 +100,21 @@ export type ServeProxiedImageOptions = {
   info?: ProxiedImageInfo;
 };
 
-/** Strips a weak-validator prefix and surrounding quotes for comparison. */
-function normalizeValidator(value: string): string {
+/**
+ * Strips a weak-validator prefix and surrounding quotes for comparison, or
+ * returns null when the result cannot be used as a validator.
+ *
+ * The quote strip is outermost-only, so a value carrying an INTERIOR `"` would
+ * survive it and be re-wrapped into a malformed `ETag` header (and compared
+ * against a header that was parsed differently). Supabase Storage etags are hex
+ * MD5 hashes, so this is unreachable today; the null is the cheap guard that
+ * keeps it unreachable — an unusable validator drops the ETag rather than
+ * emitting a broken one, which degrades to the pre-DEV-1744 behaviour.
+ */
+function normalizeValidator(value: string): string | null {
   const unweighted = value.trim().replace(/^W\//i, "");
-  return unweighted.replace(/^"([\s\S]*)"$/, "$1");
+  const unquoted = unweighted.replace(/^"([\s\S]*)"$/, "$1");
+  return unquoted.includes('"') ? null : unquoted;
 }
 
 /**
@@ -109,11 +132,15 @@ export function deriveProxiedImageETag(
 ): string | null {
   if (!info) return null;
 
-  const etag = info.etag?.trim();
-  if (etag) return `"${normalizeValidator(etag)}"`;
+  // An unusable candidate (interior quote) falls through to the next one rather
+  // than aborting the chain: a weaker ETag still beats none.
+  const rawEtag = info.etag?.trim();
+  const etag = rawEtag ? normalizeValidator(rawEtag) : null;
+  if (etag) return `"${etag}"`;
 
-  const version = info.version?.trim();
-  if (version) return `"${normalizeValidator(version)}"`;
+  const rawVersion = info.version?.trim();
+  const version = rawVersion ? normalizeValidator(rawVersion) : null;
+  if (version) return `"${version}"`;
 
   const modified = info.lastModified ?? info.last_modified ?? info.updated_at;
   const modifiedAt = modified ? Date.parse(modified) : Number.NaN;
@@ -139,6 +166,8 @@ export function ifNoneMatchSatisfied(
   if (!ifNoneMatch || !etag) return false;
 
   const wanted = normalizeValidator(etag);
+  if (wanted === null) return false;
+
   return ifNoneMatch
     .split(",")
     .map((candidate) => candidate.trim())
@@ -244,10 +273,18 @@ function proxiedImageHeaders(
   return headers;
 }
 
-/** 304 carries no body, so it carries no content type either. */
+/**
+ * 304 carries no body, so it carries no content type either.
+ *
+ * `nosniff` is repeated here even though the 304 has nothing to sniff: RFC 9111
+ * §3.2 lets a cache replace the stored response's headers with the ones on the
+ * 304, so omitting it would strip the protection off the cached 200 after the
+ * first successful revalidation.
+ */
 function notModifiedHeaders(etag: string): Headers {
   return new Headers({
     "cache-control": PROXIED_IMAGE_CACHE_CONTROL,
+    "x-content-type-options": "nosniff",
     etag,
   });
 }
@@ -260,6 +297,12 @@ export async function serveProxiedImage(
   const key = resolveProxiedImageKey(segments);
   if (!key) return new Response(null, { status: 404 });
 
+  // Metadata BEFORE bytes, deliberately: this ordering is what lets a matching
+  // `If-None-Match` skip the download entirely. Accepted trade-off — an object
+  // replaced between the two calls serves the new bytes under the old ETag,
+  // which the client's next revalidation corrects at the cost of one extra
+  // transfer. No stale bytes are ever served, so this is cheaper than fetching
+  // the object first and re-reading its metadata.
   const etag = options.info
     ? await readProxiedImageETag(key, options.info)
     : null;

@@ -54,6 +54,15 @@ describe('imagePathToUrl', () => {
     )
   })
 
+  it('does not double the slash when the project URL has a trailing one', () => {
+    // The public segment already starts with `/`. A doubled slash renders fine
+    // in a snapshot and 404s on the CDN.
+    vi.stubEnv('NEXT_PUBLIC_SUPABASE_URL', `${SUPABASE_URL}/`)
+    expect(imagePathToUrl('brands/a/x.webp')).toBe(
+      `${PUBLIC_PREFIX}brands/a/x.webp`,
+    )
+  })
+
   it('returns null for a blank path', () => {
     expect(imagePathToUrl(null)).toBeNull()
     expect(imagePathToUrl(undefined)).toBeNull()
@@ -178,5 +187,16 @@ describe('storagePathFromImageUrl', () => {
     const path = 'brands/a/x.webp'
     expect(storagePathFromImageUrl(imagePathToUrl(path))).toBe(path)
     expect(storagePathFromImageUrl(`${PUBLIC_PREFIX}${path}`)).toBe(path)
+  })
+
+  it('round-trips when the project URL has a trailing slash or padding', () => {
+    // Both halves of the seam normalise the env value the same way, so neither
+    // a trailing slash nor stray whitespace can desync build from parse.
+    const path = 'brands/a/x.webp'
+    for (const value of [`${SUPABASE_URL}/`, `  ${SUPABASE_URL}/  `]) {
+      vi.stubEnv('NEXT_PUBLIC_SUPABASE_URL', value)
+      expect(storagePathFromImageUrl(imagePathToUrl(path))).toBe(path)
+      expect(storagePathFromImageUrl(`${PUBLIC_PREFIX}${path}`)).toBe(path)
+    }
   })
 })

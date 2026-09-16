@@ -33,6 +33,26 @@ const BRAND_IMAGES_BUCKET = 'brand-images'
 export const BRAND_IMAGES_PUBLIC_URL_SEGMENT = `/storage/v1/object/public/${BRAND_IMAGES_BUCKET}/`
 
 /**
+ * The project origin, normalised the SAME way for both directions of this seam.
+ *
+ * `BRAND_IMAGES_PUBLIC_URL_SEGMENT` already starts with `/`, so an env value
+ * ending in one (`https://project.supabase.co/`) would build a double slash —
+ * a URL that renders, 404s on the CDN, and no longer matches the prefix the
+ * reverse parser builds. Both {@link imagePathToUrl} and
+ * {@link storageKeyFromBrandImagesPublicUrl} call this, so the two halves
+ * cannot drift apart: one used to trim and the other did not.
+ *
+ * Returns null when unset, which is what makes both halves fail closed.
+ */
+function normalizedProjectUrl(): string | null {
+  const projectUrl = process.env.NEXT_PUBLIC_SUPABASE_URL?.trim().replace(
+    /\/$/,
+    '',
+  )
+  return projectUrl ? projectUrl : null
+}
+
+/**
  * `brands/<uuid>/x.webp` -> `<project>/storage/v1/object/public/brand-images/brands/<uuid>/x.webp`,
  * `submissions/<id>/x.webp` -> `/i/submissions/<id>/x.webp`.
  *
@@ -58,7 +78,7 @@ export function imagePathToUrl(
   if (key.startsWith('/') || key.includes('://')) return null
 
   if (isPublicStorageKey(key)) {
-    const projectUrl = process.env.NEXT_PUBLIC_SUPABASE_URL?.trim()
+    const projectUrl = normalizedProjectUrl()
     if (projectUrl) {
       return `${projectUrl}${BRAND_IMAGES_PUBLIC_URL_SEGMENT}${key}`
     }
@@ -109,7 +129,7 @@ export function storageKeyFromBrandImagesPublicUrl(
   const value = url?.trim()
   if (!value) return null
 
-  const projectUrl = process.env.NEXT_PUBLIC_SUPABASE_URL ?? ''
+  const projectUrl = normalizedProjectUrl()
   if (!projectUrl) return null
 
   const prefix = `${projectUrl}${BRAND_IMAGES_PUBLIC_URL_SEGMENT}`

@@ -195,6 +195,24 @@ describe("GET /i/[...path]", () => {
     // the object bytes out of storage either.
     expect(requested).toEqual([]);
     expect(response.headers.get("etag")).toBe('"abc123"');
+    // RFC 9111 §3.2: a cache may replace the stored 200's headers with the
+    // 304's, so dropping this here would strip nosniff off the cached entry.
+    expect(response.headers.get("x-content-type-options")).toBe("nosniff");
+  });
+
+  it("drops the ETag for a validator carrying an interior quote", async () => {
+    // Unreachable with Supabase's hex MD5 etags; the guard is what keeps a
+    // malformed `ETag` header from being re-wrapped and emitted.
+    const { download } = storageWith({ [BRAND_KEY]: "image/webp" });
+    const { info } = infoWith({ [BRAND_KEY]: { etag: 'ab"cd' } });
+
+    const response = await serveProxiedImage(BRAND_KEY.split("/"), download, {
+      ifNoneMatch: '"ab"cd"',
+      info,
+    });
+
+    expect(response.status).toBe(200);
+    expect(response.headers.get("etag")).toBeNull();
   });
 
   it("returns 200 with full body when If-None-Match does not match", async () => {

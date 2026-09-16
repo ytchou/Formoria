@@ -11,6 +11,13 @@ import { ValidationError } from "@/lib/errors";
 const SUPABASE_URL = "https://project.supabase.co";
 const PUBLIC_PREFIX = `${SUPABASE_URL}/storage/v1/object/public/brand-images/`;
 
+/**
+ * The refs are RENDER urls that `rejectBrandImages` reverses through
+ * `storagePathFromImageUrl`; nothing compares them to a stored `/i/` value. Since
+ * DEV-1744 task 3 `imagePathToUrl` addresses a `brands/` key by its public
+ * storage URL, so that is the form the round trip now carries — the reverse
+ * parser recognises both.
+ */
 describe("brandImageRejectRefs", () => {
   beforeEach(() => {
     vi.stubEnv("NEXT_PUBLIC_SUPABASE_URL", SUPABASE_URL);
@@ -25,7 +32,7 @@ describe("brandImageRejectRefs", () => {
       brandImageRejectRefs([
         { id: "img-1", storage_path: "brands/brand-1/hero.webp", url: null },
       ]),
-    ).toEqual(["/i/brands/brand-1/hero.webp"]);
+    ).toEqual([`${PUBLIC_PREFIX}brands/brand-1/hero.webp`]);
   });
 
   it("recovers a key from the public url when storage_path is null", () => {
@@ -41,7 +48,7 @@ describe("brandImageRejectRefs", () => {
           url: `${PUBLIC_PREFIX}brands/brand-1/legacy.webp`,
         },
       ]),
-    ).toEqual(["/i/brands/brand-1/legacy.webp"]);
+    ).toEqual([`${PUBLIC_PREFIX}brands/brand-1/legacy.webp`]);
   });
 
   it("rejects a legacy row alongside a modern one", () => {
@@ -55,8 +62,8 @@ describe("brandImageRejectRefs", () => {
         },
       ]),
     ).toEqual([
-      "/i/brands/brand-1/hero.webp",
-      "/i/brands/brand-1/legacy.webp",
+      `${PUBLIC_PREFIX}brands/brand-1/hero.webp`,
+      `${PUBLIC_PREFIX}brands/brand-1/legacy.webp`,
     ]);
   });
 

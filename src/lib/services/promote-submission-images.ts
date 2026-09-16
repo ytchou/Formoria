@@ -206,6 +206,47 @@ async function fetchSubmissionKeyedRows(
   return rows
 }
 
+export type SweepSummary = {
+  scanned: number
+  promoted: number
+  copied: number
+  adopted: number
+  skipped: number
+  unresolvable: number
+  conflicts: number
+  failed: number
+}
+
+/**
+ * The counts the sweep reports, and the only place they are derived. Pure, so
+ * the reporting contract is testable without a Supabase client — the repo
+ * forbids mocking one, and the sweep's own behavior is covered in
+ * `src/lib/services/__tests__/promote-submission-images.test.ts`.
+ *
+ * Lives here rather than in `/api/cron/promote-submission-images/route.ts`
+ * because deriving the counts is business logic, and the File Ownership table
+ * in CLAUDE.md leaves API routes only auth, the service call and the response.
+ *
+ * `failed` counts rows still stuck under `submissions/` after the run:
+ * execution failures, target conflicts, and rows the planner could not resolve.
+ * All three are the same operational fact — an image that is still unservable.
+ */
+export function buildSweepSummary(result: PromotionResult): SweepSummary {
+  return {
+    scanned: result.plan.scanned,
+    promoted: result.copied + result.adopted,
+    copied: result.copied,
+    adopted: result.adopted,
+    skipped: result.plan.skipped.length,
+    unresolvable: result.plan.unresolvable.length,
+    conflicts: result.conflicts.length,
+    failed:
+      result.failures.length +
+      result.conflicts.length +
+      result.plan.unresolvable.length,
+  }
+}
+
 /** A dry run reports the plan without touching storage or any row. */
 function dryRunResult(plan: PromotionPlan): PromotionResult {
   return { plan, outcomes: [], copied: 0, adopted: 0, conflicts: [], failures: [] }

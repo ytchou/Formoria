@@ -8,8 +8,8 @@ import { afterEach, describe, expect, it, vi } from "vitest";
  * reaches Supabase. The 200 path needs a live database, and
  * `scripts/check-test-boundaries.mjs` forbids mocking `@/lib/services/*` to
  * fake it — so the part of the 200 path that carries the contract (the counts
- * the body reports) is extracted as `buildSweepSummary` and driven directly
- * with a plain `PromotionResult`.
+ * the body reports) lives in the service as `buildSweepSummary` and is driven
+ * directly with a plain `PromotionResult`.
  *
  * The allow-list cases matter beyond input hygiene: the pg_cron job posts
  * `{"triggered_by":"pg_cron","run_at":now()::text}`, and the retired pg_cron
@@ -17,7 +17,8 @@ import { afterEach, describe, expect, it, vi } from "vitest";
  * `supabase/migrations/20260807120000_cron_http_dispatch_capture.sql`).
  */
 import type { PromotionResult } from "@/lib/images/submission-image-promotion";
-import { buildSweepSummary, POST } from "./route";
+import { buildSweepSummary } from "@/lib/services/promote-submission-images";
+import { POST } from "./route";
 
 const url = "https://formoria.com/api/cron/promote-submission-images";
 const secret = "mch_2026_09_5b1d7c04e9a2f836b4c7d1e0";
