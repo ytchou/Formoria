@@ -35,51 +35,9 @@ export type ArmResult = {
 };
 
 // ---------------------------------------------------------------------------
-// Metric functions
+// Metric functions (precisionAtK, recallAtK, mrr, p95, mean) migrated to
+// src/lib/services/eval/scorers.ts — import from there.
 // ---------------------------------------------------------------------------
-
-/**
- * Precision@k: fraction of the top-k retrieved items that are in the expected set.
- */
-export function precisionAtK(
-  retrieved: string[],
-  expected: string[],
-  k: number,
-): number {
-  if (k <= 0) return 0;
-  const topK = retrieved.slice(0, k);
-  const expectedSet = new Set(expected);
-  const hits = topK.filter((id) => expectedSet.has(id)).length;
-  return hits / k;
-}
-
-/**
- * Recall@k: fraction of expected items found in the top-k retrieved items.
- */
-export function recallAtK(
-  retrieved: string[],
-  expected: string[],
-  k: number,
-): number {
-  if (expected.length === 0) return 0;
-  const topK = new Set(retrieved.slice(0, k));
-  const hits = expected.filter((id) => topK.has(id)).length;
-  return hits / expected.length;
-}
-
-/**
- * Mean Reciprocal Rank: 1 / (rank of the first expected item in retrieved).
- * Returns 0 when no expected item appears in retrieved.
- */
-export function mrr(retrieved: string[], expected: string[]): number {
-  const expectedSet = new Set(expected);
-  for (let i = 0; i < retrieved.length; i++) {
-    if (expectedSet.has(retrieved[i]!)) {
-      return 1 / (i + 1);
-    }
-  }
-  return 0;
-}
 
 // ---------------------------------------------------------------------------
 // Verdict
@@ -106,22 +64,6 @@ export function verdict(results: ArmResult[]): string {
   if (lift >= 0.1 - 1e-9 && fast) return "ship";
   if (lift < 0.1 - 1e-9) return "no-lift";
   return "too-slow";
-}
-
-// ---------------------------------------------------------------------------
-// Aggregation helpers
-// ---------------------------------------------------------------------------
-
-export function p95(values: number[]): number {
-  if (values.length === 0) return 0;
-  const sorted = [...values].sort((a, b) => a - b);
-  const index = Math.ceil(sorted.length * 0.95) - 1;
-  return sorted[Math.max(0, index)]!;
-}
-
-export function mean(values: number[]): number {
-  if (values.length === 0) return 0;
-  return values.reduce((sum, v) => sum + v, 0) / values.length;
 }
 
 // ---------------------------------------------------------------------------

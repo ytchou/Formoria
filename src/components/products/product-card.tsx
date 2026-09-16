@@ -30,6 +30,8 @@ export function ProductCard({ product, locale }: ProductCardProps) {
 
   return (
     <li
+      data-brand-slug={product.brandSlug}
+      data-product-key={product.key}
       className={surfaceCardStyles({
         padding: "none",
         className: "flex flex-col overflow-hidden",

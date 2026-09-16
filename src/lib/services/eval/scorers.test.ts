@@ -11,6 +11,15 @@ import {
   bandAgreement,
   withinPoolOrderingAgreement,
   selectionAgreement,
+  precisionAtK,
+  recallAtK,
+  mrr,
+  mean,
+  p95,
+  ndcgAtK,
+  bootstrapCI,
+  ndcgAt,
+  type GradedItem,
 } from './scorers'
 import { expect, it, describe } from 'vitest'
 import { z } from 'zod'
@@ -313,5 +322,118 @@ describe('selectionAgreement', () => {
       ],
     }
     expect(selectionAgreement(output, expected)).toBe(1)
+  })
+})
+
+// ---------------------------------------------------------------------------
+// IR scorers (migrated from metrics.ts + new)
+// ---------------------------------------------------------------------------
+
+describe('precisionAtK', () => {
+  it('matches legacy — fraction of top-k that are relevant', () => {
+    expect(precisionAtK(['a', 'b', 'c', 'd'], ['a', 'c'], 3)).toBeCloseTo(2 / 3)
+  })
+
+  it('returns 0 when k is 0', () => {
+    expect(precisionAtK(['a'], ['a'], 0)).toBe(0)
+  })
+})
+
+describe('recallAtK', () => {
+  it('matches legacy — fraction of expected found in top-k', () => {
+    expect(recallAtK(['a', 'x', 'c', 'b'], ['a', 'b', 'c'], 3)).toBeCloseTo(2 / 3)
+  })
+
+  it('returns 0 when expected is empty', () => {
+    expect(recallAtK(['a', 'b'], [], 2)).toBe(0)
+  })
+})
+
+describe('mrr', () => {
+  it('matches legacy — reciprocal rank of first hit', () => {
+    expect(mrr(['x', 'b', 'a'], ['a', 'b'])).toBeCloseTo(0.5)
+  })
+
+  it('returns 0 when no expected item is found', () => {
+    expect(mrr(['x', 'y', 'z'], ['a', 'b'])).toBe(0)
+  })
+})
+
+describe('p95 and mean migrated', () => {
+  it('p95 matches legacy value', () => {
+    expect(p95([1, 2, 3, 4, 100])).toBe(100)
+  })
+
+  it('mean matches legacy value', () => {
+    expect(mean([1, 2, 3])).toBe(2)
+  })
+})
+
+describe('ndcgAtK', () => {
+  it('returns 1.0 for perfect ranking', () => {
+    const expected: GradedItem[] = [
+      { key: 'a', grade: 3 },
+      { key: 'b', grade: 2 },
+      { key: 'c', grade: 1 },
+    ]
+    // Perfect order: a, b, c
+    expect(ndcgAtK(['a', 'b', 'c'], expected, 3)).toBeCloseTo(1.0)
+  })
+
+  it('returns 0 for completely irrelevant', () => {
+    const expected: GradedItem[] = [
+      { key: 'a', grade: 3 },
+      { key: 'b', grade: 2 },
+    ]
+    // No graded item in top-3
+    expect(ndcgAtK(['x', 'y', 'z'], expected, 3)).toBe(0)
+  })
+
+  it('handles partial matches', () => {
+    const expected: GradedItem[] = [
+      { key: 'a', grade: 3 },
+      { key: 'b', grade: 2 },
+      { key: 'c', grade: 1 },
+    ]
+    // Only 'b' appears at position 1 (rank 1)
+    // DCG = 2 / log2(2) = 2
+    // IDCG = 3/log2(2) + 2/log2(3) + 1/log2(4) = 3 + 1.2618.. + 0.5 = 4.7618..
+    const result = ndcgAtK(['b', 'x', 'y'], expected, 3)
+    expect(result).toBeGreaterThan(0)
+    expect(result).toBeLessThan(1)
+    // DCG/IDCG = 2 / 4.7618.. ≈ 0.4200
+    expect(result).toBeCloseTo(2 / (3 / Math.log2(2) + 2 / Math.log2(3) + 1 / Math.log2(4)))
+  })
+})
+
+describe('bootstrapCI', () => {
+  it('contains true mean', () => {
+    const values = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+    const ci = bootstrapCI(values, 2000, 0.05)
+    expect(ci.lo).toBeLessThanOrEqual(ci.mean)
+    expect(ci.hi).toBeGreaterThanOrEqual(ci.mean)
+    expect(ci.mean).toBeCloseTo(5.5)
+  })
+
+  it('narrows with more data', () => {
+    const small = [1, 2, 3, 4, 5]
+    const large = Array.from({ length: 100 }, (_, i) => (i % 5) + 1)
+    const ciSmall = bootstrapCI(small, 2000, 0.05)
+    const ciLarge = bootstrapCI(large, 2000, 0.05)
+    const widthSmall = ciSmall.hi - ciSmall.lo
+    const widthLarge = ciLarge.hi - ciLarge.lo
+    expect(widthSmall).toBeGreaterThan(widthLarge)
+  })
+})
+
+describe('ndcgAt curried factory', () => {
+  it('ndcgAt(k)(output, expected) === ndcgAtK(output, expected, k)', () => {
+    const expected: GradedItem[] = [
+      { key: 'a', grade: 3 },
+      { key: 'b', grade: 2 },
+      { key: 'c', grade: 1 },
+    ]
+    const retrieved = ['b', 'a', 'c']
+    expect(ndcgAt(10)(retrieved, expected)).toBe(ndcgAtK(retrieved, expected, 10))
   })
 })

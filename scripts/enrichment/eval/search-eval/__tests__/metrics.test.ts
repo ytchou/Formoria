@@ -1,59 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { precisionAtK, recallAtK, mrr, verdict, resolveExpected, type ArmResult } from "../metrics";
+import { verdict, resolveExpected, type ArmResult } from "../metrics";
 
-describe("precisionAtK", () => {
-  it("returns fraction of retrieved items that are relevant", () => {
-    // 3 retrieved, 2 relevant in top-3 => 2/3
-    expect(precisionAtK(["a", "b", "c", "d"], ["a", "c"], 3)).toBeCloseTo(
-      2 / 3,
-    );
-  });
-
-  it("returns 0 when nothing is relevant (zero-hit)", () => {
-    expect(precisionAtK(["x", "y", "z"], ["a", "b"], 3)).toBe(0);
-  });
-
-  it("handles duplicate keys in retrieved — counts each match once", () => {
-    // "a" appears twice in retrieved, but only one intersection with expected
-    expect(precisionAtK(["a", "a", "b"], ["a"], 3)).toBeCloseTo(2 / 3);
-  });
-
-  it("returns 0 when k is 0", () => {
-    expect(precisionAtK(["a"], ["a"], 0)).toBe(0);
-  });
-});
-
-describe("recallAtK", () => {
-  it("returns fraction of expected items found in top-k", () => {
-    // expected = [a, b, c], retrieved top-3 has a, c => 2/3
-    expect(recallAtK(["a", "x", "c", "b"], ["a", "b", "c"], 3)).toBeCloseTo(
-      2 / 3,
-    );
-  });
-
-  it("returns 0 when nothing is relevant (zero-hit)", () => {
-    expect(recallAtK(["x", "y"], ["a", "b"], 2)).toBe(0);
-  });
-
-  it("returns 0 when expected is empty", () => {
-    expect(recallAtK(["a", "b"], [], 2)).toBe(0);
-  });
-});
-
-describe("mrr", () => {
-  it("returns 1/rank of first expected item in retrieved", () => {
-    // "b" is at index 1 (rank 2) => 1/2
-    expect(mrr(["x", "b", "a"], ["a", "b"])).toBeCloseTo(0.5);
-  });
-
-  it("returns 0 when no expected item is found (zero-hit)", () => {
-    expect(mrr(["x", "y", "z"], ["a", "b"])).toBe(0);
-  });
-
-  it("returns 1 when the first retrieved is expected", () => {
-    expect(mrr(["a", "b"], ["a"])).toBe(1);
-  });
-});
+// precisionAtK, recallAtK, mrr, p95, mean migrated to src/lib/services/eval/scorers.ts
+// — their tests live in scorers.test.ts now.
 
 describe("verdict", () => {
   function arm(

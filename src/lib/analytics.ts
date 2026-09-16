@@ -295,6 +295,7 @@ export function trackProductSearchExecuted(
   options: {
     searchSource: string;
     degraded: boolean;
+    searchId?: string;
     intentParsed?: 'skipped' | 'ok' | 'failed';
     intentCategory?: string | null;
     intentSubcategory?: string | null;
@@ -316,6 +317,8 @@ export function trackProductSearchExecuted(
   // Intent and latency fields are conditionally spread: absent keys are a real
   // state in PostHog (never captured), not "captured as undefined".
   const intentProps: Record<string, unknown> = {};
+  if (options.searchId !== undefined)
+    intentProps.search_id = options.searchId;
   if (options.intentParsed !== undefined)
     intentProps.intent_parsed = options.intentParsed;
   if (options.intentCategory !== undefined)
@@ -341,6 +344,36 @@ export function trackProductSearchExecuted(
     degraded: options.degraded,
     ...searchTermProperty(query),
     ...intentProps,
+  });
+}
+
+export function trackProductSearchResultClicked(opts: {
+  searchId: string;
+  position: number;
+  productKey: string;
+  brandSlug: string;
+  query: string;
+}) {
+  capturePostHogEvent(ANALYTICS_EVENTS.PRODUCT_SEARCH_RESULT_CLICKED, {
+    search_id: opts.searchId,
+    position: opts.position,
+    product_key: opts.productKey,
+    brand_slug: opts.brandSlug,
+    query: opts.query,
+  });
+}
+
+export function trackProductSearchResultsViewed(opts: {
+  searchId: string;
+  productKeys: string[];
+  query: string;
+  resultCount: number;
+}) {
+  capturePostHogEvent(ANALYTICS_EVENTS.PRODUCT_SEARCH_RESULTS_VIEWED, {
+    search_id: opts.searchId,
+    product_keys: opts.productKeys,
+    query: opts.query,
+    result_count: opts.resultCount,
   });
 }
 

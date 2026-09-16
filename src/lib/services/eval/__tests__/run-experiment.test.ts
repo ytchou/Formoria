@@ -777,10 +777,140 @@ describe('runExperiment', () => {
     const parsed = JSON.parse(writeFile.mock.calls[0]![1] as string)
     expect(parsed.arms[0]).toHaveProperty('promptMeta')
   })
+
+  it('custom arm skips model override', async () => {
+    const envCaptures: Array<string | undefined> = []
+
+    const callModel = vi.fn().mockImplementation(async () => {
+      envCaptures.push(process.env.OPENAI_MODEL_OVERRIDE)
+      return {
+        ok: true,
+        content: JSON.stringify({ isNonBrand: false, confidence: 'high' }),
+      }
+    })
+
+    const prevModel = process.env.OPENAI_MODEL_OVERRIDE
+
+    await runExperiment({
+      dataset: 'test-golden',
+      arms: [{ name: 'custom-arm', type: 'custom', value: 'anything' }],
+      adapter: makeAdapter(),
+      items: [makeItem()],
+      deps: {
+        callModel,
+        writeFile: vi.fn(),
+        now: () => new Date('2026-09-04'),
+        flushLangfuse: vi.fn(),
+        fetchPrompt: vi.fn().mockResolvedValue({ text: 'prompt', prompt: { name: 'detect', version: 1, source: 'langfuse' } }),
+        installSeams: () => ({ collector: makeCollector(), restore: vi.fn() }),
+        assertNoNewAuditRows: vi.fn(),
+        runWithAuditContext: <T>(_seed: unknown, fn: () => T): T => fn(),
+        getAuditContext: () => ({ correlationId: null }),
+      },
+    })
+
+    // OPENAI_MODEL_OVERRIDE should not have been changed during the run
+    expect(envCaptures[0]).toBe(prevModel)
+  })
+
+  it('custom arm skips prompt fetch', async () => {
+    const fetchPrompt = vi.fn().mockResolvedValue({
+      text: 'prompt',
+      prompt: { name: 'detect', version: 1, source: 'langfuse' },
+    })
+
+    const customTask = vi.fn().mockResolvedValue({
+      ok: true,
+      output: { answer: 42 },
+    })
+
+    await runExperiment({
+      dataset: 'test-golden',
+      arms: [{ name: 'custom-arm', type: 'custom', value: 'anything' }],
+      adapter: makeAdapter({ promptName: null, task: customTask }),
+      items: [makeItem()],
+      deps: {
+        callModel: vi.fn(),
+        writeFile: vi.fn(),
+        now: () => new Date('2026-09-04'),
+        flushLangfuse: vi.fn(),
+        fetchPrompt,
+        installSeams: () => ({ collector: makeCollector(), restore: vi.fn() }),
+        assertNoNewAuditRows: vi.fn(),
+        runWithAuditContext: <T>(_seed: unknown, fn: () => T): T => fn(),
+        getAuditContext: () => ({ correlationId: null }),
+      },
+    })
+
+    expect(fetchPrompt).not.toHaveBeenCalled()
+  })
+
+  it('unknown arm type throws', async () => {
+    await expect(
+      runExperiment({
+        dataset: 'test-golden',
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any -- testing exhaustiveness guard
+        arms: [{ name: 'bad', type: 'unknown' as any, value: 'x' }],
+        adapter: makeAdapter(),
+        items: [makeItem()],
+        deps: {
+          callModel: vi.fn(),
+          writeFile: vi.fn(),
+          now: () => new Date('2026-09-04'),
+          flushLangfuse: vi.fn(),
+          fetchPrompt: vi.fn().mockResolvedValue({ text: 'prompt', prompt: { name: 'detect', version: 1, source: 'langfuse' } }),
+          installSeams: () => ({ collector: makeCollector(), restore: vi.fn() }),
+          assertNoNewAuditRows: vi.fn(),
+          runWithAuditContext: <T>(_seed: unknown, fn: () => T): T => fn(),
+          getAuditContext: () => ({ correlationId: null }),
+        },
+      }),
+    ).rejects.toThrow(/Unknown arm type/)
+  })
 })
 
-describe('runItems export', () => {
+describe('runItems', () => {
   it('is exported for composition by Task 11', () => {
     expect(typeof runItems).toBe('function')
+  })
+
+  it('wall-clock latency used when no audit records', async () => {
+    const collector = makeCollector()
+
+    const results = await runItems({
+      items: [makeItem()],
+      task: async () => {
+        await new Promise((r) => setTimeout(r, 50))
+        return { ok: true, output: { answer: 42 } }
+      },
+      adapter: makeAdapter(),
+      concurrency: 1,
+      collector,
+      runWithAuditContext: <T>(_seed: unknown, fn: () => T): T => fn(),
+    })
+
+    // No audit records, so wall-clock should be used
+    expect(results[0]!.latencyMs).toBeGreaterThan(0)
+  })
+
+  it('wall-clock latency ignored when audit records exist', async () => {
+    const collector = makeCollector()
+
+    const results = await runItems({
+      items: [makeItem()],
+      task: async (_item, itemRunId) => {
+        // Push an audit record with a known latency before returning
+        collector.push({ correlationId: itemRunId, costUsd: 0.01, latencyMs: 100 } as never)
+        await new Promise((r) => setTimeout(r, 50))
+        return { ok: true, output: { answer: 42 } }
+      },
+      adapter: makeAdapter(),
+      concurrency: 1,
+      collector,
+      runWithAuditContext: <T>(_seed: unknown, fn: () => T): T => fn(),
+    })
+
+    // Audit records exist, so audit sum (100) should be used, not wall-clock
+    expect(results[0]!.latencyMs).toBe(100)
   })
 })
