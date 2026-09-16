@@ -70,6 +70,7 @@ export const SUB_PHASES = [
   "acquisition",
   "product_embeddings",
   "rerank",
+  "search_relevance_judge",
 ] as const;
 
 type SubPhaseName = (typeof SUB_PHASES)[number];
