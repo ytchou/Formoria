@@ -6,8 +6,8 @@ import { getTranslations, setRequestLocale } from "next-intl/server";
 import {
   getPublicBrandDetailBySlug,
   getPublicBrandFaqContextById,
-  getRelatedBrands,
 } from "@/lib/services/brands";
+import { getRelatedBrandsByCentroid } from "@/lib/services/brand-embeddings";
 import {
   buildBrandJsonLd,
   buildBreadcrumbJsonLd,
@@ -225,7 +225,7 @@ export default async function BrandDetailPage({ params }: PageProps) {
       : null;
 
   const relatedResult = categoryTag
-    ? await getRelatedBrands(categoryTag.slug, displayBrand.slug, 4)
+    ? await getRelatedBrandsByCentroid(displayBrand.id, categoryTag.slug, displayBrand.slug, 4)
     : { brands: [], totalCount: 0 };
   const relatedBrands = relatedResult.brands.map(toPublicBrandCard);
   const categoryCount = relatedResult.totalCount;

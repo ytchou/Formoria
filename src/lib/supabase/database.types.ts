@@ -334,6 +334,44 @@ export type Database = {
           },
         ]
       }
+      brand_embeddings: {
+        Row: {
+          brand_id: string
+          created_at: string
+          embedding: string
+          model: string
+          product_count: number
+          source_hash: string
+          updated_at: string
+        }
+        Insert: {
+          brand_id: string
+          created_at?: string
+          embedding: string
+          model: string
+          product_count?: number
+          source_hash: string
+          updated_at?: string
+        }
+        Update: {
+          brand_id?: string
+          created_at?: string
+          embedding?: string
+          model?: string
+          product_count?: number
+          source_hash?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "brand_embeddings_brand_id_fkey"
+            columns: ["brand_id"]
+            isOneToOne: true
+            referencedRelation: "brands"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       brand_faq_entries: {
         Row: {
           answer_en: string | null
@@ -3798,6 +3836,19 @@ export type Database = {
           rank_score: number
           search_source: string
           slug: string
+        }[]
+      }
+      search_brands_by_centroid: {
+        Args: {
+          exclude_brand_id: string
+          filter_category: string
+          match_count: number
+          query_embedding: string
+        }
+        Returns: {
+          brand_id: string
+          brand_slug: string
+          distance: number
         }[]
       }
       search_products_semantic: {
