@@ -274,6 +274,20 @@ export function ndcgAtK(
 }
 
 // ---------------------------------------------------------------------------
+// Seeded PRNG (module-private)
+// ---------------------------------------------------------------------------
+
+function mulberry32(seed: number): () => number {
+  let t = seed | 0
+  return () => {
+    t = (t + 0x6d2b79f5) | 0
+    let r = Math.imul(t ^ (t >>> 15), 1 | t)
+    r = (r + Math.imul(r ^ (r >>> 7), 61 | r)) ^ r
+    return ((r ^ (r >>> 14)) >>> 0) / 4294967296
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Bootstrap confidence interval (new)
 // ---------------------------------------------------------------------------
 
@@ -281,20 +295,86 @@ export function bootstrapCI(
   values: number[],
   nBoot = 1000,
   alpha = 0.05,
+  opts?: { seed?: number },
 ): { lo: number; hi: number; mean: number } {
   if (values.length === 0) return { lo: 0, hi: 0, mean: 0 }
   const m = mean(values)
   if (nBoot < 2) return { lo: m, hi: m, mean: m }
+  const rand = opts?.seed != null ? mulberry32(opts.seed) : Math.random
   const means = Array.from({ length: nBoot }, () => {
     let sum = 0
     for (let i = 0; i < values.length; i++) {
-      sum += values[Math.floor(Math.random() * values.length)]!
+      sum += values[Math.floor(rand() * values.length)]!
     }
     return sum / values.length
   }).sort((a, b) => a - b)
   const loIdx = Math.floor((alpha / 2) * nBoot)
   const hiIdx = Math.floor((1 - alpha / 2) * nBoot) - 1
   return { lo: means[loIdx]!, hi: means[hiIdx]!, mean: m }
+}
+
+// ---------------------------------------------------------------------------
+// Paired bootstrap CI with sign test (new)
+// ---------------------------------------------------------------------------
+
+export function pairedBootstrapCI(
+  a: number[],
+  b: number[],
+  opts?: { nBoot?: number; alpha?: number; seed?: number },
+): { lo: number; hi: number; mean: number; signTestP: number } {
+  if (a.length !== b.length) {
+    throw new Error(`pairedBootstrapCI: a.length (${a.length}) !== b.length (${b.length})`)
+  }
+
+  const n = a.length
+  const diffs = a.map((v, i) => v - b[i]!)
+  const m = mean(diffs)
+  const nBoot = opts?.nBoot ?? 1000
+  const alpha = opts?.alpha ?? 0.05
+  const rand = opts?.seed != null ? mulberry32(opts.seed) : Math.random
+
+  // Bootstrap resampling of paired differences
+  const bootMeans = Array.from({ length: nBoot }, () => {
+    let sum = 0
+    for (let i = 0; i < n; i++) {
+      sum += diffs[Math.floor(rand() * n)]!
+    }
+    return sum / n
+  }).sort((a, b) => a - b)
+
+  const loIdx = Math.floor((alpha / 2) * nBoot)
+  const hiIdx = Math.floor((1 - alpha / 2) * nBoot) - 1
+
+  // Two-sided exact binomial sign test
+  const nonZero = diffs.filter((d) => d !== 0)
+  let signTestP: number
+  if (nonZero.length === 0) {
+    signTestP = 1
+  } else {
+    const positives = nonZero.filter((d) => d > 0).length
+    const negatives = nonZero.length - positives
+    const k = nonZero.length
+    // P(X >= max(positives, negatives)) where X ~ Binomial(k, 0.5)
+    const maxCount = Math.max(positives, negatives)
+    let tailP = 0
+    for (let i = maxCount; i <= k; i++) {
+      tailP += binomialPmf(k, i, 0.5)
+    }
+    signTestP = Math.min(2 * tailP, 1)
+  }
+
+  return { lo: bootMeans[loIdx]!, hi: bootMeans[hiIdx]!, mean: m, signTestP }
+}
+
+/** Binomial PMF: C(n, k) * p^k * (1-p)^(n-k) */
+function binomialPmf(n: number, k: number, p: number): number {
+  // Use log-space to avoid overflow
+  let logP = 0
+  for (let i = 0; i < k; i++) {
+    logP += Math.log(n - i) - Math.log(i + 1)
+  }
+  logP += k * Math.log(p) + (n - k) * Math.log(1 - p)
+  return Math.exp(logP)
 }
 
 // ---------------------------------------------------------------------------

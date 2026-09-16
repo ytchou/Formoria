@@ -68,6 +68,7 @@ const eslintConfig = defineConfig([
     ".playwright-mcp/**",
     "playwright-report/**",
     "test-results/**",
+    "scripts/ltr/.venv/**",
   ]),
   // Vacuity rules for the e2e suite.
   //

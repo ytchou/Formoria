@@ -57,7 +57,7 @@ type ExperimentSummary = {
   failed: number
 }
 
-type ExperimentResult = {
+export type ExperimentResult = {
   summary: ExperimentSummary
   armResults: ArmResult[]
   markdown: string

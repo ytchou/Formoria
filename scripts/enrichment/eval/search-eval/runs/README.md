@@ -3,6 +3,19 @@
 Only ticket-named baseline files are committed (`dev-*.json`). Timestamped
 run output (`*.json` without a `dev-` prefix) is gitignored.
 
+## File layout (v2)
+
+```
+search-eval/
+  dataset-v2.json          # graded dataset with splits (train/val/holdout)
+  dataset-v2.ts            # loader + toExperimentItems converter
+  retrieval-eval.ts        # CLI entry: run, neighbours, labelling subcommands
+  runs/
+    dev-1736-report.json   # LTR experiment report (from writeReport)
+    dev-1733-before.json   # embedding baseline (pre-material labels)
+    dev-1733-after.json    # embedding baseline (post-material labels)
+```
+
 ## dev-1733-before.json / dev-1733-after.json
 
 Produced on staging (project `ttkkyvgvcamfoezsetvf`) on 2026-09-15.

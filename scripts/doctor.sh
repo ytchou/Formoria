@@ -50,6 +50,13 @@ check_deps() {
   else
     echo "OK: Dependencies installed"
   fi
+
+  if ! command -v uv &>/dev/null; then
+    echo "WARN: uv not found (needed only for pnpm ltr:train)"
+    WARNINGS=$((WARNINGS + 1))
+  else
+    echo "OK: uv installed"
+  fi
 }
 
 # ── Environment file ─────────────────────────────────────────────────────────

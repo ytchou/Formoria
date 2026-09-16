@@ -49,6 +49,7 @@ __pycache__/
 Thumbs.db
 *.csv
 !content/stockists/*.csv
+!scripts/enrichment/eval/search-eval/labels/*.csv
 *.png
 # Playwright owns this one durable baseline set; all other generated PNGs stay ignored.
 !e2e/tests/visual-regression.spec.ts-snapshots/*.png
@@ -186,6 +187,9 @@ scripts/llm-eval/runs/
 # distillation experiment run artifacts (DEV-1681)
 scripts/distillation/runs/
 scripts/distillation/models/
+
+# LTR training venv (DEV-1736)
+scripts/ltr/.venv/
 
 # search-eval run artifacts (DEV-1732, new path)
 scripts/search-eval/runs/
