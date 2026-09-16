@@ -319,7 +319,7 @@ async function defaultCountReader(categorySlug: string): Promise<number> {
  * Filter RPC results to enforce at most one brand per L2 subcategory.
  * Brands with null/empty subcategories always pass. Preserves input order.
  */
-export function applyL2Diversity(
+function applyL2Diversity(
   candidates: RpcResult[],
   brandMap: Map<string, Brand>,
   limit: number,
