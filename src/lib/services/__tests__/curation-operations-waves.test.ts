@@ -228,7 +228,7 @@ vi.mock("../enrich-blocks/phase-outputs", async (importOriginal) => {
     ...original,
     createSupabasePhaseOutputStore: mocks.createSupabasePhaseOutputStore.mockReturnValue({
       reader: { forTargets: async () => [], latestPerPhase: async () => [], unpersisted: async () => [] },
-      writer: { upsert: async () => {} },
+      writer: { upsert: async () => [] },
     }),
   };
 });
@@ -454,6 +454,7 @@ function editorialOutput() {
         durationMs: 10,
       },
     ],
+    phaseOutputs: [{ phaseResult: { phase: "descriptions", status: "succeeded", changedFields: ["description"], durationMs: 10 }, patch: { description: "A description" } }],
     patch: { description: "A description" },
     listingVerdict: null,
     descriptionRewrite: null,
@@ -492,6 +493,7 @@ const FULL_PHASES = [
 function emptyEditorialOutput() {
   return {
     agentOutcome: "generated" as const,
+    phaseOutputs: [],
     phaseResults: [] as Array<{
       phase: string;
       status: string;
@@ -524,7 +526,7 @@ function mockSatisfiedPhases(phases: string[]) {
       latestPerPhase: async () => [],
       unpersisted: async () => [],
     },
-    writer: { upsert: async () => {} },
+    writer: { upsert: async () => [] },
   });
 }
 
@@ -534,7 +536,7 @@ function defaultBeforeEach() {
   // return values set by mockReturnValue).
   mocks.createSupabasePhaseOutputStore.mockReturnValue({
     reader: { forTargets: async () => [], latestPerPhase: async () => [], unpersisted: async () => [] },
-    writer: { upsert: async () => {} },
+    writer: { upsert: async () => [] },
   });
   mocks.getLatestSearchResults.mockResolvedValue(new Map());
   mocks.batchSearchBrandImages.mockResolvedValue(new Map());
@@ -590,6 +592,7 @@ describe("wave collapse — single per-brand loop", () => {
           durationMs: 100,
         },
       ],
+      phaseOutputs: [{ phaseResult: { phase: "descriptions", status: "succeeded", changedFields: ["description"], durationMs: 100 }, patch: { description: "A test description" } }],
       patch: { description: "A test description" },
       listingVerdict: null,
       descriptionRewrite: null,
@@ -1169,6 +1172,7 @@ describe("editorial agent integration", () => {
         { phase: "stockists", status: "skipped", changedFields: [], durationMs: 10 },
         { phase: "faq", status: "succeeded", changedFields: [], durationMs: 50 },
       ],
+      phaseOutputs: [{ phaseResult: { phase: "descriptions", status: "succeeded", changedFields: ["description"], durationMs: 100 }, patch: { description: "A test description" } }],
       patch: { description: "A test description" },
       listingVerdict: null,
       descriptionRewrite: null,
@@ -1240,6 +1244,7 @@ describe("editorial agent integration", () => {
     // relying on the original implementation reading EDITORIAL_AGENT=off.
     mocks.runEditorialAgent.mockResolvedValueOnce({
       agentOutcome: "fallback",
+      phaseOutputs: [],
       phaseResults: [],
       patch: {},
       listingVerdict: null,

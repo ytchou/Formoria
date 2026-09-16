@@ -9,6 +9,7 @@
 import type { EnrichmentTarget } from '../_shared/enrichment-target'
 import type { EnrichScrapedData } from '../enrich-phases/types'
 import type { CatalogDiscoveryResult } from '../enrich-phases/catalog-discovery'
+import type { AcquirePhaseOutput } from '../enrich-phases/acquire'
 import type { AcquireCarry } from './phase-outputs'
 import type { NameCandidate } from '../name-arbiter'
 import type { ScrapedImageSource } from '@/lib/types/scraper'
@@ -177,5 +178,17 @@ export async function hydrateAcquireInputs(
     acquisitionPageUrls: carry.acquisitionPageUrls,
     priorityProductUrls: carry.priorityProductUrls,
     scrapedImageSources: carry.scrapedImageSources,
+  }
+}
+
+/** Restore new checkpoints without per-target history queries. */
+export function restoreAcquireCheckpoint(carry: AcquireCarry): AcquirePhaseOutput | undefined {
+  if (!carry.result || !Array.isArray(carry.catalogEvidence)) return undefined
+  return {
+    ...carry.result,
+    catalogResult: {
+      ...carry.catalog,
+      evidence: new Map(carry.catalogEvidence),
+    },
   }
 }

@@ -191,7 +191,7 @@ describe('latest_per_phase_picks_newest_succeeded_row_across_jobs', () => {
     }
     const store: PhaseOutputStore = {
       reader: { forTargets: async () => [row], latestPerPhase: async () => [row], unpersisted: async () => [] },
-      writer: { upsert: async () => {} },
+      writer: { upsert: async () => [] },
     }
     expect(await latestPhaseOutputs(store, { type: 'submission', id: row.target_id })).toEqual(new Map())
   })

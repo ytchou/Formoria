@@ -97,6 +97,7 @@ function fakeStore(
         .fn()
         .mockImplementation(async (rows: Record<string, unknown>[]) => {
           upserted.push(...rows)
+          return rows
         }),
     },
   }

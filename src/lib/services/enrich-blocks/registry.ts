@@ -9,7 +9,7 @@
 
 import type { BlockName, EnrichPhaseName } from '@/lib/constants/enrich-phases'
 import type { PhaseResult } from '@/lib/types/curation'
-import type { PhaseOutput } from './phase-outputs'
+import type { PhaseOutput, PhaseOutputRow } from './phase-outputs'
 import type { TargetPlan } from './plan'
 
 // ---------------------------------------------------------------------------
@@ -35,6 +35,7 @@ export type BlockContext = {
   targetType: string
   plan?: TargetPlan
   executePhases?: EnrichPhaseName[]
+  checkpoints?: Map<string, PhaseOutputRow>
   /** Shared mutable state for this target across all blocks. */
   state: Record<string, unknown>
 }

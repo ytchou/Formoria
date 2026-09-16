@@ -21,7 +21,8 @@ import {
 import { buildBlockRegistry } from "./enrich-blocks/registry";
 import type { BlockContext, BlockRunResult } from "./enrich-blocks/registry";
 import { runBlocks } from "./enrich-blocks/runner";
-import { createSupabasePhaseOutputStore } from "./enrich-blocks/phase-outputs";
+import { restoreAcquireCheckpoint } from "./enrich-blocks/hydration";
+import { createSupabasePhaseOutputStore, toAcquireCarry, isUsablePhaseOutput } from "./enrich-blocks/phase-outputs";
 import { normalizeToRootUrl } from "@/lib/url";
 import {
   ONLINE_STORES,
@@ -2512,6 +2513,7 @@ export async function runEnrich(
                     contexts,
                     ENRICH_BRAND_CONCURRENCY,
                     async (bctx): Promise<[string, BlockRunResult]> => {
+                      const phaseOutputs: NonNullable<BlockRunResult["phaseOutputs"]> = [];
                       const ctx = bctx.state._waveCtx as BrandWaveContext;
                       const brand = ctx.brand;
                       const state = ctx.state;
@@ -2527,16 +2529,24 @@ export async function runEnrich(
                             brand,
                             phases,
                           );
-                          if (hasDetectPhases) {
-                            await markCurrentPhase(ctx, "detect");
-                            const detectEntry = detectProviderFailure
-                              ? {
-                                  ...detectPhaseResult.phaseResult,
-                                  changedFields: [],
-                                }
-                              : detectApplication.phaseResult;
-                            state.phaseResults.push(detectEntry);
-                            await logCurrentPhase(ctx, detectEntry);
+                          for (const phase of phases) {
+                            const application = applyDetectResult(ctx.detectResult, brand, [phase]);
+                            const phaseResult = {
+                              ...(detectProviderFailure ? detectPhaseResult.phaseResult : application.phaseResult),
+                              phase,
+                              changedFields: detectProviderFailure ? [] : application.phaseResult.changedFields,
+                            };
+                            phaseOutputs.push({ phaseResult, output: {
+                              patch: application.patch,
+                              ...(phase === "detect" ? { carry: {
+                                brandName: application.brandName ?? "",
+                                isBrand: !application.isNonBrand,
+                                category: ctx.detectResult?.categorySlug ?? "",
+                              } } : {}),
+                            } });
+                            await markCurrentPhase(ctx, phase);
+                            state.phaseResults.push(phaseResult);
+                            await logCurrentPhase(ctx, phaseResult);
                           }
                           depositPhaseOutput(
                             state,
@@ -2585,13 +2595,13 @@ export async function runEnrich(
                             });
                             result.skipped += 1;
                             finishBrand(ctx);
-                            return [bctx.targetId, {}];
+                            return [bctx.targetId, { phaseOutputs }];
                           }
                         }
                       } catch (err) {
                         await failBrand(ctx, err);
                       }
-                      return [bctx.targetId, {}];
+                      return [bctx.targetId, { phaseOutputs }];
                     },
                   ),
                 );
@@ -2601,6 +2611,7 @@ export async function runEnrich(
               scope: "brand",
               phases: ["acquire"],
               run: async (bctx): Promise<BlockRunResult> => {
+                const phaseOutputs: NonNullable<BlockRunResult["phaseOutputs"]> = [];
                 const ctx = bctx.state._waveCtx as BrandWaveContext;
                 const brand = ctx.brand;
                 const state = ctx.state;
@@ -2684,7 +2695,7 @@ export async function runEnrich(
                     });
                     result.skipped += 1;
                     finishBrand(ctx);
-                    return {};
+                    return { phaseOutputs };
                   }
 
                   // Populate SERP-derived data from cached search results
@@ -2728,6 +2739,10 @@ export async function runEnrich(
                       linkExpansion: expansion?.linkExpansion,
                     });
                     ctx.acquireResult = acquireResult;
+                    phaseOutputs.push({
+                      phaseResult: acquireResult.phaseResult,
+                      output: { patch: { ...expansion?.patch, ...acquireResult.patch }, carry: toAcquireCarry(acquireResult) },
+                    });
                     state.phaseResults.push(acquireResult.phaseResult);
                     await logCurrentPhase(ctx, acquireResult.phaseResult);
                     state.scrapedData = acquireResult.scrapedData ?? {};
@@ -2782,13 +2797,13 @@ export async function runEnrich(
                     });
                     result.skipped += 1;
                     finishBrand(ctx);
-                    return {};
+                    return { phaseOutputs };
                   }
 
                 } catch (err) {
                   await failBrand(ctx, err);
                 }
-                return {};
+                return { phaseOutputs };
               },
             },
             names: {
@@ -2863,6 +2878,7 @@ export async function runEnrich(
                       ctx.state.phaseResults.push(namesEntry);
                       await logCurrentPhase(ctx, namesEntry);
                       depositPhaseOutput(ctx.state, "names", application.patch);
+                      return [bctx.targetId, { phaseOutputs: [{ phaseResult: namesEntry, output: { patch: application.patch } }] }];
                     } catch (err) {
                       await failBrand(ctx, err);
                     }
@@ -2876,6 +2892,7 @@ export async function runEnrich(
               scope: "brand",
               phases: ["descriptions", "stockists", "faq"],
               run: async (bctx: BlockContext): Promise<BlockRunResult> => {
+                const phaseOutputs: NonNullable<BlockRunResult["phaseOutputs"]> = [];
                 const ctx = bctx.state._waveCtx as BrandWaveContext;
                 const brand = ctx.brand;
                 const state = ctx.state;
@@ -2994,6 +3011,7 @@ export async function runEnrich(
 
                     if (editorialOutput.agentOutcome !== "fallback") {
                       // Agent ran — apply its results
+                      phaseOutputs.push(...editorialOutput.phaseOutputs.map(({ phaseResult, patch }) => ({ phaseResult, output: { patch } })));
                       for (const pr of editorialOutput.phaseResults) {
                         state.phaseResults.push(pr);
                         await logCurrentPhase(ctx, pr);
@@ -3053,6 +3071,8 @@ export async function runEnrich(
                             depositPhaseOutput(state, "categoryDerivation", {
                               category: derivedCategory,
                             });
+                            const descriptionsOutput = phaseOutputs.find((entry) => entry.phaseResult.phase === "descriptions");
+                            if (descriptionsOutput) descriptionsOutput.output.patch.category = derivedCategory;
                             // Mutate the phase result in-place so the outcome carries
                             // the derived category field
                             descriptionsResult.phaseResult.changedFields = [
@@ -3108,7 +3128,7 @@ export async function runEnrich(
                             });
                             result.skipped += 1;
                             finishBrand(ctx);
-                            return {};
+                            return { phaseOutputs };
                           }
                         }
                       }
@@ -3183,6 +3203,7 @@ export async function runEnrich(
                             .join("; ");
                         }
 
+                        phaseOutputs.push({ phaseResult: descriptionsResult.phaseResult, output: { patch: descriptionsResult.patch } });
                         state.phaseResults.push(descriptionsResult.phaseResult);
                         await logCurrentPhase(
                           ctx,
@@ -3220,7 +3241,7 @@ export async function runEnrich(
                             });
                             result.skipped += 1;
                             finishBrand(ctx);
-                            return {};
+                            return { phaseOutputs };
                           }
                         }
                       }
@@ -3236,6 +3257,7 @@ export async function runEnrich(
                           target: { type: targetType, id: brand.id },
                           jobId: config.jobId,
                         });
+                        phaseOutputs.push({ phaseResult: stockistsResult.phaseResult, output: { patch: stockistsResult.patch } });
                         state.phaseResults.push(stockistsResult.phaseResult);
                         await logCurrentPhase(ctx, stockistsResult.phaseResult);
                         Object.assign(
@@ -3257,6 +3279,7 @@ export async function runEnrich(
                           jobId: config.jobId,
                           explicitPhases: bctx.plan?.explicit ?? config.explicitPhases ?? [],
                         });
+                        phaseOutputs.push({ phaseResult: faqResult.phaseResult, output: { patch: faqResult.patch } });
                         state.phaseResults.push(faqResult.phaseResult);
                         await logCurrentPhase(ctx, faqResult.phaseResult);
                         Object.assign(editorialFallbackPatch, faqResult.patch);
@@ -3277,13 +3300,14 @@ export async function runEnrich(
                 } catch (err) {
                   await failBrand(ctx, err);
                 }
-                return {};
+                return { phaseOutputs };
               },
             },
             products: {
               scope: "brand",
               phases: ["products"],
               run: async (bctx: BlockContext): Promise<BlockRunResult> => {
+                const phaseOutputs: NonNullable<BlockRunResult["phaseOutputs"]> = [];
                 const ctx = bctx.state._waveCtx as BrandWaveContext;
                 const brand = ctx.brand;
                 const state = ctx.state;
@@ -3334,6 +3358,7 @@ export async function runEnrich(
                         acquireResult?.priorityProductUrls ?? [],
                       renderProvider: config.renderProvider,
                     });
+                    phaseOutputs.push({ phaseResult: productsResult.phaseResult, output: { patch: productsResult.patch } });
                     state.phaseResults.push(productsResult.phaseResult);
                     await logCurrentPhase(ctx, productsResult.phaseResult);
                     // The proposals ride the patch as `products`, which
@@ -3345,7 +3370,7 @@ export async function runEnrich(
                 } catch (err) {
                   await failBrand(ctx, err);
                 }
-                return {};
+                return { phaseOutputs };
               },
             },
             persist: {
@@ -3473,6 +3498,7 @@ export async function runEnrich(
                         brand.id,
                         patch as JsonObject,
                         config.jobId,
+                        [...(bctx.checkpoints?.values() ?? [])].map((row) => row.id),
                       );
                     } catch (err) {
                       const errMsg = errorMessage(err);
@@ -3530,10 +3556,25 @@ export async function runEnrich(
             store,
             force: new Map(),
             hooks: {
+              onHydrate: (bctx, phase, row) => {
+                if (!isUsablePhaseOutput(row.output)) return;
+                const ctx = bctx.state._waveCtx as BrandWaveContext;
+                const carry = row.output.carry;
+                if (phase === "acquire" && carry && "catalog" in carry) {
+                  const acquired = restoreAcquireCheckpoint(carry);
+                  if (acquired) {
+                    ctx.acquireResult = acquired;
+                    ctx.state.scrapedData = acquired.scrapedData ?? {};
+                  }
+                }
+                if (phase === "detect" && carry && "brandName" in carry) {
+                  ctx.detectedName = carry.brandName || undefined;
+                }
+              },
               isTargetTerminated: (bctx) => (bctx.state._waveCtx as BrandWaveContext).completed || llmBreakerTripped,
               onPhaseResult: (bctx, _phase, entry) => {
                 const ctx = bctx.state._waveCtx as BrandWaveContext;
-                ctx.state.phaseResults.push(entry);
+                if (!ctx.state.phaseResults.some((result) => result.phase === entry.phase)) ctx.state.phaseResults.push(entry);
               },
             },
             jobId: config.jobId ?? "",

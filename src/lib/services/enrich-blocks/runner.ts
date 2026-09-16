@@ -76,6 +76,7 @@ export async function runBlocks(config: RunBlocksConfig): Promise<void> {
   } = config
   const exited = new Set<string>()
   for (const ctx of chunk) {
+    ctx.checkpoints = new Map()
     if (ctx.plan) validateRecoveryPlan({ version: 1, action: { kind: 'resume' }, targets: { [ctx.targetId]: ctx.plan } })
   }
   const savedOutputs = new Map<string, Map<string, PhaseOutputRow>>()
@@ -193,6 +194,11 @@ async function shouldSkip(
     (!ctx.plan || ctx.plan.selected.includes(phase)) && needsExecution(phase),
   )) return true
   ctx.executePhases = selected.filter(needsExecution)
+  // Saved upstream inputs may be read without authorizing their patches or execution.
+  for (const phase of block.phases.filter((phase) => !selected.includes(phase))) {
+    const row = env.savedOutputs.get(ctx.targetId)?.get(phase)
+    if (row) await env.hooks.onHydrate?.(ctx, phase, row)
+  }
   for (const phase of selected.filter((phase) => !ctx.executePhases!.includes(phase))) {
     const row = env.savedOutputs.get(ctx.targetId)?.get(phase)
     if (row && isUsablePhaseOutput(row.output)) {
@@ -247,7 +253,7 @@ async function applyResult(
     reported.add(entry.phaseResult.phase)
   }
   if (outputs.length && env.jobId) {
-    await recordPhaseOutputs(env.store, {
+    const checkpoints = await recordPhaseOutputs(env.store, {
       jobId: env.jobId,
       target: {
         id: ctx.targetId,
@@ -259,6 +265,9 @@ async function applyResult(
         output: entry.output,
       })),
     })
+    for (const row of checkpoints) {
+      if (row.status === 'succeeded') ctx.checkpoints?.set(row.phase, row)
+    }
   }
   for (const entry of outputs) {
     if (entry.phaseResult.status === 'succeeded' && entry.output.carry) {

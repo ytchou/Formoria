@@ -1,8 +1,11 @@
 import { describe, expect, it } from 'vitest'
+import { toAcquireCarry } from '../phase-outputs'
+import type { AcquirePhaseOutput } from '../../enrich-phases/acquire'
 import {
   hydrateScrapedData,
   hydrateCatalogResult,
   hydrateAcquireInputs,
+  restoreAcquireCheckpoint,
   type HydrationLoaders,
 } from '../hydration'
 
@@ -235,4 +238,24 @@ describe('acquire_result_shape_matches_in_run_shape', () => {
     expect(result.priorityProductUrls).toEqual(carry.priorityProductUrls)
     expect(result.scrapedImageSources).toEqual(carry.scrapedImageSources)
   })
+})
+
+it('a resumed target retains its acquired page evidence after checkpoint serialization', () => {
+  const pageUrl = 'https://ceramic-studio.tw/products/tea-cup'
+  const acquired: AcquirePhaseOutput = {
+    phaseResult: { phase: 'acquire', status: 'succeeded', changedFields: [], durationMs: 120 },
+    patch: { purchase_website: 'https://ceramic-studio.tw' },
+    scrapedBrandName: '陶作工作室',
+    officialNameCandidates: [{ source: 'official_website', value: '陶作工作室', evidence: [] }],
+    scrapedData: { description: '手工製作的陶杯，於鶯歌燒製。' },
+    scrapedImageUrls: [], scrapedImageSources: [], jsonLdImageUrls: [],
+    quarantine: {}, imagePool: [], acquisitionPageUrls: [pageUrl],
+    priorityProductUrls: [pageUrl], revokedColumns: [], providerFailure: false,
+    catalogResult: {
+      triples: [], attempts: [], deadlineHit: false,
+      evidence: new Map([[pageUrl, { title: '手作茶杯', titleSource: 'h1', text: '鶯歌製陶', imageUrls: [] }]]),
+    },
+  }
+  const restored = restoreAcquireCheckpoint(JSON.parse(JSON.stringify(toAcquireCarry(acquired))))
+  expect(restored).toEqual(acquired)
 })

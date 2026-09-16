@@ -7,6 +7,7 @@
 import type { Json } from '@/lib/supabase/database.types'
 import type { EnrichmentTarget } from '../_shared/enrichment-target'
 import type { EnrichPatch } from '../enrich-phases/types'
+import type { AcquirePhaseOutput } from '../enrich-phases/acquire'
 import type { NameCandidate } from '../name-arbiter'
 import type { ScrapedImageSource } from '@/lib/types/scraper'
 import type {
@@ -38,6 +39,8 @@ type CatalogProductTriple = CatalogDiscoveryResult['triples'][number]
 type CatalogZeroReason = CatalogDiscoveryResult['zeroReason']
 
 export type AcquireCarry = {
+  result?: Omit<AcquirePhaseOutput, 'catalogResult'>
+  catalogEvidence?: Array<[string, CatalogDiscoveryResult['evidence'] extends Map<string, infer Evidence> ? Evidence : never]>
   catalog: {
     triples: CatalogProductTriple[]
     attempts: CatalogAttemptSummary[]
@@ -79,10 +82,10 @@ export function isUsablePhaseOutput(value: unknown): value is PhaseOutput {
 // ---------------------------------------------------------------------------
 
 /**
- * Build an `AcquireCarry` from the acquire phase result. Strips `evidence`
- * (a non-serializable Map) and retains only the carry-safe fields.
+ * Full phase results retain their saved inputs and encode catalog evidence as
+ * entries. Legacy carry-only callers keep their existing compact shape.
  */
-export function toAcquireCarry(result: {
+export function toAcquireCarry(result: AcquirePhaseOutput | {
   catalogResult?: CatalogDiscoveryResult
   acquisitionPageUrls: string[]
   priorityProductUrls: string[]
@@ -90,7 +93,11 @@ export function toAcquireCarry(result: {
   scrapedImageSources: ScrapedImageSource[]
 }): AcquireCarry {
   const cat = result.catalogResult
+  const savedResult = 'phaseResult' in result
+    ? (({ catalogResult: _catalog, ...saved }) => saved)(result)
+    : undefined
   return {
+    ...(savedResult ? { result: savedResult, catalogEvidence: [...(cat?.evidence ?? [])] } : {}),
     catalog: {
       triples: cat?.triples ?? [],
       attempts: cat?.attempts ?? [],
@@ -146,7 +153,7 @@ export type PhaseOutputStore = {
   }
   writer: {
     /** Upsert rows on the unique (job_id, target_id, target_type, phase) key. */
-    upsert: (entries: PhaseOutputRow[]) => Promise<void>
+    upsert: (entries: PhaseOutputRow[]) => Promise<PhaseOutputRow[]>
   }
 }
 
@@ -170,7 +177,7 @@ export type RecordPhaseOutputsInput = {
 export async function recordPhaseOutputs(
   store: PhaseOutputStore,
   input: RecordPhaseOutputsInput,
-): Promise<void> {
+): Promise<PhaseOutputRow[]> {
   const rows: PhaseOutputRow[] = input.entries.map((entry) => ({
     id: '', // DB generates
     job_id: input.jobId,
@@ -182,7 +189,7 @@ export async function recordPhaseOutputs(
     persisted_at: null,
     created_at: new Date().toISOString(),
   }))
-  await store.writer.upsert(rows)
+  return store.writer.upsert(rows)
 }
 
 /**
@@ -257,9 +264,9 @@ export function createSupabasePhaseOutputStore(): PhaseOutputStore {
     },
     writer: {
       upsert: async (entries) => {
-        if (entries.length === 0) return
+        if (entries.length === 0) return []
         const supabase = createServiceClient()
-        const { error } = await supabase
+        const { data, error } = await supabase
           .from('curation_phase_outputs')
           .upsert(
             entries.map((e) => ({
@@ -271,8 +278,9 @@ export function createSupabasePhaseOutputStore(): PhaseOutputStore {
               output: e.output,
             })),
             { onConflict: 'job_id,target_id,target_type,phase' },
-          )
+          ).select('*')
         if (error) throw error
+        return (data ?? []) as PhaseOutputRow[]
       },
 
     },

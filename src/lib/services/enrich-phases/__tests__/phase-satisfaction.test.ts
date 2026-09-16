@@ -33,7 +33,7 @@ function fakeStore(rows: PhaseOutputRow[]): PhaseOutputStore {
       unpersisted: async () => [],
     },
     writer: {
-      upsert: async () => {},
+      upsert: async () => [],
     },
   };
 }
@@ -46,7 +46,7 @@ function failingStore(error: Error): PhaseOutputStore {
       unpersisted: async () => [],
     },
     writer: {
-      upsert: async () => {},
+      upsert: async () => [],
     },
   };
 }
