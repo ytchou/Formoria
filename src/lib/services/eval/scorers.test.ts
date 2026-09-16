@@ -18,6 +18,7 @@ import {
   p95,
   ndcgAtK,
   bootstrapCI,
+  pairedBootstrapCI,
   ndcgAt,
   type GradedItem,
 } from './scorers'
@@ -435,5 +436,44 @@ describe('ndcgAt curried factory', () => {
     ]
     const retrieved = ['b', 'a', 'c']
     expect(ndcgAt(10)(retrieved, expected)).toBe(ndcgAtK(retrieved, expected, 10))
+  })
+})
+
+describe('bootstrapCI seeded', () => {
+  it('is reproducible with a seed', () => {
+    const values = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+    const ci1 = bootstrapCI(values, 1000, 0.05, { seed: 7 })
+    const ci2 = bootstrapCI(values, 1000, 0.05, { seed: 7 })
+    expect(ci1).toEqual(ci2)
+    // unseeded still works
+    const ci3 = bootstrapCI(values, 1000, 0.05)
+    expect(ci3.lo).toBeLessThanOrEqual(ci3.mean)
+    expect(ci3.hi).toBeGreaterThanOrEqual(ci3.mean)
+  })
+})
+
+describe('pairedBootstrapCI', () => {
+  it('returns the CI of per-query differences', () => {
+    const a = [0.5, 0.6, 0.7]
+    const b = [0.4, 0.5, 0.6]
+    const ci = pairedBootstrapCI(a, b, { seed: 42 })
+    expect(ci.mean).toBeCloseTo(0.1, 9)
+    expect(ci.lo).toBeGreaterThan(0)
+  })
+
+  it('throws on length mismatch', () => {
+    expect(() => pairedBootstrapCI([1], [1, 2])).toThrow()
+  })
+
+  it('reports a sign-test p-value', () => {
+    // All zero differences → p = 1
+    const ci1 = pairedBootstrapCI([1, 2, 3], [1, 2, 3], { seed: 1 })
+    expect(ci1.signTestP).toBe(1)
+
+    // 20 positive differences → p < 0.05
+    const ones = Array.from({ length: 20 }, () => 1)
+    const zeros = Array.from({ length: 20 }, () => 0)
+    const ci2 = pairedBootstrapCI(ones, zeros, { seed: 1 })
+    expect(ci2.signTestP).toBeLessThan(0.05)
   })
 })

@@ -12,6 +12,8 @@ import { describe, expect, it } from "vitest";
 const MIGRATION_FILE = "20260903100200_situation_search.sql";
 const POOL_MIGRATION_FILE = "20260915140000_situation_search_pool_100.sql";
 const POOL_REVERSE_FILE = "20260915140000_revert_situation_search_pool.sql";
+const LTR_MIGRATION_FILE = "20260916120000_situation_search_ltr_columns.sql";
+const LTR_REVERSE_FILE = "20260916120000_revert_situation_search_ltr_columns.sql";
 
 function migrationText(): string {
   return readFileSync(
@@ -35,6 +37,26 @@ function poolReverseText(): string {
       "migrations",
       "reverse",
       POOL_REVERSE_FILE,
+    ),
+    "utf8",
+  );
+}
+
+function ltrMigrationText(): string {
+  return readFileSync(
+    join(process.cwd(), "supabase", "migrations", LTR_MIGRATION_FILE),
+    "utf8",
+  );
+}
+
+function ltrReverseText(): string {
+  return readFileSync(
+    join(
+      process.cwd(),
+      "supabase",
+      "migrations",
+      "reverse",
+      LTR_REVERSE_FILE,
     ),
     "utf8",
   );
@@ -134,5 +156,48 @@ describe("situation_search migration contract", () => {
     expect(sql).toContain(
       "grant select on public.product_embedding_documents to service_role",
     );
+  });
+});
+
+describe("ltr columns migration contract", () => {
+  it("ltr migration drops and recreates with the seven-column RETURNS TABLE", () => {
+    const sql = ltrMigrationText();
+    expect(sql).toContain(
+      "drop function if exists public.search_products_semantic(text, extensions.vector, text, integer, text, text[], text[])",
+    );
+    expect(sql).toContain(
+      "search_products_semantic(query_text text, query_embedding extensions.vector, mode text, match_count integer, filter_category text, filter_subcategories text[], filter_materials text[])",
+    );
+    expect(sql).toContain(
+      "returns table(product_id uuid, rank_score real, search_source text, vector_rank integer, lexical_rank integer, cosine_sim real, lexical_score real)",
+    );
+  });
+
+  it("ltr migration keeps fusion, clamp and mode validation", () => {
+    const sql = ltrMigrationText();
+    expect(sql).toContain("least(greatest(match_count, 1), 100)");
+    expect(sql).toContain("limit 100");
+    expect(sql).toContain("situation_search_lexical(query_text, 100)");
+    expect(sql).toContain("mode not in ('vector','lexical','hybrid')");
+    expect(sql).toContain(
+      "coalesce(1.0 / (60 + v.rnk), 0) + coalesce(1.0 / (60 + l.rnk), 0)",
+    );
+  });
+
+  it("ltr migration re-revokes anon and asserts the privilege", () => {
+    const sql = ltrMigrationText();
+    expect(sql).toContain("public, anon, authenticated");
+    const grantPattern =
+      /grant execute[^;]*search_products_semantic[^;]*to[^;]*postgres,\s*service_role/i;
+    expect(sql).toMatch(grantPattern);
+    expect(sql).toContain("has_function_privilege('anon'");
+  });
+
+  it("ltr reverse migration restores the three-column RETURNS TABLE with the same guard", () => {
+    const sql = ltrReverseText();
+    expect(sql).toContain(
+      "returns table(product_id uuid, rank_score real, search_source text)",
+    );
+    expect(sql).toContain("has_function_privilege('anon'");
   });
 });

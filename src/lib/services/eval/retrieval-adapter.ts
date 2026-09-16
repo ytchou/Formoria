@@ -15,7 +15,30 @@ export type RetrievalAdapterDeps = {
     locale: 'zh-TW' | 'en'
     mode: SearchMode
     pageSize: number
-  }) => Promise<{ products: Array<{ key: string }> }>
+    category?: string | null
+    enableIntentParse?: boolean
+  }) => Promise<{ products: Array<{ id: string; key: string; brandSlug: string }> }>
+  category?: (opts: {
+    category: string
+    pageSize?: number
+  }) => Promise<{ products: Array<{ id: string; key: string; brandSlug: string }> }>
+  rerank?: (
+    query: string,
+    candidates: Array<{ id: string; document: string }>,
+  ) => Promise<Array<{ id: string }>>
+  rank?: (opts: {
+    query: string
+    version: string
+    category?: string | null
+  }) => Promise<string[]>
+}
+
+// ---------------------------------------------------------------------------
+// Composite key helper
+// ---------------------------------------------------------------------------
+
+export function compositeKey(p: { brandSlug: string; key: string }): string {
+  return `${p.brandSlug}/${p.key}`
 }
 
 // ---------------------------------------------------------------------------
@@ -23,7 +46,7 @@ export type RetrievalAdapterDeps = {
 // ---------------------------------------------------------------------------
 
 function gradedKeys(expected: unknown): string[] {
-  return (expected as GradedItem[]).map((g) => g.key)
+  return (expected as GradedItem[]).filter((g) => g.grade > 0).map((g) => g.key)
 }
 
 // ---------------------------------------------------------------------------
@@ -40,7 +63,7 @@ export function createRetrievalAdapter(deps: RetrievalAdapterDeps): PhaseAdapter
     parseOutput: () => ({ ok: true as const, data: null }),
     unwrap: (output) => output,
     expectedOf: (item) => item.expectedOutput as GradedItem[],
-    expectedSchema: z.array(z.object({ key: z.string(), grade: z.number() })),
+    expectedSchema: z.array(z.object({ key: z.string().regex(/\//), grade: z.number() })),
     scorers: [
       { name: 'ndcg@10', fn: ndcgAt(10) },
       {
@@ -49,9 +72,9 @@ export function createRetrievalAdapter(deps: RetrievalAdapterDeps): PhaseAdapter
           precisionAtK(output as string[], gradedKeys(expected), 5),
       },
       {
-        name: 'recall@5',
+        name: 'recall@100',
         fn: (output: unknown, expected: unknown): number =>
-          recallAtK(output as string[], gradedKeys(expected), 5),
+          recallAtK(output as string[], gradedKeys(expected), 100),
       },
       {
         name: 'mrr',
@@ -64,15 +87,71 @@ export function createRetrievalAdapter(deps: RetrievalAdapterDeps): PhaseAdapter
       arm: ExperimentArm,
       _ctx: { itemRunId: string; model?: string },
     ) => {
-      const input = item.input as { query: string }
+      const input = item.input as { query: string; category?: string }
+
+      // Parse arm value
+      const ltrMatch = arm.value.match(/^ltr:(.+)$/)
+
+      if (ltrMatch) {
+        // LTR arm
+        if (!deps.rank) throw new Error(`rank dep required for arm "${arm.value}"`)
+        const keys = await deps.rank({
+          query: input.query,
+          version: ltrMatch[1]!,
+          category: input.category ?? null,
+        })
+        return { ok: true, output: keys }
+      }
+
+      if (arm.value === 'category') {
+        if (!deps.category || !input.category) return { ok: true, output: [] }
+        const result = await deps.category({
+          category: input.category,
+          pageSize: 100,
+        })
+        return { ok: true, output: result.products.map(compositeKey) }
+      }
+
+      if (arm.value === 'rerank') {
+        const result = await deps.search({
+          query: input.query,
+          locale: 'zh-TW',
+          mode: 'hybrid',
+          pageSize: 20,
+          category: input.category ?? null,
+          enableIntentParse: false,
+        })
+        if (!deps.rerank) {
+          return { ok: true, output: result.products.map(compositeKey) }
+        }
+        const candidates = result.products.map((p) => ({
+          id: p.id,
+          document: `${(p as Record<string, unknown>).nameZh ?? ''} ${(p as Record<string, unknown>).category ?? ''} ${(p as Record<string, unknown>).subcategory ?? ''}`,
+        }))
+        const reranked = await deps.rerank(input.query, candidates)
+        const byId = new Map(result.products.map((p) => [p.id, p]))
+        return {
+          ok: true,
+          output: reranked
+            .map((r) => {
+              const p = byId.get(r.id)
+              return p ? compositeKey(p) : ''
+            })
+            .filter(Boolean),
+        }
+      }
+
+      // hybrid / vector / lexical
+      const mode = arm.value as SearchMode
       const result = await deps.search({
         query: input.query,
         locale: 'zh-TW',
-        mode: arm.value as SearchMode,
+        mode,
         pageSize: 100,
+        category: input.category ?? null,
+        enableIntentParse: false,
       })
-      const keys = result.products.map((p) => p.key)
-      return { ok: true, output: keys }
+      return { ok: true, output: result.products.map(compositeKey) }
     },
   }
 }

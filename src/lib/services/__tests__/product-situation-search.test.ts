@@ -54,7 +54,15 @@ function product(id: string, name: string, overrides: Partial<CatalogProduct> = 
 }
 
 function rpcRow(productId: string, score: number, source = "hybrid") {
-  return { product_id: productId, rank_score: score, search_source: source };
+  return {
+    product_id: productId,
+    rank_score: score,
+    search_source: source,
+    vector_rank: null as number | null,
+    lexical_rank: null as number | null,
+    cosine_sim: null as number | null,
+    lexical_score: null as number | null,
+  };
 }
 
 const EMBEDDING = [0.1, 0.2, 0.3];

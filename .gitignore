@@ -49,6 +49,7 @@ __pycache__/
 Thumbs.db
 *.csv
 !content/stockists/*.csv
+!scripts/enrichment/eval/search-eval/labels/*.csv
 *.png
 # Playwright owns this one durable baseline set; all other generated PNGs stay ignored.
 !e2e/tests/visual-regression.spec.ts-snapshots/*.png
