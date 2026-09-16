@@ -88,8 +88,9 @@ export async function runBlocks(config: RunBlocksConfig): Promise<void> {
   for (const ctx of chunk) {
     const targetRows = rows.filter((row) => {
       if (row.target_id !== ctx.targetId || row.target_type !== ctx.targetType || !isUsablePhaseCheckpoint(row)) return false
-      if (!config.recoveryJobIds || !ctx.plan?.selected.includes(row.phase as EnrichPhaseName)) return true
-      return row.persisted_at === null && (row.job_id === jobId || config.recoveryJobIds.includes(row.job_id))
+      if (!config.recoveryJobIds) return true
+      if (row.job_id !== jobId && !config.recoveryJobIds.includes(row.job_id)) return false
+      return !ctx.plan?.selected.includes(row.phase as EnrichPhaseName) || row.persisted_at === null
     })
     if (!satisfaction.has(ctx.targetId)) satisfaction.set(ctx.targetId, phaseHistoryFromOutputs(targetRows))
     const latest = new Map<string, PhaseOutputRow>()

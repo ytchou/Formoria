@@ -1387,7 +1387,7 @@ export async function persistEnrichmentResults(
 }
 
 export async function runEnrich(
-  config: CurationConfig & {
+  config: CurationConfigWithBatchProgress & {
     phases: string[];
     /**
      * Task-based selection, threaded from job params for logging. Phase
@@ -1427,9 +1427,7 @@ export async function runEnrich(
         const startedAt = Date.now();
         const onProgress = config.onProgress ?? logEnrichmentProgress;
         const onTargetProgress = config.onTargetProgress;
-        const onTargetProgressBatch = (
-          config as CurationConfigWithBatchProgress
-        ).onTargetProgressBatch;
+        const onTargetProgressBatch = config.onTargetProgressBatch;
         const result: OperationResult = {
           processed: 0,
           updated: 0,
@@ -1642,12 +1640,13 @@ export async function runEnrich(
           const batchPhaseResults = new Map<string, PhaseResult[]>();
           const emitBatchPhaseProgress = async (
             phase: string,
+            targets: readonly EnrichBrand[],
           ): Promise<void> => {
             await emitTargetProgressBatch(
               // A batch phase can now run after wave A has already recorded terminal
               // outcomes for some targets; re-emitting "running" for those would flip
               // a finished row back to in-progress in the UI.
-              chunk
+              targets
                 .filter((brand) => !isBrandCompleted(brand.id))
                 .map((brand) => ({
                   targetId: brand.id,
@@ -2497,7 +2496,7 @@ export async function runEnrich(
                 }
 
                 // ---- Detect batch (reads probes + cached SERP) ----
-                if (hasDetectPhases) await emitBatchPhaseProgress("detect");
+                if (hasDetectPhases) await emitBatchPhaseProgress("detect", chunk);
                 const detectPhaseResult = await runDetectPhase(
                   batchContext,
                   searchResults,

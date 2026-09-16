@@ -407,7 +407,7 @@ export async function enqueueAutomaticRetry(
   );
 }
 
-export type CurationRecoveryAction =
+type CurationRecoveryAction =
   | { kind: "rerun"; overwrite?: boolean }
   | { kind: "resume" }
   | { kind: "phase"; targetId: string; retry: RetryParams };

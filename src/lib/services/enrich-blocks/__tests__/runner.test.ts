@@ -663,6 +663,28 @@ it('a checkpointed recovery merges only its source scope without repeating provi
   expect(calls.filter((call) => call.block !== 'gather' && call.block !== 'persist')).toEqual([])
 })
 
+it('a phase-only recovery hydrates upstream inputs only from its source lineage', async () => {
+  const ctx = makeCtx('porcelain-studio')
+  ctx.plan = { selected: ['products'], forced: ['products'], explicit: ['products'] }
+  const source: PhaseOutputRow = {
+    id: 'source-acquire', job_id: 'failed-source', target_id: ctx.targetId,
+    target_type: ctx.targetType, phase: 'acquire', status: 'succeeded',
+    output: { patch: {}, carry: { catalog: { triples: [], attempts: [], deadlineHit: false }, marker: 'source' } },
+    persisted_at: '2026-09-15T11:00:00.000Z', created_at: '2026-09-15T10:00:00.000Z',
+  }
+  const store = fakeStore({ forTargets: async () => [
+    { ...source, id: 'unrelated-acquire', job_id: 'unrelated-job', output: { patch: {}, carry: { catalog: { triples: [], attempts: [], deadlineHit: false }, marker: 'unrelated' } }, created_at: '2026-09-16T10:00:00.000Z' },
+    source,
+  ] })
+  const hydrated: string[] = []
+  await runBlocks({
+    chunk: [ctx], registry: buildTestRegistry([]), order: BLOCK_ORDER, concurrency: 1,
+    ...emptyMaps(), store, jobId: 'recovery-child', recoveryJobIds: ['failed-source'],
+    hooks: { onHydrate: (_ctx, phase, row) => { if (phase === 'acquire') hydrated.push(row.id) } },
+  })
+  expect(hydrated).toEqual(['source-acquire'])
+})
+
 it('a phase-only retry fails with upstream guidance before provider work when saved inputs are absent', async () => {
   const ctx = makeCtx('tea-studio')
   ctx.plan = { selected: ['products'], forced: ['products'], explicit: ['products'] }

@@ -1436,6 +1436,44 @@ describe("two loops with a batched names call between", () => {
     expect(mocks.runProductsPhase).toHaveBeenCalledOnce();
   });
 
+  it("mixed recovery targets report only their selected batch phases", async () => {
+    const detectTarget = submission({
+      id: "sub-detect-scope",
+      brand_name: "Detect Scope Studio",
+      social_instagram: "https://www.instagram.com/detectscope",
+    });
+    const faqTarget = submission({
+      id: "sub-faq-scope",
+      brand_name: "FAQ Scope Studio",
+      social_instagram: "https://www.instagram.com/faqscope",
+    });
+    mocks.runEditorialAgent.mockResolvedValue({
+      ...editorialOutput(),
+      phaseResults: [{ phase: "faq", status: "succeeded", changedFields: ["faq"], durationMs: 10 }],
+      phaseOutputs: [{ phaseResult: { phase: "faq", status: "succeeded", changedFields: ["faq"], durationMs: 10 }, patch: { faq: [] } }],
+      patch: { faq: [] },
+    });
+    const progress: Array<{ targetId: string; currentPhase?: string | null }> = [];
+
+    await runEnrich(
+      {
+        target: "submissions",
+        submissionIds: [detectTarget.id, faqTarget.id],
+        dryRun: true,
+        phases: ["detect", "faq"],
+        targetPlans: {
+          [detectTarget.id]: { selected: ["detect"], forced: ["detect"], explicit: [] },
+          [faqTarget.id]: { selected: ["faq"], forced: ["faq"], explicit: ["faq"] },
+        },
+        onProgress: () => {},
+        onTargetProgressBatch: async (events) => { progress.push(...events); },
+      },
+      fakeSupabase([detectTarget, faqTarget]),
+    );
+
+    expect(progress.filter((event) => event.targetId === faqTarget.id).map((event) => event.currentPhase)).not.toContain("detect");
+  });
+
   it("gate_b_weak_brand_skips", async () => {
     const weak = submission({
       id: "sub-weak",

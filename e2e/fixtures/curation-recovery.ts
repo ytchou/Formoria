@@ -3,6 +3,7 @@ import { randomUUID } from "node:crypto";
 import { createServiceClient } from "../../src/lib/supabase/service";
 import { readFileSync } from "node:fs";
 import path from "node:path";
+import { BUDGET } from "../budgets";
 import {
   validateStagingTarget,
   projectRefFromDatabaseUrl,
@@ -62,7 +63,7 @@ function recoverySql(sql: string): string {
       },
       input: sql,
       encoding: "utf8",
-      timeout: 30_000,
+      timeout: BUDGET.DB_FIXTURE,
     },
   );
   if (result.error) throw result.error;
@@ -118,7 +119,7 @@ export async function withRecoveryServiceFixture<T>(run: (fixture: {
     if (jobsError) throw jobsError;
     const ids = (jobs ?? []).map((job) => job.id);
     if (ids.length) {
-      for (const table of ["curation_phase_outputs", "curation_job_targets", "curation_jobs"] as const) {
+      for (const table of ["brand_ai_results", "curation_phase_outputs", "curation_job_targets", "curation_jobs"] as const) {
         const { error } = await supabase.from(table).delete().in(table === "curation_jobs" ? "id" : "job_id", ids);
         if (error) throw error;
       }
