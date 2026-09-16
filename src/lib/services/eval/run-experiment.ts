@@ -4,11 +4,7 @@ import type { PromptMeta } from '@/lib/langfuse/prompt'
 import type { PhaseAdapter } from './phase-adapters'
 import type { AuditCollector } from './zero-write'
 import { runName as makeRunName, traceName as makeTraceName } from './langfuse-runs'
-/**
- * Reused from scripts/enrichment/eval/search-eval/metrics.ts — no third implementation.
- * Imported with a relative path because no @/ alias covers scripts/.
- */
-import { p95, mean } from '../../../../scripts/enrichment/eval/search-eval/metrics'
+import { p95, mean } from './scorers'
 
 // ---------------------------------------------------------------------------
 // Types
@@ -26,7 +22,7 @@ export type ExperimentItem = {
 
 export type ExperimentArm = {
   name: string
-  type: 'model' | 'prompt'
+  type: 'model' | 'prompt' | 'custom'
   value: string
 }
 
@@ -177,6 +173,9 @@ export async function runItems({
         // Create a Langfuse trace for this item so emitLangfuseGeneration can link to it
         const langfuseTrace = createItemTrace?.(item.id, itemRunId) ?? undefined
 
+        // Wall-clock timing wraps the entire retry loop
+        const wallStart = Date.now()
+
         // One retry per item on failure (2 total attempts)
         for (let attempt = 0; attempt < 2; attempt++) {
           try {
@@ -192,16 +191,17 @@ export async function runItems({
           }
         }
 
+        const wallMs = Date.now() - wallStart
+
         // Join cost/latency from collector by correlationId
         const auditRecords = collector.byCorrelation(itemRunId)
         const totalCost = auditRecords.reduce(
           (sum, r) => sum + (r.costUsd ?? 0),
           0,
         )
-        const totalLatency = auditRecords.reduce(
-          (sum, r) => sum + (r.latencyMs ?? 0),
-          0,
-        )
+        const totalLatency = auditRecords.length > 0
+          ? auditRecords.reduce((sum, r) => sum + (r.latencyMs ?? 0), 0)
+          : wallMs
 
         if (taskResult?.ok) {
           // Score against expected
@@ -298,13 +298,16 @@ export async function runExperiment({
           process.env.OPENAI_MODEL_OVERRIDE = arm.value
         } else if (arm.type === 'prompt') {
           process.env.LANGFUSE_PROMPT_VERSIONS = arm.value
+        } else if (arm.type === 'custom') {
+          // Custom arms manage their own execution — no env setup
+        } else {
+          throw new Error(`Unknown arm type: ${(arm as { type: string }).type}`)
         }
 
-        // Fetch system prompt
-        const promptResult = await deps.fetchPrompt(
-          adapter.promptName,
-          adapter.variables,
-        )
+        // Fetch system prompt (skip when adapter has no promptName, e.g. custom arms)
+        const promptResult = adapter.promptName
+          ? await deps.fetchPrompt(adapter.promptName, adapter.variables)
+          : { text: '', prompt: { name: '', version: 0, source: 'snapshot' as const } }
 
         // Pin check: a prompt arm requires Langfuse as the source —
         // the snapshot fallback ignores version pins.

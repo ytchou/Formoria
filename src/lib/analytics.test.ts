@@ -34,6 +34,8 @@ import {
   trackBrandDetailEngaged,
   trackSavedBrandRevisited,
   trackNotFoundCategoryClicked,
+  trackProductSearchResultClicked,
+  trackProductSearchResultsViewed,
 } from './analytics'
 import { ANALYTICS_EVENTS } from './analytics/events'
 
@@ -414,6 +416,43 @@ describe('analytics', () => {
     const payload = mockPostHogCapture.mock.calls[0]?.[1] as Record<string, unknown>
     expect('rpc_latency_ms' in payload).toBe(false)
     expect('embed_latency_ms' in payload).toBe(false)
+  })
+
+  it('trackProductSearchExecuted includes search_id when provided', () => {
+    trackProductSearchExecuted('query', 5, { searchSource: 'discover_page', degraded: false, searchId: 'uuid-123' })
+
+    const payload = mockPostHogCapture.mock.calls[0]?.[1] as Record<string, unknown>
+    expect(payload.search_id).toBe('uuid-123')
+  })
+
+  it('trackProductSearchExecuted omits search_id when not provided', () => {
+    trackProductSearchExecuted('query', 5, { searchSource: 'discover_page', degraded: false })
+
+    const payload = mockPostHogCapture.mock.calls[0]?.[1] as Record<string, unknown>
+    expect(payload).not.toHaveProperty('search_id')
+  })
+
+  it('trackProductSearchResultClicked captures all fields', () => {
+    trackProductSearchResultClicked({ searchId: 'sid', position: 2, productKey: 'linen-mug', brandSlug: 'warmwood', query: 'ceramic mug' })
+
+    expect(mockPostHogCapture).toHaveBeenCalledWith(ANALYTICS_EVENTS.PRODUCT_SEARCH_RESULT_CLICKED, {
+      search_id: 'sid',
+      position: 2,
+      product_key: 'linen-mug',
+      brand_slug: 'warmwood',
+      query: 'ceramic mug',
+    })
+  })
+
+  it('trackProductSearchResultsViewed captures product_keys array', () => {
+    trackProductSearchResultsViewed({ searchId: 'sid', productKeys: ['k1', 'k2'], query: 'tea', resultCount: 2 })
+
+    expect(mockPostHogCapture).toHaveBeenCalledWith(ANALYTICS_EVENTS.PRODUCT_SEARCH_RESULTS_VIEWED, {
+      search_id: 'sid',
+      product_keys: ['k1', 'k2'],
+      query: 'tea',
+      result_count: 2,
+    })
   })
 
   it('trackNotFoundCategoryClicked fires PostHog event', () => {

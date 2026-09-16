@@ -7,10 +7,12 @@ import { act, render } from '@testing-library/react'
 const trackSearchExecuted = vi.fn()
 const trackSearchNoResults = vi.fn()
 const trackProductSearchExecuted = vi.fn()
+const trackProductSearchResultsViewed = vi.fn()
 vi.mock('@/lib/analytics', () => ({
   trackSearchExecuted: (...args: unknown[]) => trackSearchExecuted(...args),
   trackSearchNoResults: (...args: unknown[]) => trackSearchNoResults(...args),
   trackProductSearchExecuted: (...args: unknown[]) => trackProductSearchExecuted(...args),
+  trackProductSearchResultsViewed: (...args: unknown[]) => trackProductSearchResultsViewed(...args),
 }))
 
 import {
@@ -31,6 +33,7 @@ describe('SearchResultsTracker', () => {
     trackSearchExecuted.mockClear()
     trackSearchNoResults.mockClear()
     trackProductSearchExecuted.mockClear()
+    trackProductSearchResultsViewed.mockClear()
     __resetSearchTrackerForTests()
   })
 
@@ -254,5 +257,81 @@ describe('SearchResultsTracker', () => {
       rpcLatencyMs: 41,
       embedLatencyMs: 120,
     })
+  })
+
+  // --- searchId dedupe ---
+
+  it('searchId dedupe prevents re-emission', () => {
+    const { rerender } = render(
+      <SearchResultsTracker query="陶瓷" resultCount={5} searchId="sid-1" />,
+    )
+    settle()
+    rerender(
+      <SearchResultsTracker query="陶瓷" resultCount={5} searchId="sid-1" />,
+    )
+    settle()
+
+    expect(trackSearchExecuted).toHaveBeenCalledOnce()
+  })
+
+  it('different searchId fires new event', () => {
+    const { rerender } = render(
+      <SearchResultsTracker query="陶瓷" resultCount={5} searchId="a" />,
+    )
+    settle()
+    rerender(
+      <SearchResultsTracker query="陶瓷" resultCount={5} searchId="b" />,
+    )
+    settle()
+
+    expect(trackSearchExecuted).toHaveBeenCalledTimes(2)
+  })
+
+  it('backward compat: no searchId falls back to count:query key', () => {
+    const { rerender } = render(
+      <SearchResultsTracker query="陶瓷" resultCount={5} />,
+    )
+    settle()
+    rerender(
+      <SearchResultsTracker query="陶瓷" resultCount={5} />,
+    )
+    settle()
+
+    // Same count:query → deduped to one emission
+    expect(trackSearchExecuted).toHaveBeenCalledOnce()
+  })
+
+  it('impression event fires with productKeys', () => {
+    render(
+      <SearchResultsTracker
+        trackerKind="product"
+        searchId="sid"
+        productKeys={['k1', 'k2']}
+        query="test"
+        resultCount={2}
+      />,
+    )
+    settle()
+
+    expect(trackProductSearchResultsViewed).toHaveBeenCalledExactlyOnceWith({
+      searchId: 'sid',
+      productKeys: ['k1', 'k2'],
+      query: 'test',
+      resultCount: 2,
+    })
+  })
+
+  it('impression event not fired without searchId', () => {
+    render(
+      <SearchResultsTracker
+        trackerKind="product"
+        productKeys={['k1', 'k2']}
+        query="test"
+        resultCount={2}
+      />,
+    )
+    settle()
+
+    expect(trackProductSearchResultsViewed).not.toHaveBeenCalled()
   })
 })

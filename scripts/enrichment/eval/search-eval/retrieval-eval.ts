@@ -27,12 +27,123 @@ import {
   mrr,
   mean,
   p95,
-  verdict,
-  resolveExpected,
-  type ArmResult,
-  type QueryResult,
-  type GoldenItem,
-} from "./metrics";
+} from "@/lib/services/eval/scorers";
+// ---------------------------------------------------------------------------
+// Types (migrated from metrics.ts)
+// ---------------------------------------------------------------------------
+
+type GoldenItem = {
+  id: string;
+  query: string;
+  category?: string;
+  expected: Array<{ brandSlug: string; productKey: string }>;
+};
+
+type QueryResult = {
+  queryId: string;
+  retrieved: string[];
+  expected: string[];
+  precisionAtK: number;
+  recallAtK: number;
+  mrr: number;
+  latencyMs: number;
+};
+
+type ArmResult = {
+  arm: string;
+  metrics: {
+    meanPrecisionAtK: number;
+    meanRecallAtK: number;
+    meanMrr: number;
+    p95LatencyMs: number;
+  };
+  perQuery: QueryResult[];
+};
+
+// ---------------------------------------------------------------------------
+// Verdict (migrated from metrics.ts)
+// ---------------------------------------------------------------------------
+
+/**
+ * Decides whether the rerank arm should ship.
+ *
+ * - "ship": rerank precision@5 improves by >= 0.1 over hybrid AND p95 < 1500ms
+ * - "no-lift": precision improvement < 0.1
+ * - "too-slow": p95 >= 1500ms despite sufficient lift
+ * - "missing-arms": hybrid or rerank arm not present
+ */
+function verdict(results: ArmResult[]): string {
+  const hybrid = results.find((r) => r.arm === "hybrid");
+  const rerank = results.find((r) => r.arm === "rerank");
+
+  if (!hybrid || !rerank) return "missing-arms";
+
+  const lift =
+    rerank.metrics.meanPrecisionAtK - hybrid.metrics.meanPrecisionAtK;
+  const fast = rerank.metrics.p95LatencyMs < 1500;
+
+  if (lift >= 0.1 - 1e-9 && fast) return "ship";
+  if (lift < 0.1 - 1e-9) return "no-lift";
+  return "too-slow";
+}
+
+// ---------------------------------------------------------------------------
+// resolveExpected (migrated from metrics.ts)
+// ---------------------------------------------------------------------------
+
+type ProductEntry = { id: string; key: string; brandSlug: string };
+
+/**
+ * Resolve expected brandSlug+productKey pairs to product IDs.
+ *
+ * The `lookupFn` parameter allows injection for testing. In production the
+ * eval script passes a function that queries the catalog.
+ */
+async function resolveExpected(
+  items: GoldenItem[],
+  lookupFn: (
+    slugs: string[],
+  ) => Promise<Map<string, ProductEntry>>,
+): Promise<{
+  resolved: Map<string, string[]>;
+  missing: Array<{ queryId: string; brandSlug: string; productKey: string }>;
+}> {
+  const allSlugs = new Set<string>();
+  for (const item of items) {
+    for (const exp of item.expected) {
+      allSlugs.add(exp.brandSlug);
+    }
+  }
+
+  const productMap = await lookupFn([...allSlugs]);
+
+  const resolved = new Map<string, string[]>();
+  const missing: Array<{
+    queryId: string;
+    brandSlug: string;
+    productKey: string;
+  }> = [];
+
+  for (const item of items) {
+    const ids: string[] = [];
+    for (const exp of item.expected) {
+      const compositeKey = `${exp.brandSlug}:${exp.productKey}`;
+      const found = productMap.get(compositeKey);
+      if (found) {
+        ids.push(found.id);
+      } else {
+        missing.push({
+          queryId: item.id,
+          brandSlug: exp.brandSlug,
+          productKey: exp.productKey,
+        });
+      }
+    }
+    resolved.set(item.id, ids);
+  }
+
+  return { resolved, missing };
+}
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -328,6 +439,7 @@ async function main() {
       arm: { type: "string", default: "all" },
       k: { type: "string", default: "5" },
       limit: { type: "string", default: "5" },
+      help: { type: "boolean", default: false },
     },
   });
 
@@ -346,13 +458,51 @@ async function main() {
     case "neighbours":
       await cmdNeighbours(parseInt(values.limit ?? "5", 10));
       break;
+    case "generate-queries":
+      await import("./label-generate-queries").then((m) =>
+        m.cmdGenerateQueries(values),
+      );
+      break;
+    case "judge":
+      await import("./label-judge").then((m) => m.cmdJudge(values));
+      break;
+    case "retrieve-candidates":
+      await import("./label-judge").then((m) =>
+        m.cmdRetrieveCandidates(values),
+      );
+      break;
+    case "agreement":
+      await import("./label-agreement").then((m) => m.cmdAgreement(values));
+      break;
+    case "build-dataset":
+      await import("./label-build-dataset").then((m) =>
+        m.cmdBuildDataset(values),
+      );
+      break;
     default:
-      console.error("Usage: search:eval <dataset|run|neighbours>");
+      console.error(
+        "Usage: search:eval <dataset|run|neighbours|generate-queries|judge|retrieve-candidates|agreement|build-dataset>",
+      );
       console.error("  dataset                          Upload golden set to Langfuse");
       console.error(
         "  run [--arm all|category|lexical|vector|hybrid|rerank] [--k 5]",
       );
       console.error("  neighbours [--limit 5]");
+      console.error(
+        "  generate-queries [--count 100]   Generate zh-TW situation query candidates",
+      );
+      console.error(
+        "  judge [--model gpt-4o-mini]      Run LLM judge on (query, product) pairs",
+      );
+      console.error(
+        "  retrieve-candidates [--mode hybrid] [--pageSize 100]",
+      );
+      console.error(
+        "  agreement [--human f] [--llm f]  Compute Cohen's kappa between labels",
+      );
+      console.error(
+        "  build-dataset [--split 60/20/20] Build labelled dataset for Langfuse",
+      );
       process.exitCode = 1;
   }
 }

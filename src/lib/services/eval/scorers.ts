@@ -177,3 +177,141 @@ export function selectionAgreement(
   )
   return jaccard(outputSet, expectedSet)
 }
+
+// ---------------------------------------------------------------------------
+// IR metric functions (migrated from scripts/enrichment/eval/search-eval/metrics.ts)
+// ---------------------------------------------------------------------------
+
+/**
+ * Precision@k: fraction of the top-k retrieved items that are in the expected set.
+ */
+export function precisionAtK(
+  retrieved: string[],
+  expected: string[],
+  k: number,
+): number {
+  if (k <= 0) return 0
+  const topK = retrieved.slice(0, k)
+  const expectedSet = new Set(expected)
+  const hits = topK.filter((id) => expectedSet.has(id)).length
+  return hits / k
+}
+
+/**
+ * Recall@k: fraction of expected items found in the top-k retrieved items.
+ */
+export function recallAtK(
+  retrieved: string[],
+  expected: string[],
+  k: number,
+): number {
+  if (expected.length === 0) return 0
+  const topK = new Set(retrieved.slice(0, k))
+  const hits = expected.filter((id) => topK.has(id)).length
+  return hits / expected.length
+}
+
+/**
+ * Mean Reciprocal Rank: 1 / (rank of the first expected item in retrieved).
+ * Returns 0 when no expected item appears in retrieved.
+ */
+export function mrr(retrieved: string[], expected: string[]): number {
+  const expectedSet = new Set(expected)
+  for (let i = 0; i < retrieved.length; i++) {
+    if (expectedSet.has(retrieved[i]!)) {
+      return 1 / (i + 1)
+    }
+  }
+  return 0
+}
+
+// ---------------------------------------------------------------------------
+// Aggregation helpers (migrated from metrics.ts)
+// ---------------------------------------------------------------------------
+
+export function p95(values: number[]): number {
+  if (values.length === 0) return 0
+  const sorted = [...values].sort((a, b) => a - b)
+  const index = Math.ceil(sorted.length * 0.95) - 1
+  return sorted[Math.max(0, index)]!
+}
+
+export function mean(values: number[]): number {
+  if (values.length === 0) return 0
+  return values.reduce((sum, v) => sum + v, 0) / values.length
+}
+
+// ---------------------------------------------------------------------------
+// NDCG@k (new)
+// ---------------------------------------------------------------------------
+
+export type GradedItem = { key: string; grade: number }
+
+export function ndcgAtK(
+  retrieved: string[],
+  expected: GradedItem[],
+  k: number,
+): number {
+  if (k <= 0 || expected.length === 0) return 0
+  const gradeMap = new Map(expected.map((e) => [e.key, e.grade]))
+  const topK = retrieved.slice(0, k)
+
+  // DCG = sum of grade_i / log2(i + 2) for i in 0..k-1  (rank is 1-based, so denominator is log2(rank+1))
+  let dcg = 0
+  for (let i = 0; i < topK.length; i++) {
+    const grade = gradeMap.get(topK[i]!) ?? 0
+    dcg += grade / Math.log2(i + 2)
+  }
+
+  // IDCG = DCG of perfect ranking (sort expected grades desc, take top k)
+  const idealGrades = expected.map((e) => e.grade).sort((a, b) => b - a).slice(0, k)
+  let idcg = 0
+  for (let i = 0; i < idealGrades.length; i++) {
+    idcg += idealGrades[i]! / Math.log2(i + 2)
+  }
+
+  return idcg === 0 ? 0 : dcg / idcg
+}
+
+// ---------------------------------------------------------------------------
+// Bootstrap confidence interval (new)
+// ---------------------------------------------------------------------------
+
+export function bootstrapCI(
+  values: number[],
+  nBoot = 1000,
+  alpha = 0.05,
+): { lo: number; hi: number; mean: number } {
+  if (values.length === 0) return { lo: 0, hi: 0, mean: 0 }
+  const m = mean(values)
+  if (nBoot < 2) return { lo: m, hi: m, mean: m }
+  const means = Array.from({ length: nBoot }, () => {
+    let sum = 0
+    for (let i = 0; i < values.length; i++) {
+      sum += values[Math.floor(Math.random() * values.length)]!
+    }
+    return sum / values.length
+  }).sort((a, b) => a - b)
+  const loIdx = Math.floor((alpha / 2) * nBoot)
+  const hiIdx = Math.floor((1 - alpha / 2) * nBoot) - 1
+  return { lo: means[loIdx]!, hi: means[hiIdx]!, mean: m }
+}
+
+// ---------------------------------------------------------------------------
+// Curried factories (new)
+// ---------------------------------------------------------------------------
+
+export function ndcgAt(k: number) {
+  return (output: unknown, expected: unknown): number =>
+    ndcgAtK(output as string[], expected as GradedItem[], k)
+}
+
+export function precisionAt(k: number) {
+  return (output: unknown, expected: unknown): number =>
+    precisionAtK(output as string[], expected as string[], k)
+}
+
+export function recallAt(k: number) {
+  return (output: unknown, expected: unknown): number =>
+    recallAtK(output as string[], expected as string[], k)
+}

@@ -40,6 +40,8 @@ const EVENT_NAME_SNAPSHOT = [
   'brand_search_empty',
   'search_result_clicked',
   'search_suggestion_selected',
+  'product_search_result_clicked',
+  'product_search_results_viewed',
   'brand_saved',
   'saved_brand_revisited',
   'brand_unsaved',

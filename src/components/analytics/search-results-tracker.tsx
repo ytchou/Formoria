@@ -2,7 +2,7 @@
 
 import { useEffect, useRef } from 'react'
 
-import { trackSearchExecuted, trackSearchNoResults, trackProductSearchExecuted } from '@/lib/analytics'
+import { trackSearchExecuted, trackSearchNoResults, trackProductSearchExecuted, trackProductSearchResultsViewed } from '@/lib/analytics'
 
 /**
  * How long a query must stay put before it counts as a search.
@@ -45,6 +45,10 @@ interface SearchResultsTrackerProps {
   resultCount: number
   /** Which tracker to use. Defaults to `"brand"` for the existing `/brands?search=` surface. */
   trackerKind?: 'brand' | 'product'
+  /** Unique identifier for this search invocation. Used for dedupe and impression/click correlation. */
+  searchId?: string
+  /** Product keys in the current result page. Used for the impression event. */
+  productKeys?: string[]
   /** Where the search originated. Only used when `trackerKind` is `"product"`. */
   searchSource?: string
   /** Whether the search fell back to lexical-only mode. Only used when `trackerKind` is `"product"`. */
@@ -81,7 +85,7 @@ interface SearchResultsTrackerProps {
  */
 const FLUSH_MIN_AGE_MS = 50
 
-export function SearchResultsTracker({ query, resultCount, trackerKind = 'brand', searchSource, degraded, intentParsed, intentCategory, intentSubcategory, intentMaterials, intentCacheHit, intentLatencyMs, rpcLatencyMs, embedLatencyMs }: SearchResultsTrackerProps) {
+export function SearchResultsTracker({ query, resultCount, trackerKind = 'brand', searchId, productKeys, searchSource, degraded, intentParsed, intentCategory, intentSubcategory, intentMaterials, intentCacheHit, intentLatencyMs, rpcLatencyMs, embedLatencyMs }: SearchResultsTrackerProps) {
   const pendingRef = useRef<(() => void) | null>(null)
   const pendingSinceRef = useRef(0)
 
@@ -92,7 +96,7 @@ export function SearchResultsTracker({ query, resultCount, trackerKind = 'brand'
       return
     }
 
-    const key = `${resultCount}:${trimmed}`
+    const key = searchId ?? `${resultCount}:${trimmed}`
     const emit = () => {
       if (lastEmittedKey === key) return
       lastEmittedKey = key
@@ -100,6 +104,7 @@ export function SearchResultsTracker({ query, resultCount, trackerKind = 'brand'
         trackProductSearchExecuted(trimmed, resultCount, {
           searchSource: searchSource ?? 'discover_page',
           degraded: degraded ?? false,
+          ...(searchId !== undefined && { searchId }),
           ...(intentParsed !== undefined && { intentParsed }),
           ...(intentCategory !== undefined && { intentCategory }),
           ...(intentSubcategory !== undefined && { intentSubcategory }),
@@ -115,6 +120,14 @@ export function SearchResultsTracker({ query, resultCount, trackerKind = 'brand'
       if (resultCount === 0 && trackerKind !== 'product') {
         trackSearchNoResults(trimmed)
       }
+      if (trackerKind === 'product' && searchId && productKeys) {
+        trackProductSearchResultsViewed({
+          searchId,
+          productKeys,
+          query: trimmed,
+          resultCount,
+        })
+      }
     }
 
     pendingRef.current = emit
@@ -128,7 +141,7 @@ export function SearchResultsTracker({ query, resultCount, trackerKind = 'brand'
     // because the next run overwrites it — and survives unmount, where the flush
     // below claims it.
     return () => clearTimeout(timer)
-  }, [query, resultCount, trackerKind, searchSource, degraded, intentParsed, intentCategory, intentSubcategory, intentMaterials, intentCacheHit, intentLatencyMs, rpcLatencyMs, embedLatencyMs])
+  }, [query, resultCount, trackerKind, searchId, productKeys, searchSource, degraded, intentParsed, intentCategory, intentSubcategory, intentMaterials, intentCacheHit, intentLatencyMs, rpcLatencyMs, embedLatencyMs])
 
   useEffect(
     () => () => {

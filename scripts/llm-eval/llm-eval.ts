@@ -870,10 +870,14 @@ async function cmdPairwiseRun(
   const armLabels: string[] = []
 
   for (const arm of armSpecs) {
-    const label =
-      arm.kind === 'prompt'
-        ? `prompt-v${arm.version}`
-        : arm.model
+    let label: string
+    if (arm.kind === 'prompt') {
+      label = `prompt-v${arm.version}`
+    } else if (arm.kind === 'model') {
+      label = arm.model
+    } else {
+      throw new Error(`Unknown arm kind: ${(arm as { kind: string }).kind}`)
+    }
     armLabels.push(label)
     const outputs = new Map<string, unknown>()
 
@@ -882,8 +886,10 @@ async function cmdPairwiseRun(
     try {
       if (arm.kind === 'prompt') {
         process.env.LANGFUSE_PROMPT_VERSIONS = `descriptions:${arm.version}`
-      } else {
+      } else if (arm.kind === 'model') {
         process.env.OPENAI_MODEL_OVERRIDE = arm.model
+      } else {
+        throw new Error(`Unknown arm kind: ${(arm as { kind: string }).kind}`)
       }
 
       console.log(`\nRunning arm "${label}" on ${sampled.length} brands...`)
@@ -1033,9 +1039,11 @@ async function cmdPairwiseRunProducts(
   })
 
   const task = productsTask({ createAgentModel, runProductsAgent })
-  const armLabels = armSpecs.map((arm) =>
-    arm.kind === 'prompt' ? `prompt-v${arm.version}` : arm.model,
-  )
+  const armLabels = armSpecs.map((arm) => {
+    if (arm.kind === 'prompt') return `prompt-v${arm.version}`
+    if (arm.kind === 'model') return arm.model
+    throw new Error(`Unknown arm kind: ${(arm as { kind: string }).kind}`)
+  })
   const [armA, armB] = armLabels
 
   async function runArmTask(
@@ -1050,8 +1058,10 @@ async function cmdPairwiseRunProducts(
     try {
       if (armSpec.kind === 'prompt') {
         process.env.LANGFUSE_PROMPT_VERSIONS = `products-propose:${armSpec.version}`
-      } else {
+      } else if (armSpec.kind === 'model') {
         process.env.OPENAI_MODEL_OVERRIDE = armSpec.model
+      } else {
+        throw new Error(`Unknown arm kind: ${(armSpec as { kind: string }).kind}`)
       }
       const result = await taskFn(
         { id: item.id, input: item.input, expectedOutput: item.expectedOutput, humanApproval: {} },

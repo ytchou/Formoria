@@ -342,6 +342,25 @@ export const ANALYTICS_EVENTS = {
    */
   SEARCH_SUGGESTION_SELECTED: "search_suggestion_selected",
 
+  /**
+   * A product search result was clicked.
+   * @property search_id {string} Search session identifier.
+   * @property position {number} 0-based rank of the clicked result.
+   * @property product_key {string} Stable key of the clicked product.
+   * @property brand_slug {string} Slug of the brand owning the product.
+   * @property query {string} The search query that produced the result.
+   */
+  PRODUCT_SEARCH_RESULT_CLICKED: "product_search_result_clicked",
+
+  /**
+   * The product search results were viewed (impression).
+   * @property search_id {string} Search session identifier.
+   * @property product_keys {string[]} Keys of all products in the viewed result set.
+   * @property query {string} The search query that produced the results.
+   * @property result_count {number} Number of product results shown.
+   */
+  PRODUCT_SEARCH_RESULTS_VIEWED: "product_search_results_viewed",
+
   // ---------------------------------------------------------------------------
   // Saved / liked brands
   // ---------------------------------------------------------------------------
@@ -893,6 +912,7 @@ export interface AnalyticsEventPayloads {
     has_results: boolean;
     search_source: string;
     degraded: boolean;
+    search_id?: string;
     intent_parsed?: 'skipped' | 'ok' | 'failed';
     intent_category?: string | null;
     intent_subcategory?: string | null;
@@ -915,6 +935,19 @@ export interface AnalyticsEventPayloads {
   [ANALYTICS_EVENTS.SEARCH_SUGGESTION_SELECTED]: {
     brand_id: string;
     brand_slug: string;
+  };
+  [ANALYTICS_EVENTS.PRODUCT_SEARCH_RESULT_CLICKED]: {
+    search_id: string;
+    position: number;
+    product_key: string;
+    brand_slug: string;
+    query: string;
+  };
+  [ANALYTICS_EVENTS.PRODUCT_SEARCH_RESULTS_VIEWED]: {
+    search_id: string;
+    product_keys: string[];
+    query: string;
+    result_count: number;
   };
 
   // Saved / liked

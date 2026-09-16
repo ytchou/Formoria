@@ -46,6 +46,7 @@ export type SearchResult = {
   intentLatencyMs: number;
   rpcLatencyMs: number;
   embedLatencyMs: number;
+  searchId: string;
 };
 
 export type SimilarResult = {
@@ -206,6 +207,7 @@ export async function searchProductsBySituation(
   input: SearchInput,
   deps: SearchDeps = defaultDeps(),
 ): Promise<SearchResult> {
+  const searchId = crypto.randomUUID();
   const normalized = normalizeSituationQuery(input.query);
   const mode = input.mode ?? "hybrid";
   const page = input.page ?? 1;
@@ -345,6 +347,7 @@ export async function searchProductsBySituation(
       query: normalized,
       rpcLatencyMs,
       embedLatencyMs,
+      searchId,
       ...intentMeta,
     };
   }
@@ -382,6 +385,7 @@ export async function searchProductsBySituation(
     query: normalized,
     rpcLatencyMs,
     embedLatencyMs,
+    searchId,
     ...intentMeta,
   };
 }

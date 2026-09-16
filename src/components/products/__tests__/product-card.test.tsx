@@ -82,6 +82,22 @@ describe("ProductCard", () => {
     ).toBeInTheDocument();
   });
 
+  it("renders data-brand-slug attribute", () => {
+    const { container } = render(
+      <ProductCard product={baseProduct} locale="zh-TW" />,
+    );
+    const li = container.querySelector("li");
+    expect(li).toHaveAttribute("data-brand-slug", "test-brand");
+  });
+
+  it("renders data-product-key attribute", () => {
+    const { container } = render(
+      <ProductCard product={baseProduct} locale="zh-TW" />,
+    );
+    const li = container.querySelector("li");
+    expect(li).toHaveAttribute("data-product-key", "test-product");
+  });
+
   it("keeps the subcategory badge after the description", () => {
     const { container } = render(
       <ProductCard product={baseProduct} locale="zh-TW" />,

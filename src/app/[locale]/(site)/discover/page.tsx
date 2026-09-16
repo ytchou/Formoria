@@ -39,6 +39,7 @@ import {
 } from "@/lib/products/discover-search-params";
 import { ProductSituationSearchForm } from "@/components/products/product-situation-search-form";
 import { SearchResultsTracker } from "@/components/analytics/search-results-tracker";
+import { DiscoverSearchClickTracker } from "@/components/analytics/discover-search-click-tracker";
 
 type PageProps = {
   params: Promise<{ locale: string }>;
@@ -144,6 +145,7 @@ export default async function DiscoverPage({
   let totalCount = 0;
   let searchSource: string | undefined;
   let degraded = false;
+  let searchId: string | undefined;
   let intentParsed: 'skipped' | 'ok' | 'failed' = 'skipped';
   let intentCategory: string | null = null;
   let intentSubcategory: string | null = null;
@@ -179,6 +181,7 @@ export default async function DiscoverPage({
       totalCount = searchResult.totalCount;
       searchSource = searchResult.searchSource;
       degraded = searchResult.degraded;
+      searchId = searchResult.searchId;
       intentParsed = searchResult.intentParsed;
       intentCategory = searchResult.intentCategory;
       intentSubcategory = searchResult.intentSubcategory;
@@ -369,6 +372,8 @@ export default async function DiscoverPage({
                 trackerKind="product"
                 query={searchQuery}
                 resultCount={totalCount}
+                searchId={searchId}
+                productKeys={products.map((p) => p.key)}
                 searchSource={searchSource}
                 degraded={degraded}
                 intentParsed={intentParsed}
@@ -389,7 +394,13 @@ export default async function DiscoverPage({
               />
             ) : (
               <>
-                <ProductGrid products={products} locale={locale} />
+                {isSearchMode && searchId ? (
+                  <DiscoverSearchClickTracker searchId={searchId} query={searchQuery!}>
+                    <ProductGrid products={products} locale={locale} />
+                  </DiscoverSearchClickTracker>
+                ) : (
+                  <ProductGrid products={products} locale={locale} />
+                )}
                 <Pagination
                   totalCount={totalCount}
                   currentPage={page}
