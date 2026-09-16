@@ -3884,9 +3884,13 @@ export type Database = {
           query_text: string
         }
         Returns: {
+          cosine_sim: number
+          lexical_rank: number
+          lexical_score: number
           product_id: string
           rank_score: number
           search_source: string
+          vector_rank: number
         }[]
       }
       show_limit: { Args: never; Returns: number }
