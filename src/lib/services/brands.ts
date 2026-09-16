@@ -1867,6 +1867,121 @@ export async function getSubcategorySummary(
 
 const BRANDS_PER_CATEGORY = 3;
 
+type ExploreBrandPoolRow = {
+  brand_id: string;
+  brand_slug: string;
+  category: string;
+};
+
+type ExploreRpcParams = {
+  categorySlugs: string[];
+  perCategory: number;
+  seed: string;
+};
+
+/**
+ * Test seam. Mocking `@/lib/supabase/*` or `@/lib/services/*` is forbidden
+ * (`scripts/check-test-boundaries.mjs`), so every DB touch on this path is
+ * reachable as an injectable function — same shape as `RelatedBrandsDeps` in
+ * `brand-embeddings.ts`.
+ */
+type ExploreBrandPoolDeps = {
+  rpcCaller?: (params: ExploreRpcParams) => Promise<ExploreBrandPoolRow[]>;
+  countReader?: (categorySlugs: string[]) => Promise<number>;
+  brandLoader?: (slugs: string[]) => Promise<Map<string, Brand>>;
+};
+
+async function defaultExploreRpcCaller(
+  params: ExploreRpcParams,
+): Promise<ExploreBrandPoolRow[]> {
+  const supabase = createServiceClient();
+  const { data, error } = await supabase.rpc("get_explore_brand_pool", {
+    category_slugs: params.categorySlugs,
+    per_category: params.perCategory,
+    seed: params.seed,
+  });
+  if (error) throw error;
+  return (data ?? []) as ExploreBrandPoolRow[];
+}
+
+/**
+ * The corpus count the homepage prints, which the RPC cannot supply: it returns
+ * only the ~30 selected rows. Predicates mirror the RPC's exactly, so the
+ * printed number and the selectable set describe the same corpus.
+ */
+async function defaultExploreCountReader(
+  categorySlugs: string[],
+): Promise<number> {
+  const supabase = createServiceClient();
+  const { count, error } = await excludeTestBrands(
+    supabase
+      .from("brands")
+      .select("*", { count: "exact", head: true })
+      .eq("status", "approved")
+      .in("category", categorySlugs),
+  );
+  if (error) throw error;
+  return count ?? 0;
+}
+
+/**
+ * The homepage explore rail: `BRANDS_PER_CATEGORY` brands for each visible L1,
+ * rotated daily.
+ *
+ * The per-category sampling is Postgres's job (`get_explore_brand_pool`). It
+ * used to be JS's, over a fetch of every approved brand — ~795 rows plus a
+ * whole-corpus `brand_images` hydration, to keep ~30. A naive per-category
+ * `.limit()` is NOT an equivalent fix: the table's order is
+ * `seo_promoted DESC, id ASC`, so truncating before the shuffle would skew the
+ * rail toward promoted and old brands. The RPC orders by `md5(id || seed)`
+ * inside the window instead, with `getDailySeed()` still owning the rotation.
+ */
+async function fetchExploreBrandPool(
+  deps: ExploreBrandPoolDeps = {},
+): Promise<{ brands: Brand[]; totalCount: number }> {
+  const callRpc = deps.rpcCaller ?? defaultExploreRpcCaller;
+  const readCount = deps.countReader ?? defaultExploreCountReader;
+  const loadBrands = deps.brandLoader ?? getBrandsBySlugs;
+  const categorySlugs = VISIBLE_L1_CATEGORIES.map(({ slug }) => slug);
+
+  const [rows, totalCount] = await Promise.all([
+    // `seed text` in SQL; `getDailySeed()` returns the YYYYMMDD number.
+    callRpc({
+      categorySlugs,
+      perCategory: BRANDS_PER_CATEGORY,
+      seed: getDailySeed().toString(),
+    }),
+    readCount(categorySlugs),
+  ]);
+
+  // The rail reads as one block per category, which is what the JS selection
+  // this replaced produced. The RPC carries no ORDER BY across partitions, so
+  // the category grouping is re-imposed here, in `VISIBLE_L1_CATEGORIES` order,
+  // stable within a category so the RPC's own sample order survives.
+  const categoryRank = new Map<string, number>(
+    categorySlugs.map((slug, index) => [slug, index]),
+  );
+  const ordered = [...rows].sort(
+    (left, right) =>
+      (categoryRank.get(left.category) ?? categorySlugs.length) -
+      (categoryRank.get(right.category) ?? categorySlugs.length),
+  );
+
+  const slugs = ordered.map((row) => row.brand_slug);
+  const bySlug = await loadBrands(slugs);
+  const rankBySlug = new Map(slugs.map((slug, index) => [slug, index]));
+
+  const brands = slugs
+    .map((slug) => bySlug.get(slug))
+    .filter((brand): brand is Brand => brand !== undefined)
+    .sort(
+      (left, right) =>
+        (rankBySlug.get(left.slug) ?? 0) - (rankBySlug.get(right.slug) ?? 0),
+    );
+
+  return { brands, totalCount };
+}
+
 const getCachedExploreBrandPool = unstable_cache(
   () =>
     auditedCall(
@@ -1875,57 +1990,26 @@ const getCachedExploreBrandPool = unstable_cache(
         operation: "getCachedExploreBrandPool",
         kind: "service",
       },
-      () =>
-        getBrands({
-          status: "approved",
-          category: VISIBLE_L1_CATEGORIES.map((c) => c.slug),
-          sort: "random",
-        }),
+      () => fetchExploreBrandPool(),
       { summary: { cached: true } },
     ),
-  ["homepage-explore-brand-pool-v3"],
+  // v4 (DEV-1743): the payload is now the RPC's per-category sample rather than
+  // the full approved corpus, and the count comes from a separate query. Bump
+  // again on any further change to either shape.
+  ["homepage-explore-brand-pool-v4"],
   { revalidate: 900, tags: [PUBLIC_BRAND_DATA_TAG] },
 );
 
-function selectCategoryBalancedBrands(
-  brands: Brand[],
-  categorySlugs: readonly string[],
-  perCategory: number,
-): Brand[] {
-  const selected: Brand[] = [];
-  const selectedIds = new Set<string>();
-
-  for (const categorySlug of categorySlugs) {
-    let count = 0;
-    for (const brand of brands) {
-      if (count >= perCategory) break;
-      if (brand.categorySlug !== categorySlug || selectedIds.has(brand.id))
-        continue;
-
-      selected.push(brand);
-      selectedIds.add(brand.id);
-      count++;
-    }
-  }
-
-  return selected;
-}
-
-export async function getExploreBrands(): Promise<{
+export async function getExploreBrands(
+  deps: ExploreBrandPoolDeps = {},
+): Promise<{
   brands: Brand[];
   totalCount: number;
 }> {
-  const { brands, totalCount } = await getCachedExploreBrandPool();
-  const categorySlugs = VISIBLE_L1_CATEGORIES.map(({ slug }) => slug);
-
-  return {
-    brands: selectCategoryBalancedBrands(
-      brands,
-      categorySlugs,
-      BRANDS_PER_CATEGORY,
-    ),
-    totalCount,
-  };
+  // Injected deps bypass `unstable_cache`: a test fixture must not be able to
+  // warm the entry the homepage then serves.
+  const injected = deps.rpcCaller ?? deps.countReader ?? deps.brandLoader;
+  return injected ? fetchExploreBrandPool(deps) : getCachedExploreBrandPool();
 }
 
 export async function searchBrandsAutocomplete(

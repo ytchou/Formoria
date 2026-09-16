@@ -3580,6 +3580,18 @@ export type Database = {
           total_brands: number
         }[]
       }
+      get_explore_brand_pool: {
+        Args: {
+          category_slugs: string[]
+          per_category: number
+          seed: string
+        }
+        Returns: {
+          brand_id: string
+          brand_slug: string
+          category: string
+        }[]
+      }
       increment_crawler_hits: { Args: { p_rows: Json }; Returns: undefined }
       mark_unreported_curation_job_targets_skipped: {
         Args: { p_job_id: string; p_worker_token: string }
