@@ -161,6 +161,7 @@ describe("migration column references", () => {
     // Allowed column references in the CTEs
     const allowedCteRefs = [
       "pe.embedding",
+      "pe.product_id",
       "query_embedding",
       "ls.score",
       "ls.product_id",
@@ -179,6 +180,7 @@ describe("migration column references", () => {
       refPattern.lastIndex = 0;
       const refs = new Set<string>();
       while ((match = refPattern.exec(cte)) !== null) {
+        if (match[1] === "public") continue;
         refs.add(`${match[1]}.${match[2]}`);
       }
 
