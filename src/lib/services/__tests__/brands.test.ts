@@ -1,10 +1,13 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import {
   brandToDomain,
   brandToInsert,
   extractLatinRun,
   generateSlug,
+  getExploreBrands,
 } from "../brands";
+import { VISIBLE_L1_CATEGORIES } from "@/lib/taxonomy/ontology";
+import type { Brand } from "@/lib/types/brand";
 
 // Minimal row shape matching Supabase SELECT output
 function makeBrandRow(overrides: Record<string, unknown> = {}) {
@@ -189,5 +192,115 @@ describe("brandToInsert — brand detail enrichment fields", () => {
   it("serializes empty subcategories as [] to allow clearing the field", () => {
     const result = brandToInsert({ subcategories: [] });
     expect(result.subcategories).toEqual([]);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// getExploreBrands (DEV-1743)
+//
+// Every DB touch is injected. The SQL itself — the `[E2E-TEST]%` exclusion and
+// the per-category `row_number()` cap — is asserted as migration text in
+// explore-brand-pool.contract.test.ts; re-implementing it here in JS would
+// only test the fixture. What is tested here is the wiring: the params the RPC
+// is called with, and how its response shape becomes the rail.
+// ---------------------------------------------------------------------------
+
+describe("getExploreBrands", () => {
+  const firstCategory = VISIBLE_L1_CATEGORIES[0].slug;
+  const secondCategory = VISIBLE_L1_CATEGORIES[1].slug;
+
+  function makeBrand(slug: string, category: string): Brand {
+    return brandToDomain(
+      makeBrandRow({ id: `id-${slug}`, slug, name: slug, category }),
+    );
+  }
+
+  function brandMap(brands: Brand[]): Map<string, Brand> {
+    return new Map(brands.map((brand) => [brand.slug, brand]));
+  }
+
+  it("passes the visible L1 slugs, the per-category cap and a text seed", async () => {
+    const rpcCaller = vi.fn().mockResolvedValue([]);
+
+    await getExploreBrands({
+      rpcCaller,
+      countReader: async () => 0,
+      brandLoader: async () => new Map(),
+    });
+
+    const params = rpcCaller.mock.calls[0][0];
+    expect(params.categorySlugs).toEqual(
+      VISIBLE_L1_CATEGORIES.map(({ slug }) => slug),
+    );
+    expect(params.perCategory).toBe(3);
+    // `seed text` in SQL; getDailySeed() returns a YYYYMMDD number.
+    expect(typeof params.seed).toBe("string");
+    expect(params.seed).toMatch(/^\d{8}$/);
+  });
+
+  it("hydrates the RPC slugs and groups the rail by visible-L1 order", async () => {
+    const brands = [
+      makeBrand("alpha", firstCategory),
+      makeBrand("beta", firstCategory),
+      makeBrand("gamma", secondCategory),
+    ];
+
+    const result = await getExploreBrands({
+      // Deliberately interleaved: the RPC's window carries no cross-partition
+      // ORDER BY, so the grouping must be re-imposed by the caller.
+      rpcCaller: async () => [
+        { brand_id: "id-gamma", brand_slug: "gamma", category: secondCategory },
+        { brand_id: "id-alpha", brand_slug: "alpha", category: firstCategory },
+        { brand_id: "id-beta", brand_slug: "beta", category: firstCategory },
+      ],
+      countReader: async () => 795,
+      brandLoader: async () => brandMap(brands),
+    });
+
+    expect(result.brands.map((brand) => brand.slug)).toEqual([
+      "alpha",
+      "beta",
+      "gamma",
+    ]);
+  });
+
+  it("reports the corpus count from the count reader, not the sampled rows", async () => {
+    const result = await getExploreBrands({
+      rpcCaller: async () => [
+        { brand_id: "id-alpha", brand_slug: "alpha", category: firstCategory },
+      ],
+      countReader: async () => 795,
+      brandLoader: async () => brandMap([makeBrand("alpha", firstCategory)]),
+    });
+
+    expect(result.brands).toHaveLength(1);
+    expect(result.totalCount).toBe(795);
+  });
+
+  it("drops slugs the hydration did not return", async () => {
+    const result = await getExploreBrands({
+      rpcCaller: async () => [
+        { brand_id: "id-alpha", brand_slug: "alpha", category: firstCategory },
+        { brand_id: "id-ghost", brand_slug: "ghost", category: firstCategory },
+      ],
+      countReader: async () => 2,
+      brandLoader: async () => brandMap([makeBrand("alpha", firstCategory)]),
+    });
+
+    expect(result.brands.map((brand) => brand.slug)).toEqual(["alpha"]);
+  });
+
+  it("asks the loader only for the slugs the RPC selected", async () => {
+    const brandLoader = vi.fn().mockResolvedValue(new Map());
+
+    await getExploreBrands({
+      rpcCaller: async () => [
+        { brand_id: "id-alpha", brand_slug: "alpha", category: firstCategory },
+      ],
+      countReader: async () => 1,
+      brandLoader,
+    });
+
+    expect(brandLoader).toHaveBeenCalledWith(["alpha"]);
   });
 });
