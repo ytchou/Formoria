@@ -3187,15 +3187,24 @@ export type Database = {
         }
         Returns: boolean
       }
-      apply_submission_enrichment_result: {
-        Args: {
-          p_checkpoint_ids?: string[]
-          p_enriched_data: Json
-          p_job_id: string
-          p_submission_id: string
-        }
-        Returns: boolean
-      }
+      apply_submission_enrichment_result:
+        | {
+            Args: {
+              p_enriched_data: Json
+              p_job_id: string
+              p_submission_id: string
+            }
+            Returns: boolean
+          }
+        | {
+            Args: {
+              p_checkpoint_ids: string[]
+              p_enriched_data: Json
+              p_job_id: string
+              p_submission_id: string
+            }
+            Returns: boolean
+          }
       approve_claim_request: {
         Args: { p_claim_id: string; p_reviewer_id: string }
         Returns: undefined
