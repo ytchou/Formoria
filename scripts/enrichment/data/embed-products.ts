@@ -21,7 +21,7 @@ import { loadScriptTarget } from "../../shared/target";
 import { refreshBrandCentroids } from "@/lib/services/brand-embeddings";
 import { refreshProductEmbeddings } from "@/lib/services/product-embeddings";
 
-export type ParsedArgs = {
+type ParsedArgs = {
   all: boolean;
   limit: number;
   dryRun: boolean;
@@ -32,7 +32,14 @@ type BackfillDeps = {
   refreshCentroids: typeof refreshBrandCentroids;
 };
 
-export async function runEmbeddingBackfill(
+export function shouldRefreshBrandCentroids(
+  args: Pick<ParsedArgs, "dryRun">,
+  products: { failedBatches: readonly string[] },
+): boolean {
+  return !args.dryRun && products.failedBatches.length === 0;
+}
+
+async function runEmbeddingBackfill(
   args: ParsedArgs,
   deps: BackfillDeps = {
     refreshProducts: refreshProductEmbeddings,
@@ -45,7 +52,7 @@ export async function runEmbeddingBackfill(
     dryRun: args.dryRun,
   });
 
-  if (args.dryRun || products.failedBatches.length > 0) {
+  if (!shouldRefreshBrandCentroids(args, products)) {
     return { products, centroids: null };
   }
 

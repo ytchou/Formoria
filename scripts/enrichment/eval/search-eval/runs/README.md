@@ -47,3 +47,23 @@ MRR within 0.02 tolerance; all 9 material queries held. P@5 micro-regressed
 by 1 query position on 20 queries — D6 is marked flexible and defers to human
 judgment at PR review. Langfuse was unavailable (404); both runs used the
 local-only harness path.
+
+## DEV-1739 no-go
+
+The staging experiment added only the trimmed non-empty English product name,
+then refreshed 1,193 product vectors and 226 dependent brand centroids. Both
+the baseline and candidate corpus health checks reported zero missing, stale,
+or orphaned product embeddings and centroids.
+
+The fail-closed shared-consumer gate did not pass. Product neighbours met their
+aggregate thresholds, but related brands averaged 1.49 retained results and
+only 44.8% of anchors retained at least two. Four published trails also had no
+staging placements, so the absolute all-trail gate could not pass. The one
+populated changed trail retained 5/6 results.
+
+Because a drift gate failed, relevance grading was not used to justify the
+candidate and no English-name corpus migration was created. The seven-field
+baseline view and embeddings were restored; a dry run found zero stale rows.
+The compact evidence record is `dev-1739-no-go.json`. Full local snapshots were
+not committed because they total roughly 3 MB and contain reproducible service
+output for every product and brand anchor.

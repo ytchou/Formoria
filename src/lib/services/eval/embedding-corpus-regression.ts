@@ -3,13 +3,13 @@ import { createHash } from "node:crypto";
 import { mean, ndcgAtK } from "./scorers";
 
 export type SnapshotVariant = "baseline" | "candidate";
-export type ProductLabel = {
+type ProductLabel = {
   nameZh: string;
   nameEn: string | null;
   category: string;
 };
-export type BrandLabel = { name: string };
-export type SearchSnapshot = {
+type BrandLabel = { name: string };
+type SearchSnapshot = {
   query: string;
   locale: "zh-TW" | "en";
   vector: string[];

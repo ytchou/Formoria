@@ -820,8 +820,9 @@ async function cmdCompare(options: {
   const pool = buildBlindReviewPool(baseline, candidate, overlap);
   const poolPath = resolve(process.cwd(), options.poolOutput);
   mkdirSync(dirname(poolPath), { recursive: true });
-  writeFileSync(poolPath, JSON.stringify({ items: pool }, null, 2));
+  writeFileSync(poolPath, JSON.stringify({ overlap, items: pool }, null, 2));
   console.log(`[compare] wrote blind review pool ${poolPath}`);
+  console.log(JSON.stringify({ overlap }, null, 2));
 
   if (!options.grades) {
     console.error(

@@ -61,21 +61,17 @@ describe('createRetrievalAdapter', () => {
   })
 
   it('uses the evaluation item locale for English retrieval', async () => {
-    const searchMock = vi.fn().mockResolvedValue({ products: [] })
-    const adapter = createRetrievalAdapter({ search: searchMock })
+    const adapter = createRetrievalAdapter({
+      search: async (input) => ({ products: [{ key: `locale:${input.locale}` }] }),
+    })
 
-    await adapter.task!(
+    const result = await adapter.task!(
       makeItem({ input: { query: 'a gift for a tea lover', locale: 'en' } }),
       makeArm({ value: 'vector' }),
       { itemRunId: 'run-en' },
     )
 
-    expect(searchMock).toHaveBeenCalledWith({
-      query: 'a gift for a tea lover',
-      locale: 'en',
-      mode: 'vector',
-      pageSize: 100,
-    })
+    expect(result.output).toEqual(['locale:en'])
   })
 
   it('expectedOf returns graded items', () => {
