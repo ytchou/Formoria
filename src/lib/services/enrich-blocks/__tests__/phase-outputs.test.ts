@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest'
 import {
   assertCarryBounded,
+  mergeSelectedPhaseOutputs,
   toAcquireCarry,
   latestPhaseOutputs,
   listUnpersistedOutputs,
@@ -300,4 +301,17 @@ describe('unpersisted_rows_exclude_dry_run_jobs', () => {
     const result = await listUnpersistedOutputs(store, { type: 'brand', id: 'brand-1' })
     expect(result).toEqual(nonDryRunRows)
   })
+})
+
+it('an FAQ-only merge rejects description fields hidden inside its checkpoint', () => {
+  expect(() => mergeSelectedPhaseOutputs(['faq'], new Map([
+    ['faq', { patch: { description: 'Unrelated pending editorial copy' } }],
+  ]))).toThrow('owned by another phase')
+  expect(() => mergeSelectedPhaseOutputs(['descriptions'], new Map([
+    ['descriptions', { patch: { _cleared_fields: ['purchase_website'] } }],
+  ]))).toThrow('owned by another phase')
+  expect(mergeSelectedPhaseOutputs(['faq'], new Map([
+    ['faq', { patch: { faq: { entries: [], explicit: true } } }],
+    ['products', { patch: { products: [] } }],
+  ]))).toEqual({ faq: { entries: [], explicit: true } })
 })

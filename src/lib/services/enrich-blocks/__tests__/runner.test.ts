@@ -5,7 +5,7 @@ import type { Block, BrandBlock, BlockContext } from '../registry'
 import { buildBlockRegistry } from '../registry'
 import { runBlocks } from '../runner'
 import type { RunBlocksHooks } from '../runner'
-import type { PhaseOutputStore } from '../phase-outputs'
+import { mergeSelectedPhaseOutputs, type PhaseOutputStore, type PhaseOutputRow } from '../phase-outputs'
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -633,4 +633,31 @@ describe('runBlocks', () => {
     )
     expect(postAcquire).toHaveLength(0)
   })
+})
+
+it('a checkpointed recovery merges only its source scope without repeating provider blocks', async () => {
+  const ctx = makeCtx('ceramic-studio')
+  ctx.plan = { selected: ['descriptions'], forced: [], explicit: ['descriptions'] }
+  const source: PhaseOutputRow = {
+    id: 'source-description-checkpoint', job_id: 'failed-source',
+    target_id: ctx.targetId, target_type: ctx.targetType,
+    phase: 'descriptions', status: 'succeeded',
+    output: { patch: { description: '鶯歌製陶工作室' } },
+    persisted_at: null, created_at: '2026-09-15T10:00:00.000Z',
+  }
+  const store = fakeStore({ forTargets: async () => [
+    { ...source, id: 'unrelated-description', job_id: 'unrelated-job', output: { patch: { description: 'Unrelated content' } }, created_at: '2026-09-16T10:00:00.000Z' },
+    { ...source, id: 'unselected-products', phase: 'products', output: { patch: { products: [] } } },
+    source,
+  ] })
+  const calls: CallRecord[] = []
+  const registry = buildTestRegistry(calls)
+  await runBlocks({
+    chunk: [ctx], registry, order: BLOCK_ORDER, concurrency: 1,
+    ...emptyMaps(), store, hooks: {}, jobId: 'recovery-child', recoveryJobIds: ['failed-source'],
+  })
+  expect(mergeSelectedPhaseOutputs(ctx.plan.selected, ctx.phaseOutputs ?? new Map())).toEqual({ description: '鶯歌製陶工作室' })
+  expect([...ctx.checkpoints!.values()].map((row) => row.id)).toEqual(['source-description-checkpoint'])
+  expect(store.upserted).toEqual([])
+  expect(calls.filter((call) => call.block !== 'gather' && call.block !== 'persist')).toEqual([])
 })

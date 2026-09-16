@@ -646,6 +646,23 @@ export async function getCurationJob(jobId: string): Promise<CurationJob> {
   return data as CurationJob;
 }
 
+/** Read once per recovery, shared by all of its targets. */
+export async function getCurationJobLineageIds(sourceJobId: string): Promise<string[]> {
+  const supabase = createServiceClient();
+  const ids = new Set<string>();
+  let nextId: string | null = sourceJobId;
+  while (nextId) {
+    if (ids.has(nextId)) throw new Error("Curation recovery lineage contains a cycle");
+    const { data, error }: { data: { id: string; parent_job_id: string | null } | null; error: unknown } = await supabase
+      .from("curation_jobs").select("id, parent_job_id").eq("id", nextId).single();
+    if (error) throw error;
+    if (!data) throw new Error("Curation recovery source no longer exists");
+    ids.add(data.id);
+    nextId = data.parent_job_id;
+  }
+  return [...ids];
+}
+
 export async function cancelCurationJob(
   jobId: string,
   reason = "Cancelled by admin",

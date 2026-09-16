@@ -22,7 +22,7 @@ import { buildBlockRegistry } from "./enrich-blocks/registry";
 import type { BlockContext, BlockRunResult } from "./enrich-blocks/registry";
 import { runBlocks } from "./enrich-blocks/runner";
 import { restoreAcquireCheckpoint } from "./enrich-blocks/hydration";
-import { createSupabasePhaseOutputStore, toAcquireCarry, isUsablePhaseOutput } from "./enrich-blocks/phase-outputs";
+import { createSupabasePhaseOutputStore, toAcquireCarry, isUsablePhaseOutput, mergeSelectedPhaseOutputs } from "./enrich-blocks/phase-outputs";
 import { normalizeToRootUrl } from "@/lib/url";
 import {
   ONLINE_STORES,
@@ -1404,6 +1404,7 @@ export async function runEnrich(
      */
     explicitPhases?: readonly string[];
     targetPlans?: Record<string, TargetPlan>;
+    recoveryJobIds?: readonly string[];
     renderProvider?: RenderProvider;
   },
   supabase: SupabaseLike,
@@ -3383,7 +3384,8 @@ export async function runEnrich(
                 const phases = bctx.plan?.selected ?? config.phases;
                 const descriptionsResult = ctx.descriptionsResult;
                 try {
-                  const patch = buildPendingPatch(state.outputs);
+                  const patch = mergeSelectedPhaseOutputs(phases as EnrichPhaseName[], bctx.phaseOutputs ?? new Map());
+                  const checkpointIds = [...(bctx.checkpoints?.values() ?? [])].map((row) => row.id);
                   const patchKeys = Object.keys(patch);
                   if (patchKeys.length > 0) {
                     for (const key of patchKeys) {
@@ -3428,6 +3430,13 @@ export async function runEnrich(
                           config.jobId,
                         );
                       }
+                    }
+                    if (!config.dryRun && checkpointIds.length) {
+                      const persisted = await persistSubmissionEnrichmentResults(
+                        supabase as unknown as SupabaseClient, brand.id,
+                        patch as JsonObject, config.jobId, checkpointIds,
+                      );
+                      if (!persisted.written) throw new Error("Submission is no longer pending");
                     }
                     const skippedOutcome: BrandOutcome = {
                       slug: brand.slug,
@@ -3493,13 +3502,14 @@ export async function runEnrich(
                     }
                     await markCurrentPhase(ctx, "persist");
                     try {
-                      await persistSubmissionEnrichmentResults(
+                      const persisted = await persistSubmissionEnrichmentResults(
                         supabase as unknown as SupabaseClient,
                         brand.id,
                         patch as JsonObject,
                         config.jobId,
-                        [...(bctx.checkpoints?.values() ?? [])].map((row) => row.id),
+                        checkpointIds,
                       );
+                      if (!persisted.written) throw new Error("Submission is no longer pending");
                     } catch (err) {
                       const errMsg = errorMessage(err);
                       state.phaseResults.push(
@@ -3578,6 +3588,7 @@ export async function runEnrich(
               },
             },
             jobId: config.jobId ?? "",
+            recoveryJobIds: config.recoveryJobIds,
           });
 
           await serializeTargetProgressBatch(() => flushTargetProgress(true));

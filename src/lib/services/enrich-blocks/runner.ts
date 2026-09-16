@@ -6,7 +6,7 @@
 
 import type { BlockName, EnrichPhaseName } from '@/lib/constants/enrich-phases'
 import { mapWithConcurrency } from '../_shared/concurrency'
-import { recordPhaseOutputs, isUsablePhaseOutput, type PhaseOutputRow } from './phase-outputs'
+import { recordPhaseOutputs, isUsablePhaseOutput, isUsablePhaseCheckpoint, mergeSelectedPhaseOutputs, type PhaseOutputRow } from './phase-outputs'
 import { checkPhaseSatisfaction, phaseHistoryFromOutputs } from '../enrich-phases/phase-satisfaction'
 import { validateRecoveryPlan } from './plan'
 import type { PhaseOutputStore } from './phase-outputs'
@@ -50,6 +50,7 @@ export type RunBlocksConfig = {
   hooks: RunBlocksHooks
   /** Job id for phase-output recording. */
   jobId: string
+  recoveryJobIds?: readonly string[]
 }
 
 type BlockEnv = {
@@ -59,6 +60,7 @@ type BlockEnv = {
   hooks: RunBlocksHooks
   jobId: string
   exited: Set<string>
+  recoveryJobIds: readonly string[]
   savedOutputs: Map<string, Map<string, PhaseOutputRow>>
 }
 
@@ -77,12 +79,17 @@ export async function runBlocks(config: RunBlocksConfig): Promise<void> {
   const exited = new Set<string>()
   for (const ctx of chunk) {
     ctx.checkpoints = new Map()
+    ctx.phaseOutputs = new Map()
     if (ctx.plan) validateRecoveryPlan({ version: 1, action: { kind: 'resume' }, targets: { [ctx.targetId]: ctx.plan } })
   }
   const savedOutputs = new Map<string, Map<string, PhaseOutputRow>>()
   const rows = await store.reader.forTargets(chunk.map((ctx) => ({ id: ctx.targetId, type: ctx.targetType as 'submission' | 'brand' })))
   for (const ctx of chunk) {
-    const targetRows = rows.filter((row) => row.target_id === ctx.targetId && row.target_type === ctx.targetType)
+    const targetRows = rows.filter((row) => {
+      if (row.target_id !== ctx.targetId || row.target_type !== ctx.targetType || !isUsablePhaseCheckpoint(row)) return false
+      if (!config.recoveryJobIds || !ctx.plan?.selected.includes(row.phase as EnrichPhaseName)) return true
+      return row.persisted_at === null && (row.job_id === jobId || config.recoveryJobIds.includes(row.job_id))
+    })
     if (!satisfaction.has(ctx.targetId)) satisfaction.set(ctx.targetId, phaseHistoryFromOutputs(targetRows))
     const latest = new Map<string, PhaseOutputRow>()
     for (const row of targetRows) {
@@ -92,7 +99,7 @@ export async function runBlocks(config: RunBlocksConfig): Promise<void> {
     }
     savedOutputs.set(ctx.targetId, latest)
   }
-  const env: BlockEnv = { satisfaction, store, force, hooks, jobId, exited, savedOutputs }
+  const env: BlockEnv = { satisfaction, store, force, hooks, jobId, exited, savedOutputs, recoveryJobIds: config.recoveryJobIds ?? [] }
 
   for (const blockName of order) {
     const block = registry[blockName]
@@ -189,6 +196,7 @@ async function shouldSkip(
   const needsExecution = (phase: EnrichPhaseName) => checkPhaseSatisfaction(
     phase, history as Map<EnrichPhaseName, Date>,
     ctx.plan?.forced.includes(phase) || env.force.get(ctx.targetId)?.has(phase),
+    undefined, env.recoveryJobIds.length ? ctx.plan?.selected : undefined,
   ) === 'unsatisfied'
   if (block.requiredBy && !block.requiredBy.some((phase) =>
     (!ctx.plan || ctx.plan.selected.includes(phase)) && needsExecution(phase),
@@ -202,6 +210,10 @@ async function shouldSkip(
   for (const phase of selected.filter((phase) => !ctx.executePhases!.includes(phase))) {
     const row = env.savedOutputs.get(ctx.targetId)?.get(phase)
     if (row && isUsablePhaseOutput(row.output)) {
+      if (row.persisted_at === null && (isOwnedCheckpoint(row, env))) {
+        ctx.checkpoints?.set(phase, row)
+        ctx.phaseOutputs?.set(phase, row.output)
+      }
       if (row.output.carry) ctx.state[blockName] = row.output.carry
       await env.hooks.onHydrate?.(ctx, phase, row)
     }
@@ -250,6 +262,7 @@ async function applyResult(
         `Block ${blockName} returned an unowned or duplicate phase`,
       )
     }
+    mergeSelectedPhaseOutputs([entry.phaseResult.phase as EnrichPhaseName], new Map([[entry.phaseResult.phase, entry.output]]))
     reported.add(entry.phaseResult.phase)
   }
   if (outputs.length && env.jobId) {
@@ -270,6 +283,12 @@ async function applyResult(
     }
   }
   for (const entry of outputs) {
+    if (entry.phaseResult.status === 'succeeded') {
+      ctx.phaseOutputs?.set(entry.phaseResult.phase, entry.output)
+      const history = env.satisfaction.get(ctx.targetId) ?? new Map<string, Date>()
+      history.set(entry.phaseResult.phase, new Date())
+      env.satisfaction.set(ctx.targetId, history)
+    }
     if (entry.phaseResult.status === 'succeeded' && entry.output.carry) {
       ctx.state[blockName] = entry.output.carry
     }
@@ -314,4 +333,8 @@ function pushSkippedResults(
 
 function isBreaker(error: unknown): boolean {
   return error instanceof Error && error.name === 'LlmCircuitBreakerError'
+}
+
+function isOwnedCheckpoint(row: PhaseOutputRow, env: BlockEnv): boolean {
+  return row.job_id === env.jobId || env.recoveryJobIds.includes(row.job_id)
 }

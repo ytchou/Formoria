@@ -34,6 +34,7 @@ import {
   heartbeatCurationJob,
   JOB_HEARTBEAT_INTERVAL_MS,
   listCurationJobTargets,
+  getCurationJobLineageIds,
   parseOverwriteParam,
   updateCurationJobTarget,
   type CurationJob,
@@ -91,6 +92,7 @@ type OperationWithSummary = CurationOperationResult & {
 type JobTargetProgressConfig = {
   dryRun: boolean;
   targetPlans?: Record<string, TargetPlan>;
+  recoveryJobIds?: readonly string[];
   slugs?: string[];
   limit?: number;
   phases?: EnrichPhase[];
@@ -354,6 +356,7 @@ async function runOperation(
   }
   const config = {
     dryRun: job.dry_run,
+    recoveryJobIds: job.parent_job_id ? await getCurationJobLineageIds(job.parent_job_id) : undefined,
     targetPlans: params.retry ? Object.fromEntries(targets.map((target) => [
       target.target_id, readTargetPlan(job.params, target.target_id),
     ])) : undefined,

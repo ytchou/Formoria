@@ -36,6 +36,7 @@ export type BlockContext = {
   plan?: TargetPlan
   executePhases?: EnrichPhaseName[]
   checkpoints?: Map<string, PhaseOutputRow>
+  phaseOutputs?: Map<string, PhaseOutput>
   /** Shared mutable state for this target across all blocks. */
   state: Record<string, unknown>
 }

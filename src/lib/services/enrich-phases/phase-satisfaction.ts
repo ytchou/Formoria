@@ -68,6 +68,7 @@ export function checkPhaseSatisfaction(
   history: PhaseHistory,
   force?: boolean,
   _visited?: Set<EnrichPhaseName>,
+  scope?: readonly EnrichPhaseName[],
 ): "satisfied" | "unsatisfied" {
   if (force) return "unsatisfied";
 
@@ -81,12 +82,13 @@ export function checkPhaseSatisfaction(
 
   const deps = PHASE_DEPENDENCIES[phase];
   for (const dep of deps) {
+    if (scope && !scope.includes(dep)) continue;
     const depTime = history.get(dep);
     if (depTime && depTime.getTime() > phaseTime.getTime()) {
       return "unsatisfied";
     }
     // Transitive: if the dep itself is unsatisfied, this phase is stale.
-    if (checkPhaseSatisfaction(dep, history, false, visited) === "unsatisfied") {
+    if (checkPhaseSatisfaction(dep, history, false, visited, scope) === "unsatisfied") {
       return "unsatisfied";
     }
   }

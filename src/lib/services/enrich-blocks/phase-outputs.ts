@@ -6,7 +6,8 @@
 
 import type { Json } from '@/lib/supabase/database.types'
 import type { EnrichmentTarget } from '../_shared/enrichment-target'
-import type { EnrichPatch } from '../enrich-phases/types'
+import { SLOT_ALLOWED_KEYS, type EnrichPatch } from '../enrich-phases/types'
+import { ENRICH_PHASES, type EnrichPhaseName } from '@/lib/constants/enrich-phases'
 import type { AcquirePhaseOutput } from '../enrich-phases/acquire'
 import type { NameCandidate } from '../name-arbiter'
 import type { ScrapedImageSource } from '@/lib/types/scraper'
@@ -75,6 +76,46 @@ export function isUsablePhaseOutput(value: unknown): value is PhaseOutput {
   if (!value || typeof value !== 'object' || Array.isArray(value)) return false
   const patch = (value as Record<string, unknown>).patch
   return patch !== null && typeof patch === 'object' && !Array.isArray(patch)
+}
+
+const PHASE_PATCH_KEYS: Partial<Record<EnrichPhaseName, ReadonlySet<string>>> = {
+  detect: new Set(),
+  slugs: SLOT_ALLOWED_KEYS.detect,
+  acquire: SLOT_ALLOWED_KEYS.acquire,
+  names: SLOT_ALLOWED_KEYS.names,
+  descriptions: new Set([...SLOT_ALLOWED_KEYS.editorial].filter((key) => key !== 'faq')),
+  stockists: new Set(),
+  faq: new Set(['faq']),
+  products: SLOT_ALLOWED_KEYS.products,
+}
+
+function isPhasePatch(phase: EnrichPhaseName, patch: EnrichPatch): boolean {
+  const allowed = PHASE_PATCH_KEYS[phase]
+  if (!allowed || Object.keys(patch).some((key) => !allowed.has(key))) return false
+  const cleared = patch._cleared_fields
+  return cleared === undefined || (Array.isArray(cleared) && cleared.every((key) => key !== '_cleared_fields' && allowed.has(key)))
+}
+
+export function isUsablePhaseCheckpoint(row: PhaseOutputRow): boolean {
+  if (row.status !== 'succeeded' || !isUsablePhaseOutput(row.output)) return false
+  return isPhasePatch(row.phase as EnrichPhaseName, row.output.patch)
+}
+
+export function mergeSelectedPhaseOutputs(
+  selected: readonly EnrichPhaseName[],
+  outputs: ReadonlyMap<string, PhaseOutput>,
+): EnrichPatch {
+  const patch: EnrichPatch = {}
+  for (const phase of ENRICH_PHASES) {
+    if (!selected.includes(phase)) continue
+    const output = outputs.get(phase)
+    if (!output) continue
+    if (!isPhasePatch(phase, output.patch)) {
+      throw new Error(`Checkpoint for ${phase} contains fields owned by another phase`)
+    }
+    Object.assign(patch, output.patch)
+  }
+  return patch
 }
 
 // ---------------------------------------------------------------------------
