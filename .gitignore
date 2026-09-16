@@ -187,6 +187,12 @@ scripts/llm-eval/runs/
 scripts/distillation/runs/
 scripts/distillation/models/
 
+# search-eval run artifacts (DEV-1732, new path)
+scripts/search-eval/runs/
+
+# curation cohort run artifacts (DEV-1723)
+scripts/curation-cohorts/dev-1723-*.json
+
 # brand-storage-maintenance local manifests (operational artifacts, never committed)
 scripts/.storage-purge-manifest-*.json
 scripts/.reencode-originals-*.json
