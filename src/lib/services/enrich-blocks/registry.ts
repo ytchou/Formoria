@@ -15,9 +15,6 @@ import type { PhaseOutput } from './phase-outputs'
 // Core types
 // ---------------------------------------------------------------------------
 
-/** chunk = barrier (run once for the whole chunk); brand = per-context fan-out */
-type BlockScope = 'chunk' | 'brand'
-
 type BlockExit = {
   status: 'skipped' | 'failed'
   phaseResult: PhaseResult
@@ -37,16 +34,26 @@ export type BlockContext = {
   state: Record<string, unknown>
 }
 
-export type Block = {
-  scope: BlockScope
+type BlockConditions = {
   phases: readonly EnrichPhaseName[]
-  run: (ctx: BlockContext) => Promise<BlockRunResult>
   precondition?: (ctx: BlockContext) => boolean | Promise<boolean>
   postcondition?: (
     ctx: BlockContext,
     result: BlockRunResult,
   ) => BlockExit | undefined
 }
+
+export type BrandBlock = BlockConditions & {
+  scope: 'brand'
+  run: (ctx: BlockContext) => Promise<BlockRunResult>
+}
+
+export type BatchBlock = BlockConditions & {
+  scope: 'chunk'
+  runBatch: (contexts: BlockContext[]) => Promise<Map<string, BlockRunResult>>
+}
+
+export type Block = BrandBlock | BatchBlock
 
 export type BlockRegistry = Record<BlockName, Block>
 

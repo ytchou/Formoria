@@ -273,3 +273,24 @@ export function assertDatabaseTarget(
 
   return { deploymentEnvironment, projectRef: expectedRef };
 }
+
+export function projectRefFromDatabaseUrl(databaseUrl: string): string | null {
+  let parsed: URL;
+  try {
+    parsed = new URL(databaseUrl);
+  } catch {
+    throw new Error("SUPABASE_DB_URL must be a valid PostgreSQL URL");
+  }
+
+  if (!["postgres:", "postgresql:"].includes(parsed.protocol)) {
+    throw new Error("SUPABASE_DB_URL must use postgres:// or postgresql://");
+  }
+
+  const directMatch = parsed.hostname.match(/^db\.([a-z]{20})\.supabase\.co$/i);
+  if (directMatch) return directMatch[1].toLowerCase();
+
+  const poolerMatch = decodeURIComponent(parsed.username).match(
+    /^postgres\.([a-z]{20})$/i,
+  );
+  return poolerMatch?.[1].toLowerCase() ?? null;
+}

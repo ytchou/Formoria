@@ -1131,6 +1131,7 @@ export async function persistSubmissionEnrichmentResults(
   submissionId: string,
   patch: JsonObject,
   jobId?: string,
+  checkpointIds: string[] = [],
 ): Promise<{ written: boolean }> {
   return auditedCall(
     {
@@ -1139,6 +1140,9 @@ export async function persistSubmissionEnrichmentResults(
       kind: "service",
     },
     async () => {
+      if (checkpointIds.length && !jobId) {
+        throw new Error("Checkpoint persistence requires a curation job");
+      }
       const { data: row, error: selectError } = await supabase
         .from("brand_submissions")
         .select("enriched_data, status, intent, brand_id, base_brand_data")
@@ -1199,6 +1203,7 @@ export async function persistSubmissionEnrichmentResults(
                 p_submission_id: string;
                 p_enriched_data: JsonObject;
                 p_job_id: string;
+                p_checkpoint_ids?: string[];
               },
             ) => Promise<{ data: boolean; error: { message?: string } | null }>;
           }
@@ -1206,6 +1211,7 @@ export async function persistSubmissionEnrichmentResults(
           p_submission_id: submissionId,
           p_enriched_data: merged as JsonObject,
           p_job_id: jobId,
+          ...(checkpointIds.length ? { p_checkpoint_ids: checkpointIds } : {}),
         });
         if (error)
           throw new Error(

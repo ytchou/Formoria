@@ -1,7 +1,7 @@
 import { describe, it, expect, vi } from 'vitest'
 import { BLOCK_ORDER, type BlockName } from '@/lib/constants/enrich-phases'
 import type { EnrichPhaseName } from '@/lib/constants/enrich-phases'
-import type { Block, BlockContext } from '../registry'
+import type { Block, BrandBlock, BlockContext } from '../registry'
 import { buildBlockRegistry } from '../registry'
 import { runBlocks } from '../runner'
 import type { RunBlocksHooks } from '../runner'
@@ -27,19 +27,33 @@ function fakeBlock(
   scope: 'chunk' | 'brand',
   phases: readonly EnrichPhaseName[],
   calls: CallRecord[],
-  overrides?: Partial<Block>,
+  overrides?: Partial<BrandBlock>,
 ): Block {
-  const defaultRun: Block['run'] = async (ctx) => {
+  const defaultRun: BrandBlock['run'] = async (ctx) => {
     calls.push({ block: name, brandId: ctx.brandId })
     return { output: { patch: {} } }
   }
-  return {
-    scope,
+  const conditions = {
     phases,
-    run: overrides?.run ?? defaultRun,
     precondition: overrides?.precondition,
     postcondition: overrides?.postcondition,
   }
+  if (scope === 'chunk') {
+    return {
+      ...conditions,
+      scope,
+      async runBatch(contexts) {
+        calls.push({
+          block: name,
+          brandId: contexts.map((ctx) => ctx.brandId).join(','),
+        })
+        return new Map(
+          contexts.map((ctx) => [ctx.targetId, { output: { patch: {} } }]),
+        )
+      },
+    }
+  }
+  return { ...conditions, scope, run: overrides?.run ?? defaultRun }
 }
 
 function fakeStore(
@@ -74,7 +88,7 @@ function emptyMaps() {
 
 function buildTestRegistry(
   calls: CallRecord[],
-  overrides?: Partial<Record<BlockName, Partial<Block>>>,
+  overrides?: Partial<Record<BlockName, Partial<BrandBlock>>>,
 ): Record<BlockName, Block> {
   return {
     gather: fakeBlock('gather', 'chunk', [], calls, overrides?.gather),
@@ -122,6 +136,48 @@ function buildTestRegistry(
 // ---------------------------------------------------------------------------
 
 describe('runBlocks', () => {
+  // Catches batch output from one target being checkpointed against its siblings.
+  it('checkpoints each target-specific batch result against its own target', async () => {
+    const store = fakeStore()
+    const registry = buildTestRegistry([])
+    registry.names = {
+      scope: 'chunk',
+      phases: ['names'],
+      async runBatch(contexts: BlockContext[]) {
+        return new Map(
+          contexts.map((ctx) => [
+            ctx.targetId,
+            {
+              output: { patch: { name: ctx.brandId } },
+            },
+          ]),
+        )
+      },
+    }
+    await runBlocks({
+      chunk: [makeCtx('María García'), makeCtx('林木工坊')],
+      registry,
+      order: ['names'],
+      concurrency: 2,
+      ...emptyMaps(),
+      store,
+      hooks: {},
+      jobId: 'recovery-names',
+    })
+    expect(
+      store.upserted.map((row) => ({
+        target: row.target_id,
+        output: row.output,
+      })),
+    ).toEqual([
+      {
+        target: 'target-María García',
+        output: { patch: { name: 'María García' } },
+      },
+      { target: 'target-林木工坊', output: { patch: { name: '林木工坊' } } },
+    ])
+  })
+
   it('runs blocks in block order with barriers', async () => {
     const calls: CallRecord[] = []
     const registry = buildBlockRegistry(buildTestRegistry(calls))
@@ -369,9 +425,7 @@ describe('runBlocks', () => {
     // Skipped PhaseResult emitted for brand 'a'
     const skipped = phaseResults.filter(
       (r) =>
-        r.brandId === 'a' &&
-        r.phase === 'acquire' &&
-        r.status === 'skipped',
+        r.brandId === 'a' && r.phase === 'acquire' && r.status === 'skipped',
     )
     expect(skipped).toHaveLength(1)
 

@@ -9,7 +9,14 @@ import { mapWithConcurrency } from '../_shared/concurrency'
 import { recordPhaseOutputs, latestPhaseOutputs } from './phase-outputs'
 import type { PhaseOutputStore, PhaseOutput } from './phase-outputs'
 import type { PhaseResult } from '@/lib/types/curation'
-import type { Block, BlockContext, BlockRegistry, BlockRunResult } from './registry'
+import type {
+  BatchBlock,
+  BrandBlock,
+  Block,
+  BlockContext,
+  BlockRegistry,
+  BlockRunResult,
+} from './registry'
 
 // ---------------------------------------------------------------------------
 // Public types
@@ -21,7 +28,11 @@ export type RunBlocksHooks = {
   markCurrentPhase?: (ctx: BlockContext, phase: string) => void
   logCurrentPhase?: (phase: string) => void
   loadImagePool?: (ctx: BlockContext) => Promise<unknown>
-  onPhaseResult?: (ctx: BlockContext, phase: string, result: PhaseResult) => void
+  onPhaseResult?: (
+    ctx: BlockContext,
+    phase: string,
+    result: PhaseResult,
+  ) => void
 }
 
 export type RunBlocksConfig = {
@@ -47,7 +58,17 @@ type BlockEnv = {
 }
 
 export async function runBlocks(config: RunBlocksConfig): Promise<void> {
-  const { chunk, registry, order, concurrency, satisfaction, store, force, hooks, jobId } = config
+  const {
+    chunk,
+    registry,
+    order,
+    concurrency,
+    satisfaction,
+    store,
+    force,
+    hooks,
+    jobId,
+  } = config
   const exited = new Set<string>()
   const env: BlockEnv = { satisfaction, store, force, hooks, jobId, exited }
 
@@ -67,7 +88,7 @@ export async function runBlocks(config: RunBlocksConfig): Promise<void> {
 
 async function runChunkBlock(
   blockName: BlockName,
-  block: Block,
+  block: BatchBlock,
   remaining: BlockContext[],
   env: BlockEnv,
 ): Promise<void> {
@@ -78,8 +99,21 @@ async function runChunkBlock(
     toRun.push(ctx)
   }
   if (toRun.length === 0) return
-  const result = await block.run(toRun[0]!)
+  const results = await block.runBatch(toRun)
+  if (
+    results.size !== toRun.length ||
+    toRun.some((ctx) => !results.has(ctx.targetId))
+  ) {
+    throw new Error(
+      `Batch block ${blockName} returned results for the wrong targets`,
+    )
+  }
   for (const ctx of toRun) {
+    const result = results.get(ctx.targetId)
+    if (!result)
+      throw new Error(
+        `Batch block ${blockName} has no result for ${ctx.targetId}`,
+      )
     await applyResult(blockName, block, ctx, result, env)
   }
 }
@@ -88,7 +122,7 @@ async function runChunkBlock(
 
 async function runBrandBlock(
   blockName: BlockName,
-  block: Block,
+  block: BrandBlock,
   remaining: BlockContext[],
   concurrency: number,
   env: BlockEnv,

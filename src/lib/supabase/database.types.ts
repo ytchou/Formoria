@@ -3189,6 +3189,7 @@ export type Database = {
       }
       apply_submission_enrichment_result: {
         Args: {
+          p_checkpoint_ids?: string[]
           p_enriched_data: Json
           p_job_id: string
           p_submission_id: string
