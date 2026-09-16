@@ -3580,6 +3580,14 @@ export type Database = {
           total_brands: number
         }[]
       }
+      get_explore_brand_pool: {
+        Args: { category_slugs: string[]; per_category: number; seed: string }
+        Returns: {
+          brand_id: string
+          brand_slug: string
+          category: string
+        }[]
+      }
       increment_crawler_hits: { Args: { p_rows: Json }; Returns: undefined }
       mark_unreported_curation_job_targets_skipped: {
         Args: { p_job_id: string; p_worker_token: string }
@@ -3872,9 +3880,13 @@ export type Database = {
           query_text: string
         }
         Returns: {
+          cosine_sim: number
+          lexical_rank: number
+          lexical_score: number
           product_id: string
           rank_score: number
           search_source: string
+          vector_rank: number
         }[]
       }
       show_limit: { Args: never; Returns: number }
