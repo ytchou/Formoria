@@ -14,7 +14,7 @@
 -- parameters (see `20260713100000_fix_cron_auth.sql`) and `site_url` was renamed
 -- to `cron_base_url` in `app_secrets` by
 -- `20260807120000_cron_http_dispatch_capture.sql`, so the job would never have
--- fired. It now matches the sibling `20260916120000_schedule_promote_submission_images.sql`
+-- fired. It now matches the sibling `20260916143000_schedule_promote_submission_images.sql`
 -- exactly: `app_secrets` lookups, the `cron_http_dispatch` audit insert, a
 -- transaction, and a 300000 ms timeout matching the route's `maxDuration = 300`.
 
