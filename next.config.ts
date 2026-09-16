@@ -136,6 +136,15 @@ const nextConfig: NextConfig = {
     // already-efficient source does not justify its much slower encode on a
     // container whose optimizer cache is ephemeral and re-derives on cold start.
     formats: ["image/webp"],
+    // Narrowed from Next's default [16,32,48,64,96,128,256,384] (DEV-1743).
+    // Nothing on the site asks for a box under 64px — the smallest measured
+    // `sizes` are the 64px avatar and the 72px `thumb` surface — so 16/32/48
+    // were buckets no request could ever land in. Fewer buckets means more
+    // sharing across similar-but-not-identical thumbnails, which is what
+    // matters on a container whose optimizer cache is ephemeral and re-derives
+    // every sharp encode on cold start. `deviceSizes` is deliberately left at
+    // the default: hero images use an unconstrained `100vw`.
+    imageSizes: [64, 96, 128, 256, 384],
     // Keep the default while allowing lower, explicitly requested qualities
     // for the scrimmed selection background and its product photography.
     qualities: [20, 60, 75],
