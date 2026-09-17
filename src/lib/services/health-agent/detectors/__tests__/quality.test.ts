@@ -70,7 +70,7 @@ describe('quality detector', () => {
     // Must start with "quality:" to match the scripts implementation
     expect(vitestFindings[0]!.fingerprint).toMatch(/^quality:/)
     expect(vitestFindings[0]!.fingerprint).toBe(
-      stableFingerprint('quality', 'full-unit-suite', 'src/app.test.ts::app renders correctly'),
+      stableFingerprint('quality', 'full-unit-suite', 'src/app.test.ts::app-renders-correctly'),
     )
 
     // Knip failure → fingerprint also matches
