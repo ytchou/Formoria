@@ -40,7 +40,7 @@ const MIGRATION = join(
   "supabase/migrations/20260916120000_situation_search_ltr_columns.sql",
 );
 const SCORER_MODULE = join(ROOT, "src/lib/services/ltr-scorer.ts");
-const TRAIN_SCRIPT = join(ROOT, "scripts/ltr/train.py");
+const TRAIN_SCRIPT = join(ROOT, "models/ltr/train/train.py");
 
 // ---------------------------------------------------------------------------
 // Tests

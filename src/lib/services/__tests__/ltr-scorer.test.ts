@@ -12,7 +12,7 @@ import {
 // Helpers
 // ---------------------------------------------------------------------------
 
-const MODELS_DIR = join(process.cwd(), "models");
+const MODELS_DIR = join(process.cwd(), "models", "ltr");
 
 type ParityEntry = {
   features: number[];
@@ -20,7 +20,7 @@ type ParityEntry = {
 };
 
 function loadParity(version: string): ParityEntry[] {
-  const path = join(MODELS_DIR, `ltr-${version}.parity.json`);
+  const path = join(MODELS_DIR, `${version}.parity.json`);
   return JSON.parse(readFileSync(path, "utf8"));
 }
 
@@ -50,7 +50,7 @@ describe("ltr-scorer", () => {
     }
   });
 
-  const v1Exists = existsSync(join(MODELS_DIR, "ltr-v1.onnx"));
+  const v1Exists = existsSync(join(MODELS_DIR, "v1.onnx"));
   it.skipIf(!v1Exists)(
     "scoreCandidates matches the Python parity fixture within 1e-5 (v1)",
     async () => {
