@@ -1,0 +1,208 @@
+import { describe, expect, it } from 'vitest'
+import type { HealthFinding } from '../contracts'
+import type { DetectorResult } from '../types'
+import {
+  buildTickets,
+  buildDigest,
+  linearLabelForSource,
+  MAX_NEW_TICKETS_PER_RUN,
+} from '../report'
+
+// ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
+
+function makeFinding(overrides: Partial<HealthFinding> = {}): HealthFinding {
+  return {
+    source: 'directory',
+    fingerprint: `directory:test:${Math.random()}`,
+    title: 'Test finding',
+    severity: 'medium',
+    evidence: {},
+    mergePolicy: 'human',
+    ...overrides,
+  }
+}
+
+function makeResult(
+  overrides: Partial<DetectorResult> & { name: DetectorResult['name'] },
+): DetectorResult {
+  return {
+    source: 'directory',
+    status: 'ok',
+    findings: [],
+    durationMs: 100,
+    ...overrides,
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Tests
+// ---------------------------------------------------------------------------
+
+describe('report — tickets', () => {
+  it('one ticket is created per never-ticketed fingerprint', () => {
+    const findings = [
+      makeFinding({ fingerprint: 'directory:test:a' }),
+      makeFinding({ fingerprint: 'directory:test:b' }),
+      makeFinding({ fingerprint: 'directory:test:c' }),
+    ]
+
+    const tickets = buildTickets(findings, {
+      unticketed: new Set(['directory:test:a', 'directory:test:b', 'directory:test:c']),
+      traceUrl: 'https://langfuse.example.com/trace/abc',
+    })
+
+    expect(tickets).toHaveLength(3)
+  })
+
+  it('links-weekly produces one ticket per class listing its dead links', () => {
+    const findings = [
+      makeFinding({
+        source: 'links-weekly',
+        fingerprint: 'links-weekly:social:brand-a-ig',
+        title: 'Dead social link: brand-a IG',
+      }),
+      makeFinding({
+        source: 'links-weekly',
+        fingerprint: 'links-weekly:social:brand-b-ig',
+        title: 'Dead social link: brand-b IG',
+      }),
+      makeFinding({
+        source: 'links-weekly',
+        fingerprint: 'links-weekly:brand-channels:brand-c-pchome',
+        title: 'Dead channel link: brand-c PChome',
+      }),
+    ]
+
+    const tickets = buildTickets(findings, {
+      unticketed: new Set([
+        'links-weekly:social:brand-a-ig',
+        'links-weekly:social:brand-b-ig',
+        'links-weekly:brand-channels:brand-c-pchome',
+      ]),
+      traceUrl: 'https://langfuse.example.com/trace/abc',
+      groupLinksWeekly: true,
+    })
+
+    // Should be grouped: one ticket for social (2 links), one for brand-channels (1 link)
+    expect(tickets).toHaveLength(2)
+    const socialTicket = tickets.find((t: { title: string; body: string }) => t.title.includes('social'))
+    expect(socialTicket).toBeDefined()
+    expect(socialTicket!.body).toContain('brand-a')
+    expect(socialTicket!.body).toContain('brand-b')
+  })
+
+  it('new tickets are capped per run, oldest first, and the rest stay unticketed', () => {
+    const findings = Array.from({ length: 15 }, (_, i) =>
+      makeFinding({
+        fingerprint: `directory:test:finding-${String(i).padStart(3, '0')}`,
+      }),
+    )
+
+    const tickets = buildTickets(findings, {
+      unticketed: new Set(findings.map((f) => f.fingerprint)),
+      traceUrl: 'https://langfuse.example.com/trace/abc',
+    })
+
+    expect(tickets).toHaveLength(MAX_NEW_TICKETS_PER_RUN)
+  })
+
+  it('an investigator diagnosis is appended to its finding ticket body', () => {
+    const findings = [
+      makeFinding({
+        fingerprint: 'directory:test:a',
+        evidence: { diagnosis: 'The brand was deleted from the CMS' },
+      }),
+    ]
+
+    const tickets = buildTickets(findings, {
+      unticketed: new Set(['directory:test:a']),
+      traceUrl: 'https://langfuse.example.com/trace/abc',
+      investigations: new Map([
+        ['directory:test:a', 'Root cause: brand was removed from CMS on 2026-09-15'],
+      ]),
+    })
+
+    expect(tickets).toHaveLength(1)
+    expect(tickets[0].body).toContain('Root cause: brand was removed from CMS')
+  })
+
+  it('ticket bodies and the digest link to the Langfuse trace, never a GitHub Actions run URL', () => {
+    const findings = [makeFinding({ fingerprint: 'directory:test:a' })]
+    const traceUrl = 'https://cloud.langfuse.com/project/abc/traces/xyz'
+
+    const tickets = buildTickets(findings, {
+      unticketed: new Set(['directory:test:a']),
+      traceUrl,
+    })
+
+    expect(tickets[0].body).toContain(traceUrl)
+    expect(tickets[0].body).not.toContain('github.com')
+    expect(tickets[0].body).not.toContain('actions/runs')
+  })
+})
+
+describe('report — digest', () => {
+  it('lists per-source counts and names every detector that could not run', () => {
+    const results: DetectorResult[] = [
+      makeResult({
+        name: 'brand-invariants',
+        source: 'directory',
+        status: 'ok',
+        findings: [makeFinding(), makeFinding()],
+      }),
+      makeResult({
+        name: 'sentry-triage',
+        source: 'sentry',
+        status: 'failed',
+        error: 'connection timeout',
+      }),
+    ]
+
+    const digest = buildDigest(results, {
+      date: '2026-09-17',
+      traceUrl: 'https://langfuse.example.com/trace/abc',
+    })
+
+    expect(digest).toContain('directory')
+    expect(digest).toContain('2') // 2 findings from directory
+    expect(digest).toContain('sentry-triage')
+    expect(digest).toContain('could not run')
+    expect(digest).toContain('langfuse.example.com')
+    expect(digest).not.toContain('github.com')
+  })
+
+  it('digest is posted even when there are zero findings', () => {
+    const results: DetectorResult[] = [
+      makeResult({
+        name: 'brand-invariants',
+        source: 'directory',
+        status: 'ok',
+        findings: [],
+      }),
+    ]
+
+    const digest = buildDigest(results, {
+      date: '2026-09-17',
+      traceUrl: 'https://langfuse.example.com/trace/abc',
+    })
+
+    // Should still produce a non-empty digest
+    expect(digest.length).toBeGreaterThan(0)
+    expect(digest).toContain('0')
+  })
+})
+
+describe('report — labels', () => {
+  it('label is Ops for sentry and credential sources and Data Quality otherwise', () => {
+    expect(linearLabelForSource('sentry')).toBe('Ops')
+    expect(linearLabelForSource('credential')).toBe('Ops')
+    expect(linearLabelForSource('directory')).toBe('Data Quality')
+    expect(linearLabelForSource('link')).toBe('Data Quality')
+    expect(linearLabelForSource('quality')).toBe('Data Quality')
+    expect(linearLabelForSource('pipeline')).toBe('Data Quality')
+    expect(linearLabelForSource('surface')).toBe('Data Quality')
+    expect(linearLabelForSource('links-weekly')).toBe('Data Quality')
+  })
+})

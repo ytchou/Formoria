@@ -4,7 +4,6 @@ import {
   type IncomingMessage,
   type ServerResponse,
 } from "node:http";
-import { config } from "dotenv";
 import {
   drainJobQueue,
   runInCronScope,
@@ -13,39 +12,62 @@ import {
 import { isStagingEnvironment } from "@/lib/deployment-environment";
 import { assertDatabaseTarget } from "@/lib/supabase/project-target";
 import { isCurationWorkerHealthPath } from "./health-paths";
+import { bootWorker, logWorkerBuildInfo } from "@/worker-boot";
+import type { WorkerTarget } from "@/lib/supabase/project-target";
 
-config({ path: ".env.local", quiet: true });
+let claimCurationDispatchWork: Awaited<
+  typeof import("@/lib/services/curation-jobs")
+>["claimCurationDispatchWork"];
+let claimNextCurationJob: Awaited<
+  typeof import("@/lib/services/curation-jobs")
+>["claimNextCurationJob"];
+let recoverStaleJobs: Awaited<
+  typeof import("@/lib/services/curation-jobs")
+>["recoverStaleJobs"];
+let runJob: Awaited<typeof import("@/lib/services/job-runner")>["runJob"];
+let sanitizeJobError: Awaited<
+  typeof import("@/lib/services/job-runner")
+>["sanitizeJobError"];
+let runScheduledCuration: Awaited<
+  typeof import("@/lib/services/curation-worker")
+>["runScheduledCuration"];
+let reportWorkerFailure: Awaited<
+  typeof import("@/lib/services/job-alerts")
+>["reportWorkerFailure"];
 
-// Runs before the service modules below are imported, so a cross-wired worker
-// dies at boot instead of claiming a job. The environment declaration is
-// fail-open (unset means production), so it is never trusted on its own — the
-// attached database must corroborate it. See src/lib/supabase/project-target.ts.
-const target = assertDatabaseTarget(
-  isStagingEnvironment() ? "staging" : "production",
-);
+// Populated by assertTarget inside bootWorker, after env is loaded.
+let target: WorkerTarget;
 
-const { claimCurationDispatchWork, claimNextCurationJob, recoverStaleJobs } =
-  await import("@/lib/services/curation-jobs");
-const { runJob, sanitizeJobError } = await import("@/lib/services/job-runner");
-const { runScheduledCuration } = await import("@/lib/services/curation-worker");
-const { reportWorkerFailure } = await import("@/lib/services/job-alerts");
-
-// This container never loads Next's instrumentation hook, so nothing else here
-// would ever reach Sentry. Alerting swallows its own errors by contract.
-process.on("unhandledRejection", (reason) => {
-  console.error(
-    "[curation-worker:unhandled-rejection]",
-    sanitizeJobError(reason),
-  );
-  void reportWorkerFailure("unhandledRejection", reason);
-});
-
-process.on("uncaughtException", (error) => {
-  console.error(
-    "[curation-worker:uncaught-exception]",
-    sanitizeJobError(error),
-  );
-  void reportWorkerFailure("uncaughtException", error);
+await bootWorker({
+  agent: "curation",
+  // Runs before the service modules below are imported, so a cross-wired
+  // worker dies at boot instead of claiming a job. The environment
+  // declaration is fail-open (unset means production), so it is never
+  // trusted on its own — the attached database must corroborate it.
+  // See src/lib/supabase/project-target.ts.
+  assertTarget: () => {
+    target = assertDatabaseTarget(
+      isStagingEnvironment() ? "staging" : "production",
+    );
+  },
+  async loadServices() {
+    ({ claimCurationDispatchWork, claimNextCurationJob, recoverStaleJobs } =
+      await import("@/lib/services/curation-jobs"));
+    ({ runJob, sanitizeJobError } = await import(
+      "@/lib/services/job-runner"
+    ));
+    ({ runScheduledCuration } = await import(
+      "@/lib/services/curation-worker"
+    ));
+    ({ reportWorkerFailure } = await import("@/lib/services/job-alerts"));
+  },
+  async reportFailure(context, error) {
+    if (reportWorkerFailure) {
+      await reportWorkerFailure(context, error);
+    }
+  },
+  sanitizeError: (e) =>
+    sanitizeJobError ? sanitizeJobError(e) : String(e),
 });
 
 const MAX_BODY_BYTES = 16 * 1024;
@@ -74,27 +96,7 @@ const server = createServer((request, response) => {
 });
 
 server.listen(port, "0.0.0.0", () => {
-  // Which build is actually running. Without this, confirming that merged worker
-  // code reached production needs deployment-ID archaeology in the Railway
-  // dashboard (DEV-1260 — the service had no GitHub source, so merges to main
-  // never deployed it and nothing in the logs revealed the staleness).
-  // RAILWAY_GIT_COMMIT_SHA is injected only for repo-connected services;
-  // WORKER_BUILD_SHA is baked in by Dockerfile.curation-worker so that a manual
-  // `railway up` still identifies itself.
-  const sha =
-    process.env.RAILWAY_GIT_COMMIT_SHA ??
-    process.env.WORKER_BUILD_SHA ??
-    "unknown";
-  // NODE_ENV is logged because sentry.server.config.ts gates on
-  // `NODE_ENV === 'production'`; anything else here means worker errors are
-  // silently not reaching Sentry.
-  console.log(
-    `[curation-worker] build sha=${sha.slice(0, 12)} branch=${
-      process.env.RAILWAY_GIT_BRANCH ?? "unknown"
-    } deployment=${process.env.RAILWAY_DEPLOYMENT_ID ?? "unknown"} nodeEnv=${
-      process.env.NODE_ENV ?? "unset"
-    }`,
-  );
+  logWorkerBuildInfo("curation-worker");
   console.log(`[curation-worker] listening on port ${port}`);
   // Which database this worker will actually write to, verified at boot rather
   // than inferred from the environment name.

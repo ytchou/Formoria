@@ -115,7 +115,6 @@ async function executeRerunJob(
 
 const ALLOWED_WORKFLOWS: Record<string, Record<string, string>> = {
   "e2e-staging": {},
-  "health-agent": { mode: "preflight" },
 };
 
 async function executeDispatchWorkflow(

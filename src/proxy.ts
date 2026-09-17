@@ -73,6 +73,9 @@ export const ORIGIN_GUARD_EXEMPT_PATHS = [
   { pathname: "/api/health", match: "prefix" },
   { pathname: "/api/cron/", match: "prefix" },
   { pathname: "/api/internal/revalidate-brands", match: "exact" },
+  // Health agent fires a deliberate error to validate Sentry round-trip;
+  // authenticate itself inside the handler via ORIGIN_SECRET, not the edge.
+  { pathname: "/api/internal/sentry-canary", match: "exact" },
   // Next's own image optimizer re-enters middleware for `/i/` paths and cannot
   // be made to carry the edge credential. `/_next/image?url=%2Fi%2F...` is
   // excluded from the matcher, so the optimizer runs; for a non-absolute href

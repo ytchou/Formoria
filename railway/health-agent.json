@@ -1,0 +1,17 @@
+{
+  "$comment": "Documentation-only — Railway does not read per-service JSON files. This records the intended service configuration for the health-agent Railway service.",
+  "service": "health-agent",
+  "schedule": "50 20 * * * (UTC)",
+  "startCommand": "pnpm health:agent",
+  "envVars": [
+    "NEXT_PUBLIC_SUPABASE_URL",
+    "SUPABASE_SERVICE_ROLE_KEY",
+    "FORMORIA_DEPLOYMENT_ENV",
+    "OPENAI_API_KEY",
+    "SLACK_FORMORIA_WEBHOOK_URL",
+    "SENTRY_DSN",
+    "LANGFUSE_SECRET_KEY",
+    "LANGFUSE_PUBLIC_KEY",
+    "LANGFUSE_BASEURL"
+  ]
+}

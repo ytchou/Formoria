@@ -15,7 +15,7 @@ const PROVIDERS = {
   posthog: ["run_query"],
   playwright: ["fetch_rendered"],
   "mit-registry": ["lookup_exact_products", "sync_registry"],
-  github: ["list_workflow_runs", "dispatch_workflow"],
+  github: ["list_workflow_runs", "dispatch_workflow", "list_dependabot_alerts"],
   scraper: ["scrape_url"],
   catalog: ["discover_catalog"],
   http: [
@@ -28,6 +28,7 @@ const PROVIDERS = {
     // a HEAD/GET reachability check whose verdict can flip a published product's
     // call-to-action, so the request and its outcome are replayable.
     "check_link",
+    "check_link_weekly",
     // Curated-product image fetch: pulls the candidate image from the source
     // page it was cited from, so the bytes stored against a product can be
     // traced back to the request that produced them.
@@ -194,6 +195,29 @@ const PROVIDERS = {
     "jobDetail",
     "executeProposal",
   ],
+  // DEV-1748: health agent migration — new audit providers for the
+  // LangGraph-based health agent and its supporting services.
+  "health-agent": [
+    "run_detectors",
+    "reconcile_lifecycle",
+    "record_snapshot",
+    "reportWorkerFailure",
+    "probe_linear",
+    "probe_github_app",
+    "probe_langfuse_traces",
+    "probe_langfuse_prompt",
+    "probe_slack_events",
+    "probe_worker_chromium",
+    "probe_resend_domain",
+    "probe_sentry_write",
+    "probe_sentry_capture_trigger",
+    "probe_sentry_capture_poll",
+    "probe_surface",
+    "probe_trail_supply",
+  ],
+  "repo-worker": ["clone", "run_tool", "push_branch", "reportWorkerFailure"],
+  "claude-code": ["create_pr", "apply_fix"],
+  "github-app": ["get_installation_token", "create_blob", "create_tree", "create_commit", "create_branch", "create_pull_request", "add_labels", "merge_pull_request"],
 } as const;
 
 type ProviderRegistry = typeof PROVIDERS;

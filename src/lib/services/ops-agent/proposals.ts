@@ -4,7 +4,7 @@ import { z } from "zod";
 // Proposal discriminated union
 // ---------------------------------------------------------------------------
 
-const ALLOWED_WORKFLOWS = ["e2e-staging", "health-agent"] as const;
+const ALLOWED_WORKFLOWS = ["e2e-staging"] as const;
 
 const RefreshBrand = z.object({
   kind: z.literal("refresh_brand"),

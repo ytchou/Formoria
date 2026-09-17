@@ -3,7 +3,6 @@ import { auditedCall } from "@/lib/audit";
 const GITHUB_REPO = "ytchou/Formoria";
 export const WORKFLOW_ALLOWLIST = [
   "e2e-staging.yml",
-  "health-agent.yml",
   "ops-fix.yml",
 ] as const;
 

@@ -3610,6 +3610,17 @@ export type Database = {
         Returns: boolean
       }
       purchase_channel_sql_surface: { Args: never; Returns: Json }
+      read_cron_job_runs: {
+        Args: { p_since: string }
+        Returns: {
+          active: boolean
+          failed_runs: number
+          jobname: string
+          last_end: string
+          last_status: string
+          schedule: string
+        }[]
+      }
       read_health_directory_database_evidence: { Args: never; Returns: Json }
       rearm_health_fix_canary: {
         Args: { p_fingerprint: string }

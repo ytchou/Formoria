@@ -12,6 +12,10 @@ import { dirname } from "node:path";
 import { pathToFileURL } from "node:url";
 
 import { boundedSlackText } from "@/lib/adapters/slack/notification";
+import {
+  runRepeatSafeAssertions,
+  type AssertionResult,
+} from "@/lib/services/surface-assertions";
 
 import {
   requiredEnvironment,
@@ -312,6 +316,19 @@ export function classifyHealthResult(result: CheckResult): CheckResult {
   return result;
 }
 
+function assertionToCheckResult(r: AssertionResult): CheckResult {
+  return {
+    body: "",
+    id: r.name,
+    ok: r.ok,
+    // Surface assertions report pass/fail with a detail string, not an HTTP
+    // status. Null keeps evaluateProbe's status-line renderer from inventing a
+    // number.
+    status: null,
+    ...(r.ok ? {} : { reason: r.detail }),
+  };
+}
+
 export async function collectChecks(
   config: {
     baseUrl: string;
@@ -323,16 +340,10 @@ export async function collectChecks(
   const base = config.baseUrl.replace(/\/+$/, "");
   const supabase = config.supabaseUrl.replace(/\/+$/, "");
 
-  // Concurrent, so the four checks describe the same instant and a total
-  // outage costs one request timeout rather than four. The destructuring keeps
-  // the reported order stable.
-  const [home, brands, healthResponse, supabaseCheck] = await Promise.all([
-    request("home", `${base}/`, {}, fetchImpl),
-    // Never probe /brands/<slug>: that prefix sits behind the Turnstile
-    // soft-limit in proxy.ts, so a slug path would measure the challenge, not
-    // the site.
-    request("brands", `${base}/brands`, {}, fetchImpl),
-    request("health", `${base}/api/health`, {}, fetchImpl),
+  // Surface assertions and the Supabase health check run concurrently.
+  // The surface-assertions module fetches the sitemap once internally.
+  const [assertions, supabaseCheck] = await Promise.all([
+    runRepeatSafeAssertions({ baseUrl: base, fetch: fetchImpl }),
     request(
       "supabase",
       `${supabase}/auth/v1/health`,
@@ -341,7 +352,7 @@ export async function collectChecks(
     ),
   ]);
 
-  return [home, brands, classifyHealthResult(healthResponse), supabaseCheck];
+  return [...assertions.map(assertionToCheckResult), supabaseCheck];
 }
 
 async function postSlack(

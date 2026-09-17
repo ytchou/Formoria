@@ -2,7 +2,7 @@ name: Formoria Production Probe
 
 on:
   schedule:
-    - cron: "*/30 * * * *"
+    - cron: "0 */6 * * *"
   workflow_dispatch:
 
 # spend-watch.yml only mentions concurrency in a comment and never declares it.

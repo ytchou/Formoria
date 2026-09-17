@@ -16,7 +16,8 @@ export type SupabaseUserAgentOptions = {
 };
 
 const SCRIPT_PATH_PATTERN = /(?:^|[\\/])scripts(?:[\\/]|$)/;
-const WORKER_PATH_PATTERN = /(?:^|[\\/])curation-worker(?:[\\/]|$)/;
+const WORKER_PATH_PATTERN =
+  /(?:^|[\\/])(?:curation-worker|health-agent|repo-worker)(?:[\\/]|$)/;
 
 /**
  * Classifies the owner of a server-side Supabase request without inspecting

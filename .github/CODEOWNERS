@@ -21,5 +21,10 @@
 /tsconfig.json @ytchou
 /vitest.config.ts @ytchou
 
+# Health agent and repo worker
+/src/health-agent/ @ytchou
+/src/repo-worker/ @ytchou
+/src/lib/services/health-agent/ @ytchou
+
 # Agent prompts outside .github
 /docs/routines/formoria-health-prompt.md @ytchou
