@@ -32,6 +32,10 @@ import { ConflictError, NotFoundError } from "@/lib/errors";
 import { createServiceClient } from "@/lib/supabase/service";
 import { imagePathToUrl } from "@/lib/images/image-url";
 import {
+  BRAND_SUBMISSIONS_BUCKET,
+  SUBMISSION_IMAGES_KEY_PREFIX,
+} from "@/lib/images/storage-keys";
+import {
   extractLatinRun,
   generateSlug,
   isReservedSlug,
@@ -602,8 +606,6 @@ function imageStatus(value: string): SubmissionReviewImage["status"] {
   return "active";
 }
 
-const SUBMISSION_IMAGE_BUCKET = "brand-images";
-const SUBMISSION_IMAGE_KEY_PREFIX = "submissions/";
 /*
  * Five minutes: long enough for a reviewer to read a queue page, short enough
  * that a copied URL is not a durable leak. Raise it only alongside a real
@@ -619,7 +621,7 @@ export type SignSubmissionImagePaths = (
 const defaultSubmissionImageSigner: SignSubmissionImagePaths = (paths) =>
   createSignedUrlsInBatches(
     paths,
-    bucketSigner(SUBMISSION_IMAGE_BUCKET, SUBMISSION_IMAGE_SIGNED_URL_SECONDS),
+    bucketSigner(BRAND_SUBMISSIONS_BUCKET, SUBMISSION_IMAGE_SIGNED_URL_SECONDS),
   );
 
 /**
@@ -639,7 +641,7 @@ export function submissionImageStorageKey(
       ? stored
       : storageKeyFromPublicUrlForRead(image.url);
 
-  return key && key.startsWith(SUBMISSION_IMAGE_KEY_PREFIX) ? key : null;
+  return key && key.startsWith(SUBMISSION_IMAGES_KEY_PREFIX) ? key : null;
 }
 
 /**
@@ -706,9 +708,9 @@ function brandImageToReviewImage(
     id: row.id,
     submissionId,
     storagePath: row.storage_path,
-    // A PUBLISHED brand image, so the same-origin proxy serves it (DEV-1551).
-    // Only `submissions/` keys are gated behind a signed URL, and those come
-    // through `submissionImageToReviewImage` instead.
+    // A published brand image resolves through the public bucket. Only
+    // `submissions/` keys require a signed URL, and those come through
+    // `submissionImageToReviewImage` instead.
     url: imagePathToUrl(row.storage_path) ?? "",
     source: row.source,
     status: imageStatus(row.status),
@@ -2407,12 +2409,11 @@ export async function approveSubmission(
 
       // DEV-1551: the approval RPC copies `submission_images` into `brand_images`
       // and carries `storage_path` across verbatim, so the brand's imagery would
-      // stay under `submissions/` -- a prefix the same-origin read proxy refuses,
-      // because pre-moderation imagery is private and the proxy cannot read row
-      // status without a per-request database round trip. The object has to move
-      // the moment it becomes public. `promoteApprovedBrandImages` never throws and
-      // never deletes: approval must not fail because a copy failed, since a brand
-      // with unservable images is recoverable (re-run
+      // still name an object in private `brand-submissions`. Publishing requires
+      // a verified `brands/` copy in public `brand-images`; the source remains as
+      // submission history. `promoteApprovedBrandImages` never throws and never
+      // deletes: approval must not fail because a copy failed, since a brand with
+      // unservable images is recoverable (re-run
       // `scripts/enrichment/images/promote-submission-images.ts`) and a failed approval is not.
       await promoteApprovedBrandImages(approval.brand_id);
 

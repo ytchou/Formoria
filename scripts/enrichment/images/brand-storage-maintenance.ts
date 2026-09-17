@@ -13,12 +13,19 @@ import path from 'node:path'
 import { createClient as createSupabaseClient } from '@supabase/supabase-js'
 import sharp from 'sharp'
 
+import { imagePathToUrl } from '@/lib/images/image-url'
+import {
+  BRAND_IMAGES_BUCKET,
+  BRAND_SUBMISSIONS_BUCKET,
+  partitionImageStoragePaths,
+  resolveImageStorageLocation,
+} from '@/lib/images/storage-keys'
 import { processImage } from '@/lib/security/image-processor'
 import { syncHeroDenormalized } from '@/lib/services/brand-images'
 import { computeDHash, dominantColorToHex } from '@/lib/services/image-download'
 import { loadScriptTarget } from '../../shared/target'
 
-const BUCKET = 'brand-images'
+const BUCKET = BRAND_IMAGES_BUCKET
 const PAGE_SIZE = 1_000
 const LIST_CONCURRENCY = 20
 const REENCODE_CONCURRENCY = 4
@@ -178,6 +185,7 @@ type ReencodeTarget = {
   oldUrl: string
   size: number
   contentType: string | null
+  bucket: string
 }
 
 type ReencodeFailure = {
@@ -314,6 +322,7 @@ async function fetchAllRows<T>(
 async function listPrefix(
   supabase: ReturnType<typeof createServiceClient>,
   prefix: string,
+  bucket: string = BUCKET,
 ): Promise<BucketObject[]> {
   const objects: BucketObject[] = []
   const folders: string[] = []
@@ -324,7 +333,7 @@ async function listPrefix(
   // page length — advancing by PAGE_SIZE would silently skip objects and make
   // the inventory look incomplete to callers that treat it as authoritative.
   for (let offset = 0; ; ) {
-    const { data, error } = await supabase.storage.from(BUCKET).list(prefix, {
+    const { data, error } = await supabase.storage.from(bucket).list(prefix, {
       limit: PAGE_SIZE,
       offset,
       sortBy: { column: 'name', order: 'asc' },
@@ -360,7 +369,7 @@ async function listPrefix(
     const nestedObjects = await Promise.all(
       uniqueFolders
         .slice(index, index + LIST_CONCURRENCY)
-        .map((folder) => listPrefix(supabase, folder)),
+        .map((folder) => listPrefix(supabase, folder, bucket)),
     )
     objects.push(...nestedObjects.flat())
   }
@@ -370,8 +379,9 @@ async function listPrefix(
 
 export async function listAllObjects(
   supabase: ReturnType<typeof createServiceClient>,
+  bucket: string = BUCKET,
 ): Promise<BucketObject[]> {
-  return listPrefix(supabase, '')
+  return listPrefix(supabase, '', bucket)
 }
 
 export async function buildReferenceSet(
@@ -730,25 +740,48 @@ function sizeInMb(objects: BucketObject[]): string {
 type AuditResult = {
   supabase: ReturnType<typeof createServiceClient>
   objects: BucketObject[]
+  privateObjects: BucketObject[]
   categorized: CategorizedObjects
 }
 
 async function audit(): Promise<AuditResult> {
   const supabase = createServiceClient()
-  const [objects, refs, soakProtectedPaths] = await Promise.all([
+  const privateBucket = await supabase.storage.getBucket(BRAND_SUBMISSIONS_BUCKET)
+  if (
+    privateBucket.error &&
+    !/not found|does not exist/i.test(privateBucket.error.message)
+  ) {
+    throw new Error(
+      `Failed to inspect ${BRAND_SUBMISSIONS_BUCKET}: ${privateBucket.error.message}`,
+    )
+  }
+  const [objects, privateObjects, refs, soakProtectedPaths] = await Promise.all([
     listAllObjects(supabase),
+    privateBucket.error
+      ? Promise.resolve([])
+      : listAllObjects(supabase, BRAND_SUBMISSIONS_BUCKET),
     buildReferenceSet(supabase),
     loadSoakProtectedPaths(),
   ])
   refs.soakProtectedPaths = soakProtectedPaths
   const categorized = categorizeObjects(objects, refs)
+  const privateCategorized = categorizeObjects(privateObjects, refs)
 
   console.table(
-    Object.entries(categorized).map(([category, categoryObjects]) => ({
-      category,
-      count: categoryObjects.length,
-      MB: sizeInMb(categoryObjects),
-    })),
+    [
+      ...Object.entries(categorized).map(([category, categoryObjects]) => ({
+        bucket: BUCKET,
+        category,
+        count: categoryObjects.length,
+        MB: sizeInMb(categoryObjects),
+      })),
+      ...Object.entries(privateCategorized).map(([category, categoryObjects]) => ({
+        bucket: BRAND_SUBMISSIONS_BUCKET,
+        category,
+        count: categoryObjects.length,
+        MB: sizeInMb(categoryObjects),
+      })),
+    ],
   )
 
   console.log('\nAnomalies (protected from deletion):')
@@ -760,7 +793,7 @@ async function audit(): Promise<AuditResult> {
     }
   }
 
-  return { supabase, objects, categorized }
+  return { supabase, objects, privateObjects, categorized }
 }
 
 function purgeManifestPath(): string {
@@ -788,18 +821,22 @@ async function removeObjects(
   keys: string[],
 ): Promise<string[]> {
   const deleted: string[] = []
+  const partitioned = partitionImageStoragePaths(keys)
 
-  for (let index = 0; index < keys.length; index += DELETE_CHUNK_SIZE) {
-    const chunk = keys.slice(index, index + DELETE_CHUNK_SIZE)
-    try {
-      const { error } = await supabase.storage.from(BUCKET).remove(chunk)
-      if (error) throw error
-      deleted.push(...chunk)
-    } catch (error) {
-      console.error(
-        `Failed to delete storage chunk ${index / DELETE_CHUNK_SIZE + 1}:`,
-        error instanceof Error ? error.message : error,
-      )
+  for (const bucket of [BRAND_IMAGES_BUCKET, BRAND_SUBMISSIONS_BUCKET] as const) {
+    const bucketKeys = partitioned[bucket]
+    for (let index = 0; index < bucketKeys.length; index += DELETE_CHUNK_SIZE) {
+      const chunk = bucketKeys.slice(index, index + DELETE_CHUNK_SIZE)
+      try {
+        const { error } = await supabase.storage.from(bucket).remove(chunk)
+        if (error) throw error
+        deleted.push(...chunk)
+      } catch (error) {
+        console.error(
+          `Failed to delete ${bucket} storage chunk ${index / DELETE_CHUNK_SIZE + 1}:`,
+          error instanceof Error ? error.message : error,
+        )
+      }
     }
   }
 
@@ -937,7 +974,7 @@ async function fixDanglingImageRows(
 }
 
 async function purge(live: boolean): Promise<void> {
-  const { supabase, objects, categorized } = await audit()
+  const { supabase, objects, privateObjects, categorized } = await audit()
   const plan = planPurge(categorized, DEFAULT_PURGE_OPTIONS)
   const manifestPath = await writePurgeManifest(plan.entries)
 
@@ -965,7 +1002,7 @@ async function purge(live: boolean): Promise<void> {
   )
   const danglingRowsFixed = await fixDanglingImageRows(
     supabase,
-    new Set(objects.map((object) => object.path)),
+    new Set([...objects, ...privateObjects].map((object) => object.path)),
   )
 
   console.log(`Deleted ${deletedPaths.length} of ${plan.toDelete.length} objects.`)
@@ -1055,7 +1092,7 @@ async function createReencodeManifest(): Promise<{
 async function loadReencodeTargets(
   supabase: ReturnType<typeof createServiceClient>,
 ): Promise<{ targets: ReencodeTarget[]; failures: ReencodeFailure[] }> {
-  const [brandRows, submissionRows, brands, submissions, objects] =
+  const [brandRows, submissionRows, brands, submissions, publicObjects, privateObjects] =
     await Promise.all([
       fetchAllRows<BrandReencodeRow>('brand_images', (from, to) =>
         supabase
@@ -1094,6 +1131,7 @@ async function loadReencodeTargets(
             .range(from, to),
       ),
       listAllObjects(supabase),
+      listAllObjects(supabase, BRAND_SUBMISSIONS_BUCKET),
     ])
 
   const jsonbReferencedPaths = new Set<string>()
@@ -1104,7 +1142,14 @@ async function loadReencodeTargets(
     collectStorageKeys(submission.enriched_data, jsonbReferencedPaths)
   }
 
-  const objectsByPath = new Map(objects.map((object) => [object.path, object]))
+  const objectsByLocation = new Map([
+    ...publicObjects.map(
+      (object) => [`${BRAND_IMAGES_BUCKET}\n${object.path}`, object] as const,
+    ),
+    ...privateObjects.map(
+      (object) => [`${BRAND_SUBMISSIONS_BUCKET}\n${object.path}`, object] as const,
+    ),
+  ])
   const failures: ReencodeFailure[] = []
   const targets: ReencodeTarget[] = []
   const rows = [
@@ -1122,7 +1167,10 @@ async function loadReencodeTargets(
 
   for (const row of rows) {
     if (!row.storage_path) continue
-    const object = objectsByPath.get(row.storage_path)
+    const location = resolveImageStorageLocation(row.storage_path)
+    const object = location
+      ? objectsByLocation.get(`${location.bucket}\n${row.storage_path}`)
+      : undefined
     if (!object) {
       failures.push({
         path: row.storage_path,
@@ -1155,6 +1203,7 @@ async function loadReencodeTargets(
       oldUrl: row.url,
       size: object.size,
       contentType,
+      bucket: location?.bucket ?? BRAND_IMAGES_BUCKET,
     })
   }
 
@@ -1173,7 +1222,7 @@ async function reencodeTarget(
 
   try {
     const { data: blob, error: downloadError } = await supabase.storage
-      .from(BUCKET)
+      .from(target.bucket)
       .download(target.path)
     if (downloadError) throw downloadError
     if (!blob) throw new Error('Storage download returned no data')
@@ -1191,7 +1240,7 @@ async function reencodeTarget(
     const dominantColor = dominantColorToHex(stats.dominant)
 
     const { error: uploadError } = await supabase.storage
-      .from(BUCKET)
+      .from(target.bucket)
       .upload(newPath, processed.buffer, {
         contentType: 'image/webp',
         cacheControl: '31536000',
@@ -1199,15 +1248,14 @@ async function reencodeTarget(
     if (uploadError) throw uploadError
     uploaded = true
 
-    const {
-      data: { publicUrl },
-    } = supabase.storage.from(BUCKET).getPublicUrl(newPath)
+    const imageUrl = imagePathToUrl(newPath)
+    if (!imageUrl) throw new Error(`No image URL mapping for ${newPath}`)
 
     const table = target.kind === 'brand' ? 'brand_images' : 'submission_images'
     const { error: updateError } = await supabase
       .from(table)
       .update({
-        url: publicUrl,
+        url: imageUrl,
         storage_path: newPath,
         width: processed.width,
         height: processed.height,
@@ -1224,7 +1272,7 @@ async function reencodeTarget(
     if (target.kind === 'submission') {
       const { error: heroUpdateError } = await supabase
         .from('brand_submissions')
-        .update({ hero_image_url: publicUrl })
+        .update({ hero_image_url: imageUrl })
         .eq('id', target.ownerId)
         .eq('hero_image_url', target.oldUrl)
       if (heroUpdateError) throw heroUpdateError
@@ -1232,7 +1280,7 @@ async function reencodeTarget(
   } catch (error) {
     if (uploaded && !rowUpdated) {
       const { error: cleanupError } = await supabase.storage
-        .from(BUCKET)
+        .from(target.bucket)
         .remove([newPath])
       if (cleanupError) {
         console.error(`Failed to clean up ${newPath}: ${cleanupError.message}`)

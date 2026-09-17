@@ -1,6 +1,7 @@
 import type { TablesInsert } from "@/lib/supabase/database.types";
 import { deriveSubcategoriesEn } from "@/lib/services/subcategories";
 import { storagePathFromImageUrl } from "@/lib/images/image-url";
+import { isBrandOwnedStoragePath } from "@/lib/images/storage-keys";
 import {
   ONLINE_STORES,
   type OnlineStoreCamelField,
@@ -183,8 +184,11 @@ export function toBrandRow(
    * clears it — anything else would make "remove the hero image" a silent
    * no-op.
    */
-  if (input.heroImageUrl !== undefined)
-    row.hero_image_storage_path = storagePathFromImageUrl(input.heroImageUrl);
+  if (input.heroImageUrl !== undefined) {
+    const storagePath = storagePathFromImageUrl(input.heroImageUrl);
+    row.hero_image_storage_path =
+      storagePath && isBrandOwnedStoragePath(storagePath) ? storagePath : null;
+  }
   if (input.status !== undefined) row.status = input.status;
   if (input.categorySlug !== undefined) row.category = input.categorySlug;
   if (input.foundingYear !== undefined) row.founding_year = input.foundingYear;

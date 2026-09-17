@@ -3,10 +3,15 @@ import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { expect, test } from "../fixtures/auth";
 
 import { BUDGET, POLL } from "../budgets";
-import { e2eProxyImageUrl } from "../helpers/image-refs";
+import { e2eProxyImageUrl, e2ePublicImageUrl } from "../helpers/image-refs";
 import { e2eSeedName } from "../helpers/cleanup";
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AnySupabaseClient = SupabaseClient<any, any, any>;
+
+function required<T>(value: T | null | undefined, message: string): T {
+  if (value === null || value === undefined) throw new Error(message);
+  return value;
+}
 
 const PNG_1X1 = Buffer.from(
   "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=",
@@ -39,6 +44,7 @@ test.describe("Admin submission enrichment lifecycle", () => {
   let approvedBrandId: string | undefined;
   let brandName: string;
   let storagePaths: string[];
+  let promotedStoragePaths: string[] = [];
   let imageUrls: string[];
 
   test.beforeAll(async () => {
@@ -56,7 +62,7 @@ test.describe("Admin submission enrichment lifecycle", () => {
     ];
     for (const path of storagePaths) {
       const { error: uploadError } = await supabase.storage
-        .from("brand-images")
+        .from("brand-submissions")
         .upload(path, PNG_1X1, { contentType: "image/png" });
       if (uploadError)
         throw new Error(`image seed failed: ${uploadError.message}`);
@@ -95,7 +101,18 @@ test.describe("Admin submission enrichment lifecycle", () => {
       await supabase.from("brand_submissions").delete().eq("id", submissionId);
     }
     if (storagePaths?.length) {
-      await supabase.storage.from("brand-images").remove(storagePaths);
+      const { error: privateError } = await supabase.storage
+        .from("brand-submissions")
+        .remove(storagePaths);
+      if (privateError)
+        throw new Error(`private image cleanup failed: ${privateError.message}`);
+      if (promotedStoragePaths.length > 0) {
+        const { error: publicError } = await supabase.storage
+          .from("brand-images")
+          .remove(promotedStoragePaths);
+        if (publicError)
+          throw new Error(`public image cleanup failed: ${publicError.message}`);
+      }
     }
   });
 
@@ -133,12 +150,9 @@ test.describe("Admin submission enrichment lifecycle", () => {
         ],
       },
     );
-    if (enqueueError || !queuedJobId) {
-      throw new Error(
-        `curation job seed failed: ${enqueueError?.message ?? "missing id"}`,
-      );
-    }
-    jobId = queuedJobId;
+    expect(enqueueError, "curation job seed failed").toBeNull();
+    expect(queuedJobId, "curation job seed returned no id").toBeTruthy();
+    jobId = required(queuedJobId, "curation job seed returned no id");
 
     await adminPage.goto("/admin/submissions?stage=enriching");
     await adminPage
@@ -159,8 +173,7 @@ test.describe("Admin submission enrichment lifecycle", () => {
           sort_order: index,
         })),
       );
-    if (imageError)
-      throw new Error(`submission image seed failed: ${imageError.message}`);
+    expect(imageError, "submission image seed failed").toBeNull();
 
     const { error: enrichmentError } = await supabase
       .from("brand_submissions")
@@ -178,8 +191,7 @@ test.describe("Admin submission enrichment lifecycle", () => {
         },
       })
       .eq("id", submissionId);
-    if (enrichmentError)
-      throw new Error(`enrichment seed failed: ${enrichmentError.message}`);
+    expect(enrichmentError, "enrichment seed failed").toBeNull();
 
     const completedAt = new Date().toISOString();
     const { error: targetError } = await supabase
@@ -187,8 +199,7 @@ test.describe("Admin submission enrichment lifecycle", () => {
       .update({ status: "succeeded", completed_at: completedAt })
       .eq("job_id", jobId)
       .eq("target_id", submissionId);
-    if (targetError)
-      throw new Error(`target completion failed: ${targetError.message}`);
+    expect(targetError, "target completion failed").toBeNull();
 
     const { error: jobError } = await supabase
       .from("curation_jobs")
@@ -198,7 +209,7 @@ test.describe("Admin submission enrichment lifecycle", () => {
         succeeded_count: 1,
       })
       .eq("id", jobId);
-    if (jobError) throw new Error(`job completion failed: ${jobError.message}`);
+    expect(jobError, "job completion failed").toBeNull();
 
     await adminPage.goto("/admin/submissions?stage=ready");
     await adminPage
@@ -213,6 +224,20 @@ test.describe("Admin submission enrichment lifecycle", () => {
     await readyRow.getByText(brandName, { exact: true }).click();
     const review = adminPage.locator(`#submission-review-${submissionId}`);
     await expect(review).toBeVisible();
+    const reviewImageSources = await review.locator("img").evaluateAll((images) =>
+      images.map((image) => image.getAttribute("src") ?? ""),
+    );
+    expect(
+      reviewImageSources.some((source) => source.includes("brand-submissions")),
+    ).toBe(true);
+    const firstStoragePath = required(
+      storagePaths.at(0),
+      "submission image seed is missing",
+    );
+    const rawPrivateResponse = await adminPage.request.get(
+      e2ePublicImageUrl(firstStoragePath, "brand-submissions"),
+    );
+    expect([400, 403, 404]).toContain(rawPrivateResponse.status());
     await expect(review.getByText("完整的品牌資料抓取結果。")).toBeVisible();
     await review.getByRole("tab", { name: "English", exact: true }).click();
     await expect(
@@ -295,15 +320,32 @@ test.describe("Admin submission enrichment lifecycle", () => {
           .select("storage_path")
           .eq("brand_id", approvedBrandId!),
       ]);
-    expect(stagedCount).toBe(0);
-    // `approve_submission` promotes the hero image to a `brands/<id>/` key via
-    // `promoteApprovedBrandImages`, so the exact storage_path changes. Non-hero
-    // images keep their `submissions/` key. Assert count and presence, not exact
-    // paths — the paths are a moving target that depends on which images the
-    // promotion function treats as hero.
+    expect(stagedCount).toBe(storagePaths.length);
     expect(promotedImages).toHaveLength(storagePaths.length);
-    for (const row of promotedImages ?? []) {
-      expect(row.storage_path).toBeTruthy();
+    promotedStoragePaths = (promotedImages ?? []).map((row) => {
+      expect(row.storage_path).toMatch(
+        new RegExp(`^brands/${approvedBrandId}/[^/]+$`),
+      );
+      return required(row.storage_path, "promoted image is missing storage_path");
+    });
+
+    const [privateSources, publicDestinations] = await Promise.all([
+      Promise.all(
+        storagePaths.map((path) =>
+          supabase.storage.from("brand-submissions").info(path),
+        ),
+      ),
+      Promise.all(
+        promotedStoragePaths.map(async (path) => ({
+          info: await supabase.storage.from("brand-images").info(path),
+          response: await adminPage.request.get(e2ePublicImageUrl(path)),
+        })),
+      ),
+    ]);
+    for (const source of privateSources) expect(source.error).toBeNull();
+    for (const destination of publicDestinations) {
+      expect(destination.info.error).toBeNull();
+      expect(destination.response.status()).toBe(200);
     }
   });
 

@@ -95,9 +95,15 @@ describe('promoteApprovedBrandImages', () => {
   it('promotes and rewrites the row when storage cooperates', async () => {
     const updates: { rowId: string; targetKey: string }[] = []
     const copies: { sourceKey: string; targetKey: string }[] = []
+    const objects = new Map([[SOURCE_KEY, { size: 1024, etag: 'image-etag' }]])
     const storage: PromotionStorage = {
-      statObject: async () => null,
+      statObject: async (key) => objects.get(key) ?? null,
       copyObject: async (sourceKey, targetKey) => {
+        const source = objects.get(sourceKey)
+        if (!source) {
+          throw new Error('source missing')
+        }
+        objects.set(targetKey, source)
         copies.push({ sourceKey, targetKey })
       },
       setStoragePath: async (rowId, targetKey) => {
@@ -137,6 +143,7 @@ function fakeSupabaseWithRows(rows: FakeRow[]) {
   const builder = {
     select: () => builder,
     like: () => builder,
+    neq: () => builder,
     order: () => builder,
     range: async (from: number, to: number) => ({
       data: rows.slice(from, to + 1),
@@ -194,12 +201,23 @@ describe('sweepPendingPromotions', () => {
         storagePath: 'submissions/aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee/z.webp',
       },
     ]
+    const objects = new Map(
+      sweepRows.map((row) => [
+        row.storagePath as string,
+        { size: 1024, etag: `etag-${row.id}` },
+      ]),
+    )
     const storage: PromotionStorage = {
-      statObject: async () => null,
-      copyObject: async (sourceKey) => {
+      statObject: async (key) => objects.get(key) ?? null,
+      copyObject: async (sourceKey, targetKey) => {
         if (sourceKey === failingKey) {
           throw new Error('copy refused')
         }
+        const source = objects.get(sourceKey)
+        if (!source) {
+          throw new Error('source missing')
+        }
+        objects.set(targetKey, source)
       },
       setStoragePath: async () => {},
     }

@@ -145,8 +145,8 @@ const PROVIDERS = {
     // object under `brands/` and rewrites the row. Both calls are audited
     // because a copy that silently half-succeeds leaves a brand with images
     // nothing can render.
-    "copyBrandImageObject",
-    "statBrandImageObject",
+    "copySubmissionImageToPublic",
+    "statStoredImageObject",
     "deleteBrandImages",
     "deleteStoredImagePaths",
     "downloadAndGateImages",
@@ -161,6 +161,7 @@ const PROVIDERS = {
     "uploadImageEvalAsset",
     "uploadPrivateFile",
     "uploadPublicImage",
+    "uploadSubmissionImage",
   ],
   submissions: [
     "applyBrandRefresh",

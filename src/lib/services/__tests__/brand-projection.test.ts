@@ -1,4 +1,4 @@
-import { describe, it, expect } from "vitest";
+import { afterEach, beforeEach, describe, it, expect, vi } from "vitest";
 import {
   BRAND_COLUMN_LIST,
   DIRECTORY_BRAND_COLUMN_LIST,
@@ -208,20 +208,30 @@ describe("public brand response contracts", () => {
 });
 
 describe("brandToDomain image derivation (DEV-1551)", () => {
-  it("emits a relative /i/ path for heroImageUrl", () => {
+  beforeEach(() => {
+    vi.stubEnv("NEXT_PUBLIC_SUPABASE_URL", "https://project.supabase.co");
+  });
+
+  afterEach(() => {
+    vi.unstubAllEnvs();
+  });
+
+  it("emits a direct public URL for heroImageUrl", () => {
     const brand = brandToDomain({
       ...COLUMN_FIXTURE,
       hero_image_storage_path: "brands/brand-1/hero.webp",
     } as unknown as BrandRowWithJoins);
 
-    expect(brand.heroImageUrl).toBe("/i/brands/brand-1/hero.webp");
+    expect(brand.heroImageUrl).toBe(
+      "https://project.supabase.co/storage/v1/object/public/brand-images/brands/brand-1/hero.webp",
+    );
   });
 
   it("falls back to the legacy column only as a bucket key, never as a link", () => {
     // The bucket key is preferred, but a null key is the common case for a
     // brand created by `approve_submission`, which writes only the legacy
-    // column. The fallback re-derives the key and serves it through the proxy,
-    // so the row renders; the raw supabase.co url is never emitted.
+    // column. The fallback re-derives the key before rendering the canonical
+    // direct public URL, so the row remains usable after the bucket cutover.
     const brand = brandToDomain({
       ...COLUMN_FIXTURE,
       hero_image_storage_path: null,
@@ -229,7 +239,9 @@ describe("brandToDomain image derivation (DEV-1551)", () => {
         "https://project.supabase.co/storage/v1/object/public/brand-images/brands/brand-1/hero.webp",
     } as unknown as BrandRowWithJoins);
 
-    expect(brand.heroImageUrl).toBe("/i/brands/brand-1/hero.webp");
+    expect(brand.heroImageUrl).toBe(
+      "https://project.supabase.co/storage/v1/object/public/brand-images/brands/brand-1/hero.webp",
+    );
   });
 
   it("treats an empty legacy column as absent", () => {
@@ -254,4 +266,3 @@ describe("brandToDomain image derivation (DEV-1551)", () => {
     expect(brand.heroImageUrl).toBeNull();
   });
 });
-

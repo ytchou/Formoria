@@ -1004,7 +1004,7 @@ describe("script source", () => {
 });
 
 describe("planStorageKeys", () => {
-  it("collects keys under every synced prefix", () => {
+  it("collects public keys and reports private submission history as skipped", () => {
     const plan = planStorageKeys({
       brand_images: [
         { storage_path: "brands/b1/a.webp", status: "active" },
@@ -1012,16 +1012,12 @@ describe("planStorageKeys", () => {
       ],
     });
 
-    expect(plan.keys).toEqual(["brands/b1/a.webp", "submissions/s1/b.webp"]);
-    expect(plan.skippedByPrefix).toEqual([]);
+    expect(plan.keys).toEqual(["brands/b1/a.webp"]);
+    expect(plan.skippedByPrefix).toEqual(["submissions/s1/b.webp"]);
   });
 
-  it("copies submissions/ because promotion reads it as a source", () => {
-    // Promotion is a server-side copy inside ONE bucket, so the source bytes
-    // must already be in the project being promoted. Dropping this prefix
-    // makes `promote-submission-images.ts` report Object not found for every
-    // row — measured 2026-08-23, 781/781.
-    expect(SYNCED_STORAGE_PREFIXES).toContain("submissions/");
+  it("does not copy private production submission history into staging", () => {
+    expect(SYNCED_STORAGE_PREFIXES).not.toContain("submissions/");
     expect(SYNCED_STORAGE_PREFIXES).toContain("brands/");
   });
 

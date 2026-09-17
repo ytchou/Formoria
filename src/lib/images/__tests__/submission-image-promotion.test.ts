@@ -35,7 +35,9 @@ function createFakeStorage(options?: {
   failUpdate?: boolean
 }) {
   const objects = new Map<string, StoredObjectStat>(
-    Object.entries(options?.objects ?? { [SOURCE_KEY]: { size: 1024 } }),
+    Object.entries(
+      options?.objects ?? { [SOURCE_KEY]: { size: 1024, etag: 'source-etag' } },
+    ),
   )
   const updates: { rowId: string; targetKey: string }[] = []
   const copies: { sourceKey: string; targetKey: string }[] = []
@@ -171,7 +173,10 @@ describe('executePromotions', () => {
 
   it('adopts an identical target left behind by an interrupted run', async () => {
     const fake = createFakeStorage({
-      objects: { [SOURCE_KEY]: { size: 1024 }, [TARGET_KEY]: { size: 1024 } },
+      objects: {
+        [SOURCE_KEY]: { size: 1024, etag: 'same-etag' },
+        [TARGET_KEY]: { size: 1024, etag: 'same-etag' },
+      },
     })
 
     const result = await executePromotions(planPromotions([row()]), fake.storage)
@@ -184,7 +189,10 @@ describe('executePromotions', () => {
 
   it('never overwrites a target occupied by a different object', async () => {
     const fake = createFakeStorage({
-      objects: { [SOURCE_KEY]: { size: 1024 }, [TARGET_KEY]: { size: 2048 } },
+      objects: {
+        [SOURCE_KEY]: { size: 1024, etag: 'source-etag' },
+        [TARGET_KEY]: { size: 2048, etag: 'target-etag' },
+      },
     })
 
     const result = await executePromotions(planPromotions([row()]), fake.storage)
@@ -192,7 +200,7 @@ describe('executePromotions', () => {
     expect(result.conflicts).toHaveLength(1)
     expect(fake.copies).toEqual([])
     expect(fake.updates).toEqual([])
-    expect(fake.objects.get(TARGET_KEY)).toEqual({ size: 2048 })
+    expect(fake.objects.get(TARGET_KEY)).toEqual({ size: 2048, etag: 'target-etag' })
   })
 
   it('records a failure instead of throwing when the copy fails', async () => {
@@ -214,10 +222,10 @@ describe('executePromotions', () => {
     expect(result.copied).toBe(0)
   })
 
-  it('keeps promoting the remaining rows after one row fails', async () => {
+  it('keeps promoting the remaining rows after one row conflicts', async () => {
     const goodSource = `submissions/${SUBMISSION_ID}/good.webp`
     const fake = createFakeStorage({
-      objects: { [goodSource]: { size: 10 } },
+      objects: { [goodSource]: { size: 10, etag: 'good-etag' } },
     })
 
     const result = await executePromotions(
@@ -228,7 +236,8 @@ describe('executePromotions', () => {
       fake.storage,
     )
 
-    expect(result.failures).toHaveLength(1)
+    expect(result.conflicts).toHaveLength(1)
+    expect(result.conflicts[0]?.id).toBe('missing')
     expect(result.copied).toBe(1)
     expect(fake.updates).toEqual([
       { rowId: 'good', targetKey: `brands/${BRAND_ID}/good.webp` },

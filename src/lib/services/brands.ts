@@ -58,6 +58,7 @@ import {
   imagePathToUrl,
   storagePathFromImageUrl,
 } from "@/lib/images/image-url";
+import { isBrandOwnedStoragePath } from "@/lib/images/storage-keys";
 import {
   getBrandImages,
   insertBrandImage,
@@ -668,9 +669,8 @@ export function brandToDomain(row: BrandRowWithJoins): Brand {
     descriptionEn: row.description_en ?? null,
     blurb: row.blurb ?? null,
     blurbEn: row.blurb_en ?? null,
-    // DEV-1551 task 9: derived from the bucket key. The bucket is private, so
-    // a public storage URL is a dead link and `/i/<key>` is the only readable
-    // form.
+    // Derived from the bucket key so the render URL follows current bucket
+    // visibility without changing stored row values.
     //
     // The legacy `hero_image_url` is a fallback, not a preference. Two SQL
     // functions still own the approval path -- `approve_submission` and
@@ -807,13 +807,19 @@ export async function hydrateCardImageMeta<
       brands
         .flatMap((brand) => {
           const storagePath = storagePathFromImageUrl(brand.heroImageUrl);
-          return storagePath ? [{ brandId: brand.id, storagePath }] : [];
+          return storagePath && isBrandOwnedStoragePath(storagePath)
+            ? [{ brandId: brand.id, storagePath }]
+            : [];
         })
         .map((pair) => [`${pair.brandId}\n${pair.storagePath}`, pair]),
     ).values(),
   ];
 
   if (pairs.length === 0) return brands.map(withDefaults);
+
+  const heroStoragePathByBrand = new Map(
+    pairs.map(({ brandId, storagePath }) => [brandId, storagePath]),
+  );
 
   let heroRows: CardImageRow[];
   let productRows: CardImageRow[];
@@ -881,15 +887,16 @@ export async function hydrateCardImageMeta<
     // storage key is. Rows arrive ordered by `sort_order`, so the first match is
     // also the lowest-`sort_order` one; that makes the behavior defined if two
     // active rows ever share a key.
+    const heroStoragePath = heroStoragePathByBrand.get(brand.id);
     const heroRow = rowsByBrand
       .get(brand.id)
-      ?.find((row) => imagePathToUrl(row.storage_path) === brand.heroImageUrl);
+      ?.find((row) => row.storage_path === heroStoragePath);
 
-    // A row with no `storage_path` cannot be rendered at all now that the
-    // bucket is private, so it is not a usable product photo.
+    // A row with no `storage_path` cannot be routed to its owning bucket, so it
+    // is not a usable product photo.
     const productRow = productRowsByBrand.get(brand.id)?.find((row) => {
       const src = imagePathToUrl(row.storage_path);
-      return src !== null && src !== brand.heroImageUrl;
+      return src !== null && row.storage_path !== heroStoragePath;
     });
     const productPhoto = productRow
       ? imagePathToUrl(productRow.storage_path)

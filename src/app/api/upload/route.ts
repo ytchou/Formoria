@@ -13,6 +13,7 @@ import {
   type AllowedUploadBucket,
 } from '@/lib/services/image-upload'
 import { imagePathToUrl } from '@/lib/images/image-url'
+import { isPublicStorageKey } from '@/lib/images/storage-keys'
 
 async function captureAssetUploaded(
   request: Request,
@@ -64,6 +65,10 @@ export const POST = withAuditScope(async (request: Request) => {
       return NextResponse.json({ error: 'Invalid bucket' }, { status: 400 })
     }
     const bucket = rawBucket as AllowedUploadBucket
+
+    if (!isPublicStorageKey(`${path}/upload.webp`)) {
+      return NextResponse.json({ error: 'Invalid path' }, { status: 400 })
+    }
 
     // Every bucket requires an authenticated user — the public brand-images
     // bucket has no anonymous upload path, and the in-memory rate limiter alone
@@ -125,9 +130,9 @@ export const POST = withAuditScope(async (request: Request) => {
         height: processed.height,
         authenticated: true,
       })
-      // The same-origin proxy path, not a storage URL (DEV-1551): the bucket
-      // is private, and this value is written straight into an `<img src>` by
-      // the dashboard uploader.
+      // The canonical render URL is written straight into an `<img src>` by
+      // the dashboard uploader. Published prefixes use direct public storage;
+      // `/i/` remains the fallback when the project URL is unavailable.
       return NextResponse.json({
         url: imagePathToUrl(result.path),
         width: processed.width,

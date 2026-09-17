@@ -1,10 +1,9 @@
 /**
  * Same-origin image proxy (DEV-1551, task 7).
  *
- * Brand imagery is served from `/i/<bucket-relative-path>` instead of the
- * public Supabase object URL, so the storage host never appears in a page and
- * the bucket can stop being public. The bytes are streamed through the origin;
- * no Supabase image render/transform endpoint is involved (that endpoint is a
+ * `/i/<bucket-relative-path>` remains a compatibility and defense-in-depth
+ * route for published imagery. The bytes are streamed through the origin; no
+ * Supabase image render/transform endpoint is involved (that endpoint is a
  * separately metered line item, and `scripts/check-storage-transforms.mjs`
  * fails the lint chain on it).
  *
@@ -14,30 +13,12 @@
  * rejection, the conditional-GET handling and the response headers.
  */
 
-export const PROXIED_IMAGE_BUCKET = "brand-images" as const;
+import {
+  BRAND_IMAGES_BUCKET,
+  resolveImageStorageLocation,
+} from "./storage-keys";
 
-/**
- * Key prefixes this route refuses to serve. A DENY-list, not an allow-list.
- *
- * `submissions/` is pre-moderation content that only admins may see; admin
- * review signs its URLs instead (`src/lib/services/_shared/signed-urls.ts`).
- * Everything else in `brand-images` is public imagery, which is the invariant
- * this constant now states directly.
- *
- * It used to be an allow-list and it went stale twice in one week: task 11
- * missed `curated-products/`, which would have 404ed every curated product
- * image the moment the bucket went private, and the 2026-08-23 staging
- * backfill then turned up `events/`, which no list knew about at all. An
- * allow-list has to be edited every time a surface stores a new prefix, and
- * nothing fails until production 404s -- `resolveProxiedImageKey` returning
- * null is indistinguishable from a genuinely bad key. A deny-list cannot go
- * stale as surfaces are added, and the one thing that must stay private is
- * named explicitly.
- *
- * Adding a prefix here makes objects PRIVATE. Anything added must have a
- * signed-URL path for the people who are allowed to see it.
- */
-export const PRIVATE_IMAGE_PREFIXES = ["submissions/"] as const;
+export const PROXIED_IMAGE_BUCKET = BRAND_IMAGES_BUCKET;
 
 const PROXIED_IMAGE_CACHE_CONTROL =
   "public, max-age=31536000, immutable";
@@ -251,7 +232,8 @@ export function resolveProxiedImageKey(
   if (decoded.includes("..")) return null;
 
   const key = parts.join("/");
-  if (PRIVATE_IMAGE_PREFIXES.some((prefix) => key.startsWith(prefix))) {
+  const location = resolveImageStorageLocation(key);
+  if (!location || location.bucket !== PROXIED_IMAGE_BUCKET) {
     return null;
   }
 

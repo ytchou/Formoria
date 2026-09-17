@@ -611,7 +611,6 @@ export const STORAGE_BUCKET = "brand-images";
  */
 export const SYNCED_STORAGE_PREFIXES = [
   "brands/",
-  "submissions/",
   "curated-products/",
 ] as const;
 

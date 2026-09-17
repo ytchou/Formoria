@@ -1,8 +1,12 @@
 import { createServiceClient } from '@/lib/supabase/service'
 import { auditedCall } from '@/lib/audit'
 import { uploadWithRetry } from './storage-retry'
+import {
+  BRAND_IMAGES_BUCKET,
+  BRAND_SUBMISSIONS_BUCKET,
+  partitionImageStoragePaths,
+} from '@/lib/images/storage-keys'
 
-const BRAND_IMAGES_BUCKET = 'brand-images'
 const RETENTION_MS = 7 * 24 * 60 * 60 * 1_000
 const DEFAULT_BATCH_SIZE = 100
 const MAX_BATCH_SIZE = 1_000
@@ -96,21 +100,23 @@ async function deleteStorageObjects(
   client: RetentionClient,
   rows: RetentionRow[],
 ): Promise<Set<string>> {
-  const paths = [...new Set(rows.map((row) => row.storage_path))].filter(
-    (path) => path.startsWith('brands/') || path.startsWith('submissions/'),
-  )
-  if (paths.length !== new Set(rows.map((row) => row.storage_path)).size) {
-    throw new Error('retention row contains an invalid brand-images storage path')
+  const paths = [...new Set(rows.map((row) => row.storage_path))]
+  const partitioned = partitionImageStoragePaths(paths)
+  if (partitioned.rejected.length > 0) {
+    throw new Error('retention row contains an invalid image storage path')
   }
   const deleted = new Set<string>()
 
-  for (let index = 0; index < paths.length; index += STORAGE_DELETE_BATCH_SIZE) {
-    const chunk = paths.slice(index, index + STORAGE_DELETE_BATCH_SIZE)
-    const { error } = await uploadWithRetry(() =>
-      client.storage.from(BRAND_IMAGES_BUCKET).remove(chunk),
-    )
-    if (error) throw error
-    chunk.forEach((path) => deleted.add(path))
+  for (const bucket of [BRAND_IMAGES_BUCKET, BRAND_SUBMISSIONS_BUCKET] as const) {
+    const bucketPaths = partitioned[bucket]
+    for (let index = 0; index < bucketPaths.length; index += STORAGE_DELETE_BATCH_SIZE) {
+      const chunk = bucketPaths.slice(index, index + STORAGE_DELETE_BATCH_SIZE)
+      const { error } = await uploadWithRetry(() =>
+        client.storage.from(bucket).remove(chunk),
+      )
+      if (error) throw error
+      chunk.forEach((path) => deleted.add(path))
+    }
   }
 
   return deleted
@@ -192,4 +198,3 @@ export async function purgeExpiredClassifierJunk(
     },
   )
 }
-
