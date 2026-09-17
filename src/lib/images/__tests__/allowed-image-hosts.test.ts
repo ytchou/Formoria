@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest'
+import { afterEach, describe, it, expect, vi } from 'vitest'
 import {
   isAllowedImageHost,
   isNonImageHost,
@@ -6,14 +6,66 @@ import {
   ALLOWED_IMAGE_HOSTS,
 } from '@/lib/images/allowed-image-hosts'
 
+/**
+ * The list is computed once at module load, so a host-specific case has to
+ * re-import the module with the project URL stubbed. The statically imported
+ * binding above stays the unconfigured case, which is what vitest runs with.
+ */
+async function importWithProjectUrl(url: string) {
+  vi.stubEnv('NEXT_PUBLIC_SUPABASE_URL', url)
+  vi.resetModules()
+  return import('@/lib/images/allowed-image-hosts')
+}
+
+afterEach(() => {
+  vi.unstubAllEnvs()
+  vi.resetModules()
+})
+
 describe('isAllowedImageHost', () => {
-  it('is empty: every image we own is served same-origin from /i/', () => {
-    // DEV-1551 task 11. `*.supabase.co` was the only entry and it is gone with
-    // the private-bucket flip. Adding a host back re-opens hotlinking.
+  it('is empty when no Supabase project is configured', () => {
+    // An unset project URL must not fall back to a wildcard: an empty list
+    // rejects every remote host, which is the safe direction.
     expect(ALLOWED_IMAGE_HOSTS).toEqual([])
   })
 
-  it('no longer allows the Supabase storage host', () => {
+  it('is empty for a blank or unparseable project URL', async () => {
+    // The condition the build assertion in `next.config.ts` refuses: an empty
+    // list bakes no host into `images.remotePatterns`, so every public storage
+    // URL is rejected by `next/image` at runtime. Pinned here because the
+    // assertion itself lives in a config file no unit test can load twice.
+    expect((await importWithProjectUrl('')).ALLOWED_IMAGE_HOSTS).toEqual([])
+    expect((await importWithProjectUrl('   ')).ALLOWED_IMAGE_HOSTS).toEqual([])
+    expect((await importWithProjectUrl('project.supabase.co')).ALLOWED_IMAGE_HOSTS).toEqual(
+      [],
+    )
+  })
+
+  it('allows the configured project storage host (DEV-1744)', async () => {
+    // Wired for when `imagePathToUrl` addresses published objects by their
+    // public storage URL (DEV-1744 task 3, currently descoped) — `next/image`
+    // and `safeImageSrc` need to accept this host once that lands.
+    const mod = await importWithProjectUrl('https://project.supabase.co')
+    expect(mod.ALLOWED_IMAGE_HOSTS).toEqual(['project.supabase.co'])
+    expect(mod.isAllowedImageHost('project.supabase.co')).toBe(true)
+    expect(
+      mod.safeImageSrc(
+        'https://project.supabase.co/storage/v1/object/public/brand-images/brands/a/x.webp',
+      ),
+    ).toBe(
+      'https://project.supabase.co/storage/v1/object/public/brand-images/brands/a/x.webp',
+    )
+  })
+
+  it('stays host-exact: another Supabase project is not allowed', async () => {
+    // A wildcard `*.supabase.co` would let any project on the internet render
+    // inside our pages.
+    const mod = await importWithProjectUrl('https://project.supabase.co')
+    expect(mod.isAllowedImageHost('other.supabase.co')).toBe(false)
+    expect(mod.isAllowedImageHost('project.supabase.co.evil.com')).toBe(false)
+  })
+
+  it('does not allow a Supabase host when none is configured', () => {
     expect(isAllowedImageHost('abc.supabase.co')).toBe(false)
     expect(isAllowedImageHost('project.storage.supabase.co')).toBe(false)
   })
@@ -34,7 +86,9 @@ describe('isAllowedImageHost', () => {
 })
 
 describe('safeImageSrc', () => {
-  it('rejects a public storage URL, which the private bucket no longer serves', () => {
+  it('rejects a public storage URL from an unconfigured/foreign project', () => {
+    // Host-exact, not `*.supabase.co`: with no project configured (and with a
+    // different project configured) these are somebody else's objects.
     expect(
       safeImageSrc('http://project.supabase.co/storage/v1/object/public/brand/logo.jpg'),
     ).toBeNull()

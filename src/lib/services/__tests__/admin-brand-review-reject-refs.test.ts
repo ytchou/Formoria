@@ -11,6 +11,16 @@ import { ValidationError } from "@/lib/errors";
 const SUPABASE_URL = "https://project.supabase.co";
 const PUBLIC_PREFIX = `${SUPABASE_URL}/storage/v1/object/public/brand-images/`;
 
+/**
+ * The refs are RENDER urls that `rejectBrandImages` reverses through
+ * `storagePathFromImageUrl`; nothing compares them to a stored `/i/` value.
+ * DEV-1744 task 3 (a public storage URL for `brands/` keys) is descoped — see
+ * `imagePathToUrl`'s docblock — so `imagePathToUrl` still returns the `/i/`
+ * form here. Legacy rows recovered from an already-stored public URL (the
+ * 20260708100000 backfill) still round-trip through that form: the reverse
+ * parser recognizes both shapes independent of which one is currently
+ * generated.
+ */
 describe("brandImageRejectRefs", () => {
   beforeEach(() => {
     vi.stubEnv("NEXT_PUBLIC_SUPABASE_URL", SUPABASE_URL);
@@ -33,6 +43,8 @@ describe("brandImageRejectRefs", () => {
     // `brands.hero_image_url` and `storage_path` NULL. Deriving from
     // `storage_path` alone yielded an empty list, `rejectBrandImages` returned
     // at its guard, and the row stayed active while the UI reported success.
+    // The stored `url` is the legacy public form; `imagePathToUrl` re-renders
+    // the recovered key as `/i/` regardless (task 3 descoped).
     expect(
       brandImageRejectRefs([
         {

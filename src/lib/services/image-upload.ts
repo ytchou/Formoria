@@ -1,8 +1,15 @@
 import { createServiceClient } from '@/lib/supabase/service'
 import { auditedCall } from '@/lib/audit'
 import { uploadWithRetry } from './storage-retry'
-import { storagePathFromImageUrl } from '@/lib/images/image-url'
-import { BRAND_IMAGES_KEY_PREFIX } from '@/lib/images/storage-keys'
+import {
+  BRAND_IMAGES_PUBLIC_URL_SEGMENT,
+  storageKeyFromBrandImagesPublicUrl,
+  storagePathFromImageUrl,
+} from '@/lib/images/image-url'
+import {
+  BRAND_IMAGES_KEY_PREFIX,
+  CURATED_PRODUCT_IMAGES_KEY_PREFIX,
+} from '@/lib/images/storage-keys'
 
 /**
  * Public upload route allowlist. A private bucket belongs here ONLY if a signed-in
@@ -14,16 +21,18 @@ export const ALLOWED_UPLOAD_BUCKETS = [
 ] as const
 export type AllowedUploadBucket = (typeof ALLOWED_UPLOAD_BUCKETS)[number]
 const BRAND_IMAGES_BUCKET = ALLOWED_UPLOAD_BUCKETS[0]
-const BRAND_IMAGES_PUBLIC_SEGMENT = `/storage/v1/object/public/${BRAND_IMAGES_BUCKET}/`
+/**
+ * Aliased from `lib/images/image-url.ts`, which owns the public-URL seam.
+ * Services depend on `lib/images`, never the other way round.
+ */
+const BRAND_IMAGES_PUBLIC_SEGMENT = BRAND_IMAGES_PUBLIC_URL_SEGMENT
 const SUBMISSION_IMAGES_KEY_PREFIX = 'submissions/'
 // Curated product images (DEV-1404): `curated-products/<brand>/<product>/<hash>.webp`
-// in the same `brand-images` bucket.
-export const CURATED_PRODUCT_IMAGES_KEY_PREFIX = 'curated-products/'
+// in the same `brand-images` bucket. Defined in `lib/images/storage-keys.ts`
+// since DEV-1744 (the URL builder needs it too) and re-exported here so the
+// existing importers keep their import path.
+export { CURATED_PRODUCT_IMAGES_KEY_PREFIX }
 const DELETABLE_IMAGE_KEY_PREFIXES = [BRAND_IMAGES_KEY_PREFIX] as const
-
-function getBrandImagesPublicPrefix(): string {
-  return `${process.env.NEXT_PUBLIC_SUPABASE_URL ?? ''}${BRAND_IMAGES_PUBLIC_SEGMENT}`
-}
 
 interface UploadImageInput {
   bucket: AllowedUploadBucket
@@ -64,12 +73,11 @@ export type PrivateUploadFileInput = Omit<UploadImageInput, 'bucket'> & {
  * derivation rather than an entry here. `submissions/` remains read-only.
  */
 export function storageKeyFromPublicUrl(url: string): string | null {
-  const prefix = getBrandImagesPublicPrefix()
-  if (!url || !prefix || !url.startsWith(prefix)) {
+  const key = storageKeyFromBrandImagesPublicUrl(url)
+  if (!key) {
     return null
   }
 
-  const key = url.slice(prefix.length)
   if (!DELETABLE_IMAGE_KEY_PREFIXES.some((allowed) => key.startsWith(allowed))) {
     return null
   }
@@ -161,13 +169,13 @@ export function curatedProductStorageKeyFromPublicUrl(url: string): string | nul
       : null
   }
 
-  const prefix = getBrandImagesPublicPrefix()
-  if (!prefix || !url.startsWith(prefix)) {
-    return null
-  }
-
-  const key = url.slice(prefix.length)
-  return key.startsWith(CURATED_PRODUCT_IMAGES_KEY_PREFIX) ? key : null
+  /*
+   * `storagePathFromImageUrl` now resolves the public form too, but only for
+   * `brands/` — so a curated public URL still falls through to here, where the
+   * curated scope is applied instead.
+   */
+  const key = storageKeyFromBrandImagesPublicUrl(url)
+  return key?.startsWith(CURATED_PRODUCT_IMAGES_KEY_PREFIX) ? key : null
 }
 
 export async function deleteStoredImagePaths(paths: string[]): Promise<void> {
