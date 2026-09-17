@@ -198,7 +198,7 @@ const PROVIDERS = {
   "health-agent": ["run_detectors", "reconcile_lifecycle", "record_snapshot", "reportWorkerFailure"],
   "repo-worker": ["clone", "run_tool", "push_branch", "reportWorkerFailure"],
   "claude-code": ["create_pr", "apply_fix"],
-  "github-app": ["create_branch", "create_pull_request", "merge_pull_request"],
+  "github-app": ["get_installation_token", "create_blob", "create_tree", "create_commit", "create_branch", "create_pull_request", "add_labels", "merge_pull_request"],
 } as const;
 
 type ProviderRegistry = typeof PROVIDERS;
