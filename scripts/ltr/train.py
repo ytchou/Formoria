@@ -139,7 +139,7 @@ def _read_feature_names(features_dir: str) -> list[str]:
     with open(csv_files[0]) as f:
         header = f.readline().strip().split(",")
 
-    return [c for c in header if c not in ("grade", "qid")]
+    return [c for c in header if c not in ("grade", "qid", "brandSlug", "productKey")]
 
 
 if __name__ == "__main__":

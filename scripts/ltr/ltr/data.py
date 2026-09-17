@@ -54,7 +54,7 @@ def load_csvs(features_dir: str) -> tuple[np.ndarray, np.ndarray, np.ndarray, li
     assert spec_hash is not None
     combined = pd.concat(all_frames, ignore_index=True)
 
-    feature_cols = [c for c in combined.columns if c not in ("grade", "qid")]
+    feature_cols = [c for c in combined.columns if c not in ("grade", "qid", "brandSlug", "productKey")]
     X = combined[feature_cols].values.astype(np.float32)
     y = combined["grade"].values.astype(np.int32)
     qid = combined["qid"].values
@@ -77,4 +77,4 @@ def load_csvs(features_dir: str) -> tuple[np.ndarray, np.ndarray, np.ndarray, li
         unique_qids.append(current_qid)
         group_sizes.append(current_count)
 
-    return X, y, np.array(unique_qids), group_sizes, spec_hash
+    return X, y, qid, group_sizes, spec_hash

@@ -21,7 +21,8 @@ import {
   searchProductsBySituation,
   findSimilarProducts,
   findSimilarProductsForTrail,
-  type SearchMode,
+  createDefaultSearchDeps,
+  type SearchDeps,
 } from "@/lib/services/product-situation-search";
 import { getPublishedCuratedProducts } from "@/lib/services/curated-products-catalog";
 import { getPublishedCuratedProductsForTrail } from "@/lib/services/curated-products";
@@ -31,20 +32,7 @@ import {
   getRelatedBrandsByCentroid,
 } from "@/lib/services/brand-embeddings";
 import { createServiceClient } from "@/lib/supabase/service";
-import { rerankProducts, buildRerankDocument } from "@/lib/services/product-rerank";
-import {
-  rerankWithCohere,
-  createDefaultRerankDeps,
-} from "@/lib/services/cohere-rerank-audit";
-import type { CatalogProduct } from "@/lib/services/curated-products-catalog";
-import { getLangfuse, flushLangfuse } from "@/lib/langfuse/client";
-import {
-  precisionAtK,
-  recallAtK,
-  mrr,
-  mean,
-  p95,
-} from "@/lib/services/eval/scorers";
+import { rerankProducts } from "@/lib/services/product-rerank";
 import {
   buildBlindReviewPool,
   compareConsumerOverlap,
@@ -56,389 +44,155 @@ import {
   type GradeRecord,
   type SnapshotVariant,
 } from "@/lib/services/eval/embedding-corpus-regression";
-// ---------------------------------------------------------------------------
-// Types (migrated from metrics.ts)
-// ---------------------------------------------------------------------------
-
-type GoldenItem = {
-  id: string;
-  query: string;
-  locale: "zh-TW" | "en";
-  category?: string;
-  expected: Array<{ brandSlug: string; productKey: string }>;
-};
-
-type QueryResult = {
-  queryId: string;
-  retrieved: string[];
-  expected: string[];
-  precisionAtK: number;
-  recallAtK: number;
-  mrr: number;
-  latencyMs: number;
-};
-
-type ArmResult = {
-  arm: string;
-  metrics: {
-    meanPrecisionAtK: number;
-    meanRecallAtK: number;
-    meanMrr: number;
-    p95LatencyMs: number;
-  };
-  perQuery: QueryResult[];
-};
-
-// ---------------------------------------------------------------------------
-// Verdict (migrated from metrics.ts)
-// ---------------------------------------------------------------------------
-
-/**
- * Decides whether the rerank arm should ship.
- *
- * - "ship": rerank precision@5 improves by >= 0.1 over hybrid AND p95 < 1500ms
- * - "no-lift": precision improvement < 0.1
- * - "too-slow": p95 >= 1500ms despite sufficient lift
- * - "missing-arms": hybrid or rerank arm not present
- */
-function verdict(results: ArmResult[]): string {
-  const hybrid = results.find((r) => r.arm === "hybrid");
-  const rerank = results.find((r) => r.arm === "rerank");
-
-  if (!hybrid || !rerank) return "missing-arms";
-
-  const lift =
-    rerank.metrics.meanPrecisionAtK - hybrid.metrics.meanPrecisionAtK;
-  const fast = rerank.metrics.p95LatencyMs < 1500;
-
-  if (lift >= 0.1 - 1e-9 && fast) return "ship";
-  if (lift < 0.1 - 1e-9) return "no-lift";
-  return "too-slow";
-}
-
-// ---------------------------------------------------------------------------
-// resolveExpected (migrated from metrics.ts)
-// ---------------------------------------------------------------------------
-
-type ProductEntry = { id: string; key: string; brandSlug: string };
-
-/**
- * Resolve expected brandSlug+productKey pairs to product IDs.
- *
- * The `lookupFn` parameter allows injection for testing. In production the
- * eval script passes a function that queries the catalog.
- */
-async function resolveExpected(
-  items: GoldenItem[],
-  lookupFn: (slugs: string[]) => Promise<Map<string, ProductEntry>>,
-): Promise<{
-  resolved: Map<string, string[]>;
-  missing: Array<{ queryId: string; brandSlug: string; productKey: string }>;
-}> {
-  const allSlugs = new Set<string>();
-  for (const item of items) {
-    for (const exp of item.expected) {
-      allSlugs.add(exp.brandSlug);
-    }
-  }
-
-  const productMap = await lookupFn([...allSlugs]);
-
-  const resolved = new Map<string, string[]>();
-  const missing: Array<{
-    queryId: string;
-    brandSlug: string;
-    productKey: string;
-  }> = [];
-
-  for (const item of items) {
-    const ids: string[] = [];
-    for (const exp of item.expected) {
-      const compositeKey = `${exp.brandSlug}:${exp.productKey}`;
-      const found = productMap.get(compositeKey);
-      if (found) {
-        ids.push(found.id);
-      } else {
-        missing.push({
-          queryId: item.id,
-          brandSlug: exp.brandSlug,
-          productKey: exp.productKey,
-        });
-      }
-    }
-    resolved.set(item.id, ids);
-  }
-
-  return { resolved, missing };
-}
+import { loadDatasetV2, toExperimentItems } from "./dataset-v2";
+import { writeReport } from "./report";
+import { cmdExportFeatures } from "./export-features";
+import {
+  compositeKey,
+  createRetrievalAdapter,
+  type RetrievalAdapterDeps,
+} from "@/lib/services/eval/retrieval-adapter";
+import {
+  runExperiment,
+  type ExperimentArm,
+} from "@/lib/services/eval/run-experiment";
+import { createScriptExperimentDeps } from "@/lib/services/eval/script-experiment-deps";
+import {
+  buildFeatureRows,
+  fetchDocFeatures,
+  type RpcRow as LtrRpcRow,
+} from "@/lib/services/ltr-features";
+import { scoreCandidates } from "@/lib/services/ltr-scorer";
 
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
 
 const SCRIPT_DIR = dirname(new URL(import.meta.url).pathname);
-const GOLDEN_PATH = resolve(SCRIPT_DIR, "retrieval-golden.json");
 const RUNS_DIR = resolve(SCRIPT_DIR, "runs");
 
-function loadGolden(): GoldenItem[] {
-  return JSON.parse(readFileSync(GOLDEN_PATH, "utf8")) as GoldenItem[];
-}
+// ---------------------------------------------------------------------------
+// Subcommand: run (v2 — experiment framework)
+// ---------------------------------------------------------------------------
 
-type ArmName = "all" | "category" | "lexical" | "vector" | "hybrid" | "rerank" | "rerank:cohere";
+async function cmdRun(values: Record<string, unknown>) {
+  const armSpecs = String(values.arm ?? "hybrid").split(",");
+  const split = String(values.split ?? "holdout");
+  const out =
+    values.out != null
+      ? String(values.out)
+      : resolve(RUNS_DIR, `${new Date().toISOString()}.json`);
+  const allowUnreviewed = values["allow-unreviewed"] === "true";
 
-const ARMS: ArmName[] = ["category", "lexical", "vector", "hybrid", "rerank", "rerank:cohere"];
+  const datasetPath = resolve(SCRIPT_DIR, "situation-search-v2.json");
+  const datasetItems = loadDatasetV2(datasetPath, { split });
+  const experimentItems = toExperimentItems(datasetItems);
 
-/**
- * Build the default lookup function that queries the curated product catalog.
- */
-function defaultLookup() {
-  return async (_slugs: string[]) => {
-    const { products, totalCount } = await getPublishedCuratedProducts({
-      pageSize: Number.MAX_SAFE_INTEGER,
-    });
-    if (products.length !== totalCount) {
-      throw new Error(
-        `catalog read truncated: got ${products.length} of ${totalCount}`,
+  // Build queryType map for per-type breakdown
+  const queryTypes = new Map<string, string>();
+  for (const item of datasetItems) {
+    if (item.queryType) queryTypes.set(item.id, item.queryType);
+  }
+
+  // Build arms
+  const arms: ExperimentArm[] = armSpecs.map((spec) => ({
+    name: spec,
+    type: "custom" as const,
+    value: spec,
+  }));
+
+  // Build adapter deps — the `rank` dep powers ltr:<version> arms
+  const adapterDeps: RetrievalAdapterDeps = {
+    search: (input) => searchProductsBySituation(input),
+    category: (opts) =>
+      getPublishedCuratedProducts({
+        category: opts.category,
+        pageSize: opts.pageSize,
+      }),
+    rerank: async (query, candidates) => rerankProducts(query, candidates),
+    rank: async ({ query, version, category }) => {
+      const teed: LtrRpcRow[] = [];
+      const baseDeps = createDefaultSearchDeps();
+      const deps: SearchDeps = {
+        ...baseDeps,
+        rpc: async (name, params) => {
+          const result = await baseDeps.rpc(name, params);
+          if (result.data) teed.push(...(result.data as LtrRpcRow[]));
+          return result;
+        },
+      };
+      const result = await searchProductsBySituation(
+        {
+          query,
+          locale: "zh-TW",
+          mode: "hybrid",
+          pageSize: 100,
+          enableIntentParse: false,
+          category: category ?? null,
+        },
+        deps,
       );
-    }
-    const map = new Map<
-      string,
-      { id: string; key: string; brandSlug: string }
-    >();
-    for (const p of products) {
-      map.set(`${p.brandSlug}:${p.key}`, {
-        id: p.id,
-        key: p.key,
-        brandSlug: p.brandSlug,
-      });
-    }
-    return map;
+
+      const byId = new Map(teed.map((r) => [r.product_id, r]));
+      const products = result.products.filter((p) => byId.has(p.id));
+      const docs = await fetchDocFeatures(products.map((p) => p.id));
+      const rpcForFeatures = products.map((p) => byId.get(p.id)!);
+      const feats = buildFeatureRows(query, rpcForFeatures, docs);
+      const scores = await scoreCandidates(feats, version);
+
+      const indexed = scores.map((s, i) => ({ s, i }));
+      indexed.sort((a, b) => b.s - a.s);
+      return indexed.map((x) => compositeKey(products[x.i]!));
+    },
   };
-}
 
-// ---------------------------------------------------------------------------
-// Subcommand: dataset
-// ---------------------------------------------------------------------------
+  const adapter = createRetrievalAdapter(adapterDeps);
+  const deps = await createScriptExperimentDeps({
+    adapter,
+    profileKey: "search-eval",
+  });
 
-async function cmdDataset() {
-  const golden = loadGolden();
-  const langfuse = getLangfuse();
-
-  if (!langfuse) {
-    console.error(
-      "[dataset] Langfuse not configured (missing LANGFUSE_PUBLIC_KEY / LANGFUSE_SECRET_KEY / LANGFUSE_HOST)",
-    );
-    process.exitCode = 1;
-    return;
-  }
-
-  console.log(`[dataset] Uploading ${golden.length} items to Langfuse…`);
-
-  for (const item of golden) {
-    await langfuse.createDatasetItem({
-      datasetName: "situation-search-v1",
-      id: item.id,
-      input: {
-        query: item.query,
-        locale: item.locale,
-        category: item.category ?? null,
-      },
-      expectedOutput: { expected: item.expected },
-    });
-    console.log(`  ${item.id}`);
-  }
-
-  await flushLangfuse();
-  console.log("[dataset] Done.");
-}
-
-// ---------------------------------------------------------------------------
-// Subcommand: run
-// ---------------------------------------------------------------------------
-
-async function runArm(
-  armName: string,
-  item: GoldenItem,
-  expectedIds: string[],
-  k: number,
-): Promise<QueryResult> {
-  const start = performance.now();
-  let retrievedIds: string[] = [];
-
-  if (armName === "category") {
-    // Category arm: fetch by category, no search
-    if (item.category) {
-      const { products } = await getPublishedCuratedProducts({
-        category: item.category,
-        sort: "newest",
-        pageSize: k,
-      });
-      retrievedIds = products.map((p) => p.id);
-    }
-  } else if (armName === "rerank") {
-    // Hybrid top-20 -> rerank -> top-k
-    const result = await searchProductsBySituation({
-      query: item.query,
-      locale: item.locale,
-      mode: "hybrid",
-      pageSize: 20,
-      category: item.category ?? null,
-    });
-    const candidates = result.products.map((p) => ({
-      id: p.id,
-      document: `${p.nameZh} ${p.category} ${p.subcategory}`,
-    }));
-    const reranked = await rerankProducts(item.query, candidates);
-    retrievedIds = reranked.slice(0, k).map((c) => c.id);
-  } else if (armName === "rerank:cohere") {
-    // Hybrid top-50 -> Cohere rerank -> top-k
-    const result = await searchProductsBySituation({
-      query: item.query,
-      locale: item.locale,
-      mode: "hybrid",
-      pageSize: 50,
-      category: item.category ?? null,
-    });
-    const candidates = result.products.map((p) => ({
-      id: p.id,
-      document: buildRerankDocument(p as CatalogProduct),
-    }));
-    const rpcScores = result.products.map((p) => ({
-      productId: p.id,
-      rankScore: 0,
-      cosineSim: 0,
-      lexicalScore: 0,
-    }));
-    const reranked = await rerankWithCohere(
-      item.query,
-      candidates,
-      { rpcScores, category: item.category ?? null },
-      createDefaultRerankDeps(),
-    );
-    retrievedIds = reranked.slice(0, k).map((c) => c.id);
-  } else {
-    // lexical / vector / hybrid
-    const mode = armName as SearchMode;
-    const result = await searchProductsBySituation({
-      query: item.query,
-      locale: item.locale,
-      mode,
-      pageSize: k,
-      category: item.category ?? null,
-    });
-    retrievedIds = result.products.map((p) => p.id);
-  }
-
-  const latencyMs = performance.now() - start;
-
-  return {
-    queryId: item.id,
-    retrieved: retrievedIds,
-    expected: expectedIds,
-    precisionAtK: precisionAtK(retrievedIds, expectedIds, k),
-    recallAtK: recallAtK(retrievedIds, expectedIds, k),
-    mrr: mrr(retrievedIds, expectedIds),
-    latencyMs,
-  };
-}
-
-async function cmdRun(armFilter: ArmName, k: number) {
-  const golden = loadGolden();
-  const { resolved, missing } = await resolveExpected(golden, defaultLookup());
-  const langfuse = getLangfuse();
-
-  if (missing.length > 0) {
-    throw new Error(
-      `[run] expected products not found:\n${missing
-        .map(
-          (item) => `  ${item.queryId}: ${item.brandSlug}/${item.productKey}`,
-        )
-        .join("\n")}`,
-    );
-  }
-
-  const armsToRun = armFilter === "all" ? ARMS : [armFilter];
-  const results: ArmResult[] = [];
-
-  for (const arm of armsToRun) {
-    console.log(`[run] Running arm: ${arm} (k=${k})…`);
-    const runName = `situation-search-${arm}-${new Date().toISOString().slice(0, 19)}`;
-    const perQuery: QueryResult[] = [];
-
-    for (const item of golden) {
-      const expectedIds = resolved.get(item.id) ?? [];
-      const qr = await runArm(arm, item, expectedIds, k);
-      if (langfuse) {
-        const trace = langfuse.trace({
-          name: `eval:${arm}:${item.id}`,
-          input: { query: item.query, arm, k },
-          output: {
-            precisionAtK: qr.precisionAtK,
-            recallAtK: qr.recallAtK,
-            mrr: qr.mrr,
-            retrievedCount: qr.retrieved.length,
-          },
-          metadata: { latencyMs: qr.latencyMs },
-        });
-        await langfuse.createDatasetRunItem({
-          datasetItemId: item.id,
-          runName,
-          traceId: trace.id,
-        });
-      }
-      perQuery.push(qr);
-    }
-
-    const scorable = perQuery.filter((q) => q.expected.length > 0);
-    const armResult: ArmResult = {
-      arm,
-      metrics: {
-        meanPrecisionAtK: mean(scorable.map((q) => q.precisionAtK)),
-        meanRecallAtK: mean(scorable.map((q) => q.recallAtK)),
-        meanMrr: mean(scorable.map((q) => q.mrr)),
-        p95LatencyMs: p95(perQuery.map((q) => q.latencyMs)),
-      },
-      perQuery,
-    };
-    results.push(armResult);
-
-    if (langfuse) {
-      await flushLangfuse();
-      console.log(`[run] Langfuse run: ${runName}`);
-    }
-  }
-
-  // Write run output
-  const runFile = resolve(RUNS_DIR, `${new Date().toISOString()}.json`);
-  mkdirSync(dirname(runFile), { recursive: true });
-  writeFileSync(
-    runFile,
-    JSON.stringify(
-      {
-        timestamp: new Date().toISOString(),
-        k,
-        arms: armsToRun,
-        results,
-        verdict: verdict(results),
-        missing,
-      },
-      null,
-      2,
-    ),
+  console.log(
+    `[run] arms=${armSpecs.join(",")} split=${split} items=${experimentItems.length}`,
   );
-  console.log(`\n[run] Results written to ${runFile}`);
 
-  // Print markdown table
-  console.log("\n| Arm | P@k | R@k | MRR | p95 (ms) |");
-  console.log("|-----|-----|-----|-----|----------|");
-  for (const r of results) {
-    const m = r.metrics;
+  const result = await runExperiment({
+    dataset: "situation-search-v2",
+    arms,
+    adapter,
+    items: experimentItems,
+    allowUnreviewed,
+    deps,
+  });
+
+  const report = writeReport(result, {
+    seed: 1736,
+    out,
+    queryTypes,
+  });
+
+  console.log(`[run] Verdict: ${report.verdict}`);
+  console.log(`[run] Report: ${out}`);
+
+  // Print summary table
+  console.log("\n| Arm | NDCG@10 | P@5 | R@100 | MRR |");
+  console.log("|-----|---------|-----|-------|-----|");
+  for (const [armName, metrics] of Object.entries(report.arms)) {
+    const n = metrics["ndcg@10"]!;
+    const p = metrics["precision@5"]!;
+    const r = metrics["recall@100"]!;
+    const m = metrics["mrr"]!;
     console.log(
-      `| ${r.arm} | ${m.meanPrecisionAtK.toFixed(3)} | ${m.meanRecallAtK.toFixed(3)} | ${m.meanMrr.toFixed(3)} | ${m.p95LatencyMs.toFixed(0)} |`,
+      `| ${armName} | ${n.mean.toFixed(3)} [${n.lo.toFixed(3)},${n.hi.toFixed(3)}] | ${p.mean.toFixed(3)} | ${r.mean.toFixed(3)} | ${m.mean.toFixed(3)} |`,
     );
   }
 
-  console.log(`\nVerdict: ${verdict(results)}`);
+  if (report.paired) {
+    const d = report.paired.ndcgAt10;
+    console.log(
+      `\nPaired NDCG@10 delta: ${d.mean.toFixed(4)} [${d.lo.toFixed(4)},${d.hi.toFixed(4)}] p=${d.signTestP.toFixed(4)}`,
+    );
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -645,7 +399,8 @@ async function cmdSnapshot(
   variant: SnapshotVariant,
   outputPath: string,
 ): Promise<void> {
-  const golden = loadGolden();
+  const datasetPath = resolve(SCRIPT_DIR, "situation-search-v2.json");
+  const datasetItems = loadDatasetV2(datasetPath);
   const state = await readCorpusState();
   assertHealthyCorpus(state.health);
 
@@ -669,7 +424,7 @@ async function cmdSnapshot(
     return product;
   });
 
-  const missingExpected = golden.flatMap((item) =>
+  const missingExpected = datasetItems.flatMap((item) =>
     item.expected.flatMap((expected) => {
       const stableId = `${expected.brandSlug}/${expected.productKey}`;
       return productByStableId.has(stableId) ? [] : [`${item.id}: ${stableId}`];
@@ -683,18 +438,18 @@ async function cmdSnapshot(
     );
   }
 
-  console.log(`[snapshot] capturing ${golden.length} search queries`);
-  const searchRows = await mapConcurrent(golden, 4, async (item) => {
+  console.log(`[snapshot] capturing ${datasetItems.length} search queries`);
+  const searchRows = await mapConcurrent(datasetItems, 4, async (item) => {
     const vector = await searchProductsBySituation({
       query: item.query,
-      locale: item.locale,
+      locale: "zh-TW",
       mode: "vector",
       pageSize: 20,
       category: item.category ?? null,
     });
     const hybrid = await searchProductsBySituation({
       query: item.query,
-      locale: item.locale,
+      locale: "zh-TW",
       mode: "hybrid",
       pageSize: 20,
       category: item.category ?? null,
@@ -703,7 +458,7 @@ async function cmdSnapshot(
       item.id,
       {
         query: item.query,
-        locale: item.locale,
+        locale: "zh-TW" as const,
         vector: vector.products.map(stableProductId),
         hybrid: hybrid.products.map(stableProductId),
       },
@@ -899,43 +654,52 @@ async function cmdCompare(options: {
 }
 
 // ---------------------------------------------------------------------------
-// Subcommand: neighbours
+// Subcommand: neighbours (v2 — dataset-driven)
 // ---------------------------------------------------------------------------
 
-async function cmdNeighbours(limit: number) {
-  const golden = loadGolden();
-  const { resolved, missing } = await resolveExpected(golden, defaultLookup());
+async function cmdNeighbours(values: Record<string, unknown>) {
+  const limit = parseInt(String(values.limit ?? "5"), 10);
+  const datasetPath = resolve(SCRIPT_DIR, "situation-search-v2.json");
+  const items = loadDatasetV2(datasetPath);
 
-  if (missing.length > 0) {
-    throw new Error(
-      `[neighbours] expected products not found:\n${missing
-        .map(
-          (item) => `  ${item.queryId}: ${item.brandSlug}/${item.productKey}`,
-        )
-        .join("\n")}`,
-    );
-  }
-
-  // Collect all unique expected product IDs
-  const allIds = new Set<string>();
-  for (const ids of resolved.values()) {
-    for (const id of ids) {
-      allIds.add(id);
+  // Collect all unique composite keys from expected
+  const allKeys = new Set<string>();
+  for (const item of items) {
+    for (const exp of item.expected) {
+      allKeys.add(
+        compositeKey({ brandSlug: exp.brandSlug, key: exp.productKey }),
+      );
     }
   }
 
+  // Resolve composite keys to product IDs via catalog
+  const { products } = await getPublishedCuratedProducts({
+    pageSize: Number.MAX_SAFE_INTEGER,
+  });
+  const keyToId = new Map<string, string>();
+  for (const p of products) {
+    keyToId.set(compositeKey(p), p.id);
+  }
+
+  const productIds = [...allKeys]
+    .map((k) => keyToId.get(k))
+    .filter((id): id is string => id != null);
+
   console.log(
-    `[neighbours] Finding ${limit} neighbours for ${allIds.size} products…\n`,
+    `[neighbours] Finding ${limit} neighbours for ${productIds.length} products...\n`,
   );
 
-  for (const productId of allIds) {
-    const { products } = await findSimilarProducts(productId, limit);
+  for (const productId of productIds) {
+    const { products: neighbours } = await findSimilarProducts(
+      productId,
+      limit,
+    );
     console.log(`### Product: ${productId}`);
-    if (products.length === 0) {
+    if (neighbours.length === 0) {
       console.log("  (no neighbours found)\n");
       continue;
     }
-    for (const p of products) {
+    for (const p of neighbours) {
       console.log(`  - ${p.nameZh} (${p.brandSlug}/${p.key})`);
     }
     console.log();
@@ -953,15 +717,29 @@ async function main() {
     args: remainingArgv,
     allowPositionals: true,
     options: {
-      arm: { type: "string", default: "all" },
-      k: { type: "string", default: "5" },
+      arm: { type: "string", default: "hybrid" },
+      k: { type: "string", default: "10" },
       limit: { type: "string", default: "5" },
+      split: { type: "string" },
+      out: { type: "string" },
+      dataset: { type: "string" },
+      "allow-unreviewed": { type: "string" },
       variant: { type: "string" },
       output: { type: "string" },
       baseline: { type: "string" },
       candidate: { type: "string" },
       grades: { type: "string" },
       "pool-output": { type: "string" },
+      count: { type: "string" },
+      seed: { type: "string" },
+      samples: { type: "string" },
+      temperature: { type: "string" },
+      pageSize: { type: "string" },
+      human: { type: "string" },
+      force: { type: "boolean", default: false },
+      "env-file": { type: "string" },
+      model: { type: "string" },
+      mode: { type: "string" },
       help: { type: "boolean", default: false },
     },
   });
@@ -969,17 +747,14 @@ async function main() {
   const subcommand = positionals[0];
 
   switch (subcommand) {
-    case "dataset":
-      await cmdDataset();
-      break;
     case "run":
-      await cmdRun(
-        (values.arm ?? "all") as ArmName,
-        parseInt(values.k ?? "5", 10),
-      );
+      await cmdRun(values);
       break;
     case "neighbours":
-      await cmdNeighbours(parseInt(values.limit ?? "5", 10));
+      await cmdNeighbours(values);
+      break;
+    case "export-features":
+      await cmdExportFeatures(values);
       break;
     case "snapshot": {
       if (
@@ -1031,15 +806,15 @@ async function main() {
       break;
     default:
       console.error(
-        "Usage: search:eval <dataset|run|neighbours|snapshot|compare|generate-queries|judge|retrieve-candidates|agreement|build-dataset>",
+        "Usage: search:eval <run|neighbours|export-features|snapshot|compare|generate-queries|judge|retrieve-candidates|agreement|build-dataset>",
       );
       console.error(
-        "  dataset                          Upload golden set to Langfuse",
-      );
-      console.error(
-        "  run [--arm all|category|lexical|vector|hybrid|rerank|rerank:cohere] [--k 5]",
+        "  run [--arm hybrid,ltr:v1] [--split holdout] [--out file] [--allow-unreviewed true]",
       );
       console.error("  neighbours [--limit 5]");
+      console.error(
+        "  export-features [--split train,val,holdout] [--dataset file]",
+      );
       console.error("  snapshot --variant baseline|candidate --output <file>");
       console.error(
         "  compare --baseline <file> --candidate <file> --pool-output <file> [--grades <file>] [--output <report>]",
@@ -1061,7 +836,9 @@ async function main() {
   }
 }
 
-main().catch((err) => {
-  console.error(err);
-  process.exitCode = 1;
-});
+if (!process.env.VITEST) {
+  main().catch((err) => {
+    console.error(err);
+    process.exitCode = 1;
+  });
+}

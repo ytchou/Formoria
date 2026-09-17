@@ -102,7 +102,7 @@ export async function cmdGenerateQueries(
   const materialList = MATERIALS.map(m => `${m.slug}: ${m.nameZh}`).join('\n')
 
   // Generate queries in batches
-  const batchSize = 50
+  const batchSize = 20
   const client = createAuditedOpenAIClient({ phase: 'search_query_generate' })
 
   for (let i = 0; i < needed; i += batchSize) {
@@ -142,22 +142,38 @@ export async function cmdGenerateQueries(
     })
 
     try {
-      const generated = JSON.parse(result.content ?? '[]') as Array<{
+      let parsed: unknown = JSON.parse(result.content ?? '[]')
+      if (!Array.isArray(parsed) && typeof parsed === 'object' && parsed !== null) {
+        const vals = Object.values(parsed as Record<string, unknown>)
+        for (const v of vals) {
+          if (Array.isArray(v) && v.length > 0) { parsed = v; break }
+        }
+      }
+      if (!Array.isArray(parsed)) {
+        console.warn('[generate-queries] Unexpected response shape:', typeof parsed, JSON.stringify(result.content?.slice(0, 200)))
+      }
+      const generated = (Array.isArray(parsed) ? parsed : []) as Array<{
         id: string
         query: string
         category?: string | null
       }>
+      let batchAdded = 0
+      let batchDupes = 0
       for (const g of generated) {
-        const id = slugify(g.id || g.query)
-        if (!queries.some(q => q.id === id)) {
-          queries.push({
-            id,
-            query: g.query,
-            ...(g.category ? { category: g.category } : {}),
-            source: 'generated',
-          })
-        }
+        const usedIds = new Set(queries.map(q => q.id))
+        let id = slugify(g.id || g.query)
+        if (queries.some(q => q.query === g.query)) { batchDupes++; continue }
+        let suffix = 2
+        while (usedIds.has(id)) { id = `${slugify(g.id || g.query)}-${suffix++}` }
+        queries.push({
+          id,
+          query: g.query,
+          ...(g.category ? { category: g.category } : {}),
+          source: 'generated',
+        })
+        batchAdded++
       }
+      console.log(`[generate-queries] batch: ${generated.length} raw, ${batchAdded} added, ${batchDupes} text dupes`)
     } catch {
       console.warn('[generate-queries] Failed to parse batch, skipping')
     }

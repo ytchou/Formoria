@@ -190,7 +190,7 @@ export function _resetLtrDegradationCooldown(): void {
   lastLtrDegradationReportAt = -Infinity;
 }
 
-function defaultDeps(): SearchDeps {
+export function createDefaultSearchDeps(): SearchDeps {
   const client = createServiceClient();
   return {
     embed: async (text, ctx) => {
@@ -254,7 +254,7 @@ export const CANDIDATE_POOL = 100;
 
 export async function searchProductsBySituation(
   input: SearchInput,
-  deps: SearchDeps = defaultDeps(),
+  deps: SearchDeps = createDefaultSearchDeps(),
 ): Promise<SearchResult> {
   const searchId = crypto.randomUUID();
   const normalized = normalizeSituationQuery(input.query);
@@ -583,11 +583,11 @@ export async function searchProductsBySituation(
 export async function findSimilarProducts(
   productId: string,
   limit = 5,
-  deps: SearchDeps = defaultDeps(),
+  deps: SearchDeps = createDefaultSearchDeps(),
 ): Promise<SimilarResult> {
   // Fetch the product's stored embedding vector via the injected dep.
   const readEmbedding =
-    deps.readProductEmbedding ?? defaultDeps().readProductEmbedding!;
+    deps.readProductEmbedding ?? createDefaultSearchDeps().readProductEmbedding!;
   const storedEmbedding = await readEmbedding(productId);
   if (!storedEmbedding) {
     return { products: [] };
@@ -631,7 +631,7 @@ const MAX_PER_BRAND = 1;
 export async function findSimilarProductsForTrail(
   productIds: string[],
   limit = DEFAULT_TRAIL_SIMILAR_LIMIT,
-  deps: SearchDeps = defaultDeps(),
+  deps: SearchDeps = createDefaultSearchDeps(),
 ): Promise<CatalogProduct[]> {
   if (productIds.length === 0) return [];
 
