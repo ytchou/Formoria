@@ -42,9 +42,9 @@ describe('isAllowedImageHost', () => {
   })
 
   it('allows the configured project storage host (DEV-1744)', async () => {
-    // The `brand-images` bucket is public again and `imagePathToUrl` addresses
-    // published objects by their public storage URL, so `next/image` and
-    // `safeImageSrc` both have to accept this host.
+    // Wired for when `imagePathToUrl` addresses published objects by their
+    // public storage URL (DEV-1744 task 3, currently descoped) — `next/image`
+    // and `safeImageSrc` need to accept this host once that lands.
     const mod = await importWithProjectUrl('https://project.supabase.co')
     expect(mod.ALLOWED_IMAGE_HOSTS).toEqual(['project.supabase.co'])
     expect(mod.isAllowedImageHost('project.supabase.co')).toBe(true)

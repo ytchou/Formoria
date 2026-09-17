@@ -13,10 +13,15 @@ import {
  * DEV-1551 task 18, amended by DEV-1744 task 3: the `/i/[...path]` image proxy
  * contract.
  *
- * Published imagery now comes straight from the public `brand-images` bucket,
- * so this route is no longer on the hot path for it — but it is still the only
- * server-side gate in front of everything the URL builder does NOT publish, and
- * every guarantee below still has to hold. What the route must guarantee:
+ * DEV-1744 task 3's public-URL branch (which would have taken published
+ * imagery off this route entirely) is descoped — see
+ * `src/lib/images/image-url.ts`'s docblock: a public `brand-images` bucket has
+ * no per-prefix RLS, so it also exposed `submissions/` for the whole
+ * upload-to-approval window, confirmed live against staging 2026-09-17. This
+ * route stays the ONLY server-side gate for every prefix, and every guarantee
+ * below still has to hold. The "does not resolve" case below is kept as a
+ * regression guard for the eventual bucket-separation follow-up. What the
+ * route must guarantee:
  *
  *   - a public prefix is served, with immutable caching
  *   - `submissions/` is refused, because that is pre-moderation content only an

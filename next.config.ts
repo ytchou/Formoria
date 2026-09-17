@@ -116,12 +116,13 @@ const nextConfig: NextConfig = {
   },
   images: {
     /*
-     * The configured Supabase project's storage host, since DEV-1744 task 3:
-     * the `brand-images` bucket is public again and published images
-     * (`brands/`, `curated-products/`, `event-exhibitors/`) are addressed by
-     * their public storage URL, so the optimizer needs a remote pattern for
-     * them. `submissions/` still comes from `/i/` on this origin, which
-     * `next/image` optimises without one.
+     * The configured Supabase project's storage host. DEV-1744 task 3 (public
+     * storage URLs for `brands/`/`curated-products/`/`event-exhibitors/` keys)
+     * is descoped — see `src/lib/images/image-url.ts`'s docblock — so nothing
+     * currently generates a URL on this host; every prefix still comes from
+     * `/i/` on this origin, which `next/image` optimises without a remote
+     * pattern. Kept ready (and build-asserted below) for when the
+     * bucket-separation follow-up reintroduces the public-URL branch.
      *
      * A map over `ALLOWED_IMAGE_HOSTS`, never a literal, so this list and the
      * one `safeImageSrc` enforces cannot drift apart.

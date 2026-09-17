@@ -1,5 +1,5 @@
 import { getSiteUrl } from '@/lib/site-url'
-import { isBrandOwnedStoragePath, isPublicStorageKey } from './storage-keys'
+import { isBrandOwnedStoragePath } from './storage-keys'
 
 /**
  * Bucket key -> renderable URL (DEV-1551, task 9; DEV-1744, task 3).
@@ -53,18 +53,25 @@ function normalizedProjectUrl(): string | null {
 }
 
 /**
- * `brands/<uuid>/x.webp` -> `<project>/storage/v1/object/public/brand-images/brands/<uuid>/x.webp`,
- * `submissions/<id>/x.webp` -> `/i/submissions/<id>/x.webp`.
+ * `brands/<uuid>/x.webp` -> `/i/brands/<uuid>/x.webp`.
  *
- * The branch is DEV-1744's whole fix: a published image is fetched straight
- * from Supabase's storage CDN, and only the prefixes that must stay behind a
- * server-side gate keep paying Railway egress. `PUBLIC_IMAGE_KEY_PREFIXES` is
- * an allow-list on purpose — an unclassified prefix falls through to `/i/`,
- * which is the expensive answer but never the leaking one.
- *
- * It falls back to `/i/` when `NEXT_PUBLIC_SUPABASE_URL` is unset too: a blank
- * origin would yield a same-origin `/storage/v1/...` path that 404s while
- * looking plausible in a snapshot.
+ * DEV-1744 task 3 (the public-URL branch this docblock used to describe) is
+ * DESCOPED from this ticket: the `brand-images` bucket's `public` flag has no
+ * per-prefix RLS, so making it public to save Railway egress on `brands/`
+ * also makes every `submissions/` object — pre-moderation content — directly
+ * fetchable by anyone who knows its key, for the entire window between
+ * upload and admin approval/rejection. `e2e/tests/image-route.spec.ts`
+ * confirmed this live against staging on 2026-09-17: a freshly-seeded
+ * `submissions/` object returned 200 at its public storage URL. The correct
+ * fix is a genuinely separate, always-private bucket for `submissions/`
+ * uploads — tracked as a follow-up, not a same-PR patch, because it touches
+ * the live submission upload path and admin-review signed URLs. Until that
+ * ships, every prefix stays behind the same-origin `/i/` proxy, unchanged
+ * from pre-DEV-1744 behavior. `isPublicStorageKey`/`PUBLIC_IMAGE_KEY_PREFIXES`
+ * (storage-keys.ts) and `storagePathFromImageUrl`'s reverse recognition of a
+ * public URL shape (this file) are left in place — inert until the bucket
+ * flip migration is reintroduced — so the follow-up does not have to
+ * reconstruct this seam.
  *
  * Returns null for a blank path and for anything that already looks like a URL
  * or an absolute path: those are not bucket keys, and prefixing one would
@@ -76,13 +83,6 @@ export function imagePathToUrl(
   const key = storagePath?.trim()
   if (!key) return null
   if (key.startsWith('/') || key.includes('://')) return null
-
-  if (isPublicStorageKey(key)) {
-    const projectUrl = normalizedProjectUrl()
-    if (projectUrl) {
-      return `${projectUrl}${BRAND_IMAGES_PUBLIC_URL_SEGMENT}${key}`
-    }
-  }
 
   return `${IMAGE_PROXY_PATH_PREFIX}${key}`
 }

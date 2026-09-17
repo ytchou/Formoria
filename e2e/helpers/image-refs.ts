@@ -1,18 +1,18 @@
 /**
  * Image references for seeds, DEV-1744 edition.
  *
- * The `brand-images` bucket is public again, and the two prefix families are
- * served differently: a published key (`brands/`, `curated-products/`,
- * `event-exhibitors/`) renders as a Supabase public storage URL, while
- * `submissions/` — pre-moderation content — still renders as the same-origin
- * `/i/<key>` proxy path and is refused by that route for anyone but a signed
- * URL holder. Rows are seeded by their bucket key (`storage_path`); anything
- * that needs a renderable value derives it here, exactly as the services do.
+ * The `brand-images` bucket is private again (DEV-1744 task 3's public-URL
+ * branch was descoped — see `src/lib/images/image-url.ts`'s docblock: a
+ * public bucket has no per-prefix RLS, so it exposed `submissions/` for the
+ * whole upload-to-approval window, confirmed live against staging
+ * 2026-09-17). Every prefix, `brands/` included, renders via the same-origin
+ * `/i/<key>` proxy path again. Rows are seeded by their bucket key
+ * (`storage_path`); anything that needs a renderable value derives it here,
+ * exactly as the services do.
  *
- * `/i/<key>` remains a VALID stored reference for a `brands/` key — that is the
- * form DEV-1551 wrote into existing rows, and `storagePathFromImageUrl` still
- * resolves it — so `e2eProxyImageUrl` stays, now meaning "the proxy form"
- * rather than "the rendered form".
+ * `e2ePublicImageUrl` stays: it is the regression guard for the eventual
+ * bucket-separation follow-up, asserted against the raw Supabase URL
+ * independent of which URL shape the app currently renders.
  *
  * Deliberately duplicated rather than imported from `src/lib/images/image-url`:
  * the e2e suite asserts the CONTRACT, and a helper shared with the code under

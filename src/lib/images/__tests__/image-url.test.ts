@@ -18,49 +18,42 @@ describe('imagePathToUrl', () => {
     vi.unstubAllEnvs()
   })
 
-  it('returns a public storage URL for a brands/ key', () => {
+  // DEV-1744 task 3 (the public-URL branch) is descoped — see the docblock on
+  // `imagePathToUrl`. A public `brand-images` bucket has no per-prefix RLS, so
+  // it would also expose `submissions/` for the whole upload-to-approval
+  // window; confirmed live against staging 2026-09-17. Every prefix goes
+  // through `/i/`, unchanged from pre-DEV-1744 behavior, until a separate
+  // always-private bucket for `submissions/` ships as a follow-up.
+
+  it('returns an /i/ URL for a brands/ key', () => {
     expect(
       imagePathToUrl('brands/11111111-2222-3333-4444-555555555555/x.webp'),
-    ).toBe(`${PUBLIC_PREFIX}brands/11111111-2222-3333-4444-555555555555/x.webp`)
+    ).toBe('/i/brands/11111111-2222-3333-4444-555555555555/x.webp')
   })
 
-  it('returns a public storage URL for curated-products/ and event-exhibitors/ keys', () => {
+  it('returns an /i/ URL for curated-products/ and event-exhibitors/ keys', () => {
     expect(imagePathToUrl('curated-products/a/b/c.webp')).toBe(
-      `${PUBLIC_PREFIX}curated-products/a/b/c.webp`,
+      '/i/curated-products/a/b/c.webp',
     )
     expect(imagePathToUrl('event-exhibitors/2026-expo/booth-a1.webp')).toBe(
-      `${PUBLIC_PREFIX}event-exhibitors/2026-expo/booth-a1.webp`,
+      '/i/event-exhibitors/2026-expo/booth-a1.webp',
     )
   })
 
-  it('still returns an /i/ URL for a submissions/ key', () => {
-    // Pre-moderation content stays behind the proxy's deny-list even with a
-    // public bucket: this is the one prefix the flip must not expose.
+  it('returns an /i/ URL for a submissions/ key', () => {
+    // Pre-moderation content stays behind the proxy's deny-list.
     expect(imagePathToUrl('submissions/abc/x.webp')).toBe(
       '/i/submissions/abc/x.webp',
     )
   })
 
-  it('falls back to the /i/ path when the project URL is unset', () => {
-    // A blank origin would build `/storage/v1/object/public/...`, a same-origin
-    // path that 404s while looking plausible in a snapshot.
+  it('returns an /i/ path regardless of whether the project URL is set', () => {
     vi.stubEnv('NEXT_PUBLIC_SUPABASE_URL', '')
     expect(imagePathToUrl('brands/a/x.webp')).toBe('/i/brands/a/x.webp')
   })
 
   it('trims surrounding whitespace', () => {
-    expect(imagePathToUrl('  brands/a/x.webp  ')).toBe(
-      `${PUBLIC_PREFIX}brands/a/x.webp`,
-    )
-  })
-
-  it('does not double the slash when the project URL has a trailing one', () => {
-    // The public segment already starts with `/`. A doubled slash renders fine
-    // in a snapshot and 404s on the CDN.
-    vi.stubEnv('NEXT_PUBLIC_SUPABASE_URL', `${SUPABASE_URL}/`)
-    expect(imagePathToUrl('brands/a/x.webp')).toBe(
-      `${PUBLIC_PREFIX}brands/a/x.webp`,
-    )
+    expect(imagePathToUrl('  brands/a/x.webp  ')).toBe('/i/brands/a/x.webp')
   })
 
   it('returns null for a blank path', () => {

@@ -19,11 +19,13 @@ function supabaseStorageHost(): string | null {
 /**
  * Remote hosts an `<img src>` may point at.
  *
- * The configured Supabase project host is back since DEV-1744 task 3: the
- * `brand-images` bucket is public again and `imagePathToUrl` addresses
- * `brands/`, `curated-products/` and `event-exhibitors/` objects by their
- * public storage URL, so `safeImageSrc` and `next/image` both have to accept
- * that host. Without it every published image silently resolves to null.
+ * The configured Supabase project host is wired here for DEV-1744 task 3
+ * (`imagePathToUrl` addressing `brands/`, `curated-products/` and
+ * `event-exhibitors/` objects by their public storage URL), but that branch
+ * is currently descoped — see `image-url.ts`'s docblock — so nothing
+ * generates a URL on this host yet. Kept ready for when the bucket-separation
+ * follow-up reintroduces it; harmless in the meantime since it is host-exact
+ * and unused.
  *
  * It stays HOST-EXACT (no wildcard) and the list stays otherwise empty:
  * anything else added here re-opens hotlinking and needs a stated reason.
