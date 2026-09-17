@@ -144,6 +144,7 @@ describe('writeReport', () => {
     const makeItems = (_arm: string, scores: Array<Record<string, number>>) =>
       scores.map((s, i) => ({
         itemId: `q-${i + 1}`,
+        itemRunId: `test-${_arm}-${i + 1}`,
         ok: true,
         scores: s,
         costUsd: 0,

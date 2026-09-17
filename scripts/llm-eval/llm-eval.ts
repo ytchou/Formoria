@@ -8,6 +8,7 @@
  * owner: engineering
  * notes: Writes to Langfuse (dataset items, scores, annotation queue items, prompt versions on push, labels on promote, repo snapshot on pull). Zero production DB writes enforced by assertNoNewAuditRows.
  */
+import { randomUUID } from 'node:crypto'
 import { readFileSync, writeFileSync } from 'node:fs'
 import { parseArgs as nodeParseArgs } from 'node:util'
 
@@ -632,8 +633,7 @@ async function cmdDatasetRecord(
 ): Promise<void> {
   const { writeFileSync, mkdirSync } = await import('node:fs')
   const { createServiceClient } = await import('@/lib/supabase/service')
-  const { setAuditWriteSeam } = await import('@/lib/audit/emit')
-  const { assertNoNewAuditRows } = await import('@/lib/services/eval/zero-write')
+  const { installSeams, assertNoNewAuditRows } = await import('@/lib/services/eval/zero-write')
   const { toReadPageFetch, buildPoolFromRows, recordPool } = await import(
     '@/lib/services/eval/products-record'
   )
@@ -644,6 +644,7 @@ async function cmdDatasetRecord(
     '@/lib/services/enrich-phases/products/read-page'
   )
   const { randomUUID } = await import('node:crypto')
+  const { runWithAuditContext } = await import('@/lib/audit/context')
 
   const client = getLangfuse()
   if (!client) {
@@ -651,10 +652,6 @@ async function cmdDatasetRecord(
     process.exitCode = 1
     return
   }
-
-  // Install zero-write seam before any reads
-  const since = new Date()
-  setAuditWriteSeam(async () => null)
 
   const supabase = createServiceClient()
 
@@ -699,42 +696,61 @@ async function cmdDatasetRecord(
     })
   }
 
-  const body = await recordPool({
-    brand: {
-      id: brand.id,
-      slug: brand.slug,
-      name: brand.name,
-      url: brand.purchase_website ?? undefined,
-    },
-    pool,
-    priorityUrls: [],
-    urlsOverride: urls,
-    readPage,
-    candidateIdFactory: () => randomUUID(),
+  // Install zero-write seams (audit write sink + CURATION_EVAL_SINK) after
+  // DB reads so early-return errors don't need restore()
+  const since = new Date()
+  const runCorrelationId = randomUUID()
+  const { collector, restore } = installSeams({
+    sinkPath: `scripts/llm-eval/runs/record-${brandSlug}-sink.jsonl`,
   })
 
-  // Ensure dataset exists (create on first use)
   try {
-    await client.getDataset(dataset)
-  } catch {
-    await client.createDataset({ name: dataset, description: 'DEV-1707 frozen product pools' })
+    const body = await runWithAuditContext(
+      { correlationId: runCorrelationId },
+      () => recordPool({
+        brand: {
+          id: brand.id,
+          slug: brand.slug,
+          name: brand.name,
+          url: brand.purchase_website ?? undefined,
+        },
+        pool,
+        priorityUrls: [],
+        urlsOverride: urls,
+        readPage,
+        candidateIdFactory: () => randomUUID(),
+      }),
+    )
+
+    // Ensure dataset exists (create on first use)
+    try {
+      await client.getDataset(dataset)
+    } catch {
+      await client.createDataset({ name: dataset, description: 'DEV-1707 frozen product pools' })
+    }
+
+    // Write to Langfuse
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    await client.createDatasetItem({ datasetName: dataset, ...body } as any)
+    await flushLangfuse()
+
+    // Assert zero writes — scoped to this run's own identity
+    await assertNoNewAuditRows({
+      since,
+      correlationIds: [runCorrelationId],
+      spanIds: collector.all().map((r) => r.spanId),
+    })
+
+    // Dump run JSON
+    const runJsonPath = `scripts/llm-eval/runs/record-${brandSlug}.json`
+    mkdirSync('scripts/llm-eval/runs', { recursive: true })
+    writeFileSync(runJsonPath, JSON.stringify(body, null, 2))
+
+    console.log(`[record] Item "${body.id}" written to dataset "${dataset}"`)
+    console.log(`[record] Run JSON: ${runJsonPath}`)
+  } finally {
+    restore()
   }
-
-  // Write to Langfuse
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  await client.createDatasetItem({ datasetName: dataset, ...body } as any)
-  await flushLangfuse()
-
-  // Assert zero writes
-  await assertNoNewAuditRows({ since })
-
-  // Dump run JSON
-  const runJsonPath = `scripts/llm-eval/runs/record-${brandSlug}.json`
-  mkdirSync('scripts/llm-eval/runs', { recursive: true })
-  writeFileSync(runJsonPath, JSON.stringify(body, null, 2))
-
-  console.log(`[record] Item "${body.id}" written to dataset "${dataset}"`)
-  console.log(`[record] Run JSON: ${runJsonPath}`)
 }
 
 async function cmdDatasetPrelabel(
@@ -951,6 +967,7 @@ async function cmdPairwiseRunProducts(
   const { installSeams, assertNoNewAuditRows } = await import(
     '@/lib/services/eval/zero-write'
   )
+  const { runWithAuditContext } = await import('@/lib/audit/context')
   if (armSpecs.length !== 2) {
     console.error('Pairwise run requires exactly 2 arms')
     process.exitCode = 1
@@ -985,10 +1002,11 @@ async function cmdPairwiseRunProducts(
   console.log(`[products] ${selectedItems.length} ACTIVE+reviewed items loaded${sample > 0 ? ` (sampled from ${items.length})` : ''}`)
 
   const since = new Date()
-  const { restore } = installSeams({
+  const { collector, restore } = installSeams({
     sinkPath: 'scripts/llm-eval/runs/pairwise-products-eval-sink.jsonl',
   })
 
+  const runCorrelationIds: string[] = []
   const task = productsTask({ createAgentModel, runProductsAgent })
   const armLabels = armSpecs.map((arm) => {
     if (arm.kind === 'prompt') return `prompt-v${arm.version}`
@@ -1006,6 +1024,8 @@ async function cmdPairwiseRunProducts(
   ): Promise<ProductsReplayOutput | null> {
     const savedVersions = process.env.LANGFUSE_PROMPT_VERSIONS
     const savedModel = process.env.OPENAI_MODEL_OVERRIDE
+    const itemRunId = randomUUID()
+    runCorrelationIds.push(itemRunId)
     try {
       if (armSpec.kind === 'prompt') {
         process.env.LANGFUSE_PROMPT_VERSIONS = `products-propose:${armSpec.version}`
@@ -1014,10 +1034,13 @@ async function cmdPairwiseRunProducts(
       } else {
         throw new Error(`Unknown arm kind: ${(armSpec as { kind: string }).kind}`)
       }
-      const result = await taskFn(
-        { id: item.id, input: item.input, expectedOutput: item.expectedOutput, humanApproval: {} },
-        { name: armLabel, type: armSpec.kind, value: armSpec.kind === 'prompt' ? `products-propose:${armSpec.version}` : armSpec.model },
-        { itemRunId: `pairwise-${armSuffix}-${item.id}` },
+      const result = await runWithAuditContext(
+        { correlationId: itemRunId },
+        () => taskFn(
+          { id: item.id, input: item.input, expectedOutput: item.expectedOutput, humanApproval: {} },
+          { name: armLabel, type: armSpec.kind, value: armSpec.kind === 'prompt' ? `products-propose:${armSpec.version}` : armSpec.model },
+          { itemRunId },
+        ),
       )
       if (result.ok) return result.output as ProductsReplayOutput
       console.error(`  Arm ${armSuffix.toUpperCase()} failed: ${result.error}`)
@@ -1034,62 +1057,69 @@ async function cmdPairwiseRunProducts(
   const traceIds: string[] = []
   const driftAgg = { pools: 0, paired: 0, onlyA: 0, onlyB: 0 }
 
-  for (const item of selectedItems) {
-    const input = item.input as { brand?: { slug?: string; name?: string }; evidence?: Record<string, { title: string | null }> }
-    const slug = input.brand?.slug ?? 'unknown'
+  try {
+    for (const item of selectedItems) {
+      const input = item.input as { brand?: { slug?: string; name?: string }; evidence?: Record<string, { title: string | null }> }
+      const slug = input.brand?.slug ?? 'unknown'
 
-    console.log(`\nProcessing ${slug}...`)
+      console.log(`\nProcessing ${slug}...`)
 
-    const experimentItem = { id: item.id, input: item.input ?? {}, expectedOutput: item.expectedOutput ?? {} }
-    const outputA = await runArmTask(armSpecs[0]!, experimentItem, task, armLabels[0]!, 'a')
-    const outputB = await runArmTask(armSpecs[1]!, experimentItem, task, armLabels[1]!, 'b')
+      const experimentItem = { id: item.id, input: item.input ?? {}, expectedOutput: item.expectedOutput ?? {} }
+      const outputA = await runArmTask(armSpecs[0]!, experimentItem, task, armLabels[0]!, 'a')
+      const outputB = await runArmTask(armSpecs[1]!, experimentItem, task, armLabels[1]!, 'b')
 
-    if (!outputA || !outputB) {
-      console.log(`  Skipping ${slug} — missing output from one arm`)
-      continue
-    }
-
-    const evidenceByUrl = new Map(
-      Object.entries(input.evidence ?? {}).map(([url, ev]) => [url, { title: ev.title }]),
-    )
-
-    const pairResult = buildProductPairs(
-      outputA as Parameters<typeof buildProductPairs>[0],
-      outputB as Parameters<typeof buildProductPairs>[1],
-      { slug, name: input.brand?.name ?? slug },
-      evidenceByUrl,
-    )
-
-    driftAgg.pools += pairResult.drift.pools
-    driftAgg.paired += pairResult.drift.paired
-    driftAgg.onlyA += pairResult.drift.onlyA
-    driftAgg.onlyB += pairResult.drift.onlyB
-
-    // Enqueue each pair as a trace
-    for (let n = 0; n < pairResult.pairs.length; n++) {
-      const pair = pairResult.pairs[n]!
-      const mapping = pairResult.mappings[n]!
-
-      const trace = client.trace({
-        name: `pairwise:products:${slug}:${n}`,
-        input: pair.input,
-        output: pair.output,
-        metadata: { brandSlug: slug, armA, armB },
-      })
-
-      mappings[trace.id] = mapping
-      traceIds.push(trace.id)
-
-      if (!noEnqueue && queueId) {
-        await enqueueTrace({ queueId, traceId: trace.id })
+      if (!outputA || !outputB) {
+        console.log(`  Skipping ${slug} — missing output from one arm`)
+        continue
       }
-    }
 
-    console.log(`  ${pairResult.pairs.length} pairs, drift: ${pairResult.drift.rate.toFixed(2)}`)
+      const evidenceByUrl = new Map(
+        Object.entries(input.evidence ?? {}).map(([url, ev]) => [url, { title: ev.title }]),
+      )
+
+      const pairResult = buildProductPairs(
+        outputA as Parameters<typeof buildProductPairs>[0],
+        outputB as Parameters<typeof buildProductPairs>[1],
+        { slug, name: input.brand?.name ?? slug },
+        evidenceByUrl,
+      )
+
+      driftAgg.pools += pairResult.drift.pools
+      driftAgg.paired += pairResult.drift.paired
+      driftAgg.onlyA += pairResult.drift.onlyA
+      driftAgg.onlyB += pairResult.drift.onlyB
+
+      // Enqueue each pair as a trace
+      for (let n = 0; n < pairResult.pairs.length; n++) {
+        const pair = pairResult.pairs[n]!
+        const mapping = pairResult.mappings[n]!
+
+        const trace = client.trace({
+          name: `pairwise:products:${slug}:${n}`,
+          input: pair.input,
+          output: pair.output,
+          metadata: { brandSlug: slug, armA, armB },
+        })
+
+        mappings[trace.id] = mapping
+        traceIds.push(trace.id)
+
+        if (!noEnqueue && queueId) {
+          await enqueueTrace({ queueId, traceId: trace.id })
+        }
+      }
+
+      console.log(`  ${pairResult.pairs.length} pairs, drift: ${pairResult.drift.rate.toFixed(2)}`)
+    }
+  } finally {
+    restore()
   }
 
-  restore()
-  await assertNoNewAuditRows({ since })
+  await assertNoNewAuditRows({
+    since,
+    correlationIds: runCorrelationIds,
+    spanIds: collector.all().map((r) => r.spanId),
+  })
 
   const driftOutput = {
     pools: driftAgg.pools,

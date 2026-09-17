@@ -28,6 +28,7 @@ export type ExperimentArm = {
 
 export type ItemResult = {
   itemId: string
+  itemRunId: string
   ok: boolean
   scores: Record<string, number>
   error?: string
@@ -92,7 +93,7 @@ export type ExperimentDeps = {
   flushLangfuse: () => Promise<void> | void
   fetchPrompt: FetchPromptFn
   installSeams: (opts: { sinkPath: string }) => { collector: AuditCollector; restore: () => void }
-  assertNoNewAuditRows: (opts: { since: Date }) => Promise<void> | void
+  assertNoNewAuditRows: (opts: { since: Date; correlationIds: string[]; spanIds: string[] }) => Promise<void> | void
   runWithAuditContext: <T>(seed: AuditContextSeed, fn: () => T) => T
   getAuditContext: () => { correlationId: string | null }
   createTrace?: (params: { name: string; id: string; metadata?: unknown }) => unknown
@@ -213,6 +214,7 @@ export async function runItems({
 
           return {
             itemId: item.id,
+            itemRunId,
             ok: true,
             scores,
             costUsd: totalCost,
@@ -231,6 +233,7 @@ export async function runItems({
 
         return {
           itemId: item.id,
+          itemRunId,
           ok: false,
           scores: zeroScores,
           error: lastError,
@@ -320,6 +323,7 @@ export async function runExperiment({
             arm: arm.name,
             items: items.map((item) => ({
               itemId: item.id,
+              itemRunId: randomUUID(),
               ok: false,
               scores: { ...zeroScores },
               error: `prompt pin ${arm.value} resolved from ${promptResult.prompt.source}, not langfuse`,
@@ -438,11 +442,16 @@ export async function runExperiment({
       }
     }
 
-    // Assert zero-write
-    await deps.assertNoNewAuditRows({ since })
-
-    // Flush Langfuse
+    // Flush Langfuse before the assertion so traces are available for diagnosis
+    // if the assertion fails (mirrors cmdDatasetRecord in llm-eval.ts)
     await deps.flushLangfuse()
+
+    // Assert zero-write — scoped to this run's own identity
+    const allItemRunIds = armResults.flatMap((a) => a.items.map((i) => i.itemRunId))
+    const allSpanIds = collector.all().map((r) => r.spanId)
+    if (allItemRunIds.length > 0) {
+      await deps.assertNoNewAuditRows({ since, correlationIds: allItemRunIds, spanIds: allSpanIds })
+    }
 
     // Compute summary
     const allItems = armResults.flatMap((a) => a.items)
