@@ -399,6 +399,41 @@ check_health_vars() {
   fi
 }
 
+# ── Health agent Railway (opt-in) ───────────────────────────────────────────
+check_health_railway_vars() {
+  local want=false
+  local arg
+  for arg in "$@"; do
+    if [ "$arg" = "--health-railway" ]; then
+      want=true
+    fi
+  done
+  if [ "$want" = "false" ]; then
+    return
+  fi
+
+  echo "Checking health agent Railway configuration..."
+
+  local vars=(
+    REPO_WORKER_URL
+    HEALTH_AGENT_GITHUB_APP_ID
+    HEALTH_AGENT_GITHUB_APP_PRIVATE_KEY
+    HEALTH_AGENT_GITHUB_APP_INSTALLATION_ID
+    CLAUDE_CODE_OAUTH_TOKEN
+    PRODUCTION_BASE_URL
+  )
+  local var
+
+  for var in "${vars[@]}"; do
+    if has_env_value "$var"; then
+      echo "  OK: $var"
+    else
+      echo "  MISSING: $var"
+      ERRORS=$((ERRORS + 1))
+    fi
+  done
+}
+
 # ── Ops agent (warn-only) ────────────────────────────────────────────────────
 check_ops_agent_vars() {
   if [ ! -f ".env.local" ]; then
@@ -419,6 +454,7 @@ check_env
 check_ai_results_phase
 check_e2e "$@"
 check_health_vars "$@"
+check_health_railway_vars "$@"
 check_ops_agent_vars
 
 echo ""

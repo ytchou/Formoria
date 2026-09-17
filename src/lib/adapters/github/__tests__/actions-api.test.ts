@@ -92,6 +92,10 @@ describe("dispatchWorkflow", () => {
     expect(WORKFLOW_ALLOWLIST).not.toContain("malicious.yml");
   });
 
+  it("allowlist does not contain health-agent.yml", () => {
+    expect(WORKFLOW_ALLOWLIST).not.toContain("health-agent.yml");
+  });
+
   it("github_error_returned_not_thrown", async () => {
     vi.spyOn(globalThis, "fetch").mockResolvedValue(
       new Response(JSON.stringify({ message: "Bad credentials" }), {

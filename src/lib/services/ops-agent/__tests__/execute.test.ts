@@ -180,10 +180,8 @@ describe("dispatch_workflow kind", () => {
     expect(deps.dispatchWorkflow).toHaveBeenCalledWith("e2e-staging.yml", {});
   });
 
-  it("dispatches health-agent with mode preflight", async () => {
-    const deps = makeDeps({
-      dispatchWorkflow: vi.fn().mockResolvedValue({ ok: true }),
-    });
+  it("rejects health-agent (removed)", async () => {
+    const deps = makeDeps();
 
     const result = await executeProposal(
       { kind: "dispatch_workflow", workflow: "health-agent" },
@@ -191,8 +189,8 @@ describe("dispatch_workflow kind", () => {
       deps,
     );
 
-    expect(result).toEqual({ ok: true, result: { dispatched: "health-agent" } });
-    expect(deps.dispatchWorkflow).toHaveBeenCalledWith("health-agent.yml", { mode: "preflight" });
+    expect(result).toEqual({ ok: false, error: "not_allowed" });
+    expect(deps.dispatchWorkflow).not.toHaveBeenCalled();
   });
 
   it("rejects unknown workflow", async () => {
