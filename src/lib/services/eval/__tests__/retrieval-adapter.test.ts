@@ -149,8 +149,8 @@ describe('createRetrievalAdapter', () => {
   it('task dispatches rerank to deps.rerank', async () => {
     const searchMock = vi.fn().mockResolvedValue({
       products: [
-        { id: 'id-a', key: 'p-a', brandSlug: 'b1' },
-        { id: 'id-b', key: 'p-b', brandSlug: 'b2' },
+        { id: 'id-a', key: 'p-a', brandSlug: 'b1', brandName: 'Brand One', nameZh: '產品甲', nameEn: 'Product A', category: 'lifestyle', subcategory: 'tea', productDescriptionZh: '優質好茶' },
+        { id: 'id-b', key: 'p-b', brandSlug: 'b2', brandName: 'Brand Two', nameZh: '產品乙', nameEn: null, category: 'food', subcategory: 'snack', productDescriptionZh: '美味零食' },
       ],
     })
     const rerankMock = vi.fn().mockResolvedValue([
@@ -165,7 +165,15 @@ describe('createRetrievalAdapter', () => {
 
     const result = await adapter.task!(item, arm, { itemRunId: 'run-4' })
 
-    expect(rerankMock).toHaveBeenCalled()
+    expect(rerankMock).toHaveBeenCalledWith(
+      '送禮推薦',
+      expect.arrayContaining([
+        expect.objectContaining({
+          id: 'id-a',
+          document: expect.stringContaining('優質好茶'),
+        }),
+      ]),
+    )
     expect(result.output).toEqual(['b2/p-b', 'b1/p-a'])
   })
 
