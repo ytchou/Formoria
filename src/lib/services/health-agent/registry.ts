@@ -138,13 +138,23 @@ export const registry: Record<DetectorName, Detector> = {
     supabase: deps.supabase,
   })),
   dependabot: withCtxDeps('dependabot', dependabotDetector, (deps) => ({
-    fetchFn: deps.fetchFn ?? globalThis.fetch,
+    githubToken: (deps.env as Record<string, string> | undefined)?.GITHUB_TOKEN ?? '',
+    repo: (deps.env as Record<string, string> | undefined)?.GITHUB_REPOSITORY ?? 'ytchou/Formoria',
+    fetchImpl: deps.fetchFn ?? globalThis.fetch,
   })),
 
   // ---- sentry source ----
-  'sentry-triage': withCtxDeps('sentry-triage', sentryDetector, (deps) => ({
-    listIssues: deps.listIssues,
-  })),
+  'sentry-triage': withCtxDeps('sentry-triage', sentryDetector, (deps) => {
+    const env = (deps.env as Record<string, string> | undefined) ?? {}
+    return {
+      collectorOptions: {
+        organization: env.SENTRY_ORG ?? '',
+        project: env.SENTRY_PROJECT ?? '',
+        token: env.SENTRY_AUTH_TOKEN ?? '',
+      },
+      classifier: () => ({}),
+    }
+  }),
 
   // ---- quality source — stubs; worker jobs handle the real work ----
   vitest: stubDetector('vitest'),
