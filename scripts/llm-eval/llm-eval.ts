@@ -8,6 +8,7 @@
  * owner: engineering
  * notes: Writes to Langfuse (dataset items, scores, annotation queue items, prompt versions on push, labels on promote, repo snapshot on pull). Zero production DB writes enforced by assertNoNewAuditRows.
  */
+import { randomUUID } from 'node:crypto'
 import { readFileSync, writeFileSync } from 'node:fs'
 import { parseArgs as nodeParseArgs } from 'node:util'
 
@@ -1023,7 +1024,7 @@ async function cmdPairwiseRunProducts(
   ): Promise<ProductsReplayOutput | null> {
     const savedVersions = process.env.LANGFUSE_PROMPT_VERSIONS
     const savedModel = process.env.OPENAI_MODEL_OVERRIDE
-    const itemRunId = `pairwise-${armSuffix}-${item.id}`
+    const itemRunId = randomUUID()
     runCorrelationIds.push(itemRunId)
     try {
       if (armSpec.kind === 'prompt') {
@@ -1056,61 +1057,64 @@ async function cmdPairwiseRunProducts(
   const traceIds: string[] = []
   const driftAgg = { pools: 0, paired: 0, onlyA: 0, onlyB: 0 }
 
-  for (const item of selectedItems) {
-    const input = item.input as { brand?: { slug?: string; name?: string }; evidence?: Record<string, { title: string | null }> }
-    const slug = input.brand?.slug ?? 'unknown'
+  try {
+    for (const item of selectedItems) {
+      const input = item.input as { brand?: { slug?: string; name?: string }; evidence?: Record<string, { title: string | null }> }
+      const slug = input.brand?.slug ?? 'unknown'
 
-    console.log(`\nProcessing ${slug}...`)
+      console.log(`\nProcessing ${slug}...`)
 
-    const experimentItem = { id: item.id, input: item.input ?? {}, expectedOutput: item.expectedOutput ?? {} }
-    const outputA = await runArmTask(armSpecs[0]!, experimentItem, task, armLabels[0]!, 'a')
-    const outputB = await runArmTask(armSpecs[1]!, experimentItem, task, armLabels[1]!, 'b')
+      const experimentItem = { id: item.id, input: item.input ?? {}, expectedOutput: item.expectedOutput ?? {} }
+      const outputA = await runArmTask(armSpecs[0]!, experimentItem, task, armLabels[0]!, 'a')
+      const outputB = await runArmTask(armSpecs[1]!, experimentItem, task, armLabels[1]!, 'b')
 
-    if (!outputA || !outputB) {
-      console.log(`  Skipping ${slug} — missing output from one arm`)
-      continue
-    }
-
-    const evidenceByUrl = new Map(
-      Object.entries(input.evidence ?? {}).map(([url, ev]) => [url, { title: ev.title }]),
-    )
-
-    const pairResult = buildProductPairs(
-      outputA as Parameters<typeof buildProductPairs>[0],
-      outputB as Parameters<typeof buildProductPairs>[1],
-      { slug, name: input.brand?.name ?? slug },
-      evidenceByUrl,
-    )
-
-    driftAgg.pools += pairResult.drift.pools
-    driftAgg.paired += pairResult.drift.paired
-    driftAgg.onlyA += pairResult.drift.onlyA
-    driftAgg.onlyB += pairResult.drift.onlyB
-
-    // Enqueue each pair as a trace
-    for (let n = 0; n < pairResult.pairs.length; n++) {
-      const pair = pairResult.pairs[n]!
-      const mapping = pairResult.mappings[n]!
-
-      const trace = client.trace({
-        name: `pairwise:products:${slug}:${n}`,
-        input: pair.input,
-        output: pair.output,
-        metadata: { brandSlug: slug, armA, armB },
-      })
-
-      mappings[trace.id] = mapping
-      traceIds.push(trace.id)
-
-      if (!noEnqueue && queueId) {
-        await enqueueTrace({ queueId, traceId: trace.id })
+      if (!outputA || !outputB) {
+        console.log(`  Skipping ${slug} — missing output from one arm`)
+        continue
       }
-    }
 
-    console.log(`  ${pairResult.pairs.length} pairs, drift: ${pairResult.drift.rate.toFixed(2)}`)
+      const evidenceByUrl = new Map(
+        Object.entries(input.evidence ?? {}).map(([url, ev]) => [url, { title: ev.title }]),
+      )
+
+      const pairResult = buildProductPairs(
+        outputA as Parameters<typeof buildProductPairs>[0],
+        outputB as Parameters<typeof buildProductPairs>[1],
+        { slug, name: input.brand?.name ?? slug },
+        evidenceByUrl,
+      )
+
+      driftAgg.pools += pairResult.drift.pools
+      driftAgg.paired += pairResult.drift.paired
+      driftAgg.onlyA += pairResult.drift.onlyA
+      driftAgg.onlyB += pairResult.drift.onlyB
+
+      // Enqueue each pair as a trace
+      for (let n = 0; n < pairResult.pairs.length; n++) {
+        const pair = pairResult.pairs[n]!
+        const mapping = pairResult.mappings[n]!
+
+        const trace = client.trace({
+          name: `pairwise:products:${slug}:${n}`,
+          input: pair.input,
+          output: pair.output,
+          metadata: { brandSlug: slug, armA, armB },
+        })
+
+        mappings[trace.id] = mapping
+        traceIds.push(trace.id)
+
+        if (!noEnqueue && queueId) {
+          await enqueueTrace({ queueId, traceId: trace.id })
+        }
+      }
+
+      console.log(`  ${pairResult.pairs.length} pairs, drift: ${pairResult.drift.rate.toFixed(2)}`)
+    }
+  } finally {
+    restore()
   }
 
-  restore()
   await assertNoNewAuditRows({
     since,
     correlationIds: runCorrelationIds,

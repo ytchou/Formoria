@@ -442,13 +442,16 @@ export async function runExperiment({
       }
     }
 
+    // Flush Langfuse before the assertion so traces are available for diagnosis
+    // if the assertion fails (mirrors cmdDatasetRecord in llm-eval.ts)
+    await deps.flushLangfuse()
+
     // Assert zero-write — scoped to this run's own identity
     const allItemRunIds = armResults.flatMap((a) => a.items.map((i) => i.itemRunId))
     const allSpanIds = collector.all().map((r) => r.spanId)
-    await deps.assertNoNewAuditRows({ since, correlationIds: allItemRunIds, spanIds: allSpanIds })
-
-    // Flush Langfuse
-    await deps.flushLangfuse()
+    if (allItemRunIds.length > 0) {
+      await deps.assertNoNewAuditRows({ since, correlationIds: allItemRunIds, spanIds: allSpanIds })
+    }
 
     // Compute summary
     const allItems = armResults.flatMap((a) => a.items)
