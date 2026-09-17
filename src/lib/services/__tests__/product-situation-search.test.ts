@@ -1035,7 +1035,7 @@ describe("searchProductsBySituation — LTR scoring", () => {
     expect(deps.ltrScore).not.toHaveBeenCalled();
   });
 
-  it("scorer error falls back to RRF", async () => {
+  it("scorer error falls back to RRF with degraded=true", async () => {
     const deps = createLtrDeps("shadow", {
       ltrScore: vi.fn().mockRejectedValue(new Error("ONNX crash")),
     });
@@ -1043,6 +1043,7 @@ describe("searchProductsBySituation — LTR scoring", () => {
       { query: "送禮推薦", locale: "zh-TW" },
       deps,
     );
+    expect(result.degraded).toBe(true);
     expect(result.degradedReason).toBe("ltr");
     // Products in RRF order (fallback hydrate)
     expect(result.products.map((p) => p.id)).toEqual(["p1", "p2", "p3"]);
@@ -1109,5 +1110,49 @@ describe("searchProductsBySituation — LTR scoring", () => {
     );
     expect(deps.ltrScore).not.toHaveBeenCalled();
     expect(result.products).toEqual([]);
+  });
+
+  it("interleave mode filters armBySlot when hydrate drops candidates", async () => {
+    const deps = createLtrDeps("interleave", {
+      hydrate: vi.fn().mockResolvedValue([p1, p3]), // p2 dropped by hydrate
+    });
+    const result = await searchProductsBySituation(
+      { query: "送禮推薦", locale: "zh-TW" },
+      deps,
+    );
+    // Only p1 and p3 survived hydration
+    expect(result.products).toHaveLength(2);
+    expect(result.products.map((p) => p.id)).not.toContain("p2");
+    // armBySlot must match surviving products, not the original displayOrder
+    expect(result.armBySlot).toBeDefined();
+    expect(result.armBySlot!.length).toBe(result.products.length);
+    for (const arm of result.armBySlot!) {
+      expect(["rrf", "ltr"]).toContain(arm);
+    }
+  });
+
+  it("scorer length mismatch falls back to RRF", async () => {
+    const deps = createLtrDeps("shadow", {
+      // Return fewer scores than candidates — triggers length guard
+      ltrScore: vi.fn().mockResolvedValue([0.5]),
+    });
+    const result = await searchProductsBySituation(
+      { query: "送禮推薦", locale: "zh-TW" },
+      deps,
+    );
+    expect(result.degraded).toBe(true);
+    expect(result.degradedReason).toBe("ltr");
+    // Falls back to RRF order via normal hydrate path
+    expect(result.products.map((p) => p.id)).toEqual(["p1", "p2", "p3"]);
+  });
+
+  it("invalid SEARCH_LTR_MODE falls back to off", async () => {
+    const deps = createLtrDeps("Interleave"); // wrong case — not a valid mode
+    const result = await searchProductsBySituation(
+      { query: "送禮推薦", locale: "zh-TW" },
+      deps,
+    );
+    expect(deps.ltrScore).not.toHaveBeenCalled();
+    expect(result.ltrMode).toBeUndefined();
   });
 });

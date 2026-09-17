@@ -145,12 +145,15 @@ export function SearchResultsTracker({ query, resultCount, trackerKind = 'brand'
         trackSearchNoResults(trimmed)
       }
       if (trackerKind === 'product' && searchId && productKeys) {
+        // Impression event is page-scoped: slice armBySlot to match productKeys length.
+        // The executed event above carries the full-pool armBySlot for offline analysis.
+        const pageArmBySlot = armBySlot?.slice(0, productKeys.length)
         trackProductSearchResultsViewed({
           searchId,
           productKeys,
           query: trimmed,
           resultCount,
-          ...(armBySlot !== undefined && { armBySlot }),
+          ...(pageArmBySlot !== undefined && { armBySlot: pageArmBySlot }),
           ...(ltrMode !== undefined && { ltrMode }),
         })
       }

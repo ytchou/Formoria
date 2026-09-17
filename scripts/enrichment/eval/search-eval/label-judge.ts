@@ -1,3 +1,7 @@
+// Prevent LTR reranking from contaminating eval/training data — the env var
+// is read at call time inside searchProductsBySituation, not at module load.
+process.env.SEARCH_LTR_MODE = 'off';
+
 import { mkdirSync, writeFileSync, existsSync, readFileSync } from 'node:fs'
 
 import {

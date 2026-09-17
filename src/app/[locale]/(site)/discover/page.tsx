@@ -292,6 +292,8 @@ export default async function DiscoverPage({
     }),
   ];
 
+  const pageArmBySlot = armBySlot?.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+
   return (
     <PageShell as="main" measure="page" className="pt-12 pb-section">
       <div className="space-y-stack">
@@ -407,7 +409,7 @@ export default async function DiscoverPage({
                 ltrRanks={ltrRanks}
                 ltrProductKeys={ltrProductKeys}
                 rrfProductKeys={rrfProductKeys}
-                armBySlot={armBySlot?.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE)}
+                armBySlot={armBySlot}
               />
             )}
 
@@ -422,7 +424,7 @@ export default async function DiscoverPage({
                   <DiscoverSearchClickTracker
                     searchId={searchId}
                     query={searchQuery!}
-                    armBySlot={armBySlot?.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE)}
+                    armBySlot={pageArmBySlot}
                     ltrMode={ltrMode}
                   >
                     <ProductGrid products={products} locale={locale} />

@@ -9,6 +9,7 @@ import { EMBEDDING_MODEL } from "@/lib/constants/llm-models";
 import * as Sentry from "@sentry/nextjs";
 import { parseQueryIntent, type IntentParseOutcome } from "./query-intent-parse";
 import { isVisibleCategory } from "@/lib/taxonomy/ontology";
+import type { RpcRow as LtrRpcRow } from "./ltr-features";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -151,6 +152,19 @@ export type SearchDeps = {
   /** Fetch document-level features for LTR scoring. */
   ltrFeatures?: (ids: string[]) => Promise<Map<string, import('./ltr-features').DocFeatures>>;
 };
+
+// ---------------------------------------------------------------------------
+// LTR mode validation
+// ---------------------------------------------------------------------------
+
+const LTR_MODES = new Set(["off", "shadow", "interleave", "on"] as const);
+type LtrMode = "off" | "shadow" | "interleave" | "on";
+
+function parseLtrMode(): LtrMode {
+  const raw = process.env.SEARCH_LTR_MODE ?? "off";
+  if (LTR_MODES.has(raw as LtrMode)) return raw as LtrMode;
+  return "off";
+}
 
 const DEGRADE_COOLDOWN_MS = 5 * 60 * 1000; // 5 minutes
 
@@ -318,7 +332,8 @@ export async function searchProductsBySituation(
   ]);
 
   if (timeoutId) clearTimeout(timeoutId);
-  const { embedding, degraded, effectiveMode, embedLatencyMs } = embedResult;
+  const { embedding, effectiveMode, embedLatencyMs } = embedResult;
+  let degraded = embedResult.degraded;
 
   // --- Intent metadata (populated on both returns) ---
   const intentMeta = {
@@ -389,11 +404,7 @@ export async function searchProductsBySituation(
 
   // --- LTR Scoring ---
   // Read at call time so tests can vary mode per case via vi.stubEnv
-  const ltrMode = (process.env.SEARCH_LTR_MODE ?? "off") as
-    | "off"
-    | "shadow"
-    | "interleave"
-    | "on";
+  const ltrMode = parseLtrMode();
 
   type LtrFields = {
     ltrMode: string;
@@ -428,13 +439,19 @@ export async function searchProductsBySituation(
       const { buildFeatureRows } = await import("./ltr-features");
       const featureRows = buildFeatureRows(
         normalized,
-        rows as unknown as import("./ltr-features").RpcRow[],
+        rows as LtrRpcRow[],
         docFeatures,
       );
 
       const ltrStart = deps.now();
       const ltrScores = await deps.ltrScore(featureRows);
       const ltrLatencyMs = deps.now() - ltrStart;
+
+      if (ltrScores.length !== orderedIds.length) {
+        throw new Error(
+          `LTR score count mismatch: expected ${orderedIds.length}, got ${ltrScores.length}`,
+        );
+      }
 
       // Compute LTR-ranked order
       const rrfProductKeys = [...orderedIds];
@@ -470,6 +487,13 @@ export async function searchProductsBySituation(
         .map((id) => byId.get(id))
         .filter((p): p is CatalogProduct => p != null);
 
+      // Keep armBySlot entries only for ids that survived hydration
+      if (armBySlot) {
+        armBySlot = displayOrder
+          .map((id, i) => (byId.has(id) ? armBySlot![i] : null))
+          .filter((arm): arm is "rrf" | "ltr" => arm !== null);
+      }
+
       ltrFields = {
         ltrMode,
         ltrLatencyMs,
@@ -481,6 +505,7 @@ export async function searchProductsBySituation(
         armBySlot,
       };
     } catch (ltrErr) {
+      degraded = true;
       const now = deps.now();
       if (now - lastLtrDegradationReportAt >= DEGRADE_COOLDOWN_MS) {
         lastLtrDegradationReportAt = now;
