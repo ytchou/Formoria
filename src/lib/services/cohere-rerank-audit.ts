@@ -62,8 +62,9 @@ function computeScoreSpread(scores: number[]): number {
 }
 
 function computeTopScoreRatio(scores: number[]): number {
-  if (scores.length < 2 || scores[0] === 0) return 0;
-  return scores[0]! / (scores[1] || 1);
+  if (scores.length < 2) return 0;
+  if (scores[1] === 0) return scores[0] === 0 ? 1 : Infinity;
+  return scores[0]! / scores[1]!;
 }
 
 // ---------------------------------------------------------------------------
@@ -95,18 +96,32 @@ export async function rerankWithCohere(
     audit: deps?.audit ?? auditedCall,
   };
 
-  const normalized = normalizeSituationQuery(query);
-
-  // Check cache
-  const cachedIds = await resolved.cache.get(normalized, "cohere");
-  if (cachedIds) {
-    const byId = new Map(candidates.map((c) => [c.id, c]));
-    return cachedIds
-      .map((id) => byId.get(id))
-      .filter((c): c is RerankCandidate => c !== undefined);
-  }
+  const cacheReranker = `cohere:${meta.category ?? "all"}`;
 
   try {
+    const normalized = normalizeSituationQuery(query);
+
+    // Check cache
+    const cachedIds = await resolved.cache.get(normalized, cacheReranker);
+    if (cachedIds) {
+      const byId = new Map(candidates.map((c) => [c.id, c]));
+      const cached = cachedIds
+        .map((id) => byId.get(id))
+        .filter((c): c is RerankCandidate => c !== undefined);
+      // Append candidates missing from cache to maintain pool size
+      if (cached.length < candidates.length) {
+        const seen = new Set(cached.map((c) => c.id));
+        for (const c of candidates) {
+          if (!seen.has(c.id)) cached.push(c);
+        }
+      }
+      console.info("[cohere-rerank] cache hit", {
+        query: normalized.slice(0, 50),
+        category: meta.category,
+      });
+      return cached;
+    }
+
     const inputIds = candidates.map((c) => c.id);
     const inputScores = meta.rpcScores.map((s) => ({
       productId: s.productId,
@@ -121,17 +136,16 @@ export async function rerankWithCohere(
       },
       async (ctx: AuditCallContext) => {
         const cohereResult = await resolved.client.rerank(
-          query,
+          normalized,
           candidates.map((c) => c.document),
-          50,
+          candidates.length,
         );
 
-        const outputIds = cohereResult.results.map(
-          (r) => candidates[r.index]!.id,
+        const validResults = cohereResult.results.filter(
+          (r) => r.index >= 0 && r.index < candidates.length,
         );
-        const cohereScores = cohereResult.results.map(
-          (r) => r.relevanceScore,
-        );
+        const outputIds = validResults.map((r) => candidates[r.index]!.id);
+        const cohereScores = validResults.map((r) => r.relevanceScore);
 
         ctx.summary = {
           inputScores,
@@ -143,6 +157,7 @@ export async function rerankWithCohere(
           candidateCount: candidates.length,
           queryCategory: meta.category,
         };
+        // $0.002/search at overage; free tier included 1000/month. Upgrade: read from service registry.
         ctx.costUsd = 0.002;
 
         return cohereResult;
@@ -150,18 +165,25 @@ export async function rerankWithCohere(
       { summary: {} },
     )) as CohereRerankResult;
 
-    const reordered = result.results.map((r) => candidates[r.index]!);
+    const validResults = result.results.filter(
+      (r) => r.index >= 0 && r.index < candidates.length,
+    );
+    const reordered = validResults.map((r) => candidates[r.index]!);
 
     // Write to cache
     await resolved.cache.set(
       normalized,
-      "cohere",
+      cacheReranker,
       reordered.map((c) => c.id),
     );
 
     return reordered;
-  } catch {
+  } catch (error) {
     // Fail-open: return original order
+    console.warn(
+      "[cohere-rerank] fail-open:",
+      error instanceof Error ? error.message : String(error),
+    );
     return [...candidates];
   }
 }

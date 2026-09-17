@@ -9,21 +9,32 @@
 import { z } from "zod";
 import { createProfiledOpenAIClient, profileChatParams } from "./llm-audit";
 import { parseAndValidate, toStrictJsonSchema } from "./_shared/zod-schema";
-import type { CatalogProduct } from "./curated-products-catalog";
-
 // ---------------------------------------------------------------------------
 // Document builder
 // ---------------------------------------------------------------------------
 
-export function buildRerankDocument(product: CatalogProduct): string {
-  const name = product.nameEn
-    ? `${product.nameZh} (${product.nameEn})`
-    : product.nameZh;
-  const desc =
-    product.productDescriptionZh.length > 500
-      ? product.productDescriptionZh.slice(0, 500) + "…"
-      : product.productDescriptionZh;
-  return `${product.brandName} — ${name} [${product.category}/${product.subcategory}] ${desc}`;
+/** Minimal input for building a rerank document string.  All fields optional
+ *  so callers with a narrow type (e.g. `{ id, key, brandSlug }`) produce a
+ *  degraded but valid document instead of crashing. */
+export type RerankDocumentInput = {
+  nameZh?: string;
+  nameEn?: string | null;
+  brandName?: string;
+  category?: string;
+  subcategory?: string;
+  productDescriptionZh?: string;
+  [key: string]: unknown;
+};
+
+export function buildRerankDocument(product: RerankDocumentInput): string {
+  const nameZh = product.nameZh ?? "";
+  const name = product.nameEn ? `${nameZh} (${product.nameEn})` : nameZh;
+  const brand = product.brandName ?? "";
+  const cat = product.category ?? "";
+  const subcat = product.subcategory ?? "";
+  const rawDesc = product.productDescriptionZh ?? "";
+  const desc = rawDesc.length > 500 ? rawDesc.slice(0, 500) + "…" : rawDesc;
+  return `${brand} — ${name} [${cat}/${subcat}] ${desc}`;
 }
 
 // ---------------------------------------------------------------------------

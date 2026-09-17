@@ -69,6 +69,8 @@ describe("cohere-rerank-client", () => {
     expect(
       (init.headers as Record<string, string>)["Authorization"],
     ).toBe("Bearer test-key");
+    // Verify per-attempt AbortController signal is attached
+    expect(init.signal).toBeInstanceOf(AbortSignal);
   });
 
   test("rerank retries on 429", async () => {

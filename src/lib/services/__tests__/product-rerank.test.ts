@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import { rerankProducts, buildRerankDocument } from "../product-rerank";
 import type { CatalogProduct } from "../curated-products-catalog";
+import type { RerankDocumentInput } from "../product-rerank";
 
 function makeCandidates(ids: string[]) {
   return ids.map((id) => ({ id, document: `Product ${id}` }));
@@ -144,5 +145,11 @@ describe("buildRerankDocument", () => {
     expect(doc).toContain("經典茶具組");
     expect(typeof doc).toBe("string");
     expect(doc.length).toBeGreaterThan(0);
+  });
+
+  it("handles object with no optional fields (narrow dep type)", () => {
+    const narrow: RerankDocumentInput = {};
+    const result = buildRerankDocument(narrow);
+    expect(result).toBe(" —  [/] ");
   });
 });

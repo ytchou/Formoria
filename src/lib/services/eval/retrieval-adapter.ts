@@ -5,7 +5,6 @@ import type { ExperimentItem, ExperimentArm } from './run-experiment'
 import { ndcgAt, precisionAtK, recallAtK, mrr as mrrFn, type GradedItem } from './scorers'
 import type { SearchMode } from '@/lib/services/product-situation-search'
 import { buildRerankDocument } from '@/lib/services/product-rerank'
-import type { CatalogProduct } from '@/lib/services/curated-products-catalog'
 
 // ---------------------------------------------------------------------------
 // Dependency injection
@@ -130,7 +129,7 @@ export function createRetrievalAdapter(deps: RetrievalAdapterDeps): PhaseAdapter
         }
         const candidates = result.products.map((p) => ({
           id: p.id,
-          document: buildRerankDocument(p as CatalogProduct),
+          document: buildRerankDocument(p),
         }))
         const reranked = await deps.rerank(input.query, candidates)
         const byId = new Map(result.products.map((p) => [p.id, p]))

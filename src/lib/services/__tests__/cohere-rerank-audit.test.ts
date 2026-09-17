@@ -103,7 +103,7 @@ describe("rerankWithCohere", () => {
     expect(client.rerank).toHaveBeenCalledWith(
       "tea gift",
       candidates.map((c) => c.document),
-      50,
+      candidates.length,
     );
     expect(result).toEqual([
       { id: "id-2", document: "Product 2 description" },
@@ -201,10 +201,31 @@ describe("rerankWithCohere", () => {
       { client, cache, audit },
     );
 
-    expect(cache.get).toHaveBeenCalled();
+    expect(cache.get).toHaveBeenCalledWith("tea gift", "cohere:lifestyle");
     expect(client.rerank).not.toHaveBeenCalled();
     expect(audit).not.toHaveBeenCalled();
     expect(result.map((c) => c.id)).toEqual(["id-2", "id-0", "id-1"]);
+  });
+
+  it("cache hit appends uncached candidates to maintain pool size", async () => {
+    const candidates = makeCandidates(4);
+    // Cache only knows about id-2 and id-0 — id-1 and id-3 are missing
+    const cache = makeCache({
+      get: vi.fn<RerankCache["get"]>().mockResolvedValue(["id-2", "id-0"]),
+    });
+    const client = makeClient();
+    const audit = makeAudit();
+
+    const result = await rerankWithCohere(
+      "tea gift",
+      candidates,
+      makeMeta(candidates),
+      { client, cache, audit },
+    );
+
+    // Cached order first, then uncached in original order
+    expect(result.map((c) => c.id)).toEqual(["id-2", "id-0", "id-1", "id-3"]);
+    expect(client.rerank).not.toHaveBeenCalled();
   });
 
   it("writes cache on miss", async () => {
@@ -221,10 +242,10 @@ describe("rerankWithCohere", () => {
       { client, cache, audit },
     );
 
-    expect(cache.get).toHaveBeenCalled();
+    expect(cache.get).toHaveBeenCalledWith("tea gift", "cohere:lifestyle");
     expect(cache.set).toHaveBeenCalledWith(
       "tea gift",
-      "cohere",
+      "cohere:lifestyle",
       ["id-2", "id-0", "id-1"],
     );
   });

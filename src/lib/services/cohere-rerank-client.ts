@@ -20,21 +20,29 @@ export function createCohereRerankClient(apiKey?: string) {
       const result = await withRetry(
         IN_PROCESS,
         async () => {
-          const response = await fetch(COHERE_RERANK_URL, {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              Authorization: `Bearer ${resolvedApiKey}`,
-            },
-            body: JSON.stringify({
-              model: "rerank-v3.5",
-              query,
-              documents,
-              top_n: topN,
-              return_documents: false,
-            }),
-          });
-          return response;
+          // Per-attempt deadline so a slow attempt doesn't eat the retry budget.
+          const controller = new AbortController();
+          const timeout = setTimeout(() => controller.abort(), 30_000);
+          try {
+            const response = await fetch(COHERE_RERANK_URL, {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                Authorization: `Bearer ${resolvedApiKey}`,
+              },
+              body: JSON.stringify({
+                model: "rerank-v3.5",
+                query,
+                documents,
+                top_n: topN,
+                return_documents: false,
+              }),
+              signal: controller.signal,
+            });
+            return response;
+          } finally {
+            clearTimeout(timeout);
+          }
         },
         {
           classify: classifyHttpResponse,
