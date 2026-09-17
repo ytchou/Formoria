@@ -52,7 +52,7 @@ export type PagedReadOptions = {
  * exceeds MAX_PAGES to prevent runaway loops.
  */
 export async function pagedRead<T>(
-  from: { from: (table: string) => PageableQuery<T> },
+  from: { from: (table: string) => PageableQuery<unknown> },
   table: string,
   options: PagedReadOptions,
 ): Promise<T[]> {
