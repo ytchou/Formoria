@@ -33,6 +33,7 @@ export type RetrievalAdapterDeps = {
     version: string
     category?: string | null
   }) => Promise<string[]>
+  rerankCohere?: (query: string, category?: string | null) => Promise<string[]>
 }
 
 // ---------------------------------------------------------------------------
@@ -142,6 +143,12 @@ export function createRetrievalAdapter(deps: RetrievalAdapterDeps): PhaseAdapter
             })
             .filter(Boolean),
         }
+      }
+
+      if (arm.value === 'rerank:cohere') {
+        if (!deps.rerankCohere) throw new Error('rerankCohere dep required for arm "rerank:cohere"')
+        const keys = await deps.rerankCohere(input.query, input.category ?? null)
+        return { ok: true, output: keys }
       }
 
       // hybrid / vector / lexical

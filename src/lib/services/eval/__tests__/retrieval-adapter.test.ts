@@ -177,6 +177,44 @@ describe('createRetrievalAdapter', () => {
     expect(result.output).toEqual(['b2/p-b', 'b1/p-a'])
   })
 
+  it('task dispatches rerank:cohere to deps.rerankCohere', async () => {
+    const rerankCohereMock = vi.fn().mockResolvedValue(['b1/p-a', 'b2/p-b'])
+    const adapter = createRetrievalAdapter(
+      makeDeps({ rerankCohere: rerankCohereMock }),
+    )
+    const item = makeItem()
+    const arm = makeArm({ name: 'rerank:cohere', value: 'rerank:cohere' })
+
+    const result = await adapter.task!(item, arm, { itemRunId: 'run-cohere' })
+
+    expect(rerankCohereMock).toHaveBeenCalledWith('送禮推薦', 'lifestyle')
+    expect(result.ok).toBe(true)
+    expect(result.output).toEqual(['b1/p-a', 'b2/p-b'])
+  })
+
+  it('task throws when rerank:cohere arm but rerankCohere dep undefined', async () => {
+    const adapter = createRetrievalAdapter(makeDeps())
+    const item = makeItem()
+    const arm = makeArm({ name: 'rerank:cohere', value: 'rerank:cohere' })
+
+    await expect(adapter.task!(item, arm, { itemRunId: 'run-missing' })).rejects.toThrow(
+      'rerankCohere dep required',
+    )
+  })
+
+  it('task rerank:cohere returns composite keys from dep', async () => {
+    const rerankCohereMock = vi.fn().mockResolvedValue(['brand-a/product-1', 'brand-b/product-2'])
+    const adapter = createRetrievalAdapter(
+      makeDeps({ rerankCohere: rerankCohereMock }),
+    )
+    const item = makeItem({ input: { query: '茶具推薦', category: 'food' } })
+    const arm = makeArm({ name: 'rerank:cohere', value: 'rerank:cohere' })
+
+    const result = await adapter.task!(item, arm, { itemRunId: 'run-keys' })
+
+    expect(result.output).toEqual(['brand-a/product-1', 'brand-b/product-2'])
+  })
+
   it('task dispatches ltr:<version> to deps.rank', async () => {
     const rankMock = vi.fn().mockResolvedValue(['b1/p1', 'b2/p2'])
     const adapter = createRetrievalAdapter(

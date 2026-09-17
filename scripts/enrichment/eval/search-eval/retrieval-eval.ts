@@ -27,7 +27,12 @@ import {
   getRelatedBrandsByCentroid,
 } from "@/lib/services/brand-embeddings";
 import { createServiceClient } from "@/lib/supabase/service";
-import { rerankProducts } from "@/lib/services/product-rerank";
+import { rerankProducts, buildRerankDocument } from "@/lib/services/product-rerank";
+import {
+  rerankWithCohere,
+  createDefaultRerankDeps,
+} from "@/lib/services/cohere-rerank-audit";
+import type { CatalogProduct } from "@/lib/services/curated-products-catalog";
 import { getLangfuse, flushLangfuse } from "@/lib/langfuse/client";
 import {
   precisionAtK,
@@ -175,9 +180,9 @@ function loadGolden(): GoldenItem[] {
   return JSON.parse(readFileSync(GOLDEN_PATH, "utf8")) as GoldenItem[];
 }
 
-type ArmName = "all" | "category" | "lexical" | "vector" | "hybrid" | "rerank";
+type ArmName = "all" | "category" | "lexical" | "vector" | "hybrid" | "rerank" | "rerank:cohere";
 
-const ARMS: ArmName[] = ["category", "lexical", "vector", "hybrid", "rerank"];
+const ARMS: ArmName[] = ["category", "lexical", "vector", "hybrid", "rerank", "rerank:cohere"];
 
 /**
  * Build the default lookup function that queries the curated product catalog.
@@ -280,6 +285,32 @@ async function runArm(
       document: `${p.nameZh} ${p.category} ${p.subcategory}`,
     }));
     const reranked = await rerankProducts(item.query, candidates);
+    retrievedIds = reranked.slice(0, k).map((c) => c.id);
+  } else if (armName === "rerank:cohere") {
+    // Hybrid top-50 -> Cohere rerank -> top-k
+    const result = await searchProductsBySituation({
+      query: item.query,
+      locale: item.locale,
+      mode: "hybrid",
+      pageSize: 50,
+      category: item.category ?? null,
+    });
+    const candidates = result.products.map((p) => ({
+      id: p.id,
+      document: buildRerankDocument(p as CatalogProduct),
+    }));
+    const rpcScores = result.products.map((p) => ({
+      productId: p.id,
+      rankScore: 0,
+      cosineSim: 0,
+      lexicalScore: 0,
+    }));
+    const reranked = await rerankWithCohere(
+      item.query,
+      candidates,
+      { rpcScores, category: item.category ?? null },
+      createDefaultRerankDeps(),
+    );
     retrievedIds = reranked.slice(0, k).map((c) => c.id);
   } else {
     // lexical / vector / hybrid
@@ -1002,7 +1033,7 @@ async function main() {
         "  dataset                          Upload golden set to Langfuse",
       );
       console.error(
-        "  run [--arm all|category|lexical|vector|hybrid|rerank] [--k 5]",
+        "  run [--arm all|category|lexical|vector|hybrid|rerank|rerank:cohere] [--k 5]",
       );
       console.error("  neighbours [--limit 5]");
       console.error("  snapshot --variant baseline|candidate --output <file>");
