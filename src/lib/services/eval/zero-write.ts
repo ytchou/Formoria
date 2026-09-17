@@ -71,39 +71,91 @@ export function installSeams({ sinkPath }: { sinkPath: string }): {
 // assertNoNewAuditRows
 // ---------------------------------------------------------------------------
 
-type RowCounter = (table: string, since: Date) => Promise<number>
+type RowCounter = (
+  table: string,
+  since: Date,
+  ids: string[],
+  idColumn: string,
+) => Promise<number>
 
-async function defaultCount(table: string, since: Date): Promise<number> {
+/** Chunk size for `.in()` filters — keeps query strings sane for 30-item × 3-arm runs. */
+const CHUNK_SIZE = 100
+
+async function defaultCount(
+  table: string,
+  since: Date,
+  ids: string[],
+  idColumn: string,
+): Promise<number> {
   const { createServiceClient } = await import('@/lib/supabase/service')
-  const { count, error } = await createServiceClient()
-    .from(table)
-    .select('*', { count: 'exact', head: true })
-    .gt('created_at', since.toISOString())
+  const client = createServiceClient()
+  let total = 0
 
-  if (error) throw new Error(`Failed to count ${table}: ${error.message}`)
-  return count ?? 0
+  for (let i = 0; i < ids.length; i += CHUNK_SIZE) {
+    const chunk = ids.slice(i, i + CHUNK_SIZE)
+    const { count, error } = await client
+      .from(table)
+      .select('*', { count: 'exact', head: true })
+      .gt('created_at', since.toISOString())
+      .in(idColumn, chunk)
+
+    if (error) throw new Error(`Failed to count ${table}: ${error.message}`)
+    total += count ?? 0
+  }
+
+  return total
 }
 
-const GUARDED_TABLES = ['external_call_audit', 'brand_ai_results'] as const
-
 /**
- * Asserts that no new rows appeared in the audit tables after `since`.
+ * Asserts that no new rows written by THIS run appeared in the audit tables.
+ *
+ * Both `correlationIds` and `spanIds` are **required** — an optional scope
+ * would silently restore the global count at any call site that forgets it.
+ *
+ * - `external_call_audit` is scoped by `correlation_id ∈ correlationIds`.
+ * - `brand_ai_results` is scoped by `audit_span_id ∈ spanIds`. When `spanIds`
+ *   is empty the query is skipped (no intercepted call → no span could have
+ *   escaped). This cannot see a row with a NULL `audit_span_id`, which is why
+ *   the static insert-site guard test exists.
+ *
  * The `count` parameter injects the query function so tests avoid hitting
  * Supabase. Defaults to a real `createServiceClient()` query.
  */
 export async function assertNoNewAuditRows({
   since,
+  correlationIds,
+  spanIds,
   count = defaultCount,
 }: {
   since: Date
+  correlationIds: string[]
+  spanIds: string[]
   count?: RowCounter
 }): Promise<void> {
+  if (correlationIds.length === 0) {
+    throw new Error(
+      'assertNoNewAuditRows: correlationIds is empty — cannot verify a run with no correlation ids',
+    )
+  }
+
   const violations: string[] = []
 
-  for (const table of GUARDED_TABLES) {
-    const n = await count(table, since)
-    if (n > 0) {
-      violations.push(`${table} has ${n} new row(s) since ${since.toISOString()}`)
+  // external_call_audit: scoped by correlation_id
+  const auditCount = await count('external_call_audit', since, correlationIds, 'correlation_id')
+  if (auditCount > 0) {
+    violations.push(
+      `external_call_audit has ${auditCount} new row(s) since ${since.toISOString()}`,
+    )
+  }
+
+  // brand_ai_results: scoped by audit_span_id — skip when spanIds is empty
+  // (no intercepted call means no span could have escaped)
+  if (spanIds.length > 0) {
+    const aiCount = await count('brand_ai_results', since, spanIds, 'audit_span_id')
+    if (aiCount > 0) {
+      violations.push(
+        `brand_ai_results has ${aiCount} new row(s) since ${since.toISOString()}`,
+      )
     }
   }
 

@@ -370,6 +370,57 @@ describe('runExperiment', () => {
     }
   })
 
+  it('passes itemRunIds and spanIds to assertNoNewAuditRows', async () => {
+    const collector = makeCollector()
+    const assertFn = vi.fn()
+
+    const callModel = vi.fn().mockImplementation(async (_input: unknown, _opts: unknown, itemRunId: string) => {
+      // Push an audit record so the collector has spans
+      collector.push({
+        correlationId: itemRunId,
+        spanId: `span-${itemRunId}`,
+        costUsd: 0.01,
+        latencyMs: 100,
+      } as never)
+      return {
+        ok: true,
+        content: JSON.stringify({ isNonBrand: false, confidence: 'high' }),
+      }
+    })
+
+    const result = await runExperiment({
+      dataset: 'test-golden',
+      arms: [makeArm()],
+      adapter: makeAdapter(),
+      items: [makeItem({ id: 'item-a' }), makeItem({ id: 'item-b' })],
+      deps: {
+        callModel,
+        writeFile: vi.fn(),
+        now: () => new Date('2026-09-04'),
+        flushLangfuse: vi.fn(),
+        fetchPrompt: vi.fn().mockResolvedValue({ text: 'prompt', prompt: { name: 'detect', version: 1, source: 'langfuse' } }),
+        installSeams: () => ({ collector, restore: vi.fn() }),
+        assertNoNewAuditRows: assertFn,
+        runWithAuditContext: <T>(_seed: unknown, fn: () => T): T => fn(),
+        getAuditContext: () => ({ correlationId: null }),
+      },
+    })
+
+    expect(assertFn).toHaveBeenCalledTimes(1)
+    const opts = assertFn.mock.calls[0]![0] as {
+      since: Date
+      correlationIds: string[]
+      spanIds: string[]
+    }
+    // correlationIds should match the itemRunIds from the results
+    const itemRunIds = result.armResults.flatMap((a) => a.items.map((i) => i.itemRunId))
+    expect(opts.correlationIds).toEqual(itemRunIds)
+    expect(opts.correlationIds).toHaveLength(2)
+    // spanIds from the collector
+    expect(opts.spanIds).toHaveLength(2)
+    expect(opts.spanIds.every((id: string) => id.startsWith('span-'))).toBe(true)
+  })
+
   it('model content is parsed through adapter.parseOutput before unwrap', async () => {
     // adapter.parseOutput will reject invalid content
     const adapter = makeAdapter({
