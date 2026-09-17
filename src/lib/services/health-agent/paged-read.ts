@@ -28,6 +28,8 @@ export type PageableQuery<T> = {
   order: (column: string, options?: { ascending: boolean }) => PageableQuery<T>
   range: (from: number, to: number) => Promise<{ data: T[] | null; error: unknown }>
   eq: (column: string, value: unknown) => PageableQuery<T>
+  gte?: (column: string, value: unknown) => PageableQuery<T>
+  lte?: (column: string, value: unknown) => PageableQuery<T>
 }
 
 export type PagedReadOptions = {
@@ -37,6 +39,8 @@ export type PagedReadOptions = {
   select?: string
   /** Optional filter: column = value pairs applied before paging. */
   filters?: Array<{ column: string; value: unknown }>
+  /** Optional range filters (gte/lte) applied before paging. */
+  rangeFilters?: Array<{ column: string; op: 'gte' | 'lte'; value: unknown }>
   /**
    * When true, throw if the result set is empty. This turns a zero-row read
    * into a hard failure so that a detector requiring non-empty data surfaces
@@ -59,6 +63,7 @@ export async function pagedRead<T>(
   const rows: T[] = []
   const selectExpr = options.select ?? '*'
   const filters = options.filters ?? []
+  const rangeFilters = options.rangeFilters ?? []
 
   for (let page = 0; page < MAX_PAGES; page += 1) {
     const offset = page * PAGE_SIZE
@@ -66,6 +71,11 @@ export async function pagedRead<T>(
 
     for (const filter of filters) {
       query = query.eq(filter.column, filter.value)
+    }
+
+    for (const rf of rangeFilters) {
+      const fn = query[rf.op]
+      if (fn) query = fn.call(query, rf.column, rf.value)
     }
 
     for (const order of options.orderBy) {

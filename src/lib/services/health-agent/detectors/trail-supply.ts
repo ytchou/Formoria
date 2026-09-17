@@ -36,7 +36,9 @@ export function trailSupplyDetector(deps: TrailSupplyDetectorDeps): Detector {
 
     async run(_ctx: DetectorContext): Promise<HealthFinding[]> {
       const fetchFn = deps.fetchImpl ?? fetch
-      const url = `${deps.railwayUrl.replace(/\/$/, '')}/api/cron/trail-supply`
+      let base = deps.railwayUrl.replace(/\/$/, '')
+      if (base && !/^https?:\/\//.test(base)) base = `https://${base}`
+      const url = `${base}/api/cron/trail-supply`
 
       const response = await auditedCall(
         {

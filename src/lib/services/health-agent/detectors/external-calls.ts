@@ -55,19 +55,15 @@ export const externalCallsDetector: Detector = {
     const now = Date.now()
     const lookbackCutoff = new Date(now - LOOKBACK_MS).toISOString()
 
-    const allSpans = await pagedRead<SpanRow>(
+    const recentSpans = await pagedRead<SpanRow>(
       supabase,
       'external_call_audit_spans',
       {
         orderBy: [{ column: 'span_id' }],
         select:
           'span_id, provider, operation, terminal_status, started_at, finished_at',
+        rangeFilters: [{ column: 'started_at', op: 'gte', value: lookbackCutoff }],
       },
-    )
-
-    // Filter to recent spans
-    const recentSpans = allSpans.filter(
-      (s) => s.started_at >= lookbackCutoff,
     )
 
     // 1. Per-provider failure rate — ignore started (non-terminal) rows
