@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import {
   getBrandGalleryImageEntries,
@@ -249,6 +249,8 @@ describe('getBrandImages', () => {
 })
 
 describe('toImageFields', () => {
+  const publicPrefix =
+    'https://project.supabase.co/storage/v1/object/public/brand-images/'
   const rows = [
     { storage_path: 'brands/brand-1/rejected-campaign.webp', status: 'rejected', sort_order: 0 },
     {
@@ -261,14 +263,22 @@ describe('toImageFields', () => {
     { storage_path: 'brands/brand-1/workshop.webp', status: 'active', sort_order: 1 },
   ]
 
+  beforeEach(() => {
+    vi.stubEnv('NEXT_PUBLIC_SUPABASE_URL', 'https://project.supabase.co')
+  })
+
+  afterEach(() => {
+    vi.unstubAllEnvs()
+  })
+
   it('keeps stored hero metadata aligned with the selected active image', () => {
     expect(toImageFields(rows as never)).toEqual({
-      heroImageUrl: '/i/brands/brand-1/tote.webp',
+      heroImageUrl: `${publicPrefix}brands/brand-1/tote.webp`,
       heroImageMetadata: {
         width: 1600,
         height: 1200,
       },
-      productPhotos: ['/i/brands/brand-1/workshop.webp'],
+      productPhotos: [`${publicPrefix}brands/brand-1/workshop.webp`],
       imageAlts: [
         {
           isLogo: false,

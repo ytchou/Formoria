@@ -1,25 +1,22 @@
 import { getSiteUrl } from '@/lib/site-url'
-import { isBrandOwnedStoragePath } from './storage-keys'
+import {
+  BRAND_IMAGES_BUCKET,
+  isPublicStorageKey,
+  resolveImageStorageLocation,
+} from './storage-keys'
 
 /**
  * Bucket key -> renderable URL (DEV-1551, task 9; DEV-1744, task 3).
  *
  * Every image we own is addressed by its bucket-relative `storage_path`.
- * Published imagery (`brands/`, `curated-products/`, `event-exhibitors/`) is
- * addressed by its Supabase public storage URL, so those bytes never cross the
- * Railway origin — the egress this ticket exists to remove. Everything else,
- * `submissions/` above all, still goes through the same-origin `/i/` proxy
- * (`src/lib/images/image-proxy.ts`), which serves it with the service-role key.
- *
- * RELATIVE IS THE DEFAULT. A relative `src` is what the browser, `next/image`
- * and `metadataBase` all want, and it survives a domain change. Only the
- * consumers whose output leaves the site — JSON-LD structured data and the
- * link-health checker — call {@link absoluteImageUrl}.
+ * Published imagery (`brands/`, `curated-products/`, `event-exhibitors/`, and
+ * `events/`) is addressed by its Supabase public storage URL, so those bytes
+ * never cross the Railway origin. Private `submissions/` keys never produce a
+ * public URL; admin review replaces their compatibility `/i/` form with a
+ * signed URL from the private bucket.
  */
 
 export const IMAGE_PROXY_PATH_PREFIX = '/i/'
-
-const BRAND_IMAGES_BUCKET = 'brand-images'
 
 /**
  * The public-object segment of a Supabase storage URL for the `brand-images`
@@ -53,25 +50,8 @@ function normalizedProjectUrl(): string | null {
 }
 
 /**
- * `brands/<uuid>/x.webp` -> `/i/brands/<uuid>/x.webp`.
- *
- * DEV-1744 task 3 (the public-URL branch this docblock used to describe) is
- * DESCOPED from this ticket: the `brand-images` bucket's `public` flag has no
- * per-prefix RLS, so making it public to save Railway egress on `brands/`
- * also makes every `submissions/` object — pre-moderation content — directly
- * fetchable by anyone who knows its key, for the entire window between
- * upload and admin approval/rejection. `e2e/tests/image-route.spec.ts`
- * confirmed this live against staging on 2026-09-17: a freshly-seeded
- * `submissions/` object returned 200 at its public storage URL. The correct
- * fix is a genuinely separate, always-private bucket for `submissions/`
- * uploads — tracked as a follow-up, not a same-PR patch, because it touches
- * the live submission upload path and admin-review signed URLs. Until that
- * ships, every prefix stays behind the same-origin `/i/` proxy, unchanged
- * from pre-DEV-1744 behavior. `isPublicStorageKey`/`PUBLIC_IMAGE_KEY_PREFIXES`
- * (storage-keys.ts) and `storagePathFromImageUrl`'s reverse recognition of a
- * public URL shape (this file) are left in place — inert until the bucket
- * flip migration is reintroduced — so the follow-up does not have to
- * reconstruct this seam.
+ * Published keys resolve directly to the public bucket. Private submission
+ * keys retain the compatibility `/i/` form until admin review signs them.
  *
  * Returns null for a blank path and for anything that already looks like a URL
  * or an absolute path: those are not bucket keys, and prefixing one would
@@ -83,6 +63,13 @@ export function imagePathToUrl(
   const key = storagePath?.trim()
   if (!key) return null
   if (key.startsWith('/') || key.includes('://')) return null
+
+  const location = resolveImageStorageLocation(key)
+  if (!location) return null
+  if (isPublicStorageKey(key)) {
+    const projectUrl = normalizedProjectUrl()
+    if (projectUrl) return `${projectUrl}${BRAND_IMAGES_PUBLIC_URL_SEGMENT}${key}`
+  }
 
   return `${IMAGE_PROXY_PATH_PREFIX}${key}`
 }
@@ -151,11 +138,10 @@ export function storageKeyFromBrandImagesPublicUrl(
  * here is what keeps the fix at ONE seam: all five write-path callers go
  * through this function, so none of them needs a second branch of its own.
  *
- * The public branch stays scoped to `brands/`. `rejectBrandImages` deletes
- * every key this resolves, so a `curated-products/` or `submissions/` object
- * reaching it would be removed while its own row still points at it — the
- * DEV-1374 asymmetry. A signed URL is not decoded here either: its key sits
- * behind an `/object/sign/` segment and a token, and no write path needs it.
+ * The public branch accepts the four published prefixes. Callers that delete
+ * or mutate one ownership class must narrow the returned key to their own
+ * prefix. A signed URL is not decoded here: its key sits behind an
+ * `/object/sign/` segment and a token, and no write path needs it.
  */
 export function storagePathFromImageUrl(
   url: string | null | undefined,
@@ -169,5 +155,5 @@ export function storagePathFromImageUrl(
   }
 
   const publicKey = storageKeyFromBrandImagesPublicUrl(value)
-  return publicKey && isBrandOwnedStoragePath(publicKey) ? publicKey : null
+  return publicKey && isPublicStorageKey(publicKey) ? publicKey : null
 }

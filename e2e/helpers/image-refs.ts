@@ -1,18 +1,9 @@
 /**
- * Image references for seeds, DEV-1744 edition.
+ * Image references for seeds after the DEV-1746 bucket split.
  *
- * The `brand-images` bucket is private again (DEV-1744 task 3's public-URL
- * branch was descoped — see `src/lib/images/image-url.ts`'s docblock: a
- * public bucket has no per-prefix RLS, so it exposed `submissions/` for the
- * whole upload-to-approval window, confirmed live against staging
- * 2026-09-17). Every prefix, `brands/` included, renders via the same-origin
- * `/i/<key>` proxy path again. Rows are seeded by their bucket key
- * (`storage_path`); anything that needs a renderable value derives it here,
- * exactly as the services do.
- *
- * `e2ePublicImageUrl` stays: it is the regression guard for the eventual
- * bucket-separation follow-up, asserted against the raw Supabase URL
- * independent of which URL shape the app currently renders.
+ * Published prefixes live in public `brand-images`; `submissions/` lives in
+ * permanently private `brand-submissions`. Rows still store bucket-relative
+ * keys, so helpers take the bucket only when constructing a raw storage URL.
  *
  * Deliberately duplicated rather than imported from `src/lib/images/image-url`:
  * the e2e suite asserts the CONTRACT, and a helper shared with the code under
@@ -41,10 +32,13 @@ export function e2eProxyImageUrl(storagePath: string): string {
  * The Supabase public storage URL for a bucket key — what the app renders for a
  * published prefix, and what must NOT resolve for a `submissions/` key.
  */
-export function e2ePublicImageUrl(storagePath: string): string {
+export function e2ePublicImageUrl(
+  storagePath: string,
+  bucket = "brand-images",
+): string {
   const projectUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
   if (!projectUrl) {
     throw new Error("NEXT_PUBLIC_SUPABASE_URL is required to build a public image URL");
   }
-  return `${projectUrl.replace(/\/$/, "")}/storage/v1/object/public/brand-images/${storagePath}`;
+  return `${projectUrl.replace(/\/$/, "")}/storage/v1/object/public/${bucket}/${storagePath}`;
 }

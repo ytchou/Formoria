@@ -8,7 +8,6 @@ import { describe, expect, it } from "vitest";
  * a better seam anyway.
  */
 import {
-  PRIVATE_IMAGE_PREFIXES,
   resolveProxiedImageKey,
   serveProxiedImage,
   type ProxiedImageDownload,
@@ -101,9 +100,6 @@ describe("GET /i/[...path]", () => {
 
     expect(response.status).toBe(404);
     expect(requested).toEqual([]);
-    // A deny-list, so this asserts what stays PRIVATE. It used to be an
-    // allow-list and went stale twice: `curated-products/` and then `events/`.
-    expect(PRIVATE_IMAGE_PREFIXES).toEqual(["submissions/"]);
   });
 
   it("404s a path traversal attempt, raw and encoded", async () => {

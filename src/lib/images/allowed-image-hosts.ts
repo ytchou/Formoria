@@ -20,19 +20,13 @@ function supabaseStorageHost(): string | null {
  * Remote hosts an `<img src>` may point at.
  *
  * The configured Supabase project host is wired here for DEV-1744 task 3
- * (`imagePathToUrl` addressing `brands/`, `curated-products/` and
- * `event-exhibitors/` objects by their public storage URL), but that branch
- * is currently descoped — see `image-url.ts`'s docblock — so nothing
- * generates a URL on this host yet. Kept ready for when the bucket-separation
- * follow-up reintroduces it; harmless in the meantime since it is host-exact
- * and unused.
+ * (`imagePathToUrl` addressing the four published prefixes by their public
+ * storage URL).
  *
  * It stays HOST-EXACT (no wildcard) and the list stays otherwise empty:
  * anything else added here re-opens hotlinking and needs a stated reason.
- * `submissions/` imagery is unaffected either way — it is still served from the
- * same-origin `/i/` proxy, which `safeImageSrc` passes through in its
- * leading-slash branch, and admin review's signed URLs are governed by the CSP
- * `img-src` list in `next.config.ts`, not by this one.
+ * `submissions/` imagery is unaffected: admin review's signed URLs are
+ * governed by the CSP `img-src` list in `next.config.ts`, not by this one.
  *
  * Empty when `NEXT_PUBLIC_SUPABASE_URL` is unset, which is also why the
  * explicit annotation stays: an empty `as const` array narrows to `never[]`,

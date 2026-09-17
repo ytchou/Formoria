@@ -2,15 +2,10 @@
  * DEV-1551 — promote an approved brand's imagery out of `submissions/`.
  *
  * `approve_submission` copies `submission_images` rows into `brand_images` and
- * carries `storage_path` across verbatim, so an approved brand keeps
- * `submissions/<submission-id>/<file>` keys forever. Once the `brand-images`
- * bucket is private that key is refused by the read proxy
- * (`PRIVATE_IMAGE_PREFIXES` in `image-proxy.ts`), because privacy there is
- * decided by prefix alone — the proxy cannot read row status without a
- * per-request database round trip, which was rejected on performance grounds.
- *
- * The invariant the proxy encodes is therefore only true if the OBJECT moves
- * when it becomes public. This module is the move.
+ * carries `storage_path` across verbatim, so an approved brand would otherwise
+ * keep a key whose object is in the private `brand-submissions` bucket. The
+ * object must be copied into public `brand-images` before the row can become a
+ * published `brands/` key. This module performs that promotion.
  *
  * Deliberately dependency-free, like `storage-keys.ts`: the planning rules and
  * the execution engine must be unit-testable with plain row objects and a fake
@@ -19,10 +14,12 @@
  * live behind the `PromotionStorage` seam, implemented in
  * `@/lib/services/promote-submission-images`.
  */
-import { BRAND_IMAGES_KEY_PREFIX } from './storage-keys'
+import {
+  BRAND_IMAGES_KEY_PREFIX,
+  SUBMISSION_IMAGES_KEY_PREFIX,
+} from './storage-keys'
 
-/** Pre-moderation submission imagery. Refused by the public read proxy. */
-export const SUBMISSION_IMAGES_KEY_PREFIX = 'submissions/'
+export { SUBMISSION_IMAGES_KEY_PREFIX }
 
 /** A `brand_images` row reduced to the fields the decision depends on. */
 export type PromotionRow = {
@@ -164,7 +161,7 @@ export function planPromotions(rows: readonly PromotionRow[]): PromotionPlan {
   return plan
 }
 
-export type StoredObjectStat = { size: number }
+export type StoredObjectStat = { size: number; etag: string }
 
 /**
  * The whole IO surface of a promotion. Implemented over Supabase in the service
@@ -215,11 +212,8 @@ function errorMessage(error: unknown): string {
  * and the remaining rows still run. A failed row keeps its `submissions/` key,
  * which is the recoverable state — the row can be promoted by a later re-run.
  *
- * The source object is deliberately left in place. A promotion that deleted the
- * source before the row update landed would be unrecoverable;
- * `scripts/brand-storage-maintenance.ts` can sweep the leftovers once promotion
- * is proven in production. Ceiling: the bucket carries one duplicate object per
- * promoted image until that sweep runs.
+ * The private source object is deliberately retained as submission history.
+ * Promotion only adds a public copy and rewrites the published row.
  */
 export async function executePromotions(
   plan: PromotionPlan,
@@ -235,20 +229,21 @@ export async function executePromotions(
     }
 
     try {
+      const source = await storage.statObject(entry.sourceKey)
       const existing = await storage.statObject(entry.targetKey)
 
       if (existing !== null) {
-        // A target already holding OUR object is the signature of a run that
-        // copied and then died before the row update. Size is the only cheap
-        // identity signal Storage offers; a mismatch is treated as a foreign
-        // object and left strictly alone. Upgrade path: compare checksums once
-        // the bucket exposes them.
-        const source = await storage.statObject(entry.sourceKey)
-        if (source !== null && source.size !== existing.size) {
+        if (
+          source === null ||
+          source.size !== existing.size ||
+          source.etag !== existing.etag
+        ) {
           outcomes.push({
             ...base,
             kind: 'conflict',
-            detail: `target occupied by a different object (${existing.size} bytes vs source ${source.size})`,
+            detail: source
+              ? 'target occupied by a different object'
+              : 'source object is missing',
           })
           continue
         }
@@ -258,7 +253,19 @@ export async function executePromotions(
         continue
       }
 
+      if (source === null) {
+        outcomes.push({ ...base, kind: 'conflict', detail: 'source object is missing' })
+        continue
+      }
       await storage.copyObject(entry.sourceKey, entry.targetKey)
+      const copied = await storage.statObject(entry.targetKey)
+      if (
+        copied === null ||
+        copied.size !== source.size ||
+        copied.etag !== source.etag
+      ) {
+        throw new Error('copied destination could not be verified')
+      }
       await storage.setStoragePath(entry.id, entry.targetKey)
       outcomes.push({ ...base, kind: 'copied' })
     } catch (error) {

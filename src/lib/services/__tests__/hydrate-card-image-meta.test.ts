@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 /**
  * `hydrateCardImageMeta` is what puts per-image metadata on every card surface
@@ -134,9 +134,27 @@ function brand(id: string, heroImageUrl: string | null) {
 
 describe('hydrateCardImageMeta', () => {
   beforeEach(() => {
+    vi.stubEnv('NEXT_PUBLIC_SUPABASE_URL', 'https://project.supabase.co')
     queries.length = 0
     queryError = null
     table = []
+  })
+
+  afterEach(() => {
+    vi.unstubAllEnvs()
+  })
+
+  it('does not treat a curated-product URL as a brand-owned hero', async () => {
+    const [hydrated] = await hydrateCardImageMeta(client(), [
+      brand(
+        'atelier-loom',
+        'https://project.supabase.co/storage/v1/object/public/brand-images/curated-products/atelier-loom/woven-basket/hero.webp',
+      ),
+    ])
+
+    expect(queries).toEqual([])
+    expect(hydrated?.heroImageMetadata).toBeNull()
+    expect(hydrated?.productPhotos).toEqual([])
   })
 
   it('matches the hero row on its bucket key, not on sort_order', async () => {
@@ -190,7 +208,9 @@ describe('hydrateCardImageMeta', () => {
       brand('b1', '/i/brands/b1/hero.webp'),
     ])
 
-    expect(hydrated?.productPhotos).toEqual(['/i/brands/b1/product.webp'])
+    expect(hydrated?.productPhotos).toEqual([
+      'https://project.supabase.co/storage/v1/object/public/brand-images/brands/b1/product.webp',
+    ])
     expect(hydrated?.imageAlts).toEqual([
       expect.objectContaining({ isLogo: true }),
       expect.objectContaining({
@@ -346,14 +366,21 @@ describe('hydrateCardImageMeta', () => {
       // Forced onto one request by using short keys and few brands, then given
       // more rows than one page holds — so the `.range()` loop, not the
       // chunker, is what has to fetch the rest.
-      const brands = [brand('b1', '/i/u1'), brand('b2', '/i/u2')]
+      const brands = [
+        brand('b1', '/i/brands/b1/hero.webp'),
+        brand('b2', '/i/brands/b2/hero.webp'),
+      ]
       table = [
         ...Array.from({ length: BRAND_IMAGE_PAGE_SIZE }, (_, i) =>
-          imageRow({ brand_id: 'b1', storage_path: 'u1', sort_order: i }),
+          imageRow({
+            brand_id: 'b1',
+            storage_path: 'brands/b1/hero.webp',
+            sort_order: i,
+          }),
         ),
         imageRow({
           brand_id: 'b2',
-          storage_path: 'u2',
+          storage_path: 'brands/b2/hero.webp',
           sort_order: 0,
           tags: ['logo'],
         }),
@@ -387,9 +414,13 @@ describe('hydrateCardImageMeta', () => {
     })
 
     it('orders before ranging, so pages cannot repeat or skip rows', async () => {
-      table = [imageRow({ brand_id: 'b1', storage_path: 'u1' })]
+      table = [
+        imageRow({ brand_id: 'b1', storage_path: 'brands/b1/hero.webp' }),
+      ]
 
-      await hydrateCardImageMeta(client(), [brand('b1', '/i/u1')])
+      await hydrateCardImageMeta(client(), [
+        brand('b1', '/i/brands/b1/hero.webp'),
+      ])
 
       expect(queries[0]?.orders).toEqual(['brand_id', 'sort_order', 'id'])
     })
@@ -440,9 +471,13 @@ describe('hydrateCardImageMeta', () => {
       // lint and only surfaces as a 42703 at runtime, on every card surface at
       // once. Pinning the projection is the only compile-time-shaped guard
       // this query has.
-      table = [imageRow({ brand_id: 'b1', storage_path: 'u1' })]
+      table = [
+        imageRow({ brand_id: 'b1', storage_path: 'brands/b1/hero.webp' }),
+      ]
 
-      await hydrateCardImageMeta(client(), [brand('b1', '/i/u1')])
+      await hydrateCardImageMeta(client(), [
+        brand('b1', '/i/brands/b1/hero.webp'),
+      ])
 
       const columns = (queries[0]?.select ?? '').split(',').map((c) => c.trim())
       expect(columns).toEqual([

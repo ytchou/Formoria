@@ -1,6 +1,6 @@
 /**
  * @formoria-script
- * purpose: Checks that the read proxy can serve every image row the site renders in a project.
+ * purpose: Checks that storage can serve every image row the site renders in a project.
  * class: ci-gate
  * invoke: pnpm check:image-resolvability
  * target: ci
@@ -8,14 +8,14 @@
  * owner: engineering
  */
 /**
- * DEV-1568 — health check: can the read proxy actually serve every image the
- * site renders?
+ * DEV-1568 — health check: can storage actually serve every image the site
+ * renders?
  *
  * A unit test cannot answer this. The function that builds the `/i/` URL is
  * correct and its tests were green throughout the staging outage; what broke
  * is the agreement between three things that only exist at run time — the
- * `brand_images` rows, the objects in that project's bucket, and the proxy's
- * deny-list. This repo has no database-backed tests and forbids mocking
+ * `brand_images` rows, the objects in that project's bucket, and the central
+ * routing contract. This repo has no database-backed tests and forbids mocking
  * Supabase, so the guard is a check you run against a project, and the rule it
  * applies is the pure, unit-tested `planImageResolvability`.
  *
@@ -139,7 +139,8 @@ async function main(): Promise<void> {
   console.log(`  bucket objects in those folders: ${objectKeys.size}`);
   console.log(`  resolvable: ${report.resolvable}`);
   console.log(`  missing object: ${report.counts["missing-object"]}`);
-  console.log(`  deny-listed prefix: ${report.counts["private-prefix"]}`);
+  console.log(`  private prefix: ${report.counts["private-prefix"]}`);
+  console.log(`  unsupported prefix: ${report.counts["unsupported-prefix"]}`);
 
   if (blocked.length > 0) {
     throw new Error(
@@ -148,7 +149,7 @@ async function main(): Promise<void> {
   }
 
   if (isFullyResolvable(report)) {
-    console.log("OK: every rendered image resolves through /i/.");
+    console.log("OK: every rendered image resolves through storage.");
     return;
   }
 
@@ -164,7 +165,10 @@ async function main(): Promise<void> {
         ? "Missing objects: run `pnpm db:sync:staging`, which copies the bytes."
         : "",
       report.counts["private-prefix"] > 0
-        ? "Deny-listed keys: run `pnpm tsx scripts/enrichment/images/promote-submission-images.ts promote --live`."
+        ? "Private keys: run `pnpm tsx scripts/enrichment/images/promote-submission-images.ts promote --live`."
+        : "",
+      report.counts["unsupported-prefix"] > 0
+        ? "Unsupported keys: repair the row to one of the central storage prefixes."
         : "",
     ]
       .filter(Boolean)

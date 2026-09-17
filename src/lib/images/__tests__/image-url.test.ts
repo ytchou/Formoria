@@ -18,25 +18,21 @@ describe('imagePathToUrl', () => {
     vi.unstubAllEnvs()
   })
 
-  // DEV-1744 task 3 (the public-URL branch) is descoped — see the docblock on
-  // `imagePathToUrl`. A public `brand-images` bucket has no per-prefix RLS, so
-  // it would also expose `submissions/` for the whole upload-to-approval
-  // window; confirmed live against staging 2026-09-17. Every prefix goes
-  // through `/i/`, unchanged from pre-DEV-1744 behavior, until a separate
-  // always-private bucket for `submissions/` ships as a follow-up.
-
-  it('returns an /i/ URL for a brands/ key', () => {
+  it('returns a public URL for a brands/ key', () => {
     expect(
       imagePathToUrl('brands/11111111-2222-3333-4444-555555555555/x.webp'),
-    ).toBe('/i/brands/11111111-2222-3333-4444-555555555555/x.webp')
+    ).toBe(`${PUBLIC_PREFIX}brands/11111111-2222-3333-4444-555555555555/x.webp`)
   })
 
-  it('returns an /i/ URL for curated-products/ and event-exhibitors/ keys', () => {
+  it('returns public URLs for every published prefix', () => {
     expect(imagePathToUrl('curated-products/a/b/c.webp')).toBe(
-      '/i/curated-products/a/b/c.webp',
+      `${PUBLIC_PREFIX}curated-products/a/b/c.webp`,
     )
     expect(imagePathToUrl('event-exhibitors/2026-expo/booth-a1.webp')).toBe(
-      '/i/event-exhibitors/2026-expo/booth-a1.webp',
+      `${PUBLIC_PREFIX}event-exhibitors/2026-expo/booth-a1.webp`,
+    )
+    expect(imagePathToUrl('events/2026-expo/hero.webp')).toBe(
+      `${PUBLIC_PREFIX}events/2026-expo/hero.webp`,
     )
   })
 
@@ -47,13 +43,15 @@ describe('imagePathToUrl', () => {
     )
   })
 
-  it('returns an /i/ path regardless of whether the project URL is set', () => {
+  it('falls back to /i/ when the project URL is unset', () => {
     vi.stubEnv('NEXT_PUBLIC_SUPABASE_URL', '')
     expect(imagePathToUrl('brands/a/x.webp')).toBe('/i/brands/a/x.webp')
   })
 
   it('trims surrounding whitespace', () => {
-    expect(imagePathToUrl('  brands/a/x.webp  ')).toBe('/i/brands/a/x.webp')
+    expect(imagePathToUrl('  brands/a/x.webp  ')).toBe(
+      `${PUBLIC_PREFIX}brands/a/x.webp`,
+    )
   })
 
   it('returns null for a blank path', () => {
@@ -157,12 +155,15 @@ describe('storagePathFromImageUrl', () => {
     ).toBeNull()
   })
 
-  it('returns null for a public URL outside brands/', () => {
-    // The delete-path asymmetry (DEV-1374): `rejectBrandImages` deletes every
-    // key this resolves, so a curated or submission object must not come back.
-    expect(
-      storagePathFromImageUrl(`${PUBLIC_PREFIX}curated-products/a/b/c.webp`),
-    ).toBeNull()
+  it('round-trips every public prefix but rejects private submissions', () => {
+    for (const path of [
+      'brands/a/x.webp',
+      'curated-products/a/b/c.webp',
+      'event-exhibitors/event-a/exhibitor.webp',
+      'events/event-a/hero.webp',
+    ]) {
+      expect(storagePathFromImageUrl(`${PUBLIC_PREFIX}${path}`)).toBe(path)
+    }
     expect(
       storagePathFromImageUrl(`${PUBLIC_PREFIX}submissions/a/x.webp`),
     ).toBeNull()

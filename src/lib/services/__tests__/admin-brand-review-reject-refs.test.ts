@@ -14,12 +14,8 @@ const PUBLIC_PREFIX = `${SUPABASE_URL}/storage/v1/object/public/brand-images/`;
 /**
  * The refs are RENDER urls that `rejectBrandImages` reverses through
  * `storagePathFromImageUrl`; nothing compares them to a stored `/i/` value.
- * DEV-1744 task 3 (a public storage URL for `brands/` keys) is descoped — see
- * `imagePathToUrl`'s docblock — so `imagePathToUrl` still returns the `/i/`
- * form here. Legacy rows recovered from an already-stored public URL (the
- * 20260708100000 backfill) still round-trip through that form: the reverse
- * parser recognizes both shapes independent of which one is currently
- * generated.
+ * Published keys now render as direct public URLs. Legacy `/i/` paths remain
+ * accepted by the reverse parser independently of the generated shape.
  */
 describe("brandImageRejectRefs", () => {
   beforeEach(() => {
@@ -35,7 +31,7 @@ describe("brandImageRejectRefs", () => {
       brandImageRejectRefs([
         { id: "img-1", storage_path: "brands/brand-1/hero.webp", url: null },
       ]),
-    ).toEqual(["/i/brands/brand-1/hero.webp"]);
+    ).toEqual([`${PUBLIC_PREFIX}brands/brand-1/hero.webp`]);
   });
 
   it("recovers a key from the public url when storage_path is null", () => {
@@ -43,8 +39,8 @@ describe("brandImageRejectRefs", () => {
     // `brands.hero_image_url` and `storage_path` NULL. Deriving from
     // `storage_path` alone yielded an empty list, `rejectBrandImages` returned
     // at its guard, and the row stayed active while the UI reported success.
-    // The stored `url` is the legacy public form; `imagePathToUrl` re-renders
-    // the recovered key as `/i/` regardless (task 3 descoped).
+    // The stored `url` is the legacy public form; the recovered key is
+    // re-rendered as the canonical direct public URL.
     expect(
       brandImageRejectRefs([
         {
@@ -53,7 +49,7 @@ describe("brandImageRejectRefs", () => {
           url: `${PUBLIC_PREFIX}brands/brand-1/legacy.webp`,
         },
       ]),
-    ).toEqual(["/i/brands/brand-1/legacy.webp"]);
+    ).toEqual([`${PUBLIC_PREFIX}brands/brand-1/legacy.webp`]);
   });
 
   it("rejects a legacy row alongside a modern one", () => {
@@ -67,8 +63,8 @@ describe("brandImageRejectRefs", () => {
         },
       ]),
     ).toEqual([
-      "/i/brands/brand-1/hero.webp",
-      "/i/brands/brand-1/legacy.webp",
+      `${PUBLIC_PREFIX}brands/brand-1/hero.webp`,
+      `${PUBLIC_PREFIX}brands/brand-1/legacy.webp`,
     ]);
   });
 

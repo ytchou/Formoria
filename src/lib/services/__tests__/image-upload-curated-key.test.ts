@@ -4,6 +4,7 @@ import {
   CURATED_PRODUCT_IMAGES_KEY_PREFIX,
   curatedProductStorageKeyFromPublicUrl,
   storageKeyFromPublicUrl,
+  validatePublicImageUploadPath,
 } from "../image-upload";
 
 /**
@@ -80,6 +81,27 @@ describe("curatedProductStorageKeyFromPublicUrl", () => {
     expect(storageKeyFromPublicUrl(`${PUBLIC_PREFIX}${CURATED_KEY}`)).toBeNull();
     expect(storageKeyFromPublicUrl(`${PUBLIC_PREFIX}brands/hanchor/logo.webp`)).toBe(
       "brands/hanchor/logo.webp",
+    );
+  });
+});
+
+describe("validatePublicImageUploadPath", () => {
+  it.each([
+    "brands/hanchor/logo.webp",
+    "curated-products/hanchor/cup/hero.webp",
+    "event-exhibitors/expo/booth-a1.webp",
+    "events/expo/hero.webp",
+  ])("accepts a published key: %s", (path) => {
+    expect(() => validatePublicImageUploadPath(path)).not.toThrow();
+  });
+
+  it.each([
+    "submissions/aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee/hero.webp",
+    "unowned/hero.webp",
+    "brands/../submissions/hero.webp",
+  ])("rejects a private or unowned key: %s", (path) => {
+    expect(() => validatePublicImageUploadPath(path)).toThrow(
+      "Invalid public image storage path",
     );
   });
 });

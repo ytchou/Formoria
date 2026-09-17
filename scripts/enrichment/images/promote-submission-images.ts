@@ -15,10 +15,9 @@
  * `brand_images` verbatim and never moves the storage object, so 781 of the
  * 1,425 `brand_images` rows on staging (a restore of production, measured
  * 2026-08-23) still carry a `submissions/<submission-id>/<file>` key. The
- * same-origin read proxy refuses that prefix — `submissions/` is
- * pre-moderation content — so 55% of brand imagery is unservable once the
- * `brand-images` bucket is private. `promoteApprovedBrandImages` fixes every
- * FUTURE approval; this script fixes the rows that already exist.
+ * `submissions/` objects now live in the private `brand-submissions` bucket,
+ * so those published rows cannot resolve. `promoteApprovedBrandImages` fixes
+ * every FUTURE approval; this script fixes rows that already exist.
  *
  * Audit-by-default, like `scripts/enrichment/images/backfill-storage-paths.ts`:
  *

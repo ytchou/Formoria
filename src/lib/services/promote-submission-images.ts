@@ -3,12 +3,10 @@
  *
  * `approve_submission` (SQL, hand-patched, no source file in this repo) copies
  * `submission_images` rows into `brand_images` and carries `storage_path`
- * across verbatim. The storage OBJECT never moves, so an approved brand keeps a
- * `submissions/` key and the same-origin read proxy refuses it — `submissions/`
- * is pre-moderation content and stays private by prefix. Privacy is really a
- * property of the ROW's status, but the proxy cannot read row status without a
- * per-request database round trip, so the object must move when it becomes
- * public. This module performs that move at the approval boundary.
+ * across verbatim. The private source object stays in `brand-submissions` as
+ * submission history, so publishing requires a verified copy in
+ * `brand-images` plus a `brands/` key on the published row. This module performs
+ * that promotion at the approval boundary.
  *
  * Planning and execution live in the dependency-free engine at
  * `@/lib/images/submission-image-promotion`; this file is only the Supabase
@@ -23,8 +21,12 @@ import {
   type PromotionRow,
   type PromotionStorage,
 } from '@/lib/images/submission-image-promotion'
+import { imagePathToUrl } from '@/lib/images/image-url'
 import { createServiceClient } from '@/lib/supabase/service'
-import { copyBrandImageObject, statBrandImageObject } from './image-upload'
+import {
+  copySubmissionImageToPublic,
+  statStoredImageObject,
+} from './image-upload'
 
 type ServiceClient = ReturnType<typeof createServiceClient>
 
@@ -34,6 +36,7 @@ type BrandImageKeyRow = {
   id: string
   brand_id: string | null
   storage_path: string | null
+  status: string
 }
 
 /**
@@ -45,10 +48,12 @@ export function createPromotionStorage(
   supabase: ServiceClient = createServiceClient()
 ): PromotionStorage {
   return {
-    statObject: (key) => statBrandImageObject(key),
-    copyObject: (sourceKey, targetKey) => copyBrandImageObject(sourceKey, targetKey),
+    statObject: (key) => statStoredImageObject(key),
+    copyObject: (sourceKey, targetKey) =>
+      copySubmissionImageToPublic(sourceKey, targetKey),
     setStoragePath: async (rowId, targetKey) => {
-      const url = `${process.env.NEXT_PUBLIC_SUPABASE_URL ?? ''}/storage/v1/object/public/brand-images/${targetKey}`
+      const url = imagePathToUrl(targetKey)
+      if (!url) throw new Error(`Invalid public image destination: ${targetKey}`)
       const { error } = await supabase
         .from('brand_images')
         .update({ storage_path: targetKey, url })
@@ -69,9 +74,10 @@ async function fetchSubmissionKeyedBrandImages(
 ): Promise<PromotionRow[]> {
   const { data, error } = await supabase
     .from('brand_images')
-    .select('id, brand_id, storage_path')
+    .select('id, brand_id, storage_path, status')
     .eq('brand_id', brandId)
     .like('storage_path', `${SUBMISSION_IMAGES_KEY_PREFIX}%`)
+    .neq('status', 'rejected')
     .order('id', { ascending: true })
     .range(0, PAGE_SIZE - 1)
 
@@ -179,8 +185,9 @@ async function fetchSubmissionKeyedRows(
   for (;;) {
     const { data, error } = await supabase
       .from('brand_images')
-      .select('id, brand_id, storage_path')
+      .select('id, brand_id, storage_path, status')
       .like('storage_path', `${SUBMISSION_IMAGES_KEY_PREFIX}%`)
+      .neq('status', 'rejected')
       .order('id', { ascending: true })
       .range(from, from + PAGE_SIZE - 1)
 

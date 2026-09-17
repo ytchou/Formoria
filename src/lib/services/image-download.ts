@@ -581,7 +581,7 @@ export async function downloadAndStoreImages(
             const { error: uploadError } = await uploadWithRetry(
               () =>
                 supabase.storage
-                  .from('brand-images')
+                  .from(storage.bucket)
                   .upload(filename, uploadBuffer, {
                     contentType: uploadContentType,
                     cacheControl: '31536000',
@@ -596,9 +596,8 @@ export async function downloadAndStoreImages(
               )
             }
 
-            // DEV-1551 task 12: no public-URL lookup. The bucket is private, so
-            // the only durable reference is the bucket key, and `/i/<key>` is derived
-            // from it at read time.
+            // The durable reference is the bucket-relative key; the render URL
+            // is derived from its routed bucket at read time.
             const { error: insertError } = await supabase
               .from(storage.table)
               .insert({
@@ -618,7 +617,7 @@ export async function downloadAndStoreImages(
 
             if (insertError) {
               await uploadWithRetry(() =>
-                supabase.storage.from('brand-images').remove([filename]),
+                supabase.storage.from(storage.bucket).remove([filename]),
               )
               if ((insertError as { code?: string }).code === '23505') {
                 return existing?.storage_path ?? null
@@ -842,7 +841,7 @@ export async function storeKeptImages(
 
       const { error: uploadError } = await uploadWithRetry(
         () =>
-          supabase.storage.from('brand-images').upload(filename, image.buffer, {
+          supabase.storage.from(storage.bucket).upload(filename, image.buffer, {
             contentType: image.contentType,
             cacheControl: '31536000',
           }),
@@ -893,7 +892,7 @@ export async function storeKeptImages(
           }
           // Clean up the duplicate upload
           await uploadWithRetry(() =>
-            supabase.storage.from('brand-images').remove([filename]),
+            supabase.storage.from(storage.bucket).remove([filename]),
           )
           const existingRow = existing?.[0]
           if (existingRow) {
@@ -907,7 +906,7 @@ export async function storeKeptImages(
         }
         // Clean up uploaded object on insert failure
         await uploadWithRetry(() =>
-          supabase.storage.from('brand-images').remove([filename]),
+          supabase.storage.from(storage.bucket).remove([filename]),
         )
         console.error(
           `[storeKeptImages] insert failed for ${image.sourceUrl}:`,

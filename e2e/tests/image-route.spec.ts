@@ -10,32 +10,22 @@ import {
 } from "../helpers/image-refs";
 
 /**
- * DEV-1551 task 18, amended by DEV-1744 task 3: the `/i/[...path]` image proxy
- * contract.
+ * DEV-1551 task 18, amended by the DEV-1746 bucket split. What the image
+ * delivery boundary must guarantee:
  *
- * DEV-1744 task 3's public-URL branch (which would have taken published
- * imagery off this route entirely) is descoped — see
- * `src/lib/images/image-url.ts`'s docblock: a public `brand-images` bucket has
- * no per-prefix RLS, so it also exposed `submissions/` for the whole
- * upload-to-approval window, confirmed live against staging 2026-09-17. This
- * route stays the ONLY server-side gate for every prefix, and every guarantee
- * below still has to hold. The "does not resolve" case below is kept as a
- * regression guard for the eventual bucket-separation follow-up. What the
- * route must guarantee:
- *
- *   - a public prefix is served, with immutable caching
- *   - `submissions/` is refused, because that is pre-moderation content only an
- *     admin may see, and admin review signs its URLs instead
+ *   - a public prefix is served directly and remains available through `/i/`
+ *   - `submissions/` exists only in the private bucket and `/i/` refuses it
  *   - traversal cannot escape into a refused prefix
  *   - the route is exempt from the Cloudflare origin guard, because Next's
  *     image optimizer re-enters middleware with an empty header set
  *
  * The objects are seeded here rather than assumed. Staging's bucket holds only
  * `curated-products/`, so a hardcoded key would 404 for the wrong reason and the
- * test would pass vacuously.
+ * Objects are seeded so absence cannot make these assertions pass vacuously.
  */
 
-const BUCKET = "brand-images";
+const PUBLIC_BUCKET = "brand-images";
+const PRIVATE_BUCKET = "brand-submissions";
 
 // A one-pixel WebP. Small enough to upload per test, real enough that Storage
 // reports an image content type rather than octet-stream.
@@ -44,11 +34,11 @@ const ONE_PIXEL_WEBP = Buffer.from(
   "base64",
 );
 
-const seededKeys: string[] = [];
+const seededObjects: Array<{ bucket: string; key: string }> = [];
 
-async function seedObject(key: string): Promise<void> {
+async function seedObject(bucket: string, key: string): Promise<void> {
   const { error } = await getServiceClient()
-    .storage.from(BUCKET)
+    .storage.from(bucket)
     .upload(key, ONE_PIXEL_WEBP, {
       contentType: "image/webp",
       upsert: true,
@@ -56,19 +46,24 @@ async function seedObject(key: string): Promise<void> {
   if (error) {
     throw new Error(`Failed to seed ${key}: ${error.message}`);
   }
-  seededKeys.push(key);
+  seededObjects.push({ bucket, key });
 }
 
 test.afterAll(async () => {
-  if (seededKeys.length > 0) {
-    await getServiceClient().storage.from(BUCKET).remove(seededKeys);
+  for (const bucket of [PUBLIC_BUCKET, PRIVATE_BUCKET]) {
+    const keys = seededObjects
+      .filter((object) => object.bucket === bucket)
+      .map((object) => object.key);
+    if (keys.length === 0) continue;
+    const { error } = await getServiceClient().storage.from(bucket).remove(keys);
+    if (error) throw new Error(`Failed to clean ${bucket}: ${error.message}`);
   }
 });
 
 test.describe("image proxy /i/", () => {
   test("serves a brands/ object as an image", async ({ request }) => {
     const key = e2eBrandImageKey(randomUUID(), `${randomUUID()}.webp`);
-    await seedObject(key);
+    await seedObject(PUBLIC_BUCKET, key);
 
     const response = await request.get(e2eProxyImageUrl(key));
 
@@ -76,9 +71,21 @@ test.describe("image proxy /i/", () => {
     expect(response.headers()["content-type"]).toContain("image/");
   });
 
+  test("serves a brands/ object from the public storage URL", async ({
+    request,
+  }) => {
+    const key = e2eBrandImageKey(randomUUID(), `${randomUUID()}.webp`);
+    await seedObject(PUBLIC_BUCKET, key);
+
+    const response = await request.get(e2ePublicImageUrl(key));
+
+    expect(response.status()).toBe(200);
+    expect(response.headers()["content-type"]).toContain("image/");
+  });
+
   test("sets an immutable one-year cache header", async ({ request }) => {
     const key = e2eBrandImageKey(randomUUID(), `${randomUUID()}.webp`);
-    await seedObject(key);
+    await seedObject(PUBLIC_BUCKET, key);
 
     const response = await request.get(e2eProxyImageUrl(key));
     const cacheControl = response.headers()["cache-control"] ?? "";
@@ -105,7 +112,7 @@ test.describe("image proxy /i/", () => {
     // Seeded deliberately: the refusal must come from the prefix rule, not from
     // the object being absent. That distinction is the whole test.
     const key = e2eSubmissionImageKey(randomUUID(), `${randomUUID()}.webp`);
-    await seedObject(key);
+    await seedObject(PRIVATE_BUCKET, key);
 
     const response = await request.get(e2eProxyImageUrl(key));
 
@@ -115,21 +122,12 @@ test.describe("image proxy /i/", () => {
   test("a submissions/-keyed object's public storage URL does not resolve", async ({
     request,
   }) => {
-    // DEV-1744's precondition, asserted at the bucket rather than at `/i/`.
-    // Once `brand-images` is public, the proxy's deny-list protects nothing on
-    // its own: anyone can address an object directly. Pre-moderation content
-    // must therefore not BE in the public bucket under a reachable key.
-    //
-    // NOTE for whoever applies the bucket-flip migration: `executePromotions`
-    // copies `submissions/<id>/x` to `brands/<id>/x` and deliberately leaves
-    // the source object in place, so a zero `submissions/` count in
-    // `brand_images` does NOT imply zero `submissions/` OBJECTS. This test is
-    // the thing that catches that gap — if it fails, the source objects need a
-    // cleanup pass (or their own private bucket) before the flip ships.
+    // The object really exists; privacy comes from bucket visibility, not a
+    // missing-object 404 or an application prefix check.
     const key = e2eSubmissionImageKey(randomUUID(), `${randomUUID()}.webp`);
-    await seedObject(key);
+    await seedObject(PRIVATE_BUCKET, key);
 
-    const response = await request.get(e2ePublicImageUrl(key));
+    const response = await request.get(e2ePublicImageUrl(key, PRIVATE_BUCKET));
 
     expect(
       [400, 403, 404],
@@ -144,7 +142,7 @@ test.describe("image proxy /i/", () => {
       randomUUID(),
       `${randomUUID()}.webp`,
     );
-    await seedObject(submissionKey);
+    await seedObject(PRIVATE_BUCKET, submissionKey);
 
     const attempts = [
       `/i/brands/../${submissionKey}`,
@@ -178,7 +176,7 @@ test.describe("image proxy /i/", () => {
     // so a guarded `/i/` would 403 the optimizer and break every next/image
     // render site-wide. This asserts the exemption holds.
     const key = e2eBrandImageKey(randomUUID(), `${randomUUID()}.webp`);
-    await seedObject(key);
+    await seedObject(PUBLIC_BUCKET, key);
 
     const response = await request.get(e2eProxyImageUrl(key), {
       headers: { "x-formoria-edge": "" },

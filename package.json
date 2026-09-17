@@ -50,6 +50,7 @@
     "curation:render": "tsx scripts/enrichment/run/render.ts",
     "backfill:tw": "tsx scripts/backfill-tw-localization.ts",
     "brand-storage-maintenance": "tsx scripts/enrichment/images/brand-storage-maintenance.ts",
+    "submission-storage": "tsx scripts/enrichment/images/submission-storage-migration.ts",
     "approve-ready": "tsx scripts/enrichment/ops/approve-ready-submissions.ts",
     "embeddings:backfill": "tsx scripts/enrichment/data/embed-products.ts",
     "story:facts": "tsx scripts/story-facts.ts",
