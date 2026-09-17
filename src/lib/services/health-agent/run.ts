@@ -242,6 +242,8 @@ async function executeRunBody(
     dryRun,
     deps: {
       supabase: client,
+      env: process.env,
+      fetch: globalThis.fetch,
       fetchFn: globalThis.fetch,
       runLinkHealthCheck,
       cleanupDeadLinks,
@@ -254,7 +256,6 @@ async function executeRunBody(
       checkBrandImageLinks,
       checkCuratedProductLinks,
       checkMdxLinks,
-      // Env-derived deps for trail-supply detector
       railwayUrl: process.env.FORMORIA_RAILWAY_URL ?? '',
       originSecret: process.env.CF_ORIGIN_SECRET ?? '',
     },
