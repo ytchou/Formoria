@@ -385,13 +385,3 @@ export function ndcgAt(k: number) {
   return (output: unknown, expected: unknown): number =>
     ndcgAtK(output as string[], expected as GradedItem[], k)
 }
-
-export function precisionAt(k: number) {
-  return (output: unknown, expected: unknown): number =>
-    precisionAtK(output as string[], expected as string[], k)
-}
-
-export function recallAt(k: number) {
-  return (output: unknown, expected: unknown): number =>
-    recallAtK(output as string[], expected as string[], k)
-}
