@@ -309,8 +309,8 @@ test.describe("Admin submission enrichment lifecycle", () => {
     // the derivation actually runs rather than the input happening to match.
     expect(brand?.subcategories_en).toEqual(["Handbags"]);
 
-    const [{ count: stagedCount }, { data: promotedImages }] =
-      await Promise.all([
+    await expect(async () => {
+      const [submissionImages, brandImages] = await Promise.all([
         supabase
           .from("submission_images")
           .select("id", { count: "exact", head: true })
@@ -320,14 +320,21 @@ test.describe("Admin submission enrichment lifecycle", () => {
           .select("storage_path")
           .eq("brand_id", approvedBrandId!),
       ]);
-    expect(stagedCount).toBe(storagePaths.length);
-    expect(promotedImages).toHaveLength(storagePaths.length);
-    promotedStoragePaths = (promotedImages ?? []).map((row) => {
-      expect(row.storage_path).toMatch(
-        new RegExp(`^brands/${approvedBrandId}/[^/]+$`),
-      );
-      return required(row.storage_path, "promoted image is missing storage_path");
-    });
+      expect(submissionImages.error).toBeNull();
+      expect(brandImages.error).toBeNull();
+      expect(submissionImages.count).toBe(storagePaths.length);
+      expect(brandImages.data).toHaveLength(storagePaths.length);
+
+      promotedStoragePaths = (brandImages.data ?? []).map((row) => {
+        expect(row.storage_path).toMatch(
+          new RegExp(`^brands/${approvedBrandId}/[^/]+$`),
+        );
+        return required(
+          row.storage_path,
+          "promoted image is missing storage_path",
+        );
+      });
+    }).toPass(POLL.APPLY);
 
     const [privateSources, publicDestinations] = await Promise.all([
       Promise.all(
