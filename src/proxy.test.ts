@@ -129,6 +129,14 @@ describe("origin guard exempt paths", () => {
     expect(isOriginGuardExempt("/api/internal")).toBe(false);
   });
 
+  it("exempts exactly /api/internal/sentry-canary and still guards /api/internal/anything-else", () => {
+    expect(isOriginGuardExempt("/api/internal/sentry-canary")).toBe(true);
+    expect(isOriginGuardExempt("/api/internal/sentry-canary/extra")).toBe(
+      false,
+    );
+    expect(isOriginGuardExempt("/api/internal/other-route")).toBe(false);
+  });
+
   it("does not exempt ordinary application paths", () => {
     expect(isOriginGuardExempt("/brands/kinship-goods")).toBe(false);
     expect(isOriginGuardExempt("/api/admin/brands")).toBe(false);

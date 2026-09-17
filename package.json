@@ -44,6 +44,8 @@
     "curate": "tsx scripts/enrichment/run/curate-brands.ts",
     "posthog:sync": "tsx scripts/posthog-sync.ts",
     "curation:worker": "tsx src/curation-worker/server.ts",
+    "health:agent": "tsx src/health-agent/server.ts",
+    "repo:worker": "tsx src/repo-worker/server.ts",
     "curation:snapshot": "tsx scripts/enrichment/run/snapshot.ts",
     "curation:rerun": "tsx scripts/enrichment/run/refresh.ts",
     "curation:eval": "tsx scripts/enrichment/eval/suite.ts",

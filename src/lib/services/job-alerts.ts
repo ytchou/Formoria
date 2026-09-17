@@ -362,24 +362,46 @@ export async function reportJobFailure(
 /**
  * Called from the worker process itself (cron catch, floating job promise,
  * unhandled rejections) where there may be no job context at all.
+ *
+ * `options.agent` and `options.provider` let non-curation workers reuse this
+ * without changing the default copy that existing curation callers rely on.
  */
 export async function reportWorkerFailure(
   context: string,
   error: unknown,
+  options?: { agent?: string; provider?: string },
 ): Promise<void> {
+  const agentSlug = options?.agent ?? "curation";
+  const auditProvider = options?.provider ?? "curation";
+  // Title-case the agent name for Slack notifications (e.g. "health-agent" → "Health Agent")
+  const agentLabel =
+    agentSlug === "curation"
+      ? ALERT_AGENT
+      : agentSlug
+          .split("-")
+          .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+          .join(" ");
+  // Capitalise the first letter for Sentry messages (e.g. "health-agent" → "Health-agent")
+  const sentryPrefix =
+    agentSlug === "curation"
+      ? "Curation"
+      : agentSlug.charAt(0).toUpperCase() + agentSlug.slice(1);
+  const workerLabel =
+    agentSlug === "curation" ? "curation worker" : agentSlug;
+
   return auditedCall(
-    { provider: "curation", operation: "reportWorkerFailure", kind: "service" },
+    { provider: auditProvider, operation: "reportWorkerFailure", kind: "service" },
     async () => {
-      const message = `Curation worker failure (${context}): ${errorText(error)}`;
+      const message = `${sentryPrefix} worker failure (${context}): ${errorText(error)}`;
 
       await dispatchAlert(
         {
-          agent: ALERT_AGENT,
+          agent: agentLabel,
           date: alertDate(),
           status: "failed",
           summary: [`• ${errorText(error)}`],
           details: [`• Source: ${context}`],
-          managerAction: "Inspect the curation worker container logs",
+          managerAction: `Inspect the ${workerLabel} container logs`,
         },
         {
           message,

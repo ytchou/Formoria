@@ -162,6 +162,24 @@ test.describe('API — health + search', () => {
   })
 })
 
+const CANARY_NO_SECRET_CONTRACT = stagingAwareGetMutationContract(
+  401,
+  async (response) => {
+    const body = await response.json()
+    expect(body).toHaveProperty('error')
+  },
+)
+
+test.describe('API — internal canary', () => {
+  test('POST /api/internal/sentry-canary without the secret returns 401', async ({ request }) => {
+    const resp = await request.post('/api/internal/sentry-canary', {
+      data: { token: 'e2e-probe' },
+    })
+    expect(resp.status()).toBe(CANARY_NO_SECRET_CONTRACT.status)
+    await CANARY_NO_SECRET_CONTRACT.assertResponse(resp)
+  })
+})
+
 // --- Newsletter subscribe / unsubscribe ---
 // retries: 0 — confirm consumes the token; a retry would fail on re-use.
 // serial — fullyParallel:true causes multiple workers to run beforeAll

@@ -107,6 +107,8 @@ export const NON_SERVICE_ENV: Readonly<Record<string, string>> = {
   RAILWAY_LOGS_URL: "Internal log-query target, not a provider credential.",
   SEARCH_LOAD_BASE_URL: "Load-test target URL, not a provider service.",
   LANGFUSE_PROMPT_VERSIONS: "Eval prompt version pinning, not a provider service.",
+  CLAUDE_TOKEN_ISSUED_AT:
+    "Timestamp when the Claude Code OAuth token was issued; metadata, not a credential.",
 };
 
 const TODAY = "2026-08-10";
@@ -675,6 +677,25 @@ export const SERVICE_REGISTRY: readonly ServiceEntry[] = [
     dashboardUrl: "https://cloud.langfuse.com",
     notes:
       "LLM tracing and eval. Free cloud hobby tier (50k observations/month). No-ops when env vars are unset.",
+  },
+  {
+    id: "repo-worker",
+    name: "Repository worker (health agent)",
+    vendor: "Formoria",
+    category: "tooling",
+    criticality: "back-office",
+    operationalSection: "agents",
+    operationalKind: "worker",
+    // DEV-1748: host-free, secret-free repo worker that clones the repo and
+    // runs quality tools (vitest, knip) on behalf of the health agent.
+    envVars: ["REPO_WORKER_URL", "REPO_WORKER_TOKEN"],
+    status: "active",
+    plan: {
+      kind: "usage",
+      asOf: TODAY,
+      sourceUrl: "https://railway.com/pricing",
+    },
+    dashboardUrl: "https://railway.app/dashboard",
   },
   {
     id: "slack-ops",

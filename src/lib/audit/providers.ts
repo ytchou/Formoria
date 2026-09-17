@@ -193,6 +193,12 @@ const PROVIDERS = {
     "jobDetail",
     "executeProposal",
   ],
+  // DEV-1748: health agent migration — new audit providers for the
+  // LangGraph-based health agent and its supporting services.
+  "health-agent": ["run_detectors", "reconcile_lifecycle", "record_snapshot", "reportWorkerFailure"],
+  "repo-worker": ["clone", "run_tool", "push_branch", "reportWorkerFailure"],
+  "claude-code": ["create_pr", "apply_fix"],
+  "github-app": ["create_branch", "create_pull_request", "merge_pull_request"],
 } as const;
 
 type ProviderRegistry = typeof PROVIDERS;
