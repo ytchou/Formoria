@@ -9,6 +9,7 @@ import { EMBEDDING_MODEL } from "@/lib/constants/llm-models";
 import * as Sentry from "@sentry/nextjs";
 import { parseQueryIntent, type IntentParseOutcome } from "./query-intent-parse";
 import { isVisibleCategory } from "@/lib/taxonomy/ontology";
+import type { RpcRow as LtrRpcRow } from "./ltr-features";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -47,6 +48,15 @@ export type SearchResult = {
   rpcLatencyMs: number;
   embedLatencyMs: number;
   searchId: string;
+  ltrMode?: string;
+  ltrLatencyMs?: number;
+  featuresLatencyMs?: number;
+  ltrScores?: number[];
+  ltrRanks?: number[];
+  ltrProductKeys?: string[];
+  rrfProductKeys?: string[];
+  armBySlot?: ('rrf' | 'ltr')[];
+  degradedReason?: string;
 };
 
 export type SimilarResult = {
@@ -137,7 +147,24 @@ export type SearchDeps = {
   readProductEmbedding?: (productId: string) => Promise<number[] | null>;
   /** LLM-based intent extraction for structured filter discovery. */
   parseIntent?: (query: string) => Promise<IntentParseOutcome>;
+  /** LTR model scorer — returns one score per candidate row. */
+  ltrScore?: (rows: Float32Array[]) => Promise<number[]>;
+  /** Fetch document-level features for LTR scoring. */
+  ltrFeatures?: (ids: string[]) => Promise<Map<string, import('./ltr-features').DocFeatures>>;
 };
+
+// ---------------------------------------------------------------------------
+// LTR mode validation
+// ---------------------------------------------------------------------------
+
+const LTR_MODES = new Set(["off", "shadow", "interleave", "on"] as const);
+type LtrMode = "off" | "shadow" | "interleave" | "on";
+
+function parseLtrMode(): LtrMode {
+  const raw = process.env.SEARCH_LTR_MODE ?? "off";
+  if (LTR_MODES.has(raw as LtrMode)) return raw as LtrMode;
+  return "off";
+}
 
 const DEGRADE_COOLDOWN_MS = 5 * 60 * 1000; // 5 minutes
 
@@ -151,6 +178,16 @@ let lastDegradationReportAt = -Infinity;
 /** @internal Test-only — reset the module-level cooldown timestamp. */
 export function _resetDegradationCooldown(): void {
   lastDegradationReportAt = -Infinity;
+}
+
+/**
+ * Module-level LTR degradation timestamp — mirrors the embed cooldown above.
+ */
+let lastLtrDegradationReportAt = -Infinity;
+
+/** @internal Test-only — reset the LTR degradation cooldown timestamp. */
+export function _resetLtrDegradationCooldown(): void {
+  lastLtrDegradationReportAt = -Infinity;
 }
 
 function defaultDeps(): SearchDeps {
@@ -190,6 +227,14 @@ function defaultDeps(): SearchDeps {
         : data.embedding;
     },
     parseIntent: (query) => parseQueryIntent(query),
+    ltrScore: async (rows) => {
+      const { scoreCandidates } = await import("./ltr-scorer");
+      return scoreCandidates(rows);
+    },
+    ltrFeatures: async (ids) => {
+      const { fetchDocFeatures } = await import("./ltr-features");
+      return fetchDocFeatures(ids);
+    },
   };
 }
 
@@ -287,7 +332,8 @@ export async function searchProductsBySituation(
   ]);
 
   if (timeoutId) clearTimeout(timeoutId);
-  const { embedding, degraded, effectiveMode, embedLatencyMs } = embedResult;
+  const { embedding, effectiveMode, embedLatencyMs } = embedResult;
+  let degraded = embedResult.degraded;
 
   // --- Intent metadata (populated on both returns) ---
   const intentMeta = {
@@ -356,14 +402,137 @@ export async function searchProductsBySituation(
     };
   }
 
-  // --- Hydrate ---
-  const hydrated = await deps.hydrate({ ids: orderedIds });
+  // --- LTR Scoring ---
+  // Read at call time so tests can vary mode per case via vi.stubEnv
+  const ltrMode = parseLtrMode();
 
-  // Reorder by RPC rank order
-  const byId = new Map(hydrated.map((p) => [p.id, p]));
-  let ordered = orderedIds
-    .map((id) => byId.get(id))
-    .filter((p): p is CatalogProduct => p != null);
+  type LtrFields = {
+    ltrMode: string;
+    ltrLatencyMs: number;
+    featuresLatencyMs: number;
+    ltrScores: number[];
+    ltrRanks: number[];
+    ltrProductKeys: string[];
+    rrfProductKeys: string[];
+    armBySlot?: ("rrf" | "ltr")[];
+    degradedReason?: string;
+  };
+
+  let ordered: CatalogProduct[] | undefined;
+  let ltrFields: LtrFields | undefined;
+
+  if (
+    ltrMode !== "off" &&
+    sort === "relevance" &&
+    orderedIds.length > 0 &&
+    deps.ltrScore &&
+    deps.ltrFeatures
+  ) {
+    try {
+      const featuresStart = deps.now();
+      const [hydratedProducts, docFeatures] = await Promise.all([
+        deps.hydrate({ ids: orderedIds }),
+        deps.ltrFeatures(orderedIds),
+      ]);
+      const featuresLatencyMs = deps.now() - featuresStart;
+
+      const { buildFeatureRows } = await import("./ltr-features");
+      const featureRows = buildFeatureRows(
+        normalized,
+        rows as LtrRpcRow[],
+        docFeatures,
+      );
+
+      const ltrStart = deps.now();
+      const ltrScores = await deps.ltrScore(featureRows);
+      const ltrLatencyMs = deps.now() - ltrStart;
+
+      if (ltrScores.length !== orderedIds.length) {
+        throw new Error(
+          `LTR score count mismatch: expected ${orderedIds.length}, got ${ltrScores.length}`,
+        );
+      }
+
+      // Compute LTR-ranked order
+      const rrfProductKeys = [...orderedIds];
+      const scored = orderedIds.map((id, i) => ({ id, score: ltrScores[i]! }));
+      scored.sort((a, b) => b.score - a.score);
+      const ltrProductKeys = scored.map((s) => s.id);
+      const ltrRanks = orderedIds.map((id) => ltrProductKeys.indexOf(id));
+
+      const byId = new Map(hydratedProducts.map((p) => [p.id, p]));
+
+      let displayOrder: string[];
+      let armBySlot: ("rrf" | "ltr")[] | undefined;
+
+      if (ltrMode === "interleave") {
+        const { teamDraftInterleave } = await import(
+          "./team-draft-interleave"
+        );
+        const interleaved = teamDraftInterleave(
+          rrfProductKeys,
+          ltrProductKeys,
+          searchId,
+        );
+        displayOrder = interleaved.merged;
+        armBySlot = interleaved.armBySlot;
+      } else if (ltrMode === "on") {
+        displayOrder = ltrProductKeys;
+      } else {
+        // shadow: keep RRF order
+        displayOrder = rrfProductKeys;
+      }
+
+      ordered = displayOrder
+        .map((id) => byId.get(id))
+        .filter((p): p is CatalogProduct => p != null);
+
+      // Keep armBySlot entries only for ids that survived hydration
+      if (armBySlot) {
+        armBySlot = displayOrder
+          .map((id, i) => (byId.has(id) ? armBySlot![i] : null))
+          .filter((arm): arm is "rrf" | "ltr" => arm !== null);
+      }
+
+      ltrFields = {
+        ltrMode,
+        ltrLatencyMs,
+        featuresLatencyMs,
+        ltrScores,
+        ltrRanks,
+        ltrProductKeys,
+        rrfProductKeys,
+        armBySlot,
+      };
+    } catch (ltrErr) {
+      degraded = true;
+      const now = deps.now();
+      if (now - lastLtrDegradationReportAt >= DEGRADE_COOLDOWN_MS) {
+        lastLtrDegradationReportAt = now;
+        deps.report(ltrErr);
+      }
+      ltrFields = {
+        ltrMode,
+        ltrLatencyMs: 0,
+        featuresLatencyMs: 0,
+        ltrScores: [],
+        ltrRanks: [],
+        ltrProductKeys: [],
+        rrfProductKeys: [],
+        degradedReason: "ltr",
+      };
+      // ordered stays undefined — fallback hydrate below
+    }
+  }
+
+  // Fallback: hydrate normally when LTR is off or errored
+  if (ordered === undefined) {
+    const hydratedProducts = await deps.hydrate({ ids: orderedIds });
+    const byId = new Map(hydratedProducts.map((p) => [p.id, p]));
+    ordered = orderedIds
+      .map((id) => byId.get(id))
+      .filter((p): p is CatalogProduct => p != null);
+  }
 
   // --- Sort ---
   if (sort === "newest") {
@@ -374,7 +543,7 @@ export async function searchProductsBySituation(
   } else if (sort === "alphabetical") {
     ordered = [...ordered].sort((a, b) => a.nameZh.localeCompare(b.nameZh));
   }
-  // "relevance" keeps RPC order
+  // "relevance" keeps current order (RRF, LTR, or interleaved)
 
   // --- Paginate ---
   const totalCount = ordered.length;
@@ -391,6 +560,19 @@ export async function searchProductsBySituation(
     embedLatencyMs,
     searchId,
     ...intentMeta,
+    ...(ltrFields
+      ? {
+          ltrMode: ltrFields.ltrMode,
+          ltrLatencyMs: ltrFields.ltrLatencyMs,
+          featuresLatencyMs: ltrFields.featuresLatencyMs,
+          ltrScores: ltrFields.ltrScores,
+          ltrRanks: ltrFields.ltrRanks,
+          ltrProductKeys: ltrFields.ltrProductKeys,
+          rrfProductKeys: ltrFields.rrfProductKeys,
+          armBySlot: ltrFields.armBySlot,
+          degradedReason: ltrFields.degradedReason,
+        }
+      : {}),
   };
 }
 

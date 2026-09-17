@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
+import { afterEach } from "vitest";
 import {
   searchProductsBySituation,
   findSimilarProducts,
@@ -6,6 +7,7 @@ import {
   normalizeSituationQuery,
   SituationQueryError,
   _resetDegradationCooldown,
+  _resetLtrDegradationCooldown,
   CANDIDATE_POOL,
   type SearchDeps,
 } from "../product-situation-search";
@@ -935,5 +937,222 @@ describe("findSimilarProductsForTrail", () => {
 
     const result = await findSimilarProductsForTrail(["t1", "t2", "t3"], 6, deps);
     expect(result).toEqual([]);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// 6. searchProductsBySituation — LTR scoring
+// ---------------------------------------------------------------------------
+
+describe("searchProductsBySituation — LTR scoring", () => {
+  const p1 = product("p1", "Product A");
+  const p2 = product("p2", "Product B");
+  const p3 = product("p3", "Product C");
+
+  function createLtrDeps(
+    mode: string,
+    overrides: Partial<SearchDeps> = {},
+  ): SearchDeps {
+    vi.stubEnv("SEARCH_LTR_MODE", mode);
+    return createDeps({
+      rpc: vi.fn().mockResolvedValue({
+        data: [rpcRow("p1", 0.9), rpcRow("p2", 0.7), rpcRow("p3", 0.5)],
+        error: null,
+      }),
+      hydrate: vi.fn().mockResolvedValue([p1, p2, p3]),
+      // Scores: p1=0.3, p2=0.9, p3=0.6 → LTR order: p2, p3, p1
+      ltrScore: vi.fn().mockResolvedValue([0.3, 0.9, 0.6]),
+      ltrFeatures: vi.fn().mockResolvedValue(new Map()),
+      ...overrides,
+    });
+  }
+
+  afterEach(() => {
+    vi.unstubAllEnvs();
+    _resetLtrDegradationCooldown();
+  });
+
+  it("ltrMode off skips scoring entirely", async () => {
+    const deps = createLtrDeps("off");
+    const result = await searchProductsBySituation(
+      { query: "送禮推薦", locale: "zh-TW" },
+      deps,
+    );
+    expect(deps.ltrScore).not.toHaveBeenCalled();
+    expect(result.ltrMode).toBeUndefined();
+  });
+
+  it("ltrMode shadow scores but serves RRF order", async () => {
+    const deps = createLtrDeps("shadow");
+    const result = await searchProductsBySituation(
+      { query: "送禮推薦", locale: "zh-TW" },
+      deps,
+    );
+    expect(deps.ltrScore).toHaveBeenCalledTimes(1);
+    // Products stay in RRF order
+    expect(result.products.map((p) => p.id)).toEqual(["p1", "p2", "p3"]);
+    // LTR fields populated
+    expect(result.ltrMode).toBe("shadow");
+    expect(result.ltrScores).toEqual([0.3, 0.9, 0.6]);
+    expect(result.ltrProductKeys).toEqual(["p2", "p3", "p1"]);
+    expect(result.rrfProductKeys).toEqual(["p1", "p2", "p3"]);
+  });
+
+  it("ltrMode interleave produces Team-Draft merged order", async () => {
+    const deps = createLtrDeps("interleave");
+    const result = await searchProductsBySituation(
+      { query: "送禮推薦", locale: "zh-TW" },
+      deps,
+    );
+    expect(deps.ltrScore).toHaveBeenCalledTimes(1);
+    expect(result.ltrMode).toBe("interleave");
+    expect(result.armBySlot).toBeDefined();
+    expect(result.armBySlot!.length).toBe(3);
+    // All products present
+    expect(new Set(result.products.map((p) => p.id))).toEqual(
+      new Set(["p1", "p2", "p3"]),
+    );
+  });
+
+  it("ltrMode on serves LTR order", async () => {
+    const deps = createLtrDeps("on");
+    const result = await searchProductsBySituation(
+      { query: "送禮推薦", locale: "zh-TW" },
+      deps,
+    );
+    expect(deps.ltrScore).toHaveBeenCalledTimes(1);
+    // Products sorted by LTR score desc: p2 (0.9) > p3 (0.6) > p1 (0.3)
+    expect(result.products.map((p) => p.id)).toEqual(["p2", "p3", "p1"]);
+    expect(result.ltrMode).toBe("on");
+  });
+
+  it("sort not relevance skips scoring", async () => {
+    const deps = createLtrDeps("on");
+    await searchProductsBySituation(
+      { query: "送禮推薦", locale: "zh-TW", sort: "newest" },
+      deps,
+    );
+    expect(deps.ltrScore).not.toHaveBeenCalled();
+  });
+
+  it("scorer error falls back to RRF with degraded=true", async () => {
+    const deps = createLtrDeps("shadow", {
+      ltrScore: vi.fn().mockRejectedValue(new Error("ONNX crash")),
+    });
+    const result = await searchProductsBySituation(
+      { query: "送禮推薦", locale: "zh-TW" },
+      deps,
+    );
+    expect(result.degraded).toBe(true);
+    expect(result.degradedReason).toBe("ltr");
+    // Products in RRF order (fallback hydrate)
+    expect(result.products.map((p) => p.id)).toEqual(["p1", "p2", "p3"]);
+  });
+
+  it("scorer error dedupes Sentry reports", async () => {
+    _resetLtrDegradationCooldown();
+    let clock = 1000;
+    const report = vi.fn();
+
+    const makeDeps = () =>
+      createLtrDeps("shadow", {
+        ltrScore: vi.fn().mockRejectedValue(new Error("ONNX crash")),
+        report,
+        now: vi.fn(() => clock),
+      });
+
+    // First failure — reports
+    await searchProductsBySituation(
+      { query: "送禮推薦", locale: "zh-TW" },
+      makeDeps(),
+    );
+    expect(report).toHaveBeenCalledTimes(1);
+
+    // 1 minute later — deduped
+    clock += 60_000;
+    await searchProductsBySituation(
+      { query: "送禮推薦", locale: "zh-TW" },
+      makeDeps(),
+    );
+    expect(report).toHaveBeenCalledTimes(1);
+
+    // +5 minutes — reports again
+    clock += 5 * 60_000;
+    await searchProductsBySituation(
+      { query: "送禮推薦", locale: "zh-TW" },
+      makeDeps(),
+    );
+    expect(report).toHaveBeenCalledTimes(2);
+  });
+
+  it("ltrLatencyMs and featuresLatencyMs are recorded", async () => {
+    let tick = 0;
+    const deps = createLtrDeps("shadow", {
+      now: vi.fn(() => (tick += 10)),
+    });
+    const result = await searchProductsBySituation(
+      { query: "送禮推薦", locale: "zh-TW" },
+      deps,
+    );
+    expect(result.ltrLatencyMs).toBeGreaterThanOrEqual(0);
+    expect(result.featuresLatencyMs).toBeGreaterThanOrEqual(0);
+    expect(typeof result.ltrLatencyMs).toBe("number");
+    expect(typeof result.featuresLatencyMs).toBe("number");
+  });
+
+  it("empty rpcRows skip scoring", async () => {
+    const deps = createLtrDeps("shadow", {
+      rpc: vi.fn().mockResolvedValue({ data: [], error: null }),
+    });
+    const result = await searchProductsBySituation(
+      { query: "送禮推薦", locale: "zh-TW" },
+      deps,
+    );
+    expect(deps.ltrScore).not.toHaveBeenCalled();
+    expect(result.products).toEqual([]);
+  });
+
+  it("interleave mode filters armBySlot when hydrate drops candidates", async () => {
+    const deps = createLtrDeps("interleave", {
+      hydrate: vi.fn().mockResolvedValue([p1, p3]), // p2 dropped by hydrate
+    });
+    const result = await searchProductsBySituation(
+      { query: "送禮推薦", locale: "zh-TW" },
+      deps,
+    );
+    // Only p1 and p3 survived hydration
+    expect(result.products).toHaveLength(2);
+    expect(result.products.map((p) => p.id)).not.toContain("p2");
+    // armBySlot must match surviving products, not the original displayOrder
+    expect(result.armBySlot).toBeDefined();
+    expect(result.armBySlot!.length).toBe(result.products.length);
+    for (const arm of result.armBySlot!) {
+      expect(["rrf", "ltr"]).toContain(arm);
+    }
+  });
+
+  it("scorer length mismatch falls back to RRF", async () => {
+    const deps = createLtrDeps("shadow", {
+      // Return fewer scores than candidates — triggers length guard
+      ltrScore: vi.fn().mockResolvedValue([0.5]),
+    });
+    const result = await searchProductsBySituation(
+      { query: "送禮推薦", locale: "zh-TW" },
+      deps,
+    );
+    expect(result.degraded).toBe(true);
+    expect(result.degradedReason).toBe("ltr");
+    // Falls back to RRF order via normal hydrate path
+    expect(result.products.map((p) => p.id)).toEqual(["p1", "p2", "p3"]);
+  });
+
+  it("invalid SEARCH_LTR_MODE falls back to off", async () => {
+    const deps = createLtrDeps("Interleave"); // wrong case — not a valid mode
+    const result = await searchProductsBySituation(
+      { query: "送禮推薦", locale: "zh-TW" },
+      deps,
+    );
+    expect(deps.ltrScore).not.toHaveBeenCalled();
+    expect(result.ltrMode).toBeUndefined();
   });
 });

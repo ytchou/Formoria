@@ -334,4 +334,76 @@ describe('SearchResultsTracker', () => {
 
     expect(trackProductSearchResultsViewed).not.toHaveBeenCalled()
   })
+
+  it('passes LTR props to trackProductSearchExecuted', () => {
+    render(
+      <SearchResultsTracker
+        query="陶瓷杯"
+        resultCount={8}
+        trackerKind="product"
+        searchSource="discover_page"
+        degraded={false}
+        searchId="sid-ltr"
+        ltrMode="interleave"
+        ltrLatencyMs={18}
+        featuresLatencyMs={7}
+        ltrScores={[0.9, 0.7]}
+        ltrRanks={[0, 1]}
+        ltrProductKeys={['pk-a', 'pk-b']}
+        rrfProductKeys={['pk-b', 'pk-a']}
+        armBySlot={['ltr', 'rrf']}
+      />,
+    )
+    settle()
+
+    expect(trackProductSearchExecuted).toHaveBeenCalledExactlyOnceWith('陶瓷杯', 8, expect.objectContaining({
+      ltrMode: 'interleave',
+      ltrLatencyMs: 18,
+      featuresLatencyMs: 7,
+      ltrScores: [0.9, 0.7],
+      ltrRanks: [0, 1],
+      ltrProductKeys: ['pk-a', 'pk-b'],
+      rrfProductKeys: ['pk-b', 'pk-a'],
+      armBySlot: ['ltr', 'rrf'],
+    }))
+  })
+
+  it('passes armBySlot and ltrMode to trackProductSearchResultsViewed', () => {
+    render(
+      <SearchResultsTracker
+        query="陶瓷杯"
+        resultCount={2}
+        trackerKind="product"
+        searchId="sid-v"
+        productKeys={['k1', 'k2']}
+        armBySlot={['rrf', 'ltr']}
+        ltrMode="interleave"
+      />,
+    )
+    settle()
+
+    expect(trackProductSearchResultsViewed).toHaveBeenCalledExactlyOnceWith(expect.objectContaining({
+      armBySlot: ['rrf', 'ltr'],
+      ltrMode: 'interleave',
+    }))
+  })
+
+  it('without LTR props matches existing behavior', () => {
+    render(
+      <SearchResultsTracker
+        query="陶瓷杯"
+        resultCount={12}
+        trackerKind="product"
+        searchSource="discover_page"
+        degraded={false}
+      />,
+    )
+    settle()
+
+    expect(trackProductSearchExecuted).toHaveBeenCalledExactlyOnceWith('陶瓷杯', 12, {
+      searchSource: 'discover_page',
+      degraded: false,
+    })
+    expect(trackSearchExecuted).not.toHaveBeenCalled()
+  })
 })

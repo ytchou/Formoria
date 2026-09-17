@@ -7,9 +7,11 @@ interface DiscoverSearchClickTrackerProps {
   searchId: string
   query: string
   children: ReactNode
+  armBySlot?: ('rrf' | 'ltr')[]
+  ltrMode?: string
 }
 
-export function DiscoverSearchClickTracker({ searchId, query, children }: DiscoverSearchClickTrackerProps) {
+export function DiscoverSearchClickTracker({ searchId, query, children, armBySlot, ltrMode }: DiscoverSearchClickTrackerProps) {
   function handleClick(e: React.MouseEvent<HTMLDivElement>) {
     const target = e.target as Element
     const li = target.closest('li[data-brand-slug]')
@@ -23,12 +25,16 @@ export function DiscoverSearchClickTracker({ searchId, query, children }: Discov
       ? Array.from(li.parentElement.children).indexOf(li)
       : 0
 
+    const arm = armBySlot?.[position]
+
     trackProductSearchResultClicked({
       searchId,
       position,
       productKey,
       brandSlug,
       query,
+      ...(arm !== undefined && { arm }),
+      ...(ltrMode !== undefined && { ltrMode }),
     })
   }
 

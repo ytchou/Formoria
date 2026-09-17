@@ -8,6 +8,10 @@
  * owner: engineering
  * notes: `dataset` subcommand writes to Langfuse; `run` and `neighbours` are read-only against the database
  */
+// Prevent LTR reranking from contaminating eval/training data — the env var
+// is read at call time inside searchProductsBySituation, not at module load.
+process.env.SEARCH_LTR_MODE = 'off';
+
 import { readFileSync, writeFileSync, mkdirSync } from "node:fs";
 import { resolve, dirname } from "node:path";
 import { parseArgs } from "node:util";

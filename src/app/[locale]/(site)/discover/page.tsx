@@ -154,6 +154,14 @@ export default async function DiscoverPage({
   let intentLatencyMs = 0;
   let rpcLatencyMs = 0;
   let embedLatencyMs = 0;
+  let ltrMode: string | undefined;
+  let ltrLatencyMs: number | undefined;
+  let featuresLatencyMs: number | undefined;
+  let ltrScores: number[] | undefined;
+  let ltrRanks: number[] | undefined;
+  let ltrProductKeys: string[] | undefined;
+  let rrfProductKeys: string[] | undefined;
+  let armBySlot: ('rrf' | 'ltr')[] | undefined;
   let facets: {
     subcategoryCounts: { slug: string; count: number }[];
     materialCounts: { slug: string; count: number }[];
@@ -190,6 +198,14 @@ export default async function DiscoverPage({
       intentLatencyMs = searchResult.intentLatencyMs;
       rpcLatencyMs = searchResult.rpcLatencyMs;
       embedLatencyMs = searchResult.embedLatencyMs;
+      ltrMode = searchResult.ltrMode;
+      ltrLatencyMs = searchResult.ltrLatencyMs;
+      featuresLatencyMs = searchResult.featuresLatencyMs;
+      ltrScores = searchResult.ltrScores;
+      ltrRanks = searchResult.ltrRanks;
+      ltrProductKeys = searchResult.ltrProductKeys;
+      rrfProductKeys = searchResult.rrfProductKeys;
+      armBySlot = searchResult.armBySlot;
       facets = facetResult;
     } else {
       // In catalog mode, sort is never "relevance" (parseDiscoverQuery guarantees this)
@@ -275,6 +291,8 @@ export default async function DiscoverPage({
       };
     }),
   ];
+
+  const pageArmBySlot = armBySlot?.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
   return (
     <PageShell as="main" measure="page" className="pt-12 pb-section">
@@ -384,6 +402,14 @@ export default async function DiscoverPage({
                 intentLatencyMs={intentLatencyMs}
                 rpcLatencyMs={rpcLatencyMs}
                 embedLatencyMs={embedLatencyMs}
+                ltrMode={ltrMode}
+                ltrLatencyMs={ltrLatencyMs}
+                featuresLatencyMs={featuresLatencyMs}
+                ltrScores={ltrScores}
+                ltrRanks={ltrRanks}
+                ltrProductKeys={ltrProductKeys}
+                rrfProductKeys={rrfProductKeys}
+                armBySlot={armBySlot}
               />
             )}
 
@@ -395,7 +421,12 @@ export default async function DiscoverPage({
             ) : (
               <>
                 {isSearchMode && searchId ? (
-                  <DiscoverSearchClickTracker searchId={searchId} query={searchQuery!}>
+                  <DiscoverSearchClickTracker
+                    searchId={searchId}
+                    query={searchQuery!}
+                    armBySlot={pageArmBySlot}
+                    ltrMode={ltrMode}
+                  >
                     <ProductGrid products={products} locale={locale} />
                   </DiscoverSearchClickTracker>
                 ) : (

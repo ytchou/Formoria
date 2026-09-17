@@ -125,4 +125,56 @@ describe('DiscoverSearchClickTracker', () => {
 
     expect(trackProductSearchResultClicked).not.toHaveBeenCalled()
   })
+
+  it('includes arm on click when armBySlot provided', () => {
+    const { container } = render(
+      <DiscoverSearchClickTracker
+        searchId="sid-6"
+        query="test"
+        armBySlot={['rrf', 'ltr', 'rrf']}
+        ltrMode="interleave"
+      >
+        <ul>
+          <li data-brand-slug="a" data-product-key="p0">
+            <span>0</span>
+          </li>
+          <li data-brand-slug="b" data-product-key="p1">
+            <span>1</span>
+          </li>
+          <li data-brand-slug="c" data-product-key="p2">
+            <span>2</span>
+          </li>
+        </ul>
+      </DiscoverSearchClickTracker>,
+    )
+
+    // Click the second item (position 1) — arm should be 'ltr'
+    fireEvent.click(container.querySelectorAll('li')[1]!)
+
+    expect(trackProductSearchResultClicked).toHaveBeenCalledWith(
+      expect.objectContaining({
+        position: 1,
+        arm: 'ltr',
+        ltrMode: 'interleave',
+      }),
+    )
+  })
+
+  it('without armBySlot omits arm', () => {
+    const { container } = render(
+      <DiscoverSearchClickTracker searchId="sid-7" query="test">
+        <ul>
+          <li data-brand-slug="a" data-product-key="p0">
+            <span>Product</span>
+          </li>
+        </ul>
+      </DiscoverSearchClickTracker>,
+    )
+
+    fireEvent.click(container.querySelector('span')!)
+
+    const call = trackProductSearchResultClicked.mock.calls[0]?.[0] as Record<string, unknown>
+    expect(call).not.toHaveProperty('arm')
+    expect(call).not.toHaveProperty('ltrMode')
+  })
 })
