@@ -290,7 +290,7 @@ export async function assertBrandPage(
   // A "purchase link" is any anchor whose href points to an external shopping
   // destination. The brand page always routes out to the brand's own channel,
   // so ANY external <a href> whose text or URL contains shop/buy/purchase/
-  // 購買/選購 counts.
+  // purchase keywords counts.
   const hasExternalLink = /<a[^>]+href=["']https?:\/\/[^"']+["'][^>]*>/.test(
     html,
   );
