@@ -4,6 +4,7 @@ import type { PhaseAdapter } from './phase-adapters'
 import type { ExperimentItem, ExperimentArm } from './run-experiment'
 import { ndcgAt, precisionAtK, recallAtK, mrr as mrrFn, type GradedItem } from './scorers'
 import type { SearchMode } from '@/lib/services/product-situation-search'
+import { buildRerankDocument } from '@/lib/services/product-rerank'
 
 // ---------------------------------------------------------------------------
 // Dependency injection
@@ -31,6 +32,7 @@ export type RetrievalAdapterDeps = {
     version: string
     category?: string | null
   }) => Promise<string[]>
+  rerankCohere?: (query: string, category?: string | null) => Promise<string[]>
 }
 
 // ---------------------------------------------------------------------------
@@ -127,7 +129,7 @@ export function createRetrievalAdapter(deps: RetrievalAdapterDeps): PhaseAdapter
         }
         const candidates = result.products.map((p) => ({
           id: p.id,
-          document: `${(p as Record<string, unknown>).nameZh ?? ''} ${(p as Record<string, unknown>).category ?? ''} ${(p as Record<string, unknown>).subcategory ?? ''}`,
+          document: buildRerankDocument(p),
         }))
         const reranked = await deps.rerank(input.query, candidates)
         const byId = new Map(result.products.map((p) => [p.id, p]))
@@ -140,6 +142,12 @@ export function createRetrievalAdapter(deps: RetrievalAdapterDeps): PhaseAdapter
             })
             .filter(Boolean),
         }
+      }
+
+      if (arm.value === 'rerank:cohere') {
+        if (!deps.rerankCohere) throw new Error('rerankCohere dep required for arm "rerank:cohere"')
+        const keys = await deps.rerankCohere(input.query, input.category ?? null)
+        return { ok: true, output: keys }
       }
 
       // hybrid / vector / lexical
