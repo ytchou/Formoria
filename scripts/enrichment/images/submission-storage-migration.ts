@@ -211,6 +211,7 @@ function createOperatorClient() {
 }
 
 type OperatorClient = ReturnType<typeof createOperatorClient>
+const STORAGE_READ_ATTEMPTS = 4
 
 function isMissing(
   error: { message?: string; statusCode?: string | number } | null,
@@ -222,26 +223,52 @@ function isMissing(
   )
 }
 
+function isTransientStorageFailure(error: unknown): boolean {
+  const message = error instanceof Error ? error.message : String(error)
+  return /fetch failed|timed? ?out|HTTP 5\d\d|status(?:Code)?[=: ]+5\d\d/i.test(
+    message,
+  )
+}
+
+function retryDelay(attempt: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, attempt * 500))
+}
+
 async function statObject(
   client: OperatorClient,
   bucket: string,
   objectPath: string,
 ): Promise<MigrationObject | null> {
-  const { data, error } = await client.storage.from(bucket).info(objectPath)
-  if (error) {
-    if (isMissing(error)) return null
-    throw new Error(`Failed to stat ${bucket}/${objectPath}: ${error.message}`)
+  for (let attempt = 1; attempt <= STORAGE_READ_ATTEMPTS; attempt += 1) {
+    try {
+      const { data, error } = await client.storage.from(bucket).info(objectPath)
+      if (error) {
+        if (isMissing(error)) return null
+        throw new Error(
+          `Failed to stat ${bucket}/${objectPath}: ${error.message}`,
+        )
+      }
+      if (
+        typeof data.size !== 'number' ||
+        typeof data.etag !== 'string' ||
+        !data.etag
+      ) {
+        throw new Error(
+          `${bucket}/${objectPath} cannot be verified: missing size or etag`,
+        )
+      }
+      return { path: objectPath, size: data.size, etag: data.etag }
+    } catch (error) {
+      if (
+        attempt === STORAGE_READ_ATTEMPTS ||
+        !isTransientStorageFailure(error)
+      ) {
+        throw error
+      }
+      await retryDelay(attempt)
+    }
   }
-  if (
-    typeof data.size !== 'number' ||
-    typeof data.etag !== 'string' ||
-    !data.etag
-  ) {
-    throw new Error(
-      `${bucket}/${objectPath} cannot be verified: missing size or etag`,
-    )
-  }
-  return { path: objectPath, size: data.size, etag: data.etag }
+  throw new Error(`Failed to stat ${bucket}/${objectPath}`)
 }
 
 async function listPrefix(
