@@ -264,7 +264,7 @@ describe("rerankWithCohere", () => {
 
     // Input order: [id-0, id-1, id-2, id-3, id-4]
     // Output order: [id-4, id-3, id-2, id-1, id-0]
-    // All 5 positions changed
-    expect(capturedDelta).toBe(5);
+    // 4 of 5 positions changed (center element id-2 stays at index 2)
+    expect(capturedDelta).toBe(4);
   });
 });
