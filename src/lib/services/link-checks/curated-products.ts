@@ -26,11 +26,11 @@ import { LINK_CHECK_CONCURRENCY, MAX_DEAD_LINKS_PER_FINDING } from './types'
 // ---------------------------------------------------------------------------
 
 /**
- * Blocked statuses: 402/403/405/429. A bot challenge is not a dead link —
- * the stored `link_state` is left untouched. Mirrors the rule from the
- * original script and from `link-health.ts`.
+ * Blocked statuses: 402/403/429. A bot challenge is not a dead link —
+ * the stored `link_state` is left untouched. Aligned with check-url.ts's
+ * BLOCKED_STATUSES (405 is in check-url's RETRY_ON, not blocked).
  */
-const BLOCKED_STATUSES = new Set([402, 403, 405, 429])
+const BLOCKED_STATUSES = new Set([402, 403, 429])
 
 // ---------------------------------------------------------------------------
 // Row shape
@@ -154,9 +154,9 @@ export async function checkCuratedProductLinks(
         .eq('id', product.id)
 
       if (error) {
-        throw new Error(
-          `Failed to update curated_products ${product.key}: ${error.message}`,
-        )
+        console.warn(`[link-checks] Failed to update curated_products ${product.key}: ${error.message}`)
+        // Continue checking other products
+        return
       }
 
       if (result.status === 'broken') {

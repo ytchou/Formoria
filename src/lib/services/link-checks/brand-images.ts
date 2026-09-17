@@ -75,6 +75,7 @@ export async function checkBrandImageLinks(
       orderBy: [{ column: 'id' }],
       select: 'id',
       filters: [{ column: 'status', value: 'approved' }],
+      requireNonEmpty: deps.requireNonEmpty,
     },
   )
 
@@ -90,6 +91,7 @@ export async function checkBrandImageLinks(
         orderBy: [{ column: 'id' }],
         select: 'id, brand_id, url, status',
         filters: [{ column: 'status', value: 'active' }],
+        requireNonEmpty: deps.requireNonEmpty,
       },
     )
     const filtered = rows.filter((r) => chunk.includes(r.brand_id))

@@ -75,6 +75,7 @@ export async function checkStockistLinks(
       orderBy: [{ column: 'id' }],
       select: 'id',
       filters: [{ column: 'status', value: 'approved' }],
+      requireNonEmpty: deps.requireNonEmpty,
     },
   )
 
@@ -89,6 +90,7 @@ export async function checkStockistLinks(
       {
         orderBy: [{ column: 'id' }],
         select: 'id, brand_id, url, removed_at',
+        requireNonEmpty: deps.requireNonEmpty,
       },
     )
     // Filter to chunk brand_ids and active (not removed) rows with a URL

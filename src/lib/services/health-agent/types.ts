@@ -50,6 +50,8 @@ export type Detector = {
   source: HealthSource
   schedule: 'nightly' | 'weekly'
   severity: HealthSeverity
+  /** Stub detectors are placeholders whose work is handled elsewhere. */
+  stub?: boolean
   thresholds?: DetectorThresholds
   precondition?: (ctx: DetectorContext) => boolean | Promise<boolean>
   run: (ctx: DetectorContext) => Promise<HealthFinding[]>

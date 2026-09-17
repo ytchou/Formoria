@@ -21,7 +21,13 @@ import {
   admitRun,
   completeRun,
   enqueueFindings,
+  failRun,
+  finalizeTickets,
+  leaseOwnerString,
   reconcile,
+  releaseClaims,
+  releaseFailedReservations,
+  reserveTickets,
   type HealthLedgerClient,
 } from './lifecycle'
 import { runDetectors } from './runner'
@@ -150,7 +156,83 @@ async function executeRun(
     }
   }
 
-  // ---- 2. Run detectors ----
+  // Fix 3: wrap post-admission work so a throw marks the run as failed
+  // and releases the lease instead of leaving it claimed forever.
+  const leaseOwner = leaseOwnerString(runId)
+
+  try {
+    return await executeRunBody(deps, leaseOwner)
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err)
+    console.error('[health-agent] executeRun failed:', err)
+    try {
+      await failRun(client, {
+        routine: 'nightly',
+        logicalDate,
+        runId,
+        workflowAttempt,
+        errorMessage: message,
+      })
+    } catch { /* failRun itself may fail */ }
+    try {
+      await releaseClaims(client, leaseOwner)
+    } catch { /* releaseClaims itself may fail */ }
+    return {
+      status: 'failed',
+      dryRun,
+      exitCode: 1,
+      totalFindings: 0,
+      error: `executeRun failed: ${message}`,
+    }
+  }
+}
+
+/**
+ * The inner body of executeRun, extracted so the caller can wrap it
+ * in a try/catch for failRun + releaseClaims on unhandled errors.
+ */
+async function executeRunBody(
+  deps: RunHealthAgentDeps,
+  _leaseOwner: string,
+): Promise<RunHealthAgentResult> {
+  const {
+    client,
+    runId,
+    logicalDate,
+    workflowAttempt,
+    dryRun,
+  } = deps
+
+  // ---- 2. Dynamic imports for detector deps ----
+  // Loaded after bootWorker (run.ts is itself dynamically imported in
+  // server.ts). These are pure service functions — no Next.js API surface.
+  const [
+    { runLinkHealthCheck },
+    { cleanupDeadLinks },
+    { listIssues },
+    { checkSocialLinks },
+    { checkBrandOtherUrls },
+    { checkStockistLinks },
+    { checkBrandChannelLinks },
+    { checkEventLinks },
+    { checkBrandImageLinks },
+    { checkCuratedProductLinks },
+    { checkMdxLinks },
+  ] = await Promise.all([
+    import('@/lib/services/link-health'),
+    import('@/lib/services/link-cleanup'),
+    import('@/lib/adapters/sentry/issues'),
+    import('@/lib/services/link-checks/social'),
+    import('@/lib/services/link-checks/brand-other-urls'),
+    import('@/lib/services/link-checks/stockists'),
+    import('@/lib/services/link-checks/brand-channels'),
+    import('@/lib/services/link-checks/events'),
+    import('@/lib/services/link-checks/brand-images'),
+    import('@/lib/services/link-checks/curated-products'),
+    import('@/lib/services/link-checks/mdx'),
+  ])
+
+  // ---- 3. Run detectors ----
   const registryEntries: Detector[] =
     deps.registryOverride ?? Object.values(defaultRegistry)
 
@@ -160,6 +242,21 @@ async function executeRun(
     dryRun,
     deps: {
       supabase: client,
+      fetchFn: globalThis.fetch,
+      runLinkHealthCheck,
+      cleanupDeadLinks,
+      listIssues,
+      checkSocialLinks,
+      checkBrandOtherUrls,
+      checkStockistLinks,
+      checkBrandChannelLinks,
+      checkEventLinks,
+      checkBrandImageLinks,
+      checkCuratedProductLinks,
+      checkMdxLinks,
+      // Env-derived deps for trail-supply detector
+      railwayUrl: process.env.FORMORIA_RAILWAY_URL ?? '',
+      originSecret: process.env.CF_ORIGIN_SECRET ?? '',
     },
   })
 
@@ -167,16 +264,17 @@ async function executeRun(
   const allFindings: HealthFinding[] = results.flatMap((r) => r.findings)
   const totalFindings = allFindings.length
 
-  // ---- 3. Enqueue findings (skip in dry-run) ----
+  // ---- 4. Enqueue findings (skip in dry-run) ----
+  let enqueuedIds: string[] = []
   if (!dryRun && allFindings.length > 0) {
     try {
-      await enqueueFindings(client, allFindings)
+      enqueuedIds = await enqueueFindings(client, allFindings)
     } catch (err) {
       console.error('[health-agent] enqueueFindings failed:', err)
     }
   }
 
-  // ---- 4. Reconcile lifecycle (skip in dry-run) ----
+  // ---- 5. Reconcile lifecycle (skip in dry-run) ----
   if (!dryRun) {
     try {
       const observedFingerprints = allFindings.map((f) => f.fingerprint)
@@ -189,11 +287,39 @@ async function executeRun(
     }
   }
 
-  // ---- 5. Create tickets (skip in dry-run) ----
-  if (!dryRun && deps.linearCreateTicket && allFindings.length > 0) {
+  // ---- 6. Create tickets (skip in dry-run) ----
+  if (!dryRun && deps.linearCreateTicket && enqueuedIds.length > 0) {
     try {
+      // Build fingerprint -> queue-entry-ID map from enqueue results
+      const fingerprintToId = new Map<string, string>()
+      for (let i = 0; i < allFindings.length && i < enqueuedIds.length; i++) {
+        fingerprintToId.set(allFindings[i].fingerprint, enqueuedIds[i])
+      }
+
+      // Query which enqueued entries are already ticketed
+      const { data: queueRows } = await client
+        .from('health_fix_queue')
+        .select('id,fingerprint,ticketed_at')
+        .order('created_at', { ascending: false })
+        .in('id', enqueuedIds)
+        .range(0, enqueuedIds.length - 1)
+
+      const alreadyTicketed = new Set<string>()
+      for (const row of (queueRows ?? []) as Array<{
+        id: string
+        fingerprint: string
+        ticketed_at: string | null
+      }>) {
+        if (row.ticketed_at) alreadyTicketed.add(row.fingerprint)
+      }
+
+      const unticketed = new Set(
+        allFindings
+          .map((f) => f.fingerprint)
+          .filter((fp) => !alreadyTicketed.has(fp)),
+      )
+
       const traceUrl = `https://cloud.langfuse.com/trace/${runId}`
-      const unticketed = new Set(allFindings.map((f) => f.fingerprint))
       const tickets = buildTickets(allFindings, {
         unticketed,
         traceUrl,
@@ -201,30 +327,55 @@ async function executeRun(
       })
 
       for (const ticket of tickets) {
+        // Resolve queue entry IDs for this ticket's fingerprints
+        const queueIds = ticket.fingerprints
+          .map((fp) => fingerprintToId.get(fp))
+          .filter((id): id is string => id !== undefined)
+
+        if (queueIds.length === 0) continue
+
+        // Reserve -> create -> finalize (release on failure)
         try {
-          await deps.linearCreateTicket({
+          await reserveTickets(client, queueIds)
+        } catch (err) {
+          console.error('[health-agent] reserveTickets failed:', err)
+          continue
+        }
+
+        try {
+          const result = await deps.linearCreateTicket({
             title: ticket.title,
             body: ticket.body,
             label: ticket.label,
           })
+          await finalizeTickets(
+            client,
+            queueIds.map((id) => ({
+              id,
+              linearIdentifier: result.identifier,
+            })),
+          )
         } catch (err) {
           console.error('[health-agent] ticket creation failed:', err)
+          try {
+            await releaseFailedReservations(client, queueIds)
+          } catch { /* release best-effort */ }
         }
       }
     } catch (err) {
-      console.error('[health-agent] buildTickets failed:', err)
+      console.error('[health-agent] ticket lifecycle failed:', err)
     }
   }
 
-  // ---- 6. Worker jobs (quality/mdx-links/knip-fix/repair) ----
+  // ---- 7. Worker jobs (quality/mdx-links/knip-fix/repair) ----
   // Skipped when workerClient is absent.
   // Ceiling: implement worker job dispatch when repo-worker is wired.
 
-  // ---- 7. Publish PR ----
+  // ---- 8. Publish PR ----
   // Skipped when githubApp is absent.
   // Ceiling: implement PR publishing when repo-worker is wired.
 
-  // ---- 8. Digest ----
+  // ---- 9. Digest ----
   let digestFailed = false
   if (!dryRun && deps.slackPostDigest) {
     try {
@@ -240,7 +391,7 @@ async function executeRun(
     }
   }
 
-  // ---- 9. Complete run (skip in dry-run) ----
+  // ---- 10. Complete run (skip in dry-run) ----
   if (!dryRun) {
     try {
       await completeRun(client, {

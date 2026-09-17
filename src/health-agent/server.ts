@@ -138,7 +138,7 @@ async function main(): Promise<never> {
       }).catch(() => {})
     }
   } finally {
-    await flushLangfuse()
+    try { await flushLangfuse() } catch { /* flush failure must not mask exit */ }
     process.exit(exitCode)
   }
 }

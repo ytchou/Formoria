@@ -148,15 +148,22 @@ export async function runDetectors(
     results.push(...batchResults)
   }
 
-  // A source is completed only when every due detector in it succeeded.
+  // A source is completed only when every due non-stub detector in it
+  // succeeded. Stub detectors are placeholders whose real work runs
+  // elsewhere (worker jobs, embedded in another detector). Including them
+  // would mark sources like 'quality' and 'link' as completed when no
+  // real detector ran, causing reconcile to auto-resolve real findings.
+  const stubNames = new Set(dueDetectors.filter((d) => d.stub).map((d) => d.name))
   const sourceDetectors = new Map<HealthSource, { total: number; succeeded: number }>()
   for (const detector of dueDetectors) {
+    if (stubNames.has(detector.name)) continue
     const source = DETECTOR_SOURCE[detector.name]
     const entry = sourceDetectors.get(source) ?? { total: 0, succeeded: 0 }
     entry.total += 1
     sourceDetectors.set(source, entry)
   }
   for (const result of results) {
+    if (stubNames.has(result.name)) continue
     const source = DETECTOR_SOURCE[result.name]
     const entry = sourceDetectors.get(source)
     if (entry && result.status === 'ok') {

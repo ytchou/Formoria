@@ -174,9 +174,15 @@ export function createRepoWorkerServer(opts: ServerOptions = {}) {
     request: IncomingMessage,
     response: ServerResponse,
   ): Promise<void> {
-    // Health checks
+    // Health checks (no auth required)
     if (request.method === "GET" && isRepoWorkerHealthPath(request.url)) {
       sendJson(response, 200, { ok: true });
+      return;
+    }
+
+    // Auth (only when token is configured) — protects all non-health endpoints
+    if (token && !isAuthorized(request.headers.authorization, token)) {
+      sendJson(response, 401, { error: "Unauthorized" });
       return;
     }
 
@@ -203,12 +209,6 @@ export function createRepoWorkerServer(opts: ServerOptions = {}) {
     // POST /run
     if (request.method !== "POST" || request.url !== "/run") {
       sendJson(response, 404, { error: "Not found" });
-      return;
-    }
-
-    // Auth (only when token is configured)
-    if (token && !isAuthorized(request.headers.authorization, token)) {
-      sendJson(response, 401, { error: "Unauthorized" });
       return;
     }
 

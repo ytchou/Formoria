@@ -9,6 +9,7 @@ import {
   evaluateTrailSupply,
   parseTrailSupplyReport,
 } from '../../../../../scripts/health-agent/trail-supply'
+import { auditedCall } from '@/lib/audit'
 import type { HealthFinding } from '../contracts'
 import { stableFingerprint } from '../contracts'
 import type { Detector, DetectorContext } from '../types'
@@ -37,13 +38,21 @@ export function trailSupplyDetector(deps: TrailSupplyDetectorDeps): Detector {
       const fetchFn = deps.fetchImpl ?? fetch
       const url = `${deps.railwayUrl.replace(/\/$/, '')}/api/cron/trail-supply`
 
-      const response = await fetchFn(url, {
-        method: 'GET',
-        headers: {
-          'x-origin-secret': deps.originSecret,
-          Accept: 'application/json',
+      const response = await auditedCall(
+        {
+          provider: 'health-agent',
+          operation: 'probe_trail_supply',
+          kind: 'external',
         },
-      })
+        async () =>
+          fetchFn(url, {
+            method: 'GET',
+            headers: {
+              'x-origin-secret': deps.originSecret,
+              Accept: 'application/json',
+            },
+          }),
+      )
 
       if (!response.ok) {
         return [

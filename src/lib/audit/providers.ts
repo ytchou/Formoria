@@ -212,6 +212,7 @@ const PROVIDERS = {
     "probe_sentry_capture_trigger",
     "probe_sentry_capture_poll",
     "probe_surface",
+    "probe_trail_supply",
   ],
   "repo-worker": ["clone", "run_tool", "push_branch", "reportWorkerFailure"],
   "claude-code": ["create_pr", "apply_fix"],

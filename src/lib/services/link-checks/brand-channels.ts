@@ -72,6 +72,7 @@ export async function checkBrandChannelLinks(
       orderBy: [{ column: 'id' }],
       select: 'id',
       filters: [{ column: 'status', value: 'approved' }],
+      requireNonEmpty: deps.requireNonEmpty,
     },
   )
 
@@ -86,6 +87,7 @@ export async function checkBrandChannelLinks(
       {
         orderBy: [{ column: 'id' }],
         select: 'id, brand_id, url, removed_at',
+        requireNonEmpty: deps.requireNonEmpty,
       },
     )
     const filtered = rows.filter(

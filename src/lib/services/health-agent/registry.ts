@@ -98,6 +98,7 @@ function stubDetector(name: DetectorName): Detector {
     source: DETECTOR_SOURCE[name],
     schedule: DETECTOR_SCHEDULE[name],
     severity: 'medium',
+    stub: true,
     async run(): Promise<HealthFinding[]> {
       return []
     },
@@ -129,7 +130,9 @@ export const registry: Record<DetectorName, Detector> = {
     supabase: deps.supabase,
   })),
   'trail-supply': withCtxDeps('trail-supply', trailSupplyDetector, (deps) => ({
-    supabase: deps.supabase,
+    railwayUrl: deps.railwayUrl,
+    originSecret: deps.originSecret,
+    fetchImpl: deps.fetchFn,
   })),
   'database-health': withCtxDeps('database-health', databaseHealthDetector, (deps) => ({
     supabase: deps.supabase,
