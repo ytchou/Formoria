@@ -63,7 +63,7 @@ export const langfuseDetector: Detector = {
       async () => {
         const since = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString()
         return fetchFn(
-          `${host}/api/public/traces?limit=1&orderBy=timestamp&order=DESC&fromTimestamp=${encodeURIComponent(since)}`,
+          `${host}/api/public/traces?limit=1&fromTimestamp=${encodeURIComponent(since)}`,
           {
             headers: { Authorization: auth },
             signal: ctx.signal,
