@@ -27,6 +27,7 @@ const PROVIDERS = {
     // a HEAD/GET reachability check whose verdict can flip a published product's
     // call-to-action, so the request and its outcome are replayable.
     "check_link",
+    "check_link_weekly",
     // Curated-product image fetch: pulls the candidate image from the source
     // page it was cited from, so the bytes stored against a product can be
     // traced back to the request that produced them.
