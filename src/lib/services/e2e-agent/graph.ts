@@ -108,7 +108,7 @@ function lastValue<T>(initial: () => T) {
 const SelfHealState = Annotation.Root({
   frozenFailures: lastValue<FrozenFailureSet | null>(() => null),
   diagnosis: lastValue<DiagnoseOutcome | null>(() => null),
-  repair: lastValue<RepairOutcome | null>(() => null),
+  repairResult: lastValue<RepairOutcome | null>(() => null),
   validation: lastValue<{ passed: boolean; output: string } | null>(
     () => null,
   ),
@@ -172,17 +172,17 @@ async function repairNode(
   })
 
   if (result.changedFiles.length === 0) {
-    return { repair: result, outcome: 'needs_human' as RunOutcome }
+    return { repairResult: result, outcome: 'needs_human' as RunOutcome }
   }
 
-  return { repair: result }
+  return { repairResult: result }
 }
 
 async function validateNode(
   ctx: SelfHealRunContext,
   state: SelfHealStateType,
 ): Promise<SelfHealUpdate> {
-  const repair = state.repair!
+  const repair = state.repairResult!
   const specFiles = [
     ...new Set(
       (state.frozenFailures?.failures ?? [])
@@ -226,11 +226,11 @@ async function reportNode(
 
   // Map RepairOutcome → types.ts RepairResult if there are changed files
   let repair: TypesRepairResult | undefined
-  if (state.repair && state.repair.changedFiles.length > 0) {
+  if (state.repairResult && state.repairResult.changedFiles.length > 0) {
     repair = {
-      changedFiles: state.repair.changedFiles,
+      changedFiles: state.repairResult.changedFiles,
       branch: `e2e-selfheal/${ctx.input.runId}`,
-      baseSha: state.repair.baseSha ?? ctx.input.stagingSha,
+      baseSha: state.repairResult.baseSha ?? ctx.input.stagingSha,
     }
   }
 
