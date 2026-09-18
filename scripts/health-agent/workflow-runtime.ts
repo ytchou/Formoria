@@ -17,7 +17,6 @@ import {
   ONLINE_STORE_COLUMNS,
   type OnlineStoreCamelField,
 } from "@/lib/brands/online-stores";
-import { createAgentHubDelivery } from "../agent-hub/delivery.mjs";
 import {
   createAgentHubAdapter,
   createGitHubAdapter,
@@ -2214,47 +2213,7 @@ function healthAgentHubDependency(
       let responseRecorded = false;
       try {
         if (!writer) {
-          writer = createAgentHubDelivery({
-            env: environment,
-            tursoOptions: {
-              fetchImplementation: fetchFor(dependencies),
-            },
-            logger: (record: unknown) => {
-              const value = isRecord(record) ? record : {};
-              const destination =
-                typeof value.destination === "string"
-                  ? value.destination
-                  : "unknown";
-              const status = value.status === "success" ? "success" : "failure";
-              audit({
-                adapter: `agent-hub-${destination}`,
-                latencyMs:
-                  typeof value.latency_ms === "number" &&
-                  Number.isFinite(value.latency_ms)
-                    ? Math.max(0, Math.round(value.latency_ms))
-                    : 0,
-                operation:
-                  typeof value.operation === "string"
-                    ? value.operation
-                    : "deliver",
-                request: {
-                  destination,
-                  source_run_id:
-                    typeof value.source_run_id === "string"
-                      ? value.source_run_id
-                      : "",
-                },
-                response: objectValue(
-                  value.response ??
-                    (typeof value.error === "string"
-                      ? { error: value.error }
-                      : {}),
-                ),
-                schemaValid: status === "success",
-                status,
-              });
-            },
-          });
+          throw new Error("agent_hub_writer_not_injected");
         }
         const body = await writer(envelope);
         const schemaValid =
