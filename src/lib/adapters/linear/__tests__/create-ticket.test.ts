@@ -65,10 +65,12 @@ describe("createTicket", () => {
   });
 
   it("maps label to UUID from env", async () => {
-    const fetchMock = vi.spyOn(globalThis, "fetch").mockResolvedValue(
-      Response.json({
-        data: { issueCreate: { issue: { identifier: "DEV-1000" } } },
-      }),
+    const fetchMock = vi.spyOn(globalThis, "fetch").mockImplementation(() =>
+      Promise.resolve(
+        Response.json({
+          data: { issueCreate: { issue: { identifier: "DEV-1000" } } },
+        }),
+      ),
     );
 
     // data_quality label
