@@ -200,6 +200,7 @@ function SearchInput({
       if (redirectTo) {
         // Use native navigation for cross-page redirects — router.push
         // intermittently fails in WebKit when navigating from / to /brands.
+        // eslint-disable-next-line @next/next/no-location-assign-relative-destination
         window.location.href = `${localizePath(redirectTo, locale)}?search=${encodeURIComponent(q)}`
       }
     }
