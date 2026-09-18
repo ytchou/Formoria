@@ -139,10 +139,7 @@ async function main(): Promise<never> {
 
   // ---- Conditionally create Linear ticket adapter ----
   const linearCreateTicket = process.env.LINEAR_API_KEY
-    ? async (spec: { title: string; body: string; label: string }) => {
-        const result = await createTicket(spec)
-        return result
-      }
+    ? createTicket
     : undefined
 
   // ---- Conditionally create repair trigger ----

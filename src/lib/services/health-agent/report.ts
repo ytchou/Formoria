@@ -267,6 +267,20 @@ export function buildDigest(
 }
 
 // ---------------------------------------------------------------------------
+// Slack helpers
+// ---------------------------------------------------------------------------
+
+/**
+ * Escape text for Slack mrkdwn: neutralise `&`, `<`, and `>` so that
+ * interpolated content (e.g. finding titles containing `<Component>` or
+ * `<@U12345>`) is rendered literally instead of being interpreted as
+ * Slack formatting or mention syntax.
+ */
+export function escapeSlackMrkdwn(text: string): string {
+  return text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+}
+
+// ---------------------------------------------------------------------------
 // Repair trigger message builder
 // ---------------------------------------------------------------------------
 
@@ -292,7 +306,7 @@ export function buildRepairTriggerMessage(
   lines.push('')
   lines.push(`Findings (${request.findings.length}):`)
   for (const finding of request.findings) {
-    lines.push(`- ${finding.title} [${finding.severity}]`)
+    lines.push(`- ${escapeSlackMrkdwn(finding.title)} [${finding.severity}]`)
   }
 
   lines.push('')

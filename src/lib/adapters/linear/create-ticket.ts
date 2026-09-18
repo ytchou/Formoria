@@ -27,7 +27,8 @@ export type TicketResult = {
 };
 
 function resolveLabel(label: string): string {
-  const envKey = LABEL_ENV_MAP[label];
+  const normalizedLabel = label.toLowerCase().replace(/\s+/g, '_');
+  const envKey = LABEL_ENV_MAP[normalizedLabel];
   if (envKey) {
     return process.env[envKey] ?? label;
   }
@@ -81,8 +82,13 @@ export async function createTicket(spec: TicketSpec): Promise<TicketResult> {
       }
 
       const json = (await response.json()) as {
+        errors?: Array<{ message: string }>;
         data: { issueCreate: { issue: { identifier: string } } };
       };
+
+      if (json.errors?.length) {
+        throw new Error(`Linear GraphQL error: ${json.errors[0].message}`);
+      }
 
       return { identifier: json.data.issueCreate.issue.identifier };
     },

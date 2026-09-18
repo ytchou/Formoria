@@ -15,7 +15,7 @@
  */
 
 import type { AuditContextSeed } from '@/lib/audit/context'
-import type { HealthFinding } from './contracts'
+import { stableFingerprint, type HealthFinding } from './contracts'
 import type { Detector } from './types'
 import type { RepoWorkerClient } from './repo-worker-client'
 import type { RepairRequest } from './repair-request'
@@ -269,6 +269,7 @@ async function executeRunBody(
   })
 
   // ---- 3.5. Quality jobs (vitest + knip via repo worker) ----
+  let qualityJobsSucceeded = false
   if (!dryRun && deps.workerClient) {
     try {
       const commands = [
@@ -281,20 +282,71 @@ async function executeRunBody(
         editableFiles: [],
       })
 
-      if (jobResult.status === 'done' && jobResult.results) {
-        const vitestFindings = parseVitestFindings(jobResult.results)
-        const knipFindings = parseKnipFindings(jobResult.results)
+      let vitestFindings: HealthFinding[] = []
+      let knipFindings: HealthFinding[] = []
 
-        // Inject quality findings into the vitest/knip stub results
-        for (const r of results) {
-          if (r.name === 'vitest') r.findings = vitestFindings
-          if (r.name === 'knip') r.findings = knipFindings
+      if (jobResult.status === 'done' && jobResult.results) {
+        vitestFindings = parseVitestFindings(jobResult.results)
+        knipFindings = parseKnipFindings(jobResult.results)
+        qualityJobsSucceeded = true
+      } else {
+        console.warn(
+          `[health-agent] quality jobs returned status: ${jobResult.status}`,
+        )
+        // Inject a failure finding so the run doesn't look like all-pass
+        const failFinding: HealthFinding = {
+          fingerprint: stableFingerprint(
+            'quality',
+            'worker-failure',
+            `quality-jobs-${Date.now()}`,
+          ),
+          title: `Quality jobs failed (status: ${jobResult.status})`,
+          source: 'quality',
+          severity: 'high',
+          mergePolicy: 'human',
+          evidence: {
+            stderr:
+              jobResult.results?.[0]?.stderr?.slice(0, 500) ?? 'no details',
+          },
         }
+        vitestFindings = [failFinding]
+      }
+
+      // Inject quality findings into the vitest/knip stub results
+      for (const r of results) {
+        if (r.name === 'vitest') r.findings = vitestFindings
+        if (r.name === 'knip') r.findings = knipFindings
+      }
+
+      // Warn if stubs are missing — findings would be silently discarded
+      if (
+        vitestFindings.length > 0 &&
+        !results.some((r) => r.name === 'vitest')
+      ) {
+        console.warn(
+          '[health-agent] vitest stub not found in results — quality findings not injected',
+        )
+      }
+      if (
+        knipFindings.length > 0 &&
+        !results.some((r) => r.name === 'knip')
+      ) {
+        console.warn(
+          '[health-agent] knip stub not found in results — quality findings not injected',
+        )
       }
     } catch (err) {
       console.error('[health-agent] quality jobs failed:', err)
       // Stubs stay at [] — detector findings are unaffected
     }
+  }
+
+  // Mark quality source as completed when worker jobs succeeded.
+  // All quality-source detectors are stubs, so the runner excludes them
+  // from completedSources. Without this, reconcile never auto-resolves
+  // stale quality findings.
+  if (qualityJobsSucceeded && !completedSources.includes('quality')) {
+    completedSources.push('quality')
   }
 
   // Consolidate all findings (after quality jobs so their findings are included)
@@ -404,9 +456,9 @@ async function executeRunBody(
     }
   }
 
-  // ---- 7. Worker jobs (quality/mdx-links/knip-fix/repair) ----
-  // Skipped when workerClient is absent.
-  // Ceiling: implement worker job dispatch when repo-worker is wired.
+  // ---- 7. Worker jobs (knip-fix/repair/PR publishing) ----
+  // Quality dispatch (vitest + knip) moved to step 3.5.
+  // Ceiling: implement knip-fix, repair dispatch, and PR publishing.
 
   // ---- 8. Publish PR ----
   // Skipped when githubApp is absent.

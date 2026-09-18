@@ -13,6 +13,7 @@ import {
   type HealthFinding,
   type HealthFindingDisposition,
 } from './contracts'
+import { isKnownKnipNoise } from '../../../../scripts/health-agent/knip-known-noise'
 
 // ---------------------------------------------------------------------------
 // Local type — mirrors the repo-worker shape without importing across layers
@@ -41,8 +42,19 @@ function safeParse(json: string): unknown | undefined {
   try {
     return JSON.parse(json)
   } catch {
-    return undefined
+    /* fall through */
   }
+  // Try to extract JSON object from mixed stdout (e.g. Vite startup messages)
+  const start = json.indexOf('{')
+  const end = json.lastIndexOf('}')
+  if (start >= 0 && end > start) {
+    try {
+      return JSON.parse(json.slice(start, end + 1))
+    } catch {
+      /* fall through */
+    }
+  }
+  return undefined
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -76,6 +88,9 @@ export function parseVitestFindings(results: CommandResult[]): HealthFinding[] {
       continue
     }
 
+    const testFilePath =
+      typeof testResult.name === 'string' ? testResult.name : undefined
+
     for (const assertion of testResult.assertionResults) {
       if (!isRecord(assertion) || assertion.status !== 'failed') continue
 
@@ -95,11 +110,12 @@ export function parseVitestFindings(results: CommandResult[]): HealthFinding[] {
         source: 'quality',
         severity: 'high',
         mergePolicy: 'automatic',
-        fingerprint: stableFingerprint('quality', 'vitest-failure', fullTitle),
+        fingerprint: stableFingerprint('quality', 'full-unit-suite', fullTitle),
         title: `Test failure: ${fullTitle}`,
         evidence: {
           failureMessages,
         },
+        ...(testFilePath ? { changedFiles: [testFilePath] } : {}),
       })
     }
   }
@@ -140,6 +156,7 @@ export function parseKnipFindings(results: CommandResult[]): HealthFinding[] {
               ? exp
               : undefined
           if (!symbol) continue
+          if (isKnownKnipNoise('exports', symbol, file)) continue
           findings.push({
             source: 'quality',
             severity: 'low',
@@ -165,6 +182,7 @@ export function parseKnipFindings(results: CommandResult[]): HealthFinding[] {
               ? typ
               : undefined
           if (!symbol) continue
+          if (isKnownKnipNoise('types', symbol, file)) continue
           findings.push({
             source: 'quality',
             severity: 'low',
@@ -172,10 +190,10 @@ export function parseKnipFindings(results: CommandResult[]): HealthFinding[] {
             mergePolicy: 'human',
             fingerprint: stableFingerprint(
               'quality',
-              'unused-export',
+              'unused-type',
               `${file}:${symbol}`,
             ),
-            title: `Unused export: ${symbol} in ${file}`,
+            title: `Unused type: ${symbol} in ${file}`,
             evidence: { file, symbol, kind: 'type' },
           })
         }
@@ -194,6 +212,7 @@ export function parseKnipFindings(results: CommandResult[]): HealthFinding[] {
           ? exp.name
           : undefined
       if (!symbol) continue
+      if (isKnownKnipNoise('exports', symbol, file)) continue
       findings.push({
         source: 'quality',
         severity: 'low',
@@ -214,6 +233,7 @@ export function parseKnipFindings(results: CommandResult[]): HealthFinding[] {
   if (findings.length === 0 && Array.isArray(parsed.files)) {
     for (const file of parsed.files) {
       if (typeof file !== 'string') continue
+      if (isKnownKnipNoise('files', file)) continue
       findings.push({
         source: 'quality',
         severity: 'low',

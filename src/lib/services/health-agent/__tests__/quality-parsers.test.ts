@@ -58,7 +58,7 @@ describe('parseVitestFindings', () => {
     expect(finding.fingerprint).toBe(
       stableFingerprint(
         'quality',
-        'vitest-failure',
+        'full-unit-suite',
         'fooService > create > rejects invalid input',
       ),
     )
@@ -89,6 +89,45 @@ describe('parseVitestFindings', () => {
     expect(parseVitestFindings(results)).toEqual([])
   })
 
+  it('sets changedFiles from testResult.name', () => {
+    const vitestOutput = {
+      numFailedTestSuites: 1,
+      numFailedTests: 1,
+      numTotalTestSuites: 1,
+      numTotalTests: 1,
+      success: false,
+      testResults: [
+        {
+          name: 'src/lib/services/foo.test.ts',
+          status: 'failed',
+          assertionResults: [
+            {
+              ancestorTitles: ['suite'],
+              title: 'fails',
+              status: 'failed',
+              failureMessages: ['oops'],
+            },
+          ],
+        },
+      ],
+    }
+    const results: CommandResult[] = [
+      {
+        id: 'vitest',
+        stdout: JSON.stringify(vitestOutput),
+        stderr: '',
+        exitCode: 1,
+        timedOut: false,
+      },
+    ]
+
+    const findings = parseVitestFindings(results)
+
+    expect(findings[0].changedFiles).toEqual([
+      'src/lib/services/foo.test.ts',
+    ])
+  })
+
   it('returns empty on invalid JSON', () => {
     const results: CommandResult[] = [
       {
@@ -101,6 +140,44 @@ describe('parseVitestFindings', () => {
     ]
 
     expect(parseVitestFindings(results)).toEqual([])
+  })
+
+  it('extracts JSON from mixed stdout with non-JSON prefix', () => {
+    const vitestOutput = {
+      numFailedTestSuites: 1,
+      numFailedTests: 1,
+      numTotalTestSuites: 1,
+      numTotalTests: 1,
+      success: false,
+      testResults: [
+        {
+          name: 'src/test.ts',
+          status: 'failed',
+          assertionResults: [
+            {
+              ancestorTitles: [],
+              title: 'broken',
+              status: 'failed',
+              failureMessages: ['err'],
+            },
+          ],
+        },
+      ],
+    }
+    const results: CommandResult[] = [
+      {
+        id: 'vitest',
+        stdout: `Vite startup message\n${JSON.stringify(vitestOutput)}`,
+        stderr: '',
+        exitCode: 1,
+        timedOut: false,
+      },
+    ]
+
+    const findings = parseVitestFindings(results)
+
+    expect(findings).toHaveLength(1)
+    expect(findings[0].title).toBe('Test failure: broken')
   })
 })
 
@@ -192,6 +269,89 @@ describe('parseKnipFindings', () => {
     ]
 
     expect(parseKnipFindings(results)).toEqual([])
+  })
+
+  it('uses unused-type fingerprint kind for type exports', () => {
+    const knipOutput = {
+      issues: [
+        {
+          file: 'src/lib/types.ts',
+          dependencies: [],
+          devDependencies: [],
+          optionalPeerDependencies: [],
+          unlisted: [],
+          binaries: [],
+          unresolved: [],
+          exports: [],
+          types: [{ name: 'OldType', line: 1, col: 1, pos: 0 }],
+          enumMembers: [],
+          duplicates: [],
+          namespaceMembers: [],
+          catalog: [],
+          files: false,
+        },
+      ],
+    }
+    const results: CommandResult[] = [
+      {
+        id: 'knip',
+        stdout: JSON.stringify(knipOutput),
+        stderr: '',
+        exitCode: 1,
+        timedOut: false,
+      },
+    ]
+
+    const findings = parseKnipFindings(results)
+
+    expect(findings).toHaveLength(1)
+    expect(findings[0].fingerprint).toBe(
+      stableFingerprint('quality', 'unused-type', 'src/lib/types.ts:OldType'),
+    )
+    expect(findings[0].title).toBe('Unused type: OldType in src/lib/types.ts')
+  })
+
+  it('filters known knip noise entries', () => {
+    const knipOutput = {
+      issues: [
+        {
+          file: 'src/lib/adapters/alerting/sentry.ts',
+          dependencies: [],
+          devDependencies: [],
+          optionalPeerDependencies: [],
+          unlisted: [],
+          binaries: [],
+          unresolved: [],
+          exports: [
+            { name: 'resetSentryAdapterForTests', line: 1, col: 1, pos: 0 },
+            { name: 'realExport', line: 2, col: 1, pos: 10 },
+          ],
+          types: [],
+          enumMembers: [],
+          duplicates: [],
+          namespaceMembers: [],
+          catalog: [],
+          files: false,
+        },
+      ],
+    }
+    const results: CommandResult[] = [
+      {
+        id: 'knip',
+        stdout: JSON.stringify(knipOutput),
+        stderr: '',
+        exitCode: 1,
+        timedOut: false,
+      },
+    ]
+
+    const findings = parseKnipFindings(results)
+
+    // resetSentryAdapterForTests is in the known-noise list, so only realExport survives
+    expect(findings).toHaveLength(1)
+    expect(findings[0].title).toBe(
+      'Unused export: realExport in src/lib/adapters/alerting/sentry.ts',
+    )
   })
 
   it('handles missing command result', () => {

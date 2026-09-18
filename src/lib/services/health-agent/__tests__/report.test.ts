@@ -5,6 +5,7 @@ import {
   buildTickets,
   buildDigest,
   buildRepairTriggerMessage,
+  escapeSlackMrkdwn,
   linearLabelForSource,
   MAX_NEW_TICKETS_PER_RUN,
 } from '../report'
@@ -255,6 +256,41 @@ describe('report — repair trigger message', () => {
     expect(parsed.ref).toBe('staging')
     expect(parsed.findings).toHaveLength(1)
     expect(parsed.scope).toEqual(['file.ts'])
+  })
+})
+
+describe('report — escapeSlackMrkdwn', () => {
+  it('escapes &, <, and > for Slack mrkdwn', () => {
+    expect(escapeSlackMrkdwn('<Component>')).toBe('&lt;Component&gt;')
+    expect(escapeSlackMrkdwn('<@U12345>')).toBe('&lt;@U12345&gt;')
+    expect(escapeSlackMrkdwn('a & b')).toBe('a &amp; b')
+    expect(escapeSlackMrkdwn('no special chars')).toBe('no special chars')
+  })
+
+  it('buildRepairTriggerMessage escapes finding titles', () => {
+    const request: RepairRequest = {
+      agent: 'ops-agent',
+      ref: 'staging',
+      runId: 'run-esc',
+      scope: ['file.ts'],
+      findings: [
+        {
+          fingerprint: 'quality:vitest-failure:<Component>',
+          title: 'Test failure: <Component> & stuff',
+          severity: 'high',
+          source: 'quality',
+        },
+      ],
+    }
+
+    const message = buildRepairTriggerMessage('U_BOT', request)
+
+    // The human-readable summary line should have escaped title
+    expect(message).toContain('&lt;Component&gt; &amp; stuff')
+    // The raw title should NOT appear unescaped in the summary lines
+    // (it will still appear unescaped inside the JSON code block, which is expected)
+    const summaryLines = message.split('```')[0]
+    expect(summaryLines).not.toContain('<Component>')
   })
 })
 

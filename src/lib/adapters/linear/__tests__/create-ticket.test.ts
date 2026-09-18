@@ -73,11 +73,11 @@ describe("createTicket", () => {
       ),
     );
 
-    // data_quality label
+    // Data Quality label (as sent by report.ts linearLabelForSource)
     await createTicket({
       title: "DQ issue",
       body: "body",
-      label: "data_quality",
+      label: "Data Quality",
     });
     let body = JSON.parse(
       (fetchMock.mock.calls[0]![1]!.body as string),
@@ -86,8 +86,8 @@ describe("createTicket", () => {
 
     fetchMock.mockClear();
 
-    // ops label
-    await createTicket({ title: "Ops issue", body: "body", label: "ops" });
+    // Ops label (as sent by report.ts linearLabelForSource)
+    await createTicket({ title: "Ops issue", body: "body", label: "Ops" });
     body = JSON.parse(
       (fetchMock.mock.calls[0]![1]!.body as string),
     );

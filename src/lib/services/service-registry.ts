@@ -733,7 +733,12 @@ export const SERVICE_REGISTRY: readonly ServiceEntry[] = [
     criticality: "back-office",
     operationalSection: "agents",
     operationalKind: "dependency",
-    envVars: ["SLACK_BOT_TOKEN", "SLACK_SIGNING_SECRET"],
+    envVars: [
+      "SLACK_BOT_TOKEN",
+      "SLACK_SIGNING_SECRET",
+      "OPS_AGENT_SLACK_BOT_ID",
+      "HEALTH_AGENT_SLACK_CHANNEL",
+    ],
     status: "active",
     plan: {
       kind: "free",

@@ -416,6 +416,72 @@ describe('runHealthAgent', () => {
     expect(result.totalFindings).toBe(0)
   })
 
+  it('worker failure injects a failure finding instead of silent all-pass', async () => {
+    const runFn = vi.fn(async () => ({
+      status: 'error' as const,
+      error: 'worker exploded',
+    }))
+
+    const workerClient: RepoWorkerClient = { run: runFn }
+
+    const deps = baseDeps({
+      registryOverride: [
+        makeDetector({ name: 'brand-invariants', source: 'directory' }),
+        makeDetector({ name: 'vitest', source: 'quality', stub: true }),
+        makeDetector({ name: 'knip', source: 'quality', stub: true }),
+      ],
+      workerClient,
+    })
+
+    const result = await runHealthAgent(deps)
+
+    // The failure finding is injected — totalFindings > 0
+    expect(result.totalFindings).toBeGreaterThanOrEqual(1)
+    expect(result.status).toBe('completed')
+  })
+
+  it('warns when quality stubs are missing from results', async () => {
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {})
+
+    const vitestJson = JSON.stringify({
+      numFailedTests: 1,
+      testResults: [{
+        name: 'src/test.ts',
+        assertionResults: [{
+          status: 'failed',
+          ancestorTitles: [],
+          title: 'broken',
+          failureMessages: ['err'],
+        }],
+      }],
+    })
+
+    const runFn = vi.fn(async () => ({
+      status: 'done' as const,
+      results: [
+        { id: 'vitest', stdout: vitestJson, stderr: '', exitCode: 1, timedOut: false },
+        { id: 'knip', stdout: '{"issues":[]}', stderr: '', exitCode: 0, timedOut: false },
+      ],
+    }))
+
+    const workerClient: RepoWorkerClient = { run: runFn }
+
+    // No vitest/knip stubs in registry — findings can't be injected
+    const deps = baseDeps({
+      registryOverride: [
+        makeDetector({ name: 'brand-invariants', source: 'directory' }),
+      ],
+      workerClient,
+    })
+
+    await runHealthAgent(deps)
+
+    expect(warnSpy).toHaveBeenCalledWith(
+      expect.stringContaining('vitest stub not found'),
+    )
+    warnSpy.mockRestore()
+  })
+
   it('quality job failure does not crash the run', async () => {
     const runFn = vi.fn(async () => {
       throw new Error('worker connection refused')
@@ -435,6 +501,54 @@ describe('runHealthAgent', () => {
     const result = await runHealthAgent(deps)
 
     expect(result.status).toBe('completed')
+  })
+
+  it('marks quality source as completed when worker jobs succeed', async () => {
+    const client = stubClient()
+    const completedSourcesCapture: string[][] = []
+    const rpcSpy = vi.fn(async (fn: string, params: Record<string, unknown>) => {
+      if (fn === 'claim_health_agent_run') {
+        return { data: { claimed: true }, error: null }
+      }
+      if (fn === 'complete_health_agent_run') {
+        const result = params.p_result as { completedSources?: string[] }
+        if (result?.completedSources) {
+          completedSourcesCapture.push(result.completedSources)
+        }
+        return { data: true, error: null }
+      }
+      if (fn === 'record_health_snapshot') return { data: null, error: null }
+      if (fn === 'release_health_fix_claims') return { data: null, error: null }
+      if (fn === 'reconcile_health_fix_lifecycle') return { data: [], error: null }
+      return { data: null, error: null }
+    })
+    ;(client as unknown as { rpc: typeof rpcSpy }).rpc = rpcSpy
+
+    const runFn = vi.fn(async () => ({
+      status: 'done' as const,
+      results: [
+        { id: 'vitest', stdout: '{"numFailedTests":0,"testResults":[]}', stderr: '', exitCode: 0, timedOut: false },
+        { id: 'knip', stdout: '{"issues":[]}', stderr: '', exitCode: 0, timedOut: false },
+      ],
+    }))
+
+    const workerClient: RepoWorkerClient = { run: runFn }
+
+    const deps = baseDeps({
+      client,
+      registryOverride: [
+        makeDetector({ name: 'brand-invariants', source: 'directory' }),
+        makeDetector({ name: 'vitest', source: 'quality', stub: true }),
+        makeDetector({ name: 'knip', source: 'quality', stub: true }),
+      ],
+      workerClient,
+    })
+
+    await runHealthAgent(deps)
+
+    // completeRun should have been called with 'quality' in completedSources
+    expect(completedSourcesCapture.length).toBeGreaterThanOrEqual(1)
+    expect(completedSourcesCapture[0]).toContain('quality')
   })
 
   // ---- Task 6: repair trigger ----
