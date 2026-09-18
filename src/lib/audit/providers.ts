@@ -10,6 +10,7 @@ const PROVIDERS = {
   // surprise has to be replayable.
   cloudflare: ["origin_probe", "zone_egress_by_day"],
   cohere: ["rerank"],
+  linear: ["create_ticket"],
   turnstile: ["siteverify"],
   slack: ["post_slack_alert", "post_message", "update_message"],
   posthog: ["run_query"],
