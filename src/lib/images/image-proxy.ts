@@ -108,7 +108,7 @@ function normalizeValidator(value: string): string | null {
  * equal-sized objects apart) but pairs it with a timestamp, so a re-upload at
  * the same size still invalidates.
  */
-export function deriveProxiedImageETag(
+function deriveProxiedImageETag(
   info: ProxiedImageObjectInfo | null,
 ): string | null {
   if (!info) return null;
@@ -140,7 +140,7 @@ export function deriveProxiedImageETag(
  * RFC 9110 §13.1.2: `*` matches any current representation, the list is
  * comma-separated, and the comparison is weak (`W/` is ignored).
  */
-export function ifNoneMatchSatisfied(
+function ifNoneMatchSatisfied(
   ifNoneMatch: string | null | undefined,
   etag: string | null,
 ): boolean {

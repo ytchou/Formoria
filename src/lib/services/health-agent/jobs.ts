@@ -11,7 +11,7 @@
 // Types
 // ---------------------------------------------------------------------------
 
-export type HealthJobCommand = {
+type HealthJobCommand = {
   id: string
   run: string
   timeoutMs: number

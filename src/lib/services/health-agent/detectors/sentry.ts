@@ -21,10 +21,10 @@ import type { Detector, DetectorContext } from '../types'
 // ---------------------------------------------------------------------------
 
 /** Maximum issues to analyze per run. */
-export const MAX_SENTRY_ISSUES = 20
+const MAX_SENTRY_ISSUES = 20
 
 /** Lookback period for Sentry issues. */
-export const SENTRY_LOOKBACK_DAYS = 14
+const SENTRY_LOOKBACK_DAYS = 14
 
 // ---------------------------------------------------------------------------
 // Severity mapping per plan
@@ -37,7 +37,7 @@ export const SENTRY_LOOKBACK_DAYS = 14
  * - other error -> medium
  * - below error -> low
  */
-export function mapSentrySeverity(
+function mapSentrySeverity(
   level: string | null,
   userCount: number,
 ): HealthSeverity {
@@ -68,7 +68,7 @@ function isHealthCanary(
   return issue.rootCauseEvidence.tags.health_canary === 'true'
 }
 
-export type SentryDetectorResult = {
+type SentryDetectorResult = {
   findings: HealthFinding[]
   hasMore: boolean
   incidentMode: boolean

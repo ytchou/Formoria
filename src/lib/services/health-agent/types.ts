@@ -43,7 +43,7 @@ export type DetectorResult = {
 // Detector entry — the registry shape
 // ---------------------------------------------------------------------------
 
-export type DetectorThresholds = Record<string, number>
+type DetectorThresholds = Record<string, number>
 
 export type Detector = {
   name: DetectorName

@@ -25,7 +25,7 @@ export type LinkCheckClassResult = {
  * Minimal Supabase query builder — enough for pagedRead + `.in()`.
  * Matches the `PageableQuery` shape from `paged-read.ts` plus `.in()`.
  */
-export type LinkCheckQuery = {
+type LinkCheckQuery = {
   select: (columns: string) => LinkCheckQuery
   order: (column: string, options?: { ascending: boolean }) => LinkCheckQuery
   range: (

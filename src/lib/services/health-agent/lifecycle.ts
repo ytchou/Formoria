@@ -359,7 +359,7 @@ export async function releaseClaims(
 // recordSnapshot
 // ---------------------------------------------------------------------------
 
-export async function recordSnapshot(
+async function recordSnapshot(
   client: HealthLedgerClient,
   date: string,
   metrics: Record<string, JsonValue>,

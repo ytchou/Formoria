@@ -19,7 +19,7 @@ import type { Detector, DetectorContext } from '../types'
 // ---------------------------------------------------------------------------
 
 /** Only alerts newer than this are considered. */
-export const DEPENDABOT_LOOKBACK_DAYS = 14
+const DEPENDABOT_LOOKBACK_DAYS = 14
 
 // ---------------------------------------------------------------------------
 // DI seam

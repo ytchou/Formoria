@@ -9,15 +9,15 @@
 
 export { type HealthSource, HEALTH_SOURCES } from '@/lib/constants/health-detectors'
 
-export const HEALTH_SEVERITIES = ['low', 'medium', 'high', 'critical'] as const
+const HEALTH_SEVERITIES = ['low', 'medium', 'high', 'critical'] as const
 export type HealthSeverity = (typeof HEALTH_SEVERITIES)[number]
 
-export const MERGE_POLICIES = ['automatic', 'human'] as const
-export type MergePolicy = (typeof MERGE_POLICIES)[number]
+const MERGE_POLICIES = ['automatic', 'human'] as const
+type MergePolicy = (typeof MERGE_POLICIES)[number]
 
 export type HealthFindingDisposition = 'report_only'
 
-export type JsonPrimitive = string | number | boolean | null
+type JsonPrimitive = string | number | boolean | null
 export type JsonValue = JsonPrimitive | JsonValue[] | { [key: string]: JsonValue }
 
 export interface HealthFinding {
@@ -33,16 +33,16 @@ export interface HealthFinding {
   sentryIssueId?: string
 }
 
-export type HealthSummaryStatus = 'failed' | 'skipped' | 'success'
+type HealthSummaryStatus = 'failed' | 'skipped' | 'success'
 
-export interface HealthDeliveryWarning {
+interface HealthDeliveryWarning {
   category: 'optional_delivery'
   code: string
   operation: string
   reason: string
 }
 
-export interface HealthInfrastructureFailure {
+interface HealthInfrastructureFailure {
   category: 'infrastructure'
   code: string
   operation: string
@@ -59,7 +59,7 @@ export interface AuditRecord {
   schemaValid?: boolean
 }
 
-export type AuditLogger = (record: AuditRecord) => void
+type AuditLogger = (record: AuditRecord) => void
 
 export function stableFingerprint(
   source: string,
@@ -77,7 +77,7 @@ export function stableFingerprint(
   return `${source}:${normalizedKind}:${normalizedIdentity}`
 }
 
-export function requiresHumanPolicy(
+function requiresHumanPolicy(
   finding: Pick<HealthFinding, 'source' | 'mergePolicy' | 'humanReason'>,
 ): boolean {
   return finding.mergePolicy === 'human' || Boolean(finding.humanReason)

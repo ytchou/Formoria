@@ -13,13 +13,13 @@
 export const MAX_REPAIR_CYCLES = 2
 
 /** Wall-clock deadline for a single investigation (5 minutes). */
-export const INVESTIGATION_DEADLINE_MS = 300_000
+const INVESTIGATION_DEADLINE_MS = 300_000
 
 // ---------------------------------------------------------------------------
 // Types
 // ---------------------------------------------------------------------------
 
-export type RepairBudgetState = {
+type RepairBudgetState = {
   cyclesUsed: number
   wallClockStartMs: number
   deadlineMs: number
@@ -29,7 +29,7 @@ export type RepairBudgetState = {
 // Public API
 // ---------------------------------------------------------------------------
 
-export function createBudgetState(deadlineMs?: number): RepairBudgetState {
+function createBudgetState(deadlineMs?: number): RepairBudgetState {
   return {
     cyclesUsed: 0,
     wallClockStartMs: Date.now(),
@@ -37,7 +37,7 @@ export function createBudgetState(deadlineMs?: number): RepairBudgetState {
   }
 }
 
-export function cyclesExhausted(state: RepairBudgetState): boolean {
+function cyclesExhausted(state: RepairBudgetState): boolean {
   return state.cyclesUsed >= MAX_REPAIR_CYCLES
 }
 
