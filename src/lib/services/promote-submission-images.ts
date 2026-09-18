@@ -44,7 +44,7 @@ type BrandImageKeyRow = {
  * guarded on the old key so a concurrent writer wins instead of being
  * clobbered, and so a re-run cannot rewrite a row twice.
  */
-export function createPromotionStorage(
+function createPromotionStorage(
   supabase: ServiceClient = createServiceClient()
 ): PromotionStorage {
   return {

@@ -13,7 +13,7 @@ import {
   type SentryCollectorOptions,
   type SentryIssueCollection,
 } from '../../../../../scripts/health-agent/sentry'
-import type { HealthFinding, HealthSeverity } from '../contracts'
+import type { HealthFinding } from '../contracts'
 import type { Detector, DetectorContext } from '../types'
 
 // ---------------------------------------------------------------------------
@@ -21,33 +21,14 @@ import type { Detector, DetectorContext } from '../types'
 // ---------------------------------------------------------------------------
 
 /** Maximum issues to analyze per run. */
-export const MAX_SENTRY_ISSUES = 20
+const MAX_SENTRY_ISSUES = 20
 
 /** Lookback period for Sentry issues. */
-export const SENTRY_LOOKBACK_DAYS = 14
+const SENTRY_LOOKBACK_DAYS = 14
 
 // ---------------------------------------------------------------------------
 // Severity mapping per plan
 // ---------------------------------------------------------------------------
-
-/**
- * Map Sentry level + user count to health severity:
- * - fatal -> critical
- * - error with >=10 affected users -> high
- * - other error -> medium
- * - below error -> low
- */
-export function mapSentrySeverity(
-  level: string | null,
-  userCount: number,
-): HealthSeverity {
-  const normalizedLevel = (level ?? '').toLowerCase()
-  if (normalizedLevel === 'fatal') return 'critical'
-  if (normalizedLevel === 'error') {
-    return userCount >= 10 ? 'high' : 'medium'
-  }
-  return 'low'
-}
 
 // ---------------------------------------------------------------------------
 // DI seam
@@ -66,12 +47,6 @@ function isHealthCanary(
   issue: { rootCauseEvidence: { tags: Record<string, string> } },
 ): boolean {
   return issue.rootCauseEvidence.tags.health_canary === 'true'
-}
-
-export type SentryDetectorResult = {
-  findings: HealthFinding[]
-  hasMore: boolean
-  incidentMode: boolean
 }
 
 export function sentryDetector(deps: SentryDetectorDeps): Detector & {

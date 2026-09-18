@@ -29,7 +29,7 @@ export type RepoWorkerJobRequest = {
   }
 }
 
-export type RepoWorkerJobResult = {
+type RepoWorkerJobResult = {
   status: 'done' | 'error'
   results?: CommandResult[]
   changedFiles?: ChangedFile[]

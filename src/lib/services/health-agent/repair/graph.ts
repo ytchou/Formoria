@@ -47,7 +47,7 @@ const _MAX_INVESTIGATIONS = 3
 // Public types
 // ---------------------------------------------------------------------------
 
-export type RepairProblem = {
+type RepairProblem = {
   fingerprint: string
   source: string
   title: string

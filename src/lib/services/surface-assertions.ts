@@ -58,7 +58,7 @@ function browserFetch(
  * Extract `<loc>` values from a sitemap XML string. Uses a regex because the
  * sitemap is simple flat XML and pulling in a parser is not justified.
  */
-export function parseSitemapBrandUrls(xml: string): string[] {
+function parseSitemapBrandUrls(xml: string): string[] {
   const locRegex = /<loc>\s*(https?:\/\/[^<]+\/brands\/[^<]+?)\s*<\/loc>/g;
   const urls: string[] = [];
   let match: RegExpExecArray | null;

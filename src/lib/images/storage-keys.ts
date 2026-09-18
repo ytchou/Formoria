@@ -25,7 +25,7 @@ export const SUBMISSION_IMAGES_KEY_PREFIX = 'submissions/'
 export const CURATED_PRODUCT_IMAGES_KEY_PREFIX = 'curated-products/'
 
 /** Expo/exhibitor imagery: `event-exhibitors/<event>/<booth>.webp`. */
-export const EVENT_EXHIBITOR_IMAGES_KEY_PREFIX = 'event-exhibitors/'
+const EVENT_EXHIBITOR_IMAGES_KEY_PREFIX = 'event-exhibitors/'
 const EVENT_IMAGES_KEY_PREFIX = 'events/'
 
 /**
@@ -35,7 +35,7 @@ const EVENT_IMAGES_KEY_PREFIX = 'events/'
  * fails closed in uploads, URL generation, maintenance, and the `/i/` proxy.
  * `submissions/` must be absent from this list forever.
  */
-export const PUBLIC_IMAGE_KEY_PREFIXES = [
+const PUBLIC_IMAGE_KEY_PREFIXES = [
   BRAND_IMAGES_KEY_PREFIX,
   CURATED_PRODUCT_IMAGES_KEY_PREFIX,
   EVENT_EXHIBITOR_IMAGES_KEY_PREFIX,

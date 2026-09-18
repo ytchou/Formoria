@@ -2,6 +2,5 @@
 // tests and server.ts import from here, keeping the paths in sync without each
 // worker maintaining its own copy.
 export {
-  WORKER_HEALTH_PATHS as REPO_WORKER_HEALTH_PATHS,
   isWorkerHealthPath as isRepoWorkerHealthPath,
 } from "@/worker-boot/health-paths";

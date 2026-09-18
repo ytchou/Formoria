@@ -14,7 +14,7 @@
 // Types
 // ---------------------------------------------------------------------------
 
-export type CommandExitResult = {
+type CommandExitResult = {
   exitCode: number
   stdout: string
   stderr: string
@@ -26,7 +26,7 @@ export type VerificationInput = {
   vitestResult: CommandExitResult
 }
 
-export type VerificationVerdict = 'passed' | 'failed'
+type VerificationVerdict = 'passed' | 'failed'
 
 export type VerificationResult = {
   verdict: VerificationVerdict

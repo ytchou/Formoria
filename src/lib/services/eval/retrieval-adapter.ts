@@ -120,7 +120,7 @@ export function createRetrievalAdapter(deps: RetrievalAdapterDeps): PhaseAdapter
           query: input.query,
           locale,
           mode: 'hybrid',
-          pageSize: 20,
+          pageSize: 100,
           category: input.category ?? null,
           enableIntentParse: false,
         })
