@@ -72,7 +72,7 @@ export function createEventsHandler(deps: EventsRouteDeps = defaultDeps) {
       return NextResponse.json({});
     }
 
-    if (event.bot_id || event.type !== "app_mention") {
+    if (event.type !== "app_mention") {
       return NextResponse.json({});
     }
 
@@ -83,46 +83,66 @@ export function createEventsHandler(deps: EventsRouteDeps = defaultDeps) {
     const threadTs = (event.thread_ts as string) ?? (event.ts as string);
     const text = rawText.replace(BOT_HANDLE_RE, "").trim();
 
-    const channelName = await deps.resolveChannelName(channelId);
+    const isSystemBot = !!event.bot_id;
+    let operatorEmail: string | null;
 
-    const guardResult = deps.evaluateGuards({
-      env: {
-        OPS_AGENT: deps.env.OPS_AGENT,
-        OPS_AGENT_OPERATORS: deps.env.OPS_AGENT_OPERATORS,
-      },
-      slackUserId,
-      channelName,
-    });
+    if (isSystemBot) {
+      const jsonBlockRe = /```json\s*\{[\s\S]*?\}\s*```/;
+      if (!jsonBlockRe.test(rawText)) {
+        return NextResponse.json({});
+      }
+      if (deps.env.OPS_AGENT !== "on") {
+        return NextResponse.json({});
+      }
+      const channelName = await deps.resolveChannelName(channelId);
+      if (!channelName?.startsWith("formoria-")) {
+        return NextResponse.json({});
+      }
+      operatorEmail = "system:bot";
+    } else {
+      const channelName = await deps.resolveChannelName(channelId);
 
-    if (!guardResult.ok) {
-      if (guardResult.reason === "off") {
+      const guardResult = deps.evaluateGuards({
+        env: {
+          OPS_AGENT: deps.env.OPS_AGENT,
+          OPS_AGENT_OPERATORS: deps.env.OPS_AGENT_OPERATORS,
+        },
+        slackUserId,
+        channelName,
+      });
+
+      if (!guardResult.ok) {
+        if (guardResult.reason === "off") {
+          await deps.postMessage({
+            channel: channelId,
+            threadTs,
+            text: "The ops agent is currently off.",
+          });
+          return NextResponse.json({});
+        }
+
+        if (guardResult.reason === "wrong_channel") {
+          return NextResponse.json({});
+        }
+
+        await deps.createRequest({
+          slackEventId,
+          slackUserId,
+          operatorEmail: null,
+          channelId,
+          threadTs,
+          text,
+          status: "refused",
+        });
         await deps.postMessage({
           channel: channelId,
           threadTs,
-          text: "The ops agent is currently off.",
+          text: `Request refused: ${guardResult.reason}`,
         });
         return NextResponse.json({});
       }
 
-      if (guardResult.reason === "wrong_channel") {
-        return NextResponse.json({});
-      }
-
-      await deps.createRequest({
-        slackEventId,
-        slackUserId,
-        operatorEmail: null,
-        channelId,
-        threadTs,
-        text,
-        status: "refused",
-      });
-      await deps.postMessage({
-        channel: channelId,
-        threadTs,
-        text: `Request refused: ${guardResult.reason}`,
-      });
-      return NextResponse.json({});
+      operatorEmail = guardResult.operatorEmail;
     }
 
     const cap = Number(deps.env.OPS_AGENT_DAILY_CAP) || DEFAULT_DAILY_CAP;
@@ -130,7 +150,7 @@ export function createEventsHandler(deps: EventsRouteDeps = defaultDeps) {
       {
         slackEventId,
         slackUserId,
-        operatorEmail: guardResult.operatorEmail,
+        operatorEmail,
         channelId,
         threadTs,
         text,

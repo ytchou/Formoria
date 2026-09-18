@@ -82,19 +82,76 @@ describe("/api/slack/events", () => {
     expect(json.challenge).toBe("abc123");
   });
 
-  it("ignores bot and non-mention events", async () => {
-    const botBody = makeEventBody({ bot_id: "B_BOT" });
-    const res1 = await handler(post(botBody));
-    expect(res1.status).toBe(200);
+  it("bot_message_without_json_block_is_silently_ignored", async () => {
+    const body = makeEventBody({ bot_id: "B_BOT", text: "<@U0BOT> hello world" });
+    const res = await handler(post(body));
+    expect(res.status).toBe(200);
     expect(deps.evaluateGuards).not.toHaveBeenCalled();
+    expect(deps.scheduleRun).not.toHaveBeenCalled();
+  });
 
+  it("bot_message_with_json_block_reaches_scheduleRun", async () => {
+    const jsonText =
+      "<@U0BOT> ```json\n" +
+      '{"agent":"health","ref":"abc","runId":"run-1","scope":[],' +
+      '"findings":[{"fingerprint":"f1","title":"unused export","severity":"warn","source":"knip"}]}' +
+      "\n```";
+    const body = makeEventBody({ bot_id: "B_BOT", text: jsonText });
+    const res = await handler(post(body));
+    expect(res.status).toBe(200);
+    expect(deps.evaluateGuards).not.toHaveBeenCalled();
+    expect(deps.admitRequest).toHaveBeenCalledWith(
+      expect.objectContaining({ operatorEmail: "system:bot" }),
+      50,
+    );
+    expect(deps.scheduleRun).toHaveBeenCalled();
+  });
+
+  it("system_bot_wrong_channel_is_ignored", async () => {
+    deps = makeDeps({
+      resolveChannelName: vi.fn().mockResolvedValue("random-channel"),
+    });
+    handler = createEventsHandler(deps);
+    const jsonText = "<@U0BOT> ```json\n" + '{"agent":"health"}' + "\n```";
+    const body = makeEventBody({ bot_id: "B_BOT", text: jsonText });
+    const res = await handler(post(body));
+    expect(res.status).toBe(200);
+    expect(deps.scheduleRun).not.toHaveBeenCalled();
+  });
+
+  it("system_bot_ops_agent_off_is_ignored", async () => {
+    deps = makeDeps({
+      env: {
+        SLACK_SIGNING_SECRET: TEST_SECRET,
+        OPS_AGENT: "off",
+        OPS_AGENT_OPERATORS: TEST_OPERATORS,
+        OPS_AGENT_DAILY_CAP: "50",
+      },
+    });
+    handler = createEventsHandler(deps);
+    const jsonText = "<@U0BOT> ```json\n" + '{"agent":"health"}' + "\n```";
+    const body = makeEventBody({ bot_id: "B_BOT", text: jsonText });
+    const res = await handler(post(body));
+    expect(res.status).toBe(200);
+    expect(deps.scheduleRun).not.toHaveBeenCalled();
+  });
+
+  it("non_app_mention_events_still_ignored", async () => {
     const nonMention = JSON.stringify({
       type: "event_callback",
       event_id: "evt-2",
       event: { type: "message", user: "U_OP1", channel: "C_OPS", ts: "1234.5679" },
     });
-    const res2 = await handler(post(nonMention));
-    expect(res2.status).toBe(200);
+    const res = await handler(post(nonMention));
+    expect(res.status).toBe(200);
+    expect(deps.evaluateGuards).not.toHaveBeenCalled();
+  });
+
+  it("human_message_uses_existing_guard_flow", async () => {
+    const body = makeEventBody();
+    const res = await handler(post(body));
+    expect(res.status).toBe(200);
+    expect(deps.evaluateGuards).toHaveBeenCalled();
   });
 
   it("duplicate event is acked without second run", async () => {
