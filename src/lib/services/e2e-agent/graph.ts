@@ -218,7 +218,7 @@ async function reportNode(
   const frozenFailures: TypesFrozenFailure[] = (
     state.frozenFailures?.failures ?? []
   ).map((f) => ({
-    file: f.file ?? '',
+    file: f.file ?? '(global)',
     title: f.title,
     error: f.reason ?? '',
     fingerprint: f.id,

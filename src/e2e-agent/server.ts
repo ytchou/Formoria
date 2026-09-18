@@ -5,7 +5,7 @@
  * `process.exit` in `finally` — 0 on green/patched/noise, 1 on needs_human/fallback/crash.
  *
  * Cron schedule is a Railway dashboard setting,
- * documented in railway/e2e-agent.json.
+ * documented in railway/e2e-nightly-agent.json.
  */
 
 import { randomUUID } from 'node:crypto'

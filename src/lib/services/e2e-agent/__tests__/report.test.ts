@@ -4,9 +4,7 @@ import type { FrozenFailure, RepairResult, RunOutcome } from '../types'
 import type { PublishInput, PublishResult } from '@/lib/adapters/github/app-publish'
 import type { TicketSpec, TicketResult } from '@/lib/adapters/linear/create-ticket'
 
-vi.mock('@/lib/tracing/span', () => ({
-  withNodeSpan: (_name: string, fn: () => unknown) => fn(),
-}))
+// withNodeSpan removed from report.ts — the graph wraps all nodes consistently
 
 function makeFrozen(overrides: Partial<FrozenFailure> = {}): FrozenFailure {
   return {

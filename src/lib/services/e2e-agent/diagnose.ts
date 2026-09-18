@@ -57,7 +57,16 @@ const DIAGNOSIS_SCHEMA = {
           file: { type: ["string", "null"] },
           title: { type: "string" },
           project: { type: "string" },
-          category: { type: "string" },
+          category: {
+            type: "string",
+            enum: [
+              "test-drift",
+              "seed-drift",
+              "app-regression",
+              "env-flake",
+              "flaky-suspect",
+            ],
+          },
           rootCauseKey: { type: "string" },
           actionable: { type: "boolean" },
           reason: { type: "string" },
@@ -153,8 +162,8 @@ export async function diagnoseFailures(
 function classifyAggregate(
   diagnosis: DiagnosisResult,
 ): "noise" | "actionable" {
-  const allEnvironment = diagnosis.failures.every(
-    (f) => f.category === "env-flake",
-  );
+  const allEnvironment =
+    diagnosis.failures.length > 0 &&
+    diagnosis.failures.every((f) => f.category === "env-flake");
   return allEnvironment ? "noise" : "actionable";
 }

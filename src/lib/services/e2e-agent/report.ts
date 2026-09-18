@@ -1,4 +1,3 @@
-import { withNodeSpan } from '@/lib/tracing/span'
 import type { PublishInput, PublishResult } from '@/lib/adapters/github/app-publish'
 import type { TicketSpec, TicketResult } from '@/lib/adapters/linear/create-ticket'
 // Re-export awareness: callers wire postMessage from @/lib/adapters/slack/web-api
@@ -27,7 +26,7 @@ export type ReportDeps = {
 // ---------------------------------------------------------------------------
 
 const SLACK_CHANNEL = process.env.SLACK_E2E_CHANNEL ?? 'e2e-alerts'
-const ALLOWED_PATHS = ['e2e/']
+const ALLOWED_PATHS = ['e2e/', 'src/']
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -152,19 +151,17 @@ async function handleFallback(deps: ReportDeps): Promise<void> {
  * as appropriate for the outcome type.
  */
 export async function reportOutcome(deps: ReportDeps): Promise<void> {
-  await withNodeSpan(`report:${deps.outcome}`, async () => {
-    switch (deps.outcome) {
-      case 'patched':
-        return handlePatched(deps)
-      case 'needs_human':
-        return handleNeedsHuman(deps)
-      case 'noise':
-        return handleNoise(deps)
-      case 'fallback':
-        return handleFallback(deps)
-      case 'green':
-        // No reporting needed for green runs
-        return
-    }
-  })
+  switch (deps.outcome) {
+    case 'patched':
+      return handlePatched(deps)
+    case 'needs_human':
+      return handleNeedsHuman(deps)
+    case 'noise':
+      return handleNoise(deps)
+    case 'fallback':
+      return handleFallback(deps)
+    case 'green':
+      // No reporting needed for green runs
+      return
+  }
 }

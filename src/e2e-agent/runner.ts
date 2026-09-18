@@ -91,14 +91,12 @@ const REVISION_POLL_MAX_MS = 10 * 60_000
 const PLAYWRIGHT_TIMEOUT_MS = 10 * 60_000
 const INSTALL_TIMEOUT_MS = 3 * 60_000
 
-/**
- * Default expected-skip manifest. Kept inline so the runner is self-contained;
- * a future task may load this from the cloned repo.
- */
 const DEFAULT_SKIP_MANIFEST: ExpectedSkipManifest = {
   version: 1,
   allowed: [],
 }
+
+const SKIP_MANIFEST_PATH = 'scripts/e2e-expected-skips.json'
 
 // ---------------------------------------------------------------------------
 // Runner
@@ -130,6 +128,11 @@ export async function runE2eSuite(options: RunE2eSuiteOptions): Promise<RunResul
 
   while (Date.now() < pollDeadline) {
     const deployedRevision = await deps.fetchRevision(stagingUrl)
+    if (!deployedRevision) {
+      console.log('[e2e-runner] revision empty, retrying…')
+      await sleep(revisionPollIntervalMs)
+      continue
+    }
     if (deployedRevision.startsWith(stagingSha) || stagingSha.startsWith(deployedRevision)) {
       revisionMatched = true
       break
@@ -185,7 +188,23 @@ export async function runE2eSuite(options: RunE2eSuiteOptions): Promise<RunResul
   )
 
   // Step 6: Parse playwright JSON report
-  const jsonReport = JSON.parse(playwrightResult.stdout) as Record<string, unknown>
+  let jsonReport: Record<string, unknown>
+  try {
+    jsonReport = JSON.parse(playwrightResult.stdout) as Record<string, unknown>
+  } catch {
+    return {
+      passed: false,
+      failures: [{
+        file: null,
+        title: 'Failed to parse Playwright JSON report',
+        error: `exitCode=${playwrightResult.exitCode}, stdout length=${playwrightResult.stdout.length}`,
+      }],
+      unexpectedSkips: [],
+      stats: { expected: 0, unexpected: 0, skipped: 0, flaky: 0, duration: 0 },
+      jsonReport: {},
+      stagingSha,
+    }
+  }
   const rawStats = (jsonReport.stats ?? {}) as Record<string, unknown>
 
   const stats: PlaywrightStats = {
@@ -196,21 +215,30 @@ export async function runE2eSuite(options: RunE2eSuiteOptions): Promise<RunResul
     duration: Number(rawStats.duration ?? 0),
   }
 
-  // Step 7: Evaluate unexpected skips
-  const evaluateSkips = deps.evaluateSkips ?? unexpectedSkipFailuresImpl
-  const unexpectedSkips = evaluateSkips(jsonReport, DEFAULT_SKIP_MANIFEST)
+  // Step 7: Load skip manifest from cloned repo, falling back to default
+  const skipManifest = await loadSkipManifest(deps.execCommand, targetDir)
 
-  // Step 8: Collect failures from errors array
+  // Step 7b: Evaluate unexpected skips
+  const evaluateSkips = deps.evaluateSkips ?? unexpectedSkipFailuresImpl
+  const unexpectedSkips = evaluateSkips(jsonReport, skipManifest)
+
+  // Step 8: Collect failures from suite tree (spec-level unexpected results)
+  // and global config errors. Test failures live in suites[].specs[].tests[],
+  // not in the top-level `errors` array (which only has global/config errors).
+  const failures: SourceFailure[] = []
+  collectSuiteFailures(jsonReport, failures)
+
+  // Also include global/config errors (e.g. config parse failures)
   const rawErrors = Array.isArray(jsonReport.errors) ? jsonReport.errors : []
-  const failures: SourceFailure[] = rawErrors.map((err) => {
+  for (const err of rawErrors) {
     const error = err as Record<string, unknown>
     const location = error.location as Record<string, unknown> | undefined
-    return {
+    failures.push({
       file: location?.file ? String(location.file) : null,
       title: String(error.message ?? 'unknown error'),
       error: String(error.message ?? ''),
-    }
-  })
+    })
+  }
 
   const passed = stats.unexpected === 0 && failures.length === 0 && unexpectedSkips.length === 0
 
@@ -234,4 +262,97 @@ export async function runE2eSuite(options: RunE2eSuiteOptions): Promise<RunResul
 
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms))
+}
+
+/**
+ * Load the expected-skip manifest from the cloned repo via `cat`.
+ * Falls back to the built-in empty manifest if the file doesn't exist
+ * or can't be parsed.
+ */
+async function loadSkipManifest(
+  execCommand: ExecCommandFn,
+  repoDir: string,
+): Promise<ExpectedSkipManifest> {
+  try {
+    const result = await execCommand(`cat ${SKIP_MANIFEST_PATH}`, {
+      cwd: repoDir,
+    })
+    if (result.exitCode !== 0) return DEFAULT_SKIP_MANIFEST
+    return JSON.parse(result.stdout) as ExpectedSkipManifest
+  } catch {
+    return DEFAULT_SKIP_MANIFEST
+  }
+}
+
+function text(value: unknown): string {
+  return typeof value === 'string' ? value : ''
+}
+
+/**
+ * Walk the Playwright JSON suite tree and collect spec-level failures
+ * (tests with `status: 'unexpected'`). Mirrors the traversal pattern
+ * used by `collectSkipped` in e2e-report/gate.ts.
+ */
+function collectSuiteFailures(
+  report: Record<string, unknown>,
+  out: SourceFailure[],
+): void {
+  const suites = Array.isArray(report.suites) ? report.suites : []
+
+  function visitSuite(
+    suite: Record<string, unknown>,
+    inheritedFile: string | null,
+    parents: string[],
+  ): void {
+    const file = text(suite.file) || inheritedFile
+    const nextParents = text(suite.title)
+      ? [...parents, text(suite.title)]
+      : parents
+
+    const specs = Array.isArray(suite.specs) ? suite.specs : []
+    for (const rawSpec of specs) {
+      if (!rawSpec || typeof rawSpec !== 'object') continue
+      const spec = rawSpec as Record<string, unknown>
+      const title = [...nextParents, text(spec.title)]
+        .filter(Boolean)
+        .join(' › ')
+
+      const tests = Array.isArray(spec.tests) ? spec.tests : []
+      for (const rawTest of tests) {
+        if (!rawTest || typeof rawTest !== 'object') continue
+        const test = rawTest as Record<string, unknown>
+        if (test.status !== 'unexpected') continue
+
+        const projectName = text(test.projectName) || undefined
+        const results = Array.isArray(test.results) ? test.results : []
+        const lastResult = results[results.length - 1] as
+          | Record<string, unknown>
+          | undefined
+        const errorObj = (lastResult?.error ?? test.error) as
+          | Record<string, unknown>
+          | undefined
+        const errorMsg = errorObj ? text(errorObj.message) : ''
+
+        out.push({
+          file: file,
+          title,
+          error: errorMsg || undefined,
+          project: projectName,
+        })
+      }
+    }
+
+    const childSuites = Array.isArray(suite.suites) ? suite.suites : []
+    for (const rawChild of childSuites) {
+      if (rawChild && typeof rawChild === 'object') {
+        visitSuite(rawChild as Record<string, unknown>, file, nextParents)
+      }
+    }
+  }
+
+  for (const rawSuite of suites) {
+    if (rawSuite && typeof rawSuite === 'object') {
+      visitSuite(rawSuite as Record<string, unknown>, null, [])
+    }
+  }
 }
