@@ -276,12 +276,12 @@ async function runArm(
       retrievedIds = products.map((p) => p.id);
     }
   } else if (armName === "rerank") {
-    // Hybrid top-20 -> rerank -> top-k
+    // Hybrid top-100 -> rerank -> top-k
     const result = await searchProductsBySituation({
       query: item.query,
       locale: item.locale,
       mode: "hybrid",
-      pageSize: 20,
+      pageSize: 100,
       category: item.category ?? null,
     });
     const candidates = result.products.map((p) => ({
@@ -291,12 +291,12 @@ async function runArm(
     const reranked = await rerankProducts(item.query, candidates);
     retrievedIds = reranked.slice(0, k).map((c) => c.id);
   } else if (armName === "rerank:cohere") {
-    // Hybrid top-50 -> Cohere rerank -> top-k
+    // Hybrid top-100 -> Cohere rerank -> top-k
     const result = await searchProductsBySituation({
       query: item.query,
       locale: item.locale,
       mode: "hybrid",
-      pageSize: 50,
+      pageSize: 100,
       category: item.category ?? null,
     });
     const candidates = result.products.map((p) => ({
