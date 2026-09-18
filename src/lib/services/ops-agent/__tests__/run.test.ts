@@ -9,10 +9,6 @@ vi.mock("@/lib/audit", () => ({
     ),
 }));
 
-vi.mock("@/lib/adapters/github/actions-api", () => ({
-  dispatchWorkflow: vi.fn().mockResolvedValue({ ok: true }),
-}));
-
 vi.mock("@/lib/langfuse/prompt", () => ({
   fetchLangfusePromptWithMeta: vi.fn().mockResolvedValue({
     text: "You are the ops agent.",

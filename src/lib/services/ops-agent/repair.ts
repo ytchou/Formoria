@@ -55,7 +55,7 @@ export type RepairResult = {
 // extractRepairRequest
 // ---------------------------------------------------------------------------
 
-const JSON_BLOCK_RE = /```json\s*([\s\S]*?)```/;
+export const JSON_BLOCK_RE = /```json\s*([\s\S]*?)```/;
 
 export function extractRepairRequest(text: string): RepairRequest | null {
   const match = JSON_BLOCK_RE.exec(text);
@@ -86,8 +86,11 @@ export function mapFindingToInstruction(
 ): string {
   const raw = `Health agent run ${runId}: ${finding.title}\n\nFiles in scope: ${scope.join(", ")}`;
   if (raw.length >= MIN_LENGTH && raw.length <= MAX_LENGTH) return raw;
-  // Truncate if somehow over limit (defensive)
-  return raw.slice(0, MAX_LENGTH);
+  // Truncate at the last complete scope entry boundary to avoid partial paths
+  const truncated = raw.slice(0, MAX_LENGTH);
+  const lastSep = Math.max(truncated.lastIndexOf(", "), truncated.lastIndexOf("\n"));
+  const clean = lastSep > 0 ? truncated.slice(0, lastSep) : truncated;
+  return `${clean} (${scope.length} files total, truncated)`;
 }
 
 // ---------------------------------------------------------------------------

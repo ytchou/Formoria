@@ -137,36 +137,45 @@ export async function runOpsAgent(
   if (isSystemRequest) {
     const repairRequest = extractRepairRequest(request.text);
     if (repairRequest) {
-      const dispatch = deps.dispatchWorkflow ?? defaultDispatchWorkflow;
-      const repairResult = await executeRepairRequest(
-        repairRequest,
-        { dispatchWorkflow: dispatch },
-        {
-          requestId: request.id,
-          channelId: request.channelId,
-          threadTs: request.threadTs,
-        },
-      );
+      try {
+        const dispatch = deps.dispatchWorkflow ?? defaultDispatchWorkflow;
+        const repairResult = await executeRepairRequest(
+          repairRequest,
+          { dispatchWorkflow: dispatch },
+          {
+            requestId: request.id,
+            channelId: request.channelId,
+            threadTs: request.threadTs,
+          },
+        );
 
-      const status = repairResult.ok ? "executed" : "failed";
-      await transition(request.id, ["running"], status, {
-        result: {
-          repair: repairResult,
-          modelCalls: 0,
-        },
-      });
+        const status = repairResult.ok ? "executed" : "failed";
+        await transition(request.id, ["running"], status, {
+          result: {
+            repair: repairResult,
+            modelCalls: 0,
+          },
+        });
 
-      const summary = repairResult.ok
-        ? `Dispatched ${repairResult.outcomes.filter((o) => o.ok).length} repair(s).`
-        : `Repair failed: ${repairResult.outcomes.filter((o) => !o.ok).map((o) => o.error).join(", ")}`;
-      await postMsg(request.threadTs, summary);
+        const summary = repairResult.ok
+          ? `Dispatched ${repairResult.outcomes.filter((o) => o.ok).length} repair(s).`
+          : `Repair failed: ${repairResult.outcomes.filter((o) => !o.ok).map((o) => o.error).join(", ")}`;
+        await postMsg(request.threadTs, summary);
 
-      return {
-        kind: repairResult.ok ? "answer" : "failed",
-        ...(repairResult.ok ? { text: summary } : {}),
-        modelCalls: 0,
-        toolLog: [],
-      } as GraphResult;
+        if (repairResult.ok) {
+          return { kind: "answer" as const, text: summary, modelCalls: 0, toolLog: [] };
+        } else {
+          return { kind: "failed" as const, modelCalls: 0, toolLog: [] };
+        }
+      } catch (err) {
+        console.error("[ops-agent] repair processing failed:", err);
+        try {
+          await transition(request.id, ["running"], "failed");
+        } catch {
+          // transition itself failed — already logged above
+        }
+        return { kind: "failed" as const, modelCalls: 0, toolLog: [] };
+      }
     }
 
     // System bot sent something that isn't a valid RepairRequest — refuse
@@ -180,7 +189,7 @@ export async function runOpsAgent(
       request.threadTs,
       "Received a system message but could not parse a valid repair request.",
     );
-    return { kind: "refused", reason: "invalid_repair_request", modelCalls: 0, toolLog: [] };
+    return { kind: "refused" as const, reason: "invalid_repair_request", modelCalls: 0, toolLog: [] };
   }
 
   // 4. Fetch prompt

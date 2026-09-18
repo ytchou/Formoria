@@ -102,7 +102,7 @@ describe("/api/slack/events", () => {
     expect(deps.evaluateGuards).not.toHaveBeenCalled();
     expect(deps.admitRequest).toHaveBeenCalledWith(
       expect.objectContaining({ operatorEmail: "system:bot" }),
-      50,
+      Number.MAX_SAFE_INTEGER,
     );
     expect(deps.scheduleRun).toHaveBeenCalled();
   });
@@ -134,6 +134,23 @@ describe("/api/slack/events", () => {
     const res = await handler(post(body));
     expect(res.status).toBe(200);
     expect(deps.scheduleRun).not.toHaveBeenCalled();
+  });
+
+  it("bot_message_with_unknown_user_still_admitted", async () => {
+    const jsonText =
+      "<@U0BOT> ```json\n" +
+      '{"agent":"health","ref":"abc","runId":"run-1","scope":[],' +
+      '"findings":[{"fingerprint":"f1","title":"unused export","severity":"warn","source":"knip"}]}' +
+      "\n```";
+    const body = makeEventBody({ bot_id: "B_BOT", user: "U_UNKNOWN", text: jsonText });
+    const res = await handler(post(body));
+    expect(res.status).toBe(200);
+    expect(deps.evaluateGuards).not.toHaveBeenCalled();
+    expect(deps.admitRequest).toHaveBeenCalledWith(
+      expect.objectContaining({ operatorEmail: "system:bot", slackUserId: "U_UNKNOWN" }),
+      Number.MAX_SAFE_INTEGER,
+    );
+    expect(deps.scheduleRun).toHaveBeenCalled();
   });
 
   it("non_app_mention_events_still_ignored", async () => {
