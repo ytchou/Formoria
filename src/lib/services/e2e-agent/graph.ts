@@ -54,7 +54,7 @@ import type { TicketSpec, TicketResult } from '@/lib/adapters/linear/create-tick
  * Recursion limit. The longest path — freeze, diagnose, repair, validate,
  * diagnose, repair, validate, report — is 8 nodes.
  */
-export const RECURSION_LIMIT = 8
+export const RECURSION_LIMIT = 12
 
 /** Maximum diagnose→repair→validate cycles before escalating to needs_human. */
 const MAX_CYCLES = 2
