@@ -12,6 +12,7 @@ export const JUDGED_PAIRS_PATH = resolve(LABELS_DIR, 'judged-pairs.json')
 export const HAND_LABEL_SHEET_PATH = resolve(LABELS_DIR, 'hand-label-sheet.csv')
 export const AGREEMENT_PATH = resolve(LABELS_DIR, 'agreement.json')
 export const DATASET_V2_PATH = resolve(LABELS_DIR, 'situation-search-v2.json')
+export const HOLDOUT_GRADES_PATH = resolve(LABELS_DIR, 'holdout-grades.csv')
 
 // ---------------------------------------------------------------------------
 // Types
@@ -314,14 +315,14 @@ const SHEET_COLUMNS: (keyof SheetRow)[] = [
   'name_zh', 'description_zh', 'official_url', 'llm_grade', 'human_grade',
 ]
 
-function escapeCsvField(value: string): string {
+export function escapeCsvField(value: string): string {
   if (value.includes(',') || value.includes('"') || value.includes('\n') || value.includes('\r')) {
     return `"${value.replace(/"/g, '""')}"`
   }
   return value
 }
 
-function parseCsvLine(line: string): string[] {
+export function parseCsvLine(line: string): string[] {
   const fields: string[] = []
   let i = 0
   while (i <= line.length) {

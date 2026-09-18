@@ -740,6 +740,7 @@ async function main() {
       "env-file": { type: "string" },
       model: { type: "string" },
       mode: { type: "string" },
+      csv: { type: "string" },
       help: { type: "boolean", default: false },
     },
   });
@@ -804,9 +805,19 @@ async function main() {
         m.cmdBuildDataset(values),
       );
       break;
+    case "export-grades":
+      await import("./label-grade-holdout").then((m) =>
+        m.cmdExportGrades(values),
+      );
+      break;
+    case "apply-grades":
+      await import("./label-grade-holdout").then((m) =>
+        m.cmdApplyGrades(values),
+      );
+      break;
     default:
       console.error(
-        "Usage: search:eval <run|neighbours|export-features|snapshot|compare|generate-queries|judge|retrieve-candidates|agreement|build-dataset>",
+        "Usage: search:eval <run|neighbours|export-features|snapshot|compare|generate-queries|judge|retrieve-candidates|agreement|build-dataset|export-grades|apply-grades>",
       );
       console.error(
         "  run [--arm hybrid,ltr:v1] [--split holdout] [--out file] [--allow-unreviewed true]",
@@ -831,6 +842,12 @@ async function main() {
       );
       console.error(
         "  build-dataset [--split 60/20/20] Build labelled dataset for Langfuse",
+      );
+      console.error(
+        "  export-grades [--arm hybrid,rerank,rerank:cohere] [--k 10]  Export holdout grades CSV",
+      );
+      console.error(
+        "  apply-grades [--csv labels/holdout-grades.csv]               Apply human grades to dataset",
       );
       process.exitCode = 1;
   }
