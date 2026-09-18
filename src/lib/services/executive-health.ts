@@ -155,9 +155,6 @@ export function getExecutiveHealth(): Promise<ExecutiveHealthSnapshot> {
   return executiveHealthMonitor.get();
 }
 
-export function refreshExecutiveHealth(): Promise<ExecutiveHealthSnapshot> {
-  return executiveHealthMonitor.refresh();
-}
 
 function configured(
   value: string | undefined,

@@ -7,13 +7,11 @@
  * - All types that the runner, lifecycle, and report modules need live here.
  */
 
-export { type HealthSource, HEALTH_SOURCES } from '@/lib/constants/health-detectors'
+export { type HealthSource } from '@/lib/constants/health-detectors'
 
-export const HEALTH_SEVERITIES = ['low', 'medium', 'high', 'critical'] as const
-export type HealthSeverity = (typeof HEALTH_SEVERITIES)[number]
+export type HealthSeverity = 'low' | 'medium' | 'high' | 'critical'
 
-export const MERGE_POLICIES = ['automatic', 'human'] as const
-export type MergePolicy = (typeof MERGE_POLICIES)[number]
+export type MergePolicy = 'automatic' | 'human'
 
 export type HealthFindingDisposition = 'report_only'
 
@@ -77,8 +75,3 @@ export function stableFingerprint(
   return `${source}:${normalizedKind}:${normalizedIdentity}`
 }
 
-export function requiresHumanPolicy(
-  finding: Pick<HealthFinding, 'source' | 'mergePolicy' | 'humanReason'>,
-): boolean {
-  return finding.mergePolicy === 'human' || Boolean(finding.humanReason)
-}

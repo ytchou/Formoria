@@ -42,8 +42,8 @@ export const EXPECTED_SQL_JOBS: readonly ExpectedSqlJob[] = [
 // ---------------------------------------------------------------------------
 
 /** HTTP job staleness: 25h daily, 192h weekly. */
-export const HTTP_STALE_HOURS_DAILY = 25
-export const HTTP_STALE_HOURS_WEEKLY = 192
+const HTTP_STALE_HOURS_DAILY = 25
+const HTTP_STALE_HOURS_WEEKLY = 192
 
 // ---------------------------------------------------------------------------
 // DI seam

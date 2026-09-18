@@ -19,7 +19,7 @@ import { isPrivateUrl } from '@/lib/url'
 export const BROWSER_UA =
   'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
 
-export const TIMEOUT_MS = 10_000
+const TIMEOUT_MS = 10_000
 
 /**
  * HTTP statuses that a HEAD response may not decide on its own — re-checked

@@ -18,11 +18,11 @@ import type { Detector, DetectorContext } from '../types'
 // ---------------------------------------------------------------------------
 
 /** Connection usage above this percent triggers a critical finding. */
-export const CONNECTION_SATURATION_PERCENT = 80
+const CONNECTION_SATURATION_PERCENT = 80
 /** Active queries running longer than this trigger a finding. */
-export const SLOW_QUERY_SECONDS = 60
+const SLOW_QUERY_SECONDS = 60
 /** Dead tuple percent threshold (across two snapshots). */
-export const DEAD_TUPLE_PERCENT = 20
+const DEAD_TUPLE_PERCENT = 20
 
 // ---------------------------------------------------------------------------
 // DI seam

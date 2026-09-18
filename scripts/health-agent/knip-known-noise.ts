@@ -28,6 +28,13 @@ export const KNIP_KNOWN_NOISE = [
     signature: "resetSlackAdapterForTests",
   },
   {
+    file: "src/lib/services/service-registry.ts",
+    kind: "exports",
+    reason:
+      "Imported by scripts/check-service-registry.test.ts via @/ path alias; knip resolves the script as an entry point but does not follow the alias to the src import.",
+    signature: "NON_SERVICE_ENV",
+  },
+  {
     file: "src/lib/constants/brand-images.ts",
     kind: "duplicates",
     reason:
