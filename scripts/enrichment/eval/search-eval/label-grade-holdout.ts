@@ -99,7 +99,7 @@ export async function cmdExportGrades(values: Record<string, unknown>) {
           })
           .filter(Boolean)
       } else {
-        ranked = products.map((p) => compositeKey(p))
+        throw new Error(`Unknown arm: "${arm}"`)
       }
       rankings.set(arm, ranked)
     }

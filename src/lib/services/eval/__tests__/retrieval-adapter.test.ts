@@ -177,6 +177,16 @@ describe('createRetrievalAdapter', () => {
     expect(result.output).toEqual(['b2/p-b', 'b1/p-a'])
   })
 
+  it('task throws on unknown arm value', async () => {
+    const adapter = createRetrievalAdapter(makeDeps())
+    const item = makeItem()
+    const arm = makeArm({ name: 'rerank:cohere', value: 'rerank:cohere' })
+
+    await expect(adapter.task!(item, arm, { itemRunId: 'run-unknown' })).rejects.toThrow(
+      'Unknown arm value: "rerank:cohere"',
+    )
+  })
+
   it('task dispatches ltr:<version> to deps.rank', async () => {
     const rankMock = vi.fn().mockResolvedValue(['b1/p1', 'b2/p2'])
     const adapter = createRetrievalAdapter(

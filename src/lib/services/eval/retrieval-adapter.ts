@@ -144,6 +144,10 @@ export function createRetrievalAdapter(deps: RetrievalAdapterDeps): PhaseAdapter
       }
 
       // hybrid / vector / lexical
+      const VALID_MODES: readonly string[] = ['hybrid', 'vector', 'lexical'] satisfies SearchMode[]
+      if (!VALID_MODES.includes(arm.value)) {
+        throw new Error(`Unknown arm value: "${arm.value}"`)
+      }
       const mode = arm.value as SearchMode
       const result = await deps.search({
         query: input.query,
