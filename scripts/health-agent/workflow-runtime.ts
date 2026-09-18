@@ -2199,9 +2199,8 @@ async function defaultDirectoryCollector(
 function healthAgentHubDependency(
   dependencies: WorkflowRuntimeDependencies,
 ): AgentHubAdapter {
-  const environment = environmentFor(dependencies);
   const audit = auditFor(dependencies);
-  let writer = dependencies.agentHubWriter;
+  const writer = dependencies.agentHubWriter;
   return createAgentHubAdapter({
     audit,
     runner: async (envelope) => {
