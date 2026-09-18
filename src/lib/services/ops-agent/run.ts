@@ -11,6 +11,7 @@ import {
   type AgentModel,
 } from "@/lib/services/enrich-phases/agents/runtime";
 import type { LlmAuditContext } from "@/lib/services/llm-audit";
+import { dispatchWorkflow as defaultDispatchWorkflow } from "@/lib/adapters/github/actions-api";
 import { postMessage as slackPostMessage } from "@/lib/adapters/slack/web-api";
 import { renderProposalCard as slackRenderProposalCard } from "@/lib/adapters/slack/blocks";
 import { listIssues as defaultListIssues } from "@/lib/adapters/sentry/issues";
@@ -19,6 +20,7 @@ import { listCurationJobs, getCurationJobDetail } from "@/lib/services/curation-
 import { runGraph as defaultRunGraph, type GraphResult } from "./graph";
 import { createOpsTools, type OpsTool, type OpsToolDeps, type OpsToolContext } from "./tools";
 import { describeProposal, validateProposal } from "./proposals";
+import { extractRepairRequest, executeRepairRequest } from "./repair";
 import {
   systemStatus as defaultSystemStatus,
   brandContext as defaultBrandContext,
@@ -64,6 +66,10 @@ export type RunOpsAgentDeps = {
     userMessage?: string,
     signal?: AbortSignal,
   ) => Promise<GraphResult>;
+  dispatchWorkflow?: (
+    file: string,
+    inputs?: Record<string, string>,
+  ) => Promise<{ ok: true } | { ok: false; status: number }>;
   toolDeps?: Partial<OpsToolDeps>;
 };
 
@@ -124,6 +130,57 @@ export async function runOpsAgent(
       "Failed to start processing your request. It may already be in progress.",
     ).catch(() => {});
     return { kind: "failed", modelCalls: 0, toolLog: [] };
+  }
+
+  // 3b. Repair request detection — system bot only
+  const isSystemRequest = request.operatorEmail?.startsWith("system:");
+  if (isSystemRequest) {
+    const repairRequest = extractRepairRequest(request.text);
+    if (repairRequest) {
+      const dispatch = deps.dispatchWorkflow ?? defaultDispatchWorkflow;
+      const repairResult = await executeRepairRequest(
+        repairRequest,
+        { dispatchWorkflow: dispatch },
+        {
+          requestId: request.id,
+          channelId: request.channelId,
+          threadTs: request.threadTs,
+        },
+      );
+
+      const status = repairResult.ok ? "executed" : "failed";
+      await transition(request.id, ["running"], status, {
+        result: {
+          repair: repairResult,
+          modelCalls: 0,
+        },
+      });
+
+      const summary = repairResult.ok
+        ? `Dispatched ${repairResult.outcomes.filter((o) => o.ok).length} repair(s).`
+        : `Repair failed: ${repairResult.outcomes.filter((o) => !o.ok).map((o) => o.error).join(", ")}`;
+      await postMsg(request.threadTs, summary);
+
+      return {
+        kind: repairResult.ok ? "answer" : "failed",
+        ...(repairResult.ok ? { text: summary } : {}),
+        modelCalls: 0,
+        toolLog: [],
+      } as GraphResult;
+    }
+
+    // System bot sent something that isn't a valid RepairRequest — refuse
+    await transition(request.id, ["running"], "refused", {
+      result: {
+        reason: "Invalid or missing RepairRequest from system bot",
+        modelCalls: 0,
+      },
+    });
+    await postMsg(
+      request.threadTs,
+      "Received a system message but could not parse a valid repair request.",
+    );
+    return { kind: "refused", reason: "invalid_repair_request", modelCalls: 0, toolLog: [] };
   }
 
   // 4. Fetch prompt
