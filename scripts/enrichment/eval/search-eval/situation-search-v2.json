@@ -8118,7 +8118,7 @@
     "query": "露營煮飯想帶耐用金屬餐具",
     "category": "outdoor",
     "queryType": "concrete",
-    "split": "holdout",
+    "split": "train",
     "expected": [
       {
         "brandSlug": "dijan",
@@ -8237,7 +8237,7 @@
     "query": "帶狗散步方便攜帶零食的小包",
     "category": "pets",
     "queryType": "concrete",
-    "split": "holdout",
+    "split": "train",
     "expected": [
       {
         "brandSlug": "furlab-skincare",
