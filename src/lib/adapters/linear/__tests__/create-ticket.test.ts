@@ -49,7 +49,7 @@ describe("createTicket", () => {
     expect(url).toBe("https://api.linear.app/graphql");
     expect(init!.headers).toEqual(
       expect.objectContaining({
-        Authorization: "Bearer lin_api_test_key",
+        Authorization: "lin_api_test_key",
         "Content-Type": "application/json",
       }),
     );

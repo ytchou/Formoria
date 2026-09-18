@@ -59,7 +59,7 @@ export async function createTicket(spec: TicketSpec): Promise<TicketResult> {
       const response = await fetch(LINEAR_API_URL, {
         method: "POST",
         headers: {
-          Authorization: `Bearer ${apiKey}`,
+          Authorization: apiKey,
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
