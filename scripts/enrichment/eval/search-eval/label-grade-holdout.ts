@@ -3,7 +3,6 @@ import { resolve, dirname } from 'node:path'
 
 import { searchProductsBySituation } from '@/lib/services/product-situation-search'
 import { buildRerankDocument, rerankProducts } from '@/lib/services/product-rerank'
-import { rerankWithCohere } from '@/lib/services/cohere-rerank-audit'
 import { compositeKey } from '@/lib/services/eval/retrieval-adapter'
 import { loadDatasetV2, type DatasetV2Item } from './dataset-v2'
 import { HOLDOUT_GRADES_PATH, escapeCsvField, parseCsvLine } from './label-shared'
@@ -25,7 +24,6 @@ type GradeRow = {
   llm_grade: string
   hybrid_rank: string
   rerank_rank: string
-  cohere_rank: string
   disagreement: string
   human_grade: string
 }
@@ -33,7 +31,7 @@ type GradeRow = {
 const CSV_COLUMNS: (keyof GradeRow)[] = [
   'query_id', 'query', 'brand_slug', 'product_key',
   'name_zh', 'description_zh', 'official_url', 'llm_grade',
-  'hybrid_rank', 'rerank_rank', 'cohere_rank', 'disagreement', 'human_grade',
+  'hybrid_rank', 'rerank_rank', 'disagreement', 'human_grade',
 ]
 
 // ---------------------------------------------------------------------------
@@ -41,7 +39,7 @@ const CSV_COLUMNS: (keyof GradeRow)[] = [
 // ---------------------------------------------------------------------------
 
 export async function cmdExportGrades(values: Record<string, unknown>) {
-  const armSpecs = String(values.arm ?? 'hybrid,rerank,rerank:cohere').split(',')
+  const armSpecs = String(values.arm ?? 'hybrid,rerank').split(',')
   const k = parseInt(String(values.k ?? '10'), 10)
   const outPath = values.out ? String(values.out) : HOLDOUT_GRADES_PATH
 
@@ -100,17 +98,6 @@ export async function cmdExportGrades(values: Record<string, unknown>) {
             return p ? compositeKey(p) : ''
           })
           .filter(Boolean)
-      } else if (arm === 'rerank:cohere') {
-        const reranked = await rerankWithCohere(item.query, candidates, {
-          rpcScores: [],
-          category: item.category ?? null,
-        })
-        ranked = reranked
-          .map((r) => {
-            const p = byId.get(r.id)
-            return p ? compositeKey(p) : ''
-          })
-          .filter(Boolean)
       } else {
         ranked = products.map((p) => compositeKey(p))
       }
@@ -139,7 +126,6 @@ export async function cmdExportGrades(values: Record<string, unknown>) {
         if (rank1 > 0) ranks.push(rank1)
         const armKey = arm === 'hybrid' ? 'hybrid_rank'
           : arm === 'rerank' ? 'rerank_rank'
-          : arm === 'rerank:cohere' ? 'cohere_rank'
           : arm
         rankStrs[armKey] = rank1 > 0 ? String(rank1) : ''
       }
@@ -159,7 +145,6 @@ export async function cmdExportGrades(values: Record<string, unknown>) {
         llm_grade: gradeLookup.has(ckey) ? String(gradeLookup.get(ckey)) : '',
         hybrid_rank: rankStrs['hybrid_rank'] ?? '',
         rerank_rank: rankStrs['rerank_rank'] ?? '',
-        cohere_rank: rankStrs['cohere_rank'] ?? '',
         disagreement: String(disagreement),
         human_grade: '',
       })
@@ -185,7 +170,7 @@ export async function cmdExportGrades(values: Record<string, unknown>) {
 }
 
 function avgRank(row: GradeRow): number {
-  const vals = [row.hybrid_rank, row.rerank_rank, row.cohere_rank]
+  const vals = [row.hybrid_rank, row.rerank_rank]
     .filter((v) => v !== '')
     .map(Number)
   return vals.length > 0 ? vals.reduce((a, b) => a + b, 0) / vals.length : Infinity

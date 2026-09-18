@@ -46,7 +46,7 @@ function makeDataset(): DatasetV2Item[] {
 }
 
 function makeCsv(rows: string[]): string {
-  const header = 'query_id,query,brand_slug,product_key,name_zh,description_zh,official_url,llm_grade,hybrid_rank,rerank_rank,cohere_rank,disagreement,human_grade'
+  const header = 'query_id,query,brand_slug,product_key,name_zh,description_zh,official_url,llm_grade,hybrid_rank,rerank_rank,disagreement,human_grade'
   return [header, ...rows].join('\n')
 }
 
@@ -141,7 +141,7 @@ describe('cmdApplyGrades', () => {
 
   it('updates existing expected grades', async () => {
     const csv = makeCsv([
-      'q-holdout-1,露營鍋具推薦,brand-a,pot-1,鍋子,desc,url,2,1,3,2,2,3',
+      'q-holdout-1,露營鍋具推薦,brand-a,pot-1,鍋子,desc,url,2,1,3,2,3',
     ])
     const { root } = await runApply(makeDataset(), csv)
     const q = root.find((q) => q.id === 'q-holdout-1')!
@@ -151,7 +151,7 @@ describe('cmdApplyGrades', () => {
 
   it('adds new products not in expected', async () => {
     const csv = makeCsv([
-      'q-holdout-1,露營鍋具推薦,brand-d,stove-1,爐具,desc,url,,1,5,2,4,2',
+      'q-holdout-1,露營鍋具推薦,brand-d,stove-1,爐具,desc,url,,1,5,4,2',
     ])
     const { root } = await runApply(makeDataset(), csv)
     const q = root.find((q) => q.id === 'q-holdout-1')!
@@ -163,8 +163,8 @@ describe('cmdApplyGrades', () => {
 
   it('is idempotent', async () => {
     const csv = makeCsv([
-      'q-holdout-1,露營鍋具推薦,brand-a,pot-1,鍋子,desc,url,2,1,3,2,2,3',
-      'q-holdout-1,露營鍋具推薦,brand-d,stove-1,爐具,desc,url,,1,5,2,4,2',
+      'q-holdout-1,露營鍋具推薦,brand-a,pot-1,鍋子,desc,url,2,1,3,2,3',
+      'q-holdout-1,露營鍋具推薦,brand-d,stove-1,爐具,desc,url,,1,5,4,2',
     ])
     const dataset = makeDataset()
     // First apply
@@ -228,7 +228,7 @@ describe('cmdApplyGrades', () => {
 
   it('updates humanApproval stamp', async () => {
     const csv = makeCsv([
-      'q-holdout-1,露營鍋具推薦,brand-a,pot-1,鍋子,desc,url,2,1,3,2,2,3',
+      'q-holdout-1,露營鍋具推薦,brand-a,pot-1,鍋子,desc,url,2,1,3,2,3',
     ])
     const { root } = await runApply(makeDataset(), csv)
     const q = root.find((q) => q.id === 'q-holdout-1')!
@@ -238,7 +238,7 @@ describe('cmdApplyGrades', () => {
 
   it('ignores rows without human_grade', async () => {
     const csv = makeCsv([
-      'q-holdout-1,露營鍋具推薦,brand-a,pot-1,鍋子,desc,url,2,1,3,2,2,',
+      'q-holdout-1,露營鍋具推薦,brand-a,pot-1,鍋子,desc,url,2,1,3,2,',
     ])
     const { root } = await runApply(makeDataset(), csv)
     const q = root.find((q) => q.id === 'q-holdout-1')!
