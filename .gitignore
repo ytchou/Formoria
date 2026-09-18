@@ -49,7 +49,7 @@ __pycache__/
 Thumbs.db
 *.csv
 !content/stockists/*.csv
-!scripts/enrichment/eval/search-eval/labels/*.csv
+!scripts/enrichment/eval/search-eval/labels/agreement.json
 *.png
 # Playwright owns this one durable baseline set; all other generated PNGs stay ignored.
 !e2e/tests/visual-regression.spec.ts-snapshots/*.png
@@ -174,11 +174,11 @@ data/
 
 public/admin/content/
 
-# search-eval run artifacts (DEV-1680 situation search). The golden set is the
-# reviewed fixture and is committed; run output is not.
-scripts/enrichment/eval/search-eval/runs/*
-!scripts/enrichment/eval/search-eval/runs/dev-*.json
-!scripts/enrichment/eval/search-eval/runs/README.md
+# search-eval run artifacts (DEV-1680 situation search). Run output is not committed.
+scripts/enrichment/eval/search-eval/runs/
+# search-eval labeling intermediates (DEV-1736). agreement.json is the only keeper.
+scripts/enrichment/eval/search-eval/labels/
+!scripts/enrichment/eval/search-eval/labels/agreement.json
 
 # llm-eval run artifacts (DEV-1612 unified eval harness). Same rule: the harness
 # is committed, its scored output and LLM audit sink are not.
@@ -189,7 +189,7 @@ scripts/distillation/runs/
 scripts/distillation/models/
 
 # LTR training venv (DEV-1736)
-scripts/ltr/.venv/
+models/ltr/train/.venv/
 
 # search-eval run artifacts (DEV-1732, new path)
 scripts/search-eval/runs/

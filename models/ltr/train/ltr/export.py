@@ -21,7 +21,7 @@ def export_onnx(
     feature_names: list[str],
     feature_spec_hash: str,
     info: dict[str, Any],
-    output_dir: str = "models",
+    output_dir: str = "models/ltr",
     max_parity_rows: int = 50,
     X_parity: np.ndarray | None = None,
 ) -> Path:
@@ -39,7 +39,7 @@ def export_onnx(
         target_opset=15,
     )
 
-    onnx_path = out / f"ltr-{version}.onnx"
+    onnx_path = out / f"{version}.onnx"
     onnxmltools.utils.save_model(onnx_model, str(onnx_path))
 
     # Determine input name from the ONNX model
@@ -61,7 +61,7 @@ def export_onnx(
         "holdout_untouched": True,
     }
 
-    meta_path = out / f"ltr-{version}.meta.json"
+    meta_path = out / f"{version}.meta.json"
     meta_path.write_text(json.dumps(meta, indent=2, default=str) + "\n")
 
     # Parity fixture
@@ -91,7 +91,7 @@ def _write_parity(
         for i in range(n)
     ]
 
-    parity_path = out / f"ltr-{version}.parity.json"
+    parity_path = out / f"{version}.parity.json"
     parity_path.write_text(json.dumps(parity, indent=2) + "\n")
 
 

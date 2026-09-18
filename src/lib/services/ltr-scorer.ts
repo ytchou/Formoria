@@ -40,9 +40,9 @@ export async function loadLtrModel(
   const cached = sessions.get(version);
   if (cached) return cached;
 
-  const modelDir = opts?.modelDir ?? join(process.cwd(), "models");
-  const metaPath = join(modelDir, `ltr-${version}.meta.json`);
-  const modelPath = join(modelDir, `ltr-${version}.onnx`);
+  const modelDir = opts?.modelDir ?? join(process.cwd(), "models", "ltr");
+  const metaPath = join(modelDir, `${version}.meta.json`);
+  const modelPath = join(modelDir, `${version}.onnx`);
 
   const meta: LtrMeta = JSON.parse(readFileSync(metaPath, "utf8"));
 
