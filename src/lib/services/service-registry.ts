@@ -565,6 +565,9 @@ export const SERVICE_REGISTRY: readonly ServiceEntry[] = [
     operationalSection: null,
     operationalKind: "dependency",
     envVars: [
+      "LINEAR_API_KEY",
+      "LINEAR_LABEL_DATA_QUALITY",
+      "LINEAR_LABEL_OPS",
       "LINEAR_OAUTH_ACCESS_TOKEN",
       "LINEAR_OAUTH_CLIENT_ID",
       "LINEAR_OAUTH_CLIENT_SECRET",
@@ -730,7 +733,12 @@ export const SERVICE_REGISTRY: readonly ServiceEntry[] = [
     criticality: "back-office",
     operationalSection: "agents",
     operationalKind: "dependency",
-    envVars: ["SLACK_BOT_TOKEN", "SLACK_SIGNING_SECRET"],
+    envVars: [
+      "SLACK_BOT_TOKEN",
+      "SLACK_SIGNING_SECRET",
+      "OPS_AGENT_SLACK_BOT_ID",
+      "HEALTH_AGENT_SLACK_CHANNEL",
+    ],
     status: "active",
     plan: {
       kind: "free",
