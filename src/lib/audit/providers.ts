@@ -9,7 +9,6 @@ const PROVIDERS = {
   // bytes leaving the edge, so a reading that disagrees with a billing
   // surprise has to be replayable.
   cloudflare: ["origin_probe", "zone_egress_by_day"],
-  cohere: ["rerank"],
   linear: ["create_ticket"],
   turnstile: ["siteverify"],
   slack: ["post_slack_alert", "post_message", "update_message"],

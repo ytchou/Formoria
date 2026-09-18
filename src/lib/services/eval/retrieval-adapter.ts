@@ -32,7 +32,6 @@ export type RetrievalAdapterDeps = {
     version: string
     category?: string | null
   }) => Promise<string[]>
-  rerankCohere?: (query: string, category?: string | null) => Promise<string[]>
 }
 
 // ---------------------------------------------------------------------------
@@ -144,13 +143,11 @@ export function createRetrievalAdapter(deps: RetrievalAdapterDeps): PhaseAdapter
         }
       }
 
-      if (arm.value === 'rerank:cohere') {
-        if (!deps.rerankCohere) throw new Error('rerankCohere dep required for arm "rerank:cohere"')
-        const keys = await deps.rerankCohere(input.query, input.category ?? null)
-        return { ok: true, output: keys }
-      }
-
       // hybrid / vector / lexical
+      const VALID_MODES: readonly string[] = ['hybrid', 'vector', 'lexical'] satisfies SearchMode[]
+      if (!VALID_MODES.includes(arm.value)) {
+        throw new Error(`Unknown arm value: "${arm.value}"`)
+      }
       const mode = arm.value as SearchMode
       const result = await deps.search({
         query: input.query,

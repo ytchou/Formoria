@@ -32,11 +32,7 @@ import {
   getRelatedBrandsByCentroid,
 } from "@/lib/services/brand-embeddings";
 import { createServiceClient } from "@/lib/supabase/service";
-import {
-  rerankProducts,
-  buildRerankDocument,
-} from "@/lib/services/product-rerank";
-import { rerankWithCohere } from "@/lib/services/cohere-rerank-audit";
+import { rerankProducts } from "@/lib/services/product-rerank";
 import {
   buildBlindReviewPool,
   compareConsumerOverlap,
@@ -114,31 +110,6 @@ async function cmdRun(values: Record<string, unknown>) {
         pageSize: opts.pageSize,
       }),
     rerank: async (query, candidates) => rerankProducts(query, candidates),
-    rerankCohere: async (query, category) => {
-      const result = await searchProductsBySituation({
-        query,
-        locale: "zh-TW",
-        mode: "hybrid",
-        pageSize: 100,
-        category: category ?? null,
-        enableIntentParse: false,
-      });
-      const candidates = result.products.map((p) => ({
-        id: p.id,
-        document: buildRerankDocument(p),
-      }));
-      const byId = new Map(result.products.map((p) => [p.id, p]));
-      const reranked = await rerankWithCohere(query, candidates, {
-        rpcScores: [],
-        category: category ?? null,
-      });
-      return reranked
-        .map((r) => {
-          const p = byId.get(r.id);
-          return p ? compositeKey(p) : "";
-        })
-        .filter(Boolean);
-    },
     rank: async ({ query, version, category }) => {
       const teed: LtrRpcRow[] = [];
       const baseDeps = createDefaultSearchDeps();
@@ -873,7 +844,7 @@ async function main() {
         "  build-dataset [--split 60/20/20] Build labelled dataset for Langfuse",
       );
       console.error(
-        "  export-grades [--arm hybrid,rerank,rerank:cohere] [--k 10]  Export holdout grades CSV",
+        "  export-grades [--arm hybrid,rerank] [--k 10]  Export holdout grades CSV",
       );
       console.error(
         "  apply-grades [--csv labels/holdout-grades.csv]               Apply human grades to dataset",
