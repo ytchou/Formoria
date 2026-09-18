@@ -544,11 +544,26 @@
         "brandSlug": "snug",
         "productKey": "ya-so-hsiao-tui-tao",
         "grade": 1
+      },
+      {
+        "brandSlug": "hillfoot-socks",
+        "productKey": "tai-wan-pao-yu-tung-wu-chu-chou-wa",
+        "grade": 1
+      },
+      {
+        "brandSlug": "moobulous",
+        "productKey": "hu-tieh-chieh-yang-pi-wa-wa-hsieh-amelie",
+        "grade": 0
+      },
+      {
+        "brandSlug": "boingboing",
+        "productKey": "fang-po-shui-hsiu-hua-hou-ti-lan-jen-hsieh-hsiao-hung-mao-yu-ta-yeh-lang",
+        "grade": 0
       }
     ],
     "humanApproval": {
-      "reviewedVia": "agreement-kappa",
-      "at": "2026-09-17"
+      "reviewedVia": "human-override",
+      "at": "2026-09-18"
     }
   },
   {
@@ -566,7 +581,7 @@
       {
         "brandSlug": "purifycare",
         "productKey": "yi-sheng-mei-chi-fang-shai-ju",
-        "grade": 2
+        "grade": 1
       },
       {
         "brandSlug": "ranran",
@@ -682,11 +697,16 @@
         "brandSlug": "zoodi",
         "productKey": "tien-jan-fang-wen-pen-wu-3040094558226",
         "grade": 1
+      },
+      {
+        "brandSlug": "mooni",
+        "productKey": "shih-hua-tsai-shou-kung-tsao-lu-ho-tsu",
+        "grade": 3
       }
     ],
     "humanApproval": {
-      "reviewedVia": "agreement-kappa",
-      "at": "2026-09-17"
+      "reviewedVia": "human-override",
+      "at": "2026-09-18"
     }
   },
   {
@@ -1670,7 +1690,7 @@
       {
         "brandSlug": "anta-pottery",
         "productKey": "mien-tiu-tao-tzu-shou-tsang-pan-mei-hua-tui-pei-2ptwgxt5",
-        "grade": 3
+        "grade": 2
       },
       {
         "brandSlug": "miaoisland",
@@ -1680,7 +1700,7 @@
       {
         "brandSlug": "hmm",
         "productKey": "mugr-tao-tzu-pei",
-        "grade": 3
+        "grade": 2
       },
       {
         "brandSlug": "anta-pottery",
@@ -1690,7 +1710,7 @@
       {
         "brandSlug": "hmm",
         "productKey": "patio-tao-tzu-lu-pei",
-        "grade": 2
+        "grade": 1
       },
       {
         "brandSlug": "goodglas",
@@ -1705,7 +1725,7 @@
       {
         "brandSlug": "togo",
         "productKey": "shih-hu-pei-pei-qibs5pmc",
-        "grade": 3
+        "grade": 2
       },
       {
         "brandSlug": "goodglas",
@@ -1789,8 +1809,8 @@
       }
     ],
     "humanApproval": {
-      "reviewedVia": "agreement-kappa",
-      "at": "2026-09-17"
+      "reviewedVia": "human-override",
+      "at": "2026-09-18"
     }
   },
   {
@@ -2341,8 +2361,8 @@
       }
     ],
     "humanApproval": {
-      "reviewedVia": "agreement-kappa",
-      "at": "2026-09-17"
+      "reviewedVia": "human-override",
+      "at": "2026-09-18"
     }
   },
   {
@@ -2631,7 +2651,7 @@
       {
         "brandSlug": "uniwoodesign",
         "productKey": "home-base-pang-chiu-chang-kuo-hsiang-shou-na-ho-80-h-00033-a",
-        "grade": 3
+        "grade": 2
       },
       {
         "brandSlug": "uniwoodesign",
@@ -2666,7 +2686,7 @@
       {
         "brandSlug": "enable",
         "productKey": "enable-fang-shui-shou-che-shih-pi-ko-cho-mien-shou-na-to-pan",
-        "grade": 3
+        "grade": 2
       },
       {
         "brandSlug": "wanmuzuo",
@@ -2755,8 +2775,8 @@
       }
     ],
     "humanApproval": {
-      "reviewedVia": "agreement-kappa",
-      "at": "2026-09-17"
+      "reviewedVia": "human-override",
+      "at": "2026-09-18"
     }
   },
   {
@@ -3065,7 +3085,7 @@
       {
         "brandSlug": "solis",
         "productKey": "kuai-le-wu-hsiao-chih-tsun-hou-pei-pao",
-        "grade": 3
+        "grade": 2
       },
       {
         "brandSlug": "solis",
@@ -3169,8 +3189,8 @@
       }
     ],
     "humanApproval": {
-      "reviewedVia": "agreement-kappa",
-      "at": "2026-09-17"
+      "reviewedVia": "human-override",
+      "at": "2026-09-18"
     }
   },
   {
@@ -3765,12 +3785,12 @@
       {
         "brandSlug": "likedo",
         "productKey": "sheng-tai-jou-jen-hsi-fa-lu",
-        "grade": 1
+        "grade": 2
       },
       {
         "brandSlug": "likedo",
         "productKey": "feng-ying-peng-jun-hsi-fa-lu",
-        "grade": 1
+        "grade": 0
       },
       {
         "brandSlug": "aromase",
@@ -3856,11 +3876,16 @@
         "brandSlug": "le-shuli",
         "productKey": "chuan-hsiao-pao-yang-chi-chien-tsu-san-ping-san-ho",
         "grade": 0
+      },
+      {
+        "brandSlug": "farfarawayvillage",
+        "productKey": "hsiang-ching-hsiang-hsu-ching-yu-hsi-fa-lu",
+        "grade": 2
       }
     ],
     "humanApproval": {
-      "reviewedVia": "agreement-kappa",
-      "at": "2026-09-17"
+      "reviewedVia": "human-override",
+      "at": "2026-09-18"
     }
   },
   {
@@ -4531,7 +4556,7 @@
       {
         "brandSlug": "hsiaoyu-illustration",
         "productKey": "kao-hsiung-lung-hu-ta-tu-pan-ming-hsin-pien-59",
-        "grade": 0
+        "grade": 1
       },
       {
         "brandSlug": "b-610-asteroid-b-610",
@@ -4645,8 +4670,8 @@
       }
     ],
     "humanApproval": {
-      "reviewedVia": "agreement-kappa",
-      "at": "2026-09-17"
+      "reviewedVia": "human-override",
+      "at": "2026-09-18"
     }
   },
   {
@@ -5079,7 +5104,7 @@
       {
         "brandSlug": "leeds-weather",
         "productKey": "english-roses-ching-tien-fen-hung-mi-tsai-she-chi-wa-mesj47px",
-        "grade": 3
+        "grade": 2
       },
       {
         "brandSlug": "halfor",
@@ -5178,8 +5203,8 @@
       }
     ],
     "humanApproval": {
-      "reviewedVia": "agreement-kappa",
-      "at": "2026-09-17"
+      "reviewedVia": "human-override",
+      "at": "2026-09-18"
     }
   },
   {
@@ -5592,8 +5617,8 @@
       }
     ],
     "humanApproval": {
-      "reviewedVia": "agreement-kappa",
-      "at": "2026-09-17"
+      "reviewedVia": "human-override",
+      "at": "2026-09-18"
     }
   },
   {
@@ -5783,8 +5808,8 @@
       }
     ],
     "humanApproval": {
-      "reviewedVia": "agreement-kappa",
-      "at": "2026-09-17"
+      "reviewedVia": "human-override",
+      "at": "2026-09-18"
     }
   },
   {
@@ -6068,7 +6093,7 @@
       {
         "brandSlug": "yue-traveler",
         "productKey": "shuo-tsou-chiu-tsou-liang-yung-hou-pei-pao-40l",
-        "grade": 2
+        "grade": 0
       },
       {
         "brandSlug": "yue-traveler",
@@ -6093,7 +6118,7 @@
       {
         "brandSlug": "dydash",
         "productKey": "pai-pien-chuan-chuan-pao",
-        "grade": 1
+        "grade": 0
       },
       {
         "brandSlug": "uma-hana",
@@ -6187,8 +6212,8 @@
       }
     ],
     "humanApproval": {
-      "reviewedVia": "agreement-kappa",
-      "at": "2026-09-17"
+      "reviewedVia": "human-override",
+      "at": "2026-09-18"
     }
   },
   {
@@ -6354,7 +6379,7 @@
       {
         "brandSlug": "robber-925-silver",
         "productKey": "kuo-shih-lei-lei-mi-ni-kan-lan-shih-hsiang-lien-so-ku-lien-sv925-14kgf-yzlewynx",
-        "grade": 3
+        "grade": 2
       },
       {
         "brandSlug": "cian-jewelry",
@@ -6384,7 +6409,7 @@
       {
         "brandSlug": "wild-type",
         "productKey": "kan-kuang-hsi-pao-yin-hsiang-lien",
-        "grade": 3
+        "grade": 2
       },
       {
         "brandSlug": "tan-nichi",
@@ -6399,7 +6424,7 @@
       {
         "brandSlug": "wild-type",
         "productKey": "kan-hsi-pao-yin-hsiang-lien",
-        "grade": 3
+        "grade": 2
       },
       {
         "brandSlug": "moonlight",
@@ -6463,8 +6488,8 @@
       }
     ],
     "humanApproval": {
-      "reviewedVia": "agreement-kappa",
-      "at": "2026-09-17"
+      "reviewedVia": "human-override",
+      "at": "2026-09-18"
     }
   },
   {
@@ -6697,8 +6722,8 @@
       }
     ],
     "humanApproval": {
-      "reviewedVia": "agreement-kappa",
-      "at": "2026-09-17"
+      "reviewedVia": "human-override",
+      "at": "2026-09-18"
     }
   },
   {
@@ -7224,7 +7249,7 @@
       {
         "brandSlug": "hanamikoji",
         "productKey": "pang-tai-tien-chiao-jih-pai-chu-tzu-tzu-32141747",
-        "grade": 2
+        "grade": 1
       },
       {
         "brandSlug": "snn",
@@ -7259,7 +7284,7 @@
       {
         "brandSlug": "snn",
         "productKey": "hsiao-nan-fa-liang-chuan-tiao-hua-tuan-tai-niu-chin-hsieh-hz4zzrs8",
-        "grade": 3
+        "grade": 2
       },
       {
         "brandSlug": "snn",
@@ -7314,7 +7339,7 @@
       {
         "brandSlug": "keizu",
         "productKey": "chin-shu-kou-huan-pi-tai-chien-tou-kao-ken-mu-le-hsieh-s-oa021-000-mgy",
-        "grade": 3
+        "grade": 2
       },
       {
         "brandSlug": "southgate",
@@ -7345,11 +7370,16 @@
         "brandSlug": "one-shoe",
         "productKey": "cloud-x-4-x-hsing-hsun-lien-hsieh-2",
         "grade": 0
+      },
+      {
+        "brandSlug": "thirty-leather",
+        "productKey": "chen-pi-t-hsing-ken-hsieh",
+        "grade": 3
       }
     ],
     "humanApproval": {
-      "reviewedVia": "agreement-kappa",
-      "at": "2026-09-17"
+      "reviewedVia": "human-override",
+      "at": "2026-09-18"
     }
   },
   {
@@ -8180,8 +8210,8 @@
       }
     ],
     "humanApproval": {
-      "reviewedVia": "agreement-kappa",
-      "at": "2026-09-17"
+      "reviewedVia": "human-override",
+      "at": "2026-09-18"
     }
   },
   {
@@ -8795,11 +8825,31 @@
         "brandSlug": "iwi",
         "productKey": "iwi-toolhex-liu-chiao-chung-hsing-pi-j37rav4e",
         "grade": 0
+      },
+      {
+        "brandSlug": "hsiaoyu-illustration",
+        "productKey": "sheringham-chuan-wu-tu-pan-ming-hsin-pien-55",
+        "grade": 0
+      },
+      {
+        "brandSlug": "hsiaoyu-illustration",
+        "productKey": "tai-pei-tu-pan-ming-hsin-pien-62",
+        "grade": 0
+      },
+      {
+        "brandSlug": "hsiaoyu-illustration",
+        "productKey": "kao-hsiung-lung-hu-ta-tu-pan-ming-hsin-pien-59",
+        "grade": 0
+      },
+      {
+        "brandSlug": "hsiaoyu-illustration",
+        "productKey": "kao-hsiung-85-ta-lou-tu-pan-ming-hsin-pien-60",
+        "grade": 0
       }
     ],
     "humanApproval": {
-      "reviewedVia": "agreement-kappa",
-      "at": "2026-09-17"
+      "reviewedVia": "human-override",
+      "at": "2026-09-18"
     }
   },
   {
@@ -10100,7 +10150,7 @@
       {
         "brandSlug": "hutch-asap",
         "productKey": "wonder-for-kids-chi-neng-t-hsu-ts003-26-blu-110",
-        "grade": 1
+        "grade": 0
       },
       {
         "brandSlug": "annahome",
@@ -10134,8 +10184,8 @@
       }
     ],
     "humanApproval": {
-      "reviewedVia": "agreement-kappa",
-      "at": "2026-09-17"
+      "reviewedVia": "human-override",
+      "at": "2026-09-18"
     }
   },
   {
@@ -10186,12 +10236,12 @@
       {
         "brandSlug": "uniwoodesign",
         "productKey": "yin-hua-shih-kuang-mu-chih-kuo-hsiang-ching-yin-cho-chung-80-h-00045-a",
-        "grade": 0
+        "grade": 2
       },
       {
         "brandSlug": "desrochers-x",
         "productKey": "pei-ou-ching-tien-ching-hsi-pi-kua-chung-deutsch-fhchx5ze",
-        "grade": 1
+        "grade": 2
       },
       {
         "brandSlug": "mr-casa",
@@ -10295,8 +10345,8 @@
       }
     ],
     "humanApproval": {
-      "reviewedVia": "agreement-kappa",
-      "at": "2026-09-17"
+      "reviewedVia": "human-override",
+      "at": "2026-09-18"
     }
   },
   {
@@ -10663,12 +10713,12 @@
       {
         "brandSlug": "sanboo",
         "productKey": "lu-hsing-yi-wu-shou-na-tai",
-        "grade": 3
+        "grade": 1
       },
       {
         "brandSlug": "dydash",
         "productKey": "pai-pien-chuan-chuan-pao",
-        "grade": 1
+        "grade": 0
       },
       {
         "brandSlug": "matchwood",
@@ -10762,8 +10812,8 @@
       }
     ],
     "humanApproval": {
-      "reviewedVia": "agreement-kappa",
-      "at": "2026-09-17"
+      "reviewedVia": "human-override",
+      "at": "2026-09-18"
     }
   },
   {
@@ -11067,7 +11117,7 @@
       {
         "brandSlug": "lemnaasta",
         "productKey": "hsia-hung-su-tung-fu-tan-astaegg",
-        "grade": 0
+        "grade": 3
       },
       {
         "brandSlug": "berule",
@@ -11091,8 +11141,8 @@
       }
     ],
     "humanApproval": {
-      "reviewedVia": "agreement-kappa",
-      "at": "2026-09-17"
+      "reviewedVia": "human-override",
+      "at": "2026-09-18"
     }
   },
   {
@@ -11527,8 +11577,8 @@
       }
     ],
     "humanApproval": {
-      "reviewedVia": "agreement-kappa",
-      "at": "2026-09-17"
+      "reviewedVia": "human-override",
+      "at": "2026-09-18"
     }
   },
   {
@@ -12307,22 +12357,22 @@
       {
         "brandSlug": "sanboo",
         "productKey": "lu-hsing-yi-wu-shou-na-tai",
-        "grade": 1
+        "grade": 0
       },
       {
         "brandSlug": "matchwood",
         "productKey": "positive-pouch-sui-shen-hsiao-pao-sp-017",
-        "grade": 2
+        "grade": 1
       },
       {
         "brandSlug": "yue-traveler",
         "productKey": "yu-72-liang-yung-so-lu-hsing-hsiang",
-        "grade": 1
+        "grade": 0
       },
       {
         "brandSlug": "uma-hana",
         "productKey": "ching-tien-ko-wen-park-ha-to-te-pao-xb5z4ugr",
-        "grade": 1
+        "grade": 0
       },
       {
         "brandSlug": "bangstree",
@@ -12342,7 +12392,7 @@
       {
         "brandSlug": "koper",
         "productKey": "pin-fen-chu-ai-li-ssu-chiao-na-tai-a4-16-aqlj",
-        "grade": 1
+        "grade": 0
       },
       {
         "brandSlug": "entadar",
@@ -12418,11 +12468,16 @@
         "brandSlug": "yi-fan-canvas-bags",
         "productKey": "san-yung-chih-tsai-hua-shu-to-te-pao",
         "grade": 0
+      },
+      {
+        "brandSlug": "reneeworks",
+        "productKey": "u-hsing-la-lien-tuan-chia-rn004",
+        "grade": 3
       }
     ],
     "humanApproval": {
-      "reviewedVia": "agreement-kappa",
-      "at": "2026-09-17"
+      "reviewedVia": "human-override",
+      "at": "2026-09-18"
     }
   },
   {
@@ -12711,7 +12766,7 @@
       {
         "brandSlug": "hmm",
         "productKey": "patio-tao-tzu-lu-pei",
-        "grade": 1
+        "grade": 0
       },
       {
         "brandSlug": "opus",
@@ -12835,8 +12890,8 @@
       }
     ],
     "humanApproval": {
-      "reviewedVia": "agreement-kappa",
-      "at": "2026-09-17"
+      "reviewedVia": "human-override",
+      "at": "2026-09-18"
     }
   },
   {
@@ -12884,7 +12939,7 @@
       {
         "brandSlug": "hmm",
         "productKey": "mugr-tao-tzu-pei",
-        "grade": 2
+        "grade": 1
       },
       {
         "brandSlug": "hmm",
@@ -12894,7 +12949,7 @@
       {
         "brandSlug": "opus",
         "productKey": "tai-wan-ching-yu-tsao-hsing-chien-pan-tw-wh18",
-        "grade": 3
+        "grade": 2
       },
       {
         "brandSlug": "goodglas",
@@ -12973,8 +13028,8 @@
       }
     ],
     "humanApproval": {
-      "reviewedVia": "agreement-kappa",
-      "at": "2026-09-17"
+      "reviewedVia": "human-override",
+      "at": "2026-09-18"
     }
   },
   {
@@ -14553,7 +14608,7 @@
       {
         "brandSlug": "tan-nichi",
         "productKey": "yi-lang-hua-chun-yin-chieh-chih",
-        "grade": 1
+        "grade": 0
       },
       {
         "brandSlug": "kuan-kuan",
@@ -14667,8 +14722,8 @@
       }
     ],
     "humanApproval": {
-      "reviewedVia": "agreement-kappa",
-      "at": "2026-09-17"
+      "reviewedVia": "human-override",
+      "at": "2026-09-18"
     }
   },
   {
@@ -14853,8 +14908,8 @@
       }
     ],
     "humanApproval": {
-      "reviewedVia": "agreement-kappa",
-      "at": "2026-09-17"
+      "reviewedVia": "human-override",
+      "at": "2026-09-18"
     }
   },
   {
@@ -14877,7 +14932,7 @@
       {
         "brandSlug": "uniwoodesign",
         "productKey": "yin-hua-shih-kuang-mu-chih-kuo-hsiang-ching-yin-cho-chung-80-h-00045-a",
-        "grade": 0
+        "grade": 2
       },
       {
         "brandSlug": "addable",
@@ -14892,7 +14947,7 @@
       {
         "brandSlug": "desrochers-x",
         "productKey": "pei-ou-ching-tien-ching-hsi-pi-kua-chung-deutsch-fhchx5ze",
-        "grade": 2
+        "grade": 3
       },
       {
         "brandSlug": "mr-casa",
@@ -14991,8 +15046,8 @@
       }
     ],
     "humanApproval": {
-      "reviewedVia": "agreement-kappa",
-      "at": "2026-09-17"
+      "reviewedVia": "human-override",
+      "at": "2026-09-18"
     }
   },
   {
@@ -15153,12 +15208,12 @@
       {
         "brandSlug": "unigaze",
         "productKey": "half-chun-yin-chieh-chih-9vhwf7ze",
-        "grade": 2
+        "grade": 1
       },
       {
         "brandSlug": "tan-nichi",
         "productKey": "hua-fen-hsi-lieh-hua-yao-chieh-chih",
-        "grade": 2
+        "grade": 3
       },
       {
         "brandSlug": "zhioo-studio",
@@ -15264,11 +15319,16 @@
         "brandSlug": "mittag-jewelry",
         "productKey": "shuang-wu-hsien-hsiang-lien-nl2203",
         "grade": 0
+      },
+      {
+        "brandSlug": "bobird",
+        "productKey": "chan-fang-925-chun-yin-qtftnnft",
+        "grade": 1
       }
     ],
     "humanApproval": {
-      "reviewedVia": "agreement-kappa",
-      "at": "2026-09-17"
+      "reviewedVia": "human-override",
+      "at": "2026-09-18"
     }
   },
   {
@@ -17347,7 +17407,7 @@
       {
         "brandSlug": "febbi",
         "productKey": "shan-cha-hua-erh-huan",
-        "grade": 1
+        "grade": 0
       },
       {
         "brandSlug": "febbi",
@@ -17446,8 +17506,8 @@
       }
     ],
     "humanApproval": {
-      "reviewedVia": "agreement-kappa",
-      "at": "2026-09-17"
+      "reviewedVia": "human-override",
+      "at": "2026-09-18"
     }
   },
   {
