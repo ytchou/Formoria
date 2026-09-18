@@ -17,6 +17,8 @@
 import type { AuditContextSeed } from '@/lib/audit/context'
 import type { HealthFinding } from './contracts'
 import type { Detector } from './types'
+import type { RepoWorkerClient } from './repo-worker-client'
+import type { RepairRequest } from './repair-request'
 import {
   admitRun,
   completeRun,
@@ -33,6 +35,8 @@ import {
 import { runDetectors } from './runner'
 import { buildDigest, buildTickets } from './report'
 import { registry as defaultRegistry } from './registry'
+import { HEALTH_JOBS } from './jobs'
+import { parseVitestFindings, parseKnipFindings } from './quality-parsers'
 
 // ---------------------------------------------------------------------------
 // Types
@@ -49,7 +53,7 @@ export type RunHealthAgentDeps = {
   registryOverride?: Detector[]
 
   /** Repo worker client — absent means worker unreachable. */
-  workerClient?: unknown
+  workerClient?: RepoWorkerClient
 
   /** GitHub App adapter — for clone tokens and PR creation. */
   githubApp?: unknown
@@ -63,6 +67,9 @@ export type RunHealthAgentDeps = {
     body: string
     label: string
   }) => Promise<{ identifier: string }>
+
+  /** Trigger the ops-agent to repair auto-fixable findings. */
+  triggerRepair?: (request: RepairRequest) => Promise<void>
 
   /** Report a top-level crash. */
   reportWorkerFailure?: (context: string, error: unknown) => Promise<void>
@@ -261,7 +268,36 @@ async function executeRunBody(
     },
   })
 
-  // Consolidate all findings
+  // ---- 3.5. Quality jobs (vitest + knip via repo worker) ----
+  if (!dryRun && deps.workerClient) {
+    try {
+      const commands = [
+        ...HEALTH_JOBS.vitest.commands,
+        ...HEALTH_JOBS.knip.commands,
+      ]
+      const jobResult = await deps.workerClient.run({
+        ref: 'staging',
+        commands,
+        editableFiles: [],
+      })
+
+      if (jobResult.status === 'done' && jobResult.results) {
+        const vitestFindings = parseVitestFindings(jobResult.results)
+        const knipFindings = parseKnipFindings(jobResult.results)
+
+        // Inject quality findings into the vitest/knip stub results
+        for (const r of results) {
+          if (r.name === 'vitest') r.findings = vitestFindings
+          if (r.name === 'knip') r.findings = knipFindings
+        }
+      }
+    } catch (err) {
+      console.error('[health-agent] quality jobs failed:', err)
+      // Stubs stay at [] — detector findings are unaffected
+    }
+  }
+
+  // Consolidate all findings (after quality jobs so their findings are included)
   const allFindings: HealthFinding[] = results.flatMap((r) => r.findings)
   const totalFindings = allFindings.length
 
@@ -389,6 +425,40 @@ async function executeRunBody(
     } catch (err) {
       console.error('[health-agent] digest failed:', err)
       digestFailed = true
+    }
+  }
+
+  // ---- 9.5. Repair trigger (Slack → ops-agent) ----
+  if (!dryRun && deps.triggerRepair) {
+    try {
+      const repairableFindings = allFindings.filter(
+        (f) => f.mergePolicy === 'automatic',
+      )
+      if (repairableFindings.length > 0) {
+        const traceUrl = `https://cloud.langfuse.com/trace/${runId}`
+        const repairRequest: RepairRequest = {
+          agent: 'ops-agent',
+          ref: 'staging',
+          runId,
+          traceUrl,
+          scope: repairableFindings.flatMap(
+            (f) => f.changedFiles ?? [],
+          ),
+          findings: repairableFindings.map((f) => ({
+            fingerprint: f.fingerprint,
+            title: f.title,
+            severity: f.severity,
+            source: f.source,
+          })),
+        }
+        await deps.triggerRepair(repairRequest)
+        console.log(
+          `[health-agent] repair trigger sent for ${repairableFindings.length} findings`,
+        )
+      }
+    } catch (err) {
+      // Repair trigger failure is independent — does NOT set digestFailed
+      console.error('[health-agent] repair trigger failed:', err)
     }
   }
 

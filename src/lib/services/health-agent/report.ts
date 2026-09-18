@@ -11,6 +11,7 @@
 
 import type { HealthFinding } from './contracts'
 import type { DetectorResult } from './types'
+import type { RepairRequest } from './repair-request'
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -261,6 +262,43 @@ export function buildDigest(
 
   lines.push('')
   lines.push(`Trace: ${options.traceUrl}`)
+
+  return lines.join('\n')
+}
+
+// ---------------------------------------------------------------------------
+// Repair trigger message builder
+// ---------------------------------------------------------------------------
+
+/**
+ * Build the Slack message that triggers the ops-agent to repair findings.
+ *
+ * Format: a `<@botId>` mention (Slack will deliver this as an app_mention
+ * event), a human-readable summary of the findings, and a JSON code block
+ * containing the full RepairRequest for machine parsing.
+ */
+export function buildRepairTriggerMessage(
+  botId: string,
+  request: RepairRequest,
+): string {
+  const lines: string[] = []
+
+  lines.push(`<@${botId}> Health agent repair request`)
+  lines.push('')
+  lines.push(`Run: ${request.runId}`)
+  if (request.traceUrl) {
+    lines.push(`Trace: ${request.traceUrl}`)
+  }
+  lines.push('')
+  lines.push(`Findings (${request.findings.length}):`)
+  for (const finding of request.findings) {
+    lines.push(`- ${finding.title} [${finding.severity}]`)
+  }
+
+  lines.push('')
+  lines.push('```json')
+  lines.push(JSON.stringify(request, null, 2))
+  lines.push('```')
 
   return lines.join('\n')
 }

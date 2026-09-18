@@ -12,6 +12,8 @@ import {
   runHealthAgent,
   type RunHealthAgentDeps,
 } from '../run'
+import type { RepoWorkerClient } from '../repo-worker-client'
+import type { RepairRequest } from '../repair-request'
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -75,6 +77,7 @@ function baseDeps(overrides?: Partial<RunHealthAgentDeps>): RunHealthAgentDeps {
     githubApp: undefined,
     slackPostDigest: vi.fn(async () => {}),
     linearCreateTicket: undefined,
+    triggerRepair: undefined,
     runWithAuditContext: (_seed, fn) => fn(),
     flushLangfuse: vi.fn(async () => {}),
     ...overrides,
@@ -326,5 +329,208 @@ describe('runHealthAgent', () => {
 
     const result = await runHealthAgent(deps)
     expect(result.exitCode).not.toBe(0)
+  })
+
+  // ---- Task 5: quality job dispatch ----
+
+  it('dispatches quality jobs when workerClient is present', async () => {
+    const runFn = vi.fn(async () => ({
+      status: 'done' as const,
+      results: [
+        { id: 'vitest', stdout: '{"numFailedTests":0,"testResults":[]}', stderr: '', exitCode: 0, timedOut: false },
+        { id: 'knip', stdout: '{"issues":[]}', stderr: '', exitCode: 0, timedOut: false },
+      ],
+    }))
+
+    const workerClient: RepoWorkerClient = { run: runFn }
+
+    const deps = baseDeps({
+      registryOverride: [
+        makeDetector({ name: 'brand-invariants', source: 'directory' }),
+        makeDetector({ name: 'vitest', source: 'quality', stub: true }),
+        makeDetector({ name: 'knip', source: 'quality', stub: true }),
+      ],
+      workerClient,
+    })
+
+    await runHealthAgent(deps)
+
+    expect(runFn).toHaveBeenCalledOnce()
+    const request = (runFn.mock.calls as unknown[][])[0][0] as { commands: { id: string }[] }
+    const commandIds = request.commands.map((c: { id: string }) => c.id)
+    expect(commandIds).toContain('vitest')
+    expect(commandIds).toContain('knip')
+  })
+
+  it('merges quality findings into allFindings', async () => {
+    const vitestJson = JSON.stringify({
+      numFailedTests: 1,
+      testResults: [{
+        assertionResults: [{
+          status: 'failed',
+          ancestorTitles: ['suite'],
+          title: 'broken test',
+          failureMessages: ['expected true'],
+        }],
+      }],
+    })
+
+    const runFn = vi.fn(async () => ({
+      status: 'done' as const,
+      results: [
+        { id: 'vitest', stdout: vitestJson, stderr: '', exitCode: 1, timedOut: false },
+        { id: 'knip', stdout: '{"issues":[]}', stderr: '', exitCode: 0, timedOut: false },
+      ],
+    }))
+
+    const workerClient: RepoWorkerClient = { run: runFn }
+
+    const deps = baseDeps({
+      registryOverride: [
+        makeDetector({ name: 'brand-invariants', source: 'directory' }),
+        makeDetector({ name: 'vitest', source: 'quality', stub: true }),
+        makeDetector({ name: 'knip', source: 'quality', stub: true }),
+      ],
+      workerClient,
+    })
+
+    const result = await runHealthAgent(deps)
+
+    // The detector produces 0 findings, but the vitest job produces 1
+    expect(result.totalFindings).toBeGreaterThanOrEqual(1)
+  })
+
+  it('skips quality jobs when workerClient is absent', async () => {
+    const deps = baseDeps({
+      registryOverride: [
+        makeDetector({ name: 'brand-invariants', source: 'directory' }),
+        makeDetector({ name: 'vitest', source: 'quality', stub: true }),
+        makeDetector({ name: 'knip', source: 'quality', stub: true }),
+      ],
+      workerClient: undefined,
+    })
+
+    const result = await runHealthAgent(deps)
+
+    expect(result.status).toBe('completed')
+    expect(result.totalFindings).toBe(0)
+  })
+
+  it('quality job failure does not crash the run', async () => {
+    const runFn = vi.fn(async () => {
+      throw new Error('worker connection refused')
+    })
+
+    const workerClient: RepoWorkerClient = { run: runFn }
+
+    const deps = baseDeps({
+      registryOverride: [
+        makeDetector({ name: 'brand-invariants', source: 'directory' }),
+        makeDetector({ name: 'vitest', source: 'quality', stub: true }),
+        makeDetector({ name: 'knip', source: 'quality', stub: true }),
+      ],
+      workerClient,
+    })
+
+    const result = await runHealthAgent(deps)
+
+    expect(result.status).toBe('completed')
+  })
+
+  // ---- Task 6: repair trigger ----
+
+  it('triggers repair when repairable findings exist', async () => {
+    const triggerRepair = vi.fn(async () => {})
+
+    const deps = baseDeps({
+      registryOverride: [
+        makeDetector({
+          name: 'brand-invariants',
+          source: 'directory',
+          run: async () => [
+            {
+              source: 'quality',
+              fingerprint: 'quality:vitest-failure:test',
+              title: 'Test failure: broken test',
+              severity: 'high' as const,
+              evidence: {},
+              mergePolicy: 'automatic' as const,
+            },
+            {
+              source: 'directory',
+              fingerprint: 'directory:test:manual',
+              title: 'Manual finding',
+              severity: 'low' as const,
+              evidence: {},
+              mergePolicy: 'human' as const,
+            },
+          ],
+        }),
+      ],
+      triggerRepair,
+    })
+
+    await runHealthAgent(deps)
+
+    expect(triggerRepair).toHaveBeenCalledOnce()
+    const request = (triggerRepair.mock.calls as unknown[][])[0][0] as RepairRequest
+    expect(request.agent).toBe('ops-agent')
+    expect(request.ref).toBe('staging')
+    expect(request.findings).toHaveLength(1)
+    expect(request.findings[0].fingerprint).toBe('quality:vitest-failure:test')
+  })
+
+  it('skips trigger when no repairable findings', async () => {
+    const triggerRepair = vi.fn(async () => {})
+
+    const deps = baseDeps({
+      registryOverride: [
+        makeDetector({
+          name: 'brand-invariants',
+          source: 'directory',
+          run: async () => [
+            {
+              source: 'directory',
+              fingerprint: 'directory:test:manual',
+              title: 'Manual finding',
+              severity: 'low' as const,
+              evidence: {},
+              mergePolicy: 'human' as const,
+            },
+          ],
+        }),
+      ],
+      triggerRepair,
+    })
+
+    await runHealthAgent(deps)
+
+    expect(triggerRepair).not.toHaveBeenCalled()
+  })
+
+  it('skips trigger when triggerRepair dep absent', async () => {
+    const deps = baseDeps({
+      registryOverride: [
+        makeDetector({
+          name: 'brand-invariants',
+          source: 'directory',
+          run: async () => [
+            {
+              source: 'quality',
+              fingerprint: 'quality:vitest-failure:test',
+              title: 'Test failure',
+              severity: 'high' as const,
+              evidence: {},
+              mergePolicy: 'automatic' as const,
+            },
+          ],
+        }),
+      ],
+      triggerRepair: undefined,
+    })
+
+    // Should not crash
+    const result = await runHealthAgent(deps)
+    expect(result.status).toBe('completed')
   })
 })

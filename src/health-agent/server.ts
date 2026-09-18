@@ -13,6 +13,7 @@ import { randomUUID } from 'node:crypto'
 import { bootWorker, logWorkerBuildInfo } from '@/worker-boot'
 import { assertDatabaseTarget } from '@/lib/supabase/project-target'
 import { isStagingEnvironment } from '@/lib/deployment-environment'
+import type { RepairRequest } from '@/lib/services/health-agent/repair-request'
 
 // ---------------------------------------------------------------------------
 // Dynamic imports — populated after bootWorker
@@ -46,6 +47,18 @@ let postSlackMessage: Awaited<
   typeof import('@/lib/adapters/slack/web-api')
 >['postMessage']
 
+let createTicket: Awaited<
+  typeof import('@/lib/adapters/linear/create-ticket')
+>['createTicket']
+
+let createRepoWorkerClient: Awaited<
+  typeof import('@/lib/services/health-agent/repo-worker-client')
+>['createRepoWorkerClient']
+
+let buildRepairTriggerMessage: Awaited<
+  typeof import('@/lib/services/health-agent/report')
+>['buildRepairTriggerMessage']
+
 // ---------------------------------------------------------------------------
 // Boot
 // ---------------------------------------------------------------------------
@@ -65,6 +78,13 @@ await bootWorker({
     ;({ reportWorkerFailure } = await import('@/lib/services/job-alerts'))
     ;({ postMessage: postSlackMessage } = await import(
       '@/lib/adapters/slack/web-api'
+    ))
+    ;({ createTicket } = await import('@/lib/adapters/linear/create-ticket'))
+    ;({ createRepoWorkerClient } = await import(
+      '@/lib/services/health-agent/repo-worker-client'
+    ))
+    ;({ buildRepairTriggerMessage } = await import(
+      '@/lib/services/health-agent/report'
     ))
   },
   async reportFailure(context, error) {
@@ -100,6 +120,42 @@ async function main(): Promise<never> {
     metadata: { logicalDate, dryRun },
   })
 
+  // ---- Conditionally create worker client ----
+  const workerUrl = process.env.REPO_WORKER_URL
+  const workerToken = process.env.REPO_WORKER_TOKEN
+  const workerClient = workerUrl
+    ? createRepoWorkerClient({
+        baseUrl: workerUrl,
+        token: workerToken,
+        getCloneToken: async () => {
+          // Ceiling: replace with GitHub App installation token when
+          // the GitHub App adapter is wired (githubApp dep).
+          const token = process.env.GITHUB_TOKEN
+          if (!token) throw new Error('GITHUB_TOKEN is required for clone')
+          return token
+        },
+      })
+    : undefined
+
+  // ---- Conditionally create Linear ticket adapter ----
+  const linearCreateTicket = process.env.LINEAR_API_KEY
+    ? async (spec: { title: string; body: string; label: string }) => {
+        const result = await createTicket(spec)
+        return result
+      }
+    : undefined
+
+  // ---- Conditionally create repair trigger ----
+  const opsAgentBotId = process.env.OPS_AGENT_SLACK_BOT_ID
+  const repairChannel = process.env.HEALTH_AGENT_SLACK_CHANNEL
+  const triggerRepair =
+    opsAgentBotId && repairChannel
+      ? async (request: RepairRequest) => {
+          const message = buildRepairTriggerMessage(opsAgentBotId, request)
+          await postSlackMessage({ channel: repairChannel, text: message })
+        }
+      : undefined
+
   let exitCode = 0
 
   try {
@@ -112,6 +168,9 @@ async function main(): Promise<never> {
       runWithAuditContext,
       flushLangfuse,
       langfuseTrace,
+      workerClient,
+      linearCreateTicket,
+      triggerRepair,
       slackPostDigest: async (text) => {
         const channel = process.env.HEALTH_AGENT_SLACK_CHANNEL
         if (!channel) return
