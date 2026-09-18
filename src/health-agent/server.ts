@@ -170,7 +170,7 @@ async function main(): Promise<never> {
       triggerRepair,
       slackPostDigest: async (text) => {
         const channel = process.env.HEALTH_AGENT_SLACK_CHANNEL
-        if (!channel) return
+        if (!channel || !process.env.SLACK_BOT_TOKEN) return
         await postSlackMessage({ channel, text })
       },
       reportWorkerFailure: async (context, error) => {
