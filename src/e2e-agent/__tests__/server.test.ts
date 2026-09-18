@@ -44,6 +44,23 @@ vi.mock('@/e2e-agent/self-heal', () => ({
   runSelfHealGraph: (...args: unknown[]) => mockRunSelfHealGraph(...args),
 }))
 
+// Deps builders mock — production wiring is tested elsewhere
+vi.mock('@/e2e-agent/deps', () => ({
+  buildRunnerDeps: () => ({
+    execCommand: vi.fn(),
+    cloneRepo: vi.fn(),
+    fetchRevision: vi.fn(),
+  }),
+  buildSelfHealDeps: () => ({
+    createClient: vi.fn(),
+    fetchPrompt: vi.fn(),
+    publish: vi.fn(),
+    createTicket: vi.fn(),
+    postSlackMessage: vi.fn(),
+    cloneAndRunTests: vi.fn(),
+  }),
+}))
+
 // Stub process.exit to capture exit codes without killing the test runner
 const mockExit = vi
   .spyOn(process, 'exit')

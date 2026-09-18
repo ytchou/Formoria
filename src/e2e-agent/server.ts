@@ -25,6 +25,14 @@ let runSelfHealGraph: Awaited<
   typeof import('@/e2e-agent/self-heal')
 >['runSelfHealGraph'] | undefined
 
+let buildRunnerDeps: Awaited<
+  typeof import('@/e2e-agent/deps')
+>['buildRunnerDeps'] | undefined
+
+let buildSelfHealDeps: Awaited<
+  typeof import('@/e2e-agent/deps')
+>['buildSelfHealDeps'] | undefined
+
 // ---------------------------------------------------------------------------
 // Main
 // ---------------------------------------------------------------------------
@@ -42,10 +50,12 @@ export async function main(): Promise<never> {
       throw new Error('runE2eSuite not loaded — loadServices incomplete')
     }
 
-    // TODO(Task 10): Wire production RunnerDeps (execCommand, cloneRepo, fetchRevision)
+    if (!buildRunnerDeps) {
+      throw new Error('buildRunnerDeps not loaded — loadServices incomplete')
+    }
     const result = await runE2eSuite({
       runId,
-      deps: undefined as never,
+      deps: buildRunnerDeps(),
     })
 
     // Green — all passed, no unexpected skips
@@ -53,6 +63,9 @@ export async function main(): Promise<never> {
       console.log(`[e2e-nightly] run=${runId} outcome=green exit=0`)
     } else if (result.failures.length > 0 && runSelfHealGraph) {
       // Map runner failures to freeze.ts RunResult format (requires project)
+      if (!buildSelfHealDeps) {
+        throw new Error('buildSelfHealDeps not loaded — loadServices incomplete')
+      }
       const graphResult = await runSelfHealGraph(
         {
           runResult: {
@@ -64,8 +77,7 @@ export async function main(): Promise<never> {
           runId,
           stagingSha: result.stagingSha,
         },
-        // TODO(Task 10): Wire production E2eSelfHealDeps
-        undefined as never,
+        buildSelfHealDeps(),
       )
 
       const successOutcomes: RunOutcome[] = ['green', 'patched', 'noise']
@@ -98,6 +110,9 @@ try {
     async loadServices() {
       ;({ runE2eSuite } = await import('@/e2e-agent/runner'))
       ;({ runSelfHealGraph } = await import('@/e2e-agent/self-heal'))
+      ;({ buildRunnerDeps, buildSelfHealDeps } = await import(
+        '@/e2e-agent/deps'
+      ))
     },
   })
 
