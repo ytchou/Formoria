@@ -68,17 +68,6 @@ function computeTopScoreRatio(scores: number[]): number {
 }
 
 // ---------------------------------------------------------------------------
-// Default deps factory
-// ---------------------------------------------------------------------------
-
-function createDefaultRerankDeps(): RerankDeps {
-  return {
-    client: createCohereRerankClient(),
-    cache: getDefaultRerankCache(),
-  };
-}
-
-// ---------------------------------------------------------------------------
 // Main function
 // ---------------------------------------------------------------------------
 

@@ -355,18 +355,3 @@ export async function releaseClaims(
   if (error) throw error
 }
 
-// ---------------------------------------------------------------------------
-// recordSnapshot
-// ---------------------------------------------------------------------------
-
-async function recordSnapshot(
-  client: HealthLedgerClient,
-  date: string,
-  metrics: Record<string, JsonValue>,
-): Promise<void> {
-  const { error } = await client.rpc('record_health_snapshot', {
-    p_snapshot_date: date,
-    p_metrics: metrics,
-  })
-  if (error) throw error
-}
