@@ -1,13 +1,6 @@
 name: Formoria Health Agent
 
 on:
-  schedule:
-    # 04:50 Asia/Taipei, 45 min after e2e-nightly. This workflow declares NO
-    # concurrency group, so it runs beside a red night's self-heal rather than
-    # queuing behind it — deliberate, since both write to separate branches and
-    # serializing them would push the cluster past its 06:30 Taipei deadline.
-    # `expected_at` in the setup step below must be kept in sync with this cron.
-    - cron: "50 20 * * *"
   workflow_dispatch:
     inputs:
       mode:

@@ -352,8 +352,8 @@ async function executeRunBody(
 
   // ---- 3.5. Quality jobs (vitest + knip via repo worker) ----
   let qualityJobsSucceeded = false
-  let vitestFindings: HealthFinding[] = []
-  let knipFindings: HealthFinding[] = []
+  const vitestFindings: HealthFinding[] = []
+  const knipFindings: HealthFinding[] = []
   const hasQualityStubs = results.some(
     (result) => result.name === 'vitest' || result.name === 'knip',
   )
