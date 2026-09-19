@@ -5,13 +5,18 @@ import { BUDGET } from '../budgets';
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AnySupabaseClient = SupabaseClient<any, any, any>;
 
+const resolvedBaseURL =
+  process.env.BASE_URL ??
+  process.env.PLAYWRIGHT_BASE_URL ??
+  process.env.STAGING_BASE_URL ??
+  'http://localhost:3000';
+
 const IS_CANONICAL_STAGING_TARGET =
-  new URL(
-    process.env.BASE_URL ??
-      process.env.PLAYWRIGHT_BASE_URL ??
-      process.env.STAGING_BASE_URL ??
-      'http://localhost:3000',
-  ).origin === 'https://staging.formoria.com';
+  new URL(resolvedBaseURL).origin === 'https://staging.formoria.com';
+
+const isRemoteTarget = !['localhost', '127.0.0.1', '::1'].includes(
+  new URL(resolvedBaseURL).hostname,
+);
 
 function expectShareCardCacheContract(cacheControl: string): void {
   if (IS_CANONICAL_STAGING_TARGET) {
@@ -34,9 +39,7 @@ function expectShareCardCacheContract(cacheControl: string): void {
  *        one hidden brand (gate case).
  * Cleanup: afterAll cascade-deletes both.
  */
-// Staging rate limiter intermittently returns 429 before the route handler,
-// making these tests flaky on the free-tier Supabase. Not core product flow.
-test.describe.skip('Share card API', () => {
+test.describe('Share card API', () => {
   let supabase: AnySupabaseClient;
   let approvedBrandId: string;
   let approvedBrandSlug: string;
@@ -44,6 +47,11 @@ test.describe.skip('Share card API', () => {
   let hiddenBrandSlug: string;
 
   test.beforeAll(async ({ request }, workerInfo) => {
+    // Remote staging has an active rate limiter that can 429 share-card requests
+    // before the route handler runs. Locally the limiter is disabled via
+    // SECURITY_DISABLE_RATE_LIMIT=true in the webServer command.
+    test.skip(isRemoteTarget, 'Rate limiter on remote staging cannot be disabled from the test side');
+
     // PREVIEW_MODE guard — probe before seeding
     const probe = await request.get('/brands');
     if (probe.status() === 503) return;
