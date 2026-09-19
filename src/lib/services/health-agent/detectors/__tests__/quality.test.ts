@@ -216,6 +216,26 @@ describe('quality detector', () => {
     expect(result.status).toBe('success')
   })
 
+  it('suppresses the service registry export that Knip misses through its test import', () => {
+    const result = evaluateQualityReports(
+      makeInput({
+        knipExitCode: 1,
+        knipReport: {
+          issues: [
+            {
+              file: 'src/lib/services/service-registry.ts',
+              exports: ['NON_SERVICE_ENV'],
+            },
+          ],
+        },
+        trackedFiles: new Set(['src/lib/services/service-registry.ts']),
+      }),
+    )
+
+    expect(result.findings).toEqual([])
+    expect(result.status).toBe('success')
+  })
+
   it('files and dependency kinds get empty changedFiles scope', () => {
     const result = evaluateQualityReports(
       makeInput({

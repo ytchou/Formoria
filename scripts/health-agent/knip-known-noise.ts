@@ -34,6 +34,13 @@ export const KNIP_KNOWN_NOISE = [
       "DRAFT_PARK_SORT_ORDER is deliberately derived from MAX_BRAND_IMAGE_SELECTION and documented as such; knip reports equal values as duplicates.",
     signature: "MAX_BRAND_IMAGE_SELECTION, DRAFT_PARK_SORT_ORDER",
   },
+  {
+    file: "src/lib/services/service-registry.ts",
+    kind: "exports",
+    reason:
+      "Used by scripts/check-service-registry.test.ts; knip misses the test import.",
+    signature: "NON_SERVICE_ENV",
+  },
 ] as const;
 
 export type KnipKnownNoiseKind = (typeof KNIP_KNOWN_NOISE)[number]["kind"];
