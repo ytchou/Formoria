@@ -7,7 +7,7 @@ export const runtime = "nodejs";
 
 /**
  * Sentry canary: a route that deliberately throws a tagged error so the health
- * agent can validate that the Sentry→PagerDuty round-trip is live.
+ * agent can validate that the application→Sentry capture path is live.
  *
  * Contract:
  *   POST /api/internal/sentry-canary

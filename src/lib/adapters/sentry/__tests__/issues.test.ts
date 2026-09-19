@@ -129,6 +129,12 @@ describe("listIssues", () => {
     );
 
     await expect(listIssues()).rejects.toThrow("invalid response");
+    expect(writes.at(-1)).toMatchObject({
+      status: "failed",
+      summary: {
+        response: { httpStatus: 200, invalidPayload: true },
+      },
+    });
   });
 
   it("rejects health snapshots when Sentry reports another page", async () => {

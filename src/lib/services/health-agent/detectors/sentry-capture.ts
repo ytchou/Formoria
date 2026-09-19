@@ -51,7 +51,7 @@ export const sentryCaptureDetector: Detector = {
 
   async run(ctx: DetectorContext): Promise<HealthFinding[]> {
     const env = getEnv(ctx)
-    const token = env.SENTRY_AUTH_TOKEN || env.SENTRY_READ_TOKEN
+    const token = env.SENTRY_READ_TOKEN || env.SENTRY_AUTH_TOKEN
     const baseUrl = (env.SENTRY_BASE_URL || 'https://sentry.io').replace(/\/+$/, '')
     const organization = env.SENTRY_ORGANIZATION
     const project = env.SENTRY_PROJECT

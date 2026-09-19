@@ -125,7 +125,7 @@ describe('sentry-capture detector', () => {
     expect(findings).toHaveLength(0)
   })
 
-  it('accepts the dedicated read token when the auth token is absent', async () => {
+  it('prefers the dedicated read token when both token variables are configured', async () => {
     const requests: Array<{ url: string; headers?: HeadersInit }> = []
     const fakeFetch = async (url: string, init?: RequestInit) => {
       requests.push({ url, headers: init?.headers })
@@ -139,6 +139,7 @@ describe('sentry-capture detector', () => {
       fetch: fakeFetch,
       env: {
         SENTRY_READ_TOKEN: 'dedicated-read-token',
+        SENTRY_AUTH_TOKEN: 'stale-auth-token',
         SENTRY_ORGANIZATION: 'formoria',
         SENTRY_PROJECT: 'formoria',
         FORMORIA_RAILWAY_URL: 'https://formoria.railway.internal',

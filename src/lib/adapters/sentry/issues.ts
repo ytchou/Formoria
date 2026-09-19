@@ -123,8 +123,13 @@ export async function listIssues(
         );
       }
 
+      audit.summary.response = { httpStatus: response.status };
       const data: unknown = await response.json();
       if (!Array.isArray(data) || !data.every(isSentryIssue)) {
+        audit.summary.response = {
+          httpStatus: response.status,
+          invalidPayload: true,
+        };
         throw new Error("Sentry returned an invalid response");
       }
 
