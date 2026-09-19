@@ -17,6 +17,7 @@ const trails = publishedTrails("zh-TW");
 const trail: PublishedTrail | undefined =
   trails.find((candidate) => candidate.sections.length >= 3) ?? trails[0];
 const TRAIL_URL = trail ? `/style/${trail.slug}` : "/style";
+const SIMILAR_PRODUCTS_TRAIL_URL = "/style/small-space-reading-corner";
 const SECTION_NAV = "風格段落";
 const REMOVED_CLOSING_HEADINGS = [
   "常見問題",
@@ -92,7 +93,7 @@ test.describe("Discovery trail deep", () => {
   test("explore-more section renders when similar products exist", async ({
     request,
   }) => {
-    const response = await request.get(TRAIL_URL);
+    const response = await request.get(SIMILAR_PRODUCTS_TRAIL_URL);
     test.skip(response.status() === 503, "PREVIEW_MODE active");
 
     expect(response.status()).toBe(200);
