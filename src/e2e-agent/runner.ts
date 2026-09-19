@@ -214,6 +214,13 @@ export async function runE2eSuite(options: RunE2eSuiteOptions): Promise<RunResul
   )
 
   // Step 6: Parse playwright JSON report
+  console.log(
+    `[e2e-runner] playwright exit=${playwrightResult.exitCode} stdout=${playwrightResult.stdout.length}b stderr=${playwrightResult.stderr.length}b`,
+  )
+  if (playwrightResult.exitCode !== 0 && playwrightResult.stdout.length === 0) {
+    console.log(`[e2e-runner] playwright stderr: ${playwrightResult.stderr.slice(0, 1000)}`)
+  }
+
   let jsonReport: Record<string, unknown>
   try {
     jsonReport = JSON.parse(playwrightResult.stdout) as Record<string, unknown>
