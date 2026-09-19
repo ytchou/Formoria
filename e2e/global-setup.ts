@@ -12,7 +12,10 @@ import {
 import { createClient } from "@supabase/supabase-js";
 import { cleanupTestData } from "./helpers/cleanup";
 import { writeAuthStorageState } from "./helpers/auth-session";
-import { validateStagingTarget } from "../src/lib/supabase/project-target";
+import {
+  projectRefFromDatabaseUrl,
+  validateStagingTarget,
+} from "../src/lib/supabase/project-target";
 import {
   DEEP_STAGING_SESSION_STATE,
   isCanonicalStagingTarget,
@@ -137,7 +140,17 @@ async function globalSetup() {
   // This is deliberately before any cleanup or probe mutation. Local and
   // production targets are not supported: the suite is canonical only against
   // the isolated deployed staging origin and project.
-  validateStagingTarget(process.env);
+  const stagingTarget = validateStagingTarget(process.env);
+  const databaseUrl = process.env.SUPABASE_DB_URL?.trim();
+  if (!databaseUrl) {
+    throw new Error("SUPABASE_DB_URL is required for staging E2E");
+  }
+  const databaseProjectRef = projectRefFromDatabaseUrl(databaseUrl);
+  if (databaseProjectRef !== stagingTarget.projectRef) {
+    throw new Error(
+      `SUPABASE_DB_URL identifies project ${databaseProjectRef ?? "unknown"}, not staging project ${stagingTarget.projectRef}`,
+    );
+  }
 
   // Guard first: everything below is wasted work if the wrong server answers.
   assertServerServesThisCheckout();
@@ -183,6 +196,7 @@ async function globalSetup() {
     "NEXT_PUBLIC_SUPABASE_URL",
     "NEXT_PUBLIC_SUPABASE_ANON_KEY",
     "SUPABASE_SERVICE_ROLE_KEY",
+    "SUPABASE_DB_URL",
   ];
   const missing = requiredVars.filter((v) => !process.env[v]);
   if (missing.length > 0) {
