@@ -489,7 +489,6 @@ type ExpandSerpDiscoveredHubsInput = {
   serpUrls: string[]
   handle: string | null | undefined
   brandName: string | null | undefined
-  brand: LinkExpansionBrand
   confirmedHubUrls: ReadonlySet<string>
   fetchHtml: (url: string) => Promise<string | null>
 }
@@ -526,7 +525,7 @@ export async function expandSerpDiscoveredHubs(
           .split('/')
           .map((s) => normalizeHandle(s))
           .filter(Boolean)
-        if (segments.includes(normalized)) {
+        if (segments[0] === normalized) {
           aggregatorUrls.push(url)
         }
       } catch {

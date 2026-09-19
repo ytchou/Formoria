@@ -559,7 +559,6 @@ describe('expandSerpDiscoveredHubs', () => {
       serpUrls: ['https://portaly.cc/fusoap'],
       handle: 'fusoap',
       brandName: '芙皂',
-      brand: {},
       confirmedHubUrls: new Set<string>(),
       fetchHtml,
     })
@@ -579,7 +578,6 @@ describe('expandSerpDiscoveredHubs', () => {
       serpUrls: ['https://portaly.cc/someotheraccount'],
       handle: 'fusoap',
       brandName: '芙皂',
-      brand: {},
       confirmedHubUrls: new Set<string>(),
       fetchHtml,
     })
@@ -595,7 +593,6 @@ describe('expandSerpDiscoveredHubs', () => {
       serpUrls: ['https://fusoap.com/shop'],
       handle: 'fusoap',
       brandName: '芙皂',
-      brand: {},
       confirmedHubUrls: new Set<string>(),
       fetchHtml,
     })
@@ -610,12 +607,26 @@ describe('expandSerpDiscoveredHubs', () => {
       serpUrls: ['https://portaly.cc/fusoap'],
       handle: null,
       brandName: '芙皂',
-      brand: {},
       confirmedHubUrls: new Set<string>(),
       fetchHtml,
     })
 
     expect(result.adopted).toEqual([])
     expect(result.hubsFetched).toBe(0)
+  })
+
+  it('skips aggregator with handle in non-profile path segment', async () => {
+    fetchHtml.mockResolvedValue(HUB_PAGE)
+
+    const result = await expandSerpDiscoveredHubs({
+      serpUrls: ['https://portaly.cc/other/fusoap'],
+      handle: 'fusoap',
+      brandName: '芙皂',
+      confirmedHubUrls: new Set<string>(),
+      fetchHtml,
+    })
+
+    expect(result.hubsFetched).toBe(0)
+    expect(result.adopted).toEqual([])
   })
 })

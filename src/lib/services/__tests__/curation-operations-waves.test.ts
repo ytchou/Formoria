@@ -1837,4 +1837,60 @@ describe("link expansion, SERP search, and no-purchase-channel gate", () => {
     const calls = serpCalls();
     expect(calls).toHaveLength(2);
   });
+
+  it("serp_query_template_includes_handle_when_available", async () => {
+    const withHandle = submission({
+      id: "sub-with-handle",
+      brand_name: "Handle Brand",
+      social_instagram: "https://www.instagram.com/handlebrand",
+    });
+    const withoutHandle = submission({
+      id: "sub-no-handle",
+      brand_name: "No Handle Brand",
+      social_instagram: null,
+    });
+
+    mocks.collectHubUrls.mockReturnValue([]);
+    mocks.expandLinkHubs.mockResolvedValue({
+      hubsFetched: 0,
+      adopted: [],
+      scraped: {},
+    });
+    mocks.hasPurchaseChannel.mockReturnValue(true);
+
+    stubSerpCalls({ name: { urls: [] } });
+
+    await runEnrich(
+      {
+        target: "submissions",
+        submissionIds: [withHandle.id, withoutHandle.id],
+        dryRun: true,
+        phases: FULL_PHASES,
+        onProgress: () => {},
+      },
+      fakeSupabase([withHandle, withoutHandle]),
+    );
+
+    const calls = serpCalls();
+    expect(calls).toHaveLength(2);
+
+    // Each call: [brandNames, queryTemplate, concurrency, auditResolver]
+    // Brand with IG handle → query includes handle
+    const handleBrandCall = calls.find(
+      (c: unknown[]) => (c[0] as string[])[0] === "Handle Brand",
+    );
+    expect(handleBrandCall).toBeDefined();
+    const handleTemplate = handleBrandCall![1] as (name: string) => string;
+    expect(handleTemplate("Handle Brand")).toBe(
+      "Handle Brand handlebrand 台灣",
+    );
+
+    // Brand without IG handle → query is name + 台灣 only
+    const noHandleCall = calls.find(
+      (c: unknown[]) => (c[0] as string[])[0] === "No Handle Brand",
+    );
+    expect(noHandleCall).toBeDefined();
+    const noHandleTemplate = noHandleCall![1] as (name: string) => string;
+    expect(noHandleTemplate("No Handle Brand")).toBe("No Handle Brand 台灣");
+  });
 });

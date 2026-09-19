@@ -2058,30 +2058,28 @@ export async function runEnrich(
                     };
 
                     // ---- Threads bio: one fetch of the brand's own profile ----
-                    {
-                      const threadsUrl =
-                        brand.social_threads ??
-                        deriveThreadsUrl(brand.social_instagram);
-                      if (threadsUrl) {
-                        const bio = await expandThreadsBio({
+                    const threadsUrl =
+                      brand.social_threads ??
+                      deriveThreadsUrl(brand.social_instagram);
+                    if (threadsUrl) {
+                      const bio = await expandThreadsBio({
+                        brandName,
+                        threadsUrl,
+                        confirmedHubUrls,
+                        fetchHtmlWithMetadata,
+                        fetchHtml,
+                      });
+                      sources.threads = bio.threads;
+                      adoptedLinks.push(...bio.adopted);
+                      if (bio.gated?.length) gatedTags.push(...bio.gated);
+                      if (bio.adopted.length > 0) {
+                        const threadsPatch = buildLinkEnrichPatch(
+                          brand as BrandFlatLinkColumns,
+                          bio.scraped,
                           brandName,
-                          threadsUrl,
-                          confirmedHubUrls,
-                          fetchHtmlWithMetadata,
-                          fetchHtml,
-                        });
-                        sources.threads = bio.threads;
-                        adoptedLinks.push(...bio.adopted);
-                        if (bio.gated?.length) gatedTags.push(...bio.gated);
-                        if (bio.adopted.length > 0) {
-                          const threadsPatch = buildLinkEnrichPatch(
-                            brand as BrandFlatLinkColumns,
-                            bio.scraped,
-                            brandName,
-                          );
-                          Object.assign(brand, threadsPatch);
-                          patch = { ...patch, ...threadsPatch };
-                        }
+                        );
+                        Object.assign(brand, threadsPatch);
+                        patch = { ...patch, ...threadsPatch };
                       }
                     }
 
@@ -2140,13 +2138,19 @@ export async function runEnrich(
                       serpUrls,
                       handle,
                       brandName,
-                      brand,
                       confirmedHubUrls,
                       fetchHtml,
                     });
                     adoptedLinks.push(...serpHubs.adopted);
                     hubsFetched += serpHubs.hubsFetched;
                     if (serpHubs.gated?.length) gatedTags.push(...serpHubs.gated);
+                    if (
+                      serpHubs.fetchFailures > 0 &&
+                      serpHubs.adopted.length === 0 &&
+                      sources.serpName === "absent"
+                    ) {
+                      sources.serpName = "unknown";
+                    }
                     if (serpHubs.adopted.length > 0) {
                       const hubPatch = buildLinkEnrichPatch(
                         brand as BrandFlatLinkColumns,
