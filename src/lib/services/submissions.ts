@@ -675,16 +675,21 @@ export async function attachSignedSubmissionImageUrls(
   });
 }
 
-export function submissionImageToReviewImage(
+function submissionImageToReviewImage(
   row: SubmissionImageRow,
 ): SubmissionReviewImage {
   return {
     id: row.id,
     submissionId: row.submission_id,
     storagePath: row.storage_path,
-    // Refresh snapshots may point back to an already-published brand image.
-    // New submission objects stay blank until the private URL signer runs.
-    url: row.origin_brand_image_id ? (row.url ?? "") : "",
+    /*
+     * Placeholder until `attachSignedSubmissionImageUrls` replaces it.
+     * `submissions/` objects are pre-moderation and the `/i/` proxy 404s them
+     * on purpose, so there is no unsigned form to fall back to. A row whose
+     * signing fails renders nothing, which is the correct failure for content
+     * only an admin may see.
+     */
+    url: "",
     source: row.source,
     status: imageStatus(row.status),
     sortOrder: row.sort_order,
@@ -1544,7 +1549,7 @@ export async function getSubmissionsForReview(options?: {
             const { data: imageData, error: imagesError } = await supabase
               .from("submission_images")
               .select(
-                "id, submission_id, storage_path, url, source, status, sort_order, tags, width, height, origin_brand_image_id",
+                "id, submission_id, storage_path, source, status, sort_order, tags, width, height, origin_brand_image_id",
               )
               .in("submission_id", targetIds)
               .order("submission_id", { ascending: true })
@@ -1578,23 +1583,26 @@ export async function getSubmissionsForReview(options?: {
     }
   }
 
-  const approvedRowsMissingActiveImages = rows.filter((row) => {
-    if (row.status !== "approved" || !row.brand_id) return false;
+  // Refresh snapshots carry origin IDs instead of owning storage paths. Until
+  // new candidates are staged, their canonical review images are the live
+  // brand gallery, including while the refresh is still pending.
+  const rowsMissingActiveImages = rows.filter((row) => {
+    if (!row.brand_id) return false;
     return !(reviewImagesBySubmission.get(row.id) ?? []).some(
-      (image) => image.status === "active",
+      (image) => image.status === "active" && image.url.trim(),
     );
   });
   const publishedImagesByBrand = new Map<string, BrandImageReviewRow[]>();
-  const approvedBrandIds = [
+  const brandIdsMissingActiveImages = [
     ...new Set(
-      approvedRowsMissingActiveImages
+      rowsMissingActiveImages
         .map((row) => row.brand_id)
         .filter((brandId): brandId is string => Boolean(brandId)),
     ),
   ];
-  if (approvedBrandIds.length > 0) {
+  if (brandIdsMissingActiveImages.length > 0) {
     const publishedImageChunks = await Promise.all(
-      chunkValues(approvedBrandIds, SUPABASE_IN_FILTER_CHUNK_SIZE).map(
+      chunkValues(brandIdsMissingActiveImages, SUPABASE_IN_FILTER_CHUNK_SIZE).map(
         async (brandIds) => {
           const chunkImages: BrandImageReviewRow[] = [];
           for (let page = 0; ; page += 1) {
@@ -2325,7 +2333,7 @@ export async function approveSubmission(
       const { data: imageRows, error: imageError } = await supabase
         .from("submission_images")
         .select(
-          "id, submission_id, storage_path, url, source, status, sort_order, tags, width, height, origin_brand_image_id",
+          "id, submission_id, storage_path, source, status, sort_order, tags, width, height, origin_brand_image_id",
         )
         .eq("submission_id", id)
         .order("sort_order", { ascending: true });

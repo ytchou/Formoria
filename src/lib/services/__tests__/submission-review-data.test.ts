@@ -6,7 +6,6 @@ import {
   normalizeDuplicateNameKey,
   normalizeSubmissionReviewImages,
   resolveSubmissionReviewImages,
-  submissionImageToReviewImage,
   type SubmissionReviewImage,
 } from "../submissions";
 
@@ -57,50 +56,6 @@ const activeImages: SubmissionReviewImage[] = [
     originBrandImageId: null,
   },
 ];
-
-describe("submission review image projection", () => {
-  it("keeps a published origin image visible without exposing a new private upload", () => {
-    type ImageRow = Parameters<typeof submissionImageToReviewImage>[0];
-    const shared = {
-      alt_zh: null,
-      created_at: "2026-09-20T00:00:00.000Z",
-      dominant_color: null,
-      entropy: null,
-      id: "image-1",
-      phash: null,
-      provider_metadata: null,
-      rejected_at: null,
-      rejection_reasons: null,
-      score: null,
-      sharpness: null,
-      submission_id: "submission-1",
-      source: "owner",
-      source_url: null,
-      status: "active",
-      sort_order: 0,
-      tags: [],
-      width: 1200,
-      height: 900,
-    };
-
-    const origin = submissionImageToReviewImage({
-      ...shared,
-      storage_path: null,
-      url: "/i/brands/brand-1/hero.webp",
-      origin_brand_image_id: "brand-image-1",
-    } satisfies ImageRow);
-    const privateUpload = submissionImageToReviewImage({
-      ...shared,
-      id: "image-2",
-      storage_path: "submissions/submission-1/hero.webp",
-      url: "https://storage.example.com/private-object",
-      origin_brand_image_id: null,
-    } satisfies ImageRow);
-
-    expect(origin.url).toBe("/i/brands/brand-1/hero.webp");
-    expect(privateUpload.url).toBe("");
-  });
-});
 
 describe("buildSubmissionReviewData", () => {
   it("shows populated enrichment in the normalized review data", () => {

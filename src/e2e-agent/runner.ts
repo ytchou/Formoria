@@ -287,6 +287,7 @@ export async function runE2eSuite(options: RunE2eSuiteOptions): Promise<RunResul
   }
 
   const passed =
+    playwrightResult.exitCode === 0 &&
     stats.unexpected === 0 &&
     failures.length === 0 &&
     unexpectedSkips.length === 0
