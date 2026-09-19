@@ -55,6 +55,10 @@ let createRepoWorkerClient: Awaited<
   typeof import('@/lib/services/health-agent/repo-worker-client')
 >['createRepoWorkerClient']
 
+let getInstallationToken: Awaited<
+  typeof import('@/lib/adapters/github/app-auth')
+>['getInstallationToken']
+
 let buildRepairTriggerMessage: Awaited<
   typeof import('@/lib/services/health-agent/report')
 >['buildRepairTriggerMessage']
@@ -82,6 +86,9 @@ await bootWorker({
     ;({ createTicket } = await import('@/lib/adapters/linear/create-ticket'))
     ;({ createRepoWorkerClient } = await import(
       '@/lib/services/health-agent/repo-worker-client'
+    ))
+    ;({ getInstallationToken } = await import(
+      '@/lib/adapters/github/app-auth'
     ))
     ;({ buildRepairTriggerMessage } = await import(
       '@/lib/services/health-agent/report'
@@ -124,17 +131,17 @@ async function main(): Promise<never> {
   const workerUrl = process.env.REPO_WORKER_URL
   const workerToken = process.env.REPO_WORKER_TOKEN
   const workerClient = workerUrl
-    ? createRepoWorkerClient({
-        baseUrl: workerUrl,
-        token: workerToken,
-        getCloneToken: async () => {
-          // Ceiling: replace with GitHub App installation token when
-          // the GitHub App adapter is wired (githubApp dep).
-          const token = process.env.GITHUB_TOKEN
-          if (!token) throw new Error('GITHUB_TOKEN is required for clone')
-          return token
+    ? createRepoWorkerClient(
+        {
+          baseUrl: workerUrl,
+          token: workerToken,
+          getCloneToken: () => getInstallationToken('clone'),
         },
-      })
+        {
+          deadlineMs: 600_000,
+          pollIntervalMs: 5_000,
+        },
+      )
     : undefined
 
   // ---- Conditionally create Linear ticket adapter ----

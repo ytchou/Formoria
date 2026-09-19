@@ -39,6 +39,19 @@ describe("service registry", () => {
     ).toBe(true);
   });
 
+  it("registers the shared GitHub App environment names", () => {
+    const github = SERVICE_REGISTRY.find((entry) => entry.id === "github");
+
+    expect(github?.envVars).toEqual(
+      expect.arrayContaining([
+        "GITHUB_APP_ID",
+        "GITHUB_APP_PRIVATE_KEY",
+        "GITHUB_APP_INSTALLATION_ID",
+      ]),
+    );
+    expect(github?.envVars).not.toContain("HEALTH_AGENT_GITHUB_APP_ID");
+  });
+
   it("toInventoryProjection omits internal fields", () => {
     const entry = SERVICE_REGISTRY[0];
     const projection = toInventoryProjection(entry);
