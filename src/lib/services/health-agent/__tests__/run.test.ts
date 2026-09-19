@@ -262,6 +262,29 @@ describe('runHealthAgent', () => {
     expect(result.status).toBe('completed')
   })
 
+  it('provides the shared URL checker to weekly link detectors', async () => {
+    let checkUrl: unknown
+    const deps = baseDeps({
+      dryRun: true,
+      logicalDate: '2026-09-19',
+      registryOverride: [
+        makeDetector({
+          name: 'social',
+          source: 'links-weekly',
+          schedule: 'weekly',
+          run: async (ctx) => {
+            checkUrl = ctx.deps.checkUrl
+            return []
+          },
+        }),
+      ],
+    })
+
+    await runHealthAgent(deps)
+
+    expect(checkUrl).toBeTypeOf('function')
+  })
+
   it('at most one PR is published per run and only with allowlisted files', async () => {
     // Since workerClient is not provided, no PR creation happens
     const deps = baseDeps()

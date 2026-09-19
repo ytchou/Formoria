@@ -17,7 +17,7 @@ function ctx(overrides: Partial<DetectorContext> = {}): DetectorContext {
 }
 
 describe('trail supply detector', () => {
-  it('calls the Railway origin route with ORIGIN_SECRET and treats readUnavailable as a failure', async () => {
+  it('calls the Railway origin route with the machine-caller credential and treats readUnavailable as a failure', async () => {
     const railwayUrl = 'https://formoria-internal.up.railway.app'
     let capturedUrl: string | undefined
     let capturedHeaders: Record<string, string> | undefined
@@ -51,9 +51,9 @@ describe('trail supply detector', () => {
     expect(capturedUrl).toBe(
       `${railwayUrl}/api/cron/trail-supply`,
     )
-    // Passes the origin secret
+    // Matches isAuthorizedMachineCaller on the route.
     expect(capturedHeaders).toMatchObject({
-      'x-origin-secret': 'test-secret',
+      'x-origin-verify': 'test-secret',
     })
     // readUnavailable produces a finding about the failure
     expect(findings.length).toBeGreaterThanOrEqual(1)
