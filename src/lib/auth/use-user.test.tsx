@@ -1,14 +1,15 @@
 // @vitest-environment jsdom
 import { createElement } from 'react'
-import { renderHook, waitFor } from '@testing-library/react'
+import { act, renderHook, waitFor } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import type { ViewerContext } from '@/lib/actions/viewer-context'
 
 const getViewerContextAction = vi.hoisted(() => vi.fn())
+const currentPathname = vi.hoisted(() => ({ value: '/' }))
 
 vi.mock('@/lib/actions/viewer-context', () => ({ getViewerContextAction }))
-vi.mock('next/navigation', () => ({ usePathname: () => '/' }))
+vi.mock('next/navigation', () => ({ usePathname: () => currentPathname.value }))
 
 const { ViewerProvider, useUser } = await import('./use-user')
 
@@ -30,6 +31,7 @@ function renderViewer() {
 describe('ViewerProvider', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    currentPathname.value = '/'
   })
 
   afterEach(() => {
@@ -99,5 +101,24 @@ describe('ViewerProvider', () => {
     // would move that read into the server render and throw.
     const { result } = renderViewer()
     expect(result.current.viewerLoading).toBe(true)
+  })
+
+  it('defers viewer refresh during password recovery and resumes after leaving', async () => {
+    currentPathname.value = '/auth/reset-password'
+    getViewerContextAction.mockResolvedValue(ADMIN_VIEWER)
+
+    const { result, rerender } = renderViewer()
+    await act(async () => {
+      await new Promise((resolve) => window.setTimeout(resolve, 0))
+    })
+    expect(result.current.viewerLoading).toBe(true)
+    expect(getViewerContextAction).not.toHaveBeenCalled()
+
+    currentPathname.value = '/auth/sign-in'
+    rerender()
+    await waitFor(() => expect(result.current.viewerLoading).toBe(false))
+
+    expect(result.current.user).toEqual(ADMIN_VIEWER.user)
+    expect(result.current.viewer.isAdmin).toBe(true)
   })
 })

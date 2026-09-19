@@ -57,10 +57,6 @@ test.describe('Auth — forgot password request', () => {
       ).toBe(1);
       await anonPage.goto(capturedAuthLink(capture));
       await anonPage.waitForURL(/\/auth\/reset-password/, { timeout: BUDGET.NAVIGATION });
-      // The callback redirect can expose the server-rendered form before the
-      // client tree is ready. Reload the settled route so this submit cannot
-      // fall back to a native POST during that redirect window.
-      await anonPage.reload({ waitUntil: "load" });
       const passwordInput = anonPage.getByLabel('新密碼', { exact: true });
       await expect(passwordInput).toBeVisible({ timeout: BUDGET.INTERACTIVE });
       const nextPassword = `Recovery-updated-${Date.now()}A!`;
