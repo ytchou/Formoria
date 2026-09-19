@@ -118,9 +118,16 @@ export async function runE2eSuite(options: RunE2eSuiteOptions): Promise<RunResul
   const lsRemoteResult = await deps.execCommand(
     `git ls-remote ${authedUrl} refs/heads/staging`,
   )
+  if (lsRemoteResult.exitCode !== 0) {
+    throw new Error(
+      `git ls-remote failed (exit ${lsRemoteResult.exitCode}): ${lsRemoteResult.stderr.slice(0, 500)}`,
+    )
+  }
   const stagingSha = lsRemoteResult.stdout.split('\t')[0].trim()
   if (!stagingSha) {
-    throw new Error('Failed to resolve staging HEAD SHA from git ls-remote')
+    throw new Error(
+      `git ls-remote returned no SHA. stdout=${JSON.stringify(lsRemoteResult.stdout.slice(0, 200))} stderr=${JSON.stringify(lsRemoteResult.stderr.slice(0, 200))}`,
+    )
   }
 
   console.log(`[e2e-runner] run=${runId} staging-sha=${stagingSha.slice(0, 12)}`)
