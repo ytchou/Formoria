@@ -638,10 +638,10 @@ describe('runHealthAgent', () => {
 
   it('worker failures use a stable stage fingerprint and bounded redacted evidence', async () => {
     const client = stubClient()
-    const secret = 'ghp_1234567890abcdefghijklmnopqrstuvwxyz'
+    const secret = 'synthetic-clone-credential'
     const runFn = vi.fn(async () => ({
       status: 'error' as const,
-      error: `install failed with ${secret}${'x'.repeat(800)}`,
+      error: `install failed with Bearer ${secret}${'x'.repeat(800)}`,
       errorStage: 'install' as const,
       errorCode: 'install-failed',
     }))
