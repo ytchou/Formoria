@@ -111,9 +111,12 @@ export async function runE2eSuite(options: RunE2eSuiteOptions): Promise<RunResul
     revisionPollMaxMs = REVISION_POLL_MAX_MS,
   } = options
 
-  // Step 1: Resolve staging HEAD SHA via git ls-remote
+  // Step 1: Resolve staging HEAD SHA via git ls-remote (with auth for private repo)
+  const cloneToken = await getInstallationToken('clone')
+  const repoSlug = process.env.GITHUB_APP_REPOSITORY ?? 'ytchou/Formoria'
+  const authedUrl = `https://x-access-token:${cloneToken}@github.com/${repoSlug}.git`
   const lsRemoteResult = await deps.execCommand(
-    'git ls-remote origin refs/heads/staging',
+    `git ls-remote ${authedUrl} refs/heads/staging`,
   )
   const stagingSha = lsRemoteResult.stdout.split('\t')[0].trim()
   if (!stagingSha) {
@@ -149,8 +152,7 @@ export async function runE2eSuite(options: RunE2eSuiteOptions): Promise<RunResul
     )
   }
 
-  // Step 3: Get GitHub App token and shallow clone at SHA
-  const cloneToken = await getInstallationToken('clone')
+  // Step 3: Shallow clone at SHA (reuse token from step 1)
   const targetDir = `/tmp/e2e-run-${runId}`
 
   await deps.cloneRepo({
