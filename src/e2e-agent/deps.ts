@@ -136,6 +136,7 @@ async function cloneAndRunTests(opts: {
   const install = await execCommand('pnpm install --frozen-lockfile', {
     cwd: targetDir,
     timeoutMs: 3 * 60_000,
+    env: { NODE_ENV: 'development' },
   })
   if (install.exitCode !== 0) {
     return { passed: false, output: `install failed: ${install.stderr}` }
