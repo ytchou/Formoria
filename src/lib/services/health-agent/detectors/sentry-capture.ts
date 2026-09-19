@@ -3,8 +3,8 @@
  * Railway origin and polls the Sentry issues API until the matching
  * event appears or the soft deadline expires.
  *
- * The canary is fired at `FORMORIA_RAILWAY_URL/api/cron/health-canary`
- * with the `x-origin-verify` header, producing a tagged Sentry event.
+ * The canary is fired at `FORMORIA_RAILWAY_URL/api/internal/sentry-canary`
+ * with the machine-caller credential, producing a tagged Sentry event.
  * The detector then polls for the tag to confirm end-to-end capture.
  */
 
@@ -56,7 +56,7 @@ export const sentryCaptureDetector: Detector = {
     const organization = env.SENTRY_ORGANIZATION
     const project = env.SENTRY_PROJECT
     const railwayUrl = env.FORMORIA_RAILWAY_URL?.replace(/\/+$/, '')
-    const originSecret = env.CF_ORIGIN_SECRET
+    const originSecret = env.ORIGIN_SECRET
     if (!token || !baseUrl || !organization || !project || !railwayUrl) return []
 
     const fetchFn = getFetch(ctx)
@@ -65,24 +65,37 @@ export const sentryCaptureDetector: Detector = {
     const maxAttempts = (ctx.deps.maxPollAttempts as number | undefined) ?? DEFAULT_MAX_POLL_ATTEMPTS
 
     // Step 1: Trigger the canary at the Railway origin
-    const canaryUrl = `${railwayUrl}/api/cron/health-canary?token=${encodeURIComponent(canaryToken)}`
+    const canaryUrl = `${railwayUrl}/api/internal/sentry-canary`
     const triggerResponse = await auditedCall(
       {
         provider: 'health-agent',
         operation: 'probe_sentry_capture_trigger',
         kind: 'external',
-        meta: { endpoint: canaryUrl, method: 'GET' },
+        meta: { endpoint: canaryUrl, method: 'POST' },
       },
-      async () => {
+      async (audit) => {
         const headers: Record<string, string> = {}
         if (originSecret) {
           headers['x-origin-verify'] = originSecret
         }
-        return fetchFn(canaryUrl, { headers, signal: ctx.signal })
+        headers['Content-Type'] = 'application/json'
+        const response = await fetchFn(canaryUrl, {
+          method: 'POST',
+          headers,
+          body: JSON.stringify({ token: canaryToken }),
+          signal: ctx.signal,
+        })
+        audit.summary.httpStatus = response.status
+        return response
+      },
+      {
+        summary: { request: { token: canaryToken } },
+        classify: (response) => response.status === 500 ? 'succeeded' : 'failed',
       },
     )
 
-    if (!triggerResponse.ok) {
+    // The route deliberately returns 500 after capturing the canary.
+    if (triggerResponse.status !== 500) {
       return [
         {
           source: 'credential',
@@ -96,7 +109,7 @@ export const sentryCaptureDetector: Detector = {
     }
 
     // Step 2: Poll Sentry issues API for the canary tag
-    const issuesUrl = `${baseUrl}/api/0/projects/${encodeURIComponent(organization)}/${encodeURIComponent(project)}/issues/?query=HealthCanary+${canaryToken}&limit=1`
+    const issuesUrl = `${baseUrl}/api/0/projects/${encodeURIComponent(organization)}/${encodeURIComponent(project)}/issues/?query=${encodeURIComponent(canaryToken)}&limit=1`
     for (let attempt = 0; attempt < maxAttempts; attempt++) {
       if (attempt > 0 && pollInterval > 0) {
         try {

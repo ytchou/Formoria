@@ -191,12 +191,12 @@ export const registry: Record<DetectorName, Detector> = {
   'surface-assertions': surfaceDetector,
 
   // ---- links-weekly source ----
-  // linksWeeklyDetector runs all 8 classes. Only `social` runs the real
-  // detector; the other 7 are stubs whose findings are produced by it.
+  // linksWeeklyDetector runs 7 classes; the remaining link detector names are
+  // stubs. Stockist URLs live in brand_channels, so no separate stockist class
+  // runs.
   social: withCtxDeps('social', linksWeeklyDetector, (deps) => ({
     checkSocialLinks: deps.checkSocialLinks,
     checkBrandOtherUrls: deps.checkBrandOtherUrls,
-    checkStockistLinks: deps.checkStockistLinks,
     checkBrandChannelLinks: deps.checkBrandChannelLinks,
     checkEventLinks: deps.checkEventLinks,
     checkBrandImageLinks: deps.checkBrandImageLinks,
@@ -217,4 +217,3 @@ export const registry: Record<DetectorName, Detector> = {
   // ---- backlog source ----
   'backlog-health': backlogDetector,
 }
-
