@@ -25,6 +25,7 @@ import type { DetectorName } from '@/lib/constants/health-detectors'
 import { DETECTOR_SOURCE, DETECTOR_SCHEDULE } from '@/lib/constants/health-detectors'
 import type { Detector, DetectorContext } from './types'
 import type { HealthFinding } from './contracts'
+import { createGitHubDependabotAlertsAdapter } from '@/lib/adapters/github/dependabot-alerts'
 
 // ---------------------------------------------------------------------------
 // Detector imports
@@ -137,11 +138,14 @@ export const registry: Record<DetectorName, Detector> = {
   'database-health': withCtxDeps('database-health', databaseHealthDetector, (deps) => ({
     supabase: deps.supabase,
   })),
-  dependabot: withCtxDeps('dependabot', dependabotDetector, (deps) => ({
-    githubToken: (deps.env as Record<string, string> | undefined)?.GITHUB_TOKEN ?? '',
-    repo: (deps.env as Record<string, string> | undefined)?.GITHUB_REPOSITORY ?? 'ytchou/Formoria',
-    fetchImpl: deps.fetchFn ?? globalThis.fetch,
-  })),
+  dependabot: withCtxDeps('dependabot', dependabotDetector, (deps) => {
+    const env = (deps.env as Record<string, string> | undefined) ?? {}
+    return createGitHubDependabotAlertsAdapter({
+      token: env.GITHUB_TOKEN ?? '',
+      repository: env.GITHUB_REPOSITORY ?? 'ytchou/Formoria',
+      fetchImpl: (deps.fetchFn as typeof fetch | undefined) ?? globalThis.fetch,
+    })
+  }),
 
   // ---- sentry source ----
   'sentry-triage': withCtxDeps('sentry-triage', sentryDetector, (deps) => {
