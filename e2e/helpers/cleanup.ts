@@ -477,7 +477,6 @@ export async function cleanupTestData({ createdSince }: CleanupOptions = {}) {
   await deleteWhereIn(supabase, 'brand_reports', 'id', reportIds, failures);
   await deleteWhereIn(supabase, 'brand_field_corrections', 'brand_id', brandIds, failures);
   await deleteWhereIn(supabase, 'moderation_flags', 'brand_id', brandIds, failures);
-  await deleteWhereIn(supabase, 'pending_brand_edits', 'brand_id', brandIds, failures);
   await deleteWhereIn(supabase, 'brand_saves', 'brand_id', brandIds, failures);
   await deleteWhereIn(supabase, 'brand_channels', 'brand_id', brandIds, failures);
   await deleteWhereIn(supabase, 'brand_field_events', 'brand_id', brandIds, failures);
@@ -540,7 +539,6 @@ export async function cleanupTestData({ createdSince }: CleanupOptions = {}) {
     ['brand_field_events', 'brand_id', brandIds],
     ['brand_field_corrections', 'brand_id', brandIds],
     ['moderation_flags', 'brand_id', brandIds],
-    ['pending_brand_edits', 'brand_id', brandIds],
     ['brand_saves', 'brand_id', brandIds],
     ['brand_channels', 'brand_id', brandIds],
   ] as const) {
