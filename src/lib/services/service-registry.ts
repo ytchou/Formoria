@@ -549,6 +549,7 @@ export const SERVICE_REGISTRY: readonly ServiceEntry[] = [
       "LINEAR_TEAM_ID",
       "LINEAR_PROJECT_ID",
       "LINEAR_ASSIGNEE_ID",
+      "LINEAR_STATE_TODO_ID",
     ],
     status: "active",
     plan: {
