@@ -145,8 +145,13 @@ export function buildTickets(
   findings: HealthFinding[],
   options: BuildTicketsOptions,
 ): TicketSpec[] {
-  // Filter to only unticketed findings
-  const eligible = findings.filter((f) => options.unticketed.has(f.fingerprint))
+  // Runtime Sentry issues are signal-only. Credential findings, including
+  // sentry-capture failures, remain eligible for operational tickets.
+  const eligible = findings.filter(
+    (finding) =>
+      finding.source !== 'sentry' &&
+      options.unticketed.has(finding.fingerprint),
+  )
   if (eligible.length === 0) return []
 
   const tickets: TicketSpec[] = []
@@ -208,6 +213,53 @@ export type BuildDigestOptions = {
   date: string
   /** Langfuse trace URL. */
   traceUrl: string
+  /** Sentry fingerprints that were not active before this run. */
+  highlightedFingerprints?: ReadonlySet<string>
+}
+
+const SENTRY_DIGEST_LIMIT = 10
+const SEVERITY_PRIORITY = {
+  critical: 4,
+  high: 3,
+  medium: 2,
+  low: 1,
+} as const
+
+function numericEvidence(
+  finding: HealthFinding,
+  key: string,
+): number {
+  const value = finding.evidence[key]
+  return typeof value === 'number' ? value : 0
+}
+
+function stringEvidence(
+  finding: HealthFinding,
+  key: string,
+): string {
+  const value = finding.evidence[key]
+  return typeof value === 'string' ? value : ''
+}
+
+function prioritizeSentryFindings(
+  findings: HealthFinding[],
+): HealthFinding[] {
+  return [...findings].sort((left, right) => {
+    const severity =
+      SEVERITY_PRIORITY[right.severity] - SEVERITY_PRIORITY[left.severity]
+    if (severity !== 0) return severity
+
+    const users =
+      numericEvidence(right, 'userCount') -
+      numericEvidence(left, 'userCount')
+    if (users !== 0) return users
+
+    const lastSeen = stringEvidence(right, 'lastSeen').localeCompare(
+      stringEvidence(left, 'lastSeen'),
+    )
+    if (lastSeen !== 0) return lastSeen
+    return left.fingerprint.localeCompare(right.fingerprint)
+  })
 }
 
 /**
@@ -237,6 +289,18 @@ export function buildDigest(
   }
 
   const totalFindings = [...sourceCounts.values()].reduce((a, b) => a + b, 0)
+  const sentryFindings = results.flatMap((result) =>
+    result.source === 'sentry'
+      ? result.findings.filter(
+          (finding) => finding.sentryIssueId !== undefined,
+        )
+      : [],
+  )
+  const highlighted = prioritizeSentryFindings(
+    sentryFindings.filter((finding) =>
+      options.highlightedFingerprints?.has(finding.fingerprint),
+    ),
+  )
 
   const lines: string[] = []
   lines.push(`Health Agent — ${options.date}`)
@@ -248,6 +312,21 @@ export function buildDigest(
     lines.push('Per source:')
     for (const [source, count] of sourceCounts) {
       lines.push(`  ${source}: ${count}`)
+    }
+  }
+
+  lines.push('')
+  lines.push(`Sentry active: ${sentryFindings.length}`)
+  if (highlighted.length > 0) {
+    lines.push('New or returned Sentry issues:')
+    for (const finding of highlighted.slice(0, SENTRY_DIGEST_LIMIT)) {
+      lines.push(
+        `  [${finding.severity}] ${escapeSlackMrkdwn(finding.title)}`,
+      )
+    }
+    const remainder = highlighted.length - SENTRY_DIGEST_LIMIT
+    if (remainder > 0) {
+      lines.push(`  ${remainder} more new or returned Sentry issues`)
     }
   }
 

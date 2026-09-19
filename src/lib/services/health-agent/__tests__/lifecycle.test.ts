@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, it } from 'vitest'
 import type { HealthLedgerClient } from '../lifecycle'
 import {
   admitRun,
@@ -7,7 +7,6 @@ import {
   finalizeTickets,
   releaseFailedReservations,
   reconcile,
-  resolveSentryAbsences,
   releaseClaims,
 } from '../lifecycle'
 
@@ -266,38 +265,6 @@ describe('lifecycle', () => {
       'link:dead:a',
       'directory:brand-invariant:b',
     ])
-  })
-
-  it('sentry absences are resolved in Sentry before verify_health_fix_absence is called', async () => {
-    const callOrder: string[] = []
-    const sentryResolver = {
-      resolve: vi.fn(async () => {
-        callOrder.push('sentry_resolve')
-        return 1
-      }),
-    }
-
-    const { client } = fakeClient({
-      rpcResults: {
-        verify_health_fix_absence: { id: 'fix-1', status: 'fixed' },
-      },
-    })
-
-    // Wrap rpc to track call order
-    const originalRpc = client.rpc.bind(client)
-    client.rpc = ((fn: string, params: Record<string, unknown>) => {
-      callOrder.push(fn)
-      return originalRpc(fn, params)
-    }) as typeof client.rpc
-
-    await resolveSentryAbsences(client, sentryResolver, [
-      { id: 'fix-1', fingerprint: 'sentry:issue:123', sentryIssueId: '12345', currentStatus: 'pending' },
-    ])
-
-    // Sentry resolve must happen before verify_health_fix_absence
-    const sentryIndex = callOrder.indexOf('sentry_resolve')
-    const verifyIndex = callOrder.indexOf('verify_health_fix_absence')
-    expect(sentryIndex).toBeLessThan(verifyIndex)
   })
 
   it('releaseClaims uses the same lease owner string that claimed', async () => {

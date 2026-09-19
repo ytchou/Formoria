@@ -80,7 +80,7 @@ describe('sentry-capture detector', () => {
     })
     const pollRequest = requests.find((r) => r.url.includes('/issues/'))
     expect(new URL(pollRequest!.url).searchParams.get('query')).toBe(
-      canaryBody.token,
+      `health_canary_token:${canaryBody.token}`,
     )
     // Should fail because no matching event appeared
     expect(findings).toHaveLength(1)
@@ -123,5 +123,34 @@ describe('sentry-capture detector', () => {
     const ctx = makeCtx({ env: {} })
     const findings = await sentryCaptureDetector.run(ctx)
     expect(findings).toHaveLength(0)
+  })
+
+  it('accepts the dedicated read token when the auth token is absent', async () => {
+    const requests: Array<{ url: string; headers?: HeadersInit }> = []
+    const fakeFetch = async (url: string, init?: RequestInit) => {
+      requests.push({ url, headers: init?.headers })
+      if (url.includes('/api/internal/sentry-canary')) {
+        return new Response(null, { status: 500 })
+      }
+      return Response.json([{ id: 'canary-group' }])
+    }
+
+    const findings = await sentryCaptureDetector.run(makeCtx({
+      fetch: fakeFetch,
+      env: {
+        SENTRY_READ_TOKEN: 'dedicated-read-token',
+        SENTRY_ORGANIZATION: 'formoria',
+        SENTRY_PROJECT: 'formoria',
+        FORMORIA_RAILWAY_URL: 'https://formoria.railway.internal',
+      },
+      pollIntervalMs: 0,
+      maxPollAttempts: 1,
+    }))
+
+    expect(findings).toEqual([])
+    const poll = requests.find((request) => request.url.includes('/issues/'))
+    expect(new Headers(poll?.headers).get('authorization')).toBe(
+      'Bearer dedicated-read-token',
+    )
   })
 })

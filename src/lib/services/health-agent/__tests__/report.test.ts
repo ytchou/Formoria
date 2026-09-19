@@ -144,6 +144,26 @@ describe('report — tickets', () => {
     expect(tickets[0].body).not.toContain('github.com')
     expect(tickets[0].body).not.toContain('actions/runs')
   })
+
+  it('suppresses only Sentry runtime findings from Linear', () => {
+    const sentry = makeFinding({
+      source: 'sentry',
+      fingerprint: 'sentry:issue:123456',
+    })
+    const captureCredential = makeFinding({
+      source: 'credential',
+      fingerprint: 'credential:sentry-capture:round-trip',
+    })
+
+    const tickets = buildTickets([sentry, captureCredential], {
+      unticketed: new Set([sentry.fingerprint, captureCredential.fingerprint]),
+      traceUrl: 'https://langfuse.example.com/trace/abc',
+    })
+
+    expect(tickets).toHaveLength(1)
+    expect(tickets[0].fingerprints).toEqual([captureCredential.fingerprint])
+    expect(tickets[0].label).toBe('Ops')
+  })
 })
 
 describe('report — digest', () => {
@@ -194,6 +214,49 @@ describe('report — digest', () => {
     // Should still produce a non-empty digest
     expect(digest.length).toBeGreaterThan(0)
     expect(digest).toContain('0')
+  })
+
+  it('keeps the active Sentry count and prioritizes at most ten new or returned issues', () => {
+    const sentryFindings = Array.from({ length: 13 }, (_, index) =>
+      makeFinding({
+        source: 'sentry',
+        fingerprint: `sentry:issue:${index}`,
+        sentryIssueId: String(index),
+        title: index === 12
+          ? 'Existing active issue'
+          : `Runtime issue ${String(index).padStart(2, '0')}`,
+        severity: index === 11 ? 'critical' : index === 10 ? 'high' : 'medium',
+        evidence: {
+          userCount: index,
+          lastSeen: `2026-09-19T${String(index).padStart(2, '0')}:00:00Z`,
+        },
+      }),
+    )
+    const highlightedFingerprints = new Set(
+      sentryFindings.slice(0, 12).map((finding) => finding.fingerprint),
+    )
+
+    const digest = buildDigest([
+      makeResult({
+        name: 'sentry-triage',
+        source: 'sentry',
+        findings: sentryFindings,
+      }),
+    ], {
+      date: '2026-09-19',
+      traceUrl: 'https://langfuse.example.com/trace/abc',
+      highlightedFingerprints,
+    })
+
+    expect(digest).toContain('Sentry active: 13')
+    expect(digest).toContain('New or returned Sentry issues:')
+    expect(digest.indexOf('Runtime issue 11')).toBeLessThan(
+      digest.indexOf('Runtime issue 10'),
+    )
+    expect(digest).toContain('2 more new or returned Sentry issues')
+    expect(digest).not.toContain('Runtime issue 00')
+    expect(digest).not.toContain('Runtime issue 01')
+    expect(digest).not.toContain('Existing active issue')
   })
 })
 

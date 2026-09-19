@@ -53,6 +53,12 @@ describe("POST /api/internal/sentry-canary", () => {
     ];
     expect(error).toBeInstanceOf(Error);
     expect(error.message).toContain("canary");
-    expect(options.tags.health_canary).toBe("test-token-2");
+    expect(options).toMatchObject({
+      fingerprint: ["health_canary"],
+      tags: {
+        health_canary: "true",
+        health_canary_token: "test-token-2",
+      },
+    });
   });
 });

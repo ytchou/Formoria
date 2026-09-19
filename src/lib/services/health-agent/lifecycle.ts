@@ -23,6 +23,9 @@ export type HealthLedgerClient = {
     select: (columns: string) => {
       order: (column: string, options?: { ascending: boolean }) => {
         eq: (column: string, value: unknown) => {
+          in: (column: string, values: unknown[]) => {
+            range: (from: number, to: number) => Promise<{ data: unknown[] | null; error: unknown }>
+          }
           range: (from: number, to: number) => Promise<{ data: unknown[] | null; error: unknown }>
         }
         is: (column: string, value: unknown) => {
@@ -297,43 +300,52 @@ export async function reconcile(
 }
 
 // ---------------------------------------------------------------------------
-// resolveSentryAbsences
+// readActiveSentryFingerprints
 // ---------------------------------------------------------------------------
 
-type SentryAbsence = {
-  id: string
-  fingerprint: string
-  sentryIssueId: string
-  currentStatus: string
-}
+const ACTIVE_FIX_STATUSES = [
+  'pending',
+  'claimed',
+  'pr_opened',
+  'awaiting_human',
+  'merged',
+  'deployed',
+  'failed',
+  'needs_human',
+] as const
+const LEDGER_PAGE_SIZE = 1_000
 
-type SentryResolver = {
-  resolve: (issueIds: readonly string[]) => Promise<number>
+type SentryLedgerRow = {
+  fingerprint: string
 }
 
 /**
- * Resolve Sentry issues first, then call verify_health_fix_absence.
- * A failed Sentry resolve skips the verify call for that issue.
+ * Read the active Sentry ledger before enqueueing the current snapshot.
+ * Fixed and skipped history is deliberately excluded so a recurrence is
+ * highlighted as returned when enqueue creates a new active row.
  */
-export async function resolveSentryAbsences(
+export async function readActiveSentryFingerprints(
   client: HealthLedgerClient,
-  sentryResolver: SentryResolver,
-  absences: SentryAbsence[],
-): Promise<void> {
-  for (const absence of absences) {
-    // Step 1: resolve in Sentry first
-    try {
-      await sentryResolver.resolve([absence.sentryIssueId])
-    } catch {
-      // A failed Sentry resolve skips the verify call
-      continue
+): Promise<Set<string>> {
+  const fingerprints = new Set<string>()
+
+  for (let page = 0; ; page += 1) {
+    const offset = page * LEDGER_PAGE_SIZE
+    const { data, error } = await client
+      .from('health_fix_queue')
+      .select('fingerprint')
+      .order('id', { ascending: true })
+      .eq('source', 'sentry')
+      .in('status', [...ACTIVE_FIX_STATUSES])
+      .range(offset, offset + LEDGER_PAGE_SIZE - 1)
+
+    if (error) throw error
+    const rows = (data ?? []) as SentryLedgerRow[]
+    for (const row of rows) {
+      fingerprints.add(row.fingerprint)
     }
 
-    // Step 2: verify absence in the DB
-    await client.rpc('verify_health_fix_absence', {
-      p_id: absence.id,
-      p_expected_status: absence.currentStatus,
-    })
+    if (rows.length < LEDGER_PAGE_SIZE) return fingerprints
   }
 }
 
@@ -354,4 +366,3 @@ export async function releaseClaims(
   })
   if (error) throw error
 }
-

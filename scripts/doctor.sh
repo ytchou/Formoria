@@ -324,6 +324,17 @@ has_env_value() {
   grep -Eq "^${var}=.+" .env.local 2>/dev/null
 }
 
+check_sentry_read_token() {
+  if has_env_value SENTRY_AUTH_TOKEN; then
+    echo "  OK: SENTRY_AUTH_TOKEN (Sentry read access)"
+  elif has_env_value SENTRY_READ_TOKEN; then
+    echo "  OK: SENTRY_READ_TOKEN (Sentry read access)"
+  else
+    echo "  MISSING: SENTRY_AUTH_TOKEN or SENTRY_READ_TOKEN"
+    ERRORS=$((ERRORS + 1))
+  fi
+}
+
 check_health_vars() {
   local mode=""
   local arg
@@ -352,7 +363,6 @@ check_health_vars() {
     SENTRY_BASE_URL
     SENTRY_ORGANIZATION
     SENTRY_PROJECT
-    SENTRY_READ_TOKEN
     HEALTH_AGENT_READ_DATABASE_URL
     HEALTH_AGENT_READ_DATABASE_PASSWORD
     HEALTH_AGENT_READER_TOKEN
@@ -386,6 +396,7 @@ check_health_vars() {
       ERRORS=$((ERRORS + 1))
     fi
   done
+  check_sentry_read_token
 
   if [ "$mode" = "live" ]; then
     for var in "${live_vars[@]}"; do
@@ -421,6 +432,8 @@ check_health_railway_vars() {
     HEALTH_AGENT_GITHUB_APP_INSTALLATION_ID
     CLAUDE_CODE_OAUTH_TOKEN
     PRODUCTION_BASE_URL
+    SENTRY_ORGANIZATION
+    SENTRY_PROJECT
   )
   local var
 
@@ -432,6 +445,7 @@ check_health_railway_vars() {
       ERRORS=$((ERRORS + 1))
     fi
   done
+  check_sentry_read_token
 }
 
 # ── Ops agent (warn-only) ────────────────────────────────────────────────────

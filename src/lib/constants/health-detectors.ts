@@ -72,7 +72,6 @@ export const DETECTOR_NAMES = [
   "worker-chromium",
   "resend-domain",
   "claude-token",
-  "sentry-write",
   "sentry-capture",
   // surface source
   "surface-assertions",
@@ -132,7 +131,6 @@ export const DETECTOR_SOURCE: Record<DetectorName, HealthSource> = {
   "worker-chromium": "credential",
   "resend-domain": "credential",
   "claude-token": "credential",
-  "sentry-write": "credential",
   "sentry-capture": "credential",
   // surface
   "surface-assertions": "surface",
@@ -191,7 +189,6 @@ export const DETECTOR_SCHEDULE: Record<DetectorName, DetectorSchedule> = {
   "worker-chromium": "nightly",
   "resend-domain": "nightly",
   "claude-token": "nightly",
-  "sentry-write": "nightly",
   "sentry-capture": "nightly",
   // surface
   "surface-assertions": "nightly",

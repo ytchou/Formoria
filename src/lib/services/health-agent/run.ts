@@ -26,6 +26,7 @@ import {
   failRun,
   finalizeTickets,
   leaseOwnerString,
+  readActiveSentryFingerprints,
   reconcile,
   releaseClaims,
   releaseFailedReservations,
@@ -352,6 +353,22 @@ async function executeRunBody(
   // Consolidate all findings (after quality jobs so their findings are included)
   const allFindings: HealthFinding[] = results.flatMap((r) => r.findings)
   const totalFindings = allFindings.length
+  const sentryFindings = allFindings.filter(
+    (finding) =>
+      finding.source === 'sentry' && finding.sentryIssueId !== undefined,
+  )
+  const highlightedSentryFingerprints = new Set<string>()
+
+  // Read before enqueue: enqueue upserts active rows, which would erase the
+  // distinction between an existing issue and a new or returned issue.
+  if (!dryRun && sentryFindings.length > 0) {
+    const activeFingerprints = await readActiveSentryFingerprints(client)
+    for (const finding of sentryFindings) {
+      if (!activeFingerprints.has(finding.fingerprint)) {
+        highlightedSentryFingerprints.add(finding.fingerprint)
+      }
+    }
+  }
 
   // ---- 4. Enqueue findings (skip in dry-run) ----
   let enqueuedIds: string[] = []
@@ -472,6 +489,7 @@ async function executeRunBody(
       const digestText = buildDigest(results, {
         date: logicalDate,
         traceUrl,
+        highlightedFingerprints: highlightedSentryFingerprints,
       })
       await deps.slackPostDigest(digestText)
     } catch (err) {

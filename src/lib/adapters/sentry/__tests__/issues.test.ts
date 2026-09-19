@@ -27,7 +27,7 @@ afterEach(() => {
 });
 
 describe("listIssues", () => {
-  it("list_issues_queries_unresolved_for_window", async () => {
+  it("preserves the ops-agent default unresolved request", async () => {
     const sentryResponse = [
       {
         id: "42",
@@ -70,6 +70,119 @@ describe("listIssues", () => {
     expect(parsedUrl.searchParams.get("environment")).toBe("production");
     expect(parsedUrl.searchParams.get("statsPeriod")).toBe("24h");
     expect(parsedUrl.searchParams.get("limit")).toBe("20");
+  });
+
+  it("builds a complete health snapshot request that excludes canaries", async () => {
+    const fetchMock = vi
+      .spyOn(globalThis, "fetch")
+      .mockResolvedValue(Response.json([]));
+
+    await listIssues(48, {
+      limit: 100,
+      excludeHealthCanary: true,
+      requireComplete: true,
+    });
+
+    const url = new URL(fetchMock.mock.calls[0]![0] as string);
+    expect(url.searchParams.get("query")).toBe(
+      "is:unresolved project:formoria-web !health_canary:true",
+    );
+    expect(url.searchParams.get("environment")).toBe("production");
+    expect(url.searchParams.get("statsPeriod")).toBe("48h");
+    expect(url.searchParams.get("limit")).toBe("100");
+  });
+
+  it("falls back to SENTRY_AUTH_TOKEN when no read token is configured", async () => {
+    vi.stubEnv("SENTRY_READ_TOKEN", "");
+    vi.stubEnv("SENTRY_AUTH_TOKEN", "sntrys_existing_auth_token");
+    const fetchMock = vi
+      .spyOn(globalThis, "fetch")
+      .mockResolvedValue(Response.json([]));
+
+    await listIssues();
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      expect.any(String),
+      expect.objectContaining({
+        headers: expect.objectContaining({
+          Authorization: "Bearer sntrys_existing_auth_token",
+        }),
+      }),
+    );
+  });
+
+  it("fails on Sentry HTTP errors without exposing the response body", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response("token=secret-value https://private.example.test", {
+        status: 403,
+      }),
+    );
+
+    await expect(listIssues()).rejects.toThrow(
+      "sentry list_issues failed with HTTP 403",
+    );
+  });
+
+  it("rejects invalid successful payloads", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      Response.json({ id: "not-an-array" }),
+    );
+
+    await expect(listIssues()).rejects.toThrow("invalid response");
+  });
+
+  it("rejects health snapshots when Sentry reports another page", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      Response.json([], {
+        headers: {
+          Link: '<https://sentry.io/api/0/organizations/formoria/issues/?cursor=next>; rel="next"; results="true"',
+        },
+      }),
+    );
+
+    await expect(
+      listIssues(48, { limit: 100, requireComplete: true }),
+    ).rejects.toThrow("incomplete snapshot");
+  });
+
+  it("rejects an unconfirmed full health snapshot", async () => {
+    const page = Array.from({ length: 100 }, (_, index) => ({
+      id: String(index),
+      title: `Issue ${index}`,
+      count: "1",
+      userCount: 1,
+      lastSeen: "2026-09-19T00:00:00Z",
+      permalink: `https://sentry.io/issues/${index}/`,
+      level: "error",
+    }));
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(Response.json(page));
+
+    await expect(
+      listIssues(48, { limit: 100, requireComplete: true }),
+    ).rejects.toThrow("incomplete snapshot");
+  });
+
+  it("accepts a full health snapshot when the next page is confirmed empty", async () => {
+    const page = Array.from({ length: 100 }, (_, index) => ({
+      id: String(index),
+      title: `Issue ${index}`,
+      count: "1",
+      userCount: 1,
+      lastSeen: "2026-09-19T00:00:00Z",
+      permalink: `https://sentry.io/issues/${index}/`,
+      level: "error",
+    }));
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      Response.json(page, {
+        headers: {
+          Link: '<https://sentry.io/api/0/organizations/formoria/issues/?cursor=end>; rel="next"; results="false"',
+        },
+      }),
+    );
+
+    await expect(
+      listIssues(48, { limit: 100, requireComplete: true }),
+    ).resolves.toHaveLength(100);
   });
 
   it("list_issues_clamps_window", async () => {

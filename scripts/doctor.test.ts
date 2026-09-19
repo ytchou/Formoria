@@ -66,6 +66,31 @@ describe("doctor --health-railway mode", () => {
     expect(out).not.toContain("HEALTH_AGENT_READER_TOKEN");
     expect(out).not.toContain("HEALTH_AGENT_WRITER_TOKEN");
   });
+
+  it("accepts either Sentry token variable for the Railway health agent", () => {
+    const withAuthToken = runDoctorHealthRailway({
+      SENTRY_AUTH_TOKEN: "existing-auth-token",
+    });
+    expect(withAuthToken.stdout).toContain(
+      "OK: SENTRY_AUTH_TOKEN (Sentry read access)",
+    );
+
+    const withReadToken = runDoctorHealthRailway({
+      SENTRY_AUTH_TOKEN: "",
+      SENTRY_READ_TOKEN: "dedicated-read-token",
+    });
+    expect(withReadToken.stdout).toContain(
+      "OK: SENTRY_READ_TOKEN (Sentry read access)",
+    );
+
+    const withoutEither = runDoctorHealthRailway({
+      SENTRY_AUTH_TOKEN: "",
+      SENTRY_READ_TOKEN: "",
+    });
+    expect(withoutEither.stdout).toContain(
+      "MISSING: SENTRY_AUTH_TOKEN or SENTRY_READ_TOKEN",
+    );
+  });
 });
 
 describe("environment doctor migration ledger contract", () => {

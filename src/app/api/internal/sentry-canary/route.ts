@@ -12,9 +12,9 @@ export const runtime = "nodejs";
  * Contract:
  *   POST /api/internal/sentry-canary
  *   headers: { x-origin-verify: ORIGIN_SECRET }
- *   body:    { token: string }           // echoed into the error tag
+ *   body:    { token: string }           // echoed into a unique event tag
  *   401  — missing or wrong secret
- *   500  — the deliberate canary error (tag health_canary=<token>)
+ *   500  — the deliberate canary error (fixed fingerprint, unique token tag)
  *
  * Never returns 2xx: a successful canary fires and crashes, which is the point.
  */
@@ -36,7 +36,8 @@ export async function POST(req: Request): Promise<Response> {
   } catch {
     // Body parse failure is non-fatal — fire the canary with the default token.
     captureException(new Error("sentry-canary: request body unreadable"), {
-      tags: { health_canary: token },
+      fingerprint: ["health_canary"],
+      tags: { health_canary: "true", health_canary_token: token },
     });
   }
 
@@ -45,11 +46,15 @@ export async function POST(req: Request): Promise<Response> {
 
   try {
     captureException(canaryError, {
-      tags: { health_canary: token },
+      fingerprint: ["health_canary"],
+      tags: { health_canary: "true", health_canary_token: token },
     });
   } catch (captureError) {
     // Sentry SDK failure must not mask the 500 — the canary still fires.
-    captureException(captureError, { tags: { health_canary: token } });
+    captureException(captureError, {
+      fingerprint: ["health_canary"],
+      tags: { health_canary: "true", health_canary_token: token },
+    });
   }
 
   return NextResponse.json(
