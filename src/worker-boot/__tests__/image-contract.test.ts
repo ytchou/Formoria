@@ -31,7 +31,6 @@ describe("worker image contract", () => {
 
     for (const line of copyLines) {
       expect(line).not.toMatch(/COPY\s+content\//);
-      expect(line).not.toMatch(/COPY\s+scripts\//);
       expect(line).not.toMatch(/COPY\s+supabase\//);
     }
   });

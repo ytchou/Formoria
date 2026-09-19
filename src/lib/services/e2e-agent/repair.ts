@@ -1,0 +1,152 @@
+/**
+ * Repair node — dispatch scoped writes to repo-worker.
+ *
+ * Sends the frozen failure set plus diagnosis context to a Claude Code session
+ * inside a fresh clone. The session has write tools and scoped `editableFiles`
+ * covering e2e specs and application source.
+ *
+ * Returns a `RepairOutcome` with either the repair result and changed files,
+ * or a `needs_human` signal when no changes were produced.
+ */
+
+import type {
+  DiagnosisResult,
+  FrozenFailureSet,
+  RepairResult,
+} from "@/lib/services/e2e-selfheal/incident";
+import type {
+  RepoWorkerClient,
+} from "@/lib/services/health-agent/repo-worker-client";
+import type { ChangedFile } from "@/repo-worker/jobs";
+
+// ---------------------------------------------------------------------------
+// Constants
+// ---------------------------------------------------------------------------
+
+const REPAIR_DEADLINE_MS = 1_200_000;
+const REPAIR_MAX_TURNS = 120;
+const REPAIR_ALLOWED_TOOLS = [
+  "Read",
+  "Grep",
+  "Glob",
+  "Bash",
+  "Edit",
+  "Write",
+];
+const REPAIR_EDITABLE_FILES = [
+  "e2e/**/*.ts",
+  "src/**/*.ts",
+  "src/**/*.tsx",
+];
+const REPAIR_PROMPT_NAME = "e2e-nightly-repair";
+
+// ---------------------------------------------------------------------------
+// Types
+// ---------------------------------------------------------------------------
+
+export type RepairDeps = {
+  createClient: (deadlineMs: number) => RepoWorkerClient;
+  failures: FrozenFailureSet;
+  diagnosis: DiagnosisResult;
+  fetchPrompt: (name: string) => Promise<string>;
+  stagingSha: string;
+};
+
+export type RepairOutcome = {
+  outcome: "repaired" | "needs_human";
+  result: RepairResult | null;
+  changedFiles: ChangedFile[];
+  baseSha: string | undefined;
+};
+
+// ---------------------------------------------------------------------------
+// Schema (subset — enough for Claude to produce typed output)
+// ---------------------------------------------------------------------------
+
+const REPAIR_SCHEMA = {
+  type: "object",
+  properties: {
+    version: { type: "number", const: 1 },
+    failureSetHash: { type: "string" },
+    addressedFailureIds: { type: "array", items: { type: "string" } },
+    addressedRootCauseKeys: { type: "array", items: { type: "string" } },
+    changedFiles: { type: "array", items: { type: "string" } },
+    summary: { type: "string" },
+    remainingWork: { type: "array", items: { type: "string" } },
+    complete: { type: "boolean" },
+  },
+  required: [
+    "version",
+    "failureSetHash",
+    "addressedFailureIds",
+    "addressedRootCauseKeys",
+    "changedFiles",
+    "summary",
+    "remainingWork",
+    "complete",
+  ],
+} as const;
+
+// ---------------------------------------------------------------------------
+// Node
+// ---------------------------------------------------------------------------
+
+/**
+ * Dispatch a scoped repair job to the repo-worker.
+ *
+ * Returns `needs_human` when the agent produces no file changes (the repair
+ * could not be automated), or `repaired` with the changed files and base SHA.
+ */
+export async function repairFailures(
+  deps: RepairDeps,
+): Promise<RepairOutcome> {
+  const basePrompt = await deps.fetchPrompt(REPAIR_PROMPT_NAME);
+  const prompt = [
+    basePrompt,
+    "",
+    "## Diagnosis",
+    "",
+    JSON.stringify(deps.diagnosis, null, 2),
+    "",
+    "## Frozen failure set",
+    "",
+    JSON.stringify(deps.failures, null, 2),
+  ].join("\n");
+
+  const client = deps.createClient(REPAIR_DEADLINE_MS);
+
+  const result = await client.run({
+    ref: deps.stagingSha,
+    commands: [],
+    editableFiles: REPAIR_EDITABLE_FILES,
+    claude: {
+      prompt,
+      allowedTools: REPAIR_ALLOWED_TOOLS,
+      maxTurns: REPAIR_MAX_TURNS,
+      jsonSchema: REPAIR_SCHEMA,
+    },
+  });
+
+  const changedFiles = result.changedFiles ?? [];
+  const baseSha = result.baseSha;
+
+  if (result.status !== "done" || changedFiles.length === 0) {
+    return {
+      outcome: "needs_human",
+      result: null,
+      changedFiles: [],
+      baseSha,
+    };
+  }
+
+  const structured = result.claude?.structuredOutput as
+    | RepairResult
+    | undefined;
+
+  return {
+    outcome: "repaired",
+    result: structured ?? null,
+    changedFiles,
+    baseSha,
+  };
+}

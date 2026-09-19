@@ -1,0 +1,29 @@
+{
+  "$comment": "Documentation-only — Railway does not read per-service JSON files. This records the intended service configuration for the e2e-nightly-agent Railway service.",
+  "service": "e2e-nightly-agent",
+  "schedule": "05 20 * * * (UTC)",
+  "startCommand": "pnpm e2e:nightly",
+  "envVars": [
+    "NEXT_PUBLIC_SUPABASE_URL",
+    "SUPABASE_SERVICE_ROLE_KEY",
+    "FORMORIA_DEPLOYMENT_ENV",
+    "SLACK_FORMORIA_WEBHOOK_URL",
+    "LANGFUSE_SECRET_KEY",
+    "LANGFUSE_PUBLIC_KEY",
+    "LANGFUSE_BASEURL",
+    "GITHUB_APP_ID",
+    "GITHUB_APP_PRIVATE_KEY",
+    "GITHUB_APP_INSTALLATION_ID",
+    "REPO_WORKER_URL",
+    "REPO_WORKER_TOKEN",
+    "CF_ACCESS_CLIENT_ID",
+    "CF_ACCESS_CLIENT_SECRET",
+    "E2E_ADMIN_EMAIL",
+    "E2E_ADMIN_PASSWORD",
+    "E2E_USER_EMAIL",
+    "E2E_USER_PASSWORD",
+    "LINEAR_API_KEY",
+    "LINEAR_TEAM_ID",
+    "SLACK_BOT_TOKEN"
+  ]
+}

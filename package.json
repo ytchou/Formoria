@@ -46,6 +46,7 @@
     "curation:worker": "scripts/run-worker.sh tsx src/curation-worker/server.ts",
     "health:agent": "scripts/run-worker.sh tsx src/health-agent/server.ts",
     "repo:worker": "scripts/run-worker.sh tsx src/repo-worker/server.ts",
+    "e2e:nightly": "scripts/run-worker.sh tsx src/e2e-agent/server.ts",
     "curation:snapshot": "tsx scripts/enrichment/run/snapshot.ts",
     "curation:rerun": "tsx scripts/enrichment/run/refresh.ts",
     "curation:eval": "tsx scripts/enrichment/eval/suite.ts",
