@@ -41,9 +41,24 @@ async function post(
 async function get(
   server: http.Server,
   path: string,
+  headers: Record<string, string> = {},
 ): Promise<{ status: number; json: Record<string, unknown> }> {
-  const res = await fetch(makeUrl(server, path));
+  const res = await fetch(makeUrl(server, path), { headers });
   return { status: res.status, json: (await res.json()) as Record<string, unknown> };
+}
+
+async function waitForJob(
+  server: http.Server,
+  jobId: string,
+): Promise<{ status: number; json: Record<string, unknown> }> {
+  for (let attempt = 0; attempt < 20; attempt += 1) {
+    const response = await get(server, `/jobs/${jobId}`, {
+      authorization: "Bearer test-bearer-token-abc",
+    });
+    if (response.json.status !== "running") return response;
+    await new Promise((resolve) => setTimeout(resolve, 5));
+  }
+  throw new Error(`Job ${jobId} did not finish`);
 }
 
 // ---------------------------------------------------------------------------
@@ -154,6 +169,32 @@ describe("repo-worker server", () => {
     // Should get past auth (will get a different error or 202, not 401)
     const noToken = await post(server, "/run", validBody());
     expect(noToken.status).not.toBe(401);
+  });
+
+  it("returns worker failure stage and code from the polling endpoint", async () => {
+    server = createRepoWorkerServer({
+      token: TOKEN,
+      cloneFn: async () => "/tmp/fake-clone",
+      runCommandFn: async () => ({
+        stdout: "",
+        stderr: "registry unavailable",
+        exitCode: 1,
+        timedOut: false,
+      }),
+      cleanupFn: async () => {},
+    });
+    await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
+
+    const accepted = await post(server, "/run", validBody(), {
+      authorization: `Bearer ${TOKEN}`,
+    });
+    const completed = await waitForJob(server, accepted.json.jobId as string);
+
+    expect(completed.json).toMatchObject({
+      status: "failed",
+      errorStage: "install",
+      errorCode: "install-failed",
+    });
   });
 
   // -------------------------------------------------------------------------

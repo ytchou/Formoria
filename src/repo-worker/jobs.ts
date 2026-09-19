@@ -43,6 +43,8 @@ export type JobRequest = {
   editableFiles: string[];
 };
 
+export type JobErrorStage = "clone" | "install" | "policy" | "worker";
+
 export type JobResult = {
   status: "done" | "failed";
   results?: CommandResult[];
@@ -51,6 +53,8 @@ export type JobResult = {
   baseSha?: string;
   claude?: ClaudeResult;
   error?: string;
+  errorStage?: JobErrorStage;
+  errorCode?: string;
 };
 
 // ---------------------------------------------------------------------------
@@ -97,6 +101,8 @@ export type JobDeps = {
 const TEST_FILE_PATTERN = /\.(test|spec)\.(ts|tsx|js|jsx)$/;
 const SKIP_PATTERN =
   /\b(describe|it|test)\s*\.\s*skip\b/;
+const INSTALL_COMMAND = "NODE_ENV=development pnpm install --frozen-lockfile";
+const INSTALL_TIMEOUT_MS = 180_000;
 
 function isTestFile(filePath: string): boolean {
   return TEST_FILE_PATTERN.test(filePath);
@@ -118,6 +124,7 @@ export async function runRepoJob(
   deps: JobDeps,
 ): Promise<JobResult> {
   let cloneDir: string | undefined;
+  let errorStage: JobErrorStage = "clone";
 
   try {
     // -----------------------------------------------------------------------
@@ -138,8 +145,36 @@ export async function runRepoJob(
     cloneDir = await deps.cloneFn(cloneArgs);
 
     // -----------------------------------------------------------------------
-    // 2. Run commands sequentially
+    // 2. Install dependencies in every fresh clone
     // -----------------------------------------------------------------------
+    errorStage = "install";
+    const installResult = await deps.runCommandFn(
+      cloneDir,
+      INSTALL_COMMAND,
+      INSTALL_TIMEOUT_MS,
+    );
+    if (installResult.timedOut || installResult.exitCode !== 0) {
+      const details = (installResult.stderr || installResult.stdout)
+        .trim()
+        .slice(0, 1_000);
+      const errorCode = installResult.timedOut
+        ? "install-timeout"
+        : "install-failed";
+      const summary = installResult.timedOut
+        ? `Dependency installation timed out after ${INSTALL_TIMEOUT_MS}ms`
+        : `Dependency installation failed with exit code ${installResult.exitCode}`;
+      return {
+        status: "failed",
+        error: details ? `${summary}: ${details}` : summary,
+        errorStage: "install",
+        errorCode,
+      };
+    }
+
+    // -----------------------------------------------------------------------
+    // 3. Run commands sequentially
+    // -----------------------------------------------------------------------
+    errorStage = "worker";
     const results: CommandResult[] = [];
 
     for (const cmd of request.commands) {
@@ -154,7 +189,7 @@ export async function runRepoJob(
     }
 
     // -----------------------------------------------------------------------
-    // 3. Run Claude Code if requested
+    // 4. Run Claude Code if requested
     // -----------------------------------------------------------------------
     let claudeResult: ClaudeResult | undefined;
     if (request.claude && deps.claudeFn) {
@@ -162,7 +197,7 @@ export async function runRepoJob(
     }
 
     // -----------------------------------------------------------------------
-    // 4. Collect changed files and enforce scope
+    // 5. Collect changed files and enforce scope
     // -----------------------------------------------------------------------
     const allChangedFiles = deps.listChangedFilesFn
       ? await deps.listChangedFilesFn()
@@ -185,14 +220,17 @@ export async function runRepoJob(
     }
 
     // -----------------------------------------------------------------------
-    // 5. Test-file guard: reject patches that delete test files or add .skip
+    // 6. Test-file guard: reject patches that delete test files or add .skip
     // -----------------------------------------------------------------------
+    errorStage = "policy";
     for (const filePath of deletedFiles) {
       if (isTestFile(filePath) && allowedSet.has(filePath)) {
         return {
           status: "failed",
           results,
           error: `Test file deleted by repair: ${filePath}. Test deletions are not permitted.`,
+          errorStage: "policy",
+          errorCode: "test-file-deleted",
           revertedFiles: revertedFiles.length > 0 ? revertedFiles : undefined,
         };
       }
@@ -211,6 +249,8 @@ export async function runRepoJob(
             status: "failed",
             results,
             error: `Test file contains .skip after repair: ${filePath}. Adding .skip is not permitted.`,
+            errorStage: "policy",
+            errorCode: "test-skip-added",
             revertedFiles: revertedFiles.length > 0 ? revertedFiles : undefined,
           };
         }
@@ -218,8 +258,9 @@ export async function runRepoJob(
     }
 
     // -----------------------------------------------------------------------
-    // 6. Read file contents and get base sha
+    // 7. Read file contents and get base sha
     // -----------------------------------------------------------------------
+    errorStage = "worker";
     const changedFiles: ChangedFile[] = [];
     for (const filePath of scopedChangedFiles) {
       if (deps.readFileFn) {
@@ -245,6 +286,8 @@ export async function runRepoJob(
       status: "failed",
       error:
         error instanceof Error ? error.message : String(error),
+      errorStage,
+      errorCode: `${errorStage}-failed`,
     };
   } finally {
     // Always clean up the clone directory
