@@ -40,6 +40,18 @@ const REPAIR_EDITABLE_FILES = [
 ];
 const REPAIR_PROMPT_NAME = "e2e-nightly-repair";
 
+const REPAIR_FALLBACK_PROMPT = `You are repairing e2e test failures for the Formoria web application.
+
+Based on the diagnosis, fix the failing tests or the application code. Only edit files
+within the allowed editable paths (e2e/**/*.ts, src/**/*.ts, src/**/*.tsx).
+
+Rules:
+- Fix the root cause, not symptoms
+- Do not delete tests to make them pass
+- If a selector changed, update the test selector
+- If application behavior changed intentionally, update the test expectation
+- Return a JSON object matching the provided schema with your changes`;
+
 // ---------------------------------------------------------------------------
 // Types
 // ---------------------------------------------------------------------------
@@ -100,7 +112,13 @@ const REPAIR_SCHEMA = {
 export async function repairFailures(
   deps: RepairDeps,
 ): Promise<RepairOutcome> {
-  const basePrompt = await deps.fetchPrompt(REPAIR_PROMPT_NAME);
+  let basePrompt: string;
+  try {
+    basePrompt = await deps.fetchPrompt(REPAIR_PROMPT_NAME);
+  } catch {
+    console.log(`[e2e-repair] prompt "${REPAIR_PROMPT_NAME}" not found, using inline fallback`);
+    basePrompt = REPAIR_FALLBACK_PROMPT;
+  }
   const prompt = [
     basePrompt,
     "",

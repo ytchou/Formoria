@@ -182,10 +182,17 @@ export async function runE2eSuite(options: RunE2eSuiteOptions): Promise<RunResul
   console.log(`[e2e-runner] cloned to ${targetDir}`)
 
   // Step 4: Install dependencies
-  await deps.execCommand(
+  console.log('[e2e-runner] installing dependencies…')
+  const installResult = await deps.execCommand(
     'pnpm install --frozen-lockfile',
     { cwd: targetDir, timeoutMs: INSTALL_TIMEOUT_MS },
   )
+  if (installResult.exitCode !== 0) {
+    throw new Error(
+      `pnpm install failed (exit ${installResult.exitCode}): ${installResult.stderr.slice(0, 500)}`,
+    )
+  }
+  console.log('[e2e-runner] dependencies installed')
 
   // Step 5: Run Playwright with correct env
   const cfAccessClientId = process.env.CF_ACCESS_CLIENT_ID ?? ''

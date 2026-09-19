@@ -23,6 +23,17 @@ const DIAGNOSE_MAX_TURNS = 80;
 const DIAGNOSE_ALLOWED_TOOLS = ["Read", "Grep", "Glob", "Bash"];
 const DIAGNOSE_PROMPT_NAME = "e2e-nightly-diagnose";
 
+const DIAGNOSE_FALLBACK_PROMPT = `You are diagnosing e2e test failures for the Formoria web application.
+
+For each failure, classify it as one of:
+- env-flake: environment/infra issue (network, timeout, CF Access, rate limit)
+- test-drift: test code is stale vs the current UI (selectors, text, routes changed)
+- app-regression: a real product bug introduced by recent code changes
+- seed-drift: test relies on seed data that has changed
+- flaky-suspect: non-deterministic failure, likely timing or race condition
+
+Return a JSON object matching the provided schema.`;
+
 // ---------------------------------------------------------------------------
 // Types
 // ---------------------------------------------------------------------------
@@ -122,7 +133,13 @@ const DIAGNOSIS_SCHEMA = {
 export async function diagnoseFailures(
   deps: DiagnoseDeps,
 ): Promise<DiagnoseOutcome | null> {
-  const basePrompt = await deps.fetchPrompt(DIAGNOSE_PROMPT_NAME);
+  let basePrompt: string;
+  try {
+    basePrompt = await deps.fetchPrompt(DIAGNOSE_PROMPT_NAME);
+  } catch {
+    console.log(`[e2e-diagnose] prompt "${DIAGNOSE_PROMPT_NAME}" not found, using inline fallback`);
+    basePrompt = DIAGNOSE_FALLBACK_PROMPT;
+  }
   const prompt = [
     basePrompt,
     "",
