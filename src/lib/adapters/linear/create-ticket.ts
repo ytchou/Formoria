@@ -14,7 +14,6 @@ mutation IssueCreate($input: IssueCreateInput!) {
 const LABEL_ENV_MAP: Record<string, string> = {
   data_quality: "LINEAR_LABEL_DATA_QUALITY",
   ops: "LINEAR_LABEL_OPS",
-  e2e_nightly: "LINEAR_LABEL_E2E_NIGHTLY",
 };
 
 export type TicketSpec = {

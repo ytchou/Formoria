@@ -61,14 +61,14 @@ describe('report_creates_incident_pr_via_app_publish', () => {
 })
 
 describe('report_creates_linear_ticket_for_needs_human', () => {
-  it('creates ticket with e2e_nightly label', async () => {
+  it('creates ticket with Bug label', async () => {
     const deps = makeDeps({ outcome: 'needs_human' })
 
     await reportOutcome(deps)
 
     expect(deps.createTicket).toHaveBeenCalledTimes(1)
     const spec = (deps.createTicket as ReturnType<typeof vi.fn>).mock.calls[0][0]
-    expect(spec.label).toBe('e2e_nightly')
+    expect(spec.label).toBe('5bb8cb23-6463-436b-befc-0463806d13b6')
     expect(spec.title).toBeTruthy()
     expect(spec.body).toBeTruthy()
   })

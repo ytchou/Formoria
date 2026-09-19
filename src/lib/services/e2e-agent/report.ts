@@ -108,7 +108,7 @@ async function handleNeedsHuman(deps: ReportDeps): Promise<void> {
       '',
       `PR: ${prUrl}`,
     ].join('\n'),
-    label: 'e2e_nightly',
+    label: '5bb8cb23-6463-436b-befc-0463806d13b6',
   })
 
   await deps.postSlackMessage({
@@ -133,7 +133,7 @@ async function handleFallback(deps: ReportDeps): Promise<void> {
       '### Failures',
       failureSummary(deps.frozenFailures),
     ].join('\n'),
-    label: 'e2e_nightly',
+    label: '5bb8cb23-6463-436b-befc-0463806d13b6',
   })
 
   await deps.postSlackMessage({
