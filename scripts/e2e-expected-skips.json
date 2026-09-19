@@ -2,19 +2,39 @@
   "version": 1,
   "allowed": [
     {
-      "file": "event-detail.spec.ts",
-      "title": "area chips filter the brand grid in place",
-      "reason": "event lineup has fewer than two areas to filter by"
+      "file": "newsletter-subscribe.spec.ts",
+      "title": "anonymous visitor can subscribe from the homepage",
+      "reason": "staging blocks anonymous mutations"
     },
     {
-      "file": "admin-brand-refresh.spec.ts",
-      "title": "keeps a failed refresh selected while removing successful approvals",
-      "reason": "DEV-1592: admin panel crashes on the Approve dialog"
+      "file": "submit-funnel.spec.ts",
+      "title": "submits brand and reaches confirmation page",
+      "reason": "staging blocks anonymous mutations"
     },
     {
-      "file": "admin-moderation.spec.ts",
-      "title": "admin cannot bypass the block and can review the resulting queue rows",
-      "reason": "DEV-1590: Content section Edit button crashes the admin panel after PR #889 namespace rename"
+      "file": "submit-recommend-edge-cases.spec.ts",
+      "title": "Submit recommendation edge cases",
+      "reason": "staging blocks anonymous mutations"
+    },
+    {
+      "file": "auth-signin.spec.ts",
+      "title": "sign-in page renders the heading and Google entry point",
+      "reason": "staging hides the Google button and the forgot-password link"
+    },
+    {
+      "file": "auth-password-reset.spec.ts",
+      "title": "sign-in page links to the forgot-password form",
+      "reason": "staging hides the Google button and the forgot-password link"
+    },
+    {
+      "file": "brand-corrections.spec.ts",
+      "title": "Brand corrections — anonymous crowd QA",
+      "reason": "Anonymous correction mutations are intentionally disabled on canonical staging"
+    },
+    {
+      "file": "seo.spec.ts",
+      "title": "sitemap",
+      "reason": "Staging intentionally omits the sitemap."
     },
     {
       "file": "brand-detail.spec.ts",
@@ -35,36 +55,6 @@
       "file": "image-route.spec.ts",
       "title": "sets an immutable one-year cache header",
       "reason": "Cloudflare rewrites cache-control on remote targets"
-    },
-    {
-      "file": "discovery-trail.spec.ts",
-      "title": "trail entrance renders in server HTML",
-      "reason": "no trail products in staging database"
-    },
-    {
-      "file": "discovery-trail.spec.ts",
-      "title": "outbound chip points at the brand's official destination",
-      "reason": "no trail products in staging database"
-    },
-    {
-      "file": "curation-recovery.spec.ts",
-      "title": "recovery commits only eligible checkpoints atomically with a pending submission",
-      "reason": "service-level test requires in-process access to the local server"
-    },
-    {
-      "file": "curation-recovery.spec.ts",
-      "title": "one recovery job keeps mixed targets isolated and preserves FAQ scope through a failed retry chain",
-      "reason": "service-level test requires in-process access to the local server"
-    },
-    {
-      "file": "curation-recovery.spec.ts",
-      "title": "a forced FAQ retry executes despite its source checkpoint without enabling overwrite",
-      "reason": "service-level test requires in-process access to the local server"
-    },
-    {
-      "file": "curation-recovery.spec.ts",
-      "title": "a products-only recovery without saved acquisition inputs fails before provider work",
-      "reason": "service-level test requires in-process access to the local server"
     }
   ]
 }
