@@ -147,13 +147,14 @@ function parseJsonOutput(stdout: string): unknown {
   try {
     return JSON.parse(trimmed)
   } catch {
-    const start = trimmed.indexOf('{')
-    const end = trimmed.lastIndexOf('}')
-    if (start >= 0 && end > start) {
+    const lines = trimmed.split('\n')
+    for (let index = lines.length - 1; index >= 0; index -= 1) {
+      const candidate = lines.slice(index).join('\n').trim()
+      if (!candidate.startsWith('{')) continue
       try {
-        return JSON.parse(trimmed.slice(start, end + 1))
+        return JSON.parse(candidate)
       } catch {
-        /* handled below */
+        /* try the previous line */
       }
     }
   }

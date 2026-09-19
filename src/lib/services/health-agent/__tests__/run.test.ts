@@ -124,7 +124,8 @@ function cleanQualityResults() {
     },
     {
       id: 'knip',
-      stdout: '{"issues":[]}',
+      stdout:
+        "◇ injected env (0) from .env.local // tip: { path: '/custom/path/.env' }\n{\"issues\":[]}",
       stderr: '',
       exitCode: 0,
       timedOut: false,
