@@ -1,3 +1,4 @@
+import { createPrivateKey } from "node:crypto";
 import { SignJWT, importPKCS8 } from "jose";
 import { auditedCall } from "@/lib/audit";
 
@@ -39,7 +40,13 @@ async function signAppJwt(
   appId: string,
   privateKeyPem: string,
 ): Promise<string> {
-  const key = await importPKCS8(privateKeyPem, "RS256");
+  // GitHub generates PKCS#1 (RSA PRIVATE KEY); jose needs PKCS#8 (PRIVATE KEY).
+  // Also handle Railway env vars storing literal \n instead of real newlines.
+  const normalizedPem = privateKeyPem.replace(/\\n/g, "\n");
+  const pkcs8Pem = normalizedPem.includes("BEGIN PRIVATE KEY")
+    ? normalizedPem
+    : (createPrivateKey(normalizedPem).export({ type: "pkcs8", format: "pem" }) as string);
+  const key = await importPKCS8(pkcs8Pem, "RS256");
   const now = Math.floor(Date.now() / 1000);
   return new SignJWT({})
     .setProtectedHeader({ alg: "RS256" })
