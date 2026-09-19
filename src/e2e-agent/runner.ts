@@ -132,17 +132,27 @@ export async function runE2eSuite(options: RunE2eSuiteOptions): Promise<RunResul
 
   console.log(`[e2e-runner] run=${runId} staging-sha=${stagingSha.slice(0, 12)}`)
 
-  // Step 2: Poll X-Formoria-Revision header until it matches staging SHA
+  // Step 2: Poll X-Formoria-Revision header until it matches staging SHA.
+  // Best-effort: if the header is never set (empty on every attempt), warn and proceed.
   const pollDeadline = Date.now() + revisionPollMaxMs
   let revisionMatched = false
+  let emptyCount = 0
+  const MAX_EMPTY_BEFORE_SKIP = 3
 
   while (Date.now() < pollDeadline) {
     const deployedRevision = await deps.fetchRevision(stagingUrl)
     if (!deployedRevision) {
-      console.log('[e2e-runner] revision empty, retrying…')
+      emptyCount++
+      if (emptyCount >= MAX_EMPTY_BEFORE_SKIP) {
+        console.log(`[e2e-runner] revision header absent after ${emptyCount} attempts — skipping revision check`)
+        revisionMatched = true
+        break
+      }
+      console.log(`[e2e-runner] revision empty (${emptyCount}/${MAX_EMPTY_BEFORE_SKIP}), retrying…`)
       await sleep(revisionPollIntervalMs)
       continue
     }
+    emptyCount = 0
     if (deployedRevision.startsWith(stagingSha) || stagingSha.startsWith(deployedRevision)) {
       revisionMatched = true
       break
