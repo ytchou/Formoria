@@ -26,11 +26,6 @@ export type LinksWeeklyDeps = {
     checkUrl: unknown
     requireNonEmpty?: boolean
   }) => Promise<LinkCheckClassResult>
-  checkStockistLinks: (args: {
-    supabase: unknown
-    checkUrl: unknown
-    requireNonEmpty?: boolean
-  }) => Promise<LinkCheckClassResult>
   checkBrandChannelLinks: (args: {
     supabase: unknown
     checkUrl: unknown
@@ -83,14 +78,6 @@ const CLASSES: ClassEntry[] = [
         supabase: ctx.deps.supabase,
         checkUrl: ctx.deps.checkUrl,
         requireNonEmpty: true,
-      }),
-  },
-  {
-    name: 'stockists',
-    run: (ctx, deps) =>
-      deps.checkStockistLinks({
-        supabase: ctx.deps.supabase,
-        checkUrl: ctx.deps.checkUrl,
       }),
   },
   {

@@ -21,7 +21,7 @@ import type { Detector, DetectorContext } from '../types'
 export type TrailSupplyDetectorDeps = {
   /** Railway origin URL (FORMORIA_RAILWAY_URL). */
   railwayUrl: string
-  /** CF_ORIGIN_SECRET for the origin route. */
+  /** Credential matching the route's ORIGIN_SECRET. */
   originSecret: string
   /** Injected fetch for testing. */
   fetchImpl?: typeof fetch
@@ -50,7 +50,7 @@ export function trailSupplyDetector(deps: TrailSupplyDetectorDeps): Detector {
           fetchFn(url, {
             method: 'GET',
             headers: {
-              'x-origin-secret': deps.originSecret,
+              'x-origin-verify': deps.originSecret,
               Accept: 'application/json',
             },
           }),

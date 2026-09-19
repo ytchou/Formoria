@@ -16,13 +16,23 @@ function makeCtx(
 
 describe('sentry-capture detector', () => {
   it('triggers the canary with a fresh token and fails if no matching event appears before the deadline', async () => {
-    const requests: { url: string }[] = []
-    const fakeFetch = async (url: string) => {
-      requests.push({ url: url as string })
-      if (typeof url === 'string' && url.includes('/api/cron/health-canary')) {
-        // Canary trigger succeeds
+    const requests: {
+      url: string
+      method?: string
+      headers?: HeadersInit
+      body?: BodyInit | null
+    }[] = []
+    const fakeFetch = async (url: string, init?: RequestInit) => {
+      requests.push({
+        url: url as string,
+        method: init?.method,
+        headers: init?.headers,
+        body: init?.body,
+      })
+      if (typeof url === 'string' && url.includes('/api/internal/sentry-canary')) {
+        // The route deliberately returns 500 after capturing the canary.
         return new Response(JSON.stringify({ ok: true }), {
-          status: 200,
+          status: 500,
           headers: { 'Content-Type': 'application/json' },
         })
       }
@@ -41,7 +51,8 @@ describe('sentry-capture detector', () => {
         SENTRY_ORGANIZATION: 'formoria',
         SENTRY_PROJECT: 'formoria-web',
         FORMORIA_RAILWAY_URL: 'https://formoria.railway.internal',
-        CF_ORIGIN_SECRET: 'origin-secret',
+        ORIGIN_SECRET: 'machine-caller-secret',
+        CF_ORIGIN_SECRET: 'edge-secret',
       },
       // Override the poll to finish immediately without waiting
       pollIntervalMs: 0,
@@ -51,6 +62,26 @@ describe('sentry-capture detector', () => {
 
     // Should have triggered the canary at the Railway origin
     expect(requests.some((r) => r.url.includes('formoria.railway.internal'))).toBe(true)
+    const canaryRequest = requests.find((r) =>
+      r.url.includes('/api/internal/sentry-canary'),
+    )
+    expect(canaryRequest?.method).toBe('POST')
+    expect(new Headers(canaryRequest?.headers).get('x-origin-verify')).toBe(
+      'machine-caller-secret',
+    )
+    expect(new Headers(canaryRequest?.headers).get('content-type')).toBe(
+      'application/json',
+    )
+    const canaryBody = JSON.parse(String(canaryRequest?.body)) as {
+      token: string
+    }
+    expect(canaryBody).toMatchObject({
+      token: expect.any(String),
+    })
+    const pollRequest = requests.find((r) => r.url.includes('/issues/'))
+    expect(new URL(pollRequest!.url).searchParams.get('query')).toBe(
+      canaryBody.token,
+    )
     // Should fail because no matching event appeared
     expect(findings).toHaveLength(1)
     expect(findings[0].title).toMatch(/canary|sentry.*capture/i)
@@ -58,9 +89,9 @@ describe('sentry-capture detector', () => {
 
   it('returns no findings when the canary event is found', async () => {
     const fakeFetch = async (url: string) => {
-      if (typeof url === 'string' && url.includes('/api/cron/health-canary')) {
+      if (typeof url === 'string' && url.includes('/api/internal/sentry-canary')) {
         return new Response(JSON.stringify({ ok: true }), {
-          status: 200,
+          status: 500,
           headers: { 'Content-Type': 'application/json' },
         })
       }
@@ -79,7 +110,7 @@ describe('sentry-capture detector', () => {
         SENTRY_ORGANIZATION: 'formoria',
         SENTRY_PROJECT: 'formoria-web',
         FORMORIA_RAILWAY_URL: 'https://formoria.railway.internal',
-        CF_ORIGIN_SECRET: 'origin-secret',
+        ORIGIN_SECRET: 'machine-caller-secret',
       },
       pollIntervalMs: 0,
       maxPollAttempts: 1,

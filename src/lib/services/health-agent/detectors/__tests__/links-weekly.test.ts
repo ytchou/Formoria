@@ -51,7 +51,6 @@ function buildDeps(
   return {
     checkSocialLinks: vi.fn(async () => okResult()),
     checkBrandOtherUrls: vi.fn(async () => okResult()),
-    checkStockistLinks: vi.fn(async () => okResult()),
     checkBrandChannelLinks: vi.fn(async () => okResult()),
     checkEventLinks: vi.fn(async () => okResult()),
     checkBrandImageLinks: vi.fn(async () => okResult()),
@@ -66,6 +65,19 @@ function buildDeps(
 // ---------------------------------------------------------------------------
 
 describe('links-weekly detector', () => {
+  it('uses brand channels as the single source for stockist URLs', async () => {
+    const legacyStockistCheck = vi.fn(async () => okResult())
+    const deps = {
+      ...buildDeps(),
+      checkStockistLinks: legacyStockistCheck,
+    }
+
+    await linksWeeklyDetector(deps).run(ctx())
+
+    expect(deps.checkBrandChannelLinks).toHaveBeenCalled()
+    expect(legacyStockistCheck).not.toHaveBeenCalled()
+  })
+
   it('runs all link-check classes and returns their findings', async () => {
     const deps = buildDeps({
       checkSocialLinks: vi.fn(async () => deadResult()),
