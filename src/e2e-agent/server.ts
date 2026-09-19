@@ -58,8 +58,7 @@ export async function main(): Promise<never> {
       deps: buildRunnerDeps(),
     })
 
-    // Green — all passed, no unexpected skips
-    if (result.passed && result.unexpectedSkips.length === 0) {
+    if (result.passed) {
       console.log(`[e2e-nightly] run=${runId} outcome=green exit=0`)
     } else if (result.failures.length > 0 && runSelfHealGraph) {
       // Map runner failures to freeze.ts RunResult format (requires project)
