@@ -92,7 +92,7 @@ export interface PhaseResult {
     adopted: Array<{
       field: string;
       url: string;
-      source: 'hub' | 'threads' | 'serp' | 'serp_handle';
+      source: 'hub' | 'threads' | 'serp';
     }>;
     serp: 'replayed' | 'searched' | 'none';
     gated?: string;
@@ -105,7 +105,6 @@ export interface PhaseResult {
       hubs: SourceOutcome;
       threads: SourceOutcome;
       serpName: SourceOutcome;
-      serpHandle: SourceOutcome;
     };
     /** `conclusive` only when every source answered and none was `unknown`. */
     evidence?: 'conclusive' | 'inconclusive';
