@@ -5,7 +5,7 @@
  * no real network calls.
  */
 
-import { describe, expect, it, vi, beforeEach } from 'vitest'
+import { afterEach, describe, expect, it, vi, beforeEach } from 'vitest'
 
 // ---------------------------------------------------------------------------
 // Mocks
@@ -87,6 +87,8 @@ describe('e2e-agent runner', () => {
     mockEvaluateSkips.mockReturnValue([])
   })
 
+  afterEach(() => vi.unstubAllEnvs())
+
   it('runner_clones_staging_at_resolved_sha', async () => {
     const deps = makeDeps()
     const { runE2eSuite } = await import('../runner.js')
@@ -103,6 +105,7 @@ describe('e2e-agent runner', () => {
   })
 
   it('runner_runs_playwright_with_correct_env', async () => {
+    vi.stubEnv('E2E_STAGING_SESSION_SECRET', 'runner-secret-with-at-least-thirty-two-bytes')
     const deps = makeDeps()
     const { runE2eSuite } = await import('../runner.js')
 
@@ -119,6 +122,9 @@ describe('e2e-agent runner', () => {
     const env = callOpts?.env as Record<string, string> | undefined
     expect(env?.FORMORIA_DEPLOYMENT_ENV).toBe('staging')
     expect(env?.CI).toBe('true')
+    expect(env?.E2E_STAGING_SESSION_SECRET).toBe(
+      'runner-secret-with-at-least-thirty-two-bytes',
+    )
   })
 
   it('runner_parses_playwright_json_results', async () => {

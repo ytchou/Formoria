@@ -95,6 +95,8 @@ export const NON_SERVICE_ENV: Readonly<Record<string, string>> = {
     "Canonical production probe target origin, not a provider service.",
   E2E_ORIGIN_SECRET:
     "Staging E2E origin authentication secret, not a provider service.",
+  E2E_STAGING_SESSION_SECRET:
+    "Request-scoped staging deep-suite capability secret; separate from Cloudflare Access and origin credentials.",
   CURATION_WORKER_URL: "Internal worker routing target, not a credential.",
   NEXT_PUBLIC_SITE_URL:
     "Public host used by absolute links and the availability probe; not a credential.",

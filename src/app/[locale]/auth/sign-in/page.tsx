@@ -2,6 +2,9 @@ import type { Metadata } from "next";
 import { getTranslations, setRequestLocale } from "next-intl/server";
 import { redirectIfAuthenticated } from "@/lib/auth/redirect-if-authenticated";
 import { SignInForm } from "@/components/auth/sign-in-form";
+import { headers } from "next/headers";
+import { isStagingRequest } from "@/lib/deployment-environment";
+import { verifyStagingSessionHeaders } from "@/lib/security/staging-session";
 
 // The page reads the request session before rendering. Without an explicit
 // dynamic boundary, the RSC response can be reused across auth states and a
@@ -37,6 +40,17 @@ export default async function SignInPage({ params, searchParams }: Props) {
   await redirectIfAuthenticated();
 
   const search = await searchParams;
+  const headerStore = await headers();
+  const requestHost =
+    headerStore.get("x-forwarded-host") ?? headerStore.get("host");
+  const showOptionalAuthMethods =
+    !isStagingRequest(requestHost) ||
+    Boolean(await verifyStagingSessionHeaders(headerStore));
 
-  return <SignInForm errorCode={search.error} />;
+  return (
+    <SignInForm
+      errorCode={search.error}
+      showOptionalAuthMethods={showOptionalAuthMethods}
+    />
+  );
 }

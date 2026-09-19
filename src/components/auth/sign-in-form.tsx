@@ -16,6 +16,7 @@ import { routes } from "@/lib/routes";
 type SignInFormProps = {
   /** `?error=` code written by /auth/callback and the OAuth action. */
   errorCode?: string;
+  showOptionalAuthMethods: boolean;
 };
 
 const ERROR_MESSAGE_KEYS = {
@@ -25,7 +26,10 @@ const ERROR_MESSAGE_KEYS = {
   "invalid-credentials": "signIn.errors.default",
 } as const;
 
-export function SignInForm({ errorCode }: SignInFormProps) {
+export function SignInForm({
+  errorCode,
+  showOptionalAuthMethods,
+}: SignInFormProps) {
   const [state, action, pending] = useActionState<AuthState, FormData>(
     signIn,
     {},
@@ -40,7 +44,6 @@ export function SignInForm({ errorCode }: SignInFormProps) {
     false,
     locale,
   );
-  const staging = process.env.NEXT_PUBLIC_DEPLOYMENT_ENV === "staging";
   const t = useTranslations("auth");
 
   const errorMessage =
@@ -96,7 +99,7 @@ export function SignInForm({ errorCode }: SignInFormProps) {
           />
         </div>
 
-        {!staging ? (
+        {showOptionalAuthMethods ? (
           <div className="flex justify-end">
             <Link
               href={routes.auth.forgotPassword()}
@@ -117,11 +120,11 @@ export function SignInForm({ errorCode }: SignInFormProps) {
         </Button>
       </form>
 
-      {!staging ? (
+      {showOptionalAuthMethods ? (
         <GoogleButton action={googleAction} />
       ) : null}
 
-      {!staging ? (
+      {showOptionalAuthMethods ? (
         <p className="text-center type-body-sm">
           {t("signIn.noAccount")}{" "}
           <Link

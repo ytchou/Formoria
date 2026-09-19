@@ -1,5 +1,6 @@
 import { defineConfig, devices } from "@playwright/test";
 import { BUDGET } from "./e2e/budgets";
+import { DEEP_STAGING_SESSION_STATE } from "./e2e/helpers/staging-session";
 
 // Load .env.local so global-setup can access env vars outside the Next.js runtime
 // eslint-disable-next-line @typescript-eslint/no-require-imports
@@ -145,7 +146,10 @@ export default defineConfig({
          */
         "e2e/tests/visual-regression.spec.ts",
       ],
-      use: { ...devices["Desktop Chrome"] },
+      use: {
+        ...devices["Desktop Chrome"],
+        storageState: DEEP_STAGING_SESSION_STATE,
+      },
     },
     // Compatibility: exactly the one tagged journey, selected independently
     // from the smoke subset so smoke cases cannot multiply across browsers.

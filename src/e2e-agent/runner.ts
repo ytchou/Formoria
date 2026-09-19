@@ -198,6 +198,7 @@ export async function runE2eSuite(options: RunE2eSuiteOptions): Promise<RunResul
   // Step 5: Run Playwright with correct env
   const cfAccessClientId = process.env.CF_ACCESS_CLIENT_ID ?? ''
   const cfAccessClientSecret = process.env.CF_ACCESS_CLIENT_SECRET ?? ''
+  const stagingSessionSecret = process.env.E2E_STAGING_SESSION_SECRET ?? ''
 
   const playwrightResult = await deps.execCommand(
     'pnpm exec playwright test --project=deep --reporter=json',
@@ -209,6 +210,7 @@ export async function runE2eSuite(options: RunE2eSuiteOptions): Promise<RunResul
         CI: 'true',
         CF_ACCESS_CLIENT_ID: cfAccessClientId,
         CF_ACCESS_CLIENT_SECRET: cfAccessClientSecret,
+        E2E_STAGING_SESSION_SECRET: stagingSessionSecret,
         BASE_URL: stagingUrl,
       },
     },

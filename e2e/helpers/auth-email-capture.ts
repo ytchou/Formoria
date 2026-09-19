@@ -90,6 +90,23 @@ export async function waitForCapturedAuthEmail(options: {
   );
 }
 
+export async function countCapturedAuthEmails(options: {
+  recipient: string;
+  action: "signup" | "recovery";
+  createdAfter: string;
+}): Promise<number> {
+  const { count, error } = await serviceClient()
+    .from(CAPTURE_TABLE)
+    .select("id", { count: "exact", head: true })
+    .eq("recipient", options.recipient)
+    .eq("action", options.action)
+    .gte("created_at", options.createdAfter);
+  if (error) {
+    throw new Error(`Unable to count captured Auth emails: ${error.message}`);
+  }
+  return count ?? 0;
+}
+
 export async function deleteCapturedAuthEmail(id: string | null | undefined): Promise<void> {
   if (!id) return;
   const { error } = await serviceClient().from(CAPTURE_TABLE).delete().eq("id", id);

@@ -53,6 +53,10 @@ import {
   isAllowedStagingRequest,
   isStagingRequest,
 } from "@/lib/deployment-environment";
+import {
+  E2E_STAGING_SESSION_COOKIE,
+  verifyStagingSession,
+} from "@/lib/security/staging-session";
 
 export { RESERVED_ROUTES } from "@/lib/routes";
 
@@ -679,8 +683,14 @@ async function runProxy(request: NextRequest) {
   // which is why no e2e project could exercise either gate on its own.
   const rateLimitDisabled = isRateLimitDisabled();
   const routerRequest = isRouterRequest(request);
+  const hasStagingE2ESession = Boolean(
+    await verifyStagingSession(
+      request.cookies.get(E2E_STAGING_SESSION_COOKIE)?.value,
+      request.headers.get("host"),
+    ),
+  );
 
-  if (staging && pathname === "/sitemap.xml") {
+  if (staging && !hasStagingE2ESession && pathname === "/sitemap.xml") {
     return finalizeResponse(
       new NextResponse("Not found", { status: 404 }),
       staging,
@@ -723,6 +733,7 @@ async function runProxy(request: NextRequest) {
       : false;
   const stagingRequestAllowed =
     !enforceStagingLockdown ||
+    hasStagingE2ESession ||
     initiallyAllowed ||
     isAllowedStagingRequest(request.method, pathname, authenticated);
 
@@ -822,12 +833,17 @@ async function runProxy(request: NextRequest) {
   }
 
   // Check rate limit before regular request processing
-  if (!rateLimitDisabled) {
+  if (!rateLimitDisabled && !hasStagingE2ESession) {
     const rateLimitResponse = await checkRateLimit(request);
     if (rateLimitResponse) return finalizeResponse(rateLimitResponse, staging);
   }
 
-  if (!rateLimitDisabled && !routerRequest && isSoftLimitPath(pathname)) {
+  if (
+    !rateLimitDisabled &&
+    !hasStagingE2ESession &&
+    !routerRequest &&
+    isSoftLimitPath(pathname)
+  ) {
     const challengeCookie = request.cookies.get(CHALLENGE_COOKIE_NAME)?.value;
     let isVerified = false;
     if (challengeCookie) {

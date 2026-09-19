@@ -120,10 +120,6 @@ test.describe("SEO deep", () => {
   });
 
   test("sitemap.xml is accessible", async ({ request }) => {
-    test.skip(
-      process.env.FORMORIA_DEPLOYMENT_ENV === "staging",
-      "Staging intentionally omits the sitemap.",
-    );
     const response = await request.get("/sitemap.xml");
     expect(response.status()).toBe(200);
     const body = await response.text();
@@ -299,10 +295,6 @@ test.describe("SEO deep", () => {
   });
 
   test("sitemap includes the public editorial pages", async ({ request }) => {
-    test.skip(
-      process.env.FORMORIA_DEPLOYMENT_ENV === "staging",
-      "Staging intentionally omits the sitemap.",
-    );
     const body = await (await request.get("/sitemap.xml")).text();
     expect(body).toContain("/about");
     expect(body).not.toContain("/vision");
@@ -311,10 +303,6 @@ test.describe("SEO deep", () => {
   test("sitemap static pages expose a resolvable PNG OG image", async ({
     request,
   }) => {
-    test.skip(
-      process.env.FORMORIA_DEPLOYMENT_ENV === "staging",
-      "Staging intentionally omits the sitemap.",
-    );
     // The sitemap includes every locale and category variant; in a full dev
     // run those route bundles may still compile lazily after the other SEO
     // journeys have exercised the server. Keep the budget local to this sweep.

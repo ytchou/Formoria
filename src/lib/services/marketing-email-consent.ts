@@ -32,6 +32,7 @@ export async function requestNewsletterSubscription(
     MarketingEnrollmentInput,
     'email' | 'locale' | 'source' | 'interests'
   >,
+  options: { suppressDelivery?: boolean } = {},
 ): Promise<'pending' | 'active' | 'failed'> {
   return auditedCall(
     { provider: 'email', operation: 'requestNewsletterSubscription', kind: 'service' },
@@ -48,7 +49,7 @@ export async function requestNewsletterSubscription(
     return 'active'
   }
 
-  if (process.env.PLAYWRIGHT_TEST === 'true') {
+  if (options.suppressDelivery || process.env.PLAYWRIGHT_TEST === 'true') {
     return 'pending'
   }
 

@@ -1,5 +1,6 @@
 import { createClient } from "@supabase/supabase-js";
-import { test, expect } from "../fixtures/auth";
+import { applyOriginGuard, test, expect } from "../fixtures/auth";
+import { addDeepStagingSessionCookie } from "../helpers/staging-session";
 
 import { BUDGET, POLL } from "../budgets";
 
@@ -85,6 +86,7 @@ test.describe("Navbar auth journey", () => {
 
   test("sign out from authenticated session returns to logged-out home state", async ({
     browser,
+    baseURL,
   }) => {
     test.setTimeout(BUDGET.TEST.ADMIN);
     // IMPORTANT: Do NOT use the shared userPage fixture here.
@@ -103,6 +105,8 @@ test.describe("Navbar auth journey", () => {
 
     // Isolated browser context — cookies are separate from the shared worker session
     const context = await browser.newContext();
+    await addDeepStagingSessionCookie(context, baseURL);
+    await applyOriginGuard(context, baseURL);
     const page = await context.newPage();
 
     try {

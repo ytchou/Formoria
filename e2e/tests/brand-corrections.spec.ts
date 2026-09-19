@@ -4,16 +4,6 @@ import { seedBrand, SeededBrand } from '../helpers/seed';
 import { BUDGET, POLL } from '../budgets';
 import zhTW from '../../messages/zh-TW.json';
 
-const IS_CANONICAL_STAGING_TARGET =
-  new URL(
-    process.env.BASE_URL ??
-      process.env.PLAYWRIGHT_BASE_URL ??
-      process.env.STAGING_BASE_URL ??
-      'http://localhost:3000',
-  ).origin === 'https://staging.formoria.com';
-const STAGING_MUTATION_SKIP_REASON =
-  'Anonymous correction mutations are intentionally disabled on canonical staging';
-
 /**
  * Crowd-QA corrections (DEV-1170).
  *
@@ -213,7 +203,6 @@ test.describe('Brand corrections — anonymous crowd QA', () => {
   test(
     'anonymous visitor can submit a category correction',
     async ({ anonPage }, testInfo) => {
-      test.skip(IS_CANONICAL_STAGING_TARGET, STAGING_MUTATION_SKIP_REASON);
       test.setTimeout(BUDGET.TEST.MUTATION);
       await isolateVisitorIp(anonPage, testInfo.workerIndex);
       await openSeededBrand(anonPage, seeded);
@@ -258,7 +247,6 @@ test.describe('Brand corrections — anonymous crowd QA', () => {
   );
 
   test('a second submission for the same field is rejected', async ({ anonPage }, testInfo) => {
-    test.skip(IS_CANONICAL_STAGING_TARGET, STAGING_MUTATION_SKIP_REASON);
     test.setTimeout(BUDGET.TEST.ADMIN);
     await isolateVisitorIp(anonPage, testInfo.workerIndex);
     await openSeededBrand(anonPage, seeded);
@@ -287,10 +275,7 @@ test.describe('Brand corrections — anonymous crowd QA', () => {
    * stored slug') and is deliberately NOT duplicated here.
    *
    * It is READ-ONLY: it opens the picker, is refused, and closes. Nothing is
-   * submitted, so it deliberately carries no `IS_CANONICAL_STAGING_TARGET` skip
-   * — the mutating tests above need one because anonymous correction writes are
-   * disabled on canonical staging, and this one writes nothing to disable.
-   * The refusal is logged in memory on the client only
+   * submitted. The refusal is logged in memory on the client only
    * (`recordRejectedSubcategoryInput`), never persisted.
    */
   test('the closed subcategory picker announces its refusal through the field', async ({
