@@ -4,11 +4,6 @@ import { readTargetPlan } from "../../src/lib/services/enrich-blocks/plan";
 import { enqueueCurationRecovery } from "../../src/lib/services/curation-jobs";
 import { verifyAtomicRecovery, withRecoveryServiceFixture } from "../fixtures/curation-recovery";
 
-const isRemote = !["localhost", "127.0.0.1", "::1"].some((h) =>
-  (process.env.BASE_URL ?? "http://localhost:3000").includes(h),
-);
-test.skip(isRemote, "service-level tests require in-process access to the local server");
-
 // Catches submission updates and checkpoint acknowledgements diverging on rejection or rollback.
 test("recovery commits only eligible checkpoints atomically with a pending submission", () => {
   expect(verifyAtomicRecovery()).toEqual({
