@@ -302,12 +302,22 @@ check_ai_results_phase() {
 check_e2e() {
   if [[ "$*" == *"--e2e"* ]]; then
     echo "Checking e2e env vars..."
-    for var in E2E_ADMIN_EMAIL E2E_ADMIN_PASSWORD E2E_USER_EMAIL E2E_USER_PASSWORD E2E_BRAND_SLUG E2E_CATEGORY_SLUG; do
+    for var in E2E_ADMIN_EMAIL E2E_ADMIN_PASSWORD E2E_USER_EMAIL E2E_USER_PASSWORD E2E_BRAND_SLUG E2E_CATEGORY_SLUG E2E_STAGING_SESSION_SECRET; do
       if [ -z "${!var}" ]; then
         echo "  MISSING: $var"
         ERRORS=$((ERRORS + 1))
       else
         echo "  OK: $var"
+      fi
+    done
+    if [ -n "${E2E_STAGING_SESSION_SECRET:-}" ] && [ "$(printf '%s' "$E2E_STAGING_SESSION_SECRET" | wc -c | tr -d ' ')" -lt 32 ]; then
+      echo "  INVALID: E2E_STAGING_SESSION_SECRET must be at least 32 bytes"
+      ERRORS=$((ERRORS + 1))
+    fi
+    for var in E2E_ORIGIN_SECRET CF_ORIGIN_SECRET ORIGIN_SECRET CF_ACCESS_CLIENT_SECRET; do
+      if [ -n "${E2E_STAGING_SESSION_SECRET:-}" ] && [ -n "${!var:-}" ] && [ "$E2E_STAGING_SESSION_SECRET" = "${!var}" ]; then
+        echo "  INVALID: E2E_STAGING_SESSION_SECRET must be separate from $var"
+        ERRORS=$((ERRORS + 1))
       fi
     done
   fi

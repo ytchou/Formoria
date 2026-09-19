@@ -37,16 +37,6 @@ test.describe('Newsletter subscribe flow', () => {
 
   test('anonymous visitor can subscribe from the homepage', async ({ page }) => {
     test.setTimeout(BUDGET.TEST.JOURNEY);
-    // Deployed staging answers 403 to every anonymous mutation
-    // (`isAllowedStagingRequest` in src/lib/deployment-environment.ts allows only
-    // GET plus the /auth/* POSTs), so this journey's write cannot complete on the
-    // one environment this suite targets. Measured, not inferred: anonymous POSTs
-    // to /submit/recommend and /api/newsletter/subscribe both return 403 there
-    // while /auth/sign-up returns 200.
-    test.skip(
-      process.env.FORMORIA_DEPLOYMENT_ENV === 'staging',
-      'staging blocks anonymous mutations',
-    );
     await page.goto('/');
 
     // --- Newsletter section heading ---
@@ -85,5 +75,21 @@ test.describe('Newsletter subscribe flow', () => {
 
     // The form itself must no longer be present
     await expect(emailInput).not.toBeVisible();
+
+    const supabase = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY!,
+    );
+    const { data: subscriber, error } = await supabase
+      .from('newsletter_subscribers')
+      .select('email, confirmed_at, interests')
+      .eq('email', testEmail)
+      .single();
+    expect(error).toBeNull();
+    expect(subscriber).toMatchObject({
+      email: testEmail,
+      confirmed_at: null,
+      interests: expect.arrayContaining(['curated-picks', 'brand-stories']),
+    });
   });
 });

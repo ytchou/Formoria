@@ -22,6 +22,7 @@ import {
   checkBrandDuplicates,
 } from "@/lib/services/submissions";
 import { enrollInMarketingEmails } from "@/lib/services/marketing-email-consent";
+import { verifyStagingSessionHeaders } from "@/lib/security/staging-session";
 
 const guestRecommendationRateLimiter = createInMemoryRateLimiter();
 const nameInspectionRateLimiter = createInMemoryRateLimiter();
@@ -138,18 +139,23 @@ export async function submitRecommendation(
 
       const headerStore = await headers();
       const ip = getRequestIp(headerStore);
-      if (process.env.PLAYWRIGHT_TEST !== "true") {
+      const hasStagingE2ESession = Boolean(
+        await verifyStagingSessionHeaders(headerStore),
+      );
+      if (process.env.PLAYWRIGHT_TEST !== "true" && !hasStagingE2ESession) {
         const rateResult = guestRecommendationRateLimiter.check(ip, 60_000, 5);
         if (!rateResult.allowed) {
           return { error: t("rateLimit") };
         }
       }
 
-      const turnstile = await verifyTurnstileToken(
-        parsed.turnstileToken,
-        ip,
-        getRequestHost(headerStore),
-      );
+      const turnstile = hasStagingE2ESession
+        ? { success: true }
+        : await verifyTurnstileToken(
+            parsed.turnstileToken,
+            ip,
+            getRequestHost(headerStore),
+          );
       if (!turnstile.success) {
         return { error: t("validation") };
       }

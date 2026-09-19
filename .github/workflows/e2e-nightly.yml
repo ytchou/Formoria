@@ -90,6 +90,7 @@ jobs:
       CF_ACCESS_CLIENT_ID: ${{ secrets.CF_ACCESS_CLIENT_ID }}
       CF_ACCESS_CLIENT_SECRET: ${{ secrets.CF_ACCESS_CLIENT_SECRET }}
       E2E_ORIGIN_SECRET: ${{ secrets.E2E_ORIGIN_SECRET }}
+      E2E_STAGING_SESSION_SECRET: ${{ secrets.E2E_STAGING_SESSION_SECRET }}
       CI: "true"
       PLAYWRIGHT_TEST: "true"
     steps:
@@ -646,6 +647,7 @@ jobs:
           CF_ACCESS_CLIENT_ID: ${{ secrets.CF_ACCESS_CLIENT_ID }}
           CF_ACCESS_CLIENT_SECRET: ${{ secrets.CF_ACCESS_CLIENT_SECRET }}
           E2E_ORIGIN_SECRET: ${{ secrets.E2E_ORIGIN_SECRET }}
+          E2E_STAGING_SESSION_SECRET: ${{ secrets.E2E_STAGING_SESSION_SECRET }}
           CI: "true"
           PLAYWRIGHT_TEST: "true"
           PLAYWRIGHT_JSON_OUTPUT_NAME: playwright-results-exact.json
@@ -675,6 +677,7 @@ jobs:
           CF_ACCESS_CLIENT_ID: ${{ secrets.CF_ACCESS_CLIENT_ID }}
           CF_ACCESS_CLIENT_SECRET: ${{ secrets.CF_ACCESS_CLIENT_SECRET }}
           E2E_ORIGIN_SECRET: ${{ secrets.E2E_ORIGIN_SECRET }}
+          E2E_STAGING_SESSION_SECRET: ${{ secrets.E2E_STAGING_SESSION_SECRET }}
           CI: "true"
           PLAYWRIGHT_TEST: "true"
           PLAYWRIGHT_JSON_OUTPUT_NAME: playwright-results-validation.json

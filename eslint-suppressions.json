@@ -49,14 +49,6 @@
       "count": 2
     }
   },
-  "e2e/tests/auth-signup.spec.ts": {
-    "playwright/no-conditional-expect": {
-      "count": 2
-    },
-    "playwright/no-conditional-in-test": {
-      "count": 4
-    }
-  },
   "e2e/tests/brand-actions.spec.ts": {
     "playwright/no-conditional-in-test": {
       "count": 1

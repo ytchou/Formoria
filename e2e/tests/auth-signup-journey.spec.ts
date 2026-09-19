@@ -6,6 +6,7 @@ import {
 } from '../helpers/signup-namespace';
 import {
   capturedAuthLink,
+  countCapturedAuthEmails,
   deleteCapturedAuthEmail,
   waitForCapturedAuthEmail,
 } from '../helpers/auth-email-capture';
@@ -52,7 +53,6 @@ test.describe.serial('Auth — signup to first value', () => {
     anonPage,
     baseURL,
   }, testInfo) => {
-    test.skip(true, "DEV-1592: signUp/OTP verification fails intermittently on staging — unmasked by cleanup fix, needs auth investigation");
     test.setTimeout(BUDGET.TEST.JOURNEY);
     const admin = createClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -113,6 +113,14 @@ test.describe.serial('Auth — signup to first value', () => {
         createdAfter,
       });
       captureId = capture.id;
+      expect(
+        await countCapturedAuthEmails({
+          recipient: email,
+          action: 'signup',
+          createdAfter,
+        }),
+        'signup must emit exactly one captured Auth email',
+      ).toBe(1);
 
       // 3. Follow the captured URL through Supabase Auth into the app callback.
       await anonPage.goto(capturedAuthLink(capture));

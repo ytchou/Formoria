@@ -1,6 +1,11 @@
 import { test, expect } from '../fixtures/auth';
 import { createClient } from '@supabase/supabase-js';
-import { capturedAuthLink, deleteCapturedAuthEmail, waitForCapturedAuthEmail } from '../helpers/auth-email-capture';
+import {
+  capturedAuthLink,
+  countCapturedAuthEmails,
+  deleteCapturedAuthEmail,
+  waitForCapturedAuthEmail,
+} from '../helpers/auth-email-capture';
 import { signupTestEmail } from '../helpers/signup-namespace';
 
 import { BUDGET } from '../budgets';
@@ -9,9 +14,7 @@ const GENERIC_SUCCESS = '若此電子郵件已註冊帳號，我們已寄出密�
 const SESSION_EXPIRED = '重設連結已過期，請重新申請';
 
 test.describe('Auth — forgot password request', () => {
-  // Recovery flow fails consistently on staging CI after the ViewerProvider
-  // rewrite (#989). Needs headed-browser investigation against staging.
-  test.fixme('follows a captured recovery link and updates the password', async ({ anonPage }, testInfo) => {
+  test('follows a captured recovery link and updates the password', async ({ anonPage }, testInfo) => {
     test.setTimeout(BUDGET.TEST.MUTATION);
     const admin = createClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -44,6 +47,14 @@ test.describe('Auth — forgot password request', () => {
         createdAfter,
       });
       captureId = capture.id;
+      expect(
+        await countCapturedAuthEmails({
+          recipient: email,
+          action: 'recovery',
+          createdAfter,
+        }),
+        'recovery must emit exactly one captured Auth email',
+      ).toBe(1);
       await anonPage.goto(capturedAuthLink(capture));
       await anonPage.waitForURL(/\/auth\/reset-password/, { timeout: BUDGET.NAVIGATION });
       // The callback redirect can expose the server-rendered form before the
@@ -77,15 +88,6 @@ test.describe('Auth — forgot password request', () => {
   });
 
   test('sign-in page links to the forgot-password form', async ({ anonPage }) => {
-    // `sign-in-form.tsx` renders the forgot-password link only when
-    // `NEXT_PUBLIC_DEPLOYMENT_ENV !== "staging"`, so on the one environment this
-    // suite is allowed to target the link under test does not exist. Only the
-    // LINK is hidden — `/auth/forgot-password` itself still serves on staging,
-    // which is why the validation test below this one keeps running there.
-    test.skip(
-      process.env.FORMORIA_DEPLOYMENT_ENV === 'staging',
-      'staging hides the Google button and the forgot-password link',
-    );
     // Auth pages can cold-compile slowly in dev.
     test.setTimeout(BUDGET.TEST.ADMIN);
     await anonPage.goto('/auth/sign-in');

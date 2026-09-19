@@ -156,6 +156,7 @@ async function cloneAndRunTests(opts: {
         CI: 'true',
         CF_ACCESS_CLIENT_ID: process.env.CF_ACCESS_CLIENT_ID ?? '',
         CF_ACCESS_CLIENT_SECRET: process.env.CF_ACCESS_CLIENT_SECRET ?? '',
+        E2E_STAGING_SESSION_SECRET: process.env.E2E_STAGING_SESSION_SECRET ?? '',
         BASE_URL: process.env.STAGING_BASE_URL ?? 'https://staging.formoria.com',
       },
     },

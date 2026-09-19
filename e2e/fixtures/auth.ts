@@ -7,6 +7,7 @@ import {
   writeAuthStorageState,
   writeAuthStorageStateForCredentials,
 } from "../helpers/auth-session";
+import { addDeepStagingSessionCookie } from "../helpers/staging-session";
 
 const AUTH_DIR = path.join(__dirname, "../.auth");
 const SESSION_BUFFER_S = 300;
@@ -38,7 +39,7 @@ type AuthFixtures = {
   anonPage: Page;
 };
 
-async function applyOriginGuard(
+export async function applyOriginGuard(
   context: BrowserContext,
   baseURL: string | undefined,
 ): Promise<void> {
@@ -175,6 +176,7 @@ export const test = base.extend<AuthFixtures, WorkerAuthFixtures>({
     const context = await browser.newContext({
       storageState: adminStorageState,
     });
+    await addDeepStagingSessionCookie(context, baseURL);
     await applyOriginGuard(context, baseURL);
     const page = await context.newPage();
     await use(page);
@@ -185,6 +187,7 @@ export const test = base.extend<AuthFixtures, WorkerAuthFixtures>({
     const context = await browser.newContext({
       storageState: userStorageState,
     });
+    await addDeepStagingSessionCookie(context, baseURL);
     await applyOriginGuard(context, baseURL);
     const page = await context.newPage();
     await use(page);
@@ -198,6 +201,7 @@ export const test = base.extend<AuthFixtures, WorkerAuthFixtures>({
     const context = await browser.newContext({
       storageState: isolatedUserStorageState,
     });
+    await addDeepStagingSessionCookie(context, baseURL);
     await applyOriginGuard(context, baseURL);
     const page = await context.newPage();
     try {
@@ -209,6 +213,7 @@ export const test = base.extend<AuthFixtures, WorkerAuthFixtures>({
 
   anonPage: async ({ browser, baseURL }, use) => {
     const context = await browser.newContext();
+    await addDeepStagingSessionCookie(context, baseURL);
     await applyOriginGuard(context, baseURL);
     const page = await context.newPage();
     await use(page);

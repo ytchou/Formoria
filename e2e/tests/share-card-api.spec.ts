@@ -14,10 +14,6 @@ const resolvedBaseURL =
 const IS_CANONICAL_STAGING_TARGET =
   new URL(resolvedBaseURL).origin === 'https://staging.formoria.com';
 
-const isRemoteTarget = !['localhost', '127.0.0.1', '::1'].includes(
-  new URL(resolvedBaseURL).hostname,
-);
-
 function expectShareCardCacheContract(cacheControl: string): void {
   if (IS_CANONICAL_STAGING_TARGET) {
     expect(cacheControl).toBe('private, no-store');
@@ -47,11 +43,6 @@ test.describe('Share card API', () => {
   let hiddenBrandSlug: string;
 
   test.beforeAll(async ({ request }, workerInfo) => {
-    // Remote staging has an active rate limiter that can 429 share-card requests
-    // before the route handler runs. Locally the limiter is disabled via
-    // SECURITY_DISABLE_RATE_LIMIT=true in the webServer command.
-    test.skip(isRemoteTarget, 'Rate limiter on remote staging cannot be disabled from the test side');
-
     // PREVIEW_MODE guard — probe before seeding
     const probe = await request.get('/brands');
     if (probe.status() === 503) return;

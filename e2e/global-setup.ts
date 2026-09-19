@@ -3,11 +3,21 @@ import path from "path";
 import fs from "fs";
 import { randomUUID } from "node:crypto";
 import { execFileSync } from "child_process";
-import { chromium, expect, type Browser } from "@playwright/test";
+import {
+  chromium,
+  expect,
+  request as playwrightRequest,
+  type Browser,
+} from "@playwright/test";
 import { createClient } from "@supabase/supabase-js";
 import { cleanupTestData } from "./helpers/cleanup";
 import { writeAuthStorageState } from "./helpers/auth-session";
 import { validateStagingTarget } from "../src/lib/supabase/project-target";
+import {
+  DEEP_STAGING_SESSION_STATE,
+  isCanonicalStagingTarget,
+  writeDeepStagingSessionState,
+} from "./helpers/staging-session";
 
 const LOCAL_HOSTNAMES = new Set(["localhost", "127.0.0.1", "::1", "[::1]"]);
 
@@ -78,6 +88,50 @@ function assertServerServesThisCheckout(): void {
   );
 }
 
+async function preflightStagingSession(baseURL: string): Promise<void> {
+  if (!isCanonicalStagingTarget(baseURL)) return;
+
+  const accessClientId = process.env.CF_ACCESS_CLIENT_ID;
+  const accessClientSecret = process.env.CF_ACCESS_CLIENT_SECRET;
+  if (!accessClientId || !accessClientSecret) {
+    throw new Error(
+      "CF_ACCESS_CLIENT_ID and CF_ACCESS_CLIENT_SECRET are required",
+    );
+  }
+  const headers = {
+    "CF-Access-Client-Id": accessClientId,
+    "CF-Access-Client-Secret": accessClientSecret,
+    ...(process.env.E2E_ORIGIN_SECRET
+      ? { "x-formoria-edge": process.env.E2E_ORIGIN_SECRET }
+      : {}),
+  };
+  const anonymous = await playwrightRequest.newContext({
+    baseURL,
+    extraHTTPHeaders: headers,
+  });
+  const authorized = await playwrightRequest.newContext({
+    baseURL,
+    extraHTTPHeaders: headers,
+    storageState: DEEP_STAGING_SESSION_STATE,
+  });
+  try {
+    const withoutSession = await anonymous.get("/sitemap.xml");
+    if (withoutSession.status() !== 404) {
+      throw new Error(
+        `sitemap without session returned ${withoutSession.status()}, expected 404`,
+      );
+    }
+    const withSession = await authorized.get("/sitemap.xml");
+    if (withSession.status() !== 200) {
+      throw new Error(
+        `sitemap with session returned ${withSession.status()}, expected 200; check that the app and runner share E2E_STAGING_SESSION_SECRET`,
+      );
+    }
+  } finally {
+    await Promise.all([anonymous.dispose(), authorized.dispose()]);
+  }
+}
+
 async function globalSetup() {
   // This is deliberately before any cleanup or probe mutation. Local and
   // production targets are not supported: the suite is canonical only against
@@ -86,6 +140,12 @@ async function globalSetup() {
 
   // Guard first: everything below is wasted work if the wrong server answers.
   assertServerServesThisCheckout();
+
+  const baseURL =
+    process.env.PLAYWRIGHT_BASE_URL ??
+    process.env.BASE_URL ??
+    process.env.STAGING_BASE_URL ??
+    "http://localhost:3000";
 
   // Purge stale auth session files so every worker gets a fresh Supabase token
   const authDir = path.join(__dirname, ".auth");
@@ -104,6 +164,14 @@ async function globalSetup() {
   // helpers/cleanup.ts's e2eSeedName); the strict teardown sweep also covers
   // legacy un-stamped names because complete suite invocations are serialized.
   process.env.E2E_RUN_ID = randomUUID().slice(0, 8);
+  try {
+    await writeDeepStagingSessionState(baseURL, process.env.E2E_RUN_ID);
+    await preflightStagingSession(baseURL);
+  } catch (error) {
+    throw new Error(
+      `Staging E2E session preflight failed: ${error instanceof Error ? error.message : String(error)}`,
+    );
+  }
   await cleanupTestData();
 
   const requiredVars = [
@@ -162,10 +230,9 @@ async function globalSetup() {
     );
   }
 
-  // Sessions are written lazily per worker in fixtures/auth.ts.
-  // global-setup intentionally does NOT write shared .auth/*.json files —
-  // each Playwright worker will call writeAuthStorageState() for its own
-  // per-worker path, giving every worker a distinct Supabase refresh token.
+  // Supabase sessions are written lazily per worker in fixtures/auth.ts.
+  // The only shared state from global setup is the cookie-only staging
+  // capability above, so every worker still gets a distinct refresh token.
 
   // CI runs against the deployed staging server, so there are no on-demand
   // bundles to warm.
@@ -174,12 +241,6 @@ async function globalSetup() {
   // Browser warm-up: compile the submit flows before specs hit them.
   // A plain fetch() only warms the server bundle, not the client bundle.
   // Any failure is swallowed — this must NEVER break the suite.
-  const baseURL =
-    process.env.PLAYWRIGHT_BASE_URL ??
-    process.env.BASE_URL ??
-    process.env.STAGING_BASE_URL ??
-    "http://localhost:3000";
-
   // webServer 2xx fires before manifests are written; poll a static chunk to
   // avoid loadManifestFromRelativePath SyntaxError without a guessed sleep.
   const manifestProbeUrl = `${baseURL}/_next/static/chunks/main.js`;
