@@ -125,6 +125,7 @@ describe('e2e-agent runner', () => {
     expect(env?.E2E_STAGING_SESSION_SECRET).toBe(
       'runner-secret-with-at-least-thirty-two-bytes',
     )
+    expect(callOpts?.timeoutMs).toBe(20 * 60_000)
   })
 
   it('runner_parses_playwright_json_results', async () => {
@@ -155,6 +156,7 @@ describe('e2e-agent runner', () => {
     )
     expect(result.unexpectedSkips).toHaveLength(1)
     expect(result.unexpectedSkips[0].title).toBe('signup flow')
+    expect(result.passed).toBe(false)
   })
 
   it('runner_waits_for_staging_revision', async () => {

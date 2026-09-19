@@ -293,9 +293,26 @@ export async function rateLimit(
  * not a single browser. Overridable via env so they can be retuned from
  * Railway without a code deploy.
  */
-function envLimit(name: string, fallback: number): number {
-  const parsed = Number(process.env[name])
+function envLimit(
+  name: string,
+  fallback: number,
+  environment: Record<string, string | undefined> = process.env,
+): number {
+  const parsed = Number(environment[name])
   return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback
+}
+
+export function resolveRateLimitBudgets(
+  environment: Record<string, string | undefined> = process.env,
+): { apiPerMinute: number; brandsIndexPerMinute: number } {
+  return {
+    apiPerMinute: envLimit('RATE_LIMIT_API_PER_MIN', 60, environment),
+    brandsIndexPerMinute: envLimit(
+      'RATE_LIMIT_BRANDS_INDEX_PER_MIN',
+      30,
+      environment,
+    ),
+  }
 }
 
 /**
@@ -318,7 +335,7 @@ type RateLimitRule = {
   algorithm?: RateLimitAlgorithm
 }
 
-const BRANDS_DIRECTORY_RATE_LIMIT = 30
+const RATE_LIMIT_BUDGETS = resolveRateLimitBudgets()
 
 // Rate limit rules per path prefix
 const RATE_LIMIT_RULES: Record<string, RateLimitRule> = {
@@ -328,10 +345,14 @@ const RATE_LIMIT_RULES: Record<string, RateLimitRule> = {
   // this table -- silently, because an unmatched prefix is simply no rule.
   [routes.admin.operations()]: { windowMs: 60_000, maxRequests: 3, crawlerExempt: false },
   '/api/upload': { windowMs: 60_000, maxRequests: 20, crawlerExempt: false },
-  '/api/': { windowMs: 60_000, maxRequests: 60, crawlerExempt: false },
+  '/api/': {
+    windowMs: 60_000,
+    maxRequests: RATE_LIMIT_BUDGETS.apiPerMinute,
+    crawlerExempt: false,
+  },
   '/brands': {
     windowMs: 60_000,
-    maxRequests: BRANDS_DIRECTORY_RATE_LIMIT,
+    maxRequests: RATE_LIMIT_BUDGETS.brandsIndexPerMinute,
     // Crawler-exempt, matching the `/brands/` detail rule. Metering crawlers
     // here is what burned 410k of a 500k monthly Upstash quota on 2026-08-12:
     // the directory index and its `?category=` filter views are the single

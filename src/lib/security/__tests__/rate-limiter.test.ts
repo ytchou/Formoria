@@ -17,6 +17,7 @@ import {
   isRouterRequest,
   observeTraversal,
   rateLimit,
+  resolveRateLimitBudgets,
   resetTraversalTelemetryLatchForTests,
   setRateLimitStoreForTests,
   type RateLimitStore,
@@ -28,6 +29,27 @@ import { resetVerifiedCrawlerStateForTests } from '../verified-crawler'
 import { captureAlert } from '@/lib/adapters/alerting/sentry'
 
 vi.mock('@/lib/adapters/alerting/sentry', () => ({ captureAlert: vi.fn(() => true) }))
+
+describe('deployment rate-limit budgets', () => {
+  it('keeps production defaults at 60 API and 30 directory requests per minute', () => {
+    expect(resolveRateLimitBudgets({})).toEqual({
+      apiPerMinute: 60,
+      brandsIndexPerMinute: 30,
+    })
+  })
+
+  it('accepts the staging overrides of 240 API and 120 directory requests per minute', () => {
+    expect(
+      resolveRateLimitBudgets({
+        RATE_LIMIT_API_PER_MIN: '240',
+        RATE_LIMIT_BRANDS_INDEX_PER_MIN: '120',
+      }),
+    ).toEqual({
+      apiPerMinute: 240,
+      brandsIndexPerMinute: 120,
+    })
+  })
+})
 
 describe('InMemoryRateLimiter', () => {
   let limiter: RateLimitStore

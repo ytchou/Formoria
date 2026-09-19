@@ -50,4 +50,13 @@ describe("worker image contract", () => {
     expect(installLine).toMatch(/@anthropic-ai\/claude-code@\d+\.\d+\.\d+/);
     expect(installLine).not.toMatch(/@anthropic-ai\/claude-code@latest/);
   });
+
+  it("installs the PostgreSQL client used by E2E cleanup and target checks", () => {
+    const dockerfile = readFileSync(
+      resolve(ROOT, "Dockerfile.curation-worker"),
+      "utf8",
+    );
+
+    expect(dockerfile).toMatch(/apt-get install[^\n]*postgresql-client/);
+  });
 });

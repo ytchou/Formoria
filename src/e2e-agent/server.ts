@@ -10,6 +10,7 @@
 
 import { randomUUID } from 'node:crypto'
 import { bootWorker, logWorkerBuildInfo } from '@/worker-boot'
+import { validateE2eAgentConfig } from '@/e2e-agent/config'
 
 import type { RunOutcome } from '@/lib/services/e2e-agent/types'
 
@@ -57,10 +58,19 @@ export async function main(): Promise<never> {
       runId,
       deps: buildRunnerDeps(),
     })
+    const reportableFailures = [
+      ...result.failures,
+      ...result.unexpectedSkips.map((skip) => ({
+        file: skip.file,
+        title: skip.title,
+        project: skip.project,
+        error: 'Test was skipped without a matching expected-skip manifest entry',
+      })),
+    ]
 
     if (result.passed) {
       console.log(`[e2e-nightly] run=${runId} outcome=green exit=0`)
-    } else if (result.failures.length > 0 && runSelfHealGraph) {
+    } else if (reportableFailures.length > 0 && runSelfHealGraph) {
       // Map runner failures to freeze.ts RunResult format (requires project)
       if (!buildSelfHealDeps) {
         throw new Error('buildSelfHealDeps not loaded — loadServices incomplete')
@@ -68,7 +78,7 @@ export async function main(): Promise<never> {
       const graphResult = await runSelfHealGraph(
         {
           runResult: {
-            failures: result.failures.map((f) => ({
+            failures: reportableFailures.map((f) => ({
               ...f,
               project: f.project ?? 'deep',
             })),
@@ -80,7 +90,12 @@ export async function main(): Promise<never> {
       )
 
       const successOutcomes: RunOutcome[] = ['green', 'patched', 'noise']
-      exitCode = successOutcomes.includes(graphResult.outcome) ? 0 : 1
+      const skipFailureUnresolved =
+        result.unexpectedSkips.length > 0 && graphResult.outcome !== 'patched'
+      exitCode =
+        successOutcomes.includes(graphResult.outcome) && !skipFailureUnresolved
+          ? 0
+          : 1
       console.log(
         `[e2e-nightly] run=${runId} outcome=${graphResult.outcome} exit=${exitCode}`,
       )
@@ -106,6 +121,9 @@ export async function main(): Promise<never> {
 try {
   await bootWorker({
     agent: 'e2e-nightly',
+    assertTarget: () => {
+      validateE2eAgentConfig()
+    },
     async loadServices() {
       ;({ runE2eSuite } = await import('@/e2e-agent/runner'))
       ;({ runSelfHealGraph } = await import('@/e2e-agent/self-heal'))
