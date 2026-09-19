@@ -100,6 +100,26 @@
       "file": "search-edge-cases.spec.ts",
       "title": "Public brand search edge cases",
       "reason": "search edge cases flaky after staging migration — not core product flow"
+    },
+    {
+      "file": "curation-recovery.spec.ts",
+      "title": "recovery commits only eligible checkpoints atomically with a pending submission",
+      "reason": "service-level test requires in-process access to the local server"
+    },
+    {
+      "file": "curation-recovery.spec.ts",
+      "title": "one recovery job keeps mixed targets isolated and preserves FAQ scope through a failed retry chain",
+      "reason": "service-level test requires in-process access to the local server"
+    },
+    {
+      "file": "curation-recovery.spec.ts",
+      "title": "a forced FAQ retry executes despite its source checkpoint without enabling overwrite",
+      "reason": "service-level test requires in-process access to the local server"
+    },
+    {
+      "file": "curation-recovery.spec.ts",
+      "title": "a products-only recovery without saved acquisition inputs fails before provider work",
+      "reason": "service-level test requires in-process access to the local server"
     }
   ]
 }
