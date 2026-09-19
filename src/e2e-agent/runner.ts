@@ -222,9 +222,17 @@ export async function runE2eSuite(options: RunE2eSuiteOptions): Promise<RunResul
     console.log(`[e2e-runner] playwright stderr: ${playwrightResult.stderr.slice(0, 1000)}`)
   }
 
+  // globalSetup logs and pnpm plugins (dotenvx) write to stdout before the
+  // JSON reporter output. Strip non-JSON prefix by finding the report's opening brace.
+  let jsonText = playwrightResult.stdout
+  const jsonLineStart = jsonText.indexOf('\n{')
+  if (jsonLineStart >= 0) {
+    jsonText = jsonText.slice(jsonLineStart + 1)
+  }
+
   let jsonReport: Record<string, unknown>
   try {
-    jsonReport = JSON.parse(playwrightResult.stdout) as Record<string, unknown>
+    jsonReport = JSON.parse(jsonText) as Record<string, unknown>
   } catch {
     console.log(`[e2e-runner] JSON parse failed. stdout preview: ${playwrightResult.stdout.slice(0, 2000)}`)
     console.log(`[e2e-runner] stderr preview: ${playwrightResult.stderr.slice(0, 1000)}`)
