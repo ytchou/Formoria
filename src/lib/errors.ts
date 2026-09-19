@@ -1,3 +1,52 @@
+const EXTERNAL_ERROR_MESSAGE_LIMIT = 300
+const SECRET_ASSIGNMENT =
+  /\b([a-z0-9_.-]*(?:api[_-]?key|token|secret|password|passphrase|authorization|cookie|credential)[a-z0-9_.-]*)\s*[:=]\s*(?:"[^"]*"|'[^']*'|(?:bearer\s+)?[^\s,;]+)/gi
+const URL = /\b(?:https?|ftp):\/\/[^\s]+/gi
+
+function safeExternalMessage(
+  message: string | null | undefined,
+): string | null {
+  if (message == null) return null
+
+  const normalized = message
+    .replace(/\s+/g, ' ')
+    .trim()
+    .replace(SECRET_ASSIGNMENT, '$1=[redacted]')
+    .replace(URL, '[redacted-url]')
+
+  if (!normalized) return null
+
+  const characters = Array.from(normalized)
+  if (characters.length <= EXTERNAL_ERROR_MESSAGE_LIMIT) return normalized
+  return `${characters.slice(0, EXTERNAL_ERROR_MESSAGE_LIMIT - 3).join('')}...`
+}
+
+export class ExternalServiceError extends Error {
+  readonly provider: string
+  readonly operation: string
+  readonly httpStatus: number
+  readonly safeMessage: string | null
+
+  constructor(
+    provider: string,
+    operation: string,
+    httpStatus: number,
+    message?: string | null,
+  ) {
+    const safeMessage = safeExternalMessage(message)
+    super(
+      `${provider} ${operation} failed with HTTP ${httpStatus}${
+        safeMessage ? `: ${safeMessage}` : ''
+      }`,
+    )
+    this.name = 'ExternalServiceError'
+    this.provider = provider
+    this.operation = operation
+    this.httpStatus = httpStatus
+    this.safeMessage = safeMessage
+  }
+}
+
 export class ServiceError extends Error {
   readonly code: string
 

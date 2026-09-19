@@ -1,5 +1,9 @@
 import { describe, expect, it } from 'vitest'
-import type { DetectorName, HealthSource } from '@/lib/constants/health-detectors'
+import type {
+  DetectorName,
+  HealthSource,
+} from '@/lib/constants/health-detectors'
+import { ExternalServiceError } from '@/lib/errors'
 import { runDetectors } from '../runner'
 import type { Detector } from '../types'
 
@@ -25,15 +29,19 @@ function nightlyDate(): string {
   return '2026-09-16'
 }
 
-
 describe('runDetectors', () => {
-  it('a throwing detector becomes a detector-failure finding', async () => {
+  it('a failed Dependabot request preserves its safe explanation and excludes the source from reconciliation', async () => {
     const registry: Detector[] = [
       makeDetector({
-        name: 'brand-invariants',
+        name: 'dependabot',
         source: 'directory',
         run: async () => {
-          throw new Error('db connection refused')
+          throw new ExternalServiceError(
+            'github',
+            'list_dependabot_alerts',
+            403,
+            'Dependabot alerts are disabled for this repository',
+          )
         },
       }),
     ]
@@ -47,10 +55,12 @@ describe('runDetectors', () => {
 
     expect(results).toHaveLength(1)
     expect(results[0].status).toBe('failed')
-    expect(results[0].error).toBe('db connection refused')
+    expect(results[0].error).toContain(
+      'Dependabot alerts are disabled for this repository',
+    )
     expect(results[0].findings).toHaveLength(1)
     expect(results[0].findings[0].fingerprint).toBe(
-      'agent:detector-failure:brand-invariants',
+      'agent:detector-failure:dependabot',
     )
     // The failed detector's source must NOT be in completedSources
     expect(completedSources).not.toContain('directory')
