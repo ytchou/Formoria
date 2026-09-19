@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 
 import {
   HEALTH_JOBS,
+  QUALITY_CONTEXT_COMMANDS,
 } from '../jobs'
 
 // ---------------------------------------------------------------------------
@@ -9,6 +10,18 @@ import {
 // ---------------------------------------------------------------------------
 
 describe('health agent job definitions', () => {
+  it('captures repository context before running bounded quality commands', () => {
+    expect(QUALITY_CONTEXT_COMMANDS.map((command) => command.id)).toEqual([
+      'repo-root',
+      'tracked-files',
+    ])
+    expect(HEALTH_JOBS.vitest.commands[0]).toMatchObject({
+      id: 'vitest',
+      timeoutMs: 300_000,
+    })
+    expect(HEALTH_JOBS.knip.commands[0]!.timeoutMs).toBeGreaterThan(0)
+  })
+
   it('vitest and knip findings keep the quality:* fingerprints of the scripts implementation', () => {
     const vitest = HEALTH_JOBS.vitest
     expect(vitest).toBeDefined()

@@ -201,6 +201,8 @@ export function createRepoWorkerServer(opts: ServerOptions = {}) {
         if (job.result.baseSha) body.baseSha = job.result.baseSha;
         if (job.result.claude) body.claude = job.result.claude;
         if (job.result.error) body.error = job.result.error;
+        if (job.result.errorStage) body.errorStage = job.result.errorStage;
+        if (job.result.errorCode) body.errorCode = job.result.errorCode;
       }
       sendJson(response, 200, body);
       return;
@@ -271,6 +273,8 @@ export function createRepoWorkerServer(opts: ServerOptions = {}) {
         entry.result = {
           status: "failed",
           error: error instanceof Error ? error.message : String(error),
+          errorStage: "worker",
+          errorCode: "worker-failed",
         };
       } finally {
         activeJobId = null;

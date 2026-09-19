@@ -84,6 +84,61 @@ function baseDeps(overrides?: Partial<RunHealthAgentDeps>): RunHealthAgentDeps {
   }
 }
 
+function qualityRegistry(): Detector[] {
+  return [
+    makeDetector({ name: 'brand-invariants', source: 'directory' }),
+    makeDetector({ name: 'vitest', source: 'quality', stub: true }),
+    makeDetector({ name: 'knip', source: 'quality', stub: true }),
+  ]
+}
+
+function cleanQualityResults() {
+  return [
+    {
+      id: 'repo-root',
+      stdout: '/repo\n',
+      stderr: '',
+      exitCode: 0,
+      timedOut: false,
+    },
+    {
+      id: 'tracked-files',
+      stdout: 'src/app.test.ts\nsrc/lib/utils.ts\n',
+      stderr: '',
+      exitCode: 0,
+      timedOut: false,
+    },
+    {
+      id: 'vitest',
+      stdout: JSON.stringify({
+        numFailedTestSuites: 0,
+        numFailedTests: 0,
+        numTotalTestSuites: 5,
+        numTotalTests: 20,
+        success: true,
+        testResults: [],
+      }),
+      stderr: '',
+      exitCode: 0,
+      timedOut: false,
+    },
+    {
+      id: 'knip',
+      stdout:
+        "◇ injected env (0) from .env.local // tip: { path: '/custom/path/.env' }\n{\"issues\":[]}",
+      stderr: '',
+      exitCode: 0,
+      timedOut: false,
+    },
+  ]
+}
+
+function rpcCalls(client: RunHealthAgentDeps['client']) {
+  return (client.rpc as ReturnType<typeof vi.fn>).mock.calls as Array<
+    [string, Record<string, unknown>]
+  >
+}
+
 // ---------------------------------------------------------------------------
 // Tests
 // ---------------------------------------------------------------------------
@@ -454,61 +509,94 @@ describe('runHealthAgent', () => {
   it('dispatches quality jobs when workerClient is present', async () => {
     const runFn = vi.fn(async () => ({
       status: 'done' as const,
-      results: [
-        { id: 'vitest', stdout: '{"numFailedTests":0,"testResults":[]}', stderr: '', exitCode: 0, timedOut: false },
-        { id: 'knip', stdout: '{"issues":[]}', stderr: '', exitCode: 0, timedOut: false },
-      ],
+      results: cleanQualityResults(),
     }))
 
     const workerClient: RepoWorkerClient = { run: runFn }
 
     const deps = baseDeps({
-      registryOverride: [
-        makeDetector({ name: 'brand-invariants', source: 'directory' }),
-        makeDetector({ name: 'vitest', source: 'quality', stub: true }),
-        makeDetector({ name: 'knip', source: 'quality', stub: true }),
-      ],
+      registryOverride: qualityRegistry(),
       workerClient,
     })
 
     await runHealthAgent(deps)
 
     expect(runFn).toHaveBeenCalledOnce()
-    const request = (runFn.mock.calls as unknown[][])[0][0] as { commands: { id: string }[] }
+    const request = (runFn.mock.calls as unknown[][])[0][0] as {
+      commands: { id: string }[]
+    }
     const commandIds = request.commands.map((c: { id: string }) => c.id)
-    expect(commandIds).toContain('vitest')
-    expect(commandIds).toContain('knip')
+    expect(commandIds).toEqual(['repo-root', 'tracked-files', 'vitest', 'knip'])
+    expect(
+      request.commands.find((command) => command.id === 'vitest'),
+    ).toMatchObject({
+      timeoutMs: 300_000,
+    })
   })
 
   it('merges quality findings into allFindings', async () => {
+    const client = stubClient()
     const vitestJson = JSON.stringify({
+      numFailedTestSuites: 1,
       numFailedTests: 1,
-      testResults: [{
-        assertionResults: [{
+      numTotalTestSuites: 1,
+      numTotalTests: 1,
+      success: false,
+      testResults: [
+        {
+          name: '/repo/src/app.test.ts',
           status: 'failed',
-          ancestorTitles: ['suite'],
-          title: 'broken test',
-          failureMessages: ['expected true'],
-        }],
-      }],
+          assertionResults: [
+            {
+              status: 'failed',
+              title: 'broken test',
+              fullName: 'suite broken test',
+              failureMessages: ['expected true'],
+            },
+          ],
+        },
+      ],
     })
 
     const runFn = vi.fn(async () => ({
       status: 'done' as const,
       results: [
-        { id: 'vitest', stdout: vitestJson, stderr: '', exitCode: 1, timedOut: false },
-        { id: 'knip', stdout: '{"issues":[]}', stderr: '', exitCode: 0, timedOut: false },
+        {
+          id: 'repo-root',
+          stdout: '/repo\n',
+          stderr: '',
+          exitCode: 0,
+          timedOut: false,
+        },
+        {
+          id: 'tracked-files',
+          stdout: 'src/app.test.ts\n',
+          stderr: '',
+          exitCode: 0,
+          timedOut: false,
+        },
+        {
+          id: 'vitest',
+          stdout: vitestJson,
+          stderr: '',
+          exitCode: 1,
+          timedOut: false,
+        },
+        {
+          id: 'knip',
+          stdout: '{"issues":[]}',
+          stderr: '',
+          exitCode: 0,
+          timedOut: false,
+        },
       ],
     }))
 
     const workerClient: RepoWorkerClient = { run: runFn }
 
     const deps = baseDeps({
-      registryOverride: [
-        makeDetector({ name: 'brand-invariants', source: 'directory' }),
-        makeDetector({ name: 'vitest', source: 'quality', stub: true }),
-        makeDetector({ name: 'knip', source: 'quality', stub: true }),
-      ],
+      client,
+      registryOverride: qualityRegistry(),
       workerClient,
     })
 
@@ -516,69 +604,140 @@ describe('runHealthAgent', () => {
 
     // The detector produces 0 findings, but the vitest job produces 1
     expect(result.totalFindings).toBeGreaterThanOrEqual(1)
+    const calls = rpcCalls(client)
+    expect(
+      calls
+        .filter(([name]) => name === 'enqueue_health_fix')
+        .map(([, params]) => params.p_fingerprint),
+    ).not.toContain('quality:worker-failure:vitest-exec')
+    expect(
+      calls.find(([name]) => name === 'reconcile_health_fix_lifecycle')?.[1]
+        .p_completed_sources,
+    ).toContain('quality')
   })
 
-  it('skips quality jobs when workerClient is absent', async () => {
+  it('reports missing live worker configuration as worker-transport', async () => {
+    const client = stubClient()
     const deps = baseDeps({
-      registryOverride: [
-        makeDetector({ name: 'brand-invariants', source: 'directory' }),
-        makeDetector({ name: 'vitest', source: 'quality', stub: true }),
-        makeDetector({ name: 'knip', source: 'quality', stub: true }),
-      ],
+      client,
+      registryOverride: qualityRegistry(),
       workerClient: undefined,
     })
 
     const result = await runHealthAgent(deps)
 
     expect(result.status).toBe('completed')
-    expect(result.totalFindings).toBe(0)
+    expect(result.totalFindings).toBe(1)
+    expect(rpcCalls(client)).toContainEqual([
+      'enqueue_health_fix',
+      expect.objectContaining({
+        p_fingerprint: 'quality:worker-failure:worker-transport',
+      }),
+    ])
   })
 
-  it('worker failure injects a failure finding instead of silent all-pass', async () => {
+  it('worker failures use a stable stage fingerprint and bounded redacted evidence', async () => {
+    const client = stubClient()
+    const secret = 'synthetic-clone-credential'
     const runFn = vi.fn(async () => ({
       status: 'error' as const,
-      error: 'worker exploded',
+      error: `install failed with Bearer ${secret}${'x'.repeat(800)}`,
+      errorStage: 'install' as const,
+      errorCode: 'install-failed',
     }))
 
     const workerClient: RepoWorkerClient = { run: runFn }
 
     const deps = baseDeps({
-      registryOverride: [
-        makeDetector({ name: 'brand-invariants', source: 'directory' }),
-        makeDetector({ name: 'vitest', source: 'quality', stub: true }),
-        makeDetector({ name: 'knip', source: 'quality', stub: true }),
-      ],
+      client,
+      registryOverride: qualityRegistry(),
       workerClient,
     })
 
     const result = await runHealthAgent(deps)
 
-    // The failure finding is injected — totalFindings > 0
-    expect(result.totalFindings).toBeGreaterThanOrEqual(1)
+    expect(result.totalFindings).toBe(1)
     expect(result.status).toBe('completed')
+    const enqueue = rpcCalls(client).find(
+      ([name]) => name === 'enqueue_health_fix',
+    )
+    expect(enqueue?.[1]).toMatchObject({
+      p_fingerprint: 'quality:worker-failure:install',
+      p_evidence: expect.objectContaining({
+        stage: 'install',
+        code: 'install-failed',
+      }),
+    })
+    const evidence = enqueue?.[1].p_evidence as { message: string }
+    expect(evidence.message.length).toBeLessThanOrEqual(500)
+    expect(evidence.message).not.toContain(secret)
+
+    await runHealthAgent({ ...deps, runId: 'test-run-id-repeat' })
+    const failureFingerprints = rpcCalls(client)
+      .filter(([name]) => name === 'enqueue_health_fix')
+      .map(([, params]) => params.p_fingerprint)
+    expect(failureFingerprints).toEqual([
+      'quality:worker-failure:install',
+      'quality:worker-failure:install',
+    ])
   })
 
   it('warns when quality stubs are missing from results', async () => {
     const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {})
 
     const vitestJson = JSON.stringify({
+      numFailedTestSuites: 1,
       numFailedTests: 1,
-      testResults: [{
-        name: 'src/test.ts',
-        assertionResults: [{
+      numTotalTestSuites: 1,
+      numTotalTests: 1,
+      success: false,
+      testResults: [
+        {
+          name: '/repo/src/app.test.ts',
           status: 'failed',
-          ancestorTitles: [],
-          title: 'broken',
-          failureMessages: ['err'],
-        }],
-      }],
+          assertionResults: [
+            {
+              status: 'failed',
+              title: 'broken',
+              fullName: 'broken',
+              failureMessages: ['err'],
+            },
+          ],
+        },
+      ],
     })
 
     const runFn = vi.fn(async () => ({
       status: 'done' as const,
       results: [
-        { id: 'vitest', stdout: vitestJson, stderr: '', exitCode: 1, timedOut: false },
-        { id: 'knip', stdout: '{"issues":[]}', stderr: '', exitCode: 0, timedOut: false },
+        {
+          id: 'repo-root',
+          stdout: '/repo\n',
+          stderr: '',
+          exitCode: 0,
+          timedOut: false,
+        },
+        {
+          id: 'tracked-files',
+          stdout: 'src/app.test.ts\n',
+          stderr: '',
+          exitCode: 0,
+          timedOut: false,
+        },
+        {
+          id: 'vitest',
+          stdout: vitestJson,
+          stderr: '',
+          exitCode: 1,
+          timedOut: false,
+        },
+        {
+          id: 'knip',
+          stdout: '{"issues":[]}',
+          stderr: '',
+          exitCode: 0,
+          timedOut: false,
+        },
       ],
     }))
 
@@ -644,21 +803,14 @@ describe('runHealthAgent', () => {
 
     const runFn = vi.fn(async () => ({
       status: 'done' as const,
-      results: [
-        { id: 'vitest', stdout: '{"numFailedTests":0,"testResults":[]}', stderr: '', exitCode: 0, timedOut: false },
-        { id: 'knip', stdout: '{"issues":[]}', stderr: '', exitCode: 0, timedOut: false },
-      ],
+      results: cleanQualityResults(),
     }))
 
     const workerClient: RepoWorkerClient = { run: runFn }
 
     const deps = baseDeps({
       client,
-      registryOverride: [
-        makeDetector({ name: 'brand-invariants', source: 'directory' }),
-        makeDetector({ name: 'vitest', source: 'quality', stub: true }),
-        makeDetector({ name: 'knip', source: 'quality', stub: true }),
-      ],
+      registryOverride: qualityRegistry(),
       workerClient,
     })
 
@@ -667,6 +819,68 @@ describe('runHealthAgent', () => {
     // completeRun should have been called with 'quality' in completedSources
     expect(completedSourcesCapture.length).toBeGreaterThanOrEqual(1)
     expect(completedSourcesCapture[0]).toContain('quality')
+  })
+
+  it('keeps valid Knip findings, emits vitest-exec, and does not complete quality', async () => {
+    const client = stubClient()
+    const runFn = vi.fn(async () => ({
+      status: 'done' as const,
+      results: [
+        {
+          id: 'repo-root',
+          stdout: '/repo\n',
+          stderr: '',
+          exitCode: 0,
+          timedOut: false,
+        },
+        {
+          id: 'tracked-files',
+          stdout: 'src/lib/utils.ts\n',
+          stderr: '',
+          exitCode: 0,
+          timedOut: false,
+        },
+        {
+          id: 'vitest',
+          stdout: 'not-json',
+          stderr: 'setup crashed',
+          exitCode: 1,
+          timedOut: false,
+        },
+        {
+          id: 'knip',
+          stdout: JSON.stringify({
+            issues: [{ file: 'src/lib/utils.ts', exports: ['unusedFn'] }],
+          }),
+          stderr: '',
+          exitCode: 1,
+          timedOut: false,
+        },
+      ],
+    }))
+
+    await runHealthAgent(
+      baseDeps({
+        client,
+        registryOverride: qualityRegistry(),
+        workerClient: { run: runFn },
+      }),
+    )
+
+    const calls = rpcCalls(client)
+    const fingerprints = calls
+      .filter(([name]) => name === 'enqueue_health_fix')
+      .map(([, params]) => params.p_fingerprint)
+    expect(fingerprints).toEqual(
+      expect.arrayContaining([
+        'quality:dead-code:exports:src/lib/utils.ts:unusedfn',
+        'quality:worker-failure:vitest-exec',
+      ]),
+    )
+    const reconcileCall = calls.find(
+      ([name]) => name === 'reconcile_health_fix_lifecycle',
+    )
+    expect(reconcileCall?.[1].p_completed_sources).not.toContain('quality')
   })
 
   // ---- Task 6: repair trigger ----

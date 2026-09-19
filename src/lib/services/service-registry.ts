@@ -570,9 +570,9 @@ export const SERVICE_REGISTRY: readonly ServiceEntry[] = [
     operationalKind: "dependency",
     envVars: [
       "GITHUB_TOKEN",
-      "HEALTH_AGENT_GITHUB_APP_ID",
-      "HEALTH_AGENT_GITHUB_APP_PRIVATE_KEY",
-      "HEALTH_AGENT_GITHUB_APP_INSTALLATION_ID",
+      "GITHUB_APP_ID",
+      "GITHUB_APP_PRIVATE_KEY",
+      "GITHUB_APP_INSTALLATION_ID",
       "OPS_AGENT_GITHUB_TOKEN",
     ],
     status: "active",

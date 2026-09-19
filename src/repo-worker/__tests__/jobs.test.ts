@@ -14,6 +14,92 @@ describe("repo-worker jobs", () => {
     ({ runRepoJob } = await import("../jobs"));
   });
 
+  it("installs development dependencies before requested commands", async () => {
+    const executed: Array<{ command: string; timeoutMs: number }> = [];
+
+    const result = await runRepoJob(
+      {
+        ref: "staging",
+        cloneToken: "ghp_test",
+        commands: [{ id: "vitest", run: "pnpm test", timeoutMs: 300_000 }],
+        editableFiles: [],
+      },
+      {
+        cloneFn: async () => "/tmp/fresh-clone",
+        runCommandFn: async (_dir, command, timeoutMs) => {
+          executed.push({ command, timeoutMs });
+          return { stdout: "", stderr: "", exitCode: 0, timedOut: false };
+        },
+        cleanupFn: async () => {},
+      },
+    );
+
+    expect(result.status).toBe("done");
+    expect(executed).toEqual([
+      {
+        command: "NODE_ENV=development pnpm install --frozen-lockfile",
+        timeoutMs: 180_000,
+      },
+      { command: "pnpm test", timeoutMs: 300_000 },
+    ]);
+    expect(result.results?.map((command) => command.id)).toEqual(["vitest"]);
+  });
+
+  it.each([
+    {
+      name: "failure",
+      installResult: {
+        stdout: "",
+        stderr: "ERR_PNPM_FETCH_500 registry unavailable",
+        exitCode: 1,
+        timedOut: false,
+      },
+      errorCode: "install-failed",
+    },
+    {
+      name: "timeout",
+      installResult: {
+        stdout: "",
+        stderr: "",
+        exitCode: 124,
+        timedOut: true,
+      },
+      errorCode: "install-timeout",
+    },
+  ])("aborts after install $name and cleans up the clone", async ({ installResult, errorCode }) => {
+    const executed: string[] = [];
+    const cleaned: string[] = [];
+
+    const result = await runRepoJob(
+      {
+        ref: "staging",
+        cloneToken: "ghp_test",
+        commands: [{ id: "vitest", run: "pnpm test", timeoutMs: 300_000 }],
+        editableFiles: [],
+      },
+      {
+        cloneFn: async () => "/tmp/fresh-clone",
+        runCommandFn: async (_dir, command) => {
+          executed.push(command);
+          return installResult;
+        },
+        cleanupFn: async (dir) => {
+          cleaned.push(dir);
+        },
+      },
+    );
+
+    expect(executed).toEqual([
+      "NODE_ENV=development pnpm install --frozen-lockfile",
+    ]);
+    expect(cleaned).toEqual(["/tmp/fresh-clone"]);
+    expect(result).toMatchObject({
+      status: "failed",
+      errorStage: "install",
+      errorCode,
+    });
+  });
+
   // -------------------------------------------------------------------------
   // Test 4: clone uses the token as a one-off extraheader and .git/config
   //         never contains it

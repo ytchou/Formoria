@@ -134,6 +134,30 @@ describe('repo-worker-client', () => {
     expect(result.errorCode).toBe('job-deadline-exceeded')
   })
 
+  it('preserves worker failure stage and code returned by polling', async () => {
+    const fetchMock = vi.fn<(input: RequestInfo | URL, init?: RequestInit) => Promise<Response>>()
+      .mockResolvedValueOnce(jsonResponse(202, { jobId: 'job-install-failed' }))
+      .mockResolvedValueOnce(jsonResponse(200, {
+        status: 'failed',
+        error: 'Dependency installation failed',
+        errorStage: 'install',
+        errorCode: 'install-failed',
+      }))
+
+    const client = createRepoWorkerClient(makeDeps(), {
+      fetchFn: fetchMock,
+      deadlineMs: 120_000,
+      pollIntervalMs: 5,
+    })
+
+    await expect(client.run(makeRequest())).resolves.toMatchObject({
+      status: 'error',
+      error: 'Dependency installation failed',
+      errorStage: 'install',
+      errorCode: 'install-failed',
+    })
+  })
+
   it('every job is sent a freshly minted read-only clone token', async () => {
     const getCloneToken = vi.fn()
       .mockResolvedValueOnce('ghs_token-1')

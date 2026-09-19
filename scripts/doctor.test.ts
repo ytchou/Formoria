@@ -48,15 +48,15 @@ describe("doctor --health-railway mode", () => {
     });
   }
 
-  it("requires REPO_WORKER_URL, HEALTH_AGENT_GITHUB_APP_ID, HEALTH_AGENT_GITHUB_APP_PRIVATE_KEY, HEALTH_AGENT_GITHUB_APP_INSTALLATION_ID, CLAUDE_CODE_OAUTH_TOKEN, PRODUCTION_BASE_URL", () => {
+  it("requires REPO_WORKER_URL, GITHUB_APP_ID, GITHUB_APP_PRIVATE_KEY, GITHUB_APP_INSTALLATION_ID, CLAUDE_CODE_OAUTH_TOKEN, PRODUCTION_BASE_URL", () => {
     const result = runDoctorHealthRailway();
     const out = result.stdout;
     expect(out).toContain("Checking health agent Railway configuration...");
     for (const v of [
       "REPO_WORKER_URL",
-      "HEALTH_AGENT_GITHUB_APP_ID",
-      "HEALTH_AGENT_GITHUB_APP_PRIVATE_KEY",
-      "HEALTH_AGENT_GITHUB_APP_INSTALLATION_ID",
+      "GITHUB_APP_ID",
+      "GITHUB_APP_PRIVATE_KEY",
+      "GITHUB_APP_INSTALLATION_ID",
       "CLAUDE_CODE_OAUTH_TOKEN",
       "PRODUCTION_BASE_URL",
     ]) {
@@ -65,6 +65,7 @@ describe("doctor --health-railway mode", () => {
     // Must not require the old reader/writer JWT vars
     expect(out).not.toContain("HEALTH_AGENT_READER_TOKEN");
     expect(out).not.toContain("HEALTH_AGENT_WRITER_TOKEN");
+    expect(out).not.toContain("HEALTH_AGENT_GITHUB_APP_ID");
   });
 
   it("accepts either Sentry token variable for the Railway health agent", () => {

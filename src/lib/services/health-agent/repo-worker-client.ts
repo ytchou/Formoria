@@ -10,7 +10,11 @@
  * surface a finding instead of crashing the health run.
  */
 
-import type { ChangedFile, CommandResult } from '@/repo-worker/jobs'
+import type {
+  ChangedFile,
+  CommandResult,
+  JobErrorStage,
+} from '@/repo-worker/jobs'
 
 // ---------------------------------------------------------------------------
 // Types
@@ -41,6 +45,7 @@ type RepoWorkerJobResult = {
   }
   error?: string
   errorCode?: string
+  errorStage?: JobErrorStage | 'clone-auth' | 'transport'
 }
 
 export type RepoWorkerClientDeps = {
@@ -114,6 +119,7 @@ export function createRepoWorkerClient(
         return {
           status: 'error',
           errorCode: 'repo-worker-unreachable',
+          errorStage: 'transport',
           error: 'Deadline exceeded before job could be submitted',
         }
       }
@@ -139,6 +145,7 @@ export function createRepoWorkerClient(
           return {
             status: 'error',
             errorCode: 'repo-worker-unreachable',
+            errorStage: 'transport',
             error: `Worker returned ${response.status}`,
           }
         }
@@ -148,6 +155,7 @@ export function createRepoWorkerClient(
         return {
           status: 'error',
           errorCode: 'repo-worker-rejected',
+          errorStage: 'transport',
           error: `Worker returned ${response.status}: ${errorBody}`,
         }
       } catch {
@@ -159,6 +167,7 @@ export function createRepoWorkerClient(
         return {
           status: 'error',
           errorCode: 'repo-worker-unreachable',
+          errorStage: 'transport',
           error: 'Connection failed after retries',
         }
       }
@@ -167,6 +176,7 @@ export function createRepoWorkerClient(
     return {
       status: 'error',
       errorCode: 'repo-worker-unreachable',
+      errorStage: 'transport',
       error: 'Max retries exceeded',
     }
   }
@@ -186,6 +196,7 @@ export function createRepoWorkerClient(
           return {
             status: 'error',
             errorCode: 'poll-failed',
+            errorStage: 'transport',
             error: `Poll returned ${response.status}`,
           }
         }
@@ -200,7 +211,11 @@ export function createRepoWorkerClient(
             baseSha: data.baseSha as string | undefined,
             claude: data.claude as RepoWorkerJobResult['claude'],
             error: data.error as string | undefined,
-            errorCode: data.status === 'failed' ? 'job-failed' : undefined,
+            errorCode:
+              data.status === 'failed'
+                ? (data.errorCode as string | undefined) ?? 'job-failed'
+                : undefined,
+            errorStage: data.errorStage as RepoWorkerJobResult['errorStage'],
           }
         }
 
@@ -215,6 +230,7 @@ export function createRepoWorkerClient(
     return {
       status: 'error',
       errorCode: 'job-deadline-exceeded',
+      errorStage: 'transport',
       error: `Job ${jobId} did not complete within deadline`,
     }
   }
@@ -231,6 +247,7 @@ export function createRepoWorkerClient(
         return {
           status: 'error',
           errorCode: 'clone-token-failed',
+          errorStage: 'clone-auth',
           error: err instanceof Error ? err.message : String(err),
         }
       }
