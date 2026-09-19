@@ -159,6 +159,26 @@ describe('e2e-agent runner', () => {
     expect(result.passed).toBe(false)
   })
 
+  it('runner_fails_closed_when_playwright_exits_nonzero_with_passing_json', async () => {
+    const report = makePlaywrightReport()
+    const deps = makeDeps()
+    deps.execCommand.mockImplementation(async (cmd: string) => {
+      if (cmd.includes('ls-remote')) {
+        return { stdout: 'abc123def456\trefs/heads/staging\n', stderr: '', exitCode: 0 }
+      }
+      if (cmd.includes('playwright test')) {
+        return { stdout: JSON.stringify(report), stderr: 'terminated', exitCode: 1 }
+      }
+      return { stdout: '', stderr: '', exitCode: 0 }
+    })
+
+    const { runE2eSuite } = await import('../runner.js')
+    const result = await runE2eSuite({ runId: 'test-run-nonzero', deps })
+
+    expect(result.stats.unexpected).toBe(0)
+    expect(result.passed).toBe(false)
+  })
+
   it('runner_waits_for_staging_revision', async () => {
     let callCount = 0
     const deps = makeDeps({

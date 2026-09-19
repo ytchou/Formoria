@@ -491,7 +491,6 @@ test.describe("Bulk refresh approval", () => {
         {
           brand_id: staleBrandId,
           storage_path: staleHeroKey,
-          url: e2eProxyImageUrl(staleHeroKey),
           source_url: staleHeroKey,
           source: "owner",
           status: "active",
@@ -500,7 +499,6 @@ test.describe("Bulk refresh approval", () => {
         {
           brand_id: staleBrandId,
           storage_path: staleDetailKey,
-          url: e2eProxyImageUrl(staleDetailKey),
           source_url: staleDetailKey,
           source: "owner",
           status: "active",
