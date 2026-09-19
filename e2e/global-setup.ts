@@ -99,6 +99,7 @@ async function preflightStagingSession(baseURL: string): Promise<void> {
     );
   }
   const headers = {
+    "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
     "CF-Access-Client-Id": accessClientId,
     "CF-Access-Client-Secret": accessClientSecret,
     ...(process.env.E2E_ORIGIN_SECRET

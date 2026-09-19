@@ -317,13 +317,13 @@ test.describe("SEO deep", () => {
     const staticPaths = new Set([
       "/",
       "/brands",
-      "/categories",
+      "/discover",
       // Not a member of sitemap.ts's `staticPages`: the trail hub is listed
       // zh-TW only and only while at least one trail is published, matching its
       // own `noindex` gate. Named here so the entry is still swept for a
       // resolvable OG image on the runs where the sitemap does emit it; on a
       // run with no published trail the filter below simply finds no match.
-      "/discover",
+      "/style",
       "/about",
       "/faq",
       "/contact",
@@ -334,11 +334,11 @@ test.describe("SEO deep", () => {
     const staticLocations = locations.filter((url) => {
       const path =
         url.pathname === "/en" ? "/" : url.pathname.replace(/^\/en(?=\/)/, "");
-      return staticPaths.has(path) || path.startsWith("/categories/");
+      return staticPaths.has(path);
     });
     expect(staticLocations.length).toBeGreaterThan(0);
-    expect(locations.some((url) => url.pathname === "/categories")).toBe(true);
-    expect(locations.some((url) => url.pathname === "/en/categories")).toBe(
+    expect(locations.some((url) => url.pathname === "/discover")).toBe(true);
+    expect(locations.some((url) => url.pathname === "/en/discover")).toBe(
       true,
     );
     // A browser render per URL exceeds the CI timeout, while compiling every
