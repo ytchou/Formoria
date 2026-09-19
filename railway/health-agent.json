@@ -12,8 +12,15 @@
     "OPENAI_API_KEY",
     "SLACK_FORMORIA_WEBHOOK_URL",
     "SENTRY_DSN",
+    "SENTRY_ORGANIZATION",
+    "SENTRY_PROJECT",
     "LANGFUSE_SECRET_KEY",
     "LANGFUSE_PUBLIC_KEY",
     "LANGFUSE_BASEURL"
-  ]
+  ],
+  "fixedEnvVars": {
+    "SENTRY_ORGANIZATION": "formoria",
+    "SENTRY_PROJECT": "formoria"
+  },
+  "sentryToken": "Reuse SENTRY_AUTH_TOKEN; SENTRY_READ_TOKEN is an accepted alternative."
 }

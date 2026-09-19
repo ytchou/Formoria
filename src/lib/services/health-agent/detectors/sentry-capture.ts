@@ -51,8 +51,8 @@ export const sentryCaptureDetector: Detector = {
 
   async run(ctx: DetectorContext): Promise<HealthFinding[]> {
     const env = getEnv(ctx)
-    const token = env.SENTRY_AUTH_TOKEN
-    const baseUrl = env.SENTRY_BASE_URL?.replace(/\/+$/, '')
+    const token = env.SENTRY_READ_TOKEN || env.SENTRY_AUTH_TOKEN
+    const baseUrl = (env.SENTRY_BASE_URL || 'https://sentry.io').replace(/\/+$/, '')
     const organization = env.SENTRY_ORGANIZATION
     const project = env.SENTRY_PROJECT
     const railwayUrl = env.FORMORIA_RAILWAY_URL?.replace(/\/+$/, '')
@@ -109,7 +109,8 @@ export const sentryCaptureDetector: Detector = {
     }
 
     // Step 2: Poll Sentry issues API for the canary tag
-    const issuesUrl = `${baseUrl}/api/0/projects/${encodeURIComponent(organization)}/${encodeURIComponent(project)}/issues/?query=${encodeURIComponent(canaryToken)}&limit=1`
+    const canaryQuery = `health_canary_token:${canaryToken}`
+    const issuesUrl = `${baseUrl}/api/0/projects/${encodeURIComponent(organization)}/${encodeURIComponent(project)}/issues/?query=${encodeURIComponent(canaryQuery)}&limit=1`
     for (let attempt = 0; attempt < maxAttempts; attempt++) {
       if (attempt > 0 && pollInterval > 0) {
         try {

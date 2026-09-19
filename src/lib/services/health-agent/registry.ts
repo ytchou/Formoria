@@ -52,7 +52,6 @@ import { mitRegistryDetector } from './detectors/mit-registry'
 import { resendDomainDetector } from './detectors/resend-domain'
 import { searchDetector } from './detectors/search'
 import { sentryCaptureDetector } from './detectors/sentry-capture'
-import { sentryWriteDetector } from './detectors/sentry-write'
 import { sentryDetector } from './detectors/sentry'
 import { serviceProbesDetector } from './detectors/service-probes'
 import { slackEventsDetector } from './detectors/slack-events'
@@ -148,17 +147,9 @@ export const registry: Record<DetectorName, Detector> = {
   }),
 
   // ---- sentry source ----
-  'sentry-triage': withCtxDeps('sentry-triage', sentryDetector, (deps) => {
-    const env = (deps.env as Record<string, string> | undefined) ?? {}
-    return {
-      collectorOptions: {
-        organization: env.SENTRY_ORG ?? '',
-        project: env.SENTRY_PROJECT ?? '',
-        token: env.SENTRY_AUTH_TOKEN ?? '',
-      },
-      classifier: () => ({}),
-    }
-  }),
+  'sentry-triage': withCtxDeps('sentry-triage', sentryDetector, (deps) => ({
+    listIssues: deps.listIssues,
+  })),
 
   // ---- quality source — stubs; worker jobs handle the real work ----
   vitest: stubDetector('vitest'),
@@ -188,7 +179,6 @@ export const registry: Record<DetectorName, Detector> = {
   'worker-chromium': workerChromiumDetector,
   'resend-domain': resendDomainDetector,
   'claude-token': claudeTokenDetector,
-  'sentry-write': sentryWriteDetector,
   'sentry-capture': sentryCaptureDetector,
 
   // ---- surface source ----

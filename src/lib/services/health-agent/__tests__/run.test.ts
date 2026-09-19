@@ -313,6 +313,73 @@ describe('runHealthAgent', () => {
     }
   })
 
+  it('reads active Sentry fingerprints before enqueue and highlights only new or returned issues', async () => {
+    const order: string[] = []
+    const client = stubClient()
+    const originalRpc = client.rpc.bind(client)
+    client.rpc = ((fn: string, params: Record<string, unknown>) => {
+      if (fn === 'enqueue_health_fix') order.push('enqueue')
+      return originalRpc(fn, params)
+    }) as typeof client.rpc
+
+    const query: Record<string, unknown> = {}
+    query.select = vi.fn(() => query)
+    query.order = vi.fn(() => query)
+    query.eq = vi.fn(() => query)
+    query.in = vi.fn(() => query)
+    query.range = vi.fn(async () => {
+      order.push('read-active')
+      return {
+        data: [{
+          id: 'active-1',
+          fingerprint: 'sentry:issue:existing',
+          status: 'pending',
+        }],
+        error: null,
+      }
+    })
+    client.from = vi.fn(() => query) as unknown as typeof client.from
+
+    const existing: HealthFinding = {
+      source: 'sentry',
+      fingerprint: 'sentry:issue:existing',
+      title: 'Existing runtime issue',
+      severity: 'medium',
+      evidence: { userCount: 1, lastSeen: '2026-09-19T01:00:00Z' },
+      mergePolicy: 'human',
+      sentryIssueId: 'existing',
+    }
+    const returned: HealthFinding = {
+      source: 'sentry',
+      fingerprint: 'sentry:issue:returned',
+      title: 'Returned runtime issue',
+      severity: 'high',
+      evidence: { userCount: 4, lastSeen: '2026-09-19T02:00:00Z' },
+      mergePolicy: 'human',
+      sentryIssueId: 'returned',
+    }
+    let digest = ''
+
+    await runHealthAgent(baseDeps({
+      client,
+      registryOverride: [
+        makeDetector({
+          name: 'sentry-triage',
+          source: 'sentry',
+          run: async () => [existing, returned],
+        }),
+      ],
+      slackPostDigest: async (text) => {
+        digest = text
+      },
+    }))
+
+    expect(order.indexOf('read-active')).toBeLessThan(order.indexOf('enqueue'))
+    expect(digest).toContain('Sentry active: 2')
+    expect(digest).toContain('Returned runtime issue')
+    expect(digest).not.toContain('Existing runtime issue')
+  })
+
   it('at most one PR is published per run and only with allowlisted files', async () => {
     // Since workerClient is not provided, no PR creation happens
     const deps = baseDeps()

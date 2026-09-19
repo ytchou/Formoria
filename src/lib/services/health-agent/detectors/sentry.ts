@@ -1,110 +1,78 @@
 /**
- * Sentry detector — collects unresolved production issues and produces
- * health findings.
- *
- * Re-uses the collector and finding builder from `scripts/health-agent/sentry.ts`.
- * Filtering: events tagged `health_canary` are excluded at collection time.
+ * Sentry detector — maps a complete unresolved production snapshot into
+ * signal-only health findings. Diagnosis and repair belong to the ops-agent.
  */
 
+import type {
+  ListIssuesOptions,
+  SentryIssue,
+} from '@/lib/adapters/sentry/issues'
 import {
-  buildSentryHealthFinding,
-  collectSentryIssues,
-  type SentryClassifier,
-  type SentryCollectorOptions,
-  type SentryIssueCollection,
-} from '../../../../../scripts/health-agent/sentry'
-import type { HealthFinding } from '../contracts'
-import type { Detector, DetectorContext } from '../types'
+  stableFingerprint,
+  type HealthFinding,
+  type HealthSeverity,
+} from '../contracts'
+import type { Detector } from '../types'
 
-// ---------------------------------------------------------------------------
-// Constants
-// ---------------------------------------------------------------------------
-
-/** Maximum issues to analyze per run. */
-const MAX_SENTRY_ISSUES = 20
-
-/** Lookback period for Sentry issues. */
-const SENTRY_LOOKBACK_DAYS = 14
-
-// ---------------------------------------------------------------------------
-// Severity mapping per plan
-// ---------------------------------------------------------------------------
-
-// ---------------------------------------------------------------------------
-// DI seam
-// ---------------------------------------------------------------------------
+const SENTRY_LOOKBACK_HOURS = 48
+const MAX_SENTRY_ISSUES = 100
 
 export type SentryDetectorDeps = {
-  collectorOptions: SentryCollectorOptions
-  classifier: SentryClassifier
+  listIssues: (
+    hours?: number,
+    options?: ListIssuesOptions,
+  ) => Promise<SentryIssue[]>
 }
 
-/**
- * Whether an issue is a health canary (synthetic probe).
- * Canary events are tagged `health_canary` and must be excluded.
- */
-function isHealthCanary(
-  issue: { rootCauseEvidence: { tags: Record<string, string> } },
-): boolean {
-  return issue.rootCauseEvidence.tags.health_canary === 'true'
+function severityForIssue(issue: SentryIssue): HealthSeverity {
+  if (issue.level.toLowerCase() === 'fatal') return 'critical'
+  if (issue.level.toLowerCase() === 'error') {
+    return issue.userCount >= 10 ? 'high' : 'medium'
+  }
+  return 'low'
 }
 
-export function sentryDetector(deps: SentryDetectorDeps): Detector & {
-  /** Exposed for the runner to check source completion. */
-  lastCollection?: SentryIssueCollection
-} {
-  const detector: Detector & { lastCollection?: SentryIssueCollection } = {
+function eventCount(count: string): number {
+  const parsed = Number.parseInt(count, 10)
+  return Number.isFinite(parsed) && parsed >= 0 ? parsed : 0
+}
+
+export function sentryIssueToFinding(issue: SentryIssue): HealthFinding {
+  return {
+    source: 'sentry',
+    fingerprint: stableFingerprint('sentry', 'issue', issue.id),
+    title: issue.title,
+    severity: severityForIssue(issue),
+    evidence: {
+      count: eventCount(issue.count),
+      userCount: issue.userCount,
+      lastSeen: issue.lastSeen,
+      level: issue.level,
+      permalink: issue.permalink,
+    },
+    mergePolicy: 'human',
+    sentryIssueId: issue.id,
+  }
+}
+
+export function sentryDetector(deps: SentryDetectorDeps): Detector {
+  return {
     name: 'sentry-triage',
     source: 'sentry',
     schedule: 'nightly',
     severity: 'high',
     thresholds: {
       maxIssues: MAX_SENTRY_ISSUES,
-      lookbackDays: SENTRY_LOOKBACK_DAYS,
+      lookbackHours: SENTRY_LOOKBACK_HOURS,
     },
 
-    async run(_ctx: DetectorContext): Promise<HealthFinding[]> {
-      const collection = await collectSentryIssues(deps.collectorOptions)
-      detector.lastCollection = collection
-
-      const findings: HealthFinding[] = []
-
-      for (const candidate of collection.candidates) {
-        // Filter out health canary events
-        if (isHealthCanary(candidate.issue)) continue
-
-        try {
-          const classification = await deps.classifier({
-            filename: 'sentry-issue.json',
-            mediaType: 'application/json',
-            value: candidate.issue,
-          })
-
-          // Parse classification through the schema
-          const { SentryClassificationSchema } = await import(
-            '../../../../../scripts/health-agent/sentry'
-          )
-          const parsed = SentryClassificationSchema.safeParse(classification)
-          if (!parsed.success) continue
-
-          const finding = buildSentryHealthFinding(
-            candidate.issue,
-            parsed.data,
-            {
-              incidentMode: collection.incidentMode,
-            },
-            candidate.provider,
-          )
-          findings.push(finding)
-        } catch {
-          // Classifier failures are swallowed per spec: agents and detectors
-          // never throw to their caller.
-        }
-      }
-
-      return findings
+    async run(): Promise<HealthFinding[]> {
+      const issues = await deps.listIssues(SENTRY_LOOKBACK_HOURS, {
+        limit: MAX_SENTRY_ISSUES,
+        excludeHealthCanary: true,
+        requireComplete: true,
+      })
+      return issues.map(sentryIssueToFinding)
     },
   }
-
-  return detector
 }
