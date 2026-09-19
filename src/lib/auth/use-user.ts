@@ -6,7 +6,6 @@ import {
   useCallback,
   useContext,
   useEffect,
-  useRef,
   useState,
   type ReactNode,
 } from 'react'
@@ -16,6 +15,7 @@ import {
   getViewerContextAction,
   type ViewerContext,
 } from '@/lib/actions/viewer-context'
+import { routes } from '@/lib/routes'
 
 type ViewerUser = NonNullable<ViewerContext['user']>
 
@@ -79,7 +79,7 @@ const UserContext = createContext<UseUserState | null>(null)
 
 export function ViewerProvider({ children }: { children: ReactNode }) {
   const pathname = usePathname()
-  const previousPathname = useRef(pathname)
+  const deferViewerRefresh = pathname.endsWith(routes.auth.resetPassword())
   const [state, setState] = useState<ViewerProviderState>({
     user: null,
     loading: true,
@@ -124,17 +124,13 @@ export function ViewerProvider({ children }: { children: ReactNode }) {
   }, [])
 
   useEffect(() => {
+    // A recovery session exists only to submit the password form. Starting an
+    // unrelated Server Action here can finish after that submit and restore the
+    // reset route over its successful redirect.
+    if (deferViewerRefresh) return
     const timer = window.setTimeout(() => void refreshViewer(), 0)
     return () => window.clearTimeout(timer)
-  }, [refreshViewer])
-
-  useEffect(() => {
-    if (previousPathname.current === pathname) return
-
-    previousPathname.current = pathname
-    const timer = window.setTimeout(() => void refreshViewer(), 0)
-    return () => window.clearTimeout(timer)
-  }, [pathname, refreshViewer])
+  }, [deferViewerRefresh, pathname, refreshViewer])
 
   // Readiness signal for tests. Admin- and owner-gated controls render `null`
   // until viewer context settles, so asserting one directly cannot tell "still

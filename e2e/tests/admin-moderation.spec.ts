@@ -113,9 +113,9 @@ test.describe("Content moderation flow", () => {
 
     const brandPanel = adminPage.getByRole("dialog", { name: brandName });
     await expect(brandPanel).toBeVisible({ timeout: BUDGET.INTERACTIVE });
-    const contentSection = brandPanel.locator("section:not([aria-label])").filter({
-      has: brandPanel.getByRole("heading", { name: "Content", exact: true }),
-    });
+    const contentSection = brandPanel
+      .getByRole("heading", { name: "Content", exact: true })
+      .locator("xpath=ancestor::section[1]");
     await contentSection.getByRole("button", { name: "Edit" }).click();
     await contentSection
       .getByLabel("Chinese description")

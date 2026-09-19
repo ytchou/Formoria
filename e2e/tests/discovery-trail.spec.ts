@@ -98,8 +98,7 @@ test.describe("Discovery trail deep", () => {
     expect(response.status()).toBe(200);
     const $ = load(await response.text());
     const exploreSection = $('section[aria-label="探索更多"]');
-    // Embeddings may not exist in the test environment — skip rather than fail.
-    test.skip(exploreSection.length === 0, "no similar products (embeddings missing)");
+    expect(exploreSection).toHaveLength(1);
     expect(exploreSection.find("h2").text()).toBe("探索更多");
     expect(exploreSection.find("li").length).toBeGreaterThanOrEqual(3);
   });

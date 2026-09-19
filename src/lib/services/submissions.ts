@@ -675,21 +675,16 @@ export async function attachSignedSubmissionImageUrls(
   });
 }
 
-function submissionImageToReviewImage(
+export function submissionImageToReviewImage(
   row: SubmissionImageRow,
 ): SubmissionReviewImage {
   return {
     id: row.id,
     submissionId: row.submission_id,
     storagePath: row.storage_path,
-    /*
-     * Placeholder until `attachSignedSubmissionImageUrls` replaces it.
-     * `submissions/` objects are pre-moderation and the `/i/` proxy 404s them
-     * on purpose, so there is no unsigned form to fall back to. A row whose
-     * signing fails renders nothing, which is the correct failure for content
-     * only an admin may see.
-     */
-    url: "",
+    // Refresh snapshots may point back to an already-published brand image.
+    // New submission objects stay blank until the private URL signer runs.
+    url: row.origin_brand_image_id ? (row.url ?? "") : "",
     source: row.source,
     status: imageStatus(row.status),
     sortOrder: row.sort_order,
@@ -1549,7 +1544,7 @@ export async function getSubmissionsForReview(options?: {
             const { data: imageData, error: imagesError } = await supabase
               .from("submission_images")
               .select(
-                "id, submission_id, storage_path, source, status, sort_order, tags, width, height, origin_brand_image_id",
+                "id, submission_id, storage_path, url, source, status, sort_order, tags, width, height, origin_brand_image_id",
               )
               .in("submission_id", targetIds)
               .order("submission_id", { ascending: true })
@@ -2330,7 +2325,7 @@ export async function approveSubmission(
       const { data: imageRows, error: imageError } = await supabase
         .from("submission_images")
         .select(
-          "id, submission_id, storage_path, source, status, sort_order, tags, width, height, origin_brand_image_id",
+          "id, submission_id, storage_path, url, source, status, sort_order, tags, width, height, origin_brand_image_id",
         )
         .eq("submission_id", id)
         .order("sort_order", { ascending: true });
