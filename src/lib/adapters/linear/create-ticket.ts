@@ -53,9 +53,24 @@ export async function createTicket(spec: TicketSpec): Promise<TicketResult> {
 
   const labelId = resolveLabel(spec.label);
 
+  const projectId = process.env.LINEAR_PROJECT_ID;
+  const assigneeId = process.env.LINEAR_ASSIGNEE_ID;
+  const stateId = process.env.LINEAR_STATE_TODO_ID;
+
   return auditedCall(
     { provider: "linear", operation: "create_ticket", kind: "external" },
     async () => {
+      const input: Record<string, unknown> = {
+        teamId,
+        title: spec.title,
+        description: spec.body,
+        labelIds: [labelId],
+        priority: 1,
+        ...(projectId && { projectId }),
+        ...(assigneeId && { assigneeId }),
+        ...(stateId && { stateId }),
+      };
+
       const response = await fetch(LINEAR_API_URL, {
         method: "POST",
         headers: {
@@ -64,14 +79,7 @@ export async function createTicket(spec: TicketSpec): Promise<TicketResult> {
         },
         body: JSON.stringify({
           query: ISSUE_CREATE_MUTATION,
-          variables: {
-            input: {
-              teamId,
-              title: spec.title,
-              description: spec.body,
-              labelIds: [labelId],
-            },
-          },
+          variables: { input },
         }),
         signal: AbortSignal.timeout(TIMEOUT_MS),
       });

@@ -61,6 +61,7 @@ describe("createTicket", () => {
       title: "Test issue",
       description: "Issue description",
       labelIds: ["uuid-data-quality"],
+      priority: 1,
     });
   });
 
@@ -105,6 +106,38 @@ describe("createTicket", () => {
       (fetchMock.mock.calls[0]![1]!.body as string),
     );
     expect(body.variables.input.labelIds).toEqual(["abc-123-uuid"]);
+  });
+
+  it("includes optional project, assignee, and state when env vars are set", async () => {
+    vi.stubEnv("LINEAR_PROJECT_ID", "proj_123");
+    vi.stubEnv("LINEAR_ASSIGNEE_ID", "user_456");
+    vi.stubEnv("LINEAR_STATE_TODO_ID", "state_789");
+
+    const fetchMock = vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      Response.json({
+        data: {
+          issueCreate: { issue: { identifier: "DEV-5000" } },
+        },
+      }),
+    );
+
+    await createTicket({
+      title: "Full fields",
+      body: "body",
+      label: "data_quality",
+    });
+
+    const body = JSON.parse(fetchMock.mock.calls[0]![1]!.body as string);
+    expect(body.variables.input).toEqual({
+      teamId: "team_test_id",
+      title: "Full fields",
+      description: "body",
+      labelIds: ["uuid-data-quality"],
+      priority: 1,
+      projectId: "proj_123",
+      assigneeId: "user_456",
+      stateId: "state_789",
+    });
   });
 
   it("throws on API error", async () => {
