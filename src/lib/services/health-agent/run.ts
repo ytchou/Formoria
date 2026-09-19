@@ -36,8 +36,9 @@ import {
 import { runDetectors } from './runner'
 import { buildDigest, buildTickets } from './report'
 import { registry as defaultRegistry } from './registry'
-import { HEALTH_JOBS } from './jobs'
-import { parseVitestFindings, parseKnipFindings } from './quality-parsers'
+import { HEALTH_JOBS, QUALITY_CONTEXT_COMMANDS } from './jobs'
+import { evaluateQualityReports } from './detectors/quality'
+import type { CommandResult } from '@/repo-worker/jobs'
 
 // ---------------------------------------------------------------------------
 // Types
@@ -92,6 +93,86 @@ export type RunHealthAgentResult = {
   totalFindings: number
   prPublished?: boolean
   error?: string
+}
+
+type QualityWorkerFailureKind =
+  'clone-auth' | 'install' | 'vitest-exec' | 'knip-exec' | 'worker-transport'
+
+function boundedEvidence(value: string | undefined): string | undefined {
+  if (!value) return undefined
+  return value
+    .replace(/-----BEGIN [^-]+-----[\s\S]*?-----END [^-]+-----/g, '[REDACTED]')
+    .replace(/\b(?:Bearer|Basic)\s+\S+/gi, '[REDACTED]')
+    .replace(/\bgithub_pat_[A-Za-z0-9_]+\b/g, '[REDACTED]')
+    .replace(/\bgh[pousr]_[A-Za-z0-9_]+\b/g, '[REDACTED]')
+    .slice(0, 500)
+}
+
+function qualityWorkerFailure(
+  kind: QualityWorkerFailureKind,
+  details: {
+    stage?: string
+    code?: string
+    message?: string
+    command?: CommandResult
+  } = {},
+): HealthFinding {
+  const evidence: Record<string, string | number | boolean> = {
+    failureKind: kind,
+  }
+  const stage = boundedEvidence(details.stage)
+  const code = boundedEvidence(details.code)
+  const message = boundedEvidence(details.message)
+  const stderr = boundedEvidence(details.command?.stderr)
+  if (stage) evidence.stage = stage
+  if (code) evidence.code = code
+  if (message) evidence.message = message
+  if (stderr) evidence.stderr = stderr
+  if (details.command) {
+    evidence.exitCode = details.command.exitCode
+    evidence.timedOut = details.command.timedOut
+  }
+  return {
+    source: 'quality',
+    fingerprint: stableFingerprint('quality', 'worker-failure', kind),
+    title: `Quality worker failure: ${kind}`,
+    severity: 'high',
+    evidence,
+    mergePolicy: 'human',
+  }
+}
+
+function parseJsonOutput(stdout: string): unknown {
+  const trimmed = stdout.trim()
+  try {
+    return JSON.parse(trimmed)
+  } catch {
+    const start = trimmed.indexOf('{')
+    const end = trimmed.lastIndexOf('}')
+    if (start >= 0 && end > start) {
+      try {
+        return JSON.parse(trimmed.slice(start, end + 1))
+      } catch {
+        /* handled below */
+      }
+    }
+  }
+  return undefined
+}
+
+function findCommand(
+  results: CommandResult[],
+  id: string,
+): CommandResult | undefined {
+  return results.find((result) => result.id === id)
+}
+
+function workerFailureKind(
+  stage: string | undefined,
+): QualityWorkerFailureKind {
+  if (stage === 'clone' || stage === 'clone-auth') return 'clone-auth'
+  if (stage === 'install') return 'install'
+  return 'worker-transport'
 }
 
 // ---------------------------------------------------------------------------
@@ -271,9 +352,15 @@ async function executeRunBody(
 
   // ---- 3.5. Quality jobs (vitest + knip via repo worker) ----
   let qualityJobsSucceeded = false
+  let vitestFindings: HealthFinding[] = []
+  let knipFindings: HealthFinding[] = []
+  const hasQualityStubs = results.some(
+    (result) => result.name === 'vitest' || result.name === 'knip',
+  )
   if (!dryRun && deps.workerClient) {
     try {
       const commands = [
+        ...QUALITY_CONTEXT_COMMANDS,
         ...HEALTH_JOBS.vitest.commands,
         ...HEALTH_JOBS.knip.commands,
       ]
@@ -283,63 +370,151 @@ async function executeRunBody(
         editableFiles: [],
       })
 
-      let vitestFindings: HealthFinding[] = []
-      let knipFindings: HealthFinding[] = []
-
       if (jobResult.status === 'done' && jobResult.results) {
-        vitestFindings = parseVitestFindings(jobResult.results)
-        knipFindings = parseKnipFindings(jobResult.results)
-        qualityJobsSucceeded = true
+        const repoRootResult = findCommand(jobResult.results, 'repo-root')
+        const trackedFilesResult = findCommand(
+          jobResult.results,
+          'tracked-files',
+        )
+        const vitestResult = findCommand(jobResult.results, 'vitest')
+        const knipResult = findCommand(jobResult.results, 'knip')
+        const repoContextValid = Boolean(
+          repoRootResult &&
+          !repoRootResult.timedOut &&
+          repoRootResult.exitCode === 0 &&
+          repoRootResult.stdout.trim() &&
+          trackedFilesResult &&
+          !trackedFilesResult.timedOut &&
+          trackedFilesResult.exitCode === 0,
+        )
+
+        if (!repoContextValid) {
+          const failedContext =
+            !repoRootResult ||
+            repoRootResult.timedOut ||
+            repoRootResult.exitCode !== 0
+              ? repoRootResult
+              : trackedFilesResult
+          vitestFindings.push(
+            qualityWorkerFailure('worker-transport', {
+              stage: failedContext?.id ?? 'repository-context',
+              code: 'repository-context-failed',
+              message:
+                'Repository root or tracked files could not be collected',
+              command: failedContext,
+            }),
+          )
+        }
+
+        const evaluation = evaluateQualityReports({
+          repoRoot: repoRootResult?.stdout.trim() ?? '',
+          trackedFiles: new Set(
+            (trackedFilesResult?.stdout ?? '')
+              .split('\n')
+              .map((file) => file.trim())
+              .filter(Boolean),
+          ),
+          vitestExitCode: vitestResult?.exitCode ?? 1,
+          vitestReport: parseJsonOutput(vitestResult?.stdout ?? ''),
+          knipExitCode: knipResult?.exitCode ?? 1,
+          knipReport: parseJsonOutput(knipResult?.stdout ?? ''),
+        })
+
+        vitestFindings.push(
+          ...evaluation.findings.filter(
+            (finding) => finding.evidence.check === 'full-unit-suite',
+          ),
+        )
+        knipFindings.push(
+          ...evaluation.findings.filter(
+            (finding) => finding.evidence.check === 'dead-code',
+          ),
+        )
+
+        const vitestValid = Boolean(
+          vitestResult &&
+          !vitestResult.timedOut &&
+          evaluation.summary.fullUnitSuite.status === 'success',
+        )
+        const knipValid = Boolean(
+          knipResult &&
+          !knipResult.timedOut &&
+          evaluation.summary.deadCode.status === 'success',
+        )
+        if (!vitestValid) {
+          vitestFindings.push(
+            qualityWorkerFailure('vitest-exec', {
+              stage: 'vitest',
+              code: vitestResult?.timedOut
+                ? 'command-timeout'
+                : 'invalid-report',
+              message: evaluation.failures.find((failure) =>
+                failure.startsWith('full-unit-suite:'),
+              ),
+              command: vitestResult,
+            }),
+          )
+        }
+        if (!knipValid) {
+          knipFindings.push(
+            qualityWorkerFailure('knip-exec', {
+              stage: 'knip',
+              code: knipResult?.timedOut ? 'command-timeout' : 'invalid-report',
+              message: evaluation.failures.find((failure) =>
+                failure.startsWith('dead-code:'),
+              ),
+              command: knipResult,
+            }),
+          )
+        }
+        qualityJobsSucceeded = repoContextValid && vitestValid && knipValid
       } else {
         console.warn(
           `[health-agent] quality jobs returned status: ${jobResult.status}`,
         )
-        // Inject a failure finding so the run doesn't look like all-pass
-        const failFinding: HealthFinding = {
-          fingerprint: stableFingerprint(
-            'quality',
-            'worker-failure',
-            `quality-jobs-${Date.now()}`,
-          ),
-          title: `Quality jobs failed (status: ${jobResult.status})`,
-          source: 'quality',
-          severity: 'high',
-          mergePolicy: 'human',
-          evidence: {
-            stderr:
-              jobResult.results?.[0]?.stderr?.slice(0, 500) ?? 'no details',
-          },
-        }
-        vitestFindings = [failFinding]
-      }
-
-      // Inject quality findings into the vitest/knip stub results
-      for (const r of results) {
-        if (r.name === 'vitest') r.findings = vitestFindings
-        if (r.name === 'knip') r.findings = knipFindings
-      }
-
-      // Warn if stubs are missing — findings would be silently discarded
-      if (
-        vitestFindings.length > 0 &&
-        !results.some((r) => r.name === 'vitest')
-      ) {
-        console.warn(
-          '[health-agent] vitest stub not found in results — quality findings not injected',
-        )
-      }
-      if (
-        knipFindings.length > 0 &&
-        !results.some((r) => r.name === 'knip')
-      ) {
-        console.warn(
-          '[health-agent] knip stub not found in results — quality findings not injected',
+        vitestFindings.push(
+          qualityWorkerFailure(workerFailureKind(jobResult.errorStage), {
+            stage: jobResult.errorStage,
+            code: jobResult.errorCode,
+            message: jobResult.error,
+          }),
         )
       }
     } catch (err) {
       console.error('[health-agent] quality jobs failed:', err)
-      // Stubs stay at [] — detector findings are unaffected
+      vitestFindings.push(
+        qualityWorkerFailure('worker-transport', {
+          stage: 'transport',
+          code: 'worker-call-threw',
+          message: err instanceof Error ? err.message : String(err),
+        }),
+      )
     }
+  } else if (!dryRun && hasQualityStubs) {
+    vitestFindings.push(
+      qualityWorkerFailure('worker-transport', {
+        stage: 'transport',
+        code: 'worker-not-configured',
+        message: 'REPO_WORKER_URL is not configured',
+      }),
+    )
+  }
+
+  // Inject quality findings into the vitest/knip stub results.
+  for (const result of results) {
+    if (result.name === 'vitest') result.findings = vitestFindings
+    if (result.name === 'knip') result.findings = knipFindings
+  }
+
+  if (vitestFindings.length > 0 && !results.some((r) => r.name === 'vitest')) {
+    console.warn(
+      '[health-agent] vitest stub not found in results — quality findings not injected',
+    )
+  }
+  if (knipFindings.length > 0 && !results.some((r) => r.name === 'knip')) {
+    console.warn(
+      '[health-agent] knip stub not found in results — quality findings not injected',
+    )
   }
 
   // Mark quality source as completed when worker jobs succeeded.

@@ -132,6 +132,60 @@ describe('quality detector', () => {
     expect(result.status).toBe('failed')
   })
 
+  it('reports a Vitest suite setup failure with zero failed assertions', () => {
+    const result = evaluateQualityReports(
+      makeInput({
+        vitestExitCode: 1,
+        vitestReport: {
+          numFailedTestSuites: 1,
+          numFailedTests: 0,
+          numTotalTestSuites: 1,
+          numTotalTests: 0,
+          success: false,
+          testResults: [
+            {
+              name: '/repo/src/app.test.ts',
+              status: 'failed',
+              assertionResults: [],
+              message: 'Failed to import /repo/src/app.ts:12:3',
+            },
+          ],
+        },
+        trackedFiles: new Set(['src/app.test.ts', 'src/app.ts']),
+      }),
+    )
+
+    expect(result.status).toBe('success')
+    expect(result.findings).toEqual([
+      expect.objectContaining({
+        fingerprint: 'quality:full-unit-suite:src/app.test.ts::suite-failure',
+        title: 'Vitest suite failure: src/app.test.ts',
+        changedFiles: ['src/app.test.ts', 'src/app.ts'],
+      }),
+    ])
+  })
+
+  it('preserves valid Knip findings when the Vitest report is malformed', () => {
+    const result = evaluateQualityReports(
+      makeInput({
+        vitestExitCode: 1,
+        vitestReport: 'not-json',
+        knipExitCode: 1,
+        knipReport: {
+          issues: [{ file: 'src/lib/utils.ts', exports: ['unusedFn'] }],
+        },
+      }),
+    )
+
+    expect(result.status).toBe('failed')
+    expect(result.failures).toContain('full-unit-suite:malformed_output')
+    expect(result.findings).toEqual([
+      expect.objectContaining({
+        fingerprint: 'quality:dead-code:exports:src/lib/utils.ts:unusedfn',
+      }),
+    ])
+  })
+
   it('malformed knip report produces a failure', () => {
     const result = evaluateQualityReports(
       makeInput({ knipReport: 'not-an-object' }),
