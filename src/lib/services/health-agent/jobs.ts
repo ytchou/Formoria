@@ -65,7 +65,7 @@ export const HEALTH_JOBS: Record<string, HealthJobDefinition> = {
     commands: [
       {
         id: 'vitest',
-        run: 'pnpm exec vitest run --reporter=json',
+        run: 'NODE_ENV=test pnpm exec vitest run --reporter=json',
         timeoutMs: VITEST_TIMEOUT_MS,
       },
     ],

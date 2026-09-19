@@ -22,6 +22,12 @@ describe('health agent job definitions', () => {
     expect(HEALTH_JOBS.knip.commands[0]!.timeoutMs).toBeGreaterThan(0)
   })
 
+  it('runs Vitest in test mode when the worker environment is production', () => {
+    expect(HEALTH_JOBS.vitest.commands[0]!.run).toBe(
+      'NODE_ENV=test pnpm exec vitest run --reporter=json',
+    )
+  })
+
   it('vitest and knip findings keep the quality:* fingerprints of the scripts implementation', () => {
     const vitest = HEALTH_JOBS.vitest
     expect(vitest).toBeDefined()
