@@ -48,7 +48,7 @@ async function seedReadySubmission(
   const storagePath = `submissions/${id}/hero.png`;
 
   const { error: uploadError } = await supabase.storage
-    .from("brand-images")
+    .from("brand-submissions")
     .upload(storagePath, PNG_1X1, { contentType: "image/png" });
   if (uploadError) throw new Error(`image seed failed: ${uploadError.message}`);
   // The same-origin proxy path, not a public storage URL (DEV-1551): the bucket
@@ -175,7 +175,7 @@ async function cleanupSubmission(
     .eq("submission_id", seeded.id);
   await supabase.from("brand_submissions").delete().eq("id", seeded.id);
   await supabase.from("curation_jobs").delete().eq("id", seeded.jobId);
-  await supabase.storage.from("brand-images").remove([seeded.storagePath]);
+  await supabase.storage.from("brand-submissions").remove([seeded.storagePath]);
 }
 
 /**

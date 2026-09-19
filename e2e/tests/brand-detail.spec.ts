@@ -277,9 +277,7 @@ test.describe("Brand detail deep", () => {
     // The literal acceptance criterion — "verifiable by curl". Asserting on the
     // rendered DOM alone would still pass if a client effect injected the text
     // after hydration, which is exactly the regression this guards against.
-    const response = await request.get(`/brands/${seeded.slug}`, {
-      headers: { "user-agent": "Googlebot" },
-    });
+    const response = await request.get(`/brands/${seeded.slug}`);
     expect(response.status()).toBe(200);
     const html = await response.text();
     expect(html).toContain("代表產品包含");
@@ -580,14 +578,12 @@ test.describe("Brand detail — historical slugs", () => {
     for (const { source, target } of cases) {
       const redirectResponse = await request.get(source, {
         maxRedirects: 0,
-        headers: { "user-agent": "Googlebot" },
       });
       expect(redirectResponse.status()).toBe(308);
       expect(redirectResponse.headers().location).toBe(target);
 
       const targetResponse = await request.get(target, {
         maxRedirects: 0,
-        headers: { "user-agent": "Googlebot" },
       });
       expect(targetResponse.status()).toBe(200);
       const $ = load(await targetResponse.text());
@@ -607,7 +603,6 @@ test.describe("Brand detail — historical slugs", () => {
     ]) {
       const response = await request.get(source, {
         maxRedirects: 0,
-        headers: { "user-agent": "Googlebot" },
       });
       expect(response.status()).toBe(404);
       expect(response.headers().location).toBeUndefined();
