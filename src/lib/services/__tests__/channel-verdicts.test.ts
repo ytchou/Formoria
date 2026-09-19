@@ -46,10 +46,9 @@ const CONCLUSIVE_SOURCES: Record<string, SourceOutcome> = {
   hubs: "skipped",
   threads: "absent",
   serpName: "absent",
-  serpHandle: "absent",
 };
 
-const NO_CHANNEL_ERROR = `${NO_PURCHASE_CHANNEL_PREFIX} no purchase channel after hubs=skipped threads=absent serp_name=absent serp_handle=absent evidence=conclusive`;
+const NO_CHANNEL_ERROR = `${NO_PURCHASE_CHANNEL_PREFIX} no purchase channel after hubs=skipped threads=absent serp_name=absent evidence=conclusive`;
 
 function phaseResults(
   linkExpansion: Record<string, unknown> | undefined,

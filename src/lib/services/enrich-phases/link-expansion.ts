@@ -11,6 +11,7 @@
 
 import * as cheerio from 'cheerio'
 import { isLinkAggregatorHost, isThirdPartyDirectoryHost } from './scraper/input-detector'
+import { normalizeHandle, isUsableHandle } from './scraper/search'
 import {
   extractInstagramHandle,
   extractPurchaseLinks,
@@ -43,7 +44,7 @@ export type LinkExpansionBrand = {
 export type AdoptedLink = {
   field: LinkField
   value: string
-  source: 'hub' | 'threads' | 'serp' | 'serp_handle'
+  source: 'hub' | 'threads' | 'serp'
   /** The page the link was read from — a hub page, or the Threads profile. */
   hubUrl: string
 }
@@ -73,7 +74,6 @@ export type ChannelSources = {
   hubs: SourceOutcome
   threads: SourceOutcome
   serpName: SourceOutcome
-  serpHandle: SourceOutcome
 }
 
 export type ThreadsBioResult = {
@@ -466,6 +466,127 @@ export async function expandThreadsBio(
 }
 
 // ---------------------------------------------------------------------------
+// SERP-discovered hub expansion
+// ---------------------------------------------------------------------------
+
+/**
+ * A URL's first hostname label in `normalizeHandle`'s comparison form —
+ * `https://1woof.com/` becomes `1woof`. Both sides of a handle comparison have
+ * to be normalized as WHOLE units: a handle spelled `1.wo_of` would never
+ * match its own site otherwise.
+ */
+export function registrableLabel(url: string): string | null {
+  try {
+    const host = new URL(url).hostname.toLowerCase().replace(/^www\./, '')
+    const label = host.split('.')[0] ?? ''
+    return label.length > 0 ? normalizeHandle(label) : null
+  } catch {
+    return null
+  }
+}
+
+type ExpandSerpDiscoveredHubsInput = {
+  serpUrls: string[]
+  handle: string | null | undefined
+  brandName: string | null | undefined
+  confirmedHubUrls: ReadonlySet<string>
+  fetchHtml: (url: string) => Promise<string | null>
+}
+
+/**
+ * Expand SERP-discovered URLs that carry the brand's Instagram handle.
+ *
+ * Two branches:
+ * (a) Aggregator URLs (Portaly, Linktree, …) whose path contains the handle
+ *     are expanded as confirmed hubs via `expandLinkHubs`.
+ * (b) Remaining URLs whose host label equals the normalized handle are
+ *     classified via `classifySubmittedUrl` for `purchase*` fields.
+ *
+ * All adoptions use `source: "serp"`.
+ */
+export async function expandSerpDiscoveredHubs(
+  input: ExpandSerpDiscoveredHubsInput,
+): Promise<LinkExpansionResult> {
+  const { serpUrls, handle, brandName, confirmedHubUrls, fetchHtml } = input
+
+  if (!handle || !isUsableHandle(handle)) {
+    return { adopted: [], scraped: {}, hubsFetched: 0, fetchFailures: 0 }
+  }
+
+  const normalized = normalizeHandle(handle)
+
+  const aggregatorUrls: string[] = []
+  const remainingUrls: string[] = []
+
+  for (const url of serpUrls) {
+    if (isLinkAggregatorHost(url)) {
+      try {
+        const segments = new URL(url).pathname
+          .split('/')
+          .map((s) => normalizeHandle(s))
+          .filter(Boolean)
+        if (segments[0] === normalized) {
+          aggregatorUrls.push(url)
+        }
+      } catch {
+        // malformed URL — skip
+      }
+    } else {
+      remainingUrls.push(url)
+    }
+  }
+
+  const adopted: AdoptedLink[] = []
+  const scraped: Partial<Record<LinkField, string>> = {}
+  let hubsFetched = 0
+  let fetchFailures = 0
+  const gated: string[] = []
+
+  // (a) Expand aggregator hubs — confirmed because they carry the handle.
+  if (aggregatorUrls.length > 0) {
+    const hubResult = await expandLinkHubs({
+      brandName,
+      hubUrls: aggregatorUrls,
+      confirmedHubUrls: new Set([...confirmedHubUrls, ...aggregatorUrls]),
+      fetchHtml,
+    })
+    hubsFetched += hubResult.hubsFetched
+    fetchFailures += hubResult.fetchFailures
+    if (hubResult.gated?.length) {
+      gated.push(...hubResult.gated)
+    }
+    for (const link of hubResult.adopted) {
+      adopted.push({ ...link, source: 'serp' })
+    }
+    Object.assign(scraped, hubResult.scraped)
+  }
+
+  // (b) Brand domain detection by handle — host label equals the handle.
+  for (const url of remainingUrls) {
+    const hostLabel = registrableLabel(url)
+    if (hostLabel === null || hostLabel !== normalized) continue
+
+    for (const [field, value] of Object.entries(classifySubmittedUrl(url))) {
+      if (typeof value !== 'string') continue
+      if (!field.startsWith('purchase')) continue
+      const linkField = field as LinkField
+      if (scraped[linkField]) continue
+
+      scraped[linkField] = value
+      adopted.push({ field: linkField, value, source: 'serp', hubUrl: url })
+    }
+  }
+
+  return {
+    adopted,
+    scraped,
+    hubsFetched,
+    fetchFailures,
+    ...(gated.length > 0 ? { gated } : {}),
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Evidence
 // ---------------------------------------------------------------------------
 
@@ -473,13 +594,12 @@ export const EVIDENCE_SOURCE_KEYS = [
   'hubs',
   'threads',
   'serpName',
-  'serpHandle',
 ] as const
 
 /**
  * Whether the channel search answered well enough to act on.
  *
- * `conclusive` requires all four sources to have recorded an answer, none of
+ * `conclusive` requires all three sources to have recorded an answer, none of
  * them `unknown`, and every search call that was actually made to have
  * ANSWERED. Anything short of that is `inconclusive` — the pipeline may then
  * skip the brand, but it may never reject or hide one.

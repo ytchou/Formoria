@@ -4,8 +4,10 @@ import {
   computeEvidence,
   deriveThreadsUrl,
   expandLinkHubs,
+  expandSerpDiscoveredHubs,
   expandThreadsBio,
   hasPurchaseChannel,
+  registrableLabel,
   unwrapRedirectWrapper,
   type LinkExpansionBrand,
 } from '../link-expansion'
@@ -466,12 +468,26 @@ describe('computeEvidence', () => {
     hubs: 'skipped',
     threads: 'absent',
     serpName: 'absent',
-    serpHandle: 'absent',
   } as const
 
   it('is conclusive when every source answered and no call failed', () => {
     expect(computeEvidence(answered, ['succeeded'])).toBe('conclusive')
     expect(computeEvidence(answered, [])).toBe('conclusive')
+  })
+
+  it('returns conclusive with 3 answered sources', () => {
+    expect(
+      computeEvidence(
+        { hubs: 'found', threads: 'absent', serpName: 'skipped' },
+        [],
+      ),
+    ).toBe('conclusive')
+  })
+
+  it('returns inconclusive when serpName is unknown', () => {
+    expect(
+      computeEvidence({ hubs: 'skipped', threads: 'absent', serpName: 'unknown' }, []),
+    ).toBe('inconclusive')
   })
 
   it('is inconclusive when any source is unknown', () => {
@@ -503,5 +519,114 @@ describe('computeEvidence', () => {
     expect(computeEvidence(answered, ['succeeded', null, undefined])).toBe(
       'conclusive',
     )
+  })
+})
+
+// ---------------------------------------------------------------------------
+// registrableLabel
+// ---------------------------------------------------------------------------
+describe('registrableLabel', () => {
+  it('normalizes host labels', () => {
+    expect(registrableLabel('https://1woof.com/')).toBe('1woof')
+  })
+
+  it('strips www prefix', () => {
+    expect(registrableLabel('https://www.fusoap.com/')).toBe('fusoap')
+  })
+
+  it('returns null for invalid URLs', () => {
+    expect(registrableLabel('not-a-url')).toBeNull()
+  })
+})
+
+// ---------------------------------------------------------------------------
+// expandSerpDiscoveredHubs
+// ---------------------------------------------------------------------------
+describe('expandSerpDiscoveredHubs', () => {
+  const fetchHtml = vi.fn<(url: string) => Promise<string | null>>()
+
+  const HUB_PAGE = `
+  <html><body>
+    <a href="https://myship.7-11.com.tw/general/detail/GM999">MyShip</a>
+    <a href="https://www.pinkoi.com/store/fusoap">Pinkoi</a>
+  </body></html>
+  `
+
+  it('expands aggregator with handle match', async () => {
+    fetchHtml.mockResolvedValue(HUB_PAGE)
+
+    const result = await expandSerpDiscoveredHubs({
+      serpUrls: ['https://portaly.cc/fusoap'],
+      handle: 'fusoap',
+      brandName: '芙皂',
+      confirmedHubUrls: new Set<string>(),
+      fetchHtml,
+    })
+
+    expect(result.hubsFetched).toBe(1)
+    expect(result.adopted.length).toBeGreaterThan(0)
+    expect(result.adopted.every((a) => a.source === 'serp')).toBe(true)
+    expect(result.adopted).toContainEqual(
+      expect.objectContaining({ field: 'purchaseMyship' }),
+    )
+  })
+
+  it('skips aggregator without handle match', async () => {
+    fetchHtml.mockResolvedValue(HUB_PAGE)
+
+    const result = await expandSerpDiscoveredHubs({
+      serpUrls: ['https://portaly.cc/someotheraccount'],
+      handle: 'fusoap',
+      brandName: '芙皂',
+      confirmedHubUrls: new Set<string>(),
+      fetchHtml,
+    })
+
+    expect(result.hubsFetched).toBe(0)
+    expect(result.adopted).toEqual([])
+  })
+
+  it('detects brand domain by handle', async () => {
+    fetchHtml.mockResolvedValue(null)
+
+    const result = await expandSerpDiscoveredHubs({
+      serpUrls: ['https://fusoap.com/shop'],
+      handle: 'fusoap',
+      brandName: '芙皂',
+      confirmedHubUrls: new Set<string>(),
+      fetchHtml,
+    })
+
+    expect(result.adopted).toContainEqual(
+      expect.objectContaining({ field: 'purchaseWebsite', source: 'serp' }),
+    )
+  })
+
+  it('returns empty when no handle', async () => {
+    const result = await expandSerpDiscoveredHubs({
+      serpUrls: ['https://portaly.cc/fusoap'],
+      handle: null,
+      brandName: '芙皂',
+      confirmedHubUrls: new Set<string>(),
+      fetchHtml,
+    })
+
+    expect(result.adopted).toEqual([])
+    expect(result.hubsFetched).toBe(0)
+  })
+
+  it('skips aggregator with handle in non-profile path segment', async () => {
+    fetchHtml.mockResolvedValue(HUB_PAGE)
+
+    const result = await expandSerpDiscoveredHubs({
+      serpUrls: ['https://portaly.cc/other/fusoap'],
+      handle: 'fusoap',
+      brandName: '芙皂',
+      confirmedHubUrls: new Set<string>(),
+      fetchHtml,
+    })
+
+    expect(result.hubsFetched).toBe(0)
+    expect(result.adopted).toEqual([])
   })
 })

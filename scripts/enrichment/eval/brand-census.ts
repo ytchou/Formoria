@@ -423,7 +423,7 @@ export function statusDirection(
 
 /**
  * Which deterministic sources fed the brand's adopted links on its LAST
- * curation run — `hub`, `threads`, `serp`, `serp_handle`. Distinct, in
+ * curation run — `hub`, `threads`, `serp`. Distinct, in
  * first-adopted order, comma joined; empty when nothing was adopted.
  *
  * Reads the last `acquire` entry only. An earlier attempt's expansion is not
