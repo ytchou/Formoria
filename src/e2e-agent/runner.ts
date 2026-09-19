@@ -181,11 +181,12 @@ export async function runE2eSuite(options: RunE2eSuiteOptions): Promise<RunResul
 
   console.log(`[e2e-runner] cloned to ${targetDir}`)
 
-  // Step 4: Install dependencies
+  // Step 4: Install dependencies (NODE_ENV must not be 'production' or pnpm
+  // skips devDependencies, which includes @playwright/test)
   console.log('[e2e-runner] installing dependencies…')
   const installResult = await deps.execCommand(
     'pnpm install --frozen-lockfile',
-    { cwd: targetDir, timeoutMs: INSTALL_TIMEOUT_MS },
+    { cwd: targetDir, timeoutMs: INSTALL_TIMEOUT_MS, env: { NODE_ENV: 'development' } },
   )
   if (installResult.exitCode !== 0) {
     throw new Error(
