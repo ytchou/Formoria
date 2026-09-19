@@ -543,7 +543,7 @@ export async function cleanupTestData({ createdSince }: CleanupOptions = {}) {
     ['brand_channels', 'brand_id', brandIds],
   ] as const) {
     await countBy(`${table}`, ids.length
-      ? supabase.from(table).select('id', { count: 'exact', head: true }).in(column, ids)
+      ? supabase.from(table).select(column, { count: 'exact', head: true }).in(column, ids)
       : Promise.resolve({ count: 0, error: null }));
   }
   for (const [bucket, prefixes] of [
