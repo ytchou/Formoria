@@ -16,10 +16,12 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 const mockBootWorker = vi.fn<
   (opts: {
     agent: string
+    assertTarget?: () => void
     loadServices?: () => Promise<void>
   }) => Promise<void>
 >()
 const mockLogWorkerBuildInfo = vi.fn()
+const mockValidateE2eAgentConfig = vi.fn()
 
 vi.mock('@/worker-boot', () => ({
   bootWorker: (
@@ -28,6 +30,11 @@ vi.mock('@/worker-boot', () => ({
   logWorkerBuildInfo: (
     ...args: Parameters<typeof mockLogWorkerBuildInfo>
   ) => mockLogWorkerBuildInfo(...args),
+}))
+
+vi.mock('@/e2e-agent/config', () => ({
+  validateE2eAgentConfig: (...args: unknown[]) =>
+    mockValidateE2eAgentConfig(...args),
 }))
 
 // Runner mock — at @/e2e-agent/ path, safe from boundary check
@@ -120,6 +127,7 @@ describe('e2e-agent server', () => {
 
     // Default: bootWorker calls loadServices to populate module vars
     mockBootWorker.mockImplementation(async (opts) => {
+      opts.assertTarget?.()
       if (opts.loadServices) await opts.loadServices()
     })
 
@@ -135,8 +143,12 @@ describe('e2e-agent server', () => {
 
     expect(mockBootWorker).toHaveBeenCalledOnce()
     expect(mockBootWorker).toHaveBeenCalledWith(
-      expect.objectContaining({ agent: 'e2e-nightly' }),
+      expect.objectContaining({
+        agent: 'e2e-nightly',
+        assertTarget: expect.any(Function),
+      }),
     )
+    expect(mockValidateE2eAgentConfig).toHaveBeenCalledOnce()
   })
 
   it('server_exits_0_on_green_run', async () => {
@@ -178,5 +190,41 @@ describe('e2e-agent server', () => {
     expect(mockRunSelfHealGraph).toHaveBeenCalledTimes(1)
     // Patched outcome → exit 0
     expect(mockExit).toHaveBeenCalledWith(0)
+  })
+
+  it('server_routes_unexpected_skips_through_selfheal', async () => {
+    vi.resetModules()
+
+    mockRunE2eSuite.mockResolvedValue({
+      ...greenRunResult(),
+      passed: false,
+      unexpectedSkips: [
+        {
+          file: 'e2e/tests/auth-signup-journey.spec.ts',
+          title: 'confirms a new account',
+          project: 'deep',
+        },
+      ],
+    })
+    mockRunSelfHealGraph.mockResolvedValue({ outcome: 'noise', cycle: 1 })
+
+    await import('../server.js')
+    await new Promise((r) => setTimeout(r, 50))
+
+    expect(mockRunSelfHealGraph).toHaveBeenCalledWith(
+      expect.objectContaining({
+        runResult: {
+          failures: [
+            expect.objectContaining({
+              file: 'e2e/tests/auth-signup-journey.spec.ts',
+              title: 'confirms a new account',
+              project: 'deep',
+            }),
+          ],
+        },
+      }),
+      expect.any(Object),
+    )
+    expect(mockExit).toHaveBeenCalledWith(1)
   })
 })

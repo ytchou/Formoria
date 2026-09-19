@@ -40,5 +40,4 @@ test.describe('Auth — sign-up flow', () => {
     // Zod min(8): "密碼至少需要 8 個字元"
     await expect(anonPage.getByText('密碼至少需要 8 個字元')).toBeVisible({ timeout: BUDGET.INTERACTIVE });
   });
-
 });

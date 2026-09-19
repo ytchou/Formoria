@@ -150,7 +150,7 @@ async function cloneAndRunTests(opts: {
     `pnpm exec playwright test ${specArgs} --project=deep --reporter=json`,
     {
       cwd: targetDir,
-      timeoutMs: 10 * 60_000,
+      timeoutMs: 20 * 60_000,
       env: {
         FORMORIA_DEPLOYMENT_ENV: 'staging',
         CI: 'true',
