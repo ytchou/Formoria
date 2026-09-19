@@ -226,6 +226,8 @@ export async function runE2eSuite(options: RunE2eSuiteOptions): Promise<RunResul
   try {
     jsonReport = JSON.parse(playwrightResult.stdout) as Record<string, unknown>
   } catch {
+    console.log(`[e2e-runner] JSON parse failed. stdout preview: ${playwrightResult.stdout.slice(0, 2000)}`)
+    console.log(`[e2e-runner] stderr preview: ${playwrightResult.stderr.slice(0, 1000)}`)
     return {
       passed: false,
       failures: [{
