@@ -5,6 +5,43 @@ import { auditedCall } from "@/lib/audit";
 const TIMEOUT_MS = 8_000;
 const GITHUB_API = "https://api.github.com";
 
+/**
+ * Normalize a PEM private key from any Railway env var encoding to valid PKCS#8.
+ *
+ * Handles: literal `\n`, `\\n`, missing line-breaks, PKCS#1→PKCS#8 conversion.
+ */
+function normalizePem(raw: string): string {
+  // Step 1: Replace literal \n sequences with real newlines
+  let pem = raw.replace(/\\n/g, "\n").trim();
+
+  // Step 2: If the PEM looks like a single line, reconstruct it
+  const headerMatch = pem.match(
+    /-----BEGIN (RSA PRIVATE KEY|PRIVATE KEY)-----/,
+  );
+  const footerMatch = pem.match(
+    /-----END (RSA PRIVATE KEY|PRIVATE KEY)-----/,
+  );
+  if (headerMatch && footerMatch) {
+    const header = `-----BEGIN ${headerMatch[1]}-----`;
+    const footer = `-----END ${footerMatch[1]}-----`;
+    const body = pem
+      .replace(header, "")
+      .replace(footer, "")
+      .replace(/\s+/g, "");
+    // Re-wrap base64 at 64 chars per line
+    const lines = body.match(/.{1,64}/g) ?? [];
+    pem = [header, ...lines, footer].join("\n");
+  }
+
+  // Step 3: Convert PKCS#1 (RSA PRIVATE KEY) → PKCS#8 (PRIVATE KEY) if needed
+  if (pem.includes("BEGIN RSA PRIVATE KEY")) {
+    const pkcs8Key = createPrivateKey(pem);
+    return pkcs8Key.export({ type: "pkcs8", format: "pem" }) as string;
+  }
+
+  return pem;
+}
+
 type TokenScope = "clone" | "publish";
 
 const PERMISSIONS: Record<TokenScope, Record<string, string>> = {
@@ -40,13 +77,7 @@ async function signAppJwt(
   appId: string,
   privateKeyPem: string,
 ): Promise<string> {
-  // GitHub generates PKCS#1 (RSA PRIVATE KEY); jose needs PKCS#8 (PRIVATE KEY).
-  // Also handle Railway env vars storing literal \n instead of real newlines.
-  const normalizedPem = privateKeyPem.replace(/\\n/g, "\n");
-  const pkcs8Pem = normalizedPem.includes("BEGIN PRIVATE KEY")
-    ? normalizedPem
-    : (createPrivateKey(normalizedPem).export({ type: "pkcs8", format: "pem" }) as string);
-  const key = await importPKCS8(pkcs8Pem, "RS256");
+  const key = await importPKCS8(normalizePem(privateKeyPem), "RS256");
   const now = Math.floor(Date.now() / 1000);
   return new SignJWT({})
     .setProtectedHeader({ alg: "RS256" })
