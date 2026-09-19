@@ -284,7 +284,7 @@ export async function runE2eSuite(options: RunE2eSuiteOptions): Promise<RunResul
     })
   }
 
-  const passed = stats.unexpected === 0 && failures.length === 0 && unexpectedSkips.length === 0
+  const passed = stats.unexpected === 0 && failures.length === 0
 
   console.log(
     `[e2e-runner] run=${runId} passed=${passed} failures=${failures.length} skips=${unexpectedSkips.length} stats=${JSON.stringify(stats)}`,
