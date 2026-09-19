@@ -17,21 +17,6 @@
       "reason": "DEV-1590: Content section Edit button crashes the admin panel after PR #889 namespace rename"
     },
     {
-      "file": "brand-detail.spec.ts",
-      "title": "FAQ answer text is in the DOM while collapsed",
-      "reason": "Cloudflare WAF challenges raw-HTTP Googlebot requests on a remote target"
-    },
-    {
-      "file": "brand-detail.spec.ts",
-      "title": "approved historical slugs redirect once to localized self-canonical pages",
-      "reason": "Cloudflare WAF challenges raw-HTTP Googlebot requests on a remote target"
-    },
-    {
-      "file": "brand-detail.spec.ts",
-      "title": "historical slugs targeting hidden brands return direct 404 responses",
-      "reason": "Cloudflare WAF challenges raw-HTTP Googlebot requests on a remote target"
-    },
-    {
       "file": "image-route.spec.ts",
       "title": "sets an immutable one-year cache header",
       "reason": "Cloudflare rewrites cache-control on remote targets"
@@ -47,24 +32,34 @@
       "reason": "no trail products in staging database"
     },
     {
+      "file": "discovery-trail.spec.ts",
+      "title": "explore-more section renders when similar products exist",
+      "reason": "no similar products (embeddings missing)"
+    },
+    {
+      "file": "i18n-en.spec.ts",
+      "title": "/en/brands brand cards link to /en/brands/[slug]",
+      "reason": "No brands seeded — skipping brand card navigation check"
+    },
+    {
       "file": "curation-recovery.spec.ts",
       "title": "recovery commits only eligible checkpoints atomically with a pending submission",
-      "reason": "service-level test requires in-process access to the local server"
+      "reason": "service-level tests require in-process access to the local server"
     },
     {
       "file": "curation-recovery.spec.ts",
       "title": "one recovery job keeps mixed targets isolated and preserves FAQ scope through a failed retry chain",
-      "reason": "service-level test requires in-process access to the local server"
+      "reason": "service-level tests require in-process access to the local server"
     },
     {
       "file": "curation-recovery.spec.ts",
       "title": "a forced FAQ retry executes despite its source checkpoint without enabling overwrite",
-      "reason": "service-level test requires in-process access to the local server"
+      "reason": "service-level tests require in-process access to the local server"
     },
     {
       "file": "curation-recovery.spec.ts",
       "title": "a products-only recovery without saved acquisition inputs fails before provider work",
-      "reason": "service-level test requires in-process access to the local server"
+      "reason": "service-level tests require in-process access to the local server"
     }
   ]
 }
