@@ -7,7 +7,6 @@ import {
   buildRepairTriggerMessage,
   escapeSlackMrkdwn,
   linearLabelForSource,
-  MAX_NEW_TICKETS_PER_RUN,
 } from '../report'
 import type { RepairRequest } from '../repair-request'
 
@@ -44,22 +43,49 @@ function makeResult(
 // ---------------------------------------------------------------------------
 
 describe('report — tickets', () => {
-  it('one ticket is created per never-ticketed fingerprint', () => {
+  it('one ticket carries every never-ticketed finding from the run', () => {
     const findings = [
-      makeFinding({ fingerprint: 'directory:test:a' }),
-      makeFinding({ fingerprint: 'directory:test:b' }),
-      makeFinding({ fingerprint: 'directory:test:c' }),
+      makeFinding({
+        fingerprint: 'directory:test:a',
+        title: 'Missing category',
+      }),
+      makeFinding({
+        source: 'credential',
+        fingerprint: 'credential:test:b',
+        title: 'Resend authentication failed',
+      }),
+      makeFinding({
+        source: 'quality',
+        fingerprint: 'quality:test:c',
+        title: 'Vitest failed',
+      }),
+      ...Array.from({ length: 9 }, (_, index) =>
+        makeFinding({
+          fingerprint: `directory:test:extra-${index}`,
+          title: `Additional finding ${index}`,
+        }),
+      ),
     ]
 
     const tickets = buildTickets(findings, {
-      unticketed: new Set(['directory:test:a', 'directory:test:b', 'directory:test:c']),
+      unticketed: new Set(findings.map((finding) => finding.fingerprint)),
       traceUrl: 'https://langfuse.example.com/trace/abc',
+      date: '2026-09-20',
     })
 
-    expect(tickets).toHaveLength(3)
+    expect(tickets).toHaveLength(1)
+    expect(tickets[0].title).toBe('Health Agent — 12 new findings (2026-09-20)')
+    expect(tickets[0].fingerprints).toEqual(
+      findings.map((finding) => finding.fingerprint),
+    )
+    expect(tickets[0].body).toContain('Missing category')
+    expect(tickets[0].body).toContain('Resend authentication failed')
+    expect(tickets[0].body).toContain('Vitest failed')
+    expect(tickets[0].body).toContain('Additional finding 8')
+    expect(tickets[0].labels).toEqual(['Data Quality', 'Ops'])
   })
 
-  it('links-weekly produces one ticket per class listing its dead links', () => {
+  it('links-weekly findings share the run ticket with every other finding', () => {
     const findings = [
       makeFinding({
         source: 'links-weekly',
@@ -76,6 +102,10 @@ describe('report — tickets', () => {
         fingerprint: 'links-weekly:brand-channels:brand-c-pchome',
         title: 'Dead channel link: brand-c PChome',
       }),
+      makeFinding({
+        fingerprint: 'directory:test:brand-d',
+        title: 'Brand D is missing its category',
+      }),
     ]
 
     const tickets = buildTickets(findings, {
@@ -83,32 +113,17 @@ describe('report — tickets', () => {
         'links-weekly:social:brand-a-ig',
         'links-weekly:social:brand-b-ig',
         'links-weekly:brand-channels:brand-c-pchome',
+        'directory:test:brand-d',
       ]),
       traceUrl: 'https://langfuse.example.com/trace/abc',
-      groupLinksWeekly: true,
+      date: '2026-09-20',
     })
 
-    // Should be grouped: one ticket for social (2 links), one for brand-channels (1 link)
-    expect(tickets).toHaveLength(2)
-    const socialTicket = tickets.find((t: { title: string; body: string }) => t.title.includes('social'))
-    expect(socialTicket).toBeDefined()
-    expect(socialTicket!.body).toContain('brand-a')
-    expect(socialTicket!.body).toContain('brand-b')
-  })
-
-  it('new tickets are capped per run, oldest first, and the rest stay unticketed', () => {
-    const findings = Array.from({ length: 15 }, (_, i) =>
-      makeFinding({
-        fingerprint: `directory:test:finding-${String(i).padStart(3, '0')}`,
-      }),
-    )
-
-    const tickets = buildTickets(findings, {
-      unticketed: new Set(findings.map((f) => f.fingerprint)),
-      traceUrl: 'https://langfuse.example.com/trace/abc',
-    })
-
-    expect(tickets).toHaveLength(MAX_NEW_TICKETS_PER_RUN)
+    expect(tickets).toHaveLength(1)
+    expect(tickets[0].body).toContain('brand-a')
+    expect(tickets[0].body).toContain('brand-b')
+    expect(tickets[0].body).toContain('brand-c')
+    expect(tickets[0].body).toContain('Brand D is missing its category')
   })
 
   it('an investigator diagnosis is appended to its finding ticket body', () => {
@@ -122,6 +137,7 @@ describe('report — tickets', () => {
     const tickets = buildTickets(findings, {
       unticketed: new Set(['directory:test:a']),
       traceUrl: 'https://langfuse.example.com/trace/abc',
+      date: '2026-09-20',
       investigations: new Map([
         ['directory:test:a', 'Root cause: brand was removed from CMS on 2026-09-15'],
       ]),
@@ -138,6 +154,7 @@ describe('report — tickets', () => {
     const tickets = buildTickets(findings, {
       unticketed: new Set(['directory:test:a']),
       traceUrl,
+      date: '2026-09-20',
     })
 
     expect(tickets[0].body).toContain(traceUrl)
@@ -158,11 +175,12 @@ describe('report — tickets', () => {
     const tickets = buildTickets([sentry, captureCredential], {
       unticketed: new Set([sentry.fingerprint, captureCredential.fingerprint]),
       traceUrl: 'https://langfuse.example.com/trace/abc',
+      date: '2026-09-20',
     })
 
     expect(tickets).toHaveLength(1)
     expect(tickets[0].fingerprints).toEqual([captureCredential.fingerprint])
-    expect(tickets[0].label).toBe('Ops')
+    expect(tickets[0].labels).toEqual(['Ops'])
   })
 })
 

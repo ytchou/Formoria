@@ -67,7 +67,7 @@ export type RunHealthAgentDeps = {
   linearCreateTicket?: (spec: {
     title: string
     body: string
-    label: string
+    labels: string[]
   }) => Promise<{ identifier: string }>
 
   /** Trigger the ops-agent to repair auto-fixable findings. */
@@ -605,7 +605,7 @@ async function executeRunBody(
       const tickets = buildTickets(allFindings, {
         unticketed,
         traceUrl,
-        groupLinksWeekly: true,
+        date: logicalDate,
       })
 
       for (const ticket of tickets) {
@@ -628,7 +628,7 @@ async function executeRunBody(
           const result = await deps.linearCreateTicket({
             title: ticket.title,
             body: ticket.body,
-            label: ticket.label,
+            labels: ticket.labels,
           })
           await finalizeTickets(
             client,

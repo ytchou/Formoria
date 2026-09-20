@@ -1,5 +1,5 @@
 /**
- * Reporting — per-problem Linear tickets and the Slack digest.
+ * Reporting — one Linear digest ticket per run and the Slack digest.
  *
  * Linear GraphQL shape follows `scripts/health-agent/adapters.ts` lines 883-1100.
  * Slack rendering reuses `src/lib/adapters/slack/notification`.
@@ -12,19 +12,6 @@
 import type { HealthFinding } from './contracts'
 import type { DetectorResult } from './types'
 import type { RepairRequest } from './repair-request'
-
-// ---------------------------------------------------------------------------
-// Constants
-// ---------------------------------------------------------------------------
-
-/**
- * Maximum new Linear tickets created per run. Oldest-first ordering
- * ensures the most stale findings are ticketed first.
- *
- * Ceiling: raise to 20 if the backlog grows and the team can triage faster.
- * Upgrade path: per-source caps if one source dominates.
- */
-export const MAX_NEW_TICKETS_PER_RUN = 10
 
 // ---------------------------------------------------------------------------
 // Label resolution
@@ -52,7 +39,7 @@ export function linearLabelForSource(
 export type TicketSpec = {
   title: string
   body: string
-  label: 'Data Quality' | 'Ops'
+  labels: Array<'Data Quality' | 'Ops'>
   fingerprints: string[]
 }
 
@@ -61,24 +48,22 @@ export type BuildTicketsOptions = {
   unticketed: Set<string>
   /** Langfuse trace URL for the run. */
   traceUrl: string
+  /** Run date (YYYY-MM-DD, Asia/Taipei). */
+  date: string
   /** Per-fingerprint investigator diagnosis, if available. */
   investigations?: Map<string, string>
-  /**
-   * When true, links-weekly findings are grouped by detector class
-   * (social, brand-channels, etc.) into one ticket per class.
-   */
-  groupLinksWeekly?: boolean
 }
 
-function ticketBody(
+function findingSection(
   finding: HealthFinding,
   options: BuildTicketsOptions,
+  index: number,
 ): string {
   const lines: string[] = []
-  lines.push(`**Finding:** ${finding.title}`)
-  lines.push(`**Source:** ${finding.source}`)
-  lines.push(`**Severity:** ${finding.severity}`)
-  lines.push(`**Fingerprint:** \`${finding.fingerprint}\``)
+  lines.push(`### ${index + 1}. ${finding.title}`)
+  lines.push(`- **Source:** ${finding.source}`)
+  lines.push(`- **Severity:** ${finding.severity}`)
+  lines.push(`- **Fingerprint:** \`${finding.fingerprint}\``)
 
   if (Object.keys(finding.evidence).length > 0) {
     lines.push('')
@@ -95,51 +80,33 @@ function ticketBody(
     lines.push(investigation)
   }
 
-  lines.push('')
-  lines.push(`[Langfuse trace](${options.traceUrl})`)
-
   return lines.join('\n')
 }
 
-function groupedTicketBody(
-  className: string,
+function digestTicketBody(
   findings: HealthFinding[],
   options: BuildTicketsOptions,
 ): string {
-  const lines: string[] = []
-  lines.push(`**${className}** — ${findings.length} dead link${findings.length === 1 ? '' : 's'}`)
-  lines.push('')
-
-  for (const finding of findings) {
-    lines.push(`- ${finding.title} (\`${finding.fingerprint}\`)`)
-    const investigation = options.investigations?.get(finding.fingerprint)
-    if (investigation) {
-      lines.push(`  - **Diagnosis:** ${investigation}`)
-    }
-  }
-
-  lines.push('')
-  lines.push(`[Langfuse trace](${options.traceUrl})`)
-
-  return lines.join('\n')
-}
-
-/**
- * Extract the "class" from a links-weekly fingerprint.
- * Format: `links-weekly:<class>:<identity>` → returns `<class>`.
- */
-function linksWeeklyClass(fingerprint: string): string {
-  const parts = fingerprint.split(':')
-  return parts[1] ?? 'unknown'
+  return [
+    '# Health Agent review summary',
+    '',
+    `**Findings:** ${findings.length} new`,
+    `**Run date:** ${options.date}`,
+    '',
+    '## Findings',
+    '',
+    ...findings.flatMap((finding, index) => [
+      findingSection(finding, options, index),
+      '',
+    ]),
+    `[Langfuse trace](${options.traceUrl})`,
+  ].join('\n')
 }
 
 /**
  * Build ticket specifications for unticketed findings.
  *
- * One ticket per fingerprint for most sources. links-weekly findings are
- * optionally grouped by detector class into one ticket per class.
- *
- * Results are capped at MAX_NEW_TICKETS_PER_RUN, oldest first.
+ * Every ticket-eligible finding from the run is included in one digest.
  */
 export function buildTickets(
   findings: HealthFinding[],
@@ -154,54 +121,18 @@ export function buildTickets(
   )
   if (eligible.length === 0) return []
 
-  const tickets: TicketSpec[] = []
+  const labels = (['Data Quality', 'Ops'] as const).filter((label) =>
+    eligible.some((finding) => linearLabelForSource(finding.source) === label),
+  )
 
-  if (options.groupLinksWeekly) {
-    // Separate links-weekly from the rest
-    const linksWeekly = eligible.filter((f) => f.source === 'links-weekly')
-    const others = eligible.filter((f) => f.source !== 'links-weekly')
-
-    // Group links-weekly by class
-    const byClass = new Map<string, HealthFinding[]>()
-    for (const finding of linksWeekly) {
-      const cls = linksWeeklyClass(finding.fingerprint)
-      const group = byClass.get(cls) ?? []
-      group.push(finding)
-      byClass.set(cls, group)
-    }
-
-    for (const [cls, classFindings] of byClass) {
-      tickets.push({
-        title: `Health: ${classFindings.length} dead ${cls} link${classFindings.length === 1 ? '' : 's'}`,
-        body: groupedTicketBody(cls, classFindings, options),
-        label: linearLabelForSource('links-weekly'),
-        fingerprints: classFindings.map((f) => f.fingerprint),
-      })
-    }
-
-    // Individual tickets for non-links-weekly
-    for (const finding of others) {
-      tickets.push({
-        title: `Health: ${finding.title}`,
-        body: ticketBody(finding, options),
-        label: linearLabelForSource(finding.source),
-        fingerprints: [finding.fingerprint],
-      })
-    }
-  } else {
-    // One ticket per finding
-    for (const finding of eligible) {
-      tickets.push({
-        title: `Health: ${finding.title}`,
-        body: ticketBody(finding, options),
-        label: linearLabelForSource(finding.source),
-        fingerprints: [finding.fingerprint],
-      })
-    }
-  }
-
-  // Cap at MAX_NEW_TICKETS_PER_RUN (oldest first — findings are already ordered)
-  return tickets.slice(0, MAX_NEW_TICKETS_PER_RUN)
+  return [
+    {
+      title: `Health Agent — ${eligible.length} new finding${eligible.length === 1 ? '' : 's'} (${options.date})`,
+      body: digestTicketBody(eligible, options),
+      labels,
+      fingerprints: eligible.map((finding) => finding.fingerprint),
+    },
+  ]
 }
 
 // ---------------------------------------------------------------------------

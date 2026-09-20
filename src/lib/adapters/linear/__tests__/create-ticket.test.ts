@@ -108,6 +108,26 @@ describe("createTicket", () => {
     expect(body.variables.input.labelIds).toEqual(["abc-123-uuid"]);
   });
 
+  it("maps every label on a digest ticket to its Linear UUID", async () => {
+    const fetchMock = vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      Response.json({
+        data: { issueCreate: { issue: { identifier: "DEV-1001" } } },
+      }),
+    );
+
+    await createTicket({
+      title: "Health Agent — 3 new findings",
+      body: "body",
+      labels: ["Data Quality", "Ops"],
+    });
+
+    const body = JSON.parse(fetchMock.mock.calls[0]![1]!.body as string);
+    expect(body.variables.input.labelIds).toEqual([
+      "uuid-data-quality",
+      "uuid-ops",
+    ]);
+  });
+
   it("includes optional project, assignee, and state when env vars are set", async () => {
     vi.stubEnv("LINEAR_PROJECT_ID", "proj_123");
     vi.stubEnv("LINEAR_ASSIGNEE_ID", "user_456");

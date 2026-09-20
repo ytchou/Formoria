@@ -16,11 +16,13 @@ const LABEL_ENV_MAP: Record<string, string> = {
   ops: "LINEAR_LABEL_OPS",
 };
 
-export type TicketSpec = {
+type TicketContent = {
   title: string;
   body: string;
-  label: string;
 };
+
+export type TicketSpec = TicketContent &
+  ({ label: string; labels?: never } | { label?: never; labels: string[] });
 
 export type TicketResult = {
   identifier: string;
@@ -51,7 +53,7 @@ export async function createTicket(spec: TicketSpec): Promise<TicketResult> {
     );
   }
 
-  const labelId = resolveLabel(spec.label);
+  const labelIds = (spec.labels ?? [spec.label]).map(resolveLabel);
 
   const projectId = process.env.LINEAR_PROJECT_ID;
   const assigneeId = process.env.LINEAR_ASSIGNEE_ID;
@@ -64,7 +66,7 @@ export async function createTicket(spec: TicketSpec): Promise<TicketResult> {
         teamId,
         title: spec.title,
         description: spec.body,
-        labelIds: [labelId],
+        labelIds,
         priority: 1,
         ...(projectId && { projectId }),
         ...(assigneeId && { assigneeId }),
