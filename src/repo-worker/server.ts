@@ -47,13 +47,6 @@ type RunRequest = {
   commands: { id: string; run: string; timeoutMs: number }[];
   inputFiles?: { path: string; content: string }[];
   agent?: AgentRequest;
-  claude?: {
-    prompt: string;
-    allowedTools: string[];
-    maxTurns: number;
-    jsonSchema: object;
-    resumeSessionId?: string;
-  };
   editableFiles: string[];
   blockedFiles?: string[];
 };
@@ -257,7 +250,6 @@ export function createRepoWorkerServer(opts: ServerOptions = {}) {
           body.revertedFiles = job.result.revertedFiles;
         if (job.result.baseSha) body.baseSha = job.result.baseSha;
         if (job.result.agent) body.agent = job.result.agent;
-        if (job.result.claude) body.claude = job.result.claude;
         if (job.result.error) body.error = job.result.error;
         if (job.result.errorStage) body.errorStage = job.result.errorStage;
         if (job.result.errorCode) body.errorCode = job.result.errorCode;

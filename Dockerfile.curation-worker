@@ -9,13 +9,8 @@ COPY src/ src/
 COPY scripts/ scripts/
 RUN pnpm install --frozen-lockfile
 RUN pnpm exec playwright install --with-deps chromium
-# Claude Code CLI — pinned because `--bare` is slated to become the `-p`
-# default and does not read `CLAUDE_CODE_OAUTH_TOKEN`. Pin to a known-good
-# version so the repo-worker's invocations stay stable.
-RUN npm install -g @anthropic-ai/claude-code@2.1.274
 # Codex CLI is the active repo-worker executor. Pin the exact version so Railway
-# deployments remain reproducible; Claude remains installed only for rollback
-# until DEV-1819 removes it.
+# deployments remain reproducible.
 RUN npm install -g @openai/codex@0.155.1
 # Set AFTER the install: `NODE_ENV=production` makes pnpm skip devDependencies,
 # so declaring it earlier would strip the build. At runtime it marks this

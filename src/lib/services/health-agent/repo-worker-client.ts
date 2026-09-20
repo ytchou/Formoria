@@ -28,13 +28,6 @@ export type RepoWorkerJobRequest = {
   blockedFiles?: string[]
   inputFiles?: ChangedFile[]
   agent?: AgentRequest
-  claude?: {
-    prompt: string
-    allowedTools: string[]
-    maxTurns: number
-    jsonSchema: object
-    resumeSessionId?: string
-  }
 }
 
 type RepoWorkerJobResult = {
@@ -44,11 +37,6 @@ type RepoWorkerJobResult = {
   revertedFiles?: string[]
   baseSha?: string
   agent?: AgentResult
-  claude?: {
-    structuredOutput: unknown
-    sessionId: string | undefined
-    costUsd: number | undefined
-  }
   error?: string
   errorCode?: string
   errorStage?: JobErrorStage | 'clone-auth' | 'transport'
@@ -119,7 +107,6 @@ export function createRepoWorkerClient(
       editableFiles: request.editableFiles,
       ...(request.inputFiles ? { inputFiles: request.inputFiles } : {}),
       ...(request.agent ? { agent: request.agent } : {}),
-      ...(request.claude ? { claude: request.claude } : {}),
       ...(request.blockedFiles ? { blockedFiles: request.blockedFiles } : {}),
     })
 
@@ -220,7 +207,6 @@ export function createRepoWorkerClient(
             revertedFiles: data.revertedFiles as string[] | undefined,
             baseSha: data.baseSha as string | undefined,
             agent: data.agent as RepoWorkerJobResult['agent'],
-            claude: data.claude as RepoWorkerJobResult['claude'],
             error: data.error as string | undefined,
             errorCode:
               data.status === 'failed'

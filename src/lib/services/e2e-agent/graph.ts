@@ -3,7 +3,7 @@
  *
  *   freeze → diagnose → repair → validate → report
  *
- * Follows the codebase's LangGraph pattern (health-agent repair/graph.ts):
+ * Follows the codebase's LangGraph pattern:
  * - `Annotation.Root` with `lastValue` reducers
  * - Run context captured in closure, not in graph channels
  * - `withNodeSpan` for every node
