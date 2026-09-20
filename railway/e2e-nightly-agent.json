@@ -3,14 +3,29 @@
   "service": "e2e-nightly-agent",
   "schedule": "05 20 * * * (UTC)",
   "startCommand": "pnpm e2e:nightly",
-  "envVars": [
-    "NEXT_PUBLIC_SUPABASE_URL",
-    "SUPABASE_SERVICE_ROLE_KEY",
+  "appVariableReferences": [
     "FORMORIA_DEPLOYMENT_ENV",
-    "SLACK_FORMORIA_WEBHOOK_URL",
+    "STAGING_BASE_URL",
+    "BASE_URL",
+    "NEXT_PUBLIC_SITE_URL",
+    "SUPABASE_PROJECT_REF",
+    "NEXT_PUBLIC_SUPABASE_URL",
+    "NEXT_PUBLIC_SUPABASE_ANON_KEY",
+    "SUPABASE_SERVICE_ROLE_KEY",
+    "SUPABASE_DB_URL",
+    "ADMIN_EMAILS",
+    "E2E_ADMIN_EMAIL",
+    "E2E_ADMIN_PASSWORD",
+    "E2E_USER_EMAIL",
+    "E2E_USER_PASSWORD",
     "LANGFUSE_SECRET_KEY",
     "LANGFUSE_PUBLIC_KEY",
-    "LANGFUSE_BASEURL",
+    "LANGFUSE_HOST"
+  ],
+  "renamedAppVariableReferences": {
+    "E2E_ORIGIN_SECRET": "Formoria Staging.CF_ORIGIN_SECRET"
+  },
+  "agentEnvVars": [
     "GITHUB_APP_ID",
     "GITHUB_APP_PRIVATE_KEY",
     "GITHUB_APP_INSTALLATION_ID",
@@ -19,12 +34,9 @@
     "CF_ACCESS_CLIENT_ID",
     "CF_ACCESS_CLIENT_SECRET",
     "E2E_STAGING_SESSION_SECRET",
-    "E2E_ADMIN_EMAIL",
-    "E2E_ADMIN_PASSWORD",
-    "E2E_USER_EMAIL",
-    "E2E_USER_PASSWORD",
     "LINEAR_API_KEY",
     "LINEAR_TEAM_ID",
-    "SLACK_BOT_TOKEN"
+    "SLACK_BOT_TOKEN",
+    "SLACK_E2E_CHANNEL"
   ]
 }

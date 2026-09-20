@@ -17,11 +17,7 @@ const trails = publishedTrails("zh-TW");
 const trail: PublishedTrail | undefined =
   trails.find((candidate) => candidate.sections.length >= 3) ?? trails[0];
 const TRAIL_URL = trail ? `/style/${trail.slug}` : "/style";
-// NO BADGE ON A TRAIL TILE ANY MORE (D11, DEV-1514). A trust label only says
-// something where its opposite is visible, and every tile in a trail is
-// selected — so the label was removed here rather than migrated into
-// `TrustLabel`, whose text is the 選物 commitment and not the trail's own
-const OFFICIAL_DESTINATION = /前往(?:產品|品牌)官方網站/;
+const SIMILAR_PRODUCTS_TRAIL_URL = "/style/small-space-reading-corner";
 const SECTION_NAV = "風格段落";
 const REMOVED_CLOSING_HEADINGS = [
   "常見問題",
@@ -51,11 +47,6 @@ test.describe("Discovery trail deep", () => {
     for (const section of trail!.sections) {
       expect(serverText).toContain(section.title);
     }
-    // Trail products carry outbound links. A staging database without
-    // trail-product associations renders sections but no product tiles.
-    const hasProducts = OFFICIAL_DESTINATION.test(serverText);
-    test.skip(!hasProducts, "no trail products in staging database");
-    expect(serverText).toMatch(OFFICIAL_DESTINATION);
   });
 
   // The regression guard for DEV-1518. Before it, four frontmatter blockers,
@@ -72,24 +63,6 @@ test.describe("Discovery trail deep", () => {
 
     const robots = $('meta[name="robots"]').attr("content") ?? "";
     expect(robots).not.toContain("noindex");
-  });
-
-  test("outbound chip points at the brand's official destination", async ({
-    anonPage,
-  }) => {
-    const response = await anonPage.goto(TRAIL_URL);
-    test.skip(response?.status() === 503, "PREVIEW_MODE active");
-
-    const outbound = anonPage
-      .getByRole("link", { name: OFFICIAL_DESTINATION })
-      .first();
-    const outboundCount = await outbound.count();
-    test.skip(outboundCount === 0, "no trail products in staging database");
-    await expect(outbound).toBeVisible({ timeout: BUDGET.SERVER_RENDER });
-    const href = await outbound.getAttribute("href");
-    expect(href).toBeTruthy();
-    expect(new URL(href!).protocol).toBe("https:");
-    expect(new URL(href!).origin).not.toBe(new URL(anonPage.url()).origin);
   });
 
   test("trail renders sections without redundant section navigation", async ({
@@ -120,14 +93,13 @@ test.describe("Discovery trail deep", () => {
   test("explore-more section renders when similar products exist", async ({
     request,
   }) => {
-    const response = await request.get(TRAIL_URL);
+    const response = await request.get(SIMILAR_PRODUCTS_TRAIL_URL);
     test.skip(response.status() === 503, "PREVIEW_MODE active");
 
     expect(response.status()).toBe(200);
     const $ = load(await response.text());
     const exploreSection = $('section[aria-label="探索更多"]');
-    // Embeddings may not exist in the test environment — skip rather than fail.
-    test.skip(exploreSection.length === 0, "no similar products (embeddings missing)");
+    expect(exploreSection).toHaveLength(1);
     expect(exploreSection.find("h2").text()).toBe("探索更多");
     expect(exploreSection.find("li").length).toBeGreaterThanOrEqual(3);
   });

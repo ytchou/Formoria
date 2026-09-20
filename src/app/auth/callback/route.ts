@@ -29,13 +29,6 @@ function isRecentlyCreated(createdAt: string | undefined): boolean {
 export const GET = withAuditScope(async (request: NextRequest) => {
   const { searchParams } = request.nextUrl;
   const code = searchParams.get("code");
-  // E2E-only fallback: Supabase's admin API has no way to mint a PKCE-compatible
-  // confirmation link (generateLink accepts no code_challenge), so the signup
-  // e2e journey can't complete via exchangeCodeForSession like a real emailed
-  // link does. It confirms via verifyOtp's token_hash instead — gated so this
-  // path can never be reached outside Playwright runs.
-  const testTokenHash =
-    process.env.PLAYWRIGHT_TEST === "true" ? searchParams.get("test_token_hash") : null;
   const origin = await getRequestOrigin();
   const staging = isStagingRequest(request.headers.get("host"));
 
@@ -63,7 +56,7 @@ export const GET = withAuditScope(async (request: NextRequest) => {
   cookieStore.delete("post_auth_marketing_locale");
   cookieStore.delete("post_auth_locale");
 
-  if (!code && !testTokenHash) {
+  if (!code) {
     return NextResponse.redirect(
       new URL(localizePath(routes.auth.signIn({ error: "missing-code" }), errorLocale), origin)
     );
@@ -71,40 +64,15 @@ export const GET = withAuditScope(async (request: NextRequest) => {
 
   const supabase = await createClient();
 
-  // Exchange code for session if present (email confirmation flow)
-  let userId: string | undefined;
-  let userEmail: string | undefined;
-  let isNewUser = false;
-
-  if (code) {
-    const { data, error } = await supabase.auth.exchangeCodeForSession(code);
-    if (error) {
-      return NextResponse.redirect(
-        new URL(localizePath(routes.auth.signIn({ error: "expired-code" }), errorLocale), origin)
-      );
-    }
-    userId = data.user?.id;
-    userEmail = data.user?.email;
-    isNewUser = isRecentlyCreated(data.user?.created_at);
-  } else if (testTokenHash) {
-    const { data, error } = await supabase.auth.verifyOtp({
-      token_hash: testTokenHash,
-      type: "signup",
-    });
-    if (error) {
-      return NextResponse.redirect(
-        new URL(localizePath(routes.auth.signIn({ error: "expired-code" }), errorLocale), origin)
-      );
-    }
-    userId = data.user?.id;
-    userEmail = data.user?.email;
-    isNewUser = isRecentlyCreated(data.user?.created_at);
-  } else {
-    // Sign-in flow (no code) — get existing session
-    const { data: { user } } = await supabase.auth.getUser();
-    userId = user?.id;
-    userEmail = user?.email;
+  const { data, error } = await supabase.auth.exchangeCodeForSession(code);
+  if (error) {
+    return NextResponse.redirect(
+      new URL(localizePath(routes.auth.signIn({ error: "expired-code" }), errorLocale), origin)
+    );
   }
+  const userId = data.user?.id;
+  const userEmail = data.user?.email;
+  const isNewUser = isRecentlyCreated(data.user?.created_at);
 
   const profile = userId ? await getProfileAdmin(userId) : null;
   const locale = resolveAuthenticatedLocale({

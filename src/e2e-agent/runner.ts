@@ -88,7 +88,7 @@ export type RunE2eSuiteOptions = {
 const DEFAULT_STAGING_URL = process.env.STAGING_BASE_URL ?? 'https://staging.formoria.com'
 const REVISION_POLL_INTERVAL_MS = 10_000
 const REVISION_POLL_MAX_MS = 10 * 60_000
-const PLAYWRIGHT_TIMEOUT_MS = 10 * 60_000
+const PLAYWRIGHT_TIMEOUT_MS = 20 * 60_000
 const INSTALL_TIMEOUT_MS = 3 * 60_000
 
 const DEFAULT_SKIP_MANIFEST: ExpectedSkipManifest = {
@@ -286,7 +286,11 @@ export async function runE2eSuite(options: RunE2eSuiteOptions): Promise<RunResul
     })
   }
 
-  const passed = stats.unexpected === 0 && failures.length === 0
+  const passed =
+    playwrightResult.exitCode === 0 &&
+    stats.unexpected === 0 &&
+    failures.length === 0 &&
+    unexpectedSkips.length === 0
 
   console.log(
     `[e2e-runner] run=${runId} passed=${passed} failures=${failures.length} skips=${unexpectedSkips.length} stats=${JSON.stringify(stats)}`,

@@ -1583,23 +1583,26 @@ export async function getSubmissionsForReview(options?: {
     }
   }
 
-  const approvedRowsMissingActiveImages = rows.filter((row) => {
-    if (row.status !== "approved" || !row.brand_id) return false;
+  // Refresh snapshots carry origin IDs instead of owning storage paths. Until
+  // new candidates are staged, their canonical review images are the live
+  // brand gallery, including while the refresh is still pending.
+  const rowsMissingActiveImages = rows.filter((row) => {
+    if (!row.brand_id) return false;
     return !(reviewImagesBySubmission.get(row.id) ?? []).some(
-      (image) => image.status === "active",
+      (image) => image.status === "active" && image.url.trim(),
     );
   });
   const publishedImagesByBrand = new Map<string, BrandImageReviewRow[]>();
-  const approvedBrandIds = [
+  const brandIdsMissingActiveImages = [
     ...new Set(
-      approvedRowsMissingActiveImages
+      rowsMissingActiveImages
         .map((row) => row.brand_id)
         .filter((brandId): brandId is string => Boolean(brandId)),
     ),
   ];
-  if (approvedBrandIds.length > 0) {
+  if (brandIdsMissingActiveImages.length > 0) {
     const publishedImageChunks = await Promise.all(
-      chunkValues(approvedBrandIds, SUPABASE_IN_FILTER_CHUNK_SIZE).map(
+      chunkValues(brandIdsMissingActiveImages, SUPABASE_IN_FILTER_CHUNK_SIZE).map(
         async (brandIds) => {
           const chunkImages: BrandImageReviewRow[] = [];
           for (let page = 0; ; page += 1) {
