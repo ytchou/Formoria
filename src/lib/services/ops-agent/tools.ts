@@ -115,6 +115,23 @@ const ListErrorsArgs = z.object({
   hours: z.number().optional().describe("Hours to look back (default 24, max 168)"),
 });
 
+const ProposeActionParameters = {
+  type: "object",
+  properties: {
+    kind: {
+      type: "string",
+      enum: ["refresh_brand", "rerun_job", "dispatch_workflow", "code_fix"],
+    },
+    slug: { type: "string", minLength: 1 },
+    jobId: { type: "string", minLength: 1 },
+    mode: { type: "string", enum: ["rerun", "resume", "preflight"] },
+    workflow: { type: "string", enum: ["e2e-staging"] },
+    instruction: { type: "string", minLength: 10, maxLength: 2000 },
+  },
+  required: ["kind"],
+  additionalProperties: false,
+} as const;
+
 // ---------------------------------------------------------------------------
 // createOpsTools
 // ---------------------------------------------------------------------------
@@ -252,7 +269,7 @@ export function createOpsTools(deps: OpsToolDeps, ctx: OpsToolContext): OpsTool[
       name: "propose_action",
       description:
         "Propose a mutating operation. The operator sees a Confirm/Cancel card. Exactly one proposal per request.",
-      parameters: toStrictJsonSchema(OpsProposalSchema),
+      parameters: ProposeActionParameters,
     },
     async run(args) {
       const parsed = OpsProposalSchema.safeParse(args);
