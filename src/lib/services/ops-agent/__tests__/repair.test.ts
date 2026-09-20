@@ -113,53 +113,55 @@ describe("executeRepairRequest", () => {
   };
 
   it("executeRepairRequest_success", async () => {
-    const dispatchWorkflow = vi.fn().mockResolvedValue({ ok: true });
+    const runCodeFix = vi.fn().mockResolvedValue({
+      ok: true,
+      prUrl: "https://github.com/ytchou/Formoria/pull/1201",
+      prNumber: 1201,
+    });
     const result = await executeRepairRequest(
       validRequest,
-      { dispatchWorkflow },
+      { runCodeFix },
       ctx,
     );
 
     expect(result.ok).toBe(true);
     expect(result.outcomes).toHaveLength(1);
     expect(result.outcomes[0].ok).toBe(true);
-    expect(dispatchWorkflow).toHaveBeenCalledWith("ops-fix.yml", {
+    expect(runCodeFix).toHaveBeenCalledWith({
       instruction: expect.stringContaining(validFinding.title),
-      request_id: "req-001",
-      channel: "C123",
-      thread_ts: "1234567890.123456",
+      requestId: "req-001",
     });
   });
 
-  it("executeRepairRequest_dispatch_rejection", async () => {
-    const dispatchWorkflow = vi
+  it("executeRepairRequest_worker_rejection", async () => {
+    const runCodeFix = vi
       .fn()
-      .mockRejectedValue(new Error("Workflow not in allowlist"));
+      .mockRejectedValue(new Error("Repository worker unavailable"));
     const result = await executeRepairRequest(
       validRequest,
-      { dispatchWorkflow },
+      { runCodeFix },
       ctx,
     );
 
     expect(result.ok).toBe(false);
     expect(result.outcomes).toHaveLength(1);
     expect(result.outcomes[0].ok).toBe(false);
-    expect(result.outcomes[0].error).toContain("allowlist");
+    expect(result.outcomes[0].error).toContain("unavailable");
   });
 
-  it("executeRepairRequest_dispatch_http_failure", async () => {
-    const dispatchWorkflow = vi
+  it("executeRepairRequest_code_fix_failure", async () => {
+    const runCodeFix = vi
       .fn()
-      .mockResolvedValue({ ok: false, status: 403 });
+      .mockResolvedValue({ ok: false, error: "Codex produced no changes" });
     const result = await executeRepairRequest(
       validRequest,
-      { dispatchWorkflow },
+      { runCodeFix },
       ctx,
     );
 
     expect(result.ok).toBe(false);
     expect(result.outcomes).toHaveLength(1);
     expect(result.outcomes[0].ok).toBe(false);
-    expect(result.outcomes[0].error).toContain("403");
+    expect(result.outcomes[0].error).toContain("no changes");
   });
 });

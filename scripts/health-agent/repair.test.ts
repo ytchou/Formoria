@@ -1,4 +1,3 @@
-import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import type { RepairFinding, RepairCycleReport } from "./repair";
 import {
@@ -457,42 +456,5 @@ describe("deterministic repair branches and PR bodies", () => {
     expect(body).toContain("validation_state: passed");
     expect(body).toContain("review_state: passed");
     expect(body).not.toContain("/private/secret");
-  });
-});
-
-describe("isolated health-agent prompts", () => {
-  it("requires repair evidence by file path and a narrow edit allowlist", () => {
-    const prompt = readFileSync(".github/health-agent/repair.md", "utf8");
-
-    expect(prompt).toContain("sanitized_evidence_path");
-    expect(prompt).toContain("Read, Glob, Grep, Edit, Write");
-    expect(prompt).toContain("no network");
-    expect(prompt).toContain("no MCP");
-    expect(prompt).toContain("no production credentials");
-    expect(prompt).toContain("no GitHub tokens");
-    expect(prompt).toContain("at most two");
-    expect(prompt).toContain("sentry-real-lifecycle");
-    expect(prompt).toContain("desiredMarker");
-    expect(prompt).toContain("fingerprint");
-    expect(prompt).toContain("changed_files");
-    expect(prompt).not.toContain("{{");
-    expect(prompt).not.toContain("${");
-  });
-
-  it("keeps review independent and read-only", () => {
-    const prompt = readFileSync(".github/health-agent/review.md", "utf8");
-
-    expect(prompt).toContain("independent");
-    expect(prompt).toContain("read-only");
-    expect(prompt).toContain("sanitized_evidence_path");
-    expect(prompt).toContain("Read, Glob, Grep");
-    expect(prompt).not.toContain("Edit");
-    expect(prompt).not.toContain("Write");
-    expect(prompt).toContain("no network");
-    expect(prompt).toContain("no MCP");
-    expect(prompt).toContain("no production credentials");
-    expect(prompt).toContain("no GitHub tokens");
-    expect(prompt).toContain("fingerprint");
-    expect(prompt).toContain("validation_state");
   });
 });

@@ -17,6 +17,8 @@ export type PublishInput = {
   body: string;
   labels: string[];
   allowedPaths: string[];
+  blockedPaths?: string[];
+  draft?: boolean;
   dryRun?: boolean;
 };
 
@@ -88,6 +90,11 @@ export async function publish(
     if (!input.allowedPaths.some((p) => file.path.startsWith(p))) {
       throw new Error(
         `File "${file.path}" is outside the allowed paths: ${input.allowedPaths.join(", ")}`,
+      );
+    }
+    if (input.blockedPaths?.some((p) => file.path.startsWith(p))) {
+      throw new Error(
+        `File "${file.path}" is inside a blocked path: ${input.blockedPaths.join(", ")}`,
       );
     }
   }
@@ -168,6 +175,7 @@ export async function publish(
         body: input.body,
         head: input.branch,
         base: "staging",
+        draft: input.draft ?? false,
       },
       "create_pull_request",
     );

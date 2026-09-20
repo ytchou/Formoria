@@ -345,81 +345,6 @@ check_sentry_read_token() {
   fi
 }
 
-check_health_vars() {
-  local mode=""
-  local arg
-
-  for arg in "$@"; do
-    case "$arg" in
-      --health-preflight)
-        mode="preflight"
-        ;;
-      --health-live|--health-autofix)
-        mode="live"
-        ;;
-    esac
-  done
-
-  if [ -z "$mode" ]; then
-    return
-  fi
-
-  echo "Checking health agent ${mode} configuration..."
-
-  local read_only_vars=(
-    FORMORIA_RAILWAY_URL
-    ORIGIN_SECRET
-    SLACK_HEALTH_WEBHOOK_URL
-    SENTRY_BASE_URL
-    SENTRY_ORGANIZATION
-    SENTRY_PROJECT
-    HEALTH_AGENT_READ_DATABASE_URL
-    HEALTH_AGENT_READ_DATABASE_PASSWORD
-    HEALTH_AGENT_READER_TOKEN
-    CLAUDE_CODE_OAUTH_TOKEN
-  )
-  read_only_vars+=(
-    AGENT_HUB_TURSO_DATABASE_URL
-    AGENT_HUB_TURSO_AUTH_TOKEN
-  )
-  local live_vars=(
-    LINEAR_OAUTH_CLIENT_ID
-    LINEAR_OAUTH_CLIENT_SECRET
-    LINEAR_OAUTH_ACCESS_TOKEN
-    LINEAR_TEAM_ID
-    LINEAR_PROJECT_ID
-    LINEAR_ASSIGNEE_ID
-    HEALTH_AGENT_WRITE_DATABASE_URL
-    HEALTH_AGENT_WRITE_DATABASE_PASSWORD
-    HEALTH_AGENT_WRITER_TOKEN
-    GITHUB_APP_ID
-    GITHUB_APP_PRIVATE_KEY
-    GITHUB_APP_INSTALLATION_ID
-  )
-  local var
-
-  for var in "${read_only_vars[@]}"; do
-    if has_env_value "$var"; then
-      echo "  OK: $var"
-    else
-      echo "  MISSING: $var"
-      ERRORS=$((ERRORS + 1))
-    fi
-  done
-  check_sentry_read_token
-
-  if [ "$mode" = "live" ]; then
-    for var in "${live_vars[@]}"; do
-      if has_env_value "$var"; then
-        echo "  OK: $var"
-      else
-        echo "  MISSING: $var"
-        ERRORS=$((ERRORS + 1))
-      fi
-    done
-  fi
-}
-
 # ── Health agent Railway (opt-in) ───────────────────────────────────────────
 check_health_railway_vars() {
   local want=false
@@ -440,7 +365,6 @@ check_health_railway_vars() {
     GITHUB_APP_ID
     GITHUB_APP_PRIVATE_KEY
     GITHUB_APP_INSTALLATION_ID
-    CLAUDE_CODE_OAUTH_TOKEN
     PRODUCTION_BASE_URL
     SENTRY_ORGANIZATION
     SENTRY_PROJECT
@@ -477,7 +401,6 @@ check_deps
 check_env
 check_ai_results_phase
 check_e2e "$@"
-check_health_vars "$@"
 check_health_railway_vars "$@"
 check_ops_agent_vars
 

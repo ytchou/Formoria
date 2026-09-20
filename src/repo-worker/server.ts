@@ -2,7 +2,7 @@
  * Repo worker HTTP service.
  *
  * Accepts repair jobs from the health agent, clones the repository, runs
- * commands and optionally invokes Claude Code, then returns changed files.
+ * commands and optionally invokes the configured agent, then returns changed files.
  *
  * No database, no Supabase imports — the repo worker is a pure compute node.
  * It imports from worker-boot for health paths and crash handlers only (NOT
@@ -19,10 +19,20 @@ import {
   type ServerResponse,
 } from "node:http";
 import { execFile, spawn } from "node:child_process";
-import { mkdtemp, rm, readFile } from "node:fs/promises";
+import {
+  lstat,
+  mkdir,
+  mkdtemp,
+  readFile,
+  realpath,
+  rm,
+  writeFile,
+} from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { sanitizeJobError } from "@/lib/services/job-errors";
+import type { AgentRequest, AgentResult } from "./agent";
+import { runCodexAgent } from "./codex";
 import { isRepoWorkerHealthPath } from "./health-paths";
 import { runRepoJob, type JobResult, type JobDeps } from "./jobs";
 import { bootWorker, logWorkerBuildInfo } from "@/worker-boot";
@@ -35,6 +45,8 @@ type RunRequest = {
   ref: string;
   cloneToken: string;
   commands: { id: string; run: string; timeoutMs: number }[];
+  inputFiles?: { path: string; content: string }[];
+  agent?: AgentRequest;
   claude?: {
     prompt: string;
     allowedTools: string[];
@@ -43,6 +55,7 @@ type RunRequest = {
     resumeSessionId?: string;
   };
   editableFiles: string[];
+  blockedFiles?: string[];
 };
 
 type JobEntry = {
@@ -78,6 +91,10 @@ export type ServerOptions = {
   }>;
   /** Override the cleanup function (for tests). */
   cleanupFn?: (dir: string) => Promise<void>;
+  /** Override the active agent executor (for tests). */
+  agentFn?: (dir: string, request: AgentRequest) => Promise<AgentResult>;
+  /** Override the dedicated Codex credential (for tests). */
+  codexApiKey?: string;
 };
 
 // ---------------------------------------------------------------------------
@@ -182,6 +199,14 @@ export function createRepoWorkerServer(opts: ServerOptions = {}) {
       await rm(dir, { recursive: true, force: true });
     });
 
+  const codexApiKey = opts.codexApiKey ?? process.env.CODEX_API_KEY ?? "";
+  const agentFn =
+    opts.agentFn ??
+    (codexApiKey
+      ? (dir: string, request: AgentRequest) =>
+          runCodexAgent(dir, request, { apiKey: codexApiKey })
+      : undefined);
+
   // -----------------------------------------------------------------------
   // HTTP server
   // -----------------------------------------------------------------------
@@ -222,8 +247,12 @@ export function createRepoWorkerServer(opts: ServerOptions = {}) {
       const body: Record<string, unknown> = { status: job.status };
       if (job.result) {
         if (job.result.results) body.results = job.result.results;
-        if (job.result.changedFiles) body.changedFiles = job.result.changedFiles;
+        if (job.result.changedFiles)
+          body.changedFiles = job.result.changedFiles;
+        if (job.result.revertedFiles)
+          body.revertedFiles = job.result.revertedFiles;
         if (job.result.baseSha) body.baseSha = job.result.baseSha;
+        if (job.result.agent) body.agent = job.result.agent;
         if (job.result.claude) body.claude = job.result.claude;
         if (job.result.error) body.error = job.result.error;
         if (job.result.errorStage) body.errorStage = job.result.errorStage;
@@ -267,26 +296,102 @@ export function createRepoWorkerServer(opts: ServerOptions = {}) {
 
     // Run the job asynchronously
     void (async () => {
+      let cloneDir: string | undefined;
       try {
         const deps: JobDeps = {
-          cloneFn,
+          async cloneFn(args) {
+            cloneDir = await cloneFn(args);
+            return cloneDir;
+          },
           runCommandFn,
           cleanupFn,
+          agentFn,
           async readFileFn(filePath: string) {
-            // cloneDir is captured in the cloneFn closure and returned
-            // For real runs, we need the clone dir — it's passed through the job
+            if (!cloneDir) return null;
             try {
-              return await readFile(filePath, "utf8");
-            } catch {
-              return null;
+              const target = await resolveExistingRepoPath(cloneDir, filePath);
+              return await readFile(target, "utf8");
+            } catch (error) {
+              if (isMissingFileError(error)) return null;
+              throw error;
             }
           },
+          async writeFileFn(filePath: string, content: string) {
+            if (!cloneDir) {
+              throw new Error("Clone directory is unavailable");
+            }
+            const target = resolveRepoPath(cloneDir, filePath);
+            await assertNoSymlinkComponents(cloneDir, path.dirname(target));
+            await mkdir(path.dirname(target), { recursive: true });
+            await assertRealPathInsideClone(cloneDir, path.dirname(target));
+            try {
+              if ((await lstat(target)).isSymbolicLink()) {
+                throw new Error(`Repository path is a symbolic link: ${filePath}`);
+              }
+            } catch (error) {
+              if (!isMissingFileError(error)) throw error;
+            }
+            await writeFile(target, content, "utf8");
+          },
           async listChangedFilesFn() {
-            // In real runs, uses git diff in the clone dir
-            return [];
+            if (!cloneDir) return [];
+            const result = await execGit(cloneDir, [
+              "ls-files",
+              "-z",
+              "--modified",
+              "--deleted",
+              "--others",
+              "--exclude-standard",
+            ]);
+            if (result.exitCode !== 0) {
+              throw new Error(`git ls-files exited with ${result.exitCode}`);
+            }
+            return result.stdout.split("\0").filter(Boolean);
+          },
+          async listDeletedFilesFn() {
+            if (!cloneDir) return [];
+            const result = await execGit(cloneDir, [
+              "ls-files",
+              "-z",
+              "--deleted",
+            ]);
+            if (result.exitCode !== 0) {
+              throw new Error(
+                `git ls-files --deleted exited with ${result.exitCode}`,
+              );
+            }
+            return result.stdout.split("\0").filter(Boolean);
           },
           async getHeadShaFn() {
-            return "unknown";
+            if (!cloneDir) return "unknown";
+            const result = await execGit(cloneDir, ["rev-parse", "HEAD"]);
+            if (result.exitCode !== 0) {
+              throw new Error(`git rev-parse exited with ${result.exitCode}`);
+            }
+            return result.stdout.trim();
+          },
+          async revertFileFn(repoDir, filePath) {
+            const tracked = await execGit(repoDir, [
+              "ls-files",
+              "--error-unmatch",
+              "--",
+              filePath,
+            ]);
+            if (tracked.exitCode === 0) {
+              const restored = await execGit(repoDir, [
+                "restore",
+                "--source=HEAD",
+                "--staged",
+                "--worktree",
+                "--",
+                filePath,
+              ]);
+              if (restored.exitCode !== 0) {
+                throw new Error(`git restore exited with ${restored.exitCode}`);
+              }
+              return;
+            }
+            await rm(resolveRepoPath(repoDir, filePath), { force: true });
           },
         };
 
@@ -361,6 +466,98 @@ function sendJson(
     "content-type": "application/json; charset=utf-8",
   });
   response.end(JSON.stringify(body));
+}
+
+function resolveRepoPath(repoDir: string, filePath: string): string {
+  const resolvedRoot = path.resolve(repoDir);
+  const resolved = path.resolve(resolvedRoot, filePath);
+  if (
+    resolved !== resolvedRoot &&
+    !resolved.startsWith(`${resolvedRoot}${path.sep}`)
+  ) {
+    throw new Error(`Repository path escapes clone: ${filePath}`);
+  }
+  return resolved;
+}
+
+async function resolveExistingRepoPath(
+  repoDir: string,
+  filePath: string,
+): Promise<string> {
+  const lexicalPath = resolveRepoPath(repoDir, filePath);
+  if ((await lstat(lexicalPath)).isSymbolicLink()) {
+    throw new Error(`Repository path is a symbolic link: ${filePath}`);
+  }
+  await assertRealPathInsideClone(repoDir, lexicalPath);
+  return lexicalPath;
+}
+
+async function assertRealPathInsideClone(
+  repoDir: string,
+  candidate: string,
+): Promise<void> {
+  const [resolvedRoot, resolvedCandidate] = await Promise.all([
+    realpath(repoDir),
+    realpath(candidate),
+  ]);
+  if (
+    resolvedCandidate !== resolvedRoot &&
+    !resolvedCandidate.startsWith(`${resolvedRoot}${path.sep}`)
+  ) {
+    throw new Error(`Repository path resolves outside clone: ${candidate}`);
+  }
+}
+
+async function assertNoSymlinkComponents(
+  repoDir: string,
+  candidateDirectory: string,
+): Promise<void> {
+  const relative = path.relative(path.resolve(repoDir), candidateDirectory);
+  let current = path.resolve(repoDir);
+  for (const segment of relative.split(path.sep).filter(Boolean)) {
+    current = path.join(current, segment);
+    try {
+      if ((await lstat(current)).isSymbolicLink()) {
+        throw new Error(`Repository directory is a symbolic link: ${current}`);
+      }
+    } catch (error) {
+      if (isMissingFileError(error)) return;
+      throw error;
+    }
+  }
+}
+
+function isMissingFileError(error: unknown): boolean {
+  return (
+    error instanceof Error &&
+    "code" in error &&
+    (error as NodeJS.ErrnoException).code === "ENOENT"
+  );
+}
+
+function execGit(
+  repoDir: string,
+  args: string[],
+): Promise<{ stdout: string; stderr: string; exitCode: number | null }> {
+  return new Promise((resolve, reject) => {
+    const child = execFile("git", args, { cwd: repoDir, timeout: 120_000 });
+    const stdout: string[] = [];
+    const stderr: string[] = [];
+    child.stdout?.on("data", (chunk: Buffer | string) =>
+      stdout.push(chunk.toString()),
+    );
+    child.stderr?.on("data", (chunk: Buffer | string) =>
+      stderr.push(chunk.toString()),
+    );
+    child.on("close", (exitCode) =>
+      resolve({
+        stdout: stdout.join(""),
+        stderr: stderr.join(""),
+        exitCode,
+      }),
+    );
+    child.on("error", reject);
+  });
 }
 
 // ---------------------------------------------------------------------------

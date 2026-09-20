@@ -1,7 +1,7 @@
 /**
  * Diagnose node — dispatch read-only analysis to repo-worker.
  *
- * Sends the frozen failure set to a Claude Code session inside a fresh clone.
+ * Sends the frozen failure set to a read-only agent session inside a fresh clone.
  * The session reads the codebase, classifies each failure, groups them into
  * root-cause clusters, and returns structured `DiagnosisResult`.
  *
@@ -18,9 +18,7 @@ import type { RepoWorkerClient } from "@/lib/services/health-agent/repo-worker-c
 // Constants
 // ---------------------------------------------------------------------------
 
-const DIAGNOSE_DEADLINE_MS = 900_000;
-const DIAGNOSE_MAX_TURNS = 80;
-const DIAGNOSE_ALLOWED_TOOLS = ["Read", "Grep", "Glob", "Bash"];
+const DIAGNOSE_DEADLINE_MS = 1_500_000;
 const DIAGNOSE_PROMPT_NAME = "e2e-nightly-diagnose";
 
 const DIAGNOSE_FALLBACK_PROMPT = `You are diagnosing e2e test failures for the Formoria web application.
@@ -51,11 +49,12 @@ export type DiagnoseOutcome = {
 };
 
 // ---------------------------------------------------------------------------
-// Schema (subset — enough for Claude to produce typed output)
+// Schema
 // ---------------------------------------------------------------------------
 
 const DIAGNOSIS_SCHEMA = {
   type: "object",
+  additionalProperties: false,
   properties: {
     version: { type: "number", const: 1 },
     failureSetHash: { type: "string" },
@@ -63,6 +62,7 @@ const DIAGNOSIS_SCHEMA = {
       type: "array",
       items: {
         type: "object",
+        additionalProperties: false,
         properties: {
           id: { type: "string" },
           file: { type: ["string", "null"] },
@@ -84,6 +84,7 @@ const DIAGNOSIS_SCHEMA = {
         },
         required: [
           "id",
+          "file",
           "title",
           "project",
           "category",
@@ -97,6 +98,7 @@ const DIAGNOSIS_SCHEMA = {
       type: "array",
       items: {
         type: "object",
+        additionalProperties: false,
         properties: {
           rootCauseKey: { type: "string" },
           failureIds: { type: "array", items: { type: "string" } },
@@ -137,7 +139,9 @@ export async function diagnoseFailures(
   try {
     basePrompt = await deps.fetchPrompt(DIAGNOSE_PROMPT_NAME);
   } catch {
-    console.log(`[e2e-diagnose] prompt "${DIAGNOSE_PROMPT_NAME}" not found, using inline fallback`);
+    console.log(
+      `[e2e-diagnose] prompt "${DIAGNOSE_PROMPT_NAME}" not found, using inline fallback`,
+    );
     basePrompt = DIAGNOSE_FALLBACK_PROMPT;
   }
   const prompt = [
@@ -154,19 +158,18 @@ export async function diagnoseFailures(
     ref: deps.stagingSha,
     commands: [],
     editableFiles: [],
-    claude: {
+    agent: {
       prompt,
-      allowedTools: DIAGNOSE_ALLOWED_TOOLS,
-      maxTurns: DIAGNOSE_MAX_TURNS,
+      access: "read",
       jsonSchema: DIAGNOSIS_SCHEMA,
     },
   });
 
-  if (result.status !== "done" || !result.claude?.structuredOutput) {
+  if (result.status !== "done" || !result.agent?.structuredOutput) {
     return null;
   }
 
-  const diagnosis = result.claude.structuredOutput as DiagnosisResult;
+  const diagnosis = result.agent.structuredOutput as DiagnosisResult;
   const aggregate = classifyAggregate(diagnosis);
 
   return { diagnosis, aggregate };
@@ -176,9 +179,7 @@ export async function diagnoseFailures(
 // Classification
 // ---------------------------------------------------------------------------
 
-function classifyAggregate(
-  diagnosis: DiagnosisResult,
-): "noise" | "actionable" {
+function classifyAggregate(diagnosis: DiagnosisResult): "noise" | "actionable" {
   const allEnvironment =
     diagnosis.failures.length > 0 &&
     diagnosis.failures.every((f) => f.category === "env-flake");

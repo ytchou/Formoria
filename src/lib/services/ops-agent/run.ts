@@ -11,7 +11,7 @@ import {
   type AgentModel,
 } from "@/lib/services/enrich-phases/agents/runtime";
 import type { LlmAuditContext } from "@/lib/services/llm-audit";
-import { dispatchWorkflow as defaultDispatchWorkflow } from "@/lib/adapters/github/actions-api";
+import { runOpsCodeFix as defaultRunOpsCodeFix } from "./code-fix";
 import { postMessage as slackPostMessage } from "@/lib/adapters/slack/web-api";
 import { renderProposalCard as slackRenderProposalCard } from "@/lib/adapters/slack/blocks";
 import { listIssues as defaultListIssues } from "@/lib/adapters/sentry/issues";
@@ -66,10 +66,7 @@ export type RunOpsAgentDeps = {
     userMessage?: string,
     signal?: AbortSignal,
   ) => Promise<GraphResult>;
-  dispatchWorkflow?: (
-    file: string,
-    inputs?: Record<string, string>,
-  ) => Promise<{ ok: true } | { ok: false; status: number }>;
+  runCodeFix?: typeof defaultRunOpsCodeFix;
   toolDeps?: Partial<OpsToolDeps>;
 };
 
@@ -138,14 +135,12 @@ export async function runOpsAgent(
     const repairRequest = extractRepairRequest(request.text);
     if (repairRequest) {
       try {
-        const dispatch = deps.dispatchWorkflow ?? defaultDispatchWorkflow;
+        const runCodeFix = deps.runCodeFix ?? defaultRunOpsCodeFix;
         const repairResult = await executeRepairRequest(
           repairRequest,
-          { dispatchWorkflow: dispatch },
+          { runCodeFix },
           {
             requestId: request.id,
-            channelId: request.channelId,
-            threadTs: request.threadTs,
           },
         );
 
@@ -158,7 +153,7 @@ export async function runOpsAgent(
         });
 
         const summary = repairResult.ok
-          ? `Dispatched ${repairResult.outcomes.filter((o) => o.ok).length} repair(s).`
+          ? `Created ${repairResult.outcomes.filter((o) => o.ok).length} repair PR(s).`
           : `Repair failed: ${repairResult.outcomes.filter((o) => !o.ok).map((o) => o.error).join(", ")}`;
         await postMsg(request.threadTs, summary);
 

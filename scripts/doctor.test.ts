@@ -48,7 +48,7 @@ describe("doctor --health-railway mode", () => {
     });
   }
 
-  it("requires REPO_WORKER_URL, GITHUB_APP_ID, GITHUB_APP_PRIVATE_KEY, GITHUB_APP_INSTALLATION_ID, CLAUDE_CODE_OAUTH_TOKEN, PRODUCTION_BASE_URL", () => {
+  it("requires REPO_WORKER_URL and GitHub App credentials, but not the repo-worker Codex key", () => {
     const result = runDoctorHealthRailway();
     const out = result.stdout;
     expect(out).toContain("Checking health agent Railway configuration...");
@@ -57,7 +57,6 @@ describe("doctor --health-railway mode", () => {
       "GITHUB_APP_ID",
       "GITHUB_APP_PRIVATE_KEY",
       "GITHUB_APP_INSTALLATION_ID",
-      "CLAUDE_CODE_OAUTH_TOKEN",
       "PRODUCTION_BASE_URL",
     ]) {
       expect(out).toContain(v);
@@ -66,6 +65,7 @@ describe("doctor --health-railway mode", () => {
     expect(out).not.toContain("HEALTH_AGENT_READER_TOKEN");
     expect(out).not.toContain("HEALTH_AGENT_WRITER_TOKEN");
     expect(out).not.toContain("HEALTH_AGENT_GITHUB_APP_ID");
+    expect(out).not.toContain("CODEX_API_KEY");
   });
 
   it("accepts either Sentry token variable for the Railway health agent", () => {

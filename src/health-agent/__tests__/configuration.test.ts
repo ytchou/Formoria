@@ -1,6 +1,5 @@
-import { readFileSync } from 'node:fs'
+import { existsSync, readFileSync } from 'node:fs'
 import { describe, expect, it } from 'vitest'
-import { parse } from 'yaml'
 
 describe('health-agent Railway configuration', () => {
   it('uses the shared GitHub App for clone authentication', () => {
@@ -29,12 +28,8 @@ describe('health-agent Railway configuration', () => {
     expect(envExample).not.toContain('HEALTH_AGENT_GITHUB_APP_ID=')
   })
 
-  it('keeps the legacy workflow manual and removes its schedule', () => {
-    const workflow = parse(
-      readFileSync('.github/workflows/health-agent.yml', 'utf8'),
-    ) as { on: Record<string, unknown> }
-
-    expect(workflow.on).toHaveProperty('workflow_dispatch')
-    expect(workflow.on).not.toHaveProperty('schedule')
+  it('has no GitHub Actions health-agent runtime', () => {
+    expect(existsSync('.github/workflows/health-agent.yml')).toBe(false)
+    expect(existsSync('.github/workflows/health-agent-replay.yml')).toBe(false)
   })
 })

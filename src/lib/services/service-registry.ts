@@ -174,7 +174,7 @@ export const SERVICE_REGISTRY: readonly ServiceEntry[] = [
     criticality: "back-office",
     operationalSection: "back-office",
     operationalKind: "dependency",
-    envVars: ["OPENAI_API_KEY"],
+    envVars: ["OPENAI_API_KEY", "CODEX_API_KEY"],
     status: "active",
     plan: {
       kind: "usage",
@@ -595,7 +595,7 @@ export const SERVICE_REGISTRY: readonly ServiceEntry[] = [
     operationalSection: null,
     operationalKind: "dependency",
     envVars: ["CLAUDE_CODE_OAUTH_TOKEN"],
-    status: "active",
+    status: "dormant",
     plan: {
       kind: "subscription",
       asOf: TODAY,

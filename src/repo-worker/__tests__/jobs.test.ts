@@ -45,6 +45,42 @@ describe("repo-worker jobs", () => {
     expect(result.results?.map((command) => command.id)).toEqual(["vitest"]);
   });
 
+  it("seeds prior patch files before installing and validating a fresh clone", async () => {
+    const events: string[] = [];
+
+    const result = await runRepoJob(
+      {
+        ref: "staging",
+        cloneToken: "ghp_test",
+        commands: [
+          { id: "typecheck", run: "pnpm typecheck", timeoutMs: 120_000 },
+        ],
+        inputFiles: [
+          { path: "src/lib/utils.ts", content: "export const fixed = true;" },
+        ],
+        editableFiles: [],
+      },
+      {
+        cloneFn: async () => "/tmp/fresh-clone",
+        writeFileFn: async (filePath, content) => {
+          events.push(`write:${filePath}:${content}`);
+        },
+        runCommandFn: async (_dir, command) => {
+          events.push(`run:${command}`);
+          return { stdout: "", stderr: "", exitCode: 0, timedOut: false };
+        },
+        cleanupFn: async () => {},
+      },
+    );
+
+    expect(result.status).toBe("done");
+    expect(events).toEqual([
+      "write:src/lib/utils.ts:export const fixed = true;",
+      "run:NODE_ENV=development pnpm install --frozen-lockfile",
+      "run:pnpm typecheck",
+    ]);
+  });
+
   it.each([
     {
       name: "failure",
@@ -66,37 +102,111 @@ describe("repo-worker jobs", () => {
       },
       errorCode: "install-timeout",
     },
-  ])("aborts after install $name and cleans up the clone", async ({ installResult, errorCode }) => {
-    const executed: string[] = [];
-    const cleaned: string[] = [];
+  ])(
+    "aborts after install $name and cleans up the clone",
+    async ({ installResult, errorCode }) => {
+      const executed: string[] = [];
+      const cleaned: string[] = [];
 
+      const result = await runRepoJob(
+        {
+          ref: "staging",
+          cloneToken: "ghp_test",
+          commands: [{ id: "vitest", run: "pnpm test", timeoutMs: 300_000 }],
+          editableFiles: [],
+        },
+        {
+          cloneFn: async () => "/tmp/fresh-clone",
+          runCommandFn: async (_dir, command) => {
+            executed.push(command);
+            return installResult;
+          },
+          cleanupFn: async (dir) => {
+            cleaned.push(dir);
+          },
+        },
+      );
+
+      expect(executed).toEqual([
+        "NODE_ENV=development pnpm install --frozen-lockfile",
+      ]);
+      expect(cleaned).toEqual(["/tmp/fresh-clone"]);
+      expect(result).toMatchObject({
+        status: "failed",
+        errorStage: "install",
+        errorCode,
+      });
+    },
+  );
+
+  it("fails explicitly when an agent is requested without an executor", async () => {
     const result = await runRepoJob(
       {
         ref: "staging",
         cloneToken: "ghp_test",
-        commands: [{ id: "vitest", run: "pnpm test", timeoutMs: 300_000 }],
+        commands: [],
         editableFiles: [],
+        agent: {
+          prompt: "Diagnose the failure",
+          access: "read",
+          jsonSchema: { type: "object" },
+        },
       },
       {
         cloneFn: async () => "/tmp/fresh-clone",
-        runCommandFn: async (_dir, command) => {
-          executed.push(command);
-          return installResult;
-        },
-        cleanupFn: async (dir) => {
-          cleaned.push(dir);
-        },
+        runCommandFn: async () => ({
+          stdout: "",
+          stderr: "",
+          exitCode: 0,
+          timedOut: false,
+        }),
+        cleanupFn: async () => {},
       },
     );
 
-    expect(executed).toEqual([
-      "NODE_ENV=development pnpm install --frozen-lockfile",
-    ]);
-    expect(cleaned).toEqual(["/tmp/fresh-clone"]);
     expect(result).toMatchObject({
       status: "failed",
-      errorStage: "install",
-      errorCode,
+      errorStage: "worker",
+      errorCode: "agent-executor-unavailable",
+    });
+  });
+
+  it("returns provider-neutral agent output when the executor is configured", async () => {
+    const result = await runRepoJob(
+      {
+        ref: "staging",
+        cloneToken: "ghp_test",
+        commands: [],
+        editableFiles: [],
+        agent: {
+          prompt: "Diagnose the failure",
+          access: "read",
+          jsonSchema: { type: "object" },
+        },
+      },
+      {
+        cloneFn: async () => "/tmp/fresh-clone",
+        runCommandFn: async () => ({
+          stdout: "",
+          stderr: "",
+          exitCode: 0,
+          timedOut: false,
+        }),
+        agentFn: async () => ({
+          structuredOutput: { status: "diagnosed" },
+          sessionId: "thread-123",
+        }),
+        listChangedFilesFn: async () => [],
+        cleanupFn: async () => {},
+      },
+    );
+
+    expect(result).toMatchObject({
+      status: "done",
+      agent: {
+        structuredOutput: { status: "diagnosed" },
+        sessionId: "thread-123",
+      },
     });
   });
 
@@ -136,9 +246,7 @@ describe("repo-worker jobs", () => {
     const cloneArgs = capturedArgs[0];
 
     // The token should appear as a header-based credential, not in the URL
-    const extraHeaderArg = cloneArgs.find((a) =>
-      a.includes("extraheader"),
-    );
+    const extraHeaderArg = cloneArgs.find((a) => a.includes("extraheader"));
     expect(extraHeaderArg).toBeDefined();
     // The token is base64-encoded in the Basic auth header, not in plaintext
     const decoded = Buffer.from(
@@ -203,6 +311,81 @@ describe("repo-worker jobs", () => {
     expect(result.revertedFiles).toContain("package.json");
   });
 
+  it("keeps files covered by an editable glob and reverts files outside it", async () => {
+    const revertedFiles: string[] = [];
+    const result = await runRepoJob(
+      {
+        ref: "staging",
+        cloneToken: "ghp_test",
+        commands: [],
+        editableFiles: ["e2e/**/*.ts"],
+      },
+      {
+        cloneFn: async () => "/tmp/fake-repo",
+        runCommandFn: async () => ({
+          stdout: "",
+          stderr: "",
+          exitCode: 0,
+          timedOut: false,
+        }),
+        readFileFn: async (filePath) => `content of ${filePath}`,
+        listChangedFilesFn: async () => [
+          "e2e/tests/search.spec.ts",
+          "src/app/page.tsx",
+        ],
+        revertFileFn: async (_repoDir, filePath) => {
+          revertedFiles.push(filePath);
+        },
+        cleanupFn: async () => {},
+      },
+    );
+
+    expect(result.changedFiles).toEqual([
+      {
+        path: "e2e/tests/search.spec.ts",
+        content: "content of e2e/tests/search.spec.ts",
+      },
+    ]);
+    expect(revertedFiles).toEqual(["src/app/page.tsx"]);
+  });
+
+  it("reverts files covered by an explicit blocked glob", async () => {
+    const revertedFiles: string[] = [];
+    const result = await runRepoJob(
+      {
+        ref: "staging",
+        cloneToken: "ghp_test",
+        commands: [],
+        editableFiles: ["**/*"],
+        blockedFiles: [".github/**", "supabase/migrations/**"],
+      },
+      {
+        cloneFn: async () => "/tmp/fake-repo",
+        runCommandFn: async () => ({
+          stdout: "",
+          stderr: "",
+          exitCode: 0,
+          timedOut: false,
+        }),
+        readFileFn: async (filePath) => `content of ${filePath}`,
+        listChangedFilesFn: async () => [
+          "src/lib/safe.ts",
+          ".github/workflows/unsafe.yml",
+        ],
+        revertFileFn: async (_repoDir, filePath) => {
+          revertedFiles.push(filePath);
+        },
+        cleanupFn: async () => {},
+      },
+    );
+
+    expect(result.changedFiles).toEqual([
+      { path: "src/lib/safe.ts", content: "content of src/lib/safe.ts" },
+    ]);
+    expect(result.revertedFiles).toEqual([".github/workflows/unsafe.yml"]);
+    expect(revertedFiles).toEqual([".github/workflows/unsafe.yml"]);
+  });
+
   // -------------------------------------------------------------------------
   // Test 8: a patch deleting a test file or adding .skip is rejected
   // -------------------------------------------------------------------------
@@ -261,6 +444,35 @@ describe("repo-worker jobs", () => {
 
     expect(resultSkip.status).toBe("failed");
     expect(resultSkip.error).toMatch(/\.skip/i);
+  });
+
+  it("rejects source-file deletions that cannot be represented in the patch result", async () => {
+    const result = await runRepoJob(
+      {
+        ref: "staging",
+        cloneToken: "ghp_test",
+        commands: [],
+        editableFiles: ["src/obsolete.ts"],
+      },
+      {
+        cloneFn: async () => "/tmp/fake-repo",
+        runCommandFn: async () => ({
+          stdout: "",
+          stderr: "",
+          exitCode: 0,
+          timedOut: false,
+        }),
+        listChangedFilesFn: async () => ["src/obsolete.ts"],
+        listDeletedFilesFn: async () => ["src/obsolete.ts"],
+        cleanupFn: async () => {},
+      },
+    );
+
+    expect(result).toMatchObject({
+      status: "failed",
+      errorStage: "policy",
+      errorCode: "file-deletion-unsupported",
+    });
   });
 
   // -------------------------------------------------------------------------
@@ -337,9 +549,8 @@ describe("repo-worker jobs", () => {
           timedOut: false,
         }),
         readFileFn: async (filePath) => {
-          if (filePath === "src/also-fixed.ts")
-            return 'export const y = 2;\n';
-          if (filePath === "src/fixed.ts") return 'export const x = 1;\n';
+          if (filePath === "src/also-fixed.ts") return "export const y = 2;\n";
+          if (filePath === "src/fixed.ts") return "export const x = 1;\n";
           return "";
         },
         listChangedFilesFn: async () => ["src/fixed.ts", "src/also-fixed.ts"],
@@ -351,8 +562,8 @@ describe("repo-worker jobs", () => {
     expect(result.status).toBe("done");
     expect(result.baseSha).toBe("deadbeef1234");
     expect(result.changedFiles).toEqual([
-      { path: "src/fixed.ts", content: 'export const x = 1;\n' },
-      { path: "src/also-fixed.ts", content: 'export const y = 2;\n' },
+      { path: "src/fixed.ts", content: "export const x = 1;\n" },
+      { path: "src/also-fixed.ts", content: "export const y = 2;\n" },
     ]);
   });
 });

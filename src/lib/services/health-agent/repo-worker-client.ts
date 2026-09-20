@@ -15,6 +15,7 @@ import type {
   CommandResult,
   JobErrorStage,
 } from '@/repo-worker/jobs'
+import type { AgentRequest, AgentResult } from '@/repo-worker/agent'
 
 // ---------------------------------------------------------------------------
 // Types
@@ -24,6 +25,9 @@ export type RepoWorkerJobRequest = {
   ref: string
   commands: Array<{ id: string; run: string; timeoutMs: number }>
   editableFiles: string[]
+  blockedFiles?: string[]
+  inputFiles?: ChangedFile[]
+  agent?: AgentRequest
   claude?: {
     prompt: string
     allowedTools: string[]
@@ -37,7 +41,9 @@ type RepoWorkerJobResult = {
   status: 'done' | 'error'
   results?: CommandResult[]
   changedFiles?: ChangedFile[]
+  revertedFiles?: string[]
   baseSha?: string
+  agent?: AgentResult
   claude?: {
     structuredOutput: unknown
     sessionId: string | undefined
@@ -111,7 +117,10 @@ export function createRepoWorkerClient(
       cloneToken,
       commands: request.commands,
       editableFiles: request.editableFiles,
+      ...(request.inputFiles ? { inputFiles: request.inputFiles } : {}),
+      ...(request.agent ? { agent: request.agent } : {}),
       ...(request.claude ? { claude: request.claude } : {}),
+      ...(request.blockedFiles ? { blockedFiles: request.blockedFiles } : {}),
     })
 
     for (let attempt = 0; attempt < MAX_SUBMIT_RETRIES; attempt++) {
@@ -208,12 +217,14 @@ export function createRepoWorkerClient(
             status: data.status === 'done' ? 'done' : 'error',
             results: data.results as CommandResult[] | undefined,
             changedFiles: data.changedFiles as ChangedFile[] | undefined,
+            revertedFiles: data.revertedFiles as string[] | undefined,
             baseSha: data.baseSha as string | undefined,
+            agent: data.agent as RepoWorkerJobResult['agent'],
             claude: data.claude as RepoWorkerJobResult['claude'],
             error: data.error as string | undefined,
             errorCode:
               data.status === 'failed'
-                ? (data.errorCode as string | undefined) ?? 'job-failed'
+                ? ((data.errorCode as string | undefined) ?? 'job-failed')
                 : undefined,
             errorStage: data.errorStage as RepoWorkerJobResult['errorStage'],
           }

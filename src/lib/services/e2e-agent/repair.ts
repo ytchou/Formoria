@@ -1,7 +1,7 @@
 /**
  * Repair node — dispatch scoped writes to repo-worker.
  *
- * Sends the frozen failure set plus diagnosis context to a Claude Code session
+ * Sends the frozen failure set plus diagnosis context to an agent session
  * inside a fresh clone. The session has write tools and scoped `editableFiles`
  * covering e2e specs and application source.
  *
@@ -14,30 +14,15 @@ import type {
   FrozenFailureSet,
   RepairResult,
 } from "@/lib/services/e2e-selfheal/incident";
-import type {
-  RepoWorkerClient,
-} from "@/lib/services/health-agent/repo-worker-client";
+import type { RepoWorkerClient } from "@/lib/services/health-agent/repo-worker-client";
 import type { ChangedFile } from "@/repo-worker/jobs";
 
 // ---------------------------------------------------------------------------
 // Constants
 // ---------------------------------------------------------------------------
 
-const REPAIR_DEADLINE_MS = 1_200_000;
-const REPAIR_MAX_TURNS = 120;
-const REPAIR_ALLOWED_TOOLS = [
-  "Read",
-  "Grep",
-  "Glob",
-  "Bash",
-  "Edit",
-  "Write",
-];
-const REPAIR_EDITABLE_FILES = [
-  "e2e/**/*.ts",
-  "src/**/*.ts",
-  "src/**/*.tsx",
-];
+const REPAIR_DEADLINE_MS = 1_500_000;
+const REPAIR_EDITABLE_FILES = ["e2e/**/*.ts", "src/**/*.ts", "src/**/*.tsx"];
 const REPAIR_PROMPT_NAME = "e2e-nightly-repair";
 
 const REPAIR_FALLBACK_PROMPT = `You are repairing e2e test failures for the Formoria web application.
@@ -72,11 +57,12 @@ export type RepairOutcome = {
 };
 
 // ---------------------------------------------------------------------------
-// Schema (subset — enough for Claude to produce typed output)
+// Schema
 // ---------------------------------------------------------------------------
 
 const REPAIR_SCHEMA = {
   type: "object",
+  additionalProperties: false,
   properties: {
     version: { type: "number", const: 1 },
     failureSetHash: { type: "string" },
@@ -109,14 +95,14 @@ const REPAIR_SCHEMA = {
  * Returns `needs_human` when the agent produces no file changes (the repair
  * could not be automated), or `repaired` with the changed files and base SHA.
  */
-export async function repairFailures(
-  deps: RepairDeps,
-): Promise<RepairOutcome> {
+export async function repairFailures(deps: RepairDeps): Promise<RepairOutcome> {
   let basePrompt: string;
   try {
     basePrompt = await deps.fetchPrompt(REPAIR_PROMPT_NAME);
   } catch {
-    console.log(`[e2e-repair] prompt "${REPAIR_PROMPT_NAME}" not found, using inline fallback`);
+    console.log(
+      `[e2e-repair] prompt "${REPAIR_PROMPT_NAME}" not found, using inline fallback`,
+    );
     basePrompt = REPAIR_FALLBACK_PROMPT;
   }
   const prompt = [
@@ -137,10 +123,9 @@ export async function repairFailures(
     ref: deps.stagingSha,
     commands: [],
     editableFiles: REPAIR_EDITABLE_FILES,
-    claude: {
+    agent: {
       prompt,
-      allowedTools: REPAIR_ALLOWED_TOOLS,
-      maxTurns: REPAIR_MAX_TURNS,
+      access: "write",
       jsonSchema: REPAIR_SCHEMA,
     },
   });
@@ -157,9 +142,7 @@ export async function repairFailures(
     };
   }
 
-  const structured = result.claude?.structuredOutput as
-    | RepairResult
-    | undefined;
+  const structured = result.agent?.structuredOutput as RepairResult | undefined;
 
   return {
     outcome: "repaired",
