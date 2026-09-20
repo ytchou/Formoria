@@ -77,7 +77,7 @@ function makeDeps(overrides: Partial<RepairDeps> = {}): RepairDeps {
         { id: 'vitest', exitCode: 0, stdout: '', stderr: '', timedOut: false },
       ],
       changedFiles: [{ path: 'src/lib/utils.ts', content: 'fixed code' }],
-      claude: {
+      agent: {
         structuredOutput: {
           snapshot_id: 'snap-1',
           cycle: 1,
@@ -96,12 +96,16 @@ function makeDeps(overrides: Partial<RepairDeps> = {}): RepairDeps {
           ],
         },
         sessionId: 'session-abc',
-        costUsd: 0.05,
+        usage: { input_tokens: 100, output_tokens: 20 },
       },
     }),
     fetchPrompt: vi.fn().mockResolvedValue({
       text: 'You are the repair investigator.',
-      prompt: { name: 'health-investigator', version: 1, source: 'snapshot' as const },
+      prompt: {
+        name: 'health-investigator',
+        version: 1,
+        source: 'snapshot' as const,
+      },
     }),
     ...overrides,
   }
@@ -126,7 +130,9 @@ describe('repair agent graph', () => {
     )
 
     // investigate -> validate (unconditional or conditional)
-    const investigateEdges = drawn.edges.filter((e) => e.source === 'investigate')
+    const investigateEdges = drawn.edges.filter(
+      (e) => e.source === 'investigate',
+    )
     expect(investigateEdges.length).toBeGreaterThan(0)
 
     // validate has conditional edges: resume or finalize
@@ -154,35 +160,53 @@ describe('repair agent graph', () => {
     runJob.mockResolvedValueOnce({
       status: 'done',
       changedFiles: [{ path: 'src/lib/utils.ts', content: 'attempt-1' }],
-      claude: {
+      agent: {
         structuredOutput: {
           status: 'ready_to_merge',
           fixed: true,
-          findings: [{ fingerprint: 'quality:dead-code:src/lib/utils.ts:unusedFn', status: 'ready_to_merge', changed_files: ['src/lib/utils.ts'] }],
+          findings: [
+            {
+              fingerprint: 'quality:dead-code:src/lib/utils.ts:unusedFn',
+              status: 'ready_to_merge',
+              changed_files: ['src/lib/utils.ts'],
+            },
+          ],
         },
         sessionId: 'session-1',
-        costUsd: 0.02,
+        usage: { input_tokens: 80, output_tokens: 16 },
       },
     })
     // Second call: validate → fails
     runJob.mockResolvedValueOnce({
       status: 'done',
       results: [
-        { id: 'lint', exitCode: 1, stdout: '', stderr: 'lint error', timedOut: false },
+        {
+          id: 'lint',
+          exitCode: 1,
+          stdout: '',
+          stderr: 'lint error',
+          timedOut: false,
+        },
       ],
     })
     // Third call: resume investigate with same session id → returns a fix
     runJob.mockResolvedValueOnce({
       status: 'done',
       changedFiles: [{ path: 'src/lib/utils.ts', content: 'attempt-2-fixed' }],
-      claude: {
+      agent: {
         structuredOutput: {
           status: 'ready_to_merge',
           fixed: true,
-          findings: [{ fingerprint: 'quality:dead-code:src/lib/utils.ts:unusedFn', status: 'ready_to_merge', changed_files: ['src/lib/utils.ts'] }],
+          findings: [
+            {
+              fingerprint: 'quality:dead-code:src/lib/utils.ts:unusedFn',
+              status: 'ready_to_merge',
+              changed_files: ['src/lib/utils.ts'],
+            },
+          ],
         },
         sessionId: 'session-1',
-        costUsd: 0.03,
+        usage: { input_tokens: 90, output_tokens: 18 },
       },
     })
     // Fourth call: validate → passes
@@ -204,9 +228,18 @@ describe('repair agent graph', () => {
     const resumeCall = runJob.mock.calls[2]
     expect(resumeCall).toBeDefined()
     const resumeRequest = resumeCall![0] as Record<string, unknown>
-    expect(resumeRequest.claude).toBeDefined()
-    const claudeOpts = resumeRequest.claude as Record<string, unknown>
-    expect(claudeOpts.resumeSessionId).toBe('session-1')
+    expect(resumeRequest.agent).toBeDefined()
+    const agentOptions = resumeRequest.agent as Record<string, unknown>
+    expect(agentOptions.resumeSessionId).toBe('session-1')
+    expect(runJob.mock.calls[1]![0]).toMatchObject({
+      inputFiles: [{ path: 'src/lib/utils.ts', content: 'attempt-1' }],
+    })
+    expect(resumeRequest).toMatchObject({
+      inputFiles: [{ path: 'src/lib/utils.ts', content: 'attempt-1' }],
+    })
+    expect(runJob.mock.calls[3]![0]).toMatchObject({
+      inputFiles: [{ path: 'src/lib/utils.ts', content: 'attempt-2-fixed' }],
+    })
   })
 
   it('two failed validations end needs_human with the diagnosis and no changedFiles', async () => {
@@ -215,31 +248,49 @@ describe('repair agent graph', () => {
     runJob.mockResolvedValueOnce({
       status: 'done',
       changedFiles: [{ path: 'src/a.ts', content: 'v1' }],
-      claude: {
-        structuredOutput: { status: 'ready_to_merge', fixed: true, findings: [] },
+      agent: {
+        structuredOutput: {
+          status: 'ready_to_merge',
+          fixed: true,
+          findings: [],
+        },
         sessionId: 's1',
-        costUsd: 0.01,
+        usage: { input_tokens: 70, output_tokens: 14 },
       },
     })
     // Validate 1 — fails
     runJob.mockResolvedValueOnce({
       status: 'done',
-      results: [{ id: 'lint', exitCode: 1, stdout: '', stderr: 'err', timedOut: false }],
+      results: [
+        { id: 'lint', exitCode: 1, stdout: '', stderr: 'err', timedOut: false },
+      ],
     })
     // Resume investigate
     runJob.mockResolvedValueOnce({
       status: 'done',
       changedFiles: [{ path: 'src/a.ts', content: 'v2' }],
-      claude: {
-        structuredOutput: { status: 'retry_required', fixed: false, findings: [] },
+      agent: {
+        structuredOutput: {
+          status: 'retry_required',
+          fixed: false,
+          findings: [],
+        },
         sessionId: 's1',
-        costUsd: 0.01,
+        usage: { input_tokens: 72, output_tokens: 15 },
       },
     })
     // Validate 2 — fails
     runJob.mockResolvedValueOnce({
       status: 'done',
-      results: [{ id: 'tsc', exitCode: 1, stdout: '', stderr: 'type err', timedOut: false }],
+      results: [
+        {
+          id: 'tsc',
+          exitCode: 1,
+          stdout: '',
+          stderr: 'type err',
+          timedOut: false,
+        },
+      ],
     })
 
     const deps = makeDeps({ runJob })
@@ -256,7 +307,7 @@ describe('repair agent graph', () => {
     runJob.mockResolvedValueOnce({
       status: 'done',
       changedFiles: [],
-      claude: {
+      agent: {
         structuredOutput: {
           status: 'needs_human',
           fixed: false,
@@ -264,12 +315,13 @@ describe('repair agent graph', () => {
             {
               fingerprint: 'quality:dead-code:src/lib/utils.ts:unusedFn',
               status: 'needs_human',
-              summary: 'Known false positive — function is used via dynamic import',
+              summary:
+                'Known false positive — function is used via dynamic import',
             },
           ],
         },
         sessionId: 's-noise',
-        costUsd: 0.01,
+        usage: { input_tokens: 60, output_tokens: 12 },
       },
     })
 
@@ -288,26 +340,49 @@ describe('repair agent graph', () => {
     controller.abort()
 
     const deps = makeDeps()
-    const result = await runRepairAgent(
-      makeInput(),
-      deps,
-      { signal: controller.signal },
-    )
+    const result = await runRepairAgent(makeInput(), deps, {
+      signal: controller.signal,
+    })
 
     expect(result.agentOutcome).toBe('fallback')
     // Must not throw
   })
 
-  it('a claude auth error ends fallback and carries credential:claude', async () => {
-    const runJob = vi.fn().mockRejectedValue(
-      new Error('401 Unauthorized: invalid claude token'),
-    )
+  it('a Codex auth error ends fallback and carries credential:codex', async () => {
+    const runJob = vi.fn().mockResolvedValue({
+      status: 'error',
+      error: '401 Unauthorized: invalid Codex token',
+    })
 
     const deps = makeDeps({ runJob })
     const result = await runRepairAgent(makeInput(), deps)
 
     expect(result.agentOutcome).toBe('fallback')
-    expect(result.error).toContain('credential:claude')
+    expect(result.error).toContain('credential:codex')
+  })
+
+  it('a repo-worker validation failure cannot be reported as a passing patch', async () => {
+    const runJob = vi
+      .fn()
+      .mockResolvedValueOnce({
+        status: 'done',
+        changedFiles: [{ path: 'src/a.ts', content: 'fixed' }],
+        agent: {
+          structuredOutput: { status: 'ready_to_merge', findings: [] },
+          sessionId: 'session-1',
+        },
+      })
+      .mockResolvedValueOnce({
+        status: 'error',
+        error: 'repo worker unavailable',
+      })
+
+    const result = await runRepairAgent(makeInput(), makeDeps({ runJob }))
+
+    expect(result).toMatchObject({
+      agentOutcome: 'fallback',
+      error: 'repo worker unavailable',
+    })
   })
 
   it('the investigator prompt is fetched from Langfuse by name and its name and version are recorded', async () => {
@@ -315,14 +390,21 @@ describe('repair agent graph', () => {
 
     const fetchPrompt = vi.fn().mockResolvedValue({
       text: 'Investigator prompt text',
-      prompt: { name: 'health-investigator', version: 3, source: 'langfuse' as const },
+      prompt: {
+        name: 'health-investigator',
+        version: 3,
+        source: 'langfuse' as const,
+      },
     })
 
     const deps = makeDeps({ fetchPrompt })
     const result = await runRepairAgent(makeInput(), deps)
 
     // fetchPrompt was called with the prompt name
-    expect(fetchPrompt).toHaveBeenCalledWith('health-investigator', expect.any(Object))
+    expect(fetchPrompt).toHaveBeenCalledWith(
+      'health-investigator',
+      expect.any(Object),
+    )
 
     // The result records prompt metadata
     expect(result.promptMeta).toBeDefined()

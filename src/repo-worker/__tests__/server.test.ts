@@ -5,15 +5,25 @@ import {
   expect,
   it,
 } from "vitest";
+import { execFileSync } from "node:child_process";
 import type { AddressInfo } from "node:net";
 import type http from "node:http";
-import { rm } from "node:fs/promises";
+import {
+  access,
+  mkdir,
+  mkdtemp,
+  rm,
+  symlink,
+  writeFile,
+} from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 
 /**
  * Tests for the repo-worker HTTP service.
  *
  * We import the factory function `createRepoWorkerServer` with DI seams for
- * clone, commands, and Claude so tests never touch git or spawn processes.
+ * clone, commands, and agent execution so tests stay within controlled boundaries.
  */
 
 // ---------------------------------------------------------------------------
@@ -238,6 +248,131 @@ describe("repo-worker server", () => {
     expect(error.length).toBeLessThanOrEqual(
       "git clone exited with 128: ".length + 1_000,
     );
+  });
+
+  it("returns provider-neutral agent output through the polling endpoint", async () => {
+    const repoDir = await mkdtemp(join(tmpdir(), "repo-worker-agent-test-"));
+    await writeFile(join(repoDir, "README.md"), "agent fixture\n", "utf8");
+    execFileSync("git", ["init"], { cwd: repoDir, stdio: "ignore" });
+    execFileSync("git", ["add", "README.md"], { cwd: repoDir });
+    execFileSync(
+      "git",
+      [
+        "-c",
+        "user.name=Repo Worker Test",
+        "-c",
+        "user.email=repo-worker@example.com",
+        "commit",
+        "-m",
+        "test fixture",
+      ],
+      { cwd: repoDir, stdio: "ignore" },
+    );
+
+    try {
+      server = createRepoWorkerServer({
+        token: TOKEN,
+        cloneFn: async () => repoDir,
+        runCommandFn: async () => ({
+          stdout: "",
+          stderr: "",
+          exitCode: 0,
+          timedOut: false,
+        }),
+        agentFn: async () => ({
+          structuredOutput: { status: "diagnosed" },
+          sessionId: "thread-123",
+        }),
+        cleanupFn: async () => {},
+      });
+      await new Promise<void>((resolve) =>
+        server.listen(0, "127.0.0.1", resolve),
+      );
+
+      const accepted = await post(
+        server,
+        "/run",
+        validBody({
+          commands: [],
+          editableFiles: [],
+          agent: {
+            prompt: "Diagnose the repository",
+            access: "read",
+            jsonSchema: { type: "object" },
+          },
+        }),
+        { authorization: `Bearer ${TOKEN}` },
+      );
+      const completed = await waitForJob(
+        server,
+        accepted.json.jobId as string,
+      );
+
+      expect(completed.json).toMatchObject({
+        status: "done",
+        baseSha: expect.stringMatching(/^[0-9a-f]{40}$/),
+        agent: {
+          structuredOutput: { status: "diagnosed" },
+          sessionId: "thread-123",
+        },
+      });
+    } finally {
+      await rm(repoDir, { recursive: true, force: true });
+    }
+  });
+
+  it("rejects seeded files whose parent resolves outside the clone", async () => {
+    const root = await mkdtemp(join(tmpdir(), "repo-worker-path-test-"));
+    const cloneDir = join(root, "clone");
+    const outsideDir = join(root, "outside");
+    await mkdir(join(cloneDir, "src"), { recursive: true });
+    await mkdir(outsideDir, { recursive: true });
+    await symlink(outsideDir, join(cloneDir, "src", "link"));
+
+    try {
+      server = createRepoWorkerServer({
+        token: TOKEN,
+        cloneFn: async () => cloneDir,
+        runCommandFn: async () => ({
+          stdout: "",
+          stderr: "",
+          exitCode: 0,
+          timedOut: false,
+        }),
+        cleanupFn: async () => {},
+      });
+      await new Promise<void>((resolve) =>
+        server.listen(0, "127.0.0.1", resolve),
+      );
+
+      const accepted = await post(
+        server,
+        "/run",
+        validBody({
+          commands: [],
+          inputFiles: [
+            {
+              path: "src/link/credential.ts",
+              content: "export const credential = 'must-stay-inside-clone';",
+            },
+          ],
+        }),
+        { authorization: `Bearer ${TOKEN}` },
+      );
+      const completed = await waitForJob(
+        server,
+        accepted.json.jobId as string,
+      );
+
+      expect(completed.json).toMatchObject({
+        status: "failed",
+        errorStage: "worker",
+        errorCode: "worker-failed",
+      });
+      await expect(access(join(outsideDir, "credential.ts"))).rejects.toThrow();
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
   });
 
   // -------------------------------------------------------------------------

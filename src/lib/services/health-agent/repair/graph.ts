@@ -3,7 +3,7 @@
  *
  * investigate → validate → resume | finalize
  *
- * The graph dispatches a Claude Code session to the repo worker for each
+ * The graph dispatches an agent session to the repo worker for each
  * problem, validates the patch with lint/tsc/vitest, and optionally resumes
  * the same session once if validation fails. Two failed validations escalate
  * to `needs_human`.
@@ -17,12 +17,17 @@
  *
  * deps = { runJob, fetchPrompt }
  *
- * No provider SDK and no LangChain chat model: the investigator is Claude
- * Code CLI dispatched through the repo worker; the prompt is fetched from
- * Langfuse by name.
+ * No provider SDK and no LangChain chat model: the investigator is dispatched
+ * through the repo worker; the prompt is fetched from Langfuse by name.
  */
 
-import { Annotation, END, START, StateGraph, GraphRecursionError } from '@langchain/langgraph'
+import {
+  Annotation,
+  END,
+  START,
+  StateGraph,
+  GraphRecursionError,
+} from '@langchain/langgraph'
 
 import { withNodeSpan } from '@/lib/services/enrich-phases/agents/runtime'
 import type { PromptMeta } from '@/lib/langfuse/prompt'
@@ -42,6 +47,34 @@ export const HEALTH_REPAIR_RECURSION_LIMIT = 8
 
 /** Maximum investigations per run. Matches grouping.ts. */
 const _MAX_INVESTIGATIONS = 3
+
+const HEALTH_REPAIR_SCHEMA = {
+  type: 'object',
+  additionalProperties: false,
+  properties: {
+    status: {
+      type: 'string',
+      enum: ['ready_to_merge', 'retry_required', 'needs_human'],
+    },
+    findings: {
+      type: 'array',
+      items: {
+        type: 'object',
+        additionalProperties: false,
+        properties: {
+          fingerprint: { type: 'string' },
+          status: {
+            type: 'string',
+            enum: ['ready_to_merge', 'retry_required', 'needs_human'],
+          },
+          summary: { type: 'string' },
+        },
+        required: ['fingerprint', 'status', 'summary'],
+      },
+    },
+  },
+  required: ['status', 'findings'],
+} as const
 
 // ---------------------------------------------------------------------------
 // Public types
@@ -69,7 +102,12 @@ export type RepairOutput = {
   error?: string
   promptMeta?: { name: string; version: number; source: string }
   sessionId?: string
-  decisions: Array<{ step: string; action: string; reason: string; ms: number }>
+  decisions: Array<{
+    step: string
+    action: string
+    reason: string
+    ms: number
+  }>
 }
 
 export type RepairDeps = {
@@ -90,15 +128,18 @@ type RepairRunOptions = {
 // ---------------------------------------------------------------------------
 
 function lastValue<T>(initial: () => T) {
-  return Annotation<T>({ reducer: (_left: T, right: T) => right, default: initial })
+  return Annotation<T>({
+    reducer: (_left: T, right: T) => right,
+    default: initial,
+  })
 }
 
 const RepairState = Annotation.Root({
-  /** Current Claude session ID for resume. */
+  /** Current agent session ID for resume. */
   sessionId: lastValue<string | undefined>(() => undefined),
   /** Files changed by the investigator. */
   changedFiles: lastValue<ChangedFile[]>(() => []),
-  /** Claude structured output from the investigator. */
+  /** Structured output from the investigator. */
   investigatorOutput: lastValue<Record<string, unknown> | null>(() => null),
   /** Number of validate cycles completed. */
   cyclesCompleted: lastValue<number>(() => 0),
@@ -128,7 +169,12 @@ type RepairRunContext = {
   promptMeta?: RepairOutput['promptMeta']
   wallClockStart: number
   signal: AbortSignal | undefined
-  record: (step: string, action: string, reason: string, startedAt: number) => void
+  record: (
+    step: string,
+    action: string,
+    reason: string,
+    startedAt: number,
+  ) => void
 }
 
 function createRunContext(
@@ -153,13 +199,13 @@ function createRunContext(
 // Investigate node
 // ---------------------------------------------------------------------------
 
-function isClaudeAuthError(error: unknown): boolean {
+function isAgentAuthError(error: unknown): boolean {
   if (!(error instanceof Error)) return false
   const msg = error.message.toLowerCase()
   return (
     msg.includes('401') ||
     msg.includes('unauthorized') ||
-    msg.includes('invalid') && msg.includes('token') ||
+    (msg.includes('invalid') && msg.includes('token')) ||
     msg.includes('credential')
   )
 }
@@ -176,31 +222,43 @@ async function investigateNode(
   })
   ctx.promptMeta = promptResult.prompt
 
-  const promptText = promptResult.text
+  const promptText = `${promptResult.text}
+
+Runtime output contract: return only status and findings. Each finding must contain fingerprint, status, and summary.`
 
   // Build the repair job request
   const request: Record<string, unknown> = {
     ref: ctx.input.ref,
     commands: [],
     editableFiles: ctx.input.problems.flatMap((p) => p.changedFiles),
-    claude: {
+    ...(state.changedFiles.length > 0
+      ? { inputFiles: state.changedFiles }
+      : {}),
+    agent: {
       prompt: promptText,
-      allowedTools: ['Read', 'Glob', 'Grep', 'Edit', 'Write'],
-      maxTurns: 20,
-      jsonSchema: {},
+      access: 'write',
+      jsonSchema: HEALTH_REPAIR_SCHEMA,
       ...(state.sessionId ? { resumeSessionId: state.sessionId } : {}),
     },
   }
 
   const jobResult = await ctx.deps.runJob(request)
+  assertJobDone(jobResult)
 
-  const claudeOutput = jobResult.claude as
-    | { structuredOutput: unknown; sessionId?: string; costUsd?: number }
+  const agentOutput = jobResult.agent as
+    | {
+        structuredOutput: unknown
+        sessionId?: string
+        usage?: Record<string, number>
+      }
     | undefined
 
-  const sessionId = claudeOutput?.sessionId ?? state.sessionId
+  const sessionId = agentOutput?.sessionId ?? state.sessionId
   const changedFiles = (jobResult.changedFiles ?? []) as ChangedFile[]
-  const structuredOutput = claudeOutput?.structuredOutput as Record<string, unknown> | null
+  const structuredOutput = agentOutput?.structuredOutput as Record<
+    string,
+    unknown
+  > | null
 
   // Determine if the investigator declared this noise
   if (structuredOutput && isNoiseVerdict(structuredOutput)) {
@@ -217,7 +275,12 @@ async function investigateNode(
 
   // Determine if there are changed files → a patch was produced
   if (changedFiles.length === 0 && !structuredOutput) {
-    ctx.record('investigate', 'no_patch', 'investigator produced no changes', start)
+    ctx.record(
+      'investigate',
+      'no_patch',
+      'investigator produced no changes',
+      start,
+    )
     return {
       sessionId,
       changedFiles: [],
@@ -256,12 +319,18 @@ async function validateNode(
     commands: [
       { id: 'lint', run: 'pnpm lint', timeoutMs: 60_000 },
       { id: 'tsc', run: 'pnpm exec tsc --noEmit', timeoutMs: 120_000 },
-      { id: 'vitest', run: 'pnpm exec vitest run --changed', timeoutMs: 180_000 },
+      {
+        id: 'vitest',
+        run: 'pnpm exec vitest run --changed',
+        timeoutMs: 180_000,
+      },
     ],
     editableFiles: [],
+    inputFiles: state.changedFiles,
   }
 
   const jobResult = await ctx.deps.runJob(request)
+  assertJobDone(jobResult)
   const results = (jobResult.results ?? []) as Array<{
     id: string
     exitCode: number
@@ -269,9 +338,7 @@ async function validateNode(
     stderr: string
   }>
 
-  const failures = results
-    .filter((r) => r.exitCode !== 0)
-    .map((r) => r.id)
+  const failures = results.filter((r) => r.exitCode !== 0).map((r) => r.id)
 
   const passed = failures.length === 0
   const cyclesCompleted = state.cyclesCompleted + 1
@@ -279,7 +346,9 @@ async function validateNode(
   ctx.record(
     'validate',
     passed ? 'passed' : 'failed',
-    passed ? `cycle ${cyclesCompleted}` : `cycle ${cyclesCompleted}: ${failures.join(', ')}`,
+    passed
+      ? `cycle ${cyclesCompleted}`
+      : `cycle ${cyclesCompleted}: ${failures.join(', ')}`,
     start,
   )
 
@@ -322,7 +391,8 @@ function isNoiseVerdict(output: Record<string, unknown>): boolean {
   // The investigator returns needs_human with no changed files when it
   // determines the finding is noise (false positive).
   if (output.status === 'needs_human') {
-    const findings = output.findings as Array<Record<string, unknown>> | undefined
+    const findings = output.findings as
+      Array<Record<string, unknown>> | undefined
     if (!findings || findings.length === 0) return true
     return findings.every((f) => f.status === 'needs_human')
   }
@@ -338,6 +408,15 @@ function extractNoiseReason(output: Record<string, unknown>): string {
     if (summaries.length > 0) return summaries.join('; ')
   }
   return 'Investigator classified as noise'
+}
+
+function assertJobDone(result: Record<string, unknown>): void {
+  if (result.status === 'done') return
+  throw new Error(
+    typeof result.error === 'string' && result.error.trim()
+      ? result.error
+      : 'Repo worker job failed',
+  )
 }
 
 // ---------------------------------------------------------------------------
@@ -370,7 +449,10 @@ function buildRepairGraphWithContext(ctx: RepairRunContext) {
       'investigate',
       (state): 'validate' | 'finalize' => {
         // Noise or needs_human from investigate → skip validation
-        if (state.agentOutcome === 'noise' || state.agentOutcome === 'needs_human') {
+        if (
+          state.agentOutcome === 'noise' ||
+          state.agentOutcome === 'needs_human'
+        ) {
           return 'finalize'
         }
         return 'validate'
@@ -458,12 +540,12 @@ export async function runRepairAgent(
       }
     }
 
-    // Claude auth error detection
-    if (isClaudeAuthError(error)) {
-      ctx.record('graph', 'stopped', 'credential:claude', ctx.wallClockStart)
+    // Agent credential error detection
+    if (isAgentAuthError(error)) {
+      ctx.record('graph', 'stopped', 'credential:codex', ctx.wallClockStart)
       return {
         agentOutcome: 'fallback',
-        error: 'credential:claude',
+        error: 'credential:codex',
         decisions: ctx.decisions,
       }
     }

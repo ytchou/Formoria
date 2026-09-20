@@ -116,18 +116,14 @@ function actionableDiagnosisOutput() {
 }
 
 /** Default deps: actionable diagnosis → repair with changes → passing validation. */
-function makeDeps(
-  overrides: Partial<E2eSelfHealDeps> = {},
-): E2eSelfHealDeps {
+function makeDeps(overrides: Partial<E2eSelfHealDeps> = {}): E2eSelfHealDeps {
   const diagnoseClient = mockClient({
     status: 'done',
-    claude: { structuredOutput: actionableDiagnosisOutput() },
+    agent: { structuredOutput: actionableDiagnosisOutput() },
   })
   const repairClient = mockClient({
     status: 'done',
-    changedFiles: [
-      { path: 'e2e/brands.spec.ts', content: 'updated selector' },
-    ],
+    changedFiles: [{ path: 'e2e/brands.spec.ts', content: 'updated selector' }],
     baseSha: 'abc123def456',
   })
 
@@ -140,12 +136,10 @@ function makeDeps(
     publish: vi
       .fn()
       .mockResolvedValue({ ok: true, prUrl: 'https://github.com/test/pr/1' }),
-    createTicket: vi
-      .fn()
-      .mockResolvedValue({
-        identifier: 'DEV-9999',
-        url: 'https://linear.app/test',
-      }),
+    createTicket: vi.fn().mockResolvedValue({
+      identifier: 'DEV-9999',
+      url: 'https://linear.app/test',
+    }),
     postSlackMessage: vi.fn().mockResolvedValue({ ok: true }),
     cloneAndRunTests: vi
       .fn()
@@ -185,7 +179,7 @@ describe('e2e self-heal graph', () => {
   it('graph_skips_repair_on_noise_diagnosis', async () => {
     const noiseClient = mockClient({
       status: 'done',
-      claude: { structuredOutput: noiseDiagnosisOutput() },
+      agent: { structuredOutput: noiseDiagnosisOutput() },
     })
 
     const deps = makeDeps({
@@ -205,7 +199,7 @@ describe('e2e self-heal graph', () => {
     createClient.mockReturnValueOnce(
       mockClient({
         status: 'done',
-        claude: { structuredOutput: actionableDiagnosisOutput() },
+        agent: { structuredOutput: actionableDiagnosisOutput() },
       }),
     )
     // Cycle 1: repair
@@ -220,7 +214,7 @@ describe('e2e self-heal graph', () => {
     createClient.mockReturnValueOnce(
       mockClient({
         status: 'done',
-        claude: { structuredOutput: actionableDiagnosisOutput() },
+        agent: { structuredOutput: actionableDiagnosisOutput() },
       }),
     )
     // Cycle 2: repair
@@ -262,7 +256,7 @@ describe('e2e self-heal graph', () => {
     createClient.mockReturnValueOnce(
       mockClient({
         status: 'done',
-        claude: { structuredOutput: actionableDiagnosisOutput() },
+        agent: { structuredOutput: actionableDiagnosisOutput() },
       }),
     )
     createClient.mockReturnValueOnce(
@@ -276,7 +270,7 @@ describe('e2e self-heal graph', () => {
     createClient.mockReturnValueOnce(
       mockClient({
         status: 'done',
-        claude: { structuredOutput: actionableDiagnosisOutput() },
+        agent: { structuredOutput: actionableDiagnosisOutput() },
       }),
     )
     createClient.mockReturnValueOnce(
@@ -304,7 +298,7 @@ describe('e2e self-heal graph', () => {
     createClient.mockReturnValueOnce(
       mockClient({
         status: 'done',
-        claude: { structuredOutput: actionableDiagnosisOutput() },
+        agent: { structuredOutput: actionableDiagnosisOutput() },
       }),
     )
     // Repair: no changed files

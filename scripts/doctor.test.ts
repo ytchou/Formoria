@@ -48,7 +48,7 @@ describe("doctor --health-railway mode", () => {
     });
   }
 
-  it("requires REPO_WORKER_URL, GITHUB_APP_ID, GITHUB_APP_PRIVATE_KEY, GITHUB_APP_INSTALLATION_ID, CLAUDE_CODE_OAUTH_TOKEN, PRODUCTION_BASE_URL", () => {
+  it("requires REPO_WORKER_URL, GITHUB_APP_ID, GITHUB_APP_PRIVATE_KEY, GITHUB_APP_INSTALLATION_ID, CODEX_API_KEY, PRODUCTION_BASE_URL", () => {
     const result = runDoctorHealthRailway();
     const out = result.stdout;
     expect(out).toContain("Checking health agent Railway configuration...");
@@ -57,7 +57,7 @@ describe("doctor --health-railway mode", () => {
       "GITHUB_APP_ID",
       "GITHUB_APP_PRIVATE_KEY",
       "GITHUB_APP_INSTALLATION_ID",
-      "CLAUDE_CODE_OAUTH_TOKEN",
+      "CODEX_API_KEY",
       "PRODUCTION_BASE_URL",
     ]) {
       expect(out).toContain(v);

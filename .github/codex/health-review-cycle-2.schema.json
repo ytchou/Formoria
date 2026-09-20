@@ -1,0 +1,70 @@
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "snapshot_id": { "type": "string" },
+    "cycle": { "const": 2 },
+    "verdict": { "type": "string", "enum": ["pass", "reject", "needs_human"] },
+    "validation_state": {
+      "type": "string",
+      "enum": ["not_run", "passed", "failed"]
+    },
+    "review_state": { "type": "string", "enum": ["passed", "failed"] },
+    "linear_required": { "type": "boolean" },
+    "auto_merge_enabled": { "const": false },
+    "merged": { "const": false },
+    "findings": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "fingerprint": {
+            "type": "string",
+            "pattern": "^(cron|directory|link|quality|sentry):"
+          },
+          "source": { "type": "string" },
+          "root_cause_key": { "type": "string" },
+          "evidence_artifact_ref": { "type": "string" },
+          "changed_files": { "type": "array", "items": { "type": "string" } },
+          "validation_state": {
+            "type": "string",
+            "enum": ["not_run", "passed", "failed"]
+          },
+          "review_state": { "type": "string", "enum": ["passed", "failed"] },
+          "merge_policy": { "type": "string", "enum": ["automatic", "human"] },
+          "auto_merge_eligible": { "type": "boolean" },
+          "verdict": {
+            "type": "string",
+            "enum": ["pass", "reject", "needs_human"]
+          },
+          "reason": { "type": "string" }
+        },
+        "required": [
+          "fingerprint",
+          "source",
+          "root_cause_key",
+          "evidence_artifact_ref",
+          "changed_files",
+          "validation_state",
+          "review_state",
+          "merge_policy",
+          "auto_merge_eligible",
+          "verdict",
+          "reason"
+        ]
+      }
+    }
+  },
+  "required": [
+    "snapshot_id",
+    "cycle",
+    "verdict",
+    "validation_state",
+    "review_state",
+    "linear_required",
+    "auto_merge_enabled",
+    "merged",
+    "findings"
+  ]
+}

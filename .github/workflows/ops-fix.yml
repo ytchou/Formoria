@@ -50,12 +50,15 @@ jobs:
           private-key: ${{ secrets.HEALTH_AGENT_GITHUB_APP_PRIVATE_KEY }}
           permission-contents: write
           permission-pull-requests: write
-      - name: Claude Code fix
-        uses: anthropics/claude-code-action@239e3a730883eeb5c53db12b0fc9573b3024b126
+      - name: Codex fix
+        uses: openai/codex-action@86365089eb2b84e0a8fb0717b304f8bdcb13b20e # v1
         with:
-          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
-          claude_args: "--max-turns 10 --disallowedTools WebFetch,WebSearch,Task"
-          direct_prompt: |
+          openai-api-key: ${{ secrets.CODEX_API_KEY }}
+          codex-version: 0.155.1
+          model: gpt-5.6-sol
+          effort: high
+          permission-profile: ":workspace"
+          prompt: |
             Read .github/ops-agent/fix.md for constraints.
             Instruction: ${{ inputs.instruction }}
       - name: Create draft PR

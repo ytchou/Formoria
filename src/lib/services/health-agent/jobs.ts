@@ -4,7 +4,7 @@
  * Each entry describes the commands, scope, and validation for one kind of
  * health repair job. The definitions are pure data: no I/O, no side effects.
  *
- * Provider: claude-code (already registered in audit providers).
+ * Provider: OpenAI Codex through the repo worker.
  */
 
 // ---------------------------------------------------------------------------
@@ -25,7 +25,7 @@ export type HealthJobDefinition = {
   dependencyDisposition?: 'report_only'
   /** Validation commands run after a repair to verify correctness. */
   validationCommands?: string[]
-  /** Provider for Claude Code CLI integration. */
+  /** Provider for agent execution. */
   provider?: string
 }
 
@@ -116,7 +116,7 @@ export const HEALTH_JOBS: Record<string, HealthJobDefinition> = {
   investigate: {
     name: 'investigate',
     source: 'quality',
-    provider: 'claude-code',
+    provider: 'openai',
     commands: [],
   },
 }

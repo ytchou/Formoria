@@ -40,10 +40,7 @@ function makeDiagnosisOutput(
         failureIds: frozen.failures.map(({ id }) => id),
         category: "test-drift",
         actionable: true,
-        plannedFiles: [
-          "e2e/tests/search.spec.ts",
-          "e2e/tests/mobile.spec.ts",
-        ],
+        plannedFiles: ["e2e/tests/search.spec.ts", "e2e/tests/mobile.spec.ts"],
         diagnosis: "Both projects assert the old label.",
         repairPlan: "Update both assertions.",
       },
@@ -86,10 +83,10 @@ function buildDeps(
   const mockClient: RepoWorkerClient = {
     run: vi.fn().mockResolvedValue({
       status: "done" as const,
-      claude: {
+      agent: {
         structuredOutput: makeDiagnosisOutput(),
         sessionId: "sess-1",
-        costUsd: 0.5,
+        usage: { input_tokens: 100, output_tokens: 20 },
       },
     }),
     ...clientOverrides,
@@ -113,8 +110,8 @@ function buildDeps(
 // Tests
 // ---------------------------------------------------------------------------
 
-describe("diagnose_dispatches_to_repo_worker_with_read_only_tools", () => {
-  it("sends empty editableFiles and read-only allowedTools", async () => {
+describe("diagnose_dispatches_to_repo_worker_with_read_only_access", () => {
+  it("sends empty editableFiles and read-only agent access", async () => {
     const { deps, createClient } = buildDeps();
 
     await diagnoseFailures(deps);
@@ -125,12 +122,8 @@ describe("diagnose_dispatches_to_repo_worker_with_read_only_tools", () => {
 
     const request = runFn.mock.calls[0][0];
     expect(request.editableFiles).toEqual([]);
-    expect(request.claude.allowedTools).not.toContain("Edit");
-    expect(request.claude.allowedTools).not.toContain("Write");
-    expect(request.claude.allowedTools).not.toContain("MultiEdit");
-    expect(request.claude.allowedTools).toContain("Read");
-    expect(request.claude.allowedTools).toContain("Grep");
-    expect(request.claude.allowedTools).toContain("Glob");
+    expect(request.agent.access).toBe("read");
+    expect(request.agent.jsonSchema).toMatchObject({ type: "object" });
   });
 });
 
@@ -140,10 +133,10 @@ describe("diagnose_classifies_noise_when_all_failures_are_environment", () => {
     const mockClient: RepoWorkerClient = {
       run: vi.fn().mockResolvedValue({
         status: "done" as const,
-        claude: {
+        agent: {
           structuredOutput: envOutput,
           sessionId: "sess-2",
-          costUsd: 0.3,
+          usage: { input_tokens: 80, output_tokens: 16 },
         },
       }),
     };

@@ -1273,7 +1273,7 @@ describe("workflow runtime artifacts", () => {
     });
   });
 
-  it("schema-validates Claude classifications before building Sentry findings", () => {
+  it("schema-validates agent classifications before building Sentry findings", () => {
     const issue = {
       environment: "production" as const,
       recurrence: {

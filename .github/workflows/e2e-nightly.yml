@@ -316,46 +316,44 @@ jobs:
       - name: Diagnose the frozen staging failure set
         id: diagnose
         continue-on-error: true
-        uses: anthropics/claude-code-action@fa7e2f0a29a126f0b81cdcf360561b36e44cf608 # v1
+        uses: openai/codex-action@86365089eb2b84e0a8fb0717b304f8bdcb13b20e # v1
         with:
-          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
-          github_token: ${{ github.token }}
-          allowed_bots: github-actions
-          additional_permissions: |
-            actions: read
+          openai-api-key: ${{ secrets.CODEX_API_KEY }}
+          codex-version: 0.155.1
+          model: gpt-5.6-sol
+          effort: high
+          permission-profile: ":read-only"
+          allow-bot-users: github-actions
           prompt: |
             Read .github/selfheal/diagnose.md. Diagnose every failure in
             $RUNNER_TEMP/frozen-failures.json using the report in
             $RUNNER_TEMP/staging-failure. Do not edit files or run Playwright.
             Return the complete DiagnosisResult JSON, including non-actionable
             infrastructure findings. The target is deployed staging only.
-          claude_args: >-
-            --max-turns 80
-            --allowedTools "Read,Glob,Grep,Bash(git status:*),Bash(git diff:*),Bash(git log:*),Bash(git show:*),Bash(jq:*),Bash(find:*),Bash(sed:*)"
-            --json-schema '{"type":"object","additionalProperties":false,"required":["version","failureSetHash","failures","clusters","complete"],"properties":{"version":{"const":1},"failureSetHash":{"type":"string"},"failures":{"type":"array"},"clusters":{"type":"array"},"complete":{"const":true}}}'
+          output-schema-file: .github/codex/e2e-diagnosis.schema.json
       - name: Retry diagnosis contract once
         id: diagnose_retry
         if: steps.diagnose.outcome == 'failure'
         continue-on-error: true
-        uses: anthropics/claude-code-action@fa7e2f0a29a126f0b81cdcf360561b36e44cf608 # v1
+        uses: openai/codex-action@86365089eb2b84e0a8fb0717b304f8bdcb13b20e # v1
         with:
-          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
-          github_token: ${{ github.token }}
-          allowed_bots: github-actions
+          openai-api-key: ${{ secrets.CODEX_API_KEY }}
+          codex-version: 0.155.1
+          model: gpt-5.6-sol
+          effort: high
+          permission-profile: ":read-only"
+          allow-bot-users: github-actions
           prompt: |
             The previous diagnosis emitted no valid JSON. Read
             .github/selfheal/diagnose.md and return the complete
             DiagnosisResult for every failure in $RUNNER_TEMP/frozen-failures.json.
             Do not edit files or run tests.
-          claude_args: >-
-            --max-turns 80
-            --allowedTools "Read,Glob,Grep,Bash(jq:*),Bash(find:*),Bash(sed:*)"
-            --json-schema '{"type":"object","additionalProperties":false,"required":["version","failureSetHash","failures","clusters","complete"],"properties":{"version":{"const":1},"failureSetHash":{"type":"string"},"failures":{"type":"array"},"clusters":{"type":"array"},"complete":{"const":true}}}'
+          output-schema-file: .github/codex/e2e-diagnosis.schema.json
       - name: Validate diagnosis contract
         id: diagnosis_validation
         if: steps.diagnose.outcome == 'success' || steps.diagnose_retry.outcome == 'success'
         env:
-          DIAGNOSIS_RESULT: ${{ steps.diagnose.outputs.structured_output || steps.diagnose_retry.outputs.structured_output }}
+          DIAGNOSIS_RESULT: ${{ steps.diagnose.outputs.final-message || steps.diagnose_retry.outputs.final-message }}
         run: |
           set -euo pipefail
           [[ -n "$DIAGNOSIS_RESULT" ]] || { echo "::error::diagnosis output is empty"; exit 1; }
@@ -378,25 +376,25 @@ jobs:
         id: repair
         if: steps.diagnosis_validation.outcome == 'success'
         continue-on-error: true
-        uses: anthropics/claude-code-action@fa7e2f0a29a126f0b81cdcf360561b36e44cf608 # v1
+        uses: openai/codex-action@86365089eb2b84e0a8fb0717b304f8bdcb13b20e # v1
         with:
-          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
-          github_token: ${{ github.token }}
-          allowed_bots: github-actions
+          openai-api-key: ${{ secrets.CODEX_API_KEY }}
+          codex-version: 0.155.1
+          model: gpt-5.6-sol
+          effort: high
+          permission-profile: ":workspace"
+          allow-bot-users: github-actions
           prompt: |
             Read .github/selfheal/triage-fix.md. Implement every actionable
             cluster in diagnosis.json for the frozen failure set. Test-only
             repairs may change e2e/**/*.ts; application changes remain
             review_ready. Do not run Playwright, build, commit, or push.
-          claude_args: >-
-            --max-turns 120
-            --allowedTools "Read,Write,Edit,Replace,Glob,Grep,Bash(git status:*),Bash(git diff:*),Bash(git log:*),Bash(git show:*)"
-            --json-schema '{"type":"object","additionalProperties":false,"required":["version","failureSetHash","addressedFailureIds","addressedRootCauseKeys","changedFiles","summary","remainingWork","complete"],"properties":{"version":{"const":1},"failureSetHash":{"type":"string"},"addressedFailureIds":{"type":"array"},"addressedRootCauseKeys":{"type":"array"},"changedFiles":{"type":"array"},"summary":{"type":"string"},"remainingWork":{"type":"array"},"complete":{"const":true}}}'
+          output-schema-file: .github/codex/e2e-repair.schema.json
       - name: Validate repair action contract
         id: repair_contract
         if: always()
         env:
-          REPAIR_RESULT: ${{ steps.repair.outputs.structured_output }}
+          REPAIR_RESULT: ${{ steps.repair.outputs.final-message }}
         shell: bash
         run: |
           set -euo pipefail
@@ -426,7 +424,7 @@ jobs:
         if: always() && steps.repair_branch.outcome == 'success' && steps.repair_contract.outcome == 'success'
         env:
           GH_TOKEN: ${{ github.token }}
-          REPAIR_RESULT: ${{ steps.repair.outputs.structured_output }}
+          REPAIR_RESULT: ${{ steps.repair.outputs.final-message }}
         shell: bash
         run: |
           set -euo pipefail

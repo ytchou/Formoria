@@ -103,6 +103,7 @@
     "@upstash/redis": "^1.38.4",
     "adm-zip": "^0.6.1",
     "agentation": "^3.0.2",
+    "ajv": "^8.20.0",
     "cheerio": "^1.2.0",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",

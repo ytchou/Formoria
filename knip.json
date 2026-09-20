@@ -19,7 +19,7 @@
     "@react-email/ui",
     "react-simple-maps"
   ],
-  "ignoreBinaries": ["gh", "lsof", "psql", "python3"],
+  "ignoreBinaries": ["codex", "gh", "lsof", "psql", "python3"],
   "ignore": [
     "scripts/threads-scraper/.venv/**"
   ],

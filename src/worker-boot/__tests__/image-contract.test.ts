@@ -51,6 +51,20 @@ describe("worker image contract", () => {
     expect(installLine).not.toMatch(/@anthropic-ai\/claude-code@latest/);
   });
 
+  it("Codex CLI version is pinned", () => {
+    const dockerfile = readFileSync(
+      resolve(ROOT, "Dockerfile.curation-worker"),
+      "utf8",
+    );
+    const installLine = dockerfile
+      .split("\n")
+      .find((line) => line.includes("@openai/codex"));
+
+    expect(installLine).toBeDefined();
+    expect(installLine).toMatch(/@openai\/codex@\d+\.\d+\.\d+/);
+    expect(installLine).not.toMatch(/@openai\/codex@latest/);
+  });
+
   it("installs the PostgreSQL client used by E2E cleanup and target checks", () => {
     const dockerfile = readFileSync(
       resolve(ROOT, "Dockerfile.curation-worker"),

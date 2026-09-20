@@ -1,7 +1,6 @@
 FROM node:22-slim AS base
 RUN corepack enable
-# git is required by the repo-worker for clone operations, and by Claude Code
-# for repository context.
+# git is required by the repo-worker and its agent for repository context.
 RUN apt-get update && apt-get install -y --no-install-recommends git ca-certificates postgresql-client && rm -rf /var/lib/apt/lists/*
 WORKDIR /app
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml tsconfig.json ./
@@ -14,6 +13,10 @@ RUN pnpm exec playwright install --with-deps chromium
 # default and does not read `CLAUDE_CODE_OAUTH_TOKEN`. Pin to a known-good
 # version so the repo-worker's invocations stay stable.
 RUN npm install -g @anthropic-ai/claude-code@2.1.274
+# Codex CLI is the active repo-worker executor. Keep the exact version aligned
+# with the GitHub Action workflows; Claude remains installed only for rollback
+# until DEV-1819 removes it.
+RUN npm install -g @openai/codex@0.155.1
 # Set AFTER the install: `NODE_ENV=production` makes pnpm skip devDependencies,
 # so declaring it earlier would strip the build. At runtime it marks this
 # container as production so anything gating on NODE_ENV (Sentry's server

@@ -1,0 +1,83 @@
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "snapshot_id": { "type": "string" },
+    "cycle": { "const": 1 },
+    "status": {
+      "type": "string",
+      "enum": ["ready_to_merge", "retry_required", "needs_human"]
+    },
+    "validation_state": {
+      "type": "string",
+      "enum": ["not_run", "passed", "failed"]
+    },
+    "review_state": {
+      "type": "string",
+      "enum": ["not_run", "passed", "failed"]
+    },
+    "merge_policy": { "type": "string", "enum": ["automatic", "human"] },
+    "linear_required": { "type": "boolean" },
+    "auto_merge_enabled": { "const": false },
+    "auto_merge_eligible": { "type": "boolean" },
+    "fixed": { "type": "boolean" },
+    "merged": { "const": false },
+    "findings": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "fingerprint": {
+            "type": "string",
+            "pattern": "^(cron|directory|link|quality|sentry):"
+          },
+          "source": { "type": "string" },
+          "root_cause_key": { "type": "string" },
+          "evidence_artifact_ref": { "type": "string" },
+          "changed_files": { "type": "array", "items": { "type": "string" } },
+          "validation_state": {
+            "type": "string",
+            "enum": ["not_run", "passed", "failed"]
+          },
+          "review_state": {
+            "type": "string",
+            "enum": ["not_run", "passed", "failed"]
+          },
+          "merge_policy": { "type": "string", "enum": ["automatic", "human"] },
+          "status": {
+            "type": "string",
+            "enum": ["ready_to_merge", "retry_required", "needs_human"]
+          },
+          "summary": { "type": "string" }
+        },
+        "required": [
+          "fingerprint",
+          "source",
+          "root_cause_key",
+          "evidence_artifact_ref",
+          "changed_files",
+          "validation_state",
+          "review_state",
+          "merge_policy",
+          "status",
+          "summary"
+        ]
+      }
+    }
+  },
+  "required": [
+    "snapshot_id",
+    "cycle",
+    "status",
+    "validation_state",
+    "review_state",
+    "merge_policy",
+    "linear_required",
+    "auto_merge_enabled",
+    "auto_merge_eligible",
+    "fixed",
+    "merged",
+    "findings"
+  ]
+}

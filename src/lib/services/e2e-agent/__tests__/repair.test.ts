@@ -51,7 +51,7 @@ function buildDeps(
         { path: "e2e/tests/search.spec.ts", content: "updated content" },
       ],
       baseSha: "def456",
-      claude: {
+      agent: {
         structuredOutput: {
           version: 1,
           failureSetHash: frozen.failureSetHash,
@@ -63,7 +63,7 @@ function buildDeps(
           complete: true,
         },
         sessionId: "sess-3",
-        costUsd: 1.2,
+        usage: { input_tokens: 200, output_tokens: 40 },
       },
     }),
     ...clientOverrides,
@@ -102,6 +102,7 @@ describe("repair_dispatches_with_scoped_editable_files", () => {
     expect(request.editableFiles).toContain("e2e/**/*.ts");
     expect(request.editableFiles).toContain("src/**/*.ts");
     expect(request.editableFiles).toContain("src/**/*.tsx");
+    expect(request.agent.access).toBe("write");
   });
 });
 
@@ -122,10 +123,9 @@ describe("repair_returns_needs_human_when_no_changes", () => {
         status: "done" as const,
         changedFiles: [],
         baseSha: "def456",
-        claude: {
+        agent: {
           structuredOutput: null,
           sessionId: "sess-4",
-          costUsd: 0.8,
         },
       }),
     };
@@ -143,10 +143,9 @@ describe("repair_returns_needs_human_when_no_changes", () => {
       run: vi.fn().mockResolvedValue({
         status: "done" as const,
         baseSha: "def456",
-        claude: {
+        agent: {
           structuredOutput: null,
           sessionId: "sess-5",
-          costUsd: 0.5,
         },
       }),
     };

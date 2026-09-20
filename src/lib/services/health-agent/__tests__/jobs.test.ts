@@ -1,9 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import {
-  HEALTH_JOBS,
-  QUALITY_CONTEXT_COMMANDS,
-} from '../jobs'
+import { HEALTH_JOBS, QUALITY_CONTEXT_COMMANDS } from '../jobs'
 
 // ---------------------------------------------------------------------------
 // Tests
@@ -70,8 +67,12 @@ describe('health agent job definitions', () => {
     const validationCommands = knipFix.validationCommands
     expect(validationCommands).toBeDefined()
     expect(validationCommands!.some((c) => c.includes('pnpm lint'))).toBe(true)
-    expect(validationCommands!.some((c) => c.includes('pnpm exec tsc --noEmit'))).toBe(true)
-    expect(validationCommands!.some((c) => c.includes('pnpm exec vitest run'))).toBe(true)
+    expect(
+      validationCommands!.some((c) => c.includes('pnpm exec tsc --noEmit')),
+    ).toBe(true)
+    expect(
+      validationCommands!.some((c) => c.includes('pnpm exec vitest run')),
+    ).toBe(true)
   })
 
   it('mdx-links job returns the link list extracted from content/stories and content/trails', () => {
@@ -85,11 +86,11 @@ describe('health agent job definitions', () => {
     expect(command).toContain('content/trails')
   })
 
-  it('investigate job definition exists and uses claude provider', () => {
+  it('investigate job definition exists and uses the OpenAI provider', () => {
     const investigate = HEALTH_JOBS.investigate
     expect(investigate).toBeDefined()
     expect(investigate.name).toBe('investigate')
-    expect(investigate.provider).toBe('claude-code')
+    expect(investigate.provider).toBe('openai')
   })
 
   it('all jobs have valid structure', () => {

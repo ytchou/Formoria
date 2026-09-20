@@ -108,6 +108,63 @@ describe('repo-worker-client', () => {
     expect(pollCalls[0]![0]).toBe('http://localhost:8080/jobs/job-123')
   })
 
+  it('sends and returns the provider-neutral agent contract', async () => {
+    const fetchMock = vi.fn<(input: RequestInfo | URL, init?: RequestInit) => Promise<Response>>()
+      .mockResolvedValueOnce(jsonResponse(202, { jobId: 'job-agent' }))
+      .mockResolvedValueOnce(jsonResponse(200, {
+        status: 'done',
+        agent: {
+          structuredOutput: { status: 'diagnosed' },
+          sessionId: 'thread-123',
+          usage: { input_tokens: 120, output_tokens: 24 },
+        },
+      }))
+
+    const client = createRepoWorkerClient(makeDeps(), {
+      fetchFn: fetchMock,
+      deadlineMs: 120_000,
+      pollIntervalMs: 5,
+    })
+    const request = makeRequest({
+      agent: {
+        prompt: 'Diagnose the failure',
+        access: 'read',
+        jsonSchema: { type: 'object' },
+      },
+    })
+
+    const result = await client.run(request)
+    const postBody = JSON.parse(
+      (fetchMock.mock.calls[0]![1] as RequestInit).body as string,
+    )
+
+    expect(postBody.agent).toEqual(request.agent)
+    expect(result.agent).toEqual({
+      structuredOutput: { status: 'diagnosed' },
+      sessionId: 'thread-123',
+      usage: { input_tokens: 120, output_tokens: 24 },
+    })
+  })
+
+  it('sends prior patch files for validation in a fresh clone', async () => {
+    const fetchMock = vi.fn<(input: RequestInfo | URL, init?: RequestInit) => Promise<Response>>()
+      .mockResolvedValueOnce(jsonResponse(202, { jobId: 'job-validation' }))
+      .mockResolvedValueOnce(jsonResponse(200, { status: 'done', results: [] }))
+    const inputFiles = [{ path: 'src/app.ts', content: 'export const fixed = true' }]
+    const client = createRepoWorkerClient(makeDeps(), {
+      fetchFn: fetchMock,
+      deadlineMs: 120_000,
+      pollIntervalMs: 5,
+    })
+
+    await client.run(makeRequest({ inputFiles }))
+
+    const postBody = JSON.parse(
+      (fetchMock.mock.calls[0]![1] as RequestInit).body as string,
+    )
+    expect(postBody.inputFiles).toEqual(inputFiles)
+  })
+
   it('a job still running at the deadline becomes a finding not a throw', async () => {
     const fetchMock = vi.fn<(input: RequestInfo | URL, init?: RequestInit) => Promise<Response>>()
 
