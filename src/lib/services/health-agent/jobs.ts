@@ -24,8 +24,6 @@ export type HealthJobDefinition = {
   dependencyDisposition?: 'report_only'
   /** Validation commands run after a repair to verify correctness. */
   validationCommands?: string[]
-  /** Provider for Claude Code CLI integration. */
-  provider?: string
 }
 
 // ---------------------------------------------------------------------------
@@ -37,8 +35,6 @@ const VITEST_TIMEOUT_MS = 300_000
 const KNIP_TIMEOUT_MS = 120_000
 const KNIP_FIX_TIMEOUT_MS = 120_000
 const MDX_LINKS_TIMEOUT_MS = 60_000
-const _LINT_TIMEOUT_MS = 60_000
-const _TSC_TIMEOUT_MS = 120_000
 
 export const QUALITY_CONTEXT_COMMANDS: HealthJobCommand[] = [
   {
