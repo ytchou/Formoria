@@ -109,7 +109,7 @@ export const test = base.extend<AuthFixtures, WorkerAuthFixtures>({
         const { error: deleteError } = await supabase.auth.admin.deleteUser(
           data.user.id,
         );
-        if (deleteError) {
+        if (deleteError && deleteError.code !== "user_not_found") {
           throw new Error(
             `[e2e-cleanup] isolated owner deletion failed: ${deleteError.message}`,
           );
