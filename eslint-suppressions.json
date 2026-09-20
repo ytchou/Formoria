@@ -64,11 +64,6 @@
       "count": 3
     }
   },
-  "e2e/tests/i18n-en.spec.ts": {
-    "playwright/no-conditional-in-test": {
-      "count": 1
-    }
-  },
   "e2e/tests/og-images.spec.ts": {
     "playwright/expect-expect": {
       "count": 4
