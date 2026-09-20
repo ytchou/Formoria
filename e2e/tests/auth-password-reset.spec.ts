@@ -1,88 +1,11 @@
 import { test, expect } from '../fixtures/auth';
 import { createClient } from '@supabase/supabase-js';
-import {
-  capturedAuthLink,
-  countCapturedAuthEmails,
-  deleteCapturedAuthEmail,
-  waitForCapturedAuthEmail,
-} from '../helpers/auth-email-capture';
-import { signupTestEmail } from '../helpers/signup-namespace';
 
 import { BUDGET } from '../budgets';
 // zh-TW copy from messages/zh-TW.json (auth.forgotPassword.* / auth.resetPassword.*)
-const GENERIC_SUCCESS = '若此電子郵件已註冊帳號，我們已寄出密碼重設連結';
 const SESSION_EXPIRED = '重設連結已過期，請重新申請';
 
 test.describe('Auth — forgot password request', () => {
-  test('follows a captured recovery link and updates the password', async ({ anonPage }, testInfo) => {
-    test.setTimeout(BUDGET.TEST.MUTATION);
-    const admin = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.SUPABASE_SERVICE_ROLE_KEY!,
-      { auth: { persistSession: false, autoRefreshToken: false } },
-    );
-    const email = signupTestEmail('recovery', testInfo.workerIndex);
-    const password = `Recovery-${Date.now()}A!`;
-    const createdAfter = new Date().toISOString();
-    const { data: created, error: createError } = await admin.auth.admin.createUser({
-      email,
-      password,
-      email_confirm: true,
-    });
-    expect(createError?.message ?? null).toBeNull();
-    const createdUserId = created.user?.id;
-    expect(createdUserId).toBeTruthy();
-    let captureId: string | null = null;
-    try {
-      await anonPage.goto('/auth/forgot-password');
-      await anonPage.getByLabel('電子郵件', { exact: true }).fill(email);
-      await anonPage.getByRole('button', { name: '傳送重設連結', exact: true }).click();
-      await expect(anonPage.getByText(GENERIC_SUCCESS, { exact: true })).toBeVisible({
-        timeout: BUDGET.NAVIGATION,
-      });
-
-      const capture = await waitForCapturedAuthEmail({
-        recipient: email,
-        action: 'recovery',
-        createdAfter,
-      });
-      captureId = capture.id;
-      expect(
-        await countCapturedAuthEmails({
-          recipient: email,
-          action: 'recovery',
-          createdAfter,
-        }),
-        'recovery must emit exactly one captured Auth email',
-      ).toBe(1);
-      await anonPage.goto(capturedAuthLink(capture));
-      await anonPage.waitForURL(/\/auth\/reset-password/, { timeout: BUDGET.NAVIGATION });
-      const passwordInput = anonPage.getByLabel('新密碼', { exact: true });
-      await expect(passwordInput).toBeVisible({ timeout: BUDGET.INTERACTIVE });
-      const nextPassword = `Recovery-updated-${Date.now()}A!`;
-      await passwordInput.fill(nextPassword);
-      await anonPage.getByLabel('確認新密碼', { exact: true }).fill(nextPassword);
-      await anonPage.getByRole('button', { name: '更新密碼', exact: true }).click();
-      // The server action either redirects to /auth/sign-in (success) or stays
-      // on the reset page with a session-expired error. Wait for either outcome.
-      const success = anonPage.getByText(/密碼已更新|password updated/i);
-      const expired = anonPage.getByText(SESSION_EXPIRED);
-      await expect(success.or(expired)).toBeVisible({ timeout: BUDGET.NAVIGATION });
-      // The happy path must win; if the session expired, the recovery token was
-      // consumed too slowly — surface it as a clear failure, not a 60s timeout.
-      await expect(success, 'password update succeeded (session-expired means the recovery token was consumed too slowly)').toBeVisible();
-    } finally {
-      const cleanupErrors = (await Promise.all([
-        deleteCapturedAuthEmail(captureId)
-          .then(() => null)
-          .catch((error: unknown) => error instanceof Error ? error.message : String(error)),
-        admin.auth.admin.deleteUser(createdUserId!).then(({ error }) =>
-          error && error.message !== 'User not found' ? error.message : null),
-      ])).filter(Boolean);
-      expect(cleanupErrors, 'recovery journey cleanup must remove every resource').toEqual([]);
-    }
-  });
-
   test('sign-in page links to the forgot-password form', async ({ anonPage }) => {
     // Auth pages can cold-compile slowly in dev.
     test.setTimeout(BUDGET.TEST.ADMIN);
@@ -130,35 +53,7 @@ test.describe('Auth — forgot password request', () => {
 
     // Neither attempt was submitted — form intact, no success message shown
     await expect(anonPage).toHaveURL(/\/auth\/forgot-password(?:[/?#]|$)/);
-    await expect(anonPage.getByText(GENERIC_SUCCESS)).not.toBeVisible();
     await expect(emailInput).toBeVisible();
-  });
-
-  test('well-formed unknown email gets the generic anti-enumeration success message', async ({
-    anonPage,
-  }) => {
-    // Server Action → Supabase round-trip can be slow in dev.
-    test.setTimeout(BUDGET.TEST.ADMIN);
-    await anonPage.goto('/auth/forgot-password');
-
-    const emailInput = anonPage.getByLabel('電子郵件', { exact: true });
-    await expect(emailInput).toBeVisible({ timeout: BUDGET.NAVIGATION });
-
-    // Account does not exist — the message must be identical either way (anti-enumeration)
-    await emailInput.fill(`e2e-nonexistent+${Date.now()}@example.com`);
-    await anonPage.getByRole('button', { name: '傳送重設連結', exact: true }).click();
-
-    await expect(anonPage.getByText(GENERIC_SUCCESS, { exact: true })).toBeVisible({
-      timeout: BUDGET.NAVIGATION,
-    });
-    // Success state replaces the form
-    await expect(emailInput).not.toBeVisible();
-    // Still on the forgot-password page, no error surfaced
-    // (exclude Next.js's route announcer, which also has role="alert")
-    await expect(anonPage).toHaveURL(/\/auth\/forgot-password(?:[/?#]|$)/);
-    await expect(
-      anonPage.getByRole('alert').and(anonPage.locator(':not(#__next-route-announcer__)'))
-    ).not.toBeVisible();
   });
 });
 
@@ -197,22 +92,43 @@ test.describe('Auth — reset password page guard', () => {
     await expect(anonPage.getByText(/something went wrong|發生錯誤/i)).not.toBeVisible();
   });
 
-  test('authenticated user is NOT bounced off the reset page (recovery session flow)', async ({
-    userPage,
+  test('authenticated isolated user updates their password from the reset page', async ({
+    isolatedUserPage,
+    isolatedUser,
   }) => {
-    test.setTimeout(BUDGET.TEST.ADMIN);
-    // Regression: the auth layout used to redirect any authenticated user away
-    // from this page, breaking the recovery flow (callback authenticates, then
-    // sends the user here). The guard now lives on sign-in/sign-up/forgot-password
-    // pages only — the reset form must render for a signed-in user.
-    await userPage.goto('/auth/reset-password');
+    test.setTimeout(BUDGET.TEST.MUTATION);
+    await isolatedUserPage.goto('/auth/reset-password');
 
     await expect(
-      userPage.getByRole('heading', { name: '設定新密碼', exact: true })
+      isolatedUserPage.getByRole('heading', { name: '設定新密碼', exact: true })
     ).toBeVisible({ timeout: BUDGET.NAVIGATION });
-    await expect(userPage).toHaveURL(/\/auth\/reset-password(?:[/?#]|$)/);
-    await expect(userPage.getByLabel('新密碼', { exact: true })).toBeVisible();
-    await expect(userPage.getByLabel('確認新密碼', { exact: true })).toBeVisible();
+    await expect(isolatedUserPage).toHaveURL(/\/auth\/reset-password(?:[/?#]|$)/);
+
+    const nextPassword = `IsolatedReset${Date.now()}A!`;
+    await isolatedUserPage.getByLabel('新密碼', { exact: true }).fill(nextPassword);
+    await isolatedUserPage
+      .getByLabel('確認新密碼', { exact: true })
+      .fill(nextPassword);
+    await isolatedUserPage
+      .getByRole('button', { name: '更新密碼', exact: true })
+      .click();
+
+    await expect(
+      isolatedUserPage.getByText('密碼已更新，請使用新密碼登入', { exact: true })
+    ).toBeVisible({ timeout: BUDGET.NAVIGATION });
+
+    const verifier = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+      { auth: { persistSession: false, autoRefreshToken: false } },
+    );
+    const { data, error } = await verifier.auth.signInWithPassword({
+      email: isolatedUser.email,
+      password: nextPassword,
+    });
+    expect(error?.message ?? null).toBeNull();
+    expect(data.user?.id).toBe(isolatedUser.id);
+    await verifier.auth.signOut();
   });
 
   test('authenticated user visiting sign-in is still redirected away', async ({

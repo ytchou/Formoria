@@ -200,8 +200,8 @@ describe('e2e-agent server', () => {
       passed: false,
       unexpectedSkips: [
         {
-          file: 'e2e/tests/auth-signup-journey.spec.ts',
-          title: 'confirms a new account',
+          file: 'e2e/tests/auth-password-reset.spec.ts',
+          title: 'unexpected auth skip',
           project: 'deep',
         },
       ],
@@ -216,8 +216,8 @@ describe('e2e-agent server', () => {
         runResult: {
           failures: [
             expect.objectContaining({
-              file: 'e2e/tests/auth-signup-journey.spec.ts',
-              title: 'confirms a new account',
+              file: 'e2e/tests/auth-password-reset.spec.ts',
+              title: 'unexpected auth skip',
               project: 'deep',
             }),
           ],
