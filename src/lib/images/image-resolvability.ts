@@ -1,19 +1,18 @@
 /**
  * DEV-1568 — is every rendered `brand_images` row actually servable?
  *
- * DEV-1551 moved brand imagery onto the same-origin `/i/<storage_path>` proxy,
- * which downloads from the DEPLOYING project's own bucket. That made two
- * previously harmless states fatal, and both are invisible to the type system
+ * Brand imagery is rendered from its bucket-relative `storage_path`. That
+ * makes two invalid states fatal, and both are invisible to the type system
  * and to every existing test:
  *
  *   1. The row's key names no object in this project's bucket. Staging was
  *      seeded with rows copied from production and no bytes at all, so every
  *      gallery rendered blank while `imagePathToUrl` stayed correct and its
  *      unit tests stayed green.
- *   2. The row's key sits under a `PRIVATE_IMAGE_PREFIXES` entry. The proxy
- *      refuses those unconditionally, so the image 404s even when the bytes
- *      are present. 4,088 of production's 7,911 rows were in this state when
- *      measured on 2026-08-23.
+ *   2. The row's key is private or has no owner in the central storage routing
+ *      contract. The proxy refuses it even when bytes with that name exist.
+ *      4,088 of production's 7,911 rows were private when measured on
+ *      2026-08-23.
  *
  * Both are the same defect wearing different clothes — "a row the page renders
  * points at something the proxy will not serve" — so they are one report with
@@ -25,7 +24,7 @@
  * reading the rows and listing the bucket — belongs to
  * `scripts/check-image-resolvability.ts`.
  */
-import { PRIVATE_IMAGE_PREFIXES } from './image-proxy'
+import { resolveImageStorageLocation } from './storage-keys'
 
 /** A `brand_images` row reduced to what resolvability depends on. */
 export type ResolvabilityRow = {
@@ -36,8 +35,10 @@ export type ResolvabilityRow = {
 type UnresolvableReason =
   /** The key names no object in this project's bucket. The bytes are missing. */
   | 'missing-object'
-  /** The key is deny-listed by the read proxy. The bytes are irrelevant. */
+  /** The key belongs to the private submission bucket. */
   | 'private-prefix'
+  /** No storage contract owns the key, so the read proxy rejects it. */
+  | 'unsupported-prefix'
 
 type UnresolvableImage = {
   id: string
@@ -66,9 +67,9 @@ function trimmed(value: string | null | undefined): string | null {
   return candidate.length > 0 ? candidate : null
 }
 
-/** True when the read proxy refuses this key on its prefix alone. */
+/** True when the central storage contract classifies the key as private. */
 export function isPrivateStorageKey(key: string): boolean {
-  return PRIVATE_IMAGE_PREFIXES.some((prefix) => key.startsWith(prefix))
+  return resolveImageStorageLocation(key)?.visibility === 'private'
 }
 
 /**
@@ -79,10 +80,9 @@ export function isPrivateStorageKey(key: string): boolean {
  * every row as missing, which is true of that pairing and useless as a fact
  * about either project — the caller owns keeping the two halves together.
  *
- * The private-prefix verdict wins over the missing-object one: the bytes being
- * present changes nothing while the proxy refuses the prefix, and reporting
- * such a row as "missing" would send the reader to copy objects that are
- * already there.
+ * Routing verdicts win over the missing-object one: bytes being present change
+ * nothing when the proxy refuses the prefix, and reporting such a row as
+ * "missing" would send the reader to copy objects that are already there.
  */
 export function planImageResolvability(
   rows: readonly ResolvabilityRow[],
@@ -92,6 +92,7 @@ export function planImageResolvability(
   const counts: Record<UnresolvableReason, number> = {
     'missing-object': 0,
     'private-prefix': 0,
+    'unsupported-prefix': 0,
   }
   let resolvable = 0
   let withoutStoragePath = 0
@@ -102,11 +103,14 @@ export function planImageResolvability(
       withoutStoragePath += 1
       continue
     }
-    const reason: UnresolvableReason | null = isPrivateStorageKey(key)
-      ? 'private-prefix'
-      : objectKeys.has(key)
-        ? null
-        : 'missing-object'
+    const location = resolveImageStorageLocation(key)
+    const reason: UnresolvableReason | null = !location
+      ? 'unsupported-prefix'
+      : location.visibility === 'private'
+        ? 'private-prefix'
+        : objectKeys.has(key)
+          ? null
+          : 'missing-object'
     if (reason === null) {
       resolvable += 1
       continue

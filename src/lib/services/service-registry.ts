@@ -95,6 +95,8 @@ export const NON_SERVICE_ENV: Readonly<Record<string, string>> = {
     "Canonical production probe target origin, not a provider service.",
   E2E_ORIGIN_SECRET:
     "Staging E2E origin authentication secret, not a provider service.",
+  E2E_STAGING_SESSION_SECRET:
+    "Request-scoped staging deep-suite capability secret; separate from Cloudflare Access and origin credentials.",
   CURATION_WORKER_URL: "Internal worker routing target, not a credential.",
   NEXT_PUBLIC_SITE_URL:
     "Public host used by absolute links and the availability probe; not a credential.",
@@ -170,7 +172,7 @@ export const SERVICE_REGISTRY: readonly ServiceEntry[] = [
     criticality: "back-office",
     operationalSection: "back-office",
     operationalKind: "dependency",
-    envVars: ["OPENAI_API_KEY"],
+    envVars: ["OPENAI_API_KEY", "CODEX_API_KEY"],
     status: "active",
     plan: {
       kind: "usage",
@@ -220,7 +222,7 @@ export const SERVICE_REGISTRY: readonly ServiceEntry[] = [
     criticality: "customer-flow",
     operationalSection: "production",
     operationalKind: "dependency",
-    envVars: ["RESEND_API_KEY"],
+    envVars: ["RESEND_API_KEY", "RESEND_MONITOR_API_KEY"],
     status: "active",
     plan: {
       kind: "free",
@@ -407,6 +409,25 @@ export const SERVICE_REGISTRY: readonly ServiceEntry[] = [
     dashboardUrl: "https://search.google.com/search-console",
   },
   {
+    id: "cloudflare-zone-analytics",
+    name: "Cloudflare zone analytics (egress monitoring)",
+    vendor: "Cloudflare",
+    category: "observability",
+    criticality: "back-office",
+    operationalSection: "agents",
+    operationalKind: "dependency",
+    envVars: ["CLOUDFLARE_API_TOKEN", "CLOUDFLARE_ZONE_ID"],
+    status: "active",
+    plan: {
+      kind: "free",
+      monthlyUsd: 0,
+      asOf: TODAY,
+      sourceUrl: "https://www.cloudflare.com/plans/",
+    },
+    dashboardUrl: "https://dash.cloudflare.com/",
+    notes: "GraphQL Analytics API read, DEV-1744 egress anomaly cron.",
+  },
+  {
     id: "slack-formoria",
     name: "Slack Formoria alerts",
     vendor: "Slack",
@@ -519,12 +540,16 @@ export const SERVICE_REGISTRY: readonly ServiceEntry[] = [
     operationalSection: null,
     operationalKind: "dependency",
     envVars: [
+      "LINEAR_API_KEY",
+      "LINEAR_LABEL_DATA_QUALITY",
+      "LINEAR_LABEL_OPS",
       "LINEAR_OAUTH_ACCESS_TOKEN",
       "LINEAR_OAUTH_CLIENT_ID",
       "LINEAR_OAUTH_CLIENT_SECRET",
       "LINEAR_TEAM_ID",
       "LINEAR_PROJECT_ID",
       "LINEAR_ASSIGNEE_ID",
+      "LINEAR_STATE_TODO_ID",
     ],
     status: "active",
     plan: {
@@ -545,9 +570,9 @@ export const SERVICE_REGISTRY: readonly ServiceEntry[] = [
     operationalKind: "dependency",
     envVars: [
       "GITHUB_TOKEN",
-      "HEALTH_AGENT_GITHUB_APP_ID",
-      "HEALTH_AGENT_GITHUB_APP_PRIVATE_KEY",
-      "HEALTH_AGENT_GITHUB_APP_INSTALLATION_ID",
+      "GITHUB_APP_ID",
+      "GITHUB_APP_PRIVATE_KEY",
+      "GITHUB_APP_INSTALLATION_ID",
       "OPS_AGENT_GITHUB_TOKEN",
     ],
     status: "active",
@@ -558,23 +583,6 @@ export const SERVICE_REGISTRY: readonly ServiceEntry[] = [
       sourceUrl: "https://github.com/pricing",
     },
     dashboardUrl: "https://github.com/ytchou/Formoria",
-  },
-  {
-    id: "anthropic",
-    name: "Anthropic Claude Code Action",
-    vendor: "Anthropic",
-    category: "ai",
-    criticality: "dev-tooling",
-    operationalSection: null,
-    operationalKind: "dependency",
-    envVars: ["CLAUDE_CODE_OAUTH_TOKEN"],
-    status: "active",
-    plan: {
-      kind: "subscription",
-      asOf: TODAY,
-      sourceUrl: "https://www.anthropic.com/pricing",
-    },
-    dashboardUrl: "https://console.anthropic.com/",
   },
   {
     id: "agent-hub",
@@ -658,6 +666,25 @@ export const SERVICE_REGISTRY: readonly ServiceEntry[] = [
       "LLM tracing and eval. Free cloud hobby tier (50k observations/month). No-ops when env vars are unset.",
   },
   {
+    id: "repo-worker",
+    name: "Repository worker (health agent)",
+    vendor: "Formoria",
+    category: "tooling",
+    criticality: "back-office",
+    operationalSection: "agents",
+    operationalKind: "worker",
+    // DEV-1748: host-free, secret-free repo worker that clones the repo and
+    // runs quality tools (vitest, knip) on behalf of the health agent.
+    envVars: ["REPO_WORKER_URL", "REPO_WORKER_TOKEN"],
+    status: "active",
+    plan: {
+      kind: "usage",
+      asOf: TODAY,
+      sourceUrl: "https://railway.com/pricing",
+    },
+    dashboardUrl: "https://railway.app/dashboard",
+  },
+  {
     id: "slack-ops",
     name: "Slack (Ops Agent)",
     vendor: "Slack",
@@ -665,7 +692,12 @@ export const SERVICE_REGISTRY: readonly ServiceEntry[] = [
     criticality: "back-office",
     operationalSection: "agents",
     operationalKind: "dependency",
-    envVars: ["SLACK_BOT_TOKEN", "SLACK_SIGNING_SECRET"],
+    envVars: [
+      "SLACK_BOT_TOKEN",
+      "SLACK_SIGNING_SECRET",
+      "OPS_AGENT_SLACK_BOT_ID",
+      "HEALTH_AGENT_SLACK_CHANNEL",
+    ],
     status: "active",
     plan: {
       kind: "free",

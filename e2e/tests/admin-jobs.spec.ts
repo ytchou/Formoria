@@ -393,7 +393,7 @@ test.describe('Admin curation jobs deep', () => {
     await expect(async () => {
       await adminPage.reload({});
       const childTriggerField = adminPage.getByText('Trigger', { exact: true }).locator('..');
-      await expect(childTriggerField).toContainText('Manual rerun');
+      await expect(childTriggerField).toContainText('Rerun');
       await expect(childTargetRow).toBeVisible();
       await expect(childTargetRow).toContainText(brandName);
       await expect(parentLineageLink).toHaveAttribute('href', `/admin/jobs/${parentJobId}`);
@@ -463,7 +463,11 @@ test.describe('Admin curation jobs deep', () => {
         .single(),
       'retry job lookup',
     );
-    const params = retryJob.params as { retry?: { block: string; mode: string; subPhase?: string } };
-    expect(params.retry).toEqual({ block: 'editorial', mode: 'only', subPhase: 'faq' });
+    const params = retryJob.params as { retry?: unknown };
+    expect(params.retry).toEqual({
+      version: 1,
+      action: { kind: 'phase', block: 'editorial', mode: 'only', subPhase: 'faq' },
+      targets: { [retryTargetId]: { selected: ['faq'], forced: ['faq'], explicit: ['faq'] } },
+    });
   });
 });

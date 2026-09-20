@@ -7,7 +7,7 @@ import { sanitizeErrorResponse } from "@/lib/errors";
 import { processImage } from "@/lib/security/image-processor";
 import {
   deleteStoredImagePaths,
-  uploadPublicImage,
+  uploadSubmissionImage,
 } from "@/lib/services/image-upload";
 import { stageSubmissionReviewImage } from "@/lib/services/submissions";
 
@@ -60,8 +60,7 @@ export const POST = withAuditScope(async (
 
     const processed = await processImage(Buffer.from(await file.arrayBuffer()));
     const storagePath = `submissions/${submissionId}/${crypto.randomUUID()}.webp`;
-    await uploadPublicImage({
-      bucket: "brand-images",
+    await uploadSubmissionImage({
       path: storagePath,
       data: processed.buffer,
       contentType: processed.contentType,

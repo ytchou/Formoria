@@ -4,6 +4,7 @@ import { postSlackAlert } from "@/lib/adapters/alerting/slack";
 import type { AgentNotification } from "@/lib/adapters/slack/notification";
 import { withAuditScope } from "@/lib/audit/scope";
 import { isAuthorizedMachineCaller } from "@/lib/security/machine-caller";
+import { refreshBrandCentroids } from "@/lib/services/brand-embeddings";
 import { refreshProductEmbeddings } from "@/lib/services/product-embeddings";
 
 export const runtime = "nodejs";
@@ -104,17 +105,36 @@ export const POST = withAuditScope(async (req: Request) => {
       jobId: undefined,
     });
 
+    let centroidResult = { updated: 0, deleted: 0, skipped: 0 };
+    let centroidError: string | null = null;
+    if (result.failedBatches.length === 0 && !dryRun) {
+      try {
+        centroidResult = await refreshBrandCentroids();
+      } catch (err) {
+        centroidError =
+          err instanceof Error ? err.message : "UnknownCentroidError";
+        Sentry.captureException(err, {
+          tags: { scope: "cron", job: "product-embeddings", step: "centroids" },
+        });
+      }
+    }
+
     let slackSent = false;
     try {
       const notification: AgentNotification = {
         agent: "product-embeddings-nightly",
-        status: result.failedBatches.length > 0 ? "needs_attention" : "success",
+        status:
+          result.failedBatches.length > 0 || centroidError
+            ? "needs_attention"
+            : "success",
         date: new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Taipei" }),
         summary: [
           `Stale: ${result.stale}, Embedded: ${result.embedded}, Deleted: ${result.deleted}`,
           ...(result.failedBatches.length > 0
             ? [`Failed batches: ${result.failedBatches.length}`]
             : []),
+          `Centroids: ${centroidResult.updated} updated, ${centroidResult.deleted} deleted, ${centroidResult.skipped} skipped`,
+          ...(centroidError ? [`Centroid error: ${centroidError}`] : []),
           ...(dryRun ? ["(dry run — no writes)"] : []),
         ],
       };
@@ -153,6 +173,9 @@ export const POST = withAuditScope(async (req: Request) => {
       deleted: result.deleted,
       failedBatches: result.failedBatches.length,
       dryRun,
+      centroidsUpdated: centroidResult.updated,
+      centroidsDeleted: centroidResult.deleted,
+      centroidsSkipped: centroidResult.skipped,
       triggeredBy: body.triggered_by,
       slackSent,
     });

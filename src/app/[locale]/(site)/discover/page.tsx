@@ -39,6 +39,7 @@ import {
 } from "@/lib/products/discover-search-params";
 import { ProductSituationSearchForm } from "@/components/products/product-situation-search-form";
 import { SearchResultsTracker } from "@/components/analytics/search-results-tracker";
+import { DiscoverSearchClickTracker } from "@/components/analytics/discover-search-click-tracker";
 
 type PageProps = {
   params: Promise<{ locale: string }>;
@@ -144,6 +145,7 @@ export default async function DiscoverPage({
   let totalCount = 0;
   let searchSource: string | undefined;
   let degraded = false;
+  let searchId: string | undefined;
   let intentParsed: 'skipped' | 'ok' | 'failed' = 'skipped';
   let intentCategory: string | null = null;
   let intentSubcategory: string | null = null;
@@ -152,6 +154,14 @@ export default async function DiscoverPage({
   let intentLatencyMs = 0;
   let rpcLatencyMs = 0;
   let embedLatencyMs = 0;
+  let ltrMode: string | undefined;
+  let ltrLatencyMs: number | undefined;
+  let featuresLatencyMs: number | undefined;
+  let ltrScores: number[] | undefined;
+  let ltrRanks: number[] | undefined;
+  let ltrProductKeys: string[] | undefined;
+  let rrfProductKeys: string[] | undefined;
+  let armBySlot: ('rrf' | 'ltr')[] | undefined;
   let facets: {
     subcategoryCounts: { slug: string; count: number }[];
     materialCounts: { slug: string; count: number }[];
@@ -179,6 +189,7 @@ export default async function DiscoverPage({
       totalCount = searchResult.totalCount;
       searchSource = searchResult.searchSource;
       degraded = searchResult.degraded;
+      searchId = searchResult.searchId;
       intentParsed = searchResult.intentParsed;
       intentCategory = searchResult.intentCategory;
       intentSubcategory = searchResult.intentSubcategory;
@@ -187,6 +198,14 @@ export default async function DiscoverPage({
       intentLatencyMs = searchResult.intentLatencyMs;
       rpcLatencyMs = searchResult.rpcLatencyMs;
       embedLatencyMs = searchResult.embedLatencyMs;
+      ltrMode = searchResult.ltrMode;
+      ltrLatencyMs = searchResult.ltrLatencyMs;
+      featuresLatencyMs = searchResult.featuresLatencyMs;
+      ltrScores = searchResult.ltrScores;
+      ltrRanks = searchResult.ltrRanks;
+      ltrProductKeys = searchResult.ltrProductKeys;
+      rrfProductKeys = searchResult.rrfProductKeys;
+      armBySlot = searchResult.armBySlot;
       facets = facetResult;
     } else {
       // In catalog mode, sort is never "relevance" (parseDiscoverQuery guarantees this)
@@ -272,6 +291,8 @@ export default async function DiscoverPage({
       };
     }),
   ];
+
+  const pageArmBySlot = armBySlot?.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
   return (
     <PageShell as="main" measure="page" className="pt-12 pb-section">
@@ -369,6 +390,8 @@ export default async function DiscoverPage({
                 trackerKind="product"
                 query={searchQuery}
                 resultCount={totalCount}
+                searchId={searchId}
+                productKeys={products.map((p) => p.key)}
                 searchSource={searchSource}
                 degraded={degraded}
                 intentParsed={intentParsed}
@@ -379,6 +402,14 @@ export default async function DiscoverPage({
                 intentLatencyMs={intentLatencyMs}
                 rpcLatencyMs={rpcLatencyMs}
                 embedLatencyMs={embedLatencyMs}
+                ltrMode={ltrMode}
+                ltrLatencyMs={ltrLatencyMs}
+                featuresLatencyMs={featuresLatencyMs}
+                ltrScores={ltrScores}
+                ltrRanks={ltrRanks}
+                ltrProductKeys={ltrProductKeys}
+                rrfProductKeys={rrfProductKeys}
+                armBySlot={armBySlot}
               />
             )}
 
@@ -389,7 +420,18 @@ export default async function DiscoverPage({
               />
             ) : (
               <>
-                <ProductGrid products={products} locale={locale} />
+                {isSearchMode && searchId ? (
+                  <DiscoverSearchClickTracker
+                    searchId={searchId}
+                    query={searchQuery!}
+                    armBySlot={pageArmBySlot}
+                    ltrMode={ltrMode}
+                  >
+                    <ProductGrid products={products} locale={locale} />
+                  </DiscoverSearchClickTracker>
+                ) : (
+                  <ProductGrid products={products} locale={locale} />
+                )}
                 <Pagination
                   totalCount={totalCount}
                   currentPage={page}

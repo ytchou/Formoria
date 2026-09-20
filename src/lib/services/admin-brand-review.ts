@@ -68,7 +68,13 @@ function toPersistableRow({
 }
 
 /**
- * The `/i/<key>` references `rejectBrandImages` keys on, one per row.
+ * The rendered references `rejectBrandImages` keys on, one per row.
+ *
+ * Whatever `imagePathToUrl` produces for the key — the `/i/` proxy path today
+ * (DEV-1744 task 3's public storage URL branch is descoped; see its docblock).
+ * `storagePathFromImageUrl` reverses both this and the public form, so the
+ * round trip holds either way — this is a render URL, never a value matched
+ * against something stored.
  *
  * `storage_path` is the modern reference, but it is NULL on every row the
  * 20260708100000 backfill created, and `rejectBrandImages` returns early on an

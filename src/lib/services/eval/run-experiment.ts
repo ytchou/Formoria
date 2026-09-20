@@ -4,11 +4,7 @@ import type { PromptMeta } from '@/lib/langfuse/prompt'
 import type { PhaseAdapter } from './phase-adapters'
 import type { AuditCollector } from './zero-write'
 import { runName as makeRunName, traceName as makeTraceName } from './langfuse-runs'
-/**
- * Reused from scripts/enrichment/eval/search-eval/metrics.ts — no third implementation.
- * Imported with a relative path because no @/ alias covers scripts/.
- */
-import { p95, mean } from '../../../../scripts/enrichment/eval/search-eval/metrics'
+import { p95, mean } from './scorers'
 
 // ---------------------------------------------------------------------------
 // Types
@@ -26,12 +22,13 @@ export type ExperimentItem = {
 
 export type ExperimentArm = {
   name: string
-  type: 'model' | 'prompt'
+  type: 'model' | 'prompt' | 'custom'
   value: string
 }
 
 export type ItemResult = {
   itemId: string
+  itemRunId: string
   ok: boolean
   scores: Record<string, number>
   error?: string
@@ -61,7 +58,7 @@ type ExperimentSummary = {
   failed: number
 }
 
-type ExperimentResult = {
+export type ExperimentResult = {
   summary: ExperimentSummary
   armResults: ArmResult[]
   markdown: string
@@ -96,7 +93,7 @@ export type ExperimentDeps = {
   flushLangfuse: () => Promise<void> | void
   fetchPrompt: FetchPromptFn
   installSeams: (opts: { sinkPath: string }) => { collector: AuditCollector; restore: () => void }
-  assertNoNewAuditRows: (opts: { since: Date }) => Promise<void> | void
+  assertNoNewAuditRows: (opts: { since: Date; correlationIds: string[]; spanIds: string[] }) => Promise<void> | void
   runWithAuditContext: <T>(seed: AuditContextSeed, fn: () => T) => T
   getAuditContext: () => { correlationId: string | null }
   createTrace?: (params: { name: string; id: string; metadata?: unknown }) => unknown
@@ -177,6 +174,9 @@ export async function runItems({
         // Create a Langfuse trace for this item so emitLangfuseGeneration can link to it
         const langfuseTrace = createItemTrace?.(item.id, itemRunId) ?? undefined
 
+        // Wall-clock timing wraps the entire retry loop
+        const wallStart = Date.now()
+
         // One retry per item on failure (2 total attempts)
         for (let attempt = 0; attempt < 2; attempt++) {
           try {
@@ -192,16 +192,17 @@ export async function runItems({
           }
         }
 
+        const wallMs = Date.now() - wallStart
+
         // Join cost/latency from collector by correlationId
         const auditRecords = collector.byCorrelation(itemRunId)
         const totalCost = auditRecords.reduce(
           (sum, r) => sum + (r.costUsd ?? 0),
           0,
         )
-        const totalLatency = auditRecords.reduce(
-          (sum, r) => sum + (r.latencyMs ?? 0),
-          0,
-        )
+        const totalLatency = auditRecords.length > 0
+          ? auditRecords.reduce((sum, r) => sum + (r.latencyMs ?? 0), 0)
+          : wallMs
 
         if (taskResult?.ok) {
           // Score against expected
@@ -213,6 +214,7 @@ export async function runItems({
 
           return {
             itemId: item.id,
+            itemRunId,
             ok: true,
             scores,
             costUsd: totalCost,
@@ -231,6 +233,7 @@ export async function runItems({
 
         return {
           itemId: item.id,
+          itemRunId,
           ok: false,
           scores: zeroScores,
           error: lastError,
@@ -298,13 +301,16 @@ export async function runExperiment({
           process.env.OPENAI_MODEL_OVERRIDE = arm.value
         } else if (arm.type === 'prompt') {
           process.env.LANGFUSE_PROMPT_VERSIONS = arm.value
+        } else if (arm.type === 'custom') {
+          // Custom arms manage their own execution — no env setup
+        } else {
+          throw new Error(`Unknown arm type: ${(arm as { type: string }).type}`)
         }
 
-        // Fetch system prompt
-        const promptResult = await deps.fetchPrompt(
-          adapter.promptName,
-          adapter.variables,
-        )
+        // Fetch system prompt (skip when adapter has no promptName, e.g. custom arms)
+        const promptResult = adapter.promptName
+          ? await deps.fetchPrompt(adapter.promptName, adapter.variables)
+          : { text: '', prompt: { name: '', version: 0, source: 'snapshot' as const } }
 
         // Pin check: a prompt arm requires Langfuse as the source —
         // the snapshot fallback ignores version pins.
@@ -317,6 +323,7 @@ export async function runExperiment({
             arm: arm.name,
             items: items.map((item) => ({
               itemId: item.id,
+              itemRunId: randomUUID(),
               ok: false,
               scores: { ...zeroScores },
               error: `prompt pin ${arm.value} resolved from ${promptResult.prompt.source}, not langfuse`,
@@ -435,11 +442,16 @@ export async function runExperiment({
       }
     }
 
-    // Assert zero-write
-    await deps.assertNoNewAuditRows({ since })
-
-    // Flush Langfuse
+    // Flush Langfuse before the assertion so traces are available for diagnosis
+    // if the assertion fails (mirrors cmdDatasetRecord in llm-eval.ts)
     await deps.flushLangfuse()
+
+    // Assert zero-write — scoped to this run's own identity
+    const allItemRunIds = armResults.flatMap((a) => a.items.map((i) => i.itemRunId))
+    const allSpanIds = collector.all().map((r) => r.spanId)
+    if (allItemRunIds.length > 0) {
+      await deps.assertNoNewAuditRows({ since, correlationIds: allItemRunIds, spanIds: allSpanIds })
+    }
 
     // Compute summary
     const allItems = armResults.flatMap((a) => a.items)

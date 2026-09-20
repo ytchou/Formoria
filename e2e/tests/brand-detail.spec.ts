@@ -3,8 +3,6 @@ import type { Page } from "@playwright/test";
 import { createClient } from "@supabase/supabase-js";
 import { load } from "cheerio";
 import { getServiceClient, seedBrand, SeededBrand } from "../helpers/seed";
-import { isLocalTarget } from "../helpers/target";
-
 import { BUDGET, POLL } from "../budgets";
 
 async function openStockistGroup(page: Page, key: string) {
@@ -252,12 +250,7 @@ test.describe("Brand detail deep", () => {
   test("FAQ answer text is in the DOM while collapsed", async ({
     page,
     request,
-    baseURL,
   }) => {
-    test.skip(
-      !isLocalTarget(baseURL),
-      "Cloudflare WAF challenges raw-HTTP Googlebot requests on a remote target",
-    );
     test.setTimeout(BUDGET.TEST.MUTATION);
     // The whole point of DEV-1317: answers must be readable without opening
     // anything. Nothing here clicks — a test that expands first would pass
@@ -284,9 +277,7 @@ test.describe("Brand detail deep", () => {
     // The literal acceptance criterion — "verifiable by curl". Asserting on the
     // rendered DOM alone would still pass if a client effect injected the text
     // after hydration, which is exactly the regression this guards against.
-    const response = await request.get(`/brands/${seeded.slug}`, {
-      headers: { "user-agent": "Googlebot" },
-    });
+    const response = await request.get(`/brands/${seeded.slug}`);
     expect(response.status()).toBe(200);
     const html = await response.text();
     expect(html).toContain("代表產品包含");
@@ -572,12 +563,7 @@ test.describe("Brand detail — historical slugs", () => {
 
   test("approved historical slugs redirect once to localized self-canonical pages", async ({
     request,
-    baseURL,
   }) => {
-    test.skip(
-      !isLocalTarget(baseURL),
-      "Cloudflare WAF challenges raw-HTTP Googlebot requests on a remote target",
-    );
     const cases = [
       {
         source: `/brands/${approvedOldSlug}`,
@@ -592,14 +578,12 @@ test.describe("Brand detail — historical slugs", () => {
     for (const { source, target } of cases) {
       const redirectResponse = await request.get(source, {
         maxRedirects: 0,
-        headers: { "user-agent": "Googlebot" },
       });
       expect(redirectResponse.status()).toBe(308);
       expect(redirectResponse.headers().location).toBe(target);
 
       const targetResponse = await request.get(target, {
         maxRedirects: 0,
-        headers: { "user-agent": "Googlebot" },
       });
       expect(targetResponse.status()).toBe(200);
       const $ = load(await targetResponse.text());
@@ -612,19 +596,13 @@ test.describe("Brand detail — historical slugs", () => {
 
   test("historical slugs targeting hidden brands return direct 404 responses", async ({
     request,
-    baseURL,
   }) => {
-    test.skip(
-      !isLocalTarget(baseURL),
-      "Cloudflare WAF challenges raw-HTTP Googlebot requests on a remote target",
-    );
     for (const source of [
       `/brands/${hiddenOldSlug}`,
       `/en/brands/${hiddenOldSlug}`,
     ]) {
       const response = await request.get(source, {
         maxRedirects: 0,
-        headers: { "user-agent": "Googlebot" },
       });
       expect(response.status()).toBe(404);
       expect(response.headers().location).toBeUndefined();

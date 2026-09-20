@@ -40,17 +40,44 @@ const RETIRED_CATEGORY_SLUGS: ReadonlyArray<
   ["clothing", "fashion"],
 ];
 
+/*
+ * `images.remotePatterns` and the CSP `img-src` list below are baked at BUILD
+ * time from `ALLOWED_IMAGE_HOSTS`, which `src/lib/images/allowed-image-hosts.ts`
+ * derives from `NEXT_PUBLIC_SUPABASE_URL` once at module load. Since DEV-1744
+ * task 3 published imagery is addressed by its public Supabase storage URL, so
+ * an empty list means `next/image` rejects and CSP blocks every brand image at
+ * runtime — site-wide breakage with nothing logged anywhere. A build that cannot
+ * name the storage host must fail here instead of shipping that.
+ *
+ * Gated on production because this file is also imported by
+ * `src/app/admin/__tests__/next-config-redirects.test.ts` under vitest, which
+ * deliberately runs with no project URL (the empty case is pinned in
+ * `src/lib/images/__tests__/allowed-image-hosts.test.ts`), and because `next dev`
+ * without Supabase is a legitimate local state. `next build` and `next start`
+ * both run with NODE_ENV=production, which is where a missing host actually
+ * ships.
+ */
+if (process.env.NODE_ENV === "production" && ALLOWED_IMAGE_HOSTS.length === 0) {
+  throw new Error(
+    "NEXT_PUBLIC_SUPABASE_URL is unset or unparseable in this build " +
+      "environment, so ALLOWED_IMAGE_HOSTS (src/lib/images/allowed-image-hosts.ts) " +
+      "is empty and images.remotePatterns would bake in no Supabase storage " +
+      "host. Every published image would fail to render. Set " +
+      "NEXT_PUBLIC_SUPABASE_URL to the same project the runtime uses.",
+  );
+}
+
 const imgSrcHosts = ALLOWED_IMAGE_HOSTS.map(
   (hostname) => `https://${hostname}`,
 ).join(" ");
 /*
- * SIGNED submission URLs only (DEV-1551). `ALLOWED_IMAGE_HOSTS` is empty since
- * the `brand-images` bucket went private and every published image is served
- * from `/i/` on this origin — but admin review still renders pre-moderation
- * imagery from a short-lived signed Supabase URL in a plain `<img>`, and CSP
- * would block it without this. It is deliberately NOT in `ALLOWED_IMAGE_HOSTS`:
- * that list governs `safeImageSrc` and `next/image`, and re-adding it there
- * would let a public page hotlink the storage host again.
+ * SIGNED submission URLs (DEV-1551), and any Supabase project host CSP must
+ * still admit when `NEXT_PUBLIC_SUPABASE_URL` is unset at build time. Admin
+ * review renders pre-moderation imagery from a short-lived signed Supabase URL
+ * in a plain `<img>`, and CSP would block it without this. It stays a wildcard
+ * here and stays OUT of `ALLOWED_IMAGE_HOSTS`, which is host-exact: that list
+ * governs `safeImageSrc` and `next/image`, where a wildcard would let a public
+ * page hotlink any project's storage host.
  */
 const signedStorageImgSrcHosts = "https://*.supabase.co";
 const mapTileImgSrcHosts = "https://*.tile.openstreetmap.org";
@@ -79,7 +106,7 @@ const nextConfig: NextConfig = {
         },
       }
     : {}),
-  serverExternalPackages: ["adm-zip", "@playwright/test"],
+  serverExternalPackages: ["adm-zip", "@playwright/test", "onnxruntime-node"],
   transpilePackages: ["react-simple-maps"],
   experimental: {
     turbopackFileSystemCacheForDev: false,
@@ -89,11 +116,16 @@ const nextConfig: NextConfig = {
   },
   images: {
     /*
-     * EMPTY since DEV-1551 task 11. `ALLOWED_IMAGE_HOSTS` has no entries: the
-     * `brand-images` bucket is private and every image we own is served from
+     * The configured Supabase project's storage host. DEV-1744 task 3 (public
+     * storage URLs for `brands/`/`curated-products/`/`event-exhibitors/` keys)
+     * is descoped — see `src/lib/images/image-url.ts`'s docblock — so nothing
+     * currently generates a URL on this host; every prefix still comes from
      * `/i/` on this origin, which `next/image` optimises without a remote
-     * pattern. Kept as a map over the constant rather than a literal `[]` so
-     * the two lists cannot drift apart.
+     * pattern. Kept ready (and build-asserted below) for when the
+     * bucket-separation follow-up reintroduces the public-URL branch.
+     *
+     * A map over `ALLOWED_IMAGE_HOSTS`, never a literal, so this list and the
+     * one `safeImageSrc` enforces cannot drift apart.
      */
     remotePatterns: ALLOWED_IMAGE_HOSTS.map((hostname) => ({
       protocol: "https" as const,
@@ -105,6 +137,15 @@ const nextConfig: NextConfig = {
     // already-efficient source does not justify its much slower encode on a
     // container whose optimizer cache is ephemeral and re-derives on cold start.
     formats: ["image/webp"],
+    // Narrowed from Next's default [16,32,48,64,96,128,256,384] (DEV-1743).
+    // Nothing on the site asks for a box under 64px — the smallest measured
+    // `sizes` are the 64px avatar and the 72px `thumb` surface — so 16/32/48
+    // were buckets no request could ever land in. Fewer buckets means more
+    // sharing across similar-but-not-identical thumbnails, which is what
+    // matters on a container whose optimizer cache is ephemeral and re-derives
+    // every sharp encode on cold start. `deviceSizes` is deliberately left at
+    // the default: hero images use an unconstrained `100vw`.
+    imageSizes: [64, 96, 128, 256, 384],
     // Keep the default while allowing lower, explicitly requested qualities
     // for the scrimmed selection background and its product photography.
     qualities: [20, 60, 75],

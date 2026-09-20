@@ -17,6 +17,7 @@ describe("curation worker startup boundary", () => {
       "./src/curation-worker/loop.ts",
       "./src/curation-worker/health-paths.ts",
       "./src/lib/supabase/project-target.ts",
+      "./src/worker-boot/index.ts",
     ]
       .map((modulePath) => `import(${JSON.stringify(modulePath)})`)
       .join(", ");

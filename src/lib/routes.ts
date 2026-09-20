@@ -123,3 +123,60 @@ export const routes = {
     submissions: (query?: RouteQuery) => withQuery('/admin/submissions', query),
   },
 } as const
+
+/**
+ * Routes that are reserved for static pages and cannot be used as brand slugs.
+ * Used by the brands service to validate slug uniqueness against app routes.
+ *
+ * A single-segment app route missing from this set is silently 301'd to
+ * `/brands/<segment>` and 404s. `route-registration.test.ts` enforces coverage.
+ */
+export const RESERVED_ROUTES = new Set([
+  "admin",
+  "api",
+  "_next",
+  "auth",
+  "challenge",
+  "submit",
+  "brands",
+  "category",
+  "categories",
+  "contact",
+  "stories",
+  "discover",
+  "style",
+  "events",
+  "favorites",
+  // Retired routes. None serve a page, but they stay reserved so a bare hit
+  // 404s cleanly instead of being redirected into `/brands/<segment>` by
+  // `decideBareBrandSlug`, and so no brand can ever claim one of these slugs.
+  //
+  // `dashboard` (parked by DEV-1570) matters twice over: `hasApprovedBrandSlug`
+  // treats a Supabase error as approved, so an unreserved `/dashboard` would
+  // answer a transient outage with a 301 PERMANENT redirect into
+  // `/brands/dashboard` that browsers cache forever; and `isReservedSlug` reads
+  // this same set, so a brand called "Dashboard" could otherwise take the slug
+  // and shadow the app route if DEV-1570 is ever reverted.
+  "where-to-buy",
+  "feature-requests",
+  "feedback",
+  "getting-started",
+  "dashboard",
+  "faq",
+  "about",
+  "vision",
+  "terms",
+  "contributions",
+  "settings",
+  "global-error",
+  "privacy",
+  "sitemap.xml",
+  "robots.txt",
+  "favicon.ico",
+  // Next.js metadata routes — single-segment paths that must not be treated as brand slugs
+  "icon",
+  "apple-icon",
+  "manifest",
+  "opengraph-image",
+  "twitter-image",
+]);

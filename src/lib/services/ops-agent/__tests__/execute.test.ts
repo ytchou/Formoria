@@ -30,9 +30,9 @@ function makeDeps(overrides: Partial<Parameters<typeof executeProposal>[2]> = {}
     requestBrandRefreshesBySlugs: vi.fn(),
     enqueueAdminCurationJob: vi.fn(),
     dispatchCurationJob: vi.fn(),
-    enqueueManualRerun: vi.fn(),
-    enqueueCurationResume: vi.fn(),
+    enqueueCurationRecovery: vi.fn(),
     dispatchWorkflow: vi.fn(),
+    runCodeFix: vi.fn(),
     ...overrides,
   };
 }
@@ -120,9 +120,9 @@ describe("refresh_brand with outcome error", () => {
 // ---------------------------------------------------------------------------
 
 describe("rerun_job kind", () => {
-  it("rerun mode calls enqueueManualRerun then dispatch", async () => {
+  it("rerun returns the recovery child and target counts", async () => {
     const deps = makeDeps({
-      enqueueManualRerun: vi.fn().mockResolvedValue({ id: "job-rerun-1" }),
+      enqueueCurationRecovery: vi.fn().mockResolvedValue({ job: { id: "job-rerun-1" }, counts: { total: 2, failed: 1, cancelled: 1 } }),
       dispatchCurationJob: vi.fn().mockResolvedValue({ accepted: true, status: "accepted" }),
     });
 
@@ -134,17 +134,15 @@ describe("rerun_job kind", () => {
 
     expect(result).toEqual({
       ok: true,
-      result: { jobId: "job-rerun-1", adminUrl: "/admin/jobs/job-rerun-1" },
+      result: { jobId: "job-rerun-1", adminUrl: "/admin/jobs/job-rerun-1", counts: { total: 2, failed: 1, cancelled: 1 } },
     });
-    expect(deps.enqueueManualRerun).toHaveBeenCalledWith("job-orig-1", "ops@formoria.com");
+    expect(deps.enqueueCurationRecovery).toHaveBeenCalledWith({ sourceJobId: "job-orig-1", startedBy: "ops@formoria.com", action: { kind: "rerun" } });
     expect(deps.dispatchCurationJob).toHaveBeenCalledWith("job-rerun-1");
   });
 
-  it("resume mode calls enqueueCurationResume then dispatch", async () => {
+  it("resume returns one recovery child and target counts", async () => {
     const deps = makeDeps({
-      enqueueCurationResume: vi.fn().mockResolvedValue([
-        { id: "job-resume-1", resumeGroup: "failed", resumeTargetCount: 3 },
-      ]),
+      enqueueCurationRecovery: vi.fn().mockResolvedValue({ job: { id: "job-resume-1" }, counts: { total: 3, failed: 2, cancelled: 1 } }),
       dispatchCurationJob: vi.fn().mockResolvedValue({ accepted: true, status: "accepted" }),
     });
 
@@ -156,9 +154,9 @@ describe("rerun_job kind", () => {
 
     expect(result).toEqual({
       ok: true,
-      result: { jobId: "job-resume-1", adminUrl: "/admin/jobs/job-resume-1" },
+      result: { jobId: "job-resume-1", adminUrl: "/admin/jobs/job-resume-1", counts: { total: 3, failed: 2, cancelled: 1 } },
     });
-    expect(deps.enqueueCurationResume).toHaveBeenCalledWith("job-orig-2", "ops@formoria.com");
+    expect(deps.enqueueCurationRecovery).toHaveBeenCalledWith({ sourceJobId: "job-orig-2", startedBy: "ops@formoria.com", action: { kind: "resume" } });
     expect(deps.dispatchCurationJob).toHaveBeenCalledWith("job-resume-1");
   });
 });
@@ -183,10 +181,8 @@ describe("dispatch_workflow kind", () => {
     expect(deps.dispatchWorkflow).toHaveBeenCalledWith("e2e-staging.yml", {});
   });
 
-  it("dispatches health-agent with mode preflight", async () => {
-    const deps = makeDeps({
-      dispatchWorkflow: vi.fn().mockResolvedValue({ ok: true }),
-    });
+  it("rejects health-agent (removed)", async () => {
+    const deps = makeDeps();
 
     const result = await executeProposal(
       { kind: "dispatch_workflow", workflow: "health-agent" },
@@ -194,8 +190,8 @@ describe("dispatch_workflow kind", () => {
       deps,
     );
 
-    expect(result).toEqual({ ok: true, result: { dispatched: "health-agent" } });
-    expect(deps.dispatchWorkflow).toHaveBeenCalledWith("health-agent.yml", { mode: "preflight" });
+    expect(result).toEqual({ ok: false, error: "not_allowed" });
+    expect(deps.dispatchWorkflow).not.toHaveBeenCalled();
   });
 
   it("rejects unknown workflow", async () => {
@@ -217,9 +213,13 @@ describe("dispatch_workflow kind", () => {
 // ---------------------------------------------------------------------------
 
 describe("code_fix kind", () => {
-  it("dispatches ops-fix.yml with the right inputs", async () => {
+  it("publishes the Railway code fix and returns its draft PR", async () => {
     const deps = makeDeps({
-      dispatchWorkflow: vi.fn().mockResolvedValue({ ok: true }),
+      runCodeFix: vi.fn().mockResolvedValue({
+        ok: true,
+        prUrl: "https://github.com/ytchou/Formoria/pull/1200",
+        prNumber: 1200,
+      }),
     });
     const ctx = makeCtx({
       requestId: "req-fix-1",
@@ -233,13 +233,18 @@ describe("code_fix kind", () => {
       deps,
     );
 
-    expect(result).toEqual({ ok: true, result: { dispatched: "ops-fix.yml" } });
-    expect(deps.dispatchWorkflow).toHaveBeenCalledWith("ops-fix.yml", {
-      instruction: "Fix the broken import in brands.ts",
-      request_id: "req-fix-1",
-      channel: "C_FIX",
-      thread_ts: "9999.0001",
+    expect(result).toEqual({
+      ok: true,
+      result: {
+        prUrl: "https://github.com/ytchou/Formoria/pull/1200",
+        prNumber: 1200,
+      },
     });
+    expect(deps.runCodeFix).toHaveBeenCalledWith({
+      instruction: "Fix the broken import in brands.ts",
+      requestId: "req-fix-1",
+    });
+    expect(deps.dispatchWorkflow).not.toHaveBeenCalled();
   });
 });
 
@@ -264,7 +269,7 @@ describe("executor never throws", () => {
 
   it("catches non-Error rejection and returns ok:false", async () => {
     const deps = makeDeps({
-      dispatchWorkflow: vi.fn().mockRejectedValue("string error"),
+      runCodeFix: vi.fn().mockRejectedValue("string error"),
     });
 
     const result = await executeProposal(

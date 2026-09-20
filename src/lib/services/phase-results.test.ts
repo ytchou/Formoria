@@ -344,7 +344,6 @@ describe("parsePhaseResults", () => {
         hubs: "skipped",
         threads: "found",
         serpName: "absent",
-        serpHandle: "skipped",
       },
       evidence: "conclusive",
       instagramFollowers: 8014,

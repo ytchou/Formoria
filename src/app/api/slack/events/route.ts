@@ -2,11 +2,12 @@ import { after, NextResponse } from "next/server";
 import { withAuditScope } from "@/lib/audit/scope";
 import { verifySlackSignature } from "@/lib/adapters/slack/signature";
 import { postMessage, resolveChannelName } from "@/lib/adapters/slack/web-api";
-import { evaluateGuards } from "@/lib/services/ops-agent/guards";
+import { CHANNEL_PREFIX, evaluateGuards } from "@/lib/services/ops-agent/guards";
 import {
   createRequest,
   admitRequest,
 } from "@/lib/services/ops-agent/requests";
+import { JSON_BLOCK_RE } from "@/lib/services/ops-agent/repair";
 import { runOpsAgent } from "@/lib/services/ops-agent/run";
 
 export const runtime = "nodejs";
@@ -72,71 +73,91 @@ export function createEventsHandler(deps: EventsRouteDeps = defaultDeps) {
       return NextResponse.json({});
     }
 
-    if (event.bot_id || event.type !== "app_mention") {
+    if (event.type !== "app_mention") {
       return NextResponse.json({});
     }
 
     const slackEventId = (body.event_id as string) ?? null;
-    const slackUserId = event.user as string;
+    const slackUserId = (event.user as string) ?? (event.bot_id as string) ?? "unknown";
     const channelId = event.channel as string;
     const rawText = (event.text as string) ?? "";
     const threadTs = (event.thread_ts as string) ?? (event.ts as string);
     const text = rawText.replace(BOT_HANDLE_RE, "").trim();
 
-    const channelName = await deps.resolveChannelName(channelId);
+    const isSystemBot = !!event.bot_id;
+    let operatorEmail: string | null;
 
-    const guardResult = deps.evaluateGuards({
-      env: {
-        OPS_AGENT: deps.env.OPS_AGENT,
-        OPS_AGENT_OPERATORS: deps.env.OPS_AGENT_OPERATORS,
-      },
-      slackUserId,
-      channelName,
-    });
+    if (isSystemBot) {
+      if (!JSON_BLOCK_RE.test(rawText)) {
+        return NextResponse.json({});
+      }
+      if (deps.env.OPS_AGENT !== "on") {
+        return NextResponse.json({});
+      }
+      const channelName = await deps.resolveChannelName(channelId);
+      if (!channelName?.startsWith(CHANNEL_PREFIX)) {
+        return NextResponse.json({});
+      }
+      operatorEmail = "system:bot";
+    } else {
+      const channelName = await deps.resolveChannelName(channelId);
 
-    if (!guardResult.ok) {
-      if (guardResult.reason === "off") {
+      const guardResult = deps.evaluateGuards({
+        env: {
+          OPS_AGENT: deps.env.OPS_AGENT,
+          OPS_AGENT_OPERATORS: deps.env.OPS_AGENT_OPERATORS,
+        },
+        slackUserId,
+        channelName,
+      });
+
+      if (!guardResult.ok) {
+        if (guardResult.reason === "off") {
+          await deps.postMessage({
+            channel: channelId,
+            threadTs,
+            text: "The ops agent is currently off.",
+          });
+          return NextResponse.json({});
+        }
+
+        if (guardResult.reason === "wrong_channel") {
+          return NextResponse.json({});
+        }
+
+        await deps.createRequest({
+          slackEventId,
+          slackUserId,
+          operatorEmail: null,
+          channelId,
+          threadTs,
+          text,
+          status: "refused",
+        });
         await deps.postMessage({
           channel: channelId,
           threadTs,
-          text: "The ops agent is currently off.",
+          text: `Request refused: ${guardResult.reason}`,
         });
         return NextResponse.json({});
       }
 
-      if (guardResult.reason === "wrong_channel") {
-        return NextResponse.json({});
-      }
-
-      await deps.createRequest({
-        slackEventId,
-        slackUserId,
-        operatorEmail: null,
-        channelId,
-        threadTs,
-        text,
-        status: "refused",
-      });
-      await deps.postMessage({
-        channel: channelId,
-        threadTs,
-        text: `Request refused: ${guardResult.reason}`,
-      });
-      return NextResponse.json({});
+      operatorEmail = guardResult.operatorEmail;
     }
 
     const cap = Number(deps.env.OPS_AGENT_DAILY_CAP) || DEFAULT_DAILY_CAP;
+    const effectiveCap = isSystemBot ? Number.MAX_SAFE_INTEGER : cap;
     const admitResult = await deps.admitRequest(
       {
         slackEventId,
         slackUserId,
-        operatorEmail: guardResult.operatorEmail,
+        operatorEmail,
         channelId,
         threadTs,
         text,
         status: "received",
       },
-      cap,
+      effectiveCap,
     );
 
     if (!admitResult.ok) {

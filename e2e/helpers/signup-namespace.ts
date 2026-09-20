@@ -19,16 +19,6 @@ export const AUTH_TEST_EMAIL_PREFIXES = [
   'public-boundary-',
 ] as const;
 
-// Supabase's public signUp endpoint rejects reserved TLDs (.local, .test);
-// formoria.com has a Cloudflare catch-all → Drop, so signup emails are
-// accepted and discarded. The staging Send Email Hook also captures these
-// messages before delivery.
-export const SIGNUP_TEST_EMAIL_DOMAIN = process.env.E2E_SIGNUP_EMAIL_DOMAIN ?? 'formoria.com';
-
-export function signupTestEmail(purpose: string, workerIndex: number): string {
-  return `${SIGNUP_TEST_EMAIL_PREFIX}${purpose}-${Date.now()}-${workerIndex}@${SIGNUP_TEST_EMAIL_DOMAIN}`;
-}
-
 const LIST_USERS_PAGE_SIZE = 200;
 // Bounded so a listUsers pagination bug cannot spin the cleanup forever.
 const LIST_USERS_MAX_PAGES = 25;
@@ -134,47 +124,4 @@ export async function deleteNamespacedTestUsers(
     console.log(`[e2e-cleanup] deleted ${deleted} namespaced auth user(s)`);
   }
   return deleted;
-}
-
-/**
- * Deletes every auth user in the signup test namespace. The default is
- * best-effort for spec afterAll hooks; global teardown opts into throwing so a
- * persistent cleanup failure cannot certify a green run.
- */
-/**
- * Whether a namespaced test account still exists.
- *
- * The cleanup invariant is "no signup account leaks", which is a statement about
- * ABSENCE. Counting how many rows a particular sweep deleted cannot express it:
- * the global `[e2e-cleanup]` sweep and every other worker delete the same
- * namespace, so a count of 0 usually means someone else got there first, not
- * that anything leaked.
- */
-export async function namespacedTestUserExists(email: string): Promise<boolean> {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
-  if (!url || !key) {
-    throw new Error('[e2e-cleanup] staging service role is required for auth cleanup');
-  }
-  const admin = createClient(url, key, {
-    auth: { persistSession: false, autoRefreshToken: false },
-  });
-  const target = normalizeEmail(email);
-  for (let page = 1; page <= LIST_USERS_MAX_PAGES; page += 1) {
-    const { data, error } = await admin.auth.admin.listUsers({
-      page,
-      perPage: LIST_USERS_PAGE_SIZE,
-    });
-    if (error) throw error;
-    if (data.users.some((user) => normalizeEmail(user.email) === target)) return true;
-    if (data.users.length < LIST_USERS_PAGE_SIZE) return false;
-  }
-  return false;
-}
-
-export async function deleteSignupTestUsers(
-  createdBefore?: string,
-  options: DeleteTestUserOptions = {},
-): Promise<number> {
-  return deleteNamespacedTestUsers([SIGNUP_TEST_EMAIL_PREFIX], createdBefore, options);
 }

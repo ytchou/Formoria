@@ -1,8 +1,12 @@
 import { createServer } from "node:http";
-import { NextRequest } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { routes } from "@/lib/routes";
+import {
+  E2E_STAGING_SESSION_COOKIE,
+  signStagingSession,
+} from "@/lib/security/staging-session";
 
 /**
  * Boundary mocks only: the origin guard runs near the top of `proxy()`, but a
@@ -31,7 +35,9 @@ vi.mock("@/lib/security/crawler-telemetry", () => ({
 }));
 
 const limiter = vi.hoisted(() => ({
-  checkRateLimit: vi.fn(async (_request: unknown): Promise<null> => null),
+  checkRateLimit: vi.fn(
+    async (_request: unknown): Promise<NextResponse | null> => null,
+  ),
   checkSoftRateLimit: vi.fn(
     async (_request: unknown, _options?: unknown): Promise<boolean> => false,
   ),
@@ -127,6 +133,14 @@ describe("origin guard exempt paths", () => {
     );
     expect(isOriginGuardExempt("/api/internal/purge-cache")).toBe(false);
     expect(isOriginGuardExempt("/api/internal")).toBe(false);
+  });
+
+  it("exempts exactly /api/internal/sentry-canary and still guards /api/internal/anything-else", () => {
+    expect(isOriginGuardExempt("/api/internal/sentry-canary")).toBe(true);
+    expect(isOriginGuardExempt("/api/internal/sentry-canary/extra")).toBe(
+      false,
+    );
+    expect(isOriginGuardExempt("/api/internal/other-route")).toBe(false);
   });
 
   it("does not exempt ordinary application paths", () => {
@@ -238,6 +252,61 @@ describe("the origin guard when it is not configured to run", () => {
     vi.stubEnv("CF_ORIGIN_SECRET", EDGE_SECRET);
     const response = await proxy(requestFor("/api/admin/brands"));
     expect(response.status).not.toBe(403);
+  });
+});
+
+describe("request-scoped staging rate-limit bypass", () => {
+  const sessionSecret = "proxy-staging-session-secret-at-least-32-bytes";
+
+  beforeEach(() => {
+    vi.stubEnv("FORMORIA_DEPLOYMENT_ENV", "staging");
+    vi.stubEnv("E2E_STAGING_SESSION_SECRET", sessionSecret);
+  });
+
+  function stagingRequest(cookie: string) {
+    return new NextRequest("https://staging.formoria.com/brands/%E0%A4", {
+      headers: {
+        host: "staging.formoria.com",
+        cookie,
+        "user-agent": BROWSER_UA,
+      },
+    });
+  }
+
+  it("keeps hard rate limiting active for an invalid session", async () => {
+    limiter.checkRateLimit.mockResolvedValueOnce(
+      new NextResponse("limited", { status: 429 }),
+    );
+
+    const response = await proxy(
+      stagingRequest(`${E2E_STAGING_SESSION_COOKIE}=tampered-session`),
+    );
+
+    expect(response.status).toBe(429);
+    await expect(response.text()).resolves.toBe("limited");
+  });
+
+  it("keeps soft rate limiting active when the session is absent", async () => {
+    limiter.checkSoftRateLimit.mockResolvedValueOnce(true);
+
+    const response = await proxy(stagingRequest(""));
+
+    expect(response.status).toBe(307);
+    expect(response.headers.get("location")).toContain("/challenge");
+  });
+
+  it("bypasses hard and soft rate limiting for a valid deep session", async () => {
+    limiter.checkRateLimit.mockResolvedValueOnce(
+      new NextResponse("limited", { status: 429 }),
+    );
+    limiter.checkSoftRateLimit.mockResolvedValueOnce(true);
+    const token = await signStagingSession("proxy-rate-limit");
+    const response = await proxy(
+      stagingRequest(`${E2E_STAGING_SESSION_COOKIE}=${token}`),
+    );
+
+    expect(response.status).not.toBe(429);
+    expect(response.headers.get("location") ?? "").not.toContain("/challenge");
   });
 });
 

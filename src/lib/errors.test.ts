@@ -1,5 +1,35 @@
 import { describe, expect, it } from 'vitest'
-import { ServiceError, NotFoundError, ValidationError, sanitizeErrorResponse } from './errors'
+import {
+  ExternalServiceError,
+  ServiceError,
+  NotFoundError,
+  ValidationError,
+  sanitizeErrorResponse,
+} from './errors'
+
+describe('ExternalServiceError', () => {
+  it('keeps a bounded provider explanation without URLs or secret assignments', () => {
+    const error = new ExternalServiceError(
+      'github',
+      'list_dependabot_alerts',
+      403,
+      `  Access denied at https://api.github.com/private\n token = ghp_private ${'x'.repeat(400)}`,
+    )
+
+    expect(error).toMatchObject({
+      provider: 'github',
+      operation: 'list_dependabot_alerts',
+      httpStatus: 403,
+    })
+    expect(error.safeMessage).toContain('Access denied at [redacted-url]')
+    expect(error.safeMessage).toContain('token=[redacted]')
+    expect(error.safeMessage).not.toContain('ghp_private')
+    expect(error.safeMessage).not.toContain('api.github.com')
+    expect(error.safeMessage).not.toMatch(/\s{2,}/)
+    expect(Array.from(error.safeMessage ?? '')).toHaveLength(300)
+    expect(error.message).toContain(error.safeMessage ?? '')
+  })
+})
 
 describe('ServiceError', () => {
   it('stores message and code', () => {

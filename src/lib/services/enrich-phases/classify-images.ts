@@ -31,6 +31,7 @@ import { visionStorageKey, encodeVisionDownload, visionDataUri } from "../vision
 import type { GatedImage } from "../image-download";
 import { mapWithConcurrency } from "../_shared/concurrency";
 import { createServiceClient } from "@/lib/supabase/service";
+import { resolveImageStorageLocation } from "@/lib/images/storage-keys";
 import {
   targetImageStorage,
   type EnrichmentTarget,
@@ -63,7 +64,6 @@ import { preferPatched } from "./descriptions";
 const IMAGE_CLASSIFY_BATCH_SIZE = 10;
 
 const IMAGE_DOWNLOAD_CONCURRENCY = 4;
-const BRAND_IMAGES_BUCKET = "brand-images";
 
 async function loadVisionDataUri(image: {
   storage_path?: string | null;
@@ -71,6 +71,8 @@ async function loadVisionDataUri(image: {
 }): Promise<string | null> {
   const key = visionStorageKey(image);
   if (!key) return null;
+  const location = resolveImageStorageLocation(key);
+  if (!location) return null;
   return auditedCall(
     { provider: "images", operation: "loadVisionImage", kind: "service" },
     async (ctx) => {
@@ -78,7 +80,7 @@ async function loadVisionDataUri(image: {
       try {
         const supabase = createServiceClient();
         const { data, error } = await supabase.storage
-          .from(BRAND_IMAGES_BUCKET)
+          .from(location.bucket)
           .download(key);
         ctx.summary.bytes = data?.size ?? null;
         return await encodeVisionDownload(key, { data, error });

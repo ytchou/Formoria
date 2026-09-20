@@ -177,3 +177,211 @@ export function selectionAgreement(
   )
   return jaccard(outputSet, expectedSet)
 }
+
+// ---------------------------------------------------------------------------
+// IR metric functions (migrated from scripts/enrichment/eval/search-eval/metrics.ts)
+// ---------------------------------------------------------------------------
+
+/**
+ * Precision@k: fraction of the top-k retrieved items that are in the expected set.
+ */
+export function precisionAtK(
+  retrieved: string[],
+  expected: string[],
+  k: number,
+): number {
+  if (k <= 0) return 0
+  const topK = retrieved.slice(0, k)
+  const expectedSet = new Set(expected)
+  const hits = topK.filter((id) => expectedSet.has(id)).length
+  return hits / k
+}
+
+/**
+ * Recall@k: fraction of expected items found in the top-k retrieved items.
+ */
+export function recallAtK(
+  retrieved: string[],
+  expected: string[],
+  k: number,
+): number {
+  if (expected.length === 0) return 0
+  const topK = new Set(retrieved.slice(0, k))
+  const hits = expected.filter((id) => topK.has(id)).length
+  return hits / expected.length
+}
+
+/**
+ * Mean Reciprocal Rank: 1 / (rank of the first expected item in retrieved).
+ * Returns 0 when no expected item appears in retrieved.
+ */
+export function mrr(retrieved: string[], expected: string[]): number {
+  const expectedSet = new Set(expected)
+  for (let i = 0; i < retrieved.length; i++) {
+    if (expectedSet.has(retrieved[i]!)) {
+      return 1 / (i + 1)
+    }
+  }
+  return 0
+}
+
+// ---------------------------------------------------------------------------
+// Aggregation helpers (migrated from metrics.ts)
+// ---------------------------------------------------------------------------
+
+export function p95(values: number[]): number {
+  if (values.length === 0) return 0
+  const sorted = [...values].sort((a, b) => a - b)
+  const index = Math.ceil(sorted.length * 0.95) - 1
+  return sorted[Math.max(0, index)]!
+}
+
+export function mean(values: number[]): number {
+  if (values.length === 0) return 0
+  return values.reduce((sum, v) => sum + v, 0) / values.length
+}
+
+// ---------------------------------------------------------------------------
+// NDCG@k (new)
+// ---------------------------------------------------------------------------
+
+export type GradedItem = { key: string; grade: number }
+
+export function ndcgAtK(
+  retrieved: string[],
+  expected: GradedItem[],
+  k: number,
+): number {
+  if (k <= 0 || expected.length === 0) return 0
+  const gradeMap = new Map(expected.map((e) => [e.key, e.grade]))
+  const topK = retrieved.slice(0, k)
+
+  // DCG = sum of grade_i / log2(i + 2) for i in 0..k-1  (rank is 1-based, so denominator is log2(rank+1))
+  let dcg = 0
+  for (let i = 0; i < topK.length; i++) {
+    const grade = gradeMap.get(topK[i]!) ?? 0
+    dcg += grade / Math.log2(i + 2)
+  }
+
+  // IDCG = DCG of perfect ranking (sort expected grades desc, take top k)
+  const idealGrades = expected.map((e) => e.grade).sort((a, b) => b - a).slice(0, k)
+  let idcg = 0
+  for (let i = 0; i < idealGrades.length; i++) {
+    idcg += idealGrades[i]! / Math.log2(i + 2)
+  }
+
+  return idcg === 0 ? 0 : dcg / idcg
+}
+
+// ---------------------------------------------------------------------------
+// Seeded PRNG (module-private)
+// ---------------------------------------------------------------------------
+
+function mulberry32(seed: number): () => number {
+  let t = seed | 0
+  return () => {
+    t = (t + 0x6d2b79f5) | 0
+    let r = Math.imul(t ^ (t >>> 15), 1 | t)
+    r = (r + Math.imul(r ^ (r >>> 7), 61 | r)) ^ r
+    return ((r ^ (r >>> 14)) >>> 0) / 4294967296
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Bootstrap confidence interval (new)
+// ---------------------------------------------------------------------------
+
+export function bootstrapCI(
+  values: number[],
+  nBoot = 1000,
+  alpha = 0.05,
+  opts?: { seed?: number },
+): { lo: number; hi: number; mean: number } {
+  if (values.length === 0) return { lo: 0, hi: 0, mean: 0 }
+  const m = mean(values)
+  if (nBoot < 2) return { lo: m, hi: m, mean: m }
+  const rand = opts?.seed != null ? mulberry32(opts.seed) : Math.random
+  const means = Array.from({ length: nBoot }, () => {
+    let sum = 0
+    for (let i = 0; i < values.length; i++) {
+      sum += values[Math.floor(rand() * values.length)]!
+    }
+    return sum / values.length
+  }).sort((a, b) => a - b)
+  const loIdx = Math.floor((alpha / 2) * nBoot)
+  const hiIdx = Math.floor((1 - alpha / 2) * nBoot) - 1
+  return { lo: means[loIdx]!, hi: means[hiIdx]!, mean: m }
+}
+
+// ---------------------------------------------------------------------------
+// Paired bootstrap CI with sign test (new)
+// ---------------------------------------------------------------------------
+
+export function pairedBootstrapCI(
+  a: number[],
+  b: number[],
+  opts?: { nBoot?: number; alpha?: number; seed?: number },
+): { lo: number; hi: number; mean: number; signTestP: number } {
+  if (a.length !== b.length) {
+    throw new Error(`pairedBootstrapCI: a.length (${a.length}) !== b.length (${b.length})`)
+  }
+
+  const n = a.length
+  const diffs = a.map((v, i) => v - b[i]!)
+  const m = mean(diffs)
+  const nBoot = opts?.nBoot ?? 1000
+  const alpha = opts?.alpha ?? 0.05
+  const rand = opts?.seed != null ? mulberry32(opts.seed) : Math.random
+
+  // Bootstrap resampling of paired differences
+  const bootMeans = Array.from({ length: nBoot }, () => {
+    let sum = 0
+    for (let i = 0; i < n; i++) {
+      sum += diffs[Math.floor(rand() * n)]!
+    }
+    return sum / n
+  }).sort((a, b) => a - b)
+
+  const loIdx = Math.floor((alpha / 2) * nBoot)
+  const hiIdx = Math.floor((1 - alpha / 2) * nBoot) - 1
+
+  // Two-sided exact binomial sign test
+  const nonZero = diffs.filter((d) => d !== 0)
+  let signTestP: number
+  if (nonZero.length === 0) {
+    signTestP = 1
+  } else {
+    const positives = nonZero.filter((d) => d > 0).length
+    const negatives = nonZero.length - positives
+    const k = nonZero.length
+    // P(X >= max(positives, negatives)) where X ~ Binomial(k, 0.5)
+    const maxCount = Math.max(positives, negatives)
+    let tailP = 0
+    for (let i = maxCount; i <= k; i++) {
+      tailP += binomialPmf(k, i, 0.5)
+    }
+    signTestP = Math.min(2 * tailP, 1)
+  }
+
+  return { lo: bootMeans[loIdx]!, hi: bootMeans[hiIdx]!, mean: m, signTestP }
+}
+
+/** Binomial PMF: C(n, k) * p^k * (1-p)^(n-k) */
+function binomialPmf(n: number, k: number, p: number): number {
+  // Use log-space to avoid overflow
+  let logP = 0
+  for (let i = 0; i < k; i++) {
+    logP += Math.log(n - i) - Math.log(i + 1)
+  }
+  logP += k * Math.log(p) + (n - k) * Math.log(1 - p)
+  return Math.exp(logP)
+}
+
+// ---------------------------------------------------------------------------
+// Curried factories (new)
+// ---------------------------------------------------------------------------
+
+export function ndcgAt(k: number) {
+  return (output: unknown, expected: unknown): number =>
+    ndcgAtK(output as string[], expected as GradedItem[], k)
+}

@@ -5,6 +5,7 @@ import { headers } from "next/headers";
 
 import { ensureVisitorHash } from "@/lib/actions/visitor-identity";
 import { getClientIpFromHeaders, rateLimit } from "@/lib/security/rate-limiter";
+import { verifyStagingSessionHeaders } from "@/lib/security/staging-session";
 import {
   submitCorrection,
   type SubmitCorrectionResult,
@@ -71,11 +72,17 @@ export async function submitCorrectionAction(
     if (!parsed.success) return { ok: false, error: "invalid_value" };
 
     try {
-      const limit = await rateLimit(
-        getClientIpFromHeaders(await headers()),
-        CORRECTION_RATE_LIMIT,
+      const headerStore = await headers();
+      const hasStagingE2ESession = Boolean(
+        await verifyStagingSessionHeaders(headerStore),
       );
-      if (!limit.allowed) return { ok: false, error: "rate_limited" };
+      if (!hasStagingE2ESession) {
+        const limit = await rateLimit(
+          getClientIpFromHeaders(headerStore),
+          CORRECTION_RATE_LIMIT,
+        );
+        if (!limit.allowed) return { ok: false, error: "rate_limited" };
+      }
 
       const result = await submitCorrection({
         ...parsed.data,

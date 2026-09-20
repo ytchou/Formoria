@@ -1,21 +1,40 @@
 /**
- * Remote hosts an `<img src>` may point at. EMPTY since DEV-1551 task 11.
+ * The storage host of the configured Supabase project, e.g.
+ * `xkcayngbttpxyibgzern.supabase.co`, or `null` when unconfigured.
  *
- * `*.supabase.co` was the only entry, and it is gone because the `brand-images`
- * bucket is now private: a public storage URL no longer resolves, and the
- * same-origin `/i/` proxy serves every image we own. `safeImageSrc` handles
- * that case in its leading-slash branch, which is why an empty list does not
- * mean "no images".
- *
- * Adding a host back re-opens hotlinking, so it needs a stated reason. Note
- * that signed submission URLs live on `*.supabase.co` too — those render
- * through a plain `<img>` in admin review, so they are governed by the CSP
- * `img-src` list in `next.config.ts`, NOT by this one.
+ * Derived from `NEXT_PUBLIC_SUPABASE_URL` rather than hardcoded so staging and
+ * production each allow their OWN project only — a wildcard `*.supabase.co`
+ * would let any Supabase project on the internet render inside our pages.
  */
-// The explicit annotation keeps the list EMPTY while still typing its elements
-// as strings: an empty `as const` array narrows to `never[]`, which makes the
-// pattern matching below fail to compile.
-export const ALLOWED_IMAGE_HOSTS: readonly string[] = []
+function supabaseStorageHost(): string | null {
+  const configuredUrl = process.env.NEXT_PUBLIC_SUPABASE_URL?.trim()
+  if (!configuredUrl) return null
+  try {
+    return new URL(configuredUrl).hostname
+  } catch {
+    return null
+  }
+}
+
+/**
+ * Remote hosts an `<img src>` may point at.
+ *
+ * The configured Supabase project host is wired here for DEV-1744 task 3
+ * (`imagePathToUrl` addressing the four published prefixes by their public
+ * storage URL).
+ *
+ * It stays HOST-EXACT (no wildcard) and the list stays otherwise empty:
+ * anything else added here re-opens hotlinking and needs a stated reason.
+ * `submissions/` imagery is unaffected: admin review's signed URLs are
+ * governed by the CSP `img-src` list in `next.config.ts`, not by this one.
+ *
+ * Empty when `NEXT_PUBLIC_SUPABASE_URL` is unset, which is also why the
+ * explicit annotation stays: an empty `as const` array narrows to `never[]`,
+ * and the pattern matching below would fail to compile.
+ */
+export const ALLOWED_IMAGE_HOSTS: readonly string[] = [
+  supabaseStorageHost(),
+].filter((host): host is string => host !== null)
 
 const NON_IMAGE_HOSTS = [
   'facebook.com',

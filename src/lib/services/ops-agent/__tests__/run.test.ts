@@ -169,6 +169,193 @@ describe("runOpsAgent", () => {
     expect(awaitPatch!.proposal).toBeDefined();
 
     // Posts exactly one Slack message
-    expect(deps.postMessage).toHaveBeenCalledOnce();
+    expect(deps.postMessage).toHaveBeenCalledWith(
+      "1234.5678",
+      expect.any(String),
+      [{ type: "section", text: "card" }],
+    );
+  });
+
+  // ---------------------------------------------------------------------------
+  // Repair request detection
+  // ---------------------------------------------------------------------------
+
+  const VALID_REPAIR_TEXT = [
+    "```json",
+    JSON.stringify({
+      agent: "health",
+      ref: "abc123",
+      runId: "run-1",
+      scope: ["src/lib/foo.ts"],
+      findings: [
+        {
+          fingerprint: "fp1",
+          title: "unused export",
+          severity: "warn",
+          source: "knip",
+        },
+      ],
+    }),
+    "```",
+  ].join("\n");
+
+  it("repair_request_in_text_runs_a_Railway_fix_without_model_calls", async () => {
+    const runCodeFix = vi.fn().mockResolvedValue({
+      ok: true,
+      prUrl: "https://github.com/ytchou/Formoria/pull/1202",
+      prNumber: 1202,
+    });
+
+    const transitions: Array<{ to: string; patch?: unknown }> = [];
+    const deps: RunOpsAgentDeps = {
+      getRequest: vi.fn().mockResolvedValue({
+        ...makeRequest(),
+        operatorEmail: "system:bot",
+        text: VALID_REPAIR_TEXT,
+      }),
+      transitionRequest: vi.fn().mockImplementation(
+        async (_id: string, _from: string[], to: string, patch?: Record<string, unknown>) => {
+          transitions.push({ to, patch });
+          return { ...makeRequest(), status: to, ...patch };
+        },
+      ),
+      expireStale: vi.fn(),
+      postMessage: vi.fn(),
+      createOpsTools: vi.fn().mockReturnValue([]),
+      createAgentModel: vi.fn().mockResolvedValue(fakeModel()),
+      runGraph: vi.fn(),
+      runCodeFix,
+    };
+
+    const result = await runOpsAgent("req-1", deps);
+
+    expect(runCodeFix).toHaveBeenCalledOnce();
+
+    // runGraph NOT called
+    expect(deps.runGraph).not.toHaveBeenCalled();
+
+    // Transitions: received → running, running → executed
+    expect(transitions).toEqual([
+      { to: "running", patch: undefined },
+      expect.objectContaining({ to: "executed" }),
+    ]);
+
+    // The executed transition patch includes modelCalls: 0
+    const executedPatch = transitions[1].patch as Record<string, unknown>;
+    expect((executedPatch.result as Record<string, unknown>).modelCalls).toBe(0);
+
+    // Return value
+    expect(result.kind).toBe("answer");
+    expect(result.modelCalls).toBe(0);
+  });
+
+  it("malformed_json_system_bot_refuses", async () => {
+    const malformedText = "```json\n{not valid json\n```";
+
+    const transitions: Array<{ to: string }> = [];
+    const deps: RunOpsAgentDeps = {
+      getRequest: vi.fn().mockResolvedValue({
+        ...makeRequest(),
+        operatorEmail: "system:bot",
+        text: malformedText,
+      }),
+      transitionRequest: vi.fn().mockImplementation(
+        async (_id: string, _from: string[], to: string, patch?: Record<string, unknown>) => {
+          transitions.push({ to });
+          return { ...makeRequest(), status: to, ...patch };
+        },
+      ),
+      expireStale: vi.fn(),
+      postMessage: vi.fn(),
+      createOpsTools: vi.fn().mockReturnValue([]),
+      createAgentModel: vi.fn().mockResolvedValue(fakeModel()),
+      runGraph: vi.fn(),
+    };
+
+    const result = await runOpsAgent("req-1", deps);
+
+    // runGraph NOT called
+    expect(deps.runGraph).not.toHaveBeenCalled();
+
+    // Transitions: received → running, running → refused
+    expect(transitions).toEqual([{ to: "running" }, { to: "refused" }]);
+
+    expect(result.kind).toBe("refused");
+    expect(result.modelCalls).toBe(0);
+  });
+
+  it("human_text_uses_llm_path", async () => {
+    const graphResult: GraphResult = {
+      kind: "answer",
+      text: "Here is the answer.",
+      modelCalls: 1,
+      toolLog: [],
+    };
+
+    const deps: RunOpsAgentDeps = {
+      getRequest: vi.fn().mockResolvedValue({
+        ...makeRequest(),
+        operatorEmail: "op@formoria.com",
+        text: "how is the system",
+      }),
+      transitionRequest: vi.fn().mockImplementation(
+        async (_id: string, _from: string[], to: string, patch?: Record<string, unknown>) => ({
+          ...makeRequest(),
+          status: to,
+          ...patch,
+        }),
+      ),
+      expireStale: vi.fn(),
+      postMessage: vi.fn(),
+      createOpsTools: vi.fn().mockReturnValue([]),
+      createAgentModel: vi.fn().mockResolvedValue(fakeModel()),
+      runGraph: vi.fn().mockResolvedValue(graphResult),
+    };
+
+    const result = await runOpsAgent("req-1", deps);
+
+    // runGraph IS called
+    expect(deps.runGraph).toHaveBeenCalledOnce();
+    expect(result.kind).toBe("answer");
+  });
+
+  it("human_with_valid_repair_json_uses_llm_path", async () => {
+    const graphResult: GraphResult = {
+      kind: "answer",
+      text: "I see that repair request.",
+      modelCalls: 1,
+      toolLog: [],
+    };
+
+    const runCodeFix = vi.fn();
+    const deps: RunOpsAgentDeps = {
+      getRequest: vi.fn().mockResolvedValue({
+        ...makeRequest(),
+        operatorEmail: "op@formoria.com",
+        text: VALID_REPAIR_TEXT,
+      }),
+      transitionRequest: vi.fn().mockImplementation(
+        async (_id: string, _from: string[], to: string, patch?: Record<string, unknown>) => ({
+          ...makeRequest(),
+          status: to,
+          ...patch,
+        }),
+      ),
+      expireStale: vi.fn(),
+      postMessage: vi.fn(),
+      createOpsTools: vi.fn().mockReturnValue([]),
+      createAgentModel: vi.fn().mockResolvedValue(fakeModel()),
+      runGraph: vi.fn().mockResolvedValue(graphResult),
+      runCodeFix,
+    };
+
+    const result = await runOpsAgent("req-1", deps);
+
+    // runGraph IS called — human operators always use the LLM path
+    expect(deps.runGraph).toHaveBeenCalledOnce();
+
+    expect(runCodeFix).not.toHaveBeenCalled();
+
+    expect(result.kind).toBe("answer");
   });
 });

@@ -15,10 +15,9 @@
  * `brand_images` verbatim and never moves the storage object, so 781 of the
  * 1,425 `brand_images` rows on staging (a restore of production, measured
  * 2026-08-23) still carry a `submissions/<submission-id>/<file>` key. The
- * same-origin read proxy refuses that prefix — `submissions/` is
- * pre-moderation content — so 55% of brand imagery is unservable once the
- * `brand-images` bucket is private. `promoteApprovedBrandImages` fixes every
- * FUTURE approval; this script fixes the rows that already exist.
+ * `submissions/` objects now live in the private `brand-submissions` bucket,
+ * so those published rows cannot resolve. `promoteApprovedBrandImages` fixes
+ * every FUTURE approval; this script fixes rows that already exist.
  *
  * Audit-by-default, like `scripts/enrichment/images/backfill-storage-paths.ts`:
  *
@@ -39,79 +38,28 @@
  * `planPromotions`, `executePromotions`, `formatPromotionReport`) and is unit
  * tested with plain row objects and a fake storage. This repo forbids mocking
  * Supabase, so the seam must be drivable without a client.
+ *
+ * DEV-1744: the batch orchestration (paginated read, plan, execute) moved to
+ * `sweepPendingPromotions` in `@/lib/services/promote-submission-images`, which
+ * the daily cron route `/api/cron/promote-submission-images` also calls. This
+ * file is now only argument parsing and report formatting — there must be no
+ * second copy of the query here for the two callers to drift apart on.
  */
-import {
-  executePromotions,
-  formatPromotionReport,
-  planPromotions,
-  SUBMISSION_IMAGES_KEY_PREFIX,
-  type PromotionPlan,
-  type PromotionResult,
-  type PromotionRow,
-} from '@/lib/images/submission-image-promotion'
-import { createPromotionStorage } from '@/lib/services/promote-submission-images'
-import { createServiceClient } from '@/lib/supabase/service'
+import { formatPromotionReport } from '@/lib/images/submission-image-promotion'
+import { sweepPendingPromotions } from '@/lib/services/promote-submission-images'
 import { loadScriptTarget } from '../../shared/target'
 
-const PAGE_SIZE = 1_000
-
-type ServiceClient = ReturnType<typeof createServiceClient>
-
-type BrandImageKeyRow = {
-  id: string
-  brand_id: string | null
-  storage_path: string | null
-}
-
-async function fetchSubmissionKeyedRows(
-  supabase: ServiceClient
-): Promise<PromotionRow[]> {
-  const rows: PromotionRow[] = []
-  let from = 0
-
-  for (;;) {
-    const { data, error } = await supabase
-      .from('brand_images')
-      .select('id, brand_id, storage_path')
-      .like('storage_path', `${SUBMISSION_IMAGES_KEY_PREFIX}%`)
-      .order('id', { ascending: true })
-      .range(from, from + PAGE_SIZE - 1)
-
-    if (error) {
-      throw new Error(`Failed to read brand_images: ${error.message}`)
-    }
-
-    const page = (data ?? []) as BrandImageKeyRow[]
-    for (const record of page) {
-      rows.push({
-        id: String(record.id),
-        brandId: record.brand_id,
-        storagePath: record.storage_path,
-      })
-    }
-
-    if (page.length < PAGE_SIZE) {
-      break
-    }
-    from += PAGE_SIZE
-  }
-
-  return rows
-}
-
-/** A dry run reports the plan without touching storage or any row. */
-function dryRunResult(plan: PromotionPlan): PromotionResult {
-  return { plan, outcomes: [], copied: 0, adopted: 0, conflicts: [], failures: [] }
-}
-
 async function run(live: boolean): Promise<void> {
-  const supabase = createServiceClient()
-  const rows = await fetchSubmissionKeyedRows(supabase)
-  const plan = planPromotions(rows)
+  // The sweep itself (fetch + plan + execute) lives in the service layer
+  // (DEV-1744) so the daily cron route and this CLI cannot drift apart. This
+  // file only parses arguments and formats the report.
+  const result = await sweepPendingPromotions({ dryRun: !live })
 
-  const result = live
-    ? await executePromotions(plan, createPromotionStorage(supabase))
-    : dryRunResult(plan)
+  if (result === null) {
+    console.error('Promotion sweep failed before it could run; nothing written.')
+    process.exitCode = 1
+    return
+  }
 
   console.log(
     formatPromotionReport(result, {

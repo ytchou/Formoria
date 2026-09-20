@@ -7,6 +7,11 @@ export type Json =
   | Json[]
 
 export type Database = {
+  // Allows to automatically instantiate createClient with right options
+  // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
+  __InternalSupabase: {
+    PostgrestVersion: "14.5"
+  }
   public: {
     Tables: {
       admin_audit_log: {
@@ -327,6 +332,44 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "brand_content_provenance_brand_id_fkey"
+            columns: ["brand_id"]
+            isOneToOne: true
+            referencedRelation: "brands"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      brand_embeddings: {
+        Row: {
+          brand_id: string
+          created_at: string
+          embedding: string
+          model: string
+          product_count: number
+          source_hash: string
+          updated_at: string
+        }
+        Insert: {
+          brand_id: string
+          created_at?: string
+          embedding: string
+          model: string
+          product_count?: number
+          source_hash: string
+          updated_at?: string
+        }
+        Update: {
+          brand_id?: string
+          created_at?: string
+          embedding?: string
+          model?: string
+          product_count?: number
+          source_hash?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "brand_embeddings_brand_id_fkey"
             columns: ["brand_id"]
             isOneToOne: true
             referencedRelation: "brands"
@@ -3149,14 +3192,24 @@ export type Database = {
         }
         Returns: boolean
       }
-      apply_submission_enrichment_result: {
-        Args: {
-          p_enriched_data: Json
-          p_job_id: string
-          p_submission_id: string
-        }
-        Returns: boolean
-      }
+      apply_submission_enrichment_result:
+        | {
+            Args: {
+              p_enriched_data: Json
+              p_job_id: string
+              p_submission_id: string
+            }
+            Returns: boolean
+          }
+        | {
+            Args: {
+              p_checkpoint_ids: string[]
+              p_enriched_data: Json
+              p_job_id: string
+              p_submission_id: string
+            }
+            Returns: boolean
+          }
       approve_claim_request: {
         Args: { p_claim_id: string; p_reviewer_id: string }
         Returns: undefined
@@ -3532,6 +3585,14 @@ export type Database = {
           total_brands: number
         }[]
       }
+      get_explore_brand_pool: {
+        Args: { category_slugs: string[]; per_category: number; seed: string }
+        Returns: {
+          brand_id: string
+          brand_slug: string
+          category: string
+        }[]
+      }
       increment_crawler_hits: { Args: { p_rows: Json }; Returns: undefined }
       mark_unreported_curation_job_targets_skipped: {
         Args: { p_job_id: string; p_worker_token: string }
@@ -3549,6 +3610,17 @@ export type Database = {
         Returns: boolean
       }
       purchase_channel_sql_surface: { Args: never; Returns: Json }
+      read_cron_job_runs: {
+        Args: { p_since: string }
+        Returns: {
+          active: boolean
+          failed_runs: number
+          jobname: string
+          last_end: string
+          last_status: string
+          schedule: string
+        }[]
+      }
       read_health_directory_database_evidence: { Args: never; Returns: Json }
       rearm_health_fix_canary: {
         Args: { p_fingerprint: string }
@@ -3800,6 +3872,19 @@ export type Database = {
           slug: string
         }[]
       }
+      search_brands_by_centroid: {
+        Args: {
+          exclude_brand_id: string
+          filter_category: string
+          match_count: number
+          query_embedding: string
+        }
+        Returns: {
+          brand_id: string
+          brand_slug: string
+          distance: number
+        }[]
+      }
       search_products_semantic: {
         Args: {
           filter_category: string
@@ -3811,9 +3896,13 @@ export type Database = {
           query_text: string
         }
         Returns: {
+          cosine_sim: number
+          lexical_rank: number
+          lexical_score: number
           product_id: string
           rank_score: number
           search_source: string
+          vector_rank: number
         }[]
       }
       show_limit: { Args: never; Returns: number }
@@ -3957,12 +4046,12 @@ export type Tables<
   DefaultSchemaTableNameOrOptions extends
     | keyof (DefaultSchema["Tables"] & DefaultSchema["Views"])
     | { schema: keyof DatabaseWithoutInternals },
-  TableName extends DefaultSchemaTableNameOrOptions extends {
+  TableName extends (DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
         DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])
-    : never = never,
+    : never) = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -3986,11 +4075,11 @@ export type TablesInsert<
   DefaultSchemaTableNameOrOptions extends
     | keyof DefaultSchema["Tables"]
     | { schema: keyof DatabaseWithoutInternals },
-  TableName extends DefaultSchemaTableNameOrOptions extends {
+  TableName extends (DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
-    : never = never,
+    : never) = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -4011,11 +4100,11 @@ export type TablesUpdate<
   DefaultSchemaTableNameOrOptions extends
     | keyof DefaultSchema["Tables"]
     | { schema: keyof DatabaseWithoutInternals },
-  TableName extends DefaultSchemaTableNameOrOptions extends {
+  TableName extends (DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
-    : never = never,
+    : never) = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -4036,11 +4125,11 @@ export type Enums<
   DefaultSchemaEnumNameOrOptions extends
     | keyof DefaultSchema["Enums"]
     | { schema: keyof DatabaseWithoutInternals },
-  EnumName extends DefaultSchemaEnumNameOrOptions extends {
+  EnumName extends (DefaultSchemaEnumNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"]
-    : never = never,
+    : never) = never,
 > = DefaultSchemaEnumNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -4053,11 +4142,11 @@ export type CompositeTypes<
   PublicCompositeTypeNameOrOptions extends
     | keyof DefaultSchema["CompositeTypes"]
     | { schema: keyof DatabaseWithoutInternals },
-  CompositeTypeName extends PublicCompositeTypeNameOrOptions extends {
+  CompositeTypeName extends (PublicCompositeTypeNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"]
-    : never = never,
+    : never) = never,
 > = PublicCompositeTypeNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }

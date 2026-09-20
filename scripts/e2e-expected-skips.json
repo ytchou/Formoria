@@ -37,26 +37,6 @@
       "reason": "Staging intentionally omits the sitemap."
     },
     {
-      "file": "event-detail.spec.ts",
-      "title": "area chips filter the brand grid in place",
-      "reason": "event lineup has fewer than two areas to filter by"
-    },
-    {
-      "file": "admin-brand-refresh.spec.ts",
-      "title": "keeps a failed refresh selected while removing successful approvals",
-      "reason": "DEV-1592: admin panel crashes on the Approve dialog"
-    },
-    {
-      "file": "admin-moderation.spec.ts",
-      "title": "admin cannot bypass the block and can review the resulting queue rows",
-      "reason": "DEV-1590: Content section Edit button crashes the admin panel after PR #889 namespace rename"
-    },
-    {
-      "file": "auth-signup-journey.spec.ts",
-      "title": "confirms a new account and lands on the home page signed in",
-      "reason": "DEV-1592: signUp/OTP verification fails intermittently on staging"
-    },
-    {
       "file": "brand-detail.spec.ts",
       "title": "FAQ answer text is in the DOM while collapsed",
       "reason": "Cloudflare WAF challenges raw-HTTP Googlebot requests on a remote target"
@@ -75,31 +55,6 @@
       "file": "image-route.spec.ts",
       "title": "sets an immutable one-year cache header",
       "reason": "Cloudflare rewrites cache-control on remote targets"
-    },
-    {
-      "file": "discovery-trail.spec.ts",
-      "title": "trail entrance renders in server HTML",
-      "reason": "no trail products in staging database"
-    },
-    {
-      "file": "discovery-trail.spec.ts",
-      "title": "outbound chip points at the brand's official destination",
-      "reason": "no trail products in staging database"
-    },
-    {
-      "file": "auth-signup.spec.ts",
-      "title": "registers a new user and redirects to sign-in with confirmation message",
-      "reason": "Supabase email rate limit exceeded on free tier"
-    },
-    {
-      "file": "share-card-api.spec.ts",
-      "title": "Share card API",
-      "reason": "staging rate limiter returns 429 — not core product flow"
-    },
-    {
-      "file": "search-edge-cases.spec.ts",
-      "title": "Public brand search edge cases",
-      "reason": "search edge cases flaky after staging migration — not core product flow"
     }
   ]
 }

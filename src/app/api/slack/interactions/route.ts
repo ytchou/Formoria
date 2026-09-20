@@ -17,11 +17,11 @@ import type { OpsProposal } from "@/lib/services/ops-agent/proposals";
 import { requestBrandRefreshesBySlugs } from "@/lib/services/submissions";
 import {
   enqueueAdminCurationJob,
-  enqueueManualRerun,
-  enqueueCurationResume,
+  enqueueCurationRecovery,
 } from "@/lib/services/curation-jobs";
 import { dispatchCurationJob } from "@/lib/services/curation-dispatch";
 import { dispatchWorkflow } from "@/lib/adapters/github/actions-api";
+import { runOpsCodeFix } from "@/lib/services/ops-agent/code-fix";
 
 export const runtime = "nodejs";
 
@@ -29,9 +29,9 @@ const defaultExecuteDeps: ExecuteDeps = {
   requestBrandRefreshesBySlugs,
   enqueueAdminCurationJob,
   dispatchCurationJob,
-  enqueueManualRerun,
-  enqueueCurationResume,
+  enqueueCurationRecovery,
   dispatchWorkflow,
+  runCodeFix: runOpsCodeFix,
 };
 
 export type InteractionsRouteDeps = {

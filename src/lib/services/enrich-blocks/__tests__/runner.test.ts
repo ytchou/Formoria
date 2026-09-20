@@ -1,11 +1,11 @@
 import { describe, it, expect, vi } from 'vitest'
 import { BLOCK_ORDER, type BlockName } from '@/lib/constants/enrich-phases'
 import type { EnrichPhaseName } from '@/lib/constants/enrich-phases'
-import type { Block, BlockContext } from '../registry'
+import type { Block, BrandBlock, BlockContext } from '../registry'
 import { buildBlockRegistry } from '../registry'
 import { runBlocks } from '../runner'
 import type { RunBlocksHooks } from '../runner'
-import type { PhaseOutputStore } from '../phase-outputs'
+import { mergeSelectedPhaseOutputs, type PhaseOutputStore, type PhaseOutputRow } from '../phase-outputs'
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -27,19 +27,57 @@ function fakeBlock(
   scope: 'chunk' | 'brand',
   phases: readonly EnrichPhaseName[],
   calls: CallRecord[],
-  overrides?: Partial<Block>,
+  overrides?: Partial<BrandBlock>,
 ): Block {
-  const defaultRun: Block['run'] = async (ctx) => {
+  const defaultRun: BrandBlock['run'] = async (ctx) => {
     calls.push({ block: name, brandId: ctx.brandId })
-    return { output: { patch: {} } }
+    return {
+      phaseOutputs: (ctx.executePhases ?? phases).map((phase) => ({
+        phaseResult: {
+          phase,
+          status: 'succeeded' as const,
+          changedFields: [],
+          durationMs: 0,
+        },
+        output: { patch: {} },
+      })),
+    }
   }
-  return {
-    scope,
+  const conditions = {
     phases,
-    run: overrides?.run ?? defaultRun,
     precondition: overrides?.precondition,
+    inputError: overrides?.inputError,
     postcondition: overrides?.postcondition,
   }
+  if (scope === 'chunk') {
+    return {
+      ...conditions,
+      scope,
+      async runBatch(contexts) {
+        calls.push({
+          block: name,
+          brandId: contexts.map((ctx) => ctx.brandId).join(','),
+        })
+        return new Map(
+          contexts.map((ctx) => [
+            ctx.targetId,
+            {
+              phaseOutputs: (ctx.executePhases ?? phases).map((phase) => ({
+                phaseResult: {
+                  phase,
+                  status: 'succeeded' as const,
+                  changedFields: [],
+                  durationMs: 0,
+                },
+                output: { patch: {} },
+              })),
+            },
+          ]),
+        )
+      },
+    }
+  }
+  return { ...conditions, scope, run: overrides?.run ?? defaultRun }
 }
 
 function fakeStore(
@@ -49,6 +87,7 @@ function fakeStore(
   return {
     upserted,
     reader: {
+      forTargets: readerOverrides?.forTargets ?? (async (targets) => (await Promise.all(targets.map((target) => readerOverrides?.latestPerPhase?.(target) ?? []))).flat()),
       latestPerPhase:
         readerOverrides?.latestPerPhase ?? vi.fn().mockResolvedValue([]),
       unpersisted:
@@ -59,8 +98,8 @@ function fakeStore(
         .fn()
         .mockImplementation(async (rows: Record<string, unknown>[]) => {
           upserted.push(...rows)
+          return rows
         }),
-      markPersisted: vi.fn().mockResolvedValue(undefined),
     },
   }
 }
@@ -74,7 +113,7 @@ function emptyMaps() {
 
 function buildTestRegistry(
   calls: CallRecord[],
-  overrides?: Partial<Record<BlockName, Partial<Block>>>,
+  overrides?: Partial<Record<BlockName, Partial<BrandBlock>>>,
 ): Record<BlockName, Block> {
   return {
     gather: fakeBlock('gather', 'chunk', [], calls, overrides?.gather),
@@ -122,6 +161,105 @@ function buildTestRegistry(
 // ---------------------------------------------------------------------------
 
 describe('runBlocks', () => {
+  // Catches a job-wide phase union escaping either target's authorized scope.
+  it('executes independent scopes for two targets in the same job', async () => {
+    const store = fakeStore()
+    const faq = makeCtx('林木工坊')
+    faq.plan = { selected: ['faq'], forced: ['faq'], explicit: ['faq'] }
+    const products = makeCtx('María García')
+    products.plan = { selected: ['products'], forced: ['products'], explicit: [] }
+    await runBlocks({ chunk: [faq, products], registry: buildTestRegistry([]),
+      order: BLOCK_ORDER, concurrency: 2, ...emptyMaps(), store, hooks: {}, jobId: 'mixed-recovery' })
+    expect(store.upserted.map((row) => [row.target_id, row.phase])).toEqual([
+      ['target-林木工坊', 'faq'], ['target-María García', 'products'],
+    ])
+  })
+
+  // Catches a FAQ result marking unexecuted editorial siblings successful.
+  it('checkpoints only the phases a block actually produced', async () => {
+    const store = fakeStore()
+    const registry = buildTestRegistry([])
+    registry.editorial = {
+      scope: 'brand',
+      phases: ['descriptions', 'stockists', 'faq'],
+      async run() {
+        return {
+          phaseOutputs: [
+            {
+              phaseResult: {
+                phase: 'faq',
+                status: 'succeeded',
+                changedFields: ['faq'],
+                durationMs: 12,
+              },
+              output: { patch: { faq: { entries: [], explicit: true } } },
+            },
+          ],
+        }
+      },
+    }
+    await runBlocks({
+      chunk: [makeCtx('林木工坊')],
+      registry,
+      order: ['editorial'],
+      concurrency: 1,
+      ...emptyMaps(),
+      store,
+      hooks: {},
+      jobId: 'faq-recovery',
+    })
+    expect(
+      store.upserted.map((row) => ({ phase: row.phase, output: row.output })),
+    ).toEqual([
+      {
+        phase: 'faq',
+        output: { patch: { faq: { entries: [], explicit: true } } },
+      },
+    ])
+  })
+
+  // Catches batch output from one target being checkpointed against its siblings.
+  it('checkpoints each target-specific batch result against its own target', async () => {
+    const store = fakeStore()
+    const registry = buildTestRegistry([])
+    registry.names = {
+      scope: 'chunk',
+      phases: ['names'],
+      async runBatch(contexts: BlockContext[]) {
+        return new Map(
+          contexts.map((ctx) => [
+            ctx.targetId,
+            {
+              output: { patch: { name: ctx.brandId } },
+            },
+          ]),
+        )
+      },
+    }
+    await runBlocks({
+      chunk: [makeCtx('María García'), makeCtx('林木工坊')],
+      registry,
+      order: ['names'],
+      concurrency: 2,
+      ...emptyMaps(),
+      store,
+      hooks: {},
+      jobId: 'recovery-names',
+    })
+    expect(
+      store.upserted.map((row) => ({
+        target: row.target_id,
+        output: row.output,
+      })),
+    ).toEqual([
+      {
+        target: 'target-María García',
+        output: { patch: { name: 'María García' } },
+      },
+      { target: 'target-林木工坊', output: { patch: { name: '林木工坊' } } },
+    ])
+  })
+
   it('runs blocks in block order with barriers', async () => {
     const calls: CallRecord[] = []
     const registry = buildBlockRegistry(buildTestRegistry(calls))
@@ -308,7 +446,7 @@ describe('runBlocks', () => {
 
     // Brand 'a' has acquire already satisfied
     const satisfaction = new Map<string, Map<string, Date>>()
-    satisfaction.set('target-a', new Map([['acquire', new Date()]]))
+    satisfaction.set('target-a', new Map([['detect', new Date(0)], ['acquire', new Date()]]))
 
     const carryData = { key: 'hydrated' }
     const store = fakeStore({
@@ -369,9 +507,7 @@ describe('runBlocks', () => {
     // Skipped PhaseResult emitted for brand 'a'
     const skipped = phaseResults.filter(
       (r) =>
-        r.brandId === 'a' &&
-        r.phase === 'acquire' &&
-        r.status === 'skipped',
+        r.brandId === 'a' && r.phase === 'acquire' && r.status === 'skipped',
     )
     expect(skipped).toHaveLength(1)
 
@@ -385,8 +521,8 @@ describe('runBlocks', () => {
 
     // Both brands have acquire satisfied
     const satisfaction = new Map<string, Map<string, Date>>()
-    satisfaction.set('target-a', new Map([['acquire', new Date()]]))
-    satisfaction.set('target-b', new Map([['acquire', new Date()]]))
+    satisfaction.set('target-a', new Map([['detect', new Date(0)], ['acquire', new Date()]]))
+    satisfaction.set('target-b', new Map([['detect', new Date(0)], ['acquire', new Date()]]))
 
     // Force acquire for brand 'a' only
     const force = new Map<string, Set<string>>()
@@ -498,4 +634,70 @@ describe('runBlocks', () => {
     )
     expect(postAcquire).toHaveLength(0)
   })
+})
+
+it('a checkpointed recovery merges only its source scope without repeating provider blocks', async () => {
+  const ctx = makeCtx('ceramic-studio')
+  ctx.plan = { selected: ['descriptions'], forced: [], explicit: ['descriptions'] }
+  const source: PhaseOutputRow = {
+    id: 'source-description-checkpoint', job_id: 'failed-source',
+    target_id: ctx.targetId, target_type: ctx.targetType,
+    phase: 'descriptions', status: 'succeeded',
+    output: { patch: { description: '鶯歌製陶工作室' } },
+    persisted_at: null, created_at: '2026-09-15T10:00:00.000Z',
+  }
+  const store = fakeStore({ forTargets: async () => [
+    { ...source, id: 'unrelated-description', job_id: 'unrelated-job', output: { patch: { description: 'Unrelated content' } }, created_at: '2026-09-16T10:00:00.000Z' },
+    { ...source, id: 'unselected-products', phase: 'products', output: { patch: { products: [] } } },
+    source,
+  ] })
+  const calls: CallRecord[] = []
+  const registry = buildTestRegistry(calls)
+  await runBlocks({
+    chunk: [ctx], registry, order: BLOCK_ORDER, concurrency: 1,
+    ...emptyMaps(), store, hooks: {}, jobId: 'recovery-child', recoveryJobIds: ['failed-source'],
+  })
+  expect(mergeSelectedPhaseOutputs(ctx.plan.selected, ctx.phaseOutputs ?? new Map())).toEqual({ description: '鶯歌製陶工作室' })
+  expect([...ctx.checkpoints!.values()].map((row) => row.id)).toEqual(['source-description-checkpoint'])
+  expect(store.upserted).toEqual([])
+  expect(calls.filter((call) => call.block !== 'gather' && call.block !== 'persist')).toEqual([])
+})
+
+it('a phase-only recovery hydrates upstream inputs only from its source lineage', async () => {
+  const ctx = makeCtx('porcelain-studio')
+  ctx.plan = { selected: ['products'], forced: ['products'], explicit: ['products'] }
+  const source: PhaseOutputRow = {
+    id: 'source-acquire', job_id: 'failed-source', target_id: ctx.targetId,
+    target_type: ctx.targetType, phase: 'acquire', status: 'succeeded',
+    output: { patch: {}, carry: { catalog: { triples: [], attempts: [], deadlineHit: false }, marker: 'source' } },
+    persisted_at: '2026-09-15T11:00:00.000Z', created_at: '2026-09-15T10:00:00.000Z',
+  }
+  const store = fakeStore({ forTargets: async () => [
+    { ...source, id: 'unrelated-acquire', job_id: 'unrelated-job', output: { patch: {}, carry: { catalog: { triples: [], attempts: [], deadlineHit: false }, marker: 'unrelated' } }, created_at: '2026-09-16T10:00:00.000Z' },
+    source,
+  ] })
+  const hydrated: string[] = []
+  await runBlocks({
+    chunk: [ctx], registry: buildTestRegistry([]), order: BLOCK_ORDER, concurrency: 1,
+    ...emptyMaps(), store, jobId: 'recovery-child', recoveryJobIds: ['failed-source'],
+    hooks: { onHydrate: (_ctx, phase, row) => { if (phase === 'acquire') hydrated.push(row.id) } },
+  })
+  expect(hydrated).toEqual(['source-acquire'])
+})
+
+it('a phase-only retry fails with upstream guidance before provider work when saved inputs are absent', async () => {
+  const ctx = makeCtx('tea-studio')
+  ctx.plan = { selected: ['products'], forced: ['products'], explicit: ['products'] }
+  const calls: CallRecord[] = []
+  const results: Array<{ phase: string; status: string; error?: string }> = []
+  const store = fakeStore()
+  await runBlocks({
+    chunk: [ctx], registry: buildTestRegistry(calls, {
+      products: { inputError: () => 'Saved acquisition inputs are unavailable. Retry with upstream steps.' },
+    }), order: BLOCK_ORDER, concurrency: 1, ...emptyMaps(), store,
+    hooks: { onPhaseResult: (_ctx, _phase, result) => { results.push(result) } }, jobId: 'products-recovery',
+  })
+  expect(results).toEqual([{ phase: 'products', status: 'failed', changedFields: [], durationMs: 0, error: 'Saved acquisition inputs are unavailable. Retry with upstream steps.' }])
+  expect(store.upserted).toEqual([])
+  expect(calls.filter((call) => call.block !== 'gather')).toEqual([])
 })

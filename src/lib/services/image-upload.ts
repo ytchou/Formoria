@@ -1,8 +1,21 @@
 import { createServiceClient } from '@/lib/supabase/service'
 import { auditedCall } from '@/lib/audit'
 import { uploadWithRetry } from './storage-retry'
-import { storagePathFromImageUrl } from '@/lib/images/image-url'
-import { BRAND_IMAGES_KEY_PREFIX } from '@/lib/images/storage-keys'
+import {
+  BRAND_IMAGES_PUBLIC_URL_SEGMENT,
+  storageKeyFromBrandImagesPublicUrl,
+  storagePathFromImageUrl,
+} from '@/lib/images/image-url'
+import {
+  BRAND_IMAGES_BUCKET,
+  BRAND_IMAGES_KEY_PREFIX,
+  BRAND_SUBMISSIONS_BUCKET,
+  CURATED_PRODUCT_IMAGES_KEY_PREFIX,
+  isBrandOwnedStoragePath,
+  isPublicStorageKey,
+  partitionImageStoragePaths,
+  resolveImageStorageLocation,
+} from '@/lib/images/storage-keys'
 
 /**
  * Public upload route allowlist. A private bucket belongs here ONLY if a signed-in
@@ -10,23 +23,23 @@ import { BRAND_IMAGES_KEY_PREFIX } from '@/lib/images/storage-keys'
  * server-side-only buckets and are absent on purpose.
  */
 export const ALLOWED_UPLOAD_BUCKETS = [
-  'brand-images',
+  BRAND_IMAGES_BUCKET,
 ] as const
 export type AllowedUploadBucket = (typeof ALLOWED_UPLOAD_BUCKETS)[number]
-const BRAND_IMAGES_BUCKET = ALLOWED_UPLOAD_BUCKETS[0]
-const BRAND_IMAGES_PUBLIC_SEGMENT = `/storage/v1/object/public/${BRAND_IMAGES_BUCKET}/`
-const SUBMISSION_IMAGES_KEY_PREFIX = 'submissions/'
+/**
+ * Aliased from `lib/images/image-url.ts`, which owns the public-URL seam.
+ * Services depend on `lib/images`, never the other way round.
+ */
+const BRAND_IMAGES_PUBLIC_SEGMENT = BRAND_IMAGES_PUBLIC_URL_SEGMENT
 // Curated product images (DEV-1404): `curated-products/<brand>/<product>/<hash>.webp`
-// in the same `brand-images` bucket.
-export const CURATED_PRODUCT_IMAGES_KEY_PREFIX = 'curated-products/'
+// in the same `brand-images` bucket. Defined in `lib/images/storage-keys.ts`
+// since DEV-1744 (the URL builder needs it too) and re-exported here so the
+// existing importers keep their import path.
+export { CURATED_PRODUCT_IMAGES_KEY_PREFIX }
 const DELETABLE_IMAGE_KEY_PREFIXES = [BRAND_IMAGES_KEY_PREFIX] as const
 
-function getBrandImagesPublicPrefix(): string {
-  return `${process.env.NEXT_PUBLIC_SUPABASE_URL ?? ''}${BRAND_IMAGES_PUBLIC_SEGMENT}`
-}
-
 interface UploadImageInput {
-  bucket: AllowedUploadBucket
+  bucket: string
   path: string
   data: Buffer
   contentType: string
@@ -40,13 +53,14 @@ interface UploadImageInput {
  * it unset — see uploadStorageObject, where it also gates retry idempotency.
  */
 type PublicUploadImageInput = UploadImageInput & {
-  bucket: 'brand-images'
+  bucket: typeof BRAND_IMAGES_BUCKET
   upsert?: boolean
 }
 export type PrivateUploadFileInput = Omit<UploadImageInput, 'bucket'> & {
   bucket: 'run-logs'
   upsert?: boolean
 }
+export type SubmissionUploadImageInput = Omit<UploadImageInput, 'bucket'>
 
 /**
  * DELETE-path key derivation for the BRAND-IMAGE flows: `brands/` only. Its
@@ -64,12 +78,11 @@ export type PrivateUploadFileInput = Omit<UploadImageInput, 'bucket'> & {
  * derivation rather than an entry here. `submissions/` remains read-only.
  */
 export function storageKeyFromPublicUrl(url: string): string | null {
-  const prefix = getBrandImagesPublicPrefix()
-  if (!url || !prefix || !url.startsWith(prefix)) {
+  const key = storageKeyFromBrandImagesPublicUrl(url)
+  if (!key) {
     return null
   }
 
-  const key = url.slice(prefix.length)
   if (!DELETABLE_IMAGE_KEY_PREFIXES.some((allowed) => key.startsWith(allowed))) {
     return null
   }
@@ -79,12 +92,12 @@ export function storageKeyFromPublicUrl(url: string): string | null {
 
 /**
  * READ-path twin, deliberately a separate function rather than a loosened
- * `storageKeyFromPublicUrl`. `brands/` and `submissions/` are both in the
- * `brand-images` bucket, and on a read an unrecognised key is the *unsafe*
- * failure: DEV-1374 (2026-08-07) shipped the vision loader on the delete-path
- * helper, so 23 queued `submission_images` rows — the ones with `storage_path`
- * null and a `.../brand-images/submissions/<id>/x.webp` url — resolved to no
- * key and failed their classify phase on every single run, permanently.
+ * `storageKeyFromPublicUrl`. It still recognizes legacy submission URLs from
+ * before `submissions/**` moved out of `brand-images`; on a read an
+ * unrecognised key is the *unsafe* failure. DEV-1374 (2026-08-07) shipped the
+ * vision loader on the delete-path helper, so 23 queued `submission_images`
+ * rows with only a legacy URL resolved to no key and failed their classify
+ * phase on every run.
  *
  * The asymmetry is the point: the delete path fails closed, the read path fails
  * open, so they cannot share a prefix list.
@@ -154,64 +167,45 @@ export function curatedProductStorageKeyFromPublicUrl(url: string): string | nul
    * and this function's whole job is finding the PREVIOUS object so it can be
    * cleaned up — dropping the legacy form would leak one object per edit.
    */
-  const proxyKey = storagePathFromImageUrl(url)
-  if (proxyKey) {
-    return proxyKey.startsWith(CURATED_PRODUCT_IMAGES_KEY_PREFIX)
-      ? proxyKey
-      : null
-  }
-
-  const prefix = getBrandImagesPublicPrefix()
-  if (!prefix || !url.startsWith(prefix)) {
-    return null
-  }
-
-  const key = url.slice(prefix.length)
-  return key.startsWith(CURATED_PRODUCT_IMAGES_KEY_PREFIX) ? key : null
+  const key = storagePathFromImageUrl(url)
+  return key?.startsWith(CURATED_PRODUCT_IMAGES_KEY_PREFIX) ? key : null
 }
 
 export async function deleteStoredImagePaths(paths: string[]): Promise<void> {
   return auditedCall(
     { provider: 'images', operation: 'deleteStoredImagePaths', kind: 'service' },
     async () => {
-  const keys = [...new Set(paths)].filter(
-    (path) =>
-      path.startsWith(BRAND_IMAGES_KEY_PREFIX) ||
-      path.startsWith(SUBMISSION_IMAGES_KEY_PREFIX) ||
-      path.startsWith(CURATED_PRODUCT_IMAGES_KEY_PREFIX)
-  )
-  if (keys.length === 0) return
-
-  const supabase = createServiceClient()
-  for (let index = 0; index < keys.length; index += 1_000) {
-    const { error } = await uploadWithRetry(() =>
-      supabase.storage
-        .from(BRAND_IMAGES_BUCKET)
-        .remove(keys.slice(index, index + 1_000)),
-    )
-    if (error) throw error
-  }
+      const partitioned = partitionImageStoragePaths(paths)
+      const supabase = createServiceClient()
+      for (const bucket of [BRAND_IMAGES_BUCKET, BRAND_SUBMISSIONS_BUCKET] as const) {
+        const keys = partitioned[bucket]
+        for (let index = 0; index < keys.length; index += 1_000) {
+          const { error } = await uploadWithRetry(() =>
+            supabase.storage.from(bucket).remove(keys.slice(index, index + 1_000)),
+          )
+          if (error) throw error
+        }
+      }
     },
   )
 }
 
 /**
- * Size of a `brand-images` object, or null when it does not exist.
- *
- * `size` is optional on the Storage info payload; a missing value is reported
- * as 0 rather than as "unknown", which makes two size-less objects compare
- * equal. Ceiling: identity is size-only. Upgrade to an etag/checksum comparison
- * if the API starts returning one for every object.
+ * Verified identity metadata for the routed image object, or null when it does
+ * not exist. Missing size or ETag is an error because promotion must not adopt
+ * or rewrite a row without proving byte identity.
  */
-export async function statBrandImageObject(
+export async function statStoredImageObject(
   key: string
-): Promise<{ size: number } | null> {
+): Promise<{ size: number; etag: string } | null> {
   return auditedCall(
-    { provider: 'images', operation: 'statBrandImageObject', kind: 'service' },
+    { provider: 'images', operation: 'statStoredImageObject', kind: 'service' },
     async () => {
+      const location = resolveImageStorageLocation(key)
+      if (!location) throw new Error(`Invalid image storage path: ${key}`)
       const supabase = createServiceClient()
       const { data, error } = await uploadWithRetry(() =>
-        supabase.storage.from(BRAND_IMAGES_BUCKET).info(key),
+        supabase.storage.from(location.bucket).info(key),
       )
 
       if (error) {
@@ -221,7 +215,10 @@ export async function statBrandImageObject(
         throw error
       }
 
-      return { size: data.size ?? 0 }
+      if (typeof data.size !== 'number' || !data.etag?.trim()) {
+        throw new Error(`Storage metadata is unverifiable for ${location.bucket}/${key}`)
+      }
+      return { size: data.size, etag: data.etag.trim() }
     },
   )
 }
@@ -241,24 +238,37 @@ function isMissingStorageObjectError(error: unknown): boolean {
 }
 
 /**
- * Server-side copy inside the `brand-images` bucket. Never overwrites: Storage
- * answers an occupied destination with a 409, which the caller must surface
- * rather than resolve. Nothing here deletes the source.
+ * Server-side copy from private submissions to public brand imagery. Never
+ * overwrites: Storage answers an occupied destination with a 409, which the
+ * caller must surface rather than resolve. Nothing here deletes the source.
  */
-export async function copyBrandImageObject(
+export async function copySubmissionImageToPublic(
   sourceKey: string,
   targetKey: string
 ): Promise<void> {
   return auditedCall(
-    { provider: 'images', operation: 'copyBrandImageObject', kind: 'service' },
+    { provider: 'images', operation: 'copySubmissionImageToPublic', kind: 'service' },
     async () => {
+      const source = resolveImageStorageLocation(sourceKey)
+      const target = resolveImageStorageLocation(targetKey)
+      if (source?.bucket !== BRAND_SUBMISSIONS_BUCKET) {
+        throw new Error(`Invalid private submission source: ${sourceKey}`)
+      }
+      if (
+        target?.bucket !== BRAND_IMAGES_BUCKET ||
+        !isBrandOwnedStoragePath(targetKey)
+      ) {
+        throw new Error(`Invalid public image destination: ${targetKey}`)
+      }
       // The destination key is DERIVED (brands/<brand_id>/<filename>), so a
       // retried copy cannot duplicate an object under a second random name --
       // the worst case is a 409 on the retry, which the promotion engine
       // records and a re-run resolves by adopting the existing target.
       const supabase = createServiceClient()
       const { error } = await uploadWithRetry(() =>
-        supabase.storage.from(BRAND_IMAGES_BUCKET).copy(sourceKey, targetKey),
+        supabase.storage
+          .from(BRAND_SUBMISSIONS_BUCKET)
+          .copy(sourceKey, targetKey, { destinationBucket: BRAND_IMAGES_BUCKET }),
       )
 
       if (error) {
@@ -296,9 +306,37 @@ export async function uploadPrivateFile(input: PrivateUploadFileInput): Promise<
   return auditedCall(
     { provider: 'images', operation: 'uploadPrivateFile', kind: 'service' },
     async () => {
-  const path = await uploadStorageObject(input)
+      const path = await uploadStorageObject(input)
 
-  return { key: `${input.bucket}/${path}` }
+      return { key: `${input.bucket}/${path}` }
+    },
+  )
+}
+
+export function validatePublicImageUploadPath(path: string): void {
+  if (!isPublicStorageKey(path)) {
+    throw new Error(`Invalid public image storage path: ${path}`)
+  }
+}
+
+function validateSubmissionImageUploadPath(path: string): void {
+  if (resolveImageStorageLocation(path)?.bucket !== BRAND_SUBMISSIONS_BUCKET) {
+    throw new Error(`Invalid submission image storage path: ${path}`)
+  }
+}
+
+export async function uploadSubmissionImage(
+  input: SubmissionUploadImageInput,
+): Promise<{ path: string }> {
+  return auditedCall(
+    { provider: 'images', operation: 'uploadSubmissionImage', kind: 'service' },
+    async () => {
+      validateSubmissionImageUploadPath(input.path)
+      const path = await uploadStorageObject({
+        ...input,
+        bucket: BRAND_SUBMISSIONS_BUCKET,
+      })
+      return { path }
     },
   )
 }
@@ -306,11 +344,8 @@ export async function uploadPrivateFile(input: PrivateUploadFileInput): Promise<
 /**
  * Uploads to the `brand-images` bucket and returns the BUCKET KEY.
  *
- * DEV-1551 task 12: no public-URL lookup. The bucket is private, so a public
- * URL is a dead link — every caller either stores the key (`storage_path`) or
- * renders it through `imagePathToUrl`. The name is kept because the bucket is
- * still the "public imagery" bucket in the sense that matters here: its objects
- * are published content, as opposed to private `claim-proofs`.
+ * Every caller stores the bucket-relative key (`storage_path`) or renders it
+ * through `imagePathToUrl`, which owns public URL generation.
  */
 export async function uploadPublicImage(
   input: PublicUploadImageInput,
@@ -318,9 +353,10 @@ export async function uploadPublicImage(
   return auditedCall(
     { provider: 'images', operation: 'uploadPublicImage', kind: 'service' },
     async () => {
-  const path = await uploadStorageObject(input)
+      validatePublicImageUploadPath(input.path)
+      const path = await uploadStorageObject(input)
 
-  return { path }
+      return { path }
     },
   )
 }

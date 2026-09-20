@@ -332,33 +332,49 @@ async function main(): Promise<void> {
       console.log(
         "Note: dry-run reads pages and calls the LLM to preview results. Use --brand <slug> to limit scope.",
       );
-      const { setAuditWriteSeam } = await import("@/lib/audit/emit");
-      setAuditWriteSeam(async () => null);
+      const { installSeams, assertNoNewAuditRows } = await import(
+        "@/lib/services/eval/zero-write"
+      );
+      const { runWithAuditContext } = await import("@/lib/audit/context");
+      const { randomUUID } = await import("node:crypto");
+      const runCorrelationId = randomUUID();
+      const { collector, restore } = installSeams({
+        sinkPath: "scripts/enrichment/products/curated-products/dry-run-sink.jsonl",
+      });
+      const since = new Date();
+      try {
+        const result = await runWithAuditContext(
+          { correlationId: runCorrelationId },
+          () => rewriteGeneratedDescriptions(deps, { apply, brandSlug }),
+        );
+        console.log(JSON.stringify(result.diffs, null, 2));
+        console.log(
+          `\nDry-run complete. Total: ${result.total}, Would rewrite: ${result.rewritten}, Skipped: ${result.skipped.length}, Failed: ${result.failed.length}`,
+        );
+        await assertNoNewAuditRows({
+          since,
+          correlationIds: [runCorrelationId],
+          spanIds: collector.all().map((r) => r.spanId),
+        });
+        if (result.failed.length > 0) {
+          process.exitCode = 1;
+        }
+      } finally {
+        restore();
+      }
+      return;
     }
-    const since = new Date();
-
     const result = await rewriteGeneratedDescriptions(deps, {
       apply,
       brandSlug,
     });
 
-    if (!apply) {
-      console.log(JSON.stringify(result.diffs, null, 2));
-      console.log(
-        `\nDry-run complete. Total: ${result.total}, Would rewrite: ${result.rewritten}, Skipped: ${result.skipped.length}, Failed: ${result.failed.length}`,
-      );
-      const { assertNoNewAuditRows } = await import(
-        "@/lib/services/eval/zero-write"
-      );
-      await assertNoNewAuditRows({ since });
-    } else {
-      console.log(
-        `Rewritten: ${result.rewritten}/${result.total}, Skipped: ${result.skipped.length}, Failed: ${result.failed.length}`,
-      );
-      console.log(
-        "Run pnpm embeddings:backfill --apply to refresh vector embeddings.",
-      );
-    }
+    console.log(
+      `Rewritten: ${result.rewritten}/${result.total}, Skipped: ${result.skipped.length}, Failed: ${result.failed.length}`,
+    );
+    console.log(
+      "Run pnpm embeddings:backfill --apply to refresh vector embeddings.",
+    );
 
     if (result.failed.length > 0) {
       process.exitCode = 1;

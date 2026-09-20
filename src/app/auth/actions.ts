@@ -284,20 +284,12 @@ export async function updatePassword(
       return { error: error.message };
     }
 
-    // End the recovery session before leaving. `updateUser` keeps it alive, and
-    // the destination is the sign-in page, which calls `redirectIfAuthenticated`
-    // — so a still-signed-in visitor was bounced straight to `/` and never saw
-    // the confirmation. `resetPassword.success` tells the visitor to sign in
-    // with the new password, which only makes sense once the old session is
-    // gone. Signing out also means a stolen recovery link cannot leave a live
-    // session behind after the password changes.
+    // End the recovery session before reporting success. `updateUser` keeps it
+    // alive, while the confirmation tells the visitor to sign in with the new
+    // password. Returning both the cookie deletion and message in this action
+    // response also avoids a redirect racing the recovery-cookie update.
     await supabase.auth.signOut();
 
-    redirect(
-      localizePath(
-        routes.auth.signIn({ message: t("resetPassword.success") }),
-        await getLocale()
-      )
-    );
+    return { message: t("resetPassword.success") };
   });
 }

@@ -241,26 +241,14 @@ describe("parseParams retry", () => {
       subPhase: "faq",
     });
 
-    // Unknown block → dropped
-    expect(parseParams({ retry: { block: "bogus", mode: "only" } }).retry).toBeUndefined();
-
-    // gather/persist are not retryable → dropped
-    expect(parseParams({ retry: { block: "gather", mode: "only" } }).retry).toBeUndefined();
-    expect(parseParams({ retry: { block: "persist", mode: "only" } }).retry).toBeUndefined();
-
-    // Unknown mode → dropped
-    expect(
-      parseParams({ retry: { block: "detect", mode: "restart" } }).retry,
-    ).toBeUndefined();
-
-    // subPhase on a non-editorial block → dropped
-    expect(
-      parseParams({ retry: { block: "products", mode: "only", subPhase: "faq" } }).retry,
-    ).toBeUndefined();
-
-    // Not an object → dropped
-    expect(parseParams({ retry: "detect" }).retry).toBeUndefined();
-    expect(parseParams({ retry: null }).retry).toBeUndefined();
+    // Invalid recovery metadata must fail closed instead of expanding to full enrichment.
+    for (const retry of [
+      { block: "bogus", mode: "only" }, { block: "gather", mode: "only" },
+      { block: "persist", mode: "with_upstream" }, { block: "detect", mode: "restart" },
+      { block: "products", mode: "only", subPhase: "faq" }, "detect", null,
+    ]) {
+      expect(() => parseParams({ retry })).toThrow(/recovery/i);
+    }
   });
 });
 
@@ -302,6 +290,21 @@ describe("forcePhasesForRetry", () => {
 // ---------------------------------------------------------------------------
 
 describe("resolvePhases with retry", () => {
+  // Catches the worker ignoring a new per-target plan and falling back to its old full task.
+  it("reads selected target scopes from a versioned recovery plan", () => {
+    const params = parseParams({ task: "full", retry: {
+      version: 1, action: { kind: "resume" }, targets: {
+        "submission-maria": { selected: ["faq"], forced: [], explicit: ["faq"] },
+        "submission-lin": { selected: ["products"], forced: ["products"], explicit: [] },
+      },
+    } });
+    expect(resolvePhases(params)).toEqual(["faq", "products"]);
+    expect(params.retry).toMatchObject({ targets: {
+      "submission-maria": { selected: ["faq"], forced: [] },
+      "submission-lin": { selected: ["products"], forced: ["products"] },
+    } });
+  });
+
   it("retry_feeds_force_set_as_resolved_phases", () => {
     const phases = resolvePhases({
       retry: { block: "products", mode: "only" },

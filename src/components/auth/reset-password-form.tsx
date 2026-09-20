@@ -29,41 +29,47 @@ export function ResetPasswordForm() {
 
       <AuthFormError message={state.error} />
 
-      <form action={action} className="space-y-4">
-        <div className="space-y-2">
-          <Label htmlFor="password">{t("resetPassword.passwordLabel")}</Label>
-          <Input
-            id="password"
-            name="password"
-            type="password"
-            placeholder={t("resetPassword.passwordPlaceholder")}
-            required
-            autoComplete="new-password"
-          />
+      {state.message ? (
+        <div className="rounded-surface bg-verified-green-bg px-4 py-3 type-body-sm text-ink-soft text-verified-green">
+          {state.message}
         </div>
+      ) : (
+        <form action={action} className="space-y-4">
+          <div className="space-y-2">
+            <Label htmlFor="password">{t("resetPassword.passwordLabel")}</Label>
+            <Input
+              id="password"
+              name="password"
+              type="password"
+              placeholder={t("resetPassword.passwordPlaceholder")}
+              required
+              autoComplete="new-password"
+            />
+          </div>
 
-        <div className="space-y-2">
-          <Label htmlFor="confirmPassword">
-            {t("resetPassword.confirmPasswordLabel")}
-          </Label>
-          <Input
-            id="confirmPassword"
-            name="confirmPassword"
-            type="password"
-            required
-            autoComplete="new-password"
-          />
-        </div>
+          <div className="space-y-2">
+            <Label htmlFor="confirmPassword">
+              {t("resetPassword.confirmPasswordLabel")}
+            </Label>
+            <Input
+              id="confirmPassword"
+              name="confirmPassword"
+              type="password"
+              required
+              autoComplete="new-password"
+            />
+          </div>
 
-        <Button
-          type="submit"
-          width="full"
-          size="large"
-          disabled={pending}
-        >
-          {pending ? t("resetPassword.submitting") : t("resetPassword.submit")}
-        </Button>
-      </form>
+          <Button
+            type="submit"
+            width="full"
+            size="large"
+            disabled={pending}
+          >
+            {pending ? t("resetPassword.submitting") : t("resetPassword.submit")}
+          </Button>
+        </form>
+      )}
 
       <p className="text-center type-body-sm">
         {t("resetPassword.backToSignIn")}{" "}

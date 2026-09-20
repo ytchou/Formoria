@@ -40,7 +40,7 @@ describe("validateProposal", () => {
     expect(result).toEqual({ ok: true });
   });
 
-  it("dispatch_workflow accepts only e2e-staging and health-agent", async () => {
+  it("dispatch_workflow accepts only e2e-staging", async () => {
     const result1 = await validateProposal(
       { kind: "dispatch_workflow", workflow: "e2e-staging", mode: "preflight" },
       {},
@@ -48,16 +48,20 @@ describe("validateProposal", () => {
     expect(result1).toEqual({ ok: true });
 
     const result2 = await validateProposal(
-      { kind: "dispatch_workflow", workflow: "health-agent", mode: "preflight" },
-      {},
-    );
-    expect(result2).toEqual({ ok: true });
-
-    const result3 = await validateProposal(
       { kind: "dispatch_workflow", workflow: "deploy-prod" as never, mode: "preflight" },
       {},
     );
-    expect(result3).toEqual(
+    expect(result2).toEqual(
+      expect.objectContaining({ ok: false, error: "invalid_workflow" }),
+    );
+  });
+
+  it("dispatch_workflow rejects health-agent", async () => {
+    const result = await validateProposal(
+      { kind: "dispatch_workflow", workflow: "health-agent" as never, mode: "preflight" },
+      {},
+    );
+    expect(result).toEqual(
       expect.objectContaining({ ok: false, error: "invalid_workflow" }),
     );
   });

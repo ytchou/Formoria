@@ -4,7 +4,10 @@ import type {
   PromotionRow,
   PromotionStorage,
 } from '@/lib/images/submission-image-promotion'
-import { promoteApprovedBrandImages } from '../promote-submission-images'
+import {
+  promoteApprovedBrandImages,
+  sweepPendingPromotions,
+} from '../promote-submission-images'
 
 /**
  * The approval boundary contract (DEV-1551): a brand that exists with
@@ -92,9 +95,15 @@ describe('promoteApprovedBrandImages', () => {
   it('promotes and rewrites the row when storage cooperates', async () => {
     const updates: { rowId: string; targetKey: string }[] = []
     const copies: { sourceKey: string; targetKey: string }[] = []
+    const objects = new Map([[SOURCE_KEY, { size: 1024, etag: 'image-etag' }]])
     const storage: PromotionStorage = {
-      statObject: async () => null,
+      statObject: async (key) => objects.get(key) ?? null,
       copyObject: async (sourceKey, targetKey) => {
+        const source = objects.get(sourceKey)
+        if (!source) {
+          throw new Error('source missing')
+        }
+        objects.set(targetKey, source)
         copies.push({ sourceKey, targetKey })
       },
       setStoragePath: async (rowId, targetKey) => {
@@ -114,5 +123,138 @@ describe('promoteApprovedBrandImages', () => {
     expect(updates).toEqual([
       { rowId: 'row-1', targetKey: `brands/${BRAND_ID}/x.webp` },
     ])
+  })
+})
+
+/**
+ * DEV-1744 — the batch sweep behind the daily cron.
+ *
+ * Supabase is never mocked here either. The pagination case drives the REAL
+ * range walk through a hand-written fake of the PostgREST builder (a fake DB,
+ * not a module mock): a sweep that read one page and stopped is exactly the
+ * failure this cron exists to prevent, so the walk itself must be exercised.
+ */
+const PAGE_SIZE = 1_000
+
+type FakeRow = { id: string; brand_id: string | null; storage_path: string | null }
+
+function fakeSupabaseWithRows(rows: FakeRow[]) {
+  const tables: string[] = []
+  const builder = {
+    select: () => builder,
+    like: () => builder,
+    neq: () => builder,
+    order: () => builder,
+    range: async (from: number, to: number) => ({
+      data: rows.slice(from, to + 1),
+      error: null,
+    }),
+  }
+
+  const client = {
+    from: (table: string) => {
+      tables.push(table)
+      return builder
+    },
+  }
+
+  return { client, tables }
+}
+
+describe('sweepPendingPromotions', () => {
+  beforeEach(() => {
+    vi.spyOn(console, 'error').mockImplementation(() => {})
+    vi.spyOn(console, 'log').mockImplementation(() => {})
+  })
+
+  afterEach(() => {
+    vi.restoreAllMocks()
+  })
+
+  it('resolves every submissions/-keyed row across pages', async () => {
+    const total = PAGE_SIZE + 37
+    const rows: FakeRow[] = Array.from({ length: total }, (_, index) => ({
+      id: `row-${String(index).padStart(5, '0')}`,
+      brand_id: BRAND_ID,
+      storage_path: `submissions/aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee/${index}.webp`,
+    }))
+    const { client } = fakeSupabaseWithRows(rows)
+
+    const result = await sweepPendingPromotions({
+      supabase: client as never,
+      dryRun: true,
+    })
+
+    expect(result?.plan.scanned).toBe(total)
+    expect(result?.plan.promote).toHaveLength(total)
+  })
+
+  it("never throws on a single row's copy failure", async () => {
+    const failingKey =
+      'submissions/aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee/broken.webp'
+    const sweepRows: PromotionRow[] = [
+      { id: 'row-a', brandId: BRAND_ID, storagePath: SOURCE_KEY },
+      { id: 'row-b', brandId: BRAND_ID, storagePath: failingKey },
+      {
+        id: 'row-c',
+        brandId: BRAND_ID,
+        storagePath: 'submissions/aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee/z.webp',
+      },
+    ]
+    const objects = new Map(
+      sweepRows.map((row) => [
+        row.storagePath as string,
+        { size: 1024, etag: `etag-${row.id}` },
+      ]),
+    )
+    const storage: PromotionStorage = {
+      statObject: async (key) => objects.get(key) ?? null,
+      copyObject: async (sourceKey, targetKey) => {
+        if (sourceKey === failingKey) {
+          throw new Error('copy refused')
+        }
+        const source = objects.get(sourceKey)
+        if (!source) {
+          throw new Error('source missing')
+        }
+        objects.set(targetKey, source)
+      },
+      setStoragePath: async () => {},
+    }
+
+    const result = await sweepPendingPromotions({
+      fetchRows: async () => sweepRows,
+      storage,
+    })
+
+    expect(result?.copied).toBe(2)
+    expect(result?.failures).toHaveLength(1)
+    expect(result?.failures[0]?.id).toBe('row-b')
+  })
+
+  it('returns null when the row read itself fails', async () => {
+    const result = await sweepPendingPromotions({
+      fetchRows: async () => {
+        throw new Error('database unreachable')
+      },
+      storage: storageThatAlwaysFails(),
+    })
+
+    expect(result).toBeNull()
+    expect(vi.mocked(console.error)).toHaveBeenCalled()
+  })
+
+  it('writes nothing in dry-run mode', async () => {
+    const storage = storageThatAlwaysFails()
+
+    const result = await sweepPendingPromotions({
+      fetchRows: async () => rows,
+      storage,
+      dryRun: true,
+    })
+
+    expect(result?.plan.promote).toHaveLength(1)
+    expect(result?.copied).toBe(0)
+    expect(result?.outcomes).toEqual([])
   })
 })

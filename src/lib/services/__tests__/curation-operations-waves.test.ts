@@ -1,6 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { runEnrich } from "../curation-operations";
+import { toAcquireCarry } from "../enrich-blocks/phase-outputs";
+import type { AcquirePhaseOutput } from "../enrich-phases/acquire";
 import type { DetectResult } from "../category-classifier";
 
 /**
@@ -34,6 +36,7 @@ const mocks = vi.hoisted(() => ({
   mapWithConcurrency: vi.fn(),
   probeStatic: vi.fn(),
   expandLinkHubs: vi.fn(),
+  expandSerpDiscoveredHubs: vi.fn(),
   collectHubUrls: vi.fn(),
   hasPurchaseChannel: vi.fn(),
   searchBrandUrls: vi.fn(),
@@ -156,6 +159,7 @@ vi.mock("../enrich-phases/link-expansion", async (importOriginal) => {
   return {
     ...original,
     expandLinkHubs: mocks.expandLinkHubs,
+    expandSerpDiscoveredHubs: mocks.expandSerpDiscoveredHubs,
     expandThreadsBio: mocks.expandThreadsBio,
     collectHubUrls: mocks.collectHubUrls,
     hasPurchaseChannel: mocks.hasPurchaseChannel,
@@ -227,8 +231,8 @@ vi.mock("../enrich-blocks/phase-outputs", async (importOriginal) => {
   return {
     ...original,
     createSupabasePhaseOutputStore: mocks.createSupabasePhaseOutputStore.mockReturnValue({
-      reader: { latestPerPhase: async () => [], unpersisted: async () => [] },
-      writer: { upsert: async () => {}, markPersisted: async () => {} },
+      reader: { forTargets: async () => [], latestPerPhase: async () => [], unpersisted: async () => [] },
+      writer: { upsert: async () => [] },
     }),
   };
 });
@@ -378,10 +382,10 @@ type SerpStub = {
   callStatus?: string;
 };
 
-function stubSerpCalls(stubs: { name?: SerpStub; handle?: SerpStub }) {
+function stubSerpCalls(stubs: { name?: SerpStub }) {
   mocks.batchSearchBrandsWithSnippets.mockImplementation(
-    async (names: string[], queryTemplate?: unknown) => {
-      const stub = queryTemplate === undefined ? stubs.name : stubs.handle;
+    async (names: string[]) => {
+      const stub = stubs.name;
       const results = new Map<string, unknown>();
       if (!stub) return results;
       for (const name of names) {
@@ -398,15 +402,12 @@ function stubSerpCalls(stubs: { name?: SerpStub; handle?: SerpStub }) {
   );
 }
 
-function serpCalls(kind: "name" | "handle") {
-  return mocks.batchSearchBrandsWithSnippets.mock.calls.filter(
-    (call: unknown[]) =>
-      kind === "name" ? call[1] === undefined : call[1] !== undefined,
-  );
+function serpCalls() {
+  return mocks.batchSearchBrandsWithSnippets.mock.calls;
 }
 
 /** Every field `runEnrich` reads off an `AcquirePhaseOutput`. */
-function acquireOutput(overrides: Record<string, unknown> = {}) {
+function acquireOutput(overrides: Record<string, unknown> = {}): AcquirePhaseOutput {
   return {
     phaseResult: {
       phase: "acquire",
@@ -424,6 +425,7 @@ function acquireOutput(overrides: Record<string, unknown> = {}) {
     quarantine: {},
     imagePool: [],
     acquisitionPageUrls: [],
+    priorityProductUrls: [],
     revokedColumns: [],
     providerFailure: false,
     ...overrides,
@@ -454,6 +456,7 @@ function editorialOutput() {
         durationMs: 10,
       },
     ],
+    phaseOutputs: [{ phaseResult: { phase: "descriptions", status: "succeeded", changedFields: ["description"], durationMs: 10 }, patch: { description: "A description" } }],
     patch: { description: "A description" },
     listingVerdict: null,
     descriptionRewrite: null,
@@ -492,6 +495,7 @@ const FULL_PHASES = [
 function emptyEditorialOutput() {
   return {
     agentOutcome: "generated" as const,
+    phaseOutputs: [],
     phaseResults: [] as Array<{
       phase: string;
       status: string;
@@ -515,21 +519,16 @@ function emptyEditorialOutput() {
 function mockSatisfiedPhases(phases: string[]) {
   mocks.createSupabasePhaseOutputStore.mockReturnValue({
     reader: {
-      latestPerPhase: async () =>
+      forTargets: async (targets: Array<{ id: string; type: string }>) => targets.flatMap((target) =>
         phases.map((phase) => ({
-          id: `out-${phase}`,
-          job_id: "job-prev",
-          target_id: "",
-          target_type: "submission",
-          phase,
-          status: "succeeded",
-          output: null,
-          persisted_at: null,
-          created_at: "2026-08-01T00:00:00Z",
-        })),
+          id: `out-${target.id}-${phase}`, job_id: "job-prev", target_id: target.id,
+          target_type: target.type, phase, status: "succeeded", output: { patch: {}, ...(phase === "acquire" ? { carry: toAcquireCarry(acquireOutput()) } : {}) },
+          persisted_at: "2026-08-01T00:00:00Z", created_at: "2026-08-01T00:00:00Z",
+        }))),
+      latestPerPhase: async () => [],
       unpersisted: async () => [],
     },
-    writer: { upsert: async () => {}, markPersisted: async () => {} },
+    writer: { upsert: async () => [] },
   });
 }
 
@@ -538,14 +537,20 @@ function defaultBeforeEach() {
   // Reset the phase-output store to empty (clearAllMocks does not reset
   // return values set by mockReturnValue).
   mocks.createSupabasePhaseOutputStore.mockReturnValue({
-    reader: { latestPerPhase: async () => [], unpersisted: async () => [] },
-    writer: { upsert: async () => {}, markPersisted: async () => {} },
+    reader: { forTargets: async () => [], latestPerPhase: async () => [], unpersisted: async () => [] },
+    writer: { upsert: async () => [] },
   });
   mocks.getLatestSearchResults.mockResolvedValue(new Map());
   mocks.batchSearchBrandImages.mockResolvedValue(new Map());
   mocks.scrapeBrandUrls.mockResolvedValue(scrapeResult());
   mocks.collectHubUrls.mockReturnValue([]);
   mocks.expandLinkHubs.mockResolvedValue({
+    hubsFetched: 0,
+    fetchFailures: 0,
+    adopted: [],
+    scraped: {},
+  });
+  mocks.expandSerpDiscoveredHubs.mockResolvedValue({
     hubsFetched: 0,
     fetchFailures: 0,
     adopted: [],
@@ -595,6 +600,7 @@ describe("wave collapse — single per-brand loop", () => {
           durationMs: 100,
         },
       ],
+      phaseOutputs: [{ phaseResult: { phase: "descriptions", status: "succeeded", changedFields: ["description"], durationMs: 100 }, patch: { description: "A test description" } }],
       patch: { description: "A test description" },
       listingVerdict: null,
       descriptionRewrite: null,
@@ -1174,6 +1180,7 @@ describe("editorial agent integration", () => {
         { phase: "stockists", status: "skipped", changedFields: [], durationMs: 10 },
         { phase: "faq", status: "succeeded", changedFields: [], durationMs: 50 },
       ],
+      phaseOutputs: [{ phaseResult: { phase: "descriptions", status: "succeeded", changedFields: ["description"], durationMs: 100 }, patch: { description: "A test description" } }],
       patch: { description: "A test description" },
       listingVerdict: null,
       descriptionRewrite: null,
@@ -1245,6 +1252,7 @@ describe("editorial agent integration", () => {
     // relying on the original implementation reading EDITORIAL_AGENT=off.
     mocks.runEditorialAgent.mockResolvedValueOnce({
       agentOutcome: "fallback",
+      phaseOutputs: [],
       phaseResults: [],
       patch: {},
       listingVerdict: null,
@@ -1433,6 +1441,44 @@ describe("two loops with a batched names call between", () => {
     expect(mocks.runProductsPhase).toHaveBeenCalledOnce();
   });
 
+  it("mixed recovery targets report only their selected batch phases", async () => {
+    const detectTarget = submission({
+      id: "sub-detect-scope",
+      brand_name: "Detect Scope Studio",
+      social_instagram: "https://www.instagram.com/detectscope",
+    });
+    const faqTarget = submission({
+      id: "sub-faq-scope",
+      brand_name: "FAQ Scope Studio",
+      social_instagram: "https://www.instagram.com/faqscope",
+    });
+    mocks.runEditorialAgent.mockResolvedValue({
+      ...editorialOutput(),
+      phaseResults: [{ phase: "faq", status: "succeeded", changedFields: ["faq"], durationMs: 10 }],
+      phaseOutputs: [{ phaseResult: { phase: "faq", status: "succeeded", changedFields: ["faq"], durationMs: 10 }, patch: { faq: [] } }],
+      patch: { faq: [] },
+    });
+    const progress: Array<{ targetId: string; currentPhase?: string | null }> = [];
+
+    await runEnrich(
+      {
+        target: "submissions",
+        submissionIds: [detectTarget.id, faqTarget.id],
+        dryRun: true,
+        phases: ["detect", "faq"],
+        targetPlans: {
+          [detectTarget.id]: { selected: ["detect"], forced: ["detect"], explicit: [] },
+          [faqTarget.id]: { selected: ["faq"], forced: ["faq"], explicit: ["faq"] },
+        },
+        onProgress: () => {},
+        onTargetProgressBatch: async (events) => { progress.push(...events); },
+      },
+      fakeSupabase([detectTarget, faqTarget]),
+    );
+
+    expect(progress.filter((event) => event.targetId === faqTarget.id).map((event) => event.currentPhase)).not.toContain("detect");
+  });
+
   it("gate_b_weak_brand_skips", async () => {
     const weak = submission({
       id: "sub-weak",
@@ -1496,16 +1542,17 @@ describe("two loops with a batched names call between", () => {
       },
     ];
     const catalogResult = {
-      candidates: [],
-      entryUrls: ["https://pool.example.com/shop"],
-      priorityProductUrls: ["https://pool.example.com/products/vase"],
-      rawCount: 0,
+      triples: [],
+      attempts: [],
+      evidence: new Map(),
+      deadlineHit: false,
     };
     mocks.runAcquirePhase.mockResolvedValue(
       acquireOutput({
         imagePool,
         catalogResult,
         acquisitionPageUrls: ["https://pool.example.com/products/vase"],
+        priorityProductUrls: ["https://pool.example.com/products/vase"],
       }),
     );
     mocks.runNamesPhase.mockResolvedValue(namesOutput());
@@ -1522,7 +1569,6 @@ describe("two loops with a batched names call between", () => {
       },
       fakeSupabase([target]),
     );
-
     const productsInput = mocks.runProductsPhase.mock.calls[0][0] as {
       imagePool: unknown;
       catalogResult: unknown;
@@ -1752,18 +1798,17 @@ describe("link expansion, SERP search, and no-purchase-channel gate", () => {
     expect(mocks.runAcquirePhase).not.toHaveBeenCalled();
   });
 
-  it("serp_by_name_runs_only_when_no_channel_after_hub_expansion", async () => {
-    const igOnly = submission({
-      id: "sub-ig-only",
-      brand_name: "IG Only Brand",
-      social_instagram: "https://www.instagram.com/igonlybrand",
+  it("serp_always_fires_regardless_of_purchase_channel", async () => {
+    const withChannel = submission({
+      id: "sub-with-channel",
+      brand_name: "Channel Brand",
+      social_instagram: "https://www.instagram.com/channelbrand",
+      purchase_website: "https://channelbrand.example.com",
     });
-    const hubbed = submission({
-      id: "sub-hubbed",
-      brand_name: "Hubbed Brand",
-      website_url: "https://portaly.cc/hubbed",
-      social_instagram: "https://www.instagram.com/hubbed",
-      purchase_website: "https://hubbed.example.com",
+    const withoutChannel = submission({
+      id: "sub-without-channel",
+      brand_name: "No Channel Brand",
+      social_instagram: "https://www.instagram.com/nochannelbrand",
     });
 
     mocks.collectHubUrls.mockReturnValue([]);
@@ -1772,25 +1817,80 @@ describe("link expansion, SERP search, and no-purchase-channel gate", () => {
       adopted: [],
       scraped: {},
     });
-    mocks.hasPurchaseChannel
-      .mockReturnValueOnce(false) // igOnly after hub expansion
-      .mockReturnValue(true); // hubbed and all subsequent calls
+    // First brand has a channel, second does not — SERP fires for both
+    mocks.hasPurchaseChannel.mockReturnValue(true);
 
-    stubSerpCalls({ name: { urls: ["https://igonlybrand.com/shop"] } });
+    stubSerpCalls({ name: { urls: [] } });
 
     await runEnrich(
       {
         target: "submissions",
-        submissionIds: [igOnly.id, hubbed.id],
+        submissionIds: [withChannel.id, withoutChannel.id],
         dryRun: true,
         phases: FULL_PHASES,
         onProgress: () => {},
       },
-      fakeSupabase([igOnly, hubbed]),
+      fakeSupabase([withChannel, withoutChannel]),
     );
 
-    const nameCalls = serpCalls("name");
-    expect(nameCalls).toHaveLength(1);
-    expect(nameCalls[0][0]).toEqual(["IG Only Brand"]);
+    // SERP is called for BOTH brands — no hasPurchaseChannel gate
+    const calls = serpCalls();
+    expect(calls).toHaveLength(2);
+  });
+
+  it("serp_query_template_includes_handle_when_available", async () => {
+    const withHandle = submission({
+      id: "sub-with-handle",
+      brand_name: "Handle Brand",
+      social_instagram: "https://www.instagram.com/handlebrand",
+    });
+    const withoutHandle = submission({
+      id: "sub-no-handle",
+      brand_name: "No Handle Brand",
+      social_instagram: null,
+    });
+
+    mocks.collectHubUrls.mockReturnValue([]);
+    mocks.expandLinkHubs.mockResolvedValue({
+      hubsFetched: 0,
+      adopted: [],
+      scraped: {},
+    });
+    mocks.hasPurchaseChannel.mockReturnValue(true);
+
+    stubSerpCalls({ name: { urls: [] } });
+
+    await runEnrich(
+      {
+        target: "submissions",
+        submissionIds: [withHandle.id, withoutHandle.id],
+        dryRun: true,
+        phases: FULL_PHASES,
+        onProgress: () => {},
+      },
+      fakeSupabase([withHandle, withoutHandle]),
+    );
+
+    const calls = serpCalls();
+    expect(calls).toHaveLength(2);
+
+    // Each call: [brandNames, queryTemplate, concurrency, auditResolver]
+    // Brand with IG handle → query includes handle
+    const handleBrandCall = calls.find(
+      (c: unknown[]) => (c[0] as string[])[0] === "Handle Brand",
+    );
+    expect(handleBrandCall).toBeDefined();
+    const handleTemplate = handleBrandCall![1] as (name: string) => string;
+    expect(handleTemplate("Handle Brand")).toBe(
+      "Handle Brand handlebrand 台灣",
+    );
+
+    // Brand without IG handle → query is name + 台灣 only
+    const noHandleCall = calls.find(
+      (c: unknown[]) => (c[0] as string[])[0] === "No Handle Brand",
+    );
+    expect(noHandleCall).toBeDefined();
+    const noHandleTemplate = noHandleCall![1] as (name: string) => string;
+    expect(noHandleTemplate("No Handle Brand")).toBe("No Handle Brand 台灣");
   });
 });

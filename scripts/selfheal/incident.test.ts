@@ -9,7 +9,7 @@ import {
   validateDiagnosis,
   validateRepair,
   type DiagnosisResult,
-} from "./incident";
+} from "@/lib/services/e2e-selfheal/incident";
 
 const frozen = freezeFailures([
   {

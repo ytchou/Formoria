@@ -11,6 +11,20 @@ import {
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AnySupabaseClient = SupabaseClient<any, any, any>;
 
+const ONE_PIXEL_WEBP = Buffer.from(
+  "UklGRhoAAABXRUJQVlA4TA0AAAAvAAAAEAcQERGIiP4HAA==",
+  "base64",
+);
+
+async function removeSubmissionImageObjects(
+  supabase: AnySupabaseClient,
+  keys: string[],
+): Promise<void> {
+  if (keys.length === 0) return;
+  const { error } = await supabase.storage.from("brand-submissions").remove(keys);
+  if (error) throw error;
+}
+
 test.describe("Scheduled brand refresh review", () => {
   test.describe.configure({ mode: "serial" });
 
@@ -342,6 +356,7 @@ test.describe("Bulk refresh approval", () => {
   let supabase: AnySupabaseClient;
   const brandIds: string[] = [];
   const submissionIds: string[] = [];
+  const submissionImageKeys: string[] = [];
   let jobId: string | undefined;
 
   test.beforeEach(() => {
@@ -357,6 +372,7 @@ test.describe("Bulk refresh approval", () => {
 
   test.afterEach(async () => {
     if (!supabase) return;
+    await removeSubmissionImageObjects(supabase, submissionImageKeys);
     if (jobId) await supabase.from("curation_jobs").delete().eq("id", jobId);
     if (submissionIds.length > 0) {
       const { data: submissions } = await supabase
@@ -378,7 +394,6 @@ test.describe("Bulk refresh approval", () => {
   test("keeps a failed refresh selected while removing successful approvals", async ({
     adminPage,
   }) => {
-    test.skip(true, "DEV-1592: admin panel crashes on the Approve dialog — runtime bug, not test logic");
     test.setTimeout(BUDGET.TEST.MUTATION);
     supabase = createClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -401,6 +416,16 @@ test.describe("Bulk refresh approval", () => {
       validSubmissionId,
       "detail.webp",
     );
+    submissionImageKeys.push(validHeroKey, validDetailKey);
+    const storageResults = await Promise.all(
+      submissionImageKeys.map((key) =>
+        supabase.storage.from("brand-submissions").upload(key, ONE_PIXEL_WEBP, {
+          contentType: "image/webp",
+          upsert: true,
+        }),
+      ),
+    );
+    expect(storageResults.map((result) => result.error)).toEqual([null, null]);
     const { error: validSubmissionError } = await supabase
       .from("brand_submissions")
       .insert({

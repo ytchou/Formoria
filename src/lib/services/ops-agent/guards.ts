@@ -1,6 +1,6 @@
 import type { OperatorMap } from "./types";
 
-const CHANNEL_PREFIX = "formoria-";
+export const CHANNEL_PREFIX = "formoria-";
 
 export function parseOperators(envValue: string): OperatorMap {
   const map: OperatorMap = new Map();
@@ -29,7 +29,7 @@ export function parseOperators(envValue: string): OperatorMap {
   return map;
 }
 
-export type GuardEnv = {
+type GuardEnv = {
   OPS_AGENT?: string;
   OPS_AGENT_OPERATORS?: string;
 };

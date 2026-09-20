@@ -108,7 +108,7 @@ export function JobHistoryList({
                     </Link>
                   </TableCell>
                   <TableCell>{formatJobDate(job.started_at)}</TableCell>
-                  <TableCell>{jobTriggerLabel(job.trigger)}</TableCell>
+                  <TableCell>{jobTriggerLabel(job.trigger, job.params)}</TableCell>
                   <TableCell>{job.attempt}</TableCell>
                   <TableCell>
                     <JobStatusBadge job={job} />

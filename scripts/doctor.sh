@@ -50,6 +50,13 @@ check_deps() {
   else
     echo "OK: Dependencies installed"
   fi
+
+  if ! command -v uv &>/dev/null; then
+    echo "WARN: uv not found (needed only for pnpm ltr:train)"
+    WARNINGS=$((WARNINGS + 1))
+  else
+    echo "OK: uv installed"
+  fi
 }
 
 # ── Environment file ─────────────────────────────────────────────────────────
@@ -295,12 +302,22 @@ check_ai_results_phase() {
 check_e2e() {
   if [[ "$*" == *"--e2e"* ]]; then
     echo "Checking e2e env vars..."
-    for var in E2E_ADMIN_EMAIL E2E_ADMIN_PASSWORD E2E_USER_EMAIL E2E_USER_PASSWORD E2E_BRAND_SLUG E2E_CATEGORY_SLUG; do
+    for var in E2E_ADMIN_EMAIL E2E_ADMIN_PASSWORD E2E_USER_EMAIL E2E_USER_PASSWORD E2E_BRAND_SLUG E2E_CATEGORY_SLUG E2E_STAGING_SESSION_SECRET; do
       if [ -z "${!var}" ]; then
         echo "  MISSING: $var"
         ERRORS=$((ERRORS + 1))
       else
         echo "  OK: $var"
+      fi
+    done
+    if [ -n "${E2E_STAGING_SESSION_SECRET:-}" ] && [ "$(printf '%s' "$E2E_STAGING_SESSION_SECRET" | wc -c | tr -d ' ')" -lt 32 ]; then
+      echo "  INVALID: E2E_STAGING_SESSION_SECRET must be at least 32 bytes"
+      ERRORS=$((ERRORS + 1))
+    fi
+    for var in E2E_ORIGIN_SECRET CF_ORIGIN_SECRET ORIGIN_SECRET CF_ACCESS_CLIENT_SECRET; do
+      if [ -n "${E2E_STAGING_SESSION_SECRET:-}" ] && [ -n "${!var:-}" ] && [ "$E2E_STAGING_SESSION_SECRET" = "${!var}" ]; then
+        echo "  INVALID: E2E_STAGING_SESSION_SECRET must be separate from $var"
+        ERRORS=$((ERRORS + 1))
       fi
     done
   fi
@@ -317,61 +334,44 @@ has_env_value() {
   grep -Eq "^${var}=.+" .env.local 2>/dev/null
 }
 
-check_health_vars() {
-  local mode=""
+check_sentry_read_token() {
+  if has_env_value SENTRY_AUTH_TOKEN; then
+    echo "  OK: SENTRY_AUTH_TOKEN (Sentry read access)"
+  elif has_env_value SENTRY_READ_TOKEN; then
+    echo "  OK: SENTRY_READ_TOKEN (Sentry read access)"
+  else
+    echo "  MISSING: SENTRY_AUTH_TOKEN or SENTRY_READ_TOKEN"
+    ERRORS=$((ERRORS + 1))
+  fi
+}
+
+# ── Health agent Railway (opt-in) ───────────────────────────────────────────
+check_health_railway_vars() {
+  local want=false
   local arg
-
   for arg in "$@"; do
-    case "$arg" in
-      --health-preflight)
-        mode="preflight"
-        ;;
-      --health-live|--health-autofix)
-        mode="live"
-        ;;
-    esac
+    if [ "$arg" = "--health-railway" ]; then
+      want=true
+    fi
   done
-
-  if [ -z "$mode" ]; then
+  if [ "$want" = "false" ]; then
     return
   fi
 
-  echo "Checking health agent ${mode} configuration..."
+  echo "Checking health agent Railway configuration..."
 
-  local read_only_vars=(
-    FORMORIA_RAILWAY_URL
-    ORIGIN_SECRET
-    SLACK_HEALTH_WEBHOOK_URL
-    SENTRY_BASE_URL
+  local vars=(
+    REPO_WORKER_URL
+    GITHUB_APP_ID
+    GITHUB_APP_PRIVATE_KEY
+    GITHUB_APP_INSTALLATION_ID
+    PRODUCTION_BASE_URL
     SENTRY_ORGANIZATION
     SENTRY_PROJECT
-    SENTRY_READ_TOKEN
-    HEALTH_AGENT_READ_DATABASE_URL
-    HEALTH_AGENT_READ_DATABASE_PASSWORD
-    HEALTH_AGENT_READER_TOKEN
-    CLAUDE_CODE_OAUTH_TOKEN
-  )
-  read_only_vars+=(
-    AGENT_HUB_TURSO_DATABASE_URL
-    AGENT_HUB_TURSO_AUTH_TOKEN
-  )
-  local live_vars=(
-    LINEAR_OAUTH_CLIENT_ID
-    LINEAR_OAUTH_CLIENT_SECRET
-    LINEAR_OAUTH_ACCESS_TOKEN
-    LINEAR_TEAM_ID
-    LINEAR_PROJECT_ID
-    LINEAR_ASSIGNEE_ID
-    HEALTH_AGENT_WRITE_DATABASE_URL
-    HEALTH_AGENT_WRITE_DATABASE_PASSWORD
-    HEALTH_AGENT_WRITER_TOKEN
-    HEALTH_AGENT_GITHUB_APP_ID
-    HEALTH_AGENT_GITHUB_APP_PRIVATE_KEY
-    HEALTH_AGENT_GITHUB_APP_INSTALLATION_ID
   )
   local var
 
-  for var in "${read_only_vars[@]}"; do
+  for var in "${vars[@]}"; do
     if has_env_value "$var"; then
       echo "  OK: $var"
     else
@@ -379,17 +379,7 @@ check_health_vars() {
       ERRORS=$((ERRORS + 1))
     fi
   done
-
-  if [ "$mode" = "live" ]; then
-    for var in "${live_vars[@]}"; do
-      if has_env_value "$var"; then
-        echo "  OK: $var"
-      else
-        echo "  MISSING: $var"
-        ERRORS=$((ERRORS + 1))
-      fi
-    done
-  fi
+  check_sentry_read_token
 }
 
 # ── Ops agent (warn-only) ────────────────────────────────────────────────────
@@ -411,7 +401,7 @@ check_deps
 check_env
 check_ai_results_phase
 check_e2e "$@"
-check_health_vars "$@"
+check_health_railway_vars "$@"
 check_ops_agent_vars
 
 echo ""

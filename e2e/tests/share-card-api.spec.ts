@@ -5,13 +5,14 @@ import { BUDGET } from '../budgets';
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AnySupabaseClient = SupabaseClient<any, any, any>;
 
+const resolvedBaseURL =
+  process.env.BASE_URL ??
+  process.env.PLAYWRIGHT_BASE_URL ??
+  process.env.STAGING_BASE_URL ??
+  'http://localhost:3000';
+
 const IS_CANONICAL_STAGING_TARGET =
-  new URL(
-    process.env.BASE_URL ??
-      process.env.PLAYWRIGHT_BASE_URL ??
-      process.env.STAGING_BASE_URL ??
-      'http://localhost:3000',
-  ).origin === 'https://staging.formoria.com';
+  new URL(resolvedBaseURL).origin === 'https://staging.formoria.com';
 
 function expectShareCardCacheContract(cacheControl: string): void {
   if (IS_CANONICAL_STAGING_TARGET) {
@@ -34,9 +35,7 @@ function expectShareCardCacheContract(cacheControl: string): void {
  *        one hidden brand (gate case).
  * Cleanup: afterAll cascade-deletes both.
  */
-// Staging rate limiter intermittently returns 429 before the route handler,
-// making these tests flaky on the free-tier Supabase. Not core product flow.
-test.describe.skip('Share card API', () => {
+test.describe('Share card API', () => {
   let supabase: AnySupabaseClient;
   let approvedBrandId: string;
   let approvedBrandSlug: string;

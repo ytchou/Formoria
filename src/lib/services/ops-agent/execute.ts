@@ -1,5 +1,7 @@
 import { auditedCall } from "@/lib/audit";
+import type { CurationRecoveryInput, CurationRecoveryCounts } from "../curation-jobs";
 import type { OpsProposal } from "./proposals";
+import type { OpsCodeFixInput, OpsCodeFixResult } from "./code-fix";
 
 // Accept OpsProposal or compatible shapes. The `mode` field on
 // dispatch_workflow is enforced by the proposal Zod schema but not
@@ -33,18 +35,12 @@ export type ExecuteDeps = {
     startedBy: string;
   }) => Promise<{ id: string }>;
   dispatchCurationJob: (jobId: string) => Promise<unknown>;
-  enqueueManualRerun: (
-    sourceJobId: string,
-    startedBy: string,
-  ) => Promise<{ id: string }>;
-  enqueueCurationResume: (
-    sourceJobId: string,
-    startedBy: string,
-  ) => Promise<Array<{ id: string }>>;
+  enqueueCurationRecovery: (input: CurationRecoveryInput) => Promise<{ job: { id: string }; counts: CurationRecoveryCounts }>;
   dispatchWorkflow: (
     workflowFile: string,
     inputs: Record<string, string>,
   ) => Promise<unknown>;
+  runCodeFix: (input: OpsCodeFixInput) => Promise<OpsCodeFixResult>;
 };
 
 // ---------------------------------------------------------------------------
@@ -103,25 +99,15 @@ async function executeRerunJob(
   ctx: ExecuteContext,
   deps: ExecuteDeps,
 ): Promise<ExecuteResult> {
-  if (proposal.mode === "rerun") {
-    const job = await deps.enqueueManualRerun(proposal.jobId, ctx.operatorEmail);
-    await deps.dispatchCurationJob(job.id);
-    return {
-      ok: true,
-      result: { jobId: job.id, adminUrl: `/admin/jobs/${job.id}` },
-    };
-  }
-
-  // resume
-  const jobs = await deps.enqueueCurationResume(proposal.jobId, ctx.operatorEmail);
-  const firstJob = jobs[0];
-  if (!firstJob) {
-    return { ok: false, error: "No targets were eligible to resume" };
-  }
-  await deps.dispatchCurationJob(firstJob.id);
+  const { job, counts } = await deps.enqueueCurationRecovery({
+    sourceJobId: proposal.jobId,
+    startedBy: ctx.operatorEmail,
+    action: { kind: proposal.mode },
+  });
+  await deps.dispatchCurationJob(job.id);
   return {
     ok: true,
-    result: { jobId: firstJob.id, adminUrl: `/admin/jobs/${firstJob.id}` },
+    result: { jobId: job.id, adminUrl: `/admin/jobs/${job.id}`, counts },
   };
 }
 
@@ -131,7 +117,6 @@ async function executeRerunJob(
 
 const ALLOWED_WORKFLOWS: Record<string, Record<string, string>> = {
   "e2e-staging": {},
-  "health-agent": { mode: "preflight" },
 };
 
 async function executeDispatchWorkflow(
@@ -157,13 +142,15 @@ async function executeCodeFix(
   ctx: ExecuteContext,
   deps: ExecuteDeps,
 ): Promise<ExecuteResult> {
-  await deps.dispatchWorkflow("ops-fix.yml", {
+  const result = await deps.runCodeFix({
     instruction: proposal.instruction,
-    request_id: ctx.requestId,
-    channel: ctx.channel,
-    thread_ts: ctx.threadTs,
+    requestId: ctx.requestId,
   });
-  return { ok: true, result: { dispatched: "ops-fix.yml" } };
+  if (!result.ok) return result;
+  return {
+    ok: true,
+    result: { prUrl: result.prUrl, prNumber: result.prNumber },
+  };
 }
 
 // ---------------------------------------------------------------------------

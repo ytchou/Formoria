@@ -32,6 +32,68 @@ function runDoctorWithMigrationOutput(output: string) {
   }
 }
 
+describe("doctor --health-railway mode", () => {
+  function runDoctorHealthRailway(envOverrides: Record<string, string> = {}) {
+    return spawnSync("bash", ["scripts/doctor.sh", "--health-railway"], {
+      cwd: process.cwd(),
+      encoding: "utf8",
+      env: {
+        ...process.env,
+        // Prevent the migration check from hitting a real DB
+        SUPABASE_DB_URL: "",
+        DATABASE_URL: "",
+        HEALTH_AGENT_READ_DATABASE_URL: "",
+        ...envOverrides,
+      },
+    });
+  }
+
+  it("requires REPO_WORKER_URL and GitHub App credentials, but not the repo-worker Codex key", () => {
+    const result = runDoctorHealthRailway();
+    const out = result.stdout;
+    expect(out).toContain("Checking health agent Railway configuration...");
+    for (const v of [
+      "REPO_WORKER_URL",
+      "GITHUB_APP_ID",
+      "GITHUB_APP_PRIVATE_KEY",
+      "GITHUB_APP_INSTALLATION_ID",
+      "PRODUCTION_BASE_URL",
+    ]) {
+      expect(out).toContain(v);
+    }
+    // Must not require the old reader/writer JWT vars
+    expect(out).not.toContain("HEALTH_AGENT_READER_TOKEN");
+    expect(out).not.toContain("HEALTH_AGENT_WRITER_TOKEN");
+    expect(out).not.toContain("HEALTH_AGENT_GITHUB_APP_ID");
+    expect(out).not.toContain("CODEX_API_KEY");
+  });
+
+  it("accepts either Sentry token variable for the Railway health agent", () => {
+    const withAuthToken = runDoctorHealthRailway({
+      SENTRY_AUTH_TOKEN: "existing-auth-token",
+    });
+    expect(withAuthToken.stdout).toContain(
+      "OK: SENTRY_AUTH_TOKEN (Sentry read access)",
+    );
+
+    const withReadToken = runDoctorHealthRailway({
+      SENTRY_AUTH_TOKEN: "",
+      SENTRY_READ_TOKEN: "dedicated-read-token",
+    });
+    expect(withReadToken.stdout).toContain(
+      "OK: SENTRY_READ_TOKEN (Sentry read access)",
+    );
+
+    const withoutEither = runDoctorHealthRailway({
+      SENTRY_AUTH_TOKEN: "",
+      SENTRY_READ_TOKEN: "",
+    });
+    expect(withoutEither.stdout).toContain(
+      "MISSING: SENTRY_AUTH_TOKEN or SENTRY_READ_TOKEN",
+    );
+  });
+});
+
 describe("environment doctor migration ledger contract", () => {
   it("accepts current JSON migration output with a remote version", () => {
     const result = runDoctorWithMigrationOutput(

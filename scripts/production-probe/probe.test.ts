@@ -506,26 +506,57 @@ const ENV = {
   SLACK_HEALTH_WEBHOOK_URL: WEBHOOK_URL,
 } as const;
 
-const HEALTHY_HEALTH_BODY = JSON.stringify({ rateLimitStore: "ready" });
+const HEALTHY_HEALTH_BODY = JSON.stringify({
+  originGuard: "enabled",
+  rateLimitStore: "ok",
+  status: "ok",
+});
+
+/** The sitemap needs enough brand URLs to pass the BRAND_URL_FLOOR check. */
+function healthySitemap(): string {
+  const urls = Array.from({ length: 60 }, (_, i) =>
+    `<url><loc>https://production.test/brands/brand-${i}</loc></url>`,
+  ).join("\n");
+  return `<?xml version="1.0" encoding="UTF-8"?><urlset>${urls}</urlset>`;
+}
+
+const HEALTHY_CATEGORY_PAGE =
+  '<html><head><link rel="canonical" href="https://production.test/brands?category=home" /></head><body>OK</body></html>';
 
 interface StubResponse {
   body?: string;
+  headers?: Record<string, string>;
   status: number;
 }
 
 function stubFetch(
-  route: (url: string) => StubResponse,
+  route: (url: string, init?: RequestInit) => StubResponse,
   calls: string[],
 ): typeof fetch {
-  return (async (input: RequestInfo | URL) => {
+  return (async (input: RequestInfo | URL, init?: RequestInit) => {
     const url = typeof input === "string" ? input : String(input);
     calls.push(url);
-    const { body = "", status } = route(url);
-    return new Response(body, { status });
+    const { body = "", headers, status } = route(url, init);
+    return new Response(body, { status, headers });
   }) as unknown as typeof fetch;
 }
 
 function healthyRoute(url: string): StubResponse {
+  if (url.includes("/sitemap.xml")) {
+    return { body: healthySitemap(), status: 200 };
+  }
+  if (url.includes("/robots.txt")) {
+    return { body: "User-agent: *\nAllow: /\n", status: 200 };
+  }
+  if (url.includes("/en/brands")) {
+    return {
+      body: '<html lang="en"><body>Brand Directory</body></html>',
+      status: 200,
+    };
+  }
+  if (url.includes("/brands?category=")) {
+    return { body: HEALTHY_CATEGORY_PAGE, status: 200 };
+  }
   if (url.includes("/api/health")) {
     return { body: HEALTHY_HEALTH_BODY, status: 200 };
   }
@@ -583,11 +614,13 @@ describe("main", () => {
     const path = statePath();
     seed(path, state("ok", "2026-08-22T00:00:00.000Z"));
     const calls: string[] = [];
-    let homeAttempts = 0;
+    let sitemapAttempts = 0;
     const fetchImpl = stubFetch((url) => {
-      if (url === `${BASE_URL}/`) {
-        homeAttempts += 1;
-        return homeAttempts === 1 ? { status: 502 } : { body: "ok", status: 200 };
+      if (url.includes("/sitemap.xml")) {
+        sitemapAttempts += 1;
+        return sitemapAttempts === 1
+          ? { status: 502 }
+          : { body: healthySitemap(), status: 200 };
       }
       return healthyRoute(url);
     }, calls);
@@ -603,7 +636,7 @@ describe("main", () => {
     expect(decision.kind).toBeNull();
     expect(decision.state.verdict).toBe("ok");
     expect(calls.filter((url) => url.startsWith(WEBHOOK_URL))).toHaveLength(0);
-    expect(homeAttempts).toBe(2);
+    expect(sitemapAttempts).toBe(2);
     expect(readBack(path).verdict).toBe("ok");
   });
 
@@ -663,10 +696,9 @@ describe("main", () => {
     const fetchImpl = (async (input: RequestInfo | URL, init?: RequestInit) => {
       const requestHeaders = new Headers(init?.headers);
       headers.push(requestHeaders.get("User-Agent"));
-      return new Response(
-        String(input).includes("/api/health") ? HEALTHY_HEALTH_BODY : "ok",
-        { status: 200 },
-      );
+      const url = String(input);
+      const { body = "", status } = healthyRoute(url);
+      return new Response(body, { status });
     }) as unknown as typeof fetch;
 
     await main({
@@ -677,7 +709,9 @@ describe("main", () => {
       sleep: async () => undefined,
     });
 
-    expect(headers).toHaveLength(4);
+    // Surface assertions fetch sitemap, robots, /en/brands, 2x category
+    // (text/html + */*), /api/health, plus the Supabase health check.
+    expect(headers.length).toBeGreaterThanOrEqual(6);
     for (const value of headers) {
       expect(value).toMatch(/^Mozilla\/5\.0 /);
     }

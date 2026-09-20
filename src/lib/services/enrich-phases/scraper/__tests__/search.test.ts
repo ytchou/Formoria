@@ -2,12 +2,9 @@ import { describe, it, expect, vi, afterEach, beforeEach } from 'vitest'
 import {
   searchBrandUrls,
   batchSearchBrandImages,
-  HANDLE_QUERY,
   normalizeHandle,
   isUsableHandle,
-  filterEntriesByHandle,
 } from '../search'
-import type { BrandSearchEntry } from '../types'
 
 afterEach(() => vi.unstubAllGlobals())
 
@@ -115,10 +112,6 @@ describe('batchSearchBrandImages (Serper)', () => {
 })
 
 describe('handle-anchored search helpers', () => {
-  it('handle_query_quotes_the_raw_handle', () => {
-    expect(HANDLE_QUERY('1.wo_of')).toBe('"1.wo_of"')
-  })
-
   it('normalize_handle_strips_non_alphanumerics_and_lowercases', () => {
     expect(normalizeHandle('1.Wo_of')).toBe('1woof')
   })
@@ -127,54 +120,5 @@ describe('handle-anchored search helpers', () => {
     expect(isUsableHandle('_._')).toBe(false)
     expect(isUsableHandle('1wo')).toBe(true)
     expect(isUsableHandle('1.wo_of')).toBe(true)
-  })
-
-  it('filter_entries_by_handle_url_match_any_length', () => {
-    const entries: BrandSearchEntry[] = [
-      { title: 'Link hub', link: 'https://linktr.ee/1wo' },
-      { title: 'Own site', link: 'https://1wo.com/' },
-      { title: '1wo handmade', link: 'https://pinkoi.com/store/abc' },
-      { title: 'Other store', link: 'https://pinkoi.com/store/my1wostuff' },
-    ]
-
-    const kept = filterEntriesByHandle(entries, '1wo')
-
-    expect(kept.map((entry) => entry.link)).toEqual([
-      'https://linktr.ee/1wo',
-      'https://1wo.com/',
-    ])
-  })
-
-  it('filter_entries_by_handle_title_snippet_match_needs_five_chars', () => {
-    const entries: BrandSearchEntry[] = [
-      { title: 'Studio One Wood 1woof shop', link: 'https://example.com/pages/studio' },
-      { title: 'Marketplace listing', link: 'https://shopee.tw/listing', snippet: 'shop by @1woof today' },
-      { title: 'Other store', link: 'https://pinkoi.com/store/my1woofstuff' },
-      { title: 'Unrelated result', link: 'https://example.org/news', snippet: 'nothing to see' },
-    ]
-
-    const kept = filterEntriesByHandle(entries, '1woof')
-
-    expect(kept.map((entry) => entry.link)).toEqual([
-      'https://example.com/pages/studio',
-      'https://shopee.tw/listing',
-    ])
-  })
-
-  it('filter_entries_by_handle_matches_separator_handles', () => {
-    const entries: BrandSearchEntry[] = [
-      { title: 'Shop page', link: 'https://shopee.tw/shop/1.wo_of' },
-      { title: 'Instagram profile', link: 'https://www.instagram.com/1.wo_of/' },
-      { title: '1.wo_of handmade goods', link: 'https://example.com/pages/studio' },
-      { title: 'Other store', link: 'https://shopee.tw/shop/1woofx' },
-    ]
-
-    const kept = filterEntriesByHandle(entries, '1.wo_of')
-
-    expect(kept.map((entry) => entry.link)).toEqual([
-      'https://shopee.tw/shop/1.wo_of',
-      'https://www.instagram.com/1.wo_of/',
-      'https://example.com/pages/studio',
-    ])
   })
 })

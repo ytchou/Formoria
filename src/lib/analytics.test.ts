@@ -34,6 +34,8 @@ import {
   trackBrandDetailEngaged,
   trackSavedBrandRevisited,
   trackNotFoundCategoryClicked,
+  trackProductSearchResultClicked,
+  trackProductSearchResultsViewed,
 } from './analytics'
 import { ANALYTICS_EVENTS } from './analytics/events'
 
@@ -416,6 +418,43 @@ describe('analytics', () => {
     expect('embed_latency_ms' in payload).toBe(false)
   })
 
+  it('trackProductSearchExecuted includes search_id when provided', () => {
+    trackProductSearchExecuted('query', 5, { searchSource: 'discover_page', degraded: false, searchId: 'uuid-123' })
+
+    const payload = mockPostHogCapture.mock.calls[0]?.[1] as Record<string, unknown>
+    expect(payload.search_id).toBe('uuid-123')
+  })
+
+  it('trackProductSearchExecuted omits search_id when not provided', () => {
+    trackProductSearchExecuted('query', 5, { searchSource: 'discover_page', degraded: false })
+
+    const payload = mockPostHogCapture.mock.calls[0]?.[1] as Record<string, unknown>
+    expect(payload).not.toHaveProperty('search_id')
+  })
+
+  it('trackProductSearchResultClicked captures all fields', () => {
+    trackProductSearchResultClicked({ searchId: 'sid', position: 2, productKey: 'linen-mug', brandSlug: 'warmwood', query: 'ceramic mug' })
+
+    expect(mockPostHogCapture).toHaveBeenCalledWith(ANALYTICS_EVENTS.PRODUCT_SEARCH_RESULT_CLICKED, {
+      search_id: 'sid',
+      position: 2,
+      product_key: 'linen-mug',
+      brand_slug: 'warmwood',
+      query: 'ceramic mug',
+    })
+  })
+
+  it('trackProductSearchResultsViewed captures product_keys array', () => {
+    trackProductSearchResultsViewed({ searchId: 'sid', productKeys: ['k1', 'k2'], query: 'tea', resultCount: 2 })
+
+    expect(mockPostHogCapture).toHaveBeenCalledWith(ANALYTICS_EVENTS.PRODUCT_SEARCH_RESULTS_VIEWED, {
+      search_id: 'sid',
+      product_keys: ['k1', 'k2'],
+      query: 'tea',
+      result_count: 2,
+    })
+  })
+
   it('trackNotFoundCategoryClicked fires PostHog event', () => {
     trackNotFoundCategoryClicked('fashion', 0)
 
@@ -446,6 +485,94 @@ describe('analytics', () => {
 
 
 
+
+describe('LTR analytics extensions', () => {
+  it('trackProductSearchExecuted forwards LTR properties', () => {
+    trackProductSearchExecuted('ceramic mug', 5, {
+      searchSource: 'discover_page',
+      degraded: false,
+      searchId: 'sid-ltr',
+      ltrMode: 'interleave',
+      ltrLatencyMs: 18,
+      featuresLatencyMs: 7,
+      ltrScores: [0.9, 0.7, 0.3],
+      ltrRanks: [0, 1, 2],
+      ltrProductKeys: ['pk-a', 'pk-b', 'pk-c'],
+      rrfProductKeys: ['pk-b', 'pk-a', 'pk-c'],
+      armBySlot: ['ltr', 'rrf', 'ltr'] as ('rrf' | 'ltr')[],
+    })
+
+    expect(mockPostHogCapture).toHaveBeenCalledWith(
+      ANALYTICS_EVENTS.PRODUCT_SEARCH_EXECUTED,
+      expect.objectContaining({
+        ltr_mode: 'interleave',
+        ltr_latency_ms: 18,
+        features_latency_ms: 7,
+        ltr_scores: [0.9, 0.7, 0.3],
+        ltr_ranks: [0, 1, 2],
+        ltr_product_keys: ['pk-a', 'pk-b', 'pk-c'],
+        rrf_product_keys: ['pk-b', 'pk-a', 'pk-c'],
+        arm_by_slot: ['ltr', 'rrf', 'ltr'],
+      }),
+    )
+  })
+
+  it('trackProductSearchResultsViewed forwards arm_by_slot and ltr_mode', () => {
+    trackProductSearchResultsViewed({
+      searchId: 'sid-v',
+      productKeys: ['k1', 'k2'],
+      query: 'tea',
+      resultCount: 2,
+      armBySlot: ['rrf', 'ltr'] as ('rrf' | 'ltr')[],
+      ltrMode: 'interleave',
+    })
+
+    expect(mockPostHogCapture).toHaveBeenCalledWith(
+      ANALYTICS_EVENTS.PRODUCT_SEARCH_RESULTS_VIEWED,
+      expect.objectContaining({
+        arm_by_slot: ['rrf', 'ltr'],
+        ltr_mode: 'interleave',
+      }),
+    )
+  })
+
+  it('trackProductSearchResultClicked forwards arm and ltr_mode', () => {
+    trackProductSearchResultClicked({
+      searchId: 'sid-c',
+      position: 1,
+      productKey: 'pk-a',
+      brandSlug: 'warmwood',
+      query: 'ceramic mug',
+      arm: 'ltr',
+      ltrMode: 'interleave',
+    })
+
+    expect(mockPostHogCapture).toHaveBeenCalledWith(
+      ANALYTICS_EVENTS.PRODUCT_SEARCH_RESULT_CLICKED,
+      expect.objectContaining({
+        arm: 'ltr',
+        ltr_mode: 'interleave',
+      }),
+    )
+  })
+
+  it('LTR properties omitted when undefined', () => {
+    trackProductSearchExecuted('linen bag', 3, {
+      searchSource: 'discover_page',
+      degraded: false,
+    })
+
+    const payload = mockPostHogCapture.mock.calls[0]?.[1] as Record<string, unknown>
+    expect(payload).not.toHaveProperty('ltr_mode')
+    expect(payload).not.toHaveProperty('ltr_latency_ms')
+    expect(payload).not.toHaveProperty('features_latency_ms')
+    expect(payload).not.toHaveProperty('ltr_scores')
+    expect(payload).not.toHaveProperty('ltr_ranks')
+    expect(payload).not.toHaveProperty('ltr_product_keys')
+    expect(payload).not.toHaveProperty('rrf_product_keys')
+    expect(payload).not.toHaveProperty('arm_by_slot')
+  })
+})
 
 describe('brand share tracking', () => {
   it('trackBrandPageShared sends brand_page_shared with the channel', () => {

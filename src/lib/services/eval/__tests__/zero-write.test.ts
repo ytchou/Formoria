@@ -97,22 +97,32 @@ describe('installSeams', () => {
 })
 
 describe('assertNoNewAuditRows', () => {
+  const baseArgs = {
+    correlationIds: ['run-id-1', 'run-id-2'],
+    spanIds: ['span-a', 'span-b'],
+  }
+
   it('resolves when the injected counter returns 0 for both tables', async () => {
-    const counter = vi.fn<(table: string, since: Date) => Promise<number>>()
+    const counter = vi.fn<(table: string, since: Date, ids: string[], idColumn: string) => Promise<number>>()
       .mockResolvedValue(0)
 
     const since = new Date()
     await expect(
-      assertNoNewAuditRows({ since, count: counter }),
+      assertNoNewAuditRows({ since, ...baseArgs, count: counter }),
     ).resolves.toBeUndefined()
 
-    expect(counter).toHaveBeenCalledTimes(2)
-    expect(counter).toHaveBeenCalledWith('external_call_audit', since)
-    expect(counter).toHaveBeenCalledWith('brand_ai_results', since)
+    // external_call_audit queried with correlationIds
+    expect(counter).toHaveBeenCalledWith(
+      'external_call_audit', since, baseArgs.correlationIds, 'correlation_id',
+    )
+    // brand_ai_results queried with spanIds
+    expect(counter).toHaveBeenCalledWith(
+      'brand_ai_results', since, baseArgs.spanIds, 'audit_span_id',
+    )
   })
 
-  it('rejects naming the table and count otherwise', async () => {
-    const counter = vi.fn<(table: string, since: Date) => Promise<number>>()
+  it('rejects naming the table and count when external_call_audit has rows', async () => {
+    const counter = vi.fn<(table: string, since: Date, ids: string[], idColumn: string) => Promise<number>>()
       .mockImplementation(async (table) => {
         if (table === 'external_call_audit') return 3
         return 0
@@ -120,12 +130,12 @@ describe('assertNoNewAuditRows', () => {
 
     const since = new Date()
     await expect(
-      assertNoNewAuditRows({ since, count: counter }),
+      assertNoNewAuditRows({ since, ...baseArgs, count: counter }),
     ).rejects.toThrow(/external_call_audit.*3/)
   })
 
   it('rejects when brand_ai_results has new rows', async () => {
-    const counter = vi.fn<(table: string, since: Date) => Promise<number>>()
+    const counter = vi.fn<(table: string, since: Date, ids: string[], idColumn: string) => Promise<number>>()
       .mockImplementation(async (table) => {
         if (table === 'brand_ai_results') return 5
         return 0
@@ -133,7 +143,74 @@ describe('assertNoNewAuditRows', () => {
 
     const since = new Date()
     await expect(
-      assertNoNewAuditRows({ since, count: counter }),
+      assertNoNewAuditRows({ since, ...baseArgs, count: counter }),
     ).rejects.toThrow(/brand_ai_results.*5/)
+  })
+
+  it('throws when correlationIds is empty', async () => {
+    const since = new Date()
+    await expect(
+      assertNoNewAuditRows({ since, correlationIds: [], spanIds: ['span-1'], count: vi.fn() }),
+    ).rejects.toThrow(/correlationIds is empty/)
+  })
+
+  it('skips brand_ai_results query when spanIds is empty', async () => {
+    const counter = vi.fn<(table: string, since: Date, ids: string[], idColumn: string) => Promise<number>>()
+      .mockResolvedValue(0)
+
+    const since = new Date()
+    await assertNoNewAuditRows({
+      since,
+      correlationIds: ['run-1'],
+      spanIds: [],
+      count: counter,
+    })
+
+    // Only external_call_audit should be queried
+    expect(counter).toHaveBeenCalledTimes(1)
+    expect(counter).toHaveBeenCalledWith(
+      'external_call_audit', since, ['run-1'], 'correlation_id',
+    )
+  })
+
+  it('a row whose correlation_id is NOT in correlationIds does not trip the assertion', async () => {
+    // Simulates the exact regression: a foreign row (from label-generate-queries)
+    // with provider=openai, phase=search_relevance_judge shares the time window
+    // but has a different correlation_id.
+    const counter = vi.fn<(table: string, since: Date, ids: string[], idColumn: string) => Promise<number>>()
+      .mockResolvedValue(0)
+
+    const since = new Date()
+    // The run's own ids do not include the foreign writer's correlation_id
+    await expect(
+      assertNoNewAuditRows({
+        since,
+        correlationIds: ['my-run-id-1', 'my-run-id-2'],
+        spanIds: ['my-span-1'],
+        count: counter,
+      }),
+    ).resolves.toBeUndefined()
+
+    // The counter receives only the run's own ids — foreign rows are invisible
+    expect(counter.mock.calls[0]![2]).toEqual(['my-run-id-1', 'my-run-id-2'])
+  })
+
+  it('a row whose correlation_id IS in correlationIds trips the assertion', async () => {
+    const counter = vi.fn<(table: string, since: Date, ids: string[], idColumn: string) => Promise<number>>()
+      .mockImplementation(async (table, _since, ids) => {
+        // Simulate: the run's own correlation_id produced 1 leaked row
+        if (table === 'external_call_audit' && ids.includes('my-run-id-1')) return 1
+        return 0
+      })
+
+    const since = new Date()
+    await expect(
+      assertNoNewAuditRows({
+        since,
+        correlationIds: ['my-run-id-1'],
+        spanIds: ['my-span-1'],
+        count: counter,
+      }),
+    ).rejects.toThrow(/external_call_audit.*1/)
   })
 })

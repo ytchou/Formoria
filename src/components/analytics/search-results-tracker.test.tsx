@@ -7,10 +7,12 @@ import { act, render } from '@testing-library/react'
 const trackSearchExecuted = vi.fn()
 const trackSearchNoResults = vi.fn()
 const trackProductSearchExecuted = vi.fn()
+const trackProductSearchResultsViewed = vi.fn()
 vi.mock('@/lib/analytics', () => ({
   trackSearchExecuted: (...args: unknown[]) => trackSearchExecuted(...args),
   trackSearchNoResults: (...args: unknown[]) => trackSearchNoResults(...args),
   trackProductSearchExecuted: (...args: unknown[]) => trackProductSearchExecuted(...args),
+  trackProductSearchResultsViewed: (...args: unknown[]) => trackProductSearchResultsViewed(...args),
 }))
 
 import {
@@ -31,6 +33,7 @@ describe('SearchResultsTracker', () => {
     trackSearchExecuted.mockClear()
     trackSearchNoResults.mockClear()
     trackProductSearchExecuted.mockClear()
+    trackProductSearchResultsViewed.mockClear()
     __resetSearchTrackerForTests()
   })
 
@@ -254,5 +257,153 @@ describe('SearchResultsTracker', () => {
       rpcLatencyMs: 41,
       embedLatencyMs: 120,
     })
+  })
+
+  // --- searchId dedupe ---
+
+  it('searchId dedupe prevents re-emission', () => {
+    const { rerender } = render(
+      <SearchResultsTracker query="陶瓷" resultCount={5} searchId="sid-1" />,
+    )
+    settle()
+    rerender(
+      <SearchResultsTracker query="陶瓷" resultCount={5} searchId="sid-1" />,
+    )
+    settle()
+
+    expect(trackSearchExecuted).toHaveBeenCalledOnce()
+  })
+
+  it('different searchId fires new event', () => {
+    const { rerender } = render(
+      <SearchResultsTracker query="陶瓷" resultCount={5} searchId="a" />,
+    )
+    settle()
+    rerender(
+      <SearchResultsTracker query="陶瓷" resultCount={5} searchId="b" />,
+    )
+    settle()
+
+    expect(trackSearchExecuted).toHaveBeenCalledTimes(2)
+  })
+
+  it('backward compat: no searchId falls back to count:query key', () => {
+    const { rerender } = render(
+      <SearchResultsTracker query="陶瓷" resultCount={5} />,
+    )
+    settle()
+    rerender(
+      <SearchResultsTracker query="陶瓷" resultCount={5} />,
+    )
+    settle()
+
+    // Same count:query → deduped to one emission
+    expect(trackSearchExecuted).toHaveBeenCalledOnce()
+  })
+
+  it('impression event fires with productKeys', () => {
+    render(
+      <SearchResultsTracker
+        trackerKind="product"
+        searchId="sid"
+        productKeys={['k1', 'k2']}
+        query="test"
+        resultCount={2}
+      />,
+    )
+    settle()
+
+    expect(trackProductSearchResultsViewed).toHaveBeenCalledExactlyOnceWith({
+      searchId: 'sid',
+      productKeys: ['k1', 'k2'],
+      query: 'test',
+      resultCount: 2,
+    })
+  })
+
+  it('impression event not fired without searchId', () => {
+    render(
+      <SearchResultsTracker
+        trackerKind="product"
+        productKeys={['k1', 'k2']}
+        query="test"
+        resultCount={2}
+      />,
+    )
+    settle()
+
+    expect(trackProductSearchResultsViewed).not.toHaveBeenCalled()
+  })
+
+  it('passes LTR props to trackProductSearchExecuted', () => {
+    render(
+      <SearchResultsTracker
+        query="陶瓷杯"
+        resultCount={8}
+        trackerKind="product"
+        searchSource="discover_page"
+        degraded={false}
+        searchId="sid-ltr"
+        ltrMode="interleave"
+        ltrLatencyMs={18}
+        featuresLatencyMs={7}
+        ltrScores={[0.9, 0.7]}
+        ltrRanks={[0, 1]}
+        ltrProductKeys={['pk-a', 'pk-b']}
+        rrfProductKeys={['pk-b', 'pk-a']}
+        armBySlot={['ltr', 'rrf']}
+      />,
+    )
+    settle()
+
+    expect(trackProductSearchExecuted).toHaveBeenCalledExactlyOnceWith('陶瓷杯', 8, expect.objectContaining({
+      ltrMode: 'interleave',
+      ltrLatencyMs: 18,
+      featuresLatencyMs: 7,
+      ltrScores: [0.9, 0.7],
+      ltrRanks: [0, 1],
+      ltrProductKeys: ['pk-a', 'pk-b'],
+      rrfProductKeys: ['pk-b', 'pk-a'],
+      armBySlot: ['ltr', 'rrf'],
+    }))
+  })
+
+  it('passes armBySlot and ltrMode to trackProductSearchResultsViewed', () => {
+    render(
+      <SearchResultsTracker
+        query="陶瓷杯"
+        resultCount={2}
+        trackerKind="product"
+        searchId="sid-v"
+        productKeys={['k1', 'k2']}
+        armBySlot={['rrf', 'ltr']}
+        ltrMode="interleave"
+      />,
+    )
+    settle()
+
+    expect(trackProductSearchResultsViewed).toHaveBeenCalledExactlyOnceWith(expect.objectContaining({
+      armBySlot: ['rrf', 'ltr'],
+      ltrMode: 'interleave',
+    }))
+  })
+
+  it('without LTR props matches existing behavior', () => {
+    render(
+      <SearchResultsTracker
+        query="陶瓷杯"
+        resultCount={12}
+        trackerKind="product"
+        searchSource="discover_page"
+        degraded={false}
+      />,
+    )
+    settle()
+
+    expect(trackProductSearchExecuted).toHaveBeenCalledExactlyOnceWith('陶瓷杯', 12, {
+      searchSource: 'discover_page',
+      degraded: false,
+    })
+    expect(trackSearchExecuted).not.toHaveBeenCalled()
   })
 })

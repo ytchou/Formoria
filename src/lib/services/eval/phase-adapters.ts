@@ -46,7 +46,7 @@ import type { ArmResult, ExperimentItem, ExperimentArm } from './run-experiment'
 // ---------------------------------------------------------------------------
 
 export interface PhaseAdapter {
-  promptName: string
+  promptName: string | null
   variables?: Record<string, string>
   profileKey: string
   outputSchema: ZodType

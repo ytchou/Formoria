@@ -16,6 +16,7 @@ import {
   PRODUCTION_PROJECT_REF,
   STAGING_PROJECT_REF,
   validateStagingTarget,
+  projectRefFromDatabaseUrl,
 } from "@/lib/supabase/project-target";
 
 type DeploymentEnvironment = "production" | "staging";
@@ -34,12 +35,9 @@ const STAGING_FINALIZE = resolve(
 );
 const STAGING_FIXTURE = resolve(ROOT, "supabase/fixtures/staging.sql");
 const MIGRATIONS = resolve(ROOT, "supabase/migrations");
-// Every bucket is private. brand-images was flipped by
-// 20260822110000_brand_images_private.sql; reads go through /i/<path>. Until
-// that migration reaches production, `db-deploy verify` against production
-// fails here on purpose — the manifest is the drift signal, not a formality.
+// Published imagery is public while submissions remain private.
 const EXPECTED_STORAGE_BUCKETS =
-  "brand-images:false,claim-proofs:false,image-eval:false,run-logs:false";
+  "brand-images:true,brand-submissions:false,claim-proofs:false,image-eval:false,run-logs:false";
 const EXPECTED_EXTENSIONS =
   "pg_cron:pg_catalog,pg_net:public,pg_stat_statements:extensions,pg_trgm:public,pgcrypto:extensions,plpgsql:pg_catalog,supabase_vault:vault,uuid-ossp:extensions,vector:extensions";
 const CHECKSUM_MANIFEST = resolve(ROOT, "supabase/migration-checksums.json");
@@ -285,26 +283,7 @@ function required(environment: Environment, name: string): string {
   return value;
 }
 
-export function projectRefFromDatabaseUrl(databaseUrl: string): string | null {
-  let parsed: URL;
-  try {
-    parsed = new URL(databaseUrl);
-  } catch {
-    throw new Error("SUPABASE_DB_URL must be a valid PostgreSQL URL");
-  }
-
-  if (!["postgres:", "postgresql:"].includes(parsed.protocol)) {
-    throw new Error("SUPABASE_DB_URL must use postgres:// or postgresql://");
-  }
-
-  const directMatch = parsed.hostname.match(/^db\.([a-z]{20})\.supabase\.co$/i);
-  if (directMatch) return directMatch[1].toLowerCase();
-
-  const poolerMatch = decodeURIComponent(parsed.username).match(
-    /^postgres\.([a-z]{20})$/i,
-  );
-  return poolerMatch?.[1].toLowerCase() ?? null;
-}
+export { projectRefFromDatabaseUrl } from "@/lib/supabase/project-target";
 
 export function validateDeploymentTarget(
   environment: Environment = process.env,
@@ -744,7 +723,7 @@ function verify(target: DeploymentTarget, includeSchemaDiff: boolean): void {
 
   if (includeSchemaDiff) {
     const generatedTypes = supabase(
-      ["gen", "types", "typescript", "--db-url", target.databaseUrl],
+      ["gen", "types", "typescript", "--project-id", target.projectRef],
       true,
     );
     if (generatedTypes.trim() !== readFileSync(DATABASE_TYPES, "utf8").trim()) {
@@ -817,7 +796,7 @@ async function main(): Promise<void> {
       return;
     case "types": {
       const generatedTypes = supabase(
-        ["gen", "types", "typescript", "--db-url", target.databaseUrl],
+        ["gen", "types", "typescript", "--project-id", target.projectRef],
         true,
       );
       writeFileSync(DATABASE_TYPES, `${generatedTypes.trim()}\n`);

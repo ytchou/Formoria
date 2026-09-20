@@ -5,58 +5,29 @@ import { createClient, type SupabaseClient } from '@supabase/supabase-js'
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AnySupabaseClient = SupabaseClient<any, any, any>
 
-const IS_CANONICAL_STAGING_TARGET =
-  new URL(
-    process.env.BASE_URL ??
-      process.env.PLAYWRIGHT_BASE_URL ??
-      process.env.STAGING_BASE_URL ??
-      'http://localhost:3000',
-  ).origin === 'https://staging.formoria.com'
-
-type StagingAwareGetContract = {
+type GetContract = {
   status: number
   assertResponse: (response: APIResponse) => Promise<void>
 }
 
-function stagingAwareGetMutationContract(
-  nonStagingStatus: number,
-  assertNonStagingResponse: (response: APIResponse) => Promise<void>,
-): StagingAwareGetContract {
-  if (IS_CANONICAL_STAGING_TARGET) {
-    return {
-      status: 403,
-      assertResponse: async (response) => {
-        expect(await response.json()).toEqual({
-          error: 'This flow is disabled in staging',
-        })
-      },
-    }
-  }
-
-  return {
-    status: nonStagingStatus,
-    assertResponse: assertNonStagingResponse,
-  }
-}
-
-const NEWSLETTER_CONFIRM_CONTRACT = stagingAwareGetMutationContract(
-  307,
-  async (response) => {
+const NEWSLETTER_CONFIRM_CONTRACT: GetContract = {
+  status: 307,
+  assertResponse: async (response) => {
     expect(response.headers()['location'] ?? '').toContain('subscribed=true')
   },
-)
-const VALID_UNSUBSCRIBE_CONTRACT = stagingAwareGetMutationContract(
-  200,
-  async (response) => {
+}
+const VALID_UNSUBSCRIBE_CONTRACT: GetContract = {
+  status: 200,
+  assertResponse: async (response) => {
     expect((await response.text()).toLowerCase()).toContain('unsubscribed')
   },
-)
-const MISSING_TOKEN_CONTRACT = stagingAwareGetMutationContract(
-  400,
-  async (response) => {
+}
+const MISSING_TOKEN_CONTRACT: GetContract = {
+  status: 400,
+  assertResponse: async (response) => {
     expect(await response.text()).toContain('Missing')
   },
-)
+}
 
 /**
  * API Contracts
@@ -65,7 +36,8 @@ const MISSING_TOKEN_CONTRACT = stagingAwareGetMutationContract(
  * codes, and redirect behaviours.  Uses Playwright's request fixture — no
  * browser page involved.
  *
- * Actor: anonymous request (no auth headers)
+ * Actor: deep-suite request with no user authentication. On canonical staging,
+ * the project-level capability cookie reaches the production route behavior.
  * Seeds: one newsletter_subscribers row + one owner_email_preferences row
  * Cleanup: afterAll deletes both rows
  *
@@ -162,6 +134,24 @@ test.describe('API — health + search', () => {
   })
 })
 
+const CANARY_NO_SECRET_CONTRACT: GetContract = {
+  status: 401,
+  assertResponse: async (response) => {
+    const body = await response.json()
+    expect(body).toHaveProperty('error')
+  },
+}
+
+test.describe('API — internal canary', () => {
+  test('POST /api/internal/sentry-canary without the secret returns 401', async ({ request }) => {
+    const resp = await request.post('/api/internal/sentry-canary', {
+      data: { token: 'e2e-probe' },
+    })
+    expect(resp.status()).toBe(CANARY_NO_SECRET_CONTRACT.status)
+    await CANARY_NO_SECRET_CONTRACT.assertResponse(resp)
+  })
+})
+
 // --- Newsletter subscribe / unsubscribe ---
 // retries: 0 — confirm consumes the token; a retry would fail on re-use.
 // serial — fullyParallel:true causes multiple workers to run beforeAll
@@ -252,7 +242,7 @@ test.describe.serial('API — newsletter', () => {
 
   // --- Order matters: confirm before unsubscribe ---
 
-  test('GET /api/newsletter/confirm honors the environment contract with a valid token', async ({ request }) => {
+  test('GET /api/newsletter/confirm redirects after a valid token', async ({ request }) => {
     if (!supabase) { test.skip(true, 'PREVIEW_MODE active'); return }
 
     const resp = await request.get(
@@ -263,7 +253,7 @@ test.describe.serial('API — newsletter', () => {
     await NEWSLETTER_CONFIRM_CONTRACT.assertResponse(resp)
   })
 
-  test('GET /api/newsletter/unsubscribe honors the environment contract with a valid token', async ({ request }) => {
+  test('GET /api/newsletter/unsubscribe accepts a valid token', async ({ request }) => {
     if (!supabase) { test.skip(true, 'PREVIEW_MODE active'); return }
 
     const resp = await request.get(
@@ -273,7 +263,7 @@ test.describe.serial('API — newsletter', () => {
     await VALID_UNSUBSCRIBE_CONTRACT.assertResponse(resp)
   })
 
-  test('GET /api/newsletter/unsubscribe honors the environment contract without a token', async ({ request }) => {
+  test('GET /api/newsletter/unsubscribe rejects a missing token', async ({ request }) => {
     if (!supabase) { test.skip(true, 'PREVIEW_MODE active'); return }
 
     const resp = await request.get('/api/newsletter/unsubscribe')
@@ -281,11 +271,8 @@ test.describe.serial('API — newsletter', () => {
     await MISSING_TOKEN_CONTRACT.assertResponse(resp)
   })
 
-  test('GET /api/email/unsubscribe honors the environment contract with a valid token', async ({ request }) => {
-    test.skip(
-      !supabase || (!IS_CANONICAL_STAGING_TARGET && !testUserId),
-      'PREVIEW_MODE active or no test user',
-    )
+  test('GET /api/email/unsubscribe accepts a valid token', async ({ request }) => {
+    test.skip(!supabase || !testUserId, 'PREVIEW_MODE active or no test user')
 
     const resp = await request.get(
       `/api/email/unsubscribe?token=${ownerUnsubToken}`,
@@ -294,7 +281,7 @@ test.describe.serial('API — newsletter', () => {
     await VALID_UNSUBSCRIBE_CONTRACT.assertResponse(resp)
   })
 
-  test('GET /api/email/unsubscribe honors the environment contract without a token', async ({ request }) => {
+  test('GET /api/email/unsubscribe rejects a missing token', async ({ request }) => {
     if (!supabase) { test.skip(true, 'PREVIEW_MODE active'); return }
 
     const resp = await request.get('/api/email/unsubscribe')

@@ -11,6 +11,7 @@ import {
   type AgentModel,
 } from "@/lib/services/enrich-phases/agents/runtime";
 import type { LlmAuditContext } from "@/lib/services/llm-audit";
+import { runOpsCodeFix as defaultRunOpsCodeFix } from "./code-fix";
 import { postMessage as slackPostMessage } from "@/lib/adapters/slack/web-api";
 import { renderProposalCard as slackRenderProposalCard } from "@/lib/adapters/slack/blocks";
 import { listIssues as defaultListIssues } from "@/lib/adapters/sentry/issues";
@@ -19,6 +20,7 @@ import { listCurationJobs, getCurationJobDetail } from "@/lib/services/curation-
 import { runGraph as defaultRunGraph, type GraphResult } from "./graph";
 import { createOpsTools, type OpsTool, type OpsToolDeps, type OpsToolContext } from "./tools";
 import { describeProposal, validateProposal } from "./proposals";
+import { extractRepairRequest, executeRepairRequest } from "./repair";
 import {
   systemStatus as defaultSystemStatus,
   brandContext as defaultBrandContext,
@@ -31,6 +33,8 @@ import {
   transitionRequest as defaultTransitionRequest,
 } from "./requests";
 import type { OpsRequestRow, OpsRequestStatus } from "./types";
+
+type SlackBlock = Record<string, unknown>;
 
 // ---------------------------------------------------------------------------
 // Dependencies
@@ -50,8 +54,12 @@ export type RunOpsAgentDeps = {
     },
   ) => Promise<OpsRequestRow>;
   expireStale?: () => Promise<void>;
-  postMessage?: (threadTs: string, text: string) => Promise<string | undefined>;
-  renderProposalCard?: (desc: ReturnType<typeof describeProposal>) => unknown[];
+  postMessage?: (
+    threadTs: string,
+    text: string,
+    blocks?: SlackBlock[],
+  ) => Promise<string | undefined>;
+  renderProposalCard?: (desc: ReturnType<typeof describeProposal>) => SlackBlock[];
   createOpsTools?: (deps: OpsToolDeps, ctx: OpsToolContext) => ReturnType<typeof createOpsTools>;
   createAgentModel?: (
     profileKey: string,
@@ -64,6 +72,7 @@ export type RunOpsAgentDeps = {
     userMessage?: string,
     signal?: AbortSignal,
   ) => Promise<GraphResult>;
+  runCodeFix?: typeof defaultRunOpsCodeFix;
   toolDeps?: Partial<OpsToolDeps>;
 };
 
@@ -94,11 +103,12 @@ export async function runOpsAgent(
   // Wire defaults that need request context (channel, userId, etc.)
   const postMsg =
     deps.postMessage ??
-    (async (threadTs: string, text: string) => {
+    (async (threadTs: string, text: string, blocks?: SlackBlock[]) => {
       const res = await slackPostMessage({
         channel: request.channelId,
         threadTs,
         text,
+        blocks,
       });
       return res.ok ? res.ts : undefined;
     });
@@ -124,6 +134,64 @@ export async function runOpsAgent(
       "Failed to start processing your request. It may already be in progress.",
     ).catch(() => {});
     return { kind: "failed", modelCalls: 0, toolLog: [] };
+  }
+
+  // 3b. Repair request detection — system bot only
+  const isSystemRequest = request.operatorEmail?.startsWith("system:");
+  if (isSystemRequest) {
+    const repairRequest = extractRepairRequest(request.text);
+    if (repairRequest) {
+      try {
+        const runCodeFix = deps.runCodeFix ?? defaultRunOpsCodeFix;
+        const repairResult = await executeRepairRequest(
+          repairRequest,
+          { runCodeFix },
+          {
+            requestId: request.id,
+          },
+        );
+
+        const status = repairResult.ok ? "executed" : "failed";
+        await transition(request.id, ["running"], status, {
+          result: {
+            repair: repairResult,
+            modelCalls: 0,
+          },
+        });
+
+        const summary = repairResult.ok
+          ? `Created ${repairResult.outcomes.filter((o) => o.ok).length} repair PR(s).`
+          : `Repair failed: ${repairResult.outcomes.filter((o) => !o.ok).map((o) => o.error).join(", ")}`;
+        await postMsg(request.threadTs, summary);
+
+        if (repairResult.ok) {
+          return { kind: "answer" as const, text: summary, modelCalls: 0, toolLog: [] };
+        } else {
+          return { kind: "failed" as const, modelCalls: 0, toolLog: [] };
+        }
+      } catch (err) {
+        console.error("[ops-agent] repair processing failed:", err);
+        try {
+          await transition(request.id, ["running"], "failed");
+        } catch {
+          // transition itself failed — already logged above
+        }
+        return { kind: "failed" as const, modelCalls: 0, toolLog: [] };
+      }
+    }
+
+    // System bot sent something that isn't a valid RepairRequest — refuse
+    await transition(request.id, ["running"], "refused", {
+      result: {
+        reason: "Invalid or missing RepairRequest from system bot",
+        modelCalls: 0,
+      },
+    });
+    await postMsg(
+      request.threadTs,
+      "Received a system message but could not parse a valid repair request.",
+    );
+    return { kind: "refused" as const, reason: "invalid_repair_request", modelCalls: 0, toolLog: [] };
   }
 
   // 4. Fetch prompt
@@ -213,7 +281,7 @@ export async function runOpsAgent(
           .filter(Boolean)
           .join("\n");
 
-        const cardTs = await postMsg(request.threadTs, cardMessage);
+        const cardTs = await postMsg(request.threadTs, cardMessage, cardBlocks);
 
         const expiresAt = new Date(Date.now() + 10 * 60_000).toISOString();
 

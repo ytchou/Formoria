@@ -2,7 +2,7 @@ import { createServerClient } from "@supabase/ssr";
 import createMiddleware from "next-intl/middleware";
 import { NextResponse, type NextRequest } from "next/server";
 import { routing } from "@/i18n/routing";
-import { routes } from "@/lib/routes";
+import { routes, RESERVED_ROUTES } from "@/lib/routes";
 import { isAppLocale, localizePath } from "@/i18n/locale-preference";
 import {
   verifyChallengeToken,
@@ -53,63 +53,12 @@ import {
   isAllowedStagingRequest,
   isStagingRequest,
 } from "@/lib/deployment-environment";
+import {
+  E2E_STAGING_SESSION_COOKIE,
+  verifyStagingSession,
+} from "@/lib/security/staging-session";
 
-/**
- * Routes that are reserved for static pages and cannot be used as brand slugs.
- * Used by the brands service to validate slug uniqueness against app routes.
- *
- * A single-segment app route missing from this set is silently 301'd to
- * `/brands/<segment>` and 404s. `route-registration.test.ts` enforces coverage.
- */
-export const RESERVED_ROUTES = new Set([
-  "admin",
-  "api",
-  "_next",
-  "auth",
-  "challenge",
-  "submit",
-  "brands",
-  "category",
-  "categories",
-  "contact",
-  "stories",
-  "discover",
-  "style",
-  "events",
-  "favorites",
-  // Retired routes. None serve a page, but they stay reserved so a bare hit
-  // 404s cleanly instead of being redirected into `/brands/<segment>` by
-  // `decideBareBrandSlug`, and so no brand can ever claim one of these slugs.
-  //
-  // `dashboard` (parked by DEV-1570) matters twice over: `hasApprovedBrandSlug`
-  // treats a Supabase error as approved, so an unreserved `/dashboard` would
-  // answer a transient outage with a 301 PERMANENT redirect into
-  // `/brands/dashboard` that browsers cache forever; and `isReservedSlug` reads
-  // this same set, so a brand called "Dashboard" could otherwise take the slug
-  // and shadow the app route if DEV-1570 is ever reverted.
-  "where-to-buy",
-  "feature-requests",
-  "feedback",
-  "getting-started",
-  "dashboard",
-  "faq",
-  "about",
-  "vision",
-  "terms",
-  "contributions",
-  "settings",
-  "global-error",
-  "privacy",
-  "sitemap.xml",
-  "robots.txt",
-  "favicon.ico",
-  // Next.js metadata routes — single-segment paths that must not be treated as brand slugs
-  "icon",
-  "apple-icon",
-  "manifest",
-  "opengraph-image",
-  "twitter-image",
-]);
+export { RESERVED_ROUTES } from "@/lib/routes";
 
 export const SLUG_PATTERN = /^[a-z0-9][a-z0-9-]{2,79}$/;
 
@@ -128,6 +77,9 @@ export const ORIGIN_GUARD_EXEMPT_PATHS = [
   { pathname: "/api/health", match: "prefix" },
   { pathname: "/api/cron/", match: "prefix" },
   { pathname: "/api/internal/revalidate-brands", match: "exact" },
+  // Health agent fires a deliberate error to validate Sentry round-trip;
+  // authenticate itself inside the handler via ORIGIN_SECRET, not the edge.
+  { pathname: "/api/internal/sentry-canary", match: "exact" },
   // Next's own image optimizer re-enters middleware for `/i/` paths and cannot
   // be made to carry the edge credential. `/_next/image?url=%2Fi%2F...` is
   // excluded from the matcher, so the optimizer runs; for a non-absolute href
@@ -429,10 +381,8 @@ const UNGROUPED_CAPTURE_SITE = "unhandled";
 /**
  * Turbopack skips the Sentry SDK's webpack-based middleware auto-wrap, so the
  * proxy reports its own failures. `@sentry/nextjs` is imported lazily on every
- * capture: `@/lib/services/brands` re-exports `RESERVED_ROUTES` from this file,
- * so a static import here would pull the Sentry graph into the server bundle
- * everywhere that service is used. Every capture is fire-and-forget, so a
- * failed telemetry chunk can never surface as an application error.
+ * capture to keep it off the successful request path. Every capture is
+ * fire-and-forget, so a failed telemetry chunk cannot surface as an application error.
  *
  * Level rule for any new site: a fail-closed or otherwise user-visible outcome
  * reports at `error`; a path that degrades gracefully (anonymous instead of
@@ -733,8 +683,14 @@ async function runProxy(request: NextRequest) {
   // which is why no e2e project could exercise either gate on its own.
   const rateLimitDisabled = isRateLimitDisabled();
   const routerRequest = isRouterRequest(request);
+  const hasStagingE2ESession = Boolean(
+    await verifyStagingSession(
+      request.cookies.get(E2E_STAGING_SESSION_COOKIE)?.value,
+      request.headers.get("host"),
+    ),
+  );
 
-  if (staging && pathname === "/sitemap.xml") {
+  if (staging && !hasStagingE2ESession && pathname === "/sitemap.xml") {
     return finalizeResponse(
       new NextResponse("Not found", { status: 404 }),
       staging,
@@ -777,6 +733,7 @@ async function runProxy(request: NextRequest) {
       : false;
   const stagingRequestAllowed =
     !enforceStagingLockdown ||
+    hasStagingE2ESession ||
     initiallyAllowed ||
     isAllowedStagingRequest(request.method, pathname, authenticated);
 
@@ -876,12 +833,17 @@ async function runProxy(request: NextRequest) {
   }
 
   // Check rate limit before regular request processing
-  if (!rateLimitDisabled) {
+  if (!rateLimitDisabled && !hasStagingE2ESession) {
     const rateLimitResponse = await checkRateLimit(request);
     if (rateLimitResponse) return finalizeResponse(rateLimitResponse, staging);
   }
 
-  if (!rateLimitDisabled && !routerRequest && isSoftLimitPath(pathname)) {
+  if (
+    !rateLimitDisabled &&
+    !hasStagingE2ESession &&
+    !routerRequest &&
+    isSoftLimitPath(pathname)
+  ) {
     const challengeCookie = request.cookies.get(CHALLENGE_COOKIE_NAME)?.value;
     let isVerified = false;
     if (challengeCookie) {

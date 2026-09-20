@@ -6,7 +6,9 @@
 
 import type { Json } from '@/lib/supabase/database.types'
 import type { EnrichmentTarget } from '../_shared/enrichment-target'
-import type { EnrichPatch } from '../enrich-phases/types'
+import { SLOT_ALLOWED_KEYS, type EnrichPatch } from '../enrich-phases/types'
+import { ENRICH_PHASES, type EnrichPhaseName } from '@/lib/constants/enrich-phases'
+import type { AcquirePhaseOutput } from '../enrich-phases/acquire'
 import type { NameCandidate } from '../name-arbiter'
 import type { ScrapedImageSource } from '@/lib/types/scraper'
 import type {
@@ -38,6 +40,8 @@ type CatalogProductTriple = CatalogDiscoveryResult['triples'][number]
 type CatalogZeroReason = CatalogDiscoveryResult['zeroReason']
 
 export type AcquireCarry = {
+  result?: Omit<AcquirePhaseOutput, 'catalogResult'>
+  catalogEvidence?: Array<[string, CatalogDiscoveryResult['evidence'] extends Map<string, infer Evidence> ? Evidence : never]> | null
   catalog: {
     triples: CatalogProductTriple[]
     attempts: CatalogAttemptSummary[]
@@ -50,22 +54,69 @@ export type AcquireCarry = {
   scrapedImageSources: ScrapedImageSource[]
 }
 
-export type DetectCarry = {
+type DetectCarry = {
   brandName: string
   isBrand: boolean
   category: string
 }
 
-export type NamesCarry = {
+type NamesCarry = {
   candidates: NameCandidate[]
   verdict: string
 }
 
-export type PhaseCarry = AcquireCarry | DetectCarry | NamesCarry
+type PhaseCarry = AcquireCarry | DetectCarry | NamesCarry
 
 export type PhaseOutput = {
   patch: Partial<EnrichPatch>
   carry?: PhaseCarry
+}
+
+export function isUsablePhaseOutput(value: unknown): value is PhaseOutput {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return false
+  const { patch, carry } = value as Record<string, unknown>
+  if (carry !== undefined && (!carry || typeof carry !== 'object' || Array.isArray(carry))) return false
+  return patch !== null && typeof patch === 'object' && !Array.isArray(patch)
+}
+
+const PHASE_PATCH_KEYS: Partial<Record<EnrichPhaseName, ReadonlySet<string>>> = {
+  detect: new Set(),
+  slugs: SLOT_ALLOWED_KEYS.detect,
+  acquire: SLOT_ALLOWED_KEYS.acquire,
+  names: SLOT_ALLOWED_KEYS.names,
+  descriptions: new Set([...SLOT_ALLOWED_KEYS.editorial].filter((key) => key !== 'faq')),
+  stockists: new Set(),
+  faq: new Set(['faq']),
+  products: SLOT_ALLOWED_KEYS.products,
+}
+
+function isPhasePatch(phase: EnrichPhaseName, patch: EnrichPatch): boolean {
+  const allowed = PHASE_PATCH_KEYS[phase]
+  if (!allowed || Object.keys(patch).some((key) => !allowed.has(key))) return false
+  const cleared = patch._cleared_fields
+  return cleared === undefined || (Array.isArray(cleared) && cleared.every((key) => key !== '_cleared_fields' && allowed.has(key)))
+}
+
+export function isUsablePhaseCheckpoint(row: PhaseOutputRow): boolean {
+  if (row.status !== 'succeeded' || !isUsablePhaseOutput(row.output)) return false
+  return isPhasePatch(row.phase as EnrichPhaseName, row.output.patch)
+}
+
+export function mergeSelectedPhaseOutputs(
+  selected: readonly EnrichPhaseName[],
+  outputs: ReadonlyMap<string, PhaseOutput>,
+): EnrichPatch {
+  const patch: EnrichPatch = {}
+  for (const phase of ENRICH_PHASES) {
+    if (!selected.includes(phase)) continue
+    const output = outputs.get(phase)
+    if (!output) continue
+    if (!isPhasePatch(phase, output.patch)) {
+      throw new Error(`Checkpoint for ${phase} contains fields owned by another phase`)
+    }
+    Object.assign(patch, output.patch)
+  }
+  return patch
 }
 
 // ---------------------------------------------------------------------------
@@ -73,10 +124,10 @@ export type PhaseOutput = {
 // ---------------------------------------------------------------------------
 
 /**
- * Build an `AcquireCarry` from the acquire phase result. Strips `evidence`
- * (a non-serializable Map) and retains only the carry-safe fields.
+ * Full phase results retain their saved inputs and encode catalog evidence as
+ * entries. Legacy carry-only callers keep their existing compact shape.
  */
-export function toAcquireCarry(result: {
+export function toAcquireCarry(result: AcquirePhaseOutput | {
   catalogResult?: CatalogDiscoveryResult
   acquisitionPageUrls: string[]
   priorityProductUrls: string[]
@@ -84,7 +135,11 @@ export function toAcquireCarry(result: {
   scrapedImageSources: ScrapedImageSource[]
 }): AcquireCarry {
   const cat = result.catalogResult
+  const savedResult = 'phaseResult' in result
+    ? (({ catalogResult: _catalog, ...saved }) => saved)(result)
+    : undefined
   return {
+    ...(savedResult ? { result: savedResult, catalogEvidence: cat ? [...cat.evidence] : null } : {}),
     catalog: {
       triples: cat?.triples ?? [],
       attempts: cat?.attempts ?? [],
@@ -126,6 +181,7 @@ export function assertCarryBounded(
 
 export type PhaseOutputStore = {
   reader: {
+    forTargets: (targets: readonly EnrichmentTarget[]) => Promise<PhaseOutputRow[]>
     /**
      * Return rows for the target ordered newest-first. The consumer filters
      * by status and picks the latest per phase.
@@ -139,9 +195,7 @@ export type PhaseOutputStore = {
   }
   writer: {
     /** Upsert rows on the unique (job_id, target_id, target_type, phase) key. */
-    upsert: (entries: PhaseOutputRow[]) => Promise<void>
-    /** Set `persisted_at = now()` for the given ids. */
-    markPersisted: (ids: string[]) => Promise<void>
+    upsert: (entries: PhaseOutputRow[]) => Promise<PhaseOutputRow[]>
   }
 }
 
@@ -165,7 +219,7 @@ export type RecordPhaseOutputsInput = {
 export async function recordPhaseOutputs(
   store: PhaseOutputStore,
   input: RecordPhaseOutputsInput,
-): Promise<void> {
+): Promise<PhaseOutputRow[]> {
   const rows: PhaseOutputRow[] = input.entries.map((entry) => ({
     id: '', // DB generates
     job_id: input.jobId,
@@ -177,7 +231,7 @@ export async function recordPhaseOutputs(
     persisted_at: null,
     created_at: new Date().toISOString(),
   }))
-  await store.writer.upsert(rows)
+  return store.writer.upsert(rows)
 }
 
 /**
@@ -190,7 +244,7 @@ export async function latestPhaseOutputs(
   const rows = await store.reader.latestPerPhase(target)
   const result = new Map<string, PhaseOutputRow>()
   for (const row of rows) {
-    if (row.status !== 'succeeded') continue
+    if (row.status !== 'succeeded' || !isUsablePhaseOutput(row.output)) continue
     // Rows come newest-first; first hit per phase wins.
     if (!result.has(row.phase)) {
       result.set(row.phase, row)
@@ -209,55 +263,52 @@ export async function listUnpersistedOutputs(
   return store.reader.unpersisted(target)
 }
 
-/**
- * Stamp the given rows as persisted.
- */
-export async function markPersisted(
-  store: PhaseOutputStore,
-  ids: string[],
-): Promise<void> {
-  if (ids.length === 0) return
-  await store.writer.markPersisted(ids)
-}
-
 // ---------------------------------------------------------------------------
 // Default Supabase implementation
 // ---------------------------------------------------------------------------
 
 import { createServiceClient } from '@/lib/supabase/service'
+import { mapWithConcurrency } from '../_shared/concurrency'
 
 export function createSupabasePhaseOutputStore(): PhaseOutputStore {
+  const forTargets: PhaseOutputStore['reader']['forTargets'] = async (targets) => {
+    const supabase = createServiceClient()
+    const batches: Array<{ type: EnrichmentTarget['type']; ids: string[] }> = []
+    for (const type of ['submission', 'brand'] as const) {
+      const ids = [...new Set(targets.filter((target) => target.type === type).map((target) => target.id))]
+      for (let offset = 0; offset < ids.length; offset += 200) {
+        batches.push({ type, ids: ids.slice(offset, offset + 200) })
+      }
+    }
+    const rows = await mapWithConcurrency(batches, 3, async ({ type, ids }) => {
+      const result: PhaseOutputRow[] = []
+      // Page each batch so Supabase's row cap cannot silently omit older phases.
+      for (let offset = 0; ; offset += 1000) {
+        const { data, error } = await supabase.from('curation_phase_outputs')
+          .select('*, curation_jobs!inner(dry_run)')
+          .in('target_id', ids).eq('target_type', type)
+          .eq('curation_jobs.dry_run', false)
+          .order('created_at', { ascending: false }).order('id', { ascending: false })
+          .range(offset, offset + 999)
+        if (error) throw error
+        result.push(...(data ?? []) as PhaseOutputRow[])
+        if (!data || data.length < 1000) return result
+      }
+    })
+    return rows.flat()
+  }
   return {
     reader: {
-      latestPerPhase: async (target) => {
-        const supabase = createServiceClient()
-        const { data, error } = await supabase
-          .from('curation_phase_outputs')
-          .select('*')
-          .eq('target_id', target.id)
-          .eq('target_type', target.type)
-          .order('created_at', { ascending: false })
-        if (error) throw error
-        return (data ?? []) as PhaseOutputRow[]
-      },
-      unpersisted: async (target) => {
-        const supabase = createServiceClient()
-        const { data, error } = await supabase
-          .from('curation_phase_outputs')
-          .select('*, curation_jobs!inner(dry_run)')
-          .eq('target_id', target.id)
-          .eq('target_type', target.type)
-          .is('persisted_at', null)
-          .eq('curation_jobs.dry_run', false)
-        if (error) throw error
-        return (data ?? []) as PhaseOutputRow[]
-      },
+      forTargets,
+      latestPerPhase: (target) => forTargets([target]),
+      unpersisted: async (target) => (await forTargets([target]))
+        .filter((row) => row.persisted_at === null && row.status === 'succeeded' && isUsablePhaseOutput(row.output)),
     },
     writer: {
       upsert: async (entries) => {
-        if (entries.length === 0) return
+        if (entries.length === 0) return []
         const supabase = createServiceClient()
-        const { error } = await supabase
+        const { data, error } = await supabase
           .from('curation_phase_outputs')
           .upsert(
             entries.map((e) => ({
@@ -269,18 +320,11 @@ export function createSupabasePhaseOutputStore(): PhaseOutputStore {
               output: e.output,
             })),
             { onConflict: 'job_id,target_id,target_type,phase' },
-          )
+          ).select('*')
         if (error) throw error
+        return (data ?? []) as PhaseOutputRow[]
       },
-      markPersisted: async (ids) => {
-        if (ids.length === 0) return
-        const supabase = createServiceClient()
-        const { error } = await supabase
-          .from('curation_phase_outputs')
-          .update({ persisted_at: new Date().toISOString() })
-          .in('id', ids)
-        if (error) throw error
-      },
+
     },
   }
 }

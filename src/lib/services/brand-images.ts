@@ -162,9 +162,9 @@ export function toImageFields(rows: BrandImageRow[]): {
   imageAlts: BrandImageMeta[]
 } {
   const active = rows
-    // A row with no `storage_path` has no renderable form at all now that the
-    // bucket is private (DEV-1551), so it is dropped here rather than emitted
-    // as a broken `src`. Dropping it BEFORE the sort keeps `imageAlts`
+    // A row with no `storage_path` cannot be routed to storage, so it is
+    // dropped here rather than emitted as a broken `src`. Dropping it BEFORE
+    // the sort keeps `imageAlts`
     // index-aligned with `[heroImageUrl, ...productPhotos]`.
     .filter((row) => row.status === 'active' && Boolean(row.storage_path))
     .toSorted((left, right) => (left.sort_order ?? 0) - (right.sort_order ?? 0))
@@ -308,7 +308,7 @@ function storagePathsFromImageRefs(refs: readonly string[]): string[] {
     ...new Set(
       refs.flatMap((ref) => {
         const path = storagePathFromImageUrl(ref)
-        return path ? [path] : []
+        return path && isBrandOwnedStoragePath(path) ? [path] : []
       }),
     ),
   ]
@@ -460,4 +460,3 @@ export async function syncHeroDenormalized(
     { subjectId: brandId },
   )
 }
-

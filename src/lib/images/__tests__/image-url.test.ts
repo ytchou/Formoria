@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import {
   absoluteImageUrl,
   imagePathToUrl,
@@ -6,16 +6,52 @@ import {
 } from '@/lib/images/image-url'
 
 const SITE_URL = 'https://formoria.test'
+const SUPABASE_URL = 'https://xkcayngbttpxyibgzern.supabase.co'
+const PUBLIC_PREFIX = `${SUPABASE_URL}/storage/v1/object/public/brand-images/`
 
 describe('imagePathToUrl', () => {
-  it('builds a relative /i/ path', () => {
+  beforeEach(() => {
+    vi.stubEnv('NEXT_PUBLIC_SUPABASE_URL', SUPABASE_URL)
+  })
+
+  afterEach(() => {
+    vi.unstubAllEnvs()
+  })
+
+  it('returns a public URL for a brands/ key', () => {
     expect(
       imagePathToUrl('brands/11111111-2222-3333-4444-555555555555/x.webp'),
-    ).toBe('/i/brands/11111111-2222-3333-4444-555555555555/x.webp')
+    ).toBe(`${PUBLIC_PREFIX}brands/11111111-2222-3333-4444-555555555555/x.webp`)
+  })
+
+  it('returns public URLs for every published prefix', () => {
+    expect(imagePathToUrl('curated-products/a/b/c.webp')).toBe(
+      `${PUBLIC_PREFIX}curated-products/a/b/c.webp`,
+    )
+    expect(imagePathToUrl('event-exhibitors/2026-expo/booth-a1.webp')).toBe(
+      `${PUBLIC_PREFIX}event-exhibitors/2026-expo/booth-a1.webp`,
+    )
+    expect(imagePathToUrl('events/2026-expo/hero.webp')).toBe(
+      `${PUBLIC_PREFIX}events/2026-expo/hero.webp`,
+    )
+  })
+
+  it('returns an /i/ URL for a submissions/ key', () => {
+    // Pre-moderation content stays behind the proxy's deny-list.
+    expect(imagePathToUrl('submissions/abc/x.webp')).toBe(
+      '/i/submissions/abc/x.webp',
+    )
+  })
+
+  it('falls back to /i/ when the project URL is unset', () => {
+    vi.stubEnv('NEXT_PUBLIC_SUPABASE_URL', '')
+    expect(imagePathToUrl('brands/a/x.webp')).toBe('/i/brands/a/x.webp')
   })
 
   it('trims surrounding whitespace', () => {
-    expect(imagePathToUrl('  brands/a/x.webp  ')).toBe('/i/brands/a/x.webp')
+    expect(imagePathToUrl('  brands/a/x.webp  ')).toBe(
+      `${PUBLIC_PREFIX}brands/a/x.webp`,
+    )
   })
 
   it('returns null for a blank path', () => {
@@ -43,8 +79,11 @@ describe('absoluteImageUrl', () => {
   })
 
   it('prefixes the site URL', () => {
-    expect(absoluteImageUrl(imagePathToUrl('brands/a/x.webp'))).toBe(
-      `${SITE_URL}/i/brands/a/x.webp`,
+    // A `submissions/` key, because that is the prefix `imagePathToUrl` still
+    // renders as a relative proxy path after the DEV-1744 bucket flip — a
+    // `brands/` key now comes back already absolute.
+    expect(absoluteImageUrl(imagePathToUrl('submissions/a/x.webp'))).toBe(
+      `${SITE_URL}/i/submissions/a/x.webp`,
     )
   })
 
@@ -80,6 +119,14 @@ describe('absoluteImageUrl', () => {
 })
 
 describe('storagePathFromImageUrl', () => {
+  beforeEach(() => {
+    vi.stubEnv('NEXT_PUBLIC_SUPABASE_URL', SUPABASE_URL)
+  })
+
+  afterEach(() => {
+    vi.unstubAllEnvs()
+  })
+
   it('round-trips imagePathToUrl', () => {
     const path = 'brands/a/x.webp'
     expect(storagePathFromImageUrl(imagePathToUrl(path))).toBe(path)
@@ -89,5 +136,61 @@ describe('storagePathFromImageUrl', () => {
     expect(storagePathFromImageUrl('https://cdn.example/x.webp')).toBeNull()
     expect(storagePathFromImageUrl('/images/logo.png')).toBeNull()
     expect(storagePathFromImageUrl('/i/')).toBeNull()
+  })
+
+  it('recognizes a public Supabase storage URL for a brands/ key', () => {
+    expect(storagePathFromImageUrl(`${PUBLIC_PREFIX}brands/x/y.webp`)).toBe(
+      'brands/x/y.webp',
+    )
+  })
+
+  it('still returns null for a signed URL', () => {
+    // Signed URLs are out of scope on purpose: the key would have to be read
+    // past a `/object/sign/` segment and a token query string, and every caller
+    // of this function is a WRITE path — one of them deletes what it resolves.
+    expect(
+      storagePathFromImageUrl(
+        `${SUPABASE_URL}/storage/v1/object/sign/brand-images/brands/x/y.webp?token=eyJhbGciOiJIUzI1NiJ9.fake.signature`,
+      ),
+    ).toBeNull()
+  })
+
+  it('round-trips every public prefix but rejects private submissions', () => {
+    for (const path of [
+      'brands/a/x.webp',
+      'curated-products/a/b/c.webp',
+      'event-exhibitors/event-a/exhibitor.webp',
+      'events/event-a/hero.webp',
+    ]) {
+      expect(storagePathFromImageUrl(`${PUBLIC_PREFIX}${path}`)).toBe(path)
+    }
+    expect(
+      storagePathFromImageUrl(`${PUBLIC_PREFIX}submissions/a/x.webp`),
+    ).toBeNull()
+  })
+
+  it('returns null for a public URL on a foreign origin', () => {
+    expect(
+      storagePathFromImageUrl(
+        'https://cdn.example.test/storage/v1/object/public/brand-images/brands/x/y.webp',
+      ),
+    ).toBeNull()
+  })
+
+  it('round-trips both URL forms', () => {
+    const path = 'brands/a/x.webp'
+    expect(storagePathFromImageUrl(imagePathToUrl(path))).toBe(path)
+    expect(storagePathFromImageUrl(`${PUBLIC_PREFIX}${path}`)).toBe(path)
+  })
+
+  it('round-trips when the project URL has a trailing slash or padding', () => {
+    // Both halves of the seam normalise the env value the same way, so neither
+    // a trailing slash nor stray whitespace can desync build from parse.
+    const path = 'brands/a/x.webp'
+    for (const value of [`${SUPABASE_URL}/`, `  ${SUPABASE_URL}/  `]) {
+      vi.stubEnv('NEXT_PUBLIC_SUPABASE_URL', value)
+      expect(storagePathFromImageUrl(imagePathToUrl(path))).toBe(path)
+      expect(storagePathFromImageUrl(`${PUBLIC_PREFIX}${path}`)).toBe(path)
+    }
   })
 })

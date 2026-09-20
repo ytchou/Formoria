@@ -1,0 +1,14 @@
+{
+  "$comment": "Documentation-only — Railway does not read per-service JSON files. This records the intended service configuration for the repo-worker Railway service.",
+  "service": "repo-worker",
+  "serverless": true,
+  "startCommand": "pnpm repo:worker",
+  "envVars": [
+    "NEXT_PUBLIC_SUPABASE_URL",
+    "SUPABASE_SERVICE_ROLE_KEY",
+    "FORMORIA_DEPLOYMENT_ENV",
+    "CODEX_API_KEY",
+    "SLACK_FORMORIA_WEBHOOK_URL",
+    "SENTRY_DSN"
+  ]
+}

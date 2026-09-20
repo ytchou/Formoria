@@ -26,7 +26,7 @@ import {
   type RepairResult,
   type SelfMergeEvidence,
   type SourceFailure,
-} from "./incident";
+} from "@/lib/services/e2e-selfheal/incident";
 
 async function jsonFile<T>(path: string | undefined): Promise<T> {
   if (!path) throw new Error("A JSON file path is required");

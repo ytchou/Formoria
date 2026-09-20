@@ -295,6 +295,7 @@ export function trackProductSearchExecuted(
   options: {
     searchSource: string;
     degraded: boolean;
+    searchId?: string;
     intentParsed?: 'skipped' | 'ok' | 'failed';
     intentCategory?: string | null;
     intentSubcategory?: string | null;
@@ -303,6 +304,14 @@ export function trackProductSearchExecuted(
     intentLatencyMs?: number;
     rpcLatencyMs?: number;
     embedLatencyMs?: number;
+    ltrMode?: string;
+    ltrLatencyMs?: number;
+    featuresLatencyMs?: number;
+    ltrScores?: number[];
+    ltrRanks?: number[];
+    ltrProductKeys?: string[];
+    rrfProductKeys?: string[];
+    armBySlot?: ('rrf' | 'ltr')[];
   },
 ) {
   safeGAEvent("event", "search", {
@@ -316,6 +325,8 @@ export function trackProductSearchExecuted(
   // Intent and latency fields are conditionally spread: absent keys are a real
   // state in PostHog (never captured), not "captured as undefined".
   const intentProps: Record<string, unknown> = {};
+  if (options.searchId !== undefined)
+    intentProps.search_id = options.searchId;
   if (options.intentParsed !== undefined)
     intentProps.intent_parsed = options.intentParsed;
   if (options.intentCategory !== undefined)
@@ -332,6 +343,22 @@ export function trackProductSearchExecuted(
     intentProps.rpc_latency_ms = options.rpcLatencyMs;
   if (options.embedLatencyMs !== undefined)
     intentProps.embed_latency_ms = options.embedLatencyMs;
+  if (options.ltrMode !== undefined)
+    intentProps.ltr_mode = options.ltrMode;
+  if (options.ltrLatencyMs !== undefined)
+    intentProps.ltr_latency_ms = options.ltrLatencyMs;
+  if (options.featuresLatencyMs !== undefined)
+    intentProps.features_latency_ms = options.featuresLatencyMs;
+  if (options.ltrScores !== undefined)
+    intentProps.ltr_scores = options.ltrScores;
+  if (options.ltrRanks !== undefined)
+    intentProps.ltr_ranks = options.ltrRanks;
+  if (options.ltrProductKeys !== undefined)
+    intentProps.ltr_product_keys = options.ltrProductKeys;
+  if (options.rrfProductKeys !== undefined)
+    intentProps.rrf_product_keys = options.rrfProductKeys;
+  if (options.armBySlot !== undefined)
+    intentProps.arm_by_slot = options.armBySlot;
 
   capturePostHogEvent(ANALYTICS_EVENTS.PRODUCT_SEARCH_EXECUTED, {
     query_length: query.length,
@@ -341,6 +368,44 @@ export function trackProductSearchExecuted(
     degraded: options.degraded,
     ...searchTermProperty(query),
     ...intentProps,
+  });
+}
+
+export function trackProductSearchResultClicked(opts: {
+  searchId: string;
+  position: number;
+  productKey: string;
+  brandSlug: string;
+  query: string;
+  arm?: string;
+  ltrMode?: string;
+}) {
+  capturePostHogEvent(ANALYTICS_EVENTS.PRODUCT_SEARCH_RESULT_CLICKED, {
+    search_id: opts.searchId,
+    position: opts.position,
+    product_key: opts.productKey,
+    brand_slug: opts.brandSlug,
+    query: opts.query,
+    ...(opts.arm !== undefined && { arm: opts.arm }),
+    ...(opts.ltrMode !== undefined && { ltr_mode: opts.ltrMode }),
+  });
+}
+
+export function trackProductSearchResultsViewed(opts: {
+  searchId: string;
+  productKeys: string[];
+  query: string;
+  resultCount: number;
+  armBySlot?: ('rrf' | 'ltr')[];
+  ltrMode?: string;
+}) {
+  capturePostHogEvent(ANALYTICS_EVENTS.PRODUCT_SEARCH_RESULTS_VIEWED, {
+    search_id: opts.searchId,
+    product_keys: opts.productKeys,
+    query: opts.query,
+    result_count: opts.resultCount,
+    ...(opts.armBySlot !== undefined && { arm_by_slot: opts.armBySlot }),
+    ...(opts.ltrMode !== undefined && { ltr_mode: opts.ltrMode }),
   });
 }
 

@@ -18,6 +18,7 @@
  *   pnpm embeddings:backfill --apply --limit 500    # embed up to 500
  */
 import { loadScriptTarget } from "../../shared/target";
+import { refreshBrandCentroids } from "@/lib/services/brand-embeddings";
 import { refreshProductEmbeddings } from "@/lib/services/product-embeddings";
 
 type ParsedArgs = {
@@ -25,6 +26,39 @@ type ParsedArgs = {
   limit: number;
   dryRun: boolean;
 };
+
+type BackfillDeps = {
+  refreshProducts: typeof refreshProductEmbeddings;
+  refreshCentroids: typeof refreshBrandCentroids;
+};
+
+export function shouldRefreshBrandCentroids(
+  args: Pick<ParsedArgs, "dryRun">,
+  products: { failedBatches: readonly string[] },
+): boolean {
+  return !args.dryRun && products.failedBatches.length === 0;
+}
+
+async function runEmbeddingBackfill(
+  args: ParsedArgs,
+  deps: BackfillDeps = {
+    refreshProducts: refreshProductEmbeddings,
+    refreshCentroids: refreshBrandCentroids,
+  },
+) {
+  const effectiveLimit = args.all ? Number.MAX_SAFE_INTEGER : args.limit;
+  const products = await deps.refreshProducts({
+    limit: effectiveLimit,
+    dryRun: args.dryRun,
+  });
+
+  if (!shouldRefreshBrandCentroids(args, products)) {
+    return { products, centroids: null };
+  }
+
+  const centroids = await deps.refreshCentroids();
+  return { products, centroids };
+}
 
 export function parseArgs(argv: string[]): ParsedArgs {
   let all = false;
@@ -61,23 +95,24 @@ async function main(): Promise<void> {
   const { argv } = loadScriptTarget();
   const args = parseArgs(argv);
 
-  const effectiveLimit = args.all ? Number.MAX_SAFE_INTEGER : args.limit;
-
   console.log(
     `[embed-products] mode: ${args.dryRun ? "DRY RUN (pass --apply)" : "APPLY"}  limit: ${args.all ? "all" : args.limit}`,
   );
 
-  const result = await refreshProductEmbeddings({
-    limit: effectiveLimit,
-    dryRun: args.dryRun,
-  });
+  const result = await runEmbeddingBackfill(args);
 
   console.log(
-    `[embed-products] stale: ${result.stale}  embedded: ${result.embedded}  deleted: ${result.deleted}  failed: ${result.failedBatches.length}`,
+    `[embed-products] stale: ${result.products.stale}  embedded: ${result.products.embedded}  deleted: ${result.products.deleted}  failed: ${result.products.failedBatches.length}`,
   );
 
-  if (result.failedBatches.length > 0) {
-    for (const batch of result.failedBatches) {
+  if (result.centroids) {
+    console.log(
+      `[embed-products] centroids updated: ${result.centroids.updated}  deleted: ${result.centroids.deleted}  skipped: ${result.centroids.skipped}`,
+    );
+  }
+
+  if (result.products.failedBatches.length > 0) {
+    for (const batch of result.products.failedBatches) {
       console.error(`[embed-products] FAILED: ${batch}`);
     }
     process.exit(1);

@@ -402,14 +402,19 @@ export async function cleanupTestData({ createdSince }: CleanupOptions = {}) {
   const submissionImagePaths = submissionImages
     .filter((row) => submissionIds.includes(String(row.submission_id)))
     .map((row) => String(row.storage_path ?? ''));
+  const privateSubmissionImagePaths = submissionImagePaths.filter((path) =>
+    path.startsWith('submissions/'),
+  );
+  const publicSubmissionImagePaths = submissionImagePaths.filter(
+    (path) => path && !path.startsWith('submissions/'),
+  );
   const storagePrefixes = {
-    brandImages: [
-      ...submissionIds.map((id) => `submissions/${id}`),
-      ...brandIds.map((id) => `brands/${id}`),
-    ],
+    brandImages: brandIds.map((id) => `brands/${id}`),
+    brandSubmissions: submissionIds.map((id) => `submissions/${id}`),
   };
   const storageObjects = {
     brandImages: (await Promise.all(storagePrefixes.brandImages.map((prefix) => listStorageObjects(supabase, 'brand-images', prefix, failures)))).flat(),
+    brandSubmissions: (await Promise.all(storagePrefixes.brandSubmissions.map((prefix) => listStorageObjects(supabase, 'brand-submissions', prefix, failures)))).flat(),
   };
 
   const jobs = (await queryRows(
@@ -477,7 +482,6 @@ export async function cleanupTestData({ createdSince }: CleanupOptions = {}) {
   await deleteWhereIn(supabase, 'brand_reports', 'id', reportIds, failures);
   await deleteWhereIn(supabase, 'brand_field_corrections', 'brand_id', brandIds, failures);
   await deleteWhereIn(supabase, 'moderation_flags', 'brand_id', brandIds, failures);
-  await deleteWhereIn(supabase, 'pending_brand_edits', 'brand_id', brandIds, failures);
   await deleteWhereIn(supabase, 'brand_saves', 'brand_id', brandIds, failures);
   await deleteWhereIn(supabase, 'brand_channels', 'brand_id', brandIds, failures);
   await deleteWhereIn(supabase, 'brand_field_events', 'brand_id', brandIds, failures);
@@ -494,7 +498,8 @@ export async function cleanupTestData({ createdSince }: CleanupOptions = {}) {
   await deleteWhereIn(supabase, 'newsletter_subscribers', 'id', newsletterIds, failures);
   await deleteWhereIn(supabase, 'staging_auth_email_captures', 'id', captureIds, failures);
 
-  await removeStorageObjects(supabase, 'brand-images', [...brandImagePaths, ...submissionImagePaths, ...storageObjects.brandImages], failures);
+  await removeStorageObjects(supabase, 'brand-images', [...brandImagePaths, ...publicSubmissionImagePaths, ...storageObjects.brandImages], failures);
+  await removeStorageObjects(supabase, 'brand-submissions', [...privateSubmissionImagePaths, ...storageObjects.brandSubmissions], failures);
   await removeStorageObjects(supabase, 'claim-proofs', claimProofObjects, failures);
 
   if (!createdSince) {
@@ -540,16 +545,16 @@ export async function cleanupTestData({ createdSince }: CleanupOptions = {}) {
     ['brand_field_events', 'brand_id', brandIds],
     ['brand_field_corrections', 'brand_id', brandIds],
     ['moderation_flags', 'brand_id', brandIds],
-    ['pending_brand_edits', 'brand_id', brandIds],
     ['brand_saves', 'brand_id', brandIds],
     ['brand_channels', 'brand_id', brandIds],
   ] as const) {
     await countBy(`${table}`, ids.length
-      ? supabase.from(table).select('id', { count: 'exact', head: true }).in(column, ids)
+      ? supabase.from(table).select(column, { count: 'exact', head: true }).in(column, ids)
       : Promise.resolve({ count: 0, error: null }));
   }
   for (const [bucket, prefixes] of [
     ['brand-images', storagePrefixes.brandImages],
+    ['brand-submissions', storagePrefixes.brandSubmissions],
   ] as const) {
     for (const prefix of prefixes) {
       const objects = await listStorageObjects(supabase, bucket, prefix, residue);

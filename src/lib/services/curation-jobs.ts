@@ -1,23 +1,30 @@
+import {
+  buildRecoveryPlan,
+  readTargetPlan,
+  validateRecoveryPlan,
+  type RecoveryPlan,
+} from "./enrich-blocks/plan";
+import {
+  createSupabasePhaseOutputStore,
+  isUsablePhaseCheckpoint,
+  isUsablePhaseOutput,
+} from "./enrich-blocks/phase-outputs";
+import { restoreAcquireCheckpoint } from "./enrich-blocks/hydration";
+import { mapWithConcurrency } from "./_shared/concurrency";
 import { createServiceClient } from "@/lib/supabase/service";
 import { auditedCall } from "@/lib/audit";
 import type { Database, Json } from "@/lib/supabase/database.types";
 import {
-  CURATION_TASKS,
-  ENRICH_LLM_PHASES,
   ENRICH_PHASES,
   normalizeRequestedPhases,
-  parseLegacyStepsToPhases,
-  phasesForTask,
-  type CurationTask,
   type EnrichPhaseName,
   type RetryParams,
 } from "@/lib/constants/enrich-phases";
+import { computeBackoffDelay, JOB_REQUEUE, RETRY_ATTEMPTS } from "@/lib/retry";
 import {
-  computeBackoffDelay,
-  JOB_REQUEUE,
-  RETRY_ATTEMPTS,
-} from "@/lib/retry";
-import { lastAcquireRecordedBudgetExhausted, parsePhaseResults } from "@/lib/services/phase-results";
+  lastAcquireRecordedBudgetExhausted,
+  parsePhaseResults,
+} from "@/lib/services/phase-results";
 import { imagePathToUrl } from "@/lib/images/image-url";
 import {
   enrichedDataFromDb,
@@ -56,7 +63,7 @@ export type CurationJobParams = Record<string, Json | undefined> & {
   /** Multiplier for the per-brand time budget. >1 grants more time. */
   budgetScale?: number;
   /** Block-level retry scope from the admin UI (DEV-1611). */
-  retry?: RetryParams;
+  retry?: RetryParams | RecoveryPlan;
 };
 
 type CurationJobRow = Database["public"]["Tables"]["curation_jobs"]["Row"];
@@ -400,14 +407,41 @@ export async function enqueueAutomaticRetry(
   );
 }
 
-export async function enqueueManualRerun(
-  sourceJobId: string,
-  startedBy: string,
-  options?: { overwrite?: boolean },
-): Promise<CurationJob> {
+type CurationRecoveryAction =
+  | { kind: "rerun"; overwrite?: boolean }
+  | { kind: "resume" }
+  | { kind: "phase"; targetId: string; retry: RetryParams };
+
+export type CurationRecoveryInput = {
+  sourceJobId: string;
+  startedBy: string;
+  action: CurationRecoveryAction;
+};
+
+export type CurationRecoveryCounts = {
+  total: number;
+  failed: number;
+  cancelled: number;
+};
+export type CurationRecoveryResult = {
+  job: CurationJob;
+  counts: CurationRecoveryCounts;
+};
+
+export async function enqueueCurationRecovery({
+  sourceJobId,
+  startedBy,
+  action,
+}: CurationRecoveryInput): Promise<CurationRecoveryResult> {
   return auditedCall(
-    { provider: "curation", operation: "enqueueManualRerun", kind: "service" },
+    {
+      provider: "curation",
+      operation: "enqueueCurationRecovery",
+      kind: "service",
+    },
     async () => {
+      if (!action || !["rerun", "resume", "phase"].includes(action.kind))
+        throw new Error("Invalid recovery action");
       const source = await getCurationJob(sourceJobId);
       const allTargets = await listCurationJobTargets(source.id);
       if (allTargets.some((target) => target.target_type === "brand")) {
@@ -415,63 +449,119 @@ export async function enqueueManualRerun(
           "Brand-target enrichment jobs are retired; request a refresh submission",
         );
       }
-      const submissionIds = allTargets
-        .filter((target) => target.target_type === "submission")
-        .map((target) => target.target_id);
-      const incompleteSubmissionIds = new Set<string>();
-
-      if (submissionIds.length > 0) {
-        const supabase = createServiceClient();
-        const { data, error } = await supabase
-          .from("brand_submissions")
-          .select(
-            "id, status, brand_id, hero_image_storage_path, enriched_data, owner_data",
-          )
-          .in("id", submissionIds);
-
-        if (error) throw error;
-        for (const submission of data ?? []) {
-          const enrichedData =
-            submission.enriched_data &&
-            typeof submission.enriched_data === "object" &&
-            !Array.isArray(submission.enriched_data)
-              ? enrichedDataFromDb(
-                  submission.enriched_data as Record<string, unknown>,
-                )
-              : null;
-          if (
-            submission.status === "pending" &&
-            submission.brand_id === null &&
-            !hasCompleteEnrichment(
-              enrichedData,
-              imagePathToUrl(submission.hero_image_storage_path),
+      const candidates =
+        action.kind === "phase"
+          ? allTargets.filter((target) => target.target_id === action.targetId)
+          : allTargets;
+      if (action.kind === "phase" && !candidates.length)
+        throw new Error(
+          `Target ${action.targetId} not found in job ${sourceJobId}`,
+        );
+      const supabase = createServiceClient();
+      const pages = await mapWithConcurrency(
+        chunkValues(
+          candidates.map((target) => target.target_id),
+          SUPABASE_IN_FILTER_CHUNK_SIZE,
+        ),
+        3,
+        async (ids) => {
+          const { data, error } = await supabase
+            .from("brand_submissions")
+            .select(
+              "id, status, brand_id, hero_image_storage_path, enriched_data",
             )
-          ) {
-            incompleteSubmissionIds.add(submission.id);
-          }
-        }
-      }
-
-      const targets = allTargets.filter((target) =>
-        isManualRerunTargetEligible({
+            .in("id", ids);
+          if (error) throw error;
+          return data ?? [];
+        },
+      );
+      const submissions = new Map(
+        pages.flat().map((submission) => [submission.id, submission]),
+      );
+      const targets = candidates.filter((target) => {
+        const submission = submissions.get(target.target_id);
+        if (!submission || submission.status !== "pending") return false;
+        if (action.kind === "phase") return true;
+        if (action.kind === "resume")
+          return target.status === "failed" || target.status === "cancelled";
+        const data = submission.enriched_data;
+        const enriched =
+          data && typeof data === "object" && !Array.isArray(data)
+            ? enrichedDataFromDb(data)
+            : null;
+        return isManualRerunTargetEligible({
           sourceStatus: source.status,
           targetStatus: target.status,
           isIncompleteSubmission:
-            target.target_type === "submission" &&
-            incompleteSubmissionIds.has(target.target_id),
-        }),
+            submission.brand_id === null &&
+            !hasCompleteEnrichment(
+              enriched,
+              imagePathToUrl(submission.hero_image_storage_path),
+            ),
+        });
+      });
+      if (!targets.length)
+        throw new Error("This job has no eligible pending targets to recover");
+      const metadata: RecoveryPlan["action"] =
+        action.kind === "phase"
+          ? { ...action.retry, kind: "phase" }
+          : { kind: action.kind };
+      // Checkpoints are fetched once for the entire target set, never per target.
+      const lineage =
+        action.kind === "resume"
+          ? new Set(await getCurationJobLineageIds(source.id))
+          : new Set<string>();
+      const rows =
+        action.kind === "resume"
+          ? await createSupabasePhaseOutputStore().reader.forTargets(
+              targets.map((target) => ({
+                id: target.target_id,
+                type: "submission",
+              })),
+            )
+          : [];
+      const sourcePlans = new Map(targets.map((target) => [target.target_id, readTargetPlan(source.params, target.target_id)]));
+      const retry = buildRecoveryPlan(
+        source.params,
+        metadata,
+        targets.map((target) => ({
+          id: target.target_id,
+          status: target.status,
+          results: parsePhaseResults(target.phase_results),
+          reusablePhases: rows
+            .filter((row) => {
+              if (
+                row.target_id !== target.target_id ||
+                !lineage.has(row.job_id) ||
+                row.persisted_at !== null ||
+                !isUsablePhaseCheckpoint(row)
+              )
+                return false;
+              if (row.job_id !== source.id && sourcePlans.get(target.target_id)?.forced.includes(row.phase as EnrichPhaseName)) return false;
+              if (row.phase !== "acquire") return true;
+              const carry = isUsablePhaseOutput(row.output)
+                ? row.output.carry
+                : undefined;
+              return (
+                !!carry &&
+                "catalog" in carry &&
+                !!restoreAcquireCheckpoint(carry)
+              );
+            })
+            .map((row) => row.phase as EnrichPhaseName),
+        })),
       );
-
-      if (targets.length === 0) {
-        throw new Error(
-          "This job has no failed, skipped, or unfinished targets to rerun",
-        );
-      }
-
-      const budgetScale = budgetScaleForRerun(targets);
-      const params = rerunJobParams(source.params, { ...options, budgetScale });
-
-      return enqueueCurationJob({
+      const params = recoveryJobParams(
+        source.params,
+        retry,
+        action.kind === "rerun"
+          ? {
+              overwrite: action.overwrite,
+              budgetScale: budgetScaleForRerun(targets),
+            }
+          : undefined,
+      );
+      const job = await enqueueCurationJob({
         operation: "enrich",
         params,
         dryRun: source.dry_run,
@@ -480,6 +570,15 @@ export async function enqueueManualRerun(
         targets: targets.map(targetToEnqueueInput),
         parentJobId: source.id,
       });
+      return {
+        job,
+        counts: {
+          total: targets.length,
+          failed: targets.filter((target) => target.status === "failed").length,
+          cancelled: targets.filter((target) => target.status === "cancelled")
+            .length,
+        },
+      };
     },
   );
 }
@@ -644,6 +743,23 @@ export async function getCurationJob(jobId: string): Promise<CurationJob> {
 
   if (error) throw error;
   return data as CurationJob;
+}
+
+/** Read once per recovery, shared by all of its targets. */
+export async function getCurationJobLineageIds(sourceJobId: string): Promise<string[]> {
+  const supabase = createServiceClient();
+  const ids = new Set<string>();
+  let nextId: string | null = sourceJobId;
+  while (nextId) {
+    if (ids.has(nextId)) throw new Error("Curation recovery lineage contains a cycle");
+    const { data, error }: { data: { id: string; parent_job_id: string | null } | null; error: unknown } = await supabase
+      .from("curation_jobs").select("id, parent_job_id").eq("id", nextId).single();
+    if (error) throw error;
+    if (!data) throw new Error("Curation recovery source no longer exists");
+    ids.add(data.id);
+    nextId = data.parent_job_id;
+  }
+  return [...ids];
 }
 
 export async function cancelCurationJob(
@@ -1000,349 +1116,34 @@ export function parseOverwriteParam(value: unknown): boolean {
   return value === true || value === "true";
 }
 
-type CurationResumeGroup = "failed" | "cancelled";
-
-export type CurationResumePlan = {
-  group: CurationResumeGroup;
-  targets: CurationJobTarget[];
-  params: CurationJobParams;
-};
-
-/**
- * The enqueued job plus the grouping that produced it, so the admin action can
- * report "N failed and M cancelled" without re-reading the source targets.
- * Structurally still a `CurationJob`, so every existing consumer is unaffected.
- */
-export type CurationResumeJob = CurationJob & {
-  resumeGroup: CurationResumeGroup;
-  resumeTargetCount: number;
-};
-
-/**
- * Drops retired phase names from historical phase_results rows so they don't
- * pollute resume scope calculations. `expansion` → `reputation` (2026-08-03),
- * then `reputation` removed entirely (2026-08-31).
- */
-function normalizeLegacyPhaseName(phase: string): string | null {
-  return RETIRED_PHASE_NAMES.has(phase) ? null : phase;
-}
-
-/**
- * The phase scope a stored job actually ran.
- *
- * Resolution precedence mirrors the runner: explicit phases > task > legacy
- * steps > the `full` closure. A job enqueued from the admin UI carries `task`;
- * legacy jobs may carry `steps` or `phases`.
- *
- * Every branch is normalized, so the result never contains a deferred phase.
- * Absent all three the answer is `phasesForTask('full')` and NOT
- * `[...ENRICH_PHASES]` — the raw array still carries the deferred names, and a
- * resume scope computed from it would owe phases that can never be run.
- */
+/** Compatibility facade; target execution uses readTargetPlan directly. */
 export function effectiveRequestedPhases(
   params: CurationJobParams,
 ): EnrichPhaseName[] {
-  // Explicit phases take precedence
-  if (Array.isArray(params.phases)) {
-    const named = params.phases.filter(
-      (phase): phase is string =>
-        typeof phase === "string" &&
-        !RETIRED_PHASE_NAMES.has(phase) &&
-        (ENRICH_PHASES as readonly string[]).includes(phase),
-    );
-    if (named.length > 0) return normalizeRequestedPhases(named);
-  }
-
-  // Task-based resolution
-  if (
-    typeof params.task === "string" &&
-    params.task in CURATION_TASKS
-  ) {
-    return normalizeRequestedPhases(phasesForTask(params.task as CurationTask));
-  }
-
-  // Legacy step parsing
-  if (Array.isArray(params.steps) && params.steps.length > 0) {
-    const fromSteps = parseLegacyStepsToPhases(params.steps);
-    if (fromSteps) return fromSteps;
-  }
-
-  return phasesForTask("full");
-}
-
-/**
- * The phases a set of failed targets still owes, unioned across the group.
- *
- * Two sources, because a crash records nothing after the phase it died in:
- * 1. `phase_results` entries explicitly marked `failed`.
- * 2. Phases in the requested scope with no `phase_results` entry at all — the
- *    target never reached them.
- *
- * The union is intersected with the source scope so an images-only job can
- * never silently expand into the text phases (which would rewrite copy the
- * admin never asked to touch, and pay for it).
- *
- * The empty-union fallback exists for the 2026-08-02 records specifically:
- * before the truthful-phase-status fix, LLM phases wrote `succeeded` even when
- * every OpenAI call returned `insufficient_quota`, so those targets have a full
- * set of green entries and nothing to key off. Re-running the LLM phases in
- * scope is the correct recovery for them, and it re-pays nothing to Serper
- * because SERP results replay from cache whenever `discover` is absent.
- */
-function unfinishedPhasesForTargets(
-  targets: CurationJobTarget[],
-  scope: readonly EnrichPhaseName[],
-): EnrichPhaseName[] {
-  const inScope = new Set<string>(scope);
-  const owed = new Set<string>();
-
-  for (const target of targets) {
-    const results = parsePhaseResults(target.phase_results);
-    const recorded = new Set(
-      results.map((result) => normalizeLegacyPhaseName(result.phase)).filter(Boolean),
-    );
-    for (const result of results) {
-      const normalized = normalizeLegacyPhaseName(result.phase);
-      if (result.status === "failed" && normalized) {
-        owed.add(normalized);
-      }
-    }
-    for (const phase of scope) {
-      if (!recorded.has(phase)) owed.add(phase);
-    }
-  }
-
-  const union = ENRICH_PHASES.filter(
-    (phase) => owed.has(phase) && inScope.has(phase),
-  );
-  if (union.length > 0) return union;
-
-  const llmFallback = ENRICH_LLM_PHASES.filter((phase) => inScope.has(phase));
-  // A SERP-only scope has no LLM phase to fall back to; re-running the scope
-  // itself is then the only thing "resume" can mean.
-  return llmFallback.length > 0 ? [...llmFallback] : [...scope];
-}
-
-/**
- * Builds one job's params from the source job's.
- *
- * `steps` and `task` MUST be deleted: they win over `phases` in the resolution
- * chain, so carrying them through would make the narrowed phase list computed
- * above completely inert and resume would re-run the full scope — including
- * `discover`, which re-pays serper.dev per brand.
- *
- * `stopAfter` is dropped for the same reason `rerunJobParams` drops it: the
- * runner turns it into a SQL LIMIT, and a resume already carries an explicit,
- * pre-filtered target list that a stale limit would silently truncate.
- */
-function resumeJobParams(
-  sourceParams: CurationJobParams,
-  targets: CurationJobTarget[],
-  phases: readonly EnrichPhaseName[],
-): CurationJobParams {
-  const params: CurationJobParams = { ...sourceParams };
-  delete params.steps;
-  delete params.task;
-  delete params.stopAfter;
-  delete params.slugs;
-  delete params.retry;
-
-  params.target = "submissions";
-  params.submissionIds = targets.map((target) => target.target_id);
-  params.phases = [...phases];
-  params.overwrite = parseOverwriteParam(sourceParams.overwrite);
-
-  return params;
-}
-
-/**
- * Splits the eligible targets into the (at most) two jobs a resume enqueues.
- *
- * Two jobs and not one because `params.phases` is job-wide. Failed targets get
- * only the phases they still owe; cancelled targets never started, so they need
- * the source's full scope. Merging the groups would force the union onto both,
- * which for the 2026-08-02 victims means dragging `discover` back in and
- * re-paying serper.dev for brands whose SERP snippets are already cached.
- *
- * Pure and exported so the phase arithmetic — the part that decides LLM spend —
- * is testable without a database.
- */
-export function planCurationResume(
-  sourceParams: Json | null,
-  eligibleTargets: CurationJobTarget[],
-): CurationResumePlan[] {
-  if (eligibleTargets.length === 0) {
-    throw new Error(
-      "This job has no failed or cancelled targets left to resume",
-    );
-  }
-
-  const parsed = parseJobParams(sourceParams);
-  const scope = effectiveRequestedPhases(parsed);
-  const failedTargets = eligibleTargets.filter(
-    (target) => target.status === "failed",
-  );
-  const cancelledTargets = eligibleTargets.filter(
-    (target) => target.status === "cancelled",
-  );
-
-  const plans: CurationResumePlan[] = [];
-  if (failedTargets.length > 0) {
-    plans.push({
-      group: "failed",
-      targets: failedTargets,
-      params: resumeJobParams(
-        parsed,
-        failedTargets,
-        unfinishedPhasesForTargets(failedTargets, scope),
+  if (params.retry && "version" in params.retry) {
+    const plan = validateRecoveryPlan(params.retry);
+    return ENRICH_PHASES.filter((phase) =>
+      Object.values(plan.targets).some((target) =>
+        target.selected.includes(phase),
       ),
-    });
+    );
   }
-  if (cancelledTargets.length > 0) {
-    plans.push({
-      group: "cancelled",
-      targets: cancelledTargets,
-      params: resumeJobParams(parsed, cancelledTargets, scope),
-    });
-  }
-
-  return plans;
+  return readTargetPlan(params, "legacy").selected;
 }
 
-/**
- * Re-enqueues only the unfinished work of a failed job.
- *
- * A deliberate sibling of `enqueueManualRerun` rather than an option on it:
- * `rerunJobParams` documents a "behave like the run it repeats" contract and
- * preserves the source scope, while resume must do the opposite — rewrite
- * `submissionIds`, override `phases`, and delete `steps`. Folding the two would
- * have made that contract conditional, and the failure mode of getting it wrong
- * is spending money.
- *
- * Everything is recomputed server-side from `listCurationJobTargets`. The phase
- * list controls LLM spend, so it is never accepted from the client.
- */
-export async function enqueueCurationResume(
-  sourceJobId: string,
-  startedBy: string,
-): Promise<CurationResumeJob[]> {
-  return auditedCall(
-    { provider: "curation", operation: "enqueueCurationResume", kind: "service" },
-    async () => {
-      const source = await getCurationJob(sourceJobId);
-      const allTargets = await listCurationJobTargets(source.id);
-      if (allTargets.some((target) => target.target_type === "brand")) {
-        throw new Error(
-          "Brand-target enrichment jobs are retired; request a refresh submission",
-        );
-      }
-
-      const unfinished = allTargets.filter(
-        (target) =>
-          target.target_type === "submission" &&
-          (target.status === "failed" || target.status === "cancelled"),
-      );
-
-      // A target whose submission was approved (or deleted) since the outage has
-      // nothing left to enrich — resuming it would fail preflight in the worker.
-      const pendingSubmissionIds = await filterPendingSubmissionIds(
-        unfinished.map((target) => target.target_id),
-      );
-      const eligible = unfinished.filter((target) =>
-        pendingSubmissionIds.has(target.target_id),
-      );
-
-      const plans = planCurationResume(source.params, eligible);
-      const jobs: CurationResumeJob[] = [];
-      for (const plan of plans) {
-        const job = await enqueueCurationJob({
-          operation: "enrich",
-          params: plan.params,
-          dryRun: source.dry_run,
-          startedBy,
-          trigger: "manual_rerun",
-          targets: plan.targets.map(targetToEnqueueInput),
-          parentJobId: source.id,
-        });
-        jobs.push({
-          ...job,
-          resumeGroup: plan.group,
-          resumeTargetCount: plan.targets.length,
-        });
-      }
-
-      return jobs;
-    },
-  );
-}
-
-/**
- * Enqueues a block-level retry for a single target from a completed or failed
- * job. Mirrors `enqueueCurationResume` structurally but scopes to one target
- * and carries the `retry` param so the runner knows which block to re-execute.
- *
- * Only pending submissions are eligible — a target whose submission was already
- * approved has nothing left to enrich.
- */
-export async function enqueueBlockRetry(
-  sourceJobId: string,
-  targetId: string,
-  retry: RetryParams,
-  startedBy: string,
-): Promise<CurationJob> {
-  return auditedCall(
-    { provider: "curation", operation: "enqueueBlockRetry", kind: "service" },
-    async () => {
-      const source = await getCurationJob(sourceJobId);
-      const allTargets = await listCurationJobTargets(source.id);
-      const target = allTargets.find((t) => t.target_id === targetId);
-      if (!target) {
-        throw new Error(`Target ${targetId} not found in job ${sourceJobId}`);
-      }
-
-      const pendingIds = await filterPendingSubmissionIds([targetId]);
-      if (!pendingIds.has(targetId)) {
-        throw new Error(
-          "Submission is no longer pending — cannot retry a non-pending submission",
-        );
-      }
-
-      return enqueueCurationJob({
-        operation: "enrich",
-        params: { ...parseJobParams(source.params), retry },
-        dryRun: source.dry_run,
-        startedBy,
-        trigger: "manual_rerun",
-        targets: [targetToEnqueueInput(target)],
-        parentJobId: source.id,
-      });
-    },
-  );
-}
-
-async function filterPendingSubmissionIds(
-  submissionIds: string[],
-): Promise<Set<string>> {
-  if (submissionIds.length === 0) return new Set();
-
-  const supabase = createServiceClient();
-  const pages = await Promise.all(
-    chunkValues(submissionIds, SUPABASE_IN_FILTER_CHUNK_SIZE).map(
-      async (ids) => {
-        const { data, error } = await supabase
-          .from("brand_submissions")
-          .select("id, status")
-          .in("id", ids);
-        if (error) throw error;
-        return data ?? [];
-      },
-    ),
-  );
-
-  return new Set(
-    pages
-      .flat()
-      .filter((submission) => submission.status === "pending")
-      .map((submission) => submission.id),
-  );
+export function recoveryJobParams(
+  sourceParams: Json | null,
+  plan: RecoveryPlan,
+  options?: { overwrite?: boolean; budgetScale?: number },
+): CurationJobParams {
+  const retry = validateRecoveryPlan(plan);
+  const params = rerunJobParams(sourceParams, options);
+  delete params.task;
+  delete params.steps;
+  delete params.phases;
+  delete params.slugs;
+  params.target = "submissions";
+  params.submissionIds = Object.keys(retry.targets);
+  params.retry = retry;
+  return params;
 }

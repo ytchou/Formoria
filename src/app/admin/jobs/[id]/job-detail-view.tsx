@@ -78,6 +78,10 @@ const phaseDescriptions = {
     "Embeds curated product documents into vectors for situation search.",
   rerank:
     "LLM reranking pass over retrieved candidates to improve precision.",
+  search_relevance_judge:
+    "LLM relevance judgments for learning-to-rank training data.",
+  "sentry-classify":
+    "LLM triage of a Sentry issue for the health agent: severity and root cause.",
   // Legacy: `reputation` was called `expansion` until 2026-08-03 and historical
   // jobs still store that phase string. It is the one entry here with no
   // constant behind it, because nothing writes it any more — only historical
@@ -272,7 +276,7 @@ export function JobDetailView({
       <SurfaceCard padding="lg">
         <h2 className="type-tool-heading">{t("detail.executionInfo")}</h2>
         <dl className="mt-5 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
-          <InfoField label="Trigger" value={jobTriggerLabel(job.trigger, (job.params ?? undefined) as Parameters<typeof jobTriggerLabel>[1])} />
+          <InfoField label="Trigger" value={jobTriggerLabel(job.trigger, job.params)} />
           <InfoField label="Attempt" value={job.attempt} />
           <InfoField
             label="Scheduled"
@@ -330,7 +334,7 @@ export function JobDetailView({
               <LineageLink
                 key={child.id}
                 id={child.id}
-                label={`${jobTriggerLabel(child.trigger)} (attempt ${child.attempt})`}
+                label={`${jobTriggerLabel(child.trigger, child.params)} (attempt ${child.attempt})`}
               />
             ))}
           </div>

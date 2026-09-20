@@ -1,5 +1,9 @@
 import { defineConfig, devices } from "@playwright/test";
 import { BUDGET } from "./e2e/budgets";
+import {
+  DEEP_STAGING_SESSION_STATE,
+  isCanonicalStagingTarget,
+} from "./e2e/helpers/staging-session";
 
 // Load .env.local so global-setup can access env vars outside the Next.js runtime
 // eslint-disable-next-line @typescript-eslint/no-require-imports
@@ -44,6 +48,7 @@ const baseURL =
 const isLocalTarget = ["localhost", "127.0.0.1", "::1"].includes(
   new URL(baseURL).hostname,
 );
+const isCanonicalStaging = isCanonicalStagingTarget(baseURL);
 const isTargetedSelfheal = process.env.SELFHEAL_TARGETED === "true";
 const remoteHeaders = Object.fromEntries(
   [
@@ -68,18 +73,18 @@ export default defineConfig({
   fullyParallel: true,
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 1 : 0,
-  // ubuntu-latest has 4 vCPU. Five spec files set `describe.configure({ mode:
-  // 'serial' })` and pin to a single worker regardless (they carry ownership
-  // constraints — see dashboard-brand-owned-edit.spec.ts), so raising this
-  // caps out well below 4x.
+  // Non-staging CI has 4 vCPU. Canonical staging stays serial because its
+  // Cloudflare perimeter deliberately remains outside the E2E capability: four
+  // workers trip the unchanged edge burst limit before requests reach the app.
   //
   // Locally, Playwright would default to half the cores. Against `pnpm dev`
   // concurrent journeys oversubscribe one Turbopack process: pages get torn
   // down with RSC fetches still in flight, and the aborted response
   // (ECONNRESET server-side) reaches the client as a truncated flight payload.
-  // Keep local deep runs deterministic; production CI retains its parallel
-  // worker count.
-  workers: process.env.CI && !isTargetedSelfheal ? 4 : 1,
+  // Keep local and canonical-staging runs deterministic; other CI targets
+  // retain their parallel worker count.
+  workers:
+    process.env.CI && !isTargetedSelfheal && !isCanonicalStaging ? 4 : 1,
   reporter: "html",
   // CI serves a production build via `pnpm start`, so every route is already
   // compiled and 30s is a real budget. Locally `webServer` runs `pnpm dev`,
@@ -145,7 +150,10 @@ export default defineConfig({
          */
         "e2e/tests/visual-regression.spec.ts",
       ],
-      use: { ...devices["Desktop Chrome"] },
+      use: {
+        ...devices["Desktop Chrome"],
+        storageState: DEEP_STAGING_SESSION_STATE,
+      },
     },
     // Compatibility: exactly the one tagged journey, selected independently
     // from the smoke subset so smoke cases cannot multiply across browsers.

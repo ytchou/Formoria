@@ -23,7 +23,7 @@ import {
 } from "./_shared/brand-image-batch";
 import { isNonImageHost } from "@/lib/images/allowed-image-hosts";
 import { storageKeyFromPublicUrlForRead } from "./image-upload";
-import { RESERVED_ROUTES } from "@/proxy";
+import { RESERVED_ROUTES } from "@/lib/routes";
 import {
   DEFERRED_CATEGORY_SLUGS,
   deriveCategoryLabel,
@@ -58,6 +58,7 @@ import {
   imagePathToUrl,
   storagePathFromImageUrl,
 } from "@/lib/images/image-url";
+import { isBrandOwnedStoragePath } from "@/lib/images/storage-keys";
 import {
   getBrandImages,
   insertBrandImage,
@@ -668,9 +669,8 @@ export function brandToDomain(row: BrandRowWithJoins): Brand {
     descriptionEn: row.description_en ?? null,
     blurb: row.blurb ?? null,
     blurbEn: row.blurb_en ?? null,
-    // DEV-1551 task 9: derived from the bucket key. The bucket is private, so
-    // a public storage URL is a dead link and `/i/<key>` is the only readable
-    // form.
+    // Derived from the bucket key so the render URL follows current bucket
+    // visibility without changing stored row values.
     //
     // The legacy `hero_image_url` is a fallback, not a preference. Two SQL
     // functions still own the approval path -- `approve_submission` and
@@ -807,13 +807,19 @@ export async function hydrateCardImageMeta<
       brands
         .flatMap((brand) => {
           const storagePath = storagePathFromImageUrl(brand.heroImageUrl);
-          return storagePath ? [{ brandId: brand.id, storagePath }] : [];
+          return storagePath && isBrandOwnedStoragePath(storagePath)
+            ? [{ brandId: brand.id, storagePath }]
+            : [];
         })
         .map((pair) => [`${pair.brandId}\n${pair.storagePath}`, pair]),
     ).values(),
   ];
 
   if (pairs.length === 0) return brands.map(withDefaults);
+
+  const heroStoragePathByBrand = new Map(
+    pairs.map(({ brandId, storagePath }) => [brandId, storagePath]),
+  );
 
   let heroRows: CardImageRow[];
   let productRows: CardImageRow[];
@@ -881,15 +887,16 @@ export async function hydrateCardImageMeta<
     // storage key is. Rows arrive ordered by `sort_order`, so the first match is
     // also the lowest-`sort_order` one; that makes the behavior defined if two
     // active rows ever share a key.
+    const heroStoragePath = heroStoragePathByBrand.get(brand.id);
     const heroRow = rowsByBrand
       .get(brand.id)
-      ?.find((row) => imagePathToUrl(row.storage_path) === brand.heroImageUrl);
+      ?.find((row) => row.storage_path === heroStoragePath);
 
-    // A row with no `storage_path` cannot be rendered at all now that the
-    // bucket is private, so it is not a usable product photo.
+    // A row with no `storage_path` cannot be routed to its owning bucket, so it
+    // is not a usable product photo.
     const productRow = productRowsByBrand.get(brand.id)?.find((row) => {
       const src = imagePathToUrl(row.storage_path);
-      return src !== null && src !== brand.heroImageUrl;
+      return src !== null && row.storage_path !== heroStoragePath;
     });
     const productPhoto = productRow
       ? imagePathToUrl(productRow.storage_path)
@@ -1867,6 +1874,136 @@ export async function getSubcategorySummary(
 
 const BRANDS_PER_CATEGORY = 3;
 
+// Derived from the generated RPC signature rather than hand-written, so a
+// column rename in `get_explore_brand_pool` fails typecheck here instead of
+// being masked by a cast.
+type ExploreBrandPoolRow =
+  Database["public"]["Functions"]["get_explore_brand_pool"]["Returns"][number];
+
+type ExploreRpcParams = {
+  categorySlugs: string[];
+  perCategory: number;
+  seed: string;
+};
+
+/**
+ * Test seam. Mocking `@/lib/supabase/*` or `@/lib/services/*` is forbidden
+ * (`scripts/check-test-boundaries.mjs`), so every DB touch on this path is
+ * reachable as an injectable function — same shape as `RelatedBrandsDeps` in
+ * `brand-embeddings.ts`.
+ */
+type ExploreBrandPoolDeps = {
+  rpcCaller?: (params: ExploreRpcParams) => Promise<ExploreBrandPoolRow[]>;
+  countReader?: (categorySlugs: string[]) => Promise<number>;
+  brandLoader?: (slugs: string[]) => Promise<Map<string, Brand>>;
+};
+
+async function defaultExploreRpcCaller(
+  params: ExploreRpcParams,
+): Promise<ExploreBrandPoolRow[]> {
+  const supabase = createServiceClient();
+  const { data, error } = await supabase.rpc("get_explore_brand_pool", {
+    category_slugs: params.categorySlugs,
+    per_category: params.perCategory,
+    seed: params.seed,
+  });
+  if (error) throw error;
+  return data ?? [];
+}
+
+/**
+ * The corpus count the homepage prints, which the RPC cannot supply: it returns
+ * only the ~30 selected rows. Predicates mirror the RPC's exactly, so the
+ * printed number and the selectable set describe the same corpus.
+ */
+async function defaultExploreCountReader(
+  categorySlugs: string[],
+): Promise<number> {
+  const supabase = createServiceClient();
+  const { count, error } = await excludeTestBrands(
+    supabase
+      .from("brands")
+      .select("*", { count: "exact", head: true })
+      .eq("status", "approved")
+      .in("category", categorySlugs),
+  );
+  if (error) throw error;
+  return count ?? 0;
+}
+
+/**
+ * The homepage explore rail: `BRANDS_PER_CATEGORY` brands for each visible L1,
+ * rotated daily.
+ *
+ * The per-category sampling is Postgres's job (`get_explore_brand_pool`). It
+ * used to be JS's, over a fetch of every approved brand — ~795 rows plus a
+ * whole-corpus `brand_images` hydration, to keep ~30. A naive per-category
+ * `.limit()` is NOT an equivalent fix: the table's order is
+ * `seo_promoted DESC, id ASC`, so truncating before the shuffle would skew the
+ * rail toward promoted and old brands. The RPC orders by `md5(id || seed)`
+ * inside the window instead, with `getDailySeed()` still owning the rotation.
+ */
+async function fetchExploreBrandPool(
+  deps: ExploreBrandPoolDeps = {},
+): Promise<{ brands: Brand[]; totalCount: number }> {
+  const callRpc = deps.rpcCaller ?? defaultExploreRpcCaller;
+  const readCount = deps.countReader ?? defaultExploreCountReader;
+  const loadBrands = deps.brandLoader ?? getBrandsBySlugs;
+  const categorySlugs = VISIBLE_L1_CATEGORIES.map(({ slug }) => slug);
+
+  const [rows, totalCount] = await Promise.all([
+    // `seed text` in SQL; `getDailySeed()` returns the YYYYMMDD number.
+    callRpc({
+      categorySlugs,
+      perCategory: BRANDS_PER_CATEGORY,
+      seed: getDailySeed().toString(),
+    }),
+    readCount(categorySlugs),
+  ]);
+
+  // The rail reads as one block per category, which is what the JS selection
+  // this replaced produced. The RPC orders by category alphabetically, so the
+  // rail's `VISIBLE_L1_CATEGORIES` order is re-imposed here; the sort is
+  // stable, so the RPC's within-category `rn` order survives.
+  const categoryRank = new Map<string, number>(
+    categorySlugs.map((slug, index) => [slug, index]),
+  );
+  const ordered = [...rows].sort(
+    (left, right) =>
+      (categoryRank.get(left.category) ?? categorySlugs.length) -
+      (categoryRank.get(right.category) ?? categorySlugs.length),
+  );
+
+  // Defense in depth, and a no-op while the RPC's `rn <= per_category` filter
+  // holds. `approve_submission` and `apply_brand_refresh` are precedent for SQL
+  // functions patched in place with no source file; if this one loses its
+  // window filter the same way, the rail must not silently become ~795 cards.
+  const perCategoryCount = new Map<string, number>();
+  const capped = ordered.filter((row) => {
+    const seen = perCategoryCount.get(row.category) ?? 0;
+    if (seen >= BRANDS_PER_CATEGORY) return false;
+    perCategoryCount.set(row.category, seen + 1);
+    return true;
+  });
+
+  const slugs = capped.map((row) => row.brand_slug);
+  const bySlug = await loadBrands(slugs);
+  const rankBySlug = new Map(slugs.map((slug, index) => [slug, index]));
+
+  const brands = slugs
+    .map((slug) => bySlug.get(slug))
+    .filter((brand): brand is Brand => brand !== undefined)
+    .sort(
+      (left, right) =>
+        // An unmatched slug (e.g. hydrated through a slug redirect) sorts to
+        // the end of the rail, never to the front of the first category.
+        (rankBySlug.get(left.slug) ?? Number.MAX_SAFE_INTEGER) -
+        (rankBySlug.get(right.slug) ?? Number.MAX_SAFE_INTEGER),
+    );
+
+  return { brands, totalCount };
+}
+
 const getCachedExploreBrandPool = unstable_cache(
   () =>
     auditedCall(
@@ -1875,57 +2012,34 @@ const getCachedExploreBrandPool = unstable_cache(
         operation: "getCachedExploreBrandPool",
         kind: "service",
       },
-      () =>
-        getBrands({
-          status: "approved",
-          category: VISIBLE_L1_CATEGORIES.map((c) => c.slug),
-          sort: "random",
-        }),
+      () => fetchExploreBrandPool(),
       { summary: { cached: true } },
     ),
-  ["homepage-explore-brand-pool-v3"],
+  // v4 (DEV-1743): the payload is now the RPC's per-category sample rather than
+  // the full approved corpus, and the count comes from a separate query. Bump
+  // again on any further change to either shape.
+  ["homepage-explore-brand-pool-v4"],
   { revalidate: 900, tags: [PUBLIC_BRAND_DATA_TAG] },
 );
 
-function selectCategoryBalancedBrands(
-  brands: Brand[],
-  categorySlugs: readonly string[],
-  perCategory: number,
-): Brand[] {
-  const selected: Brand[] = [];
-  const selectedIds = new Set<string>();
-
-  for (const categorySlug of categorySlugs) {
-    let count = 0;
-    for (const brand of brands) {
-      if (count >= perCategory) break;
-      if (brand.categorySlug !== categorySlug || selectedIds.has(brand.id))
-        continue;
-
-      selected.push(brand);
-      selectedIds.add(brand.id);
-      count++;
-    }
-  }
-
-  return selected;
-}
-
-export async function getExploreBrands(): Promise<{
+export async function getExploreBrands(
+  deps: ExploreBrandPoolDeps = {},
+): Promise<{
   brands: Brand[];
   totalCount: number;
 }> {
-  const { brands, totalCount } = await getCachedExploreBrandPool();
-  const categorySlugs = VISIBLE_L1_CATEGORIES.map(({ slug }) => slug);
-
-  return {
-    brands: selectCategoryBalancedBrands(
-      brands,
-      categorySlugs,
-      BRANDS_PER_CATEGORY,
-    ),
-    totalCount,
-  };
+  // Injected deps bypass `unstable_cache`: a test fixture must not be able to
+  // warm the entry the homepage then serves. Injection is all-or-nothing —
+  // a partial fixture would silently fall back to real Supabase for the rest.
+  const required = ["rpcCaller", "countReader", "brandLoader"] as const;
+  const missing = required.filter((key) => !deps[key]);
+  if (missing.length === required.length) return getCachedExploreBrandPool();
+  if (missing.length > 0) {
+    throw new Error(
+      `ExploreBrandPoolDeps requires all three deps when injecting any — missing: ${missing.join(", ")}`,
+    );
+  }
+  return fetchExploreBrandPool(deps);
 }
 
 export async function searchBrandsAutocomplete(

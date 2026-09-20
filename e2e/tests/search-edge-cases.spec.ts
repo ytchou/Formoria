@@ -19,10 +19,6 @@ type ApiSearchResult = {
 };
 
 test.describe.serial('Public brand search edge cases', () => {
-  // Nav search autocomplete timing and staging rate limiter make these flaky
-  // after the #1015 FilterSidebar refactor. Not core product flow.
-  test.skip(true, 'search edge cases flaky after staging migration — not core product flow');
-
   let supabase: AnySupabaseClient | undefined;
   let seededIds: string[] = [];
   let exactName: string;
@@ -242,15 +238,14 @@ test.describe.serial('Public brand search edge cases', () => {
     await expect(page.getByRole('link', { name: bilingualName })).toBeVisible({ timeout: BUDGET.SERVER_RENDER });
   });
 
-  test('directory sidebar and nav stay synchronized while unrelated filters survive', async ({ page }) => {
+  test('header search preserves filters, resets pagination, synchronizes the URL, and clears', async ({ page }) => {
     if (!supabase) { test.skip(true, 'PREVIEW_MODE active'); return; }
 
     await page.goto('/brands?category=home&sort=name&page=2');
-    const sidebarSearch = page.locator(
+    const headerSearch = page.locator(
       'header form[role="search"] input[role="searchbox"]:visible',
     );
-    const navSearch = page.locator('header form[role="search"] input[role="searchbox"]:visible');
-    await sidebarSearch.fill(exactQuery);
+    await headerSearch.fill(exactQuery);
 
     await expect(page).toHaveURL(
       (url) =>
@@ -260,10 +255,9 @@ test.describe.serial('Public brand search edge cases', () => {
         url.searchParams.get('sort') === 'name' &&
         !url.searchParams.has('page'),
     );
-    await expect(navSearch).toHaveValue(exactQuery);
-    await expect(sidebarSearch).toHaveValue(exactQuery);
+    await expect(headerSearch).toHaveValue(exactQuery);
 
-    await sidebarSearch
+    await headerSearch
       .locator('..')
       .getByRole('button', { name: '清除搜尋' })
       .click();
@@ -274,7 +268,7 @@ test.describe.serial('Public brand search edge cases', () => {
         !url.searchParams.has('search') &&
         url.searchParams.get('sort') === 'name',
     );
-    await expect(navSearch).toHaveValue('');
+    await expect(headerSearch).toHaveValue('');
   });
 
   test('selecting A-Z orders the matching cards by their rendered brand names', async ({ page }) => {

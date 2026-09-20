@@ -52,8 +52,26 @@ describe('planImageResolvability', () => {
     expect(report.counts).toEqual({
       'missing-object': 0,
       'private-prefix': 1,
+      'unsupported-prefix': 0,
     })
     expect(report.unresolvable.at(0)?.reason).toBe('private-prefix')
+  })
+
+  it('reports an unsupported key even when an object with that name exists', () => {
+    const unsupportedKey = `legacy/${BRAND_ID}/hero.webp`
+    const report = planImageResolvability(
+      [row({ storagePath: unsupportedKey })],
+      new Set([unsupportedKey]),
+    )
+
+    expect(report.counts['unsupported-prefix']).toBe(1)
+    expect(report.unresolvable).toEqual([
+      {
+        id: 'row-1',
+        storagePath: unsupportedKey,
+        reason: 'unsupported-prefix',
+      },
+    ])
   })
 
   it('counts a row with no key separately instead of failing it', () => {
@@ -94,12 +112,13 @@ describe('planImageResolvability', () => {
     expect(report.counts).toEqual({
       'missing-object': 1,
       'private-prefix': 1,
+      'unsupported-prefix': 0,
     })
   })
 })
 
 describe('isPrivateStorageKey', () => {
-  it('follows the proxy deny-list rather than a second copy of it', () => {
+  it('follows the central storage routing contract', () => {
     expect(isPrivateStorageKey(PRIVATE_KEY)).toBe(true)
     expect(isPrivateStorageKey(PUBLIC_KEY)).toBe(false)
     expect(isPrivateStorageKey('curated-products/x.webp')).toBe(false)

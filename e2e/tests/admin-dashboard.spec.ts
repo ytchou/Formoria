@@ -49,7 +49,7 @@ test.describe("Admin dashboard deep", () => {
     ];
     for (const path of storagePaths) {
       const { error: uploadError } = await supabase.storage
-        .from("brand-images")
+        .from("brand-submissions")
         .upload(path, PNG_1X1, { contentType: "image/png" });
       if (uploadError) {
         throw new Error(`image seed failed: ${uploadError.message}`);
@@ -164,7 +164,7 @@ test.describe("Admin dashboard deep", () => {
         .eq("id", testSubmissionId);
     }
     if (storagePaths?.length) {
-      await supabase.storage.from("brand-images").remove(storagePaths);
+      await supabase.storage.from("brand-submissions").remove(storagePaths);
     }
   });
 

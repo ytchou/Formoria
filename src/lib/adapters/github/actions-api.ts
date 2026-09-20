@@ -1,10 +1,8 @@
 import { auditedCall } from "@/lib/audit";
 
-export const GITHUB_REPO = "ytchou/Formoria";
+const GITHUB_REPO = "ytchou/Formoria";
 export const WORKFLOW_ALLOWLIST = [
   "e2e-staging.yml",
-  "health-agent.yml",
-  "ops-fix.yml",
 ] as const;
 
 const TIMEOUT_MS = 8_000;

@@ -2,6 +2,8 @@
   "$schema": "https://unpkg.com/knip@6/schema.json",
   "entry": [
     "src/app/**/{page,layout,route,template,error,not-found,loading,opengraph-image,twitter-image,icon,apple-icon,global-error,robots,sitemap}.{ts,tsx}",
+    "src/health-agent/server.ts",
+    "src/repo-worker/server.ts",
     "scripts/**/*.{ts,mjs}",
     "emails/**/*.{ts,tsx}"
   ],
@@ -17,7 +19,7 @@
     "@react-email/ui",
     "react-simple-maps"
   ],
-  "ignoreBinaries": ["gh", "lsof", "psql", "python3"],
+  "ignoreBinaries": ["codex", "gh", "lsof", "psql", "python3"],
   "ignore": [
     "scripts/threads-scraper/.venv/**"
   ],

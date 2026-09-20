@@ -65,6 +65,9 @@ export const ALLOWED_UNAUDITED_FETCH = [
   // a rate-limit store outage, so putting a Supabase audit write in front of it would
   // route the outage signal through a dependency the outage can take with it.
   'src/lib/security/rate-limit-observability.ts',
+  // E2E nightly agent revision probe: HEAD request to staging to read
+  // X-Formoria-Revision header. No request payload, no business effect.
+  'src/e2e-agent/deps.ts',
 ];
 
 /** Import of the envelope helper, in either quote style. */
