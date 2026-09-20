@@ -141,6 +141,24 @@ export async function runCodexAgent(
   const audit = options.audit ?? auditedCall;
 
   try {
+    const loginResult = await runProcess(
+      ["login", "--with-api-key"],
+      repoDir,
+      buildCodexEnv(apiKey),
+      apiKey,
+    );
+    if (loginResult.exitCode !== 0) {
+      const detail = sanitizeJobError(
+        loginResult.stderr || loginResult.stdout,
+        1_000,
+      );
+      throw new Error(
+        detail
+          ? `Codex API key login failed: ${detail}`
+          : "Codex API key login failed",
+      );
+    }
+
     await writeFile(schemaPath, JSON.stringify(request.jsonSchema), "utf8");
     const args = buildCodexArgs(request, schemaPath, outputPath);
 
