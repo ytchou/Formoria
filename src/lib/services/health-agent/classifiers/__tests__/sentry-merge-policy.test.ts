@@ -45,6 +45,15 @@ describe('sentry merge policy', () => {
     expect(result.humanReason).toContain('critical')
   })
 
+  it('decideSentryMergePolicy_vetoes_to_human_on_high_severity', () => {
+    const result = decideSentryMergePolicy(
+      classification({ severity: 'high' }),
+    )
+
+    expect(result.mergePolicy).toBe('human')
+    expect(result.humanReason).toContain('high severity requires human review')
+  })
+
   it('decideSentryMergePolicy_vetoes_to_human_on_low_confidence', () => {
     const result = decideSentryMergePolicy(
       classification({ confidence: 0.5 }),

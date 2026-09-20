@@ -7,6 +7,7 @@ import type {
   ListIssuesOptions,
   SentryIssue,
 } from '@/lib/adapters/sentry/issues'
+import { mapWithConcurrency } from '@/lib/services/_shared/concurrency'
 import {
   stableFingerprint,
   type HealthFinding,
@@ -41,19 +42,23 @@ function eventCount(count: string): number {
   return Number.isFinite(parsed) && parsed >= 0 ? parsed : 0
 }
 
+function baseEvidence(issue: SentryIssue) {
+  return {
+    count: eventCount(issue.count),
+    userCount: issue.userCount,
+    lastSeen: issue.lastSeen,
+    level: issue.level,
+    permalink: issue.permalink,
+  }
+}
+
 export function sentryIssueToFinding(issue: SentryIssue): HealthFinding {
   return {
     source: 'sentry',
     fingerprint: stableFingerprint('sentry', 'issue', issue.id),
     title: issue.title,
     severity: severityForIssue(issue),
-    evidence: {
-      count: eventCount(issue.count),
-      userCount: issue.userCount,
-      lastSeen: issue.lastSeen,
-      level: issue.level,
-      permalink: issue.permalink,
-    },
+    evidence: baseEvidence(issue),
     mergePolicy: 'human',
     sentryIssueId: issue.id,
   }
@@ -75,11 +80,7 @@ export function classifiedIssueToFinding(
     title: issue.title,
     severity: classification.severity,
     evidence: {
-      count: eventCount(issue.count),
-      userCount: issue.userCount,
-      lastSeen: issue.lastSeen,
-      level: issue.level,
-      permalink: issue.permalink,
+      ...baseEvidence(issue),
       rootCause: classification.rootCause,
       fixability: classification.fixability,
       confidence: classification.confidence,
@@ -91,33 +92,6 @@ export function classifiedIssueToFinding(
       : {}),
     sentryIssueId: issue.id,
   }
-}
-
-/**
- * Simple concurrency limiter — runs async tasks with at most `limit`
- * concurrent executions.
- */
-async function mapWithConcurrency<T, R>(
-  items: T[],
-  limit: number,
-  fn: (item: T) => Promise<R>,
-): Promise<R[]> {
-  const results: R[] = new Array(items.length)
-  let index = 0
-
-  async function worker(): Promise<void> {
-    while (index < items.length) {
-      const i = index++
-      results[i] = await fn(items[i])
-    }
-  }
-
-  const workers = Array.from(
-    { length: Math.min(limit, items.length) },
-    () => worker(),
-  )
-  await Promise.all(workers)
-  return results
 }
 
 export function sentryDetector(deps: SentryDetectorDeps): Detector {

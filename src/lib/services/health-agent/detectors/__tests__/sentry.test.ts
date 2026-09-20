@@ -118,7 +118,7 @@ describe('sentry detector', () => {
 
   it('sentryDetector_classifies_issues_when_classify_dep_provided', async () => {
     const classification: SentryClassification = {
-      severity: 'high',
+      severity: 'medium',
       rootCause: 'Null reference in cart handler',
       confidence: 0.95,
       fixability: 'high',
@@ -132,7 +132,7 @@ describe('sentry detector', () => {
 
     expect(classify).toHaveBeenCalledTimes(1)
     expect(findings).toHaveLength(1)
-    expect(findings[0].severity).toBe('high')
+    expect(findings[0].severity).toBe('medium')
     expect(findings[0].evidence.rootCause).toBe('Null reference in cart handler')
     expect(findings[0].mergePolicy).toBe('automatic')
     expect(findings[0].changedFiles).toEqual(['src/app/api/cart/route.ts'])

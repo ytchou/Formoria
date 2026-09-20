@@ -30,9 +30,12 @@ export function decideSentryMergePolicy(classification: SentryClassification): {
     reasons.push('classifier recommends human review')
   }
 
-  // 2. Critical severity
-  if (classification.severity === 'critical') {
-    reasons.push('critical severity requires human review')
+  // 2. Critical or high severity
+  if (
+    classification.severity === 'critical' ||
+    classification.severity === 'high'
+  ) {
+    reasons.push(`${classification.severity} severity requires human review`)
   }
 
   // 3. Empty changedFiles

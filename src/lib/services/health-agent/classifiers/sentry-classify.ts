@@ -68,14 +68,14 @@ function capString(value: string | undefined, max: number): string | undefined {
 function sanitizeIssue(issue: SentryIssue): string {
   const sanitized = {
     id: issue.id,
-    title: redactSecrets(capString(issue.title, MAX_FIELD_LENGTH) ?? ''),
+    title: capString(redactSecrets(issue.title), MAX_FIELD_LENGTH) ?? '',
     count: issue.count,
     userCount: issue.userCount,
     lastSeen: issue.lastSeen,
-    permalink: issue.permalink,
+    permalink: redactSecrets(issue.permalink),
     level: issue.level,
     ...(issue.culprit
-      ? { culprit: redactSecrets(capString(issue.culprit, MAX_FIELD_LENGTH)!) }
+      ? { culprit: capString(redactSecrets(issue.culprit), MAX_FIELD_LENGTH)! }
       : {}),
     ...(issue.firstSeen ? { firstSeen: issue.firstSeen } : {}),
     ...(issue.platform ? { platform: issue.platform } : {}),
@@ -83,10 +83,10 @@ function sanitizeIssue(issue: SentryIssue): string {
       ? {
           metadata: {
             ...(issue.metadata.type
-              ? { type: redactSecrets(capString(issue.metadata.type, MAX_FIELD_LENGTH)!) }
+              ? { type: capString(redactSecrets(issue.metadata.type), MAX_FIELD_LENGTH)! }
               : {}),
             ...(issue.metadata.value
-              ? { value: redactSecrets(capString(issue.metadata.value, MAX_FIELD_LENGTH)!) }
+              ? { value: capString(redactSecrets(issue.metadata.value), MAX_FIELD_LENGTH)! }
               : {}),
           },
         }
@@ -165,11 +165,18 @@ export async function classifySentryIssue(
 
       if (!content) continue
 
-      const parsed = SentryClassificationSchema.safeParse(JSON.parse(content))
+      let json: unknown
+      try {
+        json = JSON.parse(content)
+      } catch {
+        // JSON parse failure — retry
+        continue
+      }
+      const parsed = SentryClassificationSchema.safeParse(json)
       if (parsed.success) return parsed.data
       // Schema failure — retry
     } catch {
-      // LLM error — return null (no retry on transport/API errors)
+      // LLM transport/API error — no retry
       return null
     }
   }

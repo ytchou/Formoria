@@ -690,9 +690,9 @@ async function executeRunBody(
           ref: 'staging',
           runId,
           traceUrl,
-          scope: repairableFindings.flatMap(
+          scope: [...new Set(repairableFindings.flatMap(
             (f) => f.changedFiles ?? [],
-          ),
+          ))],
           findings: repairableFindings.map((f) => ({
             fingerprint: f.fingerprint,
             title: f.title,
