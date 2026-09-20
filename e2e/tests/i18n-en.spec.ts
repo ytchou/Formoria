@@ -232,22 +232,11 @@ test.describe("i18n English browse", () => {
   test("/en/brands brand cards link to /en/brands/[slug]", async ({ page }) => {
     await page.goto("/en/brands");
     const firstBrand = page
-      .locator('main [role="list"] article a[href*="/brands/"]')
+      .locator('main [role="list"] article a[href^="/en/brands/"]')
       .first();
-    const hasBrand = await firstBrand
-      .isVisible({ timeout: BUDGET.INTERACTIVE })
-      .catch(() => false);
-    if (!hasBrand) {
-      test.skip(
-        true,
-        "No brands seeded — skipping brand card navigation check",
-      );
-      return;
-    }
-    const href = await firstBrand.getAttribute("href");
-    expect(href).toBeTruthy();
-    expect(href).toContain("/en/brands/");
-    await page.goto(href!);
+    await expect(firstBrand).toBeVisible({ timeout: BUDGET.INTERACTIVE });
+    await firstBrand.click();
+    await expect(page).toHaveURL(/\/en\/brands\/[^/?#]+$/);
     await expect(page.getByRole("heading", { level: 1 })).toBeVisible({
       timeout: BUDGET.INTERACTIVE,
     });
