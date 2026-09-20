@@ -127,6 +127,7 @@ describe("publish", () => {
     const prBody = JSON.parse(prCalls[0]![1]!.body as string);
     expect(prBody.base).toBe("staging");
     expect(prBody.head).toBe("health-agent/run-123");
+    expect(prBody.draft).toBe(false);
     expect(prBody).not.toHaveProperty("auto_merge");
     expect(prBody).not.toHaveProperty("merge_method");
   });
@@ -146,6 +147,25 @@ describe("publish", () => {
         { getToken: fakeGetToken },
       ),
     ).rejects.toThrow(/outside the allowed paths/);
+  });
+
+  it("refuses a changed file inside a blocked path", async () => {
+    await expect(
+      publish(
+        {
+          baseSha: "base-sha-abc",
+          files: [{ path: ".github/workflows/unsafe.yml", content: "name: unsafe" }],
+          branch: "ops-agent/req-unsafe",
+          title: "unsafe PR",
+          body: "nope",
+          labels: [],
+          allowedPaths: [""],
+          blockedPaths: [".github/", "supabase/migrations/"],
+          draft: true,
+        },
+        { getToken: fakeGetToken },
+      ),
+    ).rejects.toThrow(/inside a blocked path/);
   });
 
   it("is a no-op in dryRun", async () => {

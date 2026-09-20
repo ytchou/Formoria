@@ -107,12 +107,12 @@ describe("repair_dispatches_with_scoped_editable_files", () => {
 });
 
 describe("repair_uses_1200s_deadline", () => {
-  it("passes deadlineMs 1_200_000 to createClient", async () => {
+  it("keeps polling beyond the worker's install and Codex timeouts", async () => {
     const { deps, createClient } = buildDeps();
 
     await repairFailures(deps);
 
-    expect(createClient).toHaveBeenCalledWith(1_200_000);
+    expect(createClient).toHaveBeenCalledWith(1_500_000);
   });
 });
 

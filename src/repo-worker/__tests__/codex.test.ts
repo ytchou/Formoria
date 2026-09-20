@@ -60,8 +60,8 @@ describe("repo-worker Codex adapter", () => {
   it("exposes only the dedicated credential and minimal process environment", () => {
     const env = buildCodexEnv("codex-test-key");
 
-    expect(Object.keys(env).sort()).toEqual(["CODEX_API_KEY", "HOME", "PATH"]);
-    expect(env.CODEX_API_KEY).toBe("codex-test-key");
+    expect(Object.keys(env).sort()).toEqual(["HOME", "OPENAI_API_KEY", "PATH"]);
+    expect(env.OPENAI_API_KEY).toBe("codex-test-key");
   });
 
   it("parses the thread and token usage from Codex JSONL", () => {

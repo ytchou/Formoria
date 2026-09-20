@@ -45,6 +45,7 @@ export type JobRequest = {
   agent?: AgentRequest;
   claude?: ClaudeOptions & { oauthToken?: string };
   editableFiles: string[];
+  blockedFiles?: string[];
 };
 
 export type JobErrorStage = "clone" | "install" | "policy" | "worker";
@@ -122,6 +123,19 @@ function isEditableFile(filePath: string, patterns: string[]): boolean {
   );
 }
 
+function isBlockedFile(filePath: string, patterns: string[]): boolean {
+  return patterns.some(
+    (pattern) => pattern === filePath || path.matchesGlob(filePath, pattern),
+  );
+}
+
+function isPermittedFile(filePath: string, request: JobRequest): boolean {
+  return (
+    isEditableFile(filePath, request.editableFiles) &&
+    !isBlockedFile(filePath, request.blockedFiles ?? [])
+  );
+}
+
 // ---------------------------------------------------------------------------
 // Runner
 // ---------------------------------------------------------------------------
@@ -163,6 +177,14 @@ export async function runRepoJob(
     // -----------------------------------------------------------------------
     errorStage = "worker";
     for (const file of request.inputFiles ?? []) {
+      if (isBlockedFile(file.path, request.blockedFiles ?? [])) {
+        return {
+          status: "failed",
+          error: `Input file is inside a blocked path: ${file.path}`,
+          errorStage: "policy",
+          errorCode: "input-file-blocked",
+        };
+      }
       if (!deps.writeFileFn) {
         return {
           status: "failed",
@@ -264,7 +286,7 @@ export async function runRepoJob(
 
     // Revert files outside scope
     for (const filePath of allChangedFiles) {
-      if (!isEditableFile(filePath, request.editableFiles)) {
+      if (!isPermittedFile(filePath, request)) {
         if (deps.revertFileFn) {
           await deps.revertFileFn(cloneDir, filePath);
         }
@@ -277,7 +299,7 @@ export async function runRepoJob(
     // -----------------------------------------------------------------------
     errorStage = "policy";
     for (const filePath of deletedFiles) {
-      if (isEditableFile(filePath, request.editableFiles)) {
+      if (isPermittedFile(filePath, request)) {
         const testFile = isTestFile(filePath);
         return {
           status: "failed",
@@ -295,7 +317,7 @@ export async function runRepoJob(
     // Check remaining changed files (after revert) for .skip
     const scopedChangedFiles = allChangedFiles.filter(
       (f) =>
-        isEditableFile(f, request.editableFiles) && !deletedFiles.includes(f),
+        isPermittedFile(f, request) && !deletedFiles.includes(f),
     );
 
     for (const filePath of scopedChangedFiles) {

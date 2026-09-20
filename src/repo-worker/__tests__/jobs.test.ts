@@ -349,6 +349,43 @@ describe("repo-worker jobs", () => {
     expect(revertedFiles).toEqual(["src/app/page.tsx"]);
   });
 
+  it("reverts files covered by an explicit blocked glob", async () => {
+    const revertedFiles: string[] = [];
+    const result = await runRepoJob(
+      {
+        ref: "staging",
+        cloneToken: "ghp_test",
+        commands: [],
+        editableFiles: ["**/*"],
+        blockedFiles: [".github/**", "supabase/migrations/**"],
+      },
+      {
+        cloneFn: async () => "/tmp/fake-repo",
+        runCommandFn: async () => ({
+          stdout: "",
+          stderr: "",
+          exitCode: 0,
+          timedOut: false,
+        }),
+        readFileFn: async (filePath) => `content of ${filePath}`,
+        listChangedFilesFn: async () => [
+          "src/lib/safe.ts",
+          ".github/workflows/unsafe.yml",
+        ],
+        revertFileFn: async (_repoDir, filePath) => {
+          revertedFiles.push(filePath);
+        },
+        cleanupFn: async () => {},
+      },
+    );
+
+    expect(result.changedFiles).toEqual([
+      { path: "src/lib/safe.ts", content: "content of src/lib/safe.ts" },
+    ]);
+    expect(result.revertedFiles).toEqual([".github/workflows/unsafe.yml"]);
+    expect(revertedFiles).toEqual([".github/workflows/unsafe.yml"]);
+  });
+
   // -------------------------------------------------------------------------
   // Test 8: a patch deleting a test file or adding .skip is rejected
   // -------------------------------------------------------------------------

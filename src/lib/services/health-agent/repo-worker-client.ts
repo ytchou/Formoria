@@ -25,6 +25,7 @@ export type RepoWorkerJobRequest = {
   ref: string
   commands: Array<{ id: string; run: string; timeoutMs: number }>
   editableFiles: string[]
+  blockedFiles?: string[]
   inputFiles?: ChangedFile[]
   agent?: AgentRequest
   claude?: {
@@ -40,6 +41,7 @@ type RepoWorkerJobResult = {
   status: 'done' | 'error'
   results?: CommandResult[]
   changedFiles?: ChangedFile[]
+  revertedFiles?: string[]
   baseSha?: string
   agent?: AgentResult
   claude?: {
@@ -118,6 +120,7 @@ export function createRepoWorkerClient(
       ...(request.inputFiles ? { inputFiles: request.inputFiles } : {}),
       ...(request.agent ? { agent: request.agent } : {}),
       ...(request.claude ? { claude: request.claude } : {}),
+      ...(request.blockedFiles ? { blockedFiles: request.blockedFiles } : {}),
     })
 
     for (let attempt = 0; attempt < MAX_SUBMIT_RETRIES; attempt++) {
@@ -214,6 +217,7 @@ export function createRepoWorkerClient(
             status: data.status === 'done' ? 'done' : 'error',
             results: data.results as CommandResult[] | undefined,
             changedFiles: data.changedFiles as ChangedFile[] | undefined,
+            revertedFiles: data.revertedFiles as string[] | undefined,
             baseSha: data.baseSha as string | undefined,
             agent: data.agent as RepoWorkerJobResult['agent'],
             claude: data.claude as RepoWorkerJobResult['claude'],

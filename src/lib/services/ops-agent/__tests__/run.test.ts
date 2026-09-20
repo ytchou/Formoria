@@ -195,8 +195,12 @@ describe("runOpsAgent", () => {
     "```",
   ].join("\n");
 
-  it("repair_request_in_text_dispatches_without_model_calls", async () => {
-    const dispatchWorkflow = vi.fn().mockResolvedValue({ ok: true });
+  it("repair_request_in_text_runs_a_Railway_fix_without_model_calls", async () => {
+    const runCodeFix = vi.fn().mockResolvedValue({
+      ok: true,
+      prUrl: "https://github.com/ytchou/Formoria/pull/1202",
+      prNumber: 1202,
+    });
 
     const transitions: Array<{ to: string; patch?: unknown }> = [];
     const deps: RunOpsAgentDeps = {
@@ -216,13 +220,12 @@ describe("runOpsAgent", () => {
       createOpsTools: vi.fn().mockReturnValue([]),
       createAgentModel: vi.fn().mockResolvedValue(fakeModel()),
       runGraph: vi.fn(),
-      dispatchWorkflow,
+      runCodeFix,
     };
 
     const result = await runOpsAgent("req-1", deps);
 
-    // Dispatched the workflow
-    expect(dispatchWorkflow).toHaveBeenCalledOnce();
+    expect(runCodeFix).toHaveBeenCalledOnce();
 
     // runGraph NOT called
     expect(deps.runGraph).not.toHaveBeenCalled();
@@ -320,7 +323,7 @@ describe("runOpsAgent", () => {
       toolLog: [],
     };
 
-    const dispatchWorkflow = vi.fn();
+    const runCodeFix = vi.fn();
     const deps: RunOpsAgentDeps = {
       getRequest: vi.fn().mockResolvedValue({
         ...makeRequest(),
@@ -339,7 +342,7 @@ describe("runOpsAgent", () => {
       createOpsTools: vi.fn().mockReturnValue([]),
       createAgentModel: vi.fn().mockResolvedValue(fakeModel()),
       runGraph: vi.fn().mockResolvedValue(graphResult),
-      dispatchWorkflow,
+      runCodeFix,
     };
 
     const result = await runOpsAgent("req-1", deps);
@@ -347,8 +350,7 @@ describe("runOpsAgent", () => {
     // runGraph IS called — human operators always use the LLM path
     expect(deps.runGraph).toHaveBeenCalledOnce();
 
-    // dispatchWorkflow NOT called
-    expect(dispatchWorkflow).not.toHaveBeenCalled();
+    expect(runCodeFix).not.toHaveBeenCalled();
 
     expect(result.kind).toBe("answer");
   });

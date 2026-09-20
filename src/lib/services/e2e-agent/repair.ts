@@ -21,7 +21,7 @@ import type { ChangedFile } from "@/repo-worker/jobs";
 // Constants
 // ---------------------------------------------------------------------------
 
-const REPAIR_DEADLINE_MS = 1_200_000;
+const REPAIR_DEADLINE_MS = 1_500_000;
 const REPAIR_EDITABLE_FILES = ["e2e/**/*.ts", "src/**/*.ts", "src/**/*.tsx"];
 const REPAIR_PROMPT_NAME = "e2e-nightly-repair";
 

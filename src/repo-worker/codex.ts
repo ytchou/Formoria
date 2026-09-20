@@ -69,7 +69,7 @@ export function buildCodexArgs(
 
 export function buildCodexEnv(apiKey: string): Record<string, string> {
   return {
-    CODEX_API_KEY: apiKey,
+    OPENAI_API_KEY: apiKey,
     HOME: process.env.HOME ?? "/root",
     PATH: process.env.PATH ?? "/usr/local/bin:/usr/bin:/bin",
   };

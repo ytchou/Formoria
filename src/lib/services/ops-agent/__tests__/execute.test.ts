@@ -32,6 +32,7 @@ function makeDeps(overrides: Partial<Parameters<typeof executeProposal>[2]> = {}
     dispatchCurationJob: vi.fn(),
     enqueueCurationRecovery: vi.fn(),
     dispatchWorkflow: vi.fn(),
+    runCodeFix: vi.fn(),
     ...overrides,
   };
 }
@@ -212,9 +213,13 @@ describe("dispatch_workflow kind", () => {
 // ---------------------------------------------------------------------------
 
 describe("code_fix kind", () => {
-  it("dispatches ops-fix.yml with the right inputs", async () => {
+  it("publishes the Railway code fix and returns its draft PR", async () => {
     const deps = makeDeps({
-      dispatchWorkflow: vi.fn().mockResolvedValue({ ok: true }),
+      runCodeFix: vi.fn().mockResolvedValue({
+        ok: true,
+        prUrl: "https://github.com/ytchou/Formoria/pull/1200",
+        prNumber: 1200,
+      }),
     });
     const ctx = makeCtx({
       requestId: "req-fix-1",
@@ -228,13 +233,18 @@ describe("code_fix kind", () => {
       deps,
     );
 
-    expect(result).toEqual({ ok: true, result: { dispatched: "ops-fix.yml" } });
-    expect(deps.dispatchWorkflow).toHaveBeenCalledWith("ops-fix.yml", {
-      instruction: "Fix the broken import in brands.ts",
-      request_id: "req-fix-1",
-      channel: "C_FIX",
-      thread_ts: "9999.0001",
+    expect(result).toEqual({
+      ok: true,
+      result: {
+        prUrl: "https://github.com/ytchou/Formoria/pull/1200",
+        prNumber: 1200,
+      },
     });
+    expect(deps.runCodeFix).toHaveBeenCalledWith({
+      instruction: "Fix the broken import in brands.ts",
+      requestId: "req-fix-1",
+    });
+    expect(deps.dispatchWorkflow).not.toHaveBeenCalled();
   });
 });
 
@@ -259,7 +269,7 @@ describe("executor never throws", () => {
 
   it("catches non-Error rejection and returns ok:false", async () => {
     const deps = makeDeps({
-      dispatchWorkflow: vi.fn().mockRejectedValue("string error"),
+      runCodeFix: vi.fn().mockRejectedValue("string error"),
     });
 
     const result = await executeProposal(

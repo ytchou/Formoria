@@ -1,6 +1,7 @@
 import { auditedCall } from "@/lib/audit";
 import type { CurationRecoveryInput, CurationRecoveryCounts } from "../curation-jobs";
 import type { OpsProposal } from "./proposals";
+import type { OpsCodeFixInput, OpsCodeFixResult } from "./code-fix";
 
 // Accept OpsProposal or compatible shapes. The `mode` field on
 // dispatch_workflow is enforced by the proposal Zod schema but not
@@ -39,6 +40,7 @@ export type ExecuteDeps = {
     workflowFile: string,
     inputs: Record<string, string>,
   ) => Promise<unknown>;
+  runCodeFix: (input: OpsCodeFixInput) => Promise<OpsCodeFixResult>;
 };
 
 // ---------------------------------------------------------------------------
@@ -140,13 +142,15 @@ async function executeCodeFix(
   ctx: ExecuteContext,
   deps: ExecuteDeps,
 ): Promise<ExecuteResult> {
-  await deps.dispatchWorkflow("ops-fix.yml", {
+  const result = await deps.runCodeFix({
     instruction: proposal.instruction,
-    request_id: ctx.requestId,
-    channel: ctx.channel,
-    thread_ts: ctx.threadTs,
+    requestId: ctx.requestId,
   });
-  return { ok: true, result: { dispatched: "ops-fix.yml" } };
+  if (!result.ok) return result;
+  return {
+    ok: true,
+    result: { prUrl: result.prUrl, prNumber: result.prNumber },
+  };
 }
 
 // ---------------------------------------------------------------------------

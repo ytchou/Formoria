@@ -146,6 +146,31 @@ describe('repo-worker-client', () => {
     })
   })
 
+  it('sends blocked paths and returns reverted files', async () => {
+    const fetchMock = vi.fn<(input: RequestInfo | URL, init?: RequestInit) => Promise<Response>>()
+      .mockResolvedValueOnce(jsonResponse(202, { jobId: 'job-policy' }))
+      .mockResolvedValueOnce(jsonResponse(200, {
+        status: 'done',
+        revertedFiles: ['.github/workflows/unsafe.yml'],
+      }))
+    const client = createRepoWorkerClient(makeDeps(), {
+      fetchFn: fetchMock,
+      deadlineMs: 120_000,
+      pollIntervalMs: 5,
+    })
+
+    const result = await client.run(makeRequest({
+      editableFiles: ['**/*'],
+      blockedFiles: ['.github/**'],
+    }))
+    const postBody = JSON.parse(
+      (fetchMock.mock.calls[0]![1] as RequestInit).body as string,
+    )
+
+    expect(postBody.blockedFiles).toEqual(['.github/**'])
+    expect(result.revertedFiles).toEqual(['.github/workflows/unsafe.yml'])
+  })
+
   it('sends prior patch files for validation in a fresh clone', async () => {
     const fetchMock = vi.fn<(input: RequestInfo | URL, init?: RequestInit) => Promise<Response>>()
       .mockResolvedValueOnce(jsonResponse(202, { jobId: 'job-validation' }))

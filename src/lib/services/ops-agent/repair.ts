@@ -3,7 +3,10 @@ import type {
   RepairFinding,
   RepairRequest,
 } from "@/lib/services/health-agent/repair-request";
-import type { dispatchWorkflow } from "@/lib/adapters/github/actions-api";
+import type {
+  OpsCodeFixInput,
+  OpsCodeFixResult,
+} from "@/lib/services/ops-agent/code-fix";
 
 // ---------------------------------------------------------------------------
 // Zod schemas (mirrors RepairFinding / RepairRequest)
@@ -31,13 +34,11 @@ const RepairRequestSchema = z.object({
 // ---------------------------------------------------------------------------
 
 export type RepairDeps = {
-  dispatchWorkflow: typeof dispatchWorkflow;
+  runCodeFix: (input: OpsCodeFixInput) => Promise<OpsCodeFixResult>;
 };
 
 export type RepairContext = {
   requestId: string;
-  channelId: string;
-  threadTs: string;
 };
 
 export type RepairOutcome = {
@@ -112,11 +113,9 @@ export async function executeRepairRequest(
     );
 
     try {
-      const result = await deps.dispatchWorkflow("ops-fix.yml", {
+      const result = await deps.runCodeFix({
         instruction,
-        request_id: ctx.requestId,
-        channel: ctx.channelId,
-        thread_ts: ctx.threadTs,
+        requestId: ctx.requestId,
       });
 
       if (result.ok) {
@@ -125,7 +124,7 @@ export async function executeRepairRequest(
         outcomes.push({
           fingerprint: finding.fingerprint,
           ok: false,
-          error: `Dispatch failed with status ${result.status}`,
+          error: result.error,
         });
       }
     } catch (err) {

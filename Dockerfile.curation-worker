@@ -13,8 +13,8 @@ RUN pnpm exec playwright install --with-deps chromium
 # default and does not read `CLAUDE_CODE_OAUTH_TOKEN`. Pin to a known-good
 # version so the repo-worker's invocations stay stable.
 RUN npm install -g @anthropic-ai/claude-code@2.1.274
-# Codex CLI is the active repo-worker executor. Keep the exact version aligned
-# with the GitHub Action workflows; Claude remains installed only for rollback
+# Codex CLI is the active repo-worker executor. Pin the exact version so Railway
+# deployments remain reproducible; Claude remains installed only for rollback
 # until DEV-1819 removes it.
 RUN npm install -g @openai/codex@0.155.1
 # Set AFTER the install: `NODE_ENV=production` makes pnpm skip devDependencies,

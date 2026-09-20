@@ -18,7 +18,7 @@ import type { RepoWorkerClient } from "@/lib/services/health-agent/repo-worker-c
 // Constants
 // ---------------------------------------------------------------------------
 
-const DIAGNOSE_DEADLINE_MS = 900_000;
+const DIAGNOSE_DEADLINE_MS = 1_500_000;
 const DIAGNOSE_PROMPT_NAME = "e2e-nightly-diagnose";
 
 const DIAGNOSE_FALLBACK_PROMPT = `You are diagnosing e2e test failures for the Formoria web application.

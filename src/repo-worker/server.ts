@@ -55,6 +55,7 @@ type RunRequest = {
     resumeSessionId?: string;
   };
   editableFiles: string[];
+  blockedFiles?: string[];
 };
 
 type JobEntry = {
@@ -248,6 +249,8 @@ export function createRepoWorkerServer(opts: ServerOptions = {}) {
         if (job.result.results) body.results = job.result.results;
         if (job.result.changedFiles)
           body.changedFiles = job.result.changedFiles;
+        if (job.result.revertedFiles)
+          body.revertedFiles = job.result.revertedFiles;
         if (job.result.baseSha) body.baseSha = job.result.baseSha;
         if (job.result.agent) body.agent = job.result.agent;
         if (job.result.claude) body.claude = job.result.claude;

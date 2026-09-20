@@ -155,11 +155,11 @@ describe("diagnose_classifies_noise_when_all_failures_are_environment", () => {
 });
 
 describe("diagnose_uses_900s_deadline", () => {
-  it("passes deadlineMs 900_000 to createClient", async () => {
+  it("keeps polling beyond the worker's install and Codex timeouts", async () => {
     const { deps, createClient } = buildDeps();
 
     await diagnoseFailures(deps);
 
-    expect(createClient).toHaveBeenCalledWith(900_000);
+    expect(createClient).toHaveBeenCalledWith(1_500_000);
   });
 });
