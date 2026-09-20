@@ -19,7 +19,7 @@ import type { OpsProposal } from "./proposals";
 // Caps
 // ---------------------------------------------------------------------------
 
-const MAX_TURNS = 6;
+const MAX_TURNS = 3;
 const MAX_BAD_PROPOSALS = 2;
 const RECURSION_LIMIT = 14;
 const WALL_CLOCK_MS = 60_000;
@@ -74,6 +74,7 @@ export type GraphResult =
       modelCalls: number;
       toolLog: ToolLogEntry[];
     }
+  | { kind: "routine"; description: string; lastAssistantText: string; modelCalls: number; toolLog: ToolLogEntry[] }
   | { kind: "refused"; reason: string; modelCalls: number; toolLog: ToolLogEntry[] }
   | { kind: "failed"; modelCalls: number; toolLog: ToolLogEntry[] };
 
@@ -94,6 +95,7 @@ export async function runGraph(
   // Track mutable state across nodes (closed over, not in graph state)
   let currentProposal: OpsProposal | undefined;
   let currentRationale: string | undefined;
+  let currentRoutineDescription: string | undefined;
   let currentBadSubmits = 0;
   let currentModelCalls = 0;
   const currentToolLog: ToolLogEntry[] = [];
@@ -199,6 +201,19 @@ export async function runGraph(
             currentBadSubmits++;
           }
         }
+
+        // Check for fire_routine result
+        if (toolName === "fire_routine") {
+          try {
+            const parsed = JSON.parse(result);
+            if (!parsed.error) {
+              const desc = (args as { description?: string })?.description ?? "";
+              currentRoutineDescription = desc;
+            }
+          } catch {
+            // ignore parse errors
+          }
+        }
       }
 
       newMessages.push({
@@ -239,6 +254,7 @@ export async function runGraph(
 
   // Router after tools node
   function afterTools(): string {
+    if (currentRoutineDescription !== undefined) return "done";
     if (currentProposal) return "done";
     if (currentBadSubmits >= MAX_BAD_PROPOSALS) return "done";
     return "model";
@@ -290,6 +306,16 @@ export async function runGraph(
   }
 
   // Determine result from closed-over state
+  if (currentRoutineDescription !== undefined) {
+    return {
+      kind: "routine",
+      description: currentRoutineDescription,
+      lastAssistantText: finalState?.lastAssistantText ?? "",
+      modelCalls: currentModelCalls,
+      toolLog: currentToolLog,
+    };
+  }
+
   if (currentProposal) {
     return {
       kind: "proposal",

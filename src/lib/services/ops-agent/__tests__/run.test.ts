@@ -199,13 +199,7 @@ describe("runOpsAgent", () => {
     "```",
   ].join("\n");
 
-  it("repair_request_in_text_runs_a_Railway_fix_without_model_calls", async () => {
-    const runCodeFix = vi.fn().mockResolvedValue({
-      ok: true,
-      prUrl: "https://github.com/ytchou/Formoria/pull/1202",
-      prNumber: 1202,
-    });
-
+  it("repair_request_in_text_transitions_to_failed_stub", async () => {
     const transitions: Array<{ to: string; patch?: unknown }> = [];
     const deps: RunOpsAgentDeps = {
       getRequest: vi.fn().mockResolvedValue({
@@ -224,28 +218,20 @@ describe("runOpsAgent", () => {
       createOpsTools: vi.fn().mockReturnValue([]),
       createAgentModel: vi.fn().mockResolvedValue(fakeModel()),
       runGraph: vi.fn(),
-      runCodeFix,
     };
 
     const result = await runOpsAgent("req-1", deps);
 
-    expect(runCodeFix).toHaveBeenCalledOnce();
-
     // runGraph NOT called
     expect(deps.runGraph).not.toHaveBeenCalled();
 
-    // Transitions: received → running, running → executed
+    // Transitions: received → running, running → failed (stub)
     expect(transitions).toEqual([
       { to: "running", patch: undefined },
-      expect.objectContaining({ to: "executed" }),
+      expect.objectContaining({ to: "failed" }),
     ]);
 
-    // The executed transition patch includes modelCalls: 0
-    const executedPatch = transitions[1].patch as Record<string, unknown>;
-    expect((executedPatch.result as Record<string, unknown>).modelCalls).toBe(0);
-
-    // Return value
-    expect(result.kind).toBe("answer");
+    expect(result.kind).toBe("failed");
     expect(result.modelCalls).toBe(0);
   });
 
@@ -327,7 +313,6 @@ describe("runOpsAgent", () => {
       toolLog: [],
     };
 
-    const runCodeFix = vi.fn();
     const deps: RunOpsAgentDeps = {
       getRequest: vi.fn().mockResolvedValue({
         ...makeRequest(),
@@ -346,15 +331,12 @@ describe("runOpsAgent", () => {
       createOpsTools: vi.fn().mockReturnValue([]),
       createAgentModel: vi.fn().mockResolvedValue(fakeModel()),
       runGraph: vi.fn().mockResolvedValue(graphResult),
-      runCodeFix,
     };
 
     const result = await runOpsAgent("req-1", deps);
 
     // runGraph IS called — human operators always use the LLM path
     expect(deps.runGraph).toHaveBeenCalledOnce();
-
-    expect(runCodeFix).not.toHaveBeenCalled();
 
     expect(result.kind).toBe("answer");
   });

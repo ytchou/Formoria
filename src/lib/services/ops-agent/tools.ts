@@ -30,7 +30,6 @@ export type OpsToolDeps = {
   brandContext: (query: string) => Promise<unknown>;
   jobDetail: (jobId: string) => Promise<unknown>;
   runReadonlyQuery: (sql: string) => Promise<unknown>;
-  queryPosthog: (hogql: string) => Promise<unknown>;
   listErrors: (hours: number) => Promise<unknown>;
 };
 
@@ -107,8 +106,8 @@ const QueryDbArgs = z.object({
   sql: z.string().describe("A read-only SQL SELECT query"),
 });
 
-const QueryPosthogArgs = z.object({
-  hogql: z.string().describe("A HogQL query to run against PostHog"),
+const FireRoutineArgs = z.object({
+  description: z.string().describe("What the Routine should do — a concise task description"),
 });
 
 const ListErrorsArgs = z.object({
@@ -120,7 +119,7 @@ const ProposeActionParameters = {
   properties: {
     kind: {
       type: "string",
-      enum: ["refresh_brand", "rerun_job", "dispatch_workflow", "code_fix"],
+      enum: ["refresh_brand", "rerun_job", "dispatch_workflow"],
     },
     slug: { type: "string", minLength: 1 },
     jobId: { type: "string", minLength: 1 },
@@ -220,23 +219,18 @@ export function createOpsTools(deps: OpsToolDeps, ctx: OpsToolContext): OpsTool[
     },
   };
 
-  // 5. query_posthog
-  const queryPosthog: OpsTool = {
+  // 5. fire_routine
+  const fireRoutine: OpsTool = {
     definition: {
-      name: "query_posthog",
+      name: "fire_routine",
       description:
-        "Run a HogQL query against PostHog analytics. Returns capped output.",
-      parameters: toStrictJsonSchema(QueryPosthogArgs),
+        "Delegate heavy work (investigation, code fix, pipeline run) to a Claude Code Routine. Returns immediately; the Routine posts results to the Slack thread.",
+      parameters: toStrictJsonSchema(FireRoutineArgs),
     },
     async run(args) {
-      const parsed = QueryPosthogArgs.safeParse(args);
+      const parsed = FireRoutineArgs.safeParse(args);
       if (!parsed.success) return wrapError("invalid_args");
-      try {
-        const data = await deps.queryPosthog(parsed.data.hogql);
-        return wrap(data);
-      } catch (err) {
-        return wrapError(err instanceof Error ? err.message : "posthog_failed");
-      }
+      return JSON.stringify({ ok: true, description: parsed.data.description });
     },
   };
 
@@ -292,7 +286,7 @@ export function createOpsTools(deps: OpsToolDeps, ctx: OpsToolContext): OpsTool[
     brandContext,
     jobDetailTool,
     queryDb,
-    queryPosthog,
+    fireRoutine,
     listErrors,
     proposeAction,
   ];

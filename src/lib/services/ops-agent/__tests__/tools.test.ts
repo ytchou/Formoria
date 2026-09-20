@@ -17,7 +17,6 @@ function makeDeps(overrides: Partial<OpsToolDeps> = {}): OpsToolDeps {
     brandContext: vi.fn().mockResolvedValue({ searchResults: [] }),
     jobDetail: vi.fn().mockResolvedValue({ id: "job-1" }),
     runReadonlyQuery: vi.fn().mockResolvedValue([]),
-    queryPosthog: vi.fn().mockResolvedValue({ results: [] }),
     listErrors: vi.fn().mockResolvedValue([]),
     ...overrides,
   };
@@ -107,22 +106,45 @@ describe("query_db", () => {
 });
 
 // ---------------------------------------------------------------------------
-// Test 4: query_posthog_passes_hogql_and_caps
+// Test 4: fire_routine tool in tool list
 // ---------------------------------------------------------------------------
 
-describe("query_posthog", () => {
-  it("passes hogql and caps output", async () => {
-    const deps = makeDeps({
-      queryPosthog: vi.fn().mockResolvedValue({
-        results: Array.from({ length: 100 }, (_, i) => ({ i, data: "y".repeat(50) })),
-      }),
-    });
-    const tools = createOpsTools(deps, makeCtx());
-    const tool = tools.find((t) => t.definition.name === "query_posthog")!;
+describe("fire_routine", () => {
+  it("fire_routine tool in tool list", () => {
+    const tools = createOpsTools(makeDeps(), makeCtx());
+    const fireRoutine = tools.find((t) => t.definition.name === "fire_routine");
+    expect(fireRoutine).toBeDefined();
+  });
 
-    const result = await tool.run({ hogql: "select count() from events" });
-    expect(deps.queryPosthog).toHaveBeenCalledWith("select count() from events");
-    expect(result.length).toBeLessThanOrEqual(1536);
+  it("returns ok with description on valid args", async () => {
+    const tools = createOpsTools(makeDeps(), makeCtx());
+    const tool = tools.find((t) => t.definition.name === "fire_routine")!;
+
+    const result = await tool.run({ description: "Investigate brand images" });
+    const parsed = JSON.parse(result);
+    expect(parsed.ok).toBe(true);
+    expect(parsed.description).toBe("Investigate brand images");
+  });
+
+  it("returns error on invalid args", async () => {
+    const tools = createOpsTools(makeDeps(), makeCtx());
+    const tool = tools.find((t) => t.definition.name === "fire_routine")!;
+
+    const result = await tool.run({});
+    const parsed = JSON.parse(result);
+    expect(parsed.error).toBe("invalid_args");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Test 4b: query_posthog removed
+// ---------------------------------------------------------------------------
+
+describe("query_posthog removed", () => {
+  it("no query_posthog tool exists", () => {
+    const tools = createOpsTools(makeDeps(), makeCtx());
+    const posthog = tools.find((t) => t.definition.name === "query_posthog");
+    expect(posthog).toBeUndefined();
   });
 });
 
@@ -225,5 +247,18 @@ describe("propose_action", () => {
     const parsed = JSON.parse(result);
     expect(parsed.error).toBe("unknown_brand");
     expect(onProposed).not.toHaveBeenCalled();
+  });
+
+  it("has 3 kinds (no code_fix)", () => {
+    const tools = createOpsTools(makeDeps(), makeCtx());
+    const tool = tools.find((t) => t.definition.name === "propose_action")!;
+    const params = tool.definition.parameters as {
+      properties: { kind: { enum: string[] } };
+    };
+    expect(params.properties.kind.enum).toEqual([
+      "refresh_brand",
+      "rerun_job",
+      "dispatch_workflow",
+    ]);
   });
 });

@@ -11,7 +11,6 @@ import {
   type AgentModel,
 } from "@/lib/services/enrich-phases/agents/runtime";
 import type { LlmAuditContext } from "@/lib/services/llm-audit";
-import { runOpsCodeFix as defaultRunOpsCodeFix } from "./code-fix";
 import { postMessage as slackPostMessage } from "@/lib/adapters/slack/web-api";
 import { renderProposalCard as slackRenderProposalCard } from "@/lib/adapters/slack/blocks";
 import { listIssues as defaultListIssues } from "@/lib/adapters/sentry/issues";
@@ -20,7 +19,7 @@ import { listCurationJobs, getCurationJobDetail } from "@/lib/services/curation-
 import { runGraph as defaultRunGraph, type GraphResult } from "./graph";
 import { createOpsTools, type OpsTool, type OpsToolDeps, type OpsToolContext } from "./tools";
 import { describeProposal, validateProposal } from "./proposals";
-import { extractRepairRequest, executeRepairRequest } from "./repair";
+import { extractRepairRequest } from "./repair";
 import {
   systemStatus as defaultSystemStatus,
   brandContext as defaultBrandContext,
@@ -72,7 +71,6 @@ export type RunOpsAgentDeps = {
     userMessage?: string,
     signal?: AbortSignal,
   ) => Promise<GraphResult>;
-  runCodeFix?: typeof defaultRunOpsCodeFix;
   toolDeps?: Partial<OpsToolDeps>;
 };
 
@@ -141,43 +139,12 @@ export async function runOpsAgent(
   if (isSystemRequest) {
     const repairRequest = extractRepairRequest(request.text);
     if (repairRequest) {
-      try {
-        const runCodeFix = deps.runCodeFix ?? defaultRunOpsCodeFix;
-        const repairResult = await executeRepairRequest(
-          repairRequest,
-          { runCodeFix },
-          {
-            requestId: request.id,
-          },
-        );
-
-        const status = repairResult.ok ? "executed" : "failed";
-        await transition(request.id, ["running"], status, {
-          result: {
-            repair: repairResult,
-            modelCalls: 0,
-          },
-        });
-
-        const summary = repairResult.ok
-          ? `Created ${repairResult.outcomes.filter((o) => o.ok).length} repair PR(s).`
-          : `Repair failed: ${repairResult.outcomes.filter((o) => !o.ok).map((o) => o.error).join(", ")}`;
-        await postMsg(request.threadTs, summary);
-
-        if (repairResult.ok) {
-          return { kind: "answer" as const, text: summary, modelCalls: 0, toolLog: [] };
-        } else {
-          return { kind: "failed" as const, modelCalls: 0, toolLog: [] };
-        }
-      } catch (err) {
-        console.error("[ops-agent] repair processing failed:", err);
-        try {
-          await transition(request.id, ["running"], "failed");
-        } catch {
-          // transition itself failed — already logged above
-        }
-        return { kind: "failed" as const, modelCalls: 0, toolLog: [] };
-      }
+      // Repair handling stub — Task 6 wires this to fire a Routine
+      await transition(request.id, ["running"], "failed", {
+        result: { reason: "repair_handler_pending", modelCalls: 0 },
+      });
+      await postMsg(request.threadTs, "Repair routing is being migrated to Routines.");
+      return { kind: "failed" as const, modelCalls: 0, toolLog: [] };
     }
 
     // System bot sent something that isn't a valid RepairRequest — refuse
@@ -222,11 +189,6 @@ export async function runOpsAgent(
       ((jobId) => defaultJobDetail(jobId, { getCurationJobDetail })),
     runReadonlyQuery:
       deps.toolDeps?.runReadonlyQuery ?? defaultRunReadonlyQuery,
-    // PostHog adapter not yet implemented — stub returns an error so the
-    // model receives a clear signal instead of silently empty data.
-    queryPosthog:
-      deps.toolDeps?.queryPosthog ??
-      (async () => ({ error: "PostHog query adapter not yet implemented" })),
     listErrors: deps.toolDeps?.listErrors ?? defaultListIssues,
   };
 

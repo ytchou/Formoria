@@ -66,30 +66,6 @@ describe("validateProposal", () => {
     );
   });
 
-  it("code_fix instruction must be 10..2000 chars", async () => {
-    const result1 = await validateProposal(
-      { kind: "code_fix", instruction: "short" },
-      {},
-    );
-    expect(result1).toEqual(
-      expect.objectContaining({ ok: false, error: "invalid_instruction" }),
-    );
-
-    const result2 = await validateProposal(
-      { kind: "code_fix", instruction: "x".repeat(2001) },
-      {},
-    );
-    expect(result2).toEqual(
-      expect.objectContaining({ ok: false, error: "invalid_instruction" }),
-    );
-
-    const result3 = await validateProposal(
-      { kind: "code_fix", instruction: "Fix the brand slug generation logic" },
-      {},
-    );
-    expect(result3).toEqual({ ok: true });
-  });
-
   it("rerun_job validates mode", async () => {
     const result1 = await validateProposal(
       { kind: "rerun_job", jobId: "job-1", mode: "rerun" },
@@ -143,12 +119,4 @@ describe("describeProposal", () => {
     expect(desc.action).toContain("e2e-staging");
   });
 
-  it("returns description for code_fix", () => {
-    const proposal: OpsProposal = {
-      kind: "code_fix",
-      instruction: "Fix the brand slug generation logic for duplicate names",
-    };
-    const desc = describeProposal(proposal);
-    expect(desc.action).toContain("code");
-  });
 });
