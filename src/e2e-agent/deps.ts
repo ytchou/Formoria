@@ -91,7 +91,7 @@ async function fetchRevision(stagingUrl: string): Promise<string> {
   const cfClientSecret = process.env.CF_ACCESS_CLIENT_SECRET ?? ''
 
   const headers: Record<string, string> = {
-    'User-Agent': 'Formoria-E2E-Agent/1.0',
+    'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
   }
   if (cfClientId && cfClientSecret) {
     headers['CF-Access-Client-Id'] = cfClientId
