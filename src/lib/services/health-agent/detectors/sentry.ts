@@ -74,6 +74,9 @@ export function classifiedIssueToFinding(
   classification: SentryClassification,
 ): HealthFinding {
   const policy = decideSentryMergePolicy(classification)
+  const safeFiles = classification.changedFiles.filter(
+    (p) => !p.includes('..') && !p.startsWith('/'),
+  )
   return {
     source: 'sentry',
     fingerprint: stableFingerprint('sentry', 'issue', issue.id),
@@ -87,9 +90,7 @@ export function classifiedIssueToFinding(
     },
     mergePolicy: policy.mergePolicy,
     ...(policy.humanReason ? { humanReason: policy.humanReason } : {}),
-    ...(classification.changedFiles.length > 0
-      ? { changedFiles: classification.changedFiles }
-      : {}),
+    ...(safeFiles.length > 0 ? { changedFiles: safeFiles } : {}),
     sentryIssueId: issue.id,
   }
 }
@@ -120,7 +121,13 @@ export function sentryDetector(deps: SentryDetectorDeps): Detector {
       const classifications = await mapWithConcurrency(
         issues,
         CLASSIFY_CONCURRENCY,
-        (issue) => classify(issue),
+        async (issue) => {
+          try {
+            return await classify(issue)
+          } catch {
+            return null
+          }
+        },
       )
 
       return issues.map((issue, i) => {
