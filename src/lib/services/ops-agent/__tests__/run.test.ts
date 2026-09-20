@@ -1,4 +1,4 @@
-import { describe, expect, it, vi, beforeEach } from "vitest";
+import { describe, expect, it, vi, beforeEach, afterEach } from "vitest";
 
 vi.mock("@/lib/audit", () => ({
   auditedCall: vi
@@ -39,6 +39,7 @@ function makeRequest() {
     toolCalls: [],
     modelCalls: 0,
     costUsd: 0,
+    sessionUrl: null,
     correlationId: null,
     expiresAt: null,
     createdAt: "2026-09-15T00:00:00Z",
@@ -62,6 +63,11 @@ function fakeModel() {
 describe("runOpsAgent", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    process.env.OPS_ROUTINE_ID = "test-routine-id";
+  });
+
+  afterEach(() => {
+    delete process.env.OPS_ROUTINE_ID;
   });
 
   it("signal abort yields failed and nothing thrown", async () => {
@@ -199,8 +205,10 @@ describe("runOpsAgent", () => {
     "```",
   ].join("\n");
 
-  it("repair_request_in_text_transitions_to_failed_stub", async () => {
-    const transitions: Array<{ to: string; patch?: unknown }> = [];
+  it("system_bot_repair_fires_routine", async () => {
+    const fireRoutine = vi.fn().mockResolvedValue({
+      sessionUrl: "https://claude.ai/code/session/repair-1",
+    });
     const deps: RunOpsAgentDeps = {
       getRequest: vi.fn().mockResolvedValue({
         ...makeRequest(),
@@ -208,16 +216,18 @@ describe("runOpsAgent", () => {
         text: VALID_REPAIR_TEXT,
       }),
       transitionRequest: vi.fn().mockImplementation(
-        async (_id: string, _from: string[], to: string, patch?: Record<string, unknown>) => {
-          transitions.push({ to, patch });
-          return { ...makeRequest(), status: to, ...patch };
-        },
+        async (_id: string, _from: string[], to: string, patch?: Record<string, unknown>) => ({
+          ...makeRequest(),
+          status: to,
+          ...patch,
+        }),
       ),
       expireStale: vi.fn(),
       postMessage: vi.fn(),
       createOpsTools: vi.fn().mockReturnValue([]),
       createAgentModel: vi.fn().mockResolvedValue(fakeModel()),
       runGraph: vi.fn(),
+      fireRoutine,
     };
 
     const result = await runOpsAgent("req-1", deps);
@@ -225,13 +235,30 @@ describe("runOpsAgent", () => {
     // runGraph NOT called
     expect(deps.runGraph).not.toHaveBeenCalled();
 
-    // Transitions: received → running, running → failed (stub)
-    expect(transitions).toEqual([
-      { to: "running", patch: undefined },
-      expect.objectContaining({ to: "failed" }),
-    ]);
+    // fireRoutine called once with JSON containing the repair payload
+    expect(fireRoutine).toHaveBeenCalledOnce();
+    expect(fireRoutine).toHaveBeenCalledWith({
+      routineId: "test-routine-id",
+      text: expect.stringContaining('"agent":"health"'),
+    });
 
-    expect(result.kind).toBe("failed");
+    // Posts session URL
+    expect(deps.postMessage).toHaveBeenCalledWith(
+      "1234.5678",
+      expect.stringContaining("https://claude.ai/code/session/repair-1"),
+    );
+
+    // Transitions to answered (not failed)
+    expect(deps.transitionRequest).toHaveBeenCalledWith(
+      "req-1",
+      ["running"],
+      "answered",
+      expect.objectContaining({
+        result: expect.objectContaining({ sessionUrl: "https://claude.ai/code/session/repair-1" }),
+      }),
+    );
+
+    expect(result.kind).toBe("answer");
     expect(result.modelCalls).toBe(0);
   });
 
@@ -303,6 +330,112 @@ describe("runOpsAgent", () => {
     // runGraph IS called
     expect(deps.runGraph).toHaveBeenCalledOnce();
     expect(result.kind).toBe("answer");
+  });
+
+  it("routine_result_fires_routine_and_posts_url", async () => {
+    const graphResult: GraphResult = {
+      kind: "routine",
+      description: "Investigate brand images",
+      lastAssistantText: "I'll delegate this to a Routine.",
+      modelCalls: 2,
+      toolLog: [],
+    };
+
+    const fireRoutine = vi.fn().mockResolvedValue({
+      sessionUrl: "https://claude.ai/code/session/abc",
+    });
+
+    const deps: RunOpsAgentDeps = {
+      getRequest: vi.fn().mockResolvedValue(makeRequest()),
+      transitionRequest: vi.fn().mockImplementation(
+        async (_id: string, _from: string[], to: string, patch?: Record<string, unknown>) => ({
+          ...makeRequest(),
+          status: to,
+          ...patch,
+        }),
+      ),
+      expireStale: vi.fn(),
+      postMessage: vi.fn(),
+      createOpsTools: vi.fn().mockReturnValue([]),
+      createAgentModel: vi.fn().mockResolvedValue(fakeModel()),
+      runGraph: vi.fn().mockResolvedValue(graphResult),
+      fireRoutine,
+    };
+
+    const result = await runOpsAgent("req-1", deps);
+    expect(result.kind).toBe("routine");
+
+    // fireRoutine called with correct params
+    expect(fireRoutine).toHaveBeenCalledWith({
+      routineId: "test-routine-id",
+      text: expect.stringContaining("Investigate brand images"),
+    });
+
+    // Posts session URL to Slack
+    expect(deps.postMessage).toHaveBeenCalledWith(
+      "1234.5678",
+      expect.stringContaining("https://claude.ai/code/session/abc"),
+    );
+
+    // Transitions to answered with sessionUrl in result
+    expect(deps.transitionRequest).toHaveBeenCalledWith(
+      "req-1",
+      ["running"],
+      "answered",
+      expect.objectContaining({
+        result: expect.objectContaining({ sessionUrl: "https://claude.ai/code/session/abc" }),
+      }),
+    );
+  });
+
+  it("routine_api_failure_transitions_to_failed", async () => {
+    const graphResult: GraphResult = {
+      kind: "routine",
+      description: "Investigate brand images",
+      lastAssistantText: "I'll delegate this to a Routine.",
+      modelCalls: 2,
+      toolLog: [],
+    };
+
+    const fireRoutine = vi.fn().mockRejectedValue(new Error("Routines API error (500)"));
+
+    const deps: RunOpsAgentDeps = {
+      getRequest: vi.fn().mockResolvedValue(makeRequest()),
+      transitionRequest: vi.fn().mockImplementation(
+        async (_id: string, _from: string[], to: string, patch?: Record<string, unknown>) => ({
+          ...makeRequest(),
+          status: to,
+          ...patch,
+        }),
+      ),
+      expireStale: vi.fn(),
+      postMessage: vi.fn(),
+      createOpsTools: vi.fn().mockReturnValue([]),
+      createAgentModel: vi.fn().mockResolvedValue(fakeModel()),
+      runGraph: vi.fn().mockResolvedValue(graphResult),
+      fireRoutine,
+    };
+
+    const result = await runOpsAgent("req-1", deps);
+    expect(result.kind).toBe("routine");
+
+    // Transitions to failed
+    expect(deps.transitionRequest).toHaveBeenCalledWith(
+      "req-1",
+      ["running"],
+      "failed",
+      expect.objectContaining({
+        result: expect.objectContaining({
+          error: "Routines API error (500)",
+        }),
+      }),
+    );
+
+    // Posts error message
+    expect(deps.postMessage).toHaveBeenCalledWith(
+      "1234.5678",
+      expect.stringContaining("Failed"),
+    );
   });
 
   it("human_with_valid_repair_json_uses_llm_path", async () => {

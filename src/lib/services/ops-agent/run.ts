@@ -19,6 +19,7 @@ import { listCurationJobs, getCurationJobDetail } from "@/lib/services/curation-
 import { runGraph as defaultRunGraph, type GraphResult } from "./graph";
 import { createOpsTools, type OpsTool, type OpsToolDeps, type OpsToolContext } from "./tools";
 import { describeProposal, validateProposal } from "./proposals";
+import { fireRoutine as defaultFireRoutine } from "@/lib/adapters/anthropic/routines";
 import { extractRepairRequest } from "./repair";
 import {
   systemStatus as defaultSystemStatus,
@@ -71,6 +72,7 @@ export type RunOpsAgentDeps = {
     userMessage?: string,
     signal?: AbortSignal,
   ) => Promise<GraphResult>;
+  fireRoutine?: (params: { routineId: string; text: string }) => Promise<{ sessionUrl: string }>;
   toolDeps?: Partial<OpsToolDeps>;
 };
 
@@ -88,6 +90,7 @@ export async function runOpsAgent(
   const buildTools = deps.createOpsTools ?? createOpsTools;
   const buildModel = deps.createAgentModel ?? defaultCreateAgentModel;
   const invokeGraph = deps.runGraph ?? defaultRunGraph;
+  const fireRtn = deps.fireRoutine ?? defaultFireRoutine;
 
   // 1. Expire stale requests
   await expire();
@@ -139,12 +142,33 @@ export async function runOpsAgent(
   if (isSystemRequest) {
     const repairRequest = extractRepairRequest(request.text);
     if (repairRequest) {
-      // Repair handling stub — Task 6 wires this to fire a Routine
-      await transition(request.id, ["running"], "failed", {
-        result: { reason: "repair_handler_pending", modelCalls: 0 },
-      });
-      await postMsg(request.threadTs, "Repair routing is being migrated to Routines.");
-      return { kind: "failed" as const, modelCalls: 0, toolLog: [] };
+      try {
+        const routineId = process.env.OPS_ROUTINE_ID;
+        if (!routineId) throw new Error("OPS_ROUTINE_ID is not set");
+
+        const payload = {
+          channel: request.channelId,
+          thread_ts: request.threadTs,
+          operator: request.operatorEmail ?? "system:bot",
+          request: request.text,
+          repair: repairRequest,
+        };
+        const { sessionUrl } = await fireRtn({ routineId, text: JSON.stringify(payload) });
+
+        await transition(request.id, ["running"], "answered", {
+          result: { sessionUrl, modelCalls: 0 },
+        });
+        await postMsg(request.threadTs, `Working on it → ${sessionUrl}`);
+
+        return { kind: "answer" as const, text: `Routine fired: ${sessionUrl}`, modelCalls: 0, toolLog: [] };
+      } catch (err) {
+        console.error("[ops-agent] repair routine fire failed:", err);
+        await transition(request.id, ["running"], "failed", {
+          result: { error: err instanceof Error ? err.message : String(err), modelCalls: 0 },
+        });
+        await postMsg(request.threadTs, "Failed to start repair routine. Please try again.");
+        return { kind: "failed" as const, modelCalls: 0, toolLog: [] };
+      }
     }
 
     // System bot sent something that isn't a valid RepairRequest — refuse
@@ -226,6 +250,43 @@ export async function runOpsAgent(
           },
         });
         await postMsg(request.threadTs, result.text);
+        break;
+      }
+
+      case "routine": {
+        try {
+          const routineId = process.env.OPS_ROUTINE_ID;
+          if (!routineId) throw new Error("OPS_ROUTINE_ID is not set");
+
+          const payload = {
+            channel: request.channelId,
+            thread_ts: request.threadTs,
+            operator: request.operatorEmail ?? "",
+            request: request.text,
+            description: result.description,
+          };
+          const { sessionUrl } = await fireRtn({ routineId, text: JSON.stringify(payload) });
+
+          await transition(request.id, ["running"], "answered", {
+            result: {
+              sessionUrl,
+              description: result.description,
+              toolCalls: toolCallsSummary,
+              modelCalls: modelCallsCount,
+            },
+          });
+          await postMsg(request.threadTs, `Working on it → ${sessionUrl}`);
+        } catch (err) {
+          console.error("[ops-agent] routine fire failed:", err);
+          await transition(request.id, ["running"], "failed", {
+            result: {
+              error: err instanceof Error ? err.message : String(err),
+              toolCalls: toolCallsSummary,
+              modelCalls: modelCallsCount,
+            },
+          });
+          await postMsg(request.threadTs, "Failed to start the routine. Please try again.");
+        }
         break;
       }
 
