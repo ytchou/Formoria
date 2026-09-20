@@ -93,7 +93,6 @@
     "@hookform/resolvers": "^5.9.1",
     "@langchain/core": "^1.2.10",
     "@langchain/langgraph": "^1.4.14",
-    "@libsql/client": "^0.17.4",
     "@react-email/components": "^1.0.12",
     "@react-email/render": "^2.1.0",
     "@sentry/nextjs": "^10.70.0",

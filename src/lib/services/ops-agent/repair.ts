@@ -40,7 +40,7 @@ export type RepairContext = {
   threadTs: string;
 };
 
-export type RepairOutcome = {
+type RepairOutcome = {
   fingerprint: string;
   ok: boolean;
   error?: string;

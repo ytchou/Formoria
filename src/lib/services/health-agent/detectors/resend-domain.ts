@@ -1,6 +1,6 @@
 /**
  * Resend domain detector — verifies that the configured Resend sending
- * domain is in a verified state.
+ * domain is in a verified state using a dedicated monitoring credential.
  */
 
 import { auditedCall } from '@/lib/audit'
@@ -41,7 +41,7 @@ export const resendDomainDetector: Detector = {
 
   async run(ctx: DetectorContext): Promise<HealthFinding[]> {
     const env = getEnv(ctx)
-    const apiKey = env.RESEND_API_KEY
+    const apiKey = env.RESEND_MONITOR_API_KEY
     if (!apiKey) return []
 
     const fetchFn = getFetch(ctx)

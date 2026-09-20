@@ -43,9 +43,9 @@ let reportWorkerFailure: Awaited<
   typeof import('@/lib/services/job-alerts')
 >['reportWorkerFailure']
 
-let postSlackMessage: Awaited<
-  typeof import('@/lib/adapters/slack/web-api')
->['postMessage']
+let postSlackText: Awaited<
+  typeof import('@/lib/adapters/alerting/slack')
+>['postSlackText']
 
 let createTicket: Awaited<
   typeof import('@/lib/adapters/linear/create-ticket')
@@ -80,8 +80,8 @@ await bootWorker({
     ;({ flushLangfuse, getLangfuse } = await import('@/lib/langfuse/client'))
     ;({ runWithAuditContext } = await import('@/lib/audit/context'))
     ;({ reportWorkerFailure } = await import('@/lib/services/job-alerts'))
-    ;({ postMessage: postSlackMessage } = await import(
-      '@/lib/adapters/slack/web-api'
+    ;({ postSlackText } = await import(
+      '@/lib/adapters/alerting/slack'
     ))
     ;({ createTicket } = await import('@/lib/adapters/linear/create-ticket'))
     ;({ createRepoWorkerClient } = await import(
@@ -151,12 +151,11 @@ async function main(): Promise<never> {
 
   // ---- Conditionally create repair trigger ----
   const opsAgentBotId = process.env.OPS_AGENT_SLACK_BOT_ID
-  const repairChannel = process.env.HEALTH_AGENT_SLACK_CHANNEL
   const triggerRepair =
-    opsAgentBotId && repairChannel
+    opsAgentBotId && process.env.SLACK_FORMORIA_WEBHOOK_URL
       ? async (request: RepairRequest) => {
           const message = buildRepairTriggerMessage(opsAgentBotId, request)
-          await postSlackMessage({ channel: repairChannel, text: message })
+          await postSlackText(message)
         }
       : undefined
 
@@ -176,9 +175,7 @@ async function main(): Promise<never> {
       linearCreateTicket,
       triggerRepair,
       slackPostDigest: async (text) => {
-        const channel = process.env.HEALTH_AGENT_SLACK_CHANNEL
-        if (!channel || !process.env.SLACK_BOT_TOKEN) return
-        await postSlackMessage({ channel, text })
+        await postSlackText(text)
       },
       reportWorkerFailure: async (context, error) => {
         if (reportWorkerFailure) {

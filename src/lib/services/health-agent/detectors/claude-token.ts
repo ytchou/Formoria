@@ -1,7 +1,6 @@
 /**
- * Claude token detector — checks the `CLAUDE_TOKEN_ISSUED_AT` env var
- * and warns 30 days before the one-year anniversary, or fails if the
- * variable is unset.
+ * Claude token detector — when optional issuance metadata is configured,
+ * warns 30 days before the one-year anniversary.
  *
  * No outbound HTTP call — pure environment check.
  */
@@ -39,20 +38,9 @@ export const claudeTokenDetector: Detector = {
   async run(ctx: DetectorContext): Promise<HealthFinding[]> {
     const env = getEnv(ctx)
     const issuedAt = env.CLAUDE_TOKEN_ISSUED_AT
-    const now = getNow(ctx)()
+    if (!issuedAt) return []
 
-    if (!issuedAt) {
-      return [
-        {
-          source: 'credential',
-          fingerprint: stableFingerprint('credential', 'claude-token', 'not-configured'),
-          title: 'Claude token CLAUDE_TOKEN_ISSUED_AT is not set',
-          severity: 'high',
-          evidence: { reason: 'env var not configured' },
-          mergePolicy: 'human',
-        },
-      ]
-    }
+    const now = getNow(ctx)()
 
     const issuedDate = new Date(issuedAt).getTime()
     if (Number.isNaN(issuedDate)) {

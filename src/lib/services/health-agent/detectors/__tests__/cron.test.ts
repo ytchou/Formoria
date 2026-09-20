@@ -147,4 +147,49 @@ describe('cron detector', () => {
     )
     expect(missingFinding).toBeDefined()
   })
+
+  it('uses the actual run time when a deployment starts before the nightly schedule', async () => {
+    const actualNow = new Date('2026-09-19T16:22:00.000Z')
+    const lastRun = '2026-09-18T19:35:00.000Z'
+    const jobs = [...EXPECTED_SQL_JOBS, ...EXPECTED_CRON_JOBS].map((job) => ({
+      jobname: job.jobName,
+      schedule: '0 3 * * *',
+      active: true,
+      last_end: lastRun,
+      last_status: 'succeeded',
+      failed_runs: 0,
+    }))
+    const rows = EXPECTED_CRON_JOBS.map((job, index) =>
+      row({
+        job_name: job.jobName,
+        request_id: index + 1,
+        created: lastRun,
+      }),
+    )
+    const detector = cronDetector({
+      supabase: {
+        from: () => {
+          const query = {
+            select: () => query,
+            gte: () => query,
+            order: () => query,
+            range: () => Promise.resolve({ data: rows, error: null }),
+          }
+          return query
+        },
+        rpc: () => Promise.resolve({ data: jobs, error: null }),
+      } as never,
+    })
+
+    const findings = await detector.run(
+      ctx({
+        date: '2026-09-20',
+        deps: { now: () => actualNow.getTime() },
+      }),
+    )
+
+    expect(
+      findings.filter((finding) => finding.fingerprint.includes(':stale:')),
+    ).toEqual([])
+  })
 })
