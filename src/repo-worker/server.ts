@@ -103,6 +103,25 @@ export type ServerOptions = {
 
 const MAX_BODY_BYTES = 512 * 1024; // 512 KB — repair payloads can be large
 
+export function runGitForClone(
+  args: string[],
+): Promise<{ stderr: string; exitCode: number | null }> {
+  return new Promise((resolve, reject) => {
+    const proc = execFile("git", args, { timeout: 120_000 });
+    const stderrChunks: string[] = [];
+    proc.stderr?.on("data", (chunk: Buffer | string) =>
+      stderrChunks.push(chunk.toString()),
+    );
+    proc.on("close", (exitCode) => {
+      resolve({
+        stderr: stderrChunks.join(""),
+        exitCode,
+      });
+    });
+    proc.on("error", reject);
+  });
+}
+
 // ---------------------------------------------------------------------------
 // Factory
 // ---------------------------------------------------------------------------
@@ -119,22 +138,7 @@ export function createRepoWorkerServer(opts: ServerOptions = {}) {
   // Real implementations (overridable by tests)
   const gitExecFn =
     opts.gitExecFn ??
-    (async (args: string[]) => {
-      return new Promise<{ stderr: string; exitCode: number | null }>(
-        (resolve, reject) => {
-          const proc = execFile("git", args, { timeout: 120_000 });
-          const stderrChunks: Buffer[] = [];
-          proc.stderr?.on("data", (chunk: Buffer) => stderrChunks.push(chunk));
-          proc.on("close", (exitCode) => {
-            resolve({
-              stderr: Buffer.concat(stderrChunks).toString("utf8"),
-              exitCode,
-            });
-          });
-          proc.on("error", reject);
-        },
-      );
-    });
+    runGitForClone;
 
   const cloneFn =
     opts.cloneFn ??
