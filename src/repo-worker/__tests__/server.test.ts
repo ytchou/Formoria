@@ -92,11 +92,12 @@ function validBody(overrides: Record<string, unknown> = {}) {
 
 describe("repo-worker server", () => {
   let createRepoWorkerServer: typeof import("../server").createRepoWorkerServer;
+  let runGitForClone: typeof import("../server").runGitForClone;
   let server: http.Server;
   const TOKEN = "test-bearer-token-abc";
 
   beforeAll(async () => {
-    ({ createRepoWorkerServer } = await import("../server"));
+    ({ createRepoWorkerServer, runGitForClone } = await import("../server"));
   });
 
   afterEach(() => {
@@ -108,6 +109,13 @@ describe("repo-worker server", () => {
   // -------------------------------------------------------------------------
   // Test 1: serves both health paths
   // -------------------------------------------------------------------------
+  it("returns Git stderr instead of crashing when clone setup fails", async () => {
+    const result = await runGitForClone(["definitely-not-a-git-command"]);
+
+    expect(result.exitCode).not.toBe(0);
+    expect(result.stderr).toContain("definitely-not-a-git-command");
+  });
+
   it("serves both health paths", async () => {
     server = createRepoWorkerServer({ token: TOKEN });
     await new Promise<void>((r) => server.listen(0, "127.0.0.1", r));
