@@ -7,6 +7,7 @@ import {
 } from "vitest";
 import type { AddressInfo } from "node:net";
 import type http from "node:http";
+import { rm } from "node:fs/promises";
 
 /**
  * Tests for the repo-worker HTTP service.
@@ -195,6 +196,48 @@ describe("repo-worker server", () => {
       errorStage: "install",
       errorCode: "install-failed",
     });
+  });
+
+  it("returns sanitized Git stderr when cloning fails", async () => {
+    server = createRepoWorkerServer({
+      token: TOKEN,
+      gitExecFn: async (args) => {
+        const cloneDir = args.at(-1);
+        if (!cloneDir) throw new Error("Missing clone directory");
+        await rm(cloneDir, { recursive: true, force: true });
+        return {
+          exitCode: 128,
+          stderr: [
+            "fatal: Authentication failed for https://github.com/formoria/formoria.git/",
+            "Authorization: Basic c3VwZXItc2VjcmV0",
+            "remote: rejected ghp_syntheticCredential123",
+            "x".repeat(1_500),
+          ].join("\n"),
+        };
+      },
+      cleanupFn: async () => {},
+    });
+    await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
+
+    const accepted = await post(server, "/run", validBody(), {
+      authorization: `Bearer ${TOKEN}`,
+    });
+    const completed = await waitForJob(server, accepted.json.jobId as string);
+    const error = completed.json.error as string;
+
+    expect(completed.json).toMatchObject({
+      status: "failed",
+      errorStage: "clone",
+      errorCode: "clone-failed",
+    });
+    expect(error).toContain("git clone exited with 128");
+    expect(error).toContain("fatal: Authentication failed");
+    expect(error).toContain("Authorization: Basic [REDACTED]");
+    expect(error).not.toContain("c3VwZXItc2VjcmV0");
+    expect(error).not.toContain("ghp_syntheticCredential123");
+    expect(error.length).toBeLessThanOrEqual(
+      "git clone exited with 128: ".length + 1_000,
+    );
   });
 
   // -------------------------------------------------------------------------

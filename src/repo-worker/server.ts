@@ -22,6 +22,7 @@ import { execFile, spawn } from "node:child_process";
 import { mkdtemp, rm, readFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
+import { sanitizeJobError } from "@/lib/services/job-errors";
 import { isRepoWorkerHealthPath } from "./health-paths";
 import { runRepoJob, type JobResult, type JobDeps } from "./jobs";
 import { bootWorker, logWorkerBuildInfo } from "@/worker-boot";
@@ -59,6 +60,11 @@ export type ServerOptions = {
   token?: string;
   /** Override the clone function (for tests). */
   cloneFn?: (args: string[]) => Promise<string>;
+  /** Override the Git subprocess executor (for tests). */
+  gitExecFn?: (args: string[]) => Promise<{
+    stderr: string;
+    exitCode: number | null;
+  }>;
   /** Override the command runner (for tests). */
   runCommandFn?: (
     dir: string,
@@ -94,20 +100,39 @@ export function createRepoWorkerServer(opts: ServerOptions = {}) {
   let activeJobId: string | null = null;
 
   // Real implementations (overridable by tests)
+  const gitExecFn =
+    opts.gitExecFn ??
+    (async (args: string[]) => {
+      return new Promise<{ stderr: string; exitCode: number | null }>(
+        (resolve, reject) => {
+          const proc = execFile("git", args, { timeout: 120_000 });
+          const stderrChunks: Buffer[] = [];
+          proc.stderr?.on("data", (chunk: Buffer) => stderrChunks.push(chunk));
+          proc.on("close", (exitCode) => {
+            resolve({
+              stderr: Buffer.concat(stderrChunks).toString("utf8"),
+              exitCode,
+            });
+          });
+          proc.on("error", reject);
+        },
+      );
+    });
+
   const cloneFn =
     opts.cloneFn ??
     (async (args: string[]): Promise<string> => {
       const dir = await mkdtemp(path.join(tmpdir(), "repo-worker-"));
       args.push(dir);
-      await new Promise<void>((resolve, reject) => {
-        const proc = execFile("git", args, { timeout: 120_000 });
-        proc.on("close", (code) =>
-          code === 0
-            ? resolve()
-            : reject(new Error(`git clone exited with ${code}`)),
+      const { stderr, exitCode } = await gitExecFn(args);
+      if (exitCode !== 0) {
+        const details = sanitizeJobError(stderr.trim(), 1_000);
+        throw new Error(
+          details
+            ? `git clone exited with ${exitCode}: ${details}`
+            : `git clone exited with ${exitCode}`,
         );
-        proc.on("error", reject);
-      });
+      }
       return dir;
     });
 
