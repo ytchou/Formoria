@@ -16,6 +16,8 @@ export type RepairFinding = {
   severity: string
   source: string
   ticketId?: string
+  rootCause?: string
+  permalink?: string
 }
 
 export type RepairRequest = {

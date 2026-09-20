@@ -268,6 +268,13 @@ export const LLM_PROFILES = {
     temperature: 0,
     timeoutMs: 45000,
   },
+  /** Sentry issue classification — severity, root cause, fixability. */
+  sentryClassify: {
+    model: "text_mini",
+    maxTokens: 800,
+    temperature: 0,
+    timeoutMs: 30_000,
+  },
 } as const satisfies Record<string, LlmProfile>;
 
 export type LlmProfileKey = keyof typeof LLM_PROFILES;
