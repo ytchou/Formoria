@@ -29,16 +29,14 @@ describe('claude-token detector', () => {
     expect(findings[0].title).toMatch(/claude.*token.*expir/i)
   })
 
-  it('fails when CLAUDE_TOKEN_ISSUED_AT is unset', async () => {
+  it('returns no findings when optional issuance metadata is unset', async () => {
     const ctx = makeCtx({
-      env: {},
+      env: { CLAUDE_CODE_OAUTH_TOKEN: 'configured-token' },
       now: () => new Date('2026-09-17T00:00:00+08:00').getTime(),
     })
     const findings = await claudeTokenDetector.run(ctx)
 
-    expect(findings).toHaveLength(1)
-    expect(findings[0].severity).toBe('high')
-    expect(findings[0].title).toMatch(/claude.*token.*not.*set|not.*configured/i)
+    expect(findings).toHaveLength(0)
   })
 
   it('returns no findings when the token is fresh', async () => {

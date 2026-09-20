@@ -18,22 +18,6 @@ export type FrozenFailure = {
 }
 
 // ---------------------------------------------------------------------------
-// Diagnosis
-// ---------------------------------------------------------------------------
-
-export type DiagnosisClassification =
-  | 'noise'
-  | 'environment'
-  | 'code_drift'
-  | 'product_bug'
-
-export type DiagnosisResult = {
-  classification: DiagnosisClassification
-  explanation: string
-  suggestedFiles: string[]
-}
-
-// ---------------------------------------------------------------------------
 // Repair
 // ---------------------------------------------------------------------------
 
@@ -53,18 +37,3 @@ export type RunOutcome =
   | 'noise'
   | 'needs_human'
   | 'fallback'
-
-// ---------------------------------------------------------------------------
-// Self-heal graph state (LangGraph Annotation.Root schema)
-// ---------------------------------------------------------------------------
-
-export type E2eSelfHealState = {
-  frozenFailures: FrozenFailure[]
-  diagnosis: DiagnosisResult | null
-  repair: RepairResult | null
-  validation: { passed: boolean; output: string } | null
-  outcome: RunOutcome
-  cycle: number
-  runId: string
-  stagingSha: string
-}

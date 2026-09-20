@@ -102,7 +102,8 @@ export function cronDetector(deps: CronDetectorDeps): Detector {
     },
 
     async run(ctx: DetectorContext): Promise<HealthFinding[]> {
-      const now = new Date(`${ctx.date}T04:50:00+08:00`)
+      const getNow = (ctx.deps.now as (() => number) | undefined) ?? Date.now
+      const now = new Date(getNow())
       const lookbackMs = CRON_HEALTH_LOOKBACK_HOURS * 60 * 60 * 1000
       const sinceIso = new Date(now.getTime() - lookbackMs).toISOString()
 

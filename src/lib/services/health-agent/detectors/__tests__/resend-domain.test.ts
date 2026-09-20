@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import type { DetectorContext } from '../../types'
 import { resendDomainDetector } from '../resend-domain'
 
@@ -28,7 +28,7 @@ describe('resend-domain detector', () => {
 
     const ctx = makeCtx({
       fetch: fakeFetch,
-      env: { RESEND_API_KEY: 'test-key' },
+      env: { RESEND_MONITOR_API_KEY: 'test-key' },
     })
     const findings = await resendDomainDetector.run(ctx)
 
@@ -50,7 +50,7 @@ describe('resend-domain detector', () => {
 
     const ctx = makeCtx({
       fetch: fakeFetch,
-      env: { RESEND_API_KEY: 'test-key' },
+      env: { RESEND_MONITOR_API_KEY: 'test-key' },
     })
     const findings = await resendDomainDetector.run(ctx)
     expect(findings).toHaveLength(0)
@@ -60,5 +60,18 @@ describe('resend-domain detector', () => {
     const ctx = makeCtx({ env: {} })
     const findings = await resendDomainDetector.run(ctx)
     expect(findings).toHaveLength(0)
+  })
+
+  it('does not use the transactional sending key for domain monitoring', async () => {
+    const fetchFn = vi.fn()
+    const ctx = makeCtx({
+      fetch: fetchFn,
+      env: { RESEND_API_KEY: 'send-only-key' },
+    })
+
+    const findings = await resendDomainDetector.run(ctx)
+
+    expect(findings).toHaveLength(0)
+    expect(fetchFn).not.toHaveBeenCalled()
   })
 })
