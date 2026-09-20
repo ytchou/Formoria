@@ -96,6 +96,7 @@ describe("repo-worker Codex adapter", () => {
 
   it("returns the schema-constrained final output from an audited execution", async () => {
     let auditSummary: Record<string, unknown> | undefined;
+    const processCalls: Array<{ args: string[]; stdin: string }> = [];
     const audit: typeof auditedCall = async (_spec, fn) => {
       const context = { summary: {} };
       const value = await fn(context);
@@ -108,7 +109,16 @@ describe("repo-worker Codex adapter", () => {
       {
         apiKey: "codex-test-key",
         audit,
-        runProcess: async (args) => {
+        runProcess: async (args, _cwd, _env, stdin) => {
+          processCalls.push({ args, stdin });
+          if (args[0] === "login") {
+            return {
+              stdout: "",
+              stderr: "",
+              exitCode: 0,
+              signal: null,
+            };
+          }
           const outputIndex = args.indexOf("--output-last-message");
           await writeFile(args[outputIndex + 1]!, '{"status":"ok"}', "utf8");
           return {
@@ -134,6 +144,10 @@ describe("repo-worker Codex adapter", () => {
       structuredOutput: { status: "ok" },
       sessionId: "thread-123",
       usage: { input_tokens: 12, output_tokens: 4 },
+    });
+    expect(processCalls[0]).toEqual({
+      args: ["login", "--with-api-key"],
+      stdin: "codex-test-key",
     });
     expect(auditSummary).toMatchObject({
       request: { prompt: "Inspect", jsonSchema: schema },
