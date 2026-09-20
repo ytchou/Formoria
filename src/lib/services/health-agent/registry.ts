@@ -149,6 +149,7 @@ export const registry: Record<DetectorName, Detector> = {
   // ---- sentry source ----
   'sentry-triage': withCtxDeps('sentry-triage', sentryDetector, (deps) => ({
     listIssues: deps.listIssues,
+    classify: deps.classifySentryIssue,
   })),
 
   // ---- quality source — stubs; worker jobs handle the real work ----

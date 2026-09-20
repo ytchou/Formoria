@@ -16,6 +16,10 @@ export type SentryIssue = {
   lastSeen: string;
   permalink: string;
   level: string;
+  culprit?: string;
+  firstSeen?: string;
+  platform?: string;
+  metadata?: { type?: string; value?: string };
 };
 
 export type ListIssuesOptions = {
@@ -146,15 +150,27 @@ export async function listIssues(
         throw new Error("Sentry returned an incomplete snapshot");
       }
 
-      return data.map((issue) => ({
-        id: issue.id,
-        title: sanitizeTitle(issue.title),
-        count: issue.count,
-        userCount: issue.userCount,
-        lastSeen: issue.lastSeen,
-        permalink: issue.permalink,
-        level: issue.level,
-      }));
+      return data.map((issue) => {
+        const meta = typeof issue.metadata === 'object' && issue.metadata !== null
+          ? issue.metadata as Record<string, unknown>
+          : undefined;
+        return {
+          id: issue.id,
+          title: sanitizeTitle(issue.title),
+          count: issue.count,
+          userCount: issue.userCount,
+          lastSeen: issue.lastSeen,
+          permalink: issue.permalink,
+          level: issue.level,
+          culprit: typeof issue.culprit === 'string' ? issue.culprit : undefined,
+          firstSeen: typeof issue.firstSeen === 'string' ? issue.firstSeen : undefined,
+          platform: typeof issue.platform === 'string' ? issue.platform : undefined,
+          metadata: meta ? {
+            type: typeof meta.type === 'string' ? meta.type : undefined,
+            value: typeof meta.value === 'string' ? meta.value : undefined,
+          } : undefined,
+        };
+      });
     },
     {
       summary: {

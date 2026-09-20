@@ -300,6 +300,7 @@ async function executeRunBody(
     { runLinkHealthCheck },
     { cleanupDeadLinks },
     { listIssues },
+    { classifySentryIssue },
     { checkUrl },
     { checkSocialLinks },
     { checkBrandOtherUrls },
@@ -312,6 +313,7 @@ async function executeRunBody(
     import('@/lib/services/link-health'),
     import('@/lib/services/link-cleanup'),
     import('@/lib/adapters/sentry/issues'),
+    import('@/lib/services/health-agent/classifiers/sentry-classify'),
     import('@/lib/services/link-checks/check-url'),
     import('@/lib/services/link-checks/social'),
     import('@/lib/services/link-checks/brand-other-urls'),
@@ -338,6 +340,7 @@ async function executeRunBody(
       runLinkHealthCheck,
       cleanupDeadLinks,
       listIssues,
+      classifySentryIssue,
       checkUrl,
       checkSocialLinks,
       checkBrandOtherUrls,
@@ -687,14 +690,20 @@ async function executeRunBody(
           ref: 'staging',
           runId,
           traceUrl,
-          scope: repairableFindings.flatMap(
+          scope: [...new Set(repairableFindings.flatMap(
             (f) => f.changedFiles ?? [],
-          ),
+          ))],
           findings: repairableFindings.map((f) => ({
             fingerprint: f.fingerprint,
             title: f.title,
             severity: f.severity,
             source: f.source,
+            ...(typeof f.evidence.rootCause === 'string'
+              ? { rootCause: f.evidence.rootCause }
+              : {}),
+            ...(typeof f.evidence.permalink === 'string'
+              ? { permalink: f.evidence.permalink }
+              : {}),
           })),
         }
         await deps.triggerRepair(repairRequest)

@@ -18,6 +18,8 @@ const RepairFindingSchema = z.object({
   severity: z.string(),
   source: z.string(),
   ticketId: z.string().optional(),
+  rootCause: z.string().optional(),
+  permalink: z.string().optional(),
 });
 
 const RepairRequestSchema = z.object({
@@ -85,11 +87,30 @@ export function mapFindingToInstruction(
   runId: string,
   scope: string[],
 ): string {
-  const raw = `Health agent run ${runId}: ${finding.title}\n\nFiles in scope: ${scope.join(", ")}`;
+  const meta = [
+    finding.rootCause ? `Root cause: ${finding.rootCause}` : "",
+    finding.permalink ? `Sentry: ${finding.permalink}` : "",
+  ]
+    .filter(Boolean)
+    .join("\n");
+  const header = meta
+    ? `Health agent run ${runId}: ${finding.title}\n\n${meta}`
+    : `Health agent run ${runId}: ${finding.title}`;
+  const raw = `${header}\n\nFiles in scope: ${scope.join(", ")}`;
   if (raw.length >= MIN_LENGTH && raw.length <= MAX_LENGTH) return raw;
   // Truncate at the last complete scope entry boundary to avoid partial paths
-  const truncated = raw.slice(0, MAX_LENGTH);
-  const lastSep = Math.max(truncated.lastIndexOf(", "), truncated.lastIndexOf("\n"));
+  const SUFFIX_RESERVE = 40; // " (999 files total, truncated)" is ~30 chars; 40 for margin
+  const truncated = raw.slice(0, MAX_LENGTH - SUFFIX_RESERVE);
+  const lastComma = truncated.lastIndexOf(", ");
+  const lastNewline = truncated.lastIndexOf("\n");
+  // Prefer cutting at a scope entry boundary (comma) if it's after the Files line
+  const filesLinePos = truncated.lastIndexOf("Files in scope:");
+  const lastSep =
+    lastComma > filesLinePos
+      ? lastComma
+      : lastNewline > 0
+        ? lastNewline
+        : -1;
   const clean = lastSep > 0 ? truncated.slice(0, lastSep) : truncated;
   return `${clean} (${scope.length} files total, truncated)`;
 }

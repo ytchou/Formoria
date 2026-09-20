@@ -276,6 +276,109 @@ describe('report — digest', () => {
     expect(digest).not.toContain('Runtime issue 01')
     expect(digest).not.toContain('Existing active issue')
   })
+
+  it('digest shows rootCause for highlighted sentry findings', () => {
+    const finding = makeFinding({
+      source: 'sentry',
+      fingerprint: 'sentry:issue:rc-1',
+      sentryIssueId: '99001',
+      title: 'Null pointer in cart',
+      severity: 'medium',
+      evidence: {
+        rootCause: 'Missing null check in cart handler',
+        userCount: 5,
+        lastSeen: '2026-09-20T10:00:00Z',
+      },
+    })
+
+    const digest = buildDigest(
+      [
+        makeResult({
+          name: 'sentry-triage',
+          source: 'sentry',
+          findings: [finding],
+        }),
+      ],
+      {
+        date: '2026-09-20',
+        traceUrl: 'https://langfuse.example.com/trace/rc',
+        highlightedFingerprints: new Set([finding.fingerprint]),
+      },
+    )
+
+    expect(digest).toContain(
+      '[medium] Null pointer in cart — Missing null check in cart handler',
+    )
+  })
+
+  it('digest truncates a long rootCause at 120 characters', () => {
+    const longCause = 'A'.repeat(500)
+    const finding = makeFinding({
+      source: 'sentry',
+      fingerprint: 'sentry:issue:long-rc',
+      sentryIssueId: '99003',
+      title: 'Long root cause issue',
+      severity: 'medium',
+      evidence: {
+        rootCause: longCause,
+        userCount: 2,
+        lastSeen: '2026-09-20T12:00:00Z',
+      },
+    })
+
+    const digest = buildDigest(
+      [
+        makeResult({
+          name: 'sentry-triage',
+          source: 'sentry',
+          findings: [finding],
+        }),
+      ],
+      {
+        date: '2026-09-20',
+        traceUrl: 'https://langfuse.example.com/trace/long-rc',
+        highlightedFingerprints: new Set([finding.fingerprint]),
+      },
+    )
+
+    // The full 500-char rootCause should NOT appear
+    expect(digest).not.toContain(longCause)
+    // Should contain the truncated version (120 chars + ellipsis)
+    expect(digest).toContain('A'.repeat(120) + '…')
+  })
+
+  it('digest omits rootCause suffix when absent', () => {
+    const finding = makeFinding({
+      source: 'sentry',
+      fingerprint: 'sentry:issue:no-rc',
+      sentryIssueId: '99002',
+      title: 'Timeout in API',
+      severity: 'high',
+      evidence: {
+        userCount: 3,
+        lastSeen: '2026-09-20T11:00:00Z',
+      },
+    })
+
+    const digest = buildDigest(
+      [
+        makeResult({
+          name: 'sentry-triage',
+          source: 'sentry',
+          findings: [finding],
+        }),
+      ],
+      {
+        date: '2026-09-20',
+        traceUrl: 'https://langfuse.example.com/trace/no-rc',
+        highlightedFingerprints: new Set([finding.fingerprint]),
+      },
+    )
+
+    expect(digest).toContain('[high] Timeout in API')
+    const findingLine = digest.split('\n').find((l) => l.includes('[high] Timeout in API'))
+    expect(findingLine).toBe('  [high] Timeout in API')
+  })
 })
 
 describe('report — repair trigger message', () => {
