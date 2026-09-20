@@ -35,22 +35,6 @@ describe("worker image contract", () => {
     }
   });
 
-  it("Claude Code version is pinned", () => {
-    const dockerfile = readFileSync(
-      resolve(ROOT, "Dockerfile.curation-worker"),
-      "utf8",
-    );
-    // Find the npm install line for Claude Code
-    const installLine = dockerfile
-      .split("\n")
-      .find((line) => line.includes("@anthropic-ai/claude-code"));
-
-    expect(installLine).toBeDefined();
-    // Must contain an exact @x.y.z version, not `latest` or a range
-    expect(installLine).toMatch(/@anthropic-ai\/claude-code@\d+\.\d+\.\d+/);
-    expect(installLine).not.toMatch(/@anthropic-ai\/claude-code@latest/);
-  });
-
   it("Codex CLI version is pinned", () => {
     const dockerfile = readFileSync(
       resolve(ROOT, "Dockerfile.curation-worker"),

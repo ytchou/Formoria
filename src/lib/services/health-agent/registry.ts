@@ -34,7 +34,6 @@ import { createGitHubDependabotAlertsAdapter } from '@/lib/adapters/github/depen
 import { backlogDetector } from './detectors/backlog'
 import { brandInvariantsDetector } from './detectors/brand-invariants'
 import { brandReviewDetector } from './detectors/brand-review'
-import { claudeTokenDetector } from './detectors/claude-token'
 import { cronDetector } from './detectors/cron'
 import { curationJobsDetector } from './detectors/curation-jobs'
 import { databaseHealthDetector } from './detectors/database-health'
@@ -179,7 +178,6 @@ export const registry: Record<DetectorName, Detector> = {
   'slack-events': slackEventsDetector,
   'worker-chromium': workerChromiumDetector,
   'resend-domain': resendDomainDetector,
-  'claude-token': claudeTokenDetector,
   'sentry-capture': sentryCaptureDetector,
 
   // ---- surface source ----

@@ -109,8 +109,6 @@ export const NON_SERVICE_ENV: Readonly<Record<string, string>> = {
   RAILWAY_LOGS_URL: "Internal log-query target, not a provider credential.",
   SEARCH_LOAD_BASE_URL: "Load-test target URL, not a provider service.",
   LANGFUSE_PROMPT_VERSIONS: "Eval prompt version pinning, not a provider service.",
-  CLAUDE_TOKEN_ISSUED_AT:
-    "Timestamp when the Claude Code OAuth token was issued; metadata, not a credential.",
 };
 
 const TODAY = "2026-08-10";
@@ -585,23 +583,6 @@ export const SERVICE_REGISTRY: readonly ServiceEntry[] = [
       sourceUrl: "https://github.com/pricing",
     },
     dashboardUrl: "https://github.com/ytchou/Formoria",
-  },
-  {
-    id: "anthropic",
-    name: "Anthropic Claude Code Action",
-    vendor: "Anthropic",
-    category: "ai",
-    criticality: "dev-tooling",
-    operationalSection: null,
-    operationalKind: "dependency",
-    envVars: ["CLAUDE_CODE_OAUTH_TOKEN"],
-    status: "dormant",
-    plan: {
-      kind: "subscription",
-      asOf: TODAY,
-      sourceUrl: "https://www.anthropic.com/pricing",
-    },
-    dashboardUrl: "https://console.anthropic.com/",
   },
   {
     id: "agent-hub",

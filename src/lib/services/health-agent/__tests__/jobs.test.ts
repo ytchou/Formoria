@@ -85,13 +85,6 @@ describe('health agent job definitions', () => {
     expect(command).toContain('content/trails')
   })
 
-  it('investigate job definition exists and uses claude provider', () => {
-    const investigate = HEALTH_JOBS.investigate
-    expect(investigate).toBeDefined()
-    expect(investigate.name).toBe('investigate')
-    expect(investigate.provider).toBe('claude-code')
-  })
-
   it('all jobs have valid structure', () => {
     for (const [name, job] of Object.entries(HEALTH_JOBS)) {
       expect(job.name).toBe(name)

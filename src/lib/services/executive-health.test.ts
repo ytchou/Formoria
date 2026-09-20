@@ -290,7 +290,6 @@ describe("executive health", () => {
           "github",
           "google-maps",
           "agent-hub",
-          "anthropic",
           "indexnow",
         ].includes(entry.id),
       ),

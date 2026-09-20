@@ -71,7 +71,6 @@ export const DETECTOR_NAMES = [
   "slack-events",
   "worker-chromium",
   "resend-domain",
-  "claude-token",
   "sentry-capture",
   // surface source
   "surface-assertions",
@@ -130,7 +129,6 @@ export const DETECTOR_SOURCE: Record<DetectorName, HealthSource> = {
   "slack-events": "credential",
   "worker-chromium": "credential",
   "resend-domain": "credential",
-  "claude-token": "credential",
   "sentry-capture": "credential",
   // surface
   "surface-assertions": "surface",
@@ -188,7 +186,6 @@ export const DETECTOR_SCHEDULE: Record<DetectorName, DetectorSchedule> = {
   "slack-events": "nightly",
   "worker-chromium": "nightly",
   "resend-domain": "nightly",
-  "claude-token": "nightly",
   "sentry-capture": "nightly",
   // surface
   "surface-assertions": "nightly",

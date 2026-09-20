@@ -216,7 +216,6 @@ const PROVIDERS = {
     "probe_trail_supply",
   ],
   "repo-worker": ["clone", "run_tool", "push_branch", "reportWorkerFailure"],
-  "claude-code": ["create_pr", "apply_fix"],
   "github-app": ["get_installation_token", "create_blob", "create_tree", "create_commit", "create_branch", "create_pull_request", "add_labels", "merge_pull_request"],
 } as const;
 

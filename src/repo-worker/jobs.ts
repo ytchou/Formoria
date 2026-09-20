@@ -12,7 +12,6 @@
 
 import path from "node:path";
 import type { AgentRequest, AgentResult } from "./agent";
-import type { ClaudeOptions, ClaudeResult } from "./claude";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -43,7 +42,6 @@ export type JobRequest = {
   commands: Command[];
   inputFiles?: ChangedFile[];
   agent?: AgentRequest;
-  claude?: ClaudeOptions & { oauthToken?: string };
   editableFiles: string[];
   blockedFiles?: string[];
 };
@@ -57,7 +55,6 @@ export type JobResult = {
   revertedFiles?: string[];
   baseSha?: string;
   agent?: AgentResult;
-  claude?: ClaudeResult;
   error?: string;
   errorStage?: JobErrorStage;
   errorCode?: string;
@@ -95,11 +92,6 @@ export type JobDeps = {
   revertFileFn?: (repoDir: string, filePath: string) => Promise<void>;
   /** Cleanup the clone directory. */
   cleanupFn: (dir: string) => Promise<void>;
-  /** Run Claude Code CLI. Provided by server.ts. */
-  claudeFn?: (
-    dir: string,
-    opts: ClaudeOptions & { oauthToken?: string },
-  ) => Promise<ClaudeResult>;
   /** Run the active provider-neutral agent. Provided by server.ts. */
   agentFn?: (dir: string, request: AgentRequest) => Promise<AgentResult>;
 };
@@ -257,21 +249,6 @@ export async function runRepoJob(
       agentResult = await deps.agentFn(cloneDir, request.agent);
     }
 
-    // Dormant Claude contract retained for rollback until DEV-1819.
-    let claudeResult: ClaudeResult | undefined;
-    if (request.claude) {
-      if (!deps.claudeFn) {
-        return {
-          status: "failed",
-          results: results.length > 0 ? results : undefined,
-          error: "Claude execution was requested but no executor is configured",
-          errorStage: "worker",
-          errorCode: "claude-executor-unavailable",
-        };
-      }
-      claudeResult = await deps.claudeFn(cloneDir, request.claude);
-    }
-
     // -----------------------------------------------------------------------
     // 6. Collect changed files and enforce scope
     // -----------------------------------------------------------------------
@@ -359,7 +336,6 @@ export async function runRepoJob(
       revertedFiles: revertedFiles.length > 0 ? revertedFiles : undefined,
       baseSha,
       agent: agentResult,
-      claude: claudeResult,
     };
   } catch (error) {
     return {
