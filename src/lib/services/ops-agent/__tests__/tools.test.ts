@@ -180,6 +180,18 @@ describe("system_status tool", () => {
 // ---------------------------------------------------------------------------
 
 describe("propose_action", () => {
+  it("exposes an OpenAI-compatible root object schema", () => {
+    const tools = createOpsTools(makeDeps(), makeCtx());
+    const tool = tools.find((t) => t.definition.name === "propose_action")!;
+
+    expect(tool.definition.parameters).toMatchObject({
+      type: "object",
+      required: ["kind"],
+      additionalProperties: false,
+    });
+    expect(tool.definition.parameters).not.toHaveProperty("oneOf");
+  });
+
   it("valid action invokes onProposed and returns ok", async () => {
     const onProposed = vi.fn();
     const validateProposal = vi.fn().mockResolvedValue({ ok: true });
