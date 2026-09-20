@@ -340,7 +340,8 @@ describe('report — digest', () => {
     )
 
     expect(digest).toContain('[high] Timeout in API')
-    expect(digest).not.toContain(' — ')
+    const findingLine = digest.split('\n').find((l) => l.includes('[high] Timeout in API'))
+    expect(findingLine).toBe('  [high] Timeout in API')
   })
 })
 
