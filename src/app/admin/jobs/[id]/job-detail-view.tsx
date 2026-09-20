@@ -80,6 +80,8 @@ const phaseDescriptions = {
     "LLM reranking pass over retrieved candidates to improve precision.",
   search_relevance_judge:
     "LLM relevance judgments for learning-to-rank training data.",
+  "sentry-classify":
+    "LLM triage of a Sentry issue for the health agent: severity and root cause.",
   // Legacy: `reputation` was called `expansion` until 2026-08-03 and historical
   // jobs still store that phase string. It is the one entry here with no
   // constant behind it, because nothing writes it any more — only historical
