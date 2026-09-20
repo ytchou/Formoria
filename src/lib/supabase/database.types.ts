@@ -2680,6 +2680,7 @@ export type Database = {
           operator_email: string | null
           proposal: Json | null
           result: Json | null
+          session_url: string | null
           slack_event_id: string | null
           slack_user_id: string
           status: string
@@ -2700,6 +2701,7 @@ export type Database = {
           operator_email?: string | null
           proposal?: Json | null
           result?: Json | null
+          session_url?: string | null
           slack_event_id?: string | null
           slack_user_id: string
           status: string
@@ -2720,6 +2722,7 @@ export type Database = {
           operator_email?: string | null
           proposal?: Json | null
           result?: Json | null
+          session_url?: string | null
           slack_event_id?: string | null
           slack_user_id?: string
           status?: string

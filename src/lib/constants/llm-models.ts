@@ -263,7 +263,7 @@ export const LLM_PROFILES = {
   },
   /** Ops agent read-loop reasoning + proposal generation. */
   opsAgent: {
-    model: "text",
+    model: "text_mini",
     maxTokens: 1200,
     temperature: 0,
     timeoutMs: 45000,
