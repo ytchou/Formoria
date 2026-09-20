@@ -34,6 +34,8 @@ import {
 } from "./requests";
 import type { OpsRequestRow, OpsRequestStatus } from "./types";
 
+type SlackBlock = Record<string, unknown>;
+
 // ---------------------------------------------------------------------------
 // Dependencies
 // ---------------------------------------------------------------------------
@@ -52,8 +54,12 @@ export type RunOpsAgentDeps = {
     },
   ) => Promise<OpsRequestRow>;
   expireStale?: () => Promise<void>;
-  postMessage?: (threadTs: string, text: string) => Promise<string | undefined>;
-  renderProposalCard?: (desc: ReturnType<typeof describeProposal>) => unknown[];
+  postMessage?: (
+    threadTs: string,
+    text: string,
+    blocks?: SlackBlock[],
+  ) => Promise<string | undefined>;
+  renderProposalCard?: (desc: ReturnType<typeof describeProposal>) => SlackBlock[];
   createOpsTools?: (deps: OpsToolDeps, ctx: OpsToolContext) => ReturnType<typeof createOpsTools>;
   createAgentModel?: (
     profileKey: string,
@@ -97,11 +103,12 @@ export async function runOpsAgent(
   // Wire defaults that need request context (channel, userId, etc.)
   const postMsg =
     deps.postMessage ??
-    (async (threadTs: string, text: string) => {
+    (async (threadTs: string, text: string, blocks?: SlackBlock[]) => {
       const res = await slackPostMessage({
         channel: request.channelId,
         threadTs,
         text,
+        blocks,
       });
       return res.ok ? res.ts : undefined;
     });
@@ -274,7 +281,7 @@ export async function runOpsAgent(
           .filter(Boolean)
           .join("\n");
 
-        const cardTs = await postMsg(request.threadTs, cardMessage);
+        const cardTs = await postMsg(request.threadTs, cardMessage, cardBlocks);
 
         const expiresAt = new Date(Date.now() + 10 * 60_000).toISOString();
 

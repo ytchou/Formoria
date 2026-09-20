@@ -169,7 +169,11 @@ describe("runOpsAgent", () => {
     expect(awaitPatch!.proposal).toBeDefined();
 
     // Posts exactly one Slack message
-    expect(deps.postMessage).toHaveBeenCalledOnce();
+    expect(deps.postMessage).toHaveBeenCalledWith(
+      "1234.5678",
+      expect.any(String),
+      [{ type: "section", text: "card" }],
+    );
   });
 
   // ---------------------------------------------------------------------------
