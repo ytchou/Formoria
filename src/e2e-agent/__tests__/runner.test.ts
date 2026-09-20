@@ -199,4 +199,20 @@ describe('e2e-agent runner', () => {
 
     expect(deps.fetchRevision).toHaveBeenCalledTimes(3)
   })
+
+  it('runner_refuses_to_certify_staging_without_a_revision_header', async () => {
+    const deps = makeDeps({
+      fetchRevision: vi.fn(async () => ''),
+    })
+
+    const { runE2eSuite } = await import('../runner.js')
+    await expect(runE2eSuite({
+      runId: 'test-run-missing-revision',
+      deps,
+      revisionPollIntervalMs: 0,
+      revisionPollMaxMs: 1,
+    })).rejects.toThrow('Staging revision did not converge')
+
+    expect(deps.cloneRepo).not.toHaveBeenCalled()
+  })
 })
