@@ -61,8 +61,9 @@ export function buildCodexArgs(
   return [
     "exec",
     ...common,
-    "--sandbox",
-    request.access === "write" ? "workspace-write" : "read-only",
+    ...(request.access === "write"
+      ? ["--dangerously-bypass-approvals-and-sandbox"]
+      : ["--sandbox", "read-only"]),
     "-",
   ];
 }

@@ -31,7 +31,8 @@ describe("repo-worker Codex adapter", () => {
     );
 
     expect(readArgs).toContain("read-only");
-    expect(writeArgs).toContain("workspace-write");
+    expect(writeArgs).toContain("--dangerously-bypass-approvals-and-sandbox");
+    expect(writeArgs).not.toContain("workspace-write");
     expect(readArgs).toContain("--output-schema");
     expect(readArgs).toContain("--output-last-message");
     expect(readArgs).toContain('shell_environment_policy.inherit="core"');
