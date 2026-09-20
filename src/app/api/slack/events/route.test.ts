@@ -18,6 +18,8 @@ function makeDeps(overrides: Partial<EventsRouteDeps> = {}): EventsRouteDeps {
       ok: true,
       row: { id: "req-1", slackEventId: "evt-1", status: "received" },
     }),
+    isActiveThread: vi.fn().mockResolvedValue(false),
+    addReaction: vi.fn().mockResolvedValue({ ok: true }),
     scheduleRun: vi.fn(),
     env: {
       SLACK_SIGNING_SECRET: TEST_SECRET,
@@ -232,5 +234,158 @@ describe("/api/slack/events", () => {
       expect.objectContaining({ text: "health status?" }),
       50,
     );
+  });
+
+  it("thread_reply_in_active_thread_is_processed", async () => {
+    deps = makeDeps({
+      isActiveThread: vi.fn().mockResolvedValue(true),
+    });
+    handler = createEventsHandler(deps);
+
+    const body = JSON.stringify({
+      type: "event_callback",
+      event_id: "evt-thread-1",
+      event: {
+        type: "message",
+        user: "U_OP1",
+        channel: "C_OPS",
+        ts: "1234.9999",
+        thread_ts: "1234.5678",
+        text: "what about the other brand?",
+      },
+    });
+
+    const res = await handler(post(body));
+    expect(res.status).toBe(200);
+    expect(deps.isActiveThread).toHaveBeenCalledWith("C_OPS", "1234.5678");
+    expect(deps.evaluateGuards).toHaveBeenCalled();
+    expect(deps.admitRequest).toHaveBeenCalledWith(
+      expect.objectContaining({
+        text: "what about the other brand?",
+        threadTs: "1234.5678",
+      }),
+      50,
+    );
+    expect(deps.scheduleRun).toHaveBeenCalled();
+  });
+
+  it("thread_reply_in_inactive_thread_is_ignored", async () => {
+    const body = JSON.stringify({
+      type: "event_callback",
+      event_id: "evt-thread-2",
+      event: {
+        type: "message",
+        user: "U_OP1",
+        channel: "C_OPS",
+        ts: "1234.9999",
+        thread_ts: "1234.5678",
+        text: "hello?",
+      },
+    });
+
+    const res = await handler(post(body));
+    expect(res.status).toBe(200);
+    expect(deps.isActiveThread).toHaveBeenCalledWith("C_OPS", "1234.5678");
+    expect(deps.evaluateGuards).not.toHaveBeenCalled();
+    expect(deps.scheduleRun).not.toHaveBeenCalled();
+  });
+
+  it("thread_reply_from_bot_is_ignored", async () => {
+    const body = JSON.stringify({
+      type: "event_callback",
+      event_id: "evt-thread-3",
+      event: {
+        type: "message",
+        bot_id: "B_AGENT",
+        channel: "C_OPS",
+        ts: "1234.9999",
+        thread_ts: "1234.5678",
+        text: "I am a bot replying",
+      },
+    });
+
+    const res = await handler(post(body));
+    expect(res.status).toBe(200);
+    expect(deps.isActiveThread).not.toHaveBeenCalled();
+    expect(deps.scheduleRun).not.toHaveBeenCalled();
+  });
+
+  it("thread_reply_with_subtype_is_ignored", async () => {
+    const body = JSON.stringify({
+      type: "event_callback",
+      event_id: "evt-thread-4",
+      event: {
+        type: "message",
+        subtype: "message_changed",
+        user: "U_OP1",
+        channel: "C_OPS",
+        ts: "1234.9999",
+        thread_ts: "1234.5678",
+        text: "edited message",
+      },
+    });
+
+    const res = await handler(post(body));
+    expect(res.status).toBe(200);
+    expect(deps.isActiveThread).not.toHaveBeenCalled();
+    expect(deps.scheduleRun).not.toHaveBeenCalled();
+  });
+
+  it("thread_reply_with_mention_is_skipped_for_app_mention_path", async () => {
+    deps = makeDeps({
+      isActiveThread: vi.fn().mockResolvedValue(true),
+    });
+    handler = createEventsHandler(deps);
+
+    const body = JSON.stringify({
+      type: "event_callback",
+      event_id: "evt-thread-5",
+      event: {
+        type: "message",
+        user: "U_OP1",
+        channel: "C_OPS",
+        ts: "1234.9999",
+        thread_ts: "1234.5678",
+        text: "<@U0BOT> check this again",
+      },
+    });
+
+    const res = await handler(post(body));
+    expect(res.status).toBe(200);
+    expect(deps.isActiveThread).not.toHaveBeenCalled();
+    expect(deps.scheduleRun).not.toHaveBeenCalled();
+  });
+
+  it("eyes_reaction_fired_on_admission", async () => {
+    const res = await handler(post(makeEventBody()));
+    expect(res.status).toBe(200);
+    expect(deps.addReaction).toHaveBeenCalledWith({
+      channel: "C_OPS",
+      timestamp: "1234.5678",
+      name: "eyes",
+    });
+    expect(deps.scheduleRun).toHaveBeenCalled();
+  });
+
+  it("failed_reaction_does_not_block_processing", async () => {
+    deps = makeDeps({
+      addReaction: vi.fn().mockRejectedValue(new Error("rate_limited")),
+    });
+    handler = createEventsHandler(deps);
+
+    const res = await handler(post(makeEventBody()));
+    expect(res.status).toBe(200);
+    expect(deps.scheduleRun).toHaveBeenCalled();
+  });
+
+  it("no_reaction_when_daily_cap_reached", async () => {
+    deps = makeDeps({
+      admitRequest: vi.fn().mockResolvedValue({ ok: false, reason: "daily_cap" }),
+    });
+    handler = createEventsHandler(deps);
+
+    const res = await handler(post(makeEventBody()));
+    expect(res.status).toBe(200);
+    expect(deps.addReaction).not.toHaveBeenCalled();
   });
 });

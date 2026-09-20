@@ -16,8 +16,15 @@ type UpdateMessageParams = {
   blocks?: SlackBlock[];
 };
 
+type AddReactionParams = {
+  channel: string;
+  timestamp: string;
+  name: string;
+};
+
 type SlackOk = { ok: true; ts: string };
 type SlackUpdateOk = { ok: true };
+type SlackReactionOk = { ok: true };
 type SlackError = { ok: false; error: string };
 
 const TIMEOUT_MS = 8_000;
@@ -119,6 +126,40 @@ export async function updateMessage(
 
       const data = (await response.json()) as { ok: boolean; error?: string };
       if (data.ok) {
+        return { ok: true as const };
+      }
+      return { ok: false as const, error: data.error ?? "unknown_error" };
+    },
+    {
+      classify: (result) => (result.ok ? "succeeded" : "failed"),
+    },
+  );
+}
+
+export async function addReaction(
+  params: AddReactionParams,
+): Promise<SlackReactionOk | SlackError> {
+  const token = getToken();
+
+  return auditedCall(
+    { provider: "slack", operation: "add_reaction", kind: "external" },
+    async () => {
+      const response = await fetch("https://slack.com/api/reactions.add", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          channel: params.channel,
+          timestamp: params.timestamp,
+          name: params.name,
+        }),
+        signal: AbortSignal.timeout(TIMEOUT_MS),
+      });
+
+      const data = (await response.json()) as { ok: boolean; error?: string };
+      if (data.ok || data.error === "already_reacted") {
         return { ok: true as const };
       }
       return { ok: false as const, error: data.error ?? "unknown_error" };
