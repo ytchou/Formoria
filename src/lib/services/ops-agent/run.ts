@@ -163,10 +163,14 @@ export async function runOpsAgent(
         return { kind: "answer" as const, text: `Routine fired: ${sessionUrl}`, modelCalls: 0, toolLog: [] };
       } catch (err) {
         console.error("[ops-agent] repair routine fire failed:", err);
-        await transition(request.id, ["running"], "failed", {
-          result: { error: err instanceof Error ? err.message : String(err), modelCalls: 0 },
-        });
-        await postMsg(request.threadTs, "Failed to start repair routine. Please try again.");
+        try {
+          await transition(request.id, ["running"], "failed", {
+            result: { error: err instanceof Error ? err.message : String(err), modelCalls: 0 },
+          });
+          await postMsg(request.threadTs, "Failed to start repair routine. Please try again.");
+        } catch {
+          // transition or Slack post failed — already logged above
+        }
         return { kind: "failed" as const, modelCalls: 0, toolLog: [] };
       }
     }
@@ -278,14 +282,18 @@ export async function runOpsAgent(
           await postMsg(request.threadTs, `Working on it → ${sessionUrl}`);
         } catch (err) {
           console.error("[ops-agent] routine fire failed:", err);
-          await transition(request.id, ["running"], "failed", {
-            result: {
-              error: err instanceof Error ? err.message : String(err),
-              toolCalls: toolCallsSummary,
-              modelCalls: modelCallsCount,
-            },
-          });
-          await postMsg(request.threadTs, "Failed to start the routine. Please try again.");
+          try {
+            await transition(request.id, ["running"], "failed", {
+              result: {
+                error: err instanceof Error ? err.message : String(err),
+                toolCalls: toolCallsSummary,
+                modelCalls: modelCallsCount,
+              },
+            });
+            await postMsg(request.threadTs, "Failed to start the routine. Please try again.");
+          } catch {
+            // transition or Slack post failed — already logged above
+          }
         }
         break;
       }

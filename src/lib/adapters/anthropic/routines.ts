@@ -44,8 +44,14 @@ export async function fireRoutine(
         );
       }
 
-      const data = (await response.json()) as { session_url: string };
-      return { sessionUrl: data.session_url };
+      const data = (await response.json()) as Record<string, unknown>;
+      const sessionUrl = data.session_url;
+      if (typeof sessionUrl !== "string") {
+        throw new Error(
+          `Routines API returned no session_url (keys: ${Object.keys(data).join(", ")})`,
+        );
+      }
+      return { sessionUrl };
     },
   );
 }

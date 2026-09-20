@@ -150,6 +150,8 @@ export async function executeProposal(
             return executeRerunJob(proposal, ctx, deps);
           case "dispatch_workflow":
             return executeDispatchWorkflow(proposal, ctx, deps);
+          default:
+            return { ok: false, error: `unsupported_proposal_kind` };
         }
       },
     );

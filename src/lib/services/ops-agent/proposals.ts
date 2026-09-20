@@ -105,5 +105,12 @@ export function describeProposal(proposal: OpsProposal): ProposalDescription {
         cost: "1 workflow run",
       };
 
+    default:
+      return {
+        action: `Unknown action: ${(proposal as { kind: string }).kind}`,
+        steps: "N/A",
+        why: "Stale proposal from a previous version",
+        cost: "N/A",
+      };
   }
 }

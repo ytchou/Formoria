@@ -195,7 +195,6 @@ const PROVIDERS = {
     "brandContext",
     "jobDetail",
     "executeProposal",
-    "fire_routine",
   ],
   anthropic: ["fire_routine"],
   // DEV-1748: health agent migration — new audit providers for the
