@@ -72,6 +72,22 @@ describe("extractRepairRequest", () => {
     );
     expect(result).toBeNull();
   });
+
+  it("extractRepairRequest_accepts_findings_with_rootCause_and_permalink", () => {
+    const findingWithExtras: RepairFinding = {
+      ...validFinding,
+      rootCause: "Null pointer in hero selection",
+      permalink: "https://sentry.io/issues/99999/",
+    };
+    const request: RepairRequest = {
+      ...validRequest,
+      findings: [findingWithExtras],
+    };
+    const result = extractRepairRequest(wrapJson(request));
+    expect(result).not.toBeNull();
+    expect(result!.findings[0].rootCause).toBe("Null pointer in hero selection");
+    expect(result!.findings[0].permalink).toBe("https://sentry.io/issues/99999/");
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -98,6 +114,30 @@ describe("mapFindingToInstruction", () => {
     );
     expect(instruction.length).toBeGreaterThanOrEqual(10);
     expect(instruction.length).toBeLessThanOrEqual(2000);
+  });
+
+  it("mapFindingToInstruction_includes_rootCause_when_present", () => {
+    const finding: RepairFinding = {
+      ...validFinding,
+      rootCause: "Missing fallback in image pipeline",
+    };
+    const instruction = mapFindingToInstruction(finding, "run-001", ["src/a.ts"]);
+    expect(instruction).toContain("Root cause: Missing fallback in image pipeline");
+  });
+
+  it("mapFindingToInstruction_includes_permalink_when_present", () => {
+    const finding: RepairFinding = {
+      ...validFinding,
+      permalink: "https://sentry.io/issues/12345/",
+    };
+    const instruction = mapFindingToInstruction(finding, "run-001", ["src/a.ts"]);
+    expect(instruction).toContain("Sentry: https://sentry.io/issues/12345/");
+  });
+
+  it("mapFindingToInstruction_omits_rootCause_when_absent", () => {
+    const instruction = mapFindingToInstruction(validFinding, "run-001", ["src/a.ts"]);
+    expect(instruction).not.toContain("Root cause:");
+    expect(instruction).not.toContain("Sentry:");
   });
 });
 

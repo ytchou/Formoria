@@ -13,15 +13,19 @@ import {
   type HealthSeverity,
 } from '../contracts'
 import type { Detector } from '../types'
+import type { SentryClassification } from '../classifiers/sentry-classify'
+import { decideSentryMergePolicy } from '../classifiers/sentry-merge-policy'
 
 const SENTRY_LOOKBACK_HOURS = 48
 const MAX_SENTRY_ISSUES = 100
+const CLASSIFY_CONCURRENCY = 4
 
 export type SentryDetectorDeps = {
   listIssues: (
     hours?: number,
     options?: ListIssuesOptions,
   ) => Promise<SentryIssue[]>
+  classify?: (issue: SentryIssue) => Promise<SentryClassification | null>
 }
 
 function severityForIssue(issue: SentryIssue): HealthSeverity {
@@ -55,6 +59,67 @@ export function sentryIssueToFinding(issue: SentryIssue): HealthFinding {
   }
 }
 
+/**
+ * Build an enriched finding from a classified issue. Uses the classification's
+ * severity instead of the basic heuristic, and sets merge policy from the
+ * policy decision.
+ */
+export function classifiedIssueToFinding(
+  issue: SentryIssue,
+  classification: SentryClassification,
+): HealthFinding {
+  const policy = decideSentryMergePolicy(classification)
+  return {
+    source: 'sentry',
+    fingerprint: stableFingerprint('sentry', 'issue', issue.id),
+    title: issue.title,
+    severity: classification.severity,
+    evidence: {
+      count: eventCount(issue.count),
+      userCount: issue.userCount,
+      lastSeen: issue.lastSeen,
+      level: issue.level,
+      permalink: issue.permalink,
+      rootCause: classification.rootCause,
+      fixability: classification.fixability,
+      confidence: classification.confidence,
+    },
+    mergePolicy: policy.mergePolicy,
+    ...(policy.humanReason ? { humanReason: policy.humanReason } : {}),
+    ...(classification.changedFiles.length > 0
+      ? { changedFiles: classification.changedFiles }
+      : {}),
+    sentryIssueId: issue.id,
+  }
+}
+
+/**
+ * Simple concurrency limiter — runs async tasks with at most `limit`
+ * concurrent executions.
+ */
+async function mapWithConcurrency<T, R>(
+  items: T[],
+  limit: number,
+  fn: (item: T) => Promise<R>,
+): Promise<R[]> {
+  const results: R[] = new Array(items.length)
+  let index = 0
+
+  async function worker(): Promise<void> {
+    while (index < items.length) {
+      const i = index++
+      results[i] = await fn(items[i])
+    }
+  }
+
+  const workers = Array.from(
+    { length: Math.min(limit, items.length) },
+    () => worker(),
+  )
+  await Promise.all(workers)
+  return results
+}
+
 export function sentryDetector(deps: SentryDetectorDeps): Detector {
   return {
     name: 'sentry-triage',
@@ -72,7 +137,25 @@ export function sentryDetector(deps: SentryDetectorDeps): Detector {
         excludeHealthCanary: true,
         requireComplete: true,
       })
-      return issues.map(sentryIssueToFinding)
+
+      if (!deps.classify) {
+        return issues.map(sentryIssueToFinding)
+      }
+
+      const classify = deps.classify
+      const classifications = await mapWithConcurrency(
+        issues,
+        CLASSIFY_CONCURRENCY,
+        (issue) => classify(issue),
+      )
+
+      return issues.map((issue, i) => {
+        const classification = classifications[i]
+        if (classification) {
+          return classifiedIssueToFinding(issue, classification)
+        }
+        return sentryIssueToFinding(issue)
+      })
     },
   }
 }

@@ -18,6 +18,8 @@ const RepairFindingSchema = z.object({
   severity: z.string(),
   source: z.string(),
   ticketId: z.string().optional(),
+  rootCause: z.string().optional(),
+  permalink: z.string().optional(),
 });
 
 const RepairRequestSchema = z.object({
@@ -85,7 +87,16 @@ export function mapFindingToInstruction(
   runId: string,
   scope: string[],
 ): string {
-  const raw = `Health agent run ${runId}: ${finding.title}\n\nFiles in scope: ${scope.join(", ")}`;
+  const meta = [
+    finding.rootCause ? `Root cause: ${finding.rootCause}` : "",
+    finding.permalink ? `Sentry: ${finding.permalink}` : "",
+  ]
+    .filter(Boolean)
+    .join("\n");
+  const header = meta
+    ? `Health agent run ${runId}: ${finding.title}\n\n${meta}`
+    : `Health agent run ${runId}: ${finding.title}`;
+  const raw = `${header}\n\nFiles in scope: ${scope.join(", ")}`;
   if (raw.length >= MIN_LENGTH && raw.length <= MAX_LENGTH) return raw;
   // Truncate at the last complete scope entry boundary to avoid partial paths
   const truncated = raw.slice(0, MAX_LENGTH);

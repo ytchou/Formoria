@@ -276,6 +276,72 @@ describe('report — digest', () => {
     expect(digest).not.toContain('Runtime issue 01')
     expect(digest).not.toContain('Existing active issue')
   })
+
+  it('digest shows rootCause for highlighted sentry findings', () => {
+    const finding = makeFinding({
+      source: 'sentry',
+      fingerprint: 'sentry:issue:rc-1',
+      sentryIssueId: '99001',
+      title: 'Null pointer in cart',
+      severity: 'medium',
+      evidence: {
+        rootCause: 'Missing null check in cart handler',
+        userCount: 5,
+        lastSeen: '2026-09-20T10:00:00Z',
+      },
+    })
+
+    const digest = buildDigest(
+      [
+        makeResult({
+          name: 'sentry-triage',
+          source: 'sentry',
+          findings: [finding],
+        }),
+      ],
+      {
+        date: '2026-09-20',
+        traceUrl: 'https://langfuse.example.com/trace/rc',
+        highlightedFingerprints: new Set([finding.fingerprint]),
+      },
+    )
+
+    expect(digest).toContain(
+      '[medium] Null pointer in cart — Missing null check in cart handler',
+    )
+  })
+
+  it('digest omits rootCause suffix when absent', () => {
+    const finding = makeFinding({
+      source: 'sentry',
+      fingerprint: 'sentry:issue:no-rc',
+      sentryIssueId: '99002',
+      title: 'Timeout in API',
+      severity: 'high',
+      evidence: {
+        userCount: 3,
+        lastSeen: '2026-09-20T11:00:00Z',
+      },
+    })
+
+    const digest = buildDigest(
+      [
+        makeResult({
+          name: 'sentry-triage',
+          source: 'sentry',
+          findings: [finding],
+        }),
+      ],
+      {
+        date: '2026-09-20',
+        traceUrl: 'https://langfuse.example.com/trace/no-rc',
+        highlightedFingerprints: new Set([finding.fingerprint]),
+      },
+    )
+
+    expect(digest).toContain('[high] Timeout in API')
+    expect(digest).not.toContain(' — ')
+  })
 })
 
 describe('report — repair trigger message', () => {

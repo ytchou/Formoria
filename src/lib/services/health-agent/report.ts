@@ -251,8 +251,10 @@ export function buildDigest(
   if (highlighted.length > 0) {
     lines.push('New or returned Sentry issues:')
     for (const finding of highlighted.slice(0, SENTRY_DIGEST_LIMIT)) {
+      const rootCause = stringEvidence(finding, 'rootCause')
+      const suffix = rootCause ? ` — ${escapeSlackMrkdwn(rootCause)}` : ''
       lines.push(
-        `  [${finding.severity}] ${escapeSlackMrkdwn(finding.title)}`,
+        `  [${finding.severity}] ${escapeSlackMrkdwn(finding.title)}${suffix}`,
       )
     }
     const remainder = highlighted.length - SENTRY_DIGEST_LIMIT
