@@ -13,6 +13,7 @@ import {
   createRequest,
   admitRequest,
   getRequest,
+  isActiveThread,
   transitionRequest,
 } from "../requests";
 
@@ -236,6 +237,46 @@ describe("transitionRequest", () => {
       mockClient,
     );
     expect(result.status).toBe("executed");
+  });
+});
+
+describe("isActiveThread", () => {
+  function makeCountChain(count: number | null, error: unknown = null) {
+    const terminal: Record<string, unknown> = {};
+    terminal.neq = vi.fn().mockResolvedValue({ count, error });
+    const eqLayer: Record<string, unknown> = {};
+    eqLayer.eq = vi.fn().mockReturnValue(terminal);
+    const selectLayer: Record<string, unknown> = {};
+    selectLayer.eq = vi.fn().mockReturnValue(eqLayer);
+    const outer: Record<string, unknown> = {};
+    outer.select = vi.fn().mockReturnValue(selectLayer);
+    return outer;
+  }
+
+  it("returns true when matching non-refused row exists", async () => {
+    mockFrom.mockReturnValue(makeCountChain(2));
+    const result = await isActiveThread("C_OPS", "1234.5678", mockClient);
+    expect(result).toBe(true);
+  });
+
+  it("returns false when no rows match", async () => {
+    mockFrom.mockReturnValue(makeCountChain(0));
+    const result = await isActiveThread("C_OPS", "1234.5678", mockClient);
+    expect(result).toBe(false);
+  });
+
+  it("returns false when only refused rows exist", async () => {
+    mockFrom.mockReturnValue(makeCountChain(0));
+    const result = await isActiveThread("C_OPS", "1234.5678", mockClient);
+    expect(result).toBe(false);
+  });
+
+  it("returns false on query error (fail closed)", async () => {
+    mockFrom.mockReturnValue(
+      makeCountChain(null, { code: "PGRST000", message: "connection refused" }),
+    );
+    const result = await isActiveThread("C_OPS", "1234.5678", mockClient);
+    expect(result).toBe(false);
   });
 });
 

@@ -1,11 +1,12 @@
 import { after, NextResponse } from "next/server";
 import { withAuditScope } from "@/lib/audit/scope";
 import { verifySlackSignature } from "@/lib/adapters/slack/signature";
-import { postMessage, resolveChannelName } from "@/lib/adapters/slack/web-api";
+import { addReaction, postMessage, resolveChannelName } from "@/lib/adapters/slack/web-api";
 import { CHANNEL_PREFIX, evaluateGuards } from "@/lib/services/ops-agent/guards";
 import {
   createRequest,
   admitRequest,
+  isActiveThread,
 } from "@/lib/services/ops-agent/requests";
 import { JSON_BLOCK_RE } from "@/lib/services/ops-agent/repair";
 import { runOpsAgent } from "@/lib/services/ops-agent/run";
@@ -14,14 +15,17 @@ export const runtime = "nodejs";
 
 const DEFAULT_DAILY_CAP = 50;
 const BOT_HANDLE_RE = /^<@[A-Z0-9]+>\s*/;
+const MENTION_RE = /<@[A-Z0-9]+>/;
 
 export type EventsRouteDeps = {
   verifySignature: typeof verifySlackSignature;
   postMessage: typeof postMessage;
+  addReaction: typeof addReaction;
   resolveChannelName: typeof resolveChannelName;
   evaluateGuards: typeof evaluateGuards;
   createRequest: typeof createRequest;
   admitRequest: typeof admitRequest;
+  isActiveThread: typeof isActiveThread;
   scheduleRun: (requestId: string) => void;
   env: Record<string, string | undefined>;
 };
@@ -29,10 +33,12 @@ export type EventsRouteDeps = {
 const defaultDeps: EventsRouteDeps = {
   verifySignature: verifySlackSignature,
   postMessage,
+  addReaction,
   resolveChannelName,
   evaluateGuards,
   createRequest,
   admitRequest,
+  isActiveThread,
   scheduleRun: (requestId) => after(() => runOpsAgent(requestId)),
   env: process.env as Record<string, string | undefined>,
 };
@@ -73,16 +79,35 @@ export function createEventsHandler(deps: EventsRouteDeps = defaultDeps) {
       return NextResponse.json({});
     }
 
-    if (event.type !== "app_mention") {
+    const isAppMention = event.type === "app_mention";
+    const rawText = (event.text as string) ?? "";
+    const isThreadReply =
+      event.type === "message" &&
+      !event.subtype &&
+      !event.bot_id &&
+      typeof event.thread_ts === "string" &&
+      event.thread_ts !== event.ts &&
+      !MENTION_RE.test(rawText);
+
+    if (!isAppMention && !isThreadReply) {
       return NextResponse.json({});
+    }
+
+    const channelId = event.channel as string;
+    const threadTs = (event.thread_ts as string) ?? (event.ts as string);
+
+    if (isThreadReply) {
+      const active = await deps.isActiveThread(channelId, threadTs);
+      if (!active) {
+        return NextResponse.json({});
+      }
     }
 
     const slackEventId = (body.event_id as string) ?? null;
     const slackUserId = (event.user as string) ?? (event.bot_id as string) ?? "unknown";
-    const channelId = event.channel as string;
-    const rawText = (event.text as string) ?? "";
-    const threadTs = (event.thread_ts as string) ?? (event.ts as string);
-    const text = rawText.replace(BOT_HANDLE_RE, "").trim();
+    const text = isAppMention
+      ? rawText.replace(BOT_HANDLE_RE, "").trim()
+      : rawText.trim();
 
     const isSystemBot = !!event.bot_id;
     let operatorEmail: string | null;
@@ -176,6 +201,12 @@ export function createEventsHandler(deps: EventsRouteDeps = defaultDeps) {
     const row = admitResult.row;
     if (!row) {
       return NextResponse.json({});
+    }
+
+    const messageTs = (event.ts as string) ?? "";
+    if (messageTs) {
+      deps.addReaction({ channel: channelId, timestamp: messageTs, name: "eyes" })
+        .catch(() => {});
     }
 
     deps.scheduleRun(row.id);
