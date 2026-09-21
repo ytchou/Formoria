@@ -19,7 +19,7 @@ import type { OpsProposal } from "./proposals";
 // Caps
 // ---------------------------------------------------------------------------
 
-const MAX_TURNS = 3;
+const MAX_TURNS = 6;
 const MAX_BAD_PROPOSALS = 2;
 const RECURSION_LIMIT = 14;
 const WALL_CLOCK_MS = 60_000;
