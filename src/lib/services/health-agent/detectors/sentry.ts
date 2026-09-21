@@ -69,7 +69,7 @@ export function sentryIssueToFinding(issue: SentryIssue): HealthFinding {
  * severity instead of the basic heuristic, and sets merge policy from the
  * policy decision.
  */
-export function classifiedIssueToFinding(
+function classifiedIssueToFinding(
   issue: SentryIssue,
   classification: SentryClassification,
 ): HealthFinding {

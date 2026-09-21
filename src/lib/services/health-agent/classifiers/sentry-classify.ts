@@ -18,7 +18,7 @@ import {
 // Schema
 // ---------------------------------------------------------------------------
 
-export const SentryClassificationSchema = z
+const SentryClassificationSchema = z
   .object({
     severity: z.enum(['low', 'medium', 'high', 'critical']),
     rootCause: z.string().min(1).max(500),

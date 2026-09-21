@@ -62,6 +62,17 @@ describe('resend-domain detector', () => {
     expect(findings).toHaveLength(0)
   })
 
+  it('returns a finding when the API key contains non-ASCII characters', async () => {
+    const ctx = makeCtx({
+      env: { RESEND_MONITOR_API_KEY: 're_1234•rest' },
+    })
+    const findings = await resendDomainDetector.run(ctx)
+
+    expect(findings).toHaveLength(1)
+    expect(findings[0].title).toMatch(/invalid.*HTTP/i)
+    expect(findings[0].severity).toBe('high')
+  })
+
   it('does not use the transactional sending key for domain monitoring', async () => {
     const fetchFn = vi.fn()
     const ctx = makeCtx({
