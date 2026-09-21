@@ -11,7 +11,7 @@ import {
   type AgentModel,
 } from "@/lib/services/enrich-phases/agents/runtime";
 import type { LlmAuditContext } from "@/lib/services/llm-audit";
-import { postMessage as slackPostMessage } from "@/lib/adapters/slack/web-api";
+import { postMessage as slackPostMessage, toSlackMrkdwn } from "@/lib/adapters/slack/web-api";
 import { renderProposalCard as slackRenderProposalCard } from "@/lib/adapters/slack/blocks";
 import { listIssues as defaultListIssues } from "@/lib/adapters/sentry/issues";
 import { getBrandBySlug, searchBrandsAutocomplete } from "@/lib/services/brands";
@@ -255,7 +255,7 @@ export async function runOpsAgent(
             modelCalls: modelCallsCount,
           },
         });
-        await postMsg(request.threadTs, result.text);
+        await postMsg(request.threadTs, toSlackMrkdwn(result.text));
         break;
       }
 

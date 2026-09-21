@@ -1,5 +1,9 @@
 import { auditedCall } from "@/lib/audit";
 
+export function toSlackMrkdwn(markdown: string): string {
+  return markdown.replace(/\*\*([^*]+)\*\*/g, "*$1*");
+}
+
 type SlackBlock = Record<string, unknown>;
 
 type PostMessageParams = {
