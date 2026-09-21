@@ -189,7 +189,7 @@ export async function getThreadHistory(
 
       const { data, error } = await supabase
         .from("ops_agent_requests")
-        .select()
+        .select("id, slack_event_id, slack_user_id, operator_email, channel_id, thread_ts, card_ts, text, status, result, proposal, tool_calls, model_calls, cost_usd, correlation_id, session_url, expires_at, created_at, updated_at")
         .eq("channel_id", channelId)
         .eq("thread_ts", threadTs)
         .neq("id", excludeId)

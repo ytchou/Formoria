@@ -71,6 +71,13 @@ function formatToolChain(
 // Thread history formatter
 // ---------------------------------------------------------------------------
 
+const MAX_HISTORY_CONTENT_LENGTH = 500;
+
+function truncateContent(text: string): string {
+  if (text.length <= MAX_HISTORY_CONTENT_LENGTH) return text;
+  return text.slice(0, MAX_HISTORY_CONTENT_LENGTH) + "... (truncated)";
+}
+
 export function formatThreadHistory(rows: OpsRequestRow[]): ChatMessage[] {
   const messages: ChatMessage[] = [];
 
@@ -78,7 +85,9 @@ export function formatThreadHistory(rows: OpsRequestRow[]): ChatMessage[] {
     const resultObj = row.result as Record<string, unknown> | null;
 
     const toolCalls = Array.isArray(resultObj?.toolCalls)
-      ? (resultObj!.toolCalls as { name: string }[]).map((t) => t.name).filter(Boolean)
+      ? [...new Set(
+          (resultObj!.toolCalls as { name: string }[]).map((t) => t.name).filter(Boolean),
+        )]
       : [];
 
     const toolPrefix = toolCalls.length > 0 ? `[Used: ${toolCalls.join(", ")}] ` : "";
@@ -88,35 +97,43 @@ export function formatThreadHistory(rows: OpsRequestRow[]): ChatMessage[] {
     switch (row.status) {
       case "answered": {
         const text =
-          (resultObj?.text as string | undefined) ??
-          (resultObj?.description as string | undefined) ??
-          (resultObj?.sessionUrl as string | undefined) ??
+          (resultObj?.text as string | undefined) ||
+          (resultObj?.description as string | undefined) ||
+          (resultObj?.sessionUrl as string | undefined) ||
           "(no response)";
         summary = text;
         break;
       }
 
       case "executed": {
-        const action = describeProposal(row.proposal as OpsProposal).action;
+        const action = row.proposal
+          ? describeProposal(row.proposal as OpsProposal).action
+          : "(unknown action)";
         summary = `${action} — executed`;
         break;
       }
 
       case "awaiting_confirm": {
-        const action = describeProposal(row.proposal as OpsProposal).action;
+        const action = row.proposal
+          ? describeProposal(row.proposal as OpsProposal).action
+          : "(unknown action)";
         summary = `${action} — awaiting confirmation`;
         break;
       }
 
       case "cancelled": {
-        const action = describeProposal(row.proposal as OpsProposal).action;
-        summary = `${action} — Cancelled`;
+        const action = row.proposal
+          ? describeProposal(row.proposal as OpsProposal).action
+          : "(unknown action)";
+        summary = `${action} — cancelled`;
         break;
       }
 
       case "expired": {
-        const action = describeProposal(row.proposal as OpsProposal).action;
-        summary = `${action} — Expired`;
+        const action = row.proposal
+          ? describeProposal(row.proposal as OpsProposal).action
+          : "(unknown action)";
+        summary = `${action} — expired`;
         break;
       }
 
@@ -137,7 +154,7 @@ export function formatThreadHistory(rows: OpsRequestRow[]): ChatMessage[] {
     }
 
     messages.push({ role: "user", content: row.text });
-    messages.push({ role: "assistant", content: `${toolPrefix}${summary}` });
+    messages.push({ role: "assistant", content: truncateContent(`${toolPrefix}${summary}`) });
   }
 
   return messages;
@@ -301,7 +318,12 @@ export async function runOpsAgent(
   }
 
   // 3c. Load thread history
-  const history = await getHistory(request.channelId, request.threadTs, request.id);
+  let history: OpsRequestRow[] = [];
+  try {
+    history = await getHistory(request.channelId, request.threadTs, request.id);
+  } catch (err) {
+    console.error("[ops-agent] getThreadHistory failed, proceeding without context:", err);
+  }
   const priorMessages = formatThreadHistory(history);
 
   // 4. Fetch prompt

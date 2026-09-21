@@ -976,7 +976,7 @@ describe("formatThreadHistory", () => {
     const messages = formatThreadHistory([row]);
     expect(messages).toHaveLength(2);
     expect(messages[1].content).toContain("Refresh brand: test-brand");
-    expect(messages[1].content).toMatch(/Cancelled/);
+    expect(messages[1].content).toMatch(/cancelled/);
   });
 
   it("produces pair for expired", () => {
@@ -990,7 +990,7 @@ describe("formatThreadHistory", () => {
     const messages = formatThreadHistory([row]);
     expect(messages).toHaveLength(2);
     expect(messages[1].content).toContain("Refresh brand: test-brand");
-    expect(messages[1].content).toMatch(/Expired/);
+    expect(messages[1].content).toMatch(/expired/);
   });
 
   it("produces pair for refused", () => {
