@@ -192,8 +192,9 @@ export async function runOpsAgent(
 
   // 4. Fetch prompt
   // The string literal 'ops-agent-system' is the call site for the prompts test
-  const { text: systemPrompt, prompt: promptMeta } =
+  const { text: rawPrompt, prompt: promptMeta } =
     await fetchLangfusePromptWithMeta("ops-agent-system");
+  const systemPrompt = `${rawPrompt}\n\nAlways respond in English.`;
 
   // 5. Create model
   const model = await buildModel("opsAgent", {

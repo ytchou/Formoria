@@ -98,6 +98,37 @@ describe("runOpsAgent", () => {
     // Should not throw
   });
 
+  it("appends English language constraint to the system prompt", async () => {
+    const graphResult: GraphResult = {
+      kind: "answer",
+      text: "ok",
+      modelCalls: 1,
+      toolLog: [],
+    };
+
+    const runGraphMock = vi.fn().mockResolvedValue(graphResult);
+    const deps: RunOpsAgentDeps = {
+      getRequest: vi.fn().mockResolvedValue(makeRequest()),
+      transitionRequest: vi.fn().mockImplementation(
+        async (_id: string, _from: string[], to: string, patch?: Record<string, unknown>) => ({
+          ...makeRequest(),
+          status: to,
+          ...patch,
+        }),
+      ),
+      expireStale: vi.fn(),
+      postMessage: vi.fn(),
+      createOpsTools: vi.fn().mockReturnValue([]),
+      createAgentModel: vi.fn().mockResolvedValue(fakeModel()),
+      runGraph: runGraphMock,
+    };
+
+    await runOpsAgent("req-1", deps);
+
+    const passedPrompt = runGraphMock.mock.calls[0][2] as string;
+    expect(passedPrompt).toContain("Always respond in English");
+  });
+
   // ---------------------------------------------------------------------------
   // Test 8: run_ops_agent_persists_outcome
   // ---------------------------------------------------------------------------

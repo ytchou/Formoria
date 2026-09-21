@@ -44,6 +44,19 @@ export const resendDomainDetector: Detector = {
     const apiKey = env.RESEND_MONITOR_API_KEY
     if (!apiKey) return []
 
+    if (!/^[\x21-\x7E]+$/.test(apiKey)) {
+      return [
+        {
+          source: 'credential',
+          fingerprint: stableFingerprint('credential', 'resend-domain', 'invalid-key'),
+          title: 'RESEND_MONITOR_API_KEY contains characters invalid for HTTP headers',
+          severity: 'high',
+          evidence: { reason: 'non-ASCII or control characters in API key' },
+          mergePolicy: 'human',
+        },
+      ]
+    }
+
     const fetchFn = getFetch(ctx)
 
     const response = await auditedCall(
