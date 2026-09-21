@@ -16,8 +16,9 @@ vi.mock("@/lib/langfuse/prompt", () => ({
   }),
 }));
 
-import { runOpsAgent, type RunOpsAgentDeps } from "../run";
+import { runOpsAgent, formatThreadHistory, type RunOpsAgentDeps } from "../run";
 import type { GraphResult } from "../graph";
+import type { OpsRequestRow } from "../types";
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -736,5 +737,176 @@ describe("runOpsAgent", () => {
     expect(deps.runGraph).toHaveBeenCalledOnce();
 
     expect(result.kind).toBe("answer");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// formatThreadHistory
+// ---------------------------------------------------------------------------
+
+describe("formatThreadHistory", () => {
+  function makeRow(overrides: Partial<OpsRequestRow> = {}): OpsRequestRow {
+    return { ...makeRequest(), ...overrides } as OpsRequestRow;
+  }
+
+  it("produces user/assistant pair for answered text", () => {
+    const row = makeRow({
+      status: "answered" as const,
+      text: "how is the system",
+      result: { text: "All systems healthy.", toolCalls: [], modelCalls: 1 },
+    });
+
+    const messages = formatThreadHistory([row]);
+    expect(messages).toEqual([
+      { role: "user", content: "how is the system" },
+      { role: "assistant", content: "All systems healthy." },
+    ]);
+  });
+
+  it("produces pair for answered routine", () => {
+    const row = makeRow({
+      status: "answered" as const,
+      text: "investigate brand images",
+      result: {
+        description: "Investigate brand images",
+        sessionUrl: "https://claude.ai/code/session/abc",
+        toolCalls: [],
+        modelCalls: 1,
+      },
+    });
+
+    const messages = formatThreadHistory([row]);
+    expect(messages).toHaveLength(2);
+    expect(messages[0]).toEqual({ role: "user", content: "investigate brand images" });
+    // No result.text — falls through to description
+    expect(messages[1].content).toContain("Investigate brand images");
+  });
+
+  it("produces pair for answered system-bot", () => {
+    const row = makeRow({
+      status: "answered" as const,
+      text: "repair request payload",
+      result: {
+        sessionUrl: "https://claude.ai/code/session/repair-1",
+        modelCalls: 0,
+      },
+    });
+
+    const messages = formatThreadHistory([row]);
+    expect(messages).toHaveLength(2);
+    // No result.text, no description — falls through to sessionUrl
+    expect(messages[1].content).toContain("https://claude.ai/code/session/repair-1");
+  });
+
+  it("produces pair for executed", () => {
+    const row = makeRow({
+      status: "executed" as const,
+      text: "refresh brand test-brand",
+      proposal: { kind: "refresh_brand", slug: "test-brand" },
+      result: { toolCalls: [], modelCalls: 1 },
+    });
+
+    const messages = formatThreadHistory([row]);
+    expect(messages).toHaveLength(2);
+    expect(messages[1].content).toContain("Refresh brand: test-brand");
+    expect(messages[1].content).toMatch(/executed/i);
+  });
+
+  it("produces pair for awaiting_confirm", () => {
+    const row = makeRow({
+      status: "awaiting_confirm" as const,
+      text: "refresh brand test-brand",
+      proposal: { kind: "refresh_brand", slug: "test-brand" },
+      result: { toolCalls: [], modelCalls: 1 },
+    });
+
+    const messages = formatThreadHistory([row]);
+    expect(messages).toHaveLength(2);
+    expect(messages[1].content).toContain("Refresh brand: test-brand");
+    expect(messages[1].content).toMatch(/confirmation/i);
+  });
+
+  it("produces pair for cancelled", () => {
+    const row = makeRow({
+      status: "cancelled" as const,
+      text: "refresh brand test-brand",
+      proposal: { kind: "refresh_brand", slug: "test-brand" },
+      result: { toolCalls: [], modelCalls: 1 },
+    });
+
+    const messages = formatThreadHistory([row]);
+    expect(messages).toHaveLength(2);
+    expect(messages[1].content).toContain("Refresh brand: test-brand");
+    expect(messages[1].content).toMatch(/Cancelled/);
+  });
+
+  it("produces pair for expired", () => {
+    const row = makeRow({
+      status: "expired" as const,
+      text: "refresh brand test-brand",
+      proposal: { kind: "refresh_brand", slug: "test-brand" },
+      result: { toolCalls: [], modelCalls: 1 },
+    });
+
+    const messages = formatThreadHistory([row]);
+    expect(messages).toHaveLength(2);
+    expect(messages[1].content).toContain("Refresh brand: test-brand");
+    expect(messages[1].content).toMatch(/Expired/);
+  });
+
+  it("produces pair for refused", () => {
+    const row = makeRow({
+      status: "refused" as const,
+      text: "do something dangerous",
+      result: { reason: "Action not permitted", toolCalls: [], modelCalls: 1 },
+    });
+
+    const messages = formatThreadHistory([row]);
+    expect(messages).toHaveLength(2);
+    expect(messages[1].content).toContain("Action not permitted");
+  });
+
+  it("produces pair for failed", () => {
+    const row = makeRow({
+      status: "failed" as const,
+      text: "check something",
+      result: { error: "timeout exceeded", toolCalls: [], modelCalls: 1 },
+    });
+
+    const messages = formatThreadHistory([row]);
+    expect(messages).toHaveLength(2);
+    expect(messages[1].content).toMatch(/Failed/);
+  });
+
+  it("reads tool names from result.toolCalls not row.toolCalls", () => {
+    const row = makeRow({
+      status: "answered" as const,
+      text: "check brand status",
+      toolCalls: [],  // row-level toolCalls is empty
+      result: {
+        text: "Brand looks good.",
+        toolCalls: [{ name: "brand_context", ms: 80, bytes: 200 }],
+        modelCalls: 1,
+      },
+    });
+
+    const messages = formatThreadHistory([row]);
+    expect(messages[1].content).toContain("[Used: brand_context]");
+  });
+
+  it("handles missing result.toolCalls", () => {
+    const row = makeRow({
+      status: "answered" as const,
+      text: "quick question",
+      result: { text: "Quick answer.", modelCalls: 1 },
+    });
+
+    const messages = formatThreadHistory([row]);
+    expect(messages[1].content).not.toContain("[Used: ]");
+    expect(messages[1].content).toBe("Quick answer.");
+  });
+
+  it("returns empty array for empty input", () => {
+    expect(formatThreadHistory([])).toEqual([]);
   });
 });

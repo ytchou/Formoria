@@ -32,7 +32,9 @@ import {
   getRequest as defaultGetRequest,
   transitionRequest as defaultTransitionRequest,
 } from "./requests";
+import type { ChatMessage } from "@/lib/services/openai-client";
 import type { OpsRequestRow, OpsRequestStatus } from "./types";
+import type { OpsProposal } from "./proposals";
 
 type SlackBlock = Record<string, unknown>;
 
@@ -62,6 +64,82 @@ function formatToolChain(
   const meta = `(${turnLabel}${costLabel})`;
   if (unique.length === 0) return meta;
   return `${unique.join(" → ")} ${meta}`;
+}
+
+// ---------------------------------------------------------------------------
+// Thread history formatter
+// ---------------------------------------------------------------------------
+
+export function formatThreadHistory(rows: OpsRequestRow[]): ChatMessage[] {
+  const messages: ChatMessage[] = [];
+
+  for (const row of rows) {
+    const resultObj = row.result as Record<string, unknown> | null;
+
+    const toolCalls = Array.isArray(resultObj?.toolCalls)
+      ? (resultObj!.toolCalls as { name: string }[]).map((t) => t.name).filter(Boolean)
+      : [];
+
+    const toolPrefix = toolCalls.length > 0 ? `[Used: ${toolCalls.join(", ")}] ` : "";
+
+    let summary: string | null = null;
+
+    switch (row.status) {
+      case "answered": {
+        const text =
+          (resultObj?.text as string | undefined) ??
+          (resultObj?.description as string | undefined) ??
+          (resultObj?.sessionUrl as string | undefined) ??
+          "(no response)";
+        summary = text;
+        break;
+      }
+
+      case "executed": {
+        const action = describeProposal(row.proposal as OpsProposal).action;
+        summary = `${action} — executed`;
+        break;
+      }
+
+      case "awaiting_confirm": {
+        const action = describeProposal(row.proposal as OpsProposal).action;
+        summary = `${action} — awaiting confirmation`;
+        break;
+      }
+
+      case "cancelled": {
+        const action = describeProposal(row.proposal as OpsProposal).action;
+        summary = `${action} — Cancelled`;
+        break;
+      }
+
+      case "expired": {
+        const action = describeProposal(row.proposal as OpsProposal).action;
+        summary = `${action} — Expired`;
+        break;
+      }
+
+      case "refused": {
+        summary = (resultObj?.reason as string | undefined) ?? "(refused)";
+        break;
+      }
+
+      case "failed": {
+        const error = (resultObj?.error as string | undefined) ?? "processing error";
+        summary = `Failed: ${error}`;
+        break;
+      }
+
+      default:
+        // Unrecognized status — skip
+        continue;
+    }
+
+    messages.push({ role: "user", content: row.text });
+    messages.push({ role: "assistant", content: `${toolPrefix}${summary}` });
+  }
+
+  return messages;
 }
 
 // ---------------------------------------------------------------------------

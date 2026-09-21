@@ -6,6 +6,8 @@ import type { OpsRequestRow, OpsRequestStatus } from "./types";
 type DbRow = Database["public"]["Tables"]["ops_agent_requests"]["Row"];
 type SupabaseClient = ReturnType<typeof createServiceClient>;
 
+export const THREAD_HISTORY_LIMIT = 10;
+
 function toCamel(row: DbRow): OpsRequestRow {
   return {
     id: row.id,
@@ -169,6 +171,34 @@ export async function isActiveThread(
       } catch {
         return false;
       }
+    },
+  );
+}
+
+export async function getThreadHistory(
+  channelId: string,
+  threadTs: string,
+  excludeId: string,
+  limit: number = THREAD_HISTORY_LIMIT,
+  client?: SupabaseClient,
+): Promise<OpsRequestRow[]> {
+  return auditedCall(
+    { provider: "ops-agent", operation: "getThreadHistory", kind: "service" },
+    async () => {
+      const supabase = client ?? createServiceClient();
+
+      const { data, error } = await supabase
+        .from("ops_agent_requests")
+        .select()
+        .eq("channel_id", channelId)
+        .eq("thread_ts", threadTs)
+        .neq("id", excludeId)
+        .not("status", "in", '("received","running")')
+        .order("created_at", { ascending: false })
+        .limit(limit);
+
+      if (error) throw new Error(`getThreadHistory failed: ${error.message}`);
+      return (data ?? []).reverse().map(toCamel);
     },
   );
 }
