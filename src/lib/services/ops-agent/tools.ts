@@ -206,12 +206,13 @@ export function createOpsTools(deps: OpsToolDeps, ctx: OpsToolContext): OpsTool[
       const parsed = QueryDbArgs.safeParse(args);
       if (!parsed.success) return wrapError("invalid_args");
 
-      if (!isReadonlySelect(parsed.data.sql)) {
+      const sql = parsed.data.sql.replace(/;\s*$/, "");
+      if (!isReadonlySelect(sql)) {
         return wrapError("not_readonly");
       }
 
       try {
-        const data = await deps.runReadonlyQuery(parsed.data.sql);
+        const data = await deps.runReadonlyQuery(sql);
         return wrap(data);
       } catch (err) {
         return wrapError(err instanceof Error ? err.message : "query_failed");
