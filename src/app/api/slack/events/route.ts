@@ -206,7 +206,7 @@ export function createEventsHandler(deps: EventsRouteDeps = defaultDeps) {
     const messageTs = (event.ts as string) ?? "";
     if (messageTs) {
       deps.addReaction({ channel: channelId, timestamp: messageTs, name: "eyes" })
-        .catch(() => {});
+        .catch((err) => console.warn("[ops-agent] eyes reaction failed:", err));
     }
 
     deps.scheduleRun(row.id);
