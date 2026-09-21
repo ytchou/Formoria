@@ -72,7 +72,10 @@ export default defineConfig({
   testDir: "./e2e",
   fullyParallel: true,
   forbidOnly: !!process.env.CI,
-  retries: process.env.CI ? 1 : 0,
+  // Canonical staging (nightly agent) gets an extra retry because requests
+  // traverse CF Access and a remote origin, so transient failures are more
+  // likely than in local CI.
+  retries: process.env.CI ? (isCanonicalStaging ? 2 : 1) : 0,
   // Non-staging CI has 4 vCPU. Canonical staging stays serial because its
   // Cloudflare perimeter deliberately remains outside the E2E capability: four
   // workers trip the unchanged edge burst limit before requests reach the app.

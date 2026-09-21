@@ -71,12 +71,11 @@ export function isReadonlySelect(sql: string): boolean {
 
   const stripped = sql
     .replace(/--[^\n]*/g, "")
-    .replace(/\/\*[\s\S]*?\*\//g, "");
+    .replace(/\/\*[\s\S]*?\*\//g, "")
+    .replace(/;\s*$/, "");
 
   if (!/^\s*select\b/i.test(stripped)) return false;
 
-  // Known limitation: rejects semicolons inside SQL string literals.
-  // The DB function ops_agent_readonly_query enforces the real constraint.
   if (stripped.includes(";")) return false;
 
   return true;
