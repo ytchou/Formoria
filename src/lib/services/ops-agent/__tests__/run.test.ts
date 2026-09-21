@@ -242,11 +242,13 @@ describe("runOpsAgent", () => {
       text: expect.stringContaining('"agent":"health"'),
     });
 
-    // Posts session URL
-    expect(deps.postMessage).toHaveBeenCalledWith(
-      "1234.5678",
-      expect.stringContaining("https://claude.ai/code/session/repair-1"),
+    // Posts reasoning + session URL
+    const repairMsg = (deps.postMessage as ReturnType<typeof vi.fn>).mock.calls.find(
+      (c: unknown[]) => typeof c[1] === "string" && c[1].includes("repair-1"),
     );
+    expect(repairMsg).toBeDefined();
+    expect(repairMsg![1]).toContain("Repair from health: unused export");
+    expect(repairMsg![1]).toContain("https://claude.ai/code/session/repair-1");
 
     // Transitions to answered (not failed)
     expect(deps.transitionRequest).toHaveBeenCalledWith(
@@ -371,11 +373,13 @@ describe("runOpsAgent", () => {
       text: expect.stringContaining("Investigate brand images"),
     });
 
-    // Posts session URL to Slack
-    expect(deps.postMessage).toHaveBeenCalledWith(
-      "1234.5678",
-      expect.stringContaining("https://claude.ai/code/session/abc"),
+    // Posts reasoning + session URL to Slack
+    const routineMsg = (deps.postMessage as ReturnType<typeof vi.fn>).mock.calls.find(
+      (c: unknown[]) => typeof c[1] === "string" && c[1].includes("session/abc"),
     );
+    expect(routineMsg).toBeDefined();
+    expect(routineMsg![1]).toContain("Investigate brand images");
+    expect(routineMsg![1]).toContain("https://claude.ai/code/session/abc");
 
     // Transitions to answered with sessionUrl in result
     expect(deps.transitionRequest).toHaveBeenCalledWith(
