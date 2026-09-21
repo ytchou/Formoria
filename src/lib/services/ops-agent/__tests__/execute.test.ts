@@ -32,7 +32,6 @@ function makeDeps(overrides: Partial<Parameters<typeof executeProposal>[2]> = {}
     dispatchCurationJob: vi.fn(),
     enqueueCurationRecovery: vi.fn(),
     dispatchWorkflow: vi.fn(),
-    runCodeFix: vi.fn(),
     ...overrides,
   };
 }
@@ -209,46 +208,6 @@ describe("dispatch_workflow kind", () => {
 });
 
 // ---------------------------------------------------------------------------
-// Test 5: code_fix_dispatches_ops_fix_with_context
-// ---------------------------------------------------------------------------
-
-describe("code_fix kind", () => {
-  it("publishes the Railway code fix and returns its draft PR", async () => {
-    const deps = makeDeps({
-      runCodeFix: vi.fn().mockResolvedValue({
-        ok: true,
-        prUrl: "https://github.com/ytchou/Formoria/pull/1200",
-        prNumber: 1200,
-      }),
-    });
-    const ctx = makeCtx({
-      requestId: "req-fix-1",
-      channel: "C_FIX",
-      threadTs: "9999.0001",
-    });
-
-    const result = await executeProposal(
-      { kind: "code_fix", instruction: "Fix the broken import in brands.ts" },
-      ctx,
-      deps,
-    );
-
-    expect(result).toEqual({
-      ok: true,
-      result: {
-        prUrl: "https://github.com/ytchou/Formoria/pull/1200",
-        prNumber: 1200,
-      },
-    });
-    expect(deps.runCodeFix).toHaveBeenCalledWith({
-      instruction: "Fix the broken import in brands.ts",
-      requestId: "req-fix-1",
-    });
-    expect(deps.dispatchWorkflow).not.toHaveBeenCalled();
-  });
-});
-
-// ---------------------------------------------------------------------------
 // Test 6: executor_never_throws
 // ---------------------------------------------------------------------------
 
@@ -269,11 +228,11 @@ describe("executor never throws", () => {
 
   it("catches non-Error rejection and returns ok:false", async () => {
     const deps = makeDeps({
-      runCodeFix: vi.fn().mockRejectedValue("string error"),
+      requestBrandRefreshesBySlugs: vi.fn().mockRejectedValue("string error"),
     });
 
     const result = await executeProposal(
-      { kind: "code_fix", instruction: "fix something" },
+      { kind: "refresh_brand", slug: "test-brand" },
       makeCtx(),
       deps,
     );

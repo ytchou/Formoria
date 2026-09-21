@@ -196,6 +196,7 @@ const PROVIDERS = {
     "jobDetail",
     "executeProposal",
   ],
+  anthropic: ["fire_routine"],
   // DEV-1748: health agent migration — new audit providers for the
   // LangGraph-based health agent and its supporting services.
   "health-agent": [

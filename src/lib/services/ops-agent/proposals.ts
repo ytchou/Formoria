@@ -23,16 +23,10 @@ const DispatchWorkflow = z.object({
   mode: z.literal("preflight"),
 });
 
-const CodeFix = z.object({
-  kind: z.literal("code_fix"),
-  instruction: z.string().min(10).max(2000),
-});
-
 export const OpsProposalSchema = z.discriminatedUnion("kind", [
   RefreshBrand,
   RerunJob,
   DispatchWorkflow,
-  CodeFix,
 ]);
 
 export type OpsProposal = z.infer<typeof OpsProposalSchema>;
@@ -65,13 +59,6 @@ export async function validateProposal(
     case "dispatch_workflow": {
       if (!(ALLOWED_WORKFLOWS as readonly string[]).includes(proposal.workflow)) {
         return { ok: false, error: "invalid_workflow" };
-      }
-      return { ok: true };
-    }
-
-    case "code_fix": {
-      if (proposal.instruction.length < 10 || proposal.instruction.length > 2000) {
-        return { ok: false, error: "invalid_instruction" };
       }
       return { ok: true };
     }
@@ -118,12 +105,12 @@ export function describeProposal(proposal: OpsProposal): ProposalDescription {
         cost: "1 workflow run",
       };
 
-    case "code_fix":
+    default:
       return {
-        action: "Propose code fix",
-        steps: "1. Create a draft PR with the proposed changes\n2. Await human review",
-        why: proposal.instruction.slice(0, 200),
-        cost: "1 draft PR",
+        action: `Unknown action: ${(proposal as { kind: string }).kind}`,
+        steps: "N/A",
+        why: "Stale proposal from a previous version",
+        cost: "N/A",
       };
   }
 }

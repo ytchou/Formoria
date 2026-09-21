@@ -34,6 +34,7 @@ function makeDbRow(overrides: Record<string, unknown> = {}) {
     model_calls: 0,
     cost_usd: 0,
     correlation_id: null,
+    session_url: null,
     expires_at: null,
     created_at: "2026-09-15T00:00:00Z",
     updated_at: "2026-09-15T00:00:00Z",
@@ -297,5 +298,25 @@ describe("getRequest", () => {
 
     const result = await getRequest("missing", mockClient);
     expect(result).toBeNull();
+  });
+
+  it("toCamel maps session_url field", async () => {
+    const row = makeDbRow({ session_url: "https://example.com/session" });
+    const chain = chainableQuery(row);
+    mockFrom.mockReturnValue(chain);
+
+    const result = await getRequest("req-1", mockClient);
+    expect(result).not.toBeNull();
+    expect(result!.sessionUrl).toBe("https://example.com/session");
+  });
+
+  it("toCamel maps null session_url", async () => {
+    const row = makeDbRow({ session_url: null });
+    const chain = chainableQuery(row);
+    mockFrom.mockReturnValue(chain);
+
+    const result = await getRequest("req-1", mockClient);
+    expect(result).not.toBeNull();
+    expect(result!.sessionUrl).toBeNull();
   });
 });

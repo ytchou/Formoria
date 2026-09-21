@@ -23,6 +23,7 @@ function toCamel(row: DbRow): OpsRequestRow {
     modelCalls: row.model_calls,
     costUsd: row.cost_usd,
     correlationId: row.correlation_id,
+    sessionUrl: row.session_url,
     expiresAt: row.expires_at,
     createdAt: row.created_at,
     updatedAt: row.updated_at,

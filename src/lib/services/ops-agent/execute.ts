@@ -1,7 +1,6 @@
 import { auditedCall } from "@/lib/audit";
 import type { CurationRecoveryInput, CurationRecoveryCounts } from "../curation-jobs";
 import type { OpsProposal } from "./proposals";
-import type { OpsCodeFixInput, OpsCodeFixResult } from "./code-fix";
 
 // Accept OpsProposal or compatible shapes. The `mode` field on
 // dispatch_workflow is enforced by the proposal Zod schema but not
@@ -10,8 +9,7 @@ import type { OpsCodeFixInput, OpsCodeFixResult } from "./code-fix";
 type ExecutableProposal =
   | Extract<OpsProposal, { kind: "refresh_brand" }>
   | Extract<OpsProposal, { kind: "rerun_job" }>
-  | { kind: "dispatch_workflow"; workflow: string; mode?: string }
-  | Extract<OpsProposal, { kind: "code_fix" }>;
+  | { kind: "dispatch_workflow"; workflow: string; mode?: string };
 
 // ---------------------------------------------------------------------------
 // Context & Dependencies
@@ -40,7 +38,6 @@ export type ExecuteDeps = {
     workflowFile: string,
     inputs: Record<string, string>,
   ) => Promise<unknown>;
-  runCodeFix: (input: OpsCodeFixInput) => Promise<OpsCodeFixResult>;
 };
 
 // ---------------------------------------------------------------------------
@@ -134,26 +131,6 @@ async function executeDispatchWorkflow(
 }
 
 // ---------------------------------------------------------------------------
-// Dispatch: code_fix
-// ---------------------------------------------------------------------------
-
-async function executeCodeFix(
-  proposal: Extract<OpsProposal, { kind: "code_fix" }>,
-  ctx: ExecuteContext,
-  deps: ExecuteDeps,
-): Promise<ExecuteResult> {
-  const result = await deps.runCodeFix({
-    instruction: proposal.instruction,
-    requestId: ctx.requestId,
-  });
-  if (!result.ok) return result;
-  return {
-    ok: true,
-    result: { prUrl: result.prUrl, prNumber: result.prNumber },
-  };
-}
-
-// ---------------------------------------------------------------------------
 // Main dispatcher
 // ---------------------------------------------------------------------------
 
@@ -173,8 +150,8 @@ export async function executeProposal(
             return executeRerunJob(proposal, ctx, deps);
           case "dispatch_workflow":
             return executeDispatchWorkflow(proposal, ctx, deps);
-          case "code_fix":
-            return executeCodeFix(proposal, ctx, deps);
+          default:
+            return { ok: false, error: `unsupported_proposal_kind` };
         }
       },
     );

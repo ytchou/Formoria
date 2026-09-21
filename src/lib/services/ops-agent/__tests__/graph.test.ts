@@ -180,7 +180,7 @@ describe("runGraph", () => {
   // Test 6: turn_cap_and_recursion_limit
   // ---------------------------------------------------------------------------
 
-  it("turn cap stops after 6 model turns", async () => {
+  it("turn cap stops after 3 model turns", async () => {
     // Model always calls a tool — never answers
     const turns: ScriptedTurn[] = Array.from({ length: 10 }, () => [
       { name: "system_status", args: {} },
@@ -196,6 +196,48 @@ describe("runGraph", () => {
     if (result.kind === "refused") {
       expect(result.reason).toBe("turn_cap");
     }
-    expect(result.modelCalls).toBeLessThanOrEqual(6);
+    expect(result.modelCalls).toBeLessThanOrEqual(3);
+  });
+
+  // ---------------------------------------------------------------------------
+  // Test 7: fire_routine exits graph with routine result
+  // ---------------------------------------------------------------------------
+
+  it("fire_routine exits graph with routine result", async () => {
+    const fireRoutineTool = fakeTool("fire_routine", { ok: true, description: "Investigate brand images" });
+
+    const model = fakeModel([
+      [{ name: "fire_routine", args: { description: "Investigate brand images" } }],
+    ]);
+
+    const result = await runGraph(model, [fireRoutineTool], SYSTEM_PROMPT);
+    expect(result.kind).toBe("routine");
+    if (result.kind === "routine") {
+      expect(result.description).toBe("Investigate brand images");
+    }
+  });
+
+  // ---------------------------------------------------------------------------
+  // Test 8: max turns is 3
+  // ---------------------------------------------------------------------------
+
+  it("max turns is 3", async () => {
+    // 3 tool-calling turns then a text answer — the 4th should never be reached
+    const turns: ScriptedTurn[] = [
+      [{ name: "system_status", args: {} }],
+      [{ name: "system_status", args: {} }],
+      [{ name: "system_status", args: {} }],
+      "This should not be reached",
+    ];
+    const model = fakeModel(turns);
+
+    const result = await runGraph(
+      model,
+      [fakeTool("system_status")],
+      SYSTEM_PROMPT,
+    );
+    // After 3 model calls that all made tool calls, afterModel on the 3rd
+    // returns "done" because currentModelCalls >= MAX_TURNS (3).
+    expect(result.modelCalls).toBe(3);
   });
 });
