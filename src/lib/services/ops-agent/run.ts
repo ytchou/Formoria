@@ -158,7 +158,8 @@ export async function runOpsAgent(
         await transition(request.id, ["running"], "answered", {
           result: { sessionUrl, modelCalls: 0 },
         });
-        await postMsg(request.threadTs, `Working on it → ${sessionUrl}`);
+        const repairSummary = `Repair from ${repairRequest.agent}: ${repairRequest.findings.map((f) => f.title).join(", ")}`;
+        await postMsg(request.threadTs, `${repairSummary}\nWorking on it → ${sessionUrl}`);
 
         return { kind: "answer" as const, text: `Routine fired: ${sessionUrl}`, modelCalls: 0, toolLog: [] };
       } catch (err) {
@@ -279,7 +280,10 @@ export async function runOpsAgent(
               modelCalls: modelCallsCount,
             },
           });
-          await postMsg(request.threadTs, `Working on it → ${sessionUrl}`);
+          const routineMsg = result.description
+            ? `${result.description}\nWorking on it → ${sessionUrl}`
+            : `Working on it → ${sessionUrl}`;
+          await postMsg(request.threadTs, routineMsg);
         } catch (err) {
           console.error("[ops-agent] routine fire failed:", err);
           try {
