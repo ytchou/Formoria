@@ -685,6 +685,25 @@ export const SERVICE_REGISTRY: readonly ServiceEntry[] = [
     dashboardUrl: "https://railway.app/dashboard",
   },
   {
+    id: "anthropic-routines",
+    name: "Anthropic (Claude Code Routines)",
+    vendor: "Anthropic",
+    category: "tooling",
+    criticality: "back-office",
+    operationalSection: "agents",
+    operationalKind: "dependency",
+    envVars: ["ANTHROPIC_API_KEY", "OPS_ROUTINE_ID"],
+    status: "active",
+    plan: {
+      kind: "subscription",
+      asOf: TODAY,
+      sourceUrl: "https://www.anthropic.com/pricing",
+    },
+    dashboardUrl: "https://claude.ai/code",
+    notes:
+      "Ops agent fires Claude Code Routines for heavy work. Runs on Max subscription credits.",
+  },
+  {
     id: "slack-ops",
     name: "Slack (Ops Agent)",
     vendor: "Slack",

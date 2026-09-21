@@ -11,8 +11,7 @@ import {
   type AgentModel,
 } from "@/lib/services/enrich-phases/agents/runtime";
 import type { LlmAuditContext } from "@/lib/services/llm-audit";
-import { runOpsCodeFix as defaultRunOpsCodeFix } from "./code-fix";
-import { postMessage as slackPostMessage } from "@/lib/adapters/slack/web-api";
+import { postMessage as slackPostMessage, toSlackMrkdwn } from "@/lib/adapters/slack/web-api";
 import { renderProposalCard as slackRenderProposalCard } from "@/lib/adapters/slack/blocks";
 import { listIssues as defaultListIssues } from "@/lib/adapters/sentry/issues";
 import { getBrandBySlug, searchBrandsAutocomplete } from "@/lib/services/brands";
@@ -20,7 +19,8 @@ import { listCurationJobs, getCurationJobDetail } from "@/lib/services/curation-
 import { runGraph as defaultRunGraph, type GraphResult } from "./graph";
 import { createOpsTools, type OpsTool, type OpsToolDeps, type OpsToolContext } from "./tools";
 import { describeProposal, validateProposal } from "./proposals";
-import { extractRepairRequest, executeRepairRequest } from "./repair";
+import { fireRoutine as defaultFireRoutine } from "@/lib/adapters/anthropic/routines";
+import { extractRepairRequest } from "./repair";
 import {
   systemStatus as defaultSystemStatus,
   brandContext as defaultBrandContext,
@@ -72,7 +72,7 @@ export type RunOpsAgentDeps = {
     userMessage?: string,
     signal?: AbortSignal,
   ) => Promise<GraphResult>;
-  runCodeFix?: typeof defaultRunOpsCodeFix;
+  fireRoutine?: (params: { routineId: string; text: string }) => Promise<{ sessionUrl: string }>;
   toolDeps?: Partial<OpsToolDeps>;
 };
 
@@ -90,6 +90,7 @@ export async function runOpsAgent(
   const buildTools = deps.createOpsTools ?? createOpsTools;
   const buildModel = deps.createAgentModel ?? defaultCreateAgentModel;
   const invokeGraph = deps.runGraph ?? defaultRunGraph;
+  const fireRtn = deps.fireRoutine ?? defaultFireRoutine;
 
   // 1. Expire stale requests
   await expire();
@@ -142,39 +143,34 @@ export async function runOpsAgent(
     const repairRequest = extractRepairRequest(request.text);
     if (repairRequest) {
       try {
-        const runCodeFix = deps.runCodeFix ?? defaultRunOpsCodeFix;
-        const repairResult = await executeRepairRequest(
-          repairRequest,
-          { runCodeFix },
-          {
-            requestId: request.id,
-          },
-        );
+        const routineId = process.env.OPS_ROUTINE_ID;
+        if (!routineId) throw new Error("OPS_ROUTINE_ID is not set");
 
-        const status = repairResult.ok ? "executed" : "failed";
-        await transition(request.id, ["running"], status, {
-          result: {
-            repair: repairResult,
-            modelCalls: 0,
-          },
+        const payload = {
+          channel: request.channelId,
+          thread_ts: request.threadTs,
+          operator: request.operatorEmail ?? "system:bot",
+          request: request.text,
+          repair: repairRequest,
+        };
+        const { sessionUrl } = await fireRtn({ routineId, text: JSON.stringify(payload) });
+
+        await transition(request.id, ["running"], "answered", {
+          result: { sessionUrl, modelCalls: 0 },
         });
+        const repairSummary = `Repair from ${repairRequest.agent}: ${repairRequest.findings.map((f) => f.title).join(", ")}`;
+        await postMsg(request.threadTs, `${repairSummary}\nWorking on it → ${sessionUrl}`);
 
-        const summary = repairResult.ok
-          ? `Created ${repairResult.outcomes.filter((o) => o.ok).length} repair PR(s).`
-          : `Repair failed: ${repairResult.outcomes.filter((o) => !o.ok).map((o) => o.error).join(", ")}`;
-        await postMsg(request.threadTs, summary);
-
-        if (repairResult.ok) {
-          return { kind: "answer" as const, text: summary, modelCalls: 0, toolLog: [] };
-        } else {
-          return { kind: "failed" as const, modelCalls: 0, toolLog: [] };
-        }
+        return { kind: "answer" as const, text: `Routine fired: ${sessionUrl}`, modelCalls: 0, toolLog: [] };
       } catch (err) {
-        console.error("[ops-agent] repair processing failed:", err);
+        console.error("[ops-agent] repair routine fire failed:", err);
         try {
-          await transition(request.id, ["running"], "failed");
+          await transition(request.id, ["running"], "failed", {
+            result: { error: err instanceof Error ? err.message : String(err), modelCalls: 0 },
+          });
+          await postMsg(request.threadTs, "Failed to start repair routine. Please try again.");
         } catch {
-          // transition itself failed — already logged above
+          // transition or Slack post failed — already logged above
         }
         return { kind: "failed" as const, modelCalls: 0, toolLog: [] };
       }
@@ -196,8 +192,9 @@ export async function runOpsAgent(
 
   // 4. Fetch prompt
   // The string literal 'ops-agent-system' is the call site for the prompts test
-  const { text: systemPrompt, prompt: promptMeta } =
+  const { text: rawPrompt, prompt: promptMeta } =
     await fetchLangfusePromptWithMeta("ops-agent-system");
+  const systemPrompt = `${rawPrompt}\n\nAlways respond in English.`;
 
   // 5. Create model
   const model = await buildModel("opsAgent", {
@@ -222,11 +219,6 @@ export async function runOpsAgent(
       ((jobId) => defaultJobDetail(jobId, { getCurationJobDetail })),
     runReadonlyQuery:
       deps.toolDeps?.runReadonlyQuery ?? defaultRunReadonlyQuery,
-    // PostHog adapter not yet implemented — stub returns an error so the
-    // model receives a clear signal instead of silently empty data.
-    queryPosthog:
-      deps.toolDeps?.queryPosthog ??
-      (async () => ({ error: "PostHog query adapter not yet implemented" })),
     listErrors: deps.toolDeps?.listErrors ?? defaultListIssues,
   };
 
@@ -263,7 +255,51 @@ export async function runOpsAgent(
             modelCalls: modelCallsCount,
           },
         });
-        await postMsg(request.threadTs, result.text);
+        await postMsg(request.threadTs, toSlackMrkdwn(result.text));
+        break;
+      }
+
+      case "routine": {
+        try {
+          const routineId = process.env.OPS_ROUTINE_ID;
+          if (!routineId) throw new Error("OPS_ROUTINE_ID is not set");
+
+          const payload = {
+            channel: request.channelId,
+            thread_ts: request.threadTs,
+            operator: request.operatorEmail ?? "",
+            request: request.text,
+            description: result.description,
+          };
+          const { sessionUrl } = await fireRtn({ routineId, text: JSON.stringify(payload) });
+
+          await transition(request.id, ["running"], "answered", {
+            result: {
+              sessionUrl,
+              description: result.description,
+              toolCalls: toolCallsSummary,
+              modelCalls: modelCallsCount,
+            },
+          });
+          const routineMsg = result.description
+            ? `${result.description}\nWorking on it → ${sessionUrl}`
+            : `Working on it → ${sessionUrl}`;
+          await postMsg(request.threadTs, routineMsg);
+        } catch (err) {
+          console.error("[ops-agent] routine fire failed:", err);
+          try {
+            await transition(request.id, ["running"], "failed", {
+              result: {
+                error: err instanceof Error ? err.message : String(err),
+                toolCalls: toolCallsSummary,
+                modelCalls: modelCallsCount,
+              },
+            });
+            await postMsg(request.threadTs, "Failed to start the routine. Please try again.");
+          } catch {
+            // transition or Slack post failed — already logged above
+          }
+        }
         break;
       }
 

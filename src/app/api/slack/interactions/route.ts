@@ -21,7 +21,6 @@ import {
 } from "@/lib/services/curation-jobs";
 import { dispatchCurationJob } from "@/lib/services/curation-dispatch";
 import { dispatchWorkflow } from "@/lib/adapters/github/actions-api";
-import { runOpsCodeFix } from "@/lib/services/ops-agent/code-fix";
 
 export const runtime = "nodejs";
 
@@ -31,7 +30,6 @@ const defaultExecuteDeps: ExecuteDeps = {
   dispatchCurationJob,
   enqueueCurationRecovery,
   dispatchWorkflow,
-  runCodeFix: runOpsCodeFix,
 };
 
 export type InteractionsRouteDeps = {

@@ -11,7 +11,7 @@ const PROVIDERS = {
   cloudflare: ["origin_probe", "zone_egress_by_day"],
   linear: ["create_ticket"],
   turnstile: ["siteverify"],
-  slack: ["post_slack_alert", "post_message", "update_message"],
+  slack: ["post_slack_alert", "post_message", "update_message", "add_reaction"],
   posthog: ["run_query"],
   playwright: ["fetch_rendered"],
   "mit-registry": ["lookup_exact_products", "sync_registry"],
@@ -186,6 +186,7 @@ const PROVIDERS = {
   "ops-agent": [
     "createRequest",
     "admitRequest",
+    "isActiveThread",
     "getRequest",
     "transitionRequest",
     "expireStale",
@@ -195,6 +196,7 @@ const PROVIDERS = {
     "jobDetail",
     "executeProposal",
   ],
+  anthropic: ["fire_routine"],
   // DEV-1748: health agent migration — new audit providers for the
   // LangGraph-based health agent and its supporting services.
   "health-agent": [

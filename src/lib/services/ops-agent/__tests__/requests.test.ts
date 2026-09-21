@@ -13,6 +13,7 @@ import {
   createRequest,
   admitRequest,
   getRequest,
+  isActiveThread,
   transitionRequest,
 } from "../requests";
 
@@ -33,6 +34,7 @@ function makeDbRow(overrides: Record<string, unknown> = {}) {
     model_calls: 0,
     cost_usd: 0,
     correlation_id: null,
+    session_url: null,
     expires_at: null,
     created_at: "2026-09-15T00:00:00Z",
     updated_at: "2026-09-15T00:00:00Z",
@@ -239,6 +241,46 @@ describe("transitionRequest", () => {
   });
 });
 
+describe("isActiveThread", () => {
+  function makeCountChain(count: number | null, error: unknown = null) {
+    const terminal: Record<string, unknown> = {};
+    terminal.neq = vi.fn().mockResolvedValue({ count, error });
+    const eqLayer: Record<string, unknown> = {};
+    eqLayer.eq = vi.fn().mockReturnValue(terminal);
+    const selectLayer: Record<string, unknown> = {};
+    selectLayer.eq = vi.fn().mockReturnValue(eqLayer);
+    const outer: Record<string, unknown> = {};
+    outer.select = vi.fn().mockReturnValue(selectLayer);
+    return outer;
+  }
+
+  it("returns true when matching non-refused row exists", async () => {
+    mockFrom.mockReturnValue(makeCountChain(2));
+    const result = await isActiveThread("C_OPS", "1234.5678", mockClient);
+    expect(result).toBe(true);
+  });
+
+  it("returns false when no rows match", async () => {
+    mockFrom.mockReturnValue(makeCountChain(0));
+    const result = await isActiveThread("C_OPS", "1234.5678", mockClient);
+    expect(result).toBe(false);
+  });
+
+  it("returns false when only refused rows exist", async () => {
+    mockFrom.mockReturnValue(makeCountChain(0));
+    const result = await isActiveThread("C_OPS", "1234.5678", mockClient);
+    expect(result).toBe(false);
+  });
+
+  it("returns false on query error (fail closed)", async () => {
+    mockFrom.mockReturnValue(
+      makeCountChain(null, { code: "PGRST000", message: "connection refused" }),
+    );
+    const result = await isActiveThread("C_OPS", "1234.5678", mockClient);
+    expect(result).toBe(false);
+  });
+});
+
 describe("getRequest", () => {
   it("returns the row when found", async () => {
     const row = makeDbRow();
@@ -256,5 +298,25 @@ describe("getRequest", () => {
 
     const result = await getRequest("missing", mockClient);
     expect(result).toBeNull();
+  });
+
+  it("toCamel maps session_url field", async () => {
+    const row = makeDbRow({ session_url: "https://example.com/session" });
+    const chain = chainableQuery(row);
+    mockFrom.mockReturnValue(chain);
+
+    const result = await getRequest("req-1", mockClient);
+    expect(result).not.toBeNull();
+    expect(result!.sessionUrl).toBe("https://example.com/session");
+  });
+
+  it("toCamel maps null session_url", async () => {
+    const row = makeDbRow({ session_url: null });
+    const chain = chainableQuery(row);
+    mockFrom.mockReturnValue(chain);
+
+    const result = await getRequest("req-1", mockClient);
+    expect(result).not.toBeNull();
+    expect(result!.sessionUrl).toBeNull();
   });
 });

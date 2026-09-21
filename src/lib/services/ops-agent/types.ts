@@ -35,6 +35,7 @@ export type OpsRequestRow = {
   modelCalls: number;
   costUsd: number;
   correlationId: string | null;
+  sessionUrl: string | null;
   expiresAt: string | null;
   createdAt: string;
   updatedAt: string;

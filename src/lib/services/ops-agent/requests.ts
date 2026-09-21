@@ -23,6 +23,7 @@ function toCamel(row: DbRow): OpsRequestRow {
     modelCalls: row.model_calls,
     costUsd: row.cost_usd,
     correlationId: row.correlation_id,
+    sessionUrl: row.session_url,
     expiresAt: row.expires_at,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
@@ -137,6 +138,37 @@ export async function admitRequest(
       }
 
       return { ok: true, row };
+    },
+  );
+}
+
+export async function isActiveThread(
+  channelId: string,
+  threadTs: string,
+  client?: SupabaseClient,
+): Promise<boolean> {
+  return auditedCall(
+    { provider: "ops-agent", operation: "isActiveThread", kind: "service" },
+    async () => {
+      const supabase = client ?? createServiceClient();
+
+      try {
+        const { count, error } = await supabase
+          .from("ops_agent_requests")
+          .select("id", { count: "exact", head: true } as unknown as undefined)
+          .eq("channel_id", channelId)
+          .eq("thread_ts", threadTs)
+          .neq("status", "refused");
+
+        if (error) {
+          console.warn(`[ops-agent] isActiveThread query failed: ${error.message}`);
+          return false;
+        }
+
+        return (count ?? 0) > 0;
+      } catch {
+        return false;
+      }
     },
   );
 }
