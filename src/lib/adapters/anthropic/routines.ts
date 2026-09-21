@@ -11,16 +11,16 @@ type FireRoutineResult = {
   sessionUrl: string;
 };
 
-function getApiKey(): string {
-  const key = process.env.ANTHROPIC_API_KEY;
-  if (!key) throw new Error("ANTHROPIC_API_KEY is not set");
+function getRoutineToken(): string {
+  const key = process.env.OPS_ROUTINE_TOKEN;
+  if (!key) throw new Error("OPS_ROUTINE_TOKEN is not set");
   return key;
 }
 
 export async function fireRoutine(
   params: FireRoutineParams,
 ): Promise<FireRoutineResult> {
-  const apiKey = getApiKey();
+  const token = getRoutineToken();
 
   return auditedCall(
     { provider: "anthropic", operation: "fire_routine", kind: "external" },
@@ -30,7 +30,9 @@ export async function fireRoutine(
       const response = await fetch(url, {
         method: "POST",
         headers: {
-          Authorization: `Bearer ${apiKey}`,
+          Authorization: `Bearer ${token}`,
+          "anthropic-beta": "experimental-cc-routine-2026-04-01",
+          "anthropic-version": "2023-06-01",
           "Content-Type": "application/json",
         },
         body: JSON.stringify({ text: params.text }),
@@ -45,10 +47,10 @@ export async function fireRoutine(
       }
 
       const data = (await response.json()) as Record<string, unknown>;
-      const sessionUrl = data.session_url;
+      const sessionUrl = data.claude_code_session_url;
       if (typeof sessionUrl !== "string") {
         throw new Error(
-          `Routines API returned no session_url (keys: ${Object.keys(data).join(", ")})`,
+          `Routines API returned no claude_code_session_url (keys: ${Object.keys(data).join(", ")})`,
         );
       }
       return { sessionUrl };

@@ -180,10 +180,10 @@ describe("runGraph", () => {
   // Test 6: turn_cap_and_recursion_limit
   // ---------------------------------------------------------------------------
 
-  it("turn cap stops after 6 model turns", async () => {
+  it("turn cap stops after 25 model turns", async () => {
     // Model always calls a tool — never answers
-    const turns: ScriptedTurn[] = Array.from({ length: 10 }, () => [
-      { name: "system_status", args: {} },
+    const turns: ScriptedTurn[] = Array.from({ length: 30 }, (_, i) => [
+      { name: "system_status", args: { i } },
     ]);
     const model = fakeModel(turns);
 
@@ -196,7 +196,7 @@ describe("runGraph", () => {
     if (result.kind === "refused") {
       expect(result.reason).toBe("turn_cap");
     }
-    expect(result.modelCalls).toBeLessThanOrEqual(6);
+    expect(result.modelCalls).toBeLessThanOrEqual(25);
   });
 
   // ---------------------------------------------------------------------------
@@ -221,16 +221,60 @@ describe("runGraph", () => {
   // Test 8: max turns is 3
   // ---------------------------------------------------------------------------
 
-  it("max turns is 6", async () => {
-    // 6 tool-calling turns then a text answer — the 7th should never be reached
+  it("max turns is 25", async () => {
+    // 25 tool-calling turns with unique args, then a text answer — the 26th should never be reached
     const turns: ScriptedTurn[] = [
-      [{ name: "system_status", args: {} }],
-      [{ name: "system_status", args: {} }],
-      [{ name: "system_status", args: {} }],
-      [{ name: "system_status", args: {} }],
-      [{ name: "system_status", args: {} }],
-      [{ name: "system_status", args: {} }],
+      ...Array.from({ length: 25 }, (_, i) => [
+        { name: "system_status", args: { i } },
+      ] as ScriptedTurn),
       "This should not be reached",
+    ];
+    const model = fakeModel(turns as ScriptedTurn[]);
+
+    const result = await runGraph(
+      model,
+      [fakeTool("system_status")],
+      SYSTEM_PROMPT,
+    );
+    // After 25 model calls that all made tool calls, afterModel on the 25th
+    // returns "done" because currentModelCalls >= MAX_TURNS (25).
+    expect(result.modelCalls).toBe(25);
+  });
+
+  // ---------------------------------------------------------------------------
+  // Test 9: no-progress detection exits on 3 consecutive identical steps
+  // ---------------------------------------------------------------------------
+
+  it("no-progress detection exits on 3 consecutive identical tool steps", async () => {
+    // 3 identical tool calls → no_progress after the 3rd
+    const turns: ScriptedTurn[] = Array.from({ length: 5 }, () => [
+      { name: "system_status", args: {} },
+    ]);
+    const model = fakeModel(turns);
+
+    const result = await runGraph(
+      model,
+      [fakeTool("system_status")],
+      SYSTEM_PROMPT,
+    );
+    expect(result.kind).toBe("refused");
+    if (result.kind === "refused") {
+      expect(result.reason).toBe("no_progress");
+    }
+    expect(result.modelCalls).toBe(3);
+  });
+
+  // ---------------------------------------------------------------------------
+  // Test 10: no-progress does not fire when args differ
+  // ---------------------------------------------------------------------------
+
+  it("no-progress does not fire when tool args differ each step", async () => {
+    // Each step has different args — no repeat detection
+    const turns: ScriptedTurn[] = [
+      [{ name: "system_status", args: { query: "a" } }],
+      [{ name: "system_status", args: { query: "b" } }],
+      [{ name: "system_status", args: { query: "c" } }],
+      "Done investigating.",
     ];
     const model = fakeModel(turns);
 
@@ -239,8 +283,9 @@ describe("runGraph", () => {
       [fakeTool("system_status")],
       SYSTEM_PROMPT,
     );
-    // After 6 model calls that all made tool calls, afterModel on the 6th
-    // returns "done" because currentModelCalls >= MAX_TURNS (6).
-    expect(result.modelCalls).toBe(6);
+    expect(result.kind).toBe("answer");
+    if (result.kind === "answer") {
+      expect(result.text).toBe("Done investigating.");
+    }
   });
 });

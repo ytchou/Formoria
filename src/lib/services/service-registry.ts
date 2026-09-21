@@ -692,7 +692,7 @@ export const SERVICE_REGISTRY: readonly ServiceEntry[] = [
     criticality: "back-office",
     operationalSection: "agents",
     operationalKind: "dependency",
-    envVars: ["ANTHROPIC_API_KEY", "OPS_ROUTINE_ID"],
+    envVars: ["OPS_ROUTINE_TOKEN", "OPS_ROUTINE_ID"],
     status: "active",
     plan: {
       kind: "subscription",
