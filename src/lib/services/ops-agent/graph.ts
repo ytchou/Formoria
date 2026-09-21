@@ -9,6 +9,7 @@
  * No `interrupt()`, no checkpointer.
  */
 
+import { createHash } from "node:crypto";
 import { Annotation, END, START, StateGraph } from "@langchain/langgraph";
 import type { ChatMessage } from "@/lib/services/openai-client";
 import type { AgentModel } from "@/lib/services/enrich-phases/agents/runtime";
@@ -19,9 +20,10 @@ import type { OpsProposal } from "./proposals";
 // Caps
 // ---------------------------------------------------------------------------
 
-const MAX_TURNS = 6;
+const MAX_TURNS = 25;
 const MAX_BAD_PROPOSALS = 2;
-const RECURSION_LIMIT = 14;
+const MAX_CONSECUTIVE_REPEATS = 3;
+const RECURSION_LIMIT = 52;
 const WALL_CLOCK_MS = 60_000;
 
 // ---------------------------------------------------------------------------
@@ -76,7 +78,7 @@ export type GraphResult =
     }
   | { kind: "routine"; description: string; lastAssistantText: string; modelCalls: number; toolLog: ToolLogEntry[] }
   | { kind: "refused"; reason: string; modelCalls: number; toolLog: ToolLogEntry[] }
-  | { kind: "failed"; modelCalls: number; toolLog: ToolLogEntry[] };
+  | { kind: "failed"; reason?: "timeout" | "error"; modelCalls: number; toolLog: ToolLogEntry[] };
 
 // ---------------------------------------------------------------------------
 // runGraph
@@ -98,6 +100,9 @@ export async function runGraph(
   let currentRoutineDescription: string | undefined;
   let currentBadSubmits = 0;
   let currentModelCalls = 0;
+  let previousStepHash = "";
+  let consecutiveRepeatCount = 0;
+  let noProgress = false;
   const currentToolLog: ToolLogEntry[] = [];
 
   // Model node
@@ -225,6 +230,29 @@ export async function runGraph(
 
     currentToolLog.push(...newToolLog);
 
+    // No-progress detection: hash all tool calls in this step
+    const stepParts = lastMessage.tool_calls.map((tc) => {
+      const args = JSON.parse(tc.function.arguments);
+      const sortedArgs = JSON.stringify(args, Object.keys(args).sort());
+      const idx = newMessages.findIndex((m) => m.role === "tool" && "tool_call_id" in m && m.tool_call_id === tc.id);
+      const result = idx >= 0 && typeof newMessages[idx].content === "string"
+        ? (newMessages[idx].content as string).slice(0, 2000)
+        : "";
+      return JSON.stringify({ tool: tc.function.name, args: sortedArgs, result });
+    });
+    const stepHash = createHash("sha256").update(stepParts.join("|")).digest("hex");
+
+    if (stepHash === previousStepHash) {
+      consecutiveRepeatCount++;
+    } else {
+      consecutiveRepeatCount = 1;
+    }
+    previousStepHash = stepHash;
+
+    if (consecutiveRepeatCount >= MAX_CONSECUTIVE_REPEATS) {
+      noProgress = true;
+    }
+
     return {
       messages: newMessages,
       toolLog: newToolLog,
@@ -257,6 +285,7 @@ export async function runGraph(
     if (currentRoutineDescription !== undefined) return "done";
     if (currentProposal) return "done";
     if (currentBadSubmits >= MAX_BAD_PROPOSALS) return "done";
+    if (noProgress) return "done";
     return "model";
   }
 
@@ -294,7 +323,7 @@ export async function runGraph(
     ) as typeof OpsGraphState.State;
   } catch (err) {
     if (abortSignal.aborted) {
-      return { kind: "failed", modelCalls: currentModelCalls, toolLog: currentToolLog };
+      return { kind: "failed", reason: "timeout", modelCalls: currentModelCalls, toolLog: currentToolLog };
     }
     if (
       err instanceof Error &&
@@ -302,7 +331,7 @@ export async function runGraph(
     ) {
       return { kind: "refused", reason: "turn_cap", modelCalls: currentModelCalls, toolLog: currentToolLog };
     }
-    return { kind: "failed", modelCalls: currentModelCalls, toolLog: currentToolLog };
+    return { kind: "failed", reason: "error", modelCalls: currentModelCalls, toolLog: currentToolLog };
   }
 
   // Determine result from closed-over state
@@ -324,6 +353,10 @@ export async function runGraph(
       modelCalls: currentModelCalls,
       toolLog: currentToolLog,
     };
+  }
+
+  if (noProgress) {
+    return { kind: "refused", reason: "no_progress", modelCalls: currentModelCalls, toolLog: currentToolLog };
   }
 
   if (currentBadSubmits >= MAX_BAD_PROPOSALS) {
