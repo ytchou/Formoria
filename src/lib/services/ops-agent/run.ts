@@ -36,9 +36,18 @@ import type { OpsRequestRow, OpsRequestStatus } from "./types";
 
 type SlackBlock = Record<string, unknown>;
 
+// gpt-4o-mini pricing (USD per 1M tokens)
+const INPUT_PRICE_PER_M = 0.15;
+const OUTPUT_PRICE_PER_M = 0.60;
+
+function estimateCostUsd(promptTokens: number, completionTokens: number): number {
+  return (promptTokens * INPUT_PRICE_PER_M + completionTokens * OUTPUT_PRICE_PER_M) / 1_000_000;
+}
+
 function formatToolChain(
   toolLog: { name: string }[],
   modelCalls: number,
+  costUsd: number,
 ): string {
   const seen = new Set<string>();
   const unique: string[] = [];
@@ -49,8 +58,10 @@ function formatToolChain(
     }
   }
   const turnLabel = modelCalls === 1 ? "1 turn" : `${modelCalls} turns`;
-  if (unique.length === 0) return `(${turnLabel})`;
-  return `${unique.join(" → ")} (${turnLabel})`;
+  const costLabel = costUsd > 0 ? `, $${costUsd.toFixed(3)}` : "";
+  const meta = `(${turnLabel}${costLabel})`;
+  if (unique.length === 0) return meta;
+  return `${unique.join(" → ")} ${meta}`;
 }
 
 // ---------------------------------------------------------------------------
@@ -115,7 +126,7 @@ export async function runOpsAgent(
   // 2. Load request
   const request = await getReq(requestId);
   if (!request) {
-    return { kind: "failed", modelCalls: 0, toolLog: [] };
+    return { kind: "failed", modelCalls: 0, toolLog: [], promptTokens: 0, completionTokens: 0 };
   }
 
   // Wire defaults that need request context (channel, userId, etc.)
@@ -151,7 +162,7 @@ export async function runOpsAgent(
       request.threadTs,
       "Failed to start processing your request. It may already be in progress.",
     ).catch(() => {});
-    return { kind: "failed", modelCalls: 0, toolLog: [] };
+    return { kind: "failed", modelCalls: 0, toolLog: [], promptTokens: 0, completionTokens: 0 };
   }
 
   // 3b. Repair request detection — system bot only
@@ -178,7 +189,7 @@ export async function runOpsAgent(
         const repairSummary = `Repair from ${repairRequest.agent}: ${repairRequest.findings.map((f) => f.title).join(", ")}`;
         await postMsg(request.threadTs, `${repairSummary}\nWorking on it → ${sessionUrl}`);
 
-        return { kind: "answer" as const, text: `Routine fired: ${sessionUrl}`, modelCalls: 0, toolLog: [] };
+        return { kind: "answer" as const, text: `Routine fired: ${sessionUrl}`, modelCalls: 0, toolLog: [], promptTokens: 0, completionTokens: 0 };
       } catch (err) {
         console.error("[ops-agent] repair routine fire failed:", err);
         try {
@@ -189,7 +200,7 @@ export async function runOpsAgent(
         } catch {
           // transition or Slack post failed — already logged above
         }
-        return { kind: "failed" as const, modelCalls: 0, toolLog: [] };
+        return { kind: "failed" as const, modelCalls: 0, toolLog: [], promptTokens: 0, completionTokens: 0 };
       }
     }
 
@@ -204,7 +215,7 @@ export async function runOpsAgent(
       request.threadTs,
       "Received a system message but could not parse a valid repair request.",
     );
-    return { kind: "refused" as const, reason: "invalid_repair_request", modelCalls: 0, toolLog: [] };
+    return { kind: "refused" as const, reason: "invalid_repair_request", modelCalls: 0, toolLog: [], promptTokens: 0, completionTokens: 0 };
   }
 
   // 4. Fetch prompt
@@ -255,13 +266,14 @@ export async function runOpsAgent(
   try {
     result = await invokeGraph(model, tools, systemPrompt, request.text, abortSignal);
   } catch {
-    result = { kind: "failed", modelCalls: 0, toolLog: [] };
+    result = { kind: "failed", modelCalls: 0, toolLog: [], promptTokens: 0, completionTokens: 0 };
   }
 
   // 8. Post-process based on result kind
   const toolCallsSummary = result.toolLog;
   const modelCallsCount = result.modelCalls;
-  const chain = formatToolChain(toolCallsSummary, modelCallsCount);
+  const costUsd = estimateCostUsd(result.promptTokens, result.completionTokens);
+  const chain = formatToolChain(toolCallsSummary, modelCallsCount, costUsd);
 
   try {
     switch (result.kind) {
