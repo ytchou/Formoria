@@ -91,6 +91,7 @@ export async function runGraph(
   systemPrompt: string,
   userMessage?: string,
   signal?: AbortSignal,
+  priorMessages?: ChatMessage[],
 ): Promise<GraphResult> {
   const toolMap = new Map(tools.map((t) => [t.definition.name, t]));
   const toolDefs = tools.map((t) => t.definition);
@@ -318,6 +319,7 @@ export async function runGraph(
   try {
     const initialMessages: ChatMessage[] = [
       { role: "system", content: systemPrompt },
+      ...(priorMessages ?? []),
     ];
     if (userMessage) {
       initialMessages.push({ role: "user", content: userMessage });

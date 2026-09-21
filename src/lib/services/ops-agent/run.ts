@@ -30,6 +30,7 @@ import {
 import {
   expireStale as defaultExpireStale,
   getRequest as defaultGetRequest,
+  getThreadHistory as defaultGetThreadHistory,
   transitionRequest as defaultTransitionRequest,
 } from "./requests";
 import type { ChatMessage } from "@/lib/services/openai-client";
@@ -177,8 +178,10 @@ export type RunOpsAgentDeps = {
     systemPrompt: string,
     userMessage?: string,
     signal?: AbortSignal,
+    priorMessages?: ChatMessage[],
   ) => Promise<GraphResult>;
   fireRoutine?: (params: { routineId: string; text: string }) => Promise<{ sessionUrl: string }>;
+  getThreadHistory?: (channelId: string, threadTs: string, excludeId: string) => Promise<OpsRequestRow[]>;
   toolDeps?: Partial<OpsToolDeps>;
 };
 
@@ -197,6 +200,7 @@ export async function runOpsAgent(
   const buildModel = deps.createAgentModel ?? defaultCreateAgentModel;
   const invokeGraph = deps.runGraph ?? defaultRunGraph;
   const fireRtn = deps.fireRoutine ?? defaultFireRoutine;
+  const getHistory = deps.getThreadHistory ?? defaultGetThreadHistory;
 
   // 1. Expire stale requests
   await expire();
@@ -296,11 +300,19 @@ export async function runOpsAgent(
     return { kind: "refused" as const, reason: "invalid_repair_request", modelCalls: 0, toolLog: [], promptTokens: 0, completionTokens: 0 };
   }
 
+  // 3c. Load thread history
+  const history = await getHistory(request.channelId, request.threadTs, request.id);
+  const priorMessages = formatThreadHistory(history);
+
   // 4. Fetch prompt
   // The string literal 'ops-agent-system' is the call site for the prompts test
   const { text: rawPrompt, prompt: promptMeta } =
     await fetchLangfusePromptWithMeta("ops-agent-system");
-  const systemPrompt = `${rawPrompt}\n\nAlways respond in English.`;
+  let systemPrompt = `${rawPrompt}\n\nAlways respond in English.`;
+
+  if (priorMessages.length > 0) {
+    systemPrompt += "\n\nPrior messages in this thread are context only — do not re-execute past actions unless explicitly asked.";
+  }
 
   // 5. Create model
   const model = await buildModel("opsAgent", {
@@ -342,7 +354,7 @@ export async function runOpsAgent(
   let result: GraphResult;
 
   try {
-    result = await invokeGraph(model, tools, systemPrompt, request.text, abortSignal);
+    result = await invokeGraph(model, tools, systemPrompt, request.text, abortSignal, priorMessages);
   } catch {
     result = { kind: "failed", modelCalls: 0, toolLog: [], promptTokens: 0, completionTokens: 0 };
   }
