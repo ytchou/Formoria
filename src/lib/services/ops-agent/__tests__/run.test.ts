@@ -473,6 +473,144 @@ describe("runOpsAgent", () => {
     );
   });
 
+  it("answer reply includes tool chain and turn count", async () => {
+    const graphResult: GraphResult = {
+      kind: "answer",
+      text: "All healthy.",
+      modelCalls: 2,
+      toolLog: [
+        { name: "system_status", ms: 80, bytes: 100 },
+        { name: "job_detail", ms: 50, bytes: 200 },
+      ],
+    };
+
+    const deps: RunOpsAgentDeps = {
+      getRequest: vi.fn().mockResolvedValue(makeRequest()),
+      transitionRequest: vi.fn().mockImplementation(
+        async (_id: string, _from: string[], to: string, patch?: Record<string, unknown>) => ({
+          ...makeRequest(),
+          status: to,
+          ...patch,
+        }),
+      ),
+      expireStale: vi.fn(),
+      postMessage: vi.fn(),
+      createOpsTools: vi.fn().mockReturnValue([]),
+      createAgentModel: vi.fn().mockResolvedValue(fakeModel()),
+      runGraph: vi.fn().mockResolvedValue(graphResult),
+    };
+
+    await runOpsAgent("req-1", deps);
+
+    const msg = (deps.postMessage as ReturnType<typeof vi.fn>).mock.calls[0][1] as string;
+    expect(msg).toMatch(/^system_status → job_detail \(2 turns\)\n/);
+  });
+
+  it("answer reply with no tools shows only turn count", async () => {
+    const graphResult: GraphResult = {
+      kind: "answer",
+      text: "Hello.",
+      modelCalls: 1,
+      toolLog: [],
+    };
+
+    const deps: RunOpsAgentDeps = {
+      getRequest: vi.fn().mockResolvedValue(makeRequest()),
+      transitionRequest: vi.fn().mockImplementation(
+        async (_id: string, _from: string[], to: string, patch?: Record<string, unknown>) => ({
+          ...makeRequest(),
+          status: to,
+          ...patch,
+        }),
+      ),
+      expireStale: vi.fn(),
+      postMessage: vi.fn(),
+      createOpsTools: vi.fn().mockReturnValue([]),
+      createAgentModel: vi.fn().mockResolvedValue(fakeModel()),
+      runGraph: vi.fn().mockResolvedValue(graphResult),
+    };
+
+    await runOpsAgent("req-1", deps);
+
+    const msg = (deps.postMessage as ReturnType<typeof vi.fn>).mock.calls[0][1] as string;
+    expect(msg).toMatch(/^\(1 turn\)\n/);
+  });
+
+  it("routine reply includes tool chain before description", async () => {
+    const graphResult: GraphResult = {
+      kind: "routine",
+      description: "Investigate curation job",
+      lastAssistantText: "",
+      modelCalls: 3,
+      toolLog: [
+        { name: "system_status", ms: 80, bytes: 100 },
+        { name: "job_detail", ms: 50, bytes: 200 },
+      ],
+    };
+
+    const fireRoutine = vi.fn().mockResolvedValue({
+      sessionUrl: "https://claude.ai/code/session/xyz",
+    });
+
+    const deps: RunOpsAgentDeps = {
+      getRequest: vi.fn().mockResolvedValue(makeRequest()),
+      transitionRequest: vi.fn().mockImplementation(
+        async (_id: string, _from: string[], to: string, patch?: Record<string, unknown>) => ({
+          ...makeRequest(),
+          status: to,
+          ...patch,
+        }),
+      ),
+      expireStale: vi.fn(),
+      postMessage: vi.fn(),
+      createOpsTools: vi.fn().mockReturnValue([]),
+      createAgentModel: vi.fn().mockResolvedValue(fakeModel()),
+      runGraph: vi.fn().mockResolvedValue(graphResult),
+      fireRoutine,
+    };
+
+    await runOpsAgent("req-1", deps);
+
+    const msg = (deps.postMessage as ReturnType<typeof vi.fn>).mock.calls[0][1] as string;
+    expect(msg).toMatch(/^system_status → job_detail \(3 turns\)\n/);
+    expect(msg).toContain("Investigate curation job");
+    expect(msg).toContain("session/xyz");
+  });
+
+  it("tool chain deduplicates repeated tool names", async () => {
+    const graphResult: GraphResult = {
+      kind: "answer",
+      text: "Done.",
+      modelCalls: 3,
+      toolLog: [
+        { name: "system_status", ms: 80, bytes: 100 },
+        { name: "brand_context", ms: 50, bytes: 200 },
+        { name: "system_status", ms: 40, bytes: 90 },
+      ],
+    };
+
+    const deps: RunOpsAgentDeps = {
+      getRequest: vi.fn().mockResolvedValue(makeRequest()),
+      transitionRequest: vi.fn().mockImplementation(
+        async (_id: string, _from: string[], to: string, patch?: Record<string, unknown>) => ({
+          ...makeRequest(),
+          status: to,
+          ...patch,
+        }),
+      ),
+      expireStale: vi.fn(),
+      postMessage: vi.fn(),
+      createOpsTools: vi.fn().mockReturnValue([]),
+      createAgentModel: vi.fn().mockResolvedValue(fakeModel()),
+      runGraph: vi.fn().mockResolvedValue(graphResult),
+    };
+
+    await runOpsAgent("req-1", deps);
+
+    const msg = (deps.postMessage as ReturnType<typeof vi.fn>).mock.calls[0][1] as string;
+    expect(msg).toMatch(/^system_status → brand_context \(3 turns\)\n/);
+  });
+
   it("human_with_valid_repair_json_uses_llm_path", async () => {
     const graphResult: GraphResult = {
       kind: "answer",

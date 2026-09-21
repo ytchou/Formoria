@@ -36,6 +36,23 @@ import type { OpsRequestRow, OpsRequestStatus } from "./types";
 
 type SlackBlock = Record<string, unknown>;
 
+function formatToolChain(
+  toolLog: { name: string }[],
+  modelCalls: number,
+): string {
+  const seen = new Set<string>();
+  const unique: string[] = [];
+  for (const entry of toolLog) {
+    if (!seen.has(entry.name)) {
+      seen.add(entry.name);
+      unique.push(entry.name);
+    }
+  }
+  const turnLabel = modelCalls === 1 ? "1 turn" : `${modelCalls} turns`;
+  if (unique.length === 0) return `(${turnLabel})`;
+  return `${unique.join(" → ")} (${turnLabel})`;
+}
+
 // ---------------------------------------------------------------------------
 // Dependencies
 // ---------------------------------------------------------------------------
@@ -244,6 +261,7 @@ export async function runOpsAgent(
   // 8. Post-process based on result kind
   const toolCallsSummary = result.toolLog;
   const modelCallsCount = result.modelCalls;
+  const chain = formatToolChain(toolCallsSummary, modelCallsCount);
 
   try {
     switch (result.kind) {
@@ -255,7 +273,7 @@ export async function runOpsAgent(
             modelCalls: modelCallsCount,
           },
         });
-        await postMsg(request.threadTs, toSlackMrkdwn(result.text));
+        await postMsg(request.threadTs, `${chain}\n${toSlackMrkdwn(result.text)}`);
         break;
       }
 
@@ -282,8 +300,8 @@ export async function runOpsAgent(
             },
           });
           const routineMsg = result.description
-            ? `${result.description}\nWorking on it → ${sessionUrl}`
-            : `Working on it → ${sessionUrl}`;
+            ? `${chain}\n${result.description}\nWorking on it → ${sessionUrl}`
+            : `${chain}\nWorking on it → ${sessionUrl}`;
           await postMsg(request.threadTs, routineMsg);
         } catch (err) {
           console.error("[ops-agent] routine fire failed:", err);
@@ -309,6 +327,7 @@ export async function runOpsAgent(
         const rationale = result.rationale;
 
         const cardMessage = [
+          chain,
           rationale,
           "", // blank line
           `*${desc.action}*`,
@@ -344,7 +363,7 @@ export async function runOpsAgent(
         });
         await postMsg(
           request.threadTs,
-          `I could not complete this request: ${result.reason}`,
+          `${chain}\nI could not complete this request: ${result.reason}`,
         );
         break;
       }
@@ -358,7 +377,7 @@ export async function runOpsAgent(
         });
         await postMsg(
           request.threadTs,
-          "Something went wrong while processing your request. Please try again.",
+          `${chain}\nSomething went wrong while processing your request. Please try again.`,
         );
         break;
       }
