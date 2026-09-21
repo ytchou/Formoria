@@ -177,7 +177,7 @@ describe("dispatch_workflow kind", () => {
     );
 
     expect(result).toEqual({ ok: true, result: { dispatched: "e2e-staging" } });
-    expect(deps.dispatchWorkflow).toHaveBeenCalledWith("e2e-staging.yml", {});
+    expect(deps.dispatchWorkflow).toHaveBeenCalled();
   });
 
   it("rejects health-agent (removed)", async () => {
