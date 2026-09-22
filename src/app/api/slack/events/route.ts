@@ -7,6 +7,8 @@ import {
   createRequest,
   admitRequest,
   isActiveThread,
+  completeThread,
+  reactivateThread,
 } from "@/lib/services/ops-agent/requests";
 import { JSON_BLOCK_RE } from "@/lib/services/ops-agent/repair";
 import { runOpsAgent } from "@/lib/services/ops-agent/run";
@@ -16,6 +18,7 @@ export const runtime = "nodejs";
 const DEFAULT_DAILY_CAP = 50;
 const BOT_HANDLE_RE = /^<@[A-Z0-9]+>\s*/;
 const MENTION_RE = /<@[A-Z0-9]+>/;
+const ROUTINE_MARKER_RE = /Sent using Claude/;
 
 export type EventsRouteDeps = {
   verifySignature: typeof verifySlackSignature;
@@ -26,6 +29,8 @@ export type EventsRouteDeps = {
   createRequest: typeof createRequest;
   admitRequest: typeof admitRequest;
   isActiveThread: typeof isActiveThread;
+  completeThread: typeof completeThread;
+  reactivateThread: typeof reactivateThread;
   scheduleRun: (requestId: string) => void;
   env: Record<string, string | undefined>;
 };
@@ -39,6 +44,8 @@ const defaultDeps: EventsRouteDeps = {
   createRequest,
   admitRequest,
   isActiveThread,
+  completeThread,
+  reactivateThread,
   scheduleRun: (requestId) => after(() => runOpsAgent(requestId)),
   env: process.env as Record<string, string | undefined>,
 };
@@ -79,6 +86,24 @@ export function createEventsHandler(deps: EventsRouteDeps = defaultDeps) {
       return NextResponse.json({});
     }
 
+    const isReactionAdded = event.type === "reaction_added";
+    const isReactionRemoved = event.type === "reaction_removed";
+
+    if (isReactionAdded || isReactionRemoved) {
+      if (event.reaction !== "white_check_mark") return NextResponse.json({});
+      const item = event.item as Record<string, unknown> | undefined;
+      if (item?.type !== "message") return NextResponse.json({});
+      const reactionChannelId = item.channel as string;
+      const messageTs = item.ts as string;
+
+      if (isReactionAdded) {
+        await deps.completeThread(reactionChannelId, messageTs);
+      } else {
+        await deps.reactivateThread(reactionChannelId, messageTs);
+      }
+      return NextResponse.json({});
+    }
+
     const isAppMention = event.type === "app_mention";
     const rawText = (event.text as string) ?? "";
     const isThreadReply =
@@ -97,6 +122,9 @@ export function createEventsHandler(deps: EventsRouteDeps = defaultDeps) {
     const threadTs = (event.thread_ts as string) ?? (event.ts as string);
 
     if (isThreadReply) {
+      if (ROUTINE_MARKER_RE.test(rawText)) {
+        return NextResponse.json({});
+      }
       const active = await deps.isActiveThread(channelId, threadTs);
       if (!active) {
         return NextResponse.json({});

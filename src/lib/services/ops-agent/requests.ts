@@ -24,6 +24,7 @@ function toCamel(row: DbRow): OpsRequestRow {
     toolCalls: row.tool_calls,
     modelCalls: row.model_calls,
     costUsd: row.cost_usd,
+    completedAt: row.completed_at,
     correlationId: row.correlation_id,
     sessionUrl: row.session_url,
     expiresAt: row.expires_at,
@@ -160,7 +161,8 @@ export async function isActiveThread(
           .select("id", { count: "exact", head: true } as unknown as undefined)
           .eq("channel_id", channelId)
           .eq("thread_ts", threadTs)
-          .neq("status", "refused");
+          .neq("status", "refused")
+          .is("completed_at", null);
 
         if (error) {
           console.warn(`[ops-agent] isActiveThread query failed: ${error.message}`);
@@ -171,6 +173,54 @@ export async function isActiveThread(
       } catch {
         return false;
       }
+    },
+  );
+}
+
+export async function completeThread(
+  channelId: string,
+  threadTs: string,
+  client?: SupabaseClient,
+): Promise<number> {
+  return auditedCall(
+    { provider: "ops-agent", operation: "completeThread", kind: "service" },
+    async () => {
+      const supabase = client ?? createServiceClient();
+
+      const { data, error } = await supabase
+        .from("ops_agent_requests")
+        .update({ completed_at: new Date().toISOString() })
+        .eq("channel_id", channelId)
+        .eq("thread_ts", threadTs)
+        .is("completed_at", null)
+        .select("id");
+
+      if (error) throw new Error(`completeThread failed: ${error.message}`);
+      return data?.length ?? 0;
+    },
+  );
+}
+
+export async function reactivateThread(
+  channelId: string,
+  threadTs: string,
+  client?: SupabaseClient,
+): Promise<number> {
+  return auditedCall(
+    { provider: "ops-agent", operation: "reactivateThread", kind: "service" },
+    async () => {
+      const supabase = client ?? createServiceClient();
+
+      const { data, error } = await supabase
+        .from("ops_agent_requests")
+        .update({ completed_at: null })
+        .eq("channel_id", channelId)
+        .eq("thread_ts", threadTs)
+        .not("completed_at", "is", null)
+        .select("id");
+
+      if (error) throw new Error(`reactivateThread failed: ${error.message}`);
+      return data?.length ?? 0;
     },
   );
 }
@@ -189,7 +239,7 @@ export async function getThreadHistory(
 
       const { data, error } = await supabase
         .from("ops_agent_requests")
-        .select("id, slack_event_id, slack_user_id, operator_email, channel_id, thread_ts, card_ts, text, status, result, proposal, tool_calls, model_calls, cost_usd, correlation_id, session_url, expires_at, created_at, updated_at")
+        .select("id, slack_event_id, slack_user_id, operator_email, channel_id, thread_ts, card_ts, text, status, result, proposal, tool_calls, model_calls, cost_usd, completed_at, correlation_id, session_url, expires_at, created_at, updated_at")
         .eq("channel_id", channelId)
         .eq("thread_ts", threadTs)
         .neq("id", excludeId)
