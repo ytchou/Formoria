@@ -42,11 +42,12 @@ function normalizePem(raw: string): string {
   return pem;
 }
 
-type TokenScope = "clone" | "publish";
+type TokenScope = "clone" | "publish" | "actions-read";
 
 const PERMISSIONS: Record<TokenScope, Record<string, string>> = {
   clone: { contents: "read" },
   publish: { contents: "write", pull_requests: "write" },
+  "actions-read": { actions: "read" },
 };
 
 /**

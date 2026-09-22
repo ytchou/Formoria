@@ -9,11 +9,7 @@
  */
 import { pathToFileURL } from "node:url";
 
-import {
-  sendSlackDigest,
-  type AgentNotification,
-  type SlackReport,
-} from "../health-agent/adapters";
+import { type AgentNotification } from "../health-agent/adapters";
 import type { AuditLogger, AuditRecord } from "../health-agent/contracts";
 import { isoDateInTimeZone } from "@/lib/date-range";
 import type { SpendReportV1 } from "@/lib/services/spend-report";
@@ -150,7 +146,11 @@ function isOperationalAlertSummary(value: unknown): boolean {
     value.lowerBoundCaveats.every((item) => typeof item === "string") &&
     (value.openai === null || isAlertMeter(value.openai)) &&
     (value.upstash === null || isAlertMeter(value.upstash)) &&
-    (value.posthog === null || isAlertMeter(value.posthog))
+    (value.posthog === null || isAlertMeter(value.posthog)) &&
+    (value.sentry === undefined || value.sentry === null || isAlertMeter(value.sentry)) &&
+    (value.resend === undefined || value.resend === null || isAlertMeter(value.resend)) &&
+    (value.langfuse === undefined || value.langfuse === null || isAlertMeter(value.langfuse)) &&
+    (value.github === undefined || value.github === null || isAlertMeter(value.github))
   );
 }
 
@@ -270,6 +270,25 @@ function units(value: number | null | undefined): string {
   );
 }
 
+export function humanNumber(value: number): string {
+  if (value >= 1_000_000) return `${(value / 1_000_000).toFixed(value % 1_000_000 === 0 ? 0 : 1)}M`;
+  if (value >= 1_000) return `${(value / 1_000).toFixed(value % 1_000 === 0 ? 0 : 1)}K`;
+  return String(Math.round(value));
+}
+
+export function isEffectivelyUnlimited(limit: number | null): boolean {
+  if (limit === null) return true;
+  return limit > 1e15;
+}
+
+export function progressBar(percentage: number | null, width = 10): string {
+  if (percentage === null) return "░".repeat(width);
+  const filled = Math.round(Math.min(1, Math.max(0, percentage)) * width);
+  return "█".repeat(filled) + "░".repeat(width - filled);
+}
+
+type SlackBlock = Record<string, unknown>;
+
 function unitName(value: string | null | undefined, fallback: string): string {
   const name = value?.split(/[ /]/, 1)[0]?.trim();
   return name || fallback;
@@ -308,6 +327,178 @@ function operationalMeterLine(
       : `${Math.round(meter.projection * 100)}%`;
   const subject = meter.subject ? ` · ${meter.subject}` : "";
   return `• ${label}: ${value}/${limit} (${percentage}) · headroom ${headroom} · projection ${projection} · ${meter.risk}${subject}`;
+}
+
+type OperationalMeter = NonNullable<SpendWatchReport["operations"]>["openai"];
+
+// Extended with fields being added by a parallel worker in the same wave.
+// The wave gate validates the combined type after both workers complete.
+type ExtendedOps = NonNullable<SpendWatchReport["operations"]> & {
+  sentry?: OperationalMeter | null;
+  resend?: OperationalMeter | null;
+  langfuse?: OperationalMeter | null;
+  github?: OperationalMeter | null;
+};
+
+function meterField(
+  label: string,
+  meter: OperationalMeter,
+  unit: string,
+): { type: "mrkdwn"; text: string } {
+  if (!meter || meter.value === null) {
+    return { type: "mrkdwn", text: `*${label}*\n${progressBar(null)}\nunavailable` };
+  }
+  const bar = progressBar(meter.percentage);
+  const pct = meter.percentage !== null ? ` ${Math.round(meter.percentage * 100)}%` : "";
+  const valueStr = humanNumber(meter.value);
+  const limitStr = isEffectivelyUnlimited(meter.limit)
+    ? `${valueStr} ${unit} · no cap`
+    : `${valueStr}/${humanNumber(meter.limit!)} ${unit}`;
+  return { type: "mrkdwn", text: `*${label}*\n${bar}${pct}\n${limitStr}` };
+}
+
+export function buildSpendBlocks(report: SpendWatchReport): SlackBlock[] {
+  const ops = report.operations as ExtendedOps | undefined;
+  const statusEmoji = ops?.needsAttention ? "⚠️ Needs Attention" : "✅ OK";
+
+  const blocks: SlackBlock[] = [
+    {
+      type: "header",
+      text: { type: "plain_text", text: `Formoria spend — ${dateLabel(report)}`, emoji: true },
+    },
+    {
+      type: "context",
+      elements: [{ type: "mrkdwn", text: statusEmoji }],
+    },
+    {
+      type: "section",
+      text: { type: "mrkdwn", text: "*💰 Spend*" },
+    },
+    {
+      type: "section",
+      fields: [
+        { type: "mrkdwn", text: `*Yesterday*\n${usd(report.day.llmUsd)} LLM cost` },
+        { type: "mrkdwn", text: `*Cycle to date*\n${usd(report.cycle.derivedUsd)} derived / ~${usd(report.cycle.declaredMonthlyUsd)} fixed` },
+      ],
+    },
+  ];
+
+  if (ops?.openai) {
+    const openaiField = meterField("OpenAI budget", ops.openai, "USD");
+    // Override to show USD formatting for the value/limit
+    const bar = progressBar(ops.openai.percentage);
+    const pct = ops.openai.percentage !== null ? ` ${Math.round(ops.openai.percentage * 100)}%` : "";
+    const valueStr = usd(ops.openai.value);
+    const limitStr = isEffectivelyUnlimited(ops.openai.limit)
+      ? `${valueStr} · no cap`
+      : `${valueStr}/${usd(ops.openai.limit!)}`;
+    openaiField.text = `*OpenAI budget*\n${bar}${pct}\n${limitStr}`;
+    blocks.push({
+      type: "section",
+      fields: [openaiField],
+    });
+  }
+
+  blocks.push({ type: "divider" });
+
+  blocks.push({
+    type: "section",
+    text: { type: "mrkdwn", text: "*📊 Quotas*" },
+  });
+
+  if (ops) {
+    const quotaFields: { type: "mrkdwn"; text: string }[] = [];
+    quotaFields.push(meterField("PostHog", ops.posthog, "events"));
+    quotaFields.push(meterField("Upstash", ops.upstash, "commands"));
+    if (ops.sentry != null) {
+      quotaFields.push(meterField("Sentry", ops.sentry, "errors"));
+    }
+    if (ops.resend != null) {
+      quotaFields.push(meterField("Resend", ops.resend, "sends"));
+    }
+    if (ops.langfuse != null) {
+      quotaFields.push(meterField("Langfuse", ops.langfuse, "observations"));
+    }
+    if (ops.github != null) {
+      quotaFields.push(meterField("GitHub Actions", ops.github, "runs"));
+    }
+
+    // Slack fields limit: 10 per section, split into pairs for two-column layout
+    for (let i = 0; i < quotaFields.length; i += 2) {
+      blocks.push({
+        type: "section",
+        fields: quotaFields.slice(i, i + 2),
+      });
+    }
+  }
+
+  if (ops?.needsAttention && ops.warnings.length > 0) {
+    blocks.push({ type: "divider" });
+    blocks.push({
+      type: "section",
+      text: {
+        type: "mrkdwn",
+        text: `*⚠️ Warnings*\n${ops.warnings.map((w) => `• ${w}`).join("\n")}`,
+      },
+    });
+  }
+
+  if (ops && ops.lowerBoundCaveats.length > 0) {
+    blocks.push({
+      type: "context",
+      elements: ops.lowerBoundCaveats.map((caveat) => ({
+        type: "mrkdwn",
+        text: `_${caveat}_`,
+      })),
+    });
+  }
+
+  return blocks;
+}
+
+function buildFailedBlocks(error: unknown, clock: () => number): SlackBlock[] {
+  return [
+    {
+      type: "header",
+      text: {
+        type: "plain_text",
+        text: `Formoria spend — ${new Date(clock()).toISOString().slice(0, 10)}`,
+        emoji: true,
+      },
+    },
+    { type: "context", elements: [{ type: "mrkdwn", text: "❌ Failed" }] },
+    {
+      type: "section",
+      text: {
+        type: "mrkdwn",
+        text: `The spend endpoint did not return a usable report.\nError: \`${failureCode(error)}\``,
+      },
+    },
+  ];
+}
+
+async function sendSpendBlocks(
+  blocks: SlackBlock[],
+  fallbackText: string,
+  webhookUrl: string,
+  dependencies: { audit: AuditLogger; clock: () => number; fetchImpl: typeof fetch },
+): Promise<void> {
+  const startedAt = dependencies.clock();
+  const response = await dependencies.fetchImpl(webhookUrl, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ text: fallbackText, blocks }),
+  });
+  dependencies.audit({
+    adapter: "spend-watch",
+    latencyMs: elapsed(dependencies.clock, startedAt),
+    operation: "send_slack_blocks",
+    request: { channel: "incoming_webhook", blockCount: blocks.length },
+    response: { httpStatus: response.status },
+    schemaValid: true,
+    status: response.ok ? "success" : "failure",
+  });
+  if (!response.ok) throw new Error(`Slack webhook returned HTTP ${response.status}`);
 }
 
 function successNotification(report: SpendWatchReport): AgentNotification {
@@ -350,24 +541,6 @@ function failedNotification(
   };
 }
 
-async function sendNotification(
-  notification: AgentNotification,
-  webhookUrl: string,
-  dependencies: {
-    audit: AuditLogger;
-    clock: () => number;
-    fetchImpl: typeof fetch;
-  },
-): Promise<void> {
-  const report: SlackReport = { notification };
-  await sendSlackDigest(report, {
-    audit: dependencies.audit,
-    fetchImpl: dependencies.fetchImpl,
-    now: dependencies.clock,
-    webhookUrl,
-  });
-}
-
 const defaultAudit: AuditLogger = (record) => {
   console.log(JSON.stringify({ event: "spend_watch_audit", ...record }));
 };
@@ -408,8 +581,10 @@ export async function runSpendReport(
     );
   } catch (error) {
     const notification = failedNotification(error, clock);
+    const failedBlocks = buildFailedBlocks(error, clock);
+    const failedFallback = `Formoria spend — ${new Date(clock()).toISOString().slice(0, 10)}: FAILED (${failureCode(error)})`;
     try {
-      await sendNotification(notification, webhookUrl, {
+      await sendSpendBlocks(failedBlocks, failedFallback, webhookUrl, {
         audit,
         clock,
         fetchImpl,
@@ -422,9 +597,10 @@ export async function runSpendReport(
     return { notification, status: "failed" };
   }
 
-  const notification = successNotification(report);
+  const blocks = buildSpendBlocks(report);
+  const fallbackText = `Formoria spend — ${dateLabel(report)}: ${usd(report.day.llmUsd)} LLM · ${usd(report.cycle.derivedUsd)} cycle`;
   try {
-    await sendNotification(notification, webhookUrl, {
+    await sendSpendBlocks(blocks, fallbackText, webhookUrl, {
       audit,
       clock,
       fetchImpl,
@@ -433,6 +609,7 @@ export async function runSpendReport(
     process.exitCode = 1;
     throw error;
   }
+  const notification = successNotification(report);
   return { notification, report, status: notification.status };
 }
 

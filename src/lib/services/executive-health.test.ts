@@ -287,7 +287,6 @@ describe("executive health", () => {
       snapshot.inventory.some((entry) =>
         [
           "linear",
-          "github",
           "google-maps",
           "agent-hub",
           "indexnow",

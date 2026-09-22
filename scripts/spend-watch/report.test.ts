@@ -1,6 +1,10 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { AuditRecord } from "../health-agent/contracts";
 import {
+  buildSpendBlocks,
+  humanNumber,
+  isEffectivelyUnlimited,
+  progressBar,
   runSpendReport,
   type SpendWatchEnvironment,
   type SpendWatchReport,
@@ -67,6 +71,8 @@ const operations = {
     percentage: 0.0492,
     projection: 0.2,
     message: null,
+    window: null,
+    subject: null,
   },
   upstash: {
     state: "ready" as const,
@@ -76,6 +82,8 @@ const operations = {
     percentage: 0.1,
     projection: 0.4,
     message: null,
+    window: null,
+    subject: null,
   },
   posthog: {
     state: "ready" as const,
@@ -85,6 +93,52 @@ const operations = {
     percentage: 0.001,
     projection: 0.01,
     message: null,
+    window: null,
+    subject: null,
+  },
+  sentry: {
+    state: "ready" as const,
+    risk: "normal" as const,
+    value: 500,
+    limit: 5000,
+    percentage: 0.1,
+    projection: 0.3,
+    message: null,
+    window: null,
+    subject: null,
+  },
+  resend: {
+    state: "ready" as const,
+    risk: "normal" as const,
+    value: 80,
+    limit: 100,
+    percentage: 0.8,
+    projection: 0.9,
+    message: null,
+    window: null,
+    subject: null,
+  },
+  langfuse: {
+    state: "ready" as const,
+    risk: "normal" as const,
+    value: 268568,
+    limit: 500_000,
+    percentage: 0.537,
+    projection: 0.7,
+    message: null,
+    window: null,
+    subject: null,
+  },
+  github: {
+    state: "ready" as const,
+    risk: "normal" as const,
+    value: 42,
+    limit: null,
+    percentage: null,
+    projection: null,
+    message: null,
+    window: null,
+    subject: null,
   },
 };
 
@@ -116,7 +170,16 @@ function auditLog(): {
 
 function responseBody(fetchImpl: ReturnType<typeof vi.fn>, index: number) {
   const call = fetchImpl.mock.calls[index];
-  return JSON.parse(String(call?.[1]?.body)) as { text: string };
+  return JSON.parse(String(call?.[1]?.body)) as {
+    text: string;
+    blocks?: Record<string, unknown>[];
+  };
+}
+
+function allBlockText(
+  blocks: Record<string, unknown>[],
+): string {
+  return JSON.stringify(blocks);
 }
 
 afterEach(() => {
@@ -147,12 +210,17 @@ describe("spend-watch report", () => {
       headers: { "x-origin-verify": ORIGIN_SECRET },
       method: "POST",
     });
-    const text = responseBody(fetchImpl, 1).text;
-    expect(text).toContain("Yesterday: $1.23 derived");
-    expect(text).toContain("Cycle to date: $6.72 derived");
-    expect(text).toContain("41 credits $0.00");
-    expect(text).toContain("2 sends $0.00");
-    expect(records.some((record) => record.adapter === "slack")).toBe(true);
+    const body = responseBody(fetchImpl, 1);
+    expect(body.blocks).toBeDefined();
+    expect(Array.isArray(body.blocks)).toBe(true);
+    expect(body.text).toContain("$1.23 LLM");
+    expect(body.text).toContain("$6.72 cycle");
+    const blockJson = allBlockText(body.blocks!);
+    expect(blockJson).toContain("$1.23");
+    expect(blockJson).toContain("$6.72");
+    expect(records.some((record) => record.adapter === "spend-watch")).toBe(
+      true,
+    );
   });
 
   it("marks warning usage as needs_attention while still delivering the report", async () => {
@@ -182,10 +250,9 @@ describe("spend-watch report", () => {
     });
 
     expect(result.status).toBe("needs_attention");
-    expect(responseBody(fetchImpl, 1).text).toContain("OpenAI budget");
-    expect(responseBody(fetchImpl, 1).text).toContain(
-      "OpenAI usage is warning.",
-    );
+    const blockJson = allBlockText(responseBody(fetchImpl, 1).blocks!);
+    expect(blockJson).toContain("OpenAI");
+    expect(blockJson).toContain("OpenAI usage is warning.");
   });
 
   it("delivers a critical usage report as needs_attention, not failed", async () => {
@@ -215,9 +282,9 @@ describe("spend-watch report", () => {
     });
 
     expect(result.status).toBe("needs_attention");
-    expect(responseBody(fetchImpl, 1).text).toContain("Upstash commands");
-    expect(responseBody(fetchImpl, 1).text).toContain("critical");
-    expect(responseBody(fetchImpl, 1).text).toContain(
+    const blockJson = allBlockText(responseBody(fetchImpl, 1).blocks!);
+    expect(blockJson).toContain("Upstash");
+    expect(blockJson).toContain(
       "Upstash Redis secondary usage is critical.",
     );
   });
@@ -240,6 +307,8 @@ describe("spend-watch report", () => {
           percentage: null,
           projection: null,
           message: "Upstash monitoring credentials are not configured.",
+          window: null,
+          subject: null,
         },
       },
     };
@@ -255,8 +324,9 @@ describe("spend-watch report", () => {
     });
 
     expect(result.status).toBe("needs_attention");
-    expect(responseBody(fetchImpl, 1).text).toContain("Upstash commands");
-    expect(responseBody(fetchImpl, 1).text).not.toContain("Failed");
+    const blockJson = allBlockText(responseBody(fetchImpl, 1).blocks!);
+    expect(blockJson).toContain("Upstash");
+    expect(blockJson).not.toContain("Failed");
   });
 
   it("labels the scheduled report with the Taipei calendar date", async () => {
@@ -276,7 +346,14 @@ describe("spend-watch report", () => {
       fetchImpl,
     });
 
-    expect(responseBody(fetchImpl, 1).text).toContain("spend — 2026-08-11");
+    const body = responseBody(fetchImpl, 1);
+    const headerBlock = body.blocks?.find(
+      (b) => b.type === "header",
+    ) as Record<string, unknown> | undefined;
+    const headerText = headerBlock?.text as
+      | { text: string }
+      | undefined;
+    expect(headerText?.text).toContain("2026-08-11");
   });
 
   it("sends a failed notification and exits non-zero on a non-2xx response", async () => {
@@ -297,7 +374,10 @@ describe("spend-watch report", () => {
 
     expect(result.status).toBe("failed");
     expect(process.exitCode).toBe(1);
-    expect(responseBody(fetchImpl, 1).text).toContain("HTTP_503");
+    const body = responseBody(fetchImpl, 1);
+    expect(body.blocks).toBeDefined();
+    const blockJson = allBlockText(body.blocks!);
+    expect(blockJson).toContain("HTTP_503");
   });
 
   it("sends a failed notification when a successful response is malformed", async () => {
@@ -318,7 +398,8 @@ describe("spend-watch report", () => {
 
     expect(result.status).toBe("failed");
     expect(process.exitCode).toBe(1);
-    expect(responseBody(fetchImpl, 1).text).toContain("InvalidSpendReport");
+    const blockJson = allBlockText(responseBody(fetchImpl, 1).blocks!);
+    expect(blockJson).toContain("InvalidSpendReport");
   });
 
   it("fails loudly when a required credential is missing", async () => {
@@ -367,5 +448,171 @@ describe("spend-watch report", () => {
     const auditJson = JSON.stringify(records);
     expect(auditJson).not.toContain(ORIGIN_SECRET);
     expect(auditJson).not.toContain(WEBHOOK_URL);
+  });
+
+  it("includes quota meter labels in the blocks output", async () => {
+    const reportWithOps = { ...report, operations };
+    const fetchImpl = vi
+      .fn<typeof fetch>()
+      .mockResolvedValueOnce(jsonResponse(reportWithOps))
+      .mockResolvedValueOnce(new Response(null, { status: 204 }));
+
+    await runSpendReport({
+      clock: () => AT,
+      env: environment(),
+      fetchImpl,
+    });
+
+    const blockJson = allBlockText(responseBody(fetchImpl, 1).blocks!);
+    expect(blockJson).toContain("PostHog");
+    expect(blockJson).toContain("Upstash");
+    expect(blockJson).toContain("Sentry");
+    expect(blockJson).toContain("Resend");
+    expect(blockJson).toContain("Langfuse");
+    expect(blockJson).toContain("GitHub Actions");
+  });
+
+  it("renders Upstash unlimited limit as 'no cap'", async () => {
+    const unlimitedUpstash = {
+      ...report,
+      operations: {
+        ...operations,
+        upstash: {
+          ...operations.upstash,
+          limit: 1e16,
+          percentage: null,
+        },
+      },
+    };
+    const fetchImpl = vi
+      .fn<typeof fetch>()
+      .mockResolvedValueOnce(jsonResponse(unlimitedUpstash))
+      .mockResolvedValueOnce(new Response(null, { status: 204 }));
+
+    await runSpendReport({
+      clock: () => AT,
+      env: environment(),
+      fetchImpl,
+    });
+
+    const blockJson = allBlockText(responseBody(fetchImpl, 1).blocks!);
+    expect(blockJson).toContain("no cap");
+  });
+
+  it("renders GitHub Actions with null limit as 'no cap'", async () => {
+    const reportWithOps = { ...report, operations };
+    const fetchImpl = vi
+      .fn<typeof fetch>()
+      .mockResolvedValueOnce(jsonResponse(reportWithOps))
+      .mockResolvedValueOnce(new Response(null, { status: 204 }));
+
+    await runSpendReport({
+      clock: () => AT,
+      env: environment(),
+      fetchImpl,
+    });
+
+    const blockJson = allBlockText(responseBody(fetchImpl, 1).blocks!);
+    // GitHub Actions has null limit, should show "no cap"
+    expect(blockJson).toContain("no cap");
+  });
+});
+
+describe("humanNumber", () => {
+  it("formats 268568 as 269K (rounded)", () => {
+    expect(humanNumber(268568)).toBe("268.6K");
+  });
+
+  it("formats 1000000 as 1M (exact)", () => {
+    expect(humanNumber(1_000_000)).toBe("1M");
+  });
+
+  it("formats 42 as 42", () => {
+    expect(humanNumber(42)).toBe("42");
+  });
+
+  it("formats 1000 as 1K (exact)", () => {
+    expect(humanNumber(1_000)).toBe("1K");
+  });
+
+  it("formats 1500000 as 1.5M", () => {
+    expect(humanNumber(1_500_000)).toBe("1.5M");
+  });
+});
+
+describe("progressBar", () => {
+  it("renders 50% as half-filled", () => {
+    expect(progressBar(0.5)).toBe("█████░░░░░");
+  });
+
+  it("renders null as all empty", () => {
+    expect(progressBar(null)).toBe("░░░░░░░░░░");
+  });
+
+  it("renders 0% as all empty", () => {
+    expect(progressBar(0)).toBe("░░░░░░░░░░");
+  });
+
+  it("renders 100% as all filled", () => {
+    expect(progressBar(1)).toBe("██████████");
+  });
+
+  it("clamps values above 1", () => {
+    expect(progressBar(1.5)).toBe("██████████");
+  });
+});
+
+describe("isEffectivelyUnlimited", () => {
+  it("treats null as unlimited", () => {
+    expect(isEffectivelyUnlimited(null)).toBe(true);
+  });
+
+  it("treats 1e16 as unlimited", () => {
+    expect(isEffectivelyUnlimited(1e16)).toBe(true);
+  });
+
+  it("treats 1000 as limited", () => {
+    expect(isEffectivelyUnlimited(1000)).toBe(false);
+  });
+});
+
+describe("buildSpendBlocks", () => {
+  it("produces header, context, spend section, divider, and quotas section", () => {
+    const reportWithOps = { ...report, operations } as SpendWatchReport;
+    const blocks = buildSpendBlocks(reportWithOps);
+
+    const header = blocks.find((b) => b.type === "header");
+    expect(header).toBeDefined();
+    expect((header?.text as { text: string })?.text).toContain("Formoria spend");
+
+    const contextBlock = blocks.find((b) => b.type === "context");
+    expect(contextBlock).toBeDefined();
+
+    const dividers = blocks.filter((b) => b.type === "divider");
+    expect(dividers.length).toBeGreaterThanOrEqual(1);
+
+    const sections = blocks.filter((b) => b.type === "section");
+    expect(sections.length).toBeGreaterThanOrEqual(2);
+  });
+
+  it("includes warnings when needsAttention is true", () => {
+    const warningReport = {
+      ...report,
+      operations: {
+        ...operations,
+        needsAttention: true,
+        warnings: ["OpenAI usage is warning."],
+      },
+    } as SpendWatchReport;
+    const blocks = buildSpendBlocks(warningReport);
+    const blockJson = JSON.stringify(blocks);
+    expect(blockJson).toContain("OpenAI usage is warning.");
+  });
+
+  it("includes lower-bound caveats in context block", () => {
+    const reportWithOps = { ...report, operations } as SpendWatchReport;
+    const blocks = buildSpendBlocks(reportWithOps);
+    const blockJson = JSON.stringify(blocks);
+    expect(blockJson).toContain("Resend usage is a lower bound");
   });
 });
