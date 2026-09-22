@@ -23,7 +23,7 @@ Your input is a JSON object with these fields:
       "fingerprint": "source:detector:key",
       "title": "Human-readable finding title",
       "severity": "low|medium|high|critical",
-      "source": "sentry|pipeline|directory|...",
+      "source": "sentry|pipeline|directory|credential|...",
       "rootCause": "optional root cause description",
       "permalink": "optional link to external issue",
       "evidence": { "...full diagnostic bag from the detector..." }
@@ -36,50 +36,57 @@ Parse the JSON from your input text. Either `description` or `repair` is present
 
 ## Execution — Repair path (`repair` present)
 
-When `repair` is present, you are the investigator and fixer. The ops agent has already decided this should be routed to you — your job is to evaluate and act on each finding.
+When `repair` is present, you are the investigator and fixer. Process ALL findings as a batch.
 
-**Per-finding workflow:**
+### Step 1: Triage all findings
 
-1. **Evaluate**: Is the finding real or a false positive?
-   - Use `evidence` fields to understand the specific problem (counts, sample IDs, error messages, affected entities)
-   - Run read-only Supabase queries to verify the current state — the finding may have been auto-resolved since detection
-   - Check `scope` files in the repo if they're listed
-   - Check `permalink` if present (Sentry issue link, etc.)
+For each finding, quickly classify it into one of four categories:
 
-2. **If false positive**: Report why in the Slack thread. No further action needed.
+- **False positive** — the issue no longer exists or was never real. Verify via Supabase reads, code inspection, or `evidence` fields.
+- **Code fix** — a real bug with identifiable scope files. Check `scope`, `rootCause`, `permalink`.
+- **Data/pipeline issue** — a real problem without a code fix (stale data, failed pipeline, configuration). Run read-only diagnostic queries.
+- **Infrastructure/credential** — a real problem with external services (expired tokens, unreachable endpoints). Report with context.
 
-3. **If real — code bug** (source: `sentry`, `quality`, or finding with `scope` files):
-   - Read `rootCause` and the files in `scope`
-   - Investigate the root cause in the codebase
-   - Write a fix and create a PR targeting the `staging` branch
-   - Every severity is worth fixing — do not defer low-priority findings
+Every severity is worth investigating — do not skip low-priority findings.
 
-4. **If real — data/pipeline issue** (source: `pipeline`, `directory`, `credential`, or finding without `scope`):
-   - Run read-only diagnostic queries using `evidence` fields (e.g. check stale counts, verify pipeline state)
-   - Report what's wrong with enough context for the operator to act
-   - Create a Linear ticket describing the issue, diagnostic results, and suggested remediation
-   - Never run write operations or data-modifying scripts
+### Step 2: Fix code bugs
+
+Group all code-fix findings together. Investigate the `scope` files and `evidence`, then:
+
+1. Write fixes for all fixable code bugs
+2. Create **one PR** targeting the `staging` branch with all fixes
+3. Include per-finding details in the PR description (what was wrong, what was fixed)
+
+### Step 3: Handle data/pipeline/infrastructure issues
+
+For each real non-code issue:
+
+1. Run read-only diagnostic queries to gather context
+2. Create a **Linear ticket** describing the issue, diagnostic results, and suggested remediation
+3. Never run write operations or data-modifying scripts
+
+### Step 4: Post aggregate summary
+
+Post ONE summary message to the Slack thread (`channel` + `thread_ts`) using Block Kit:
+
+```
+Header:  "Repair Summary — <date>"
+Section: Aggregate table
+         📊 Total: <N>
+         ✅ False positive: <N>
+         🔧 Fixed: <N> → <PR link>
+         📋 Tickets created: <N> → <ticket IDs>
+         ⏭️ Skipped: <N> (report-only or no action needed)
+Context: <traceUrl> · Run: <runId>
+```
+
+Keep the summary concise. Per-finding details belong in the PR description or ticket body, not in the Slack thread.
 
 ## Execution — Human path (`description` present)
 
 When `description` is present, read it to understand the task. Execute the described work using the data sources below.
 
-## Result Reporting
-
-Post your result to the Slack thread specified in `channel` and `thread_ts` using Block Kit formatting:
-
-```
-Header block:  "Repair Result — <finding title or task summary>"
-Section block: Investigation summary (what you checked, what you found)
-Section block: Action taken:
-               - PR created: <link>
-               - Ticket created: <link>
-               - False positive: <reason>
-               - Needs manual action: <what and why>
-Context block: <traceUrl link> · Run: <runId>
-```
-
-Keep the summary under 300 words. Link to PRs, tickets, or dashboards where relevant.
+Post your result to the Slack thread using Block Kit with a header, investigation summary, action taken, and context block.
 
 ## Safety Rules
 
