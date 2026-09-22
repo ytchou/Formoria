@@ -5,6 +5,7 @@ import {
   buildOperationalSnapshot,
   fetchUpstashUsage,
   loadOperationalSnapshot,
+  parseLangfuseObservationCount,
   parseSentryAcceptedCount,
   parseUpstashDatabase,
   parseUpstashStats,
@@ -43,6 +44,12 @@ function clearProviderEnvironment() {
     "SENTRY_ORGANIZATION",
     "SENTRY_READ_TOKEN",
     "SENTRY_AUTH_TOKEN",
+    "LANGFUSE_PUBLIC_KEY",
+    "LANGFUSE_SECRET_KEY",
+    "LANGFUSE_HOST",
+    "GITHUB_APP_ID",
+    "GITHUB_APP_PRIVATE_KEY",
+    "GITHUB_APP_INSTALLATION_ID",
   ]) {
     vi.stubEnv(name, "");
   }
@@ -716,10 +723,130 @@ describe("operational usage risk", () => {
       state: "ready",
       primary: expect.objectContaining({
         value: 7,
-        limit: null,
+        limit: 5_000,
         completeness: "exact",
-        risk: "unknown",
+        risk: "normal",
       }),
     });
+  });
+
+  describe("parseLangfuseObservationCount", () => {
+    it("sums countObservations across multiple daily entries", () => {
+      expect(
+        parseLangfuseObservationCount({
+          data: [
+            { date: "2026-08-01", countObservations: 100 },
+            { date: "2026-08-02", countObservations: 200 },
+            { date: "2026-08-03", countObservations: 50 },
+          ],
+        }),
+      ).toBe(350);
+    });
+
+    it("throws on malformed response without a data array", () => {
+      expect(() => parseLangfuseObservationCount({})).toThrow(
+        "Langfuse metrics response was malformed.",
+      );
+      expect(() => parseLangfuseObservationCount({ data: "nope" })).toThrow(
+        "Langfuse metrics response was malformed.",
+      );
+    });
+
+    it("returns 0 for an empty data array", () => {
+      expect(parseLangfuseObservationCount({ data: [] })).toBe(0);
+    });
+  });
+
+  it("includes sentry, resend, langfuse, and github in the alert summary", () => {
+    const snapshot = buildOperationalSnapshot({
+      registry: [
+        {
+          id: "sentry",
+          name: "Sentry",
+          vendor: "Sentry",
+          category: "observability",
+          criticality: "back-office",
+          operationalSection: "back-office",
+          operationalKind: "dependency",
+          envVars: [],
+          status: "active",
+          plan: {
+            kind: "free",
+            monthlyUsd: 0,
+            asOf: "2026-08-10",
+            sourceUrl: "https://sentry.io/pricing/",
+          },
+        },
+        {
+          id: "resend",
+          name: "Resend",
+          vendor: "Resend",
+          category: "email",
+          criticality: "customer-flow",
+          operationalSection: "production",
+          operationalKind: "dependency",
+          envVars: [],
+          status: "active",
+          plan: {
+            kind: "free",
+            monthlyUsd: 0,
+            asOf: "2026-08-10",
+            sourceUrl: "https://resend.com/pricing",
+          },
+        },
+        {
+          id: "langfuse",
+          name: "Langfuse",
+          vendor: "Langfuse",
+          category: "observability",
+          criticality: "dev-tooling",
+          operationalSection: "back-office",
+          operationalKind: "dependency",
+          envVars: [],
+          status: "active",
+          plan: {
+            kind: "free",
+            monthlyUsd: 0,
+            asOf: "2026-08-10",
+            sourceUrl: "https://langfuse.com/pricing",
+          },
+        },
+        {
+          id: "github",
+          name: "GitHub",
+          vendor: "GitHub",
+          category: "tooling",
+          criticality: "back-office",
+          operationalSection: "back-office",
+          operationalKind: "dependency",
+          envVars: [],
+          status: "active",
+          plan: {
+            kind: "free",
+            monthlyUsd: 0,
+            asOf: "2026-08-10",
+            sourceUrl: "https://github.com/pricing",
+          },
+        },
+      ] as const,
+      health: {
+        status: "healthy",
+        checkedAt: NOW.toISOString(),
+        inventory: [],
+        services: [],
+      },
+      meters: new Map([
+        ["sentry", { state: "ready" as const }],
+        ["resend", { state: "ready" as const }],
+        ["langfuse", { state: "ready" as const }],
+        ["github", { state: "ready" as const }],
+      ]),
+      now: NOW,
+    });
+    const alerts = buildOperationalAlertSummary(snapshot);
+    expect(alerts).toHaveProperty("sentry");
+    expect(alerts).toHaveProperty("resend");
+    expect(alerts).toHaveProperty("langfuse");
+    expect(alerts).toHaveProperty("github");
   });
 });

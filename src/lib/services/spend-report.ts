@@ -130,6 +130,10 @@ export async function loadSpendReport(
         subject: null,
       },
       posthog: null,
+      sentry: null,
+      resend: null,
+      langfuse: null,
+      github: null,
     };
   }
 

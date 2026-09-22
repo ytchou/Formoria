@@ -102,6 +102,10 @@ export type OperationalAlertSummary = {
   openai: OperationalAlertMeter | null;
   upstash: OperationalAlertMeter | null;
   posthog: OperationalAlertMeter | null;
+  sentry: OperationalAlertMeter | null;
+  resend: OperationalAlertMeter | null;
+  langfuse: OperationalAlertMeter | null;
+  github: OperationalAlertMeter | null;
 };
 
 export type UsageMetricInput = {
@@ -485,8 +489,13 @@ export function parseUpstashStats(value: unknown): {
 async function auditedJson(
   url: string,
   init: RequestInit,
-  provider: "upstash" | "sentry",
-  operation: "get_database" | "get_stats" | "get_error_events",
+  provider: "upstash" | "sentry" | "langfuse" | "github",
+  operation:
+    | "get_database"
+    | "get_stats"
+    | "get_error_events"
+    | "get_daily_metrics"
+    | "get_workflow_runs",
   fetchImpl: typeof fetch,
 ): Promise<unknown> {
   const parsedUrl = new URL(url);
@@ -513,6 +522,8 @@ async function auditedJson(
       const providerName = {
         upstash: "Upstash",
         sentry: "Sentry",
+        langfuse: "Langfuse",
+        github: "GitHub",
       }[provider];
       if (!response.ok)
         throw new Error(`${providerName} returned HTTP ${response.status}.`);
@@ -649,12 +660,14 @@ async function fetchSentryErrorUsage(
     fetchImpl,
   );
   const count = parseSentryAcceptedCount(body);
+  const sentryEntry = SERVICE_REGISTRY.find((e) => e.id === "sentry");
+  const limit = sentryEntry?.quota?.included ?? null;
   return {
     state: "ready",
     primary: createMetric({
       value: count,
       unit: "accepted error events",
-      limit: null,
+      limit,
       window,
       source: "Sentry stats_v2",
       at: now,
@@ -685,6 +698,128 @@ export function parseSentryAcceptedCount(value: unknown): number {
     );
   }
   return total;
+}
+
+export function parseLangfuseObservationCount(value: unknown): number {
+  if (
+    !value ||
+    typeof value !== "object" ||
+    !Array.isArray((value as Record<string, unknown>).data)
+  ) {
+    throw new Error("Langfuse metrics response was malformed.");
+  }
+  const data = (value as Record<string, unknown>).data as unknown[];
+  return data.reduce((sum: number, entry) => {
+    if (!entry || typeof entry !== "object") return sum;
+    const row = entry as Record<string, unknown>;
+    const count = Number(row.countObservations ?? row.totalObservations ?? 0);
+    return sum + (Number.isFinite(count) ? count : 0);
+  }, 0);
+}
+
+async function fetchLangfuseUsage(
+  now: Date,
+  fetchImpl: typeof fetch,
+): Promise<MeteredUsage> {
+  const host = process.env.LANGFUSE_HOST?.trim().replace(/\/+$/, "");
+  const publicKey = process.env.LANGFUSE_PUBLIC_KEY?.trim();
+  const secretKey = process.env.LANGFUSE_SECRET_KEY?.trim();
+  if (!providerConfigured(host, publicKey, secretKey)) {
+    return {
+      state: "unconfigured",
+      message: "Langfuse usage monitoring is not configured.",
+    };
+  }
+  const window = utcMonthWindow(now);
+  const url = new URL(`${host}/api/public/metrics/daily`);
+  url.searchParams.set("fromTimestamp", window.start);
+  url.searchParams.set("toTimestamp", window.end);
+  const authorization = `Basic ${Buffer.from(`${publicKey}:${secretKey}`).toString("base64")}`;
+  const body = await auditedJson(
+    url.toString(),
+    { headers: { Authorization: authorization } },
+    "langfuse",
+    "get_daily_metrics",
+    fetchImpl,
+  );
+  const count = parseLangfuseObservationCount(body);
+  const langfuseEntry = SERVICE_REGISTRY.find((e) => e.id === "langfuse");
+  const limit = langfuseEntry?.quota?.included ?? null;
+  return {
+    state: "ready",
+    primary: createMetric({
+      value: count,
+      unit: "observations",
+      limit,
+      window,
+      source: "Langfuse metrics/daily",
+      at: now,
+    }),
+  };
+}
+
+async function fetchGitHubActionsUsage(
+  now: Date,
+  fetchImpl: typeof fetch,
+): Promise<MeteredUsage> {
+  const appId = process.env.GITHUB_APP_ID?.trim();
+  const privateKey = process.env.GITHUB_APP_PRIVATE_KEY?.trim();
+  const installationId = process.env.GITHUB_APP_INSTALLATION_ID?.trim();
+  if (!providerConfigured(appId, privateKey, installationId)) {
+    return {
+      state: "unconfigured",
+      message: "GitHub Actions usage monitoring is not configured.",
+    };
+  }
+  let token: string;
+  try {
+    const { getInstallationToken } = await import(
+      "@/lib/adapters/github/app-auth"
+    );
+    token = await getInstallationToken("actions-read");
+  } catch {
+    return {
+      state: "error",
+      message: "GitHub App token exchange failed.",
+    };
+  }
+  const repo =
+    process.env.GITHUB_APP_REPOSITORY ?? "ytchou/Formoria";
+  const window = utcMonthWindow(now);
+  const monthStart = window.start.slice(0, 10);
+  let totalRuns = 0;
+  let page = 1;
+  for (;;) {
+    const url = `https://api.github.com/repos/${repo}/actions/runs?created=>=${monthStart}&per_page=100&page=${page}`;
+    const body = (await auditedJson(
+      url,
+      {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          Accept: "application/vnd.github+json",
+          "X-GitHub-Api-Version": "2022-11-28",
+        },
+      },
+      "github",
+      "get_workflow_runs",
+      fetchImpl,
+    )) as { workflow_runs?: unknown[] };
+    const runs = body.workflow_runs ?? [];
+    totalRuns += runs.length;
+    if (runs.length < 100) break;
+    page += 1;
+  }
+  return {
+    state: "ready",
+    primary: createMetric({
+      value: totalRuns,
+      unit: "workflow runs",
+      limit: null,
+      window,
+      source: "GitHub Actions API",
+      at: now,
+    }),
+  };
 }
 
 type OperationalDependencies = {
@@ -868,6 +1003,20 @@ async function collectMeteredUsage(
         ...usage,
       })),
     },
+    {
+      id: "langfuse",
+      promise: fetchLangfuseUsage(now, fetchImpl).then((usage) => ({
+        id: "langfuse",
+        ...usage,
+      })),
+    },
+    {
+      id: "github",
+      promise: fetchGitHubActionsUsage(now, fetchImpl).then((usage) => ({
+        id: "github",
+        ...usage,
+      })),
+    },
   ];
   const outputs = await Promise.allSettled(tasks.map((task) => task.promise));
   const map = new Map<string, MeteredUsage>();
@@ -908,6 +1057,8 @@ function usageForEntry(
       "upstash-redis",
       "posthog",
       "sentry",
+      "langfuse",
+      "github",
     ].includes(entry.id)
   ) {
     return toUsage(
@@ -1073,6 +1224,10 @@ export function buildOperationalAlertSummary(
     openai: alertMeter(byId.get("openai")),
     upstash,
     posthog: alertMeter(byId.get("posthog")),
+    sentry: alertMeter(byId.get("sentry")),
+    resend: alertMeter(byId.get("resend")),
+    langfuse: alertMeter(byId.get("langfuse")),
+    github: alertMeter(byId.get("github")),
   };
 }
 
