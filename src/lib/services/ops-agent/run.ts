@@ -30,9 +30,12 @@ import {
 import {
   expireStale as defaultExpireStale,
   getRequest as defaultGetRequest,
+  getThreadHistory as defaultGetThreadHistory,
   transitionRequest as defaultTransitionRequest,
 } from "./requests";
+import type { ChatMessage } from "@/lib/services/openai-client";
 import type { OpsRequestRow, OpsRequestStatus } from "./types";
+import type { OpsProposal } from "./proposals";
 
 type SlackBlock = Record<string, unknown>;
 
@@ -62,6 +65,99 @@ function formatToolChain(
   const meta = `(${turnLabel}${costLabel})`;
   if (unique.length === 0) return meta;
   return `${unique.join(" → ")} ${meta}`;
+}
+
+// ---------------------------------------------------------------------------
+// Thread history formatter
+// ---------------------------------------------------------------------------
+
+const MAX_HISTORY_CONTENT_LENGTH = 500;
+
+function truncateContent(text: string): string {
+  if (text.length <= MAX_HISTORY_CONTENT_LENGTH) return text;
+  return text.slice(0, MAX_HISTORY_CONTENT_LENGTH) + "... (truncated)";
+}
+
+export function formatThreadHistory(rows: OpsRequestRow[]): ChatMessage[] {
+  const messages: ChatMessage[] = [];
+
+  for (const row of rows) {
+    const resultObj = row.result as Record<string, unknown> | null;
+
+    const toolCalls = Array.isArray(resultObj?.toolCalls)
+      ? [...new Set(
+          (resultObj!.toolCalls as { name: string }[]).map((t) => t.name).filter(Boolean),
+        )]
+      : [];
+
+    const toolPrefix = toolCalls.length > 0 ? `[Used: ${toolCalls.join(", ")}] ` : "";
+
+    let summary: string | null = null;
+
+    switch (row.status) {
+      case "answered": {
+        const text =
+          (resultObj?.text as string | undefined) ||
+          (resultObj?.description as string | undefined) ||
+          (resultObj?.sessionUrl as string | undefined) ||
+          "(no response)";
+        summary = text;
+        break;
+      }
+
+      case "executed": {
+        const action = row.proposal
+          ? describeProposal(row.proposal as OpsProposal).action
+          : "(unknown action)";
+        summary = `${action} — executed`;
+        break;
+      }
+
+      case "awaiting_confirm": {
+        const action = row.proposal
+          ? describeProposal(row.proposal as OpsProposal).action
+          : "(unknown action)";
+        summary = `${action} — awaiting confirmation`;
+        break;
+      }
+
+      case "cancelled": {
+        const action = row.proposal
+          ? describeProposal(row.proposal as OpsProposal).action
+          : "(unknown action)";
+        summary = `${action} — cancelled`;
+        break;
+      }
+
+      case "expired": {
+        const action = row.proposal
+          ? describeProposal(row.proposal as OpsProposal).action
+          : "(unknown action)";
+        summary = `${action} — expired`;
+        break;
+      }
+
+      case "refused": {
+        summary = (resultObj?.reason as string | undefined) ?? "(refused)";
+        break;
+      }
+
+      case "failed": {
+        const error = (resultObj?.error as string | undefined) ?? "processing error";
+        summary = `Failed: ${error}`;
+        break;
+      }
+
+      default:
+        // Unrecognized status — skip
+        continue;
+    }
+
+    messages.push({ role: "user", content: row.text });
+    messages.push({ role: "assistant", content: truncateContent(`${toolPrefix}${summary}`) });
+  }
+
+  return messages;
 }
 
 // ---------------------------------------------------------------------------
@@ -99,8 +195,10 @@ export type RunOpsAgentDeps = {
     systemPrompt: string,
     userMessage?: string,
     signal?: AbortSignal,
+    priorMessages?: ChatMessage[],
   ) => Promise<GraphResult>;
   fireRoutine?: (params: { routineId: string; text: string }) => Promise<{ sessionUrl: string }>;
+  getThreadHistory?: (channelId: string, threadTs: string, excludeId: string) => Promise<OpsRequestRow[]>;
   toolDeps?: Partial<OpsToolDeps>;
 };
 
@@ -119,6 +217,7 @@ export async function runOpsAgent(
   const buildModel = deps.createAgentModel ?? defaultCreateAgentModel;
   const invokeGraph = deps.runGraph ?? defaultRunGraph;
   const fireRtn = deps.fireRoutine ?? defaultFireRoutine;
+  const getHistory = deps.getThreadHistory ?? defaultGetThreadHistory;
 
   // 1. Expire stale requests
   await expire();
@@ -218,11 +317,24 @@ export async function runOpsAgent(
     return { kind: "refused" as const, reason: "invalid_repair_request", modelCalls: 0, toolLog: [], promptTokens: 0, completionTokens: 0 };
   }
 
+  // 3c. Load thread history
+  let history: OpsRequestRow[] = [];
+  try {
+    history = await getHistory(request.channelId, request.threadTs, request.id);
+  } catch (err) {
+    console.error("[ops-agent] getThreadHistory failed, proceeding without context:", err);
+  }
+  const priorMessages = formatThreadHistory(history);
+
   // 4. Fetch prompt
   // The string literal 'ops-agent-system' is the call site for the prompts test
   const { text: rawPrompt, prompt: promptMeta } =
     await fetchLangfusePromptWithMeta("ops-agent-system");
-  const systemPrompt = `${rawPrompt}\n\nAlways respond in English.`;
+  let systemPrompt = `${rawPrompt}\n\nAlways respond in English.`;
+
+  if (priorMessages.length > 0) {
+    systemPrompt += "\n\nPrior messages in this thread are context only — do not re-execute past actions unless explicitly asked.";
+  }
 
   // 5. Create model
   const model = await buildModel("opsAgent", {
@@ -264,7 +376,7 @@ export async function runOpsAgent(
   let result: GraphResult;
 
   try {
-    result = await invokeGraph(model, tools, systemPrompt, request.text, abortSignal);
+    result = await invokeGraph(model, tools, systemPrompt, request.text, abortSignal, priorMessages);
   } catch {
     result = { kind: "failed", modelCalls: 0, toolLog: [], promptTokens: 0, completionTokens: 0 };
   }

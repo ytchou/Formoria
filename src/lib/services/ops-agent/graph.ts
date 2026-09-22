@@ -91,6 +91,7 @@ export async function runGraph(
   systemPrompt: string,
   userMessage?: string,
   signal?: AbortSignal,
+  priorMessages?: ChatMessage[],
 ): Promise<GraphResult> {
   const toolMap = new Map(tools.map((t) => [t.definition.name, t]));
   const toolDefs = tools.map((t) => t.definition);
@@ -318,6 +319,7 @@ export async function runGraph(
   try {
     const initialMessages: ChatMessage[] = [
       { role: "system", content: systemPrompt },
+      ...(priorMessages ?? []),
     ];
     if (userMessage) {
       initialMessages.push({ role: "user", content: userMessage });
@@ -383,9 +385,13 @@ export async function runGraph(
     return { kind: "answer", text: lastText, modelCalls: currentModelCalls, toolLog: currentToolLog, promptTokens: currentPromptTokens, completionTokens: currentCompletionTokens };
   }
 
-  // Fallback: find last assistant message
+  // Fallback: find last assistant message produced in this run (skip injected priorMessages)
   if (finalState?.messages) {
-    for (let i = finalState.messages.length - 1; i >= 0; i--) {
+    // priorMessages were prepended after the system message; new messages start after them
+    const priorCount = priorMessages?.length ?? 0;
+    // +1 for system message, +1 for user message (if present)
+    const newMessageStart = 1 + priorCount + (userMessage ? 1 : 0);
+    for (let i = finalState.messages.length - 1; i >= newMessageStart; i--) {
       const msg = finalState.messages[i];
       if (msg?.role === "assistant" && typeof msg.content === "string") {
         return { kind: "answer", text: msg.content, modelCalls: currentModelCalls, toolLog: currentToolLog, promptTokens: currentPromptTokens, completionTokens: currentCompletionTokens };
