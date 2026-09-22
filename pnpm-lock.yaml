@@ -110,8 +110,8 @@ importers:
         specifier: ^1.427.2
         version: 1.427.2(@types/react@19.2.17)(react@19.2.7)
       posthog-node:
-        specifier: ^5.46.0
-        version: 5.46.0
+        specifier: ^5.52.4
+        version: 5.52.4
       react:
         specifier: 19.2.7
         version: 19.2.7
@@ -1618,14 +1618,17 @@ packages:
   '@posthog/browser-common@0.7.2':
     resolution: {integrity: sha512-ukDmETXy6fTBE4ZpaO8ccscrNz5SvTaUnhQ0Ze2JX/oYILa89rrNwqUH7lDAuhFKa+NY6EoJ9kZMuOvuu4WwLQ==}
 
-  '@posthog/core@1.44.0':
-    resolution: {integrity: sha512-uE+mdKvetxNQC6gWQf4MHIH8bGt+JN6z7ho0A4G3t9G1VGQTx9wHYHNwkKf3gzi+1oAXS9ej2VVY4pjWUU2PWg==}
-
   '@posthog/core@1.50.5':
     resolution: {integrity: sha512-afEchuShDaVIoxAIj76kDZQ1DhfesDmgfVp+mtTzsA3wlc8DF5uoz8YjuTjnxOicWkpP5HCDqYidK/1kT125Cg==}
 
+  '@posthog/core@1.55.0':
+    resolution: {integrity: sha512-x+0FR+uHsK3uJeofd5X4S2YS7hjaWkzkPN0X1GROHm9SvKw2RJ91kfQ7gT1bPtFwZSHNiRtteB7fX/xEMRN0IQ==}
+
   '@posthog/types@1.409.0':
     resolution: {integrity: sha512-239umoaZVb2GBaXeEyJpwFvjhrrChJH8NHCwiao23EBSu3NA6EN0MTMoaHSmMEf4yjiXEFFoYJA6FjJAXF5HGA==}
+
+  '@posthog/types@1.412.2':
+    resolution: {integrity: sha512-taxTh8o6n7ZVlC8qBypZvF+6w7/18yNkS9XDiGCbutGTKqIljfzYi/7pumgwN3mcnl/n0e9A+JhF05+nLd4Xaw==}
 
   '@react-email/body@0.3.0':
     resolution: {integrity: sha512-uGo0BOOzjbMUo3lu+BIDWayvn5o6Xyfmnlla5VGf05n8gHMvO1ll7U4FtzWe3hxMLwt53pmc4iE0M+B5slG+Ug==}
@@ -5584,8 +5587,8 @@ packages:
       react:
         optional: true
 
-  posthog-node@5.46.0:
-    resolution: {integrity: sha512-Uzkth327Qxho9X55UygGUjVKCF9oaox90HQpa0o9YNjwLjbQmXttgHChzAtjAcsMw/ZKr3NnHC3xcAaS5dXwEQ==}
+  posthog-node@5.52.4:
+    resolution: {integrity: sha512-P3p4OouGQfw/ouv+Px4gcVWLNwYsFB4JPyksYmxv7QRX4niwp1/C9XjQSUyl0nt+KoQnK14zFDfONHWVthwKDA==}
     engines: {node: ^20.20.0 || >=22.22.0}
     peerDependencies:
       rxjs: ^7.0.0
@@ -7926,18 +7929,20 @@ snapshots:
 
   '@posthog/browser-common@0.7.2':
     dependencies:
-      '@posthog/core': 1.50.5
-      '@posthog/types': 1.409.0
-
-  '@posthog/core@1.44.0':
-    dependencies:
+      '@posthog/core': 1.55.0
       '@posthog/types': 1.409.0
 
   '@posthog/core@1.50.5':
     dependencies:
       '@posthog/types': 1.409.0
 
+  '@posthog/core@1.55.0':
+    dependencies:
+      '@posthog/types': 1.412.2
+
   '@posthog/types@1.409.0': {}
+
+  '@posthog/types@1.412.2': {}
 
   '@react-email/body@0.3.0(react@19.2.7)':
     dependencies:
@@ -12153,9 +12158,9 @@ snapshots:
     transitivePeerDependencies:
       - preact-render-to-string
 
-  posthog-node@5.46.0:
+  posthog-node@5.52.4:
     dependencies:
-      '@posthog/core': 1.44.0
+      '@posthog/core': 1.55.0
 
   powershell-utils@0.1.0: {}
 
