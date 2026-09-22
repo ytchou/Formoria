@@ -2671,6 +2671,7 @@ export type Database = {
         Row: {
           card_ts: string | null
           channel_id: string
+          completed_at: string | null
           correlation_id: string | null
           cost_usd: number
           created_at: string
@@ -2692,6 +2693,7 @@ export type Database = {
         Insert: {
           card_ts?: string | null
           channel_id: string
+          completed_at?: string | null
           correlation_id?: string | null
           cost_usd?: number
           created_at?: string
@@ -2713,6 +2715,7 @@ export type Database = {
         Update: {
           card_ts?: string | null
           channel_id?: string
+          completed_at?: string | null
           correlation_id?: string | null
           cost_usd?: number
           created_at?: string

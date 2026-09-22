@@ -92,7 +92,7 @@ export const NON_SERVICE_ENV: Readonly<Record<string, string>> = {
   STAGING_BASE_URL:
     "Canonical staging E2E target origin, not a provider service.",
   PRODUCTION_BASE_URL:
-    "Canonical production probe target origin, not a provider service.",
+    "Canonical production origin for health-agent surface checks, not a provider service.",
   E2E_ORIGIN_SECRET:
     "Staging E2E origin authentication secret, not a provider service.",
   E2E_STAGING_SESSION_SECRET:
@@ -366,6 +366,13 @@ export const SERVICE_REGISTRY: readonly ServiceEntry[] = [
       asOf: TODAY,
       sourceUrl: "https://sentry.io/pricing/",
     },
+    quota: {
+      metric: "Errors",
+      included: 5_000,
+      unit: "accepted errors / cycle",
+      overageUsdPerUnit: 0,
+      cycleResetsOnDay: 1,
+    },
     probe: "executive-health",
     dashboardUrl: "https://sentry.io/organizations/",
   },
@@ -566,7 +573,7 @@ export const SERVICE_REGISTRY: readonly ServiceEntry[] = [
     vendor: "GitHub",
     category: "tooling",
     criticality: "back-office",
-    operationalSection: null,
+    operationalSection: "back-office",
     operationalKind: "dependency",
     envVars: [
       "GITHUB_TOKEN",
@@ -660,9 +667,35 @@ export const SERVICE_REGISTRY: readonly ServiceEntry[] = [
       asOf: TODAY,
       sourceUrl: "https://langfuse.com/pricing",
     },
+    quota: {
+      metric: "Observations",
+      included: 50_000,
+      unit: "observations / cycle",
+      overageUsdPerUnit: 0,
+      cycleResetsOnDay: 1,
+    },
     dashboardUrl: "https://cloud.langfuse.com",
     notes:
       "LLM tracing and eval. Free cloud hobby tier (50k observations/month). No-ops when env vars are unset.",
+  },
+  {
+    id: "better-stack",
+    name: "Better Stack",
+    vendor: "Better Stack",
+    category: "observability",
+    criticality: "dev-tooling",
+    operationalSection: "back-office",
+    operationalKind: "dependency",
+    envVars: [],
+    status: "active",
+    plan: {
+      kind: "free",
+      monthlyUsd: 0,
+      asOf: TODAY,
+      sourceUrl: "https://betterstack.com/pricing",
+    },
+    dashboardUrl: "https://uptime.betterstack.com/",
+    notes: "Uptime monitoring. Registry only — no usage meter.",
   },
   {
     id: "repo-worker",

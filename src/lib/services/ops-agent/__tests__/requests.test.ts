@@ -252,8 +252,10 @@ describe("transitionRequest", () => {
 
 describe("isActiveThread", () => {
   function makeCountChain(count: number | null, error: unknown = null) {
+    const isLayer: Record<string, unknown> = {};
+    isLayer.is = vi.fn().mockResolvedValue({ count, error });
     const terminal: Record<string, unknown> = {};
-    terminal.neq = vi.fn().mockResolvedValue({ count, error });
+    terminal.neq = vi.fn().mockReturnValue(isLayer);
     const eqLayer: Record<string, unknown> = {};
     eqLayer.eq = vi.fn().mockReturnValue(terminal);
     const selectLayer: Record<string, unknown> = {};

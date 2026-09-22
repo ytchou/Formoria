@@ -34,6 +34,7 @@ export type OpsRequestRow = {
   toolCalls: Json;
   modelCalls: number;
   costUsd: number;
+  completedAt: string | null;
   correlationId: string | null;
   sessionUrl: string | null;
   expiresAt: string | null;
