@@ -30,11 +30,135 @@ import {
 import {
   expireStale as defaultExpireStale,
   getRequest as defaultGetRequest,
+  getThreadHistory as defaultGetThreadHistory,
   transitionRequest as defaultTransitionRequest,
 } from "./requests";
+import type { ChatMessage } from "@/lib/services/openai-client";
 import type { OpsRequestRow, OpsRequestStatus } from "./types";
+import type { OpsProposal } from "./proposals";
 
 type SlackBlock = Record<string, unknown>;
+
+// gpt-4o-mini pricing (USD per 1M tokens)
+const INPUT_PRICE_PER_M = 0.15;
+const OUTPUT_PRICE_PER_M = 0.60;
+
+function estimateCostUsd(promptTokens: number, completionTokens: number): number {
+  return (promptTokens * INPUT_PRICE_PER_M + completionTokens * OUTPUT_PRICE_PER_M) / 1_000_000;
+}
+
+function formatToolChain(
+  toolLog: { name: string }[],
+  modelCalls: number,
+  costUsd: number,
+): string {
+  const seen = new Set<string>();
+  const unique: string[] = [];
+  for (const entry of toolLog) {
+    if (!seen.has(entry.name)) {
+      seen.add(entry.name);
+      unique.push(entry.name);
+    }
+  }
+  const turnLabel = modelCalls === 1 ? "1 turn" : `${modelCalls} turns`;
+  const costLabel = costUsd > 0 ? `, $${costUsd.toFixed(3)}` : "";
+  const meta = `(${turnLabel}${costLabel})`;
+  if (unique.length === 0) return meta;
+  return `${unique.join(" → ")} ${meta}`;
+}
+
+// ---------------------------------------------------------------------------
+// Thread history formatter
+// ---------------------------------------------------------------------------
+
+const MAX_HISTORY_CONTENT_LENGTH = 500;
+
+function truncateContent(text: string): string {
+  if (text.length <= MAX_HISTORY_CONTENT_LENGTH) return text;
+  return text.slice(0, MAX_HISTORY_CONTENT_LENGTH) + "... (truncated)";
+}
+
+export function formatThreadHistory(rows: OpsRequestRow[]): ChatMessage[] {
+  const messages: ChatMessage[] = [];
+
+  for (const row of rows) {
+    const resultObj = row.result as Record<string, unknown> | null;
+
+    const toolCalls = Array.isArray(resultObj?.toolCalls)
+      ? [...new Set(
+          (resultObj!.toolCalls as { name: string }[]).map((t) => t.name).filter(Boolean),
+        )]
+      : [];
+
+    const toolPrefix = toolCalls.length > 0 ? `[Used: ${toolCalls.join(", ")}] ` : "";
+
+    let summary: string | null = null;
+
+    switch (row.status) {
+      case "answered": {
+        const text =
+          (resultObj?.text as string | undefined) ||
+          (resultObj?.description as string | undefined) ||
+          (resultObj?.sessionUrl as string | undefined) ||
+          "(no response)";
+        summary = text;
+        break;
+      }
+
+      case "executed": {
+        const action = row.proposal
+          ? describeProposal(row.proposal as OpsProposal).action
+          : "(unknown action)";
+        summary = `${action} — executed`;
+        break;
+      }
+
+      case "awaiting_confirm": {
+        const action = row.proposal
+          ? describeProposal(row.proposal as OpsProposal).action
+          : "(unknown action)";
+        summary = `${action} — awaiting confirmation`;
+        break;
+      }
+
+      case "cancelled": {
+        const action = row.proposal
+          ? describeProposal(row.proposal as OpsProposal).action
+          : "(unknown action)";
+        summary = `${action} — cancelled`;
+        break;
+      }
+
+      case "expired": {
+        const action = row.proposal
+          ? describeProposal(row.proposal as OpsProposal).action
+          : "(unknown action)";
+        summary = `${action} — expired`;
+        break;
+      }
+
+      case "refused": {
+        summary = (resultObj?.reason as string | undefined) ?? "(refused)";
+        break;
+      }
+
+      case "failed": {
+        const error = (resultObj?.error as string | undefined) ?? "processing error";
+        summary = `Failed: ${error}`;
+        break;
+      }
+
+      default:
+        // Unrecognized status — skip
+        continue;
+    }
+
+    messages.push({ role: "user", content: row.text });
+    messages.push({ role: "assistant", content: truncateContent(`${toolPrefix}${summary}`) });
+  }
+
+  return messages;
+}
 
 // ---------------------------------------------------------------------------
 // Dependencies
@@ -71,8 +195,10 @@ export type RunOpsAgentDeps = {
     systemPrompt: string,
     userMessage?: string,
     signal?: AbortSignal,
+    priorMessages?: ChatMessage[],
   ) => Promise<GraphResult>;
   fireRoutine?: (params: { routineId: string; text: string }) => Promise<{ sessionUrl: string }>;
+  getThreadHistory?: (channelId: string, threadTs: string, excludeId: string) => Promise<OpsRequestRow[]>;
   toolDeps?: Partial<OpsToolDeps>;
 };
 
@@ -91,6 +217,7 @@ export async function runOpsAgent(
   const buildModel = deps.createAgentModel ?? defaultCreateAgentModel;
   const invokeGraph = deps.runGraph ?? defaultRunGraph;
   const fireRtn = deps.fireRoutine ?? defaultFireRoutine;
+  const getHistory = deps.getThreadHistory ?? defaultGetThreadHistory;
 
   // 1. Expire stale requests
   await expire();
@@ -98,7 +225,7 @@ export async function runOpsAgent(
   // 2. Load request
   const request = await getReq(requestId);
   if (!request) {
-    return { kind: "failed", modelCalls: 0, toolLog: [] };
+    return { kind: "failed", modelCalls: 0, toolLog: [], promptTokens: 0, completionTokens: 0 };
   }
 
   // Wire defaults that need request context (channel, userId, etc.)
@@ -134,7 +261,7 @@ export async function runOpsAgent(
       request.threadTs,
       "Failed to start processing your request. It may already be in progress.",
     ).catch(() => {});
-    return { kind: "failed", modelCalls: 0, toolLog: [] };
+    return { kind: "failed", modelCalls: 0, toolLog: [], promptTokens: 0, completionTokens: 0 };
   }
 
   // 3b. Repair request detection — system bot only
@@ -161,7 +288,7 @@ export async function runOpsAgent(
         const repairSummary = `Repair from ${repairRequest.agent}: ${repairRequest.findings.map((f) => f.title).join(", ")}`;
         await postMsg(request.threadTs, `${repairSummary}\nWorking on it → ${sessionUrl}`);
 
-        return { kind: "answer" as const, text: `Routine fired: ${sessionUrl}`, modelCalls: 0, toolLog: [] };
+        return { kind: "answer" as const, text: `Routine fired: ${sessionUrl}`, modelCalls: 0, toolLog: [], promptTokens: 0, completionTokens: 0 };
       } catch (err) {
         console.error("[ops-agent] repair routine fire failed:", err);
         try {
@@ -172,7 +299,7 @@ export async function runOpsAgent(
         } catch {
           // transition or Slack post failed — already logged above
         }
-        return { kind: "failed" as const, modelCalls: 0, toolLog: [] };
+        return { kind: "failed" as const, modelCalls: 0, toolLog: [], promptTokens: 0, completionTokens: 0 };
       }
     }
 
@@ -187,14 +314,27 @@ export async function runOpsAgent(
       request.threadTs,
       "Received a system message but could not parse a valid repair request.",
     );
-    return { kind: "refused" as const, reason: "invalid_repair_request", modelCalls: 0, toolLog: [] };
+    return { kind: "refused" as const, reason: "invalid_repair_request", modelCalls: 0, toolLog: [], promptTokens: 0, completionTokens: 0 };
   }
+
+  // 3c. Load thread history
+  let history: OpsRequestRow[] = [];
+  try {
+    history = await getHistory(request.channelId, request.threadTs, request.id);
+  } catch (err) {
+    console.error("[ops-agent] getThreadHistory failed, proceeding without context:", err);
+  }
+  const priorMessages = formatThreadHistory(history);
 
   // 4. Fetch prompt
   // The string literal 'ops-agent-system' is the call site for the prompts test
   const { text: rawPrompt, prompt: promptMeta } =
     await fetchLangfusePromptWithMeta("ops-agent-system");
-  const systemPrompt = `${rawPrompt}\n\nAlways respond in English.`;
+  let systemPrompt = `${rawPrompt}\n\nAlways respond in English.`;
+
+  if (priorMessages.length > 0) {
+    systemPrompt += "\n\nPrior messages in this thread are context only — do not re-execute past actions unless explicitly asked.";
+  }
 
   // 5. Create model
   const model = await buildModel("opsAgent", {
@@ -236,14 +376,16 @@ export async function runOpsAgent(
   let result: GraphResult;
 
   try {
-    result = await invokeGraph(model, tools, systemPrompt, request.text, abortSignal);
+    result = await invokeGraph(model, tools, systemPrompt, request.text, abortSignal, priorMessages);
   } catch {
-    result = { kind: "failed", modelCalls: 0, toolLog: [] };
+    result = { kind: "failed", modelCalls: 0, toolLog: [], promptTokens: 0, completionTokens: 0 };
   }
 
   // 8. Post-process based on result kind
   const toolCallsSummary = result.toolLog;
   const modelCallsCount = result.modelCalls;
+  const costUsd = estimateCostUsd(result.promptTokens, result.completionTokens);
+  const chain = formatToolChain(toolCallsSummary, modelCallsCount, costUsd);
 
   try {
     switch (result.kind) {
@@ -255,7 +397,7 @@ export async function runOpsAgent(
             modelCalls: modelCallsCount,
           },
         });
-        await postMsg(request.threadTs, toSlackMrkdwn(result.text));
+        await postMsg(request.threadTs, `${chain}\n${toSlackMrkdwn(result.text)}`);
         break;
       }
 
@@ -282,8 +424,8 @@ export async function runOpsAgent(
             },
           });
           const routineMsg = result.description
-            ? `${result.description}\nWorking on it → ${sessionUrl}`
-            : `Working on it → ${sessionUrl}`;
+            ? `${chain}\n${result.description}\nWorking on it → ${sessionUrl}`
+            : `${chain}\nWorking on it → ${sessionUrl}`;
           await postMsg(request.threadTs, routineMsg);
         } catch (err) {
           console.error("[ops-agent] routine fire failed:", err);
@@ -309,6 +451,7 @@ export async function runOpsAgent(
         const rationale = result.rationale;
 
         const cardMessage = [
+          chain,
           rationale,
           "", // blank line
           `*${desc.action}*`,
@@ -344,7 +487,7 @@ export async function runOpsAgent(
         });
         await postMsg(
           request.threadTs,
-          `I could not complete this request: ${result.reason}`,
+          `${chain}\nI could not complete this request: ${result.reason}`,
         );
         break;
       }
@@ -358,7 +501,7 @@ export async function runOpsAgent(
         });
         await postMsg(
           request.threadTs,
-          "Something went wrong while processing your request. Please try again.",
+          `${chain}\nSomething went wrong while processing your request. Please try again.`,
         );
         break;
       }

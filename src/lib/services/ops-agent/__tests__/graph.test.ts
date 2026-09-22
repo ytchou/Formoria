@@ -288,4 +288,52 @@ describe("runGraph", () => {
       expect(result.text).toBe("Done investigating.");
     }
   });
+
+  // ---------------------------------------------------------------------------
+  // Thread history (priorMessages)
+  // ---------------------------------------------------------------------------
+
+  it("includes priorMessages in initial messages", async () => {
+    const capturedMessages: ChatMessage[][] = [];
+    const model: AgentModel = {
+      async invoke(messages: ChatMessage[]): Promise<AgentModelResponse> {
+        capturedMessages.push([...messages]);
+        return { content: "Got context.", usage: USAGE };
+      },
+    };
+
+    const priorMessages: ChatMessage[] = [
+      { role: "user", content: "what is brand X" },
+      { role: "assistant", content: "Brand X is a snack brand." },
+    ];
+
+    const result = await runGraph(model, [], SYSTEM_PROMPT, "follow up question", undefined, priorMessages);
+    expect(result.kind).toBe("answer");
+
+    // First model call should have [system, prior user, prior assistant, user]
+    const msgs = capturedMessages[0];
+    expect(msgs).toHaveLength(4);
+    expect(msgs[0]).toEqual({ role: "system", content: SYSTEM_PROMPT });
+    expect(msgs[1]).toEqual({ role: "user", content: "what is brand X" });
+    expect(msgs[2]).toEqual({ role: "assistant", content: "Brand X is a snack brand." });
+    expect(msgs[3]).toEqual({ role: "user", content: "follow up question" });
+  });
+
+  it("works without priorMessages (backward compatible)", async () => {
+    const capturedMessages: ChatMessage[][] = [];
+    const model: AgentModel = {
+      async invoke(messages: ChatMessage[]): Promise<AgentModelResponse> {
+        capturedMessages.push([...messages]);
+        return { content: "Direct answer.", usage: USAGE };
+      },
+    };
+
+    const result = await runGraph(model, [], SYSTEM_PROMPT, "hello");
+    expect(result.kind).toBe("answer");
+
+    const msgs = capturedMessages[0];
+    expect(msgs).toHaveLength(2);
+    expect(msgs[0]).toEqual({ role: "system", content: SYSTEM_PROMPT });
+    expect(msgs[1]).toEqual({ role: "user", content: "hello" });
+  });
 });
