@@ -34,10 +34,7 @@ export type ExecuteDeps = {
   }) => Promise<{ id: string }>;
   dispatchCurationJob: (jobId: string) => Promise<unknown>;
   enqueueCurationRecovery: (input: CurationRecoveryInput) => Promise<{ job: { id: string }; counts: CurationRecoveryCounts }>;
-  dispatchWorkflow: (
-    workflowFile: string,
-    inputs: Record<string, string>,
-  ) => Promise<unknown>;
+  dispatchWorkflow: () => Promise<unknown>;
 };
 
 // ---------------------------------------------------------------------------
@@ -112,21 +109,18 @@ async function executeRerunJob(
 // Dispatch: dispatch_workflow
 // ---------------------------------------------------------------------------
 
-const ALLOWED_WORKFLOWS: Record<string, Record<string, string>> = {
-  "e2e-staging": {},
-};
+const ALLOWED_WORKFLOWS = new Set(["e2e-staging"]);
 
 async function executeDispatchWorkflow(
   proposal: Extract<ExecutableProposal, { kind: "dispatch_workflow" }>,
   _ctx: ExecuteContext,
   deps: ExecuteDeps,
 ): Promise<ExecuteResult> {
-  const inputs = ALLOWED_WORKFLOWS[proposal.workflow];
-  if (inputs === undefined) {
+  if (!ALLOWED_WORKFLOWS.has(proposal.workflow)) {
     return { ok: false, error: "not_allowed" };
   }
 
-  await deps.dispatchWorkflow(`${proposal.workflow}.yml`, inputs);
+  await deps.dispatchWorkflow();
   return { ok: true, result: { dispatched: proposal.workflow } };
 }
 

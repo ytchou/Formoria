@@ -16,8 +16,9 @@ vi.mock("@/lib/langfuse/prompt", () => ({
   }),
 }));
 
-import { runOpsAgent, type RunOpsAgentDeps } from "../run";
+import { runOpsAgent, formatThreadHistory, type RunOpsAgentDeps } from "../run";
 import type { GraphResult } from "../graph";
+import type { OpsRequestRow } from "../types";
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -75,6 +76,8 @@ describe("runOpsAgent", () => {
       kind: "failed",
       modelCalls: 0,
       toolLog: [],
+      promptTokens: 0,
+      completionTokens: 0,
     };
 
     const deps: RunOpsAgentDeps = {
@@ -90,6 +93,7 @@ describe("runOpsAgent", () => {
       postMessage: vi.fn(),
       createOpsTools: vi.fn().mockReturnValue([]),
       createAgentModel: vi.fn().mockResolvedValue(fakeModel()),
+      getThreadHistory: vi.fn().mockResolvedValue([]),
       runGraph: vi.fn().mockResolvedValue(graphResult),
     };
 
@@ -104,6 +108,8 @@ describe("runOpsAgent", () => {
       text: "ok",
       modelCalls: 1,
       toolLog: [],
+      promptTokens: 0,
+      completionTokens: 0,
     };
 
     const runGraphMock = vi.fn().mockResolvedValue(graphResult);
@@ -120,6 +126,7 @@ describe("runOpsAgent", () => {
       postMessage: vi.fn(),
       createOpsTools: vi.fn().mockReturnValue([]),
       createAgentModel: vi.fn().mockResolvedValue(fakeModel()),
+      getThreadHistory: vi.fn().mockResolvedValue([]),
       runGraph: runGraphMock,
     };
 
@@ -139,6 +146,8 @@ describe("runOpsAgent", () => {
       text: "Everything is fine.",
       modelCalls: 2,
       toolLog: [{ name: "system_status", ms: 100, bytes: 50 }],
+      promptTokens: 0,
+      completionTokens: 0,
     };
 
     const transitions: Array<{ to: string }> = [];
@@ -154,6 +163,7 @@ describe("runOpsAgent", () => {
       postMessage: vi.fn(),
       createOpsTools: vi.fn().mockReturnValue([]),
       createAgentModel: vi.fn().mockResolvedValue(fakeModel()),
+      getThreadHistory: vi.fn().mockResolvedValue([]),
       runGraph: vi.fn().mockResolvedValue(graphResult),
     };
 
@@ -177,6 +187,8 @@ describe("runOpsAgent", () => {
         { name: "brand_context", ms: 80, bytes: 200 },
         { name: "propose_action", ms: 10, bytes: 50 },
       ],
+      promptTokens: 0,
+      completionTokens: 0,
     };
 
     const transitionPatches: Array<Record<string, unknown>> = [];
@@ -193,6 +205,7 @@ describe("runOpsAgent", () => {
       renderProposalCard: vi.fn().mockReturnValue([{ type: "section", text: "card" }]),
       createOpsTools: vi.fn().mockReturnValue([]),
       createAgentModel: vi.fn().mockResolvedValue(fakeModel()),
+      getThreadHistory: vi.fn().mockResolvedValue([]),
       runGraph: vi.fn().mockResolvedValue(graphResult),
     };
 
@@ -257,6 +270,7 @@ describe("runOpsAgent", () => {
       postMessage: vi.fn(),
       createOpsTools: vi.fn().mockReturnValue([]),
       createAgentModel: vi.fn().mockResolvedValue(fakeModel()),
+      getThreadHistory: vi.fn().mockResolvedValue([]),
       runGraph: vi.fn(),
       fireRoutine,
     };
@@ -315,6 +329,7 @@ describe("runOpsAgent", () => {
       postMessage: vi.fn(),
       createOpsTools: vi.fn().mockReturnValue([]),
       createAgentModel: vi.fn().mockResolvedValue(fakeModel()),
+      getThreadHistory: vi.fn().mockResolvedValue([]),
       runGraph: vi.fn(),
     };
 
@@ -336,6 +351,8 @@ describe("runOpsAgent", () => {
       text: "Here is the answer.",
       modelCalls: 1,
       toolLog: [],
+      promptTokens: 0,
+      completionTokens: 0,
     };
 
     const deps: RunOpsAgentDeps = {
@@ -355,6 +372,7 @@ describe("runOpsAgent", () => {
       postMessage: vi.fn(),
       createOpsTools: vi.fn().mockReturnValue([]),
       createAgentModel: vi.fn().mockResolvedValue(fakeModel()),
+      getThreadHistory: vi.fn().mockResolvedValue([]),
       runGraph: vi.fn().mockResolvedValue(graphResult),
     };
 
@@ -372,6 +390,8 @@ describe("runOpsAgent", () => {
       lastAssistantText: "I'll delegate this to a Routine.",
       modelCalls: 2,
       toolLog: [],
+      promptTokens: 0,
+      completionTokens: 0,
     };
 
     const fireRoutine = vi.fn().mockResolvedValue({
@@ -391,6 +411,7 @@ describe("runOpsAgent", () => {
       postMessage: vi.fn(),
       createOpsTools: vi.fn().mockReturnValue([]),
       createAgentModel: vi.fn().mockResolvedValue(fakeModel()),
+      getThreadHistory: vi.fn().mockResolvedValue([]),
       runGraph: vi.fn().mockResolvedValue(graphResult),
       fireRoutine,
     };
@@ -430,6 +451,8 @@ describe("runOpsAgent", () => {
       lastAssistantText: "I'll delegate this to a Routine.",
       modelCalls: 2,
       toolLog: [],
+      promptTokens: 0,
+      completionTokens: 0,
     };
 
     const fireRoutine = vi.fn().mockRejectedValue(new Error("Routines API error (500)"));
@@ -447,6 +470,7 @@ describe("runOpsAgent", () => {
       postMessage: vi.fn(),
       createOpsTools: vi.fn().mockReturnValue([]),
       createAgentModel: vi.fn().mockResolvedValue(fakeModel()),
+      getThreadHistory: vi.fn().mockResolvedValue([]),
       runGraph: vi.fn().mockResolvedValue(graphResult),
       fireRoutine,
     };
@@ -473,12 +497,233 @@ describe("runOpsAgent", () => {
     );
   });
 
+  it("answer reply includes tool chain and turn count", async () => {
+    const graphResult: GraphResult = {
+      kind: "answer",
+      text: "All healthy.",
+      modelCalls: 2,
+      toolLog: [
+        { name: "system_status", ms: 80, bytes: 100 },
+        { name: "job_detail", ms: 50, bytes: 200 },
+      ],
+      promptTokens: 500,
+      completionTokens: 100,
+    };
+
+    const deps: RunOpsAgentDeps = {
+      getRequest: vi.fn().mockResolvedValue(makeRequest()),
+      transitionRequest: vi.fn().mockImplementation(
+        async (_id: string, _from: string[], to: string, patch?: Record<string, unknown>) => ({
+          ...makeRequest(),
+          status: to,
+          ...patch,
+        }),
+      ),
+      expireStale: vi.fn(),
+      postMessage: vi.fn(),
+      createOpsTools: vi.fn().mockReturnValue([]),
+      createAgentModel: vi.fn().mockResolvedValue(fakeModel()),
+      getThreadHistory: vi.fn().mockResolvedValue([]),
+      runGraph: vi.fn().mockResolvedValue(graphResult),
+    };
+
+    await runOpsAgent("req-1", deps);
+
+    const msg = (deps.postMessage as ReturnType<typeof vi.fn>).mock.calls[0][1] as string;
+    expect(msg).toMatch(/^system_status → job_detail \(2 turns, \$0\.000\)\n/);
+  });
+
+  it("answer reply with no tools shows only turn count", async () => {
+    const graphResult: GraphResult = {
+      kind: "answer",
+      text: "Hello.",
+      modelCalls: 1,
+      toolLog: [],
+      promptTokens: 0,
+      completionTokens: 0,
+    };
+
+    const deps: RunOpsAgentDeps = {
+      getRequest: vi.fn().mockResolvedValue(makeRequest()),
+      transitionRequest: vi.fn().mockImplementation(
+        async (_id: string, _from: string[], to: string, patch?: Record<string, unknown>) => ({
+          ...makeRequest(),
+          status: to,
+          ...patch,
+        }),
+      ),
+      expireStale: vi.fn(),
+      postMessage: vi.fn(),
+      createOpsTools: vi.fn().mockReturnValue([]),
+      createAgentModel: vi.fn().mockResolvedValue(fakeModel()),
+      getThreadHistory: vi.fn().mockResolvedValue([]),
+      runGraph: vi.fn().mockResolvedValue(graphResult),
+    };
+
+    await runOpsAgent("req-1", deps);
+
+    const msg = (deps.postMessage as ReturnType<typeof vi.fn>).mock.calls[0][1] as string;
+    expect(msg).toMatch(/^\(1 turn\)\n/);
+  });
+
+  it("routine reply includes tool chain before description", async () => {
+    const graphResult: GraphResult = {
+      kind: "routine",
+      description: "Investigate curation job",
+      lastAssistantText: "",
+      modelCalls: 3,
+      toolLog: [
+        { name: "system_status", ms: 80, bytes: 100 },
+        { name: "job_detail", ms: 50, bytes: 200 },
+      ],
+      promptTokens: 0,
+      completionTokens: 0,
+    };
+
+    const fireRoutine = vi.fn().mockResolvedValue({
+      sessionUrl: "https://claude.ai/code/session/xyz",
+    });
+
+    const deps: RunOpsAgentDeps = {
+      getRequest: vi.fn().mockResolvedValue(makeRequest()),
+      transitionRequest: vi.fn().mockImplementation(
+        async (_id: string, _from: string[], to: string, patch?: Record<string, unknown>) => ({
+          ...makeRequest(),
+          status: to,
+          ...patch,
+        }),
+      ),
+      expireStale: vi.fn(),
+      postMessage: vi.fn(),
+      createOpsTools: vi.fn().mockReturnValue([]),
+      createAgentModel: vi.fn().mockResolvedValue(fakeModel()),
+      getThreadHistory: vi.fn().mockResolvedValue([]),
+      runGraph: vi.fn().mockResolvedValue(graphResult),
+      fireRoutine,
+    };
+
+    await runOpsAgent("req-1", deps);
+
+    const msg = (deps.postMessage as ReturnType<typeof vi.fn>).mock.calls[0][1] as string;
+    expect(msg).toMatch(/^system_status → job_detail \(3 turns\)\n/);
+    expect(msg).toContain("Investigate curation job");
+    expect(msg).toContain("session/xyz");
+  });
+
+  it("tool chain deduplicates repeated tool names", async () => {
+    const graphResult: GraphResult = {
+      kind: "answer",
+      text: "Done.",
+      modelCalls: 3,
+      toolLog: [
+        { name: "system_status", ms: 80, bytes: 100 },
+        { name: "brand_context", ms: 50, bytes: 200 },
+        { name: "system_status", ms: 40, bytes: 90 },
+      ],
+      promptTokens: 0,
+      completionTokens: 0,
+    };
+
+    const deps: RunOpsAgentDeps = {
+      getRequest: vi.fn().mockResolvedValue(makeRequest()),
+      transitionRequest: vi.fn().mockImplementation(
+        async (_id: string, _from: string[], to: string, patch?: Record<string, unknown>) => ({
+          ...makeRequest(),
+          status: to,
+          ...patch,
+        }),
+      ),
+      expireStale: vi.fn(),
+      postMessage: vi.fn(),
+      createOpsTools: vi.fn().mockReturnValue([]),
+      createAgentModel: vi.fn().mockResolvedValue(fakeModel()),
+      getThreadHistory: vi.fn().mockResolvedValue([]),
+      runGraph: vi.fn().mockResolvedValue(graphResult),
+    };
+
+    await runOpsAgent("req-1", deps);
+
+    const msg = (deps.postMessage as ReturnType<typeof vi.fn>).mock.calls[0][1] as string;
+    expect(msg).toMatch(/^system_status → brand_context \(3 turns\)\n/);
+  });
+
+  it("cost is shown when tokens are non-zero", async () => {
+    // 10000 prompt + 2000 completion at gpt-4o-mini rates:
+    // (10000 * 0.15 + 2000 * 0.60) / 1_000_000 = 0.0027
+    const graphResult: GraphResult = {
+      kind: "answer",
+      text: "Status report.",
+      modelCalls: 3,
+      toolLog: [{ name: "system_status", ms: 80, bytes: 100 }],
+      promptTokens: 10000,
+      completionTokens: 2000,
+    };
+
+    const deps: RunOpsAgentDeps = {
+      getRequest: vi.fn().mockResolvedValue(makeRequest()),
+      transitionRequest: vi.fn().mockImplementation(
+        async (_id: string, _from: string[], to: string, patch?: Record<string, unknown>) => ({
+          ...makeRequest(),
+          status: to,
+          ...patch,
+        }),
+      ),
+      expireStale: vi.fn(),
+      postMessage: vi.fn(),
+      createOpsTools: vi.fn().mockReturnValue([]),
+      createAgentModel: vi.fn().mockResolvedValue(fakeModel()),
+      getThreadHistory: vi.fn().mockResolvedValue([]),
+      runGraph: vi.fn().mockResolvedValue(graphResult),
+    };
+
+    await runOpsAgent("req-1", deps);
+
+    const msg = (deps.postMessage as ReturnType<typeof vi.fn>).mock.calls[0][1] as string;
+    expect(msg).toMatch(/^system_status \(3 turns, \$0\.003\)\n/);
+  });
+
+  it("cost is omitted when tokens are zero", async () => {
+    const graphResult: GraphResult = {
+      kind: "answer",
+      text: "Quick answer.",
+      modelCalls: 1,
+      toolLog: [{ name: "system_status", ms: 50, bytes: 80 }],
+      promptTokens: 0,
+      completionTokens: 0,
+    };
+
+    const deps: RunOpsAgentDeps = {
+      getRequest: vi.fn().mockResolvedValue(makeRequest()),
+      transitionRequest: vi.fn().mockImplementation(
+        async (_id: string, _from: string[], to: string, patch?: Record<string, unknown>) => ({
+          ...makeRequest(),
+          status: to,
+          ...patch,
+        }),
+      ),
+      expireStale: vi.fn(),
+      postMessage: vi.fn(),
+      createOpsTools: vi.fn().mockReturnValue([]),
+      createAgentModel: vi.fn().mockResolvedValue(fakeModel()),
+      getThreadHistory: vi.fn().mockResolvedValue([]),
+      runGraph: vi.fn().mockResolvedValue(graphResult),
+    };
+
+    await runOpsAgent("req-1", deps);
+
+    const msg = (deps.postMessage as ReturnType<typeof vi.fn>).mock.calls[0][1] as string;
+    expect(msg).toMatch(/^system_status \(1 turn\)\n/);
+    expect(msg).not.toContain("$");
+  });
+
   it("human_with_valid_repair_json_uses_llm_path", async () => {
     const graphResult: GraphResult = {
       kind: "answer",
       text: "I see that repair request.",
       modelCalls: 1,
       toolLog: [],
+      promptTokens: 0,
+      completionTokens: 0,
     };
 
     const deps: RunOpsAgentDeps = {
@@ -498,6 +743,7 @@ describe("runOpsAgent", () => {
       postMessage: vi.fn(),
       createOpsTools: vi.fn().mockReturnValue([]),
       createAgentModel: vi.fn().mockResolvedValue(fakeModel()),
+      getThreadHistory: vi.fn().mockResolvedValue([]),
       runGraph: vi.fn().mockResolvedValue(graphResult),
     };
 
@@ -507,5 +753,299 @@ describe("runOpsAgent", () => {
     expect(deps.runGraph).toHaveBeenCalledOnce();
 
     expect(result.kind).toBe("answer");
+  });
+
+  // ---------------------------------------------------------------------------
+  // Thread history injection
+  // ---------------------------------------------------------------------------
+
+  it("passes prior messages to graph", async () => {
+    const historyRows: OpsRequestRow[] = [
+      {
+        ...makeRequest(),
+        id: "req-0",
+        status: "answered" as const,
+        text: "what is brand X",
+        result: { text: "Brand X is a snack brand.", toolCalls: [], modelCalls: 1 },
+      },
+    ];
+
+    const runGraphMock = vi.fn().mockResolvedValue({
+      kind: "answer",
+      text: "Follow up answer.",
+      modelCalls: 1,
+      toolLog: [],
+      promptTokens: 0,
+      completionTokens: 0,
+    } as GraphResult);
+
+    const deps: RunOpsAgentDeps = {
+      getRequest: vi.fn().mockResolvedValue(makeRequest()),
+      transitionRequest: vi.fn().mockImplementation(
+        async (_id: string, _from: string[], to: string, patch?: Record<string, unknown>) => ({
+          ...makeRequest(),
+          status: to,
+          ...patch,
+        }),
+      ),
+      expireStale: vi.fn(),
+      postMessage: vi.fn(),
+      createOpsTools: vi.fn().mockReturnValue([]),
+      createAgentModel: vi.fn().mockResolvedValue(fakeModel()),
+      getThreadHistory: vi.fn().mockResolvedValue(historyRows),
+      runGraph: runGraphMock,
+    };
+
+    await runOpsAgent("req-1", deps);
+
+    const priorMessages = runGraphMock.mock.calls[0][5];
+    expect(priorMessages).toEqual([
+      { role: "user", content: "what is brand X" },
+      { role: "assistant", content: "Brand X is a snack brand." },
+    ]);
+
+    // Thread-awareness guard should be in system prompt
+    const passedPrompt = runGraphMock.mock.calls[0][2] as string;
+    expect(passedPrompt).toContain("Prior messages in this thread are context only");
+  });
+
+  it("passes empty priorMessages for first message in thread", async () => {
+    const runGraphMock = vi.fn().mockResolvedValue({
+      kind: "answer",
+      text: "ok",
+      modelCalls: 1,
+      toolLog: [],
+      promptTokens: 0,
+      completionTokens: 0,
+    } as GraphResult);
+
+    const deps: RunOpsAgentDeps = {
+      getRequest: vi.fn().mockResolvedValue(makeRequest()),
+      transitionRequest: vi.fn().mockImplementation(
+        async (_id: string, _from: string[], to: string, patch?: Record<string, unknown>) => ({
+          ...makeRequest(),
+          status: to,
+          ...patch,
+        }),
+      ),
+      expireStale: vi.fn(),
+      postMessage: vi.fn(),
+      createOpsTools: vi.fn().mockReturnValue([]),
+      createAgentModel: vi.fn().mockResolvedValue(fakeModel()),
+      getThreadHistory: vi.fn().mockResolvedValue([]),
+      runGraph: runGraphMock,
+    };
+
+    await runOpsAgent("req-1", deps);
+
+    const priorMessages = runGraphMock.mock.calls[0][5];
+    expect(priorMessages).toEqual([]);
+
+    // Thread-awareness guard should NOT be in system prompt
+    const passedPrompt = runGraphMock.mock.calls[0][2] as string;
+    expect(passedPrompt).not.toContain("Prior messages in this thread are context only");
+  });
+
+  it("injects getThreadHistory via deps", async () => {
+    const getThreadHistoryMock = vi.fn().mockResolvedValue([]);
+
+    const deps: RunOpsAgentDeps = {
+      getRequest: vi.fn().mockResolvedValue(makeRequest()),
+      transitionRequest: vi.fn().mockImplementation(
+        async (_id: string, _from: string[], to: string, patch?: Record<string, unknown>) => ({
+          ...makeRequest(),
+          status: to,
+          ...patch,
+        }),
+      ),
+      expireStale: vi.fn(),
+      postMessage: vi.fn(),
+      createOpsTools: vi.fn().mockReturnValue([]),
+      createAgentModel: vi.fn().mockResolvedValue(fakeModel()),
+      getThreadHistory: getThreadHistoryMock,
+      runGraph: vi.fn().mockResolvedValue({
+        kind: "answer",
+        text: "ok",
+        modelCalls: 1,
+        toolLog: [],
+        promptTokens: 0,
+        completionTokens: 0,
+      }),
+    };
+
+    await runOpsAgent("req-1", deps);
+
+    expect(getThreadHistoryMock).toHaveBeenCalledWith("C_OPS", "1234.5678", "req-1");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// formatThreadHistory
+// ---------------------------------------------------------------------------
+
+describe("formatThreadHistory", () => {
+  function makeRow(overrides: Partial<OpsRequestRow> = {}): OpsRequestRow {
+    return { ...makeRequest(), ...overrides } as OpsRequestRow;
+  }
+
+  it("produces user/assistant pair for answered text", () => {
+    const row = makeRow({
+      status: "answered" as const,
+      text: "how is the system",
+      result: { text: "All systems healthy.", toolCalls: [], modelCalls: 1 },
+    });
+
+    const messages = formatThreadHistory([row]);
+    expect(messages).toEqual([
+      { role: "user", content: "how is the system" },
+      { role: "assistant", content: "All systems healthy." },
+    ]);
+  });
+
+  it("produces pair for answered routine", () => {
+    const row = makeRow({
+      status: "answered" as const,
+      text: "investigate brand images",
+      result: {
+        description: "Investigate brand images",
+        sessionUrl: "https://claude.ai/code/session/abc",
+        toolCalls: [],
+        modelCalls: 1,
+      },
+    });
+
+    const messages = formatThreadHistory([row]);
+    expect(messages).toHaveLength(2);
+    expect(messages[0]).toEqual({ role: "user", content: "investigate brand images" });
+    // No result.text — falls through to description
+    expect(messages[1].content).toContain("Investigate brand images");
+  });
+
+  it("produces pair for answered system-bot", () => {
+    const row = makeRow({
+      status: "answered" as const,
+      text: "repair request payload",
+      result: {
+        sessionUrl: "https://claude.ai/code/session/repair-1",
+        modelCalls: 0,
+      },
+    });
+
+    const messages = formatThreadHistory([row]);
+    expect(messages).toHaveLength(2);
+    // No result.text, no description — falls through to sessionUrl
+    expect(messages[1].content).toContain("https://claude.ai/code/session/repair-1");
+  });
+
+  it("produces pair for executed", () => {
+    const row = makeRow({
+      status: "executed" as const,
+      text: "refresh brand test-brand",
+      proposal: { kind: "refresh_brand", slug: "test-brand" },
+      result: { toolCalls: [], modelCalls: 1 },
+    });
+
+    const messages = formatThreadHistory([row]);
+    expect(messages).toHaveLength(2);
+    expect(messages[1].content).toContain("Refresh brand: test-brand");
+    expect(messages[1].content).toMatch(/executed/i);
+  });
+
+  it("produces pair for awaiting_confirm", () => {
+    const row = makeRow({
+      status: "awaiting_confirm" as const,
+      text: "refresh brand test-brand",
+      proposal: { kind: "refresh_brand", slug: "test-brand" },
+      result: { toolCalls: [], modelCalls: 1 },
+    });
+
+    const messages = formatThreadHistory([row]);
+    expect(messages).toHaveLength(2);
+    expect(messages[1].content).toContain("Refresh brand: test-brand");
+    expect(messages[1].content).toMatch(/confirmation/i);
+  });
+
+  it("produces pair for cancelled", () => {
+    const row = makeRow({
+      status: "cancelled" as const,
+      text: "refresh brand test-brand",
+      proposal: { kind: "refresh_brand", slug: "test-brand" },
+      result: { toolCalls: [], modelCalls: 1 },
+    });
+
+    const messages = formatThreadHistory([row]);
+    expect(messages).toHaveLength(2);
+    expect(messages[1].content).toContain("Refresh brand: test-brand");
+    expect(messages[1].content).toMatch(/cancelled/);
+  });
+
+  it("produces pair for expired", () => {
+    const row = makeRow({
+      status: "expired" as const,
+      text: "refresh brand test-brand",
+      proposal: { kind: "refresh_brand", slug: "test-brand" },
+      result: { toolCalls: [], modelCalls: 1 },
+    });
+
+    const messages = formatThreadHistory([row]);
+    expect(messages).toHaveLength(2);
+    expect(messages[1].content).toContain("Refresh brand: test-brand");
+    expect(messages[1].content).toMatch(/expired/);
+  });
+
+  it("produces pair for refused", () => {
+    const row = makeRow({
+      status: "refused" as const,
+      text: "do something dangerous",
+      result: { reason: "Action not permitted", toolCalls: [], modelCalls: 1 },
+    });
+
+    const messages = formatThreadHistory([row]);
+    expect(messages).toHaveLength(2);
+    expect(messages[1].content).toContain("Action not permitted");
+  });
+
+  it("produces pair for failed", () => {
+    const row = makeRow({
+      status: "failed" as const,
+      text: "check something",
+      result: { error: "timeout exceeded", toolCalls: [], modelCalls: 1 },
+    });
+
+    const messages = formatThreadHistory([row]);
+    expect(messages).toHaveLength(2);
+    expect(messages[1].content).toMatch(/Failed/);
+  });
+
+  it("reads tool names from result.toolCalls not row.toolCalls", () => {
+    const row = makeRow({
+      status: "answered" as const,
+      text: "check brand status",
+      toolCalls: [],  // row-level toolCalls is empty
+      result: {
+        text: "Brand looks good.",
+        toolCalls: [{ name: "brand_context", ms: 80, bytes: 200 }],
+        modelCalls: 1,
+      },
+    });
+
+    const messages = formatThreadHistory([row]);
+    expect(messages[1].content).toContain("[Used: brand_context]");
+  });
+
+  it("handles missing result.toolCalls", () => {
+    const row = makeRow({
+      status: "answered" as const,
+      text: "quick question",
+      result: { text: "Quick answer.", modelCalls: 1 },
+    });
+
+    const messages = formatThreadHistory([row]);
+    expect(messages[1].content).not.toContain("[Used: ]");
+    expect(messages[1].content).toBe("Quick answer.");
+  });
+
+  it("returns empty array for empty input", () => {
+    expect(formatThreadHistory([])).toEqual([]);
   });
 });

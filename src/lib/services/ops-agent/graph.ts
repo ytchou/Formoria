@@ -67,18 +67,19 @@ const OpsGraphState = Annotation.Root({
 // Result type
 // ---------------------------------------------------------------------------
 
+type GraphResultBase = {
+  modelCalls: number;
+  toolLog: ToolLogEntry[];
+  promptTokens: number;
+  completionTokens: number;
+};
+
 export type GraphResult =
-  | { kind: "answer"; text: string; modelCalls: number; toolLog: ToolLogEntry[] }
-  | {
-      kind: "proposal";
-      proposal: OpsProposal;
-      rationale: string;
-      modelCalls: number;
-      toolLog: ToolLogEntry[];
-    }
-  | { kind: "routine"; description: string; lastAssistantText: string; modelCalls: number; toolLog: ToolLogEntry[] }
-  | { kind: "refused"; reason: string; modelCalls: number; toolLog: ToolLogEntry[] }
-  | { kind: "failed"; reason?: "timeout" | "error"; modelCalls: number; toolLog: ToolLogEntry[] };
+  | (GraphResultBase & { kind: "answer"; text: string })
+  | (GraphResultBase & { kind: "proposal"; proposal: OpsProposal; rationale: string })
+  | (GraphResultBase & { kind: "routine"; description: string; lastAssistantText: string })
+  | (GraphResultBase & { kind: "refused"; reason: string })
+  | (GraphResultBase & { kind: "failed"; reason?: "timeout" | "error" });
 
 // ---------------------------------------------------------------------------
 // runGraph
@@ -90,6 +91,7 @@ export async function runGraph(
   systemPrompt: string,
   userMessage?: string,
   signal?: AbortSignal,
+  priorMessages?: ChatMessage[],
 ): Promise<GraphResult> {
   const toolMap = new Map(tools.map((t) => [t.definition.name, t]));
   const toolDefs = tools.map((t) => t.definition);
@@ -100,6 +102,8 @@ export async function runGraph(
   let currentRoutineDescription: string | undefined;
   let currentBadSubmits = 0;
   let currentModelCalls = 0;
+  let currentPromptTokens = 0;
+  let currentCompletionTokens = 0;
   let previousStepHash = "";
   let consecutiveRepeatCount = 0;
   let noProgress = false;
@@ -115,6 +119,9 @@ export async function runGraph(
       tools: toolDefs,
       signal,
     });
+
+    currentPromptTokens += response.usage?.prompt_tokens ?? 0;
+    currentCompletionTokens += response.usage?.completion_tokens ?? 0;
 
     const newMessages: ChatMessage[] = [];
     let lastAssistantText: string | undefined;
@@ -312,6 +319,7 @@ export async function runGraph(
   try {
     const initialMessages: ChatMessage[] = [
       { role: "system", content: systemPrompt },
+      ...(priorMessages ?? []),
     ];
     if (userMessage) {
       initialMessages.push({ role: "user", content: userMessage });
@@ -323,15 +331,15 @@ export async function runGraph(
     ) as typeof OpsGraphState.State;
   } catch (err) {
     if (abortSignal.aborted) {
-      return { kind: "failed", reason: "timeout", modelCalls: currentModelCalls, toolLog: currentToolLog };
+      return { kind: "failed", reason: "timeout", modelCalls: currentModelCalls, toolLog: currentToolLog, promptTokens: currentPromptTokens, completionTokens: currentCompletionTokens };
     }
     if (
       err instanceof Error &&
       err.constructor.name === "GraphRecursionError"
     ) {
-      return { kind: "refused", reason: "turn_cap", modelCalls: currentModelCalls, toolLog: currentToolLog };
+      return { kind: "refused", reason: "turn_cap", modelCalls: currentModelCalls, toolLog: currentToolLog, promptTokens: currentPromptTokens, completionTokens: currentCompletionTokens };
     }
-    return { kind: "failed", reason: "error", modelCalls: currentModelCalls, toolLog: currentToolLog };
+    return { kind: "failed", reason: "error", modelCalls: currentModelCalls, toolLog: currentToolLog, promptTokens: currentPromptTokens, completionTokens: currentCompletionTokens };
   }
 
   // Determine result from closed-over state
@@ -342,6 +350,8 @@ export async function runGraph(
       lastAssistantText: finalState?.lastAssistantText ?? "",
       modelCalls: currentModelCalls,
       toolLog: currentToolLog,
+      promptTokens: currentPromptTokens,
+      completionTokens: currentCompletionTokens,
     };
   }
 
@@ -352,36 +362,42 @@ export async function runGraph(
       rationale: currentRationale ?? "",
       modelCalls: currentModelCalls,
       toolLog: currentToolLog,
+      promptTokens: currentPromptTokens,
+      completionTokens: currentCompletionTokens,
     };
   }
 
   if (noProgress) {
-    return { kind: "refused", reason: "no_progress", modelCalls: currentModelCalls, toolLog: currentToolLog };
+    return { kind: "refused", reason: "no_progress", modelCalls: currentModelCalls, toolLog: currentToolLog, promptTokens: currentPromptTokens, completionTokens: currentCompletionTokens };
   }
 
   if (currentBadSubmits >= MAX_BAD_PROPOSALS) {
-    return { kind: "refused", reason: "bad_proposals", modelCalls: currentModelCalls, toolLog: currentToolLog };
+    return { kind: "refused", reason: "bad_proposals", modelCalls: currentModelCalls, toolLog: currentToolLog, promptTokens: currentPromptTokens, completionTokens: currentCompletionTokens };
   }
 
   if (currentModelCalls >= MAX_TURNS) {
-    return { kind: "refused", reason: "turn_cap", modelCalls: currentModelCalls, toolLog: currentToolLog };
+    return { kind: "refused", reason: "turn_cap", modelCalls: currentModelCalls, toolLog: currentToolLog, promptTokens: currentPromptTokens, completionTokens: currentCompletionTokens };
   }
 
   // Text answer: extract from final state
   const lastText = finalState?.lastAssistantText;
   if (lastText !== undefined) {
-    return { kind: "answer", text: lastText, modelCalls: currentModelCalls, toolLog: currentToolLog };
+    return { kind: "answer", text: lastText, modelCalls: currentModelCalls, toolLog: currentToolLog, promptTokens: currentPromptTokens, completionTokens: currentCompletionTokens };
   }
 
-  // Fallback: find last assistant message
+  // Fallback: find last assistant message produced in this run (skip injected priorMessages)
   if (finalState?.messages) {
-    for (let i = finalState.messages.length - 1; i >= 0; i--) {
+    // priorMessages were prepended after the system message; new messages start after them
+    const priorCount = priorMessages?.length ?? 0;
+    // +1 for system message, +1 for user message (if present)
+    const newMessageStart = 1 + priorCount + (userMessage ? 1 : 0);
+    for (let i = finalState.messages.length - 1; i >= newMessageStart; i--) {
       const msg = finalState.messages[i];
       if (msg?.role === "assistant" && typeof msg.content === "string") {
-        return { kind: "answer", text: msg.content, modelCalls: currentModelCalls, toolLog: currentToolLog };
+        return { kind: "answer", text: msg.content, modelCalls: currentModelCalls, toolLog: currentToolLog, promptTokens: currentPromptTokens, completionTokens: currentCompletionTokens };
       }
     }
   }
 
-  return { kind: "failed", modelCalls: currentModelCalls, toolLog: currentToolLog };
+  return { kind: "failed", modelCalls: currentModelCalls, toolLog: currentToolLog, promptTokens: currentPromptTokens, completionTokens: currentCompletionTokens };
 }

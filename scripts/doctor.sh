@@ -387,7 +387,7 @@ check_ops_agent_vars() {
   if [ ! -f ".env.local" ]; then
     return
   fi
-  for var in SLACK_BOT_TOKEN SLACK_SIGNING_SECRET OPS_AGENT OPS_AGENT_OPERATORS OPS_AGENT_DAILY_CAP OPS_AGENT_GITHUB_TOKEN OPS_ROUTINE_TOKEN OPS_ROUTINE_ID; do
+  for var in SLACK_BOT_TOKEN SLACK_SIGNING_SECRET OPS_AGENT OPS_AGENT_OPERATORS OPS_AGENT_DAILY_CAP OPS_AGENT_RAILWAY_TOKEN OPS_ROUTINE_TOKEN OPS_ROUTINE_ID; do
     if [ -z "${!var:-}" ] && ! grep -q "^${var}=." .env.local 2>/dev/null; then
       echo "WARN: ${var} not set (optional — needed for the ops agent)"
     fi
