@@ -13,6 +13,7 @@ import {
   createRequest,
   admitRequest,
   getRequest,
+  getThreadHistory,
   isActiveThread,
   transitionRequest,
 } from "../requests";
@@ -61,8 +62,16 @@ function chainableQuery(data: unknown, error: unknown = null) {
   obj.gte = vi.fn().mockReturnValue(self);
   obj.lt = vi.fn().mockReturnValue(self);
   obj.lte = vi.fn().mockReturnValue(self);
+  obj.neq = vi.fn().mockReturnValue(self);
+  obj.not = vi.fn().mockReturnValue(self);
+  obj.order = vi.fn().mockReturnValue(self);
+  obj.limit = vi.fn().mockReturnValue(self);
   obj.single = vi.fn().mockResolvedValue({ data, error });
   obj.maybeSingle = vi.fn().mockResolvedValue({ data, error });
+  obj.then = vi.fn().mockImplementation(
+    (resolve?: (v: unknown) => unknown) =>
+      Promise.resolve({ data, error }).then(resolve),
+  );
   return obj;
 }
 
@@ -318,5 +327,68 @@ describe("getRequest", () => {
     const result = await getRequest("req-1", mockClient);
     expect(result).not.toBeNull();
     expect(result!.sessionUrl).toBeNull();
+  });
+});
+
+describe("getThreadHistory", () => {
+  it("returns rows for a thread", async () => {
+    const row1 = makeDbRow({ id: "req-older", created_at: "2026-09-15T00:00:00Z" });
+    const row2 = makeDbRow({ id: "req-newer", created_at: "2026-09-15T01:00:00Z" });
+    // DB returns DESC order (newest first)
+    const chain = chainableQuery([row2, row1]);
+    mockFrom.mockReturnValue(chain);
+
+    const result = await getThreadHistory("C_OPS", "1234.5678", "exclude-id", 10, mockClient);
+
+    expect(result).toHaveLength(2);
+    // Reversed to chronological (oldest first)
+    expect(result[0].id).toBe("req-older");
+    expect(result[1].id).toBe("req-newer");
+    // Verify camelCase mapping
+    expect(result[0].channelId).toBe("C_OPS");
+  });
+
+  it("excludes current request", async () => {
+    const row = makeDbRow({ id: "req-other" });
+    const chain = chainableQuery([row]);
+    mockFrom.mockReturnValue(chain);
+
+    const result = await getThreadHistory("C_OPS", "1234.5678", "req-current", 10, mockClient);
+
+    expect(result).toHaveLength(1);
+    expect(result[0].id).toBe("req-other");
+    expect(chain.neq).toHaveBeenCalledWith("id", "req-current");
+  });
+
+  it("excludes received and running statuses", async () => {
+    const chain = chainableQuery([makeDbRow({ status: "answered" })]);
+    mockFrom.mockReturnValue(chain);
+
+    await getThreadHistory("C_OPS", "1234.5678", "exclude-id", 10, mockClient);
+
+    expect(chain.not).toHaveBeenCalledWith("status", "in", '("received","running")');
+  });
+
+  it("respects limit", async () => {
+    const rows = [
+      makeDbRow({ id: "req-2", created_at: "2026-09-15T01:00:00Z" }),
+      makeDbRow({ id: "req-1", created_at: "2026-09-15T00:00:00Z" }),
+    ];
+    const chain = chainableQuery(rows);
+    mockFrom.mockReturnValue(chain);
+
+    const result = await getThreadHistory("C_OPS", "1234.5678", "exclude-id", 2, mockClient);
+
+    expect(chain.limit).toHaveBeenCalledWith(2);
+    expect(result).toHaveLength(2);
+  });
+
+  it("returns empty for first message", async () => {
+    const chain = chainableQuery([]);
+    mockFrom.mockReturnValue(chain);
+
+    const result = await getThreadHistory("C_OPS", "1234.5678", "req-first", 10, mockClient);
+
+    expect(result).toEqual([]);
   });
 });
