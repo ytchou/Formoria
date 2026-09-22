@@ -7,7 +7,8 @@ import type { FrozenFailure, RepairResult, RunOutcome } from './types'
 // Types
 // ---------------------------------------------------------------------------
 
-type SlackParams = { channel: string; text: string }
+type SlackBlock = Record<string, unknown>
+type SlackParams = { channel: string; text: string; blocks?: SlackBlock[] }
 type SlackResult = { ok: boolean; ts?: string; error?: string }
 
 export type ReportDeps = {
@@ -55,6 +56,18 @@ function buildPrBody(deps: ReportDeps): string {
   ].join('\n')
 }
 
+function contextBlock(deps: ReportDeps): SlackBlock {
+  return {
+    type: 'context',
+    elements: [
+      {
+        type: 'mrkdwn',
+        text: `Run: \`${deps.runId.slice(0, 8)}\` · SHA: \`${deps.stagingSha.slice(0, 7)}\``,
+      },
+    ],
+  }
+}
+
 // ---------------------------------------------------------------------------
 // Outcome handlers
 // ---------------------------------------------------------------------------
@@ -73,15 +86,29 @@ async function handlePatched(deps: ReportDeps): Promise<void> {
 
   const result = await deps.publish(input)
   const prUrl = result.ok && 'prUrl' in result ? result.prUrl : '(unknown)'
+  const fallback = `E2E self-heal [patched]: PR ${prUrl} for run \`${deps.runId}\``
 
   await deps.postSlackMessage({
     channel: SLACK_CHANNEL,
-    text: `E2E self-heal [patched]: PR ${prUrl} for run \`${deps.runId}\``,
+    text: fallback,
+    blocks: [
+      {
+        type: 'header',
+        text: { type: 'plain_text', text: 'E2E Self-Heal: Patched', emoji: true },
+      },
+      {
+        type: 'section',
+        text: {
+          type: 'mrkdwn',
+          text: `✅ *${deps.frozenFailures.length} failure${deps.frozenFailures.length === 1 ? '' : 's'} fixed* · <${prUrl}|PR>`,
+        },
+      },
+      contextBlock(deps),
+    ],
   })
 }
 
 async function handleNeedsHuman(deps: ReportDeps): Promise<void> {
-  // Draft PR if there are changed files
   let prUrl = '(no PR)'
   if (deps.repair?.changedFiles.length) {
     const input: PublishInput = {
@@ -97,7 +124,6 @@ async function handleNeedsHuman(deps: ReportDeps): Promise<void> {
     prUrl = result.ok && 'prUrl' in result ? result.prUrl : '(failed)'
   }
 
-  // Linear ticket
   const ticket = await deps.createTicket({
     title: `E2E nightly needs human: ${deps.runId}`,
     body: [
@@ -111,16 +137,48 @@ async function handleNeedsHuman(deps: ReportDeps): Promise<void> {
     label: '5bb8cb23-6463-436b-befc-0463806d13b6',
   })
 
+  const fallback = `E2E self-heal [needs_human]: ${ticket.identifier} — PR ${prUrl} for run \`${deps.runId}\``
+
   await deps.postSlackMessage({
     channel: SLACK_CHANNEL,
-    text: `E2E self-heal [needs_human]: ${ticket.identifier} — PR ${prUrl} for run \`${deps.runId}\``,
+    text: fallback,
+    blocks: [
+      {
+        type: 'header',
+        text: { type: 'plain_text', text: 'E2E Self-Heal: Needs Human', emoji: true },
+      },
+      {
+        type: 'section',
+        text: {
+          type: 'mrkdwn',
+          text: `🔧 *${ticket.identifier}* · <${prUrl}|Draft PR>`,
+        },
+      },
+      contextBlock(deps),
+    ],
   })
 }
 
 async function handleNoise(deps: ReportDeps): Promise<void> {
+  const fallback = `E2E self-heal [noise]: run \`${deps.runId}\` — failures classified as transient, no action taken`
+
   await deps.postSlackMessage({
     channel: SLACK_CHANNEL,
-    text: `E2E self-heal [noise]: run \`${deps.runId}\` — failures classified as transient, no action taken`,
+    text: fallback,
+    blocks: [
+      {
+        type: 'header',
+        text: { type: 'plain_text', text: 'E2E Self-Heal: Noise', emoji: true },
+      },
+      {
+        type: 'section',
+        text: {
+          type: 'mrkdwn',
+          text: '🔇 Failures classified as transient — no action taken',
+        },
+      },
+      contextBlock(deps),
+    ],
   })
 }
 
@@ -136,9 +194,25 @@ async function handleFallback(deps: ReportDeps): Promise<void> {
     label: '5bb8cb23-6463-436b-befc-0463806d13b6',
   })
 
+  const fallback = `E2E self-heal [fallback]: ${ticket.identifier} for run \`${deps.runId}\``
+
   await deps.postSlackMessage({
     channel: SLACK_CHANNEL,
-    text: `E2E self-heal [fallback]: ${ticket.identifier} for run \`${deps.runId}\``,
+    text: fallback,
+    blocks: [
+      {
+        type: 'header',
+        text: { type: 'plain_text', text: 'E2E Self-Heal: Fallback', emoji: true },
+      },
+      {
+        type: 'section',
+        text: {
+          type: 'mrkdwn',
+          text: `📋 *${ticket.identifier}* — self-heal could not proceed`,
+        },
+      },
+      contextBlock(deps),
+    ],
   })
 }
 

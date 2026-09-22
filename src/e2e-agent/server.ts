@@ -34,6 +34,10 @@ let buildSelfHealDeps: Awaited<
   typeof import('@/e2e-agent/deps')
 >['buildSelfHealDeps'] | undefined
 
+let postMessage: Awaited<
+  typeof import('@/lib/adapters/slack/web-api')
+>['postMessage'] | undefined
+
 // ---------------------------------------------------------------------------
 // Main
 // ---------------------------------------------------------------------------
@@ -44,7 +48,12 @@ export async function main(): Promise<never> {
   const runId = randomUUID()
   console.log(`[e2e-nightly] run=${runId}`)
 
+  const channel = process.env.SLACK_E2E_CHANNEL ?? 'e2e-alerts'
+  const logicalDate = new Date()
+    .toLocaleDateString('en-CA', { timeZone: 'Asia/Taipei' })
+
   let exitCode = 0
+  let startTs: string | undefined
 
   try {
     if (!runE2eSuite) {
@@ -54,10 +63,92 @@ export async function main(): Promise<never> {
     if (!buildRunnerDeps) {
       throw new Error('buildRunnerDeps not loaded — loadServices incomplete')
     }
+
+    // ---- Start message ----
+    try {
+      if (postMessage) {
+        const startResult = await postMessage({
+          channel,
+          text: `E2E Nightly — ${logicalDate}`,
+          blocks: [
+            {
+              type: 'header',
+              text: { type: 'plain_text', text: `E2E Nightly — ${logicalDate}`, emoji: true },
+            },
+            {
+              type: 'section',
+              text: { type: 'mrkdwn', text: `🔄 *Running...* · \`${runId.slice(0, 8)}\`` },
+            },
+          ],
+        })
+        if (startResult.ok) startTs = startResult.ts
+      }
+    } catch (err) {
+      console.warn('[e2e-nightly] start message failed:', err)
+    }
+
     const result = await runE2eSuite({
       runId,
       deps: buildRunnerDeps(),
     })
+
+    // ---- Test summary (always, green or red) ----
+    try {
+      if (postMessage) {
+        const { stats } = result
+        const statusEmoji = stats.unexpected === 0 ? '✅' : '❌'
+        const parts = [`*${stats.expected} passed*`]
+        if (stats.unexpected > 0) parts.push(`*${stats.unexpected} failed*`)
+        if (stats.flaky > 0) parts.push(`*${stats.flaky} flaky*`)
+        if (stats.skipped > 0) parts.push(`${stats.skipped} skipped`)
+        const durationSec = Math.round(stats.duration / 1000)
+        const durationStr = durationSec >= 60
+          ? `${Math.floor(durationSec / 60)}m ${durationSec % 60}s`
+          : `${durationSec}s`
+
+        const summaryBlocks: Record<string, unknown>[] = [
+          {
+            type: 'section',
+            text: {
+              type: 'mrkdwn',
+              text: `${statusEmoji} ${parts.join(' · ')}`,
+            },
+          },
+          {
+            type: 'context',
+            elements: [
+              {
+                type: 'mrkdwn',
+                text: `Duration: ${durationStr} · SHA: \`${result.stagingSha.slice(0, 7)}\``,
+              },
+            ],
+          },
+        ]
+
+        if (result.failures.length > 0) {
+          const failLines = result.failures.slice(0, 5).map(
+            (f) => `• \`${f.file}\`: ${f.title}`,
+          )
+          if (result.failures.length > 5) {
+            failLines.push(`• _${result.failures.length - 5} more_`)
+          }
+          summaryBlocks.push({
+            type: 'section',
+            text: { type: 'mrkdwn', text: failLines.join('\n') },
+          })
+        }
+
+        await postMessage({
+          channel,
+          text: `${statusEmoji} ${parts.join(' · ')} — ${durationStr}`,
+          blocks: summaryBlocks,
+          threadTs: startTs,
+        })
+      }
+    } catch (err) {
+      console.warn('[e2e-nightly] test summary failed:', err)
+    }
+
     const reportableFailures = [
       ...result.failures,
       ...result.unexpectedSkips.map((skip) => ({
@@ -75,6 +166,7 @@ export async function main(): Promise<never> {
       if (!buildSelfHealDeps) {
         throw new Error('buildSelfHealDeps not loaded — loadServices incomplete')
       }
+      const selfHealDeps = buildSelfHealDeps()
       const graphResult = await runSelfHealGraph(
         {
           runResult: {
@@ -86,7 +178,13 @@ export async function main(): Promise<never> {
           runId,
           stagingSha: result.stagingSha,
         },
-        buildSelfHealDeps(),
+        startTs
+          ? {
+              ...selfHealDeps,
+              postSlackMessage: (params) =>
+                selfHealDeps.postSlackMessage({ ...params, threadTs: startTs }),
+            }
+          : selfHealDeps,
       )
 
       const successOutcomes: RunOutcome[] = ['green', 'patched', 'noise']
@@ -151,6 +249,9 @@ try {
       ;({ runSelfHealGraph } = await import('@/e2e-agent/self-heal'))
       ;({ buildRunnerDeps, buildSelfHealDeps } = await import(
         '@/e2e-agent/deps'
+      ))
+      ;({ postMessage } = await import(
+        '@/lib/adapters/slack/web-api'
       ))
     },
   })

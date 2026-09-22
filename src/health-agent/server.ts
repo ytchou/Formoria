@@ -43,13 +43,13 @@ let reportWorkerFailure: Awaited<
   typeof import('@/lib/services/job-alerts')
 >['reportWorkerFailure']
 
-let postSlackBlocks: Awaited<
-  typeof import('@/lib/adapters/alerting/slack')
->['postSlackBlocks']
-
 let postSlackPayload: Awaited<
   typeof import('@/lib/adapters/alerting/slack')
 >['postSlackPayload']
+
+let postMessage: Awaited<
+  typeof import('@/lib/adapters/slack/web-api')
+>['postMessage']
 
 let createTicket: Awaited<
   typeof import('@/lib/adapters/linear/create-ticket')
@@ -88,8 +88,11 @@ await bootWorker({
     ;({ flushLangfuse, getLangfuse } = await import('@/lib/langfuse/client'))
     ;({ runWithAuditContext } = await import('@/lib/audit/context'))
     ;({ reportWorkerFailure } = await import('@/lib/services/job-alerts'))
-    ;({ postSlackBlocks, postSlackPayload } = await import(
+    ;({ postSlackPayload } = await import(
       '@/lib/adapters/alerting/slack'
+    ))
+    ;({ postMessage } = await import(
+      '@/lib/adapters/slack/web-api'
     ))
     ;({ createTicket } = await import('@/lib/adapters/linear/create-ticket'))
     ;({ createRepoWorkerClient } = await import(
@@ -161,10 +164,12 @@ async function main(): Promise<never> {
   const opsAgentBotId = process.env.OPS_AGENT_SLACK_BOT_ID
   const triggerRepair =
     opsAgentBotId && process.env.SLACK_FORMORIA_WEBHOOK_URL
-      ? async (request: RepairRequest) => {
+      ? async (request: RepairRequest, threadTs?: string) => {
           const blocks = buildRepairTriggerBlocks(request)
           const fallback = buildRepairTriggerMessage(opsAgentBotId, request)
-          await postSlackPayload({ blocks, text: fallback })
+          const payload: Record<string, unknown> = { blocks, text: fallback }
+          if (threadTs) payload.thread_ts = threadTs
+          await postSlackPayload(payload)
         }
       : undefined
 
@@ -183,8 +188,29 @@ async function main(): Promise<never> {
       workerClient,
       linearCreateTicket,
       triggerRepair,
-      slackPostDigest: async ({ text, blocks }) => {
-        await postSlackBlocks(blocks, text)
+      slackPostRunStart: async (date, startRunId) => {
+        const channel = process.env.HEALTH_AGENT_SLACK_CHANNEL
+        if (!channel) return undefined
+        const result = await postMessage({
+          channel,
+          text: `Health Agent — ${date}`,
+          blocks: [
+            {
+              type: 'header',
+              text: { type: 'plain_text', text: `Health Agent — ${date}`, emoji: true },
+            },
+            {
+              type: 'section',
+              text: { type: 'mrkdwn', text: `🔄 *Running...* · \`${startRunId.slice(0, 8)}\`` },
+            },
+          ],
+        })
+        return result.ok ? result.ts : undefined
+      },
+      slackPostDigest: async ({ text, blocks }, digestThreadTs) => {
+        const channel = process.env.HEALTH_AGENT_SLACK_CHANNEL
+        if (!channel) return
+        await postMessage({ channel, text, blocks, threadTs: digestThreadTs })
       },
       reportWorkerFailure: async (context, error) => {
         if (reportWorkerFailure) {
