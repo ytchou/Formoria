@@ -41,6 +41,7 @@ function makeRequest() {
     modelCalls: 0,
     costUsd: 0,
     sessionUrl: null,
+    completedAt: null,
     correlationId: null,
     expiresAt: null,
     createdAt: "2026-09-15T00:00:00Z",

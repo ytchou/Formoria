@@ -19,6 +19,8 @@ function makeDeps(overrides: Partial<EventsRouteDeps> = {}): EventsRouteDeps {
       row: { id: "req-1", slackEventId: "evt-1", status: "received" },
     }),
     isActiveThread: vi.fn().mockResolvedValue(false),
+    completeThread: vi.fn().mockResolvedValue(1),
+    reactivateThread: vi.fn().mockResolvedValue(1),
     addReaction: vi.fn().mockResolvedValue({ ok: true }),
     scheduleRun: vi.fn(),
     env: {
@@ -387,5 +389,102 @@ describe("/api/slack/events", () => {
     const res = await handler(post(makeEventBody()));
     expect(res.status).toBe(200);
     expect(deps.addReaction).not.toHaveBeenCalled();
+  });
+
+  it("routine_reply_in_active_thread_is_ignored", async () => {
+    deps = makeDeps({
+      isActiveThread: vi.fn().mockResolvedValue(true),
+    });
+    handler = createEventsHandler(deps);
+
+    const body = JSON.stringify({
+      type: "event_callback",
+      event_id: "evt-routine-1",
+      event: {
+        type: "message",
+        user: "U_OP1",
+        channel: "C_OPS",
+        ts: "1234.9999",
+        thread_ts: "1234.5678",
+        text: "Here are the investigation results...\n\nSent using Claude",
+      },
+    });
+
+    const res = await handler(post(body));
+    expect(res.status).toBe(200);
+    expect(deps.isActiveThread).not.toHaveBeenCalled();
+    expect(deps.scheduleRun).not.toHaveBeenCalled();
+  });
+
+  it("reaction_added_white_check_mark_calls_completeThread", async () => {
+    const body = JSON.stringify({
+      type: "event_callback",
+      event_id: "evt-react-1",
+      event: {
+        type: "reaction_added",
+        user: "U_OP1",
+        reaction: "white_check_mark",
+        item: { type: "message", channel: "C_OPS", ts: "1234.5678" },
+      },
+    });
+
+    const res = await handler(post(body));
+    expect(res.status).toBe(200);
+    expect(deps.completeThread).toHaveBeenCalledWith("C_OPS", "1234.5678");
+    expect(deps.reactivateThread).not.toHaveBeenCalled();
+    expect(deps.scheduleRun).not.toHaveBeenCalled();
+  });
+
+  it("reaction_removed_white_check_mark_calls_reactivateThread", async () => {
+    const body = JSON.stringify({
+      type: "event_callback",
+      event_id: "evt-react-2",
+      event: {
+        type: "reaction_removed",
+        user: "U_OP1",
+        reaction: "white_check_mark",
+        item: { type: "message", channel: "C_OPS", ts: "1234.5678" },
+      },
+    });
+
+    const res = await handler(post(body));
+    expect(res.status).toBe(200);
+    expect(deps.reactivateThread).toHaveBeenCalledWith("C_OPS", "1234.5678");
+    expect(deps.completeThread).not.toHaveBeenCalled();
+  });
+
+  it("reaction_added_non_check_mark_is_ignored", async () => {
+    const body = JSON.stringify({
+      type: "event_callback",
+      event_id: "evt-react-3",
+      event: {
+        type: "reaction_added",
+        user: "U_OP1",
+        reaction: "thumbsup",
+        item: { type: "message", channel: "C_OPS", ts: "1234.5678" },
+      },
+    });
+
+    const res = await handler(post(body));
+    expect(res.status).toBe(200);
+    expect(deps.completeThread).not.toHaveBeenCalled();
+    expect(deps.reactivateThread).not.toHaveBeenCalled();
+  });
+
+  it("reaction_on_non_message_is_ignored", async () => {
+    const body = JSON.stringify({
+      type: "event_callback",
+      event_id: "evt-react-4",
+      event: {
+        type: "reaction_added",
+        user: "U_OP1",
+        reaction: "white_check_mark",
+        item: { type: "file", file: "F123" },
+      },
+    });
+
+    const res = await handler(post(body));
+    expect(res.status).toBe(200);
+    expect(deps.completeThread).not.toHaveBeenCalled();
   });
 });
