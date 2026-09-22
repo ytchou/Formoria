@@ -13,6 +13,7 @@ import { bootWorker, logWorkerBuildInfo } from '@/worker-boot'
 import { validateE2eAgentConfig } from '@/e2e-agent/config'
 
 import type { RunOutcome } from '@/lib/services/e2e-agent/types'
+import { SLACK_CHANNEL } from '@/lib/services/e2e-agent/report'
 
 // ---------------------------------------------------------------------------
 // Dynamic imports — populated after bootWorker
@@ -36,7 +37,7 @@ let buildSelfHealDeps: Awaited<
 
 let postMessage: Awaited<
   typeof import('@/lib/adapters/slack/web-api')
->['postMessage'] | undefined
+>['postMessage']
 
 // ---------------------------------------------------------------------------
 // Main
@@ -48,7 +49,7 @@ export async function main(): Promise<never> {
   const runId = randomUUID()
   console.log(`[e2e-nightly] run=${runId}`)
 
-  const channel = process.env.SLACK_E2E_CHANNEL ?? 'e2e-alerts'
+  const channel = SLACK_CHANNEL
   const logicalDate = new Date()
     .toLocaleDateString('en-CA', { timeZone: 'Asia/Taipei' })
 
@@ -64,25 +65,28 @@ export async function main(): Promise<never> {
       throw new Error('buildRunnerDeps not loaded — loadServices incomplete')
     }
 
+    if (!postMessage) {
+      throw new Error('postMessage not loaded — loadServices incomplete')
+    }
+
     // ---- Start message ----
     try {
-      if (postMessage) {
-        const startResult = await postMessage({
-          channel,
-          text: `E2E Nightly — ${logicalDate}`,
-          blocks: [
-            {
-              type: 'header',
-              text: { type: 'plain_text', text: `E2E Nightly — ${logicalDate}`, emoji: true },
-            },
-            {
-              type: 'section',
-              text: { type: 'mrkdwn', text: `🔄 *Running...* · \`${runId.slice(0, 8)}\`` },
-            },
-          ],
-        })
-        if (startResult.ok) startTs = startResult.ts
-      }
+      const startResult = await postMessage({
+        channel,
+        text: `E2E Nightly — ${logicalDate}`,
+        blocks: [
+          {
+            type: 'header',
+            text: { type: 'plain_text', text: `E2E Nightly — ${logicalDate}`, emoji: true },
+          },
+          {
+            type: 'section',
+            text: { type: 'mrkdwn', text: `🔄 *Running...* · \`${runId.slice(0, 8)}\`` },
+          },
+        ],
+      })
+      if (startResult.ok) startTs = startResult.ts
+      else console.warn('[e2e-nightly] start message failed:', startResult.error)
     } catch (err) {
       console.warn('[e2e-nightly] start message failed:', err)
     }
@@ -94,57 +98,63 @@ export async function main(): Promise<never> {
 
     // ---- Test summary (always, green or red) ----
     try {
-      if (postMessage) {
-        const { stats } = result
-        const statusEmoji = stats.unexpected === 0 ? '✅' : '❌'
-        const parts = [`*${stats.expected} passed*`]
-        if (stats.unexpected > 0) parts.push(`*${stats.unexpected} failed*`)
-        if (stats.flaky > 0) parts.push(`*${stats.flaky} flaky*`)
-        if (stats.skipped > 0) parts.push(`${stats.skipped} skipped`)
-        const durationSec = Math.round(stats.duration / 1000)
-        const durationStr = durationSec >= 60
-          ? `${Math.floor(durationSec / 60)}m ${durationSec % 60}s`
-          : `${durationSec}s`
+      const { stats } = result
+      const statusEmoji = result.passed ? '✅' : '❌'
+      const parts = [`*${stats.expected} passed*`]
+      if (stats.unexpected > 0) parts.push(`*${stats.unexpected} failed*`)
+      if (result.unexpectedSkips.length > 0) parts.push(`*${result.unexpectedSkips.length} unexpected skips*`)
+      if (stats.flaky > 0) parts.push(`*${stats.flaky} flaky*`)
+      if (stats.skipped > 0) parts.push(`${stats.skipped} skipped`)
+      const durationSec = Math.round(stats.duration / 1000)
+      const durationStr = durationSec >= 60
+        ? `${Math.floor(durationSec / 60)}m ${durationSec % 60}s`
+        : `${durationSec}s`
 
-        const summaryBlocks: Record<string, unknown>[] = [
-          {
-            type: 'section',
-            text: {
+      const summaryBlocks: Record<string, unknown>[] = [
+        {
+          type: 'section',
+          text: {
+            type: 'mrkdwn',
+            text: `${statusEmoji} ${parts.join(' · ')}`,
+          },
+        },
+        {
+          type: 'context',
+          elements: [
+            {
               type: 'mrkdwn',
-              text: `${statusEmoji} ${parts.join(' · ')}`,
+              text: `Duration: ${durationStr} · SHA: \`${result.stagingSha.slice(0, 7)}\``,
             },
-          },
-          {
-            type: 'context',
-            elements: [
-              {
-                type: 'mrkdwn',
-                text: `Duration: ${durationStr} · SHA: \`${result.stagingSha.slice(0, 7)}\``,
-              },
-            ],
-          },
-        ]
+          ],
+        },
+      ]
 
-        if (result.failures.length > 0) {
-          const failLines = result.failures.slice(0, 5).map(
-            (f) => `• \`${f.file}\`: ${f.title}`,
-          )
-          if (result.failures.length > 5) {
-            failLines.push(`• _${result.failures.length - 5} more_`)
-          }
-          summaryBlocks.push({
-            type: 'section',
-            text: { type: 'mrkdwn', text: failLines.join('\n') },
-          })
+      const summaryFailures = [
+        ...result.failures,
+        ...result.unexpectedSkips.map((s) => ({
+          file: s.file,
+          title: `${s.title} (unexpected skip)`,
+        })),
+      ]
+      if (summaryFailures.length > 0) {
+        const failLines = summaryFailures.slice(0, 5).map(
+          (f) => `• \`${f.file}\`: ${f.title}`,
+        )
+        if (summaryFailures.length > 5) {
+          failLines.push(`• _${summaryFailures.length - 5} more_`)
         }
-
-        await postMessage({
-          channel,
-          text: `${statusEmoji} ${parts.join(' · ')} — ${durationStr}`,
-          blocks: summaryBlocks,
-          threadTs: startTs,
+        summaryBlocks.push({
+          type: 'section',
+          text: { type: 'mrkdwn', text: failLines.join('\n') },
         })
       }
+
+      await postMessage({
+        channel,
+        text: `${statusEmoji} ${parts.join(' · ')} — ${durationStr}`,
+        blocks: summaryBlocks,
+        threadTs: startTs,
+      })
     } catch (err) {
       console.warn('[e2e-nightly] test summary failed:', err)
     }

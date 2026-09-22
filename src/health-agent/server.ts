@@ -43,10 +43,6 @@ let reportWorkerFailure: Awaited<
   typeof import('@/lib/services/job-alerts')
 >['reportWorkerFailure']
 
-let postSlackPayload: Awaited<
-  typeof import('@/lib/adapters/alerting/slack')
->['postSlackPayload']
-
 let postMessage: Awaited<
   typeof import('@/lib/adapters/slack/web-api')
 >['postMessage']
@@ -88,9 +84,6 @@ await bootWorker({
     ;({ flushLangfuse, getLangfuse } = await import('@/lib/langfuse/client'))
     ;({ runWithAuditContext } = await import('@/lib/audit/context'))
     ;({ reportWorkerFailure } = await import('@/lib/services/job-alerts'))
-    ;({ postSlackPayload } = await import(
-      '@/lib/adapters/alerting/slack'
-    ))
     ;({ postMessage } = await import(
       '@/lib/adapters/slack/web-api'
     ))
@@ -162,16 +155,25 @@ async function main(): Promise<never> {
 
   // ---- Conditionally create repair trigger ----
   const opsAgentBotId = process.env.OPS_AGENT_SLACK_BOT_ID
+  const repairChannel = process.env.HEALTH_AGENT_SLACK_CHANNEL
   const triggerRepair =
-    opsAgentBotId && process.env.SLACK_FORMORIA_WEBHOOK_URL
+    opsAgentBotId && repairChannel
       ? async (request: RepairRequest, threadTs?: string) => {
           const blocks = buildRepairTriggerBlocks(request)
           const fallback = buildRepairTriggerMessage(opsAgentBotId, request)
-          const payload: Record<string, unknown> = { blocks, text: fallback }
-          if (threadTs) payload.thread_ts = threadTs
-          await postSlackPayload(payload)
+          await postMessage({
+            channel: repairChannel,
+            text: fallback,
+            blocks,
+            threadTs,
+          })
         }
       : undefined
+
+  // ---- Warn once if Slack is unconfigured ----
+  if (!process.env.HEALTH_AGENT_SLACK_CHANNEL) {
+    console.warn('[health-agent] HEALTH_AGENT_SLACK_CHANNEL not set — Slack messages disabled')
+  }
 
   let exitCode = 0
 

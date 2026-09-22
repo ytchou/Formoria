@@ -26,7 +26,7 @@ export type ReportDeps = {
 // Constants
 // ---------------------------------------------------------------------------
 
-const SLACK_CHANNEL = process.env.SLACK_E2E_CHANNEL ?? 'e2e-alerts'
+export const SLACK_CHANNEL = process.env.SLACK_E2E_CHANNEL ?? 'e2e-alerts'
 const ALLOWED_PATHS = ['e2e/', 'src/']
 
 // ---------------------------------------------------------------------------
