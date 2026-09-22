@@ -99,10 +99,10 @@ export function describeProposal(proposal: OpsProposal): ProposalDescription {
 
     case "dispatch_workflow":
       return {
-        action: `Dispatch workflow: ${proposal.workflow}`,
-        steps: `1. Trigger ${proposal.workflow} in ${proposal.mode} mode`,
+        action: `Run e2e suite: ${proposal.workflow}`,
+        steps: `1. Trigger ${proposal.workflow} agent on Railway`,
         why: `${proposal.workflow} workflow requested`,
-        cost: "1 workflow run",
+        cost: "1 e2e agent run",
       };
 
     default:

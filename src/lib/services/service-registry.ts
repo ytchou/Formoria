@@ -471,7 +471,7 @@ export const SERVICE_REGISTRY: readonly ServiceEntry[] = [
     criticality: "customer-critical",
     operationalSection: "production",
     operationalKind: "dependency",
-    envVars: ["FORMORIA_RAILWAY_URL"],
+    envVars: ["FORMORIA_RAILWAY_URL", "OPS_AGENT_RAILWAY_TOKEN"],
     status: "active",
     plan: {
       kind: "usage",
@@ -573,7 +573,6 @@ export const SERVICE_REGISTRY: readonly ServiceEntry[] = [
       "GITHUB_APP_ID",
       "GITHUB_APP_PRIVATE_KEY",
       "GITHUB_APP_INSTALLATION_ID",
-      "OPS_AGENT_GITHUB_TOKEN",
     ],
     status: "active",
     plan: {

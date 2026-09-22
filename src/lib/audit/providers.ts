@@ -15,7 +15,8 @@ const PROVIDERS = {
   posthog: ["run_query"],
   playwright: ["fetch_rendered"],
   "mit-registry": ["lookup_exact_products", "sync_registry"],
-  github: ["list_workflow_runs", "dispatch_workflow", "list_dependabot_alerts"],
+  railway: ["redeploy_service"],
+  github: ["list_dependabot_alerts"],
   scraper: ["scrape_url"],
   catalog: ["discover_catalog"],
   http: [
