@@ -439,11 +439,72 @@ export function escapeSlackMrkdwn(text: string): string {
 // ---------------------------------------------------------------------------
 
 /**
- * Build the Slack message that triggers the ops-agent to repair findings.
+ * Build Block Kit blocks for the repair trigger message (human display).
+ */
+export function buildRepairTriggerBlocks(
+  request: RepairRequest,
+): SlackBlock[] {
+  const blocks: SlackBlock[] = []
+
+  blocks.push({
+    type: 'header',
+    text: {
+      type: 'plain_text',
+      text: 'Health Agent Repair Request',
+      emoji: true,
+    },
+  })
+
+  const sourceCounts = new Map<string, number>()
+  for (const f of request.findings) {
+    sourceCounts.set(f.source, (sourceCounts.get(f.source) ?? 0) + 1)
+  }
+
+  blocks.push({
+    type: 'section',
+    text: {
+      type: 'mrkdwn',
+      text: `🔧 *${request.findings.length} finding${request.findings.length === 1 ? '' : 's'}* · Run: \`${request.runId.slice(0, 8)}\``,
+    },
+  })
+
+  const nonZeroSources = [...sourceCounts.entries()].filter(
+    ([, count]) => count > 0,
+  )
+  if (nonZeroSources.length > 0) {
+    blocks.push({ type: 'divider' })
+    const sourceLines = nonZeroSources.map(
+      ([source, count]) => `• ${source}: *${count}*`,
+    )
+    blocks.push({
+      type: 'section',
+      text: {
+        type: 'mrkdwn',
+        text: `*Per source*\n${sourceLines.join('\n')}`,
+      },
+    })
+  }
+
+  if (request.traceUrl) {
+    blocks.push({
+      type: 'context',
+      elements: [
+        {
+          type: 'mrkdwn',
+          text: `<${request.traceUrl}|Langfuse trace>`,
+        },
+      ],
+    })
+  }
+
+  return blocks
+}
+
+/**
+ * Build the fallback text for the repair trigger message (machine parsing).
  *
- * Format: a `<@botId>` mention (Slack will deliver this as an app_mention
- * event), a human-readable summary of the findings, and a JSON code block
- * containing the full RepairRequest for machine parsing.
+ * Contains the `<@botId>` mention (triggers app_mention event) and a compact
+ * JSON code block for `extractRepairRequest` to parse from `event.text`.
  */
 export function buildRepairTriggerMessage(
   botId: string,
@@ -453,11 +514,6 @@ export function buildRepairTriggerMessage(
 
   lines.push(`<@${botId}> Health agent repair request`)
   lines.push('')
-  lines.push(`Run: ${request.runId}`)
-  if (request.traceUrl) {
-    lines.push(`Trace: ${request.traceUrl}`)
-  }
-  lines.push('')
   lines.push(`Findings (${request.findings.length}):`)
   for (const finding of request.findings) {
     lines.push(`- ${escapeSlackMrkdwn(finding.title)} [${finding.severity}]`)
@@ -465,7 +521,7 @@ export function buildRepairTriggerMessage(
 
   lines.push('')
   lines.push('```json')
-  lines.push(JSON.stringify(request, null, 2))
+  lines.push(JSON.stringify(request))
   lines.push('```')
 
   return lines.join('\n')

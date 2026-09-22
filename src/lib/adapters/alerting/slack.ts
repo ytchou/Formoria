@@ -44,6 +44,13 @@ export async function postSlackBlocks(
   });
 }
 
+/** Posts a raw payload to the webhook without text truncation. */
+export async function postSlackPayload(
+  payload: Record<string, unknown>,
+): Promise<boolean> {
+  return postWebhookPayload(payload);
+}
+
 async function postWebhookPayload(
   payload: Record<string, unknown>,
   messageKind?: AgentNotification["status"],

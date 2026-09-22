@@ -885,7 +885,7 @@ describe('runHealthAgent', () => {
 
   // ---- Task 6: repair trigger ----
 
-  it('triggers repair when repairable findings exist', async () => {
+  it('triggers repair for all non-report-only findings', async () => {
     const triggerRepair = vi.fn(async () => {})
 
     const deps = baseDeps({
@@ -910,6 +910,15 @@ describe('runHealthAgent', () => {
               evidence: {},
               mergePolicy: 'human' as const,
             },
+            {
+              source: 'quality',
+              fingerprint: 'quality:knip:unused-dep',
+              title: 'Unused dependency',
+              severity: 'low' as const,
+              evidence: {},
+              mergePolicy: 'human' as const,
+              disposition: 'report_only' as const,
+            },
           ],
         }),
       ],
@@ -922,11 +931,14 @@ describe('runHealthAgent', () => {
     const request = (triggerRepair.mock.calls as unknown[][])[0][0] as RepairRequest
     expect(request.agent).toBe('ops-agent')
     expect(request.ref).toBe('staging')
-    expect(request.findings).toHaveLength(1)
-    expect(request.findings[0].fingerprint).toBe('quality:vitest-failure:test')
+    expect(request.findings).toHaveLength(2)
+    expect(request.findings.map((f) => f.fingerprint)).toEqual([
+      'quality:vitest-failure:test',
+      'directory:test:manual',
+    ])
   })
 
-  it('skips trigger when no repairable findings', async () => {
+  it('skips trigger when all findings are report_only', async () => {
     const triggerRepair = vi.fn(async () => {})
 
     const deps = baseDeps({
@@ -936,12 +948,13 @@ describe('runHealthAgent', () => {
           source: 'directory',
           run: async () => [
             {
-              source: 'directory',
-              fingerprint: 'directory:test:manual',
-              title: 'Manual finding',
+              source: 'quality',
+              fingerprint: 'quality:knip:unused-dep',
+              title: 'Unused dependency',
               severity: 'low' as const,
               evidence: {},
               mergePolicy: 'human' as const,
+              disposition: 'report_only' as const,
             },
           ],
         }),
