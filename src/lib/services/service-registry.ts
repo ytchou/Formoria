@@ -92,7 +92,7 @@ export const NON_SERVICE_ENV: Readonly<Record<string, string>> = {
   STAGING_BASE_URL:
     "Canonical staging E2E target origin, not a provider service.",
   PRODUCTION_BASE_URL:
-    "Canonical production probe target origin, not a provider service.",
+    "Canonical production origin for health-agent surface checks, not a provider service.",
   E2E_ORIGIN_SECRET:
     "Staging E2E origin authentication secret, not a provider service.",
   E2E_STAGING_SESSION_SECRET:
