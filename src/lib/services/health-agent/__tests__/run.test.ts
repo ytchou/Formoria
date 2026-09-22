@@ -424,7 +424,7 @@ describe('runHealthAgent', () => {
           run: async () => [existing, returned],
         }),
       ],
-      slackPostDigest: async (text) => {
+      slackPostDigest: async ({ text }) => {
         digest = text
       },
     }))
