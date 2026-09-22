@@ -280,6 +280,147 @@ export function buildDigest(
 }
 
 // ---------------------------------------------------------------------------
+// Block Kit digest builder
+// ---------------------------------------------------------------------------
+
+type SlackBlock = Record<string, unknown>
+
+/**
+ * Build the Slack digest as Block Kit blocks for richer formatting.
+ *
+ * The plain-text `buildDigest` is still used as the `text` fallback
+ * (shown in push notifications and accessibility readers).
+ */
+export function buildDigestBlocks(
+  results: DetectorResult[],
+  options: BuildDigestOptions,
+): SlackBlock[] {
+  const sourceCounts = new Map<string, number>()
+  const failedDetectors: Array<{ name: string; error: string }> = []
+
+  for (const result of results) {
+    const current = sourceCounts.get(result.source) ?? 0
+    sourceCounts.set(result.source, current + result.findings.length)
+    if (result.status === 'failed') {
+      failedDetectors.push({
+        name: result.name,
+        error: result.error ?? 'unknown error',
+      })
+    }
+  }
+
+  const totalFindings = [...sourceCounts.values()].reduce((a, b) => a + b, 0)
+  const statusEmoji = failedDetectors.length > 0 ? '⚠️' : '✅'
+  const detectorStatus =
+    failedDetectors.length > 0
+      ? `${failedDetectors.length} detector${failedDetectors.length === 1 ? '' : 's'} failed`
+      : 'all detectors ran'
+
+  const blocks: SlackBlock[] = []
+
+  blocks.push({
+    type: 'header',
+    text: {
+      type: 'plain_text',
+      text: `Health Agent — ${options.date}`,
+      emoji: true,
+    },
+  })
+
+  blocks.push({
+    type: 'section',
+    text: {
+      type: 'mrkdwn',
+      text: `${statusEmoji} *${totalFindings} finding${totalFindings === 1 ? '' : 's'}* · ${detectorStatus}`,
+    },
+  })
+
+  const nonZeroSources = [...sourceCounts.entries()].filter(
+    ([, count]) => count > 0,
+  )
+  if (nonZeroSources.length > 0) {
+    blocks.push({ type: 'divider' })
+    const sourceLines = nonZeroSources.map(
+      ([source, count]) => `• ${source}: *${count}*`,
+    )
+    blocks.push({
+      type: 'section',
+      text: {
+        type: 'mrkdwn',
+        text: `*Per source*\n${sourceLines.join('\n')}`,
+      },
+    })
+  }
+
+  const sentryFindings = results.flatMap((result) =>
+    result.source === 'sentry'
+      ? result.findings.filter(
+          (finding) => finding.sentryIssueId !== undefined,
+        )
+      : [],
+  )
+
+  if (sentryFindings.length > 0) {
+    const highlighted = prioritizeSentryFindings(
+      sentryFindings.filter((finding) =>
+        options.highlightedFingerprints?.has(finding.fingerprint),
+      ),
+    )
+
+    const sentryLines = [`*Sentry active: ${sentryFindings.length}*`]
+    if (highlighted.length > 0) {
+      sentryLines.push('_New or returned:_')
+      for (const finding of highlighted.slice(0, SENTRY_DIGEST_LIMIT)) {
+        const rootCause = stringEvidence(finding, 'rootCause')
+        const truncatedCause =
+          rootCause.length > 120 ? `${rootCause.slice(0, 120)}…` : rootCause
+        const suffix = truncatedCause
+          ? ` — ${escapeSlackMrkdwn(truncatedCause)}`
+          : ''
+        sentryLines.push(
+          `• [${finding.severity}] ${escapeSlackMrkdwn(finding.title)}${suffix}`,
+        )
+      }
+      const remainder = highlighted.length - SENTRY_DIGEST_LIMIT
+      if (remainder > 0) {
+        sentryLines.push(`• _${remainder} more_`)
+      }
+    }
+
+    blocks.push({
+      type: 'section',
+      text: { type: 'mrkdwn', text: sentryLines.join('\n') },
+    })
+  }
+
+  if (failedDetectors.length > 0) {
+    blocks.push({ type: 'divider' })
+    const failLines = failedDetectors.map(
+      (d) => `• \`${d.name}\`: ${escapeSlackMrkdwn(d.error)}`,
+    )
+    blocks.push({
+      type: 'section',
+      text: {
+        type: 'mrkdwn',
+        text: `⚠️ *Detectors that could not run*\n${failLines.join('\n')}`,
+      },
+    })
+  }
+
+  blocks.push({
+    type: 'context',
+    elements: [
+      {
+        type: 'mrkdwn',
+        text: `<${options.traceUrl}|Langfuse trace>`,
+      },
+    ],
+  })
+
+  return blocks
+}
+
+// ---------------------------------------------------------------------------
 // Slack helpers
 // ---------------------------------------------------------------------------
 

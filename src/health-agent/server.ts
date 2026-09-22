@@ -47,6 +47,10 @@ let postSlackText: Awaited<
   typeof import('@/lib/adapters/alerting/slack')
 >['postSlackText']
 
+let postSlackBlocks: Awaited<
+  typeof import('@/lib/adapters/alerting/slack')
+>['postSlackBlocks']
+
 let createTicket: Awaited<
   typeof import('@/lib/adapters/linear/create-ticket')
 >['createTicket']
@@ -80,7 +84,7 @@ await bootWorker({
     ;({ flushLangfuse, getLangfuse } = await import('@/lib/langfuse/client'))
     ;({ runWithAuditContext } = await import('@/lib/audit/context'))
     ;({ reportWorkerFailure } = await import('@/lib/services/job-alerts'))
-    ;({ postSlackText } = await import(
+    ;({ postSlackText, postSlackBlocks } = await import(
       '@/lib/adapters/alerting/slack'
     ))
     ;({ createTicket } = await import('@/lib/adapters/linear/create-ticket'))
@@ -174,8 +178,8 @@ async function main(): Promise<never> {
       workerClient,
       linearCreateTicket,
       triggerRepair,
-      slackPostDigest: async (text) => {
-        await postSlackText(text)
+      slackPostDigest: async ({ text, blocks }) => {
+        await postSlackBlocks(blocks, text)
       },
       reportWorkerFailure: async (context, error) => {
         if (reportWorkerFailure) {

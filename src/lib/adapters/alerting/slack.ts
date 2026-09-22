@@ -22,19 +22,30 @@ function webhookUrl(): string | undefined {
 export async function postSlackAlert(
   notification: AgentNotification,
 ): Promise<boolean> {
-  return postWebhookText(
-    renderAgentNotification(notification),
+  return postWebhookPayload(
+    { text: boundedSlackText(renderAgentNotification(notification)) },
     notification.status,
   );
 }
 
 /** Posts pre-rendered text to the configured Slack webhook. */
 export async function postSlackText(text: string): Promise<boolean> {
-  return postWebhookText(text);
+  return postWebhookPayload({ text: boundedSlackText(text) });
 }
 
-async function postWebhookText(
-  text: string,
+/** Posts Block Kit blocks with a plain-text fallback to the configured Slack webhook. */
+export async function postSlackBlocks(
+  blocks: Array<Record<string, unknown>>,
+  fallbackText: string,
+): Promise<boolean> {
+  return postWebhookPayload({
+    blocks,
+    text: boundedSlackText(fallbackText),
+  });
+}
+
+async function postWebhookPayload(
+  payload: Record<string, unknown>,
   messageKind?: AgentNotification["status"],
 ): Promise<boolean> {
   const url = webhookUrl();
@@ -48,14 +59,13 @@ async function postWebhookText(
     return false;
   }
 
-  const boundedText = boundedSlackText(text);
   return auditedCall(
     { provider: "slack", operation: "post_slack_alert", kind: "external" },
     async () => {
       const response = await fetch(url, {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ text: boundedText }),
+        body: JSON.stringify(payload),
       });
 
       if (!response.ok) {
@@ -66,7 +76,7 @@ async function postWebhookText(
     },
     {
       summary: {
-        messageLength: boundedText.length,
+        messageLength: JSON.stringify(payload).length,
         ...(messageKind ? { messageKind } : {}),
       },
     },

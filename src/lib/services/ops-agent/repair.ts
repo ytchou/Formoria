@@ -15,6 +15,7 @@ const RepairFindingSchema = z.object({
   ticketId: z.string().optional(),
   rootCause: z.string().optional(),
   permalink: z.string().optional(),
+  evidence: z.record(z.string(), z.unknown()).optional(),
 });
 
 const RepairRequestSchema = z.object({
