@@ -34,7 +34,7 @@ import {
   type HealthLedgerClient,
 } from './lifecycle'
 import { runDetectors } from './runner'
-import { buildDigest, buildTickets } from './report'
+import { buildDigest, buildDigestBlocks, buildTickets } from './report'
 import { registry as defaultRegistry } from './registry'
 import { HEALTH_JOBS, QUALITY_CONTEXT_COMMANDS } from './jobs'
 import { evaluateQualityReports } from './detectors/quality'
@@ -61,7 +61,10 @@ export type RunHealthAgentDeps = {
   githubApp?: unknown
 
   /** Post the Slack digest. Absent in dry-run mode. */
-  slackPostDigest?: (text: string) => Promise<void>
+  slackPostDigest?: (content: {
+    text: string
+    blocks: Array<Record<string, unknown>>
+  }) => Promise<void>
 
   /** Create a Linear ticket. Absent in dry-run mode. */
   linearCreateTicket?: (spec: {
@@ -665,12 +668,14 @@ async function executeRunBody(
   if (!dryRun && deps.slackPostDigest) {
     try {
       const traceUrl = `https://cloud.langfuse.com/trace/${runId}`
-      const digestText = buildDigest(results, {
+      const digestOptions = {
         date: logicalDate,
         traceUrl,
         highlightedFingerprints: highlightedSentryFingerprints,
-      })
-      await deps.slackPostDigest(digestText)
+      }
+      const digestText = buildDigest(results, digestOptions)
+      const digestBlocks = buildDigestBlocks(results, digestOptions)
+      await deps.slackPostDigest({ text: digestText, blocks: digestBlocks })
     } catch (err) {
       console.error('[health-agent] digest failed:', err)
       digestFailed = true
@@ -704,6 +709,7 @@ async function executeRunBody(
             ...(typeof f.evidence.permalink === 'string'
               ? { permalink: f.evidence.permalink }
               : {}),
+            evidence: f.evidence,
           })),
         }
         await deps.triggerRepair(repairRequest)

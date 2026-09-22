@@ -18,6 +18,7 @@ export type RepairFinding = {
   ticketId?: string
   rootCause?: string
   permalink?: string
+  evidence?: Record<string, unknown>
 }
 
 export type RepairRequest = {

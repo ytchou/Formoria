@@ -86,5 +86,29 @@ describe("extractRepairRequest", () => {
     expect(result!.findings[0].rootCause).toBe("Null pointer in hero selection");
     expect(result!.findings[0].permalink).toBe("https://sentry.io/issues/99999/");
   });
+
+  it("extractRepairRequest_evidence_round_trips", () => {
+    const findingWithEvidence: RepairFinding = {
+      ...validFinding,
+      evidence: {
+        count: 42,
+        userCount: 7,
+        lastSeen: "2026-09-22T07:00:00Z",
+        sampleIds: ["abc", "def"],
+      },
+    };
+    const request: RepairRequest = {
+      ...validRequest,
+      findings: [findingWithEvidence],
+    };
+    const result = extractRepairRequest(wrapJson(request));
+    expect(result).not.toBeNull();
+    expect(result!.findings[0].evidence).toEqual({
+      count: 42,
+      userCount: 7,
+      lastSeen: "2026-09-22T07:00:00Z",
+      sampleIds: ["abc", "def"],
+    });
+  });
 });
 
