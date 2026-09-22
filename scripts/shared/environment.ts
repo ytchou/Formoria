@@ -3,8 +3,8 @@
  *
  * `requiredEnvironment` was copied byte-for-byte into
  * `scripts/spend-watch/report.ts`, `scripts/health-agent/workflow-runtime.ts`,
- * `scripts/notifications/e2e-slack.ts` and `scripts/production-probe/probe.ts`.
- * This module is the canonical home; the other three keep their copies until
+ * and `scripts/notifications/e2e-slack.ts`.
+ * This module is the canonical home; the other two keep their copies until
  * someone touches them for an unrelated reason, because rewriting a script's
  * failure path is not a change worth bundling into an unrelated diff.
  *
