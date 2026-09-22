@@ -113,8 +113,13 @@ export function createEventsHandler(deps: EventsRouteDeps = defaultDeps) {
       typeof event.thread_ts === "string" &&
       event.thread_ts !== event.ts &&
       !MENTION_RE.test(rawText);
+    const isSystemBotRepair =
+      event.type === "message" &&
+      (!event.subtype || event.subtype === "bot_message") &&
+      !!event.bot_id &&
+      JSON_BLOCK_RE.test(rawText);
 
-    if (!isAppMention && !isThreadReply) {
+    if (!isAppMention && !isThreadReply && !isSystemBotRepair) {
       return NextResponse.json({});
     }
 

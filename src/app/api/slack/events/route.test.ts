@@ -140,6 +140,32 @@ describe("/api/slack/events", () => {
     expect(deps.scheduleRun).not.toHaveBeenCalled();
   });
 
+  it("bot_message_event_with_json_block_reaches_scheduleRun", async () => {
+    const jsonText =
+      "<@U0BOT> ```json\n" +
+      '{"agent":"health","ref":"abc","runId":"run-1","scope":[],' +
+      '"findings":[{"fingerprint":"f1","title":"unused export","severity":"warn","source":"knip"}]}' +
+      "\n```";
+    const body = JSON.stringify({
+      type: "event_callback",
+      event_id: "evt-msg-1",
+      event: {
+        type: "message",
+        bot_id: "B_BOT",
+        channel: "C_OPS",
+        ts: "1234.5680",
+        text: jsonText,
+      },
+    });
+    const res = await handler(post(body));
+    expect(res.status).toBe(200);
+    expect(deps.admitRequest).toHaveBeenCalledWith(
+      expect.objectContaining({ operatorEmail: "system:bot" }),
+      Number.MAX_SAFE_INTEGER,
+    );
+    expect(deps.scheduleRun).toHaveBeenCalled();
+  });
+
   it("bot_message_with_unknown_user_still_admitted", async () => {
     const jsonText =
       "<@U0BOT> ```json\n" +
