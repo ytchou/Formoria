@@ -686,7 +686,7 @@ async function executeRunBody(
   if (!dryRun && deps.triggerRepair) {
     try {
       const repairableFindings = allFindings.filter(
-        (f) => f.mergePolicy === 'automatic',
+        (f) => f.disposition !== 'report_only',
       )
       if (repairableFindings.length > 0) {
         const traceUrl = `https://cloud.langfuse.com/trace/${runId}`

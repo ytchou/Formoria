@@ -5,6 +5,7 @@ import {
   buildTickets,
   buildDigest,
   buildRepairTriggerMessage,
+  buildRepairTriggerBlocks,
   escapeSlackMrkdwn,
   linearLabelForSource,
 } from '../report'
@@ -440,6 +441,84 @@ describe('report — repair trigger message', () => {
     expect(parsed.ref).toBe('staging')
     expect(parsed.findings).toHaveLength(1)
     expect(parsed.scope).toEqual(['file.ts'])
+  })
+})
+
+describe('report — repair trigger blocks', () => {
+  it('buildRepairTriggerBlocks produces header, summary, per-source, and context', () => {
+    const request: RepairRequest = {
+      agent: 'ops-agent',
+      ref: 'staging',
+      runId: 'run-blocks-123',
+      traceUrl: 'https://cloud.langfuse.com/trace/run-blocks-123',
+      scope: ['src/lib/services/test.ts'],
+      findings: [
+        {
+          fingerprint: 'quality:vitest-failure:test',
+          title: 'Test failure',
+          severity: 'high',
+          source: 'quality',
+        },
+        {
+          fingerprint: 'pipeline:embeddings:stale',
+          title: 'Stale embeddings',
+          severity: 'medium',
+          source: 'pipeline',
+        },
+        {
+          fingerprint: 'quality:vitest-failure:test2',
+          title: 'Test failure 2',
+          severity: 'high',
+          source: 'quality',
+        },
+      ],
+    }
+
+    const blocks = buildRepairTriggerBlocks(request)
+
+    expect(blocks[0]).toEqual({
+      type: 'header',
+      text: { type: 'plain_text', text: 'Health Agent Repair Request', emoji: true },
+    })
+
+    const summaryText = (blocks[1] as { text: { text: string } }).text.text
+    expect(summaryText).toContain('*3 findings*')
+    expect(summaryText).toContain('run-bloc')
+
+    const sourceBlock = blocks.find(
+      (b) => (b as { text?: { text?: string } }).text?.text?.includes('Per source'),
+    ) as { text: { text: string } }
+    expect(sourceBlock).toBeDefined()
+    expect(sourceBlock.text.text).toContain('quality: *2*')
+    expect(sourceBlock.text.text).toContain('pipeline: *1*')
+
+    const contextBlock = blocks[blocks.length - 1] as {
+      type: string
+      elements: Array<{ text: string }>
+    }
+    expect(contextBlock.type).toBe('context')
+    expect(contextBlock.elements[0].text).toContain('Langfuse trace')
+  })
+
+  it('buildRepairTriggerBlocks omits context when traceUrl absent', () => {
+    const request: RepairRequest = {
+      agent: 'ops-agent',
+      ref: 'staging',
+      runId: 'run-no-trace',
+      scope: [],
+      findings: [
+        {
+          fingerprint: 'quality:test',
+          title: 'Test',
+          severity: 'low',
+          source: 'quality',
+        },
+      ],
+    }
+
+    const blocks = buildRepairTriggerBlocks(request)
+    const lastBlock = blocks[blocks.length - 1] as { type: string }
+    expect(lastBlock.type).not.toBe('context')
   })
 })
 

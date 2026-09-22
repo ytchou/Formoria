@@ -43,13 +43,13 @@ let reportWorkerFailure: Awaited<
   typeof import('@/lib/services/job-alerts')
 >['reportWorkerFailure']
 
-let postSlackText: Awaited<
-  typeof import('@/lib/adapters/alerting/slack')
->['postSlackText']
-
 let postSlackBlocks: Awaited<
   typeof import('@/lib/adapters/alerting/slack')
 >['postSlackBlocks']
+
+let postSlackPayload: Awaited<
+  typeof import('@/lib/adapters/alerting/slack')
+>['postSlackPayload']
 
 let createTicket: Awaited<
   typeof import('@/lib/adapters/linear/create-ticket')
@@ -66,6 +66,10 @@ let getInstallationToken: Awaited<
 let buildRepairTriggerMessage: Awaited<
   typeof import('@/lib/services/health-agent/report')
 >['buildRepairTriggerMessage']
+
+let buildRepairTriggerBlocks: Awaited<
+  typeof import('@/lib/services/health-agent/report')
+>['buildRepairTriggerBlocks']
 
 // ---------------------------------------------------------------------------
 // Boot
@@ -84,7 +88,7 @@ await bootWorker({
     ;({ flushLangfuse, getLangfuse } = await import('@/lib/langfuse/client'))
     ;({ runWithAuditContext } = await import('@/lib/audit/context'))
     ;({ reportWorkerFailure } = await import('@/lib/services/job-alerts'))
-    ;({ postSlackText, postSlackBlocks } = await import(
+    ;({ postSlackBlocks, postSlackPayload } = await import(
       '@/lib/adapters/alerting/slack'
     ))
     ;({ createTicket } = await import('@/lib/adapters/linear/create-ticket'))
@@ -94,7 +98,7 @@ await bootWorker({
     ;({ getInstallationToken } = await import(
       '@/lib/adapters/github/app-auth'
     ))
-    ;({ buildRepairTriggerMessage } = await import(
+    ;({ buildRepairTriggerMessage, buildRepairTriggerBlocks } = await import(
       '@/lib/services/health-agent/report'
     ))
   },
@@ -158,8 +162,9 @@ async function main(): Promise<never> {
   const triggerRepair =
     opsAgentBotId && process.env.SLACK_FORMORIA_WEBHOOK_URL
       ? async (request: RepairRequest) => {
-          const message = buildRepairTriggerMessage(opsAgentBotId, request)
-          await postSlackText(message)
+          const blocks = buildRepairTriggerBlocks(request)
+          const fallback = buildRepairTriggerMessage(opsAgentBotId, request)
+          await postSlackPayload({ blocks, text: fallback })
         }
       : undefined
 
