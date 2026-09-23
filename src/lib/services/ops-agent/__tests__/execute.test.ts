@@ -31,7 +31,7 @@ function makeDeps(overrides: Partial<Parameters<typeof executeProposal>[2]> = {}
     enqueueAdminCurationJob: vi.fn(),
     dispatchCurationJob: vi.fn(),
     enqueueCurationRecovery: vi.fn(),
-    dispatchWorkflow: vi.fn(),
+    dispatchWorkflow: vi.fn().mockResolvedValue({ ok: true }),
     ...overrides,
   };
 }
@@ -178,6 +178,22 @@ describe("dispatch_workflow kind", () => {
 
     expect(result).toEqual({ ok: true, result: { dispatched: "e2e-staging" } });
     expect(deps.dispatchWorkflow).toHaveBeenCalled();
+  });
+
+  it("returns error when dispatch is refused", async () => {
+    const deps = makeDeps({
+      dispatchWorkflow: vi
+        .fn()
+        .mockResolvedValue({ ok: false, error: "failed to invoke cron execution" }),
+    });
+
+    const result = await executeProposal(
+      { kind: "dispatch_workflow", workflow: "e2e-staging" },
+      makeCtx(),
+      deps,
+    );
+
+    expect(result).toEqual({ ok: false, error: "failed to invoke cron execution" });
   });
 
   it("rejects health-agent (removed)", async () => {

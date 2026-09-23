@@ -11,6 +11,7 @@
  *
  * Cron schedule is a Railway dashboard setting,
  * documented in railway/e2e-nightly-agent.json.
+ * Manual runs: ops-bot dispatch_workflow → deploymentInstanceExecutionCreate (src/lib/adapters/railway/api.ts).
  */
 
 import { randomUUID } from 'node:crypto'

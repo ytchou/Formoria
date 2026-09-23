@@ -34,7 +34,7 @@ export type ExecuteDeps = {
   }) => Promise<{ id: string }>;
   dispatchCurationJob: (jobId: string) => Promise<unknown>;
   enqueueCurationRecovery: (input: CurationRecoveryInput) => Promise<{ job: { id: string }; counts: CurationRecoveryCounts }>;
-  dispatchWorkflow: () => Promise<unknown>;
+  dispatchWorkflow: () => Promise<{ ok: true } | { ok: false; error: string }>;
 };
 
 // ---------------------------------------------------------------------------
@@ -120,7 +120,8 @@ async function executeDispatchWorkflow(
     return { ok: false, error: "not_allowed" };
   }
 
-  await deps.dispatchWorkflow();
+  const outcome = await deps.dispatchWorkflow();
+  if (!outcome.ok) return { ok: false, error: outcome.error };
   return { ok: true, result: { dispatched: proposal.workflow } };
 }
 
