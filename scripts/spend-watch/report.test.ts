@@ -519,60 +519,36 @@ describe("spend-watch report", () => {
 });
 
 describe("humanNumber", () => {
-  it("formats 268568 as 269K (rounded)", () => {
-    expect(humanNumber(268568)).toBe("268.6K");
-  });
-
-  it("formats 1000000 as 1M (exact)", () => {
-    expect(humanNumber(1_000_000)).toBe("1M");
-  });
-
-  it("formats 42 as 42", () => {
-    expect(humanNumber(42)).toBe("42");
-  });
-
-  it("formats 1000 as 1K (exact)", () => {
-    expect(humanNumber(1_000)).toBe("1K");
-  });
-
-  it("formats 1500000 as 1.5M", () => {
-    expect(humanNumber(1_500_000)).toBe("1.5M");
+  it.each([
+    [268568, "268.6K"],
+    [1_000_000, "1M"],
+    [42, "42"],
+    [1_000, "1K"],
+    [1_500_000, "1.5M"],
+  ])("formats %d as %s", (value, expected) => {
+    expect(humanNumber(value)).toBe(expected);
   });
 });
 
 describe("progressBar", () => {
-  it("renders 50% as half-filled", () => {
-    expect(progressBar(0.5)).toBe("█████░░░░░");
-  });
-
-  it("renders null as all empty", () => {
-    expect(progressBar(null)).toBe("░░░░░░░░░░");
-  });
-
-  it("renders 0% as all empty", () => {
-    expect(progressBar(0)).toBe("░░░░░░░░░░");
-  });
-
-  it("renders 100% as all filled", () => {
-    expect(progressBar(1)).toBe("██████████");
-  });
-
-  it("clamps values above 1", () => {
-    expect(progressBar(1.5)).toBe("██████████");
+  it.each([
+    [0.5, "█████░░░░░"],
+    [null, "░░░░░░░░░░"],
+    [0, "░░░░░░░░░░"],
+    [1, "██████████"],
+    [1.5, "██████████"], // clamps values above 1
+  ])("renders %s as %s", (ratio, expected) => {
+    expect(progressBar(ratio)).toBe(expected);
   });
 });
 
 describe("isEffectivelyUnlimited", () => {
-  it("treats null as unlimited", () => {
-    expect(isEffectivelyUnlimited(null)).toBe(true);
-  });
-
-  it("treats 1e16 as unlimited", () => {
-    expect(isEffectivelyUnlimited(1e16)).toBe(true);
-  });
-
-  it("treats 1000 as limited", () => {
-    expect(isEffectivelyUnlimited(1000)).toBe(false);
+  it.each([
+    [null, true],
+    [1e16, true],
+    [1000, false],
+  ])("treats %s as unlimited: %s", (limit, expected) => {
+    expect(isEffectivelyUnlimited(limit)).toBe(expected);
   });
 });
 

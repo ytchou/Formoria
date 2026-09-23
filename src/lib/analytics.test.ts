@@ -61,54 +61,28 @@ describe('getUtmParams', () => {
     })
   })
 
-  it('returns only present params', () => {
-    expect(getUtmParams('?utm_source=newsletter&utm_campaign=launch')).toEqual({
-      utm_source: 'newsletter',
-      utm_campaign: 'launch',
-    })
-  })
-
-  it('returns empty object when no UTM params', () => {
-    expect(getUtmParams('?q=brands&page=2')).toEqual({})
-  })
-
-  it('returns empty for empty string', () => {
-    expect(getUtmParams('')).toEqual({})
+  it.each([
+    ['only the present params', '?utm_source=newsletter&utm_campaign=launch', { utm_source: 'newsletter', utm_campaign: 'launch' }],
+    ['nothing when no UTM params', '?q=brands&page=2', {}],
+    ['nothing for an empty string', '', {}],
+  ])('returns %s', (_label, search, expected) => {
+    expect(getUtmParams(search)).toEqual(expected)
   })
 })
 
 describe('getContentGroup', () => {
-  it('maps /zh-TW root to directory', () => {
-    expect(getContentGroup('/zh-TW')).toBe('directory')
-  })
-
-  it('maps /en root to directory', () => {
-    expect(getContentGroup('/en')).toBe('directory')
-  })
-
-  it('maps /zh-TW/brands to directory', () => {
-    expect(getContentGroup('/zh-TW/brands')).toBe('directory')
-  })
-
-  it('maps /zh-TW/brands/some-brand to brand_detail', () => {
-    expect(getContentGroup('/zh-TW/brands/some-brand')).toBe('brand_detail')
-  })
-
-  it('maps /zh-TW/submit to submission', () => {
-    expect(getContentGroup('/zh-TW/submit')).toBe('submission')
-  })
-
-  it('maps admin paths to admin', () => {
-    expect(getContentGroup('/admin')).toBe('admin')
-    expect(getContentGroup('/admin/reports')).toBe('admin')
-  })
-
-  it('maps /zh-TW/about to about', () => {
-    expect(getContentGroup('/zh-TW/about')).toBe('about')
-  })
-
-  it('maps /zh-TW/privacy to other', () => {
-    expect(getContentGroup('/zh-TW/privacy')).toBe('other')
+  it.each([
+    ['/zh-TW', 'directory'],
+    ['/en', 'directory'],
+    ['/zh-TW/brands', 'directory'],
+    ['/zh-TW/brands/some-brand', 'brand_detail'],
+    ['/zh-TW/submit', 'submission'],
+    ['/admin', 'admin'],
+    ['/admin/reports', 'admin'],
+    ['/zh-TW/about', 'about'],
+    ['/zh-TW/privacy', 'other'],
+  ])('maps %s to %s', (path, group) => {
+    expect(getContentGroup(path)).toBe(group)
   })
 })
 
@@ -207,23 +181,16 @@ describe('analytics', () => {
     })
   })
 
-  it('story_card_clicked_fires_from_story_row', () => {
-    trackStoryCardClicked('slow-living', 1, 'homepage_latest_stories')
+  it.each([
+    [1, 'homepage_latest_stories'],
+    [0, 'trail_related_stories'],
+  ] as const)('story_card_clicked carries position %i and surface %s', (position, surface) => {
+    trackStoryCardClicked('slow-living', position, surface)
 
     expect(mockPostHogCapture).toHaveBeenCalledWith(ANALYTICS_EVENTS.STORY_CARD_CLICKED, {
       story_slug: 'slow-living',
-      position: 1,
-      story_surface: 'homepage_latest_stories',
-    })
-  })
-
-  it('story_card_clicked_carries the discovery trail continuation surface', () => {
-    trackStoryCardClicked('slow-living', 0, 'trail_related_stories')
-
-    expect(mockPostHogCapture).toHaveBeenCalledWith(ANALYTICS_EVENTS.STORY_CARD_CLICKED, {
-      story_slug: 'slow-living',
-      position: 0,
-      story_surface: 'trail_related_stories',
+      position,
+      story_surface: surface,
     })
   })
 
@@ -373,10 +340,11 @@ describe('analytics', () => {
     })
   })
 
-  it('trackProductSearchExecuted omits intent fields when not provided', () => {
+  it('trackProductSearchExecuted omits intent, latency, and search_id fields when not provided', () => {
     trackProductSearchExecuted('linen bag', 3, { searchSource: 'discover_page', degraded: false })
 
     const payload = mockPostHogCapture.mock.calls[0]?.[1] as Record<string, unknown>
+    expect(payload).not.toHaveProperty('search_id')
     expect(payload).not.toHaveProperty('intent_parsed')
     expect(payload).not.toHaveProperty('intent_category')
     expect(payload).not.toHaveProperty('intent_subcategory')
@@ -410,26 +378,11 @@ describe('analytics', () => {
     expect(gaPayload).not.toHaveProperty('embed_latency_ms')
   })
 
-  it('trackProductSearchExecuted omits latency keys when undefined', () => {
-    trackProductSearchExecuted('linen bag', 3, { searchSource: 'discover_page', degraded: false })
-
-    const payload = mockPostHogCapture.mock.calls[0]?.[1] as Record<string, unknown>
-    expect('rpc_latency_ms' in payload).toBe(false)
-    expect('embed_latency_ms' in payload).toBe(false)
-  })
-
   it('trackProductSearchExecuted includes search_id when provided', () => {
     trackProductSearchExecuted('query', 5, { searchSource: 'discover_page', degraded: false, searchId: 'uuid-123' })
 
     const payload = mockPostHogCapture.mock.calls[0]?.[1] as Record<string, unknown>
     expect(payload.search_id).toBe('uuid-123')
-  })
-
-  it('trackProductSearchExecuted omits search_id when not provided', () => {
-    trackProductSearchExecuted('query', 5, { searchSource: 'discover_page', degraded: false })
-
-    const payload = mockPostHogCapture.mock.calls[0]?.[1] as Record<string, unknown>
-    expect(payload).not.toHaveProperty('search_id')
   })
 
   it('trackProductSearchResultClicked captures all fields', () => {

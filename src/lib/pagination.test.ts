@@ -6,28 +6,18 @@ import {
 } from './pagination'
 
 describe('parsePageParam', () => {
-  it('returns 1 for undefined', () => {
-    expect(parsePageParam(undefined)).toBe(1)
-  })
-
-  it('returns 1 for non-numeric string', () => {
-    expect(parsePageParam('abc')).toBe(1)
-  })
-
-  it('returns 1 for zero', () => {
-    expect(parsePageParam('0')).toBe(1)
-  })
-
-  it('returns 1 for negative numbers', () => {
-    expect(parsePageParam('-3')).toBe(1)
+  it.each([
+    ['undefined', undefined],
+    ['a non-numeric string', 'abc'],
+    ['zero', '0'],
+    ['a negative number', '-3'],
+    ['an array', ['1', '2']],
+  ])('returns 1 for %s', (_label, raw) => {
+    expect(parsePageParam(raw)).toBe(1)
   })
 
   it('parses valid page number', () => {
     expect(parsePageParam('3')).toBe(3)
-  })
-
-  it('returns 1 for array input', () => {
-    expect(parsePageParam(['1', '2'])).toBe(1)
   })
 
   it('rejects fractional and oversized pages before deriving a database offset', () => {
@@ -37,22 +27,18 @@ describe('parsePageParam', () => {
 })
 
 describe('parseSortParam', () => {
-  it('returns "random" for undefined', () => {
-    expect(parseSortParam(undefined)).toBe('random')
-  })
-
-  it('returns "random" for invalid sort value', () => {
-    expect(parseSortParam('invalid')).toBe('random')
+  it.each([
+    ['undefined', undefined],
+    ['an unknown value', 'invalid'],
+    ['an array', ['name', 'newest']],
+  ])('returns "random" for %s', (_label, raw) => {
+    expect(parseSortParam(raw)).toBe('random')
   })
 
   it('returns valid sort option', () => {
     expect(parseSortParam('newest')).toBe('newest')
     expect(parseSortParam('year')).toBe('year')
     expect(parseSortParam('name')).toBe('name')
-  })
-
-  it('returns "random" for array input', () => {
-    expect(parseSortParam(['name', 'newest'])).toBe('random')
   })
 })
 

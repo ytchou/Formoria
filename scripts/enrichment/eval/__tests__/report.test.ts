@@ -11,93 +11,33 @@ import {
 // resolveVerdict — verdict matrix
 // ---------------------------------------------------------------------------
 
+type Expected = Parameters<typeof resolveVerdict>[0];
+type Observed = Parameters<typeof resolveVerdict>[1];
+
 describe("resolveVerdict", () => {
-  // expected null → mismatch
-  it("expected null (holdout) → mismatch", () => {
-    const v = resolveVerdict(null, "success_products");
-    expect(v.verdict).toBe("mismatch");
-  });
+  // [expected, observed, verdict, observedNormalized — undefined when not pinned]
+  const matrix: [Expected, Observed, string, string | undefined][] = [
+    [null, "success_products", "mismatch", undefined],
+    ["correct_zero", "zero:no_catalog", "correct", "correct_zero"],
+    ["correct_zero", "unsupported_source_shape", "correct", "correct_zero"],
+    ["correct_zero", "render_required", "correct", "correct_zero"],
+    ["correct_zero", "zero:unclassified", "correct", "correct_zero"],
+    ["correct_zero", "success_products", "improvement", "success_products"],
+    ["correct_zero", "transient_infra_failure", "mismatch", undefined],
+    ["data_defect", "zero:no_catalog", "correct", "data_defect"],
+    ["data_defect", "extraction_failure", "correct", "data_defect"],
+    ["data_defect", "success_products", "improvement", "success_products"],
+    ["data_defect", "transient_infra_failure", "mismatch", undefined],
+    ["success_products", "success_products", "correct", "success_products"],
+    ["success_products", "zero:no_catalog", "regression", undefined],
+    ["success_products", "transient_infra_failure", "regression", undefined],
+    ["success_products", "extraction_failure", "regression", undefined],
+  ];
 
-  // expected correct_zero
-  it("expected correct_zero + observed zero:no_catalog → correct", () => {
-    const v = resolveVerdict("correct_zero", "zero:no_catalog");
-    expect(v.verdict).toBe("correct");
-    expect(v.observedNormalized).toBe("correct_zero");
-  });
-
-  it("expected correct_zero + observed unsupported_source_shape → correct", () => {
-    const v = resolveVerdict("correct_zero", "unsupported_source_shape");
-    expect(v.verdict).toBe("correct");
-    expect(v.observedNormalized).toBe("correct_zero");
-  });
-
-  it("expected correct_zero + observed render_required → correct", () => {
-    const v = resolveVerdict("correct_zero", "render_required");
-    expect(v.verdict).toBe("correct");
-    expect(v.observedNormalized).toBe("correct_zero");
-  });
-
-  it("expected correct_zero + observed zero:unclassified → correct", () => {
-    const v = resolveVerdict("correct_zero", "zero:unclassified");
-    expect(v.verdict).toBe("correct");
-    expect(v.observedNormalized).toBe("correct_zero");
-  });
-
-  it("expected correct_zero + observed success_products → improvement", () => {
-    const v = resolveVerdict("correct_zero", "success_products");
-    expect(v.verdict).toBe("improvement");
-    expect(v.observedNormalized).toBe("success_products");
-  });
-
-  it("expected correct_zero + observed transient_infra_failure → mismatch", () => {
-    const v = resolveVerdict("correct_zero", "transient_infra_failure");
-    expect(v.verdict).toBe("mismatch");
-  });
-
-  // expected data_defect
-  it("expected data_defect + observed zero:no_catalog → correct", () => {
-    const v = resolveVerdict("data_defect", "zero:no_catalog");
-    expect(v.verdict).toBe("correct");
-    expect(v.observedNormalized).toBe("data_defect");
-  });
-
-  it("expected data_defect + observed extraction_failure → correct", () => {
-    const v = resolveVerdict("data_defect", "extraction_failure");
-    expect(v.verdict).toBe("correct");
-    expect(v.observedNormalized).toBe("data_defect");
-  });
-
-  it("expected data_defect + observed success_products → improvement", () => {
-    const v = resolveVerdict("data_defect", "success_products");
-    expect(v.verdict).toBe("improvement");
-    expect(v.observedNormalized).toBe("success_products");
-  });
-
-  it("expected data_defect + observed transient_infra_failure → mismatch", () => {
-    const v = resolveVerdict("data_defect", "transient_infra_failure");
-    expect(v.verdict).toBe("mismatch");
-  });
-
-  // expected success_products
-  it("expected success_products + observed success_products → correct", () => {
-    const v = resolveVerdict("success_products", "success_products");
-    expect(v.verdict).toBe("correct");
-    expect(v.observedNormalized).toBe("success_products");
-  });
-
-  it("expected success_products + observed zero:no_catalog → regression", () => {
-    const v = resolveVerdict("success_products", "zero:no_catalog");
-    expect(v.verdict).toBe("regression");
-  });
-
-  it("expected success_products + observed transient_infra_failure → regression", () => {
-    const v = resolveVerdict("success_products", "transient_infra_failure");
-    expect(v.verdict).toBe("regression");
-  });
-
-  it("expected success_products + observed extraction_failure → regression", () => {
-    const v = resolveVerdict("success_products", "extraction_failure");
-    expect(v.verdict).toBe("regression");
+  it.each(matrix)("expected %s + observed %s → %s", (expected, observed, verdict, normalized) => {
+    const v = resolveVerdict(expected, observed);
+    expect(v.verdict).toBe(verdict);
+    if (normalized !== undefined) expect(v.observedNormalized).toBe(normalized);
   });
 });
 
