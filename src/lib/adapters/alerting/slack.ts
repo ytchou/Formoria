@@ -33,17 +33,6 @@ export async function postSlackText(text: string): Promise<boolean> {
   return postWebhookPayload({ text: boundedSlackText(text) });
 }
 
-/** Posts Block Kit blocks with a plain-text fallback to the configured Slack webhook. */
-export async function postSlackBlocks(
-  blocks: Array<Record<string, unknown>>,
-  fallbackText: string,
-): Promise<boolean> {
-  return postWebhookPayload({
-    blocks,
-    text: boundedSlackText(fallbackText),
-  });
-}
-
 /** Posts a raw payload to the webhook without text truncation. */
 export async function postSlackPayload(
   payload: Record<string, unknown>,

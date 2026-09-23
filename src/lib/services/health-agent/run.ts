@@ -60,11 +60,14 @@ export type RunHealthAgentDeps = {
   /** GitHub App adapter — for clone tokens and PR creation. */
   githubApp?: unknown
 
-  /** Post the Slack digest. Absent in dry-run mode. */
+  /** Post the run start message. Returns the thread ts for threading. */
+  slackPostRunStart?: (date: string, runId: string) => Promise<string | undefined>
+
+  /** Post the Slack digest (threaded under the start message). */
   slackPostDigest?: (content: {
     text: string
     blocks: Array<Record<string, unknown>>
-  }) => Promise<void>
+  }, threadTs?: string) => Promise<void>
 
   /** Create a Linear ticket. Absent in dry-run mode. */
   linearCreateTicket?: (spec: {
@@ -73,8 +76,8 @@ export type RunHealthAgentDeps = {
     labels: string[]
   }) => Promise<{ identifier: string }>
 
-  /** Trigger the ops-agent to repair auto-fixable findings. */
-  triggerRepair?: (request: RepairRequest) => Promise<void>
+  /** Trigger the ops-agent to repair findings. threadTs threads under the digest. */
+  triggerRepair?: (request: RepairRequest, threadTs?: string) => Promise<void>
 
   /** Report a top-level crash. */
   reportWorkerFailure?: (context: string, error: unknown) => Promise<void>
@@ -326,6 +329,16 @@ async function executeRunBody(
     import('@/lib/services/link-checks/curated-products'),
     import('@/lib/services/link-checks/mdx'),
   ])
+
+  // ---- 2.5. Post run start message ----
+  let threadTs: string | undefined
+  if (!dryRun && deps.slackPostRunStart) {
+    try {
+      threadTs = await deps.slackPostRunStart(logicalDate, runId)
+    } catch (err) {
+      console.error('[health-agent] run start post failed:', err)
+    }
+  }
 
   // ---- 3. Run detectors ----
   const registryEntries: Detector[] =
@@ -675,7 +688,7 @@ async function executeRunBody(
       }
       const digestText = buildDigest(results, digestOptions)
       const digestBlocks = buildDigestBlocks(results, digestOptions)
-      await deps.slackPostDigest({ text: digestText, blocks: digestBlocks })
+      await deps.slackPostDigest({ text: digestText, blocks: digestBlocks }, threadTs)
     } catch (err) {
       console.error('[health-agent] digest failed:', err)
       digestFailed = true
@@ -712,7 +725,7 @@ async function executeRunBody(
             evidence: f.evidence,
           })),
         }
-        await deps.triggerRepair(repairRequest)
+        await deps.triggerRepair(repairRequest, threadTs)
         console.log(
           `[health-agent] repair trigger sent for ${repairableFindings.length} findings`,
         )
