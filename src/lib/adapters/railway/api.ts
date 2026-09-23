@@ -97,7 +97,7 @@ export async function runE2eAgentNow(): Promise<
       if (run.data?.deploymentInstanceExecutionCreate !== true) {
         return {
           ok: false as const,
-          error: "Railway refused to start the e2e-nightly-agent execution",
+          error: `Railway refused to start the ${E2E_NIGHTLY_SERVICE_NAME} execution`,
         };
       }
 

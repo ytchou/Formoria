@@ -85,6 +85,7 @@ describe("runE2eAgentNow", () => {
         provider: "railway",
         operation: "run_cron_now",
         status: "succeeded",
+        summary: expect.objectContaining({ serviceInstanceId: INSTANCE_ID }),
       }),
     );
   });
@@ -114,6 +115,23 @@ describe("runE2eAgentNow", () => {
 
     expect(result.ok).toBe(false);
     expect(!result.ok && result.error).toContain("500");
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(writes.filter((w) => w.status !== "started")).toEqual([
+      expect.objectContaining({ operation: "run_cron_now", status: "failed" }),
+    ]);
+  });
+
+  it("runE2eAgentNow_returns_graphql_error_from_lookup", async () => {
+    const fetchMock = vi
+      .spyOn(globalThis, "fetch")
+      .mockResolvedValueOnce(
+        Response.json({ errors: [{ message: "Not Authorized" }] }),
+      );
+
+    const result = await runE2eAgentNow();
+
+    expect(result.ok).toBe(false);
+    expect(!result.ok && result.error).toContain("Not Authorized");
     expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 
