@@ -2,7 +2,12 @@
  * E2E nightly agent entry point — Railway service entry.
  *
  * `bootWorker` is awaited BEFORE any `await import('@/lib/services/…')`.
- * `process.exit` in `finally` — 0 on green/patched/noise, 1 on needs_human/fallback/crash.
+ * `process.exit` in `finally` — 0 on green, 1 on red or crash.
+ *
+ * On a red run the agent posts a repair request (JSON block + ops-bot
+ * mention) into the run's Slack thread; the ops agent fires the Claude
+ * routine, which fixes the failures and opens a PR. Mirrors the health
+ * agent's repair trigger (src/health-agent/server.ts).
  *
  * Cron schedule is a Railway dashboard setting,
  * documented in railway/e2e-nightly-agent.json.
@@ -12,8 +17,7 @@ import { randomUUID } from 'node:crypto'
 import { bootWorker, logWorkerBuildInfo } from '@/worker-boot'
 import { validateE2eAgentConfig } from '@/e2e-agent/config'
 
-import type { RunOutcome } from '@/lib/services/e2e-agent/types'
-import { SLACK_CHANNEL } from '@/lib/services/e2e-agent/report'
+const SLACK_CHANNEL = process.env.SLACK_E2E_CHANNEL ?? 'e2e-alerts'
 
 // ---------------------------------------------------------------------------
 // Dynamic imports — populated after bootWorker
@@ -23,17 +27,21 @@ let runE2eSuite: Awaited<
   typeof import('@/e2e-agent/runner')
 >['runE2eSuite'] | undefined
 
-let runSelfHealGraph: Awaited<
-  typeof import('@/e2e-agent/self-heal')
->['runSelfHealGraph'] | undefined
-
 let buildRunnerDeps: Awaited<
   typeof import('@/e2e-agent/deps')
 >['buildRunnerDeps'] | undefined
 
-let buildSelfHealDeps: Awaited<
-  typeof import('@/e2e-agent/deps')
->['buildSelfHealDeps'] | undefined
+let buildE2eRepairRequest: Awaited<
+  typeof import('@/lib/services/e2e-agent/repair-request')
+>['buildE2eRepairRequest'] | undefined
+
+let buildRepairTriggerMessage: Awaited<
+  typeof import('@/lib/services/health-agent/report')
+>['buildRepairTriggerMessage'] | undefined
+
+let buildRepairTriggerBlocks: Awaited<
+  typeof import('@/lib/services/health-agent/report')
+>['buildRepairTriggerBlocks'] | undefined
 
 let postMessage: Awaited<
   typeof import('@/lib/adapters/slack/web-api')
@@ -159,81 +167,53 @@ export async function main(): Promise<never> {
       console.warn('[e2e-nightly] test summary failed:', err)
     }
 
-    const reportableFailures = [
-      ...result.failures,
-      ...result.unexpectedSkips.map((skip) => ({
-        file: skip.file,
-        title: skip.title,
-        project: skip.project,
-        error: 'Test was skipped without a matching expected-skip manifest entry',
-      })),
-    ]
-
     if (result.passed) {
       console.log(`[e2e-nightly] run=${runId} outcome=green exit=0`)
-    } else if (reportableFailures.length > 0 && runSelfHealGraph) {
-      // Map runner failures to freeze.ts RunResult format (requires project)
-      if (!buildSelfHealDeps) {
-        throw new Error('buildSelfHealDeps not loaded — loadServices incomplete')
+    } else {
+      exitCode = 1
+
+      if (
+        !buildE2eRepairRequest ||
+        !buildRepairTriggerMessage ||
+        !buildRepairTriggerBlocks
+      ) {
+        throw new Error('repair builders not loaded — loadServices incomplete')
       }
-      const selfHealDeps = buildSelfHealDeps()
-      const graphResult = await runSelfHealGraph(
-        {
-          runResult: {
-            failures: reportableFailures.map((f) => ({
-              ...f,
-              project: f.project ?? 'deep',
-            })),
-          },
-          runId,
-          stagingSha: result.stagingSha,
-        },
-        startTs
-          ? {
-              ...selfHealDeps,
-              postSlackMessage: (params) =>
-                selfHealDeps.postSlackMessage({ ...params, threadTs: startTs }),
-            }
-          : selfHealDeps,
-      )
 
-      const successOutcomes: RunOutcome[] = ['green', 'patched', 'noise']
-      const skipFailureUnresolved =
-        result.unexpectedSkips.length > 0 && graphResult.outcome !== 'patched'
+      const request = buildE2eRepairRequest({
+        failures: result.failures,
+        unexpectedSkips: result.unexpectedSkips,
+        runId,
+        stagingSha: result.stagingSha,
+      })
+      const opsAgentBotId = process.env.OPS_AGENT_SLACK_BOT_ID
 
-      // When the self-heal diagnosis itself fails ("fallback") but only a
-      // small number of tests failed out of a large suite, these are almost
-      // certainly transient flakes — not a regression the operator needs to
-      // wake up for. Treat as a soft pass so the cron stays green.
-      const totalExecuted = result.stats.expected + result.stats.unexpected
-      const MAX_TOLERATED_FLAKES = 2
-      const isFallbackFlake =
-        graphResult.outcome === 'fallback' &&
-        result.stats.unexpected <= MAX_TOLERATED_FLAKES &&
-        totalExecuted > 50 &&
-        !skipFailureUnresolved
-
-      if (isFallbackFlake) {
-        exitCode = 0
-        console.log(
-          `[e2e-nightly] run=${runId} outcome=fallback-flake ` +
-            `unexpected=${result.stats.unexpected}/${totalExecuted} exit=0 ` +
-            `(below flake threshold, self-heal diagnosis unavailable)`,
+      if (!request) {
+        console.warn(
+          `[e2e-nightly] run=${runId} red with no reportable failures — repair request skipped`,
+        )
+      } else if (!opsAgentBotId) {
+        console.warn(
+          '[e2e-nightly] OPS_AGENT_SLACK_BOT_ID not set — repair request skipped',
         )
       } else {
-        exitCode =
-          successOutcomes.includes(graphResult.outcome) && !skipFailureUnresolved
-            ? 0
-            : 1
-        console.log(
-          `[e2e-nightly] run=${runId} outcome=${graphResult.outcome} exit=${exitCode}`,
-        )
+        try {
+          const repairResult = await postMessage({
+            channel,
+            text: buildRepairTriggerMessage(opsAgentBotId, request, 'E2E Agent'),
+            blocks: buildRepairTriggerBlocks(request, 'E2E Agent'),
+            threadTs: startTs,
+          })
+          if (!repairResult.ok) {
+            console.warn('[e2e-nightly] repair request failed:', repairResult.error)
+          }
+        } catch (err) {
+          console.warn('[e2e-nightly] repair request failed:', err)
+        }
       }
-    } else {
-      // Failures but no self-heal graph available
-      exitCode = 1
+
       console.log(
-        `[e2e-nightly] run=${runId} failures=${result.failures.length} no-selfheal exit=1`,
+        `[e2e-nightly] run=${runId} outcome=red findings=${request?.findings.length ?? 0} exit=1`,
       )
     }
   } catch (err) {
@@ -256,9 +236,12 @@ try {
     },
     async loadServices() {
       ;({ runE2eSuite } = await import('@/e2e-agent/runner'))
-      ;({ runSelfHealGraph } = await import('@/e2e-agent/self-heal'))
-      ;({ buildRunnerDeps, buildSelfHealDeps } = await import(
-        '@/e2e-agent/deps'
+      ;({ buildRunnerDeps } = await import('@/e2e-agent/deps'))
+      ;({ buildE2eRepairRequest } = await import(
+        '@/lib/services/e2e-agent/repair-request'
+      ))
+      ;({ buildRepairTriggerMessage, buildRepairTriggerBlocks } = await import(
+        '@/lib/services/health-agent/report'
       ))
       ;({ postMessage } = await import(
         '@/lib/adapters/slack/web-api'

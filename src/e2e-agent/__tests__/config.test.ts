@@ -30,23 +30,16 @@ function validEnvironment(): Record<string, string> {
     E2E_ORIGIN_SECRET: "origin-secret",
     CF_ACCESS_CLIENT_ID: "access-client-id",
     CF_ACCESS_CLIENT_SECRET: "access-client-secret",
-    LANGFUSE_PUBLIC_KEY: "pk-lf-test",
-    LANGFUSE_SECRET_KEY: "sk-lf-test",
-    LANGFUSE_HOST: "https://cloud.langfuse.com",
     GITHUB_APP_ID: "12345",
     GITHUB_APP_PRIVATE_KEY: "private-key",
     GITHUB_APP_INSTALLATION_ID: "67890",
-    REPO_WORKER_URL: "http://repo-worker.railway.internal:8080",
-    REPO_WORKER_TOKEN: "repo-worker-token",
-    LINEAR_API_KEY: "lin_api_test",
-    LINEAR_TEAM_ID: "linear-team-id",
     SLACK_BOT_TOKEN: "xoxb-test-token",
     SLACK_E2E_CHANNEL: "C0123456789",
   };
 }
 
 describe("E2E agent configuration", () => {
-  it("accepts the complete staging and repair configuration", () => {
+  it("accepts the complete staging and reporting configuration", () => {
     expect(validateE2eAgentConfig(validEnvironment())).toMatchObject({
       appHostname: "staging.formoria.com",
       projectRef: STAGING_PROJECT_REF,
@@ -60,6 +53,15 @@ describe("E2E agent configuration", () => {
     expect(() => validateE2eAgentConfig(environment)).toThrow(
       /SLACK_BOT_TOKEN is required for the E2E agent/,
     );
+  });
+
+  it("does not require the retired self-heal credentials", () => {
+    const environment = validEnvironment();
+    expect(environment).not.toHaveProperty("REPO_WORKER_URL");
+    expect(environment).not.toHaveProperty("LINEAR_API_KEY");
+    expect(environment).not.toHaveProperty("LANGFUSE_HOST");
+
+    expect(() => validateE2eAgentConfig(environment)).not.toThrow();
   });
 
   it("refuses a non-staging application origin", () => {

@@ -1,21 +1,12 @@
 /**
  * Production dependency wiring for the e2e nightly agent.
  *
- * Builds real RunnerDeps and E2eSelfHealDeps from environment config
- * and imported adapters.
+ * Builds real RunnerDeps from environment config.
  */
 
 import { exec } from 'node:child_process'
 import { mkdir } from 'node:fs/promises'
-import path from 'node:path'
-import { getInstallationToken } from '@/lib/adapters/github/app-auth'
-import { publish } from '@/lib/adapters/github/app-publish'
-import { createTicket } from '@/lib/adapters/linear/create-ticket'
-import { postMessage } from '@/lib/adapters/slack/web-api'
-import { createRepoWorkerClient } from '@/lib/services/health-agent/repo-worker-client'
-import { fetchLangfusePrompt, type PromptName } from '@/lib/langfuse/prompt'
 import type { RunnerDeps, ExecResult } from './runner'
-import type { E2eSelfHealDeps } from '@/lib/services/e2e-agent/graph'
 
 // ---------------------------------------------------------------------------
 // execCommand — wraps child_process.exec with env merging
@@ -108,73 +99,6 @@ async function fetchRevision(stagingUrl: string): Promise<string> {
 }
 
 // ---------------------------------------------------------------------------
-// cloneAndRunTests — for the validate step of the self-heal graph
-// ---------------------------------------------------------------------------
-
-async function cloneAndRunTests(opts: {
-  changedFiles: Array<{ path: string; content: string }>
-  baseSha: string
-  specFiles: string[]
-}): Promise<{ passed: boolean; output: string }> {
-  const token = await getInstallationToken('clone')
-  const targetDir = `/tmp/e2e-validate-${Date.now()}`
-
-  await cloneRepo({
-    ref: opts.baseSha,
-    shallow: true,
-    token,
-    targetDir,
-  })
-
-  for (const file of opts.changedFiles) {
-    const filePath = path.join(targetDir, file.path)
-    await mkdir(path.dirname(filePath), { recursive: true })
-    const { writeFile } = await import('node:fs/promises')
-    await writeFile(filePath, file.content, 'utf-8')
-  }
-
-  const install = await execCommand('pnpm install --frozen-lockfile', {
-    cwd: targetDir,
-    timeoutMs: 3 * 60_000,
-    env: { NODE_ENV: 'development' },
-  })
-  if (install.exitCode !== 0) {
-    return { passed: false, output: `install failed: ${install.stderr}` }
-  }
-
-  const specArgs = opts.specFiles.length > 0
-    ? opts.specFiles.join(' ')
-    : ''
-
-  const result = await execCommand(
-    `pnpm exec playwright test ${specArgs} --project=deep --reporter=json`,
-    {
-      cwd: targetDir,
-      timeoutMs: 20 * 60_000,
-      env: {
-        FORMORIA_DEPLOYMENT_ENV: 'staging',
-        CI: 'true',
-        CF_ACCESS_CLIENT_ID: process.env.CF_ACCESS_CLIENT_ID ?? '',
-        CF_ACCESS_CLIENT_SECRET: process.env.CF_ACCESS_CLIENT_SECRET ?? '',
-        E2E_STAGING_SESSION_SECRET: process.env.E2E_STAGING_SESSION_SECRET ?? '',
-        BASE_URL: process.env.STAGING_BASE_URL ?? 'https://staging.formoria.com',
-      },
-    },
-  )
-
-  let passed = false
-  try {
-    const report = JSON.parse(result.stdout) as Record<string, unknown>
-    const stats = (report.stats ?? {}) as Record<string, unknown>
-    passed = Number(stats.unexpected ?? 0) === 0 && result.exitCode === 0
-  } catch {
-    // JSON parse failure = not passed
-  }
-
-  return { passed, output: result.stdout.slice(0, 10_000) }
-}
-
-// ---------------------------------------------------------------------------
 // Builders
 // ---------------------------------------------------------------------------
 
@@ -183,32 +107,5 @@ export function buildRunnerDeps(): RunnerDeps {
     execCommand,
     cloneRepo,
     fetchRevision,
-  }
-}
-
-export function buildSelfHealDeps(): E2eSelfHealDeps {
-  const workerUrl = process.env.REPO_WORKER_URL
-  const workerToken = process.env.REPO_WORKER_TOKEN
-
-  if (!workerUrl) {
-    throw new Error('REPO_WORKER_URL is required for self-heal')
-  }
-
-  return {
-    createClient: (deadlineMs: number) =>
-      createRepoWorkerClient(
-        {
-          baseUrl: workerUrl,
-          token: workerToken,
-          getCloneToken: () => getInstallationToken('clone'),
-        },
-        { deadlineMs },
-      ),
-    fetchPrompt: (name: string) =>
-      fetchLangfusePrompt(name as PromptName),
-    publish,
-    createTicket,
-    postSlackMessage: postMessage,
-    cloneAndRunTests,
   }
 }

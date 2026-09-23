@@ -15,16 +15,9 @@ const REQUIRED_AGENT_VARIABLES = [
   "E2E_ORIGIN_SECRET",
   "CF_ACCESS_CLIENT_ID",
   "CF_ACCESS_CLIENT_SECRET",
-  "LANGFUSE_PUBLIC_KEY",
-  "LANGFUSE_SECRET_KEY",
-  "LANGFUSE_HOST",
   "GITHUB_APP_ID",
   "GITHUB_APP_PRIVATE_KEY",
   "GITHUB_APP_INSTALLATION_ID",
-  "REPO_WORKER_URL",
-  "REPO_WORKER_TOKEN",
-  "LINEAR_API_KEY",
-  "LINEAR_TEAM_ID",
   "SLACK_BOT_TOKEN",
   "SLACK_E2E_CHANNEL",
 ] as const;
@@ -35,19 +28,11 @@ function required(environment: Environment, name: string): string {
   return value;
 }
 
-function requireUrl(value: string, name: string): void {
-  try {
-    new URL(value);
-  } catch {
-    throw new Error(`${name} must be a valid URL`);
-  }
-}
-
 /**
- * Fail closed before importing any service that can clone, mutate staging, or
- * publish a repair. Every credential used by the complete run is checked here
- * so a scheduled invocation cannot become partially green through missing
- * reporting or repair configuration.
+ * Fail closed before importing any service that can clone or mutate staging.
+ * Every credential used by the complete run is checked here so a scheduled
+ * invocation cannot become partially green through missing reporting
+ * configuration.
  */
 export function validateE2eAgentConfig(
   environment: Environment = process.env,
@@ -64,9 +49,6 @@ export function validateE2eAgentConfig(
   for (const name of REQUIRED_AGENT_VARIABLES) {
     required(environment, name);
   }
-
-  requireUrl(required(environment, "LANGFUSE_HOST"), "LANGFUSE_HOST");
-  requireUrl(required(environment, "REPO_WORKER_URL"), "REPO_WORKER_URL");
 
   const adminEmail = required(environment, "E2E_ADMIN_EMAIL").toLowerCase();
   const userEmail = required(environment, "E2E_USER_EMAIL").toLowerCase();

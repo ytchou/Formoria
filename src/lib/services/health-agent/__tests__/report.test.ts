@@ -406,9 +406,10 @@ describe('report — repair trigger message', () => {
       ],
     }
 
-    const message = buildRepairTriggerMessage('U_BOT_ID', request)
+    const message = buildRepairTriggerMessage('U_BOT_ID', request, 'Health agent')
 
     expect(message).toContain('<@U_BOT_ID>')
+    expect(message.split('\n')[0]).toBe('<@U_BOT_ID> Health agent repair request')
     expect(message).toContain('Test failure: broken test')
     expect(message).toContain('Test failure: another test')
     expect(message).toContain('```')
@@ -430,7 +431,7 @@ describe('report — repair trigger message', () => {
       ],
     }
 
-    const message = buildRepairTriggerMessage('U_BOT', request)
+    const message = buildRepairTriggerMessage('U_BOT', request, 'Health agent')
 
     // Extract JSON from the code block
     const codeBlockMatch = message.match(/```json\n([\s\S]*?)\n```/)
@@ -474,7 +475,7 @@ describe('report — repair trigger blocks', () => {
       ],
     }
 
-    const blocks = buildRepairTriggerBlocks(request)
+    const blocks = buildRepairTriggerBlocks(request, 'Health Agent')
 
     expect(blocks[0]).toEqual({
       type: 'header',
@@ -516,9 +517,35 @@ describe('report — repair trigger blocks', () => {
       ],
     }
 
-    const blocks = buildRepairTriggerBlocks(request)
+    const blocks = buildRepairTriggerBlocks(request, 'Health Agent')
     const lastBlock = blocks[blocks.length - 1] as { type: string }
     expect(lastBlock.type).not.toBe('context')
+  })
+
+  it('buildRepairTriggerBlocks and buildRepairTriggerMessage use the caller label', () => {
+    const request: RepairRequest = {
+      agent: 'e2e-agent',
+      ref: 'staging',
+      runId: 'run-label',
+      scope: ['e2e/tests/a.spec.ts'],
+      findings: [
+        {
+          fingerprint: 'e2e:a',
+          title: 'A fails',
+          severity: 'high',
+          source: 'e2e',
+        },
+      ],
+    }
+
+    const blocks = buildRepairTriggerBlocks(request, 'E2E Agent')
+    expect(blocks[0]).toEqual({
+      type: 'header',
+      text: { type: 'plain_text', text: 'E2E Agent Repair Request', emoji: true },
+    })
+
+    const message = buildRepairTriggerMessage('U_BOT', request, 'E2E Agent')
+    expect(message.split('\n')[0]).toBe('<@U_BOT> E2E Agent repair request')
   })
 })
 
@@ -546,7 +573,7 @@ describe('report — escapeSlackMrkdwn', () => {
       ],
     }
 
-    const message = buildRepairTriggerMessage('U_BOT', request)
+    const message = buildRepairTriggerMessage('U_BOT', request, 'Health agent')
 
     // The human-readable summary line should have escaped title
     expect(message).toContain('&lt;Component&gt; &amp; stuff')

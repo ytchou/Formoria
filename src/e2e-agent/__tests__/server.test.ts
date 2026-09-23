@@ -2,12 +2,13 @@
  * E2E nightly agent server entry point tests.
  *
  * Verifies the boot sequence, exit codes on green/failure runs,
- * and the runner → self-heal graph wiring.
+ * and the red-run repair trigger posted into the run's Slack thread.
  *
- * All service modules are mocked — no real Supabase, Langfuse, or Playwright.
+ * Runner, deps, and Slack are mocked — no real Supabase, Slack, or Playwright.
+ * The repair builders are pure and run for real.
  */
 
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 // ---------------------------------------------------------------------------
 // Mocks — must be at the top level (hoisted by Vitest)
@@ -44,11 +45,11 @@ vi.mock('@/e2e-agent/runner', () => ({
   runE2eSuite: (...args: unknown[]) => mockRunE2eSuite(...args),
 }))
 
-// Self-heal graph mock — re-exported at @/e2e-agent/ path
-const mockRunSelfHealGraph = vi.fn()
+// Slack adapter mock — captures the start, summary, and repair messages
+const mockPostMessage = vi.fn()
 
-vi.mock('@/e2e-agent/self-heal', () => ({
-  runSelfHealGraph: (...args: unknown[]) => mockRunSelfHealGraph(...args),
+vi.mock('@/lib/adapters/slack/web-api', () => ({
+  postMessage: (...args: unknown[]) => mockPostMessage(...args),
 }))
 
 // Deps builders mock — production wiring is tested elsewhere
@@ -58,20 +59,20 @@ vi.mock('@/e2e-agent/deps', () => ({
     cloneRepo: vi.fn(),
     fetchRevision: vi.fn(),
   }),
-  buildSelfHealDeps: () => ({
-    createClient: vi.fn(),
-    fetchPrompt: vi.fn(),
-    publish: vi.fn(),
-    createTicket: vi.fn(),
-    postSlackMessage: vi.fn(),
-    cloneAndRunTests: vi.fn(),
-  }),
 }))
 
 // Stub process.exit to capture exit codes without killing the test runner
 const mockExit = vi
   .spyOn(process, 'exit')
   .mockImplementation((() => {}) as never)
+
+const START_TS = '1700000000.000100'
+
+function repairCalls() {
+  return mockPostMessage.mock.calls.filter(([params]) =>
+    String((params as { text: string }).text).includes('repair request'),
+  )
+}
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -133,7 +134,12 @@ describe('e2e-agent server', () => {
 
     // Default: green run
     mockRunE2eSuite.mockResolvedValue(greenRunResult())
-    mockRunSelfHealGraph.mockResolvedValue({ outcome: 'patched', cycle: 1 })
+    mockPostMessage.mockResolvedValue({ ok: true, ts: START_TS })
+    vi.stubEnv('OPS_AGENT_SLACK_BOT_ID', 'U_OPS_BOT')
+  })
+
+  afterEach(() => {
+    vi.unstubAllEnvs()
   })
 
   it('server_boots_with_e2e_nightly_agent_name', async () => {
@@ -159,7 +165,7 @@ describe('e2e-agent server', () => {
     await new Promise((r) => setTimeout(r, 50))
 
     expect(mockRunE2eSuite).toHaveBeenCalledTimes(1)
-    expect(mockRunSelfHealGraph).not.toHaveBeenCalled()
+    expect(repairCalls()).toHaveLength(0)
     expect(mockExit).toHaveBeenCalledWith(0)
   })
 
@@ -175,24 +181,31 @@ describe('e2e-agent server', () => {
     expect(mockExit).toHaveBeenCalledWith(1)
   })
 
-  it('server_main_runs_suite_then_selfheal_on_failures', async () => {
+  it('server_posts_repair_trigger_in_thread_on_red_run', async () => {
     vi.resetModules()
 
     mockRunE2eSuite.mockResolvedValue(failingRunResult())
-    mockRunSelfHealGraph.mockResolvedValue({ outcome: 'patched', cycle: 1 })
 
     await import('../server.js')
     await new Promise((r) => setTimeout(r, 50))
 
-    // Runner was called
     expect(mockRunE2eSuite).toHaveBeenCalledTimes(1)
-    // Graph was called because there were failures
-    expect(mockRunSelfHealGraph).toHaveBeenCalledTimes(1)
-    // Patched outcome → exit 0
-    expect(mockExit).toHaveBeenCalledWith(0)
+    const calls = repairCalls()
+    expect(calls).toHaveLength(1)
+    const params = calls[0][0] as {
+      text: string
+      blocks: Array<{ type: string; text?: { text: string } }>
+      threadTs?: string
+    }
+    expect(params.threadTs).toBe(START_TS)
+    expect(params.text).toContain('<@U_OPS_BOT> E2E Agent repair request')
+    expect(params.text).toContain('"agent":"e2e-agent"')
+    expect(params.text).toContain('brand page loads')
+    expect(params.blocks[0].text?.text).toBe('E2E Agent Repair Request')
+    expect(mockExit).toHaveBeenCalledWith(1)
   })
 
-  it('server_routes_unexpected_skips_through_selfheal', async () => {
+  it('server_includes_unexpected_skips_in_repair_request', async () => {
     vi.resetModules()
 
     mockRunE2eSuite.mockResolvedValue({
@@ -206,25 +219,33 @@ describe('e2e-agent server', () => {
         },
       ],
     })
-    mockRunSelfHealGraph.mockResolvedValue({ outcome: 'noise', cycle: 1 })
 
     await import('../server.js')
     await new Promise((r) => setTimeout(r, 50))
 
-    expect(mockRunSelfHealGraph).toHaveBeenCalledWith(
-      expect.objectContaining({
-        runResult: {
-          failures: [
-            expect.objectContaining({
-              file: 'e2e/tests/auth-password-reset.spec.ts',
-              title: 'unexpected auth skip',
-              project: 'deep',
-            }),
-          ],
-        },
-      }),
-      expect.any(Object),
+    const calls = repairCalls()
+    expect(calls).toHaveLength(1)
+    const text = (calls[0][0] as { text: string }).text
+    expect(text).toContain('"kind":"unexpected_skip"')
+    expect(text).toContain('e2e/tests/auth-password-reset.spec.ts')
+    expect(mockExit).toHaveBeenCalledWith(1)
+  })
+
+  it('server_warns_and_skips_repair_without_bot_id', async () => {
+    vi.resetModules()
+
+    vi.stubEnv('OPS_AGENT_SLACK_BOT_ID', '')
+    mockRunE2eSuite.mockResolvedValue(failingRunResult())
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+
+    await import('../server.js')
+    await new Promise((r) => setTimeout(r, 50))
+
+    expect(repairCalls()).toHaveLength(0)
+    expect(warn).toHaveBeenCalledWith(
+      expect.stringContaining('OPS_AGENT_SLACK_BOT_ID not set'),
     )
     expect(mockExit).toHaveBeenCalledWith(1)
+    warn.mockRestore()
   })
 })
