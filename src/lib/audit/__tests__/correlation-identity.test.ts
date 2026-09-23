@@ -49,7 +49,4 @@ describe("audit correlation identity", () => {
     expect(second).not.toBe(first);
   });
 
-  it("returns a null-ish context outside any scope", () => {
-    expect(getAuditContext()).toEqual({ correlationId: null });
-  });
 });

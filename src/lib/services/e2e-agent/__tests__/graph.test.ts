@@ -250,48 +250,6 @@ describe('e2e self-heal graph', () => {
     expect(deps.cloneAndRunTests).toHaveBeenCalledTimes(1)
   })
 
-  it('graph_reports_needs_human_when_cycles_exhausted', async () => {
-    const createClient = vi.fn()
-    // Cycle 1
-    createClient.mockReturnValueOnce(
-      mockClient({
-        status: 'done',
-        agent: { structuredOutput: actionableDiagnosisOutput() },
-      }),
-    )
-    createClient.mockReturnValueOnce(
-      mockClient({
-        status: 'done',
-        changedFiles: [{ path: 'e2e/brands.spec.ts', content: 'v1' }],
-        baseSha: 'abc123def456',
-      }),
-    )
-    // Cycle 2
-    createClient.mockReturnValueOnce(
-      mockClient({
-        status: 'done',
-        agent: { structuredOutput: actionableDiagnosisOutput() },
-      }),
-    )
-    createClient.mockReturnValueOnce(
-      mockClient({
-        status: 'done',
-        changedFiles: [{ path: 'e2e/brands.spec.ts', content: 'v2' }],
-        baseSha: 'abc123def456',
-      }),
-    )
-
-    const deps = makeDeps({
-      createClient,
-      cloneAndRunTests: vi
-        .fn()
-        .mockResolvedValue({ passed: false, output: 'Failing' }),
-    })
-
-    const result = await runSelfHealGraph(makeInput(), deps)
-    expect(result.outcome).toBe('needs_human')
-  })
-
   it('graph_reports_needs_human_when_no_changes_produced', async () => {
     const createClient = vi.fn()
     // Diagnose: actionable

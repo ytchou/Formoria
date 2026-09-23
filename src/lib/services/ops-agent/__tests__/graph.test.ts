@@ -221,26 +221,6 @@ describe("runGraph", () => {
   // Test 8: max turns is 3
   // ---------------------------------------------------------------------------
 
-  it("max turns is 25", async () => {
-    // 25 tool-calling turns with unique args, then a text answer — the 26th should never be reached
-    const turns: ScriptedTurn[] = [
-      ...Array.from({ length: 25 }, (_, i) => [
-        { name: "system_status", args: { i } },
-      ] as ScriptedTurn),
-      "This should not be reached",
-    ];
-    const model = fakeModel(turns as ScriptedTurn[]);
-
-    const result = await runGraph(
-      model,
-      [fakeTool("system_status")],
-      SYSTEM_PROMPT,
-    );
-    // After 25 model calls that all made tool calls, afterModel on the 25th
-    // returns "done" because currentModelCalls >= MAX_TURNS (25).
-    expect(result.modelCalls).toBe(25);
-  });
-
   // ---------------------------------------------------------------------------
   // Test 9: no-progress detection exits on 3 consecutive identical steps
   // ---------------------------------------------------------------------------

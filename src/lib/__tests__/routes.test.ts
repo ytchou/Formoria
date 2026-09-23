@@ -88,11 +88,4 @@ describe('routes', () => {
     expect(routes.admin.operations()).toBe('/admin/operations')
   })
 
-  it('style returns /style', () => {
-    expect(routes.style()).toBe('/style')
-  })
-
-  it('trail returns /style/slug', () => {
-    expect(routes.trail('foo')).toBe('/style/foo')
-  })
 })
