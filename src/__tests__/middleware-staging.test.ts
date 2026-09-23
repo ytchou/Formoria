@@ -27,6 +27,9 @@ describe("staging request boundary", () => {
     vi.stubEnv("SECURITY_DISABLE_RATE_LIMIT", "true");
     vi.stubEnv("FORMORIA_DEPLOYMENT_ENV", "staging");
     vi.stubEnv("E2E_STAGING_SESSION_SECRET", SESSION_SECRET);
+    // The health quality worker runs this suite inside a Railway container, which
+    // carries RAILWAY_GIT_COMMIT_SHA and would mark every case as deployed.
+    vi.stubEnv("RAILWAY_GIT_COMMIT_SHA", "");
   });
   afterEach(() => vi.unstubAllEnvs());
 

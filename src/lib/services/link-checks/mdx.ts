@@ -17,7 +17,7 @@ import { LINK_CHECK_CONCURRENCY, MAX_DEAD_LINKS_PER_FINDING } from './types'
 // Input shape
 // ---------------------------------------------------------------------------
 
-export type MdxLink = {
+type MdxLink = {
   /** The MDX file path (relative to repo root). */
   file: string
   /** The URL extracted from the MDX file. */
