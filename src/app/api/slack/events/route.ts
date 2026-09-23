@@ -117,7 +117,6 @@ export function createEventsHandler(deps: EventsRouteDeps = defaultDeps) {
       event.type === "message" &&
       (!event.subtype || event.subtype === "bot_message") &&
       !!event.bot_id &&
-      typeof event.thread_ts !== "string" &&
       JSON_BLOCK_RE.test(rawText);
 
     if (!isAppMention && !isThreadReply && !isSystemBotRepair) {
