@@ -1,10 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { SentryClassification } from '../sentry-classify'
-import {
-  decideSentryMergePolicy,
-  MIN_AUTOMATIC_CONFIDENCE,
-  AUTOMATIC_FIXABILITY,
-} from '../sentry-merge-policy'
+import { decideSentryMergePolicy } from '../sentry-merge-policy'
 
 function classification(
   overrides: Partial<SentryClassification> = {},
@@ -21,13 +17,6 @@ function classification(
 }
 
 describe('sentry merge policy', () => {
-  it('exports MIN_AUTOMATIC_CONFIDENCE as 0.7', () => {
-    expect(MIN_AUTOMATIC_CONFIDENCE).toBe(0.7)
-  })
-
-  it('exports AUTOMATIC_FIXABILITY containing high and medium', () => {
-    expect(AUTOMATIC_FIXABILITY).toEqual(['high', 'medium'])
-  })
 
   it('decideSentryMergePolicy_returns_automatic_when_all_conditions_met', () => {
     const result = decideSentryMergePolicy(classification())

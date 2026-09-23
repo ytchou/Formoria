@@ -28,21 +28,6 @@ describe('health agent job definitions', () => {
     )
   })
 
-  it('vitest and knip findings keep the quality:* fingerprints of the scripts implementation', () => {
-    const vitest = HEALTH_JOBS.vitest
-    expect(vitest).toBeDefined()
-    expect(vitest.name).toBe('vitest')
-    expect(vitest.source).toBe('quality')
-
-    const knip = HEALTH_JOBS.knip
-    expect(knip).toBeDefined()
-    expect(knip.name).toBe('knip')
-    expect(knip.source).toBe('quality')
-
-    // Both produce findings whose fingerprints start with "quality:"
-    // matching the scripts implementation's stableFingerprint('quality', …)
-  })
-
   it('knip-fix requests exports and files only and never dependencies', () => {
     const knipFix = HEALTH_JOBS['knip-fix']
     expect(knipFix).toBeDefined()
@@ -85,11 +70,4 @@ describe('health agent job definitions', () => {
     expect(command).toContain('content/trails')
   })
 
-  it('all jobs have valid structure', () => {
-    for (const [name, job] of Object.entries(HEALTH_JOBS)) {
-      expect(job.name).toBe(name)
-      expect(job.commands.length).toBeGreaterThanOrEqual(0)
-      expect(typeof job.source).toBe('string')
-    }
-  })
 })

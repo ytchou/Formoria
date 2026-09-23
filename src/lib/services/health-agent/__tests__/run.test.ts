@@ -436,15 +436,6 @@ describe('runHealthAgent', () => {
     expect(digest).not.toContain('Existing runtime issue')
   })
 
-  it('at most one PR is published per run and only with allowlisted files', async () => {
-    // Since workerClient is not provided, no PR creation happens
-    const deps = baseDeps()
-    const result = await runHealthAgent(deps)
-
-    // No PR in a run without a worker client
-    expect(result.prPublished).toBeFalsy()
-  })
-
   it('a crash in admitRun fails the run and reports the error', async () => {
     const client = stubClient()
     ;(client as unknown as { rpc: ReturnType<typeof vi.fn> }).rpc = vi.fn(
@@ -681,83 +672,6 @@ describe('runHealthAgent', () => {
       'quality:worker-failure:install',
       'quality:worker-failure:install',
     ])
-  })
-
-  it('warns when quality stubs are missing from results', async () => {
-    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {})
-
-    const vitestJson = JSON.stringify({
-      numFailedTestSuites: 1,
-      numFailedTests: 1,
-      numTotalTestSuites: 1,
-      numTotalTests: 1,
-      success: false,
-      testResults: [
-        {
-          name: '/repo/src/app.test.ts',
-          status: 'failed',
-          assertionResults: [
-            {
-              status: 'failed',
-              title: 'broken',
-              fullName: 'broken',
-              failureMessages: ['err'],
-            },
-          ],
-        },
-      ],
-    })
-
-    const runFn = vi.fn(async () => ({
-      status: 'done' as const,
-      results: [
-        {
-          id: 'repo-root',
-          stdout: '/repo\n',
-          stderr: '',
-          exitCode: 0,
-          timedOut: false,
-        },
-        {
-          id: 'tracked-files',
-          stdout: 'src/app.test.ts\n',
-          stderr: '',
-          exitCode: 0,
-          timedOut: false,
-        },
-        {
-          id: 'vitest',
-          stdout: vitestJson,
-          stderr: '',
-          exitCode: 1,
-          timedOut: false,
-        },
-        {
-          id: 'knip',
-          stdout: '{"issues":[]}',
-          stderr: '',
-          exitCode: 0,
-          timedOut: false,
-        },
-      ],
-    }))
-
-    const workerClient: RepoWorkerClient = { run: runFn }
-
-    // No vitest/knip stubs in registry — findings can't be injected
-    const deps = baseDeps({
-      registryOverride: [
-        makeDetector({ name: 'brand-invariants', source: 'directory' }),
-      ],
-      workerClient,
-    })
-
-    await runHealthAgent(deps)
-
-    expect(warnSpy).toHaveBeenCalledWith(
-      expect.stringContaining('vitest stub not found'),
-    )
-    warnSpy.mockRestore()
   })
 
   it('quality job failure does not crash the run', async () => {

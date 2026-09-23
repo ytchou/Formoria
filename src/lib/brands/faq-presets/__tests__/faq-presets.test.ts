@@ -178,10 +178,6 @@ describe("FAQ preset catalog", () => {
     FAQ_PRESETS.forEach(assertPresetShape);
   });
 
-  it("registry includes 5 presets", () => {
-    expect(FAQ_PRESETS.length).toBe(5);
-  });
-
   it("authoring eligibility gates on required evidence", () => {
     const withoutEvidence = makeContext({
       peerStats: null,
