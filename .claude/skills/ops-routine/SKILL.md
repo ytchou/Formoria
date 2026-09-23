@@ -62,8 +62,39 @@ Group all code-fix findings together. Investigate the `scope` files and `evidenc
 For each real non-code issue:
 
 1. Run read-only diagnostic queries to gather context
-2. Create a **Linear ticket** describing the issue, diagnostic results, and suggested remediation
+2. Create a **Linear ticket** with the fields below
 3. Never run write operations or data-modifying scripts
+
+**Linear ticket requirements** (must match the `/create-ticket` skill):
+
+- **Team:** Look up teams with `list_teams` and use the team whose project matches "Formoria"
+- **Project:** Look up projects with `list_projects` and attach the "Formoria" project
+- **Assignee:** `"me"` (resolves to the current Linear user)
+- **Labels:** Use `list_issue_labels` to find the label IDs, then apply:
+  - `Bug` — for broken behavior
+  - `Infra` — for infrastructure/credential/pipeline issues
+  - One scope label: `S` (config fix), `M` (multi-step), or `L` (new subsystem)
+- **Priority:** High → `Urgent`, Medium → `High`, Low → `Normal`
+- **Title:** Short imperative — e.g. "Fix ORIGIN_SECRET mismatch on health-agent service"
+- **Body:** Use the bug template:
+  ```
+  ## Symptom
+  [What is broken — one paragraph]
+
+  ## Location
+  [Service, env var, or endpoint affected]
+
+  ## Potential Causes
+  - [Root cause from investigation]
+
+  ## Context
+  - Source: health-agent finding `<fingerprint>`
+  - Evidence: <diagnostic details>
+
+  ## Assessment
+  - **Complexity:** Low / Medium / High
+  - **Urgency:** Low / Medium / High
+  ```
 
 ### Step 4: Post aggregate summary
 
