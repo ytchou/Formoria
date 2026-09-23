@@ -20,6 +20,7 @@ const REQUIRED_AGENT_VARIABLES = [
   "GITHUB_APP_INSTALLATION_ID",
   "SLACK_BOT_TOKEN",
   "SLACK_E2E_CHANNEL",
+  "OPS_AGENT_SLACK_BOT_ID",
 ] as const;
 
 function required(environment: Environment, name: string): string {

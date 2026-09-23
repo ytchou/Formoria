@@ -1,14 +1,22 @@
 import { describe, expect, it } from 'vitest'
 
 import {
-  buildE2eRepairRequest,
+  buildE2eRepairRequest as buildWithDropped,
   MAX_ERROR_CHARS,
+  MAX_REQUEST_CHARS,
 } from '../repair-request'
 import { freezeFailures } from '../freeze'
 import {
   buildRepairTriggerMessage,
 } from '@/lib/services/health-agent/report'
 import { extractRepairRequest } from '@/lib/services/ops-agent/repair'
+
+/** Most cases fit under the cap; unwrap the request. */
+function buildE2eRepairRequest(input: Parameters<typeof buildWithDropped>[0]) {
+  const built = buildWithDropped(input)
+  if (built) expect(built.dropped).toBe(0)
+  return built?.request ?? null
+}
 
 const baseInput = {
   runId: 'run-e2e-1',
@@ -146,6 +154,38 @@ describe('buildE2eRepairRequest', () => {
 
     const text = buildRepairTriggerMessage('U_OPS_BOT', request!, 'E2E Agent')
     expect(text.startsWith('<@U_OPS_BOT> E2E Agent repair request')).toBe(true)
+    expect(extractRepairRequest(text)).toEqual(request)
+  })
+
+  it('shrinks errors and drops trailing findings to stay under the size cap', () => {
+    const count = 60
+    const built = buildWithDropped({
+      ...baseInput,
+      failures: Array.from({ length: count }, (_, i) => ({
+        file: `e2e/tests/spec-${i}.spec.ts`,
+        title: `failing test number ${i}`,
+        project: 'deep',
+        error: 'e'.repeat(5000),
+      })),
+      unexpectedSkips: [],
+    })
+
+    const { request, dropped } = built!
+    expect(JSON.stringify(request).length).toBeLessThanOrEqual(MAX_REQUEST_CHARS)
+    expect(dropped).toBeGreaterThan(0)
+    expect(request.findings.length + dropped).toBe(count)
+
+    // Per-error budget shrinks with the finding count
+    const error = request.findings[0].evidence!.error as string
+    expect(error.length).toBeLessThan(MAX_ERROR_CHARS)
+
+    // Scope matches the kept findings only
+    expect(request.scope).toEqual(
+      request.findings.map((f) => f.evidence!.file),
+    )
+
+    const text = buildRepairTriggerMessage('U_OPS_BOT', request, 'E2E Agent')
+    expect(text.length).toBeLessThan(40_000)
     expect(extractRepairRequest(text)).toEqual(request)
   })
 })

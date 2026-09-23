@@ -17,10 +17,7 @@
     "E2E_ADMIN_EMAIL",
     "E2E_ADMIN_PASSWORD",
     "E2E_USER_EMAIL",
-    "E2E_USER_PASSWORD",
-    "LANGFUSE_SECRET_KEY",
-    "LANGFUSE_PUBLIC_KEY",
-    "LANGFUSE_HOST"
+    "E2E_USER_PASSWORD"
   ],
   "renamedAppVariableReferences": {
     "E2E_ORIGIN_SECRET": "Formoria Staging.CF_ORIGIN_SECRET"

@@ -35,6 +35,7 @@ function validEnvironment(): Record<string, string> {
     GITHUB_APP_INSTALLATION_ID: "67890",
     SLACK_BOT_TOKEN: "xoxb-test-token",
     SLACK_E2E_CHANNEL: "C0123456789",
+    OPS_AGENT_SLACK_BOT_ID: "U0OPSBOT",
   };
 }
 
@@ -52,6 +53,15 @@ describe("E2E agent configuration", () => {
 
     expect(() => validateE2eAgentConfig(environment)).toThrow(
       /SLACK_BOT_TOKEN is required for the E2E agent/,
+    );
+  });
+
+  it("refuses to boot without the ops agent bot id", () => {
+    const environment = validEnvironment();
+    delete environment.OPS_AGENT_SLACK_BOT_ID;
+
+    expect(() => validateE2eAgentConfig(environment)).toThrow(
+      /OPS_AGENT_SLACK_BOT_ID is required for the E2E agent/,
     );
   });
 

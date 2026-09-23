@@ -11,7 +11,7 @@ import type {
   RepairFinding,
   RepairRequest,
 } from '@/lib/services/health-agent/repair-request'
-import { freezeFailures } from './freeze'
+import { canonicalKey, freezeFailures } from './freeze'
 
 // ---------------------------------------------------------------------------
 // Types
@@ -38,14 +38,34 @@ export type E2eRepairRequestInput = {
   stagingSha: string
 }
 
+export type E2eRepairRequestResult = {
+  request: RepairRequest
+  /** Trailing findings left out so the request fits in one Slack message. */
+  dropped: number
+}
+
 type FailureKind = 'failure' | 'unexpected_skip'
 
 // ---------------------------------------------------------------------------
 // Constants
 // ---------------------------------------------------------------------------
 
-/** Per-error cap so the whole message stays under Slack's text limit. */
+/** Per-error cap when there are few findings. */
 export const MAX_ERROR_CHARS = 1500
+
+/** Per-error floor when many findings share the error budget. */
+const MIN_ERROR_CHARS = 200
+
+/** Total error characters shared across all findings. */
+const ERROR_BUDGET_CHARS = 20_000
+
+/**
+ * Cap on the serialized request plus the per-finding title list that
+ * buildRepairTriggerMessage prints above it. Slack's chat.postMessage text
+ * limit is 40,000 characters; the rest is headroom for the message frame and
+ * mrkdwn escaping.
+ */
+export const MAX_REQUEST_CHARS = 30_000
 
 /** The runner executes a single Playwright project. */
 const DEFAULT_PROJECT = 'deep'
@@ -62,24 +82,27 @@ const UNEXPECTED_SKIP_ERROR =
  * JSON block with a non-greedy ``` match, so a fence inside an error string
  * would cut the block short.
  */
-function sanitizeError(error: string): string {
+function sanitizeError(error: string, maxChars: number): string {
   const unfenced = error.replace(/```/g, "'''")
-  return unfenced.length > MAX_ERROR_CHARS
-    ? `${unfenced.slice(0, MAX_ERROR_CHARS)}\n...[truncated]`
+  return unfenced.length > maxChars
+    ? `${unfenced.slice(0, maxChars)}\n...[truncated]`
     : unfenced
 }
 
-/** Mirrors the canonical identity freeze.ts dedupes on. */
-function identityKey(f: {
-  file: string | null
-  title: string
-  project: string
-}): string {
-  return JSON.stringify({
-    file: f.file?.trim() || null,
-    title: f.title.trim(),
-    project: f.project.trim(),
-  })
+/** Shrink the per-error cap as the finding count grows. */
+function errorCapFor(count: number): number {
+  return Math.max(
+    MIN_ERROR_CHARS,
+    Math.min(MAX_ERROR_CHARS, Math.floor(ERROR_BUDGET_CHARS / count)),
+  )
+}
+
+/** Serialized JSON plus the title list the trigger message prints. */
+function messageSize(request: RepairRequest): number {
+  return request.findings.reduce(
+    (size, f) => size + f.title.length + 16,
+    JSON.stringify(request).length,
+  )
 }
 
 // ---------------------------------------------------------------------------
@@ -90,10 +113,14 @@ function identityKey(f: {
  * Freeze the run's failures and unexpected skips into a RepairRequest.
  * Returns null when there is nothing to repair (freeze rejects an empty set,
  * and the ops agent rejects a request with no findings).
+ *
+ * The request is bounded to MAX_REQUEST_CHARS: per-error length shrinks with
+ * the finding count, and if that is not enough, trailing findings are dropped
+ * (at least one is always kept) and reported in `dropped`.
  */
 export function buildE2eRepairRequest(
   input: E2eRepairRequestInput,
-): RepairRequest | null {
+): E2eRepairRequestResult | null {
   const entries = [
     ...input.failures.map((f) => ({
       file: f.file,
@@ -116,39 +143,51 @@ export function buildE2eRepairRequest(
   // First entry wins, matching freeze's dedupe order.
   const kindByKey = new Map<string, FailureKind>()
   for (const entry of entries) {
-    const key = identityKey(entry)
+    const key = canonicalKey(entry)
     if (!kindByKey.has(key)) kindByKey.set(key, entry.kind)
   }
 
   const frozen = freezeFailures({ failures: entries })
+  const errorCap = errorCapFor(frozen.failures.length)
 
-  const findings: RepairFinding[] = frozen.failures.map((f) => ({
-    fingerprint: f.id,
-    title: f.title,
-    severity: 'high',
-    source: 'e2e',
-    evidence: {
-      file: f.file,
-      project: f.project,
-      error: sanitizeError(f.reason ?? ''),
-      kind: kindByKey.get(identityKey(f)) ?? 'failure',
-      stagingSha: input.stagingSha,
-    },
+  const items = frozen.failures.map((f) => ({
+    file: f.file,
+    finding: {
+      fingerprint: f.id,
+      title: f.title,
+      severity: 'high',
+      source: 'e2e',
+      evidence: {
+        file: f.file,
+        project: f.project,
+        error: sanitizeError(f.reason ?? '', errorCap),
+        kind: kindByKey.get(canonicalKey(f)) ?? 'failure',
+        stagingSha: input.stagingSha,
+      },
+    } satisfies RepairFinding,
   }))
 
-  const scope = [
-    ...new Set(
-      frozen.failures
-        .map((f) => f.file)
-        .filter((file): file is string => file !== null),
-    ),
-  ]
-
-  return {
+  const toRequest = (kept: typeof items): RepairRequest => ({
     agent: 'e2e-agent',
     ref: 'staging',
     runId: input.runId,
-    scope,
-    findings,
+    scope: [
+      ...new Set(
+        kept
+          .map((item) => item.file)
+          .filter((file): file is string => file !== null),
+      ),
+    ],
+    findings: kept.map((item) => item.finding),
+  })
+
+  // Linear re-serialization per drop; fine for a nightly run's failure count.
+  let kept = items
+  let request = toRequest(kept)
+  while (kept.length > 1 && messageSize(request) > MAX_REQUEST_CHARS) {
+    kept = kept.slice(0, -1)
+    request = toRequest(kept)
   }
+
+  return { request, dropped: items.length - kept.length }
 }

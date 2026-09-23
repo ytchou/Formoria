@@ -30,7 +30,7 @@ export type RunResult = {
 // ---------------------------------------------------------------------------
 
 /** Canonical key for deduplication — mirrors incident.ts `canonicalFailure`. */
-function canonicalKey(f: {
+export function canonicalKey(f: {
   file: string | null;
   title: string;
   project: string;

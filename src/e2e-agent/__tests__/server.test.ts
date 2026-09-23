@@ -231,19 +231,28 @@ describe('e2e-agent server', () => {
     expect(mockExit).toHaveBeenCalledWith(1)
   })
 
-  it('server_warns_and_skips_repair_without_bot_id', async () => {
+  it('server_warns_when_repair_request_drops_findings', async () => {
     vi.resetModules()
 
-    vi.stubEnv('OPS_AGENT_SLACK_BOT_ID', '')
-    mockRunE2eSuite.mockResolvedValue(failingRunResult())
+    const count = 60
+    mockRunE2eSuite.mockResolvedValue({
+      ...failingRunResult(),
+      failures: Array.from({ length: count }, (_, i) => ({
+        file: `e2e/tests/spec-${i}.spec.ts`,
+        title: `failing test number ${i}`,
+        error: 'e'.repeat(5000),
+      })),
+    })
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
 
     await import('../server.js')
     await new Promise((r) => setTimeout(r, 50))
 
-    expect(repairCalls()).toHaveLength(0)
+    const calls = repairCalls()
+    expect(calls).toHaveLength(1)
+    expect((calls[0][0] as { text: string }).text.length).toBeLessThan(40_000)
     expect(warn).toHaveBeenCalledWith(
-      expect.stringContaining('OPS_AGENT_SLACK_BOT_ID not set'),
+      expect.stringMatching(/repair request dropped \d+ of 60 findings/),
     )
     expect(mockExit).toHaveBeenCalledWith(1)
     warn.mockRestore()

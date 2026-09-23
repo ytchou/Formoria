@@ -45,7 +45,7 @@ let buildRepairTriggerBlocks: Awaited<
 
 let postMessage: Awaited<
   typeof import('@/lib/adapters/slack/web-api')
->['postMessage']
+>['postMessage'] | undefined
 
 // ---------------------------------------------------------------------------
 // Main
@@ -180,23 +180,26 @@ export async function main(): Promise<never> {
         throw new Error('repair builders not loaded — loadServices incomplete')
       }
 
-      const request = buildE2eRepairRequest({
+      const built = buildE2eRepairRequest({
         failures: result.failures,
         unexpectedSkips: result.unexpectedSkips,
         runId,
         stagingSha: result.stagingSha,
       })
-      const opsAgentBotId = process.env.OPS_AGENT_SLACK_BOT_ID
+      const request = built?.request
+      // Required by validateE2eAgentConfig at boot.
+      const opsAgentBotId = process.env.OPS_AGENT_SLACK_BOT_ID ?? ''
 
-      if (!request) {
+      if (!built || !request) {
         console.warn(
           `[e2e-nightly] run=${runId} red with no reportable failures — repair request skipped`,
         )
-      } else if (!opsAgentBotId) {
-        console.warn(
-          '[e2e-nightly] OPS_AGENT_SLACK_BOT_ID not set — repair request skipped',
-        )
       } else {
+        if (built.dropped > 0) {
+          console.warn(
+            `[e2e-nightly] run=${runId} repair request dropped ${built.dropped} of ${request.findings.length + built.dropped} findings to fit Slack's message limit`,
+          )
+        }
         try {
           const repairResult = await postMessage({
             channel,
