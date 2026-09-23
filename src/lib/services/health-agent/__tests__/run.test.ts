@@ -75,6 +75,7 @@ function baseDeps(overrides?: Partial<RunHealthAgentDeps>): RunHealthAgentDeps {
     // Skip worker jobs by default
     workerClient: undefined,
     githubApp: undefined,
+    slackPostRunStart: undefined,
     slackPostDigest: vi.fn(async () => {}),
     linearCreateTicket: undefined,
     triggerRepair: undefined,

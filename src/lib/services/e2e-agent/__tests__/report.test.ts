@@ -75,7 +75,7 @@ describe('report_creates_linear_ticket_for_needs_human', () => {
 })
 
 describe('report_posts_slack_notification_per_outcome', () => {
-  it('posts Slack message for patched outcome with PR link', async () => {
+  it('posts Block Kit for patched outcome with PR link', async () => {
     const deps = makeDeps({ outcome: 'patched' })
 
     await reportOutcome(deps)
@@ -83,9 +83,13 @@ describe('report_posts_slack_notification_per_outcome', () => {
     expect(deps.postSlackMessage).toHaveBeenCalledTimes(1)
     const params = (deps.postSlackMessage as ReturnType<typeof vi.fn>).mock.calls[0][0]
     expect(params.text).toContain('patched')
+    expect(params.blocks).toBeDefined()
+    expect(params.blocks[0].type).toBe('header')
+    expect(params.blocks[0].text.text).toContain('Patched')
+    expect(params.blocks[1].text.text).toContain('fixed')
   })
 
-  it('posts Slack message for needs_human outcome', async () => {
+  it('posts Block Kit for needs_human outcome', async () => {
     const deps = makeDeps({ outcome: 'needs_human' })
 
     await reportOutcome(deps)
@@ -93,22 +97,43 @@ describe('report_posts_slack_notification_per_outcome', () => {
     expect(deps.postSlackMessage).toHaveBeenCalledTimes(1)
     const params = (deps.postSlackMessage as ReturnType<typeof vi.fn>).mock.calls[0][0]
     expect(params.text).toContain('needs_human')
+    expect(params.blocks).toBeDefined()
+    expect(params.blocks[0].text.text).toContain('Needs Human')
   })
 
-  it('posts Slack message for noise outcome', async () => {
+  it('posts Block Kit for noise outcome', async () => {
     const deps = makeDeps({ outcome: 'noise' })
 
     await reportOutcome(deps)
 
     expect(deps.postSlackMessage).toHaveBeenCalledTimes(1)
+    const params = (deps.postSlackMessage as ReturnType<typeof vi.fn>).mock.calls[0][0]
+    expect(params.blocks).toBeDefined()
+    expect(params.blocks[0].text.text).toContain('Noise')
+    expect(params.blocks[1].text.text).toContain('transient')
   })
 
-  it('posts Slack message for fallback outcome', async () => {
+  it('posts Block Kit for fallback outcome with ticket', async () => {
     const deps = makeDeps({ outcome: 'fallback' })
 
     await reportOutcome(deps)
 
     expect(deps.postSlackMessage).toHaveBeenCalledTimes(1)
+    const params = (deps.postSlackMessage as ReturnType<typeof vi.fn>).mock.calls[0][0]
+    expect(params.blocks).toBeDefined()
+    expect(params.blocks[0].text.text).toContain('Fallback')
+    expect(params.blocks[1].text.text).toContain('DEV-9999')
+  })
+
+  it('all outcomes include context block with runId and SHA', async () => {
+    for (const outcome of ['patched', 'noise', 'fallback'] as RunOutcome[]) {
+      const deps = makeDeps({ outcome })
+      await reportOutcome(deps)
+      const params = (deps.postSlackMessage as ReturnType<typeof vi.fn>).mock.calls[0][0]
+      const contextBlock = params.blocks[params.blocks.length - 1]
+      expect(contextBlock.type).toBe('context')
+      expect(contextBlock.elements[0].text).toContain('run-001')
+    }
   })
 })
 

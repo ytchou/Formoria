@@ -71,6 +71,8 @@ export type E2eSelfHealDeps = {
   postSlackMessage: (params: {
     channel: string
     text: string
+    blocks?: Record<string, unknown>[]
+    threadTs?: string
   }) => Promise<{ ok: boolean; ts?: string; error?: string }>
   cloneAndRunTests: (opts: {
     changedFiles: ChangedFile[]
