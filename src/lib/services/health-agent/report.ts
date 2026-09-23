@@ -443,6 +443,7 @@ export function escapeSlackMrkdwn(text: string): string {
  */
 export function buildRepairTriggerBlocks(
   request: RepairRequest,
+  label: string,
 ): SlackBlock[] {
   const blocks: SlackBlock[] = []
 
@@ -450,7 +451,7 @@ export function buildRepairTriggerBlocks(
     type: 'header',
     text: {
       type: 'plain_text',
-      text: 'Health Agent Repair Request',
+      text: `${label} Repair Request`,
       emoji: true,
     },
   })
@@ -509,10 +510,11 @@ export function buildRepairTriggerBlocks(
 export function buildRepairTriggerMessage(
   botId: string,
   request: RepairRequest,
+  label: string,
 ): string {
   const lines: string[] = []
 
-  lines.push(`<@${botId}> Health agent repair request`)
+  lines.push(`<@${botId}> ${label} repair request`)
   lines.push('')
   lines.push(`Findings (${request.findings.length}):`)
   for (const finding of request.findings) {
