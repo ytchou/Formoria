@@ -1,4 +1,4 @@
-import { execSync } from "node:child_process";
+import { readdirSync, readFileSync } from "node:fs";
 import * as path from "node:path";
 import { describe, expect, it } from "vitest";
 import snapshot from "@/lib/prompts/langfuse-snapshot.json";
@@ -227,15 +227,17 @@ describe("confidence prompt rubric anchors", () => {
 describe("snapshot coverage", () => {
   it("every_snapshot_name_has_a_call_site", () => {
     const snapshotNames = Object.keys(snapshot.prompts);
-    const srcDir = path.resolve(__dirname, "../../..");
-    // Search for each snapshot name as a string literal in src/ .ts files
+    const srcDir = path.resolve(__dirname, "../../../src");
+    // Read src/ .ts files once, then search each snapshot name as a string
+    // literal in memory (one grep process per name took ~6 s).
+    const corpus = (readdirSync(srcDir, { recursive: true }) as string[])
+      .filter((file) => file.endsWith(".ts"))
+      .map((file) => readFileSync(path.join(srcDir, file), "utf-8"))
+      .join("\n");
     for (const name of snapshotNames) {
-      const result = execSync(
-        `grep -rn "['\\"']${name}['\\"']" "${srcDir}/src/" --include="*.ts" || true`,
-        { encoding: "utf-8" },
-      ).trim();
+      const escaped = name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
       expect(
-        result.length > 0,
+        new RegExp(`['"]${escaped}['"]`).test(corpus),
         `Snapshot prompt "${name}" has no call site in src/`,
       ).toBe(true);
     }
