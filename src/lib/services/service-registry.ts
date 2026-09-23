@@ -724,7 +724,7 @@ export const SERVICE_REGISTRY: readonly ServiceEntry[] = [
     criticality: "back-office",
     operationalSection: "agents",
     operationalKind: "dependency",
-    envVars: ["OPS_ROUTINE_TOKEN", "OPS_ROUTINE_ID"],
+    envVars: ["OPS_ROUTINE_TOKEN", "OPS_ROUTINE_ID", "OPS_ROUTINE_CALLBACK_TOKEN"],
     status: "active",
     plan: {
       kind: "subscription",
