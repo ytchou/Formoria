@@ -222,7 +222,7 @@ export const SERVICE_REGISTRY: readonly ServiceEntry[] = [
     criticality: "customer-flow",
     operationalSection: "production",
     operationalKind: "dependency",
-    envVars: ["RESEND_API_KEY", "RESEND_MONITOR_API_KEY"],
+    envVars: ["RESEND_API_KEY"],
     status: "active",
     plan: {
       kind: "free",
