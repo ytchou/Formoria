@@ -34,6 +34,51 @@ Your input is a JSON object with these fields:
 
 Parse the JSON from your input text. Either `description` or `repair` is present, never both.
 
+If `repair.agent === "e2e-agent"`, follow **Execution — E2E repair path** below instead of the generic repair path. Every other `repair` uses **Execution — Repair path**.
+
+## Execution — E2E repair path (`repair.agent === "e2e-agent"`)
+
+The nightly E2E agent ran the Playwright suite against deployed staging and it went red. Each finding is one failing test or one unexpected skip. `evidence` holds `file`, `project`, `error`, `kind` (`failure` or `unexpected_skip`), and `stagingSha`. The finding `title` is the test title.
+
+### Step 1: Prepare the checkout
+
+Run these in order before you read or change any spec:
+
+```bash
+git fetch origin && git checkout origin/staging   # or the fix branch, when you verify
+pnpm install --frozen-lockfile
+pnpm exec playwright install chromium             # the image's Chromium is too old for this Playwright version
+```
+
+### Step 2: Triage each finding
+
+Classify each finding into exactly one category:
+
+- **Flake** — the test passes when you re-run it against staging with the command in Step 4, with no change. Report it as a false positive.
+- **Test drift** — the app behaves correctly, but the spec is out of date (selector, visible text, timing, or fixture). Fix the spec.
+- **App regression** — the app is wrong on staging. Fix the app code.
+- **Env/data** — staging data, seed fixtures, credentials, or an external service is wrong. Do not fix it in code. Create a Linear ticket with the diagnosis.
+
+### Step 3: Fix on one branch
+
+Put all fixes on **one** branch from `origin/staging`. Open **one PR** that targets `staging`.
+
+### Step 4: Verify each fix against staging
+
+Check out the fix branch, then run each failing test from it:
+
+```bash
+CI=true BASE_URL=$STAGING_BASE_URL pnpm exec playwright test <evidence.file> --project=<evidence.project> -g "<title>" --reporter=line
+```
+
+- Paste the full verification output into the PR description, one block per finding.
+- **Test-drift fixes:** the run above must pass. If it fails, the fix is not done.
+- **App-regression fixes:** deployed staging does not have the fix yet, so the run cannot pass. Label the finding in the PR description **"proof = post-merge rerun"**, and still paste the output.
+
+### Step 5: Post aggregate summary
+
+Post ONE summary to the Slack thread in the format of **Step 4: Post aggregate summary** of the generic repair path. Count flakes as "False positive". **NEVER @mention the ops bot** in this summary or in any other message.
+
 ## Execution — Repair path (`repair` present)
 
 When `repair` is present, you are the investigator and fixer. Process ALL findings as a batch.

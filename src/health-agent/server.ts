@@ -159,8 +159,8 @@ async function main(): Promise<never> {
   const triggerRepair =
     opsAgentBotId && repairChannel
       ? async (request: RepairRequest, threadTs?: string) => {
-          const blocks = buildRepairTriggerBlocks(request)
-          const fallback = buildRepairTriggerMessage(opsAgentBotId, request)
+          const blocks = buildRepairTriggerBlocks(request, 'Health Agent')
+          const fallback = buildRepairTriggerMessage(opsAgentBotId, request, 'Health agent')
           await postMessage({
             channel: repairChannel,
             text: fallback,
