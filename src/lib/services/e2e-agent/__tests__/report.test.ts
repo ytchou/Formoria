@@ -106,6 +106,9 @@ describe('report_posts_slack_notification_per_outcome', () => {
 
     await reportOutcome(deps)
 
+    // Noise is transient: no incident PR, no Linear ticket — only the Slack notice.
+    expect(deps.publish).not.toHaveBeenCalled()
+    expect(deps.createTicket).not.toHaveBeenCalled()
     expect(deps.postSlackMessage).toHaveBeenCalledTimes(1)
     const params = (deps.postSlackMessage as ReturnType<typeof vi.fn>).mock.calls[0][0]
     expect(params.blocks).toBeDefined()
@@ -134,23 +137,5 @@ describe('report_posts_slack_notification_per_outcome', () => {
       expect(contextBlock.type).toBe('context')
       expect(contextBlock.elements[0].text).toContain('run-001')
     }
-  })
-})
-
-describe('report_skips_pr_for_noise_outcome', () => {
-  it('does not call publish when outcome is noise', async () => {
-    const deps = makeDeps({ outcome: 'noise' })
-
-    await reportOutcome(deps)
-
-    expect(deps.publish).not.toHaveBeenCalled()
-  })
-
-  it('does not create a Linear ticket for noise', async () => {
-    const deps = makeDeps({ outcome: 'noise' })
-
-    await reportOutcome(deps)
-
-    expect(deps.createTicket).not.toHaveBeenCalled()
   })
 })
