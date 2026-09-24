@@ -15,7 +15,7 @@ const PROVIDERS = {
   posthog: ["run_query"],
   playwright: ["fetch_rendered"],
   "mit-registry": ["lookup_exact_products", "sync_registry"],
-  railway: ["redeploy_service"],
+  railway: ["run_cron_now"],
   github: ["list_dependabot_alerts"],
   scraper: ["scrape_url"],
   catalog: ["discover_catalog"],
@@ -222,7 +222,7 @@ const PROVIDERS = {
     "probe_trail_supply",
   ],
   "repo-worker": ["clone", "run_tool", "push_branch", "reportWorkerFailure"],
-  "github-app": ["get_installation_token", "create_blob", "create_tree", "create_commit", "create_branch", "create_pull_request", "add_labels", "merge_pull_request"],
+  "github-app": ["get_installation_token"],
 } as const;
 
 type ProviderRegistry = typeof PROVIDERS;

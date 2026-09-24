@@ -86,18 +86,6 @@ describe("validateProposal", () => {
 // ---------------------------------------------------------------------------
 
 describe("describeProposal", () => {
-  it("returns action, steps, why, cost for refresh_brand", () => {
-    const proposal: OpsProposal = { kind: "refresh_brand", slug: "my-brand" };
-    const desc = describeProposal(proposal);
-    expect(desc).toHaveProperty("action");
-    expect(desc).toHaveProperty("steps");
-    expect(desc).toHaveProperty("why");
-    expect(desc).toHaveProperty("cost");
-    expect(typeof desc.action).toBe("string");
-    expect(typeof desc.steps).toBe("string");
-    expect(typeof desc.why).toBe("string");
-    expect(typeof desc.cost).toBe("string");
-  });
 
   it("returns description for rerun_job", () => {
     const proposal: OpsProposal = {

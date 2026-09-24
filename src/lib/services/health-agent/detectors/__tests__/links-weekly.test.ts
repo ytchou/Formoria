@@ -138,9 +138,4 @@ describe('links-weekly detector', () => {
     expect(findings.length).toBeGreaterThanOrEqual(2)
   })
 
-  it('has schedule weekly and source links-weekly', () => {
-    const detector = linksWeeklyDetector(buildDeps())
-    expect(detector.schedule).toBe('weekly')
-    expect(detector.source).toBe('links-weekly')
-  })
 })

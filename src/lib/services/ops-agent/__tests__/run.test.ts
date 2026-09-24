@@ -288,13 +288,17 @@ describe("runOpsAgent", () => {
       text: expect.stringContaining('"agent":"health"'),
     });
 
-    // Posts reasoning + session URL
+    // Posts Block Kit acknowledgment with session URL
     const repairMsg = (deps.postMessage as ReturnType<typeof vi.fn>).mock.calls.find(
       (c: unknown[]) => typeof c[1] === "string" && c[1].includes("repair-1"),
     );
     expect(repairMsg).toBeDefined();
-    expect(repairMsg![1]).toContain("Repair from health: unused export");
-    expect(repairMsg![1]).toContain("https://claude.ai/code/session/repair-1");
+    expect(repairMsg![1]).toContain("1 findings");
+    // Block Kit blocks passed as third argument
+    const blocks = repairMsg![2] as Record<string, unknown>[];
+    expect(blocks).toBeDefined();
+    expect(blocks[0]).toMatchObject({ type: "header" });
+    expect(blocks[1]).toMatchObject({ type: "section" });
 
     // Transitions to answered (not failed)
     expect(deps.transitionRequest).toHaveBeenCalledWith(

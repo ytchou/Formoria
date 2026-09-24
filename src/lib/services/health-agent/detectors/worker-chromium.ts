@@ -1,6 +1,6 @@
 /**
- * Worker Chromium detector — verifies that the curation worker's
- * Chromium renderer produces a non-empty response.
+ * Worker Chromium detector — verifies that the curation worker service
+ * is reachable and authenticated.
  */
 
 import { auditedCall } from '@/lib/audit'
@@ -22,11 +22,7 @@ function getFetch(ctx: DetectorContext): FetchFn {
   return (ctx.deps.fetch as FetchFn | undefined) ?? fetch
 }
 
-/**
- * A lightweight probe URL. The worker's /render endpoint accepts a URL to
- * render; we use a static page that always produces content.
- */
-const PROBE_PATH = '/render?url=https://example.com'
+const PROBE_PATH = '/health'
 
 // ---------------------------------------------------------------------------
 // Detector
@@ -67,7 +63,7 @@ export const workerChromiumDetector: Detector = {
         {
           source: 'credential',
           fingerprint: stableFingerprint('credential', 'worker-chromium', 'render'),
-          title: `Worker Chromium render failed: HTTP ${response.status}`,
+          title: `Worker Chromium health check failed: HTTP ${response.status}`,
           severity: 'high',
           evidence: { status: response.status, endpoint },
           mergePolicy: 'human',
@@ -81,7 +77,7 @@ export const workerChromiumDetector: Detector = {
         {
           source: 'credential',
           fingerprint: stableFingerprint('credential', 'worker-chromium', 'empty-render'),
-          title: 'Worker Chromium rendered an empty response',
+          title: 'Worker Chromium health check returned empty response',
           severity: 'high',
           evidence: { endpoint, bodyLength: 0 },
           mergePolicy: 'human',

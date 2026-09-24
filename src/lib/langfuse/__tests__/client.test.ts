@@ -1,5 +1,4 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import type { AuditContext } from "@/lib/audit/types";
 
 describe("langfuse/client", () => {
   const ORIGINAL_ENV = process.env;
@@ -80,18 +79,5 @@ describe("langfuse/client", () => {
     const { getLangfuse, flushLangfuse } = await import("../client");
     getLangfuse();
     await expect(flushLangfuse()).resolves.toBeUndefined();
-  });
-});
-
-describe("AuditContext type accepts langfuseTrace", () => {
-  it("allows optional langfuseTrace field without breaking existing code", () => {
-    const withoutTrace: AuditContext = { correlationId: "abc" };
-    expect(withoutTrace.correlationId).toBe("abc");
-
-    const withTrace: AuditContext = {
-      correlationId: "abc",
-      langfuseTrace: { some: "trace-object" },
-    };
-    expect(withTrace.langfuseTrace).toBeDefined();
   });
 });

@@ -28,18 +28,6 @@ export async function postSlackAlert(
   );
 }
 
-/** Posts pre-rendered text to the configured Slack webhook. */
-export async function postSlackText(text: string): Promise<boolean> {
-  return postWebhookPayload({ text: boundedSlackText(text) });
-}
-
-/** Posts a raw payload to the webhook without text truncation. */
-export async function postSlackPayload(
-  payload: Record<string, unknown>,
-): Promise<boolean> {
-  return postWebhookPayload(payload);
-}
-
 async function postWebhookPayload(
   payload: Record<string, unknown>,
   messageKind?: AgentNotification["status"],

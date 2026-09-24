@@ -15,7 +15,6 @@ import {
   renderCensusDiff,
   summarizeProductRows,
   textStat,
-  type SubmissionCensusRow,
 } from "../brand-census";
 import { assertCensusTarget } from "../production-guard";
 
@@ -247,35 +246,6 @@ describe("census pending submission fields", () => {
     expect(row.pending_candidate_rank_count).toBe(0);
     expect(row.pending_active_images).toBe(0);
     expect(row.pending_candidate_images).toBe(0);
-  });
-
-  it("census_counts_pending_submission_products_and_images — a row with pending data carries the counts", () => {
-    const row: CensusRow = {
-      ...emptyCensusRow("beta"),
-      pending_products: 5,
-      pending_candidate_rank_count: 3,
-      pending_active_images: 8,
-      pending_candidate_images: 2,
-    };
-    expect(row.pending_products).toBe(5);
-    expect(row.pending_candidate_rank_count).toBe(3);
-    expect(row.pending_active_images).toBe(8);
-    expect(row.pending_candidate_images).toBe(2);
-  });
-
-  it("census_accepts_submission_ids_without_brand_rows — SubmissionCensusRow has slug: null", () => {
-    const row: SubmissionCensusRow = {
-      submission_id: "sub-001",
-      slug: null,
-      submission_denial_reason: null,
-      pending_products: 4,
-      pending_candidate_rank_count: 2,
-      pending_active_images: 6,
-      pending_candidate_images: 1,
-    };
-    expect(row.slug).toBeNull();
-    expect(row.submission_id).toBe("sub-001");
-    expect(row.pending_products).toBe(4);
   });
 
   it("diff_table_includes_pending_fields — the diff includes the pending_* fields", () => {

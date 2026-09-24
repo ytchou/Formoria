@@ -152,24 +152,3 @@ describe('toCsv/fromCsv', () => {
     expect(parsed[0]).toEqual(rows[0])
   })
 })
-
-describe('build-dataset grade precedence', () => {
-  it('human > majority', () => {
-    // A pair with humanGrade: 1 and votes [3,3,3] yields grade: 1
-    // This is tested through the grade resolution logic
-    // We verify the stratifiedSheet preserves human grades,
-    // and the build-dataset reads human_grade first
-    const existingSheet: SheetRow[] = [{
-      query_id: 'q-1', query: 'test', brand_slug: 'b-1', product_key: 'p-1',
-      name_zh: 'Name', description_zh: 'Desc', official_url: 'https://example.com',
-      llm_grade: 3, human_grade: '1',
-    }]
-    // The sheet preserves human_grade = '1' even though llm_grade = 3
-    expect(existingSheet[0]!.human_grade).toBe('1')
-    // build-dataset will use parseInt(human_grade) when non-empty
-    const humanGrade = existingSheet[0]!.human_grade
-    const llmGrade = existingSheet[0]!.llm_grade
-    const finalGrade = humanGrade !== '' ? parseInt(humanGrade, 10) : llmGrade
-    expect(finalGrade).toBe(1)
-  })
-})

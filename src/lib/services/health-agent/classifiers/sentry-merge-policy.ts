@@ -12,8 +12,8 @@ import type { SentryClassification } from './sentry-classify'
 // Constants
 // ---------------------------------------------------------------------------
 
-export const MIN_AUTOMATIC_CONFIDENCE = 0.7
-export const AUTOMATIC_FIXABILITY = ['high', 'medium'] as const
+const MIN_AUTOMATIC_CONFIDENCE = 0.7
+const AUTOMATIC_FIXABILITY = ['high', 'medium'] as const
 
 // ---------------------------------------------------------------------------
 // Policy

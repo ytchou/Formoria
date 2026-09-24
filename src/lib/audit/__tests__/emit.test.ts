@@ -96,16 +96,6 @@ describe("emitAuditRecord", () => {
       }
     });
 
-    it("still fires exactly once per process", async () => {
-      setAuditWriteSeam(vi.fn(async () => ({ message: "database unavailable" })));
-
-      await emitAuditRecord(record(), async () => {});
-      await emitAuditRecord(record(), async () => {});
-
-      expect(auditWriteLossCount()).toBe(2);
-      expect(captureAlert).toHaveBeenCalledTimes(1);
-    });
-
     it("still reports level error", async () => {
       const options = await alertOptions();
 

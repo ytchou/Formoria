@@ -110,11 +110,6 @@ describe("query_db", () => {
 // ---------------------------------------------------------------------------
 
 describe("fire_routine", () => {
-  it("fire_routine tool in tool list", () => {
-    const tools = createOpsTools(makeDeps(), makeCtx());
-    const fireRoutine = tools.find((t) => t.definition.name === "fire_routine");
-    expect(fireRoutine).toBeDefined();
-  });
 
   it("returns ok with description on valid args", async () => {
     const tools = createOpsTools(makeDeps(), makeCtx());

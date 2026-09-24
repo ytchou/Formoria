@@ -7,7 +7,7 @@
  * - All types that the runner, lifecycle, and report modules need live here.
  */
 
-export { type HealthSource, HEALTH_SOURCES } from '@/lib/constants/health-detectors'
+export { type HealthSource } from '@/lib/constants/health-detectors'
 
 export type HealthSeverity = 'low' | 'medium' | 'high' | 'critical'
 
@@ -29,16 +29,6 @@ export interface HealthFinding {
   humanReason?: string
   changedFiles?: readonly string[]
   sentryIssueId?: string
-}
-
-export interface AuditRecord {
-  adapter: string
-  operation: string
-  status: 'success' | 'failure' | 'suppressed'
-  latencyMs: number
-  request: Record<string, JsonValue>
-  response: Record<string, JsonValue>
-  schemaValid?: boolean
 }
 
 export function stableFingerprint(
