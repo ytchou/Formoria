@@ -227,6 +227,31 @@ describe("propose_action", () => {
     );
   });
 
+  it("run-e2e proposal without mode defaults to preflight", async () => {
+    const onProposed = vi.fn();
+    const tools = createOpsTools(makeDeps(), makeCtx({ onProposed }));
+    const tool = tools.find((t) => t.definition.name === "propose_action")!;
+
+    const result = await tool.run({ kind: "dispatch_workflow", workflow: "e2e-staging" });
+    expect(JSON.parse(result).ok).toBe(true);
+    expect(onProposed).toHaveBeenCalledWith({
+      kind: "dispatch_workflow",
+      workflow: "e2e-staging",
+      mode: "preflight",
+    });
+  });
+
+  it("malformed proposal names the failing field", async () => {
+    const onProposed = vi.fn();
+    const tools = createOpsTools(makeDeps(), makeCtx({ onProposed }));
+    const tool = tools.find((t) => t.definition.name === "propose_action")!;
+
+    const parsed = JSON.parse(await tool.run({ kind: "rerun_job", jobId: "j1" }));
+    expect(parsed.error).toBe("invalid_args");
+    expect(parsed.issues).toEqual([expect.stringMatching(/^mode: /)]);
+    expect(onProposed).not.toHaveBeenCalled();
+  });
+
   it("invalid proposal returns error without calling onProposed", async () => {
     const onProposed = vi.fn();
     const validateProposal = vi
