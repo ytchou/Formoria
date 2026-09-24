@@ -27,6 +27,10 @@ function toCamel(row: DbRow): OpsRequestRow {
     completedAt: row.completed_at,
     correlationId: row.correlation_id,
     sessionUrl: row.session_url,
+    dispatchedAt: row.dispatched_at,
+    dispatchClaimedAt: row.dispatch_claimed_at,
+    dispatchRunId: row.dispatch_run_id,
+    dispatchCompletedAt: row.dispatch_completed_at,
     expiresAt: row.expires_at,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
@@ -239,7 +243,7 @@ export async function getThreadHistory(
 
       const { data, error } = await supabase
         .from("ops_agent_requests")
-        .select("id, slack_event_id, slack_user_id, operator_email, channel_id, thread_ts, card_ts, text, status, result, proposal, tool_calls, model_calls, cost_usd, completed_at, correlation_id, session_url, expires_at, created_at, updated_at")
+        .select("id, slack_event_id, slack_user_id, operator_email, channel_id, thread_ts, card_ts, text, status, result, proposal, tool_calls, model_calls, cost_usd, completed_at, correlation_id, session_url, dispatched_at, dispatch_claimed_at, dispatch_run_id, dispatch_completed_at, expires_at, created_at, updated_at")
         .eq("channel_id", channelId)
         .eq("thread_ts", threadTs)
         .neq("id", excludeId)

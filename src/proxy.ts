@@ -80,6 +80,10 @@ export const ORIGIN_GUARD_EXEMPT_PATHS = [
   // Health agent fires a deliberate error to validate Sentry round-trip;
   // authenticate itself inside the handler via ORIGIN_SECRET, not the edge.
   { pathname: "/api/internal/sentry-canary", match: "exact" },
+  // The staging e2e-nightly-agent calls this on the production Railway origin
+  // to claim and complete ops-bot dispatches; it cannot carry the edge header.
+  // The handler authenticates with `Authorization: Bearer E2E_DISPATCH_SECRET`.
+  { pathname: "/api/internal/e2e-dispatch", match: "exact" },
   // Next's own image optimizer re-enters middleware for `/i/` paths and cannot
   // be made to carry the edge credential. `/_next/image?url=%2Fi%2F...` is
   // excluded from the matcher, so the optimizer runs; for a non-absolute href

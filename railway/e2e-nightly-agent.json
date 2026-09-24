@@ -32,6 +32,9 @@
     "E2E_STAGING_SESSION_SECRET",
     "SLACK_BOT_TOKEN",
     "SLACK_E2E_CHANNEL",
-    "OPS_AGENT_SLACK_BOT_ID"
-  ]
+    "OPS_AGENT_SLACK_BOT_ID",
+    "E2E_DISPATCH_URL",
+    "E2E_DISPATCH_SECRET"
+  ],
+  "$optionalEnvVarsComment": "E2E_DISPATCH_URL (production Railway origin) and E2E_DISPATCH_SECRET (same value as the production web service) are optional: when either is unset the agent skips the dispatch claim and posts to SLACK_E2E_CHANNEL only"
 }

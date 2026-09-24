@@ -76,6 +76,16 @@ describe("renderResultCard", () => {
     const textContent = JSON.stringify(blocks);
     expect(textContent).toContain("Dispatch failed: 401 Unauthorized");
   });
+
+  it("renders summary under *Result*", () => {
+    const blocks = renderResultCard({
+      proposal: "Run the e2e-staging workflow",
+      summary: "Started e2e run on staging (~20 min).",
+    });
+
+    const textContent = JSON.stringify(blocks);
+    expect(textContent).toContain("*Result*\\nStarted e2e run on staging (~20 min).");
+  });
 });
 
 describe("renderAnswer", () => {

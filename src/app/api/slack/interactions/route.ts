@@ -1,7 +1,8 @@
+import { captureException } from "@sentry/nextjs";
 import { after, NextResponse } from "next/server";
 import { withAuditScope } from "@/lib/audit/scope";
 import { verifySlackSignature } from "@/lib/adapters/slack/signature";
-import { updateMessage } from "@/lib/adapters/slack/web-api";
+import { postMessage, updateMessage } from "@/lib/adapters/slack/web-api";
 import { renderResultCard } from "@/lib/adapters/slack/blocks";
 import {
   getRequest,
@@ -12,6 +13,13 @@ import {
   type ExecuteContext,
   type ExecuteDeps,
 } from "@/lib/services/ops-agent/execute";
+import {
+  clearDispatch,
+  findInFlightDispatch,
+  markDispatchStale,
+  recordDispatch,
+  STALE_CHECK_MS,
+} from "@/lib/services/ops-agent/dispatches";
 import { describeProposal } from "@/lib/services/ops-agent/proposals";
 import type { OpsProposal } from "@/lib/services/ops-agent/proposals";
 import { requestBrandRefreshesBySlugs } from "@/lib/services/submissions";
@@ -30,7 +38,13 @@ const defaultExecuteDeps: ExecuteDeps = {
   dispatchCurationJob,
   enqueueCurationRecovery,
   dispatchWorkflow: runE2eAgentNow,
+  findInFlightDispatch: () => findInFlightDispatch(),
+  recordDispatch: (requestId) => recordDispatch(requestId),
+  clearDispatch: (requestId) => clearDispatch(requestId),
 };
+
+const STALE_DISPATCH_TEXT =
+  "The e2e run didn't start within 5 minutes. A scheduled run was probably active. Ask again in a few minutes.";
 
 export type InteractionsRouteDeps = {
   verifySignature: typeof verifySlackSignature;
@@ -42,6 +56,9 @@ export type InteractionsRouteDeps = {
   describeProposal: typeof describeProposal;
   executeDeps?: ExecuteDeps;
   scheduleAfter: (fn: () => Promise<void>) => void;
+  sleep: (ms: number) => Promise<void>;
+  markDispatchStale: (id: string) => Promise<boolean>;
+  postMessage: typeof postMessage;
   env: Record<string, string | undefined>;
 };
 
@@ -55,6 +72,9 @@ const defaultDeps: InteractionsRouteDeps = {
   describeProposal,
   executeDeps: defaultExecuteDeps,
   scheduleAfter: (fn) => after(fn),
+  sleep: (ms) => new Promise((resolve) => setTimeout(resolve, ms)),
+  markDispatchStale: (id) => markDispatchStale(id),
+  postMessage,
   env: process.env as Record<string, string | undefined>,
 };
 
@@ -209,15 +229,43 @@ export function createInteractionsHandler(
           );
 
           if (execResult.ok) {
+            if (proposal.kind === "dispatch_workflow") {
+              // Scheduled before any further awaited step, so a failing
+              // transition below cannot skip the check for a live dispatch.
+              // In-process timer; relies on the long-lived Railway Node process
+              // surviving STALE_CHECK_MS. A redeploy inside that window drops the
+              // check (the lease still expires). Move to a scheduled job if that
+              // loss becomes visible.
+              deps.scheduleAfter(async () => {
+                try {
+                  await deps.sleep(STALE_CHECK_MS);
+                  const stale = await deps.markDispatchStale(row.id);
+                  if (stale) {
+                    await deps.postMessage({
+                      channel: row.channelId,
+                      threadTs: row.threadTs,
+                      text: STALE_DISPATCH_TEXT,
+                    });
+                  }
+                } catch (staleError) {
+                  captureException(staleError, {
+                    tags: { scope: "slack", route: "interactions", step: "stale-check" },
+                  });
+                  console.error("[slack/interactions] stale dispatch check failed:", staleError);
+                }
+              });
+            }
             await deps.transitionRequest(row.id, ["running"], "executed", {
               result: execResult.result,
             });
             if (channelId && messageTs) {
               const desc = deps.describeProposal(proposal);
-              const blocks = deps.renderResultCard({
-                proposal: desc.action,
-                result: JSON.stringify(execResult.result),
-              });
+              const summary = execResult.result.summary;
+              const blocks = deps.renderResultCard(
+                typeof summary === "string"
+                  ? { proposal: desc.action, summary }
+                  : { proposal: desc.action, result: JSON.stringify(execResult.result) },
+              );
               await deps
                 .updateMessage({
                   channel: channelId,
