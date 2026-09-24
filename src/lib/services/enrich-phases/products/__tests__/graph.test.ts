@@ -696,6 +696,79 @@ describe('products agent graph', () => {
   })
 
   // -------------------------------------------------------------------------
+  // readNode — cross-page evidence selection (DEV-1855)
+  // -------------------------------------------------------------------------
+
+  const CROSS_PAGE_CHROME =
+    'Our studio newsletter arrives monthly with notes from the workshop, stories from the makers we admire, and seasonal letters from the hills.'
+  const URL_D = 'https://brand.com/product-d'
+
+  function evidenceWithBlocks(url: string) {
+    const blocks = [`Unique product copy for ${url}, a hand-thrown cup.`, CROSS_PAGE_CHROME]
+    return {
+      url,
+      title: `Title ${url}`,
+      description: null,
+      mainText: blocks.join(' '),
+      blocks,
+      images: [],
+      jsonLd: null,
+      productSignals: true,
+      originExcerpts: [],
+      rendered: false,
+      statusCode: 200,
+    }
+  }
+
+  function fourPageInput(): ProductsInput {
+    return {
+      ...baseInput,
+      pool: [
+        ...baseInput.pool,
+        { url: URL_D, normalizedUrl: URL_D, title: 'Product D', supplier: 'catalog', urlClass: 'product-detail' as const },
+      ],
+      imagePool: [...baseInput.imagePool, fakeImage(URL_D)],
+    }
+  }
+
+  it('read_node_dedups_repeated_chrome_across_pages', async () => {
+    const readPage = vi.fn(async (url: string) => evidenceWithBlocks(url))
+    const deps = makeDeps({ readPage })
+    const model = scriptedModel([
+      validProposalResponse({
+        evaluations: [URL_A, URL_B, URL_C, URL_D].map(evaluationFor),
+        products: [productFor(URL_A, 'Test Product A')],
+      }),
+    ])
+
+    await runProductsAgent(fourPageInput(), deps, { model })
+
+    expect(readPage).toHaveBeenCalledTimes(4)
+    const [messages] = model.invoke.mock.calls[0]!
+    const userContent = String(messages.find((m) => m.role === 'user')!.content)
+    expect(userContent).toContain('Unique product copy for')
+    expect(userContent).not.toContain(CROSS_PAGE_CHROME)
+    expect(userContent).not.toContain('"blocks"')
+  })
+
+  it('read_trace_reports_text_stats', async () => {
+    const readPage = vi.fn(async (url: string) => evidenceWithBlocks(url))
+    const deps = makeDeps({ readPage })
+    const model = scriptedModel([
+      validProposalResponse({
+        evaluations: [URL_A, URL_B, URL_C, URL_D].map(evaluationFor),
+        products: [productFor(URL_A, 'Test Product A')],
+      }),
+    ])
+
+    const result = await runProductsAgent(fourPageInput(), deps, { model })
+
+    const readDecision = result.decisions.find((d) => d.step === 'read')
+    expect(readDecision).toBeDefined()
+    expect(readDecision!.reason).toMatch(/truncated 0\/4, boilerplate [1-9]\d* chars/)
+  })
+
+  // -------------------------------------------------------------------------
   // readPage evidence with 404 makes the proposal unreachable
   // -------------------------------------------------------------------------
 

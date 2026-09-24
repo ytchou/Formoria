@@ -803,6 +803,48 @@ describe("rewriteGeneratedDescriptions", () => {
     );
   });
 
+  it("materialize_prompt_excludes_cross_page_chrome", async () => {
+    const chrome =
+      "Our studio newsletter arrives monthly with notes from the workshop, stories from the makers we admire, and seasonal letters from the hills.";
+    const products = [1, 2, 3].map((n) =>
+      generatedProduct({
+        id: `p${n}`,
+        nameZh: `柴燒杯 ${n}`,
+        officialUrl: `https://taoqi.com.tw/products/cup-${n}`,
+      }),
+    );
+    const userContents: string[] = [];
+    const { deps } = makeRewriteDeps({
+      fetchGeneratedProducts: async () => products,
+      readPage: async (url) => {
+        const blocks = [`Unique copy for ${url}, a wood-fired cup.`, chrome];
+        return {
+          url,
+          title: "Test Product",
+          description: "A test product",
+          mainText: blocks.join(" "),
+          blocks,
+          images: [],
+          jsonLd: null,
+          productSignals: true,
+          originExcerpts: [],
+          rendered: false,
+          statusCode: 200,
+        };
+      },
+      callLlm: async (_system, user) => {
+        userContents.push(user);
+        return { text: "[]" };
+      },
+    });
+
+    await rewriteGeneratedDescriptions(deps, { apply: false });
+
+    expect(userContents).toHaveLength(1);
+    expect(userContents[0]).toContain("Unique copy for https://taoqi.com.tw/products/cup-1");
+    expect(userContents[0]).not.toContain(chrome);
+  });
+
   it("skips duplicate nameZh within a brand", async () => {
     const product1 = generatedProduct({
       id: "p1",

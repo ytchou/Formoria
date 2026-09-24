@@ -12,6 +12,7 @@ import type { ProductPageEvidence } from '../enrich-phases/products/read-page'
 import type { ProductCandidate, UrlClass } from '../enrich-phases/product-candidates'
 import { normalizeProductUrl } from '../enrich-phases/product-candidates'
 import { selectCandidates } from '../enrich-phases/products/graph'
+import { selectAcrossPages } from '../enrich-phases/products/select-evidence'
 
 // ---------------------------------------------------------------------------
 // toReadPageFetch
@@ -138,11 +139,18 @@ export async function recordPool(params: RecordPoolParams): Promise<RecordedItem
     candidateIdsByUrl[candidate.url] = candidateIdFactory()
   }
 
-  // Read each URL
-  const evidence: Record<string, ProductPageEvidence> = {}
+  // Read each URL, then run the production cross-page selection in recorded
+  // order, so the recording matches what the model sees and no `blocks` are
+  // persisted (DEV-1855).
+  const pages: ProductPageEvidence[] = []
   for (const candidate of selected) {
-    evidence[candidate.url] = await readPage(candidate.url)
+    pages.push(await readPage(candidate.url))
   }
+  const selectedPages = selectAcrossPages(pages)
+  const evidence: Record<string, ProductPageEvidence> = {}
+  selected.forEach((candidate, i) => {
+    evidence[candidate.url] = selectedPages[i]!
+  })
 
   // The recorded order IS the priority order for replay
   const recordedUrls = selected.map((c) => c.url)

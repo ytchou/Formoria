@@ -5,6 +5,7 @@ import {
   buildPoolFromRows,
   recordPool,
 } from '../products-record'
+import { selectAcrossPages } from '../../enrich-phases/products/select-evidence'
 
 // ---------------------------------------------------------------------------
 // toReadPageFetch
@@ -191,6 +192,57 @@ describe('recordPool', () => {
     expect(meta.humanApproval).toEqual({ status: 'pending' })
     expect(meta.rubricVersion).toBe('dev-1649-v1')
     expect(meta.source.brandId).toBe('brand-1')
+  })
+
+  it('recorded_evidence_has_no_blocks', async () => {
+    const brand = { id: 'brand-3', slug: 'blocks-brand', name: 'Blocks Brand' }
+    const urls = ['https://example.com/x1', 'https://example.com/x2', 'https://example.com/x3']
+    const pool = urls.map((url, i) => ({
+      url,
+      normalizedUrl: url.replace('https://', ''),
+      title: `X${i + 1}`,
+      supplier: 'official_website' as const,
+      urlClass: 'product-detail' as const,
+      searchPosition: i + 1,
+    }))
+    const chrome =
+      'Our studio newsletter arrives monthly with notes from the workshop, stories from the makers we admire, and seasonal letters from the hills.'
+    const pageFor = (url: string) => {
+      const blocks = [`Unique copy for ${url}, a wood-fired cup.`, chrome]
+      return {
+        url,
+        title: 'Title',
+        description: null,
+        mainText: blocks.join(' '),
+        blocks,
+        images: [],
+        jsonLd: null,
+        productSignals: true,
+        originExcerpts: [],
+        rendered: false,
+        statusCode: 200,
+      }
+    }
+    const readPage = vi.fn(async (url: string) => pageFor(url))
+
+    const result = await recordPool({
+      brand,
+      pool,
+      priorityUrls: [],
+      urlsOverride: urls,
+      readPage,
+      candidateIdFactory: () => 'cand-b',
+    })
+
+    const expected = selectAcrossPages(urls.map(pageFor))
+    const recorded = (result.input as { evidence: Record<string, Record<string, unknown>> })
+      .evidence
+    urls.forEach((url, i) => {
+      const page = recorded[url]!
+      expect(page).not.toHaveProperty('blocks')
+      expect(page.mainText).toBe(expected[i]!.mainText)
+      expect(page.mainText).not.toContain(chrome)
+    })
   })
 
   it('--urls override replaces selectCandidates order and the override becomes the stored pool', async () => {

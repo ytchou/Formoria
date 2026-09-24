@@ -92,6 +92,7 @@ import {
 } from '../agents/runtime'
 import type { ChatMessage } from '@/lib/services/openai-client'
 import { readProductPage, type ProductPageEvidence, type ReadPageDeps } from './read-page'
+import { selectAcrossPages } from './select-evidence'
 import {
   PRODUCTS_SCHEMA_TRAILER,
 } from '@/lib/prompts/products-agent'
@@ -419,24 +420,32 @@ async function readNode(
     if (ctx.wallClockExhausted()) break
   }
 
-  const rendered = evidence.filter((page) => page.rendered).length
+  // Drops blocks repeated across the brand's pages and strips `blocks`, so no
+  // unselected text reaches the prompt or the persisted state (DEV-1855).
+  const selected: ProductPageEvidence[] = selectAcrossPages(evidence)
+  const rendered = selected.filter((page) => page.rendered).length
+  const truncated = selected.filter((page) => page.textStats?.truncated).length
+  const boilerplateChars = selected.reduce(
+    (sum, page) => sum + (page.textStats?.boilerplateChars ?? 0),
+    0,
+  )
   ctx.record(
     'read',
-    `read ${evidence.length} URLs`,
-    `${state.selectedUrls.length} attempted, ${rendered} rendered`,
+    `read ${selected.length} URLs`,
+    `${state.selectedUrls.length} attempted, ${rendered} rendered, truncated ${truncated}/${selected.length}, boilerplate ${boilerplateChars} chars`,
     start,
   )
 
   // A partial read is still evidence. Only a read that produced NOTHING and ran
   // out of budget hands the brand back to the single-call body.
-  if (exhausted && evidence.length === 0) {
+  if (exhausted && selected.length === 0) {
     return {
-      evidence,
+      evidence: selected,
       agentOutcome: 'fallback',
       error: `budget_exhausted: ${exhausted.message}`,
     }
   }
-  return { evidence }
+  return { evidence: selected }
 }
 
 // ---------------------------------------------------------------------------
