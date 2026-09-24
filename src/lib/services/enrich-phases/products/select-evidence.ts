@@ -113,8 +113,13 @@ export function selectPageText(
     const tier = text ? factTierIndex(text) : -1
     const chromeWord = text !== '' && tier === -1 && CHROME_PATTERN.test(text)
     const isShortChrome = chromeWord && text.length <= CHROME_MAX_CHARS
+    // A repeated block that carries a fact label is brand-wide product fact
+    // (shared material or care copy), not boilerplate, so it stays on every page.
     const isRepeat =
-      text !== '' && opts.repeated !== undefined && opts.repeated.has(repeatKey(text))
+      text !== '' &&
+      tier === -1 &&
+      opts.repeated !== undefined &&
+      opts.repeated.has(repeatKey(text))
     if (text === '' || isShortChrome || isRepeat) {
       boilerplateChars += raw.length
       return
@@ -219,7 +224,7 @@ type SelectableEvidence = {
 /**
  * Re-runs `selectPageText` on every page that carries `blocks`, dropping long
  * blocks repeated across the brand's pages (`REPEAT_MIN_CHARS`,
- * `REPEAT_MIN_PAGES`, `REPEAT_MIN_SHARE`). Only pages with at least one block
+ * `REPEAT_MIN_PAGES`, `REPEAT_MIN_SHARE`) unless they match a fact tier. Only pages with at least one block
  * count, and pages sharing a `url` count once, so duplicate reads of one page
  * never look like a site-wide repeat. Returned pages never carry `blocks`;
  * pages without `blocks` (recorded evidence, fixtures) pass through with their

@@ -224,6 +224,20 @@ describe('selectPageText', () => {
 // ---------------------------------------------------------------------------
 
 describe('selectAcrossPages', () => {
+  it('across_pages_keeps_repeated_fact_block', () => {
+    // Shape seen on production (entadar): one brand-wide material + care block on every page.
+    const sharedFacts =
+      '本品牌使用的PU皮革皆為無溶劑皮革，製造過程並無使用有毒的溶劑。保養方式：請使用不會起棉絮的布沾溼之後擦拭即可清理，所有商品都不能以洗衣機清洗，洗衣機滾動過程可能損壞皮革表面。'.repeat(2)
+    const pages = Array.from({ length: 6 }, (_, i) =>
+      page(i, [`Product ${i} intro text`, sharedFacts, LONG_NOTICE]),
+    )
+    const out = selectAcrossPages(pages)
+    out.forEach((p) => {
+      expect(p.mainText).toContain(sharedFacts)
+      expect(p.mainText).not.toContain(LONG_NOTICE)
+    })
+  })
+
   it('across_pages_drops_long_repeats', () => {
     const pages = Array.from({ length: 12 }, (_, i) =>
       page(i, [`Product ${i} intro text`, LONG_NOTICE, '材質：925純銀']),
