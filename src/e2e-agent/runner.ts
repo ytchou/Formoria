@@ -19,13 +19,19 @@ export type ExecResult = {
   stdout: string
   stderr: string
   exitCode: number
-  /** Set when the child was killed by a signal (e.g. SIGTERM on timeoutMs). */
-  signal?: string | null
+  /** True when the command was killed because it exceeded `timeoutMs`. */
+  timedOut?: boolean
 }
 
 export type ExecCommandFn = (
   cmd: string,
-  opts?: { cwd?: string; env?: Record<string, string>; timeoutMs?: number },
+  opts?: {
+    cwd?: string
+    env?: Record<string, string>
+    timeoutMs?: number
+    /** Also write stdout/stderr chunks to this process's streams as they arrive. */
+    streamOutput?: boolean
+  },
 ) => Promise<ExecResult>
 
 export type CloneRepoFn = (opts: {
@@ -66,14 +72,28 @@ export type PlaywrightStats = {
   duration: number
 }
 
-export type RunResult = {
-  passed: boolean
+/**
+ * green   — suite ran and passed.
+ * red     — suite ran and produced failures or unexpected skips.
+ * errored — suite did not produce a usable result (timeout, missing or
+ *           unparseable JSON, no tests ran, or a nonzero exit with no
+ *           failures). No failures are known, so no repair request.
+ */
+export type RunOutcome = 'green' | 'red' | 'errored'
+
+type RunResultBase = {
   failures: SourceFailure[]
   unexpectedSkips: ActionableReportFailure[]
   stats: PlaywrightStats
   jsonReport: unknown
   stagingSha: string
+  /** Last lines of the Playwright run's stdout + stderr. */
+  outputTail?: string
 }
+
+export type RunResult =
+  | (RunResultBase & { outcome: Exclude<RunOutcome, 'errored'>; erroredReason?: never })
+  | (RunResultBase & { outcome: 'errored'; erroredReason: string })
 
 export type RunE2eSuiteOptions = {
   runId: string
@@ -102,6 +122,21 @@ const DEFAULT_SKIP_MANIFEST: ExpectedSkipManifest = {
 }
 
 const SKIP_MANIFEST_PATH = 'scripts/e2e-expected-skips.json'
+
+// Playwright's JSON reporter writes here (via PLAYWRIGHT_JSON_OUTPUT_NAME);
+// the line reporter keeps stdout for live progress.
+const REPORT_FILE_NAME = 'e2e-report.json'
+
+const OUTPUT_TAIL_LINES = 20
+const OUTPUT_TAIL_MAX_CHARS = 1500
+
+const EMPTY_STATS: PlaywrightStats = {
+  expected: 0,
+  unexpected: 0,
+  skipped: 0,
+  flaky: 0,
+  duration: 0,
+}
 
 // ---------------------------------------------------------------------------
 // Runner
@@ -183,6 +218,9 @@ export async function runE2eSuite(options: RunE2eSuiteOptions): Promise<RunResul
     'pnpm install --frozen-lockfile',
     { cwd: targetDir, timeoutMs: INSTALL_TIMEOUT_MS, env: { NODE_ENV: 'development' } },
   )
+  if (installResult.timedOut) {
+    throw new Error(`pnpm install timed out after ${INSTALL_TIMEOUT_MS / 60_000}m`)
+  }
   if (installResult.exitCode !== 0) {
     throw new Error(
       `pnpm install failed (exit ${installResult.exitCode}): ${installResult.stderr.slice(0, 500)}`,
@@ -196,10 +234,11 @@ export async function runE2eSuite(options: RunE2eSuiteOptions): Promise<RunResul
   const stagingSessionSecret = process.env.E2E_STAGING_SESSION_SECRET ?? ''
 
   const playwrightResult = await deps.execCommand(
-    'pnpm exec playwright test --project=deep --reporter=json',
+    'pnpm exec playwright test --project=deep --reporter=line,json',
     {
       cwd: targetDir,
       timeoutMs: PLAYWRIGHT_TIMEOUT_MS,
+      streamOutput: true,
       env: {
         FORMORIA_DEPLOYMENT_ENV: 'staging',
         CI: 'true',
@@ -207,50 +246,55 @@ export async function runE2eSuite(options: RunE2eSuiteOptions): Promise<RunResul
         CF_ACCESS_CLIENT_SECRET: cfAccessClientSecret,
         E2E_STAGING_SESSION_SECRET: stagingSessionSecret,
         BASE_URL: stagingUrl,
+        PLAYWRIGHT_JSON_OUTPUT_NAME: `${targetDir}/${REPORT_FILE_NAME}`,
       },
     },
   )
 
-  // Step 6: Parse playwright JSON report
   console.log(
-    `[e2e-runner] playwright exit=${playwrightResult.exitCode} stdout=${playwrightResult.stdout.length}b stderr=${playwrightResult.stderr.length}b`,
+    `[e2e-runner] playwright exit=${playwrightResult.exitCode} timedOut=${playwrightResult.timedOut === true} stdout=${playwrightResult.stdout.length}b stderr=${playwrightResult.stderr.length}b`,
   )
-  if (playwrightResult.exitCode !== 0 && playwrightResult.stdout.length === 0) {
-    console.log(`[e2e-runner] playwright stderr: ${playwrightResult.stderr.slice(0, 1000)}`)
-  }
 
-  // globalSetup logs and pnpm plugins (dotenvx) write to stdout before the
-  // JSON reporter output. Strip non-JSON prefix by finding the report's opening brace.
-  let jsonText = playwrightResult.stdout
-  const jsonLineStart = jsonText.indexOf('\n{')
-  if (jsonLineStart >= 0) {
-    jsonText = jsonText.slice(jsonLineStart + 1)
-  }
+  const outputTail = buildOutputTail(playwrightResult.stdout + '\n' + playwrightResult.stderr)
 
-  let jsonReport: Record<string, unknown>
-  try {
-    jsonReport = JSON.parse(jsonText) as Record<string, unknown>
-  } catch {
-    // A killed child never flushes the JSON reporter, so name the timeout
-    // instead of reporting it as an unparseable report.
-    const killed = Boolean(playwrightResult.signal)
-    console.log(`[e2e-runner] JSON parse failed. stdout preview: ${playwrightResult.stdout.slice(0, 2000)}`)
-    console.log(`[e2e-runner] stderr preview: ${playwrightResult.stderr.slice(0, 1000)}`)
+  const errored = (erroredReason: string): RunResult => {
+    console.log(`[e2e-runner] run=${runId} outcome=errored reason=${erroredReason}`)
     return {
-      passed: false,
-      failures: [{
-        file: null,
-        title: killed
-          ? `Playwright run killed by ${playwrightResult.signal} (timeout ${PLAYWRIGHT_TIMEOUT_MS / 60_000} min)`
-          : 'Failed to parse Playwright JSON report',
-        error: `exitCode=${playwrightResult.exitCode}, signal=${playwrightResult.signal ?? 'none'}, stdout length=${playwrightResult.stdout.length}`,
-      }],
+      outcome: 'errored',
+      erroredReason,
+      failures: [],
       unexpectedSkips: [],
-      stats: { expected: 0, unexpected: 0, skipped: 0, flaky: 0, duration: 0 },
+      stats: { ...EMPTY_STATS },
       jsonReport: {},
       stagingSha,
+      outputTail,
     }
   }
+
+  // A killed run never wrote its JSON report — nothing to parse.
+  if (playwrightResult.timedOut) {
+    return errored(`Playwright timed out after ${PLAYWRIGHT_TIMEOUT_MS / 60_000}m`)
+  }
+
+  // Step 6: Read and parse the Playwright JSON report file
+  const reportRead = await deps.execCommand(`cat ${REPORT_FILE_NAME}`, {
+    cwd: targetDir,
+  })
+  let parsedReport: unknown
+  if (reportRead.exitCode === 0) {
+    try {
+      parsedReport = JSON.parse(reportRead.stdout)
+    } catch {
+      parsedReport = undefined
+    }
+  }
+  if (!parsedReport || typeof parsedReport !== 'object' || Array.isArray(parsedReport)) {
+    return errored(
+      `Playwright JSON report missing or unparseable (exit ${playwrightResult.exitCode})`,
+    )
+  }
+  const jsonReport = parsedReport as Record<string, unknown>
+
   const rawStats = (jsonReport.stats ?? {}) as Record<string, unknown>
 
   const stats: PlaywrightStats = {
@@ -286,23 +330,35 @@ export async function runE2eSuite(options: RunE2eSuiteOptions): Promise<RunResul
     })
   }
 
-  const passed =
-    playwrightResult.exitCode === 0 &&
-    stats.unexpected === 0 &&
-    failures.length === 0 &&
-    unexpectedSkips.length === 0
+  const knownFailures =
+    stats.unexpected > 0 || failures.length > 0 || unexpectedSkips.length > 0
+
+  // A report with no tests in it proves nothing — never certify it green.
+  const testsRun = stats.expected + stats.unexpected + stats.flaky + stats.skipped
+  if (testsRun === 0 && !knownFailures) {
+    return errored(`Playwright reported no test results (exit ${playwrightResult.exitCode})`)
+  }
+
+  // A nonzero exit with no failures in the report (e.g. OOM or signal kill
+  // after a partial flush) is never green, but there is nothing to repair.
+  if (playwrightResult.exitCode !== 0 && !knownFailures) {
+    return errored(`Playwright exited ${playwrightResult.exitCode} with no test failures`)
+  }
+
+  const outcome: Exclude<RunOutcome, 'errored'> = knownFailures ? 'red' : 'green'
 
   console.log(
-    `[e2e-runner] run=${runId} passed=${passed} failures=${failures.length} skips=${unexpectedSkips.length} stats=${JSON.stringify(stats)}`,
+    `[e2e-runner] run=${runId} outcome=${outcome} failures=${failures.length} skips=${unexpectedSkips.length} stats=${JSON.stringify(stats)}`,
   )
 
   return {
-    passed,
+    outcome,
     failures,
     unexpectedSkips,
     stats,
     jsonReport,
     stagingSha,
+    outputTail,
   }
 }
 
@@ -332,6 +388,21 @@ async function loadSkipManifest(
   } catch {
     return DEFAULT_SKIP_MANIFEST
   }
+}
+
+/**
+ * Last OUTPUT_TAIL_LINES non-empty lines of the output, capped to
+ * OUTPUT_TAIL_MAX_CHARS (keeping the end, where the stall shows).
+ */
+function buildOutputTail(output: string): string {
+  const tail = output
+    .split('\n')
+    .filter((line) => line.trim().length > 0)
+    .slice(-OUTPUT_TAIL_LINES)
+    .join('\n')
+  if (tail.length <= OUTPUT_TAIL_MAX_CHARS) return tail
+  // The cut can split a surrogate pair; drop the orphaned low half.
+  return tail.slice(-OUTPUT_TAIL_MAX_CHARS).replace(/^[\uDC00-\uDFFF]/, '')
 }
 
 function text(value: unknown): string {

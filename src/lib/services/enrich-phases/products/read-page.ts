@@ -9,10 +9,17 @@
  * text to read.
  *
  * This module is the read half of that fix. It is pure I/O composition over
- * helpers that already exist — `needsRendering`, `extractRenderedMainText`,
+ * helpers that already exist — `needsRendering`, `extractMainTextBlocks`,
  * `extractAllJsonLd`, `extractJsonLdImages`, `hasProductSignals`,
  * `buildOriginExcerpts` — so the evidence the agent proposes from is the same
  * evidence the single-call body and the catalog discovery use.
+ *
+ * `mainText` is no longer a positional prefix (DEV-1855). The page's text
+ * blocks go through `selectPageText`, which keeps the lead and fact-bearing
+ * blocks within `MAX_MAIN_TEXT_CHARS` and drops chrome. The full `blocks` ride
+ * along so a consumer can run `selectAcrossPages` over a brand's pages to drop
+ * cross-page repeats; that call strips `blocks` before the evidence leaves the
+ * consumer. Origin excerpts read the full text, never the selected text.
  *
  * Every external call arrives through `deps`: `fetchHtml` is the caller's
  * guarded fetch and `renderProvider` the caller's budgeted renderer. Nothing
@@ -22,7 +29,7 @@
 import * as cheerio from 'cheerio'
 
 import { needsRendering, hasProductSignals } from '../catalog-discovery'
-import { extractRenderedMainText } from '../scraper/product-origin-text'
+import { extractMainTextBlocks } from '../scraper/product-origin-text'
 import { extractAllJsonLd, extractJsonLdImages } from '../scraper/parse/extractors'
 import { resolveUrl } from '../scraper/fetch-guards'
 import type { RenderProvider } from '../scraper/render/types'
@@ -31,13 +38,13 @@ import {
   type OriginExcerpt,
 } from '@/lib/services/curated-products/origin-qualification'
 import { allowRenderFor, type ProductsBudgetState } from './budget'
+import { selectPageText, type TextStats } from './select-evidence'
 
 /**
- * Main text ceiling per page. The propose prompt carries up to twelve pages, so
- * this is the per-page share of the context the model can actually use — not a
- * statement about how much text a product page holds.
+ * Main text ceiling per page, owned by `select-evidence` and re-exported here
+ * for existing importers.
  */
-export const MAX_MAIN_TEXT_CHARS = 4096
+export { MAX_MAIN_TEXT_CHARS } from './select-evidence'
 
 export type ProductPageEvidence = {
   url: string
@@ -45,8 +52,15 @@ export type ProductPageEvidence = {
   title: string | null
   /** og:description, falling back to `<meta name="description">`. */
   description: string | null
-  /** Visible main-content text, capped at `MAX_MAIN_TEXT_CHARS`. */
+  /** Selected main-content text, at most `MAX_MAIN_TEXT_CHARS` (`selectPageText`). */
   mainText: string
+  /**
+   * Full unselected blocks; stripped by `selectAcrossPages` before leaving a
+   * consumer. Absent on recorded evidence and fixtures.
+   */
+  blocks?: string[]
+  /** How `mainText` was selected from `blocks`. */
+  textStats?: TextStats
   /** Absolute image URLs from JSON-LD and og:image, in that order. */
   images: string[]
   /** The first JSON-LD block, for the propose prompt's structured evidence. */
@@ -142,6 +156,8 @@ export async function readProductPage(
       title: null,
       description: null,
       mainText: '',
+      blocks: [],
+      textStats: selectPageText([]).textStats,
       images: [],
       jsonLd: null,
       productSignals: false,
@@ -160,16 +176,20 @@ export async function readProductPage(
     'meta[name="og:description"]',
     'meta[name="description"]',
   ])
-  const mainText = extractRenderedMainText(html).slice(0, MAX_MAIN_TEXT_CHARS)
+  const blocks = extractMainTextBlocks(html)
+  const { mainText, textStats } = selectPageText(blocks)
 
   // The loader is preferred because it may render a page this read did not, but
   // the page just read is the fallback — an origin check with no text at all is
-  // how `verifyOrigin` ended up never being called (F6).
-  let originText = mainText
+  // how `verifyOrigin` ended up never being called (F6). The fallback is the
+  // FULL text, not the selected `mainText`: an origin sentence past the budget
+  // must still reach the origin check (D9).
+  const fullText = blocks.join(' ')
+  let originText = fullText
   if (deps.loadOriginTexts) {
     try {
       const loaded = await deps.loadOriginTexts([url])
-      originText = loaded.get(url) ?? mainText
+      originText = loaded.get(url) ?? fullText
     } catch {
       // Loader failure removes the better text, never the page's own.
     }
@@ -180,6 +200,8 @@ export async function readProductPage(
     title,
     description,
     mainText,
+    blocks,
+    textStats,
     images: collectImages($, url),
     jsonLd: extractAllJsonLd($)[0] ?? null,
     productSignals: hasProductSignals(html),

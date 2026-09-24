@@ -1,4 +1,4 @@
-import { describe, expect, it, vi, beforeEach } from "vitest";
+import { describe, expect, it, vi, beforeEach, afterEach } from "vitest";
 
 vi.mock("@/lib/audit", () => ({
   auditedCall: vi
@@ -32,12 +32,20 @@ function makeDeps(overrides: Partial<Parameters<typeof executeProposal>[2]> = {}
     dispatchCurationJob: vi.fn(),
     enqueueCurationRecovery: vi.fn(),
     dispatchWorkflow: vi.fn().mockResolvedValue({ ok: true }),
+    findInFlightDispatch: vi.fn().mockResolvedValue(null),
+    recordDispatch: vi.fn().mockResolvedValue(undefined),
+    clearDispatch: vi.fn().mockResolvedValue(undefined),
     ...overrides,
   };
 }
 
 beforeEach(() => {
   vi.clearAllMocks();
+  vi.stubEnv("NEXT_PUBLIC_SITE_URL", "https://formoria.com");
+});
+
+afterEach(() => {
+  vi.unstubAllEnvs();
 });
 
 // ---------------------------------------------------------------------------
@@ -66,6 +74,7 @@ describe("refresh_brand kind", () => {
         submissionId: "sub-1",
         jobId: "job-1",
         adminUrl: "/admin/jobs/job-1",
+        summary: "Refresh started for Test Brand — job <https://formoria.com/admin/jobs/job-1|job-1>",
       },
     });
 
@@ -133,7 +142,12 @@ describe("rerun_job kind", () => {
 
     expect(result).toEqual({
       ok: true,
-      result: { jobId: "job-rerun-1", adminUrl: "/admin/jobs/job-rerun-1", counts: { total: 2, failed: 1, cancelled: 1 } },
+      result: {
+        jobId: "job-rerun-1",
+        adminUrl: "/admin/jobs/job-rerun-1",
+        counts: { total: 2, failed: 1, cancelled: 1 },
+        summary: "Re-running job job-orig-1: 2 targets — <https://formoria.com/admin/jobs/job-rerun-1|job-rerun-1>",
+      },
     });
     expect(deps.enqueueCurationRecovery).toHaveBeenCalledWith({ sourceJobId: "job-orig-1", startedBy: "ops@formoria.com", action: { kind: "rerun" } });
     expect(deps.dispatchCurationJob).toHaveBeenCalledWith("job-rerun-1");
@@ -153,7 +167,12 @@ describe("rerun_job kind", () => {
 
     expect(result).toEqual({
       ok: true,
-      result: { jobId: "job-resume-1", adminUrl: "/admin/jobs/job-resume-1", counts: { total: 3, failed: 2, cancelled: 1 } },
+      result: {
+        jobId: "job-resume-1",
+        adminUrl: "/admin/jobs/job-resume-1",
+        counts: { total: 3, failed: 2, cancelled: 1 },
+        summary: "Resuming job job-orig-2: 3 targets — <https://formoria.com/admin/jobs/job-resume-1|job-resume-1>",
+      },
     });
     expect(deps.enqueueCurationRecovery).toHaveBeenCalledWith({ sourceJobId: "job-orig-2", startedBy: "ops@formoria.com", action: { kind: "resume" } });
     expect(deps.dispatchCurationJob).toHaveBeenCalledWith("job-resume-1");
@@ -176,8 +195,120 @@ describe("dispatch_workflow kind", () => {
       deps,
     );
 
-    expect(result).toEqual({ ok: true, result: { dispatched: "e2e-staging" } });
+    expect(result).toEqual({
+      ok: true,
+      result: {
+        dispatched: "e2e-staging",
+        summary: "Started e2e run on staging (~20 min). Updates will post in this thread.",
+      },
+    });
     expect(deps.dispatchWorkflow).toHaveBeenCalled();
+  });
+
+  it("refuses when a run is in flight, links its thread, and does not dispatch", async () => {
+    const deps = makeDeps({
+      findInFlightDispatch: vi.fn().mockResolvedValue({
+        id: "req-prev",
+        channelId: "C_OPS",
+        threadTs: "1111.2222",
+        requesterId: "U_OP1",
+        runId: null,
+        claimedAt: null,
+      }),
+    });
+
+    const result = await executeProposal(
+      { kind: "dispatch_workflow", workflow: "e2e-staging" },
+      makeCtx(),
+      deps,
+    );
+
+    expect(result.ok).toBe(false);
+    if (result.ok) throw new Error("expected failure");
+    expect(result.error).toContain("in progress");
+    expect(result.error).toContain("https://slack.com/archives/C_OPS/p11112222");
+    expect(deps.dispatchWorkflow).not.toHaveBeenCalled();
+    expect(deps.recordDispatch).not.toHaveBeenCalled();
+  });
+
+  it("records the dispatch before triggering Run-now", async () => {
+    const order: string[] = [];
+    const deps = makeDeps({
+      recordDispatch: vi.fn().mockImplementation(async () => {
+        order.push("record");
+      }),
+      dispatchWorkflow: vi.fn().mockImplementation(async () => {
+        order.push("dispatch");
+        return { ok: true };
+      }),
+    });
+
+    await executeProposal(
+      { kind: "dispatch_workflow", workflow: "e2e-staging" },
+      makeCtx(),
+      deps,
+    );
+
+    expect(deps.recordDispatch).toHaveBeenCalledWith("req-001");
+    expect(order).toEqual(["record", "dispatch"]);
+    expect(deps.clearDispatch).not.toHaveBeenCalled();
+  });
+
+  it("clears the recorded dispatch when Run-now fails", async () => {
+    const deps = makeDeps({
+      dispatchWorkflow: vi
+        .fn()
+        .mockResolvedValue({ ok: false, error: "railway 500" }),
+    });
+
+    const result = await executeProposal(
+      { kind: "dispatch_workflow", workflow: "e2e-staging" },
+      makeCtx(),
+      deps,
+    );
+
+    expect(result).toEqual({ ok: false, error: "railway 500" });
+    expect(deps.clearDispatch).toHaveBeenCalledWith("req-001");
+  });
+
+  it("keeps the Run-now result when clearDispatch rejects", async () => {
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    const deps = makeDeps({
+      dispatchWorkflow: vi
+        .fn()
+        .mockResolvedValue({ ok: false, error: "railway 500" }),
+      clearDispatch: vi.fn().mockRejectedValue(new Error("db down")),
+    });
+
+    const result = await executeProposal(
+      { kind: "dispatch_workflow", workflow: "e2e-staging" },
+      makeCtx(),
+      deps,
+    );
+
+    expect(result).toEqual({ ok: false, error: "railway 500" });
+    expect(deps.clearDispatch).toHaveBeenCalledWith("req-001");
+    expect(errorSpy).toHaveBeenCalled();
+    errorSpy.mockRestore();
+  });
+
+  it("keeps the Run-now error when clearDispatch rejects after a throw", async () => {
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    const deps = makeDeps({
+      dispatchWorkflow: vi.fn().mockRejectedValue(new Error("railway timeout")),
+      clearDispatch: vi.fn().mockRejectedValue(new Error("db down")),
+    });
+
+    const result = await executeProposal(
+      { kind: "dispatch_workflow", workflow: "e2e-staging" },
+      makeCtx(),
+      deps,
+    );
+
+    expect(result).toEqual({ ok: false, error: "railway timeout" });
+    expect(deps.clearDispatch).toHaveBeenCalledWith("req-001");
+    expect(errorSpy).toHaveBeenCalled();
+    errorSpy.mockRestore();
   });
 
   it("returns error when dispatch is refused", async () => {
