@@ -12,6 +12,7 @@
 import type { HealthFinding } from './contracts'
 import type { DetectorResult } from './types'
 import type { RepairRequest } from './repair-request'
+import type { RunHealthAgentResult } from './run'
 
 // ---------------------------------------------------------------------------
 // Label resolution
@@ -527,4 +528,36 @@ export function buildRepairTriggerMessage(
   lines.push('```')
 
   return lines.join('\n')
+}
+
+/**
+ * Blocks for the run's parent message. Posted with a "Running..." line and
+ * updated in place with the final status once the run ends.
+ */
+export function buildRunStartBlocks(
+  date: string,
+  statusLine: string,
+): Record<string, unknown>[] {
+  return [
+    {
+      type: 'header',
+      text: { type: 'plain_text', text: `Health Agent — ${date}`, emoji: true },
+    },
+    { type: 'section', text: { type: 'mrkdwn', text: statusLine } },
+  ]
+}
+
+/** Final status line for the parent message. `undefined` result = crashed. */
+export function buildRunStatusLine(
+  result: RunHealthAgentResult | undefined,
+  runId: string,
+): string {
+  const id = `\`${runId.slice(0, 8)}\``
+  if (!result) return `⚠️ *Crashed* · ${id}`
+  if (result.status === 'failed') return `❌ *Failed* · ${id}`
+  if (result.status === 'replay') return `↩️ *Replay* · ${id}`
+  const findings = `${result.totalFindings} findings`
+  return result.exitCode === 0
+    ? `✅ *Completed* · ${findings} · ${id}`
+    : `⚠️ *Completed, digest failed* · ${findings} · ${id}`
 }

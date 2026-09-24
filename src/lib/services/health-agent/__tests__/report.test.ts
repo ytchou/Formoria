@@ -6,6 +6,8 @@ import {
   buildDigest,
   buildRepairTriggerMessage,
   buildRepairTriggerBlocks,
+  buildRunStartBlocks,
+  buildRunStatusLine,
   escapeSlackMrkdwn,
   linearLabelForSource,
 } from '../report'
@@ -594,5 +596,49 @@ describe('report — labels', () => {
     expect(linearLabelForSource('pipeline')).toBe('Data Quality')
     expect(linearLabelForSource('surface')).toBe('Data Quality')
     expect(linearLabelForSource('links-weekly')).toBe('Data Quality')
+  })
+})
+
+describe('buildRunStatusLine', () => {
+  const runId = 'abcdef1234567890'
+
+  it('reports a clean completed run with its finding count', () => {
+    const line = buildRunStatusLine(
+      { status: 'completed', dryRun: false, exitCode: 0, totalFindings: 3 },
+      runId,
+    )
+    expect(line).toBe('✅ *Completed* · 3 findings · `abcdef12`')
+  })
+
+  it('flags a completed run whose digest failed', () => {
+    const line = buildRunStatusLine(
+      { status: 'completed', dryRun: false, exitCode: 1, totalFindings: 0 },
+      runId,
+    )
+    expect(line).toBe('⚠️ *Completed, digest failed* · 0 findings · `abcdef12`')
+  })
+
+  it('reports a failed run', () => {
+    const line = buildRunStatusLine(
+      { status: 'failed', dryRun: false, exitCode: 1, totalFindings: 0 },
+      runId,
+    )
+    expect(line).toBe('❌ *Failed* · `abcdef12`')
+  })
+
+  it('reports a crash when there is no result', () => {
+    expect(buildRunStatusLine(undefined, runId)).toBe('⚠️ *Crashed* · `abcdef12`')
+  })
+})
+
+describe('buildRunStartBlocks', () => {
+  it('renders the header and the status line', () => {
+    expect(buildRunStartBlocks('2026-09-25', '🔄 *Running...*')).toEqual([
+      {
+        type: 'header',
+        text: { type: 'plain_text', text: 'Health Agent — 2026-09-25', emoji: true },
+      },
+      { type: 'section', text: { type: 'mrkdwn', text: '🔄 *Running...*' } },
+    ])
   })
 })

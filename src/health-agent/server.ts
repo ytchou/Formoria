@@ -47,6 +47,10 @@ let postMessage: Awaited<
   typeof import('@/lib/adapters/slack/web-api')
 >['postMessage']
 
+let updateMessage: Awaited<
+  typeof import('@/lib/adapters/slack/web-api')
+>['updateMessage']
+
 let createTicket: Awaited<
   typeof import('@/lib/adapters/linear/create-ticket')
 >['createTicket']
@@ -67,6 +71,14 @@ let buildRepairTriggerBlocks: Awaited<
   typeof import('@/lib/services/health-agent/report')
 >['buildRepairTriggerBlocks']
 
+let buildRunStartBlocks: Awaited<
+  typeof import('@/lib/services/health-agent/report')
+>['buildRunStartBlocks']
+
+let buildRunStatusLine: Awaited<
+  typeof import('@/lib/services/health-agent/report')
+>['buildRunStatusLine']
+
 // ---------------------------------------------------------------------------
 // Boot
 // ---------------------------------------------------------------------------
@@ -84,7 +96,7 @@ await bootWorker({
     ;({ flushLangfuse, getLangfuse } = await import('@/lib/langfuse/client'))
     ;({ runWithAuditContext } = await import('@/lib/audit/context'))
     ;({ reportWorkerFailure } = await import('@/lib/services/job-alerts'))
-    ;({ postMessage } = await import(
+    ;({ postMessage, updateMessage } = await import(
       '@/lib/adapters/slack/web-api'
     ))
     ;({ createTicket } = await import('@/lib/adapters/linear/create-ticket'))
@@ -94,7 +106,12 @@ await bootWorker({
     ;({ getInstallationToken } = await import(
       '@/lib/adapters/github/app-auth'
     ))
-    ;({ buildRepairTriggerMessage, buildRepairTriggerBlocks } = await import(
+    ;({
+      buildRepairTriggerMessage,
+      buildRepairTriggerBlocks,
+      buildRunStartBlocks,
+      buildRunStatusLine,
+    } = await import(
       '@/lib/services/health-agent/report'
     ))
   },
@@ -176,6 +193,8 @@ async function main(): Promise<never> {
   }
 
   let exitCode = 0
+  let runResult: Awaited<ReturnType<typeof runHealthAgent>> | undefined
+  let startRef: { channel: string; ts: string } | undefined
 
   try {
     const result = await runHealthAgent({
@@ -196,18 +215,14 @@ async function main(): Promise<never> {
         const result = await postMessage({
           channel,
           text: `Health Agent — ${date}`,
-          blocks: [
-            {
-              type: 'header',
-              text: { type: 'plain_text', text: `Health Agent — ${date}`, emoji: true },
-            },
-            {
-              type: 'section',
-              text: { type: 'mrkdwn', text: `🔄 *Running...* · \`${startRunId.slice(0, 8)}\`` },
-            },
-          ],
+          blocks: buildRunStartBlocks(
+            date,
+            `🔄 *Running...* · \`${startRunId.slice(0, 8)}\``,
+          ),
         })
-        return result.ok ? result.ts : undefined
+        if (!result.ok) return undefined
+        startRef = { channel, ts: result.ts }
+        return result.ts
       },
       slackPostDigest: async ({ text, blocks }, digestThreadTs) => {
         const channel = process.env.HEALTH_AGENT_SLACK_CHANNEL
@@ -221,6 +236,7 @@ async function main(): Promise<never> {
       },
     })
 
+    runResult = result
     exitCode = result.exitCode
     console.log(
       `[health-agent] status=${result.status} findings=${result.totalFindings} exit=${exitCode}`,
@@ -235,6 +251,19 @@ async function main(): Promise<never> {
       }).catch(() => {})
     }
   } finally {
+    if (startRef) {
+      try {
+        const res = await updateMessage({
+          channel: startRef.channel,
+          ts: startRef.ts,
+          text: `Health Agent — ${logicalDate}`,
+          blocks: buildRunStartBlocks(logicalDate, buildRunStatusLine(runResult, runId)),
+        })
+        if (!res.ok) console.warn('[health-agent] start message update failed:', res.error)
+      } catch (err) {
+        console.warn('[health-agent] start message update failed:', err)
+      }
+    }
     try { await flushLangfuse() } catch { /* flush failure must not mask exit */ }
     process.exit(exitCode)
   }
