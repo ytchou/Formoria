@@ -1,3 +1,5 @@
+import { readFileSync } from 'node:fs';
+
 import { describe, expect, it } from 'vitest';
 
 import { clientSentryOptions } from './instrumentation-client.options';
@@ -63,5 +65,20 @@ describe('client Sentry options', () => {
 
   it('does not carry a denyUrls entry, which matches stack frames not hosts', () => {
     expect('denyUrls' in clientSentryOptions).toBe(false);
+  });
+});
+
+describe('client Sentry environment', () => {
+  // Next inlines only static `process.env.NEXT_PUBLIC_*` references. A bare
+  // `resolveSentryEnvironment()` reads the browser's empty `process.env`
+  // polyfill at run time and tagged every deployed browser event `local`.
+  // Nothing at Node run time can see that, so the guard reads the source.
+  it('hands the resolver statically referenced markers', () => {
+    const source = readFileSync(
+      new URL('./instrumentation-client.options.ts', import.meta.url),
+      'utf8',
+    );
+    expect(source).not.toMatch(/resolveSentryEnvironment\(\s*\)/);
+    expect(source).toMatch(/process\.env\.NEXT_PUBLIC_RAILWAY_ENVIRONMENT_NAME/);
   });
 });

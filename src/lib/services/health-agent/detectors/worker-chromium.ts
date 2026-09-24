@@ -24,6 +24,17 @@ function getFetch(ctx: DetectorContext): FetchFn {
 
 const PROBE_PATH = '/health'
 
+/**
+ * An explicit `CURATION_WORKER_URL` wins; otherwise the bare domain Railway
+ * injects for the sibling service, which is all the health-agent service has.
+ */
+function resolveWorkerUrl(env: Env): string | undefined {
+  const explicit = env.CURATION_WORKER_URL?.trim()
+  if (explicit) return explicit.replace(/\/+$/, '')
+  const railwayDomain = env.RAILWAY_SERVICE_CURATION_WORKER_URL?.trim()
+  return railwayDomain ? `https://${railwayDomain.replace(/\/+$/, '')}` : undefined
+}
+
 // ---------------------------------------------------------------------------
 // Detector
 // ---------------------------------------------------------------------------
@@ -36,13 +47,13 @@ export const workerChromiumDetector: Detector = {
 
   async run(ctx: DetectorContext): Promise<HealthFinding[]> {
     const env = getEnv(ctx)
-    const workerUrl = env.CURATION_WORKER_URL?.replace(/\/+$/, '')
-    const workerToken = env.CURATION_WORKER_CONTROL_TOKEN
-    if (!workerUrl || !workerToken) return []
+    const workerUrl = resolveWorkerUrl(env)
+    if (!workerUrl) return []
 
     const fetchFn = getFetch(ctx)
     const endpoint = `${workerUrl}${PROBE_PATH}`
 
+    // `/health` is unauthenticated on the worker, so no control token is sent.
     const response = await auditedCall(
       {
         provider: 'health-agent',
@@ -51,10 +62,7 @@ export const workerChromiumDetector: Detector = {
         meta: { endpoint, method: 'GET' },
       },
       async () => {
-        return fetchFn(endpoint, {
-          headers: { Authorization: `Bearer ${workerToken}` },
-          signal: ctx.signal,
-        })
+        return fetchFn(endpoint, { signal: ctx.signal })
       },
     )
 

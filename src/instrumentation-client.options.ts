@@ -14,7 +14,16 @@ export const clientSentryOptions = {
   // Resolved from the `NEXT_PUBLIC_RAILWAY_ENVIRONMENT_NAME` that
   // `next.config.ts` inlines into this bundle. Without it the SDK would fall
   // back to `NODE_ENV` and tag a local `next start` as production (DEV-1561).
-  environment: resolveSentryEnvironment(),
+  //
+  // The markers MUST be static `process.env.NEXT_PUBLIC_*` references: Next
+  // inlines only those. The resolver's default `env[marker]` lookup reads the
+  // browser's empty `process.env` polyfill, which tagged every production and
+  // staging browser event `local`.
+  environment: resolveSentryEnvironment({
+    NEXT_PUBLIC_SENTRY_ENVIRONMENT: process.env.NEXT_PUBLIC_SENTRY_ENVIRONMENT,
+    NEXT_PUBLIC_RAILWAY_ENVIRONMENT_NAME:
+      process.env.NEXT_PUBLIC_RAILWAY_ENVIRONMENT_NAME,
+  }),
 
   // Error capture and tracing stay enabled; recording the whole session does
   // not justify putting Replay and rrweb on every visitor's critical path.

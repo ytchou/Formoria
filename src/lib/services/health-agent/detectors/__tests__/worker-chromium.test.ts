@@ -54,6 +54,26 @@ describe('worker-chromium detector', () => {
     expect(findings).toHaveLength(0)
   })
 
+  // The health-agent service has no CURATION_WORKER_URL or control token, only
+  // the domain Railway injects for the sibling service. `/health` needs no
+  // auth, so requiring the token left this detector silently inert.
+  it('probes the Railway-injected worker domain without a token', async () => {
+    const calls: string[] = []
+    const fakeFetch = async (url: string) => {
+      calls.push(url)
+      return new Response('{"ok":true}', { status: 200 })
+    }
+
+    const ctx = makeCtx({
+      fetch: fakeFetch,
+      env: { RAILWAY_SERVICE_CURATION_WORKER_URL: 'worker.up.railway.app' },
+    })
+    const findings = await workerChromiumDetector.run(ctx)
+
+    expect(findings).toHaveLength(0)
+    expect(calls).toEqual(['https://worker.up.railway.app/health'])
+  })
+
   it('returns no findings when not configured', async () => {
     const ctx = makeCtx({ env: {} })
     const findings = await workerChromiumDetector.run(ctx)
