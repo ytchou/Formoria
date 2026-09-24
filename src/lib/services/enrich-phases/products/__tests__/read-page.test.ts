@@ -159,6 +159,49 @@ describe('readProductPage', () => {
     expect(evidence.originExcerpts[0]!.text).toContain('Made in Taiwan')
   })
 
+  it('read_page_returns_blocks_and_text_stats', async () => {
+    const deps = makeDeps(STATIC_HTML)
+
+    const evidence = await readProductPage(PAGE_URL, deps)
+
+    expect(evidence.blocks?.length).toBeGreaterThan(0)
+    expect(evidence.textStats).toBeDefined()
+    expect(evidence.textStats!.fullChars).toBeGreaterThanOrEqual(evidence.textStats!.includedChars)
+    expect(evidence.textStats!.truncated).toBe(false)
+  })
+
+  it('read_page_origin_fallback_uses_full_text', async () => {
+    // Higher-tier (specs) blocks fill the per-page budget, so the origin
+    // sentence past char 4,096 is left out of `mainText` — yet the origin
+    // excerpts, built from the full text, still carry it (D9).
+    const filler = Array.from(
+      { length: 60 },
+      (_, i) => `<p>Size note ${i}: a soft cotton blend woven for everyday wear and long use.</p>`,
+    ).join('')
+    const html = `<html><body><main>${filler}<p>This bowl is Made in Taiwan by hand, thrown on a kick wheel in a small Yingge workshop and fired twice in a gas kiln over two long days.</p></main></body></html>`
+    const deps = makeDeps(html)
+
+    const evidence = await readProductPage(PAGE_URL, deps)
+
+    expect(evidence.mainText).not.toContain('Made in Taiwan')
+    expect(evidence.originExcerpts.some((e) => e.text.includes('Made in Taiwan'))).toBe(true)
+  })
+
+  it('read_page_surfaces_fact_after_cutoff', async () => {
+    const filler = Array.from(
+      { length: 80 },
+      (_, i) => `<p>Story paragraph ${i}: the studio sits by a quiet river in the hills.</p>`,
+    ).join('')
+    const html = `<html><body><main>${filler}<p>Dimensions: 21cm across, 3cm tall.</p></main></body></html>`
+    const deps = makeDeps(html)
+
+    const evidence = await readProductPage(PAGE_URL, deps)
+
+    expect(evidence.textStats!.fullChars).toBeGreaterThan(MAX_MAIN_TEXT_CHARS)
+    expect(evidence.mainText).toContain('Dimensions: 21cm across')
+    expect(evidence.textStats!.truncated).toBe(true)
+  })
+
   it('read_page_reports_a_failed_fetch_without_throwing', async () => {
     const fetchHtml = vi.fn().mockResolvedValue({ text: '', statusCode: 503 })
     const budget = makeBudget()
@@ -169,5 +212,12 @@ describe('readProductPage', () => {
     expect(evidence.mainText).toBe('')
     expect(evidence.images).toEqual([])
     expect(evidence.productSignals).toBe(false)
+    expect(evidence.blocks).toEqual([])
+    expect(evidence.textStats).toEqual({
+      fullChars: 0,
+      includedChars: 0,
+      boilerplateChars: 0,
+      truncated: false,
+    })
   })
 })

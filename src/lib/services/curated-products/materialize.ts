@@ -16,6 +16,7 @@ import type {
   CuratedProductProposalSource,
 } from "@/lib/types/enriched-data";
 import type { ProductPageEvidence } from "@/lib/services/enrich-phases/products/read-page";
+import { selectAcrossPages } from "@/lib/services/enrich-phases/products/select-evidence";
 import type { PromptMeta } from "@/lib/langfuse/prompt";
 import { mapWithConcurrency } from "@/lib/services/_shared/concurrency";
 import { diffCuratedProductProposals } from "./proposal-diff";
@@ -352,9 +353,17 @@ export async function rewriteGeneratedDescriptions(
 
     if (readable.length === 0) continue;
 
+    // Drop blocks repeated across this brand's pages before they reach the
+    // prompt (DEV-1855). Same length and order as `readable`.
+    const selectedEvidence = selectAcrossPages(readable.map((r) => r.evidence));
+    const promptPages = readable.map((r, i) => ({
+      product: r.product,
+      evidence: selectedEvidence[i]!,
+    }));
+
     // Build user content
     const userParts = [`品牌名稱：${readable[0]!.product.brandName}`];
-    for (const { product, evidence } of readable) {
+    for (const { product, evidence } of promptPages) {
       userParts.push(
         [
           `---`,

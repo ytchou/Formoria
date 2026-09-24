@@ -198,6 +198,10 @@ export const EXCLUDED_SOURCE_FILES = new Map([
     "lib/services/curated-products/origin-qualification.ts",
     "machine-readable origin evidence regexes, never rendered",
   ],
+  [
+    "lib/services/enrich-phases/products/evidence-lexicon.ts",
+    "product-page fact/chrome label regexes, never rendered",
+  ],
   ["lib/services/enrich-phases/image-search.ts", "search-query keywords"],
   ["lib/services/enrich-phases/detect.ts", "SEO keyword constants"],
   ["lib/services/curation-operations.ts", "SERP query string"],
