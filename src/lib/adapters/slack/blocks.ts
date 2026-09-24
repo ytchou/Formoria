@@ -13,6 +13,8 @@ type ProposalCardInput = {
 type ResultCardInput = {
   proposal: string;
   result?: string;
+  /** Human-readable outcome; shown under *Result* in place of `result`. */
+  summary?: string;
   error?: string;
 };
 
@@ -72,11 +74,11 @@ export function renderProposalCard(input: ProposalCardInput): SlackBlock[] {
 }
 
 export function renderResultCard(input: ResultCardInput): SlackBlock[] {
-  const { proposal, result, error } = input;
+  const { proposal, result, summary, error } = input;
 
   const body = error
     ? `*Error*\n${error}`
-    : `*Result*\n${result ?? "Done"}`;
+    : `*Result*\n${summary ?? result ?? "Done"}`;
 
   return [
     {

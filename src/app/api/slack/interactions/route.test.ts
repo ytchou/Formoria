@@ -1,4 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { renderResultCard } from "@/lib/adapters/slack/blocks";
+import { STALE_CHECK_MS } from "@/lib/services/ops-agent/dispatches";
 import {
   createInteractionsHandler,
   type InteractionsRouteDeps,
@@ -42,6 +44,9 @@ function makeDeps(
     executeProposal: vi.fn().mockResolvedValue({ ok: true, result: { jobId: "j-1" } }),
     describeProposal: vi.fn().mockReturnValue({ action: "Refresh brand", steps: "…", why: "…", cost: "…" }),
     scheduleAfter: vi.fn(async (fn: () => Promise<void>) => { await fn(); }),
+    sleep: vi.fn().mockResolvedValue(undefined),
+    markDispatchStale: vi.fn().mockResolvedValue(false),
+    postMessage: vi.fn().mockResolvedValue({ ok: true, ts: "p.1" }),
     env: { SLACK_SIGNING_SECRET: TEST_SECRET },
     ...overrides,
   };
@@ -135,6 +140,115 @@ describe("/api/slack/interactions", () => {
     );
     expect(deps.scheduleAfter).toHaveBeenCalled();
     expect(deps.executeProposal).toHaveBeenCalled();
+  });
+
+  it("executed dispatch renders summary text, not JSON", async () => {
+    const summary = "Started e2e run on staging (~20 min). Updates will post in this thread.";
+    deps = makeDeps({
+      getRequest: vi.fn().mockResolvedValue(
+        makeRow({ proposal: { kind: "dispatch_workflow", workflow: "e2e-staging", mode: "run" } }),
+      ),
+      executeProposal: vi.fn().mockResolvedValue({
+        ok: true,
+        result: { dispatched: "e2e-staging", summary },
+      }),
+      renderResultCard: vi.fn(renderResultCard),
+    });
+    handler = createInteractionsHandler(deps);
+
+    await handler(post(makePayload("ops_confirm")));
+    await new Promise((r) => setTimeout(r, 0));
+
+    expect(deps.renderResultCard).toHaveBeenCalledWith(
+      expect.objectContaining({ summary }),
+    );
+    const update = vi
+      .mocked(deps.updateMessage)
+      .mock.calls.find(([arg]) => arg.blocks !== undefined);
+    expect(update).toBeDefined();
+    const blocksText = JSON.stringify(update?.[0].blocks);
+    expect(blocksText).toContain("Started e2e run on staging");
+    expect(blocksText).not.toContain('{\\"dispatched');
+    expect(blocksText).not.toContain('{"dispatched');
+  });
+
+  it("non-dispatch results render without a summary", async () => {
+    await handler(post(makePayload("ops_confirm")));
+    await new Promise((r) => setTimeout(r, 0));
+
+    expect(deps.renderResultCard).toHaveBeenCalledWith({
+      proposal: "Refresh brand",
+      result: JSON.stringify({ jobId: "j-1" }),
+    });
+    expect(deps.sleep).not.toHaveBeenCalled();
+    expect(deps.markDispatchStale).not.toHaveBeenCalled();
+  });
+
+  it("dispatch_workflow stale check posts 'didn't start' when the dispatch was never claimed", async () => {
+    deps = makeDeps({
+      getRequest: vi.fn().mockResolvedValue(
+        makeRow({ proposal: { kind: "dispatch_workflow", workflow: "e2e-staging", mode: "run" } }),
+      ),
+      executeProposal: vi.fn().mockResolvedValue({
+        ok: true,
+        result: { dispatched: "e2e-staging", summary: "Started" },
+      }),
+      markDispatchStale: vi.fn().mockResolvedValue(true),
+    });
+    handler = createInteractionsHandler(deps);
+
+    await handler(post(makePayload("ops_confirm")));
+    await new Promise((r) => setTimeout(r, 0));
+
+    expect(deps.sleep).toHaveBeenCalledWith(STALE_CHECK_MS);
+    expect(deps.markDispatchStale).toHaveBeenCalledWith("req-1");
+    expect(deps.postMessage).toHaveBeenCalledWith({
+      channel: "C_OPS",
+      threadTs: "1234.5678",
+      text: "The e2e run didn't start within 5 minutes. A scheduled run was probably active. Ask again in a few minutes.",
+    });
+  });
+
+  it("dispatch_workflow stale check posts nothing when the dispatch was claimed", async () => {
+    deps = makeDeps({
+      getRequest: vi.fn().mockResolvedValue(
+        makeRow({ proposal: { kind: "dispatch_workflow", workflow: "e2e-staging", mode: "run" } }),
+      ),
+      executeProposal: vi.fn().mockResolvedValue({
+        ok: true,
+        result: { dispatched: "e2e-staging", summary: "Started" },
+      }),
+      markDispatchStale: vi.fn().mockResolvedValue(false),
+    });
+    handler = createInteractionsHandler(deps);
+
+    await handler(post(makePayload("ops_confirm")));
+    await new Promise((r) => setTimeout(r, 0));
+
+    expect(deps.markDispatchStale).toHaveBeenCalledWith("req-1");
+    expect(deps.postMessage).not.toHaveBeenCalled();
+  });
+
+  it("failed dispatch schedules no stale check", async () => {
+    deps = makeDeps({
+      getRequest: vi.fn().mockResolvedValue(
+        makeRow({ proposal: { kind: "dispatch_workflow", workflow: "e2e-staging", mode: "run" } }),
+      ),
+      executeProposal: vi.fn().mockResolvedValue({
+        ok: false,
+        error: "An e2e run is already in progress — https://slack.com/archives/C_OPS/p1",
+      }),
+    });
+    handler = createInteractionsHandler(deps);
+
+    await handler(post(makePayload("ops_confirm")));
+    await new Promise((r) => setTimeout(r, 0));
+
+    expect(deps.renderResultCard).toHaveBeenCalledWith(
+      expect.objectContaining({ error: expect.stringContaining("already in progress") }),
+    );
+    expect(deps.sleep).not.toHaveBeenCalled();
+    expect(deps.markDispatchStale).not.toHaveBeenCalled();
   });
 
   it("ack does not await Slack", async () => {

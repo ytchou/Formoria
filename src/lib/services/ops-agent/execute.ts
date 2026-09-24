@@ -1,6 +1,8 @@
 import { auditedCall } from "@/lib/audit";
 import type { CurationRecoveryInput, CurationRecoveryCounts } from "../curation-jobs";
 import type { OpsProposal } from "./proposals";
+import type { OpsDispatch } from "./types";
+import { threadLink } from "./dispatches";
 
 // Accept OpsProposal or compatible shapes. The `mode` field on
 // dispatch_workflow is enforced by the proposal Zod schema but not
@@ -35,6 +37,9 @@ export type ExecuteDeps = {
   dispatchCurationJob: (jobId: string) => Promise<unknown>;
   enqueueCurationRecovery: (input: CurationRecoveryInput) => Promise<{ job: { id: string }; counts: CurationRecoveryCounts }>;
   dispatchWorkflow: () => Promise<{ ok: true } | { ok: false; error: string }>;
+  findInFlightDispatch: () => Promise<OpsDispatch | null>;
+  recordDispatch: (requestId: string) => Promise<void>;
+  clearDispatch: (requestId: string) => Promise<void>;
 };
 
 // ---------------------------------------------------------------------------
@@ -111,18 +116,47 @@ async function executeRerunJob(
 
 const ALLOWED_WORKFLOWS = new Set(["e2e-staging"]);
 
+const DISPATCH_STARTED_SUMMARY =
+  "Started e2e run on staging (~20 min). Updates will post in this thread.";
+
 async function executeDispatchWorkflow(
   proposal: Extract<ExecutableProposal, { kind: "dispatch_workflow" }>,
-  _ctx: ExecuteContext,
+  ctx: ExecuteContext,
   deps: ExecuteDeps,
 ): Promise<ExecuteResult> {
   if (!ALLOWED_WORKFLOWS.has(proposal.workflow)) {
     return { ok: false, error: "not_allowed" };
   }
 
-  const outcome = await deps.dispatchWorkflow();
-  if (!outcome.ok) return { ok: false, error: outcome.error };
-  return { ok: true, result: { dispatched: proposal.workflow } };
+  // Check-then-record is not atomic; two Confirms in the same instant can both
+  // pass. Acceptable for a single-operator bot; move to a conditional update
+  // or unique partial index if concurrent operators appear.
+  const inFlight = await deps.findInFlightDispatch();
+  if (inFlight) {
+    return {
+      ok: false,
+      error: `An e2e run is already in progress — ${threadLink(inFlight.channelId, inFlight.threadTs)}`,
+    };
+  }
+
+  // Record before Run-now so the staging agent always finds a row to claim.
+  await deps.recordDispatch(ctx.requestId);
+
+  let outcome: Awaited<ReturnType<ExecuteDeps["dispatchWorkflow"]>>;
+  try {
+    outcome = await deps.dispatchWorkflow();
+  } catch (error) {
+    await deps.clearDispatch(ctx.requestId);
+    throw error;
+  }
+  if (!outcome.ok) {
+    await deps.clearDispatch(ctx.requestId);
+    return { ok: false, error: outcome.error };
+  }
+  return {
+    ok: true,
+    result: { dispatched: proposal.workflow, summary: DISPATCH_STARTED_SUMMARY },
+  };
 }
 
 // ---------------------------------------------------------------------------

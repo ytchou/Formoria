@@ -143,6 +143,13 @@ describe("origin guard exempt paths", () => {
     expect(isOriginGuardExempt("/api/internal/other-route")).toBe(false);
   });
 
+  it("exempts exactly /api/internal/e2e-dispatch — the staging e2e agent authenticates with a bearer secret — and still guards anything beneath it", () => {
+    expect(isOriginGuardExempt("/api/internal/e2e-dispatch")).toBe(true);
+    expect(isOriginGuardExempt("/api/internal/e2e-dispatch/extra")).toBe(
+      false,
+    );
+  });
+
   it("does not exempt ordinary application paths", () => {
     expect(isOriginGuardExempt("/brands/kinship-goods")).toBe(false);
     expect(isOriginGuardExempt("/api/admin/brands")).toBe(false);
