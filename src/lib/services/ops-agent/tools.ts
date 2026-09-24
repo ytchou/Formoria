@@ -269,7 +269,13 @@ export function createOpsTools(deps: OpsToolDeps, ctx: OpsToolContext): OpsTool[
     async run(args) {
       const parsed = OpsProposalSchema.safeParse(args);
       if (!parsed.success) {
-        return wrapError("invalid_args");
+        // Name the failing fields so the model can correct its next call.
+        return JSON.stringify({
+          error: "invalid_args",
+          issues: parsed.error.issues.map(
+            (i) => `${i.path.join(".") || "(root)"}: ${i.message}`,
+          ),
+        });
       }
 
       const validation = await ctx.validateProposal(parsed.data);

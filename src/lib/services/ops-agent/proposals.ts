@@ -20,7 +20,8 @@ const RerunJob = z.object({
 const DispatchWorkflow = z.object({
   kind: z.literal("dispatch_workflow"),
   workflow: z.enum(ALLOWED_WORKFLOWS),
-  mode: z.literal("preflight"),
+  // The tool schema cannot mark `mode` required per kind, so the model omits it.
+  mode: z.literal("preflight").default("preflight"),
 });
 
 export const OpsProposalSchema = z.discriminatedUnion("kind", [
