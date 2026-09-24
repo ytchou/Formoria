@@ -20,8 +20,9 @@ export const FACT_TIERS: ReadonlyArray<{ tier: FactTier; pattern: RegExp }> = [
     pattern: /材質|材料|成分|原料|布料|\bmaterials?\b|\bingredients?\b/i,
   },
   {
+    // No bare 大小: it also means "all ages" (大小朋友) and would bypass chrome.
     tier: 'specs',
-    pattern: /規格|尺寸|容量|重量|大小|\bdimensions?\b|\bsizes?\b|\bweight\b|\bcapacity\b/i,
+    pattern: /規格|尺寸|容量|重量|\bdimensions?\b|\bsizes?\b|\bweight\b|\bcapacity\b/i,
   },
   {
     tier: 'technique_origin',

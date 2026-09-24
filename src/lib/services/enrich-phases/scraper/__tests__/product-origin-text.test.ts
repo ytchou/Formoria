@@ -39,14 +39,50 @@ describe('extractMainTextBlocks', () => {
       'Line two',
       'A',
       'B',
-      'Material',
-      'linen',
-      'Size',
-      '30 cm',
+      'Material linen',
+      'Size 30 cm',
       'Div block',
       'Nested',
       'tail',
     ])
+  })
+
+  it('extract_blocks_keeps_dl_label_with_value', () => {
+    const html =
+      '<main><dl><dt>材質</dt><dd>100%純棉</dd><dt>產地</dt><dd>台灣</dd></dl></main>'
+    expect(extractMainTextBlocks(html)).toEqual(['材質 100%純棉', '產地 台灣'])
+  })
+
+  it('extract_blocks_keeps_table_row_together', () => {
+    const html =
+      '<main><table><tr><th>容量</th><td>350ml</td></tr>' +
+      '<tr><th>重量</th><td>200g</td></tr></table></main>'
+    expect(extractMainTextBlocks(html)).toEqual(['容量 350ml', '重量 200g'])
+  })
+
+  it('extract_blocks_splits_br_label_from_value', () => {
+    // Selection (selectPageText) keeps a short fact label with its value.
+    const html = '<main><p>成分：<br>乳木果油、荷荷芭油</p></main>'
+    expect(extractMainTextBlocks(html)).toEqual(['成分：', '乳木果油、荷荷芭油'])
+  })
+
+  it('extract_blocks_source_newlines_do_not_split', () => {
+    const html = '<main><p>材質：\n  有機棉</p></main>'
+    expect(extractMainTextBlocks(html)).toEqual(['材質： 有機棉'])
+  })
+
+  it('extract_blocks_separates_loose_text_before_nested_block', () => {
+    const html =
+      '<main><div>加入會員<p>這款托特包以厚磅帆布縫製，容量足以裝下筆電與午餐。</p></div></main>'
+    expect(extractMainTextBlocks(html)).toEqual([
+      '加入會員',
+      '這款托特包以厚磅帆布縫製，容量足以裝下筆電與午餐。',
+    ])
+  })
+
+  it('extract_blocks_private_use_glyph_in_source_does_not_split', () => {
+    const html = '<main><p>Hand &#xE000; sewn</p></main>'
+    expect(extractMainTextBlocks(html)).toEqual(['Hand sewn'])
   })
 
   it('extract_blocks_drops_same_elements_as_main_text', () => {

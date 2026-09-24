@@ -30,6 +30,7 @@ import {
 import { assertDatabaseTarget } from "@/lib/supabase/project-target";
 import { createServiceClient } from "@/lib/supabase/service";
 
+import { escapeCsvField } from "../../eval/search-eval/label-shared";
 import { fetchAllRows } from "./shared";
 
 /**
@@ -401,8 +402,7 @@ function renderMarkdown(summaries: readonly PlatformSummary[], brands: number): 
 }
 
 function csvCell(value: string | number | boolean | null): string {
-  const text = value === null ? "" : String(value);
-  return /[",\n\r]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text;
+  return escapeCsvField(value === null ? "" : String(value));
 }
 
 function renderCsv(results: readonly PageResult[]): string {
@@ -478,14 +478,29 @@ async function main() {
   const sampledCount = groups.reduce((n, g) => n + g.length, 0);
   console.log(`[audit] sampled ${sampledCount} URLs across ${groups.length} brands`);
 
-  const results: PageResult[] = [];
+  // One concurrency pool across every brand, then regroup by brand: cross-page
+  // repeat removal needs each brand's pages together, in their sampled order.
   let done = 0;
-  for (const group of groups) {
-    const fetched = await mapWithConcurrency(group, FETCH_CONCURRENCY, fetchPage);
-    results.push(...measureGroup(fetched));
-    done += group.length;
-    console.log(`[audit] fetched ${done}/${sampledCount}`);
+  const flat = groups.flatMap((group, groupIndex) =>
+    group.map((page) => ({ groupIndex, page })),
+  );
+  const fetchedFlat = await mapWithConcurrency(
+    flat,
+    FETCH_CONCURRENCY,
+    async ({ groupIndex, page }) => {
+      const fetched = await fetchPage(page);
+      done += 1;
+      if (done % 25 === 0 || done === sampledCount) {
+        console.log(`[audit] fetched ${done}/${sampledCount}`);
+      }
+      return { groupIndex, fetched };
+    },
+  );
+  const fetchedByGroup: Fetched[][] = groups.map(() => []);
+  for (const { groupIndex, fetched } of fetchedFlat) {
+    fetchedByGroup[groupIndex]!.push(fetched);
   }
+  const results: PageResult[] = fetchedByGroup.flatMap((fetched) => measureGroup(fetched));
 
   const summaries = summarize(results);
   mkdirSync(outDir, { recursive: true });

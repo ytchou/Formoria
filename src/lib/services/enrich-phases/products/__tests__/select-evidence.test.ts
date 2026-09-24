@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest'
 
 import {
+  CHROME_MAX_CHARS,
+  LEAD_CHARS,
   MAX_MAIN_TEXT_CHARS,
   selectAcrossPages,
   selectPageText,
@@ -11,10 +13,20 @@ import {
 // Fixtures
 // ---------------------------------------------------------------------------
 
-/** A neutral body block (~90 chars) that matches no fact tier and no chrome label. */
+/** Realistic product prose that matches no fact tier and no chrome label. */
+const PROSE =
+  '馬克杯的線條簡單俐落，適合每天早上泡一杯咖啡，也能在午後倒一點熱茶，慢慢享受屬於自己的安靜片刻。' +
+  '窯燒後的釉色帶著淡淡的藍，放在木頭桌上格外好看。每一只都略有不同，這正是它迷人的地方。'
+
+/** A neutral body block (~95 chars) that matches no fact tier and no chrome label. */
 function bodyBlock(i: number): string {
-  return `Body paragraph ${i} ` + 'lorem ipsum dolor sit amet '.repeat(3)
+  return `第${i}款${PROSE}`
 }
+
+/** A long description paragraph that mentions a chrome word in passing. */
+const SHARE_PARAGRAPH =
+  '這只馬克杯是我們想和你分享的日常：早晨的第一杯咖啡、午後的一壺熱茶，都值得一個拿起來順手、' +
+  '看了會心一笑的杯子。杯身的弧度貼合掌心，杯緣薄而不易缺角。'
 
 /** A 400-char block that repeats on every page but carries no chrome or fact label. */
 const LONG_NOTICE = '本店所有訂單出貨時間說明。'.repeat(40).slice(0, 400)
@@ -78,6 +90,59 @@ describe('selectPageText', () => {
     const { mainText } = selectPageText(blocks)
     expect(mainText).not.toContain('宅配到府')
     expect(mainText).toContain('付款方式 說明 材質：陶土')
+  })
+
+  it('select_keeps_long_chrome_word_paragraph_on_short_page (regression)', () => {
+    expect(SHARE_PARAGRAPH.length).toBeGreaterThan(CHROME_MAX_CHARS)
+    // Trade-off: a short heading with a chrome word is dropped like any short chrome.
+    const blocks = ['會員限定 春季禮盒', SHARE_PARAGRAPH, '材質：陶土']
+    const { mainText } = selectPageText(blocks)
+    expect(mainText).toBe(`${SHARE_PARAGRAPH} 材質：陶土`)
+  })
+
+  it('select_ranks_long_chrome_word_block_last', () => {
+    const lead = 'x'.repeat(2000)
+    const chromeBlock = 'shipping ' + 'z'.repeat(1491)
+    const plain = 'q'.repeat(1500)
+    // Chrome block precedes the plain block in document order; only one fits whole.
+    const { mainText } = selectPageText([lead, chromeBlock, plain])
+    expect(mainText).toContain(plain)
+    expect(mainText).not.toContain(chromeBlock)
+    expect(mainText.indexOf(lead)).toBe(0)
+    expect(mainText.length).toBeLessThanOrEqual(MAX_MAIN_TEXT_CHARS)
+  })
+
+  it('select_keeps_short_fact_label_with_its_value (regression)', () => {
+    // '<p>成分：<br>value</p>' splits into a label block and a value block.
+    const lead = PROSE.repeat(40).slice(0, 3000)
+    const value = '乳木果油、荷荷芭油、甜杏仁油與天然維生素E'
+    // Sized so that, without pairing, the filler takes the room the value needs.
+    const filler = SHARE_PARAGRAPH.replace('分享', '').repeat(20).slice(0, 1086)
+    const blocks = [lead, filler, '成分：', value]
+    const { mainText } = selectPageText(blocks)
+    expect(mainText).toContain(`成分： ${value}`)
+    expect(mainText.length).toBeLessThanOrEqual(MAX_MAIN_TEXT_CHARS)
+  })
+
+  it('select_all_ages_phrase_is_not_a_spec', () => {
+    const blocks = ['A handmade clay plate.', '大小朋友都愛！加入會員享優惠']
+    const { mainText } = selectPageText(blocks)
+    expect(mainText).toBe('A handmade clay plate.')
+  })
+
+  it('select_oversized_lead_keeps_later_fact (regression)', () => {
+    const description = PROSE.repeat(60).slice(0, 5000)
+    const { mainText, textStats } = selectPageText([description, '尺寸 20cm'])
+    expect(mainText.startsWith(description.slice(0, LEAD_CHARS))).toBe(true)
+    expect(mainText).toContain('尺寸 20cm')
+    expect(mainText.length).toBeLessThanOrEqual(MAX_MAIN_TEXT_CHARS)
+    expect(textStats.truncated).toBe(true)
+  })
+
+  it('select_slice_never_splits_surrogate_pair', () => {
+    const block = 'a'.repeat(MAX_MAIN_TEXT_CHARS - 1) + '\u{1F600}' + 'b'.repeat(100)
+    const { mainText } = selectPageText([block])
+    expect(mainText).toBe('a'.repeat(MAX_MAIN_TEXT_CHARS - 1))
   })
 
   it('select_keeps_lead_and_document_order', () => {
@@ -189,6 +254,27 @@ describe('selectAcrossPages', () => {
     const out = selectAcrossPages(pages)
     expect(out[0].mainText).toContain(LONG_NOTICE)
     expect(out[1].mainText).toContain(LONG_NOTICE)
+  })
+
+  it('across_pages_share_ignores_pages_with_empty_blocks', () => {
+    const pages = [
+      ...Array.from({ length: 3 }, (_, i) =>
+        page(i, [`Product ${i} intro text`, LONG_NOTICE, '材質：925純銀']),
+      ),
+      ...Array.from({ length: 4 }, (_, i) => page(3 + i, [])),
+    ]
+    const out = selectAcrossPages(pages)
+    for (const p of out.slice(0, 3)) expect(p.mainText).not.toContain(LONG_NOTICE)
+  })
+
+  it('across_pages_counts_duplicate_urls_once', () => {
+    const shared = 'https://brand.example/p/shared'
+    const pages = Array.from({ length: 3 }, (_, i) => ({
+      ...page(i, [`Product ${i} intro text`, LONG_NOTICE]),
+      url: shared,
+    }))
+    const out = selectAcrossPages(pages)
+    for (const p of out) expect(p.mainText).toContain(LONG_NOTICE)
   })
 
   it('across_pages_passes_through_pages_without_blocks', () => {

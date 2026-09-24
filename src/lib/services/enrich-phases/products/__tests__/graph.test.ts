@@ -765,7 +765,9 @@ describe('products agent graph', () => {
 
     const readDecision = result.decisions.find((d) => d.step === 'read')
     expect(readDecision).toBeDefined()
-    expect(readDecision!.reason).toMatch(/truncated 0\/4, boilerplate [1-9]\d* chars/)
+    expect(readDecision!.reason).toMatch(
+      /truncated 0\/4, boilerplate [1-9]\d* chars, omitted \d+ chars$/,
+    )
   })
 
   // -------------------------------------------------------------------------

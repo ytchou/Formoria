@@ -22,22 +22,49 @@ export function extractRenderedMainText(html: string): string {
 }
 
 /**
+ * Inserted between blocks. Private-use, and scrubbed from source text nodes
+ * first (icon fonts emit private-use glyphs), so it only marks our boundaries.
+ */
+const BLOCK_BOUNDARY = '\uE000'
+
+/**
  * Splits the same main-content root as extractRenderedMainText into text
  * blocks: one per block element or br-separated line, whitespace collapsed,
  * empties dropped. Loads its own document, so mutations never leak.
+ *
+ * Boundaries go before and after block elements, so loose text ahead of a
+ * nested block stays separate. A label stays with its value: dt, th and td
+ * are followed by a space, and the boundary after dd or around tr closes the
+ * pair or row. Source whitespace, newlines included, never splits a block.
  */
 export function extractMainTextBlocks(html: string): string[] {
   const $ = cheerio.load(html)
   const root = mainRoot($)
-  root.find('br').replaceWith('\n')
   root
-    .find('h1, h2, h3, h4, h5, h6, p, li, dt, dd, th, td, tr, div')
-    .each((_, element) => {
-      $(element).after('\n')
+    .find('*')
+    .addBack()
+    .contents()
+    .each((_, node) => {
+      if ('data' in node) {
+        node.data = node.data.replaceAll(BLOCK_BOUNDARY, ' ')
+      }
     })
+  root.find('br').replaceWith(BLOCK_BOUNDARY)
+  root.find('h1, h2, h3, h4, h5, h6, p, li, tr, div').each((_, element) => {
+    $(element).before(BLOCK_BOUNDARY).after(BLOCK_BOUNDARY)
+  })
+  root.find('dt').each((_, element) => {
+    $(element).before(BLOCK_BOUNDARY).after(' ')
+  })
+  root.find('dd').each((_, element) => {
+    $(element).after(BLOCK_BOUNDARY)
+  })
+  root.find('th, td').each((_, element) => {
+    $(element).after(' ')
+  })
   return root
     .text()
-    .split('\n')
+    .split(BLOCK_BOUNDARY)
     .map((piece) => piece.replace(/\s+/gu, ' ').trim())
     .filter((piece) => piece.length > 0)
 }

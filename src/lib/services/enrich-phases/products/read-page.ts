@@ -157,7 +157,7 @@ export async function readProductPage(
       description: null,
       mainText: '',
       blocks: [],
-      textStats: { fullChars: 0, includedChars: 0, boilerplateChars: 0, truncated: false },
+      textStats: selectPageText([]).textStats,
       images: [],
       jsonLd: null,
       productSignals: false,

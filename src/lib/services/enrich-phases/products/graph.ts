@@ -424,15 +424,20 @@ async function readNode(
   // unselected text reaches the prompt or the persisted state (DEV-1855).
   const selected: ProductPageEvidence[] = selectAcrossPages(evidence)
   const rendered = selected.filter((page) => page.rendered).length
-  const truncated = selected.filter((page) => page.textStats?.truncated).length
-  const boilerplateChars = selected.reduce(
-    (sum, page) => sum + (page.textStats?.boilerplateChars ?? 0),
-    0,
-  )
+  let truncated = 0
+  let boilerplateChars = 0
+  let omittedChars = 0
+  for (const page of selected) {
+    const stats = page.textStats
+    if (!stats) continue
+    if (stats.truncated) truncated += 1
+    boilerplateChars += stats.boilerplateChars
+    omittedChars += Math.max(0, stats.fullChars - stats.includedChars - stats.boilerplateChars)
+  }
   ctx.record(
     'read',
     `read ${selected.length} URLs`,
-    `${state.selectedUrls.length} attempted, ${rendered} rendered, truncated ${truncated}/${selected.length}, boilerplate ${boilerplateChars} chars`,
+    `${state.selectedUrls.length} attempted, ${rendered} rendered, truncated ${truncated}/${selected.length}, boilerplate ${boilerplateChars} chars, omitted ${omittedChars} chars`,
     start,
   )
 
