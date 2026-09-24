@@ -16,6 +16,7 @@ vi.mock('@/lib/adapters/github/app-auth', () => ({
 }))
 
 import type { ActionableReportFailure } from '@/lib/services/e2e-report/gate'
+import type { ExecCommandFn, ExecResult } from '../runner'
 
 const mockEvaluateSkips = vi.fn(
   (_report: unknown, _manifest: unknown): ActionableReportFailure[] => [],
@@ -58,17 +59,45 @@ function makePlaywrightReport(opts: { passed?: number; failed?: number; skipped?
   }
 }
 
+type ExecOpts = Parameters<ExecCommandFn>[1]
+
+const LINE_REPORTER_OUTPUT = 'Running 10 tests using 1 worker\n[1/10] e2e/brand-detail.spec.ts › test 1\n'
+
+/**
+ * Fake execCommand. Playwright returns line-reporter output on stdout; the
+ * JSON report comes from the `cat e2e-report.json` call.
+ */
+function makeExec(opts: {
+  install?: ExecResult
+  playwright?: ExecResult
+  reportFile?: ExecResult
+} = {}) {
+  const playwright = opts.playwright ?? { stdout: LINE_REPORTER_OUTPUT, stderr: '', exitCode: 0 }
+  const reportFile = opts.reportFile ?? {
+    stdout: JSON.stringify(makePlaywrightReport()),
+    stderr: '',
+    exitCode: 0,
+  }
+  return vi.fn(async (cmd: string, _opts?: ExecOpts): Promise<ExecResult> => {
+    if (cmd.includes('ls-remote')) {
+      return { stdout: 'abc123def456\trefs/heads/staging\n', stderr: '', exitCode: 0 }
+    }
+    if (cmd.includes('pnpm install') && opts.install) return opts.install
+    if (cmd.includes('playwright test')) return playwright
+    if (cmd.includes('e2e-report.json')) return reportFile
+    return { stdout: '', stderr: '', exitCode: 0 }
+  })
+}
+
+function reportCalls(execCommand: ReturnType<typeof makeExec>) {
+  return execCommand.mock.calls.filter((call) => call[0].includes('e2e-report.json'))
+}
+
 function makeDeps(overrides: Record<string, unknown> = {}) {
   const report = overrides.report ?? makePlaywrightReport()
   return {
-    execCommand: vi.fn(async (cmd: string, _opts?: { cwd?: string; env?: Record<string, string>; timeoutMs?: number }) => {
-      if (cmd.includes('ls-remote')) {
-        return { stdout: 'abc123def456\trefs/heads/staging\n', stderr: '', exitCode: 0 }
-      }
-      if (cmd.includes('playwright test')) {
-        return { stdout: JSON.stringify(report), stderr: '', exitCode: 0 }
-      }
-      return { stdout: '', stderr: '', exitCode: 0 }
+    execCommand: makeExec({
+      reportFile: { stdout: JSON.stringify(report), stderr: '', exitCode: 0 },
     }),
     cloneRepo: vi.fn(async () => '/tmp/e2e-run-test-123'),
     fetchRevision: vi.fn(async () => 'abc123def456'),
@@ -128,6 +157,26 @@ describe('e2e-agent runner', () => {
     expect(callOpts?.timeoutMs).toBe(20 * 60_000)
   })
 
+  it('runner_writes_json_report_to_file_and_streams_line_output', async () => {
+    const deps = makeDeps()
+    const { runE2eSuite } = await import('../runner.js')
+
+    await runE2eSuite({ runId: 'test-run-reporter', deps })
+
+    const playwrightCall = deps.execCommand.mock.calls.find(
+      (call) => call[0].includes('playwright test'),
+    )
+    expect(playwrightCall?.[0]).toContain('--reporter=line,json')
+    const callOpts = playwrightCall?.[1]
+    expect(callOpts?.streamOutput).toBe(true)
+    expect(callOpts?.env?.PLAYWRIGHT_JSON_OUTPUT_NAME).toMatch(/^\/.*e2e-report\.json$/)
+
+    const reads = reportCalls(deps.execCommand)
+    expect(reads).toHaveLength(1)
+    expect(reads[0][0]).toBe('cat e2e-report.json')
+    expect(reads[0][1]?.cwd).toBe('/tmp/e2e-run-test-run-reporter')
+  })
+
   it('runner_parses_playwright_json_results', async () => {
     const report = makePlaywrightReport({ passed: 8, failed: 2 })
     const deps = makeDeps({ report })
@@ -138,6 +187,152 @@ describe('e2e-agent runner', () => {
     expect(result.stats.expected).toBe(8)
     expect(result.stats.unexpected).toBe(2)
     expect(result.jsonReport).toBeDefined()
+    expect(result.outcome).toBe('red')
+  })
+
+  it('runner_reports_green_outcome_on_passing_run', async () => {
+    const deps = makeDeps()
+    const { runE2eSuite } = await import('../runner.js')
+
+    const result = await runE2eSuite({ runId: 'test-run-green', deps })
+
+    expect(result.outcome).toBe('green')
+    expect(result.erroredReason).toBeUndefined()
+  })
+
+  it('runner_errors_without_reading_report_when_playwright_times_out', async () => {
+    const deps = makeDeps({
+      execCommand: makeExec({
+        playwright: { stdout: LINE_REPORTER_OUTPUT, stderr: '', exitCode: 1, timedOut: true },
+      }),
+    })
+    const { runE2eSuite } = await import('../runner.js')
+
+    const result = await runE2eSuite({ runId: 'test-run-timeout', deps })
+
+    expect(result.outcome).toBe('errored')
+    expect(result.erroredReason).toContain('timed out after 20m')
+    expect(result.failures).toEqual([])
+    expect(result.unexpectedSkips).toEqual([])
+    expect(result.stats.expected).toBe(0)
+    expect(result.stagingSha).toBe('abc123def456')
+    expect(result.outputTail).toContain('test 1')
+    expect(reportCalls(deps.execCommand)).toHaveLength(0)
+  })
+
+  it('runner_errors_when_report_file_is_missing', async () => {
+    const deps = makeDeps({
+      execCommand: makeExec({
+        playwright: { stdout: LINE_REPORTER_OUTPUT, stderr: 'boom', exitCode: 1 },
+        reportFile: { stdout: '', stderr: 'No such file or directory', exitCode: 1 },
+      }),
+    })
+    const { runE2eSuite } = await import('../runner.js')
+
+    const result = await runE2eSuite({ runId: 'test-run-missing-report', deps })
+
+    expect(result.outcome).toBe('errored')
+    expect(result.erroredReason).toBe('Playwright JSON report missing or unparseable (exit 1)')
+    expect(result.failures).toEqual([])
+  })
+
+  it('runner_errors_when_report_file_is_not_json', async () => {
+    const deps = makeDeps({
+      execCommand: makeExec({
+        reportFile: { stdout: 'not json {', stderr: '', exitCode: 0 },
+      }),
+    })
+    const { runE2eSuite } = await import('../runner.js')
+
+    const result = await runE2eSuite({ runId: 'test-run-bad-report', deps })
+
+    expect(result.outcome).toBe('errored')
+    expect(result.erroredReason).toContain('missing or unparseable')
+    expect(result.failures).toEqual([])
+  })
+
+  it('runner_errors_when_report_is_an_array', async () => {
+    const deps = makeDeps({ report: [] })
+    const { runE2eSuite } = await import('../runner.js')
+
+    const result = await runE2eSuite({ runId: 'test-run-array-report', deps })
+
+    expect(result.outcome).toBe('errored')
+    expect(result.erroredReason).toBe('Playwright JSON report missing or unparseable (exit 0)')
+  })
+
+  it('runner_errors_when_report_is_an_empty_object', async () => {
+    const deps = makeDeps({ report: {} })
+    const { runE2eSuite } = await import('../runner.js')
+
+    const result = await runE2eSuite({ runId: 'test-run-empty-report', deps })
+
+    expect(result.outcome).toBe('errored')
+    expect(result.erroredReason).toBe('Playwright reported no test results (exit 0)')
+  })
+
+  it('runner_errors_when_report_shows_zero_tests_ran', async () => {
+    const deps = makeDeps({ report: makePlaywrightReport({ passed: 0 }) })
+    const { runE2eSuite } = await import('../runner.js')
+
+    const result = await runE2eSuite({ runId: 'test-run-zero-tests', deps })
+
+    expect(result.outcome).toBe('errored')
+    expect(result.erroredReason).toBe('Playwright reported no test results (exit 0)')
+    expect(result.failures).toEqual([])
+  })
+
+  it('runner_throws_when_pnpm_install_times_out', async () => {
+    const deps = makeDeps({
+      execCommand: makeExec({
+        install: { stdout: '', stderr: '', exitCode: 1, timedOut: true },
+      }),
+    })
+    const { runE2eSuite } = await import('../runner.js')
+
+    await expect(runE2eSuite({ runId: 'test-run-install-timeout', deps }))
+      .rejects.toThrow('pnpm install timed out after 3m')
+    expect(
+      deps.execCommand.mock.calls.some((call) => call[0].includes('playwright test')),
+    ).toBe(false)
+  })
+
+  it('runner_output_tail_keeps_only_the_last_lines', async () => {
+    const lines = Array.from({ length: 50 }, (_, i) => `line ${i + 1}`)
+    const deps = makeDeps({
+      execCommand: makeExec({
+        playwright: {
+          stdout: lines.join('\n\n'),
+          stderr: '',
+          exitCode: 1,
+          timedOut: true,
+        },
+      }),
+    })
+    const { runE2eSuite } = await import('../runner.js')
+
+    const result = await runE2eSuite({ runId: 'test-run-tail', deps })
+
+    const tailLines = (result.outputTail ?? '').split('\n')
+    expect(tailLines).toHaveLength(20)
+    expect(tailLines[0]).toBe('line 31')
+    expect(tailLines[19]).toBe('line 50')
+    expect(result.outputTail).not.toContain('line 30\n')
+  })
+
+  it('runner_output_tail_is_capped_to_1500_chars_keeping_the_end', async () => {
+    const lines = Array.from({ length: 20 }, (_, i) => `${'x'.repeat(200)} ${i + 1}`)
+    const deps = makeDeps({
+      execCommand: makeExec({
+        playwright: { stdout: lines.join('\n'), stderr: '', exitCode: 1, timedOut: true },
+      }),
+    })
+    const { runE2eSuite } = await import('../runner.js')
+
+    const result = await runE2eSuite({ runId: 'test-run-tail-cap', deps })
+
+    expect(result.outputTail).toHaveLength(1500)
+    expect(result.outputTail?.endsWith(' 20')).toBe(true)
   })
 
   it('runner_evaluates_unexpected_skips', async () => {
@@ -156,27 +351,43 @@ describe('e2e-agent runner', () => {
     )
     expect(result.unexpectedSkips).toHaveLength(1)
     expect(result.unexpectedSkips[0].title).toBe('signup flow')
-    expect(result.passed).toBe(false)
+    expect(result.outcome).toBe('red')
   })
 
   it('runner_fails_closed_when_playwright_exits_nonzero_with_passing_json', async () => {
-    const report = makePlaywrightReport()
-    const deps = makeDeps()
-    deps.execCommand.mockImplementation(async (cmd: string) => {
-      if (cmd.includes('ls-remote')) {
-        return { stdout: 'abc123def456\trefs/heads/staging\n', stderr: '', exitCode: 0 }
-      }
-      if (cmd.includes('playwright test')) {
-        return { stdout: JSON.stringify(report), stderr: 'terminated', exitCode: 1 }
-      }
-      return { stdout: '', stderr: '', exitCode: 0 }
+    const deps = makeDeps({
+      execCommand: makeExec({
+        playwright: { stdout: LINE_REPORTER_OUTPUT, stderr: 'terminated', exitCode: 1 },
+      }),
     })
 
     const { runE2eSuite } = await import('../runner.js')
     const result = await runE2eSuite({ runId: 'test-run-nonzero', deps })
 
     expect(result.stats.unexpected).toBe(0)
-    expect(result.passed).toBe(false)
+    expect(result.outcome).toBe('errored')
+    expect(result.erroredReason).toBe('Playwright exited 1 with no test failures')
+    expect(result.failures).toEqual([])
+  })
+
+  it('runner_reports_red_when_playwright_exits_nonzero_with_real_failures', async () => {
+    const deps = makeDeps({
+      execCommand: makeExec({
+        playwright: { stdout: LINE_REPORTER_OUTPUT, stderr: '', exitCode: 1 },
+        reportFile: {
+          stdout: JSON.stringify(makePlaywrightReport({ passed: 9, failed: 1 })),
+          stderr: '',
+          exitCode: 0,
+        },
+      }),
+    })
+
+    const { runE2eSuite } = await import('../runner.js')
+    const result = await runE2eSuite({ runId: 'test-run-nonzero-red', deps })
+
+    expect(result.outcome).toBe('red')
+    expect(result.erroredReason).toBeUndefined()
+    expect(result.failures.length).toBeGreaterThan(0)
   })
 
   it('runner_waits_for_staging_revision', async () => {

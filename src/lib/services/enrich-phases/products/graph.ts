@@ -92,6 +92,7 @@ import {
 } from '../agents/runtime'
 import type { ChatMessage } from '@/lib/services/openai-client'
 import { readProductPage, type ProductPageEvidence, type ReadPageDeps } from './read-page'
+import { selectAcrossPages } from './select-evidence'
 import {
   PRODUCTS_SCHEMA_TRAILER,
 } from '@/lib/prompts/products-agent'
@@ -419,24 +420,37 @@ async function readNode(
     if (ctx.wallClockExhausted()) break
   }
 
-  const rendered = evidence.filter((page) => page.rendered).length
+  // Drops blocks repeated across the brand's pages and strips `blocks`, so no
+  // unselected text reaches the prompt or the persisted state (DEV-1855).
+  const selected: ProductPageEvidence[] = selectAcrossPages(evidence)
+  const rendered = selected.filter((page) => page.rendered).length
+  let truncated = 0
+  let boilerplateChars = 0
+  let omittedChars = 0
+  for (const page of selected) {
+    const stats = page.textStats
+    if (!stats) continue
+    if (stats.truncated) truncated += 1
+    boilerplateChars += stats.boilerplateChars
+    omittedChars += Math.max(0, stats.fullChars - stats.includedChars - stats.boilerplateChars)
+  }
   ctx.record(
     'read',
-    `read ${evidence.length} URLs`,
-    `${state.selectedUrls.length} attempted, ${rendered} rendered`,
+    `read ${selected.length} URLs`,
+    `${state.selectedUrls.length} attempted, ${rendered} rendered, truncated ${truncated}/${selected.length}, boilerplate ${boilerplateChars} chars, omitted ${omittedChars} chars`,
     start,
   )
 
   // A partial read is still evidence. Only a read that produced NOTHING and ran
   // out of budget hands the brand back to the single-call body.
-  if (exhausted && evidence.length === 0) {
+  if (exhausted && selected.length === 0) {
     return {
-      evidence,
+      evidence: selected,
       agentOutcome: 'fallback',
       error: `budget_exhausted: ${exhausted.message}`,
     }
   }
-  return { evidence }
+  return { evidence: selected }
 }
 
 // ---------------------------------------------------------------------------

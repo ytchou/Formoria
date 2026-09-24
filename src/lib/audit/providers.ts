@@ -16,6 +16,8 @@ const PROVIDERS = {
   playwright: ["fetch_rendered"],
   "mit-registry": ["lookup_exact_products", "sync_registry"],
   railway: ["run_cron_now"],
+  // DEV-1854: staging e2e agent claims/completes ops-bot dispatches on prod.
+  "ops-dispatch": ["claim_dispatch", "complete_dispatch"],
   github: ["list_dependabot_alerts"],
   scraper: ["scrape_url"],
   catalog: ["discover_catalog"],
@@ -199,6 +201,12 @@ const PROVIDERS = {
     "getThreadHistory",
     "completeThread",
     "reactivateThread",
+    "recordDispatch",
+    "clearDispatch",
+    "findInFlightDispatch",
+    "claimDispatch",
+    "completeDispatch",
+    "markDispatchStale",
   ],
   anthropic: ["fire_routine"],
   // DEV-1748: health agent migration — new audit providers for the

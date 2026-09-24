@@ -74,6 +74,14 @@ describe("E2E agent configuration", () => {
     expect(() => validateE2eAgentConfig(environment)).not.toThrow();
   });
 
+  it("does not require the optional e2e dispatch variables", () => {
+    const environment = validEnvironment();
+    expect(environment).not.toHaveProperty("E2E_DISPATCH_URL");
+    expect(environment).not.toHaveProperty("E2E_DISPATCH_SECRET");
+
+    expect(() => validateE2eAgentConfig(environment)).not.toThrow();
+  });
+
   it("refuses a non-staging application origin", () => {
     expect(() =>
       validateE2eAgentConfig({

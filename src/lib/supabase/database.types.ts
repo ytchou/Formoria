@@ -2675,6 +2675,10 @@ export type Database = {
           correlation_id: string | null
           cost_usd: number
           created_at: string
+          dispatch_claimed_at: string | null
+          dispatch_completed_at: string | null
+          dispatch_run_id: string | null
+          dispatched_at: string | null
           expires_at: string | null
           id: string
           model_calls: number
@@ -2697,6 +2701,10 @@ export type Database = {
           correlation_id?: string | null
           cost_usd?: number
           created_at?: string
+          dispatch_claimed_at?: string | null
+          dispatch_completed_at?: string | null
+          dispatch_run_id?: string | null
+          dispatched_at?: string | null
           expires_at?: string | null
           id?: string
           model_calls?: number
@@ -2719,6 +2727,10 @@ export type Database = {
           correlation_id?: string | null
           cost_usd?: number
           created_at?: string
+          dispatch_claimed_at?: string | null
+          dispatch_completed_at?: string | null
+          dispatch_run_id?: string | null
+          dispatched_at?: string | null
           expires_at?: string | null
           id?: string
           model_calls?: number

@@ -4,38 +4,95 @@
  * Builds real RunnerDeps from environment config.
  */
 
-import { exec } from 'node:child_process'
+import { spawn } from 'node:child_process'
 import { mkdir } from 'node:fs/promises'
 import type { RunnerDeps, ExecResult } from './runner'
 
 // ---------------------------------------------------------------------------
-// execCommand — wraps child_process.exec with env merging
+// execCommand — wraps child_process.spawn (shell) with env merging
+//
+// The timeout is enforced here, not via a child_process `timeout` option, so
+// the result can report `timedOut` and the runner can tell a killed run from
+// a failed one (DEV-1853). Output is accumulated manually, so there is no
+// maxBuffer cap that could kill the child and masquerade as a failure.
 // ---------------------------------------------------------------------------
+
+const KILL_GRACE_MS = 10_000
+
+// Signal the child's whole process group. The `/bin/sh -c` wrapper does not
+// forward signals, so killing only the wrapper leaves pnpm -> playwright ->
+// chromium alive and holding the stdout pipe open, which delays 'close'.
+// `detached: true` at spawn makes the child a group leader (pgid === pid).
+function killGroup(child: ReturnType<typeof spawn>, signal: NodeJS.Signals): void {
+  if (child.pid !== undefined) {
+    try {
+      process.kill(-child.pid, signal)
+      return
+    } catch {
+      // ESRCH: group already gone — fall through to the direct kill
+    }
+  }
+  child.kill(signal)
+}
 
 function execCommand(
   cmd: string,
-  opts?: { cwd?: string; env?: Record<string, string>; timeoutMs?: number },
+  opts?: {
+    cwd?: string
+    env?: Record<string, string>
+    timeoutMs?: number
+    streamOutput?: boolean
+  },
 ): Promise<ExecResult> {
   return new Promise((resolve) => {
-    const child = exec(cmd, {
+    // Not unref()'d: the parent must keep waiting on the detached child.
+    const child = spawn(cmd, {
+      shell: true,
       cwd: opts?.cwd,
       env: opts?.env ? { ...process.env, ...opts.env } : process.env,
-      timeout: opts?.timeoutMs,
-      maxBuffer: 50 * 1024 * 1024,
+      detached: true,
+      stdio: ['ignore', 'pipe', 'pipe'],
     })
 
     let stdout = ''
     let stderr = ''
+    let timedOut = false
+    let killTimer: NodeJS.Timeout | undefined
 
-    child.stdout?.on('data', (d: Buffer | string) => { stdout += String(d) })
-    child.stderr?.on('data', (d: Buffer | string) => { stderr += String(d) })
+    const timer = opts?.timeoutMs
+      ? setTimeout(() => {
+        // The child may have exited in this same tick; 'close' will report it.
+        if (child.exitCode !== null || child.signalCode !== null) return
+        timedOut = true
+        killGroup(child, 'SIGTERM')
+        killTimer = setTimeout(() => killGroup(child, 'SIGKILL'), KILL_GRACE_MS)
+      }, opts.timeoutMs)
+      : undefined
+
+    const clearTimers = (): void => {
+      clearTimeout(timer)
+      clearTimeout(killTimer)
+    }
+
+    child.stdout?.on('data', (d: Buffer | string) => {
+      const chunk = String(d)
+      stdout += chunk
+      if (opts?.streamOutput) process.stdout.write(chunk)
+    })
+    child.stderr?.on('data', (d: Buffer | string) => {
+      const chunk = String(d)
+      stderr += chunk
+      if (opts?.streamOutput) process.stderr.write(chunk)
+    })
 
     child.on('close', (code) => {
-      resolve({ stdout, stderr, exitCode: code ?? 1 })
+      clearTimers()
+      resolve({ stdout, stderr, exitCode: code ?? 1, timedOut })
     })
 
     child.on('error', (err) => {
-      resolve({ stdout, stderr: stderr + '\n' + String(err), exitCode: 1 })
+      clearTimers()
+      resolve({ stdout, stderr: stderr + '\n' + String(err), exitCode: 1, timedOut })
     })
   })
 }
