@@ -9,8 +9,9 @@
  * routine, which fixes the failures and opens a PR. Mirrors the health
  * agent's repair trigger (src/health-agent/server.ts).
  *
- * An errored run (Playwright timed out, or its JSON report is missing or
- * unparseable) posts one warning with the output tail and sends no repair
+ * An errored run (Playwright timed out, its JSON report is missing or
+ * unparseable, it reported no tests, or it exited nonzero with no test
+ * failures) posts one warning with the output tail and sends no repair
  * request — there are no known failures for a routine to fix.
  *
  * Cron schedule is a Railway dashboard setting,
@@ -56,7 +57,7 @@ let postMessage: Awaited<
 // Main
 // ---------------------------------------------------------------------------
 
-export async function main(): Promise<never> {
+export async function main(): Promise<void> {
   logWorkerBuildInfo('e2e-nightly')
 
   const runId = randomUUID()
@@ -130,9 +131,11 @@ export async function main(): Promise<never> {
           },
         ]
         if (result.outputTail) {
+          // Neutralize ``` so the tail cannot close the code fence early.
+          const safeTail = result.outputTail.replace(/```/g, "'''")
           erroredBlocks.push({
             type: 'section',
-            text: { type: 'mrkdwn', text: '```' + result.outputTail + '```' },
+            text: { type: 'mrkdwn', text: '```\n' + safeTail + '\n```' },
           })
         }
         await postMessage({
@@ -145,122 +148,124 @@ export async function main(): Promise<never> {
         console.warn('[e2e-nightly] errored message failed:', err)
       }
       console.log(`[e2e-nightly] run=${runId} outcome=errored exit=1`)
-    } else {
-      // ---- Test summary (always, green or red) ----
-      try {
-        const { stats } = result
-        const statusEmoji = result.passed ? '✅' : '❌'
-        const parts = [`*${stats.expected} passed*`]
-        if (stats.unexpected > 0) parts.push(`*${stats.unexpected} failed*`)
-        if (result.unexpectedSkips.length > 0) parts.push(`*${result.unexpectedSkips.length} unexpected skips*`)
-        if (stats.flaky > 0) parts.push(`*${stats.flaky} flaky*`)
-        if (stats.skipped > 0) parts.push(`${stats.skipped} skipped`)
-        const durationSec = Math.round(stats.duration / 1000)
-        const durationStr = durationSec >= 60
-          ? `${Math.floor(durationSec / 60)}m ${durationSec % 60}s`
-          : `${durationSec}s`
+      // `finally` still runs and exits with exitCode.
+      return
+    }
 
-        const summaryBlocks: Record<string, unknown>[] = [
-          {
-            type: 'section',
-            text: {
+    // ---- Test summary (always, green or red) ----
+    try {
+      const { stats } = result
+      const statusEmoji = result.outcome === 'green' ? '✅' : '❌'
+      const parts = [`*${stats.expected} passed*`]
+      if (stats.unexpected > 0) parts.push(`*${stats.unexpected} failed*`)
+      if (result.unexpectedSkips.length > 0) parts.push(`*${result.unexpectedSkips.length} unexpected skips*`)
+      if (stats.flaky > 0) parts.push(`*${stats.flaky} flaky*`)
+      if (stats.skipped > 0) parts.push(`${stats.skipped} skipped`)
+      const durationSec = Math.round(stats.duration / 1000)
+      const durationStr = durationSec >= 60
+        ? `${Math.floor(durationSec / 60)}m ${durationSec % 60}s`
+        : `${durationSec}s`
+
+      const summaryBlocks: Record<string, unknown>[] = [
+        {
+          type: 'section',
+          text: {
+            type: 'mrkdwn',
+            text: `${statusEmoji} ${parts.join(' · ')}`,
+          },
+        },
+        {
+          type: 'context',
+          elements: [
+            {
               type: 'mrkdwn',
-              text: `${statusEmoji} ${parts.join(' · ')}`,
+              text: `Duration: ${durationStr} · SHA: \`${result.stagingSha.slice(0, 7)}\``,
             },
-          },
-          {
-            type: 'context',
-            elements: [
-              {
-                type: 'mrkdwn',
-                text: `Duration: ${durationStr} · SHA: \`${result.stagingSha.slice(0, 7)}\``,
-              },
-            ],
-          },
-        ]
+          ],
+        },
+      ]
 
-        const summaryFailures = [
-          ...result.failures,
-          ...result.unexpectedSkips.map((s) => ({
-            file: s.file,
-            title: `${s.title} (unexpected skip)`,
-          })),
-        ]
-        if (summaryFailures.length > 0) {
-          const failLines = summaryFailures.slice(0, 5).map(
-            (f) => `• \`${f.file}\`: ${f.title}`,
-          )
-          if (summaryFailures.length > 5) {
-            failLines.push(`• _${summaryFailures.length - 5} more_`)
-          }
-          summaryBlocks.push({
-            type: 'section',
-            text: { type: 'mrkdwn', text: failLines.join('\n') },
-          })
-        }
-
-        await postMessage({
-          channel,
-          text: `${statusEmoji} ${parts.join(' · ')} — ${durationStr}`,
-          blocks: summaryBlocks,
-          threadTs: startTs,
-        })
-      } catch (err) {
-        console.warn('[e2e-nightly] test summary failed:', err)
-      }
-
-      if (result.passed) {
-        console.log(`[e2e-nightly] run=${runId} outcome=green exit=0`)
-      } else {
-        exitCode = 1
-
-        if (
-          !buildE2eRepairRequest ||
-          !buildRepairTriggerMessage ||
-          !buildRepairTriggerBlocks
-        ) {
-          throw new Error('repair builders not loaded — loadServices incomplete')
-        }
-
-        const built = buildE2eRepairRequest({
-          failures: result.failures,
-          unexpectedSkips: result.unexpectedSkips,
-          runId,
-          stagingSha: result.stagingSha,
-        })
-        const request = built?.request
-        // Required by validateE2eAgentConfig at boot.
-        const opsAgentBotId = process.env.OPS_AGENT_SLACK_BOT_ID ?? ''
-
-        if (!built || !request) {
-          console.warn(
-            `[e2e-nightly] run=${runId} red with no reportable failures — repair request skipped`,
-          )
-        } else {
-          if (built.dropped > 0) {
-            console.warn(
-              `[e2e-nightly] run=${runId} repair request dropped ${built.dropped} of ${request.findings.length + built.dropped} findings to fit Slack's message limit`,
-            )
-          }
-          try {
-            const repairResult = await postMessage({
-              channel,
-              text: buildRepairTriggerMessage(opsAgentBotId, request, 'E2E Agent'),
-              blocks: buildRepairTriggerBlocks(request, 'E2E Agent'),
-              threadTs: startTs,
-            })
-            if (!repairResult.ok) {
-              console.warn('[e2e-nightly] repair request failed:', repairResult.error)
-            }
-          } catch (err) {
-            console.warn('[e2e-nightly] repair request failed:', err)
-          }
-        }
-
-        console.log(
-          `[e2e-nightly] run=${runId} outcome=red findings=${request?.findings.length ?? 0} exit=1`,
+      const summaryFailures = [
+        ...result.failures,
+        ...result.unexpectedSkips.map((s) => ({
+          file: s.file,
+          title: `${s.title} (unexpected skip)`,
+        })),
+      ]
+      if (summaryFailures.length > 0) {
+        const failLines = summaryFailures.slice(0, 5).map(
+          (f) => `• \`${f.file}\`: ${f.title}`,
         )
+        if (summaryFailures.length > 5) {
+          failLines.push(`• _${summaryFailures.length - 5} more_`)
+        }
+        summaryBlocks.push({
+          type: 'section',
+          text: { type: 'mrkdwn', text: failLines.join('\n') },
+        })
       }
+
+      await postMessage({
+        channel,
+        text: `${statusEmoji} ${parts.join(' · ')} — ${durationStr}`,
+        blocks: summaryBlocks,
+        threadTs: startTs,
+      })
+    } catch (err) {
+      console.warn('[e2e-nightly] test summary failed:', err)
+    }
+
+    if (result.outcome === 'green') {
+      console.log(`[e2e-nightly] run=${runId} outcome=green exit=0`)
+    } else {
+      exitCode = 1
+
+      if (
+        !buildE2eRepairRequest ||
+        !buildRepairTriggerMessage ||
+        !buildRepairTriggerBlocks
+      ) {
+        throw new Error('repair builders not loaded — loadServices incomplete')
+      }
+
+      const built = buildE2eRepairRequest({
+        failures: result.failures,
+        unexpectedSkips: result.unexpectedSkips,
+        runId,
+        stagingSha: result.stagingSha,
+      })
+      const request = built?.request
+      // Required by validateE2eAgentConfig at boot.
+      const opsAgentBotId = process.env.OPS_AGENT_SLACK_BOT_ID ?? ''
+
+      if (!built || !request) {
+        console.warn(
+          `[e2e-nightly] run=${runId} red with no reportable failures — repair request skipped`,
+        )
+      } else {
+        if (built.dropped > 0) {
+          console.warn(
+            `[e2e-nightly] run=${runId} repair request dropped ${built.dropped} of ${request.findings.length + built.dropped} findings to fit Slack's message limit`,
+          )
+        }
+        try {
+          const repairResult = await postMessage({
+            channel,
+            text: buildRepairTriggerMessage(opsAgentBotId, request, 'E2E Agent'),
+            blocks: buildRepairTriggerBlocks(request, 'E2E Agent'),
+            threadTs: startTs,
+          })
+          if (!repairResult.ok) {
+            console.warn('[e2e-nightly] repair request failed:', repairResult.error)
+          }
+        } catch (err) {
+          console.warn('[e2e-nightly] repair request failed:', err)
+        }
+      }
+
+      console.log(
+        `[e2e-nightly] run=${runId} outcome=red findings=${request?.findings.length ?? 0} exit=1`,
+      )
     }
   } catch (err) {
     console.error('[e2e-nightly] top-level crash:', err)

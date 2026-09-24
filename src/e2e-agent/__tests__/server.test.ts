@@ -49,24 +49,6 @@ vi.mock('@/e2e-agent/runner', () => ({
 // Slack adapter mock — captures the start, summary, and repair messages
 const mockPostMessage = vi.fn()
 
-// Repair-request builder spy — delegates to the real builder
-const buildE2eRepairRequestSpy = vi.fn()
-
-vi.mock('@/lib/services/e2e-agent/repair-request', async (importOriginal) => {
-  const actual = await importOriginal<
-    typeof import('@/lib/services/e2e-agent/repair-request')
-  >()
-  return {
-    ...actual,
-    buildE2eRepairRequest: (
-      ...args: Parameters<typeof actual.buildE2eRepairRequest>
-    ) => {
-      buildE2eRepairRequestSpy(...args)
-      return actual.buildE2eRepairRequest(...args)
-    },
-  }
-})
-
 vi.mock('@/lib/adapters/slack/web-api', () => ({
   postMessage: (...args: unknown[]) => mockPostMessage(...args),
 }))
@@ -100,7 +82,6 @@ function repairCalls() {
 function greenRunResult() {
   return {
     outcome: 'green',
-    passed: true,
     failures: [],
     unexpectedSkips: [],
     stats: {
@@ -118,7 +99,6 @@ function greenRunResult() {
 function failingRunResult() {
   return {
     outcome: 'red',
-    passed: false,
     failures: [
       {
         file: 'e2e/brands.spec.ts',
@@ -232,7 +212,6 @@ describe('e2e-agent server', () => {
     mockRunE2eSuite.mockResolvedValue({
       ...greenRunResult(),
       outcome: 'red',
-      passed: false,
       unexpectedSkips: [
         {
           file: 'e2e/tests/auth-password-reset.spec.ts',
@@ -285,14 +264,13 @@ describe('e2e-agent server', () => {
 
     mockRunE2eSuite.mockResolvedValue({
       outcome: 'errored',
-      passed: false,
       erroredReason: 'Playwright timed out after 20m',
       failures: [],
       unexpectedSkips: [],
       stats: { expected: 0, unexpected: 0, skipped: 0, flaky: 0, duration: 0 },
       jsonReport: {},
       stagingSha: 'fed9876543',
-      outputTail: '[42/97] e2e/tests/slow.spec.ts › stalls',
+      outputTail: '[42/97] e2e/tests/slow.spec.ts › stalls ```fence```',
     })
 
     await import('../server.js')
@@ -311,11 +289,14 @@ describe('e2e-agent server', () => {
     expect(params.threadTs).toBe(START_TS)
     expect(JSON.stringify(params.blocks)).toContain('fed9876')
     expect(JSON.stringify(params.blocks)).toContain('e2e/tests/slow.spec.ts')
+    const tailBlock = params.blocks[params.blocks.length - 1]
+    expect(tailBlock.text?.text).toBe(
+      "```\n[42/97] e2e/tests/slow.spec.ts › stalls '''fence'''\n```",
+    )
 
     // Start message + errored warning only — no ❌ summary, no repair trigger
     expect(mockPostMessage).toHaveBeenCalledTimes(2)
     expect(repairCalls()).toHaveLength(0)
-    expect(buildE2eRepairRequestSpy).not.toHaveBeenCalled()
     expect(mockExit).toHaveBeenCalledWith(1)
     expect(mockExit).not.toHaveBeenCalledWith(0)
   })

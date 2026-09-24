@@ -75,25 +75,25 @@ export type PlaywrightStats = {
 /**
  * green   — suite ran and passed.
  * red     — suite ran and produced failures or unexpected skips.
- * errored — suite did not produce a usable report (timeout, missing or
- *           unparseable JSON). No failures are known, so no repair request.
+ * errored — suite did not produce a usable result (timeout, missing or
+ *           unparseable JSON, no tests ran, or a nonzero exit with no
+ *           failures). No failures are known, so no repair request.
  */
 export type RunOutcome = 'green' | 'red' | 'errored'
 
-export type RunResult = {
-  outcome: RunOutcome
-  /** True only when outcome is 'green'. */
-  passed: boolean
+type RunResultBase = {
   failures: SourceFailure[]
   unexpectedSkips: ActionableReportFailure[]
   stats: PlaywrightStats
   jsonReport: unknown
   stagingSha: string
-  /** Why the run errored. Set only when outcome is 'errored'. */
-  erroredReason?: string
   /** Last lines of the Playwright run's stdout + stderr. */
   outputTail?: string
 }
+
+export type RunResult =
+  | (RunResultBase & { outcome: Exclude<RunOutcome, 'errored'>; erroredReason?: never })
+  | (RunResultBase & { outcome: 'errored'; erroredReason: string })
 
 export type RunE2eSuiteOptions = {
   runId: string
@@ -216,6 +216,9 @@ export async function runE2eSuite(options: RunE2eSuiteOptions): Promise<RunResul
     'pnpm install --frozen-lockfile',
     { cwd: targetDir, timeoutMs: INSTALL_TIMEOUT_MS, env: { NODE_ENV: 'development' } },
   )
+  if (installResult.timedOut) {
+    throw new Error(`pnpm install timed out after ${INSTALL_TIMEOUT_MS / 60_000}m`)
+  }
   if (installResult.exitCode !== 0) {
     throw new Error(
       `pnpm install failed (exit ${installResult.exitCode}): ${installResult.stderr.slice(0, 500)}`,
@@ -256,7 +259,6 @@ export async function runE2eSuite(options: RunE2eSuiteOptions): Promise<RunResul
     console.log(`[e2e-runner] run=${runId} outcome=errored reason=${erroredReason}`)
     return {
       outcome: 'errored',
-      passed: false,
       erroredReason,
       failures: [],
       unexpectedSkips: [],
@@ -276,19 +278,20 @@ export async function runE2eSuite(options: RunE2eSuiteOptions): Promise<RunResul
   const reportRead = await deps.execCommand(`cat ${REPORT_FILE_NAME}`, {
     cwd: targetDir,
   })
-  let jsonReport: Record<string, unknown> | undefined
+  let parsedReport: unknown
   if (reportRead.exitCode === 0) {
     try {
-      jsonReport = JSON.parse(reportRead.stdout) as Record<string, unknown>
+      parsedReport = JSON.parse(reportRead.stdout)
     } catch {
-      jsonReport = undefined
+      parsedReport = undefined
     }
   }
-  if (!jsonReport || typeof jsonReport !== 'object') {
+  if (!parsedReport || typeof parsedReport !== 'object' || Array.isArray(parsedReport)) {
     return errored(
       `Playwright JSON report missing or unparseable (exit ${playwrightResult.exitCode})`,
     )
   }
+  const jsonReport = parsedReport as Record<string, unknown>
 
   const rawStats = (jsonReport.stats ?? {}) as Record<string, unknown>
 
@@ -325,21 +328,29 @@ export async function runE2eSuite(options: RunE2eSuiteOptions): Promise<RunResul
     })
   }
 
-  const passed =
-    playwrightResult.exitCode === 0 &&
-    stats.unexpected === 0 &&
-    failures.length === 0 &&
-    unexpectedSkips.length === 0
+  const knownFailures =
+    stats.unexpected > 0 || failures.length > 0 || unexpectedSkips.length > 0
 
-  const outcome: RunOutcome = passed ? 'green' : 'red'
+  // A report with no tests in it proves nothing — never certify it green.
+  const testsRun = stats.expected + stats.unexpected + stats.flaky + stats.skipped
+  if (testsRun === 0 && !knownFailures) {
+    return errored(`Playwright reported no test results (exit ${playwrightResult.exitCode})`)
+  }
+
+  // A nonzero exit with no failures in the report (e.g. OOM or signal kill
+  // after a partial flush) is never green, but there is nothing to repair.
+  if (playwrightResult.exitCode !== 0 && !knownFailures) {
+    return errored(`Playwright exited ${playwrightResult.exitCode} with no test failures`)
+  }
+
+  const outcome: Exclude<RunOutcome, 'errored'> = knownFailures ? 'red' : 'green'
 
   console.log(
-    `[e2e-runner] run=${runId} outcome=${outcome} passed=${passed} failures=${failures.length} skips=${unexpectedSkips.length} stats=${JSON.stringify(stats)}`,
+    `[e2e-runner] run=${runId} outcome=${outcome} failures=${failures.length} skips=${unexpectedSkips.length} stats=${JSON.stringify(stats)}`,
   )
 
   return {
     outcome,
-    passed,
     failures,
     unexpectedSkips,
     stats,
@@ -387,9 +398,9 @@ function buildOutputTail(output: string): string {
     .filter((line) => line.trim().length > 0)
     .slice(-OUTPUT_TAIL_LINES)
     .join('\n')
-  return tail.length > OUTPUT_TAIL_MAX_CHARS
-    ? tail.slice(-OUTPUT_TAIL_MAX_CHARS)
-    : tail
+  if (tail.length <= OUTPUT_TAIL_MAX_CHARS) return tail
+  // The cut can split a surrogate pair; drop the orphaned low half.
+  return tail.slice(-OUTPUT_TAIL_MAX_CHARS).replace(/^[\uDC00-\uDFFF]/, '')
 }
 
 function text(value: unknown): string {
