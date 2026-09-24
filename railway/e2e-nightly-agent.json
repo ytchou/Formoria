@@ -3,6 +3,7 @@
   "service": "e2e-nightly-agent",
   "schedule": "05 20 * * * (UTC)",
   "startCommand": "pnpm e2e:nightly",
+  "manualTrigger": "deploymentInstanceExecutionCreate (Run now) via the production ops bot — never redeploy (a cron service redeploy does not run the job)",
   "appVariableReferences": [
     "FORMORIA_DEPLOYMENT_ENV",
     "STAGING_BASE_URL",

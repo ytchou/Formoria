@@ -20,7 +20,7 @@ import {
   enqueueCurationRecovery,
 } from "@/lib/services/curation-jobs";
 import { dispatchCurationJob } from "@/lib/services/curation-dispatch";
-import { redeployE2eAgent } from "@/lib/adapters/railway/api";
+import { runE2eAgentNow } from "@/lib/adapters/railway/api";
 
 export const runtime = "nodejs";
 
@@ -29,7 +29,7 @@ const defaultExecuteDeps: ExecuteDeps = {
   enqueueAdminCurationJob,
   dispatchCurationJob,
   enqueueCurationRecovery,
-  dispatchWorkflow: redeployE2eAgent,
+  dispatchWorkflow: runE2eAgentNow,
 };
 
 export type InteractionsRouteDeps = {
