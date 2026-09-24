@@ -125,7 +125,7 @@ describe('e2e-agent runner', () => {
     expect(env?.E2E_STAGING_SESSION_SECRET).toBe(
       'runner-secret-with-at-least-thirty-two-bytes',
     )
-    expect(callOpts?.timeoutMs).toBe(20 * 60_000)
+    expect(callOpts?.timeoutMs).toBe(60 * 60_000)
   })
 
   it('runner_parses_playwright_json_results', async () => {
@@ -177,6 +177,27 @@ describe('e2e-agent runner', () => {
 
     expect(result.stats.unexpected).toBe(0)
     expect(result.passed).toBe(false)
+  })
+
+  it('runner_reports_timeout_when_playwright_is_killed_before_json', async () => {
+    const deps = makeDeps()
+    deps.execCommand.mockImplementation(async (cmd: string) => {
+      if (cmd.includes('ls-remote')) {
+        return { stdout: 'abc123def456\trefs/heads/staging\n', stderr: '', exitCode: 0 }
+      }
+      if (cmd.includes('playwright test')) {
+        return { stdout: '[e2e-cleanup] swept E2E namespaces\n', stderr: '', exitCode: 1, signal: 'SIGTERM' }
+      }
+      return { stdout: '', stderr: '', exitCode: 0 }
+    })
+
+    const { runE2eSuite } = await import('../runner.js')
+    const result = await runE2eSuite({ runId: 'test-run-killed', deps })
+
+    expect(result.passed).toBe(false)
+    expect(result.failures).toHaveLength(1)
+    expect(result.failures[0].title).toBe('Playwright run killed by SIGTERM (timeout 60 min)')
+    expect(result.failures[0].error).toContain('signal=SIGTERM')
   })
 
   it('runner_waits_for_staging_revision', async () => {

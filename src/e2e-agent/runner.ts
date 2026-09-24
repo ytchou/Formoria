@@ -19,6 +19,8 @@ export type ExecResult = {
   stdout: string
   stderr: string
   exitCode: number
+  /** Set when the child was killed by a signal (e.g. SIGTERM on timeoutMs). */
+  signal?: string | null
 }
 
 export type ExecCommandFn = (
@@ -88,7 +90,10 @@ export type RunE2eSuiteOptions = {
 const DEFAULT_STAGING_URL = process.env.STAGING_BASE_URL ?? 'https://staging.formoria.com'
 const REVISION_POLL_INTERVAL_MS = 10_000
 const REVISION_POLL_MAX_MS = 10 * 60_000
-const PLAYWRIGHT_TIMEOUT_MS = 20 * 60_000
+// The canonical staging run is serial (1 worker, 2 retries) across ~200
+// tests, so 20 minutes killed it mid-suite before the JSON reporter wrote
+// anything. Keep headroom above the observed wall time.
+const PLAYWRIGHT_TIMEOUT_MS = 60 * 60_000
 const INSTALL_TIMEOUT_MS = 3 * 60_000
 
 const DEFAULT_SKIP_MANIFEST: ExpectedSkipManifest = {
@@ -226,14 +231,19 @@ export async function runE2eSuite(options: RunE2eSuiteOptions): Promise<RunResul
   try {
     jsonReport = JSON.parse(jsonText) as Record<string, unknown>
   } catch {
+    // A killed child never flushes the JSON reporter, so name the timeout
+    // instead of reporting it as an unparseable report.
+    const killed = Boolean(playwrightResult.signal)
     console.log(`[e2e-runner] JSON parse failed. stdout preview: ${playwrightResult.stdout.slice(0, 2000)}`)
     console.log(`[e2e-runner] stderr preview: ${playwrightResult.stderr.slice(0, 1000)}`)
     return {
       passed: false,
       failures: [{
         file: null,
-        title: 'Failed to parse Playwright JSON report',
-        error: `exitCode=${playwrightResult.exitCode}, stdout length=${playwrightResult.stdout.length}`,
+        title: killed
+          ? `Playwright run killed by ${playwrightResult.signal} (timeout ${PLAYWRIGHT_TIMEOUT_MS / 60_000} min)`
+          : 'Failed to parse Playwright JSON report',
+        error: `exitCode=${playwrightResult.exitCode}, signal=${playwrightResult.signal ?? 'none'}, stdout length=${playwrightResult.stdout.length}`,
       }],
       unexpectedSkips: [],
       stats: { expected: 0, unexpected: 0, skipped: 0, flaky: 0, duration: 0 },

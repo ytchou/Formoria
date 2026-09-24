@@ -30,8 +30,8 @@ function execCommand(
     child.stdout?.on('data', (d: Buffer | string) => { stdout += String(d) })
     child.stderr?.on('data', (d: Buffer | string) => { stderr += String(d) })
 
-    child.on('close', (code) => {
-      resolve({ stdout, stderr, exitCode: code ?? 1 })
+    child.on('close', (code, signal) => {
+      resolve({ stdout, stderr, exitCode: code ?? 1, signal })
     })
 
     child.on('error', (err) => {
