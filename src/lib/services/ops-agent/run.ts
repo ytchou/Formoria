@@ -285,8 +285,23 @@ export async function runOpsAgent(
         await transition(request.id, ["running"], "answered", {
           result: { sessionUrl, modelCalls: 0 },
         });
-        const repairSummary = `Repair from ${repairRequest.agent}: ${repairRequest.findings.map((f) => f.title).join(", ")}`;
-        await postMsg(request.threadTs, `${repairSummary}\nWorking on it → ${sessionUrl}`);
+        const findingCount = repairRequest.findings.length;
+        const repairFallback = `Repair from ${repairRequest.agent}: ${findingCount} findings — ${sessionUrl}`;
+        const repairBlocks: SlackBlock[] = [
+          { type: "header", text: { type: "plain_text", text: "Ops Routine — Started ⚙️" } },
+          {
+            type: "section",
+            text: {
+              type: "mrkdwn",
+              text: `*${findingCount} findings* received from \`${repairRequest.agent}\`\n<${sessionUrl}|Open session>`,
+            },
+          },
+          {
+            type: "context",
+            elements: [{ type: "mrkdwn", text: `Run: \`${repairRequest.runId}\`` }],
+          },
+        ];
+        await postMsg(request.threadTs, repairFallback, repairBlocks);
 
         return { kind: "answer" as const, text: `Routine fired: ${sessionUrl}`, modelCalls: 0, toolLog: [], promptTokens: 0, completionTokens: 0 };
       } catch (err) {

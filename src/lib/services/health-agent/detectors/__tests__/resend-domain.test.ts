@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, it } from 'vitest'
 import type { DetectorContext } from '../../types'
 import { resendDomainDetector } from '../resend-domain'
 
@@ -28,7 +28,7 @@ describe('resend-domain detector', () => {
 
     const ctx = makeCtx({
       fetch: fakeFetch,
-      env: { RESEND_MONITOR_API_KEY: 'test-key' },
+      env: { RESEND_API_KEY: 'test-key' },
     })
     const findings = await resendDomainDetector.run(ctx)
 
@@ -50,7 +50,7 @@ describe('resend-domain detector', () => {
 
     const ctx = makeCtx({
       fetch: fakeFetch,
-      env: { RESEND_MONITOR_API_KEY: 'test-key' },
+      env: { RESEND_API_KEY: 'test-key' },
     })
     const findings = await resendDomainDetector.run(ctx)
     expect(findings).toHaveLength(0)
@@ -64,7 +64,7 @@ describe('resend-domain detector', () => {
 
   it('returns a finding when the API key contains non-ASCII characters', async () => {
     const ctx = makeCtx({
-      env: { RESEND_MONITOR_API_KEY: 're_1234•rest' },
+      env: { RESEND_API_KEY: 're_1234•rest' },
     })
     const findings = await resendDomainDetector.run(ctx)
 
@@ -73,16 +73,18 @@ describe('resend-domain detector', () => {
     expect(findings[0].severity).toBe('high')
   })
 
-  it('does not use the transactional sending key for domain monitoring', async () => {
-    const fetchFn = vi.fn()
+  it('uses RESEND_API_KEY for domain monitoring', async () => {
+    const fakeFetch = async () =>
+      new Response(
+        JSON.stringify({ data: [{ id: 'dom-1', name: 'formoria.com', status: 'verified', region: 'us-east-1' }] }),
+        { status: 200, headers: { 'Content-Type': 'application/json' } },
+      )
     const ctx = makeCtx({
-      fetch: fetchFn,
-      env: { RESEND_API_KEY: 'send-only-key' },
+      fetch: fakeFetch,
+      env: { RESEND_API_KEY: 're_valid_key' },
     })
 
     const findings = await resendDomainDetector.run(ctx)
-
     expect(findings).toHaveLength(0)
-    expect(fetchFn).not.toHaveBeenCalled()
   })
 })

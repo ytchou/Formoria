@@ -1,6 +1,6 @@
 /**
  * Resend domain detector — verifies that the configured Resend sending
- * domain is in a verified state using a dedicated monitoring credential.
+ * domain is in a verified state.
  */
 
 import { auditedCall } from '@/lib/audit'
@@ -41,7 +41,7 @@ export const resendDomainDetector: Detector = {
 
   async run(ctx: DetectorContext): Promise<HealthFinding[]> {
     const env = getEnv(ctx)
-    const apiKey = env.RESEND_MONITOR_API_KEY
+    const apiKey = env.RESEND_API_KEY
     if (!apiKey) return []
 
     if (!/^[\x21-\x7E]+$/.test(apiKey)) {
@@ -49,7 +49,7 @@ export const resendDomainDetector: Detector = {
         {
           source: 'credential',
           fingerprint: stableFingerprint('credential', 'resend-domain', 'invalid-key'),
-          title: 'RESEND_MONITOR_API_KEY contains characters invalid for HTTP headers',
+          title: 'RESEND_API_KEY contains characters invalid for HTTP headers',
           severity: 'high',
           evidence: { reason: 'non-ASCII or control characters in API key' },
           mergePolicy: 'human',
