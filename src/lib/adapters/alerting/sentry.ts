@@ -86,8 +86,3 @@ export function captureAlert(
   return true;
 }
 
-export function resetSentryAdapterForTests(): void {
-  missingDsnWarned = false;
-  initAttempted = false;
-}
-

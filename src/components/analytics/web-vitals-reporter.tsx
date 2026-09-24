@@ -5,6 +5,7 @@ import { useReportWebVitals } from 'next/web-vitals'
 import * as Sentry from '@sentry/nextjs'
 import { trackWebVital } from '@/lib/analytics'
 import { isPostHogConfigured } from '@/lib/analytics/posthog-provider'
+import { isStagingRequest } from '@/lib/deployment-environment'
 
 /** Metric shape Next hands the reporter. Derived from the hook's own signature so
  *  it tracks upstream changes instead of hand-rolling the field list. */
@@ -19,8 +20,18 @@ let missingProviderReported = false
  * production the numbers do not go bad, they go *absent* — which reads exactly
  * like silence and would let the gate pass on no evidence at all (DEV-1337).
  */
+/**
+ * Staging is a production build that runs without PostHog by design, so
+ * `NODE_ENV` alone is not "production". Reporting there sent one Sentry event
+ * per page load and exhausted the org's error quota (DEV-1851). Gated on the
+ * host because the browser bundle carries no reliable deploy marker.
+ */
+export function shouldReportMissingProvider(host: string): boolean {
+  return process.env.NODE_ENV === 'production' && !isStagingRequest(host)
+}
+
 function reportMissingProvider() {
-  if (missingProviderReported || process.env.NODE_ENV !== 'production') return
+  if (missingProviderReported || !shouldReportMissingProvider(window.location.host)) return
   missingProviderReported = true
   Sentry.captureMessage(
     'Web vitals reporting is disabled: PostHog is not configured in production',

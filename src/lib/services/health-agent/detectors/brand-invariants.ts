@@ -25,6 +25,36 @@ export type BrandInvariantsDeps = {
   supabase: BrandInvariantsSupabase
 }
 
+function hasText(value: unknown): boolean {
+  return typeof value === 'string' && value.trim() !== ''
+}
+
+/**
+ * One approved brand's content gaps, or null when it has none.
+ *
+ * The hero check mirrors what the site renders (`brands.ts` heroImageUrl):
+ * `hero_image_storage_path` first, the legacy `hero_image_url` as fallback.
+ */
+export function approvedBrandGap(
+  b: Record<string, unknown>,
+): ApprovedBrandInvariantGap | null {
+  const missingHeroImage =
+    !hasText(b.hero_image_storage_path) && !hasText(b.hero_image_url)
+  const descriptionTooShort =
+    typeof b.description !== 'string' || b.description.trim().length < 20
+  const missingApprovedAt = b.approved_at === null
+
+  if (!missingHeroImage && !descriptionTooShort && !missingApprovedAt) {
+    return null
+  }
+  return {
+    brandId: String(b.id),
+    missingHeroImage,
+    descriptionTooShort,
+    missingApprovedAt,
+  }
+}
+
 export function brandInvariantsDetector(deps: BrandInvariantsDeps): Detector {
   return {
     name: 'brand-invariants',
@@ -41,7 +71,8 @@ export function brandInvariantsDetector(deps: BrandInvariantsDeps): Detector {
         deps.supabase,
         'brands',
         {
-          select: 'id,hero_image_url,description,approved_at,created_at',
+          select:
+            'id,hero_image_storage_path,hero_image_url,description,approved_at,created_at',
           orderBy: [{ column: 'id', ascending: true }],
           filters: [{ column: 'status', value: 'approved' }],
         },
@@ -53,29 +84,9 @@ export function brandInvariantsDetector(deps: BrandInvariantsDeps): Detector {
           typeof b.created_at === 'string' && b.created_at >= todayStart,
       ).length
 
-      const gaps: ApprovedBrandInvariantGap[] = brands
-        .filter(
-          (b) =>
-            !b.hero_image_url ||
-            (typeof b.hero_image_url === 'string' &&
-              b.hero_image_url.trim() === '') ||
-            !b.description ||
-            (typeof b.description === 'string' &&
-              b.description.trim().length < 20) ||
-            b.approved_at === null,
-        )
-        .map((b) => ({
-          brandId: String(b.id),
-          missingHeroImage:
-            !b.hero_image_url ||
-            (typeof b.hero_image_url === 'string' &&
-              b.hero_image_url.trim() === ''),
-          descriptionTooShort:
-            !b.description ||
-            (typeof b.description === 'string' &&
-              b.description.trim().length < 20),
-          missingApprovedAt: b.approved_at === null,
-        }))
+      const gaps = brands
+        .map(approvedBrandGap)
+        .filter((gap): gap is ApprovedBrandInvariantGap => gap !== null)
 
       const result = evaluateApprovedBrandInvariants({
         totalApproved,

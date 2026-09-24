@@ -77,6 +77,7 @@ type EnrichmentQualityInput = {
 }
 
 type BrandQualityRow = {
+  hero_image_storage_path: string | null
   hero_image_url: string | null
   social_instagram: string | null
   social_threads: string | null
@@ -174,6 +175,7 @@ const EMPTY_QUALITY_METRICS: QualityMetrics = {
 
 /** Column list backing `BrandQualityRow`; online stores come from the registry. */
 const BRAND_QUALITY_SELECT = [
+  'hero_image_storage_path',
   'hero_image_url',
   'social_instagram',
   'social_threads',
@@ -340,7 +342,7 @@ function metricsFromRows(rows: BrandQualityRow[]): QualityMetrics {
   const completeness = { excellent: 0, good: 0, fair: 0, poor: 0 }
 
   for (const row of rows) {
-    if (hasText(row.hero_image_url)) heroImageCount += 1
+    if (hasHero(row)) heroImageCount += 1
     if (hasText(row.social_instagram)) socialInstagramCount += 1
     if (hasText(row.social_threads)) socialThreadsCount += 1
     if (hasText(row.social_facebook)) socialFacebookCount += 1
@@ -438,9 +440,14 @@ export function countDescriptionValidationRetries(
   return rows.filter((row) => row.raw_response != null && (row.attempt ?? 0) > 1).length
 }
 
+/** Mirrors `get_brand_quality_metrics`: the rendered storage-path hero or the legacy URL. */
+function hasHero(row: BrandQualityRow): boolean {
+  return hasText(row.hero_image_storage_path) || hasText(row.hero_image_url)
+}
+
 function completenessBucket(row: BrandQualityRow): keyof QualityMetrics['completeness'] {
   const completed = [
-    hasText(row.hero_image_url),
+    hasHero(row),
     (row.description?.trim().length ?? 0) >= 20,
     ONLINE_STORE_COLUMNS.some((column) => hasText(row[column])) || jsonArrayLength(row.other_urls) > 0,
     hasText(row.social_instagram) || hasText(row.social_threads) || hasText(row.social_facebook),
