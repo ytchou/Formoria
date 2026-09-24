@@ -1,8 +1,9 @@
 /**
  * E2E nightly agent server entry point tests.
  *
- * Verifies the boot sequence, exit codes on green/failure runs,
- * and the red-run repair trigger posted into the run's Slack thread.
+ * Verifies the boot sequence, exit codes on green/failure/errored runs,
+ * the red-run repair trigger posted into the run's Slack thread, and that
+ * an errored run posts a warning without a repair request.
  *
  * Runner, deps, and Slack are mocked — no real Supabase, Slack, or Playwright.
  * The repair builders are pure and run for real.
@@ -80,7 +81,7 @@ function repairCalls() {
 
 function greenRunResult() {
   return {
-    passed: true,
+    outcome: 'green',
     failures: [],
     unexpectedSkips: [],
     stats: {
@@ -97,7 +98,7 @@ function greenRunResult() {
 
 function failingRunResult() {
   return {
-    passed: false,
+    outcome: 'red',
     failures: [
       {
         file: 'e2e/brands.spec.ts',
@@ -210,7 +211,7 @@ describe('e2e-agent server', () => {
 
     mockRunE2eSuite.mockResolvedValue({
       ...greenRunResult(),
-      passed: false,
+      outcome: 'red',
       unexpectedSkips: [
         {
           file: 'e2e/tests/auth-password-reset.spec.ts',
@@ -256,5 +257,47 @@ describe('e2e-agent server', () => {
     )
     expect(mockExit).toHaveBeenCalledWith(1)
     warn.mockRestore()
+  })
+
+  it('server_posts_warning_and_skips_repair_on_errored_run', async () => {
+    vi.resetModules()
+
+    mockRunE2eSuite.mockResolvedValue({
+      outcome: 'errored',
+      erroredReason: 'Playwright timed out after 20m',
+      failures: [],
+      unexpectedSkips: [],
+      stats: { expected: 0, unexpected: 0, skipped: 0, flaky: 0, duration: 0 },
+      jsonReport: {},
+      stagingSha: 'fed9876543',
+      outputTail: '[42/97] e2e/tests/slow.spec.ts › stalls ```fence```',
+    })
+
+    await import('../server.js')
+    await new Promise((r) => setTimeout(r, 50))
+
+    const erroredCalls = mockPostMessage.mock.calls.filter(([params]) =>
+      String((params as { text: string }).text).startsWith('⚠️ E2E run errored'),
+    )
+    expect(erroredCalls).toHaveLength(1)
+    const params = erroredCalls[0][0] as {
+      text: string
+      blocks: Array<{ type: string; text?: { text: string } }>
+      threadTs?: string
+    }
+    expect(params.text).toBe('⚠️ E2E run errored: Playwright timed out after 20m')
+    expect(params.threadTs).toBe(START_TS)
+    expect(JSON.stringify(params.blocks)).toContain('fed9876')
+    expect(JSON.stringify(params.blocks)).toContain('e2e/tests/slow.spec.ts')
+    const tailBlock = params.blocks[params.blocks.length - 1]
+    expect(tailBlock.text?.text).toBe(
+      "```\n[42/97] e2e/tests/slow.spec.ts › stalls '''fence'''\n```",
+    )
+
+    // Start message + errored warning only — no ❌ summary, no repair trigger
+    expect(mockPostMessage).toHaveBeenCalledTimes(2)
+    expect(repairCalls()).toHaveLength(0)
+    expect(mockExit).toHaveBeenCalledWith(1)
+    expect(mockExit).not.toHaveBeenCalledWith(0)
   })
 })
