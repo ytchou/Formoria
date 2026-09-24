@@ -95,7 +95,7 @@ test.describe("Static & compliance pages", () => {
       return;
     }
     await expect(
-      anonPage.getByRole("heading", { name: "隱私政策" }),
+      anonPage.getByRole("heading", { name: "隱私權政策" }),
     ).toBeVisible({ timeout: BUDGET.SERVER_RENDER });
   });
 
