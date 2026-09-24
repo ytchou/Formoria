@@ -85,6 +85,8 @@ const ALLOWLIST = [
   // Registry field names and origin regexes are machine-readable evidence, not UI copy.
   "lib/services/mit-registry.ts",
   "lib/services/curated-products/origin-qualification.ts",
+  // Product-page fact/chrome label regexes (machine-readable evidence, not UI copy).
+  "lib/services/enrich-phases/products/evidence-lexicon.ts",
   // Submission deduplication comments document production names, not rendered copy.
   "lib/services/submissions.ts",
   // Transitional: real messages come from the i18n factory; static fallback map

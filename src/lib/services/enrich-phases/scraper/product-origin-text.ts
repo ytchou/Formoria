@@ -2,11 +2,16 @@ import * as cheerio from 'cheerio'
 import type { RenderProvider } from './render/types'
 import { fetchHtml } from './fetch-guards'
 
-export function extractRenderedMainText(html: string): string {
-  const $ = cheerio.load(html)
+function mainRoot($: cheerio.CheerioAPI) {
   const root =
     $('main').first().length > 0 ? $('main').first() : $('body').first()
   root.find('script, style, noscript, nav, header, footer, form').remove()
+  return root
+}
+
+export function extractRenderedMainText(html: string): string {
+  const $ = cheerio.load(html)
+  const root = mainRoot($)
   root.find('br').replaceWith(' ')
   root
     .find('h1, h2, h3, h4, h5, h6, p, li, dt, dd, th, td')
@@ -14,6 +19,27 @@ export function extractRenderedMainText(html: string): string {
       $(element).after(' ')
     })
   return root.text().replace(/\s+/gu, ' ').trim()
+}
+
+/**
+ * Splits the same main-content root as extractRenderedMainText into text
+ * blocks: one per block element or br-separated line, whitespace collapsed,
+ * empties dropped. Loads its own document, so mutations never leak.
+ */
+export function extractMainTextBlocks(html: string): string[] {
+  const $ = cheerio.load(html)
+  const root = mainRoot($)
+  root.find('br').replaceWith('\n')
+  root
+    .find('h1, h2, h3, h4, h5, h6, p, li, dt, dd, th, td, tr, div')
+    .each((_, element) => {
+      $(element).after('\n')
+    })
+  return root
+    .text()
+    .split('\n')
+    .map((piece) => piece.replace(/\s+/gu, ' ').trim())
+    .filter((piece) => piece.length > 0)
 }
 
 /**
