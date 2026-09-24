@@ -57,7 +57,7 @@ Classify each finding into exactly one category:
 - **Flake** — the test passes when you re-run it against staging with the command in Step 4, with no change. Report it as a false positive.
 - **Test drift** — the app behaves correctly, but the spec is out of date (selector, visible text, timing, or fixture). Fix the spec.
 - **App regression** — the app is wrong on staging. Fix the app code.
-- **Env/data** — staging data, seed fixtures, credentials, or an external service is wrong. Do not fix it in code. Create a Linear ticket with the diagnosis.
+- **Env/data** — staging data, seed fixtures, credentials, or an external service is wrong. Do not fix it in code. Create a Linear ticket with the diagnosis, following the **Linear ticket requirements** in Step 3.
 
 ### Step 3: Fix on one branch
 
@@ -108,13 +108,15 @@ For each real non-code issue:
 
 1. Run read-only diagnostic queries to gather context
 2. Create a **Linear ticket** with the fields below
-3. Never run write operations or data-modifying scripts
+3. Read the ticket back with `get_issue`. If the assignee is not Yung-Tang Chou or the status is not `Todo`, fix it with `save_issue` before moving on
+4. Never run write operations or data-modifying scripts
 
 **Linear ticket requirements** (must match the `/create-ticket` skill):
 
 - **Team:** Look up teams with `list_teams` and use the team whose project matches "Formoria"
 - **Project:** Look up projects with `list_projects` and attach the "Formoria" project
-- **Assignee:** `"me"` (resolves to the current Linear user)
+- **Assignee:** Yung-Tang Chou — pass `assignee: "987b9cc3-0c5a-486f-9d01-ce0715450553"` (the owner's Linear user ID). Never leave it unassigned, and never assign to the "Linear" agent user.
+- **Status:** `Todo` — pass `state: "Todo"`. Never leave it in the default `Backlog`.
 - **Labels:** Use `list_issue_labels` to find the label IDs, then apply:
   - `Bug` — for broken behavior
   - `Infra` — for infrastructure/credential/pipeline issues
