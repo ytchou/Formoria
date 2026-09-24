@@ -66,7 +66,3 @@ async function postWebhookPayload(
     },
   );
 }
-
-export function resetSlackAdapterForTests(): void {
-  missingWebhookWarned = false;
-}

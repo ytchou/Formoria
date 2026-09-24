@@ -293,7 +293,6 @@ describe('unconfigured adapters', () => {
     const slack = await vi.importActual<
       typeof import('@/lib/adapters/alerting/slack')
     >('@/lib/adapters/alerting/slack')
-    slack.resetSlackAdapterForTests()
 
     await expect(
       slack.postSlackAlert({ agent: 'Curation', status: 'failed', summary: ['•'] }),
@@ -308,7 +307,6 @@ describe('unconfigured adapters', () => {
     const sentry = await vi.importActual<
       typeof import('@/lib/adapters/alerting/sentry')
     >('@/lib/adapters/alerting/sentry')
-    sentry.resetSentryAdapterForTests()
 
     expect(sentry.captureAlert('provider outage')).toBe(false)
   })
