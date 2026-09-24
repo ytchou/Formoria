@@ -249,6 +249,39 @@ describe('Slack route rate-limit exemption', () => {
   })
 })
 
+describe('e2e-dispatch rate-limit exemption', () => {
+  afterEach(() => {
+    setRateLimitStoreForTests(null)
+  })
+
+  const denyingStore = () => ({
+    check: () => ({ allowed: false, remaining: 0, resetAt: Date.now() + 30_000 }),
+  })
+  const internalRequest = (path: string) =>
+    new NextRequest(`https://formoria.com${path}`, {
+      headers: { 'x-forwarded-for': '198.51.100.83' },
+    })
+
+  it('exempts the exact /api/internal/e2e-dispatch path', async () => {
+    setRateLimitStoreForTests(denyingStore())
+
+    await expect(checkRateLimit(internalRequest('/api/internal/e2e-dispatch'))).resolves.toBeNull()
+  })
+
+  it('still limits other /api/internal/ paths', async () => {
+    setRateLimitStoreForTests(denyingStore())
+
+    for (const path of [
+      '/api/internal/revalidate-brands',
+      '/api/internal/e2e-dispatch-other',
+      '/api/internal/e2e-dispatch/extra',
+    ]) {
+      const response = await checkRateLimit(internalRequest(path))
+      expect(response?.status).toBe(429)
+    }
+  })
+})
+
 /**
  * Production outage 2026-08-13: the Upstash account hit its 500k-command plan
  * quota, `rateLimiter.check` rejected, and the rejection escaped `proxy()` — so
