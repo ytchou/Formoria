@@ -171,12 +171,12 @@ describe('readProductPage', () => {
   })
 
   it('read_page_origin_fallback_uses_full_text', async () => {
-    // Higher-tier (materials) blocks fill the per-page budget, so the origin
+    // Higher-tier (specs) blocks fill the per-page budget, so the origin
     // sentence past char 4,096 is left out of `mainText` — yet the origin
     // excerpts, built from the full text, still carry it (D9).
     const filler = Array.from(
       { length: 60 },
-      (_, i) => `<p>Material note ${i}: a soft cotton blend woven for everyday wear and long use.</p>`,
+      (_, i) => `<p>Size note ${i}: a soft cotton blend woven for everyday wear and long use.</p>`,
     ).join('')
     const html = `<html><body><main>${filler}<p>This bowl is Made in Taiwan by hand, thrown on a kick wheel in a small Yingge workshop and fired twice in a gas kiln over two long days.</p></main></body></html>`
     const deps = makeDeps(html)
