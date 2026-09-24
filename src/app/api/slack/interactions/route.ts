@@ -1,3 +1,4 @@
+import { captureException } from "@sentry/nextjs";
 import { after, NextResponse } from "next/server";
 import { withAuditScope } from "@/lib/audit/scope";
 import { verifySlackSignature } from "@/lib/adapters/slack/signature";
@@ -228,6 +229,32 @@ export function createInteractionsHandler(
           );
 
           if (execResult.ok) {
+            if (proposal.kind === "dispatch_workflow") {
+              // Scheduled before any further awaited step, so a failing
+              // transition below cannot skip the check for a live dispatch.
+              // In-process timer; relies on the long-lived Railway Node process
+              // surviving STALE_CHECK_MS. A redeploy inside that window drops the
+              // check (the lease still expires). Move to a scheduled job if that
+              // loss becomes visible.
+              deps.scheduleAfter(async () => {
+                try {
+                  await deps.sleep(STALE_CHECK_MS);
+                  const stale = await deps.markDispatchStale(row.id);
+                  if (stale) {
+                    await deps.postMessage({
+                      channel: row.channelId,
+                      threadTs: row.threadTs,
+                      text: STALE_DISPATCH_TEXT,
+                    });
+                  }
+                } catch (staleError) {
+                  captureException(staleError, {
+                    tags: { scope: "slack", route: "interactions", step: "stale-check" },
+                  });
+                  console.error("[slack/interactions] stale dispatch check failed:", staleError);
+                }
+              });
+            }
             await deps.transitionRequest(row.id, ["running"], "executed", {
               result: execResult.result,
             });
@@ -247,23 +274,6 @@ export function createInteractionsHandler(
                   blocks,
                 })
                 .catch(() => {});
-            }
-            if (proposal.kind === "dispatch_workflow") {
-              // In-process timer; relies on the long-lived Railway Node process
-              // surviving STALE_CHECK_MS. A redeploy inside that window drops the
-              // check (the lease still expires). Move to a scheduled job if that
-              // loss becomes visible.
-              deps.scheduleAfter(async () => {
-                await deps.sleep(STALE_CHECK_MS);
-                const stale = await deps.markDispatchStale(row.id);
-                if (stale) {
-                  await deps.postMessage({
-                    channel: row.channelId,
-                    threadTs: row.threadTs,
-                    text: STALE_DISPATCH_TEXT,
-                  });
-                }
-              });
             }
           } else {
             await deps.transitionRequest(row.id, ["running"], "failed", {

@@ -142,15 +142,25 @@ async function executeDispatchWorkflow(
   // Record before Run-now so the staging agent always finds a row to claim.
   await deps.recordDispatch(ctx.requestId);
 
+  // A failed clear must never mask the Run-now failure; the pending lease
+  // expires on its own after PENDING_LEASE_MS.
+  const clearSafely = async () => {
+    try {
+      await deps.clearDispatch(ctx.requestId);
+    } catch (clearError) {
+      console.error("[ops-agent] clearDispatch failed:", clearError);
+    }
+  };
+
   let outcome: Awaited<ReturnType<ExecuteDeps["dispatchWorkflow"]>>;
   try {
     outcome = await deps.dispatchWorkflow();
   } catch (error) {
-    await deps.clearDispatch(ctx.requestId);
+    await clearSafely();
     throw error;
   }
   if (!outcome.ok) {
-    await deps.clearDispatch(ctx.requestId);
+    await clearSafely();
     return { ok: false, error: outcome.error };
   }
   return {

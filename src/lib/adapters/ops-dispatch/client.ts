@@ -11,6 +11,10 @@
  */
 
 import { auditedCall } from "@/lib/audit";
+import { normalizeBaseUrl, scrubError } from "@/lib/adapters/internal-http";
+import type { DispatchOutcome } from "@/lib/services/ops-agent/types";
+
+export type { DispatchOutcome };
 
 const TIMEOUT_MS = 5_000;
 const DISPATCH_PATH = "/api/internal/e2e-dispatch";
@@ -24,8 +28,6 @@ export type ClaimedDispatch = {
 
 export type ClaimResult = { dispatch: ClaimedDispatch | null; reason?: string };
 
-export type DispatchOutcome = "green" | "red" | "errored" | "crashed";
-
 export type CompleteResult =
   | { ok: true; updated: boolean }
   | { ok: false; reason: string };
@@ -36,28 +38,10 @@ type PostOutcome =
   | { ok: true; body: unknown }
   | { ok: false; reason: string; status?: number };
 
-function scrubError(error: unknown): string {
-  const message = error instanceof Error ? error.message : String(error);
-  return message
-    .replace(/Bearer\s+[^\s,;]+/gi, "Bearer [REDACTED]")
-    .replace(
-      /((?:api[_-]?key|token|password|secret)\s*[=:]\s*)[^\s,;]+/gi,
-      "$1[REDACTED]",
-    )
-    .slice(0, 1_000);
-}
-
 function resolveEndpoint(): Endpoint | null {
   // Railway shows the origin without a scheme, so the env var often arrives as
-  // a bare host. Default the scheme to https (same as revalidate-client.ts).
-  const rawBaseUrl = (process.env.E2E_DISPATCH_URL?.trim() ?? "").replace(
-    /\/+$/,
-    "",
-  );
-  const baseUrl =
-    rawBaseUrl && !/^https?:\/\//i.test(rawBaseUrl)
-      ? `https://${rawBaseUrl}`
-      : rawBaseUrl;
+  // a bare host. normalizeBaseUrl defaults the scheme to https.
+  const baseUrl = normalizeBaseUrl(process.env.E2E_DISPATCH_URL);
   const secret = process.env.E2E_DISPATCH_SECRET?.trim();
   if (!baseUrl || !secret) return null;
   return { url: `${baseUrl}${DISPATCH_PATH}`, secret };

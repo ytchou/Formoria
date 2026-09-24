@@ -229,6 +229,63 @@ describe("/api/slack/interactions", () => {
     expect(deps.postMessage).not.toHaveBeenCalled();
   });
 
+  it("stale check failure is contained and posts nothing", async () => {
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    deps = makeDeps({
+      getRequest: vi.fn().mockResolvedValue(
+        makeRow({ proposal: { kind: "dispatch_workflow", workflow: "e2e-staging", mode: "run" } }),
+      ),
+      executeProposal: vi.fn().mockResolvedValue({
+        ok: true,
+        result: { dispatched: "e2e-staging", summary: "Started" },
+      }),
+      markDispatchStale: vi.fn().mockRejectedValue(new Error("db down")),
+    });
+    handler = createInteractionsHandler(deps);
+
+    const response = await handler(post(makePayload("ops_confirm")));
+    await new Promise((r) => setTimeout(r, 0));
+
+    expect(response.status).toBe(200);
+    expect(deps.markDispatchStale).toHaveBeenCalledWith("req-1");
+    expect(deps.postMessage).not.toHaveBeenCalled();
+    // The rejection stays inside the stale check: the request is not failed.
+    expect(deps.transitionRequest).not.toHaveBeenCalledWith(
+      "req-1",
+      ["running"],
+      "failed",
+      expect.anything(),
+    );
+    expect(errorSpy).toHaveBeenCalled();
+    errorSpy.mockRestore();
+  });
+
+  it("stale check is scheduled even when the executed transition throws", async () => {
+    deps = makeDeps({
+      getRequest: vi.fn().mockResolvedValue(
+        makeRow({ proposal: { kind: "dispatch_workflow", workflow: "e2e-staging", mode: "run" } }),
+      ),
+      transitionRequest: vi.fn(
+        async (_id: string, _from: string[], to: string) => {
+          if (to === "executed") throw new Error("transition failed");
+          return makeRow();
+        },
+      ) as unknown as InteractionsRouteDeps["transitionRequest"],
+      executeProposal: vi.fn().mockResolvedValue({
+        ok: true,
+        result: { dispatched: "e2e-staging", summary: "Started" },
+      }),
+      markDispatchStale: vi.fn().mockResolvedValue(true),
+    });
+    handler = createInteractionsHandler(deps);
+
+    await handler(post(makePayload("ops_confirm")));
+    await new Promise((r) => setTimeout(r, 0));
+
+    expect(deps.markDispatchStale).toHaveBeenCalledWith("req-1");
+    expect(deps.postMessage).toHaveBeenCalledTimes(1);
+  });
+
   it("failed dispatch schedules no stale check", async () => {
     deps = makeDeps({
       getRequest: vi.fn().mockResolvedValue(

@@ -50,8 +50,10 @@ export type OpsRequestRow = {
 // E2E dispatch (DEV-1854)
 // ---------------------------------------------------------------------------
 
+/** Every valid DispatchOutcome, for runtime validation. */
+export const DISPATCH_OUTCOMES = ["green", "red", "errored", "crashed"] as const;
 /** Final state of a dispatched e2e run, merged into `result.e2eOutcome`. */
-export type DispatchOutcome = "green" | "red" | "errored" | "crashed";
+export type DispatchOutcome = (typeof DISPATCH_OUTCOMES)[number];
 
 /** An ops-bot e2e dispatch, projected from its `ops_agent_requests` row. */
 export type OpsDispatch = {

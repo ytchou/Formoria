@@ -69,6 +69,8 @@ let updateMessage: Awaited<
 
 let opsDispatch: typeof import('@/lib/adapters/ops-dispatch/client') | undefined
 
+let threadLink: typeof import('@/lib/adapters/slack/thread-link')['threadLink'] | undefined
+
 type ClaimedDispatch = import('@/lib/adapters/ops-dispatch/client').ClaimedDispatch
 type RunOutcome = import('@/lib/adapters/ops-dispatch/client').DispatchOutcome
 type SlackMessage = { text: string; blocks?: Record<string, unknown>[] }
@@ -82,14 +84,16 @@ const FINAL_LINE: Record<RunOutcome, string> = {
   crashed: '⚠️ *Crashed*',
 }
 
-function threadLink(dispatch: ClaimedDispatch): string {
-  // Workspace-agnostic Slack deep link; Slack redirects it to the thread.
-  return `https://slack.com/archives/${dispatch.channelId}/p${dispatch.threadTs.replace('.', '')}`
+function runLabel(runId: string): string {
+  return `E2E run \`${runId.slice(0, 8)}\``
 }
 
 function pointerText(runId: string, dispatch: ClaimedDispatch, final?: string): string {
   const requester = dispatch.requesterId ? ` by <@${dispatch.requesterId}>` : ''
-  const line = `E2E run \`${runId.slice(0, 8)}\` requested${requester} → <${threadLink(dispatch)}|thread>`
+  const link = threadLink
+    ? ` → <${threadLink(dispatch.channelId, dispatch.threadTs)}|thread>`
+    : ''
+  const line = `${runLabel(runId)} requested${requester}${link}`
   return final ? `${final} · ${line}` : line
 }
 
@@ -133,13 +137,17 @@ export async function main(): Promise<void> {
   }
 
   // Posts one run message to `target`. In claimed mode, an ok:false (or a
-  // throw) falls back to SLACK_CHANNEL under the pointer for that message only.
-  // Never throws.
+  // throw) falls back to SLACK_CHANNEL under the pointer for that message only
+  // (top-level with a run label when the pointer post failed). Never throws.
   const postToRun = async (message: SlackMessage): Promise<PostOutcome> => {
-    const send = async (channel: string, threadTs: string | undefined): Promise<PostOutcome> => {
+    const send = async (
+      channel: string,
+      threadTs: string | undefined,
+      body: SlackMessage = message,
+    ): Promise<PostOutcome> => {
       if (!postMessage) return { ok: false, error: 'postMessage not loaded' }
       try {
-        const res = await postMessage({ channel, threadTs, ...message })
+        const res = await postMessage({ channel, threadTs, ...body })
         return res.ok ? { ok: true, channel, ts: res.ts } : { ok: false, error: res.error }
       } catch (err) {
         return { ok: false, error: err instanceof Error ? err.message : String(err) }
@@ -150,7 +158,17 @@ export async function main(): Promise<void> {
     console.warn(
       `[e2e-nightly] post to requester thread failed (${primary.error}) — falling back to ${SLACK_CHANNEL}`,
     )
-    return send(SLACK_CHANNEL, pointerTs)
+    if (pointerTs) return send(SLACK_CHANNEL, pointerTs)
+    // No pointer to thread under: the message lands top-level in the alerts
+    // channel, so label it with the run it belongs to.
+    const prefix = `${runLabel(runId)}: `
+    return send(SLACK_CHANNEL, undefined, {
+      text: prefix + message.text,
+      blocks: message.blocks && [
+        { type: 'context', elements: [{ type: 'mrkdwn', text: prefix.trimEnd() }] },
+        ...message.blocks,
+      ],
+    })
   }
 
   try {
@@ -444,6 +462,7 @@ try {
       ;({ postMessage, updateMessage } = await import(
         '@/lib/adapters/slack/web-api'
       ))
+      ;({ threadLink } = await import('@/lib/adapters/slack/thread-link'))
       opsDispatch = await import('@/lib/adapters/ops-dispatch/client')
     },
   })

@@ -509,4 +509,33 @@ describe('e2e-agent server', () => {
     expect(mockExit).toHaveBeenCalledWith(0)
     warn.mockRestore()
   })
+
+  it('server_prefixes_unthreaded_fallback_with_run_id_when_pointer_fails', async () => {
+    vi.stubEnv('SLACK_E2E_CHANNEL', ALERTS_CHANNEL)
+    mockClaimDispatch.mockResolvedValue({ dispatch: DISPATCH })
+    mockPostMessage.mockImplementation(async (params: PostParams) => {
+      // The audit pointer fails, so there is no pointer to thread under.
+      if (params.text.includes('requested by')) return { ok: false, error: 'rate_limited' }
+      // Summary into the claimed thread fails; everything else succeeds.
+      if (params.channel === 'C_OPS' && params.text.includes('passed')) {
+        return { ok: false, error: 'not_in_channel' }
+      }
+      return { ok: true, ts: START_TS }
+    })
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+
+    await runServer()
+
+    const runId = mockClaimDispatch.mock.calls[0][0] as string
+    const summaryPosts = postCalls().filter((p) => p.text.includes('passed'))
+    expect(summaryPosts).toHaveLength(2)
+    expect(summaryPosts[0].channel).toBe('C_OPS')
+    expect(summaryPosts[0].text.startsWith('E2E run')).toBe(false)
+    const fallback = summaryPosts[1]
+    expect(fallback.channel).toBe(ALERTS_CHANNEL)
+    expect(fallback.threadTs).toBeUndefined()
+    expect(fallback.text.startsWith(`E2E run \`${runId.slice(0, 8)}\`: `)).toBe(true)
+    expect(mockExit).toHaveBeenCalledWith(0)
+    warn.mockRestore()
+  })
 })

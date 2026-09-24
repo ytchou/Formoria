@@ -71,9 +71,8 @@ export function isInFlight(row: DispatchRow, now: Date): boolean {
   return nowMs - Date.parse(row.dispatched_at) < PENDING_LEASE_MS;
 }
 
-export function threadLink(channelId: string, threadTs: string): string {
-  return `https://slack.com/archives/${channelId}/p${threadTs.replace(".", "")}`;
-}
+// Re-exported so existing importers keep working; the pure module is the owner.
+export { threadLink } from "@/lib/adapters/slack/thread-link";
 
 function isJsonObject(value: Json | null): value is { [key: string]: Json | undefined } {
   return typeof value === "object" && value !== null && !Array.isArray(value);
@@ -101,7 +100,11 @@ export async function recordDispatch(
   );
 }
 
-/** Undo recordDispatch when the Run-now trigger fails. */
+/**
+ * Undo recordDispatch when the Run-now trigger fails. Conditional on
+ * `dispatch_claimed_at IS NULL`, so a row an agent already claimed is never
+ * un-dispatched.
+ */
 export async function clearDispatch(
   requestId: string,
   client?: SupabaseClient,
@@ -113,7 +116,8 @@ export async function clearDispatch(
       const { error } = await supabase
         .from("ops_agent_requests")
         .update({ dispatched_at: null })
-        .eq("id", requestId);
+        .eq("id", requestId)
+        .is("dispatch_claimed_at", null);
 
       if (error) throw new Error(`clearDispatch failed: ${error.message}`);
     },
@@ -151,8 +155,9 @@ export async function findInFlightDispatch(
 
 /**
  * Atomically claim the oldest pending dispatch for `runId`. Each update is
- * conditional on `dispatch_claimed_at IS NULL`, so two concurrent claims
- * cannot win the same row. Returns null when nothing is pending.
+ * conditional on `dispatch_claimed_at IS NULL` and `dispatch_completed_at IS
+ * NULL`, so two concurrent claims cannot win the same row and a dispatch
+ * marked stale in between cannot be claimed. Returns null when nothing is pending.
  */
 export async function claimDispatch(
   runId: string,
@@ -186,6 +191,7 @@ export async function claimDispatch(
           })
           .eq("id", candidate.id)
           .is("dispatch_claimed_at", null)
+          .is("dispatch_completed_at", null)
           .select(DISPATCH_COLUMNS);
 
         if (updateError) {
@@ -204,7 +210,8 @@ export async function claimDispatch(
 /**
  * Mark a claimed dispatch complete and merge `{ e2eOutcome }` into `result`.
  * Matches on `dispatch_run_id` so one run cannot complete another run's
- * dispatch. Returns false when no row matched.
+ * dispatch, and on `dispatch_completed_at IS NULL` so a repeat complete is a
+ * no-op. Returns false when no row matched.
  */
 export async function completeDispatch(
   id: string,
@@ -222,6 +229,7 @@ export async function completeDispatch(
         .select("result")
         .eq("id", id)
         .eq("dispatch_run_id", runId)
+        .is("dispatch_completed_at", null)
         .maybeSingle();
 
       if (readError) {
@@ -241,6 +249,7 @@ export async function completeDispatch(
         })
         .eq("id", id)
         .eq("dispatch_run_id", runId)
+        .is("dispatch_completed_at", null)
         .select("id");
 
       if (error) throw new Error(`completeDispatch failed: ${error.message}`);

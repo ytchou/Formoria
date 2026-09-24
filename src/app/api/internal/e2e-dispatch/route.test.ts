@@ -1,4 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+
+const sentry = vi.hoisted(() => ({ captureException: vi.fn() }));
+vi.mock("@sentry/nextjs", () => sentry);
+
 import { createE2eDispatchHandler, type E2eDispatchRouteDeps } from "./route";
 
 const SECRET = "dispatch-secret";
@@ -32,6 +36,7 @@ function makeRequest(
 }
 
 beforeEach(() => {
+  sentry.captureException.mockReset();
   vi.stubEnv("E2E_DISPATCH_SECRET", SECRET);
 });
 
@@ -232,5 +237,47 @@ describe("POST /api/internal/e2e-dispatch — complete", () => {
     );
 
     expect(await response.json()).toEqual({ ok: true, updated: false });
+  });
+});
+
+describe("POST /api/internal/e2e-dispatch — service errors", () => {
+  it("returns 500 internal_error and reports when claimDispatch throws", async () => {
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    const failure = new Error("db down");
+    const deps = makeDeps({
+      claimDispatch: vi.fn().mockRejectedValue(failure),
+    });
+
+    const response = await createE2eDispatchHandler(deps)(
+      makeRequest({ action: "claim", runId: RUN_ID }),
+    );
+
+    expect(response.status).toBe(500);
+    expect(await response.json()).toEqual({ error: "internal_error" });
+    expect(sentry.captureException).toHaveBeenCalledWith(
+      failure,
+      expect.anything(),
+    );
+    errorSpy.mockRestore();
+  });
+
+  it("returns 500 internal_error when completeDispatch throws", async () => {
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    const deps = makeDeps({
+      completeDispatch: vi.fn().mockRejectedValue(new Error("db down")),
+    });
+
+    const response = await createE2eDispatchHandler(deps)(
+      makeRequest({
+        action: "complete",
+        dispatchId: DISPATCH_ID,
+        runId: RUN_ID,
+        outcome: "green",
+      }),
+    );
+
+    expect(response.status).toBe(500);
+    expect(await response.json()).toEqual({ error: "internal_error" });
+    errorSpy.mockRestore();
   });
 });

@@ -217,4 +217,14 @@ describe("completeDispatch", () => {
       completeDispatch({ dispatchId: DISPATCH_ID, runId: RUN_ID, outcome: "crashed" }),
     ).resolves.toEqual({ ok: false, reason: "timeout" });
   });
+
+  it("treats a malformed completion body as not updated", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(
+      Response.json({ ok: true, updated: "yes" }),
+    );
+
+    await expect(
+      completeDispatch({ dispatchId: DISPATCH_ID, runId: RUN_ID, outcome: "green" }),
+    ).resolves.toEqual({ ok: true, updated: false });
+  });
 });

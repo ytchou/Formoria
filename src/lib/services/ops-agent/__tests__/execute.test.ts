@@ -255,6 +255,46 @@ describe("dispatch_workflow kind", () => {
     expect(deps.clearDispatch).toHaveBeenCalledWith("req-001");
   });
 
+  it("keeps the Run-now result when clearDispatch rejects", async () => {
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    const deps = makeDeps({
+      dispatchWorkflow: vi
+        .fn()
+        .mockResolvedValue({ ok: false, error: "railway 500" }),
+      clearDispatch: vi.fn().mockRejectedValue(new Error("db down")),
+    });
+
+    const result = await executeProposal(
+      { kind: "dispatch_workflow", workflow: "e2e-staging" },
+      makeCtx(),
+      deps,
+    );
+
+    expect(result).toEqual({ ok: false, error: "railway 500" });
+    expect(deps.clearDispatch).toHaveBeenCalledWith("req-001");
+    expect(errorSpy).toHaveBeenCalled();
+    errorSpy.mockRestore();
+  });
+
+  it("keeps the Run-now error when clearDispatch rejects after a throw", async () => {
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    const deps = makeDeps({
+      dispatchWorkflow: vi.fn().mockRejectedValue(new Error("railway timeout")),
+      clearDispatch: vi.fn().mockRejectedValue(new Error("db down")),
+    });
+
+    const result = await executeProposal(
+      { kind: "dispatch_workflow", workflow: "e2e-staging" },
+      makeCtx(),
+      deps,
+    );
+
+    expect(result).toEqual({ ok: false, error: "railway timeout" });
+    expect(deps.clearDispatch).toHaveBeenCalledWith("req-001");
+    expect(errorSpy).toHaveBeenCalled();
+    errorSpy.mockRestore();
+  });
+
   it("returns error when dispatch is refused", async () => {
     const deps = makeDeps({
       dispatchWorkflow: vi

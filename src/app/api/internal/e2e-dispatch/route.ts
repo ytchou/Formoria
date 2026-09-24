@@ -1,3 +1,4 @@
+import { captureException } from "@sentry/nextjs";
 import { NextResponse } from "next/server";
 import { withAuditScope } from "@/lib/audit/scope";
 import { isBearerAuthorized } from "@/lib/internal/personal-os-auth";
@@ -5,7 +6,10 @@ import {
   claimDispatch,
   completeDispatch,
 } from "@/lib/services/ops-agent/dispatches";
-import type { DispatchOutcome } from "@/lib/services/ops-agent/types";
+import {
+  DISPATCH_OUTCOMES,
+  type DispatchOutcome,
+} from "@/lib/services/ops-agent/types";
 import { isUuid } from "@/lib/validation/id-batch";
 
 /**
@@ -18,12 +22,7 @@ export const runtime = "nodejs";
 
 const MAX_BODY_BYTES = 4_096;
 const SECRET_ENV = "E2E_DISPATCH_SECRET";
-const OUTCOMES = new Set<DispatchOutcome>([
-  "green",
-  "red",
-  "errored",
-  "crashed",
-]);
+const OUTCOMES = new Set<string>(DISPATCH_OUTCOMES);
 
 type DispatchRequest =
   | { action: "claim"; runId: string }
@@ -91,7 +90,13 @@ async function parseBody(
   let body: unknown;
   try {
     body = JSON.parse(text);
-  } catch {
+  } catch (parseError) {
+    // The caller is already authenticated, so malformed JSON is an agent bug
+    // worth seeing, not anonymous noise.
+    captureException(parseError, {
+      level: "warning",
+      tags: { scope: "internal", route: "e2e-dispatch", step: "parse" },
+    });
     return invalid();
   }
 
@@ -111,7 +116,7 @@ async function parseBody(
     if (!isUuidString(dispatchId)) return invalid();
     if (
       typeof outcome !== "string" ||
-      !OUTCOMES.has(outcome as DispatchOutcome)
+      !OUTCOMES.has(outcome)
     ) {
       return invalid();
     }
@@ -137,26 +142,34 @@ export function createE2eDispatchHandler(
     const body = await parseBody(request);
     if (body instanceof NextResponse) return body;
 
-    if (body.action === "claim") {
-      const dispatch = await deps.claimDispatch(body.runId);
-      return NextResponse.json({
-        dispatch: dispatch
-          ? {
-              id: dispatch.id,
-              channelId: dispatch.channelId,
-              threadTs: dispatch.threadTs,
-              requesterId: dispatch.requesterId,
-            }
-          : null,
-      });
-    }
+    try {
+      if (body.action === "claim") {
+        const dispatch = await deps.claimDispatch(body.runId);
+        return NextResponse.json({
+          dispatch: dispatch
+            ? {
+                id: dispatch.id,
+                channelId: dispatch.channelId,
+                threadTs: dispatch.threadTs,
+                requesterId: dispatch.requesterId,
+              }
+            : null,
+        });
+      }
 
-    const updated = await deps.completeDispatch(
-      body.dispatchId,
-      body.runId,
-      body.outcome,
-    );
-    return NextResponse.json({ ok: true, updated });
+      const updated = await deps.completeDispatch(
+        body.dispatchId,
+        body.runId,
+        body.outcome,
+      );
+      return NextResponse.json({ ok: true, updated });
+    } catch (err) {
+      captureException(err, {
+        tags: { scope: "internal", route: "e2e-dispatch", action: body.action },
+      });
+      console.error("[e2e-dispatch] service call failed:", err);
+      return NextResponse.json({ error: "internal_error" }, { status: 500 });
+    }
   });
 }
 
