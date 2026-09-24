@@ -1,4 +1,4 @@
-import { describe, expect, it, vi, beforeEach } from "vitest";
+import { describe, expect, it, vi, beforeEach, afterEach } from "vitest";
 
 vi.mock("@/lib/audit", () => ({
   auditedCall: vi
@@ -41,6 +41,11 @@ function makeDeps(overrides: Partial<Parameters<typeof executeProposal>[2]> = {}
 
 beforeEach(() => {
   vi.clearAllMocks();
+  vi.stubEnv("NEXT_PUBLIC_SITE_URL", "https://formoria.com");
+});
+
+afterEach(() => {
+  vi.unstubAllEnvs();
 });
 
 // ---------------------------------------------------------------------------
@@ -69,6 +74,7 @@ describe("refresh_brand kind", () => {
         submissionId: "sub-1",
         jobId: "job-1",
         adminUrl: "/admin/jobs/job-1",
+        summary: "Refresh started for Test Brand — job <https://formoria.com/admin/jobs/job-1|job-1>",
       },
     });
 
@@ -136,7 +142,12 @@ describe("rerun_job kind", () => {
 
     expect(result).toEqual({
       ok: true,
-      result: { jobId: "job-rerun-1", adminUrl: "/admin/jobs/job-rerun-1", counts: { total: 2, failed: 1, cancelled: 1 } },
+      result: {
+        jobId: "job-rerun-1",
+        adminUrl: "/admin/jobs/job-rerun-1",
+        counts: { total: 2, failed: 1, cancelled: 1 },
+        summary: "Re-running job job-orig-1: 2 targets — <https://formoria.com/admin/jobs/job-rerun-1|job-rerun-1>",
+      },
     });
     expect(deps.enqueueCurationRecovery).toHaveBeenCalledWith({ sourceJobId: "job-orig-1", startedBy: "ops@formoria.com", action: { kind: "rerun" } });
     expect(deps.dispatchCurationJob).toHaveBeenCalledWith("job-rerun-1");
@@ -156,7 +167,12 @@ describe("rerun_job kind", () => {
 
     expect(result).toEqual({
       ok: true,
-      result: { jobId: "job-resume-1", adminUrl: "/admin/jobs/job-resume-1", counts: { total: 3, failed: 2, cancelled: 1 } },
+      result: {
+        jobId: "job-resume-1",
+        adminUrl: "/admin/jobs/job-resume-1",
+        counts: { total: 3, failed: 2, cancelled: 1 },
+        summary: "Resuming job job-orig-2: 3 targets — <https://formoria.com/admin/jobs/job-resume-1|job-resume-1>",
+      },
     });
     expect(deps.enqueueCurationRecovery).toHaveBeenCalledWith({ sourceJobId: "job-orig-2", startedBy: "ops@formoria.com", action: { kind: "resume" } });
     expect(deps.dispatchCurationJob).toHaveBeenCalledWith("job-resume-1");

@@ -3,6 +3,8 @@ import type { CurationRecoveryInput, CurationRecoveryCounts } from "../curation-
 import type { OpsProposal } from "./proposals";
 import type { OpsDispatch } from "./types";
 import { threadLink } from "./dispatches";
+import { getSiteUrl } from "@/lib/site-url";
+import { escapeSlackMrkdwn } from "../health-agent/report";
 
 // Accept OpsProposal or compatible shapes. The `mode` field on
 // dispatch_workflow is enforced by the proposal Zod schema but not
@@ -28,7 +30,7 @@ export type ExecuteDeps = {
   requestBrandRefreshesBySlugs: (
     slugs: string[],
     requesterEmail: string,
-  ) => Promise<Array<{ slug: string; submissionId: string | null; error: string | null }>>;
+  ) => Promise<Array<{ slug: string; name: string; submissionId: string | null; error: string | null }>>;
   enqueueAdminCurationJob: (input: {
     params: { target: "submissions" | "brands"; submissionIds: string[] };
     dryRun: boolean;
@@ -49,6 +51,11 @@ export type ExecuteDeps = {
 export type ExecuteResult =
   | { ok: true; result: Record<string, unknown> }
   | { ok: false; error: string };
+
+/** Slack mrkdwn link to the job's admin page; Slack needs an absolute URL. */
+function adminJobLink(jobId: string): string {
+  return `<${getSiteUrl()}/admin/jobs/${jobId}|${jobId}>`;
+}
 
 // ---------------------------------------------------------------------------
 // Dispatch: refresh_brand
@@ -85,6 +92,7 @@ async function executeRefreshBrand(
       submissionId,
       jobId: job.id,
       adminUrl: `/admin/jobs/${job.id}`,
+      summary: `Refresh started for ${escapeSlackMrkdwn(outcome.name)} — job ${adminJobLink(job.id)}`,
     },
   };
 }
@@ -106,7 +114,12 @@ async function executeRerunJob(
   await deps.dispatchCurationJob(job.id);
   return {
     ok: true,
-    result: { jobId: job.id, adminUrl: `/admin/jobs/${job.id}`, counts },
+    result: {
+      jobId: job.id,
+      adminUrl: `/admin/jobs/${job.id}`,
+      counts,
+      summary: `${proposal.mode === "resume" ? "Resuming" : "Re-running"} job ${proposal.jobId}: ${counts.total} targets — ${adminJobLink(job.id)}`,
+    },
   };
 }
 
