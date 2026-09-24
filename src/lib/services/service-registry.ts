@@ -98,6 +98,8 @@ export const NON_SERVICE_ENV: Readonly<Record<string, string>> = {
   E2E_STAGING_SESSION_SECRET:
     "Request-scoped staging deep-suite capability secret; separate from Cloudflare Access and origin credentials.",
   CURATION_WORKER_URL: "Internal worker routing target, not a credential.",
+  E2E_DISPATCH_URL:
+    "Production origin the staging e2e agent calls to claim ops-bot dispatches, not a credential.",
   NEXT_PUBLIC_SITE_URL:
     "Public host used by absolute links and the availability probe; not a credential.",
   ORIGIN_SECRET: "Internal machine-caller authentication secret.",
@@ -748,6 +750,7 @@ export const SERVICE_REGISTRY: readonly ServiceEntry[] = [
       "SLACK_SIGNING_SECRET",
       "OPS_AGENT_SLACK_BOT_ID",
       "HEALTH_AGENT_SLACK_CHANNEL",
+      "E2E_DISPATCH_SECRET",
     ],
     status: "active",
     plan: {

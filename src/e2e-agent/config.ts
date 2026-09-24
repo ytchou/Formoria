@@ -23,6 +23,13 @@ const REQUIRED_AGENT_VARIABLES = [
   "OPS_AGENT_SLACK_BOT_ID",
 ] as const;
 
+// Optional, never required (DEV-1854):
+// - E2E_DISPATCH_URL: production Railway origin serving
+//   POST /api/internal/e2e-dispatch.
+// - E2E_DISPATCH_SECRET: bearer token, same value as the production web service.
+// With either unset, the agent skips the dispatch claim and reports only to
+// SLACK_E2E_CHANNEL (cron mode). See src/lib/adapters/ops-dispatch/client.ts.
+
 function required(environment: Environment, name: string): string {
   const value = environment[name]?.trim();
   if (!value) throw new Error(`${name} is required for the E2E agent`);

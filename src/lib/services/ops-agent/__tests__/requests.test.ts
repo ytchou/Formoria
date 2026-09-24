@@ -36,6 +36,10 @@ function makeDbRow(overrides: Record<string, unknown> = {}) {
     cost_usd: 0,
     correlation_id: null,
     session_url: null,
+    dispatched_at: null,
+    dispatch_claimed_at: null,
+    dispatch_run_id: null,
+    dispatch_completed_at: null,
     expires_at: null,
     created_at: "2026-09-15T00:00:00Z",
     updated_at: "2026-09-15T00:00:00Z",
@@ -319,6 +323,23 @@ describe("getRequest", () => {
     const result = await getRequest("req-1", mockClient);
     expect(result).not.toBeNull();
     expect(result!.sessionUrl).toBe("https://example.com/session");
+  });
+
+  it("toCamel maps dispatch fields", async () => {
+    const row = makeDbRow({
+      dispatched_at: "2026-09-24T10:00:00Z",
+      dispatch_claimed_at: "2026-09-24T10:02:00Z",
+      dispatch_run_id: "run-abc",
+      dispatch_completed_at: "2026-09-24T10:30:00Z",
+    });
+    mockFrom.mockReturnValue(chainableQuery(row));
+
+    const result = await getRequest("req-1", mockClient);
+    expect(result).not.toBeNull();
+    expect(result!.dispatchedAt).toBe("2026-09-24T10:00:00Z");
+    expect(result!.dispatchClaimedAt).toBe("2026-09-24T10:02:00Z");
+    expect(result!.dispatchRunId).toBe("run-abc");
+    expect(result!.dispatchCompletedAt).toBe("2026-09-24T10:30:00Z");
   });
 
   it("toCamel maps null session_url", async () => {
