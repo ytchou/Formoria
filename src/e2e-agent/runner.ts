@@ -110,8 +110,10 @@ export type RunE2eSuiteOptions = {
 const DEFAULT_STAGING_URL = process.env.STAGING_BASE_URL ?? 'https://staging.formoria.com'
 const REVISION_POLL_INTERVAL_MS = 10_000
 const REVISION_POLL_MAX_MS = 10 * 60_000
-// Stays at 20 min until the line-reporter output from the next runs shows which tests got slower (DEV-1853 follow-up).
-const PLAYWRIGHT_TIMEOUT_MS = 20 * 60_000
+// The canonical staging run is serial (1 worker, 2 retries) across ~200
+// tests, so 20 minutes killed it mid-suite before the JSON reporter wrote
+// anything. Keep headroom above the observed wall time.
+const PLAYWRIGHT_TIMEOUT_MS = 60 * 60_000
 const INSTALL_TIMEOUT_MS = 3 * 60_000
 
 const DEFAULT_SKIP_MANIFEST: ExpectedSkipManifest = {

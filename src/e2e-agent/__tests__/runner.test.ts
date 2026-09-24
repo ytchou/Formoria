@@ -154,7 +154,7 @@ describe('e2e-agent runner', () => {
     expect(env?.E2E_STAGING_SESSION_SECRET).toBe(
       'runner-secret-with-at-least-thirty-two-bytes',
     )
-    expect(callOpts?.timeoutMs).toBe(20 * 60_000)
+    expect(callOpts?.timeoutMs).toBe(60 * 60_000)
   })
 
   it('runner_writes_json_report_to_file_and_streams_line_output', async () => {
@@ -211,7 +211,7 @@ describe('e2e-agent runner', () => {
     const result = await runE2eSuite({ runId: 'test-run-timeout', deps })
 
     expect(result.outcome).toBe('errored')
-    expect(result.erroredReason).toContain('timed out after 20m')
+    expect(result.erroredReason).toContain('timed out after 60m')
     expect(result.failures).toEqual([])
     expect(result.unexpectedSkips).toEqual([])
     expect(result.stats.expected).toBe(0)
