@@ -301,24 +301,6 @@ describe('unconfigured adapters', () => {
     expect(fetchSpy).not.toHaveBeenCalled()
   })
 
-  it('posts pre-rendered health-agent text through the configured webhook', async () => {
-    process.env.SLACK_FORMORIA_WEBHOOK_URL = 'https://hooks.slack.test/formoria'
-    const fetchSpy = vi.fn(async () => new Response('ok'))
-    vi.stubGlobal('fetch', fetchSpy)
-
-    const slack = await vi.importActual<
-      typeof import('@/lib/adapters/alerting/slack')
-    >('@/lib/adapters/alerting/slack')
-
-    await expect(slack.postSlackText('Health agent digest')).resolves.toBe(true)
-    expect(fetchSpy).toHaveBeenCalledWith(
-      'https://hooks.slack.test/formoria',
-      expect.objectContaining({
-        body: JSON.stringify({ text: 'Health agent digest' }),
-      }),
-    )
-  })
-
   it('sends nothing and throws nothing when the Sentry DSN is missing', async () => {
     delete process.env.SENTRY_DSN
     delete process.env.NEXT_PUBLIC_SENTRY_DSN

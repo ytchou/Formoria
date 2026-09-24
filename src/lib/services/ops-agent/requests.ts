@@ -6,7 +6,7 @@ import type { OpsRequestRow, OpsRequestStatus } from "./types";
 type DbRow = Database["public"]["Tables"]["ops_agent_requests"]["Row"];
 type SupabaseClient = ReturnType<typeof createServiceClient>;
 
-export const THREAD_HISTORY_LIMIT = 10;
+const THREAD_HISTORY_LIMIT = 10;
 
 function toCamel(row: DbRow): OpsRequestRow {
   return {
