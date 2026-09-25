@@ -46,7 +46,9 @@ function parseOtherUrls(raw: unknown): OtherUrlEntry[] {
     (entry): entry is OtherUrlEntry =>
       typeof entry === 'object' &&
       entry !== null &&
-      typeof (entry as Record<string, unknown>).url === 'string',
+      typeof (entry as Record<string, unknown>).url === 'string' &&
+      // An empty entry is a blank form row, not a link; there is nothing to probe.
+      ((entry as Record<string, unknown>).url as string).trim() !== '',
   )
 }
 
