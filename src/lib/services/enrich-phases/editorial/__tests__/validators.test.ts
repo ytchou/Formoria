@@ -139,6 +139,9 @@ describe('editorial cross-output validators', () => {
   // -------------------------------------------------------------------------
 
   it('repair_sends_system_and_user_as_plain_messages', async () => {
+    // The repair prompt is fetched without a fallback, so the beforeEach
+    // fallback-echo mock would yield undefined here.
+    mocks.fetchLangfusePrompt.mockResolvedValueOnce('mock-repair-prompt')
     const controller = new AbortController()
     const { model, invoke } = fakeModel([
       JSON.stringify({
@@ -166,6 +169,7 @@ describe('editorial cross-output validators', () => {
     expect(messages).toHaveLength(2)
     expect(messages[0]!.role).toBe('system')
     // DEV-1864: the shape travels as a strict json_schema, not as prompt text.
+    expect(messages[0]!.content).toBe('mock-repair-prompt')
     expect(messages[0]!.content).not.toContain('EditorialRepair JSON Schema')
     expect(messages[1]!.role).toBe('user')
     expect(JSON.parse(messages[1]!.content as string)).toMatchObject({
