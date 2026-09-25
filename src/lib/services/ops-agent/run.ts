@@ -17,6 +17,7 @@ import {
   renderThreadNotice,
 } from "@/lib/adapters/slack/blocks";
 import { appendRunEvent as defaultAppendRunEvent } from "@/lib/services/run-timeline/append";
+import { nowSeconds } from "@/lib/services/run-timeline/types";
 import { listIssues as defaultListIssues } from "@/lib/adapters/sentry/issues";
 import { getBrandBySlug, searchBrandsAutocomplete } from "@/lib/services/brands";
 import { listCurationJobs, getCurationJobDetail } from "@/lib/services/curation-jobs";
@@ -279,6 +280,7 @@ export async function runOpsAgent(
     if (repairRequest) {
       const timeline = repairRequest.timeline;
       let fired = false;
+      let firedSessionUrl: string | undefined;
       try {
         const routineId = process.env.OPS_ROUTINE_ID;
         if (!routineId) throw new Error("OPS_ROUTINE_ID is not set");
@@ -292,11 +294,12 @@ export async function runOpsAgent(
         };
         const { sessionUrl } = await fireRtn({ routineId, text: JSON.stringify(payload) });
         fired = true;
+        firedSessionUrl = sessionUrl;
         // appendRunEvent never throws; old-format requests carry no timeline.
         if (timeline) {
           await appendEvent(timeline, {
             kind: "repair_started",
-            at: Math.floor(Date.now() / 1000),
+            at: nowSeconds(),
             ...(sessionUrl ? { sessionUrl } : {}),
           });
         }
@@ -324,14 +327,21 @@ export async function runOpsAgent(
 
         return { kind: "answer" as const, text: `Routine fired: ${sessionUrl}`, modelCalls: 0, toolLog: [], promptTokens: 0, completionTokens: 0 };
       } catch (err) {
+        if (fired) {
+          // The routine is already running: a later step failing (the
+          // running->answered transition, the "Started" post) is not a repair
+          // failure. No failed transition, no "Failed to start" notice, no
+          // repair_failed; those would contradict the timeline and invite a
+          // second fire. Return the success path's "answer" kind.
+          console.error("[ops-agent] post-fire step failed; the repair routine is running:", err);
+          return { kind: "answer" as const, text: `Routine fired: ${firedSessionUrl}`, modelCalls: 0, toolLog: [], promptTokens: 0, completionTokens: 0 };
+        }
         console.error("[ops-agent] repair routine fire failed:", err);
         const reason = err instanceof Error ? err.message : String(err);
-        // Only a fire failure is a repair failure; a later step failing after
-        // the routine fired leaves the repair running.
-        if (timeline && !fired) {
+        if (timeline) {
           await appendEvent(timeline, {
             kind: "repair_failed",
-            at: Math.floor(Date.now() / 1000),
+            at: nowSeconds(),
             reason,
           });
         }

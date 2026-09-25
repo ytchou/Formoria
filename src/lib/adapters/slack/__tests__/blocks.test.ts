@@ -1,9 +1,11 @@
 import { describe, expect, it } from "vitest";
 import {
+  escapeSlackMrkdwn,
   renderAnswer,
   renderProposalCard,
   renderResultCard,
   renderThreadNotice,
+  truncatePlain,
 } from "../blocks";
 
 describe("renderProposalCard", () => {
@@ -132,5 +134,18 @@ describe("renderThreadNotice", () => {
     expect(blocks.map((b) => b.type)).toEqual(["header", "section"]);
     const header = (blocks[0] as { text: { text: string } }).text.text;
     expect(Array.from(header).length).toBeLessThanOrEqual(150);
+  });
+});
+
+describe("escapeSlackMrkdwn", () => {
+  it("escapes the characters Slack reads as markup", () => {
+    expect(escapeSlackMrkdwn("Resend <domain> & DNS")).toBe("Resend &lt;domain&gt; &amp; DNS");
+  });
+});
+
+describe("truncatePlain", () => {
+  it("ends an over-long text with an ellipsis inside the limit", () => {
+    expect(truncatePlain("Health agent nightly run", 10)).toBe("Health ag…");
+    expect(truncatePlain("Health agent", 20)).toBe("Health agent");
   });
 });

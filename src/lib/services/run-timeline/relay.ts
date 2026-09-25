@@ -5,13 +5,15 @@ import {
 } from "@/lib/services/health-agent/lifecycle";
 import { createServiceClient } from "@/lib/supabase/service";
 import { appendRunEvent } from "./append";
-import type { RunEvent, TimelineRef } from "./types";
+import { nowSeconds, type RunEvent, type TimelineRef } from "./types";
 
 /**
  * Relay for the ops routine (a Claude Code cloud session with no DB access).
  * It appends one routine-owned timeline event to the run's Slack parent and
- * writes Linear ticket identifiers back to `health_fix_queue`, so a finding
- * the routine ticketed is not re-sent the next night.
+ * writes Linear ticket identifiers back to `health_fix_queue`. A repairable
+ * finding is still re-sent every night while it is active; the write-back
+ * attaches its `ticketId`, so the routine reuses the open ticket instead of
+ * filing a duplicate.
  */
 
 const httpsUrl = z.string().max(2048).regex(/^https:\/\/\S+$/);
@@ -74,11 +76,11 @@ export type RoutineTimelineDeps = {
 };
 
 const defaultDeps: RoutineTimelineDeps = {
-  appendRunEvent: (ref, event) => appendRunEvent(ref, event),
+  appendRunEvent,
   // Same service-role client the health-agent server passes to its ledger calls.
   recordTickets: (tickets) =>
     recordTickets(createServiceClient() as unknown as HealthLedgerClient, tickets),
-  now: () => Math.floor(Date.now() / 1000),
+  now: nowSeconds,
 };
 
 export type RoutineTimelineResult =
@@ -90,28 +92,24 @@ export type RoutineTimelineResult =
       recordError?: string;
     };
 
+/**
+ * The timeline event without the relay-only `fingerprints`: they feed the
+ * write-back only, and storing them would bloat the Slack metadata payload.
+ */
 function toRunEvent(event: RoutineEvent, at: number): RunEvent {
   switch (event.kind) {
-    case "pr_opened":
-      return {
-        kind: "pr_opened",
-        at,
-        number: event.number,
-        url: event.url,
-        title: event.title,
-        ...(event.ticketId ? { ticketId: event.ticketId } : {}),
-      };
+    case "pr_opened": {
+      const { fingerprints: _fingerprints, ...rest } = event;
+      return { ...rest, at };
+    }
     case "tickets_filed":
-      return { kind: "tickets_filed", at, tickets: event.tickets };
-    case "completed":
-      return { kind: "completed", at };
-    case "failed":
       return {
-        kind: "failed",
+        ...event,
         at,
-        outcome: event.outcome,
-        ...(event.reason ? { reason: event.reason } : {}),
+        tickets: event.tickets.map(({ fingerprints: _fingerprints, ...ticket }) => ticket),
       };
+    default:
+      return { ...event, at };
   }
 }
 

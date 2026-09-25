@@ -64,7 +64,6 @@ describe('report — per-finding tickets', () => {
     const ticket = buildFindingTicket(finding, options)
 
     expect(ticket.title).toContain('Resend authentication failed')
-    expect(ticket.fingerprints).toEqual(['credential:test:b'])
     expect(ticket.labels).toEqual(['Ops'])
     expect(ticket.body).toContain('**Source:** credential')
     expect(ticket.body).toContain('**Severity:** high')
@@ -80,17 +79,6 @@ describe('report — per-finding tickets', () => {
     )
     expect(ticket.labels).toEqual(['Data Quality'])
     expect(ticket.title).toContain('brand-a IG')
-  })
-
-  it('an investigator diagnosis is appended to the ticket body', () => {
-    const ticket = buildFindingTicket(
-      makeFinding({ fingerprint: 'directory:test:a' }),
-      {
-        ...options,
-        investigation: 'Root cause: brand was removed from CMS on 2026-09-15',
-      },
-    )
-    expect(ticket.body).toContain('Root cause: brand was removed from CMS')
   })
 
   it('ticket bodies link to the Langfuse trace, never a GitHub Actions run URL', () => {
@@ -575,13 +563,13 @@ describe('buildRunFailureEvent', () => {
     ).toBeNull()
   })
 
-  it('flags a completed run whose digest failed', () => {
+  it('writes nothing when only the digest failed, since run.ts already closed the timeline', () => {
     expect(
       buildRunFailureEvent(
-        { status: 'completed', dryRun: false, exitCode: 1, totalFindings: 0 },
+        { status: 'completed', dryRun: false, exitCode: 1, totalFindings: 4 },
         at,
       ),
-    ).toEqual({ kind: 'failed', at, outcome: 'digest-failed' })
+    ).toBeNull()
   })
 
   it('reports a failed run with its error', () => {

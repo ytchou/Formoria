@@ -39,8 +39,9 @@ export function createRunTimelineHandler(deps: RunTimelineRouteDeps = defaultDep
     if (!result.ok) {
       return NextResponse.json({ error: result.error }, { status: 400 });
     }
-    // A missed append is a relay failure the routine must surface; the
-    // write-back result is still returned so a retry is safe (it is idempotent).
+    // A missed append is a relay failure the routine must surface. A retry is
+    // safe: appendRunEvent skips an event already on the timeline (ignoring
+    // `at`), and the ticket write-back sets the same identifiers again.
     return NextResponse.json(result, { status: result.appended ? 200 : 502 });
   });
 }

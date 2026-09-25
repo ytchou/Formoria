@@ -38,6 +38,8 @@
 import { randomUUID } from 'node:crypto'
 import { bootWorker, logWorkerBuildInfo } from '@/worker-boot'
 import { validateE2eAgentConfig } from '@/e2e-agent/config'
+// Side-effect-free (no env reads, no imports), so it is safe before bootWorker.
+import { nowSeconds } from '@/lib/services/run-timeline/types'
 
 const SLACK_CHANNEL = process.env.SLACK_E2E_CHANNEL ?? 'e2e-alerts'
 
@@ -93,8 +95,8 @@ type ClaimedDispatch = import('@/lib/adapters/ops-dispatch/client').ClaimedDispa
 type RunOutcome = import('@/lib/adapters/ops-dispatch/client').DispatchOutcome
 type RunEvent = import('@/lib/services/run-timeline/types').RunEvent
 type SlackMessage = { text: string; blocks?: Record<string, unknown>[] }
-type PostedRef = { channel: string; ts: string }
-type PostOutcome = ({ ok: true } & PostedRef) | { ok: false; error: string }
+type TimelineRef = import('@/lib/services/run-timeline/types').TimelineRef
+type PostOutcome = ({ ok: true } & TimelineRef) | { ok: false; error: string }
 
 /** Final status shown on the claimed-mode audit pointer. */
 const POINTER_STATUS: Record<RunOutcome, string> = {
@@ -146,7 +148,7 @@ export async function main(): Promise<void> {
   let outcome: RunOutcome = 'crashed'
   let claimed: ClaimedDispatch | null = null
   let pointerTs: string | undefined
-  let startRef: PostedRef | undefined
+  let startRef: TimelineRef | undefined
   // Set once a terminal-for-this-agent event (completed, failed,
   // repair_requested) is on the timeline; `finally` appends `failed` otherwise.
   let timelineClosed = false
@@ -202,7 +204,7 @@ export async function main(): Promise<void> {
   // Starts the run timeline at `target`. In claimed mode a failed start falls
   // back to SLACK_CHANNEL under the pointer (top-level when the pointer post
   // failed; the timeline already names the run). Never throws.
-  const startRun = async (): Promise<PostedRef | null> => {
+  const startRun = async (): Promise<TimelineRef | null> => {
     if (!startTimeline) return null
     const input = { agent: 'e2e-agent', title, runId }
     const primary = await startTimeline({
@@ -496,10 +498,6 @@ export async function main(): Promise<void> {
   }
 }
 
-function nowSeconds(): number {
-  return Math.floor(Date.now() / 1000)
-}
-
 /**
  * Final-state updates and dispatch completion. Every step is independent and
  * swallows its own failure, so `process.exit` always runs afterwards.
@@ -510,7 +508,7 @@ async function finalizeRun(params: {
   outcome: RunOutcome
   claimed: ClaimedDispatch | null
   /** The timeline ref when no terminal event was appended (crash path). */
-  openTimeline: PostedRef | undefined
+  openTimeline: TimelineRef | undefined
   crashReason: string | undefined
   pointerTs: string | undefined
 }): Promise<void> {

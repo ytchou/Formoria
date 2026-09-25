@@ -14,6 +14,10 @@ import type { DetectorResult } from './types'
 import type { RepairRequest } from './repair-request'
 import type { RunHealthAgentResult } from './run'
 import type { RunEvent } from '@/lib/services/run-timeline/types'
+import { escapeSlackMrkdwn } from '@/lib/adapters/slack/blocks'
+
+// Re-exported so existing importers (ops-agent/execute.ts, tests) keep working.
+export { escapeSlackMrkdwn }
 
 // ---------------------------------------------------------------------------
 // Label resolution
@@ -42,7 +46,6 @@ export type TicketSpec = {
   title: string
   body: string
   labels: Array<'Data Quality' | 'Ops'>
-  fingerprints: string[]
 }
 
 export type FindingTicketOptions = {
@@ -50,8 +53,6 @@ export type FindingTicketOptions = {
   traceUrl: string
   /** Run date (YYYY-MM-DD, Asia/Taipei). */
   date: string
-  /** Investigator diagnosis for this finding, if available. */
-  investigation?: string
 }
 
 /**
@@ -89,12 +90,6 @@ function findingTicketBody(
     lines.push('```')
   }
 
-  if (options.investigation) {
-    lines.push('')
-    lines.push('**Investigator diagnosis:**')
-    lines.push(options.investigation)
-  }
-
   lines.push('')
   lines.push(`[Langfuse trace](${options.traceUrl})`)
   return lines.join('\n')
@@ -109,7 +104,6 @@ export function buildFindingTicket(
     title: `Health Agent — ${finding.title}`,
     body: findingTicketBody(finding, options),
     labels: [linearLabelForSource(finding.source)],
-    fingerprints: [finding.fingerprint],
   }
 }
 
@@ -404,20 +398,6 @@ function contextBlock(runId: string | undefined, traceUrl: string | undefined): 
 }
 
 // ---------------------------------------------------------------------------
-// Slack helpers
-// ---------------------------------------------------------------------------
-
-/**
- * Escape text for Slack mrkdwn: neutralise `&`, `<`, and `>` so that
- * interpolated content (e.g. finding titles containing `<Component>` or
- * `<@U12345>`) is rendered literally instead of being interpreted as
- * Slack formatting or mention syntax.
- */
-export function escapeSlackMrkdwn(text: string): string {
-  return text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
-}
-
-// ---------------------------------------------------------------------------
 // Repair trigger message builder
 // ---------------------------------------------------------------------------
 
@@ -503,9 +483,11 @@ export function buildRepairTriggerMessage(
 }
 
 /**
- * The timeline event the server appends when the process exits. A clean or
- * replayed run returns null: success is written by run.ts (`completed` or
- * `repair_requested`), never at exit. `undefined` result = crashed.
+ * The timeline event the server appends when the process exits. Only a
+ * crashed (`undefined` result) or failed run writes at exit. A completed run
+ * returns null even when the digest failed (exitCode != 0): run.ts already
+ * wrote `completed` or `repair_requested`, and an exit-time `failed` would
+ * contradict it and race the ops-agent's `repair_started` append.
  */
 export function buildRunFailureEvent(
   result: RunHealthAgentResult | undefined,
@@ -519,9 +501,6 @@ export function buildRunFailureEvent(
       outcome: 'failed',
       ...(result.error ? { reason: result.error } : {}),
     }
-  }
-  if (result.status === 'completed' && result.exitCode !== 0) {
-    return { kind: 'failed', at, outcome: 'digest-failed' }
   }
   return null
 }

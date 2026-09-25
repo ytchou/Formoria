@@ -23,7 +23,7 @@ describe("applyRoutineTimelineEvent — kind allowlist", () => {
     async (kind) => {
       const deps = makeDeps();
       const result = await applyRoutineTimelineEvent(
-        { ...REF, event: { kind, at: 1, sessionUrl: "https://x.test" } },
+        { ...REF, event: { kind, at: 1, sessionUrl: "https://claude.ai/code/session_01HqK7xZ3mP9" } },
         deps,
       );
       expect(result.ok).toBe(false);
@@ -34,7 +34,7 @@ describe("applyRoutineTimelineEvent — kind allowlist", () => {
   it("rejects a malformed payload for an allowed kind", async () => {
     const deps = makeDeps();
     const result = await applyRoutineTimelineEvent(
-      { ...REF, event: { kind: "pr_opened", number: "12", url: "https://github.com/x" } },
+      { ...REF, event: { kind: "pr_opened", number: "12", url: "https://github.com/ytchou/Formoria/pull/1252" } },
       deps,
     );
     expect(result.ok).toBe(false);
@@ -97,6 +97,42 @@ describe("applyRoutineTimelineEvent — append", () => {
     });
   });
 
+  it("strips relay-only fingerprints from every filed ticket before appending", async () => {
+    const deps = makeDeps();
+    await applyRoutineTimelineEvent(
+      {
+        ...REF,
+        event: {
+          kind: "tickets_filed",
+          tickets: [
+            {
+              id: "DEV-2041",
+              url: "https://linear.app/ytchou/issue/DEV-2041",
+              title: "Resend domain unverified",
+              fingerprints: ["resend-domain:formoria.com", "resend-domain:mail.formoria.com"],
+            },
+          ],
+        },
+      },
+      deps,
+    );
+    expect(deps.appendRunEvent).toHaveBeenCalledWith(REF, {
+      kind: "tickets_filed",
+      at: NOW,
+      tickets: [
+        {
+          id: "DEV-2041",
+          url: "https://linear.app/ytchou/issue/DEV-2041",
+          title: "Resend domain unverified",
+        },
+      ],
+    });
+    expect(deps.recordTickets).toHaveBeenCalledWith([
+      { fingerprint: "resend-domain:formoria.com", identifier: "DEV-2041" },
+      { fingerprint: "resend-domain:mail.formoria.com", identifier: "DEV-2041" },
+    ]);
+  });
+
   it("reports appended: false when the timeline append fails", async () => {
     const deps = makeDeps({ appendRunEvent: vi.fn(async () => false) });
     const result = await applyRoutineTimelineEvent({ ...REF, event: { kind: "completed" } }, deps);
@@ -152,7 +188,7 @@ describe("applyRoutineTimelineEvent — ticket write-back", () => {
           kind: "pr_opened",
           number: 7,
           url: "https://github.com/ytchou/formoria/pull/7",
-          title: "fix(DEV-1874): x",
+          title: "fix(DEV-1874): retry Resend domain check",
           ticketId: "DEV-1874",
           fingerprints: ["fp-z"],
         },
@@ -173,7 +209,7 @@ describe("applyRoutineTimelineEvent — ticket write-back", () => {
           kind: "pr_opened",
           number: 7,
           url: "https://github.com/ytchou/formoria/pull/7",
-          title: "fix: x",
+          title: "fix(e2e): update brand card selector",
           fingerprints: ["fp-z"],
         },
       },
@@ -198,7 +234,7 @@ describe("applyRoutineTimelineEvent — ticket write-back", () => {
             {
               id: "DEV-1871",
               url: "https://linear.app/formoria/issue/DEV-1871",
-              title: "t",
+              title: "Resend domain unverified",
               fingerprints: ["fp-a"],
             },
           ],

@@ -105,16 +105,16 @@ The run's parent message in Slack shows a timeline. You append these events to i
 | `completed` | last, after the Repair Summary is posted | none |
 | `failed` | instead of `completed`, when you give up on the whole task | `outcome` (short slug, e.g. `verification_failed`), optional `reason` (one sentence) |
 
-The server sets the timestamp. Pass fingerprints as separate positional arguments so that no payload text is parsed as shell or JSON:
+The server sets the timestamp. Pass fingerprints as separate positional arguments so that no payload text is parsed as shell or JSON. An optional field must be left out of the event, never sent as an empty string: the relay answers 400 to `ticketId: ""`. The templates below drop an empty `ticketId` or `reason` for you:
 
 ```bash
-# pr_opened
+# pr_opened (E2E path: --arg ticketId "" and no fingerprints after --args)
 jq -n \
   --arg channel "<repair.timeline.channel>" --arg ts "<repair.timeline.ts>" \
   --argjson number <PR number> --arg url "<PR url>" --arg title "<PR title>" \
   --arg ticketId "<PR ticket ID, e.g. DEV-1870>" \
-  '{channel:$channel, ts:$ts, event:{kind:"pr_opened", number:$number, url:$url, title:$title,
-    ticketId:$ticketId, fingerprints:$ARGS.positional}}' \
+  '{channel:$channel, ts:$ts, event:({kind:"pr_opened", number:$number, url:$url, title:$title,
+    fingerprints:$ARGS.positional} + (if $ticketId == "" then {} else {ticketId:$ticketId} end))}' \
   --args "<fingerprint 1>" "<fingerprint 2>" > /tmp/timeline-pr.json
 source /tmp/relay.sh && relay /api/internal/run-timeline /tmp/timeline-pr.json
 
@@ -132,14 +132,15 @@ source /tmp/relay.sh && relay /api/internal/run-timeline /tmp/timeline-tickets.j
 # completed (or failed)
 jq -n --arg channel "<repair.timeline.channel>" --arg ts "<repair.timeline.ts>" \
   '{channel:$channel, ts:$ts, event:{kind:"completed"}}' > /tmp/timeline-done.json
-#   failed: add --arg outcome "<slug>" --arg reason "<one sentence>" and use
-#   '{channel:$channel, ts:$ts, event:{kind:"failed", outcome:$outcome, reason:$reason}}'
+#   failed: add --arg outcome "<slug>" --arg reason "<one sentence, or empty>" and use
+#   '{channel:$channel, ts:$ts, event:({kind:"failed", outcome:$outcome}
+#     + (if $reason == "" then {} else {reason:$reason} end))}'
 source /tmp/relay.sh && relay /api/internal/run-timeline /tmp/timeline-done.json
 ```
 
-- Omit `ticketId` from `pr_opened` when the PR has no PR ticket (the E2E path).
+- On the E2E path the PR has no PR ticket: pass `--arg ticketId ""` so the template leaves `ticketId` out, and pass nothing after `--args`.
 - Send `tickets_filed` only when you created at least one new ticket. Leave out tickets that already existed.
-- The fingerprints you send are written back to the findings ledger, so the health agent does not re-send those findings tomorrow. If this session dies before it reports its tickets, the findings stay unticketed and come back the next night. That is the intended recovery.
+- The fingerprints you send are written back to the findings ledger as the ticket ID. The health agent still re-sends every active repairable finding each night, but with its `ticketId` attached, so the next routine reuses the open ticket instead of filing a duplicate. If this session dies before it reports its tickets, the findings come back the next night without a `ticketId` and get triaged as new. That is the intended recovery.
 
 If `repair.agent === "e2e-agent"`, follow **Execution — E2E repair path** below instead of the generic repair path. Every other `repair` uses **Execution — Repair path**.
 
@@ -166,7 +167,7 @@ Classify each finding into exactly one category:
 
 ### Step 3: Fix on one branch
 
-Put all fixes on the Step 0 branch. Open **one PR** that targets `staging`. E2E repairs get no PR ticket: the PR and the timeline are enough. Right after `gh pr create`, send `pr_opened` without `ticketId` (see **Run timeline events**). Env/data tickets from Step 2 go out as one `tickets_filed` event.
+Put all fixes on the Step 0 branch. Open **one PR** that targets `staging`. E2E repairs get no PR ticket: the PR and the timeline are enough. Right after `gh pr create`, send `pr_opened` with `--arg ticketId ""` so the template leaves `ticketId` out (see **Run timeline events**). Env/data tickets from Step 2 go out as one `tickets_filed` event.
 
 ### Step 4: Verify each fix against staging
 

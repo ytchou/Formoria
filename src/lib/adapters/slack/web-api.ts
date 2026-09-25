@@ -197,20 +197,15 @@ export async function readMessageMetadata(
   return auditedCall(
     { provider: "slack", operation: "read_message_metadata", kind: "external" },
     async () => {
-      const query = new URLSearchParams({
-        channel: params.channel,
-        latest: params.ts,
-        oldest: params.ts,
-        inclusive: "true",
-        limit: "1",
-        include_all_metadata: "true",
-      });
       type HistoryResponse = {
         ok: boolean;
         error?: string;
         messages?: Array<{ ts?: string; metadata?: SlackMessageMetadata }>;
       };
-      const fetchPage = async (method: string): Promise<HistoryResponse> => {
+      const fetchPage = async (
+        method: string,
+        query: URLSearchParams,
+      ): Promise<HistoryResponse> => {
         const response = await fetch(
           `https://slack.com/api/${method}?${query.toString()}`,
           {
@@ -221,7 +216,17 @@ export async function readMessageMetadata(
         return (await response.json()) as HistoryResponse;
       };
 
-      const history = await fetchPage("conversations.history");
+      const history = await fetchPage(
+        "conversations.history",
+        new URLSearchParams({
+          channel: params.channel,
+          latest: params.ts,
+          oldest: params.ts,
+          inclusive: "true",
+          limit: "1",
+          include_all_metadata: "true",
+        }),
+      );
       if (!history.ok) {
         return { ok: false as const, error: history.error ?? "unknown_error" };
       }
@@ -231,9 +236,20 @@ export async function readMessageMetadata(
       }
 
       // conversations.history returns top-level messages only; a timeline posted
-      // as a thread reply is found through conversations.replies.
-      query.set("ts", params.ts);
-      const replies = await fetchPage("conversations.replies");
+      // as a thread reply is found through conversations.replies. Slack always
+      // returns the thread parent first, so the page must hold more than one
+      // message; `oldest` skips the replies posted before the timeline.
+      const replies = await fetchPage(
+        "conversations.replies",
+        new URLSearchParams({
+          channel: params.channel,
+          ts: params.ts,
+          oldest: params.ts,
+          inclusive: "true",
+          limit: "10",
+          include_all_metadata: "true",
+        }),
+      );
       if (!replies.ok) {
         if (replies.error === "thread_not_found") {
           return { ok: true as const, metadata: null };

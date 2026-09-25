@@ -43,25 +43,7 @@ function fakeClient(options: {
       update: (data: unknown) => {
         tableWrites.push({ table, op: 'update', data })
         return {
-          eq: (eqColumn: string, eqValue: unknown) => ({
-            in: (inColumn: string, inValues: unknown[]) => ({
-              is: (isColumn: string, isValue: unknown) => {
-                updateFilters.push([
-                  ['eq', eqColumn, eqValue],
-                  ['in', inColumn, inValues],
-                  ['is', isColumn, isValue],
-                ])
-                return {
-                  select: () => Promise.resolve({
-                    data: Array.from(
-                      { length: options.updateResult?.count ?? 1 },
-                      () => ({ id: 'fake-id' }),
-                    ),
-                    error: null,
-                  }),
-                }
-              },
-            }),
+          eq: () => ({
             eq: () => ({
               select: () => Promise.resolve({
                 data: Array.from(
@@ -79,7 +61,25 @@ function fakeClient(options: {
               error: null,
             }),
           }),
-          in: () => ({
+          in: (inColumn: string, inValues: unknown[]) => ({
+            in: (in2Column: string, in2Values: unknown[]) => ({
+              is: (isColumn: string, isValue: unknown) => {
+                updateFilters.push([
+                  ['in', inColumn, inValues],
+                  ['in', in2Column, in2Values],
+                  ['is', isColumn, isValue],
+                ])
+                return {
+                  select: () => Promise.resolve({
+                    data: Array.from(
+                      { length: options.updateResult?.count ?? 1 },
+                      () => ({ id: 'fake-id' }),
+                    ),
+                    error: null,
+                  }),
+                }
+              },
+            }),
             is: () => ({
               select: () => Promise.resolve({
                 data: Array.from(
@@ -253,26 +253,31 @@ describe('lifecycle', () => {
     expect((write.data as Record<string, unknown>).ticketed_at).toBeNull()
   })
 
-  it('recordTickets writes the identifier onto the active unticketed row for each fingerprint', async () => {
-    const { client, tableWrites, updateFilters } = fakeClient()
+  it('recordTickets writes the identifier onto the active unticketed rows in one update per ticket', async () => {
+    const { client, tableWrites, updateFilters } = fakeClient({ updateResult: { count: 2 } })
+    const fpA = 'link:brand_channels:9f3c2a71e4b0'
+    const fpB = 'link:brand_channels:4d81be06c95a'
+    const fpC = 'mdx:content/stories/tainan-indigo.mdx:3b7e'
 
     const updated = await recordTickets(client, [
-      { fingerprint: 'link:dead:a', identifier: 'DEV-2001' },
-      { fingerprint: 'link:dead:b', identifier: 'DEV-2002' },
+      { fingerprint: fpA, identifier: 'DEV-2041' },
+      { fingerprint: fpB, identifier: 'DEV-2041' },
+      { fingerprint: fpC, identifier: 'DEV-2042' },
     ])
 
-    expect(updated).toBe(2)
+    // Two identifiers, two round trips; the fake reports 2 rows per update.
+    expect(updated).toBe(4)
     expect(tableWrites).toHaveLength(2)
     expect(tableWrites.every((w) => w.table === 'health_fix_queue')).toBe(true)
     const first = tableWrites[0].data as Record<string, unknown>
-    expect(first.linear_identifier).toBe('DEV-2001')
+    expect(first.linear_identifier).toBe('DEV-2041')
     expect(typeof first.ticketed_at).toBe('string')
-    expect((tableWrites[1].data as Record<string, unknown>).linear_identifier).toBe('DEV-2002')
+    expect((tableWrites[1].data as Record<string, unknown>).linear_identifier).toBe('DEV-2042')
 
     // Active-row predicate mirrors health_fix_queue_active_fingerprint_idx,
     // and an already-ticketed row is never overwritten.
     expect(updateFilters[0]).toEqual([
-      ['eq', 'fingerprint', 'link:dead:a'],
+      ['in', 'fingerprint', [fpA, fpB]],
       [
         'in',
         'status',
@@ -280,14 +285,14 @@ describe('lifecycle', () => {
       ],
       ['is', 'ticketed_at', null],
     ])
-    expect(updateFilters[1][0]).toEqual(['eq', 'fingerprint', 'link:dead:b'])
+    expect(updateFilters[1][0]).toEqual(['in', 'fingerprint', [fpC]])
   })
 
   it('recordTickets treats a fingerprint with no queue row as a no-op', async () => {
     const { client } = fakeClient({ updateResult: { count: 0 } })
 
     await expect(
-      recordTickets(client, [{ fingerprint: 'e2e:spec:checkout', identifier: 'DEV-2003' }]),
+      recordTickets(client, [{ fingerprint: 'e2e:spec:checkout', identifier: 'DEV-2043' }]),
     ).resolves.toBe(0)
   })
 

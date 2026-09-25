@@ -11,7 +11,8 @@
  *   it is unavailable) → completeRun
  *
  * The run timeline (Slack parent message) gets `started`, `findings`, then
- * `repair_requested` or `completed`. The repair routine owns the rest.
+ * `repair_requested` or `completed`. The repair routine owns the rest. A
+ * failed trigger ends on `repair_failed`, after any fallback `tickets_filed`.
  *
  * `createServiceClient()` is called ONCE, in the server.ts entry point,
  * and passed to this module via `deps.client`.
@@ -21,11 +22,16 @@ import type { AuditContextSeed } from '@/lib/audit/context'
 import { stableFingerprint, type HealthFinding } from './contracts'
 import type { Detector } from './types'
 import type { RepoWorkerClient } from './repo-worker-client'
-import type { RepairFinding, RepairRequest } from './repair-request'
-import type {
-  RunEvent,
-  RunTicket,
-  TimelineRef,
+import {
+  RepairPostRejectedError,
+  type RepairFinding,
+  type RepairRequest,
+} from './repair-request'
+import {
+  nowSeconds,
+  type RunEvent,
+  type RunTicket,
+  type TimelineRef,
 } from '@/lib/services/run-timeline/types'
 import {
   admitRun,
@@ -92,7 +98,11 @@ export type RunHealthAgentDeps = {
     labels: string[]
   }) => Promise<{ identifier: string; url?: string }>
 
-  /** Trigger the ops-agent to repair findings. threadTs threads under the digest. */
+  /**
+   * Trigger the ops-agent to repair findings. threadTs threads under the digest.
+   * Throws `RepairPostRejectedError` when the post definitely did not land;
+   * any other throw means delivery is unknown.
+   */
   triggerRepair?: (request: RepairRequest, threadTs?: string) => Promise<void>
 
   /** Report a top-level crash. */
@@ -116,6 +126,9 @@ export type RunHealthAgentResult = {
   prPublished?: boolean
   error?: string
 }
+
+/** Matches the relay's zod max for `tickets_filed.tickets`. */
+const MAX_TIMELINE_TICKETS = 50
 
 type QualityWorkerFailureKind =
   'clone-auth' | 'install' | 'vitest-exec' | 'knip-exec' | 'worker-transport'
@@ -366,7 +379,6 @@ async function executeRunBody(
       console.error(`[health-agent] timeline ${event.kind} append failed:`, err)
     }
   }
-  const nowSeconds = () => Math.floor(Date.now() / 1000)
 
   // ---- 3. Run detectors ----
   const registryEntries: Detector[] =
@@ -644,25 +656,31 @@ async function executeRunBody(
   let ledgerRead = false
   if (!dryRun && enqueuedIds.length > 0) {
     try {
-      const { data: queueRows } = await client
+      const { data: queueRows, error: ledgerError } = await client
         .from('health_fix_queue')
         .select('id,fingerprint,ticketed_at,linear_identifier')
         .order('created_at', { ascending: false })
         .in('id', enqueuedIds)
         .range(0, enqueuedIds.length - 1)
 
-      for (const row of (queueRows ?? []) as Array<{
-        id: string
-        fingerprint: string
-        ticketed_at: string | null
-        linear_identifier: string | null
-      }>) {
-        if (row.ticketed_at) alreadyTicketed.add(row.fingerprint)
-        if (row.linear_identifier) {
-          linearIdentifiers.set(row.fingerprint, row.linear_identifier)
+      if (ledgerError) {
+        // Same as a thrown read: ledgerRead stays false, so no ticket is filed
+        // this run and repair findings go out without ticketId.
+        console.warn('[health-agent] ticket ledger read returned an error:', ledgerError)
+      } else {
+        for (const row of (queueRows ?? []) as Array<{
+          id: string
+          fingerprint: string
+          ticketed_at: string | null
+          linear_identifier: string | null
+        }>) {
+          if (row.ticketed_at) alreadyTicketed.add(row.fingerprint)
+          if (row.linear_identifier) {
+            linearIdentifiers.set(row.fingerprint, row.linear_identifier)
+          }
         }
+        ledgerRead = true
       }
-      ledgerRead = true
     } catch (err) {
       console.error('[health-agent] ticket ledger read failed:', err)
     }
@@ -702,12 +720,13 @@ async function executeRunBody(
         // No URL, no row: no existing src/ code builds Linear issue links (the
         // workspace slug is not configured), so a ticket without one is left
         // out of the timeline. It is still in Linear and in the ledger.
+        // No fingerprints: only the relay write-back needs them, and they
+        // bloat the Slack metadata.
         if (result.url) {
           filed.push({
             id: result.identifier,
             url: result.url,
             title: finding.title,
-            fingerprints: [finding.fingerprint],
           })
         }
       } catch (err) {
@@ -718,7 +737,12 @@ async function executeRunBody(
       }
     }
     if (filed.length > 0) {
-      await appendEvent({ kind: 'tickets_filed', at: nowSeconds(), tickets: filed })
+      // shortcut: cap 50 tickets per event to bound Slack metadata size; the rest are still filed in Linear, just not listed under Needs you. Upgrade: an 'N more' marker.
+      await appendEvent({
+        kind: 'tickets_filed',
+        at: nowSeconds(),
+        tickets: filed.slice(0, MAX_TIMELINE_TICKETS),
+      })
     }
   }
 
@@ -754,66 +778,66 @@ async function executeRunBody(
 
   // ---- 9.5. Repair trigger (Slack → ops-agent) ----
   // The repair routine owns tickets for the findings it receives. When the
-  // trigger is unconfigured or fails, the health agent files them instead,
-  // so no finding goes without a ticket.
+  // trigger is unconfigured or Slack definitely rejected the post, the health
+  // agent files them instead, so no finding goes without a ticket. The
+  // timeline never ends on `tickets_filed`: a failed trigger ends on
+  // `repair_failed`, an unconfigured one on `completed`.
   if (!dryRun) {
     if (repairableFindings.length === 0) {
       await appendEvent({ kind: 'completed', at: nowSeconds() })
-    } else {
-      let repairDispatched = false
-      if (deps.triggerRepair) {
-        try {
-          const repairRequest: RepairRequest = {
-            agent: 'ops-agent',
-            ref: 'staging',
-            runId,
-            traceUrl,
-            scope: [...new Set(repairableFindings.flatMap(
-              (f) => f.changedFiles ?? [],
-            ))],
-            findings: repairableFindings.map((f): RepairFinding => {
-              const ticketId = linearIdentifiers.get(f.fingerprint)
-              return {
-                fingerprint: f.fingerprint,
-                title: f.title,
-                severity: f.severity,
-                source: f.source,
-                ...(ticketId ? { ticketId } : {}),
-                ...(typeof f.evidence.rootCause === 'string'
-                  ? { rootCause: f.evidence.rootCause }
-                  : {}),
-                ...(typeof f.evidence.permalink === 'string'
-                  ? { permalink: f.evidence.permalink }
-                  : {}),
-                evidence: f.evidence,
-              }
-            }),
-            ...(timeline ? { timeline } : {}),
+    } else if (deps.triggerRepair) {
+      const repairRequest: RepairRequest = {
+        agent: 'ops-agent',
+        ref: 'staging',
+        runId,
+        traceUrl,
+        scope: [...new Set(repairableFindings.flatMap(
+          (f) => f.changedFiles ?? [],
+        ))],
+        findings: repairableFindings.map((f): RepairFinding => {
+          const ticketId = linearIdentifiers.get(f.fingerprint)
+          return {
+            fingerprint: f.fingerprint,
+            title: f.title,
+            severity: f.severity,
+            source: f.source,
+            ...(ticketId ? { ticketId } : {}),
+            ...(typeof f.evidence.rootCause === 'string'
+              ? { rootCause: f.evidence.rootCause }
+              : {}),
+            ...(typeof f.evidence.permalink === 'string'
+              ? { permalink: f.evidence.permalink }
+              : {}),
+            evidence: f.evidence,
           }
-          await appendEvent({ kind: 'repair_requested', at: nowSeconds() })
-          await deps.triggerRepair(repairRequest, threadTs)
-          repairDispatched = true
-          console.log(
-            `[health-agent] repair trigger sent for ${repairableFindings.length} findings`,
-          )
-        } catch (err) {
-          // Repair trigger failure is independent — does NOT set digestFailed
-          console.error('[health-agent] repair trigger failed:', err)
-          await appendEvent({
-            kind: 'repair_failed',
-            at: nowSeconds(),
-            reason: err instanceof Error ? err.message : String(err),
-          })
-        }
+        }),
+        ...(timeline ? { timeline } : {}),
       }
-
-      if (!repairDispatched) {
-        await fileFindingTickets(repairableFindings)
-        // Unconfigured trigger: nothing further will happen for this run.
-        if (!deps.triggerRepair) {
-          await appendEvent({ kind: 'completed', at: nowSeconds() })
+      await appendEvent({ kind: 'repair_requested', at: nowSeconds() })
+      try {
+        await deps.triggerRepair(repairRequest, threadTs)
+        console.log(
+          `[health-agent] repair trigger sent for ${repairableFindings.length} findings`,
+        )
+      } catch (err) {
+        // Repair trigger failure is independent — does NOT set digestFailed
+        console.error('[health-agent] repair trigger failed:', err)
+        if (err instanceof RepairPostRejectedError) {
+          // Definite: the routine never saw the request.
+          await fileFindingTickets(repairableFindings)
+        } else {
+          // ambiguous: the post may have been delivered; the routine tickets, and ticketed_at stays NULL so tomorrow's run re-sends if not.
         }
+        await appendEvent({
+          kind: 'repair_failed',
+          at: nowSeconds(),
+          reason: err instanceof Error ? err.message : String(err),
+        })
       }
+    } else {
+      // Unconfigured trigger: nothing further will happen for this run.
+      await fileFindingTickets(repairableFindings)
+      await appendEvent({ kind: 'completed', at: nowSeconds() })
     }
   }
 

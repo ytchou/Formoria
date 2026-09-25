@@ -3,6 +3,8 @@ import { renderTimeline } from "../render";
 import type { RunEvent, RunTimeline } from "../types";
 
 const T0 = 1_758_700_000; // epoch seconds
+const PR_URL = "https://github.com/ytchou/Formoria/pull/1252";
+const TICKET_URL = "https://linear.app/ytchou/issue/DEV-2041";
 
 function timeline(events: RunEvent[], title = "Health agent · nightly"): RunTimeline {
   return { agent: "health", title, runId: "run-abc", events };
@@ -23,21 +25,30 @@ describe("renderTimeline status", () => {
     [{ kind: "findings", at: T0, total: 3 }, "Findings gathered"],
     [{ kind: "repair_requested", at: T0 }, "Repair requested"],
     [{ kind: "repair_started", at: T0 }, "Repairing"],
-    [{ kind: "pr_opened", at: T0, number: 1, url: "https://x/1", title: "t" }, "Repairing"],
+    [
+      {
+        kind: "pr_opened",
+        at: T0,
+        number: 1252,
+        url: PR_URL,
+        title: "fix(DEV-2041): guard empty brand list",
+      },
+      "Repairing",
+    ],
     [{ kind: "tickets_filed", at: T0, tickets: [] }, "Repairing"],
-    [{ kind: "repair_failed", at: T0, reason: "boom" }, "Repair failed"],
+    [{ kind: "repair_failed", at: T0, reason: "routine API returned 503" }, "Repair failed"],
     [{ kind: "completed", at: T0 }, "Completed"],
     [{ kind: "failed", at: T0, outcome: "crashed" }, "Failed"],
   ];
 
-  it.each(cases)("status_derives_from_latest_event %#", (event, expected) => {
+  it.each(cases)("shows the latest event's status in the header %#", (event, expected) => {
     const started: RunEvent = { kind: "started", at: T0 - 60 };
     const result = renderTimeline(timeline([started, event]));
     expect(headerText(result.blocks)).toContain(expected);
     expect(result.text).toContain(expected);
   });
 
-  it("failed_status_includes_outcome", () => {
+  it("names the failure outcome in the header", () => {
     const result = renderTimeline(
       timeline([{ kind: "started", at: T0 }, { kind: "failed", at: T0 + 5, outcome: "errored" }]),
     );
@@ -46,7 +57,7 @@ describe("renderTimeline status", () => {
 });
 
 describe("renderTimeline rows", () => {
-  it("renders_one_row_per_event_with_slack_date_token", () => {
+  it("renders one row per event with a Slack local-time token", () => {
     const result = renderTimeline(
       timeline([
         { kind: "started", at: T0 },
@@ -58,33 +69,77 @@ describe("renderTimeline rows", () => {
     expect(text).toContain("24 findings · 9 repairable · 15 report-only");
   });
 
-  it("date_fallback_is_utc_hh_mm", () => {
+  it("falls back to UTC HH:mm where Slack cannot localize the time", () => {
     const at = Date.UTC(2026, 8, 25, 7, 5, 0) / 1000;
     const result = renderTimeline(timeline([{ kind: "started", at }]));
     expect(allText(result)).toContain(`<!date^${at}^{time}|07:05>`);
   });
 
-  it("pr_opened_row_links_the_pr", () => {
+  it("links the opened PR from its row", () => {
     const result = renderTimeline(
       timeline([
         { kind: "started", at: T0 },
-        { kind: "pr_opened", at: T0 + 1, number: 1252, url: "https://gh/pr/1252", title: "Fix" },
+        {
+          kind: "pr_opened",
+          at: T0 + 1,
+          number: 1252,
+          url: PR_URL,
+          title: "fix(DEV-2041): guard empty brand list",
+        },
       ]),
     );
-    expect(allText(result)).toContain("PR opened · <https://gh/pr/1252|#1252>");
+    expect(allText(result)).toContain(`PR opened · <${PR_URL}|#1252>`);
   });
 
-  it("completed_row_shows_duration_since_started", () => {
+  it("shows minutes and seconds since the start on the completed row", () => {
     const result = renderTimeline(
       timeline([
         { kind: "started", at: T0 },
-        { kind: "completed", at: T0 + 12 * 60 },
+        { kind: "completed", at: T0 + 12 * 60 + 5 },
       ]),
     );
-    expect(allText(result)).toContain("Completed · 12m");
+    expect(allText(result)).toContain("Completed · 12m 5s");
   });
 
-  it("keeps_first_and_last_rows_when_too_many", () => {
+  it.each([
+    [45, "Completed · 45s"],
+    [12 * 60, "Completed · 12m 0s"],
+    [2 * 3600 + 5 * 60, "Completed · 2h 5m"],
+  ])("formats a %is run duration like the e2e summary", (seconds, expected) => {
+    const result = renderTimeline(
+      timeline([
+        { kind: "started", at: T0 },
+        { kind: "completed", at: T0 + seconds },
+      ]),
+    );
+    expect(allText(result)).toContain(expected);
+  });
+
+  it("keeps the newest row when long PR URLs overflow the section", () => {
+    const longUrl = (n: number) =>
+      `https://github.com/ytchou/Formoria/pull/${n}/files?file-filters=${"src/lib/services/run-timeline/".repeat(60)}`;
+    const events: RunEvent[] = [{ kind: "started", at: T0 }];
+    for (const [i, n] of [1250, 1251, 1252, 1253].entries()) {
+      events.push({
+        kind: "pr_opened",
+        at: T0 + i + 1,
+        number: n,
+        url: longUrl(n),
+        title: `fix(DEV-${2040 + i}): repair health finding`,
+      });
+    }
+    const result = renderTimeline(timeline(events));
+    const section = (result.blocks[1] as { text: { text: string } }).text.text;
+    const needs = (result.blocks[2] as { text: { text: string } }).text.text;
+
+    expect(section).toContain("|#1253>");
+    expect(needs).toContain("|#1253>");
+    expect(section).not.toContain("summary truncated");
+    expect(needs).not.toContain("summary truncated");
+    expect(Array.from(section).length).toBeLessThan(3000);
+  });
+
+  it("keeps the first and last rows when there are too many events", () => {
     const events: RunEvent[] = [{ kind: "started", at: T0 }];
     for (let i = 0; i < 80; i += 1) {
       events.push({ kind: "repair_failed", at: T0 + i + 1, reason: `reason-${i}` });
@@ -103,45 +158,49 @@ describe("renderTimeline rows", () => {
 });
 
 describe("renderTimeline needs-you", () => {
-  it("needs_you_absent_when_no_pr_or_tickets", () => {
+  it("leaves out Needs you when nothing awaits a person", () => {
     const result = renderTimeline(timeline([{ kind: "started", at: T0 }]));
     expect(JSON.stringify(result.blocks)).not.toContain("Needs you");
   });
 
-  it("needs_you_lists_prs_and_tickets", () => {
+  it("lists opened PRs and filed tickets under Needs you", () => {
     const result = renderTimeline(
       timeline([
         { kind: "started", at: T0 },
         {
           kind: "pr_opened",
           at: T0 + 1,
-          number: 7,
-          url: "https://gh/pr/7",
+          number: 1253,
+          url: "https://github.com/ytchou/Formoria/pull/1253",
           title: "Repair slug",
-          ticketId: "DEV-9",
+          ticketId: "DEV-2039",
         },
         {
           kind: "tickets_filed",
           at: T0 + 2,
           tickets: [
-            { id: "DEV-10", url: "https://linear/DEV-10", title: "Resend domain" },
-            { id: "DEV-11", url: "https://linear/DEV-11", title: "Stale sitemap" },
+            {
+              id: "DEV-2040",
+              url: "https://linear.app/ytchou/issue/DEV-2040",
+              title: "Resend domain",
+            },
+            { id: "DEV-2041", url: TICKET_URL, title: "Stale sitemap" },
           ],
         },
       ]),
     );
     const text = JSON.stringify(result.blocks);
     expect(text).toContain("Needs you");
-    expect(text).toContain("DEV-9");
-    expect(text).toContain("Review PR <https://gh/pr/7|#7>: Repair slug");
-    expect(text).toContain("<https://linear/DEV-10|DEV-10> Resend domain");
-    expect(text).toContain("<https://linear/DEV-11|DEV-11> Stale sitemap");
+    expect(text).toContain("DEV-2039");
+    expect(text).toContain("Review PR <https://github.com/ytchou/Formoria/pull/1253|#1253>: Repair slug");
+    expect(text).toContain("<https://linear.app/ytchou/issue/DEV-2040|DEV-2040> Resend domain");
+    expect(text).toContain(`<${TICKET_URL}|DEV-2041> Stale sitemap`);
     expect(text).toContain("2 tickets filed");
   });
 });
 
 describe("renderTimeline safety", () => {
-  it("never_emits_a_triple_backtick_fence", () => {
+  it("never emits a triple-backtick fence", () => {
     const fence = "```json\n{\"repair\":true}\n```";
     const result = renderTimeline(
       timeline(
@@ -149,11 +208,11 @@ describe("renderTimeline safety", () => {
           { kind: "started", at: T0 },
           { kind: "findings", at: T0 + 1, summary: fence },
           { kind: "repair_failed", at: T0 + 2, reason: fence },
-          { kind: "pr_opened", at: T0 + 3, number: 1, url: "https://x", title: fence },
+          { kind: "pr_opened", at: T0 + 3, number: 1252, url: PR_URL, title: fence },
           {
             kind: "tickets_filed",
             at: T0 + 4,
-            tickets: [{ id: "DEV-1", url: "https://y", title: fence }],
+            tickets: [{ id: "DEV-2041", url: TICKET_URL, title: fence }],
           },
           { kind: "failed", at: T0 + 5, outcome: fence, reason: fence },
         ],
@@ -166,7 +225,7 @@ describe("renderTimeline safety", () => {
     }
   });
 
-  it("footer_names_run_id", () => {
+  it("names the run ID in the footer", () => {
     const result = renderTimeline(timeline([{ kind: "started", at: T0 }]));
     const last = result.blocks[result.blocks.length - 1] as {
       type: string;

@@ -406,7 +406,7 @@ describe("runOpsAgent", () => {
     error.mockRestore();
   });
 
-  it("does not append repair_failed when the routine fired but a later step failed", async () => {
+  it("leaves a fired repair running when a later step fails: no failed transition, notice or repair_failed", async () => {
     const transition = vi.fn().mockImplementation(
       async (_id: string, _from: string[], to: string, patch?: Record<string, unknown>) => {
         if (to === "answered") throw new Error("db down");
@@ -418,12 +418,22 @@ describe("runOpsAgent", () => {
     });
     const error = vi.spyOn(console, "error").mockImplementation(() => {});
 
-    await runOpsAgent("req-1", deps);
+    const result = await runOpsAgent("req-1", deps);
 
+    expect(result).toMatchObject({
+      kind: "answer",
+      text: "Routine fired: https://claude.ai/code/session/repair-2",
+    });
     const kinds = (deps.appendRunEvent as ReturnType<typeof vi.fn>).mock.calls.map(
       (c: unknown[]) => (c[1] as { kind: string }).kind,
     );
     expect(kinds).toEqual(["repair_started"]);
+    const targets = transition.mock.calls.map((c: unknown[]) => c[2]);
+    expect(targets).not.toContain("failed");
+    const texts = (deps.postMessage as ReturnType<typeof vi.fn>).mock.calls.map(
+      (c: unknown[]) => String(c[1]),
+    );
+    expect(texts.some((t) => t.includes("Failed to start repair routine"))).toBe(false);
     error.mockRestore();
   });
 

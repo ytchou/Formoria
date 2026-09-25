@@ -11,6 +11,7 @@ import type {
   RepairFinding,
   RepairRequest,
 } from '@/lib/services/health-agent/repair-request'
+import type { TimelineRef } from '@/lib/services/run-timeline/types'
 import { canonicalKey, freezeFailures } from './freeze'
 
 // ---------------------------------------------------------------------------
@@ -37,7 +38,7 @@ export type E2eRepairRequestInput = {
   runId: string
   stagingSha: string
   /** Slack parent message of the run timeline; counted inside the size cap. */
-  timeline?: { channel: string; ts: string }
+  timeline?: TimelineRef
 }
 
 export type E2eRepairRequestResult = {

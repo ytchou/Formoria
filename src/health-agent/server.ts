@@ -14,6 +14,7 @@ import { bootWorker, logWorkerBuildInfo } from '@/worker-boot'
 import { assertDatabaseTarget } from '@/lib/supabase/project-target'
 import { isStagingEnvironment } from '@/lib/deployment-environment'
 import type { RepairRequest } from '@/lib/services/health-agent/repair-request'
+import type { TimelineRef } from '@/lib/services/run-timeline/types'
 
 // ---------------------------------------------------------------------------
 // Dynamic imports — populated after bootWorker
@@ -79,6 +80,14 @@ let appendRunEvent: Awaited<
   typeof import('@/lib/services/run-timeline/append')
 >['appendRunEvent']
 
+let nowSeconds: Awaited<
+  typeof import('@/lib/services/run-timeline/types')
+>['nowSeconds']
+
+let RepairPostRejectedError: Awaited<
+  typeof import('@/lib/services/health-agent/repair-request')
+>['RepairPostRejectedError']
+
 // ---------------------------------------------------------------------------
 // Boot
 // ---------------------------------------------------------------------------
@@ -113,6 +122,10 @@ await bootWorker({
     ))
     ;({ startTimeline, appendRunEvent } = await import(
       '@/lib/services/run-timeline/append'
+    ))
+    ;({ nowSeconds } = await import('@/lib/services/run-timeline/types'))
+    ;({ RepairPostRejectedError } = await import(
+      '@/lib/services/health-agent/repair-request'
     ))
   },
   async reportFailure(context, error) {
@@ -178,12 +191,15 @@ async function main(): Promise<never> {
       ? async (request: RepairRequest, threadTs?: string) => {
           const blocks = buildRepairTriggerBlocks(request, 'Health Agent')
           const fallback = buildRepairTriggerMessage(opsAgentBotId, request, 'Health agent')
-          await postMessage({
+          // A thrown error (timeout, network) is left as-is: delivery is
+          // ambiguous. Only Slack's explicit { ok: false } is a definite miss.
+          const posted = await postMessage({
             channel: repairChannel,
             text: fallback,
             blocks,
             threadTs,
           })
+          if (!posted.ok) throw new RepairPostRejectedError(posted.error)
         }
       : undefined
 
@@ -194,7 +210,7 @@ async function main(): Promise<never> {
 
   let exitCode = 0
   let runResult: Awaited<ReturnType<typeof runHealthAgent>> | undefined
-  let timelineRef: { channel: string; ts: string } | undefined
+  let timelineRef: TimelineRef | undefined
 
   try {
     const result = await runHealthAgent({
@@ -221,7 +237,7 @@ async function main(): Promise<never> {
         timelineRef = ref ?? undefined
         return ref
       },
-      appendRunEvent: (ref, event) => appendRunEvent(ref, event),
+      appendRunEvent,
       slackPostDigest: async ({ text, blocks }, digestThreadTs) => {
         const channel = process.env.HEALTH_AGENT_SLACK_CHANNEL
         if (!channel) return
@@ -249,10 +265,10 @@ async function main(): Promise<never> {
       }).catch(() => {})
     }
   } finally {
-    // A successful run already wrote `completed` or `repair_requested` from
-    // run.ts; only crashed, failed or digest-failed runs write at exit.
+    // A completed run (digest failure included) already closed its timeline
+    // from run.ts; only crashed or failed runs write at exit.
     const failure = timelineRef
-      ? buildRunFailureEvent(runResult, Math.floor(Date.now() / 1000))
+      ? buildRunFailureEvent(runResult, nowSeconds())
       : null
     if (timelineRef && failure) {
       await appendRunEvent(timelineRef, failure) // never throws

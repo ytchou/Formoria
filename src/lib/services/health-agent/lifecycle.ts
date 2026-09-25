@@ -39,14 +39,14 @@ export type HealthLedgerClient = {
     }
     update: (data: Record<string, unknown>) => {
       eq: (column: string, value: unknown) => {
+        select: () => Promise<{ data: unknown[] | null; error: unknown }>
+      }
+      in: (column: string, values: unknown[]) => {
         in: (column: string, values: unknown[]) => {
           is: (column: string, value: unknown) => {
             select: () => Promise<{ data: unknown[] | null; error: unknown }>
           }
         }
-        select: () => Promise<{ data: unknown[] | null; error: unknown }>
-      }
-      in: (column: string, values: unknown[]) => {
         is: (column: string, value: unknown) => {
           select: () => Promise<{ data: unknown[] | null; error: unknown }>
         }
@@ -281,22 +281,30 @@ export async function releaseFailedReservations(
  * fingerprint is unambiguous because `health_fix_queue_active_fingerprint_idx`
  * is a partial unique index over the same active statuses. Fingerprints with
  * no such row (e2e findings have no queue row, or the row is already
- * ticketed) are no-ops. Returns the number of rows updated.
+ * ticketed) are no-ops. One UPDATE per identifier: a ticket covering several
+ * fingerprints writes them in a single round trip. Returns the number of rows
+ * updated.
  */
 export async function recordTickets(
   client: HealthLedgerClient,
   tickets: Array<{ fingerprint: string; identifier: string }>,
 ): Promise<number> {
-  let updated = 0
-
+  const byIdentifier = new Map<string, string[]>()
   for (const ticket of tickets) {
+    const fingerprints = byIdentifier.get(ticket.identifier) ?? []
+    fingerprints.push(ticket.fingerprint)
+    byIdentifier.set(ticket.identifier, fingerprints)
+  }
+
+  let updated = 0
+  for (const [identifier, fingerprints] of byIdentifier) {
     const { data, error } = await client
       .from('health_fix_queue')
       .update({
-        linear_identifier: ticket.identifier,
+        linear_identifier: identifier,
         ticketed_at: new Date().toISOString(),
       })
-      .eq('fingerprint', ticket.fingerprint)
+      .in('fingerprint', fingerprints)
       .in('status', [...ACTIVE_FIX_STATUSES])
       .is('ticketed_at', null)
       .select()

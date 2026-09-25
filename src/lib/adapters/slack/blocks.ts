@@ -111,6 +111,11 @@ export function renderAnswer(text: string): SlackBlock[] {
   ];
 }
 
+/** Escapes the three characters Slack mrkdwn treats as control characters. */
+export function escapeSlackMrkdwn(text: string): string {
+  return text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+}
+
 type ThreadNoticeInput = {
   title: string;
   body: string;
@@ -119,7 +124,7 @@ type ThreadNoticeInput = {
 
 const HEADER_TEXT_LIMIT = 150;
 
-function truncatePlain(text: string, limit: number): string {
+export function truncatePlain(text: string, limit: number): string {
   const characters = Array.from(text);
   if (characters.length <= limit) return text;
   return characters.slice(0, limit - 1).join("") + "…";

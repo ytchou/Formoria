@@ -59,3 +59,8 @@ export type RunTimeline = {
 };
 
 export type TimelineRef = { channel: string; ts: string };
+
+/** Current time in epoch seconds, the unit every RunEvent `at` uses. */
+export function nowSeconds(): number {
+  return Math.floor(Date.now() / 1000);
+}

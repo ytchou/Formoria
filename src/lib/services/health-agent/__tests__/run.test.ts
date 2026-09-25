@@ -13,7 +13,7 @@ import {
   type RunHealthAgentDeps,
 } from '../run'
 import type { RepoWorkerClient } from '../repo-worker-client'
-import type { RepairRequest } from '../repair-request'
+import { RepairPostRejectedError, type RepairRequest } from '../repair-request'
 import { buildRepairTriggerBlocks, buildRepairTriggerMessage } from '../report'
 import {
   appendRunEvent,
@@ -979,7 +979,10 @@ function fakeSlack() {
  * Ledger fake: distinct queue ids per fingerprint, a configurable set of
  * already-ticketed fingerprints, and recorded reserve/finalize/release writes.
  */
-function ticketClient(ticketed: Record<string, string> = {}) {
+function ticketClient(
+  ticketed: Record<string, string> = {},
+  options: { ledgerReadError?: unknown } = {},
+) {
   const client = stubClient()
   const reserved: string[][] = []
   const finalized: Array<{ id: string; linearIdentifier: string }> = []
@@ -1021,6 +1024,9 @@ function ticketClient(ticketed: Record<string, string> = {}) {
     })
     chain.range = vi.fn(async () => {
       selects.push(state.columns)
+      if (options.ledgerReadError) {
+        return { data: null, error: options.ledgerReadError }
+      }
       return {
         data: state.ids.map((id) => {
           const fingerprint = id.slice('id:'.length)
@@ -1194,11 +1200,11 @@ describe('runHealthAgent — run timeline', () => {
     expect(threadTs).toBe(PARENT_TS)
   })
 
-  it('appends repair_failed when the repair trigger throws', async () => {
+  it('ends on repair_failed when the repair trigger times out', async () => {
     const slack = fakeSlack()
     const deps = timelineDeps(slack, [REPAIRABLE], {
       triggerRepair: vi.fn(async () => {
-        throw new Error('slack down')
+        throw new Error('The operation was aborted due to timeout')
       }),
     })
 
@@ -1211,7 +1217,9 @@ describe('runHealthAgent — run timeline', () => {
       'repair_requested',
       'repair_failed',
     ])
-    expect(events[3]).toMatchObject({ reason: 'slack down' })
+    expect(events[3]).toMatchObject({
+      reason: 'The operation was aborted due to timeout',
+    })
   })
 
   it('makes no appends when the timeline could not be started', async () => {
@@ -1329,9 +1337,9 @@ describe('runHealthAgent — per-finding tickets', () => {
     expect(titles.some((title) => title.includes('Sentry issue'))).toBe(false)
   })
 
-  it('files fallback tickets for new repairable findings when triggerRepair throws', async () => {
+  it('files fallback tickets for new repairable findings when Slack rejects the repair post', async () => {
     const ledger = ticketClient()
-    const linearCreateTicket = vi.fn(async () => ({ identifier: 'DEV-30' }))
+    const linearCreateTicket = vi.fn(async () => ({ identifier: 'DEV-2041' }))
 
     await runHealthAgent(baseDeps({
       client: ledger.client,
@@ -1344,7 +1352,7 @@ describe('runHealthAgent — per-finding tickets', () => {
       ],
       linearCreateTicket,
       triggerRepair: vi.fn(async () => {
-        throw new Error('ops agent unreachable')
+        throw new RepairPostRejectedError('msg_too_long')
       }),
     }))
 
@@ -1352,8 +1360,61 @@ describe('runHealthAgent — per-finding tickets', () => {
     const [spec] = linearCreateTicket.mock.calls[0] as unknown as [{ title: string }]
     expect(spec.title).toContain('Repairable finding')
     expect(ledger.finalized).toEqual([
-      { id: `id:${REPAIRABLE.fingerprint}`, linearIdentifier: 'DEV-30' },
+      { id: `id:${REPAIRABLE.fingerprint}`, linearIdentifier: 'DEV-2041' },
     ])
+  })
+
+  it('files no fallback ticket when the repair post may have been delivered', async () => {
+    const ledger = ticketClient()
+    const linearCreateTicket = vi.fn(async () => ({ identifier: 'DEV-2042' }))
+
+    await runHealthAgent(baseDeps({
+      client: ledger.client,
+      registryOverride: [
+        makeDetector({
+          name: 'brand-invariants',
+          source: 'directory',
+          run: async () => [REPAIRABLE],
+        }),
+      ],
+      linearCreateTicket,
+      triggerRepair: vi.fn(async () => {
+        throw new Error('The operation was aborted due to timeout')
+      }),
+    }))
+
+    // The routine may already own these findings; tomorrow's run re-sends
+    // them because ticketed_at stays NULL.
+    expect(linearCreateTicket).not.toHaveBeenCalled()
+    expect(ledger.reserved).toEqual([])
+  })
+
+  it('files no ticket and sends repair findings without ticketId when the ledger read returns an error', async () => {
+    const ledger = ticketClient(
+      { [REPAIRABLE.fingerprint]: 'DEV-2043' },
+      { ledgerReadError: { code: '57014', message: 'canceling statement due to statement timeout' } },
+    )
+    const linearCreateTicket = vi.fn(async () => ({ identifier: 'DEV-2044' }))
+    const triggerRepair = vi.fn(async () => {})
+
+    await runHealthAgent(baseDeps({
+      client: ledger.client,
+      registryOverride: [
+        makeDetector({
+          name: 'brand-invariants',
+          source: 'directory',
+          run: async () => [REPORT_ONLY, REPAIRABLE],
+        }),
+      ],
+      linearCreateTicket,
+      triggerRepair,
+    }))
+
+    expect(linearCreateTicket).not.toHaveBeenCalled()
+    expect(ledger.reserved).toEqual([])
+    const request = (triggerRepair.mock.calls as unknown[][])[0][0] as RepairRequest
+    expect(request.findings).toHaveLength(1)
+    expect(request.findings[0].ticketId).toBeUndefined()
   })
 
   it('releases the reservation when ticket creation fails', async () => {
@@ -1480,10 +1541,11 @@ describe('runHealthAgent — tickets_filed timeline event', () => {
           id: 'DEV-1',
           url: urlFor('DEV-1'),
           title: 'Report-only finding',
-          fingerprints: [REPORT_ONLY.fingerprint],
         },
       ],
     })
+    const [ticket] = (events[2] as Extract<RunEvent, { kind: 'tickets_filed' }>).tickets
+    expect(ticket).not.toHaveProperty('fingerprints')
   })
 
   it('appends report-only tickets before repair_requested', async () => {
@@ -1523,16 +1585,37 @@ describe('runHealthAgent — tickets_filed timeline event', () => {
           id: 'DEV-2',
           url: urlFor('DEV-2'),
           title: 'Repairable finding',
-          fingerprints: [REPAIRABLE.fingerprint],
         },
       ],
     })
   })
 
-  it('appends fallback tickets after repair_failed when triggerRepair throws', async () => {
+  it('ends on repair_failed, after the fallback tickets, when Slack rejects the repair post', async () => {
     const { slack, deps } = ticketingDeps([REPAIRABLE], {
       triggerRepair: vi.fn(async () => {
-        throw new Error('ops agent unreachable')
+        throw new RepairPostRejectedError('not_in_channel')
+      }),
+    })
+
+    await runHealthAgent(deps)
+
+    const events = slack.events(PARENT_TS)
+    expect(events.map((event) => event.kind)).toEqual([
+      'started',
+      'findings',
+      'repair_requested',
+      'tickets_filed',
+      'repair_failed',
+    ])
+    expect(events[4]).toMatchObject({
+      reason: 'repair trigger post rejected by Slack: not_in_channel',
+    })
+  })
+
+  it('ends on repair_failed with no fallback tickets when the repair post may have been delivered', async () => {
+    const { slack, deps } = ticketingDeps([REPAIRABLE], {
+      triggerRepair: vi.fn(async () => {
+        throw new Error('fetch failed')
       }),
     })
 
@@ -1543,8 +1626,30 @@ describe('runHealthAgent — tickets_filed timeline event', () => {
       'findings',
       'repair_requested',
       'repair_failed',
-      'tickets_filed',
     ])
+  })
+
+  it('lists at most 50 tickets in one event while filing every one in Linear', async () => {
+    const findings = Array.from({ length: 51 }, (_, i) =>
+      finding(`directory:brand-missing-logo:${(0x1a2b3c + i).toString(16)}`, {
+        disposition: 'report_only',
+        title: `Brand ${i + 1} has no logo`,
+      }),
+    )
+    const { slack, deps } = ticketingDeps(findings, {
+      triggerRepair: vi.fn(async () => {}),
+    })
+
+    await runHealthAgent(deps)
+
+    expect(deps.linearCreateTicket).toHaveBeenCalledTimes(51)
+    const filed = slack
+      .events(PARENT_TS)
+      .filter((event): event is Extract<RunEvent, { kind: 'tickets_filed' }> =>
+        event.kind === 'tickets_filed')
+    expect(filed).toHaveLength(1)
+    expect(filed[0].tickets).toHaveLength(50)
+    expect(filed[0].tickets[0].id).toBe('DEV-1')
   })
 
   it('leaves a ticket without a url out of the event, and skips the event when none remain', async () => {
