@@ -791,6 +791,14 @@ export async function checkRateLimit(request: NextRequest): Promise<NextResponse
   // agent before signature verification runs — same class of issue as /api/cron/.
   if (normalizedPathname.startsWith('/api/slack/')) return null
 
+  // The staging e2e agent claims and completes ops-bot dispatches here, keyed
+  // on a shared Railway egress IP. It authenticates with a bearer secret, and a
+  // 429 or store outage would strand the dispatch (stale "didn't start" notice,
+  // or a 40-min in-flight lockout) before auth runs. Exact path only — the rest
+  // of /api/internal/ stays metered, matching the origin-guard exemption in
+  // src/proxy.ts.
+  if (normalizedPathname === '/api/internal/e2e-dispatch') return null
+
   // The health endpoint must never be the thing that is down. It matched the
   // `/api/` rule, so on 2026-08-13 a dead store 500ed it for every caller --
   // including Railway's health check, which then blocked the very redeploy that
