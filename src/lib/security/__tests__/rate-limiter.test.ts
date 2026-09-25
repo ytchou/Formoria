@@ -282,6 +282,43 @@ describe('e2e-dispatch rate-limit exemption', () => {
   })
 })
 
+describe('ops routine relay rate-limit exemption', () => {
+  afterEach(() => {
+    setRateLimitStoreForTests(null)
+  })
+
+  const denyingStore = () => ({
+    check: () => ({ allowed: false, remaining: 0, resetAt: Date.now() + 30_000 }),
+  })
+  const internalRequest = (path: string) =>
+    new NextRequest(`https://formoria.com${path}`, {
+      headers: { 'x-forwarded-for': '198.51.100.84' },
+    })
+
+  it.each(['/api/internal/ops-summary', '/api/internal/run-timeline'])(
+    'exempts the exact %s path',
+    async (path) => {
+      setRateLimitStoreForTests(denyingStore())
+
+      await expect(checkRateLimit(internalRequest(path))).resolves.toBeNull()
+    },
+  )
+
+  it('still limits paths that only share the prefix', async () => {
+    setRateLimitStoreForTests(denyingStore())
+
+    for (const path of [
+      '/api/internal/ops-summary-other',
+      '/api/internal/ops-summary/extra',
+      '/api/internal/run-timeline-other',
+      '/api/internal/run-timeline/extra',
+    ]) {
+      const response = await checkRateLimit(internalRequest(path))
+      expect(response?.status).toBe(429)
+    }
+  })
+})
+
 /**
  * Production outage 2026-08-13: the Upstash account hit its 500k-command plan
  * quota, `rateLimiter.check` rejected, and the rejection escaped `proxy()` — so

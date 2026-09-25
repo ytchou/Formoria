@@ -28,4 +28,6 @@ export type RepairRequest = {
   traceUrl?: string
   scope: string[]
   findings: RepairFinding[]
+  /** Slack parent message of the run timeline; absent on old-format requests. */
+  timeline?: { channel: string; ts: string }
 }

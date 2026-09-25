@@ -150,6 +150,15 @@ describe("origin guard exempt paths", () => {
     );
   });
 
+  it.each(["/api/internal/ops-summary", "/api/internal/run-timeline"])(
+    "exempts exactly %s — the ops routine authenticates with a bearer secret — and still guards anything beneath it",
+    (path) => {
+      expect(isOriginGuardExempt(path)).toBe(true);
+      expect(isOriginGuardExempt(`${path}/extra`)).toBe(false);
+      expect(isOriginGuardExempt(`${path}-other`)).toBe(false);
+    },
+  );
+
   it("does not exempt ordinary application paths", () => {
     expect(isOriginGuardExempt("/brands/kinship-goods")).toBe(false);
     expect(isOriginGuardExempt("/api/admin/brands")).toBe(false);

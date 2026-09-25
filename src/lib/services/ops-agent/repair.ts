@@ -25,6 +25,9 @@ const RepairRequestSchema = z.object({
   traceUrl: z.string().optional(),
   scope: z.array(z.string()),
   findings: z.array(RepairFindingSchema).min(1),
+  // Must be declared: zod strips unknown keys, so an undeclared timeline
+  // pointer would be silently dropped before the ops-agent can use it.
+  timeline: z.object({ channel: z.string(), ts: z.string() }).optional(),
 });
 
 // ---------------------------------------------------------------------------

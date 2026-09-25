@@ -3,6 +3,7 @@ import {
   renderAnswer,
   renderProposalCard,
   renderResultCard,
+  renderThreadNotice,
 } from "../blocks";
 
 describe("renderProposalCard", () => {
@@ -99,5 +100,37 @@ describe("renderAnswer", () => {
         text: "Here is the status summary.",
       },
     });
+  });
+});
+
+describe("renderThreadNotice", () => {
+  it("thread_notice_renders_header_section_and_context", () => {
+    const { text, blocks } = renderThreadNotice({
+      title: "Repair failed",
+      body: "Failed to start repair routine",
+      context: "run-123",
+    });
+
+    expect(blocks.map((b) => b.type)).toEqual(["header", "section", "context"]);
+    expect((blocks[0] as { text: { type: string; text: string } }).text).toMatchObject({
+      type: "plain_text",
+      text: "Repair failed",
+    });
+    expect((blocks[1] as { text: { type: string; text: string } }).text).toMatchObject({
+      type: "mrkdwn",
+      text: "Failed to start repair routine",
+    });
+    expect(
+      (blocks[2] as { elements: Array<{ text: string }> }).elements[0]!.text,
+    ).toBe("run-123");
+    expect(text).toContain("Repair failed");
+  });
+
+  it("thread_notice_omits_context_and_truncates_header", () => {
+    const { blocks } = renderThreadNotice({ title: "x".repeat(400), body: "b" });
+
+    expect(blocks.map((b) => b.type)).toEqual(["header", "section"]);
+    const header = (blocks[0] as { text: { text: string } }).text.text;
+    expect(Array.from(header).length).toBeLessThanOrEqual(150);
   });
 });
