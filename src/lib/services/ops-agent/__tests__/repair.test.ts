@@ -87,6 +87,25 @@ describe("extractRepairRequest", () => {
     expect(result!.findings[0].permalink).toBe("https://sentry.io/issues/99999/");
   });
 
+  it("extractRepairRequest_timeline_round_trips", () => {
+    const request: RepairRequest = {
+      ...validRequest,
+      timeline: { channel: "C0123456789", ts: "1727236800.000100" },
+    };
+    const result = extractRepairRequest(wrapJson(request));
+    expect(result).not.toBeNull();
+    expect(result!.timeline).toEqual({
+      channel: "C0123456789",
+      ts: "1727236800.000100",
+    });
+  });
+
+  it("extractRepairRequest_without_timeline_still_parses", () => {
+    const result = extractRepairRequest(wrapJson(validRequest));
+    expect(result).not.toBeNull();
+    expect(result!.timeline).toBeUndefined();
+  });
+
   it("extractRepairRequest_evidence_round_trips", () => {
     const findingWithEvidence: RepairFinding = {
       ...validFinding,

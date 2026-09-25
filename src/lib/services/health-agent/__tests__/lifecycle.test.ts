@@ -6,6 +6,7 @@ import {
   reserveTickets,
   finalizeTickets,
   releaseFailedReservations,
+  recordTickets,
   reconcile,
   releaseClaims,
 } from '../lifecycle'
@@ -25,6 +26,7 @@ function fakeClient(options: {
   const rpcCalls: RpcCall[] = []
   const tableWrites: TableWrite[] = []
   const readCalls: Array<{ table: string }> = []
+  const updateFilters: Array<Array<[string, string, unknown]>> = []
 
   const queryBuilder = (table: string, pages?: Array<{ data: unknown[]; error: null }>) => {
     let pageIndex = 0
@@ -59,7 +61,25 @@ function fakeClient(options: {
               error: null,
             }),
           }),
-          in: () => ({
+          in: (inColumn: string, inValues: unknown[]) => ({
+            in: (in2Column: string, in2Values: unknown[]) => ({
+              is: (isColumn: string, isValue: unknown) => {
+                updateFilters.push([
+                  ['in', inColumn, inValues],
+                  ['in', in2Column, in2Values],
+                  ['is', isColumn, isValue],
+                ])
+                return {
+                  select: () => Promise.resolve({
+                    data: Array.from(
+                      { length: options.updateResult?.count ?? 1 },
+                      () => ({ id: 'fake-id' }),
+                    ),
+                    error: null,
+                  }),
+                }
+              },
+            }),
             is: () => ({
               select: () => Promise.resolve({
                 data: Array.from(
@@ -112,7 +132,7 @@ function fakeClient(options: {
     },
   }
 
-  return { client, rpcCalls, tableWrites, readCalls }
+  return { client, rpcCalls, tableWrites, readCalls, updateFilters }
 }
 
 // ---------------------------------------------------------------------------
@@ -231,6 +251,56 @@ describe('lifecycle', () => {
     // Should null out linear_identifier and ticketed_at
     expect((write.data as Record<string, unknown>).linear_identifier).toBeNull()
     expect((write.data as Record<string, unknown>).ticketed_at).toBeNull()
+  })
+
+  it('recordTickets writes the identifier onto the active unticketed rows in one update per ticket', async () => {
+    const { client, tableWrites, updateFilters } = fakeClient({ updateResult: { count: 2 } })
+    const fpA = 'link:brand_channels:9f3c2a71e4b0'
+    const fpB = 'link:brand_channels:4d81be06c95a'
+    const fpC = 'mdx:content/stories/tainan-indigo.mdx:3b7e'
+
+    const updated = await recordTickets(client, [
+      { fingerprint: fpA, identifier: 'DEV-2041' },
+      { fingerprint: fpB, identifier: 'DEV-2041' },
+      { fingerprint: fpC, identifier: 'DEV-2042' },
+    ])
+
+    // Two identifiers, two round trips; the fake reports 2 rows per update.
+    expect(updated).toBe(4)
+    expect(tableWrites).toHaveLength(2)
+    expect(tableWrites.every((w) => w.table === 'health_fix_queue')).toBe(true)
+    const first = tableWrites[0].data as Record<string, unknown>
+    expect(first.linear_identifier).toBe('DEV-2041')
+    expect(typeof first.ticketed_at).toBe('string')
+    expect((tableWrites[1].data as Record<string, unknown>).linear_identifier).toBe('DEV-2042')
+
+    // Active-row predicate mirrors health_fix_queue_active_fingerprint_idx,
+    // and an already-ticketed row is never overwritten.
+    expect(updateFilters[0]).toEqual([
+      ['in', 'fingerprint', [fpA, fpB]],
+      [
+        'in',
+        'status',
+        ['pending', 'claimed', 'pr_opened', 'awaiting_human', 'merged', 'deployed', 'failed', 'needs_human'],
+      ],
+      ['is', 'ticketed_at', null],
+    ])
+    expect(updateFilters[1][0]).toEqual(['in', 'fingerprint', [fpC]])
+  })
+
+  it('recordTickets treats a fingerprint with no queue row as a no-op', async () => {
+    const { client } = fakeClient({ updateResult: { count: 0 } })
+
+    await expect(
+      recordTickets(client, [{ fingerprint: 'e2e:spec:checkout', identifier: 'DEV-2043' }]),
+    ).resolves.toBe(0)
+  })
+
+  it('recordTickets with no tickets writes nothing', async () => {
+    const { client, tableWrites } = fakeClient()
+
+    await expect(recordTickets(client, [])).resolves.toBe(0)
+    expect(tableWrites).toHaveLength(0)
   })
 
   it('reserve throws when the updated row count differs from the requested count', async () => {

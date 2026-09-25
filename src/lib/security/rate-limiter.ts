@@ -799,6 +799,18 @@ export async function checkRateLimit(request: NextRequest): Promise<NextResponse
   // src/proxy.ts.
   if (normalizedPathname === '/api/internal/e2e-dispatch') return null
 
+  // The ops routine (a Claude Code cloud session) posts its thread summary and
+  // run-timeline events here on the Railway origin. It authenticates with a
+  // bearer secret (OPS_ROUTINE_CALLBACK_TOKEN), and a 429 or store outage would
+  // silently drop the run's Slack report before auth runs. Exact paths only,
+  // matching the origin-guard exemptions in src/proxy.ts.
+  if (
+    normalizedPathname === '/api/internal/ops-summary' ||
+    normalizedPathname === '/api/internal/run-timeline'
+  ) {
+    return null
+  }
+
   // The health endpoint must never be the thing that is down. It matched the
   // `/api/` rule, so on 2026-08-13 a dead store 500ed it for every caller --
   // including Railway's health check, which then blocked the very redeploy that

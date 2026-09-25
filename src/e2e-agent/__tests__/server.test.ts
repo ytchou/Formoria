@@ -9,9 +9,13 @@
  * message into the requester's thread plus an audit pointer in the alerts
  * channel; no dispatch keeps today's alerts-channel behavior.
  *
+ * Run timeline (DEV-1865): the start message is a run timeline; the tests
+ * read its events back from the Slack message metadata the fake stores.
+ *
  * Runner, deps, Slack, and the dispatch client are mocked — no real Supabase,
  * Slack, Playwright, or production endpoint.
- * The repair builders are pure and run for real.
+ * The repair builders and the run-timeline service are pure/real and run for
+ * real against the fake Slack adapter.
  */
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -51,13 +55,38 @@ vi.mock('@/e2e-agent/runner', () => ({
   runE2eSuite: (...args: unknown[]) => mockRunE2eSuite(...args),
 }))
 
-// Slack adapter mock — captures the start, summary, and repair messages
+// Slack adapter mock — captures the start, summary, and repair messages.
+// Message metadata is stored per channel/ts so the real run-timeline service
+// can read back what it wrote.
 const mockPostMessage = vi.fn()
 const mockUpdateMessage = vi.fn()
+const slackMetadata = new Map<string, { event_type: string; event_payload: Record<string, unknown> }>()
+
+type SlackCallParams = {
+  channel: string
+  ts?: string
+  metadata?: { event_type: string; event_payload: Record<string, unknown> }
+}
 
 vi.mock('@/lib/adapters/slack/web-api', () => ({
-  postMessage: (...args: unknown[]) => mockPostMessage(...args),
-  updateMessage: (...args: unknown[]) => mockUpdateMessage(...args),
+  postMessage: async (params: SlackCallParams) => {
+    const res = await mockPostMessage(params)
+    if (params.metadata && res?.ok) {
+      slackMetadata.set(`${params.channel}/${res.ts}`, params.metadata)
+    }
+    return res
+  },
+  updateMessage: async (params: SlackCallParams) => {
+    const res = await mockUpdateMessage(params)
+    if (params.metadata && res?.ok) {
+      slackMetadata.set(`${params.channel}/${params.ts}`, params.metadata)
+    }
+    return res
+  },
+  readMessageMetadata: async (params: { channel: string; ts: string }) => ({
+    ok: true,
+    metadata: slackMetadata.get(`${params.channel}/${params.ts}`) ?? null,
+  }),
 }))
 
 // Dispatch client mock — adapter path, safe from boundary check
@@ -111,6 +140,20 @@ async function runServer() {
   vi.resetModules()
   await import('../server.js')
   await new Promise((r) => setTimeout(r, 50))
+}
+
+type TimelineEvent = { kind: string; [key: string]: unknown }
+
+/** Events stored on the run timeline message at channel/ts. */
+function timelineEvents(channel: string, ts: string): TimelineEvent[] {
+  const payload = slackMetadata.get(`${channel}/${ts}`)?.event_payload as
+    | { events?: TimelineEvent[] }
+    | undefined
+  return payload?.events ?? []
+}
+
+function timelineKinds(channel: string, ts: string): string[] {
+  return timelineEvents(channel, ts).map((e) => e.kind)
 }
 
 function repairCalls() {
@@ -170,6 +213,7 @@ function failingRunResult() {
 describe('e2e-agent server', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    slackMetadata.clear()
 
     // Default: bootWorker calls loadServices to populate module vars
     mockBootWorker.mockImplementation(async (opts) => {
@@ -403,27 +447,256 @@ describe('e2e-agent server', () => {
     expect(mockCompleteDispatch).not.toHaveBeenCalled()
   })
 
+  // -------------------------------------------------------------------------
+  // Run timeline (DEV-1865)
+  // -------------------------------------------------------------------------
+
+  it('server_records_findings_and_completed_on_green_run', async () => {
+    vi.stubEnv('SLACK_E2E_CHANNEL', ALERTS_CHANNEL)
+
+    await runServer()
+
+    const start = postCalls()[0] as PostParams & { metadata?: unknown }
+    expect(start.channel).toBe(ALERTS_CHANNEL)
+    expect(start.threadTs).toBeUndefined()
+    expect(start.text).toContain('E2E Nightly')
+    expect(start.metadata).toBeDefined()
+
+    const events = timelineEvents(ALERTS_CHANNEL, START_TS)
+    expect(events.map((e) => e.kind)).toEqual(['started', 'findings', 'completed'])
+    expect(events[1]).toMatchObject({ passed: 10, failed: 0, flaky: 0 })
+    // Every update targets the timeline message; no FINAL_LINE overwrite.
+    for (const [params] of mockUpdateMessage.mock.calls) {
+      expect(params).toMatchObject({ channel: ALERTS_CHANNEL, ts: START_TS })
+    }
+    expect(mockExit).toHaveBeenCalledWith(0)
+  })
+
+  it('server_records_repair_requested_and_sends_timeline_on_red_run', async () => {
+    vi.stubEnv('SLACK_E2E_CHANNEL', ALERTS_CHANNEL)
+    mockRunE2eSuite.mockResolvedValue(failingRunResult())
+
+    await runServer()
+
+    const events = timelineEvents(ALERTS_CHANNEL, START_TS)
+    expect(events.map((e) => e.kind)).toEqual(['started', 'findings', 'repair_requested'])
+    expect(events[1]).toMatchObject({ passed: 10, failed: 1, flaky: 0 })
+
+    const calls = repairCalls()
+    expect(calls).toHaveLength(1)
+    const text = (calls[0][0] as { text: string }).text
+    // The ops agent parses the ```json fence from the text.
+    expect(text).toMatch(/```json\n[\s\S]*\n```/)
+    expect(text).toContain(
+      `"timeline":{"channel":"${ALERTS_CHANNEL}","ts":"${START_TS}"}`,
+    )
+
+    // repair_requested lands before the repair trigger is posted
+    const repairCallIndex = mockPostMessage.mock.calls.findIndex(([p]) =>
+      String((p as { text: string }).text).includes('repair request'),
+    )
+    const lastUpdateOrder = Math.max(...mockUpdateMessage.mock.invocationCallOrder)
+    expect(lastUpdateOrder).toBeLessThan(
+      mockPostMessage.mock.invocationCallOrder[repairCallIndex],
+    )
+    expect(mockExit).toHaveBeenCalledWith(1)
+  })
+
+  it('server_records_repair_failed_when_repair_trigger_post_fails', async () => {
+    vi.stubEnv('SLACK_E2E_CHANNEL', ALERTS_CHANNEL)
+    mockRunE2eSuite.mockResolvedValue(failingRunResult())
+    mockPostMessage.mockImplementation(async (params: PostParams) =>
+      params.text.includes('repair request')
+        ? { ok: false, error: 'msg_too_long' }
+        : { ok: true, ts: START_TS },
+    )
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+
+    await runServer()
+
+    const events = timelineEvents(ALERTS_CHANNEL, START_TS)
+    expect(events.map((e) => e.kind)).toEqual([
+      'started',
+      'findings',
+      'repair_requested',
+      'repair_failed',
+    ])
+    expect(String(events[3].reason)).toContain('msg_too_long')
+    warn.mockRestore()
+  })
+
+  it('server_records_failed_on_red_run_with_no_reportable_failures', async () => {
+    vi.stubEnv('SLACK_E2E_CHANNEL', ALERTS_CHANNEL)
+    mockRunE2eSuite.mockResolvedValue({ ...greenRunResult(), outcome: 'red' })
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+
+    await runServer()
+
+    const events = timelineEvents(ALERTS_CHANNEL, START_TS)
+    expect(events.map((e) => e.kind)).toEqual(['started', 'findings', 'failed'])
+    expect(events[2]).toMatchObject({ outcome: 'red' })
+    expect(repairCalls()).toHaveLength(0)
+    expect(mockExit).toHaveBeenCalledWith(1)
+    warn.mockRestore()
+  })
+
+  it('server_records_failed_on_errored_run', async () => {
+    vi.stubEnv('SLACK_E2E_CHANNEL', ALERTS_CHANNEL)
+    mockRunE2eSuite.mockResolvedValue({
+      outcome: 'errored',
+      erroredReason: 'Playwright timed out after 20m',
+      failures: [],
+      unexpectedSkips: [],
+      stats: { expected: 0, unexpected: 0, skipped: 0, flaky: 0, duration: 0 },
+      jsonReport: {},
+      stagingSha: 'fed9876543',
+    })
+
+    await runServer()
+
+    const events = timelineEvents(ALERTS_CHANNEL, START_TS)
+    expect(events.map((e) => e.kind)).toEqual(['started', 'failed'])
+    expect(events[1]).toMatchObject({
+      outcome: 'errored',
+      reason: 'Playwright timed out after 20m',
+    })
+  })
+
+  it('server_records_failed_crashed_from_finally_when_runner_throws', async () => {
+    vi.stubEnv('SLACK_E2E_CHANNEL', ALERTS_CHANNEL)
+    mockRunE2eSuite.mockRejectedValue(new Error('boom'))
+    const error = vi.spyOn(console, 'error').mockImplementation(() => {})
+
+    await runServer()
+
+    const events = timelineEvents(ALERTS_CHANNEL, START_TS)
+    expect(events.map((e) => e.kind)).toEqual(['started', 'failed'])
+    expect(events[1]).toMatchObject({ outcome: 'crashed', reason: 'boom' })
+    expect(mockExit).toHaveBeenCalledWith(1)
+    error.mockRestore()
+  })
+
+  it('server_starts_timeline_in_requester_thread_when_claimed', async () => {
+    vi.stubEnv('SLACK_E2E_CHANNEL', ALERTS_CHANNEL)
+    mockClaimDispatch.mockResolvedValue({ dispatch: DISPATCH })
+
+    await runServer()
+
+    const start = postCalls().find((p) => p.text.includes('E2E Nightly') && p.channel === 'C_OPS')
+    expect(start?.threadTs).toBe(DISPATCH.threadTs)
+    expect(timelineKinds('C_OPS', START_TS)).toEqual(['started', 'findings', 'completed'])
+  })
+
+  it('server_falls_back_to_alerts_channel_when_claimed_timeline_start_fails', async () => {
+    vi.stubEnv('SLACK_E2E_CHANNEL', ALERTS_CHANNEL)
+    mockClaimDispatch.mockResolvedValue({ dispatch: DISPATCH })
+    const POINTER_TS = '1700000000.000777'
+    const FALLBACK_TS = '1700000000.000888'
+    mockPostMessage.mockImplementation(async (params: PostParams & { metadata?: unknown }) => {
+      if (params.channel === ALERTS_CHANNEL) {
+        return { ok: true, ts: params.metadata ? FALLBACK_TS : POINTER_TS }
+      }
+      if (params.metadata) return { ok: false, error: 'not_in_channel' }
+      return { ok: true, ts: START_TS }
+    })
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+
+    await runServer()
+
+    const fallback = postCalls().find(
+      (p) => p.channel === ALERTS_CHANNEL && p.text.includes('E2E Nightly') && !p.text.includes('requested by'),
+    )
+    expect(fallback?.threadTs).toBe(POINTER_TS)
+    expect(timelineKinds(ALERTS_CHANNEL, FALLBACK_TS)).toEqual([
+      'started',
+      'findings',
+      'completed',
+    ])
+    warn.mockRestore()
+  })
+
   it.each([
-    ['green', greenRunResult, '✅', 0],
-    ['red', failingRunResult, '❌', 1],
+    ['green', 'cron', greenRunResult],
+    ['red', 'cron', failingRunResult],
+    ['green', 'claimed', greenRunResult],
+    ['red', 'claimed', failingRunResult],
+    [
+      'errored',
+      'claimed',
+      () => ({
+        outcome: 'errored',
+        erroredReason: 'Playwright timed out after 20m',
+        failures: [],
+        unexpectedSkips: [],
+        stats: { expected: 0, unexpected: 0, skipped: 0, flaky: 0, duration: 0 },
+        jsonReport: {},
+        stagingSha: 'fed9876543',
+        outputTail: 'tail',
+      }),
+    ],
   ] as const)(
-    'server_updates_start_message_on_%s_outcome_in_cron_mode',
-    async (_name, makeResult, emoji, exit) => {
+    'server_sends_non_empty_blocks_on_every_slack_call_%s_%s',
+    async (_outcome, mode, makeResult) => {
       vi.stubEnv('SLACK_E2E_CHANNEL', ALERTS_CHANNEL)
+      if (mode === 'claimed') mockClaimDispatch.mockResolvedValue({ dispatch: DISPATCH })
       mockRunE2eSuite.mockResolvedValue(makeResult())
 
       await runServer()
 
-      expect(mockUpdateMessage).toHaveBeenCalledTimes(1)
-      const update = mockUpdateMessage.mock.calls[0][0] as PostParams & { ts: string }
-      expect(update.channel).toBe(ALERTS_CHANNEL)
-      expect(update.ts).toBe(START_TS)
-      expect(update.text).toContain(emoji)
-      expect(JSON.stringify(update.blocks)).toContain(emoji)
-      expect(mockCompleteDispatch).not.toHaveBeenCalled()
-      expect(mockExit).toHaveBeenCalledWith(exit)
+      const calls = [
+        ...mockPostMessage.mock.calls.map(([p]) => p as PostParams),
+        ...mockUpdateMessage.mock.calls.map(([p]) => p as PostParams),
+      ]
+      expect(calls.length).toBeGreaterThan(0)
+      for (const call of calls) {
+        expect(Array.isArray(call.blocks)).toBe(true)
+        expect(call.blocks!.length).toBeGreaterThan(0)
+      }
     },
   )
+
+  it('server_sends_non_empty_blocks_on_every_slack_call_crashed', async () => {
+    vi.stubEnv('SLACK_E2E_CHANNEL', ALERTS_CHANNEL)
+    mockClaimDispatch.mockResolvedValue({ dispatch: DISPATCH })
+    mockRunE2eSuite.mockRejectedValue(new Error('boom'))
+    const error = vi.spyOn(console, 'error').mockImplementation(() => {})
+
+    await runServer()
+
+    const calls = [
+      ...mockPostMessage.mock.calls.map(([p]) => p as PostParams),
+      ...mockUpdateMessage.mock.calls.map(([p]) => p as PostParams),
+    ]
+    expect(calls.length).toBeGreaterThan(0)
+    for (const call of calls) expect(call.blocks?.length).toBeGreaterThan(0)
+    error.mockRestore()
+  })
+
+  it('server_summary_message_has_header_and_run_context', async () => {
+    mockRunE2eSuite.mockResolvedValue(failingRunResult())
+    await runServer()
+    const runId = (mockRunE2eSuite.mock.calls[0][0] as { runId: string }).runId
+    const summary = postCalls().find((p) => p.text.includes('passed'))!
+    expect((summary.blocks![0] as { type: string }).type).toBe('header')
+    expect(JSON.stringify(summary.blocks)).toContain(runId)
+  })
+
+  it('server_errored_message_has_header_and_run_context', async () => {
+    mockRunE2eSuite.mockResolvedValue({
+      outcome: 'errored',
+      erroredReason: 'no tests',
+      failures: [],
+      unexpectedSkips: [],
+      stats: { expected: 0, unexpected: 0, skipped: 0, flaky: 0, duration: 0 },
+      jsonReport: {},
+      stagingSha: 'fed9876543',
+    })
+    await runServer()
+    const erroredRunId = (mockRunE2eSuite.mock.calls[0][0] as { runId: string }).runId
+    const errored = postCalls().find((p) => p.text.startsWith('⚠️ E2E run errored'))!
+    expect((errored.blocks![0] as { type: string }).type).toBe('header')
+    expect(JSON.stringify(errored.blocks)).toContain(erroredRunId)
+  })
 
   it('server_updates_start_and_pointer_and_completes_when_claimed', async () => {
     vi.stubEnv('SLACK_E2E_CHANNEL', ALERTS_CHANNEL)
@@ -449,14 +722,18 @@ describe('e2e-agent server', () => {
     const updates = mockUpdateMessage.mock.calls.map(
       ([p]) => p as PostParams & { ts: string },
     )
+    // The timeline's failed event + the pointer's final status.
     expect(updates).toHaveLength(2)
-    const startUpdate = updates.find((u) => u.channel === 'C_OPS')
+    const timelineUpdate = updates.find((u) => u.channel === 'C_OPS')
     const pointerUpdate = updates.find((u) => u.channel === ALERTS_CHANNEL)
-    expect(startUpdate?.ts).toBe(START_REPLY_TS)
-    expect(startUpdate?.text).toContain('⚠️')
+    expect(timelineUpdate?.ts).toBe(START_REPLY_TS)
+    expect(timelineKinds('C_OPS', START_REPLY_TS)).toEqual(['started', 'failed'])
     expect(pointerUpdate?.ts).toBe(POINTER_TS)
     expect(pointerUpdate?.text).toContain('⚠️')
     expect(pointerUpdate?.text).toContain('requested by')
+    const pointerBlocks = pointerUpdate?.blocks as Array<{ type: string }>
+    expect(pointerBlocks[0].type).toBe('header')
+    expect(JSON.stringify(pointerBlocks)).toContain('⚠️')
 
     const runId = mockClaimDispatch.mock.calls[0][0] as string
     expect(mockCompleteDispatch).toHaveBeenCalledTimes(1)

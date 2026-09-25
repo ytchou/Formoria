@@ -14,6 +14,7 @@ import { bootWorker, logWorkerBuildInfo } from '@/worker-boot'
 import { assertDatabaseTarget } from '@/lib/supabase/project-target'
 import { isStagingEnvironment } from '@/lib/deployment-environment'
 import type { RepairRequest } from '@/lib/services/health-agent/repair-request'
+import type { TimelineRef } from '@/lib/services/run-timeline/types'
 
 // ---------------------------------------------------------------------------
 // Dynamic imports — populated after bootWorker
@@ -47,10 +48,6 @@ let postMessage: Awaited<
   typeof import('@/lib/adapters/slack/web-api')
 >['postMessage']
 
-let updateMessage: Awaited<
-  typeof import('@/lib/adapters/slack/web-api')
->['updateMessage']
-
 let createTicket: Awaited<
   typeof import('@/lib/adapters/linear/create-ticket')
 >['createTicket']
@@ -71,13 +68,25 @@ let buildRepairTriggerBlocks: Awaited<
   typeof import('@/lib/services/health-agent/report')
 >['buildRepairTriggerBlocks']
 
-let buildRunStartBlocks: Awaited<
+let buildRunFailureEvent: Awaited<
   typeof import('@/lib/services/health-agent/report')
->['buildRunStartBlocks']
+>['buildRunFailureEvent']
 
-let buildRunStatusLine: Awaited<
-  typeof import('@/lib/services/health-agent/report')
->['buildRunStatusLine']
+let startTimeline: Awaited<
+  typeof import('@/lib/services/run-timeline/append')
+>['startTimeline']
+
+let appendRunEvent: Awaited<
+  typeof import('@/lib/services/run-timeline/append')
+>['appendRunEvent']
+
+let nowSeconds: Awaited<
+  typeof import('@/lib/services/run-timeline/types')
+>['nowSeconds']
+
+let RepairPostRejectedError: Awaited<
+  typeof import('@/lib/services/health-agent/repair-request')
+>['RepairPostRejectedError']
 
 // ---------------------------------------------------------------------------
 // Boot
@@ -96,9 +105,7 @@ await bootWorker({
     ;({ flushLangfuse, getLangfuse } = await import('@/lib/langfuse/client'))
     ;({ runWithAuditContext } = await import('@/lib/audit/context'))
     ;({ reportWorkerFailure } = await import('@/lib/services/job-alerts'))
-    ;({ postMessage, updateMessage } = await import(
-      '@/lib/adapters/slack/web-api'
-    ))
+    ;({ postMessage } = await import('@/lib/adapters/slack/web-api'))
     ;({ createTicket } = await import('@/lib/adapters/linear/create-ticket'))
     ;({ createRepoWorkerClient } = await import(
       '@/lib/services/health-agent/repo-worker-client'
@@ -109,10 +116,16 @@ await bootWorker({
     ;({
       buildRepairTriggerMessage,
       buildRepairTriggerBlocks,
-      buildRunStartBlocks,
-      buildRunStatusLine,
+      buildRunFailureEvent,
     } = await import(
       '@/lib/services/health-agent/report'
+    ))
+    ;({ startTimeline, appendRunEvent } = await import(
+      '@/lib/services/run-timeline/append'
+    ))
+    ;({ nowSeconds } = await import('@/lib/services/run-timeline/types'))
+    ;({ RepairPostRejectedError } = await import(
+      '@/lib/services/health-agent/repair-request'
     ))
   },
   async reportFailure(context, error) {
@@ -178,12 +191,15 @@ async function main(): Promise<never> {
       ? async (request: RepairRequest, threadTs?: string) => {
           const blocks = buildRepairTriggerBlocks(request, 'Health Agent')
           const fallback = buildRepairTriggerMessage(opsAgentBotId, request, 'Health agent')
-          await postMessage({
+          // A thrown error (timeout, network) is left as-is: delivery is
+          // ambiguous. Only Slack's explicit { ok: false } is a definite miss.
+          const posted = await postMessage({
             channel: repairChannel,
             text: fallback,
             blocks,
             threadTs,
           })
+          if (!posted.ok) throw new RepairPostRejectedError(posted.error)
         }
       : undefined
 
@@ -194,7 +210,7 @@ async function main(): Promise<never> {
 
   let exitCode = 0
   let runResult: Awaited<ReturnType<typeof runHealthAgent>> | undefined
-  let startRef: { channel: string; ts: string } | undefined
+  let timelineRef: TimelineRef | undefined
 
   try {
     const result = await runHealthAgent({
@@ -209,21 +225,19 @@ async function main(): Promise<never> {
       workerClient,
       linearCreateTicket,
       triggerRepair,
-      slackPostRunStart: async (date, startRunId) => {
+      startTimeline: async (date, startRunId) => {
         const channel = process.env.HEALTH_AGENT_SLACK_CHANNEL
         if (!channel) return undefined
-        const result = await postMessage({
+        const ref = await startTimeline({
           channel,
-          text: `Health Agent — ${date}`,
-          blocks: buildRunStartBlocks(
-            date,
-            `🔄 *Running...* · \`${startRunId.slice(0, 8)}\``,
-          ),
+          agent: 'health-agent',
+          title: `Health Agent — ${date}`,
+          runId: startRunId,
         })
-        if (!result.ok) return undefined
-        startRef = { channel, ts: result.ts }
-        return result.ts
+        timelineRef = ref ?? undefined
+        return ref
       },
+      appendRunEvent,
       slackPostDigest: async ({ text, blocks }, digestThreadTs) => {
         const channel = process.env.HEALTH_AGENT_SLACK_CHANNEL
         if (!channel) return
@@ -251,18 +265,13 @@ async function main(): Promise<never> {
       }).catch(() => {})
     }
   } finally {
-    if (startRef) {
-      try {
-        const res = await updateMessage({
-          channel: startRef.channel,
-          ts: startRef.ts,
-          text: `Health Agent — ${logicalDate}`,
-          blocks: buildRunStartBlocks(logicalDate, buildRunStatusLine(runResult, runId)),
-        })
-        if (!res.ok) console.warn('[health-agent] start message update failed:', res.error)
-      } catch (err) {
-        console.warn('[health-agent] start message update failed:', err)
-      }
+    // A completed run (digest failure included) already closed its timeline
+    // from run.ts; only crashed or failed runs write at exit.
+    const failure = timelineRef
+      ? buildRunFailureEvent(runResult, nowSeconds())
+      : null
+    if (timelineRef && failure) {
+      await appendRunEvent(timelineRef, failure) // never throws
     }
     try { await flushLangfuse() } catch { /* flush failure must not mask exit */ }
     process.exit(exitCode)

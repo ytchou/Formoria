@@ -42,6 +42,11 @@ export type HealthLedgerClient = {
         select: () => Promise<{ data: unknown[] | null; error: unknown }>
       }
       in: (column: string, values: unknown[]) => {
+        in: (column: string, values: unknown[]) => {
+          is: (column: string, value: unknown) => {
+            select: () => Promise<{ data: unknown[] | null; error: unknown }>
+          }
+        }
         is: (column: string, value: unknown) => {
           select: () => Promise<{ data: unknown[] | null; error: unknown }>
         }
@@ -267,6 +272,48 @@ export async function releaseFailedReservations(
     .select()
 
   if (error) throw error
+}
+
+/**
+ * Record tickets the ops routine filed out-of-band (reported through the
+ * run-timeline relay). Sets `linear_identifier` and `ticketed_at` on the
+ * active, still-unticketed queue row for each fingerprint. Matching by
+ * fingerprint is unambiguous because `health_fix_queue_active_fingerprint_idx`
+ * is a partial unique index over the same active statuses. Fingerprints with
+ * no such row (e2e findings have no queue row, or the row is already
+ * ticketed) are no-ops. One UPDATE per identifier: a ticket covering several
+ * fingerprints writes them in a single round trip. Returns the number of rows
+ * updated.
+ */
+export async function recordTickets(
+  client: HealthLedgerClient,
+  tickets: Array<{ fingerprint: string; identifier: string }>,
+): Promise<number> {
+  const byIdentifier = new Map<string, string[]>()
+  for (const ticket of tickets) {
+    const fingerprints = byIdentifier.get(ticket.identifier) ?? []
+    fingerprints.push(ticket.fingerprint)
+    byIdentifier.set(ticket.identifier, fingerprints)
+  }
+
+  let updated = 0
+  for (const [identifier, fingerprints] of byIdentifier) {
+    const { data, error } = await client
+      .from('health_fix_queue')
+      .update({
+        linear_identifier: identifier,
+        ticketed_at: new Date().toISOString(),
+      })
+      .in('fingerprint', fingerprints)
+      .in('status', [...ACTIVE_FIX_STATUSES])
+      .is('ticketed_at', null)
+      .select()
+
+    if (error) throw error
+    updated += (data as unknown[] | null)?.length ?? 0
+  }
+
+  return updated
 }
 
 // ---------------------------------------------------------------------------

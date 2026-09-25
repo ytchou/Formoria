@@ -65,6 +65,34 @@ describe("createTicket", () => {
     });
   });
 
+  it("requests and returns the issue url", async () => {
+    const fetchMock = vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      Response.json({
+        data: {
+          issueCreate: {
+            issue: {
+              identifier: "DEV-9998",
+              url: "https://linear.app/formoria/issue/DEV-9998/test-issue",
+            },
+          },
+        },
+      }),
+    );
+
+    const result = await createTicket({
+      title: "Test issue",
+      body: "Issue description",
+      label: "data_quality",
+    });
+
+    expect(result).toEqual({
+      identifier: "DEV-9998",
+      url: "https://linear.app/formoria/issue/DEV-9998/test-issue",
+    });
+    const body = JSON.parse(fetchMock.mock.calls[0]![1]!.body as string);
+    expect(body.query).toMatch(/issue\s*\{\s*identifier\s+url\s*\}/);
+  });
+
   it("maps label to UUID from env", async () => {
     const fetchMock = vi.spyOn(globalThis, "fetch").mockImplementation(() =>
       Promise.resolve(

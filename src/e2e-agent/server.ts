@@ -20,9 +20,15 @@
  * audit pointer line in SLACK_E2E_CHANNEL. No dispatch (cron run, endpoint
  * unreachable, unconfigured) → everything posts to SLACK_E2E_CHANNEL threaded
  * under the start message, as before. A post that fails in the requester
- * thread falls back to SLACK_E2E_CHANNEL for that message. At the end the
- * start message (and pointer) are updated to ✅/❌/⚠️, and a claimed dispatch
- * is reported complete before process.exit.
+ * thread falls back to SLACK_E2E_CHANNEL for that message.
+ *
+ * Run timeline (DEV-1865): the start message is a run timeline
+ * (src/lib/services/run-timeline). The agent appends `findings` and then
+ * `completed` (green), `repair_requested` (red, the repair request carries the
+ * timeline pointer so the ops agent and routine append to it), or `failed`
+ * (red with nothing to repair, errored, crashed). The claimed-mode audit
+ * pointer is updated to ✅/❌/⚠️, and a claimed dispatch is reported complete
+ * before process.exit.
  *
  * Cron schedule is a Railway dashboard setting,
  * documented in railway/e2e-nightly-agent.json.
@@ -32,6 +38,8 @@
 import { randomUUID } from 'node:crypto'
 import { bootWorker, logWorkerBuildInfo } from '@/worker-boot'
 import { validateE2eAgentConfig } from '@/e2e-agent/config'
+// Side-effect-free (no env reads, no imports), so it is safe before bootWorker.
+import { nowSeconds } from '@/lib/services/run-timeline/types'
 
 const SLACK_CHANNEL = process.env.SLACK_E2E_CHANNEL ?? 'e2e-alerts'
 
@@ -71,13 +79,27 @@ let opsDispatch: typeof import('@/lib/adapters/ops-dispatch/client') | undefined
 
 let threadLink: typeof import('@/lib/adapters/slack/thread-link')['threadLink'] | undefined
 
+let renderThreadNotice: Awaited<
+  typeof import('@/lib/adapters/slack/blocks')
+>['renderThreadNotice'] | undefined
+
+let startTimeline: Awaited<
+  typeof import('@/lib/services/run-timeline/append')
+>['startTimeline'] | undefined
+
+let appendRunEvent: Awaited<
+  typeof import('@/lib/services/run-timeline/append')
+>['appendRunEvent'] | undefined
+
 type ClaimedDispatch = import('@/lib/adapters/ops-dispatch/client').ClaimedDispatch
 type RunOutcome = import('@/lib/adapters/ops-dispatch/client').DispatchOutcome
+type RunEvent = import('@/lib/services/run-timeline/types').RunEvent
 type SlackMessage = { text: string; blocks?: Record<string, unknown>[] }
-type PostedRef = { channel: string; ts: string }
-type PostOutcome = ({ ok: true } & PostedRef) | { ok: false; error: string }
+type TimelineRef = import('@/lib/services/run-timeline/types').TimelineRef
+type PostOutcome = ({ ok: true } & TimelineRef) | { ok: false; error: string }
 
-const FINAL_LINE: Record<RunOutcome, string> = {
+/** Final status shown on the claimed-mode audit pointer. */
+const POINTER_STATUS: Record<RunOutcome, string> = {
   green: '✅ *Passed*',
   red: '❌ *Failed*',
   errored: '⚠️ *Errored*',
@@ -88,26 +110,24 @@ function runLabel(runId: string): string {
   return `E2E run \`${runId.slice(0, 8)}\``
 }
 
-function pointerText(runId: string, dispatch: ClaimedDispatch, final?: string): string {
+function runContext(runId: string): string {
+  return `Run: \`${runId}\``
+}
+
+function pointerMessage(
+  runId: string,
+  title: string,
+  dispatch: ClaimedDispatch,
+  final?: string,
+): SlackMessage {
   const requester = dispatch.requesterId ? ` by <@${dispatch.requesterId}>` : ''
   const link = threadLink
     ? ` → <${threadLink(dispatch.channelId, dispatch.threadTs)}|thread>`
     : ''
   const line = `${runLabel(runId)} requested${requester}${link}`
-  return final ? `${final} · ${line}` : line
-}
-
-function startBlocks(title: string, statusLine: string): Record<string, unknown>[] {
-  return [
-    {
-      type: 'header',
-      text: { type: 'plain_text', text: title, emoji: true },
-    },
-    {
-      type: 'section',
-      text: { type: 'mrkdwn', text: statusLine },
-    },
-  ]
+  const body = final ? `${final} · ${line}` : line
+  if (!renderThreadNotice) return { text: body }
+  return renderThreadNotice({ title, body, context: runContext(runId) })
 }
 
 // ---------------------------------------------------------------------------
@@ -128,7 +148,11 @@ export async function main(): Promise<void> {
   let outcome: RunOutcome = 'crashed'
   let claimed: ClaimedDispatch | null = null
   let pointerTs: string | undefined
-  let startRef: PostedRef | undefined
+  let startRef: TimelineRef | undefined
+  // Set once a terminal-for-this-agent event (completed, failed,
+  // repair_requested) is on the timeline; `finally` appends `failed` otherwise.
+  let timelineClosed = false
+  let crashReason: string | undefined
   // Where run messages go: the requester thread when claimed, else the
   // alerts channel threaded under the start message.
   let target: { channel: string; threadTs: string | undefined } = {
@@ -171,6 +195,30 @@ export async function main(): Promise<void> {
     })
   }
 
+  // Appends one event to the run timeline. appendRunEvent never throws.
+  const record = async (event: RunEvent): Promise<void> => {
+    if (!startRef || !appendRunEvent) return
+    await appendRunEvent(startRef, event)
+  }
+
+  // Starts the run timeline at `target`. In claimed mode a failed start falls
+  // back to SLACK_CHANNEL under the pointer (top-level when the pointer post
+  // failed; the timeline already names the run). Never throws.
+  const startRun = async (): Promise<TimelineRef | null> => {
+    if (!startTimeline) return null
+    const input = { agent: 'e2e-agent', title, runId }
+    const primary = await startTimeline({
+      ...input,
+      channel: target.channel,
+      threadTs: target.threadTs,
+    })
+    if (primary || !claimed) return primary
+    console.warn(
+      `[e2e-nightly] timeline start in requester thread failed — falling back to ${SLACK_CHANNEL}`,
+    )
+    return startTimeline({ ...input, channel: SLACK_CHANNEL, threadTs: pointerTs })
+  }
+
   try {
     if (!runE2eSuite) {
       throw new Error('runE2eSuite not loaded — loadServices incomplete')
@@ -202,7 +250,7 @@ export async function main(): Promise<void> {
       try {
         const pointerResult = await postMessage({
           channel: SLACK_CHANNEL,
-          text: pointerText(runId, claimed),
+          ...pointerMessage(runId, title, claimed),
         })
         if (pointerResult.ok) pointerTs = pointerResult.ts
         else console.warn('[e2e-nightly] audit pointer failed:', pointerResult.error)
@@ -211,13 +259,9 @@ export async function main(): Promise<void> {
       }
     }
 
-    // ---- Start message ----
-    const startResult = await postToRun({
-      text: title,
-      blocks: startBlocks(title, `🔄 *Running...* · \`${runId.slice(0, 8)}\``),
-    })
-    if (startResult.ok) startRef = { channel: startResult.channel, ts: startResult.ts }
-    else console.warn('[e2e-nightly] start message failed:', startResult.error)
+    // ---- Start message: the run timeline ----
+    startRef = (await startRun()) ?? undefined
+    if (!startRef) console.warn('[e2e-nightly] run timeline start failed')
 
     // Claimed: reply in the requester thread. Cron: thread under the start message.
     target = { channel: target.channel, threadTs: target.threadTs ?? startRef?.ts }
@@ -231,9 +275,20 @@ export async function main(): Promise<void> {
     // ---- Errored run: one warning, no summary, no repair request ----
     if (result.outcome === 'errored') {
       exitCode = 1
+      await record({
+        kind: 'failed',
+        at: nowSeconds(),
+        outcome: 'errored',
+        reason: result.erroredReason,
+      })
+      timelineClosed = true
       const erroredText = `⚠️ E2E run errored: ${result.erroredReason}`
       try {
         const erroredBlocks: Record<string, unknown>[] = [
+          {
+            type: 'header',
+            text: { type: 'plain_text', text: '⚠️ E2E Run Errored', emoji: true },
+          },
           {
             type: 'section',
             text: { type: 'mrkdwn', text: erroredText },
@@ -243,7 +298,7 @@ export async function main(): Promise<void> {
             elements: [
               {
                 type: 'mrkdwn',
-                text: `SHA: \`${result.stagingSha.slice(0, 7)}\` · No repair request sent — no test results to repair.`,
+                text: `SHA: \`${result.stagingSha.slice(0, 7)}\` · ${runContext(runId)} · No repair request sent — no test results to repair.`,
               },
             ],
           },
@@ -268,6 +323,17 @@ export async function main(): Promise<void> {
       return
     }
 
+    await record({
+      kind: 'findings',
+      at: nowSeconds(),
+      passed: result.stats.expected,
+      failed: result.stats.unexpected,
+      flaky: result.stats.flaky,
+      ...(result.unexpectedSkips.length > 0
+        ? { summary: `${result.unexpectedSkips.length} unexpected skips` }
+        : {}),
+    })
+
     // ---- Test summary (always, green or red) ----
     try {
       const { stats } = result
@@ -284,6 +350,14 @@ export async function main(): Promise<void> {
 
       const summaryBlocks: Record<string, unknown>[] = [
         {
+          type: 'header',
+          text: {
+            type: 'plain_text',
+            text: `${statusEmoji} E2E Results`,
+            emoji: true,
+          },
+        },
+        {
           type: 'section',
           text: {
             type: 'mrkdwn',
@@ -295,7 +369,7 @@ export async function main(): Promise<void> {
           elements: [
             {
               type: 'mrkdwn',
-              text: `Duration: ${durationStr} · SHA: \`${result.stagingSha.slice(0, 7)}\``,
+              text: `Duration: ${durationStr} · SHA: \`${result.stagingSha.slice(0, 7)}\` · ${runContext(runId)}`,
             },
           ],
         },
@@ -333,6 +407,8 @@ export async function main(): Promise<void> {
     }
 
     if (result.outcome === 'green') {
+      await record({ kind: 'completed', at: nowSeconds() })
+      timelineClosed = true
       console.log(`[e2e-nightly] run=${runId} outcome=green exit=0`)
     } else {
       exitCode = 1
@@ -350,6 +426,8 @@ export async function main(): Promise<void> {
         unexpectedSkips: result.unexpectedSkips,
         runId,
         stagingSha: result.stagingSha,
+        // Part of the request before the size budget is applied.
+        ...(startRef ? { timeline: startRef } : {}),
       })
       const request = built?.request
       // Required by validateE2eAgentConfig at boot.
@@ -359,22 +437,41 @@ export async function main(): Promise<void> {
         console.warn(
           `[e2e-nightly] run=${runId} red with no reportable failures — repair request skipped`,
         )
+        await record({
+          kind: 'failed',
+          at: nowSeconds(),
+          outcome: 'red',
+          reason: 'no reportable failures to repair',
+        })
+        timelineClosed = true
       } else {
         if (built.dropped > 0) {
           console.warn(
             `[e2e-nightly] run=${runId} repair request dropped ${built.dropped} of ${request.findings.length + built.dropped} findings to fit Slack's message limit`,
           )
         }
+        // Appended before the hand-off, so the ops agent's repair_started
+        // always lands after it.
+        await record({ kind: 'repair_requested', at: nowSeconds() })
+        timelineClosed = true
+        let repairError: string | undefined
         try {
           const repairResult = await postToRun({
             text: buildRepairTriggerMessage(opsAgentBotId, request, 'E2E Agent'),
             blocks: buildRepairTriggerBlocks(request, 'E2E Agent'),
           })
-          if (!repairResult.ok) {
-            console.warn('[e2e-nightly] repair request failed:', repairResult.error)
-          }
+          if (!repairResult.ok) repairError = repairResult.error
         } catch (err) {
-          console.warn('[e2e-nightly] repair request failed:', err)
+          repairError = err instanceof Error ? err.message : String(err)
+        }
+        if (repairError !== undefined) {
+          console.warn('[e2e-nightly] repair request failed:', repairError)
+          // Nobody else will write to the timeline: the ops agent never saw it.
+          await record({
+            kind: 'repair_failed',
+            at: nowSeconds(),
+            reason: `repair request post failed: ${repairError}`,
+          })
         }
       }
 
@@ -386,8 +483,17 @@ export async function main(): Promise<void> {
     console.error('[e2e-nightly] top-level crash:', err)
     exitCode = 1
     outcome = 'crashed'
+    crashReason = err instanceof Error ? err.message : String(err)
   } finally {
-    await finalizeRun({ runId, title, outcome, claimed, startRef, pointerTs })
+    await finalizeRun({
+      runId,
+      title,
+      outcome,
+      claimed,
+      openTimeline: timelineClosed ? undefined : startRef,
+      crashReason,
+      pointerTs,
+    })
     process.exit(exitCode)
   }
 }
@@ -401,24 +507,21 @@ async function finalizeRun(params: {
   title: string
   outcome: RunOutcome
   claimed: ClaimedDispatch | null
-  startRef: PostedRef | undefined
+  /** The timeline ref when no terminal event was appended (crash path). */
+  openTimeline: TimelineRef | undefined
+  crashReason: string | undefined
   pointerTs: string | undefined
 }): Promise<void> {
-  const { runId, title, outcome, claimed, startRef, pointerTs } = params
-  const finalLine = FINAL_LINE[outcome]
+  const { runId, title, outcome, claimed, openTimeline, crashReason, pointerTs } = params
 
-  if (updateMessage && startRef) {
-    try {
-      const res = await updateMessage({
-        channel: startRef.channel,
-        ts: startRef.ts,
-        text: `${finalLine} · ${title}`,
-        blocks: startBlocks(title, `${finalLine} · \`${runId.slice(0, 8)}\``),
-      })
-      if (!res.ok) console.warn('[e2e-nightly] start message update failed:', res.error)
-    } catch (err) {
-      console.warn('[e2e-nightly] start message update failed:', err)
-    }
+  if (openTimeline && appendRunEvent) {
+    // appendRunEvent never throws.
+    await appendRunEvent(openTimeline, {
+      kind: 'failed',
+      at: nowSeconds(),
+      outcome,
+      ...(crashReason ? { reason: crashReason } : {}),
+    })
   }
 
   if (claimed && updateMessage && pointerTs) {
@@ -426,7 +529,7 @@ async function finalizeRun(params: {
       const res = await updateMessage({
         channel: SLACK_CHANNEL,
         ts: pointerTs,
-        text: pointerText(runId, claimed, finalLine),
+        ...pointerMessage(runId, title, claimed, POINTER_STATUS[outcome]),
       })
       if (!res.ok) console.warn('[e2e-nightly] audit pointer update failed:', res.error)
     } catch (err) {
@@ -463,6 +566,10 @@ try {
         '@/lib/adapters/slack/web-api'
       ))
       ;({ threadLink } = await import('@/lib/adapters/slack/thread-link'))
+      ;({ renderThreadNotice } = await import('@/lib/adapters/slack/blocks'))
+      ;({ startTimeline, appendRunEvent } = await import(
+        '@/lib/services/run-timeline/append'
+      ))
       opsDispatch = await import('@/lib/adapters/ops-dispatch/client')
     },
   })

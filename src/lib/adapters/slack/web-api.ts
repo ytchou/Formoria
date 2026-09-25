@@ -6,11 +6,17 @@ export function toSlackMrkdwn(markdown: string): string {
 
 type SlackBlock = Record<string, unknown>;
 
+export type SlackMessageMetadata = {
+  event_type: string;
+  event_payload: Record<string, unknown>;
+};
+
 type PostMessageParams = {
   channel: string;
   threadTs?: string;
   text: string;
   blocks?: SlackBlock[];
+  metadata?: SlackMessageMetadata;
 };
 
 type UpdateMessageParams = {
@@ -18,6 +24,12 @@ type UpdateMessageParams = {
   ts: string;
   text: string;
   blocks?: SlackBlock[];
+  metadata?: SlackMessageMetadata;
+};
+
+type ReadMessageMetadataParams = {
+  channel: string;
+  ts: string;
 };
 
 type AddReactionParams = {
@@ -30,6 +42,7 @@ type SlackOk = { ok: true; ts: string };
 type SlackUpdateOk = { ok: true };
 type SlackReactionOk = { ok: true };
 type SlackError = { ok: false; error: string };
+type SlackMetadataOk = { ok: true; metadata: SlackMessageMetadata | null };
 
 const TIMEOUT_MS = 8_000;
 
@@ -53,6 +66,7 @@ export async function postMessage(
       };
       if (params.threadTs) body.thread_ts = params.threadTs;
       if (params.blocks) body.blocks = params.blocks;
+      if (params.metadata) body.metadata = params.metadata;
 
       const response = await fetch("https://slack.com/api/chat.postMessage", {
         method: "POST",
@@ -117,6 +131,7 @@ export async function updateMessage(
         text: params.text,
       };
       if (params.blocks) body.blocks = params.blocks;
+      if (params.metadata) body.metadata = params.metadata;
 
       const response = await fetch("https://slack.com/api/chat.update", {
         method: "POST",
@@ -167,6 +182,82 @@ export async function addReaction(
         return { ok: true as const };
       }
       return { ok: false as const, error: data.error ?? "unknown_error" };
+    },
+    {
+      classify: (result) => (result.ok ? "succeeded" : "failed"),
+    },
+  );
+}
+
+export async function readMessageMetadata(
+  params: ReadMessageMetadataParams,
+): Promise<SlackMetadataOk | SlackError> {
+  const token = getToken();
+
+  return auditedCall(
+    { provider: "slack", operation: "read_message_metadata", kind: "external" },
+    async () => {
+      type HistoryResponse = {
+        ok: boolean;
+        error?: string;
+        messages?: Array<{ ts?: string; metadata?: SlackMessageMetadata }>;
+      };
+      const fetchPage = async (
+        method: string,
+        query: URLSearchParams,
+      ): Promise<HistoryResponse> => {
+        const response = await fetch(
+          `https://slack.com/api/${method}?${query.toString()}`,
+          {
+            headers: { Authorization: `Bearer ${token}` },
+            signal: AbortSignal.timeout(TIMEOUT_MS),
+          },
+        );
+        return (await response.json()) as HistoryResponse;
+      };
+
+      const history = await fetchPage(
+        "conversations.history",
+        new URLSearchParams({
+          channel: params.channel,
+          latest: params.ts,
+          oldest: params.ts,
+          inclusive: "true",
+          limit: "1",
+          include_all_metadata: "true",
+        }),
+      );
+      if (!history.ok) {
+        return { ok: false as const, error: history.error ?? "unknown_error" };
+      }
+      const topLevel = history.messages?.find((m) => m.ts === params.ts);
+      if (topLevel) {
+        return { ok: true as const, metadata: topLevel.metadata ?? null };
+      }
+
+      // conversations.history returns top-level messages only; a timeline posted
+      // as a thread reply is found through conversations.replies. Slack always
+      // returns the thread parent first, so the page must hold more than one
+      // message; `oldest` skips the replies posted before the timeline.
+      const replies = await fetchPage(
+        "conversations.replies",
+        new URLSearchParams({
+          channel: params.channel,
+          ts: params.ts,
+          oldest: params.ts,
+          inclusive: "true",
+          limit: "10",
+          include_all_metadata: "true",
+        }),
+      );
+      if (!replies.ok) {
+        if (replies.error === "thread_not_found") {
+          return { ok: true as const, metadata: null };
+        }
+        return { ok: false as const, error: replies.error ?? "unknown_error" };
+      }
+      const reply = replies.messages?.find((m) => m.ts === params.ts);
+      return { ok: true as const, metadata: reply?.metadata ?? null };
     },
     {
       classify: (result) => (result.ok ? "succeeded" : "failed"),
