@@ -1,6 +1,10 @@
 import { z } from 'zod'
 import type { PromptMeta } from '@/lib/langfuse/prompt'
-import { toStrictJsonSchema } from '@/lib/services/_shared/zod-schema'
+import type { OpenAIJsonSchema } from '@/lib/services/openai-client'
+import {
+  parseAndValidate,
+  toStrictJsonSchema,
+} from '@/lib/services/_shared/zod-schema'
 
 // ---------------------------------------------------------------------------
 // Types
@@ -26,8 +30,7 @@ type JudgeResult = {
 type ChatFn = (opts: {
   system: string
   user: string
-  schema?: { name: string; schema: Record<string, unknown> }
-  json?: boolean
+  schema?: OpenAIJsonSchema
 }) => Promise<{ content: string }>
 
 type FetchPromptFn = (name: string) => Promise<PromptMeta>
@@ -112,22 +115,22 @@ export async function judgeRelevance(
     return { content: result.content ?? '' }
   })
 
-  // Call `samples` times
-  const votes: number[] = []
-  for (let i = 0; i < samples; i++) {
-    try {
-      const result = await chatFn({
+  // The samples are independent, so run them concurrently; a rejected or
+  // malformed sample is skipped. Votes keep sample order.
+  const settled = await Promise.allSettled(
+    Array.from({ length: samples }, async () =>
+      chatFn({
         system: systemPrompt,
         user: userMsg,
         schema: JUDGE_JSON_SCHEMA,
-      })
-      const parsed = JudgeOutputSchema.safeParse(JSON.parse(result.content))
-      if (parsed.success && parsed.data.grade >= 0 && parsed.data.grade <= 3) {
-        votes.push(parsed.data.grade)
-      }
-    } catch {
-      // malformed - skip
-    }
+      }),
+    ),
+  )
+  const votes: number[] = []
+  for (const outcome of settled) {
+    if (outcome.status !== 'fulfilled') continue
+    const parsed = parseAndValidate(outcome.value.content, JudgeOutputSchema)
+    if (parsed.success) votes.push(parsed.data.grade)
   }
 
   if (votes.length === 0) {

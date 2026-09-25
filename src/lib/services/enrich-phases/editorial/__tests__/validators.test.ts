@@ -178,7 +178,12 @@ describe('editorial cross-output validators', () => {
     })
     expect(options).toEqual({
       signal: controller.signal,
-      schema: { name: 'editorial_repair', shape: expect.anything() },
+      schema: {
+        name: 'editorial_repair',
+        schema: expect.objectContaining({
+          required: ['description', 'description_en', 'blurb', 'blurb_en'],
+        }),
+      },
     })
 
     expect(repaired).toEqual({ description_en: CLEAN_EN })

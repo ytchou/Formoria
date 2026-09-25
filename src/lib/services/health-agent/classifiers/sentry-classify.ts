@@ -9,7 +9,10 @@
 import { z } from 'zod'
 import type { SentryIssue } from '@/lib/adapters/sentry/issues'
 import { fetchLangfusePromptWithMeta } from '@/lib/langfuse/prompt'
-import { toStrictJsonSchema } from '@/lib/services/_shared/zod-schema'
+import {
+  parseAndValidate,
+  toStrictJsonSchema,
+} from '@/lib/services/_shared/zod-schema'
 import {
   createProfiledOpenAIClient,
   profileChatParams,
@@ -32,9 +35,26 @@ const SentryClassificationSchema = z
 
 export type SentryClassification = z.infer<typeof SentryClassificationSchema>
 
+/**
+ * Drop string minLength/maxLength from the wire schema. OpenAI strict mode
+ * support for them is unverified and no other call site sends them; Zod still
+ * enforces both after parsing. maxItems stays (documented as supported).
+ */
+function stripStringLengths(node: unknown): unknown {
+  if (Array.isArray(node)) return node.map(stripStringLengths)
+  if (!node || typeof node !== 'object') return node
+  return Object.fromEntries(
+    Object.entries(node)
+      .filter(([key]) => key !== 'minLength' && key !== 'maxLength')
+      .map(([key, value]) => [key, stripStringLengths(value)]),
+  )
+}
+
 const SENTRY_CLASSIFICATION_JSON_SCHEMA = {
   name: 'sentry_classification',
-  schema: toStrictJsonSchema(SentryClassificationSchema),
+  schema: stripStringLengths(
+    toStrictJsonSchema(SentryClassificationSchema),
+  ) as Record<string, unknown>,
 }
 
 // ---------------------------------------------------------------------------
@@ -167,7 +187,9 @@ export async function classifySentryIssue(
   try {
     const result = await client.chat({
       system: text,
-      user: `Classify this Sentry issue:\n${sanitizedJson}`,
+      // "JSON" must appear in the messages: the client's json_object
+      // fallback is rejected by OpenAI otherwise.
+      user: `Classify this Sentry issue and reply with a JSON object:\n${sanitizedJson}`,
       schema: SENTRY_CLASSIFICATION_JSON_SCHEMA,
       ...deps.chatParams('sentryClassify'),
     })
@@ -178,12 +200,6 @@ export async function classifySentryIssue(
   }
   if (!content) return null
 
-  let json: unknown
-  try {
-    json = JSON.parse(content)
-  } catch {
-    return null
-  }
-  const parsed = SentryClassificationSchema.safeParse(json)
+  const parsed = parseAndValidate(content, SentryClassificationSchema)
   return parsed.success ? parsed.data : null
 }

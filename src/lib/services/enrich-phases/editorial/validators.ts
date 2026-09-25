@@ -29,7 +29,7 @@ import { FAQ_PRESETS } from '@/lib/brands/faq-presets'
 import type { PhaseResult } from '@/lib/types/curation'
 import type { LlmProfileKey } from '@/lib/constants/llm-models'
 import type { LlmAuditContext } from '@/lib/services/llm-audit'
-import type { ChatMessage } from '@/lib/services/openai-client'
+import type { ChatMessage, OpenAIJsonSchema } from '@/lib/services/openai-client'
 import { detectAiArtifacts, validateLocalizedText } from '../../enrich-validators'
 import {
   EN_BLURB_BAND,
@@ -38,7 +38,7 @@ import {
   ZH_DESCRIPTION_BAND,
 } from '../../description-rewrite'
 import type { LanguageLocale, LengthBand } from '../../eval/scorers'
-import { parseAndValidate } from '../../_shared/zod-schema'
+import { parseAndValidate, toStrictJsonSchema } from '../../_shared/zod-schema'
 import { brandTarget, type EnrichmentTarget } from '../../_shared/enrichment-target'
 import { loadPersistedScrapeStructure } from '../descriptions'
 import {
@@ -204,6 +204,12 @@ const EditorialRepairSchema = z.object({
   blurb_en: z.string().nullable(),
 })
 
+/** The repair turn's strict response format, built once at module load. */
+const EDITORIAL_REPAIR_SCHEMA: OpenAIJsonSchema = {
+  name: 'editorial_repair',
+  schema: toStrictJsonSchema(EditorialRepairSchema),
+}
+
 export type EditorialRepairParams = {
   patch: Record<string, unknown>
   failures: CrossOutputFailure[]
@@ -252,7 +258,7 @@ export async function repairEditorialCrossOutput(
 
   const response = await model.invoke(messages, {
     ...(signal ? { signal } : {}),
-    schema: { name: 'editorial_repair', shape: EditorialRepairSchema },
+    schema: EDITORIAL_REPAIR_SCHEMA,
   })
 
   // The prompt asks for all four keys (strict mode needs a full `required`), but

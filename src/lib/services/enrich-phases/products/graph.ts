@@ -52,6 +52,7 @@ import type {
 } from '../products'
 import {
   PRODUCTS_PROPOSAL_SHAPE,
+  PRODUCTS_SCHEMA,
   validateCandidateEvaluations,
   validateProductProposals,
 } from '../products'
@@ -89,7 +90,8 @@ import {
   type AgentModel,
   type AgentModelResponse,
 } from '../agents/runtime'
-import type { ChatMessage } from '@/lib/services/openai-client'
+import type { ChatMessage, OpenAIJsonSchema } from '@/lib/services/openai-client'
+import { toStrictJsonSchema } from '../../_shared/zod-schema'
 import { readProductPage, type ProductPageEvidence, type ReadPageDeps } from './read-page'
 import { selectAcrossPages } from './select-evidence'
 
@@ -113,21 +115,14 @@ const MAX_PROPOSE_ATTEMPTS = 2
 /** Images pulled off one product page for the decision-#35 classify batch. */
 const MAX_PAGE_IMAGES_PER_PRODUCT = 6
 
-type AgentSchema = NonNullable<NonNullable<Parameters<AgentModel['invoke']>[1]>['schema']>
-
-/** Strict reply shape for the propose turn — the same contract `products.ts` sends. */
-const PROPOSE_SCHEMA: AgentSchema = {
-  name: 'curated_product_proposals',
-  shape: PRODUCTS_PROPOSAL_SHAPE,
-}
-
 /**
  * The repair turn answers with `products` only (the `products-repair` prompt
  * forbids `evaluations`), so strict mode gets the same shape minus that key.
+ * The propose turn sends `PRODUCTS_SCHEMA`, the contract `products.ts` sends.
  */
-const REPAIR_SCHEMA: AgentSchema = {
+const REPAIR_SCHEMA: OpenAIJsonSchema = {
   name: 'curated_product_repair',
-  shape: PRODUCTS_PROPOSAL_SHAPE.pick({ products: true }),
+  schema: toStrictJsonSchema(PRODUCTS_PROPOSAL_SHAPE.pick({ products: true })),
 }
 
 // ---------------------------------------------------------------------------
@@ -257,7 +252,7 @@ export type ProductsRunContext = {
   signal: AbortSignal | undefined
   record: (step: string, action: string, reason: string, startedAt: number) => void
   wallClockExhausted: () => boolean
-  invokeModel: (messages: ChatMessage[], schema?: AgentSchema) => Promise<AgentModelResponse>
+  invokeModel: (messages: ChatMessage[], schema?: OpenAIJsonSchema) => Promise<AgentModelResponse>
 }
 
 /**
@@ -551,7 +546,7 @@ async function proposeNode(
 
   // The reply shape travels as a strict json_schema on the request (DEV-1864),
   // not as schema text appended to the prompt.
-  const response = await ctx.invokeModel(messages, PROPOSE_SCHEMA)
+  const response = await ctx.invokeModel(messages, PRODUCTS_SCHEMA)
   ctx.budget.used.turns += 1
 
   let parsed: ProductsModelResult

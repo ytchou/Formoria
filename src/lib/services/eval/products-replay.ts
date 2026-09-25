@@ -130,7 +130,6 @@ type ProductsTaskDeps = {
   createAgentModel: (
     profileKey: LlmProfileKey,
     audit: LlmAuditContext,
-    options: { jsonObject: boolean },
   ) => Promise<AgentModel>
   runProductsAgent: (
     input: ProductsInput,
@@ -157,7 +156,6 @@ export function productsTask(taskDeps: ProductsTaskDeps) {
     const model = await taskDeps.createAgentModel(
       'products_agent',
       { phase: 'products' },
-      { jsonObject: true },
     )
 
     const graphOutput = await taskDeps.runProductsAgent(

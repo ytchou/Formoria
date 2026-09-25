@@ -38,7 +38,8 @@ type OpenAIClientOptions = {
 
 type OpenAIImage = string | { url: string };
 
-type OpenAIJsonSchema = {
+/** A strict `json_schema` response format: the name OpenAI echoes and a strict-compatible JSON Schema. */
+export type OpenAIJsonSchema = {
   name: string;
   schema: Record<string, unknown>;
 };

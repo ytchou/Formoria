@@ -10,6 +10,7 @@ vi.mock("@/lib/audit", () => ({
 }));
 
 import { createOpsTools, type OpsTool, type OpsToolDeps, type OpsToolContext } from "../tools";
+import { OpsProposalSchema } from "../proposals";
 
 function makeDeps(overrides: Partial<OpsToolDeps> = {}): OpsToolDeps {
   return {
@@ -309,5 +310,30 @@ describe("propose_action", () => {
       "rerun_job",
       "dispatch_workflow",
     ]);
+  });
+
+  it("flat tool-schema enums match OpsProposalSchema (#1175 drift guard)", () => {
+    const tools = createOpsTools(makeDeps(), makeCtx());
+    const tool = tools.find((t) => t.definition.name === "propose_action")!;
+    const params = tool.definition.parameters as {
+      properties: {
+        kind: { enum: string[] };
+        mode: { enum: string[] };
+        workflow: { enum: string[] };
+      };
+    };
+    const variants = OpsProposalSchema.options;
+    const byKind = (kind: string) =>
+      variants.find((v) => v.shape.kind.value === kind)!;
+    const rerunJob = byKind("rerun_job") as (typeof variants)[1];
+    const dispatchWorkflow = byKind("dispatch_workflow") as (typeof variants)[2];
+
+    expect(params.properties.kind.enum).toEqual(
+      variants.map((v) => v.shape.kind.value),
+    );
+    expect(params.properties.mode.enum).toEqual(rerunJob.shape.mode.options);
+    expect(params.properties.workflow.enum).toEqual(
+      dispatchWorkflow.shape.workflow.options,
+    );
   });
 });

@@ -1,6 +1,10 @@
 import { beforeAll, describe, expect, it, vi } from 'vitest'
 
-import type { ChatMessage, ChatToolDefinition } from '@/lib/services/openai-client'
+import type {
+  ChatMessage,
+  ChatToolDefinition,
+  OpenAIJsonSchema,
+} from '@/lib/services/openai-client'
 import {
   runAcquisition,
   ACQUISITION_RECURSION_LIMIT,
@@ -27,7 +31,11 @@ type ScriptedToolCall = { name: string; args: Record<string, unknown> }
 /** One scripted model turn: tool calls, a JSON payload, or raw text. */
 type ScriptedTurn = ScriptedToolCall[] | Record<string, unknown> | string
 
-type InvokeOptions = { signal?: AbortSignal; tools?: ChatToolDefinition[] }
+type InvokeOptions = {
+  signal?: AbortSignal
+  tools?: ChatToolDefinition[]
+  schema?: OpenAIJsonSchema
+}
 
 const USAGE = { prompt_tokens: 10, completion_tokens: 10, total_tokens: 20 }
 
@@ -466,6 +474,28 @@ describe('acquisition graph — plan tool loop', () => {
     expect(result.decisions.some((d) => d.action === 'plan_fallback')).toBe(true)
   })
 
+  // DEV-1864 A1. The fallback reuses a system prompt whose trailer asks for a
+  // submit_plan call; with no tools on the turn, a closing user turn says so.
+  it('plan_fallback_turn_has_no_tools_and_asks_for_the_plan_as_json', async () => {
+    const badPlan = { surfaces: 'not-an-array' }
+    const model = fakeAgentModel({
+      plan: [
+        [{ name: 'submit_plan', args: badPlan }],
+        [{ name: 'submit_plan', args: badPlan }],
+        VALID_PLAN,
+      ],
+    })
+
+    await runAcquisition(baseInput, makeDeps(), { model })
+
+    const [fallbackMessages, fallbackOptions] = planCalls(model).at(-1)!
+    expect(fallbackOptions).not.toHaveProperty('tools')
+    expect(fallbackMessages.at(-1)).toEqual({
+      role: 'user',
+      content: 'Tools are unavailable for this turn. Reply with only the plan as a JSON object.',
+    })
+  })
+
   it('plan_loop_fallback_that_also_fails_is_agent_fallback', async () => {
     const badPlan = { surfaces: 'not-an-array' }
     const model = fakeAgentModel({
@@ -639,6 +669,45 @@ describe('acquisition graph — budget is asserted, not just counted', () => {
 // ---------------------------------------------------------------------------
 
 describe('acquisition graph — critique', () => {
+  // DEV-1864 X4. The verdict shape travels as a strict json_schema, so every key
+  // is required and the prompt no longer carries the schema as text.
+  it('critique_sends_a_strict_json_schema_listing_every_key_as_required', async () => {
+    const model = fakeAgentModel({ plan: [[{ name: 'submit_plan', args: VALID_PLAN }]] })
+
+    await runAcquisition(baseInput, makeDeps(), { model })
+
+    const [messages, options] = model.invoke.mock.calls.find(([m]) => isCritique(m))!
+    expect(systemOf(messages)).not.toContain('## CritiqueVerdict JSON Schema')
+    expect(options).not.toHaveProperty('tools')
+    expect(options?.schema?.name).toBe('critique_verdict')
+    const schema = options!.schema!.schema as {
+      required: string[]
+      properties: { urlVerdicts: { anyOf: Array<{ items?: { required: string[] } }> } }
+    }
+    expect(schema.required).toEqual(['verdict', 'reason', 'recoveryAction', 'urlVerdicts'])
+    const item = schema.properties.urlVerdicts.anyOf.find((branch) => branch.items)!.items!
+    expect(item.required).toEqual(['url', 'owned', 'confidence', 'reason'])
+  })
+
+  it('critique_null_recovery_action_and_url_verdicts_read_as_absent', async () => {
+    const planWithFanOut = { ...VALID_PLAN, fanOut: ['https://extra.example/about'] }
+    const deps = makeDeps()
+    const result = await runAcquisition(baseInput, deps, {
+      model: fakeAgentModel({
+        plan: [[{ name: 'submit_plan', args: planWithFanOut }]],
+        critique: [
+          { verdict: 'thin', reason: 'no contact channel', recoveryAction: null, urlVerdicts: null },
+          { ...SUFFICIENT, recoveryAction: null, urlVerdicts: null },
+        ],
+      }),
+    })
+
+    // A null recoveryAction falls back to fanout, as a missing one did.
+    expect(result.agentOutcome).toBe('recovered')
+    expect(deps.scrapeBrandUrls).toHaveBeenCalledTimes(2)
+    expect(result.urlVerdicts).toBeUndefined()
+  })
+
   it('critique_parses_url_verdicts_and_finalize_exposes_them', async () => {
     const model = fakeAgentModel({
       plan: [[{ name: 'submit_plan', args: VALID_PLAN }]],

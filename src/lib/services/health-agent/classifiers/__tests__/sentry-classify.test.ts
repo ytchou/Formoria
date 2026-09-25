@@ -72,9 +72,23 @@ function makeDeps(mockChat: ReturnType<typeof vi.fn>): SentryClassifyDeps {
   }
 }
 
+const USER_PREFIX = 'Classify this Sentry issue and reply with a JSON object:\n'
+
+function collectKeys(node: unknown, keys: Set<string> = new Set()): Set<string> {
+  if (Array.isArray(node)) {
+    for (const item of node) collectKeys(item, keys)
+  } else if (node && typeof node === 'object') {
+    for (const [key, value] of Object.entries(node)) {
+      keys.add(key)
+      collectKeys(value, keys)
+    }
+  }
+  return keys
+}
+
 function userPayload(mockChat: ReturnType<typeof vi.fn>): string {
   const user = mockChat.mock.calls[0]![0].user as string
-  return user.slice('Classify this Sentry issue:\n'.length)
+  return user.slice(USER_PREFIX.length)
 }
 
 // ---------------------------------------------------------------------------
@@ -133,6 +147,37 @@ describe('classifySentryIssue', () => {
     expect(input.schema.schema.$schema).toBeUndefined()
   })
 
+  it('classifySentryIssue_wire_schema_omits_string_length_keywords', async () => {
+    const mockChat = vi.fn().mockResolvedValueOnce(chatOk(VALID_CLASSIFICATION))
+    const deps = makeDeps(mockChat)
+
+    await classifySentryIssue(issue(), deps)
+
+    const keys = collectKeys(mockChat.mock.calls[0]![0].schema.schema)
+    expect(keys.has('minLength')).toBe(false)
+    expect(keys.has('maxLength')).toBe(false)
+    expect(keys.has('maxItems')).toBe(true)
+  })
+
+  it('classifySentryIssue_user_message_names_json_for_json_object_fallback', async () => {
+    const mockChat = vi.fn().mockResolvedValueOnce(chatOk(VALID_CLASSIFICATION))
+    const deps = makeDeps(mockChat)
+
+    await classifySentryIssue(issue(), deps)
+
+    expect(mockChat.mock.calls[0]![0].user).toContain('JSON')
+  })
+
+  it('classifySentryIssue_still_rejects_root_cause_over_500_chars', async () => {
+    const tooLong = { ...VALID_CLASSIFICATION, rootCause: 'a'.repeat(501) }
+    const mockChat = vi.fn().mockResolvedValueOnce(chatOk(tooLong))
+    const deps = makeDeps(mockChat)
+
+    const result = await classifySentryIssue(issue(), deps)
+
+    expect(result).toBeNull()
+  })
+
   it('classifySentryIssue_puts_issue_json_in_user_message_not_system_prompt', async () => {
     const mockChat = vi.fn().mockResolvedValueOnce(chatOk(VALID_CLASSIFICATION))
     const deps = makeDeps(mockChat)
@@ -140,8 +185,8 @@ describe('classifySentryIssue', () => {
     await classifySentryIssue(issue(), deps)
 
     const input = mockChat.mock.calls[0]![0]
-    expect(input.user.startsWith('Classify this Sentry issue:\n')).toBe(true)
-    const payload = JSON.parse(input.user.slice('Classify this Sentry issue:\n'.length))
+    expect(input.user.startsWith(USER_PREFIX)).toBe(true)
+    const payload = JSON.parse(input.user.slice(USER_PREFIX.length))
     expect(payload.id).toBe('123456')
     expect(input.system).not.toContain('123456')
     const vars = vi.mocked(deps.fetchPrompt).mock.calls[0]![1] as Record<string, string>

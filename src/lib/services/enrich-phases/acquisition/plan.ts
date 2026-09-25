@@ -19,7 +19,7 @@ const DecisionSchema = z.object({
 }).strict()
 
 /** Fetches the scraper will actually perform: `skip` surfaces are decisions, not fetches. */
-const MAX_FETCH_TARGETS = 6
+export const MAX_FETCH_TARGETS = 6
 
 /**
  * The agent's structured plan for evidence acquisition. The cap applies to
@@ -44,28 +44,40 @@ export const AcquisitionPlan = z.object({
 
 export type AcquisitionPlanType = z.infer<typeof AcquisitionPlan>
 
+/**
+ * `recoveryAction` and `urlVerdicts` are optional here only for the verdicts
+ * the graph builds itself (no model, budget exhausted, parse failed). A model
+ * verdict carries both keys, `null` when unused — see CritiqueVerdictSchema.
+ */
 export type CritiqueVerdict = {
   verdict: 'sufficient' | 'thin' | 'fail'
   reason: string
-  recoveryAction?: 'fanout' | 'search' | 'render'
+  recoveryAction?: 'fanout' | 'search' | 'render' | null
   urlVerdicts?: Array<{
     url: string
     owned: boolean
     confidence: 'high' | 'medium' | 'low'
     reason: string
-  }>
+  }> | null
 }
 
+/**
+ * The critique's reply shape, sent as a strict `json_schema` response format
+ * (DEV-1864). Strict mode requires every key in `required`, so the two
+ * situational fields are `.nullable()`, never `.optional()`: the model answers
+ * `recoveryAction: null` unless the verdict is thin, and `urlVerdicts: null`
+ * when there is nothing to judge.
+ */
 export const CritiqueVerdictSchema = z.object({
   verdict: z.enum(['sufficient', 'thin', 'fail']),
   reason: z.string(),
-  recoveryAction: z.enum(['fanout', 'search', 'render']).optional(),
+  recoveryAction: z.enum(['fanout', 'search', 'render']).nullable(),
   urlVerdicts: z.array(z.object({
     url: z.string(),
     owned: z.boolean(),
     confidence: z.enum(['high', 'medium', 'low']),
     reason: z.string(),
-  })).optional(),
+  })).nullable(),
 }).strict()
 
 /**

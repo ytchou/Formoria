@@ -114,6 +114,9 @@ const ListErrorsArgs = z.object({
   hours: z.number().optional().describe("Hours to look back (default 24, max 168)"),
 });
 
+// Hand-written because OpenAI function parameters reject the top-level oneOf
+// that toStrictJsonSchema(OpsProposalSchema) emits for a discriminated union
+// (#1175). Keep in sync with OpsProposalSchema; tools.test.ts pins the enums.
 const ProposeActionParameters = {
   type: "object",
   properties: {
@@ -127,8 +130,8 @@ const ProposeActionParameters = {
     jobId: { type: "string", minLength: 1, description: "Curation job ID (rerun_job only)." },
     mode: {
       type: "string",
-      enum: ["rerun", "resume", "preflight"],
-      description: "rerun_job: rerun or resume. Omit for dispatch_workflow.",
+      enum: ["rerun", "resume"],
+      description: "rerun_job only: rerun or resume.",
     },
     workflow: {
       type: "string",

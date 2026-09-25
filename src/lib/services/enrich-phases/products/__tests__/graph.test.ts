@@ -13,6 +13,7 @@ import {
   type ProductsInput,
 } from '../graph'
 import { PRODUCTS_BUDGET_CEILINGS } from '../budget'
+import { PRODUCTS_SCHEMA } from '../../products'
 
 // Wrap `fetchLangfusePromptWithMeta` so tests can inspect the variables dict
 // passed by graph nodes. The boundary checker forbids mocking `@/lib/services/`
@@ -229,7 +230,9 @@ describe('products agent graph', () => {
 
     // DEV-1864: the reply shape is a strict json_schema on the request, not
     // prose appended to the system prompt.
-    expect(options?.schema?.name).toBe('curated_product_proposals')
+    // One contract: the propose turn sends the same precomputed schema as the
+    // legacy products call, not a second copy built per turn.
+    expect(options?.schema).toBe(PRODUCTS_SCHEMA)
     expect(String(messages[0]!.content)).not.toContain('JSON Schema\n```json')
     expect(String(messages[0]!.content)).not.toContain('Do not wrap in markdown fences')
 
