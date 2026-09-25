@@ -189,8 +189,7 @@ describe('classifySentryIssue', () => {
     const payload = JSON.parse(input.user.slice(USER_PREFIX.length))
     expect(payload.id).toBe('123456')
     expect(input.system).not.toContain('123456')
-    const vars = vi.mocked(deps.fetchPrompt).mock.calls[0]![1] as Record<string, string>
-    expect(vars.issue).not.toContain('123456')
+    expect(vi.mocked(deps.fetchPrompt).mock.calls[0]).toEqual(['sentry-classify'])
   })
 
   it('classifySentryIssue_returns_null_when_llm_throws', async () => {

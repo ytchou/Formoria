@@ -160,12 +160,8 @@ export async function classifySentryIssue(
   let text: string
   let prompt: { name: string; version: number; source: 'langfuse' | 'snapshot' }
   try {
-    // The issue JSON travels in the user message. The production Langfuse
-    // prompt still has an {{issue}} placeholder and a missing variable throws,
-    // so pass a pointer until v-next (no {{issue}}) is promoted; then drop it.
-    const meta = await deps.fetchPrompt('sentry-classify', {
-      issue: '(see user message)',
-    })
+    // The issue JSON travels in the user message, not the system prompt.
+    const meta = await deps.fetchPrompt('sentry-classify')
     text = meta.text
     prompt = meta.prompt
   } catch {

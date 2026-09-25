@@ -133,8 +133,8 @@ describe("products snapshot prompt", () => {
   });
 
   it("products_prompt_uses_the_twenty_item_score_window_and_demands_a_source", () => {
-    expect(PRODUCTS).toContain("up to 20 products");
-    expect(PRODUCTS).toContain("best valid score minus 15");
+    expect(PRODUCTS).toContain("Select up to 20 qualifying products");
+    expect(PRODUCTS).toContain("best-valid-score-minus-15 window");
     expect(PRODUCTS).toContain("Never pad");
     expect(PRODUCTS).toContain(
       "do not output products without sources",
