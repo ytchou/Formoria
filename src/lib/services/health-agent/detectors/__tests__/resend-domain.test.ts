@@ -62,6 +62,36 @@ describe('resend-domain detector', () => {
     expect(findings).toHaveLength(0)
   })
 
+  it('returns no findings when the key is send-only (restricted_api_key)', async () => {
+    const fakeFetch = async () =>
+      new Response(
+        JSON.stringify({
+          statusCode: 401,
+          name: 'restricted_api_key',
+          message: 'This API key is restricted to only send emails',
+        }),
+        { status: 401, headers: { 'Content-Type': 'application/json' } },
+      )
+    const ctx = makeCtx({ fetch: fakeFetch, env: { RESEND_API_KEY: 're_send_only' } })
+
+    const findings = await resendDomainDetector.run(ctx)
+    expect(findings).toHaveLength(0)
+  })
+
+  it('reports the Resend error name on other API errors', async () => {
+    const fakeFetch = async () =>
+      new Response(
+        JSON.stringify({ statusCode: 401, name: 'validation_error', message: 'API key is invalid' }),
+        { status: 401, headers: { 'Content-Type': 'application/json' } },
+      )
+    const ctx = makeCtx({ fetch: fakeFetch, env: { RESEND_API_KEY: 're_revoked' } })
+
+    const findings = await resendDomainDetector.run(ctx)
+    expect(findings).toHaveLength(1)
+    expect(findings[0].severity).toBe('high')
+    expect(findings[0].evidence).toEqual({ status: 401, errorName: 'validation_error' })
+  })
+
   it('returns a finding when the API key contains non-ASCII characters', async () => {
     const ctx = makeCtx({
       env: { RESEND_API_KEY: 're_1234•rest' },
