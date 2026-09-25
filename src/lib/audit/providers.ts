@@ -226,6 +226,7 @@ const PROVIDERS = {
     "probe_sentry_write",
     "probe_sentry_capture_trigger",
     "probe_sentry_capture_poll",
+    "probe_sentry_capture_quota",
     "probe_surface",
     "probe_trail_supply",
   ],

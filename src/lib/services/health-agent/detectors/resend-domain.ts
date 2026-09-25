@@ -75,13 +75,23 @@ export const resendDomainDetector: Detector = {
     )
 
     if (!response.ok) {
+      const errorName = await response
+        .json()
+        .then((b: { name?: unknown }) => (typeof b?.name === 'string' ? b.name : null))
+        .catch(() => null)
+
+      // A send-only key cannot list domains: treat it like a missing key.
+      // Ceiling: domain verification goes unmonitored while RESEND_API_KEY is
+      // send-only; upgrade by giving the health-agent a full-access key.
+      if (errorName === 'restricted_api_key') return []
+
       return [
         {
           source: 'credential',
           fingerprint: stableFingerprint('credential', 'resend-domain', 'api-error'),
           title: `Resend domains API returned HTTP ${response.status}`,
           severity: 'high',
-          evidence: { status: response.status },
+          evidence: { status: response.status, errorName },
           mergePolicy: 'human',
         },
       ]
