@@ -12,7 +12,11 @@ import {
 } from "@/lib/services/enrich-phases/agents/runtime";
 import type { LlmAuditContext } from "@/lib/services/llm-audit";
 import { postMessage as slackPostMessage, toSlackMrkdwn } from "@/lib/adapters/slack/web-api";
-import { renderProposalCard as slackRenderProposalCard } from "@/lib/adapters/slack/blocks";
+import {
+  renderProposalCard as slackRenderProposalCard,
+  renderThreadNotice,
+} from "@/lib/adapters/slack/blocks";
+import { appendRunEvent as defaultAppendRunEvent } from "@/lib/services/run-timeline/append";
 import { listIssues as defaultListIssues } from "@/lib/adapters/sentry/issues";
 import { getBrandBySlug, searchBrandsAutocomplete } from "@/lib/services/brands";
 import { listCurationJobs, getCurationJobDetail } from "@/lib/services/curation-jobs";
@@ -199,6 +203,7 @@ export type RunOpsAgentDeps = {
   ) => Promise<GraphResult>;
   fireRoutine?: (params: { routineId: string; text: string }) => Promise<{ sessionUrl: string }>;
   getThreadHistory?: (channelId: string, threadTs: string, excludeId: string) => Promise<OpsRequestRow[]>;
+  appendRunEvent?: typeof defaultAppendRunEvent;
   toolDeps?: Partial<OpsToolDeps>;
 };
 
@@ -218,6 +223,7 @@ export async function runOpsAgent(
   const invokeGraph = deps.runGraph ?? defaultRunGraph;
   const fireRtn = deps.fireRoutine ?? defaultFireRoutine;
   const getHistory = deps.getThreadHistory ?? defaultGetThreadHistory;
+  const appendEvent = deps.appendRunEvent ?? defaultAppendRunEvent;
 
   // 1. Expire stale requests
   await expire();
@@ -257,10 +263,12 @@ export async function runOpsAgent(
     await transition(request.id, ["received"], "running");
   } catch (err) {
     console.error("[ops-agent] transition received→running failed:", err);
-    await postMsg(
-      request.threadTs,
-      "Failed to start processing your request. It may already be in progress.",
-    ).catch(() => {});
+    const notice = renderThreadNotice({
+      title: "Ops Agent — Not Started",
+      body: "Failed to start processing your request. It may already be in progress.",
+      context: `Request: \`${request.id}\``,
+    });
+    await postMsg(request.threadTs, notice.text, notice.blocks).catch(() => {});
     return { kind: "failed", modelCalls: 0, toolLog: [], promptTokens: 0, completionTokens: 0 };
   }
 
@@ -269,6 +277,8 @@ export async function runOpsAgent(
   if (isSystemRequest) {
     const repairRequest = extractRepairRequest(request.text);
     if (repairRequest) {
+      const timeline = repairRequest.timeline;
+      let fired = false;
       try {
         const routineId = process.env.OPS_ROUTINE_ID;
         if (!routineId) throw new Error("OPS_ROUTINE_ID is not set");
@@ -281,6 +291,15 @@ export async function runOpsAgent(
           repair: repairRequest,
         };
         const { sessionUrl } = await fireRtn({ routineId, text: JSON.stringify(payload) });
+        fired = true;
+        // appendRunEvent never throws; old-format requests carry no timeline.
+        if (timeline) {
+          await appendEvent(timeline, {
+            kind: "repair_started",
+            at: Math.floor(Date.now() / 1000),
+            ...(sessionUrl ? { sessionUrl } : {}),
+          });
+        }
 
         await transition(request.id, ["running"], "answered", {
           result: { sessionUrl, modelCalls: 0 },
@@ -306,11 +325,26 @@ export async function runOpsAgent(
         return { kind: "answer" as const, text: `Routine fired: ${sessionUrl}`, modelCalls: 0, toolLog: [], promptTokens: 0, completionTokens: 0 };
       } catch (err) {
         console.error("[ops-agent] repair routine fire failed:", err);
+        const reason = err instanceof Error ? err.message : String(err);
+        // Only a fire failure is a repair failure; a later step failing after
+        // the routine fired leaves the repair running.
+        if (timeline && !fired) {
+          await appendEvent(timeline, {
+            kind: "repair_failed",
+            at: Math.floor(Date.now() / 1000),
+            reason,
+          });
+        }
         try {
           await transition(request.id, ["running"], "failed", {
-            result: { error: err instanceof Error ? err.message : String(err), modelCalls: 0 },
+            result: { error: reason, modelCalls: 0 },
           });
-          await postMsg(request.threadTs, "Failed to start repair routine. Please try again.");
+          const notice = renderThreadNotice({
+            title: "Ops Routine — Failed to Start",
+            body: "Failed to start repair routine. Please try again.",
+            context: `Run: \`${repairRequest.runId}\``,
+          });
+          await postMsg(request.threadTs, notice.text, notice.blocks);
         } catch {
           // transition or Slack post failed — already logged above
         }

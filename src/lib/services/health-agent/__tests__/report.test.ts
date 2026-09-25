@@ -2,13 +2,14 @@ import { describe, expect, it } from 'vitest'
 import type { HealthFinding } from '../contracts'
 import type { DetectorResult } from '../types'
 import {
-  buildTickets,
+  buildFindingTicket,
   buildDigest,
+  buildDigestBlocks,
   buildRepairTriggerMessage,
   buildRepairTriggerBlocks,
-  buildRunStartBlocks,
-  buildRunStatusLine,
+  buildRunFailureEvent,
   escapeSlackMrkdwn,
+  isTicketEligible,
   linearLabelForSource,
 } from '../report'
 import type { RepairRequest } from '../repair-request'
@@ -45,147 +46,77 @@ function makeResult(
 // Tests
 // ---------------------------------------------------------------------------
 
-describe('report — tickets', () => {
-  it('one ticket carries every never-ticketed finding from the run', () => {
-    const findings = [
-      makeFinding({
-        fingerprint: 'directory:test:a',
-        title: 'Missing category',
-      }),
-      makeFinding({
-        source: 'credential',
-        fingerprint: 'credential:test:b',
-        title: 'Resend authentication failed',
-      }),
-      makeFinding({
-        source: 'quality',
-        fingerprint: 'quality:test:c',
-        title: 'Vitest failed',
-      }),
-      ...Array.from({ length: 9 }, (_, index) =>
-        makeFinding({
-          fingerprint: `directory:test:extra-${index}`,
-          title: `Additional finding ${index}`,
-        }),
-      ),
-    ]
+describe('report — per-finding tickets', () => {
+  const options = {
+    traceUrl: 'https://langfuse.example.com/trace/abc',
+    date: '2026-09-20',
+  }
 
-    const tickets = buildTickets(findings, {
-      unticketed: new Set(findings.map((finding) => finding.fingerprint)),
-      traceUrl: 'https://langfuse.example.com/trace/abc',
-      date: '2026-09-20',
+  it('one ticket names its finding and carries its details and evidence', () => {
+    const finding = makeFinding({
+      source: 'credential',
+      fingerprint: 'credential:test:b',
+      title: 'Resend authentication failed',
+      severity: 'high',
+      evidence: { status: 401, domain: 'formoria.com' },
     })
 
-    expect(tickets).toHaveLength(1)
-    expect(tickets[0].title).toBe('Health Agent — 12 new findings (2026-09-20)')
-    expect(tickets[0].fingerprints).toEqual(
-      findings.map((finding) => finding.fingerprint),
+    const ticket = buildFindingTicket(finding, options)
+
+    expect(ticket.title).toContain('Resend authentication failed')
+    expect(ticket.fingerprints).toEqual(['credential:test:b'])
+    expect(ticket.labels).toEqual(['Ops'])
+    expect(ticket.body).toContain('**Source:** credential')
+    expect(ticket.body).toContain('**Severity:** high')
+    expect(ticket.body).toContain('`credential:test:b`')
+    expect(ticket.body).toContain('"domain": "formoria.com"')
+    expect(ticket.body).toContain('2026-09-20')
+  })
+
+  it('uses the Data Quality label for non-operational sources', () => {
+    const ticket = buildFindingTicket(
+      makeFinding({ source: 'links-weekly', title: 'Dead social link: brand-a IG' }),
+      options,
     )
-    expect(tickets[0].body).toContain('Missing category')
-    expect(tickets[0].body).toContain('Resend authentication failed')
-    expect(tickets[0].body).toContain('Vitest failed')
-    expect(tickets[0].body).toContain('Additional finding 8')
-    expect(tickets[0].labels).toEqual(['Data Quality', 'Ops'])
+    expect(ticket.labels).toEqual(['Data Quality'])
+    expect(ticket.title).toContain('brand-a IG')
   })
 
-  it('links-weekly findings share the run ticket with every other finding', () => {
-    const findings = [
-      makeFinding({
-        source: 'links-weekly',
-        fingerprint: 'links-weekly:social:brand-a-ig',
-        title: 'Dead social link: brand-a IG',
-      }),
-      makeFinding({
-        source: 'links-weekly',
-        fingerprint: 'links-weekly:social:brand-b-ig',
-        title: 'Dead social link: brand-b IG',
-      }),
-      makeFinding({
-        source: 'links-weekly',
-        fingerprint: 'links-weekly:brand-channels:brand-c-pchome',
-        title: 'Dead channel link: brand-c PChome',
-      }),
-      makeFinding({
-        fingerprint: 'directory:test:brand-d',
-        title: 'Brand D is missing its category',
-      }),
-    ]
-
-    const tickets = buildTickets(findings, {
-      unticketed: new Set([
-        'links-weekly:social:brand-a-ig',
-        'links-weekly:social:brand-b-ig',
-        'links-weekly:brand-channels:brand-c-pchome',
-        'directory:test:brand-d',
-      ]),
-      traceUrl: 'https://langfuse.example.com/trace/abc',
-      date: '2026-09-20',
-    })
-
-    expect(tickets).toHaveLength(1)
-    expect(tickets[0].body).toContain('brand-a')
-    expect(tickets[0].body).toContain('brand-b')
-    expect(tickets[0].body).toContain('brand-c')
-    expect(tickets[0].body).toContain('Brand D is missing its category')
+  it('an investigator diagnosis is appended to the ticket body', () => {
+    const ticket = buildFindingTicket(
+      makeFinding({ fingerprint: 'directory:test:a' }),
+      {
+        ...options,
+        investigation: 'Root cause: brand was removed from CMS on 2026-09-15',
+      },
+    )
+    expect(ticket.body).toContain('Root cause: brand was removed from CMS')
   })
 
-  it('an investigator diagnosis is appended to its finding ticket body', () => {
-    const findings = [
-      makeFinding({
-        fingerprint: 'directory:test:a',
-        evidence: { diagnosis: 'The brand was deleted from the CMS' },
-      }),
-    ]
-
-    const tickets = buildTickets(findings, {
-      unticketed: new Set(['directory:test:a']),
-      traceUrl: 'https://langfuse.example.com/trace/abc',
-      date: '2026-09-20',
-      investigations: new Map([
-        ['directory:test:a', 'Root cause: brand was removed from CMS on 2026-09-15'],
-      ]),
-    })
-
-    expect(tickets).toHaveLength(1)
-    expect(tickets[0].body).toContain('Root cause: brand was removed from CMS')
-  })
-
-  it('ticket bodies and the digest link to the Langfuse trace, never a GitHub Actions run URL', () => {
-    const findings = [makeFinding({ fingerprint: 'directory:test:a' })]
+  it('ticket bodies link to the Langfuse trace, never a GitHub Actions run URL', () => {
     const traceUrl = 'https://cloud.langfuse.com/project/abc/traces/xyz'
+    const ticket = buildFindingTicket(makeFinding(), { ...options, traceUrl })
 
-    const tickets = buildTickets(findings, {
-      unticketed: new Set(['directory:test:a']),
-      traceUrl,
-      date: '2026-09-20',
-    })
-
-    expect(tickets[0].body).toContain(traceUrl)
-    expect(tickets[0].body).not.toContain('github.com')
-    expect(tickets[0].body).not.toContain('actions/runs')
+    expect(ticket.body).toContain(traceUrl)
+    expect(ticket.body).not.toContain('github.com')
+    expect(ticket.body).not.toContain('actions/runs')
   })
 
-  it('suppresses only Sentry runtime findings from Linear', () => {
-    const sentry = makeFinding({
-      source: 'sentry',
-      fingerprint: 'sentry:issue:123456',
-    })
+  it('only never-ticketed, non-Sentry findings are eligible', () => {
+    const sentry = makeFinding({ source: 'sentry', fingerprint: 'sentry:issue:1' })
     const captureCredential = makeFinding({
       source: 'credential',
       fingerprint: 'credential:sentry-capture:round-trip',
     })
+    const ticketed = makeFinding({ fingerprint: 'directory:test:ticketed' })
+    const alreadyTicketed = new Set([ticketed.fingerprint])
 
-    const tickets = buildTickets([sentry, captureCredential], {
-      unticketed: new Set([sentry.fingerprint, captureCredential.fingerprint]),
-      traceUrl: 'https://langfuse.example.com/trace/abc',
-      date: '2026-09-20',
-    })
-
-    expect(tickets).toHaveLength(1)
-    expect(tickets[0].fingerprints).toEqual([captureCredential.fingerprint])
-    expect(tickets[0].labels).toEqual(['Ops'])
+    expect(isTicketEligible(sentry, alreadyTicketed)).toBe(false)
+    expect(isTicketEligible(captureCredential, alreadyTicketed)).toBe(true)
+    expect(isTicketEligible(ticketed, alreadyTicketed)).toBe(false)
   })
 })
+
 
 describe('report — digest', () => {
   it('lists per-source counts and names every detector that could not run', () => {
@@ -382,6 +313,24 @@ describe('report — digest', () => {
     const findingLine = digest.split('\n').find((l) => l.includes('[high] Timeout in API'))
     expect(findingLine).toBe('  [high] Timeout in API')
   })
+
+  it('digest blocks follow header -> section -> context with the run id and trace link', () => {
+    const blocks = buildDigestBlocks(
+      [makeResult({ name: 'brand-invariants', findings: [makeFinding()] })],
+      {
+        date: '2026-09-20',
+        traceUrl: 'https://langfuse.example.com/trace/abc',
+        runId: 'abcdef1234567890',
+      },
+    ) as Array<{ type: string; elements?: Array<{ text: string }> }>
+
+    expect(blocks[0].type).toBe('header')
+    expect(blocks[1].type).toBe('section')
+    const context = blocks[blocks.length - 1]
+    expect(context.type).toBe('context')
+    expect(context.elements?.[0].text).toContain('abcdef12')
+    expect(context.elements?.[0].text).toContain('Langfuse trace')
+  })
 })
 
 describe('report — repair trigger message', () => {
@@ -500,10 +449,11 @@ describe('report — repair trigger blocks', () => {
       elements: Array<{ text: string }>
     }
     expect(contextBlock.type).toBe('context')
+    expect(contextBlock.elements[0].text).toContain('run-bloc')
     expect(contextBlock.elements[0].text).toContain('Langfuse trace')
   })
 
-  it('buildRepairTriggerBlocks omits context when traceUrl absent', () => {
+  it('buildRepairTriggerBlocks keeps a run-id context line without a trace link when traceUrl is absent', () => {
     const request: RepairRequest = {
       agent: 'ops-agent',
       ref: 'staging',
@@ -520,8 +470,13 @@ describe('report — repair trigger blocks', () => {
     }
 
     const blocks = buildRepairTriggerBlocks(request, 'Health Agent')
-    const lastBlock = blocks[blocks.length - 1] as { type: string }
-    expect(lastBlock.type).not.toBe('context')
+    const lastBlock = blocks[blocks.length - 1] as {
+      type: string
+      elements: Array<{ text: string }>
+    }
+    expect(lastBlock.type).toBe('context')
+    expect(lastBlock.elements[0].text).toContain('run-no-t')
+    expect(lastBlock.elements[0].text).not.toContain('Langfuse trace')
   })
 
   it('buildRepairTriggerBlocks and buildRepairTriggerMessage use the caller label', () => {
@@ -599,46 +554,56 @@ describe('report — labels', () => {
   })
 })
 
-describe('buildRunStatusLine', () => {
-  const runId = 'abcdef1234567890'
+describe('buildRunFailureEvent', () => {
+  const at = 1_790_000_000
 
-  it('reports a clean completed run with its finding count', () => {
-    const line = buildRunStatusLine(
-      { status: 'completed', dryRun: false, exitCode: 0, totalFindings: 3 },
-      runId,
-    )
-    expect(line).toBe('✅ *Completed* · 3 findings · `abcdef12`')
+  it('writes nothing for a clean completed run', () => {
+    expect(
+      buildRunFailureEvent(
+        { status: 'completed', dryRun: false, exitCode: 0, totalFindings: 3 },
+        at,
+      ),
+    ).toBeNull()
+  })
+
+  it('writes nothing for a replayed run', () => {
+    expect(
+      buildRunFailureEvent(
+        { status: 'replay', dryRun: false, exitCode: 0, totalFindings: 0 },
+        at,
+      ),
+    ).toBeNull()
   })
 
   it('flags a completed run whose digest failed', () => {
-    const line = buildRunStatusLine(
-      { status: 'completed', dryRun: false, exitCode: 1, totalFindings: 0 },
-      runId,
-    )
-    expect(line).toBe('⚠️ *Completed, digest failed* · 0 findings · `abcdef12`')
+    expect(
+      buildRunFailureEvent(
+        { status: 'completed', dryRun: false, exitCode: 1, totalFindings: 0 },
+        at,
+      ),
+    ).toEqual({ kind: 'failed', at, outcome: 'digest-failed' })
   })
 
-  it('reports a failed run', () => {
-    const line = buildRunStatusLine(
-      { status: 'failed', dryRun: false, exitCode: 1, totalFindings: 0 },
-      runId,
-    )
-    expect(line).toBe('❌ *Failed* · `abcdef12`')
+  it('reports a failed run with its error', () => {
+    expect(
+      buildRunFailureEvent(
+        {
+          status: 'failed',
+          dryRun: false,
+          exitCode: 1,
+          totalFindings: 0,
+          error: 'executeRun failed: boom',
+        },
+        at,
+      ),
+    ).toEqual({ kind: 'failed', at, outcome: 'failed', reason: 'executeRun failed: boom' })
   })
 
   it('reports a crash when there is no result', () => {
-    expect(buildRunStatusLine(undefined, runId)).toBe('⚠️ *Crashed* · `abcdef12`')
-  })
-})
-
-describe('buildRunStartBlocks', () => {
-  it('renders the header and the status line', () => {
-    expect(buildRunStartBlocks('2026-09-25', '🔄 *Running...*')).toEqual([
-      {
-        type: 'header',
-        text: { type: 'plain_text', text: 'Health Agent — 2026-09-25', emoji: true },
-      },
-      { type: 'section', text: { type: 'mrkdwn', text: '🔄 *Running...*' } },
-    ])
+    expect(buildRunFailureEvent(undefined, at)).toEqual({
+      kind: 'failed',
+      at,
+      outcome: 'crashed',
+    })
   })
 })

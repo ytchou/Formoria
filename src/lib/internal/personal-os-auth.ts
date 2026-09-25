@@ -23,3 +23,8 @@ export function isBearerAuthorized(request: Request, envName: string): boolean {
 export function isPersonalOsRequestAuthorized(request: Request): boolean {
   return isBearerAuthorized(request, 'PERSONAL_OS_INTERNAL_TOKEN')
 }
+
+/** The ops routine's relay routes (`/api/internal/ops-summary`, `/api/internal/run-timeline`). */
+export function isOpsRoutineAuthorized(request: Request): boolean {
+  return isBearerAuthorized(request, 'OPS_ROUTINE_CALLBACK_TOKEN')
+}

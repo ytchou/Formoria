@@ -318,6 +318,173 @@ describe("runOpsAgent", () => {
     expect(result.modelCalls).toBe(0);
   });
 
+  // ---------------------------------------------------------------------------
+  // Run timeline events on the repair path
+  // ---------------------------------------------------------------------------
+
+  const TIMELINE = { channel: "C_HEALTH", ts: "1700000000.000100" };
+
+  function repairTextWith(extra: Record<string, unknown>) {
+    return [
+      "```json",
+      JSON.stringify({
+        agent: "e2e-agent",
+        ref: "staging",
+        runId: "run-2",
+        scope: ["e2e/tests/brands.spec.ts"],
+        findings: [
+          { fingerprint: "fp1", title: "brand page loads", severity: "high", source: "e2e" },
+        ],
+        ...extra,
+      }),
+      "```",
+    ].join("\n");
+  }
+
+  function repairDeps(text: string, overrides: Partial<RunOpsAgentDeps> = {}): RunOpsAgentDeps {
+    return {
+      getRequest: vi.fn().mockResolvedValue({
+        ...makeRequest(),
+        operatorEmail: "system:bot",
+        text,
+      }),
+      transitionRequest: vi.fn().mockImplementation(
+        async (_id: string, _from: string[], to: string, patch?: Record<string, unknown>) => ({
+          ...makeRequest(),
+          status: to,
+          ...patch,
+        }),
+      ),
+      expireStale: vi.fn(),
+      postMessage: vi.fn(),
+      createOpsTools: vi.fn().mockReturnValue([]),
+      createAgentModel: vi.fn().mockResolvedValue(fakeModel()),
+      getThreadHistory: vi.fn().mockResolvedValue([]),
+      runGraph: vi.fn(),
+      fireRoutine: vi.fn().mockResolvedValue({
+        sessionUrl: "https://claude.ai/code/session/repair-2",
+      }),
+      appendRunEvent: vi.fn().mockResolvedValue(true),
+      ...overrides,
+    };
+  }
+
+  it("appends repair_started with the session url when the request carries a timeline", async () => {
+    const deps = repairDeps(repairTextWith({ timeline: TIMELINE }));
+
+    const result = await runOpsAgent("req-1", deps);
+
+    expect(result.kind).toBe("answer");
+    expect(deps.appendRunEvent).toHaveBeenCalledOnce();
+    expect(deps.appendRunEvent).toHaveBeenCalledWith(TIMELINE, {
+      kind: "repair_started",
+      at: expect.any(Number),
+      sessionUrl: "https://claude.ai/code/session/repair-2",
+    });
+    // repair_started is appended after the routine fires
+    const fireOrder = (deps.fireRoutine as ReturnType<typeof vi.fn>).mock.invocationCallOrder[0];
+    const appendOrder = (deps.appendRunEvent as ReturnType<typeof vi.fn>).mock
+      .invocationCallOrder[0];
+    expect(appendOrder).toBeGreaterThan(fireOrder);
+  });
+
+  it("appends repair_failed when the routine fails to fire", async () => {
+    const deps = repairDeps(repairTextWith({ timeline: TIMELINE }), {
+      fireRoutine: vi.fn().mockRejectedValue(new Error("routine 503")),
+    });
+    const error = vi.spyOn(console, "error").mockImplementation(() => {});
+
+    const result = await runOpsAgent("req-1", deps);
+
+    expect(result.kind).toBe("failed");
+    expect(deps.appendRunEvent).toHaveBeenCalledOnce();
+    expect(deps.appendRunEvent).toHaveBeenCalledWith(TIMELINE, {
+      kind: "repair_failed",
+      at: expect.any(Number),
+      reason: "routine 503",
+    });
+    error.mockRestore();
+  });
+
+  it("does not append repair_failed when the routine fired but a later step failed", async () => {
+    const transition = vi.fn().mockImplementation(
+      async (_id: string, _from: string[], to: string, patch?: Record<string, unknown>) => {
+        if (to === "answered") throw new Error("db down");
+        return { ...makeRequest(), status: to, ...patch };
+      },
+    );
+    const deps = repairDeps(repairTextWith({ timeline: TIMELINE }), {
+      transitionRequest: transition,
+    });
+    const error = vi.spyOn(console, "error").mockImplementation(() => {});
+
+    await runOpsAgent("req-1", deps);
+
+    const kinds = (deps.appendRunEvent as ReturnType<typeof vi.fn>).mock.calls.map(
+      (c: unknown[]) => (c[1] as { kind: string }).kind,
+    );
+    expect(kinds).toEqual(["repair_started"]);
+    error.mockRestore();
+  });
+
+  it.each([
+    ["success", undefined],
+    ["fire failure", vi.fn().mockRejectedValue(new Error("routine 503"))],
+  ] as const)(
+    "does not append timeline events without a timeline (%s)",
+    async (_name, fireRoutine) => {
+      const deps = repairDeps(
+        repairTextWith({}),
+        fireRoutine ? { fireRoutine } : {},
+      );
+      const error = vi.spyOn(console, "error").mockImplementation(() => {});
+
+      await runOpsAgent("req-1", deps);
+
+      expect(deps.appendRunEvent).not.toHaveBeenCalled();
+      error.mockRestore();
+    },
+  );
+
+  it("posts the repair-routine failure notice as Block Kit", async () => {
+    const deps = repairDeps(repairTextWith({ timeline: TIMELINE }), {
+      fireRoutine: vi.fn().mockRejectedValue(new Error("routine 503")),
+    });
+    const error = vi.spyOn(console, "error").mockImplementation(() => {});
+
+    await runOpsAgent("req-1", deps);
+
+    const calls = (deps.postMessage as ReturnType<typeof vi.fn>).mock.calls;
+    const notice = calls.find(
+      (c: unknown[]) => typeof c[1] === "string" && c[1].includes("Failed to start repair routine"),
+    );
+    expect(notice).toBeDefined();
+    const blocks = notice![2] as Record<string, unknown>[];
+    expect(blocks.length).toBeGreaterThan(0);
+    expect(blocks[0]).toMatchObject({ type: "header" });
+    expect(JSON.stringify(blocks)).toContain("run-2");
+    error.mockRestore();
+  });
+
+  it("posts the start-processing failure notice as Block Kit", async () => {
+    const deps = repairDeps(repairTextWith({ timeline: TIMELINE }), {
+      transitionRequest: vi.fn().mockRejectedValue(new Error("already running")),
+    });
+    const error = vi.spyOn(console, "error").mockImplementation(() => {});
+
+    const result = await runOpsAgent("req-1", deps);
+
+    expect(result.kind).toBe("failed");
+    const calls = (deps.postMessage as ReturnType<typeof vi.fn>).mock.calls;
+    expect(calls).toHaveLength(1);
+    expect(calls[0][1]).toContain("Failed to start processing");
+    const blocks = calls[0][2] as Record<string, unknown>[];
+    expect(blocks.length).toBeGreaterThan(0);
+    expect(blocks[0]).toMatchObject({ type: "header" });
+    expect(deps.appendRunEvent).not.toHaveBeenCalled();
+    error.mockRestore();
+  });
+
   it("malformed_json_system_bot_refuses", async () => {
     const malformedText = "```json\n{not valid json\n```";
 

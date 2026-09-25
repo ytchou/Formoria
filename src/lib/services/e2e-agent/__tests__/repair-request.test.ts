@@ -188,4 +188,47 @@ describe('buildE2eRepairRequest', () => {
     expect(text.length).toBeLessThan(40_000)
     expect(extractRepairRequest(text)).toEqual(request)
   })
+  it('carries the timeline pointer and round-trips it through the ops agent parser', () => {
+    const timeline = { channel: 'C_E2E', ts: '1700000000.000100' }
+    const request = buildE2eRepairRequest({
+      ...baseInput,
+      timeline,
+      failures: [{ file: 'e2e/tests/a.spec.ts', title: 'a fails', error: 'boom' }],
+      unexpectedSkips: [],
+    })
+
+    expect(request!.timeline).toEqual(timeline)
+    const text = buildRepairTriggerMessage('U_OPS_BOT', request!, 'E2E Agent')
+    expect(extractRepairRequest(text)?.timeline).toEqual(timeline)
+  })
+
+  it('omits the timeline key when no timeline is given', () => {
+    const request = buildE2eRepairRequest({
+      ...baseInput,
+      failures: [{ file: 'e2e/tests/a.spec.ts', title: 'a fails', error: 'boom' }],
+      unexpectedSkips: [],
+    })
+
+    expect(request).not.toHaveProperty('timeline')
+  })
+
+  it('counts the timeline pointer inside the size cap', () => {
+    const timeline = { channel: 'C_E2E', ts: '1700000000.000100' }
+    const built = buildWithDropped({
+      ...baseInput,
+      timeline,
+      failures: Array.from({ length: 60 }, (_, i) => ({
+        file: `e2e/tests/spec-${i}.spec.ts`,
+        title: `failing test number ${i}`,
+        project: 'deep',
+        error: 'e'.repeat(5000),
+      })),
+      unexpectedSkips: [],
+    })
+
+    const { request } = built!
+    expect(request.timeline).toEqual(timeline)
+    const titles = request.findings.reduce((n, f) => n + f.title.length + 16, 0)
+    expect(JSON.stringify(request).length + titles).toBeLessThanOrEqual(MAX_REQUEST_CHARS)
+  })
 })
