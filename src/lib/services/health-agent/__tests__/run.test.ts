@@ -1434,3 +1434,148 @@ describe('runHealthAgent — Block Kit guard', () => {
     expect(parsed.timeline).toEqual({ channel: HEALTH_CHANNEL, ts: PARENT_TS })
   })
 })
+
+describe('runHealthAgent — tickets_filed timeline event', () => {
+  const urlFor = (identifier: string) =>
+    `https://linear.app/formoria/issue/${identifier}/slug`
+
+  function ticketingDeps(
+    findings: HealthFinding[],
+    overrides: Partial<RunHealthAgentDeps> = {},
+  ) {
+    const slack = fakeSlack()
+    const ledger = ticketClient()
+    let next = 0
+    const linearCreateTicket = vi.fn(async () => {
+      next += 1
+      const identifier = `DEV-${next}`
+      return { identifier, url: urlFor(identifier) }
+    })
+    const deps = timelineDeps(slack, findings, {
+      client: ledger.client,
+      linearCreateTicket,
+      ...overrides,
+    })
+    return { slack, deps }
+  }
+
+  it('lists report-only tickets before completed', async () => {
+    const { slack, deps } = ticketingDeps([REPORT_ONLY], {
+      triggerRepair: vi.fn(async () => {}),
+    })
+
+    await runHealthAgent(deps)
+
+    const events = slack.events(PARENT_TS)
+    expect(events.map((event) => event.kind)).toEqual([
+      'started',
+      'findings',
+      'tickets_filed',
+      'completed',
+    ])
+    expect(events[2]).toMatchObject({
+      kind: 'tickets_filed',
+      tickets: [
+        {
+          id: 'DEV-1',
+          url: urlFor('DEV-1'),
+          title: 'Report-only finding',
+          fingerprints: [REPORT_ONLY.fingerprint],
+        },
+      ],
+    })
+  })
+
+  it('appends report-only tickets before repair_requested', async () => {
+    const { slack, deps } = ticketingDeps([REPORT_ONLY, REPAIRABLE], {
+      triggerRepair: vi.fn(async () => {}),
+    })
+
+    await runHealthAgent(deps)
+
+    expect(slack.events(PARENT_TS).map((event) => event.kind)).toEqual([
+      'started',
+      'findings',
+      'tickets_filed',
+      'repair_requested',
+    ])
+  })
+
+  it('appends fallback tickets before completed when triggerRepair is absent', async () => {
+    const { slack, deps } = ticketingDeps([REPORT_ONLY, REPAIRABLE], {
+      triggerRepair: undefined,
+    })
+
+    await runHealthAgent(deps)
+
+    const events = slack.events(PARENT_TS)
+    expect(events.map((event) => event.kind)).toEqual([
+      'started',
+      'findings',
+      'tickets_filed',
+      'tickets_filed',
+      'completed',
+    ])
+    expect(events[3]).toMatchObject({
+      kind: 'tickets_filed',
+      tickets: [
+        {
+          id: 'DEV-2',
+          url: urlFor('DEV-2'),
+          title: 'Repairable finding',
+          fingerprints: [REPAIRABLE.fingerprint],
+        },
+      ],
+    })
+  })
+
+  it('appends fallback tickets after repair_failed when triggerRepair throws', async () => {
+    const { slack, deps } = ticketingDeps([REPAIRABLE], {
+      triggerRepair: vi.fn(async () => {
+        throw new Error('ops agent unreachable')
+      }),
+    })
+
+    await runHealthAgent(deps)
+
+    expect(slack.events(PARENT_TS).map((event) => event.kind)).toEqual([
+      'started',
+      'findings',
+      'repair_requested',
+      'repair_failed',
+      'tickets_filed',
+    ])
+  })
+
+  it('leaves a ticket without a url out of the event, and skips the event when none remain', async () => {
+    const { slack, deps } = ticketingDeps([REPORT_ONLY], {
+      triggerRepair: vi.fn(async () => {}),
+      linearCreateTicket: vi.fn(async () => ({ identifier: 'DEV-50' })),
+    })
+
+    await runHealthAgent(deps)
+
+    expect(slack.events(PARENT_TS).map((event) => event.kind)).toEqual([
+      'started',
+      'findings',
+      'completed',
+    ])
+  })
+
+  it('appends nothing when no ticket was created', async () => {
+    const { slack, deps } = ticketingDeps([REPORT_ONLY], {
+      triggerRepair: vi.fn(async () => {}),
+      linearCreateTicket: vi.fn(async () => {
+        throw new Error('linear down')
+      }),
+    })
+
+    await runHealthAgent(deps)
+
+    expect(slack.events(PARENT_TS).map((event) => event.kind)).toEqual([
+      'started',
+      'findings',
+      'completed',
+    ])
+  })
+})

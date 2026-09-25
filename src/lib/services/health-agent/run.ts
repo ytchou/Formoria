@@ -22,7 +22,11 @@ import { stableFingerprint, type HealthFinding } from './contracts'
 import type { Detector } from './types'
 import type { RepoWorkerClient } from './repo-worker-client'
 import type { RepairFinding, RepairRequest } from './repair-request'
-import type { RunEvent, TimelineRef } from '@/lib/services/run-timeline/types'
+import type {
+  RunEvent,
+  RunTicket,
+  TimelineRef,
+} from '@/lib/services/run-timeline/types'
 import {
   admitRun,
   completeRun,
@@ -86,7 +90,7 @@ export type RunHealthAgentDeps = {
     title: string
     body: string
     labels: string[]
-  }) => Promise<{ identifier: string }>
+  }) => Promise<{ identifier: string; url?: string }>
 
   /** Trigger the ops-agent to repair findings. threadTs threads under the digest. */
   triggerRepair?: (request: RepairRequest, threadTs?: string) => Promise<void>
@@ -665,10 +669,12 @@ async function executeRunBody(
   }
 
   // One ticket per new eligible finding: reserve -> create -> finalize,
-  // releasing the reservation on failure.
+  // releasing the reservation on failure. Created tickets are listed under
+  // "Needs you" through one tickets_filed event per call.
   const fileFindingTickets = async (findings: HealthFinding[]): Promise<void> => {
     const createTicket = deps.linearCreateTicket
     if (dryRun || !createTicket || !ledgerRead) return
+    const filed: RunTicket[] = []
     for (const finding of findings) {
       if (!isTicketEligible(finding, alreadyTicketed)) continue
       const queueId = fingerprintToId.get(finding.fingerprint)
@@ -693,12 +699,26 @@ async function executeRunBody(
         await finalizeTickets(client, [
           { id: queueId, linearIdentifier: result.identifier },
         ])
+        // No URL, no row: no existing src/ code builds Linear issue links (the
+        // workspace slug is not configured), so a ticket without one is left
+        // out of the timeline. It is still in Linear and in the ledger.
+        if (result.url) {
+          filed.push({
+            id: result.identifier,
+            url: result.url,
+            title: finding.title,
+            fingerprints: [finding.fingerprint],
+          })
+        }
       } catch (err) {
         console.error('[health-agent] ticket creation failed:', err)
         try {
           await releaseFailedReservations(client, [queueId])
         } catch { /* release best-effort */ }
       }
+    }
+    if (filed.length > 0) {
+      await appendEvent({ kind: 'tickets_filed', at: nowSeconds(), tickets: filed })
     }
   }
 
