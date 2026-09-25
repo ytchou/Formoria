@@ -356,7 +356,7 @@ describe("runOpsAgent", () => {
         }),
       ),
       expireStale: vi.fn(),
-      postMessage: vi.fn(),
+      postMessage: vi.fn().mockResolvedValue(undefined),
       createOpsTools: vi.fn().mockReturnValue([]),
       createAgentModel: vi.fn().mockResolvedValue(fakeModel()),
       getThreadHistory: vi.fn().mockResolvedValue([]),
