@@ -359,10 +359,12 @@ export async function runOpsAgent(
         modelCalls: 0,
       },
     });
-    await postMsg(
-      request.threadTs,
-      "Received a system message but could not parse a valid repair request.",
-    );
+    const notice = renderThreadNotice({
+      title: "Ops Routine — Not Started",
+      body: "Received a system message but could not parse a valid repair request.",
+      context: `Request: \`${request.id}\``,
+    });
+    await postMsg(request.threadTs, notice.text, notice.blocks);
     return { kind: "refused" as const, reason: "invalid_repair_request", modelCalls: 0, toolLog: [], promptTokens: 0, completionTokens: 0 };
   }
 
