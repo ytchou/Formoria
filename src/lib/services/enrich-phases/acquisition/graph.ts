@@ -612,11 +612,17 @@ function buildPlanLoopGraph(
     .compile()
 }
 
+const PLAN_SCHEMA_TRAILER =
+  'Submit the plan by calling submit_plan; its arguments must match this schema. If tools are unavailable, output only this JSON object.'
+
 async function planPrompt(): Promise<string> {
+  // The plan ends on a submit_plan call, so the trailer asks for the call and
+  // names bare JSON only as the no-tools fallback (DEV-1864 F3).
   return withSchema(
     await fetchLangfusePrompt('acquisition-plan'),
     'AcquisitionPlan',
     AcquisitionPlan,
+    PLAN_SCHEMA_TRAILER,
   )
 }
 

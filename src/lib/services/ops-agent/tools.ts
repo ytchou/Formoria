@@ -120,12 +120,21 @@ const ProposeActionParameters = {
     kind: {
       type: "string",
       enum: ["refresh_brand", "rerun_job", "dispatch_workflow"],
+      description:
+        "refresh_brand needs slug; rerun_job needs jobId and mode; dispatch_workflow needs workflow.",
     },
-    slug: { type: "string", minLength: 1 },
-    jobId: { type: "string", minLength: 1 },
-    mode: { type: "string", enum: ["rerun", "resume", "preflight"] },
-    workflow: { type: "string", enum: ["e2e-staging"] },
-    instruction: { type: "string", minLength: 10, maxLength: 2000 },
+    slug: { type: "string", minLength: 1, description: "Brand slug (refresh_brand only)." },
+    jobId: { type: "string", minLength: 1, description: "Curation job ID (rerun_job only)." },
+    mode: {
+      type: "string",
+      enum: ["rerun", "resume", "preflight"],
+      description: "rerun_job: rerun or resume. Omit for dispatch_workflow.",
+    },
+    workflow: {
+      type: "string",
+      enum: ["e2e-staging"],
+      description: "Workflow to dispatch (dispatch_workflow only).",
+    },
   },
   required: ["kind"],
   additionalProperties: false,
@@ -141,7 +150,7 @@ export function createOpsTools(deps: OpsToolDeps, ctx: OpsToolContext): OpsTool[
     definition: {
       name: "system_status",
       description:
-        "Returns health runs, fix queue counts, and recent curation jobs. Use for system health overview.",
+        "Returns health runs, fix queue counts, and recent curation jobs. Use for questions like 'how is the system' or 'what is broken'.",
       parameters: toStrictJsonSchema(z.object({})),
     },
     async run() {
@@ -159,7 +168,7 @@ export function createOpsTools(deps: OpsToolDeps, ctx: OpsToolContext): OpsTool[
     definition: {
       name: "brand_context",
       description:
-        "Returns brand summary and recent job targets for a brand query. Use before proposing brand actions.",
+        "Returns brand summary and recent job targets for a brand query. Call before propose_action on a brand; slugs must come from here.",
       parameters: toStrictJsonSchema(BrandContextArgs),
     },
     async run(args) {
@@ -179,7 +188,7 @@ export function createOpsTools(deps: OpsToolDeps, ctx: OpsToolContext): OpsTool[
     definition: {
       name: "job_detail",
       description:
-        "Returns detailed information about a curation job including targets and parent/child jobs.",
+        "Returns detailed information about a curation job including targets and parent/child jobs. Use for 'what happened in job X'.",
       parameters: toStrictJsonSchema(JobDetailArgs),
     },
     async run(args) {
@@ -199,7 +208,7 @@ export function createOpsTools(deps: OpsToolDeps, ctx: OpsToolContext): OpsTool[
     definition: {
       name: "query_db",
       description:
-        "Run a read-only SQL SELECT query against the database. Rejects non-SELECT and multi-statement queries.",
+        "Run a read-only SQL SELECT query against the database. Rejects non-SELECT and multi-statement queries. Use for counts, aggregates, and data exploration.",
       parameters: toStrictJsonSchema(QueryDbArgs),
     },
     async run(args) {
@@ -225,7 +234,7 @@ export function createOpsTools(deps: OpsToolDeps, ctx: OpsToolContext): OpsTool[
     definition: {
       name: "fire_routine",
       description:
-        "Delegate heavy work (investigation, code fix, pipeline run) to a Claude Code Routine. Returns immediately; the Routine posts results to the Slack thread.",
+        "Delegate heavy work (investigation, code fix, pipeline run) to a Claude Code Routine. Returns immediately; the Routine posts results to the Slack thread. Describe what needs to be done; runs asynchronously.",
       parameters: toStrictJsonSchema(FireRoutineArgs),
     },
     async run(args) {
@@ -263,7 +272,7 @@ export function createOpsTools(deps: OpsToolDeps, ctx: OpsToolContext): OpsTool[
     definition: {
       name: "propose_action",
       description:
-        "Propose a mutating operation. The operator sees a Confirm/Cancel card. Exactly one proposal per request.",
+        'Propose one mutating operation for the operator to confirm or cancel on a card; nothing runs until they confirm. Exactly one proposal per request. Returns {ok:true}, {error:"invalid_args", issues} naming the invalid fields, or {error:"unknown_brand"} — correct the call and retry.',
       parameters: ProposeActionParameters,
     },
     async run(args) {

@@ -9,6 +9,7 @@
 import { z } from 'zod'
 import type { SentryIssue } from '@/lib/adapters/sentry/issues'
 import { fetchLangfusePromptWithMeta } from '@/lib/langfuse/prompt'
+import { toStrictJsonSchema } from '@/lib/services/_shared/zod-schema'
 import {
   createProfiledOpenAIClient,
   profileChatParams,
@@ -30,6 +31,11 @@ const SentryClassificationSchema = z
   .strict()
 
 export type SentryClassification = z.infer<typeof SentryClassificationSchema>
+
+const SENTRY_CLASSIFICATION_JSON_SCHEMA = {
+  name: 'sentry_classification',
+  schema: toStrictJsonSchema(SentryClassificationSchema),
+}
 
 // ---------------------------------------------------------------------------
 // Sanitization
@@ -119,7 +125,8 @@ const defaultDeps: SentryClassifyDeps = {
  * Classify a Sentry issue using the LLM. Returns null on any failure
  * (graceful degradation).
  *
- * Retries once on schema parse failure.
+ * Structured Outputs constrain the shape on the wire, so a schema or parse
+ * failure is not retried; transport retries live in the OpenAI client.
  */
 export async function classifySentryIssue(
   issue: SentryIssue,
@@ -133,8 +140,11 @@ export async function classifySentryIssue(
   let text: string
   let prompt: { name: string; version: number; source: 'langfuse' | 'snapshot' }
   try {
+    // The issue JSON travels in the user message. The production Langfuse
+    // prompt still has an {{issue}} placeholder and a missing variable throws,
+    // so pass a pointer until v-next (no {{issue}}) is promoted; then drop it.
     const meta = await deps.fetchPrompt('sentry-classify', {
-      issue: sanitizedJson,
+      issue: '(see user message)',
     })
     text = meta.text
     prompt = meta.prompt
@@ -153,33 +163,27 @@ export async function classifySentryIssue(
     return null
   }
 
-  // Up to 2 attempts (initial + 1 retry on schema failure)
-  for (let attempt = 0; attempt < 2; attempt++) {
-    try {
-      const { content } = await client.chat({
-        system: text,
-        user: 'Classify this Sentry issue.',
-        json: true,
-        ...deps.chatParams('sentryClassify'),
-      })
-
-      if (!content) continue
-
-      let json: unknown
-      try {
-        json = JSON.parse(content)
-      } catch {
-        // JSON parse failure — retry
-        continue
-      }
-      const parsed = SentryClassificationSchema.safeParse(json)
-      if (parsed.success) return parsed.data
-      // Schema failure — retry
-    } catch {
-      // LLM transport/API error — no retry
-      return null
-    }
+  let content: string | null | undefined
+  try {
+    const result = await client.chat({
+      system: text,
+      user: `Classify this Sentry issue:\n${sanitizedJson}`,
+      schema: SENTRY_CLASSIFICATION_JSON_SCHEMA,
+      ...deps.chatParams('sentryClassify'),
+    })
+    content = result.content
+  } catch {
+    // LLM transport/API error
+    return null
   }
+  if (!content) return null
 
-  return null
+  let json: unknown
+  try {
+    json = JSON.parse(content)
+  } catch {
+    return null
+  }
+  const parsed = SentryClassificationSchema.safeParse(json)
+  return parsed.success ? parsed.data : null
 }

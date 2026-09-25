@@ -48,7 +48,17 @@ export type AgentModelResponse = {
 export type AgentModel = {
   invoke(
     messages: ChatMessage[],
-    options?: { signal?: AbortSignal; tools?: ChatToolDefinition[] },
+    options?: {
+      signal?: AbortSignal
+      tools?: ChatToolDefinition[]
+      /**
+       * The reply's Zod shape, sent as a strict `json_schema` response format on
+       * a turn with no tools (DEV-1864). Ignored when tools are passed. The shape
+       * must be strict-compatible: every key required (`.nullable()`, never
+       * `.optional()`).
+       */
+      schema?: { name: string; shape: z.ZodType }
+    },
   ): Promise<AgentModelResponse>
 }
 
@@ -70,10 +80,15 @@ function messageOf(errorBody: unknown): string {
  * wrapper: every request the returned model makes writes its `brand_ai_results`
  * row through the audited client, on success and on failure alike.
  *
- * `jsonObject` is dropped for a turn that passes tools — OpenAI refuses a forced
- * JSON response alongside tool definitions, and the client throws if both are
- * sent. Structure for those turns comes from the tool schemas and from the JSON
- * Schema `withSchema` inlines; `extractJson` absorbs a fenced reply.
+ * A tool-less turn that passes `schema` is sent as strict `json_schema`, so the
+ * API enforces the shape; the client falls back to `json_object` when a model
+ * rejects it, which is why callers keep parsing through `extractJson`.
+ *
+ * `jsonObject` and `schema` are dropped for a turn that passes tools — OpenAI
+ * refuses a forced JSON response alongside tool definitions, and the client
+ * throws if both are sent. Structure for those turns comes from the tool schemas
+ * and from the JSON Schema `withSchema` inlines; `extractJson` absorbs a fenced
+ * reply.
  *
  * Async for the seam signature: callers already `await` it, and keeping the
  * promise leaves room for a lazily-loaded transport.
@@ -86,6 +101,16 @@ export async function createAgentModel(
   const client = createProfiledOpenAIClient(profileKey, audit)
   const params = profileChatParams(profileKey)
 
+  function responseFormat(opts: Parameters<AgentModel['invoke']>[1]) {
+    if (opts?.tools) return {}
+    if (opts?.schema) {
+      return {
+        schema: { name: opts.schema.name, schema: toStrictJsonSchema(opts.schema.shape) },
+      }
+    }
+    return options.jsonObject ? { json: true } : {}
+  }
+
   return {
     async invoke(messages, opts) {
       const result = await client.chat({
@@ -93,7 +118,7 @@ export async function createAgentModel(
         ...(opts?.tools ? { tools: opts.tools } : {}),
         ...(opts?.signal ? { signal: opts.signal } : {}),
         ...params,
-        ...(options.jsonObject && !opts?.tools ? { json: true } : {}),
+        ...responseFormat(opts),
       })
 
       if (!result.ok) {

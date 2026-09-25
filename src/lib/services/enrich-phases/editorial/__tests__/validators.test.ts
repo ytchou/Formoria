@@ -165,13 +165,17 @@ describe('editorial cross-output validators', () => {
     const [messages, options] = invoke.mock.calls[0]!
     expect(messages).toHaveLength(2)
     expect(messages[0]!.role).toBe('system')
-    expect(messages[0]!.content).toContain('EditorialRepair JSON Schema')
+    // DEV-1864: the shape travels as a strict json_schema, not as prompt text.
+    expect(messages[0]!.content).not.toContain('EditorialRepair JSON Schema')
     expect(messages[1]!.role).toBe('user')
     expect(JSON.parse(messages[1]!.content as string)).toMatchObject({
       fieldsToFix: ['description_en'],
       evidence: 'Founded in 2014 by two designers.',
     })
-    expect(options).toEqual({ signal: controller.signal })
+    expect(options).toEqual({
+      signal: controller.signal,
+      schema: { name: 'editorial_repair', shape: expect.anything() },
+    })
 
     expect(repaired).toEqual({ description_en: CLEAN_EN })
   })

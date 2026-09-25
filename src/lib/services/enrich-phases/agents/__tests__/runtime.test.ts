@@ -3,6 +3,7 @@ import { z } from 'zod'
 import { setAuditWriteSeam, type AuditRecord } from '@/lib/audit/emit'
 import { resolveProfileModel } from '@/lib/constants/llm-models'
 import type { ChatMessage } from '@/lib/services/openai-client'
+import { toStrictJsonSchema } from '@/lib/services/_shared/zod-schema'
 
 import {
   contentText,
@@ -141,6 +142,50 @@ describe('agents runtime — createAgentModel', () => {
     ])
   })
 
+  // DEV-1864 F2. A tool-less turn with a Zod shape is enforced by the API
+  // (strict json_schema), not by a prose "output only JSON" instruction.
+  it('createAgentModel_sends_strict_json_schema_when_schema_is_passed_without_tools', async () => {
+    const fetchSpy = vi.fn().mockResolvedValue(okResponse(chatBody('{"url":"https://a.test"}')))
+    vi.stubGlobal('fetch', fetchSpy)
+
+    const shape = z.object({ url: z.string() })
+    const model = await createAgentModel('products_agent', audit([]), { jsonObject: true })
+    await model.invoke(MESSAGES, { schema: { name: 'thing', shape } })
+
+    const body = requestBody(fetchSpy)
+    expect(body.response_format).toEqual({
+      type: 'json_schema',
+      json_schema: { name: 'thing', strict: true, schema: toStrictJsonSchema(shape) },
+    })
+  })
+
+  it('createAgentModel_sends_strict_json_schema_even_without_json_object_mode', async () => {
+    const fetchSpy = vi.fn().mockResolvedValue(okResponse(chatBody('{"url":"https://a.test"}')))
+    vi.stubGlobal('fetch', fetchSpy)
+
+    const shape = z.object({ url: z.string() })
+    const model = await createAgentModel('acquisition', audit([]))
+    await model.invoke(MESSAGES, { schema: { name: 'thing', shape } })
+
+    const body = requestBody(fetchSpy)
+    expect(body.response_format).toMatchObject({ type: 'json_schema' })
+  })
+
+  it('createAgentModel_sends_no_response_format_when_schema_and_tools_are_both_passed', async () => {
+    const fetchSpy = vi.fn().mockResolvedValue(okResponse(chatBody('plan')))
+    vi.stubGlobal('fetch', fetchSpy)
+
+    const model = await createAgentModel('acquisition', audit([]), { jsonObject: true })
+    await model.invoke(MESSAGES, {
+      tools: TOOLS,
+      schema: { name: 'thing', shape: z.object({ url: z.string() }) },
+    })
+
+    const body = requestBody(fetchSpy)
+    expect(body.response_format).toBeUndefined()
+    expect(body.tools).toBeDefined()
+  })
+
   it('createAgentModel_writes_an_audit_row_with_usage_and_cost', async () => {
     const records = captureAuditRecords()
     vi.stubGlobal(
@@ -272,6 +317,15 @@ describe('agents runtime — helpers', () => {
     expect(prompt).toContain('## Thing JSON Schema')
     expect(prompt).toContain('"additionalProperties":false')
     expect(prompt).toContain('Output only a JSON object')
+  })
+
+  it('withSchema_replaces_the_default_trailer_when_one_is_passed', () => {
+    const schema = z.object({ url: z.string() }).strict()
+    const prompt = withSchema('Base prompt.', 'Thing', schema, 'Call submit_thing.')
+
+    expect(prompt).toContain('## Thing JSON Schema')
+    expect(prompt.endsWith('Call submit_thing.')).toBe(true)
+    expect(prompt).not.toContain('Output only a JSON object')
   })
 
   it('withSignal_combines_signals_and_returns_undefined_when_empty', () => {

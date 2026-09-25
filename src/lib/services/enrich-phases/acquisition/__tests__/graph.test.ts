@@ -431,6 +431,22 @@ describe('acquisition graph — plan tool loop', () => {
     expect(critique[1]?.signal).toBeInstanceOf(AbortSignal)
   })
 
+  // DEV-1864 F3. The plan node ends on a submit_plan call, so its trailer asks
+  // for the call first and names plain JSON only as the no-tools fallback.
+  it('plan_prompt_trailer_asks_for_submit_plan_not_bare_json', async () => {
+    const model = fakeAgentModel({ plan: [[{ name: 'submit_plan', args: VALID_PLAN }]] })
+
+    await runAcquisition(baseInput, makeDeps(), { model })
+
+    const [planMessages] = planCalls(model)[0]!
+    const system = systemOf(planMessages)
+    expect(system).toContain('## AcquisitionPlan JSON Schema')
+    expect(system).toContain(
+      'Submit the plan by calling submit_plan; its arguments must match this schema. If tools are unavailable, output only this JSON object.',
+    )
+    expect(system).not.toContain('Output only a JSON object that matches this schema.')
+  })
+
   it('plan_loop_falls_back_to_single_call_after_two_bad_submits', async () => {
     const badPlan = { surfaces: 'not-an-array' }
     const model = fakeAgentModel({

@@ -87,6 +87,22 @@ describe('acquisition tools', () => {
     for (const tool of tools) expect(typeof tool.definition.description).toBe('string')
   })
 
+  it('tool_descriptions_state_the_verified_caps_and_error_shapes', () => {
+    const tools = createAcquisitionTools(makeDeps(), makeContext())
+    const desc = (name: string) => toolNamed(tools, name).definition.description ?? ''
+
+    expect(desc('submit_plan')).toContain('at most 6')
+    expect(desc('submit_plan')).toContain('{error:"invalid_plan", reason}')
+    expect(desc('probe_static')).toContain('one probe')
+    expect(desc('probe_rendered')).toContain('one render')
+    expect(desc('probe_rendered')).toContain('needsRendering')
+    expect(desc('extract_links')).toContain('one probe')
+    expect(desc('extract_links')).toContain('up to 30')
+    for (const name of ['probe_static', 'probe_rendered', 'extract_links']) {
+      expect(desc(name)).toContain('{error:"not_in_allowlist"}')
+    }
+  })
+
   it('url_tools_refuse_invalid_args', async () => {
     const deps = makeDeps()
     const tools = createAcquisitionTools(deps, makeContext())

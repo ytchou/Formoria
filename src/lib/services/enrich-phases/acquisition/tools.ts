@@ -154,7 +154,7 @@ export function createAcquisitionTools(
     definition: {
       name: 'probe_static',
       description:
-        'Fetches a URL statically and returns a bounded summary (title, text length, scripts, links). The URL must be in the provenance allowlist.',
+        'Fetches a URL statically and returns a bounded summary (title, text length, scripts, needsRendering, platform, up to 20 links). Costs one probe from the budget. Links in the summary do NOT join the allowlist — use extract_links for that. The URL must be in the provenance allowlist; otherwise returns {error:"not_in_allowlist"}. A spent probe budget returns {error:"budget_exhausted", kind}.',
       parameters: URL_PARAMETERS,
     },
     async run(args) {
@@ -182,7 +182,7 @@ export function createAcquisitionTools(
     definition: {
       name: 'probe_rendered',
       description:
-        'Renders a URL with a headless browser and returns a bounded summary. Costs one render from the budget. The URL must be in the provenance allowlist.',
+        'Renders a URL with a headless browser and returns the same bounded summary as probe_static. Costs one render from the budget. Use it only when a probe_static summary for that URL reports needsRendering: true. The URL must be in the provenance allowlist; otherwise returns {error:"not_in_allowlist"}. A spent render budget returns {error:"budget_exhausted", kind}.',
       parameters: URL_PARAMETERS,
     },
     async run(args) {
@@ -210,7 +210,7 @@ export function createAcquisitionTools(
     definition: {
       name: 'extract_links',
       description:
-        'Extracts navigation and content links from a page. Discovered links become probeable (they join the provenance allowlist).',
+        'Fetches a page statically and returns {links} — up to 30 absolute http(s) links from it. Costs one probe from the budget. Every link found joins the provenance allowlist, so it becomes probeable. The URL must be in the provenance allowlist; otherwise returns {error:"not_in_allowlist"}. A spent probe budget returns {error:"budget_exhausted", kind}.',
       parameters: URL_PARAMETERS,
     },
     async run(args) {
@@ -260,7 +260,7 @@ export function createAcquisitionTools(
     definition: {
       name: 'submit_plan',
       description:
-        'Submits the final acquisition plan. Call this exactly once, after any probing, to end the planning step.',
+        'Submits the final acquisition plan and ends the planning step; call it once, after any probing. Total fetch targets (surfaces whose fetch is not "skip", plus fanOut) must be at most 6. Success returns {accepted:true, surfaces, fanOut}. A violation returns {error:"invalid_plan", reason} — fix the plan and call again.',
       parameters: toStrictJsonSchema(AcquisitionPlan),
     },
     async run(args) {

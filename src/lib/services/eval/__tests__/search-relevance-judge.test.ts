@@ -84,9 +84,39 @@ describe('judgeRelevance', () => {
       expect.objectContaining({
         system: 'custom system prompt',
         user: expect.stringContaining('test query'),
-        json: true,
+        schema: expect.objectContaining({ name: 'relevance_grade' }),
       }),
     )
+    expect(chat.mock.calls[0]![0].json).toBeUndefined()
     expect(chat.mock.calls[0]![0].user).toContain('name_zh: Test Product')
+  })
+
+  it('sends a strict schema constraining grade to 0-3', async () => {
+    const chat = vi.fn().mockResolvedValue({ content: '{"grade": 2, "reason": "ok"}' })
+
+    await judgeRelevance({ query: 'q', product }, { chat, samples: 1 })
+
+    const schema = chat.mock.calls[0]![0].schema.schema
+    expect(schema).toMatchObject({
+      type: 'object',
+      additionalProperties: false,
+      required: ['grade', 'reason'],
+      properties: {
+        grade: { type: 'integer', minimum: 0, maximum: 3 },
+        reason: { type: 'string' },
+      },
+    })
+    expect(schema.$schema).toBeUndefined()
+  })
+
+  it('drops out-of-range and non-integer grades', async () => {
+    const chat = vi.fn()
+      .mockResolvedValueOnce({ content: '{"grade": 4, "reason": "x"}' })
+      .mockResolvedValueOnce({ content: '{"grade": 1.5, "reason": "x"}' })
+      .mockResolvedValueOnce({ content: '{"grade": 1, "reason": "x"}' })
+
+    const result = await judgeRelevance({ query: 'q', product }, { chat, samples: 3 })
+
+    expect(result.votes).toEqual([1])
   })
 })
