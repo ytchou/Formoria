@@ -52,6 +52,7 @@ import type {
 } from '../products'
 import {
   PRODUCTS_PROPOSAL_SHAPE,
+  PRODUCTS_SCHEMA,
   validateCandidateEvaluations,
   validateProductProposals,
 } from '../products'
@@ -85,17 +86,14 @@ import {
   contentText,
   extractJson,
   withNodeSpan,
-  withSchema,
   withSignal,
   type AgentModel,
   type AgentModelResponse,
 } from '../agents/runtime'
-import type { ChatMessage } from '@/lib/services/openai-client'
+import type { ChatMessage, OpenAIJsonSchema } from '@/lib/services/openai-client'
+import { toStrictJsonSchema } from '../../_shared/zod-schema'
 import { readProductPage, type ProductPageEvidence, type ReadPageDeps } from './read-page'
 import { selectAcrossPages } from './select-evidence'
-import {
-  PRODUCTS_SCHEMA_TRAILER,
-} from '@/lib/prompts/products-agent'
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -116,6 +114,16 @@ const MAX_PROPOSE_ATTEMPTS = 2
 
 /** Images pulled off one product page for the decision-#35 classify batch. */
 const MAX_PAGE_IMAGES_PER_PRODUCT = 6
+
+/**
+ * The repair turn answers with `products` only (the `products-repair` prompt
+ * forbids `evaluations`), so strict mode gets the same shape minus that key.
+ * The propose turn sends `PRODUCTS_SCHEMA`, the contract `products.ts` sends.
+ */
+const REPAIR_SCHEMA: OpenAIJsonSchema = {
+  name: 'curated_product_repair',
+  schema: toStrictJsonSchema(PRODUCTS_PROPOSAL_SHAPE.pick({ products: true })),
+}
 
 // ---------------------------------------------------------------------------
 // Public types
@@ -244,7 +252,7 @@ export type ProductsRunContext = {
   signal: AbortSignal | undefined
   record: (step: string, action: string, reason: string, startedAt: number) => void
   wallClockExhausted: () => boolean
-  invokeModel: (messages: ChatMessage[]) => Promise<AgentModelResponse>
+  invokeModel: (messages: ChatMessage[], schema?: OpenAIJsonSchema) => Promise<AgentModelResponse>
 }
 
 /**
@@ -296,11 +304,11 @@ export function createProductsRunContext(
     // Every turn — propose and repair alike — goes through the one model the
     // caller built. Its audit context is bound at construction, so there is
     // nothing left to wrap here.
-    async invokeModel(messages) {
-      return options.model!.invoke(
-        messages,
-        ctx.signal ? { signal: ctx.signal } : undefined,
-      )
+    async invokeModel(messages, schema) {
+      return options.model!.invoke(messages, {
+        ...(ctx.signal ? { signal: ctx.signal } : {}),
+        ...(schema ? { schema } : {}),
+      })
     },
   }
   return ctx
@@ -524,12 +532,6 @@ async function proposeNode(
     `prompt=${meta.name}@${meta.version} source=${meta.source}`,
     start,
   )
-  const systemPrompt = withSchema(
-    compiledPrompt,
-    'Curated Product Proposals',
-    PRODUCTS_PROPOSAL_SHAPE,
-    PRODUCTS_SCHEMA_TRAILER,
-  )
   const userContent = JSON.stringify({
     brand: ctx.input.brand,
     candidates: state.selectedUrls,
@@ -538,11 +540,13 @@ async function proposeNode(
   })
 
   const messages: ChatMessage[] = [
-    { role: 'system', content: systemPrompt },
+    { role: 'system', content: compiledPrompt },
     { role: 'user', content: userContent },
   ]
 
-  const response = await ctx.invokeModel(messages)
+  // The reply shape travels as a strict json_schema on the request (DEV-1864),
+  // not as schema text appended to the prompt.
+  const response = await ctx.invokeModel(messages, PRODUCTS_SCHEMA)
   ctx.budget.used.turns += 1
 
   let parsed: ProductsModelResult
@@ -826,14 +830,8 @@ async function repairNode(
   ctx.lastState = state
   const start = Date.now()
 
-  const basePrompt = await fetchLangfusePrompt(
+  const systemPrompt = await fetchLangfusePrompt(
     'products-repair',
-  )
-  const systemPrompt = withSchema(
-    basePrompt,
-    'Curated Product Proposals',
-    PRODUCTS_PROPOSAL_SHAPE,
-    PRODUCTS_SCHEMA_TRAILER,
   )
   const userContent = JSON.stringify({
     brand: ctx.input.brand,
@@ -857,7 +855,7 @@ async function repairNode(
     { role: 'user', content: userContent },
   ]
 
-  const response = await ctx.invokeModel(messages)
+  const response = await ctx.invokeModel(messages, REPAIR_SCHEMA)
   ctx.budget.used.turns += 1
 
   let parsed: ProductsModelResult

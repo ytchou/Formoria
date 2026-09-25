@@ -29,7 +29,7 @@ import { FAQ_PRESETS } from '@/lib/brands/faq-presets'
 import type { PhaseResult } from '@/lib/types/curation'
 import type { LlmProfileKey } from '@/lib/constants/llm-models'
 import type { LlmAuditContext } from '@/lib/services/llm-audit'
-import type { ChatMessage } from '@/lib/services/openai-client'
+import type { ChatMessage, OpenAIJsonSchema } from '@/lib/services/openai-client'
 import { detectAiArtifacts, validateLocalizedText } from '../../enrich-validators'
 import {
   EN_BLURB_BAND,
@@ -38,14 +38,13 @@ import {
   ZH_DESCRIPTION_BAND,
 } from '../../description-rewrite'
 import type { LanguageLocale, LengthBand } from '../../eval/scorers'
-import { parseAndValidate } from '../../_shared/zod-schema'
+import { parseAndValidate, toStrictJsonSchema } from '../../_shared/zod-schema'
 import { brandTarget, type EnrichmentTarget } from '../../_shared/enrichment-target'
 import { loadPersistedScrapeStructure } from '../descriptions'
 import {
   contentText,
   createAgentModel,
   extractJson,
-  withSchema,
   type AgentModel,
 } from '../agents/runtime'
 import type { CrossOutputFailure, EditorialDeps } from './graph'
@@ -205,6 +204,12 @@ const EditorialRepairSchema = z.object({
   blurb_en: z.string().nullable(),
 })
 
+/** The repair turn's strict response format, built once at module load. */
+const EDITORIAL_REPAIR_SCHEMA: OpenAIJsonSchema = {
+  name: 'editorial_repair',
+  schema: toStrictJsonSchema(EditorialRepairSchema),
+}
+
 export type EditorialRepairParams = {
   patch: Record<string, unknown>
   failures: CrossOutputFailure[]
@@ -234,11 +239,9 @@ export async function repairEditorialCrossOutput(
   ]
   if (targets.length === 0) return {}
 
-  const system = withSchema(
-    await fetchLangfusePrompt('editorial-repair'),
-    'EditorialRepair',
-    EditorialRepairSchema,
-  )
+  // The shape travels as a strict json_schema on the request (DEV-1864); the
+  // prompt's own Output section already names the four keys.
+  const system = await fetchLangfusePrompt('editorial-repair')
 
   const user = JSON.stringify({
     brandName: validation.brandName ?? null,
@@ -253,7 +256,10 @@ export async function repairEditorialCrossOutput(
     { role: 'user', content: user },
   ]
 
-  const response = await model.invoke(messages, signal ? { signal } : undefined)
+  const response = await model.invoke(messages, {
+    ...(signal ? { signal } : {}),
+    schema: EDITORIAL_REPAIR_SCHEMA,
+  })
 
   // The prompt asks for all four keys (strict mode needs a full `required`), but
   // parsing accepts a subset: a model that answers only the field it fixed has

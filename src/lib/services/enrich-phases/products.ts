@@ -88,6 +88,7 @@ import type { CatalogDiscoveryResult } from "./catalog-discovery";
 import type { CandidateImage } from "./candidate-pool";
 import { rankForProduct, type RankableImage } from "./image-ranking";
 import { createAgentModel, type AgentModel } from "./agents/runtime";
+import type { OpenAIJsonSchema } from "@/lib/services/openai-client";
 import {
   buildPhaseResult,
   timePhase,
@@ -174,7 +175,8 @@ const productsShape = z.object({
   ),
 });
 
-const PRODUCTS_SCHEMA = {
+/** Strict reply contract — sent by the legacy call and by the agent's propose turn. */
+export const PRODUCTS_SCHEMA: OpenAIJsonSchema = {
   name: "curated_product_proposals",
   schema: toStrictJsonSchema(productsShape),
 };
@@ -1332,7 +1334,6 @@ export async function runProductsPhase({
                 target: effectiveTarget,
                 ...(jobId ? { jobId } : {}),
               },
-              { jsonObject: true },
             ));
 
           // Decision #35, wired to the same two helpers the acquire phase uses.

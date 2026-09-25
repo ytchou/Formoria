@@ -25,6 +25,7 @@ import type {
   ChatMessage,
   ChatToolCall,
   ChatToolDefinition,
+  OpenAIJsonSchema,
 } from '@/lib/services/openai-client'
 import type { LlmProfileKey } from '@/lib/constants/llm-models'
 import { toStrictJsonSchema } from '../../_shared/zod-schema'
@@ -48,7 +49,18 @@ export type AgentModelResponse = {
 export type AgentModel = {
   invoke(
     messages: ChatMessage[],
-    options?: { signal?: AbortSignal; tools?: ChatToolDefinition[] },
+    options?: {
+      signal?: AbortSignal
+      tools?: ChatToolDefinition[]
+      /**
+       * The reply's strict JSON Schema, sent as a `json_schema` response format
+       * on a turn with no tools (DEV-1864). Ignored when tools are passed.
+       * Callers build it once at module load with `toStrictJsonSchema`, from a
+       * strict-compatible shape: every key required (`.nullable()`, never
+       * `.optional()`).
+       */
+      schema?: OpenAIJsonSchema
+    },
   ): Promise<AgentModelResponse>
 }
 
@@ -70,10 +82,15 @@ function messageOf(errorBody: unknown): string {
  * wrapper: every request the returned model makes writes its `brand_ai_results`
  * row through the audited client, on success and on failure alike.
  *
- * `jsonObject` is dropped for a turn that passes tools — OpenAI refuses a forced
+ * A tool-less turn that passes `schema` is sent as strict `json_schema`, so the
+ * API enforces the shape; the client falls back to `json_object` when a model
+ * rejects it, which is why callers keep parsing through `extractJson`.
+ *
+ * `schema` is dropped for a turn that passes tools — OpenAI refuses a forced
  * JSON response alongside tool definitions, and the client throws if both are
  * sent. Structure for those turns comes from the tool schemas and from the JSON
- * Schema `withSchema` inlines; `extractJson` absorbs a fenced reply.
+ * Schema `withSchema` inlines; `extractJson` absorbs a fenced reply. A tool-less
+ * turn without `schema` is plain text: there is no json_object mode here.
  *
  * Async for the seam signature: callers already `await` it, and keeping the
  * promise leaves room for a lazily-loaded transport.
@@ -81,7 +98,6 @@ function messageOf(errorBody: unknown): string {
 export async function createAgentModel(
   profileKey: LlmProfileKey,
   audit: LlmAuditContext,
-  options: { jsonObject?: boolean } = {},
 ): Promise<AgentModel> {
   const client = createProfiledOpenAIClient(profileKey, audit)
   const params = profileChatParams(profileKey)
@@ -93,7 +109,7 @@ export async function createAgentModel(
         ...(opts?.tools ? { tools: opts.tools } : {}),
         ...(opts?.signal ? { signal: opts.signal } : {}),
         ...params,
-        ...(options.jsonObject && !opts?.tools ? { json: true } : {}),
+        ...(opts?.schema && !opts.tools ? { schema: opts.schema } : {}),
       })
 
       if (!result.ok) {

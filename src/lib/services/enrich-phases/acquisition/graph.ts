@@ -27,7 +27,13 @@
  */
 
 import { Annotation, END, START, StateGraph, GraphRecursionError } from '@langchain/langgraph'
-import type { ChatMessage, ChatToolDefinition, OpenAIToolCall } from '@/lib/services/openai-client'
+import type {
+  ChatMessage,
+  ChatToolDefinition,
+  OpenAIJsonSchema,
+  OpenAIToolCall,
+} from '@/lib/services/openai-client'
+import { toStrictJsonSchema } from '../../_shared/zod-schema'
 import { fetchLangfusePrompt } from '@/lib/langfuse/prompt'
 import type { FetchMetadata } from '../scraper/fetch-guards'
 import type { RenderProvider } from '../scraper/render/types'
@@ -99,6 +105,21 @@ export const ACQUISITION_RECURSION_LIMIT = 12
 /** Rejected `submit_plan` payloads before the loop gives up on tool calling. */
 const MAX_BAD_SUBMITS = 2
 
+/** The critique's reply, enforced by the API as a strict json_schema (DEV-1864). */
+const CRITIQUE_SCHEMA: OpenAIJsonSchema = {
+  name: 'critique_verdict',
+  schema: toStrictJsonSchema(CritiqueVerdictSchema),
+}
+
+/**
+ * Appended as a user turn to the tool-less plan fallback. The system prompt's
+ * trailer asks for a submit_plan call; this turn has no tools, so it says so.
+ * The plan cannot travel as a strict json_schema: its optional `strategy` and
+ * `adapter` and its `socialBios` record are not strict-compatible.
+ */
+const PLAN_FALLBACK_NOTE =
+  'Tools are unavailable for this turn. Reply with only the plan as a JSON object.'
+
 /** Gallery slots after the hero. */
 const MAX_GALLERY = 9
 
@@ -133,7 +154,7 @@ export type AcquisitionOutput = {
   /** Ranked pool for downstream consumers (products agent). Capped at 16 KB. */
   imagePool?: RankableImage[]
   /** Per-URL ownership verdicts from the critique; drives quarantine revocation. */
-  urlVerdicts?: CritiqueVerdict['urlVerdicts']
+  urlVerdicts?: NonNullable<CritiqueVerdict['urlVerdicts']>
   /** Page titles from fetched first-party pages, for the names phase. */
   nameCandidates?: string[]
   /** Pages that yielded at least one image candidate. */
@@ -231,6 +252,7 @@ type RunContext = {
     messages: ChatMessage[],
     nodeSignalOverride?: AbortSignal,
     tools?: ChatToolDefinition[],
+    schema?: OpenAIJsonSchema,
   ) => Promise<AgentModelResponse>
 }
 
@@ -337,11 +359,12 @@ function createRunContext(
       }
       return withSignal(options.signal, AbortSignal.timeout(Math.max(1, allowance)))
     },
-    async invokeModel(model, messages, nodeSignalOverride, tools) {
+    async invokeModel(model, messages, nodeSignalOverride, tools, schema) {
       const sig = nodeSignalOverride ?? ctx.signal
       return model.invoke(messages, {
         ...(sig ? { signal: sig } : {}),
         ...(tools ? { tools } : {}),
+        ...(schema ? { schema } : {}),
       })
     },
   }
@@ -612,11 +635,17 @@ function buildPlanLoopGraph(
     .compile()
 }
 
+const PLAN_SCHEMA_TRAILER =
+  'Submit the plan by calling submit_plan; its arguments must match this schema. If tools are unavailable, output only this JSON object.'
+
 async function planPrompt(): Promise<string> {
+  // The plan ends on a submit_plan call, so the trailer asks for the call and
+  // names bare JSON only as the no-tools fallback (DEV-1864 F3).
   return withSchema(
     await fetchLangfusePrompt('acquisition-plan'),
     'AcquisitionPlan',
     AcquisitionPlan,
+    PLAN_SCHEMA_TRAILER,
   )
 }
 
@@ -684,16 +713,19 @@ async function planNode(ctx: RunContext): Promise<AcquisitionUpdate> {
     )
   }
 
-  // 2. Single-call fallback — one free-text call, parsed with `extractJson`
-  //    and adopted by `adoptPlanFromText`, tried at most once. Json mode is NOT
-  //    enabled on the acquisition model: the client refuses a forced JSON
-  //    response_format alongside tools (see acquire.ts, model construction). It
-  //    spends NO further turn: the plan STAGE is one turn, charged above,
-  //    however many model calls it takes to produce a plan. Charging this call
+  // 2. Single-call fallback — one tool-less free-text call, parsed with
+  //    `extractJson` and adopted by `adoptPlanFromText`, tried at most once.
+  //    PLAN_FALLBACK_NOTE overrides the system trailer's submit_plan request
+  //    for this turn (DEV-1864 A1). It spends NO further turn: the plan STAGE
+  //    is one turn, charged above, however many model calls it takes to
+  //    produce a plan. Charging this call
   //    a second turn spent the static-site allowance entirely on planning, and
   //    the critique then skipped as `budget_exhausted` on every such brand.
   if (!ctx.submittedPlan) {
-    const response = await ctx.invokeModel(model, messages)
+    const response = await ctx.invokeModel(model, [
+      ...messages,
+      { role: 'user', content: PLAN_FALLBACK_NOTE },
+    ])
     ctx.planModelCalls += 1
     const adopted = adoptPlanFromText(ctx, contentText(response))
     ctx.record(
@@ -988,11 +1020,9 @@ async function critiqueNode(
     return { verdict: { verdict: 'sufficient', reason: 'budget exhausted, accepting results' } }
   }
 
-  const systemPrompt = withSchema(
-    await fetchLangfusePrompt('acquisition-critique'),
-    'CritiqueVerdict',
-    CritiqueVerdictSchema,
-  )
+  // The shape travels as a strict json_schema on the request (DEV-1864), not as
+  // schema text appended to the prompt.
+  const systemPrompt = await fetchLangfusePrompt('acquisition-critique')
 
   const userContent = JSON.stringify({
     brand: ctx.input.brand,
@@ -1014,6 +1044,8 @@ async function critiqueNode(
         { role: 'user', content: userContent },
       ],
       critiqueSignal,
+      undefined,
+      CRITIQUE_SCHEMA,
     )
   } catch (error) {
     // Critique timeout/abort → treat as budget exhausted, never rethrow.
@@ -1038,12 +1070,9 @@ async function critiqueNode(
 
   let verdict: CritiqueVerdict
   try {
-    const parsed = CritiqueVerdictSchema.safeParse(JSON.parse(extractJson(contentText(response))))
-    verdict = parsed.success
-      ? parsed.data
-      : { verdict: 'sufficient', reason: 'verdict parse failed, accepting results' }
+    verdict = parseCritiqueVerdict(contentText(response)) ?? PARSE_FAILED_VERDICT
   } catch {
-    verdict = { verdict: 'sufficient', reason: 'verdict parse failed, accepting results' }
+    verdict = PARSE_FAILED_VERDICT
   }
 
   ctx.record('critique', verdict.verdict, verdict.reason.slice(0, 100), start)
@@ -1052,6 +1081,23 @@ async function critiqueNode(
     return { verdict, agentOutcome: 'blocked', error: `critique_failed: ${verdict.reason}` }
   }
   return { verdict }
+}
+
+const PARSE_FAILED_VERDICT: CritiqueVerdict = {
+  verdict: 'sufficient',
+  reason: 'verdict parse failed, accepting results',
+}
+
+/**
+ * A missing situational key reads as `null`. Strict json_schema always sends
+ * both, but the client falls back to json_object when a model rejects
+ * json_schema, and a verdict that merely omits an unused key is still a verdict.
+ */
+function parseCritiqueVerdict(text: string): CritiqueVerdict | null {
+  const raw: unknown = JSON.parse(extractJson(text))
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return null
+  const parsed = CritiqueVerdictSchema.safeParse({ recoveryAction: null, urlVerdicts: null, ...raw })
+  return parsed.success ? parsed.data : null
 }
 
 // ---------------------------------------------------------------------------

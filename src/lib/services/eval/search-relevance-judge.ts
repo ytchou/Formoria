@@ -1,4 +1,10 @@
+import { z } from 'zod'
 import type { PromptMeta } from '@/lib/langfuse/prompt'
+import type { OpenAIJsonSchema } from '@/lib/services/openai-client'
+import {
+  parseAndValidate,
+  toStrictJsonSchema,
+} from '@/lib/services/_shared/zod-schema'
 
 // ---------------------------------------------------------------------------
 // Types
@@ -24,7 +30,7 @@ type JudgeResult = {
 type ChatFn = (opts: {
   system: string
   user: string
-  json: boolean
+  schema?: OpenAIJsonSchema
 }) => Promise<{ content: string }>
 
 type FetchPromptFn = (name: string) => Promise<PromptMeta>
@@ -34,6 +40,20 @@ type JudgeDeps = {
   fetchPrompt?: FetchPromptFn
   samples?: number
   temperature?: number
+}
+
+// ---------------------------------------------------------------------------
+// Output schema
+// ---------------------------------------------------------------------------
+
+const JudgeOutputSchema = z.object({
+  grade: z.number().int().min(0).max(3),
+  reason: z.string(),
+})
+
+const JUDGE_JSON_SCHEMA = {
+  name: 'relevance_grade',
+  schema: toStrictJsonSchema(JudgeOutputSchema),
 }
 
 // ---------------------------------------------------------------------------
@@ -56,10 +76,6 @@ const DEFAULT_SYSTEM_PROMPT = [
   '- Never reward brand size, popularity, market share, or how well the page is written.',
   '- Never reward responsiveness, availability, or speed of the brand.',
   '- Focus on functional fit: does this product solve or serve the stated situation?',
-  '',
-  '## Output',
-  '',
-  'Return JSON: { "grade": <0|1|2|3>, "reason": "<one sentence>" }',
 ].join('\n')
 
 // ---------------------------------------------------------------------------
@@ -92,25 +108,29 @@ export async function judgeRelevance(
   ].filter(Boolean).join('\n')
 
   // Default chat uses createAuditedOpenAIClient
-  const chatFn = deps.chat ?? (async (opts: { system: string; user: string; json: boolean }) => {
+  const chatFn: ChatFn = deps.chat ?? (async (opts) => {
     const { createAuditedOpenAIClient } = await import('@/lib/services/llm-audit')
     const client = createAuditedOpenAIClient({ phase: 'search_relevance_judge' })
     const result = await client.chat({ ...opts, temperature })
     return { content: result.content ?? '' }
   })
 
-  // Call `samples` times
+  // The samples are independent, so run them concurrently; a rejected or
+  // malformed sample is skipped. Votes keep sample order.
+  const settled = await Promise.allSettled(
+    Array.from({ length: samples }, async () =>
+      chatFn({
+        system: systemPrompt,
+        user: userMsg,
+        schema: JUDGE_JSON_SCHEMA,
+      }),
+    ),
+  )
   const votes: number[] = []
-  for (let i = 0; i < samples; i++) {
-    try {
-      const result = await chatFn({ system: systemPrompt, user: userMsg, json: true })
-      const parsed = JSON.parse(result.content)
-      if (typeof parsed.grade === 'number' && parsed.grade >= 0 && parsed.grade <= 3) {
-        votes.push(parsed.grade)
-      }
-    } catch {
-      // malformed - skip
-    }
+  for (const outcome of settled) {
+    if (outcome.status !== 'fulfilled') continue
+    const parsed = parseAndValidate(outcome.value.content, JudgeOutputSchema)
+    if (parsed.success) votes.push(parsed.data.grade)
   }
 
   if (votes.length === 0) {

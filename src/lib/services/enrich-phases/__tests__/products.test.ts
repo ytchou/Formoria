@@ -1953,10 +1953,14 @@ describe("products agent path", () => {
       jobId: "job-77",
     });
 
-    // `jsonObject: true` reaches the wire as a forced JSON body, and the turn
+    // DEV-1864: the propose turn reaches the wire as a strict json_schema
+    // (`curated_product_proposals`), not a loose `json: true` body, and the turn
     // is plain `{ role, content }` messages rather than a `system`/`user` pair.
     const request = chat.mock.calls[0]![0];
-    expect(request).toMatchObject({ json: true });
+    expect(request).toMatchObject({
+      schema: { name: "curated_product_proposals" },
+    });
+    expect(request).not.toHaveProperty("json");
     expect(request.messages?.map((message) => message.role)).toEqual([
       "system",
       "user",

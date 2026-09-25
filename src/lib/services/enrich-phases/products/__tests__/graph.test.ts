@@ -13,6 +13,7 @@ import {
   type ProductsInput,
 } from '../graph'
 import { PRODUCTS_BUDGET_CEILINGS } from '../budget'
+import { PRODUCTS_SCHEMA } from '../../products'
 
 // Wrap `fetchLangfusePromptWithMeta` so tests can inspect the variables dict
 // passed by graph nodes. The boundary checker forbids mocking `@/lib/services/`
@@ -58,7 +59,10 @@ beforeAll(() => {
 function scriptedModel(responses: string[]) {
   let index = 0
   const invoke = vi.fn(
-    async (_messages: ChatMessage[], _options?: { signal?: AbortSignal }) => {
+    async (
+      _messages: ChatMessage[],
+      _options?: { signal?: AbortSignal; schema?: { name: string } },
+    ) => {
       const content = responses[index++] ?? responses.at(-1) ?? '{}'
       return {
         content,
@@ -223,6 +227,14 @@ describe('products agent graph', () => {
     // The wall-clock deadline reaches the provider, so an abort cancels the
     // in-flight request rather than only the node that follows it.
     expect(options?.signal).toBeInstanceOf(AbortSignal)
+
+    // DEV-1864: the reply shape is a strict json_schema on the request, not
+    // prose appended to the system prompt.
+    // One contract: the propose turn sends the same precomputed schema as the
+    // legacy products call, not a second copy built per turn.
+    expect(options?.schema).toBe(PRODUCTS_SCHEMA)
+    expect(String(messages[0]!.content)).not.toContain('JSON Schema\n```json')
+    expect(String(messages[0]!.content)).not.toContain('Do not wrap in markdown fences')
 
     // The user turn carries the evidence the model is asked to propose from.
     const user = JSON.parse(String(messages[1]!.content)) as {

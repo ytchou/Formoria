@@ -87,6 +87,39 @@ describe('acquisition tools', () => {
     for (const tool of tools) expect(typeof tool.definition.description).toBe('string')
   })
 
+  it('tool_descriptions_state_the_verified_caps_and_error_shapes', () => {
+    const tools = createAcquisitionTools(makeDeps(), makeContext())
+    const desc = (name: string) => toolNamed(tools, name).definition.description ?? ''
+
+    expect(desc('submit_plan')).toContain('at most 6')
+    expect(desc('submit_plan')).toContain('{error:"invalid_plan", reason}')
+    expect(desc('probe_static')).toContain('one probe')
+    expect(desc('probe_rendered')).toContain('one render')
+    expect(desc('probe_rendered')).toContain('needsRendering')
+    expect(desc('extract_links')).toContain('one probe')
+    expect(desc('extract_links')).toContain('up to 30')
+    for (const name of ['probe_static', 'probe_rendered', 'extract_links']) {
+      expect(desc(name)).toContain('{error:"not_in_allowlist"}')
+    }
+  })
+
+  // DEV-1864 G1/T3. Gather already probed the known URLs into `probeResults`, so
+  // the render tool must point there, not only at a fresh probe_static call, and
+  // every error shape the tools can return must be named.
+  it('tool_descriptions_point_at_gathered_probe_results_and_name_every_error_shape', () => {
+    const tools = createAcquisitionTools(makeDeps(), makeContext())
+    const desc = (name: string) => toolNamed(tools, name).definition.description ?? ''
+
+    expect(desc('probe_rendered')).toContain('probeResults')
+    expect(desc('probe_rendered')).toContain('do not probe it again')
+    expect(desc('probe_static')).toContain('already has an entry in probeResults')
+    expect(desc('probe_rendered')).toContain('{error:"no_render_provider"}')
+    expect(desc('probe_rendered')).toContain('do not call probe_rendered again')
+    expect(desc('probe_static')).toContain('{error, status}')
+    expect(desc('extract_links')).toContain('{error, links: []}')
+    expect(desc('probe_static')).toContain('up to 20 links')
+  })
+
   it('url_tools_refuse_invalid_args', async () => {
     const deps = makeDeps()
     const tools = createAcquisitionTools(deps, makeContext())
