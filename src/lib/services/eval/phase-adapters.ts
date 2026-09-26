@@ -115,8 +115,9 @@ const categoryExpectedSchema = z.object({
   writeEligible: z.boolean().optional(),
 })
 
+// Golden items list every defensible name; a verdict matching any of them agrees.
 const nameExpectedSchema = z.object({
-  chosen: z.string(),
+  acceptedNames: z.array(z.string()).min(1),
   confidence: z.string(),
 })
 
@@ -224,7 +225,7 @@ const registry: Record<string, PhaseAdapter> = {
     expectedOf: (item) => {
       const eo = item.expectedOutput as Record<string, unknown>
       return {
-        chosen: eo.chosen,
+        acceptedNames: eo.acceptedNames,
         confidence: eo.confidence,
       }
     },
@@ -233,7 +234,7 @@ const registry: Record<string, PhaseAdapter> = {
       { name: 'decisionAgreement', fn: (o, e) => {
         const out = o as Record<string, unknown>
         const exp = e as Record<string, unknown>
-        return decisionAgreement(out.chosen, exp.chosen)
+        return (exp.acceptedNames as string[]).includes(out.chosen as string) ? 1 : 0
       }},
       { name: 'confidenceBandAgreement', fn: (o, e) => {
         const out = o as Record<string, unknown>

@@ -53,7 +53,7 @@ export type ParsedCommand =
     }
   | { command: 'prompt-push'; name: string; file?: string; label?: string; allowVariableChange: boolean }
   | { command: 'prompt-pull'; add: string[]; check: boolean; allowVariableChange: boolean }
-  | { command: 'prompt-promote'; name: string; version: number }
+  | { command: 'prompt-promote'; name: string; version: number; allowVariableChange: boolean }
   | {
       command: 'pairwise-run'
       phase: string
@@ -222,7 +222,12 @@ export function parseCliArgs(args: string[]): ParsedCommand {
       if (!Number.isInteger(version) || version < 1) {
         throw new Error('version must be a positive integer')
       }
-      return { command: 'prompt-promote', name, version }
+      return {
+        command: 'prompt-promote',
+        name,
+        version,
+        allowVariableChange: values['allow-variable-change'] ?? false,
+      }
     }
   }
 
@@ -263,7 +268,7 @@ export function parseCliArgs(args: string[]): ParsedCommand {
       '  llm-eval run --dataset <name> --arm <spec> [--arm <spec>] [--env-file <path>] [--allow-unreviewed]\n' +
       '  llm-eval prompt push <name> [--file <path>] [--label production] [--allow-variable-change]\n' +
       '  llm-eval prompt pull [--add <name>]... [--check] [--allow-variable-change]\n' +
-      '  llm-eval prompt promote <name> <version>\n' +
+      '  llm-eval prompt promote <name> <version> [--allow-variable-change]\n' +
       '  llm-eval pairwise run --phase <phase> [--target <target>] [--sample <n>] --arm <spec> --arm <spec> [--no-enqueue] [--allow-unreviewed]\n' +
       '  llm-eval pairwise report <runName>',
   )
@@ -388,6 +393,12 @@ export async function handlePromptPull({
     warn: (msg: string) => logFn(`[warn] ${msg}`),
   })
 
+  if (result.fetchErrors) {
+    for (const e of result.fetchErrors) {
+      logFn(`fetch error: ${e.name} (${e.error})`)
+    }
+  }
+
   if (!result.ok) {
     if (result.drift) {
       for (const d of result.drift) {
@@ -404,9 +415,9 @@ export async function handlePromptPull({
         logFn(`placeholder drift: ${d.name} +${d.added.join(',')} -${d.removed.join(',')}`)
       }
     }
-    return 1
   }
 
+  // A partial pull (fetch errors only) still writes the prompts that succeeded
   if (result.snapshot && !check) {
     writeFileFn(
       LANGFUSE_SNAPSHOT_PATH,
@@ -415,16 +426,18 @@ export async function handlePromptPull({
     logFn('Snapshot updated')
   }
 
-  return 0
+  return result.ok ? 0 : 1
 }
 
 export async function handlePromptPromote({
   name,
   version,
+  allowVariableChange = false,
   deps,
 }: {
   name: string
   version: number
+  allowVariableChange?: boolean
   deps?: Partial<PromptHandlerDeps>
 }): Promise<number> {
   const { promotePrompt } = await import(
@@ -447,11 +460,16 @@ export async function handlePromptPromote({
     version,
     snapshot,
     knownNames,
+    allowVariableChange,
   })
 
   if (!result.ok) {
     logFn(`promote failed: ${result.error}`)
     return 1
+  }
+
+  for (const e of result.fetchErrors ?? []) {
+    logFn(`[warn] fetch error: ${e.name} (${e.error}), snapshot entry kept`)
   }
 
   if (result.snapshot) {
@@ -1191,8 +1209,8 @@ async function cmdPromptPull(add: string[], check: boolean, allowVariableChange:
   process.exitCode = exitCode
 }
 
-async function cmdPromptPromote(name: string, version: number): Promise<void> {
-  const exitCode = await handlePromptPromote({ name, version })
+async function cmdPromptPromote(name: string, version: number, allowVariableChange: boolean): Promise<void> {
+  const exitCode = await handlePromptPromote({ name, version, allowVariableChange })
   await flushLangfuse()
   process.exitCode = exitCode
 }
@@ -1240,7 +1258,7 @@ async function main() {
       await cmdPromptPull(parsed.add, parsed.check, parsed.allowVariableChange)
       break
     case 'prompt-promote':
-      await cmdPromptPromote(parsed.name, parsed.version)
+      await cmdPromptPromote(parsed.name, parsed.version, parsed.allowVariableChange)
       break
     case 'pairwise-run':
       await cmdPairwiseRun(parsed.phase, parsed.target, parsed.sample, parsed.arms, parsed.noEnqueue, parsed.allowUnreviewed)

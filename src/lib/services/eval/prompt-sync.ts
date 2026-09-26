@@ -217,9 +217,9 @@ export async function pullSnapshot(opts: PullOptions): Promise<PullResult> {
     return { ok: false, placeholderDrift }
   }
 
-  if (fetchErrors.length > 0) {
-    return { ok: false, fetchErrors }
-  }
+  // A fetch error is per-prompt: the others still pull, and the failed one
+  // keeps its snapshot entry. `ok` stays false so the caller reports it.
+  const errors = fetchErrors.length > 0 ? { fetchErrors } : {}
 
   // Check mode: report version drift without writing
   if (check) {
@@ -237,9 +237,9 @@ export async function pullSnapshot(opts: PullOptions): Promise<PullResult> {
     }
 
     if (drift.length > 0) {
-      return { ok: false, drift }
+      return { ok: false, drift, ...errors }
     }
-    return { ok: true }
+    return { ok: fetchErrors.length === 0, ...errors }
   }
 
   // Build updated snapshot
@@ -249,9 +249,10 @@ export async function pullSnapshot(opts: PullOptions): Promise<PullResult> {
   }
 
   return {
-    ok: true,
+    ok: fetchErrors.length === 0,
     snapshot: { prompts: updatedPrompts },
     unknownRemote: unknownRemote.length > 0 ? unknownRemote : undefined,
+    ...errors,
   }
 }
 
@@ -320,6 +321,7 @@ type PromoteOptions = {
   version: number
   snapshot: SnapshotFile
   knownNames: string[]
+  allowVariableChange?: boolean
 }
 
 type PromoteResult = {
@@ -328,10 +330,12 @@ type PromoteResult = {
   snapshot?: SnapshotFile
   /** True when the production label was applied but the post-promote pull failed. */
   labelApplied?: boolean
+  /** Other snapshot prompts that failed to re-pull; they keep their old entries. */
+  fetchErrors?: FetchError[]
 }
 
 export async function promotePrompt(opts: PromoteOptions): Promise<PromoteResult> {
-  const { api, name, version, snapshot, knownNames } = opts
+  const { api, name, version, snapshot, knownNames, allowVariableChange = false } = opts
 
   // Fetch the version's text to check placeholder parity
   const remote = await api.promptsGet({ promptName: name, version })
@@ -342,36 +346,35 @@ export async function promotePrompt(opts: PromoteOptions): Promise<PromoteResult
   // Check parity against snapshot
   const existing = snapshot.prompts[name]
   if (existing) {
-    const existingText = linesToText(existing.text)
-    const newKeys = placeholderSet(remote.prompt)
-    const oldKeys = placeholderSet(existingText)
-    const added = [...newKeys].filter((k) => !oldKeys.has(k))
-    const removed = [...oldKeys].filter((k) => !newKeys.has(k))
-
-    if (added.length > 0 || removed.length > 0) {
-      const parts: string[] = []
-      if (added.length > 0) parts.push(added.map((k) => `+${k}`).join(', '))
-      if (removed.length > 0) parts.push(removed.map((k) => `-${k}`).join(', '))
-      return { ok: false, error: `Placeholder change: ${parts.join('; ')}` }
+    try {
+      assertPlaceholderParity(remote.prompt, linesToText(existing.text), { allow: allowVariableChange })
+    } catch (err) {
+      return { ok: false, error: err instanceof Error ? err.message : String(err) }
     }
   }
 
   // Label the version as production
   await api.promptVersionUpdate(name, version, { newLabels: ['production'] })
 
-  // Pull the newly promoted version into the snapshot
+  // Pull the newly promoted version into the snapshot. The promoted entry is
+  // pre-seeded with the checked text so an allowed placeholder change does not
+  // trip the pull's parity check, while other prompts stay strictly checked.
   const pullResult = await pullSnapshot({
     api,
-    snapshot,
+    snapshot: existing
+      ? { prompts: { ...snapshot.prompts, [name]: { version, text: textToLines(remote.prompt) } } }
+      : snapshot,
     knownNames,
     remoteNames: knownNames,
   })
 
-  if (!pullResult.ok) {
+  // Only the promoted prompt decides success; other prompts' fetch errors are reported.
+  const ownError = pullResult.fetchErrors?.find((e) => e.name === name)
+  if (!pullResult.snapshot || ownError) {
     return {
       ok: false,
       labelApplied: true,
-      error: 'Post-promote pull failed',
+      error: ownError ? `Post-promote pull failed: ${ownError.error}` : 'Post-promote pull failed',
       snapshot: pullResult.snapshot,
     }
   }
@@ -379,5 +382,6 @@ export async function promotePrompt(opts: PromoteOptions): Promise<PromoteResult
   return {
     ok: true,
     snapshot: pullResult.snapshot,
+    ...(pullResult.fetchErrors ? { fetchErrors: pullResult.fetchErrors } : {}),
   }
 }
