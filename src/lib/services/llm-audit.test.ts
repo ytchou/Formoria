@@ -366,6 +366,39 @@ describe("emitLangfuseGeneration — prompt and cost fields", () => {
     const body = mockGeneration.mock.calls[0]![0];
     expect(body.costDetails).toEqual({ total: 0.0123 });
   });
+
+  it("langfuse_generation_metadata_carries_response_format", async () => {
+    const mockGeneration = vi.fn();
+    const langfuseTrace = { generation: mockGeneration };
+
+    await runWithAuditContext({ langfuseTrace }, () => {
+      const ctx: LlmAuditContext = { phase: "detect" };
+      emitLangfuseGeneration(ctx, {
+        ...baseEvent,
+        meta: { responseFormat: "json_schema" },
+      });
+      return Promise.resolve();
+    });
+
+    expect(mockGeneration).toHaveBeenCalledOnce();
+    const body = mockGeneration.mock.calls[0]![0];
+    expect(body.metadata).toMatchObject({ responseFormat: "json_schema" });
+  });
+
+  it("langfuse_generation_metadata_omits_response_format_when_absent", async () => {
+    const mockGeneration = vi.fn();
+    const langfuseTrace = { generation: mockGeneration };
+
+    await runWithAuditContext({ langfuseTrace }, () => {
+      const ctx: LlmAuditContext = { phase: "detect" };
+      emitLangfuseGeneration(ctx, baseEvent);
+      return Promise.resolve();
+    });
+
+    expect(mockGeneration).toHaveBeenCalledOnce();
+    const body = mockGeneration.mock.calls[0]![0];
+    expect(body.metadata).not.toHaveProperty("responseFormat");
+  });
 });
 
 describe("buildEnrichmentConfig", () => {

@@ -74,6 +74,9 @@ export function emitLangfuseGeneration(
           ok: event.ok,
           status: event.status,
           latencyMs: event.latencyMs,
+          ...(typeof event.meta?.responseFormat === "string"
+            ? { responseFormat: event.meta.responseFormat }
+            : {}),
         },
       });
     }
