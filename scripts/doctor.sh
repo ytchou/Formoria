@@ -330,8 +330,11 @@ check_e2e() {
 has_env_value() {
   local var="$1"
 
-  if [ -n "${!var:-}" ]; then
-    return 0
+  # A variable set in the environment is authoritative, even when empty;
+  # .env.local is only a fallback for an unset one.
+  if [ -n "${!var+x}" ]; then
+    [ -n "${!var}" ]
+    return
   fi
 
   grep -Eq "^${var}=.+" .env.local 2>/dev/null

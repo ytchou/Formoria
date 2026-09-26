@@ -361,6 +361,18 @@ describe('parseCliArgs — prompt promote', () => {
       command: 'prompt-promote',
       name: 'detect',
       version: 4,
+      allowVariableChange: false,
+    })
+  })
+
+  it('parses --allow-variable-change on prompt promote', () => {
+    expect(
+      parseCliArgs(['prompt', 'promote', 'sentry-classify', '2', '--allow-variable-change']),
+    ).toEqual({
+      command: 'prompt-promote',
+      name: 'sentry-classify',
+      version: 2,
+      allowVariableChange: true,
     })
   })
 
@@ -490,6 +502,46 @@ describe('handlePromptPull', () => {
     })
     expect(checkExitCode).toBe(1)
     expect(checkDeps.writeFile).not.toHaveBeenCalled()
+  })
+
+  it('writes the prompts that fetched, logs fetch errors, and exits 1', async () => {
+    const snapshot: SnapshotFile = {
+      prompts: {
+        descriptions: { version: 1, text: ['old'] },
+        'sentry-classify': { version: 1, text: ['old classify'] },
+      },
+    }
+
+    const api: PromptApi = {
+      promptsGet: vi.fn(async ({ promptName }) => {
+        if (promptName === 'sentry-classify') throw new Error('No production label')
+        return { version: 5, prompt: 'new desc', labels: ['production'] }
+      }),
+      promptsCreate: vi.fn(),
+      promptVersionUpdate: vi.fn(),
+    }
+
+    const logs: string[] = []
+    let writtenContent = ''
+    const exitCode = await handlePromptPull({
+      add: [],
+      check: false,
+      allowVariableChange: false,
+      deps: {
+        api,
+        log: (msg: string) => logs.push(msg),
+        readFile: () => JSON.stringify(snapshot),
+        writeFile: (_path: string, content: string) => {
+          writtenContent = content
+        },
+      },
+    })
+
+    expect(exitCode).toBe(1)
+    expect(logs).toContain('fetch error: sentry-classify (No production label)')
+    const parsed = JSON.parse(writtenContent)
+    expect(parsed.prompts.descriptions.version).toBe(5)
+    expect(parsed.prompts['sentry-classify'].version).toBe(1)
   })
 })
 
