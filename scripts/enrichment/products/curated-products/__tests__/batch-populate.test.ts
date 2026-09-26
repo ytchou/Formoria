@@ -209,6 +209,15 @@ describe("rewriteSummaryLines", () => {
     expect(text).toContain("brand-a/Walnut Chopsticks (p1)");
   });
 
+  it("prints each skipped product with its reason", () => {
+    const skipped = [
+      { id: "p2", nameZh: "Oak Tray", brandSlug: "brand-a", reason: "verify_failed:name_echo" },
+    ];
+    const text = rewriteSummaryLines({ ...result, skipped }, false).join("\n");
+    expect(text).toContain("Skipped: 1");
+    expect(text).toContain("skipped: brand-a/Oak Tray (p2): verify_failed:name_echo");
+  });
+
   it("prints a zero count and no product lines when nothing is omitted", () => {
     const lines = rewriteSummaryLines({ ...result, originOmitted: [] }, true);
     expect(lines.join("\n")).toContain("Origin omitted: 0");

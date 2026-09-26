@@ -930,6 +930,10 @@ describe("rewriteGeneratedDescriptions", () => {
         `- ${url} | c:origin:2 | 材質 陶土`,
       ].join("\n"),
     );
+    // Origin precedes the existing description so the rewrite does not anchor on it
+    expect(userContents[0]!.indexOf(PRODUCTS_LABELS.originExcerpts)).toBeLessThan(
+      userContents[0]!.indexOf("現有描述（參考）"),
+    );
   });
 
   it("prompt block omits the origin label when there are no excerpts", async () => {
