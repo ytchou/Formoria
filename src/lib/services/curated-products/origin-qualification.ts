@@ -43,6 +43,8 @@ const TAIWAN_MANUFACTURE_PATTERNS = [
   /made\s+in\s+taiwan/iu,
   /manufactur(?:e|ed|ing)\s+in\s+taiwan/iu,
   /produc(?:e|ed|tion)\s+in\s+taiwan/iu,
+  /(?<!料)(?:商品)?產地\s*[:：]?\s*(?:台灣|臺灣)/u,
+  /where\s+it'?s\s+made\s*:?\s*taiwan/iu,
 ] as const;
 
 const COMPLETE_TAIWAN_MATERIAL_PATTERNS = [
@@ -111,6 +113,44 @@ export function assessDeterministicOrigin(
     materialsFromTaiwan: materialExcerptIds.length > 0,
     excerptIds: [...new Set([...madeExcerptIds, ...materialExcerptIds])],
   };
+}
+
+const ORIGIN_WINDOW_LENGTH = 60;
+
+/**
+ * Returns about 60 chars around the first Taiwan-manufacture statement found in
+ * `texts` (scanned in order), or null when none states it.
+ */
+export function findTaiwanOriginWindow(
+  texts: readonly string[],
+): string | null {
+  for (const raw of texts) {
+    const text = normalizeEvidenceText(raw);
+    if (!text) continue;
+    let first: RegExpExecArray | null = null;
+    for (const pattern of TAIWAN_MANUFACTURE_PATTERNS) {
+      const match = pattern.exec(text);
+      if (match && (first === null || match.index < first.index)) first = match;
+    }
+    if (first === null) continue;
+    const matchEnd = first.index + first[0].length;
+    const pad = Math.max(
+      0,
+      Math.floor((ORIGIN_WINDOW_LENGTH - first[0].length) / 2),
+    );
+    const start = Math.max(0, first.index - pad);
+    const end = Math.min(text.length, matchEnd + pad);
+    return text.slice(start, end);
+  }
+  return null;
+}
+
+export function pageStatesTaiwanOrigin(texts: readonly string[]): boolean {
+  return findTaiwanOriginWindow(texts) !== null;
+}
+
+export function descriptionMentionsTaiwan(text: string): boolean {
+  return /台灣|臺灣/u.test(text);
 }
 
 export function decideOriginQualification(input: {

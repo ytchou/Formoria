@@ -10,6 +10,9 @@ import {
 } from '@/lib/taxonomy/ontology'
 import {
   decideOriginQualification,
+  descriptionMentionsTaiwan,
+  findTaiwanOriginWindow,
+  type OriginExcerpt,
   type DeterministicOriginAssessment,
   type LlmOriginAssessment,
   type RegistryOriginAssessment,
@@ -138,6 +141,24 @@ export function verifyDescription(input: { nameZh: string; productDescriptionZh:
     failures.push('description_pricing: remove prices, discounts, or inventory')
   }
   return failures
+}
+
+/**
+ * Soft check: when the page states the product is made in Taiwan (an origin
+ * excerpt or the main text), the description must say so. Returns the failure
+ * string, or null when the page states no origin or the description carries it.
+ */
+export function checkDescriptionOrigin(input: {
+  productDescriptionZh: string
+  originExcerpts: readonly OriginExcerpt[]
+  mainText: string
+}): string | null {
+  const window = findTaiwanOriginWindow([
+    ...input.originExcerpts.map((excerpt) => excerpt.text),
+    input.mainText,
+  ])
+  if (window === null || descriptionMentionsTaiwan(input.productDescriptionZh)) return null
+  return `description_origin_omitted: page states origin ("${window}"); add it to product_description_zh in the page's own wording`
 }
 
 // ---------------------------------------------------------------------------

@@ -4,8 +4,11 @@ import {
   buildOriginExcerpts,
   classifyRegistryRecord,
   decideOriginQualification,
+  descriptionMentionsTaiwan,
+  findTaiwanOriginWindow,
   isRegistryRecordActive,
   normalizeRegistryValue,
+  pageStatesTaiwanOrigin,
   rankOriginCandidates,
   selectExactRegistryMatch,
   type RegistryOriginRecord,
@@ -187,5 +190,72 @@ describe("product origin qualification", () => {
       "mit-later",
       "plain",
     ]);
+  });
+
+  it("matches Pinkoi 商品產地 field", () => {
+    for (const text of ["商品產地 台灣", "商品產地：臺灣"]) {
+      expect(
+        assessDeterministicOrigin([{ id: "p1", text }]).madeInTaiwan,
+      ).toBe(true);
+    }
+  });
+
+  it("matches en.pinkoi Where It's Made", () => {
+    for (const text of ["Where It's Made Taiwan", "where its made: Taiwan"]) {
+      expect(
+        assessDeterministicOrigin([{ id: "p1", text }]).madeInTaiwan,
+      ).toBe(true);
+    }
+  });
+
+  it("does not treat material origin as manufacture", () => {
+    for (const text of ["原料產地：台灣", "材料產地 台灣"]) {
+      expect(
+        assessDeterministicOrigin([{ id: "p1", text }]).madeInTaiwan,
+      ).toBe(false);
+    }
+  });
+
+  it("keeps the badge decision unchanged for a bare 商品產地 page", () => {
+    const deterministic = assessDeterministicOrigin([
+      { id: "p1", text: "商品產地 台灣" },
+    ]);
+    expect(deterministic).toMatchObject({
+      madeInTaiwan: true,
+      materialsFromTaiwan: false,
+    });
+    expect(
+      decideOriginQualification({
+        deterministic,
+        llm: deterministic,
+        registry: { matched: false, recordId: null, reason: "no_exact_match" },
+      }),
+    ).toEqual({ qualified: false, method: null });
+  });
+
+  it("pageStatesTaiwanOrigin scans every text", () => {
+    expect(
+      pageStatesTaiwanOrigin(["no origin here", "商品產地 台灣"]),
+    ).toBe(true);
+    expect(pageStatesTaiwanOrigin([])).toBe(false);
+    expect(pageStatesTaiwanOrigin([""])).toBe(false);
+    expect(pageStatesTaiwanOrigin(["台灣設計，於越南製造"])).toBe(false);
+  });
+
+  it("findTaiwanOriginWindow returns a bounded window around the first match", () => {
+    const padding = "無關".repeat(100);
+    const window = findTaiwanOriginWindow([
+      "nothing",
+      `${padding} Made   in Taiwan ${padding}`,
+    ]);
+    expect(window).toContain("Made in Taiwan");
+    expect(window!.length).toBeLessThanOrEqual(80);
+    expect(findTaiwanOriginWindow(["nothing"])).toBeNull();
+  });
+
+  it("descriptionMentionsTaiwan", () => {
+    expect(descriptionMentionsTaiwan("台灣製造")).toBe(true);
+    expect(descriptionMentionsTaiwan("臺灣手工")).toBe(true);
+    expect(descriptionMentionsTaiwan("日本製")).toBe(false);
   });
 });

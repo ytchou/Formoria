@@ -58,6 +58,7 @@ import {
 } from '../products'
 import {
   assessDeterministicOrigin,
+  descriptionMentionsTaiwan,
   type OriginExcerpt,
   type RegistryOriginAssessment,
 } from '@/lib/services/curated-products/origin-qualification'
@@ -72,6 +73,7 @@ import {
   verifyProposal,
   verifyClosedSets,
   verifyDescription,
+  checkDescriptionOrigin,
   type ImageVerificationStatus,
 } from './verify'
 import {
@@ -168,6 +170,11 @@ type ProductsVerification = {
   imageVerified: number
   imageUnverified: number
   originQualified: number
+  /**
+   * Published proposals whose page states Taiwan manufacture but whose
+   * description still omits it after repair (DEV-1856). A warning, never a drop.
+   */
+  originOmitted: number
   /** Images stored and classified by the in-products batch (decision #35). */
   pageImagesClassified: number
 }
@@ -225,7 +232,12 @@ type RunOptions = {
 
 type Decision = ProductsOutput['decisions'][number]
 
-type Repairable = { proposal: CuratedProductProposal; failures: string[] }
+/**
+ * `soft` marks an entry that already passed verification and is published as
+ * is; the repair turn may only replace it (origin omission, DEV-1856). A soft
+ * entry is never a drop.
+ */
+type Repairable = { proposal: CuratedProductProposal; failures: string[]; soft?: boolean }
 
 // ---------------------------------------------------------------------------
 // Run context
@@ -741,6 +753,15 @@ async function verifyNode(
         ctx.candidateIds.get(proposal.officialUrl) ?? proposal.officialUrl,
       )?.assessment ?? NO_REGISTRY_MATCH
 
+    // An unread page has no evidence to hold the description to.
+    const originFailure = page
+      ? checkDescriptionOrigin({
+          productDescriptionZh: proposal.productDescriptionZh,
+          originExcerpts: page.originExcerpts,
+          mainText: page.mainText,
+        })
+      : null
+
     const result = verifyProposal(
       {
         url: proposal.officialUrl,
@@ -773,8 +794,12 @@ async function verifyNode(
 
     if (result.ok) {
       verified.push(proposal)
+      if (originFailure) repairable.push({ proposal, failures: [originFailure], soft: true })
     } else if (result.repairable) {
-      repairable.push({ proposal, failures: result.failures })
+      repairable.push({
+        proposal,
+        failures: originFailure ? [...result.failures, originFailure] : result.failures,
+      })
     } else {
       dropped += 1
       for (const failure of result.failures) {
@@ -858,12 +883,18 @@ async function repairNode(
   const response = await ctx.invokeModel(messages, REPAIR_SCHEMA)
   ctx.budget.used.turns += 1
 
+  // Soft entries are already in `verified`; only hard entries can be dropped.
+  const softUrls = new Set(
+    state.repairable.filter((entry) => entry.soft).map((entry) => entry.proposal.officialUrl),
+  )
+  const hardCount = state.repairable.length - softUrls.size
+
   let parsed: ProductsModelResult
   try {
     parsed = JSON.parse(extractJson(contentText(response))) as ProductsModelResult
   } catch {
     ctx.record('repair', 'parse_failed', 'model returned non-JSON', start)
-    return { dropped: state.dropped + state.repairable.length }
+    return { dropped: state.dropped + hardCount }
   }
 
   const brandUrl = brandUrlOf(ctx)
@@ -884,12 +915,24 @@ async function repairNode(
       productDescriptionZh: proposal.productDescriptionZh,
     })
     reVerifyDescCache.set(proposal.officialUrl, descFailures)
-    return closedSet.ok && verifySameHost(proposal.officialUrl, brandUrl, ownedHostsOf(ctx)).ok && descFailures.length === 0
+    const passes = closedSet.ok && verifySameHost(proposal.officialUrl, brandUrl, ownedHostsOf(ctx)).ok && descFailures.length === 0
+    // A soft entry only counts as fixed when the omission is gone too; a hard
+    // entry is not held to origin, so a partial repair still publishes.
+    return softUrls.has(proposal.officialUrl)
+      ? passes && descriptionMentionsTaiwan(proposal.productDescriptionZh)
+      : passes
   })
+  const hardRepaired = reVerified.filter((proposal) => !softUrls.has(proposal.officialUrl))
+  const softFixed = new Map(
+    reVerified
+      .filter((proposal) => softUrls.has(proposal.officialUrl))
+      .map((proposal) => [proposal.officialUrl, proposal]),
+  )
 
   const reVerifyDropReasons: Record<string, number> = {}
   for (const proposal of validation.proposals) {
-    if (reVerified.includes(proposal)) continue
+    // A soft entry that stays unfixed keeps its published original: no drop.
+    if (reVerified.includes(proposal) || softUrls.has(proposal.officialUrl)) continue
     const closedSet = verifyClosedSets({
       category: proposal.category,
       subcategory: proposal.subcategory ?? undefined,
@@ -914,7 +957,7 @@ async function repairNode(
 
   ctx.record(
     'repair',
-    `repaired ${reVerified.length} of ${state.repairable.length}`,
+    `repaired ${hardRepaired.length} of ${hardCount}, origin fixed ${softFixed.size} of ${softUrls.size}`,
     `${validation.dropped} dropped during repair validation, ${validation.proposals.length - reVerified.length} failed re-verification`,
     start,
   )
@@ -925,10 +968,14 @@ async function repairNode(
   }
 
   return {
-    repaired: reVerified,
-    dropped: state.dropped + (state.repairable.length - reVerified.length),
+    // Fixed soft entries replace their published copy by URL, never append.
+    ...(softFixed.size > 0
+      ? { verified: state.verified.map((proposal) => softFixed.get(proposal.officialUrl) ?? proposal) }
+      : {}),
+    repaired: hardRepaired,
+    dropped: state.dropped + (hardCount - hardRepaired.length),
     dropReasons: mergedDropReasons,
-    ...(reVerified.length > 0 ? { agentOutcome: 'repaired' as const } : {}),
+    ...(hardRepaired.length > 0 ? { agentOutcome: 'repaired' as const } : {}),
   }
 }
 
@@ -1035,6 +1082,7 @@ const EMPTY_VERIFICATION: ProductsVerification = {
   imageVerified: 0,
   imageUnverified: 0,
   originQualified: 0,
+  originOmitted: 0,
   pageImagesClassified: 0,
 }
 
@@ -1050,6 +1098,18 @@ function outputFrom(
   const originQualified = [
     ...(state?.originDecisions ?? new Map<string, CandidateOriginDecision>()).values(),
   ].filter((decision) => decision.mitQualified).length
+  const published = state ? [...state.verified, ...state.repaired] : []
+  const evidenceByUrl = new Map((state?.evidence ?? []).map((page) => [page.url, page]))
+  const originOmitted = published.filter((proposal) => {
+    const page = evidenceByUrl.get(proposal.officialUrl)
+    return page
+      ? checkDescriptionOrigin({
+          productDescriptionZh: proposal.productDescriptionZh,
+          originExcerpts: page.originExcerpts,
+          mainText: page.mainText,
+        }) !== null
+      : false
+  }).length
 
   const verification: ProductsVerification = state
     ? {
@@ -1071,13 +1131,14 @@ function outputFrom(
         imageVerified,
         imageUnverified,
         originQualified,
+        originOmitted,
         pageImagesClassified: state.pageImagesClassified,
       }
     : { ...EMPTY_VERIFICATION }
 
   return {
     agentOutcome: state?.agentOutcome ?? 'fallback',
-    proposals: state ? [...state.verified, ...state.repaired] : [],
+    proposals: published,
     verification,
     decisions: ctx.decisions,
     originDecisions: state?.originDecisions ?? new Map(),
