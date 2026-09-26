@@ -396,7 +396,8 @@ export async function rewriteGeneratedDescriptions(
           `頁面標題：${evidence.title ?? ""}`,
           `頁面描述：${evidence.description ?? ""}`,
           `頁面內文：${evidence.mainText}`,
-          `現有描述（參考）：${product.productDescriptionZh}`,
+          // Origin before the existing description, which often omits it and
+          // otherwise anchors the rewrite (DEV-1856 dry run).
           ...(evidence.originExcerpts.length > 0
             ? [
                 PRODUCTS_LABELS.originExcerpts,
@@ -405,6 +406,7 @@ export async function rewriteGeneratedDescriptions(
                 ),
               ]
             : []),
+          `現有描述（參考）：${product.productDescriptionZh}`,
         ].join("\n"),
       );
     }
