@@ -853,15 +853,33 @@ export function readSituationQueries(path: string = SITUATION_SEARCH_SOURCE): Si
   return JSON.parse(readFileSync(path, 'utf8')) as SituationQuery[]
 }
 
+export type SeedIntentOptions = { sleep?: (ms: number) => Promise<void> }
+
+/**
+ * Fixed pacing under Langfuse's 100 writes/min: 700ms per item is ~86/min, so a
+ * 156-item seed takes ~2 minutes. Ceiling: one serial writer at the default rate
+ * limit; read the limit from 429 headers if the dataset grows past ~1k items.
+ */
+const SEED_PACE_MS = 700
+/** Waits before each retry of one item: 1 attempt + 3 retries. */
+const SEED_RETRY_BACKOFF_MS = [2_000, 4_000, 8_000] as const
+
+const realSleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms))
+
 /**
  * Seeds one unlabelled item per situation query. Items are ARCHIVED with a null
  * `expectedOutput` until prelabel (the body shape of `golden-review.ts#prelabelItem`).
  * Ids are `intent-<query id>`, so a rerun upserts in place. `split` is copied
  * from the source item, never recomputed.
+ *
+ * The Langfuse SDK logs a 429 and resolves instead of rejecting, so an upsert
+ * counts only when the call returns the item with the expected `id`. Unconfirmed
+ * items are retried with backoff; any still unconfirmed make the seed throw.
  */
 export async function seedIntentDataset(
   client: SeedIntentClient,
   queries: SituationQuery[] = readSituationQueries(),
+  { sleep = realSleep }: SeedIntentOptions = {},
 ): Promise<{ seeded: number }> {
   for (const q of queries) {
     if (typeof q?.id !== 'string' || typeof q.query !== 'string' || typeof q.split !== 'string') {
@@ -878,17 +896,40 @@ export async function seedIntentDataset(
     if (!/exist/i.test(e instanceof Error ? e.message : String(e))) throw e
   }
 
-  for (const q of queries) {
-    await client.createDatasetItem({
+  let confirmed = 0
+  const failed: string[] = []
+  for (const [index, q] of queries.entries()) {
+    if (index > 0) await sleep(SEED_PACE_MS)
+    const id = `intent-${q.id}`
+    const body = {
       datasetName: INTENT_PARSE_DATASET,
-      id: `intent-${q.id}`,
+      id,
       input: { query: q.query },
       expectedOutput: null,
       status: 'ARCHIVED',
       metadata: { split: q.split, humanApproval: { status: 'pending' } },
-    })
+    }
+    let ok = false
+    for (let attempt = 0; !ok; attempt++) {
+      try {
+        const result = (await client.createDatasetItem(body)) as { id?: unknown } | null | undefined
+        ok = result?.id === id
+      } catch {
+        ok = false
+      }
+      if (ok || attempt >= SEED_RETRY_BACKOFF_MS.length) break
+      await sleep(SEED_RETRY_BACKOFF_MS[attempt]!)
+    }
+    if (ok) confirmed++
+    else failed.push(id)
   }
-  return { seeded: queries.length }
+
+  if (failed.length > 0) {
+    throw new Error(
+      `[seed-intent] ${confirmed}/${queries.length} upserts confirmed; unconfirmed after retries: ${failed.join(', ')}`,
+    )
+  }
+  return { seeded: confirmed }
 }
 
 async function cmdDatasetSeedIntent(): Promise<void> {
@@ -898,13 +939,19 @@ async function cmdDatasetSeedIntent(): Promise<void> {
     process.exitCode = 1
     return
   }
-  const { seeded } = await seedIntentDataset({
-    createDataset: (body) => client.createDataset(body),
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    createDatasetItem: (body) => client.createDatasetItem(body as any),
-  })
-  await flushLangfuse()
-  console.log(`[seed-intent] ${seeded} ARCHIVED items upserted to "${INTENT_PARSE_DATASET}"`)
+  try {
+    const { seeded } = await seedIntentDataset({
+      createDataset: (body) => client.createDataset(body),
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      createDatasetItem: (body) => client.createDatasetItem(body as any),
+    })
+    console.log(`[seed-intent] ${seeded} ARCHIVED items confirmed in "${INTENT_PARSE_DATASET}"`)
+  } catch (e) {
+    console.error(e instanceof Error ? e.message : e)
+    process.exitCode = 1
+  } finally {
+    await flushLangfuse()
+  }
 }
 
 async function cmdPairwiseRun(

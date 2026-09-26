@@ -705,6 +705,10 @@ describe('cmdRun', () => {
 // ---------------------------------------------------------------------------
 
 describe('dataset seed-intent', () => {
+  const noSleep = vi.fn(async (_ms: number) => {})
+  /** A Langfuse client that confirms each upsert by echoing the item id. */
+  const echoItem = () => vi.fn(async (body: Record<string, unknown>) => ({ id: body.id }))
+
   it('parseCliArgs accepts dataset seed-intent', () => {
     expect(parseCliArgs(['dataset', 'seed-intent'])).toEqual({ command: 'dataset-seed-intent' })
   })
@@ -713,8 +717,8 @@ describe('dataset seed-intent', () => {
     const source = readSituationQueries()
     const runOnce = async () => {
       const createDataset = vi.fn().mockResolvedValue({})
-      const createDatasetItem = vi.fn().mockResolvedValue({})
-      const result = await seedIntentDataset({ createDataset, createDatasetItem })
+      const createDatasetItem = echoItem()
+      const result = await seedIntentDataset({ createDataset, createDatasetItem }, undefined, { sleep: noSleep })
       return { createDataset, createDatasetItem, result }
     }
 
@@ -744,14 +748,64 @@ describe('dataset seed-intent', () => {
     })
   })
 
+  it('paces writes between items to stay under the 100/min rate limit', async () => {
+    const sleep = vi.fn(async (_ms: number) => {})
+    const queries = [
+      { id: 'q1', query: 'a', split: 'train' },
+      { id: 'q2', query: 'b', split: 'train' },
+      { id: 'q3', query: 'c', split: 'val' },
+    ]
+    await seedIntentDataset({ createDataset: vi.fn().mockResolvedValue({}), createDatasetItem: echoItem() }, queries, { sleep })
+    expect(sleep).toHaveBeenCalledTimes(2)
+    for (const [ms] of sleep.mock.calls) expect(ms).toBeGreaterThanOrEqual(600)
+  })
+
+  it('an unconfirmed upsert (the SDK resolves undefined on a 429) is retried and counted once confirmed', async () => {
+    const source = readSituationQueries()
+    const flakyId = `intent-${source[10]!.id}`
+    let failedOnce = false
+    const createDatasetItem = vi.fn(async (body: Record<string, unknown>) => {
+      if (body.id === flakyId && !failedOnce) {
+        failedOnce = true
+        return undefined
+      }
+      return { id: body.id }
+    })
+    const sleep = vi.fn(async (_ms: number) => {})
+
+    const result = await seedIntentDataset({ createDataset: vi.fn().mockResolvedValue({}), createDatasetItem }, undefined, { sleep })
+
+    expect(result).toEqual({ seeded: 156 })
+    expect(createDatasetItem).toHaveBeenCalledTimes(157)
+    expect(sleep).toHaveBeenCalledWith(2000)
+  })
+
+  it('an item that never confirms throws naming that id, after backoff retries', async () => {
+    const queries = [
+      { id: 'q1', query: 'a', split: 'train' },
+      { id: 'q2', query: 'b', split: 'train' },
+    ]
+    const createDatasetItem = vi.fn(async (body: Record<string, unknown>) =>
+      body.id === 'intent-q2' ? undefined : { id: body.id },
+    )
+    const sleep = vi.fn(async (_ms: number) => {})
+
+    await expect(
+      seedIntentDataset({ createDataset: vi.fn().mockResolvedValue({}), createDatasetItem }, queries, { sleep }),
+    ).rejects.toThrow(/1\/2 upserts confirmed.*intent-q2/)
+    // 1 attempt + 3 retries for the failing item
+    expect(createDatasetItem.mock.calls.filter((c) => c[0].id === 'intent-q2')).toHaveLength(4)
+    expect(sleep.mock.calls.map(([ms]) => ms)).toEqual(expect.arrayContaining([2000, 4000, 8000]))
+  })
+
   it('an existing dataset is not an error; any other createDataset failure is', async () => {
-    const createDatasetItem = vi.fn().mockResolvedValue({})
     const queries = [{ id: 'q1', query: 'a query', split: 'train' }]
 
     await expect(
       seedIntentDataset(
-        { createDataset: vi.fn().mockRejectedValue(new Error('Dataset already exists')), createDatasetItem },
+        { createDataset: vi.fn().mockRejectedValue(new Error('Dataset already exists')), createDatasetItem: echoItem() },
         queries,
+        { sleep: noSleep },
       ),
     ).resolves.toEqual({ seeded: 1 })
 
@@ -759,6 +813,7 @@ describe('dataset seed-intent', () => {
       seedIntentDataset(
         { createDataset: vi.fn().mockRejectedValue(new Error('401 unauthorized')), createDatasetItem: vi.fn() },
         queries,
+        { sleep: noSleep },
       ),
     ).rejects.toThrow(/401/)
   })
@@ -766,7 +821,7 @@ describe('dataset seed-intent', () => {
   it('rejects a source item without id, query or split', async () => {
     const client = { createDataset: vi.fn().mockResolvedValue({}), createDatasetItem: vi.fn() }
     await expect(
-      seedIntentDataset(client, [{ id: 'q1', query: 'a query' } as never]),
+      seedIntentDataset(client, [{ id: 'q1', query: 'a query' } as never], { sleep: noSleep }),
     ).rejects.toThrow(/q1/)
     expect(client.createDatasetItem).not.toHaveBeenCalled()
   })
