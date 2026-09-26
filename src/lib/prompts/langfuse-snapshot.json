@@ -1054,7 +1054,7 @@
       ]
     },
     "products-describe": {
-      "version": 1,
+      "version": 3,
       "text": [
         "You are Formoria's product description editor. Given page evidence for one brand's curated products, rewrite each product's description to follow the v2 editorial standard.",
         "",
