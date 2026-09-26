@@ -25,7 +25,7 @@ import type { EnrichmentTarget } from '../../_shared/enrichment-target'
 import type { EnrichBrand, EnrichPatch, EnrichPhase, EnrichScrapedData } from '../types'
 import type { ListingVerdict, BrandFactsResult, BrandFactsAttempt } from '../../brand-facts'
 import type { DescriptionRewriteResult, DescriptionAttempt } from '../../description-rewrite'
-import { withNodeSpan } from '../agents/runtime'
+import { AbnormalCompletionError, withNodeSpan } from '../agents/runtime'
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -311,7 +311,16 @@ async function repairNode(
   ctx: EditorialRunContext,
 ): Promise<Partial<EditorialStateType>> {
   const start = Date.now()
-  const repaired = await ctx.deps.repairCrossOutput(state.patch, state.crossFailures)
+  let repaired: Record<string, unknown>
+  try {
+    repaired = await ctx.deps.repairCrossOutput(state.patch, state.crossFailures)
+  } catch (error) {
+    if (!(error instanceof AbnormalCompletionError)) throw error
+    // Refused / cut off / filtered: the generated copy stays and the outcome is
+    // not `repaired` — the decision names what the model actually did.
+    ctx.record('repair', error.kind, error.detail, start)
+    return ctx.commit({})
+  }
 
   ctx.record(
     'repair',

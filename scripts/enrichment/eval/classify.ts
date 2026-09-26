@@ -216,16 +216,20 @@ export function classify(input: ClassifyInput): ClassifyResult {
     };
   }
 
-  // Rule 8: truncated, acquire failed (non-provider), or aborted with 0 proposals
+  // Rule 8: truncated, acquire failed (non-provider), or the acquisition plan
+  // aborted / was refused, cut off or filtered (model_*) with 0 proposals
+  const acquisitionError = acquire?.acquisitionPlan?.error;
+  const acquisitionStopped =
+    acquisitionError === "aborted" || (acquisitionError?.startsWith("model_") ?? false);
   if (
     catalogZeroReason === "truncated" ||
     (acquire?.status === "failed" && !acquire.providerFailure) ||
-    (acquire?.acquisitionPlan?.error === "aborted" && productsProposed === 0)
+    (acquisitionStopped && productsProposed === 0)
   ) {
     const reasons: string[] = [];
     if (catalogZeroReason === "truncated") reasons.push("catalogZeroReason: truncated");
     if (acquire?.status === "failed") reasons.push("acquire phase failed");
-    if (acquire?.acquisitionPlan?.error === "aborted") reasons.push("acquisition aborted");
+    if (acquisitionStopped) reasons.push(`acquisition ${acquisitionError}`);
     return {
       observed: "catalog_discovery_failure",
       stage: "catalog",
@@ -303,7 +307,8 @@ export function classify(input: ClassifyInput): ClassifyResult {
       (productsDetail.includes("aborted") ||
         productsDetail.includes("recursion_limit") ||
         productsDetail.includes("model_refused") ||
-        productsDetail.includes("model_truncated")) &&
+        productsDetail.includes("model_truncated") ||
+        productsDetail.includes("model_filtered")) &&
       productsProposed === 0)
   ) {
     const reasons: string[] = [];

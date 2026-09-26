@@ -42,6 +42,9 @@ import { parseAndValidate, toStrictJsonSchema } from '../../_shared/zod-schema'
 import { brandTarget, type EnrichmentTarget } from '../../_shared/enrichment-target'
 import { loadPersistedScrapeStructure } from '../descriptions'
 import {
+  AbnormalCompletionError,
+  abnormalCompletion,
+  abnormalDetail,
   contentText,
   createAgentModel,
   extractJson,
@@ -261,6 +264,11 @@ export async function repairEditorialCrossOutput(
     schema: EDITORIAL_REPAIR_SCHEMA,
   })
 
+  // A refused, cut-off or filtered reply is not "repaired 0 fields" — surface it
+  // so the graph records what actually happened.
+  const abnormal = abnormalCompletion(response)
+  if (abnormal) throw new AbnormalCompletionError(abnormal, abnormalDetail(abnormal, response))
+
   // The prompt asks for all four keys (strict mode needs a full `required`), but
   // parsing accepts a subset: a model that answers only the field it fixed has
   // still answered, and throwing that away would spend the one repair turn for
@@ -433,11 +441,13 @@ export function buildEditorialDeps(params: BuildEditorialDepsParams): EditorialD
           ...(params.signal ? { signal: params.signal } : {}),
           validation,
         })
-      } catch {
+      } catch (error) {
         // A failed repair leaves the generated copy in place. The turn's own
         // audit row — written by the audited client on failure too — carries the
         // reason; throwing here would drop the whole editorial output to
         // `fallback`.
+        // An abnormal completion is rethrown so `repairNode` can record its kind.
+        if (error instanceof AbnormalCompletionError) throw error
         return {}
       }
     },

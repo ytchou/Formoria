@@ -31,6 +31,23 @@ type ScriptedToolCall = { name: string; args: Record<string, unknown> }
 /** One scripted model turn: tool calls, a JSON payload, or raw text. */
 type ScriptedTurn = ScriptedToolCall[] | Record<string, unknown> | string
 
+/** Completion signals a scripted turn can carry alongside its content (DEV-1866). */
+type TurnSignals = { refusal?: string; finishReason?: string }
+const SIGNALS = Symbol('signals')
+type SignalledTurn = { [SIGNALS]: TurnSignals; turn: ScriptedTurn | null }
+
+/** Wraps a turn (or no content at all) with a refusal and/or finish reason. */
+function withSignals(signals: TurnSignals, turn: ScriptedTurn | null = null): SignalledTurn {
+  return { [SIGNALS]: signals, turn }
+}
+
+function unwrapTurn(entry: ScriptedTurn | SignalledTurn): { turn: ScriptedTurn | null; signals: TurnSignals } {
+  if (typeof entry === 'object' && !Array.isArray(entry) && SIGNALS in entry) {
+    return { turn: (entry as SignalledTurn).turn, signals: (entry as SignalledTurn)[SIGNALS] }
+  }
+  return { turn: entry as ScriptedTurn, signals: {} }
+}
+
 type InvokeOptions = {
   signal?: AbortSignal
   tools?: ChatToolDefinition[]
@@ -58,7 +75,10 @@ function toolMessagesOf(messages: ChatMessage[]) {
  * graph speaks the OpenAI wire vocabulary directly, so there is no framework
  * message class to construct.
  */
-function fakeAgentModel(script: { plan?: ScriptedTurn[]; critique?: Array<Record<string, unknown>> }) {
+function fakeAgentModel(script: {
+  plan?: Array<ScriptedTurn | SignalledTurn>
+  critique?: Array<Record<string, unknown> | SignalledTurn>
+}) {
   let planIndex = 0
   let critiqueIndex = 0
   let callId = 0
@@ -73,13 +93,13 @@ function fakeAgentModel(script: { plan?: ScriptedTurn[]; critique?: Array<Record
 
     if (isCritique(messages)) {
       const verdicts = script.critique ?? [{ verdict: 'sufficient', reason: 'enough data' }]
-      const verdict = verdicts[critiqueIndex] ?? verdicts.at(-1)!
+      const { turn: verdict, signals } = unwrapTurn(verdicts[critiqueIndex] ?? verdicts.at(-1)!)
       critiqueIndex++
-      return { content: JSON.stringify(verdict), usage: USAGE }
+      return { content: verdict === null ? null : JSON.stringify(verdict), usage: USAGE, ...signals }
     }
 
     const turns = script.plan ?? []
-    const turn = turns[planIndex] ?? turns.at(-1) ?? ''
+    const { turn, signals } = unwrapTurn(turns[planIndex] ?? turns.at(-1) ?? '')
     planIndex++
 
     if (Array.isArray(turn)) {
@@ -90,12 +110,14 @@ function fakeAgentModel(script: { plan?: ScriptedTurn[]; critique?: Array<Record
           return { id: `call-${callId}`, name: call.name, args: call.args }
         }),
         usage: USAGE,
+        ...signals,
       }
     }
 
     return {
-      content: typeof turn === 'string' ? turn : JSON.stringify(turn),
+      content: turn === null ? null : typeof turn === 'string' ? turn : JSON.stringify(turn),
       usage: USAGE,
+      ...signals,
     }
   })
 
@@ -513,6 +535,57 @@ describe('acquisition graph — plan tool loop', () => {
     expect(deps.scrapeBrandUrls).not.toHaveBeenCalled()
   })
 
+  // DEV-1866. A refusal would get the same answer from the single-call
+  // fallback on the same input, so the stage ends on the loop's reply.
+  it('plan_loop_refusal_skips_fallback_call', async () => {
+    const model = fakeAgentModel({ plan: [withSignals({ refusal: 'I cannot' })] })
+    const deps = makeDeps()
+
+    const result = await runAcquisition(baseInput, deps, { model })
+
+    expect(model.invoke).toHaveBeenCalledTimes(1)
+    expect(result.agentOutcome).toBe('fallback')
+    expect(result.error).toBe('model_refused')
+    const refused = result.decisions.find((d) => d.action === 'refused')
+    expect(refused?.step).toBe('plan')
+    expect(refused?.reason).toContain('I cannot')
+    expect(result.decisions.some((d) => d.action === 'plan_fallback')).toBe(false)
+    expect(deps.scrapeBrandUrls).not.toHaveBeenCalled()
+  })
+
+  it('plan_fallback_truncated_reports_model_truncated', async () => {
+    const badPlan = { surfaces: 'not-an-array' }
+    const model = fakeAgentModel({
+      plan: [
+        [{ name: 'submit_plan', args: badPlan }],
+        [{ name: 'submit_plan', args: badPlan }],
+        withSignals({ finishReason: 'length' }, '{"surfaces": ['),
+      ],
+    })
+
+    const result = await runAcquisition(baseInput, makeDeps(), { model })
+
+    expect(result.agentOutcome).toBe('fallback')
+    expect(result.error).toBe('model_truncated')
+    const truncated = result.decisions.find((d) => d.action === 'truncated')
+    expect(truncated?.reason).toBe('finish_reason=length')
+    expect(result.decisions.some((d) => d.action === 'plan_failed')).toBe(false)
+  })
+
+  // Regression: `tool_calls` is the normal finish for a tool turn.
+  it('plan_loop_tool_calls_finish_is_not_abnormal', async () => {
+    const model = fakeAgentModel({
+      plan: [withSignals({ finishReason: 'tool_calls' }, [{ name: 'submit_plan', args: VALID_PLAN }])],
+    })
+
+    const result = await runAcquisition(baseInput, makeDeps(), { model })
+
+    expect(result.agentOutcome).toBe('planned')
+    expect(result.error).toBeUndefined()
+    expect(planCalls(model)).toHaveLength(1)
+    expect(result.decisions.some((d) => d.action === 'plan_created')).toBe(true)
+  })
+
   // Every model now carries tools, so "no tool call" is no longer a capability
   // gap — it is the model answering the plan step in prose. The loop adopts it
   // on the spot rather than spending a second call on the json-mode fallback.
@@ -756,6 +829,25 @@ describe('acquisition graph — critique', () => {
     })
     expect(result2.agentOutcome).toBe('recovered')
     expect(deps2.scrapeBrandUrls).toHaveBeenCalledTimes(2)
+  })
+
+  // DEV-1866. A filtered verdict is accepted like an unparseable one, but the
+  // decision names the cause instead of "verdict parse failed".
+  it('critique_filtered_accepts_results_and_records_filtered', async () => {
+    const deps = makeDeps()
+    const result = await runAcquisition(baseInput, deps, {
+      model: fakeAgentModel({
+        plan: [[{ name: 'submit_plan', args: VALID_PLAN }]],
+        critique: [withSignals({ finishReason: 'content_filter' }, '')],
+      }),
+    })
+
+    expect(result.agentOutcome).toBe('planned')
+    expect(result.error).toBeUndefined()
+    expect(deps.scrapeBrandUrls).toHaveBeenCalledTimes(1)
+    const critique = result.decisions.find((d) => d.step === 'critique')!
+    expect(critique.action).toBe('filtered')
+    expect(critique.reason).toBe('finish_reason=content_filter')
   })
 
   it('critique_fail_verdict_blocks', async () => {
