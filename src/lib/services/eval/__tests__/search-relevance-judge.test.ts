@@ -149,4 +149,64 @@ describe('judgeRelevance', () => {
     expect(result.votes).toEqual([2, 2])
     expect(result.grade).toBe(2)
   })
+
+  describe('with deps.decide (Jev)', () => {
+    function jevResult(score: number) {
+      return {
+        answers: {
+          grade: { score, probabilities: { '0': 0.05, '1': 0.1, '2': 0.6, '3': 0.25 } },
+        },
+        usage: { inputTokens: 120, outputTokens: 4 },
+        latencyMs: 42,
+        costUsd: 0.0001,
+      }
+    }
+
+    it('makes one decide call and no chat call', async () => {
+      const chat = vi.fn()
+      const fetchPrompt = vi.fn()
+      const decide = vi.fn().mockResolvedValue(jevResult(2.05))
+
+      const result = await judgeRelevance(
+        { query: QUERY, product },
+        { chat, fetchPrompt, decide, samples: 3 },
+      )
+
+      expect(decide).toHaveBeenCalledTimes(1)
+      expect(decide.mock.calls[0]![0]).toBe('search_relevance_judge')
+      expect(decide.mock.calls[0]![1]).toMatchObject({ query: QUERY })
+      expect(chat).not.toHaveBeenCalled()
+      expect(fetchPrompt).not.toHaveBeenCalled()
+
+      expect(Number.isInteger(result.grade)).toBe(true)
+      expect(result.grade).toBeGreaterThanOrEqual(0)
+      expect(result.grade).toBeLessThanOrEqual(3)
+      expect(result.grade).toBe(2)
+      expect(result.votes).toEqual([2])
+      expect(result.votes.every(Number.isInteger)).toBe(true)
+      expect(result.unanimous).toBe(true)
+      expect(result.split).toBe(false)
+      expect(result.probabilities).toEqual({ '0': 0.05, '1': 0.1, '2': 0.6, '3': 0.25 })
+    })
+
+    it('returns the degraded null-grade result, not a throw, when decide fails', async () => {
+      const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+      const decide = vi.fn().mockRejectedValue(new Error('TypeSafe request failed with status 422'))
+
+      const result = await judgeRelevance({ query: QUERY, product }, { decide })
+
+      expect(result).toEqual({ grade: null, votes: [], unanimous: false, split: false })
+      expect(warn).toHaveBeenCalledWith(expect.stringContaining('status 422'))
+      warn.mockRestore()
+    })
+
+    it('returns a null grade with no votes when the score is missing', async () => {
+      const decide = vi.fn().mockResolvedValue({ ...jevResult(0), answers: {} })
+
+      const result = await judgeRelevance({ query: QUERY, product }, { decide })
+
+      expect(result.grade).toBeNull()
+      expect(result.votes).toEqual([])
+    })
+  })
 })

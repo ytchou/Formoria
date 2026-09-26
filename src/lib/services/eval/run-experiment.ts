@@ -4,7 +4,7 @@ import type { PromptMeta } from '@/lib/langfuse/prompt'
 import type { PhaseAdapter } from './phase-adapters'
 import type { AuditCollector } from './zero-write'
 import { runName as makeRunName, traceName as makeTraceName } from './langfuse-runs'
-import { p95, mean } from './scorers'
+import { p95, mean, thresholdSweep, expectedCalibrationError, type CalibrationPoint } from './scorers'
 
 // ---------------------------------------------------------------------------
 // Types
@@ -32,7 +32,8 @@ export type ItemResult = {
   ok: boolean
   scores: Record<string, number>
   error?: string
-  costUsd: number
+  /** Null when any of the item's calls has an unknown price. */
+  costUsd: number | null
   latencyMs: number
   output?: unknown
   expected?: unknown
@@ -41,7 +42,8 @@ export type ItemResult = {
 
 type ArmSummary = {
   scorerMeans: Record<string, number>
-  costPerItem: number
+  /** Null when any item's cost is unknown. */
+  costPerItem: number | null
   p95LatencyMs: number
 }
 
@@ -218,12 +220,13 @@ export async function runItems({
 
         const wallMs = Date.now() - wallStart
 
-        // Join cost/latency from collector by correlationId
+        // Join cost/latency from collector by correlationId. An explicit null
+        // costUsd is a priced call whose price is unknown, so the item's cost is
+        // unknown too; an absent one (started rows, unpriced calls) adds nothing.
         const auditRecords = collector.byCorrelation(itemRunId)
-        const totalCost = auditRecords.reduce(
-          (sum, r) => sum + (r.costUsd ?? 0),
-          0,
-        )
+        const totalCost = auditRecords.some((r) => r.costUsd === null)
+          ? null
+          : auditRecords.reduce((sum, r) => sum + (r.costUsd ?? 0), 0)
         const totalLatency = auditRecords.length > 0
           ? auditRecords.reduce((sum, r) => sum + (r.latencyMs ?? 0), 0)
           : wallMs
@@ -304,6 +307,14 @@ export async function runExperiment({
     }
   }
 
+  // Unique arm names per run, so results, traces and the run file never collide.
+  const runArms = uniqueArmNames(arms)
+
+  // Fail before any model call when a jev arm has nowhere to go.
+  if (runArms.some(isJevArm) && !adapter.decide) {
+    throw new Error(`adapter for ${dataset} has no decide hook`)
+  }
+
   const since = deps.now()
   const iso = since.toISOString()
 
@@ -314,7 +325,7 @@ export async function runExperiment({
   try {
     const armResults: ArmResult[] = []
 
-    for (const arm of arms) {
+    for (const arm of runArms) {
       // Set per-arm environment
       const prevModel = process.env.OPENAI_MODEL_OVERRIDE
       const prevPromptVersions = process.env.LANGFUSE_PROMPT_VERSIONS
@@ -394,11 +405,15 @@ export async function runExperiment({
           return { ok: true, output: unwrapped, promptMeta: promptResult.prompt }
         }
 
-        // Use adapter.task when present, otherwise fall back to default callModel path
-        const task = adapter.task
+        // A jev arm goes to adapter.decide. Otherwise use adapter.task when
+        // present, and fall back to the default callModel path.
+        const task = isJevArm(arm)
           ? (item: ExperimentItem, itemRunId: string) =>
-              adapter.task!(item, arm, { itemRunId, model: arm.type === 'model' ? arm.value : undefined })
-          : defaultTask
+              adapter.decide!(item, { itemRunId })
+          : adapter.task
+            ? (item: ExperimentItem, itemRunId: string) =>
+                adapter.task!(item, arm, { itemRunId, model: arm.type === 'model' ? arm.value : undefined })
+            : defaultTask
 
         // Build per-item trace factory for Langfuse generation linking
         const createItemTrace = deps.createTrace
@@ -436,6 +451,7 @@ export async function runExperiment({
         }
 
         const costs = itemResults.map((r) => r.costUsd)
+        const knownCosts = costs.filter((c): c is number => c !== null)
         const latencies = itemResults.map((r) => r.latencyMs)
 
         // Derive promptMeta for the arm from the first item that has one
@@ -446,7 +462,8 @@ export async function runExperiment({
           items: itemResults,
           summary: {
             scorerMeans,
-            costPerItem: costs.length > 0 ? mean(costs) : 0,
+            costPerItem:
+              knownCosts.length < costs.length ? null : costs.length > 0 ? mean(knownCosts) : 0,
             p95LatencyMs: p95(latencies),
           },
           ...(armPromptMeta !== undefined ? { promptMeta: armPromptMeta } : {}),
@@ -499,11 +516,17 @@ export async function runExperiment({
       }
     }
 
+    // Threshold sweep for arms whose outputs carry a probability (jev arms)
+    const sweeps = buildThresholdSweeps(armResults, adapter)
+    if (sweeps) {
+      markdown += '\n\n' + sweeps
+    }
+
     // Write run JSON
-    const rn = makeRunName(dataset, arms.map((a) => a.name).join('+'), iso)
+    const rn = makeRunName(dataset, runArms.map((a) => a.name).join('+'), iso)
     const runData = {
       dataset,
-      arms: arms.map((a) => ({
+      arms: runArms.map((a) => ({
         name: a.name,
         type: a.type,
         value: a.value,
@@ -559,6 +582,56 @@ export async function runExperiment({
 }
 
 // ---------------------------------------------------------------------------
+// Arm names and threshold sweeps
+// ---------------------------------------------------------------------------
+
+function isJevArm(arm: ExperimentArm): boolean {
+  return arm.type === 'custom' && arm.value.startsWith('jev:')
+}
+
+/** Suffixes repeated arm names with `#2`, `#3`, ... in order of appearance. */
+function uniqueArmNames(arms: ExperimentArm[]): ExperimentArm[] {
+  const used = new Set<string>()
+  return arms.map((arm) => {
+    let name = arm.name
+    for (let n = 2; used.has(name); n++) name = `${arm.name}#${n}`
+    used.add(name)
+    return name === arm.name ? arm : { ...arm, name }
+  })
+}
+
+/**
+ * One threshold sweep, plus its ECE, per arm whose successful outputs carry a
+ * numeric `probability`. `correct` is the adapter's first (primary agreement)
+ * scorer above 0; items where that scorer is n/a are skipped.
+ */
+function buildThresholdSweeps(armResults: ArmResult[], adapter: PhaseAdapter): string {
+  const primary = adapter.scorers[0]?.name
+  if (!primary) return ''
+  const sections: string[] = []
+  for (const ar of armResults) {
+    const points: CalibrationPoint[] = []
+    for (const ir of ar.items) {
+      if (!ir.ok || !ir.output || typeof ir.output !== 'object') continue
+      const p = (ir.output as Record<string, unknown>).probability
+      const score = ir.scores[primary]
+      if (typeof p !== 'number' || score === undefined) continue
+      // Above 0, not === 1: 0.5 from categoryAgreement means the L1 matched
+      // and the L2 did not. The swept probability is P(L1), so an L1 match is
+      // the event it predicts. Binary scorers (decisionAgreement) are 0 or 1.
+      points.push({ p, correct: score > 0 })
+    }
+    if (points.length > 0) {
+      const ece = expectedCalibrationError(points)
+      sections.push(
+        `### Threshold sweep: ${ar.arm} (correct = ${primary} > 0)\n\n${thresholdSweep(points)}\n\nECE: ${ece === null ? 'n/a' : ece.toFixed(3)}`,
+      )
+    }
+  }
+  return sections.join('\n\n')
+}
+
+// ---------------------------------------------------------------------------
 // Markdown table builder
 // ---------------------------------------------------------------------------
 
@@ -576,7 +649,8 @@ function buildMarkdownTable(
     const scoreCols = scorerNames.map(
       (name) => ar.summary.scorerMeans[name]?.toFixed(3) ?? 'n/a',
     )
-    return `| ${ar.arm} | ${scoreCols.join(' | ')} | $${ar.summary.costPerItem.toFixed(4)} | ${ar.summary.p95LatencyMs.toFixed(0)} |`
+    const cost = ar.summary.costPerItem === null ? 'n/a' : `$${ar.summary.costPerItem.toFixed(4)}`
+    return `| ${ar.arm} | ${scoreCols.join(' | ')} | ${cost} | ${ar.summary.p95LatencyMs.toFixed(0)} |`
   })
 
   return [header, separator, ...rows].join('\n')

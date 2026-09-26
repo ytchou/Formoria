@@ -30,6 +30,8 @@ import {
   driftRate,
 } from '@/lib/services/eval/products-calibration'
 import type { SnapshotFile, PromptApi } from '@/lib/services/eval/prompt-sync'
+import { JEV_MODEL } from '@/lib/constants/llm-models'
+import { withRetry, type RetryPolicy } from '@/lib/retry'
 import {
   promptForDataset,
   type GoldenItemBody,
@@ -46,6 +48,10 @@ import type { EnrichBrand, EnrichPhase } from '@/lib/services/enrich-phases/type
 export type ArmSpec =
   | { kind: 'prompt'; version: number }
   | { kind: 'model'; model: string }
+  | { kind: 'jev'; version: string }
+
+/** Pairwise runs compare generated text; jev arms are rejected at parse time. */
+export type PairwiseArmSpec = Exclude<ArmSpec, { kind: 'jev' }>
 
 export type ParsedCommand =
   | { command: 'dataset-validate'; allowUnreviewed: boolean }
@@ -53,6 +59,7 @@ export type ParsedCommand =
   | { command: 'dataset-review-push'; dataset: string; approvedBy: string }
   | { command: 'dataset-record'; dataset: string; brand: string; urls?: string[] }
   | { command: 'dataset-prelabel'; dataset: string; item: string; file: string }
+  | { command: 'dataset-seed-intent' }
   | { command: 'dataset-harvest'; dataset: string; since?: string; limit?: number; confirm: boolean }
   | { command: 'dataset-capture'; brands: string[]; datasets?: string[]; confirm: boolean }
   | {
@@ -70,7 +77,7 @@ export type ParsedCommand =
       phase: string
       target: string
       sample: number
-      arms: ArmSpec[]
+      arms: PairwiseArmSpec[]
       envFile?: string
       noEnqueue: boolean
       allowUnreviewed: boolean
@@ -103,8 +110,16 @@ export function parseArm(spec: string): ArmSpec {
     return { kind: 'model', model: value }
   }
 
+  if (kind === 'jev') {
+    // Only the pinned version: a floating tag would make runs irreproducible.
+    if (value !== JEV_MODEL) {
+      throw new Error(`Malformed arm spec: ${spec} (jev version must be ${JEV_MODEL})`)
+    }
+    return { kind: 'jev', version: value }
+  }
+
   throw new Error(
-    `Malformed arm spec: ${spec} (expected prompt:<version> or model:<name>)`,
+    `Malformed arm spec: ${spec} (expected prompt:<version>, model:<name> or jev:<version>)`,
   )
 }
 
@@ -209,6 +224,9 @@ export function parseCliArgs(args: string[]): ParsedCommand {
         file: values.file,
       }
     }
+    if (sub2 === 'seed-intent') {
+      return { command: 'dataset-seed-intent' }
+    }
     if (sub2 === 'review') {
       const sub3 = positionals[2]
       if (sub3 === 'enqueue') {
@@ -293,7 +311,12 @@ export function parseCliArgs(args: string[]): ParsedCommand {
       const sample = values.sample ? Number(values.sample) : 20
       if (!Number.isFinite(sample) || sample < 1)
         throw new Error('--sample must be a positive integer')
-      const arms = (values.arm ?? []).map(parseArm)
+      const arms = (values.arm ?? []).map(parseArm).map((arm): PairwiseArmSpec => {
+        if (arm.kind === 'jev') {
+          throw new Error('pairwise run does not support jev arms (jev returns decisions, not text)')
+        }
+        return arm
+      })
       return {
         command: 'pairwise-run',
         phase: values.phase,
@@ -318,6 +341,7 @@ export function parseCliArgs(args: string[]): ParsedCommand {
       '  llm-eval dataset validate [--allow-unreviewed]\n' +
       '  llm-eval dataset record --dataset <name> --brand <slug> [--urls url1,url2,...]\n' +
       '  llm-eval dataset prelabel --dataset <name> --item <id> --file <json-path>\n' +
+      '  llm-eval dataset seed-intent\n' +
       '  llm-eval dataset harvest --dataset <name> [--since <YYYY-MM-DD>] [--limit <n>] [--target production --confirm]\n' +
       '  llm-eval dataset capture --brands <slug,slug,...> [--datasets <name,name,...>] [--target production --confirm]\n' +
       '  llm-eval dataset review enqueue --dataset <name>\n' +
@@ -576,12 +600,32 @@ export function isAdmittedProductsItem(
 // Subcommand handlers
 // ---------------------------------------------------------------------------
 
-async function cmdDatasetValidate(allowUnreviewed: boolean): Promise<void> {
-  const client = getLangfuse()
-  if (!client) {
-    console.error('[validate] Langfuse not configured')
-    process.exitCode = 1
-    return
+/** A Langfuse 404 on a dataset lookup: `LangfuseFetchHttpError` carries the response. */
+export function isDatasetNotFound(e: unknown): boolean {
+  const status = (e as { response?: { status?: unknown } } | null)?.response?.status
+  if (status === 404) return true
+  const message = e instanceof Error ? e.message : String(e)
+  return /\b404\b|not found/i.test(message)
+}
+
+export type ValidateDeps = {
+  /** Injectable for tests; defaults to the Langfuse client's getDataset. */
+  getDataset?: (name: string) => Promise<{ items: Array<{ status: string; metadata?: unknown }> }>
+}
+
+export async function cmdDatasetValidate(
+  allowUnreviewed: boolean,
+  deps: ValidateDeps = {},
+): Promise<void> {
+  let getDataset = deps.getDataset
+  if (!getDataset) {
+    const client = getLangfuse()
+    if (!client) {
+      console.error('[validate] Langfuse not configured')
+      process.exitCode = 1
+      return
+    }
+    getDataset = (name) => client.getDataset(name)
   }
 
   const names = registeredDatasets().filter(
@@ -594,7 +638,14 @@ async function cmdDatasetValidate(allowUnreviewed: boolean): Promise<void> {
   console.log('------------------------------------|----------|------------|--------')
 
   for (const name of names) {
-    const { items } = await client.getDataset(name)
+    let items: Array<{ status: string; metadata?: unknown }>
+    try {
+      ;({ items } = await getDataset(name))
+    } catch (e) {
+      if (!isDatasetNotFound(e)) throw e
+      console.log(`${name.padEnd(36)}| not seeded`)
+      continue
+    }
     const active = items.filter((i) => i.status === 'ACTIVE')
     const archived = items.filter((i) => i.status === 'ARCHIVED')
     const reviewed = active.filter((i) => isReviewed(i))
@@ -607,7 +658,7 @@ async function cmdDatasetValidate(allowUnreviewed: boolean): Promise<void> {
     )
   }
 
-  await flushLangfuse()
+  if (!deps.getDataset) await flushLangfuse()
 
   if (hasUnreviewed && !allowUnreviewed) {
     console.error('[validate] Unreviewed items found. Pass --allow-unreviewed to proceed.')
@@ -638,26 +689,59 @@ async function cmdDatasetReviewPush(
   await flushLangfuse()
 }
 
-async function cmdRun(
+type RunDatasetItem = {
+  id: string
+  status?: string
+  input: unknown
+  expectedOutput: unknown
+  metadata?: unknown
+}
+
+export type RunDeps = {
+  /** Injectable for tests; defaults to the Langfuse client's getDataset. */
+  getDataset?: (name: string) => Promise<{ items: RunDatasetItem[] }>
+}
+
+export async function cmdRun(
   dataset: string,
   armSpecs: ArmSpec[],
   allowUnreviewed: boolean,
+  runDeps: RunDeps = {},
 ): Promise<void> {
   const adapter = adapterFor(dataset)
 
-  const client = getLangfuse()
-  if (!client) {
-    console.error('[run] Langfuse not configured')
+  let rawItems: RunDatasetItem[]
+  if (runDeps.getDataset) {
+    rawItems = (await runDeps.getDataset(dataset)).items
+  } else {
+    const client = getLangfuse()
+    if (!client) {
+      console.error('[run] Langfuse not configured')
+      process.exitCode = 1
+      return
+    }
+    rawItems = (await client.getDataset(dataset)).items.map((i) => ({
+      id: i.id,
+      status: i.status,
+      input: i.input,
+      expectedOutput: i.expectedOutput,
+      metadata: i.metadata,
+    }))
+  }
+
+  const activeItems = rawItems.filter(
+    (i): i is RunDatasetItem & { status: string } => i.status === 'ACTIVE',
+  )
+  if (activeItems.length === 0) {
+    console.error(`[run] dataset ${dataset} has 0 ACTIVE items — nothing to run`)
     process.exitCode = 1
     return
   }
 
-  const { items: rawItems } = await client.getDataset(dataset)
-
   // Golden items awaiting review are ACTIVE (DEV-1879), so admit only reviewed
   // ones unless --allow-unreviewed — the same gate the products run applies.
-  const admitted = rawItems.filter((i) => isAdmittedProductsItem(i, allowUnreviewed))
-  const skipped = rawItems.filter((i) => i.status === 'ACTIVE').length - admitted.length
+  const admitted = activeItems.filter((i) => isAdmittedProductsItem(i, allowUnreviewed))
+  const skipped = activeItems.length - admitted.length
   if (skipped > 0) {
     console.log(`[run] ${skipped} unreviewed item(s) skipped; pass --allow-unreviewed to include them`)
   }
@@ -680,6 +764,9 @@ async function cmdRun(
         type: 'prompt' as const,
         value: `${adapter.promptName}:${spec.version}`,
       }
+    }
+    if (spec.kind === 'jev') {
+      return { name: spec.version, type: 'custom' as const, value: `jev:${spec.version}` }
     }
     return { name: spec.model, type: 'model' as const, value: spec.model }
   })
@@ -859,6 +946,170 @@ async function cmdDatasetPrelabel(
 
   await flushLangfuse()
   console.log(`[prelabel] Item "${itemId}" prelabeled in dataset "${dataset}"`)
+}
+
+// ---------------------------------------------------------------------------
+// dataset seed-intent (DEV-1824)
+// ---------------------------------------------------------------------------
+
+export const INTENT_PARSE_DATASET = 'intent-parse-golden'
+export const SITUATION_SEARCH_SOURCE = 'scripts/enrichment/eval/search-eval/situation-search-v2.json'
+
+export type SituationQuery = { id: string; query: string; split: string }
+
+export type SeedIntentClient = {
+  createDataset: (body: { name: string; description?: string }) => Promise<unknown>
+  createDatasetItem: (body: Record<string, unknown>) => Promise<unknown>
+  /** Langfuse omits ARCHIVED items from this list, so every item returned is non-ARCHIVED. */
+  getDataset: (
+    name: string,
+  ) => Promise<{ items: Array<{ id: string; status: string; expectedOutput?: unknown; metadata?: unknown }> }>
+}
+
+export function readSituationQueries(path: string = SITUATION_SEARCH_SOURCE): SituationQuery[] {
+  return JSON.parse(readFileSync(path, 'utf8')) as SituationQuery[]
+}
+
+export type SeedIntentOptions = { sleep?: (ms: number) => Promise<void> }
+
+/**
+ * Fixed pacing under Langfuse's 100 writes/min: 700ms per item is ~86/min, so a
+ * 156-item seed takes ~2 minutes. Ceiling: one serial writer at the default rate
+ * limit; read the limit from 429 headers if the dataset grows past ~1k items.
+ */
+const SEED_PACE_MS = 700
+/** 1 attempt + 3 retries, waiting ~2s/4s/8s (withRetry adds up to 100% jitter, capped at 8s). */
+const SEED_RETRY_POLICY: RetryPolicy = { attempts: 4, baseMs: 2_000, factor: 2, capMs: 8_000 }
+
+const realSleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms))
+
+/**
+ * Seeds one unlabelled item per situation query. Items are written ACTIVE with
+ * a null `expectedOutput` and a pending `humanApproval`, the same state
+ * `golden-review.ts#prelabelItem` keeps: the dataset listing omits ARCHIVED
+ * items (ARCHIVED means rejected), and a run admits only items carrying
+ * `humanApproval.reviewedVia`, so none reaches a run before review.
+ * Ids are `intent-<query id>`, so a rerun upserts in place. `split` is copied
+ * from the source item, never recomputed.
+ *
+ * A rerun must never wipe labels or verdicts: an existing item is kept untouched
+ * when it has an `expectedOutput`, a `humanApproval.reviewedVia`, a
+ * `humanApproval.status` other than pending, or a status other than ACTIVE.
+ * Only new ids and ACTIVE + pending + unlabelled items are upserted. ARCHIVED
+ * items are absent from `getDataset(...).items`, so a never-reviewed item left
+ * ARCHIVED by an earlier seed is upserted back to ACTIVE + pending.
+ *
+ * The Langfuse SDK logs a 429 and resolves instead of rejecting, so an upsert
+ * counts only when the call returns the item with the expected `id`. Unconfirmed
+ * items are retried with backoff; any still unconfirmed make the seed throw.
+ */
+export async function seedIntentDataset(
+  client: SeedIntentClient,
+  queries: SituationQuery[] = readSituationQueries(),
+  { sleep = realSleep }: SeedIntentOptions = {},
+): Promise<{ seeded: number; kept: number }> {
+  for (const q of queries) {
+    if (typeof q?.id !== 'string' || typeof q.query !== 'string' || typeof q.split !== 'string') {
+      throw new Error(`[seed-intent] source item ${JSON.stringify(q?.id)} needs string id, query and split`)
+    }
+  }
+
+  try {
+    await client.createDataset({
+      name: INTENT_PARSE_DATASET,
+      description: `DEV-1824 intent-parse labels for ${SITUATION_SEARCH_SOURCE}`,
+    })
+  } catch (e) {
+    if (!/exist/i.test(e instanceof Error ? e.message : String(e))) throw e
+  }
+
+  const { items: existing } = await client.getDataset(INTENT_PARSE_DATASET)
+  const keep = new Set(
+    existing
+      .filter((item) => {
+        const ha = (item.metadata as { humanApproval?: { status?: unknown; reviewedVia?: unknown } } | null | undefined)
+          ?.humanApproval
+        return (
+          item.expectedOutput != null ||
+          ha?.reviewedVia != null ||
+          ha?.status !== 'pending' ||
+          item.status !== 'ACTIVE'
+        )
+      })
+      .map((item) => item.id),
+  )
+
+  let confirmed = 0
+  let kept = 0
+  const failed: string[] = []
+  let written = 0
+  for (const q of queries) {
+    const id = `intent-${q.id}`
+    if (keep.has(id)) {
+      kept++
+      continue
+    }
+    if (written++ > 0) await sleep(SEED_PACE_MS)
+    const body = {
+      datasetName: INTENT_PARSE_DATASET,
+      id,
+      input: { query: q.query },
+      expectedOutput: null,
+      status: 'ACTIVE',
+      metadata: { split: q.split, humanApproval: { status: 'pending' } },
+    }
+    const ok = await withRetry(
+      SEED_RETRY_POLICY,
+      async () => {
+        try {
+          const result = (await client.createDatasetItem(body)) as { id?: unknown } | null | undefined
+          return result?.id === id
+        } catch {
+          return false
+        }
+      },
+      {
+        classify: (confirmedUpsert) =>
+          confirmedUpsert ? { retryable: false, reason: 'terminal' } : { retryable: true, reason: 'rate_limit' },
+        service: 'langfuse-seed-intent',
+        sleep,
+      },
+    )
+    if (ok) confirmed++
+    else failed.push(id)
+  }
+
+  if (failed.length > 0) {
+    throw new Error(
+      `[seed-intent] ${confirmed}/${queries.length - kept} upserts confirmed; unconfirmed after retries: ${failed.join(', ')}`,
+    )
+  }
+  return { seeded: confirmed, kept }
+}
+
+async function cmdDatasetSeedIntent(): Promise<void> {
+  const client = getLangfuse()
+  if (!client) {
+    console.error('[seed-intent] Langfuse not configured')
+    process.exitCode = 1
+    return
+  }
+  try {
+    const { seeded, kept } = await seedIntentDataset({
+      createDataset: (body) => client.createDataset(body),
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      createDatasetItem: (body) => client.createDatasetItem(body as any),
+      getDataset: (name) => client.getDataset(name),
+    })
+    console.log(
+      `[seed-intent] ${seeded} items confirmed (ACTIVE, pending review), ${kept} labelled/reviewed items kept in "${INTENT_PARSE_DATASET}"`,
+    )
+  } catch (e) {
+    console.error(e instanceof Error ? e.message : e)
+    process.exitCode = 1
+  } finally {
+    await flushLangfuse()
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -1392,7 +1643,7 @@ async function cmdPairwiseRun(
   phase: string,
   _target: string,
   sample: number,
-  armSpecs: ArmSpec[],
+  armSpecs: PairwiseArmSpec[],
   noEnqueue: boolean = false,
   allowUnreviewed: boolean = false,
 ): Promise<void> {
@@ -1556,7 +1807,7 @@ async function cmdPairwiseRun(
 }
 
 async function cmdPairwiseRunProducts(
-  armSpecs: ArmSpec[],
+  armSpecs: PairwiseArmSpec[],
   noEnqueue: boolean,
   sample: number = 0,
   allowUnreviewed: boolean = false,
@@ -1625,7 +1876,7 @@ async function cmdPairwiseRunProducts(
   const [armA, armB] = armLabels
 
   async function runArmTask(
-    armSpec: ArmSpec,
+    armSpec: PairwiseArmSpec,
     item: { id: string; input: unknown; expectedOutput: unknown },
     taskFn: typeof task,
     armLabel: string,
@@ -1832,6 +2083,9 @@ async function main() {
       break
     case 'dataset-prelabel':
       await cmdDatasetPrelabel(parsed.dataset, parsed.item, parsed.file)
+      break
+    case 'dataset-seed-intent':
+      await cmdDatasetSeedIntent()
       break
     case 'dataset-harvest':
       await cmdDatasetHarvest(parsed.dataset, target, parsed.confirm, parsed.since, parsed.limit)

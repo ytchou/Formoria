@@ -1,10 +1,13 @@
 import { z } from 'zod'
 import type { PromptMeta } from '@/lib/langfuse/prompt'
+import { RELEVANCE_GRADE_LEVELS } from '@/lib/prompts/shared'
+import { describeError } from '@/lib/errors'
 import type { OpenAIJsonSchema } from '@/lib/services/openai-client'
 import {
   parseAndValidate,
   toStrictJsonSchema,
 } from '@/lib/services/_shared/zod-schema'
+import { JEV_CANDIDATES, runJevCandidate, type DecideFn } from './jev-questions'
 
 // ---------------------------------------------------------------------------
 // Types
@@ -25,6 +28,8 @@ type JudgeResult = {
   unanimous: boolean
   split: boolean
   reason?: string
+  /** Jev path only: probability per grade level, keyed '0'..'3'. */
+  probabilities?: Record<string, number>
 }
 
 type ChatFn = (opts: {
@@ -40,6 +45,12 @@ type JudgeDeps = {
   fetchPrompt?: FetchPromptFn
   samples?: number
   temperature?: number
+  /**
+   * Eval-only Jev path (DEV-1824). When set, one `score` call replaces the
+   * multi-sample chat vote; `chat`, `fetchPrompt`, `samples` and `temperature`
+   * are ignored.
+   */
+  decide?: DecideFn
 }
 
 // ---------------------------------------------------------------------------
@@ -65,10 +76,7 @@ const DEFAULT_SYSTEM_PROMPT = [
   '',
   'Grade how well the product matches the user\'s situation query on a 0–3 scale:',
   '',
-  '- 3: Exact match — the product directly fulfills the described situation or need.',
-  '- 2: Good fit — the product is relevant and useful for the situation, though not a perfect match.',
-  '- 1: Marginal — only partially related; the connection is weak or requires a stretch.',
-  '- 0: Irrelevant — the product has no meaningful connection to the query.',
+  ...RELEVANCE_GRADE_LEVELS.map((level, grade) => `- ${grade}: ${level}`).reverse(),
   '',
   '## Rules',
   '',
@@ -86,6 +94,18 @@ export async function judgeRelevance(
   input: { query: string; product: JudgeProduct },
   deps: JudgeDeps = {},
 ): Promise<JudgeResult> {
+  if (deps.decide) {
+    try {
+      const { output } = await runJevCandidate(JEV_CANDIDATES.relevanceJudge, deps.decide, input)
+      return output
+    } catch (error) {
+      // Same degraded result as the chat path when every sample fails, so one
+      // failed call cannot abort a judge run.
+      console.warn(`[search-relevance-judge] Jev decide failed: ${describeError(error)}`)
+      return { grade: null, votes: [], unanimous: false, split: false }
+    }
+  }
+
   const samples = deps.samples ?? 3
   const temperature = deps.temperature ?? 0.7
 

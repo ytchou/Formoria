@@ -79,6 +79,9 @@ check_env() {
     if ! grep -q "RESEND_API_KEY=" .env.local 2>/dev/null; then
       echo "WARN: RESEND_API_KEY may not be set (optional transactional owner emails will no-op)"
     fi
+    if ! grep -q "TYPESAFE_API_KEY=" .env.local 2>/dev/null; then
+      echo "WARN: TYPESAFE_API_KEY may not be set (optional, TypeSafe AI Jev model for the eval only)"
+    fi
     if ! grep -q "NEXT_PUBLIC_SENTRY_DSN=https://" .env.local 2>/dev/null; then
       echo "WARN: NEXT_PUBLIC_SENTRY_DSN may not be set — Sentry error monitoring disabled (check .env.local)"
     fi

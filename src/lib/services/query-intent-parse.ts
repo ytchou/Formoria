@@ -35,7 +35,7 @@ const MATERIAL_SLUGS = MATERIALS.map((m) => m.slug);
 // Schema
 // ---------------------------------------------------------------------------
 
-const intentParseShape = z.object({
+export const intentParseShape = z.object({
   category: z
     .enum(L1_SLUGS as unknown as [string, ...string[]])
     .nullable(),
@@ -45,7 +45,7 @@ const intentParseShape = z.object({
   ),
 });
 
-const INTENT_PARSE_JSON_SCHEMA = {
+export const INTENT_PARSE_JSON_SCHEMA = {
   name: "intent_parse_response",
   schema: toStrictJsonSchema(intentParseShape),
 };
@@ -93,7 +93,7 @@ function buildSystemPrompt(): string {
   ].join("\n");
 }
 
-const SYSTEM_PROMPT = buildSystemPrompt();
+export const INTENT_PARSE_SYSTEM_PROMPT = buildSystemPrompt();
 
 // ---------------------------------------------------------------------------
 // Subcategory validation — shared between cache-hit and post-LLM paths
@@ -106,7 +106,7 @@ const SYSTEM_PROMPT = buildSystemPrompt();
  *     belong to that category.
  * Returns a new object with subcategory nulled out if invalid.
  */
-function validateSubcategory(data: IntentParseResult): IntentParseResult {
+export function validateSubcategory(data: IntentParseResult): IntentParseResult {
   if (!data.subcategory) return data;
 
   const sub = subcategoryBySlug(data.subcategory);
@@ -175,7 +175,7 @@ export async function parseQueryIntent(
 
   try {
     const result = await client.chat({
-      system: SYSTEM_PROMPT,
+      system: INTENT_PARSE_SYSTEM_PROMPT,
       user: query,
       schema: INTENT_PARSE_JSON_SCHEMA,
       json: true,
