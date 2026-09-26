@@ -42,7 +42,7 @@ import {
 } from '@/lib/prompts/shared'
 import type { CuratedProductProposal } from '@/lib/types/enriched-data'
 import type { RenderProvider } from '../scraper/render/types'
-import { normalizeProductUrl, type ProductCandidate } from '../product-candidates'
+import { productUrlKey, type ProductCandidate } from '../product-candidates'
 import type { CandidateImage } from '../candidate-pool'
 import { rankForProduct, type RankableImage } from '../image-ranking'
 import type {
@@ -125,7 +125,7 @@ const MAX_PAGE_IMAGES_PER_PRODUCT = 6
  * forbids `evaluations`), so strict mode gets the same shape minus that key.
  * The propose turn sends `PRODUCTS_SCHEMA`, the contract `products.ts` sends.
  */
-const REPAIR_SCHEMA: OpenAIJsonSchema = {
+export const REPAIR_SCHEMA: OpenAIJsonSchema = {
   name: 'curated_product_repair',
   schema: toStrictJsonSchema(PRODUCTS_PROPOSAL_SHAPE.pick({ products: true })),
 }
@@ -512,7 +512,12 @@ function validationOptionsFor(ctx: ProductsRunContext): ProductProposalValidatio
 }
 
 function brandUrlOf(ctx: ProductsRunContext): string {
-  return ctx.input.brand.url ?? `https://${ctx.input.brand.slug}.com`
+  return brandSiteUrl(ctx.input.brand)
+}
+
+/** The brand's site URL, or the `https://<slug>.com` guess when it has none. */
+export function brandSiteUrl(brand: { slug: string; url?: string }): string {
+  return brand.url ?? `https://${brand.slug}.com`
 }
 
 function ownedHostsOf(ctx: ProductsRunContext): readonly string[] {
@@ -867,6 +872,39 @@ async function verifyNode(
 // repair
 // ---------------------------------------------------------------------------
 
+/**
+ * Re-verify the checks a repair turn was allowed to touch: closed sets, host,
+ * and description. A repair that "fixes" a proposal into a different host is
+ * not a repair. A soft entry only counts as fixed when the origin omission is
+ * gone too; a hard entry is not held to origin, so a partial repair still
+ * publishes. Shared by `repairNode` and the golden-set eval scorer so the two
+ * cannot drift. The per-check details (`closedSetFailures`, `hostOk`,
+ * `descFailures`) are returned so callers can attribute drop reasons without
+ * re-running any check.
+ */
+export function repairedProposalPasses(
+  proposal: CuratedProductProposal,
+  options: { brandUrl: string; ownedHosts: readonly string[]; soft: boolean },
+): { passes: boolean; closedSetFailures: string[]; hostOk: boolean; descFailures: string[] } {
+  const closedSet = verifyClosedSets({
+    category: proposal.category,
+    subcategory: proposal.subcategory ?? undefined,
+    material: proposal.material,
+  })
+  const descFailures = verifyDescription({
+    nameZh: proposal.nameZh,
+    productDescriptionZh: proposal.productDescriptionZh,
+  })
+  const hostOk = verifySameHost(proposal.officialUrl, options.brandUrl, options.ownedHosts).ok
+  const passes = closedSet.ok && hostOk && descFailures.length === 0
+  return {
+    passes: options.soft ? passes && descriptionMentionsTaiwan(proposal.productDescriptionZh) : passes,
+    closedSetFailures: closedSet.failures,
+    hostOk,
+    descFailures,
+  }
+}
+
 async function repairNode(
   ctx: ProductsRunContext,
   state: ProductsStateType,
@@ -903,7 +941,7 @@ async function repairNode(
   // Keyed by the normalized URL `validateProductProposals` matches candidates
   // on, so a re-spelled URL (www., tracking params, trailing slash) still
   // resolves to its soft entry and never counts as a hard repair.
-  const urlKey = (url: string): string => normalizeProductUrl(url) ?? url
+  const urlKey = productUrlKey
   const softUrls = new Set(
     state.repairable.filter((entry) => entry.soft).map((entry) => urlKey(entry.proposal.officialUrl)),
   )
@@ -945,27 +983,14 @@ async function repairNode(
   const brandUrl = brandUrlOf(ctx)
   const validation = validateProductProposals(parsed, validationOptionsFor(ctx))
 
-  // Re-verify the checks the repair was allowed to touch. A repair that
-  // "fixes" a proposal into a different host is not a repair.
-  // Cache description results to avoid calling verifyDescription twice.
-  const reVerifyDescCache = new Map<string, string[]>()
+  // Re-verify via the shared predicate. Results are kept per proposal so the
+  // drop-reason tally below reads them instead of re-running any check.
+  const ownedHosts = ownedHostsOf(ctx)
+  const reVerifyResults = new Map<CuratedProductProposal, ReturnType<typeof repairedProposalPasses>>()
   const reVerified = validation.proposals.filter((proposal) => {
-    const closedSet = verifyClosedSets({
-      category: proposal.category,
-      subcategory: proposal.subcategory ?? undefined,
-      material: proposal.material,
-    })
-    const descFailures = verifyDescription({
-      nameZh: proposal.nameZh,
-      productDescriptionZh: proposal.productDescriptionZh,
-    })
-    reVerifyDescCache.set(proposal.officialUrl, descFailures)
-    const passes = closedSet.ok && verifySameHost(proposal.officialUrl, brandUrl, ownedHostsOf(ctx)).ok && descFailures.length === 0
-    // A soft entry only counts as fixed when the omission is gone too; a hard
-    // entry is not held to origin, so a partial repair still publishes.
-    return isSoft(proposal)
-      ? passes && descriptionMentionsTaiwan(proposal.productDescriptionZh)
-      : passes
+    const result = repairedProposalPasses(proposal, { brandUrl, ownedHosts, soft: isSoft(proposal) })
+    reVerifyResults.set(proposal, result)
+    return result.passes
   })
   const hardRepaired = reVerified.filter((proposal) => !isSoft(proposal))
   const softFixed = new Map(
@@ -978,23 +1003,16 @@ async function repairNode(
   for (const proposal of validation.proposals) {
     // A soft entry that stays unfixed keeps its published original: no drop.
     if (reVerified.includes(proposal) || isSoft(proposal)) continue
-    const closedSet = verifyClosedSets({
-      category: proposal.category,
-      subcategory: proposal.subcategory ?? undefined,
-      material: proposal.material,
-    })
-    for (const f of closedSet.failures) {
+    const result = reVerifyResults.get(proposal)
+    if (!result) continue // unreachable: every proposal went through the filter above
+    for (const f of result.closedSetFailures) {
       const key = f.split(':')[0] ?? f
       reVerifyDropReasons[key] = (reVerifyDropReasons[key] ?? 0) + 1
     }
-    if (!verifySameHost(proposal.officialUrl, brandUrl, ownedHostsOf(ctx)).ok) {
+    if (!result.hostOk) {
       reVerifyDropReasons['host_mismatch'] = (reVerifyDropReasons['host_mismatch'] ?? 0) + 1
     }
-    const descFailures = reVerifyDescCache.get(proposal.officialUrl) ?? verifyDescription({
-      nameZh: proposal.nameZh,
-      productDescriptionZh: proposal.productDescriptionZh,
-    })
-    for (const f of descFailures) {
+    for (const f of result.descFailures) {
       const key = f.split(':')[0] ?? f
       reVerifyDropReasons[key] = (reVerifyDropReasons[key] ?? 0) + 1
     }

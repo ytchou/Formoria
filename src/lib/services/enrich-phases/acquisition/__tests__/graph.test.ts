@@ -7,11 +7,12 @@ import type {
 } from '@/lib/services/openai-client'
 import {
   runAcquisition,
+  runPlanStage,
   ACQUISITION_RECURSION_LIMIT,
   type AcquisitionDeps,
   type AcquisitionInput,
 } from '../graph'
-import { RESERVED_TAIL_MS } from '../budget'
+import { RESERVED_TAIL_MS, budgetFor, type ProbeResult } from '../budget'
 
 // The prompt nodes call `fetchLangfusePrompt`, which returns its fallback when
 // no Langfuse client can be built. Blanking the credentials keeps that true even
@@ -1618,5 +1619,50 @@ describe('acquisition graph — trace entries', () => {
       const allowance = (decision as Record<string, unknown>).allowanceMs as number
       expect(allowance).toBeLessThanOrEqual(RESERVED_TAIL_MS)
     }
+  })
+})
+
+// ---------------------------------------------------------------------------
+// Plan stage in isolation (DEV-1873) — replays acquisition-plan eval items
+// ---------------------------------------------------------------------------
+
+describe('runPlanStage', () => {
+  const probeResults: ProbeResult[] = [
+    { url: 'https://example.com', textLength: 540, needsRendering: false },
+  ]
+
+  it('runPlanStage sends the given probe results in the plan user message', async () => {
+    const model = fakeAgentModel({ plan: [[{ name: 'submit_plan', args: VALID_PLAN }]] })
+
+    await runPlanStage({ ...baseInput, probeResults }, makeDeps(), { model })
+
+    const [messages] = planCalls(model)[0]!
+    const user = messages.find((message) => message.role === 'user')
+    expect(user?.content).toBe(
+      JSON.stringify({
+        brand: baseInput.brand,
+        knownUrls: baseInput.knownUrls,
+        probeResults,
+        budget: budgetFor({ knownUrls: baseInput.knownUrls, probeResults }, { scale: 1 }),
+      }),
+    )
+    expect(systemOf(messages)).toContain('Submit the plan by calling submit_plan')
+  })
+
+  it('runPlanStage returns the submitted plan', async () => {
+    const model = fakeAgentModel({ plan: [[{ name: 'submit_plan', args: VALID_PLAN }]] })
+
+    const result = await runPlanStage({ ...baseInput, probeResults }, makeDeps(), { model })
+
+    expect(result.error).toBeUndefined()
+    expect(result.plan?.surfaces).toEqual(VALID_PLAN.surfaces)
+    expect(result.decisions.some((d) => d.action === 'plan_created')).toBe(true)
+  })
+
+  it('runPlanStage returns null plan when no model', async () => {
+    const result = await runPlanStage({ ...baseInput, probeResults }, makeDeps(), {})
+
+    expect(result.plan).toBeNull()
+    expect(result.error).toBe('no_model_provided')
   })
 })

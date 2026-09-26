@@ -7,7 +7,10 @@ import {
 } from "@/lib/audit";
 import {
   createAuditedOpenAIClient,
+  createProfiledOpenAIClient,
   emitLangfuseGeneration,
+  setChatCaptureSeam,
+  type CapturedCall,
   type LlmAuditContext,
 } from "./llm-audit";
 import { brandTarget } from "./_shared/enrichment-target";
@@ -64,6 +67,7 @@ beforeEach(() => {
 });
 
 afterEach(() => {
+  setChatCaptureSeam(null);
   resetAuditEmitterForTests();
   vi.unstubAllGlobals();
 });
@@ -471,5 +475,65 @@ describe("persistAuditEvent — config.prompt merge", () => {
     expect(inserts).toHaveLength(1);
     expect(inserts[0]!.config).toEqual(config);
     expect(inserts[0]!.config).not.toHaveProperty("prompt");
+  });
+});
+
+describe("chat capture seam", () => {
+  it("capture seam receives untruncated system and user", async () => {
+    const captured: CapturedCall[] = [];
+    setChatCaptureSeam((call) => captured.push(call));
+    const longUser = "u".repeat(5_000);
+    const client = createProfiledOpenAIClient(
+      "facts",
+      {
+        target,
+        phase: "facts",
+        prompt: { name: "facts-prompt", version: 2, source: "langfuse" },
+        supabase: fakeSupabase([]),
+      },
+      { apiKey: "k" },
+    );
+
+    await client.chat({ system: "sys", user: longUser });
+
+    expect(captured).toHaveLength(1);
+    expect(captured[0]).toEqual({
+      phase: "facts",
+      profileKey: "facts",
+      system: "sys",
+      user: longUser,
+      promptName: "facts-prompt",
+    });
+    expect(captured[0]!.user).toHaveLength(5_000);
+  });
+
+  it("capture seam errors never fail the call", async () => {
+    setChatCaptureSeam(() => {
+      throw new Error("seam exploded");
+    });
+    const inserts: InsertedRow[] = [];
+    const client = createAuditedOpenAIClient(
+      { target, phase: "descriptions", supabase: fakeSupabase(inserts) },
+      { apiKey: "k" },
+    );
+
+    const result = await client.chat({ system: "s", user: "u" });
+
+    expect(result).toMatchObject({ ok: true });
+    expect(inserts).toHaveLength(1);
+  });
+
+  it("setChatCaptureSeam(null) stops capture", async () => {
+    const seam = vi.fn();
+    setChatCaptureSeam(seam);
+    setChatCaptureSeam(null);
+    const client = createAuditedOpenAIClient(
+      { target, phase: "descriptions", supabase: fakeSupabase([]) },
+      { apiKey: "k" },
+    );
+
+    await client.chat({ system: "s", user: "u" });
+
+    expect(seam).not.toHaveBeenCalled();
   });
 });

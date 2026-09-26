@@ -15,7 +15,15 @@ import { descriptionShape } from '@/lib/services/description-rewrite'
 import { isHighConfidenceWrite } from '@/lib/services/enrich-phases/detect'
 import { toStrictJsonSchema } from '@/lib/services/_shared/zod-schema'
 import { renderEditorialBands } from '@/lib/constants/curated-products'
-import { PRODUCTS_PROPOSAL_SHAPE } from '@/lib/services/enrich-phases/products'
+import {
+  PRODUCTS_PROMPT_VARIABLES,
+  PRODUCTS_PROPOSAL_SHAPE,
+  PRODUCTS_SCHEMA,
+} from '@/lib/services/enrich-phases/products'
+import { AcquisitionPlan, CritiqueVerdictSchema } from '@/lib/services/enrich-phases/acquisition/plan'
+import { runPlanStage } from '@/lib/services/enrich-phases/acquisition/graph'
+import { fetchHtmlWithMetadata } from '@/lib/services/enrich-phases/scraper/fetch-guards'
+import { fetchLangfusePromptWithMeta, parsePromptVersionPins } from '@/lib/langfuse/prompt'
 import {
   categoryAgreement,
   confidenceBandAgreement,
@@ -27,7 +35,17 @@ import {
   withinPoolOrderingAgreement,
   selectionAgreement,
   originWhenSourced,
+  planFetchCapOk,
+  planSchemaValid,
+  recoveryActionConsistent,
+  verdictAgreement,
 } from './scorers'
+import {
+  keepRate,
+  repairPassRate,
+  productsGoldenContextSchema,
+  type ProductsGoldenContext,
+} from './product-scorers'
 import {
   productsExpectedSchema,
   summarizeCalibration,
@@ -38,8 +56,9 @@ import {
   type ProductsExpected,
 } from './products-calibration'
 import { productsTask } from './products-replay'
+import { acquisitionPlanTask } from './acquisition-plan-replay'
 import { createAgentModel } from '../enrich-phases/agents/runtime'
-import { runProductsAgent } from '../enrich-phases/products/graph'
+import { REPAIR_SCHEMA, runProductsAgent } from '../enrich-phases/products/graph'
 import type { ArmResult, ExperimentItem, ExperimentArm } from './run-experiment'
 
 // ---------------------------------------------------------------------------
@@ -126,6 +145,19 @@ const siteIdentityExpectedSchema = z.object({
   confidence: z.string(),
   writeEligible: z.boolean().optional(),
 })
+
+// DEV-1873: rule-only sets carry what their scorers need as `{ context }`;
+// only the critique carries a human label, the overall verdict.
+
+const planExpectedSchema = z.object({ context: z.record(z.string(), z.unknown()) })
+const critiqueExpectedSchema = z.object({ verdict: z.enum(['sufficient', 'thin', 'fail']) })
+const productsContextExpectedSchema = z.object({ context: productsGoldenContextSchema })
+
+const REPAIR_SHAPE = PRODUCTS_PROPOSAL_SHAPE.pick({ products: true })
+
+function contextOf(item: { expectedOutput: unknown }): { context: unknown } {
+  return { context: (item.expectedOutput as { context?: unknown } | null)?.context ?? {} }
+}
 
 // ---------------------------------------------------------------------------
 // Registry
@@ -334,6 +366,88 @@ const registry: Record<string, PhaseAdapter> = {
       }
       return sections.join('\n\n---\n\n')
     },
+  },
+
+  'acquisition-plan-golden': {
+    promptName: 'acquisition-plan',
+    profileKey: 'acquisition',
+    outputSchema: AcquisitionPlan,
+    // Unused by the custom task (the plan travels as a submit_plan tool call);
+    // kept for the adapter contract.
+    requestSchema: makeRequestSchema('acquisition_plan', AcquisitionPlan),
+    parseOutput: makeParseOutput(AcquisitionPlan),
+    unwrap: (output) => output,
+    expectedOf: contextOf,
+    expectedSchema: planExpectedSchema,
+    scorers: [
+      { name: 'planSchemaValid', fn: (o) => planSchemaValid(o) },
+      { name: 'planFetchCapOk', fn: (o) => planFetchCapOk(o) },
+    ],
+    mode: 'scored',
+    task: acquisitionPlanTask({
+      createAgentModel,
+      runPlanStage,
+      fetchHtml: fetchHtmlWithMetadata,
+      fetchPromptMeta: (name) => fetchLangfusePromptWithMeta(name),
+      parsePromptVersionPins: () => parsePromptVersionPins(),
+    }),
+  },
+
+  'acquisition-critique-golden': {
+    promptName: 'acquisition-critique',
+    profileKey: 'acquisition',
+    outputSchema: CritiqueVerdictSchema,
+    requestSchema: makeRequestSchema('critique_verdict', CritiqueVerdictSchema),
+    parseOutput: makeParseOutput(CritiqueVerdictSchema),
+    unwrap: (output) => output,
+    expectedOf: (item) => ({ verdict: (item.expectedOutput as { verdict?: unknown } | null)?.verdict }),
+    expectedSchema: critiqueExpectedSchema,
+    scorers: [
+      { name: 'verdictAgreement', fn: (o, e) => verdictAgreement(o as { verdict?: unknown }, e as { verdict: unknown }) },
+      { name: 'recoveryActionConsistent', fn: (o) => recoveryActionConsistent(o as { verdict?: unknown; recoveryAction?: unknown }) },
+    ],
+    mode: 'scored',
+  },
+
+  'products-repair-golden': {
+    promptName: 'products-repair',
+    profileKey: 'products_agent',
+    outputSchema: REPAIR_SHAPE,
+    // The schema the repair turn sends in production.
+    requestSchema: REPAIR_SCHEMA,
+    parseOutput: makeParseOutput(REPAIR_SHAPE),
+    unwrap: (output) => output,
+    expectedOf: contextOf,
+    expectedSchema: productsContextExpectedSchema,
+    scorers: [
+      {
+        name: 'repairPassRate',
+        fn: (o, e) => repairPassRate(o, (e as { context: ProductsGoldenContext }).context),
+        nullable: true,
+      },
+    ],
+    mode: 'scored',
+  },
+
+  'products-fallback-golden': {
+    promptName: 'products',
+    // Exactly the variables products.ts sends on the single-call path.
+    variables: PRODUCTS_PROMPT_VARIABLES,
+    profileKey: 'products',
+    outputSchema: PRODUCTS_PROPOSAL_SHAPE,
+    requestSchema: PRODUCTS_SCHEMA,
+    parseOutput: makeParseOutput(PRODUCTS_PROPOSAL_SHAPE),
+    unwrap: (output) => output,
+    expectedOf: contextOf,
+    expectedSchema: productsContextExpectedSchema,
+    scorers: [
+      {
+        name: 'keepRate',
+        fn: (o, e) => keepRate(o, (e as { context: ProductsGoldenContext }).context),
+        nullable: true,
+      },
+    ],
+    mode: 'scored',
   },
 
   descriptions: {

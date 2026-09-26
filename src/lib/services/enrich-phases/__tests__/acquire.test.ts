@@ -1570,6 +1570,41 @@ describe('acquire fold', () => {
     expect((finishArgs[1] as { snippets: string[] }).snippets[0]).toBe('A nice plate.')
   })
 
+  // Golden capture (DEV-1873) runs a dry run against a synthetic target and
+  // injects no-op audit deps; the scrape audit must use them, not the real
+  // `brand_search_results` writer.
+  it('scrape_onAttempt_uses_injected_search_audit_deps', async () => {
+    const startAudit = vi.fn(async () => 'audit-scrape-1')
+    const finishAudit = vi.fn(async () => {})
+    scraperMocks.scrapeBrandUrls.mockImplementation(
+      async (urls: string[], options: { onAttempt: (a: unknown) => Promise<{ finish: (r: unknown) => Promise<void> }> }) => {
+        const handle = await options.onAttempt({ url: urls[0], classification: 'website', spanId: 'span-1' })
+        await handle.finish({ callStatus: 'succeeded', latencyMs: 1, extracted: {} })
+        return { data: agentData(), statuses: [] }
+      },
+    )
+    acquisitionMocks.runAcquisition.mockImplementation(
+      async (_input: unknown, deps: { scrapeBrandUrls: (urls: string[], opts: object) => Promise<unknown> }) => {
+        await deps.scrapeBrandUrls([FOLD_PAGE], {})
+        return { agentOutcome: 'planned', scrapeResult: { data: agentData(), statuses: [] }, decisions: [] }
+      },
+    )
+
+    await foldRun({
+      dryRun: true,
+      deps: { startSearchAudit: startAudit, finishSearchAudit: finishAudit },
+    })
+
+    expect(startAudit).toHaveBeenCalledTimes(1)
+    expect((startAudit.mock.calls[0] as unknown[])[0]).toMatchObject({
+      provider: 'scraper',
+      searchType: 'scrape',
+      endpoint: FOLD_PAGE,
+    })
+    expect(finishAudit).toHaveBeenCalledTimes(1)
+    expect((finishAudit.mock.calls[0] as unknown[])[0]).toBe('audit-scrape-1')
+  })
+
   it('catalog_audit_skipped_on_dry_run', async () => {
     const startAudit = vi.fn(async () => 'audit-catalog-1')
     const finishAudit = vi.fn(async () => {})
