@@ -344,9 +344,8 @@ describe('products agent graph', () => {
     expect(result.agentOutcome).toBe('fallback')
     expect(result.error).toBe('model_refused')
     expect(model.invoke).toHaveBeenCalledTimes(1)
-    expect(
-      result.decisions.some((d) => d.step === 'propose' && d.action === 'refused'),
-    ).toBe(true)
+    const refused = result.decisions.find((d) => d.step === 'propose' && d.action === 'refused')
+    expect(refused?.reason).toBe('refusal=I cannot')
   })
 
   it('propose_length_falls_back_without_reparse', async () => {
@@ -416,9 +415,8 @@ describe('products agent graph', () => {
     const droppedAtVerify = Number(counts?.[2])
     expect(repairable).toBeGreaterThan(0)
     expect(result.verification.dropped).toBe(droppedAtVerify + repairable)
-    expect(
-      result.decisions.some((d) => d.step === 'repair' && d.action === 'refused'),
-    ).toBe(true)
+    const refused = result.decisions.find((d) => d.step === 'repair' && d.action === 'refused')
+    expect(refused?.reason).toBe('refusal=I cannot')
     expect(result.proposals.some((p) => p.nameZh === 'Test Product A')).toBe(false)
   })
 

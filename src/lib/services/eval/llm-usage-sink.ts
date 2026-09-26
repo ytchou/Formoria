@@ -77,10 +77,14 @@ function readEnvelope(rawResponse: unknown): {
   };
 }
 
-/** Request mode tag (`json_schema` | `json_object` | `none`) from the audit input. */
-function readResponseFormat(input: unknown): string | null {
-  const format = (input as { meta?: { responseFormat?: unknown } } | null | undefined)
-    ?.meta?.responseFormat;
+/**
+ * Request mode tag (`json_schema` | `json_object` | `none`) from an audit
+ * event's `meta`. Lives here, not in llm-audit.ts, because llm-audit already
+ * reaches this module through `_shared/ai-results`; the reverse import would cycle.
+ */
+export function readResponseFormat(meta: unknown): string | null {
+  const format = (meta as { responseFormat?: unknown } | null | undefined)
+    ?.responseFormat;
   return typeof format === "string" ? format : null;
 }
 
@@ -101,7 +105,9 @@ export function writeEvalSinkRecord(input: {
     model: input.model,
     latencyMs: Math.round(input.latencyMs),
     ...envelope,
-    responseFormat: readResponseFormat(input.input),
+    responseFormat: readResponseFormat(
+      (input.input as { meta?: unknown } | null | undefined)?.meta,
+    ),
   };
   appendFileSync(input.path, `${JSON.stringify(record)}\n`);
 }

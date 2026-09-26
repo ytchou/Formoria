@@ -221,6 +221,12 @@ let warnedStructuredOutputsUnsupported = false;
  *
  * Matches the message OpenAI returned on 2026-09 for an unsupported model:
  * "'response_format' of type 'json_schema' is not supported with this model".
+ *
+ * Ceiling: this matches OpenAI's 2026-09 English wording only. If OpenAI
+ * rewords the message, schema calls on a model without Structured Outputs
+ * fail with ok:false instead of downgrading to json_object.
+ * Upgrade path: re-pin the fixture from a live probe and update the regex, or
+ * switch to a structured `error.code` once OpenAI sets one (it is null today).
  */
 function isJsonSchemaUnsupported(status: number, errorBody: unknown): boolean {
   if (status !== 400) return false;
@@ -364,8 +370,8 @@ export function createOpenAIClient({
       }
 
       /**
-       * Every event names the response format actually sent, decided exactly as
-       * `responseFormat()` decides it, so a schema downgrade is visible per row.
+       * Every event names the response format actually sent, read off the same
+       * `responseFormat()` body the wire gets, so a schema downgrade is visible per row.
        * The counts are only meaningful for a conversation the caller composed,
        * so legacy `{system,user}` calls carry the format alone. Caller `meta` is
        * spread last: its keys are kept, including a collision with a computed one.
@@ -374,13 +380,7 @@ export function createOpenAIClient({
         useSchema: boolean,
         sentMessageCount: number,
       ): { meta: Record<string, unknown> } {
-        const format = tools
-          ? "none"
-          : useSchema && schema
-            ? "json_schema"
-            : json || schema
-              ? "json_object"
-              : "none";
+        const format = responseFormat(useSchema).response_format?.type ?? "none";
         if (!messages) {
           return { meta: { responseFormat: format, ...(meta ?? {}) } };
         }
@@ -394,7 +394,9 @@ export function createOpenAIClient({
         };
       }
 
-      function responseFormat(useSchema: boolean): Record<string, unknown> {
+      function responseFormat(useSchema: boolean): {
+        response_format?: { type: string; [key: string]: unknown };
+      } {
         // A forced JSON body and tool calling are mutually exclusive on the wire.
         if (tools) return {};
         if (useSchema && schema) {
@@ -450,7 +452,6 @@ export function createOpenAIClient({
 
       async function attempt(
         useSchema: boolean,
-        appendSchemaContract: boolean,
         retryAttempt: number,
       ): Promise<OpenAIChatResult> {
         // An abort that landed during the backoff sleep is only seen by the
@@ -472,9 +473,10 @@ export function createOpenAIClient({
 
         // The json_object downgrade loses the wire schema, so it travels as text
         // instead. Appended last, so the audit's first system message is still
-        // the caller's.
+        // the caller's. Only the downgrade appends: a first attempt with a schema
+        // sends it on the wire, and a call without one has nothing to append.
         const sentMessages: ChatMessage[] =
-          appendSchemaContract && schema
+          !useSchema && schema
             ? [
                 ...wireMessages,
                 {
@@ -612,12 +614,10 @@ export function createOpenAIClient({
       /** Provider congestion and thrown fetches are retried here for every production caller. */
       async function attemptWithRetry(
         useSchema: boolean,
-        appendSchemaContract = false,
       ): Promise<OpenAIChatResult> {
         return withRetry(
           IN_PROCESS,
-          (retryAttempt) =>
-            attempt(useSchema, appendSchemaContract, retryAttempt),
+          (retryAttempt) => attempt(useSchema, retryAttempt),
           {
             // A caller that cancelled is not waiting for a backoff sleep: an aborted
             // signal ends the ladder on the attempt that saw it.
@@ -642,7 +642,7 @@ export function createOpenAIClient({
             `  [OPENAI] Model ${model} does not support json_schema response_format; falling back to json_object mode with the schema inlined.`,
           );
         }
-        return await attemptWithRetry(false, true);
+        return await attemptWithRetry(false);
       }
       return first;
     },

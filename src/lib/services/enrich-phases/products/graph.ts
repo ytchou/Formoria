@@ -509,6 +509,13 @@ function abnormalCompletion(response: AgentModelResponse): 'refused' | 'truncate
   return null
 }
 
+/** Decision detail for an abnormal completion: the refusal text, or the finish reason. */
+function abnormalDetail(kind: 'refused' | 'truncated', response: AgentModelResponse): string {
+  return kind === 'refused'
+    ? `refusal=${(response.refusal ?? '').slice(0, 200)}`
+    : `finish_reason=${response.finishReason ?? 'none'}`
+}
+
 async function proposeNode(
   ctx: ProductsRunContext,
   state: ProductsStateType,
@@ -562,7 +569,7 @@ async function proposeNode(
 
   const abnormal = abnormalCompletion(response)
   if (abnormal) {
-    ctx.record('propose', abnormal, `finish_reason=${response.finishReason ?? 'none'}`, start)
+    ctx.record('propose', abnormal, abnormalDetail(abnormal, response), start)
     return {
       proposeAttempts: attempts,
       agentOutcome: 'fallback',
@@ -881,7 +888,7 @@ async function repairNode(
 
   const abnormal = abnormalCompletion(response)
   if (abnormal) {
-    ctx.record('repair', abnormal, `finish_reason=${response.finishReason ?? 'none'}`, start)
+    ctx.record('repair', abnormal, abnormalDetail(abnormal, response), start)
     return { dropped: state.dropped + state.repairable.length }
   }
 
