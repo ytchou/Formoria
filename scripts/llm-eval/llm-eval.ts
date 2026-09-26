@@ -688,8 +688,9 @@ async function cmdDatasetReviewEnqueue(dataset: string): Promise<void> {
     queueName: 'golden-review',
     reviewView: adapter.reviewView,
   })
-  console.log(`[enqueue] ${result.enqueued} items enqueued to queue "${result.queueName}"`)
-  await flushLangfuse()
+  console.log(
+    `[enqueue] ${result.enqueued} items enqueued to queue "${result.queueName}" (${result.skipped} already queued, skipped)`,
+  )
 }
 
 async function cmdDatasetReviewPush(

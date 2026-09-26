@@ -1,9 +1,12 @@
+import { createHash } from 'node:crypto'
 import type { ZodObject, ZodRawShape } from 'zod'
 
-import { getLangfuse } from '@/lib/langfuse/client'
+import { flushLangfuse, getLangfuse } from '@/lib/langfuse/client'
+import { withRetry, type RetryPolicy } from '@/lib/retry'
 import {
   findQueueByName as findQueue,
   enqueueTrace as enqueue,
+  listQueueObjectIds,
   listQueueScores,
 } from './langfuse-runs'
 import { adapterFor as defaultAdapterFor } from './phase-adapters'
@@ -21,6 +24,7 @@ type DatasetItemLike = {
 }
 
 type TraceBody = {
+  id: string
   name: string
   input: unknown
   metadata: Record<string, unknown>
@@ -41,6 +45,9 @@ export type EnqueueDeps = {
   trace: (body: TraceBody) => { id: string }
   findQueueByName: (name: string) => Promise<string>
   enqueueTrace: (params: { queueId: string; traceId: string }) => Promise<void>
+  listQueuedTraceIds: (queueId: string) => Promise<Set<string>>
+  flush: () => Promise<void>
+  sleep: (ms: number) => Promise<void>
 }
 
 export type ApplyVerdictsDeps = {
@@ -78,7 +85,7 @@ export async function enqueueDataset({
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   reviewView?: (item: any) => unknown
   deps?: EnqueueDeps
-}): Promise<{ enqueued: number; queueName: string }> {
+}): Promise<{ enqueued: number; skipped: number; queueName: string }> {
   const getDatasetFn =
     deps?.getDataset ??
     (async (name: string) => {
@@ -101,24 +108,76 @@ export async function enqueueDataset({
   const enqueueFn =
     deps?.enqueueTrace ?? ((params: { queueId: string; traceId: string }) => enqueue(params))
 
+  const listQueuedFn = deps?.listQueuedTraceIds ?? ((queueId: string) => listQueueObjectIds({ queueId }))
+  const flushFn = deps?.flush ?? flushLangfuse
+  const sleep = deps?.sleep ?? ((ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms)))
+
   const { items } = await getDatasetFn(dataset)
   const queueId = await findQueueFn(queueName)
+  const queued = await listQueuedFn(queueId)
 
   // Pending items are ACTIVE; ARCHIVED means rejected (and the listing omits it).
   const eligible = items.filter((item) => item.status === 'ACTIVE')
+  // A stable trace id per item makes a rerun idempotent: an item whose trace is
+  // already queued is skipped.
+  const todo = eligible.filter((item) => !queued.has(reviewTraceId(dataset, item.id)))
 
-  for (const item of eligible) {
-    const trace = traceFn({
+  // Every trace is flushed before any queue item points at it, so a failure
+  // mid-enqueue never leaves queue items referencing traces that were not sent.
+  const traced = todo.map((item) => ({
+    itemId: item.id,
+    traceId: traceFn({
+      id: reviewTraceId(dataset, item.id),
       name: `golden-review:${dataset}:${item.id}`,
       input: reviewView ? reviewView(item) : item.input,
       metadata: { datasetName: dataset, itemId: item.id },
       output: { expectedOutput: item.expectedOutput },
-    })
+    }).id,
+  }))
+  await flushFn()
 
-    await enqueueFn({ queueId, traceId: trace.id })
+  let enqueued = 0
+  const failed: string[] = []
+  for (const [index, { itemId, traceId }] of traced.entries()) {
+    if (index > 0) await sleep(ENQUEUE_PACE_MS)
+    const ok = await withRetry(
+      ENQUEUE_RETRY_POLICY,
+      async () => {
+        try {
+          await enqueueFn({ queueId, traceId })
+          return true
+        } catch {
+          // The SDK rejects with a raw Response (429 included), so any rejection retries.
+          return false
+        }
+      },
+      {
+        classify: (done) => (done ? { retryable: false, reason: 'terminal' } : { retryable: true, reason: 'rate_limit' }),
+        service: 'langfuse-review-enqueue',
+        sleep,
+      },
+    )
+    if (ok) enqueued++
+    else failed.push(itemId)
   }
 
-  return { enqueued: eligible.length, queueName }
+  if (failed.length > 0) {
+    throw new Error(
+      `[enqueue] ${enqueued}/${traced.length} enqueued; not enqueued after retries: ${failed.join(', ')}. Rerun to retry only these.`,
+    )
+  }
+  return { enqueued, skipped: eligible.length - todo.length, queueName }
+}
+
+// Serial writes paced under Langfuse cloud's 100 req/min limit (~86/min); the ceiling is
+// one writer at the Hobby-plan rate — read the limit from 429 headers if queues grow past ~1k.
+const ENQUEUE_PACE_MS = 700
+/** 1 attempt + 3 retries, ~2s/4s/8s (withRetry adds jitter, capped at 8s). */
+const ENQUEUE_RETRY_POLICY: RetryPolicy = { attempts: 4, baseMs: 2_000, factor: 2, capMs: 8_000 }
+
+/** Stable 32-hex trace id for an item's review trace. */
+function reviewTraceId(dataset: string, itemId: string): string {
+  return createHash('sha256').update(`golden-review:${dataset}:${itemId}`).digest('hex').slice(0, 32)
 }
 
 // ---------------------------------------------------------------------------
