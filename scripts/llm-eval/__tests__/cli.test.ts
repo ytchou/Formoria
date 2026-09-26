@@ -766,7 +766,7 @@ describe('dataset seed-intent', () => {
   const noSleep = vi.fn(async (_ms: number) => {})
   /** A Langfuse client that confirms each upsert by echoing the item id. */
   const echoItem = () => vi.fn(async (body: Record<string, unknown>) => ({ id: body.id }))
-  /** A dataset with no non-ARCHIVED items (Langfuse omits ARCHIVED ones from the list). */
+  /** A dataset with no listed items (Langfuse omits ARCHIVED ones from the list). */
   const emptyDataset = () => vi.fn().mockResolvedValue({ items: [] })
 
   // withRetry jitters each wait by up to 100%; pin it so the 2s/4s/8s schedule is exact.
@@ -781,7 +781,7 @@ describe('dataset seed-intent', () => {
     expect(parseCliArgs(['dataset', 'seed-intent'])).toEqual({ command: 'dataset-seed-intent' })
   })
 
-  it("seed-intent builds 156 items with deterministic ids intent-<query id>, status ARCHIVED, metadata {split, humanApproval:{status:'pending'}}", async () => {
+  it("seed-intent builds 156 items with deterministic ids intent-<query id>, status ACTIVE, metadata {split, humanApproval:{status:'pending'}}", async () => {
     const source = readSituationQueries()
     const runOnce = async () => {
       const createDataset = vi.fn().mockResolvedValue({})
@@ -809,7 +809,7 @@ describe('dataset seed-intent', () => {
         id: `intent-${q.id}`,
         input: { query: q.query },
         expectedOutput: null,
-        status: 'ARCHIVED',
+        status: 'ACTIVE',
         // split is copied from the source item, never recomputed.
         metadata: { split: q.split, humanApproval: { status: 'pending' } },
       })
@@ -886,16 +886,27 @@ describe('dataset seed-intent', () => {
     ).rejects.toThrow(/401/)
   })
 
-  it('a rerun keeps ACTIVE or labelled items instead of resetting them to ARCHIVED', async () => {
-    const queries = [
-      { id: 'q1', query: 'a', split: 'train' },
-      { id: 'q2', query: 'b', split: 'train' },
-      { id: 'q3', query: 'c', split: 'val' },
-    ]
+  it('a rerun keeps labelled, reviewed and rejected items; re-upserts pending unlabelled ones', async () => {
+    const pending = { humanApproval: { status: 'pending' } }
+    const queries = ['q1', 'q2', 'q3', 'q4', 'q5', 'q6'].map((id) => ({ id, query: id, split: 'train' }))
     const getDataset = vi.fn().mockResolvedValue({
       items: [
-        { id: 'intent-q1', status: 'ACTIVE', expectedOutput: null },
-        { id: 'intent-q2', status: 'ARCHIVED', expectedOutput: { situation: 'x' } },
+        // labelled by prelabel, still pending review
+        { id: 'intent-q1', status: 'ACTIVE', expectedOutput: { situation: 'x' }, metadata: pending },
+        // reviewed (approved) — carries reviewedVia
+        {
+          id: 'intent-q2',
+          status: 'ACTIVE',
+          expectedOutput: null,
+          metadata: { humanApproval: { status: 'pending', reviewedVia: { queueId: 'q', scoreId: 's' } } },
+        },
+        // rejected; defensive — the listing normally omits ARCHIVED items
+        { id: 'intent-q3', status: 'ARCHIVED', expectedOutput: null, metadata: { humanApproval: { status: 'rejected' } } },
+        // a verdict status other than pending
+        { id: 'intent-q4', status: 'ACTIVE', expectedOutput: null, metadata: { humanApproval: { status: 'approved' } } },
+        // pending and unlabelled — a rerun upserts it again
+        { id: 'intent-q5', status: 'ACTIVE', expectedOutput: null, metadata: pending },
+        // intent-q6 is absent (new, or ARCHIVED from an earlier seed and so unlisted)
       ],
     })
     const createDatasetItem = echoItem()
@@ -908,8 +919,11 @@ describe('dataset seed-intent', () => {
 
     expect(getDataset).toHaveBeenCalledTimes(1)
     expect(getDataset).toHaveBeenCalledWith(INTENT_PARSE_DATASET)
-    expect(result).toEqual({ seeded: 1, kept: 2 })
-    expect(createDatasetItem.mock.calls.map((c) => c[0].id)).toEqual(['intent-q3'])
+    expect(result).toEqual({ seeded: 2, kept: 4 })
+    expect(createDatasetItem.mock.calls.map((c) => c[0].id)).toEqual(['intent-q5', 'intent-q6'])
+    for (const [body] of createDatasetItem.mock.calls) {
+      expect(body).toMatchObject({ status: 'ACTIVE', expectedOutput: null, metadata: pending })
+    }
   })
 
   it('rejects a source item without id, query or split', async () => {

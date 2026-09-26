@@ -951,7 +951,9 @@ export type SeedIntentClient = {
   createDataset: (body: { name: string; description?: string }) => Promise<unknown>
   createDatasetItem: (body: Record<string, unknown>) => Promise<unknown>
   /** Langfuse omits ARCHIVED items from this list, so every item returned is non-ARCHIVED. */
-  getDataset: (name: string) => Promise<{ items: Array<{ id: string; status: string; expectedOutput?: unknown }> }>
+  getDataset: (
+    name: string,
+  ) => Promise<{ items: Array<{ id: string; status: string; expectedOutput?: unknown; metadata?: unknown }> }>
 }
 
 export function readSituationQueries(path: string = SITUATION_SEARCH_SOURCE): SituationQuery[] {
@@ -972,14 +974,20 @@ const SEED_RETRY_POLICY: RetryPolicy = { attempts: 4, baseMs: 2_000, factor: 2, 
 const realSleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms))
 
 /**
- * Seeds one unlabelled item per situation query. Items are ARCHIVED with a null
- * `expectedOutput` until prelabel (the body shape of `golden-review.ts#prelabelItem`).
+ * Seeds one unlabelled item per situation query. Items are written ACTIVE with
+ * a null `expectedOutput` and a pending `humanApproval`, the same state
+ * `golden-review.ts#prelabelItem` keeps: the dataset listing omits ARCHIVED
+ * items (ARCHIVED means rejected), and a run admits only items carrying
+ * `humanApproval.reviewedVia`, so none reaches a run before review.
  * Ids are `intent-<query id>`, so a rerun upserts in place. `split` is copied
  * from the source item, never recomputed.
  *
- * A rerun must never wipe labels: an id already in the dataset that is not
- * ARCHIVED, or that has an `expectedOutput`, is kept untouched. ARCHIVED items
- * are absent from `getDataset(...).items`, so they (and new ids) are upserted.
+ * A rerun must never wipe labels or verdicts: an existing item is kept untouched
+ * when it has an `expectedOutput`, a `humanApproval.reviewedVia`, a
+ * `humanApproval.status` other than pending, or a status other than ACTIVE.
+ * Only new ids and ACTIVE + pending + unlabelled items are upserted. ARCHIVED
+ * items are absent from `getDataset(...).items`, so a never-reviewed item left
+ * ARCHIVED by an earlier seed is upserted back to ACTIVE + pending.
  *
  * The Langfuse SDK logs a 429 and resolves instead of rejecting, so an upsert
  * counts only when the call returns the item with the expected `id`. Unconfirmed
@@ -1008,7 +1016,16 @@ export async function seedIntentDataset(
   const { items: existing } = await client.getDataset(INTENT_PARSE_DATASET)
   const keep = new Set(
     existing
-      .filter((item) => item.status !== 'ARCHIVED' || item.expectedOutput != null)
+      .filter((item) => {
+        const ha = (item.metadata as { humanApproval?: { status?: unknown; reviewedVia?: unknown } } | null | undefined)
+          ?.humanApproval
+        return (
+          item.expectedOutput != null ||
+          ha?.reviewedVia != null ||
+          ha?.status !== 'pending' ||
+          item.status !== 'ACTIVE'
+        )
+      })
       .map((item) => item.id),
   )
 
@@ -1028,7 +1045,7 @@ export async function seedIntentDataset(
       id,
       input: { query: q.query },
       expectedOutput: null,
-      status: 'ARCHIVED',
+      status: 'ACTIVE',
       metadata: { split: q.split, humanApproval: { status: 'pending' } },
     }
     const ok = await withRetry(
@@ -1075,7 +1092,7 @@ async function cmdDatasetSeedIntent(): Promise<void> {
       getDataset: (name) => client.getDataset(name),
     })
     console.log(
-      `[seed-intent] ${seeded} ARCHIVED items confirmed, ${kept} labelled/active items kept in "${INTENT_PARSE_DATASET}"`,
+      `[seed-intent] ${seeded} items confirmed (ACTIVE, pending review), ${kept} labelled/reviewed items kept in "${INTENT_PARSE_DATASET}"`,
     )
   } catch (e) {
     console.error(e instanceof Error ? e.message : e)
