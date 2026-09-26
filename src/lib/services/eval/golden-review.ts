@@ -164,11 +164,18 @@ export async function applyVerdicts({
       return listQueueScores(params) as unknown as Promise<VerdictScore[]>
     })
 
+  // Langfuse limits GET /traces to 15 requests a minute, and every golden_verdict
+  // score in the project needs one lookup, so reads are spaced 4.1s apart.
+  // Ceiling: ~15 verdicts a minute; upgrade by carrying itemId in score metadata.
+  let lastTraceRead = 0
   const getTraceFn =
     deps?.getTrace ??
     (async (traceId: string) => {
       const client = getLangfuse()
       if (!client) throw new Error('Langfuse client not available')
+      const wait = lastTraceRead + 4100 - Date.now()
+      if (wait > 0) await new Promise((resolve) => setTimeout(resolve, wait))
+      lastTraceRead = Date.now()
       return client.api.traceGet(traceId)
     })
 
