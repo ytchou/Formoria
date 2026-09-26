@@ -498,6 +498,17 @@ function ownedHostsOf(ctx: ProductsRunContext): readonly string[] {
   return ctx.input.brand.ownedHosts ?? []
 }
 
+/**
+ * A reply that asking again cannot fix (DEV-1866). A refusal or a reply cut at
+ * the token limit would fail `JSON.parse` and spend the reparse turn on the
+ * same input, so both stop the turn instead.
+ */
+function abnormalCompletion(response: AgentModelResponse): 'refused' | 'truncated' | null {
+  if (response.refusal) return 'refused'
+  if (response.finishReason === 'length') return 'truncated'
+  return null
+}
+
 async function proposeNode(
   ctx: ProductsRunContext,
   state: ProductsStateType,
@@ -548,6 +559,16 @@ async function proposeNode(
   // not as schema text appended to the prompt.
   const response = await ctx.invokeModel(messages, PRODUCTS_SCHEMA)
   ctx.budget.used.turns += 1
+
+  const abnormal = abnormalCompletion(response)
+  if (abnormal) {
+    ctx.record('propose', abnormal, `finish_reason=${response.finishReason ?? 'none'}`, start)
+    return {
+      proposeAttempts: attempts,
+      agentOutcome: 'fallback',
+      error: abnormal === 'refused' ? 'model_refused' : 'model_truncated',
+    }
+  }
 
   let parsed: ProductsModelResult
   try {
@@ -857,6 +878,12 @@ async function repairNode(
 
   const response = await ctx.invokeModel(messages, REPAIR_SCHEMA)
   ctx.budget.used.turns += 1
+
+  const abnormal = abnormalCompletion(response)
+  if (abnormal) {
+    ctx.record('repair', abnormal, `finish_reason=${response.finishReason ?? 'none'}`, start)
+    return { dropped: state.dropped + state.repairable.length }
+  }
 
   let parsed: ProductsModelResult
   try {

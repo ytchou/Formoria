@@ -214,19 +214,31 @@ function isReasoningModel(model: string): boolean {
 // Latched so a model snapshot without Structured Outputs warns once per process, not per batch.
 let warnedStructuredOutputsUnsupported = false;
 
-function mentionsResponseFormat(errorBody: unknown): boolean {
+/**
+ * True only for the one 400 a downgrade can fix: a model snapshot without
+ * Structured Outputs. Any other `response_format` 400 — above all an invalid
+ * schema — must fail loudly, not degrade to schemaless JSON mode.
+ *
+ * Matches the message OpenAI returned on 2026-09 for an unsupported model:
+ * "'response_format' of type 'json_schema' is not supported with this model".
+ */
+function isJsonSchemaUnsupported(status: number, errorBody: unknown): boolean {
+  if (status !== 400) return false;
   if (!errorBody || typeof errorBody !== "object") return false;
   const { error } = errorBody as { error?: unknown };
   if (!error || typeof error !== "object") return false;
-  const { message, param } = error as { message?: unknown; param?: unknown };
-  const haystack = [
-    typeof message === "string" ? message : "",
-    typeof param === "string" ? param : "",
-  ].join(" ");
+  const { message } = error as { message?: unknown };
+  if (typeof message !== "string") return false;
   return (
-    haystack.includes("response_format") || haystack.includes("json_schema")
+    message.includes("json_schema") &&
+    /is not supported with this model/i.test(message)
   );
 }
+
+// Copied from `enrich-phases/agents/runtime.ts` SCHEMA_TRAILER, not imported:
+// this client sits below the enrich layer and must not depend on it.
+const SCHEMA_CONTRACT_TRAILER =
+  "Output only a JSON object that matches this schema. Do not add fields the schema does not define.";
 
 function networkFailureResponse(): Response {
   return new Response(null, {
@@ -352,16 +364,30 @@ export function createOpenAIClient({
       }
 
       /**
-       * Legacy `{system,user}` calls keep emitting exactly today's audit event —
-       * the counts are only meaningful for a conversation the caller composed.
-       * Caller `meta` is spread last: its keys are kept, including a collision
-       * with a computed count.
+       * Every event names the response format actually sent, decided exactly as
+       * `responseFormat()` decides it, so a schema downgrade is visible per row.
+       * The counts are only meaningful for a conversation the caller composed,
+       * so legacy `{system,user}` calls carry the format alone. Caller `meta` is
+       * spread last: its keys are kept, including a collision with a computed one.
        */
-      function auditMeta(): { meta?: Record<string, unknown> } {
-        if (!messages) return meta ? { meta } : {};
+      function auditMeta(
+        useSchema: boolean,
+        sentMessageCount: number,
+      ): { meta: Record<string, unknown> } {
+        const format = tools
+          ? "none"
+          : useSchema && schema
+            ? "json_schema"
+            : json || schema
+              ? "json_object"
+              : "none";
+        if (!messages) {
+          return { meta: { responseFormat: format, ...(meta ?? {}) } };
+        }
         return {
           meta: {
-            messageCount: wireMessages.length,
+            responseFormat: format,
+            messageCount: sentMessageCount,
             toolCallCount: tools?.length ?? 0,
             ...(meta ?? {}),
           },
@@ -424,6 +450,7 @@ export function createOpenAIClient({
 
       async function attempt(
         useSchema: boolean,
+        appendSchemaContract: boolean,
         retryAttempt: number,
       ): Promise<OpenAIChatResult> {
         // An abort that landed during the backoff sleep is only seen by the
@@ -443,6 +470,21 @@ export function createOpenAIClient({
           };
         }
 
+        // The json_object downgrade loses the wire schema, so it travels as text
+        // instead. Appended last, so the audit's first system message is still
+        // the caller's.
+        const sentMessages: ChatMessage[] =
+          appendSchemaContract && schema
+            ? [
+                ...wireMessages,
+                {
+                  role: "system",
+                  content: `${JSON.stringify(schema.schema)}\n\n${SCHEMA_CONTRACT_TRAILER}`,
+                },
+              ]
+            : wireMessages;
+        const eventMeta = auditMeta(useSchema, sentMessages.length);
+
         const startedAt = performance.now();
         // Per-attempt deadline. A shared one let a slow first call abort the retry instantly.
         const controller = new AbortController();
@@ -457,7 +499,7 @@ export function createOpenAIClient({
             headers,
             body: JSON.stringify({
               model,
-              messages: wireMessages,
+              messages: sentMessages,
               ...(tools
                 ? {
                     tools: tools.map((tool) => ({
@@ -491,7 +533,7 @@ export function createOpenAIClient({
               latencyMs: performance.now() - startedAt,
               request: auditRequest(),
               retryAttempt,
-              ...auditMeta(),
+              ...eventMeta,
             });
             return {
               response,
@@ -522,7 +564,7 @@ export function createOpenAIClient({
             latencyMs: performance.now() - startedAt,
             request: auditRequest(),
             retryAttempt,
-            ...auditMeta(),
+            ...eventMeta,
           });
 
           return {
@@ -548,7 +590,7 @@ export function createOpenAIClient({
             latencyMs: performance.now() - startedAt,
             request: auditRequest(),
             retryAttempt,
-            ...auditMeta(),
+            ...eventMeta,
             error: message,
           });
           return {
@@ -570,27 +612,37 @@ export function createOpenAIClient({
       /** Provider congestion and thrown fetches are retried here for every production caller. */
       async function attemptWithRetry(
         useSchema: boolean,
+        appendSchemaContract = false,
       ): Promise<OpenAIChatResult> {
-        return withRetry(IN_PROCESS, (retryAttempt) => attempt(useSchema, retryAttempt), {
-          // A caller that cancelled is not waiting for a backoff sleep: an aborted
-          // signal ends the ladder on the attempt that saw it.
-          classify: (result) =>
-            input.signal?.aborted
-              ? { retryable: false, reason: "terminal" as const }
-              : classifyHttpResponse(result),
-          service: "openai",
-        });
+        return withRetry(
+          IN_PROCESS,
+          (retryAttempt) =>
+            attempt(useSchema, appendSchemaContract, retryAttempt),
+          {
+            // A caller that cancelled is not waiting for a backoff sleep: an aborted
+            // signal ends the ladder on the attempt that saw it.
+            classify: (result) =>
+              input.signal?.aborted
+                ? { retryable: false, reason: "terminal" as const }
+                : classifyHttpResponse(result),
+            service: "openai",
+          },
+        );
       }
 
       const first = await attemptWithRetry(Boolean(schema));
-      if (schema && !first.ok && mentionsResponseFormat(first.errorBody)) {
+      if (
+        schema &&
+        !first.ok &&
+        isJsonSchemaUnsupported(first.status, first.errorBody)
+      ) {
         if (!warnedStructuredOutputsUnsupported) {
           warnedStructuredOutputsUnsupported = true;
           console.warn(
-            `  [OPENAI] Model ${model} rejected json_schema response_format; falling back to json_object mode.`,
+            `  [OPENAI] Model ${model} does not support json_schema response_format; falling back to json_object mode with the schema inlined.`,
           );
         }
-        return await attemptWithRetry(false);
+        return await attemptWithRetry(false, true);
       }
       return first;
     },

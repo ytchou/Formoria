@@ -308,6 +308,25 @@ describe('agents runtime — createAgentModel', () => {
     expect(response.usage?.prompt_tokens).toBe(12)
     expect(contentText(response)).toBe('')
   })
+
+  // DEV-1866: a refusal or a truncated reply must reach the agent graph, so it
+  // can stop instead of spending a reparse turn on a payload that cannot parse.
+  it('createAgentModel_passes_finish_reason_and_refusal_through', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue(
+        okResponse({
+          choices: [{ message: { content: null, refusal: 'no' }, finish_reason: 'length' }],
+        }),
+      ),
+    )
+
+    const model = await createAgentModel('products_agent', audit([]))
+    const response = await model.invoke(MESSAGES)
+
+    expect(response.finishReason).toBe('length')
+    expect(response.refusal).toBe('no')
+  })
 })
 
 describe('agents runtime — helpers', () => {

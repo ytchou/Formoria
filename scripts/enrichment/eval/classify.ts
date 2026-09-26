@@ -301,7 +301,9 @@ export function classify(input: ClassifyInput): ClassifyResult {
       !productsDetail.includes("empty candidate pool")) ||
     (productsAgentOutcome === "fallback" &&
       (productsDetail.includes("aborted") ||
-        productsDetail.includes("recursion_limit")) &&
+        productsDetail.includes("recursion_limit") ||
+        productsDetail.includes("model_refused") ||
+        productsDetail.includes("model_truncated")) &&
       productsProposed === 0)
   ) {
     const reasons: string[] = [];

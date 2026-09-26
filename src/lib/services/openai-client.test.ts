@@ -510,37 +510,106 @@ describe("createOpenAIClient", () => {
       schema: { type: "object", properties: {} },
     };
 
-    it("retries with json_object when the model rejects json_schema", async () => {
+    // Verbatim OpenAI 400 bodies, pinned so the fallback matches real wording.
+    const INVALID_SCHEMA_BODY = {
+      error: {
+        message:
+          "Invalid schema for response_format 'probe': In context=(), 'required' is required to be supplied and to be an array including every key in properties. Missing 'b'.",
+        type: "invalid_request_error",
+        param: "response_format",
+        code: null,
+      },
+    };
+    const UNSUPPORTED_MODEL_BODY = {
+      error: {
+        message:
+          "Invalid parameter: 'response_format' of type 'json_schema' is not supported with this model. Learn more about supported models at the Structured Outputs guide: https://platform.openai.com/docs/guides/structured-outputs",
+        type: "invalid_request_error",
+        param: null,
+        code: null,
+      },
+    };
+
+    function errorResponse(body: unknown, status = 400) {
+      return new Response(JSON.stringify(body), {
+        status,
+        headers: { "content-type": "application/json" },
+      });
+    }
+
+    it("falls_back_to_json_object_when_model_does_not_support_json_schema", async () => {
       vi.spyOn(console, "warn").mockImplementation(() => undefined);
       const fetchSpy = vi
         .spyOn(globalThis, "fetch")
-        .mockResolvedValueOnce(
-          new Response(
-            JSON.stringify({
-              error: {
-                message: "Invalid response_format",
-                param: "response_format",
-              },
-            }),
-            {
-              status: 400,
-              headers: { "content-type": "application/json" },
-            },
-          ),
-        )
+        .mockResolvedValueOnce(errorResponse(UNSUPPORTED_MODEL_BODY))
         .mockResolvedValue(okResponse());
       const client = createOpenAIClient({ apiKey: "k" });
 
       const result = await client.chat({ system: "s", user: "u", schema });
 
       expect(fetchSpy).toHaveBeenCalledTimes(2);
-      expect(requestBody(fetchSpy, 0).response_format).toMatchObject({
-        type: "json_schema",
-      });
-      expect(requestBody(fetchSpy, 1).response_format).toEqual({
-        type: "json_object",
-      });
+      const first = requestBody(fetchSpy, 0);
+      expect(first.response_format).toMatchObject({ type: "json_schema" });
+      expect(first.messages).toEqual([
+        { role: "system", content: "s" },
+        { role: "user", content: "u" },
+      ]);
+
+      const second = requestBody(fetchSpy, 1);
+      expect(second.response_format).toEqual({ type: "json_object" });
+      const messages = second.messages as ChatMessage[];
+      expect(messages).toHaveLength(3);
+      const last = messages[messages.length - 1];
+      expect(last?.role).toBe("system");
+      expect(String(last?.content)).toContain(JSON.stringify(schema.schema));
       expect(result.ok).toBe(true);
+    });
+
+    it("does_not_fall_back_on_invalid_schema", async () => {
+      const fetchSpy = vi
+        .spyOn(globalThis, "fetch")
+        .mockResolvedValue(errorResponse(INVALID_SCHEMA_BODY));
+      const client = createOpenAIClient({ apiKey: "k" });
+
+      const result = await client.chat({ system: "s", user: "u", schema });
+
+      expect(fetchSpy).toHaveBeenCalledTimes(1);
+      expect(result.ok).toBe(false);
+      expect(result.status).toBe(400);
+      expect(result.errorBody).toEqual(INVALID_SCHEMA_BODY);
+    });
+
+    it("does_not_fall_back_on_non_400_mentioning_response_format", async () => {
+      vi.spyOn(console, "warn").mockImplementation(() => undefined);
+      vi.spyOn(console, "error").mockImplementation(() => undefined);
+      const fetchSpy = vi
+        .spyOn(globalThis, "fetch")
+        .mockImplementation(() =>
+          Promise.resolve(
+            errorResponse(
+              {
+                error: {
+                  message:
+                    "response_format 'json_schema' is not supported with this model",
+                },
+              },
+              500,
+            ),
+          ),
+        );
+      const client = createOpenAIClient({ apiKey: "k" });
+
+      const result = await withFakeTimers(() =>
+        client.chat({ system: "s", user: "u", schema }),
+      );
+
+      expect(result.ok).toBe(false);
+      expect(result.status).toBe(500);
+      for (let call = 0; call < fetchSpy.mock.calls.length; call += 1) {
+        expect(requestBody(fetchSpy, call).response_format).toMatchObject({
+          type: "json_schema",
+        });
+      }
     });
 
     it("does not retry a failure unrelated to response_format", async () => {
@@ -568,14 +637,7 @@ describe("createOpenAIClient", () => {
         .spyOn(globalThis, "fetch")
         .mockResolvedValueOnce(new Response(null, { status: 429 }))
         .mockResolvedValueOnce(new Response(null, { status: 429 }))
-        .mockResolvedValueOnce(
-          new Response(
-            JSON.stringify({
-              error: { message: "Invalid response_format", param: "response_format" },
-            }),
-            { status: 400, headers: { "content-type": "application/json" } },
-          ),
-        )
+        .mockResolvedValueOnce(errorResponse(UNSUPPORTED_MODEL_BODY))
         .mockResolvedValue(new Response(null, { status: 429 }));
       const client = createOpenAIClient({ apiKey: "k" });
 
@@ -585,6 +647,97 @@ describe("createOpenAIClient", () => {
 
       expect(fetchSpy).toHaveBeenCalledTimes(6);
       expect(result.status).toBe(429);
+    });
+
+    it("audit_meta_tags_response_format_json_schema", async () => {
+      vi.spyOn(globalThis, "fetch").mockResolvedValue(okResponse());
+      const events: ChatAuditEvent[] = [];
+      const client = createOpenAIClient({
+        apiKey: "k",
+        onChatComplete: (event) => {
+          events.push(event);
+        },
+      });
+
+      await client.chat({ system: "s", user: "u", schema });
+
+      expect(events).toHaveLength(1);
+      expect(events[0]?.meta).toEqual({ responseFormat: "json_schema" });
+    });
+
+    it("audit_meta_tags_response_format_json_object", async () => {
+      vi.spyOn(console, "warn").mockImplementation(() => undefined);
+      vi.spyOn(globalThis, "fetch")
+        .mockResolvedValueOnce(errorResponse(UNSUPPORTED_MODEL_BODY))
+        .mockImplementation(() => Promise.resolve(okResponse()));
+      const events: ChatAuditEvent[] = [];
+      const client = createOpenAIClient({
+        apiKey: "k",
+        onChatComplete: (event) => {
+          events.push(event);
+        },
+      });
+
+      await client.chat({ system: "s", user: "u", schema });
+      await client.chat({ system: "s", user: "u", json: true });
+
+      expect(events).toHaveLength(3);
+      expect(events[0]?.meta?.responseFormat).toBe("json_schema");
+      expect(events[1]?.meta?.responseFormat).toBe("json_object");
+      expect(events[2]?.meta).toEqual({ responseFormat: "json_object" });
+    });
+
+    it("audit_meta_tags_response_format_none", async () => {
+      vi.spyOn(globalThis, "fetch").mockResolvedValue(okResponse());
+      const events: ChatAuditEvent[] = [];
+      const client = createOpenAIClient({
+        apiKey: "k",
+        onChatComplete: (event) => {
+          events.push(event);
+        },
+      });
+
+      await client.chat({
+        messages: [
+          { role: "system", content: "s" },
+          { role: "user", content: "u" },
+        ],
+        tools: [
+          {
+            name: "fetch_url",
+            description: "Fetch a page",
+            parameters: { type: "object", properties: {} },
+          },
+        ],
+      });
+
+      expect(events[0]?.meta?.responseFormat).toBe("none");
+    });
+
+    it("audit_request_reports_the_callers_system_message_on_fallback", async () => {
+      vi.spyOn(console, "warn").mockImplementation(() => undefined);
+      vi.spyOn(globalThis, "fetch")
+        .mockResolvedValueOnce(errorResponse(UNSUPPORTED_MODEL_BODY))
+        .mockResolvedValue(okResponse());
+      const events: ChatAuditEvent[] = [];
+      const client = createOpenAIClient({
+        apiKey: "k",
+        onChatComplete: (event) => {
+          events.push(event);
+        },
+      });
+
+      await client.chat({
+        messages: [
+          { role: "system", content: "s" },
+          { role: "user", content: "u" },
+        ],
+        schema,
+      });
+
+      expect(events[1]?.request.system).toBe("s");
+      expect(events[0]?.meta?.messageCount).toBe(2);
+      expect(events[1]?.meta?.messageCount).toBe(3);
     });
   });
 
@@ -805,7 +958,11 @@ describe("createOpenAIClient", () => {
         meta: { messageCount: 99 },
       });
 
-      expect(events[0]?.meta).toEqual({ messageCount: 99, toolCallCount: 0 });
+      expect(events[0]?.meta).toEqual({
+        responseFormat: "none",
+        messageCount: 99,
+        toolCallCount: 0,
+      });
     });
 
     it("chat_stops_before_the_next_attempt_when_the_caller_aborts_during_the_backoff", async () => {
@@ -932,7 +1089,8 @@ describe("createOpenAIClient", () => {
         user: "u",
         imageCount: 0,
       });
-      expect(events[0]?.meta).toBeUndefined();
+      expect(events[0]?.meta).toEqual({ responseFormat: "none" });
+      expect(events[1]?.meta).toEqual({ responseFormat: "json_object" });
     });
 
     it("chat_audit_event_for_messages_carries_first_system_first_user_and_counts", async () => {
@@ -958,6 +1116,7 @@ describe("createOpenAIClient", () => {
       });
       expect(events[0]?.meta).toEqual({
         phase: "acquire",
+        responseFormat: "none",
         messageCount: conversation.length,
         toolCallCount: 1,
       });

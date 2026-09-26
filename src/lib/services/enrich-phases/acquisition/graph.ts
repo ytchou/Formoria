@@ -1090,8 +1090,9 @@ const PARSE_FAILED_VERDICT: CritiqueVerdict = {
 
 /**
  * A missing situational key reads as `null`. Strict json_schema always sends
- * both, but the client falls back to json_object when a model rejects
- * json_schema, and a verdict that merely omits an unused key is still a verdict.
+ * both, but the client falls back to json_object (appending the schema text as
+ * a system message) when a model does not support json_schema, and a verdict
+ * that merely omits an unused key is still a verdict.
  */
 function parseCritiqueVerdict(text: string): CritiqueVerdict | null {
   const raw: unknown = JSON.parse(extractJson(text))

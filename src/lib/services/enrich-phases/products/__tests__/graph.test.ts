@@ -56,21 +56,41 @@ beforeAll(() => {
  * objects in, `{ content, usage }` out. No provider SDK message class is
  * involved on either side (DEV-1700).
  */
-function scriptedModel(responses: string[]) {
+type ScriptedResponse =
+  | string
+  | { content: string | null; refusal?: string; finishReason?: string }
+
+function scriptedModel(responses: ScriptedResponse[]) {
   let index = 0
   const invoke = vi.fn(
     async (
       _messages: ChatMessage[],
-      _options?: { signal?: AbortSignal; schema?: { name: string } },
+      _options?: {
+        signal?: AbortSignal
+        schema?: { name: string; schema: Record<string, unknown> }
+      },
     ) => {
-      const content = responses[index++] ?? responses.at(-1) ?? '{}'
+      const scripted = responses[index++] ?? responses.at(-1) ?? '{}'
+      const reply = typeof scripted === 'string' ? { content: scripted } : scripted
       return {
-        content,
+        ...reply,
         usage: { prompt_tokens: 100, completion_tokens: 50, total_tokens: 150 },
       }
     },
   )
   return { invoke }
+}
+
+/** A propose reply whose first description echoes the name: repairable. */
+function nameEchoProposalResponse(): string {
+  return validProposalResponse({
+    products: [
+      productFor(URL_A, 'Test Product A', {
+        product_description_zh: 'Test Product A 是一個很棒的產品',
+      }),
+      productFor(URL_B, 'Test Product B'),
+    ],
+  })
 }
 
 const PAGE_HTML = (extra = '') =>
@@ -312,6 +332,94 @@ describe('products agent graph', () => {
       result.decisions.some((d) => d.step === 'propose' && d.action === 'parse_failed'),
     ).toBe(true)
     expect(model.invoke).toHaveBeenCalledTimes(2)
+  })
+
+  // DEV-1866: a refusal or a truncated reply cannot be fixed by asking again
+  // with the same input, so neither may spend the reparse turn.
+  it('propose_refusal_falls_back_without_reparse', async () => {
+    const model = scriptedModel([{ content: null, refusal: 'I cannot' }, validProposalResponse()])
+
+    const result = await runProductsAgent(baseInput, makeDeps(), { model })
+
+    expect(result.agentOutcome).toBe('fallback')
+    expect(result.error).toBe('model_refused')
+    expect(model.invoke).toHaveBeenCalledTimes(1)
+    expect(
+      result.decisions.some((d) => d.step === 'propose' && d.action === 'refused'),
+    ).toBe(true)
+  })
+
+  it('propose_length_falls_back_without_reparse', async () => {
+    const truncated = validProposalResponse().slice(0, 40)
+    const model = scriptedModel([
+      { content: truncated, finishReason: 'length' },
+      validProposalResponse(),
+    ])
+
+    const result = await runProductsAgent(baseInput, makeDeps(), { model })
+
+    expect(result.agentOutcome).toBe('fallback')
+    expect(result.error).toBe('model_truncated')
+    expect(model.invoke).toHaveBeenCalledTimes(1)
+    expect(
+      result.decisions.some((d) => d.step === 'propose' && d.action === 'truncated'),
+    ).toBe(true)
+  })
+
+  it('propose_parse_failure_still_reparses', async () => {
+    const model = scriptedModel([
+      { content: 'not valid json {{{{', finishReason: 'stop' },
+      validProposalResponse(),
+    ])
+
+    const result = await runProductsAgent(baseInput, makeDeps(), { model })
+
+    expect(model.invoke).toHaveBeenCalledTimes(2)
+    expect(result.error).toBeUndefined()
+  })
+
+  it('repair_turn_sends_REPAIR_SCHEMA', async () => {
+    const model = scriptedModel([
+      nameEchoProposalResponse(),
+      JSON.stringify({
+        products: [
+          productFor(URL_A, 'Test Product A', {
+            product_description_zh: '義大利植鞣牛皮手染鞋面與鞋墊',
+          }),
+        ],
+      }),
+    ])
+
+    await runProductsAgent(baseInput, makeDeps(), { model })
+
+    expect(model.invoke).toHaveBeenCalledTimes(2)
+    const schema = model.invoke.mock.calls[1]![1]?.schema
+    expect(schema?.name).toBe('curated_product_repair')
+    const properties = (schema?.schema as { properties?: Record<string, unknown> })
+      .properties
+    expect(properties).toHaveProperty('products')
+    expect(properties).not.toHaveProperty('evaluations')
+  })
+
+  it('repair_refusal_drops_repairables', async () => {
+    const model = scriptedModel([
+      nameEchoProposalResponse(),
+      { content: null, refusal: 'I cannot' },
+    ])
+
+    const result = await runProductsAgent(baseInput, makeDeps(), { model })
+
+    expect(model.invoke).toHaveBeenCalledTimes(2)
+    const verify = result.decisions.find((d) => d.step === 'verify')
+    const counts = /(\d+) repairable, (\d+) dropped/.exec(verify?.action ?? '')
+    const repairable = Number(counts?.[1])
+    const droppedAtVerify = Number(counts?.[2])
+    expect(repairable).toBeGreaterThan(0)
+    expect(result.verification.dropped).toBe(droppedAtVerify + repairable)
+    expect(
+      result.decisions.some((d) => d.step === 'repair' && d.action === 'refused'),
+    ).toBe(true)
+    expect(result.proposals.some((p) => p.nameZh === 'Test Product A')).toBe(false)
   })
 
   it('graph_verify_drops_off_host_url', async () => {

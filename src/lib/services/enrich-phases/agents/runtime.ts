@@ -38,6 +38,10 @@ export type AgentModelResponse = {
   content: string | null
   toolCalls?: ChatToolCall[]
   usage?: ChatUsage
+  /** The provider's `finish_reason`; `'length'` means the reply was truncated. */
+  finishReason?: string
+  /** Set when the model declined to answer; `content` is then null. */
+  refusal?: string
 }
 
 /**
@@ -83,8 +87,12 @@ function messageOf(errorBody: unknown): string {
  * row through the audited client, on success and on failure alike.
  *
  * A tool-less turn that passes `schema` is sent as strict `json_schema`, so the
- * API enforces the shape; the client falls back to `json_object` when a model
- * rejects it, which is why callers keep parsing through `extractJson`.
+ * API enforces the shape; when the model does not support `json_schema` the
+ * client falls back to `json_object` and appends the schema text as a system
+ * message, which is why callers keep parsing through `extractJson`.
+ *
+ * `finishReason` and `refusal` are passed through so a graph can stop on a
+ * refused or truncated reply instead of treating it as a parse failure.
  *
  * `schema` is dropped for a turn that passes tools — OpenAI refuses a forced
  * JSON response alongside tool definitions, and the client throws if both are
@@ -120,6 +128,8 @@ export async function createAgentModel(
         content: result.content,
         ...(result.toolCalls ? { toolCalls: result.toolCalls } : {}),
         ...(result.data?.usage ? { usage: result.data.usage } : {}),
+        ...(result.finishReason ? { finishReason: result.finishReason } : {}),
+        ...(result.refusal ? { refusal: result.refusal } : {}),
       }
     },
   }

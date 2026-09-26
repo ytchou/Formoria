@@ -135,8 +135,9 @@ const L1_SLUGS = new Set<string>(
 /**
  * `strict: true` requires every property in `required`, so the nullable fields
  * are typed as unions rather than omitted. `openai-client` falls back to
- * `json_object` mode when a model rejects `json_schema`, and the prompt states
- * the same object contract in prose for exactly that path.
+ * `json_object` mode when a model does not support `json_schema`, appending
+ * the schema text as a system message, and the prompt states the same object
+ * contract in prose for exactly that path.
  *
  * The top level is an OBJECT with one `products` key: a bare top-level array is
  * an illegal reply under `json_object` and returned an empty object on every

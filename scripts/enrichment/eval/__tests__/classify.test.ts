@@ -317,6 +317,33 @@ describe("extraction_failure", () => {
     expect(result.observed).toBe("extraction_failure");
     expect(result.stage).toBe("products");
   });
+
+  it.each(["model_refused", "model_truncated"])(
+    "rule12_extraction_failure_on_%s",
+    (reason) => {
+      const detail = `${reason}: products agent fell back`;
+      const result = classify(
+        makeInput({
+          targetRow: {
+            status: "completed",
+            phase_results: [
+              { phase: "acquire", status: "succeeded" },
+              {
+                phase: "products",
+                status: "succeeded",
+                productsProposed: 0,
+                agentOutcome: "fallback",
+                detail,
+              },
+            ],
+          },
+        }),
+      );
+      expect(result.observed).toBe("extraction_failure");
+      expect(result.stage).toBe("products");
+      expect(result.evidence).toContain(`products fallback: ${detail}`);
+    },
+  );
 });
 
 // ---------------------------------------------------------------------------
