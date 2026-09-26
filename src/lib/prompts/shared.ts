@@ -75,3 +75,16 @@ export const TAIWAN_USAGE_RULES = `- Use Taiwanese Traditional Chinese terms: �
 - Avoid the "from X to Y" pattern claiming the brand covers all aspects, unless the source explicitly states this
 - Vary sentence structure: no more than 3 consecutive sentences with the same pattern; no summary sentence at the end of every paragraph
 - Output plain text only, no Markdown syntax (no **bold**, # headings, - lists)`;
+
+/**
+ * The 0–3 search relevance rubric, indexed by grade. Rendered into the OpenAI
+ * judge's fallback system prompt (`search-relevance-judge.ts`) and used as the
+ * described levels of the Jev `score` question (`eval/jev-questions.ts`), so
+ * both judges grade against the same text.
+ */
+export const RELEVANCE_GRADE_LEVELS = [
+  "Irrelevant — the product has no meaningful connection to the query.",
+  "Marginal — only partially related; the connection is weak or requires a stretch.",
+  "Good fit — the product is relevant and useful for the situation, though not a perfect match.",
+  "Exact match — the product directly fulfills the described situation or need.",
+] as const;

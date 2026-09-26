@@ -735,6 +735,8 @@ async function main() {
       samples: { type: "string" },
       temperature: { type: "string" },
       pageSize: { type: "string" },
+      judge: { type: "string" },
+      judged: { type: "string" },
       human: { type: "string" },
       force: { type: "boolean", default: false },
       "env-file": { type: "string" },

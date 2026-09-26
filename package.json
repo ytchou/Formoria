@@ -85,6 +85,7 @@
     "brand-centroid:eval": "tsx scripts/search-eval/brand-centroid-eval.ts",
     "distill:export": "tsx scripts/distillation/export-training-data.ts",
     "distill:eval": "tsx scripts/distillation/eval-compare.ts",
+    "jev:smoke": "tsx scripts/jev/smoke.ts",
     "ltr:train": "uv run --project models/ltr/train python models/ltr/train/train.py",
     "ltr:test": "uv run --directory models/ltr/train pytest"
   },

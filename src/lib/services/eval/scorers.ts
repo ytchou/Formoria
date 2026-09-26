@@ -463,3 +463,71 @@ export function ndcgAt(k: number) {
   return (output: unknown, expected: unknown): number =>
     ndcgAtK(output as string[], expected as GradedItem[], k)
 }
+
+// ---------------------------------------------------------------------------
+// Calibration scorers (Jev decision model)
+// ---------------------------------------------------------------------------
+
+export type CalibrationPoint = { p: number; correct: boolean }
+export type ConfidenceBand = 'high' | 'medium' | 'low'
+
+/**
+ * Provisional band cutoffs for Jev probabilities: high >= 0.90, medium >= 0.70,
+ * else low. PROVISIONAL — DEV-1869 owns the calibrated values and replaces these.
+ */
+export const JEV_BAND_CUTOFFS = { high: 0.9, medium: 0.7 } as const
+
+export function bandFromProbability(p: number): ConfidenceBand {
+  if (p >= JEV_BAND_CUTOFFS.high) return 'high'
+  if (p >= JEV_BAND_CUTOFFS.medium) return 'medium'
+  return 'low'
+}
+
+/** ECE over 10 equal-width bins: sum of (n_b / N) * |acc_b - conf_b|. Empty → null. */
+export function expectedCalibrationError(points: CalibrationPoint[]): number | null {
+  if (points.length === 0) return null
+  const BINS = 10
+  const count = new Array<number>(BINS).fill(0)
+  const correct = new Array<number>(BINS).fill(0)
+  const confSum = new Array<number>(BINS).fill(0)
+  for (const { p, correct: ok } of points) {
+    // p = 1.0 falls into the last bin
+    const b = Math.min(BINS - 1, Math.max(0, Math.floor(p * BINS)))
+    count[b]++
+    confSum[b] += p
+    if (ok) correct[b]++
+  }
+  let ece = 0
+  for (let b = 0; b < BINS; b++) {
+    if (count[b] === 0) continue
+    ece += (count[b] / points.length) * Math.abs(correct[b] / count[b] - confSum[b] / count[b])
+  }
+  return ece
+}
+
+/** Accuracy over points with p >= threshold. Null when none are accepted. */
+export function acceptedAccuracyAt(points: CalibrationPoint[], threshold: number): number | null {
+  const accepted = points.filter((pt) => pt.p >= threshold)
+  if (accepted.length === 0) return null
+  return accepted.filter((pt) => pt.correct).length / accepted.length
+}
+
+/** Share of points with p >= threshold. Empty input → 0. */
+export function coverageAt(points: CalibrationPoint[], threshold: number): number {
+  if (points.length === 0) return 0
+  return points.filter((pt) => pt.p >= threshold).length / points.length
+}
+
+/** Markdown table of coverage / accepted accuracy for thresholds 0.50..0.95 step 0.05. */
+export function thresholdSweep(points: CalibrationPoint[]): string {
+  const lines = ['| threshold | coverage | accepted accuracy |', '| --- | --- | --- |']
+  // Integer steps (10..19 / 20) avoid accumulated float drift at the boundaries.
+  for (let i = 10; i <= 19; i++) {
+    const t = i / 20
+    const acc = acceptedAccuracyAt(points, t)
+    lines.push(
+      `| ${t.toFixed(2)} | ${coverageAt(points, t).toFixed(3)} | ${acc === null ? 'n/a' : acc.toFixed(3)} |`,
+    )
+  }
+  return lines.join('\n')
+}

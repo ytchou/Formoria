@@ -18,7 +18,7 @@ export async function cmdAgreement(
 ): Promise<void> {
   if (values.help) {
     console.log(
-      'Usage: pnpm search:eval agreement [--human labels/hand-label-sheet.csv]',
+      'Usage: pnpm search:eval agreement [--human labels/hand-label-sheet.csv] [--judged labels/judged-pairs.json]',
     )
     console.log(
       '  Computes Cohen\'s kappa between LLM grades and hand-labeled pairs',
@@ -27,6 +27,7 @@ export async function cmdAgreement(
   }
 
   const humanPath = String(values.human ?? HAND_LABEL_SHEET_PATH)
+  const judgedPath = String(values.judged ?? JUDGED_PAIRS_PATH)
 
   if (!existsSync(humanPath)) {
     console.error(`[agreement] File not found: ${humanPath}`)
@@ -34,15 +35,15 @@ export async function cmdAgreement(
     return
   }
 
-  if (!existsSync(JUDGED_PAIRS_PATH)) {
-    console.error('[agreement] No judged-pairs.json found. Run judge first.')
+  if (!existsSync(judgedPath)) {
+    console.error(`[agreement] File not found: ${judgedPath}. Run judge first.`)
     process.exitCode = 1
     return
   }
 
   // Load hand-label sheet
   const sheetRows = fromCsv(readFileSync(humanPath, 'utf8'))
-  const judgedPairs: JudgedPair[] = JSON.parse(readFileSync(JUDGED_PAIRS_PATH, 'utf8'))
+  const judgedPairs: JudgedPair[] = JSON.parse(readFileSync(judgedPath, 'utf8'))
 
   // Build LLM grade lookup by composite key
   const llmGrades = new Map<string, number>()
