@@ -2,8 +2,11 @@ import { mkdtempSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { z } from 'zod'
 
 import {
+  draftPrelabels,
+  selectDraftCandidates,
   parseCliArgs,
   parseArm,
   applyEnvFile,
@@ -24,6 +27,7 @@ import {
 } from '../llm-eval'
 import { assertCensusTarget } from '../../enrichment/eval/production-guard'
 import { PRODUCTION_PROJECT_REF } from '@/lib/supabase/project-target'
+import { adapterFor } from '@/lib/services/eval/phase-adapters'
 import type { GoldenItemBody } from '@/lib/services/eval/golden-capture'
 import type { PromptApi, SnapshotFile } from '@/lib/services/eval/prompt-sync'
 
@@ -250,6 +254,153 @@ describe('parseCliArgs — dataset record / prelabel', () => {
       item: 'item-123',
       file: '/tmp/expected.json',
     })
+  })
+
+  it('parses dataset prelabel --dataset --draft [--limit] (DEV-1880)', () => {
+    expect(
+      parseCliArgs(['dataset', 'prelabel', '--dataset', 'acquisition-critique-golden', '--draft', '--limit', '5']),
+    ).toEqual({ command: 'dataset-prelabel-draft', dataset: 'acquisition-critique-golden', limit: 5 })
+    expect(parseCliArgs(['dataset', 'prelabel', '--dataset', 'acquisition-critique-golden', '--draft'])).toEqual({
+      command: 'dataset-prelabel-draft',
+      dataset: 'acquisition-critique-golden',
+      limit: undefined,
+    })
+  })
+
+  it('rejects --draft combined with --item or --file, and a bad --limit', () => {
+    const base = ['dataset', 'prelabel', '--dataset', 'acquisition-critique-golden', '--draft']
+    expect(() => parseCliArgs([...base, '--item', 'item-1'])).toThrow('--draft')
+    expect(() => parseCliArgs([...base, '--file', '/tmp/x.json'])).toThrow('--draft')
+    expect(() => parseCliArgs([...base, '--limit', '0'])).toThrow('--limit must be a positive integer')
+  })
+})
+
+// ---------------------------------------------------------------------------
+// dataset prelabel --draft (DEV-1880)
+// ---------------------------------------------------------------------------
+
+describe('selectDraftCandidates', () => {
+  const adapter = { expectedSchema: z.object({ verdict: z.enum(['sufficient', 'thin', 'fail']) }) }
+  const pending = { humanApproval: { status: 'pending' } }
+  const reviewed = { humanApproval: { status: 'approved', reviewedVia: { queueId: 'q', scoreId: 's' } } }
+
+  it('keeps only ACTIVE, unreviewed items without a usable expected output', () => {
+    const items = [
+      { id: 'draft-me', status: 'ACTIVE', expectedOutput: null, metadata: pending },
+      { id: 'draft-me-too', status: 'ACTIVE', expectedOutput: {}, metadata: undefined },
+      { id: 'reviewed', status: 'ACTIVE', expectedOutput: null, metadata: reviewed },
+      { id: 'has-verdict', status: 'ACTIVE', expectedOutput: { verdict: 'thin' }, metadata: pending },
+      { id: 'archived', status: 'ARCHIVED', expectedOutput: null, metadata: pending },
+    ]
+    expect(selectDraftCandidates(items, adapter).map((i) => i.id)).toEqual(['draft-me', 'draft-me-too'])
+  })
+
+  it('applies --limit after filtering', () => {
+    const items = [
+      { id: 'reviewed', status: 'ACTIVE', expectedOutput: null, metadata: reviewed },
+      { id: 'a', status: 'ACTIVE', expectedOutput: null, metadata: pending },
+      { id: 'b', status: 'ACTIVE', expectedOutput: null, metadata: pending },
+    ]
+    expect(selectDraftCandidates(items, adapter, 1).map((i) => i.id)).toEqual(['a'])
+  })
+})
+
+describe('draftPrelabels', () => {
+  const critique = adapterFor('acquisition-critique-golden')
+  const item = (id: string) => ({ id, status: 'ACTIVE', input: { user: 'u' }, expectedOutput: null, metadata: {} })
+  const output = (verdict: string, reason = 'why') => ({ verdict, reason, recoveryAction: null, urlVerdicts: null })
+
+  it('writes the schema-valid { verdict } with a model-draft prelabel and counts per value', async () => {
+    const write = vi.fn(async () => {})
+    const report = await draftPrelabels({
+      dataset: 'acquisition-critique-golden',
+      adapter: critique,
+      candidates: [item('a'), item('b'), item('c')],
+      replay: async () => [
+        { itemId: 'a', ok: true, output: output('thin', 'homepage only') },
+        { itemId: 'b', ok: true, output: output('sufficient') },
+        { itemId: 'c', ok: true, output: output('thin') },
+      ],
+      write,
+    })
+    expect(write).toHaveBeenCalledTimes(3)
+    expect(write).toHaveBeenCalledWith({
+      item: expect.objectContaining({ id: 'a' }),
+      expectedOutput: { verdict: 'thin' },
+      prelabel: { author: 'cli', method: 'model-draft', status: 'prelabeled', rationale: 'homepage only' },
+    })
+    expect(report.drafted).toEqual([
+      { itemId: 'a', value: 'thin' },
+      { itemId: 'b', value: 'sufficient' },
+      { itemId: 'c', value: 'thin' },
+    ])
+    expect(report.counts).toEqual({ thin: 2, sufficient: 1 })
+    expect(report).toMatchObject({ written: 3, failed: [], skipped: [] })
+  })
+
+  it('writes nothing for a replay failure or a schema-invalid output', async () => {
+    const write = vi.fn(async () => {})
+    const report = await draftPrelabels({
+      dataset: 'acquisition-critique-golden',
+      adapter: critique,
+      candidates: [item('broken'), item('invalid'), item('missing')],
+      replay: async () => [
+        { itemId: 'broken', ok: false, error: 'Model call failed' },
+        { itemId: 'invalid', ok: true, output: output('maybe') },
+      ],
+      write,
+    })
+    expect(write).not.toHaveBeenCalled()
+    expect(report.written).toBe(0)
+    expect(report.failed).toEqual([])
+    expect(report.skipped.map((s) => s.itemId)).toEqual(['broken', 'invalid', 'missing'])
+    expect(report.skipped[0]!.reason).toContain('Model call failed')
+  })
+
+  it('omits the rationale when the output has no reason', async () => {
+    const write = vi.fn(async () => {})
+    await draftPrelabels({
+      dataset: 'acquisition-critique-golden',
+      adapter: critique,
+      candidates: [item('a')],
+      replay: async () => [{ itemId: 'a', ok: true, output: { verdict: 'fail', recoveryAction: null, urlVerdicts: null } }],
+      write,
+    })
+    expect(write).toHaveBeenCalledWith(
+      expect.objectContaining({ prelabel: { author: 'cli', method: 'model-draft', status: 'prelabeled' } }),
+    )
+  })
+
+  it('reports an unconfirmed write as failed without stopping the run', async () => {
+    const write = vi.fn(async ({ item: { id } }: { item: { id: string } }) => {
+      if (id === 'a') throw new Error('write not confirmed')
+    })
+    const report = await draftPrelabels({
+      dataset: 'acquisition-critique-golden',
+      adapter: critique,
+      candidates: [item('a'), item('b')],
+      replay: async () => [
+        { itemId: 'a', ok: true, output: output('thin') },
+        { itemId: 'b', ok: true, output: output('fail') },
+      ],
+      write,
+    })
+    expect(report.written).toBe(1)
+    expect(report.failed).toEqual(['a'])
+  })
+
+  it('errors for a dataset whose adapter cannot draft, before replaying', async () => {
+    const replay = vi.fn(async () => [])
+    await expect(
+      draftPrelabels({
+        dataset: 'acquisition-plan-golden',
+        adapter: adapterFor('acquisition-plan-golden'),
+        candidates: [item('a')],
+        replay,
+        write: vi.fn(async () => {}),
+      }),
+    ).rejects.toThrow('draft not supported for acquisition-plan-golden')
+    expect(replay).not.toHaveBeenCalled()
   })
 })
 

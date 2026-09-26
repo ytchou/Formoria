@@ -120,6 +120,12 @@ export interface PhaseAdapter {
   }>
   summarize?: (results: ArmResult[]) => string
   reviewView?: (item: ExperimentItem) => unknown
+  /**
+   * Maps one replay output to a draft golden label (`dataset prelabel --draft`,
+   * DEV-1880). `rationale` is the model's own reasoning, when it has one.
+   * Datasets without this hook cannot be drafted.
+   */
+  draftExpected?: (output: unknown) => { expectedOutput: unknown; rationale?: string }
 }
 
 // ---------------------------------------------------------------------------
@@ -509,6 +515,13 @@ const registry: Record<string, PhaseAdapter> = {
       { name: 'recoveryActionConsistent', fn: (o) => recoveryActionConsistent(o as { verdict?: unknown; recoveryAction?: unknown }) },
     ],
     mode: 'scored',
+    draftExpected: (output) => {
+      const { verdict, reason } = (output ?? {}) as { verdict?: unknown; reason?: unknown }
+      return {
+        expectedOutput: { verdict },
+        ...(typeof reason === 'string' && reason ? { rationale: reason } : {}),
+      }
+    },
   },
 
   'products-repair-golden': {

@@ -467,4 +467,21 @@ describe('DEV-1873 golden-set adapters', () => {
     expect(adapterFor('acquisition-critique-golden').expectedSchema.safeParse({ verdict: 'thin' }).success).toBe(true)
     expect(adapterFor('products-fallback-golden').expectedSchema.safeParse({ context }).success).toBe(true)
   })
+
+  it('critique drafts a schema-valid { verdict } with the reason as rationale (DEV-1880)', () => {
+    const adapter = adapterFor('acquisition-critique-golden')
+    const draft = adapter.draftExpected!({
+      verdict: 'thin',
+      reason: 'only the homepage was read',
+      recoveryAction: 'fanout',
+      urlVerdicts: null,
+    })
+    expect(draft).toEqual({ expectedOutput: { verdict: 'thin' }, rationale: 'only the homepage was read' })
+    expect(adapter.expectedSchema.safeParse(draft.expectedOutput).success).toBe(true)
+  })
+
+  it('only the critique adapter can draft labels', () => {
+    expect(adapterFor('acquisition-plan-golden').draftExpected).toBeUndefined()
+    expect(adapterFor('products-agent-ranking-golden').draftExpected).toBeUndefined()
+  })
 })
