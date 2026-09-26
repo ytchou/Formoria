@@ -137,6 +137,20 @@ describe('phase-adapters registry', () => {
     })
   })
 
+  it('name-arbiter decisionAgreement accepts any of the golden acceptedNames', () => {
+    const adapter = adapterFor('name-arbiter-confidence-golden')
+    // Shape of the Langfuse items (2026-09-26)
+    const item = { expectedOutput: { confidence: 'high', acceptedNames: ['ADELA', 'Adela 愛德拉'] } }
+    expect(adapter.expectedSchema.safeParse(item.expectedOutput).success).toBe(true)
+
+    const expected = adapter.expectedOf(item)
+    const decision = adapter.scorers.find((s) => s.name === 'decisionAgreement')!
+    const verdict = (chosen: string) => ({ slug: 'adela', chosen, confidence: 'high', reason: '' })
+    expect(decision.fn(verdict('Adela 愛德拉'), expected)).toBe(1)
+    expect(decision.fn(verdict('ADELA'), expected)).toBe(1)
+    expect(decision.fn(verdict('德瑪貝爾化粧品'), expected)).toBe(0)
+  })
+
   it('name-arbiter and site-identity adapters expose their exported shapes', () => {
     const nameAdapter = adapterFor('name-arbiter-confidence-golden')
     expect(nameAdapter.outputSchema).toBeDefined()
