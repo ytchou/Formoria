@@ -22,8 +22,9 @@ import { getLangfuse, flushLangfuse } from '@/lib/langfuse/client'
 import {
   adapterFor,
   registeredDatasets,
+  type PhaseAdapter,
 } from '@/lib/services/eval/phase-adapters'
-import { enqueueDataset, applyVerdicts } from '@/lib/services/eval/golden-review'
+import { enqueueDataset, applyVerdicts, type PrelabelDeps } from '@/lib/services/eval/golden-review'
 import { runExperiment, type ExperimentArm } from '@/lib/services/eval/run-experiment'
 import {
   type ProductsReplayOutput,
@@ -53,6 +54,7 @@ export type ParsedCommand =
   | { command: 'dataset-review-push'; dataset: string; approvedBy: string }
   | { command: 'dataset-record'; dataset: string; brand: string; urls?: string[] }
   | { command: 'dataset-prelabel'; dataset: string; item: string; file: string }
+  | { command: 'dataset-prelabel-draft'; dataset: string; limit?: number }
   | { command: 'dataset-harvest'; dataset: string; since?: string; limit?: number; confirm: boolean }
   | { command: 'dataset-capture'; brands: string[]; datasets?: string[]; confirm: boolean }
   | {
@@ -112,6 +114,14 @@ function splitList(value: string): string[] {
   return value.split(',').map((part) => part.trim()).filter(Boolean)
 }
 
+function parseLimit(value: string | undefined): number | undefined {
+  const limit = value !== undefined ? Number(value) : undefined
+  if (limit !== undefined && (!Number.isInteger(limit) || limit < 1)) {
+    throw new Error('--limit must be a positive integer')
+  }
+  return limit
+}
+
 function assertGoldenCaptureDataset(dataset: string): void {
   if (!promptForDataset(dataset)) {
     throw new Error(`"${dataset}" is not a capture/harvest golden dataset`)
@@ -146,6 +156,7 @@ export function parseCliArgs(args: string[]): ParsedCommand {
       brands: { type: 'string' },
       datasets: { type: 'string' },
       confirm: { type: 'boolean', default: false },
+      draft: { type: 'boolean', default: false },
     },
   })
 
@@ -175,10 +186,7 @@ export function parseCliArgs(args: string[]): ParsedCommand {
       if (values.since !== undefined && Number.isNaN(new Date(values.since).getTime())) {
         throw new Error('--since must be a date (YYYY-MM-DD)')
       }
-      const limit = values.limit !== undefined ? Number(values.limit) : undefined
-      if (limit !== undefined && (!Number.isInteger(limit) || limit < 1)) {
-        throw new Error('--limit must be a positive integer')
-      }
+      const limit = parseLimit(values.limit)
       return {
         command: 'dataset-harvest',
         dataset: values.dataset,
@@ -200,6 +208,12 @@ export function parseCliArgs(args: string[]): ParsedCommand {
     }
     if (sub2 === 'prelabel') {
       if (!values.dataset) throw new Error('--dataset is required')
+      if (values.draft) {
+        if (values.item !== undefined || values.file !== undefined) {
+          throw new Error('--draft cannot be combined with --item or --file')
+        }
+        return { command: 'dataset-prelabel-draft', dataset: values.dataset, limit: parseLimit(values.limit) }
+      }
       if (!values.item) throw new Error('--item is required')
       if (!values.file) throw new Error('--file is required')
       return {
@@ -318,6 +332,7 @@ export function parseCliArgs(args: string[]): ParsedCommand {
       '  llm-eval dataset validate [--allow-unreviewed]\n' +
       '  llm-eval dataset record --dataset <name> --brand <slug> [--urls url1,url2,...]\n' +
       '  llm-eval dataset prelabel --dataset <name> --item <id> --file <json-path>\n' +
+      '  llm-eval dataset prelabel --dataset <name> --draft [--limit <n>]\n' +
       '  llm-eval dataset harvest --dataset <name> [--since <YYYY-MM-DD>] [--limit <n>] [--target production --confirm]\n' +
       '  llm-eval dataset capture --brands <slug,slug,...> [--datasets <name,name,...>] [--target production --confirm]\n' +
       '  llm-eval dataset review enqueue --dataset <name>\n' +
@@ -862,6 +877,190 @@ async function cmdDatasetPrelabel(
 }
 
 // ---------------------------------------------------------------------------
+// dataset prelabel --draft (DEV-1880)
+// ---------------------------------------------------------------------------
+
+/**
+ * Items a draft may label: ACTIVE, never reviewed, and without an expected
+ * output the adapter's schema accepts. `limit` applies after filtering.
+ */
+export function selectDraftCandidates<T extends { status: string; expectedOutput?: unknown; metadata?: unknown }>(
+  items: T[],
+  adapter: Pick<PhaseAdapter, 'expectedSchema'>,
+  limit?: number,
+): T[] {
+  const candidates = items.filter(
+    (item) =>
+      item.status === 'ACTIVE' && !isReviewed(item) && !adapter.expectedSchema.safeParse(item.expectedOutput).success,
+  )
+  return limit === undefined ? candidates : candidates.slice(0, limit)
+}
+
+export type DraftReplayResult = { itemId: string; ok: boolean; output?: unknown; error?: string }
+
+export type DraftPrelabel = {
+  author: 'cli'
+  method: 'model-draft'
+  status: 'prelabeled'
+  rationale?: string
+}
+
+export type DraftReport = {
+  /** Confirmed writes, one per item, with the value printed for it. */
+  drafted: Array<{ itemId: string; value: string }>
+  counts: Record<string, number>
+  written: number
+  /** Items whose drafted label was valid but whose write was not confirmed. */
+  failed: string[]
+  /** Items with nothing written: replay failure, no output, or a schema-invalid draft. */
+  skipped: Array<{ itemId: string; reason: string }>
+}
+
+/** A single-field label prints as its value (`thin`); anything else as JSON. */
+function draftLabel(expectedOutput: unknown): string {
+  const values = expectedOutput && typeof expectedOutput === 'object' ? Object.values(expectedOutput) : []
+  return values.length === 1 && typeof values[0] === 'string' ? values[0] : JSON.stringify(expectedOutput)
+}
+
+/**
+ * Replays the candidates once, maps each output to a draft label through the
+ * adapter's `draftExpected`, validates it against `expectedSchema`, and writes
+ * it with a `model-draft` prelabel. A failed replay or an invalid draft writes
+ * nothing for that item; a failed write is reported and the run continues.
+ */
+export async function draftPrelabels<T extends { id: string }>({
+  dataset,
+  adapter,
+  candidates,
+  replay,
+  write,
+}: {
+  dataset: string
+  adapter: Pick<PhaseAdapter, 'expectedSchema' | 'draftExpected'>
+  candidates: T[]
+  replay: (candidates: T[]) => Promise<DraftReplayResult[]>
+  write: (draft: { item: T; expectedOutput: unknown; prelabel: DraftPrelabel }) => Promise<void>
+}): Promise<DraftReport> {
+  const draftExpected = adapter.draftExpected
+  if (!draftExpected) throw new Error(`draft not supported for ${dataset}`)
+
+  const results = new Map((await replay(candidates)).map((result) => [result.itemId, result]))
+  const report: DraftReport = { drafted: [], counts: {}, written: 0, failed: [], skipped: [] }
+
+  for (const item of candidates) {
+    const result = results.get(item.id)
+    if (!result?.ok || result.output === undefined) {
+      report.skipped.push({ itemId: item.id, reason: `replay failed: ${result?.error ?? 'no result'}` })
+      continue
+    }
+    const { expectedOutput, rationale } = draftExpected(result.output)
+    const validation = adapter.expectedSchema.safeParse(expectedOutput)
+    if (!validation.success) {
+      report.skipped.push({ itemId: item.id, reason: `draft does not match schema: ${validation.error.message}` })
+      continue
+    }
+    const prelabel: DraftPrelabel = {
+      author: 'cli',
+      method: 'model-draft',
+      status: 'prelabeled',
+      ...(rationale ? { rationale } : {}),
+    }
+    try {
+      await write({ item, expectedOutput: validation.data, prelabel })
+    } catch (error) {
+      console.error(`[prelabel] ${item.id}: write failed:`, error instanceof Error ? error.message : error)
+      report.failed.push(item.id)
+      continue
+    }
+    const value = draftLabel(validation.data)
+    report.written += 1
+    report.drafted.push({ itemId: item.id, value })
+    report.counts[value] = (report.counts[value] ?? 0) + 1
+  }
+  return report
+}
+
+/** Runs the adapter's task with the prompt's production label: no version pin, no model override. */
+const PRODUCTION_ARM: ExperimentArm = { name: 'production', type: 'custom', value: 'production' }
+
+async function cmdDatasetPrelabelDraft(dataset: string, limit?: number): Promise<void> {
+  const adapter = adapterFor(dataset)
+  if (!adapter.draftExpected) throw new Error(`draft not supported for ${dataset}`)
+
+  const client = getLangfuse()
+  if (!client) {
+    console.error('[prelabel] Langfuse not configured')
+    process.exitCode = 1
+    return
+  }
+
+  const { items: rawItems } = await client.getDataset(dataset)
+  const candidates = selectDraftCandidates(rawItems, adapter, limit)
+  console.log(`[prelabel] ${candidates.length} candidate(s) of ${rawItems.length} item(s) in "${dataset}"`)
+  if (candidates.length === 0) return
+
+  const { prelabelItem } = await import('@/lib/services/eval/golden-review')
+  const { createScriptExperimentDeps } = await import('@/lib/services/eval/script-experiment-deps')
+  const deps = await createScriptExperimentDeps({ adapter, profileKey: adapter.profileKey })
+  const pacer = goldenWritePacer({})
+
+  const report = await draftPrelabels({
+    dataset,
+    adapter,
+    candidates,
+    replay: async (items) => {
+      const result = await runExperiment({
+        dataset,
+        arms: [PRODUCTION_ARM],
+        adapter,
+        items: items.map((i) => ({ id: i.id, input: i.input, expectedOutput: i.expectedOutput, humanApproval: {} })),
+        allowUnreviewed: true,
+        deps,
+      })
+      const arm = result.armResults[0]
+      if (arm?.promptMeta) {
+        console.log(`[prelabel] prompt ${arm.promptMeta.name} v${arm.promptMeta.version} (${arm.promptMeta.source})`)
+      }
+      return arm?.items ?? []
+    },
+    // prelabelItem re-validates and keeps the item ACTIVE + pending; its write
+    // goes through the paced path and throws unless Langfuse confirms the id.
+    write: ({ item, expectedOutput, prelabel }) =>
+      prelabelItem(
+        {
+          dataset,
+          itemId: item.id,
+          expectedOutput,
+          prelabel,
+          boundaryTags: ((item.metadata as { boundaryTags?: string[] } | null)?.boundaryTags) ?? [],
+        },
+        {
+          getDataset: async () => ({
+            items: [{ id: item.id, status: item.status, input: item.input, expectedOutput: item.expectedOutput ?? null, metadata: item.metadata }],
+          }),
+          adapterFor: () => adapter as unknown as ReturnType<PrelabelDeps['adapterFor']>,
+          createDatasetItem: async (body) => {
+            if (!(await pacer.confirmedWrite(body as GoldenWriteBody))) {
+              throw new Error(`write not confirmed after retries`)
+            }
+          },
+        },
+      ),
+  })
+
+  for (const { itemId, value } of report.drafted) console.log(`${itemId}\t${value}`)
+  for (const { itemId, reason } of report.skipped) console.error(`${itemId}\tskipped: ${reason}`)
+  const counts = Object.entries(report.counts)
+    .map(([value, count]) => `${value}=${count}`)
+    .join(' ')
+  console.log(
+    `[prelabel] drafted: ${counts || 'none'} | written=${report.written} failed=${report.failed.length} skipped=${report.skipped.length}`,
+  )
+  await flushLangfuse()
+  reportFailedWrites('prelabel', report.failed)
+}
+
+// ---------------------------------------------------------------------------
 // Golden capture / harvest (DEV-1873)
 // ---------------------------------------------------------------------------
 
@@ -967,43 +1166,27 @@ function httpStatusOf(error: unknown): number | undefined {
   return typeof status === 'number' ? status : undefined
 }
 
+export type GoldenWriteOptions = {
+  api?: GoldenWriteApi
+  sleep?: (ms: number) => Promise<void>
+  now?: () => number
+  minIntervalMs?: number
+  retries?: number
+  backoffMs?: number
+}
+
 /**
- * Writes items ACTIVE and pending, skipping ids Langfuse already holds:
- * re-writing one would reset a reviewed or rejected item to pending. The one
- * exception is an ARCHIVED item still pending review (written before
- * DEV-1879): it is re-written ACTIVE with its stored input, expectedOutput and
- * metadata, so a prelabel survives, and counted in `reactivated`.
- *
- * Existence is read per id (`GET /dataset-items/<id>`), never from the dataset
- * listing — the listing omits ARCHIVED items, which is every rejected and
- * every pre-DEV-1879 pending golden item. Only a 404 means "absent"; any other
- * failure aborts the write rather than being mistaken for it.
- *
- * Calls are paced `minIntervalMs` apart (default 700ms, ~85/min, under the
- * 100/min Langfuse Cloud limit). A 429, or a create that resolves without the
- * item's id, is retried with exponential backoff; a create still unconfirmed
- * after `retries` attempts is reported in `failed`, not counted as written.
- * Ceiling: two calls per item, so ~40 items a minute. Upgrade path: list the
- * ACTIVE ids once and look up only the rest, or batch through the ingestion API.
+ * The paced, 429-retrying Langfuse call path shared by `writeGoldenItems` and
+ * `dataset prelabel --draft`. See `writeGoldenItems` for the pacing budget.
  */
-export async function writeGoldenItems(
-  items: GoldenItemBody[],
-  {
-    api = langfuseGoldenWriteApi(),
-    sleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms)),
-    now = Date.now,
-    minIntervalMs = 700,
-    retries = 4,
-    backoffMs = 10_000,
-  }: {
-    api?: GoldenWriteApi
-    sleep?: (ms: number) => Promise<void>
-    now?: () => number
-    minIntervalMs?: number
-    retries?: number
-    backoffMs?: number
-  } = {},
-): Promise<{ written: number; reactivated: number; existing: number; failed: string[] }> {
+function goldenWritePacer({
+  api = langfuseGoldenWriteApi(),
+  sleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms)),
+  now = Date.now,
+  minIntervalMs = 700,
+  retries = 4,
+  backoffMs = 10_000,
+}: GoldenWriteOptions) {
   let lastCall: number | null = null
   const paced = async <T>(call: () => Promise<T>): Promise<T> => {
     if (lastCall !== null) {
@@ -1031,16 +1214,44 @@ export async function writeGoldenItems(
     return value
   }
 
-  let written = 0
-  let reactivated = 0
-  let existing = 0
-  const failed: string[] = []
   /** Creates `body` through the paced, retried path; true only when Langfuse confirms the id. */
   const confirmedWrite = async (body: GoldenWriteBody): Promise<boolean> =>
     (await withRetry(async () => {
       const response = (await api.createItem(body)) as { id?: unknown } | null
       return response?.id === body.id ? true : undefined
     })) === true
+  return { api, withRetry, orThrow, confirmedWrite }
+}
+
+/**
+ * Writes items ACTIVE and pending, skipping ids Langfuse already holds:
+ * re-writing one would reset a reviewed or rejected item to pending. The one
+ * exception is an ARCHIVED item still pending review (written before
+ * DEV-1879): it is re-written ACTIVE with its stored input, expectedOutput and
+ * metadata, so a prelabel survives, and counted in `reactivated`.
+ *
+ * Existence is read per id (`GET /dataset-items/<id>`), never from the dataset
+ * listing — the listing omits ARCHIVED items, which is every rejected and
+ * every pre-DEV-1879 pending golden item. Only a 404 means "absent"; any other
+ * failure aborts the write rather than being mistaken for it.
+ *
+ * Calls are paced `minIntervalMs` apart (default 700ms, ~85/min, under the
+ * 100/min Langfuse Cloud limit). A 429, or a create that resolves without the
+ * item's id, is retried with exponential backoff; a create still unconfirmed
+ * after `retries` attempts is reported in `failed`, not counted as written.
+ * Ceiling: two calls per item, so ~40 items a minute. Upgrade path: list the
+ * ACTIVE ids once and look up only the rest, or batch through the ingestion API.
+ */
+export async function writeGoldenItems(
+  items: GoldenItemBody[],
+  options: GoldenWriteOptions = {},
+): Promise<{ written: number; reactivated: number; existing: number; failed: string[] }> {
+  const { api, withRetry, orThrow, confirmedWrite } = goldenWritePacer(options)
+
+  let written = 0
+  let reactivated = 0
+  let existing = 0
+  const failed: string[] = []
   for (const dataset of [...new Set(items.map((item) => item.datasetName))]) {
     const found = await withRetry(async () => {
       try {
@@ -1832,6 +2043,9 @@ async function main() {
       break
     case 'dataset-prelabel':
       await cmdDatasetPrelabel(parsed.dataset, parsed.item, parsed.file)
+      break
+    case 'dataset-prelabel-draft':
+      await cmdDatasetPrelabelDraft(parsed.dataset, parsed.limit)
       break
     case 'dataset-harvest':
       await cmdDatasetHarvest(parsed.dataset, target, parsed.confirm, parsed.since, parsed.limit)
