@@ -13,7 +13,11 @@ import {
   TAIWAN_USAGE_RULES,
 } from "@/lib/prompts/shared";
 import type { EnrichBrand, EnrichPhase } from "../types";
-import { runProductsPhase, validateProductProposals } from "../products";
+import {
+  formatOriginExcerptLine,
+  runProductsPhase,
+  validateProductProposals,
+} from "../products";
 import type { ProductCandidate } from "../product-candidates";
 
 /**
@@ -1971,5 +1975,16 @@ describe("products agent path", () => {
       "system",
       "user",
     ]);
+  });
+});
+
+describe("formatOriginExcerptLine", () => {
+  it("renders url | excerpt_id | text, matching the origin excerpts header", () => {
+    expect(
+      formatOriginExcerptLine("https://example.tw/p/1", {
+        id: "c1:origin:0",
+        text: "商品產地 台灣",
+      }),
+    ).toBe("- https://example.tw/p/1 | c1:origin:0 | 商品產地 台灣");
   });
 });

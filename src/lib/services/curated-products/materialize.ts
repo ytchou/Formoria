@@ -20,6 +20,7 @@ import { selectAcrossPages } from "@/lib/services/enrich-phases/products/select-
 import { fetchLangfusePromptWithMeta, type PromptMeta } from "@/lib/langfuse/prompt";
 import { PRODUCTS_LABELS } from "@/lib/prompts/products";
 import { checkDescriptionOrigin } from "@/lib/services/enrich-phases/products/verify";
+import { formatOriginExcerptLine } from "@/lib/services/enrich-phases/products";
 import { mapWithConcurrency } from "@/lib/services/_shared/concurrency";
 import { diffCuratedProductProposals } from "./proposal-diff";
 
@@ -253,14 +254,6 @@ export type RewriteDescriptionsResult = {
   originOmitted: OriginOmittedProduct[];
 };
 
-async function fetchDescribePrompt(): Promise<{
-  text: string;
-  prompt: PromptMeta["prompt"];
-}> {
-  const { text, prompt } = await fetchLangfusePromptWithMeta("products-describe");
-  return { text, prompt };
-}
-
 /**
  * Extracts a JSON body from an LLM response, stripping optional markdown fences.
  * Local helper — the `agents/runtime.ts` copy has heavy graph deps we don't want.
@@ -295,7 +288,7 @@ export async function rewriteGeneratedDescriptions(
 
   // Fetch prompt once
   const { text: promptText, prompt: promptMeta } = await (
-    deps.fetchPrompt ?? fetchDescribePrompt
+    deps.fetchPrompt ?? (() => fetchLangfusePromptWithMeta("products-describe"))
   )();
 
   // Group by brand
@@ -407,7 +400,9 @@ export async function rewriteGeneratedDescriptions(
           ...(evidence.originExcerpts.length > 0
             ? [
                 PRODUCTS_LABELS.originExcerpts,
-                ...evidence.originExcerpts.map((excerpt) => excerpt.text),
+                ...evidence.originExcerpts.map((excerpt) =>
+                  formatOriginExcerptLine(evidence.url, excerpt),
+                ),
               ]
             : []),
         ].join("\n"),

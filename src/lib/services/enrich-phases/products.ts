@@ -685,6 +685,17 @@ export function validateProductProposals(
   return { proposals, dropped, dropReasons, rawCount };
 }
 
+/**
+ * One row under `PRODUCTS_LABELS.originExcerpts`, in the header's column
+ * order: candidate url | excerpt_id | text. Shared with the describe rewrite.
+ */
+export function formatOriginExcerptLine(
+  url: string,
+  excerpt: OriginExcerpt,
+): string {
+  return `- ${url} | ${excerpt.id} | ${excerpt.text}`;
+}
+
 function buildProductsUserContent(
   brand: EnrichBrand,
   site: URL,
@@ -1624,9 +1635,8 @@ export async function runProductsPhase({
           }
           const originLines = evaluationCandidates.flatMap((candidate) => {
             const excerpts = excerptsByUrl.get(candidate.url) ?? [];
-            return excerpts.map(
-              (excerpt) =>
-                `- ${candidate.url} | ${excerpt.id} | ${excerpt.text}`,
+            return excerpts.map((excerpt) =>
+              formatOriginExcerptLine(candidate.url, excerpt),
             );
           });
           const userContent = buildProductsUserContent(

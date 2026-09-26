@@ -43,7 +43,11 @@ const TAIWAN_MANUFACTURE_PATTERNS = [
   /made\s+in\s+taiwan/iu,
   /manufactur(?:e|ed|ing)\s+in\s+taiwan/iu,
   /produc(?:e|ed|tion)\s+in\s+taiwan/iu,
-  /(?<!料)(?:商品)?產地\s*[:：]?\s*(?:台灣|臺灣)/u,
+  // 商品產地 is the Pinkoi field label and matches as a whole. A bare 產地 must
+  // not follow a Han character, even across whitespace, so 原料/茶葉/設計/非
+  // 產地 never read as manufacture. A list separator after the Taiwan token
+  // marks a mixed origin (台灣／越南), which is not a Taiwan-made claim.
+  /(?:商品產地|(?<!\p{Script=Han}\s*)產地)\s*[:：]?\s*(?:台灣|臺灣)(?!\s*[／/、,，;；及和與跟+＋])/u,
   /where\s+it'?s\s+made\s*:?\s*taiwan/iu,
 ] as const;
 
@@ -143,6 +147,14 @@ export function findTaiwanOriginWindow(
     return text.slice(start, end);
   }
   return null;
+}
+
+/** The texts a page's origin statement is read from: excerpts, then main text. */
+export function originTextsOf(page: {
+  originExcerpts: readonly OriginExcerpt[];
+  mainText: string;
+}): string[] {
+  return [...page.originExcerpts.map((excerpt) => excerpt.text), page.mainText];
 }
 
 export function pageStatesTaiwanOrigin(texts: readonly string[]): boolean {

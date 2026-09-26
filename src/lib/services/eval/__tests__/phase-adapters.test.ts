@@ -47,6 +47,10 @@ describe('phase-adapters registry', () => {
     expect(scorerNames).toContain('originWhenSourced')
     expect(scorerNames).toHaveLength(4)
 
+    // only originWhenSourced can be n/a, so failures must not zero it
+    const nullable = adapter.scorers.filter((s) => s.nullable).map((s) => s.name)
+    expect(nullable).toEqual(['originWhenSourced'])
+
     expect(typeof adapter.task).toBe('function')
     expect(typeof adapter.summarize).toBe('function')
   })

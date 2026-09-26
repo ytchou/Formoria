@@ -12,6 +12,7 @@ import {
   decideOriginQualification,
   descriptionMentionsTaiwan,
   findTaiwanOriginWindow,
+  originTextsOf,
   type OriginExcerpt,
   type DeterministicOriginAssessment,
   type LlmOriginAssessment,
@@ -153,10 +154,7 @@ export function checkDescriptionOrigin(input: {
   originExcerpts: readonly OriginExcerpt[]
   mainText: string
 }): string | null {
-  const window = findTaiwanOriginWindow([
-    ...input.originExcerpts.map((excerpt) => excerpt.text),
-    input.mainText,
-  ])
+  const window = findTaiwanOriginWindow(originTextsOf(input))
   if (window === null || descriptionMentionsTaiwan(input.productDescriptionZh)) return null
   return `description_origin_omitted: page states origin ("${window}"); add it to product_description_zh in the page's own wording`
 }

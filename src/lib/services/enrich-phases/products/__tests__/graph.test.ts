@@ -964,6 +964,140 @@ describe('products agent graph', () => {
     expect(result.verification.dropped).toBe(0)
   })
 
+  it('origin repair matches a soft entry by normalized URL', async () => {
+    // Same candidate, spelled with a trailing slash and a tracking param.
+    const variant = `${URL_A}/?utm_source=x`
+    const repair = JSON.stringify({
+      products: [
+        productFor(variant, 'Test Product A', { product_description_zh: WITH_ORIGIN_DESC }),
+      ],
+    })
+    const model = scriptedModel([omittingProposeResponse(), repair])
+
+    const result = await runProductsAgent(baseInput, makeDeps(), { model })
+
+    expect(model.invoke).toHaveBeenCalledTimes(2)
+    const published = result.proposals.filter((p) => p.officialUrl.startsWith(URL_A))
+    expect(published).toHaveLength(1)
+    expect(published[0]!.officialUrl).toBe(URL_A)
+    expect(published[0]!.productDescriptionZh).toBe(WITH_ORIGIN_DESC)
+    expect(result.proposals).toHaveLength(2)
+    expect(result.verification.dropped).toBe(0)
+    expect(result.verification.repaired).toBe(0)
+    expect(result.agentOutcome).not.toBe('repaired')
+  })
+
+  it('origin repair swaps only the description and keeps the verified key', async () => {
+    // Same name twice: the verified keys are distinct, and a re-emitted
+    // proposal re-keyed on its own would collide with the first.
+    const propose = validProposalResponse({
+      products: [
+        productFor(URL_A, 'Same Name'),
+        productFor(URL_B, 'Same Name', {
+          product_description_zh: NO_ORIGIN_DESC,
+          material: ['cotton'],
+        }),
+      ],
+    })
+    const repair = JSON.stringify({
+      products: [
+        productFor(URL_B, 'Same Name', {
+          name_en: 'Drifted Name',
+          category: 'home',
+          material: [],
+          product_description_zh: WITH_ORIGIN_DESC,
+        }),
+      ],
+    })
+    const baseline = await runProductsAgent(baseInput, makeDeps(), {
+      model: scriptedModel([propose]),
+      budgetOverride: { reads: 12, renders: 4, turns: 1, wallClockMs: 120_000 },
+    })
+    const original = baseline.proposals.find((p) => p.officialUrl === URL_B)!
+
+    const result = await runProductsAgent(baseInput, makeDeps(), {
+      model: scriptedModel([propose, repair]),
+    })
+
+    const keys = result.proposals.map((p) => p.key)
+    expect(new Set(keys).size).toBe(keys.length)
+    const fixed = result.proposals.find((p) => p.officialUrl === URL_B)!
+    expect(fixed).toEqual({ ...original, productDescriptionZh: WITH_ORIGIN_DESC })
+  })
+
+  it('origin-only repair turn that throws keeps the verified result', async () => {
+    let calls = 0
+    const model = {
+      invoke: vi.fn(async () => {
+        calls += 1
+        if (calls > 1) throw new Error('provider 500')
+        return {
+          content: omittingProposeResponse(),
+          usage: { prompt_tokens: 100, completion_tokens: 50, total_tokens: 150 },
+        }
+      }),
+    }
+
+    const result = await runProductsAgent(baseInput, makeDeps(), { model })
+
+    expect(model.invoke).toHaveBeenCalledTimes(2)
+    expect(result.agentOutcome).toBe('proposed')
+    expect(result.proposals.map((p) => p.officialUrl).sort()).toEqual([URL_A, URL_B])
+    expect(result.verification.originOmitted).toBe(1)
+    expect(result.verification.dropped).toBe(0)
+  })
+
+  it('origin-only repair turn that is aborted keeps the verified result', async () => {
+    const controller = new AbortController()
+    let calls = 0
+    const model = {
+      invoke: vi.fn(async () => {
+        calls += 1
+        if (calls > 1) {
+          controller.abort()
+          throw new DOMException('aborted', 'AbortError')
+        }
+        return {
+          content: omittingProposeResponse(),
+          usage: { prompt_tokens: 100, completion_tokens: 50, total_tokens: 150 },
+        }
+      }),
+    }
+
+    const result = await runProductsAgent(baseInput, makeDeps(), {
+      model,
+      signal: controller.signal,
+    })
+
+    expect(model.invoke).toHaveBeenCalledTimes(2)
+    expect(result.agentOutcome).toBe('proposed')
+    expect(result.proposals.map((p) => p.officialUrl).sort()).toEqual([URL_A, URL_B])
+    expect(result.verification.originOmitted).toBe(1)
+  })
+
+  it('a repair turn with a hard entry still propagates a model error', async () => {
+    const proposeResponse = validProposalResponse({
+      products: [
+        productFor(URL_A, 'Test Product A', {
+          product_description_zh: 'Test Product A 是一個很棒的產品',
+        }),
+      ],
+    })
+    let calls = 0
+    const model = {
+      invoke: vi.fn(async () => {
+        calls += 1
+        if (calls > 1) throw new Error('provider 500')
+        return {
+          content: proposeResponse,
+          usage: { prompt_tokens: 100, completion_tokens: 50, total_tokens: 150 },
+        }
+      }),
+    }
+
+    await expect(runProductsAgent(baseInput, makeDeps(), { model })).rejects.toThrow('provider 500')
+  })
+
   it('readPage evidence with statusCode 404 makes the proposal unreachable', async () => {
     const fakeEvidence = {
       url: URL_A,

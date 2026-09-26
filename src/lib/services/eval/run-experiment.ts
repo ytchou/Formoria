@@ -152,6 +152,18 @@ type RunItemsParams = {
   createItemTrace?: (itemId: string, itemRunId: string) => unknown
 }
 
+/**
+ * Scores for a failed item: 0 on every scorer except nullable ones, which stay
+ * absent (n/a) so an origin-only mean is not diluted by the failure rate.
+ */
+function zeroScoresFor(adapter: PhaseAdapter): Record<string, number> {
+  const zeroScores: Record<string, number> = {}
+  for (const scorer of adapter.scorers) {
+    if (!scorer.nullable) zeroScores[scorer.name] = 0
+  }
+  return zeroScores
+}
+
 export async function runItems({
   items,
   task,
@@ -227,11 +239,8 @@ export async function runItems({
           }
         }
 
-        // Failed: score 0 on every evaluator
-        const zeroScores: Record<string, number> = {}
-        for (const scorer of adapter.scorers) {
-          zeroScores[scorer.name] = 0
-        }
+        // Failed: score 0 on every non-nullable evaluator
+        const zeroScores = zeroScoresFor(adapter)
 
         return {
           itemId: item.id,
@@ -317,10 +326,7 @@ export async function runExperiment({
         // Pin check: a prompt arm requires Langfuse as the source —
         // the snapshot fallback ignores version pins.
         if (arm.type === 'prompt' && promptResult.prompt.source !== 'langfuse') {
-          const zeroScores: Record<string, number> = {}
-          for (const scorer of adapter.scorers) {
-            zeroScores[scorer.name] = 0
-          }
+          const zeroScores = zeroScoresFor(adapter)
           armResults.push({
             arm: arm.name,
             items: items.map((item) => ({
@@ -412,7 +418,7 @@ export async function runExperiment({
           // n/a items (key absent) are excluded; an all-n/a scorer has no mean
           // and the markdown table prints n/a for it.
           const values = itemResults.flatMap((r) => r.scores[scorer.name] ?? [])
-          if (values.length > 0 || itemResults.length === 0) {
+          if (values.length > 0) {
             scorerMeans[scorer.name] = mean(values)
           }
         }

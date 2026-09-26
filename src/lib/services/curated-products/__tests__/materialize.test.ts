@@ -921,8 +921,14 @@ describe("rewriteGeneratedDescriptions", () => {
 
     await rewriteGeneratedDescriptions(deps, { apply: false });
 
+    // Rows follow the header's column format: url | excerpt_id | text
+    const url = product.officialUrl;
     expect(userContents[0]).toContain(
-      `${PRODUCTS_LABELS.originExcerpts}\n商品產地 台灣\n材質 陶土`,
+      [
+        PRODUCTS_LABELS.originExcerpts,
+        `- ${url} | c:origin:1 | 商品產地 台灣`,
+        `- ${url} | c:origin:2 | 材質 陶土`,
+      ].join("\n"),
     );
   });
 
