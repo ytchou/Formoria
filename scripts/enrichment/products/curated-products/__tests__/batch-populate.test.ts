@@ -178,3 +178,40 @@ describe("parseRewriteOption", () => {
     expect(parseRewriteOption(["--apply", "--slugs", "brand-a"])).toBe(false);
   });
 });
+
+// ---------------------------------------------------------------------------
+// rewriteSummaryLines (DEV-1856)
+// ---------------------------------------------------------------------------
+
+import { rewriteSummaryLines } from "../batch-populate";
+
+describe("rewriteSummaryLines", () => {
+  const result = {
+    total: 3,
+    rewritten: 2,
+    skipped: [],
+    failed: [],
+    diffs: [],
+    originOmitted: [{ id: "p1", nameZh: "Walnut Chopsticks", brandSlug: "brand-a" }],
+  };
+
+  it("prints originOmitted in the apply summary", () => {
+    const text = rewriteSummaryLines(result, true).join("\n");
+    expect(text).toContain("Rewritten: 2/3");
+    expect(text).toContain("Origin omitted: 1");
+    expect(text).toContain("brand-a/Walnut Chopsticks (p1)");
+  });
+
+  it("prints originOmitted in the dry-run summary", () => {
+    const text = rewriteSummaryLines(result, false).join("\n");
+    expect(text).toContain("Dry-run complete. Total: 3, Would rewrite: 2");
+    expect(text).toContain("Origin omitted: 1");
+    expect(text).toContain("brand-a/Walnut Chopsticks (p1)");
+  });
+
+  it("prints a zero count and no product lines when nothing is omitted", () => {
+    const lines = rewriteSummaryLines({ ...result, originOmitted: [] }, true);
+    expect(lines.join("\n")).toContain("Origin omitted: 0");
+    expect(lines.some((l) => l.includes("(p1)"))).toBe(false);
+  });
+});

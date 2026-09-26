@@ -17,7 +17,9 @@ import type {
 } from "@/lib/types/enriched-data";
 import type { ProductPageEvidence } from "@/lib/services/enrich-phases/products/read-page";
 import { selectAcrossPages } from "@/lib/services/enrich-phases/products/select-evidence";
-import type { PromptMeta } from "@/lib/langfuse/prompt";
+import { fetchLangfusePromptWithMeta, type PromptMeta } from "@/lib/langfuse/prompt";
+import { PRODUCTS_LABELS } from "@/lib/prompts/products";
+import { checkDescriptionOrigin } from "@/lib/services/enrich-phases/products/verify";
 import { mapWithConcurrency } from "@/lib/services/_shared/concurrency";
 import { diffCuratedProductProposals } from "./proposal-diff";
 
@@ -173,11 +175,17 @@ type MaterializeCuratedProductsOptions = {
 export type RewriteDescriptionsDeps = {
   fetchGeneratedProducts: (brandSlug?: string) => Promise<GeneratedProductRow[]>;
   readPage: (url: string) => Promise<ProductPageEvidence>;
-  fetchPrompt: () => Promise<{
+  /** Defaults to the `products-describe` prompt via `fetchLangfusePromptWithMeta`. */
+  fetchPrompt?: () => Promise<{
     text: string;
     prompt: PromptMeta["prompt"];
   }>;
-  callLlm: (system: string, user: string) => Promise<{ text: string }>;
+  /** `prompt` is the meta `fetchPrompt` returned, for the audit context. */
+  callLlm: (
+    system: string,
+    user: string,
+    prompt: PromptMeta["prompt"],
+  ) => Promise<{ text: string }>;
   verifyDescription: (input: {
     nameZh: string;
     productDescriptionZh: string;
@@ -226,13 +234,32 @@ type DescriptionDiff = {
   new: string;
 };
 
+type OriginOmittedProduct = {
+  id: string;
+  nameZh: string;
+  brandSlug: string;
+};
+
 export type RewriteDescriptionsResult = {
   total: number;
   rewritten: number;
   skipped: SkippedProduct[];
   failed: FailedProduct[];
   diffs: DescriptionDiff[];
+  /**
+   * Written descriptions whose page states Taiwan origin but whose text does
+   * not carry it (DEV-1856). Soft: the row is still written under `apply`.
+   */
+  originOmitted: OriginOmittedProduct[];
 };
+
+async function fetchDescribePrompt(): Promise<{
+  text: string;
+  prompt: PromptMeta["prompt"];
+}> {
+  const { text, prompt } = await fetchLangfusePromptWithMeta("products-describe");
+  return { text, prompt };
+}
 
 /**
  * Extracts a JSON body from an LLM response, stripping optional markdown fences.
@@ -260,13 +287,16 @@ export async function rewriteGeneratedDescriptions(
   const skipped: SkippedProduct[] = [];
   const failed: FailedProduct[] = [];
   const diffs: DescriptionDiff[] = [];
+  const originOmitted: OriginOmittedProduct[] = [];
 
   if (products.length === 0) {
-    return { total: 0, rewritten: 0, skipped, failed, diffs };
+    return { total: 0, rewritten: 0, skipped, failed, diffs, originOmitted };
   }
 
   // Fetch prompt once
-  const { text: promptText } = await deps.fetchPrompt();
+  const { text: promptText, prompt: promptMeta } = await (
+    deps.fetchPrompt ?? fetchDescribePrompt
+  )();
 
   // Group by brand
   const byBrand = new Map<string, GeneratedProductRow[]>();
@@ -374,6 +404,12 @@ export async function rewriteGeneratedDescriptions(
           `頁面描述：${evidence.description ?? ""}`,
           `頁面內文：${evidence.mainText}`,
           `現有描述（參考）：${product.productDescriptionZh}`,
+          ...(evidence.originExcerpts.length > 0
+            ? [
+                PRODUCTS_LABELS.originExcerpts,
+                ...evidence.originExcerpts.map((excerpt) => excerpt.text),
+              ]
+            : []),
         ].join("\n"),
       );
     }
@@ -385,7 +421,7 @@ export async function rewriteGeneratedDescriptions(
       productDescriptionZh: string;
     }>;
     try {
-      const response = await deps.callLlm(promptText, userContent);
+      const response = await deps.callLlm(promptText, userContent, promptMeta);
       const raw = extractJsonFromResponse(response.text);
       llmResults = JSON.parse(raw) as Array<{
         nameZh: string;
@@ -422,7 +458,7 @@ export async function rewriteGeneratedDescriptions(
       llmResults.map((r) => [r.nameZh, r.productDescriptionZh]),
     );
 
-    for (const { product } of readable) {
+    for (const { product, evidence } of promptPages) {
       const newDesc = descByName.get(product.nameZh);
       if (newDesc === undefined) {
         skipped.push({
@@ -458,6 +494,13 @@ export async function rewriteGeneratedDescriptions(
         continue;
       }
 
+      // Soft origin check (DEV-1856): reported, never blocks the write.
+      const originFailure = checkDescriptionOrigin({
+        productDescriptionZh: newDesc,
+        originExcerpts: evidence.originExcerpts,
+        mainText: evidence.mainText,
+      });
+
       // Write if apply
       if (options.apply) {
         try {
@@ -475,6 +518,13 @@ export async function rewriteGeneratedDescriptions(
         }
       }
 
+      if (originFailure !== null) {
+        originOmitted.push({
+          id: product.id,
+          nameZh: product.nameZh,
+          brandSlug: product.brandSlug,
+        });
+      }
       diffs.push({
         id: product.id,
         nameZh: product.nameZh,
@@ -491,6 +541,7 @@ export async function rewriteGeneratedDescriptions(
     skipped,
     failed,
     diffs,
+    originOmitted,
   };
 }
 

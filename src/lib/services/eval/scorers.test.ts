@@ -11,6 +11,7 @@ import {
   bandAgreement,
   withinPoolOrderingAgreement,
   selectionAgreement,
+  originWhenSourced,
   precisionAtK,
   recallAtK,
   mrr,
@@ -323,6 +324,53 @@ describe('selectionAgreement', () => {
       ],
     }
     expect(selectionAgreement(output, expected)).toBe(1)
+  })
+})
+
+describe('originWhenSourced', () => {
+  const proposal = (officialUrl: string, productDescriptionZh: string) =>
+    ({ officialUrl, productDescriptionZh }) as ProductsReplayOutput['proposals'][number]
+
+  it('scores the share of origin-stated proposals whose description mentions Taiwan', () => {
+    const output: ProductsReplayOutput = {
+      evaluations: {},
+      selected: [],
+      proposals: [
+        proposal('https://a.com/p1', '在台灣製作的木湯匙。'),
+        proposal('https://a.com/p2', '手工木湯匙。'),
+      ],
+      agentOutcome: 'ok',
+      originStatedUrls: ['https://a.com/p1', 'https://a.com/p2'],
+    }
+    expect(originWhenSourced(output)).toBe(0.5)
+  })
+
+  it('is n/a (null, not 1) when originStatedUrls is undefined or empty', () => {
+    const base: ProductsReplayOutput = {
+      evaluations: {},
+      selected: [],
+      proposals: [proposal('https://a.com/p1', '手工木湯匙。')],
+      agentOutcome: 'ok',
+    }
+    expect(originWhenSourced(base)).toBeNull()
+    expect(originWhenSourced({ ...base, originStatedUrls: [] })).toBeNull()
+  })
+
+  it('ignores proposals on pages without stated origin', () => {
+    const output: ProductsReplayOutput = {
+      evaluations: {},
+      selected: [],
+      proposals: [
+        proposal('https://a.com/p1', '臺灣製造的陶杯。'),
+        proposal('https://a.com/p2', '手工陶杯。'),
+      ],
+      agentOutcome: 'ok',
+      originStatedUrls: ['https://a.com/p1'],
+    }
+    expect(originWhenSourced(output)).toBe(1)
+    expect(
+      originWhenSourced({ ...output, originStatedUrls: ['https://a.com/other'] }),
+    ).toBeNull()
   })
 })
 

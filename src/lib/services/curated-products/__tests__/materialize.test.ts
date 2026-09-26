@@ -1,6 +1,16 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import { materializeSubmissionCuratedProducts } from "../materialize";
+import { PRODUCTS_LABELS } from "@/lib/prompts/products";
+
+// The Langfuse prompt module is the external boundary for the default
+// `fetchPrompt`. The spy delegates to the real module unless a test overrides it.
+const fetchLangfusePromptWithMeta = vi.hoisted(() => vi.fn());
+vi.mock("@/lib/langfuse/prompt", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/lib/langfuse/prompt")>();
+  fetchLangfusePromptWithMeta.mockImplementation(actual.fetchLangfusePromptWithMeta);
+  return { ...actual, fetchLangfusePromptWithMeta };
+});
 import { getPublishedCuratedProductsForHomepage } from "@/lib/services/curated-products";
 import type { CuratedProductSupabase } from "@/lib/services/curated-products";
 import type { SubmissionProductReview } from "@/lib/services/submissions";
@@ -875,6 +885,133 @@ describe("rewriteGeneratedDescriptions", () => {
     ]);
     expect(result.diffs).toHaveLength(1);
     expect(result.diffs[0]?.id).toBe("p1");
+  });
+
+  // DEV-1856: sourced origin in rewritten descriptions
+  function originPage(url: string, excerpts: Array<{ id: string; text: string }>) {
+    return {
+      url,
+      title: "Test Product",
+      description: "A test product",
+      mainText: "Product details here",
+      images: [],
+      jsonLd: null,
+      productSignals: true,
+      originExcerpts: excerpts,
+      rendered: false,
+      statusCode: 200,
+    };
+  }
+
+  it("prompt block includes origin excerpts", async () => {
+    const product = generatedProduct();
+    const userContents: string[] = [];
+    const { deps } = makeRewriteDeps({
+      fetchGeneratedProducts: async () => [product],
+      readPage: async (url) =>
+        originPage(url, [
+          { id: "c:origin:1", text: "商品產地 台灣" },
+          { id: "c:origin:2", text: "材質 陶土" },
+        ]),
+      callLlm: async (_system, user) => {
+        userContents.push(user);
+        return { text: "[]" };
+      },
+    });
+
+    await rewriteGeneratedDescriptions(deps, { apply: false });
+
+    expect(userContents[0]).toContain(
+      `${PRODUCTS_LABELS.originExcerpts}\n商品產地 台灣\n材質 陶土`,
+    );
+  });
+
+  it("prompt block omits the origin label when there are no excerpts", async () => {
+    const product = generatedProduct();
+    const userContents: string[] = [];
+    const { deps } = makeRewriteDeps({
+      fetchGeneratedProducts: async () => [product],
+      readPage: async (url) => originPage(url, []),
+      callLlm: async (_system, user) => {
+        userContents.push(user);
+        return { text: "[]" };
+      },
+    });
+
+    await rewriteGeneratedDescriptions(deps, { apply: false });
+
+    expect(userContents[0]).not.toContain(PRODUCTS_LABELS.originExcerpts);
+  });
+
+  it("writes and reports when origin is still omitted", async () => {
+    const product = generatedProduct();
+    const newDesc = "窯變釉色柴燒馬克杯，南投窯場手作燒製。";
+    const { deps, calls } = makeRewriteDeps({
+      fetchGeneratedProducts: async () => [product],
+      readPage: async (url) =>
+        originPage(url, [{ id: "c:origin:1", text: "商品產地 台灣" }]),
+      callLlm: async () => ({
+        text: JSON.stringify([
+          { nameZh: product.nameZh, productDescriptionZh: newDesc },
+        ]),
+      }),
+    });
+
+    const result = await rewriteGeneratedDescriptions(deps, { apply: true });
+
+    expect(calls.updateProduct).toEqual([
+      { id: "product-1", input: { productDescriptionZh: newDesc } },
+    ]);
+    expect(result.originOmitted).toEqual([
+      { id: "product-1", nameZh: product.nameZh, brandSlug: "taoqi" },
+    ]);
+  });
+
+  it("no origin report when the description carries it", async () => {
+    const product = generatedProduct();
+    const newDesc = "窯變釉色柴燒馬克杯，在台灣南投窯場手作燒製。";
+    const { deps, calls } = makeRewriteDeps({
+      fetchGeneratedProducts: async () => [product],
+      readPage: async (url) =>
+        originPage(url, [{ id: "c:origin:1", text: "商品產地 台灣" }]),
+      callLlm: async () => ({
+        text: JSON.stringify([
+          { nameZh: product.nameZh, productDescriptionZh: newDesc },
+        ]),
+      }),
+    });
+
+    const result = await rewriteGeneratedDescriptions(deps, { apply: true });
+
+    expect(calls.updateProduct).toHaveLength(1);
+    expect(result.originOmitted).toEqual([]);
+  });
+
+  it("default fetchPrompt uses fetchLangfusePromptWithMeta('products-describe')", async () => {
+    const product = generatedProduct();
+    const meta = {
+      name: "products-describe",
+      version: 7,
+      source: "langfuse" as const,
+    };
+    fetchLangfusePromptWithMeta.mockResolvedValueOnce({
+      text: "describe system prompt",
+      prompt: meta,
+    });
+    const llmCalls: Array<{ system: string; prompt: unknown }> = [];
+    const { deps } = makeRewriteDeps({
+      fetchGeneratedProducts: async () => [product],
+      callLlm: async (system, _user, prompt) => {
+        llmCalls.push({ system, prompt });
+        return { text: "[]" };
+      },
+    });
+    const { fetchPrompt: _omitted, ...withoutFetchPrompt } = deps;
+
+    await rewriteGeneratedDescriptions(withoutFetchPrompt, { apply: false });
+
+    expect(fetchLangfusePromptWithMeta).toHaveBeenCalledWith("products-describe");
+    expect(llmCalls).toEqual([{ system: "describe system prompt", prompt: meta }]);
   });
 });
 

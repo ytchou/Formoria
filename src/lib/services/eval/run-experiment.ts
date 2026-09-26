@@ -209,7 +209,9 @@ export async function runItems({
           const expected = adapter.expectedOf(item)
           const scores: Record<string, number> = {}
           for (const scorer of adapter.scorers) {
-            scores[scorer.name] = scorer.fn(taskResult.output, expected)
+            const score = scorer.fn(taskResult.output, expected)
+            // null = n/a for this item: leave the key absent
+            if (score !== null) scores[scorer.name] = score
           }
 
           return {
@@ -407,8 +409,12 @@ export async function runExperiment({
         // Aggregate per-arm metrics
         const scorerMeans: Record<string, number> = {}
         for (const scorer of adapter.scorers) {
-          const values = itemResults.map((r) => r.scores[scorer.name] ?? 0)
-          scorerMeans[scorer.name] = mean(values)
+          // n/a items (key absent) are excluded; an all-n/a scorer has no mean
+          // and the markdown table prints n/a for it.
+          const values = itemResults.flatMap((r) => r.scores[scorer.name] ?? [])
+          if (values.length > 0 || itemResults.length === 0) {
+            scorerMeans[scorer.name] = mean(values)
+          }
         }
 
         const costs = itemResults.map((r) => r.costUsd)

@@ -12,10 +12,12 @@ import type { ProductsInput, ProductsOutput, ProductsDeps } from '../enrich-phas
 import type { ProductCandidate } from '../enrich-phases/product-candidates'
 import { PRODUCTS_BUDGET_CEILINGS } from '../enrich-phases/products/budget'
 import { parsePromptVersionPins } from '@/lib/langfuse/prompt'
+import { pageStatesTaiwanOrigin } from '../curated-products/origin-qualification'
 import type { AgentModel } from '../enrich-phases/agents/runtime'
 import type { LlmAuditContext } from '../llm-audit'
 import type { LlmProfileKey } from '@/lib/constants/llm-models'
 import type { ExperimentItem, ExperimentArm } from './run-experiment'
+import type { ProductsReplayOutput } from './products-calibration'
 
 // ---------------------------------------------------------------------------
 // Types
@@ -214,11 +216,19 @@ export function productsTask(taskDeps: ProductsTaskDeps) {
 
     const selected = graphOutput.proposals.map((p) => p.officialUrl)
 
-    const output = {
+    // Same detector the runtime uses, over the same texts it reads.
+    const originStatedUrls = [...evidenceByUrl]
+      .filter(([, page]) =>
+        pageStatesTaiwanOrigin([...page.originExcerpts.map((e) => e.text), page.mainText]),
+      )
+      .map(([url]) => url)
+
+    const output: ProductsReplayOutput = {
       evaluations: evaluationsRecord,
       selected,
       proposals: graphOutput.proposals,
       agentOutcome: graphOutput.agentOutcome,
+      originStatedUrls,
     }
 
     return {

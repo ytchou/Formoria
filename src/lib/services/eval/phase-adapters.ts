@@ -26,6 +26,7 @@ import {
   bandAgreement,
   withinPoolOrderingAgreement,
   selectionAgreement,
+  originWhenSourced,
 } from './scorers'
 import {
   productsExpectedSchema,
@@ -55,7 +56,8 @@ export interface PhaseAdapter {
   unwrap: (output: unknown) => unknown
   expectedOf: (item: { expectedOutput: unknown }) => unknown
   expectedSchema: ZodType
-  scorers: Array<{ name: string; fn: (output: unknown, expected: unknown) => number }>
+  /** A scorer returns null when it does not apply to the item (n/a). */
+  scorers: Array<{ name: string; fn: (output: unknown, expected: unknown) => number | null }>
   mode: 'scored' | 'pairwise'
   task?: (item: ExperimentItem, arm: ExperimentArm, ctx: { itemRunId: string; model?: string }) => Promise<{
     ok: boolean
@@ -306,6 +308,7 @@ const registry: Record<string, PhaseAdapter> = {
       { name: 'bandAgreement', fn: (o, e) => bandAgreement(o as ProductsReplayOutput, e as ProductsExpected) },
       { name: 'withinPoolOrderingAgreement', fn: (o, e) => withinPoolOrderingAgreement(o as ProductsReplayOutput, e as ProductsExpected) },
       { name: 'selectionAgreement', fn: (o, e) => selectionAgreement(o as ProductsReplayOutput, e as ProductsExpected) },
+      { name: 'originWhenSourced', fn: (o) => originWhenSourced(o as ProductsReplayOutput) },
     ],
     mode: 'scored',
     task: productsTask({ createAgentModel, runProductsAgent }),

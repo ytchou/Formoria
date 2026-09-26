@@ -516,6 +516,43 @@ describe('runExperiment', () => {
     expect(typeof armSummary.p95LatencyMs).toBe('number')
   })
 
+  it('excludes n/a (null) scores from item scores and scorer means', async () => {
+    const callModel = vi.fn().mockResolvedValue({
+      ok: true,
+      content: JSON.stringify({ isNonBrand: false, confidence: 'high' }),
+    })
+
+    const adapter = makeAdapter({
+      scorers: [
+        { name: 'score_a', fn: () => 0.8 },
+        { name: 'score_na', fn: () => null },
+      ],
+    })
+
+    const result = await runExperiment({
+      dataset: 'test-golden',
+      arms: [makeArm()],
+      adapter,
+      items: [makeItem({ id: 'i1' })],
+      deps: {
+        callModel,
+        writeFile: vi.fn(),
+        now: () => new Date('2026-09-04'),
+        flushLangfuse: vi.fn(),
+        fetchPrompt: vi.fn().mockResolvedValue({ text: 'prompt', prompt: { name: 'detect', version: 1, source: 'langfuse' } }),
+        installSeams: () => ({ collector: makeCollector(), restore: vi.fn() }),
+        assertNoNewAuditRows: vi.fn(),
+        runWithAuditContext: <T>(_seed: unknown, fn: () => T): T => fn(),
+        getAuditContext: () => ({ correlationId: null }),
+      },
+    })
+
+    const arm = result.armResults[0]!
+    expect(arm.items[0]!.scores).toEqual({ score_a: 0.8 })
+    expect(arm.summary.scorerMeans.score_a).toBe(0.8)
+    expect(arm.summary.scorerMeans).not.toHaveProperty('score_na')
+  })
+
   it('writes run JSON with items, arms, scores via injected writeFile', async () => {
     const writeFile = vi.fn()
 

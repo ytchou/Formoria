@@ -36,7 +36,7 @@ describe('phase-adapters registry', () => {
     expect(desc.mode).toBe('pairwise')
   })
 
-  it('products adapter is scored with three scorers and a task', () => {
+  it('products adapter is scored with four scorers and a task', () => {
     const adapter = adapterFor('products-agent-ranking-golden')
     expect(adapter.mode).toBe('scored')
 
@@ -44,7 +44,8 @@ describe('phase-adapters registry', () => {
     expect(scorerNames).toContain('bandAgreement')
     expect(scorerNames).toContain('withinPoolOrderingAgreement')
     expect(scorerNames).toContain('selectionAgreement')
-    expect(scorerNames).toHaveLength(3)
+    expect(scorerNames).toContain('originWhenSourced')
+    expect(scorerNames).toHaveLength(4)
 
     expect(typeof adapter.task).toBe('function')
     expect(typeof adapter.summarize).toBe('function')
