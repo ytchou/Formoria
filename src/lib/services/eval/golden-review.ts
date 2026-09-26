@@ -104,15 +104,8 @@ export async function enqueueDataset({
   const { items } = await getDatasetFn(dataset)
   const queueId = await findQueueFn(queueName)
 
-  const eligible = items.filter((item) => {
-    if (item.status === 'ACTIVE') return true
-    if (item.status === 'ARCHIVED') {
-      const meta = item.metadata as Record<string, unknown> | undefined
-      const ha = meta?.humanApproval as Record<string, unknown> | undefined
-      return ha?.status === 'pending'
-    }
-    return false
-  })
+  // Pending items are ACTIVE; ARCHIVED means rejected (and the listing omits it).
+  const eligible = items.filter((item) => item.status === 'ACTIVE')
 
   for (const item of eligible) {
     const trace = traceFn({
@@ -452,7 +445,8 @@ export async function prelabelItem(
     }
   }
 
-  // 4. Upsert the item — keep ARCHIVED + humanApproval.status pending
+  // 4. Upsert the item — ACTIVE + humanApproval.status pending: the dataset
+  //    listing omits ARCHIVED items, and a run admits only reviewed ones.
   const existingMeta =
     (item.metadata as Record<string, unknown> | null) ?? {}
 
@@ -461,7 +455,7 @@ export async function prelabelItem(
     id: itemId,
     input: item.input,
     expectedOutput,
-    status: 'ARCHIVED',
+    status: 'ACTIVE',
     metadata: {
       ...existingMeta,
       prelabel,
