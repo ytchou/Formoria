@@ -245,6 +245,64 @@ describe('runExperiment', () => {
     expect(itemResult.scores.confidenceBand).toBe(0)
   })
 
+  it('a failed item leaves nullable scorers absent so their mean excludes failures', async () => {
+    const callModel = vi.fn().mockRejectedValue(new Error('boom'))
+
+    const result = await runExperiment({
+      dataset: 'test-golden',
+      arms: [makeArm()],
+      adapter: makeAdapter({
+        scorers: [
+          { name: 'decisionAgreement', fn: () => 1 },
+          { name: 'originWhenSourced', fn: () => null, nullable: true },
+        ],
+      }),
+      items: [makeItem({ id: 'fail-1' })],
+      deps: {
+        callModel,
+        writeFile: vi.fn(),
+        now: () => new Date('2026-09-04'),
+        flushLangfuse: vi.fn(),
+        fetchPrompt: vi.fn().mockResolvedValue({ text: 'prompt', prompt: { name: 'detect', version: 1, source: 'langfuse' } }),
+        installSeams: () => ({ collector: makeCollector(), restore: vi.fn() }),
+        assertNoNewAuditRows: vi.fn(),
+        runWithAuditContext: <T>(_seed: unknown, fn: () => T): T => fn(),
+        getAuditContext: () => ({ correlationId: null }),
+      },
+    })
+
+    const arm = result.armResults[0]!
+    expect(arm.items[0]!.ok).toBe(false)
+    expect(arm.items[0]!.scores).toEqual({ decisionAgreement: 0 })
+    expect(arm.summary.scorerMeans.decisionAgreement).toBe(0)
+    expect(arm.summary.scorerMeans).not.toHaveProperty('originWhenSourced')
+    expect(result.summary.failed).toBe(1)
+  })
+
+  it('an empty arm reports no scorer means (n/a), not 0', async () => {
+    const callModel = vi.fn()
+
+    const result = await runExperiment({
+      dataset: 'test-golden',
+      arms: [makeArm()],
+      adapter: makeAdapter(),
+      items: [],
+      deps: {
+        callModel,
+        writeFile: vi.fn(),
+        now: () => new Date('2026-09-04'),
+        flushLangfuse: vi.fn(),
+        fetchPrompt: vi.fn().mockResolvedValue({ text: 'prompt', prompt: { name: 'detect', version: 1, source: 'langfuse' } }),
+        installSeams: () => ({ collector: makeCollector(), restore: vi.fn() }),
+        assertNoNewAuditRows: vi.fn(),
+        runWithAuditContext: <T>(_seed: unknown, fn: () => T): T => fn(),
+        getAuditContext: () => ({ correlationId: null }),
+      },
+    })
+
+    expect(result.armResults[0]!.summary.scorerMeans).toEqual({})
+  })
+
   it('per-arm env is set and restored', async () => {
     const envCaptures: string[] = []
 
@@ -516,6 +574,43 @@ describe('runExperiment', () => {
     expect(typeof armSummary.p95LatencyMs).toBe('number')
   })
 
+  it('excludes n/a (null) scores from item scores and scorer means', async () => {
+    const callModel = vi.fn().mockResolvedValue({
+      ok: true,
+      content: JSON.stringify({ isNonBrand: false, confidence: 'high' }),
+    })
+
+    const adapter = makeAdapter({
+      scorers: [
+        { name: 'score_a', fn: () => 0.8 },
+        { name: 'score_na', fn: () => null },
+      ],
+    })
+
+    const result = await runExperiment({
+      dataset: 'test-golden',
+      arms: [makeArm()],
+      adapter,
+      items: [makeItem({ id: 'i1' })],
+      deps: {
+        callModel,
+        writeFile: vi.fn(),
+        now: () => new Date('2026-09-04'),
+        flushLangfuse: vi.fn(),
+        fetchPrompt: vi.fn().mockResolvedValue({ text: 'prompt', prompt: { name: 'detect', version: 1, source: 'langfuse' } }),
+        installSeams: () => ({ collector: makeCollector(), restore: vi.fn() }),
+        assertNoNewAuditRows: vi.fn(),
+        runWithAuditContext: <T>(_seed: unknown, fn: () => T): T => fn(),
+        getAuditContext: () => ({ correlationId: null }),
+      },
+    })
+
+    const arm = result.armResults[0]!
+    expect(arm.items[0]!.scores).toEqual({ score_a: 0.8 })
+    expect(arm.summary.scorerMeans.score_a).toBe(0.8)
+    expect(arm.summary.scorerMeans).not.toHaveProperty('score_na')
+  })
+
   it('writes run JSON with items, arms, scores via injected writeFile', async () => {
     const writeFile = vi.fn()
 
@@ -756,6 +851,38 @@ describe('runExperiment', () => {
     expect(itemResult.ok).toBe(false)
     expect(itemResult.error).toMatch(/pin/)
     expect(result.summary.failed).toBe(1)
+  })
+
+  it('prompt pin error leaves nullable scorers absent on items and summary', async () => {
+    const result = await runExperiment({
+      dataset: 'test-golden',
+      arms: [{ name: 'prompt-v3', type: 'prompt', value: 'detect:3' }],
+      adapter: makeAdapter({
+        scorers: [
+          { name: 'decisionAgreement', fn: () => 1 },
+          { name: 'originWhenSourced', fn: () => null, nullable: true },
+        ],
+      }),
+      items: [makeItem()],
+      deps: {
+        callModel: vi.fn(),
+        writeFile: vi.fn(),
+        now: () => new Date('2026-09-04'),
+        flushLangfuse: vi.fn(),
+        fetchPrompt: vi.fn().mockResolvedValue({
+          text: 'prompt text',
+          prompt: { name: 'detect', version: 1, source: 'snapshot' },
+        }),
+        installSeams: () => ({ collector: makeCollector(), restore: vi.fn() }),
+        assertNoNewAuditRows: vi.fn(),
+        runWithAuditContext: <T>(_seed: unknown, fn: () => T): T => fn(),
+        getAuditContext: () => ({ correlationId: null }),
+      },
+    })
+
+    const arm = result.armResults[0]!
+    expect(arm.items[0]!.scores).toEqual({ decisionAgreement: 0 })
+    expect(arm.summary.scorerMeans).toEqual({ decisionAgreement: 0 })
   })
 
   it('prompt_arm_accepts_langfuse_source', async () => {

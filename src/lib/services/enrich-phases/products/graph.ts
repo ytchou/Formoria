@@ -42,7 +42,7 @@ import {
 } from '@/lib/prompts/shared'
 import type { CuratedProductProposal } from '@/lib/types/enriched-data'
 import type { RenderProvider } from '../scraper/render/types'
-import type { ProductCandidate } from '../product-candidates'
+import { normalizeProductUrl, type ProductCandidate } from '../product-candidates'
 import type { CandidateImage } from '../candidate-pool'
 import { rankForProduct, type RankableImage } from '../image-ranking'
 import type {
@@ -58,6 +58,7 @@ import {
 } from '../products'
 import {
   assessDeterministicOrigin,
+  descriptionMentionsTaiwan,
   type OriginExcerpt,
   type RegistryOriginAssessment,
 } from '@/lib/services/curated-products/origin-qualification'
@@ -72,6 +73,7 @@ import {
   verifyProposal,
   verifyClosedSets,
   verifyDescription,
+  checkDescriptionOrigin,
   type ImageVerificationStatus,
 } from './verify'
 import {
@@ -168,6 +170,11 @@ type ProductsVerification = {
   imageVerified: number
   imageUnverified: number
   originQualified: number
+  /**
+   * Published proposals whose page states Taiwan manufacture but whose
+   * description still omits it after repair (DEV-1856). A warning, never a drop.
+   */
+  originOmitted: number
   /** Images stored and classified by the in-products batch (decision #35). */
   pageImagesClassified: number
 }
@@ -225,7 +232,12 @@ type RunOptions = {
 
 type Decision = ProductsOutput['decisions'][number]
 
-type Repairable = { proposal: CuratedProductProposal; failures: string[] }
+/**
+ * `soft` marks an entry that already passed verification and is published as
+ * is; the repair turn may only replace it (origin omission, DEV-1856). A soft
+ * entry is never a drop.
+ */
+type Repairable = { proposal: CuratedProductProposal; failures: string[]; soft?: boolean }
 
 // ---------------------------------------------------------------------------
 // Run context
@@ -248,6 +260,11 @@ export type ProductsRunContext = {
   pageImageBatchDone: boolean
   /** Last graph state observed by a node, for counter recovery after an abort. */
   lastState: unknown
+  /**
+   * Set when an origin-only repair turn failed and was skipped: the verified
+   * result stands, so an abort raised after it must not discard that result.
+   */
+  originRepairSkipped: boolean
   wallClockStart: number
   signal: AbortSignal | undefined
   record: (step: string, action: string, reason: string, startedAt: number) => void
@@ -284,6 +301,7 @@ export function createProductsRunContext(
     candidateIds,
     pageImageBatchDone: false,
     lastState: null,
+    originRepairSkipped: false,
     wallClockStart: Date.now(),
     // The hard deadline is the CEILING; `wallClockExhausted` enforces the
     // computed allowance gracefully, one node boundary at a time.
@@ -741,6 +759,15 @@ async function verifyNode(
         ctx.candidateIds.get(proposal.officialUrl) ?? proposal.officialUrl,
       )?.assessment ?? NO_REGISTRY_MATCH
 
+    // An unread page has no evidence to hold the description to.
+    const originFailure = page
+      ? checkDescriptionOrigin({
+          productDescriptionZh: proposal.productDescriptionZh,
+          originExcerpts: page.originExcerpts,
+          mainText: page.mainText,
+        })
+      : null
+
     const result = verifyProposal(
       {
         url: proposal.officialUrl,
@@ -773,8 +800,12 @@ async function verifyNode(
 
     if (result.ok) {
       verified.push(proposal)
+      if (originFailure) repairable.push({ proposal, failures: [originFailure], soft: true })
     } else if (result.repairable) {
-      repairable.push({ proposal, failures: result.failures })
+      repairable.push({
+        proposal,
+        failures: originFailure ? [...result.failures, originFailure] : result.failures,
+      })
     } else {
       dropped += 1
       for (const failure of result.failures) {
@@ -855,7 +886,33 @@ async function repairNode(
     { role: 'user', content: userContent },
   ]
 
-  const response = await ctx.invokeModel(messages, REPAIR_SCHEMA)
+  // Soft entries are already in `verified`; only hard entries can be dropped.
+  // Keyed by the normalized URL `validateProductProposals` matches candidates
+  // on, so a re-spelled URL (www., tracking params, trailing slash) still
+  // resolves to its soft entry and never counts as a hard repair.
+  const urlKey = (url: string): string => normalizeProductUrl(url) ?? url
+  const softUrls = new Set(
+    state.repairable.filter((entry) => entry.soft).map((entry) => urlKey(entry.proposal.officialUrl)),
+  )
+  const isSoft = (proposal: CuratedProductProposal): boolean => softUrls.has(urlKey(proposal.officialUrl))
+  const hardCount = state.repairable.filter((entry) => !entry.soft).length
+
+  let response: AgentModelResponse
+  try {
+    response = await ctx.invokeModel(messages, REPAIR_SCHEMA)
+  } catch (error) {
+    // An origin-only turn is an improvement to a result that already verified;
+    // its failure (provider error, abort, timeout) must not discard that result.
+    if (hardCount > 0) throw error
+    ctx.originRepairSkipped = true
+    ctx.record(
+      'repair',
+      'origin_repair_skipped',
+      error instanceof Error ? `${error.name}: ${error.message}` : String(error),
+      start,
+    )
+    return {}
+  }
   ctx.budget.used.turns += 1
 
   let parsed: ProductsModelResult
@@ -863,7 +920,7 @@ async function repairNode(
     parsed = JSON.parse(extractJson(contentText(response))) as ProductsModelResult
   } catch {
     ctx.record('repair', 'parse_failed', 'model returned non-JSON', start)
-    return { dropped: state.dropped + state.repairable.length }
+    return { dropped: state.dropped + hardCount }
   }
 
   const brandUrl = brandUrlOf(ctx)
@@ -884,12 +941,24 @@ async function repairNode(
       productDescriptionZh: proposal.productDescriptionZh,
     })
     reVerifyDescCache.set(proposal.officialUrl, descFailures)
-    return closedSet.ok && verifySameHost(proposal.officialUrl, brandUrl, ownedHostsOf(ctx)).ok && descFailures.length === 0
+    const passes = closedSet.ok && verifySameHost(proposal.officialUrl, brandUrl, ownedHostsOf(ctx)).ok && descFailures.length === 0
+    // A soft entry only counts as fixed when the omission is gone too; a hard
+    // entry is not held to origin, so a partial repair still publishes.
+    return isSoft(proposal)
+      ? passes && descriptionMentionsTaiwan(proposal.productDescriptionZh)
+      : passes
   })
+  const hardRepaired = reVerified.filter((proposal) => !isSoft(proposal))
+  const softFixed = new Map(
+    reVerified
+      .filter(isSoft)
+      .map((proposal) => [urlKey(proposal.officialUrl), proposal.productDescriptionZh]),
+  )
 
   const reVerifyDropReasons: Record<string, number> = {}
   for (const proposal of validation.proposals) {
-    if (reVerified.includes(proposal)) continue
+    // A soft entry that stays unfixed keeps its published original: no drop.
+    if (reVerified.includes(proposal) || isSoft(proposal)) continue
     const closedSet = verifyClosedSets({
       category: proposal.category,
       subcategory: proposal.subcategory ?? undefined,
@@ -914,7 +983,7 @@ async function repairNode(
 
   ctx.record(
     'repair',
-    `repaired ${reVerified.length} of ${state.repairable.length}`,
+    `repaired ${hardRepaired.length} of ${hardCount}, origin fixed ${softFixed.size} of ${softUrls.size}`,
     `${validation.dropped} dropped during repair validation, ${validation.proposals.length - reVerified.length} failed re-verification`,
     start,
   )
@@ -925,10 +994,20 @@ async function repairNode(
   }
 
   return {
-    repaired: reVerified,
-    dropped: state.dropped + (state.repairable.length - reVerified.length),
+    // A fixed soft entry keeps its verified proposal (key, name, category,
+    // sources) and takes only the repaired description; it never appends.
+    ...(softFixed.size > 0
+      ? {
+          verified: state.verified.map((proposal) => {
+            const description = softFixed.get(urlKey(proposal.officialUrl))
+            return description === undefined ? proposal : { ...proposal, productDescriptionZh: description }
+          }),
+        }
+      : {}),
+    repaired: hardRepaired,
+    dropped: state.dropped + (hardCount - hardRepaired.length),
     dropReasons: mergedDropReasons,
-    ...(reVerified.length > 0 ? { agentOutcome: 'repaired' as const } : {}),
+    ...(hardRepaired.length > 0 ? { agentOutcome: 'repaired' as const } : {}),
   }
 }
 
@@ -1035,6 +1114,7 @@ const EMPTY_VERIFICATION: ProductsVerification = {
   imageVerified: 0,
   imageUnverified: 0,
   originQualified: 0,
+  originOmitted: 0,
   pageImagesClassified: 0,
 }
 
@@ -1050,6 +1130,18 @@ function outputFrom(
   const originQualified = [
     ...(state?.originDecisions ?? new Map<string, CandidateOriginDecision>()).values(),
   ].filter((decision) => decision.mitQualified).length
+  const published = state ? [...state.verified, ...state.repaired] : []
+  const evidenceByUrl = new Map((state?.evidence ?? []).map((page) => [page.url, page]))
+  const originOmitted = published.filter((proposal) => {
+    const page = evidenceByUrl.get(proposal.officialUrl)
+    return page
+      ? checkDescriptionOrigin({
+          productDescriptionZh: proposal.productDescriptionZh,
+          originExcerpts: page.originExcerpts,
+          mainText: page.mainText,
+        }) !== null
+      : false
+  }).length
 
   const verification: ProductsVerification = state
     ? {
@@ -1071,13 +1163,14 @@ function outputFrom(
         imageVerified,
         imageUnverified,
         originQualified,
+        originOmitted,
         pageImagesClassified: state.pageImagesClassified,
       }
     : { ...EMPTY_VERIFICATION }
 
   return {
     agentOutcome: state?.agentOutcome ?? 'fallback',
-    proposals: state ? [...state.verified, ...state.repaired] : [],
+    proposals: published,
     verification,
     decisions: ctx.decisions,
     originDecisions: state?.originDecisions ?? new Map(),
@@ -1155,6 +1248,9 @@ export async function runProductsAgent(
         (error.name === 'AbortError' || error.name === 'TimeoutError'))
     if (aborted) {
       ctx.record('graph', 'stopped', 'aborted', ctx.wallClockStart)
+      // The abort landed on a skipped origin-only repair: verify already
+      // finished, so its result stands as if repair had never run.
+      if (ctx.originRepairSkipped && recovered) return outputFrom(recovered, ctx)
       return outputFrom(recovered, ctx, { agentOutcome: 'fallback', error: 'aborted' })
     }
     throw error

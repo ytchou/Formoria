@@ -19,6 +19,7 @@ import {
   requestCuratedProductBackfill,
   type CuratedProductBackfillResult,
 } from "@/lib/services/curated-products/backfill";
+import type { RewriteDescriptionsResult } from "@/lib/services/curated-products/materialize";
 
 import {
   parseApplyOption,
@@ -129,6 +130,26 @@ export async function batchPopulate(
 }
 
 // ---------------------------------------------------------------------------
+// Rewrite summary (DEV-1709, DEV-1856)
+// ---------------------------------------------------------------------------
+
+/** Summary lines for `--rewrite-descriptions`, apply or dry-run. */
+export function rewriteSummaryLines(
+  result: RewriteDescriptionsResult,
+  apply: boolean,
+): string[] {
+  const counts = `Skipped: ${result.skipped.length}, Failed: ${result.failed.length}, Origin omitted: ${result.originOmitted.length}`;
+  return [
+    apply
+      ? `Rewritten: ${result.rewritten}/${result.total}, ${counts}`
+      : `Dry-run complete. Total: ${result.total}, Would rewrite: ${result.rewritten}, ${counts}`,
+    ...result.originOmitted.map(
+      (p) => `  origin omitted: ${p.brandSlug}/${p.nameZh} (${p.id})`,
+    ),
+  ];
+}
+
+// ---------------------------------------------------------------------------
 // Production deps
 // ---------------------------------------------------------------------------
 
@@ -220,7 +241,6 @@ async function main(): Promise<void> {
     const { fetchHtmlWithMetadata } = await import(
       "@/lib/services/enrich-phases/scraper/fetch-guards"
     );
-    const { getLangfuse } = await import("@/lib/langfuse/client");
     const { createProfiledOpenAIClient } = await import(
       "@/lib/services/llm-audit"
     );
@@ -230,8 +250,6 @@ async function main(): Promise<void> {
     const { updateCuratedProduct } = await import(
       "@/lib/services/curated-products"
     );
-
-    let cachedPromptMeta: { name: string; version: number; source: "langfuse" } | null = null;
 
     const deps: Parameters<typeof rewriteGeneratedDescriptions>[0] = {
       fetchGeneratedProducts: async (slug) => {
@@ -281,38 +299,10 @@ async function main(): Promise<void> {
           },
         });
       },
-      fetchPrompt: async () => {
-        // products-describe is a Langfuse-only prompt (not in the local snapshot).
-        // fetchLangfusePromptWithMeta requires a snapshot entry; fetch directly instead.
-        const langfuseClient = getLangfuse();
-        if (!langfuseClient) {
-          throw new Error(
-            "Langfuse client not configured — products-describe prompt requires LANGFUSE_SECRET_KEY",
-          );
-        }
-        const promptClient = await langfuseClient.getPrompt(
-          "products-describe",
-          undefined,
-          { label: "production" },
-        );
-        if (typeof promptClient.prompt !== "string") {
-          throw new Error("products-describe prompt is not a text prompt");
-        }
-        // Cache prompt meta for callLlm's audit context
-        cachedPromptMeta = {
-          name: promptClient.name,
-          version: promptClient.version,
-          source: "langfuse" as const,
-        };
-        return {
-          text: promptClient.prompt,
-          prompt: cachedPromptMeta,
-        };
-      },
-      callLlm: async (system, user) => {
+      callLlm: async (system, user, prompt) => {
         const llmClient = createProfiledOpenAIClient("productDescriptions", {
           phase: "product_descriptions",
-          prompt: cachedPromptMeta ?? undefined,
+          prompt,
         });
         const result = await llmClient.chat({ system, user });
         if (!result.ok) {
@@ -348,9 +338,7 @@ async function main(): Promise<void> {
           () => rewriteGeneratedDescriptions(deps, { apply, brandSlug }),
         );
         console.log(JSON.stringify(result.diffs, null, 2));
-        console.log(
-          `\nDry-run complete. Total: ${result.total}, Would rewrite: ${result.rewritten}, Skipped: ${result.skipped.length}, Failed: ${result.failed.length}`,
-        );
+        console.log(`\n${rewriteSummaryLines(result, false).join("\n")}`);
         await assertNoNewAuditRows({
           since,
           correlationIds: [runCorrelationId],
@@ -369,9 +357,7 @@ async function main(): Promise<void> {
       brandSlug,
     });
 
-    console.log(
-      `Rewritten: ${result.rewritten}/${result.total}, Skipped: ${result.skipped.length}, Failed: ${result.failed.length}`,
-    );
+    console.log(rewriteSummaryLines(result, true).join("\n"));
     console.log(
       "Run pnpm embeddings:backfill --apply to refresh vector embeddings.",
     );

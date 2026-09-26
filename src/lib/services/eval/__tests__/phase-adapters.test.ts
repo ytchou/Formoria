@@ -36,7 +36,7 @@ describe('phase-adapters registry', () => {
     expect(desc.mode).toBe('pairwise')
   })
 
-  it('products adapter is scored with three scorers and a task', () => {
+  it('products adapter is scored with four scorers and a task', () => {
     const adapter = adapterFor('products-agent-ranking-golden')
     expect(adapter.mode).toBe('scored')
 
@@ -44,7 +44,12 @@ describe('phase-adapters registry', () => {
     expect(scorerNames).toContain('bandAgreement')
     expect(scorerNames).toContain('withinPoolOrderingAgreement')
     expect(scorerNames).toContain('selectionAgreement')
-    expect(scorerNames).toHaveLength(3)
+    expect(scorerNames).toContain('originWhenSourced')
+    expect(scorerNames).toHaveLength(4)
+
+    // only originWhenSourced can be n/a, so failures must not zero it
+    const nullable = adapter.scorers.filter((s) => s.nullable).map((s) => s.name)
+    expect(nullable).toEqual(['originWhenSourced'])
 
     expect(typeof adapter.task).toBe('function')
     expect(typeof adapter.summarize).toBe('function')

@@ -6,6 +6,7 @@ import {
   verifyOrigin,
   verifyClosedSets,
   verifyProposal,
+  checkDescriptionOrigin,
 } from '../verify'
 
 describe('products/verify', () => {
@@ -182,6 +183,48 @@ describe('products/verify', () => {
       })
       expect(result.ok).toBe(false)
       expect(result.decision.qualified).toBe(false)
+    })
+  })
+
+  describe('checkDescriptionOrigin', () => {
+    it('returns null when the page states no origin', () => {
+      expect(
+        checkDescriptionOrigin({
+          productDescriptionZh: '手工縫製的帆布托特包',
+          originExcerpts: [{ id: 'c:origin:1', text: '台灣設計，於越南製造' }],
+          mainText: '帆布托特包 容量大',
+        }),
+      ).toBeNull()
+    })
+
+    it('returns null when the description already mentions Taiwan', () => {
+      expect(
+        checkDescriptionOrigin({
+          productDescriptionZh: '在台灣手工縫製的帆布托特包',
+          originExcerpts: [{ id: 'c:origin:1', text: '商品產地 台灣' }],
+          mainText: '',
+        }),
+      ).toBeNull()
+    })
+
+    it('flags an omission from an origin excerpt', () => {
+      const failure = checkDescriptionOrigin({
+        productDescriptionZh: '手工縫製的帆布托特包',
+        originExcerpts: [{ id: 'c:origin:1', text: '商品產地 台灣' }],
+        mainText: '',
+      })
+      expect(failure).toMatch(/^description_origin_omitted:/)
+      expect(failure).toContain('("商品產地 台灣")')
+      expect(failure!.split(':')[0]).toBe('description_origin_omitted')
+    })
+
+    it('flags an omission found only in mainText', () => {
+      const failure = checkDescriptionOrigin({
+        productDescriptionZh: '手工縫製的帆布托特包',
+        originExcerpts: [],
+        mainText: "Canvas tote. Where It's Made Taiwan",
+      })
+      expect(failure).toMatch(/^description_origin_omitted:/)
     })
   })
 

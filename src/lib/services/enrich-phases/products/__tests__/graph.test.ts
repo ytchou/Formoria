@@ -100,7 +100,9 @@ function productFor(url: string, name: string, overrides: Record<string, unknown
     material: [],
     official_url: url,
     image_source_url: null,
-    product_description_zh: '這是一個測試產品描述，用來驗證提案流程。',
+    // Names Taiwan: the default page states "made in Taiwan", so a description
+    // without it would trip the soft origin repair (DEV-1856) in every test.
+    product_description_zh: '這是一個台灣製造的測試產品描述，用來驗證提案流程。',
     sources: [{ url, source_type: 'official', claim_zh: null }],
     ...overrides,
   }
@@ -856,6 +858,244 @@ describe('products agent graph', () => {
 
     expect(result.proposals.some(p => p.nameZh === 'Test Product A')).toBe(false)
     expect(result.verification.dropped).toBeGreaterThan(0)
+  })
+
+  // -------------------------------------------------------------------------
+  // Origin omission — soft repair (DEV-1856)
+  // -------------------------------------------------------------------------
+
+  const NO_ORIGIN_DESC = '手工拉坯的陶瓷盤，直徑 21 公分，釉色溫潤。'
+  const WITH_ORIGIN_DESC = '在台灣手工拉坯的陶瓷盤，直徑 21 公分，釉色溫潤。'
+
+  function omittingProposeResponse(): string {
+    return validProposalResponse({
+      products: [
+        productFor(URL_A, 'Test Product A', { product_description_zh: NO_ORIGIN_DESC }),
+        productFor(URL_B, 'Test Product B'),
+      ],
+    })
+  }
+
+  function repairResponse(description: string): string {
+    return JSON.stringify({
+      products: [productFor(URL_A, 'Test Product A', { product_description_zh: description })],
+    })
+  }
+
+  it('origin omission is published and repaired', async () => {
+    const model = scriptedModel([omittingProposeResponse(), repairResponse(WITH_ORIGIN_DESC)])
+
+    const result = await runProductsAgent(baseInput, makeDeps(), { model })
+
+    expect(model.invoke).toHaveBeenCalledTimes(2)
+    const published = result.proposals.filter((p) => p.officialUrl === URL_A)
+    expect(published).toHaveLength(1)
+    expect(published[0]!.productDescriptionZh).toBe(WITH_ORIGIN_DESC)
+    expect(result.verification.originOmitted).toBe(0)
+    expect(result.verification.dropped).toBe(0)
+    expect(result.agentOutcome).toBe('proposed')
+  })
+
+  it('origin omission survives a failed repair', async () => {
+    const model = scriptedModel([omittingProposeResponse(), repairResponse(NO_ORIGIN_DESC)])
+
+    const result = await runProductsAgent(baseInput, makeDeps(), { model })
+
+    expect(model.invoke).toHaveBeenCalledTimes(2)
+    const published = result.proposals.filter((p) => p.officialUrl === URL_A)
+    expect(published).toHaveLength(1)
+    expect(published[0]!.productDescriptionZh).toBe(NO_ORIGIN_DESC)
+    expect(result.verification.originOmitted).toBe(1)
+    expect(result.verification.dropped).toBe(0)
+    expect(result.agentOutcome).not.toBe('repaired')
+  })
+
+  it('origin omission survives a repair parse failure', async () => {
+    const model = scriptedModel([omittingProposeResponse(), 'not valid json {{{{'])
+
+    const result = await runProductsAgent(baseInput, makeDeps(), { model })
+
+    expect(model.invoke).toHaveBeenCalledTimes(2)
+    expect(result.proposals.filter((p) => p.officialUrl === URL_A)).toHaveLength(1)
+    expect(result.verification.dropped).toBe(0)
+    expect(result.verification.originOmitted).toBe(1)
+  })
+
+  it('origin omission survives when no turn remains', async () => {
+    const model = scriptedModel([omittingProposeResponse()])
+
+    const result = await runProductsAgent(baseInput, makeDeps(), {
+      model,
+      budgetOverride: { reads: 12, renders: 4, turns: 1, wallClockMs: 120_000 },
+    })
+
+    expect(model.invoke).toHaveBeenCalledTimes(1)
+    expect(result.proposals.filter((p) => p.officialUrl === URL_A)).toHaveLength(1)
+    expect(result.verification.originOmitted).toBe(1)
+    expect(result.verification.dropped).toBe(0)
+  })
+
+  it('hard failure plus omission', async () => {
+    const proposeResponse = validProposalResponse({
+      products: [
+        productFor(URL_A, 'Test Product A', {
+          product_description_zh: 'Test Product A 是一個很棒的產品',
+        }),
+      ],
+    })
+    // Fixes the name echo, still omits origin.
+    const model = scriptedModel([proposeResponse, repairResponse(NO_ORIGIN_DESC)])
+
+    const result = await runProductsAgent(baseInput, makeDeps(), { model })
+
+    expect(model.invoke).toHaveBeenCalledTimes(2)
+    const repairUser = JSON.parse(String(model.invoke.mock.calls[1]![0][1]!.content)) as {
+      repairable: Array<{ proposal: { official_url: string }; failures: string[] }>
+    }
+    expect(repairUser.repairable).toHaveLength(1)
+    const failures = repairUser.repairable[0]!.failures
+    expect(failures.some((f) => f.startsWith('description_name_echo'))).toBe(true)
+    expect(failures.some((f) => f.startsWith('description_origin_omitted:'))).toBe(true)
+
+    expect(result.agentOutcome).toBe('repaired')
+    expect(result.verification.repaired).toBe(1)
+    expect(result.proposals.filter((p) => p.officialUrl === URL_A)).toHaveLength(1)
+    expect(result.verification.originOmitted).toBe(1)
+    expect(result.verification.dropped).toBe(0)
+  })
+
+  it('origin repair matches a soft entry by normalized URL', async () => {
+    // Same candidate, spelled with a trailing slash and a tracking param.
+    const variant = `${URL_A}/?utm_source=x`
+    const repair = JSON.stringify({
+      products: [
+        productFor(variant, 'Test Product A', { product_description_zh: WITH_ORIGIN_DESC }),
+      ],
+    })
+    const model = scriptedModel([omittingProposeResponse(), repair])
+
+    const result = await runProductsAgent(baseInput, makeDeps(), { model })
+
+    expect(model.invoke).toHaveBeenCalledTimes(2)
+    const published = result.proposals.filter((p) => p.officialUrl.startsWith(URL_A))
+    expect(published).toHaveLength(1)
+    expect(published[0]!.officialUrl).toBe(URL_A)
+    expect(published[0]!.productDescriptionZh).toBe(WITH_ORIGIN_DESC)
+    expect(result.proposals).toHaveLength(2)
+    expect(result.verification.dropped).toBe(0)
+    expect(result.verification.repaired).toBe(0)
+    expect(result.agentOutcome).not.toBe('repaired')
+  })
+
+  it('origin repair swaps only the description and keeps the verified key', async () => {
+    // Same name twice: the verified keys are distinct, and a re-emitted
+    // proposal re-keyed on its own would collide with the first.
+    const propose = validProposalResponse({
+      products: [
+        productFor(URL_A, 'Same Name'),
+        productFor(URL_B, 'Same Name', {
+          product_description_zh: NO_ORIGIN_DESC,
+          material: ['cotton'],
+        }),
+      ],
+    })
+    const repair = JSON.stringify({
+      products: [
+        productFor(URL_B, 'Same Name', {
+          name_en: 'Drifted Name',
+          category: 'home',
+          material: [],
+          product_description_zh: WITH_ORIGIN_DESC,
+        }),
+      ],
+    })
+    const baseline = await runProductsAgent(baseInput, makeDeps(), {
+      model: scriptedModel([propose]),
+      budgetOverride: { reads: 12, renders: 4, turns: 1, wallClockMs: 120_000 },
+    })
+    const original = baseline.proposals.find((p) => p.officialUrl === URL_B)!
+
+    const result = await runProductsAgent(baseInput, makeDeps(), {
+      model: scriptedModel([propose, repair]),
+    })
+
+    const keys = result.proposals.map((p) => p.key)
+    expect(new Set(keys).size).toBe(keys.length)
+    const fixed = result.proposals.find((p) => p.officialUrl === URL_B)!
+    expect(fixed).toEqual({ ...original, productDescriptionZh: WITH_ORIGIN_DESC })
+  })
+
+  it('origin-only repair turn that throws keeps the verified result', async () => {
+    let calls = 0
+    const model = {
+      invoke: vi.fn(async () => {
+        calls += 1
+        if (calls > 1) throw new Error('provider 500')
+        return {
+          content: omittingProposeResponse(),
+          usage: { prompt_tokens: 100, completion_tokens: 50, total_tokens: 150 },
+        }
+      }),
+    }
+
+    const result = await runProductsAgent(baseInput, makeDeps(), { model })
+
+    expect(model.invoke).toHaveBeenCalledTimes(2)
+    expect(result.agentOutcome).toBe('proposed')
+    expect(result.proposals.map((p) => p.officialUrl).sort()).toEqual([URL_A, URL_B])
+    expect(result.verification.originOmitted).toBe(1)
+    expect(result.verification.dropped).toBe(0)
+  })
+
+  it('origin-only repair turn that is aborted keeps the verified result', async () => {
+    const controller = new AbortController()
+    let calls = 0
+    const model = {
+      invoke: vi.fn(async () => {
+        calls += 1
+        if (calls > 1) {
+          controller.abort()
+          throw new DOMException('aborted', 'AbortError')
+        }
+        return {
+          content: omittingProposeResponse(),
+          usage: { prompt_tokens: 100, completion_tokens: 50, total_tokens: 150 },
+        }
+      }),
+    }
+
+    const result = await runProductsAgent(baseInput, makeDeps(), {
+      model,
+      signal: controller.signal,
+    })
+
+    expect(model.invoke).toHaveBeenCalledTimes(2)
+    expect(result.agentOutcome).toBe('proposed')
+    expect(result.proposals.map((p) => p.officialUrl).sort()).toEqual([URL_A, URL_B])
+    expect(result.verification.originOmitted).toBe(1)
+  })
+
+  it('a repair turn with a hard entry still propagates a model error', async () => {
+    const proposeResponse = validProposalResponse({
+      products: [
+        productFor(URL_A, 'Test Product A', {
+          product_description_zh: 'Test Product A 是一個很棒的產品',
+        }),
+      ],
+    })
+    let calls = 0
+    const model = {
+      invoke: vi.fn(async () => {
+        calls += 1
+        if (calls > 1) throw new Error('provider 500')
+        return {
+          content: proposeResponse,
+          usage: { prompt_tokens: 100, completion_tokens: 50, total_tokens: 150 },
+        }
+      }),
+    }
+
+    await expect(runProductsAgent(baseInput, makeDeps(), { model })).rejects.toThrow('provider 500')
   })
 
   it('readPage evidence with statusCode 404 makes the proposal unreachable', async () => {

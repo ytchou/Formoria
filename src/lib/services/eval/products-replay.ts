@@ -12,10 +12,13 @@ import type { ProductsInput, ProductsOutput, ProductsDeps } from '../enrich-phas
 import type { ProductCandidate } from '../enrich-phases/product-candidates'
 import { PRODUCTS_BUDGET_CEILINGS } from '../enrich-phases/products/budget'
 import { parsePromptVersionPins } from '@/lib/langfuse/prompt'
+import { originTextsOf, pageStatesTaiwanOrigin } from '../curated-products/origin-qualification'
+import { selectAcrossPages } from '../enrich-phases/products/select-evidence'
 import type { AgentModel } from '../enrich-phases/agents/runtime'
 import type { LlmAuditContext } from '../llm-audit'
 import type { LlmProfileKey } from '@/lib/constants/llm-models'
 import type { ExperimentItem, ExperimentArm } from './run-experiment'
+import type { ProductsReplayOutput } from './products-calibration'
 
 // ---------------------------------------------------------------------------
 // Types
@@ -214,11 +217,22 @@ export function productsTask(taskDeps: ProductsTaskDeps) {
 
     const selected = graphOutput.proposals.map((p) => p.officialUrl)
 
-    const output = {
+    // Same detector and cross-page selection the runtime applies before its
+    // origin check. The runtime selects across the pages it read; this selects
+    // across every frozen page, so repeat counts can differ when the agent
+    // read only a subset.
+    const frozenUrls = [...evidenceByUrl.keys()]
+    const originStatedUrls = selectAcrossPages([...evidenceByUrl.values()])
+      .map((page, index) => [frozenUrls[index]!, page] as const)
+      .filter(([, page]) => pageStatesTaiwanOrigin(originTextsOf(page)))
+      .map(([url]) => url)
+
+    const output: ProductsReplayOutput = {
       evaluations: evaluationsRecord,
       selected,
       proposals: graphOutput.proposals,
       agentOutcome: graphOutput.agentOutcome,
+      originStatedUrls,
     }
 
     return {

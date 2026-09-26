@@ -2,6 +2,7 @@ import type { ZodType } from 'zod'
 
 import { reportBannedTerms } from '@/lib/i18n/banned-terms'
 import { bandOf } from '@/lib/constants/curated-products'
+import { descriptionMentionsTaiwan } from '@/lib/services/curated-products/origin-qualification'
 import { jaccard, pairwiseConcordance, type ProductsReplayOutput, type ProductsExpected } from './products-calibration'
 
 const CJK_ALL_REGEX = /[\u4E00-\u9FFF\u3400-\u4DBF\u3000-\u303F\uFF01-\uFF60\uFE30-\uFE4F]/u
@@ -176,6 +177,21 @@ export function selectionAgreement(
     expected.decisions.filter((d) => d.selected).map((d) => d.candidateUrl),
   )
   return jaccard(outputSet, expectedSet)
+}
+
+/**
+ * Share of proposals on origin-stated pages whose description mentions Taiwan.
+ * Proposals on pages without a stated origin are ignored. Returns null (n/a)
+ * when the output predates `originStatedUrls` or no proposal sits on an
+ * origin-stated page.
+ */
+export function originWhenSourced(output: ProductsReplayOutput): number | null {
+  if (!output.originStatedUrls) return null
+  const stated = new Set(output.originStatedUrls)
+  const sourced = output.proposals.filter((p) => stated.has(p.officialUrl))
+  if (sourced.length === 0) return null
+  const mentioning = sourced.filter((p) => descriptionMentionsTaiwan(p.productDescriptionZh))
+  return mentioning.length / sourced.length
 }
 
 // ---------------------------------------------------------------------------

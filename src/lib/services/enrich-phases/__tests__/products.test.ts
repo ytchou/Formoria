@@ -13,7 +13,11 @@ import {
   TAIWAN_USAGE_RULES,
 } from "@/lib/prompts/shared";
 import type { EnrichBrand, EnrichPhase } from "../types";
-import { runProductsPhase, validateProductProposals } from "../products";
+import {
+  formatOriginExcerptLine,
+  runProductsPhase,
+  validateProductProposals,
+} from "../products";
 import type { ProductCandidate } from "../product-candidates";
 
 /**
@@ -1677,7 +1681,13 @@ function agentEvaluation(
 
 function agentProduct(url: string, overrides: RawProposal = {}): RawProposal {
   return {
-    ...rawProposal({ official_url: url, image_source_url: url }),
+    ...rawProposal({
+      official_url: url,
+      image_source_url: url,
+      // The agent's product page states "made in Taiwan"; a description that
+      // omitted it would spend the soft origin repair turn (DEV-1856).
+      product_description_zh: "台灣南投陶土手拉坏，直徑 21 公分，適合日常盛裝主餐。",
+    }),
     sources: [{ url, source_type: "official", claim_zh: "商品頁列出陶土與尺寸" }],
     ...overrides,
   };
@@ -1965,5 +1975,16 @@ describe("products agent path", () => {
       "system",
       "user",
     ]);
+  });
+});
+
+describe("formatOriginExcerptLine", () => {
+  it("renders url | excerpt_id | text, matching the origin excerpts header", () => {
+    expect(
+      formatOriginExcerptLine("https://example.tw/p/1", {
+        id: "c1:origin:0",
+        text: "商品產地 台灣",
+      }),
+    ).toBe("- https://example.tw/p/1 | c1:origin:0 | 商品產地 台灣");
   });
 });
