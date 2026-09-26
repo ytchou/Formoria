@@ -18,7 +18,12 @@ import {
   readSituationQueries,
   INTENT_PARSE_DATASET,
   cmdDatasetValidate,
+  writeGoldenItems,
+  type GoldenWriteApi,
 } from '../llm-eval'
+import { assertCensusTarget } from '../../enrichment/eval/production-guard'
+import { PRODUCTION_PROJECT_REF } from '@/lib/supabase/project-target'
+import type { GoldenItemBody } from '@/lib/services/eval/golden-capture'
 import type { PromptApi, SnapshotFile } from '@/lib/services/eval/prompt-sync'
 
 // ---------------------------------------------------------------------------
@@ -948,5 +953,233 @@ describe('cmdDatasetValidate', () => {
     } finally {
       log.mockRestore()
     }
+  })
+})
+
+describe('parseCliArgs — dataset harvest / capture (DEV-1873)', () => {
+  it('parses dataset harvest --dataset --since --limit', () => {
+    expect(
+      parseCliArgs([
+        'dataset', 'harvest',
+        '--dataset', 'acquisition-plan-golden',
+        '--since', '2026-09-07',
+        '--limit', '20',
+      ]),
+    ).toEqual({
+      command: 'dataset-harvest',
+      dataset: 'acquisition-plan-golden',
+      since: '2026-09-07',
+      limit: 20,
+      confirm: false,
+    })
+  })
+
+  it('parses dataset harvest with only --dataset', () => {
+    expect(parseCliArgs(['dataset', 'harvest', '--dataset', 'products-repair-golden'])).toEqual({
+      command: 'dataset-harvest',
+      dataset: 'products-repair-golden',
+      since: undefined,
+      limit: undefined,
+      confirm: false,
+    })
+  })
+
+  it('rejects a harvest without --dataset, an unknown dataset, or a bad --limit or --since', () => {
+    expect(() => parseCliArgs(['dataset', 'harvest'])).toThrow('--dataset is required')
+    expect(() => parseCliArgs(['dataset', 'harvest', '--dataset', 'detect-confidence-golden'])).toThrow(
+      'not a capture/harvest golden dataset',
+    )
+    expect(() =>
+      parseCliArgs(['dataset', 'harvest', '--dataset', 'products-repair-golden', '--limit', '0']),
+    ).toThrow('--limit must be a positive integer')
+    expect(() =>
+      parseCliArgs(['dataset', 'harvest', '--dataset', 'products-repair-golden', '--since', 'soon']),
+    ).toThrow('--since must be a date')
+  })
+
+  it('parses dataset capture --brands a,b --datasets x,y', () => {
+    expect(
+      parseCliArgs([
+        'dataset', 'capture',
+        '--brands', 'brand-a,brand-b',
+        '--datasets', 'acquisition-plan-golden,acquisition-critique-golden',
+      ]),
+    ).toEqual({
+      command: 'dataset-capture',
+      brands: ['brand-a', 'brand-b'],
+      datasets: ['acquisition-plan-golden', 'acquisition-critique-golden'],
+      confirm: false,
+    })
+  })
+
+  it('parses dataset capture without --datasets', () => {
+    expect(parseCliArgs(['dataset', 'capture', '--brands', 'brand-a'])).toEqual({
+      command: 'dataset-capture',
+      brands: ['brand-a'],
+      datasets: undefined,
+      confirm: false,
+    })
+  })
+
+  it('rejects a capture without --brands or with an unknown dataset', () => {
+    expect(() => parseCliArgs(['dataset', 'capture'])).toThrow('--brands is required')
+    expect(() =>
+      parseCliArgs(['dataset', 'capture', '--brands', 'a', '--datasets', 'descriptions']),
+    ).toThrow('not a capture/harvest golden dataset')
+  })
+})
+
+describe('dataset harvest / capture production guard (DEV-1873 G17)', () => {
+  const productionUrl = `https://${PRODUCTION_PROJECT_REF}.supabase.co`
+
+  it('parses --confirm for harvest and capture', () => {
+    expect(
+      parseCliArgs(['dataset', 'harvest', '--dataset', 'products-repair-golden', '--confirm']),
+    ).toMatchObject({ command: 'dataset-harvest', confirm: true })
+    expect(parseCliArgs(['dataset', 'capture', '--brands', 'a', '--confirm'])).toMatchObject({
+      command: 'dataset-capture',
+      confirm: true,
+    })
+  })
+
+  it('refuses a production target without --confirm', () => {
+    for (const args of [
+      ['dataset', 'harvest', '--dataset', 'products-repair-golden'],
+      ['dataset', 'capture', '--brands', 'a'],
+    ]) {
+      const parsed = parseCliArgs(args) as { confirm: boolean }
+      expect(() =>
+        assertCensusTarget({ supabaseUrl: productionUrl, target: 'production', confirmed: parsed.confirm }),
+      ).toThrow('without --confirm')
+    }
+  })
+
+  it('lets a confirmed production run through', () => {
+    const parsed = parseCliArgs(['dataset', 'capture', '--brands', 'a', '--confirm']) as { confirm: boolean }
+    expect(() =>
+      assertCensusTarget({ supabaseUrl: productionUrl, target: 'production', confirmed: parsed.confirm }),
+    ).not.toThrow()
+  })
+})
+
+describe('writeGoldenItems (DEV-1873 G2/S1a)', () => {
+  const item = (id: string, datasetName = 'acquisition-plan-golden'): GoldenItemBody => ({
+    datasetName,
+    id,
+    input: 'user text',
+    expectedOutput: null,
+    status: 'ARCHIVED',
+    metadata: {
+      source: 'harvest',
+      brandSlug: 'brand-a',
+      jobId: null,
+      context: null,
+      humanApproval: { status: 'pending' },
+    },
+  })
+  const httpError = (status: number) => Object.assign(new Error(`HTTP ${status}`), { status })
+  const noSleep = async () => {}
+
+  function fakeApi(existing: Set<string>, overrides: Partial<GoldenWriteApi> = {}) {
+    const created: string[] = []
+    const api: GoldenWriteApi = {
+      getDataset: vi.fn(async () => ({})),
+      createDataset: vi.fn(async () => ({})),
+      getItem: vi.fn(async (id: string) => {
+        if (!existing.has(id)) throw httpError(404)
+        return { id, status: 'ARCHIVED' }
+      }),
+      createItem: vi.fn(async (body) => {
+        created.push(body.id)
+        return { id: body.id }
+      }),
+      ...overrides,
+    }
+    return { api, created }
+  }
+
+  it('skips an item that already exists as ARCHIVED (per-id lookup, not the list)', async () => {
+    const { api, created } = fakeApi(new Set(['kept']))
+    const result = await writeGoldenItems([item('kept'), item('new')], { api, sleep: noSleep, minIntervalMs: 0 })
+    expect(result).toEqual({ written: 1, existing: 1, failed: [] })
+    expect(created).toEqual(['new'])
+  })
+
+  it('creates the dataset only on a genuine 404', async () => {
+    const { api } = fakeApi(new Set(), { getDataset: vi.fn(async () => Promise.reject(httpError(404))) })
+    await writeGoldenItems([item('a')], { api, sleep: noSleep, minIntervalMs: 0 })
+    expect(api.createDataset).toHaveBeenCalledTimes(1)
+  })
+
+  it('aborts without writing when the dataset read fails for any other reason', async () => {
+    const { api, created } = fakeApi(new Set(), {
+      getDataset: vi.fn(async () => Promise.reject(httpError(500))),
+    })
+    await expect(
+      writeGoldenItems([item('a')], { api, sleep: noSleep, minIntervalMs: 0 }),
+    ).rejects.toThrow('HTTP 500')
+    expect(api.createDataset).not.toHaveBeenCalled()
+    expect(created).toEqual([])
+  })
+
+  it('aborts when an item lookup fails with a non-404 error', async () => {
+    const { api, created } = fakeApi(new Set(), {
+      getItem: vi.fn(async () => Promise.reject(httpError(500))),
+    })
+    await expect(
+      writeGoldenItems([item('a')], { api, sleep: noSleep, minIntervalMs: 0 }),
+    ).rejects.toThrow('HTTP 500')
+    expect(created).toEqual([])
+  })
+
+  it('retries a create that resolved without an id (the SDK swallows 429) and counts only confirmed writes', async () => {
+    let calls = 0
+    const { api } = fakeApi(new Set(), {
+      createItem: vi.fn(async (body) => {
+        calls += 1
+        if (body.id === 'flaky' && calls === 1) return 'Rate limit exceeded'
+        if (body.id === 'dead') return {}
+        return { id: body.id }
+      }),
+    })
+    const sleep = vi.fn(async () => {})
+    const result = await writeGoldenItems([item('flaky'), item('dead')], {
+      api,
+      sleep,
+      minIntervalMs: 0,
+      retries: 3,
+    })
+    expect(result).toEqual({ written: 1, existing: 0, failed: ['dead'] })
+    expect(sleep).toHaveBeenCalled()
+  })
+
+  it('retries a lookup that hit 429', async () => {
+    let calls = 0
+    const { api, created } = fakeApi(new Set(), {
+      getItem: vi.fn(async () => {
+        calls += 1
+        throw httpError(calls === 1 ? 429 : 404)
+      }),
+    })
+    const result = await writeGoldenItems([item('a')], { api, sleep: noSleep, minIntervalMs: 0 })
+    expect(result.written).toBe(1)
+    expect(created).toEqual(['a'])
+  })
+
+  it('paces calls at least minIntervalMs apart', async () => {
+    const { api } = fakeApi(new Set())
+    const waits: number[] = []
+    let clock = 0
+    await writeGoldenItems([item('a'), item('b')], {
+      api,
+      minIntervalMs: 700,
+      now: () => clock,
+      sleep: async (ms: number) => {
+        waits.push(ms)
+        clock += ms
+      },
+    })
+    // datasetGet, then get+create per item: 5 calls, 4 paced gaps.
+    expect(waits.filter((ms) => ms === 700)).toHaveLength(4)
   })
 })

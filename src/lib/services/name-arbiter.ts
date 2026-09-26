@@ -136,7 +136,8 @@ function formatNameArbiterItem(item: NameArbiterItem, index: number): string {
   return `${index + 1}. [${item.slug}] 儲存名稱：${item.storedName} / 候選：${candidateLine || "無"}${snippetLine}`;
 }
 
-function buildNameArbiterUserContent(items: NameArbiterItem[]): string {
+/** Exported so golden-eval inputs are rendered by the same bytes production sends. */
+export function buildNameArbiterUserContent(items: NameArbiterItem[]): string {
   const list = items
     .map((item, index) => formatNameArbiterItem(item, index))
     .join("\n");

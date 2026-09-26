@@ -14,6 +14,7 @@ import { parseArgs as nodeParseArgs } from 'node:util'
 
 import { config as dotenvConfig } from 'dotenv'
 
+import { assertCensusTarget } from '../enrichment/eval/production-guard'
 import { loadScriptTarget } from '../shared/target'
 
 // @/ imports — available after loadScriptTarget() sets up env
@@ -31,6 +32,14 @@ import {
 import type { SnapshotFile, PromptApi } from '@/lib/services/eval/prompt-sync'
 import { JEV_MODEL } from '@/lib/constants/llm-models'
 import { withRetry, type RetryPolicy } from '@/lib/retry'
+import {
+  promptForDataset,
+  type GoldenItemBody,
+  type HarvestRow,
+  type PromptTexts,
+  type TimedCapturedCall,
+} from '@/lib/services/eval/golden-capture'
+import type { EnrichBrand, EnrichPhase } from '@/lib/services/enrich-phases/types'
 
 // ---------------------------------------------------------------------------
 // Arg parsing
@@ -51,6 +60,8 @@ export type ParsedCommand =
   | { command: 'dataset-record'; dataset: string; brand: string; urls?: string[] }
   | { command: 'dataset-prelabel'; dataset: string; item: string; file: string }
   | { command: 'dataset-seed-intent' }
+  | { command: 'dataset-harvest'; dataset: string; since?: string; limit?: number; confirm: boolean }
+  | { command: 'dataset-capture'; brands: string[]; datasets?: string[]; confirm: boolean }
   | {
       command: 'run'
       dataset: string
@@ -112,6 +123,16 @@ export function parseArm(spec: string): ArmSpec {
   )
 }
 
+function splitList(value: string): string[] {
+  return value.split(',').map((part) => part.trim()).filter(Boolean)
+}
+
+function assertGoldenCaptureDataset(dataset: string): void {
+  if (!promptForDataset(dataset)) {
+    throw new Error(`"${dataset}" is not a capture/harvest golden dataset`)
+  }
+}
+
 export function parseCliArgs(args: string[]): ParsedCommand {
   const { positionals, values } = nodeParseArgs({
     args,
@@ -135,6 +156,11 @@ export function parseCliArgs(args: string[]): ParsedCommand {
       check: { type: 'boolean', default: false },
       label: { type: 'string' },
       'allow-variable-change': { type: 'boolean', default: false },
+      since: { type: 'string' },
+      limit: { type: 'string' },
+      brands: { type: 'string' },
+      datasets: { type: 'string' },
+      confirm: { type: 'boolean', default: false },
     },
   })
 
@@ -156,6 +182,35 @@ export function parseCliArgs(args: string[]): ParsedCommand {
         dataset: values.dataset,
         brand: values.brand,
         urls: values.urls ? values.urls.split(',') : undefined,
+      }
+    }
+    if (sub2 === 'harvest') {
+      if (!values.dataset) throw new Error('--dataset is required')
+      assertGoldenCaptureDataset(values.dataset)
+      if (values.since !== undefined && Number.isNaN(new Date(values.since).getTime())) {
+        throw new Error('--since must be a date (YYYY-MM-DD)')
+      }
+      const limit = values.limit !== undefined ? Number(values.limit) : undefined
+      if (limit !== undefined && (!Number.isInteger(limit) || limit < 1)) {
+        throw new Error('--limit must be a positive integer')
+      }
+      return {
+        command: 'dataset-harvest',
+        dataset: values.dataset,
+        since: values.since,
+        limit,
+        confirm: values.confirm ?? false,
+      }
+    }
+    if (sub2 === 'capture') {
+      if (!values.brands) throw new Error('--brands is required')
+      const datasets = values.datasets ? splitList(values.datasets) : undefined
+      datasets?.forEach(assertGoldenCaptureDataset)
+      return {
+        command: 'dataset-capture',
+        brands: splitList(values.brands),
+        datasets,
+        confirm: values.confirm ?? false,
       }
     }
     if (sub2 === 'prelabel') {
@@ -287,6 +342,8 @@ export function parseCliArgs(args: string[]): ParsedCommand {
       '  llm-eval dataset record --dataset <name> --brand <slug> [--urls url1,url2,...]\n' +
       '  llm-eval dataset prelabel --dataset <name> --item <id> --file <json-path>\n' +
       '  llm-eval dataset seed-intent\n' +
+      '  llm-eval dataset harvest --dataset <name> [--since <YYYY-MM-DD>] [--limit <n>] [--target production --confirm]\n' +
+      '  llm-eval dataset capture --brands <slug,slug,...> [--datasets <name,name,...>] [--target production --confirm]\n' +
       '  llm-eval dataset review enqueue --dataset <name>\n' +
       '  llm-eval dataset review push --dataset <name> --approved-by <user>\n' +
       '  llm-eval run --dataset <name> --arm <spec> [--arm <spec>] [--env-file <path>] [--allow-unreviewed]\n' +
@@ -1028,6 +1085,496 @@ async function cmdDatasetSeedIntent(): Promise<void> {
   }
 }
 
+// ---------------------------------------------------------------------------
+// Golden capture / harvest (DEV-1873)
+// ---------------------------------------------------------------------------
+
+/** Parallel version reads per prompt; prompts run one after another. */
+const VERSION_FETCH_CONCURRENCY = 5
+
+/**
+ * Every known resolved text per golden prompt, for classifying a call by its
+ * system message. Harvest also needs older versions: stored rows carry the
+ * version that ran then, not the current one.
+ */
+async function resolveGoldenPromptTexts({
+  allVersions,
+}: {
+  allVersions: boolean
+}): Promise<PromptTexts> {
+  const { GOLDEN_PROMPTS, GOLDEN_DATASETS } = await import('@/lib/services/eval/golden-capture')
+  const { fetchLangfusePromptWithMeta } = await import('@/lib/langfuse/prompt')
+  const client = getLangfuse()
+  const texts = {} as Record<(typeof GOLDEN_PROMPTS)[number], string[]>
+
+  for (const name of GOLDEN_PROMPTS) {
+    // The same variables production compiles into the prompt (the adapter owns them).
+    const variables = adapterFor(GOLDEN_DATASETS[name]).variables
+    const known = new Set<string>([(await fetchLangfusePromptWithMeta(name, variables)).text])
+    if (allVersions && client) {
+      try {
+        const latest = await client.getPrompt(name, undefined, { label: 'latest' })
+        const versions: (typeof latest | null)[] = [latest]
+        // `latest` is already in hand, so only the older versions are read.
+        const older = Array.from({ length: latest.version - 1 }, (_, index) => index + 1)
+        for (let start = 0; start < older.length; start += VERSION_FETCH_CONCURRENCY) {
+          versions.push(
+            ...(await Promise.all(
+              older.slice(start, start + VERSION_FETCH_CONCURRENCY).map((version) =>
+                // A deleted version: nothing to match against.
+                client.getPrompt(name, version).catch(() => null),
+              ),
+            )),
+          )
+        }
+        for (const prompt of versions) {
+          if (!prompt || typeof prompt.prompt !== 'string') continue
+          known.add(variables ? (prompt.compile(variables) as string) : prompt.prompt)
+        }
+      } catch (error) {
+        console.warn(`[harvest] could not list versions of "${name}"; matching the current text only:`, error)
+      }
+    }
+    texts[name] = [...known]
+  }
+  return texts
+}
+
+/**
+ * The Langfuse public-API calls `writeGoldenItems` makes. Each rejects with an
+ * object carrying the HTTP `status` (the SDK's `client.api.*` client throws its
+ * Response), which is how a 404 is told apart from a 429 or an outage.
+ */
+export type GoldenWriteApi = {
+  getDataset: (name: string) => Promise<unknown>
+  createDataset: (body: { name: string; description: string }) => Promise<unknown>
+  getItem: (id: string) => Promise<unknown>
+  createItem: (item: GoldenItemBody) => Promise<unknown>
+}
+
+function langfuseGoldenWriteApi(): GoldenWriteApi {
+  const client = getLangfuse()
+  if (!client) throw new Error('Langfuse not configured')
+  return {
+    getDataset: (name) => client.api.datasetsGet(name),
+    createDataset: (body) => client.api.datasetsCreate(body),
+    getItem: (id) => client.api.datasetItemsGet(id),
+    createItem: (item) => client.api.datasetItemsCreate(item),
+  }
+}
+
+function httpStatusOf(error: unknown): number | undefined {
+  const status = (error as { status?: unknown } | null)?.status
+  return typeof status === 'number' ? status : undefined
+}
+
+/**
+ * Writes items, skipping ids Langfuse already holds in ANY status: re-writing
+ * one would reset a reviewed or rejected item to ARCHIVED/pending.
+ *
+ * Existence is read per id (`GET /dataset-items/<id>`), never from the dataset
+ * listing — the listing omits ARCHIVED items, and every pending or rejected
+ * golden item is ARCHIVED. Only a 404 means "absent"; any other failure aborts
+ * the write rather than being mistaken for it.
+ *
+ * Calls are paced `minIntervalMs` apart (default 700ms, ~85/min, under the
+ * 100/min Langfuse Cloud limit). A 429, or a create that resolves without the
+ * item's id, is retried with exponential backoff; a create still unconfirmed
+ * after `retries` attempts is reported in `failed`, not counted as written.
+ * Ceiling: two calls per item, so ~40 items a minute. Upgrade path: list the
+ * ACTIVE ids once and look up only the rest, or batch through the ingestion API.
+ */
+export async function writeGoldenItems(
+  items: GoldenItemBody[],
+  {
+    api = langfuseGoldenWriteApi(),
+    sleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms)),
+    now = Date.now,
+    minIntervalMs = 700,
+    retries = 4,
+    backoffMs = 10_000,
+  }: {
+    api?: GoldenWriteApi
+    sleep?: (ms: number) => Promise<void>
+    now?: () => number
+    minIntervalMs?: number
+    retries?: number
+    backoffMs?: number
+  } = {},
+): Promise<{ written: number; existing: number; failed: string[] }> {
+  let lastCall: number | null = null
+  const paced = async <T>(call: () => Promise<T>): Promise<T> => {
+    if (lastCall !== null) {
+      const wait = lastCall + minIntervalMs - now()
+      if (wait > 0) await sleep(wait)
+    }
+    lastCall = now()
+    return call()
+  }
+  /** Retries a 429; `undefined` from `call` also means "retry". Other errors propagate. */
+  const withRetry = async <T>(call: () => Promise<T | undefined>): Promise<T | undefined> => {
+    for (let attempt = 1; ; attempt++) {
+      try {
+        const result = await paced(call)
+        if (result !== undefined) return result
+      } catch (error) {
+        if (httpStatusOf(error) !== 429) throw error
+      }
+      if (attempt >= retries) return undefined
+      await sleep(backoffMs * 2 ** (attempt - 1))
+    }
+  }
+  const orThrow = <T>(value: T | undefined, what: string): T => {
+    if (value === undefined) throw new Error(`[golden] ${what}: still rate-limited after ${retries} attempts`)
+    return value
+  }
+
+  let written = 0
+  let existing = 0
+  const failed: string[] = []
+  for (const dataset of [...new Set(items.map((item) => item.datasetName))]) {
+    const found = await withRetry(async () => {
+      try {
+        await api.getDataset(dataset)
+        return true
+      } catch (error) {
+        if (httpStatusOf(error) === 404) return false
+        throw error
+      }
+    })
+    if (!orThrow(found, `reading dataset "${dataset}"`)) {
+      orThrow(
+        await withRetry(async () => {
+          await api.createDataset({ name: dataset, description: 'DEV-1873 golden set' })
+          return true
+        }),
+        `creating dataset "${dataset}"`,
+      )
+    }
+
+    for (const item of items.filter((i) => i.datasetName === dataset)) {
+      const present = orThrow(
+        await withRetry(async () => {
+          try {
+            await api.getItem(item.id)
+            return true
+          } catch (error) {
+            if (httpStatusOf(error) === 404) return false
+            throw error
+          }
+        }),
+        `looking up item "${item.id}"`,
+      )
+      if (present) {
+        existing += 1
+        continue
+      }
+      const created = await withRetry(async () => {
+        const response = (await api.createItem(item)) as { id?: unknown } | null
+        return response?.id === item.id ? true : undefined
+      })
+      if (created) written += 1
+      else failed.push(item.id)
+    }
+  }
+  return { written, existing, failed }
+}
+
+function reportFailedWrites(tag: string, failed: string[]): void {
+  if (failed.length === 0) return
+  console.error(`[${tag}] ${failed.length} item(s) not confirmed written: ${failed.join(', ')}`)
+  process.exitCode = 1
+}
+
+/**
+ * A PostgREST embed as one row. supabase-js types an embedded relation as an
+ * array even when the foreign key makes it many-to-one (an object at runtime),
+ * so both shapes are accepted.
+ */
+function embedOne<T>(value: T | T[] | null | undefined): T | null {
+  if (Array.isArray(value)) return value[0] ?? null
+  return value ?? null
+}
+
+/** Refuses production unless `--target production --confirm` were both given. */
+function assertGoldenTarget(target: string, confirm: boolean): void {
+  assertCensusTarget({
+    supabaseUrl: process.env.NEXT_PUBLIC_SUPABASE_URL ?? '',
+    target,
+    confirmed: confirm,
+  })
+}
+
+async function cmdDatasetHarvest(
+  dataset: string,
+  target: string,
+  confirm: boolean,
+  since?: string,
+  limit?: number,
+): Promise<void> {
+  assertGoldenTarget(target, confirm)
+  const { createServiceClient } = await import('@/lib/supabase/service')
+  const { GOLDEN_PROMPT_PHASES, GOLDEN_PROMPTS, classifyCapturedCall, harvestRowsToItems } =
+    await import('@/lib/services/eval/golden-capture')
+
+  if (!getLangfuse()) {
+    console.error('[harvest] Langfuse not configured')
+    process.exitCode = 1
+    return
+  }
+  const prompt = promptForDataset(dataset)!
+  const texts = await resolveGoldenPromptTexts({ allVersions: true })
+  const supabase = createServiceClient()
+  const toItems = (from: HarvestRow[]) =>
+    harvestRowsToItems(from, { prompt, texts, ...(since ? { since } : {}) })
+
+  // Read-only. Paged until an empty page: PostgREST caps a page (1,000 rows by
+  // default, possibly lower), so a short page is not proof of the end.
+  // Rows arrive newest first, so a --limit stops paging once it is met.
+  const PAGE = 1000
+  const rows: HarvestRow[] = []
+  for (let from = 0; ; ) {
+    let query = supabase
+      .from('brand_ai_results')
+      .select('created_at, job_id, input, brands(slug), brand_submissions(brands(slug))')
+      .in('phase', [...GOLDEN_PROMPT_PHASES[prompt]])
+      .not('input', 'is', null)
+    if (since) query = query.gte('created_at', new Date(since).toISOString())
+    const { data, error } = await query
+      .order('created_at', { ascending: false })
+      .order('id', { ascending: false })
+      .range(from, from + PAGE - 1)
+    if (error) throw new Error(`[harvest] brand_ai_results read failed: ${error.message}`)
+    const page = data ?? []
+    if (page.length === 0) break
+    for (const row of page) {
+      const submission = embedOne(row.brand_submissions)
+      rows.push({
+        created_at: row.created_at,
+        job_id: row.job_id,
+        input: row.input,
+        brand_slug: embedOne(row.brands)?.slug ?? embedOne(submission?.brands)?.slug ?? null,
+      })
+    }
+    from += page.length
+    if (limit !== undefined && toItems(rows).length >= limit) break
+  }
+
+  // Why rows did not become items. Historical rows are matched against every
+  // prompt version compiled with TODAY's variables, so a version whose
+  // variables have since changed lands in `unclassified`.
+  const tally: Record<string, number> = { malformed: 0, unclassified: 0 }
+  for (const name of GOLDEN_PROMPTS) tally[name] = 0
+  for (const row of rows) {
+    const input = row.input as { system?: unknown; user?: unknown } | null
+    if (typeof input?.system !== 'string' || typeof input.user !== 'string') {
+      tally.malformed += 1
+      continue
+    }
+    tally[classifyCapturedCall({ system: input.system }, texts) ?? 'unclassified'] += 1
+  }
+
+  const all = toItems(rows)
+  // Items come back oldest first; a limit keeps the newest.
+  const items = limit !== undefined ? all.slice(-limit) : all
+  const { written, existing, failed } = await writeGoldenItems(items)
+  await flushLangfuse()
+  console.log(
+    `[harvest] ${dataset}: ${rows.length} rows read — ` +
+      Object.entries(tally)
+        .map(([reason, count]) => `${reason} ${count}`)
+        .join(', '),
+  )
+  console.log(
+    `[harvest] ${dataset}: ${all.length} usable (after dedupe), ${items.length} selected, ` +
+      `${written} written (ARCHIVED, pending review), ${existing} already present, ${failed.length} failed`,
+  )
+  reportFailedWrites('harvest', failed)
+}
+
+async function cmdDatasetCapture(
+  brandSlugs: string[],
+  target: string,
+  confirm: boolean,
+  datasets?: string[],
+): Promise<void> {
+  assertGoldenTarget(target, confirm)
+  const { createServiceClient } = await import('@/lib/supabase/service')
+  const { installSeams, assertNoNewAuditRows } = await import('@/lib/services/eval/zero-write')
+  const { setChatCaptureSeam } = await import('@/lib/services/llm-audit')
+  const { runWithAuditContext } = await import('@/lib/audit/context')
+  const { runAcquirePhase } = await import('@/lib/services/enrich-phases/acquire')
+  const { runProductsPhase } = await import('@/lib/services/enrich-phases/products')
+  const { loadCachedSearchResults } = await import('@/lib/services/enrich-phases/discover')
+  const { searchBrandUrls, batchSearchBrandImages } = await import(
+    '@/lib/services/enrich-phases/scraper/search'
+  )
+  const { collectKnownUrls, uniqueUrls } = await import('@/lib/services/curation-operations')
+  const { GOLDEN_DATASETS, capturedCallsToItems } = await import('@/lib/services/eval/golden-capture')
+
+  if (!getLangfuse()) {
+    console.error('[capture] Langfuse not configured')
+    process.exitCode = 1
+    return
+  }
+  // products-repair never runs here (PRODUCTS_AGENT is forced off below), so
+  // it is not a default; its items come from `dataset harvest`.
+  const repairDataset = GOLDEN_DATASETS['products-repair']
+  if (datasets?.includes(repairDataset)) {
+    console.warn(
+      `[capture] warning: capture never calls products-repair; "${repairDataset}" items come from \`dataset harvest\``,
+    )
+  }
+  const selected = datasets ?? Object.values(GOLDEN_DATASETS).filter((d) => d !== repairDataset)
+  const prompts = selected.map((d) => promptForDataset(d)!)
+  const texts = await resolveGoldenPromptTexts({ allVersions: false })
+  const supabase = createServiceClient()
+
+  // Brand reads happen before the seams go in, so an early return needs no restore().
+  const { data: brandRows, error: brandError } = await supabase
+    .from('brands')
+    .select('*')
+    .in('slug', brandSlugs)
+  if (brandError) throw new Error(`[capture] brands read failed: ${brandError.message}`)
+  const bySlug = new Map((brandRows ?? []).map((row) => [row.slug, row as EnrichBrand]))
+  const brands: EnrichBrand[] = []
+  for (const slug of brandSlugs) {
+    const brand = bySlug.get(slug)
+    if (brand) brands.push(brand)
+    else console.error(`[capture] Brand "${slug}" not found`)
+  }
+  if (brands.length === 0) {
+    process.exitCode = 1
+    return
+  }
+  const cachedSearches = await loadCachedSearchResults(
+    brands.map((brand) => brand.id),
+    'brand',
+  )
+
+  const phases: EnrichPhase[] = ['acquire', 'products']
+  // No candidate row may be written; the products phase persists its pool even on a dry run.
+  const noCandidateWrites = { insert: async () => ({ data: null, error: null }) }
+  // Every zero-write count is scoped by this run's own correlation, span and
+  // synthetic submission ids, so the time bound is only a secondary filter. It
+  // is backdated 5 minutes so a local clock running ahead of the database's
+  // `created_at` cannot hide a leaked row.
+  const since = new Date(Date.now() - 5 * 60_000)
+  const correlationIds: string[] = []
+  const submissionIds: string[] = []
+  const captured: TimedCapturedCall[] = []
+  const items: GoldenItemBody[] = []
+  const previousProductsAgent = process.env.PRODUCTS_AGENT
+  const { collector, restore } = installSeams({
+    sinkPath: 'scripts/llm-eval/runs/capture-sink.jsonl',
+  })
+
+  try {
+    // The single-call products body only runs with the agent off.
+    process.env.PRODUCTS_AGENT = 'off'
+    setChatCaptureSeam((call) => {
+      captured.push({ ...call, capturedAt: new Date().toISOString() })
+    })
+
+    for (const brand of brands) {
+      const correlationId = randomUUID()
+      correlationIds.push(correlationId)
+      // A synthetic submission: the products phase runs only for submission
+      // targets, and any row that did escape would fail its foreign key
+      // instead of attaching to a real submission.
+      const target = { type: 'submission' as const, id: randomUUID() }
+      submissionIds.push(target.id)
+      // Same derivation as curation-operations' acquire step.
+      const knownUrls = collectKnownUrls(brand)
+      const discoveredUrls = uniqueUrls(
+        (cachedSearches.get(brand.id)?.urls ?? []).filter((url) => !knownUrls.includes(url)),
+      )
+
+      try {
+        await runWithAuditContext({ correlationId }, async () => {
+          // Known divergences from curation-operations' acquire call (a
+          // deliberate shortcut): no renderProvider (JS-only pages are not
+          // rendered, so the agent sees less than production), no jobId
+          // (nothing joins to a job), no linkExpansion (the pre-acquire
+          // expansion step is not run) and no budgetScale (production sets it
+          // only on reruns, so a first run matches). Ceiling: captured inputs
+          // for render-dependent brands differ from production's. Upgrade
+          // path: extract curation-operations' per-brand acquire setup into a
+          // shared builder and call it here.
+          const acquire = await runAcquirePhase({
+            brand,
+            phases,
+            discoveredUrls,
+            knownUrls,
+            dryRun: true,
+            target,
+            // A dry run still writes search-audit rows; the synthetic target
+            // would fail their foreign key and abort the phase. The searches
+            // run unaudited and the scrape audit is a no-op.
+            deps: {
+              startSearchAudit: async () => 'capture-no-audit',
+              finishSearchAudit: async () => {},
+              searchBrandUrls: (query, template) => searchBrandUrls(query, template),
+              batchSearchBrandImages: (inputs, concurrency, template) =>
+                batchSearchBrandImages(inputs, concurrency, template),
+            },
+          })
+          await runProductsPhase({
+            brand,
+            phases,
+            scrapedData: acquire.scrapedData,
+            dryRun: true,
+            target,
+            imagePool: acquire.imagePool,
+            catalogResult: acquire.catalogResult,
+            acquisitionPageUrls: acquire.acquisitionPageUrls,
+            priorityProductUrls: acquire.priorityProductUrls,
+            candidateWriter: noCandidateWrites,
+          })
+        })
+      } catch (error) {
+        console.error(
+          `[capture] ${brand.slug}: phase run failed: ${error instanceof Error ? error.message : String(error)}`,
+        )
+      }
+
+      const brandItems = capturedCallsToItems(captured.splice(0), {
+        brandSlug: brand.slug,
+        jobId: correlationId,
+        texts,
+        prompts,
+      })
+      items.push(...brandItems)
+      console.log(`[capture] ${brand.slug}: ${brandItems.length} items`)
+    }
+
+    // Before any item leaves the process: a run that leaked a row writes nothing.
+    await assertNoNewAuditRows({
+      since,
+      correlationIds,
+      spanIds: collector.all().map((r) => r.spanId),
+      submissionIds,
+    })
+
+    const { written, existing, failed } = await writeGoldenItems(items)
+    await flushLangfuse()
+
+    for (const dataset of selected) {
+      const count = items.filter((item) => item.datasetName === dataset).length
+      console.log(`[capture] ${dataset}: ${count} items`)
+    }
+    console.log(
+      `[capture] ${written} items written (ARCHIVED, pending review), ${existing} already present, ${failed.length} failed`,
+    )
+    reportFailedWrites('capture', failed)
+  } finally {
+    setChatCaptureSeam(null)
+    restore()
+    if (previousProductsAgent === undefined) delete process.env.PRODUCTS_AGENT
+    else process.env.PRODUCTS_AGENT = previousProductsAgent
+  }
+}
+
 async function cmdPairwiseRun(
   phase: string,
   _target: string,
@@ -1460,7 +2007,7 @@ async function main() {
     applyEnvFile(envFile)
   }
 
-  const { argv: remainingArgv } = loadScriptTarget()
+  const { target, argv: remainingArgv } = loadScriptTarget()
   const parsed = parseCliArgs(remainingArgv)
 
   switch (parsed.command) {
@@ -1475,6 +2022,12 @@ async function main() {
       break
     case 'dataset-seed-intent':
       await cmdDatasetSeedIntent()
+      break
+    case 'dataset-harvest':
+      await cmdDatasetHarvest(parsed.dataset, target, parsed.confirm, parsed.since, parsed.limit)
+      break
+    case 'dataset-capture':
+      await cmdDatasetCapture(parsed.brands, target, parsed.confirm, parsed.datasets)
       break
     case 'dataset-review-enqueue':
       await cmdDatasetReviewEnqueue(parsed.dataset)

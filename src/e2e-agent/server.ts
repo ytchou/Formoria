@@ -111,7 +111,7 @@ function runLabel(runId: string): string {
 }
 
 function runContext(runId: string): string {
-  return `Run: \`${runId}\``
+  return `Run ID: \`${runId}\``
 }
 
 function pointerMessage(
@@ -329,6 +329,8 @@ export async function main(): Promise<void> {
       passed: result.stats.expected,
       failed: result.stats.unexpected,
       flaky: result.stats.flaky,
+      skipped: result.stats.skipped,
+      durationSeconds: Math.round(result.stats.duration / 1000),
       ...(result.unexpectedSkips.length > 0
         ? { summary: `${result.unexpectedSkips.length} unexpected skips` }
         : {}),

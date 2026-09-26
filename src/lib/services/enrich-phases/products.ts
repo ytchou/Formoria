@@ -182,6 +182,14 @@ const productsShape = z.object({
   ),
 });
 
+/** Variables the single-call `products` prompt is compiled with; the golden eval sends the same. */
+export const PRODUCTS_PROMPT_VARIABLES = {
+  category_list: CATEGORY_LIST,
+  subcategory_vocab_block: SUBCATEGORY_VOCAB_BLOCK,
+  material_vocab_block: MATERIAL_VOCAB_BLOCK,
+  taiwan_usage_rules: TAIWAN_USAGE_RULES,
+};
+
 /** Strict reply contract — sent by the legacy call and by the agent's propose turn. */
 export const PRODUCTS_SCHEMA: OpenAIJsonSchema = {
   name: "curated_product_proposals",
@@ -1658,12 +1666,7 @@ export async function runProductsPhase({
           );
           const { text: productsSystemPrompt, prompt: productsPromptMeta } = await fetchLangfusePromptWithMeta(
             "products",
-            {
-              category_list: CATEGORY_LIST,
-              subcategory_vocab_block: SUBCATEGORY_VOCAB_BLOCK,
-              material_vocab_block: MATERIAL_VOCAB_BLOCK,
-              taiwan_usage_rules: TAIWAN_USAGE_RULES,
-            },
+            PRODUCTS_PROMPT_VARIABLES,
           );
           const config = buildProfiledEnrichmentConfig(
             "products",

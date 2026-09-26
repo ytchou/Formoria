@@ -387,6 +387,20 @@ describe("applyNamesResult guards", () => {
     expect(applied.patch).toEqual({ name: "74OUNCE" });
   });
 
+  it("keeps the stored name when a low verdict chose it, instead of the truncated cleaned candidate", () => {
+    const stored = "02 編織工作室 02's crochet";
+    const candidates = [candidate("stored", stored), candidate("cleaned", "02")];
+
+    const applied = applyNamesResult(
+      { chosen: stored, confidence: "low", reason: "僅有清理候選，無法確認" },
+      brand("brand-crochet-02", "crochet-02", stored),
+      candidates,
+    );
+
+    expect(applied.patch).toEqual({});
+    expect(applied.phaseResult.changedFields).toEqual([]);
+  });
+
   it("rejects a high verdict that shares no word with the stored name", () => {
     const candidates = [
       candidate("stored", "74OUNCE"),

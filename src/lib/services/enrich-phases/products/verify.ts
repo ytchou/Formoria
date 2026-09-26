@@ -144,6 +144,9 @@ export function verifyDescription(input: { nameZh: string; productDescriptionZh:
   return failures
 }
 
+/** Prefix of `checkDescriptionOrigin`'s failure string: the only soft failure. */
+export const DESCRIPTION_ORIGIN_OMITTED = 'description_origin_omitted'
+
 /**
  * Soft check: when the page states the product is made in Taiwan (an origin
  * excerpt or the main text), the description must say so. Returns the failure
@@ -156,7 +159,7 @@ export function checkDescriptionOrigin(input: {
 }): string | null {
   const window = findTaiwanOriginWindow(originTextsOf(input))
   if (window === null || descriptionMentionsTaiwan(input.productDescriptionZh)) return null
-  return `description_origin_omitted: page states origin ("${window}"); add it to product_description_zh in the page's own wording`
+  return `${DESCRIPTION_ORIGIN_OMITTED}: page states origin ("${window}"); add it to product_description_zh in the page's own wording`
 }
 
 // ---------------------------------------------------------------------------

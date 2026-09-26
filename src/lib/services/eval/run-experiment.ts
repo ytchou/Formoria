@@ -166,6 +166,18 @@ function zeroScoresFor(adapter: PhaseAdapter): Record<string, number> {
   return zeroScores
 }
 
+/**
+ * The user message for a default-task item. Golden items store the exact
+ * production user text as `{user, promptName}`; sending the whole object as
+ * JSON gave the model a payload production never sends. Other object inputs
+ * have no user text of their own and stay JSON.
+ */
+function userMessageOf(input: unknown): string {
+  if (typeof input === 'string') return input
+  const user = (input as { user?: unknown } | null)?.user
+  return typeof user === 'string' ? user : JSON.stringify(input)
+}
+
 export async function runItems({
   items,
   task,
@@ -368,7 +380,7 @@ export async function runExperiment({
           const result = await deps.callModel(
             {
               system: promptResult.text,
-              user: typeof item.input === 'string' ? item.input : JSON.stringify(item.input),
+              user: userMessageOf(item.input),
               phase: adapter.profileKey,
               prompt: promptResult.prompt,
             },

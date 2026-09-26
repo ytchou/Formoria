@@ -2,10 +2,12 @@ import { beforeAll, describe, expect, it, vi } from 'vitest'
 import { CompiledStateGraph } from '@langchain/langgraph'
 
 import type { ChatMessage } from '@/lib/services/openai-client'
+import type { CuratedProductProposal } from '@/lib/types/enriched-data'
 
 import {
   buildProductsGraph,
   createProductsRunContext,
+  repairedProposalPasses,
   runProductsAgent,
   selectCandidates,
   PRODUCTS_RECURSION_LIMIT,
@@ -1254,5 +1256,47 @@ describe('products agent graph', () => {
     expect(Object.keys(result.verification.dropReasons)).toEqual(
       expect.arrayContaining([expect.stringMatching(/reachable|HTTP/i)]),
     )
+  })
+})
+
+describe('repairedProposalPasses', () => {
+  const BRAND_URL = 'https://brand.com'
+  const NO_ORIGIN = '手工拉坯的陶瓷盤，直徑 21 公分，釉色溫潤。'
+  const WITH_ORIGIN = '在台灣手工拉坯的陶瓷盤，直徑 21 公分，釉色溫潤。'
+
+  function proposal(overrides: Partial<CuratedProductProposal> = {}): CuratedProductProposal {
+    return {
+      key: 'plate',
+      nameZh: '陶瓷盤',
+      category: 'fashion',
+      subcategory: null,
+      material: [],
+      officialUrl: 'https://brand.com/products/plate',
+      productDescriptionZh: WITH_ORIGIN,
+      sources: [],
+      ...overrides,
+    }
+  }
+
+  it('repairedProposalPasses rejects a host change', () => {
+    const onBrand = repairedProposalPasses(proposal(), { brandUrl: BRAND_URL, ownedHosts: [], soft: false })
+    expect(onBrand.passes).toBe(true)
+
+    const moved = repairedProposalPasses(
+      proposal({ officialUrl: 'https://stranger-shop.com/products/plate' }),
+      { brandUrl: BRAND_URL, ownedHosts: [], soft: false },
+    )
+    expect(moved.passes).toBe(false)
+    expect(moved.hostOk).toBe(false)
+    expect(moved.closedSetFailures).toEqual([])
+    expect(moved.descFailures).toEqual([])
+  })
+
+  it('repairedProposalPasses holds soft entries to the Taiwan mention', () => {
+    const opts = { brandUrl: BRAND_URL, ownedHosts: [] as string[] }
+    expect(repairedProposalPasses(proposal({ productDescriptionZh: NO_ORIGIN }), { ...opts, soft: true }).passes).toBe(false)
+    expect(repairedProposalPasses(proposal({ productDescriptionZh: WITH_ORIGIN }), { ...opts, soft: true }).passes).toBe(true)
+    // A hard entry is not held to origin.
+    expect(repairedProposalPasses(proposal({ productDescriptionZh: NO_ORIGIN }), { ...opts, soft: false }).passes).toBe(true)
   })
 })

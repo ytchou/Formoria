@@ -138,6 +138,37 @@ describe('runExperiment', () => {
     expect(result.provisional).toBe(true)
   })
 
+  it('sends a {user} input as the bare user text, and other objects as JSON', async () => {
+    const callModel = vi.fn().mockResolvedValue({
+      ok: true,
+      content: JSON.stringify({ isNonBrand: false, confidence: 'high' }),
+    })
+
+    await runExperiment({
+      dataset: 'test-golden',
+      arms: [makeArm()],
+      adapter: makeAdapter(),
+      items: [
+        makeItem({ id: 'golden', input: { user: '請裁決以下品牌的正式名稱', promptName: 'name-arbiter' } }),
+        makeItem({ id: 'structured', input: { brand: 'test' } }),
+      ],
+      deps: {
+        callModel,
+        writeFile: vi.fn(),
+        now: () => new Date('2026-09-26'),
+        flushLangfuse: vi.fn(),
+        fetchPrompt: vi.fn().mockResolvedValue({ text: 'prompt', prompt: { name: 'detect', version: 1, source: 'langfuse' } }),
+        installSeams: () => ({ collector: makeCollector(), restore: vi.fn() }),
+        assertNoNewAuditRows: vi.fn(),
+        runWithAuditContext: <T>(_seed: unknown, fn: () => T): T => fn(),
+        getAuditContext: () => ({ correlationId: null }),
+      },
+    })
+
+    const users = callModel.mock.calls.map(([input]) => (input as { user: string }).user).sort()
+    expect(users).toEqual(['{"brand":"test"}', '請裁決以下品牌的正式名稱'])
+  })
+
   it('runs each arm over each item with concurrency 4 and one retry', async () => {
     let concurrent = 0
     let maxConcurrent = 0
