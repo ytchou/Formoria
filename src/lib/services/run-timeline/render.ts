@@ -49,9 +49,17 @@ function findingsLabel(event: Extract<RunEvent, { kind: "findings" }>): string {
   if (event.total !== undefined) parts.push(`${event.total} findings`);
   if (event.repairable !== undefined) parts.push(`${event.repairable} repairable`);
   if (event.reportOnly !== undefined) parts.push(`${event.reportOnly} report-only`);
+  if (event.failedDetectors) {
+    const n = event.failedDetectors;
+    parts.push(`${n} detector${n === 1 ? "" : "s"} failed`);
+  }
   if (event.passed !== undefined) parts.push(`${event.passed} passed`);
   if (event.failed !== undefined) parts.push(`${event.failed} failed`);
   if (event.flaky !== undefined) parts.push(`${event.flaky} flaky`);
+  if (event.skipped !== undefined) parts.push(`${event.skipped} skipped`);
+  if (event.durationSeconds !== undefined) {
+    parts.push(`Duration: ${formatDuration(event.durationSeconds)}`);
+  }
   if (event.summary) parts.push(safe(event.summary));
   return parts.length ? parts.join(" · ") : "Findings gathered";
 }
@@ -226,7 +234,7 @@ export function renderTimeline(timeline: RunTimeline): { text: string; blocks: S
     elements: [
       {
         type: "mrkdwn",
-        text: `Details in thread ↓ · \`${safe(timeline.runId, 80).replace(/`/g, "")}\``,
+        text: `Details in thread ↓ · Run ID: \`${safe(timeline.runId, 80).replace(/`/g, "")}\``,
       },
     ],
   });

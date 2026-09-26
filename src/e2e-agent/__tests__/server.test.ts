@@ -464,7 +464,7 @@ describe('e2e-agent server', () => {
 
     const events = timelineEvents(ALERTS_CHANNEL, START_TS)
     expect(events.map((e) => e.kind)).toEqual(['started', 'findings', 'completed'])
-    expect(events[1]).toMatchObject({ passed: 10, failed: 0, flaky: 0 })
+    expect(events[1]).toMatchObject({ passed: 10, failed: 0, flaky: 0, skipped: 0, durationSeconds: 5 })
     // Every update targets the timeline message; no FINAL_LINE overwrite.
     for (const [params] of mockUpdateMessage.mock.calls) {
       expect(params).toMatchObject({ channel: ALERTS_CHANNEL, ts: START_TS })

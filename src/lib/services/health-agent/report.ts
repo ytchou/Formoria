@@ -389,7 +389,7 @@ export function buildDigestBlocks(
 /** Shared thread-detail context line: run id · trace link. */
 function contextBlock(runId: string | undefined, traceUrl: string | undefined): SlackBlock {
   const parts: string[] = []
-  if (runId) parts.push(`Run \`${runId.slice(0, 8)}\``)
+  if (runId) parts.push(`Run ID: \`${runId}\``)
   if (traceUrl) parts.push(`<${traceUrl}|Langfuse trace>`)
   return {
     type: 'context',
@@ -428,7 +428,7 @@ export function buildRepairTriggerBlocks(
     type: 'section',
     text: {
       type: 'mrkdwn',
-      text: `🔧 *${request.findings.length} finding${request.findings.length === 1 ? '' : 's'}* · Run: \`${request.runId.slice(0, 8)}\``,
+      text: `🔧 *${request.findings.length} finding${request.findings.length === 1 ? '' : 's'}*`,
     },
   })
 

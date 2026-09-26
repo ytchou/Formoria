@@ -69,6 +69,37 @@ describe("renderTimeline rows", () => {
     expect(text).toContain("24 findings · 9 repairable · 15 report-only");
   });
 
+  it("names failed detectors in the findings row, and only when some failed", () => {
+    const row = (failedDetectors: number) =>
+      allText(
+        renderTimeline(
+          timeline([{ kind: "findings", at: T0, total: 19, failedDetectors }]),
+        ),
+      );
+    expect(row(2)).toContain("19 findings · 2 detectors failed");
+    expect(row(0)).not.toContain("failed");
+  });
+
+  it("shows e2e skipped count and suite duration in the findings row", () => {
+    const { text, blocks } = renderTimeline(
+      timeline([
+        { kind: "started", at: T0 },
+        {
+          kind: "findings",
+          at: T0 + 30,
+          passed: 205,
+          failed: 0,
+          flaky: 0,
+          skipped: 1,
+          durationSeconds: 471,
+        },
+      ]),
+    );
+    expect(text + JSON.stringify(blocks)).toContain(
+      "205 passed · 0 failed · 0 flaky · 1 skipped · Duration: 7m 51s",
+    );
+  });
+
   it("falls back to UTC HH:mm where Slack cannot localize the time", () => {
     const at = Date.UTC(2026, 8, 25, 7, 5, 0) / 1000;
     const result = renderTimeline(timeline([{ kind: "started", at }]));
@@ -233,6 +264,6 @@ describe("renderTimeline safety", () => {
     };
     expect(last.type).toBe("context");
     expect(last.elements[0]!.text).toContain("Details in thread");
-    expect(last.elements[0]!.text).toContain("run-abc");
+    expect(last.elements[0]!.text).toContain("Run ID: `run-abc`");
   });
 });

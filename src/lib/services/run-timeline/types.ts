@@ -16,10 +16,15 @@ export type RunEvent =
       total?: number;
       repairable?: number;
       reportOnly?: number;
+      /** Detectors that could not run; their sources are missing from `total`. */
+      failedDetectors?: number;
       // e2e agent
       passed?: number;
       failed?: number;
       flaky?: number;
+      skipped?: number;
+      /** Test-suite duration, which excludes setup; `completed` shows wall-clock time. */
+      durationSeconds?: number;
       summary?: string;
     }
   | { kind: "repair_requested"; at: number }

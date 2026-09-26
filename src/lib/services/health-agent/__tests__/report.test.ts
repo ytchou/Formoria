@@ -423,7 +423,8 @@ describe('report — repair trigger blocks', () => {
 
     const summaryText = (blocks[1] as { text: { text: string } }).text.text
     expect(summaryText).toContain('*3 findings*')
-    expect(summaryText).toContain('run-bloc')
+    // The run id lives only in the context line, not repeated in the summary.
+    expect(summaryText).not.toContain('run-bloc')
 
     const sourceBlock = blocks.find(
       (b) => (b as { text?: { text?: string } }).text?.text?.includes('Per source'),
@@ -437,7 +438,7 @@ describe('report — repair trigger blocks', () => {
       elements: Array<{ text: string }>
     }
     expect(contextBlock.type).toBe('context')
-    expect(contextBlock.elements[0].text).toContain('run-bloc')
+    expect(contextBlock.elements[0].text).toContain('Run ID: `run-bloc')
     expect(contextBlock.elements[0].text).toContain('Langfuse trace')
   })
 
