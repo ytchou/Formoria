@@ -12,6 +12,8 @@ export const JEV_INPUT_LABELS = {
   website: "網站",
   searchSnippets: "搜尋摘要",
   productName: "產品名稱",
+  /** One line per probed URL (`category-classifier.ts#probeLines`); may repeat. */
+  probe: "探測",
   /** The value the templates write for a missing field. */
   missingValue: "無",
 } as const;

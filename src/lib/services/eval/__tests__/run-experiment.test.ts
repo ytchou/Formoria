@@ -1216,3 +1216,74 @@ describe('runExperiment — jev arms', () => {
     expect(result.markdown).not.toContain('| threshold |')
   })
 })
+
+describe('runExperiment — calibration and unknown cost', () => {
+  afterEach(() => {
+    delete process.env.LANGFUSE_PROMPT_VERSIONS
+    delete process.env.OPENAI_MODEL_OVERRIDE
+  })
+
+  it('counts an L1 match with an L2 mismatch (score 0.5) as correct and reports ECE', async () => {
+    const decide = vi.fn(async () => ({
+      ok: true,
+      output: { category: 'home', subcategory: null, confidence: 'high', probability: 0.95 },
+    }))
+
+    const result = await runExperiment({
+      dataset: 'test-golden',
+      arms: [jevArm],
+      adapter: makeAdapter({
+        decide,
+        scorers: [{ name: 'categoryAgreement', fn: () => 0.5 }],
+      }),
+      items: [makeItem({ id: 'a' }), makeItem({ id: 'b' })],
+      deps: makeJevDeps(),
+    })
+
+    // Both items accepted at 0.95 and both correct.
+    expect(result.markdown).toContain('| 0.95 | 1.000 | 1.000 |')
+    // Two points at p = 0.95, both correct: |1 - 0.95| = 0.05.
+    expect(result.markdown).toContain('ECE: 0.050')
+  })
+
+  it('keeps cost unknown (n/a) when a call has an unknown price, and priced arms unchanged', async () => {
+    const collector = makeCollector()
+    const deps = {
+      ...makeJevDeps(),
+      installSeams: () => ({ collector, restore: vi.fn() }),
+    }
+    const decide = vi.fn(async (item: ExperimentItem, ctx: { itemRunId: string }) => {
+      // One priced call, and on item b a second call with an unknown price.
+      collector.push({ correlationId: ctx.itemRunId, costUsd: 0.01, latencyMs: 10 } as never)
+      if (item.id === 'b') {
+        collector.push({ correlationId: ctx.itemRunId, costUsd: null, latencyMs: 10 } as never)
+      }
+      return { ok: true, output: { isNonBrand: false, confidence: 'high' } }
+    })
+
+    const unknown = await runExperiment({
+      dataset: 'test-golden',
+      arms: [jevArm],
+      adapter: makeAdapter({ decide }),
+      items: [makeItem({ id: 'a' }), makeItem({ id: 'b' })],
+      deps,
+    })
+
+    const items = unknown.armResults[0]!.items
+    expect(items.find((i) => i.itemId === 'a')!.costUsd).toBeCloseTo(0.01)
+    expect(items.find((i) => i.itemId === 'b')!.costUsd).toBeNull()
+    expect(unknown.armResults[0]!.summary.costPerItem).toBeNull()
+    expect(unknown.markdown).toMatch(/\| jev-1\.13\.0 \|.*\| n\/a \| \d+ \|/)
+
+    const priced = await runExperiment({
+      dataset: 'test-golden',
+      arms: [jevArm],
+      adapter: makeAdapter({ decide }),
+      items: [makeItem({ id: 'a' })],
+      deps,
+    })
+    // Every call priced: the cost is summed and printed in dollars, as before.
+    expect(priced.armResults[0]!.summary.costPerItem).toBeCloseTo(0.01)
+    expect(priced.markdown).toContain('$0.0100')
+  })
+})

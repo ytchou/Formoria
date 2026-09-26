@@ -30,6 +30,7 @@ import {
 } from '@/lib/services/eval/products-calibration'
 import type { SnapshotFile, PromptApi } from '@/lib/services/eval/prompt-sync'
 import { JEV_MODEL } from '@/lib/constants/llm-models'
+import { withRetry, type RetryPolicy } from '@/lib/retry'
 
 // ---------------------------------------------------------------------------
 // Arg parsing
@@ -524,12 +525,32 @@ export function isAdmittedProductsItem(
 // Subcommand handlers
 // ---------------------------------------------------------------------------
 
-async function cmdDatasetValidate(allowUnreviewed: boolean): Promise<void> {
-  const client = getLangfuse()
-  if (!client) {
-    console.error('[validate] Langfuse not configured')
-    process.exitCode = 1
-    return
+/** A Langfuse 404 on a dataset lookup: `LangfuseFetchHttpError` carries the response. */
+export function isDatasetNotFound(e: unknown): boolean {
+  const status = (e as { response?: { status?: unknown } } | null)?.response?.status
+  if (status === 404) return true
+  const message = e instanceof Error ? e.message : String(e)
+  return /\b404\b|not found/i.test(message)
+}
+
+export type ValidateDeps = {
+  /** Injectable for tests; defaults to the Langfuse client's getDataset. */
+  getDataset?: (name: string) => Promise<{ items: Array<{ status: string; metadata?: unknown }> }>
+}
+
+export async function cmdDatasetValidate(
+  allowUnreviewed: boolean,
+  deps: ValidateDeps = {},
+): Promise<void> {
+  let getDataset = deps.getDataset
+  if (!getDataset) {
+    const client = getLangfuse()
+    if (!client) {
+      console.error('[validate] Langfuse not configured')
+      process.exitCode = 1
+      return
+    }
+    getDataset = (name) => client.getDataset(name)
   }
 
   const names = registeredDatasets().filter(
@@ -542,7 +563,14 @@ async function cmdDatasetValidate(allowUnreviewed: boolean): Promise<void> {
   console.log('------------------------------------|----------|------------|--------')
 
   for (const name of names) {
-    const { items } = await client.getDataset(name)
+    let items: Array<{ status: string; metadata?: unknown }>
+    try {
+      ;({ items } = await getDataset(name))
+    } catch (e) {
+      if (!isDatasetNotFound(e)) throw e
+      console.log(`${name.padEnd(36)}| not seeded`)
+      continue
+    }
     const active = items.filter((i) => i.status === 'ACTIVE')
     const archived = items.filter((i) => i.status === 'ARCHIVED')
     const reviewed = active.filter((i) => isReviewed(i))
@@ -555,7 +583,7 @@ async function cmdDatasetValidate(allowUnreviewed: boolean): Promise<void> {
     )
   }
 
-  await flushLangfuse()
+  if (!deps.getDataset) await flushLangfuse()
 
   if (hasUnreviewed && !allowUnreviewed) {
     console.error('[validate] Unreviewed items found. Pass --allow-unreviewed to proceed.')
@@ -847,6 +875,8 @@ export type SituationQuery = { id: string; query: string; split: string }
 export type SeedIntentClient = {
   createDataset: (body: { name: string; description?: string }) => Promise<unknown>
   createDatasetItem: (body: Record<string, unknown>) => Promise<unknown>
+  /** Langfuse omits ARCHIVED items from this list, so every item returned is non-ARCHIVED. */
+  getDataset: (name: string) => Promise<{ items: Array<{ id: string; status: string; expectedOutput?: unknown }> }>
 }
 
 export function readSituationQueries(path: string = SITUATION_SEARCH_SOURCE): SituationQuery[] {
@@ -861,8 +891,8 @@ export type SeedIntentOptions = { sleep?: (ms: number) => Promise<void> }
  * limit; read the limit from 429 headers if the dataset grows past ~1k items.
  */
 const SEED_PACE_MS = 700
-/** Waits before each retry of one item: 1 attempt + 3 retries. */
-const SEED_RETRY_BACKOFF_MS = [2_000, 4_000, 8_000] as const
+/** 1 attempt + 3 retries, waiting ~2s/4s/8s (withRetry adds up to 100% jitter, capped at 8s). */
+const SEED_RETRY_POLICY: RetryPolicy = { attempts: 4, baseMs: 2_000, factor: 2, capMs: 8_000 }
 
 const realSleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms))
 
@@ -872,6 +902,10 @@ const realSleep = (ms: number) => new Promise<void>((resolve) => setTimeout(reso
  * Ids are `intent-<query id>`, so a rerun upserts in place. `split` is copied
  * from the source item, never recomputed.
  *
+ * A rerun must never wipe labels: an id already in the dataset that is not
+ * ARCHIVED, or that has an `expectedOutput`, is kept untouched. ARCHIVED items
+ * are absent from `getDataset(...).items`, so they (and new ids) are upserted.
+ *
  * The Langfuse SDK logs a 429 and resolves instead of rejecting, so an upsert
  * counts only when the call returns the item with the expected `id`. Unconfirmed
  * items are retried with backoff; any still unconfirmed make the seed throw.
@@ -880,7 +914,7 @@ export async function seedIntentDataset(
   client: SeedIntentClient,
   queries: SituationQuery[] = readSituationQueries(),
   { sleep = realSleep }: SeedIntentOptions = {},
-): Promise<{ seeded: number }> {
+): Promise<{ seeded: number; kept: number }> {
   for (const q of queries) {
     if (typeof q?.id !== 'string' || typeof q.query !== 'string' || typeof q.split !== 'string') {
       throw new Error(`[seed-intent] source item ${JSON.stringify(q?.id)} needs string id, query and split`)
@@ -896,11 +930,24 @@ export async function seedIntentDataset(
     if (!/exist/i.test(e instanceof Error ? e.message : String(e))) throw e
   }
 
+  const { items: existing } = await client.getDataset(INTENT_PARSE_DATASET)
+  const keep = new Set(
+    existing
+      .filter((item) => item.status !== 'ARCHIVED' || item.expectedOutput != null)
+      .map((item) => item.id),
+  )
+
   let confirmed = 0
+  let kept = 0
   const failed: string[] = []
-  for (const [index, q] of queries.entries()) {
-    if (index > 0) await sleep(SEED_PACE_MS)
+  let written = 0
+  for (const q of queries) {
     const id = `intent-${q.id}`
+    if (keep.has(id)) {
+      kept++
+      continue
+    }
+    if (written++ > 0) await sleep(SEED_PACE_MS)
     const body = {
       datasetName: INTENT_PARSE_DATASET,
       id,
@@ -909,27 +956,33 @@ export async function seedIntentDataset(
       status: 'ARCHIVED',
       metadata: { split: q.split, humanApproval: { status: 'pending' } },
     }
-    let ok = false
-    for (let attempt = 0; !ok; attempt++) {
-      try {
-        const result = (await client.createDatasetItem(body)) as { id?: unknown } | null | undefined
-        ok = result?.id === id
-      } catch {
-        ok = false
-      }
-      if (ok || attempt >= SEED_RETRY_BACKOFF_MS.length) break
-      await sleep(SEED_RETRY_BACKOFF_MS[attempt]!)
-    }
+    const ok = await withRetry(
+      SEED_RETRY_POLICY,
+      async () => {
+        try {
+          const result = (await client.createDatasetItem(body)) as { id?: unknown } | null | undefined
+          return result?.id === id
+        } catch {
+          return false
+        }
+      },
+      {
+        classify: (confirmedUpsert) =>
+          confirmedUpsert ? { retryable: false, reason: 'terminal' } : { retryable: true, reason: 'rate_limit' },
+        service: 'langfuse-seed-intent',
+        sleep,
+      },
+    )
     if (ok) confirmed++
     else failed.push(id)
   }
 
   if (failed.length > 0) {
     throw new Error(
-      `[seed-intent] ${confirmed}/${queries.length} upserts confirmed; unconfirmed after retries: ${failed.join(', ')}`,
+      `[seed-intent] ${confirmed}/${queries.length - kept} upserts confirmed; unconfirmed after retries: ${failed.join(', ')}`,
     )
   }
-  return { seeded: confirmed }
+  return { seeded: confirmed, kept }
 }
 
 async function cmdDatasetSeedIntent(): Promise<void> {
@@ -940,12 +993,15 @@ async function cmdDatasetSeedIntent(): Promise<void> {
     return
   }
   try {
-    const { seeded } = await seedIntentDataset({
+    const { seeded, kept } = await seedIntentDataset({
       createDataset: (body) => client.createDataset(body),
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       createDatasetItem: (body) => client.createDatasetItem(body as any),
+      getDataset: (name) => client.getDataset(name),
     })
-    console.log(`[seed-intent] ${seeded} ARCHIVED items confirmed in "${INTENT_PARSE_DATASET}"`)
+    console.log(
+      `[seed-intent] ${seeded} ARCHIVED items confirmed, ${kept} labelled/active items kept in "${INTENT_PARSE_DATASET}"`,
+    )
   } catch (e) {
     console.error(e instanceof Error ? e.message : e)
     process.exitCode = 1

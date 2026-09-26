@@ -10,18 +10,28 @@ import { JEV_MODEL } from "@/lib/constants/llm-models";
 import { decide, type DecideDeps } from "./typesafe-audit";
 import type { JevDecideResult, JevQuestion } from "./typesafe-client";
 
-const state = { name: "Example", description: "A Taiwanese tea brand" };
+// The detect candidate's state, as jev-questions.ts builds it from a stored golden input.
+const state = {
+  name: "山焙茶室",
+  description: "南投鹿谷自家茶園的凍頂烏龍與炭焙茶",
+  website: "https://www.shanbei-tea.com.tw",
+  searchSnippets: "山焙茶室｜鹿谷凍頂烏龍茶；山焙茶室 - 炭焙烏龍 禮盒",
+  probes: null,
+};
 const questions: Record<string, JevQuestion> = {
   isNonBrand: {
     type: "noul",
-    instructions: "Is this entity something other than a consumer brand?",
+    instructions:
+      "A submission to Formoria, a directory of Taiwanese product brands. Is this entity definitionally NOT a product brand?",
+    criteria:
+      "Yes only when it is clearly a proxy buyer, a multi-brand shop, a marketplace, a media site, a distributor or an event.",
   },
 };
 
 const clientResult: JevDecideResult = {
   model: JEV_MODEL,
   answers: { isNonBrand: { noul: 0.12 } },
-  usage: { input_tokens: 120, output_tokens: 7 },
+  usage: { inputTokens: 120, outputTokens: 7 },
   latencyMs: 42,
 };
 
@@ -104,6 +114,39 @@ describe("decide", () => {
     expect(result.costUsd).toBe(0.00000504);
   });
 
+  it("prices with the model the response reports", async () => {
+    const { audit } = recordingAudit();
+    const price = pricedAt(0.00000504);
+
+    await decide("detect", state, questions, {
+      client: fakeClient({ ...clientResult, model: "jev-1.13.1" }),
+      audit,
+      price,
+    });
+
+    expect(price).toHaveBeenCalledWith("jev-1.13.1", {
+      prompt_tokens: 120,
+      completion_tokens: 7,
+    });
+  });
+
+  it("skips pricing and reports unknown cost when the response has no usage", async () => {
+    const { audit, calls } = recordingAudit();
+    const price = pricedAt(0.00000504);
+
+    const result = await decide("detect", state, questions, {
+      client: fakeClient({ ...clientResult, usage: null }),
+      audit,
+      price,
+    });
+
+    expect(price).not.toHaveBeenCalled();
+    expect(result.costUsd).toBeNull();
+    expect(result.usage).toBeNull();
+    expect(calls[0]!.ctx.costUsd).toBeNull();
+    expect(calls[0]!.ctx.promptTokens).toBeUndefined();
+  });
+
   it("leaves cost null and does not throw when the price lookup fails", async () => {
     const { audit, calls } = recordingAudit();
     const price = vi.fn(async () => {
@@ -163,6 +206,30 @@ describe("decide", () => {
     expect(typeof input.state).toBe("string");
     expect((input.state as string).length).toBeLessThan(2_100);
     expect(input.questions).toEqual(questions);
+  });
+
+  it("emits an ERROR generation when the call fails", async () => {
+    const generation = vi.fn();
+    const client = {
+      decide: vi.fn(async (): Promise<JevDecideResult> => {
+        throw new Error("TypeSafe request failed with status 503");
+      }),
+    };
+
+    await expect(
+      runWithAuditContext({ langfuseTrace: { generation } }, () =>
+        decide("detect", state, questions, { client, price: pricedAt(null) }),
+      ),
+    ).rejects.toThrow("status 503");
+
+    expect(generation).toHaveBeenCalledTimes(1);
+    expect(generation.mock.calls[0]![0]).toMatchObject({
+      name: "typesafe/decide",
+      model: JEV_MODEL,
+      level: "ERROR",
+      statusMessage: "TypeSafe request failed with status 503",
+      input: { state, questions },
+    });
   });
 
   it("propagates client errors", async () => {

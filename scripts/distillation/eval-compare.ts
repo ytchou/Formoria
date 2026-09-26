@@ -2,7 +2,8 @@
  * the opt-in TypeSafe Jev arm (`--arm jev`, DEV-1824).
  * Scores both L1 (category) and L2 (subcategory) accuracy. */
 import { readFile, mkdir, writeFile } from "node:fs/promises";
-import { resolve } from "node:path";
+import { tmpdir } from "node:os";
+import { join, resolve } from "node:path";
 
 import { z } from "zod";
 
@@ -271,7 +272,7 @@ async function callJev(userContent: string): Promise<ArmResult> {
       import("@/lib/services/eval/jev-questions"),
     ]);
     const run = await JEV_CANDIDATES.productCategory.run(
-      (profileKey, state, questions) => decide(profileKey, state, questions),
+      decide,
       userContent,
     );
     console.log(
@@ -339,13 +340,15 @@ function latencyStats(values: number[]) {
 async function main() {
   const { argv } = loadScriptTarget();
 
-  // Eval runs must not write external_call_audit rows: collect nothing, restore after.
-  const { setAuditWriteSeam } = await import("@/lib/audit");
-  setAuditWriteSeam(async () => null);
+  // Eval runs must not write external_call_audit rows: collect in memory, restore after.
+  const { installSeams } = await import("@/lib/services/eval/zero-write");
+  const seams = installSeams({
+    sinkPath: join(tmpdir(), `eval-compare-${process.pid}.jsonl`),
+  });
   try {
     await runEval(argv);
   } finally {
-    setAuditWriteSeam(null);
+    seams.restore();
   }
 }
 

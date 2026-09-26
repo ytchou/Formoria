@@ -1,7 +1,7 @@
 import { mkdtempSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import {
   parseCliArgs,
@@ -17,6 +17,7 @@ import {
   seedIntentDataset,
   readSituationQueries,
   INTENT_PARSE_DATASET,
+  cmdDatasetValidate,
 } from '../llm-eval'
 import type { PromptApi, SnapshotFile } from '@/lib/services/eval/prompt-sync'
 
@@ -708,6 +709,16 @@ describe('dataset seed-intent', () => {
   const noSleep = vi.fn(async (_ms: number) => {})
   /** A Langfuse client that confirms each upsert by echoing the item id. */
   const echoItem = () => vi.fn(async (body: Record<string, unknown>) => ({ id: body.id }))
+  /** A dataset with no non-ARCHIVED items (Langfuse omits ARCHIVED ones from the list). */
+  const emptyDataset = () => vi.fn().mockResolvedValue({ items: [] })
+
+  // withRetry jitters each wait by up to 100%; pin it so the 2s/4s/8s schedule is exact.
+  beforeEach(() => {
+    vi.spyOn(Math, 'random').mockReturnValue(0)
+  })
+  afterEach(() => {
+    vi.restoreAllMocks()
+  })
 
   it('parseCliArgs accepts dataset seed-intent', () => {
     expect(parseCliArgs(['dataset', 'seed-intent'])).toEqual({ command: 'dataset-seed-intent' })
@@ -718,7 +729,7 @@ describe('dataset seed-intent', () => {
     const runOnce = async () => {
       const createDataset = vi.fn().mockResolvedValue({})
       const createDatasetItem = echoItem()
-      const result = await seedIntentDataset({ createDataset, createDatasetItem }, undefined, { sleep: noSleep })
+      const result = await seedIntentDataset({ createDataset, createDatasetItem, getDataset: emptyDataset() }, undefined, { sleep: noSleep })
       return { createDataset, createDatasetItem, result }
     }
 
@@ -726,7 +737,7 @@ describe('dataset seed-intent', () => {
     const second = await runOnce()
 
     expect(first.createDataset).toHaveBeenCalledWith(expect.objectContaining({ name: 'intent-parse-golden' }))
-    expect(first.result).toEqual({ seeded: 156 })
+    expect(first.result).toEqual({ seeded: 156, kept: 0 })
     expect(first.createDatasetItem).toHaveBeenCalledTimes(156)
 
     const bodies = first.createDatasetItem.mock.calls.map((c) => c[0] as Record<string, unknown>)
@@ -755,7 +766,7 @@ describe('dataset seed-intent', () => {
       { id: 'q2', query: 'b', split: 'train' },
       { id: 'q3', query: 'c', split: 'val' },
     ]
-    await seedIntentDataset({ createDataset: vi.fn().mockResolvedValue({}), createDatasetItem: echoItem() }, queries, { sleep })
+    await seedIntentDataset({ createDataset: vi.fn().mockResolvedValue({}), createDatasetItem: echoItem(), getDataset: emptyDataset() }, queries, { sleep })
     expect(sleep).toHaveBeenCalledTimes(2)
     for (const [ms] of sleep.mock.calls) expect(ms).toBeGreaterThanOrEqual(600)
   })
@@ -773,9 +784,9 @@ describe('dataset seed-intent', () => {
     })
     const sleep = vi.fn(async (_ms: number) => {})
 
-    const result = await seedIntentDataset({ createDataset: vi.fn().mockResolvedValue({}), createDatasetItem }, undefined, { sleep })
+    const result = await seedIntentDataset({ createDataset: vi.fn().mockResolvedValue({}), createDatasetItem, getDataset: emptyDataset() }, undefined, { sleep })
 
-    expect(result).toEqual({ seeded: 156 })
+    expect(result).toEqual({ seeded: 156, kept: 0 })
     expect(createDatasetItem).toHaveBeenCalledTimes(157)
     expect(sleep).toHaveBeenCalledWith(2000)
   })
@@ -791,7 +802,7 @@ describe('dataset seed-intent', () => {
     const sleep = vi.fn(async (_ms: number) => {})
 
     await expect(
-      seedIntentDataset({ createDataset: vi.fn().mockResolvedValue({}), createDatasetItem }, queries, { sleep }),
+      seedIntentDataset({ createDataset: vi.fn().mockResolvedValue({}), createDatasetItem, getDataset: emptyDataset() }, queries, { sleep }),
     ).rejects.toThrow(/1\/2 upserts confirmed.*intent-q2/)
     // 1 attempt + 3 retries for the failing item
     expect(createDatasetItem.mock.calls.filter((c) => c[0].id === 'intent-q2')).toHaveLength(4)
@@ -803,26 +814,87 @@ describe('dataset seed-intent', () => {
 
     await expect(
       seedIntentDataset(
-        { createDataset: vi.fn().mockRejectedValue(new Error('Dataset already exists')), createDatasetItem: echoItem() },
+        { createDataset: vi.fn().mockRejectedValue(new Error('Dataset already exists')), createDatasetItem: echoItem(), getDataset: emptyDataset() },
         queries,
         { sleep: noSleep },
       ),
-    ).resolves.toEqual({ seeded: 1 })
+    ).resolves.toEqual({ seeded: 1, kept: 0 })
 
     await expect(
       seedIntentDataset(
-        { createDataset: vi.fn().mockRejectedValue(new Error('401 unauthorized')), createDatasetItem: vi.fn() },
+        { createDataset: vi.fn().mockRejectedValue(new Error('401 unauthorized')), createDatasetItem: vi.fn(), getDataset: emptyDataset() },
         queries,
         { sleep: noSleep },
       ),
     ).rejects.toThrow(/401/)
   })
 
+  it('a rerun keeps ACTIVE or labelled items instead of resetting them to ARCHIVED', async () => {
+    const queries = [
+      { id: 'q1', query: 'a', split: 'train' },
+      { id: 'q2', query: 'b', split: 'train' },
+      { id: 'q3', query: 'c', split: 'val' },
+    ]
+    const getDataset = vi.fn().mockResolvedValue({
+      items: [
+        { id: 'intent-q1', status: 'ACTIVE', expectedOutput: null },
+        { id: 'intent-q2', status: 'ARCHIVED', expectedOutput: { situation: 'x' } },
+      ],
+    })
+    const createDatasetItem = echoItem()
+
+    const result = await seedIntentDataset(
+      { createDataset: vi.fn().mockResolvedValue({}), createDatasetItem, getDataset },
+      queries,
+      { sleep: noSleep },
+    )
+
+    expect(getDataset).toHaveBeenCalledTimes(1)
+    expect(getDataset).toHaveBeenCalledWith(INTENT_PARSE_DATASET)
+    expect(result).toEqual({ seeded: 1, kept: 2 })
+    expect(createDatasetItem.mock.calls.map((c) => c[0].id)).toEqual(['intent-q3'])
+  })
+
   it('rejects a source item without id, query or split', async () => {
-    const client = { createDataset: vi.fn().mockResolvedValue({}), createDatasetItem: vi.fn() }
+    const client = { createDataset: vi.fn().mockResolvedValue({}), createDatasetItem: vi.fn(), getDataset: emptyDataset() }
     await expect(
       seedIntentDataset(client, [{ id: 'q1', query: 'a query' } as never], { sleep: noSleep }),
     ).rejects.toThrow(/q1/)
     expect(client.createDatasetItem).not.toHaveBeenCalled()
+  })
+})
+
+// ---------------------------------------------------------------------------
+// dataset validate — a registered dataset that was never seeded
+// ---------------------------------------------------------------------------
+
+describe('cmdDatasetValidate', () => {
+  it('reports a missing dataset as not seeded and continues with the rest', async () => {
+    const log = vi.spyOn(console, 'log').mockImplementation(() => {})
+    const getDataset = vi.fn(async (name: string) => {
+      if (name === INTENT_PARSE_DATASET) {
+        throw new Error('HTTP error while fetching Langfuse: 404 and body: {"message":"Dataset not found"}')
+      }
+      return { items: [] }
+    })
+    try {
+      await cmdDatasetValidate(false, { getDataset })
+      const lines = log.mock.calls.map((c) => String(c[0]))
+      expect(lines.some((l) => l.startsWith(INTENT_PARSE_DATASET) && l.includes('not seeded'))).toBe(true)
+      expect(getDataset.mock.calls.length).toBeGreaterThan(1)
+    } finally {
+      log.mockRestore()
+    }
+  })
+
+  it('rethrows any error other than a missing dataset', async () => {
+    const log = vi.spyOn(console, 'log').mockImplementation(() => {})
+    try {
+      await expect(
+        cmdDatasetValidate(false, { getDataset: vi.fn().mockRejectedValue(new Error('401 unauthorized')) }),
+      ).rejects.toThrow(/401/)
+    } finally {
+      log.mockRestore()
+    }
   })
 })

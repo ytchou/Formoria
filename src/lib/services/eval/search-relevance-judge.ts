@@ -1,6 +1,7 @@
 import { z } from 'zod'
 import type { PromptMeta } from '@/lib/langfuse/prompt'
 import { RELEVANCE_GRADE_LEVELS } from '@/lib/prompts/shared'
+import { describeError } from '@/lib/errors'
 import type { OpenAIJsonSchema } from '@/lib/services/openai-client'
 import {
   parseAndValidate,
@@ -94,8 +95,15 @@ export async function judgeRelevance(
   deps: JudgeDeps = {},
 ): Promise<JudgeResult> {
   if (deps.decide) {
-    const { output } = await runJevCandidate(JEV_CANDIDATES.relevanceJudge, deps.decide, input)
-    return output
+    try {
+      const { output } = await runJevCandidate(JEV_CANDIDATES.relevanceJudge, deps.decide, input)
+      return output
+    } catch (error) {
+      // Same degraded result as the chat path when every sample fails, so one
+      // failed call cannot abort a judge run.
+      console.warn(`[search-relevance-judge] Jev decide failed: ${describeError(error)}`)
+      return { grade: null, votes: [], unanimous: false, split: false }
+    }
   }
 
   const samples = deps.samples ?? 3

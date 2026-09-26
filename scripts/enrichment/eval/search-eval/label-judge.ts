@@ -147,9 +147,7 @@ export async function cmdJudge(
   const isJev = judge === 'jev'
   // The Jev arm keeps its own output and resume file so it never overwrites the OpenAI labels.
   const outPath = isJev ? JEV_JUDGED_PAIRS_PATH : JUDGED_PAIRS_PATH
-  const jevDecide: DecideFn | undefined = isJev
-    ? (profileKey, state, questions) => decide(profileKey, state, questions)
-    : undefined
+  const jevDecide: DecideFn | undefined = isJev ? decide : undefined
 
   const samples = parseInt(String(values.samples ?? '3'), 10)
   const temperature = parseFloat(String(values.temperature ?? '0.7'))
@@ -221,6 +219,8 @@ export async function cmdJudge(
   const promptMeta = isJev ? null : await fetchLangfusePromptWithMeta('search-relevance-judge')
 
   const judgedPairs = [...existing]
+  // Jev pairs with no grade are not written, so --resume retries them.
+  let jevUngraded = 0
 
   for (const [queryId, queryCandidates] of byQuery) {
     const q = queryMap.get(queryId)
@@ -261,6 +261,12 @@ export async function cmdJudge(
             },
       )
 
+      if (isJev && result.grade == null) {
+        jevUngraded++
+        console.warn(`  ${c.productKey}: Jev returned no grade, not written (retried on --resume)`)
+        continue
+      }
+
       judgedPairs.push({
         queryId: c.queryId,
         query: q.query,
@@ -282,6 +288,9 @@ export async function cmdJudge(
   }
 
   console.log(`[judge] Total judged pairs: ${judgedPairs.length}`)
+  if (isJev && jevUngraded > 0) {
+    console.warn(`[judge] ${jevUngraded} Jev pairs returned no grade and were not written; rerun to retry them`)
+  }
 
   // The hand-label sheet is built from the OpenAI labels only.
   if (isJev) {

@@ -6,8 +6,11 @@
  * target: staging-default
  * safety: read-only
  * owner: engineering
- * notes: Eval-only. Needs TYPESAFE_API_KEY. A no-op setAuditWriteSeam swallows audit writes, so no external_call_audit rows are written. Exits 1 when any candidate throws or reports an unknown cost.
+ * notes: Eval-only. Needs TYPESAFE_API_KEY. installSeams (eval/zero-write) collects audit writes in memory, so no external_call_audit rows are written. Exits 1 when any candidate throws or reports an unknown cost.
  */
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
+
 import { loadScriptTarget } from '../shared/target'
 
 // @/ imports are loaded dynamically, after loadScriptTarget() sets up env.
@@ -19,13 +22,13 @@ async function main(): Promise<void> {
   loadScriptTarget()
 
   const [
-    { setAuditWriteSeam },
+    { installSeams },
     { decide },
     { JEV_CANDIDATES, runJevCandidate },
     { JEV_INPUT_LABELS },
     { SITE_IDENTITY_LABELS },
   ] = await Promise.all([
-    import('@/lib/audit'),
+    import('@/lib/services/eval/zero-write'),
     import('@/lib/services/typesafe-audit'),
     import('@/lib/services/eval/jev-questions'),
     import('@/lib/prompts/jev'),
@@ -34,18 +37,13 @@ async function main(): Promise<void> {
 
   const L = JEV_INPUT_LABELS
   const S = SITE_IDENTITY_LABELS
-  const decideFn = (
-    profileKey: string,
-    state: Parameters<typeof decide>[1],
-    questions: Parameters<typeof decide>[2],
-  ) => decide(profileKey, state, questions)
 
   // Inline fixtures in the live prompt shapes documented at the top of jev-questions.ts.
   const cases: SmokeCase[] = [
     {
       name: 'detect',
       run: () =>
-        runJevCandidate(JEV_CANDIDATES.detect, decideFn, {
+        runJevCandidate(JEV_CANDIDATES.detect, decide, {
           user: [
             `${L.brandSlug}：mountain-tea-studio`,
             `${L.brandName}：山茶工作室`,
@@ -59,7 +57,7 @@ async function main(): Promise<void> {
     {
       name: 'classification',
       run: () =>
-        runJevCandidate(JEV_CANDIDATES.classification, decideFn, {
+        runJevCandidate(JEV_CANDIDATES.classification, decide, {
           user: [
             `${L.brandName}：山茶工作室`,
             `${L.description}：來自南投鹿谷的小農茶品牌，自產自焙凍頂烏龍茶`,
@@ -70,7 +68,7 @@ async function main(): Promise<void> {
     {
       name: 'siteIdentity',
       run: () =>
-        runJevCandidate(JEV_CANDIDATES.siteIdentity, decideFn, {
+        runJevCandidate(JEV_CANDIDATES.siteIdentity, decide, {
           user: `${S.userPreamble}\n1. [mountain-tea-studio] ${[
             `${S.brandName}：山茶工作室`,
             `${S.categorySlug}：food`,
@@ -88,18 +86,18 @@ async function main(): Promise<void> {
       run: () =>
         runJevCandidate(
           JEV_CANDIDATES.productCategory,
-          decideFn,
+          decide,
           [`${L.productName}：凍頂烏龍茶 150g`, `${L.description}：南投鹿谷手工烘焙的焙火烏龍茶葉`].join('\n'),
         ),
     },
     {
       name: 'intentParse',
-      run: () => runJevCandidate(JEV_CANDIDATES.intentParse, decideFn, { query: '送長輩的台灣茶葉禮盒' }),
+      run: () => runJevCandidate(JEV_CANDIDATES.intentParse, decide, { query: '送長輩的台灣茶葉禮盒' }),
     },
     {
       name: 'relevanceJudge',
       run: () =>
-        runJevCandidate(JEV_CANDIDATES.relevanceJudge, decideFn, {
+        runJevCandidate(JEV_CANDIDATES.relevanceJudge, decide, {
           query: '送長輩的台灣茶葉禮盒',
           product: {
             name_zh: '凍頂烏龍茶禮盒',
@@ -109,8 +107,8 @@ async function main(): Promise<void> {
     },
   ]
 
-  // Collector no-op: nothing reaches external_call_audit. Restored in `finally`.
-  setAuditWriteSeam(async () => null)
+  // Audit writes go to an in-memory collector; nothing reaches external_call_audit. Restored in `finally`.
+  const seams = installSeams({ sinkPath: join(tmpdir(), `jev-smoke-${process.pid}.jsonl`) })
   let failures = 0
   try {
     for (const smokeCase of cases) {
@@ -131,7 +129,7 @@ async function main(): Promise<void> {
       }
     }
   } finally {
-    setAuditWriteSeam(null)
+    seams.restore()
   }
 
   console.log(`\n[jev:smoke] ${cases.length - failures}/${cases.length} candidates passed`)

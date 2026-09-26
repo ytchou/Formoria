@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { JEV_MODEL } from "@/lib/constants/llm-models";
+import { classifyThrownError } from "@/lib/retry";
 import {
   createTypesafeClient,
   TypesafeApiError,
@@ -79,8 +80,7 @@ describe("createTypesafeClient", () => {
     const result = await client.decide({ state, questions });
 
     expect(result.answers).toEqual(okBody().answers);
-    expect(result.usage.input_tokens).toBe(120);
-    expect(result.usage.output_tokens).toBe(7);
+    expect(result.usage).toEqual({ inputTokens: 120, outputTokens: 7 });
     expect(result.model).toBe(JEV_MODEL);
     expect(result.latencyMs).toBeGreaterThanOrEqual(0);
   });
@@ -125,6 +125,88 @@ describe("createTypesafeClient", () => {
     expect(fetchFn).toHaveBeenCalledTimes(2);
     expect(sleep).toHaveBeenCalledTimes(1);
     expect(result.answers).toEqual(okBody().answers);
+  });
+
+  it("reports unknown usage as null, not zero tokens, when the response omits it", async () => {
+    const { usage: _usage, ...noUsage } = okBody();
+    const fetchFn = vi.fn(async () => jsonResponse(noUsage));
+    const client = createTypesafeClient({ apiKey: "ts-key", fetch: fetchFn });
+
+    const result = await client.decide({ state, questions });
+
+    expect(result.usage).toBeNull();
+    expect(result.answers).toEqual(okBody().answers);
+  });
+
+  it("fails a 2xx with a malformed body once, without retry, and reports the real status", async () => {
+    const fetchFn = vi.fn(
+      async () =>
+        new Response('{"answers": {"isNonBrand": {"noul": 0.1', {
+          status: 200,
+          headers: { "content-type": "application/json" },
+        }),
+    );
+    const client = createTypesafeClient({
+      apiKey: "ts-key",
+      fetch: fetchFn,
+      sleep: noSleep,
+    });
+
+    const error = await client
+      .decide({ state, questions })
+      .catch((thrown: unknown) => thrown);
+
+    expect(fetchFn).toHaveBeenCalledTimes(1);
+    expect(error).toBeInstanceOf(TypesafeApiError);
+    expect((error as TypesafeApiError).status).toBe(200);
+    expect((error as Error).message).toContain("invalid JSON body");
+  });
+
+  it("retries a timeout and throws an error the audit envelope classifies as timeout", async () => {
+    const fetchFn = vi.fn(async () => {
+      throw new DOMException("The operation was aborted due to timeout", "TimeoutError");
+    });
+    const sleep = vi.fn(async () => {});
+    const client = createTypesafeClient({ apiKey: "ts-key", fetch: fetchFn, sleep });
+
+    const error = await client
+      .decide({ state, questions })
+      .catch((thrown: unknown) => thrown);
+
+    expect(fetchFn.mock.calls.length).toBeGreaterThan(1);
+    expect(error).toBeInstanceOf(TypesafeApiError);
+    expect((error as TypesafeApiError).callStatus).toBe("timeout");
+    expect(classifyThrownError(error).reason).toBe("timeout");
+  });
+
+  it("retries a network failure and marks it network_error", async () => {
+    const fetchFn = vi
+      .fn<(url: string, init: RequestInit) => Promise<Response>>()
+      .mockRejectedValueOnce(new TypeError("fetch failed"))
+      .mockResolvedValueOnce(jsonResponse(okBody()));
+    const client = createTypesafeClient({
+      apiKey: "ts-key",
+      fetch: fetchFn,
+      sleep: noSleep,
+    });
+
+    const result = await client.decide({ state, questions });
+
+    expect(fetchFn).toHaveBeenCalledTimes(2);
+    expect(result.answers).toEqual(okBody().answers);
+
+    const failing = createTypesafeClient({
+      apiKey: "ts-key",
+      fetch: async () => {
+        throw new TypeError("fetch failed");
+      },
+      sleep: noSleep,
+    });
+    const error = await failing
+      .decide({ state, questions })
+      .catch((thrown: unknown) => thrown);
+    expect((error as TypesafeApiError).callStatus).toBe("network_error");
+    expect((error as TypesafeApiError).status).toBe(0);
   });
 
   it("throws when TYPESAFE_API_KEY is missing", async () => {

@@ -216,7 +216,7 @@ function goldenItem(input: unknown, expectedOutput: unknown): ExperimentItem {
 function fakeDecide(answers: JevAnswers): DecideFn {
   return vi.fn(async () => ({
     answers,
-    usage: { input_tokens: 10, output_tokens: 2 },
+    usage: { inputTokens: 10, outputTokens: 2 },
     latencyMs: 5,
     costUsd: 0.0001,
   }))
@@ -338,6 +338,17 @@ describe('intent-parse-golden adapter', () => {
     expect(expectedSchema.safeParse({ category: 'home', subcategory: null, materials: [] }).success).toBe(true)
     // Null expectedOutput is only legal on ARCHIVED (unlabelled) items, which cmdRun never reads.
     expect(expectedSchema.safeParse(null).success).toBe(false)
+  })
+
+  it('expectedSchema accepts a null L1, as intentParseShape does, and categoryAgreement scores it', () => {
+    const adapter = adapterFor('intent-parse-golden')
+    const label = { category: null, subcategory: null, materials: [] }
+    expect(adapter.expectedSchema.safeParse(label).success).toBe(true)
+
+    const categoryAgreement = adapter.scorers.find((s) => s.name === 'categoryAgreement')!
+    const expected = adapter.expectedOf(goldenItem({ query: 'q' }, label))
+    expect(categoryAgreement.fn({ category: null, subcategory: null, materials: [] }, expected)).toBe(1)
+    expect(categoryAgreement.fn({ category: 'home', subcategory: null, materials: [] }, expected)).toBe(0)
   })
 
   it('intent scorers: materials Jaccard and nullable subcategory agreement', () => {

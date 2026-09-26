@@ -21,7 +21,9 @@ import {
   INTENT_PARSE_SYSTEM_PROMPT,
   intentParseShape,
   validateSubcategory,
+  type IntentParseResult,
 } from '@/lib/services/query-intent-parse'
+import { describeError } from '@/lib/errors'
 import { renderEditorialBands } from '@/lib/constants/curated-products'
 import { PRODUCTS_PROPOSAL_SHAPE } from '@/lib/services/enrich-phases/products'
 import {
@@ -88,10 +90,11 @@ export interface PhaseAdapter {
   }>
   /**
    * Jev decision path, used by custom arms whose value starts with `jev:`.
-   * `ctx.model` is the pinned Jev version. An output that carries a numeric
-   * `probability` adds a threshold sweep to the run summary.
+   * It always calls the pinned `JEV_MODEL`, the only version `parseArm` accepts.
+   * An output that carries a numeric `probability` adds a threshold sweep to
+   * the run summary.
    */
-  decide?: (item: ExperimentItem, ctx: { itemRunId: string; model?: string }) => Promise<{
+  decide?: (item: ExperimentItem, ctx: { itemRunId: string }) => Promise<{
     ok: boolean
     output: unknown
     error?: string
@@ -124,15 +127,9 @@ function makeRequestSchema(name: string, schema: ZodType): { name: string; schem
   return { name, schema: toStrictJsonSchema(schema) }
 }
 
-function errorMessage(e: unknown): string {
-  return e instanceof Error ? e.message : String(e)
-}
-
 /**
  * The `decide` hook for a Jev candidate: the golden item's `input` goes to the
  * candidate as-is, and its output is shaped for the adapter's scorers.
- * `ctx.model` is not forwarded: `decide()` always calls the pinned `JEV_MODEL`,
- * which is the only version `parseArm` accepts.
  */
 function jevDecide<I, S extends JevState, O>(
   candidate: JevCandidate<I, S, O> | TwoStepJevCandidate<I, S, O>,
@@ -143,7 +140,7 @@ function jevDecide<I, S extends JevState, O>(
       const { output } = await runJevCandidate(candidate, decide, item.input as I)
       return { ok: true, output }
     } catch (e) {
-      return { ok: false, output: null, error: errorMessage(e) }
+      return { ok: false, output: null, error: describeError(e) }
     }
   }
 }
@@ -152,7 +149,7 @@ function jevDecide<I, S extends JevState, O>(
 // intent-parse task — the live /discover?q= request, minus cache and timeout fallbacks
 // ---------------------------------------------------------------------------
 
-export type IntentCallModel = (
+type IntentCallModel = (
   input: { system: string; user: string; schema: typeof INTENT_PARSE_JSON_SCHEMA },
   options: { model?: string },
 ) => Promise<{ ok: boolean; content: string }>
@@ -184,7 +181,7 @@ function intentParseTask(callModel: IntentCallModel): NonNullable<PhaseAdapter['
       // Same post-processing as the live path: an L2 outside the taxonomy or its L1 is dropped.
       return { ok: true, output: validateSubcategory(parsed.data) }
     } catch (e) {
-      return { ok: false, output: null, error: errorMessage(e) }
+      return { ok: false, output: null, error: describeError(e) }
     }
   }
 }
@@ -221,15 +218,14 @@ const siteIdentityExpectedSchema = z.object({
 /**
  * A labelled intent. Seeded items carry `expectedOutput: null` and stay
  * ARCHIVED until prelabel, so this schema never sees them: prelabel validates
- * the label it writes, and `cmdRun` reads ACTIVE items only.
+ * the label it writes, and `cmdRun` reads ACTIVE items only. `category` is
+ * nullable like `intentParseShape`: a query with no L1 is a valid label.
  */
 const intentExpectedSchema = z.object({
-  category: z.string(),
+  category: z.string().nullable(),
   subcategory: z.string().nullable(),
   materials: z.array(z.string()),
 })
-
-type IntentShape = { category: string | null; subcategory: string | null; materials: string[] }
 
 // ---------------------------------------------------------------------------
 // Registry
@@ -482,18 +478,19 @@ const registry: Record<string, PhaseAdapter> = {
     expectedSchema: intentExpectedSchema,
     scorers: [
       // First scorer is the threshold-sweep target: the Jev probability is P(L1).
+      // A null expected L1 agrees only with a null output L1.
       { name: 'categoryAgreement', fn: (o, e) => {
-        return decisionAgreement((o as IntentShape).category, (e as IntentShape).category)
+        return decisionAgreement((o as IntentParseResult).category, (e as IntentParseResult).category)
       }},
       { name: 'subcategoryAgreement', nullable: true, fn: (o, e) => {
-        const out = (o as IntentShape).subcategory ?? null
-        const exp = (e as IntentShape).subcategory ?? null
+        const out = (o as IntentParseResult).subcategory ?? null
+        const exp = (e as IntentParseResult).subcategory ?? null
         // n/a when neither side names an L2; a missing or extra L2 disagrees.
         if (out === null && exp === null) return null
         return out === exp ? 1 : 0
       }},
       { name: 'materialsJaccard', fn: (o, e) => {
-        return jaccard(new Set((o as IntentShape).materials), new Set((e as IntentShape).materials))
+        return jaccard(new Set((o as IntentParseResult).materials), new Set((e as IntentParseResult).materials))
       }},
     ],
     mode: 'scored',

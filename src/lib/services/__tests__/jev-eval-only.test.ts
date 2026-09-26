@@ -40,12 +40,23 @@ function violations(files: readonly string[]): string[] {
     .map((file) => relative(ROOT, file));
 }
 
-/** Legitimate Jev importers: the eval harness, the Jev modules themselves, tests. */
+/**
+ * The eval modules that legitimately import Jev. Listed by file, not by
+ * directory: other eval/ modules (scorers.ts, llm-usage-sink.ts) are imported
+ * by runtime code, so they must stay scanned.
+ */
+const ALLOWED_EVAL_IMPORTERS: ReadonlySet<string> = new Set([
+  "src/lib/services/eval/jev-questions.ts",
+  "src/lib/services/eval/phase-adapters.ts",
+  "src/lib/services/eval/search-relevance-judge.ts",
+]);
+
+/** Legitimate Jev importers: the listed eval modules, the Jev modules themselves, tests. */
 function isAllowedLibImporter(file: string): boolean {
   const rel = relative(ROOT, file).split(sep).join("/");
   const name = rel.slice(rel.lastIndexOf("/") + 1);
   return (
-    rel.startsWith("src/lib/services/eval/") ||
+    ALLOWED_EVAL_IMPORTERS.has(rel) ||
     name.startsWith("typesafe-") ||
     rel.includes("/__tests__/") ||
     /\.test\.[cm]?[jt]sx?$/.test(name)
@@ -67,6 +78,10 @@ describe("Jev stays eval-only (DEV-1824 D2)", () => {
       (file) => !isAllowedLibImporter(file),
     );
     expect(files.length).toBeGreaterThan(0);
+    // Runtime-imported eval modules are scanned, not exempt.
+    const scanned = files.map((file) => relative(ROOT, file).split(sep).join("/"));
+    expect(scanned).toContain("src/lib/services/eval/scorers.ts");
+    expect(scanned).toContain("src/lib/services/eval/llm-usage-sink.ts");
     expect(violations(files)).toEqual([]);
   });
 

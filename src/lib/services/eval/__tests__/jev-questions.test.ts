@@ -39,7 +39,7 @@ function fakeDecide(
     calls.push({ state, questions })
     return {
       answers: answersFor(questions),
-      usage: { input_tokens: 10, output_tokens: 0 },
+      usage: { inputTokens: 10, outputTokens: 0 },
       latencyMs: 5,
       costUsd: 0.001,
     }
@@ -56,25 +56,48 @@ describe('JEV_CANDIDATES', () => {
       description: null,
       website: 'https://dcb.or.kr',
       searchSnippets: 'Design Council Busan provides design education；WDO Design Council Busan',
+      probes: null,
     })
     const q = c.questions(state)
     expect(q.isNonBrand?.type).toBe('noul')
 
-    expect(c.toOutput({ isNonBrand: { noul: 0.95 } }, state)).toEqual({
+    expect(c.toOutput({ isNonBrand: { noul: 0.95 } })).toEqual({
       isNonBrand: true,
       confidence: 'high',
       probability: 0.95,
     })
     // p = 0.2 → not a non-brand, and the decision's own confidence is 0.8 → medium
-    const low = c.toOutput({ isNonBrand: { noul: 0.2 } }, state)
+    const low = c.toOutput({ isNonBrand: { noul: 0.2 } })
     expect(low.isNonBrand).toBe(false)
     expect(low.probability).toBeCloseTo(0.8)
     expect(low.confidence).toBe('medium')
     // exactly 0.5 counts as a non-brand verdict at low confidence
-    expect(c.toOutput({ isNonBrand: { noul: 0.5 } }, state)).toEqual({
+    expect(c.toOutput({ isNonBrand: { noul: 0.5 } })).toEqual({
       isNonBrand: true,
       confidence: 'low',
       probability: 0.5,
+    })
+  })
+
+  it('detect: probe lines become their own field instead of leaking into the one before', () => {
+    const state = JEV_CANDIDATES.detect.buildState({
+      user: [
+        '品牌 slug：submission-7f3a',
+        '品牌名稱：山焙茶室',
+        '描述：鹿谷自家茶園的炭焙烏龍',
+        '網站：無',
+        '搜尋摘要：山焙茶室｜鹿谷凍頂烏龍茶',
+        '探測：山焙茶室 — 炭焙烏龍禮盒 (instagram)',
+        '探測：https://www.facebook.com/shanbei.tea',
+      ].join('\n'),
+      promptName: 'detect',
+    })
+    expect(state).toEqual({
+      name: '山焙茶室',
+      description: '鹿谷自家茶園的炭焙烏龍',
+      website: null,
+      searchSnippets: '山焙茶室｜鹿谷凍頂烏龍茶',
+      probes: '山焙茶室 — 炭焙烏龍禮盒 (instagram)\nhttps://www.facebook.com/shanbei.tea',
     })
   })
 
@@ -96,7 +119,6 @@ describe('JEV_CANDIDATES', () => {
     const home = L1_CATEGORIES[4].slug
     const out = c.toOutput(
       { category: { choice: home, probabilities: { [home]: 0.92, [L1_CATEGORIES[6].slug]: 0.08 } } },
-      state,
     )
     expect(out).toEqual({ category: home, confidence: 'high', probability: 0.92 })
   })
@@ -114,12 +136,12 @@ describe('JEV_CANDIDATES', () => {
       story: '淡香精 A / B 空間噴霧',
     })
     expect(c.questions(state).owned?.type).toBe('noul')
-    expect(c.toOutput({ owned: { noul: 0.75 } }, state)).toEqual({
+    expect(c.toOutput({ owned: { noul: 0.75 } })).toEqual({
       owned: true,
       confidence: 'medium',
       probability: 0.75,
     })
-    const notOwned = c.toOutput({ owned: { noul: 0.02 } }, state)
+    const notOwned = c.toOutput({ owned: { noul: 0.02 } })
     expect(notOwned.owned).toBe(false)
     expect(notOwned.confidence).toBe('high')
     expect(notOwned.probability).toBeCloseTo(0.98)
@@ -166,7 +188,7 @@ describe('JEV_CANDIDATES', () => {
       probability: expect.closeTo(0.27, 6),
     })
     expect(result.costUsd).toBeCloseTo(0.002)
-    expect(result.usage).toEqual({ input_tokens: 20, output_tokens: 0 })
+    expect(result.usage).toEqual({ inputTokens: 20, outputTokens: 0 })
 
     // An L2 that does not belong to its L1 is never picked.
     const foreign = subsOf(d)[0]!
@@ -176,7 +198,6 @@ describe('JEV_CANDIDATES', () => {
         [cand.l2Key(a)]: { choice: foreign, probabilities: { [foreign]: 0.99 } },
         [cand.l2Key(b)]: { choice: subsOf(b)[1], probabilities: { [subsOf(b)[1]!]: 0.5 } },
       },
-      state,
     )
     expect(out.category).toBe(b)
     expect(out.subcategory).toBe(subsOf(b)[1])
@@ -207,13 +228,11 @@ describe('JEV_CANDIDATES', () => {
     }
     const coarse = cand.toOutput(
       { ...stepOne, subcategory: { choice: homeSub, probabilities: { [homeSub]: 0.89 } } },
-      state,
     )
     expect(coarse).toEqual({ category: home, subcategory: null, materials: [m0, m1], probability: 0.8 })
 
     const fine = cand.toOutput(
       { ...stepOne, subcategory: { choice: homeSub, probabilities: { [homeSub]: 0.9 } } },
-      state,
     )
     expect(fine.subcategory).toBe(homeSub)
 
@@ -254,15 +273,15 @@ describe('JEV_CANDIDATES', () => {
     for (const desc of Object.values(q.criteria)) expect(desc.length).toBeGreaterThan(10)
 
     const probabilities = { '0': 0.05, '1': 0.15, '2': 0.5, '3': 0.3 }
-    expect(cand.toOutput({ grade: { score: 2.05, probabilities } }, state)).toEqual({
+    expect(cand.toOutput({ grade: { score: 2.05, probabilities } })).toEqual({
       grade: 2,
       votes: [2],
       unanimous: true,
       split: false,
       probabilities,
     })
-    expect(cand.toOutput({ grade: { score: 2.6 } }, state).votes).toEqual([3])
+    expect(cand.toOutput({ grade: { score: 2.6 } }).votes).toEqual([3])
     // no score → no vote, like an all-malformed OpenAI judge run
-    expect(cand.toOutput({}, state)).toEqual({ grade: null, votes: [], unanimous: false, split: false })
+    expect(cand.toOutput({})).toEqual({ grade: null, votes: [], unanimous: false, split: false })
   })
 })

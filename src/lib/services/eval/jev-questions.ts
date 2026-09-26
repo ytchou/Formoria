@@ -11,8 +11,8 @@
  * - `detect-confidence-golden` (12 ACTIVE): `input = { user, promptName: 'detect' }`.
  *   `user` is the live chat message (`category-classifier.ts#detectBrand`), one
  *   `<label>：<value>` line each for brandSlug, brandName, description, website and
- *   searchSnippets (snippets joined by a full-width semicolon). A missing
- *   description or website is written as `missingValue`.
+ *   searchSnippets (snippets joined by a full-width semicolon), then up to four
+ *   `probe` lines. A missing description or website is written as `missingValue`.
  * - `category-confidence-golden` (12 ACTIVE): `input = { user, promptName: 'category-classify' }`,
  *   `user` = brandName and description lines.
  * - `site-identity-confidence-golden` (22 ACTIVE): `input = { user, promptName: 'site-identity' }`,
@@ -58,11 +58,11 @@ import { bandFromProbability, type ConfidenceBand } from './scorers'
 // ---------------------------------------------------------------------------
 
 /** A noul verdict is "yes" at p >= 0.5 (plan tweakable decision 2). */
-export const NOUL_TRUE_AT = 0.5
+const NOUL_TRUE_AT = 0.5
 /** productCategory keeps the top K L1s and asks one L2 choice per L1 (decision 3). */
-export const PRODUCT_BEAM_K = 3
+const PRODUCT_BEAM_K = 3
 /** intentParse keeps the L2 only at this confidence; below it, L1 only (decision 4). */
-export const INTENT_SUBCATEGORY_MIN = 0.9
+const INTENT_SUBCATEGORY_MIN = 0.9
 /** Same cap as the OpenAI judge's user message. */
 const RELEVANCE_DESCRIPTION_MAX = 600
 
@@ -73,7 +73,7 @@ const L1_SLUGS: ReadonlySet<string> = new Set(L1_CATEGORIES.map((c) => c.slug))
 // ---------------------------------------------------------------------------
 
 export type JevAnswers = Record<string, JevAnswer>
-export type JevQuestions = Record<string, JevQuestion>
+type JevQuestions = Record<string, JevQuestion>
 
 /** `decide()` from typesafe-audit.ts, injected so tests and callers choose the transport. */
 export type DecideFn = (
@@ -86,15 +86,15 @@ export type JevCandidate<I, S extends JevState, O> = {
   profileKey: string
   buildState(input: I): S
   questions(state: S): JevQuestions
-  toOutput(answers: JevAnswers, state: S): O
+  toOutput(answers: JevAnswers): O
 }
 
-export type JevRunResult<O> = {
+type JevRunResult<O> = {
   output: O
   /** Answers from every call, merged. */
   answers: JevAnswers
-  /** Summed over every call. */
-  usage: JevUsage
+  /** Summed over every call; null when any call's usage is unknown. */
+  usage: JevUsage | null
   latencyMs: number
   /** Summed; null when any call's cost is unknown. */
   costUsd: number | null
@@ -105,20 +105,22 @@ export type TwoStepJevCandidate<I, S extends JevState, O> = JevCandidate<I, S, O
 }
 
 /** A golden chat input: the stored `{ user, promptName }` item input, or the bare user message. */
-export type GoldenChatInput = string | { user: string; promptName?: string }
+type GoldenChatInput = string | { user: string; promptName?: string }
 
-export type DetectState = {
+type DetectState = {
   name: string | null
   description: string | null
   website: string | null
   searchSnippets: string | null
+  /** Probe lines, newline-joined; null when the message has none. */
+  probes: string | null
 }
-export type DetectOutput = { isNonBrand: boolean; confidence: ConfidenceBand; probability: number }
+type DetectOutput = { isNonBrand: boolean; confidence: ConfidenceBand; probability: number }
 
-export type BrandTextState = { name: string | null; description: string | null }
-export type ClassificationOutput = { category: string; confidence: ConfidenceBand; probability: number }
+type BrandTextState = { name: string | null; description: string | null }
+type ClassificationOutput = { category: string; confidence: ConfidenceBand; probability: number }
 
-export type SiteIdentityState = {
+type SiteIdentityState = {
   brandName: string | null
   categorySlug: string | null
   subjectKind: 'website' | 'source-page' | null
@@ -127,9 +129,9 @@ export type SiteIdentityState = {
   description: string | null
   story: string | null
 }
-export type SiteIdentityOutput = { owned: boolean; confidence: ConfidenceBand; probability: number }
+type SiteIdentityOutput = { owned: boolean; confidence: ConfidenceBand; probability: number }
 
-export type ProductCategoryOutput = {
+type ProductCategoryOutput = {
   category: string
   subcategory: string | null
   confidence: ConfidenceBand
@@ -137,9 +139,9 @@ export type ProductCategoryOutput = {
   probability: number
 }
 
-export type IntentParseInput = { query: string }
-export type IntentParseState = { query: string }
-export type IntentParseOutput = {
+type IntentParseInput = { query: string }
+type IntentParseState = { query: string }
+type IntentParseOutput = {
   category: string
   subcategory: string | null
   materials: string[]
@@ -147,7 +149,7 @@ export type IntentParseOutput = {
   probability: number
 }
 
-export type RelevanceProduct = {
+type RelevanceProduct = {
   name_zh: string
   name_en?: string | null
   category_zh?: string | null
@@ -155,10 +157,10 @@ export type RelevanceProduct = {
   materials_zh?: string | null
   description_zh?: string | null
 }
-export type RelevanceJudgeInput = { query: string; product: RelevanceProduct }
-export type RelevanceJudgeState = { query: string; product: Partial<RelevanceProduct> }
+type RelevanceJudgeInput = { query: string; product: RelevanceProduct }
+type RelevanceJudgeState = { query: string; product: Partial<RelevanceProduct> }
 /** Spreads into `judgeRelevance`'s `JudgeResult`. */
-export type RelevanceJudgeOutput = {
+type RelevanceJudgeOutput = {
   grade: number | null
   votes: number[]
   unanimous: boolean
@@ -229,7 +231,10 @@ function valueOrNull(value: string | undefined): string | null {
 
 /**
  * Splits a `<label>：<value>` per-line message on the known labels only, so a `：`
- * inside a value never opens a new field. Unlabelled lines continue the previous field.
+ * inside a value never opens a new field. A repeated label (probe lines) collects
+ * its values newline-joined. An unlabelled line continues the previous field, so
+ * a multi-line description stays whole; every label the templates emit must be
+ * in `labels`, or its lines leak into the field before them.
  */
 function parseLabelledLines(text: string, labels: readonly string[]): Record<string, string> {
   const fields: Record<string, string> = {}
@@ -238,7 +243,8 @@ function parseLabelledLines(text: string, labels: readonly string[]): Record<str
     const label = labels.find((l) => line.startsWith(`${l}：`))
     if (label) {
       current = label
-      fields[label] = line.slice(label.length + 1)
+      const value = line.slice(label.length + 1)
+      fields[label] = label in fields ? `${fields[label]}\n${value}` : value
     } else if (current && line.trim()) {
       fields[current] += `\n${line}`
     }
@@ -350,18 +356,48 @@ function noulVerdict(answers: JevAnswers, questionKey: string): { yes: boolean; 
   return { yes, probability: yes ? p : 1 - p }
 }
 
+function sumUsage(runs: DecideResult[]): JevUsage | null {
+  let inputTokens = 0
+  let outputTokens = 0
+  for (const { usage } of runs) {
+    if (!usage) return null
+    inputTokens += usage.inputTokens
+    outputTokens += usage.outputTokens
+  }
+  return { inputTokens, outputTokens }
+}
+
 function combineRuns<O>(runs: DecideResult[], output: O, answers: JevAnswers): JevRunResult<O> {
   const costs = runs.map((r) => r.costUsd)
   return {
     output,
     answers,
-    usage: {
-      input_tokens: runs.reduce((sum, r) => sum + r.usage.input_tokens, 0),
-      output_tokens: runs.reduce((sum, r) => sum + r.usage.output_tokens, 0),
-    },
+    usage: sumUsage(runs),
     latencyMs: runs.reduce((sum, r) => sum + r.latencyMs, 0),
     costUsd: costs.some((c) => c === null) ? null : costs.reduce<number>((sum, c) => sum + (c ?? 0), 0),
   }
+}
+
+/**
+ * The two-step flow shared by productCategory and intentParse: step 1 asks the
+ * candidate's own questions; `stepTwo` derives the follow-up questions from its
+ * answers. No follow-up questions means one call.
+ */
+async function runTwoStep<I, S extends JevState, O>(
+  candidate: JevCandidate<I, S, O>,
+  decide: DecideFn,
+  input: I,
+  stepTwo: (first: JevAnswers) => JevQuestions,
+): Promise<JevRunResult<O>> {
+  const state = candidate.buildState(input)
+  const first = await decide(candidate.profileKey, state, candidate.questions(state))
+  const followUp = stepTwo(first.answers)
+  if (Object.keys(followUp).length === 0) {
+    return combineRuns([first], candidate.toOutput(first.answers), first.answers)
+  }
+  const second = await decide(candidate.profileKey, state, followUp)
+  const answers = { ...first.answers, ...second.answers }
+  return combineRuns([first, second], candidate.toOutput(answers), answers)
 }
 
 // ---------------------------------------------------------------------------
@@ -373,6 +409,7 @@ const DETECT_LABELS = {
   description: JEV_INPUT_LABELS.description,
   website: JEV_INPUT_LABELS.website,
   snippets: JEV_INPUT_LABELS.searchSnippets,
+  probe: JEV_INPUT_LABELS.probe,
 } as const
 
 const detect: JevCandidate<GoldenChatInput, DetectState, DetectOutput> = {
@@ -385,6 +422,7 @@ const detect: JevCandidate<GoldenChatInput, DetectState, DetectOutput> = {
       description: valueOrNull(fields[DETECT_LABELS.description]),
       website: valueOrNull(fields[DETECT_LABELS.website]),
       searchSnippets: valueOrNull(fields[DETECT_LABELS.snippets]),
+      probes: valueOrNull(fields[DETECT_LABELS.probe]),
     }
   },
   questions() {
@@ -508,7 +546,6 @@ function productCategoryOutput(answers: JevAnswers): ProductCategoryOutput {
 
 const productCategory: TwoStepJevCandidate<GoldenChatInput, BrandTextState, ProductCategoryOutput> & {
   l2Key(l1: string): string
-  l2Questions(state: BrandTextState, l1Slugs: readonly string[]): JevQuestions
 } = {
   profileKey: 'productCategory',
   buildState(input) {
@@ -529,25 +566,15 @@ const productCategory: TwoStepJevCandidate<GoldenChatInput, BrandTextState, Prod
     return { l1 }
   },
   l2Key: productL2Key,
-  /** Step 2: one L2 choice per beam L1, all in one call. */
-  l2Questions(_state, l1Slugs) {
-    return productL2Questions(l1Slugs)
-  },
   /** Picks the max joint P(L1) * P(L2 | L1) over the L1s that have an L2 answer. */
   toOutput(answers) {
     return productCategoryOutput(answers)
   },
-  async run(decide, input) {
-    const state = productCategory.buildState(input)
-    const first = await decide(productCategory.profileKey, state, productCategory.questions(state))
-    const beam = topChoices(first.answers.l1, L1_SLUGS, PRODUCT_BEAM_K)
-    const l2Questions = productL2Questions(beam)
-    if (Object.keys(l2Questions).length === 0) {
-      return combineRuns([first], productCategoryOutput(first.answers), first.answers)
-    }
-    const second = await decide(productCategory.profileKey, state, l2Questions)
-    const answers = { ...first.answers, ...second.answers }
-    return combineRuns([first, second], productCategoryOutput(answers), answers)
+  /** Step 2: one L2 choice per beam L1, all in one call. */
+  run(decide, input) {
+    return runTwoStep(productCategory, decide, input, (first) =>
+      productL2Questions(topChoices(first.l1, L1_SLUGS, PRODUCT_BEAM_K)),
+    )
   },
 }
 
@@ -577,9 +604,7 @@ function intentParseOutput(answers: JevAnswers): IntentParseOutput {
   }
 }
 
-const intentParse: TwoStepJevCandidate<IntentParseInput, IntentParseState, IntentParseOutput> & {
-  subcategoryQuestions(state: IntentParseState, l1: string): JevQuestions
-} = {
+const intentParse: TwoStepJevCandidate<IntentParseInput, IntentParseState, IntentParseOutput> = {
   profileKey: 'intentParse',
   buildState(input) {
     return { query: input.query }
@@ -605,25 +630,15 @@ const intentParse: TwoStepJevCandidate<IntentParseInput, IntentParseState, Inten
     }
     return questions
   },
-  /** Step 2: one L2 choice within the chosen L1. */
-  subcategoryQuestions(_state, l1) {
-    return intentSubcategoryQuestions(l1)
-  },
   /** Keeps the L1; drops the L2 below `INTENT_SUBCATEGORY_MIN`; materials at p >= 0.5. */
   toOutput(answers) {
     return intentParseOutput(answers)
   },
-  async run(decide, input) {
-    const state = intentParse.buildState(input)
-    const first = await decide(intentParse.profileKey, state, intentParse.questions(state))
-    const category = requireChoice(first.answers, 'category', L1_SLUGS)
-    const subQuestions = intentSubcategoryQuestions(category.key)
-    if (Object.keys(subQuestions).length === 0) {
-      return combineRuns([first], intentParseOutput(first.answers), first.answers)
-    }
-    const second = await decide(intentParse.profileKey, state, subQuestions)
-    const answers = { ...first.answers, ...second.answers }
-    return combineRuns([first, second], intentParseOutput(answers), answers)
+  /** Step 2: one L2 choice within the chosen L1. */
+  run(decide, input) {
+    return runTwoStep(intentParse, decide, input, (first) =>
+      intentSubcategoryQuestions(requireChoice(first, 'category', L1_SLUGS).key),
+    )
   },
 }
 
@@ -707,5 +722,5 @@ export async function runJevCandidate<I, S extends JevState, O>(
   if ('run' in candidate) return candidate.run(decide, input)
   const state = candidate.buildState(input)
   const result = await decide(candidate.profileKey, state, candidate.questions(state))
-  return combineRuns([result], candidate.toOutput(result.answers, state), result.answers)
+  return combineRuns([result], candidate.toOutput(result.answers), result.answers)
 }

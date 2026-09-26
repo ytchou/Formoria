@@ -156,7 +156,7 @@ describe('judgeRelevance', () => {
         answers: {
           grade: { score, probabilities: { '0': 0.05, '1': 0.1, '2': 0.6, '3': 0.25 } },
         },
-        usage: { input_tokens: 120, output_tokens: 4 },
+        usage: { inputTokens: 120, outputTokens: 4 },
         latencyMs: 42,
         costUsd: 0.0001,
       }
@@ -187,6 +187,17 @@ describe('judgeRelevance', () => {
       expect(result.unanimous).toBe(true)
       expect(result.split).toBe(false)
       expect(result.probabilities).toEqual({ '0': 0.05, '1': 0.1, '2': 0.6, '3': 0.25 })
+    })
+
+    it('returns the degraded null-grade result, not a throw, when decide fails', async () => {
+      const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+      const decide = vi.fn().mockRejectedValue(new Error('TypeSafe request failed with status 422'))
+
+      const result = await judgeRelevance({ query: QUERY, product }, { decide })
+
+      expect(result).toEqual({ grade: null, votes: [], unanimous: false, split: false })
+      expect(warn).toHaveBeenCalledWith(expect.stringContaining('status 422'))
+      warn.mockRestore()
     })
 
     it('returns a null grade with no votes when the score is missing', async () => {
