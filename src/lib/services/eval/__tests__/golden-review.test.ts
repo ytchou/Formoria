@@ -86,7 +86,7 @@ describe('enqueueDataset', () => {
     })
   })
 
-  it('includes ARCHIVED items with humanApproval.status pending and excludes rejected/bare archived', async () => {
+  it('includes ACTIVE pending items and excludes every ARCHIVED item', async () => {
     const traceFn = vi
       .fn()
       .mockReturnValueOnce({ id: 'trace-1' })
@@ -95,6 +95,10 @@ describe('enqueueDataset', () => {
 
     const items = [
       makeItem({ id: 'active-1' }),
+      makeItem({
+        id: 'active-pending',
+        metadata: { humanApproval: { status: 'pending' } },
+      }),
       makeItem({
         id: 'archived-pending',
         status: 'ARCHIVED',
@@ -126,7 +130,7 @@ describe('enqueueDataset', () => {
     const tracedIds = traceFn.mock.calls.map(
       (c) => (c[0] as { metadata: { itemId: string } }).metadata.itemId,
     )
-    expect(tracedIds).toEqual(['active-1', 'archived-pending'])
+    expect(tracedIds).toEqual(['active-1', 'active-pending'])
   })
 
   it('uses reviewView for the trace input when provided', async () => {
@@ -446,10 +450,10 @@ describe('prelabelItem', () => {
     ),
   })
 
-  it('upserts expectedOutput + prelabel + boundaryTags on the stable id, keeps ARCHIVED + pending, rejects absent candidateUrl', async () => {
+  it('upserts expectedOutput + prelabel + boundaryTags on the stable id, writes ACTIVE + pending, rejects absent candidateUrl', async () => {
     const existingItem = {
       id: 'item-1',
-      status: 'ARCHIVED',
+      status: 'ACTIVE',
       input: {
         pool: [
           { url: 'https://shop.com/a', title: 'A' },
@@ -493,7 +497,7 @@ describe('prelabelItem', () => {
     >
 
     expect(body.id).toBe('item-1')
-    expect(body.status).toBe('ARCHIVED')
+    expect(body.status).toBe('ACTIVE')
     expect(body.expectedOutput).toEqual({
       decisions: [{ candidateUrl: 'https://shop.com/a', selected: true }],
     })

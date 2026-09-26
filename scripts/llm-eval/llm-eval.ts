@@ -654,8 +654,15 @@ async function cmdRun(
 
   const { items: rawItems } = await client.getDataset(dataset)
 
-  const items = rawItems
-    .filter((i) => i.status === 'ACTIVE')
+  // Golden items awaiting review are ACTIVE (DEV-1879), so admit only reviewed
+  // ones unless --allow-unreviewed — the same gate the products run applies.
+  const admitted = rawItems.filter((i) => isAdmittedProductsItem(i, allowUnreviewed))
+  const skipped = rawItems.filter((i) => i.status === 'ACTIVE').length - admitted.length
+  if (skipped > 0) {
+    console.log(`[run] ${skipped} unreviewed item(s) skipped; pass --allow-unreviewed to include them`)
+  }
+
+  const items = admitted
     .map((i) => ({
       id: i.id,
       input: i.input,
@@ -918,7 +925,30 @@ export type GoldenWriteApi = {
   getDataset: (name: string) => Promise<unknown>
   createDataset: (body: { name: string; description: string }) => Promise<unknown>
   getItem: (id: string) => Promise<unknown>
-  createItem: (item: GoldenItemBody) => Promise<unknown>
+  createItem: (item: GoldenWriteBody) => Promise<unknown>
+}
+
+/** A dataset-item upsert: a fresh golden item, or a stored one re-written ACTIVE. */
+export type GoldenWriteBody = {
+  datasetName: string
+  id: string
+  input: unknown
+  expectedOutput: unknown
+  status: 'ACTIVE'
+  metadata: unknown
+}
+
+/**
+ * A stored item written before DEV-1879: ARCHIVED while still pending, so the
+ * dataset listing hid it from prelabel, enqueue and validate. Rejected
+ * (ARCHIVED, status rejected) and reviewed (reviewedVia set) items never match.
+ */
+function isArchivedPending(stored: unknown): stored is { input?: unknown; expectedOutput?: unknown; metadata?: unknown } {
+  const record = stored as { status?: unknown; metadata?: unknown } | null
+  if (record?.status !== 'ARCHIVED') return false
+  const approval = (record.metadata as { humanApproval?: { status?: unknown; reviewedVia?: unknown } } | null)
+    ?.humanApproval
+  return approval?.status === 'pending' && approval.reviewedVia == null
 }
 
 function langfuseGoldenWriteApi(): GoldenWriteApi {
@@ -938,13 +968,16 @@ function httpStatusOf(error: unknown): number | undefined {
 }
 
 /**
- * Writes items, skipping ids Langfuse already holds in ANY status: re-writing
- * one would reset a reviewed or rejected item to ARCHIVED/pending.
+ * Writes items ACTIVE and pending, skipping ids Langfuse already holds:
+ * re-writing one would reset a reviewed or rejected item to pending. The one
+ * exception is an ARCHIVED item still pending review (written before
+ * DEV-1879): it is re-written ACTIVE with its stored input, expectedOutput and
+ * metadata, so a prelabel survives, and counted in `reactivated`.
  *
  * Existence is read per id (`GET /dataset-items/<id>`), never from the dataset
- * listing — the listing omits ARCHIVED items, and every pending or rejected
- * golden item is ARCHIVED. Only a 404 means "absent"; any other failure aborts
- * the write rather than being mistaken for it.
+ * listing — the listing omits ARCHIVED items, which is every rejected and
+ * every pre-DEV-1879 pending golden item. Only a 404 means "absent"; any other
+ * failure aborts the write rather than being mistaken for it.
  *
  * Calls are paced `minIntervalMs` apart (default 700ms, ~85/min, under the
  * 100/min Langfuse Cloud limit). A 429, or a create that resolves without the
@@ -970,7 +1003,7 @@ export async function writeGoldenItems(
     retries?: number
     backoffMs?: number
   } = {},
-): Promise<{ written: number; existing: number; failed: string[] }> {
+): Promise<{ written: number; reactivated: number; existing: number; failed: string[] }> {
   let lastCall: number | null = null
   const paced = async <T>(call: () => Promise<T>): Promise<T> => {
     if (lastCall !== null) {
@@ -999,8 +1032,15 @@ export async function writeGoldenItems(
   }
 
   let written = 0
+  let reactivated = 0
   let existing = 0
   const failed: string[] = []
+  /** Creates `body` through the paced, retried path; true only when Langfuse confirms the id. */
+  const confirmedWrite = async (body: GoldenWriteBody): Promise<boolean> =>
+    (await withRetry(async () => {
+      const response = (await api.createItem(body)) as { id?: unknown } | null
+      return response?.id === body.id ? true : undefined
+    })) === true
   for (const dataset of [...new Set(items.map((item) => item.datasetName))]) {
     const found = await withRetry(async () => {
       try {
@@ -1022,31 +1062,33 @@ export async function writeGoldenItems(
     }
 
     for (const item of items.filter((i) => i.datasetName === dataset)) {
-      const present = orThrow(
+      const lookup = orThrow(
         await withRetry(async () => {
           try {
-            await api.getItem(item.id)
-            return true
+            return { present: true, stored: await api.getItem(item.id) }
           } catch (error) {
-            if (httpStatusOf(error) === 404) return false
+            if (httpStatusOf(error) === 404) return { present: false, stored: null }
             throw error
           }
         }),
         `looking up item "${item.id}"`,
       )
-      if (present) {
+      if (lookup.present && isArchivedPending(lookup.stored)) {
+        const { input, expectedOutput, metadata } = lookup.stored
+        const body = { datasetName: dataset, id: item.id, input, expectedOutput, status: 'ACTIVE' as const, metadata }
+        if (await confirmedWrite(body)) reactivated += 1
+        else failed.push(item.id)
+        continue
+      }
+      if (lookup.present) {
         existing += 1
         continue
       }
-      const created = await withRetry(async () => {
-        const response = (await api.createItem(item)) as { id?: unknown } | null
-        return response?.id === item.id ? true : undefined
-      })
-      if (created) written += 1
+      if (await confirmedWrite(item)) written += 1
       else failed.push(item.id)
     }
   }
-  return { written, existing, failed }
+  return { written, reactivated, existing, failed }
 }
 
 function reportFailedWrites(tag: string, failed: string[]): void {
@@ -1146,7 +1188,7 @@ async function cmdDatasetHarvest(
   const all = toItems(rows)
   // Items come back oldest first; a limit keeps the newest.
   const items = limit !== undefined ? all.slice(-limit) : all
-  const { written, existing, failed } = await writeGoldenItems(items)
+  const { written, reactivated, existing, failed } = await writeGoldenItems(items)
   await flushLangfuse()
   console.log(
     `[harvest] ${dataset}: ${rows.length} rows read — ` +
@@ -1156,7 +1198,8 @@ async function cmdDatasetHarvest(
   )
   console.log(
     `[harvest] ${dataset}: ${all.length} usable (after dedupe), ${items.length} selected, ` +
-      `${written} written (ARCHIVED, pending review), ${existing} already present, ${failed.length} failed`,
+      `${written} written (ACTIVE, pending review), ${reactivated} reactivated, ${existing} already present, ` +
+      `${failed.length} failed`,
   )
   reportFailedWrites('harvest', failed)
 }
@@ -1325,7 +1368,7 @@ async function cmdDatasetCapture(
       submissionIds,
     })
 
-    const { written, existing, failed } = await writeGoldenItems(items)
+    const { written, reactivated, existing, failed } = await writeGoldenItems(items)
     await flushLangfuse()
 
     for (const dataset of selected) {
@@ -1333,7 +1376,8 @@ async function cmdDatasetCapture(
       console.log(`[capture] ${dataset}: ${count} items`)
     }
     console.log(
-      `[capture] ${written} items written (ARCHIVED, pending review), ${existing} already present, ${failed.length} failed`,
+      `[capture] ${written} items written (ACTIVE, pending review), ${reactivated} reactivated, ` +
+      `${existing} already present, ${failed.length} failed`,
     )
     reportFailedWrites('capture', failed)
   } finally {

@@ -97,7 +97,7 @@ describe('buildPoolFromRows', () => {
 // ---------------------------------------------------------------------------
 
 describe('recordPool', () => {
-  it('reads each selected url through the injected readPage and returns an item body whose input.pool is exactly the recorded subset in recorded order, priorityProductUrls equals that order, status ARCHIVED, humanApproval pending, expectedOutput { decisions: [] }, and one candidate id per recorded url', async () => {
+  it('reads each selected url through the injected readPage and returns an item body whose input.pool is exactly the recorded subset in recorded order, priorityProductUrls equals that order, status ACTIVE, humanApproval pending, expectedOutput { decisions: [] }, and one candidate id per recorded url', async () => {
     const brand = { id: 'brand-1', slug: 'test-brand', name: 'Test Brand' }
     const pool = [
       {

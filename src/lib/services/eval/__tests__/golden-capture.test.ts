@@ -169,12 +169,12 @@ describe('harvestRowsToItems', () => {
     expect(items.map((i) => i.metadata.jobId)).toEqual(['kept'])
   })
 
-  it('items are written ARCHIVED with a pending humanApproval', () => {
+  it('items are written ACTIVE with a pending humanApproval (the dataset listing omits ARCHIVED)', () => {
     const [item] = harvestRowsToItems([row({ user: PLAN_USER })], { prompt: 'acquisition-plan', texts: TEXTS })
     expect(item).toMatchObject({
       datasetName: 'acquisition-plan-golden',
       input: PLAN_USER,
-      status: 'ARCHIVED',
+      status: 'ACTIVE',
       expectedOutput: { context: {} },
       metadata: { source: 'harvest', brandSlug: 'brand', jobId: 'job-1', humanApproval: { status: 'pending' } },
     })
