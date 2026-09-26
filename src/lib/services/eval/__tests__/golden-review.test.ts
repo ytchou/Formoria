@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
 import { z } from 'zod'
-import { enqueueDataset, applyVerdicts, prelabelItem } from '../golden-review'
+import { enqueueDataset, applyVerdicts, prelabelItem, type EnqueueDeps } from '../golden-review'
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -51,11 +51,14 @@ describe('enqueueDataset', () => {
         trace: traceFn,
         findQueueByName: vi.fn().mockResolvedValue('queue-abc'),
         enqueueTrace: enqueueFn,
+        listQueuedTraceIds: async () => new Set<string>(),
+        flush: async () => undefined,
+        sleep: async () => undefined,
       },
     })
 
     // Only 2 ACTIVE items enqueued
-    expect(result).toEqual({ enqueued: 2, queueName: 'golden-review' })
+    expect(result).toEqual({ enqueued: 2, skipped: 0, queueName: 'golden-review' })
     expect(traceFn).toHaveBeenCalledTimes(2)
     expect(enqueueFn).toHaveBeenCalledTimes(2)
 
@@ -123,6 +126,9 @@ describe('enqueueDataset', () => {
         trace: traceFn,
         findQueueByName: vi.fn().mockResolvedValue('queue-abc'),
         enqueueTrace: enqueueFn,
+        listQueuedTraceIds: async () => new Set<string>(),
+        flush: async () => undefined,
+        sleep: async () => undefined,
       },
     })
 
@@ -153,6 +159,9 @@ describe('enqueueDataset', () => {
         trace: traceFn,
         findQueueByName: vi.fn().mockResolvedValue('queue-abc'),
         enqueueTrace: enqueueFn,
+        listQueuedTraceIds: async () => new Set<string>(),
+        flush: async () => undefined,
+        sleep: async () => undefined,
       },
     })
 
@@ -160,7 +169,106 @@ describe('enqueueDataset', () => {
     const traceInput = (traceFn.mock.calls[0]![0] as { input: unknown }).input
     expect(traceInput).toEqual({ projected: true })
   })
+
+  // DEV-1881: a 156-item enqueue hit the 100/min limit, enqueued traces that were
+  // never flushed, and a rerun would have duplicated every queued item.
+  it('flushes every trace before the first enqueue', async () => {
+    const calls: string[] = []
+    await enqueueDataset({
+      dataset: 'intent-parse-golden',
+      queueName: 'golden-review',
+      deps: fakeDeps({
+        items: [makeItem({ id: 'a' }), makeItem({ id: 'b' })],
+        trace: (body) => (calls.push(`trace:${body.metadata.itemId}`), { id: body.id }),
+        flush: async () => void calls.push('flush'),
+        enqueueTrace: async () => void calls.push('enqueue'),
+      }),
+    })
+    expect(calls).toEqual(['trace:a', 'trace:b', 'flush', 'enqueue', 'enqueue'])
+  })
+
+  it('uses a stable trace id per item and skips items already in the queue', async () => {
+    const traced: string[] = []
+    const enqueued: string[] = []
+    const run = (queued: Set<string>) =>
+      enqueueDataset({
+        dataset: 'intent-parse-golden',
+        queueName: 'golden-review',
+        deps: fakeDeps({
+          items: [makeItem({ id: 'a' }), makeItem({ id: 'b' })],
+          trace: (body) => (traced.push(body.id), { id: body.id }),
+          listQueuedTraceIds: async () => queued,
+          enqueueTrace: async ({ traceId }) => void enqueued.push(traceId),
+        }),
+      })
+
+    const first = await run(new Set())
+    expect(first).toEqual({ enqueued: 2, skipped: 0, queueName: 'golden-review' })
+    const [idA, idB] = traced
+    expect(idA).toMatch(/^[0-9a-f]{32}$/)
+    expect(idA).not.toBe(idB)
+
+    traced.length = 0
+    enqueued.length = 0
+    const rerun = await run(new Set([idA!]))
+    expect(rerun).toEqual({ enqueued: 1, skipped: 1, queueName: 'golden-review' })
+    expect(traced).toEqual([idB])
+    expect(enqueued).toEqual([idB])
+  })
+
+  it('paces enqueues and retries a rejected enqueue until it succeeds', async () => {
+    const sleep = vi.fn().mockResolvedValue(undefined)
+    const enqueueTrace = vi
+      .fn()
+      .mockRejectedValueOnce(new Response('rate limited', { status: 429 }))
+      .mockResolvedValue(undefined)
+    const result = await enqueueDataset({
+      dataset: 'intent-parse-golden',
+      queueName: 'golden-review',
+      deps: fakeDeps({ items: [makeItem({ id: 'a' }), makeItem({ id: 'b' })], enqueueTrace, sleep }),
+    })
+    expect(result.enqueued).toBe(2)
+    expect(enqueueTrace).toHaveBeenCalledTimes(3)
+    const waits = sleep.mock.calls.map((c) => c[0] as number)
+    expect(waits.some((ms) => ms >= 2_000)).toBe(true) // retry backoff
+    expect(waits.filter((ms) => ms === 700)).toHaveLength(1) // pace between the two items
+  })
+
+  it('attempts every item, then throws naming the ones that never enqueued', async () => {
+    const enqueueTrace = vi.fn(async ({ traceId }: { traceId: string }) => {
+      if (traceId === failingId) throw new Response('rate limited', { status: 429 })
+    })
+    let failingId = ''
+    const deps = fakeDeps({
+      items: [makeItem({ id: 'a' }), makeItem({ id: 'b' })],
+      trace: (body) => {
+        if (body.metadata.itemId === 'a') failingId = body.id
+        return { id: body.id }
+      },
+      enqueueTrace,
+    })
+    await expect(
+      enqueueDataset({ dataset: 'intent-parse-golden', queueName: 'golden-review', deps }),
+    ).rejects.toThrow(/1\/2 enqueued; not enqueued after retries: a/)
+    expect(enqueueTrace.mock.calls.some(([p]) => p.traceId !== failingId)).toBe(true)
+  })
 })
+
+function fakeDeps(
+  overrides: Partial<EnqueueDeps> & { items: ReturnType<typeof makeItem>[] },
+): EnqueueDeps {
+  const { items, ...rest } = overrides
+  return {
+    getDataset: async () => ({ items }),
+    trace: (body) => ({ id: body.id }),
+    findQueueByName: async () => 'queue-abc',
+    enqueueTrace: async () => undefined,
+    listQueuedTraceIds: async () => new Set<string>(),
+    flush: async () => undefined,
+    sleep: async () => undefined,
+    ...rest,
+  }
+}
 
 // ---------------------------------------------------------------------------
 // applyVerdicts

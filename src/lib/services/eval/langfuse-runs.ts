@@ -112,6 +112,37 @@ export async function enqueueTrace({
   await fn(queueId, { objectId: traceId, objectType: 'TRACE' })
 }
 
+type QueueItemsPage = { data: Array<{ objectId: string }>; meta: { totalPages: number } }
+type ListQueueItemsFn = (query: { queueId: string; page: number; limit: number }) => Promise<QueueItemsPage>
+
+/**
+ * Lists the object ids (trace ids) already in an annotation queue, all pages.
+ */
+export async function listQueueObjectIds({
+  queueId,
+  listFn,
+}: {
+  queueId: string
+  listFn?: ListQueueItemsFn
+}): Promise<Set<string>> {
+  const fn = listFn ?? (async (query) => {
+    const client = getLangfuse()
+    if (!client) throw new Error('Langfuse client not available')
+    return client.api.annotationQueuesListQueueItems(query) as unknown as QueueItemsPage
+  })
+
+  const ids = new Set<string>()
+  let page = 1
+  let totalPages = 1
+  do {
+    const result = await fn({ queueId, page, limit: 100 })
+    for (const item of result.data) ids.add(item.objectId)
+    totalPages = result.meta.totalPages
+    page++
+  } while (page <= totalPages)
+  return ids
+}
+
 // ---------------------------------------------------------------------------
 // List queue scores (paginated)
 // ---------------------------------------------------------------------------
