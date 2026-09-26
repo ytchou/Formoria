@@ -594,12 +594,14 @@ async function executeRunBody(
   const reportOnlyFindings = allFindings.filter(
     (f) => f.disposition === 'report_only',
   )
+  const failedDetectors = results.filter((r) => r.status === 'failed').length
   await appendEvent({
     kind: 'findings',
     at: nowSeconds(),
     total: totalFindings,
     repairable: repairableFindings.length,
     reportOnly: reportOnlyFindings.length,
+    ...(failedDetectors > 0 ? { failedDetectors } : {}),
   })
   const sentryFindings = allFindings.filter(
     (finding) =>

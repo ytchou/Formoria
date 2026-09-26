@@ -290,7 +290,7 @@ jq -n \
 📋 Tickets: <N> → DEV-1234, DEV-1235
 ⏳ Fix pending release: <N> → DEV-1201
 ⏭️ Report-only: <N>" \
-  --arg ctx "<traceUrl|Langfuse trace> · Run: \`<runId>\`" \
+  --arg ctx "<traceUrl|Langfuse trace> · Run ID: \`<runId>\`" \
   '{channel:$channel, thread_ts:$thread_ts, text:$text, blocks:[
      {type:"header", text:{type:"plain_text", text:("Repair Summary — " + $date)}},
      {type:"section", text:{type:"mrkdwn", text:$body}},

@@ -320,7 +320,7 @@ export async function runOpsAgent(
           },
           {
             type: "context",
-            elements: [{ type: "mrkdwn", text: `Run: \`${repairRequest.runId}\`` }],
+            elements: [{ type: "mrkdwn", text: `Run ID: \`${repairRequest.runId}\`` }],
           },
         ];
         await postMsg(request.threadTs, repairFallback, repairBlocks);
@@ -352,7 +352,7 @@ export async function runOpsAgent(
           const notice = renderThreadNotice({
             title: "Ops Routine — Failed to Start",
             body: "Failed to start repair routine. Please try again.",
-            context: `Run: \`${repairRequest.runId}\``,
+            context: `Run ID: \`${repairRequest.runId}\``,
           });
           await postMsg(request.threadTs, notice.text, notice.blocks);
         } catch {
