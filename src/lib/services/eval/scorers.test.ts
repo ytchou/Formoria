@@ -21,7 +21,14 @@ import {
   bootstrapCI,
   pairedBootstrapCI,
   ndcgAt,
+  planFetchCapOk,
+  planSchemaValid,
+  recoveryActionConsistent,
+  verdictAgreement,
+  keepRate,
+  repairPassRate,
   type GradedItem,
+  type ProductsGoldenContext,
 } from './scorers'
 import { expect, it, describe } from 'vitest'
 import { z } from 'zod'
@@ -523,5 +530,153 @@ describe('pairedBootstrapCI', () => {
     const zeros = Array.from({ length: 20 }, () => 0)
     const ci2 = pairedBootstrapCI(ones, zeros, { seed: 1 })
     expect(ci2.signTestP).toBeLessThan(0.05)
+  })
+})
+
+// ---------------------------------------------------------------------------
+// DEV-1873 golden-set scorers
+// ---------------------------------------------------------------------------
+
+function planWith(fetches: number, fanOut = 0) {
+  const surfaces = Array.from({ length: fetches - fanOut }, (_, i) => ({
+    url: `https://brand.example/p${i}`,
+    fetch: 'static' as const,
+    reason: 'product page',
+  }))
+  return {
+    surfaces: [
+      ...surfaces,
+      { url: 'https://brand.example/skipped', fetch: 'skip' as const, reason: 'not the brand' },
+    ],
+    fanOut: Array.from({ length: fanOut }, (_, i) => `https://brand.example/f${i}`),
+    catalog: { entryUrls: [], priorityProductUrls: [] },
+    socialBios: {},
+    decisions: [],
+  }
+}
+
+describe('planFetchCapOk', () => {
+  it('is 1 for 6 fetches and 0 for 7, counting non-skip surfaces plus fanOut', () => {
+    expect(planFetchCapOk(planWith(6))).toBe(1)
+    expect(planFetchCapOk(planWith(6, 2))).toBe(1)
+    expect(planFetchCapOk(planWith(7))).toBe(0)
+    expect(planFetchCapOk(planWith(7, 3))).toBe(0)
+  })
+
+  it('is 0 for a null plan', () => {
+    expect(planFetchCapOk(null)).toBe(0)
+  })
+})
+
+describe('planSchemaValid', () => {
+  it('is 1 for a valid plan', () => {
+    expect(planSchemaValid(planWith(3))).toBe(1)
+  })
+
+  it('is 0 for a plan that fails AcquisitionPlan.safeParse (including the refine)', () => {
+    expect(planSchemaValid({ surfaces: [] })).toBe(0)
+    expect(planSchemaValid(planWith(7))).toBe(0)
+  })
+
+  it('is 0 for a null plan', () => {
+    expect(planSchemaValid(null)).toBe(0)
+  })
+})
+
+describe('recoveryActionConsistent', () => {
+  it('is 1 when recoveryAction is non-null exactly when the verdict is thin', () => {
+    expect(recoveryActionConsistent({ verdict: 'thin', recoveryAction: 'fanout' })).toBe(1)
+    expect(recoveryActionConsistent({ verdict: 'sufficient', recoveryAction: null })).toBe(1)
+    expect(recoveryActionConsistent({ verdict: 'fail', recoveryAction: null })).toBe(1)
+  })
+
+  it('is 0 otherwise', () => {
+    expect(recoveryActionConsistent({ verdict: 'thin', recoveryAction: null })).toBe(0)
+    expect(recoveryActionConsistent({ verdict: 'sufficient', recoveryAction: 'search' })).toBe(0)
+    expect(recoveryActionConsistent({ verdict: 'fail', recoveryAction: 'render' })).toBe(0)
+  })
+})
+
+describe('verdictAgreement', () => {
+  it('reuses decisionAgreement on verdict', () => {
+    expect(verdictAgreement({ verdict: 'thin' }, { verdict: 'thin' })).toBe(1)
+    expect(verdictAgreement({ verdict: 'thin' }, { verdict: 'fail' })).toBe(0)
+    expect(verdictAgreement({}, { verdict: 'fail' })).toBe(0)
+  })
+})
+
+const GOLDEN_SITE = 'https://brand.example'
+const WITH_ORIGIN = '在台灣手工拉坯的陶瓷盤，直徑 21 公分，釉色溫潤。'
+
+function rawProduct(officialUrl: string, overrides: Record<string, unknown> = {}) {
+  return {
+    name_zh: '陶瓷盤',
+    name_en: null,
+    category: 'fashion',
+    subcategory: null,
+    material: [],
+    official_url: officialUrl,
+    image_source_url: null,
+    product_description_zh: WITH_ORIGIN,
+    sources: [{ url: officialUrl, source_type: 'official', claim_zh: null }],
+    ...overrides,
+  }
+}
+
+describe('keepRate', () => {
+  const context: ProductsGoldenContext = {
+    siteUrl: GOLDEN_SITE,
+    candidates: [`${GOLDEN_SITE}/products/plate`, `${GOLDEN_SITE}/products/bowl`],
+    ownedHosts: [],
+  }
+
+  it('is accepted / raw from validateProductProposals', () => {
+    const output = {
+      evaluations: [],
+      products: [
+        rawProduct(`${GOLDEN_SITE}/products/plate`),
+        rawProduct(`${GOLDEN_SITE}/products/bowl`, { name_zh: '陶瓷碗' }),
+        // not a candidate: dropped
+        rawProduct(`${GOLDEN_SITE}/products/guessed`, { name_zh: '猜測' }),
+        // no category: dropped
+        rawProduct(`${GOLDEN_SITE}/products/plate`, { name_zh: '無分類', category: null }),
+      ],
+    }
+    expect(keepRate(output, context)).toBe(0.5)
+  })
+
+  it('is null when the model returned no products', () => {
+    expect(keepRate({ evaluations: [], products: [] }, context)).toBeNull()
+  })
+})
+
+describe('repairPassRate', () => {
+  const plate = `${GOLDEN_SITE}/products/plate`
+  const bowl = `${GOLDEN_SITE}/products/bowl`
+  const context: ProductsGoldenContext = {
+    siteUrl: GOLDEN_SITE,
+    candidates: [plate, bowl],
+    ownedHosts: [],
+    hardUrls: [plate, bowl],
+  }
+
+  it('is the share of hard entries that repairedProposalPasses accepts', () => {
+    const output = {
+      products: [
+        rawProduct(plate),
+        // moved off the brand's host: not a repair
+        rawProduct('https://stranger-shop.example/products/bowl', { name_zh: '陶瓷碗' }),
+      ],
+    }
+    expect(repairPassRate(output, context)).toBe(0.5)
+  })
+
+  it('is 1 when every hard entry comes back passing', () => {
+    const output = { products: [rawProduct(plate), rawProduct(bowl, { name_zh: '陶瓷碗' })] }
+    expect(repairPassRate(output, context)).toBe(1)
+  })
+
+  it('is null when the item has no hard entries', () => {
+    expect(repairPassRate({ products: [rawProduct(plate)] }, { ...context, hardUrls: [] })).toBeNull()
   })
 })

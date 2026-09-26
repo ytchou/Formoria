@@ -29,6 +29,14 @@ import {
   driftRate,
 } from '@/lib/services/eval/products-calibration'
 import type { SnapshotFile, PromptApi } from '@/lib/services/eval/prompt-sync'
+import {
+  promptForDataset,
+  type GoldenItemBody,
+  type HarvestRow,
+  type PromptTexts,
+  type TimedCapturedCall,
+} from '@/lib/services/eval/golden-capture'
+import type { EnrichBrand, EnrichPhase } from '@/lib/services/enrich-phases/types'
 
 // ---------------------------------------------------------------------------
 // Arg parsing
@@ -44,6 +52,8 @@ export type ParsedCommand =
   | { command: 'dataset-review-push'; dataset: string; approvedBy: string }
   | { command: 'dataset-record'; dataset: string; brand: string; urls?: string[] }
   | { command: 'dataset-prelabel'; dataset: string; item: string; file: string }
+  | { command: 'dataset-harvest'; dataset: string; since?: string; limit?: number }
+  | { command: 'dataset-capture'; brands: string[]; datasets?: string[] }
   | {
       command: 'run'
       dataset: string
@@ -97,6 +107,16 @@ export function parseArm(spec: string): ArmSpec {
   )
 }
 
+function splitList(value: string): string[] {
+  return value.split(',').map((part) => part.trim()).filter(Boolean)
+}
+
+function assertGoldenCaptureDataset(dataset: string): void {
+  if (!promptForDataset(dataset)) {
+    throw new Error(`"${dataset}" is not a capture/harvest golden dataset`)
+  }
+}
+
 export function parseCliArgs(args: string[]): ParsedCommand {
   const { positionals, values } = nodeParseArgs({
     args,
@@ -120,6 +140,10 @@ export function parseCliArgs(args: string[]): ParsedCommand {
       check: { type: 'boolean', default: false },
       label: { type: 'string' },
       'allow-variable-change': { type: 'boolean', default: false },
+      since: { type: 'string' },
+      limit: { type: 'string' },
+      brands: { type: 'string' },
+      datasets: { type: 'string' },
     },
   })
 
@@ -142,6 +166,24 @@ export function parseCliArgs(args: string[]): ParsedCommand {
         brand: values.brand,
         urls: values.urls ? values.urls.split(',') : undefined,
       }
+    }
+    if (sub2 === 'harvest') {
+      if (!values.dataset) throw new Error('--dataset is required')
+      assertGoldenCaptureDataset(values.dataset)
+      if (values.since !== undefined && Number.isNaN(new Date(values.since).getTime())) {
+        throw new Error('--since must be a date (YYYY-MM-DD)')
+      }
+      const limit = values.limit !== undefined ? Number(values.limit) : undefined
+      if (limit !== undefined && (!Number.isInteger(limit) || limit < 1)) {
+        throw new Error('--limit must be a positive integer')
+      }
+      return { command: 'dataset-harvest', dataset: values.dataset, since: values.since, limit }
+    }
+    if (sub2 === 'capture') {
+      if (!values.brands) throw new Error('--brands is required')
+      const datasets = values.datasets ? splitList(values.datasets) : undefined
+      datasets?.forEach(assertGoldenCaptureDataset)
+      return { command: 'dataset-capture', brands: splitList(values.brands), datasets }
     }
     if (sub2 === 'prelabel') {
       if (!values.dataset) throw new Error('--dataset is required')
@@ -263,6 +305,8 @@ export function parseCliArgs(args: string[]): ParsedCommand {
       '  llm-eval dataset validate [--allow-unreviewed]\n' +
       '  llm-eval dataset record --dataset <name> --brand <slug> [--urls url1,url2,...]\n' +
       '  llm-eval dataset prelabel --dataset <name> --item <id> --file <json-path>\n' +
+      '  llm-eval dataset harvest --dataset <name> [--since <YYYY-MM-DD>] [--limit <n>]\n' +
+      '  llm-eval dataset capture --brands <slug,slug,...> [--datasets <name,name,...>]\n' +
       '  llm-eval dataset review enqueue --dataset <name>\n' +
       '  llm-eval dataset review push --dataset <name> --approved-by <user>\n' +
       '  llm-eval run --dataset <name> --arm <spec> [--arm <spec>] [--env-file <path>] [--allow-unreviewed]\n' +
@@ -797,6 +841,273 @@ async function cmdDatasetPrelabel(
   console.log(`[prelabel] Item "${itemId}" prelabeled in dataset "${dataset}"`)
 }
 
+// ---------------------------------------------------------------------------
+// Golden capture / harvest (DEV-1873)
+// ---------------------------------------------------------------------------
+
+/**
+ * Every known resolved text per golden prompt, for classifying a call by its
+ * system message. Harvest also needs older versions: stored rows carry the
+ * version that ran then, not the current one.
+ */
+async function resolveGoldenPromptTexts({
+  allVersions,
+}: {
+  allVersions: boolean
+}): Promise<PromptTexts> {
+  const { GOLDEN_PROMPTS, GOLDEN_DATASETS } = await import('@/lib/services/eval/golden-capture')
+  const { fetchLangfusePromptWithMeta } = await import('@/lib/langfuse/prompt')
+  const client = getLangfuse()
+  const texts = {} as Record<(typeof GOLDEN_PROMPTS)[number], string[]>
+
+  for (const name of GOLDEN_PROMPTS) {
+    // The same variables production compiles into the prompt (the adapter owns them).
+    const variables = adapterFor(GOLDEN_DATASETS[name]).variables
+    const known = new Set<string>([(await fetchLangfusePromptWithMeta(name, variables)).text])
+    if (allVersions && client) {
+      try {
+        const latest = await client.getPrompt(name, undefined, { label: 'latest' })
+        for (let version = 1; version <= latest.version; version++) {
+          try {
+            const prompt = await client.getPrompt(name, version)
+            if (typeof prompt.prompt !== 'string') continue
+            known.add(variables ? (prompt.compile(variables) as string) : prompt.prompt)
+          } catch {
+            // A deleted version: nothing to match against.
+          }
+        }
+      } catch (error) {
+        console.warn(`[harvest] could not list versions of "${name}"; matching the current text only:`, error)
+      }
+    }
+    texts[name] = [...known]
+  }
+  return texts
+}
+
+/**
+ * Writes items, skipping ids the dataset already holds: re-writing one would
+ * reset a reviewed item to ARCHIVED/pending.
+ */
+async function writeGoldenItems(
+  items: GoldenItemBody[],
+): Promise<{ written: number; existing: number }> {
+  const client = getLangfuse()
+  if (!client) throw new Error('Langfuse not configured')
+  let written = 0
+  let existing = 0
+  for (const dataset of [...new Set(items.map((item) => item.datasetName))]) {
+    let existingIds = new Set<string>()
+    try {
+      existingIds = new Set((await client.getDataset(dataset)).items.map((item) => item.id))
+    } catch {
+      await client.createDataset({ name: dataset, description: 'DEV-1873 golden set' })
+    }
+    for (const item of items.filter((i) => i.datasetName === dataset)) {
+      if (existingIds.has(item.id)) {
+        existing += 1
+        continue
+      }
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      await client.createDatasetItem(item as any)
+      written += 1
+    }
+  }
+  return { written, existing }
+}
+
+/**
+ * A PostgREST embed as one row. supabase-js types an embedded relation as an
+ * array even when the foreign key makes it many-to-one (an object at runtime),
+ * so both shapes are accepted.
+ */
+function embedOne<T>(value: T | T[] | null | undefined): T | null {
+  if (Array.isArray(value)) return value[0] ?? null
+  return value ?? null
+}
+
+async function cmdDatasetHarvest(dataset: string, since?: string, limit?: number): Promise<void> {
+  const { createServiceClient } = await import('@/lib/supabase/service')
+  const { GOLDEN_PROMPT_PHASES, harvestRowsToItems } = await import(
+    '@/lib/services/eval/golden-capture'
+  )
+
+  if (!getLangfuse()) {
+    console.error('[harvest] Langfuse not configured')
+    process.exitCode = 1
+    return
+  }
+  const prompt = promptForDataset(dataset)!
+  const texts = await resolveGoldenPromptTexts({ allVersions: true })
+  const supabase = createServiceClient()
+
+  // Read-only. Paged until an empty page: PostgREST caps a page (1,000 rows by
+  // default, possibly lower), so a short page is not proof of the end.
+  const PAGE = 1000
+  const rows: HarvestRow[] = []
+  for (let from = 0; ; ) {
+    let query = supabase
+      .from('brand_ai_results')
+      .select('created_at, job_id, input, brands(slug), brand_submissions(brands(slug))')
+      .in('phase', [...GOLDEN_PROMPT_PHASES[prompt]])
+      .not('input', 'is', null)
+    if (since) query = query.gte('created_at', new Date(since).toISOString())
+    const { data, error } = await query
+      .order('created_at', { ascending: false })
+      .order('id', { ascending: false })
+      .range(from, from + PAGE - 1)
+    if (error) throw new Error(`[harvest] brand_ai_results read failed: ${error.message}`)
+    const page = data ?? []
+    if (page.length === 0) break
+    for (const row of page) {
+      const submission = embedOne(row.brand_submissions)
+      rows.push({
+        created_at: row.created_at,
+        job_id: row.job_id,
+        input: row.input,
+        brand_slug: embedOne(row.brands)?.slug ?? embedOne(submission?.brands)?.slug ?? null,
+      })
+    }
+    from += page.length
+  }
+
+  const all = harvestRowsToItems(rows, { prompt, texts, ...(since ? { since } : {}) })
+  // Items come back oldest first; a limit keeps the newest.
+  const items = limit !== undefined ? all.slice(-limit) : all
+  const { written, existing } = await writeGoldenItems(items)
+  await flushLangfuse()
+  console.log(
+    `[harvest] ${dataset}: ${rows.length} rows read, ${all.length} usable, ` +
+      `${written} written (ARCHIVED, pending review), ${existing} already present`,
+  )
+}
+
+async function cmdDatasetCapture(brandSlugs: string[], datasets?: string[]): Promise<void> {
+  const { createServiceClient } = await import('@/lib/supabase/service')
+  const { installSeams, assertNoNewAuditRows } = await import('@/lib/services/eval/zero-write')
+  const { setChatCaptureSeam } = await import('@/lib/services/llm-audit')
+  const { runWithAuditContext } = await import('@/lib/audit/context')
+  const { runAcquirePhase } = await import('@/lib/services/enrich-phases/acquire')
+  const { runProductsPhase } = await import('@/lib/services/enrich-phases/products')
+  const { loadCachedSearchResults } = await import('@/lib/services/enrich-phases/discover')
+  const { collectKnownUrls } = await import('@/lib/services/curation-operations')
+  const { GOLDEN_DATASETS, capturedCallsToItems } = await import('@/lib/services/eval/golden-capture')
+
+  if (!getLangfuse()) {
+    console.error('[capture] Langfuse not configured')
+    process.exitCode = 1
+    return
+  }
+  const prompts = (datasets ?? Object.values(GOLDEN_DATASETS)).map((d) => promptForDataset(d)!)
+  const texts = await resolveGoldenPromptTexts({ allVersions: false })
+  const supabase = createServiceClient()
+
+  // Brand reads happen before the seams go in, so an early return needs no restore().
+  const brands: EnrichBrand[] = []
+  for (const slug of brandSlugs) {
+    const { data, error } = await supabase.from('brands').select('*').eq('slug', slug).single()
+    if (error || !data) {
+      console.error(`[capture] Brand "${slug}" not found: ${error?.message ?? 'no data'}`)
+      continue
+    }
+    brands.push(data as EnrichBrand)
+  }
+  if (brands.length === 0) {
+    process.exitCode = 1
+    return
+  }
+
+  const phases: EnrichPhase[] = ['acquire', 'products']
+  // No candidate row may be written; the products phase persists its pool even on a dry run.
+  const noCandidateWrites = { insert: async () => ({ data: null, error: null }) }
+  const since = new Date()
+  const correlationIds: string[] = []
+  const captured: TimedCapturedCall[] = []
+  const items: GoldenItemBody[] = []
+  const previousProductsAgent = process.env.PRODUCTS_AGENT
+  const { collector, restore } = installSeams({
+    sinkPath: 'scripts/llm-eval/runs/capture-sink.jsonl',
+  })
+
+  try {
+    // The single-call products body only runs with the agent off.
+    process.env.PRODUCTS_AGENT = 'off'
+    setChatCaptureSeam((call) => {
+      captured.push({ ...call, capturedAt: new Date().toISOString() })
+    })
+
+    for (const brand of brands) {
+      const correlationId = randomUUID()
+      correlationIds.push(correlationId)
+      // A synthetic submission: the products phase runs only for submission
+      // targets, and any row that did escape would fail its foreign key
+      // instead of attaching to a real submission.
+      const target = { type: 'submission' as const, id: randomUUID() }
+      // curation-operations' own brand type narrows `intent` to string | undefined.
+      const knownUrls = collectKnownUrls({ ...brand, intent: brand.intent ?? undefined })
+      const cached = await loadCachedSearchResults([brand.id], 'brand')
+      const discoveredUrls = [
+        ...new Set((cached.get(brand.id)?.urls ?? []).filter((url) => !knownUrls.includes(url))),
+      ]
+
+      try {
+        await runWithAuditContext({ correlationId }, async () => {
+          const acquire = await runAcquirePhase({
+            brand,
+            phases,
+            discoveredUrls,
+            knownUrls,
+            dryRun: true,
+            target,
+          })
+          await runProductsPhase({
+            brand,
+            phases,
+            scrapedData: acquire.scrapedData,
+            dryRun: true,
+            target,
+            imagePool: acquire.imagePool,
+            catalogResult: acquire.catalogResult,
+            acquisitionPageUrls: acquire.acquisitionPageUrls,
+            priorityProductUrls: acquire.priorityProductUrls,
+            candidateWriter: noCandidateWrites,
+          })
+        })
+      } catch (error) {
+        console.error(
+          `[capture] ${brand.slug}: phase run failed: ${error instanceof Error ? error.message : String(error)}`,
+        )
+      }
+
+      const brandItems = capturedCallsToItems(captured.splice(0), {
+        brandSlug: brand.slug,
+        jobId: correlationId,
+        texts,
+        prompts,
+      })
+      items.push(...brandItems)
+      console.log(`[capture] ${brand.slug}: ${brandItems.length} items`)
+    }
+
+    const { written, existing } = await writeGoldenItems(items)
+    await flushLangfuse()
+
+    // Assert zero writes — scoped to this run's own identity
+    await assertNoNewAuditRows({
+      since,
+      correlationIds,
+      spanIds: collector.all().map((r) => r.spanId),
+    })
+
+    console.log(`[capture] ${written} items written (ARCHIVED, pending review), ${existing} already present`)
+  } finally {
+    setChatCaptureSeam(null)
+    restore()
+    if (previousProductsAgent === undefined) delete process.env.PRODUCTS_AGENT
+    else process.env.PRODUCTS_AGENT = previousProductsAgent
+  }
+}
+
 async function cmdPairwiseRun(
   phase: string,
   _target: string,
@@ -1241,6 +1552,12 @@ async function main() {
       break
     case 'dataset-prelabel':
       await cmdDatasetPrelabel(parsed.dataset, parsed.item, parsed.file)
+      break
+    case 'dataset-harvest':
+      await cmdDatasetHarvest(parsed.dataset, parsed.since, parsed.limit)
+      break
+    case 'dataset-capture':
+      await cmdDatasetCapture(parsed.brands, parsed.datasets)
       break
     case 'dataset-review-enqueue':
       await cmdDatasetReviewEnqueue(parsed.dataset)

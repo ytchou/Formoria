@@ -2,6 +2,8 @@ import { describe, expect, it } from 'vitest'
 import { adapterFor } from '../phase-adapters'
 import { toStrictJsonSchema } from '../../_shared/zod-schema'
 import { isHighConfidenceWrite } from '../../enrich-phases/detect'
+import { CritiqueVerdictSchema } from '../../enrich-phases/acquisition/plan'
+import { PRODUCTS_SCHEMA } from '../../enrich-phases/products'
 
 const GOLDEN_DATASET_NAMES = [
   'detect-confidence-golden',
@@ -204,5 +206,62 @@ describe('isHighConfidenceWrite', () => {
     expect(isHighConfidenceWrite({ confidence: 'high' })).toBe(true)
     expect(isHighConfidenceWrite({ confidence: 'medium' })).toBe(false)
     expect(isHighConfidenceWrite({ confidence: 'low' })).toBe(false)
+  })
+})
+
+describe('DEV-1873 golden-set adapters', () => {
+  const EXPECTED_PROFILE_KEYS = {
+    'acquisition-plan-golden': 'acquisition',
+    'acquisition-critique-golden': 'acquisition',
+    'products-repair-golden': 'products_agent',
+    'products-fallback-golden': 'products',
+  } as const
+
+  it('each of the four names resolves through adapterFor, scored, with its profile key', () => {
+    for (const [name, profileKey] of Object.entries(EXPECTED_PROFILE_KEYS)) {
+      const adapter = adapterFor(name)
+      expect(adapter.mode).toBe('scored')
+      expect(adapter.profileKey).toBe(profileKey)
+      expect(adapter.scorers.length).toBeGreaterThan(0)
+    }
+  })
+
+  it('the critique adapter requests critique_verdict built from CritiqueVerdictSchema', () => {
+    const adapter = adapterFor('acquisition-critique-golden')
+    expect(adapter.promptName).toBe('acquisition-critique')
+    expect(adapter.requestSchema).toEqual({
+      name: 'critique_verdict',
+      schema: toStrictJsonSchema(CritiqueVerdictSchema),
+    })
+    expect(adapter.task).toBeUndefined()
+  })
+
+  it('the fallback adapter sends the products prompt variables production sends', () => {
+    const adapter = adapterFor('products-fallback-golden')
+    expect(adapter.promptName).toBe('products')
+    expect(Object.keys(adapter.variables ?? {}).sort()).toEqual([
+      'category_list',
+      'material_vocab_block',
+      'subcategory_vocab_block',
+      'taiwan_usage_rules',
+    ])
+    expect(adapter.requestSchema).toEqual(PRODUCTS_SCHEMA)
+  })
+
+  it('only the plan adapter carries a custom task', () => {
+    expect(typeof adapterFor('acquisition-plan-golden').task).toBe('function')
+    expect(adapterFor('products-repair-golden').task).toBeUndefined()
+    expect(adapterFor('products-fallback-golden').task).toBeUndefined()
+  })
+
+  it('rule-only adapters read { context } from expectedOutput; critique reads { verdict }', () => {
+    const context = { siteUrl: 'https://brand.example', candidates: [], ownedHosts: [] }
+    expect(adapterFor('products-fallback-golden').expectedOf({ expectedOutput: { context } })).toEqual({ context })
+    expect(adapterFor('products-repair-golden').expectedOf({ expectedOutput: { context } })).toEqual({ context })
+    expect(adapterFor('acquisition-critique-golden').expectedOf({ expectedOutput: { verdict: 'thin' } })).toEqual({
+      verdict: 'thin',
+    })
+    expect(adapterFor('acquisition-critique-golden').expectedSchema.safeParse({ verdict: 'thin' }).success).toBe(true)
+    expect(adapterFor('products-fallback-golden').expectedSchema.safeParse({ context }).success).toBe(true)
   })
 })

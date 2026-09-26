@@ -16,7 +16,9 @@ import {
   type LlmReasoningEffort,
 } from "@/lib/constants/llm-models";
 
-const MAX_PROMPT_LENGTH = 2_000;
+/** Stored system/user text is cut to this many characters, then marked. */
+export const MAX_PROMPT_LENGTH = 2_000;
+export const PROMPT_TRUNCATION_MARK = "…";
 
 export type LlmAuditContext = {
   jobId?: string;
@@ -79,7 +81,7 @@ function capture(
 function truncate(value: string): string {
   return value.length <= MAX_PROMPT_LENGTH
     ? value
-    : `${value.slice(0, MAX_PROMPT_LENGTH)}…`;
+    : `${value.slice(0, MAX_PROMPT_LENGTH)}${PROMPT_TRUNCATION_MARK}`;
 }
 
 /**

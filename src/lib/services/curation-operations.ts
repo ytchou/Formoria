@@ -874,7 +874,7 @@ function chunkItems<T>(items: T[], size: number): T[][] {
 // Probe cap imported from the prompt owner — see `probeLines` in category-classifier.ts.
 // Probing more would pay for evidence no model ever reads.
 
-function collectKnownUrls(brand: EnrichBrand): string[] {
+export function collectKnownUrls(brand: EnrichBrand): string[] {
   const linkUrls = LINK_FIELDS.map(
     (field) => brand[linkColumnFor(field)],
   ).filter((url): url is string => hasLinkValue(url));

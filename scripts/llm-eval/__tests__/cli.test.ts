@@ -690,3 +690,72 @@ describe('isAdmittedProductsItem', () => {
     expect(isAdmittedProductsItem(item, true)).toBe(false)
   })
 })
+
+describe('parseCliArgs — dataset harvest / capture (DEV-1873)', () => {
+  it('parses dataset harvest --dataset --since --limit', () => {
+    expect(
+      parseCliArgs([
+        'dataset', 'harvest',
+        '--dataset', 'acquisition-plan-golden',
+        '--since', '2026-09-07',
+        '--limit', '20',
+      ]),
+    ).toEqual({
+      command: 'dataset-harvest',
+      dataset: 'acquisition-plan-golden',
+      since: '2026-09-07',
+      limit: 20,
+    })
+  })
+
+  it('parses dataset harvest with only --dataset', () => {
+    expect(parseCliArgs(['dataset', 'harvest', '--dataset', 'products-repair-golden'])).toEqual({
+      command: 'dataset-harvest',
+      dataset: 'products-repair-golden',
+      since: undefined,
+      limit: undefined,
+    })
+  })
+
+  it('rejects a harvest without --dataset, an unknown dataset, or a bad --limit or --since', () => {
+    expect(() => parseCliArgs(['dataset', 'harvest'])).toThrow('--dataset is required')
+    expect(() => parseCliArgs(['dataset', 'harvest', '--dataset', 'detect-confidence-golden'])).toThrow(
+      'not a capture/harvest golden dataset',
+    )
+    expect(() =>
+      parseCliArgs(['dataset', 'harvest', '--dataset', 'products-repair-golden', '--limit', '0']),
+    ).toThrow('--limit must be a positive integer')
+    expect(() =>
+      parseCliArgs(['dataset', 'harvest', '--dataset', 'products-repair-golden', '--since', 'soon']),
+    ).toThrow('--since must be a date')
+  })
+
+  it('parses dataset capture --brands a,b --datasets x,y', () => {
+    expect(
+      parseCliArgs([
+        'dataset', 'capture',
+        '--brands', 'brand-a,brand-b',
+        '--datasets', 'acquisition-plan-golden,acquisition-critique-golden',
+      ]),
+    ).toEqual({
+      command: 'dataset-capture',
+      brands: ['brand-a', 'brand-b'],
+      datasets: ['acquisition-plan-golden', 'acquisition-critique-golden'],
+    })
+  })
+
+  it('parses dataset capture without --datasets', () => {
+    expect(parseCliArgs(['dataset', 'capture', '--brands', 'brand-a'])).toEqual({
+      command: 'dataset-capture',
+      brands: ['brand-a'],
+      datasets: undefined,
+    })
+  })
+
+  it('rejects a capture without --brands or with an unknown dataset', () => {
+    expect(() => parseCliArgs(['dataset', 'capture'])).toThrow('--brands is required')
+    expect(() =>
+      parseCliArgs(['dataset', 'capture', '--brands', 'a', '--datasets', 'descriptions']),
+    ).toThrow('not a capture/harvest golden dataset')
+  })
+})
