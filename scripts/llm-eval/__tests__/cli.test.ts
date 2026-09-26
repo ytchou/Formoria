@@ -14,6 +14,9 @@ import {
   isAdmittedProductsItem,
   LANGFUSE_SNAPSHOT_PATH,
   cmdRun,
+  seedIntentDataset,
+  readSituationQueries,
+  INTENT_PARSE_DATASET,
 } from '../llm-eval'
 import type { PromptApi, SnapshotFile } from '@/lib/services/eval/prompt-sync'
 
@@ -694,5 +697,77 @@ describe('cmdRun', () => {
       process.exitCode = prevExitCode
       errSpy.mockRestore()
     }
+  })
+})
+
+// ---------------------------------------------------------------------------
+// DEV-1824: dataset seed-intent
+// ---------------------------------------------------------------------------
+
+describe('dataset seed-intent', () => {
+  it('parseCliArgs accepts dataset seed-intent', () => {
+    expect(parseCliArgs(['dataset', 'seed-intent'])).toEqual({ command: 'dataset-seed-intent' })
+  })
+
+  it("seed-intent builds 156 items with deterministic ids intent-<query id>, status ARCHIVED, metadata {split, humanApproval:{status:'pending'}}", async () => {
+    const source = readSituationQueries()
+    const runOnce = async () => {
+      const createDataset = vi.fn().mockResolvedValue({})
+      const createDatasetItem = vi.fn().mockResolvedValue({})
+      const result = await seedIntentDataset({ createDataset, createDatasetItem })
+      return { createDataset, createDatasetItem, result }
+    }
+
+    const first = await runOnce()
+    const second = await runOnce()
+
+    expect(first.createDataset).toHaveBeenCalledWith(expect.objectContaining({ name: 'intent-parse-golden' }))
+    expect(first.result).toEqual({ seeded: 156 })
+    expect(first.createDatasetItem).toHaveBeenCalledTimes(156)
+
+    const bodies = first.createDatasetItem.mock.calls.map((c) => c[0] as Record<string, unknown>)
+    const ids = bodies.map((b) => b.id)
+    expect(new Set(ids).size).toBe(156)
+    // Stable across runs: the upsert-by-id is what makes a rerun safe.
+    expect(second.createDatasetItem.mock.calls.map((c) => (c[0] as { id: string }).id)).toEqual(ids)
+
+    source.forEach((q, i) => {
+      expect(bodies[i]).toEqual({
+        datasetName: INTENT_PARSE_DATASET,
+        id: `intent-${q.id}`,
+        input: { query: q.query },
+        expectedOutput: null,
+        status: 'ARCHIVED',
+        // split is copied from the source item, never recomputed.
+        metadata: { split: q.split, humanApproval: { status: 'pending' } },
+      })
+    })
+  })
+
+  it('an existing dataset is not an error; any other createDataset failure is', async () => {
+    const createDatasetItem = vi.fn().mockResolvedValue({})
+    const queries = [{ id: 'q1', query: 'a query', split: 'train' }]
+
+    await expect(
+      seedIntentDataset(
+        { createDataset: vi.fn().mockRejectedValue(new Error('Dataset already exists')), createDatasetItem },
+        queries,
+      ),
+    ).resolves.toEqual({ seeded: 1 })
+
+    await expect(
+      seedIntentDataset(
+        { createDataset: vi.fn().mockRejectedValue(new Error('401 unauthorized')), createDatasetItem: vi.fn() },
+        queries,
+      ),
+    ).rejects.toThrow(/401/)
+  })
+
+  it('rejects a source item without id, query or split', async () => {
+    const client = { createDataset: vi.fn().mockResolvedValue({}), createDatasetItem: vi.fn() }
+    await expect(
+      seedIntentDataset(client, [{ id: 'q1', query: 'a query' } as never]),
+    ).rejects.toThrow(/q1/)
+    expect(client.createDatasetItem).not.toHaveBeenCalled()
   })
 })

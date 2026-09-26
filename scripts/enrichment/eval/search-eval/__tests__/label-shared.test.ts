@@ -6,6 +6,9 @@ import {
   stratifiedSheet,
   toCsv,
   fromCsv,
+  JUDGED_PAIRS_PATH,
+  JEV_JUDGED_PAIRS_PATH,
+  HAND_LABEL_SHEET_PATH,
   type JudgedPair,
   type SheetRow,
 } from '../label-shared'
@@ -150,5 +153,13 @@ describe('toCsv/fromCsv', () => {
     const csv = toCsv(rows)
     const parsed = fromCsv(csv)
     expect(parsed[0]).toEqual(rows[0])
+  })
+})
+
+describe('judged-pairs paths', () => {
+  it('JEV_JUDGED_PAIRS_PATH differs from JUDGED_PAIRS_PATH', () => {
+    expect(JEV_JUDGED_PAIRS_PATH).not.toBe(JUDGED_PAIRS_PATH)
+    expect(JEV_JUDGED_PAIRS_PATH).not.toBe(HAND_LABEL_SHEET_PATH)
+    expect(JEV_JUDGED_PAIRS_PATH.endsWith('labels/judged-pairs.jev.json')).toBe(true)
   })
 })

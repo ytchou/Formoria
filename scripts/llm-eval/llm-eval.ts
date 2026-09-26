@@ -49,6 +49,7 @@ export type ParsedCommand =
   | { command: 'dataset-review-push'; dataset: string; approvedBy: string }
   | { command: 'dataset-record'; dataset: string; brand: string; urls?: string[] }
   | { command: 'dataset-prelabel'; dataset: string; item: string; file: string }
+  | { command: 'dataset-seed-intent' }
   | {
       command: 'run'
       dataset: string
@@ -167,6 +168,9 @@ export function parseCliArgs(args: string[]): ParsedCommand {
         file: values.file,
       }
     }
+    if (sub2 === 'seed-intent') {
+      return { command: 'dataset-seed-intent' }
+    }
     if (sub2 === 'review') {
       const sub3 = positionals[2]
       if (sub3 === 'enqueue') {
@@ -276,6 +280,7 @@ export function parseCliArgs(args: string[]): ParsedCommand {
       '  llm-eval dataset validate [--allow-unreviewed]\n' +
       '  llm-eval dataset record --dataset <name> --brand <slug> [--urls url1,url2,...]\n' +
       '  llm-eval dataset prelabel --dataset <name> --item <id> --file <json-path>\n' +
+      '  llm-eval dataset seed-intent\n' +
       '  llm-eval dataset review enqueue --dataset <name>\n' +
       '  llm-eval dataset review push --dataset <name> --approved-by <user>\n' +
       '  llm-eval run --dataset <name> --arm <spec> [--arm <spec>] [--env-file <path>] [--allow-unreviewed]\n' +
@@ -830,6 +835,78 @@ async function cmdDatasetPrelabel(
   console.log(`[prelabel] Item "${itemId}" prelabeled in dataset "${dataset}"`)
 }
 
+// ---------------------------------------------------------------------------
+// dataset seed-intent (DEV-1824)
+// ---------------------------------------------------------------------------
+
+export const INTENT_PARSE_DATASET = 'intent-parse-golden'
+export const SITUATION_SEARCH_SOURCE = 'scripts/enrichment/eval/search-eval/situation-search-v2.json'
+
+export type SituationQuery = { id: string; query: string; split: string }
+
+export type SeedIntentClient = {
+  createDataset: (body: { name: string; description?: string }) => Promise<unknown>
+  createDatasetItem: (body: Record<string, unknown>) => Promise<unknown>
+}
+
+export function readSituationQueries(path: string = SITUATION_SEARCH_SOURCE): SituationQuery[] {
+  return JSON.parse(readFileSync(path, 'utf8')) as SituationQuery[]
+}
+
+/**
+ * Seeds one unlabelled item per situation query. Items are ARCHIVED with a null
+ * `expectedOutput` until prelabel (the body shape of `golden-review.ts#prelabelItem`).
+ * Ids are `intent-<query id>`, so a rerun upserts in place. `split` is copied
+ * from the source item, never recomputed.
+ */
+export async function seedIntentDataset(
+  client: SeedIntentClient,
+  queries: SituationQuery[] = readSituationQueries(),
+): Promise<{ seeded: number }> {
+  for (const q of queries) {
+    if (typeof q?.id !== 'string' || typeof q.query !== 'string' || typeof q.split !== 'string') {
+      throw new Error(`[seed-intent] source item ${JSON.stringify(q?.id)} needs string id, query and split`)
+    }
+  }
+
+  try {
+    await client.createDataset({
+      name: INTENT_PARSE_DATASET,
+      description: `DEV-1824 intent-parse labels for ${SITUATION_SEARCH_SOURCE}`,
+    })
+  } catch (e) {
+    if (!/exist/i.test(e instanceof Error ? e.message : String(e))) throw e
+  }
+
+  for (const q of queries) {
+    await client.createDatasetItem({
+      datasetName: INTENT_PARSE_DATASET,
+      id: `intent-${q.id}`,
+      input: { query: q.query },
+      expectedOutput: null,
+      status: 'ARCHIVED',
+      metadata: { split: q.split, humanApproval: { status: 'pending' } },
+    })
+  }
+  return { seeded: queries.length }
+}
+
+async function cmdDatasetSeedIntent(): Promise<void> {
+  const client = getLangfuse()
+  if (!client) {
+    console.error('[seed-intent] Langfuse not configured')
+    process.exitCode = 1
+    return
+  }
+  const { seeded } = await seedIntentDataset({
+    createDataset: (body) => client.createDataset(body),
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    createDatasetItem: (body) => client.createDatasetItem(body as any),
+  })
+  await flushLangfuse()
+  console.log(`[seed-intent] ${seeded} ARCHIVED items upserted to "${INTENT_PARSE_DATASET}"`)
+}
+
 async function cmdPairwiseRun(
   phase: string,
   _target: string,
@@ -1274,6 +1351,9 @@ async function main() {
       break
     case 'dataset-prelabel':
       await cmdDatasetPrelabel(parsed.dataset, parsed.item, parsed.file)
+      break
+    case 'dataset-seed-intent':
+      await cmdDatasetSeedIntent()
       break
     case 'dataset-review-enqueue':
       await cmdDatasetReviewEnqueue(parsed.dataset)

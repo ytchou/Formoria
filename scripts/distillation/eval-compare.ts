@@ -1,4 +1,5 @@
-/** 3-way eval comparison — luna vs Qwen3-0.6B foundation vs Qwen3-0.6B fine-tuned.
+/** Eval comparison — luna vs Qwen3-0.6B foundation vs Qwen3-0.6B fine-tuned, plus
+ * the opt-in TypeSafe Jev arm (`--arm jev`, DEV-1824).
  * Scores both L1 (category) and L2 (subcategory) accuracy. */
 import { readFile, mkdir, writeFile } from "node:fs/promises";
 import { resolve } from "node:path";
@@ -22,13 +23,14 @@ function argValue(argv: string[], flag: string): string | undefined {
 // Types
 // ---------------------------------------------------------------------------
 
-type ArmName = "luna" | "foundation" | "fineTuned";
+type ArmName = "luna" | "foundation" | "fineTuned" | "jev";
 
 const VALID_ARM_NAMES: ReadonlySet<string> = new Set([
   "luna",
   "foundation",
   "fineTuned",
   "finetuned",
+  "jev",
 ]);
 
 function normalizeArm(raw: string): ArmName {
@@ -61,6 +63,7 @@ type ProductResult = {
   luna: ArmResult | null;
   foundation: ArmResult | null;
   fineTuned: ArmResult | null;
+  jev: ArmResult | null;
   scores: Record<string, Record<string, number>>;
 };
 
@@ -259,6 +262,41 @@ function parseArmResponse(content: string, latencyMs: number): ArmResult {
   }
 }
 
+/** Jev answers are typed, so there is no parse step; `confidence` records the joint probability. */
+async function callJev(userContent: string): Promise<ArmResult> {
+  const start = Date.now();
+  try {
+    const [{ decide }, { JEV_CANDIDATES }] = await Promise.all([
+      import("@/lib/services/typesafe-audit"),
+      import("@/lib/services/eval/jev-questions"),
+    ]);
+    const run = await JEV_CANDIDATES.productCategory.run(
+      (profileKey, state, questions) => decide(profileKey, state, questions),
+      userContent,
+    );
+    console.log(
+      `[audit] Jev productCategory latency=${run.latencyMs}ms costUsd=${run.costUsd ?? "unknown"}`,
+    );
+    return {
+      category: run.output.category,
+      subcategory: run.output.subcategory,
+      confidence: String(run.output.probability),
+      parseSuccess: true,
+      latencyMs: run.latencyMs,
+      error: null,
+    };
+  } catch (err) {
+    return {
+      category: null,
+      subcategory: null,
+      confidence: null,
+      parseSuccess: false,
+      latencyMs: Date.now() - start,
+      error: String(err),
+    };
+  }
+}
+
 // ---------------------------------------------------------------------------
 // Scoring — L1, L2, and combined
 // ---------------------------------------------------------------------------
@@ -301,10 +339,21 @@ function latencyStats(values: number[]) {
 async function main() {
   const { argv } = loadScriptTarget();
 
+  // Eval runs must not write external_call_audit rows: collect nothing, restore after.
+  const { setAuditWriteSeam } = await import("@/lib/audit");
+  setAuditWriteSeam(async () => null);
+  try {
+    await runEval(argv);
+  } finally {
+    setAuditWriteSeam(null);
+  }
+}
+
+async function runEval(argv: string[]) {
   const rawArm = argValue(argv, "--arm");
   if (rawArm !== undefined && !VALID_ARM_NAMES.has(rawArm)) {
     console.error(
-      `[eval] invalid --arm "${rawArm}". Valid: luna, foundation, fineTuned`,
+      `[eval] invalid --arm "${rawArm}". Valid: luna, foundation, fineTuned, jev`,
     );
     process.exit(1);
   }
@@ -347,11 +396,13 @@ async function main() {
     luna: [],
     foundation: [],
     fineTuned: [],
+    jev: [],
   };
   const armParseFailures: Record<ArmName, number> = {
     luna: 0,
     foundation: 0,
     fineTuned: 0,
+    jev: 0,
   };
 
   for (let i = 0; i < evalMessages.length; i++) {
@@ -381,6 +432,7 @@ async function main() {
       luna: null,
       foundation: null,
       fineTuned: null,
+      jev: null,
       scores: {},
     };
 
@@ -422,6 +474,13 @@ async function main() {
         productResult.fineTuned,
         expected,
       );
+    }
+
+    if (activeArms.includes("jev")) {
+      productResult.jev = await callJev(userMsg.content);
+      armLatencies.jev.push(productResult.jev.latencyMs);
+      if (!productResult.jev.parseSuccess) armParseFailures.jev++;
+      productResult.scores.jev = scoreArm(productResult.jev, expected);
     }
 
     results.push(productResult);

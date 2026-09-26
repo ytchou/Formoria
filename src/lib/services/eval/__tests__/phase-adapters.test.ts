@@ -1,7 +1,10 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import { adapterFor } from '../phase-adapters'
 import { toStrictJsonSchema } from '../../_shared/zod-schema'
 import { isHighConfidenceWrite } from '../../enrich-phases/detect'
+import { INTENT_PARSE_JSON_SCHEMA, INTENT_PARSE_SYSTEM_PROMPT } from '../../query-intent-parse'
+import type { DecideFn, JevAnswers } from '../jev-questions'
+import type { ExperimentArm, ExperimentItem } from '../run-experiment'
 
 const GOLDEN_DATASET_NAMES = [
   'detect-confidence-golden',
@@ -9,14 +12,22 @@ const GOLDEN_DATASET_NAMES = [
   'name-arbiter-confidence-golden',
   'site-identity-confidence-golden',
   'products-agent-ranking-golden',
+  'intent-parse-golden',
 ] as const
 
+/** Golden datasets with no Langfuse prompt: their task builds the request itself. */
+const PROMPTLESS_DATASETS: ReadonlySet<string> = new Set(['intent-parse-golden'])
+
 describe('phase-adapters registry', () => {
-  it('resolves each of the five golden dataset names plus descriptions', () => {
+  it('resolves each of the six golden dataset names plus descriptions', () => {
     for (const name of GOLDEN_DATASET_NAMES) {
       const adapter = adapterFor(name)
       expect(adapter).toBeDefined()
-      expect(adapter.promptName).toEqual(expect.any(String))
+      if (PROMPTLESS_DATASETS.has(name)) {
+        expect(adapter.promptName).toBeNull()
+      } else {
+        expect(adapter.promptName).toEqual(expect.any(String))
+      }
       expect(adapter.profileKey).toEqual(expect.any(String))
       expect(adapter.outputSchema).toBeDefined()
       expect(adapter.requestSchema).toEqual({
@@ -190,5 +201,175 @@ describe('isHighConfidenceWrite', () => {
     expect(isHighConfidenceWrite({ confidence: 'high' })).toBe(true)
     expect(isHighConfidenceWrite({ confidence: 'medium' })).toBe(false)
     expect(isHighConfidenceWrite({ confidence: 'low' })).toBe(false)
+  })
+})
+
+// ---------------------------------------------------------------------------
+// DEV-1824: Jev decide wiring and the intent-parse golden dataset
+// ---------------------------------------------------------------------------
+
+function goldenItem(input: unknown, expectedOutput: unknown): ExperimentItem {
+  return { id: 'item-1', input, expectedOutput, humanApproval: {} }
+}
+
+/** A fake `decide` that answers every call with the given answers. */
+function fakeDecide(answers: JevAnswers): DecideFn {
+  return vi.fn(async () => ({
+    answers,
+    usage: { input_tokens: 10, output_tokens: 2 },
+    latencyMs: 5,
+    costUsd: 0.0001,
+  }))
+}
+
+describe('Jev decide wiring', () => {
+  const cases = [
+    {
+      dataset: 'detect-confidence-golden',
+      primary: 'decisionAgreement',
+      input: { user: 'brand line', promptName: 'detect' },
+      answers: { isNonBrand: { noul: 0.95 } },
+      expectedOutput: { isNonBrand: true, confidence: 'high' },
+    },
+    {
+      dataset: 'category-confidence-golden',
+      primary: 'categoryAgreement',
+      input: { user: 'brand line', promptName: 'category-classify' },
+      answers: { category: { choice: 'beauty', probabilities: { beauty: 0.95 } } },
+      expectedOutput: { category: 'beauty', confidence: 'high' },
+    },
+    {
+      dataset: 'site-identity-confidence-golden',
+      primary: 'decisionAgreement',
+      input: { user: 'site line', promptName: 'site-identity' },
+      answers: { owned: { noul: 0.05 } },
+      expectedOutput: { owned: false, confidence: 'high', writeEligible: false },
+    },
+  ] as const
+
+  it('detect/category/site-identity adapters expose decide mapping to the scorer output shape', async () => {
+    for (const c of cases) {
+      const decide = fakeDecide(c.answers)
+      const adapter = adapterFor(c.dataset, { decide })
+      expect(typeof adapter.decide).toBe('function')
+
+      const item = goldenItem(c.input, c.expectedOutput)
+      const result = await adapter.decide!(item, { itemRunId: 'run-1' })
+      expect(result.ok).toBe(true)
+      expect(decide).toHaveBeenCalledTimes(1)
+
+      const expected = adapter.expectedOf(item)
+      const scores = Object.fromEntries(adapter.scorers.map((s) => [s.name, s.fn(result.output, expected)]))
+      // The primary agreement scorer applies (not n/a) and agrees on these fixtures.
+      expect(scores[c.primary]).toBe(1)
+      expect(scores.confidenceBandAgreement).toBe(1)
+      expect((result.output as { probability: number }).probability).toBeCloseTo(0.95)
+    }
+  })
+
+  it('the default registry wires decide on the three confidence adapters', () => {
+    for (const c of cases) {
+      expect(typeof adapterFor(c.dataset).decide).toBe('function')
+    }
+  })
+
+  it('decide returns ok:false with the error instead of throwing', async () => {
+    const decide: DecideFn = vi.fn(async () => {
+      throw new Error('typesafe 503')
+    })
+    const adapter = adapterFor('detect-confidence-golden', { decide })
+    const result = await adapter.decide!(goldenItem({ user: 'x' }, null), { itemRunId: 'run-1' })
+    expect(result).toEqual({ ok: false, output: null, error: 'typesafe 503' })
+  })
+})
+
+describe('intent-parse-golden adapter', () => {
+  const arm: ExperimentArm = { name: 'gpt-4o-mini', type: 'model', value: 'gpt-4o-mini' }
+
+  it('intent-parse-golden adapter: promptName null, task sends the live system prompt', async () => {
+    const callModel = vi.fn(async () => ({
+      ok: true,
+      content: JSON.stringify({ category: 'home', subcategory: null, materials: ['wood'] }),
+    }))
+    const adapter = adapterFor('intent-parse-golden', { callModel })
+    expect(adapter.promptName).toBeNull()
+    expect(adapter.profileKey).toBe('intentParse')
+    expect(adapter.mode).toBe('scored')
+
+    const result = await adapter.task!(goldenItem({ query: 'a query' }, null), arm, {
+      itemRunId: 'run-1',
+      model: 'gpt-4o-mini',
+    })
+    expect(result).toMatchObject({
+      ok: true,
+      output: { category: 'home', subcategory: null, materials: ['wood'] },
+    })
+    expect(callModel).toHaveBeenCalledWith(
+      { system: INTENT_PARSE_SYSTEM_PROMPT, user: 'a query', schema: INTENT_PARSE_JSON_SCHEMA },
+      { model: 'gpt-4o-mini' },
+    )
+  })
+
+  it('task fails the item on a failed call or an off-schema reply', async () => {
+    const failed = adapterFor('intent-parse-golden', { callModel: async () => ({ ok: false, content: '' }) })
+    expect((await failed.task!(goldenItem({ query: 'q' }, null), arm, { itemRunId: 'r' })).ok).toBe(false)
+
+    const offSchema = adapterFor('intent-parse-golden', {
+      callModel: async () => ({ ok: true, content: JSON.stringify({ category: 'not-a-slug', subcategory: null, materials: [] }) }),
+    })
+    expect((await offSchema.task!(goldenItem({ query: 'q' }, null), arm, { itemRunId: 'r' })).ok).toBe(false)
+  })
+
+  it('decide runs the intentParse Jev candidate on {query}', async () => {
+    const decide = fakeDecide({
+      category: { choice: 'home', probabilities: { home: 0.92 } },
+      wood: { noul: 0.8 },
+    })
+    const adapter = adapterFor('intent-parse-golden', { decide })
+    const result = await adapter.decide!(goldenItem({ query: 'a query' }, null), { itemRunId: 'run-1' })
+    expect(result.ok).toBe(true)
+    expect(result.output).toMatchObject({ category: 'home', materials: ['wood'] })
+    expect(vi.mocked(decide).mock.calls[0]?.[0]).toBe('intentParse')
+    expect(vi.mocked(decide).mock.calls[0]?.[1]).toEqual({ query: 'a query' })
+  })
+
+  it('expectedSchema takes {category, subcategory, materials} and rejects a null label', () => {
+    const { expectedSchema } = adapterFor('intent-parse-golden')
+    expect(expectedSchema.safeParse({ category: 'home', subcategory: null, materials: [] }).success).toBe(true)
+    // Null expectedOutput is only legal on ARCHIVED (unlabelled) items, which cmdRun never reads.
+    expect(expectedSchema.safeParse(null).success).toBe(false)
+  })
+
+  it('intent scorers: materials Jaccard and nullable subcategory agreement', () => {
+    const adapter = adapterFor('intent-parse-golden')
+    expect(adapter.scorers.map((s) => s.name)).toEqual([
+      'categoryAgreement',
+      'subcategoryAgreement',
+      'materialsJaccard',
+    ])
+    expect(adapter.scorers.filter((s) => s.nullable).map((s) => s.name)).toEqual(['subcategoryAgreement'])
+
+    const score = (name: string, o: unknown, e: unknown) =>
+      adapter.scorers.find((s) => s.name === name)!.fn(o, adapter.expectedOf(goldenItem({ query: 'q' }, e)))
+
+    const expected = { category: 'home', subcategory: 'tableware', materials: ['wood', 'ceramic'] }
+
+    expect(score('categoryAgreement', { category: 'home', subcategory: null, materials: [] }, expected)).toBe(1)
+    expect(score('categoryAgreement', { category: 'beauty', subcategory: null, materials: [] }, expected)).toBe(0)
+    expect(score('categoryAgreement', { category: null, subcategory: null, materials: [] }, expected)).toBe(0)
+
+    // Subcategory: n/a when neither side names one; otherwise exact agreement.
+    const noSub = { ...expected, subcategory: null }
+    expect(score('subcategoryAgreement', { category: 'home', subcategory: null, materials: [] }, noSub)).toBeNull()
+    expect(score('subcategoryAgreement', { category: 'home', subcategory: 'tableware', materials: [] }, expected)).toBe(1)
+    expect(score('subcategoryAgreement', { category: 'home', subcategory: null, materials: [] }, expected)).toBe(0)
+    expect(score('subcategoryAgreement', { category: 'home', subcategory: 'tableware', materials: [] }, noSub)).toBe(0)
+
+    // Materials: |A ∩ B| / |A ∪ B|, with two empty sets agreeing.
+    expect(score('materialsJaccard', { category: 'home', subcategory: null, materials: ['wood'] }, expected)).toBe(0.5)
+    expect(score('materialsJaccard', { category: 'home', subcategory: null, materials: ['glass'] }, expected)).toBe(0)
+    expect(
+      score('materialsJaccard', { category: 'home', subcategory: null, materials: [] }, { ...expected, materials: [] }),
+    ).toBe(1)
   })
 })

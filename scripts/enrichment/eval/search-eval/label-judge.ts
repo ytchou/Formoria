@@ -9,12 +9,15 @@ import {
 } from '@/lib/services/product-situation-search'
 import { getPublishedCuratedProducts } from '@/lib/services/curated-products-catalog'
 import { judgeRelevance } from '@/lib/services/eval/search-relevance-judge'
+import type { DecideFn } from '@/lib/services/eval/jev-questions'
+import { decide } from '@/lib/services/typesafe-audit'
 import { fetchLangfusePromptWithMeta } from '@/lib/langfuse/prompt'
 import {
   LABELS_DIR,
   QUERIES_PATH,
   CANDIDATES_PATH,
   JUDGED_PAIRS_PATH,
+  JEV_JUDGED_PAIRS_PATH,
   HAND_LABEL_SHEET_PATH,
   sampleDeep,
   stratifiedSheet,
@@ -124,13 +127,29 @@ export async function cmdJudge(
 ): Promise<void> {
   if (values.help) {
     console.log(
-      'Usage: pnpm search:eval judge [--model gpt-4o-mini] [--samples 3] [--temperature 0.7] [--force]',
+      'Usage: pnpm search:eval judge [--judge openai|jev] [--model gpt-4o-mini] [--samples 3] [--temperature 0.7] [--force]',
     )
     console.log(
       '  Runs LLM judge (multi-sample) on (query, product) pairs, outputs 0-3 grade',
     )
+    console.log(
+      '  --judge jev: one Jev score call per pair; writes labels/judged-pairs.jev.json and leaves the hand-label sheet alone',
+    )
     return
   }
+
+  const judge = String(values.judge ?? 'openai')
+  if (judge !== 'openai' && judge !== 'jev') {
+    console.error(`[judge] Unknown --judge "${judge}". Use openai or jev.`)
+    process.exitCode = 1
+    return
+  }
+  const isJev = judge === 'jev'
+  // The Jev arm keeps its own output and resume file so it never overwrites the OpenAI labels.
+  const outPath = isJev ? JEV_JUDGED_PAIRS_PATH : JUDGED_PAIRS_PATH
+  const jevDecide: DecideFn | undefined = isJev
+    ? (profileKey, state, questions) => decide(profileKey, state, questions)
+    : undefined
 
   const samples = parseInt(String(values.samples ?? '3'), 10)
   const temperature = parseFloat(String(values.temperature ?? '0.7'))
@@ -150,8 +169,8 @@ export async function cmdJudge(
 
   // Load existing judged pairs for resume
   let existing: JudgedPair[] = []
-  if (existsSync(JUDGED_PAIRS_PATH) && !force) {
-    existing = JSON.parse(readFileSync(JUDGED_PAIRS_PATH, 'utf8'))
+  if (existsSync(outPath) && !force) {
+    existing = JSON.parse(readFileSync(outPath, 'utf8'))
     console.log(`[judge] Resuming from ${existing.length} existing judged pairs`)
   }
 
@@ -198,8 +217,8 @@ export async function cmdJudge(
     }
   }
 
-  // Fetch prompt once
-  const promptMeta = await fetchLangfusePromptWithMeta('search-relevance-judge')
+  // Fetch prompt once (the Jev arm carries its own instructions)
+  const promptMeta = isJev ? null : await fetchLangfusePromptWithMeta('search-relevance-judge')
 
   const judgedPairs = [...existing]
 
@@ -233,11 +252,13 @@ export async function cmdJudge(
             description_zh: product.descriptionZh,
           },
         },
-        {
-          fetchPrompt: async () => promptMeta,
-          samples,
-          temperature,
-        },
+        jevDecide
+          ? { decide: jevDecide }
+          : {
+              fetchPrompt: promptMeta ? async () => promptMeta : undefined,
+              samples,
+              temperature,
+            },
       )
 
       judgedPairs.push({
@@ -252,14 +273,21 @@ export async function cmdJudge(
         votes: result.votes,
         grade: result.grade ?? 0,
         split: result.split,
+        ...(isJev && result.probabilities ? { probabilities: result.probabilities } : {}),
       })
     }
 
     // Write after each query for resume safety
-    writeFileSync(JUDGED_PAIRS_PATH, JSON.stringify(judgedPairs, null, 2))
+    writeFileSync(outPath, JSON.stringify(judgedPairs, null, 2))
   }
 
   console.log(`[judge] Total judged pairs: ${judgedPairs.length}`)
+
+  // The hand-label sheet is built from the OpenAI labels only.
+  if (isJev) {
+    console.log(`[judge] Wrote Jev labels to ${outPath}; hand-label sheet left unchanged`)
+    return
+  }
 
   // Emit hand-label sheet
   const existingSheet = existsSync(HAND_LABEL_SHEET_PATH)

@@ -13,7 +13,15 @@ import { siteIdentityShape } from '@/lib/services/site-identity-arbiter'
 import { resolveQuarantine } from '@/lib/services/enrich-phases/site-identity'
 import { descriptionShape } from '@/lib/services/description-rewrite'
 import { isHighConfidenceWrite } from '@/lib/services/enrich-phases/detect'
-import { toStrictJsonSchema } from '@/lib/services/_shared/zod-schema'
+import { parseAndValidate, toStrictJsonSchema } from '@/lib/services/_shared/zod-schema'
+import { createProfiledOpenAIClient, profileChatParams } from '@/lib/services/llm-audit'
+import { decide as typesafeDecide } from '@/lib/services/typesafe-audit'
+import {
+  INTENT_PARSE_JSON_SCHEMA,
+  INTENT_PARSE_SYSTEM_PROMPT,
+  intentParseShape,
+  validateSubcategory,
+} from '@/lib/services/query-intent-parse'
 import { renderEditorialBands } from '@/lib/constants/curated-products'
 import { PRODUCTS_PROPOSAL_SHAPE } from '@/lib/services/enrich-phases/products'
 import {
@@ -29,6 +37,15 @@ import {
   originWhenSourced,
 } from './scorers'
 import {
+  JEV_CANDIDATES,
+  runJevCandidate,
+  type DecideFn,
+  type JevCandidate,
+  type TwoStepJevCandidate,
+} from './jev-questions'
+import type { JevState } from '../typesafe-client'
+import {
+  jaccard,
   productsExpectedSchema,
   summarizeCalibration,
   bandConfusion,
@@ -107,6 +124,71 @@ function makeRequestSchema(name: string, schema: ZodType): { name: string; schem
   return { name, schema: toStrictJsonSchema(schema) }
 }
 
+function errorMessage(e: unknown): string {
+  return e instanceof Error ? e.message : String(e)
+}
+
+/**
+ * The `decide` hook for a Jev candidate: the golden item's `input` goes to the
+ * candidate as-is, and its output is shaped for the adapter's scorers.
+ * `ctx.model` is not forwarded: `decide()` always calls the pinned `JEV_MODEL`,
+ * which is the only version `parseArm` accepts.
+ */
+function jevDecide<I, S extends JevState, O>(
+  candidate: JevCandidate<I, S, O> | TwoStepJevCandidate<I, S, O>,
+  decide: DecideFn,
+): NonNullable<PhaseAdapter['decide']> {
+  return async (item) => {
+    try {
+      const { output } = await runJevCandidate(candidate, decide, item.input as I)
+      return { ok: true, output }
+    } catch (e) {
+      return { ok: false, output: null, error: errorMessage(e) }
+    }
+  }
+}
+
+// ---------------------------------------------------------------------------
+// intent-parse task — the live /discover?q= request, minus cache and timeout fallbacks
+// ---------------------------------------------------------------------------
+
+export type IntentCallModel = (
+  input: { system: string; user: string; schema: typeof INTENT_PARSE_JSON_SCHEMA },
+  options: { model?: string },
+) => Promise<{ ok: boolean; content: string }>
+
+/** The same audited client, profile params and schema `parseQueryIntent` uses (gpt-4o-mini). */
+const defaultIntentCallModel: IntentCallModel = async (input, options) => {
+  const client = createProfiledOpenAIClient('intentParse', { phase: 'intentParse' }, { model: options.model })
+  const result = await client.chat({
+    system: input.system,
+    user: input.user,
+    json: true,
+    schema: input.schema,
+    ...profileChatParams('intentParse'),
+  })
+  return { ok: result.response.ok, content: result.content ?? '' }
+}
+
+function intentParseTask(callModel: IntentCallModel): NonNullable<PhaseAdapter['task']> {
+  return async (item, _arm, ctx) => {
+    try {
+      const { query } = item.input as { query: string }
+      const result = await callModel(
+        { system: INTENT_PARSE_SYSTEM_PROMPT, user: query, schema: INTENT_PARSE_JSON_SCHEMA },
+        { model: ctx.model },
+      )
+      if (!result.ok) return { ok: false, output: null, error: 'Model call failed' }
+      const parsed = parseAndValidate(result.content, intentParseShape)
+      if (!parsed.success) return { ok: false, output: null, error: 'Output parsing failed' }
+      // Same post-processing as the live path: an L2 outside the taxonomy or its L1 is dropped.
+      return { ok: true, output: validateSubcategory(parsed.data) }
+    } catch (e) {
+      return { ok: false, output: null, error: errorMessage(e) }
+    }
+  }
+}
+
 // ---------------------------------------------------------------------------
 // Expected schemas for golden datasets (DEV-1649 expected output shapes)
 // ---------------------------------------------------------------------------
@@ -136,12 +218,26 @@ const siteIdentityExpectedSchema = z.object({
   writeEligible: z.boolean().optional(),
 })
 
+/**
+ * A labelled intent. Seeded items carry `expectedOutput: null` and stay
+ * ARCHIVED until prelabel, so this schema never sees them: prelabel validates
+ * the label it writes, and `cmdRun` reads ACTIVE items only.
+ */
+const intentExpectedSchema = z.object({
+  category: z.string(),
+  subcategory: z.string().nullable(),
+  materials: z.array(z.string()),
+})
+
+type IntentShape = { category: string | null; subcategory: string | null; materials: string[] }
+
 // ---------------------------------------------------------------------------
 // Registry
 // ---------------------------------------------------------------------------
 
 type BatchResult = { results: unknown[] }
 
+/** Static adapter fields. The injectable model-calling hooks come from `transportHooks`. */
 const registry: Record<string, PhaseAdapter> = {
   'detect-confidence-golden': {
     promptName: 'detect',
@@ -366,18 +462,85 @@ const registry: Record<string, PhaseAdapter> = {
     ],
     mode: 'pairwise',
   },
+
+  'intent-parse-golden': {
+    // No Langfuse prompt: the task sends the live INTENT_PARSE_SYSTEM_PROMPT.
+    promptName: null,
+    profileKey: 'intentParse',
+    outputSchema: intentParseShape,
+    requestSchema: makeRequestSchema(INTENT_PARSE_JSON_SCHEMA.name, intentParseShape),
+    parseOutput: makeParseOutput(intentParseShape),
+    unwrap: (output) => output,
+    expectedOf: (item) => {
+      const eo = item.expectedOutput as Record<string, unknown>
+      return {
+        category: eo.category,
+        subcategory: eo.subcategory ?? null,
+        materials: eo.materials ?? [],
+      }
+    },
+    expectedSchema: intentExpectedSchema,
+    scorers: [
+      // First scorer is the threshold-sweep target: the Jev probability is P(L1).
+      { name: 'categoryAgreement', fn: (o, e) => {
+        return decisionAgreement((o as IntentShape).category, (e as IntentShape).category)
+      }},
+      { name: 'subcategoryAgreement', nullable: true, fn: (o, e) => {
+        const out = (o as IntentShape).subcategory ?? null
+        const exp = (e as IntentShape).subcategory ?? null
+        // n/a when neither side names an L2; a missing or extra L2 disagrees.
+        if (out === null && exp === null) return null
+        return out === exp ? 1 : 0
+      }},
+      { name: 'materialsJaccard', fn: (o, e) => {
+        return jaccard(new Set((o as IntentShape).materials), new Set((e as IntentShape).materials))
+      }},
+    ],
+    mode: 'scored',
+  },
+}
+
+/** Injected transports; each defaults to the live client. */
+export type AdapterDeps = {
+  /** Jev `decide()`; defaults to typesafe-audit's audited `decide`. */
+  decide?: DecideFn
+  /** The intent-parse model call; defaults to the audited `intentParse` profile client. */
+  callModel?: IntentCallModel
+}
+
+/** The model-calling hooks, built per call so tests can inject the transport. */
+function transportHooks(
+  datasetName: string,
+  deps: AdapterDeps,
+): Pick<PhaseAdapter, 'task' | 'decide'> {
+  const decide = deps.decide ?? typesafeDecide
+  switch (datasetName) {
+    case 'detect-confidence-golden':
+      return { decide: jevDecide(JEV_CANDIDATES.detect, decide) }
+    case 'category-confidence-golden':
+      return { decide: jevDecide(JEV_CANDIDATES.classification, decide) }
+    case 'site-identity-confidence-golden':
+      return { decide: jevDecide(JEV_CANDIDATES.siteIdentity, decide) }
+    case 'intent-parse-golden':
+      return {
+        task: intentParseTask(deps.callModel ?? defaultIntentCallModel),
+        decide: jevDecide(JEV_CANDIDATES.intentParse, decide),
+      }
+    default:
+      return {}
+  }
 }
 
 // ---------------------------------------------------------------------------
 // Public API
 // ---------------------------------------------------------------------------
 
-export function adapterFor(datasetName: string): PhaseAdapter {
+export function adapterFor(datasetName: string, deps: AdapterDeps = {}): PhaseAdapter {
   const adapter = registry[datasetName]
   if (!adapter) {
     throw new Error(`No phase adapter registered for dataset "${datasetName}"`)
   }
-  return adapter
+  return { ...adapter, ...transportHooks(datasetName, deps) }
 }
 
 /**

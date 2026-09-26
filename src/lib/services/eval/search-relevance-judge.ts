@@ -6,6 +6,7 @@ import {
   parseAndValidate,
   toStrictJsonSchema,
 } from '@/lib/services/_shared/zod-schema'
+import { JEV_CANDIDATES, runJevCandidate, type DecideFn } from './jev-questions'
 
 // ---------------------------------------------------------------------------
 // Types
@@ -26,6 +27,8 @@ type JudgeResult = {
   unanimous: boolean
   split: boolean
   reason?: string
+  /** Jev path only: probability per grade level, keyed '0'..'3'. */
+  probabilities?: Record<string, number>
 }
 
 type ChatFn = (opts: {
@@ -41,6 +44,12 @@ type JudgeDeps = {
   fetchPrompt?: FetchPromptFn
   samples?: number
   temperature?: number
+  /**
+   * Eval-only Jev path (DEV-1824). When set, one `score` call replaces the
+   * multi-sample chat vote; `chat`, `fetchPrompt`, `samples` and `temperature`
+   * are ignored.
+   */
+  decide?: DecideFn
 }
 
 // ---------------------------------------------------------------------------
@@ -84,6 +93,11 @@ export async function judgeRelevance(
   input: { query: string; product: JudgeProduct },
   deps: JudgeDeps = {},
 ): Promise<JudgeResult> {
+  if (deps.decide) {
+    const { output } = await runJevCandidate(JEV_CANDIDATES.relevanceJudge, deps.decide, input)
+    return output
+  }
+
   const samples = deps.samples ?? 3
   const temperature = deps.temperature ?? 0.7
 

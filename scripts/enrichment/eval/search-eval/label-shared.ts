@@ -9,6 +9,8 @@ export const LABELS_DIR = resolve(SCRIPT_DIR, 'labels')
 export const QUERIES_PATH = resolve(LABELS_DIR, 'queries.json')
 export const CANDIDATES_PATH = resolve(LABELS_DIR, 'candidates.json')
 export const JUDGED_PAIRS_PATH = resolve(LABELS_DIR, 'judged-pairs.json')
+/** `judge --judge jev` output; kept apart so it never overwrites the OpenAI labels. */
+export const JEV_JUDGED_PAIRS_PATH = resolve(LABELS_DIR, 'judged-pairs.jev.json')
 export const HAND_LABEL_SHEET_PATH = resolve(LABELS_DIR, 'hand-label-sheet.csv')
 export const AGREEMENT_PATH = resolve(LABELS_DIR, 'agreement.json')
 export const DATASET_V2_PATH = resolve(LABELS_DIR, 'situation-search-v2.json')
@@ -30,6 +32,8 @@ export type JudgedPair = {
   votes: number[]
   grade: number
   split: boolean
+  /** Jev arm only: probability per grade level, keyed '0'..'3'. */
+  probabilities?: Record<string, number>
 }
 
 export type SheetRow = {
