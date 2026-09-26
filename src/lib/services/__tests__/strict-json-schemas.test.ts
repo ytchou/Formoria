@@ -14,12 +14,6 @@
  *   2. imported directly when the module exports the wire schema,
  *   3. rebuilt with `toStrictJsonSchema(<exported Zod shape>)` exactly as the
  *      module-private constant is built.
- *
- * Not covered (module-private schema whose Zod shape is also private, and no
- * seam that reaches the call without a database):
- *   - enrich-phases/stockists.ts STOCKISTS_SCHEMA (stockistsShape is private)
- *   - enrich-phases/classify-images.ts IMAGE_CLASSIFICATION_SCHEMA (imageClassificationShape is private)
- *   - enrich-phases/faq.ts faqSchema "faq_entries" (buildFaqZodSchema is private)
  */
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { z } from "zod";
@@ -61,6 +55,9 @@ import {
   PRODUCTS_SCHEMA,
 } from "../enrich-phases/products";
 import { repairEditorialCrossOutput } from "../enrich-phases/editorial/validators";
+import { stockistsShape } from "../enrich-phases/stockists";
+import { imageClassificationShape } from "../enrich-phases/classify-images";
+import { buildFaqZodSchema } from "../enrich-phases/faq";
 import type { AgentModel } from "../enrich-phases/agents/runtime";
 
 type JsonSchema = Record<string, unknown>;
@@ -363,6 +360,18 @@ const WIRE_SCHEMAS: Array<[string, () => Promise<JsonSchema>]> = [
     "products/graph REPAIR_SCHEMA",
     async () =>
       toStrictJsonSchema(PRODUCTS_PROPOSAL_SHAPE.pick({ products: true })),
+  ],
+  [
+    "enrich-phases/stockists STOCKISTS_SCHEMA",
+    async () => toStrictJsonSchema(stockistsShape),
+  ],
+  [
+    "enrich-phases/classify-images IMAGE_CLASSIFICATION_SCHEMA",
+    async () => toStrictJsonSchema(imageClassificationShape),
+  ],
+  [
+    'enrich-phases/faq faqSchema "faq_entries"',
+    async () => toStrictJsonSchema(buildFaqZodSchema(["preset_a", "preset_b"])),
   ],
 ];
 

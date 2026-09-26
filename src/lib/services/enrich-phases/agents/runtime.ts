@@ -183,6 +183,53 @@ export function contentText(response: AgentModelResponse): string {
 }
 
 // ---------------------------------------------------------------------------
+// Abnormal completions
+// ---------------------------------------------------------------------------
+
+/**
+ * A reply that asking again cannot fix (DEV-1866). A refusal, a reply cut at
+ * the token limit, or one blocked by the content filter would fail
+ * `JSON.parse` and spend the reparse turn on the same input, so each stops the
+ * turn instead. The parameter is structural so both `AgentModelResponse` and
+ * the raw `OpenAIChatResult` fit.
+ */
+export type AbnormalCompletionKind = 'refused' | 'truncated' | 'filtered'
+
+type CompletionSignals = { finishReason?: string | null; refusal?: string | null }
+
+export function abnormalCompletion(response: CompletionSignals): AbnormalCompletionKind | null {
+  if (response.refusal) return 'refused'
+  if (response.finishReason === 'length') return 'truncated'
+  if (response.finishReason === 'content_filter') return 'filtered'
+  return null
+}
+
+/** Decision detail for an abnormal completion: the refusal text, or the finish reason. */
+export function abnormalDetail(kind: AbnormalCompletionKind, response: CompletionSignals): string {
+  return kind === 'refused'
+    ? `refusal=${(response.refusal ?? '').slice(0, 200)}`
+    : `finish_reason=${response.finishReason ?? 'none'}`
+}
+
+export function abnormalErrorCode(
+  kind: AbnormalCompletionKind,
+): 'model_refused' | 'model_truncated' | 'model_filtered' {
+  return `model_${kind}`
+}
+
+/** Thrown where a node cannot return a fallback state and must unwind instead. */
+export class AbnormalCompletionError extends Error {
+  readonly kind: AbnormalCompletionKind
+  readonly detail: string
+  constructor(kind: AbnormalCompletionKind, detail: string) {
+    super(`model reply ${kind}: ${detail}`)
+    this.name = 'AbnormalCompletionError'
+    this.kind = kind
+    this.detail = detail
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Langfuse node spans (extracted to @/lib/tracing/span)
 // ---------------------------------------------------------------------------
 

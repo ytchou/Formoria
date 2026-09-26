@@ -6,6 +6,10 @@ import type { ChatMessage } from '@/lib/services/openai-client'
 import { toStrictJsonSchema } from '@/lib/services/_shared/zod-schema'
 
 import {
+  abnormalCompletion,
+  abnormalDetail,
+  abnormalErrorCode,
+  AbnormalCompletionError,
   contentText,
   createAgentModel,
   extractJson,
@@ -375,3 +379,47 @@ describe('agents runtime — helpers', () => {
 })
 
 // withNodeSpan tests moved to src/lib/tracing/__tests__/span.test.ts
+
+describe('agents runtime — abnormal completion', () => {
+  it('abnormal_completion_classifies_refused_truncated_filtered', () => {
+    expect(abnormalCompletion({ refusal: 'I cannot', finishReason: 'stop' })).toBe('refused')
+    expect(abnormalCompletion({ refusal: 'I cannot', finishReason: 'length' })).toBe('refused')
+    expect(abnormalCompletion({ finishReason: 'length' })).toBe('truncated')
+    expect(abnormalCompletion({ finishReason: 'content_filter' })).toBe('filtered')
+  })
+
+  it('abnormal_completion_is_null_for_stop_and_tool_calls', () => {
+    expect(abnormalCompletion({ finishReason: 'stop' })).toBeNull()
+    expect(abnormalCompletion({ finishReason: 'tool_calls' })).toBeNull()
+    expect(abnormalCompletion({})).toBeNull()
+    expect(abnormalCompletion({ finishReason: null, refusal: null })).toBeNull()
+    expect(abnormalCompletion({ refusal: '' })).toBeNull()
+  })
+
+  it('abnormal_detail_truncates_refusal_to_200_chars', () => {
+    const refusal = 'x'.repeat(250)
+    expect(abnormalDetail('refused', { refusal })).toBe(`refusal=${'x'.repeat(200)}`)
+    expect(abnormalDetail('truncated', { finishReason: 'length' })).toBe('finish_reason=length')
+    expect(abnormalDetail('filtered', { finishReason: 'content_filter' })).toBe(
+      'finish_reason=content_filter',
+    )
+    expect(abnormalDetail('truncated', {})).toBe('finish_reason=none')
+  })
+
+  it('abnormal_error_code_maps_each_kind', () => {
+    expect(abnormalErrorCode('refused')).toBe('model_refused')
+    expect(abnormalErrorCode('truncated')).toBe('model_truncated')
+    expect(abnormalErrorCode('filtered')).toBe('model_filtered')
+  })
+
+  it('abnormal_completion_error_carries_kind_and_detail', () => {
+    const error = new AbnormalCompletionError('filtered', 'finish_reason=content_filter')
+
+    expect(error).toBeInstanceOf(AbnormalCompletionError)
+    expect(error).toBeInstanceOf(Error)
+    expect(error.name).toBe('AbnormalCompletionError')
+    expect(error.kind).toBe('filtered')
+    expect(error.detail).toBe('finish_reason=content_filter')
+    expect(error.message).toBe('model reply filtered: finish_reason=content_filter')
+  })
+})

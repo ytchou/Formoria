@@ -83,6 +83,9 @@ import {
 } from './budget'
 import { BudgetExhausted } from '../acquisition/budget'
 import {
+  abnormalCompletion,
+  abnormalDetail,
+  abnormalErrorCode,
   contentText,
   extractJson,
   withNodeSpan,
@@ -498,24 +501,6 @@ function ownedHostsOf(ctx: ProductsRunContext): readonly string[] {
   return ctx.input.brand.ownedHosts ?? []
 }
 
-/**
- * A reply that asking again cannot fix (DEV-1866). A refusal or a reply cut at
- * the token limit would fail `JSON.parse` and spend the reparse turn on the
- * same input, so both stop the turn instead.
- */
-function abnormalCompletion(response: AgentModelResponse): 'refused' | 'truncated' | null {
-  if (response.refusal) return 'refused'
-  if (response.finishReason === 'length') return 'truncated'
-  return null
-}
-
-/** Decision detail for an abnormal completion: the refusal text, or the finish reason. */
-function abnormalDetail(kind: 'refused' | 'truncated', response: AgentModelResponse): string {
-  return kind === 'refused'
-    ? `refusal=${(response.refusal ?? '').slice(0, 200)}`
-    : `finish_reason=${response.finishReason ?? 'none'}`
-}
-
 async function proposeNode(
   ctx: ProductsRunContext,
   state: ProductsStateType,
@@ -573,7 +558,7 @@ async function proposeNode(
     return {
       proposeAttempts: attempts,
       agentOutcome: 'fallback',
-      error: abnormal === 'refused' ? 'model_refused' : 'model_truncated',
+      error: abnormalErrorCode(abnormal),
     }
   }
 

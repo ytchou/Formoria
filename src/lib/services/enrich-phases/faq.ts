@@ -97,7 +97,7 @@ const FAQ_PROMPT_PARAMS = {
   siteContentLimit: 4000,
 };
 
-function buildFaqZodSchema(presetIds: string[]) {
+export function buildFaqZodSchema(presetIds: string[]) {
   return z.object({
     entries: z.array(
       z.object({

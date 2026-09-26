@@ -365,6 +365,22 @@ describe('products agent graph', () => {
     ).toBe(true)
   })
 
+  it('propose_content_filter_falls_back_without_reparse', async () => {
+    const model = scriptedModel([
+      { content: '', finishReason: 'content_filter' },
+      validProposalResponse(),
+    ])
+
+    const result = await runProductsAgent(baseInput, makeDeps(), { model })
+
+    expect(result.agentOutcome).toBe('fallback')
+    expect(result.error).toBe('model_filtered')
+    expect(model.invoke).toHaveBeenCalledTimes(1)
+    expect(
+      result.decisions.some((d) => d.step === 'propose' && d.action === 'filtered'),
+    ).toBe(true)
+  })
+
   it('propose_parse_failure_still_reparses', async () => {
     const model = scriptedModel([
       { content: 'not valid json {{{{', finishReason: 'stop' },
