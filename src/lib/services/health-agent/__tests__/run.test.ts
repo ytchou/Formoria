@@ -530,7 +530,7 @@ describe('runHealthAgent', () => {
     expect(
       request.commands.find((command) => command.id === 'vitest'),
     ).toMatchObject({
-      timeoutMs: 300_000,
+      timeoutMs: 480_000,
     })
   })
 

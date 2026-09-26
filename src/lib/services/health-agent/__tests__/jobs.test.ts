@@ -17,7 +17,7 @@ describe('health agent job definitions', () => {
     ])
     expect(HEALTH_JOBS.vitest.commands[0]).toMatchObject({
       id: 'vitest',
-      timeoutMs: 300_000,
+      timeoutMs: 480_000,
     })
     expect(HEALTH_JOBS.knip.commands[0]!.timeoutMs).toBeGreaterThan(0)
   })
