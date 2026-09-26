@@ -1,5 +1,6 @@
 import { z } from 'zod'
 import type { PromptMeta } from '@/lib/langfuse/prompt'
+import { RELEVANCE_GRADE_LEVELS } from '@/lib/prompts/shared'
 import type { OpenAIJsonSchema } from '@/lib/services/openai-client'
 import {
   parseAndValidate,
@@ -65,10 +66,7 @@ const DEFAULT_SYSTEM_PROMPT = [
   '',
   'Grade how well the product matches the user\'s situation query on a 0–3 scale:',
   '',
-  '- 3: Exact match — the product directly fulfills the described situation or need.',
-  '- 2: Good fit — the product is relevant and useful for the situation, though not a perfect match.',
-  '- 1: Marginal — only partially related; the connection is weak or requires a stretch.',
-  '- 0: Irrelevant — the product has no meaningful connection to the query.',
+  ...RELEVANCE_GRADE_LEVELS.map((level, grade) => `- ${grade}: ${level}`).reverse(),
   '',
   '## Rules',
   '',

@@ -69,6 +69,16 @@ export interface PhaseAdapter {
     error?: string
     promptMeta?: { name: string; version: number; source: 'langfuse' | 'snapshot' }
   }>
+  /**
+   * Jev decision path, used by custom arms whose value starts with `jev:`.
+   * `ctx.model` is the pinned Jev version. An output that carries a numeric
+   * `probability` adds a threshold sweep to the run summary.
+   */
+  decide?: (item: ExperimentItem, ctx: { itemRunId: string; model?: string }) => Promise<{
+    ok: boolean
+    output: unknown
+    error?: string
+  }>
   summarize?: (results: ArmResult[]) => string
   reviewView?: (item: ExperimentItem) => unknown
 }

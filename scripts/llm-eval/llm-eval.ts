@@ -29,6 +29,7 @@ import {
   driftRate,
 } from '@/lib/services/eval/products-calibration'
 import type { SnapshotFile, PromptApi } from '@/lib/services/eval/prompt-sync'
+import { JEV_MODEL } from '@/lib/constants/llm-models'
 
 // ---------------------------------------------------------------------------
 // Arg parsing
@@ -37,6 +38,10 @@ import type { SnapshotFile, PromptApi } from '@/lib/services/eval/prompt-sync'
 export type ArmSpec =
   | { kind: 'prompt'; version: number }
   | { kind: 'model'; model: string }
+  | { kind: 'jev'; version: string }
+
+/** Pairwise runs compare generated text; jev arms are rejected at parse time. */
+export type PairwiseArmSpec = Exclude<ArmSpec, { kind: 'jev' }>
 
 export type ParsedCommand =
   | { command: 'dataset-validate'; allowUnreviewed: boolean }
@@ -59,7 +64,7 @@ export type ParsedCommand =
       phase: string
       target: string
       sample: number
-      arms: ArmSpec[]
+      arms: PairwiseArmSpec[]
       envFile?: string
       noEnqueue: boolean
       allowUnreviewed: boolean
@@ -92,8 +97,16 @@ export function parseArm(spec: string): ArmSpec {
     return { kind: 'model', model: value }
   }
 
+  if (kind === 'jev') {
+    // Only the pinned version: a floating tag would make runs irreproducible.
+    if (value !== JEV_MODEL) {
+      throw new Error(`Malformed arm spec: ${spec} (jev version must be ${JEV_MODEL})`)
+    }
+    return { kind: 'jev', version: value }
+  }
+
   throw new Error(
-    `Malformed arm spec: ${spec} (expected prompt:<version> or model:<name>)`,
+    `Malformed arm spec: ${spec} (expected prompt:<version>, model:<name> or jev:<version>)`,
   )
 }
 
@@ -233,7 +246,12 @@ export function parseCliArgs(args: string[]): ParsedCommand {
       const sample = values.sample ? Number(values.sample) : 20
       if (!Number.isFinite(sample) || sample < 1)
         throw new Error('--sample must be a positive integer')
-      const arms = (values.arm ?? []).map(parseArm)
+      const arms = (values.arm ?? []).map(parseArm).map((arm): PairwiseArmSpec => {
+        if (arm.kind === 'jev') {
+          throw new Error('pairwise run does not support jev arms (jev returns decisions, not text)')
+        }
+        return arm
+      })
       return {
         command: 'pairwise-run',
         phase: values.phase,
@@ -563,24 +581,54 @@ async function cmdDatasetReviewPush(
   await flushLangfuse()
 }
 
-async function cmdRun(
+type RunDatasetItem = {
+  id: string
+  status?: string
+  input: unknown
+  expectedOutput: unknown
+  metadata?: unknown
+}
+
+export type RunDeps = {
+  /** Injectable for tests; defaults to the Langfuse client's getDataset. */
+  getDataset?: (name: string) => Promise<{ items: RunDatasetItem[] }>
+}
+
+export async function cmdRun(
   dataset: string,
   armSpecs: ArmSpec[],
   allowUnreviewed: boolean,
+  runDeps: RunDeps = {},
 ): Promise<void> {
   const adapter = adapterFor(dataset)
 
-  const client = getLangfuse()
-  if (!client) {
-    console.error('[run] Langfuse not configured')
+  let rawItems: RunDatasetItem[]
+  if (runDeps.getDataset) {
+    rawItems = (await runDeps.getDataset(dataset)).items
+  } else {
+    const client = getLangfuse()
+    if (!client) {
+      console.error('[run] Langfuse not configured')
+      process.exitCode = 1
+      return
+    }
+    rawItems = (await client.getDataset(dataset)).items.map((i) => ({
+      id: i.id,
+      status: i.status,
+      input: i.input,
+      expectedOutput: i.expectedOutput,
+      metadata: i.metadata,
+    }))
+  }
+
+  const activeItems = rawItems.filter((i) => i.status === 'ACTIVE')
+  if (activeItems.length === 0) {
+    console.error(`[run] dataset ${dataset} has 0 ACTIVE items — nothing to run`)
     process.exitCode = 1
     return
   }
 
-  const { items: rawItems } = await client.getDataset(dataset)
-
-  const items = rawItems
-    .filter((i) => i.status === 'ACTIVE')
+  const items = activeItems
     .map((i) => ({
       id: i.id,
       input: i.input,
@@ -598,6 +646,9 @@ async function cmdRun(
         type: 'prompt' as const,
         value: `${adapter.promptName}:${spec.version}`,
       }
+    }
+    if (spec.kind === 'jev') {
+      return { name: spec.version, type: 'custom' as const, value: `jev:${spec.version}` }
     }
     return { name: spec.model, type: 'model' as const, value: spec.model }
   })
@@ -783,7 +834,7 @@ async function cmdPairwiseRun(
   phase: string,
   _target: string,
   sample: number,
-  armSpecs: ArmSpec[],
+  armSpecs: PairwiseArmSpec[],
   noEnqueue: boolean = false,
   allowUnreviewed: boolean = false,
 ): Promise<void> {
@@ -947,7 +998,7 @@ async function cmdPairwiseRun(
 }
 
 async function cmdPairwiseRunProducts(
-  armSpecs: ArmSpec[],
+  armSpecs: PairwiseArmSpec[],
   noEnqueue: boolean,
   sample: number = 0,
   allowUnreviewed: boolean = false,
@@ -1016,7 +1067,7 @@ async function cmdPairwiseRunProducts(
   const [armA, armB] = armLabels
 
   async function runArmTask(
-    armSpec: ArmSpec,
+    armSpec: PairwiseArmSpec,
     item: { id: string; input: unknown; expectedOutput: unknown },
     taskFn: typeof task,
     armLabel: string,

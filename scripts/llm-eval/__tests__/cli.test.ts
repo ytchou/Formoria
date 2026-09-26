@@ -13,6 +13,7 @@ import {
   isReviewed,
   isAdmittedProductsItem,
   LANGFUSE_SNAPSHOT_PATH,
+  cmdRun,
 } from '../llm-eval'
 import type { PromptApi, SnapshotFile } from '@/lib/services/eval/prompt-sync'
 
@@ -636,5 +637,62 @@ describe('isAdmittedProductsItem', () => {
     }
     expect(isAdmittedProductsItem(item, false)).toBe(false)
     expect(isAdmittedProductsItem(item, true)).toBe(false)
+  })
+})
+
+// ---------------------------------------------------------------------------
+// DEV-1824: jev arms and run guards
+// ---------------------------------------------------------------------------
+
+describe('jev arms', () => {
+  it("parseArm('jev:jev-1.13.0') returns a jev spec; parseArm('jev:jev-latest') throws", () => {
+    expect(parseArm('jev:jev-1.13.0')).toEqual({ kind: 'jev', version: 'jev-1.13.0' })
+    expect(() => parseArm('jev:jev-latest')).toThrow(/jev-1\.13\.0/)
+    expect(() => parseArm('jev:')).toThrow()
+  })
+
+  it('run accepts a jev arm', () => {
+    expect(
+      parseCliArgs(['run', '--dataset', 'detect-confidence-golden', '--arm', 'jev:jev-1.13.0']),
+    ).toMatchObject({ command: 'run', arms: [{ kind: 'jev', version: 'jev-1.13.0' }] })
+  })
+
+  it('pairwise run rejects jev arm at parse time', () => {
+    expect(() =>
+      parseCliArgs([
+        'pairwise',
+        'run',
+        '--phase',
+        'descriptions',
+        '--arm',
+        'prompt:1',
+        '--arm',
+        'jev:jev-1.13.0',
+      ]),
+    ).toThrow(/pairwise.*jev|jev.*pairwise/i)
+  })
+})
+
+describe('cmdRun', () => {
+  it('run on a dataset with zero ACTIVE items exits 1 with message', async () => {
+    const errors: string[] = []
+    const errSpy = vi.spyOn(console, 'error').mockImplementation((...args: unknown[]) => {
+      errors.push(args.map(String).join(' '))
+    })
+    const getDataset = vi.fn().mockResolvedValue({
+      items: [
+        { id: 'x', status: 'ARCHIVED', input: {}, expectedOutput: null, metadata: {} },
+      ],
+    })
+    const prevExitCode = process.exitCode
+    try {
+      await cmdRun('detect-confidence-golden', [{ kind: 'jev', version: 'jev-1.13.0' }], false, { getDataset })
+      expect(getDataset).toHaveBeenCalledWith('detect-confidence-golden')
+      expect(process.exitCode).toBe(1)
+      expect(errors.join('\n')).toMatch(/detect-confidence-golden.*0 ACTIVE items/)
+    } finally {
+      process.exitCode = prevExitCode
+      errSpy.mockRestore()
+    }
   })
 })

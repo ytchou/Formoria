@@ -1092,3 +1092,127 @@ describe('runItems', () => {
     expect(results[0]!.latencyMs).toBe(100)
   })
 })
+
+// ---------------------------------------------------------------------------
+// DEV-1824: jev arm, unique arm names, threshold sweep
+// ---------------------------------------------------------------------------
+
+function makeJevDeps(callModel = vi.fn()) {
+  return {
+    callModel,
+    writeFile: vi.fn(),
+    now: () => new Date('2026-09-26'),
+    flushLangfuse: vi.fn(),
+    fetchPrompt: vi.fn().mockResolvedValue({ text: 'prompt', prompt: { name: 'detect', version: 1, source: 'langfuse' } }),
+    installSeams: () => ({ collector: makeCollector(), restore: vi.fn() }),
+    assertNoNewAuditRows: vi.fn(),
+    runWithAuditContext: <T>(_seed: unknown, fn: () => T): T => fn(),
+    getAuditContext: () => ({ correlationId: null }),
+  }
+}
+
+const jevArm: ExperimentArm = { name: 'jev-1.13.0', type: 'custom', value: 'jev:jev-1.13.0' }
+
+describe('runExperiment — jev arms', () => {
+  afterEach(() => {
+    delete process.env.LANGFUSE_PROMPT_VERSIONS
+    delete process.env.OPENAI_MODEL_OVERRIDE
+  })
+
+  it('jev arm dispatches to adapter.decide and scores its output', async () => {
+    const callModel = vi.fn()
+    const task = vi.fn()
+    const decide = vi.fn().mockResolvedValue({ ok: true, output: { isNonBrand: false, confidence: 'high' } })
+    const decisionFn = vi.fn(() => 1)
+
+    const result = await runExperiment({
+      dataset: 'test-golden',
+      arms: [jevArm],
+      adapter: makeAdapter({
+        decide,
+        task,
+        scorers: [{ name: 'decisionAgreement', fn: decisionFn }],
+      }),
+      items: [makeItem({ id: 'a' }), makeItem({ id: 'b' })],
+      deps: makeJevDeps(callModel),
+    })
+
+    expect(decide).toHaveBeenCalledTimes(2)
+    expect(task).not.toHaveBeenCalled()
+    expect(callModel).not.toHaveBeenCalled()
+    expect(decisionFn).toHaveBeenCalledWith({ isNonBrand: false, confidence: 'high' }, expect.anything())
+    expect(result.armResults[0]!.summary.scorerMeans.decisionAgreement).toBe(1)
+    expect(result.exitCode).toBe(0)
+  })
+
+  it('jev arm without adapter.decide throws a named error', async () => {
+    await expect(
+      runExperiment({
+        dataset: 'test-golden',
+        arms: [jevArm],
+        adapter: makeAdapter(),
+        items: [makeItem()],
+        deps: makeJevDeps(),
+      }),
+    ).rejects.toThrow('adapter for test-golden has no decide hook')
+  })
+
+  it('duplicate arm names get #2 suffix and separate results', async () => {
+    const callModel = vi.fn().mockResolvedValue({
+      ok: true,
+      content: JSON.stringify({ isNonBrand: false, confidence: 'high' }),
+    })
+    const deps = makeJevDeps(callModel)
+
+    const result = await runExperiment({
+      dataset: 'test-golden',
+      arms: [makeArm({ name: 'dup' }), makeArm({ name: 'dup' })],
+      adapter: makeAdapter(),
+      items: [makeItem()],
+      deps,
+    })
+
+    expect(result.armResults.map((a) => a.arm)).toEqual(['dup', 'dup#2'])
+    expect(result.armResults[0]!.items).toHaveLength(1)
+    expect(result.armResults[1]!.items).toHaveLength(1)
+    expect(result.markdown).toContain('| dup#2 |')
+    const written = JSON.parse(deps.writeFile.mock.calls[0]![1] as string) as { arms: Array<{ name: string }> }
+    expect(written.arms.map((a) => a.name)).toEqual(['dup', 'dup#2'])
+  })
+
+  it('summary includes a threshold sweep when outputs carry probability', async () => {
+    const probs: Record<string, number> = { a: 0.95, b: 0.6 }
+    const decide = vi.fn(async (item: ExperimentItem) => ({
+      ok: true,
+      output: { isNonBrand: false, confidence: 'high', probability: probs[item.id] },
+    }))
+
+    const result = await runExperiment({
+      dataset: 'test-golden',
+      arms: [jevArm],
+      adapter: makeAdapter({ decide }),
+      items: [makeItem({ id: 'a' }), makeItem({ id: 'b' })],
+      deps: makeJevDeps(),
+    })
+
+    expect(result.markdown).toContain('| threshold | coverage | accepted accuracy |')
+    expect(result.markdown).toContain('jev-1.13.0')
+  })
+
+  it('no threshold sweep when outputs carry no probability', async () => {
+    const callModel = vi.fn().mockResolvedValue({
+      ok: true,
+      content: JSON.stringify({ isNonBrand: false, confidence: 'high' }),
+    })
+
+    const result = await runExperiment({
+      dataset: 'test-golden',
+      arms: [makeArm()],
+      adapter: makeAdapter(),
+      items: [makeItem()],
+      deps: makeJevDeps(callModel),
+    })
+
+    expect(result.markdown).not.toContain('| threshold |')
+  })
+})
