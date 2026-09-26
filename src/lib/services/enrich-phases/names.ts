@@ -189,6 +189,10 @@ function resolveArbitratedName(
   const selected = normalizedCandidates.find(
     (candidate) => candidate.value === normalizedChosen,
   );
+  // Choosing the stored name is not a rename, so no confidence gate applies. A
+  // low "keep it" verdict must not fall through to the cleaned candidate, which
+  // is how `02 編織工作室 02's crochet` would have shipped as `02`.
+  if (selected?.source === "stored") return storedName;
   if (
     !selected ||
     !isAcceptedConfidence(verdict, storedName, selected) ||
