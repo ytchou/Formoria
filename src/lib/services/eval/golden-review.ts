@@ -164,12 +164,24 @@ export async function applyVerdicts({
       return listQueueScores(params) as unknown as Promise<VerdictScore[]>
     })
 
+  // Langfuse limits GET /traces to 15 requests per fixed one-minute window, and
+  // every golden_verdict score in the project needs one lookup. A 429 waits out
+  // the window and retries. Ceiling: ~15 verdicts a minute; upgrade by carrying
+  // itemId in score metadata so push needs no trace reads.
   const getTraceFn =
     deps?.getTrace ??
     (async (traceId: string) => {
       const client = getLangfuse()
       if (!client) throw new Error('Langfuse client not available')
-      return client.api.traceGet(traceId)
+      for (let attempt = 1; ; attempt++) {
+        try {
+          return await client.api.traceGet(traceId)
+        } catch (error) {
+          const status = (error as { status?: number }).status
+          if (status !== 429 || attempt >= 4) throw error
+          await new Promise((resolve) => setTimeout(resolve, 61_000))
+        }
+      }
     })
 
   const createDatasetItemFn =

@@ -56,7 +56,8 @@ type NamesApplication = {
   patch: EnrichPatch;
 };
 
-function normalizeCandidates(
+/** Exported so golden-eval inputs carry the same candidate list production sends. */
+export function normalizeCandidates(
   storedName: string,
   candidates: NameCandidate[],
 ): NameCandidate[] {
