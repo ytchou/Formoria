@@ -98,6 +98,44 @@ describe('social link checker', () => {
     expect(result.findings).toHaveLength(0)
   })
 
+  it('treats a 400 that lands on the Facebook login wall as blocked, not dead', async () => {
+    const client = fakeClient('brands', [
+      brandRow({ social_facebook: 'https://www.facebook.com/live-brand' }),
+    ])
+    const check = mockCheckUrl({
+      'https://www.facebook.com/live-brand': {
+        status: 'broken',
+        statusCode: 400,
+        resolvedUrl:
+          'https://www.facebook.com/login/?next=https%3A%2F%2Fwww.facebook.com%2Flive-brand',
+      },
+    })
+
+    const result = await checkSocialLinks({ supabase: client, checkUrl: check })
+
+    expect(result.blocked).toBe(1)
+    expect(result.dead).toBe(0)
+    expect(result.findings).toHaveLength(0)
+  })
+
+  it('does not treat a profile whose handle contains "login" as a login wall', async () => {
+    const client = fakeClient('brands', [
+      brandRow({ social_facebook: 'https://www.facebook.com/loginbrand' }),
+    ])
+    const check = mockCheckUrl({
+      'https://www.facebook.com/loginbrand': {
+        status: 'broken',
+        statusCode: 404,
+        resolvedUrl: 'https://www.facebook.com/loginbrand',
+      },
+    })
+
+    const result = await checkSocialLinks({ supabase: client, checkUrl: check })
+
+    expect(result.dead).toBe(1)
+    expect(result.findings).toHaveLength(1)
+  })
+
   it('blocked results are counted in the summary and produce no finding', async () => {
     const client = fakeClient('brands', [
       brandRow({
