@@ -21,6 +21,13 @@ export const LLM_MODELS = {
   text_mini: "gpt-4o-mini",
 } as const;
 
+/**
+ * TypeSafe AI's Jev decision model (DEV-1824), eval-only. Pinned to a dated
+ * version — never jev-latest — so eval rows and the price row name the model
+ * that actually ran. Not in LLM_MODELS: it is not an OpenAI chat model.
+ */
+export const JEV_MODEL = "jev-1.13.0";
+
 export const EMBEDDING_MODEL = "text-embedding-3-small";
 export const EMBEDDING_BATCH_SIZE = 100;
 
@@ -215,13 +222,6 @@ export const LLM_PROFILES = {
   },
   /** Acquisition agent — plans evidence retrieval per brand. */
   acquisition: {
-    model: "text",
-    temperature: 0.1,
-    reasoningEffort: "none",
-    timeoutMs: 30_000,
-  },
-  /** Acquire phase — the top-level phase wrapping the acquisition agent (DEV-1644). */
-  acquire: {
     model: "text",
     temperature: 0.1,
     reasoningEffort: "none",

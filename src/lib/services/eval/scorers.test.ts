@@ -21,6 +21,12 @@ import {
   bootstrapCI,
   pairedBootstrapCI,
   ndcgAt,
+  expectedCalibrationError,
+  acceptedAccuracyAt,
+  coverageAt,
+  thresholdSweep,
+  bandFromProbability,
+  JEV_BAND_CUTOFFS,
   type GradedItem,
 } from './scorers'
 import { expect, it, describe } from 'vitest'
@@ -523,5 +529,56 @@ describe('pairedBootstrapCI', () => {
     const zeros = Array.from({ length: 20 }, () => 0)
     const ci2 = pairedBootstrapCI(ones, zeros, { seed: 1 })
     expect(ci2.signTestP).toBeLessThan(0.05)
+  })
+})
+
+describe('calibration scorers', () => {
+  // Hand-computed: bin 9 {0.95 ok, 0.95 miss} -> acc 0.5, conf 0.95, gap 0.45, n 2
+  //                bin 2 {0.25 miss}          -> acc 0,   conf 0.25, gap 0.25, n 1
+  //                bin 6 {0.65 ok}            -> acc 1,   conf 0.65, gap 0.35, n 1
+  // ECE = 2/4*0.45 + 1/4*0.25 + 1/4*0.35 = 0.375
+  const fixture = [
+    { p: 0.95, correct: true },
+    { p: 0.95, correct: false },
+    { p: 0.25, correct: false },
+    { p: 0.65, correct: true },
+  ]
+
+  it('expectedCalibrationError on a hand-computed fixture', () => {
+    expect(Math.abs((expectedCalibrationError(fixture) as number) - 0.375)).toBeLessThan(1e-9)
+    expect(expectedCalibrationError([])).toBeNull()
+  })
+
+  it('acceptedAccuracyAt(threshold)', () => {
+    // p >= 0.6: {0.95 ok, 0.95 miss, 0.65 ok} -> 2/3
+    expect(acceptedAccuracyAt(fixture, 0.6)).toBeCloseTo(2 / 3, 9)
+    // boundary is inclusive
+    expect(acceptedAccuracyAt(fixture, 0.65)).toBeCloseTo(2 / 3, 9)
+    expect(acceptedAccuracyAt(fixture, 0.99)).toBeNull()
+  })
+
+  it('coverageAt(threshold)', () => {
+    expect(coverageAt(fixture, 0.6)).toBe(0.75)
+    expect(coverageAt(fixture, 0.95)).toBe(0.5)
+    expect(coverageAt(fixture, 0.99)).toBe(0)
+  })
+
+  it('thresholdSweep renders a markdown table for 0.50..0.95 step 0.05', () => {
+    const lines = thresholdSweep(fixture).trim().split('\n')
+    expect(lines[0]).toBe('| threshold | coverage | accepted accuracy |')
+    expect(lines[1]).toMatch(/^\|[-\s|]+\|$/)
+    const rows = lines.slice(2)
+    expect(rows).toHaveLength(10)
+    expect(rows[0]).toMatch(/^\| 0\.50 \|/)
+    expect(rows[9]).toMatch(/^\| 0\.95 \|/)
+    // 0.95 threshold must include p = 0.95 exactly (no float drift)
+    expect(rows[9]).toContain('| 0.500 |')
+  })
+
+  it('bandFromProbability uses JEV_BAND_CUTOFFS', () => {
+    expect(JEV_BAND_CUTOFFS).toEqual({ high: 0.9, medium: 0.7 })
+    expect(bandFromProbability(0.95)).toBe('high')
+    expect(bandFromProbability(0.8)).toBe('medium')
+    expect(bandFromProbability(0.5)).toBe('low')
   })
 })

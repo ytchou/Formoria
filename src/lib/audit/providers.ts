@@ -19,6 +19,8 @@ const PROVIDERS = {
   // DEV-1854: staging e2e agent claims/completes ops-bot dispatches on prod.
   "ops-dispatch": ["claim_dispatch", "complete_dispatch"],
   github: ["list_dependabot_alerts"],
+  // DEV-1824: TypeSafe AI's Jev decision model, eval-only (typesafe-audit.ts).
+  typesafe: ["decide"],
   scraper: ["scrape_url"],
   catalog: ["discover_catalog"],
   http: [

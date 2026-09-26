@@ -52,8 +52,11 @@ type AuditCommon = {
   logTag: string | null;
 };
 
-/** Providers whose LLM calls are recorded as Langfuse generations in llm-audit.ts. */
-const LLM_PROVIDERS = ["openai"];
+/**
+ * Providers whose LLM calls are recorded as Langfuse generations instead of
+ * spans: openai in llm-audit.ts, typesafe in typesafe-audit.ts.
+ */
+const LLM_PROVIDERS = ["openai", "typesafe"];
 
 /**
  * Fire-and-forget Langfuse span for external non-LLM calls.
