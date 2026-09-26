@@ -46,8 +46,22 @@ export type AcquisitionPlanTaskDeps = {
   parsePromptVersionPins: () => Record<string, number>
 }
 
+/**
+ * `runPlanStage` errors that say the replay itself could not run the prompt,
+ * not that the prompt failed to plan. These fail the item (`ok: false`), so
+ * the runner reports them instead of scoring a prompt regression. Every other
+ * error (`plan_failed`, a refused / truncated / filtered reply) is the
+ * prompt's outcome. An abort already throws out of `runPlanStage`, and a
+ * thrown provider error fails the item the same way.
+ */
+const HARNESS_PLAN_ERRORS: ReadonlySet<string> = new Set([
+  'no_model_provided',
+  'budget_exhausted_before_plan',
+  'aborted',
+])
+
 /** Parses the stored plan user message. Items store it as the raw string production sent. */
-export function parsePlanUserMessage(input: unknown): PlanUserMessage {
+function parsePlanUserMessage(input: unknown): PlanUserMessage {
   const parsed = (typeof input === 'string' ? JSON.parse(input) : input) as PlanUserMessage
   if (!parsed || typeof parsed !== 'object' || !parsed.brand || !Array.isArray(parsed.probeResults)) {
     throw new Error('acquisition-plan item input is not a plan user message')
@@ -80,7 +94,7 @@ export function acquisitionPlanTask(taskDeps: AcquisitionPlanTaskDeps) {
     // No target: the zero-write path.
     const model = await taskDeps.createAgentModel('acquisition', { phase: 'acquire' })
 
-    const { plan } = await taskDeps.runPlanStage(
+    const { plan, error } = await taskDeps.runPlanStage(
       { brand: message.brand, knownUrls: message.knownUrls, probeResults: message.probeResults },
       {
         fetchHtml: taskDeps.fetchHtml,
@@ -94,8 +108,13 @@ export function acquisitionPlanTask(taskDeps: AcquisitionPlanTaskDeps) {
       { model, budgetOverride: message.budget },
     )
 
+    if (error && HARNESS_PLAN_ERRORS.has(error)) {
+      return { ok: false, output: null, error: `plan stage: ${error}`, promptMeta }
+    }
+
     // A missing plan is the prompt's outcome, not a harness failure: the
-    // scorers score it 0 rather than the runner retrying it.
-    return { ok: true, output: plan, promptMeta }
+    // scorers score it 0 rather than the runner retrying it. The error rides
+    // along for callers that read it; the runner drops it on an ok result.
+    return { ok: true, output: plan, ...(error ? { error } : {}), promptMeta }
   }
 }

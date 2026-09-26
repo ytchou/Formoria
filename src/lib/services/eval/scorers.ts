@@ -4,9 +4,6 @@ import { reportBannedTerms } from '@/lib/i18n/banned-terms'
 import { bandOf } from '@/lib/constants/curated-products'
 import { descriptionMentionsTaiwan } from '@/lib/services/curated-products/origin-qualification'
 import { AcquisitionPlan, MAX_FETCH_TARGETS } from '@/lib/services/enrich-phases/acquisition/plan'
-import { validateProductProposals, type ProductsModelResult } from '@/lib/services/enrich-phases/products'
-import { normalizeProductUrl, type ProductCandidate } from '@/lib/services/enrich-phases/product-candidates'
-import { repairedProposalPasses } from '@/lib/services/enrich-phases/products/graph'
 import { jaccard, pairwiseConcordance, type ProductsReplayOutput, type ProductsExpected } from './products-calibration'
 
 const CJK_ALL_REGEX = /[\u4E00-\u9FFF\u3400-\u4DBF\u3000-\u303F\uFF01-\uFF60\uFE30-\uFE4F]/u
@@ -201,34 +198,43 @@ export function originWhenSourced(output: ProductsReplayOutput): number | null {
 // ---------------------------------------------------------------------------
 // Curation golden-set scorers (DEV-1873)
 // ---------------------------------------------------------------------------
-
-/**
- * What the rule-only products scorers need beyond the model output, stored in
- * `expectedOutput.context` when the item is recorded. `candidates` are
- * normalized product URLs; `hardUrls` (repair only) are the normalized URLs of
- * the entries that failed a check other than the origin omission.
- */
-export type ProductsGoldenContext = {
-  siteUrl: string
-  candidates: string[]
-  ownedHosts: string[]
-  hardUrls?: string[]
-}
+// The products-phase ones (keepRate, repairPassRate) live in ./product-scorers:
+// this module must not import enrich-phases/products (see that file's header).
 
 type PlanLike = {
-  surfaces?: Array<{ fetch?: string }>
-  fanOut?: unknown[]
+  surfaces?: unknown
+  fanOut?: unknown
 }
 
-/** 1 when the plan's fetches (non-skip surfaces + fanOut) stay within `MAX_FETCH_TARGETS`. */
+/*
+ * Replay-path limit (DEV-1873 review H4): `planSchemaValid` and
+ * `planFetchCapOk` both reduce to `plan != null` on `acquisitionPlanTask`.
+ * `submit_plan` and `adoptPlanFromText` reject an invalid or over-cap plan, and
+ * `runPlanStage` returns only an accepted plan, so on replay these two scorers
+ * measure plan adoption, not schema or cap compliance. They stay meaningful for
+ * any caller that hands them a raw plan.
+ * Upgrade path: have `runPlanStage` expose the first raw `submit_plan` args
+ * (before parsing) and score those instead of the adopted plan.
+ */
+
+/**
+ * 1 when the plan's fetches (non-skip surfaces + fanOut) stay within
+ * `MAX_FETCH_TARGETS`; 0 when `surfaces` or `fanOut` is present but not an
+ * array. On replay this measures plan adoption (see the note above).
+ */
 export function planFetchCapOk(plan: unknown): number {
   if (!plan || typeof plan !== 'object') return 0
   const { surfaces = [], fanOut = [] } = plan as PlanLike
-  const fetches = surfaces.filter((s) => s.fetch !== 'skip').length + fanOut.length
+  if (!Array.isArray(surfaces) || !Array.isArray(fanOut)) return 0
+  const fetches =
+    surfaces.filter((s) => (s as { fetch?: unknown } | null)?.fetch !== 'skip').length + fanOut.length
   return fetches <= MAX_FETCH_TARGETS ? 1 : 0
 }
 
-/** 1 when the plan parses as `AcquisitionPlan`, cross-field refine included. */
+/**
+ * 1 when the plan parses as `AcquisitionPlan`, cross-field refine included.
+ * On replay this measures plan adoption (see the note above).
+ */
 export function planSchemaValid(plan: unknown): number {
   if (plan === null || plan === undefined) return 0
   return AcquisitionPlan.safeParse(plan).success ? 1 : 0
@@ -248,47 +254,6 @@ export function verdictAgreement(
   expected: { verdict: unknown },
 ): number {
   return decisionAgreement(output.verdict, expected.verdict)
-}
-
-function validateAgainst(output: unknown, context: ProductsGoldenContext) {
-  // `validateProductProposals` reads only `normalizedUrl` (and `imageUrl`,
-  // absent here) off a candidate; the stored context keeps just the URL.
-  const candidates = context.candidates.map(
-    (normalizedUrl) => ({ normalizedUrl }) as ProductCandidate,
-  )
-  return validateProductProposals((output ?? {}) as ProductsModelResult, {
-    siteUrl: context.siteUrl,
-    candidates,
-  })
-}
-
-/** Share of the model's products that survive production validation; null when it returned none. */
-export function keepRate(output: unknown, context: ProductsGoldenContext): number | null {
-  const validation = validateAgainst(output, context)
-  if (validation.rawCount === 0) return null
-  return validation.proposals.length / validation.rawCount
-}
-
-/**
- * Share of the item's hard entries that come back passing the same re-verify
- * predicate `repairNode` applies. Null when the item has no hard entries
- * (an origin-only repair).
- */
-export function repairPassRate(output: unknown, context: ProductsGoldenContext): number | null {
-  const hard = new Set(context.hardUrls ?? [])
-  if (hard.size === 0) return null
-  const repaired = new Set<string>()
-  for (const proposal of validateAgainst(output, context).proposals) {
-    const key = normalizeProductUrl(proposal.officialUrl) ?? proposal.officialUrl
-    if (!hard.has(key)) continue
-    const result = repairedProposalPasses(proposal, {
-      brandUrl: context.siteUrl,
-      ownedHosts: context.ownedHosts,
-      soft: false,
-    })
-    if (result.passes) repaired.add(key)
-  }
-  return repaired.size / hard.size
 }
 
 // ---------------------------------------------------------------------------

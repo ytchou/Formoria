@@ -42,7 +42,7 @@ import {
 } from '@/lib/prompts/shared'
 import type { CuratedProductProposal } from '@/lib/types/enriched-data'
 import type { RenderProvider } from '../scraper/render/types'
-import { normalizeProductUrl, type ProductCandidate } from '../product-candidates'
+import { productUrlKey, type ProductCandidate } from '../product-candidates'
 import type { CandidateImage } from '../candidate-pool'
 import { rankForProduct, type RankableImage } from '../image-ranking'
 import type {
@@ -125,7 +125,7 @@ const MAX_PAGE_IMAGES_PER_PRODUCT = 6
  * forbids `evaluations`), so strict mode gets the same shape minus that key.
  * The propose turn sends `PRODUCTS_SCHEMA`, the contract `products.ts` sends.
  */
-const REPAIR_SCHEMA: OpenAIJsonSchema = {
+export const REPAIR_SCHEMA: OpenAIJsonSchema = {
   name: 'curated_product_repair',
   schema: toStrictJsonSchema(PRODUCTS_PROPOSAL_SHAPE.pick({ products: true })),
 }
@@ -512,7 +512,12 @@ function validationOptionsFor(ctx: ProductsRunContext): ProductProposalValidatio
 }
 
 function brandUrlOf(ctx: ProductsRunContext): string {
-  return ctx.input.brand.url ?? `https://${ctx.input.brand.slug}.com`
+  return brandSiteUrl(ctx.input.brand)
+}
+
+/** The brand's site URL, or the `https://<slug>.com` guess when it has none. */
+export function brandSiteUrl(brand: { slug: string; url?: string }): string {
+  return brand.url ?? `https://${brand.slug}.com`
 }
 
 function ownedHostsOf(ctx: ProductsRunContext): readonly string[] {
@@ -936,7 +941,7 @@ async function repairNode(
   // Keyed by the normalized URL `validateProductProposals` matches candidates
   // on, so a re-spelled URL (www., tracking params, trailing slash) still
   // resolves to its soft entry and never counts as a hard repair.
-  const urlKey = (url: string): string => normalizeProductUrl(url) ?? url
+  const urlKey = productUrlKey
   const softUrls = new Set(
     state.repairable.filter((entry) => entry.soft).map((entry) => urlKey(entry.proposal.officialUrl)),
   )

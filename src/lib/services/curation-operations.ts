@@ -9,6 +9,7 @@ import {
   resolveRefreshEnrichmentPatch,
 } from "./brand-write-policy";
 import type { BrandFlatLinkColumns } from "@/lib/types";
+import type { LinkColumn } from "@/lib/types/link-fields";
 import {
   ENRICH_LLM_PHASES,
   ENRICH_PHASES,
@@ -552,7 +553,8 @@ export function mergeSubmissionEnrichedData(
   return merged;
 }
 
-function uniqueUrls(urls: string[]): string[] {
+/** Trimmed, non-empty, first-seen-order URLs. Exported for golden capture (DEV-1873). */
+export function uniqueUrls(urls: string[]): string[] {
   const seen = new Set<string>();
   const unique: string[] = [];
 
@@ -874,7 +876,10 @@ function chunkItems<T>(items: T[], size: number): T[][] {
 // Probe cap imported from the prompt owner — see `probeLines` in category-classifier.ts.
 // Probing more would pay for evidence no model ever reads.
 
-export function collectKnownUrls(brand: EnrichBrand): string[] {
+/** Reads only the link columns, so any brand-shaped row can be passed. */
+export function collectKnownUrls(
+  brand: Partial<Pick<BrandFlatLinkColumns, LinkColumn>>,
+): string[] {
   const linkUrls = LINK_FIELDS.map(
     (field) => brand[linkColumnFor(field)],
   ).filter((url): url is string => hasLinkValue(url));

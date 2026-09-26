@@ -15,7 +15,11 @@ import { descriptionShape } from '@/lib/services/description-rewrite'
 import { isHighConfidenceWrite } from '@/lib/services/enrich-phases/detect'
 import { toStrictJsonSchema } from '@/lib/services/_shared/zod-schema'
 import { renderEditorialBands } from '@/lib/constants/curated-products'
-import { PRODUCTS_PROPOSAL_SHAPE, PRODUCTS_SCHEMA } from '@/lib/services/enrich-phases/products'
+import {
+  PRODUCTS_PROMPT_VARIABLES,
+  PRODUCTS_PROPOSAL_SHAPE,
+  PRODUCTS_SCHEMA,
+} from '@/lib/services/enrich-phases/products'
 import { AcquisitionPlan, CritiqueVerdictSchema } from '@/lib/services/enrich-phases/acquisition/plan'
 import { runPlanStage } from '@/lib/services/enrich-phases/acquisition/graph'
 import { fetchHtmlWithMetadata } from '@/lib/services/enrich-phases/scraper/fetch-guards'
@@ -35,10 +39,13 @@ import {
   planSchemaValid,
   recoveryActionConsistent,
   verdictAgreement,
+} from './scorers'
+import {
   keepRate,
   repairPassRate,
+  productsGoldenContextSchema,
   type ProductsGoldenContext,
-} from './scorers'
+} from './product-scorers'
 import {
   productsExpectedSchema,
   summarizeCalibration,
@@ -51,7 +58,7 @@ import {
 import { productsTask } from './products-replay'
 import { acquisitionPlanTask } from './acquisition-plan-replay'
 import { createAgentModel } from '../enrich-phases/agents/runtime'
-import { runProductsAgent } from '../enrich-phases/products/graph'
+import { REPAIR_SCHEMA, runProductsAgent } from '../enrich-phases/products/graph'
 import type { ArmResult, ExperimentItem, ExperimentArm } from './run-experiment'
 
 // ---------------------------------------------------------------------------
@@ -141,16 +148,10 @@ const siteIdentityExpectedSchema = z.object({
 
 // DEV-1873: rule-only sets carry what their scorers need as `{ context }`;
 // only the critique carries a human label, the overall verdict.
-const productsContextSchema = z.object({
-  siteUrl: z.string(),
-  candidates: z.array(z.string()),
-  ownedHosts: z.array(z.string()),
-  hardUrls: z.array(z.string()).optional(),
-})
 
 const planExpectedSchema = z.object({ context: z.record(z.string(), z.unknown()) })
 const critiqueExpectedSchema = z.object({ verdict: z.enum(['sufficient', 'thin', 'fail']) })
-const productsContextExpectedSchema = z.object({ context: productsContextSchema })
+const productsContextExpectedSchema = z.object({ context: productsGoldenContextSchema })
 
 const REPAIR_SHAPE = PRODUCTS_PROPOSAL_SHAPE.pick({ products: true })
 
@@ -412,8 +413,8 @@ const registry: Record<string, PhaseAdapter> = {
     promptName: 'products-repair',
     profileKey: 'products_agent',
     outputSchema: REPAIR_SHAPE,
-    // Same composition as graph.ts REPAIR_SCHEMA.
-    requestSchema: makeRequestSchema('curated_product_repair', REPAIR_SHAPE),
+    // The schema the repair turn sends in production.
+    requestSchema: REPAIR_SCHEMA,
     parseOutput: makeParseOutput(REPAIR_SHAPE),
     unwrap: (output) => output,
     expectedOf: contextOf,
@@ -431,12 +432,7 @@ const registry: Record<string, PhaseAdapter> = {
   'products-fallback-golden': {
     promptName: 'products',
     // Exactly the variables products.ts sends on the single-call path.
-    variables: {
-      category_list: CATEGORY_LIST,
-      subcategory_vocab_block: SUBCATEGORY_VOCAB_BLOCK,
-      material_vocab_block: MATERIAL_VOCAB_BLOCK,
-      taiwan_usage_rules: TAIWAN_USAGE_RULES,
-    },
+    variables: PRODUCTS_PROMPT_VARIABLES,
     profileKey: 'products',
     outputSchema: PRODUCTS_PROPOSAL_SHAPE,
     requestSchema: PRODUCTS_SCHEMA,

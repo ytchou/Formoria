@@ -728,6 +728,11 @@ export async function runAcquirePhase({
     config: { phase: 'acquire' },
   })
 
+  // Every `brand_search_results` write in this phase (scrape attempts and
+  // catalog evidence) goes through these, so a caller can swap the writer.
+  const startAudit = deps.startSearchAudit ?? startSearchAudit
+  const finishAudit = deps.finishSearchAudit ?? finishSearchAudit
+
   const { result, durationMs } = await timePhase(async () => {
     const urls = uniqueUrls([...knownUrls, ...discoveredUrls])
     // These URLs are raw SERP results, so the brand name is the only thing
@@ -739,7 +744,7 @@ export async function runAcquirePhase({
       confirmedSourceUrls,
       renderProvider: renderForBrand,
       onAttempt: async ({ url, classification, spanId }) => {
-        const auditId = await startSearchAudit({
+        const auditId = await startAudit({
           target: effectiveTarget,
           ...(jobId ? { jobId } : {}),
           supabase,
@@ -757,7 +762,7 @@ export async function runAcquirePhase({
         })
         return {
           finish: async (attempt) => {
-            await finishSearchAudit(
+            await finishAudit(
               auditId,
               {
                 callStatus: attempt.callStatus,
@@ -979,8 +984,6 @@ export async function runAcquirePhase({
     // Persist catalog evidence as `search_type='catalog'` rows, one per crawled
     // page. Mirrors the scrape audit pattern at lines 739-781.
     // -----------------------------------------------------------------------
-    const startAudit = deps.startSearchAudit ?? startSearchAudit
-    const finishAudit = deps.finishSearchAudit ?? finishSearchAudit
     if (catalogResult && !dryRun) {
       for (const [url, evidence] of catalogResult.evidence) {
         try {

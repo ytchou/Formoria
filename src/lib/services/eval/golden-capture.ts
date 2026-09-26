@@ -8,10 +8,14 @@
  * object, so a replay sends the exact message (name-arbiter lesson).
  */
 
+import { createHash } from 'node:crypto'
+
 import { PRODUCTS_LABELS } from '@/lib/prompts'
-import { normalizeProductUrl } from '../enrich-phases/product-candidates'
+import { productUrlKey } from '../enrich-phases/product-candidates'
+import { brandSiteUrl } from '../enrich-phases/products/graph'
+import { DESCRIPTION_ORIGIN_OMITTED } from '../enrich-phases/products/verify'
 import { MAX_PROMPT_LENGTH, PROMPT_TRUNCATION_MARK, type CapturedCall } from '../llm-audit'
-import type { ProductsGoldenContext } from './scorers'
+import type { ProductsGoldenContext } from './product-scorers'
 
 // ---------------------------------------------------------------------------
 // Prompts and datasets
@@ -52,7 +56,7 @@ export function promptForDataset(dataset: string): GoldenPrompt | null {
 // ---------------------------------------------------------------------------
 
 /** True for text `llm-audit`'s `truncate` cut before storing it. */
-export function isTruncatedPrompt(value: string): boolean {
+function isTruncatedPrompt(value: string): boolean {
   return (
     value.length === MAX_PROMPT_LENGTH + PROMPT_TRUNCATION_MARK.length &&
     value.endsWith(PROMPT_TRUNCATION_MARK)
@@ -89,13 +93,6 @@ export function classifyCapturedCall(
 // Scorer context, derived from the user message
 // ---------------------------------------------------------------------------
 
-/** Prefix of `checkDescriptionOrigin`'s failure (products/verify.ts): the only soft failure. */
-const ORIGIN_OMITTED = 'description_origin_omitted'
-
-function normalized(url: string): string {
-  return normalizeProductUrl(url) ?? url
-}
-
 type RepairUserMessage = {
   brand?: { slug?: string; url?: string; ownedHosts?: string[] }
   repairable?: Array<{ proposal?: { official_url?: string }; failures?: string[] }>
@@ -109,25 +106,48 @@ function repairContext(user: string): ProductsGoldenContext | null {
   } catch {
     return null
   }
-  const slug = message.brand?.slug
-  const siteUrl = message.brand?.url ?? (slug ? `https://${slug}.com` : null)
+  const brand = message.brand
+  const siteUrl = brand?.slug ? brandSiteUrl({ slug: brand.slug, url: brand.url }) : (brand?.url ?? null)
   if (!siteUrl || !Array.isArray(message.repairable)) return null
   const entries = message.repairable.filter((entry) => typeof entry.proposal?.official_url === 'string')
   // Production validates against the whole candidate pool, which the message
   // does not carry. The repaired entries' own URLs came from that pool, so a
   // repair that keeps its page is judged exactly as production would.
-  const candidates = [...new Set(entries.map((entry) => normalized(entry.proposal!.official_url!)))]
+  // Shortcut, ceiling: a repair that moves to a different pool URL is rejected
+  // here but accepted in production, so repairPassRate is a lower bound.
+  // Upgrade path: record the full candidate pool in the repair user message or
+  // in the capture context, and score against that.
+  const candidates = [...new Set(entries.map((entry) => productUrlKey(entry.proposal!.official_url!)))]
   const hardUrls = [
     ...new Set(
       entries
-        .filter((entry) => (entry.failures ?? []).some((f) => !f.startsWith(ORIGIN_OMITTED)))
-        .map((entry) => normalized(entry.proposal!.official_url!)),
+        .filter((entry) => (entry.failures ?? []).some((f) => !f.startsWith(DESCRIPTION_ORIGIN_OMITTED)))
+        .map((entry) => productUrlKey(entry.proposal!.official_url!)),
     ),
   ]
   return { siteUrl, candidates, ownedHosts: message.brand?.ownedHosts ?? [], hardUrls }
 }
 
-/** Reads the site URL and candidate page lines `buildProductsUserContent` wrote. */
+/** The blocks `buildProductsUserContent` may write after the candidate pages. */
+const SECTIONS_AFTER_CANDIDATES: ReadonlySet<string> = new Set([
+  PRODUCTS_LABELS.listingEntryPoints,
+  PRODUCTS_LABELS.originExcerpts,
+])
+
+const CANDIDATE_LINE = /^- https?:\/\//
+
+/**
+ * Reads the site URL and candidate page lines `buildProductsUserContent` wrote.
+ * A page's evidence text can hold newlines, so a line that is not a
+ * `- http(s)://` entry is evidence continuation and is skipped. The block ends
+ * at a blank line followed by the next section's label, or at the end of text.
+ *
+ * Shortcut, ceiling: the pool read here is what the prompt listed
+ * (`pool.products.slice(0, MAX_CANDIDATE_PAGES)` in products.ts), not the
+ * `evaluationCandidates` production validates against, so gated or
+ * near-duplicate pages can differ and keepRate is approximate. Upgrade path:
+ * record the validation pool in the capture context.
+ */
 function fallbackContext(user: string): ProductsGoldenContext | null {
   const lines = user.split('\n')
   const siteLine = lines.find((line) => line.startsWith(PRODUCTS_LABELS.siteUrl))
@@ -136,10 +156,12 @@ function fallbackContext(user: string): ProductsGoldenContext | null {
   const header = lines.indexOf(PRODUCTS_LABELS.candidatePages)
   const candidates: string[] = []
   if (header >= 0) {
-    for (const line of lines.slice(header + 1)) {
-      if (!line.startsWith('- ')) break
+    for (let i = header + 1; i < lines.length; i++) {
+      const line = lines[i]!
+      if (line === '' && SECTIONS_AFTER_CANDIDATES.has(lines[i + 1] ?? '')) break
+      if (!CANDIDATE_LINE.test(line)) continue
       const url = line.slice(2).split(' | ')[0]?.trim()
-      if (url) candidates.push(normalized(url))
+      if (url) candidates.push(productUrlKey(url))
     }
   }
   return { siteUrl, candidates: [...new Set(candidates)], ownedHosts: [] }
@@ -149,7 +171,7 @@ function fallbackContext(user: string): ProductsGoldenContext | null {
  * What the prompt's scorers read from `expectedOutput.context`. `undefined`
  * means the context cannot be derived and the item is skipped.
  */
-export function contextFor(prompt: GoldenPrompt, user: string): unknown {
+function contextFor(prompt: GoldenPrompt, user: string): unknown {
   switch (prompt) {
     case 'acquisition-plan':
       return {}
@@ -166,9 +188,9 @@ export function contextFor(prompt: GoldenPrompt, user: string): unknown {
 // Items
 // ---------------------------------------------------------------------------
 
-export type GoldenSource = 'capture' | 'harvest'
+type GoldenSource = 'capture' | 'harvest'
 
-export type GoldenCallRecord = {
+type GoldenCallRecord = {
   prompt: GoldenPrompt
   user: string
   brandSlug: string
@@ -193,14 +215,25 @@ export type GoldenItemBody = {
 }
 
 /**
- * Turns classified calls into dataset items: drops truncated users and calls
- * whose context cannot be derived, keeps the first plan turn per job (every
- * plan-loop turn repeats the same first user message), and drops exact repeats
- * of one user message within a job. Items are written ARCHIVED with a pending
- * `humanApproval`, the same state `prelabelItem` keeps, so none reaches a run
- * before review.
+ * A content-derived item id: the same user message for the same prompt and
+ * brand is the same item on every capture or harvest, so a re-run upserts
+ * instead of duplicating, and two calls in one millisecond never collide.
  */
-export function toGoldenItems(records: readonly GoldenCallRecord[]): GoldenItemBody[] {
+function goldenItemId(prompt: GoldenPrompt, brandSlug: string, user: string): string {
+  const digest = createHash('sha256').update(user).digest('hex').slice(0, 16)
+  return `${prompt}:${brandSlug}:${digest}`
+}
+
+/**
+ * Turns classified calls into dataset items: drops truncated users and calls
+ * whose context cannot be derived, keeps one item per (prompt, brand, user
+ * message), and keeps only the first plan turn per (job, brand). Every
+ * plan-loop turn repeats the same first user message, so rows with no job
+ * collapse through the user message. Items are written ARCHIVED with a
+ * pending `humanApproval`, the same state `prelabelItem` keeps, so none
+ * reaches a run before review.
+ */
+function toGoldenItems(records: readonly GoldenCallRecord[]): GoldenItemBody[] {
   const ordered = [...records].sort((a, b) => a.createdAt.localeCompare(b.createdAt))
   const seen = new Set<string>()
   const items: GoldenItemBody[] = []
@@ -208,14 +241,20 @@ export function toGoldenItems(records: readonly GoldenCallRecord[]): GoldenItemB
     if (isTruncatedPrompt(record.user)) continue
     const context = contextFor(record.prompt, record.user)
     if (context === undefined) continue
-    const job = record.jobId ?? `${record.brandSlug}:${record.createdAt}`
-    const key =
-      record.prompt === 'acquisition-plan' ? `${record.prompt}|${job}` : `${record.prompt}|${job}|${record.user}`
-    if (seen.has(key)) continue
-    seen.add(key)
+    const id = goldenItemId(record.prompt, record.brandSlug, record.user)
+    // Shortcut, ceiling: a row with no job_id cannot be tied to its run, so
+    // two plan turns of one run collapse only when their user messages are
+    // identical, and a later turn with a different message becomes its own
+    // item. Upgrade path: persist a job/run id on every brand_ai_results row.
+    const keys = [id]
+    if (record.prompt === 'acquisition-plan' && record.jobId !== null) {
+      keys.push(`${record.prompt}|${record.jobId}|${record.brandSlug}`)
+    }
+    if (keys.some((key) => seen.has(key))) continue
+    for (const key of keys) seen.add(key)
     items.push({
       datasetName: GOLDEN_DATASETS[record.prompt],
-      id: `${record.prompt}:${record.brandSlug}:${record.createdAt}`,
+      id,
       input: record.user,
       // The critique's label is drafted by `dataset prelabel`; rule-only sets
       // already know everything their scorers need.
@@ -255,6 +294,11 @@ export function harvestRowsToItems(
     records.push({
       prompt: options.prompt,
       user: input.user,
+      // Shortcut, ceiling: rows that resolve to no brand (neither `brands` nor
+      // `brand_submissions.brands` joins) share the 'unknown' slug, so their
+      // ids and plan dedup keys pool across brands; only an identical user
+      // message then merges two of them. Upgrade path: select the row's
+      // brand_id / submission_id and key on that when the slug is missing.
       brandSlug: row.brand_slug ?? 'unknown',
       jobId: row.job_id,
       createdAt: row.created_at,

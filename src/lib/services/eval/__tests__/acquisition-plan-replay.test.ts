@@ -54,6 +54,25 @@ describe('acquisitionPlanTask', () => {
     expect(calls[0]!.options).toMatchObject({ budgetOverride: MESSAGE.budget })
   })
 
+  it('scores a model-caused missing plan as a null output and keeps the error', async () => {
+    const { base } = deps({ runPlanStage: async () => ({ plan: null, error: 'plan_failed' }) })
+    const result = await acquisitionPlanTask(base)(item, ARM, { itemRunId: 'r1' })
+
+    expect(result).toMatchObject({ ok: true, output: null, error: 'plan_failed' })
+  })
+
+  it.each(['no_model_provided', 'budget_exhausted_before_plan', 'aborted'])(
+    'fails the item on the harness error %s so the runner reports it',
+    async (code) => {
+      const { base } = deps({ runPlanStage: async () => ({ plan: null, error: code }) })
+      const result = await acquisitionPlanTask(base)(item, ARM, { itemRunId: 'r1' })
+
+      expect(result.ok).toBe(false)
+      expect(result.output).toBeNull()
+      expect(result.error).toBe(`plan stage: ${code}`)
+    },
+  )
+
   it('fails the item when a pinned version resolves from the snapshot', async () => {
     const { base, calls } = deps({
       parsePromptVersionPins: () => ({ 'acquisition-plan': 1 }),

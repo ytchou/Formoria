@@ -3,7 +3,8 @@ import { adapterFor } from '../phase-adapters'
 import { toStrictJsonSchema } from '../../_shared/zod-schema'
 import { isHighConfidenceWrite } from '../../enrich-phases/detect'
 import { CritiqueVerdictSchema } from '../../enrich-phases/acquisition/plan'
-import { PRODUCTS_SCHEMA } from '../../enrich-phases/products'
+import { PRODUCTS_PROMPT_VARIABLES, PRODUCTS_PROPOSAL_SHAPE, PRODUCTS_SCHEMA } from '../../enrich-phases/products'
+import { REPAIR_SCHEMA } from '../../enrich-phases/products/graph'
 
 const GOLDEN_DATASET_NAMES = [
   'detect-confidence-golden',
@@ -246,6 +247,16 @@ describe('DEV-1873 golden-set adapters', () => {
       'taiwan_usage_rules',
     ])
     expect(adapter.requestSchema).toEqual(PRODUCTS_SCHEMA)
+    expect(adapter.variables).toBe(PRODUCTS_PROMPT_VARIABLES)
+  })
+
+  it('the repair adapter sends the repair schema production sends', () => {
+    const adapter = adapterFor('products-repair-golden')
+    expect(adapter.requestSchema).toBe(REPAIR_SCHEMA)
+    expect(REPAIR_SCHEMA).toEqual({
+      name: 'curated_product_repair',
+      schema: toStrictJsonSchema(PRODUCTS_PROPOSAL_SHAPE.pick({ products: true })),
+    })
   })
 
   it('only the plan adapter carries a custom task', () => {
