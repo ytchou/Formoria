@@ -146,6 +146,9 @@ export function rewriteSummaryLines(
     ...result.originOmitted.map(
       (p) => `  origin omitted: ${p.brandSlug}/${p.nameZh} (${p.id})`,
     ),
+    ...result.skipped.map(
+      (p) => `  skipped: ${p.brandSlug}/${p.nameZh} (${p.id}): ${p.reason}`,
+    ),
   ];
 }
 
